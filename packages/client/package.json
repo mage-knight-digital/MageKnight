@@ -1,0 +1,14 @@
+{
+  "name": "@mage-knight/client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Client build not yet configured'",
+    "test": "echo 'Client tests not yet configured'",
+    "lint": "echo 'Client lint not yet configured'"
+  },
+  "dependencies": {
+    "@mage-knight/shared": "workspace:*"
+  }
+}

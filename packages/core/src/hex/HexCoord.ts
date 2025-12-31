@@ -1,9 +1,16 @@
 /**
  * Hex coordinate types and helpers
+ * Re-exports from @mage-knight/shared for internal use
  */
 
-// Placeholder for hex coordinate system
-export interface HexCoord {
-  q: number;
-  r: number;
-}
+export type {
+  HexCoord,
+  HexDirection,
+} from "@mage-knight/shared";
+
+export {
+  HEX_DIRECTIONS,
+  hexKey,
+  getNeighbor,
+  getAllNeighbors,
+} from "@mage-knight/shared";

@@ -7,7 +7,19 @@
 export type * from "./types/index.js";
 
 // State
-export type { GameState } from "./state/GameState.js";
+export type {
+  GameState,
+  GamePhase,
+  TimeOfDay,
+  MapState,
+} from "./state/GameState.js";
+export { createInitialGameState } from "./state/GameState.js";
 
-// Hex
-export type { HexCoord } from "./hex/HexCoord.js";
+// Hex (re-exported from shared for convenience)
+export type { HexCoord, HexDirection } from "./hex/HexCoord.js";
+export {
+  HEX_DIRECTIONS,
+  hexKey,
+  getNeighbor,
+  getAllNeighbors,
+} from "./hex/HexCoord.js";

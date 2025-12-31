@@ -6,8 +6,10 @@ A digital implementation of the Mage Knight board game.
 
 ```
 packages/
-├── core/    # Pure game logic, no UI dependencies
-└── ui/      # Web UI (scaffold only)
+├── core/      # Game engine (server-side only)
+├── server/    # Thin wrapper: actions → engine → events
+├── client/    # UI: sends actions, receives events (scaffold only)
+└── shared/    # Action types, event types, data types
 ```
 
 ## Development
@@ -33,10 +35,23 @@ pnpm lint    # Run linter
 
 ## Packages
 
+### @mage-knight/shared
+
+Shared types and utilities used by both client and server:
+- Hex coordinate types and helpers
+- Terrain types and movement costs
+- Game events (discriminated union)
+- Player actions (discriminated union)
+- Connection abstraction (local/networked)
+
 ### @mage-knight/core
 
-Pure TypeScript game logic with no UI dependencies. Compiles to both ESM and CJS.
+Pure TypeScript game engine. Server-side only, not imported by client.
 
-### @mage-knight/ui
+### @mage-knight/server
+
+Server wrapper that connects the game engine to clients via the connection abstraction.
+
+### @mage-knight/client
 
 Web UI package (scaffold only, not yet implemented).
