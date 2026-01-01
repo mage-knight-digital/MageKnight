@@ -23,3 +23,7 @@ export {
   getNeighbor,
   getAllNeighbors,
 } from "./hex/HexCoord.js";
+
+// Tile data
+export type { LocalHex, TileType, TileDefinition } from "./data/tiles.js";
+export { TILE_DEFINITIONS, placeTile, getTilesByType } from "./data/tiles.js";
