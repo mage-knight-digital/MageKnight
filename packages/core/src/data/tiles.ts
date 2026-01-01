@@ -216,6 +216,7 @@ export function placeTile(tileId: TileId, centerCoord: HexCoord): HexState[] {
       terrain: localHex.terrain,
       tileId,
       site,
+      rampagingEnemy: null, // spawned separately based on tile/scenario rules
       enemies: [],
       shieldTokens: [],
     };

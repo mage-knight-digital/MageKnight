@@ -40,7 +40,7 @@ export type {
   TileDeck,
   MapState,
 } from "./map.js";
-export { TileId, SiteType, createEmptyMapState } from "./map.js";
+export { TileId, SiteType, RampagingEnemyType, createEmptyMapState } from "./map.js";
 
 // Mana source types
 export type {

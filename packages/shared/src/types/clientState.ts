@@ -106,6 +106,7 @@ export interface ClientHexState {
   readonly terrain: Terrain;
   readonly tileId: string;
   readonly site: ClientSite | null;
+  readonly rampagingEnemy: string | null; // "orc_marauder" | "draconum" | null
   readonly enemies: readonly string[]; // enemy token IDs
   readonly shieldTokens: readonly string[]; // player IDs
 }

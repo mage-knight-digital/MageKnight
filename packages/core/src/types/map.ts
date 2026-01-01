@@ -35,9 +35,11 @@ export enum SiteType {
   Monastery = "monastery",
   MagicalGlade = "magical_glade",
 
-  // Adventure sites (require combat)
+  // Fortified sites (require combat, Siege attacks)
   Keep = "keep",
   MageTower = "mage_tower",
+
+  // Adventure sites (require combat)
   AncientRuins = "ancient_ruins",
   Dungeon = "dungeon",
   Tomb = "tomb",
@@ -48,10 +50,12 @@ export enum SiteType {
   Mine = "mine",
   Portal = "portal",
 
-  // Cities
+  // Cities (fortified)
   City = "city",
+}
 
-  // Rampaging enemies
+// Rampaging enemy types that spawn on tile reveal
+export enum RampagingEnemyType {
   OrcMarauder = "orc_marauder",
   Draconum = "draconum",
 }
@@ -72,7 +76,8 @@ export interface HexState {
   readonly terrain: Terrain;
   readonly tileId: TileId;
   readonly site: Site | null;
-  readonly enemies: readonly EnemyTokenId[];
+  readonly rampagingEnemy: RampagingEnemyType | null; // spawned on tile reveal
+  readonly enemies: readonly EnemyTokenId[]; // enemy tokens from sites/events
   readonly shieldTokens: readonly string[]; // player IDs with shields here
 }
 
