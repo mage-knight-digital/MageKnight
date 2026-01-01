@@ -6,7 +6,6 @@
  */
 
 import type { Terrain, HexCoord } from "@mage-knight/shared";
-import { hexKey, getAllNeighbors } from "@mage-knight/shared";
 import { TileId, SiteType, type HexState, type Site } from "../types/map.js";
 
 // Hex definition within a tile template (before placement)
@@ -40,8 +39,7 @@ function hex(
 
 // The 7 positions in a tile: center + 6 neighbors
 // Center is (0, 0), neighbors follow axial coordinate offsets
-const CENTER: HexCoord = { q: 0, r: 0 };
-const TILE_POSITIONS = [CENTER, ...getAllNeighbors(CENTER)];
+// Axial offsets: NE(1,-1), E(1,0), SE(0,1), SW(-1,1), W(-1,0), NW(0,-1)
 
 /**
  * Tile definitions
