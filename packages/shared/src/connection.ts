@@ -4,8 +4,19 @@
 
 import type { PlayerAction } from "./actions.js";
 import type { GameEvent } from "./events.js";
+import type { ClientGameState } from "./types/clientState.js";
 
-export type EventCallback = (event: GameEvent) => void;
+// Callback receives all events from an action plus the resulting state
+export type EventCallback = (
+  events: readonly GameEvent[],
+  state: ClientGameState
+) => void;
+
+// Result of processing an action
+export interface ActionResult {
+  readonly events: readonly GameEvent[];
+  readonly state: ClientGameState;
+}
 
 export interface GameConnection {
   sendAction(action: PlayerAction): void;
@@ -13,23 +24,23 @@ export interface GameConnection {
 }
 
 export interface GameEngine {
-  processAction(action: PlayerAction): readonly GameEvent[];
+  processAction(playerId: string, action: PlayerAction): ActionResult;
 }
 
 export class LocalConnection implements GameConnection {
   private readonly engine: GameEngine;
+  private readonly playerId: string;
   private eventCallbacks: EventCallback[] = [];
 
-  constructor(engine: GameEngine) {
+  constructor(engine: GameEngine, playerId: string) {
     this.engine = engine;
+    this.playerId = playerId;
   }
 
   sendAction(action: PlayerAction): void {
-    const events = this.engine.processAction(action);
-    for (const event of events) {
-      for (const callback of this.eventCallbacks) {
-        callback(event);
-      }
+    const result = this.engine.processAction(this.playerId, action);
+    for (const callback of this.eventCallbacks) {
+      callback(result.events, result.state);
     }
   }
 

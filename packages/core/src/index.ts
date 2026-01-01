@@ -23,3 +23,17 @@ export {
   getNeighbor,
   getAllNeighbors,
 } from "./hex/HexCoord.js";
+
+// Tile data
+export type { LocalHex, TileType, TileDefinition } from "./data/tiles.js";
+export { TILE_DEFINITIONS, placeTile, getTilesByType } from "./data/tiles.js";
+
+// Site properties
+export type { SiteProperties } from "./data/siteProperties.js";
+export {
+  SITE_PROPERTIES,
+  isFortified,
+  isInhabited,
+  isAdventureSite,
+  allowsMultipleHeroes,
+} from "./data/siteProperties.js";
