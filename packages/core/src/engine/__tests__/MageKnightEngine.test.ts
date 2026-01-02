@@ -6,7 +6,7 @@ import type { Player } from "../../types/player.js";
 import type { HexState } from "../../types/map.js";
 import { Hero } from "../../types/hero.js";
 import { TileId } from "../../types/map.js";
-import type { Terrain } from "@mage-knight/shared";
+import type { Terrain, SkillId } from "@mage-knight/shared";
 
 // Helper to create a test player
 function createTestPlayer(overrides: Partial<Player> = {}): Player {
@@ -400,7 +400,7 @@ describe("MageKnightEngine", () => {
             id: "test-mod",
             source: {
               type: "skill",
-              skillId: "test" as any,
+              skillId: "test" as SkillId,
               playerId: "player1",
             },
             duration: "turn",
