@@ -11,6 +11,7 @@ import type {
   TerrainCostModifier,
   SidewaysValueModifier,
   RuleOverrideModifier,
+  EnemyStatModifier,
 } from "../types/modifiers.js";
 import type { Terrain } from "@mage-knight/shared";
 import { DEFAULT_MOVEMENT_COSTS } from "@mage-knight/shared";
@@ -47,6 +48,20 @@ export function getModifiersForPlayer(
     }
     // For enemy/unit scopes, check if this player owns the context
     return m.createdByPlayerId === playerId;
+  });
+}
+
+/**
+ * Get all modifiers targeting a specific enemy.
+ */
+export function getModifiersForEnemy(
+  state: GameState,
+  enemyId: string
+): ActiveModifier[] {
+  return state.activeModifiers.filter((m) => {
+    if (m.scope.type === "one_enemy" && m.scope.enemyId === enemyId) return true;
+    if (m.scope.type === "all_enemies") return true;
+    return false;
   });
 }
 
@@ -137,6 +152,59 @@ export function isRuleActive(
   return getModifiersForPlayer(state, playerId).some(
     (m) => m.effect.type === "rule_override" && m.effect.rule === rule
   );
+}
+
+/**
+ * Get effective enemy armor after modifiers.
+ * @param resistanceCount - number of resistances the enemy has (for Resistance Break)
+ */
+export function getEffectiveEnemyArmor(
+  state: GameState,
+  enemyId: string,
+  baseArmor: number,
+  resistanceCount: number
+): number {
+  const modifiers = getModifiersForEnemy(state, enemyId)
+    .filter((m) => m.effect.type === "enemy_stat" && m.effect.stat === "armor")
+    .map((m) => m.effect as EnemyStatModifier);
+
+  let armor = baseArmor;
+  let minAllowed = 1;
+
+  for (const mod of modifiers) {
+    if (mod.perResistance) {
+      // Resistance Break: -1 per resistance
+      armor += mod.amount * resistanceCount;
+    } else {
+      armor += mod.amount;
+    }
+    minAllowed = Math.max(minAllowed, mod.minimum);
+  }
+
+  return Math.max(minAllowed, armor);
+}
+
+/**
+ * Get effective enemy attack after modifiers.
+ */
+export function getEffectiveEnemyAttack(
+  state: GameState,
+  enemyId: string,
+  baseAttack: number
+): number {
+  const modifiers = getModifiersForEnemy(state, enemyId)
+    .filter((m) => m.effect.type === "enemy_stat" && m.effect.stat === "attack")
+    .map((m) => m.effect as EnemyStatModifier);
+
+  let attack = baseAttack;
+  let minAllowed = 1;
+
+  for (const mod of modifiers) {
+    attack += mod.amount;
+    minAllowed = Math.max(minAllowed, mod.minimum);
+  }
+
+  return Math.max(minAllowed, attack);
 }
 
 // === Modifier lifecycle ===
