@@ -18,6 +18,7 @@ export interface ManaToken {
 export interface SkillCooldowns {
   readonly usedThisRound: readonly SkillId[];
   readonly usedThisTurn: readonly SkillId[];
+  readonly usedThisCombat: readonly SkillId[]; // for "once per combat" activation limits
   readonly activeUntilNextTurn: readonly SkillId[];
 }
 
