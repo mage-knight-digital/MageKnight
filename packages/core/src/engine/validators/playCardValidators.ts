@@ -3,13 +3,12 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { PlayerAction, CardId } from "@mage-knight/shared";
+import type { PlayerAction, CardId, BasicActionCardId } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import { PLAY_CARD_ACTION } from "@mage-knight/shared";
 import { BASIC_ACTION_CARDS, getBasicActionCard } from "../../data/basicActions.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
-import type { BasicActionCardId } from "../../types/cardIds.js";
 import {
   CARD_NOT_IN_HAND,
   CARD_NOT_FOUND,

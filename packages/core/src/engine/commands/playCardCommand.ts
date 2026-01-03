@@ -7,7 +7,7 @@
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { CardId } from "@mage-knight/shared";
+import type { CardId, BasicActionCardId } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
   CHOICE_REQUIRED,
@@ -20,7 +20,6 @@ import type { ChoiceEffect } from "../../types/cards.js";
 import { getBasicActionCard } from "../../data/basicActions.js";
 import { PLAY_CARD_COMMAND } from "./commandTypes.js";
 import type { CardEffect } from "../../types/cards.js";
-import type { BasicActionCardId } from "../../types/cardIds.js";
 
 export { PLAY_CARD_COMMAND };
 

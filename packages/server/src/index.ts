@@ -33,6 +33,7 @@ import {
   type ClientManaToken,
   type EventCallback,
   GAME_PHASE_ROUND,
+  GAME_STARTED,
 } from "@mage-knight/shared";
 
 // ============================================================================
@@ -193,7 +194,7 @@ export class GameServer {
     // Broadcast initial state to all connected players
     this.broadcastState([
       {
-        type: "GAME_STARTED",
+        type: GAME_STARTED,
         playerCount: playerIds.length,
         scenario: "conquest", // placeholder
       },
@@ -380,6 +381,7 @@ export class GameServer {
         attack: { normal: 0, ranged: 0, siege: 0 },
         block: 0,
       },
+      pendingChoice: null,
     };
 
     return { player, rng: newRng };

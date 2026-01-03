@@ -107,8 +107,8 @@ export {
   MANA_ANY,
 } from "./effectTypes.js";
 
-// Card ID constants
-export type { BasicActionCardId, SharedBasicActionCardId, HeroSpecificCardId } from "./cardIds.js";
+// Card ID constants (re-exported from @mage-knight/shared)
+export type { BasicActionCardId, SharedBasicActionCardId, HeroSpecificCardId } from "@mage-knight/shared";
 export {
   // Shared basic actions
   CARD_RAGE,
@@ -140,7 +140,7 @@ export {
   CARD_BRAEVALAR_ONE_WITH_THE_LAND,
   // Wound
   CARD_WOUND,
-} from "./cardIds.js";
+} from "@mage-knight/shared";
 
 // Deck types
 export type { GameDecks } from "./decks.js";

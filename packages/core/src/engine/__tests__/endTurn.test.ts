@@ -7,17 +7,7 @@ import {
   ROUND_ENDED,
   MOVE_ACTION,
   INVALID_ACTION,
-} from "@mage-knight/shared";
-import type { SkillId } from "@mage-knight/shared";
-import { TERRAIN_PLAINS } from "@mage-knight/shared";
-import {
-  DURATION_ROUND,
-  DURATION_TURN,
-  EFFECT_TERRAIN_COST,
-  SCOPE_SELF,
-  SOURCE_SKILL,
-} from "../modifierConstants.js";
-import {
+  TERRAIN_PLAINS,
   CARD_MARCH,
   CARD_RAGE,
   CARD_STAMINA,
@@ -25,7 +15,15 @@ import {
   CARD_DETERMINATION,
   CARD_PROMISE,
   CARD_THREATEN,
-} from "../../types/cardIds.js";
+} from "@mage-knight/shared";
+import type { SkillId } from "@mage-knight/shared";
+import {
+  DURATION_ROUND,
+  DURATION_TURN,
+  EFFECT_TERRAIN_COST,
+  SCOPE_SELF,
+  SOURCE_SKILL,
+} from "../modifierConstants.js";
 
 describe("END_TURN action", () => {
   let engine: MageKnightEngine;

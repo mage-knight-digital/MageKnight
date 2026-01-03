@@ -13,8 +13,8 @@ import {
   INVALID_ACTION,
   UNDO_ACTION,
   MOVE_ACTION,
+  CARD_RAGE,
 } from "@mage-knight/shared";
-import { CARD_RAGE } from "../../types/cardIds.js";
 
 describe("Choice resolution", () => {
   let engine: MageKnightEngine;

@@ -12,6 +12,9 @@ export {
   BASIC_MANA_WHITE,
 } from "./ids.js";
 
+// Card IDs
+export * from "./cardIds.js";
+
 // Hex coordinates
 export type { HexCoord, HexDirection } from "./hex.js";
 export { HEX_DIRECTIONS, hexKey, getNeighbor, getAllNeighbors } from "./hex.js";

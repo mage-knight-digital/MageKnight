@@ -66,7 +66,7 @@ import {
   // Wound
   CARD_WOUND,
   type BasicActionCardId,
-} from "../types/cardIds.js";
+} from "@mage-knight/shared";
 
 // === Effect Helpers ===
 

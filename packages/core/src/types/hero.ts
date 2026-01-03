@@ -3,8 +3,11 @@
  */
 
 import type { CardId, SkillId, ManaColor } from "@mage-knight/shared";
-import { BASIC_MANA_BLUE, BASIC_MANA_GREEN, BASIC_MANA_RED, BASIC_MANA_WHITE } from "@mage-knight/shared";
 import {
+  BASIC_MANA_BLUE,
+  BASIC_MANA_GREEN,
+  BASIC_MANA_RED,
+  BASIC_MANA_WHITE,
   // Shared basic actions
   CARD_RAGE,
   CARD_DETERMINATION,
@@ -31,7 +34,7 @@ import {
   CARD_KRANG_RUTHLESS_COERCION,
   CARD_BRAEVALAR_DRUIDIC_PATHS,
   CARD_BRAEVALAR_ONE_WITH_THE_LAND,
-} from "./cardIds.js";
+} from "@mage-knight/shared";
 
 export enum Hero {
   Arythea = "arythea",

@@ -11,15 +11,13 @@ import {
   CARD_PLAY_UNDONE,
   UNDO_ACTION,
   INVALID_ACTION,
-} from "@mage-knight/shared";
-import {
   CARD_MARCH,
   CARD_RAGE,
   CARD_WOUND,
   CARD_PROMISE,
   CARD_THREATEN,
   CARD_SWIFTNESS,
-} from "../../types/cardIds.js";
+} from "@mage-knight/shared";
 
 describe("PLAY_CARD action", () => {
   let engine: MageKnightEngine;
