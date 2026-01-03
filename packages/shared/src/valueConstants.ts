@@ -21,6 +21,11 @@ export const MANA_SOURCE_DIE = "die" as const;
 export const MANA_SOURCE_CRYSTAL = "crystal" as const;
 export const MANA_SOURCE_TOKEN = "token" as const;
 
+export type ManaSourceType =
+  | typeof MANA_SOURCE_DIE
+  | typeof MANA_SOURCE_CRYSTAL
+  | typeof MANA_SOURCE_TOKEN;
+
 export const PLAY_SIDEWAYS_AS_MOVE = "move" as const;
 export const PLAY_SIDEWAYS_AS_INFLUENCE = "influence" as const;
 export const PLAY_SIDEWAYS_AS_ATTACK = "attack" as const;

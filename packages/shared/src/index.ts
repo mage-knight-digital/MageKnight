@@ -6,6 +6,17 @@
 // Branded IDs
 export type { CardId, SkillId, BasicManaColor, SpecialManaColor, ManaColor } from "./ids.js";
 export {
+  // Mana color constants
+  MANA_RED,
+  MANA_BLUE,
+  MANA_GREEN,
+  MANA_WHITE,
+  MANA_GOLD,
+  MANA_BLACK,
+  // Mana color arrays
+  ALL_MANA_COLORS,
+  BASIC_MANA_COLORS,
+  // Back-compat aliases
   BASIC_MANA_RED,
   BASIC_MANA_BLUE,
   BASIC_MANA_GREEN,
@@ -111,6 +122,7 @@ export type {
   // Card playing
   PlayCardAction,
   PlayCardSidewaysAction,
+  ManaSourceInfo,
   // Mana usage
   UseManaDeieAction,
   ConvertCrystalAction,

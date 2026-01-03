@@ -49,6 +49,13 @@ import {
   validateNotWound,
 } from "./playCardValidators.js";
 
+// Mana validators
+import {
+  validateManaAvailable,
+  validateManaColorMatch,
+  validateManaTimeOfDay,
+} from "./manaValidators.js";
+
 // Sideways play validators
 import {
   validateSidewaysCardInHand,
@@ -133,6 +140,10 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateCardInHand,
     validateCardExists,
     validateNotWound,
+    // Mana validators (for powered play) - time check first, then availability, then color match
+    validateManaTimeOfDay,
+    validateManaAvailable,
+    validateManaColorMatch,
   ],
   [PLAY_CARD_SIDEWAYS_ACTION]: [
     validateIsPlayersTurn,

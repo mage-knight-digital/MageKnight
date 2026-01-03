@@ -52,6 +52,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     playArea: [],
     pureMana: [],
     usedManaFromSource: false,
+    usedDieId: null,
     hasMovedThisTurn: false,
     hasTakenActionThisTurn: false,
     combatAccumulator: {

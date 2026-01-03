@@ -129,6 +129,20 @@ function getSidewaysChoice(action: PlayerAction): SidewaysAs | null {
   return null;
 }
 
+// Helper to get powered status and mana source from action
+function getPlayCardDetails(action: PlayerAction): {
+  powered: boolean;
+  manaSource: import("@mage-knight/shared").ManaSourceInfo | undefined;
+} | null {
+  if (action.type === PLAY_CARD_ACTION) {
+    return {
+      powered: action.powered,
+      manaSource: action.manaSource,
+    };
+  }
+  return null;
+}
+
 // Play card command factory
 function createPlayCardCommandFromAction(
   state: GameState,
@@ -138,16 +152,31 @@ function createPlayCardCommandFromAction(
   const cardId = getCardIdFromAction(action);
   if (!cardId) return null;
 
+  const details = getPlayCardDetails(action);
+  if (!details) return null;
+
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return null;
 
   const handIndex = player.hand.indexOf(cardId);
   if (handIndex === -1) return null;
 
+  // Only include manaSource if it's defined (exactOptionalPropertyTypes)
+  if (details.manaSource) {
+    return createPlayCardCommand({
+      playerId,
+      cardId,
+      handIndex,
+      powered: details.powered,
+      manaSource: details.manaSource,
+    });
+  }
+
   return createPlayCardCommand({
     playerId,
     cardId,
     handIndex,
+    powered: details.powered,
   });
 }
 

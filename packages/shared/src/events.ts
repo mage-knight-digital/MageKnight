@@ -212,6 +212,29 @@ export interface CrystalConvertedEvent {
   readonly color: ManaColor;
 }
 
+// Mana usage events (for powering cards)
+export const MANA_DIE_USED = "MANA_DIE_USED" as const;
+export interface ManaDieUsedEvent {
+  readonly type: typeof MANA_DIE_USED;
+  readonly playerId: string;
+  readonly dieId: string;
+  readonly color: ManaColor;
+}
+
+export const CRYSTAL_USED = "CRYSTAL_USED" as const;
+export interface CrystalUsedEvent {
+  readonly type: typeof CRYSTAL_USED;
+  readonly playerId: string;
+  readonly color: ManaColor;
+}
+
+export const MANA_TOKEN_USED = "MANA_TOKEN_USED" as const;
+export interface ManaTokenUsedEvent {
+  readonly type: typeof MANA_TOKEN_USED;
+  readonly playerId: string;
+  readonly color: ManaColor;
+}
+
 // Health/damage events
 export const WOUND_RECEIVED = "WOUND_RECEIVED" as const;
 export interface WoundReceivedEvent {
@@ -513,6 +536,9 @@ export type GameEvent =
   | ManaDieTakenEvent
   | ManaDieReturnedEvent
   | CrystalConvertedEvent
+  | ManaDieUsedEvent
+  | CrystalUsedEvent
+  | ManaTokenUsedEvent
   // Health/damage
   | WoundReceivedEvent
   | WoundHealedEvent

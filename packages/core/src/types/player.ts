@@ -109,6 +109,7 @@ export interface Player {
   readonly playArea: readonly CardId[]; // cards played this turn
   readonly pureMana: readonly ManaToken[]; // mana in play area
   readonly usedManaFromSource: boolean;
+  readonly usedDieId: string | null; // which die from source was used this turn
   readonly hasMovedThisTurn: boolean; // true once any movement occurs, enforces move-before-action
   readonly hasTakenActionThisTurn: boolean;
 

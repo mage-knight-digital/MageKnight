@@ -47,8 +47,9 @@ export type {
   SpecialManaColor,
   SourceDie,
   ManaSource,
+  CrystalInventory,
 } from "./mana.js";
-export { createEmptyManaSource } from "./mana.js";
+export { createEmptyManaSource, createEmptyCrystalInventory } from "./mana.js";
 
 // Offers types
 export type { CardOffer, GameOffers } from "./offers.js";

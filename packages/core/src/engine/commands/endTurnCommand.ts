@@ -20,6 +20,7 @@ import { expireModifiers } from "../modifiers.js";
 import { EXPIRATION_TURN_END } from "../modifierConstants.js";
 import { END_TURN_COMMAND } from "./commandTypes.js";
 import { shuffleWithRng, type RngState } from "../../utils/index.js";
+import { rerollDie } from "../mana/manaSource.js";
 
 export { END_TURN_COMMAND };
 
@@ -80,6 +81,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         hasTakenActionThisTurn: false,
         pureMana: [],
         usedManaFromSource: false,
+        usedDieId: null,
         // Card flow updates
         playArea: clearedPlayArea,
         hand: newHand,
@@ -95,9 +97,29 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const updatedPlayers: Player[] = [...state.players];
       updatedPlayers[playerIndex] = resetPlayer;
 
+      // Reroll the used mana die if player used one this turn
+      let updatedSource = state.source;
+      let currentRng = state.rng;
+      if (currentPlayer.usedDieId) {
+        const { source: rerolledSource, rng: newRng } = rerollDie(
+          state.source,
+          currentPlayer.usedDieId,
+          state.timeOfDay,
+          currentRng
+        );
+        // Clear takenByPlayerId for the rerolled die
+        const diceWithClearedTaken = rerolledSource.dice.map((die) =>
+          die.id === currentPlayer.usedDieId
+            ? { ...die, takenByPlayerId: null }
+            : die
+        );
+        updatedSource = { dice: diceWithClearedTaken };
+        currentRng = newRng;
+      }
+
       // Expire turn-duration modifiers
       let newState = expireModifiers(
-        { ...state, players: updatedPlayers },
+        { ...state, players: updatedPlayers, source: updatedSource, rng: currentRng },
         { type: EXPIRATION_TURN_END, playerId: params.playerId }
       );
 
@@ -116,7 +138,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
       // Handle round end: reshuffle all players' decks
       if (isNewRound) {
-        let currentRng: RngState = newState.rng;
+        let reshuffleRng: RngState = newState.rng;
         const reshuffledPlayers: Player[] = [];
 
         for (const player of newState.players) {
@@ -129,9 +151,9 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
           ];
           const { result: shuffledDeck, rng: newRng } = shuffleWithRng(
             allCards,
-            currentRng
+            reshuffleRng
           );
-          currentRng = newRng;
+          reshuffleRng = newRng;
 
           const playerHandLimit = player.handLimit;
           const freshHand = shuffledDeck.slice(0, playerHandLimit);
@@ -150,7 +172,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
           ...newState,
           players: reshuffledPlayers,
           round: state.round + 1,
-          rng: currentRng,
+          rng: reshuffleRng,
         };
       }
 

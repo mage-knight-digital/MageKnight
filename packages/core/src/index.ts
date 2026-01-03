@@ -62,6 +62,14 @@ export {
   expireModifiers,
 } from "./engine/index.js";
 
+// Mana source management
+export {
+  createManaSource,
+  rerollDie,
+  getAvailableDice,
+  updateDiceForTimeOfDay,
+} from "./engine/index.js";
+
 // Command system (undo support)
 export type {
   Command,

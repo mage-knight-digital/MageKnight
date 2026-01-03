@@ -58,3 +58,11 @@ export {
   removeModifier,
   expireModifiers,
 } from "./modifiers.js";
+
+// Mana source management
+export {
+  createManaSource,
+  rerollDie,
+  getAvailableDice,
+  updateDiceForTimeOfDay,
+} from "./mana/index.js";

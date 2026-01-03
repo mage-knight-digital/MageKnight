@@ -4,10 +4,8 @@
 
 import type { HexCoord, HexDirection } from "./hex.js";
 import type { CardId, SkillId, BasicManaColor, ManaColor } from "./ids.js";
+import type { ManaSourceType } from "./valueConstants.js";
 import {
-  MANA_SOURCE_CRYSTAL,
-  MANA_SOURCE_DIE,
-  MANA_SOURCE_TOKEN,
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
   PLAY_SIDEWAYS_AS_INFLUENCE,
@@ -50,14 +48,19 @@ export interface AnnounceEndOfRoundAction {
 
 // Card playing actions
 export const PLAY_CARD_ACTION = "PLAY_CARD" as const;
+
+// Info about the mana source used to power a card
+export interface ManaSourceInfo {
+  readonly type: ManaSourceType;
+  readonly color: ManaColor;
+  readonly dieId?: string; // Required when type is "die"
+}
+
 export interface PlayCardAction {
   readonly type: typeof PLAY_CARD_ACTION;
   readonly cardId: CardId;
   readonly powered: boolean;
-  readonly manaSource?:
-    | typeof MANA_SOURCE_DIE
-    | typeof MANA_SOURCE_CRYSTAL
-    | typeof MANA_SOURCE_TOKEN;
+  readonly manaSource?: ManaSourceInfo; // Required when powered is true
 }
 
 export const PLAY_CARD_SIDEWAYS_ACTION = "PLAY_CARD_SIDEWAYS" as const;
