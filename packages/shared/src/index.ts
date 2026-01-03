@@ -87,6 +87,9 @@ export type {
   MoveUndoneEvent,
   UndoFailedEvent,
   UndoCheckpointSetEvent,
+  // Choice
+  ChoiceRequiredEvent,
+  ChoiceResolvedEvent,
 } from "./events.js";
 
 // Actions
@@ -119,6 +122,8 @@ export type {
   BuyHealingAction,
   // Undo
   UndoAction,
+  // Choice resolution
+  ResolveChoiceAction,
 } from "./actions.js";
 
 // Connection

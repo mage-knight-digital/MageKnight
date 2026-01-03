@@ -10,9 +10,13 @@ import type { Player } from "../../types/player.js";
 import type { CardId } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
+  CHOICE_REQUIRED,
   createCardPlayUndoneEvent,
 } from "@mage-knight/shared";
 import { resolveEffect, reverseEffect } from "../effects/resolveEffect.js";
+import { describeEffect } from "../effects/describeEffect.js";
+import { EFFECT_CHOICE } from "../../types/effectTypes.js";
+import type { ChoiceEffect } from "../../types/cards.js";
 import { getBasicActionCard } from "../../data/basicActions.js";
 import { PLAY_CARD_COMMAND } from "./commandTypes.js";
 import type { CardEffect } from "../../types/cards.js";
@@ -82,11 +86,23 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         card.basicEffect
       );
 
-      if (effectResult.requiresChoice) {
-        // Phase 1: Card moves to play area but effect doesn't fully resolve
-        // Future: Return partial state and prompt for choice
+      if (effectResult.requiresChoice && card.basicEffect.type === EFFECT_CHOICE) {
+        // Set pending choice on player
+        const choiceEffect = card.basicEffect as ChoiceEffect;
+        const playerWithChoice: Player = {
+          ...updatedPlayer,
+          pendingChoice: {
+            cardId: params.cardId,
+            options: choiceEffect.options,
+          },
+        };
+
+        // Update state with pending choice
+        const playersWithChoice = [...newState.players];
+        playersWithChoice[playerIndex] = playerWithChoice;
+
         return {
-          state: newState,
+          state: { ...newState, players: playersWithChoice },
           events: [
             {
               type: CARD_PLAYED,
@@ -94,7 +110,13 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
               cardId: params.cardId,
               powered: false,
               sideways: false,
-              effect: "Choice required — select an option (not yet implemented)",
+              effect: "Choice required",
+            },
+            {
+              type: CHOICE_REQUIRED,
+              playerId: params.playerId,
+              cardId: params.cardId,
+              options: choiceEffect.options.map((opt) => describeEffect(opt)),
             },
           ],
         };
@@ -142,10 +164,11 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         ...player,
         hand: newHand,
         playArea: newPlayArea,
+        pendingChoice: null, // Clear any pending choice
       };
 
-      // Reverse the effect if we stored one
-      if (appliedEffect) {
+      // Reverse the effect if we stored one (only if it wasn't a choice effect)
+      if (appliedEffect && appliedEffect.type !== EFFECT_CHOICE) {
         updatedPlayer = reverseEffect(updatedPlayer, appliedEffect);
       }
 

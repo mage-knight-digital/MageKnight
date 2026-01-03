@@ -133,6 +133,13 @@ export interface UndoAction {
   readonly type: typeof UNDO_ACTION;
 }
 
+// Choice resolution action
+export const RESOLVE_CHOICE_ACTION = "RESOLVE_CHOICE" as const;
+export interface ResolveChoiceAction {
+  readonly type: typeof RESOLVE_CHOICE_ACTION;
+  readonly choiceIndex: number; // Which option to choose (0, 1, etc.)
+}
+
 export type PlayerAction =
   // Movement
   | MoveAction
@@ -158,6 +165,8 @@ export type PlayerAction =
   | LearnAdvancedActionAction
   | BuyHealingAction
   // Undo
-  | UndoAction;
+  | UndoAction
+  // Choice resolution
+  | ResolveChoiceAction;
 
 export type PlayerActionType = PlayerAction["type"];

@@ -11,6 +11,7 @@ import {
   MOVE_ACTION,
   PLAY_CARD_ACTION,
   UNDO_ACTION,
+  RESOLVE_CHOICE_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -47,6 +48,36 @@ import {
   validateNotWound,
 } from "./playCardValidators.js";
 
+// Choice validators
+import {
+  validateHasPendingChoice,
+  validateChoiceIndex,
+  validateNoChoicePending,
+} from "./choiceValidators.js";
+
+// TODO: RULES LIMITATION - Immediate Choice Resolution
+// =====================================================
+// Current behavior: Players must resolve card choices (e.g., "Attack 2 OR Block 2")
+// immediately before playing more cards or taking other actions.
+//
+// Actual Mage Knight rules: Players can stack multiple cards with unresolved choices,
+// then decide when applying effects to combat. Example:
+//   1. Play Rage (Attack OR Block - don't choose yet)
+//   2. Play March (Move 2)
+//   3. Play another card
+//   4. Enter combat
+//   5. NOW decide what Rage provides based on combat situation
+//
+// To fix this properly:
+//   1. Change pendingChoice to pendingChoices: PendingChoice[] (array)
+//   2. Remove validateNoChoicePending from PLAY_CARD_ACTION
+//   3. Keep it on END_TURN, EXPLORE (must resolve before irreversible actions)
+//   4. Add combat phase resolution that prompts for all pending choices
+//   5. Update UI to show multiple pending choices
+//
+// For now, we force immediate resolution as a simplification.
+// =====================================================
+
 // Re-export types
 export * from "./types.js";
 
@@ -56,6 +87,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNotInCombat,
+    validateNoChoicePending, // Must resolve pending choice first
     validateHasNotActed, // Must move BEFORE taking action
     validatePlayerOnMap,
     validateTargetAdjacent,
@@ -67,11 +99,17 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     // Undo has special handling, minimal validation
   ],
-  [END_TURN_ACTION]: [validateIsPlayersTurn, validateRoundPhase, validateNotInCombat],
+  [END_TURN_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending, // Must resolve pending choice first
+  ],
   [EXPLORE_ACTION]: [
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNotInCombat,
+    validateNoChoicePending, // Must resolve pending choice first
     validateHasNotActed,
     validatePlayerOnMapForExplore,
     validateOnEdgeHex,
@@ -82,10 +120,16 @@ const validatorRegistry: Record<string, Validator[]> = {
   [PLAY_CARD_ACTION]: [
     validateIsPlayersTurn,
     validateRoundPhase,
+    validateNoChoicePending, // Must resolve pending choice first
     // Note: Playing cards is allowed during combat and doesn't count as the "action"
     validateCardInHand,
     validateCardExists,
     validateNotWound,
+  ],
+  [RESOLVE_CHOICE_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingChoice,
+    validateChoiceIndex,
   ],
   // Add more action types as implemented
 };

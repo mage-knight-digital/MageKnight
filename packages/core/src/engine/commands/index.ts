@@ -9,6 +9,7 @@ import {
   END_TURN_ACTION,
   EXPLORE_ACTION,
   PLAY_CARD_ACTION,
+  RESOLVE_CHOICE_ACTION,
   hexKey,
 } from "@mage-knight/shared";
 import type { Command } from "../commands.js";
@@ -16,6 +17,7 @@ import { createMoveCommand } from "./moveCommand.js";
 import { createEndTurnCommand } from "./endTurnCommand.js";
 import { createExploreCommand } from "./exploreCommand.js";
 import { createPlayCardCommand } from "./playCardCommand.js";
+import { createResolveChoiceCommand } from "./resolveChoiceCommand.js";
 import { getEffectiveTerrainCost } from "../modifiers.js";
 
 // Command factory function type
@@ -130,12 +132,40 @@ function createPlayCardCommandFromAction(
   });
 }
 
+// Helper to get choice index from action
+function getChoiceIndexFromAction(action: PlayerAction): number | null {
+  if (action.type === RESOLVE_CHOICE_ACTION && "choiceIndex" in action) {
+    return action.choiceIndex;
+  }
+  return null;
+}
+
+// Resolve choice command factory
+function createResolveChoiceCommandFromAction(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  const choiceIndex = getChoiceIndexFromAction(action);
+  if (choiceIndex === null) return null;
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player?.pendingChoice) return null;
+
+  return createResolveChoiceCommand({
+    playerId,
+    choiceIndex,
+    previousPendingChoice: player.pendingChoice,
+  });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
   [MOVE_ACTION]: createMoveCommandFromAction,
   [END_TURN_ACTION]: createEndTurnCommandFromAction,
   [EXPLORE_ACTION]: createExploreCommandFromAction,
   [PLAY_CARD_ACTION]: createPlayCardCommandFromAction,
+  [RESOLVE_CHOICE_ACTION]: createResolveChoiceCommandFromAction,
 };
 
 // Get command for an action
@@ -170,3 +200,7 @@ export {
   createPlayCardCommand,
   type PlayCardCommandParams,
 } from "./playCardCommand.js";
+export {
+  createResolveChoiceCommand,
+  type ResolveChoiceCommandParams,
+} from "./resolveChoiceCommand.js";

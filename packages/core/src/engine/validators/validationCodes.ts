@@ -28,7 +28,12 @@ export const NO_TILES_AVAILABLE = "NO_TILES_AVAILABLE" as const;
 export const CARD_NOT_IN_HAND = "CARD_NOT_IN_HAND" as const;
 export const CARD_NOT_FOUND = "CARD_NOT_FOUND" as const;
 export const CANNOT_PLAY_WOUND = "CANNOT_PLAY_WOUND" as const;
-export const CHOICE_REQUIRED = "CHOICE_REQUIRED" as const;
+export const CHOICE_REQUIRED_CODE = "CHOICE_REQUIRED" as const;
+
+// Choice resolution validation codes
+export const NO_PENDING_CHOICE = "NO_PENDING_CHOICE" as const;
+export const INVALID_CHOICE_INDEX = "INVALID_CHOICE_INDEX" as const;
+export const CHOICE_PENDING = "CHOICE_PENDING" as const;
 
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
@@ -48,6 +53,9 @@ export type ValidationErrorCode =
   | typeof CARD_NOT_IN_HAND
   | typeof CARD_NOT_FOUND
   | typeof CANNOT_PLAY_WOUND
-  | typeof CHOICE_REQUIRED;
+  | typeof CHOICE_REQUIRED_CODE
+  | typeof NO_PENDING_CHOICE
+  | typeof INVALID_CHOICE_INDEX
+  | typeof CHOICE_PENDING;
 
 

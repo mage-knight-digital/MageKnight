@@ -402,6 +402,52 @@ export function createUndoFailedEvent(
   };
 }
 
+// Choice events
+export const CHOICE_REQUIRED = "CHOICE_REQUIRED" as const;
+export interface ChoiceRequiredEvent {
+  readonly type: typeof CHOICE_REQUIRED;
+  readonly playerId: string;
+  readonly cardId: CardId;
+  readonly options: readonly string[]; // Human-readable descriptions
+}
+
+export function createChoiceRequiredEvent(
+  playerId: string,
+  cardId: CardId,
+  options: readonly string[]
+): ChoiceRequiredEvent {
+  return {
+    type: CHOICE_REQUIRED,
+    playerId,
+    cardId,
+    options,
+  };
+}
+
+export const CHOICE_RESOLVED = "CHOICE_RESOLVED" as const;
+export interface ChoiceResolvedEvent {
+  readonly type: typeof CHOICE_RESOLVED;
+  readonly playerId: string;
+  readonly cardId: CardId;
+  readonly chosenIndex: number;
+  readonly effect: string; // What happened
+}
+
+export function createChoiceResolvedEvent(
+  playerId: string,
+  cardId: CardId,
+  chosenIndex: number,
+  effect: string
+): ChoiceResolvedEvent {
+  return {
+    type: CHOICE_RESOLVED,
+    playerId,
+    cardId,
+    chosenIndex,
+    effect,
+  };
+}
+
 // Validation events
 export const INVALID_ACTION = "INVALID_ACTION" as const;
 export interface InvalidActionEvent {
@@ -492,6 +538,9 @@ export type GameEvent =
   | MoveUndoneEvent
   | UndoFailedEvent
   | UndoCheckpointSetEvent
+  // Choice
+  | ChoiceRequiredEvent
+  | ChoiceResolvedEvent
   // Validation
   | InvalidActionEvent;
 

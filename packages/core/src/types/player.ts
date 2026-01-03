@@ -10,6 +10,7 @@ import type {
   ManaTokenSource,
 } from "@mage-knight/shared";
 import type { Hero } from "./hero.js";
+import type { CardEffect } from "./cards.js";
 
 // Core-only branded ID type
 export type TacticCardId = string & { readonly __brand: "TacticCardId" };
@@ -45,6 +46,12 @@ export interface AccumulatedAttack {
 export interface CombatAccumulator {
   readonly attack: AccumulatedAttack;
   readonly block: number;
+}
+
+// Pending choice - when a card requires player selection
+export interface PendingChoice {
+  readonly cardId: CardId;
+  readonly options: readonly CardEffect[];
 }
 
 export interface PlayerUnit {
@@ -107,4 +114,8 @@ export interface Player {
 
   // Combat accumulator (resets at end of combat or end of turn if no combat)
   readonly combatAccumulator: CombatAccumulator;
+
+  // TODO: Should be pendingChoices: PendingChoice[] to allow stacking multiple
+  // choice cards before resolution. See validators/index.ts for full explanation.
+  readonly pendingChoice: PendingChoice | null;
 }

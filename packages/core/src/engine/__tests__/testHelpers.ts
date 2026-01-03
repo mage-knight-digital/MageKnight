@@ -58,6 +58,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
       attack: { normal: 0, ranged: 0, siege: 0 },
       block: 0,
     },
+    pendingChoice: null,
     ...overrides,
   };
 }
