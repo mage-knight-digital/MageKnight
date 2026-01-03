@@ -10,6 +10,7 @@ export const REVEAL_TILE_COMMAND = "REVEAL_TILE" as const;
 export const END_TURN_COMMAND = "END_TURN" as const;
 export const EXPLORE_COMMAND = "EXPLORE" as const;
 export const PLAY_CARD_COMMAND = "PLAY_CARD" as const;
+export const PLAY_CARD_SIDEWAYS_COMMAND = "PLAY_CARD_SIDEWAYS" as const;
 export const RESOLVE_CHOICE_COMMAND = "RESOLVE_CHOICE" as const;
 
 // Reserved / upcoming command types used by undo checkpointing.

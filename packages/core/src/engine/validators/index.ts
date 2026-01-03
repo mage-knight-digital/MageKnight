@@ -10,6 +10,7 @@ import {
   EXPLORE_ACTION,
   MOVE_ACTION,
   PLAY_CARD_ACTION,
+  PLAY_CARD_SIDEWAYS_ACTION,
   UNDO_ACTION,
   RESOLVE_CHOICE_ACTION,
 } from "@mage-knight/shared";
@@ -47,6 +48,13 @@ import {
   validateCardExists,
   validateNotWound,
 } from "./playCardValidators.js";
+
+// Sideways play validators
+import {
+  validateSidewaysCardInHand,
+  validateSidewaysNotWound,
+  validateSidewaysChoice,
+} from "./sidewaysValidators.js";
 
 // Choice validators
 import {
@@ -125,6 +133,14 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateCardInHand,
     validateCardExists,
     validateNotWound,
+  ],
+  [PLAY_CARD_SIDEWAYS_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNoChoicePending, // Must resolve pending choice first
+    validateSidewaysCardInHand,
+    validateSidewaysNotWound, // Any non-wound card is valid for sideways play
+    validateSidewaysChoice,
   ],
   [RESOLVE_CHOICE_ACTION]: [
     validateIsPlayersTurn,

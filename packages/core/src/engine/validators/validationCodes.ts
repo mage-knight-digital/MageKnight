@@ -35,6 +35,9 @@ export const NO_PENDING_CHOICE = "NO_PENDING_CHOICE" as const;
 export const INVALID_CHOICE_INDEX = "INVALID_CHOICE_INDEX" as const;
 export const CHOICE_PENDING = "CHOICE_PENDING" as const;
 
+// Sideways play validation codes
+export const SIDEWAYS_CHOICE_REQUIRED = "SIDEWAYS_CHOICE_REQUIRED" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -56,6 +59,7 @@ export type ValidationErrorCode =
   | typeof CHOICE_REQUIRED_CODE
   | typeof NO_PENDING_CHOICE
   | typeof INVALID_CHOICE_INDEX
-  | typeof CHOICE_PENDING;
+  | typeof CHOICE_PENDING
+  | typeof SIDEWAYS_CHOICE_REQUIRED;
 
 

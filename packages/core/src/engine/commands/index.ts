@@ -9,6 +9,7 @@ import {
   END_TURN_ACTION,
   EXPLORE_ACTION,
   PLAY_CARD_ACTION,
+  PLAY_CARD_SIDEWAYS_ACTION,
   RESOLVE_CHOICE_ACTION,
   hexKey,
 } from "@mage-knight/shared";
@@ -17,6 +18,8 @@ import { createMoveCommand } from "./moveCommand.js";
 import { createEndTurnCommand } from "./endTurnCommand.js";
 import { createExploreCommand } from "./exploreCommand.js";
 import { createPlayCardCommand } from "./playCardCommand.js";
+import { createPlayCardSidewaysCommand } from "./playCardSidewaysCommand.js";
+import type { SidewaysAs } from "./playCardSidewaysCommand.js";
 import { createResolveChoiceCommand } from "./resolveChoiceCommand.js";
 import { getEffectiveTerrainCost } from "../modifiers.js";
 
@@ -110,6 +113,22 @@ function getCardIdFromAction(action: PlayerAction): CardId | null {
   return null;
 }
 
+// Helper to get card id from sideways action
+function getCardIdFromSidewaysAction(action: PlayerAction): CardId | null {
+  if (action.type === PLAY_CARD_SIDEWAYS_ACTION && "cardId" in action) {
+    return action.cardId;
+  }
+  return null;
+}
+
+// Helper to get sideways choice
+function getSidewaysChoice(action: PlayerAction): SidewaysAs | null {
+  if (action.type === PLAY_CARD_SIDEWAYS_ACTION && "as" in action) {
+    return action.as as SidewaysAs;
+  }
+  return null;
+}
+
 // Play card command factory
 function createPlayCardCommandFromAction(
   state: GameState,
@@ -129,6 +148,32 @@ function createPlayCardCommandFromAction(
     playerId,
     cardId,
     handIndex,
+  });
+}
+
+// Play card sideways command factory
+function createPlayCardSidewaysCommandFromAction(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  const cardId = getCardIdFromSidewaysAction(action);
+  if (!cardId) return null;
+
+  const sidewaysChoice = getSidewaysChoice(action);
+  if (!sidewaysChoice) return null;
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return null;
+
+  const handIndex = player.hand.indexOf(cardId);
+  if (handIndex === -1) return null;
+
+  return createPlayCardSidewaysCommand({
+    playerId,
+    cardId,
+    handIndex,
+    as: sidewaysChoice,
   });
 }
 
@@ -165,6 +210,7 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [END_TURN_ACTION]: createEndTurnCommandFromAction,
   [EXPLORE_ACTION]: createExploreCommandFromAction,
   [PLAY_CARD_ACTION]: createPlayCardCommandFromAction,
+  [PLAY_CARD_SIDEWAYS_ACTION]: createPlayCardSidewaysCommandFromAction,
   [RESOLVE_CHOICE_ACTION]: createResolveChoiceCommandFromAction,
 };
 
@@ -200,6 +246,11 @@ export {
   createPlayCardCommand,
   type PlayCardCommandParams,
 } from "./playCardCommand.js";
+export {
+  createPlayCardSidewaysCommand,
+  type PlayCardSidewaysCommandParams,
+  type SidewaysAs,
+} from "./playCardSidewaysCommand.js";
 export {
   createResolveChoiceCommand,
   type ResolveChoiceCommandParams,
