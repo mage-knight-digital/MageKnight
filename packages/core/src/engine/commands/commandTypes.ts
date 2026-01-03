@@ -7,6 +7,7 @@
 
 export const MOVE_COMMAND = "MOVE" as const;
 export const REVEAL_TILE_COMMAND = "REVEAL_TILE" as const;
+export const END_TURN_COMMAND = "END_TURN" as const;
 
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;

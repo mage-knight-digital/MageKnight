@@ -4,9 +4,10 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerAction, HexCoord } from "@mage-knight/shared";
-import { MOVE_ACTION } from "@mage-knight/shared";
+import { MOVE_ACTION, END_TURN_ACTION } from "@mage-knight/shared";
 import type { Command } from "../commands.js";
 import { createMoveCommand } from "./moveCommand.js";
+import { createEndTurnCommand } from "./endTurnCommand.js";
 import { getEffectiveTerrainCost } from "../modifiers.js";
 
 // Command factory function type
@@ -50,10 +51,19 @@ function createMoveCommandFromAction(
   });
 }
 
+// End turn command factory
+function createEndTurnCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  _action: PlayerAction
+): Command {
+  return createEndTurnCommand({ playerId });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
-  MOVE: createMoveCommandFromAction,
-  // Add more as implemented
+  [MOVE_ACTION]: createMoveCommandFromAction,
+  [END_TURN_ACTION]: createEndTurnCommandFromAction,
 };
 
 // Get command for an action
@@ -76,3 +86,7 @@ export {
   createRevealTileCommand,
   type RevealTileCommandParams,
 } from "./revealTileCommand.js";
+export {
+  createEndTurnCommand,
+  type EndTurnCommandParams,
+} from "./endTurnCommand.js";

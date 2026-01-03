@@ -14,7 +14,7 @@ import type {
   EnemyStatModifier,
 } from "../types/modifiers.js";
 import type { Terrain } from "@mage-knight/shared";
-import { DEFAULT_MOVEMENT_COSTS } from "@mage-knight/shared";
+import { DEFAULT_MOVEMENT_COSTS, TIME_OF_DAY_DAY } from "@mage-knight/shared";
 import {
   DURATION_COMBAT,
   DURATION_ROUND,
@@ -36,6 +36,7 @@ import {
   SCOPE_ONE_ENEMY,
   SCOPE_OTHER_PLAYERS,
   SCOPE_SELF,
+  TERRAIN_ALL,
   SIDEWAYS_CONDITION_NO_MANA_USED,
   SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR,
 } from "./modifierConstants.js";
@@ -104,7 +105,7 @@ export function getEffectiveTerrainCost(
   const baseCosts = DEFAULT_MOVEMENT_COSTS[terrain];
   if (!baseCosts) return Infinity;
 
-  let cost = state.timeOfDay === "day" ? baseCosts.day : baseCosts.night;
+  let cost = state.timeOfDay === TIME_OF_DAY_DAY ? baseCosts.day : baseCosts.night;
 
   // Check for day/night swap rule
   const swapModifiers = getModifiersForPlayer(state, playerId).filter(
@@ -115,14 +116,14 @@ export function getEffectiveTerrainCost(
 
   if (swapModifiers.length > 0) {
     // Use opposite time of day costs
-    cost = state.timeOfDay === "day" ? baseCosts.night : baseCosts.day;
+    cost = state.timeOfDay === TIME_OF_DAY_DAY ? baseCosts.night : baseCosts.day;
   }
 
   // Apply terrain cost modifiers
   const terrainModifiers = getModifiersForPlayer(state, playerId)
     .filter((m) => m.effect.type === EFFECT_TERRAIN_COST)
     .map((m) => m.effect as TerrainCostModifier)
-    .filter((e) => e.terrain === terrain || e.terrain === "all");
+    .filter((e) => e.terrain === terrain || e.terrain === TERRAIN_ALL);
 
   let minAllowed = 0;
   for (const mod of terrainModifiers) {

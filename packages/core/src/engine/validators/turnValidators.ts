@@ -4,6 +4,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
+import { GAME_PHASE_ROUND } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import {
@@ -33,7 +34,7 @@ export function validateRoundPhase(
   _playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  if (state.phase !== "round") {
+  if (state.phase !== GAME_PHASE_ROUND) {
     return invalid(
       WRONG_PHASE,
       `Cannot perform actions during ${state.phase} phase`

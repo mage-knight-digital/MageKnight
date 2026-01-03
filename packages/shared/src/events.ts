@@ -43,7 +43,8 @@ export interface TurnStartedEvent {
 export const TURN_ENDED = "TURN_ENDED" as const;
 export interface TurnEndedEvent {
   readonly type: typeof TURN_ENDED;
-  readonly playerIndex: number;
+  readonly playerId: string;
+  readonly nextPlayerId: string | null; // null if round ended
 }
 
 export const ROUND_ENDED = "ROUND_ENDED" as const;

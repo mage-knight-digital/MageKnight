@@ -1,97 +1,31 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { MageKnightEngine, createEngine } from "../MageKnightEngine.js";
-import { createInitialGameState } from "../../state/GameState.js";
 import type { GameState } from "../../state/GameState.js";
-import { MOVE_UNDONE, PLAYER_MOVED } from "@mage-knight/shared";
-import { MOVE_COMMAND } from "../commands/moveCommand.js";
-import type { Player } from "../../types/player.js";
-import type { HexState } from "../../types/map.js";
-import { Hero } from "../../types/hero.js";
-import { TileId } from "../../types/map.js";
-import type { Terrain, SkillId } from "@mage-knight/shared";
-
-// Helper to create a test player
-function createTestPlayer(overrides: Partial<Player> = {}): Player {
-  return {
-    id: "player1",
-    hero: Hero.Arythea,
-    position: { q: 0, r: 0 },
-    fame: 0,
-    level: 1,
-    reputation: 0,
-    armor: 2,
-    handLimit: 5,
-    commandTokens: 1,
-    hand: [],
-    deck: [],
-    discard: [],
-    units: [],
-    skills: [],
-    skillCooldowns: {
-      usedThisRound: [],
-      usedThisTurn: [],
-      usedThisCombat: [],
-      activeUntilNextTurn: [],
-    },
-    crystals: { red: 0, blue: 0, green: 0, white: 0 },
-    tacticCard: null,
-    knockedOut: false,
-    roundOrderTokenFaceDown: false,
-    movePoints: 0,
-    influencePoints: 0,
-    playArea: [],
-    pureMana: [],
-    usedManaFromSource: false,
-    hasMovedThisTurn: false,
-    hasTakenActionThisTurn: false,
-    ...overrides,
-  };
-}
-
-// Helper to create a test hex
-function createTestHex(
-  q: number,
-  r: number,
-  terrain: Terrain = "plains"
-): HexState {
-  return {
-    coord: { q, r },
-    terrain,
-    tileId: TileId.StartingTileA,
-    site: null,
-    enemies: [],
-    shieldTokens: [],
-    rampagingEnemies: [],
-  };
-}
-
-// Helper to create a test game state
-function createTestGameState(overrides: Partial<GameState> = {}): GameState {
-  const baseState = createInitialGameState();
-  const player = createTestPlayer({ movePoints: 4 });
-
-  // Create a small map with adjacent hexes
-  const hexes: Record<string, HexState> = {
-    "0,0": createTestHex(0, 0, "plains"), // Player starts here
-    "1,0": createTestHex(1, 0, "plains"), // East - cost 2
-    "0,1": createTestHex(0, 1, "forest"), // Southeast - cost 3 day, 5 night
-    "-1,0": createTestHex(-1, 0, "hills"), // West - cost 3
-  };
-
-  return {
-    ...baseState,
-    phase: "round",
-    timeOfDay: "day",
-    turnOrder: ["player1"],
-    currentPlayerIndex: 0,
-    players: [player],
-    map: {
-      ...baseState.map,
-      hexes,
-    },
-    ...overrides,
-  };
-}
+import {
+  INVALID_ACTION,
+  MOVE_ACTION,
+  MOVE_UNDONE,
+  PLAYER_MOVED,
+  TERRAIN_PLAINS,
+  TIME_OF_DAY_NIGHT,
+  UNDO_FAILED,
+  UNDO_FAILED_NOTHING_TO_UNDO,
+  UNDO_FAILED_NOT_YOUR_TURN,
+  UNDO_ACTION,
+  hexKey,
+} from "@mage-knight/shared";
+import type { SkillId } from "@mage-knight/shared";
+import {
+  DURATION_TURN,
+  EFFECT_TERRAIN_COST,
+  SCOPE_SELF,
+  SOURCE_SKILL,
+} from "../modifierConstants.js";
+import {
+  createTestPlayer,
+  createTestHex,
+  createTestGameState,
+} from "./testHelpers.js";
 
 describe("MageKnightEngine", () => {
   let engine: MageKnightEngine;
@@ -105,7 +39,7 @@ describe("MageKnightEngine", () => {
       const state = createTestGameState();
 
       const result = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 1, r: 0 },
       });
 
@@ -138,14 +72,14 @@ describe("MageKnightEngine", () => {
       });
 
       const result = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 1, r: 0 },
       });
 
       // Should have INVALID_ACTION event
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           playerId: "player1",
           reason: "It is not your turn",
         })
@@ -159,13 +93,13 @@ describe("MageKnightEngine", () => {
       const state = createTestGameState();
 
       const result = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 2, r: 0 }, // Two hexes away
       });
 
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: "Target hex is not adjacent",
         })
       );
@@ -175,13 +109,13 @@ describe("MageKnightEngine", () => {
       const state = createTestGameState();
 
       const result = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 1, r: -1 }, // Adjacent to (0,0) but not in our test map
       });
 
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: "Target hex does not exist",
         })
       );
@@ -194,13 +128,13 @@ describe("MageKnightEngine", () => {
       });
 
       const result = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 1, r: 0 }, // Plains costs 2
       });
 
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: "Need 2 move points, have 1",
         })
       );
@@ -216,13 +150,13 @@ describe("MageKnightEngine", () => {
       });
 
       const result = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 1, r: 0 },
       });
 
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: "You have already taken an action this turn",
         })
       );
@@ -232,7 +166,7 @@ describe("MageKnightEngine", () => {
       const state = createTestGameState();
 
       const result = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 0, r: 1 }, // Forest
       });
 
@@ -242,7 +176,7 @@ describe("MageKnightEngine", () => {
 
     it("should use correct terrain cost for forest during night", () => {
       const state = createTestGameState({
-        timeOfDay: "night",
+        timeOfDay: TIME_OF_DAY_NIGHT,
       });
 
       // Give player enough points for night forest (5)
@@ -250,7 +184,7 @@ describe("MageKnightEngine", () => {
       const stateWithPoints = { ...state, players: [player] };
 
       const result = engine.processAction(stateWithPoints, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 0, r: 1 }, // Forest
       });
 
@@ -264,13 +198,13 @@ describe("MageKnightEngine", () => {
       });
 
       const result = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 1, r: 0 },
       });
 
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: "Cannot perform this action during combat",
         })
       );
@@ -283,7 +217,7 @@ describe("MageKnightEngine", () => {
 
       // First, move
       const afterMove = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 1, r: 0 },
       });
 
@@ -292,7 +226,7 @@ describe("MageKnightEngine", () => {
 
       // Now undo
       const afterUndo = engine.processAction(afterMove.state, "player1", {
-        type: "UNDO",
+        type: UNDO_ACTION,
       });
 
       // Player should be back
@@ -317,7 +251,7 @@ describe("MageKnightEngine", () => {
 
       // Move twice
       const afterMove1 = engine.processAction(state, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 1, r: 0 },
       });
 
@@ -328,13 +262,13 @@ describe("MageKnightEngine", () => {
           ...afterMove1.state.map,
           hexes: {
             ...afterMove1.state.map.hexes,
-            "2,0": createTestHex(2, 0, "plains"),
+            [hexKey({ q: 2, r: 0 })]: createTestHex(2, 0, TERRAIN_PLAINS),
           },
         },
       };
 
       const afterMove2 = engine.processAction(stateWithMoreHexes, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 2, r: 0 },
       });
 
@@ -343,7 +277,7 @@ describe("MageKnightEngine", () => {
 
       // Undo second move
       const afterUndo1 = engine.processAction(afterMove2.state, "player1", {
-        type: "UNDO",
+        type: UNDO_ACTION,
       });
 
       expect(afterUndo1.state.players[0].position).toEqual({ q: 1, r: 0 });
@@ -351,7 +285,7 @@ describe("MageKnightEngine", () => {
 
       // Undo first move
       const afterUndo2 = engine.processAction(afterUndo1.state, "player1", {
-        type: "UNDO",
+        type: UNDO_ACTION,
       });
 
       expect(afterUndo2.state.players[0].position).toEqual({ q: 0, r: 0 });
@@ -362,13 +296,13 @@ describe("MageKnightEngine", () => {
       const state = createTestGameState();
 
       const result = engine.processAction(state, "player1", {
-        type: "UNDO",
+        type: UNDO_ACTION,
       });
 
       expect(result.events).toContainEqual({
-        type: "UNDO_FAILED",
+        type: UNDO_FAILED,
         playerId: "player1",
-        reason: "nothing_to_undo",
+        reason: UNDO_FAILED_NOTHING_TO_UNDO,
       });
     });
 
@@ -379,13 +313,13 @@ describe("MageKnightEngine", () => {
       });
 
       const result = engine.processAction(state, "player1", {
-        type: "UNDO",
+        type: UNDO_ACTION,
       });
 
       expect(result.events).toContainEqual({
-        type: "UNDO_FAILED",
+        type: UNDO_FAILED,
         playerId: "player1",
-        reason: "not_your_turn",
+        reason: UNDO_FAILED_NOT_YOUR_TURN,
       });
     });
   });
@@ -401,15 +335,15 @@ describe("MageKnightEngine", () => {
           {
             id: "test-mod",
             source: {
-              type: "skill",
+              type: SOURCE_SKILL,
               skillId: "test" as SkillId,
               playerId: "player1",
             },
-            duration: "turn",
-            scope: { type: "self" },
+            duration: DURATION_TURN,
+            scope: { type: SCOPE_SELF },
             effect: {
-              type: "terrain_cost",
-              terrain: "plains",
+              type: EFFECT_TERRAIN_COST,
+              terrain: TERRAIN_PLAINS,
               amount: -1,
               minimum: 0,
             },
@@ -420,7 +354,7 @@ describe("MageKnightEngine", () => {
       };
 
       const result = engine.processAction(stateWithModifier, "player1", {
-        type: MOVE_COMMAND,
+        type: MOVE_ACTION,
         target: { q: 1, r: 0 }, // Plains, normally costs 2
       });
 
