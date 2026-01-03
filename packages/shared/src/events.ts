@@ -108,6 +108,33 @@ export function createTileRevealedEvent(
   };
 }
 
+export const TILE_EXPLORED = "TILE_EXPLORED" as const;
+export interface TileExploredEvent {
+  readonly type: typeof TILE_EXPLORED;
+  readonly playerId: string;
+  readonly tileId: string;
+  readonly position: HexCoord;
+  readonly rotation: number;
+  readonly newHexes: readonly HexCoord[];
+}
+
+export function createTileExploredEvent(
+  playerId: string,
+  tileId: string,
+  position: HexCoord,
+  rotation: number,
+  newHexes: readonly HexCoord[]
+): TileExploredEvent {
+  return {
+    type: TILE_EXPLORED,
+    playerId,
+    tileId,
+    position,
+    rotation,
+    newHexes,
+  };
+}
+
 // Combat events
 export const COMBAT_STARTED = "COMBAT_STARTED" as const;
 export interface CombatStartedEvent {
@@ -406,6 +433,7 @@ export type GameEvent =
   // Movement
   | PlayerMovedEvent
   | TileRevealedEvent
+  | TileExploredEvent
   // Combat
   | CombatStartedEvent
   | CombatEndedEvent

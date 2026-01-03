@@ -366,6 +366,42 @@ export default tseslint.config(
       ],
     },
   },
+  // Red/green guardrail: validator registry keys must be action constants (no ad-hoc strings).
+  {
+    files: ["src/engine/validators/index.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'VariableDeclarator[id.name="validatorRegistry"] ObjectExpression > Property[computed=false][key.type="Identifier"][key.name=/^(MOVE|UNDO|END_TURN)$/]',
+          message:
+            "Do not key the validator registry by hard-coded action names. Use action constants from `@mage-knight/shared` (e.g. `[MOVE_ACTION]`, `[UNDO_ACTION]`, `[END_TURN_ACTION]`).",
+        },
+        {
+          selector:
+            'VariableDeclarator[id.name="validatorRegistry"] ObjectExpression > Property[computed=false][key.type="Literal"][key.value=/^(MOVE|UNDO|END_TURN)$/]',
+          message:
+            "Do not key the validator registry by string literals. Use action constants from `@mage-knight/shared` (e.g. `[MOVE_ACTION]`).",
+        },
+      ],
+    },
+  },
+  // Red/green guardrail: avoid ad-hoc hex coordinate string keys in command factories.
+  {
+    files: ["src/engine/commands/index.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'VariableDeclarator[id.name=/hexKey/i][init.type="TemplateLiteral"]',
+          message:
+            "Do not build hex map keys via template literals. Use `hexKey(coord)` from `@mage-knight/shared`.",
+        },
+      ],
+    },
+  },
   // Red/green guardrail: eliminate magic city/mine color unions in core map types.
   {
     files: ["src/types/map.ts"],

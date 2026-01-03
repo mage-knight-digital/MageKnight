@@ -9,6 +9,7 @@ import type { Command, UndoCheckpoint } from "./commands.js";
 import {
   DRAW_CARD_COMMAND,
   DRAW_ENEMY_COMMAND,
+  EXPLORE_COMMAND,
   REVEAL_TILE_COMMAND,
   ROLL_DIE_COMMAND,
 } from "./commands/commandTypes.js";
@@ -100,6 +101,7 @@ export function clearCommandStack(
 function getCheckpointReason(commandType: string): UndoCheckpoint["reason"] {
   switch (commandType) {
     case REVEAL_TILE_COMMAND:
+    case EXPLORE_COMMAND:
       return CHECKPOINT_REASON_TILE_REVEALED;
     case DRAW_ENEMY_COMMAND:
       return CHECKPOINT_REASON_ENEMY_DRAWN;

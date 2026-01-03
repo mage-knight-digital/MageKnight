@@ -50,6 +50,7 @@ export type {
   // Movement
   PlayerMovedEvent,
   TileRevealedEvent,
+  TileExploredEvent,
   // Combat
   CombatStartedEvent,
   CombatEndedEvent,

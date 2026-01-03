@@ -18,6 +18,11 @@ export const HEX_NOT_FOUND = "HEX_NOT_FOUND" as const;
 export const IMPASSABLE = "IMPASSABLE" as const;
 export const NOT_ENOUGH_MOVE_POINTS = "NOT_ENOUGH_MOVE_POINTS" as const;
 
+// Explore validation codes
+export const NOT_ON_EDGE = "NOT_ON_EDGE" as const;
+export const INVALID_DIRECTION = "INVALID_DIRECTION" as const;
+export const NO_TILES_AVAILABLE = "NO_TILES_AVAILABLE" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -29,6 +34,9 @@ export type ValidationErrorCode =
   | typeof NOT_ADJACENT
   | typeof HEX_NOT_FOUND
   | typeof IMPASSABLE
-  | typeof NOT_ENOUGH_MOVE_POINTS;
+  | typeof NOT_ENOUGH_MOVE_POINTS
+  | typeof NOT_ON_EDGE
+  | typeof INVALID_DIRECTION
+  | typeof NO_TILES_AVAILABLE;
 
 

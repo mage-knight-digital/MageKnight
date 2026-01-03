@@ -5,6 +5,7 @@
 import type { Validator, ValidationResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
+import { END_TURN_ACTION, EXPLORE_ACTION, MOVE_ACTION, UNDO_ACTION } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
 // Turn validators
@@ -24,12 +25,21 @@ import {
   validateEnoughMovePoints,
 } from "./movementValidators.js";
 
+// Explore validators
+import {
+  validatePlayerOnMapForExplore,
+  validateOnEdgeHex,
+  validateExploreDirection,
+  validateExploreMoveCost,
+  validateTilesAvailable,
+} from "./exploreValidators.js";
+
 // Re-export types
 export * from "./types.js";
 
 // Validator registry - which validators run for which action
 const validatorRegistry: Record<string, Validator[]> = {
-  MOVE: [
+  [MOVE_ACTION]: [
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNotInCombat,
@@ -40,11 +50,22 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateTerrainPassable,
     validateEnoughMovePoints,
   ],
-  UNDO: [
+  [UNDO_ACTION]: [
     validateIsPlayersTurn,
     // Undo has special handling, minimal validation
   ],
-  END_TURN: [validateIsPlayersTurn, validateRoundPhase, validateNotInCombat],
+  [END_TURN_ACTION]: [validateIsPlayersTurn, validateRoundPhase, validateNotInCombat],
+  [EXPLORE_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateHasNotActed,
+    validatePlayerOnMapForExplore,
+    validateOnEdgeHex,
+    validateExploreDirection,
+    validateExploreMoveCost,
+    validateTilesAvailable,
+  ],
   // Add more action types as implemented
 };
 

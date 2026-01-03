@@ -3,11 +3,12 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { PlayerAction, HexCoord } from "@mage-knight/shared";
-import { MOVE_ACTION, END_TURN_ACTION } from "@mage-knight/shared";
+import type { PlayerAction, HexCoord, HexDirection } from "@mage-knight/shared";
+import { MOVE_ACTION, END_TURN_ACTION, EXPLORE_ACTION, hexKey } from "@mage-knight/shared";
 import type { Command } from "../commands.js";
 import { createMoveCommand } from "./moveCommand.js";
 import { createEndTurnCommand } from "./endTurnCommand.js";
+import { createExploreCommand } from "./exploreCommand.js";
 import { getEffectiveTerrainCost } from "../modifiers.js";
 
 // Command factory function type
@@ -36,8 +37,7 @@ function createMoveCommandFromAction(
 
   if (!player?.position || !target) return null;
 
-  const hexKey = `${target.q},${target.r}`;
-  const hex = state.map.hexes[hexKey];
+  const hex = state.map.hexes[hexKey(target)];
   if (!hex) return null;
 
   const terrainCost = getEffectiveTerrainCost(state, hex.terrain, playerId);
@@ -60,10 +60,44 @@ function createEndTurnCommandFromAction(
   return createEndTurnCommand({ playerId });
 }
 
+// Helper to get explore direction
+function getExploreDirection(action: PlayerAction): HexDirection | null {
+  if (action.type === EXPLORE_ACTION && "direction" in action) {
+    return action.direction;
+  }
+  return null;
+}
+
+// Explore command factory
+function createExploreCommandFromAction(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  const direction = getExploreDirection(action);
+  if (!direction) return null;
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player?.position) return null;
+
+  // Draw a tile (SIMPLE: take first from countryside, then core)
+  const tileId =
+    state.map.tileDeck.countryside[0] ?? state.map.tileDeck.core[0];
+  if (!tileId) return null;
+
+  return createExploreCommand({
+    playerId,
+    fromHex: player.position,
+    direction,
+    tileId,
+  });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
   [MOVE_ACTION]: createMoveCommandFromAction,
   [END_TURN_ACTION]: createEndTurnCommandFromAction,
+  [EXPLORE_ACTION]: createExploreCommandFromAction,
 };
 
 // Get command for an action
@@ -90,3 +124,7 @@ export {
   createEndTurnCommand,
   type EndTurnCommandParams,
 } from "./endTurnCommand.js";
+export {
+  createExploreCommand,
+  type ExploreCommandParams,
+} from "./exploreCommand.js";
