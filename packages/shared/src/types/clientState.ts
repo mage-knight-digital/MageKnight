@@ -180,6 +180,4 @@ export interface ClientGameState {
 }
 
 // Combat state (placeholder - expand when combat is implemented)
-export interface ClientCombatState {
-  readonly _placeholder?: undefined;
-}
+export type ClientCombatState = object;

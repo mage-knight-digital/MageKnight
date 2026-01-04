@@ -4,6 +4,11 @@
  * Phase 1: Basic enemies with no special abilities
  */
 
+import {
+  ELEMENT_PHYSICAL,
+  type Element,
+} from "./elements.js";
+
 // Enemy color constants (token back colors)
 export const ENEMY_COLOR_GREEN = "green" as const;
 export const ENEMY_COLOR_GRAY = "gray" as const;
@@ -20,17 +25,9 @@ export type EnemyColor =
   | typeof ENEMY_COLOR_RED
   | typeof ENEMY_COLOR_WHITE;
 
-// Attack element constants
-export const ATTACK_ELEMENT_PHYSICAL = "physical" as const;
-export const ATTACK_ELEMENT_FIRE = "fire" as const;
-export const ATTACK_ELEMENT_ICE = "ice" as const;
-export const ATTACK_ELEMENT_COLD_FIRE = "cold_fire" as const;
-
-export type AttackElement =
-  | typeof ATTACK_ELEMENT_PHYSICAL
-  | typeof ATTACK_ELEMENT_FIRE
-  | typeof ATTACK_ELEMENT_ICE
-  | typeof ATTACK_ELEMENT_COLD_FIRE;
+// Re-export canonical element constants/types for convenience
+export { ELEMENT_PHYSICAL, ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "./elements.js";
+export type { Element } from "./elements.js";
 
 // Enemy ID constants
 export const ENEMY_ORC = "orc" as const;
@@ -50,7 +47,7 @@ export interface EnemyDefinition {
   readonly name: string;
   readonly color: EnemyColor;
   readonly attack: number;
-  readonly attackElement: AttackElement;
+  readonly attackElement: Element;
   readonly armor: number;
   readonly fame: number;
   // Phase 2+: abilities, resistances, etc.
@@ -63,7 +60,7 @@ export const ENEMIES: Record<EnemyId, EnemyDefinition> = {
     name: "Orc",
     color: ENEMY_COLOR_GREEN,
     attack: 3,
-    attackElement: ATTACK_ELEMENT_PHYSICAL,
+    attackElement: ELEMENT_PHYSICAL,
     armor: 3,
     fame: 2,
   },
@@ -72,7 +69,7 @@ export const ENEMIES: Record<EnemyId, EnemyDefinition> = {
     name: "Wolf",
     color: ENEMY_COLOR_GREEN,
     attack: 3,
-    attackElement: ATTACK_ELEMENT_PHYSICAL,
+    attackElement: ELEMENT_PHYSICAL,
     armor: 2,
     fame: 2,
   },
@@ -81,7 +78,7 @@ export const ENEMIES: Record<EnemyId, EnemyDefinition> = {
     name: "Crossbowmen",
     color: ENEMY_COLOR_GRAY,
     attack: 4,
-    attackElement: ATTACK_ELEMENT_PHYSICAL,
+    attackElement: ELEMENT_PHYSICAL,
     armor: 3,
     fame: 3,
   },
@@ -90,7 +87,7 @@ export const ENEMIES: Record<EnemyId, EnemyDefinition> = {
     name: "Swordsmen",
     color: ENEMY_COLOR_GRAY,
     attack: 6,
-    attackElement: ATTACK_ELEMENT_PHYSICAL,
+    attackElement: ELEMENT_PHYSICAL,
     armor: 4,
     fame: 4,
   },

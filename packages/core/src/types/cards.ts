@@ -2,7 +2,7 @@
  * Card definitions for Mage Knight
  */
 
-import type { CardId, ManaColor } from "@mage-knight/shared";
+import type { CardId, ManaColor, Element } from "@mage-knight/shared";
 import type { ModifierEffect, ModifierDuration } from "./modifiers.js";
 import {
   EFFECT_GAIN_MOVE,
@@ -19,12 +19,6 @@ import {
   type CombatType,
   type CardColor,
 } from "./effectTypes.js";
-import {
-  ELEMENT_FIRE,
-  ELEMENT_ICE,
-  ELEMENT_COLD_FIRE,
-  ELEMENT_PHYSICAL,
-} from "./modifierConstants.js";
 
 // === Card Types ===
 export const DEED_CARD_TYPE_BASIC_ACTION = "basic_action" as const;
@@ -40,13 +34,7 @@ export type DeedCardType =
   | typeof DEED_CARD_TYPE_ARTIFACT
   | typeof DEED_CARD_TYPE_WOUND;
 
-// === Element Type ===
-// Reuses constants from modifierConstants.ts
-export type Element =
-  | typeof ELEMENT_FIRE
-  | typeof ELEMENT_ICE
-  | typeof ELEMENT_COLD_FIRE
-  | typeof ELEMENT_PHYSICAL;
+export type { Element } from "@mage-knight/shared";
 
 // === Card Effect Interfaces ===
 

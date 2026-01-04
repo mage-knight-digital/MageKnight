@@ -23,7 +23,7 @@ import {
   COMBAT_ENDED,
   ENEMY_ORC,
   ENEMY_WOLF,
-  COMBAT_TYPE_NORMAL,
+  COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   CARD_WOUND,
 } from "@mage-knight/shared";
@@ -285,7 +285,7 @@ describe("Combat Phase 1", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackValue: 3,
-        attackType: COMBAT_TYPE_NORMAL,
+        attackType: COMBAT_TYPE_MELEE,
       });
 
       expect(result.state.combat?.enemies[0].isDefeated).toBe(true);
@@ -332,7 +332,7 @@ describe("Combat Phase 1", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackValue: 2,
-        attackType: COMBAT_TYPE_NORMAL,
+        attackType: COMBAT_TYPE_MELEE,
       });
 
       expect(result.state.combat?.enemies[0].isDefeated).toBe(false);
@@ -416,7 +416,7 @@ describe("Combat Phase 1", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackValue: 3,
-        attackType: COMBAT_TYPE_NORMAL,
+        attackType: COMBAT_TYPE_MELEE,
       });
 
       expect(result.events).toContainEqual(
@@ -652,7 +652,7 @@ describe("Combat Phase 1", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackValue: 3,
-        attackType: COMBAT_TYPE_NORMAL,
+        attackType: COMBAT_TYPE_MELEE,
       }).state;
 
       expect(state.combat?.enemies[0].isDefeated).toBe(true);

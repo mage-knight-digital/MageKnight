@@ -131,7 +131,7 @@ export function validateAttackType(
     );
   }
 
-  // In Attack phase, ALL attack types are allowed (ranged, siege, and normal)
+  // In Attack phase, ALL attack types are allowed (ranged, siege, and melee)
 
   return valid();
 }

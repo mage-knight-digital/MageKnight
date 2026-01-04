@@ -6,6 +6,7 @@
 
 import type { EnemyId, EnemyDefinition } from "@mage-knight/shared";
 import { getEnemy } from "@mage-knight/shared";
+import type { CombatType } from "@mage-knight/shared";
 
 // Combat phase constants
 export const COMBAT_PHASE_RANGED_SIEGE = "ranged_siege" as const;
@@ -19,15 +20,8 @@ export type CombatPhase =
   | typeof COMBAT_PHASE_ASSIGN_DAMAGE
   | typeof COMBAT_PHASE_ATTACK;
 
-// Combat attack type constants
-export const COMBAT_ATTACK_TYPE_NORMAL = "normal" as const;
-export const COMBAT_ATTACK_TYPE_RANGED = "ranged" as const;
-export const COMBAT_ATTACK_TYPE_SIEGE = "siege" as const;
-
-export type CombatAttackType =
-  | typeof COMBAT_ATTACK_TYPE_NORMAL
-  | typeof COMBAT_ATTACK_TYPE_RANGED
-  | typeof COMBAT_ATTACK_TYPE_SIEGE;
+// Combat attack type (method) - reuses shared CombatType
+export type CombatAttackType = CombatType;
 
 // Enemy instance in combat (tracks state during fight)
 export interface CombatEnemy {

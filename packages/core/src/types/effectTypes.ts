@@ -5,6 +5,13 @@
  * Attack elements reuse ELEMENT_* from modifierConstants.ts.
  */
 
+export {
+  COMBAT_TYPE_MELEE,
+  COMBAT_TYPE_RANGED,
+  COMBAT_TYPE_SIEGE,
+} from "@mage-knight/shared";
+export type { CombatType } from "@mage-knight/shared";
+
 // === Card Effect Type Discriminators ===
 export const EFFECT_GAIN_MOVE = "gain_move" as const;
 export const EFFECT_GAIN_INFLUENCE = "gain_influence" as const;
@@ -16,18 +23,6 @@ export const EFFECT_DRAW_CARDS = "draw_cards" as const;
 export const EFFECT_APPLY_MODIFIER = "apply_modifier" as const;
 export const EFFECT_COMPOUND = "compound" as const;
 export const EFFECT_CHOICE = "choice" as const;
-
-// === Combat Type Constants ===
-// Note: These are separate from enemy AttackType (physical/fire/ice/cold_fire).
-// CombatType describes the *method* of attack (melee, ranged, siege).
-export const COMBAT_TYPE_MELEE = "melee" as const;
-export const COMBAT_TYPE_RANGED = "ranged" as const;
-export const COMBAT_TYPE_SIEGE = "siege" as const;
-
-export type CombatType =
-  | typeof COMBAT_TYPE_MELEE
-  | typeof COMBAT_TYPE_RANGED
-  | typeof COMBAT_TYPE_SIEGE;
 
 // === Card Color Constants ===
 // Note: These are separate from ManaColor which includes gold/black.

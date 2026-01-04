@@ -5,6 +5,13 @@
  * and are also used by engine logic to avoid magic strings.
  */
 
+import {
+  ELEMENT_COLD_FIRE,
+  ELEMENT_FIRE,
+  ELEMENT_ICE,
+  ELEMENT_PHYSICAL,
+} from "@mage-knight/shared";
+
 // === ExpirationTrigger["type"] (engine-owned trigger, but used as string union) ===
 export const EXPIRATION_TURN_END = "turn_end" as const;
 export const EXPIRATION_COMBAT_END = "combat_end" as const;
@@ -57,10 +64,7 @@ export const COMBAT_VALUE_RANGED = "ranged" as const;
 export const COMBAT_VALUE_SIEGE = "siege" as const;
 
 // === CombatValueModifier["element"] ===
-export const ELEMENT_FIRE = "fire" as const;
-export const ELEMENT_ICE = "ice" as const;
-export const ELEMENT_COLD_FIRE = "cold_fire" as const;
-export const ELEMENT_PHYSICAL = "physical" as const;
+export { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL };
 
 // === EnemyStatModifier["stat"] ===
 export const ENEMY_STAT_ARMOR = "armor" as const;
