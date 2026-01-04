@@ -32,6 +32,7 @@ import { EXPIRATION_TURN_END } from "../modifierConstants.js";
 import { END_TURN_COMMAND } from "./commandTypes.js";
 import { rerollDie } from "../mana/manaSource.js";
 import { createEndRoundCommand } from "./endRoundCommand.js";
+import { getEffectiveHandLimit } from "../helpers/handLimitHelpers.js";
 
 export { END_TURN_COMMAND };
 
@@ -64,10 +65,11 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const newDiscard = [...currentPlayer.discard, ...playAreaCards];
       const clearedPlayArea: readonly CardId[] = [];
 
-      // Step 2: Draw up to hand limit (no mid-round reshuffle if deck empties)
-      const handLimit = currentPlayer.handLimit;
+      // Step 2: Draw up to effective hand limit (no mid-round reshuffle if deck empties)
+      // Effective hand limit includes keep bonus when on/adjacent to owned keep
+      const effectiveLimit = getEffectiveHandLimit(state, params.playerId);
       const currentHandSize = currentPlayer.hand.length;
-      const cardsToDraw = Math.max(0, handLimit - currentHandSize);
+      const cardsToDraw = Math.max(0, effectiveLimit - currentHandSize);
 
       const newHand: CardId[] = [...currentPlayer.hand];
       const newDeck: CardId[] = [...currentPlayer.deck];

@@ -636,6 +636,23 @@ export interface InvalidActionEvent {
   readonly reason: string;
 }
 
+// Conquest events
+export const SITE_CONQUERED = "SITE_CONQUERED" as const;
+export interface SiteConqueredEvent {
+  readonly type: typeof SITE_CONQUERED;
+  readonly playerId: string;
+  readonly siteType: string;
+  readonly hexCoord: HexCoord;
+}
+
+export const SHIELD_TOKEN_PLACED = "SHIELD_TOKEN_PLACED" as const;
+export interface ShieldTokenPlacedEvent {
+  readonly type: typeof SHIELD_TOKEN_PLACED;
+  readonly playerId: string;
+  readonly hexCoord: HexCoord;
+  readonly totalShields: number; // For cities: track multiple
+}
+
 // Interaction events
 export const INTERACTION_STARTED = "INTERACTION_STARTED" as const;
 export interface InteractionStartedEvent {
@@ -772,6 +789,9 @@ export type GameEvent =
   // Interaction
   | InteractionStartedEvent
   | HealingPurchasedEvent
-  | InteractionCompletedEvent;
+  | InteractionCompletedEvent
+  // Conquest
+  | SiteConqueredEvent
+  | ShieldTokenPlacedEvent;
 
 export type GameEventType = GameEvent["type"];

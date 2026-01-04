@@ -488,3 +488,10 @@ export {
   createEndRoundCommand,
   END_ROUND_COMMAND,
 } from "./endRoundCommand.js";
+
+// Conquest commands
+export {
+  createConquerSiteCommand,
+  type ConquerSiteCommandParams,
+  CONQUER_SITE_COMMAND,
+} from "./conquerSiteCommand.js";

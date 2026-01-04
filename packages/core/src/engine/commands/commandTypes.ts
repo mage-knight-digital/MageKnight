@@ -18,6 +18,9 @@ export const REST_COMMAND = "REST" as const;
 export const ANNOUNCE_END_OF_ROUND_COMMAND = "ANNOUNCE_END_OF_ROUND" as const;
 export const END_ROUND_COMMAND = "END_ROUND" as const;
 
+// Conquest commands
+export const CONQUER_SITE_COMMAND = "CONQUER_SITE" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;

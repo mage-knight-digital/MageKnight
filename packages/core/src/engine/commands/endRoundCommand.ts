@@ -29,6 +29,7 @@ import { createManaSource } from "../mana/manaSource.js";
 import { readyAllUnits } from "../../types/unit.js";
 import { shuffleWithRng, type RngState } from "../../utils/index.js";
 import { END_ROUND_COMMAND } from "./commandTypes.js";
+import { getEffectiveHandLimit } from "../helpers/handLimitHelpers.js";
 
 export { END_ROUND_COMMAND };
 
@@ -94,10 +95,10 @@ export function createEndRoundCommand(): Command {
         );
         currentRng = rngAfterShuffle;
 
-        // Draw up to hand limit
-        const handLimit = player.handLimit;
-        const newHand = shuffled.slice(0, handLimit);
-        const newDeck = shuffled.slice(handLimit);
+        // Draw up to effective hand limit (includes keep bonus when near owned keep)
+        const effectiveLimit = getEffectiveHandLimit(state, player.id);
+        const newHand = shuffled.slice(0, effectiveLimit);
+        const newDeck = shuffled.slice(effectiveLimit);
 
         const updatedPlayer: Player = {
           ...player,
