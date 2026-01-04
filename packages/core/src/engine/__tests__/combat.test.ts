@@ -13,6 +13,7 @@ import {
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
+  INVALID_ACTION,
   COMBAT_STARTED,
   COMBAT_PHASE_CHANGED,
   ENEMY_BLOCKED,
@@ -100,7 +101,7 @@ describe("Combat Phase 2", () => {
       // Should fail with invalid action event
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: "Already in combat",
         })
       );
@@ -254,7 +255,7 @@ describe("Combat Phase 2", () => {
 
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: "Can only block during Block phase",
         })
       );
@@ -433,7 +434,7 @@ describe("Combat Phase 2", () => {
 
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: "Only Ranged or Siege attacks allowed in Ranged/Siege phase",
         })
       );
@@ -514,7 +515,7 @@ describe("Combat Phase 2", () => {
 
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: "Enemy is blocked, no damage to assign",
         })
       );
@@ -713,7 +714,7 @@ describe("Combat Phase 2", () => {
 
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: "INVALID_ACTION",
+          type: INVALID_ACTION,
           reason: expect.stringContaining("Must assign damage"),
         })
       );
@@ -1203,7 +1204,7 @@ describe("Combat Phase 2", () => {
 
         expect(result.events).toContainEqual(
           expect.objectContaining({
-            type: "INVALID_ACTION",
+            type: INVALID_ACTION,
             reason: expect.stringContaining("Fortified enemies"),
           })
         );
@@ -1271,7 +1272,7 @@ describe("Combat Phase 2", () => {
 
         expect(result.events).toContainEqual(
           expect.objectContaining({
-            type: "INVALID_ACTION",
+            type: INVALID_ACTION,
             reason: expect.stringContaining("Fortified enemies"),
           })
         );

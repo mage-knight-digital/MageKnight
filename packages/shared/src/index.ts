@@ -108,9 +108,12 @@ export type {
   CommandSlotGainedEvent,
   // Units
   UnitRecruitedEvent,
+  UnitDisbandedEvent,
   UnitActivatedEvent,
   UnitWoundedEvent,
+  UnitHealedEvent,
   UnitReadiedEvent,
+  UnitsReadiedEvent,
   UnitDestroyedEvent,
   // Skills
   SkillUsedEvent,
@@ -153,6 +156,7 @@ export type {
   UseSkillAction,
   // Interactions
   RecruitUnitAction,
+  DisbandUnitAction,
   BuySpellAction,
   LearnAdvancedActionAction,
   BuyHealingAction,
@@ -167,6 +171,9 @@ export type {
   AttackSource,
   DeclareBlockAction,
   DeclareAttackAction,
+  AssignDamageAction,
+  DamageAssignment,
+  DamageTarget,
 } from "./actions.js";
 
 // Connection

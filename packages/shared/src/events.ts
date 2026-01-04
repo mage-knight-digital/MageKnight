@@ -17,6 +17,7 @@ import {
   UNDO_FAILED_NOTHING_TO_UNDO,
   UNDO_FAILED_NOT_YOUR_TURN,
   UNIT_DESTROY_REASON_DISBANDED,
+  UNIT_DESTROY_REASON_DOUBLE_WOUND,
   UNIT_DESTROY_REASON_PARALYZE,
   WOUND_TARGET_HERO,
 } from "./valueConstants.js";
@@ -392,38 +393,63 @@ export interface UnitRecruitedEvent {
   readonly type: typeof UNIT_RECRUITED;
   readonly playerId: string;
   readonly unitId: UnitId;
+  readonly unitInstanceId: string;
+  readonly influenceSpent: number;
+}
+
+export const UNIT_DISBANDED = "UNIT_DISBANDED" as const;
+export interface UnitDisbandedEvent {
+  readonly type: typeof UNIT_DISBANDED;
+  readonly playerId: string;
+  readonly unitInstanceId: string;
 }
 
 export const UNIT_ACTIVATED = "UNIT_ACTIVATED" as const;
 export interface UnitActivatedEvent {
   readonly type: typeof UNIT_ACTIVATED;
   readonly playerId: string;
-  readonly unitIndex: number;
-  readonly ability: string;
+  readonly unitInstanceId: string;
+  readonly abilityUsed: string;
 }
 
 export const UNIT_WOUNDED = "UNIT_WOUNDED" as const;
 export interface UnitWoundedEvent {
   readonly type: typeof UNIT_WOUNDED;
   readonly playerId: string;
-  readonly unitIndex: number;
+  readonly unitInstanceId: string;
+  readonly damageAbsorbed: number;
+}
+
+export const UNIT_HEALED = "UNIT_HEALED" as const;
+export interface UnitHealedEvent {
+  readonly type: typeof UNIT_HEALED;
+  readonly playerId: string;
+  readonly unitInstanceId: string;
 }
 
 export const UNIT_READIED = "UNIT_READIED" as const;
 export interface UnitReadiedEvent {
   readonly type: typeof UNIT_READIED;
   readonly playerId: string;
-  readonly unitIndex: number;
+  readonly unitInstanceId: string;
+}
+
+export const UNITS_READIED = "UNITS_READIED" as const;
+export interface UnitsReadiedEvent {
+  readonly type: typeof UNITS_READIED;
+  readonly playerId: string;
+  readonly unitCount: number;
 }
 
 export const UNIT_DESTROYED = "UNIT_DESTROYED" as const;
 export interface UnitDestroyedEvent {
   readonly type: typeof UNIT_DESTROYED;
   readonly playerId: string;
-  readonly unitIndex: number;
+  readonly unitInstanceId: string;
   readonly reason:
     | typeof UNIT_DESTROY_REASON_PARALYZE
-    | typeof UNIT_DESTROY_REASON_DISBANDED;
+    | typeof UNIT_DESTROY_REASON_DISBANDED
+    | typeof UNIT_DESTROY_REASON_DOUBLE_WOUND;
 }
 
 // Skill events
@@ -664,9 +690,12 @@ export type GameEvent =
   | CommandSlotGainedEvent
   // Units
   | UnitRecruitedEvent
+  | UnitDisbandedEvent
   | UnitActivatedEvent
   | UnitWoundedEvent
+  | UnitHealedEvent
   | UnitReadiedEvent
+  | UnitsReadiedEvent
   | UnitDestroyedEvent
   // Skills
   | SkillUsedEvent

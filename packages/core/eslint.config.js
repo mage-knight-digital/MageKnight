@@ -227,6 +227,27 @@ export default tseslint.config(
       ],
     },
   },
+  // Red/green guardrail: test expectations should still use shared event constants.
+  {
+    files: ["src/engine/__tests__/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'Property[key.name="type"][value.type="Literal"][value.value="INVALID_ACTION"]',
+          message:
+            'Do not assert event types using string literals. Import `INVALID_ACTION` from `@mage-knight/shared`.',
+        },
+        {
+          selector:
+            'Property[key.name="type"][value.type="TSAsExpression"][value.expression.type="Literal"][value.expression.value="INVALID_ACTION"]',
+          message:
+            'Do not assert event types using string literals (even with `as const`). Import `INVALID_ACTION` from `@mage-knight/shared`.',
+        },
+      ],
+    },
+  },
   // Red/green guardrail: eliminate magic string unions in enemy type definitions.
   {
     files: ["src/types/enemy.ts"],

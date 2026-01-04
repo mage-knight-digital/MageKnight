@@ -15,7 +15,8 @@ export type {
 } from "./player.js";
 
 // Units
-export type { PlayerUnit, UnitState } from "./unit.js";
+export type { PlayerUnit } from "./unit.js";
+export { createPlayerUnit, readyAllUnits } from "./unit.js";
 
 // Hero types
 export type { HeroDefinition } from "./hero.js";

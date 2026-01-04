@@ -105,7 +105,7 @@ export interface ConvertCrystalAction {
 export const ACTIVATE_UNIT_ACTION = "ACTIVATE_UNIT" as const;
 export interface ActivateUnitAction {
   readonly type: typeof ACTIVATE_UNIT_ACTION;
-  readonly unitIndex: number;
+  readonly unitInstanceId: string;
   readonly abilityIndex: number;
   readonly manaPaid?: ManaColor;
 }
@@ -122,6 +122,13 @@ export const RECRUIT_UNIT_ACTION = "RECRUIT_UNIT" as const;
 export interface RecruitUnitAction {
   readonly type: typeof RECRUIT_UNIT_ACTION;
   readonly unitId: UnitId;
+  readonly influenceSpent: number; // Must meet unit's cost
+}
+
+export const DISBAND_UNIT_ACTION = "DISBAND_UNIT" as const;
+export interface DisbandUnitAction {
+  readonly type: typeof DISBAND_UNIT_ACTION;
+  readonly unitInstanceId: string;
 }
 
 export const BUY_SPELL_ACTION = "BUY_SPELL" as const;
@@ -215,12 +222,25 @@ export interface DeclareAttackAction {
   readonly attackType: CombatType; // melee, ranged, siege
 }
 
-// Assign damage from unblocked enemy to hero
+// Damage assignment target
+export const DAMAGE_TARGET_HERO = "hero" as const;
+export const DAMAGE_TARGET_UNIT = "unit" as const;
+
+export type DamageTarget =
+  | typeof DAMAGE_TARGET_HERO
+  | typeof DAMAGE_TARGET_UNIT;
+
+export interface DamageAssignment {
+  readonly target: DamageTarget;
+  readonly unitInstanceId?: string; // Required when target is "unit"
+  readonly amount: number;
+}
+
+// Assign damage from unblocked enemy to hero/units
 export interface AssignDamageAction {
   readonly type: typeof ASSIGN_DAMAGE_ACTION;
   readonly enemyInstanceId: string;
-  // Phase 1: All damage goes to hero
-  // Future: assignments array for units
+  readonly assignments?: readonly DamageAssignment[]; // If not provided, all damage goes to hero
 }
 
 export type PlayerAction =
@@ -244,6 +264,7 @@ export type PlayerAction =
   | UseSkillAction
   // Interactions
   | RecruitUnitAction
+  | DisbandUnitAction
   | BuySpellAction
   | LearnAdvancedActionAction
   | BuyHealingAction

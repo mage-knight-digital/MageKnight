@@ -19,6 +19,8 @@ import {
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
+  RECRUIT_UNIT_ACTION,
+  ACTIVATE_UNIT_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -98,6 +100,15 @@ import {
   validateDamageAssignedBeforeLeaving,
   validateFortification,
 } from "./combatValidators.js";
+
+// Unit validators
+import {
+  validateCommandSlots,
+  validateInfluenceCost,
+  validateUnitExists,
+  validateUnitCanActivate,
+  validateUnitCanReceiveDamage,
+} from "./unitValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -228,6 +239,21 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsInCombat,
     validateAssignDamagePhase,
     validateAssignDamageTargetEnemy,
+    validateUnitCanReceiveDamage,
+  ],
+  [RECRUIT_UNIT_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNoChoicePending,
+    validateCommandSlots,
+    validateInfluenceCost,
+  ],
+  [ACTIVATE_UNIT_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNoChoicePending,
+    validateUnitExists,
+    validateUnitCanActivate,
   ],
 };
 

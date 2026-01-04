@@ -73,6 +73,15 @@ export const INVALID_ATTACK_TYPE = "INVALID_ATTACK_TYPE" as const;
 export const DAMAGE_NOT_ASSIGNED = "DAMAGE_NOT_ASSIGNED" as const;
 export const FORTIFIED_NEEDS_SIEGE = "FORTIFIED_NEEDS_SIEGE" as const;
 
+// Unit validation codes
+export const NO_COMMAND_SLOTS = "NO_COMMAND_SLOTS" as const;
+export const INSUFFICIENT_INFLUENCE = "INSUFFICIENT_INFLUENCE" as const;
+export const UNIT_NOT_FOUND = "UNIT_NOT_FOUND" as const;
+export const UNIT_NOT_READY = "UNIT_NOT_READY" as const;
+export const UNIT_IS_WOUNDED = "UNIT_IS_WOUNDED" as const;
+export const UNIT_WOUNDED_NO_DAMAGE = "UNIT_WOUNDED_NO_DAMAGE" as const;
+export const UNIT_USED_RESISTANCE = "UNIT_USED_RESISTANCE" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -127,6 +136,14 @@ export type ValidationErrorCode =
   | typeof ENEMY_ALREADY_DEFEATED
   | typeof INVALID_ATTACK_TYPE
   | typeof DAMAGE_NOT_ASSIGNED
-  | typeof FORTIFIED_NEEDS_SIEGE;
+  | typeof FORTIFIED_NEEDS_SIEGE
+  // Unit validation
+  | typeof NO_COMMAND_SLOTS
+  | typeof INSUFFICIENT_INFLUENCE
+  | typeof UNIT_NOT_FOUND
+  | typeof UNIT_NOT_READY
+  | typeof UNIT_IS_WOUNDED
+  | typeof UNIT_WOUNDED_NO_DAMAGE
+  | typeof UNIT_USED_RESISTANCE;
 
 

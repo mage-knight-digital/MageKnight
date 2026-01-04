@@ -17,6 +17,7 @@ import {
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
+  RECRUIT_UNIT_ACTION,
   hexKey,
 } from "@mage-knight/shared";
 import type { Command } from "../commands.js";
@@ -36,6 +37,7 @@ import {
   createDeclareAttackCommand,
   createAssignDamageCommand,
 } from "./combat/index.js";
+import { createRecruitUnitCommand } from "./units/index.js";
 
 // Command factory function type
 type CommandFactory = (
@@ -330,9 +332,33 @@ function createAssignDamageCommandFromAction(
   action: PlayerAction
 ): Command | null {
   if (action.type !== ASSIGN_DAMAGE_ACTION) return null;
+
+  // Only include assignments if provided
+  if (action.assignments) {
+    return createAssignDamageCommand({
+      playerId,
+      enemyInstanceId: action.enemyInstanceId,
+      assignments: action.assignments,
+    });
+  }
+
   return createAssignDamageCommand({
     playerId,
     enemyInstanceId: action.enemyInstanceId,
+  });
+}
+
+// Recruit unit command factory
+function createRecruitUnitCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  if (action.type !== RECRUIT_UNIT_ACTION) return null;
+  return createRecruitUnitCommand({
+    playerId,
+    unitId: action.unitId,
+    influenceSpent: action.influenceSpent,
   });
 }
 
@@ -350,6 +376,7 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [DECLARE_BLOCK_ACTION]: createDeclareBlockCommandFromAction,
   [DECLARE_ATTACK_ACTION]: createDeclareAttackCommandFromAction,
   [ASSIGN_DAMAGE_ACTION]: createAssignDamageCommandFromAction,
+  [RECRUIT_UNIT_ACTION]: createRecruitUnitCommandFromAction,
 };
 
 // Get command for an action
@@ -400,3 +427,6 @@ export {
 
 // Combat commands
 export * from "./combat/index.js";
+
+// Unit commands
+export * from "./units/index.js";
