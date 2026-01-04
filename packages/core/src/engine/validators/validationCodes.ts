@@ -82,6 +82,11 @@ export const UNIT_NOT_READY = "UNIT_NOT_READY" as const;
 export const UNIT_IS_WOUNDED = "UNIT_IS_WOUNDED" as const;
 export const UNIT_WOUNDED_NO_DAMAGE = "UNIT_WOUNDED_NO_DAMAGE" as const;
 export const UNIT_USED_RESISTANCE = "UNIT_USED_RESISTANCE" as const;
+export const INVALID_ABILITY_INDEX = "INVALID_ABILITY_INDEX" as const;
+export const WRONG_PHASE_FOR_ABILITY = "WRONG_PHASE_FOR_ABILITY" as const;
+export const NON_COMBAT_ABILITY = "NON_COMBAT_ABILITY" as const;
+export const PASSIVE_ABILITY = "PASSIVE_ABILITY" as const;
+export const SIEGE_REQUIRED = "SIEGE_REQUIRED" as const;
 
 // Site interaction validation codes
 export const NO_SITE = "NO_SITE" as const;
@@ -165,6 +170,11 @@ export type ValidationErrorCode =
   | typeof UNIT_IS_WOUNDED
   | typeof UNIT_WOUNDED_NO_DAMAGE
   | typeof UNIT_USED_RESISTANCE
+  | typeof INVALID_ABILITY_INDEX
+  | typeof WRONG_PHASE_FOR_ABILITY
+  | typeof NON_COMBAT_ABILITY
+  | typeof PASSIVE_ABILITY
+  | typeof SIEGE_REQUIRED
   // Site interaction validation
   | typeof NO_SITE
   | typeof NOT_INHABITED

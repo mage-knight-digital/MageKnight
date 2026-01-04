@@ -14,6 +14,7 @@
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
+import { createEmptyCombatAccumulator } from "../../types/player.js";
 import type { GameEvent, CardId } from "@mage-knight/shared";
 import {
   ROUND_ENDED,
@@ -115,10 +116,7 @@ export function createEndRoundCommand(): Command {
           movePoints: 0,
           influencePoints: 0,
           pureMana: [],
-          combatAccumulator: {
-            attack: { normal: 0, ranged: 0, siege: 0 },
-            block: 0,
-          },
+          combatAccumulator: createEmptyCombatAccumulator(),
           // Reset skill cooldowns for new round
           skillCooldowns: {
             ...player.skillCooldowns,

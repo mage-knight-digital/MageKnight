@@ -18,6 +18,7 @@ import {
   DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
   RECRUIT_UNIT_ACTION,
+  ACTIVATE_UNIT_ACTION,
   INTERACT_ACTION,
   ANNOUNCE_END_OF_ROUND_ACTION,
   hexKey,
@@ -39,7 +40,7 @@ import {
   createDeclareAttackCommand,
   createAssignDamageCommand,
 } from "./combat/index.js";
-import { createRecruitUnitCommand } from "./units/index.js";
+import { createRecruitUnitCommand, createActivateUnitCommand } from "./units/index.js";
 import { createInteractCommand } from "./interactCommand.js";
 import { createAnnounceEndOfRoundCommand } from "./announceEndOfRoundCommand.js";
 
@@ -366,6 +367,20 @@ function createRecruitUnitCommandFromAction(
   });
 }
 
+// Activate unit command factory
+function createActivateUnitCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  if (action.type !== ACTIVATE_UNIT_ACTION) return null;
+  return createActivateUnitCommand({
+    playerId,
+    unitInstanceId: action.unitInstanceId,
+    abilityIndex: action.abilityIndex,
+  });
+}
+
 // Interact command factory
 function createInteractCommandFromAction(
   state: GameState,
@@ -414,6 +429,7 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [DECLARE_ATTACK_ACTION]: createDeclareAttackCommandFromAction,
   [ASSIGN_DAMAGE_ACTION]: createAssignDamageCommandFromAction,
   [RECRUIT_UNIT_ACTION]: createRecruitUnitCommandFromAction,
+  [ACTIVATE_UNIT_ACTION]: createActivateUnitCommandFromAction,
   [INTERACT_ACTION]: createInteractCommandFromAction,
   [ANNOUNCE_END_OF_ROUND_ACTION]: createAnnounceEndOfRoundCommandFromAction,
 };

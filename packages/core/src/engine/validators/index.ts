@@ -114,6 +114,10 @@ import {
   validateUnitCanReceiveDamage,
   validateAtRecruitmentSite,
   validateUnitTypeMatchesSite,
+  validateAbilityIndex,
+  validateAbilityMatchesPhase,
+  validateSiegeRequirement,
+  validateCombatRequiredForAbility,
 } from "./unitValidators.js";
 
 // Interact validators
@@ -296,6 +300,10 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateUnitExists,
     validateUnitCanActivate,
+    validateAbilityIndex,
+    validateCombatRequiredForAbility, // Combat abilities require being in combat
+    validateAbilityMatchesPhase, // Ability type must match combat phase
+    validateSiegeRequirement, // Ranged can't hit fortified in ranged phase
   ],
   [ANNOUNCE_END_OF_ROUND_ACTION]: [
     validateIsPlayersTurn,

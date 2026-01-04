@@ -58,8 +58,16 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     hasMovedThisTurn: false,
     hasTakenActionThisTurn: false,
     combatAccumulator: {
-      attack: { normal: 0, ranged: 0, siege: 0 },
+      attack: {
+        normal: 0,
+        ranged: 0,
+        siege: 0,
+        normalElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+        rangedElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+        siegeElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+      },
       block: 0,
+      blockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
     },
     pendingChoice: null,
     pendingLevelUps: [],

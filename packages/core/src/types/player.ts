@@ -37,16 +37,71 @@ export interface Crystals {
   readonly white: number;
 }
 
+// Elemental attack values - tracks by element type
+export interface ElementalAttackValues {
+  readonly physical: number;
+  readonly fire: number;
+  readonly ice: number;
+  readonly coldFire: number;
+}
+
 // Combat accumulator - tracks attack/block values from played cards
+// Attack is split by attack type (normal/ranged/siege) and then by element
 export interface AccumulatedAttack {
   readonly normal: number;
   readonly ranged: number;
   readonly siege: number;
+  // Elemental breakdown for each attack type
+  readonly normalElements: ElementalAttackValues;
+  readonly rangedElements: ElementalAttackValues;
+  readonly siegeElements: ElementalAttackValues;
 }
 
 export interface CombatAccumulator {
   readonly attack: AccumulatedAttack;
   readonly block: number;
+  readonly blockElements: ElementalAttackValues;
+}
+
+// Helper to create empty elemental values
+export function createEmptyElementalValues(): ElementalAttackValues {
+  return {
+    physical: 0,
+    fire: 0,
+    ice: 0,
+    coldFire: 0,
+  };
+}
+
+// Helper to create empty combat accumulator
+export function createEmptyCombatAccumulator(): CombatAccumulator {
+  return {
+    attack: {
+      normal: 0,
+      ranged: 0,
+      siege: 0,
+      normalElements: createEmptyElementalValues(),
+      rangedElements: createEmptyElementalValues(),
+      siegeElements: createEmptyElementalValues(),
+    },
+    block: 0,
+    blockElements: createEmptyElementalValues(),
+  };
+}
+
+// Helper to get total elemental value
+export function getTotalElementalValue(values: ElementalAttackValues): number {
+  return values.physical + values.fire + values.ice + values.coldFire;
+}
+
+// Helper to get total attack value (sum of normal, ranged, siege)
+export function getTotalAttack(accumulator: CombatAccumulator): number {
+  return accumulator.attack.normal + accumulator.attack.ranged + accumulator.attack.siege;
+}
+
+// Helper to get total block value
+export function getTotalBlock(accumulator: CombatAccumulator): number {
+  return accumulator.block;
 }
 
 // Pending choice - when a card requires player selection

@@ -482,7 +482,9 @@ export interface UnitActivatedEvent {
   readonly type: typeof UNIT_ACTIVATED;
   readonly playerId: string;
   readonly unitInstanceId: string;
-  readonly abilityUsed: string;
+  readonly abilityUsed: import("./units.js").UnitAbilityType;
+  readonly abilityValue: number;
+  readonly element: import("./elements.js").Element;
 }
 
 export const UNIT_WOUNDED = "UNIT_WOUNDED" as const;

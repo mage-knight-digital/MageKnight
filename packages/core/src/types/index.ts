@@ -12,6 +12,16 @@ export type {
   SkillCooldowns,
   Crystals,
   Player,
+  ElementalAttackValues,
+  AccumulatedAttack,
+  CombatAccumulator,
+} from "./player.js";
+export {
+  createEmptyElementalValues,
+  createEmptyCombatAccumulator,
+  getTotalElementalValue,
+  getTotalAttack,
+  getTotalBlock,
 } from "./player.js";
 
 // Units

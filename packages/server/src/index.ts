@@ -19,6 +19,7 @@ import {
   placeTile,
   hexKey,
   shuffleWithRng,
+  createEmptyCombatAccumulator,
 } from "@mage-knight/core";
 import {
   LocalConnection,
@@ -378,10 +379,7 @@ export class GameServer {
       hasMovedThisTurn: false,
       hasTakenActionThisTurn: false,
       hasCombattedThisTurn: false,
-      combatAccumulator: {
-        attack: { normal: 0, ranged: 0, siege: 0 },
-        block: 0,
-      },
+      combatAccumulator: createEmptyCombatAccumulator(),
       pendingChoice: null,
       pendingLevelUps: [],
     };

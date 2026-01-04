@@ -19,6 +19,14 @@ import {
   RECRUIT_SITE_MONASTERY,
   RECRUIT_SITE_CITY,
   type RecruitSite,
+  UNIT_ABILITY_ATTACK,
+  UNIT_ABILITY_BLOCK,
+  UNIT_ABILITY_RANGED_ATTACK,
+  UNIT_ABILITY_SIEGE_ATTACK,
+  UNIT_ABILITY_SWIFT,
+  UNIT_ABILITY_BRUTAL,
+  UNIT_ABILITY_POISON,
+  UNIT_ABILITY_PARALYZE,
 } from "@mage-knight/shared";
 import {
   NO_COMMAND_SLOTS,
@@ -33,10 +41,21 @@ import {
   CANNOT_RECRUIT_HERE,
   SITE_NOT_CONQUERED,
   UNIT_TYPE_MISMATCH,
+  INVALID_ABILITY_INDEX,
+  WRONG_PHASE_FOR_ABILITY,
+  NON_COMBAT_ABILITY,
+  PASSIVE_ABILITY,
+  SIEGE_REQUIRED,
+  NOT_IN_COMBAT,
 } from "./validationCodes.js";
 import { getPlayerSite } from "../helpers/siteHelpers.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { SiteType } from "../../types/map.js";
+import {
+  COMBAT_PHASE_RANGED_SIEGE,
+  COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_ATTACK,
+} from "../../types/combat.js";
 
 /**
  * Check player has enough command slots to recruit
@@ -260,6 +279,197 @@ export function validateUnitTypeMatchesSite(
     return invalid(
       UNIT_TYPE_MISMATCH,
       `${unitDef.name} cannot be recruited at this site`
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate the ability index is valid for the unit
+ */
+export function validateAbilityIndex(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
+
+  const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
+  if (!unit) return invalid(UNIT_NOT_FOUND, "Unit not found");
+
+  const unitDef = getUnit(unit.unitId);
+  const ability = unitDef.abilities[action.abilityIndex];
+
+  if (!ability) {
+    return invalid(
+      INVALID_ABILITY_INDEX,
+      `Invalid ability index: ${action.abilityIndex}`
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate ability matches current combat phase
+ *
+ * Combat abilities can only be used during appropriate phases:
+ * - Ranged/Siege: Ranged & Siege phase or Attack phase
+ * - Block: Block phase
+ * - Attack: Attack phase
+ */
+export function validateAbilityMatchesPhase(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
+
+  // If not in combat, ability phase check doesn't apply
+  // (non-combat abilities like Move/Influence can be used outside combat)
+  if (!state.combat) return valid();
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
+
+  const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
+  if (!unit) return invalid(UNIT_NOT_FOUND, "Unit not found");
+
+  const unitDef = getUnit(unit.unitId);
+  const ability = unitDef.abilities[action.abilityIndex];
+  if (!ability) return valid(); // Other validator handles
+
+  const phase = state.combat.phase;
+
+  switch (ability.type) {
+    case UNIT_ABILITY_RANGED_ATTACK:
+    case UNIT_ABILITY_SIEGE_ATTACK:
+      // Valid in Ranged & Siege phase or Attack phase
+      if (phase !== COMBAT_PHASE_RANGED_SIEGE && phase !== COMBAT_PHASE_ATTACK) {
+        return invalid(
+          WRONG_PHASE_FOR_ABILITY,
+          "Ranged/Siege abilities can only be used in Ranged & Siege or Attack phase"
+        );
+      }
+      break;
+
+    case UNIT_ABILITY_BLOCK:
+      if (phase !== COMBAT_PHASE_BLOCK) {
+        return invalid(
+          WRONG_PHASE_FOR_ABILITY,
+          "Block abilities can only be used in Block phase"
+        );
+      }
+      break;
+
+    case UNIT_ABILITY_ATTACK:
+      if (phase !== COMBAT_PHASE_ATTACK) {
+        return invalid(
+          WRONG_PHASE_FOR_ABILITY,
+          "Attack abilities can only be used in Attack phase"
+        );
+      }
+      break;
+
+    case UNIT_ABILITY_SWIFT:
+    case UNIT_ABILITY_BRUTAL:
+    case UNIT_ABILITY_POISON:
+    case UNIT_ABILITY_PARALYZE:
+      return invalid(
+        PASSIVE_ABILITY,
+        "This is a passive ability that applies automatically when the unit attacks"
+      );
+
+    default:
+      // Non-combat abilities (move, influence, heal) cannot be "activated"
+      // for combat contributions
+      return invalid(
+        NON_COMBAT_ABILITY,
+        "This ability cannot be used in combat"
+      );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate siege is required for fortified enemies in ranged phase
+ *
+ * When attacking a fortified site in the Ranged & Siege phase,
+ * only Siege attacks work - regular Ranged attacks bounce off walls.
+ */
+export function validateSiegeRequirement(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
+  if (!state.combat) return valid();
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return valid();
+
+  const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
+  if (!unit) return valid();
+
+  const unitDef = getUnit(unit.unitId);
+  const ability = unitDef.abilities[action.abilityIndex];
+  if (!ability) return valid();
+
+  // In Ranged & Siege phase at fortified site, only Siege attacks work
+  if (
+    state.combat.phase === COMBAT_PHASE_RANGED_SIEGE &&
+    state.combat.isAtFortifiedSite &&
+    ability.type === UNIT_ABILITY_RANGED_ATTACK
+  ) {
+    return invalid(
+      SIEGE_REQUIRED,
+      "Only Siege attacks can be used against fortified enemies in Ranged & Siege phase"
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Check if unit activation requires being in combat
+ *
+ * Combat abilities (attack, block, ranged, siege) require active combat.
+ * Non-combat abilities (move, influence, heal) can be used outside combat.
+ */
+export function validateCombatRequiredForAbility(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
+
+  const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
+  if (!unit) return invalid(UNIT_NOT_FOUND, "Unit not found");
+
+  const unitDef = getUnit(unit.unitId);
+  const ability = unitDef.abilities[action.abilityIndex];
+  if (!ability) return valid(); // Other validator handles
+
+  // Combat abilities require being in combat
+  const combatAbilities: readonly string[] = [
+    UNIT_ABILITY_ATTACK,
+    UNIT_ABILITY_BLOCK,
+    UNIT_ABILITY_RANGED_ATTACK,
+    UNIT_ABILITY_SIEGE_ATTACK,
+  ];
+
+  if (combatAbilities.includes(ability.type) && !state.combat) {
+    return invalid(
+      NOT_IN_COMBAT,
+      "Combat abilities can only be used during combat"
     );
   }
 

@@ -17,6 +17,7 @@
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
+import { createEmptyCombatAccumulator } from "../../types/player.js";
 import type { CardId, GameEvent } from "@mage-knight/shared";
 import {
   TURN_ENDED,
@@ -102,10 +103,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         deck: newDeck,
         discard: newDiscard,
         // Reset combat accumulator
-        combatAccumulator: {
-          attack: { normal: 0, ranged: 0, siege: 0 },
-          block: 0,
-        },
+        combatAccumulator: createEmptyCombatAccumulator(),
       };
 
       const updatedPlayers: Player[] = [...state.players];

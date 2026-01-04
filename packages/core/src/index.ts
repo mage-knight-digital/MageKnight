@@ -5,7 +5,36 @@
 
 // Types
 export type * from "./types/index.js";
-export { Hero, HEROES, TileId, SiteType, RampagingEnemyType } from "./types/index.js";
+export {
+  Hero,
+  HEROES,
+  TileId,
+  SiteType,
+  RampagingEnemyType,
+  // Player helpers
+  createEmptyElementalValues,
+  createEmptyCombatAccumulator,
+  getTotalElementalValue,
+  getTotalAttack,
+  getTotalBlock,
+  // Unit helpers
+  createPlayerUnit,
+  readyAllUnits,
+  // Map helpers
+  createEmptyMapState,
+  // Mana helpers
+  createEmptyManaSource,
+  createEmptyCrystalInventory,
+  // Offers helpers
+  createEmptyOffers,
+  // Decks helpers
+  createEmptyDecks,
+  // Enemy helpers
+  createEmptyEnemyTokenPiles,
+  // City helpers
+  determineCityLeader,
+  createCityState,
+} from "./types/index.js";
 
 // State
 export type { GameState, MapState } from "./state/GameState.js";

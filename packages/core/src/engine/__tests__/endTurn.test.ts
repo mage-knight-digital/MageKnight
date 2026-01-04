@@ -24,6 +24,7 @@ import {
   SCOPE_SELF,
   SOURCE_SKILL,
 } from "../modifierConstants.js";
+import { createEmptyCombatAccumulator } from "../../types/player.js";
 
 describe("END_TURN action", () => {
   let engine: MageKnightEngine;
@@ -375,11 +376,21 @@ describe("END_TURN card flow", () => {
   });
 
   it("should reset combat accumulator at end of turn", () => {
-    const player = createTestPlayer({
-      combatAccumulator: {
-        attack: { normal: 5, ranged: 3, siege: 0 },
-        block: 4,
+    // Create a modified accumulator with some values
+    const modifiedAccumulator = {
+      ...createEmptyCombatAccumulator(),
+      attack: {
+        ...createEmptyCombatAccumulator().attack,
+        normal: 5,
+        ranged: 3,
+        normalElements: { physical: 5, fire: 0, ice: 0, coldFire: 0 },
+        rangedElements: { physical: 3, fire: 0, ice: 0, coldFire: 0 },
       },
+      block: 4,
+      blockElements: { physical: 4, fire: 0, ice: 0, coldFire: 0 },
+    };
+    const player = createTestPlayer({
+      combatAccumulator: modifiedAccumulator,
     });
     const state = createTestGameState({ players: [player] });
 
@@ -388,10 +399,7 @@ describe("END_TURN card flow", () => {
     });
 
     const updatedPlayer = result.state.players[0];
-    expect(updatedPlayer?.combatAccumulator).toEqual({
-      attack: { normal: 0, ranged: 0, siege: 0 },
-      block: 0,
-    });
+    expect(updatedPlayer?.combatAccumulator).toEqual(createEmptyCombatAccumulator());
   });
 });
 
