@@ -14,6 +14,7 @@ import type { Player } from "../../types/player.js";
 import { placeTile } from "../../data/tiles.js";
 import { calculateTilePlacement } from "../explore/index.js";
 import { EXPLORE_COMMAND } from "./commandTypes.js";
+import { drawEnemiesForHex } from "../helpers/enemyHelpers.js";
 
 export { EXPLORE_COMMAND };
 
@@ -46,11 +47,32 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
       // Place the tile - get all hexes with world coordinates
       const newHexes = placeTile(tileId, tilePosition);
 
-      // Add hexes to map
+      // Draw enemies for each hex and add to map
+      let currentPiles = state.enemyTokens;
+      let currentRng = state.rng;
       const updatedHexes = { ...state.map.hexes };
+
       for (const hex of newHexes) {
         const key = hexKey(hex.coord);
-        updatedHexes[key] = hex;
+
+        // Draw enemies for rampaging types and site defenders
+        // Pass timeOfDay for sites like Ancient Ruins (night-only enemies)
+        const { enemies, piles, rng } = drawEnemiesForHex(
+          hex.rampagingEnemies,
+          hex.site?.type ?? null,
+          currentPiles,
+          currentRng,
+          state.timeOfDay
+        );
+
+        currentPiles = piles;
+        currentRng = rng;
+
+        // Update hex with drawn enemies
+        updatedHexes[key] = {
+          ...hex,
+          enemies,
+        };
       }
 
       // Add tile placement record
@@ -99,6 +121,8 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
           tiles: updatedTiles,
           tileDeck: updatedTileDeck,
         },
+        enemyTokens: currentPiles,
+        rng: currentRng,
       };
 
       return {

@@ -90,6 +90,7 @@ export type {
   // Combat
   CombatStartedEvent,
   CombatEndedEvent,
+  CombatTriggeredEvent,
   // Cards
   CardPlayedEvent,
   CardDrawnEvent,

@@ -58,4 +58,12 @@ export const CLIENT_MANA_TOKEN_SOURCE_SITE = MANA_TOKEN_SOURCE_SITE;
 // === Event sub-unions (targets) ===
 export const WOUND_TARGET_HERO = "hero" as const;
 
+// === Combat trigger types ===
+export const COMBAT_TRIGGER_FORTIFIED_ASSAULT = "fortified_assault" as const;
+export const COMBAT_TRIGGER_PROVOKE_RAMPAGING = "provoke_rampaging" as const;
+export const COMBAT_TRIGGER_VOLUNTARY_EXPLORE = "voluntary_explore" as const;
 
+export type CombatTriggerType =
+  | typeof COMBAT_TRIGGER_FORTIFIED_ASSAULT
+  | typeof COMBAT_TRIGGER_PROVOKE_RAMPAGING
+  | typeof COMBAT_TRIGGER_VOLUNTARY_EXPLORE;

@@ -10,6 +10,9 @@ import {
   CARD_GAIN_SOURCE_LEVEL_UP,
   CARD_GAIN_SOURCE_OFFER,
   CARD_GAIN_SOURCE_REWARD,
+  COMBAT_TRIGGER_FORTIFIED_ASSAULT,
+  COMBAT_TRIGGER_PROVOKE_RAMPAGING,
+  COMBAT_TRIGGER_VOLUNTARY_EXPLORE,
   OFFER_TYPE_ADVANCED_ACTIONS,
   OFFER_TYPE_SPELLS,
   OFFER_TYPE_UNITS,
@@ -256,6 +259,33 @@ export interface PlayerKnockedOutEvent {
   readonly type: typeof PLAYER_KNOCKED_OUT;
   readonly playerId: string;
   readonly woundsThisCombat: number;
+}
+
+export const COMBAT_TRIGGERED = "COMBAT_TRIGGERED" as const;
+export interface CombatTriggeredEvent {
+  readonly type: typeof COMBAT_TRIGGERED;
+  readonly playerId: string;
+  readonly triggerType:
+    | typeof COMBAT_TRIGGER_FORTIFIED_ASSAULT
+    | typeof COMBAT_TRIGGER_PROVOKE_RAMPAGING
+    | typeof COMBAT_TRIGGER_VOLUNTARY_EXPLORE;
+  readonly hexCoord: HexCoord;
+  readonly enemyTokenIds: readonly string[];
+}
+
+export function createCombatTriggeredEvent(
+  playerId: string,
+  triggerType: CombatTriggeredEvent["triggerType"],
+  hexCoord: HexCoord,
+  enemyTokenIds: readonly string[]
+): CombatTriggeredEvent {
+  return {
+    type: COMBAT_TRIGGERED,
+    playerId,
+    triggerType,
+    hexCoord,
+    enemyTokenIds,
+  };
 }
 
 // Card events
@@ -738,6 +768,7 @@ export type GameEvent =
   | DamageAssignedEvent
   | CombatEndedEvent
   | PlayerKnockedOutEvent
+  | CombatTriggeredEvent
   // Cards
   | CardPlayedEvent
   | CardDrawnEvent

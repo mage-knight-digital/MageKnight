@@ -16,6 +16,7 @@ import {
   NOT_ENOUGH_MOVE_POINTS,
   NOT_ON_MAP,
   PLAYER_NOT_FOUND,
+  RAMPAGING_ENEMY_BLOCKS,
 } from "./validationCodes.js";
 
 // Helper to get target from action (type guard)
@@ -148,7 +149,42 @@ export function validateEnoughMovePoints(
   return valid();
 }
 
+/**
+ * Validate that the target hex doesn't have undefeated rampaging enemies.
+ *
+ * In Mage Knight, you cannot enter a hex with rampaging enemies unless
+ * you've defeated them first. You can only provoke (attack) rampaging
+ * enemies from an adjacent hex.
+ */
+export function validateNotBlockedByRampaging(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  const target = getMoveTarget(action);
+  if (!target) {
+    return invalid(INVALID_ACTION_CODE, "Invalid move action");
+  }
+
+  const hexKey = `${target.q},${target.r}`;
+  const hex = state.map.hexes[hexKey];
+  if (!hex) {
+    return invalid(HEX_NOT_FOUND, "Target hex does not exist");
+  }
+
+  // Check if hex has rampaging enemies that haven't been defeated
+  // Rampaging enemies are indicated by rampagingEnemies array AND
+  // actual enemy tokens in the enemies array
+  if (hex.rampagingEnemies.length > 0 && hex.enemies.length > 0) {
+    return invalid(
+      RAMPAGING_ENEMY_BLOCKS,
+      "Cannot enter hex with rampaging enemies"
+    );
+  }
+
+  return valid();
+}
+
 // TODO: Add these later
-// export function validateNotBlockedByRampaging(...) {}
 // export function validateNotFortifiedSite(...) {}
 // export function validateNoOtherPlayer(...) {}
