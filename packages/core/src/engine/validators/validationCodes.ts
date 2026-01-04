@@ -82,6 +82,21 @@ export const UNIT_IS_WOUNDED = "UNIT_IS_WOUNDED" as const;
 export const UNIT_WOUNDED_NO_DAMAGE = "UNIT_WOUNDED_NO_DAMAGE" as const;
 export const UNIT_USED_RESISTANCE = "UNIT_USED_RESISTANCE" as const;
 
+// Site interaction validation codes
+export const NO_SITE = "NO_SITE" as const;
+export const NOT_INHABITED = "NOT_INHABITED" as const;
+export const SITE_NOT_CONQUERED = "SITE_NOT_CONQUERED" as const;
+export const NOT_YOUR_KEEP = "NOT_YOUR_KEEP" as const;
+export const MONASTERY_BURNED = "MONASTERY_BURNED" as const;
+export const NO_HEALING_HERE = "NO_HEALING_HERE" as const;
+export const CANNOT_RECRUIT_HERE = "CANNOT_RECRUIT_HERE" as const;
+export const UNIT_TYPE_MISMATCH = "UNIT_TYPE_MISMATCH" as const;
+
+// Round end validation codes
+export const DECK_NOT_EMPTY = "DECK_NOT_EMPTY" as const;
+export const ALREADY_ANNOUNCED = "ALREADY_ANNOUNCED" as const;
+export const MUST_ANNOUNCE_END_OF_ROUND = "MUST_ANNOUNCE_END_OF_ROUND" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -144,6 +159,19 @@ export type ValidationErrorCode =
   | typeof UNIT_NOT_READY
   | typeof UNIT_IS_WOUNDED
   | typeof UNIT_WOUNDED_NO_DAMAGE
-  | typeof UNIT_USED_RESISTANCE;
+  | typeof UNIT_USED_RESISTANCE
+  // Site interaction validation
+  | typeof NO_SITE
+  | typeof NOT_INHABITED
+  | typeof SITE_NOT_CONQUERED
+  | typeof NOT_YOUR_KEEP
+  | typeof MONASTERY_BURNED
+  | typeof NO_HEALING_HERE
+  | typeof CANNOT_RECRUIT_HERE
+  | typeof UNIT_TYPE_MISMATCH
+  // Round end validation
+  | typeof DECK_NOT_EMPTY
+  | typeof ALREADY_ANNOUNCED
+  | typeof MUST_ANNOUNCE_END_OF_ROUND;
 
 

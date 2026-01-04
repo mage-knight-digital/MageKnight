@@ -34,6 +34,7 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
   CARD_WOUND,
+  CARD_MARCH,
   ELEMENT_PHYSICAL,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -445,6 +446,7 @@ describe("Combat Phase 2", () => {
     it("should assign wounds to hero from unblocked enemy", () => {
       const player = createTestPlayer({
         hand: [],
+        deck: [CARD_MARCH], // Need a card to avoid mandatory announcement
         handLimit: 5,
       });
       let state = createTestGameState({ players: [player] });
@@ -723,6 +725,7 @@ describe("Combat Phase 2", () => {
     it("should allow leaving Assign Damage phase after assigning damage", () => {
       const player = createTestPlayer({
         hand: [],
+        deck: [CARD_MARCH], // Need a card to avoid mandatory announcement
         handLimit: 5,
       });
       let state = createTestGameState({ players: [player] });

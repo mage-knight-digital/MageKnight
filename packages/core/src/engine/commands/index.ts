@@ -18,6 +18,8 @@ import {
   DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
   RECRUIT_UNIT_ACTION,
+  INTERACT_ACTION,
+  ANNOUNCE_END_OF_ROUND_ACTION,
   hexKey,
 } from "@mage-knight/shared";
 import type { Command } from "../commands.js";
@@ -38,6 +40,8 @@ import {
   createAssignDamageCommand,
 } from "./combat/index.js";
 import { createRecruitUnitCommand } from "./units/index.js";
+import { createInteractCommand } from "./interactCommand.js";
+import { createAnnounceEndOfRoundCommand } from "./announceEndOfRoundCommand.js";
 
 // Command factory function type
 type CommandFactory = (
@@ -362,6 +366,39 @@ function createRecruitUnitCommandFromAction(
   });
 }
 
+// Interact command factory
+function createInteractCommandFromAction(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  if (action.type !== INTERACT_ACTION) return null;
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return null;
+
+  // For now, influence must be calculated from player's influencePoints
+  // In a full implementation, we'd track influence from played cards
+  const influenceAvailable = player.influencePoints;
+
+  return createInteractCommand({
+    playerId,
+    healing: action.healing ?? 0,
+    influenceAvailable,
+    previousHand: [...player.hand],
+  });
+}
+
+// Announce end of round command factory
+function createAnnounceEndOfRoundCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  if (action.type !== ANNOUNCE_END_OF_ROUND_ACTION) return null;
+  return createAnnounceEndOfRoundCommand({ playerId });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
   [MOVE_ACTION]: createMoveCommandFromAction,
@@ -377,6 +414,8 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [DECLARE_ATTACK_ACTION]: createDeclareAttackCommandFromAction,
   [ASSIGN_DAMAGE_ACTION]: createAssignDamageCommandFromAction,
   [RECRUIT_UNIT_ACTION]: createRecruitUnitCommandFromAction,
+  [INTERACT_ACTION]: createInteractCommandFromAction,
+  [ANNOUNCE_END_OF_ROUND_ACTION]: createAnnounceEndOfRoundCommandFromAction,
 };
 
 // Get command for an action
@@ -430,3 +469,22 @@ export * from "./combat/index.js";
 
 // Unit commands
 export * from "./units/index.js";
+
+// Interact command
+export {
+  createInteractCommand,
+  type InteractCommandParams,
+  INTERACT_COMMAND,
+} from "./interactCommand.js";
+
+// Round lifecycle commands
+export {
+  createAnnounceEndOfRoundCommand,
+  type AnnounceEndOfRoundCommandParams,
+  ANNOUNCE_END_OF_ROUND_COMMAND,
+} from "./announceEndOfRoundCommand.js";
+
+export {
+  createEndRoundCommand,
+  END_ROUND_COMMAND,
+} from "./endRoundCommand.js";

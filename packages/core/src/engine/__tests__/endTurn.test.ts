@@ -69,7 +69,7 @@ describe("END_TURN action", () => {
     });
 
     expect(result.state.currentPlayerIndex).toBe(0);
-    // When wrapping around, we also emit ROUND_ENDED
+    // When wrapping around without announcement, round does NOT end
     expect(result.events).toContainEqual(
       expect.objectContaining({
         type: TURN_ENDED,
@@ -77,10 +77,10 @@ describe("END_TURN action", () => {
         nextPlayerId: "player1",
       })
     );
-    expect(result.events).toContainEqual(
+    // ROUND_ENDED only happens when end-of-round was announced
+    expect(result.events).not.toContainEqual(
       expect.objectContaining({
         type: ROUND_ENDED,
-        round: 1,
       })
     );
   });
@@ -423,7 +423,10 @@ describe("Round end reshuffling", () => {
     const state = createTestGameState({
       players: [player1, player2],
       turnOrder: ["player1", "player2"],
-      currentPlayerIndex: 1, // Player 2's turn, will wrap to round end
+      currentPlayerIndex: 1, // Player 2's turn
+      // Player 2 announced end of round, so ending their turn triggers round end
+      endOfRoundAnnouncedBy: "player2",
+      playersWithFinalTurn: [],
     });
 
     const result = engine.processAction(state, "player2", {
@@ -468,6 +471,9 @@ describe("Round end reshuffling", () => {
       players: [player1, player2],
       turnOrder: ["player1", "player2"],
       currentPlayerIndex: 1, // Player 2's turn
+      // Player 2 announced end of round
+      endOfRoundAnnouncedBy: "player2",
+      playersWithFinalTurn: [],
     });
 
     const result = engine.processAction(state, "player2", {
@@ -493,6 +499,9 @@ describe("Round end reshuffling", () => {
       turnOrder: ["player1", "player2"],
       currentPlayerIndex: 1,
       round: 3,
+      // Player 2 announced end of round
+      endOfRoundAnnouncedBy: "player2",
+      playersWithFinalTurn: [],
     });
 
     const result = engine.processAction(state, "player2", {

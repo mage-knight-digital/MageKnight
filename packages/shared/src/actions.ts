@@ -53,6 +53,10 @@ export interface RestAction {
 export const INTERACT_ACTION = "INTERACT" as const;
 export interface InteractAction {
   readonly type: typeof INTERACT_ACTION;
+  // Interaction purchases
+  readonly healing?: number; // Healing points to buy
+  readonly recruitUnitId?: UnitId; // Unit to recruit (if any) - alternative to RecruitUnitAction
+  // Future: spellId, advancedActionId, artifactId
 }
 
 export const ANNOUNCE_END_OF_ROUND_ACTION = "ANNOUNCE_END_OF_ROUND" as const;

@@ -7,7 +7,8 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { HexState } from "../../types/map.js";
 import { Hero } from "../../types/hero.js";
-import { TileId } from "../../types/map.js";
+import { TileId, SiteType } from "../../types/map.js";
+import type { Site } from "../../types/map.js";
 import type { Terrain } from "@mage-knight/shared";
 import {
   GAME_PHASE_ROUND,
@@ -16,6 +17,7 @@ import {
   TERRAIN_HILLS,
   TERRAIN_PLAINS,
   hexKey,
+  CARD_MARCH,
 } from "@mage-knight/shared";
 
 /**
@@ -32,7 +34,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     armor: 2,
     handLimit: 5,
     commandTokens: 1,
-    hand: [],
+    hand: [CARD_MARCH], // Default to having a card to avoid mandatory announcement
     deck: [],
     discard: [],
     units: [],
@@ -71,16 +73,29 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
 export function createTestHex(
   q: number,
   r: number,
-  terrain: Terrain = TERRAIN_PLAINS
+  terrain: Terrain = TERRAIN_PLAINS,
+  site: Site | null = null
 ): HexState {
   return {
     coord: { q, r },
     terrain,
     tileId: TileId.StartingTileA,
-    site: null,
+    site,
     enemies: [],
     shieldTokens: [],
     rampagingEnemies: [],
+  };
+}
+
+/**
+ * Create a default village site
+ */
+export function createVillageSite(): Site {
+  return {
+    type: SiteType.Village,
+    owner: null,
+    isConquered: false,
+    isBurned: false,
   };
 }
 
@@ -107,6 +122,8 @@ export function createTestGameState(
     timeOfDay: TIME_OF_DAY_DAY,
     turnOrder: ["player1"],
     currentPlayerIndex: 0,
+    endOfRoundAnnouncedBy: null,
+    playersWithFinalTurn: [],
     players: [player],
     map: {
       ...baseState.map,

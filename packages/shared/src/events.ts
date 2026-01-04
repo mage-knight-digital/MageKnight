@@ -70,6 +70,33 @@ export interface EndOfRoundAnnouncedEvent {
   readonly playerId: string;
 }
 
+export const NEW_ROUND_STARTED = "NEW_ROUND_STARTED" as const;
+export interface NewRoundStartedEvent {
+  readonly type: typeof NEW_ROUND_STARTED;
+  readonly roundNumber: number;
+  readonly timeOfDay: import("./stateConstants.js").TimeOfDay;
+}
+
+export const TIME_OF_DAY_CHANGED = "TIME_OF_DAY_CHANGED" as const;
+export interface TimeOfDayChangedEvent {
+  readonly type: typeof TIME_OF_DAY_CHANGED;
+  readonly from: import("./stateConstants.js").TimeOfDay;
+  readonly to: import("./stateConstants.js").TimeOfDay;
+}
+
+export const MANA_SOURCE_RESET = "MANA_SOURCE_RESET" as const;
+export interface ManaSourceResetEvent {
+  readonly type: typeof MANA_SOURCE_RESET;
+  readonly diceCount: number;
+}
+
+export const DECKS_RESHUFFLED = "DECKS_RESHUFFLED" as const;
+export interface DecksReshuffledEvent {
+  readonly type: typeof DECKS_RESHUFFLED;
+  readonly playerId: string;
+  readonly cardsInDeck: number;
+}
+
 export const PLAYER_RESTED = "PLAYER_RESTED" as const;
 export interface PlayerRestedEvent {
   readonly type: typeof PLAYER_RESTED;
@@ -609,6 +636,31 @@ export interface InvalidActionEvent {
   readonly reason: string;
 }
 
+// Interaction events
+export const INTERACTION_STARTED = "INTERACTION_STARTED" as const;
+export interface InteractionStartedEvent {
+  readonly type: typeof INTERACTION_STARTED;
+  readonly playerId: string;
+  readonly siteType: string;
+  readonly influenceAvailable: number;
+}
+
+export const HEALING_PURCHASED = "HEALING_PURCHASED" as const;
+export interface HealingPurchasedEvent {
+  readonly type: typeof HEALING_PURCHASED;
+  readonly playerId: string;
+  readonly healingPoints: number;
+  readonly influenceCost: number;
+  readonly woundsHealed: number;
+}
+
+export const INTERACTION_COMPLETED = "INTERACTION_COMPLETED" as const;
+export interface InteractionCompletedEvent {
+  readonly type: typeof INTERACTION_COMPLETED;
+  readonly playerId: string;
+  readonly siteType: string;
+}
+
 export function createInvalidActionEvent(
   playerId: string,
   actionType: string,
@@ -649,6 +701,10 @@ export type GameEvent =
   | RoundEndedEvent
   | GameEndedEvent
   | EndOfRoundAnnouncedEvent
+  | NewRoundStartedEvent
+  | TimeOfDayChangedEvent
+  | ManaSourceResetEvent
+  | DecksReshuffledEvent
   | PlayerRestedEvent
   | RestUndoneEvent
   // Movement
@@ -712,6 +768,10 @@ export type GameEvent =
   | ChoiceRequiredEvent
   | ChoiceResolvedEvent
   // Validation
-  | InvalidActionEvent;
+  | InvalidActionEvent
+  // Interaction
+  | InteractionStartedEvent
+  | HealingPurchasedEvent
+  | InteractionCompletedEvent;
 
 export type GameEventType = GameEvent["type"];

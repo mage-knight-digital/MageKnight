@@ -4,7 +4,8 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine } from "../MageKnightEngine.js";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer, createTestHex, createVillageSite } from "./testHelpers.js";
+import { hexKey } from "@mage-knight/shared";
 import {
   RECRUIT_UNIT_ACTION,
   UNIT_RECRUITED,
@@ -31,15 +32,35 @@ describe("Unit System", () => {
     resetUnitInstanceCounter();
   });
 
+  /**
+   * Create a game state where the player is at a village (for recruitment tests)
+   */
+  function createStateWithVillage(playerOverrides: Parameters<typeof createTestPlayer>[0] = {}) {
+    const player = createTestPlayer({
+      position: { q: 0, r: 0 },
+      ...playerOverrides,
+    });
+
+    const hexWithVillage = createTestHex(0, 0, undefined, createVillageSite());
+
+    return createTestGameState({
+      players: [player],
+      phase: GAME_PHASE_ROUND,
+      map: {
+        hexes: {
+          [hexKey({ q: 0, r: 0 })]: hexWithVillage,
+        },
+        tiles: [],
+        tileDeck: { countryside: [], core: [] },
+      },
+    });
+  }
+
   describe("Recruiting", () => {
     it("should recruit unit when command slots available", () => {
-      const player = createTestPlayer({
+      const state = createStateWithVillage({
         units: [],
         commandTokens: 1,
-      });
-      const state = createTestGameState({
-        players: [player],
-        phase: GAME_PHASE_ROUND,
       });
 
       const result = engine.processAction(state, "player1", {
@@ -66,13 +87,9 @@ describe("Unit System", () => {
 
     it("should reject recruit when no command slots available", () => {
       const existingUnit = createPlayerUnit(UNIT_PEASANTS, "existing_unit");
-      const player = createTestPlayer({
+      const state = createStateWithVillage({
         units: [existingUnit],
         commandTokens: 1, // Only 1 slot, already full
-      });
-      const state = createTestGameState({
-        players: [player],
-        phase: GAME_PHASE_ROUND,
       });
 
       const result = engine.processAction(state, "player1", {
@@ -95,13 +112,9 @@ describe("Unit System", () => {
     });
 
     it("should reject recruit with insufficient influence", () => {
-      const player = createTestPlayer({
+      const state = createStateWithVillage({
         units: [],
         commandTokens: 1,
-      });
-      const state = createTestGameState({
-        players: [player],
-        phase: GAME_PHASE_ROUND,
       });
 
       const result = engine.processAction(state, "player1", {
@@ -124,13 +137,9 @@ describe("Unit System", () => {
     });
 
     it("should recruit with exactly the right influence", () => {
-      const player = createTestPlayer({
+      const state = createStateWithVillage({
         units: [],
         commandTokens: 2,
-      });
-      const state = createTestGameState({
-        players: [player],
-        phase: GAME_PHASE_ROUND,
       });
 
       const result = engine.processAction(state, "player1", {
@@ -143,13 +152,9 @@ describe("Unit System", () => {
     });
 
     it("should allow recruiting multiple units up to command limit", () => {
-      const player = createTestPlayer({
+      let state = createStateWithVillage({
         units: [],
         commandTokens: 3,
-      });
-      let state = createTestGameState({
-        players: [player],
-        phase: GAME_PHASE_ROUND,
       });
 
       // Recruit first unit

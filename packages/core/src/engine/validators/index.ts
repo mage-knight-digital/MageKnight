@@ -21,6 +21,8 @@ import {
   ASSIGN_DAMAGE_ACTION,
   RECRUIT_UNIT_ACTION,
   ACTIVATE_UNIT_ACTION,
+  INTERACT_ACTION,
+  ANNOUNCE_END_OF_ROUND_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -108,7 +110,23 @@ import {
   validateUnitExists,
   validateUnitCanActivate,
   validateUnitCanReceiveDamage,
+  validateAtRecruitmentSite,
+  validateUnitTypeMatchesSite,
 } from "./unitValidators.js";
+
+// Interact validators
+import {
+  validateAtInhabitedSite,
+  validateSiteAccessible,
+  validateHealingPurchase,
+} from "./interactValidators.js";
+
+// Round validators
+import {
+  validateDeckEmpty,
+  validateRoundEndNotAnnounced,
+  validateMustAnnounceEndOfRound,
+} from "./roundValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -143,6 +161,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending, // Must resolve pending choice first
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateHasNotActed, // Must move BEFORE taking action
     validatePlayerOnMap,
     validateTargetAdjacent,
@@ -165,6 +184,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending, // Must resolve pending choice first
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateHasNotActed,
     validatePlayerOnMapForExplore,
     validateOnEdgeHex,
@@ -176,6 +196,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending, // Must resolve pending choice first
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     // Note: Playing cards is allowed during combat and doesn't count as the "action"
     validateCardInHand,
     validateCardExists,
@@ -189,6 +210,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending, // Must resolve pending choice first
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateSidewaysCardInHand,
     validateSidewaysNotWound, // Any non-wound card is valid for sideways play
     validateSidewaysChoice,
@@ -202,6 +224,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateHasNotActed, // Can only rest if you haven't taken an action
     validateRestHasDiscard,
     validateRestCardsInHand,
@@ -213,6 +236,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotAlreadyInCombat,
   ],
   [END_COMBAT_PHASE_ACTION]: [
@@ -245,15 +269,37 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateCommandSlots,
     validateInfluenceCost,
+    validateAtRecruitmentSite,
+    validateUnitTypeMatchesSite,
+  ],
+  [INTERACT_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNoChoicePending,
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateHasNotActed,
+    validateAtInhabitedSite,
+    validateSiteAccessible,
+    validateHealingPurchase,
   ],
   [ACTIVATE_UNIT_ACTION]: [
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateUnitExists,
     validateUnitCanActivate,
+  ],
+  [ANNOUNCE_END_OF_ROUND_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateDeckEmpty,
+    validateRoundEndNotAnnounced,
   ],
 };
 

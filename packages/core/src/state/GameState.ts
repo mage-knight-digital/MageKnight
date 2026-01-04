@@ -45,6 +45,7 @@ export interface GameState {
   readonly turnOrder: readonly string[]; // player IDs in current round order
   readonly currentPlayerIndex: number; // index into turnOrder
   readonly endOfRoundAnnouncedBy: string | null; // player ID who announced
+  readonly playersWithFinalTurn: readonly string[]; // players who still get one more turn after announcement
   readonly players: readonly Player[];
   readonly map: MapState;
   readonly combat: CombatState | null; // null when not in combat
@@ -88,6 +89,7 @@ export function createInitialGameState(seed?: number): GameState {
     turnOrder: [],
     currentPlayerIndex: 0,
     endOfRoundAnnouncedBy: null,
+    playersWithFinalTurn: [],
     players: [],
     map: createEmptyMapState(),
     combat: null,

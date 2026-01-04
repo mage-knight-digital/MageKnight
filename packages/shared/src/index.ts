@@ -77,6 +77,10 @@ export type {
   RoundEndedEvent,
   GameEndedEvent,
   EndOfRoundAnnouncedEvent,
+  NewRoundStartedEvent,
+  TimeOfDayChangedEvent,
+  ManaSourceResetEvent,
+  DecksReshuffledEvent,
   PlayerRestedEvent,
   RestUndoneEvent,
   // Movement

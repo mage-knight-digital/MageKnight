@@ -149,3 +149,25 @@ export function isAdventureSite(siteType: SiteType): boolean {
 export function allowsMultipleHeroes(siteType: SiteType): boolean {
   return SITE_PROPERTIES[siteType].allowsMultipleHeroes;
 }
+
+// =============================================================================
+// HEALING COSTS
+// =============================================================================
+
+/**
+ * Healing costs by site type.
+ * Value is the amount of influence required for 1 healing point.
+ * Null means the site doesn't offer healing.
+ */
+export const HEALING_COSTS: Partial<Record<SiteType, number>> = {
+  [SiteType.Village]: 3, // 3 influence = 1 healing
+  [SiteType.Monastery]: 2, // 2 influence = 1 healing (cheaper)
+};
+
+/**
+ * Get the healing cost for a site type.
+ * Returns null if the site doesn't offer healing.
+ */
+export function getHealingCost(siteType: SiteType): number | null {
+  return HEALING_COSTS[siteType] ?? null;
+}

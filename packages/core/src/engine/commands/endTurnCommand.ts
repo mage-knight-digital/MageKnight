@@ -7,8 +7,11 @@
  * - Moves play area cards to discard
  * - Draws cards up to hand limit (no mid-round reshuffle)
  * - Resets turn state (hasMovedThisTurn, hasTakenActionThisTurn, movePoints, etc.)
- * - Advances to next player (or next round if everyone has gone)
- * - At round end: reshuffles all players' cards and draws fresh hands
+ * - Advances to next player (or triggers round end if final turns complete)
+ *
+ * Round end is triggered when:
+ * - End of round has been announced AND
+ * - All other players have taken their final turn (playersWithFinalTurn is empty)
  */
 
 import type { Command, CommandResult } from "../commands.js";
@@ -17,7 +20,6 @@ import type { Player } from "../../types/player.js";
 import type { CardId, GameEvent } from "@mage-knight/shared";
 import {
   TURN_ENDED,
-  ROUND_ENDED,
   LEVEL_UP,
   LEVEL_UP_REWARDS_PENDING,
   COMMAND_SLOT_GAINED,
@@ -28,8 +30,8 @@ import {
 import { expireModifiers } from "../modifiers.js";
 import { EXPIRATION_TURN_END } from "../modifierConstants.js";
 import { END_TURN_COMMAND } from "./commandTypes.js";
-import { shuffleWithRng, type RngState } from "../../utils/index.js";
 import { rerollDie } from "../mana/manaSource.js";
+import { createEndRoundCommand } from "./endRoundCommand.js";
 
 export { END_TURN_COMMAND };
 
@@ -132,74 +134,62 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         { type: EXPIRATION_TURN_END, playerId: params.playerId }
       );
 
-      // Advance to next player
-      const nextPlayerIndex =
-        (state.currentPlayerIndex + 1) % state.turnOrder.length;
-      const isNewRound =
-        nextPlayerIndex === 0 && state.currentPlayerIndex !== 0;
+      // Check if round end was announced and track final turns
+      let updatedPlayersWithFinalTurn = [...state.playersWithFinalTurn];
+      let shouldTriggerRoundEnd = false;
 
-      const nextPlayerId = state.turnOrder[nextPlayerIndex] ?? null;
+      if (state.endOfRoundAnnouncedBy !== null) {
+        // Remove this player from the final turn list if they're on it
+        updatedPlayersWithFinalTurn = updatedPlayersWithFinalTurn.filter(
+          (id) => id !== params.playerId
+        );
+
+        // Round ends ONLY when ALL final turns are complete
+        // The announcing player's END_TURN does NOT trigger round end
+        // (they already forfeited their turn when announcing)
+        if (updatedPlayersWithFinalTurn.length === 0) {
+          shouldTriggerRoundEnd = true;
+        }
+      }
 
       newState = {
         ...newState,
-        currentPlayerIndex: nextPlayerIndex,
+        playersWithFinalTurn: updatedPlayersWithFinalTurn,
       };
 
-      // Handle round end: reshuffle all players' decks
-      if (isNewRound) {
-        let reshuffleRng: RngState = newState.rng;
-        const reshuffledPlayers: Player[] = [];
+      // Determine next player
+      let nextPlayerId: string | null = null;
 
-        for (const player of newState.players) {
-          // Gather all cards: hand + discard + deck + play area
-          const allCards: CardId[] = [
-            ...player.hand,
-            ...player.discard,
-            ...player.deck,
-            ...player.playArea,
-          ];
-          const { result: shuffledDeck, rng: newRng } = shuffleWithRng(
-            allCards,
-            reshuffleRng
-          );
-          reshuffleRng = newRng;
-
-          const playerHandLimit = player.handLimit;
-          const freshHand = shuffledDeck.slice(0, playerHandLimit);
-          const remainingDeck = shuffledDeck.slice(playerHandLimit);
-
-          reshuffledPlayers.push({
-            ...player,
-            hand: freshHand,
-            deck: remainingDeck,
-            discard: [],
-            playArea: [],
-          });
-        }
+      if (shouldTriggerRoundEnd) {
+        // Round is ending - no next player in current round
+        nextPlayerId = null;
+      } else {
+        // Advance to next player
+        const nextPlayerIndex =
+          (state.currentPlayerIndex + 1) % state.turnOrder.length;
+        nextPlayerId = state.turnOrder[nextPlayerIndex] ?? null;
 
         newState = {
           ...newState,
-          players: reshuffledPlayers,
-          round: state.round + 1,
-          rng: reshuffleRng,
+          currentPlayerIndex: nextPlayerIndex,
         };
-      }
 
-      // Give next player their starting move points (TEMPORARY - should come from cards)
-      if (nextPlayerId) {
-        const nextPlayerIdx = newState.players.findIndex(
-          (p) => p.id === nextPlayerId
-        );
-        if (nextPlayerIdx !== -1) {
-          const nextPlayer = newState.players[nextPlayerIdx];
-          if (nextPlayer) {
-            const updatedNextPlayer: Player = {
-              ...nextPlayer,
-              movePoints: 4, // TEMPORARY
-            };
-            const players: Player[] = [...newState.players];
-            players[nextPlayerIdx] = updatedNextPlayer;
-            newState = { ...newState, players };
+        // Give next player their starting move points (TEMPORARY - should come from cards)
+        if (nextPlayerId) {
+          const nextPlayerIdx = newState.players.findIndex(
+            (p) => p.id === nextPlayerId
+          );
+          if (nextPlayerIdx !== -1) {
+            const nextPlayer = newState.players[nextPlayerIdx];
+            if (nextPlayer) {
+              const updatedNextPlayer: Player = {
+                ...nextPlayer,
+                movePoints: 4, // TEMPORARY
+              };
+              const players: Player[] = [...newState.players];
+              players[nextPlayerIdx] = updatedNextPlayer;
+              newState = { ...newState, players };
+            }
           }
         }
       }
@@ -292,12 +282,14 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         events.push(...levelUpEvents);
       }
 
-      // Add ROUND_ENDED event if transitioning rounds
-      if (isNewRound) {
-        events.push({
-          type: ROUND_ENDED,
-          round: state.round,
-        });
+      // Trigger round end if all final turns are complete
+      if (shouldTriggerRoundEnd) {
+        const endRoundCommand = createEndRoundCommand();
+        const roundEndResult = endRoundCommand.execute(newState);
+        return {
+          state: roundEndResult.state,
+          events: [...events, ...roundEndResult.events],
+        };
       }
 
       return { state: newState, events };
