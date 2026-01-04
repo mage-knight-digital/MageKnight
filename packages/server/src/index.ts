@@ -377,6 +377,7 @@ export class GameServer {
       usedDieId: null,
       hasMovedThisTurn: false,
       hasTakenActionThisTurn: false,
+      hasCombattedThisTurn: false,
       combatAccumulator: {
         attack: { normal: 0, ranged: 0, siege: 0 },
         block: 0,

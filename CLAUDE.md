@@ -140,5 +140,20 @@ Example: two domains can both contain `"blue"`, but should still have separate c
 ### Monorepo Gotcha: Shared Builds
 
 Core/server consume `@mage-knight/shared` via built outputs. When adding new exports/constants to shared:
-- rebuild shared (`pnpm -C packages/shared build`) before expecting other packages to “see” them
+- rebuild shared (`pnpm -C packages/shared build`) before expecting other packages to "see" them
 - then re-run lint/tests (`pnpm -r lint`, `pnpm test`)
+
+## Pre-Push Verification
+
+**IMPORTANT:** Before pushing changes to the remote repository, always run the full CI check locally:
+
+```bash
+pnpm build && pnpm lint && pnpm test
+```
+
+This matches what CI runs and catches issues like:
+- Missing properties when types are modified in one package but not updated in another
+- Build errors that only surface during TypeScript compilation (not in IDE)
+- Cross-package type mismatches
+
+The monorepo structure means changes in `core` (e.g., adding a new field to `Player`) may require updates in `server` that won't be caught by IDE type-checking alone until a full build is performed.
