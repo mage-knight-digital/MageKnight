@@ -9,6 +9,7 @@
  */
 
 import type { CardId, SkillId, ManaColor } from "../ids.js";
+import type { UnitId } from "../units.js";
 import type { HexCoord } from "../hex.js";
 import type { Terrain } from "../terrain.js";
 import type { GamePhase, TimeOfDay } from "../stateConstants.js";
@@ -24,10 +25,8 @@ export interface ClientCrystals {
 
 // Client-visible unit state
 export interface ClientPlayerUnit {
-  readonly cardId: CardId;
-  readonly isSpent: boolean;
-  readonly isWounded: boolean;
-  readonly woundCount: number;
+  readonly unitId: UnitId;
+  readonly state: "ready" | "exhausted" | "wounded";
 }
 
 // Mana token in play area
@@ -131,7 +130,7 @@ export interface ClientCardOffer {
 
 // Game offers (public)
 export interface ClientGameOffers {
-  readonly units: readonly CardId[];
+  readonly units: readonly UnitId[];
   readonly advancedActions: ClientCardOffer;
   readonly spells: ClientCardOffer;
   readonly commonSkills: readonly SkillId[];

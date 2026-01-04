@@ -137,10 +137,8 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
 
     units: player.units.map(
       (unit): ClientPlayerUnit => ({
-        cardId: unit.cardId,
-        isSpent: unit.isSpent,
-        isWounded: unit.isWounded,
-        woundCount: unit.woundCount,
+        unitId: unit.unitId,
+        state: unit.state,
       })
     ),
 

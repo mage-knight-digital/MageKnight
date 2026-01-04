@@ -183,3 +183,6 @@ export * from "./combatTypes.js";
 
 // Enemy definitions
 export * from "./enemies.js";
+
+// Unit definitions
+export * from "./units.js";

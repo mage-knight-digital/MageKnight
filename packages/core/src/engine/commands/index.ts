@@ -278,7 +278,9 @@ function createEnterCombatCommandFromAction(
   return createEnterCombatCommand({
     playerId,
     enemyIds: action.enemyIds,
-    isAtFortifiedSite: action.isAtFortifiedSite,
+    ...(action.isAtFortifiedSite === undefined
+      ? {}
+      : { isAtFortifiedSite: action.isAtFortifiedSite }),
   });
 }
 

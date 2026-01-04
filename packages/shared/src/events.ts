@@ -4,6 +4,7 @@
 
 import type { HexCoord } from "./hex.js";
 import type { CardId, SkillId, ManaColor } from "./ids.js";
+import type { UnitId } from "./units.js";
 import {
   CARD_GAIN_SOURCE_LEVEL_UP,
   CARD_GAIN_SOURCE_OFFER,
@@ -368,7 +369,7 @@ export const UNIT_RECRUITED = "UNIT_RECRUITED" as const;
 export interface UnitRecruitedEvent {
   readonly type: typeof UNIT_RECRUITED;
   readonly playerId: string;
-  readonly cardId: CardId;
+  readonly unitId: UnitId;
 }
 
 export const UNIT_ACTIVATED = "UNIT_ACTIVATED" as const;
@@ -429,14 +430,19 @@ export interface OfferRefreshedEvent {
 }
 
 export const OFFER_CARD_TAKEN = "OFFER_CARD_TAKEN" as const;
-export interface OfferCardTakenEvent {
-  readonly type: typeof OFFER_CARD_TAKEN;
-  readonly offerType:
-    | typeof OFFER_TYPE_UNITS
-    | typeof OFFER_TYPE_ADVANCED_ACTIONS
-    | typeof OFFER_TYPE_SPELLS;
-  readonly cardId: CardId;
-}
+export type OfferCardTakenEvent =
+  | {
+      readonly type: typeof OFFER_CARD_TAKEN;
+      readonly offerType: typeof OFFER_TYPE_UNITS;
+      readonly unitId: UnitId;
+    }
+  | {
+      readonly type: typeof OFFER_CARD_TAKEN;
+      readonly offerType:
+        | typeof OFFER_TYPE_ADVANCED_ACTIONS
+        | typeof OFFER_TYPE_SPELLS;
+      readonly cardId: CardId;
+    };
 
 // Card undo events
 export const CARD_PLAY_UNDONE = "CARD_PLAY_UNDONE" as const;

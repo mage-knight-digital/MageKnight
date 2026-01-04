@@ -4,6 +4,7 @@
 
 import type { HexCoord, HexDirection } from "./hex.js";
 import type { CardId, SkillId, BasicManaColor, ManaColor } from "./ids.js";
+import type { UnitId } from "./units.js";
 import type { ManaSourceType } from "./valueConstants.js";
 import type { EnemyId } from "./enemies.js";
 import type { CombatType } from "./combatTypes.js";
@@ -120,7 +121,7 @@ export interface UseSkillAction {
 export const RECRUIT_UNIT_ACTION = "RECRUIT_UNIT" as const;
 export interface RecruitUnitAction {
   readonly type: typeof RECRUIT_UNIT_ACTION;
-  readonly cardId: CardId;
+  readonly unitId: UnitId;
 }
 
 export const BUY_SPELL_ACTION = "BUY_SPELL" as const;

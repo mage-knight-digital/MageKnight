@@ -5,7 +5,7 @@
  * Separate from decks (draw piles) in decks.ts.
  */
 
-import type { CardId, SkillId } from "@mage-knight/shared";
+import type { CardId, SkillId, UnitId } from "@mage-knight/shared";
 
 // Card offers with position tracking (position matters for sliding)
 export interface CardOffer {
@@ -14,8 +14,8 @@ export interface CardOffer {
 
 // All game offers (visible cards/skills available for purchase)
 export interface GameOffers {
-  // Visible unit cards for recruitment (refreshed each round from decks)
-  readonly units: readonly CardId[];
+  // Visible units for recruitment (refreshed each round from decks)
+  readonly units: readonly UnitId[];
 
   // Advanced actions offer - 3 visible, slides down when taken, replenished from deck
   readonly advancedActions: CardOffer;

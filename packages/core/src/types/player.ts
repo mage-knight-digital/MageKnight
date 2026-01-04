@@ -8,6 +8,7 @@ import type {
   SkillId,
   ManaColor,
   ManaTokenSource,
+  UnitId,
 } from "@mage-knight/shared";
 import type { Hero } from "./hero.js";
 import type { CardEffect } from "./cards.js";
@@ -55,9 +56,8 @@ export interface PendingChoice {
 }
 
 export interface PlayerUnit {
-  readonly cardId: CardId;
-  readonly isSpent: boolean;
-  readonly isWounded: boolean;
+  readonly unitId: UnitId;
+  readonly state: "ready" | "exhausted" | "wounded";
   readonly woundCount: number; // for poison (can be 2)
   readonly assignedBanner: CardId | null;
 }

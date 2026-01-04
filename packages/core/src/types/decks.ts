@@ -4,7 +4,7 @@
  * These are the draw piles, separate from offers (what's visible).
  */
 
-import type { CardId } from "@mage-knight/shared";
+import type { CardId, UnitId } from "@mage-knight/shared";
 
 // The various draw decks in the game
 export interface GameDecks {
@@ -18,8 +18,8 @@ export interface GameDecks {
   readonly artifacts: readonly CardId[];
 
   // Unit decks - separate silver (regular) and gold (elite)
-  readonly regularUnits: readonly CardId[]; // silver back
-  readonly eliteUnits: readonly CardId[]; // gold back
+  readonly regularUnits: readonly UnitId[]; // silver back
+  readonly eliteUnits: readonly UnitId[]; // gold back
 }
 
 // Helper to create empty decks

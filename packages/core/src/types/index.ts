@@ -71,10 +71,6 @@ export type {
   ChoiceEffect,
   CardEffect,
   DeedCard,
-  RecruitmentSite,
-  UnitTier,
-  UnitAbility,
-  UnitCard,
 } from "./cards.js";
 export {
   DEED_CARD_TYPE_BASIC_ACTION,
