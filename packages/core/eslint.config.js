@@ -327,6 +327,12 @@ export default tseslint.config(
           message:
             'Do not define ManaToken.source as a string-literal union. Use `ManaTokenSource` from `@mage-knight/shared`.',
         },
+        {
+          selector:
+            'TSInterfaceDeclaration[id.name="PlayerUnit"] TSPropertySignature[key.name="state"] TSUnionType > TSLiteralType > Literal[value=/^(ready|exhausted|wounded|spent)$/]',
+          message:
+            'Do not define PlayerUnit.state as a string-literal union. Use exported UNIT_STATE_* constants and UnitState.',
+        },
       ],
     },
   },

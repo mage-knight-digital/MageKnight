@@ -15,7 +15,16 @@ import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { CardId, GameEvent } from "@mage-knight/shared";
-import { TURN_ENDED, ROUND_ENDED } from "@mage-knight/shared";
+import {
+  TURN_ENDED,
+  ROUND_ENDED,
+  LEVEL_UP,
+  LEVEL_UP_REWARDS_PENDING,
+  COMMAND_SLOT_GAINED,
+  getLevelUpType,
+  LEVEL_STATS,
+  LEVEL_UP_TYPE_ODD,
+} from "@mage-knight/shared";
 import { expireModifiers } from "../modifiers.js";
 import { EXPIRATION_TURN_END } from "../modifierConstants.js";
 import { END_TURN_COMMAND } from "./commandTypes.js";
@@ -204,6 +213,84 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
           cardsDrawn,
         },
       ];
+
+      // Process pending level ups
+      const currentPlayerInNewState = newState.players.find(
+        (p) => p.id === params.playerId
+      );
+      if (
+        currentPlayerInNewState &&
+        currentPlayerInNewState.pendingLevelUps.length > 0
+      ) {
+        const levelUpEvents: GameEvent[] = [];
+        let levelUpPlayer = { ...currentPlayerInNewState };
+        const evenLevels: number[] = [];
+
+        for (const newLevel of currentPlayerInNewState.pendingLevelUps) {
+          const levelUpType = getLevelUpType(newLevel);
+          const stats = LEVEL_STATS[newLevel];
+
+          // Skip if no stats for this level (shouldn't happen in practice)
+          if (!stats) {
+            continue;
+          }
+
+          // Update base stats
+          levelUpPlayer = {
+            ...levelUpPlayer,
+            level: newLevel,
+            armor: stats.armor,
+            handLimit: stats.handLimit,
+            commandTokens: stats.commandSlots,
+          };
+
+          levelUpEvents.push({
+            type: LEVEL_UP,
+            playerId: params.playerId,
+            oldLevel: newLevel - 1,
+            newLevel,
+            levelUpType,
+          });
+
+          if (levelUpType === LEVEL_UP_TYPE_ODD) {
+            // Odd levels: immediate stat gains, no choices needed
+            levelUpEvents.push({
+              type: COMMAND_SLOT_GAINED,
+              playerId: params.playerId,
+              newTotal: stats.commandSlots,
+            });
+          } else {
+            // Even levels: need player choice for skill + advanced action
+            evenLevels.push(newLevel);
+          }
+        }
+
+        // If there are even levels, emit a pending event for choices
+        if (evenLevels.length > 0) {
+          levelUpEvents.push({
+            type: LEVEL_UP_REWARDS_PENDING,
+            playerId: params.playerId,
+            pendingLevels: evenLevels,
+          });
+        }
+
+        // Clear pending level ups
+        levelUpPlayer = {
+          ...levelUpPlayer,
+          pendingLevelUps: [],
+        };
+
+        // Update player in state
+        const playerIdx = newState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        const playersWithLevelUp: Player[] = [...newState.players];
+        playersWithLevelUp[playerIdx] = levelUpPlayer;
+        newState = { ...newState, players: playersWithLevelUp };
+
+        // Add level up events
+        events.push(...levelUpEvents);
+      }
 
       // Add ROUND_ENDED event if transitioning rounds
       if (isNewRound) {

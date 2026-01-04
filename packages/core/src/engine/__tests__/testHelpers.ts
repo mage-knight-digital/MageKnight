@@ -60,6 +60,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
       block: 0,
     },
     pendingChoice: null,
+    pendingLevelUps: [],
     ...overrides,
   };
 }

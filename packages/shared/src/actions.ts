@@ -157,6 +157,18 @@ export interface ResolveChoiceAction {
   readonly choiceIndex: number; // Which option to choose (0, 1, etc.)
 }
 
+// Level up rewards choice action
+export const CHOOSE_LEVEL_UP_REWARDS_ACTION = "CHOOSE_LEVEL_UP_REWARDS" as const;
+export interface ChooseLevelUpRewardsAction {
+  readonly type: typeof CHOOSE_LEVEL_UP_REWARDS_ACTION;
+  readonly level: number;
+  readonly skillChoice: {
+    readonly fromCommonPool: boolean;
+    readonly skillId: string;
+  };
+  readonly advancedActionId: string;
+}
+
 // Combat action constants
 export const ENTER_COMBAT_ACTION = "ENTER_COMBAT" as const;
 export const END_COMBAT_PHASE_ACTION = "END_COMBAT_PHASE" as const;
@@ -239,6 +251,8 @@ export type PlayerAction =
   | UndoAction
   // Choice resolution
   | ResolveChoiceAction
+  // Level up
+  | ChooseLevelUpRewardsAction
   // Combat
   | EnterCombatAction
   | EndCombatPhaseAction

@@ -11,9 +11,11 @@ export type {
   ManaToken,
   SkillCooldowns,
   Crystals,
-  PlayerUnit,
   Player,
 } from "./player.js";
+
+// Units
+export type { PlayerUnit, UnitState } from "./unit.js";
 
 // Hero types
 export type { HeroDefinition } from "./hero.js";

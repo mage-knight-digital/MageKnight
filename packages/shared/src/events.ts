@@ -5,6 +5,7 @@
 import type { HexCoord } from "./hex.js";
 import type { CardId, SkillId, ManaColor } from "./ids.js";
 import type { UnitId } from "./units.js";
+import type { LevelUpType } from "./levels.js";
 import {
   CARD_GAIN_SOURCE_LEVEL_UP,
   CARD_GAIN_SOURCE_OFFER,
@@ -359,9 +360,30 @@ export const LEVEL_UP = "LEVEL_UP" as const;
 export interface LevelUpEvent {
   readonly type: typeof LEVEL_UP;
   readonly playerId: string;
+  readonly oldLevel: number;
   readonly newLevel: number;
-  readonly newArmor: number;
-  readonly newHandLimit: number;
+  readonly levelUpType: LevelUpType;
+}
+
+export const LEVEL_UP_REWARDS_PENDING = "LEVEL_UP_REWARDS_PENDING" as const;
+export interface LevelUpRewardsPendingEvent {
+  readonly type: typeof LEVEL_UP_REWARDS_PENDING;
+  readonly playerId: string;
+  readonly pendingLevels: readonly number[];
+}
+
+export const ADVANCED_ACTION_GAINED = "ADVANCED_ACTION_GAINED" as const;
+export interface AdvancedActionGainedEvent {
+  readonly type: typeof ADVANCED_ACTION_GAINED;
+  readonly playerId: string;
+  readonly cardId: CardId;
+}
+
+export const COMMAND_SLOT_GAINED = "COMMAND_SLOT_GAINED" as const;
+export interface CommandSlotGainedEvent {
+  readonly type: typeof COMMAND_SLOT_GAINED;
+  readonly playerId: string;
+  readonly newTotal: number;
 }
 
 // Unit events
@@ -637,6 +659,9 @@ export type GameEvent =
   | FameLostEvent
   | ReputationChangedEvent
   | LevelUpEvent
+  | LevelUpRewardsPendingEvent
+  | AdvancedActionGainedEvent
+  | CommandSlotGainedEvent
   // Units
   | UnitRecruitedEvent
   | UnitActivatedEvent

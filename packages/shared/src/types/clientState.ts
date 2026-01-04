@@ -14,6 +14,7 @@ import type { HexCoord } from "../hex.js";
 import type { Terrain } from "../terrain.js";
 import type { GamePhase, TimeOfDay } from "../stateConstants.js";
 import type { ManaTokenSource } from "../valueConstants.js";
+import type { UnitState } from "../unitState.js";
 
 // Crystals (same as core, but defined here for independence)
 export interface ClientCrystals {
@@ -26,7 +27,8 @@ export interface ClientCrystals {
 // Client-visible unit state
 export interface ClientPlayerUnit {
   readonly unitId: UnitId;
-  readonly state: "ready" | "exhausted" | "wounded";
+  readonly state: UnitState;
+  readonly wounded: boolean;
 }
 
 // Mana token in play area

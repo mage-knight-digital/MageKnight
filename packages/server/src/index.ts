@@ -139,6 +139,7 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
       (unit): ClientPlayerUnit => ({
         unitId: unit.unitId,
         state: unit.state,
+        wounded: unit.wounded,
       })
     ),
 
@@ -381,6 +382,7 @@ export class GameServer {
         block: 0,
       },
       pendingChoice: null,
+      pendingLevelUps: [],
     };
 
     return { player, rng: newRng };

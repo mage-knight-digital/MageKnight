@@ -8,10 +8,10 @@ import type {
   SkillId,
   ManaColor,
   ManaTokenSource,
-  UnitId,
 } from "@mage-knight/shared";
 import type { Hero } from "./hero.js";
 import type { CardEffect } from "./cards.js";
+import type { PlayerUnit } from "./unit.js";
 
 // Core-only branded ID type
 export type TacticCardId = string & { readonly __brand: "TacticCardId" };
@@ -53,13 +53,6 @@ export interface CombatAccumulator {
 export interface PendingChoice {
   readonly cardId: CardId;
   readonly options: readonly CardEffect[];
-}
-
-export interface PlayerUnit {
-  readonly unitId: UnitId;
-  readonly state: "ready" | "exhausted" | "wounded";
-  readonly woundCount: number; // for poison (can be 2)
-  readonly assignedBanner: CardId | null;
 }
 
 export interface Player {
@@ -119,4 +112,7 @@ export interface Player {
   // TODO: Should be pendingChoices: PendingChoice[] to allow stacking multiple
   // choice cards before resolution. See validators/index.ts for full explanation.
   readonly pendingChoice: PendingChoice | null;
+
+  // Pending level ups to process at end of turn
+  readonly pendingLevelUps: readonly number[]; // Levels crossed this turn
 }

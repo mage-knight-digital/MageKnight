@@ -5,7 +5,11 @@
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { CombatType, GameEvent, AttackSource } from "@mage-knight/shared";
-import { ENEMY_DEFEATED, ATTACK_FAILED } from "@mage-knight/shared";
+import {
+  ENEMY_DEFEATED,
+  ATTACK_FAILED,
+  getLevelsCrossed,
+} from "@mage-knight/shared";
 import {
   calculateEffectiveAttack,
   combineResistances,
@@ -105,8 +109,19 @@ export function createDeclareAttackCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
+      // Check for level ups when fame changes
+      const oldFame = player.fame;
+      const newFame = player.fame + fameGained;
+      const levelsCrossed = getLevelsCrossed(oldFame, newFame);
+
       const updatedPlayers = state.players.map((p, i) =>
-        i === playerIndex ? { ...p, fame: p.fame + fameGained } : p
+        i === playerIndex
+          ? {
+              ...p,
+              fame: newFame,
+              pendingLevelUps: [...p.pendingLevelUps, ...levelsCrossed],
+            }
+          : p
       );
 
       const updatedCombat = {

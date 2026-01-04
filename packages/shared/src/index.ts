@@ -45,8 +45,24 @@ export {
   TERRAIN_OCEAN,
 } from "./terrain.js";
 
+// Levels
+export type { LevelStats, LevelUpType } from "./levels.js";
+export {
+  LEVEL_THRESHOLDS,
+  MAX_LEVEL,
+  LEVEL_STATS,
+  LEVEL_UP_TYPE_ODD,
+  LEVEL_UP_TYPE_EVEN,
+  getLevelUpType,
+  getLevelFromFame,
+  getLevelsCrossed,
+} from "./levels.js";
+
 // Shared state constants/types
 export * from "./stateConstants.js";
+
+// Unit state
+export * from "./unitState.js";
 
 // Events
 export * from "./events.js";
@@ -87,6 +103,9 @@ export type {
   FameLostEvent,
   ReputationChangedEvent,
   LevelUpEvent,
+  LevelUpRewardsPendingEvent,
+  AdvancedActionGainedEvent,
+  CommandSlotGainedEvent,
   // Units
   UnitRecruitedEvent,
   UnitActivatedEvent,
@@ -141,6 +160,8 @@ export type {
   UndoAction,
   // Choice resolution
   ResolveChoiceAction,
+  // Level up
+  ChooseLevelUpRewardsAction,
   // Combat
   BlockSource,
   AttackSource,

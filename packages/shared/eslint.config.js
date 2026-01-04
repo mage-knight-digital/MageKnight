@@ -98,6 +98,21 @@ export default tseslint.config(
       ],
     },
   },
+  // Red/green guardrail: eliminate client unit state unions.
+  {
+    files: ["src/types/clientState.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'TSInterfaceDeclaration[id.name="ClientPlayerUnit"] TSPropertySignature[key.name="state"] TSUnionType > TSLiteralType > Literal[value=/^(ready|exhausted|wounded|spent)$/]',
+          message:
+            'Do not define ClientPlayerUnit.state as a string-literal union. Use `UnitState` + `UNIT_STATE_*` constants.',
+        },
+      ],
+    },
+  },
   // Red/green guardrail: eliminate `"hero"` literal in wound target union (events.ts).
   {
     files: ["src/events.ts"],
