@@ -92,6 +92,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         influencePoints: 0,
         hasMovedThisTurn: false,
         hasTakenActionThisTurn: false,
+        hasCombattedThisTurn: false, // Reset combat flag for next turn
         pureMana: [],
         usedManaFromSource: false,
         usedDieId: null,

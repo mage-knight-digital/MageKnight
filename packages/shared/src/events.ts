@@ -23,6 +23,7 @@ import {
   UNIT_DESTROY_REASON_DOUBLE_WOUND,
   UNIT_DESTROY_REASON_PARALYZE,
   WOUND_TARGET_HERO,
+  type ReputationChangeReason,
 } from "./valueConstants.js";
 
 // Game lifecycle events
@@ -411,7 +412,22 @@ export interface ReputationChangedEvent {
   readonly playerId: string;
   readonly delta: number;
   readonly newValue: number;
-  readonly reason: string;
+  readonly reason: ReputationChangeReason;
+}
+
+export function createReputationChangedEvent(
+  playerId: string,
+  delta: number,
+  newValue: number,
+  reason: ReputationChangeReason
+): ReputationChangedEvent {
+  return {
+    type: REPUTATION_CHANGED,
+    playerId,
+    delta,
+    newValue,
+    reason,
+  };
 }
 
 export const LEVEL_UP = "LEVEL_UP" as const;

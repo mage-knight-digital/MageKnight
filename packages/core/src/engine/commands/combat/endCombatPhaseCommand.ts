@@ -1,10 +1,15 @@
 /**
  * End combat phase command
+ *
+ * When combat ends with victory at a site:
+ * - Triggers automatic conquest
+ * - Clears enemies from hex
  */
 
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
-import { COMBAT_PHASE_CHANGED, COMBAT_ENDED } from "@mage-knight/shared";
+import type { GameEvent } from "@mage-knight/shared";
+import { COMBAT_PHASE_CHANGED, COMBAT_ENDED, hexKey } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
@@ -12,6 +17,9 @@ import {
   COMBAT_PHASE_ATTACK,
   type CombatPhase,
 } from "../../../types/combat.js";
+import type { Player } from "../../../types/player.js";
+import type { HexState } from "../../../types/map.js";
+import { createConquerSiteCommand } from "../conquerSiteCommand.js";
 
 export const END_COMBAT_PHASE_COMMAND = "END_COMBAT_PHASE" as const;
 
@@ -56,18 +64,73 @@ export function createEndCombatPhaseCommand(
         const enemiesSurvived = state.combat.enemies.filter(
           (e) => !e.isDefeated
         ).length;
+        const victory = enemiesSurvived === 0;
+
+        const events: GameEvent[] = [
+          {
+            type: COMBAT_ENDED,
+            victory,
+            totalFameGained: state.combat.fameGained,
+            enemiesDefeated,
+            enemiesSurvived,
+          },
+        ];
+
+        let newState: GameState = { ...state, combat: null };
+
+        // Find the player to get their position
+        const player = state.players.find((p) => p.id === params.playerId);
+        if (player?.position) {
+          const key = hexKey(player.position);
+          const hex = state.map.hexes[key];
+
+          if (victory && hex) {
+            // Clear enemies from hex on victory
+            const updatedHex: HexState = {
+              ...hex,
+              enemies: [],
+            };
+            const updatedHexes = {
+              ...newState.map.hexes,
+              [key]: updatedHex,
+            };
+            newState = {
+              ...newState,
+              map: { ...newState.map, hexes: updatedHexes },
+            };
+
+            // Trigger conquest if at an unconquered site
+            if (hex.site && !hex.site.isConquered) {
+              const conquestCommand = createConquerSiteCommand({
+                playerId: params.playerId,
+                hexCoord: player.position,
+                enemiesDefeated,
+              });
+              const conquestResult = conquestCommand.execute(newState);
+              newState = conquestResult.state;
+              events.push(...conquestResult.events);
+            }
+          }
+
+          // Mark player as having combatted this turn
+          const playerIndex = newState.players.findIndex(
+            (p) => p.id === params.playerId
+          );
+          const currentPlayer = newState.players[playerIndex];
+          if (playerIndex !== -1 && currentPlayer) {
+            const updatedPlayer: Player = {
+              ...currentPlayer,
+              hasCombattedThisTurn: true,
+            };
+            const updatedPlayers: Player[] = [...newState.players];
+            updatedPlayers[playerIndex] = updatedPlayer;
+            newState = { ...newState, players: updatedPlayers };
+          }
+        }
 
         return {
-          state: { ...state, combat: null },
-          events: [
-            {
-              type: COMBAT_ENDED,
-              victory: enemiesSurvived === 0,
-              totalFameGained: state.combat.fameGained,
-              enemiesDefeated,
-              enemiesSurvived,
-            },
-          ],
+          state: newState,
+          events,
         };
       }
 

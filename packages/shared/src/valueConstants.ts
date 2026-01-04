@@ -67,3 +67,15 @@ export type CombatTriggerType =
   | typeof COMBAT_TRIGGER_FORTIFIED_ASSAULT
   | typeof COMBAT_TRIGGER_PROVOKE_RAMPAGING
   | typeof COMBAT_TRIGGER_VOLUNTARY_EXPLORE;
+
+// === Reputation change reasons ===
+export const REPUTATION_REASON_ASSAULT = "assault" as const;
+export const REPUTATION_REASON_BURN_MONASTERY = "burn_monastery" as const;
+export const REPUTATION_REASON_DEFEAT_RAMPAGING = "defeat_rampaging" as const;
+export const REPUTATION_REASON_INTERACTION = "interaction" as const;
+
+export type ReputationChangeReason =
+  | typeof REPUTATION_REASON_ASSAULT
+  | typeof REPUTATION_REASON_BURN_MONASTERY
+  | typeof REPUTATION_REASON_DEFEAT_RAMPAGING
+  | typeof REPUTATION_REASON_INTERACTION;

@@ -34,6 +34,7 @@ import {
   INVALID_ATTACK_TYPE,
   DAMAGE_NOT_ASSIGNED,
   FORTIFIED_NEEDS_SIEGE,
+  ALREADY_COMBATTED,
 } from "./validationCodes.js";
 
 // Must not already be in combat
@@ -324,6 +325,24 @@ export function validateFortification(
       FORTIFIED_NEEDS_SIEGE,
       `Fortified enemies (${names}) can only be attacked with Siege in Ranged/Siege phase`
     );
+  }
+
+  return valid();
+}
+
+// Can only have one combat per turn
+export function validateOneCombatPerTurn(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ENTER_COMBAT_ACTION) return valid();
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return valid();
+
+  if (player.hasCombattedThisTurn) {
+    return invalid(ALREADY_COMBATTED, "You can only have one combat per turn");
   }
 
   return valid();

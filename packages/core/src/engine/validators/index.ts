@@ -102,6 +102,7 @@ import {
   validateAttackTargets,
   validateDamageAssignedBeforeLeaving,
   validateFortification,
+  validateOneCombatPerTurn,
 } from "./combatValidators.js";
 
 // Unit validators
@@ -240,6 +241,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoChoicePending,
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotAlreadyInCombat,
+    validateOneCombatPerTurn, // Can only have one combat per turn
   ],
   [END_COMBAT_PHASE_ACTION]: [
     validateIsPlayersTurn,

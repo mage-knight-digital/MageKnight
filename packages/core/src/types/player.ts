@@ -115,4 +115,7 @@ export interface Player {
 
   // Pending level ups to process at end of turn
   readonly pendingLevelUps: readonly number[]; // Levels crossed this turn
+
+  // Combat tracking (only one combat per turn allowed)
+  readonly hasCombattedThisTurn: boolean;
 }

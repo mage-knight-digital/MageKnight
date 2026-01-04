@@ -72,6 +72,7 @@ export const ENEMY_ALREADY_DEFEATED = "ENEMY_ALREADY_DEFEATED" as const;
 export const INVALID_ATTACK_TYPE = "INVALID_ATTACK_TYPE" as const;
 export const DAMAGE_NOT_ASSIGNED = "DAMAGE_NOT_ASSIGNED" as const;
 export const FORTIFIED_NEEDS_SIEGE = "FORTIFIED_NEEDS_SIEGE" as const;
+export const ALREADY_COMBATTED = "ALREADY_COMBATTED" as const;
 
 // Unit validation codes
 export const NO_COMMAND_SLOTS = "NO_COMMAND_SLOTS" as const;
@@ -155,6 +156,7 @@ export type ValidationErrorCode =
   | typeof INVALID_ATTACK_TYPE
   | typeof DAMAGE_NOT_ASSIGNED
   | typeof FORTIFIED_NEEDS_SIEGE
+  | typeof ALREADY_COMBATTED
   // Unit validation
   | typeof NO_COMMAND_SLOTS
   | typeof INSUFFICIENT_INFLUENCE
