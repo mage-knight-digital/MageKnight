@@ -263,6 +263,13 @@ export interface PlayerKnockedOutEvent {
   readonly woundsThisCombat: number;
 }
 
+export const PARALYZE_HAND_DISCARDED = "PARALYZE_HAND_DISCARDED" as const;
+export interface ParalyzeHandDiscardedEvent {
+  readonly type: typeof PARALYZE_HAND_DISCARDED;
+  readonly playerId: string;
+  readonly cardsDiscarded: number;
+}
+
 export const COMBAT_TRIGGERED = "COMBAT_TRIGGERED" as const;
 export interface CombatTriggeredEvent {
   readonly type: typeof COMBAT_TRIGGERED;
@@ -788,6 +795,7 @@ export type GameEvent =
   | DamageAssignedEvent
   | CombatEndedEvent
   | PlayerKnockedOutEvent
+  | ParalyzeHandDiscardedEvent
   | CombatTriggeredEvent
   // Cards
   | CardPlayedEvent

@@ -15,6 +15,7 @@ import type { CardId, GameEvent, DamageAssignment, EnemyAbilityType } from "@mag
 import {
   DAMAGE_ASSIGNED,
   PLAYER_KNOCKED_OUT,
+  PARALYZE_HAND_DISCARDED,
   CARD_WOUND,
   UNIT_WOUNDED,
   UNIT_DESTROYED,
@@ -22,8 +23,10 @@ import {
   DAMAGE_TARGET_UNIT,
   UNIT_DESTROY_REASON_DOUBLE_WOUND,
   UNIT_DESTROY_REASON_POISON,
+  UNIT_DESTROY_REASON_PARALYZE,
   ABILITY_BRUTAL,
   ABILITY_POISON,
+  ABILITY_PARALYZE,
   getUnit,
 } from "@mage-knight/shared";
 import { isAttackResisted } from "../../combat/elementalCalc.js";
@@ -66,6 +69,20 @@ function isPoisonActive(
 }
 
 /**
+ * Check if enemy's paralyze ability is active (not nullified)
+ * Paralyze (hero): discard all non-wound cards from hand when wounds are taken
+ * Paralyze (unit): unit is immediately destroyed when it would be wounded
+ */
+function isParalyzeActive(
+  state: GameState,
+  playerId: string,
+  enemy: CombatEnemy
+): boolean {
+  if (!hasAbility(enemy, ABILITY_PARALYZE)) return false;
+  return !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_PARALYZE);
+}
+
+/**
  * Get effective damage from an enemy attack
  * Brutal: doubles the damage
  */
@@ -96,13 +113,17 @@ export interface AssignDamageCommandParams {
  *
  * Poison: If a unit would be wounded by a poison attack, it receives 2 wounds
  * and is immediately destroyed (since units can only take 1 wound before death).
+ *
+ * Paralyze: If a unit would be wounded by a paralyze attack, it is immediately
+ * destroyed (similar to poison, but the unit still absorbs its armor value).
  */
 function processUnitDamage(
   unit: PlayerUnit,
   damageAmount: number,
   attackElement: import("@mage-knight/shared").Element,
   playerId: string,
-  isPoisoned: boolean
+  isPoisoned: boolean,
+  isParalyzed: boolean
 ): {
   unit: PlayerUnit;
   damageRemaining: number;
@@ -119,7 +140,7 @@ function processUnitDamage(
   let unitWounded = unit.wounded;
   let usedResistance = unit.usedResistanceThisCombat;
   let destroyed = false;
-  let destroyReason: typeof UNIT_DESTROY_REASON_DOUBLE_WOUND | typeof UNIT_DESTROY_REASON_POISON =
+  let destroyReason: typeof UNIT_DESTROY_REASON_DOUBLE_WOUND | typeof UNIT_DESTROY_REASON_POISON | typeof UNIT_DESTROY_REASON_PARALYZE =
     UNIT_DESTROY_REASON_DOUBLE_WOUND;
 
   if (isResistant && !unit.wounded && !unit.usedResistanceThisCombat) {
@@ -131,8 +152,13 @@ function processUnitDamage(
       // Still damage remaining after first armor reduction: wound the unit
       unitWounded = true;
 
+      // Paralyze: if unit would be wounded, it is immediately destroyed
+      if (isParalyzed) {
+        destroyed = true;
+        destroyReason = UNIT_DESTROY_REASON_PARALYZE;
+        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
       // Poison: if unit would be wounded, it gets 2 wounds = destroyed
-      if (isPoisoned) {
+      } else if (isPoisoned) {
         destroyed = true;
         destroyReason = UNIT_DESTROY_REASON_POISON;
         damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
@@ -155,8 +181,13 @@ function processUnitDamage(
       // First wound: apply armor and wound
       unitWounded = true;
 
+      // Paralyze: if unit would be wounded, it is immediately destroyed
+      if (isParalyzed) {
+        destroyed = true;
+        destroyReason = UNIT_DESTROY_REASON_PARALYZE;
+        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
       // Poison: if unit would be wounded, it gets 2 wounds = destroyed
-      if (isPoisoned) {
+      } else if (isPoisoned) {
         destroyed = true;
         destroyReason = UNIT_DESTROY_REASON_POISON;
         damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
@@ -236,6 +267,7 @@ export function createAssignDamageCommand(
       const totalDamage = getEffectiveDamage(enemy, state, params.playerId);
       const attackElement = enemy.definition.attackElement;
       const isPoisoned = isPoisonActive(state, params.playerId, enemy);
+      const isParalyzed = isParalyzeActive(state, params.playerId, enemy);
       const events: GameEvent[] = [];
 
       let updatedPlayer: Player = player;
@@ -269,7 +301,8 @@ export function createAssignDamageCommand(
             assignment.amount,
             attackElement,
             params.playerId,
-            isPoisoned
+            isPoisoned,
+            isParalyzed
           );
 
           events.push(...result.events);
@@ -307,8 +340,24 @@ export function createAssignDamageCommand(
           ? Array(heroWounds).fill(CARD_WOUND)
           : [];
 
-        const newHand: CardId[] = [...updatedPlayer.hand, ...woundsToHand];
-        const newDiscard: CardId[] = [...updatedPlayer.discard, ...woundsToDiscard];
+        let newHand: CardId[] = [...updatedPlayer.hand, ...woundsToHand];
+        let newDiscard: CardId[] = [...updatedPlayer.discard, ...woundsToDiscard];
+
+        // Paralyze (hero): discard all non-wound cards from hand when wounds are taken
+        if (isParalyzed) {
+          const nonWoundsInHand = newHand.filter((cardId) => cardId !== CARD_WOUND);
+          const woundsInHand = newHand.filter((cardId) => cardId === CARD_WOUND);
+
+          if (nonWoundsInHand.length > 0) {
+            newHand = woundsInHand;
+            newDiscard = [...newDiscard, ...nonWoundsInHand];
+            events.push({
+              type: PARALYZE_HAND_DISCARDED,
+              playerId: params.playerId,
+              cardsDiscarded: nonWoundsInHand.length,
+            });
+          }
+        }
 
         // Only wounds to HAND count for knockout tracking
         // Poison wounds to discard are extra punishment but don't count toward knockout threshold
