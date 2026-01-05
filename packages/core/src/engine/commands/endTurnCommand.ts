@@ -39,6 +39,7 @@ import { EXPIRATION_TURN_END } from "../modifierConstants.js";
 import { END_TURN_COMMAND } from "./commandTypes.js";
 import { rerollDie } from "../mana/manaSource.js";
 import { createEndRoundCommand } from "./endRoundCommand.js";
+import { createAnnounceEndOfRoundCommand } from "./announceEndOfRoundCommand.js";
 import { getEffectiveHandLimit } from "../helpers/handLimitHelpers.js";
 
 export { END_TURN_COMMAND };
@@ -65,6 +66,17 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const currentPlayer = state.players[playerIndex];
       if (!currentPlayer) {
         throw new Error(`Player not found at index: ${playerIndex}`);
+      }
+
+      // If deck and hand are both empty, player MUST announce end of round
+      // Auto-convert END_TURN to ANNOUNCE_END_OF_ROUND
+      // (Only if end of round hasn't already been announced)
+      if (
+        currentPlayer.deck.length === 0 &&
+        currentPlayer.hand.length === 0 &&
+        state.endOfRoundAnnouncedBy === null
+      ) {
+        return createAnnounceEndOfRoundCommand({ playerId: params.playerId }).execute(state);
       }
 
       // Step 1: Move play area cards to discard

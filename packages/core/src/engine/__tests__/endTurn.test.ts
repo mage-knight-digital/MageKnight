@@ -5,6 +5,7 @@ import {
   END_TURN_ACTION,
   TURN_ENDED,
   ROUND_ENDED,
+  END_OF_ROUND_ANNOUNCED,
   MOVE_ACTION,
   INVALID_ACTION,
   TERRAIN_PLAINS,
@@ -522,5 +523,147 @@ describe("Round end reshuffling", () => {
         round: 3,
       })
     );
+  });
+});
+
+describe("END_TURN with empty deck and hand", () => {
+  let engine: MageKnightEngine;
+
+  beforeEach(() => {
+    engine = createEngine();
+  });
+
+  it("should auto-announce end of round when deck and hand are empty", () => {
+    const player = createTestPlayer({
+      id: "player1",
+      deck: [],
+      hand: [],
+      discard: [CARD_MARCH, CARD_RAGE], // Cards exist but not in deck/hand
+      playArea: [],
+    });
+    const state = createTestGameState({
+      players: [player],
+      turnOrder: ["player1"],
+      currentPlayerIndex: 0,
+      endOfRoundAnnouncedBy: null, // Not yet announced
+    });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    // Should have auto-converted to announce end of round
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: END_OF_ROUND_ANNOUNCED,
+        playerId: "player1",
+      })
+    );
+
+    // State should reflect announcement
+    expect(result.state.endOfRoundAnnouncedBy).toBe("player1");
+  });
+
+  it("should allow normal end turn if end of round already announced", () => {
+    const player = createTestPlayer({
+      id: "player1",
+      deck: [],
+      hand: [],
+      discard: [CARD_MARCH, CARD_RAGE],
+      playArea: [],
+    });
+    const state = createTestGameState({
+      players: [player],
+      turnOrder: ["player1"],
+      currentPlayerIndex: 0,
+      endOfRoundAnnouncedBy: "player1", // Already announced
+      playersWithFinalTurn: [], // No one left for final turn
+    });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    // Should proceed as normal end turn (triggering round end since no final turns left)
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: TURN_ENDED,
+        playerId: "player1",
+      })
+    );
+
+    // Should NOT emit another END_OF_ROUND_ANNOUNCED
+    const announceEvents = result.events.filter(
+      (e) => e.type === END_OF_ROUND_ANNOUNCED
+    );
+    expect(announceEvents).toHaveLength(0);
+  });
+
+  it("should allow normal end turn if hand has cards", () => {
+    const player = createTestPlayer({
+      id: "player1",
+      deck: [],
+      hand: [CARD_MARCH], // Has card in hand
+      discard: [CARD_RAGE],
+      playArea: [],
+    });
+    const state = createTestGameState({
+      players: [player],
+      turnOrder: ["player1"],
+      currentPlayerIndex: 0,
+      endOfRoundAnnouncedBy: null,
+    });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    // Should be normal end turn, not announcement
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: TURN_ENDED,
+        playerId: "player1",
+      })
+    );
+
+    // Should NOT announce
+    const announceEvents = result.events.filter(
+      (e) => e.type === END_OF_ROUND_ANNOUNCED
+    );
+    expect(announceEvents).toHaveLength(0);
+  });
+
+  it("should allow normal end turn if deck has cards", () => {
+    const player = createTestPlayer({
+      id: "player1",
+      deck: [CARD_MARCH], // Has card in deck
+      hand: [],
+      discard: [CARD_RAGE],
+      playArea: [],
+    });
+    const state = createTestGameState({
+      players: [player],
+      turnOrder: ["player1"],
+      currentPlayerIndex: 0,
+      endOfRoundAnnouncedBy: null,
+    });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    // Should be normal end turn with card draw
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: TURN_ENDED,
+        playerId: "player1",
+      })
+    );
+
+    // Should NOT announce
+    const announceEvents = result.events.filter(
+      (e) => e.type === END_OF_ROUND_ANNOUNCED
+    );
+    expect(announceEvents).toHaveLength(0);
   });
 });
