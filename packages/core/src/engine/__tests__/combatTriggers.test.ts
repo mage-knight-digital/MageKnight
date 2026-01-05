@@ -372,11 +372,11 @@ describe("Combat Trigger Integration", () => {
       });
       state = result.state;
 
-      // Block phase - block the Guardsmen (attack 3)
+      // Block phase - block the Guardsmen (attack 3, Swift requires 6 block)
       result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: "physical", value: 5 }], // Block with enough
+        blocks: [{ element: "physical", value: 6 }], // Swift doubles block requirement
       });
       state = result.state;
 
@@ -458,11 +458,11 @@ describe("Combat Trigger Integration", () => {
       });
       state = result.state;
 
-      // Block phase - block the enemy
+      // Block phase - block the enemy (Guardsmen: attack 3, Swift doubles to 6)
       result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: "physical", value: 5 }],
+        blocks: [{ element: "physical", value: 6 }], // Swift doubles block requirement
       });
       state = result.state;
 
@@ -526,11 +526,11 @@ describe("Combat Trigger Integration", () => {
       });
       state = result.state;
 
-      // Block phase - block the enemy
+      // Block phase - block the enemy (Guardsmen: attack 3, Swift doubles to 6)
       result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: "physical", value: 5 }],
+        blocks: [{ element: "physical", value: 6 }], // Swift doubles block requirement
       });
       state = result.state;
 

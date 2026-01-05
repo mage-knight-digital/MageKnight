@@ -31,6 +31,7 @@ import {
   ENEMY_DIGGERS,
   ENEMY_PROWLERS,
   ENEMY_CURSED_HAGS,
+  ENEMY_GUARDSMEN,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -40,7 +41,15 @@ import {
   ELEMENT_FIRE,
   ELEMENT_ICE,
   ELEMENT_COLD_FIRE,
+  ABILITY_SWIFT,
 } from "@mage-knight/shared";
+import { addModifier } from "../modifiers.js";
+import {
+  DURATION_COMBAT,
+  SCOPE_ONE_ENEMY,
+  SOURCE_SKILL,
+  EFFECT_ABILITY_NULLIFIER,
+} from "../../types/modifierConstants.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
@@ -259,6 +268,145 @@ describe("Combat Phase 2", () => {
         expect.objectContaining({
           type: INVALID_ACTION,
           reason: "Can only block during Block phase",
+        })
+      );
+    });
+  });
+
+  describe("Swift ability", () => {
+    it("should require double block against swift enemy", () => {
+      let state = createTestGameState();
+
+      // Enter combat with Guardsmen (attack 3, Swift)
+      // Swift doubles block requirement: need 6 block, not 3
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN],
+      }).state;
+
+      // Advance to Block phase
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Try to block with 4 (would be enough without Swift, but not with it)
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0",
+        blocks: [{ element: ELEMENT_PHYSICAL, value: 4 }],
+      });
+
+      // Should fail - need 6 block (3 * 2) due to Swift
+      expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: BLOCK_FAILED,
+          enemyInstanceId: "enemy_0",
+          blockValue: 4,
+          requiredBlock: 6, // 3 * 2 = 6 due to Swift
+        })
+      );
+    });
+
+    it("should block swift enemy with double block value", () => {
+      let state = createTestGameState();
+
+      // Enter combat with Guardsmen (attack 3, Swift)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN],
+      }).state;
+
+      // Advance to Block phase
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Block with 6 (exactly double the base attack of 3)
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0",
+        blocks: [{ element: ELEMENT_PHYSICAL, value: 6 }],
+      });
+
+      // Should succeed
+      expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_BLOCKED,
+          enemyInstanceId: "enemy_0",
+          blockValue: 6,
+        })
+      );
+    });
+
+    it("should use normal block if swift is nullified", () => {
+      let state = createTestGameState();
+
+      // Enter combat with Guardsmen (attack 3, Swift)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN],
+      }).state;
+
+      // Add ability nullifier for Swift on this enemy
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, id: "test_skill" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: "enemy_0" },
+        effect: { type: EFFECT_ABILITY_NULLIFIER, ability: ABILITY_SWIFT },
+        createdByPlayerId: "player1",
+        createdAtRound: state.round,
+      });
+
+      // Advance to Block phase
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Block with 3 (normal block, Swift is nullified)
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0",
+        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
+      });
+
+      // Should succeed - Swift is nullified, only need base attack of 3
+      expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_BLOCKED,
+          enemyInstanceId: "enemy_0",
+          blockValue: 3,
+        })
+      );
+    });
+
+    it("should NOT affect ranged/siege phase attack", () => {
+      let state = createTestGameState();
+
+      // Enter combat with Guardsmen (attack 3, Swift, armor 4)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN],
+      }).state;
+
+      // Attack in Ranged phase (Swift should not affect attack requirements)
+      // Guardsmen has armor 4
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+        attackType: COMBAT_TYPE_RANGED,
+        attacks: [{ element: ELEMENT_PHYSICAL, value: 4 }],
+      });
+
+      // Should defeat enemy with 4 attack (meets armor of 4)
+      // Swift has no effect on attack phase
+      expect(result.state.combat?.enemies[0].isDefeated).toBe(true);
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_DEFEATED,
+          enemyInstanceId: "enemy_0",
         })
       );
     });
