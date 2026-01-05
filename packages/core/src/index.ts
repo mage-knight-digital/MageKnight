@@ -82,7 +82,12 @@ export { MageKnightEngine, createEngine } from "./engine/index.js";
 export type { ActionResult } from "./engine/index.js";
 
 // Valid actions
-export { getValidActions, getTurnOptions } from "./engine/index.js";
+export {
+  getValidActions,
+  getTurnOptions,
+  getValidMoveTargets,
+  getValidExploreOptions,
+} from "./engine/index.js";
 
 // Explore / tile grid system
 export {

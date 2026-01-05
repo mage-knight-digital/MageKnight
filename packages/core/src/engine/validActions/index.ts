@@ -14,6 +14,8 @@ import {
   isTacticsPhase,
 } from "./helpers.js";
 import { getTurnOptions } from "./turn.js";
+import { getValidMoveTargets } from "./movement.js";
+import { getValidExploreOptions } from "./exploration.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -28,6 +30,10 @@ export {
 
 // Re-export turn options
 export { getTurnOptions } from "./turn.js";
+
+// Re-export movement and exploration
+export { getValidMoveTargets } from "./movement.js";
+export { getValidExploreOptions } from "./exploration.js";
 
 /**
  * Compute all valid actions for a player.
@@ -45,6 +51,16 @@ export function getValidActions(
     return {
       canAct: false,
       reason: canActResult.reason,
+      move: undefined,
+      explore: undefined,
+      playCard: undefined,
+      combat: undefined,
+      units: undefined,
+      sites: undefined,
+      mana: undefined,
+      turn: undefined,
+      tactics: undefined,
+      enterCombat: undefined,
     };
   }
 
@@ -54,7 +70,17 @@ export function getValidActions(
   if (isTacticsPhase(state)) {
     return {
       canAct: true,
+      reason: undefined,
+      move: undefined,
+      explore: undefined,
+      playCard: undefined,
+      combat: undefined,
+      units: undefined,
+      sites: undefined,
+      mana: undefined,
+      turn: undefined,
       tactics: getTacticsOptions(state, playerId),
+      enterCombat: undefined,
     };
   }
 
@@ -62,6 +88,14 @@ export function getValidActions(
   if (hasPendingChoice(player)) {
     return {
       canAct: true,
+      reason: undefined,
+      move: undefined,
+      explore: undefined,
+      playCard: undefined,
+      combat: undefined,
+      units: undefined,
+      sites: undefined,
+      mana: undefined,
       // Only turn options (undo) available during pending choice
       turn: {
         canEndTurn: false,
@@ -70,6 +104,8 @@ export function getValidActions(
         canRest: false,
         restTypes: undefined,
       },
+      tactics: undefined,
+      enterCombat: undefined,
     };
   }
 
@@ -79,7 +115,14 @@ export function getValidActions(
     if (combatOptions) {
       return {
         canAct: true,
+        reason: undefined,
+        move: undefined,
+        explore: undefined,
+        playCard: undefined, // TODO: playCard options for combat
         combat: combatOptions,
+        units: undefined, // TODO: unit activation options for combat
+        sites: undefined,
+        mana: undefined, // TODO: mana options
         turn: {
           canEndTurn: false,
           canAnnounceEndOfRound: false,
@@ -87,25 +130,26 @@ export function getValidActions(
           canRest: false,
           restTypes: undefined,
         },
-        // TODO: playCard options for combat
-        // TODO: unit activation options for combat
-        // TODO: mana options
+        tactics: undefined,
+        enterCombat: undefined,
       };
     }
   }
 
   // Normal turn - compute all options
-  // For Phase 1, we provide turn options and placeholders for others
   return {
     canAct: true,
-    // TODO Phase 2: move: getValidMoveTargets(state, player),
-    // TODO Phase 2: explore: getValidExploreDirections(state, player),
-    // TODO Phase 3: playCard: getPlayableCards(state, player),
-    // TODO Phase 3: mana: getManaOptions(state, player),
-    // TODO Phase 6: units: getUnitOptions(state, player),
-    // TODO Phase 6: sites: getSiteOptions(state, player),
-    // TODO: enterCombat: getEnterCombatOptions(state, player),
+    reason: undefined,
+    move: getValidMoveTargets(state, player),
+    explore: getValidExploreOptions(state, player),
+    playCard: undefined, // TODO Phase 3: getPlayableCards(state, player)
+    combat: undefined,
+    units: undefined, // TODO Phase 6: getUnitOptions(state, player)
+    sites: undefined, // TODO Phase 6: getSiteOptions(state, player)
+    mana: undefined, // TODO Phase 3: getManaOptions(state, player)
     turn: getTurnOptions(state, player),
+    tactics: undefined,
+    enterCombat: undefined, // TODO: getEnterCombatOptions(state, player)
   };
 }
 

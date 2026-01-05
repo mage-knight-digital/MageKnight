@@ -1,15 +1,11 @@
 import {
   MOVE_ACTION,
   EXPLORE_ACTION,
-  HEX_DIRECTIONS,
-  hexKey,
-  getNeighbor,
-  findTileCenterForHex,
   calculateTilePlacementPosition,
   type HexCoord,
   type HexDirection,
   type ClientHexState,
-  type ClientMapState,
+  type MoveTarget,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -60,39 +56,6 @@ function hexPoints(size: number): string {
       return `${size * Math.cos(angle)},${size * Math.sin(angle)}`;
     })
     .join(" ");
-}
-
-// Exploration cost in move points
-const EXPLORE_COST = 2;
-
-/**
- * Check if a hex is on the edge of the revealed map
- * (has at least one adjacent hex that is unrevealed)
- */
-function isEdgeHex(map: ClientMapState, coord: HexCoord): boolean {
-  for (const dir of HEX_DIRECTIONS) {
-    const adjacent = getNeighbor(coord, dir);
-    const key = hexKey(adjacent);
-    if (!map.hexes[key]) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Get valid explore directions from a position
- * Returns directions that lead to unrevealed areas
- */
-function getValidExploreDirections(
-  map: ClientMapState,
-  coord: HexCoord
-): HexDirection[] {
-  return HEX_DIRECTIONS.filter((dir) => {
-    const adjacent = getNeighbor(coord, dir);
-    const key = hexKey(adjacent);
-    return !map.hexes[key];
-  });
 }
 
 interface ExploreTarget {
@@ -159,10 +122,11 @@ function GhostHex({ coord, onClick }: GhostHexProps) {
 interface HexProps {
   hex: ClientHexState;
   isPlayerHere: boolean;
+  isValidMoveTarget: boolean;
   onClick: () => void;
 }
 
-function Hex({ hex, isPlayerHere, onClick }: HexProps) {
+function Hex({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexProps) {
   const { x, y } = hexToPixel(hex.coord);
   const terrainColor = TERRAIN_COLORS[hex.terrain] ?? "#666";
   const siteColor = hex.site ? SITE_COLORS[hex.site.type] ?? "#FFF" : null;
@@ -171,15 +135,15 @@ function Hex({ hex, isPlayerHere, onClick }: HexProps) {
     <g
       transform={`translate(${x},${y})`}
       onClick={onClick}
-      style={{ cursor: "pointer" }}
+      style={{ cursor: isValidMoveTarget ? "pointer" : "default" }}
       data-coord={`${hex.coord.q},${hex.coord.r}`}
     >
       {/* Hex background */}
       <polygon
         points={hexPoints(HEX_SIZE * 0.95)}
         fill={terrainColor}
-        stroke="#333"
-        strokeWidth="1"
+        stroke={isValidMoveTarget ? "#00FF00" : "#333"}
+        strokeWidth={isValidMoveTarget ? "3" : "1"}
         className="hex-polygon"
       />
 
@@ -241,25 +205,26 @@ export function HexGrid() {
 
   const hexes = Object.values(state.map.hexes);
 
-  // Calculate explore targets when player is on edge hex with enough move points
+  // Get valid move targets from server-computed validActions
+  const validMoveTargets: readonly MoveTarget[] = state.validActions.move?.targets ?? [];
+
+  // Get valid explore directions from server-computed validActions
+  // Convert to ExploreTarget format for rendering ghost hexes
   const exploreTargets: ExploreTarget[] = [];
-  if (
-    player?.position &&
-    player.movePoints >= EXPLORE_COST &&
-    isEdgeHex(state.map, player.position)
-  ) {
+  if (state.validActions.explore && player?.position) {
     // Find the tile center that the player is on
     const tileCenters = state.map.tiles.map((t) => t.centerCoord);
-    const currentTileCenter = findTileCenterForHex(player.position, tileCenters);
+    // Use a simple search since we can't import from core
+    const currentTileCenter = findPlayerTileCenter(player.position, tileCenters);
 
     if (currentTileCenter) {
-      // Get directions that lead to unrevealed areas
-      const validDirections = getValidExploreDirections(state.map, player.position);
-      for (const direction of validDirections) {
+      for (const exploreDir of state.validActions.explore.directions) {
         // Calculate where the new tile CENTER would be placed
-        // (not just one hex away, but tile-center to tile-center offset)
-        const coord = calculateTilePlacementPosition(currentTileCenter, direction);
-        exploreTargets.push({ coord, direction });
+        const coord = calculateTilePlacementPosition(
+          currentTileCenter,
+          exploreDir.direction
+        );
+        exploreTargets.push({ coord, direction: exploreDir.direction });
       }
     }
   }
@@ -275,11 +240,16 @@ export function HexGrid() {
   const maxY = Math.max(...allPositions.map((p) => p.y)) + HEX_SIZE * 2;
 
   const handleHexClick = (coord: HexCoord) => {
-    // Send move action - engine will validate
-    sendAction({
-      type: MOVE_ACTION,
-      target: coord,
-    });
+    // Only send move action if it's a valid target
+    const isValidTarget = validMoveTargets.some(
+      (t) => t.hex.q === coord.q && t.hex.r === coord.r
+    );
+    if (isValidTarget) {
+      sendAction({
+        type: MOVE_ACTION,
+        target: coord,
+      });
+    }
   };
 
   const handleExploreClick = (target: ExploreTarget) => {
@@ -291,6 +261,10 @@ export function HexGrid() {
 
   const isPlayerAt = (coord: HexCoord) =>
     player?.position?.q === coord.q && player?.position?.r === coord.r;
+
+  // Check if a hex is a valid move target
+  const isValidMoveTarget = (coord: HexCoord) =>
+    validMoveTargets.some((t) => t.hex.q === coord.q && t.hex.r === coord.r);
 
   return (
     <svg
@@ -304,6 +278,7 @@ export function HexGrid() {
           key={`${hex.coord.q},${hex.coord.r}`}
           hex={hex}
           isPlayerHere={isPlayerAt(hex.coord)}
+          isValidMoveTarget={isValidMoveTarget(hex.coord)}
           onClick={() => handleHexClick(hex.coord)}
         />
       ))}
@@ -318,4 +293,36 @@ export function HexGrid() {
       ))}
     </svg>
   );
+}
+
+/**
+ * Find which tile a hex belongs to.
+ * Simple implementation that checks if hex is within tile radius.
+ */
+function findPlayerTileCenter(
+  hexCoord: HexCoord,
+  tileCenters: HexCoord[]
+): HexCoord | null {
+  const tileHexOffsets = [
+    { q: 0, r: 0 },
+    { q: 1, r: -1 },
+    { q: 1, r: 0 },
+    { q: 0, r: 1 },
+    { q: -1, r: 1 },
+    { q: -1, r: 0 },
+    { q: 0, r: -1 },
+  ];
+
+  for (const center of tileCenters) {
+    for (const offset of tileHexOffsets) {
+      if (
+        hexCoord.q === center.q + offset.q &&
+        hexCoord.r === center.r + offset.r
+      ) {
+        return center;
+      }
+    }
+  }
+
+  return null;
 }

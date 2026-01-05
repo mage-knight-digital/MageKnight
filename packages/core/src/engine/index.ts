@@ -87,4 +87,9 @@ export {
 } from "./explore/index.js";
 
 // Valid actions computation
-export { getValidActions, getTurnOptions } from "./validActions/index.js";
+export {
+  getValidActions,
+  getTurnOptions,
+  getValidMoveTargets,
+  getValidExploreOptions,
+} from "./validActions/index.js";

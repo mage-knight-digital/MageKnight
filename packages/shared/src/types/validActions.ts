@@ -23,37 +23,37 @@ export interface ValidActions {
   readonly canAct: boolean;
 
   /** Why can't act (only populated if canAct=false) */
-  readonly reason?: string;
+  readonly reason: string | undefined;
 
   /** Movement options (undefined if no movement possible) */
-  readonly move?: MoveOptions;
+  readonly move: MoveOptions | undefined;
 
   /** Exploration options (undefined if no exploration possible) */
-  readonly explore?: ExploreOptions;
+  readonly explore: ExploreOptions | undefined;
 
   /** Card play options (undefined if no cards can be played) */
-  readonly playCard?: PlayCardOptions;
+  readonly playCard: PlayCardOptions | undefined;
 
   /** Combat options (only present when in combat) */
-  readonly combat?: CombatOptions;
+  readonly combat: CombatOptions | undefined;
 
   /** Unit options (recruitment/activation) */
-  readonly units?: UnitOptions;
+  readonly units: UnitOptions | undefined;
 
   /** Site interaction options */
-  readonly sites?: SiteOptions;
+  readonly sites: SiteOptions | undefined;
 
   /** Mana die/crystal options */
-  readonly mana?: ManaOptions;
+  readonly mana: ManaOptions | undefined;
 
   /** Turn structure options (end turn, rest, announce end of round) */
-  readonly turn?: TurnOptions;
+  readonly turn: TurnOptions | undefined;
 
   /** Tactic selection options (only during tactics phase) */
-  readonly tactics?: TacticsOptions;
+  readonly tactics: TacticsOptions | undefined;
 
   /** Combat entry options (not in combat yet) */
-  readonly enterCombat?: EnterCombatOptions;
+  readonly enterCombat: EnterCombatOptions | undefined;
 }
 
 // ============================================================================
