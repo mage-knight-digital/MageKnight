@@ -282,6 +282,27 @@ export interface CombatTriggeredEvent {
   readonly enemyTokenIds: readonly string[];
 }
 
+export const PLAYER_WITHDREW = "PLAYER_WITHDREW" as const;
+export interface PlayerWithdrewEvent {
+  readonly type: typeof PLAYER_WITHDREW;
+  readonly playerId: string;
+  readonly from: HexCoord;
+  readonly to: HexCoord;
+}
+
+export function createPlayerWithdrewEvent(
+  playerId: string,
+  from: HexCoord,
+  to: HexCoord
+): PlayerWithdrewEvent {
+  return {
+    type: PLAYER_WITHDREW,
+    playerId,
+    from,
+    to,
+  };
+}
+
 export function createCombatTriggeredEvent(
   playerId: string,
   triggerType: CombatTriggeredEvent["triggerType"],
@@ -814,6 +835,7 @@ export type GameEvent =
   | PlayerKnockedOutEvent
   | ParalyzeHandDiscardedEvent
   | CombatTriggeredEvent
+  | PlayerWithdrewEvent
   // Cards
   | CardPlayedEvent
   | CardDrawnEvent

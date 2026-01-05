@@ -4,7 +4,7 @@
  * Phase 1: Single enemy, no abilities, hero only, physical damage
  */
 
-import type { EnemyId, EnemyDefinition } from "@mage-knight/shared";
+import type { EnemyId, EnemyDefinition, HexCoord } from "@mage-knight/shared";
 import { getEnemy } from "@mage-knight/shared";
 import type { CombatType } from "@mage-knight/shared";
 
@@ -43,12 +43,14 @@ export interface CombatState {
   readonly isAtFortifiedSite: boolean; // Site fortification (Keeps, Mage Towers, Cities)
   readonly unitsAllowed: boolean; // false for dungeon/tomb combat
   readonly nightManaRules: boolean; // true for dungeon/tomb (no gold, yes black)
+  readonly assaultOrigin: HexCoord | null; // Where player was before assault (null if not assault)
 }
 
 // Options for special combat rules
 export interface CombatStateOptions {
   readonly unitsAllowed?: boolean;
   readonly nightManaRules?: boolean;
+  readonly assaultOrigin?: HexCoord | null;
 }
 
 // Create initial combat state
@@ -75,5 +77,6 @@ export function createCombatState(
     isAtFortifiedSite,
     unitsAllowed: options?.unitsAllowed ?? true,
     nightManaRules: options?.nightManaRules ?? false,
+    assaultOrigin: options?.assaultOrigin ?? null,
   };
 }

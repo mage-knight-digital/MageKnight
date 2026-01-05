@@ -17,6 +17,7 @@ import {
   END_COMBAT_PHASE_ACTION,
   DECLARE_ATTACK_ACTION,
   DECLARE_BLOCK_ACTION,
+  ASSIGN_DAMAGE_ACTION,
   PLAYER_MOVED,
   COMBAT_TRIGGERED,
   REPUTATION_CHANGED,
@@ -29,6 +30,7 @@ import {
   COMBAT_TRIGGER_FORTIFIED_ASSAULT,
   REPUTATION_REASON_ASSAULT,
   ENEMY_GUARDSMEN,
+  PLAYER_WITHDREW,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
 import type { Site, HexState } from "../../types/map.js";
@@ -591,6 +593,276 @@ describe("Combat Trigger Integration", () => {
       // hasCombattedThisTurn should be true
       const updatedPlayer = result.state.players.find((p) => p.id === "player1");
       expect(updatedPlayer?.hasCombattedThisTurn).toBe(true);
+    });
+  });
+
+  describe("Withdrawal on failed fortified assault", () => {
+    it("should withdraw to origin hex on failed fortified assault", () => {
+      const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
+      const keepCoord = { q: 1, r: 0 };
+      const originCoord = { q: 0, r: 0 };
+      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: originCoord,
+        movePoints: 4,
+      });
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+      };
+
+      // Move to keep (triggers assault)
+      let result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: keepCoord,
+      });
+      state = result.state;
+
+      // Verify assault origin was stored
+      expect(state.combat?.assaultOrigin).toEqual(originCoord);
+
+      // Skip ranged phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Skip block phase (don't block - enemy will attack)
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Assign damage from unblocked enemy (mandatory before advancing)
+      result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+      });
+      state = result.state;
+
+      // Now advance to attack phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Skip attack phase — don't defeat enemy, just end combat
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should have ended combat without victory
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_ENDED,
+          victory: false,
+        })
+      );
+
+      // Should have withdrawn
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: PLAYER_WITHDREW,
+          playerId: "player1",
+          from: keepCoord,
+          to: originCoord,
+        })
+      );
+
+      // Player should be back at origin
+      const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+      expect(updatedPlayer?.position).toEqual(originCoord);
+    });
+
+    it("should NOT withdraw on failed adventure site combat", () => {
+      // Adventure sites don't set isAtFortifiedSite, so no withdrawal
+      let state = createTestGameState();
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+      });
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+      };
+
+      // Enter combat manually (non-fortified, like dungeon)
+      let result = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN],
+        isAtFortifiedSite: false,
+      });
+      state = result.state;
+
+      // Combat should NOT have assaultOrigin
+      expect(state.combat?.isAtFortifiedSite).toBe(false);
+
+      // Skip ranged phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Skip block phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Assign damage from unblocked enemy (mandatory before advancing)
+      result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+      });
+      state = result.state;
+
+      // Now advance to attack phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // End attack phase to end combat
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should have ended combat without victory
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_ENDED,
+          victory: false,
+        })
+      );
+
+      // Should NOT have withdrawn
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: PLAYER_WITHDREW,
+        })
+      );
+
+      // Player should still be at same position
+      const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+      expect(updatedPlayer?.position).toEqual({ q: 0, r: 0 });
+    });
+
+    it("should NOT withdraw if all enemies defeated", () => {
+      const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
+      const keepCoord = { q: 1, r: 0 };
+      const originCoord = { q: 0, r: 0 };
+      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: originCoord,
+        movePoints: 4,
+      });
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+      };
+
+      // Move to keep (triggers assault)
+      let result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: keepCoord,
+      });
+      state = result.state;
+
+      // Skip ranged phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Block phase - block the enemy (Guardsmen: attack 3, Swift doubles to 6)
+      result = engine.processAction(state, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0",
+        blocks: [{ element: "physical", value: 6 }],
+      });
+      state = result.state;
+
+      // Skip damage assignment phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Attack phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Defeat enemy with siege attack
+      result = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+        attacks: [{ element: "physical", value: 10 }],
+        attackType: COMBAT_TYPE_SIEGE,
+      });
+      state = result.state;
+
+      // End attack phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should have ended combat with victory
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_ENDED,
+          victory: true,
+        })
+      );
+
+      // Should NOT have withdrawn
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: PLAYER_WITHDREW,
+        })
+      );
+
+      // Player should be at keep (victory = conquest)
+      const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+      expect(updatedPlayer?.position).toEqual(keepCoord);
+    });
+
+    it("should store assaultOrigin when assault starts", () => {
+      const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
+      const keepCoord = { q: 1, r: 0 };
+      const originCoord = { q: 0, r: 0 };
+      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: originCoord,
+        movePoints: 4,
+      });
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+      };
+
+      // Move to keep (triggers assault)
+      const result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: keepCoord,
+      });
+
+      // Combat state should have assaultOrigin set to original position
+      expect(result.state.combat).not.toBeNull();
+      expect(result.state.combat?.assaultOrigin).toEqual(originCoord);
+      expect(result.state.combat?.isAtFortifiedSite).toBe(true);
     });
   });
 });

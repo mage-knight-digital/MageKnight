@@ -9,7 +9,12 @@
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { GameEvent } from "@mage-knight/shared";
-import { COMBAT_PHASE_CHANGED, COMBAT_ENDED, hexKey } from "@mage-knight/shared";
+import {
+  COMBAT_PHASE_CHANGED,
+  COMBAT_ENDED,
+  hexKey,
+  createPlayerWithdrewEvent,
+} from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
@@ -112,19 +117,50 @@ export function createEndCombatPhaseCommand(
             }
           }
 
-          // Mark player as having combatted this turn
-          const playerIndex = newState.players.findIndex(
-            (p) => p.id === params.playerId
-          );
-          const currentPlayer = newState.players[playerIndex];
-          if (playerIndex !== -1 && currentPlayer) {
-            const updatedPlayer: Player = {
-              ...currentPlayer,
-              hasCombattedThisTurn: true,
-            };
-            const updatedPlayers: Player[] = [...newState.players];
-            updatedPlayers[playerIndex] = updatedPlayer;
-            newState = { ...newState, players: updatedPlayers };
+          // Failed assault at fortified site — must withdraw
+          if (
+            !victory &&
+            state.combat.isAtFortifiedSite &&
+            state.combat.assaultOrigin
+          ) {
+            const playerIndex = newState.players.findIndex(
+              (p) => p.id === params.playerId
+            );
+            const currentPlayer = newState.players[playerIndex];
+
+            if (playerIndex !== -1 && currentPlayer?.position) {
+              const updatedPlayer: Player = {
+                ...currentPlayer,
+                position: state.combat.assaultOrigin,
+                hasCombattedThisTurn: true,
+              };
+              const updatedPlayers: Player[] = [...newState.players];
+              updatedPlayers[playerIndex] = updatedPlayer;
+              newState = { ...newState, players: updatedPlayers };
+
+              events.push(
+                createPlayerWithdrewEvent(
+                  params.playerId,
+                  currentPlayer.position,
+                  state.combat.assaultOrigin
+                )
+              );
+            }
+          } else {
+            // Mark player as having combatted this turn (when not withdrawing)
+            const playerIndex = newState.players.findIndex(
+              (p) => p.id === params.playerId
+            );
+            const currentPlayer = newState.players[playerIndex];
+            if (playerIndex !== -1 && currentPlayer) {
+              const updatedPlayer: Player = {
+                ...currentPlayer,
+                hasCombattedThisTurn: true,
+              };
+              const updatedPlayers: Player[] = [...newState.players];
+              updatedPlayers[playerIndex] = updatedPlayer;
+              newState = { ...newState, players: updatedPlayers };
+            }
           }
         }
 

@@ -127,10 +127,11 @@ export function createMoveCommand(params: MoveCommandParams): Command {
             hasCombattedThisTurn: true,
           };
 
-          // Create combat state
+          // Create combat state with assault origin (where player was before assault)
           const combatState = createCombatState(
             enemyIds.map((tokenId) => getEnemyIdFromToken(tokenId)),
-            true // isAtFortifiedSite
+            true, // isAtFortifiedSite
+            { assaultOrigin: params.from }
           );
 
           updatedState = { ...updatedState, combat: combatState };
