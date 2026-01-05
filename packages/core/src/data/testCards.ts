@@ -26,6 +26,8 @@ import {
   ifInPhase,
   ifOnTerrain,
   ifBlockedSuccessfully,
+  fireAttackPerEnemy,
+  fireBlockPerEnemy,
 } from "./effectHelpers.js";
 import { COMBAT_PHASE_ATTACK } from "../types/combat.js";
 import {
@@ -184,24 +186,25 @@ export const TRANQUILITY = {
 // ============================================================================
 
 /**
- * Flame Wave (Advanced Action)
- * Basic: Fire Attack 3 or Fire Block 3
- * Powered: +2 per enemy you are facing
+ * Flame Wave (Red Spell)
+ * Basic (Flame Wall): Fire Attack 5 OR Fire Block 7
+ * Powered (Flame Wave): Same choice, +2 per enemy you are facing
  *
- * Pattern: SCALING BY ENEMY COUNT
- * PROBLEM: We can't express "+2 per enemy" with the current system.
- * We would need either:
- * 1. A new effect type like { type: "scaling_attack", base: 3, perEnemy: 2 }
- * 2. A condition that checks enemy count and branches accordingly
+ * Pattern: SCALING BY ENEMY COUNT + CHOICE ✅ NOW WORKING!
+ * Uses the new ScalingEffect system with SCALING_PER_ENEMY factor.
  */
 export const FLAME_WAVE = {
   id: "flame_wave",
   name: "Flame Wave",
-  basicEffect: choice([fireAttack(3), fireBlock(3)]),
-  // CAN'T EXPRESS: poweredEffect should be "+2 per enemy"
-  // Placeholder: just static value
-  poweredEffect: choice([fireAttack(5), fireBlock(5)]),
-  _limitation: "Cannot express scaling by enemy count",
+  color: "red",
+  cardType: "spell",
+  // Basic (Flame Wall): Fire Attack 5 OR Fire Block 7
+  basicEffect: choice([fireAttack(5), fireBlock(7)]),
+  // Powered (Flame Wave): Same choice, +2 per enemy
+  poweredEffect: choice([
+    fireAttackPerEnemy(5, 2),
+    fireBlockPerEnemy(7, 2),
+  ]),
 } as const;
 
 /**
@@ -312,15 +315,15 @@ export const NOBLE_MANNERS = {
  *    - "Enemy doesn't attack this combat" (Intimidate)
  *    - "Enemy loses resistance" (Threaten powered)
  *
- * 6. Scaling effects:
- *    - "+X per enemy" (Flame Wave)
- *    - "+X per wound in hand" (some cards)
+ * 6. Scaling effects: ✅ NOW IMPLEMENTED!
+ *    - "+X per enemy" (Flame Wave) - SCALING_PER_ENEMY
+ *    - "+X per wound in hand" - SCALING_PER_WOUND_IN_HAND
+ *    - "+X per unit" - SCALING_PER_UNIT
  *
  * VERDICT:
- * The conditional system handles ~60-70% of real card patterns well.
- * The main gaps are:
+ * The effect system (conditionals + scaling) handles ~75-80% of real card patterns.
+ * The remaining gaps are:
  * - Enemy-centric conditions and modifiers
- * - Scaling effects
  * - Spend/cost effects (vs pure gains)
  * - Player state conditions beyond combat
  */
@@ -335,10 +338,10 @@ export const WORKING_CARDS = [
   SWIFTNESS,
   PROMISE,
   TRANQUILITY,
+  FLAME_WAVE, // Now working with scaling effects!
 ];
 
 export const LIMITED_CARDS = [
-  FLAME_WAVE,
   INTIMIDATE,
   UNDERGROUND_TRAVEL,
   SPACE_BENDING,

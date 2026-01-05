@@ -83,6 +83,8 @@ export type {
   CompoundEffect,
   ChoiceEffect,
   ConditionalEffect,
+  ScalableBaseEffect,
+  ScalingEffect,
   CardEffect,
   DeedCard,
 } from "./cards.js";
@@ -108,6 +110,7 @@ export {
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   EFFECT_CONDITIONAL,
+  EFFECT_SCALING,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -118,6 +121,19 @@ export {
   CARD_COLOR_WOUND,
   MANA_ANY,
 } from "./effectTypes.js";
+
+// Scaling types
+export type {
+  ScalingFactor,
+  ScalingPerEnemyFactor,
+  ScalingPerWoundInHandFactor,
+  ScalingPerUnitFactor,
+} from "./scaling.js";
+export {
+  SCALING_PER_ENEMY,
+  SCALING_PER_WOUND_IN_HAND,
+  SCALING_PER_UNIT,
+} from "./scaling.js";
 
 // Card ID constants (re-exported from @mage-knight/shared)
 export type { BasicActionCardId, SharedBasicActionCardId, HeroSpecificCardId } from "@mage-knight/shared";

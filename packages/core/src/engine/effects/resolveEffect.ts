@@ -12,7 +12,7 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { CardEffect, GainAttackEffect, GainBlockEffect } from "../../types/cards.js";
+import type { CardEffect, GainAttackEffect, GainBlockEffect, ScalableBaseEffect } from "../../types/cards.js";
 import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../types/player.js";
 import type { CardId, Element } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "@mage-knight/shared";
@@ -26,9 +26,11 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   EFFECT_CONDITIONAL,
+  EFFECT_SCALING,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
+import { evaluateScalingFactor } from "./scalingEvaluator.js";
 import { addModifier } from "../modifiers.js";
 import { SOURCE_CARD, SCOPE_SELF } from "../modifierConstants.js";
 import type { ApplyModifierEffect } from "../../types/cards.js";
@@ -40,6 +42,8 @@ export interface EffectResolutionResult {
   readonly requiresChoice?: boolean;
   /** True if a conditional effect was resolved — affects undo (command should be non-reversible) */
   readonly containsConditional?: boolean;
+  /** True if a scaling effect was resolved — affects undo (command should be non-reversible) */
+  readonly containsScaling?: boolean;
 }
 
 export function resolveEffect(
@@ -109,6 +113,36 @@ export function resolveEffect(
       return {
         ...result,
         containsConditional: true,
+      };
+    }
+
+    case EFFECT_SCALING: {
+      const scalingCount = evaluateScalingFactor(state, playerId, effect.scalingFactor);
+      const scalingBonus = scalingCount * effect.amountPerUnit;
+
+      // Apply minimum/maximum
+      let totalBonus = scalingBonus;
+      if (effect.minimum !== undefined) {
+        totalBonus = Math.max(effect.minimum, totalBonus);
+      }
+      if (effect.maximum !== undefined) {
+        totalBonus = Math.min(effect.maximum, totalBonus);
+      }
+
+      // Create modified base effect with increased amount
+      const scaledEffect: ScalableBaseEffect = {
+        ...effect.baseEffect,
+        amount: effect.baseEffect.amount + totalBonus,
+      };
+
+      // Resolve the scaled effect
+      const result = resolveEffect(state, playerId, scaledEffect, sourceCardId);
+
+      // Mark that a scaling effect was resolved — affects undo
+      return {
+        ...result,
+        description: `${result.description} (scaled by ${scalingCount})`,
+        containsScaling: true,
       };
     }
 
@@ -407,6 +441,12 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
       // changed since the effect was applied, so we don't know which branch
       // was actually executed. Commands containing conditional effects should
       // be marked as non-reversible (isReversible: false).
+      return player;
+
+    case EFFECT_SCALING:
+      // Cannot reliably reverse scaling effects — the scaling count may have
+      // changed since the effect was applied (enemies defeated, wounds played).
+      // Commands containing scaling effects should be marked as non-reversible.
       return player;
 
     default:

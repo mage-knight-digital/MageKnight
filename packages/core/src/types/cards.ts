@@ -16,11 +16,13 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   EFFECT_CONDITIONAL,
+  EFFECT_SCALING,
   MANA_ANY,
   type CombatType,
   type CardColor,
 } from "./effectTypes.js";
 import type { EffectCondition } from "./conditions.js";
+import type { ScalingFactor } from "./scaling.js";
 
 // === Card Types ===
 export const DEED_CARD_TYPE_BASIC_ACTION = "basic_action" as const;
@@ -101,6 +103,22 @@ export interface ConditionalEffect {
   readonly elseEffect?: CardEffect;
 }
 
+/** Base effects that can be scaled (the ones that have an amount) */
+export type ScalableBaseEffect =
+  | GainAttackEffect
+  | GainBlockEffect
+  | GainMoveEffect
+  | GainInfluenceEffect;
+
+export interface ScalingEffect {
+  readonly type: typeof EFFECT_SCALING;
+  readonly baseEffect: ScalableBaseEffect;
+  readonly scalingFactor: ScalingFactor;
+  readonly amountPerUnit: number; // e.g., +2 per enemy
+  readonly minimum?: number; // Floor value (default 0)
+  readonly maximum?: number; // Cap (optional)
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -113,7 +131,8 @@ export type CardEffect =
   | ApplyModifierEffect
   | CompoundEffect
   | ChoiceEffect
-  | ConditionalEffect;
+  | ConditionalEffect
+  | ScalingEffect;
 
 // === Card Definition ===
 

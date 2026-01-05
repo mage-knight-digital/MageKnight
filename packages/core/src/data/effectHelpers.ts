@@ -15,8 +15,16 @@ import type {
   GainHealingEffect,
   CompoundEffect,
   ChoiceEffect,
+  ScalingEffect,
+  ScalableBaseEffect,
 } from "../types/cards.js";
 import type { EffectCondition } from "../types/conditions.js";
+import type { ScalingFactor } from "../types/scaling.js";
+import {
+  SCALING_PER_ENEMY,
+  SCALING_PER_WOUND_IN_HAND,
+  SCALING_PER_UNIT,
+} from "../types/scaling.js";
 import type { CombatPhase } from "../types/combat.js";
 import type { Terrain, ManaColor, Element } from "@mage-knight/shared";
 import {
@@ -35,9 +43,11 @@ import {
   EFFECT_GAIN_HEALING,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
+  EFFECT_SCALING,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
+  type CombatType,
 } from "../types/effectTypes.js";
 import {
   CONDITION_TIME_OF_DAY,
@@ -312,4 +322,175 @@ export function ifHasWoundsInHand(
     thenEffect,
     elseEffect
   );
+}
+
+// === Scaling Effect Helpers ===
+
+/**
+ * Create a generic scaling effect
+ */
+export function scaling(
+  baseEffect: ScalableBaseEffect,
+  scalingFactor: ScalingFactor,
+  amountPerUnit: number,
+  options?: { minimum?: number; maximum?: number }
+): ScalingEffect {
+  const base = {
+    type: EFFECT_SCALING,
+    baseEffect,
+    scalingFactor,
+    amountPerUnit,
+  } as const;
+
+  // Only add optional properties if defined (exactOptionalPropertyTypes compliance)
+  if (options?.minimum !== undefined && options?.maximum !== undefined) {
+    return { ...base, minimum: options.minimum, maximum: options.maximum };
+  } else if (options?.minimum !== undefined) {
+    return { ...base, minimum: options.minimum };
+  } else if (options?.maximum !== undefined) {
+    return { ...base, maximum: options.maximum };
+  }
+  return base;
+}
+
+/**
+ * Create a scaling attack effect
+ */
+export function scalingAttack(
+  baseAmount: number,
+  scalingFactor: ScalingFactor,
+  amountPerUnit: number,
+  element?: Element,
+  combatType: CombatType = COMBAT_TYPE_MELEE,
+  options?: { minimum?: number; maximum?: number }
+): ScalingEffect {
+  const baseEffect: GainAttackEffect = element
+    ? { type: EFFECT_GAIN_ATTACK, amount: baseAmount, combatType, element }
+    : { type: EFFECT_GAIN_ATTACK, amount: baseAmount, combatType };
+
+  return scaling(baseEffect, scalingFactor, amountPerUnit, options);
+}
+
+/**
+ * Create a scaling block effect
+ */
+export function scalingBlock(
+  baseAmount: number,
+  scalingFactor: ScalingFactor,
+  amountPerUnit: number,
+  element?: Element,
+  options?: { minimum?: number; maximum?: number }
+): ScalingEffect {
+  const baseEffect: GainBlockEffect = element
+    ? { type: EFFECT_GAIN_BLOCK, amount: baseAmount, element }
+    : { type: EFFECT_GAIN_BLOCK, amount: baseAmount };
+
+  return scaling(baseEffect, scalingFactor, amountPerUnit, options);
+}
+
+/**
+ * Create a scaling move effect
+ */
+export function scalingMove(
+  baseAmount: number,
+  scalingFactor: ScalingFactor,
+  amountPerUnit: number,
+  options?: { minimum?: number; maximum?: number }
+): ScalingEffect {
+  const baseEffect: GainMoveEffect = { type: EFFECT_GAIN_MOVE, amount: baseAmount };
+  return scaling(baseEffect, scalingFactor, amountPerUnit, options);
+}
+
+/**
+ * Create a scaling influence effect
+ */
+export function scalingInfluence(
+  baseAmount: number,
+  scalingFactor: ScalingFactor,
+  amountPerUnit: number,
+  options?: { minimum?: number; maximum?: number }
+): ScalingEffect {
+  const baseEffect: GainInfluenceEffect = { type: EFFECT_GAIN_INFLUENCE, amount: baseAmount };
+  return scaling(baseEffect, scalingFactor, amountPerUnit, options);
+}
+
+// === Convenience Scaling Helpers ===
+
+/**
+ * Attack that scales per enemy in combat (e.g., Flame Wave)
+ */
+export function attackPerEnemy(
+  baseAmount: number,
+  perEnemy: number,
+  element?: Element,
+  combatType: CombatType = COMBAT_TYPE_MELEE
+): ScalingEffect {
+  return scalingAttack(baseAmount, { type: SCALING_PER_ENEMY }, perEnemy, element, combatType);
+}
+
+/**
+ * Fire attack that scales per enemy (e.g., Flame Wave powered)
+ */
+export function fireAttackPerEnemy(baseAmount: number, perEnemy: number): ScalingEffect {
+  return attackPerEnemy(baseAmount, perEnemy, ELEMENT_FIRE);
+}
+
+/**
+ * Attack that scales per wound in hand
+ */
+export function attackPerWoundInHand(
+  baseAmount: number,
+  perWound: number,
+  element?: Element,
+  combatType: CombatType = COMBAT_TYPE_MELEE
+): ScalingEffect {
+  return scalingAttack(baseAmount, { type: SCALING_PER_WOUND_IN_HAND }, perWound, element, combatType);
+}
+
+/**
+ * Attack that scales per unit (e.g., Shocktroops)
+ */
+export function attackPerUnit(
+  baseAmount: number,
+  perUnit: number,
+  element?: Element,
+  combatType: CombatType = COMBAT_TYPE_MELEE
+): ScalingEffect {
+  return scalingAttack(baseAmount, { type: SCALING_PER_UNIT }, perUnit, element, combatType);
+}
+
+/**
+ * Block that scales per unit
+ */
+export function blockPerUnit(
+  baseAmount: number,
+  perUnit: number,
+  element?: Element
+): ScalingEffect {
+  return scalingBlock(baseAmount, { type: SCALING_PER_UNIT }, perUnit, element);
+}
+
+/**
+ * Block that scales per enemy (e.g., Flame Wave)
+ */
+export function blockPerEnemy(
+  baseAmount: number,
+  perEnemy: number,
+  element?: Element
+): ScalingEffect {
+  return scalingBlock(baseAmount, { type: SCALING_PER_ENEMY }, perEnemy, element);
+}
+
+/**
+ * Fire block that scales per enemy (e.g., Flame Wave)
+ */
+export function fireBlockPerEnemy(baseAmount: number, perEnemy: number): ScalingEffect {
+  return blockPerEnemy(baseAmount, perEnemy, ELEMENT_FIRE);
+}
+
+/**
+ * Ice block that scales per enemy
+ */
+export function iceBlockPerEnemy(baseAmount: number, perEnemy: number): ScalingEffect {
+  return blockPerEnemy(baseAmount, perEnemy, ELEMENT_ICE);
 }
