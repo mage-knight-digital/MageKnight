@@ -108,13 +108,13 @@ const FROM_THE_DUSK: TacticCard = {
   implemented: true, // Turn order is implemented
 };
 
-const MIDNIGHT_MEDITATION: TacticCard = {
-  id: TACTIC_MIDNIGHT_MEDITATION,
-  name: "Midnight Meditation",
+const LONG_NIGHT: TacticCard = {
+  id: TACTIC_LONG_NIGHT,
+  name: "Long Night",
   turnOrder: 2,
   timeOfDay: TIME_OF_DAY_NIGHT,
-  effectType: TACTIC_EFFECT_TYPE_ON_PICK,
-  effectDescription: "You may discard up to 3 cards from your hand (including Wounds). Shuffle them into your deck, then draw as many cards as you discarded.",
+  effectType: TACTIC_EFFECT_TYPE_ACTIVATED,
+  effectDescription: "One time this Night, if your Deed deck is empty, you may shuffle your discard pile and put 3 cards at random back into your Deed deck. Then flip this card face down.",
   implemented: false,
 };
 
@@ -128,13 +128,13 @@ const MANA_SEARCH: TacticCard = {
   implemented: false,
 };
 
-const SPARING_POWER: TacticCard = {
-  id: TACTIC_SPARING_POWER,
-  name: "Sparing Power",
+const MIDNIGHT_MEDITATION: TacticCard = {
+  id: TACTIC_MIDNIGHT_MEDITATION,
+  name: "Midnight Meditation",
   turnOrder: 4,
   timeOfDay: TIME_OF_DAY_NIGHT,
-  effectType: TACTIC_EFFECT_TYPE_ONGOING,
-  effectDescription: "Before each of your turns, you may take the top card of your Deed deck OR a card stored on this card. At the end of each turn, you may store a card from your hand on this card.",
+  effectType: TACTIC_EFFECT_TYPE_ACTIVATED,
+  effectDescription: "One time this Night, before any of your turns, you may shuffle up to 5 cards (including Wounds) from your hand back into your Deed deck and then draw that many cards. Then flip this card face down.",
   implemented: false,
 };
 
@@ -144,17 +144,17 @@ const PREPARATION: TacticCard = {
   turnOrder: 5,
   timeOfDay: TIME_OF_DAY_NIGHT,
   effectType: TACTIC_EFFECT_TYPE_ON_PICK,
-  effectDescription: "Draw 1 card.",
+  effectDescription: "Search your Deed deck for any one card and put it in your hand, then shuffle your deck.",
   implemented: false,
 };
 
-const LONG_NIGHT: TacticCard = {
-  id: TACTIC_LONG_NIGHT,
-  name: "Long Night",
+const SPARING_POWER: TacticCard = {
+  id: TACTIC_SPARING_POWER,
+  name: "Sparing Power",
   turnOrder: 6,
   timeOfDay: TIME_OF_DAY_NIGHT,
-  effectType: TACTIC_EFFECT_TYPE_ACTIVATED,
-  effectDescription: "Flip this card to take another turn immediately after this one (cannot be used on your last turn of the round).",
+  effectType: TACTIC_EFFECT_TYPE_ONGOING,
+  effectDescription: "Once before the start of each of your turns, choose one: Put the top card of your Deed deck face down under this card, or flip this card face down and put all Deed cards under it into your hand.",
   implemented: false,
 };
 
@@ -164,20 +164,20 @@ const LONG_NIGHT: TacticCard = {
  * All tactic cards indexed by ID
  */
 export const TACTIC_CARDS: Readonly<Record<TacticId, TacticCard>> = {
-  // Day tactics
+  // Day tactics (1-6)
   [TACTIC_EARLY_BIRD]: EARLY_BIRD,
   [TACTIC_RETHINK]: RETHINK,
   [TACTIC_MANA_STEAL]: MANA_STEAL,
   [TACTIC_PLANNING]: PLANNING,
   [TACTIC_GREAT_START]: GREAT_START,
   [TACTIC_THE_RIGHT_MOMENT]: THE_RIGHT_MOMENT,
-  // Night tactics
+  // Night tactics (1-6)
   [TACTIC_FROM_THE_DUSK]: FROM_THE_DUSK,
-  [TACTIC_MIDNIGHT_MEDITATION]: MIDNIGHT_MEDITATION,
-  [TACTIC_MANA_SEARCH]: MANA_SEARCH,
-  [TACTIC_SPARING_POWER]: SPARING_POWER,
-  [TACTIC_PREPARATION]: PREPARATION,
   [TACTIC_LONG_NIGHT]: LONG_NIGHT,
+  [TACTIC_MANA_SEARCH]: MANA_SEARCH,
+  [TACTIC_MIDNIGHT_MEDITATION]: MIDNIGHT_MEDITATION,
+  [TACTIC_PREPARATION]: PREPARATION,
+  [TACTIC_SPARING_POWER]: SPARING_POWER,
 };
 
 /**
