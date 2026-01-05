@@ -66,3 +66,6 @@ export {
   getAvailableDice,
   updateDiceForTimeOfDay,
 } from "./mana/index.js";
+
+// Effect descriptions
+export { describeEffect } from "./effects/index.js";

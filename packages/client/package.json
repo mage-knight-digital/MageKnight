@@ -4,11 +4,28 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "echo 'Client build not yet configured'",
-    "test": "echo 'Client tests not yet configured'",
-    "lint": "echo 'Client lint not yet configured'"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint ."
   },
   "dependencies": {
-    "@mage-knight/shared": "workspace:*"
+    "@mage-knight/server": "workspace:*",
+    "@mage-knight/shared": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.57.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.18.0",
+    "vite": "^6.0.0"
   }
 }

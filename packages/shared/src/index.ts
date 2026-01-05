@@ -213,6 +213,7 @@ export type {
   ClientGameOffers,
   ClientGameState,
   ClientCombatState,
+  ClientPendingChoice,
 } from "./types/clientState.js";
 
 // Shared value constants (sub-unions)

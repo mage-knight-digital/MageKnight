@@ -1,0 +1,481 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.app__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: #16213e;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.app__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.app__main {
+  display: flex;
+  flex: 1;
+  gap: 1rem;
+}
+
+.app__board {
+  flex: 1;
+  background: #16213e;
+  border-radius: 8px;
+  padding: 1rem;
+  min-height: 400px;
+}
+
+.app__sidebar {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.app__hand {
+  background: #16213e;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+/* Debug view */
+.debug-state {
+  background: #0f0f23;
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  overflow: auto;
+  max-height: 600px;
+}
+
+.debug-state pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.debug-state__section {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #333;
+}
+
+.debug-state__section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.debug-state__label {
+  color: #888;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.debug-state__value {
+  color: #4fc3f7;
+}
+
+.debug-state__value--string {
+  color: #a5d6a7;
+}
+
+.debug-state__value--number {
+  color: #ffcc80;
+}
+
+.debug-state__value--null {
+  color: #666;
+}
+
+/* Loading state */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-size: 1.25rem;
+  color: #888;
+}
+
+/* Panel styling */
+.panel {
+  background: #16213e;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.panel__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+/* Resource display */
+.resources {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.resource {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: #0f0f23;
+  border-radius: 4px;
+}
+
+.resource__label {
+  color: #888;
+}
+
+.resource__value {
+  font-weight: 600;
+}
+
+/* Hand display */
+.hand {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.hand__card {
+  background: #0f0f23;
+  border-radius: 4px;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: #4fc3f7;
+}
+
+/* ============================================
+   Overlay (modal-like backdrop)
+   ============================================ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.overlay__content {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+/* ============================================
+   Tactic Selection
+   ============================================ */
+.tactic-selection__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.tactic-selection__subtitle {
+  text-align: center;
+  color: #888;
+  margin-bottom: 1.5rem;
+}
+
+.tactic-selection__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.tactic-card {
+  background: #0f0f23;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tactic-card:hover {
+  border-color: #4fc3f7;
+  transform: translateY(-4px);
+}
+
+.tactic-card__image {
+  width: 150px;
+  height: auto;
+  border-radius: 4px;
+  display: block;
+}
+
+.tactic-card__name {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+  color: #eee;
+}
+
+/* ============================================
+   Choice Selection
+   ============================================ */
+.choice-selection__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.choice-selection__options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 300px;
+}
+
+.choice-selection__option {
+  background: #0f0f23;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  color: #eee;
+}
+
+.choice-selection__option:hover {
+  border-color: #4fc3f7;
+  background: #1a1a3e;
+}
+
+.choice-selection__option-description {
+  font-size: 1.125rem;
+}
+
+/* ============================================
+   Hex Grid
+   ============================================ */
+.hex-grid {
+  background: #0f0f23;
+  border-radius: 8px;
+}
+
+.hex-polygon {
+  transition: all 0.1s;
+}
+
+.hex-polygon:hover {
+  filter: brightness(1.2);
+  stroke: #4fc3f7;
+  stroke-width: 2;
+}
+
+.hero-token {
+  filter: drop-shadow(0 0 4px #FF4444);
+}
+
+/* ============================================
+   Player Hand (interactive)
+   ============================================ */
+.player-hand {
+  background: #16213e;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.player-hand__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.player-hand__stats {
+  font-size: 0.875rem;
+  color: #4fc3f7;
+}
+
+.player-hand__cards {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: #0f0f23;
+  border: 2px solid #333;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.1s;
+  min-width: 100px;
+}
+
+.card:hover {
+  border-color: #4fc3f7;
+  transform: translateY(-2px);
+}
+
+.card--selected {
+  border-color: #FFD700;
+  background: #1a2744;
+  transform: translateY(-8px);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
+.card__name {
+  font-size: 0.75rem;
+  color: #eee;
+  text-align: center;
+}
+
+/* Play Mode Menu */
+.play-mode-menu {
+  background: #0f0f23;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.play-mode-menu__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #FFD700;
+}
+
+.play-mode-menu__options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.play-mode-menu__btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.1s;
+}
+
+.play-mode-menu__btn--basic {
+  background: #228B22;
+  color: white;
+}
+
+.play-mode-menu__btn--basic:hover {
+  background: #2ea82e;
+}
+
+.play-mode-menu__btn--sideways {
+  background: #4169E1;
+  color: white;
+}
+
+.play-mode-menu__btn--sideways:hover {
+  background: #5a7fea;
+}
+
+.play-mode-menu__btn--cancel {
+  background: #666;
+  color: white;
+}
+
+.play-mode-menu__btn--cancel:hover {
+  background: #777;
+}
+
+/* ============================================
+   Action Bar
+   ============================================ */
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #16213e;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.action-bar__info {
+  font-size: 0.875rem;
+}
+
+.action-bar__turn-indicator {
+  color: #888;
+}
+
+.action-bar__turn-indicator--active {
+  color: #4fc3f7;
+  font-weight: 600;
+}
+
+.action-bar__buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-bar__btn {
+  padding: 0.5rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.1s;
+}
+
+.action-bar__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-bar__btn--end-turn {
+  background: #e74c3c;
+  color: white;
+}
+
+.action-bar__btn--end-turn:hover:not(:disabled) {
+  background: #c0392b;
+}

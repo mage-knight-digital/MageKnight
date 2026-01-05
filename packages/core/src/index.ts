@@ -55,6 +55,15 @@ export {
 export type { LocalHex, TileType, TileDefinition } from "./data/tiles.js";
 export { TILE_DEFINITIONS, placeTile, getTilesByType } from "./data/tiles.js";
 
+// Tile deck setup
+export type { TileDeckSetupResult } from "./data/tileDeckSetup.js";
+export {
+  createTileDeck,
+  drawTileFromDeck,
+  getTotalTilesRemaining,
+  isCityTile,
+} from "./data/tileDeckSetup.js";
+
 // Site properties
 export type { SiteProperties } from "./data/siteProperties.js";
 export {
@@ -98,6 +107,9 @@ export {
   getAvailableDice,
   updateDiceForTimeOfDay,
 } from "./engine/index.js";
+
+// Effect descriptions
+export { describeEffect } from "./engine/index.js";
 
 // Command system (undo support)
 export type {

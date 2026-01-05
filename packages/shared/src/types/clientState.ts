@@ -12,10 +12,19 @@ import type { CardId, SkillId, ManaColor } from "../ids.js";
 import type { UnitId } from "../units.js";
 import type { HexCoord } from "../hex.js";
 import type { Terrain } from "../terrain.js";
-import type { GamePhase, TimeOfDay } from "../stateConstants.js";
+import type { GamePhase, TimeOfDay, RoundPhase } from "../stateConstants.js";
 import type { ManaTokenSource } from "../valueConstants.js";
 import type { UnitState } from "../unitState.js";
 import type { TacticId } from "../tactics.js";
+
+// Pending choice - when a card requires player selection
+export interface ClientPendingChoice {
+  readonly cardId: CardId;
+  readonly options: readonly {
+    readonly type: string;
+    readonly description: string;
+  }[];
+}
 
 // Crystals (same as core, but defined here for independence)
 export interface ClientCrystals {
@@ -81,6 +90,9 @@ export interface ClientPlayer {
   readonly knockedOut: boolean;
   readonly selectedTacticId: TacticId | null;
   readonly tacticFlipped: boolean;
+
+  // Pending choice (if card requires player selection)
+  readonly pendingChoice: ClientPendingChoice | null;
 }
 
 // Mana die in the source
@@ -143,6 +155,7 @@ export interface ClientGameOffers {
 // The full client-visible game state
 export interface ClientGameState {
   readonly phase: GamePhase;
+  readonly roundPhase: RoundPhase;
   readonly timeOfDay: TimeOfDay;
   readonly round: number;
 

@@ -5,3 +5,16 @@ dist/
 
 # Docs folder (reference materials, not code)
 docs/
+
+# Build artifacts
+*.tsbuildinfo
+*.js.map
+*.d.ts.map
+
+# Test artifacts
+test-results/
+playwright-report/
+
+# Game assets (potentially copyrighted)
+packages/client/public/assets/
+packages/client/e2e/screenshots/

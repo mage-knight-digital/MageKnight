@@ -1,17 +1,23 @@
 /**
  * Tile definitions for Mage Knight
  *
- * Each tile is a 7-hex cluster. Coordinates are relative to the tile center (0,0).
- * The 6 surrounding hexes use axial coordinate offsets.
+ * Each tile is a 7-hex symmetric "flower" cluster. Coordinates are relative to the tile center (0,0).
+ * This symmetric shape allows tiles to connect with exactly 3 adjacent hex pairs along edges.
  *
- * Layout reference (flat-top hex orientation, looking at tile with number at bottom):
- *       NW  NE
- *     W  C   E
- *       SW  SE
+ * Layout reference (pointy-top hex orientation):
+ *
+ *        NW(0,-1)  NE(1,-1)
+ *     W(-1,0)  C(0,0)  E(1,0)
+ *        SW(-1,1)  SE(0,1)
  *
  * Axial offsets from center:
- *   NE: (1, -1), E: (1, 0), SE: (0, 1)
- *   SW: (-1, 1), W: (-1, 0), NW: (0, -1)
+ *   NW: (0, -1), NE: (1, -1)
+ *   W: (-1, 0), E: (1, 0)
+ *   SW: (-1, 1), SE: (0, 1)
+ *
+ * When tiles connect, they do NOT share hexes but have 3 adjacent hex pairs.
+ * Tile placement offsets for 3-edge connections (from explore/index.ts):
+ *   E: (3, -1), W: (-3, 1), NE: (2, -3), SW: (-2, 3), NW: (-1, -2), SE: (1, 2)
  *
  * Data verified against tile images from the unofficial Mage Knight wiki.
  */
@@ -101,12 +107,12 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     hasCity: false,
     hexes: [
       hex(0, 0, TERRAIN_PLAINS, SiteType.Portal), // Center - portal
-      hex(1, -1, TERRAIN_FOREST), // NE - forest
-      hex(1, 0, TERRAIN_PLAINS), // E - plains
-      hex(0, 1, TERRAIN_MOUNTAIN), // SE - mountain/cliff (coastal)
-      hex(-1, 1, TERRAIN_LAKE), // SW - ocean (impassable)
-      hex(-1, 0, TERRAIN_LAKE), // W - ocean (impassable)
       hex(0, -1, TERRAIN_PLAINS), // NW - plains (coastal edge)
+      hex(1, -1, TERRAIN_FOREST), // NE - forest
+      hex(-1, 0, TERRAIN_LAKE), // W - ocean (impassable)
+      hex(1, 0, TERRAIN_PLAINS), // E - plains
+      hex(-1, 1, TERRAIN_LAKE), // SW - ocean (impassable)
+      hex(0, 1, TERRAIN_MOUNTAIN), // SE - mountain/cliff (coastal)
     ],
   },
 
@@ -171,8 +177,7 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
       hex(0, 0, TERRAIN_FOREST), // Center - forest
       hex(1, -1, TERRAIN_HILLS, SiteType.Keep), // NE - keep
       hex(1, 0, TERRAIN_HILLS), // E - hills
-      hex(0, 1, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_WHITE }), // SE - white mine
-      hex(-1, 1, TERRAIN_PLAINS, SiteType.Village), // SW - village
+      hex(0, 1, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_WHITE }), // SE - white mine      hex(-1, 1, TERRAIN_PLAINS, SiteType.Village), // SW - village
       hex(-1, 0, TERRAIN_PLAINS), // W - plains
       hex(0, -1, TERRAIN_PLAINS), // NW - plains
     ],

@@ -22,7 +22,9 @@ import {
   INTERACT_ACTION,
   ANNOUNCE_END_OF_ROUND_ACTION,
   ENTER_SITE_ACTION,
+  SELECT_TACTIC_ACTION,
   hexKey,
+  type TacticId,
 } from "@mage-knight/shared";
 import type { Command } from "../commands.js";
 import { createMoveCommand } from "./moveCommand.js";
@@ -45,6 +47,7 @@ import { createRecruitUnitCommand, createActivateUnitCommand } from "./units/ind
 import { createInteractCommand } from "./interactCommand.js";
 import { createAnnounceEndOfRoundCommand } from "./announceEndOfRoundCommand.js";
 import { createEnterSiteCommand } from "./enterSiteCommand.js";
+import { createSelectTacticCommand } from "./selectTacticCommand.js";
 
 // Command factory function type
 type CommandFactory = (
@@ -426,6 +429,25 @@ function createEnterSiteCommandFromAction(
   return createEnterSiteCommand({ playerId });
 }
 
+// Helper to get tactic id from action
+function getTacticIdFromAction(action: PlayerAction): TacticId | null {
+  if (action.type === SELECT_TACTIC_ACTION && "tacticId" in action) {
+    return action.tacticId;
+  }
+  return null;
+}
+
+// Select tactic command factory
+function createSelectTacticCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  const tacticId = getTacticIdFromAction(action);
+  if (!tacticId) return null;
+  return createSelectTacticCommand({ playerId, tacticId });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
   [MOVE_ACTION]: createMoveCommandFromAction,
@@ -445,6 +467,7 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [INTERACT_ACTION]: createInteractCommandFromAction,
   [ANNOUNCE_END_OF_ROUND_ACTION]: createAnnounceEndOfRoundCommandFromAction,
   [ENTER_SITE_ACTION]: createEnterSiteCommandFromAction,
+  [SELECT_TACTIC_ACTION]: createSelectTacticCommandFromAction,
 };
 
 // Get command for an action
@@ -531,3 +554,10 @@ export {
   type EnterSiteCommandParams,
   ENTER_SITE_COMMAND,
 } from "./enterSiteCommand.js";
+
+// Tactics commands
+export {
+  createSelectTacticCommand,
+  type SelectTacticCommandArgs,
+  SELECT_TACTIC_COMMAND,
+} from "./selectTacticCommand.js";

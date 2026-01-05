@@ -73,11 +73,31 @@ export function getValidExploreDirections(
 }
 
 /**
+ * Direction-specific offsets for tile placement.
+ *
+ * With 7-hex symmetric "flower" tiles, tiles connect with exactly 3 adjacent
+ * hex pairs along edges. These offsets position the new tile center so that
+ * the tiles touch along 3 edges without overlapping.
+ *
+ * The offsets were computed by finding positions where:
+ * - Exactly 3 hex pairs are adjacent (touching)
+ * - No hexes overlap (14 unique hexes for 2 tiles)
+ */
+const TILE_PLACEMENT_OFFSETS: Record<HexDirection, HexCoord> = {
+  E: { q: 3, r: -1 },
+  NE: { q: 2, r: -3 },
+  NW: { q: -1, r: -2 },
+  W: { q: -3, r: 1 },
+  SW: { q: -2, r: 3 },
+  SE: { q: 1, r: 2 },
+};
+
+/**
  * Calculate where to place a new tile when exploring in a direction.
  *
- * SIMPLE VERSION: Place tile center at a fixed offset (2 hexes in explore direction).
- * This is a simplification; real placement depends on tile geometry and the
- * specific hex being explored from within the current tile.
+ * Each tile has a center hex plus 6 surrounding hexes (radius 1).
+ * Tiles connect with 3 adjacent hex pairs along their edges, not by sharing hexes.
+ * The offsets are direction-specific to achieve proper 3-edge connections.
  *
  * FUTURE: This will need to account for:
  * - Which hex on the current tile the player is on
@@ -88,10 +108,11 @@ export function calculateTilePlacement(
   fromHex: HexCoord,
   direction: HexDirection
 ): HexCoord {
-  // For now, simple offset - tile center goes 2 hexes in the explore direction
-  // This places the new tile's edge hexes adjacent to the explored edge
-  const adjacent = getNeighbor(fromHex, direction);
-  return getNeighbor(adjacent, direction);
+  const offset = TILE_PLACEMENT_OFFSETS[direction];
+  return {
+    q: fromHex.q + offset.q,
+    r: fromHex.r + offset.r,
+  };
 }
 
 // FUTURE: Terrain matching validation

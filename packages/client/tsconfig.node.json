@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "moduleDetection": "force",
+    "noEmit": false,
+    "exactOptionalPropertyTypes": false
+  },
+  "include": ["vite.config.ts"]
+}

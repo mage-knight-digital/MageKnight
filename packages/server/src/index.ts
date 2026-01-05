@@ -9,6 +9,7 @@ import {
   type HexState,
   type TilePlacement,
   type RngState,
+  type TileDeck,
   createInitialGameState,
   MageKnightEngine,
   createEngine,
@@ -20,7 +21,12 @@ import {
   hexKey,
   shuffleWithRng,
   createEmptyCombatAccumulator,
+  createManaSource,
+  describeEffect,
+  createTileDeck,
+  drawTileFromDeck,
 } from "@mage-knight/core";
+import type { HexCoord } from "@mage-knight/shared";
 import {
   LocalConnection,
   type GameConnection,
@@ -32,9 +38,12 @@ import {
   type ClientPlayer,
   type ClientPlayerUnit,
   type ClientManaToken,
+  type ClientPendingChoice,
   type EventCallback,
   GAME_PHASE_ROUND,
   GAME_STARTED,
+  ROUND_PHASE_TACTICS_SELECTION,
+  ALL_DAY_TACTICS,
 } from "@mage-knight/shared";
 
 // ============================================================================
@@ -51,6 +60,7 @@ export function toClientState(
 ): ClientGameState {
   return {
     phase: state.phase,
+    roundPhase: state.roundPhase,
     timeOfDay: state.timeOfDay,
     round: state.round,
     currentPlayerId: state.turnOrder[state.currentPlayerIndex] ?? "",
@@ -162,6 +172,22 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
     knockedOut: player.knockedOut,
     selectedTacticId: player.selectedTactic,
     tacticFlipped: player.tacticFlipped,
+
+    pendingChoice: player.pendingChoice
+      ? toClientPendingChoice(player.pendingChoice)
+      : null,
+  };
+}
+
+function toClientPendingChoice(
+  choice: NonNullable<Player["pendingChoice"]>
+): ClientPendingChoice {
+  return {
+    cardId: choice.cardId,
+    options: choice.options.map((effect) => ({
+      type: effect.type,
+      description: describeEffect(effect),
+    })),
   };
 }
 
@@ -259,29 +285,75 @@ export class GameServer {
 
   /**
    * Create initial game state with players.
-   * Places starting tile and positions all players on the portal hex.
+   * Places starting tile + 2 initial countryside tiles and positions all players on the portal hex.
    * Uses seeded RNG for reproducible initial deck shuffles.
    */
   private createGameWithPlayers(playerIds: string[]): GameState {
     const baseState = createInitialGameState(this.seed);
 
-    // Place starting tile at origin
-    const tileOrigin = { q: 0, r: 0 };
-    const placedHexes = placeTile(TileId.StartingTileA, tileOrigin);
+    // Initialize tile deck based on scenario configuration
+    const { tileDeck: initialDeck, rng: rngAfterDeck } = createTileDeck(
+      baseState.scenarioConfig,
+      baseState.rng
+    );
 
-    // Build hex map
+    // Place starting tile at origin
+    const tileOrigin: HexCoord = { q: 0, r: 0 };
+    const startingTileHexes = placeTile(TileId.StartingTileA, tileOrigin);
+
+    // Build hex map starting with the starting tile
     const hexes: Record<string, HexState> = {};
-    for (const hex of placedHexes) {
+    for (const hex of startingTileHexes) {
       const key = hexKey(hex.coord);
       hexes[key] = hex;
     }
 
+    // Track tile placements
+    const tiles: TilePlacement[] = [
+      {
+        tileId: TileId.StartingTileA,
+        centerCoord: tileOrigin,
+        revealed: true,
+      },
+    ];
+
+    // Place 2 initial countryside tiles adjacent to the starting tile
+    // Per rulebook: Starting tile A has land edges at NE, E, NW
+    // Tiles connect with 3 adjacent hex pairs (not overlapping)
+    // Offsets match TILE_PLACEMENT_OFFSETS in explore/index.ts
+    const initialTilePositions: HexCoord[] = [
+      { q: 2, r: -3 }, // NE direction: tiles touch along 3 edges
+      { q: 3, r: -1 }, // E direction: tiles touch along 3 edges
+    ];
+
+    let currentDeck: TileDeck = initialDeck;
+    for (const position of initialTilePositions) {
+      const drawResult = drawTileFromDeck(currentDeck);
+      if (drawResult) {
+        const { tileId, updatedDeck } = drawResult;
+        currentDeck = updatedDeck;
+
+        // Place the tile and add its hexes to the map
+        const tileHexes = placeTile(tileId, position);
+        for (const hex of tileHexes) {
+          const key = hexKey(hex.coord);
+          hexes[key] = hex;
+        }
+
+        tiles.push({
+          tileId,
+          centerCoord: position,
+          revealed: true,
+        });
+      }
+    }
+
     // Find portal hex for player starting position
-    const portalHex = placedHexes.find((h) => h.site?.type === SiteType.Portal);
+    const portalHex = startingTileHexes.find((h) => h.site?.type === SiteType.Portal);
     const startPosition = portalHex?.coord ?? { q: 0, r: 0 };
 
     // Create players on the portal with seeded RNG for deck shuffles
-    let currentRng: RngState = baseState.rng;
+    let currentRng: RngState = rngAfterDeck;
     const players: Player[] = [];
 
     for (let index = 0; index < playerIds.length; index++) {
@@ -293,24 +365,36 @@ export class GameServer {
       }
     }
 
-    // Create tile placement record
-    const tilePlacement: TilePlacement = {
-      tileId: TileId.StartingTileA,
-      centerCoord: tileOrigin,
-      revealed: true,
-    };
+    // Set up tactics selection phase
+    // In solo play, the single player selects first
+    // In multiplayer, selection order is reverse fame (lowest fame picks first)
+    // Since all players start at 0 fame, use player order
+    const tacticsSelectionOrder = [...playerIds];
+
+    // Initialize mana source with dice (playerCount + 2 dice)
+    const { source, rng: rngAfterMana } = createManaSource(
+      playerIds.length,
+      baseState.timeOfDay,
+      currentRng
+    );
 
     return {
       ...baseState,
       phase: GAME_PHASE_ROUND,
+      roundPhase: ROUND_PHASE_TACTICS_SELECTION,
+      availableTactics: [...ALL_DAY_TACTICS],
+      tacticsSelectionOrder,
+      currentTacticSelector: tacticsSelectionOrder[0] ?? null,
       turnOrder: playerIds,
       currentPlayerIndex: 0,
       players,
-      rng: currentRng, // Updated RNG state after all shuffles
+      source,
+      rng: rngAfterMana, // Updated RNG state after all shuffles and mana source
       map: {
         ...baseState.map,
         hexes,
-        tiles: [tilePlacement],
+        tiles,
+        tileDeck: currentDeck, // Remaining tiles after initial placement
       },
     };
   }
