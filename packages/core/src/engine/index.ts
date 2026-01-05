@@ -85,3 +85,6 @@ export {
   findTileCenterForHex,
   getExplorableSlotsFromTile,
 } from "./explore/index.js";
+
+// Valid actions computation
+export { getValidActions, getTurnOptions } from "./validActions/index.js";

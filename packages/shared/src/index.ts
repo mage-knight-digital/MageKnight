@@ -225,6 +225,35 @@ export type {
   ClientPendingChoice,
 } from "./types/clientState.js";
 
+// Valid actions types
+export type {
+  ValidActions,
+  MoveOptions,
+  MoveTarget,
+  ExploreOptions,
+  ExploreDirection,
+  PlayCardOptions,
+  PlayableCard,
+  SidewaysAs,
+  SidewaysOption,
+  CombatOptions,
+  AttackOption,
+  BlockOption,
+  DamageAssignmentOption,
+  UnitOptions,
+  RecruitableUnit,
+  ActivatableUnit,
+  ActivatableAbility,
+  SiteOptions,
+  InteractOptions,
+  ManaOptions,
+  AvailableDie,
+  TurnOptions,
+  TacticsOptions,
+  EnterCombatOptions,
+  AvailableEnemy,
+} from "./types/validActions.js";
+
 // Shared value constants (sub-unions)
 export * from "./valueConstants.js";
 

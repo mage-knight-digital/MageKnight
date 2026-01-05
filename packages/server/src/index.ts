@@ -27,6 +27,7 @@ import {
   createTileDeck,
   drawTileFromDeck,
   generateTileSlots,
+  getValidActions,
 } from "@mage-knight/core";
 import type { HexCoord } from "@mage-knight/shared";
 import {
@@ -125,6 +126,9 @@ export function toClientState(
 
     woundPileCount: state.woundPileCount,
     scenarioEndTriggered: state.scenarioEndTriggered,
+
+    // Valid actions for this player
+    validActions: getValidActions(state, forPlayerId),
   };
 }
 

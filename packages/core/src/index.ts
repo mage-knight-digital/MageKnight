@@ -81,6 +81,9 @@ export { BASIC_ACTION_CARDS, getBasicActionCard } from "./data/basicActions.js";
 export { MageKnightEngine, createEngine } from "./engine/index.js";
 export type { ActionResult } from "./engine/index.js";
 
+// Valid actions
+export { getValidActions, getTurnOptions } from "./engine/index.js";
+
 // Explore / tile grid system
 export {
   isEdgeHex,

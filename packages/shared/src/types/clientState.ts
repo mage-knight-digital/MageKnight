@@ -16,6 +16,7 @@ import type { GamePhase, TimeOfDay, RoundPhase } from "../stateConstants.js";
 import type { ManaTokenSource } from "../valueConstants.js";
 import type { UnitState } from "../unitState.js";
 import type { TacticId } from "../tactics.js";
+import type { ValidActions } from "./validActions.js";
 
 // Pending choice - when a card requires player selection
 export interface ClientPendingChoice {
@@ -192,6 +193,9 @@ export interface ClientGameState {
   };
 
   readonly woundPileCount: number;
+
+  /** Valid actions for the player receiving this state */
+  readonly validActions: ValidActions;
 }
 
 // Combat state (placeholder - expand when combat is implemented)
