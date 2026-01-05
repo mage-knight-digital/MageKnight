@@ -11,6 +11,8 @@ import {
   isAttackResisted,
   calculateEffectiveAttack,
   combineResistances,
+  getFinalAttackValue,
+  getFinalBlockValue,
   NO_RESISTANCES,
   type Resistances,
 } from "../elementalCalc.js";
@@ -19,7 +21,22 @@ import {
   ELEMENT_FIRE,
   ELEMENT_ICE,
   ELEMENT_COLD_FIRE,
+  COMBAT_TYPE_MELEE,
+  COMBAT_TYPE_RANGED,
+  COMBAT_TYPE_SIEGE,
 } from "@mage-knight/shared";
+import { createTestGameState, createTestPlayer } from "../../__tests__/testHelpers.js";
+import type { ActiveModifier } from "../../../types/modifiers.js";
+import {
+  COMBAT_VALUE_ATTACK,
+  COMBAT_VALUE_BLOCK,
+  COMBAT_VALUE_RANGED,
+  COMBAT_VALUE_SIEGE,
+  DURATION_COMBAT,
+  EFFECT_COMBAT_VALUE,
+  SCOPE_SELF,
+  SOURCE_SKILL,
+} from "../../modifierConstants.js";
 
 describe("Block Efficiency", () => {
   describe("isBlockEfficient", () => {
@@ -310,6 +327,343 @@ describe("Attack Resistances", () => {
         fire: true,
         ice: true,
       });
+    });
+  });
+});
+
+describe("Combat Value Modifiers", () => {
+  /**
+   * Helper to create a combat value modifier
+   */
+  function createCombatModifier(
+    valueType: typeof COMBAT_VALUE_ATTACK | typeof COMBAT_VALUE_BLOCK | typeof COMBAT_VALUE_RANGED | typeof COMBAT_VALUE_SIEGE,
+    amount: number,
+    playerId = "player1"
+  ): ActiveModifier {
+    return {
+      id: `mod_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      source: { type: SOURCE_SKILL, skillId: "test_skill", playerId },
+      duration: DURATION_COMBAT,
+      scope: { type: SCOPE_SELF },
+      effect: {
+        type: EFFECT_COMBAT_VALUE,
+        valueType,
+        amount,
+      },
+      createdAtRound: 1,
+      createdByPlayerId: playerId,
+    };
+  }
+
+  describe("getFinalAttackValue", () => {
+    it("should apply attack bonus from modifier", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_ATTACK, 3),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 2 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_MELEE);
+
+      // Base attack 2 + modifier bonus 3 = 5
+      expect(result).toBe(5);
+    });
+
+    it("should stack multiple attack modifiers", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_ATTACK, 2),
+          createCombatModifier(COMBAT_VALUE_ATTACK, 1),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 1 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_MELEE);
+
+      // Base attack 1 + 2 + 1 = 4
+      expect(result).toBe(4);
+    });
+
+    it("should apply ranged bonus only to ranged attacks", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_RANGED, 2),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 3 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_RANGED);
+
+      // Base attack 3 + ranged bonus 2 = 5
+      expect(result).toBe(5);
+    });
+
+    it("should NOT apply ranged bonus to melee attacks", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_RANGED, 2),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 3 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_MELEE);
+
+      // Base attack 3 only, ranged bonus does NOT apply to melee
+      expect(result).toBe(3);
+    });
+
+    it("should apply ranged bonus to siege attacks", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_RANGED, 2),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 3 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_SIEGE);
+
+      // Base attack 3 + ranged bonus 2 = 5 (ranged applies to siege)
+      expect(result).toBe(5);
+    });
+
+    it("should apply siege bonus only to siege attacks", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_SIEGE, 4),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 2 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_SIEGE);
+
+      // Base attack 2 + siege bonus 4 = 6
+      expect(result).toBe(6);
+    });
+
+    it("should NOT apply siege bonus to melee attacks", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_SIEGE, 4),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 2 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_MELEE);
+
+      // Base attack 2 only, siege bonus does NOT apply to melee
+      expect(result).toBe(2);
+    });
+
+    it("should NOT apply siege bonus to ranged attacks", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_SIEGE, 4),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 2 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_RANGED);
+
+      // Base attack 2 only, siege bonus does NOT apply to ranged
+      expect(result).toBe(2);
+    });
+
+    it("should combine attack, ranged, and siege bonuses for siege attacks", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_ATTACK, 1),
+          createCombatModifier(COMBAT_VALUE_RANGED, 2),
+          createCombatModifier(COMBAT_VALUE_SIEGE, 3),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 2 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_SIEGE);
+
+      // Base attack 2 + attack 1 + ranged 2 + siege 3 = 8
+      expect(result).toBe(8);
+    });
+
+    it("should only apply attack bonus for melee attacks with all modifiers", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_ATTACK, 1),
+          createCombatModifier(COMBAT_VALUE_RANGED, 2),
+          createCombatModifier(COMBAT_VALUE_SIEGE, 3),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 2 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_MELEE);
+
+      // Base attack 2 + attack 1 = 3 (ranged and siege don't apply)
+      expect(result).toBe(3);
+    });
+
+    it("should apply modifiers after resistance halving", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_ATTACK, 3),
+        ],
+      });
+
+      // 6 Fire attack against Fire resistance = 3, plus 3 bonus = 6
+      const attacks = [{ element: ELEMENT_FIRE, value: 6 }];
+      const resistances: Resistances = { physical: false, fire: true, ice: false };
+      const result = getFinalAttackValue(attacks, resistances, state, "player1", COMBAT_TYPE_MELEE);
+
+      expect(result).toBe(6);
+    });
+
+    it("should return base attack when no modifiers", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 5 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_MELEE);
+
+      expect(result).toBe(5);
+    });
+
+    it("should not apply other player modifiers with SCOPE_SELF", () => {
+      const player1 = createTestPlayer({ id: "player1" });
+      const player2 = createTestPlayer({ id: "player2" });
+      const state = createTestGameState({
+        players: [player1, player2],
+        activeModifiers: [
+          // Player 2's modifier should not affect player 1
+          createCombatModifier(COMBAT_VALUE_ATTACK, 10, "player2"),
+        ],
+      });
+
+      const attacks = [{ element: ELEMENT_PHYSICAL, value: 2 }];
+      const result = getFinalAttackValue(attacks, NO_RESISTANCES, state, "player1", COMBAT_TYPE_MELEE);
+
+      // Only base attack, no bonus from player2's modifier
+      expect(result).toBe(2);
+    });
+  });
+
+  describe("getFinalBlockValue", () => {
+    it("should apply block bonus from modifier", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_BLOCK, 2),
+        ],
+      });
+
+      const blocks = [{ element: ELEMENT_PHYSICAL, value: 3 }];
+      const result = getFinalBlockValue(blocks, ELEMENT_PHYSICAL, state, "player1");
+
+      // Base block 3 + modifier bonus 2 = 5
+      expect(result).toBe(5);
+    });
+
+    it("should stack multiple block modifiers", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_BLOCK, 2),
+          createCombatModifier(COMBAT_VALUE_BLOCK, 3),
+        ],
+      });
+
+      const blocks = [{ element: ELEMENT_PHYSICAL, value: 1 }];
+      const result = getFinalBlockValue(blocks, ELEMENT_PHYSICAL, state, "player1");
+
+      // Base block 1 + 2 + 3 = 6
+      expect(result).toBe(6);
+    });
+
+    it("should apply modifiers after efficiency halving", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_BLOCK, 3),
+        ],
+      });
+
+      // Physical 6 block against Fire attack = 3 (halved), plus 3 bonus = 6
+      const blocks = [{ element: ELEMENT_PHYSICAL, value: 6 }];
+      const result = getFinalBlockValue(blocks, ELEMENT_FIRE, state, "player1");
+
+      expect(result).toBe(6);
+    });
+
+    it("should return base block when no modifiers", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [],
+      });
+
+      const blocks = [{ element: ELEMENT_PHYSICAL, value: 4 }];
+      const result = getFinalBlockValue(blocks, ELEMENT_PHYSICAL, state, "player1");
+
+      expect(result).toBe(4);
+    });
+
+    it("should not apply attack modifiers to block", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_ATTACK, 10),
+        ],
+      });
+
+      const blocks = [{ element: ELEMENT_PHYSICAL, value: 3 }];
+      const result = getFinalBlockValue(blocks, ELEMENT_PHYSICAL, state, "player1");
+
+      // Only base block, attack modifier doesn't apply
+      expect(result).toBe(3);
+    });
+
+    it("should not apply other player modifiers with SCOPE_SELF", () => {
+      const player1 = createTestPlayer({ id: "player1" });
+      const player2 = createTestPlayer({ id: "player2" });
+      const state = createTestGameState({
+        players: [player1, player2],
+        activeModifiers: [
+          createCombatModifier(COMBAT_VALUE_BLOCK, 10, "player2"),
+        ],
+      });
+
+      const blocks = [{ element: ELEMENT_PHYSICAL, value: 2 }];
+      const result = getFinalBlockValue(blocks, ELEMENT_PHYSICAL, state, "player1");
+
+      // Only base block, no bonus from player2's modifier
+      expect(result).toBe(2);
     });
   });
 });

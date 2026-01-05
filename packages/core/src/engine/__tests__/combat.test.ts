@@ -30,6 +30,7 @@ import {
   ENEMY_FREEZERS,
   ENEMY_DIGGERS,
   ENEMY_PROWLERS,
+  ENEMY_CURSED_HAGS,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -1369,6 +1370,101 @@ describe("Combat Phase 2", () => {
 
         expect(result.state.combat?.enemies[0].isDefeated).toBe(true);
       });
+    });
+  });
+
+  describe("Knockout tracking with poison", () => {
+    it("should only count hand wounds for knockout, not discard wounds from poison", () => {
+      // Player with hand limit 5 and armor 2
+      // Cursed Hags attack 3 with poison -> 2 wounds to hand (3/2 rounded up)
+      // Poison adds 2 more wounds to discard
+      // Total wounds = 2 to hand, 2 to discard
+      // woundsThisCombat should be 2, NOT 4
+      // Player should NOT be knocked out (2 < 5)
+      const player = createTestPlayer({
+        hand: [],
+        deck: [CARD_MARCH],
+        handLimit: 5,
+        armor: 2,
+      });
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Cursed Hags (attack 3, poison)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_CURSED_HAGS],
+      }).state;
+
+      // Skip to Assign Damage phase (don't block)
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Assign damage from poison enemy
+      const result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+      });
+
+      // Should have 2 wounds to hand (attack 3 / armor 2 = 2)
+      const player1 = result.state.players[0];
+      const handWounds = player1.hand.filter((c) => c === CARD_WOUND).length;
+      expect(handWounds).toBe(2);
+
+      // Should have 2 wounds to discard (poison doubles wounds)
+      const discardWounds = player1.discard.filter((c) => c === CARD_WOUND).length;
+      expect(discardWounds).toBe(2);
+
+      // Combat should track only 2 wounds (hand wounds only)
+      expect(result.state.combat?.woundsThisCombat).toBe(2);
+
+      // Player should NOT be knocked out (2 < 5)
+      expect(player1.knockedOut).toBe(false);
+    });
+
+    it("should knock out player when hand wounds reach hand limit, ignoring poison discard wounds", () => {
+      // Player with hand limit 3 and armor 1
+      // Cursed Hags attack 3 with poison -> 3 wounds to hand (3/1 = 3)
+      // Poison adds 3 more wounds to discard
+      // woundsThisCombat should be 3 (not 6)
+      // Player SHOULD be knocked out (3 >= 3)
+      const player = createTestPlayer({
+        hand: [],
+        deck: [CARD_MARCH],
+        handLimit: 3,
+        armor: 1,
+      });
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Cursed Hags (attack 3, poison)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_CURSED_HAGS],
+      }).state;
+
+      // Skip to Assign Damage phase (don't block)
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Assign damage from poison enemy
+      const result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+      });
+
+      // Combat should track 3 wounds (hand wounds only)
+      expect(result.state.combat?.woundsThisCombat).toBe(3);
+
+      // Player SHOULD be knocked out (3 >= 3 hand limit)
+      const player1 = result.state.players[0];
+      expect(player1.knockedOut).toBe(true);
     });
   });
 });

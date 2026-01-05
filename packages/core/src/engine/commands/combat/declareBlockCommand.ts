@@ -6,7 +6,7 @@ import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { BlockSource } from "@mage-knight/shared";
 import { ENEMY_BLOCKED, BLOCK_FAILED } from "@mage-knight/shared";
-import { calculateTotalBlock } from "../../combat/elementalCalc.js";
+import { getFinalBlockValue } from "../../combat/elementalCalc.js";
 
 export const DECLARE_BLOCK_COMMAND = "DECLARE_BLOCK" as const;
 
@@ -36,10 +36,12 @@ export function createDeclareBlockCommand(
         throw new Error(`Enemy not found: ${params.targetEnemyInstanceId}`);
       }
 
-      // Calculate effective block value considering elemental efficiency
-      const effectiveBlockValue = calculateTotalBlock(
+      // Calculate final block value including elemental efficiency and combat modifiers
+      const effectiveBlockValue = getFinalBlockValue(
         params.blocks,
-        enemy.definition.attackElement
+        enemy.definition.attackElement,
+        state,
+        params.playerId
       );
 
       // Check if block is sufficient (Block >= Attack)

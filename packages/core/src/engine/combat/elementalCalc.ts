@@ -2,15 +2,26 @@
  * Elemental calculation helpers for combat
  *
  * Handles block efficiency, attack resistances, and elemental interactions.
+ * Also provides final value calculations that incorporate combat modifiers.
  */
 
-import type { Element } from "@mage-knight/shared";
+import type { Element, AttackSource, BlockSource, CombatType } from "@mage-knight/shared";
 import {
   ELEMENT_PHYSICAL,
   ELEMENT_FIRE,
   ELEMENT_ICE,
   ELEMENT_COLD_FIRE,
+  COMBAT_TYPE_RANGED,
+  COMBAT_TYPE_SIEGE,
 } from "@mage-knight/shared";
+import type { GameState } from "../../state/GameState.js";
+import { getEffectiveCombatBonus } from "../modifiers.js";
+import {
+  COMBAT_VALUE_ATTACK,
+  COMBAT_VALUE_BLOCK,
+  COMBAT_VALUE_RANGED,
+  COMBAT_VALUE_SIEGE,
+} from "../modifierConstants.js";
 
 /**
  * Resistances interface for enemies
@@ -150,4 +161,61 @@ export function combineResistances(
     fire: enemies.some((e) => e.resistances.fire),
     ice: enemies.some((e) => e.resistances.ice),
   };
+}
+
+// === Final value calculations with modifiers ===
+
+/**
+ * Calculate final attack value including combat modifiers.
+ * Used when resolving attack declarations to determine if enemies are defeated.
+ *
+ * Sums up:
+ * - Base attack from calculateEffectiveAttack (considering resistances)
+ * - Attack bonus from active modifiers (always applies)
+ * - Ranged bonus from active modifiers (only for ranged or siege attacks)
+ * - Siege bonus from active modifiers (only for siege attacks)
+ */
+export function getFinalAttackValue(
+  attacks: readonly AttackSource[],
+  targetResistances: Resistances,
+  state: GameState,
+  playerId: string,
+  attackType: CombatType
+): number {
+  const baseAttack = calculateEffectiveAttack(attacks, targetResistances);
+
+  // Always apply general attack bonus
+  let bonus = getEffectiveCombatBonus(state, playerId, COMBAT_VALUE_ATTACK);
+
+  // Ranged bonus only applies to ranged or siege attacks
+  if (attackType === COMBAT_TYPE_RANGED || attackType === COMBAT_TYPE_SIEGE) {
+    bonus += getEffectiveCombatBonus(state, playerId, COMBAT_VALUE_RANGED);
+  }
+
+  // Siege bonus only applies to siege attacks
+  if (attackType === COMBAT_TYPE_SIEGE) {
+    bonus += getEffectiveCombatBonus(state, playerId, COMBAT_VALUE_SIEGE);
+  }
+
+  return baseAttack + bonus;
+}
+
+/**
+ * Calculate final block value including combat modifiers.
+ * Used when resolving block declarations to determine if enemy attack is blocked.
+ *
+ * Sums up:
+ * - Base block from calculateTotalBlock (considering elemental efficiency)
+ * - Block bonus from active modifiers
+ */
+export function getFinalBlockValue(
+  blocks: readonly BlockSource[],
+  attackElement: Element,
+  state: GameState,
+  playerId: string
+): number {
+  const baseBlock = calculateTotalBlock(blocks, attackElement);
+  const blockBonus = getEffectiveCombatBonus(state, playerId, COMBAT_VALUE_BLOCK);
+
+  return baseBlock + blockBonus;
 }

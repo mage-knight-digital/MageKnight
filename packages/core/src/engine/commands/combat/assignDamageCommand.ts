@@ -10,7 +10,8 @@ import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { PlayerUnit } from "../../../types/unit.js";
-import type { CardId, GameEvent, DamageAssignment } from "@mage-knight/shared";
+import type { CombatEnemy } from "../../../types/combat.js";
+import type { CardId, GameEvent, DamageAssignment, EnemyAbilityType } from "@mage-knight/shared";
 import {
   DAMAGE_ASSIGNED,
   PLAYER_KNOCKED_OUT,
@@ -20,11 +21,68 @@ import {
   DAMAGE_TARGET_HERO,
   DAMAGE_TARGET_UNIT,
   UNIT_DESTROY_REASON_DOUBLE_WOUND,
+  UNIT_DESTROY_REASON_POISON,
+  ABILITY_BRUTAL,
+  ABILITY_POISON,
   getUnit,
 } from "@mage-knight/shared";
 import { isAttackResisted } from "../../combat/elementalCalc.js";
+import { isAbilityNullified } from "../../modifiers.js";
 
 export const ASSIGN_DAMAGE_COMMAND = "ASSIGN_DAMAGE" as const;
+
+/**
+ * Check if an enemy has a specific ability
+ */
+function hasAbility(enemy: CombatEnemy, abilityType: EnemyAbilityType): boolean {
+  return enemy.definition.abilities.includes(abilityType);
+}
+
+/**
+ * Check if enemy's brutal ability is active (not nullified)
+ * Brutal: DOUBLES the damage dealt by the enemy attack
+ */
+function isBrutalActive(
+  state: GameState,
+  playerId: string,
+  enemy: CombatEnemy
+): boolean {
+  if (!hasAbility(enemy, ABILITY_BRUTAL)) return false;
+  return !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_BRUTAL);
+}
+
+/**
+ * Check if enemy's poison ability is active (not nullified)
+ * Poison (hero): wounds go to hand AND matching wounds go to discard
+ * Poison (unit): unit receives 2 wounds immediately = destroyed
+ */
+function isPoisonActive(
+  state: GameState,
+  playerId: string,
+  enemy: CombatEnemy
+): boolean {
+  if (!hasAbility(enemy, ABILITY_POISON)) return false;
+  return !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_POISON);
+}
+
+/**
+ * Get effective damage from an enemy attack
+ * Brutal: doubles the damage
+ */
+function getEffectiveDamage(
+  enemy: CombatEnemy,
+  state: GameState,
+  playerId: string
+): number {
+  let damage = enemy.definition.attack;
+
+  // Brutal doubles the damage
+  if (isBrutalActive(state, playerId, enemy)) {
+    damage *= 2;
+  }
+
+  return damage;
+}
 
 export interface AssignDamageCommandParams {
   readonly playerId: string;
@@ -35,12 +93,16 @@ export interface AssignDamageCommandParams {
 /**
  * Process damage assigned to a unit.
  * Returns the updated unit, any remaining damage, and events.
+ *
+ * Poison: If a unit would be wounded by a poison attack, it receives 2 wounds
+ * and is immediately destroyed (since units can only take 1 wound before death).
  */
 function processUnitDamage(
   unit: PlayerUnit,
   damageAmount: number,
   attackElement: import("@mage-knight/shared").Element,
-  playerId: string
+  playerId: string,
+  isPoisoned: boolean
 ): {
   unit: PlayerUnit;
   damageRemaining: number;
@@ -57,6 +119,8 @@ function processUnitDamage(
   let unitWounded = unit.wounded;
   let usedResistance = unit.usedResistanceThisCombat;
   let destroyed = false;
+  let destroyReason: typeof UNIT_DESTROY_REASON_DOUBLE_WOUND | typeof UNIT_DESTROY_REASON_POISON =
+    UNIT_DESTROY_REASON_DOUBLE_WOUND;
 
   if (isResistant && !unit.wounded && !unit.usedResistanceThisCombat) {
     // Resistant unit (not previously wounded, hasn't used resistance this combat):
@@ -66,8 +130,16 @@ function processUnitDamage(
     if (damageRemaining > 0) {
       // Still damage remaining after first armor reduction: wound the unit
       unitWounded = true;
-      // Apply armor reduction again for wounded unit
-      damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+
+      // Poison: if unit would be wounded, it gets 2 wounds = destroyed
+      if (isPoisoned) {
+        destroyed = true;
+        destroyReason = UNIT_DESTROY_REASON_POISON;
+        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+      } else {
+        // Apply armor reduction again for wounded unit
+        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+      }
     } else {
       // Absorbed without wound, mark resistance as used for this combat
       usedResistance = true;
@@ -82,7 +154,15 @@ function processUnitDamage(
     } else {
       // First wound: apply armor and wound
       unitWounded = true;
-      damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+
+      // Poison: if unit would be wounded, it gets 2 wounds = destroyed
+      if (isPoisoned) {
+        destroyed = true;
+        destroyReason = UNIT_DESTROY_REASON_POISON;
+        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+      } else {
+        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+      }
     }
   }
 
@@ -94,7 +174,7 @@ function processUnitDamage(
       type: UNIT_DESTROYED,
       playerId,
       unitInstanceId: unit.instanceId,
-      reason: UNIT_DESTROY_REASON_DOUBLE_WOUND,
+      reason: destroyReason,
     });
   } else if (unitWounded && !unit.wounded) {
     // Only emit wound event if unit wasn't already wounded
@@ -152,8 +232,10 @@ export function createAssignDamageCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
-      const totalDamage = enemy.definition.attack;
+      // Get effective damage (Brutal doubles damage)
+      const totalDamage = getEffectiveDamage(enemy, state, params.playerId);
       const attackElement = enemy.definition.attackElement;
+      const isPoisoned = isPoisonActive(state, params.playerId, enemy);
       const events: GameEvent[] = [];
 
       let updatedPlayer: Player = player;
@@ -186,7 +268,8 @@ export function createAssignDamageCommand(
             unit,
             assignment.amount,
             attackElement,
-            params.playerId
+            params.playerId,
+            isPoisoned
           );
 
           events.push(...result.events);
@@ -217,11 +300,18 @@ export function createAssignDamageCommand(
       }
 
       // Apply hero wounds
+      // Poison (hero): wounds go to hand AND matching wounds go to discard
       if (heroWounds > 0) {
-        const newWounds: CardId[] = Array(heroWounds).fill(CARD_WOUND);
-        const newHand: CardId[] = [...updatedPlayer.hand, ...newWounds];
+        const woundsToHand: CardId[] = Array(heroWounds).fill(CARD_WOUND);
+        const woundsToDiscard: CardId[] = isPoisoned
+          ? Array(heroWounds).fill(CARD_WOUND)
+          : [];
 
-        // Update wounds this combat for knockout tracking
+        const newHand: CardId[] = [...updatedPlayer.hand, ...woundsToHand];
+        const newDiscard: CardId[] = [...updatedPlayer.discard, ...woundsToDiscard];
+
+        // Only wounds to HAND count for knockout tracking
+        // Poison wounds to discard are extra punishment but don't count toward knockout threshold
         const totalWoundsThisCombat = state.combat.woundsThisCombat + heroWounds;
 
         // Check for knockout (wounds this combat >= hand limit)
@@ -241,11 +331,13 @@ export function createAssignDamageCommand(
         updatedPlayer = {
           ...updatedPlayer,
           hand: finalHand,
+          discard: newDiscard,
           knockedOut: isKnockedOut,
         };
       }
 
       // Emit the main damage assigned event
+      // woundsTaken reflects wounds to hand (poison adds equal wounds to discard)
       events.unshift({
         type: DAMAGE_ASSIGNED,
         enemyInstanceId: params.enemyInstanceId,
@@ -264,7 +356,8 @@ export function createAssignDamageCommand(
           : e
       );
 
-      // Track wounds from hero only for knockout purposes
+      // Only wounds to HAND count for knockout tracking
+      // Poison wounds to discard are extra punishment but don't count toward knockout threshold
       const combatWoundsThisCombat = state.combat.woundsThisCombat + heroWounds;
 
       const updatedCombat = {

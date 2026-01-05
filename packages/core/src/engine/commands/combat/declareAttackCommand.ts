@@ -11,7 +11,7 @@ import {
   getLevelsCrossed,
 } from "@mage-knight/shared";
 import {
-  calculateEffectiveAttack,
+  getFinalAttackValue,
   combineResistances,
   type Resistances,
 } from "../../combat/elementalCalc.js";
@@ -57,10 +57,13 @@ export function createDeclareAttackCommand(
         }))
       );
 
-      // Calculate effective attack value considering resistances
-      const effectiveAttackValue = calculateEffectiveAttack(
+      // Calculate final attack value including resistances and combat modifiers
+      const effectiveAttackValue = getFinalAttackValue(
         params.attacks,
-        targetResistances
+        targetResistances,
+        state,
+        params.playerId,
+        params.attackType
       );
 
       // Check if attack defeats all targets
