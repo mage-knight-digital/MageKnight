@@ -20,4 +20,10 @@ export const TIME_OF_DAY_NIGHT = "night" as const;
 
 export type TimeOfDay = typeof TIME_OF_DAY_DAY | typeof TIME_OF_DAY_NIGHT;
 
+// === Round phase (sub-phase within GAME_PHASE_ROUND) ===
+export const ROUND_PHASE_TACTICS_SELECTION = "tactics_selection" as const;
+export const ROUND_PHASE_PLAYER_TURNS = "player_turns" as const;
 
+export type RoundPhase =
+  | typeof ROUND_PHASE_TACTICS_SELECTION
+  | typeof ROUND_PHASE_PLAYER_TURNS;

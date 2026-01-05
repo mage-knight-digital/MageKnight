@@ -18,6 +18,9 @@ export const REST_COMMAND = "REST" as const;
 export const ANNOUNCE_END_OF_ROUND_COMMAND = "ANNOUNCE_END_OF_ROUND" as const;
 export const END_ROUND_COMMAND = "END_ROUND" as const;
 
+// Tactics selection command
+export const SELECT_TACTIC_COMMAND = "SELECT_TACTIC" as const;
+
 // Conquest commands
 export const CONQUER_SITE_COMMAND = "CONQUER_SITE" as const;
 

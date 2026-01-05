@@ -7,7 +7,6 @@
 
 // Player types
 export type {
-  TacticCardId,
   ManaToken,
   SkillCooldowns,
   Crystals,

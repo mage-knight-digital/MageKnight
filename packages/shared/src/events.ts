@@ -6,6 +6,7 @@ import type { HexCoord } from "./hex.js";
 import type { CardId, SkillId, ManaColor } from "./ids.js";
 import type { UnitId } from "./units.js";
 import type { LevelUpType } from "./levels.js";
+import type { TacticId } from "./tactics.js";
 import {
   CARD_GAIN_SOURCE_LEVEL_UP,
   CARD_GAIN_SOURCE_OFFER,
@@ -101,6 +102,21 @@ export const MANA_SOURCE_RESET = "MANA_SOURCE_RESET" as const;
 export interface ManaSourceResetEvent {
   readonly type: typeof MANA_SOURCE_RESET;
   readonly diceCount: number;
+}
+
+// Tactics selection events
+export const TACTIC_SELECTED = "TACTIC_SELECTED" as const;
+export interface TacticSelectedEvent {
+  readonly type: typeof TACTIC_SELECTED;
+  readonly playerId: string;
+  readonly tacticId: TacticId;
+  readonly turnOrder: number;
+}
+
+export const TACTICS_PHASE_ENDED = "TACTICS_PHASE_ENDED" as const;
+export interface TacticsPhaseEndedEvent {
+  readonly type: typeof TACTICS_PHASE_ENDED;
+  readonly turnOrder: readonly string[]; // Final turn order based on selected tactics
 }
 
 export const DECKS_RESHUFFLED = "DECKS_RESHUFFLED" as const;
@@ -825,6 +841,8 @@ export type GameEvent =
   | NewRoundStartedEvent
   | TimeOfDayChangedEvent
   | ManaSourceResetEvent
+  | TacticSelectedEvent
+  | TacticsPhaseEndedEvent
   | DecksReshuffledEvent
   | PlayerRestedEvent
   | RestUndoneEvent

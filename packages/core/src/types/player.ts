@@ -8,13 +8,11 @@ import type {
   SkillId,
   ManaColor,
   ManaTokenSource,
+  TacticId,
 } from "@mage-knight/shared";
 import type { Hero } from "./hero.js";
 import type { CardEffect } from "./cards.js";
 import type { PlayerUnit } from "./unit.js";
-
-// Core-only branded ID type
-export type TacticCardId = string & { readonly __brand: "TacticCardId" };
 
 // Mana token in play area (temporary, not crystals)
 export interface ManaToken {
@@ -142,14 +140,12 @@ export interface Player {
   // Crystals (max 3 each)
   readonly crystals: Crystals;
 
-  // Tactic selection
-  readonly tacticCard: TacticCardId | null;
+  // Tactic selection (per round)
+  readonly selectedTactic: TacticId | null; // The tactic chosen for this round
+  readonly tacticFlipped: boolean; // Whether the tactic's activated effect has been used
 
   // Combat state
   readonly knockedOut: boolean;
-
-  // Round order
-  readonly roundOrderTokenFaceDown: boolean;
 
   // Turn state (resets at end of turn)
   readonly movePoints: number;

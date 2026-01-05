@@ -13,11 +13,17 @@ import type { Terrain } from "@mage-knight/shared";
 import {
   GAME_PHASE_ROUND,
   TIME_OF_DAY_DAY,
+  TIME_OF_DAY_NIGHT,
   TERRAIN_FOREST,
   TERRAIN_HILLS,
   TERRAIN_PLAINS,
   hexKey,
   CARD_MARCH,
+  ROUND_PHASE_PLAYER_TURNS,
+  ROUND_PHASE_TACTICS_SELECTION,
+  ALL_DAY_TACTICS,
+  ALL_NIGHT_TACTICS,
+  type TacticId,
 } from "@mage-knight/shared";
 
 /**
@@ -46,9 +52,9 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
       activeUntilNextTurn: [],
     },
     crystals: { red: 0, blue: 0, green: 0, white: 0 },
-    tacticCard: null,
+    selectedTactic: null,
+    tacticFlipped: false,
     knockedOut: false,
-    roundOrderTokenFaceDown: false,
     movePoints: 0,
     influencePoints: 0,
     playArea: [],
@@ -139,6 +145,66 @@ export function createTestGameState(
       ...baseState.map,
       hexes,
     },
+    // Default to player turns phase (most tests don't need tactics)
+    roundPhase: ROUND_PHASE_PLAYER_TURNS,
+    availableTactics: [],
+    tacticsSelectionOrder: [],
+    currentTacticSelector: null,
+    ...overrides,
+  };
+}
+
+/**
+ * Create a game state ready for tactics selection phase
+ */
+export function createTacticsSelectionState(
+  playerIds: string[] = ["player1"],
+  timeOfDay: "day" | "night" = "day",
+  overrides: Partial<GameState> = {}
+): GameState {
+  const baseState = createInitialGameState();
+
+  // Create players
+  const players = playerIds.map((id, index) =>
+    createTestPlayer({
+      id,
+      position: { q: index, r: 0 },
+      movePoints: 0,
+    })
+  );
+
+  // Available tactics depend on time of day
+  const availableTactics: readonly TacticId[] =
+    timeOfDay === "day" ? ALL_DAY_TACTICS : ALL_NIGHT_TACTICS;
+
+  // Selection order is typically reverse of turn order (for rounds 2+)
+  // For testing, we can just use the player IDs in reverse
+  const tacticsSelectionOrder = [...playerIds].reverse();
+
+  // Create a minimal map
+  const hexes: Record<string, HexState> = {};
+  playerIds.forEach((_, index) => {
+    hexes[hexKey({ q: index, r: 0 })] = createTestHex(index, 0, TERRAIN_PLAINS);
+  });
+
+  return {
+    ...baseState,
+    phase: GAME_PHASE_ROUND,
+    timeOfDay: timeOfDay === "day" ? TIME_OF_DAY_DAY : TIME_OF_DAY_NIGHT,
+    turnOrder: playerIds,
+    currentPlayerIndex: 0,
+    endOfRoundAnnouncedBy: null,
+    playersWithFinalTurn: [],
+    players,
+    map: {
+      ...baseState.map,
+      hexes,
+    },
+    // Set up tactics selection phase
+    roundPhase: ROUND_PHASE_TACTICS_SELECTION,
+    availableTactics,
+    tacticsSelectionOrder,
+    currentTacticSelector: tacticsSelectionOrder[0] ?? null,
     ...overrides,
   };
 }

@@ -2,8 +2,8 @@
  * Game state types and management
  */
 
-import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig } from "@mage-knight/shared";
-import { GAME_PHASE_SETUP, TIME_OF_DAY_DAY, SCENARIO_FIRST_RECONNAISSANCE } from "@mage-knight/shared";
+import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig, RoundPhase, TacticId } from "@mage-knight/shared";
+import { GAME_PHASE_SETUP, TIME_OF_DAY_DAY, SCENARIO_FIRST_RECONNAISSANCE, ROUND_PHASE_PLAYER_TURNS } from "@mage-knight/shared";
 import { getScenario } from "../data/scenarios/index.js";
 import type { Player } from "../types/player.js";
 import {
@@ -50,6 +50,12 @@ export interface GameState {
   readonly players: readonly Player[];
   readonly map: MapState;
   readonly combat: CombatState | null; // null when not in combat
+
+  // Tactics selection phase
+  readonly roundPhase: RoundPhase; // Sub-phase within GAME_PHASE_ROUND
+  readonly availableTactics: readonly TacticId[]; // Tactics not yet selected this round
+  readonly tacticsSelectionOrder: readonly string[]; // Order in which players select (reverse of last turn order)
+  readonly currentTacticSelector: string | null; // Player ID currently selecting, null if phase complete
 
   // Mana source (dice pool)
   readonly source: ManaSource;
@@ -104,6 +110,12 @@ export function createInitialGameState(
     players: [],
     map: createEmptyMapState(),
     combat: null,
+    // Tactics selection - starts in player turns (tactics phase entered at round start)
+    roundPhase: ROUND_PHASE_PLAYER_TURNS,
+    availableTactics: [],
+    tacticsSelectionOrder: [],
+    currentTacticSelector: null,
+    // Mana and offers
     source: createEmptyManaSource(),
     offers: createEmptyOffers(),
     enemyTokens: createEmptyEnemyTokenPiles(),

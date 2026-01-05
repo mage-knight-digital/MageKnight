@@ -15,6 +15,7 @@ import type { Terrain } from "../terrain.js";
 import type { GamePhase, TimeOfDay } from "../stateConstants.js";
 import type { ManaTokenSource } from "../valueConstants.js";
 import type { UnitState } from "../unitState.js";
+import type { TacticId } from "../tactics.js";
 
 // Crystals (same as core, but defined here for independence)
 export interface ClientCrystals {
@@ -78,8 +79,8 @@ export interface ClientPlayer {
 
   // Round state
   readonly knockedOut: boolean;
-  readonly tacticCardId: string | null;
-  readonly roundOrderTokenFaceDown: boolean;
+  readonly selectedTacticId: TacticId | null;
+  readonly tacticFlipped: boolean;
 }
 
 // Mana die in the source

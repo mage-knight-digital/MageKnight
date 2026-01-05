@@ -134,6 +134,9 @@ export type {
   // Choice
   ChoiceRequiredEvent,
   ChoiceResolvedEvent,
+  // Tactics
+  TacticSelectedEvent,
+  TacticsPhaseEndedEvent,
 } from "./events.js";
 
 // Actions
@@ -168,6 +171,8 @@ export type {
   BuySpellAction,
   LearnAdvancedActionAction,
   BuyHealingAction,
+  // Tactics
+  SelectTacticAction,
   // Undo
   UndoAction,
   // Choice resolution
@@ -225,3 +230,6 @@ export * from "./units.js";
 
 // Scenario definitions
 export * from "./scenarios.js";
+
+// Tactics
+export * from "./tactics.js";
