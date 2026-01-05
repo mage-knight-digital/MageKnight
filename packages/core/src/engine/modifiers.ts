@@ -12,14 +12,20 @@ import type {
   SidewaysValueModifier,
   RuleOverrideModifier,
   EnemyStatModifier,
+  CombatValueModifier,
+  AbilityNullifierModifier,
 } from "../types/modifiers.js";
+import type { EnemyAbility } from "../types/enemy.js";
 import type { Terrain } from "@mage-knight/shared";
 import { DEFAULT_MOVEMENT_COSTS, TIME_OF_DAY_DAY } from "@mage-knight/shared";
 import {
+  ABILITY_ANY,
   DURATION_COMBAT,
   DURATION_ROUND,
   DURATION_TURN,
   DURATION_UNTIL_NEXT_TURN,
+  EFFECT_ABILITY_NULLIFIER,
+  EFFECT_COMBAT_VALUE,
   EFFECT_ENEMY_STAT,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
@@ -240,6 +246,68 @@ export function getEffectiveEnemyAttack(
   }
 
   return Math.max(minAllowed, attack);
+}
+
+/**
+ * Get combat value bonus from active modifiers.
+ * Used to add modifier bonuses to attack/block values.
+ */
+export function getEffectiveCombatBonus(
+  state: GameState,
+  playerId: string,
+  valueType: CombatValueModifier["valueType"],
+  element?: CombatValueModifier["element"]
+): number {
+  const modifiers = getModifiersForPlayer(state, playerId)
+    .filter((m) => m.effect.type === EFFECT_COMBAT_VALUE)
+    .map((m) => m.effect as CombatValueModifier);
+
+  let bonus = 0;
+
+  for (const mod of modifiers) {
+    // Check if valueType matches
+    if (mod.valueType !== valueType) continue;
+
+    // Check if element matches (undefined on modifier means all elements)
+    if (mod.element && element && mod.element !== element) continue;
+
+    bonus += mod.amount;
+  }
+
+  return bonus;
+}
+
+/**
+ * Check if an enemy ability is nullified by active modifiers.
+ * Used to check if abilities like Swift, Brutal, etc. should be ignored.
+ */
+export function isAbilityNullified(
+  state: GameState,
+  playerId: string,
+  enemyId: string,
+  abilityType: EnemyAbility["type"]
+): boolean {
+  const modifiers = getModifiersForPlayer(state, playerId)
+    .filter((m) => m.effect.type === EFFECT_ABILITY_NULLIFIER)
+    .map((m) => ({
+      scope: m.scope,
+      effect: m.effect as AbilityNullifierModifier,
+    }));
+
+  for (const mod of modifiers) {
+    // Check scope targets this enemy
+    if (mod.scope.type === SCOPE_ONE_ENEMY && mod.scope.enemyId !== enemyId)
+      continue;
+    if (mod.scope.type !== SCOPE_ONE_ENEMY && mod.scope.type !== SCOPE_ALL_ENEMIES)
+      continue;
+
+    // Check ability match
+    if (mod.effect.ability === ABILITY_ANY || mod.effect.ability === abilityType) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // === Modifier lifecycle ===

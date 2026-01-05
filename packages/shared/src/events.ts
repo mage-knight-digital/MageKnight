@@ -22,6 +22,7 @@ import {
   UNIT_DESTROY_REASON_DISBANDED,
   UNIT_DESTROY_REASON_DOUBLE_WOUND,
   UNIT_DESTROY_REASON_PARALYZE,
+  UNIT_DESTROY_REASON_POISON,
   WOUND_TARGET_HERO,
   type ReputationChangeReason,
 } from "./valueConstants.js";
@@ -524,7 +525,8 @@ export interface UnitDestroyedEvent {
   readonly reason:
     | typeof UNIT_DESTROY_REASON_PARALYZE
     | typeof UNIT_DESTROY_REASON_DISBANDED
-    | typeof UNIT_DESTROY_REASON_DOUBLE_WOUND;
+    | typeof UNIT_DESTROY_REASON_DOUBLE_WOUND
+    | typeof UNIT_DESTROY_REASON_POISON;
 }
 
 // Skill events

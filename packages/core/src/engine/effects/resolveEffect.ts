@@ -14,17 +14,22 @@
 import type { GameState } from "../../state/GameState.js";
 import type { CardEffect } from "../../types/cards.js";
 import type { Player, AccumulatedAttack } from "../../types/player.js";
+import type { CardId } from "@mage-knight/shared";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
   EFFECT_GAIN_HEALING,
+  EFFECT_APPLY_MODIFIER,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
+import { addModifier } from "../modifiers.js";
+import { SOURCE_CARD, SCOPE_SELF } from "../modifierConstants.js";
+import type { ApplyModifierEffect } from "../../types/cards.js";
 
 export interface EffectResolutionResult {
   readonly state: GameState;
@@ -35,7 +40,8 @@ export interface EffectResolutionResult {
 export function resolveEffect(
   state: GameState,
   playerId: string,
-  effect: CardEffect
+  effect: CardEffect,
+  sourceCardId?: string
 ): EffectResolutionResult {
   const playerIndex = state.players.findIndex((p) => p.id === playerId);
   if (playerIndex === -1) {
@@ -69,8 +75,11 @@ export function resolveEffect(
     case EFFECT_GAIN_HEALING:
       return applyGainHealing(state, playerIndex, player, effect.amount);
 
+    case EFFECT_APPLY_MODIFIER:
+      return applyModifierEffect(state, playerId, effect, sourceCardId);
+
     case EFFECT_COMPOUND:
-      return resolveCompoundEffect(state, playerId, effect.effects);
+      return resolveCompoundEffect(state, playerId, effect.effects, sourceCardId);
 
     case EFFECT_CHOICE:
       // Phase 1: Return that choice is required
@@ -208,16 +217,42 @@ function applyGainHealing(
   };
 }
 
+function applyModifierEffect(
+  state: GameState,
+  playerId: string,
+  effect: ApplyModifierEffect,
+  sourceCardId?: string
+): EffectResolutionResult {
+  const newState = addModifier(state, {
+    source: {
+      type: SOURCE_CARD,
+      cardId: (sourceCardId ?? "unknown") as CardId,
+      playerId,
+    },
+    duration: effect.duration,
+    scope: { type: SCOPE_SELF },
+    effect: effect.modifier,
+    createdAtRound: state.round,
+    createdByPlayerId: playerId,
+  });
+
+  return {
+    state: newState,
+    description: "Applied modifier",
+  };
+}
+
 function resolveCompoundEffect(
   state: GameState,
   playerId: string,
-  effects: readonly CardEffect[]
+  effects: readonly CardEffect[],
+  sourceCardId?: string
 ): EffectResolutionResult {
   let currentState = state;
   const descriptions: string[] = [];
 
   for (const effect of effects) {
-    const result = resolveEffect(currentState, playerId, effect);
+    const result = resolveEffect(currentState, playerId, effect, sourceCardId);
     if (result.requiresChoice) {
       return result; // Stop at first choice
     }

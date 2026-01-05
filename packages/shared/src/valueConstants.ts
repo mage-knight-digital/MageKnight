@@ -43,6 +43,7 @@ export const OFFER_TYPE_SPELLS = "spells" as const;
 export const UNIT_DESTROY_REASON_PARALYZE = "paralyze" as const;
 export const UNIT_DESTROY_REASON_DISBANDED = "disbanded" as const;
 export const UNIT_DESTROY_REASON_DOUBLE_WOUND = "double_wound" as const;
+export const UNIT_DESTROY_REASON_POISON = "poison" as const;
 
 export const UNDO_FAILED_NOTHING_TO_UNDO = "nothing_to_undo" as const;
 export const UNDO_FAILED_CHECKPOINT_REACHED = "checkpoint_reached" as const;
