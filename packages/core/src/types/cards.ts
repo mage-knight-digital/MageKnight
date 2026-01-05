@@ -15,10 +15,12 @@ import {
   EFFECT_APPLY_MODIFIER,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
+  EFFECT_CONDITIONAL,
   MANA_ANY,
   type CombatType,
   type CardColor,
 } from "./effectTypes.js";
+import type { EffectCondition } from "./conditions.js";
 
 // === Card Types ===
 export const DEED_CARD_TYPE_BASIC_ACTION = "basic_action" as const;
@@ -92,6 +94,13 @@ export interface ChoiceEffect {
   readonly options: readonly CardEffect[];
 }
 
+export interface ConditionalEffect {
+  readonly type: typeof EFFECT_CONDITIONAL;
+  readonly condition: EffectCondition;
+  readonly thenEffect: CardEffect;
+  readonly elseEffect?: CardEffect;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -103,7 +112,8 @@ export type CardEffect =
   | DrawCardsEffect
   | ApplyModifierEffect
   | CompoundEffect
-  | ChoiceEffect;
+  | ChoiceEffect
+  | ConditionalEffect;
 
 // === Card Definition ===
 

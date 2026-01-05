@@ -97,6 +97,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         pureMana: [],
         usedManaFromSource: false,
         usedDieId: null,
+        manaUsedThisTurn: [], // Reset mana tracking for conditional effects
         // Card flow updates
         playArea: clearedPlayArea,
         hand: newHand,

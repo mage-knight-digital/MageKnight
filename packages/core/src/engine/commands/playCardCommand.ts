@@ -94,6 +94,12 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         consumedMana = params.manaSource;
         const { type: sourceType, color } = params.manaSource;
 
+        // Track mana usage for conditional effects (e.g., "if you used red mana this turn")
+        updatedPlayer = {
+          ...updatedPlayer,
+          manaUsedThisTurn: [...updatedPlayer.manaUsedThisTurn, color],
+        };
+
         switch (sourceType) {
           case MANA_SOURCE_DIE: {
             // Mark player as having used die this turn, track which die
@@ -247,6 +253,14 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       // Restore mana if it was consumed
       if (consumedMana) {
         const { type: sourceType, color } = consumedMana;
+
+        // Remove the mana color from tracking (reverse of tracking addition)
+        const manaIndex = updatedPlayer.manaUsedThisTurn.indexOf(color);
+        if (manaIndex !== -1) {
+          const newManaUsed = [...updatedPlayer.manaUsedThisTurn];
+          newManaUsed.splice(manaIndex, 1);
+          updatedPlayer = { ...updatedPlayer, manaUsedThisTurn: newManaUsed };
+        }
 
         switch (sourceType) {
           case MANA_SOURCE_DIE: {

@@ -23,6 +23,7 @@ export const EFFECT_DRAW_CARDS = "draw_cards" as const;
 export const EFFECT_APPLY_MODIFIER = "apply_modifier" as const;
 export const EFFECT_COMPOUND = "compound" as const;
 export const EFFECT_CHOICE = "choice" as const;
+export const EFFECT_CONDITIONAL = "conditional" as const;
 
 // === Card Color Constants ===
 // Note: These are separate from ManaColor which includes gold/black.

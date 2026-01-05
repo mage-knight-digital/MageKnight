@@ -12,9 +12,10 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { CardEffect } from "../../types/cards.js";
-import type { Player, AccumulatedAttack } from "../../types/player.js";
-import type { CardId } from "@mage-knight/shared";
+import type { CardEffect, GainAttackEffect, GainBlockEffect } from "../../types/cards.js";
+import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../types/player.js";
+import type { CardId, Element } from "@mage-knight/shared";
+import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "@mage-knight/shared";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
@@ -24,17 +25,21 @@ import {
   EFFECT_APPLY_MODIFIER,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
+  EFFECT_CONDITIONAL,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
 import { addModifier } from "../modifiers.js";
 import { SOURCE_CARD, SCOPE_SELF } from "../modifierConstants.js";
 import type { ApplyModifierEffect } from "../../types/cards.js";
+import { evaluateCondition } from "./conditionEvaluator.js";
 
 export interface EffectResolutionResult {
   readonly state: GameState;
   readonly description: string;
   readonly requiresChoice?: boolean;
+  /** True if a conditional effect was resolved — affects undo (command should be non-reversible) */
+  readonly containsConditional?: boolean;
 }
 
 export function resolveEffect(
@@ -61,16 +66,10 @@ export function resolveEffect(
       return applyGainInfluence(state, playerIndex, player, effect.amount);
 
     case EFFECT_GAIN_ATTACK:
-      return applyGainAttack(
-        state,
-        playerIndex,
-        player,
-        effect.amount,
-        effect.combatType
-      );
+      return applyGainAttack(state, playerIndex, player, effect);
 
     case EFFECT_GAIN_BLOCK:
-      return applyGainBlock(state, playerIndex, player, effect.amount);
+      return applyGainBlock(state, playerIndex, player, effect);
 
     case EFFECT_GAIN_HEALING:
       return applyGainHealing(state, playerIndex, player, effect.amount);
@@ -89,6 +88,29 @@ export function resolveEffect(
         description: "Choice required",
         requiresChoice: true,
       };
+
+    case EFFECT_CONDITIONAL: {
+      const conditionMet = evaluateCondition(state, playerId, effect.condition);
+
+      const effectToApply = conditionMet ? effect.thenEffect : effect.elseEffect;
+
+      if (!effectToApply) {
+        // Condition not met and no else — no-op
+        return {
+          state,
+          description: "Condition not met (no else branch)",
+          containsConditional: true,
+        };
+      }
+
+      const result = resolveEffect(state, playerId, effectToApply, sourceCardId);
+
+      // Mark that a conditional was resolved — affects undo
+      return {
+        ...result,
+        containsConditional: true,
+      };
+    }
 
     default:
       // Unknown effect type — log and continue
@@ -143,29 +165,78 @@ function applyGainInfluence(
   };
 }
 
+/**
+ * Helper to update elemental values
+ */
+function updateElementalValue(
+  values: ElementalAttackValues,
+  element: Element | undefined,
+  amount: number
+): ElementalAttackValues {
+  if (!element) {
+    return { ...values, physical: values.physical + amount };
+  }
+  switch (element) {
+    case ELEMENT_FIRE:
+      return { ...values, fire: values.fire + amount };
+    case ELEMENT_ICE:
+      return { ...values, ice: values.ice + amount };
+    case ELEMENT_COLD_FIRE:
+      return { ...values, coldFire: values.coldFire + amount };
+    default:
+      return { ...values, physical: values.physical + amount };
+  }
+}
+
 function applyGainAttack(
   state: GameState,
   playerIndex: number,
   player: Player,
-  amount: number,
-  combatType: typeof COMBAT_TYPE_RANGED | typeof COMBAT_TYPE_SIEGE | "melee"
+  effect: GainAttackEffect
 ): EffectResolutionResult {
+  const { amount, combatType, element } = effect;
   const currentAttack = player.combatAccumulator.attack;
   let updatedAttack: AccumulatedAttack;
   let attackTypeName: string;
 
+  // If there's an element, track it in the elemental values
+  // Otherwise, track in the main value
   switch (combatType) {
     case COMBAT_TYPE_RANGED:
-      updatedAttack = { ...currentAttack, ranged: currentAttack.ranged + amount };
-      attackTypeName = "Ranged Attack";
+      if (element) {
+        updatedAttack = {
+          ...currentAttack,
+          rangedElements: updateElementalValue(currentAttack.rangedElements, element, amount),
+        };
+        attackTypeName = `${element} Ranged Attack`;
+      } else {
+        updatedAttack = { ...currentAttack, ranged: currentAttack.ranged + amount };
+        attackTypeName = "Ranged Attack";
+      }
       break;
     case COMBAT_TYPE_SIEGE:
-      updatedAttack = { ...currentAttack, siege: currentAttack.siege + amount };
-      attackTypeName = "Siege Attack";
+      if (element) {
+        updatedAttack = {
+          ...currentAttack,
+          siegeElements: updateElementalValue(currentAttack.siegeElements, element, amount),
+        };
+        attackTypeName = `${element} Siege Attack`;
+      } else {
+        updatedAttack = { ...currentAttack, siege: currentAttack.siege + amount };
+        attackTypeName = "Siege Attack";
+      }
       break;
     default:
-      updatedAttack = { ...currentAttack, normal: currentAttack.normal + amount };
-      attackTypeName = "Attack";
+      if (element) {
+        updatedAttack = {
+          ...currentAttack,
+          normalElements: updateElementalValue(currentAttack.normalElements, element, amount),
+        };
+        attackTypeName = `${element} Attack`;
+      } else {
+        updatedAttack = { ...currentAttack, normal: currentAttack.normal + amount };
+        attackTypeName = "Attack";
+      }
       break;
   }
 
@@ -187,19 +258,37 @@ function applyGainBlock(
   state: GameState,
   playerIndex: number,
   player: Player,
-  amount: number
+  effect: GainBlockEffect
 ): EffectResolutionResult {
-  const updatedPlayer: Player = {
-    ...player,
-    combatAccumulator: {
-      ...player.combatAccumulator,
-      block: player.combatAccumulator.block + amount,
-    },
-  };
+  const { amount, element } = effect;
+  let updatedPlayer: Player;
+  let blockTypeName: string;
+
+  if (element) {
+    // Track elemental block
+    updatedPlayer = {
+      ...player,
+      combatAccumulator: {
+        ...player.combatAccumulator,
+        blockElements: updateElementalValue(player.combatAccumulator.blockElements, element, amount),
+      },
+    };
+    blockTypeName = `${element} Block`;
+  } else {
+    // Track physical block
+    updatedPlayer = {
+      ...player,
+      combatAccumulator: {
+        ...player.combatAccumulator,
+        block: player.combatAccumulator.block + amount,
+      },
+    };
+    blockTypeName = "Block";
+  }
 
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),
-    description: `Gained ${amount} Block`,
+    description: `Gained ${amount} ${blockTypeName}`,
   };
 }
 
@@ -312,6 +401,13 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
       }
       return result;
     }
+
+    case EFFECT_CONDITIONAL:
+      // Cannot reliably reverse conditional effects — the condition may have
+      // changed since the effect was applied, so we don't know which branch
+      // was actually executed. Commands containing conditional effects should
+      // be marked as non-reversible (isReversible: false).
+      return player;
 
     default:
       return player;

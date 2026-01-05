@@ -82,6 +82,7 @@ export type {
   ApplyModifierEffect,
   CompoundEffect,
   ChoiceEffect,
+  ConditionalEffect,
   CardEffect,
   DeedCard,
 } from "./cards.js";
@@ -106,6 +107,7 @@ export {
   EFFECT_APPLY_MODIFIER,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
+  EFFECT_CONDITIONAL,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -174,3 +176,26 @@ export type {
   ModifierEffect,
   ActiveModifier,
 } from "./modifiers.js";
+
+// Condition types
+export type {
+  EffectCondition,
+  InPhaseCondition,
+  TimeOfDayCondition,
+  OnTerrainCondition,
+  InCombatCondition,
+  BlockedSuccessfullyCondition,
+  EnemyDefeatedThisCombatCondition,
+  ManaUsedThisTurnCondition,
+  HasWoundsInHandCondition,
+} from "./conditions.js";
+export {
+  CONDITION_IN_PHASE,
+  CONDITION_TIME_OF_DAY,
+  CONDITION_ON_TERRAIN,
+  CONDITION_IN_COMBAT,
+  CONDITION_BLOCKED_SUCCESSFULLY,
+  CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
+  CONDITION_MANA_USED_THIS_TURN,
+  CONDITION_HAS_WOUNDS_IN_HAND,
+} from "./conditions.js";

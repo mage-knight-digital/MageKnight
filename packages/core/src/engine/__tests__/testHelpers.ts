@@ -72,6 +72,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingChoice: null,
     pendingLevelUps: [],
     hasCombattedThisTurn: false,
+    manaUsedThisTurn: [],
     ...overrides,
   };
 }

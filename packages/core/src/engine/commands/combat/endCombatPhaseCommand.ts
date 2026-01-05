@@ -118,6 +118,9 @@ export function createEndCombatPhaseCommand(
           }
 
           // Failed assault at fortified site — must withdraw
+          // TODO: Per rulebook, if assaultOrigin is not a "safe space", Forced Withdrawal
+          // rules apply (backtrack until safe, adding a Wound per space). This is an edge
+          // case if player used special movement to reach an unsafe space before assaulting.
           if (
             !victory &&
             state.combat.isAtFortifiedSite &&
@@ -171,11 +174,31 @@ export function createEndCombatPhaseCommand(
       }
 
       // Advance to next phase
-      const updatedCombat = {
+      let updatedCombat = {
         ...state.combat,
         phase: nextPhase,
         attacksThisPhase: 0,
       };
+
+      // When transitioning from BLOCK to ASSIGN_DAMAGE, calculate if all damage was blocked
+      // This is used by conditional effects like Burning Shield
+      if (
+        currentPhase === COMBAT_PHASE_BLOCK &&
+        nextPhase === COMBAT_PHASE_ASSIGN_DAMAGE
+      ) {
+        // All damage is blocked if every undefeated enemy is blocked
+        const undefeatedEnemies = state.combat.enemies.filter(
+          (e) => !e.isDefeated
+        );
+        const allBlocked =
+          undefeatedEnemies.length === 0 ||
+          undefeatedEnemies.every((e) => e.isBlocked);
+
+        updatedCombat = {
+          ...updatedCombat,
+          allDamageBlockedThisPhase: allBlocked,
+        };
+      }
 
       return {
         state: { ...state, combat: updatedCombat },

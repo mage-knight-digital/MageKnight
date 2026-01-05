@@ -173,4 +173,7 @@ export interface Player {
 
   // Combat tracking (only one combat per turn allowed)
   readonly hasCombattedThisTurn: boolean;
+
+  // Mana usage tracking (for conditional effects)
+  readonly manaUsedThisTurn: readonly ManaColor[];
 }

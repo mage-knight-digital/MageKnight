@@ -44,6 +44,7 @@ export interface CombatState {
   readonly unitsAllowed: boolean; // false for dungeon/tomb combat
   readonly nightManaRules: boolean; // true for dungeon/tomb (no gold, yes black)
   readonly assaultOrigin: HexCoord | null; // Where player was before assault (null if not assault)
+  readonly allDamageBlockedThisPhase: boolean; // True if all enemy damage was blocked in block phase
 }
 
 // Options for special combat rules
@@ -78,5 +79,6 @@ export function createCombatState(
     unitsAllowed: options?.unitsAllowed ?? true,
     nightManaRules: options?.nightManaRules ?? false,
     assaultOrigin: options?.assaultOrigin ?? null,
+    allDamageBlockedThisPhase: false,
   };
 }

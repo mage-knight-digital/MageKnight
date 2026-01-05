@@ -1,0 +1,511 @@
+/**
+ * Tests for conditional effects system
+ */
+
+import { describe, it, expect } from "vitest";
+import { createTestGameState, createTestPlayer, createTestHex } from "./testHelpers.js";
+import { evaluateCondition } from "../effects/conditionEvaluator.js";
+import { resolveEffect } from "../effects/resolveEffect.js";
+import {
+  CONDITION_TIME_OF_DAY,
+  CONDITION_IN_PHASE,
+  CONDITION_ON_TERRAIN,
+  CONDITION_IN_COMBAT,
+  CONDITION_BLOCKED_SUCCESSFULLY,
+  CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
+  CONDITION_MANA_USED_THIS_TURN,
+  CONDITION_HAS_WOUNDS_IN_HAND,
+} from "../../types/conditions.js";
+import {
+  COMBAT_PHASE_ATTACK,
+  COMBAT_PHASE_BLOCK,
+  createCombatState,
+} from "../../types/combat.js";
+import {
+  TIME_OF_DAY_DAY,
+  TIME_OF_DAY_NIGHT,
+  TERRAIN_FOREST,
+  TERRAIN_PLAINS,
+  MANA_RED,
+  MANA_BLUE,
+  CARD_WOUND,
+  CARD_MARCH,
+  hexKey,
+} from "@mage-knight/shared";
+import {
+  move,
+  attack,
+  compound,
+  ifNight,
+  ifDay,
+  ifInPhase,
+  ifOnTerrain,
+  ifInCombat,
+  ifBlockedSuccessfully,
+  ifEnemyDefeated,
+  ifManaUsed,
+  ifHasWoundsInHand,
+} from "../../data/effectHelpers.js";
+import { ENEMY_OROG_ARCHER } from "@mage-knight/shared";
+
+describe("Conditional Effects", () => {
+  describe("evaluateCondition", () => {
+    describe("TIME_OF_DAY condition", () => {
+      it("should return true when time of day matches", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
+        const condition = { type: CONDITION_TIME_OF_DAY, time: TIME_OF_DAY_NIGHT } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return false when time of day does not match", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY });
+        const condition = { type: CONDITION_TIME_OF_DAY, time: TIME_OF_DAY_NIGHT } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should work for day condition", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY });
+        const condition = { type: CONDITION_TIME_OF_DAY, time: TIME_OF_DAY_DAY } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+    });
+
+    describe("IN_COMBAT condition", () => {
+      it("should return false when not in combat", () => {
+        const state = createTestGameState({ combat: null });
+        const condition = { type: CONDITION_IN_COMBAT } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true when in combat", () => {
+        const combat = createCombatState([ENEMY_OROG_ARCHER]);
+        const state = createTestGameState({ combat });
+        const condition = { type: CONDITION_IN_COMBAT } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+    });
+
+    describe("IN_PHASE condition", () => {
+      it("should return false when not in combat", () => {
+        const state = createTestGameState({ combat: null });
+        const condition = { type: CONDITION_IN_PHASE, phases: [COMBAT_PHASE_ATTACK] } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true when in matching phase", () => {
+        const combat = {
+          ...createCombatState([ENEMY_OROG_ARCHER]),
+          phase: COMBAT_PHASE_ATTACK,
+        };
+        const state = createTestGameState({ combat });
+        const condition = { type: CONDITION_IN_PHASE, phases: [COMBAT_PHASE_ATTACK] } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return false when in different phase", () => {
+        const combat = {
+          ...createCombatState([ENEMY_OROG_ARCHER]),
+          phase: COMBAT_PHASE_BLOCK,
+        };
+        const state = createTestGameState({ combat });
+        const condition = { type: CONDITION_IN_PHASE, phases: [COMBAT_PHASE_ATTACK] } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true when phase is in list of phases", () => {
+        const combat = {
+          ...createCombatState([ENEMY_OROG_ARCHER]),
+          phase: COMBAT_PHASE_BLOCK,
+        };
+        const state = createTestGameState({ combat });
+        const condition = {
+          type: CONDITION_IN_PHASE,
+          phases: [COMBAT_PHASE_ATTACK, COMBAT_PHASE_BLOCK],
+        } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+    });
+
+    describe("ON_TERRAIN condition", () => {
+      it("should return false when player has no position", () => {
+        const player = createTestPlayer({ position: null });
+        const state = createTestGameState({
+          players: [player],
+        });
+        const condition = { type: CONDITION_ON_TERRAIN, terrain: TERRAIN_FOREST } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true when on matching terrain", () => {
+        const player = createTestPlayer({ position: { q: 0, r: 1 } }); // Forest hex in test map
+        const hexes = {
+          [hexKey({ q: 0, r: 1 })]: createTestHex(0, 1, TERRAIN_FOREST),
+        };
+        const state = createTestGameState({
+          players: [player],
+          map: { hexes, tiles: [], tileDeck: { countryside: [], core: [] } },
+        });
+        const condition = { type: CONDITION_ON_TERRAIN, terrain: TERRAIN_FOREST } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return false when on different terrain", () => {
+        const player = createTestPlayer({ position: { q: 0, r: 0 } });
+        const hexes = {
+          [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS),
+        };
+        const state = createTestGameState({
+          players: [player],
+          map: { hexes, tiles: [], tileDeck: { countryside: [], core: [] } },
+        });
+        const condition = { type: CONDITION_ON_TERRAIN, terrain: TERRAIN_FOREST } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+    });
+
+    describe("BLOCKED_SUCCESSFULLY condition", () => {
+      it("should return false when not in combat", () => {
+        const state = createTestGameState({ combat: null });
+        const condition = { type: CONDITION_BLOCKED_SUCCESSFULLY } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return false when damage not fully blocked", () => {
+        const combat = {
+          ...createCombatState([ENEMY_OROG_ARCHER]),
+          allDamageBlockedThisPhase: false,
+        };
+        const state = createTestGameState({ combat });
+        const condition = { type: CONDITION_BLOCKED_SUCCESSFULLY } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true when all damage blocked", () => {
+        const combat = {
+          ...createCombatState([ENEMY_OROG_ARCHER]),
+          allDamageBlockedThisPhase: true,
+        };
+        const state = createTestGameState({ combat });
+        const condition = { type: CONDITION_BLOCKED_SUCCESSFULLY } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+    });
+
+    describe("ENEMY_DEFEATED_THIS_COMBAT condition", () => {
+      it("should return false when not in combat", () => {
+        const state = createTestGameState({ combat: null });
+        const condition = { type: CONDITION_ENEMY_DEFEATED_THIS_COMBAT } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return false when no enemies defeated", () => {
+        const combat = createCombatState([ENEMY_OROG_ARCHER]);
+        const state = createTestGameState({ combat });
+        const condition = { type: CONDITION_ENEMY_DEFEATED_THIS_COMBAT } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true when an enemy is defeated", () => {
+        const combat = {
+          ...createCombatState([ENEMY_OROG_ARCHER]),
+          enemies: [
+            {
+              instanceId: "enemy_0",
+              enemyId: ENEMY_OROG_ARCHER,
+              definition: { id: ENEMY_OROG_ARCHER, armor: 4, attack: 3 },
+              isBlocked: false,
+              isDefeated: true,
+              damageAssigned: false,
+            },
+          ],
+        };
+        const state = createTestGameState({ combat });
+        const condition = { type: CONDITION_ENEMY_DEFEATED_THIS_COMBAT } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+    });
+
+    describe("MANA_USED_THIS_TURN condition", () => {
+      it("should return false when no mana used", () => {
+        const player = createTestPlayer({ manaUsedThisTurn: [] });
+        const state = createTestGameState({ players: [player] });
+        const condition = { type: CONDITION_MANA_USED_THIS_TURN } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true when any mana used (no color specified)", () => {
+        const player = createTestPlayer({ manaUsedThisTurn: [MANA_RED] });
+        const state = createTestGameState({ players: [player] });
+        const condition = { type: CONDITION_MANA_USED_THIS_TURN } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return true when specific color used", () => {
+        const player = createTestPlayer({ manaUsedThisTurn: [MANA_RED, MANA_BLUE] });
+        const state = createTestGameState({ players: [player] });
+        const condition = { type: CONDITION_MANA_USED_THIS_TURN, color: MANA_RED } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return false when specific color not used", () => {
+        const player = createTestPlayer({ manaUsedThisTurn: [MANA_BLUE] });
+        const state = createTestGameState({ players: [player] });
+        const condition = { type: CONDITION_MANA_USED_THIS_TURN, color: MANA_RED } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+    });
+
+    describe("HAS_WOUNDS_IN_HAND condition", () => {
+      it("should return false when no wounds in hand", () => {
+        const player = createTestPlayer({ hand: [CARD_MARCH] });
+        const state = createTestGameState({ players: [player] });
+        const condition = { type: CONDITION_HAS_WOUNDS_IN_HAND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true when wounds in hand", () => {
+        const player = createTestPlayer({ hand: [CARD_MARCH, CARD_WOUND] });
+        const state = createTestGameState({ players: [player] });
+        const condition = { type: CONDITION_HAS_WOUNDS_IN_HAND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+    });
+
+    describe("unknown player", () => {
+      it("should return false for unknown player", () => {
+        const state = createTestGameState();
+        const condition = { type: CONDITION_IN_COMBAT } as const;
+
+        expect(evaluateCondition(state, "unknown_player", condition)).toBe(false);
+      });
+    });
+  });
+
+  describe("resolveEffect with conditional", () => {
+    it("should apply thenEffect when condition is met", () => {
+      const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
+      const effect = ifNight(move(4), move(2));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(8); // 4 base + 4 from effect
+    });
+
+    it("should apply elseEffect when condition is not met", () => {
+      const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY });
+      const effect = ifNight(move(4), move(2));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(6); // 4 base + 2 from else
+    });
+
+    it("should do nothing when condition not met and no elseEffect", () => {
+      const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY });
+      const effect = ifNight(move(4)); // No else effect
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(4); // Unchanged from base
+      expect(result.description).toBe("Condition not met (no else branch)");
+    });
+
+    it("should work with ifDay helper", () => {
+      const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY });
+      const effect = ifDay(move(5), move(3));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(9); // 4 base + 5 from effect
+    });
+
+    it("should work with ifInCombat helper", () => {
+      const combat = createCombatState([ENEMY_OROG_ARCHER]);
+      const state = createTestGameState({ combat });
+      const effect = ifInCombat(attack(5), move(2));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.combatAccumulator.attack.normal).toBe(5);
+    });
+
+    it("should work nested inside CompoundEffect", () => {
+      const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
+      const effect = compound([move(2), ifNight(attack(3))]);
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(6); // 4 base + 2 from compound
+      expect(result.state.players[0]?.combatAccumulator.attack.normal).toBe(3);
+    });
+
+    it("should handle nested conditional effects", () => {
+      const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
+      // If night, then (if night again = bonus)
+      const effect = ifNight(ifNight(move(10), move(5)), move(1));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(14); // 4 base + 10 from nested
+    });
+
+    it("should work with ifInPhase during combat", () => {
+      const combat = {
+        ...createCombatState([ENEMY_OROG_ARCHER]),
+        phase: COMBAT_PHASE_ATTACK,
+      };
+      const state = createTestGameState({ combat });
+      const effect = ifInPhase([COMBAT_PHASE_ATTACK], attack(6), attack(2));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.combatAccumulator.attack.normal).toBe(6);
+    });
+
+    it("should work with ifOnTerrain", () => {
+      const player = createTestPlayer({ position: { q: 0, r: 0 }, movePoints: 4 });
+      const hexes = {
+        [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_FOREST),
+      };
+      const state = createTestGameState({
+        players: [player],
+        map: { hexes, tiles: [], tileDeck: { countryside: [], core: [] } },
+      });
+      const effect = ifOnTerrain(TERRAIN_FOREST, move(3), move(1));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(7); // 4 base + 3 forest bonus
+    });
+
+    it("should work with ifHasWoundsInHand", () => {
+      const player = createTestPlayer({ hand: [CARD_WOUND, CARD_MARCH], movePoints: 4 });
+      const state = createTestGameState({ players: [player] });
+      const effect = ifHasWoundsInHand(move(2), move(5));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(6); // 4 base + 2 (has wound)
+    });
+
+    it("should work with ifBlockedSuccessfully", () => {
+      const combat = {
+        ...createCombatState([ENEMY_OROG_ARCHER]),
+        allDamageBlockedThisPhase: true,
+      };
+      const state = createTestGameState({ combat });
+      const effect = ifBlockedSuccessfully(attack(4), attack(1));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.combatAccumulator.attack.normal).toBe(4);
+    });
+
+    it("should work with ifEnemyDefeated", () => {
+      const combat = {
+        ...createCombatState([ENEMY_OROG_ARCHER]),
+        enemies: [
+          {
+            instanceId: "enemy_0",
+            enemyId: ENEMY_OROG_ARCHER,
+            definition: { id: ENEMY_OROG_ARCHER, armor: 4, attack: 3 },
+            isBlocked: false,
+            isDefeated: true,
+            damageAssigned: false,
+          },
+        ],
+      };
+      const state = createTestGameState({ combat });
+      const effect = ifEnemyDefeated(attack(5), attack(2));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.combatAccumulator.attack.normal).toBe(5);
+    });
+
+    it("should work with ifManaUsed", () => {
+      const player = createTestPlayer({ manaUsedThisTurn: [MANA_RED], movePoints: 4 });
+      const state = createTestGameState({ players: [player] });
+      const effect = ifManaUsed(move(3), move(1));
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(7); // 4 base + 3 (mana used)
+    });
+
+    it("should work with ifManaUsed with specific color", () => {
+      const player = createTestPlayer({ manaUsedThisTurn: [MANA_RED], movePoints: 4 });
+      const state = createTestGameState({ players: [player] });
+      const effect = ifManaUsed(move(3), move(1), MANA_BLUE);
+
+      const result = resolveEffect(state, "player1", effect, "test-card");
+
+      expect(result.state.players[0]?.movePoints).toBe(5); // 4 base + 1 (blue not used)
+    });
+  });
+
+  describe("effect helpers", () => {
+    it("move helper creates correct effect", () => {
+      const effect = move(5);
+      expect(effect.type).toBe("gain_move");
+      expect(effect.amount).toBe(5);
+    });
+
+    it("attack helper creates correct effect", () => {
+      const effect = attack(3);
+      expect(effect.type).toBe("gain_attack");
+      expect(effect.amount).toBe(3);
+      expect(effect.combatType).toBe("melee");
+    });
+
+    it("compound helper creates correct effect", () => {
+      const effect = compound([move(2), attack(3)]);
+      expect(effect.type).toBe("compound");
+      expect(effect.effects).toHaveLength(2);
+    });
+
+    it("ifNight creates correct conditional", () => {
+      const effect = ifNight(move(4), move(2));
+      expect(effect.type).toBe("conditional");
+      expect(effect.condition.type).toBe(CONDITION_TIME_OF_DAY);
+      if (effect.condition.type === CONDITION_TIME_OF_DAY) {
+        expect(effect.condition.time).toBe(TIME_OF_DAY_NIGHT);
+      }
+      expect(effect.thenEffect).toEqual(move(4));
+      expect(effect.elseEffect).toEqual(move(2));
+    });
+
+    it("ifDay creates correct conditional", () => {
+      const effect = ifDay(move(4));
+      expect(effect.type).toBe("conditional");
+      expect(effect.condition.type).toBe(CONDITION_TIME_OF_DAY);
+      if (effect.condition.type === CONDITION_TIME_OF_DAY) {
+        expect(effect.condition.time).toBe(TIME_OF_DAY_DAY);
+      }
+    });
+  });
+});
