@@ -231,6 +231,12 @@ packages/
 
 **Night Tactics (1-6):** From The Dusk, Long Night, Mana Search, Midnight Meditation, Preparation, Sparing Power
 
+**Not Yet Implemented:**
+- Tactic removal rules (scenario-specific):
+  - Standard multiplayer: tactics reused each round (current behavior)
+  - Solo Conquest: remove ALL used tactics after each Day/Night
+  - Full Cooperation: players remove ONE used tactic after each Day/Night
+
 ### Scenario System ✅
 
 | Feature | Location | Notes |
