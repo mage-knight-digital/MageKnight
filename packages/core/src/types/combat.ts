@@ -41,12 +41,21 @@ export interface CombatState {
   readonly attacksThisPhase: number; // Track attacks made
   readonly fameGained: number; // Accumulated fame from defeated enemies
   readonly isAtFortifiedSite: boolean; // Site fortification (Keeps, Mage Towers, Cities)
+  readonly unitsAllowed: boolean; // false for dungeon/tomb combat
+  readonly nightManaRules: boolean; // true for dungeon/tomb (no gold, yes black)
+}
+
+// Options for special combat rules
+export interface CombatStateOptions {
+  readonly unitsAllowed?: boolean;
+  readonly nightManaRules?: boolean;
 }
 
 // Create initial combat state
 export function createCombatState(
   enemyIds: readonly EnemyId[],
-  isAtFortifiedSite: boolean = false
+  isAtFortifiedSite: boolean = false,
+  options?: CombatStateOptions
 ): CombatState {
   const enemies: CombatEnemy[] = enemyIds.map((enemyId, index) => ({
     instanceId: `enemy_${index}`,
@@ -64,5 +73,7 @@ export function createCombatState(
     attacksThisPhase: 0,
     fameGained: 0,
     isAtFortifiedSite,
+    unitsAllowed: options?.unitsAllowed ?? true,
+    nightManaRules: options?.nightManaRules ?? false,
   };
 }

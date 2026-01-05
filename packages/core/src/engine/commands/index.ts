@@ -21,6 +21,7 @@ import {
   ACTIVATE_UNIT_ACTION,
   INTERACT_ACTION,
   ANNOUNCE_END_OF_ROUND_ACTION,
+  ENTER_SITE_ACTION,
   hexKey,
 } from "@mage-knight/shared";
 import type { Command } from "../commands.js";
@@ -43,6 +44,7 @@ import {
 import { createRecruitUnitCommand, createActivateUnitCommand } from "./units/index.js";
 import { createInteractCommand } from "./interactCommand.js";
 import { createAnnounceEndOfRoundCommand } from "./announceEndOfRoundCommand.js";
+import { createEnterSiteCommand } from "./enterSiteCommand.js";
 
 // Command factory function type
 type CommandFactory = (
@@ -414,6 +416,16 @@ function createAnnounceEndOfRoundCommandFromAction(
   return createAnnounceEndOfRoundCommand({ playerId });
 }
 
+// Enter site command factory
+function createEnterSiteCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  if (action.type !== ENTER_SITE_ACTION) return null;
+  return createEnterSiteCommand({ playerId });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
   [MOVE_ACTION]: createMoveCommandFromAction,
@@ -432,6 +444,7 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [ACTIVATE_UNIT_ACTION]: createActivateUnitCommandFromAction,
   [INTERACT_ACTION]: createInteractCommandFromAction,
   [ANNOUNCE_END_OF_ROUND_ACTION]: createAnnounceEndOfRoundCommandFromAction,
+  [ENTER_SITE_ACTION]: createEnterSiteCommandFromAction,
 };
 
 // Get command for an action
@@ -511,3 +524,10 @@ export {
   type ConquerSiteCommandParams,
   CONQUER_SITE_COMMAND,
 } from "./conquerSiteCommand.js";
+
+// Adventure site commands
+export {
+  createEnterSiteCommand,
+  type EnterSiteCommandParams,
+  ENTER_SITE_COMMAND,
+} from "./enterSiteCommand.js";

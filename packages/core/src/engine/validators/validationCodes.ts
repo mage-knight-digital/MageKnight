@@ -98,6 +98,15 @@ export const NO_HEALING_HERE = "NO_HEALING_HERE" as const;
 export const CANNOT_RECRUIT_HERE = "CANNOT_RECRUIT_HERE" as const;
 export const UNIT_TYPE_MISMATCH = "UNIT_TYPE_MISMATCH" as const;
 
+// Adventure site validation codes
+export const NOT_ADVENTURE_SITE = "NOT_ADVENTURE_SITE" as const;
+export const SITE_ALREADY_CONQUERED = "SITE_ALREADY_CONQUERED" as const;
+export const NO_ENEMIES_AT_SITE = "NO_ENEMIES_AT_SITE" as const;
+
+// Dungeon/Tomb combat restriction codes
+export const UNITS_NOT_ALLOWED = "UNITS_NOT_ALLOWED" as const;
+export const GOLD_MANA_NOT_ALLOWED = "GOLD_MANA_NOT_ALLOWED" as const;
+
 // Round end validation codes
 export const DECK_NOT_EMPTY = "DECK_NOT_EMPTY" as const;
 export const ALREADY_ANNOUNCED = "ALREADY_ANNOUNCED" as const;
@@ -184,6 +193,13 @@ export type ValidationErrorCode =
   | typeof NO_HEALING_HERE
   | typeof CANNOT_RECRUIT_HERE
   | typeof UNIT_TYPE_MISMATCH
+  // Adventure site validation
+  | typeof NOT_ADVENTURE_SITE
+  | typeof SITE_ALREADY_CONQUERED
+  | typeof NO_ENEMIES_AT_SITE
+  // Dungeon/Tomb combat restriction
+  | typeof UNITS_NOT_ALLOWED
+  | typeof GOLD_MANA_NOT_ALLOWED
   // Round end validation
   | typeof DECK_NOT_EMPTY
   | typeof ALREADY_ANNOUNCED

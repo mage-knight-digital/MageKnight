@@ -702,6 +702,23 @@ export interface SiteConqueredEvent {
   readonly hexCoord: HexCoord;
 }
 
+// Adventure site events
+export const SITE_ENTERED = "SITE_ENTERED" as const;
+export interface SiteEnteredEvent {
+  readonly type: typeof SITE_ENTERED;
+  readonly playerId: string;
+  readonly siteType: string;
+  readonly hexCoord: HexCoord;
+}
+
+export const ENEMIES_DRAWN_FOR_SITE = "ENEMIES_DRAWN_FOR_SITE" as const;
+export interface EnemiesDrawnForSiteEvent {
+  readonly type: typeof ENEMIES_DRAWN_FOR_SITE;
+  readonly playerId: string;
+  readonly siteType: string;
+  readonly enemyCount: number;
+}
+
 export const SHIELD_TOKEN_PLACED = "SHIELD_TOKEN_PLACED" as const;
 export interface ShieldTokenPlacedEvent {
   readonly type: typeof SHIELD_TOKEN_PLACED;
@@ -851,6 +868,9 @@ export type GameEvent =
   | InteractionCompletedEvent
   // Conquest
   | SiteConqueredEvent
-  | ShieldTokenPlacedEvent;
+  | ShieldTokenPlacedEvent
+  // Adventure sites
+  | SiteEnteredEvent
+  | EnemiesDrawnForSiteEvent;
 
 export type GameEventType = GameEvent["type"];

@@ -23,6 +23,7 @@ import {
   ACTIVATE_UNIT_ACTION,
   INTERACT_ACTION,
   ANNOUNCE_END_OF_ROUND_ACTION,
+  ENTER_SITE_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -64,7 +65,8 @@ import {
 import {
   validateManaAvailable,
   validateManaColorMatch,
-  validateManaTimeOfDay,
+  validateManaTimeOfDayWithDungeonOverride,
+  validateManaDungeonTombRules,
 } from "./manaValidators.js";
 
 // Sideways play validators
@@ -118,6 +120,7 @@ import {
   validateAbilityMatchesPhase,
   validateSiegeRequirement,
   validateCombatRequiredForAbility,
+  validateUnitsAllowedInCombat,
 } from "./unitValidators.js";
 
 // Interact validators
@@ -133,6 +136,13 @@ import {
   validateRoundEndNotAnnounced,
   validateMustAnnounceEndOfRound,
 } from "./roundValidators.js";
+
+// Site validators
+import {
+  validateAtAdventureSite,
+  validateSiteNotConquered,
+  validateSiteHasEnemiesOrDraws,
+} from "./siteValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -208,8 +218,9 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateCardInHand,
     validateCardExists,
     validateNotWound,
-    // Mana validators (for powered play) - time check first, then availability, then color match
-    validateManaTimeOfDay,
+    // Mana validators (for powered play) - dungeon/tomb rules, then time check, then availability, then color match
+    validateManaDungeonTombRules, // Dungeon/tomb: no gold mana
+    validateManaTimeOfDayWithDungeonOverride, // Time rules (with dungeon override for black)
     validateManaAvailable,
     validateManaColorMatch,
   ],
@@ -302,6 +313,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateUnitCanActivate,
     validateAbilityIndex,
     validateCombatRequiredForAbility, // Combat abilities require being in combat
+    validateUnitsAllowedInCombat, // Dungeon/Tomb: units cannot be used
     validateAbilityMatchesPhase, // Ability type must match combat phase
     validateSiegeRequirement, // Ranged can't hit fortified in ranged phase
   ],
@@ -312,6 +324,17 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoChoicePending,
     validateDeckEmpty,
     validateRoundEndNotAnnounced,
+  ],
+  [ENTER_SITE_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateHasNotActed, // Must not have taken action this turn
+    validateAtAdventureSite,
+    validateSiteNotConquered,
+    validateSiteHasEnemiesOrDraws,
   ],
 };
 

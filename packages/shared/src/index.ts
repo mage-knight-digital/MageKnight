@@ -143,6 +143,8 @@ export type {
   // Movement
   MoveAction,
   ExploreAction,
+  // Adventure sites
+  EnterSiteAction,
   // Turn structure
   EndTurnAction,
   RestAction,

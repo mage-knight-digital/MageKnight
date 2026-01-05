@@ -19,6 +19,7 @@ import {
   MANA_GOLD,
   MANA_BLACK,
   TIME_OF_DAY_DAY,
+  TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 import { getBasicActionCard, BASIC_ACTION_CARDS } from "../../data/basicActions.js";
 import {
@@ -36,6 +37,7 @@ import {
   GOLD_MANA_NIGHT,
   POWERED_WITHOUT_MANA,
   PLAYER_NOT_FOUND,
+  GOLD_MANA_NOT_ALLOWED,
 } from "./validationCodes.js";
 
 /**
@@ -189,6 +191,82 @@ export function validateManaTimeOfDay(
 
   // Gold mana cannot be used at night
   if (manaColor === MANA_GOLD && state.timeOfDay !== TIME_OF_DAY_DAY) {
+    return invalid(GOLD_MANA_NIGHT, "Gold mana cannot be used at night");
+  }
+
+  return valid();
+}
+
+/**
+ * Validate mana usage in dungeon/tomb combat (night mana rules)
+ *
+ * Dungeons and Tombs use night mana rules regardless of actual time of day:
+ * - Gold mana cannot be used
+ * - Black mana CAN be used (even during day normally)
+ *
+ * This replaces the normal time-of-day check when in dungeon/tomb combat.
+ */
+export function validateManaDungeonTombRules(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== PLAY_CARD_ACTION) return valid();
+  if (!action.powered || !action.manaSource) return valid();
+
+  // Only applies when in combat with nightManaRules
+  if (!state.combat?.nightManaRules) return valid();
+
+  const manaColor = action.manaSource.color;
+
+  // Gold mana cannot be used in dungeon/tomb (night rules)
+  if (manaColor === MANA_GOLD) {
+    return invalid(
+      GOLD_MANA_NOT_ALLOWED,
+      "Gold mana cannot be used in dungeon/tomb combat (night rules apply)"
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Override normal time-of-day validation in dungeon/tomb
+ *
+ * When in dungeon/tomb combat (nightManaRules = true), black mana IS allowed
+ * even if it's actually daytime outside. This validator modifies the standard
+ * time-of-day check.
+ */
+export function validateManaTimeOfDayWithDungeonOverride(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== PLAY_CARD_ACTION) return valid();
+  if (!action.powered || !action.manaSource) return valid();
+
+  const manaColor = action.manaSource.color;
+
+  // In dungeon/tomb combat, night mana rules apply
+  if (state.combat?.nightManaRules) {
+    // Gold check is in validateManaDungeonTombRules
+    // Black is always allowed in dungeons (that's the point)
+    // Other colors follow normal rules
+    if (manaColor === MANA_BLACK) {
+      return valid(); // Black is ALLOWED in dungeons
+    }
+    // Non-gold/black colors are always allowed
+    return valid();
+  }
+
+  // Outside dungeon/tomb combat, use normal time-of-day rules
+  // Black mana cannot be used during day
+  if (manaColor === MANA_BLACK && state.timeOfDay === TIME_OF_DAY_DAY) {
+    return invalid(BLACK_MANA_DAY, "Black mana cannot be used during the day");
+  }
+
+  // Gold mana cannot be used at night
+  if (manaColor === MANA_GOLD && state.timeOfDay === TIME_OF_DAY_NIGHT) {
     return invalid(GOLD_MANA_NIGHT, "Gold mana cannot be used at night");
   }
 

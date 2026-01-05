@@ -29,6 +29,12 @@ export interface ExploreAction {
   readonly direction: HexDirection;
 }
 
+// Adventure site actions
+export const ENTER_SITE_ACTION = "ENTER_SITE" as const;
+export interface EnterSiteAction {
+  readonly type: typeof ENTER_SITE_ACTION;
+}
+
 // Turn structure actions
 export const END_TURN_ACTION = "END_TURN" as const;
 export interface EndTurnAction {
@@ -251,6 +257,8 @@ export type PlayerAction =
   // Movement
   | MoveAction
   | ExploreAction
+  // Adventure sites
+  | EnterSiteAction
   // Turn structure
   | EndTurnAction
   | RestAction

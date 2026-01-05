@@ -47,6 +47,7 @@ import {
   PASSIVE_ABILITY,
   SIEGE_REQUIRED,
   NOT_IN_COMBAT,
+  UNITS_NOT_ALLOWED,
 } from "./validationCodes.js";
 import { getPlayerSite } from "../helpers/siteHelpers.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
@@ -470,6 +471,30 @@ export function validateCombatRequiredForAbility(
     return invalid(
       NOT_IN_COMBAT,
       "Combat abilities can only be used during combat"
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate units are allowed in this combat
+ *
+ * Dungeons and Tombs have special rules: units cannot be activated.
+ * The hero must fight alone.
+ */
+export function validateUnitsAllowedInCombat(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
+  if (!state.combat) return valid();
+
+  if (!state.combat.unitsAllowed) {
+    return invalid(
+      UNITS_NOT_ALLOWED,
+      "Units cannot be used in this combat (dungeon/tomb)"
     );
   }
 

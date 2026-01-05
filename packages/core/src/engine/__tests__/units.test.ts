@@ -566,6 +566,8 @@ describe("Unit System", () => {
         attacksThisPhase: 0,
         fameGained: 0,
         isAtFortifiedSite,
+        unitsAllowed: true,
+        nightManaRules: false,
       };
     }
 
