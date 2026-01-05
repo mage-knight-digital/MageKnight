@@ -28,7 +28,16 @@ export * from "./cardIds.js";
 
 // Hex coordinates
 export type { HexCoord, HexDirection } from "./hex.js";
-export { HEX_DIRECTIONS, hexKey, getNeighbor, getAllNeighbors } from "./hex.js";
+export {
+  HEX_DIRECTIONS,
+  hexKey,
+  getNeighbor,
+  getAllNeighbors,
+  TILE_PLACEMENT_OFFSETS,
+  TILE_HEX_OFFSETS,
+  findTileCenterForHex,
+  calculateTilePlacementPosition,
+} from "./hex.js";
 
 // Terrain
 export type { Terrain, MovementCost, MovementCosts } from "./terrain.js";

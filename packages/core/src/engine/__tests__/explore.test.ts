@@ -21,7 +21,10 @@ import {
   UNDO_CHECKPOINT_SET,
   hexKey,
   TERRAIN_PLAINS,
+  type HexCoord,
 } from "@mage-knight/shared";
+import { TILE_PLACEMENT_OFFSETS } from "../explore/tileGrid.js";
+import type { TilePlacement } from "../../types/map.js";
 
 describe("EXPLORE action", () => {
   let engine: MageKnightEngine;
@@ -357,5 +360,95 @@ describe("EXPLORE action", () => {
         playerId: "player1",
       })
     );
+  });
+
+  describe("tile placement alignment", () => {
+    /**
+     * Create a proper game state with a tile at the origin.
+     * Player is on a hex of that tile.
+     * This tests that new tiles are placed relative to TILE CENTER, not player position.
+     */
+    function createStateWithTile(): GameState {
+      const tileCenter: HexCoord = { q: 0, r: 0 };
+
+      // Create hexes for a tile centered at origin (7 hexes in flower pattern)
+      const tileHexOffsets = [
+        { q: 0, r: 0 }, // center
+        { q: 1, r: -1 },
+        { q: 1, r: 0 },
+        { q: 0, r: 1 },
+        { q: -1, r: 1 },
+        { q: -1, r: 0 },
+        { q: 0, r: -1 },
+      ];
+
+      const hexes: Record<string, ReturnType<typeof createTestHex>> = {};
+      for (const offset of tileHexOffsets) {
+        const coord = { q: tileCenter.q + offset.q, r: tileCenter.r + offset.r };
+        hexes[hexKey(coord)] = createTestHex(coord.q, coord.r, TERRAIN_PLAINS);
+      }
+
+      // Player at (1, 0) - on the E hex of the tile, NOT at tile center
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 1, r: 0 },
+        movePoints: 10,
+      });
+
+      const baseState = createTestGameState();
+
+      // Record that tile is at origin
+      const tiles: TilePlacement[] = [
+        { tileId: TileId.StartingTileA, centerCoord: tileCenter, revealed: true },
+      ];
+
+      return {
+        ...baseState,
+        players: [player],
+        map: {
+          ...baseState.map,
+          hexes,
+          tiles,
+          tileDeck: {
+            countryside: [TileId.Countryside1],
+            core: [],
+          },
+        },
+      };
+    }
+
+    it("should place new tile relative to current tile center, not player position", () => {
+      const state = createStateWithTile();
+
+      // Player is at (1, 0), but tile center is (0, 0)
+      // When exploring E, the new tile should be at:
+      // tileCenter + E_offset = (0,0) + (3,-1) = (3, -1)
+      // NOT playerPos + E_offset = (1,0) + (3,-1) = (4, -1)
+
+      const result = engine.processAction(state, "player1", {
+        type: EXPLORE_ACTION,
+        direction: "E",
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: TILE_EXPLORED,
+        })
+      );
+
+      // The new tile should be placed at tile center (0,0) + E offset (3,-1) = (3,-1)
+      const expectedTileCenter: HexCoord = {
+        q: 0 + TILE_PLACEMENT_OFFSETS["E"].q,
+        r: 0 + TILE_PLACEMENT_OFFSETS["E"].r,
+      };
+
+      // Find the new tile placement
+      const newTile = result.state.map.tiles.find(
+        (t) => t.tileId === TileId.Countryside1
+      );
+
+      expect(newTile).toBeDefined();
+      expect(newTile?.centerCoord).toEqual(expectedTileCenter);
+    });
   });
 });

@@ -69,3 +69,19 @@ export {
 
 // Effect descriptions
 export { describeEffect } from "./effects/index.js";
+
+// Explore / tile grid system
+export {
+  isEdgeHex,
+  getValidExploreDirections,
+  calculateTilePlacement,
+  TILE_PLACEMENT_OFFSETS,
+  getDirectionFromOffset,
+  getExpansionDirections,
+  generateWedgeSlots,
+  generateTileSlots,
+  isSlotAdjacentToFilled,
+  getValidExploreDirectionsForShape,
+  findTileCenterForHex,
+  getExplorableSlotsFromTile,
+} from "./explore/index.js";

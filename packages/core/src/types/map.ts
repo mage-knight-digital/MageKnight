@@ -165,6 +165,16 @@ export interface TilePlacement {
   readonly revealed: boolean;
 }
 
+// A tile slot represents a valid position where a tile can be placed
+export interface TileSlot {
+  /** World coordinates of tile center */
+  readonly coord: HexCoord;
+  /** Row in the grid (0 = starting tile, 1 = first expansion, etc.) */
+  readonly row: number;
+  /** Whether this slot has a tile placed in it */
+  readonly filled: boolean;
+}
+
 // The draw piles for tiles (tiles are permanent once placed, no discard)
 export interface TileDeck {
   readonly countryside: readonly TileId[];
@@ -176,6 +186,8 @@ export interface MapState {
   readonly hexes: Record<string, HexState>; // key is hexKey(coord)
   readonly tiles: readonly TilePlacement[];
   readonly tileDeck: TileDeck;
+  /** Tile slots for constrained map shapes (wedge, etc.). Key is hexKey(coord). */
+  readonly tileSlots: Record<string, TileSlot>;
 }
 
 // Helper to create an empty map state
@@ -187,5 +199,6 @@ export function createEmptyMapState(): MapState {
       countryside: [],
       core: [],
     },
+    tileSlots: {},
   };
 }

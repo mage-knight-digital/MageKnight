@@ -23,6 +23,8 @@ export const NOT_ENOUGH_MOVE_POINTS = "NOT_ENOUGH_MOVE_POINTS" as const;
 export const NOT_ON_EDGE = "NOT_ON_EDGE" as const;
 export const INVALID_DIRECTION = "INVALID_DIRECTION" as const;
 export const NO_TILES_AVAILABLE = "NO_TILES_AVAILABLE" as const;
+export const SLOT_ALREADY_FILLED = "SLOT_ALREADY_FILLED" as const;
+export const INVALID_WEDGE_DIRECTION = "INVALID_WEDGE_DIRECTION" as const;
 
 // Card play validation codes
 export const CARD_NOT_IN_HAND = "CARD_NOT_IN_HAND" as const;
@@ -133,6 +135,8 @@ export type ValidationErrorCode =
   | typeof NOT_ON_EDGE
   | typeof INVALID_DIRECTION
   | typeof NO_TILES_AVAILABLE
+  | typeof SLOT_ALREADY_FILLED
+  | typeof INVALID_WEDGE_DIRECTION
   | typeof CARD_NOT_IN_HAND
   | typeof CARD_NOT_FOUND
   | typeof CANNOT_PLAY_WOUND

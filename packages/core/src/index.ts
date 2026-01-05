@@ -81,6 +81,22 @@ export { BASIC_ACTION_CARDS, getBasicActionCard } from "./data/basicActions.js";
 export { MageKnightEngine, createEngine } from "./engine/index.js";
 export type { ActionResult } from "./engine/index.js";
 
+// Explore / tile grid system
+export {
+  isEdgeHex,
+  getValidExploreDirections,
+  calculateTilePlacement,
+  TILE_PLACEMENT_OFFSETS,
+  getDirectionFromOffset,
+  getExpansionDirections,
+  generateWedgeSlots,
+  generateTileSlots,
+  isSlotAdjacentToFilled,
+  getValidExploreDirectionsForShape,
+  findTileCenterForHex,
+  getExplorableSlotsFromTile,
+} from "./engine/index.js";
+
 // Modifiers
 export type { ExpirationTrigger } from "./engine/index.js";
 export {

@@ -51,6 +51,8 @@ import {
   validatePlayerOnMapForExplore,
   validateOnEdgeHex,
   validateExploreDirection,
+  validateWedgeDirection,
+  validateSlotNotFilled,
   validateExploreMoveCost,
   validateTilesAvailable,
 } from "./exploreValidators.js";
@@ -208,6 +210,8 @@ const validatorRegistry: Record<string, Validator[]> = {
     validatePlayerOnMapForExplore,
     validateOnEdgeHex,
     validateExploreDirection,
+    validateWedgeDirection, // Wedge maps only allow NE/E directions
+    validateSlotNotFilled, // Wedge maps check slot is not already filled
     validateExploreMoveCost,
     validateTilesAvailable,
   ],

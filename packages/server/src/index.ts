@@ -8,6 +8,7 @@ import {
   type Player,
   type HexState,
   type TilePlacement,
+  type TileSlot,
   type RngState,
   type TileDeck,
   createInitialGameState,
@@ -25,6 +26,7 @@ import {
   describeEffect,
   createTileDeck,
   drawTileFromDeck,
+  generateTileSlots,
 } from "@mage-knight/core";
 import type { HexCoord } from "@mage-knight/shared";
 import {
@@ -297,9 +299,34 @@ export class GameServer {
       baseState.rng
     );
 
+    // Calculate total tiles for scenario
+    const totalTiles =
+      1 + // starting tile
+      baseState.scenarioConfig.countrysideTileCount +
+      baseState.scenarioConfig.coreTileCount +
+      baseState.scenarioConfig.cityTileCount;
+
+    // Generate tile slots based on map shape
+    const slotsMap = generateTileSlots(
+      baseState.scenarioConfig.mapShape,
+      totalTiles
+    );
+
+    // Convert to Record and mark starting position as filled
+    const tileSlots: Record<string, TileSlot> = {};
+    for (const [key, slot] of slotsMap) {
+      tileSlots[key] = slot;
+    }
+
     // Place starting tile at origin
     const tileOrigin: HexCoord = { q: 0, r: 0 };
     const startingTileHexes = placeTile(TileId.StartingTileA, tileOrigin);
+
+    // Mark starting slot as filled
+    const originKey = hexKey(tileOrigin);
+    if (tileSlots[originKey]) {
+      tileSlots[originKey] = { ...tileSlots[originKey], filled: true };
+    }
 
     // Build hex map starting with the starting tile
     const hexes: Record<string, HexState> = {};
@@ -345,6 +372,12 @@ export class GameServer {
           centerCoord: position,
           revealed: true,
         });
+
+        // Mark slot as filled
+        const posKey = hexKey(position);
+        if (tileSlots[posKey]) {
+          tileSlots[posKey] = { ...tileSlots[posKey], filled: true };
+        }
       }
     }
 
@@ -395,6 +428,7 @@ export class GameServer {
         hexes,
         tiles,
         tileDeck: currentDeck, // Remaining tiles after initial placement
+        tileSlots, // Tile slot grid for map shape constraints
       },
     };
   }
@@ -454,7 +488,7 @@ export class GameServer {
       selectedTactic: null,
       tacticFlipped: false,
       knockedOut: false,
-      movePoints: 4, // TEMPORARY: hardcoded for testing movement
+      movePoints: 50, // TEMPORARY: high value for debugging
       influencePoints: 0,
       playArea: [],
       pureMana: [],

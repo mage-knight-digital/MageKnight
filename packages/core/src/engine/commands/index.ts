@@ -30,6 +30,7 @@ import type { Command } from "../commands.js";
 import { createMoveCommand } from "./moveCommand.js";
 import { createEndTurnCommand } from "./endTurnCommand.js";
 import { createExploreCommand } from "./exploreCommand.js";
+import { findTileCenterForHex } from "@mage-knight/shared";
 import { createPlayCardCommand } from "./playCardCommand.js";
 import { createPlayCardSidewaysCommand } from "./playCardSidewaysCommand.js";
 import type { SidewaysAs } from "./playCardSidewaysCommand.js";
@@ -118,6 +119,15 @@ function createExploreCommandFromAction(
   const player = state.players.find((p) => p.id === playerId);
   if (!player?.position) return null;
 
+  // Find the tile center that the player is on
+  // Tile placement offsets are tile-center to tile-center, not hex to hex
+  const tileCenters = state.map.tiles.map((t) => t.centerCoord);
+  const currentTileCenter = findTileCenterForHex(player.position, tileCenters);
+
+  // Use tile center if found, otherwise fall back to player position
+  // (fallback supports legacy test states without tile records)
+  const fromHex = currentTileCenter ?? player.position;
+
   // Draw a tile (SIMPLE: take first from countryside, then core)
   const tileId =
     state.map.tileDeck.countryside[0] ?? state.map.tileDeck.core[0];
@@ -125,7 +135,7 @@ function createExploreCommandFromAction(
 
   return createExploreCommand({
     playerId,
-    fromHex: player.position,
+    fromHex,
     direction,
     tileId,
   });

@@ -4,6 +4,8 @@ import {
   HEX_DIRECTIONS,
   hexKey,
   getNeighbor,
+  findTileCenterForHex,
+  calculateTilePlacementPosition,
   type HexCoord,
   type HexDirection,
   type ClientHexState,
@@ -246,10 +248,19 @@ export function HexGrid() {
     player.movePoints >= EXPLORE_COST &&
     isEdgeHex(state.map, player.position)
   ) {
-    const validDirections = getValidExploreDirections(state.map, player.position);
-    for (const direction of validDirections) {
-      const coord = getNeighbor(player.position, direction);
-      exploreTargets.push({ coord, direction });
+    // Find the tile center that the player is on
+    const tileCenters = state.map.tiles.map((t) => t.centerCoord);
+    const currentTileCenter = findTileCenterForHex(player.position, tileCenters);
+
+    if (currentTileCenter) {
+      // Get directions that lead to unrevealed areas
+      const validDirections = getValidExploreDirections(state.map, player.position);
+      for (const direction of validDirections) {
+        // Calculate where the new tile CENTER would be placed
+        // (not just one hex away, but tile-center to tile-center offset)
+        const coord = calculateTilePlacementPosition(currentTileCenter, direction);
+        exploreTargets.push({ coord, direction });
+      }
     }
   }
 

@@ -95,6 +95,16 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
 
       const updatedTiles = [...state.map.tiles, tilePlacement];
 
+      // Mark the tile slot as filled (for wedge map tracking)
+      const slotKey = hexKey(tilePosition);
+      const updatedTileSlots = { ...state.map.tileSlots };
+      if (updatedTileSlots[slotKey]) {
+        updatedTileSlots[slotKey] = {
+          ...updatedTileSlots[slotKey],
+          filled: true,
+        };
+      }
+
       // Remove tile from appropriate deck
       const isCountrysideTile = state.map.tileDeck.countryside.includes(tileId);
       const updatedTileDeck = {
@@ -152,6 +162,7 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
           hexes: updatedHexes,
           tiles: updatedTiles,
           tileDeck: updatedTileDeck,
+          tileSlots: updatedTileSlots,
         },
         enemyTokens: currentPiles,
         rng: currentRng,

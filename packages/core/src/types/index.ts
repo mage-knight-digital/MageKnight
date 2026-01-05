@@ -49,6 +49,7 @@ export type {
   Site,
   HexState,
   TilePlacement,
+  TileSlot,
   TileDeck,
   MapState,
 } from "./map.js";

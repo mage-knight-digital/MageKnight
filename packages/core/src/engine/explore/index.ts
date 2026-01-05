@@ -72,25 +72,7 @@ export function getValidExploreDirections(
   });
 }
 
-/**
- * Direction-specific offsets for tile placement.
- *
- * With 7-hex symmetric "flower" tiles, tiles connect with exactly 3 adjacent
- * hex pairs along edges. These offsets position the new tile center so that
- * the tiles touch along 3 edges without overlapping.
- *
- * The offsets were computed by finding positions where:
- * - Exactly 3 hex pairs are adjacent (touching)
- * - No hexes overlap (14 unique hexes for 2 tiles)
- */
-const TILE_PLACEMENT_OFFSETS: Record<HexDirection, HexCoord> = {
-  E: { q: 3, r: -1 },
-  NE: { q: 2, r: -3 },
-  NW: { q: -1, r: -2 },
-  W: { q: -3, r: 1 },
-  SW: { q: -2, r: 3 },
-  SE: { q: 1, r: 2 },
-};
+import { TILE_PLACEMENT_OFFSETS } from "./tileGrid.js";
 
 /**
  * Calculate where to place a new tile when exploring in a direction.
@@ -109,6 +91,9 @@ export function calculateTilePlacement(
   direction: HexDirection
 ): HexCoord {
   const offset = TILE_PLACEMENT_OFFSETS[direction];
+  if (!offset) {
+    throw new Error(`Invalid direction: ${direction}`);
+  }
   return {
     q: fromHex.q + offset.q,
     r: fromHex.r + offset.r,
@@ -131,3 +116,16 @@ export function calculateTilePlacement(
 //   // Calculate distance from origin
 //   // Return appropriate deck type
 // }
+
+// Re-export tile grid system
+export {
+  TILE_PLACEMENT_OFFSETS,
+  getDirectionFromOffset,
+  getExpansionDirections,
+  generateWedgeSlots,
+  generateTileSlots,
+  isSlotAdjacentToFilled,
+  getValidExploreDirectionsForShape,
+  findTileCenterForHex,
+  getExplorableSlotsFromTile,
+} from "./tileGrid.js";
