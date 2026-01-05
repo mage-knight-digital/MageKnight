@@ -9,6 +9,7 @@ import type { ManaSourceType } from "./valueConstants.js";
 import type { EnemyId } from "./enemies.js";
 import type { CombatType } from "./combatTypes.js";
 import type { Element } from "./elements.js";
+import type { TacticId } from "./tactics.js";
 import {
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
@@ -161,6 +162,13 @@ export interface BuyHealingAction {
   readonly amount: number;
 }
 
+// Tactics selection
+export const SELECT_TACTIC_ACTION = "SELECT_TACTIC" as const;
+export interface SelectTacticAction {
+  readonly type: typeof SELECT_TACTIC_ACTION;
+  readonly tacticId: TacticId;
+}
+
 // Undo action
 export const UNDO_ACTION = "UNDO" as const;
 export interface UndoAction {
@@ -280,6 +288,8 @@ export type PlayerAction =
   | BuySpellAction
   | LearnAdvancedActionAction
   | BuyHealingAction
+  // Tactics
+  | SelectTacticAction
   // Undo
   | UndoAction
   // Choice resolution

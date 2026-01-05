@@ -160,8 +160,8 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
     usedManaFromSource: player.usedManaFromSource,
 
     knockedOut: player.knockedOut,
-    tacticCardId: player.tacticCard,
-    roundOrderTokenFaceDown: player.roundOrderTokenFaceDown,
+    selectedTacticId: player.selectedTactic,
+    tacticFlipped: player.tacticFlipped,
   };
 }
 
@@ -367,9 +367,9 @@ export class GameServer {
         activeUntilNextTurn: [],
       },
       crystals: { red: 0, blue: 0, green: 0, white: 0 },
-      tacticCard: null,
+      selectedTactic: null,
+      tacticFlipped: false,
       knockedOut: false,
-      roundOrderTokenFaceDown: false,
       movePoints: 4, // TEMPORARY: hardcoded for testing movement
       influencePoints: 0,
       playArea: [],

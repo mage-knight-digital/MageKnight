@@ -18,7 +18,7 @@ import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import { createEmptyCombatAccumulator } from "../../types/player.js";
-import type { GameEvent, CardId } from "@mage-knight/shared";
+import type { GameEvent, CardId, TacticId } from "@mage-knight/shared";
 import {
   ROUND_ENDED,
   NEW_ROUND_STARTED,
@@ -29,6 +29,8 @@ import {
   TIME_OF_DAY_DAY,
   TIME_OF_DAY_NIGHT,
   GAME_ENDED,
+  ROUND_PHASE_TACTICS_SELECTION,
+  getTacticsForTimeOfDay,
 } from "@mage-knight/shared";
 import { createManaSource } from "../mana/manaSource.js";
 import { readyAllUnits } from "../../types/unit.js";
@@ -165,6 +167,9 @@ export function createEndRoundCommand(): Command {
             usedThisRound: [],
             usedThisTurn: [],
           },
+          // Reset tactic selection for new round
+          selectedTactic: null,
+          tacticFlipped: false,
         };
 
         updatedPlayers.push(updatedPlayer);
@@ -191,6 +196,27 @@ export function createEndRoundCommand(): Command {
         timeOfDay: newTime,
       });
 
+      // 6. Set up tactics selection phase
+      // Selection order is based on Fame (lowest first)
+      // Ties are broken by Round Order token position (current turn order)
+      const tacticsSelectionOrder = [...updatedPlayers]
+        .map((p, turnOrderIndex) => ({
+          id: p.id,
+          fame: p.fame,
+          turnOrderIndex, // Position in turn order for tie-breaking
+        }))
+        .sort((a, b) => {
+          // Sort by fame ascending (lowest fame picks first)
+          if (a.fame !== b.fame) {
+            return a.fame - b.fame;
+          }
+          // Tie-breaker: lower turn order position picks first
+          return a.turnOrderIndex - b.turnOrderIndex;
+        })
+        .map((p) => p.id);
+      const availableTactics: readonly TacticId[] = getTacticsForTimeOfDay(newTime);
+      const firstSelector = tacticsSelectionOrder[0] ?? null;
+
       return {
         state: {
           ...state,
@@ -202,7 +228,13 @@ export function createEndRoundCommand(): Command {
           // Reset round-end tracking
           endOfRoundAnnouncedBy: null,
           playersWithFinalTurn: [],
-          // Reset to first player (defer tactics for now)
+          // Initialize tactics selection phase
+          roundPhase: ROUND_PHASE_TACTICS_SELECTION,
+          availableTactics,
+          tacticsSelectionOrder,
+          currentTacticSelector: firstSelector,
+          // Keep current turn order until tactics phase ends
+          // (will be recalculated based on selected tactics)
           currentPlayerIndex: 0,
         },
         events,
