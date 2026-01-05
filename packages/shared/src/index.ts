@@ -76,6 +76,7 @@ export type {
   TurnEndedEvent,
   RoundEndedEvent,
   GameEndedEvent,
+  ScenarioEndTriggeredEvent,
   EndOfRoundAnnouncedEvent,
   NewRoundStartedEvent,
   TimeOfDayChangedEvent,
@@ -221,3 +222,6 @@ export * from "./enemies.js";
 
 // Unit definitions
 export * from "./units.js";
+
+// Scenario definitions
+export * from "./scenarios.js";

@@ -3,12 +3,15 @@
  *
  * This command is triggered automatically after all final turns are complete.
  * It handles:
+ * - Check if scenario end was triggered (game ends immediately if round ends during final turns)
  * - Round ended event
  * - Day/Night toggle
  * - Mana source reset (reroll all dice)
  * - Ready all units (including wounded)
  * - Reshuffle all players' cards and draw fresh hands
  * - Start new round event
+ *
+ * Rulebook: "If the Round ends during this [final turns], the game ends immediately."
  */
 
 import type { Command, CommandResult } from "../commands.js";
@@ -25,6 +28,7 @@ import {
   UNITS_READIED,
   TIME_OF_DAY_DAY,
   TIME_OF_DAY_NIGHT,
+  GAME_ENDED,
 } from "@mage-knight/shared";
 import { createManaSource } from "../mana/manaSource.js";
 import { readyAllUnits } from "../../types/unit.js";
@@ -43,6 +47,44 @@ export function createEndRoundCommand(): Command {
     execute(state: GameState): CommandResult {
       const events: GameEvent[] = [];
       const oldRound = state.round;
+
+      // Check if we're in final turns (scenario end was triggered)
+      // Rulebook: "If the Round ends during this [final turns], the game ends immediately."
+      if (state.scenarioEndTriggered && state.finalTurnsRemaining !== null && state.finalTurnsRemaining > 0) {
+        // Calculate final scores (simplified - just fame for now)
+        const finalScores = state.players.map((p) => ({
+          playerId: p.id,
+          score: p.fame,
+        }));
+
+        // Sort by score descending
+        finalScores.sort((a, b) => b.score - a.score);
+
+        // Determine winner (highest score)
+        const winningPlayerId = finalScores[0]?.playerId ?? null;
+
+        events.push({
+          type: ROUND_ENDED,
+          round: oldRound,
+        });
+
+        events.push({
+          type: GAME_ENDED,
+          winningPlayerId,
+          finalScores,
+        });
+
+        return {
+          state: {
+            ...state,
+            finalTurnsRemaining: 0,
+            gameEnded: true,
+            winningPlayerId,
+          },
+          events,
+        };
+      }
+
       const newRound = oldRound + 1;
 
       // 1. Round ended event

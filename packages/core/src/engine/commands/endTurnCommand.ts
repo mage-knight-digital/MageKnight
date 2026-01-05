@@ -8,10 +8,15 @@
  * - Draws cards up to hand limit (no mid-round reshuffle)
  * - Resets turn state (hasMovedThisTurn, hasTakenActionThisTurn, movePoints, etc.)
  * - Advances to next player (or triggers round end if final turns complete)
+ * - Handles scenario-triggered final turns (e.g., city revealed in First Reconnaissance)
  *
  * Round end is triggered when:
  * - End of round has been announced AND
  * - All other players have taken their final turn (playersWithFinalTurn is empty)
+ *
+ * Game end is triggered when:
+ * - Scenario end was triggered (scenarioEndTriggered = true) AND
+ * - All final turns are complete (finalTurnsRemaining = 0)
  */
 
 import type { Command, CommandResult } from "../commands.js";
@@ -24,6 +29,7 @@ import {
   LEVEL_UP,
   LEVEL_UP_REWARDS_PENDING,
   COMMAND_SLOT_GAINED,
+  GAME_ENDED,
   getLevelUpType,
   LEVEL_STATS,
   LEVEL_UP_TYPE_ODD,
@@ -154,9 +160,22 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         }
       }
 
+      // Handle scenario-triggered final turns (e.g., city revealed)
+      let updatedFinalTurnsRemaining = state.finalTurnsRemaining;
+      let shouldTriggerGameEnd = false;
+
+      if (state.scenarioEndTriggered && updatedFinalTurnsRemaining !== null) {
+        updatedFinalTurnsRemaining = updatedFinalTurnsRemaining - 1;
+
+        if (updatedFinalTurnsRemaining <= 0) {
+          shouldTriggerGameEnd = true;
+        }
+      }
+
       newState = {
         ...newState,
         playersWithFinalTurn: updatedPlayersWithFinalTurn,
+        finalTurnsRemaining: updatedFinalTurnsRemaining,
       };
 
       // Determine next player
@@ -282,6 +301,35 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
         // Add level up events
         events.push(...levelUpEvents);
+      }
+
+      // Trigger game end if scenario final turns are complete
+      if (shouldTriggerGameEnd) {
+        // Calculate final scores (simplified - just fame for now)
+        const finalScores = newState.players.map((p) => ({
+          playerId: p.id,
+          score: p.fame,
+        }));
+
+        // Sort by score descending
+        finalScores.sort((a, b) => b.score - a.score);
+
+        // Determine winner (highest score)
+        const winningPlayerId = finalScores[0]?.playerId ?? null;
+
+        newState = {
+          ...newState,
+          gameEnded: true,
+          winningPlayerId,
+        };
+
+        events.push({
+          type: GAME_ENDED,
+          winningPlayerId,
+          finalScores,
+        });
+
+        return { state: newState, events };
       }
 
       // Trigger round end if all final turns are complete

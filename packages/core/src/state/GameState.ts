@@ -2,8 +2,9 @@
  * Game state types and management
  */
 
-import type { GamePhase, TimeOfDay } from "@mage-knight/shared";
-import { GAME_PHASE_SETUP, TIME_OF_DAY_DAY } from "@mage-knight/shared";
+import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig } from "@mage-knight/shared";
+import { GAME_PHASE_SETUP, TIME_OF_DAY_DAY, SCENARIO_FIRST_RECONNAISSANCE } from "@mage-knight/shared";
+import { getScenario } from "../data/scenarios/index.js";
 import type { Player } from "../types/player.js";
 import {
   type MapState,
@@ -77,11 +78,21 @@ export interface GameState {
   // Wound pile (effectively unlimited)
   readonly woundPileCount: number;
 
-  // Scenario tracking
+  // Scenario configuration and tracking
+  readonly scenarioId: ScenarioId;
+  readonly scenarioConfig: ScenarioConfig;
   readonly scenarioEndTriggered: boolean; // distinct from endOfRoundAnnouncedBy
+  readonly finalTurnsRemaining: number | null; // null = not in final turns, number = turns left
+  readonly gameEnded: boolean;
+  readonly winningPlayerId: string | null; // For competitive scenarios
 }
 
-export function createInitialGameState(seed?: number): GameState {
+export function createInitialGameState(
+  seed?: number,
+  scenarioId: ScenarioId = SCENARIO_FIRST_RECONNAISSANCE
+): GameState {
+  const scenarioConfig = getScenario(scenarioId);
+
   return {
     phase: GAME_PHASE_SETUP,
     timeOfDay: TIME_OF_DAY_DAY,
@@ -102,6 +113,11 @@ export function createInitialGameState(seed?: number): GameState {
     commandStack: createEmptyCommandStack(),
     rng: createRng(seed),
     woundPileCount: 10, // start with some wounds available
+    scenarioId,
+    scenarioConfig,
     scenarioEndTriggered: false,
+    finalTurnsRemaining: null,
+    gameEnded: false,
+    winningPlayerId: null,
   };
 }

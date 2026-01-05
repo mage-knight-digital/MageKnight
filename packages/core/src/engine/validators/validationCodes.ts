@@ -115,6 +115,9 @@ export const MUST_ANNOUNCE_END_OF_ROUND = "MUST_ANNOUNCE_END_OF_ROUND" as const;
 // Rampaging enemy validation codes
 export const RAMPAGING_ENEMY_BLOCKS = "RAMPAGING_ENEMY_BLOCKS" as const;
 
+// Scenario validation codes
+export const CANNOT_ENTER_CITY = "CANNOT_ENTER_CITY" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -205,4 +208,6 @@ export type ValidationErrorCode =
   | typeof ALREADY_ANNOUNCED
   | typeof MUST_ANNOUNCE_END_OF_ROUND
   // Rampaging enemy validation
-  | typeof RAMPAGING_ENEMY_BLOCKS;
+  | typeof RAMPAGING_ENEMY_BLOCKS
+  // Scenario validation
+  | typeof CANNOT_ENTER_CITY;

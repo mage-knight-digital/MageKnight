@@ -3,15 +3,26 @@
  *
  * This is an irreversible command - you can't unsee a tile!
  * When executed, it clears the command stack and sets a checkpoint.
+ *
+ * Scenario hooks:
+ * - Awards fame per tile explored (configurable per scenario)
+ * - Triggers scenario end when city tile is revealed (for First Reconnaissance)
  */
 
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
-import type { HexCoord, HexDirection } from "@mage-knight/shared";
-import { hexKey, createTileExploredEvent } from "@mage-knight/shared";
+import type { HexCoord, HexDirection, GameEvent } from "@mage-knight/shared";
+import {
+  hexKey,
+  createTileExploredEvent,
+  FAME_GAINED,
+  SCENARIO_END_TRIGGERED,
+  END_TRIGGER_CITY_REVEALED,
+  FAME_SOURCE_TILE_EXPLORED,
+} from "@mage-knight/shared";
 import type { TileId, HexState, TilePlacement } from "../../types/map.js";
 import type { Player } from "../../types/player.js";
-import { placeTile } from "../../data/tiles.js";
+import { placeTile, TILE_DEFINITIONS } from "../../data/tiles.js";
 import { calculateTilePlacement } from "../explore/index.js";
 import { EXPLORE_COMMAND } from "./commandTypes.js";
 import { drawEnemiesForHex } from "../helpers/enemyHelpers.js";
@@ -105,12 +116,33 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
+      // Award fame for exploring (configurable per scenario)
+      const famePerTile = state.scenarioConfig.famePerTileExplored;
+      const newFame = player.fame + famePerTile;
+
       const updatedPlayer: Player = {
         ...player,
         movePoints: player.movePoints - 2,
+        fame: newFame,
       };
       const updatedPlayers = [...state.players];
       updatedPlayers[playerIndex] = updatedPlayer;
+
+      // Check if this tile has a city (for scenario end trigger)
+      const tileDefinition = TILE_DEFINITIONS[tileId];
+      const isCityTile = tileDefinition?.hasCity ?? false;
+
+      // Check if scenario end should be triggered
+      const shouldTriggerScenarioEnd =
+        !state.scenarioEndTriggered &&
+        state.scenarioConfig.endTrigger.type === END_TRIGGER_CITY_REVEALED &&
+        isCityTile;
+
+      // Calculate final turns remaining when scenario ends
+      // Each player (including the one who triggered) gets one final turn
+      const finalTurnsRemaining = shouldTriggerScenarioEnd
+        ? state.players.length
+        : state.finalTurnsRemaining;
 
       const newState: GameState = {
         ...state,
@@ -123,19 +155,44 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
         },
         enemyTokens: currentPiles,
         rng: currentRng,
+        scenarioEndTriggered: shouldTriggerScenarioEnd || state.scenarioEndTriggered,
+        finalTurnsRemaining,
       };
+
+      // Build events array
+      const events: GameEvent[] = [
+        createTileExploredEvent(
+          params.playerId,
+          tileId,
+          tilePosition,
+          rotation,
+          newHexes.map((h: HexState) => h.coord)
+        ),
+      ];
+
+      // Add fame event if fame was awarded
+      if (famePerTile > 0) {
+        events.push({
+          type: FAME_GAINED,
+          playerId: params.playerId,
+          amount: famePerTile,
+          newTotal: newFame,
+          source: FAME_SOURCE_TILE_EXPLORED,
+        });
+      }
+
+      // Add scenario end trigger event
+      if (shouldTriggerScenarioEnd) {
+        events.push({
+          type: SCENARIO_END_TRIGGERED,
+          playerId: params.playerId,
+          trigger: END_TRIGGER_CITY_REVEALED,
+        });
+      }
 
       return {
         state: newState,
-        events: [
-          createTileExploredEvent(
-            params.playerId,
-            tileId,
-            tilePosition,
-            rotation,
-            newHexes.map((h: HexState) => h.coord)
-          ),
-        ],
+        events,
       };
     },
 

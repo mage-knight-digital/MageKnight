@@ -17,7 +17,9 @@ import {
   NOT_ON_MAP,
   PLAYER_NOT_FOUND,
   RAMPAGING_ENEMY_BLOCKS,
+  CANNOT_ENTER_CITY,
 } from "./validationCodes.js";
+import { SiteType } from "../../types/map.js";
 
 // Helper to get target from action (type guard)
 function getMoveTarget(action: PlayerAction): HexCoord | null {
@@ -180,6 +182,42 @@ export function validateNotBlockedByRampaging(
       RAMPAGING_ENEMY_BLOCKS,
       "Cannot enter hex with rampaging enemies"
     );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate that the target hex can be entered according to scenario rules.
+ *
+ * In First Reconnaissance, players can reveal the city tile but cannot
+ * enter it (citiesCanBeEntered = false in scenario config).
+ */
+export function validateCityEntryAllowed(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  const target = getMoveTarget(action);
+  if (!target) {
+    return invalid(INVALID_ACTION_CODE, "Invalid move action");
+  }
+
+  const hexKey = `${target.q},${target.r}`;
+  const hex = state.map.hexes[hexKey];
+  if (!hex) {
+    return invalid(HEX_NOT_FOUND, "Target hex does not exist");
+  }
+
+  // Check if hex has a city site
+  if (hex.site?.type === SiteType.City) {
+    // Check scenario rules for city entry
+    if (!state.scenarioConfig.citiesCanBeEntered) {
+      return invalid(
+        CANNOT_ENTER_CITY,
+        "In this scenario, you can reveal the city but cannot enter it"
+      );
+    }
   }
 
   return valid();

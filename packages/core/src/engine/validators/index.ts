@@ -43,6 +43,7 @@ import {
   validateTerrainPassable,
   validateEnoughMovePoints,
   validateNotBlockedByRampaging,
+  validateCityEntryAllowed,
 } from "./movementValidators.js";
 
 // Explore validators
@@ -184,6 +185,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateTargetHexExists,
     validateTerrainPassable,
     validateNotBlockedByRampaging, // Can't enter hex with rampaging enemies
+    validateCityEntryAllowed, // Scenario rules for city entry
     validateEnoughMovePoints,
   ],
   [UNDO_ACTION]: [

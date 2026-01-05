@@ -66,7 +66,15 @@ export interface RoundEndedEvent {
 export const GAME_ENDED = "GAME_ENDED" as const;
 export interface GameEndedEvent {
   readonly type: typeof GAME_ENDED;
-  readonly winner: number | null;
+  readonly winningPlayerId: string | null;
+  readonly finalScores: readonly { readonly playerId: string; readonly score: number }[];
+}
+
+export const SCENARIO_END_TRIGGERED = "SCENARIO_END_TRIGGERED" as const;
+export interface ScenarioEndTriggeredEvent {
+  readonly type: typeof SCENARIO_END_TRIGGERED;
+  readonly playerId: string;
+  readonly trigger: string;
 }
 
 export const END_OF_ROUND_ANNOUNCED = "END_OF_ROUND_ANNOUNCED" as const;
@@ -812,6 +820,7 @@ export type GameEvent =
   | TurnEndedEvent
   | RoundEndedEvent
   | GameEndedEvent
+  | ScenarioEndTriggeredEvent
   | EndOfRoundAnnouncedEvent
   | NewRoundStartedEvent
   | TimeOfDayChangedEvent
