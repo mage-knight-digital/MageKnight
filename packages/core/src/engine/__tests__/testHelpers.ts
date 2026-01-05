@@ -164,12 +164,15 @@ export function createTacticsSelectionState(
 ): GameState {
   const baseState = createInitialGameState();
 
-  // Create players
+  // Create players with decreasing fame so later players select first
+  // (lowest fame selects first per the rules)
   const players = playerIds.map((id, index) =>
     createTestPlayer({
       id,
       position: { q: index, r: 0 },
       movePoints: 0,
+      // Give decreasing fame: last player has lowest fame and selects first
+      fame: (playerIds.length - 1 - index) * 10,
     })
   );
 
@@ -177,9 +180,21 @@ export function createTacticsSelectionState(
   const availableTactics: readonly TacticId[] =
     timeOfDay === "day" ? ALL_DAY_TACTICS : ALL_NIGHT_TACTICS;
 
-  // Selection order is typically reverse of turn order (for rounds 2+)
-  // For testing, we can just use the player IDs in reverse
-  const tacticsSelectionOrder = [...playerIds].reverse();
+  // Selection order: sorted by fame ascending (lowest first), ties by turn order index
+  // Since we assigned decreasing fame values, this results in reverse player order
+  const tacticsSelectionOrder = [...players]
+    .map((p, turnOrderIndex) => ({
+      id: p.id,
+      fame: p.fame,
+      turnOrderIndex,
+    }))
+    .sort((a, b) => {
+      if (a.fame !== b.fame) {
+        return a.fame - b.fame;
+      }
+      return a.turnOrderIndex - b.turnOrderIndex;
+    })
+    .map((p) => p.id);
 
   // Create a minimal map
   const hexes: Record<string, HexState> = {};

@@ -25,7 +25,7 @@ import {
   TACTIC_MANA_SEARCH,
   TACTIC_SPARING_POWER,
   TACTIC_LONG_NIGHT,
-  TACTIC_GREAT_START_NIGHT,
+  TACTIC_PREPARATION,
   TACTIC_EFFECT_TYPE_NONE,
   TACTIC_EFFECT_TYPE_ON_PICK,
   TACTIC_EFFECT_TYPE_ONGOING,
@@ -52,7 +52,7 @@ const RETHINK: TacticCard = {
   turnOrder: 2,
   timeOfDay: TIME_OF_DAY_DAY,
   effectType: TACTIC_EFFECT_TYPE_ON_PICK,
-  effectDescription: "Discard any number of non-Wound cards from hand, then draw that many cards.",
+  effectDescription: "You may discard up to 3 cards from your hand (including Wounds). Shuffle your discard pile into your deck, then draw as many cards as you discarded.",
   implemented: false,
 };
 
@@ -72,27 +72,27 @@ const PLANNING: TacticCard = {
   turnOrder: 4,
   timeOfDay: TIME_OF_DAY_DAY,
   effectType: TACTIC_EFFECT_TYPE_ONGOING,
-  effectDescription: "Your hand limit is increased by 1 this round.",
-  implemented: false,
-};
-
-const THE_RIGHT_MOMENT: TacticCard = {
-  id: TACTIC_THE_RIGHT_MOMENT,
-  name: "The Right Moment",
-  turnOrder: 5,
-  timeOfDay: TIME_OF_DAY_DAY,
-  effectType: TACTIC_EFFECT_TYPE_ACTIVATED,
-  effectDescription: "Flip this card to take another turn immediately after this one (cannot be used on your last turn of the round).",
+  effectDescription: "Your hand limit is increased by 1 this round, but only if you have at least 2 cards in your hand at the end of your turn.",
   implemented: false,
 };
 
 const GREAT_START: TacticCard = {
   id: TACTIC_GREAT_START,
   name: "Great Start",
-  turnOrder: 6,
+  turnOrder: 5,
   timeOfDay: TIME_OF_DAY_DAY,
   effectType: TACTIC_EFFECT_TYPE_ON_PICK,
   effectDescription: "Draw 2 cards.",
+  implemented: false,
+};
+
+const THE_RIGHT_MOMENT: TacticCard = {
+  id: TACTIC_THE_RIGHT_MOMENT,
+  name: "The Right Moment",
+  turnOrder: 6,
+  timeOfDay: TIME_OF_DAY_DAY,
+  effectType: TACTIC_EFFECT_TYPE_ACTIVATED,
+  effectDescription: "Flip this card to take another turn immediately after this one (cannot be used on your last turn of the round).",
   implemented: false,
 };
 
@@ -114,7 +114,7 @@ const MIDNIGHT_MEDITATION: TacticCard = {
   turnOrder: 2,
   timeOfDay: TIME_OF_DAY_NIGHT,
   effectType: TACTIC_EFFECT_TYPE_ON_PICK,
-  effectDescription: "Discard any number of non-Wound cards from hand, then draw that many cards.",
+  effectDescription: "You may discard up to 3 cards from your hand (including Wounds). Shuffle them into your deck, then draw as many cards as you discarded.",
   implemented: false,
 };
 
@@ -134,27 +134,27 @@ const SPARING_POWER: TacticCard = {
   turnOrder: 4,
   timeOfDay: TIME_OF_DAY_NIGHT,
   effectType: TACTIC_EFFECT_TYPE_ONGOING,
-  effectDescription: "At the end of your turn, you may put one card from your hand under this card. At the start of your next turn, add it back to your hand.",
+  effectDescription: "Before each of your turns, you may take the top card of your Deed deck OR a card stored on this card. At the end of each turn, you may store a card from your hand on this card.",
+  implemented: false,
+};
+
+const PREPARATION: TacticCard = {
+  id: TACTIC_PREPARATION,
+  name: "Preparation",
+  turnOrder: 5,
+  timeOfDay: TIME_OF_DAY_NIGHT,
+  effectType: TACTIC_EFFECT_TYPE_ON_PICK,
+  effectDescription: "Draw 1 card.",
   implemented: false,
 };
 
 const LONG_NIGHT: TacticCard = {
   id: TACTIC_LONG_NIGHT,
   name: "Long Night",
-  turnOrder: 5,
+  turnOrder: 6,
   timeOfDay: TIME_OF_DAY_NIGHT,
   effectType: TACTIC_EFFECT_TYPE_ACTIVATED,
   effectDescription: "Flip this card to take another turn immediately after this one (cannot be used on your last turn of the round).",
-  implemented: false,
-};
-
-const GREAT_START_NIGHT: TacticCard = {
-  id: TACTIC_GREAT_START_NIGHT,
-  name: "Great Start",
-  turnOrder: 6,
-  timeOfDay: TIME_OF_DAY_NIGHT,
-  effectType: TACTIC_EFFECT_TYPE_ON_PICK,
-  effectDescription: "Draw 2 cards.",
   implemented: false,
 };
 
@@ -169,15 +169,15 @@ export const TACTIC_CARDS: Readonly<Record<TacticId, TacticCard>> = {
   [TACTIC_RETHINK]: RETHINK,
   [TACTIC_MANA_STEAL]: MANA_STEAL,
   [TACTIC_PLANNING]: PLANNING,
-  [TACTIC_THE_RIGHT_MOMENT]: THE_RIGHT_MOMENT,
   [TACTIC_GREAT_START]: GREAT_START,
+  [TACTIC_THE_RIGHT_MOMENT]: THE_RIGHT_MOMENT,
   // Night tactics
   [TACTIC_FROM_THE_DUSK]: FROM_THE_DUSK,
   [TACTIC_MIDNIGHT_MEDITATION]: MIDNIGHT_MEDITATION,
   [TACTIC_MANA_SEARCH]: MANA_SEARCH,
   [TACTIC_SPARING_POWER]: SPARING_POWER,
+  [TACTIC_PREPARATION]: PREPARATION,
   [TACTIC_LONG_NIGHT]: LONG_NIGHT,
-  [TACTIC_GREAT_START_NIGHT]: GREAT_START_NIGHT,
 };
 
 /**

@@ -49,7 +49,7 @@ describe("Tactics Selection", () => {
     it("removes selected tactic from available pool", () => {
       const state = createTacticsSelectionState(["player1", "player2"]);
       const command = createSelectTacticCommand({
-        playerId: "player2", // Player 2 selects first (reverse order)
+        playerId: "player2", // Player 2 selects first (lowest Fame)
         tacticId: TACTIC_EARLY_BIRD,
       });
 
@@ -125,7 +125,7 @@ describe("Tactics Selection", () => {
 
     it("cannot select when not your turn", () => {
       const state = createTacticsSelectionState(["player1", "player2"]);
-      // player2 is first selector (reverse order), but player1 tries to select
+      // player2 is first selector (lowest Fame), but player1 tries to select
       const command = createSelectTacticCommand({
         playerId: "player1",
         tacticId: TACTIC_PLANNING,
@@ -169,7 +169,7 @@ describe("Tactics Selection", () => {
       // Two players select tactics
       const state = createTacticsSelectionState(["player1", "player2"]);
 
-      // Player 2 selects Great Start (turn order 6)
+      // Player 2 selects Great Start (turn order 5)
       const command1 = createSelectTacticCommand({
         playerId: "player2",
         tacticId: TACTIC_GREAT_START,
@@ -186,7 +186,7 @@ describe("Tactics Selection", () => {
       // Phase should end and turn order should be set
       expect(result2.state.roundPhase).toBe(ROUND_PHASE_PLAYER_TURNS);
 
-      // Player 1 (Early Bird, order 1) should go before Player 2 (Great Start, order 6)
+      // Player 1 (Early Bird, order 1) should go before Player 2 (Great Start, order 5)
       expect(result2.state.turnOrder).toEqual(["player1", "player2"]);
 
       // TACTICS_PHASE_ENDED event should have the turn order
@@ -215,7 +215,7 @@ describe("Tactics Selection", () => {
       });
       currentState = cmd1.execute(currentState).state;
 
-      // Player 2 selects Great Start (turn order 6)
+      // Player 2 selects Great Start (turn order 5)
       const cmd2 = createSelectTacticCommand({
         playerId: "player2",
         tacticId: TACTIC_GREAT_START,
@@ -229,7 +229,7 @@ describe("Tactics Selection", () => {
       });
       const finalResult = cmd3.execute(currentState);
 
-      // Turn order should be: player1 (1), player3 (4), player2 (6)
+      // Turn order should be: player1 (1), player3 (4), player2 (5)
       expect(finalResult.state.turnOrder).toEqual([
         "player1",
         "player3",

@@ -197,8 +197,23 @@ export function createEndRoundCommand(): Command {
       });
 
       // 6. Set up tactics selection phase
-      // Selection order is reverse of last round's turn order
-      const tacticsSelectionOrder = [...state.turnOrder].reverse();
+      // Selection order is based on Fame (lowest first)
+      // Ties are broken by Round Order token position (current turn order)
+      const tacticsSelectionOrder = [...updatedPlayers]
+        .map((p, turnOrderIndex) => ({
+          id: p.id,
+          fame: p.fame,
+          turnOrderIndex, // Position in turn order for tie-breaking
+        }))
+        .sort((a, b) => {
+          // Sort by fame ascending (lowest fame picks first)
+          if (a.fame !== b.fame) {
+            return a.fame - b.fame;
+          }
+          // Tie-breaker: lower turn order position picks first
+          return a.turnOrderIndex - b.turnOrderIndex;
+        })
+        .map((p) => p.id);
       const availableTactics: readonly TacticId[] = getTacticsForTimeOfDay(newTime);
       const firstSelector = tacticsSelectionOrder[0] ?? null;
 

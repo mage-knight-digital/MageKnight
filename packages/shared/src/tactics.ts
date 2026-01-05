@@ -22,7 +22,7 @@ export const TACTIC_MIDNIGHT_MEDITATION = "midnight_meditation" as const;
 export const TACTIC_MANA_SEARCH = "mana_search" as const;
 export const TACTIC_SPARING_POWER = "sparing_power" as const;
 export const TACTIC_LONG_NIGHT = "long_night" as const;
-export const TACTIC_GREAT_START_NIGHT = "great_start_night" as const;
+export const TACTIC_PREPARATION = "preparation" as const;
 
 export type TacticId =
   // Day tactics
@@ -38,7 +38,7 @@ export type TacticId =
   | typeof TACTIC_MANA_SEARCH
   | typeof TACTIC_SPARING_POWER
   | typeof TACTIC_LONG_NIGHT
-  | typeof TACTIC_GREAT_START_NIGHT;
+  | typeof TACTIC_PREPARATION;
 
 // All tactic IDs for iteration
 export const ALL_DAY_TACTICS: readonly TacticId[] = [
@@ -56,7 +56,7 @@ export const ALL_NIGHT_TACTICS: readonly TacticId[] = [
   TACTIC_MANA_SEARCH,
   TACTIC_SPARING_POWER,
   TACTIC_LONG_NIGHT,
-  TACTIC_GREAT_START_NIGHT,
+  TACTIC_PREPARATION,
 ] as const;
 
 export const ALL_TACTICS: readonly TacticId[] = [
