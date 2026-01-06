@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { GameProvider } from "./context/GameContext";
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
@@ -7,10 +8,24 @@ import { TacticSelection } from "./components/Overlays/TacticSelection";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { ActionBar } from "./components/Overlays/ActionBar";
 
-// Dynamic seed for different games each session
-// Log seed for debugging/replay purposes
-const GAME_SEED = Date.now();
-console.log("Game seed:", GAME_SEED);
+// Get seed from URL param (?seed=12345) or use current time
+// This allows reproducible games for testing and debugging
+function getGameSeed(): number {
+  const urlParams = new URLSearchParams(window.location.search);
+  const seedParam = urlParams.get("seed");
+  if (seedParam) {
+    const seed = parseInt(seedParam, 10);
+    if (!isNaN(seed)) {
+      console.log("Game seed (from URL):", seed);
+      return seed;
+    }
+  }
+  const seed = Date.now();
+  console.log("Game seed (random):", seed);
+  return seed;
+}
+
+const GAME_SEED = getGameSeed();
 
 function ResourcePanel() {
   const player = useMyPlayer();
@@ -178,11 +193,19 @@ function formatEventDetails(event: import("@mage-knight/shared").GameEvent): str
 
 function EventLog() {
   const { events } = useGame();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new events arrive
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [events]);
 
   return (
     <div className="panel">
       <h3 className="panel__title">Recent Events ({events.length})</h3>
-      <div className="debug-state" style={{ maxHeight: "200px" }}>
+      <div ref={scrollRef} className="debug-state" style={{ maxHeight: "200px" }}>
         {events.length === 0 ? (
           <div style={{ color: "#666" }}>No events yet</div>
         ) : (
