@@ -188,6 +188,20 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
     pendingChoice: player.pendingChoice
       ? toClientPendingChoice(player.pendingChoice)
       : null,
+
+    // Combat accumulator (attack/block values from played cards)
+    combatAccumulator: {
+      attack: {
+        normal: player.combatAccumulator.attack.normal,
+        ranged: player.combatAccumulator.attack.ranged,
+        siege: player.combatAccumulator.attack.siege,
+        normalElements: { ...player.combatAccumulator.attack.normalElements },
+        rangedElements: { ...player.combatAccumulator.attack.rangedElements },
+        siegeElements: { ...player.combatAccumulator.attack.siegeElements },
+      },
+      block: player.combatAccumulator.block,
+      blockElements: { ...player.combatAccumulator.blockElements },
+    },
   };
 }
 

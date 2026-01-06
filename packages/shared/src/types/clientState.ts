@@ -49,6 +49,31 @@ export interface ClientManaToken {
   readonly source: ManaTokenSource;
 }
 
+// Elemental attack/block values
+export interface ClientElementalValues {
+  readonly physical: number;
+  readonly fire: number;
+  readonly ice: number;
+  readonly coldFire: number;
+}
+
+// Accumulated attack values by type
+export interface ClientAccumulatedAttack {
+  readonly normal: number;
+  readonly ranged: number;
+  readonly siege: number;
+  readonly normalElements: ClientElementalValues;
+  readonly rangedElements: ClientElementalValues;
+  readonly siegeElements: ClientElementalValues;
+}
+
+// Combat accumulator - tracks attack/block values from played cards
+export interface ClientCombatAccumulator {
+  readonly attack: ClientAccumulatedAttack;
+  readonly block: number;
+  readonly blockElements: ClientElementalValues;
+}
+
 // Client-visible player state
 export interface ClientPlayer {
   readonly id: string;
@@ -95,6 +120,9 @@ export interface ClientPlayer {
 
   // Pending choice (if card requires player selection)
   readonly pendingChoice: ClientPendingChoice | null;
+
+  // Combat accumulator (accumulated attack/block from played cards)
+  readonly combatAccumulator: ClientCombatAccumulator;
 }
 
 // Mana die in the source

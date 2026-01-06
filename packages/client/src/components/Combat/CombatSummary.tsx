@@ -3,6 +3,7 @@
  */
 
 import type { ClientCombatEnemy, CombatOptions } from "@mage-knight/shared";
+import { useMyPlayer } from "../../hooks/useMyPlayer";
 
 interface CombatSummaryProps {
   phase: string;
@@ -19,6 +20,7 @@ export function CombatSummary({
   woundsThisCombat,
   fameGained,
 }: CombatSummaryProps) {
+  const player = useMyPlayer();
   const aliveEnemies = enemies.filter((e) => !e.isDefeated);
   const defeatedCount = enemies.length - aliveEnemies.length;
 
@@ -30,6 +32,9 @@ export function CombatSummary({
   // Calculate blocked amount
   const blockedEnemies = aliveEnemies.filter((e) => e.isBlocked);
 
+  // Get accumulated block from player (for block phase display)
+  const accumulatedBlock = player?.combatAccumulator.block ?? 0;
+
   return (
     <div className="combat-summary">
       {phase === "block" && (
@@ -38,6 +43,15 @@ export function CombatSummary({
             <span className="combat-summary__label">Enemy Attack</span>
             <span className="combat-summary__value combat-summary__value--danger">
               {totalEnemyAttack}
+            </span>
+          </div>
+          <div className="combat-summary__stat">
+            <span className="combat-summary__label">Your Block</span>
+            <span
+              className={`combat-summary__value ${accumulatedBlock > 0 ? "combat-summary__value--success" : ""}`}
+              data-testid="accumulated-block"
+            >
+              {accumulatedBlock}
             </span>
           </div>
           <div className="combat-summary__stat">
