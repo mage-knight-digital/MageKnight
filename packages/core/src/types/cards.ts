@@ -31,6 +31,20 @@ export const DEED_CARD_TYPE_SPELL = "spell" as const;
 export const DEED_CARD_TYPE_ARTIFACT = "artifact" as const;
 export const DEED_CARD_TYPE_WOUND = "wound" as const;
 
+// === Card Categories (symbols in top-left corner of card art) ===
+export const CARD_CATEGORY_MOVEMENT = "movement" as const; // foot symbol
+export const CARD_CATEGORY_COMBAT = "combat" as const; // crossed swords symbol
+export const CARD_CATEGORY_INFLUENCE = "influence" as const; // head symbol
+export const CARD_CATEGORY_HEALING = "healing" as const; // hand symbol
+export const CARD_CATEGORY_SPECIAL = "special" as const; // compass/star symbol
+
+export type CardCategory =
+  | typeof CARD_CATEGORY_MOVEMENT
+  | typeof CARD_CATEGORY_COMBAT
+  | typeof CARD_CATEGORY_INFLUENCE
+  | typeof CARD_CATEGORY_HEALING
+  | typeof CARD_CATEGORY_SPECIAL;
+
 export type DeedCardType =
   | typeof DEED_CARD_TYPE_BASIC_ACTION
   | typeof DEED_CARD_TYPE_ADVANCED_ACTION
@@ -141,6 +155,9 @@ export interface DeedCard {
   readonly name: string;
   readonly color: CardColor;
   readonly cardType: DeedCardType;
+
+  // Card categories (symbols shown in top-left corner of card art)
+  readonly categories: readonly CardCategory[];
 
   // Basic effect (play without mana)
   readonly basicEffect: CardEffect;
