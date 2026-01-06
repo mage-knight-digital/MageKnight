@@ -2,7 +2,7 @@
  * CombatOverlay - Main combat UI container
  *
  * Shows when state.combat is not null.
- * Contains: PhaseIndicator, EnemyList, CombatSummary, CombatActions
+ * Contains: PhaseIndicator, EnemyList, CombatSummary, CombatActions, PlayerHand
  */
 
 import type { ClientCombatState, CombatOptions } from "@mage-knight/shared";
@@ -10,6 +10,7 @@ import { PhaseIndicator } from "./PhaseIndicator";
 import { EnemyList } from "./EnemyList";
 import { CombatSummary } from "./CombatSummary";
 import { CombatActions } from "./CombatActions";
+import { PlayerHand } from "../Hand/PlayerHand";
 
 interface CombatOverlayProps {
   combat: ClientCombatState;
@@ -46,6 +47,11 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
 
         <div className="combat-overlay__footer">
           <CombatActions combatOptions={combatOptions} />
+        </div>
+
+        {/* Player hand inside combat overlay so it's clickable */}
+        <div className="combat-overlay__hand">
+          <PlayerHand />
         </div>
       </div>
     </div>

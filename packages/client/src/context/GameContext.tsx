@@ -55,6 +55,12 @@ export function GameProvider({ children, seed }: GameProviderProps) {
         return [...prev, ...newEvents];
       });
       setState(newState);
+
+      // Expose state for e2e testing (development only)
+      if (import.meta.env.DEV) {
+        (window as unknown as { __MAGE_KNIGHT_STATE__: ClientGameState }).
+          __MAGE_KNIGHT_STATE__ = newState;
+      }
     });
 
     serverRef.current = server;

@@ -1,0 +1,251 @@
+/**
+ * Card playability computation for combat
+ *
+ * Determines which cards in the player's hand can be played during each combat phase.
+ */
+
+import type { GameState } from "../../state/GameState.js";
+import type { Player } from "../../types/player.js";
+import type { CombatState, CombatPhase } from "../../types/combat.js";
+import type { CardEffect, DeedCard } from "../../types/cards.js";
+import type { PlayCardOptions, PlayableCard, ManaColor, SidewaysOption } from "@mage-knight/shared";
+import {
+  COMBAT_TYPE_RANGED,
+  COMBAT_TYPE_SIEGE,
+  PLAY_SIDEWAYS_AS_ATTACK,
+  PLAY_SIDEWAYS_AS_BLOCK,
+  MANA_RED,
+  MANA_BLUE,
+  MANA_GREEN,
+  MANA_WHITE,
+} from "@mage-knight/shared";
+import {
+  EFFECT_GAIN_ATTACK,
+  EFFECT_GAIN_BLOCK,
+  EFFECT_CHOICE,
+  EFFECT_COMPOUND,
+  EFFECT_CONDITIONAL,
+  EFFECT_SCALING,
+  CARD_COLOR_RED,
+  CARD_COLOR_BLUE,
+  CARD_COLOR_GREEN,
+  CARD_COLOR_WHITE,
+  type CardColor,
+} from "../../types/effectTypes.js";
+import {
+  COMBAT_PHASE_RANGED_SIEGE,
+  COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_ATTACK,
+} from "../../types/combat.js";
+import { getBasicActionCard } from "../../data/basicActions.js";
+import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
+
+/**
+ * Convert card color to mana color.
+ * Returns undefined for wound cards (which can't be powered).
+ */
+function cardColorToManaColor(color: CardColor): ManaColor | undefined {
+  switch (color) {
+    case CARD_COLOR_RED:
+      return MANA_RED;
+    case CARD_COLOR_BLUE:
+      return MANA_BLUE;
+    case CARD_COLOR_GREEN:
+      return MANA_GREEN;
+    case CARD_COLOR_WHITE:
+      return MANA_WHITE;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Get playable cards for combat based on the current phase.
+ */
+export function getPlayableCardsForCombat(
+  _state: GameState,
+  player: Player,
+  combat: CombatState
+): PlayCardOptions {
+  const cards: PlayableCard[] = [];
+
+  for (const cardId of player.hand) {
+    const card = getCard(cardId);
+    if (!card) continue;
+
+    // Wounds cannot be played
+    if (card.cardType === DEED_CARD_TYPE_WOUND) continue;
+
+    const playability = getCardPlayabilityForPhase(card, combat.phase);
+
+    if (playability.canPlayBasic || playability.canPlayPowered || playability.canPlaySideways) {
+      const manaColor = playability.canPlayPowered ? cardColorToManaColor(card.color) : undefined;
+
+      const playableCard: PlayableCard = {
+        cardId,
+        canPlayBasic: playability.canPlayBasic,
+        canPlayPowered: playability.canPlayPowered,
+        canPlaySideways: playability.canPlaySideways,
+      };
+
+      // Only add optional properties when they have values
+      if (manaColor) {
+        (playableCard as { requiredMana?: ManaColor }).requiredMana = manaColor;
+      }
+      if (playability.sidewaysOptions && playability.sidewaysOptions.length > 0) {
+        (playableCard as { sidewaysOptions?: readonly SidewaysOption[] }).sidewaysOptions = playability.sidewaysOptions;
+      }
+
+      cards.push(playableCard);
+    }
+  }
+
+  return { cards };
+}
+
+interface CardPlayability {
+  canPlayBasic: boolean;
+  canPlayPowered: boolean;
+  canPlaySideways: boolean;
+  sidewaysOptions: SidewaysOption[];
+}
+
+/**
+ * Determine if a card can be played in a specific combat phase.
+ */
+function getCardPlayabilityForPhase(
+  card: DeedCard,
+  phase: CombatPhase
+): CardPlayability {
+  switch (phase) {
+    case COMBAT_PHASE_RANGED_SIEGE:
+      return {
+        canPlayBasic: effectHasRangedOrSiege(card.basicEffect),
+        canPlayPowered: effectHasRangedOrSiege(card.poweredEffect),
+        canPlaySideways: false, // Can't play sideways for ranged/siege
+        sidewaysOptions: [],
+      };
+
+    case COMBAT_PHASE_BLOCK:
+      return {
+        canPlayBasic: effectHasBlock(card.basicEffect),
+        canPlayPowered: effectHasBlock(card.poweredEffect),
+        canPlaySideways: card.sidewaysValue > 0,
+        sidewaysOptions: card.sidewaysValue > 0
+          ? [{ as: PLAY_SIDEWAYS_AS_BLOCK, value: card.sidewaysValue }]
+          : [],
+      };
+
+    case COMBAT_PHASE_ATTACK:
+      return {
+        canPlayBasic: effectHasAttack(card.basicEffect),
+        canPlayPowered: effectHasAttack(card.poweredEffect),
+        canPlaySideways: card.sidewaysValue > 0,
+        sidewaysOptions: card.sidewaysValue > 0
+          ? [{ as: PLAY_SIDEWAYS_AS_ATTACK, value: card.sidewaysValue }]
+          : [],
+      };
+
+    default:
+      // ASSIGN_DAMAGE phase - no cards played
+      return {
+        canPlayBasic: false,
+        canPlayPowered: false,
+        canPlaySideways: false,
+        sidewaysOptions: [],
+      };
+  }
+}
+
+/**
+ * Check if an effect provides ranged or siege attack.
+ */
+function effectHasRangedOrSiege(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_ATTACK:
+      return effect.combatType === COMBAT_TYPE_RANGED || effect.combatType === COMBAT_TYPE_SIEGE;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasRangedOrSiege(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasRangedOrSiege(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasRangedOrSiege(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasRangedOrSiege(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasRangedOrSiege(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect provides block.
+ */
+function effectHasBlock(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_BLOCK:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasBlock(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasBlock(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasBlock(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasBlock(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasBlock(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect provides any attack (melee, ranged, or siege).
+ */
+function effectHasAttack(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_ATTACK:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasAttack(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasAttack(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasAttack(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasAttack(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasAttack(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Get a card definition by ID.
+ * Currently only supports basic action cards.
+ */
+function getCard(cardId: string): DeedCard | null {
+  try {
+    // Try basic action cards first
+    return getBasicActionCard(cardId as Parameters<typeof getBasicActionCard>[0]);
+  } catch {
+    // Card not found - might be advanced action, spell, etc.
+    // TODO: Add support for other card types
+    return null;
+  }
+}

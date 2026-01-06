@@ -361,6 +361,55 @@ body {
   box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
 }
 
+/* Playable card styling */
+.card--playable {
+  cursor: pointer;
+}
+
+.card--playable:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(79, 195, 247, 0.3);
+  border-color: #4fc3f7;
+}
+
+/* Non-playable card styling */
+.card--not-playable {
+  opacity: 0.5;
+  filter: grayscale(40%);
+  cursor: not-allowed;
+  position: relative;
+}
+
+.card--not-playable:hover {
+  transform: none;
+  border-color: #333;
+}
+
+.card__disabled-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* Combat-specific card styling */
+.card--in-combat.card--playable {
+  border-color: #e74c3c;
+  box-shadow: 0 0 8px rgba(231, 76, 60, 0.3);
+}
+
+.card--in-combat.card--playable:hover {
+  border-color: #e74c3c;
+  box-shadow: 0 4px 16px rgba(231, 76, 60, 0.5);
+  transform: translateY(-6px);
+}
+
+.card--in-combat.card--selected {
+  border-color: #FFD700;
+  box-shadow: 0 4px 16px rgba(255, 215, 0, 0.5);
+}
+
 .card__name {
   font-size: 0.75rem;
   color: #eee;
@@ -405,6 +454,15 @@ body {
 
 .play-mode-menu__btn--basic:hover {
   background: #2ea82e;
+}
+
+.play-mode-menu__btn--powered {
+  background: #9932CC;
+  color: white;
+}
+
+.play-mode-menu__btn--powered:hover {
+  background: #aa44dd;
 }
 
 .play-mode-menu__btn--sideways {
@@ -535,6 +593,25 @@ body {
 .combat-overlay__footer {
   border-top: 1px solid #333;
   padding-top: 1rem;
+}
+
+.combat-overlay__hand {
+  border-top: 1px solid #333;
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.combat-overlay__hand .player-hand {
+  background: transparent;
+  padding: 0;
+}
+
+.combat-overlay__hand .player-hand__header {
+  margin-bottom: 0.75rem;
+}
+
+.combat-overlay__hand .player-hand__cards {
+  justify-content: center;
 }
 
 /* ============================================
