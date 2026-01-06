@@ -1,7 +1,6 @@
 import {
   MOVE_ACTION,
   EXPLORE_ACTION,
-  calculateTilePlacementPosition,
   type HexCoord,
   type HexDirection,
   type ClientHexState,
@@ -61,6 +60,7 @@ function hexPoints(size: number): string {
 interface ExploreTarget {
   coord: HexCoord;
   direction: HexDirection;
+  fromTileCoord: HexCoord;
 }
 
 interface GhostHexProps {
@@ -106,7 +106,7 @@ function GhostHex({ coord, onClick }: GhostHexProps) {
 
       {/* "Explore" label */}
       <text
-        y={HEX_SIZE * 0.5}
+        y={HEX_SIZE * 0.4}
         textAnchor="middle"
         fill="#4169E1"
         fontSize="10"
@@ -114,6 +114,17 @@ function GhostHex({ coord, onClick }: GhostHexProps) {
         style={{ pointerEvents: "none" }}
       >
         EXPLORE
+      </text>
+
+      {/* Coordinates for debugging */}
+      <text
+        y={HEX_SIZE * 0.7}
+        textAnchor="middle"
+        fill="#4169E1"
+        fontSize="8"
+        style={{ pointerEvents: "none" }}
+      >
+        ({coord.q},{coord.r})
       </text>
     </g>
   );
@@ -209,23 +220,16 @@ export function HexGrid() {
   const validMoveTargets: readonly MoveTarget[] = state.validActions.move?.targets ?? [];
 
   // Get valid explore directions from server-computed validActions
-  // Convert to ExploreTarget format for rendering ghost hexes
+  // Server now provides exact target coordinates and fromTileCoord for each explore direction
   const exploreTargets: ExploreTarget[] = [];
-  if (state.validActions.explore && player?.position) {
-    // Find the tile center that the player is on
-    const tileCenters = state.map.tiles.map((t) => t.centerCoord);
-    // Use a simple search since we can't import from core
-    const currentTileCenter = findPlayerTileCenter(player.position, tileCenters);
-
-    if (currentTileCenter) {
-      for (const exploreDir of state.validActions.explore.directions) {
-        // Calculate where the new tile CENTER would be placed
-        const coord = calculateTilePlacementPosition(
-          currentTileCenter,
-          exploreDir.direction
-        );
-        exploreTargets.push({ coord, direction: exploreDir.direction });
-      }
+  if (state.validActions.explore) {
+    for (const exploreDir of state.validActions.explore.directions) {
+      // Use the server-provided target coordinate and fromTileCoord
+      exploreTargets.push({
+        coord: exploreDir.targetCoord,
+        direction: exploreDir.direction,
+        fromTileCoord: exploreDir.fromTileCoord,
+      });
     }
   }
 
@@ -253,9 +257,11 @@ export function HexGrid() {
   };
 
   const handleExploreClick = (target: ExploreTarget) => {
+    console.log(`[EXPLORE] Clicking ghost at (${target.coord.q},${target.coord.r}), sending direction: ${target.direction}, fromTile: (${target.fromTileCoord.q},${target.fromTileCoord.r})`);
     sendAction({
       type: EXPLORE_ACTION,
       direction: target.direction,
+      fromTileCoord: target.fromTileCoord,
     });
   };
 
@@ -295,34 +301,3 @@ export function HexGrid() {
   );
 }
 
-/**
- * Find which tile a hex belongs to.
- * Simple implementation that checks if hex is within tile radius.
- */
-function findPlayerTileCenter(
-  hexCoord: HexCoord,
-  tileCenters: HexCoord[]
-): HexCoord | null {
-  const tileHexOffsets = [
-    { q: 0, r: 0 },
-    { q: 1, r: -1 },
-    { q: 1, r: 0 },
-    { q: 0, r: 1 },
-    { q: -1, r: 1 },
-    { q: -1, r: 0 },
-    { q: 0, r: -1 },
-  ];
-
-  for (const center of tileCenters) {
-    for (const offset of tileHexOffsets) {
-      if (
-        hexCoord.q === center.q + offset.q &&
-        hexCoord.r === center.r + offset.r
-      ) {
-        return center;
-      }
-    }
-  }
-
-  return null;
-}

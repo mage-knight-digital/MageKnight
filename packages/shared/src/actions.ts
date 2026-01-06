@@ -28,6 +28,7 @@ export const EXPLORE_ACTION = "EXPLORE" as const;
 export interface ExploreAction {
   readonly type: typeof EXPLORE_ACTION;
   readonly direction: HexDirection;
+  readonly fromTileCoord: HexCoord;
 }
 
 // Adventure site actions

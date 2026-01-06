@@ -80,6 +80,8 @@ export interface ExploreOptions {
 export interface ExploreDirection {
   readonly direction: HexDirection;
   readonly slotIndex?: number; // For wedge maps
+  readonly targetCoord: HexCoord; // Where the new tile center would be placed
+  readonly fromTileCoord: HexCoord; // The tile center this direction is relative to
 }
 
 // ============================================================================

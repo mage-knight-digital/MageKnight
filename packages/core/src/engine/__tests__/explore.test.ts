@@ -23,8 +23,9 @@ import {
   TERRAIN_PLAINS,
   type HexCoord,
 } from "@mage-knight/shared";
-import { TILE_PLACEMENT_OFFSETS } from "../explore/tileGrid.js";
+import { TILE_PLACEMENT_OFFSETS, findTileCenterForHex } from "../explore/tileGrid.js";
 import type { TilePlacement } from "../../types/map.js";
+import { getValidExploreOptions } from "../validActions/exploration.js";
 
 describe("EXPLORE action", () => {
   let engine: MageKnightEngine;
@@ -75,6 +76,7 @@ describe("EXPLORE action", () => {
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     // Should have TILE_EXPLORED event
@@ -99,6 +101,7 @@ describe("EXPLORE action", () => {
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     expect(result.state.players[0]?.movePoints).toBe(2);
@@ -111,6 +114,7 @@ describe("EXPLORE action", () => {
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     expect(result.state.map.tileDeck.countryside.length).toBe(1);
@@ -125,6 +129,7 @@ describe("EXPLORE action", () => {
     const afterExplore = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     // Should have checkpoint set event
@@ -147,6 +152,7 @@ describe("EXPLORE action", () => {
     const afterExplore = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     // Try to undo
@@ -169,6 +175,7 @@ describe("EXPLORE action", () => {
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     expect(result.state.map.tiles.length).toBe(1);
@@ -212,6 +219,7 @@ describe("EXPLORE action", () => {
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     expect(result.events).toContainEqual(
@@ -222,21 +230,34 @@ describe("EXPLORE action", () => {
     );
   });
 
-  it("should reject if direction already revealed", () => {
-    // Player at (0,0), East (1,0) is already revealed
+  it("should reject if direction already revealed or not adjacent", () => {
+    // Player at (1,0) is on the E edge of tile (0,0)
+    // Player is NOT adjacent to NE expansion (which would be at (2,-3))
+    // and E expansion at (3,-1) is already filled
+    // So trying to explore NE should fail because player isn't adjacent to that slot
     const player = createTestPlayer({
       id: "player1",
-      position: { q: 0, r: 0 },
+      position: { q: 1, r: 0 },
       movePoints: 4,
     });
 
     const baseState = createTestGameState();
 
+    // Create hexes for tile at (0,0) and tile at (3,-1)
     const hexes: Record<string, ReturnType<typeof createTestHex>> = {
       [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS),
-      [hexKey({ q: 1, r: 0 })]: createTestHex(1, 0, TERRAIN_PLAINS), // E revealed
-      // Other directions are not revealed, so player is on edge
+      [hexKey({ q: 1, r: 0 })]: createTestHex(1, 0, TERRAIN_PLAINS),
+      [hexKey({ q: 3, r: -1 })]: createTestHex(3, -1, TERRAIN_PLAINS),
+      [hexKey({ q: 2, r: 0 })]: createTestHex(2, 0, TERRAIN_PLAINS),
     };
+
+    // Add tiles: original at (0,0) and one at (3,-1) so E is blocked
+    // From (0,0), both E (3,-1) and NE (2,-3) are expansion directions
+    // E is blocked by tile, NE is not blocked but player isn't adjacent to it
+    const tiles: TilePlacement[] = [
+      { tileId: TileId.Countryside1, centerCoord: { q: 0, r: 0 }, rotation: 0 },
+      { tileId: TileId.Countryside2, centerCoord: { q: 3, r: -1 }, rotation: 0 },
+    ];
 
     const state: GameState = {
       ...baseState,
@@ -244,22 +265,26 @@ describe("EXPLORE action", () => {
       map: {
         ...baseState.map,
         hexes,
+        tiles,
         tileDeck: {
-          countryside: [TileId.Countryside1],
+          countryside: [TileId.Countryside3],
           core: [],
         },
       },
     };
 
+    // Player at (1,0) is not adjacent to NE slot (2,-3), so they can't explore at all
+    // Since there are NO valid explore options from this position, we get "Cannot explore from current position"
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
-      direction: "E", // Already has hex there
+      direction: "NE", // Not adjacent to this direction's target
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     expect(result.events).toContainEqual(
       expect.objectContaining({
         type: INVALID_ACTION,
-        reason: "Cannot explore in that direction - area already revealed",
+        reason: "Cannot explore from current position",
       })
     );
   });
@@ -278,6 +303,7 @@ describe("EXPLORE action", () => {
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     expect(result.events).toContainEqual(
@@ -303,6 +329,7 @@ describe("EXPLORE action", () => {
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     expect(result.events).toContainEqual(
@@ -331,6 +358,7 @@ describe("EXPLORE action", () => {
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "E",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     // Should succeed with core tile
@@ -346,12 +374,38 @@ describe("EXPLORE action", () => {
   });
 
   it("should allow exploring in different valid directions", () => {
-    const state = createEdgeGameState();
+    // Player at (1,-1) which is adjacent to NE expansion from tile (0,0)
+    // NE tile would be at (2,-3), with hex (1,-2) being adjacent to (1,-1)
+    const player = createTestPlayer({
+      id: "player1",
+      position: { q: 1, r: -1 },
+      movePoints: 4,
+    });
 
-    // Try NE direction instead of E
+    const baseState = createTestGameState();
+    const hexes: Record<string, ReturnType<typeof createTestHex>> = {
+      [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS),
+      [hexKey({ q: 1, r: -1 })]: createTestHex(1, -1, TERRAIN_PLAINS),
+    };
+
+    const state: GameState = {
+      ...baseState,
+      players: [player],
+      map: {
+        ...baseState.map,
+        hexes,
+        tileDeck: {
+          countryside: [TileId.Countryside1],
+          core: [],
+        },
+      },
+    };
+
+    // Try NE direction - player at (1,-1) is adjacent to NE expansion
     const result = engine.processAction(state, "player1", {
       type: EXPLORE_ACTION,
       direction: "NE",
+      fromTileCoord: { q: 0, r: 0 },
     });
 
     expect(result.events).toContainEqual(
@@ -428,6 +482,7 @@ describe("EXPLORE action", () => {
       const result = engine.processAction(state, "player1", {
         type: EXPLORE_ACTION,
         direction: "E",
+        fromTileCoord: { q: 0, r: 0 },
       });
 
       expect(result.events).toContainEqual(
@@ -449,6 +504,128 @@ describe("EXPLORE action", () => {
 
       expect(newTile).toBeDefined();
       expect(newTile?.centerCoord).toEqual(expectedTileCenter);
+    });
+  });
+
+  describe("explore ghost direction bug - seed123 reproduction", () => {
+    /**
+     * Reproduces the bug from the e2e test:
+     * - Two tiles: (0,0) and (3,-1)
+     * - Player at (3,-2) - NE edge of tile (3,-1)
+     * - Ghost at (5,-4) should have direction "NE" (from tile 3,-1)
+     * - BUG: Ghost at (5,-4) has direction "E" instead
+     *
+     * Map context:
+     * - Tile (0,0): starting tile
+     * - Tile (3,-1): placed E from (0,0)
+     * - From tile (3,-1): NE → (5,-4), E → (6,-2)
+     */
+    it("should return correct direction for each explore target", () => {
+      // Create a game state with two tiles and player at (3,-2)
+      const tileHexOffsets = [
+        { q: 0, r: 0 }, // center
+        { q: 1, r: -1 },
+        { q: 1, r: 0 },
+        { q: 0, r: 1 },
+        { q: -1, r: 1 },
+        { q: -1, r: 0 },
+        { q: 0, r: -1 },
+      ];
+
+      const tile1Center: HexCoord = { q: 0, r: 0 };
+      const tile2Center: HexCoord = { q: 3, r: -1 };
+
+      // Create hexes for both tiles
+      const hexes: Record<string, ReturnType<typeof createTestHex>> = {};
+
+      for (const offset of tileHexOffsets) {
+        const coord1 = { q: tile1Center.q + offset.q, r: tile1Center.r + offset.r };
+        hexes[hexKey(coord1)] = createTestHex(coord1.q, coord1.r, TERRAIN_PLAINS);
+
+        const coord2 = { q: tile2Center.q + offset.q, r: tile2Center.r + offset.r };
+        hexes[hexKey(coord2)] = createTestHex(coord2.q, coord2.r, TERRAIN_PLAINS);
+      }
+
+      // Player at (3,-2) which is on tile (3,-1)
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 3, r: -2 },
+        movePoints: 10,
+      });
+
+      const baseState = createTestGameState();
+
+      // Record both tiles
+      const tiles: TilePlacement[] = [
+        { tileId: TileId.StartingTileA, centerCoord: tile1Center, rotation: 0 },
+        { tileId: TileId.Countryside1, centerCoord: tile2Center, rotation: 0 },
+      ];
+
+      const state: GameState = {
+        ...baseState,
+        players: [player],
+        map: {
+          ...baseState.map,
+          hexes,
+          tiles,
+          tileDeck: {
+            countryside: [TileId.Countryside2, TileId.Countryside3],
+            core: [],
+          },
+        },
+      };
+
+      // Verify findTileCenterForHex returns correct tile for player position
+      const tileCenters = state.map.tiles.map((t) => t.centerCoord);
+      const playerTileCenter = findTileCenterForHex(player.position, tileCenters);
+      console.log("Player position:", player.position);
+      console.log("Player tile center:", playerTileCenter);
+      expect(playerTileCenter).toEqual({ q: 3, r: -1 }); // Should be on tile (3,-1)
+
+      // Get the valid explore options
+      const exploreOptions = getValidExploreOptions(state, player);
+
+      expect(exploreOptions).toBeDefined();
+      if (!exploreOptions) return; // Type guard for following assertions
+
+      expect(exploreOptions.directions.length).toBeGreaterThan(0);
+
+      // Find the direction for target (5,-4)
+      // This should be "NE" since (5,-4) = (3,-1) + NE_offset = (3+2, -1-3) = (5,-4)
+      const target5_4 = exploreOptions.directions.find(
+        (d: { targetCoord: HexCoord }) => d.targetCoord.q === 5 && d.targetCoord.r === -4
+      );
+
+      // Find the direction for target (6,-2)
+      // This should be "E" since (6,-2) = (3,-1) + E_offset = (3+3, -1-1) = (6,-2)
+      const target6_2 = exploreOptions.directions.find(
+        (d: { targetCoord: HexCoord }) => d.targetCoord.q === 6 && d.targetCoord.r === -2
+      );
+
+      // Log for debugging
+      console.log("Explore options:", JSON.stringify(exploreOptions.directions, null, 2));
+      console.log("Target (5,-4):", target5_4);
+      console.log("Target (6,-2):", target6_2);
+
+      // CRITICAL: (3,-1) should NOT be in the list because a tile already exists there!
+      const target3_1 = exploreOptions.directions.find(
+        (d: { targetCoord: HexCoord }) => d.targetCoord.q === 3 && d.targetCoord.r === -1
+      );
+      expect(target3_1).toBeUndefined();
+
+      // Verify the directions are correct
+      // (5,-4) should be NE from tile (3,-1)
+      if (target5_4) {
+        expect(target5_4.direction).toBe("NE");
+      }
+
+      // (6,-2) should be E from tile (3,-1)
+      if (target6_2) {
+        expect(target6_2.direction).toBe("E");
+      }
+
+      // At least one of these targets should exist
+      expect(target5_4 || target6_2).toBeDefined();
     });
   });
 });

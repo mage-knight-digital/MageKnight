@@ -3,7 +3,7 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { PlayerAction, HexCoord, HexDirection, CardId } from "@mage-knight/shared";
+import type { PlayerAction, HexCoord, CardId } from "@mage-knight/shared";
 import {
   MOVE_ACTION,
   END_TURN_ACTION,
@@ -30,7 +30,6 @@ import type { Command } from "../commands.js";
 import { createMoveCommand } from "./moveCommand.js";
 import { createEndTurnCommand } from "./endTurnCommand.js";
 import { createExploreCommand } from "./exploreCommand.js";
-import { findTileCenterForHex } from "@mage-knight/shared";
 import { createPlayCardCommand } from "./playCardCommand.js";
 import { createPlayCardSidewaysCommand } from "./playCardSidewaysCommand.js";
 import type { SidewaysAs } from "./playCardSidewaysCommand.js";
@@ -99,34 +98,19 @@ function createEndTurnCommandFromAction(
   return createEndTurnCommand({ playerId });
 }
 
-// Helper to get explore direction
-function getExploreDirection(action: PlayerAction): HexDirection | null {
-  if (action.type === EXPLORE_ACTION && "direction" in action) {
-    return action.direction;
-  }
-  return null;
-}
-
 // Explore command factory
 function createExploreCommandFromAction(
   state: GameState,
   playerId: string,
   action: PlayerAction
 ): Command | null {
-  const direction = getExploreDirection(action);
-  if (!direction) return null;
+  if (action.type !== EXPLORE_ACTION) return null;
+
+  const { direction, fromTileCoord } = action;
+  if (!direction || !fromTileCoord) return null;
 
   const player = state.players.find((p) => p.id === playerId);
   if (!player?.position) return null;
-
-  // Find the tile center that the player is on
-  // Tile placement offsets are tile-center to tile-center, not hex to hex
-  const tileCenters = state.map.tiles.map((t) => t.centerCoord);
-  const currentTileCenter = findTileCenterForHex(player.position, tileCenters);
-
-  // Use tile center if found, otherwise fall back to player position
-  // (fallback supports legacy test states without tile records)
-  const fromHex = currentTileCenter ?? player.position;
 
   // Draw a tile (SIMPLE: take first from countryside, then core)
   const tileId =
@@ -135,7 +119,7 @@ function createExploreCommandFromAction(
 
   return createExploreCommand({
     playerId,
-    fromHex,
+    fromHex: fromTileCoord,
     direction,
     tileId,
   });
