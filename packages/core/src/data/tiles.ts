@@ -177,7 +177,8 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
       hex(0, 0, TERRAIN_FOREST), // Center - forest
       hex(1, -1, TERRAIN_HILLS, SiteType.Keep), // NE - keep
       hex(1, 0, TERRAIN_HILLS), // E - hills
-      hex(0, 1, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_WHITE }), // SE - white mine      hex(-1, 1, TERRAIN_PLAINS, SiteType.Village), // SW - village
+      hex(0, 1, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_WHITE }), // SE - white mine
+      hex(-1, 1, TERRAIN_PLAINS, SiteType.Village), // SW - village
       hex(-1, 0, TERRAIN_PLAINS), // W - plains
       hex(0, -1, TERRAIN_PLAINS), // NW - plains
     ],
