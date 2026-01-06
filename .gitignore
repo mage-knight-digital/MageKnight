@@ -18,3 +18,5 @@ playwright-report/
 # Game assets (potentially copyrighted)
 packages/client/public/assets/
 packages/client/e2e/screenshots/
+packages/client/vite.config.d.ts
+packages/client/vite.config.js
