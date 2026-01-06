@@ -54,6 +54,7 @@ import {
   UNIT_DESTROY_REASON_PARALYZE,
   UNIT_PEASANTS,
   UNIT_FORESTERS,
+  type BlockSource,
 } from "@mage-knight/shared";
 import { addModifier } from "../modifiers.js";
 import {
@@ -68,6 +69,32 @@ import {
   COMBAT_PHASE_ASSIGN_DAMAGE,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
+import type { GameState } from "../../state/GameState.js";
+
+/**
+ * Helper to set up block sources in the player's combatAccumulator.
+ * Tests call this before DECLARE_BLOCK_ACTION since blocks are now
+ * read from server-side state, not the action payload.
+ */
+function withBlockSources(state: GameState, playerId: string, blocks: readonly BlockSource[]): GameState {
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  if (playerIndex === -1) throw new Error(`Player not found: ${playerId}`);
+
+  const player = state.players[playerIndex];
+  const totalBlock = blocks.reduce((sum, b) => sum + b.value, 0);
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = {
+    ...player,
+    combatAccumulator: {
+      ...player.combatAccumulator,
+      block: totalBlock,
+      blockSources: blocks,
+    },
+  };
+
+  return { ...state, players: updatedPlayers };
+}
 
 describe("Combat Phase 2", () => {
   let engine: MageKnightEngine;
@@ -193,10 +220,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block with Physical 3
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       });
 
       expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
@@ -222,10 +249,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block with Physical 5 (Orc needs 3)
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 5 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 5 }],
       });
 
       expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
@@ -244,10 +271,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block with Physical 2 (Orc needs 3)
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 2 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 2 }],
       });
 
       expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
@@ -270,10 +297,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Still in Ranged/Siege phase, try to block
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       });
 
       expect(result.events).toContainEqual(
@@ -302,10 +329,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Try to block with 4 (would be enough without Swift, but not with it)
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 4 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 4 }],
       });
 
       // Should fail - need 6 block (3 * 2) due to Swift
@@ -335,10 +362,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block with 6 (exactly double the base attack of 3)
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 6 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 6 }],
       });
 
       // Should succeed
@@ -377,10 +404,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block with 3 (normal block, Swift is nullified)
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       });
 
       // Should succeed - Swift is nullified, only need base attack of 3
@@ -438,10 +465,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       }).state;
 
       // Assign Damage phase - skip (enemy is blocked)
@@ -485,10 +512,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       }).state;
 
       // Assign Damage phase - skip (enemy is blocked)
@@ -531,10 +558,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       }).state;
 
       // Assign Damage phase - skip (enemy is blocked)
@@ -659,10 +686,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block the enemy
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       }).state;
 
       // Assign damage phase
@@ -747,10 +774,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       }).state;
 
       // Assign Damage phase - skip (enemy is blocked)
@@ -807,10 +834,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block the Orc
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       }).state;
 
       expect(state.combat?.enemies[0].isBlocked).toBe(true);
@@ -930,10 +957,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
       }).state;
 
       // Assign Damage phase - should be able to skip (enemy is blocked)
@@ -1005,10 +1032,10 @@ describe("Combat Phase 2", () => {
 
       // Block with Physical 8 vs Fire Attack 6
       // Effective block: 8 / 2 = 4, which is < 6, so block fails
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 8 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 8 }],
       });
 
       expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
@@ -1037,10 +1064,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block with Ice 6 vs Fire Attack 6 (efficient)
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_ICE, value: 6 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_ICE, value: 6 }],
       });
 
       expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
@@ -1062,10 +1089,10 @@ describe("Combat Phase 2", () => {
 
       // Block with Physical 6 vs Cold Fire Attack 3
       // Physical is inefficient against Cold Fire: 6 / 2 = 3, which is >= 3, so block succeeds
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 6 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_PHYSICAL, value: 6 }],
       });
 
       expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
@@ -1086,10 +1113,10 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block with Cold Fire 3 vs Cold Fire Attack 3 (efficient)
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_COLD_FIRE, value: 3 }]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_COLD_FIRE, value: 3 }],
       });
 
       expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
@@ -1110,13 +1137,13 @@ describe("Combat Phase 2", () => {
       }).state;
 
       // Block with Ice 4 (efficient) + Physical 4 (inefficient, halved to 2) = 6
+      state = withBlockSources(state, "player1", [
+        { element: ELEMENT_ICE, value: 4 },
+        { element: ELEMENT_PHYSICAL, value: 4 },
+      ]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [
-          { element: ELEMENT_ICE, value: 4 },
-          { element: ELEMENT_PHYSICAL, value: 4 },
-        ],
       });
 
       expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
@@ -1144,10 +1171,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_ICE, value: 6 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_ICE, value: 6 }],
       }).state;
 
       // Assign damage (blocked, so skip)
@@ -1192,10 +1219,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_ICE, value: 6 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_ICE, value: 6 }],
       }).state;
 
       // Assign damage (blocked, so skip)
@@ -1232,10 +1259,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_FIRE, value: 4 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_FIRE, value: 4 }],
       }).state;
 
       // Assign damage (blocked, so skip)
@@ -1273,10 +1300,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_ICE, value: 6 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_ICE, value: 6 }],
       }).state;
 
       // Assign damage (blocked, so skip)
@@ -1318,10 +1345,10 @@ describe("Combat Phase 2", () => {
       state = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
+      state = withBlockSources(state, "player1", [{ element: ELEMENT_ICE, value: 9 }]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: ELEMENT_ICE, value: 9 }],
       }).state;
 
       // Assign damage (blocked, so skip)
@@ -1504,10 +1531,10 @@ describe("Combat Phase 2", () => {
         state = engine.processAction(state, "player1", {
           type: END_COMBAT_PHASE_ACTION,
         }).state;
+        state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 3 }]);
         state = engine.processAction(state, "player1", {
           type: DECLARE_BLOCK_ACTION,
           targetEnemyInstanceId: "enemy_0",
-          blocks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
         }).state;
 
         // Assign Damage phase - skip (enemy is blocked)
@@ -1813,10 +1840,10 @@ describe("Combat Phase 2", () => {
         state = engine.processAction(state, "player1", {
           type: END_COMBAT_PHASE_ACTION,
         }).state;
+        state = withBlockSources(state, "player1", [{ element: ELEMENT_PHYSICAL, value: 6 }]);
         state = engine.processAction(state, "player1", {
           type: DECLARE_BLOCK_ACTION,
           targetEnemyInstanceId: "enemy_0",
-          blocks: [{ element: ELEMENT_PHYSICAL, value: 6 }],
         }).state;
 
         // Assign Damage phase - skip (enemy is blocked)

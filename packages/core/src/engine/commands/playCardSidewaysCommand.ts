@@ -8,13 +8,14 @@
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { CardId } from "@mage-knight/shared";
+import type { CardId, BlockSource } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
   PLAY_SIDEWAYS_AS_MOVE,
   PLAY_SIDEWAYS_AS_INFLUENCE,
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
+  ELEMENT_PHYSICAL,
   createCardPlayUndoneEvent,
 } from "@mage-knight/shared";
 import { getEffectiveSidewaysValue } from "../modifiers.js";
@@ -86,14 +87,21 @@ function applySidewaysEffect(
         },
       };
 
-    case PLAY_SIDEWAYS_AS_BLOCK:
+    case PLAY_SIDEWAYS_AS_BLOCK: {
+      // Sideways block is always physical element
+      const blockSource: BlockSource = {
+        element: ELEMENT_PHYSICAL,
+        value: value,
+      };
       return {
         ...player,
         combatAccumulator: {
           ...player.combatAccumulator,
           block: player.combatAccumulator.block + value,
+          blockSources: [...player.combatAccumulator.blockSources, blockSource],
         },
       };
+    }
 
     default:
       return player;
@@ -133,14 +141,18 @@ function reverseSidewaysEffect(
         },
       };
 
-    case PLAY_SIDEWAYS_AS_BLOCK:
+    case PLAY_SIDEWAYS_AS_BLOCK: {
+      // Remove the last block source (we added one when applying)
+      const newBlockSources = player.combatAccumulator.blockSources.slice(0, -1);
       return {
         ...player,
         combatAccumulator: {
           ...player.combatAccumulator,
           block: player.combatAccumulator.block - value,
+          blockSources: newBlockSources,
         },
       };
+    }
 
     default:
       return player;

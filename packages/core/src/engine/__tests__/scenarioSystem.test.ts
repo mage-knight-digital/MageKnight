@@ -34,50 +34,12 @@ import { FIRST_RECONNAISSANCE } from "../../data/scenarios/firstReconnaissance.j
 import { TILE_DEFINITIONS } from "../../data/tiles.js";
 import { CITY_COLOR_GREEN } from "../../types/mapConstants.js";
 
-// Helper to create a test player
+// Import the shared test helper
+import { createTestPlayer as createBaseTestPlayer } from "./testHelpers.js";
+
+// Helper to create a test player with id override
 function createTestPlayer(id: string, overrides: Partial<Player> = {}): Player {
-  return {
-    id,
-    name: `Player ${id}`,
-    heroId: "arythea" as const,
-    level: 1,
-    fame: 0,
-    reputation: 0,
-    armor: 2,
-    handLimit: 5,
-    commandTokens: 1,
-    position: { q: 0, r: 0 },
-    hand: [],
-    deck: [],
-    discard: [],
-    playArea: [],
-    units: [],
-    crystals: { red: 0, blue: 0, green: 0, white: 0 },
-    pureMana: [],
-    movePoints: 4,
-    influencePoints: 0,
-    hasMovedThisTurn: false,
-    hasTakenActionThisTurn: false,
-    hasCombattedThisTurn: false,
-    usedManaFromSource: false,
-    usedDieId: null,
-    manaUsedThisTurn: [],
-    pendingChoice: null,
-    pendingLevelUps: [],
-    combatAccumulator: {
-      block: 0,
-      rangedAttack: 0,
-      siegeAttack: 0,
-      meleeAttack: 0,
-      fireBlock: 0,
-      iceBlock: 0,
-      coldFireBlock: 0,
-      fireAttack: 0,
-      iceAttack: 0,
-      coldFireAttack: 0,
-    },
-    ...overrides,
-  };
+  return createBaseTestPlayer({ id, movePoints: 4, hand: [], ...overrides });
 }
 
 // Helper to set up a game state with countryside tile deck

@@ -4,18 +4,19 @@
 
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
-import type { BlockSource, EnemyAbilityType } from "@mage-knight/shared";
+import type { EnemyAbilityType } from "@mage-knight/shared";
 import { ENEMY_BLOCKED, BLOCK_FAILED, ABILITY_SWIFT } from "@mage-knight/shared";
 import type { CombatEnemy } from "../../../types/combat.js";
 import { getFinalBlockValue } from "../../combat/elementalCalc.js";
 import { isAbilityNullified } from "../../modifiers.js";
+import { createEmptyCombatAccumulator } from "../../../types/player.js";
 
 export const DECLARE_BLOCK_COMMAND = "DECLARE_BLOCK" as const;
 
 export interface DeclareBlockCommandParams {
   readonly playerId: string;
   readonly targetEnemyInstanceId: string;
-  readonly blocks: readonly BlockSource[];
+  // blocks field removed - server now reads from player.combatAccumulator.blockSources
 }
 
 /**
@@ -72,6 +73,13 @@ export function createDeclareBlockCommand(
         throw new Error("Not in combat");
       }
 
+      // Find the player to get their block sources
+      const player = state.players.find((p) => p.id === params.playerId);
+      if (!player) {
+        throw new Error(`Player not found: ${params.playerId}`);
+      }
+      const playerIndex = state.players.indexOf(player);
+
       const enemy = state.combat.enemies.find(
         (e) => e.instanceId === params.targetEnemyInstanceId
       );
@@ -79,9 +87,12 @@ export function createDeclareBlockCommand(
         throw new Error(`Enemy not found: ${params.targetEnemyInstanceId}`);
       }
 
+      // Read block sources from server-side accumulator (not from client params)
+      const blockSources = player.combatAccumulator.blockSources;
+
       // Calculate final block value including elemental efficiency and combat modifiers
       const effectiveBlockValue = getFinalBlockValue(
-        params.blocks,
+        blockSources,
         enemy.definition.attackElement,
         state,
         params.playerId
@@ -97,10 +108,27 @@ export function createDeclareBlockCommand(
       // Check if block is sufficient (Block >= Attack, or 2x Attack for Swift)
       const isSuccessful = effectiveBlockValue >= requiredBlock;
 
+      // Clear block accumulator (block is "spent" whether successful or not)
+      // Keep attack accumulator intact as it's used in the attack phase
+      const emptyAccumulator = createEmptyCombatAccumulator();
+      const updatedPlayers = state.players.map((p, i) =>
+        i === playerIndex
+          ? {
+              ...p,
+              combatAccumulator: {
+                ...p.combatAccumulator,
+                block: 0,
+                blockElements: emptyAccumulator.blockElements,
+                blockSources: [],
+              },
+            }
+          : p
+      );
+
       if (!isSuccessful) {
         // Block failed — no effect, but still consumed
         return {
-          state,
+          state: { ...state, players: updatedPlayers },
           events: [
             {
               type: BLOCK_FAILED,
@@ -125,7 +153,7 @@ export function createDeclareBlockCommand(
       };
 
       return {
-        state: { ...state, combat: updatedCombat },
+        state: { ...state, players: updatedPlayers, combat: updatedCombat },
         events: [
           {
             type: ENEMY_BLOCKED,

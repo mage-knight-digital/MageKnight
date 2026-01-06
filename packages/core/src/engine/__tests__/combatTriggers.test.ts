@@ -37,6 +37,30 @@ import type { Site, HexState } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
 import type { EnemyTokenId } from "../../types/enemy.js";
 import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemyHelpers.js";
+import type { BlockSource } from "@mage-knight/shared";
+
+/**
+ * Helper to set up block sources in the player's combatAccumulator.
+ */
+function withBlockSources(state: GameState, playerId: string, blocks: readonly BlockSource[]): GameState {
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  if (playerIndex === -1) throw new Error(`Player not found: ${playerId}`);
+
+  const player = state.players[playerIndex];
+  const totalBlock = blocks.reduce((sum, b) => sum + b.value, 0);
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = {
+    ...player,
+    combatAccumulator: {
+      ...player.combatAccumulator,
+      block: totalBlock,
+      blockSources: blocks,
+    },
+  };
+
+  return { ...state, players: updatedPlayers };
+}
 
 /**
  * Helper to create a keep site
@@ -375,10 +399,10 @@ describe("Combat Trigger Integration", () => {
       state = result.state;
 
       // Block phase - block the Guardsmen (attack 3, Swift requires 6 block)
+      state = withBlockSources(state, "player1", [{ element: "physical", value: 6 }]); // Swift doubles block requirement
       result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: "physical", value: 6 }], // Swift doubles block requirement
       });
       state = result.state;
 
@@ -461,10 +485,10 @@ describe("Combat Trigger Integration", () => {
       state = result.state;
 
       // Block phase - block the enemy (Guardsmen: attack 3, Swift doubles to 6)
+      state = withBlockSources(state, "player1", [{ element: "physical", value: 6 }]); // Swift doubles block requirement
       result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: "physical", value: 6 }], // Swift doubles block requirement
       });
       state = result.state;
 
@@ -529,10 +553,10 @@ describe("Combat Trigger Integration", () => {
       state = result.state;
 
       // Block phase - block the enemy (Guardsmen: attack 3, Swift doubles to 6)
+      state = withBlockSources(state, "player1", [{ element: "physical", value: 6 }]); // Swift doubles block requirement
       result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: "physical", value: 6 }], // Swift doubles block requirement
       });
       state = result.state;
 
@@ -783,10 +807,10 @@ describe("Combat Trigger Integration", () => {
       state = result.state;
 
       // Block phase - block the enemy (Guardsmen: attack 3, Swift doubles to 6)
+      state = withBlockSources(state, "player1", [{ element: "physical", value: 6 }]);
       result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0",
-        blocks: [{ element: "physical", value: 6 }],
       });
       state = result.state;
 

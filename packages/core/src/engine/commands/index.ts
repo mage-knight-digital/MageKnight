@@ -310,7 +310,7 @@ function createDeclareBlockCommandFromAction(
   return createDeclareBlockCommand({
     playerId,
     targetEnemyInstanceId: action.targetEnemyInstanceId,
-    blocks: action.blocks,
+    // blocks now read from player.combatAccumulator.blockSources by the command
   });
 }
 

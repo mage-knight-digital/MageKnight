@@ -14,8 +14,8 @@
 import type { GameState } from "../../state/GameState.js";
 import type { CardEffect, GainAttackEffect, GainBlockEffect, ScalableBaseEffect } from "../../types/cards.js";
 import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../types/player.js";
-import type { CardId, Element } from "@mage-knight/shared";
-import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "@mage-knight/shared";
+import type { CardId, Element, BlockSource } from "@mage-knight/shared";
+import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL } from "@mage-knight/shared";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
@@ -298,6 +298,12 @@ function applyGainBlock(
   let updatedPlayer: Player;
   let blockTypeName: string;
 
+  // Create a block source for tracking (for elemental efficiency calculations)
+  const blockSource: BlockSource = {
+    element: element ?? ELEMENT_PHYSICAL,
+    value: amount,
+  };
+
   if (element) {
     // Track elemental block
     updatedPlayer = {
@@ -305,6 +311,7 @@ function applyGainBlock(
       combatAccumulator: {
         ...player.combatAccumulator,
         blockElements: updateElementalValue(player.combatAccumulator.blockElements, element, amount),
+        blockSources: [...player.combatAccumulator.blockSources, blockSource],
       },
     };
     blockTypeName = `${element} Block`;
@@ -315,6 +322,7 @@ function applyGainBlock(
       combatAccumulator: {
         ...player.combatAccumulator,
         block: player.combatAccumulator.block + amount,
+        blockSources: [...player.combatAccumulator.blockSources, blockSource],
       },
     };
     blockTypeName = "Block";

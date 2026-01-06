@@ -9,6 +9,7 @@ import type {
   ManaColor,
   ManaTokenSource,
   TacticId,
+  BlockSource,
 } from "@mage-knight/shared";
 import type { Hero } from "./hero.js";
 import type { CardEffect } from "./cards.js";
@@ -59,6 +60,7 @@ export interface CombatAccumulator {
   readonly attack: AccumulatedAttack;
   readonly block: number;
   readonly blockElements: ElementalAttackValues;
+  readonly blockSources: readonly BlockSource[];
 }
 
 // Helper to create empty elemental values
@@ -84,6 +86,7 @@ export function createEmptyCombatAccumulator(): CombatAccumulator {
     },
     block: 0,
     blockElements: createEmptyElementalValues(),
+    blockSources: [],
   };
 }
 

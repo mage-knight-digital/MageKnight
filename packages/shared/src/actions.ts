@@ -221,10 +221,10 @@ export interface BlockSource {
 }
 
 // Declare a block against one enemy
+// Note: blocks are now read from server-side combatAccumulator.blockSources
 export interface DeclareBlockAction {
   readonly type: typeof DECLARE_BLOCK_ACTION;
   readonly targetEnemyInstanceId: string;
-  readonly blocks: readonly BlockSource[]; // Elemental breakdown of blocks
 }
 
 // Attack source with elemental type

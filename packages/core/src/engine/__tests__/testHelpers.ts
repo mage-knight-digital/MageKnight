@@ -26,10 +26,31 @@ import {
   type TacticId,
 } from "@mage-knight/shared";
 
+// Default combat accumulator values
+const defaultCombatAccumulator = {
+  attack: {
+    normal: 0,
+    ranged: 0,
+    siege: 0,
+    normalElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+    rangedElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+    siegeElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+  },
+  block: 0,
+  blockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+  blockSources: [] as const,
+};
+
 /**
  * Create a test player with sensible defaults
  */
 export function createTestPlayer(overrides: Partial<Player> = {}): Player {
+  // Merge combatAccumulator specially to avoid losing fields when partial override is given
+  const { combatAccumulator: accOverrides, ...rest } = overrides;
+  const mergedAccumulator = accOverrides
+    ? { ...defaultCombatAccumulator, ...accOverrides }
+    : defaultCombatAccumulator;
+
   return {
     id: "player1",
     hero: Hero.Arythea,
@@ -63,23 +84,12 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     usedDieId: null,
     hasMovedThisTurn: false,
     hasTakenActionThisTurn: false,
-    combatAccumulator: {
-      attack: {
-        normal: 0,
-        ranged: 0,
-        siege: 0,
-        normalElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-        rangedElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-        siegeElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-      },
-      block: 0,
-      blockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-    },
+    combatAccumulator: mergedAccumulator,
     pendingChoice: null,
     pendingLevelUps: [],
     hasCombattedThisTurn: false,
     manaUsedThisTurn: [],
-    ...overrides,
+    ...rest,
   };
 }
 
