@@ -257,3 +257,211 @@ function getCard(cardId: string): DeedCard | null {
     return null;
   }
 }
+
+// ============================================================================
+// Normal Turn Card Playability (non-combat)
+// ============================================================================
+
+import {
+  PLAY_SIDEWAYS_AS_MOVE,
+  PLAY_SIDEWAYS_AS_INFLUENCE,
+} from "@mage-knight/shared";
+import {
+  EFFECT_GAIN_MOVE,
+  EFFECT_GAIN_INFLUENCE,
+  EFFECT_GAIN_HEALING,
+  EFFECT_DRAW_CARDS,
+} from "../../types/effectTypes.js";
+
+/**
+ * Get playable cards for normal (non-combat) turns.
+ *
+ * During a normal turn, cards can provide:
+ * - Move points
+ * - Influence points
+ * - Healing
+ * - Sideways: +1 Move or +1 Influence
+ */
+export function getPlayableCardsForNormalTurn(
+  state: GameState,
+  player: Player
+): PlayCardOptions {
+  const cards: PlayableCard[] = [];
+
+  for (const cardId of player.hand) {
+    const card = getCard(cardId);
+    if (!card) continue;
+
+    // Wounds cannot be played
+    if (card.cardType === DEED_CARD_TYPE_WOUND) continue;
+
+    const playability = getCardPlayabilityForNormalTurn(card);
+
+    // Check if the card has a powered effect
+    const manaColor = playability.canPlayPowered ? cardColorToManaColor(card.color) : undefined;
+
+    // Only allow powered play if player can actually pay for it
+    const canActuallyPlayPowered =
+      playability.canPlayPowered &&
+      manaColor !== undefined &&
+      canPayForMana(state, player, manaColor);
+
+    if (playability.canPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
+      const playableCard: PlayableCard = {
+        cardId,
+        canPlayBasic: playability.canPlayBasic,
+        canPlayPowered: canActuallyPlayPowered,
+        canPlaySideways: playability.canPlaySideways,
+      };
+
+      // Only add optional properties when they have values
+      if (manaColor && canActuallyPlayPowered) {
+        (playableCard as { requiredMana?: ManaColor }).requiredMana = manaColor;
+      }
+      if (playability.sidewaysOptions && playability.sidewaysOptions.length > 0) {
+        (playableCard as { sidewaysOptions?: readonly SidewaysOption[] }).sidewaysOptions = playability.sidewaysOptions;
+      }
+
+      cards.push(playableCard);
+    }
+  }
+
+  return { cards };
+}
+
+/**
+ * Determine if a card can be played during normal (non-combat) turn.
+ */
+function getCardPlayabilityForNormalTurn(card: DeedCard): CardPlayability {
+  // Check if basic effect has move, influence, heal, or draw
+  const basicHasUsefulEffect =
+    effectHasMove(card.basicEffect) ||
+    effectHasInfluence(card.basicEffect) ||
+    effectHasHeal(card.basicEffect) ||
+    effectHasDraw(card.basicEffect);
+
+  // Check if powered effect has move, influence, heal, or draw
+  const poweredHasUsefulEffect =
+    effectHasMove(card.poweredEffect) ||
+    effectHasInfluence(card.poweredEffect) ||
+    effectHasHeal(card.poweredEffect) ||
+    effectHasDraw(card.poweredEffect);
+
+  // Sideways options for normal turn: move or influence
+  const sidewaysOptions: SidewaysOption[] = [];
+  if (card.sidewaysValue > 0) {
+    sidewaysOptions.push({ as: PLAY_SIDEWAYS_AS_MOVE, value: card.sidewaysValue });
+    sidewaysOptions.push({ as: PLAY_SIDEWAYS_AS_INFLUENCE, value: card.sidewaysValue });
+  }
+
+  return {
+    canPlayBasic: basicHasUsefulEffect,
+    canPlayPowered: poweredHasUsefulEffect,
+    canPlaySideways: card.sidewaysValue > 0,
+    sidewaysOptions,
+  };
+}
+
+/**
+ * Check if an effect provides move points.
+ */
+function effectHasMove(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_MOVE:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasMove(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasMove(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasMove(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasMove(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasMove(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect provides influence points.
+ */
+function effectHasInfluence(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_INFLUENCE:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasInfluence(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasInfluence(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasInfluence(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasInfluence(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasInfluence(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect provides healing.
+ */
+function effectHasHeal(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_HEALING:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasHeal(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasHeal(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasHeal(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasHeal(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasHeal(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect draws cards.
+ */
+function effectHasDraw(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_DRAW_CARDS:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasDraw(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasDraw(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasDraw(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasDraw(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasDraw(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}

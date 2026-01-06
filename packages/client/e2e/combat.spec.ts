@@ -325,6 +325,91 @@ test("seed 123 - powered option should NOT show without mana available", async (
   console.log("Swiftness is correctly disabled - no powered option available without mana");
 });
 
+/**
+ * Test: Powered option SHOULD show when player has mana available.
+ * We need a seed where:
+ * 1. Player can get into combat
+ * 2. Player has a crystal or the mana source has a matching die
+ *
+ * For now, we test via the game state to verify the mana source logic works.
+ */
+test("seed 123 - powered card play with mana source - integration check", async ({ page }) => {
+  await navigateToCombat(page);
+
+  // Skip to Block phase where Determination can be powered
+  await page.locator(".combat-actions__btn--end-phase").click();
+  await page.waitForTimeout(300);
+
+  // Verify we're in Block phase
+  const activePhase = page.locator(".combat-phase-indicator__step--active");
+  await expect(activePhase).toContainText("Block");
+
+  // Check the game state for mana source information
+  type GameStateWithMana = {
+    source?: {
+      dice: Array<{
+        id: string;
+        color: string;
+        takenByPlayerId?: string | null;
+      }>;
+    };
+    validActions?: {
+      mana?: {
+        availableDice: Array<{ dieId: string; color: string }>;
+        canConvertCrystal: boolean;
+        convertibleColors: string[];
+      };
+      playCard?: {
+        cards: Array<{
+          cardId: string;
+          canPlayPowered: boolean;
+          requiredMana?: string;
+        }>;
+      };
+    };
+    players?: Array<{
+      crystals: { red: number; blue: number; green: number; white: number };
+      pureMana: Array<{ color: string }>;
+    }>;
+  };
+
+  const state = await page.evaluate(() => {
+    return (window as unknown as { __MAGE_KNIGHT_STATE__: unknown }).__MAGE_KNIGHT_STATE__;
+  }) as GameStateWithMana;
+
+  // Log what mana is available
+  console.log("Mana source dice:", JSON.stringify(state?.source?.dice, null, 2));
+  console.log("Available dice for player:", JSON.stringify(state?.validActions?.mana?.availableDice, null, 2));
+  console.log("Player crystals:", JSON.stringify(state?.players?.[0]?.crystals, null, 2));
+  console.log("Player pure mana:", JSON.stringify(state?.players?.[0]?.pureMana, null, 2));
+
+  // Check if Determination (blue powered) can be played powered
+  const playableCards = state?.validActions?.playCard?.cards;
+  const determination = playableCards?.find(c => c.cardId === "determination");
+  console.log("Determination playability:", JSON.stringify(determination, null, 2));
+
+  // Check for any cards that have canPlayPowered=true (would need mana available)
+  const poweredCards = playableCards?.filter(c => c.canPlayPowered);
+  console.log("Cards with canPlayPowered=true:", poweredCards?.map(c => c.cardId));
+
+  // If there's a blue die available, Determination should have canPlayPowered=true
+  const blueDieAvailable = state?.validActions?.mana?.availableDice?.some(d => d.color === "blue");
+  const blueCrystal = (state?.players?.[0]?.crystals?.blue ?? 0) > 0;
+  const blueToken = state?.players?.[0]?.pureMana?.some(t => t.color === "blue");
+
+  console.log(`Blue available: die=${blueDieAvailable}, crystal=${blueCrystal}, token=${blueToken}`);
+
+  // If blue mana IS available, Determination should be powered-playable
+  if (blueDieAvailable || blueCrystal || blueToken) {
+    expect(determination?.canPlayPowered).toBe(true);
+  }
+
+  await page.screenshot({
+    path: "e2e/screenshots/combat-powered-mana-check.png",
+    fullPage: true,
+  });
+});
+
 test("seed 123 - combat UI shows playable cards with combat-appropriate options", async ({ page }) => {
   await navigateToCombat(page);
 

@@ -483,6 +483,23 @@ body {
   background: #777;
 }
 
+.play-mode-menu__subtitle {
+  font-size: 0.75rem;
+  color: #aaa;
+  margin-bottom: 0.5rem;
+}
+
+.play-mode-menu__btn--mana {
+  background: #1a1a3e;
+  color: white;
+  border: 1px solid #4a4a7a;
+}
+
+.play-mode-menu__btn--mana:hover {
+  background: #2a2a5e;
+  border-color: #6a6a9a;
+}
+
 /* ============================================
    Action Bar
    ============================================ */

@@ -17,7 +17,7 @@ import { getTurnOptions } from "./turn.js";
 import { getValidMoveTargets } from "./movement.js";
 import { getValidExploreOptions } from "./exploration.js";
 import { getCombatOptions } from "./combat.js";
-import { getPlayableCardsForCombat } from "./cards.js";
+import { getPlayableCardsForCombat, getPlayableCardsForNormalTurn } from "./cards.js";
 import { getManaOptions } from "./mana.js";
 
 // Re-export helpers for use in other modules
@@ -143,16 +143,19 @@ export function getValidActions(
   }
 
   // Normal turn - compute all options
+  const playCardOptions = getPlayableCardsForNormalTurn(state, player);
+  const manaOptions = getManaOptions(state, player);
+
   return {
     canAct: true,
     reason: undefined,
     move: getValidMoveTargets(state, player),
     explore: getValidExploreOptions(state, player),
-    playCard: undefined, // TODO Phase 3: getPlayableCards(state, player)
+    playCard: playCardOptions.cards.length > 0 ? playCardOptions : undefined,
     combat: undefined,
     units: undefined, // TODO Phase 6: getUnitOptions(state, player)
     sites: undefined, // TODO Phase 6: getSiteOptions(state, player)
-    mana: undefined, // TODO Phase 3: getManaOptions(state, player)
+    mana: manaOptions,
     turn: getTurnOptions(state, player),
     tactics: undefined,
     enterCombat: undefined, // TODO: getEnterCombatOptions(state, player)
