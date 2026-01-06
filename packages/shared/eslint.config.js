@@ -70,7 +70,7 @@ export default tseslint.config(
   },
   // Red/green guardrail: eliminate magic string unions in shared "sub-union" fields.
   {
-    files: ["src/actions.ts", "src/events.ts", "src/types/clientState.ts"],
+    files: ["src/actions.ts", "src/events.ts", "src/types/clientState.ts", "src/types/validActions.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -79,6 +79,12 @@ export default tseslint.config(
             'TSPropertySignature[key.name=/^(manaSource|as|offerType|source|reason)$/] TSUnionType > TSLiteralType > Literal[value=/^[a-z][a-zA-Z0-9_]*$/]',
           message:
             'Do not use string-literal unions for shared value fields (sub-unions). Export constants (see `src/valueConstants.ts`) and use `typeof CONST`.',
+        },
+        {
+          selector:
+            'TSTypeAliasDeclaration[id.name="SidewaysAs"] TSUnionType > TSLiteralType > Literal[value=/^(move|influence|attack|block)$/]',
+          message:
+            'Do not use string-literal unions for `SidewaysAs` in valid-actions types. Use `typeof PLAY_SIDEWAYS_AS_*` constants from `src/valueConstants.ts`.',
         },
       ],
     },

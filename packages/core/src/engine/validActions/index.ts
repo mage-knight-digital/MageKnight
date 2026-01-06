@@ -16,6 +16,7 @@ import {
 import { getTurnOptions } from "./turn.js";
 import { getValidMoveTargets } from "./movement.js";
 import { getValidExploreOptions } from "./exploration.js";
+import { getCombatOptions } from "./combat.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -31,9 +32,10 @@ export {
 // Re-export turn options
 export { getTurnOptions } from "./turn.js";
 
-// Re-export movement and exploration
+// Re-export movement, exploration, and combat
 export { getValidMoveTargets } from "./movement.js";
 export { getValidExploreOptions } from "./exploration.js";
+export { getCombatOptions } from "./combat.js";
 
 /**
  * Compute all valid actions for a player.
@@ -111,7 +113,7 @@ export function getValidActions(
 
   // Handle combat
   if (isInCombat(state)) {
-    const combatOptions = getCombatOptionsPlaceholder(state);
+    const combatOptions = getCombatOptions(state.combat);
     if (combatOptions) {
       return {
         canAct: true,
@@ -166,19 +168,3 @@ function getTacticsOptions(
   };
 }
 
-/**
- * Placeholder for combat options.
- * TODO: Implement properly in Phase 4.
- */
-function getCombatOptionsPlaceholder(state: GameState): {
-  phase: string;
-  canEndPhase: boolean;
-} | null {
-  if (!state.combat) return null;
-
-  return {
-    phase: state.combat.phase,
-    canEndPhase: true, // Placeholder - needs proper logic
-    // attacks, blocks, damageAssignments to be computed based on phase
-  };
-}

@@ -93,3 +93,6 @@ export {
   getValidMoveTargets,
   getValidExploreOptions,
 } from "./validActions/index.js";
+
+// Enemy token helpers
+export { createEnemyTokenPiles, drawEnemiesForHex } from "./helpers/index.js";

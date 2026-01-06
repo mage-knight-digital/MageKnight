@@ -37,7 +37,7 @@ export {
 } from "./types/index.js";
 
 // State
-export type { GameState, MapState } from "./state/GameState.js";
+export type { GameState, MapState, EnemyTokenPiles } from "./state/GameState.js";
 export { createInitialGameState } from "./state/GameState.js";
 // Re-export GamePhase and TimeOfDay from shared for convenience
 export type { GamePhase, TimeOfDay } from "@mage-knight/shared";
@@ -134,6 +134,9 @@ export {
 
 // Effect descriptions
 export { describeEffect } from "./engine/index.js";
+
+// Enemy token helpers
+export { createEnemyTokenPiles, drawEnemiesForHex } from "./engine/index.js";
 
 // Command system (undo support)
 export type {

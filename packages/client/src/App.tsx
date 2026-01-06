@@ -7,6 +7,22 @@ import { PlayerHand } from "./components/Hand/PlayerHand";
 import { TacticSelection } from "./components/Overlays/TacticSelection";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { ActionBar } from "./components/Overlays/ActionBar";
+import { CombatOverlay } from "./components/Combat";
+import type { GameEvent } from "@mage-knight/shared";
+import {
+  CARD_PLAYED,
+  COMBAT_STARTED,
+  ENEMY_DEFEATED,
+  FAME_GAINED,
+  INVALID_ACTION,
+  LEVEL_UP,
+  PLAYER_MOVED,
+  TACTIC_SELECTED,
+  TILE_EXPLORED,
+  TURN_ENDED,
+  UNDO_CHECKPOINT_SET,
+  WOUND_RECEIVED,
+} from "@mage-knight/shared";
 
 // Get seed from URL param (?seed=12345) or use current time
 // This allows reproducible games for testing and debugging
@@ -160,31 +176,31 @@ function getManaColor(color: string): string {
   }
 }
 
-function formatEventDetails(event: import("@mage-knight/shared").GameEvent): string {
+function formatEventDetails(event: GameEvent): string {
   switch (event.type) {
-    case "PLAYER_MOVED":
+    case PLAYER_MOVED:
       return `(${event.from.q},${event.from.r}) → (${event.to.q},${event.to.r})`;
-    case "CARD_PLAYED":
+    case CARD_PLAYED:
       return `${event.cardId}${event.powered ? " [powered]" : ""}${event.sideways ? " [sideways]" : ""} - ${event.effect}`;
-    case "INVALID_ACTION":
+    case INVALID_ACTION:
       return `${event.actionType}: ${event.reason}`;
-    case "TACTIC_SELECTED":
+    case TACTIC_SELECTED:
       return `${event.tacticId} (turn order: ${event.turnOrder})`;
-    case "TURN_ENDED":
+    case TURN_ENDED:
       return `discarded ${event.cardsDiscarded}, drew ${event.cardsDrawn}`;
-    case "FAME_GAINED":
+    case FAME_GAINED:
       return `+${event.amount} (now ${event.newTotal}) - ${event.source}`;
-    case "COMBAT_STARTED":
+    case COMBAT_STARTED:
       return event.enemies.map(e => `${e.name} (${e.attack}/${e.armor})`).join(", ");
-    case "ENEMY_DEFEATED":
+    case ENEMY_DEFEATED:
       return `${event.enemyName} (+${event.fameGained} fame)`;
-    case "WOUND_RECEIVED":
+    case WOUND_RECEIVED:
       return `from ${event.source}`;
-    case "LEVEL_UP":
+    case LEVEL_UP:
       return `${event.oldLevel} → ${event.newLevel}`;
-    case "TILE_EXPLORED":
+    case TILE_EXPLORED:
       return `${event.tileId} at (${event.position.q},${event.position.r})`;
-    case "UNDO_CHECKPOINT_SET":
+    case UNDO_CHECKPOINT_SET:
       return event.reason;
     default:
       return "";
@@ -213,7 +229,7 @@ function EventLog() {
             const details = formatEventDetails(event);
             return (
               <div key={i} style={{ marginBottom: "0.5rem", fontSize: "0.7rem" }}>
-                <div style={{ fontWeight: 600, color: event.type === "INVALID_ACTION" ? "#e74c3c" : "#3498db" }}>
+                <div style={{ fontWeight: 600, color: event.type === INVALID_ACTION ? "#e74c3c" : "#3498db" }}>
                   {event.type}
                 </div>
                 {details && (
@@ -238,11 +254,20 @@ function GameView() {
     return <div className="loading">Loading game state...</div>;
   }
 
+  // Show combat overlay when in combat
+  const inCombat = state.combat && state.validActions.combat;
+
   return (
     <div className="app">
       {/* Overlays */}
       <TacticSelection />
       <ChoiceSelection />
+      {inCombat && (
+        <CombatOverlay
+          combat={state.combat}
+          combatOptions={state.validActions.combat}
+        />
+      )}
 
       <header className="app__header">
         <h1 className="app__title">Mage Knight</h1>

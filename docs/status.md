@@ -5,7 +5,7 @@
 This document captures the complete state of the Mage Knight board game engine implementation. Use this to resume development if context is lost.
 
 **Last Updated:** January 2025
-**Test Count:** 562 tests passing (540 core + 12 shared + 10 server)
+**Test Count:** 605 tests passing (564 core + 12 shared + 29 server)
 
 ---
 
@@ -236,6 +236,36 @@ packages/
   - Standard multiplayer: tactics reused each round (current behavior)
   - Solo Conquest: remove ALL used tactics after each Day/Night
   - Full Cooperation: players remove ONE used tactic after each Day/Night
+
+### Combat UI ✅
+
+| Feature | Location | Notes |
+|---------|----------|-------|
+| Combat overlay | `client/src/components/Combat/CombatOverlay.tsx` | Full-screen modal during combat |
+| Phase indicator | `client/src/components/Combat/PhaseIndicator.tsx` | Shows current phase with step indicator |
+| Enemy cards | `client/src/components/Combat/EnemyCard.tsx` | Stats, abilities, resistances display |
+| Enemy list | `client/src/components/Combat/EnemyList.tsx` | All enemies with targetable highlighting |
+| Combat summary | `client/src/components/Combat/CombatSummary.tsx` | Phase-specific stats (attack needed, block needed, damage to assign) |
+| Combat actions | `client/src/components/Combat/CombatActions.tsx` | End phase button with validation |
+| Combat options | `core/src/engine/validActions/combat.ts` | Server-computed `getCombatOptions()` |
+| Client combat state | `shared/src/types/clientState.ts` | `ClientCombatState`, `ClientCombatEnemy` types |
+
+**Wired into App.tsx:**
+- Shows `CombatOverlay` when `state.combat` is non-null
+- Passes `combat` state and `validActions.combat` options
+
+**CSS Styles:**
+- Combat overlay (full-screen, dark background)
+- Phase indicator steps
+- Enemy cards (stats, abilities, resistances, status indicators)
+- Combat summary (phase-specific calculations)
+- Combat actions (buttons, warnings)
+
+**Not Yet Implemented:**
+- Card play during combat (attack/block cards)
+- Damage assignment UI (assign to hero vs units)
+- Enemy targeting (click to target specific enemies)
+- Accumulated attack/block display during card play
 
 ### Scenario System ✅
 
@@ -632,7 +662,7 @@ When implementing new features:
 4. **Spell definitions** — Start with simple spells, build up
 5. **Skill system** — Skill decks, selection, hero abilities
 6. **Tactics effects** — Implement individual tactic card effects (Rethink, Great Start, etc.)
-7. **UI scaffolding** — Basic hex renderer, player state panel, actions
+7. ~~**Combat UI**~~ ✅ — Combat overlay, enemy cards, phase indicator, actions
 
 ---
 

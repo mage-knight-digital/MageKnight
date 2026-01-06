@@ -178,6 +178,22 @@ export { createEmptyDecks } from "./decks.js";
 export type { CityShield, CityState } from "./city.js";
 export { determineCityLeader, createCityState } from "./city.js";
 
+// Combat types
+export type {
+  CombatPhase,
+  CombatAttackType,
+  CombatEnemy,
+  CombatState,
+  CombatStateOptions,
+} from "./combat.js";
+export {
+  COMBAT_PHASE_RANGED_SIEGE,
+  COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_ASSIGN_DAMAGE,
+  COMBAT_PHASE_ATTACK,
+  createCombatState,
+} from "./combat.js";
+
 // Modifier types
 export type {
   ModifierDuration,

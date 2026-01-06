@@ -11,6 +11,8 @@ import {
   type TileSlot,
   type RngState,
   type TileDeck,
+  type CombatState,
+  type EnemyTokenPiles,
   createInitialGameState,
   MageKnightEngine,
   createEngine,
@@ -18,6 +20,7 @@ import {
   HEROES,
   TileId,
   SiteType,
+  RampagingEnemyType,
   placeTile,
   hexKey,
   shuffleWithRng,
@@ -28,6 +31,8 @@ import {
   drawTileFromDeck,
   generateTileSlots,
   getValidActions,
+  createEnemyTokenPiles,
+  drawEnemiesForHex,
 } from "@mage-knight/core";
 import type { HexCoord } from "@mage-knight/shared";
 import {
@@ -42,6 +47,8 @@ import {
   type ClientPlayerUnit,
   type ClientManaToken,
   type ClientPendingChoice,
+  type ClientCombatState,
+  type ClientCombatEnemy,
   type EventCallback,
   GAME_PHASE_ROUND,
   GAME_STARTED,
@@ -113,7 +120,7 @@ export function toClientState(
       monasteryAdvancedActions: state.offers.monasteryAdvancedActions ?? [],
     },
 
-    combat: state.combat,
+    combat: toClientCombatState(state.combat),
 
     // Only show deck counts, not contents
     deckCounts: {
@@ -194,6 +201,39 @@ function toClientPendingChoice(
       type: effect.type,
       description: describeEffect(effect),
     })),
+  };
+}
+
+/**
+ * Convert core CombatState to ClientCombatState.
+ * Extracts enemy details from definitions for client display.
+ */
+function toClientCombatState(
+  combat: CombatState | null
+): ClientCombatState | null {
+  if (!combat) return null;
+
+  return {
+    phase: combat.phase,
+    enemies: combat.enemies.map(
+      (enemy): ClientCombatEnemy => ({
+        instanceId: enemy.instanceId,
+        enemyId: enemy.enemyId,
+        name: enemy.definition.name,
+        attack: enemy.definition.attack,
+        attackElement: enemy.definition.attackElement,
+        armor: enemy.definition.armor,
+        fame: enemy.definition.fame,
+        abilities: enemy.definition.abilities,
+        resistances: enemy.definition.resistances,
+        isBlocked: enemy.isBlocked,
+        isDefeated: enemy.isDefeated,
+        damageAssigned: enemy.damageAssigned,
+      })
+    ),
+    woundsThisCombat: combat.woundsThisCombat,
+    fameGained: combat.fameGained,
+    isAtFortifiedSite: combat.isAtFortifiedSite,
   };
 }
 
@@ -303,6 +343,11 @@ export class GameServer {
       baseState.rng
     );
 
+    // Initialize enemy token piles FIRST so we can draw enemies as tiles are placed
+    const { piles: initialEnemyPiles, rng: rngAfterEnemyInit } = createEnemyTokenPiles(rngAfterDeck);
+    let currentEnemyPiles: EnemyTokenPiles = initialEnemyPiles;
+    let currentRng: RngState = rngAfterEnemyInit;
+
     // Calculate total tiles for scenario
     const totalTiles =
       1 + // starting tile
@@ -332,7 +377,7 @@ export class GameServer {
       tileSlots[originKey] = { ...tileSlots[originKey], filled: true };
     }
 
-    // Build hex map starting with the starting tile
+    // Build hex map starting with the starting tile (no enemies on starting tile)
     const hexes: Record<string, HexState> = {};
     for (const hex of startingTileHexes) {
       const key = hexKey(hex.coord);
@@ -368,7 +413,29 @@ export class GameServer {
         const tileHexes = placeTile(tileId, position);
         for (const hex of tileHexes) {
           const key = hexKey(hex.coord);
-          hexes[key] = hex;
+
+          // Draw enemies for hexes that need them (sites with defenders, rampaging enemies)
+          const rampagingTypes = [...hex.rampagingEnemies];
+
+          const siteType = hex.site?.type ?? null;
+
+          const { enemies, piles, rng } = drawEnemiesForHex(
+            rampagingTypes,
+            siteType,
+            currentEnemyPiles,
+            currentRng,
+            baseState.timeOfDay
+          );
+
+          currentEnemyPiles = piles;
+          currentRng = rng;
+
+          // Update hex with drawn enemies
+          hexes[key] = {
+            ...hex,
+            enemies: enemies,
+            rampagingEnemies: [], // Clear rampaging since we've drawn enemies for them
+          };
         }
 
         tiles.push({
@@ -390,7 +457,6 @@ export class GameServer {
     const startPosition = portalHex?.coord ?? { q: 0, r: 0 };
 
     // Create players on the portal with seeded RNG for deck shuffles
-    let currentRng: RngState = rngAfterDeck;
     const players: Player[] = [];
 
     for (let index = 0; index < playerIds.length; index++) {
@@ -426,7 +492,8 @@ export class GameServer {
       currentPlayerIndex: 0,
       players,
       source,
-      rng: rngAfterMana, // Updated RNG state after all shuffles and mana source
+      enemyTokens: currentEnemyPiles, // Enemy piles after drawing for initial tiles
+      rng: rngAfterMana, // Updated RNG state after all shuffles
       map: {
         ...baseState.map,
         hexes,

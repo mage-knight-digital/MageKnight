@@ -17,6 +17,7 @@ import type { ManaTokenSource } from "../valueConstants.js";
 import type { UnitState } from "../unitState.js";
 import type { TacticId } from "../tactics.js";
 import type { ValidActions } from "./validActions.js";
+import type { EnemyId, EnemyAbilityType, EnemyResistances, Element } from "../enemies.js";
 
 // Pending choice - when a card requires player selection
 export interface ClientPendingChoice {
@@ -198,5 +199,35 @@ export interface ClientGameState {
   readonly validActions: ValidActions;
 }
 
-// Combat state (placeholder - expand when combat is implemented)
-export type ClientCombatState = object;
+// ============================================================================
+// Combat state (sent to clients when in combat)
+// ============================================================================
+
+/**
+ * Enemy information visible to the client during combat.
+ */
+export interface ClientCombatEnemy {
+  readonly instanceId: string;
+  readonly enemyId: EnemyId;
+  readonly name: string;
+  readonly attack: number;
+  readonly attackElement: Element;
+  readonly armor: number;
+  readonly fame: number;
+  readonly abilities: readonly EnemyAbilityType[];
+  readonly resistances: EnemyResistances;
+  readonly isBlocked: boolean;
+  readonly isDefeated: boolean;
+  readonly damageAssigned: boolean;
+}
+
+/**
+ * Combat state visible to clients.
+ */
+export interface ClientCombatState {
+  readonly phase: string; // CombatPhase from core
+  readonly enemies: readonly ClientCombatEnemy[];
+  readonly woundsThisCombat: number;
+  readonly fameGained: number;
+  readonly isAtFortifiedSite: boolean;
+}

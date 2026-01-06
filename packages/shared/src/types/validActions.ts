@@ -9,6 +9,12 @@ import type { HexCoord, HexDirection } from "../hex.js";
 import type { CardId, ManaColor, BasicManaColor } from "../ids.js";
 import type { TacticId } from "../tactics.js";
 import type { RestType } from "../actions.js";
+import type {
+  PLAY_SIDEWAYS_AS_ATTACK,
+  PLAY_SIDEWAYS_AS_BLOCK,
+  PLAY_SIDEWAYS_AS_INFLUENCE,
+  PLAY_SIDEWAYS_AS_MOVE,
+} from "../valueConstants.js";
 
 // ============================================================================
 // Top-level ValidActions structure
@@ -102,7 +108,11 @@ export interface PlayableCard {
 }
 
 /** What a card can be played sideways as */
-export type SidewaysAs = "move" | "influence" | "attack" | "block";
+export type SidewaysAs =
+  | typeof PLAY_SIDEWAYS_AS_MOVE
+  | typeof PLAY_SIDEWAYS_AS_INFLUENCE
+  | typeof PLAY_SIDEWAYS_AS_ATTACK
+  | typeof PLAY_SIDEWAYS_AS_BLOCK;
 
 export interface SidewaysOption {
   readonly as: SidewaysAs;

@@ -222,6 +222,7 @@ export type {
   ClientGameOffers,
   ClientGameState,
   ClientCombatState,
+  ClientCombatEnemy,
   ClientPendingChoice,
 } from "./types/clientState.js";
 
