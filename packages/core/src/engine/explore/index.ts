@@ -129,3 +129,12 @@ export {
   findTileCenterForHex,
   getExplorableSlotsFromTile,
 } from "./tileGrid.js";
+
+// Re-export adjacency helpers
+export {
+  canExploreFromPosition,
+  getExploreDirectionsFromPosition,
+  getGatewayHexesForDirection,
+  getTileHexes,
+  areHexesAdjacent,
+} from "./adjacency.js";

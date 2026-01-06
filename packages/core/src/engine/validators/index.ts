@@ -209,11 +209,11 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateHasNotActed,
     validatePlayerOnMapForExplore,
     validateOnEdgeHex,
-    validateExploreDirection,
-    validateWedgeDirection, // Wedge maps only allow NE/E directions
-    validateSlotNotFilled, // Wedge maps check slot is not already filled
-    validateExploreMoveCost,
+    validateExploreMoveCost, // Check cost before direction (direction check uses getValidExploreOptions which needs these)
     validateTilesAvailable,
+    validateExploreDirection, // Uses getValidExploreOptions which checks all tiles and adjacency
+    validateWedgeDirection, // Wedge maps only allow NE/E directions
+    validateSlotNotFilled, // Now handled by validateExploreDirection
   ],
   [PLAY_CARD_ACTION]: [
     validateIsPlayersTurn,

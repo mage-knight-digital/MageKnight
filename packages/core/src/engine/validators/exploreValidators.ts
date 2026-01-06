@@ -4,7 +4,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerAction, HexDirection } from "@mage-knight/shared";
-import { EXPLORE_ACTION, MAP_SHAPE_WEDGE, hexKey } from "@mage-knight/shared";
+import { EXPLORE_ACTION, MAP_SHAPE_WEDGE } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import {
@@ -14,16 +14,13 @@ import {
   NOT_ENOUGH_MOVE_POINTS,
   NO_TILES_AVAILABLE,
   PLAYER_NOT_FOUND,
-  SLOT_ALREADY_FILLED,
   INVALID_WEDGE_DIRECTION,
 } from "./validationCodes.js";
 import {
   isEdgeHex,
-  getValidExploreDirections,
-  findTileCenterForHex,
-  TILE_PLACEMENT_OFFSETS,
   getExpansionDirections,
 } from "../explore/index.js";
+import { getValidExploreOptions } from "../validActions/exploration.js";
 
 /**
  * Extract explore direction from action (type guard helper)
@@ -72,7 +69,8 @@ export function validateOnEdgeHex(
 }
 
 /**
- * Direction must lead to unrevealed area
+ * Direction must lead to unrevealed area that the player is adjacent to.
+ * Uses the same logic as getValidExploreOptions for consistency.
  */
 export function validateExploreDirection(
   state: GameState,
@@ -86,11 +84,20 @@ export function validateExploreDirection(
     return invalid(NOT_ON_MAP, "Invalid explore action");
   }
 
-  const validDirections = getValidExploreDirections(state, player.position);
+  // Use the same logic as getValidExploreOptions to determine valid directions
+  const exploreOptions = getValidExploreOptions(state, player);
+  if (!exploreOptions) {
+    return invalid(
+      INVALID_DIRECTION,
+      "Cannot explore from current position"
+    );
+  }
+
+  const validDirections = exploreOptions.directions.map((d) => d.direction);
   if (!validDirections.includes(direction)) {
     return invalid(
       INVALID_DIRECTION,
-      "Cannot explore in that direction - area already revealed"
+      "Cannot explore in that direction - area already revealed or not adjacent"
     );
   }
 
@@ -135,72 +142,18 @@ export function validateWedgeDirection(
 }
 
 /**
- * For wedge shape maps, the target slot must exist and not be filled
+ * For wedge shape maps, the target slot must exist and not be filled.
+ * NOTE: This check is now handled by validateExploreDirection which uses
+ * getValidExploreOptions (which already checks slot availability).
+ * This function is kept for backwards compatibility but always returns valid.
  */
 export function validateSlotNotFilled(
-  state: GameState,
-  playerId: string,
-  action: PlayerAction
+  _state: GameState,
+  _playerId: string,
+  _action: PlayerAction
 ): ValidationResult {
-  const mapShape = state.scenarioConfig.mapShape;
-
-  // Only apply to wedge maps (open maps don't have predefined slots)
-  if (mapShape !== MAP_SHAPE_WEDGE) {
-    return valid();
-  }
-
-  // Skip validation if tile slots haven't been initialized
-  // (allows tests with manually constructed states to work)
-  if (!state.map.tileSlots || Object.keys(state.map.tileSlots).length === 0) {
-    return valid();
-  }
-
-  const player = state.players.find((p) => p.id === playerId);
-  const direction = getExploreDirection(action);
-
-  if (!player?.position || !direction) {
-    return invalid(NOT_ON_MAP, "Invalid explore action");
-  }
-
-  // Find which tile the player is on
-  const tileCenters = state.map.tiles.map((t) => t.centerCoord);
-  const currentTileCenter = findTileCenterForHex(player.position, tileCenters);
-
-  // Skip validation if we can't find the player's tile
-  // (allows tests with manually constructed states to work)
-  if (!currentTileCenter) {
-    return valid();
-  }
-
-  // Calculate the target slot position
-  const offset = TILE_PLACEMENT_OFFSETS[direction];
-  if (!offset) {
-    return invalid(INVALID_DIRECTION, "Invalid explore direction");
-  }
-
-  const targetSlotCoord = {
-    q: currentTileCenter.q + offset.q,
-    r: currentTileCenter.r + offset.r,
-  };
-  const targetKey = hexKey(targetSlotCoord);
-
-  // Check if slot exists in the wedge grid
-  const slot = state.map.tileSlots[targetKey];
-  if (!slot) {
-    return invalid(
-      INVALID_WEDGE_DIRECTION,
-      "Target position is outside the wedge map boundary"
-    );
-  }
-
-  // Check if slot is already filled
-  if (slot.filled) {
-    return invalid(
-      SLOT_ALREADY_FILLED,
-      "A tile has already been placed in that direction"
-    );
-  }
-
+  // Slot validation is now handled by validateExploreDirection
+  // via getValidExploreOptions which checks all tiles and their slots
   return valid();
 }
 
