@@ -19,6 +19,7 @@ import {
   MANA_GREEN,
   MANA_WHITE,
 } from "@mage-knight/shared";
+import { canPayForMana } from "./mana.js";
 import {
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
@@ -63,7 +64,7 @@ function cardColorToManaColor(color: CardColor): ManaColor | undefined {
  * Get playable cards for combat based on the current phase.
  */
 export function getPlayableCardsForCombat(
-  _state: GameState,
+  state: GameState,
   player: Player,
   combat: CombatState
 ): PlayCardOptions {
@@ -78,18 +79,25 @@ export function getPlayableCardsForCombat(
 
     const playability = getCardPlayabilityForPhase(card, combat.phase);
 
-    if (playability.canPlayBasic || playability.canPlayPowered || playability.canPlaySideways) {
-      const manaColor = playability.canPlayPowered ? cardColorToManaColor(card.color) : undefined;
+    // Check if the card has a powered effect for this phase
+    const manaColor = playability.canPlayPowered ? cardColorToManaColor(card.color) : undefined;
 
+    // Only allow powered play if player can actually pay for it
+    const canActuallyPlayPowered =
+      playability.canPlayPowered &&
+      manaColor !== undefined &&
+      canPayForMana(state, player, manaColor);
+
+    if (playability.canPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
       const playableCard: PlayableCard = {
         cardId,
         canPlayBasic: playability.canPlayBasic,
-        canPlayPowered: playability.canPlayPowered,
+        canPlayPowered: canActuallyPlayPowered,
         canPlaySideways: playability.canPlaySideways,
       };
 
       // Only add optional properties when they have values
-      if (manaColor) {
+      if (manaColor && canActuallyPlayPowered) {
         (playableCard as { requiredMana?: ManaColor }).requiredMana = manaColor;
       }
       if (playability.sidewaysOptions && playability.sidewaysOptions.length > 0) {

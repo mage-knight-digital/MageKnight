@@ -204,21 +204,18 @@ test("seed 123 - validActions.playCard is populated during combat phases", async
 
   // Phase 1: Ranged/Siege
   // In ranged phase, only cards with ranged/siege attacks should be playable
-  // Swiftness powered has Ranged Attack 3
+  // With no mana available, powered ranged cards (like Swiftness) are NOT playable
+  // Basic action cards don't have ranged/siege attacks, so playCard should be empty/undefined
   let state = await getGameState() as PlayCardState;
   console.log("Ranged/Siege phase - playCard:", JSON.stringify(state?.validActions?.playCard, null, 2));
 
   const rangedPlayCard = state?.validActions?.playCard;
   console.log(`Ranged phase: playCard cards count = ${rangedPlayCard?.cards?.length ?? "undefined"}`);
 
-  // In ranged phase, Swiftness should be playable powered (Ranged Attack 3)
-  expect(rangedPlayCard).toBeDefined();
-  expect(rangedPlayCard?.cards?.length).toBeGreaterThanOrEqual(1);
-
-  const swiftnessRanged = rangedPlayCard?.cards?.find(c => c.cardId === "swiftness");
-  expect(swiftnessRanged).toBeDefined();
-  expect(swiftnessRanged?.canPlayPowered).toBe(true);
-  expect(swiftnessRanged?.requiredMana).toBe("blue");
+  // In ranged phase without mana, no cards should be playable
+  // Swiftness has powered Ranged Attack 3 but requires blue mana we don't have
+  // Other basic cards don't have ranged/siege effects
+  expect(rangedPlayCard?.cards?.length ?? 0).toBe(0);
 
   await page.screenshot({ path: "e2e/screenshots/combat-playcard-1-ranged.png", fullPage: true });
 
@@ -275,6 +272,57 @@ test("seed 123 - validActions.playCard is populated during combat phases", async
   // - Block phase: Block effect cards + sideways are playable
   // - Damage phase: No cards are playable
   // Attack phase would follow the same pattern as Block phase but with attack effects.
+});
+
+/**
+ * Test: Powered option should NOT show when player has no mana to pay for it.
+ *
+ * Swiftness:
+ * - Has powered Ranged Attack 3 (requires blue mana)
+ * - Has no basic effect for ranged phase
+ * - Has no sideways option in ranged phase
+ *
+ * Without blue mana, Swiftness should be NOT PLAYABLE in ranged phase.
+ * The card should be disabled (not clickable).
+ */
+test("seed 123 - powered option should NOT show without mana available", async ({ page }) => {
+  await navigateToCombat(page);
+
+  // We should be in Ranged & Siege phase
+  const activePhase = page.locator(".combat-phase-indicator__step--active");
+  await expect(activePhase).toContainText("Ranged");
+
+  // Take screenshot of initial ranged phase
+  await page.screenshot({
+    path: "e2e/screenshots/combat-ranged-1-initial.png",
+    fullPage: true,
+  });
+
+  // Scroll to see the hand in combat overlay
+  const combatOverlay = page.locator(".combat-overlay");
+  await combatOverlay.locator(".combat-overlay__content").evaluate(el => {
+    el.scrollTop = el.scrollHeight;
+  });
+  await page.waitForTimeout(200);
+
+  // Find Swiftness card - it has powered Ranged Attack 3 (requires blue mana)
+  // But player has no blue mana, so it should be NOT PLAYABLE (disabled)
+  const swiftnessCard = combatOverlay.locator('[data-testid="hand-card-swiftness"]');
+  await expect(swiftnessCard).toBeVisible();
+
+  await page.screenshot({
+    path: "e2e/screenshots/combat-ranged-2-hand-visible.png",
+    fullPage: true,
+  });
+
+  // Swiftness should be marked as not-playable (disabled)
+  // It has no basic ranged effect and no sideways for ranged, and powered requires mana we don't have
+  await expect(swiftnessCard).toHaveClass(/card--not-playable/);
+  await expect(swiftnessCard).toBeDisabled();
+
+  // Verify the card cannot be clicked to open a menu
+  // (This confirms the fix is working - powered options not shown without mana)
+  console.log("Swiftness is correctly disabled - no powered option available without mana");
 });
 
 test("seed 123 - combat UI shows playable cards with combat-appropriate options", async ({ page }) => {

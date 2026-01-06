@@ -62,9 +62,11 @@ describe("getPlayableCardsForCombat", () => {
       expect(marchCard).toBeUndefined(); // March has no combat effects at all
     });
 
-    it("should allow Swiftness powered for ranged attack", () => {
+    it("should allow Swiftness powered for ranged attack when mana is available", () => {
+      // Give the player blue crystals so they can pay for powered effect
       const player = createTestPlayer({
         hand: [CARD_SWIFTNESS],
+        crystals: { red: 0, blue: 1, green: 0, white: 0 },
       });
       const state = createTestGameState({ players: [player] });
       const combat = createTestCombat(COMBAT_PHASE_RANGED_SIEGE);
@@ -76,6 +78,23 @@ describe("getPlayableCardsForCombat", () => {
       expect(swiftnessCard?.canPlayBasic).toBe(false); // Basic is Move, not ranged
       expect(swiftnessCard?.canPlayPowered).toBe(true); // Powered is Ranged Attack 3
       expect(swiftnessCard?.requiredMana).toBe(MANA_BLUE);
+    });
+
+    it("should NOT allow Swiftness powered when no mana is available", () => {
+      // Player has no mana to pay for powered effect
+      const player = createTestPlayer({
+        hand: [CARD_SWIFTNESS],
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+      });
+      const state = createTestGameState({ players: [player] });
+      const combat = createTestCombat(COMBAT_PHASE_RANGED_SIEGE);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      // Swiftness should not be in playable cards at all
+      // (no basic ranged effect, no powered without mana, no sideways in ranged phase)
+      const swiftnessCard = result.cards.find(c => c.cardId === CARD_SWIFTNESS);
+      expect(swiftnessCard).toBeUndefined();
     });
 
     it("should not allow sideways play in ranged/siege phase", () => {
@@ -98,8 +117,10 @@ describe("getPlayableCardsForCombat", () => {
 
   describe("Block Phase", () => {
     it("should allow cards with block effects", () => {
+      // Give the player blue crystals so Determination powered is available
       const player = createTestPlayer({
         hand: [CARD_RAGE, CARD_DETERMINATION],
+        crystals: { red: 0, blue: 1, green: 0, white: 0 },
       });
       const state = createTestGameState({ players: [player] });
       const combat = createTestCombat(COMBAT_PHASE_BLOCK);
@@ -115,12 +136,32 @@ describe("getPlayableCardsForCombat", () => {
       expect(rageCard?.canPlayPowered).toBe(false);
 
       // Determination basic: choice(attack(2), block(2)) - has block option
-      // Determination powered: block(5) - also has block
+      // Determination powered: block(5) - also has block, and player has blue crystal
       const determinationCard = result.cards.find(c => c.cardId === CARD_DETERMINATION);
       expect(determinationCard).toBeDefined();
       expect(determinationCard?.canPlayBasic).toBe(true);
       expect(determinationCard?.canPlayPowered).toBe(true);
       expect(determinationCard?.requiredMana).toBe(MANA_BLUE);
+    });
+
+    it("should not allow powered block without mana", () => {
+      // Player has no mana
+      const player = createTestPlayer({
+        hand: [CARD_DETERMINATION],
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+      });
+      const state = createTestGameState({ players: [player] });
+      const combat = createTestCombat(COMBAT_PHASE_BLOCK);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      // Determination basic still works (choice attack/block)
+      // But powered is blocked (requires blue mana)
+      const determinationCard = result.cards.find(c => c.cardId === CARD_DETERMINATION);
+      expect(determinationCard).toBeDefined();
+      expect(determinationCard?.canPlayBasic).toBe(true);
+      expect(determinationCard?.canPlayPowered).toBe(false);
+      expect(determinationCard?.requiredMana).toBeUndefined();
     });
 
     it("should allow sideways play as block", () => {
@@ -262,8 +303,10 @@ describe("getPlayableCardsForCombat", () => {
 
   describe("Powered effects", () => {
     it("should indicate when powered version has different capabilities", () => {
+      // Give player blue crystal so powered effect is available
       const player = createTestPlayer({
         hand: [CARD_DETERMINATION],
+        crystals: { red: 0, blue: 1, green: 0, white: 0 },
       });
       const state = createTestGameState({ players: [player] });
       const combat = createTestCombat(COMBAT_PHASE_BLOCK);
@@ -271,7 +314,7 @@ describe("getPlayableCardsForCombat", () => {
       const result = getPlayableCardsForCombat(state, player, combat);
 
       // Determination: basic choice(attack, block), powered block(5)
-      // Both have block, so both should be playable
+      // Both have block, and player has mana, so both should be playable
       const determinationCard = result.cards.find(c => c.cardId === CARD_DETERMINATION);
       expect(determinationCard?.canPlayBasic).toBe(true);
       expect(determinationCard?.canPlayPowered).toBe(true);

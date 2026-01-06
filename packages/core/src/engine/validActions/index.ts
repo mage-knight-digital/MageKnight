@@ -18,6 +18,7 @@ import { getValidMoveTargets } from "./movement.js";
 import { getValidExploreOptions } from "./exploration.js";
 import { getCombatOptions } from "./combat.js";
 import { getPlayableCardsForCombat } from "./cards.js";
+import { getManaOptions } from "./mana.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -117,6 +118,7 @@ export function getValidActions(
     const combatOptions = getCombatOptions(state.combat);
     if (combatOptions) {
       const playCardOptions = getPlayableCardsForCombat(state, player, state.combat);
+      const manaOptions = getManaOptions(state, player);
       return {
         canAct: true,
         reason: undefined,
@@ -126,7 +128,7 @@ export function getValidActions(
         combat: combatOptions,
         units: undefined, // TODO: unit activation options for combat
         sites: undefined,
-        mana: undefined, // TODO: mana options
+        mana: manaOptions,
         turn: {
           canEndTurn: false,
           canAnnounceEndOfRound: false,

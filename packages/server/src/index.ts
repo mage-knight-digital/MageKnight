@@ -20,7 +20,6 @@ import {
   HEROES,
   TileId,
   SiteType,
-  RampagingEnemyType,
   placeTile,
   hexKey,
   shuffleWithRng,
