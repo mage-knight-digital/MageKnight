@@ -85,3 +85,4 @@ Medium - Affects edge case of being at command limit and wanting different units
 - Unit recruitment system (Done)
 - OwnedUnitsPanel (Done)
 - Combat rewards (Not Started)
+- [unit-combat-integration.md](unit-combat-integration.md) - Broader unit combat features

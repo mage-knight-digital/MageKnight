@@ -54,8 +54,7 @@ Units can be recruited but cannot yet be used in combat. This ticket tracks all 
 
 ### 6. Unit Management
 - Command token limit enforcement (can't recruit if at max for level)
-- Disband unit action (release unit voluntarily)
-- Replace unit on recruit when at max (offer choice to player)
+- **See [unit-disbanding.md](unit-disbanding.md)** for detailed disband-on-recruit implementation
 
 ### 7. Unit Healing
 - Target unit with healing effect (vs hero)
