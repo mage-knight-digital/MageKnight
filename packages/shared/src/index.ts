@@ -43,6 +43,8 @@ export {
 export type { Terrain, MovementCost, MovementCosts } from "./terrain.js";
 export {
   DEFAULT_MOVEMENT_COSTS,
+  INITIAL_MOVE_POINTS,
+  TURN_START_MOVE_POINTS,
   TERRAIN_PLAINS,
   TERRAIN_HILLS,
   TERRAIN_FOREST,
@@ -265,6 +267,9 @@ export * from "./valueConstants.js";
 export * from "./elements.js";
 export * from "./combatTypes.js";
 export * from "./combatPhases.js";
+
+// Tier-A starting values
+export * from "./startingValues.js";
 
 // Enemy definitions
 export * from "./enemies.js";

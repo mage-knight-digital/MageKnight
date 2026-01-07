@@ -42,6 +42,14 @@ export const LEVEL_STATS: Record<number, LevelStats> = {
   10: { armor: 4, handLimit: 7, commandSlots: 5 },
 };
 
+export function getLevelStats(level: number): LevelStats {
+  const stats = LEVEL_STATS[level];
+  if (!stats) {
+    throw new Error(`Missing LEVEL_STATS for level: ${level}`);
+  }
+  return stats;
+}
+
 // Level up rewards
 export const LEVEL_UP_TYPE_ODD = "odd" as const; // Levels 3, 5, 7, 9: +command slot, +armor/hand
 export const LEVEL_UP_TYPE_EVEN = "even" as const; // Levels 2, 4, 6, 8, 10: +skill, +advanced action

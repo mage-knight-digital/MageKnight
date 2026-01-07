@@ -714,8 +714,8 @@ describe("Unit System", () => {
         // Verify unit is now spent
         expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
 
-        // Verify wound pile increased
-        expect(result.state.woundPileCount).toBe(state.woundPileCount + 2);
+        // Verify wound pile is unlimited (null) and stays unlimited
+        expect(result.state.woundPileCount).toBeNull();
 
         // Check event was emitted
         const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);

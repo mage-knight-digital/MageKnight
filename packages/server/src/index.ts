@@ -55,6 +55,13 @@ import {
   GAME_STARTED,
   ROUND_PHASE_TACTICS_SELECTION,
   ALL_DAY_TACTICS,
+  INITIAL_MOVE_POINTS,
+  STARTING_ARMOR,
+  STARTING_COMMAND_TOKENS,
+  STARTING_FAME,
+  STARTING_HAND_LIMIT,
+  STARTING_LEVEL,
+  STARTING_REPUTATION,
 } from "@mage-knight/shared";
 
 // ============================================================================
@@ -565,8 +572,8 @@ export class GameServer {
     const allCards = [...heroDefinition.startingCards];
     const { result: shuffledDeck, rng: newRng } = shuffleWithRng(allCards, rng);
 
-    // Draw starting hand (hand limit at level 1 is 5)
-    const handLimit = 5;
+    // Draw starting hand
+    const handLimit = STARTING_HAND_LIMIT;
     const startingHand = shuffledDeck.slice(0, handLimit);
     const remainingDeck = shuffledDeck.slice(handLimit);
 
@@ -574,12 +581,12 @@ export class GameServer {
       id,
       hero,
       position, // Start on the portal
-      fame: 0,
-      level: 1,
-      reputation: 0,
-      armor: 2,
+      fame: STARTING_FAME,
+      level: STARTING_LEVEL,
+      reputation: STARTING_REPUTATION,
+      armor: STARTING_ARMOR,
       handLimit,
-      commandTokens: 1,
+      commandTokens: STARTING_COMMAND_TOKENS,
       hand: startingHand,
       deck: remainingDeck,
       discard: [],
@@ -595,7 +602,7 @@ export class GameServer {
       selectedTactic: null,
       tacticFlipped: false,
       knockedOut: false,
-      movePoints: 200, // TEMPORARY: high value for debugging
+      movePoints: INITIAL_MOVE_POINTS,
       influencePoints: 0,
       playArea: [],
       pureMana: [],

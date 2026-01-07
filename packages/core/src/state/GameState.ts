@@ -26,6 +26,11 @@ import {
   createEmptyCommandStack,
 } from "../engine/commandStack.js";
 import { type RngState, createRng } from "../utils/rng.js";
+import {
+  INITIAL_CURRENT_PLAYER_INDEX,
+  INITIAL_ROUND,
+  INITIAL_WOUND_PILE_COUNT,
+} from "./gameStateNumericConstants.js";
 
 // Re-export types for convenience
 export type { CombatState } from "../types/combat.js";
@@ -81,8 +86,8 @@ export interface GameState {
   // Seeded RNG for reproducible games
   readonly rng: RngState;
 
-  // Wound pile (effectively unlimited)
-  readonly woundPileCount: number;
+  // Wound pile (effectively unlimited). `null` means unlimited.
+  readonly woundPileCount: number | null;
 
   // Scenario configuration and tracking
   readonly scenarioId: ScenarioId;
@@ -102,9 +107,9 @@ export function createInitialGameState(
   return {
     phase: GAME_PHASE_SETUP,
     timeOfDay: TIME_OF_DAY_DAY,
-    round: 1,
+    round: INITIAL_ROUND,
     turnOrder: [],
-    currentPlayerIndex: 0,
+    currentPlayerIndex: INITIAL_CURRENT_PLAYER_INDEX,
     endOfRoundAnnouncedBy: null,
     playersWithFinalTurn: [],
     players: [],
@@ -124,7 +129,7 @@ export function createInitialGameState(
     activeModifiers: [],
     commandStack: createEmptyCommandStack(),
     rng: createRng(seed),
-    woundPileCount: 10, // start with some wounds available
+    woundPileCount: INITIAL_WOUND_PILE_COUNT,
     scenarioId,
     scenarioConfig,
     scenarioEndTriggered: false,

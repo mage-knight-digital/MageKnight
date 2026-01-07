@@ -222,7 +222,11 @@ export interface ClientGameState {
     readonly eliteUnits: number;
   };
 
-  readonly woundPileCount: number;
+  /**
+   * Wound pile size remaining.
+   * `null` means effectively unlimited (rulebook/expansions treat wounds as an unlimited resource).
+   */
+  readonly woundPileCount: number | null;
 
   /** Valid actions for the player receiving this state */
   readonly validActions: ValidActions;

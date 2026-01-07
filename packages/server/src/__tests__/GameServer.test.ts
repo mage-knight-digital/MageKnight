@@ -15,6 +15,7 @@ import {
   TACTIC_EARLY_BIRD,
   TACTIC_SELECTED,
   ROUND_PHASE_PLAYER_TURNS,
+  INITIAL_MOVE_POINTS,
 } from "@mage-knight/shared";
 import { SiteType, TileId } from "@mage-knight/core";
 import type { HexState } from "@mage-knight/core";
@@ -234,8 +235,7 @@ describe("GameServer", () => {
 
       const [, state] = callback.mock.calls[0] as [GameEvent[], ClientGameState];
 
-      // TEMPORARY: high value for debugging, should normally be 4
-      expect(state.players[0].movePoints).toBe(200);
+      expect(state.players[0].movePoints).toBe(INITIAL_MOVE_POINTS);
     });
   });
 

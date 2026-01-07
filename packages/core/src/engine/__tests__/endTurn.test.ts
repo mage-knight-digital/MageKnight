@@ -9,6 +9,7 @@ import {
   MOVE_ACTION,
   INVALID_ACTION,
   TERRAIN_PLAINS,
+  TURN_START_MOVE_POINTS,
   CARD_MARCH,
   CARD_RAGE,
   CARD_STAMINA,
@@ -108,7 +109,7 @@ describe("END_TURN action", () => {
 
     const updatedPlayer = result.state.players[0];
     // Current player should have turn state reset
-    expect(updatedPlayer?.movePoints).toBe(4); // Gets new points for next turn (since single player)
+    expect(updatedPlayer?.movePoints).toBe(TURN_START_MOVE_POINTS);
     expect(updatedPlayer?.hasMovedThisTurn).toBe(false);
     expect(updatedPlayer?.hasTakenActionThisTurn).toBe(false);
     expect(updatedPlayer?.influencePoints).toBe(0);
@@ -129,7 +130,7 @@ describe("END_TURN action", () => {
     });
 
     const nextPlayer = result.state.players.find((p) => p.id === "player2");
-    expect(nextPlayer?.movePoints).toBe(4); // TEMPORARY starting move points
+    expect(nextPlayer?.movePoints).toBe(TURN_START_MOVE_POINTS);
   });
 
   it("should clear command stack (not undoable)", () => {

@@ -33,6 +33,12 @@ export default tseslint.config(
           message:
             'Do not use string-literal event types (even with `as const`) in `events` payloads. Import an exported constant (e.g. `TILE_REVEALED`) or use a `create*Event(...)` helper from `@mage-knight/shared`.',
         },
+        {
+          selector:
+            'MethodDefinition[key.name="createPlayer"] ObjectExpression > Property[key.name=/^(fame|level|reputation|armor|handLimit|commandTokens)$/] > Literal[value=/^\\d+$/]',
+          message:
+            "Do not hardcode Tier-A numeric starting values in server player creation. Use `STARTING_*` constants from `@mage-knight/shared`.",
+        },
       ],
     },
   },

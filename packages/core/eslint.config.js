@@ -248,6 +248,21 @@ export default tseslint.config(
       ],
     },
   },
+  // Tier-A guardrail: do not hardcode numeric defaults in GameState initialization.
+  {
+    files: ["src/state/GameState.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'FunctionDeclaration[id.name="createInitialGameState"] ObjectExpression > Property[key.name=/^(round|currentPlayerIndex|woundPileCount)$/] > Literal[value=/^\\d+$/]',
+          message:
+            "Do not hardcode numeric GameState defaults. Use constants from `src/state/gameStateNumericConstants.ts`.",
+        },
+      ],
+    },
+  },
   // Red/green guardrail: eliminate magic string unions in enemy type definitions.
   {
     files: ["src/types/enemy.ts"],

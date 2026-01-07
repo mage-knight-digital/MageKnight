@@ -41,3 +41,9 @@ export const DEFAULT_MOVEMENT_COSTS: MovementCosts = {
   mountain: { day: Infinity, night: Infinity },
   ocean: { day: Infinity, night: Infinity },
 };
+
+// Move point constants
+// Players start with 0 move points - must play cards to gain movement
+export const INITIAL_MOVE_POINTS = 0 as const;
+// Players start each turn with 0 move points - must play cards to gain movement
+export const TURN_START_MOVE_POINTS = 0 as const;

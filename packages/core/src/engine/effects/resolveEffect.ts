@@ -428,8 +428,9 @@ function applyGainHealing(
     hand: newHand,
   };
 
-  // Return wounds to the wound pile
-  const newWoundPileCount = state.woundPileCount + woundsToHeal;
+  // Return wounds to the wound pile (unlimited => stay null)
+  const newWoundPileCount =
+    state.woundPileCount === null ? null : state.woundPileCount + woundsToHeal;
 
   const updatedState = {
     ...updatePlayer(state, playerIndex, updatedPlayer),

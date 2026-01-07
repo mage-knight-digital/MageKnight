@@ -360,7 +360,10 @@ export function createActivateUnitCommand(
       players[playerIndex] = updatedPlayer;
 
       // Update wound pile if healing occurred
-      const newWoundPileCount = state.woundPileCount + nonCombatResult.woundPileCountDelta;
+      const newWoundPileCount =
+        state.woundPileCount === null
+          ? null
+          : state.woundPileCount + nonCombatResult.woundPileCountDelta;
 
       const events: GameEvent[] = [
         {

@@ -33,6 +33,7 @@ import {
   getLevelUpType,
   LEVEL_STATS,
   LEVEL_UP_TYPE_ODD,
+  TURN_START_MOVE_POINTS,
 } from "@mage-knight/shared";
 import { expireModifiers } from "../modifiers.js";
 import { EXPIRATION_TURN_END } from "../modifierConstants.js";
@@ -217,7 +218,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
             if (nextPlayer) {
               const updatedNextPlayer: Player = {
                 ...nextPlayer,
-                movePoints: 4, // TEMPORARY
+                movePoints: TURN_START_MOVE_POINTS,
               };
               const players: Player[] = [...newState.players];
               players[nextPlayerIdx] = updatedNextPlayer;
