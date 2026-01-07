@@ -3,11 +3,10 @@
  *
  * Rampaging enemies (Orc Marauders, Draconum) have special movement rules:
  * 1. Cannot enter their hex - must defeat them first
- * 2. Cannot move around them (from one adjacent hex to another adjacent hex)
- *    without provoking combat
+ * 2. Provoking - moving from one adjacent hex to another adjacent hex
+ *    of the same rampaging enemy triggers combat and ends movement
  *
- * This test file validates that the movement validation correctly blocks
- * entry into hexes with undefeated rampaging enemies.
+ * This test file validates movement validation and combat triggering.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -19,6 +18,7 @@ import {
   hexKey,
   INVALID_ACTION,
   PLAYER_MOVED,
+  COMBAT_TRIGGERED,
 } from "@mage-knight/shared";
 import { RampagingEnemyType } from "../../types/map.js";
 import type { HexState } from "../../types/map.js";
@@ -169,6 +169,212 @@ describe("Rampaging Enemy Movement Restrictions", () => {
         correctlySetupHex.enemies.length > 0;
 
       expect(shouldBlockMovement).toBe(true);
+    });
+  });
+
+  describe("Provoking rampaging enemies", () => {
+    /**
+     * Provoking happens when you move from one hex adjacent to a rampaging enemy
+     * to another hex that is also adjacent to the same enemy (skirting around them).
+     *
+     * Per the rules:
+     * 1. The move SUCCEEDS - you arrive at the destination hex
+     * 2. Movement immediately ENDS (no more moves this turn)
+     * 3. Combat is TRIGGERED (mandatory fight with the rampaging enemy)
+     */
+    it("should trigger combat when moving between two hexes adjacent to same rampaging enemy", () => {
+      let state = createTestGameState();
+
+      // Set up: player at (0,0), rampaging enemy at (1,0)
+      // Adjacent hexes to (1,0): NE(2,-1), E(2,0), SE(1,1), SW(0,1), W(0,0), NW(1,-1)
+      // Player starts at (0,0) which is W of the rampaging enemy
+      // Moving to (1,-1) which is NW of the rampaging enemy should provoke
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        movePoints: 4,
+      });
+
+      const enemyToken = createEnemyTokenId(ENEMY_DIGGERS);
+
+      // Create the rampaging hex at (1,0)
+      const rampagingHex: HexState = {
+        ...createTestHex(1, 0, TERRAIN_PLAINS),
+        rampagingEnemies: [RampagingEnemyType.OrcMarauder],
+        enemies: [enemyToken],
+      };
+
+      // Create player's starting hex (0,0) - adjacent to rampaging enemy
+      const startHex = createTestHex(0, 0, TERRAIN_PLAINS);
+
+      // Create destination hex (1,-1) - also adjacent to rampaging enemy
+      const destHex = createTestHex(1, -1, TERRAIN_PLAINS);
+
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+        map: {
+          ...state.map,
+          hexes: {
+            ...state.map.hexes,
+            [hexKey({ q: 0, r: 0 })]: startHex,
+            [hexKey({ q: 1, r: 0 })]: rampagingHex,
+            [hexKey({ q: 1, r: -1 })]: destHex,
+          },
+        },
+      };
+
+      // Move from (0,0) to (1,-1) - both adjacent to rampaging enemy at (1,0)
+      // This should trigger combat (provoking)
+      const result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: { q: 1, r: -1 },
+      });
+
+      // The move should succeed
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: PLAYER_MOVED,
+        })
+      );
+
+      // Player should have moved to (1,-1)
+      const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+      expect(updatedPlayer?.position).toEqual({ q: 1, r: -1 });
+
+      // Combat should have been triggered
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_TRIGGERED,
+        })
+      );
+
+      // Combat state should be active
+      expect(result.state.combat).not.toBeNull();
+    });
+
+    it("should not trigger combat when moving away from rampaging enemy", () => {
+      let state = createTestGameState();
+
+      // Set up: player at (0,0), rampaging enemy at (1,0)
+      // Moving to (-1,0) which is NOT adjacent to the rampaging enemy - no provoke
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        movePoints: 4,
+      });
+
+      const enemyToken = createEnemyTokenId(ENEMY_DIGGERS);
+
+      const rampagingHex: HexState = {
+        ...createTestHex(1, 0, TERRAIN_PLAINS),
+        rampagingEnemies: [RampagingEnemyType.OrcMarauder],
+        enemies: [enemyToken],
+      };
+
+      const startHex = createTestHex(0, 0, TERRAIN_PLAINS);
+      const destHex = createTestHex(-1, 0, TERRAIN_PLAINS); // Not adjacent to rampaging
+
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+        map: {
+          ...state.map,
+          hexes: {
+            ...state.map.hexes,
+            [hexKey({ q: 0, r: 0 })]: startHex,
+            [hexKey({ q: 1, r: 0 })]: rampagingHex,
+            [hexKey({ q: -1, r: 0 })]: destHex,
+          },
+        },
+      };
+
+      // Move from (0,0) to (-1,0) - moving away from rampaging enemy
+      const result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: { q: -1, r: 0 },
+      });
+
+      // The move should succeed
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: PLAYER_MOVED,
+        })
+      );
+
+      // Combat should NOT have been triggered
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_TRIGGERED,
+        })
+      );
+
+      // Combat state should not be active
+      expect(result.state.combat).toBeNull();
+    });
+
+    it("should not trigger combat when not starting adjacent to rampaging enemy", () => {
+      let state = createTestGameState();
+
+      // Set up: player at (-1,0), rampaging enemy at (1,0)
+      // Player is NOT adjacent to rampaging enemy, so moving to (0,0) (which IS adjacent)
+      // should NOT trigger combat - you only provoke when starting adjacent
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: -1, r: 0 },
+        movePoints: 4,
+      });
+
+      const enemyToken = createEnemyTokenId(ENEMY_DIGGERS);
+
+      const rampagingHex: HexState = {
+        ...createTestHex(1, 0, TERRAIN_PLAINS),
+        rampagingEnemies: [RampagingEnemyType.OrcMarauder],
+        enemies: [enemyToken],
+      };
+
+      const startHex = createTestHex(-1, 0, TERRAIN_PLAINS);
+      const destHex = createTestHex(0, 0, TERRAIN_PLAINS); // Adjacent to rampaging
+
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+        map: {
+          ...state.map,
+          hexes: {
+            ...state.map.hexes,
+            [hexKey({ q: -1, r: 0 })]: startHex,
+            [hexKey({ q: 1, r: 0 })]: rampagingHex,
+            [hexKey({ q: 0, r: 0 })]: destHex,
+          },
+        },
+      };
+
+      // Move from (-1,0) to (0,0) - ending adjacent but not starting adjacent
+      const result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: { q: 0, r: 0 },
+      });
+
+      // The move should succeed
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: PLAYER_MOVED,
+        })
+      );
+
+      // Combat should NOT have been triggered (only provoke when starting adjacent)
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_TRIGGERED,
+        })
+      );
+
+      // Combat state should not be active
+      expect(result.state.combat).toBeNull();
     });
   });
 });

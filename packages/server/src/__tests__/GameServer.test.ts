@@ -571,5 +571,67 @@ describe("GameServer", () => {
       // Should find at least one rampaging hex with the marker preserved
       expect(rampagingHex).toBeDefined();
     });
+
+    it("should trigger combat when skirting around rampaging enemy (provoking)", () => {
+      // Use seed 123 - rampaging enemy at (3,-4)
+      const seededServer = createGameServer(123);
+      seededServer.initializeGame(["player1"]);
+
+      // Select tactic to get into player turns
+      seededServer.handleAction("player1", {
+        type: SELECT_TACTIC_ACTION,
+        tacticId: TACTIC_EARLY_BIRD,
+      });
+
+      // Move toward the rampaging hex but DON'T skirt around it yet
+      // The rampaging enemy is at (3,-4)
+      // We'll approach from below and stop at (3,-3), then move to (2,-3)
+      // Both (3,-3) and (2,-3) are adjacent to (3,-4), so the second move provokes
+      //
+      // IMPORTANT: The path (0,0) → (0,-1) → (1,-2) → (2,-3) already touches
+      // adjacent hex (2,-3). Then (2,-3) → (3,-3) is skirting!
+      // So combat triggers on the (2,-3) → (3,-3) move.
+      //
+      // Let's use a path that approaches from a different angle to avoid
+      // early skirting. Actually, let's just test that the earlier move DOES
+      // trigger combat, which proves the feature works!
+
+      // Move: (0,0) → (0,-1) → (1,-2) → (2,-3)
+      // At this point we're adjacent to (3,-4) but haven't skirted yet
+      seededServer.handleAction("player1", {
+        type: MOVE_ACTION,
+        target: { q: 0, r: -1 },
+      });
+      seededServer.handleAction("player1", {
+        type: MOVE_ACTION,
+        target: { q: 1, r: -2 },
+      });
+      seededServer.handleAction("player1", {
+        type: MOVE_ACTION,
+        target: { q: 2, r: -3 },
+      });
+
+      // Verify we're at (2,-3) and no combat yet
+      let state = seededServer.getState();
+      let player = state.players.find((p) => p.id === "player1");
+      expect(player?.position).toEqual({ q: 2, r: -3 });
+      expect(state.combat).toBeNull(); // No skirting yet
+
+      // Now move to (3,-3) which is ALSO adjacent to the rampaging enemy at (3,-4)
+      // This is skirting - combat should trigger!
+      seededServer.handleAction("player1", {
+        type: MOVE_ACTION,
+        target: { q: 3, r: -3 },
+      });
+
+      state = seededServer.getState();
+      player = state.players.find((p) => p.id === "player1");
+
+      // The move should have completed
+      expect(player?.position).toEqual({ q: 3, r: -3 });
+
+      // Combat should have been triggered by provoking the rampaging enemy
+      expect(state.combat).not.toBeNull();
+    });
   });
 });

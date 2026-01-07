@@ -1,10 +1,10 @@
 /**
  * Move command - handles player movement with undo support
  *
- * When moving to a fortified site (Keep, Mage Tower, City):
- * - Combat is automatically triggered (assault)
- * - -1 reputation penalty is applied
- * - Movement ends for the turn
+ * Combat triggers:
+ * 1. Fortified assault - moving to Keep, Mage Tower, City applies -1 reputation
+ * 2. Provoking rampaging - moving from one hex adjacent to a rampaging enemy
+ *    to another hex also adjacent triggers combat and ends movement
  */
 
 import type { Command, CommandResult } from "../commands.js";
@@ -16,7 +16,9 @@ import {
   createCombatTriggeredEvent,
   createReputationChangedEvent,
   hexKey,
+  getAllNeighbors,
   COMBAT_TRIGGER_FORTIFIED_ASSAULT,
+  COMBAT_TRIGGER_PROVOKE_RAMPAGING,
   REPUTATION_REASON_ASSAULT,
 } from "@mage-knight/shared";
 import type { Player } from "../../types/player.js";
@@ -24,9 +26,49 @@ import { MOVE_COMMAND } from "./commandTypes.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { createCombatState } from "../../types/combat.js";
 import { getEnemyIdFromToken } from "../helpers/enemyHelpers.js";
-import { SiteType } from "../../types/map.js";
+import { SiteType, type HexState } from "../../types/map.js";
+import type { EnemyTokenId } from "../../types/enemy.js";
 
 export { MOVE_COMMAND };
+
+/**
+ * Find rampaging enemies that are adjacent to both the 'from' and 'to' hexes.
+ * These are the enemies that would be provoked by this move.
+ */
+function findProvokedRampagingEnemies(
+  from: HexCoord,
+  to: HexCoord,
+  hexes: Record<string, HexState>
+): { hex: HexState; enemies: readonly EnemyTokenId[] }[] {
+  // Get all hexes adjacent to the starting position
+  const fromNeighbors = getAllNeighbors(from);
+  const fromNeighborKeys = new Set(fromNeighbors.map(hexKey));
+
+  // Get all hexes adjacent to the destination
+  const toNeighbors = getAllNeighbors(to);
+  const toNeighborKeys = new Set(toNeighbors.map(hexKey));
+
+  // Find hexes that are adjacent to BOTH from and to
+  const commonNeighborKeys = [...fromNeighborKeys].filter((key) =>
+    toNeighborKeys.has(key)
+  );
+
+  // Check each common neighbor for rampaging enemies
+  const provokedEnemies: { hex: HexState; enemies: readonly EnemyTokenId[] }[] = [];
+
+  for (const key of commonNeighborKeys) {
+    const hex = hexes[key];
+    if (
+      hex &&
+      hex.rampagingEnemies.length > 0 &&
+      hex.enemies.length > 0
+    ) {
+      provokedEnemies.push({ hex, enemies: hex.enemies });
+    }
+  }
+
+  return provokedEnemies;
+}
 
 export interface MoveCommandParams {
   readonly playerId: string;
@@ -132,6 +174,47 @@ export function createMoveCommand(params: MoveCommandParams): Command {
             enemyIds.map((tokenId) => getEnemyIdFromToken(tokenId)),
             true, // isAtFortifiedSite
             { assaultOrigin: params.from }
+          );
+
+          updatedState = { ...updatedState, combat: combatState };
+        }
+      }
+
+      // Check for provoking rampaging enemies (skirting around them)
+      // Only check if combat wasn't already triggered by assault
+      if (!updatedState.combat) {
+        const provokedEnemies = findProvokedRampagingEnemies(
+          params.from,
+          params.to,
+          state.map.hexes
+        );
+
+        const firstProvoked = provokedEnemies[0];
+        if (firstProvoked) {
+          // Collect all enemy tokens from all provoked hexes
+          const allEnemyTokens = provokedEnemies.flatMap((p) => p.enemies);
+          const rampagingHexCoord = firstProvoked.hex.coord;
+
+          // Emit combat triggered event
+          events.push(
+            createCombatTriggeredEvent(
+              params.playerId,
+              COMBAT_TRIGGER_PROVOKE_RAMPAGING,
+              rampagingHexCoord,
+              allEnemyTokens
+            )
+          );
+
+          // Mark player as having combatted this turn
+          updatedPlayer = {
+            ...updatedPlayer,
+            hasCombattedThisTurn: true,
+          };
+
+          // Create combat state (not at fortified site)
+          const combatState = createCombatState(
+            allEnemyTokens.map((tokenId) => getEnemyIdFromToken(tokenId)),
+            false // isAtFortifiedSite - rampaging enemies are not fortified
           );
 
           updatedState = { ...updatedState, combat: combatState };
