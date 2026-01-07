@@ -6,8 +6,19 @@ import type {
   ClientCombatEnemy,
   CombatOptions,
   BlockOption,
+  DamageAssignmentOption,
+  AttackOption,
+  AttackSource,
 } from "@mage-knight/shared";
-import { DECLARE_BLOCK_ACTION } from "@mage-knight/shared";
+import {
+  DECLARE_BLOCK_ACTION,
+  ASSIGN_DAMAGE_ACTION,
+  DECLARE_ATTACK_ACTION,
+  COMBAT_PHASE_ASSIGN_DAMAGE,
+  COMBAT_PHASE_ATTACK,
+  ELEMENT_PHYSICAL,
+  COMBAT_TYPE_MELEE,
+} from "@mage-knight/shared";
 import { EnemyCard } from "./EnemyCard";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -48,8 +59,23 @@ export function EnemyList({ enemies, combatOptions }: EnemyListProps) {
     combatOptions.blocks.forEach((b) => blockOptionsMap.set(b.enemyInstanceId, b));
   }
 
+  // Create a map for damage assignment options lookup
+  const damageOptionsMap = new Map<string, DamageAssignmentOption>();
+  if (combatOptions.damageAssignments) {
+    combatOptions.damageAssignments.forEach((d) => damageOptionsMap.set(d.enemyInstanceId, d));
+  }
+
+  // Create a map for attack options lookup
+  const attackOptionsMap = new Map<string, AttackOption>();
+  if (combatOptions.attacks) {
+    combatOptions.attacks.forEach((a) => attackOptionsMap.set(a.enemyInstanceId, a));
+  }
+
   const isBlockPhase = combatOptions.phase === "block";
+  const isDamagePhase = combatOptions.phase === COMBAT_PHASE_ASSIGN_DAMAGE;
+  const isAttackPhase = combatOptions.phase === COMBAT_PHASE_ATTACK;
   const accumulatedBlock = player?.combatAccumulator.block ?? 0;
+  const accumulatedAttack = player?.combatAccumulator.attack.normal ?? 0;
 
   const handleAssignBlock = (enemyInstanceId: string) => {
     // Server reads block sources from player.combatAccumulator.blockSources
@@ -59,12 +85,40 @@ export function EnemyList({ enemies, combatOptions }: EnemyListProps) {
     });
   };
 
+  const handleAssignDamage = (enemyInstanceId: string) => {
+    // Assign all damage to hero (no unit selection for now)
+    sendAction({
+      type: ASSIGN_DAMAGE_ACTION,
+      enemyInstanceId,
+    });
+  };
+
+  const handleAssignAttack = (enemyInstanceId: string) => {
+    // Build attack sources from accumulated attack (simplified - all physical for now)
+    const attacks: AttackSource[] = [];
+    if (accumulatedAttack > 0) {
+      attacks.push({
+        element: ELEMENT_PHYSICAL,
+        value: accumulatedAttack,
+      });
+    }
+
+    sendAction({
+      type: DECLARE_ATTACK_ACTION,
+      targetEnemyInstanceIds: [enemyInstanceId],
+      attacks,
+      attackType: COMBAT_TYPE_MELEE,
+    });
+  };
+
   return (
     <div className="enemy-list">
       <h3 className="enemy-list__title">Enemies</h3>
       <div className="enemy-list__grid">
         {enemies.map((enemy) => {
           const blockOption = blockOptionsMap.get(enemy.instanceId);
+          const damageOption = damageOptionsMap.get(enemy.instanceId);
+          const attackOption = attackOptionsMap.get(enemy.instanceId);
           return (
             <EnemyCard
               key={enemy.instanceId}
@@ -74,6 +128,13 @@ export function EnemyList({ enemies, combatOptions }: EnemyListProps) {
               blockOption={blockOption}
               accumulatedBlock={accumulatedBlock}
               onAssignBlock={handleAssignBlock}
+              isDamagePhase={isDamagePhase}
+              damageOption={damageOption}
+              onAssignDamage={handleAssignDamage}
+              isAttackPhase={isAttackPhase}
+              attackOption={attackOption}
+              accumulatedAttack={accumulatedAttack}
+              onAssignAttack={handleAssignAttack}
             />
           );
         })}

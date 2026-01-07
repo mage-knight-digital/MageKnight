@@ -18,6 +18,7 @@ import type { UnitState } from "../unitState.js";
 import type { TacticId } from "../tactics.js";
 import type { ValidActions } from "./validActions.js";
 import type { EnemyId, EnemyAbilityType, EnemyResistances, Element } from "../enemies.js";
+import type { CombatPhase } from "../combatPhases.js";
 
 // Pending choice - when a card requires player selection
 export interface ClientPendingChoice {
@@ -253,7 +254,7 @@ export interface ClientCombatEnemy {
  * Combat state visible to clients.
  */
 export interface ClientCombatState {
-  readonly phase: string; // CombatPhase from core
+  readonly phase: CombatPhase;
   readonly enemies: readonly ClientCombatEnemy[];
   readonly woundsThisCombat: number;
   readonly fameGained: number;

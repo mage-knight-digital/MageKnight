@@ -632,6 +632,62 @@ body {
 }
 
 /* ============================================
+   Combat Events Log
+   ============================================ */
+.combat-events {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  border-top: 1px solid #333;
+}
+
+.combat-events__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: #aaa;
+}
+
+.combat-events__list {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+.combat-events__empty {
+  color: #666;
+  font-style: italic;
+}
+
+.combat-events__item {
+  padding: 0.375rem 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  border-left: 3px solid #444;
+}
+
+.combat-events__type {
+  color: #8f8;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.combat-events__details {
+  color: #bbb;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+/* ============================================
    Combat Phase Indicator
    ============================================ */
 .combat-phase-indicator {
@@ -851,6 +907,88 @@ body {
 .enemy-card__resistance--ice {
   background: #3498db;
   color: white;
+}
+
+.enemy-card__assign-block {
+  margin-top: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.enemy-card__assign-block--can-block {
+  background: #27ae60;
+  color: white;
+}
+
+.enemy-card__assign-block--can-block:hover {
+  background: #2ecc71;
+  transform: translateY(-1px);
+}
+
+.enemy-card__assign-block--insufficient {
+  background: #7f8c8d;
+  color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.enemy-card__assign-block:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.enemy-card__assign-damage {
+  margin-top: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+  background: #c0392b;
+  color: white;
+}
+
+.enemy-card__assign-damage:hover {
+  background: #e74c3c;
+  transform: translateY(-1px);
+}
+
+.enemy-card__assign-attack {
+  margin-top: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.enemy-card__assign-attack--can-defeat {
+  background: #e67e22;
+  color: white;
+}
+
+.enemy-card__assign-attack--can-defeat:hover {
+  background: #f39c12;
+  transform: translateY(-1px);
+}
+
+.enemy-card__assign-attack--insufficient {
+  background: #7f8c8d;
+  color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.enemy-card__assign-attack:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ============================================

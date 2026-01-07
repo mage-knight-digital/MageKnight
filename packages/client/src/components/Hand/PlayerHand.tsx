@@ -6,6 +6,15 @@ import {
   PLAY_SIDEWAYS_AS_INFLUENCE,
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
+  COMBAT_PHASE_ATTACK,
+  COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_RANGED_SIEGE,
+  MANA_BLACK,
+  MANA_BLUE,
+  MANA_GOLD,
+  MANA_GREEN,
+  MANA_RED,
+  MANA_WHITE,
   MANA_SOURCE_DIE,
   MANA_SOURCE_CRYSTAL,
   MANA_SOURCE_TOKEN,
@@ -83,7 +92,7 @@ function getManaSourceLabel(source: ManaSourceInfo): string {
     case MANA_SOURCE_TOKEN:
       return `${colorEmoji} ${capitalize(source.color)} Token`;
     case MANA_SOURCE_DIE:
-      if (source.color === "gold") {
+      if (source.color === MANA_GOLD) {
         return `🎲 Gold Die (wild)`;
       }
       return `🎲 ${capitalize(source.color)} Die`;
@@ -94,12 +103,12 @@ function getManaSourceLabel(source: ManaSourceInfo): string {
 
 function getColorEmoji(color: ManaColor): string {
   switch (color) {
-    case "red": return "🔴";
-    case "blue": return "🔵";
-    case "green": return "🟢";
-    case "white": return "⚪";
-    case "gold": return "🟡";
-    case "black": return "⚫";
+    case MANA_RED: return "🔴";
+    case MANA_BLUE: return "🔵";
+    case MANA_GREEN: return "🟢";
+    case MANA_WHITE: return "⚪";
+    case MANA_GOLD: return "🟡";
+    case MANA_BLACK: return "⚫";
     default: return "⬜";
   }
 }
@@ -171,17 +180,17 @@ function getSidewaysLabel(as: SidewaysAs, value: number, isInCombat: boolean, _c
 }
 
 // Get label for basic effect based on combat phase
-function getBasicLabel(isInCombat: boolean, combatPhase?: string): string {
+function getBasicLabel(isInCombat: boolean, combatPhase?: import("@mage-knight/shared").CombatPhase): string {
   if (!isInCombat) {
     return "Basic Effect";
   }
 
   switch (combatPhase) {
-    case "ranged_siege":
+    case COMBAT_PHASE_RANGED_SIEGE:
       return "Ranged/Siege Attack";
-    case "block":
+    case COMBAT_PHASE_BLOCK:
       return "Block";
-    case "attack":
+    case COMBAT_PHASE_ATTACK:
       return "Attack";
     default:
       return "Basic Effect";
@@ -193,7 +202,7 @@ interface ManaSourceMenuProps {
   requiredColor: ManaColor;
   sources: ManaSourceInfo[];
   isInCombat: boolean;
-  combatPhase?: string;
+  combatPhase?: import("@mage-knight/shared").CombatPhase;
   onSelect: (source: ManaSourceInfo) => void;
   onBack: () => void;
 }
@@ -247,7 +256,7 @@ interface PlayModeMenuProps {
   cardId: CardId;
   playability: PlayableCard | null;
   isInCombat: boolean;
-  combatPhase?: string;
+  combatPhase?: import("@mage-knight/shared").CombatPhase;
   onPlay: (mode: "basic" | "powered" | { sideways: SidewaysAs }) => void;
   onCancel: () => void;
 }

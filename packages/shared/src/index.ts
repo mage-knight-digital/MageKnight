@@ -264,6 +264,7 @@ export * from "./valueConstants.js";
 // Elements & combat types
 export * from "./elements.js";
 export * from "./combatTypes.js";
+export * from "./combatPhases.js";
 
 // Enemy definitions
 export * from "./enemies.js";
