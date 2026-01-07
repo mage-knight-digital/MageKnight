@@ -3,8 +3,15 @@ dist/
 *.log
 .DS_Store
 
-# Docs folder (reference materials, not code)
-docs/
+# Docs - copyrighted reference materials (rulebooks, card text, sprites)
+docs/rules/
+docs/reference/
+docs/sprites/
+
+# Keep these tracked:
+# - docs/tickets/ (our own tickets)
+# - docs/status.md (implementation status)
+# - docs/README.md (our own docs)
 
 # Build artifacts
 *.tsbuildinfo
