@@ -31,6 +31,9 @@ import {
   UNIT_ACTIVATED,
   UNIT_ABILITY_ATTACK,
   UNIT_ABILITY_BLOCK,
+  UNIT_ABILITY_HEAL,
+  UNIT_HERBALIST,
+  CARD_WOUND,
 } from "@mage-knight/shared";
 import { createPlayerUnit, readyAllUnits } from "../../types/unit.js";
 import { resetUnitInstanceCounter } from "../commands/units/index.js";
@@ -678,6 +681,49 @@ describe("Unit System", () => {
         // Verify success - ranged works in attack phase too
         expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(2);
         expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      });
+
+      it("should activate heal ability and remove wounds from hand", () => {
+        // Herbalist has Heal 2 (ability index 0)
+        const unit = createPlayerUnit(UNIT_HERBALIST, "herbalist_1");
+        const player = createTestPlayer({
+          units: [unit],
+          commandTokens: 1,
+          hand: [CARD_WOUND, CARD_WOUND, CARD_WOUND], // 3 wounds
+        });
+
+        // Heal ability should work outside of combat
+        const state = createTestGameState({
+          players: [player],
+          phase: GAME_PHASE_ROUND,
+          combat: null,
+        });
+
+        const result = engine.processAction(state, "player1", {
+          type: ACTIVATE_UNIT_ACTION,
+          unitInstanceId: "herbalist_1",
+          abilityIndex: 0, // Heal 2
+        });
+
+        // Verify wounds were removed from hand (Heal 2 = remove 2 wounds)
+        const woundsRemaining = result.state.players[0].hand.filter(
+          (c) => c === CARD_WOUND
+        ).length;
+        expect(woundsRemaining).toBe(1); // 3 - 2 = 1 wound remaining
+
+        // Verify unit is now spent
+        expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+        // Verify wound pile increased
+        expect(result.state.woundPileCount).toBe(state.woundPileCount + 2);
+
+        // Check event was emitted
+        const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+        expect(activateEvent).toBeDefined();
+        if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+          expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_HEAL);
+          expect(activateEvent.abilityValue).toBe(2);
+        }
       });
     });
 

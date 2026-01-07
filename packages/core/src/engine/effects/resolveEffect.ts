@@ -6,7 +6,7 @@
  * - GainInfluence: add influence points
  * - GainAttack: accumulate attack value for combat
  * - GainBlock: accumulate block value for combat
- * - GainHealing: track healing (wounds not yet implemented)
+ * - GainHealing: heal wounds from hand (removes wound cards)
  * - Compound: resolve all sub-effects
  * - Choice: requires player selection (Phase 2)
  */
@@ -398,16 +398,52 @@ function applyGainBlock(
 }
 
 function applyGainHealing(
-  _state: GameState,
-  _playerIndex: number,
-  _player: Player,
+  state: GameState,
+  playerIndex: number,
+  player: Player,
   amount: number
 ): EffectResolutionResult {
-  // Phase 1: Just track the healing value
-  // Future: Actually heal wounds from hand/units
+  // Count wounds in hand
+  const woundsInHand = player.hand.filter((c) => c === CARD_WOUND).length;
+
+  if (woundsInHand === 0) {
+    // No wounds to heal (shouldn't normally happen since isEffectResolvable checks this)
+    return { state, description: "No wounds to heal" };
+  }
+
+  // Heal up to 'amount' wounds (each healing point removes one wound)
+  const woundsToHeal = Math.min(amount, woundsInHand);
+
+  // Remove wound cards from hand
+  const newHand = [...player.hand];
+  for (let i = 0; i < woundsToHeal; i++) {
+    const woundIndex = newHand.indexOf(CARD_WOUND);
+    if (woundIndex !== -1) {
+      newHand.splice(woundIndex, 1);
+    }
+  }
+
+  const updatedPlayer: Player = {
+    ...player,
+    hand: newHand,
+  };
+
+  // Return wounds to the wound pile
+  const newWoundPileCount = state.woundPileCount + woundsToHeal;
+
+  const updatedState = {
+    ...updatePlayer(state, playerIndex, updatedPlayer),
+    woundPileCount: newWoundPileCount,
+  };
+
+  const description =
+    woundsToHeal === 1
+      ? "Healed 1 wound"
+      : `Healed ${woundsToHeal} wounds`;
+
   return {
-    state: _state,
-    description: `Gained ${amount} Healing (wounds not yet implemented)`,
+    state: updatedState,
+    description,
   };
 }
 

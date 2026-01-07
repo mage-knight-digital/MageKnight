@@ -223,12 +223,10 @@ test.describe("Unit Healing - Recruit Herbalist", () => {
 
 test.describe("Unit Healing - Heal Ability", () => {
   /**
-   * RED TEST: This test will fail until heal effect resolution is implemented.
-   *
-   * The test verifies that activating a unit's heal ability actually removes
-   * wound cards from the player's hand.
+   * Tests that the heal ability is correctly marked as not activatable
+   * when the player has no wounds to heal.
    */
-  test("activating Herbalist heal ability removes wounds from hand", async ({
+  test("heal ability is not activatable when no wounds exist", async ({
     page,
   }) => {
     // Use seed 123 which has Herbalist in unit offer
@@ -292,8 +290,6 @@ test.describe("Unit Healing - Heal Ability", () => {
     // 3. Activate heal ability
     // 4. Verify wounds removed
 
-    // This is a placeholder for when heal is implemented
-    console.log("Heal ability correctly shows as not activatable when no wounds");
   });
 
   /**

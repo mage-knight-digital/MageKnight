@@ -18,12 +18,16 @@ import {
   UNIT_ABILITY_BLOCK,
   UNIT_ABILITY_RANGED_ATTACK,
   UNIT_ABILITY_SIEGE_ATTACK,
+  UNIT_ABILITY_HEAL,
+  UNIT_ABILITY_MOVE,
+  UNIT_ABILITY_INFLUENCE,
   ELEMENT_PHYSICAL,
   ELEMENT_FIRE,
   ELEMENT_ICE,
   ELEMENT_COLD_FIRE,
+  CARD_WOUND,
 } from "@mage-knight/shared";
-import type { CombatAccumulator, ElementalAttackValues } from "../../../types/player.js";
+import type { CombatAccumulator, ElementalAttackValues, Player } from "../../../types/player.js";
 
 export const ACTIVATE_UNIT_COMMAND = "ACTIVATE_UNIT" as const;
 
@@ -150,6 +154,73 @@ function addAbilityToAccumulator(
 }
 
 /**
+ * Apply non-combat ability effects (move, influence, heal)
+ * Returns updated player and state changes
+ */
+interface NonCombatAbilityResult {
+  readonly player: Player;
+  readonly woundPileCountDelta: number;
+}
+
+function applyNonCombatAbility(
+  player: Player,
+  abilityType: UnitAbilityType,
+  value: number
+): NonCombatAbilityResult {
+  switch (abilityType) {
+    case UNIT_ABILITY_HEAL: {
+      // Count wounds in hand
+      const woundsInHand = player.hand.filter((c) => c === CARD_WOUND).length;
+      const woundsToHeal = Math.min(value, woundsInHand);
+
+      if (woundsToHeal === 0) {
+        return { player, woundPileCountDelta: 0 };
+      }
+
+      // Remove wound cards from hand
+      const newHand = [...player.hand];
+      for (let i = 0; i < woundsToHeal; i++) {
+        const woundIndex = newHand.indexOf(CARD_WOUND);
+        if (woundIndex !== -1) {
+          newHand.splice(woundIndex, 1);
+        }
+      }
+
+      return {
+        player: { ...player, hand: newHand },
+        woundPileCountDelta: woundsToHeal, // Return healed wounds to pile
+      };
+    }
+
+    case UNIT_ABILITY_MOVE: {
+      // Add move points
+      return {
+        player: {
+          ...player,
+          movePoints: player.movePoints + value,
+        },
+        woundPileCountDelta: 0,
+      };
+    }
+
+    case UNIT_ABILITY_INFLUENCE: {
+      // Add influence points
+      return {
+        player: {
+          ...player,
+          influencePoints: player.influencePoints + value,
+        },
+        woundPileCountDelta: 0,
+      };
+    }
+
+    default:
+      // Combat abilities handled elsewhere
+      return { player, woundPileCountDelta: 0 };
+  }
+}
+
+/**
  * Remove unit ability value from combat accumulator (for undo)
  */
 function removeAbilityFromAccumulator(
@@ -268,7 +339,7 @@ export function createActivateUnitCommand(
         state: UNIT_STATE_SPENT,
       };
 
-      // Update combat accumulator
+      // Update combat accumulator (for combat abilities)
       const updatedAccumulator = addAbilityToAccumulator(
         player.combatAccumulator,
         ability.type,
@@ -276,14 +347,20 @@ export function createActivateUnitCommand(
         ability.element
       );
 
-      const updatedPlayer = {
-        ...player,
-        units: updatedUnits,
-        combatAccumulator: updatedAccumulator,
-      };
+      // Apply non-combat ability effects (heal, move, influence)
+      const nonCombatResult = applyNonCombatAbility(
+        { ...player, units: updatedUnits, combatAccumulator: updatedAccumulator },
+        ability.type,
+        abilityValue
+      );
+
+      const updatedPlayer = nonCombatResult.player;
 
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
+
+      // Update wound pile if healing occurred
+      const newWoundPileCount = state.woundPileCount + nonCombatResult.woundPileCountDelta;
 
       const events: GameEvent[] = [
         {
@@ -297,7 +374,7 @@ export function createActivateUnitCommand(
       ];
 
       return {
-        state: { ...state, players },
+        state: { ...state, players, woundPileCount: newWoundPileCount },
         events,
       };
     },
