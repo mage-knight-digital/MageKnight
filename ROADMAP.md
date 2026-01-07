@@ -101,9 +101,9 @@ This roadmap tracks the path from current state to a fully playable, polished Ma
 | Unit wounding | Done | Armor reduces damage |
 | Resistant units | Done | Double armor |
 | Unit healing | Not Started | Heal unit vs hero targeting |
-| Unit disbanding | Not Started | Manual release |
-| Command token limit | Not Started | Block recruitment when at max |
-| Owned units UI | Not Started | Display player's recruited units |
+| Unit disbanding | Not Started | Disband when recruiting at command limit (`unit-disbanding.md`) |
+| Command token limit | Done | Blocks recruitment when at max (disbanding not yet implemented) |
+| Owned units UI | Done | Display player's recruited units with ability buttons |
 | Ready at round end | Done | All units including wounded |
 
 **Special Unit Abilities (Not Implemented):**
