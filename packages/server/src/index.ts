@@ -32,6 +32,7 @@ import {
   getValidActions,
   createEnemyTokenPiles,
   drawEnemiesForHex,
+  createUnitDecksAndOffer,
 } from "@mage-knight/core";
 import type { HexCoord } from "@mage-knight/shared";
 import {
@@ -495,6 +496,17 @@ export class GameServer {
       currentRng
     );
 
+    // Initialize unit decks and populate initial unit offer
+    const {
+      decks: unitDecks,
+      unitOffer,
+      rng: rngAfterUnits,
+    } = createUnitDecksAndOffer(
+      baseState.scenarioConfig,
+      playerIds.length,
+      rngAfterMana
+    );
+
     return {
       ...baseState,
       phase: GAME_PHASE_ROUND,
@@ -507,7 +519,16 @@ export class GameServer {
       players,
       source,
       enemyTokens: currentEnemyPiles, // Enemy piles after drawing for initial tiles
-      rng: rngAfterMana, // Updated RNG state after all shuffles
+      rng: rngAfterUnits, // Updated RNG state after all shuffles
+      decks: {
+        ...baseState.decks,
+        regularUnits: unitDecks.regularUnits,
+        eliteUnits: unitDecks.eliteUnits,
+      },
+      offers: {
+        ...baseState.offers,
+        units: unitOffer,
+      },
       map: {
         ...baseState.map,
         hexes,
@@ -573,7 +594,7 @@ export class GameServer {
       selectedTactic: null,
       tacticFlipped: false,
       knockedOut: false,
-      movePoints: 50, // TEMPORARY: high value for debugging
+      movePoints: 200, // TEMPORARY: high value for debugging
       influencePoints: 0,
       playArea: [],
       pureMana: [],

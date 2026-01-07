@@ -64,6 +64,14 @@ export {
   isCityTile,
 } from "./data/tileDeckSetup.js";
 
+// Unit deck setup
+export type { UnitDeckSetupResult } from "./data/unitDeckSetup.js";
+export {
+  createUnitDecksAndOffer,
+  refreshUnitOffer,
+  removeUnitFromOffer,
+} from "./data/unitDeckSetup.js";
+
 // Site properties
 export type { SiteProperties } from "./data/siteProperties.js";
 export {

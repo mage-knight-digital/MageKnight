@@ -8,6 +8,7 @@ import { TacticSelection } from "./components/Overlays/TacticSelection";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { ActionBar } from "./components/Overlays/ActionBar";
 import { CombatOverlay } from "./components/Combat";
+import { UnitOfferPanel } from "./components/Offers";
 import type { GameEvent } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
@@ -243,6 +244,9 @@ function EventLog() {
                     {details}
                   </div>
                 )}
+                <pre style={{ color: "#666", paddingLeft: "0.5rem", margin: "0.25rem 0", fontSize: "0.65rem", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                  {JSON.stringify(event, null, 2)}
+                </pre>
               </div>
             );
           })
@@ -294,6 +298,7 @@ function GameView() {
           <ResourcePanel />
           <CrystalsPanel />
           <ManaSourcePanel />
+          <UnitOfferPanel />
           <EventLog />
         </aside>
       </main>
