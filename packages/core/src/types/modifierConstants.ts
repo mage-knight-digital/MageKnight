@@ -78,6 +78,7 @@ export const RULE_GOLD_AS_BLACK = "gold_as_black" as const;
 export const RULE_BLACK_AS_GOLD = "black_as_gold" as const;
 export const RULE_TERRAIN_DAY_NIGHT_SWAP = "terrain_day_night_swap" as const;
 export const RULE_SOURCE_BLOCKED = "source_blocked" as const;
+export const RULE_EXTRA_SOURCE_DIE = "extra_source_die" as const;
 
 // === AbilityNullifierModifier ===
 export const ABILITY_ANY = "any" as const;

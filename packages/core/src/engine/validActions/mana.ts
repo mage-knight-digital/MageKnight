@@ -15,6 +15,8 @@ import {
   MANA_GOLD,
   MANA_BLACK,
 } from "@mage-knight/shared";
+import { isRuleActive } from "../modifiers.js";
+import { RULE_EXTRA_SOURCE_DIE } from "../../types/modifierConstants.js";
 
 /**
  * Get available mana options for a player.
@@ -30,8 +32,13 @@ export function getManaOptions(
 ): ManaOptions {
   const availableDice: AvailableDie[] = [];
 
-  // Check available dice from source (only if player hasn't used source this turn)
-  if (!player.usedManaFromSource) {
+  // Check if player can use the mana source:
+  // - If they haven't used it yet this turn, OR
+  // - If they have used it once but have the "extra source die" rule active (Mana Draw)
+  const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
+  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+
+  if (canUseSource) {
     for (const die of state.source.dice) {
       // Die must not be taken and not depleted
       if (die.takenByPlayerId === null && !die.isDepleted) {
@@ -103,8 +110,12 @@ export function canPayForMana(
     }
   }
 
-  // Check mana source dice (only if player hasn't used source this turn)
-  if (!player.usedManaFromSource) {
+  // Check mana source dice
+  // Player can use source if they haven't used it yet, OR if they have the extra source die rule
+  const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
+  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+
+  if (canUseSource) {
     for (const die of state.source.dice) {
       if (die.takenByPlayerId === null && !die.isDepleted) {
         if (die.color === requiredColor) {

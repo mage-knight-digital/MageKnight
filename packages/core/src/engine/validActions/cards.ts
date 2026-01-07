@@ -271,6 +271,7 @@ import {
   EFFECT_GAIN_INFLUENCE,
   EFFECT_GAIN_HEALING,
   EFFECT_DRAW_CARDS,
+  EFFECT_APPLY_MODIFIER,
 } from "../../types/effectTypes.js";
 import { isEffectResolvable } from "../effects/resolveEffect.js";
 
@@ -343,21 +344,23 @@ function getCardPlayabilityForNormalTurn(
   playerId: string,
   card: DeedCard
 ): CardPlayability {
-  // Check if basic effect has move, influence, heal, or draw AND is resolvable
+  // Check if basic effect has move, influence, heal, draw, or modifier AND is resolvable
   const basicHasUsefulEffect =
     effectHasMove(card.basicEffect) ||
     effectHasInfluence(card.basicEffect) ||
     effectHasHeal(card.basicEffect) ||
-    effectHasDraw(card.basicEffect);
+    effectHasDraw(card.basicEffect) ||
+    effectHasModifier(card.basicEffect);
 
   const basicIsResolvable = isEffectResolvable(state, playerId, card.basicEffect);
 
-  // Check if powered effect has move, influence, heal, or draw AND is resolvable
+  // Check if powered effect has move, influence, heal, draw, or modifier AND is resolvable
   const poweredHasUsefulEffect =
     effectHasMove(card.poweredEffect) ||
     effectHasInfluence(card.poweredEffect) ||
     effectHasHeal(card.poweredEffect) ||
-    effectHasDraw(card.poweredEffect);
+    effectHasDraw(card.poweredEffect) ||
+    effectHasModifier(card.poweredEffect);
 
   const poweredIsResolvable = isEffectResolvable(state, playerId, card.poweredEffect);
 
@@ -474,6 +477,33 @@ function effectHasDraw(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasDraw(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect applies a modifier (e.g., Mana Draw's extra source die).
+ * These are "special" effects that don't fit the standard move/influence/heal/draw categories.
+ */
+function effectHasModifier(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_APPLY_MODIFIER:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasModifier(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasModifier(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasModifier(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasModifier(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasModifier(effect.baseEffect);
 
     default:
       return false;

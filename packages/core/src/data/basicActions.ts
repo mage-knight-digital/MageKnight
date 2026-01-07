@@ -4,7 +4,7 @@
  * Each hero starts with 16 cards: 14 shared basic actions + 2 hero-specific cards.
  * Cards are organized by their frame color (which indicates what mana powers them).
  *
- * Note: Some effects (like Concentration's card boost, Mana Draw's die manipulation)
+ * Note: Some effects (like Concentration's card boost, Mana Draw's powered effect)
  * cannot be fully represented with the current effect system and use placeholders.
  */
 
@@ -23,6 +23,7 @@ import {
   EFFECT_GAIN_BLOCK,
   EFFECT_GAIN_HEALING,
   EFFECT_DRAW_CARDS,
+  EFFECT_APPLY_MODIFIER,
   EFFECT_CHOICE,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
@@ -36,6 +37,9 @@ import {
 import {
   ELEMENT_ICE,
   ELEMENT_FIRE,
+  DURATION_TURN,
+  EFFECT_RULE_OVERRIDE,
+  RULE_EXTRA_SOURCE_DIE,
 } from "../types/modifierConstants.js";
 import {
   DEED_CARD_TYPE_BASIC_ACTION,
@@ -121,6 +125,21 @@ function drawCards(amount: number): CardEffect {
 
 function choice(...options: CardEffect[]): CardEffect {
   return { type: EFFECT_CHOICE, options };
+}
+
+/**
+ * Grant the player one additional mana die from source this turn.
+ * Used by Mana Draw basic effect.
+ */
+function grantExtraSourceDie(): CardEffect {
+  return {
+    type: EFFECT_APPLY_MODIFIER,
+    modifier: {
+      type: EFFECT_RULE_OVERRIDE,
+      rule: RULE_EXTRA_SOURCE_DIE,
+    },
+    duration: DURATION_TURN,
+  };
 }
 
 // === Basic Action Card Definitions ===
@@ -285,11 +304,11 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
     color: CARD_COLOR_WHITE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
     categories: [CARD_CATEGORY_SPECIAL],
-    // Basic: Use 1 additional mana die from Source
+    // Basic: Use 1 additional mana die from Source this turn
+    basicEffect: grantExtraSourceDie(),
     // Powered: Take die, set to any non-gold color, gain 2 mana tokens
-    // Note: Die manipulation not modeled - placeholder
-    basicEffect: drawCards(0), // Placeholder
-    poweredEffect: drawCards(0), // Placeholder
+    // TODO: Powered effect requires new effect type with player choice
+    poweredEffect: drawCards(0), // Placeholder - needs EFFECT_MANA_DRAW_POWERED
     sidewaysValue: 1,
   },
 

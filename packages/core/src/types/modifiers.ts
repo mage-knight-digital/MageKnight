@@ -31,6 +31,7 @@ import {
   ENEMY_STAT_ARMOR,
   ENEMY_STAT_ATTACK,
   RULE_BLACK_AS_GOLD,
+  RULE_EXTRA_SOURCE_DIE,
   RULE_GOLD_AS_BLACK,
   RULE_IGNORE_FORTIFICATION,
   RULE_IGNORE_RAMPAGING_PROVOKE,
@@ -136,7 +137,8 @@ export interface RuleOverrideModifier {
     | typeof RULE_GOLD_AS_BLACK
     | typeof RULE_BLACK_AS_GOLD
     | typeof RULE_TERRAIN_DAY_NIGHT_SWAP
-    | typeof RULE_SOURCE_BLOCKED;
+    | typeof RULE_SOURCE_BLOCKED
+    | typeof RULE_EXTRA_SOURCE_DIE;
 }
 
 // Ability nullifier (e.g., "ignore Swift on one enemy")

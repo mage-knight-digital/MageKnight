@@ -22,6 +22,8 @@ import {
   TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 import { getBasicActionCard, BASIC_ACTION_CARDS } from "../../data/basicActions.js";
+import { isRuleActive } from "../modifiers.js";
+import { RULE_EXTRA_SOURCE_DIE } from "../../types/modifierConstants.js";
 import {
   DIE_ALREADY_USED,
   DIE_NOT_FOUND,
@@ -67,8 +69,9 @@ export function validateManaAvailable(
 
   switch (sourceType) {
     case MANA_SOURCE_DIE: {
-      // Check player hasn't used a die this turn
-      if (player.usedManaFromSource) {
+      // Check player hasn't used a die this turn (unless they have extra source die modifier)
+      const hasExtraSourceDie = isRuleActive(state, playerId, RULE_EXTRA_SOURCE_DIE);
+      if (player.usedManaFromSource && !hasExtraSourceDie) {
         return invalid(
           DIE_ALREADY_USED,
           "You can only use one mana die from the Source per turn"

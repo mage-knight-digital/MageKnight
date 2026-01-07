@@ -35,7 +35,7 @@ import {
 } from "../../types/effectTypes.js";
 import { evaluateScalingFactor } from "./scalingEvaluator.js";
 import { addModifier } from "../modifiers.js";
-import { SOURCE_CARD, SCOPE_SELF } from "../modifierConstants.js";
+import { SOURCE_CARD, SCOPE_SELF, EFFECT_RULE_OVERRIDE, RULE_EXTRA_SOURCE_DIE } from "../modifierConstants.js";
 import type { ApplyModifierEffect } from "../../types/cards.js";
 import { evaluateCondition } from "./conditionEvaluator.js";
 
@@ -97,8 +97,29 @@ export function isEffectResolvable(
     case EFFECT_GAIN_ATTACK:
     case EFFECT_GAIN_BLOCK:
     case EFFECT_GAIN_MANA:
-    case EFFECT_APPLY_MODIFIER:
       return true;
+
+    case EFFECT_APPLY_MODIFIER: {
+      // Most modifiers are always resolvable, but some have conditions
+      if (
+        effect.modifier.type === EFFECT_RULE_OVERRIDE &&
+        effect.modifier.rule === RULE_EXTRA_SOURCE_DIE
+      ) {
+        // "Extra source die" is only useful if there are dice available
+        // that the player couldn't otherwise access:
+        // - If already used source: need at least 1 die available
+        // - If haven't used source: need at least 2 dice (so the "extra" matters)
+        const availableDice = state.source.dice.filter(
+          (d) => d.takenByPlayerId === null && !d.isDepleted
+        );
+        if (player.usedManaFromSource) {
+          return availableDice.length > 0;
+        } else {
+          return availableDice.length >= 2;
+        }
+      }
+      return true;
+    }
 
     default:
       // Unknown effect types are considered resolvable (fail-safe)
