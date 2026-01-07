@@ -19,7 +19,7 @@ import { getValidExploreOptions } from "./exploration.js";
 import { getCombatOptions } from "./combat.js";
 import { getPlayableCardsForCombat, getPlayableCardsForNormalTurn } from "./cards.js";
 import { getManaOptions } from "./mana.js";
-import { getUnitOptions } from "./units.js";
+import { getUnitOptionsForCombat, getFullUnitOptions } from "./units.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -39,7 +39,7 @@ export { getTurnOptions } from "./turn.js";
 export { getValidMoveTargets } from "./movement.js";
 export { getValidExploreOptions } from "./exploration.js";
 export { getCombatOptions } from "./combat.js";
-export { getUnitOptions } from "./units.js";
+export { getUnitOptions, getUnitOptionsForCombat, getActivatableUnits, getFullUnitOptions } from "./units.js";
 
 /**
  * Compute all valid actions for a player.
@@ -121,6 +121,7 @@ export function getValidActions(
     if (combatOptions) {
       const playCardOptions = getPlayableCardsForCombat(state, player, state.combat);
       const manaOptions = getManaOptions(state, player);
+      const unitOptions = getUnitOptionsForCombat(state, player, state.combat);
       return {
         canAct: true,
         reason: undefined,
@@ -128,7 +129,7 @@ export function getValidActions(
         explore: undefined,
         playCard: playCardOptions.cards.length > 0 ? playCardOptions : undefined,
         combat: combatOptions,
-        units: undefined, // TODO: unit activation options for combat
+        units: unitOptions,
         sites: undefined,
         mana: manaOptions,
         turn: {
@@ -155,7 +156,7 @@ export function getValidActions(
     explore: getValidExploreOptions(state, player),
     playCard: playCardOptions.cards.length > 0 ? playCardOptions : undefined,
     combat: undefined,
-    units: getUnitOptions(state, player),
+    units: getFullUnitOptions(state, player),
     sites: undefined, // TODO Phase 6: getSiteOptions(state, player)
     mana: manaOptions,
     turn: getTurnOptions(state, player),

@@ -7,6 +7,7 @@
  */
 
 import { useGame } from "../../hooks/useGame";
+import { useMyPlayer } from "../../hooks/useMyPlayer";
 import {
   UNITS,
   UNIT_TYPE_ELITE,
@@ -51,9 +52,11 @@ interface UnitCardProps {
   unitId: UnitId;
   recruitInfo?: RecruitableUnit;
   onRecruit?: (unitId: string, cost: number) => void;
+  playerInfluence: number;
+  hasCommandSlots: boolean;
 }
 
-function UnitCard({ unitId, recruitInfo, onRecruit }: UnitCardProps) {
+function UnitCard({ unitId, recruitInfo, onRecruit, playerInfluence: _playerInfluence, hasCommandSlots: _hasCommandSlots }: UnitCardProps) {
   const unit = UNITS[unitId];
 
   if (!unit) {
@@ -226,6 +229,7 @@ function UnitCard({ unitId, recruitInfo, onRecruit }: UnitCardProps) {
 
 export function UnitOfferPanel() {
   const { state, sendAction } = useGame();
+  const player = useMyPlayer();
 
   if (!state) return null;
 
@@ -246,6 +250,10 @@ export function UnitOfferPanel() {
       influenceSpent: cost,
     });
   };
+
+  // Get player's influence and command slot info
+  const playerInfluence = player?.influencePoints ?? 0;
+  const hasCommandSlots = player ? player.units.length < player.commandTokens : false;
 
   return (
     <div className="panel">
@@ -269,6 +277,8 @@ export function UnitOfferPanel() {
               unitId={unitId}
               recruitInfo={recruitableMap.get(unitId)}
               onRecruit={handleRecruit}
+              playerInfluence={playerInfluence}
+              hasCommandSlots={hasCommandSlots}
             />
           ))
         )}
