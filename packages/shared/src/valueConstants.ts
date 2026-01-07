@@ -80,3 +80,13 @@ export type ReputationChangeReason =
   | typeof REPUTATION_REASON_BURN_MONASTERY
   | typeof REPUTATION_REASON_DEFEAT_RAMPAGING
   | typeof REPUTATION_REASON_INTERACTION;
+
+// === Combat exit reasons ===
+export const COMBAT_EXIT_REASON_UNDO = "undo" as const;
+export const COMBAT_EXIT_REASON_WITHDRAW = "withdraw" as const;
+export const COMBAT_EXIT_REASON_FLED = "fled" as const;
+
+export type CombatExitReason =
+  | typeof COMBAT_EXIT_REASON_UNDO
+  | typeof COMBAT_EXIT_REASON_WITHDRAW
+  | typeof COMBAT_EXIT_REASON_FLED;

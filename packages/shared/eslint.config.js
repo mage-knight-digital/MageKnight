@@ -86,6 +86,12 @@ export default tseslint.config(
           message:
             'Do not use string-literal unions for `SidewaysAs` in valid-actions types. Use `typeof PLAY_SIDEWAYS_AS_*` constants from `src/valueConstants.ts`.',
         },
+        {
+          selector:
+            'TSInterfaceDeclaration[id.name="CombatExitedEvent"] TSPropertySignature[key.name="reason"] TSUnionType > TSLiteralType > Literal[value=/^(undo|withdraw|fled)$/]',
+          message:
+            'Do not use string-literal unions for CombatExitedEvent.reason. Add constants to `src/valueConstants.ts` and use `typeof CONST`.',
+        },
       ],
     },
   },

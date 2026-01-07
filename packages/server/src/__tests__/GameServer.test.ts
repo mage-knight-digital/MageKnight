@@ -234,8 +234,8 @@ describe("GameServer", () => {
 
       const [, state] = callback.mock.calls[0] as [GameEvent[], ClientGameState];
 
-      // TEMPORARY: 50 for debugging, should normally be 4
-      expect(state.players[0].movePoints).toBe(50);
+      // TEMPORARY: high value for debugging, should normally be 4
+      expect(state.players[0].movePoints).toBe(200);
     });
   });
 

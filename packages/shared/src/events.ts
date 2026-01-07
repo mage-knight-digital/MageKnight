@@ -15,6 +15,9 @@ import {
   COMBAT_TRIGGER_FORTIFIED_ASSAULT,
   COMBAT_TRIGGER_PROVOKE_RAMPAGING,
   COMBAT_TRIGGER_VOLUNTARY_EXPLORE,
+  COMBAT_EXIT_REASON_FLED,
+  COMBAT_EXIT_REASON_UNDO,
+  COMBAT_EXIT_REASON_WITHDRAW,
   OFFER_TYPE_ADVANCED_ACTIONS,
   OFFER_TYPE_SPELLS,
   OFFER_TYPE_UNITS,
@@ -285,7 +288,10 @@ export const COMBAT_EXITED = "COMBAT_EXITED" as const;
 export interface CombatExitedEvent {
   readonly type: typeof COMBAT_EXITED;
   readonly playerId: string;
-  readonly reason: "undo" | "withdraw" | "fled";
+  readonly reason:
+    | typeof COMBAT_EXIT_REASON_UNDO
+    | typeof COMBAT_EXIT_REASON_WITHDRAW
+    | typeof COMBAT_EXIT_REASON_FLED;
 }
 
 export function createCombatExitedEvent(
