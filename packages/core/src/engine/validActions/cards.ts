@@ -272,6 +272,7 @@ import {
   EFFECT_GAIN_HEALING,
   EFFECT_DRAW_CARDS,
 } from "../../types/effectTypes.js";
+import { isEffectResolvable } from "../effects/resolveEffect.js";
 
 /**
  * Get playable cards for normal (non-combat) turns.
@@ -295,7 +296,7 @@ export function getPlayableCardsForNormalTurn(
     // Wounds cannot be played
     if (card.cardType === DEED_CARD_TYPE_WOUND) continue;
 
-    const playability = getCardPlayabilityForNormalTurn(card);
+    const playability = getCardPlayabilityForNormalTurn(state, player.id, card);
 
     // Check if the card has a powered effect
     const manaColor = playability.canPlayPowered ? cardColorToManaColor(card.color) : undefined;
@@ -331,23 +332,36 @@ export function getPlayableCardsForNormalTurn(
 
 /**
  * Determine if a card can be played during normal (non-combat) turn.
+ *
+ * An effect is playable if:
+ * 1. It has a useful effect type (move, influence, heal, draw)
+ * 2. The effect is actually resolvable given current game state
+ *    (e.g., draw requires cards in deck, heal requires wounds)
  */
-function getCardPlayabilityForNormalTurn(card: DeedCard): CardPlayability {
-  // Check if basic effect has move, influence, heal, or draw
+function getCardPlayabilityForNormalTurn(
+  state: GameState,
+  playerId: string,
+  card: DeedCard
+): CardPlayability {
+  // Check if basic effect has move, influence, heal, or draw AND is resolvable
   const basicHasUsefulEffect =
     effectHasMove(card.basicEffect) ||
     effectHasInfluence(card.basicEffect) ||
     effectHasHeal(card.basicEffect) ||
     effectHasDraw(card.basicEffect);
 
-  // Check if powered effect has move, influence, heal, or draw
+  const basicIsResolvable = isEffectResolvable(state, playerId, card.basicEffect);
+
+  // Check if powered effect has move, influence, heal, or draw AND is resolvable
   const poweredHasUsefulEffect =
     effectHasMove(card.poweredEffect) ||
     effectHasInfluence(card.poweredEffect) ||
     effectHasHeal(card.poweredEffect) ||
     effectHasDraw(card.poweredEffect);
 
-  // Sideways options for normal turn: move or influence
+  const poweredIsResolvable = isEffectResolvable(state, playerId, card.poweredEffect);
+
+  // Sideways options for normal turn: move or influence (always available)
   const sidewaysOptions: SidewaysOption[] = [];
   if (card.sidewaysValue > 0) {
     sidewaysOptions.push({ as: PLAY_SIDEWAYS_AS_MOVE, value: card.sidewaysValue });
@@ -355,8 +369,8 @@ function getCardPlayabilityForNormalTurn(card: DeedCard): CardPlayability {
   }
 
   return {
-    canPlayBasic: basicHasUsefulEffect,
-    canPlayPowered: poweredHasUsefulEffect,
+    canPlayBasic: basicHasUsefulEffect && basicIsResolvable,
+    canPlayPowered: poweredHasUsefulEffect && poweredIsResolvable,
     canPlaySideways: card.sidewaysValue > 0,
     sidewaysOptions,
   };

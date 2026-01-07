@@ -18,7 +18,7 @@ import {
   MANA_SOURCE_CRYSTAL,
   MANA_SOURCE_TOKEN,
 } from "@mage-knight/shared";
-import { resolveEffect, reverseEffect } from "../effects/resolveEffect.js";
+import { resolveEffect, reverseEffect, isEffectResolvable } from "../effects/resolveEffect.js";
 import { describeEffect } from "../effects/describeEffect.js";
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
 import type { ChoiceEffect } from "../../types/cards.js";
@@ -164,11 +164,61 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       if (effectResult.requiresChoice && effectToApply.type === EFFECT_CHOICE) {
         // Set pending choice on player
         const choiceEffect = effectToApply as ChoiceEffect;
+
+        // Filter options to only include resolvable ones
+        const resolvableOptions = choiceEffect.options.filter((opt) =>
+          isEffectResolvable(newState, params.playerId, opt)
+        );
+
+        // If no options are resolvable, skip the choice entirely
+        if (resolvableOptions.length === 0) {
+          return {
+            state: effectResult.state,
+            events: [
+              {
+                type: CARD_PLAYED,
+                playerId: params.playerId,
+                cardId: params.cardId,
+                powered: isPowered,
+                sideways: false,
+                effect: "No available options",
+              },
+            ],
+          };
+        }
+
+        // If only one option is resolvable, auto-resolve it
+        if (resolvableOptions.length === 1) {
+          const singleOption = resolvableOptions[0];
+          if (!singleOption) {
+            throw new Error("Expected single resolvable option");
+          }
+          const autoResolveResult = resolveEffect(
+            newState,
+            params.playerId,
+            singleOption
+          );
+          return {
+            state: autoResolveResult.state,
+            events: [
+              {
+                type: CARD_PLAYED,
+                playerId: params.playerId,
+                cardId: params.cardId,
+                powered: isPowered,
+                sideways: false,
+                effect: autoResolveResult.description,
+              },
+            ],
+          };
+        }
+
+        // Multiple options available - present choice to player
         const playerWithChoice: Player = {
           ...updatedPlayer,
           pendingChoice: {
             cardId: params.cardId,
-            options: choiceEffect.options,
+            options: resolvableOptions,
           },
         };
 
@@ -191,7 +241,7 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
               type: CHOICE_REQUIRED,
               playerId: params.playerId,
               cardId: params.cardId,
-              options: choiceEffect.options.map((opt) => describeEffect(opt)),
+              options: resolvableOptions.map((opt) => describeEffect(opt)),
             },
           ],
         };

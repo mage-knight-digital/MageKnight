@@ -15,6 +15,7 @@ import type { GameState } from "../../state/GameState.js";
 import type { CardEffect, GainAttackEffect, GainBlockEffect, ScalableBaseEffect } from "../../types/cards.js";
 import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../types/player.js";
 import type { CardId, Element, BlockSource } from "@mage-knight/shared";
+import { CARD_WOUND } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL } from "@mage-knight/shared";
 import {
   EFFECT_GAIN_MOVE,
@@ -22,6 +23,8 @@ import {
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
   EFFECT_GAIN_HEALING,
+  EFFECT_GAIN_MANA,
+  EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
@@ -44,6 +47,63 @@ export interface EffectResolutionResult {
   readonly containsConditional?: boolean;
   /** True if a scaling effect was resolved — affects undo (command should be non-reversible) */
   readonly containsScaling?: boolean;
+}
+
+/**
+ * Check if an effect can actually produce a result given the current game state.
+ * Used to filter out choice options that would be no-ops (e.g., "draw card" when deck is empty).
+ */
+export function isEffectResolvable(
+  state: GameState,
+  playerId: string,
+  effect: CardEffect
+): boolean {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return false;
+
+  switch (effect.type) {
+    case EFFECT_DRAW_CARDS:
+      // Can only draw if there are cards in deck
+      return player.deck.length > 0;
+
+    case EFFECT_GAIN_HEALING: {
+      // Healing is only useful if there are wounds to heal:
+      // - Wound cards in hand
+      // - Wounded units
+      const hasWoundsInHand = player.hand.some((c) => c === CARD_WOUND);
+      const hasWoundedUnits = player.units.some((u) => u.wounded);
+      return hasWoundsInHand || hasWoundedUnits;
+    }
+
+    case EFFECT_COMPOUND:
+      // Compound is resolvable if at least one sub-effect is resolvable
+      return effect.effects.some((e) => isEffectResolvable(state, playerId, e));
+
+    case EFFECT_CHOICE:
+      // Choice is resolvable if at least one option is resolvable
+      return effect.options.some((e) => isEffectResolvable(state, playerId, e));
+
+    case EFFECT_CONDITIONAL:
+      // Conditional is always resolvable (the condition determines which branch)
+      return true;
+
+    case EFFECT_SCALING:
+      // Scaling wraps a base effect, check that
+      return isEffectResolvable(state, playerId, effect.baseEffect);
+
+    // These effects are always resolvable
+    case EFFECT_GAIN_MOVE:
+    case EFFECT_GAIN_INFLUENCE:
+    case EFFECT_GAIN_ATTACK:
+    case EFFECT_GAIN_BLOCK:
+    case EFFECT_GAIN_MANA:
+    case EFFECT_APPLY_MODIFIER:
+      return true;
+
+    default:
+      // Unknown effect types are considered resolvable (fail-safe)
+      return true;
+  }
 }
 
 export function resolveEffect(
@@ -77,6 +137,9 @@ export function resolveEffect(
 
     case EFFECT_GAIN_HEALING:
       return applyGainHealing(state, playerIndex, player, effect.amount);
+
+    case EFFECT_DRAW_CARDS:
+      return applyDrawCards(state, playerIndex, player, effect.amount);
 
     case EFFECT_APPLY_MODIFIER:
       return applyModifierEffect(state, playerId, effect, sourceCardId);
@@ -348,6 +411,39 @@ function applyGainHealing(
   };
 }
 
+function applyDrawCards(
+  state: GameState,
+  playerIndex: number,
+  player: Player,
+  amount: number
+): EffectResolutionResult {
+  const availableInDeck = player.deck.length;
+  const actualDraw = Math.min(amount, availableInDeck);
+
+  if (actualDraw === 0) {
+    return { state, description: "No cards to draw" };
+  }
+
+  // Draw from top of deck to hand (no mid-round reshuffle per rulebook)
+  const drawnCards = player.deck.slice(0, actualDraw);
+  const newDeck = player.deck.slice(actualDraw);
+  const newHand = [...player.hand, ...drawnCards];
+
+  const updatedPlayer: Player = {
+    ...player,
+    deck: newDeck,
+    hand: newHand,
+  };
+
+  const description =
+    actualDraw === 1 ? "Drew 1 card" : `Drew ${actualDraw} cards`;
+
+  return {
+    state: updatePlayer(state, playerIndex, updatedPlayer),
+    description,
+  };
+}
+
 function applyModifierEffect(
   state: GameState,
   playerId: string,
@@ -455,6 +551,12 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
       // Cannot reliably reverse scaling effects — the scaling count may have
       // changed since the effect was applied (enemies defeated, wounds played).
       // Commands containing scaling effects should be marked as non-reversible.
+      return player;
+
+    case EFFECT_DRAW_CARDS:
+      // Drawing cards reveals hidden information (deck contents), so this
+      // effect should be non-reversible. Commands containing draw effects
+      // should create an undo checkpoint (CHECKPOINT_REASON_CARD_DRAWN).
       return player;
 
     default:
