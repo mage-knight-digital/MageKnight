@@ -367,9 +367,12 @@ export function createAssignDamageCommand(
         const isKnockedOut = totalWoundsThisCombat >= updatedPlayer.handLimit;
 
         let finalHand: readonly CardId[] = newHand;
+        let finalDiscard: readonly CardId[] = newDiscard;
         if (isKnockedOut) {
           // Discard all non-wound cards from hand
+          const nonWoundsToDiscard = newHand.filter((cardId) => cardId !== CARD_WOUND);
           finalHand = newHand.filter((cardId) => cardId === CARD_WOUND);
+          finalDiscard = [...newDiscard, ...nonWoundsToDiscard];
           events.push({
             type: PLAYER_KNOCKED_OUT,
             playerId: params.playerId,
@@ -380,7 +383,7 @@ export function createAssignDamageCommand(
         updatedPlayer = {
           ...updatedPlayer,
           hand: finalHand,
-          discard: newDiscard,
+          discard: finalDiscard,
           knockedOut: isKnockedOut,
         };
       }

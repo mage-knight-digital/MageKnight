@@ -31,6 +31,8 @@ import {
   REPUTATION_REASON_ASSAULT,
   ENEMY_GUARDSMEN,
   PLAYER_WITHDREW,
+  TERRAIN_FOREST,
+  PLAYER_KNOCKED_OUT,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
 import type { Site, HexState } from "../../types/map.js";
@@ -887,6 +889,372 @@ describe("Combat Trigger Integration", () => {
       expect(result.state.combat).not.toBeNull();
       expect(result.state.combat?.assaultOrigin).toEqual(originCoord);
       expect(result.state.combat?.isAtFortifiedSite).toBe(true);
+    });
+  });
+
+  describe("Knockout - discards non-wound cards from hand", () => {
+    /**
+     * Per rulebook: "If the number of Wound cards added to your hand during a combat
+     * equals or exceeds your unmodified Hand limit, you are knocked out – immediately
+     * discard all non-Wound cards from your hand."
+     *
+     * This test verifies:
+     * 1. When wounds received in a single combat >= hand limit, knock out triggers
+     * 2. All non-wound cards are discarded from hand immediately
+     * 3. Only wound cards remain in hand after knock out
+     */
+    it("should discard all non-wound cards when knocked out", () => {
+      let state = createTestGameState();
+
+      // Player with 5 cards in hand, hand limit 5, armor 2
+      // Need to take 5+ wounds to knock out
+      // An enemy with attack 10 vs armor 2 = 5 wounds
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        hand: ["march", "rage", "stamina", "swiftness", "promise"], // 5 cards
+        deck: ["concentration"],
+        handLimit: 5,
+        armor: 2,
+      });
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+      };
+
+      // Enter combat with an enemy that deals enough damage for knock out
+      // We'll use two Guardsmen (attack 3 each = 6 total)
+      // But since we're testing a single damage assignment, we need a high-attack enemy
+      // Let's create a combat with an enemy we know the stats for
+      // Guardsmen has attack 3, armor 4
+      // 3 damage / armor 2 = 2 wounds per Guardsmen
+      // Need 3 Guardsmen or a stronger enemy...
+
+      // Actually, let's enter combat manually with multiple enemies
+      let result = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN, ENEMY_GUARDSMEN],
+      });
+      state = result.state;
+
+      // Skip ranged phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Skip block phase (don't block - take all damage)
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Assign damage from first enemy (attack 3 / armor 2 = 2 wounds)
+      result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+      });
+      state = result.state;
+
+      // Check wounds so far (should be 2)
+      expect(state.combat?.woundsThisCombat).toBe(2);
+      expect(state.players[0].knockedOut).toBe(false); // Not knocked out yet
+
+      // Assign damage from second enemy (attack 3 / armor 2 = 2 more wounds = 4 total)
+      result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_1",
+      });
+      state = result.state;
+
+      // Still not knocked out (4 < 5)
+      expect(state.combat?.woundsThisCombat).toBe(4);
+      expect(state.players[0].knockedOut).toBe(false);
+
+      // Hand should still have the original 5 cards + 4 wounds = 9 cards
+      expect(state.players[0].hand.length).toBe(9);
+      expect(state.players[0].hand.filter(c => c === "wound").length).toBe(4);
+    });
+
+    it("should trigger knock out when wounds this combat reach hand limit", () => {
+      let state = createTestGameState();
+
+      // Use a player with hand limit 3 to make knock out easier to trigger
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        hand: ["march", "rage", "stamina"], // 3 cards
+        deck: ["concentration"],
+        handLimit: 3,
+        armor: 1, // Low armor so each attack causes more wounds
+      });
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+      };
+
+      // Enter combat with Guardsmen (attack 3)
+      // 3 damage / armor 1 = 3 wounds = knock out threshold
+      let result = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN],
+      });
+      state = result.state;
+
+      // Skip to damage phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Assign damage (3 wounds will trigger knock out)
+      result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+      });
+
+      const finalPlayer = result.state.players[0];
+
+      // Should be knocked out
+      expect(finalPlayer.knockedOut).toBe(true);
+      expect(result.state.combat?.woundsThisCombat).toBe(3);
+
+      // KEY ASSERTION: Hand should contain ONLY wounds (3 wounds)
+      // All original cards (march, rage, stamina) should be discarded
+      expect(finalPlayer.hand.length).toBe(3);
+      expect(finalPlayer.hand.every(c => c === "wound")).toBe(true);
+
+      // Original cards should be in discard pile
+      expect(finalPlayer.discard).toContain("march");
+      expect(finalPlayer.discard).toContain("rage");
+      expect(finalPlayer.discard).toContain("stamina");
+
+      // Should emit PLAYER_KNOCKED_OUT event
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: PLAYER_KNOCKED_OUT,
+          playerId: "player1",
+          woundsThisCombat: 3,
+        })
+      );
+    });
+  });
+
+  describe("Movement after combat", () => {
+    /**
+     * Helper to create a state with adjacent hexes for movement testing.
+     * Creates a player at (0,0) with an adjacent forest at (1,0) and another at (2,-1).
+     */
+    function createStateWithAdjacentHexes(): GameState {
+      const baseState = createTestGameState();
+      const originHex = baseState.map.hexes[hexKey({ q: 0, r: 0 })];
+
+      // Create adjacent hexes for movement
+      const hex1: HexState = {
+        coord: { q: 1, r: 0 },
+        terrain: TERRAIN_FOREST,
+        tileId: originHex?.tileId ?? ("StartingTileA" as import("../../types/map.js").TileId),
+        site: null,
+        enemies: [],
+        shieldTokens: [],
+        rampagingEnemies: [],
+      };
+      const hex2: HexState = {
+        coord: { q: 2, r: -1 },
+        terrain: TERRAIN_PLAINS,
+        tileId: originHex?.tileId ?? ("StartingTileA" as import("../../types/map.js").TileId),
+        site: null,
+        enemies: [],
+        shieldTokens: [],
+        rampagingEnemies: [],
+      };
+
+      return {
+        ...baseState,
+        map: {
+          ...baseState.map,
+          hexes: {
+            ...baseState.map.hexes,
+            [hexKey(hex1.coord)]: hex1,
+            [hexKey(hex2.coord)]: hex2,
+          },
+        },
+      };
+    }
+
+    it("should NOT allow movement after combat ends (player gets one action per turn)", () => {
+      // This test reproduces the bug: move -> combat -> move should be invalid
+      // Per Mage Knight rules: you get one action per turn (combat OR interaction)
+      // Movement is free before your action, but not after
+      let state = createStateWithAdjacentHexes();
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        movePoints: 10, // Plenty of move points
+        hasCombattedThisTurn: false,
+        hasTakenActionThisTurn: false,
+      });
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+      };
+
+      // Step 1: Move to adjacent hex (1,0)
+      let result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: { q: 1, r: 0 },
+      });
+      expect(result.events).toContainEqual(
+        expect.objectContaining({ type: PLAYER_MOVED })
+      );
+      state = result.state;
+
+      // Step 2: Enter combat (voluntary)
+      result = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN],
+      });
+      expect(result.state.combat).not.toBeNull();
+      state = result.state;
+
+      // Step 3: Skip through combat phases (ranged/siege -> block -> assign damage -> attack)
+      // Ranged/Siege phase - skip
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Block phase - block the enemy (Guardsmen: attack 3, Swift doubles to 6)
+      state = withBlockSources(state, "player1", [{ element: "physical", value: 6 }]);
+      result = engine.processAction(state, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0",
+      });
+      state = result.state;
+
+      // Assign Damage phase - skip (enemy is blocked)
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Attack phase - defeat the enemy
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Defeat enemy
+      result = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+        attacks: [{ element: "physical", value: 10 }],
+        attackType: COMBAT_TYPE_SIEGE,
+      });
+      state = result.state;
+
+      // End attack phase to end combat
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Combat should have ended
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_ENDED,
+          victory: true,
+        })
+      );
+
+      // Step 4: Try to move AGAIN after combat - THIS SHOULD FAIL
+      // Combat is the player's "action" for the turn, so no more movement allowed
+      result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: { q: 2, r: -1 },
+      });
+
+      // Movement after combat should be rejected
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+    });
+
+    it("should set hasTakenActionThisTurn when combat ends", () => {
+      let state = createStateWithAdjacentHexes();
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        hasCombattedThisTurn: false,
+        hasTakenActionThisTurn: false,
+      });
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+      };
+
+      // Enter combat
+      let result = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN],
+      });
+      state = result.state;
+
+      // Skip through combat phases
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Block phase - block the enemy
+      state = withBlockSources(state, "player1", [{ element: "physical", value: 6 }]);
+      result = engine.processAction(state, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0",
+      });
+      state = result.state;
+
+      // Assign Damage phase - skip
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Attack phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Defeat enemy
+      result = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+        attacks: [{ element: "physical", value: 10 }],
+        attackType: COMBAT_TYPE_SIEGE,
+      });
+      state = result.state;
+
+      // End combat
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // hasTakenActionThisTurn should be true after combat
+      const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+      expect(updatedPlayer?.hasTakenActionThisTurn).toBe(true);
     });
   });
 });
