@@ -103,11 +103,16 @@ function getBlockOptions(
     .map((enemy) => {
       const isSwift = enemy.definition.abilities.includes(ABILITY_SWIFT);
       const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
+      // Swift enemies require 2x block
+      const requiredBlock = isSwift
+        ? enemy.definition.attack * 2
+        : enemy.definition.attack;
 
       return {
         enemyInstanceId: enemy.instanceId,
         enemyName: enemy.definition.name,
         enemyAttack: enemy.definition.attack,
+        requiredBlock,
         isSwift,
         isBrutal,
         isBlocked: enemy.isBlocked,

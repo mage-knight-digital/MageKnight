@@ -9,6 +9,7 @@ import type { HexCoord, HexDirection } from "../hex.js";
 import type { CardId, ManaColor, BasicManaColor } from "../ids.js";
 import type { TacticId } from "../tactics.js";
 import type { RestType } from "../actions.js";
+import type { CombatPhase } from "../combatPhases.js";
 import type {
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
@@ -125,7 +126,7 @@ export interface SidewaysOption {
 
 /** Combat options when already in combat */
 export interface CombatOptions {
-  readonly phase: string; // CombatPhase from core
+  readonly phase: CombatPhase;
   readonly canEndPhase: boolean;
 
   /** Attack options (RANGED_SIEGE or ATTACK phase) */
@@ -151,6 +152,7 @@ export interface BlockOption {
   readonly enemyInstanceId: string;
   readonly enemyName: string;
   readonly enemyAttack: number;
+  readonly requiredBlock: number; // Pre-calculated (2x for Swift)
   readonly isSwift: boolean;
   readonly isBrutal: boolean;
   readonly isBlocked: boolean;

@@ -651,6 +651,10 @@ When implementing new features:
 2. **Special units have empty abilities** — Magic Familiars, Sorcerers, Delphana Masters need custom handling
 3. **Some cards are placeholders** — Crystallize, Mana Draw have `drawCards(0)` placeholder effects
 4. **Damage overflow auto-routes** — Should be player choice, currently auto-assigns to hero
+5. **Enemy visibility not tracked** — See [Enemy Visibility & Undo Ticket](tickets/enemy-visibility-and-undo.md). Combat commands are overly restrictive with `isReversible: false` because we don't track whether enemies are face-up or face-down. Affects undo within combat and combat entry reversibility.
+6. **Powered card play without mana selection** — See [Mana Selection Ticket](tickets/mana-selection-for-powered-cards.md). UI shows "Powered" options even when player can't pay mana cost. `validActions.mana` is not implemented (TODO Phase 3). Need mana source UI in combat and filtering of powered options.
+7. **Combat accumulator not displayed** — When cards are played for block/attack, the accumulated values aren't shown in the combat UI. Only enemy blocked count is shown, not total block points accumulated.
+8. **Event log hidden during combat** — Combat modal covers the event log, so error messages like "Powered play requires a mana source" are invisible to the player.
 
 ---
 

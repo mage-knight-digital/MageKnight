@@ -7,6 +7,7 @@ import type { CardId, SkillId, ManaColor } from "./ids.js";
 import type { UnitId } from "./units.js";
 import type { LevelUpType } from "./levels.js";
 import type { TacticId } from "./tactics.js";
+import type { CombatPhase } from "./combatPhases.js";
 import {
   CARD_GAIN_SOURCE_LEVEL_UP,
   CARD_GAIN_SOURCE_OFFER,
@@ -228,8 +229,8 @@ export interface CombatStartedEvent {
 export const COMBAT_PHASE_CHANGED = "COMBAT_PHASE_CHANGED" as const;
 export interface CombatPhaseChangedEvent {
   readonly type: typeof COMBAT_PHASE_CHANGED;
-  readonly previousPhase: string;
-  readonly newPhase: string;
+  readonly previousPhase: CombatPhase;
+  readonly newPhase: CombatPhase;
 }
 
 export const ENEMY_BLOCKED = "ENEMY_BLOCKED" as const;

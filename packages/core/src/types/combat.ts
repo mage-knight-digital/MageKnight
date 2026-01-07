@@ -7,18 +7,22 @@
 import type { EnemyId, EnemyDefinition, HexCoord } from "@mage-knight/shared";
 import { getEnemy } from "@mage-knight/shared";
 import type { CombatType } from "@mage-knight/shared";
+import type { CombatPhase } from "@mage-knight/shared";
+import {
+  COMBAT_PHASE_RANGED_SIEGE,
+  COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_ASSIGN_DAMAGE,
+  COMBAT_PHASE_ATTACK,
+} from "@mage-knight/shared";
 
-// Combat phase constants
-export const COMBAT_PHASE_RANGED_SIEGE = "ranged_siege" as const;
-export const COMBAT_PHASE_BLOCK = "block" as const;
-export const COMBAT_PHASE_ASSIGN_DAMAGE = "assign_damage" as const;
-export const COMBAT_PHASE_ATTACK = "attack" as const;
-
-export type CombatPhase =
-  | typeof COMBAT_PHASE_RANGED_SIEGE
-  | typeof COMBAT_PHASE_BLOCK
-  | typeof COMBAT_PHASE_ASSIGN_DAMAGE
-  | typeof COMBAT_PHASE_ATTACK;
+// Re-export shared combat phases so engine code can continue importing from core.
+export {
+  COMBAT_PHASE_RANGED_SIEGE,
+  COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_ASSIGN_DAMAGE,
+  COMBAT_PHASE_ATTACK,
+};
+export type { CombatPhase };
 
 // Combat attack type (method) - reuses shared CombatType
 export type CombatAttackType = CombatType;

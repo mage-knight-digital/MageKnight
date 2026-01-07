@@ -16,6 +16,12 @@ import {
   FAME_GAINED,
   INVALID_ACTION,
   LEVEL_UP,
+  MANA_BLACK,
+  MANA_BLUE,
+  MANA_GOLD,
+  MANA_GREEN,
+  MANA_RED,
+  MANA_WHITE,
   PLAYER_MOVED,
   TACTIC_SELECTED,
   TILE_EXPLORED,
@@ -159,17 +165,17 @@ function ManaSourcePanel() {
 
 function getManaColor(color: string): string {
   switch (color) {
-    case "red":
+    case MANA_RED:
       return "#e74c3c";
-    case "blue":
+    case MANA_BLUE:
       return "#3498db";
-    case "green":
+    case MANA_GREEN:
       return "#2ecc71";
-    case "white":
+    case MANA_WHITE:
       return "#bdc3c7";
-    case "gold":
+    case MANA_GOLD:
       return "#f39c12";
-    case "black":
+    case MANA_BLACK:
       return "#2c3e50";
     default:
       return "#666";
