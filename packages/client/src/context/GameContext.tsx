@@ -12,7 +12,6 @@ import type {
   GameEvent,
   PlayerAction,
 } from "@mage-knight/shared";
-import { TURN_ENDED } from "@mage-knight/shared";
 
 const PLAYER_ID = "player1";
 
@@ -44,16 +43,8 @@ export function GameProvider({ children, seed }: GameProviderProps) {
 
     // Connect and receive state updates
     server.connect(PLAYER_ID, (newEvents, newState) => {
-      // Accumulate events throughout the turn, clear when turn ends
-      setEvents((prev) => {
-        // Check if any new event is TURN_ENDED - if so, start fresh with just these events
-        const turnEnded = newEvents.some((e) => e.type === TURN_ENDED);
-        if (turnEnded) {
-          return newEvents;
-        }
-        // Otherwise accumulate (oldest at top, newest at bottom)
-        return [...prev, ...newEvents];
-      });
+      // Accumulate all events indefinitely (oldest at top, newest at bottom)
+      setEvents((prev) => [...prev, ...newEvents]);
       setState(newState);
 
       // Expose state for e2e testing (development only)
