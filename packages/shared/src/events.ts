@@ -281,6 +281,24 @@ export interface CombatEndedEvent {
   readonly enemiesSurvived: number;
 }
 
+export const COMBAT_EXITED = "COMBAT_EXITED" as const;
+export interface CombatExitedEvent {
+  readonly type: typeof COMBAT_EXITED;
+  readonly playerId: string;
+  readonly reason: "undo" | "withdraw" | "fled";
+}
+
+export function createCombatExitedEvent(
+  playerId: string,
+  reason: CombatExitedEvent["reason"]
+): CombatExitedEvent {
+  return {
+    type: COMBAT_EXITED,
+    playerId,
+    reason,
+  };
+}
+
 export const PLAYER_KNOCKED_OUT = "PLAYER_KNOCKED_OUT" as const;
 export interface PlayerKnockedOutEvent {
   readonly type: typeof PLAYER_KNOCKED_OUT;
@@ -860,6 +878,7 @@ export type GameEvent =
   | AttackFailedEvent
   | DamageAssignedEvent
   | CombatEndedEvent
+  | CombatExitedEvent
   | PlayerKnockedOutEvent
   | ParalyzeHandDiscardedEvent
   | CombatTriggeredEvent

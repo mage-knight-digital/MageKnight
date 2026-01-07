@@ -85,10 +85,14 @@ export interface MoveCommandParams {
  * at creation time. This ensures undo restores the exact previous state.
  */
 export function createMoveCommand(params: MoveCommandParams): Command {
+  // Track whether this move triggered combat (for undo to clear it)
+  let triggeredCombat = false;
+
   return {
     type: MOVE_COMMAND,
     playerId: params.playerId,
-    isReversible: true, // movement is reversible unless it triggers a reveal
+    // Movement is always reversible - even if it triggers combat, enemies were already visible
+    isReversible: true,
 
     execute(state: GameState): CommandResult {
       // Find player and update position
@@ -177,6 +181,7 @@ export function createMoveCommand(params: MoveCommandParams): Command {
           );
 
           updatedState = { ...updatedState, combat: combatState };
+          triggeredCombat = true;
         }
       }
 
@@ -218,6 +223,7 @@ export function createMoveCommand(params: MoveCommandParams): Command {
           );
 
           updatedState = { ...updatedState, combat: combatState };
+          triggeredCombat = true;
         }
       }
 
@@ -243,18 +249,26 @@ export function createMoveCommand(params: MoveCommandParams): Command {
       if (!player) {
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
+
+      // If this move triggered combat, also undo the combat flag
       const updatedPlayer: Player = {
         ...player,
         position: params.from,
         movePoints: player.movePoints + params.terrainCost,
         hasMovedThisTurn: params.hadMovedThisTurn,
+        hasCombattedThisTurn: triggeredCombat ? false : player.hasCombattedThisTurn,
       };
 
       const updatedPlayers: Player[] = [...state.players];
       updatedPlayers[playerIndex] = updatedPlayer;
 
+      // If this move triggered combat, clear combat state
+      const updatedState: GameState = triggeredCombat
+        ? { ...state, players: updatedPlayers, combat: null }
+        : { ...state, players: updatedPlayers };
+
       return {
-        state: { ...state, players: updatedPlayers },
+        state: updatedState,
         events: [
           createMoveUndoneEvent(params.playerId, params.to, params.from), // reversed
         ],

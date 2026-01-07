@@ -6,6 +6,7 @@
  */
 
 import type { ClientCombatState, CombatOptions } from "@mage-knight/shared";
+import { UNDO_ACTION } from "@mage-knight/shared";
 import { PhaseIndicator } from "./PhaseIndicator";
 import { EnemyList } from "./EnemyList";
 import { CombatSummary } from "./CombatSummary";
@@ -20,7 +21,8 @@ interface CombatOverlayProps {
 
 export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
   const { phase, enemies, woundsThisCombat, fameGained, isAtFortifiedSite } = combat;
-  const { events } = useGame();
+  const { state, events, sendAction } = useGame();
+  const canUndo = state?.validActions.turn?.canUndo ?? false;
 
   return (
     <div className="combat-overlay">
@@ -32,7 +34,19 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
               <span className="combat-overlay__fortified"> (Fortified Site)</span>
             )}
           </h2>
-          <PhaseIndicator phase={phase} />
+          <div className="combat-overlay__header-actions">
+            {canUndo && (
+              <button
+                className="combat-overlay__undo-btn"
+                onClick={() => sendAction({ type: UNDO_ACTION })}
+                data-testid="combat-undo-button"
+                type="button"
+              >
+                Undo
+              </button>
+            )}
+            <PhaseIndicator phase={phase} />
+          </div>
         </div>
 
         <div className="combat-overlay__main">

@@ -583,7 +583,8 @@ body {
 
 .combat-overlay__header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
   border-bottom: 1px solid #333;
   padding-bottom: 1rem;
@@ -599,6 +600,27 @@ body {
 .combat-overlay__fortified {
   font-size: 1rem;
   color: #f39c12;
+}
+
+.combat-overlay__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.combat-overlay__undo-btn {
+  padding: 0.4rem 0.8rem;
+  background: #444;
+  border: 1px solid #666;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.combat-overlay__undo-btn:hover {
+  background: #555;
 }
 
 .combat-overlay__main {

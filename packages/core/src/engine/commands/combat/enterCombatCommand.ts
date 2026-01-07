@@ -5,7 +5,7 @@
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { EnemyId } from "@mage-knight/shared";
-import { COMBAT_STARTED } from "@mage-knight/shared";
+import { COMBAT_STARTED, createCombatExitedEvent } from "@mage-knight/shared";
 import { createCombatState } from "../../../types/combat.js";
 
 export const ENTER_COMBAT_COMMAND = "ENTER_COMBAT" as const;
@@ -22,7 +22,9 @@ export function createEnterCombatCommand(
   return {
     type: ENTER_COMBAT_COMMAND,
     playerId: params.playerId,
-    isReversible: false, // Combat is irreversible once started (enemies revealed)
+    // Entering combat is reversible - enemies were already visible on the map.
+    // Checkpoints happen when new info is revealed (summoner draws, dice rolls, etc.)
+    isReversible: true,
 
     execute(state: GameState): CommandResult {
       const combat = createCombatState(
@@ -47,8 +49,12 @@ export function createEnterCombatCommand(
       };
     },
 
-    undo(_state: GameState): CommandResult {
-      throw new Error("Cannot undo ENTER_COMBAT — enemies have been revealed");
+    undo(state: GameState): CommandResult {
+      // Simply exit combat - enemies go back to map (they were never "drawn")
+      return {
+        state: { ...state, combat: null },
+        events: [createCombatExitedEvent(params.playerId, "undo")],
+      };
     },
   };
 }
