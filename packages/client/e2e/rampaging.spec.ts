@@ -1,11 +1,5 @@
 import { test, expect } from "@playwright/test";
-import {
-  selectTactic,
-  moveToExplorePosition,
-  playCardBasicEffect,
-  endTurn,
-  moveToProvokeRampaging,
-} from "./helpers";
+import { navigateToRampagingCombat } from "./helpers";
 
 /**
  * Rampaging Enemy E2E Tests
@@ -24,28 +18,9 @@ import {
 
 test.describe("Rampaging Enemy Movement", () => {
   test("moving around rampaging enemy triggers combat (provoking)", async ({ page }) => {
-    await page.goto("/?seed=123");
-    await selectTactic(page);
+    await navigateToRampagingCombat(page);
 
-    // Move to explore position (3,-3) over 2 turns
-    await moveToExplorePosition(page);
-
-    // Turn 3: Play march to get +2 move and explore
-    await playCardBasicEffect(page, "march");
-
-    // Click explore ghost to place new tile
-    const exploreGhosts = page.locator('[data-type="explore"]');
-    await expect(exploreGhosts.first()).toBeVisible();
-    await exploreGhosts.first().click();
-    await page.waitForTimeout(500);
-
-    // End turn after exploring
-    await endTurn(page);
-
-    // Turn 4: Move to provoke the rampaging enemy
-    await moveToProvokeRampaging(page);
-
-    // Verify combat was triggered with provoke_rampaging type
+    // Verify combat was triggered
     const combatOverlay = page.locator('[data-testid="combat-overlay"]');
     await expect(combatOverlay).toBeVisible();
   });

@@ -212,3 +212,33 @@ export async function moveToProvokeRampaging(page: Page) {
   const combatOverlay = page.locator('[data-testid="combat-overlay"]');
   await expect(combatOverlay).toBeVisible({ timeout: 3000 });
 }
+
+/**
+ * Full sequence to navigate to rampaging combat from game start
+ * Takes 4 turns:
+ *   Turns 1-2: Move to explore position (3,-3)
+ *   Turn 3: Explore new tile, end turn
+ *   Turn 4: Move to provoke rampaging enemy, triggering combat
+ */
+export async function navigateToRampagingCombat(page: Page, seed = 123) {
+  await page.goto(`/?seed=${seed}`);
+  await selectTactic(page);
+
+  // Move to explore position (3,-3) over 2 turns
+  await moveToExplorePosition(page);
+
+  // Turn 3: Play march to get +2 move and explore
+  await playCardBasicEffect(page, "march");
+
+  // Click explore ghost to place new tile
+  const exploreGhosts = page.locator('[data-type="explore"]');
+  await expect(exploreGhosts.first()).toBeVisible();
+  await exploreGhosts.first().click();
+  await page.waitForTimeout(500);
+
+  // End turn after exploring
+  await endTurn(page);
+
+  // Turn 4: Move to provoke the rampaging enemy
+  await moveToProvokeRampaging(page);
+}
