@@ -11,7 +11,7 @@
  * When tiles connect, they share 3 adjacent hex pairs along their edges.
  */
 
-import type { HexCoord } from "@mage-knight/shared";
+import type { HexCoord, HexDirection } from "@mage-knight/shared";
 import { getNeighbor, HEX_DIRECTIONS } from "@mage-knight/shared";
 import { TILE_PLACEMENT_OFFSETS } from "./tileGrid.js";
 
@@ -65,10 +65,9 @@ export function areHexesAdjacent(a: HexCoord, b: HexCoord): boolean {
 export function canExploreFromPosition(
   playerPos: HexCoord,
   currentTileCenter: HexCoord,
-  direction: string
+  direction: HexDirection
 ): boolean {
   const offset = TILE_PLACEMENT_OFFSETS[direction];
-  if (!offset) return false;
 
   // Calculate where the new tile would be placed
   const newTileCenter: HexCoord = {
@@ -104,8 +103,8 @@ export function canExploreFromPosition(
 export function getExploreDirectionsFromPosition(
   playerPos: HexCoord,
   currentTileCenter: HexCoord,
-  availableDirections: string[]
-): string[] {
+  availableDirections: HexDirection[]
+): HexDirection[] {
   return availableDirections.filter((dir) =>
     canExploreFromPosition(playerPos, currentTileCenter, dir)
   );
@@ -119,10 +118,9 @@ export function getExploreDirectionsFromPosition(
  */
 export function getGatewayHexesForDirection(
   currentTileCenter: HexCoord,
-  direction: string
+  direction: HexDirection
 ): HexCoord[] {
   const offset = TILE_PLACEMENT_OFFSETS[direction];
-  if (!offset) return [];
 
   const newTileCenter: HexCoord = {
     q: currentTileCenter.q + offset.q,

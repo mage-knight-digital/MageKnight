@@ -14,22 +14,12 @@
  * The wedge forms a triangular corridor expanding "northward" (NE/E).
  */
 
-import type { HexCoord, MapShape } from "@mage-knight/shared";
-import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN, hexKey } from "@mage-knight/shared";
+import type { HexCoord, MapShape, HexDirection } from "@mage-knight/shared";
+import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN, hexKey, TILE_PLACEMENT_OFFSETS, HEX_DIRECTIONS } from "@mage-knight/shared";
 import type { TileSlot } from "../../types/map.js";
 
-/**
- * Direction-specific offsets for tile placement.
- * These position tile centers so they connect with exactly 3 adjacent hex pairs.
- */
-export const TILE_PLACEMENT_OFFSETS: Record<string, HexCoord> = {
-  E: { q: 3, r: -1 },
-  NE: { q: 2, r: -3 },
-  NW: { q: -1, r: -2 },
-  W: { q: -3, r: 1 },
-  SW: { q: -2, r: 3 },
-  SE: { q: 1, r: 2 },
-};
+// Re-export TILE_PLACEMENT_OFFSETS from shared for backwards compatibility
+export { TILE_PLACEMENT_OFFSETS };
 
 /**
  * Reverse mapping: given a tile position offset, what direction was it?
@@ -37,11 +27,12 @@ export const TILE_PLACEMENT_OFFSETS: Record<string, HexCoord> = {
 export function getDirectionFromOffset(
   from: HexCoord,
   to: HexCoord
-): string | null {
+): HexDirection | null {
   const dq = to.q - from.q;
   const dr = to.r - from.r;
 
-  for (const [dir, offset] of Object.entries(TILE_PLACEMENT_OFFSETS)) {
+  for (const dir of HEX_DIRECTIONS) {
+    const offset = TILE_PLACEMENT_OFFSETS[dir];
     if (offset.q === dq && offset.r === dr) {
       return dir;
     }
@@ -52,7 +43,7 @@ export function getDirectionFromOffset(
 /**
  * Get the directions that expand the map for a given map shape.
  */
-export function getExpansionDirections(mapShape: MapShape): string[] {
+export function getExpansionDirections(mapShape: MapShape): HexDirection[] {
   switch (mapShape) {
     case MAP_SHAPE_WEDGE:
       // Wedge expands via NE and E only (rightward triangle)
@@ -81,7 +72,7 @@ export function generateWedgeSlots(maxRows: number): Map<string, TileSlot> {
     filled: false,
   });
 
-  const expandDirs = ["NE", "E"];
+  const expandDirs: HexDirection[] = ["NE", "E"];
 
   // Generate slots for each row
   for (let row = 0; row < maxRows; row++) {
@@ -90,7 +81,6 @@ export function generateWedgeSlots(maxRows: number): Map<string, TileSlot> {
     for (const slot of currentRowSlots) {
       for (const dir of expandDirs) {
         const offset = TILE_PLACEMENT_OFFSETS[dir];
-        if (!offset) continue;
 
         const newCoord: HexCoord = {
           q: slot.coord.q + offset.q,
@@ -175,13 +165,12 @@ export function getValidExploreDirectionsForShape(
   fromTileCenter: HexCoord,
   mapShape: MapShape,
   slots: Map<string, TileSlot>
-): string[] {
+): HexDirection[] {
   const expansionDirs = getExpansionDirections(mapShape);
-  const validDirs: string[] = [];
+  const validDirs: HexDirection[] = [];
 
   for (const dir of expansionDirs) {
     const offset = TILE_PLACEMENT_OFFSETS[dir];
-    if (!offset) continue;
 
     const targetCoord: HexCoord = {
       q: fromTileCenter.q + offset.q,
@@ -255,7 +244,6 @@ export function getExplorableSlotsFromTile(
 
   for (const dir of validDirs) {
     const offset = TILE_PLACEMENT_OFFSETS[dir];
-    if (!offset) continue;
 
     const targetCoord: HexCoord = {
       q: tileCenter.q + offset.q,

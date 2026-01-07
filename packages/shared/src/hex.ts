@@ -59,8 +59,8 @@ export function getAllNeighbors(coord: HexCoord): HexCoord[] {
  * Used for calculating where new tiles will be placed when exploring.
  */
 export const TILE_PLACEMENT_OFFSETS: Record<HexDirection, HexCoord> = {
-  E: { q: 3, r: -1 },
-  NE: { q: 2, r: -3 },
+  E: { q: 3, r: -2 },
+  NE: { q: 1, r: -3 },
   NW: { q: -1, r: -2 },
   W: { q: -3, r: 1 },
   SW: { q: -2, r: 3 },

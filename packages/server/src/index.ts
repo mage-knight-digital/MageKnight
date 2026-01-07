@@ -35,6 +35,7 @@ import {
   createUnitDecksAndOffer,
 } from "@mage-knight/core";
 import type { HexCoord } from "@mage-knight/shared";
+import { TILE_PLACEMENT_OFFSETS } from "@mage-knight/shared";
 import {
   LocalConnection,
   type GameConnection,
@@ -412,8 +413,8 @@ export class GameServer {
     // Tiles connect with 3 adjacent hex pairs (not overlapping)
     // Offsets match TILE_PLACEMENT_OFFSETS in explore/index.ts
     const initialTilePositions: HexCoord[] = [
-      { q: 2, r: -3 }, // NE direction: tiles touch along 3 edges
-      { q: 3, r: -1 }, // E direction: tiles touch along 3 edges
+      TILE_PLACEMENT_OFFSETS.NE, // NE direction: tiles touch along 3 edges
+      TILE_PLACEMENT_OFFSETS.E,  // E direction: tiles touch along 3 edges
     ];
 
     let currentDeck: TileDeck = initialDeck;

@@ -92,7 +92,6 @@ export function getValidExploreOptions(
 
     for (const dir of expansionDirections) {
       const offset = TILE_PLACEMENT_OFFSETS[dir];
-      if (!offset) continue;
 
       // Calculate where a new tile would be placed from this tile
       const targetSlotCoord: HexCoord = {

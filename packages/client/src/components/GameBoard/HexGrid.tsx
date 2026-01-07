@@ -11,6 +11,9 @@ import { useMyPlayer } from "../../hooks/useMyPlayer";
 
 const HEX_SIZE = 50; // pixels from center to corner
 
+// Debug toggle for tile corner symbols (C/S alternating)
+const SHOW_TILE_CORNER_SYMBOLS = true;
+
 // Terrain to color mapping
 const TERRAIN_COLORS: Record<string, string> = {
   plains: "#90EE90",
@@ -55,6 +58,181 @@ function hexPoints(size: number): string {
       return `${size * Math.cos(angle)},${size * Math.sin(angle)}`;
     })
     .join(" ");
+}
+
+/**
+ * Get the 6 corner positions for a tile's flower pattern.
+ *
+ * Starting from the W (left) hex's SW vertex and going clockwise:
+ *   Corner 0: W hex, SW vertex -> Star
+ *   Corner 1: W hex, NW vertex -> Circle
+ *   Corner 2: NW hex, top vertex -> Star
+ *   Corner 3: NE hex, top vertex -> Circle
+ *   Corner 4: E hex, NE vertex -> Star
+ *   Corner 5: E hex, SE vertex -> Circle
+ *   (continues to SE hex, SW hex...)
+ *
+ * Each outer hex contributes its outward-facing vertex to the tile boundary.
+ */
+function getTileCornerPositions(tileCenter: HexCoord): { x: number; y: number; symbol: string }[] {
+  const corners: { x: number; y: number; symbol: string }[] = [];
+
+  // Define each corner by: which outer hex it's on, and which vertex of that hex
+  // Outer hex offsets: W(-1,0), NW(0,-1), NE(1,-1), E(1,0), SE(0,1), SW(-1,1)
+  // Vertex angles for pointy-top hex (from hex center):
+  //   top=-90°, top-right=-30°, bottom-right=30°, bottom=90°, bottom-left=150°, top-left=-150°(210°)
+
+  // 6 tile corners, each defined by which outer hex and which vertex
+  // Going clockwise from W hex's SW corner (per second agent's analysis):
+  //   W hex: 150° (bottom-left) -> Star - SW corner of tile
+  //   NW hex: -90°/270° (top) -> Circle - North corner of tile
+  //   NE hex: -30°/330° (top-right) -> Star - NE corner of tile
+  //   E hex: 30° (bottom-right) -> Circle - SE corner of tile
+  //   SE hex: 90° (bottom) -> Star - South corner of tile
+  //   SW hex: 210° (top-left) -> Circle - NW corner of tile
+
+  // Verified vertex angles for our pointy-top hexes:
+  //   North (top): 270°
+  //   NE (top-right): -30°
+  //   SE (bottom-right): 30°
+  //   South (bottom): 90°
+  //   SW (bottom-left): 150°
+  //   NW (top-left): 210°
+
+  // Corner 1: W hex's SW vertex (150°) - Star
+  const wHexCenter = hexToPixel({
+    q: tileCenter.q + (-1),  // W hex
+    r: tileCenter.r + 0
+  });
+  corners.push({
+    x: wHexCenter.x + HEX_SIZE * Math.cos((150 * Math.PI) / 180),
+    y: wHexCenter.y + HEX_SIZE * Math.sin((150 * Math.PI) / 180),
+    symbol: "S",
+  });
+
+  // Corner 2: NW hex's NW vertex (210°) - Circle
+  const nwHexCenter = hexToPixel({
+    q: tileCenter.q + 0,   // NW hex
+    r: tileCenter.r + (-1)
+  });
+  corners.push({
+    x: nwHexCenter.x + HEX_SIZE * Math.cos((210 * Math.PI) / 180),
+    y: nwHexCenter.y + HEX_SIZE * Math.sin((210 * Math.PI) / 180),
+    symbol: "C",
+  });
+
+  // Corner 3: NE hex's North vertex (270°) - Star
+  const neHexCenter = hexToPixel({
+    q: tileCenter.q + 1,   // NE hex
+    r: tileCenter.r + (-1)
+  });
+  corners.push({
+    x: neHexCenter.x + HEX_SIZE * Math.cos((270 * Math.PI) / 180),
+    y: neHexCenter.y + HEX_SIZE * Math.sin((270 * Math.PI) / 180),
+    symbol: "S",
+  });
+
+  // Corner 4: E hex's NE vertex (-30°) - Circle
+  const eHexCenter = hexToPixel({
+    q: tileCenter.q + 1,   // E hex
+    r: tileCenter.r + 0
+  });
+  corners.push({
+    x: eHexCenter.x + HEX_SIZE * Math.cos((-30 * Math.PI) / 180),
+    y: eHexCenter.y + HEX_SIZE * Math.sin((-30 * Math.PI) / 180),
+    symbol: "C",
+  });
+
+  // Corner 5: SE hex's SE vertex (30°) - Star
+  const seHexCenter = hexToPixel({
+    q: tileCenter.q + 0,   // SE hex
+    r: tileCenter.r + 1
+  });
+  corners.push({
+    x: seHexCenter.x + HEX_SIZE * Math.cos((30 * Math.PI) / 180),
+    y: seHexCenter.y + HEX_SIZE * Math.sin((30 * Math.PI) / 180),
+    symbol: "S",
+  });
+
+  // Corner 6: SW hex's South vertex (90°) - Circle
+  const swHexCenter = hexToPixel({
+    q: tileCenter.q + (-1),   // SW hex
+    r: tileCenter.r + 1
+  });
+  corners.push({
+    x: swHexCenter.x + HEX_SIZE * Math.cos((90 * Math.PI) / 180),
+    y: swHexCenter.y + HEX_SIZE * Math.sin((90 * Math.PI) / 180),
+    symbol: "C",
+  });
+
+  return corners;
+}
+
+interface TileCornerSymbolsProps {
+  tileCenter: HexCoord;
+  tileId: string;
+}
+
+/**
+ * Debug overlay showing C/S corner symbols for a tile.
+ * Shows smaller half-circles to simulate the half-symbols on physical tiles.
+ * When tiles are correctly aligned, adjacent halves should overlap.
+ */
+function TileCornerSymbols({ tileCenter, tileId }: TileCornerSymbolsProps) {
+  const corners = getTileCornerPositions(tileCenter);
+  const centerPixel = hexToPixel(tileCenter);
+
+  return (
+    <g className="tile-corner-symbols">
+      {/* Tile ID label at center */}
+      <text
+        x={centerPixel.x}
+        y={centerPixel.y}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#FFF"
+        fontSize="10"
+        fontWeight="bold"
+        stroke="#000"
+        strokeWidth="0.5"
+        style={{ pointerEvents: "none" }}
+      >
+        {tileId}
+      </text>
+      {corners.map((corner, i) => {
+        // Calculate angle from tile center to this corner (for half-circle orientation)
+        const dx = corner.x - centerPixel.x;
+        const dy = corner.y - centerPixel.y;
+        const angleToCenter = Math.atan2(dy, dx) * (180 / Math.PI);
+
+        return (
+          <g key={i} transform={`translate(${corner.x},${corner.y})`}>
+            {/* Half-circle facing inward toward tile center (where adjacent tile connects) */}
+            <g transform={`rotate(${angleToCenter - 90})`}>
+              <path
+                d="M -8 0 A 8 8 0 0 1 8 0 Z"
+                fill={corner.symbol === "C" ? "#8B4513" : "#FFD700"}
+                stroke="#000"
+                strokeWidth="1"
+                opacity="0.9"
+              />
+            </g>
+            {/* Symbol letter */}
+            <text
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill={corner.symbol === "C" ? "#FFF" : "#000"}
+              fontSize="8"
+              fontWeight="bold"
+              style={{ pointerEvents: "none" }}
+            >
+              {corner.symbol}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
 }
 
 interface ExploreTarget {
@@ -297,6 +475,16 @@ export function HexGrid() {
           onClick={() => handleExploreClick(target)}
         />
       ))}
+
+      {/* Debug: Render tile corner symbols (C/S) and tile IDs */}
+      {SHOW_TILE_CORNER_SYMBOLS &&
+        state.map.tiles.map((tile) => (
+          <TileCornerSymbols
+            key={`corners-${tile.centerCoord.q},${tile.centerCoord.r}`}
+            tileCenter={tile.centerCoord}
+            tileId={tile.tileId}
+          />
+        ))}
     </svg>
   );
 }
