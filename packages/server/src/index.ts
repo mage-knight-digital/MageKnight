@@ -444,10 +444,11 @@ export class GameServer {
           currentRng = rng;
 
           // Update hex with drawn enemies
+          // NOTE: Preserve rampagingEnemies marker - it's needed for movement validation
+          // (validateNotBlockedByRampaging checks BOTH rampagingEnemies.length > 0 AND enemies.length > 0)
           hexes[key] = {
             ...hex,
             enemies: enemies,
-            rampagingEnemies: [], // Clear rampaging since we've drawn enemies for them
           };
         }
 

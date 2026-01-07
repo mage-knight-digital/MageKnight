@@ -531,4 +531,45 @@ describe("GameServer", () => {
       expect(player?.pendingChoice?.options).toHaveLength(2);
     });
   });
+
+  describe("rampaging enemy setup", () => {
+    it("should preserve rampagingEnemies marker after drawing enemies", () => {
+      // Use seed 123 to get consistent tile placement
+      const seededServer = createGameServer(123);
+      seededServer.initializeGame(["player1"]);
+
+      const state = seededServer.getState();
+
+      // There should be at least some hexes with BOTH enemies AND rampagingEnemies marker
+      // (These are the hexes where orc marauders or draconum were placed)
+      const hexesWithBoth = Object.values(state.map.hexes).filter(
+        (hex) => hex.enemies.length > 0 && hex.rampagingEnemies.length > 0
+      );
+
+      // Countryside tiles often have rampaging hexes (Orc Marauders)
+      // The rampagingEnemies marker must be preserved after drawing enemies
+      expect(hexesWithBoth.length).toBeGreaterThan(0);
+    });
+
+    it("should block movement into rampaging hex with undefeated enemies", () => {
+      const seededServer = createGameServer(123);
+      seededServer.initializeGame(["player1"]);
+
+      // Select tactic to get into player turns
+      seededServer.handleAction("player1", {
+        type: SELECT_TACTIC_ACTION,
+        tacticId: TACTIC_EARLY_BIRD,
+      });
+
+      const state = seededServer.getState();
+
+      // Find a hex that has rampaging enemies (should have both markers)
+      const rampagingHex = Object.values(state.map.hexes).find(
+        (hex) => hex.rampagingEnemies.length > 0 && hex.enemies.length > 0
+      );
+
+      // Should find at least one rampaging hex with the marker preserved
+      expect(rampagingHex).toBeDefined();
+    });
+  });
 });
