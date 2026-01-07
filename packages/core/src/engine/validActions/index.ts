@@ -19,6 +19,7 @@ import { getValidExploreOptions } from "./exploration.js";
 import { getCombatOptions } from "./combat.js";
 import { getPlayableCardsForCombat, getPlayableCardsForNormalTurn } from "./cards.js";
 import { getManaOptions } from "./mana.js";
+import { getUnitOptions } from "./units.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -34,10 +35,11 @@ export {
 // Re-export turn options
 export { getTurnOptions } from "./turn.js";
 
-// Re-export movement, exploration, and combat
+// Re-export movement, exploration, combat, and units
 export { getValidMoveTargets } from "./movement.js";
 export { getValidExploreOptions } from "./exploration.js";
 export { getCombatOptions } from "./combat.js";
+export { getUnitOptions } from "./units.js";
 
 /**
  * Compute all valid actions for a player.
@@ -153,7 +155,7 @@ export function getValidActions(
     explore: getValidExploreOptions(state, player),
     playCard: playCardOptions.cards.length > 0 ? playCardOptions : undefined,
     combat: undefined,
-    units: undefined, // TODO Phase 6: getUnitOptions(state, player)
+    units: getUnitOptions(state, player),
     sites: undefined, // TODO Phase 6: getSiteOptions(state, player)
     mana: manaOptions,
     turn: getTurnOptions(state, player),

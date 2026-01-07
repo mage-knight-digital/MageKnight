@@ -9,6 +9,7 @@
  * - Mana source reset (reroll all dice)
  * - Ready all units (including wounded)
  * - Reshuffle all players' cards and draw fresh hands
+ * - Refresh unit offer
  * - Start new round event
  *
  * Rulebook: "If the Round ends during this [final turns], the game ends immediately."
@@ -31,12 +32,28 @@ import {
   GAME_ENDED,
   ROUND_PHASE_TACTICS_SELECTION,
   getTacticsForTimeOfDay,
+  OFFER_REFRESHED,
+  OFFER_TYPE_UNITS,
 } from "@mage-knight/shared";
 import { createManaSource } from "../mana/manaSource.js";
 import { readyAllUnits } from "../../types/unit.js";
 import { shuffleWithRng, type RngState } from "../../utils/index.js";
 import { END_ROUND_COMMAND } from "./commandTypes.js";
 import { getEffectiveHandLimit } from "../helpers/handLimitHelpers.js";
+import { refreshUnitOffer } from "../../data/unitDeckSetup.js";
+
+/**
+ * Check if any core tile has been revealed on the map.
+ * Core tiles have IDs starting with "core_" or are in the Core* enum values.
+ */
+function hasCoreTileRevealed(state: GameState): boolean {
+  for (const tile of state.map.tiles) {
+    if (tile.revealed && tile.tileId.startsWith("core_")) {
+      return true;
+    }
+  }
+  return false;
+}
 
 export { END_ROUND_COMMAND };
 
@@ -118,8 +135,28 @@ export function createEndRoundCommand(): Command {
         diceCount: newSource.dice.length,
       });
 
-      // 4. Process each player
-      let currentRng: RngState = rngAfterSource;
+      // 4. Refresh unit offer
+      const coreTileRevealed = hasCoreTileRevealed(state);
+      const {
+        decks: refreshedDecks,
+        unitOffer: refreshedUnitOffer,
+        rng: rngAfterUnitRefresh,
+      } = refreshUnitOffer(
+        state.offers.units,
+        state.decks,
+        playerCount,
+        coreTileRevealed,
+        state.scenarioConfig.eliteUnitsEnabled,
+        rngAfterSource
+      );
+
+      events.push({
+        type: OFFER_REFRESHED,
+        offerType: OFFER_TYPE_UNITS,
+      });
+
+      // 5. Process each player
+      let currentRng: RngState = rngAfterUnitRefresh;
       const updatedPlayers: Player[] = [];
 
       for (const player of state.players) {
@@ -225,6 +262,12 @@ export function createEndRoundCommand(): Command {
           source: newSource,
           players: updatedPlayers,
           rng: currentRng,
+          // Updated decks and offers from unit refresh
+          decks: refreshedDecks,
+          offers: {
+            ...state.offers,
+            units: refreshedUnitOffer,
+          },
           // Reset round-end tracking
           endOfRoundAnnouncedBy: null,
           playersWithFinalTurn: [],

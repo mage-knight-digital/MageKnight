@@ -1,5 +1,10 @@
 /**
  * Recruit unit command
+ *
+ * Handles recruiting a unit from the offer:
+ * - Deducts influence points from the player
+ * - Removes the unit from the offer (does NOT replenish until next round)
+ * - Adds the unit to the player's units
  */
 
 import type { Command, CommandResult } from "../../commands.js";
@@ -7,6 +12,7 @@ import type { GameState } from "../../../state/GameState.js";
 import type { UnitId, GameEvent } from "@mage-knight/shared";
 import { UNIT_RECRUITED } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../../types/unit.js";
+import { removeUnitFromOffer } from "../../../data/unitDeckSetup.js";
 
 export const RECRUIT_UNIT_COMMAND = "RECRUIT_UNIT" as const;
 
@@ -31,6 +37,10 @@ export function createRecruitUnitCommand(
   // Capture the instance ID at creation time for undo support
   const instanceId = `unit_${++unitInstanceCounter}`;
 
+  // Store previous offer for undo
+  let previousOffer: readonly UnitId[] = [];
+  let previousInfluence = 0;
+
   return {
     type: RECRUIT_UNIT_COMMAND,
     playerId: params.playerId,
@@ -49,17 +59,30 @@ export function createRecruitUnitCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
+      // Store previous state for undo
+      previousOffer = state.offers.units;
+      previousInfluence = player.influencePoints;
+
       // Create new unit instance
       const newUnit = createPlayerUnit(params.unitId, instanceId);
 
+      // Update player: add unit, deduct influence
       const updatedPlayer = {
         ...player,
         units: [...player.units, newUnit],
+        influencePoints: player.influencePoints - params.influenceSpent,
       };
 
       const players = state.players.map((p, i) =>
         i === playerIndex ? updatedPlayer : p
       );
+
+      // Remove unit from offer (does NOT replenish until next round)
+      const updatedOffer = removeUnitFromOffer(params.unitId, state.offers.units);
+      const updatedOffers = {
+        ...state.offers,
+        units: updatedOffer,
+      };
 
       const events: GameEvent[] = [
         {
@@ -72,7 +95,7 @@ export function createRecruitUnitCommand(
       ];
 
       return {
-        state: { ...state, players },
+        state: { ...state, players, offers: updatedOffers },
         events,
       };
     },
@@ -90,22 +113,30 @@ export function createRecruitUnitCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
-      // Remove the last recruited unit (matching by instanceId for safety)
+      // Remove the recruited unit (matching by instanceId for safety)
       const updatedUnits = player.units.filter(
         (u) => u.instanceId !== instanceId
       );
 
+      // Restore previous influence
       const updatedPlayer = {
         ...player,
         units: updatedUnits,
+        influencePoints: previousInfluence,
       };
 
       const players = state.players.map((p, i) =>
         i === playerIndex ? updatedPlayer : p
       );
 
+      // Restore previous offer
+      const updatedOffers = {
+        ...state.offers,
+        units: previousOffer,
+      };
+
       return {
-        state: { ...state, players },
+        state: { ...state, players, offers: updatedOffers },
         events: [],
       };
     },

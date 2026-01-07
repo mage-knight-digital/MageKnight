@@ -3,6 +3,7 @@
  *
  * Shows all units available for recruitment from the unit offer.
  * Uses UNITS from shared to look up full unit definitions.
+ * Shows recruit buttons when player is at a valid recruitment site.
  */
 
 import { useGame } from "../../hooks/useGame";
@@ -16,8 +17,10 @@ import {
   UNIT_ABILITY_MOVE,
   UNIT_ABILITY_INFLUENCE,
   UNIT_ABILITY_HEAL,
+  RECRUIT_UNIT_ACTION,
   type UnitId,
   type UnitAbility,
+  type RecruitableUnit,
 } from "@mage-knight/shared";
 
 function formatAbility(ability: UnitAbility): string {
@@ -46,9 +49,11 @@ function formatAbility(ability: UnitAbility): string {
 
 interface UnitCardProps {
   unitId: UnitId;
+  recruitInfo?: RecruitableUnit;
+  onRecruit?: (unitId: string, cost: number) => void;
 }
 
-function UnitCard({ unitId }: UnitCardProps) {
+function UnitCard({ unitId, recruitInfo, onRecruit }: UnitCardProps) {
   const unit = UNITS[unitId];
 
   if (!unit) {
@@ -57,6 +62,13 @@ function UnitCard({ unitId }: UnitCardProps) {
 
   const isElite = unit.type === UNIT_TYPE_ELITE;
   const recruitSites = unit.recruitSites.map((s) => s.replace(/_/g, " ")).join(", ");
+  const canRecruit = recruitInfo?.canAfford ?? false;
+
+  const handleRecruit = () => {
+    if (canRecruit && recruitInfo && onRecruit) {
+      onRecruit(recruitInfo.unitId, recruitInfo.cost);
+    }
+  };
 
   return (
     <div
@@ -99,7 +111,7 @@ function UnitCard({ unitId }: UnitCardProps) {
             fontWeight: 600,
           }}
         >
-          {unit.influence}
+          {recruitInfo ? recruitInfo.cost : unit.influence}
         </span>
       </div>
 
@@ -183,16 +195,57 @@ function UnitCard({ unitId }: UnitCardProps) {
       <div style={{ fontSize: "0.6rem", color: "#666" }}>
         Recruit: {recruitSites}
       </div>
+
+      {/* Recruit Button - only show when at valid site */}
+      {recruitInfo && (
+        <button
+          onClick={handleRecruit}
+          disabled={!canRecruit}
+          style={{
+            marginTop: "0.5rem",
+            width: "100%",
+            padding: "0.375rem 0.5rem",
+            fontSize: "0.75rem",
+            fontWeight: 600,
+            border: "none",
+            borderRadius: "4px",
+            cursor: canRecruit ? "pointer" : "not-allowed",
+            background: canRecruit ? "#27ae60" : "#555",
+            color: canRecruit ? "#fff" : "#888",
+            transition: "background 0.2s",
+          }}
+        >
+          {canRecruit
+            ? `Recruit (${recruitInfo.cost} Influence)`
+            : `Need ${recruitInfo.cost} Influence`}
+        </button>
+      )}
     </div>
   );
 }
 
 export function UnitOfferPanel() {
-  const { state } = useGame();
+  const { state, sendAction } = useGame();
 
   if (!state) return null;
 
   const unitOffer = state.offers.units;
+  const recruitableUnits = state.validActions?.units?.recruitable ?? [];
+
+  // Build a lookup map for recruitable units by unitId
+  // Note: multiple copies of same unit in offer need to be handled
+  const recruitableMap = new Map<string, RecruitableUnit>();
+  for (const recruitInfo of recruitableUnits) {
+    recruitableMap.set(recruitInfo.unitId, recruitInfo);
+  }
+
+  const handleRecruit = (unitId: string, cost: number) => {
+    sendAction({
+      type: RECRUIT_UNIT_ACTION,
+      unitId: unitId as UnitId,
+      influenceSpent: cost,
+    });
+  };
 
   return (
     <div className="panel">
@@ -211,7 +264,12 @@ export function UnitOfferPanel() {
           </div>
         ) : (
           unitOffer.map((unitId, index) => (
-            <UnitCard key={`${unitId}-${index}`} unitId={unitId} />
+            <UnitCard
+              key={`${unitId}-${index}`}
+              unitId={unitId}
+              recruitInfo={recruitableMap.get(unitId)}
+              onRecruit={handleRecruit}
+            />
           ))
         )}
       </div>
