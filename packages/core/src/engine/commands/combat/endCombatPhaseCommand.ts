@@ -136,6 +136,7 @@ export function createEndCombatPhaseCommand(
                 ...currentPlayer,
                 position: state.combat.assaultOrigin,
                 hasCombattedThisTurn: true,
+                hasTakenActionThisTurn: true,
               };
               const updatedPlayers: Player[] = [...newState.players];
               updatedPlayers[playerIndex] = updatedPlayer;
@@ -159,6 +160,7 @@ export function createEndCombatPhaseCommand(
               const updatedPlayer: Player = {
                 ...currentPlayer,
                 hasCombattedThisTurn: true,
+                hasTakenActionThisTurn: true,
               };
               const updatedPlayers: Player[] = [...newState.players];
               updatedPlayers[playerIndex] = updatedPlayer;
