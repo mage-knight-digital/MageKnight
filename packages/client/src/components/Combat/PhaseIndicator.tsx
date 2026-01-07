@@ -17,13 +17,14 @@ interface PhaseIndicatorProps {
 
 export function PhaseIndicator({ phase }: PhaseIndicatorProps) {
   return (
-    <div className="combat-phase-indicator">
+    <div className="combat-phase-indicator" data-testid="combat-phase-indicator">
       <div className="combat-phase-indicator__label">Combat Phase</div>
       <div className="combat-phase-indicator__steps">
         {PHASE_ORDER.map((p) => (
           <div
             key={p}
             className={`combat-phase-indicator__step ${p === phase ? "combat-phase-indicator__step--active" : ""}`}
+            data-testid={p === phase ? "active-combat-phase" : `combat-phase-${p}`}
           >
             {PHASE_LABELS[p]}
           </div>

@@ -57,6 +57,7 @@ export function ActionBar() {
           disabled={!isMyTurn || !canUndo}
           type="button"
           title="Undo last action (Ctrl+Z)"
+          data-testid="undo-btn"
         >
           Undo
         </button>
@@ -65,6 +66,7 @@ export function ActionBar() {
           onClick={handleEndTurn}
           disabled={!isMyTurn || !hasTactic}
           type="button"
+          data-testid="end-turn-btn"
         >
           End Turn
         </button>

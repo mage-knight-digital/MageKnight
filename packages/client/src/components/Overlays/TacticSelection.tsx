@@ -31,7 +31,12 @@ interface TacticCardProps {
 
 function TacticCard({ tacticId, onClick }: TacticCardProps) {
   return (
-    <button className="tactic-card" onClick={onClick} type="button">
+    <button
+      className="tactic-card"
+      onClick={onClick}
+      type="button"
+      data-testid={`tactic-card-${tacticId}`}
+    >
       <img
         src={getTacticImageUrl(tacticId)}
         alt={TACTIC_NAMES[tacticId]}
@@ -63,7 +68,7 @@ export function TacticSelection() {
   return (
     <div className="overlay">
       <div className="overlay__content tactic-selection">
-        <h2 className="tactic-selection__title">
+        <h2 className="tactic-selection__title" data-testid="tactic-selection-title">
           Select Your Tactic ({state.timeOfDay === "day" ? "Day" : "Night"} Round {state.round})
         </h2>
         <p className="tactic-selection__subtitle">

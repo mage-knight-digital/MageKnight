@@ -25,9 +25,9 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
   const canUndo = state?.validActions.turn?.canUndo ?? false;
 
   return (
-    <div className="combat-overlay">
+    <div className="combat-overlay" data-testid="combat-overlay">
       <div className="combat-overlay__content">
-        <div className="combat-overlay__header">
+        <div className="combat-overlay__header" data-testid="combat-overlay-header">
           <h2 className="combat-overlay__title">
             Combat
             {isAtFortifiedSite && (

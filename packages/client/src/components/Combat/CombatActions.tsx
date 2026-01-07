@@ -43,6 +43,7 @@ export function CombatActions({ combatOptions }: CombatActionsProps) {
           onClick={handleEndPhase}
           disabled={!canEndPhase}
           type="button"
+          data-testid="end-combat-phase-btn"
         >
           {PHASE_ACTION_LABELS[phase] || "End Phase"}
         </button>
