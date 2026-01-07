@@ -136,7 +136,13 @@ packages/
 | Feature | Location | Notes |
 |---------|----------|-------|
 | Unit definitions | `shared/src/units.ts` | All regular + elite units |
-| Recruit units | `core/src/engine/commands/units/recruitUnitCommand.ts` | Spend influence |
+| Unit deck initialization | `core/src/data/unitDeckSetup.ts` | Regular/Elite deck setup |
+| Unit offer population | `endRoundCommand.ts` | Elite/Regular alternating after core tile |
+| Recruit units | `core/src/engine/commands/units/recruitUnitCommand.ts` | Spend influence, remove from offer |
+| Recruitment validation | `core/src/engine/validActions/units.ts` | Site type, ownership, affordability |
+| Reputation cost modifier | Same | -7 to +7 cost adjustment |
+| Site-specific filtering | Same | Only units matching site type shown |
+| Undo recruitment | `recruitUnitCommand.ts` | Restores offer, influence |
 | Command slots | `core/src/types/player.ts` | Limit from level |
 | Unit states | `core/src/types/unit.ts` | ready/spent/wounded |
 | Damage absorption | `combat/assignDamageCommand.ts` | Armor reduces damage |

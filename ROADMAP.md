@@ -46,10 +46,10 @@ This roadmap tracks the path from current state to a fully playable, polished Ma
 | Site | Status | Notes |
 |------|--------|-------|
 | Village (heal) | Done | 3 influence = 1 healing |
-| Village (recruit) | Done | At inhabited sites |
+| Village (recruit) | Done | Site-specific filtering, reputation modifier |
 | Village (plunder) | Not Started | Reputation penalty mechanic |
 | Monastery (heal) | Done | 2 influence = 1 healing |
-| Monastery (recruit) | Done | At inhabited sites |
+| Monastery (recruit) | Done | Site-specific filtering, reputation modifier |
 | Monastery (buy AA) | Not Started | Advanced action offer |
 | Monastery (burn) | Not Started | Reputation mechanic |
 | Keep (assault, own) | Done | Conquest and ownership |
@@ -92,7 +92,9 @@ This roadmap tracks the path from current state to a fully playable, polished Ma
 | Task | Status | Notes |
 |------|--------|-------|
 | Unit definitions (all) | Done | 10 regular + 6 elite |
-| Unit recruitment | Done | At inhabited sites |
+| Unit deck initialization | Done | Regular/Elite decks setup |
+| Unit offer population | Done | Elite/Regular alternating after core tile |
+| Unit recruitment | Done | Site-specific, reputation modifier, undo support |
 | Unit command slots | Done | Limited by level |
 | Unit combat abilities | Done | Attack/Block/Ranged/Siege |
 | Passive abilities | Done | Swift, Brutal, Poison, Paralyze |
@@ -100,6 +102,8 @@ This roadmap tracks the path from current state to a fully playable, polished Ma
 | Resistant units | Done | Double armor |
 | Unit healing | Not Started | Heal unit vs hero targeting |
 | Unit disbanding | Not Started | Manual release |
+| Command token limit | Not Started | Block recruitment when at max |
+| Owned units UI | Not Started | Display player's recruited units |
 | Ready at round end | Done | All units including wounded |
 
 **Special Unit Abilities (Not Implemented):**
@@ -339,10 +343,11 @@ All 12 tactic cards have turn order mechanics working, but individual effects ar
 4. Scoring screen
 
 **Recently Completed:**
+- Unit recruitment with full flow (site-specific filtering, reputation modifier, undo)
 - Combat system end-to-end
 - Block/damage/attack assignment
 - Draw card effect
-- Unit offer population
+- Unit offer population and refresh
 - Conditional effects system
 - Scaling effects system
 - Mana validation for powered cards
