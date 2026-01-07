@@ -24,14 +24,15 @@ async function navigateToCombat(page: Page) {
   await page.locator(".tactic-card").filter({ hasText: "Early Bird" }).click();
   await page.waitForTimeout(500);
 
-  // Move to keep: (0,0) → (1,0) → (2,-1) → (3,-2) → (4,-2)
+  // Move to keep at (4,-3): (0,0) → (1,0) → (2,-1) → (3,-2) → (4,-3)
+  // Note: Tile offsets changed (E: 3,-2, NE: 1,-3), so keep is now at (4,-3)
   await page.locator('[data-coord="1,0"]').click({ force: true });
   await page.waitForTimeout(200);
   await page.locator('[data-coord="2,-1"]').click({ force: true });
   await page.waitForTimeout(200);
   await page.locator('[data-coord="3,-2"]').click({ force: true });
   await page.waitForTimeout(200);
-  await page.locator('[data-coord="4,-2"]').click({ force: true });
+  await page.locator('[data-coord="4,-3"]').click({ force: true });
   await page.waitForTimeout(500);
 
   // Verify combat overlay is visible
