@@ -37,9 +37,10 @@ export function createRecruitUnitCommand(
   // Capture the instance ID at creation time for undo support
   const instanceId = `unit_${++unitInstanceCounter}`;
 
-  // Store previous offer for undo
+  // Store previous state for undo
   let previousOffer: readonly UnitId[] = [];
   let previousInfluence = 0;
+  let previousHasTakenAction = false;
 
   return {
     type: RECRUIT_UNIT_COMMAND,
@@ -62,15 +63,19 @@ export function createRecruitUnitCommand(
       // Store previous state for undo
       previousOffer = state.offers.units;
       previousInfluence = player.influencePoints;
+      previousHasTakenAction = player.hasTakenActionThisTurn;
 
       // Create new unit instance
       const newUnit = createPlayerUnit(params.unitId, instanceId);
 
-      // Update player: add unit, deduct influence
+      // Update player: add unit, deduct influence, mark action taken
+      // Note: Recruiting counts as an interaction (action), so player can't move afterward.
+      // Multiple recruits in one turn are still allowed per rulebook rules.
       const updatedPlayer = {
         ...player,
         units: [...player.units, newUnit],
         influencePoints: player.influencePoints - params.influenceSpent,
+        hasTakenActionThisTurn: true,
       };
 
       const players = state.players.map((p, i) =>
@@ -118,11 +123,12 @@ export function createRecruitUnitCommand(
         (u) => u.instanceId !== instanceId
       );
 
-      // Restore previous influence
+      // Restore previous state
       const updatedPlayer = {
         ...player,
         units: updatedUnits,
         influencePoints: previousInfluence,
+        hasTakenActionThisTurn: previousHasTakenAction,
       };
 
       const players = state.players.map((p, i) =>

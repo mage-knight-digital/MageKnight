@@ -8,7 +8,7 @@ import { TacticSelection } from "./components/Overlays/TacticSelection";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { ActionBar } from "./components/Overlays/ActionBar";
 import { CombatOverlay } from "./components/Combat";
-import { UnitOfferPanel } from "./components/Offers";
+import { UnitOfferPanel, OwnedUnitsPanel } from "./components/Offers";
 import type { GameEvent } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
@@ -299,6 +299,7 @@ function GameView() {
           <CrystalsPanel />
           <ManaSourcePanel />
           <UnitOfferPanel />
+          <OwnedUnitsPanel />
           <EventLog />
         </aside>
       </main>
