@@ -92,46 +92,47 @@ export async function playCardPoweredEffect(page: Page, cardId: string) {
 
 /**
  * Move to village at (2,-1) from starting position (0,0)
- * Takes 2 turns:
- *   Turn 1: Play swiftness (+2 Move) → move to (1,0) → end turn
- *   Turn 2: Play stamina (+2 Move) → move to (2,-1) → end turn
+ * Takes 1 turn with seed 123:
+ *   Turn 1: Play stamina (+2) + swiftness (+2) = 4 move → (0,0)→(1,0)→(2,-1)
  *
+ * Initial hand (seed 123): stamina, mana_draw, rage, promise, swiftness
  * Prerequisite: Tactic must already be selected
  */
 export async function moveToVillage(page: Page) {
-  // Turn 1: Play swiftness, move to (1,0), end turn
+  // Turn 1: Play stamina + swiftness (4 move), move to village (2,-1)
+  await playCardBasicEffect(page, "stamina");
   await playCardBasicEffect(page, "swiftness");
   await moveToHex(page, 1, 0);
-  await endTurn(page);
-
-  // Turn 2: Play stamina, move to (2,-1) village, end turn
-  await playCardBasicEffect(page, "stamina");
   await moveToHex(page, 2, -1);
-  await endTurn(page);
 }
 
 /**
  * Move to explore position at (3,-3) from starting position (0,0)
- * Takes 2 turns:
+ * Takes 2 turns with seed 123:
  *   Turn 1: Play stamina (+2) + swiftness (+2) = 4 move → (0,0)→(1,0)→(2,-1) → end turn
- *   Turn 2: Play stamina (+2) + promise sideways (+1) + crystallize sideways (+1) = 4 move
- *           → (2,-1)→(2,-2)→(3,-3) → end turn
+ *   Turn 2: Play stamina (+2) + crystallize sideways (+1) + rage sideways (+1)
+ *           + promise sideways (+1) = 5 move → (2,-1)→(2,-2)→(3,-3) → end turn
+ *
+ * Turn 1 hand: stamina, mana_draw, rage, promise, swiftness
+ * Turn 2 hand: mana_draw, rage, promise, stamina, crystallize
+ * Turn 3 hand: mana_draw, march, tranquility, arythea_battle_versatility, march
  *
  * After this, player is at (3,-3) with 0 move points, ready for turn 3
  * Prerequisite: Tactic must already be selected
  */
 export async function moveToExplorePosition(page: Page) {
-  // Turn 1: Play stamina + swiftness, move to village (2,-1), end turn
+  // Turn 1: Play stamina + swiftness (4 move), move to village (2,-1), end turn
   await playCardBasicEffect(page, "stamina");
   await playCardBasicEffect(page, "swiftness");
   await moveToHex(page, 1, 0);
   await moveToHex(page, 2, -1);
   await endTurn(page);
 
-  // Turn 2: Play stamina + promise sideways + crystallize sideways, move to (3,-3), end turn
+  // Turn 2: Play stamina (+2) + 3 sideways (+3) = 5 move, move to (3,-3), end turn
   await playCardBasicEffect(page, "stamina");
-  await playCardSideways(page, "promise");
   await playCardSideways(page, "crystallize");
+  await playCardSideways(page, "rage");
+  await playCardSideways(page, "promise");
   await moveToHex(page, 2, -2);
   await moveToHex(page, 3, -3);
   await endTurn(page);
@@ -196,14 +197,13 @@ export async function startGameAndMoveToCombat(page: Page, seed = 123) {
  * Move to provoke rampaging enemy after explore
  * Prerequisite: Must be at (3,-3) after exploring (call moveToExplorePosition + explore first)
  *
- * Turn 4 (after explore): Hand has Mana Draw, Rage, Tranquility, Rage, March
- * Play sideways cards for 3 move → move (3,-3)→(3,-4)
+ * Turn 4 (after explore): Hand has mana_draw, tranquility, arythea_battle_versatility, march, improvisation
+ * Play march (+2) + mana_draw sideways (+1) = 3 move → (3,-3)→(3,-4)
  * This triggers provoke_rampaging combat with enemy at (4,-4)
  */
 export async function moveToProvokeRampaging(page: Page) {
-  // Turn 4: Play sideways cards for move (hand: Mana Draw, Rage x2, Tranquility, March)
-  await playCardSideways(page, "rage"); // +1 Move (first Rage)
-  await playCardSideways(page, "rage"); // +1 Move (second Rage)
+  // Turn 4: Play march + sideways for 3 move (forest terrain cost)
+  await playCardBasicEffect(page, "march"); // +2 Move
   await playCardSideways(page, "mana_draw"); // +1 Move
   // Move from (3,-3) to (3,-4) - this provokes the rampaging enemy at (4,-4)
   await moveToHex(page, 3, -4);
