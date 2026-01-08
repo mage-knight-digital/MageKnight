@@ -21,15 +21,12 @@ import {
   CARD_MANA_DRAW,
   CARD_CONCENTRATION,
   CARD_IMPROVISATION,
-  // Hero-specific cards
+  // Hero-specific cards (base game)
   CARD_ARYTHEA_BATTLE_VERSATILITY,
-  CARD_ARYTHEA_MANA_PULL,
-  CARD_GOLDYX_CRYSTAL_JOY,
   CARD_GOLDYX_WILL_FOCUS,
   CARD_NOROWAS_NOBLE_MANNERS,
-  CARD_NOROWAS_REJUVENATE,
   CARD_TOVAK_COLD_TOUGHNESS,
-  CARD_TOVAK_INSTINCT,
+  // Expansion hero cards
   CARD_WOLFHAWK_SWIFT_REFLEXES,
   CARD_WOLFHAWK_TIRELESSNESS,
   CARD_KRANG_SAVAGE_HARVESTING,
@@ -114,18 +111,17 @@ function buildStartingDeck(
 }
 
 // Hero definitions with starting decks
-// Each hero starts with the standard 16-card deck but with hero-specific replacements
-// Base game: Each hero replaces 1 card
-// Expansion: Each hero replaces 1 additional card (2 total)
+// Currently uses BASE GAME ONLY - each hero gets 1 unique card replacement
+// TODO: When enabledExpansions includes lost_legion, add second unique card
+// See docs/tickets/hero-expansion-deck-wiring.md
 export const HEROES: Record<Hero, HeroDefinition> = {
   [Hero.Arythea]: {
     id: Hero.Arythea,
     name: "Arythea",
     // Base: Battle Versatility replaces Rage
-    // Expansion: Mana Pull replaces Mana Draw
+    // (Lost Legion would add: Mana Pull replaces Mana Draw)
     startingCards: buildStartingDeck([
       { replace: CARD_RAGE, with: CARD_ARYTHEA_BATTLE_VERSATILITY },
-      { replace: CARD_MANA_DRAW, with: CARD_ARYTHEA_MANA_PULL },
     ]),
     skills: [] as SkillId[],
     crystalColors: [BASIC_MANA_RED, BASIC_MANA_RED, BASIC_MANA_WHITE],
@@ -134,10 +130,9 @@ export const HEROES: Record<Hero, HeroDefinition> = {
     id: Hero.Tovak,
     name: "Tovak",
     // Base: Cold Toughness replaces Determination
-    // Expansion: Instinct replaces Improvisation
+    // (Lost Legion would add: Instinct replaces Improvisation)
     startingCards: buildStartingDeck([
       { replace: CARD_DETERMINATION, with: CARD_TOVAK_COLD_TOUGHNESS },
-      { replace: CARD_IMPROVISATION, with: CARD_TOVAK_INSTINCT },
     ]),
     skills: [] as SkillId[],
     crystalColors: [BASIC_MANA_BLUE, BASIC_MANA_RED, BASIC_MANA_WHITE],
@@ -146,10 +141,9 @@ export const HEROES: Record<Hero, HeroDefinition> = {
     id: Hero.Goldyx,
     name: "Goldyx",
     // Base: Will Focus replaces Concentration
-    // Expansion: Crystal Joy replaces Crystallize
+    // (Lost Legion would add: Crystal Joy replaces Crystallize)
     startingCards: buildStartingDeck([
       { replace: CARD_CONCENTRATION, with: CARD_GOLDYX_WILL_FOCUS },
-      { replace: CARD_CRYSTALLIZE, with: CARD_GOLDYX_CRYSTAL_JOY },
     ]),
     skills: [] as SkillId[],
     crystalColors: [BASIC_MANA_BLUE, BASIC_MANA_BLUE, BASIC_MANA_WHITE],
@@ -158,18 +152,20 @@ export const HEROES: Record<Hero, HeroDefinition> = {
     id: Hero.Norowas,
     name: "Norowas",
     // Base: Noble Manners replaces Promise
-    // Expansion: Rejuvenate replaces Tranquility
+    // (Lost Legion would add: Rejuvenate replaces Tranquility)
     startingCards: buildStartingDeck([
       { replace: CARD_PROMISE, with: CARD_NOROWAS_NOBLE_MANNERS },
-      { replace: CARD_TRANQUILITY, with: CARD_NOROWAS_REJUVENATE },
     ]),
     skills: [] as SkillId[],
     crystalColors: [BASIC_MANA_GREEN, BASIC_MANA_GREEN, BASIC_MANA_WHITE],
   },
+  // Expansion heroes - only available when their expansion is enabled
+  // TODO: Validate hero selection against enabledExpansions
   [Hero.Wolfhawk]: {
     id: Hero.Wolfhawk,
     name: "Wolfhawk",
-    // Expansion only: Swift Reflexes replaces Swiftness, Tirelessness replaces Stamina
+    // Lost Legion expansion hero
+    // Both unique cards are part of the expansion
     startingCards: buildStartingDeck([
       { replace: CARD_SWIFTNESS, with: CARD_WOLFHAWK_SWIFT_REFLEXES },
       { replace: CARD_STAMINA, with: CARD_WOLFHAWK_TIRELESSNESS },
@@ -180,7 +176,8 @@ export const HEROES: Record<Hero, HeroDefinition> = {
   [Hero.Krang]: {
     id: Hero.Krang,
     name: "Krang",
-    // Expansion only: Savage Harvesting replaces March, Ruthless Coercion replaces Threaten
+    // Krang expansion hero
+    // Both unique cards are part of the expansion
     startingCards: buildStartingDeck([
       { replace: CARD_MARCH, with: CARD_KRANG_SAVAGE_HARVESTING },
       { replace: CARD_THREATEN, with: CARD_KRANG_RUTHLESS_COERCION },
@@ -191,7 +188,8 @@ export const HEROES: Record<Hero, HeroDefinition> = {
   [Hero.Braevalar]: {
     id: Hero.Braevalar,
     name: "Braevalar",
-    // Expansion only: One With the Land replaces March, Druidic Paths replaces Stamina
+    // Shades of Tezla expansion hero
+    // Both unique cards are part of the expansion
     startingCards: buildStartingDeck([
       { replace: CARD_MARCH, with: CARD_BRAEVALAR_ONE_WITH_THE_LAND },
       { replace: CARD_STAMINA, with: CARD_BRAEVALAR_DRUIDIC_PATHS },
