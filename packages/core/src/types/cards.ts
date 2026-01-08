@@ -19,7 +19,6 @@ import {
   EFFECT_SCALING,
   MANA_ANY,
   type CombatType,
-  type CardColor,
 } from "./effectTypes.js";
 import type { EffectCondition } from "./conditions.js";
 import type { ScalingFactor } from "./scaling.js";
@@ -153,8 +152,12 @@ export type CardEffect =
 export interface DeedCard {
   readonly id: CardId;
   readonly name: string;
-  readonly color: CardColor;
   readonly cardType: DeedCardType;
+
+  // Mana colors that can power this card's powered effect
+  // Empty array means the card cannot be powered (e.g., wounds)
+  // Most cards have a single color, but some advanced actions can be powered by multiple
+  readonly poweredBy: readonly ManaColor[];
 
   // Card categories (symbols shown in top-left corner of card art)
   readonly categories: readonly CardCategory[];

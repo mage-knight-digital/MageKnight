@@ -132,7 +132,7 @@ export function validateManaAvailable(
 }
 
 /**
- * Validate mana color matches card (or is gold during day)
+ * Validate mana color matches card's poweredBy colors (or is gold during day)
  */
 export function validateManaColorMatch(
   state: GameState,
@@ -150,13 +150,14 @@ export function validateManaColorMatch(
 
   const card = getBasicActionCard(action.cardId as BasicActionCardId);
   const manaColor = action.manaSource.color;
-  const cardColor = card.color;
 
-  // Exact match is always valid (card color and mana color use same strings for basic colors)
-  if (manaColor === cardColor) return valid();
+  // Check if mana color is one of the card's accepted colors
+  if (card.poweredBy.includes(manaColor)) {
+    return valid();
+  }
 
-  // Gold mana during day can match any basic color
-  if (manaColor === MANA_GOLD && state.timeOfDay === TIME_OF_DAY_DAY) {
+  // Gold mana during day can power any card that accepts basic mana colors
+  if (manaColor === MANA_GOLD && state.timeOfDay === TIME_OF_DAY_DAY && card.poweredBy.length > 0) {
     return valid();
   }
 
@@ -168,9 +169,14 @@ export function validateManaColorMatch(
     );
   }
 
+  // Build error message showing accepted colors
+  const acceptedColors = card.poweredBy.length > 0
+    ? card.poweredBy.join(", ")
+    : "none (cannot be powered)";
+
   return invalid(
     MANA_COLOR_MISMATCH,
-    `${manaColor} mana cannot power a ${cardColor} card`
+    `${manaColor} mana cannot power this card. Accepted: ${acceptedColors}`
   );
 }
 

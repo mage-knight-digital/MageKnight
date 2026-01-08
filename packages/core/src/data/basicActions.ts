@@ -29,15 +29,11 @@ import {
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
-  CARD_COLOR_RED,
-  CARD_COLOR_BLUE,
-  CARD_COLOR_GREEN,
-  CARD_COLOR_WHITE,
-  CARD_COLOR_WOUND,
 } from "../types/effectTypes.js";
 import {
   MANA_RED,
   MANA_BLUE,
+  MANA_GREEN,
   MANA_WHITE,
 } from "@mage-knight/shared";
 import {
@@ -165,8 +161,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_RAGE]: {
     id: CARD_RAGE,
     name: "Rage",
-    color: CARD_COLOR_RED,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_RED],
     categories: [CARD_CATEGORY_COMBAT],
     // Basic: Attack or Block 2 | Powered: Attack 4
     basicEffect: choice(attack(2), block(2)),
@@ -177,8 +173,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_THREATEN]: {
     id: CARD_THREATEN,
     name: "Threaten",
-    color: CARD_COLOR_RED,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_RED],
     categories: [CARD_CATEGORY_INFLUENCE],
     // Basic: Influence 2 | Powered: Influence 5, Reputation -1
     // Note: Reputation loss not modeled in effect system
@@ -190,8 +186,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_IMPROVISATION]: {
     id: CARD_IMPROVISATION,
     name: "Improvisation",
-    color: CARD_COLOR_RED,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_RED],
     categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_COMBAT, CARD_CATEGORY_INFLUENCE],
     // Basic: Discard a card → Move 3, Influence 3, Attack 3, or Block 3
     // Powered: Discard a card → Move 5, Influence 5, Attack 5, or Block 5
@@ -206,8 +202,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_DETERMINATION]: {
     id: CARD_DETERMINATION,
     name: "Determination",
-    color: CARD_COLOR_BLUE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_BLUE],
     categories: [CARD_CATEGORY_COMBAT],
     // Basic: Attack or Block 2 | Powered: Block 5
     basicEffect: choice(attack(2), block(2)),
@@ -218,8 +214,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_SWIFTNESS]: {
     id: CARD_SWIFTNESS,
     name: "Swiftness",
-    color: CARD_COLOR_BLUE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_BLUE],
     categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_COMBAT],
     // Basic: Move 2 | Powered: Ranged Attack 3
     basicEffect: move(2),
@@ -230,8 +226,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_STAMINA]: {
     id: CARD_STAMINA,
     name: "Stamina",
-    color: CARD_COLOR_BLUE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_BLUE],
     categories: [CARD_CATEGORY_MOVEMENT],
     // Basic: Move 2 | Powered: Move 4
     basicEffect: move(2),
@@ -242,8 +238,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_CRYSTALLIZE]: {
     id: CARD_CRYSTALLIZE,
     name: "Crystallize",
-    color: CARD_COLOR_BLUE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_BLUE],
     categories: [CARD_CATEGORY_SPECIAL],
     // Basic: Gain a crystal of any basic color
     // Powered: Pay mana of a basic color, gain crystal of that color
@@ -258,8 +254,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_MARCH]: {
     id: CARD_MARCH,
     name: "March",
-    color: CARD_COLOR_GREEN,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_GREEN],
     categories: [CARD_CATEGORY_MOVEMENT],
     // Basic: Move 2 | Powered: Move 4
     basicEffect: move(2),
@@ -270,8 +266,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_TRANQUILITY]: {
     id: CARD_TRANQUILITY,
     name: "Tranquility",
-    color: CARD_COLOR_GREEN,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_GREEN],
     categories: [CARD_CATEGORY_HEALING],
     // Basic: Heal 1 or Draw a Card | Powered: Heal 2 or Draw 2 Cards
     basicEffect: choice(heal(1), drawCards(1)),
@@ -282,8 +278,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_CONCENTRATION]: {
     id: CARD_CONCENTRATION,
     name: "Concentration",
-    color: CARD_COLOR_GREEN,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_GREEN],
     categories: [CARD_CATEGORY_SPECIAL],
     // Basic: Gain a blue, white, or red mana token
     basicEffect: choice(gainMana(MANA_BLUE), gainMana(MANA_WHITE), gainMana(MANA_RED)),
@@ -299,8 +295,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_PROMISE]: {
     id: CARD_PROMISE,
     name: "Promise",
-    color: CARD_COLOR_WHITE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_WHITE],
     categories: [CARD_CATEGORY_INFLUENCE],
     // Basic: Influence 2 | Powered: Influence 4
     basicEffect: influence(2),
@@ -311,8 +307,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_MANA_DRAW]: {
     id: CARD_MANA_DRAW,
     name: "Mana Draw",
-    color: CARD_COLOR_WHITE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_WHITE],
     categories: [CARD_CATEGORY_SPECIAL],
     // Basic: Use 1 additional mana die from Source this turn
     basicEffect: grantExtraSourceDie(),
@@ -329,8 +325,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_WOUND]: {
     id: CARD_WOUND,
     name: "Wound",
-    color: CARD_COLOR_WOUND,
     cardType: DEED_CARD_TYPE_WOUND,
+    poweredBy: [],
     categories: [], // Wounds have no category symbols
     basicEffect: { type: EFFECT_GAIN_MOVE, amount: 0 },
     poweredEffect: { type: EFFECT_GAIN_MOVE, amount: 0 },
@@ -346,8 +342,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_ARYTHEA_BATTLE_VERSATILITY]: {
     id: CARD_ARYTHEA_BATTLE_VERSATILITY,
     name: "Battle Versatility",
-    color: CARD_COLOR_RED,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_RED],
     categories: [CARD_CATEGORY_COMBAT],
     // Replaces: Rage
     // Basic: Attack 2, Block 2, or Ranged Attack 1
@@ -367,8 +363,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_ARYTHEA_MANA_PULL]: {
     id: CARD_ARYTHEA_MANA_PULL,
     name: "Mana Pull",
-    color: CARD_COLOR_WHITE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_WHITE],
     categories: [CARD_CATEGORY_SPECIAL],
     // Replaces: Mana Draw
     // Basic: Use 1 additional die from Source; if black, use as any color
@@ -384,8 +380,9 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_GOLDYX_CRYSTAL_JOY]: {
     id: CARD_GOLDYX_CRYSTAL_JOY,
     name: "Crystal Joy",
-    color: CARD_COLOR_WHITE, // "Any basic" - using white as default
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    // Can be powered by any basic mana color
+    poweredBy: [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE],
     categories: [CARD_CATEGORY_SPECIAL],
     // Replaces: Crystallize
     // Basic: Pay mana, gain crystal. At end of turn, may discard non-Wound to return to hand
@@ -399,8 +396,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_GOLDYX_WILL_FOCUS]: {
     id: CARD_GOLDYX_WILL_FOCUS,
     name: "Will Focus",
-    color: CARD_COLOR_GREEN,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_GREEN],
     categories: [CARD_CATEGORY_SPECIAL],
     // Replaces: Concentration
     // Basic: Gain blue, white, or red mana token, OR gain a green crystal
@@ -416,8 +413,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_NOROWAS_NOBLE_MANNERS]: {
     id: CARD_NOROWAS_NOBLE_MANNERS,
     name: "Noble Manners",
-    color: CARD_COLOR_WHITE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_WHITE],
     categories: [CARD_CATEGORY_INFLUENCE],
     // Replaces: Promise
     // Basic: Influence 2. If used during interaction: Fame +1 at end of turn
@@ -431,8 +428,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_NOROWAS_REJUVENATE]: {
     id: CARD_NOROWAS_REJUVENATE,
     name: "Rejuvenate",
-    color: CARD_COLOR_GREEN,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_GREEN],
     categories: [CARD_CATEGORY_HEALING],
     // Replaces: Tranquility
     // Basic: Heal 1, Draw a card, Gain green mana token, OR Ready a Level I or II Unit
@@ -448,8 +445,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_TOVAK_COLD_TOUGHNESS]: {
     id: CARD_TOVAK_COLD_TOUGHNESS,
     name: "Cold Toughness",
-    color: CARD_COLOR_BLUE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_BLUE],
     categories: [CARD_CATEGORY_COMBAT],
     // Replaces: Determination
     // Basic: Ice Attack 2 or Ice Block 3
@@ -463,8 +460,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_TOVAK_INSTINCT]: {
     id: CARD_TOVAK_INSTINCT,
     name: "Instinct",
-    color: CARD_COLOR_RED,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_RED],
     categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_INFLUENCE, CARD_CATEGORY_COMBAT],
     // Replaces: Improvisation
     // Basic: Move 2, Influence 2, Attack 2, or Block 2 (no discard required!)
@@ -479,8 +476,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_WOLFHAWK_SWIFT_REFLEXES]: {
     id: CARD_WOLFHAWK_SWIFT_REFLEXES,
     name: "Swift Reflexes",
-    color: CARD_COLOR_BLUE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_BLUE],
     categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_COMBAT],
     // Replaces: Swiftness
     // Basic: Move 2, Ranged Attack 1, OR reduce one enemy attack by 1
@@ -494,8 +491,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_WOLFHAWK_TIRELESSNESS]: {
     id: CARD_WOLFHAWK_TIRELESSNESS,
     name: "Tirelessness",
-    color: CARD_COLOR_BLUE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_BLUE],
     categories: [CARD_CATEGORY_MOVEMENT],
     // Replaces: Stamina
     // Basic: Move 2. Next card providing Move gives +1 extra Move
@@ -511,8 +508,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_KRANG_SAVAGE_HARVESTING]: {
     id: CARD_KRANG_SAVAGE_HARVESTING,
     name: "Savage Harvesting",
-    color: CARD_COLOR_GREEN,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_GREEN],
     categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_SPECIAL],
     // Replaces: March
     // Basic: Move 2. Once when moving, may discard a card for crystal of same color
@@ -526,8 +523,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_KRANG_RUTHLESS_COERCION]: {
     id: CARD_KRANG_RUTHLESS_COERCION,
     name: "Ruthless Coercion",
-    color: CARD_COLOR_RED,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_RED],
     categories: [CARD_CATEGORY_INFLUENCE],
     // Replaces: Threaten
     // Basic: Influence 2. May get -2 discount to recruit one Unit; if recruited, Reputation -1
@@ -543,8 +540,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_BRAEVALAR_DRUIDIC_PATHS]: {
     id: CARD_BRAEVALAR_DRUIDIC_PATHS,
     name: "Druidic Paths",
-    color: CARD_COLOR_GREEN,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_GREEN],
     categories: [CARD_CATEGORY_MOVEMENT],
     // Replaces: March
     // Basic: Move 2. Move cost of one space reduced by 1 (min 2)
@@ -558,8 +555,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
   [CARD_BRAEVALAR_ONE_WITH_THE_LAND]: {
     id: CARD_BRAEVALAR_ONE_WITH_THE_LAND,
     name: "One with the Land",
-    color: CARD_COLOR_BLUE,
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
+    poweredBy: [MANA_BLUE],
     categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_HEALING, CARD_CATEGORY_COMBAT],
     // Replaces: Stamina
     // Basic: Move 2, Heal 1, or Block 2

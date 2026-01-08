@@ -509,7 +509,7 @@ describe("Mana powering", () => {
       expect(result.events).toContainEqual(
         expect.objectContaining({
           type: INVALID_ACTION,
-          reason: "red mana cannot power a green card",
+          reason: "red mana cannot power this card. Accepted: green",
         })
       );
     });

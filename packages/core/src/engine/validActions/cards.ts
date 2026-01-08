@@ -14,10 +14,6 @@ import {
   COMBAT_TYPE_SIEGE,
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
-  MANA_RED,
-  MANA_BLUE,
-  MANA_GREEN,
-  MANA_WHITE,
 } from "@mage-knight/shared";
 import { canPayForMana } from "./mana.js";
 import {
@@ -27,11 +23,6 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
-  CARD_COLOR_RED,
-  CARD_COLOR_BLUE,
-  CARD_COLOR_GREEN,
-  CARD_COLOR_WHITE,
-  type CardColor,
 } from "../../types/effectTypes.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -42,22 +33,16 @@ import { getBasicActionCard } from "../../data/basicActions.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 
 /**
- * Convert card color to mana color.
- * Returns undefined for wound cards (which can't be powered).
+ * Find the first mana color from the card's poweredBy array that the player can pay for.
+ * Returns undefined if the card cannot be powered or the player can't pay for any of the colors.
  */
-function cardColorToManaColor(color: CardColor): ManaColor | undefined {
-  switch (color) {
-    case CARD_COLOR_RED:
-      return MANA_RED;
-    case CARD_COLOR_BLUE:
-      return MANA_BLUE;
-    case CARD_COLOR_GREEN:
-      return MANA_GREEN;
-    case CARD_COLOR_WHITE:
-      return MANA_WHITE;
-    default:
-      return undefined;
-  }
+function findPayableManaColor(
+  state: GameState,
+  player: Player,
+  card: DeedCard
+): ManaColor | undefined {
+  if (card.poweredBy.length === 0) return undefined;
+  return card.poweredBy.find((color) => canPayForMana(state, player, color));
 }
 
 /**
@@ -79,14 +64,11 @@ export function getPlayableCardsForCombat(
 
     const playability = getCardPlayabilityForPhase(card, combat.phase);
 
-    // Check if the card has a powered effect for this phase
-    const manaColor = playability.canPlayPowered ? cardColorToManaColor(card.color) : undefined;
-
-    // Only allow powered play if player can actually pay for it
-    const canActuallyPlayPowered =
-      playability.canPlayPowered &&
-      manaColor !== undefined &&
-      canPayForMana(state, player, manaColor);
+    // Check if the card has a powered effect for this phase AND player can pay for it
+    const payableManaColor = playability.canPlayPowered
+      ? findPayableManaColor(state, player, card)
+      : undefined;
+    const canActuallyPlayPowered = payableManaColor !== undefined;
 
     if (playability.canPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
       const playableCard: PlayableCard = {
@@ -97,8 +79,8 @@ export function getPlayableCardsForCombat(
       };
 
       // Only add optional properties when they have values
-      if (manaColor && canActuallyPlayPowered) {
-        (playableCard as { requiredMana?: ManaColor }).requiredMana = manaColor;
+      if (payableManaColor && canActuallyPlayPowered) {
+        (playableCard as { requiredMana?: ManaColor }).requiredMana = payableManaColor;
       }
       if (playability.sidewaysOptions && playability.sidewaysOptions.length > 0) {
         (playableCard as { sidewaysOptions?: readonly SidewaysOption[] }).sidewaysOptions = playability.sidewaysOptions;
@@ -300,14 +282,11 @@ export function getPlayableCardsForNormalTurn(
 
     const playability = getCardPlayabilityForNormalTurn(state, player.id, card);
 
-    // Check if the card has a powered effect
-    const manaColor = playability.canPlayPowered ? cardColorToManaColor(card.color) : undefined;
-
-    // Only allow powered play if player can actually pay for it
-    const canActuallyPlayPowered =
-      playability.canPlayPowered &&
-      manaColor !== undefined &&
-      canPayForMana(state, player, manaColor);
+    // Check if the card has a powered effect AND player can pay for it
+    const payableManaColor = playability.canPlayPowered
+      ? findPayableManaColor(state, player, card)
+      : undefined;
+    const canActuallyPlayPowered = payableManaColor !== undefined;
 
     if (playability.canPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
       const playableCard: PlayableCard = {
@@ -318,8 +297,8 @@ export function getPlayableCardsForNormalTurn(
       };
 
       // Only add optional properties when they have values
-      if (manaColor && canActuallyPlayPowered) {
-        (playableCard as { requiredMana?: ManaColor }).requiredMana = manaColor;
+      if (payableManaColor && canActuallyPlayPowered) {
+        (playableCard as { requiredMana?: ManaColor }).requiredMana = payableManaColor;
       }
       if (playability.sidewaysOptions && playability.sidewaysOptions.length > 0) {
         (playableCard as { sidewaysOptions?: readonly SidewaysOption[] }).sidewaysOptions = playability.sidewaysOptions;
