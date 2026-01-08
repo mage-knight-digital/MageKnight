@@ -60,6 +60,13 @@ export const CARD_BRAEVALAR_ONE_WITH_THE_LAND = cardId("braevalar_one_with_the_l
 // === Wound Card ===
 export const CARD_WOUND = cardId("wound");
 
+// === Advanced Action Card IDs ===
+// Bolt cards (gain crystal basic / ranged attack powered)
+export const CARD_FIRE_BOLT = cardId("fire_bolt");
+export const CARD_ICE_BOLT = cardId("ice_bolt");
+export const CARD_SWIFT_BOLT = cardId("swift_bolt");
+export const CARD_CRUSHING_BOLT = cardId("crushing_bolt");
+
 // === Card ID Type Unions ===
 
 export type SharedBasicActionCardId =
@@ -96,3 +103,9 @@ export type BasicActionCardId =
   | SharedBasicActionCardId
   | HeroSpecificCardId
   | typeof CARD_WOUND;
+
+export type AdvancedActionCardId =
+  | typeof CARD_FIRE_BOLT
+  | typeof CARD_ICE_BOLT
+  | typeof CARD_SWIFT_BOLT
+  | typeof CARD_CRUSHING_BOLT;
