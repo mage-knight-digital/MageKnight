@@ -8,8 +8,27 @@ Wire up the expansion system to properly control hero availability and starting 
 
 - `ExpansionId` type exists with `lost_legion`, `krang`, `shades_of_tezla`
 - `ScenarioConfig.enabledExpansions` array is in place
-- Hero definitions exist with all card replacements pre-applied
+- Hero definitions exist with base game card replacements only
 - Standard 16-card starting deck is defined
+
+## Expansion Modularity
+
+Expansions are designed to be modular. Most components can be mixed and matched independently:
+
+### Lost Legion - Modular Components
+- **Wolfhawk hero** - "Treat Wolfhawk as any other hero in the game"
+- **Second unique cards for base heroes** - Can be used independently
+- **New Advanced Actions, Spells, Artifacts** - "just get shuffled into the original decks"
+- **New map tiles** - "just add to the original piles"
+- **New enemy tokens** - "just add to the corresponding piles"
+- **Cooperative Skills** - can replace competitive skills in any cooperative/solo game
+- **Volkare** - Can be used in any scenario with cities via "Volkare's Camp in Place of a City" variant
+
+### Krang Expansion - Modular Components
+- **Krang hero** - Standalone character, fully modular
+
+### Shades of Tezla - Modular Components
+- **Braevalar hero** - Standalone character, fully modular
 
 ## Requirements
 
@@ -78,6 +97,13 @@ Each hero's starting deck depends on which expansions are enabled:
 5. **Update tests**
    - Test various expansion combinations
    - Verify correct cards in starting decks
+
+## Future Considerations
+
+Since expansions are modular, we may want finer-grained control:
+- Toggle individual components (e.g., use Lost Legion cards but not Volkare)
+- Could evolve `enabledExpansions` into a more granular module system
+- For now, enabling an expansion enables all its modular components
 
 ## Notes
 
