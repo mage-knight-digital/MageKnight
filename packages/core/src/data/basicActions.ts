@@ -167,7 +167,7 @@ function grantExtraSourceDie(): CardEffect {
 // === Basic Action Card Definitions ===
 // Organized by card frame color (the mana color that powers the card)
 
-export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard } = {
+export const BASIC_ACTION_CARDS = {
   // ═══════════════════════════════════════════════════════════════════════════
   // SHARED BASIC ACTIONS (12 unique cards, some ×2 = 14 cards in starting deck)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -586,11 +586,11 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
     poweredEffect: choice(move(4), heal(2), block(4)), // Simplified
     sidewaysValue: 1,
   },
-};
+} satisfies Record<BasicActionCardId, DeedCard>;
 
 // === Helper to get a card by ID ===
 export function getBasicActionCard(id: BasicActionCardId): DeedCard {
-  const card = (BASIC_ACTION_CARDS as unknown as Record<string, DeedCard>)[id];
+  const card = BASIC_ACTION_CARDS[id];
   if (!card) {
     throw new Error(`Unknown basic action card: ${String(id)}`);
   }

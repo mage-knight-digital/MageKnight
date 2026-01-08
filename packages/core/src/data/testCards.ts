@@ -7,7 +7,6 @@
  * Goal: Implement 5-10 real cards and see if the system holds up.
  */
 
-import type { CardEffect } from "../types/cards.js";
 import {
   move,
   attack,
@@ -221,8 +220,8 @@ export const INTIMIDATE = {
   name: "Intimidate",
   // CAN'T PROPERLY EXPRESS - need resistance check and enemy modifier
   // Placeholder: no-op (this would need new condition and modifier types)
-  basicEffect: null as unknown as CardEffect,
-  poweredEffect: null as unknown as CardEffect,
+  basicEffect: compound([]),
+  poweredEffect: compound([]),
   _limitation: "Cannot express enemy resistance check or 'enemy skips attack' effect",
 } as const;
 
@@ -239,7 +238,7 @@ export const UNDERGROUND_TRAVEL = {
   id: "underground_travel",
   name: "Underground Travel",
   // CAN'T EXPRESS - need "spend" effect and teleportation
-  basicEffect: null as unknown as CardEffect,
+  basicEffect: compound([]),
   poweredEffect: heal(3), // This part works!
   _limitation: "Cannot express 'spend X move points' or teleportation",
 } as const;
@@ -255,8 +254,8 @@ export const SPACE_BENDING = {
   id: "space_bending",
   name: "Space Bending",
   // Would need: applyModifier({ type: 'can_teleport', range: 2, duration: 'turn' })
-  basicEffect: null as unknown as CardEffect,
-  poweredEffect: null as unknown as CardEffect,
+  basicEffect: compound([]),
+  poweredEffect: compound([]),
   _limitation: "Need specific modifier type for teleportation ability",
 } as const;
 

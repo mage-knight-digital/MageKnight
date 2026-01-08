@@ -54,7 +54,7 @@ function siegeAttack(amount: number): CardEffect {
 
 // === Advanced Action Card Definitions ===
 
-export const ADVANCED_ACTION_CARDS: { readonly [K in AdvancedActionCardId]: DeedCard } = {
+export const ADVANCED_ACTION_CARDS = {
   // ═══════════════════════════════════════════════════════════════════════════
   // BOLT CARDS (gain crystal basic / ranged attack powered)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -110,11 +110,11 @@ export const ADVANCED_ACTION_CARDS: { readonly [K in AdvancedActionCardId]: Deed
     poweredEffect: siegeAttack(3),
     sidewaysValue: 1,
   },
-};
+} satisfies Record<AdvancedActionCardId, DeedCard>;
 
 // === Helper to get a card by ID ===
 export function getAdvancedActionCard(id: AdvancedActionCardId): DeedCard {
-  const card = (ADVANCED_ACTION_CARDS as unknown as Record<string, DeedCard>)[id];
+  const card = ADVANCED_ACTION_CARDS[id];
   if (!card) {
     throw new Error(`Unknown advanced action card: ${String(id)}`);
   }

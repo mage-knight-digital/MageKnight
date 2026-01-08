@@ -28,6 +28,7 @@ import {
   MOVE_ACTION,
   GAME_PHASE_ROUND,
   hexKey,
+  type CardId,
 } from "@mage-knight/shared";
 import { CANNOT_ENTER_CITY } from "../validators/validationCodes.js";
 import { FIRST_RECONNAISSANCE } from "../../data/scenarios/firstReconnaissance.js";
@@ -47,7 +48,8 @@ function createGameStateWithTileDeck(scenarioId = SCENARIO_FIRST_RECONNAISSANCE)
   const state = createInitialGameState(12345, scenarioId);
   const player = createTestPlayer("player1", {
     position: { q: 1, r: -1 },
-    hand: ["card1", "card2"] as unknown as import("@mage-knight/shared").CardId[], // Cards in hand to avoid MUST_ANNOUNCE_END_OF_ROUND
+    // Cards in hand to avoid MUST_ANNOUNCE_END_OF_ROUND
+    hand: ["card1" as CardId, "card2" as CardId],
   });
 
   return {

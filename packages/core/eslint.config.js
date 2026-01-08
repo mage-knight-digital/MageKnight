@@ -263,6 +263,21 @@ export default tseslint.config(
       ],
     },
   },
+  // Ban `as unknown as ...` double-casts (they defeat the type system and hide real typing issues).
+  {
+    files: ["src/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'TSAsExpression > TSAsExpression[typeAnnotation.type="TSUnknownKeyword"]',
+          message:
+            "Do not use `as unknown as ...` double casts. Fix the underlying types or use a runtime assertion.",
+        },
+      ],
+    },
+  },
   // Red/green guardrail: eliminate magic string unions in enemy type definitions.
   {
     files: ["src/types/enemy.ts"],
