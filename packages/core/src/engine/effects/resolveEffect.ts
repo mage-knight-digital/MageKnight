@@ -12,10 +12,22 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { CardEffect, GainAttackEffect, GainBlockEffect, ScalableBaseEffect } from "../../types/cards.js";
+import type {
+  CardEffect,
+  GainAttackEffect,
+  GainBlockEffect,
+  ScalableBaseEffect,
+  ResolveBoostTargetEffect,
+  DeedCard,
+} from "../../types/cards.js";
+import {
+  DEED_CARD_TYPE_BASIC_ACTION,
+  DEED_CARD_TYPE_ADVANCED_ACTION,
+} from "../../types/cards.js";
 import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../types/player.js";
 import type { CardId, Element, BlockSource, ManaColor, BasicManaColor } from "@mage-knight/shared";
 import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
+import { getCard } from "../validActions/cards.js";
 import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL } from "@mage-knight/shared";
 import {
   EFFECT_GAIN_MOVE,
@@ -33,6 +45,8 @@ import {
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
+  EFFECT_CARD_BOOST,
+  EFFECT_RESOLVE_BOOST_TARGET,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -50,6 +64,8 @@ export interface EffectResolutionResult {
   readonly containsConditional?: boolean;
   /** True if a scaling effect was resolved — affects undo (command should be non-reversible) */
   readonly containsScaling?: boolean;
+  /** Dynamically generated choice options (used by CardBoostEffect to list eligible cards) */
+  readonly dynamicChoiceOptions?: readonly CardEffect[];
 }
 
 /**
@@ -131,10 +147,104 @@ export function isEffectResolvable(
         ["red", "blue", "green", "white"].includes(token.color)
       );
 
+    case EFFECT_CARD_BOOST:
+      // Card boost is resolvable only if player has eligible Action cards in hand
+      // (Basic or Advanced Action cards, not wounds/spells/artifacts)
+      return player.hand.some((cardId) => {
+        if (cardId === CARD_WOUND) return false;
+        const card = getCard(cardId);
+        return (
+          card &&
+          (card.cardType === DEED_CARD_TYPE_BASIC_ACTION ||
+            card.cardType === DEED_CARD_TYPE_ADVANCED_ACTION)
+        );
+      });
+
+    case EFFECT_RESOLVE_BOOST_TARGET:
+      // Internal effect, always resolvable if it's being called
+      return true;
+
     default:
       // Unknown effect types are considered resolvable (fail-safe)
       return true;
   }
+}
+
+/**
+ * Apply a bonus to an effect's amount (for Move, Influence, Attack, Block).
+ * Recursively applies to compound/choice/conditional/scaling effects.
+ * Other effect types (heal, draw, mana) are returned unchanged.
+ */
+export function addBonusToEffect(effect: CardEffect, bonus: number): CardEffect {
+  switch (effect.type) {
+    case EFFECT_GAIN_MOVE:
+    case EFFECT_GAIN_INFLUENCE:
+      return { ...effect, amount: effect.amount + bonus };
+
+    case EFFECT_GAIN_ATTACK:
+    case EFFECT_GAIN_BLOCK:
+      return { ...effect, amount: effect.amount + bonus };
+
+    case EFFECT_CHOICE:
+      return {
+        ...effect,
+        options: effect.options.map((e) => addBonusToEffect(e, bonus)),
+      };
+
+    case EFFECT_COMPOUND:
+      return {
+        ...effect,
+        effects: effect.effects.map((e) => addBonusToEffect(e, bonus)),
+      };
+
+    case EFFECT_CONDITIONAL: {
+      const result = {
+        ...effect,
+        thenEffect: addBonusToEffect(effect.thenEffect, bonus),
+      };
+      if (effect.elseEffect) {
+        return { ...result, elseEffect: addBonusToEffect(effect.elseEffect, bonus) };
+      }
+      return result;
+    }
+
+    case EFFECT_SCALING:
+      // Apply bonus to the base effect of a scaling effect
+      return {
+        ...effect,
+        baseEffect: addBonusToEffect(effect.baseEffect, bonus) as ScalableBaseEffect,
+      };
+
+    // Other effects (heal, draw, mana, etc.) are unchanged
+    default:
+      return effect;
+  }
+}
+
+/**
+ * Get cards from player's hand that are eligible for boosting.
+ * Eligible: Basic Action and Advanced Action cards (not wounds, spells, artifacts).
+ */
+function getEligibleBoostTargets(player: Player): DeedCard[] {
+  const eligibleCards: DeedCard[] = [];
+
+  for (const cardId of player.hand) {
+    const card = getCard(cardId);
+    if (!card) continue;
+
+    // Only action cards can be boosted (not spells, artifacts, or wounds)
+    if (
+      card.cardType === DEED_CARD_TYPE_BASIC_ACTION ||
+      card.cardType === DEED_CARD_TYPE_ADVANCED_ACTION
+    ) {
+      // Wounds have cardType basic_action but id is CARD_WOUND
+      if (cardId !== CARD_WOUND) {
+        eligibleCards.push(card);
+      }
+    }
+  }
+
+  return eligibleCards;
 }
 
 export function resolveEffect(
@@ -264,6 +374,71 @@ export function resolveEffect(
         ...result,
         description: `${result.description} (scaled by ${scalingCount})`,
         containsScaling: true,
+      };
+    }
+
+    case EFFECT_CARD_BOOST: {
+      // Card boost: player must choose an Action card from hand to play with boosted powered effect
+      const eligibleCards = getEligibleBoostTargets(player);
+
+      if (eligibleCards.length === 0) {
+        // No eligible cards to boost
+        return {
+          state,
+          description: "No eligible Action cards in hand to boost",
+        };
+      }
+
+      // Generate dynamic choice options - one ResolveBoostTargetEffect per eligible card
+      const dynamicOptions: ResolveBoostTargetEffect[] = eligibleCards.map((card) => ({
+        type: EFFECT_RESOLVE_BOOST_TARGET,
+        targetCardId: card.id,
+        bonus: effect.bonus,
+      }));
+
+      return {
+        state,
+        description: "Choose an Action card to boost",
+        requiresChoice: true,
+        dynamicChoiceOptions: dynamicOptions,
+      };
+    }
+
+    case EFFECT_RESOLVE_BOOST_TARGET: {
+      // Resolve the boosted card's powered effect with the bonus applied
+      const targetCard = getCard(effect.targetCardId);
+      if (!targetCard) {
+        return {
+          state,
+          description: `Card not found: ${effect.targetCardId}`,
+        };
+      }
+
+      // Move the target card from hand to play area
+      const cardIndex = player.hand.indexOf(effect.targetCardId);
+      if (cardIndex === -1) {
+        return {
+          state,
+          description: `Card not in hand: ${effect.targetCardId}`,
+        };
+      }
+
+      const newHand = [...player.hand];
+      newHand.splice(cardIndex, 1);
+      const updatedPlayer: Player = {
+        ...player,
+        hand: newHand,
+        playArea: [...player.playArea, effect.targetCardId],
+      };
+      const stateWithCardPlayed = updatePlayer(state, playerIndex, updatedPlayer);
+
+      // Apply bonus to the powered effect and resolve it
+      const boostedEffect = addBonusToEffect(targetCard.poweredEffect, effect.bonus);
+      const result = resolveEffect(stateWithCardPlayed, playerId, boostedEffect, effect.targetCardId);
+
+      return {
+        ...result,
+        description: `Boosted ${targetCard.name}: ${result.description}`,
       };
     }
 

@@ -230,7 +230,7 @@ function effectHasAttack(effect: CardEffect): boolean {
  * Get a card definition by ID.
  * Supports basic action and advanced action cards.
  */
-function getCard(cardId: string): DeedCard | null {
+export function getCard(cardId: string): DeedCard | null {
   // Try basic action cards first
   try {
     return getBasicActionCard(cardId as Parameters<typeof getBasicActionCard>[0]);

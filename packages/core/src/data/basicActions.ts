@@ -4,8 +4,8 @@
  * Each hero starts with 16 cards: 14 shared basic actions + 2 hero-specific cards.
  * Cards are organized by their frame color (which indicates what mana powers them).
  *
- * Note: Some effects (like Concentration's card boost, Mana Draw's powered effect)
- * cannot be fully represented with the current effect system and use placeholders.
+ * Note: Some effects (like Mana Draw's powered effect) cannot be fully represented
+ * with the current effect system and use placeholders.
  */
 
 import type { DeedCard, CardEffect } from "../types/cards.js";
@@ -30,6 +30,7 @@ import {
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
+  EFFECT_CARD_BOOST,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -157,6 +158,14 @@ function gainCrystal(color: BasicManaColor): CardEffect {
  */
 function convertManaToCrystal(): CardEffect {
   return { type: EFFECT_CONVERT_MANA_TO_CRYSTAL };
+}
+
+/**
+ * Card boost effect - play another Action card with free powered effect + bonus.
+ * Used by Concentration (+2) and Will Focus (+3).
+ */
+function cardBoost(bonus: number): CardEffect {
+  return { type: EFFECT_CARD_BOOST, bonus };
 }
 
 /**
@@ -314,8 +323,7 @@ export const BASIC_ACTION_CARDS = {
     basicEffect: choice(gainMana(MANA_BLUE), gainMana(MANA_WHITE), gainMana(MANA_RED)),
     // Powered: Play with another Action card: get its stronger effect free;
     //          if Move/Influence/Block/Attack, get +2
-    // TODO: Card boost mechanic requires new effect type
-    poweredEffect: drawCards(0), // Placeholder for card boost
+    poweredEffect: cardBoost(2),
     sidewaysValue: 1,
   },
 
@@ -430,10 +438,14 @@ export const BASIC_ACTION_CARDS = {
     categories: [CARD_CATEGORY_SPECIAL],
     // Replaces: Concentration
     // Basic: Gain blue, white, or red mana token, OR gain a green crystal
+    basicEffect: choice(
+      gainMana(MANA_BLUE),
+      gainMana(MANA_WHITE),
+      gainMana(MANA_RED),
+      gainCrystal(MANA_GREEN)
+    ),
     // Powered: Play with another Action card: get stronger effect free; +3 to Move/Influence/Block/Attack
-    // Note: Card boost mechanic not modeled - placeholder
-    basicEffect: drawCards(0), // Placeholder for mana/crystal gain
-    poweredEffect: drawCards(0), // Placeholder for +3 card boost
+    poweredEffect: cardBoost(3),
     sidewaysValue: 1,
   },
 

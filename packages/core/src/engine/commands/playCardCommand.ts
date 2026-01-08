@@ -23,6 +23,7 @@ import { describeEffect } from "../effects/describeEffect.js";
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
 import type { ChoiceEffect } from "../../types/cards.js";
 import { getBasicActionCard } from "../../data/basicActions.js";
+import { getCard } from "../validActions/cards.js";
 import { PLAY_CARD_COMMAND } from "./commandTypes.js";
 import type { CardEffect } from "../../types/cards.js";
 
@@ -66,8 +67,8 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
 
-      // Get card definition - cast cardId since validators already confirmed it exists
-      const card = getBasicActionCard(params.cardId as BasicActionCardId);
+      // Get card definition - try getCard first (handles both basic and advanced), fall back to basic
+      const card = getCard(params.cardId) ?? getBasicActionCard(params.cardId as BasicActionCardId);
 
       // Determine if powered and which effect to use
       const isPowered = params.powered === true && params.manaSource !== undefined;
@@ -161,12 +162,36 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         effectToApply
       );
 
-      if (effectResult.requiresChoice && effectToApply.type === EFFECT_CHOICE) {
-        // Set pending choice on player
-        const choiceEffect = effectToApply as ChoiceEffect;
+      if (effectResult.requiresChoice) {
+        // Determine the choice options - either dynamic (from card boost) or static (from choice effect)
+        let choiceOptions: readonly CardEffect[];
+
+        if (effectResult.dynamicChoiceOptions) {
+          // Dynamic choices from effects like EFFECT_CARD_BOOST
+          choiceOptions = effectResult.dynamicChoiceOptions;
+        } else if (effectToApply.type === EFFECT_CHOICE) {
+          // Static choice effect
+          const choiceEffect = effectToApply as ChoiceEffect;
+          choiceOptions = choiceEffect.options;
+        } else {
+          // Unknown choice type - return as-is
+          return {
+            state: effectResult.state,
+            events: [
+              {
+                type: CARD_PLAYED,
+                playerId: params.playerId,
+                cardId: params.cardId,
+                powered: isPowered,
+                sideways: false,
+                effect: effectResult.description,
+              },
+            ],
+          };
+        }
 
         // Filter options to only include resolvable ones
-        const resolvableOptions = choiceEffect.options.filter((opt) =>
+        const resolvableOptions = choiceOptions.filter((opt) =>
           isEffectResolvable(newState, params.playerId, opt)
         );
 

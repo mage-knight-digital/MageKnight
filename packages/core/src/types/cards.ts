@@ -20,6 +20,8 @@ import {
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
+  EFFECT_CARD_BOOST,
+  EFFECT_RESOLVE_BOOST_TARGET,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -115,6 +117,27 @@ export interface ConvertManaToCrystalEffect {
   readonly type: typeof EFFECT_CONVERT_MANA_TO_CRYSTAL;
 }
 
+/**
+ * Card boost effect - play another Action card with free powered effect + bonus.
+ * Used by Concentration (bonus: 2) and Will Focus (bonus: 3).
+ * Triggers a choice from eligible hand cards, then resolves the target's powered effect.
+ */
+export interface CardBoostEffect {
+  readonly type: typeof EFFECT_CARD_BOOST;
+  readonly bonus: number; // +2 for Concentration, +3 for Will Focus
+}
+
+/**
+ * Internal effect used during card boost resolution.
+ * Generated dynamically as choice options - one per eligible card in hand.
+ * When selected, moves target card to play area and resolves its boosted powered effect.
+ */
+export interface ResolveBoostTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_BOOST_TARGET;
+  readonly targetCardId: CardId;
+  readonly bonus: number;
+}
+
 export interface ApplyModifierEffect {
   readonly type: typeof EFFECT_APPLY_MODIFIER;
   readonly modifier: ModifierEffect;
@@ -166,6 +189,8 @@ export type CardEffect =
   | ChangeReputationEffect
   | GainCrystalEffect
   | ConvertManaToCrystalEffect
+  | CardBoostEffect
+  | ResolveBoostTargetEffect
   | ApplyModifierEffect
   | CompoundEffect
   | ChoiceEffect
