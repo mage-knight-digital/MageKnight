@@ -464,6 +464,16 @@ export function PlayerHand() {
         <h3 className="panel__title">Hand ({player.hand.length} cards)</h3>
         <div className="player-hand__stats">
           Move: {player.movePoints} | Influence: {player.influencePoints}
+          {player.pureMana.length > 0 && (
+            <span className="player-hand__mana-tokens">
+              {" | Mana: "}
+              {player.pureMana.map((token, i) => (
+                <span key={i} title={`${token.color} mana token`}>
+                  {getColorEmoji(token.color)}
+                </span>
+              ))}
+            </span>
+          )}
         </div>
       </div>
 
