@@ -26,6 +26,8 @@ import {
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
   EFFECT_CHOICE,
+  EFFECT_COMPOUND,
+  EFFECT_CHANGE_REPUTATION,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -133,6 +135,14 @@ function choice(...options: CardEffect[]): CardEffect {
   return { type: EFFECT_CHOICE, options };
 }
 
+function compound(...effects: CardEffect[]): CardEffect {
+  return { type: EFFECT_COMPOUND, effects };
+}
+
+function changeReputation(amount: number): CardEffect {
+  return { type: EFFECT_CHANGE_REPUTATION, amount };
+}
+
 /**
  * Grant the player one additional mana die from source this turn.
  * Used by Mana Draw basic effect.
@@ -177,9 +187,8 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
     poweredBy: [MANA_RED],
     categories: [CARD_CATEGORY_INFLUENCE],
     // Basic: Influence 2 | Powered: Influence 5, Reputation -1
-    // Note: Reputation loss not modeled in effect system
     basicEffect: influence(2),
-    poweredEffect: influence(5),
+    poweredEffect: compound(influence(5), changeReputation(-1)),
     sidewaysValue: 1,
   },
 

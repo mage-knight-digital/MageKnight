@@ -30,6 +30,7 @@ import {
   EFFECT_CHOICE,
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
+  EFFECT_CHANGE_REPUTATION,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -174,6 +175,9 @@ export function resolveEffect(
       return applyGainMana(state, playerIndex, player, effect.color);
     }
 
+    case EFFECT_CHANGE_REPUTATION:
+      return applyChangeReputation(state, playerIndex, player, effect.amount);
+
     case EFFECT_APPLY_MODIFIER:
       return applyModifierEffect(state, playerId, effect, sourceCardId);
 
@@ -314,6 +318,36 @@ function applyGainMana(
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),
     description: `Gained ${color} mana token`,
+  };
+}
+
+// Reputation bounds per rulebook
+const MIN_REPUTATION = -7;
+const MAX_REPUTATION = 7;
+
+function applyChangeReputation(
+  state: GameState,
+  playerIndex: number,
+  player: Player,
+  amount: number
+): EffectResolutionResult {
+  // Clamp to -7 to +7 range
+  const newReputation = Math.max(
+    MIN_REPUTATION,
+    Math.min(MAX_REPUTATION, player.reputation + amount)
+  );
+
+  const updatedPlayer: Player = {
+    ...player,
+    reputation: newReputation,
+  };
+
+  const direction = amount >= 0 ? "Gained" : "Lost";
+  const absAmount = Math.abs(amount);
+
+  return {
+    state: updatePlayer(state, playerIndex, updatedPlayer),
+    description: `${direction} ${absAmount} Reputation`,
   };
 }
 
@@ -622,6 +656,16 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
           ...player.combatAccumulator,
           block: player.combatAccumulator.block - effect.amount,
         },
+      };
+
+    case EFFECT_CHANGE_REPUTATION:
+      // Reverse reputation change (clamp to bounds)
+      return {
+        ...player,
+        reputation: Math.max(
+          MIN_REPUTATION,
+          Math.min(MAX_REPUTATION, player.reputation - effect.amount)
+        ),
       };
 
     case EFFECT_COMPOUND: {

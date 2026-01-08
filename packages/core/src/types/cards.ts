@@ -17,6 +17,7 @@ import {
   EFFECT_CHOICE,
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
+  EFFECT_CHANGE_REPUTATION,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -93,6 +94,11 @@ export interface DrawCardsEffect {
   readonly amount: number;
 }
 
+export interface ChangeReputationEffect {
+  readonly type: typeof EFFECT_CHANGE_REPUTATION;
+  readonly amount: number; // positive = gain, negative = lose
+}
+
 export interface ApplyModifierEffect {
   readonly type: typeof EFFECT_APPLY_MODIFIER;
   readonly modifier: ModifierEffect;
@@ -141,6 +147,7 @@ export type CardEffect =
   | GainHealingEffect
   | GainManaEffect
   | DrawCardsEffect
+  | ChangeReputationEffect
   | ApplyModifierEffect
   | CompoundEffect
   | ChoiceEffect

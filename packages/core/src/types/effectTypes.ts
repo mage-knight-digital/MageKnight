@@ -25,6 +25,7 @@ export const EFFECT_COMPOUND = "compound" as const;
 export const EFFECT_CHOICE = "choice" as const;
 export const EFFECT_CONDITIONAL = "conditional" as const;
 export const EFFECT_SCALING = "scaling" as const;
+export const EFFECT_CHANGE_REPUTATION = "change_reputation" as const;
 
 // === Card Color Constants ===
 // Note: These are separate from ManaColor which includes gold/black.
