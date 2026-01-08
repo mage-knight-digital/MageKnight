@@ -19,6 +19,7 @@ import {
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CHANGE_REPUTATION,
+  EFFECT_READY_UNIT,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -99,7 +100,32 @@ export function describeEffect(effect: CardEffect): string {
       return `Reputation ${effect.amount}`;
     }
 
+    case EFFECT_READY_UNIT: {
+      const levels = Array.from({ length: effect.maxLevel }, (_, i) =>
+        toRomanNumeral(i + 1)
+      ).join("/");
+      return `Ready a Level ${levels} Unit`;
+    }
+
     default:
       return "Unknown effect";
+  }
+}
+
+/**
+ * Convert a number to Roman numeral (1-4 range)
+ */
+function toRomanNumeral(n: number): string {
+  switch (n) {
+    case 1:
+      return "I";
+    case 2:
+      return "II";
+    case 3:
+      return "III";
+    case 4:
+      return "IV";
+    default:
+      return String(n);
   }
 }

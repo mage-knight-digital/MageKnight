@@ -31,6 +31,7 @@ import {
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CARD_BOOST,
+  EFFECT_READY_UNIT,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -131,8 +132,16 @@ function drawCards(amount: number): CardEffect {
   return { type: EFFECT_DRAW_CARDS, amount };
 }
 
-function gainMana(color: typeof MANA_RED | typeof MANA_BLUE | typeof MANA_WHITE): CardEffect {
+function gainMana(color: typeof MANA_RED | typeof MANA_BLUE | typeof MANA_GREEN | typeof MANA_WHITE): CardEffect {
   return { type: EFFECT_GAIN_MANA, color };
+}
+
+/**
+ * Ready a wounded unit of a given max level.
+ * Used by Rejuvenate, Song of Wind, Herbalists, etc.
+ */
+function readyUnit(maxLevel: 1 | 2 | 3 | 4): CardEffect {
+  return { type: EFFECT_READY_UNIT, maxLevel };
 }
 
 function choice(...options: CardEffect[]): CardEffect {
@@ -474,10 +483,9 @@ export const BASIC_ACTION_CARDS = {
     categories: [CARD_CATEGORY_HEALING],
     // Replaces: Tranquility
     // Basic: Heal 1, Draw a card, Gain green mana token, OR Ready a Level I or II Unit
+    basicEffect: choice(heal(1), drawCards(1), gainMana(MANA_GREEN), readyUnit(2)),
     // Powered: Heal 2, Draw 2 cards, Gain green crystal, OR Ready a Level I, II, or III Unit
-    // Note: Mana/unit ready not modeled - showing heal/draw options
-    basicEffect: choice(heal(1), drawCards(1)),
-    poweredEffect: choice(heal(2), drawCards(2)),
+    poweredEffect: choice(heal(2), drawCards(2), gainCrystal(MANA_GREEN), readyUnit(3)),
     sidewaysValue: 1,
   },
 

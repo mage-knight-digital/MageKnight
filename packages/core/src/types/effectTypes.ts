@@ -30,6 +30,7 @@ export const EFFECT_GAIN_CRYSTAL = "gain_crystal" as const;
 export const EFFECT_CONVERT_MANA_TO_CRYSTAL = "convert_mana_to_crystal" as const;
 export const EFFECT_CARD_BOOST = "card_boost" as const;
 export const EFFECT_RESOLVE_BOOST_TARGET = "resolve_boost_target" as const;
+export const EFFECT_READY_UNIT = "ready_unit" as const;
 
 // === Card Color Constants ===
 // Note: These are separate from ManaColor which includes gold/black.

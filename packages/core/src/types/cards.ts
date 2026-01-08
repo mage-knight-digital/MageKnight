@@ -22,6 +22,7 @@ import {
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CARD_BOOST,
   EFFECT_RESOLVE_BOOST_TARGET,
+  EFFECT_READY_UNIT,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -138,6 +139,22 @@ export interface ResolveBoostTargetEffect {
   readonly bonus: number;
 }
 
+/**
+ * Ready a unit of a given max level.
+ * Used by Rejuvenate, Song of Wind, Herbalists, etc.
+ * - maxLevel 1: "Ready a level I unit"
+ * - maxLevel 2: "Ready a level I or II unit"
+ * - maxLevel 3: "Ready a level I, II, or III unit"
+ * - maxLevel 4: "Ready any unit"
+ *
+ * Targets Spent units only (can't ready an already-ready unit).
+ * Wound status is irrelevant - units can be readied whether wounded or not.
+ */
+export interface ReadyUnitEffect {
+  readonly type: typeof EFFECT_READY_UNIT;
+  readonly maxLevel: 1 | 2 | 3 | 4;
+}
+
 export interface ApplyModifierEffect {
   readonly type: typeof EFFECT_APPLY_MODIFIER;
   readonly modifier: ModifierEffect;
@@ -191,6 +208,7 @@ export type CardEffect =
   | ConvertManaToCrystalEffect
   | CardBoostEffect
   | ResolveBoostTargetEffect
+  | ReadyUnitEffect
   | ApplyModifierEffect
   | CompoundEffect
   | ChoiceEffect
