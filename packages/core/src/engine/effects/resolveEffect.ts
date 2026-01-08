@@ -14,7 +14,7 @@
 import type { GameState } from "../../state/GameState.js";
 import type { CardEffect, GainAttackEffect, GainBlockEffect, ScalableBaseEffect } from "../../types/cards.js";
 import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../types/player.js";
-import type { CardId, Element, BlockSource, ManaColor } from "@mage-knight/shared";
+import type { CardId, Element, BlockSource, ManaColor, BasicManaColor } from "@mage-knight/shared";
 import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL } from "@mage-knight/shared";
 import {
@@ -31,6 +31,7 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_CHANGE_REPUTATION,
+  EFFECT_GAIN_CRYSTAL,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -177,6 +178,9 @@ export function resolveEffect(
 
     case EFFECT_CHANGE_REPUTATION:
       return applyChangeReputation(state, playerIndex, player, effect.amount);
+
+    case EFFECT_GAIN_CRYSTAL:
+      return applyGainCrystal(state, playerIndex, player, effect.color);
 
     case EFFECT_APPLY_MODIFIER:
       return applyModifierEffect(state, playerId, effect, sourceCardId);
@@ -348,6 +352,28 @@ function applyChangeReputation(
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),
     description: `${direction} ${absAmount} Reputation`,
+  };
+}
+
+function applyGainCrystal(
+  state: GameState,
+  playerIndex: number,
+  player: Player,
+  color: BasicManaColor
+): EffectResolutionResult {
+  const updatedCrystals = {
+    ...player.crystals,
+    [color]: player.crystals[color] + 1,
+  };
+
+  const updatedPlayer: Player = {
+    ...player,
+    crystals: updatedCrystals,
+  };
+
+  return {
+    state: updatePlayer(state, playerIndex, updatedPlayer),
+    description: `Gained ${color} crystal`,
   };
 }
 
@@ -666,6 +692,16 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
           MIN_REPUTATION,
           Math.min(MAX_REPUTATION, player.reputation - effect.amount)
         ),
+      };
+
+    case EFFECT_GAIN_CRYSTAL:
+      // Reverse crystal gain (don't go below 0)
+      return {
+        ...player,
+        crystals: {
+          ...player.crystals,
+          [effect.color]: Math.max(0, player.crystals[effect.color] - 1),
+        },
       };
 
     case EFFECT_COMPOUND: {

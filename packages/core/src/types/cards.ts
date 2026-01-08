@@ -2,7 +2,7 @@
  * Card definitions for Mage Knight
  */
 
-import type { CardId, ManaColor, Element } from "@mage-knight/shared";
+import type { CardId, ManaColor, BasicManaColor, Element } from "@mage-knight/shared";
 import type { ModifierEffect, ModifierDuration } from "./modifiers.js";
 import {
   EFFECT_GAIN_MOVE,
@@ -18,6 +18,7 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_CHANGE_REPUTATION,
+  EFFECT_GAIN_CRYSTAL,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -99,6 +100,11 @@ export interface ChangeReputationEffect {
   readonly amount: number; // positive = gain, negative = lose
 }
 
+export interface GainCrystalEffect {
+  readonly type: typeof EFFECT_GAIN_CRYSTAL;
+  readonly color: BasicManaColor; // red, blue, green, white only
+}
+
 export interface ApplyModifierEffect {
   readonly type: typeof EFFECT_APPLY_MODIFIER;
   readonly modifier: ModifierEffect;
@@ -148,6 +154,7 @@ export type CardEffect =
   | GainManaEffect
   | DrawCardsEffect
   | ChangeReputationEffect
+  | GainCrystalEffect
   | ApplyModifierEffect
   | CompoundEffect
   | ChoiceEffect

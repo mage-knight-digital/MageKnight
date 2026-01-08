@@ -28,6 +28,7 @@ import {
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
   EFFECT_CHANGE_REPUTATION,
+  EFFECT_GAIN_CRYSTAL,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -37,6 +38,7 @@ import {
   MANA_BLUE,
   MANA_GREEN,
   MANA_WHITE,
+  type BasicManaColor,
 } from "@mage-knight/shared";
 import {
   ELEMENT_ICE,
@@ -141,6 +143,10 @@ function compound(...effects: CardEffect[]): CardEffect {
 
 function changeReputation(amount: number): CardEffect {
   return { type: EFFECT_CHANGE_REPUTATION, amount };
+}
+
+function gainCrystal(color: BasicManaColor): CardEffect {
+  return { type: EFFECT_GAIN_CRYSTAL, color };
 }
 
 /**
@@ -252,9 +258,14 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
     categories: [CARD_CATEGORY_SPECIAL],
     // Basic: Gain a crystal of any basic color
     // Powered: Pay mana of a basic color, gain crystal of that color
-    // Note: Crystal/mana manipulation not modeled - placeholder
-    basicEffect: drawCards(0), // Placeholder
-    poweredEffect: drawCards(0), // Placeholder
+    // TODO: Powered effect converts mana to crystal (not yet modeled)
+    basicEffect: choice(
+      gainCrystal(MANA_RED),
+      gainCrystal(MANA_BLUE),
+      gainCrystal(MANA_GREEN),
+      gainCrystal(MANA_WHITE)
+    ),
+    poweredEffect: drawCards(0), // Placeholder - mana→crystal conversion
     sidewaysValue: 1,
   },
 
