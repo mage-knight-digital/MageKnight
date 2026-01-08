@@ -32,6 +32,7 @@ import {
   EFFECT_SCALING,
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_CRYSTAL,
+  EFFECT_CONVERT_MANA_TO_CRYSTAL,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -123,6 +124,13 @@ export function isEffectResolvable(
       return true;
     }
 
+    case EFFECT_CONVERT_MANA_TO_CRYSTAL:
+      // Can only convert mana to crystal if player has mana tokens
+      // Only basic colors (red, blue, green, white) can become crystals
+      return player.pureMana.some((token) =>
+        ["red", "blue", "green", "white"].includes(token.color)
+      );
+
     default:
       // Unknown effect types are considered resolvable (fail-safe)
       return true;
@@ -181,6 +189,15 @@ export function resolveEffect(
 
     case EFFECT_GAIN_CRYSTAL:
       return applyGainCrystal(state, playerIndex, player, effect.color);
+
+    case EFFECT_CONVERT_MANA_TO_CRYSTAL:
+      // Player must choose which mana token to convert
+      // This will be handled via the choice system
+      return {
+        state,
+        description: "Choose mana token to convert to crystal",
+        requiresChoice: true,
+      };
 
     case EFFECT_APPLY_MODIFIER:
       return applyModifierEffect(state, playerId, effect, sourceCardId);

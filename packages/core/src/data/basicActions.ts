@@ -29,6 +29,7 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_CRYSTAL,
+  EFFECT_CONVERT_MANA_TO_CRYSTAL,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -150,6 +151,15 @@ function gainCrystal(color: BasicManaColor): CardEffect {
 }
 
 /**
+ * Convert a mana token to a crystal of the same color.
+ * Player chooses which basic color mana token to spend.
+ * Used by Crystallize basic effect.
+ */
+function convertManaToCrystal(): CardEffect {
+  return { type: EFFECT_CONVERT_MANA_TO_CRYSTAL };
+}
+
+/**
  * Grant the player one additional mana die from source this turn.
  * Used by Mana Draw basic effect.
  */
@@ -256,16 +266,15 @@ export const BASIC_ACTION_CARDS = {
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
     poweredBy: [MANA_BLUE],
     categories: [CARD_CATEGORY_SPECIAL],
-    // Basic: Gain a crystal of any basic color
-    // Powered: Pay mana of a basic color, gain crystal of that color
-    // TODO: Powered effect converts mana to crystal (not yet modeled)
-    basicEffect: choice(
+    // Basic: Pay one mana of a basic color, gain a crystal of that color
+    // Powered: Gain a crystal of any color
+    basicEffect: convertManaToCrystal(),
+    poweredEffect: choice(
       gainCrystal(MANA_RED),
       gainCrystal(MANA_BLUE),
       gainCrystal(MANA_GREEN),
       gainCrystal(MANA_WHITE)
     ),
-    poweredEffect: drawCards(0), // Placeholder - mana→crystal conversion
     sidewaysValue: 1,
   },
 

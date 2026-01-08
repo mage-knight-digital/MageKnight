@@ -19,6 +19,7 @@ import {
   EFFECT_SCALING,
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_CRYSTAL,
+  EFFECT_CONVERT_MANA_TO_CRYSTAL,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -105,6 +106,15 @@ export interface GainCrystalEffect {
   readonly color: BasicManaColor; // red, blue, green, white only
 }
 
+/**
+ * Convert a mana token to a crystal of the same color.
+ * Player chooses which mana token to spend, gains crystal of that color.
+ * Used by Crystallize basic effect.
+ */
+export interface ConvertManaToCrystalEffect {
+  readonly type: typeof EFFECT_CONVERT_MANA_TO_CRYSTAL;
+}
+
 export interface ApplyModifierEffect {
   readonly type: typeof EFFECT_APPLY_MODIFIER;
   readonly modifier: ModifierEffect;
@@ -155,6 +165,7 @@ export type CardEffect =
   | DrawCardsEffect
   | ChangeReputationEffect
   | GainCrystalEffect
+  | ConvertManaToCrystalEffect
   | ApplyModifierEffect
   | CompoundEffect
   | ChoiceEffect
