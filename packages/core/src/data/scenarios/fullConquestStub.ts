@@ -10,6 +10,9 @@ import {
   END_TRIGGER_CITY_CONQUERED,
   MAP_SHAPE_WEDGE,
   SCORING_CATEGORY_ACHIEVEMENTS,
+  EXPANSION_LOST_LEGION,
+  EXPANSION_KRANG,
+  EXPANSION_SHADES_OF_TEZLA,
   type ScenarioConfig,
 } from "@mage-knight/shared";
 
@@ -42,6 +45,7 @@ export const FULL_CONQUEST_STUB: ScenarioConfig = {
   pvpEnabled: true,
   spellsAvailable: true,
   advancedActionsAvailable: true,
+  enabledExpansions: [EXPANSION_LOST_LEGION, EXPANSION_KRANG, EXPANSION_SHADES_OF_TEZLA],
   famePerTileExplored: 0, // No fame for exploring in full conquest
   citiesCanBeEntered: true, // Can enter and conquer cities
 

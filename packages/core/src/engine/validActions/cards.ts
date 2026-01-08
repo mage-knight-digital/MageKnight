@@ -270,6 +270,7 @@ import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
   EFFECT_GAIN_HEALING,
+  EFFECT_GAIN_MANA,
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
 } from "../../types/effectTypes.js";
@@ -344,22 +345,24 @@ function getCardPlayabilityForNormalTurn(
   playerId: string,
   card: DeedCard
 ): CardPlayability {
-  // Check if basic effect has move, influence, heal, draw, or modifier AND is resolvable
+  // Check if basic effect has move, influence, heal, draw, mana gain, or modifier AND is resolvable
   const basicHasUsefulEffect =
     effectHasMove(card.basicEffect) ||
     effectHasInfluence(card.basicEffect) ||
     effectHasHeal(card.basicEffect) ||
     effectHasDraw(card.basicEffect) ||
+    effectHasManaGain(card.basicEffect) ||
     effectHasModifier(card.basicEffect);
 
   const basicIsResolvable = isEffectResolvable(state, playerId, card.basicEffect);
 
-  // Check if powered effect has move, influence, heal, draw, or modifier AND is resolvable
+  // Check if powered effect has move, influence, heal, draw, mana gain, or modifier AND is resolvable
   const poweredHasUsefulEffect =
     effectHasMove(card.poweredEffect) ||
     effectHasInfluence(card.poweredEffect) ||
     effectHasHeal(card.poweredEffect) ||
     effectHasDraw(card.poweredEffect) ||
+    effectHasManaGain(card.poweredEffect) ||
     effectHasModifier(card.poweredEffect);
 
   const poweredIsResolvable = isEffectResolvable(state, playerId, card.poweredEffect);
@@ -504,6 +507,32 @@ function effectHasModifier(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasModifier(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect gains mana tokens (e.g., Concentration).
+ */
+function effectHasManaGain(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_MANA:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasManaGain(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasManaGain(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasManaGain(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasManaGain(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasManaGain(effect.baseEffect);
 
     default:
       return false;

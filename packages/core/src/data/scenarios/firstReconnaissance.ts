@@ -55,6 +55,7 @@ export const FIRST_RECONNAISSANCE: ScenarioConfig = {
   pvpEnabled: false,
   spellsAvailable: true, // Can acquire but not required
   advancedActionsAvailable: true,
+  enabledExpansions: [], // Base game only - no expansions
   famePerTileExplored: 1, // +1 Fame per tile in First Reconnaissance
   citiesCanBeEntered: false, // Cannot enter city in this scenario
 

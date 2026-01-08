@@ -14,8 +14,8 @@
 import type { GameState } from "../../state/GameState.js";
 import type { CardEffect, GainAttackEffect, GainBlockEffect, ScalableBaseEffect } from "../../types/cards.js";
 import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../types/player.js";
-import type { CardId, Element, BlockSource } from "@mage-knight/shared";
-import { CARD_WOUND } from "@mage-knight/shared";
+import type { CardId, Element, BlockSource, ManaColor } from "@mage-knight/shared";
+import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL } from "@mage-knight/shared";
 import {
   EFFECT_GAIN_MOVE,
@@ -162,6 +162,18 @@ export function resolveEffect(
     case EFFECT_DRAW_CARDS:
       return applyDrawCards(state, playerIndex, player, effect.amount);
 
+    case EFFECT_GAIN_MANA: {
+      if (effect.color === "any") {
+        // MANA_ANY should be resolved via player choice, not passed directly
+        return {
+          state,
+          description: "Mana color choice required",
+          requiresChoice: true,
+        };
+      }
+      return applyGainMana(state, playerIndex, player, effect.color);
+    }
+
     case EFFECT_APPLY_MODIFIER:
       return applyModifierEffect(state, playerId, effect, sourceCardId);
 
@@ -280,6 +292,28 @@ function applyGainInfluence(
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),
     description: `Gained ${amount} Influence`,
+  };
+}
+
+function applyGainMana(
+  state: GameState,
+  playerIndex: number,
+  player: Player,
+  color: ManaColor
+): EffectResolutionResult {
+  const newToken = {
+    color,
+    source: MANA_TOKEN_SOURCE_CARD,
+  };
+
+  const updatedPlayer: Player = {
+    ...player,
+    pureMana: [...player.pureMana, newToken],
+  };
+
+  return {
+    state: updatePlayer(state, playerIndex, updatedPlayer),
+    description: `Gained ${color} mana token`,
   };
 }
 

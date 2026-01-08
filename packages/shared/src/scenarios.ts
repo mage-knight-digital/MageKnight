@@ -18,6 +18,16 @@ export const MAP_SHAPE_OPEN = "open" as const;
 
 export type MapShape = typeof MAP_SHAPE_WEDGE | typeof MAP_SHAPE_OPEN;
 
+// === Expansion IDs ===
+export const EXPANSION_LOST_LEGION = "lost_legion" as const;
+export const EXPANSION_KRANG = "krang" as const;
+export const EXPANSION_SHADES_OF_TEZLA = "shades_of_tezla" as const;
+
+export type ExpansionId =
+  | typeof EXPANSION_LOST_LEGION
+  | typeof EXPANSION_KRANG
+  | typeof EXPANSION_SHADES_OF_TEZLA;
+
 // === End Trigger Types ===
 export const END_TRIGGER_CITY_REVEALED = "city_revealed" as const;
 export const END_TRIGGER_CITY_CONQUERED = "city_conquered" as const;
@@ -90,6 +100,7 @@ export interface ScenarioConfig {
   readonly pvpEnabled: boolean;
   readonly spellsAvailable: boolean;
   readonly advancedActionsAvailable: boolean;
+  readonly enabledExpansions: readonly ExpansionId[]; // which expansions are active
   readonly famePerTileExplored: number; // 0 for scenarios that don't give fame for exploration
   readonly citiesCanBeEntered: boolean; // false for First Reconnaissance
 

@@ -22,6 +22,7 @@ import {
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
   EFFECT_GAIN_HEALING,
+  EFFECT_GAIN_MANA,
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
   EFFECT_CHOICE,
@@ -34,6 +35,11 @@ import {
   CARD_COLOR_WHITE,
   CARD_COLOR_WOUND,
 } from "../types/effectTypes.js";
+import {
+  MANA_RED,
+  MANA_BLUE,
+  MANA_WHITE,
+} from "@mage-knight/shared";
 import {
   ELEMENT_ICE,
   ELEMENT_FIRE,
@@ -121,6 +127,10 @@ function heal(amount: number): CardEffect {
 
 function drawCards(amount: number): CardEffect {
   return { type: EFFECT_DRAW_CARDS, amount };
+}
+
+function gainMana(color: typeof MANA_RED | typeof MANA_BLUE | typeof MANA_WHITE): CardEffect {
+  return { type: EFFECT_GAIN_MANA, color };
 }
 
 function choice(...options: CardEffect[]): CardEffect {
@@ -276,10 +286,10 @@ export const BASIC_ACTION_CARDS: { readonly [K in BasicActionCardId]: DeedCard }
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
     categories: [CARD_CATEGORY_SPECIAL],
     // Basic: Gain a blue, white, or red mana token
+    basicEffect: choice(gainMana(MANA_BLUE), gainMana(MANA_WHITE), gainMana(MANA_RED)),
     // Powered: Play with another Action card: get its stronger effect free;
     //          if Move/Influence/Block/Attack, get +2
-    // Note: Card boost mechanic not modeled - placeholder shows mana gain
-    basicEffect: drawCards(0), // Placeholder for mana token gain
+    // TODO: Card boost mechanic requires new effect type
     poweredEffect: drawCards(0), // Placeholder for card boost
     sidewaysValue: 1,
   },
