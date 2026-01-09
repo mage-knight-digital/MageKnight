@@ -517,8 +517,11 @@ export function resolveEffect(
     }
 
     case EFFECT_MANA_DRAW_POWERED: {
-      // Mana Draw powered: Take a die, set its color, gain 2 mana tokens
-      // Step 1: Select which die to take
+      // Mana Draw/Mana Pull powered: Take dice, set colors, gain mana tokens
+      // Parameterized: diceCount (1 or 2), tokensPerDie (1 or 2)
+      const { diceCount, tokensPerDie } = effect;
+
+      // Step 1: Select which die to take (filter out already-taken dice)
       const availableDice = state.source.dice.filter(
         (d) => d.takenByPlayerId === null
       );
@@ -530,18 +533,30 @@ export function resolveEffect(
         };
       }
 
-      // If only one die, auto-select and go straight to color choice
-      if (availableDice.length === 1) {
+      // Check if we have enough dice for the effect
+      if (availableDice.length < diceCount) {
+        // Not enough dice - partial effect (take what's available)
+        // For now, proceed with what's available
+      }
+
+      const remainingDiceToSelect = diceCount - 1; // After picking this die
+      const alreadySelectedDieIds: readonly string[] = [];
+
+      // Auto-select if there's no meaningful choice:
+      // - Only one die available
+      // - Need one die (diceCount=1)
+      // - Available dice exactly matches what we need (e.g., need 2 and have 2)
+      if (availableDice.length <= diceCount) {
         const die = availableDice[0];
         if (!die) {
-          throw new Error("Expected single available die");
+          throw new Error("Expected at least one available die");
         }
         // Generate color choice options directly
         const colorOptions: ManaDrawSetColorEffect[] = [
-          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_RED },
-          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_BLUE },
-          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_GREEN },
-          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_WHITE },
+          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_RED, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
+          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_BLUE, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
+          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_GREEN, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
+          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_WHITE, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
         ];
         return {
           state,
@@ -551,10 +566,13 @@ export function resolveEffect(
         };
       }
 
-      // Multiple dice — player must first choose which die
+      // Multiple dice available and need to pick — player must first choose which die
       const dieOptions: ManaDrawPickDieEffect[] = availableDice.map((die) => ({
         type: EFFECT_MANA_DRAW_PICK_DIE,
         dieId: die.id,
+        remainingDiceToSelect,
+        tokensPerDie,
+        alreadySelectedDieIds,
       }));
 
       return {
@@ -567,15 +585,17 @@ export function resolveEffect(
 
     case EFFECT_MANA_DRAW_PICK_DIE: {
       // Player selected a die, now they choose a color
+      const { dieId, remainingDiceToSelect, tokensPerDie, alreadySelectedDieIds } = effect;
+
       const colorOptions: ManaDrawSetColorEffect[] = [
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: effect.dieId, color: MANA_RED },
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: effect.dieId, color: MANA_BLUE },
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: effect.dieId, color: MANA_GREEN },
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: effect.dieId, color: MANA_WHITE },
+        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId, color: MANA_RED, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
+        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId, color: MANA_BLUE, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
+        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId, color: MANA_GREEN, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
+        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId, color: MANA_WHITE, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
       ];
 
       // Find the die to show its current color in description
-      const selectedDie = state.source.dice.find((d) => d.id === effect.dieId);
+      const selectedDie = state.source.dice.find((d) => d.id === dieId);
       const dieColor = selectedDie?.color ?? "unknown";
 
       return {
@@ -587,8 +607,9 @@ export function resolveEffect(
     }
 
     case EFFECT_MANA_DRAW_SET_COLOR: {
-      // Final resolution: set the die color and gain 2 mana tokens
-      return applyManaDrawSetColor(state, playerIndex, player, effect.dieId, effect.color);
+      // Resolve this die: set color and gain tokens
+      const { dieId, color, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds } = effect;
+      return applyManaDrawSetColor(state, playerIndex, player, dieId, color, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds);
     }
 
     default:
@@ -1015,21 +1036,25 @@ function applyReadyUnit(
 }
 
 /**
- * Apply the final Mana Draw powered resolution:
+ * Apply Mana Draw/Mana Pull powered resolution for one die:
  * - Set the die color to the chosen color
  * - Mark die as taken by player (unavailable to others until turn ends)
- * - Gain 2 mana tokens of the chosen color
+ * - Gain mana tokens of the chosen color (tokensPerDie count)
+ * - If more dice to select, chain to next die selection
  *
- * Note: At end of turn, the die should be returned WITHOUT rerolling.
- * This is tracked via player.manaDrawDieId. The endTurnCommand will
- * clear takenByPlayerId without rerolling for this die.
+ * Note: At end of turn, dice are returned WITHOUT rerolling.
+ * This is tracked via player.manaDrawDieIds array. The endTurnCommand will
+ * clear takenByPlayerId without rerolling for these dice.
  */
 function applyManaDrawSetColor(
   state: GameState,
   playerIndex: number,
   player: Player,
   dieId: string,
-  color: BasicManaColor
+  color: BasicManaColor,
+  tokensPerDie: 1 | 2,
+  remainingDiceToSelect: number,
+  alreadySelectedDieIds: readonly string[]
 ): EffectResolutionResult {
   // Find and update the die
   const dieIndex = state.source.dice.findIndex((d) => d.id === dieId);
@@ -1059,22 +1084,84 @@ function applyManaDrawSetColor(
     },
   };
 
-  // Gain 2 mana tokens of the chosen color
-  // Track this die as the Mana Draw die (so endTurnCommand knows not to reroll it)
-  const newTokens = [
-    { color, source: MANA_TOKEN_SOURCE_CARD },
-    { color, source: MANA_TOKEN_SOURCE_CARD },
-  ];
+  // Gain mana tokens of the chosen color (1 or 2 depending on card)
+  const newTokens = Array.from({ length: tokensPerDie }, () => ({
+    color,
+    source: MANA_TOKEN_SOURCE_CARD,
+  }));
+
+  // Track this die for no-reroll at turn end
+  const updatedManaDrawDieIds = [...player.manaDrawDieIds, dieId];
 
   const updatedPlayer: Player = {
     ...player,
     pureMana: [...player.pureMana, ...newTokens],
-    manaDrawDieId: dieId, // Track for no-reroll at turn end
+    manaDrawDieIds: updatedManaDrawDieIds,
   };
 
+  const stateAfterTokens = updatePlayer(stateWithUpdatedDie, playerIndex, updatedPlayer);
+  const tokenText = tokensPerDie === 1 ? `1 ${color} mana` : `2 ${color} mana`;
+
+  // If more dice to select (Mana Pull), chain to next die selection
+  if (remainingDiceToSelect > 0) {
+    const newAlreadySelected = [...alreadySelectedDieIds, dieId];
+
+    // Find available dice (not taken, not already selected in this chain)
+    const availableDice = stateAfterTokens.source.dice.filter(
+      (d) => d.takenByPlayerId === null && !newAlreadySelected.includes(d.id)
+    );
+
+    if (availableDice.length === 0) {
+      // No more dice available, end here
+      return {
+        state: stateAfterTokens,
+        description: `Set die to ${color}, gained ${tokenText} (no more dice available)`,
+      };
+    }
+
+    const nextRemainingDice = remainingDiceToSelect - 1;
+
+    // If only one die left or this is the last die needed, auto-select and go to color
+    if (availableDice.length === 1) {
+      const die = availableDice[0];
+      if (!die) {
+        throw new Error("Expected at least one available die");
+      }
+      const colorOptions: ManaDrawSetColorEffect[] = [
+        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_RED, tokensPerDie, remainingDiceToSelect: nextRemainingDice, alreadySelectedDieIds: newAlreadySelected },
+        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_BLUE, tokensPerDie, remainingDiceToSelect: nextRemainingDice, alreadySelectedDieIds: newAlreadySelected },
+        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_GREEN, tokensPerDie, remainingDiceToSelect: nextRemainingDice, alreadySelectedDieIds: newAlreadySelected },
+        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_WHITE, tokensPerDie, remainingDiceToSelect: nextRemainingDice, alreadySelectedDieIds: newAlreadySelected },
+      ];
+      return {
+        state: stateAfterTokens,
+        description: `Set die to ${color}, gained ${tokenText}. Choose color for next die (${die.color})`,
+        requiresChoice: true,
+        dynamicChoiceOptions: colorOptions,
+      };
+    }
+
+    // Multiple dice available, let player choose
+    const dieOptions: ManaDrawPickDieEffect[] = availableDice.map((die) => ({
+      type: EFFECT_MANA_DRAW_PICK_DIE,
+      dieId: die.id,
+      remainingDiceToSelect: nextRemainingDice,
+      tokensPerDie,
+      alreadySelectedDieIds: newAlreadySelected,
+    }));
+
+    return {
+      state: stateAfterTokens,
+      description: `Set die to ${color}, gained ${tokenText}. Choose another die`,
+      requiresChoice: true,
+      dynamicChoiceOptions: dieOptions,
+    };
+  }
+
+  // No more dice to select, we're done
   return {
-    state: updatePlayer(stateWithUpdatedDie, playerIndex, updatedPlayer),
-    description: `Set die to ${color}, gained 2 ${color} mana`,
+    state: stateAfterTokens,
+    description: `Set die to ${color}, gained ${tokenText}`,
   };
 }
 

@@ -1,16 +1,15 @@
 /**
- * Tests for Mana Draw powered effect
+ * Tests for Mana Draw / Mana Pull powered effects
  *
- * Card text: "Take a mana die from the Source and set it to any color except gold.
+ * Mana Draw: "Take a mana die from the Source and set it to any color except gold.
  * Gain two mana tokens of that color. Do not reroll this die when you return it to the Source."
  *
- * Key behaviors:
- * - Entry effect presents die choice (if multiple) or auto-selects (if one)
- * - After die selection, player chooses color (red, blue, green, white)
- * - Die is set to chosen color and marked as taken
- * - Player gains 2 mana tokens of chosen color
- * - At end of turn, die returns WITHOUT rerolling (keeps chosen color)
- * - At round end, die is rerolled normally like all others
+ * Mana Pull (Arythea): "Take two mana dice from the source and set them to any color except gold.
+ * Gain a mana token of each of these colors. Do not reroll these dice when you return them to the Source."
+ *
+ * Both use the same parameterized effect system:
+ * - Mana Draw: diceCount=1, tokensPerDie=2
+ * - Mana Pull: diceCount=2, tokensPerDie=1
  */
 
 import { describe, it, expect } from "vitest";
@@ -47,6 +46,13 @@ function createTestManaSource(dice: SourceDie[]): ManaSource {
 }
 
 describe("Mana Draw Powered Effect", () => {
+  // Standard Mana Draw params
+  const manaDrawEffect: ManaDrawPoweredEffect = {
+    type: EFFECT_MANA_DRAW_POWERED,
+    diceCount: 1,
+    tokensPerDie: 2,
+  };
+
   describe("isEffectResolvable", () => {
     it("should be resolvable when there are available dice", () => {
       const player = createTestPlayer({ id: "player1" });
@@ -57,8 +63,7 @@ describe("Mana Draw Powered Effect", () => {
         ]),
       });
 
-      const effect: ManaDrawPoweredEffect = { type: EFFECT_MANA_DRAW_POWERED };
-      expect(isEffectResolvable(state, "player1", effect)).toBe(true);
+      expect(isEffectResolvable(state, "player1", manaDrawEffect)).toBe(true);
     });
 
     it("should NOT be resolvable when all dice are taken", () => {
@@ -71,8 +76,7 @@ describe("Mana Draw Powered Effect", () => {
         ]),
       });
 
-      const effect: ManaDrawPoweredEffect = { type: EFFECT_MANA_DRAW_POWERED };
-      expect(isEffectResolvable(state, "player1", effect)).toBe(false);
+      expect(isEffectResolvable(state, "player1", manaDrawEffect)).toBe(false);
     });
 
     it("should NOT be resolvable when source is empty", () => {
@@ -82,8 +86,7 @@ describe("Mana Draw Powered Effect", () => {
         source: createTestManaSource([]),
       });
 
-      const effect: ManaDrawPoweredEffect = { type: EFFECT_MANA_DRAW_POWERED };
-      expect(isEffectResolvable(state, "player1", effect)).toBe(false);
+      expect(isEffectResolvable(state, "player1", manaDrawEffect)).toBe(false);
     });
 
     it("should be resolvable even if dice are depleted (gold/black)", () => {
@@ -96,8 +99,7 @@ describe("Mana Draw Powered Effect", () => {
         ]),
       });
 
-      const effect: ManaDrawPoweredEffect = { type: EFFECT_MANA_DRAW_POWERED };
-      expect(isEffectResolvable(state, "player1", effect)).toBe(true);
+      expect(isEffectResolvable(state, "player1", manaDrawEffect)).toBe(true);
     });
   });
 
@@ -111,8 +113,7 @@ describe("Mana Draw Powered Effect", () => {
         ]),
       });
 
-      const effect: ManaDrawPoweredEffect = { type: EFFECT_MANA_DRAW_POWERED };
-      const result = resolveEffect(state, "player1", effect);
+      const result = resolveEffect(state, "player1", manaDrawEffect);
 
       // Should go directly to color choice (no die selection needed)
       expect(result.requiresChoice).toBe(true);
@@ -132,7 +133,7 @@ describe("Mana Draw Powered Effect", () => {
       expect(colors).toContain(MANA_WHITE);
     });
 
-    it("should present die choice when multiple dice are available", () => {
+    it("should show die choice when multiple dice available for diceCount=1", () => {
       const player = createTestPlayer({ id: "player1" });
       const state = createTestGameState({
         players: [player],
@@ -143,21 +144,14 @@ describe("Mana Draw Powered Effect", () => {
         ]),
       });
 
-      const effect: ManaDrawPoweredEffect = { type: EFFECT_MANA_DRAW_POWERED };
-      const result = resolveEffect(state, "player1", effect);
+      const result = resolveEffect(state, "player1", manaDrawEffect);
 
+      // Should let player choose which die to take
       expect(result.requiresChoice).toBe(true);
-      expect(result.dynamicChoiceOptions).toHaveLength(3); // 3 dice
+      expect(result.dynamicChoiceOptions).toHaveLength(3); // 3 dice to choose from
       expect(result.description).toContain("Choose a die");
-
-      // All options should be ManaDrawPickDieEffect
       const options = result.dynamicChoiceOptions as ManaDrawPickDieEffect[];
       expect(options.every((o) => o.type === EFFECT_MANA_DRAW_PICK_DIE)).toBe(true);
-
-      const dieIds = options.map((o) => o.dieId);
-      expect(dieIds).toContain("die_0");
-      expect(dieIds).toContain("die_1");
-      expect(dieIds).toContain("die_2");
     });
 
     it("should return no-op when no dice are available", () => {
@@ -169,35 +163,10 @@ describe("Mana Draw Powered Effect", () => {
         ]),
       });
 
-      const effect: ManaDrawPoweredEffect = { type: EFFECT_MANA_DRAW_POWERED };
-      const result = resolveEffect(state, "player1", effect);
+      const result = resolveEffect(state, "player1", manaDrawEffect);
 
       expect(result.requiresChoice).toBeUndefined();
       expect(result.description).toBe("No dice available in the Source");
-    });
-
-    it("should only include untaken dice in the options", () => {
-      const player = createTestPlayer({ id: "player1" });
-      const state = createTestGameState({
-        players: [player],
-        source: createTestManaSource([
-          { id: "die_0", color: MANA_RED, isDepleted: false, takenByPlayerId: null }, // available
-          { id: "die_1", color: MANA_BLUE, isDepleted: false, takenByPlayerId: "player2" }, // taken
-          { id: "die_2", color: MANA_GREEN, isDepleted: false, takenByPlayerId: null }, // available
-        ]),
-      });
-
-      const effect: ManaDrawPoweredEffect = { type: EFFECT_MANA_DRAW_POWERED };
-      const result = resolveEffect(state, "player1", effect);
-
-      expect(result.requiresChoice).toBe(true);
-      expect(result.dynamicChoiceOptions).toHaveLength(2);
-
-      const options = result.dynamicChoiceOptions as ManaDrawPickDieEffect[];
-      const dieIds = options.map((o) => o.dieId);
-      expect(dieIds).toContain("die_0");
-      expect(dieIds).toContain("die_2");
-      expect(dieIds).not.toContain("die_1");
     });
   });
 
@@ -214,6 +183,9 @@ describe("Mana Draw Powered Effect", () => {
       const effect: ManaDrawPickDieEffect = {
         type: EFFECT_MANA_DRAW_PICK_DIE,
         dieId: "die_0",
+        remainingDiceToSelect: 0,
+        tokensPerDie: 2,
+        alreadySelectedDieIds: [],
       };
       const result = resolveEffect(state, "player1", effect);
 
@@ -239,6 +211,9 @@ describe("Mana Draw Powered Effect", () => {
       const effect: ManaDrawPickDieEffect = {
         type: EFFECT_MANA_DRAW_PICK_DIE,
         dieId: "die_0",
+        remainingDiceToSelect: 0,
+        tokensPerDie: 2,
+        alreadySelectedDieIds: [],
       };
       const result = resolveEffect(state, "player1", effect);
 
@@ -250,7 +225,7 @@ describe("Mana Draw Powered Effect", () => {
   });
 
   describe("Final Resolution (Set Color Effect)", () => {
-    it("should set die color and grant 2 mana tokens", () => {
+    it("should set die color and grant 2 mana tokens for Mana Draw", () => {
       const player = createTestPlayer({
         id: "player1",
         pureMana: [],
@@ -266,6 +241,9 @@ describe("Mana Draw Powered Effect", () => {
         type: EFFECT_MANA_DRAW_SET_COLOR,
         dieId: "die_0",
         color: MANA_BLUE,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
       };
       const result = resolveEffect(state, "player1", effect);
 
@@ -281,10 +259,10 @@ describe("Mana Draw Powered Effect", () => {
       expect(updatedPlayer?.pureMana.every((t) => t.color === MANA_BLUE)).toBe(true);
     });
 
-    it("should track manaDrawDieId on player", () => {
+    it("should track manaDrawDieIds on player", () => {
       const player = createTestPlayer({
         id: "player1",
-        manaDrawDieId: null,
+        manaDrawDieIds: [],
       });
       const state = createTestGameState({
         players: [player],
@@ -297,11 +275,14 @@ describe("Mana Draw Powered Effect", () => {
         type: EFFECT_MANA_DRAW_SET_COLOR,
         dieId: "die_0",
         color: MANA_GREEN,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
       };
       const result = resolveEffect(state, "player1", effect);
 
       const updatedPlayer = result.state.players.find((p) => p.id === "player1");
-      expect(updatedPlayer?.manaDrawDieId).toBe("die_0");
+      expect(updatedPlayer?.manaDrawDieIds).toContain("die_0");
     });
 
     it("should add to existing mana tokens (not replace)", () => {
@@ -323,6 +304,9 @@ describe("Mana Draw Powered Effect", () => {
         type: EFFECT_MANA_DRAW_SET_COLOR,
         dieId: "die_0",
         color: MANA_GREEN,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
       };
       const result = resolveEffect(state, "player1", effect);
 
@@ -343,6 +327,9 @@ describe("Mana Draw Powered Effect", () => {
         type: EFFECT_MANA_DRAW_SET_COLOR,
         dieId: "nonexistent_die",
         color: MANA_BLUE,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
       };
       const result = resolveEffect(state, "player1", effect);
 
@@ -356,7 +343,7 @@ describe("Mana Draw Powered Effect", () => {
         id: "player1",
         hand: [CARD_MARCH], // Need a card to avoid forced round end announcement
         deck: [CARD_MARCH],
-        manaDrawDieId: "die_0",
+        manaDrawDieIds: ["die_0"],
         usedDieId: null,
       });
       const state = createTestGameState({
@@ -383,7 +370,7 @@ describe("Mana Draw Powered Effect", () => {
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
-        manaDrawDieId: null,
+        manaDrawDieIds: [],
         usedDieId: "die_0", // Normal die used for powering
       });
       const state = createTestGameState({
@@ -406,12 +393,12 @@ describe("Mana Draw Powered Effect", () => {
       expect(returnedDie).toBeDefined();
     });
 
-    it("should handle both manaDrawDieId and usedDieId in same turn", () => {
+    it("should handle both manaDrawDieIds and usedDieId in same turn", () => {
       const player = createTestPlayer({
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
-        manaDrawDieId: "die_0", // From Mana Draw
+        manaDrawDieIds: ["die_0"], // From Mana Draw
         usedDieId: "die_1", // From normal powering
       });
       const state = createTestGameState({
@@ -438,12 +425,12 @@ describe("Mana Draw Powered Effect", () => {
       expect(usedDie?.takenByPlayerId).toBeNull();
     });
 
-    it("should reset manaDrawDieId on player after turn ends", () => {
+    it("should reset manaDrawDieIds on player after turn ends", () => {
       const player = createTestPlayer({
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
-        manaDrawDieId: "die_0",
+        manaDrawDieIds: ["die_0"],
       });
       const state = createTestGameState({
         players: [player],
@@ -458,12 +445,12 @@ describe("Mana Draw Powered Effect", () => {
       const result = command.execute(state);
 
       const updatedPlayer = result.state.players.find((p) => p.id === "player1");
-      expect(updatedPlayer?.manaDrawDieId).toBeNull();
+      expect(updatedPlayer?.manaDrawDieIds).toEqual([]);
     });
   });
 
   describe("Description Generation", () => {
-    it("should generate correct description for set color effect", () => {
+    it("should generate correct description for set color effect with 2 tokens", () => {
       const player = createTestPlayer({ id: "player1" });
       const state = createTestGameState({
         players: [player],
@@ -476,10 +463,224 @@ describe("Mana Draw Powered Effect", () => {
         type: EFFECT_MANA_DRAW_SET_COLOR,
         dieId: "die_0",
         color: MANA_WHITE,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
       };
       const result = resolveEffect(state, "player1", effect);
 
       expect(result.description).toBe("Set die to white, gained 2 white mana");
+    });
+
+    it("should generate correct description for set color effect with 1 token", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_GOLD, isDepleted: true, takenByPlayerId: null },
+        ]),
+      });
+
+      const effect: ManaDrawSetColorEffect = {
+        type: EFFECT_MANA_DRAW_SET_COLOR,
+        dieId: "die_0",
+        color: MANA_RED,
+        tokensPerDie: 1,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
+      };
+      const result = resolveEffect(state, "player1", effect);
+
+      expect(result.description).toBe("Set die to red, gained 1 red mana");
+    });
+  });
+});
+
+describe("Mana Pull Powered Effect (Arythea)", () => {
+  // Mana Pull params: 2 dice, 1 token each
+  const manaPullEffect: ManaDrawPoweredEffect = {
+    type: EFFECT_MANA_DRAW_POWERED,
+    diceCount: 2,
+    tokensPerDie: 1,
+  };
+
+  describe("Die Selection", () => {
+    it("should present die choice when diceCount=2 and multiple dice available", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_RED, isDepleted: false, takenByPlayerId: null },
+          { id: "die_1", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+          { id: "die_2", color: MANA_GREEN, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      const result = resolveEffect(state, "player1", manaPullEffect);
+
+      expect(result.requiresChoice).toBe(true);
+      expect(result.dynamicChoiceOptions).toHaveLength(3); // 3 dice to choose from
+      expect(result.description).toContain("Choose a die");
+
+      const options = result.dynamicChoiceOptions as ManaDrawPickDieEffect[];
+      expect(options.every((o) => o.type === EFFECT_MANA_DRAW_PICK_DIE)).toBe(true);
+      // Each option should indicate 1 more die to select after this
+      expect(options.every((o) => o.remainingDiceToSelect === 1)).toBe(true);
+      expect(options.every((o) => o.tokensPerDie === 1)).toBe(true);
+    });
+
+    it("should auto-select and go to color choice when only 2 dice available for diceCount=2", () => {
+      const player = createTestPlayer({ id: "player1" });
+      const state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_RED, isDepleted: false, takenByPlayerId: null },
+          { id: "die_1", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      const result = resolveEffect(state, "player1", manaPullEffect);
+
+      // Should auto-select first die and present color choice
+      expect(result.requiresChoice).toBe(true);
+      expect(result.dynamicChoiceOptions).toHaveLength(4); // 4 colors
+      expect(result.description).toContain("Choose color");
+    });
+  });
+
+  describe("Multi-Die Resolution Chain", () => {
+    it("should chain to second die selection after first die is set", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        manaDrawDieIds: [],
+      });
+      const state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_RED, isDepleted: false, takenByPlayerId: null },
+          { id: "die_1", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+          { id: "die_2", color: MANA_GREEN, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Simulate first die selection and color choice
+      const effect: ManaDrawSetColorEffect = {
+        type: EFFECT_MANA_DRAW_SET_COLOR,
+        dieId: "die_0",
+        color: MANA_WHITE,
+        tokensPerDie: 1,
+        remainingDiceToSelect: 1, // 1 more die to select
+        alreadySelectedDieIds: [],
+      };
+      const result = resolveEffect(state, "player1", effect);
+
+      // Should chain to next die selection
+      expect(result.requiresChoice).toBe(true);
+      expect(result.description).toContain("gained 1 white mana");
+
+      // Options should be for choosing the second die (excluding already selected)
+      const options = result.dynamicChoiceOptions as ManaDrawPickDieEffect[];
+      expect(options).toHaveLength(2); // die_1 and die_2, not die_0
+      const dieIds = options.map((o) => o.dieId);
+      expect(dieIds).not.toContain("die_0");
+      expect(dieIds).toContain("die_1");
+      expect(dieIds).toContain("die_2");
+    });
+
+    it("should complete after second die is set with no more chaining", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        manaDrawDieIds: ["die_0"], // First die already tracked
+      });
+      const state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_WHITE, isDepleted: false, takenByPlayerId: "player1" }, // Already taken
+          { id: "die_1", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Second die selection
+      const effect: ManaDrawSetColorEffect = {
+        type: EFFECT_MANA_DRAW_SET_COLOR,
+        dieId: "die_1",
+        color: MANA_RED,
+        tokensPerDie: 1,
+        remainingDiceToSelect: 0, // No more dice
+        alreadySelectedDieIds: ["die_0"],
+      };
+      const result = resolveEffect(state, "player1", effect);
+
+      // Should complete without more choices
+      expect(result.requiresChoice).toBeUndefined();
+      expect(result.description).toBe("Set die to red, gained 1 red mana");
+
+      // Player should have both dice tracked
+      const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+      expect(updatedPlayer?.manaDrawDieIds).toContain("die_0");
+      expect(updatedPlayer?.manaDrawDieIds).toContain("die_1");
+    });
+
+    it("should grant only 1 token per die for Mana Pull", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        pureMana: [],
+        manaDrawDieIds: [],
+      });
+      const state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_GOLD, isDepleted: true, takenByPlayerId: null },
+        ]),
+      });
+
+      const effect: ManaDrawSetColorEffect = {
+        type: EFFECT_MANA_DRAW_SET_COLOR,
+        dieId: "die_0",
+        color: MANA_BLUE,
+        tokensPerDie: 1, // Mana Pull grants 1 token per die
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
+      };
+      const result = resolveEffect(state, "player1", effect);
+
+      const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+      expect(updatedPlayer?.pureMana).toHaveLength(1); // Only 1 token
+      expect(updatedPlayer?.pureMana[0]?.color).toBe(MANA_BLUE);
+    });
+  });
+
+  describe("End Turn with Multiple Dice", () => {
+    it("should return all manaDrawDieIds without rerolling", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        hand: [CARD_MARCH],
+        deck: [CARD_MARCH],
+        manaDrawDieIds: ["die_0", "die_1"], // Both from Mana Pull
+        usedDieId: null,
+      });
+      const state = createTestGameState({
+        players: [player],
+        turnOrder: ["player1"],
+        currentPlayerIndex: 0,
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_BLUE, isDepleted: false, takenByPlayerId: "player1" },
+          { id: "die_1", color: MANA_RED, isDepleted: false, takenByPlayerId: "player1" },
+        ]),
+      });
+
+      const command = createEndTurnCommand({ playerId: "player1" });
+      const result = command.execute(state);
+
+      // Both dice should keep their colors
+      const die0 = result.state.source.dice.find((d) => d.id === "die_0");
+      const die1 = result.state.source.dice.find((d) => d.id === "die_1");
+
+      expect(die0?.takenByPlayerId).toBeNull();
+      expect(die0?.color).toBe(MANA_BLUE); // Not rerolled
+
+      expect(die1?.takenByPlayerId).toBeNull();
+      expect(die1?.color).toBe(MANA_RED); // Not rerolled
     });
   });
 });

@@ -50,6 +50,7 @@ import {
   DURATION_TURN,
   EFFECT_RULE_OVERRIDE,
   RULE_EXTRA_SOURCE_DIE,
+  RULE_BLACK_AS_ANY_COLOR,
 } from "../types/modifierConstants.js";
 import {
   DEED_CARD_TYPE_BASIC_ACTION,
@@ -179,11 +180,19 @@ function cardBoost(bonus: number): CardEffect {
 }
 
 /**
- * Mana Draw powered effect - take a die, set its color, gain 2 mana tokens.
+ * Mana Draw powered effect - take 1 die, set its color, gain 2 mana tokens.
  * Used by Mana Draw powered effect.
  */
 function manaDrawPowered(): CardEffect {
-  return { type: EFFECT_MANA_DRAW_POWERED };
+  return { type: EFFECT_MANA_DRAW_POWERED, diceCount: 1, tokensPerDie: 2 };
+}
+
+/**
+ * Mana Pull powered effect - take 2 dice, set their colors, gain 1 mana token each.
+ * Used by Arythea's Mana Pull powered effect.
+ */
+function manaPullPowered(): CardEffect {
+  return { type: EFFECT_MANA_DRAW_POWERED, diceCount: 2, tokensPerDie: 1 };
 }
 
 /**
@@ -198,6 +207,28 @@ function grantExtraSourceDie(): CardEffect {
       rule: RULE_EXTRA_SOURCE_DIE,
     },
     duration: DURATION_TURN,
+  };
+}
+
+/**
+ * Grant the player one additional mana die from source this turn,
+ * AND allow black dice to be used as any basic color.
+ * Used by Mana Pull (Arythea) basic effect.
+ */
+function grantExtraSourceDieWithBlackAsAnyColor(): CardEffect {
+  return {
+    type: EFFECT_COMPOUND,
+    effects: [
+      grantExtraSourceDie(),
+      {
+        type: EFFECT_APPLY_MODIFIER,
+        modifier: {
+          type: EFFECT_RULE_OVERRIDE,
+          rule: RULE_BLACK_AS_ANY_COLOR,
+        },
+        duration: DURATION_TURN,
+      },
+    ],
   };
 }
 
@@ -423,10 +454,10 @@ export const BASIC_ACTION_CARDS = {
     categories: [CARD_CATEGORY_SPECIAL],
     // Replaces: Mana Draw
     // Basic: Use 1 additional die from Source; if black, use as any color
+    basicEffect: grantExtraSourceDieWithBlackAsAnyColor(),
     // Powered: Take 2 dice, set each to any non-gold color, gain 1 mana token of each
-    // Note: Die manipulation not modeled - placeholder
-    basicEffect: drawCards(0), // Placeholder
-    poweredEffect: drawCards(0), // Placeholder
+    // Dice don't reroll when returned
+    poweredEffect: manaPullPowered(),
     sidewaysValue: 1,
   },
 

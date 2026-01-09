@@ -159,31 +159,49 @@ export interface ReadyUnitEffect {
 }
 
 /**
- * Mana Draw powered effect entry point.
- * Take a die from Source, set to any basic color, gain 2 mana tokens.
- * The die is returned immediately and NOT rerolled at end of turn.
+ * Mana Draw/Mana Pull powered effect entry point.
+ * Parameterized to handle both cards:
+ * - Mana Draw: diceCount=1, tokensPerDie=2 (1 die, 2 tokens same color)
+ * - Mana Pull: diceCount=2, tokensPerDie=1 (2 dice, 1 token each)
+ *
+ * Dice are returned at end of turn WITHOUT rerolling (keep chosen colors).
  */
 export interface ManaDrawPoweredEffect {
   readonly type: typeof EFFECT_MANA_DRAW_POWERED;
+  readonly diceCount: 1 | 2;
+  readonly tokensPerDie: 1 | 2;
 }
 
 /**
  * Internal: Player has selected which die to take.
  * Triggers color selection (red, blue, green, white).
+ * Tracks already-selected dice for multi-die effects like Mana Pull.
  */
 export interface ManaDrawPickDieEffect {
   readonly type: typeof EFFECT_MANA_DRAW_PICK_DIE;
   readonly dieId: string;
+  /** Remaining dice to select after this one (for Mana Pull) */
+  readonly remainingDiceToSelect: number;
+  /** Tokens to grant per die */
+  readonly tokensPerDie: 1 | 2;
+  /** Die IDs already selected in this effect chain */
+  readonly alreadySelectedDieIds: readonly string[];
 }
 
 /**
- * Internal: Final resolution - set die color and gain 2 mana tokens.
- * Die is returned to source immediately with chosen color.
+ * Internal: Final resolution for one die - set color and gain tokens.
+ * For multi-die effects, may chain to another die selection.
  */
 export interface ManaDrawSetColorEffect {
   readonly type: typeof EFFECT_MANA_DRAW_SET_COLOR;
   readonly dieId: string;
   readonly color: BasicManaColor; // red, blue, green, white only
+  /** How many tokens to grant for this die */
+  readonly tokensPerDie: 1 | 2;
+  /** Remaining dice to select after this one (for Mana Pull) */
+  readonly remainingDiceToSelect: number;
+  /** Die IDs already selected in this effect chain (excluding current) */
+  readonly alreadySelectedDieIds: readonly string[];
 }
 
 export interface ApplyModifierEffect {

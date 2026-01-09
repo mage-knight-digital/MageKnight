@@ -23,7 +23,7 @@ import {
 } from "@mage-knight/shared";
 import { getBasicActionCard, BASIC_ACTION_CARDS } from "../../data/basicActions.js";
 import { isRuleActive } from "../modifiers.js";
-import { RULE_EXTRA_SOURCE_DIE } from "../../types/modifierConstants.js";
+import { RULE_EXTRA_SOURCE_DIE, RULE_BLACK_AS_ANY_COLOR } from "../../types/modifierConstants.js";
 import {
   DIE_ALREADY_USED,
   DIE_NOT_FOUND,
@@ -93,7 +93,17 @@ export function validateManaAvailable(
           "That mana die is already taken by another player"
         );
       }
+      // Check die color match
+      // Special case: If black die and RULE_BLACK_AS_ANY_COLOR is active,
+      // the black die can produce mana of ANY color (from Mana Pull)
       if (die.color !== color) {
+        const blackAsAnyColor = isRuleActive(state, playerId, RULE_BLACK_AS_ANY_COLOR);
+
+        if (die.color === MANA_BLACK && blackAsAnyColor) {
+          // Black die can be used as ANY color with Mana Pull (including gold!)
+          return valid();
+        }
+
         return invalid(
           DIE_COLOR_MISMATCH,
           `Die shows ${die.color}, not ${color}`
