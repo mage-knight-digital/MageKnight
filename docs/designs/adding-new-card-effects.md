@@ -448,6 +448,34 @@ if (effectResult.resolvedEffect) {
 **Symptom:** Effect works during normal turn but not in combat (or vice versa)
 **Solution:** Effects relevant for combat need checks in `getCardPlayabilityForPhase()` as well as `getCardPlayabilityForNormalTurn()`
 
+### 7. Utility Effects Not Playable in Combat
+**Symptom:** Cards with non-combat effects (mana gain, healing, card draw) can't be played during combat phases even though they should always be useful.
+
+**Root cause:** `getCardPlayabilityForPhase()` only checks for combat-specific effects (attack, block, ranged/siege) and ignores "utility" effects.
+
+**Solution:** Use `effectIsUtility()` in combat phase playability checks:
+
+```typescript
+// In getCardPlayabilityForPhase():
+case COMBAT_PHASE_ATTACK:
+  return {
+    canPlayBasic: effectHasAttack(card.basicEffect) || effectIsUtility(card.basicEffect),
+    canPlayPowered: effectHasAttack(card.poweredEffect) || effectIsUtility(card.poweredEffect),
+    // ...
+  };
+```
+
+**What counts as a utility effect:** Effects that are always useful regardless of combat phase:
+- `effectHasManaGain()` - Gaining mana tokens
+- `effectHasDraw()` - Drawing cards
+- `effectHasHeal()` - Healing wounds
+- `effectHasModifier()` - Applying modifiers (like armor)
+- `effectHasManaDrawPowered()` - Mana Draw/Pull powered effects
+- `effectHasCardBoost()` - Boosting other cards
+- `effectHasCrystal()` - Gaining crystals (Crystallize)
+
+**When adding a new effect type:** If your effect is always useful (not combat-phase-specific), add it to the `effectIsUtility()` function so cards with that effect can be played during any combat phase
+
 ### 6. Undo Breaks After Effect
 **Symptom:** Undo button doesn't work after playing card with new effect
 **Solution:** Either implement reverseEffect() properly OR mark the command as non-reversible

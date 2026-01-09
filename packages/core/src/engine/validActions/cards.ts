@@ -106,6 +106,22 @@ interface CardPlayability {
 }
 
 /**
+ * Check if an effect is a "utility" effect that can be played during any combat phase.
+ * These include mana generation, card draws, healing, and card boost.
+ */
+function effectIsUtility(effect: CardEffect): boolean {
+  return (
+    effectHasManaGain(effect) ||
+    effectHasDraw(effect) ||
+    effectHasHeal(effect) ||
+    effectHasModifier(effect) ||
+    effectHasManaDrawPowered(effect) ||
+    effectHasCardBoost(effect) ||
+    effectHasCrystal(effect)
+  );
+}
+
+/**
  * Determine if a card can be played in a specific combat phase.
  */
 function getCardPlayabilityForPhase(
@@ -115,16 +131,18 @@ function getCardPlayabilityForPhase(
   switch (phase) {
     case COMBAT_PHASE_RANGED_SIEGE:
       return {
-        canPlayBasic: effectHasRangedOrSiege(card.basicEffect),
-        canPlayPowered: effectHasRangedOrSiege(card.poweredEffect),
+        // Ranged/siege phase: can play for ranged/siege attack OR utility effects
+        canPlayBasic: effectHasRangedOrSiege(card.basicEffect) || effectIsUtility(card.basicEffect),
+        canPlayPowered: effectHasRangedOrSiege(card.poweredEffect) || effectIsUtility(card.poweredEffect),
         canPlaySideways: false, // Can't play sideways for ranged/siege
         sidewaysOptions: [],
       };
 
     case COMBAT_PHASE_BLOCK:
       return {
-        canPlayBasic: effectHasBlock(card.basicEffect),
-        canPlayPowered: effectHasBlock(card.poweredEffect),
+        // Block phase: can play for block OR utility effects
+        canPlayBasic: effectHasBlock(card.basicEffect) || effectIsUtility(card.basicEffect),
+        canPlayPowered: effectHasBlock(card.poweredEffect) || effectIsUtility(card.poweredEffect),
         canPlaySideways: card.sidewaysValue > 0,
         sidewaysOptions: card.sidewaysValue > 0
           ? [{ as: PLAY_SIDEWAYS_AS_BLOCK, value: card.sidewaysValue }]
@@ -133,8 +151,9 @@ function getCardPlayabilityForPhase(
 
     case COMBAT_PHASE_ATTACK:
       return {
-        canPlayBasic: effectHasAttack(card.basicEffect),
-        canPlayPowered: effectHasAttack(card.poweredEffect),
+        // Attack phase: can play for attack OR utility effects
+        canPlayBasic: effectHasAttack(card.basicEffect) || effectIsUtility(card.basicEffect),
+        canPlayPowered: effectHasAttack(card.poweredEffect) || effectIsUtility(card.poweredEffect),
         canPlaySideways: card.sidewaysValue > 0,
         sidewaysOptions: card.sidewaysValue > 0
           ? [{ as: PLAY_SIDEWAYS_AS_ATTACK, value: card.sidewaysValue }]
