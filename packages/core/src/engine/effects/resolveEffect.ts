@@ -23,10 +23,8 @@ import {
   DEED_CARD_TYPE_ADVANCED_ACTION,
 } from "../../types/cards.js";
 import type { Player } from "../../types/player.js";
-import type { BasicManaColor } from "@mage-knight/shared";
-import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD, UNITS, UNIT_STATE_READY, UNIT_STATE_SPENT, MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from "@mage-knight/shared";
+import { CARD_WOUND } from "@mage-knight/shared";
 import { getCard } from "../validActions/cards.js";
-import type { PlayerUnit } from "../../types/unit.js";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
@@ -54,7 +52,6 @@ import {
 } from "../../types/effectTypes.js";
 import { evaluateScalingFactor } from "./scalingEvaluator.js";
 import { EFFECT_RULE_OVERRIDE, RULE_EXTRA_SOURCE_DIE } from "../modifierConstants.js";
-import type { ManaDrawPickDieEffect, ManaDrawSetColorEffect } from "../../types/cards.js";
 import { evaluateCondition } from "./conditionEvaluator.js";
 import {
   updatePlayer,
@@ -71,6 +68,12 @@ import {
   MIN_REPUTATION,
   MAX_REPUTATION,
 } from "./atomicEffects.js";
+import {
+  handleManaDrawPowered,
+  handleManaDrawPickDie,
+  applyManaDrawSetColor,
+} from "./manaDrawEffects.js";
+import { handleReadyUnit, getSpentUnitsAtOrBelowLevel } from "./unitEffects.js";
 
 export interface EffectResolutionResult {
   readonly state: GameState;
@@ -282,24 +285,6 @@ function getEligibleBoostTargets(player: Player): DeedCard[] {
   return eligibleCards;
 }
 
-/**
- * Get spent units that are at or below a given level.
- * Used by ReadyUnitEffect to find eligible targets.
- *
- * Ready effects target Spent units only (you can't "ready" something already ready).
- * Wound status is irrelevant - a unit can be readied whether wounded or not.
- */
-function getSpentUnitsAtOrBelowLevel(
-  units: readonly PlayerUnit[],
-  maxLevel: 1 | 2 | 3 | 4
-): PlayerUnit[] {
-  return units.filter((unit) => {
-    // Must be spent (can't ready an already-ready unit)
-    if (unit.state !== UNIT_STATE_SPENT) return false;
-    const unitDef = UNITS[unit.unitId];
-    return unitDef && unitDef.level <= maxLevel;
-  });
-}
 
 export function resolveEffect(
   state: GameState,
@@ -496,132 +481,17 @@ export function resolveEffect(
       };
     }
 
-    case EFFECT_READY_UNIT: {
-      // Find spent units at or below the max level
-      // "Ready a unit" targets Spent units only (can't ready an already-ready unit)
-      // Wound status is irrelevant - units can be readied whether wounded or not
-      const eligibleUnits = getSpentUnitsAtOrBelowLevel(player.units, effect.maxLevel);
+    case EFFECT_READY_UNIT:
+      return handleReadyUnit(state, playerIndex, player, effect);
 
-      if (eligibleUnits.length === 0) {
-        return {
-          state,
-          description: "No spent units to ready",
-        };
-      }
+    case EFFECT_MANA_DRAW_POWERED:
+      return handleManaDrawPowered(state, effect);
 
-      // If only one eligible unit, auto-resolve
-      if (eligibleUnits.length === 1) {
-        const targetUnit = eligibleUnits[0];
-        if (!targetUnit) {
-          throw new Error("Expected single eligible unit");
-        }
-        return applyReadyUnit(state, playerIndex, player, targetUnit.instanceId);
-      }
+    case EFFECT_MANA_DRAW_PICK_DIE:
+      return handleManaDrawPickDie(state, effect);
 
-      // Multiple eligible units — player must choose
-      // This will be handled via pendingChoice similar to other choice effects
-      return {
-        state,
-        description: "Choose a wounded unit to ready",
-        requiresChoice: true,
-      };
-    }
-
-    case EFFECT_MANA_DRAW_POWERED: {
-      // Mana Draw/Mana Pull powered: Take dice, set colors, gain mana tokens
-      // Parameterized: diceCount (1 or 2), tokensPerDie (1 or 2)
-      const { diceCount, tokensPerDie } = effect;
-
-      // Step 1: Select which die to take (filter out already-taken dice)
-      const availableDice = state.source.dice.filter(
-        (d) => d.takenByPlayerId === null
-      );
-
-      if (availableDice.length === 0) {
-        return {
-          state,
-          description: "No dice available in the Source",
-        };
-      }
-
-      // Check if we have enough dice for the effect
-      if (availableDice.length < diceCount) {
-        // Not enough dice - partial effect (take what's available)
-        // For now, proceed with what's available
-      }
-
-      const remainingDiceToSelect = diceCount - 1; // After picking this die
-      const alreadySelectedDieIds: readonly string[] = [];
-
-      // Auto-select if there's no meaningful choice:
-      // - Only one die available
-      // - Need one die (diceCount=1)
-      // - Available dice exactly matches what we need (e.g., need 2 and have 2)
-      if (availableDice.length <= diceCount) {
-        const die = availableDice[0];
-        if (!die) {
-          throw new Error("Expected at least one available die");
-        }
-        // Generate color choice options directly
-        const colorOptions: ManaDrawSetColorEffect[] = [
-          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_RED, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
-          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_BLUE, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
-          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_GREEN, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
-          { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_WHITE, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
-        ];
-        return {
-          state,
-          description: `Choose color for the ${die.color} die`,
-          requiresChoice: true,
-          dynamicChoiceOptions: colorOptions,
-        };
-      }
-
-      // Multiple dice available and need to pick — player must first choose which die
-      const dieOptions: ManaDrawPickDieEffect[] = availableDice.map((die) => ({
-        type: EFFECT_MANA_DRAW_PICK_DIE,
-        dieId: die.id,
-        remainingDiceToSelect,
-        tokensPerDie,
-        alreadySelectedDieIds,
-      }));
-
-      return {
-        state,
-        description: "Choose a die from the Source",
-        requiresChoice: true,
-        dynamicChoiceOptions: dieOptions,
-      };
-    }
-
-    case EFFECT_MANA_DRAW_PICK_DIE: {
-      // Player selected a die, now they choose a color
-      const { dieId, remainingDiceToSelect, tokensPerDie, alreadySelectedDieIds } = effect;
-
-      const colorOptions: ManaDrawSetColorEffect[] = [
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId, color: MANA_RED, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId, color: MANA_BLUE, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId, color: MANA_GREEN, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId, color: MANA_WHITE, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
-      ];
-
-      // Find the die to show its current color in description
-      const selectedDie = state.source.dice.find((d) => d.id === dieId);
-      const dieColor = selectedDie?.color ?? "unknown";
-
-      return {
-        state,
-        description: `Choose color for the ${dieColor} die`,
-        requiresChoice: true,
-        dynamicChoiceOptions: colorOptions,
-      };
-    }
-
-    case EFFECT_MANA_DRAW_SET_COLOR: {
-      // Resolve this die: set color and gain tokens
-      const { dieId, color, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds } = effect;
-      return applyManaDrawSetColor(state, playerIndex, player, dieId, color, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds);
-    }
+    case EFFECT_MANA_DRAW_SET_COLOR:
+      return applyManaDrawSetColor(state, playerIndex, player, effect);
 
     default:
       // Unknown effect type — log and continue
@@ -630,188 +500,6 @@ export function resolveEffect(
         description: "Unhandled effect type",
       };
   }
-}
-
-function applyReadyUnit(
-  state: GameState,
-  playerIndex: number,
-  player: Player,
-  unitInstanceId: string
-): EffectResolutionResult {
-  const unitIndex = player.units.findIndex((u) => u.instanceId === unitInstanceId);
-  if (unitIndex === -1) {
-    return {
-      state,
-      description: `Unit not found: ${unitInstanceId}`,
-    };
-  }
-
-  const unit = player.units[unitIndex];
-  if (!unit) {
-    return {
-      state,
-      description: `Unit not found: ${unitInstanceId}`,
-    };
-  }
-
-  // Validate unit is spent
-  if (unit.state !== UNIT_STATE_SPENT) {
-    return {
-      state,
-      description: "Unit is already ready",
-    };
-  }
-
-  // Ready the unit: Spent → Ready
-  // Wound status is unchanged (if wounded, stays wounded)
-  const updatedUnits = [...player.units];
-  updatedUnits[unitIndex] = {
-    ...unit,
-    state: UNIT_STATE_READY,
-  };
-
-  const updatedPlayer: Player = {
-    ...player,
-    units: updatedUnits,
-  };
-
-  const unitDef = UNITS[unit.unitId];
-  const unitName = unitDef?.name ?? unit.unitId;
-
-  return {
-    state: updatePlayer(state, playerIndex, updatedPlayer),
-    description: `Readied ${unitName}`,
-  };
-}
-
-/**
- * Apply Mana Draw/Mana Pull powered resolution for one die:
- * - Set the die color to the chosen color
- * - Mark die as taken by player (unavailable to others until turn ends)
- * - Gain mana tokens of the chosen color (tokensPerDie count)
- * - If more dice to select, chain to next die selection
- *
- * Note: At end of turn, dice are returned WITHOUT rerolling.
- * This is tracked via player.manaDrawDieIds array. The endTurnCommand will
- * clear takenByPlayerId without rerolling for these dice.
- */
-function applyManaDrawSetColor(
-  state: GameState,
-  playerIndex: number,
-  player: Player,
-  dieId: string,
-  color: BasicManaColor,
-  tokensPerDie: 1 | 2,
-  remainingDiceToSelect: number,
-  alreadySelectedDieIds: readonly string[]
-): EffectResolutionResult {
-  // Find and update the die
-  const dieIndex = state.source.dice.findIndex((d) => d.id === dieId);
-  const originalDie = state.source.dice[dieIndex];
-  if (dieIndex === -1 || !originalDie) {
-    return {
-      state,
-      description: `Die not found: ${dieId}`,
-    };
-  }
-
-  // Update the die: set color, mark as taken by player
-  // isDepleted = false since basic colors are never depleted
-  const updatedDice = [...state.source.dice];
-  updatedDice[dieIndex] = {
-    ...originalDie,
-    color,
-    isDepleted: false,
-    takenByPlayerId: player.id, // Taken until turn ends
-  };
-
-  const stateWithUpdatedDie: GameState = {
-    ...state,
-    source: {
-      ...state.source,
-      dice: updatedDice,
-    },
-  };
-
-  // Gain mana tokens of the chosen color (1 or 2 depending on card)
-  const newTokens = Array.from({ length: tokensPerDie }, () => ({
-    color,
-    source: MANA_TOKEN_SOURCE_CARD,
-  }));
-
-  // Track this die for no-reroll at turn end
-  const updatedManaDrawDieIds = [...player.manaDrawDieIds, dieId];
-
-  const updatedPlayer: Player = {
-    ...player,
-    pureMana: [...player.pureMana, ...newTokens],
-    manaDrawDieIds: updatedManaDrawDieIds,
-  };
-
-  const stateAfterTokens = updatePlayer(stateWithUpdatedDie, playerIndex, updatedPlayer);
-  const tokenText = tokensPerDie === 1 ? `1 ${color} mana` : `2 ${color} mana`;
-
-  // If more dice to select (Mana Pull), chain to next die selection
-  if (remainingDiceToSelect > 0) {
-    const newAlreadySelected = [...alreadySelectedDieIds, dieId];
-
-    // Find available dice (not taken, not already selected in this chain)
-    const availableDice = stateAfterTokens.source.dice.filter(
-      (d) => d.takenByPlayerId === null && !newAlreadySelected.includes(d.id)
-    );
-
-    if (availableDice.length === 0) {
-      // No more dice available, end here
-      return {
-        state: stateAfterTokens,
-        description: `Set die to ${color}, gained ${tokenText} (no more dice available)`,
-      };
-    }
-
-    const nextRemainingDice = remainingDiceToSelect - 1;
-
-    // If only one die left or this is the last die needed, auto-select and go to color
-    if (availableDice.length === 1) {
-      const die = availableDice[0];
-      if (!die) {
-        throw new Error("Expected at least one available die");
-      }
-      const colorOptions: ManaDrawSetColorEffect[] = [
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_RED, tokensPerDie, remainingDiceToSelect: nextRemainingDice, alreadySelectedDieIds: newAlreadySelected },
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_BLUE, tokensPerDie, remainingDiceToSelect: nextRemainingDice, alreadySelectedDieIds: newAlreadySelected },
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_GREEN, tokensPerDie, remainingDiceToSelect: nextRemainingDice, alreadySelectedDieIds: newAlreadySelected },
-        { type: EFFECT_MANA_DRAW_SET_COLOR, dieId: die.id, color: MANA_WHITE, tokensPerDie, remainingDiceToSelect: nextRemainingDice, alreadySelectedDieIds: newAlreadySelected },
-      ];
-      return {
-        state: stateAfterTokens,
-        description: `Set die to ${color}, gained ${tokenText}. Choose color for next die (${die.color})`,
-        requiresChoice: true,
-        dynamicChoiceOptions: colorOptions,
-      };
-    }
-
-    // Multiple dice available, let player choose
-    const dieOptions: ManaDrawPickDieEffect[] = availableDice.map((die) => ({
-      type: EFFECT_MANA_DRAW_PICK_DIE,
-      dieId: die.id,
-      remainingDiceToSelect: nextRemainingDice,
-      tokensPerDie,
-      alreadySelectedDieIds: newAlreadySelected,
-    }));
-
-    return {
-      state: stateAfterTokens,
-      description: `Set die to ${color}, gained ${tokenText}. Choose another die`,
-      requiresChoice: true,
-      dynamicChoiceOptions: dieOptions,
-    };
-  }
-
-  // No more dice to select, we're done
-  return {
-    state: stateAfterTokens,
-    description: `Set die to ${color}, gained ${tokenText}`,
-  };
 }
 
 function resolveCompoundEffect(
