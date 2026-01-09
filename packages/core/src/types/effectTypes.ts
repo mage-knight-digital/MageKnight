@@ -32,6 +32,14 @@ export const EFFECT_CARD_BOOST = "card_boost" as const;
 export const EFFECT_RESOLVE_BOOST_TARGET = "resolve_boost_target" as const;
 export const EFFECT_READY_UNIT = "ready_unit" as const;
 
+// === Mana Draw Powered Effect ===
+// Entry point for the powered effect
+export const EFFECT_MANA_DRAW_POWERED = "mana_draw_powered" as const;
+// Internal: Player has selected which die to take
+export const EFFECT_MANA_DRAW_PICK_DIE = "mana_draw_pick_die" as const;
+// Internal: Final resolution with die and color chosen
+export const EFFECT_MANA_DRAW_SET_COLOR = "mana_draw_set_color" as const;
+
 // === Card Color Constants ===
 // Note: These are separate from ManaColor which includes gold/black.
 // Card colors are the colors shown on the card frame (indicates what mana powers the card).

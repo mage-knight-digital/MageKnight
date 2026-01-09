@@ -23,6 +23,9 @@ import {
   EFFECT_CARD_BOOST,
   EFFECT_RESOLVE_BOOST_TARGET,
   EFFECT_READY_UNIT,
+  EFFECT_MANA_DRAW_POWERED,
+  EFFECT_MANA_DRAW_PICK_DIE,
+  EFFECT_MANA_DRAW_SET_COLOR,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -155,6 +158,34 @@ export interface ReadyUnitEffect {
   readonly maxLevel: 1 | 2 | 3 | 4;
 }
 
+/**
+ * Mana Draw powered effect entry point.
+ * Take a die from Source, set to any basic color, gain 2 mana tokens.
+ * The die is returned immediately and NOT rerolled at end of turn.
+ */
+export interface ManaDrawPoweredEffect {
+  readonly type: typeof EFFECT_MANA_DRAW_POWERED;
+}
+
+/**
+ * Internal: Player has selected which die to take.
+ * Triggers color selection (red, blue, green, white).
+ */
+export interface ManaDrawPickDieEffect {
+  readonly type: typeof EFFECT_MANA_DRAW_PICK_DIE;
+  readonly dieId: string;
+}
+
+/**
+ * Internal: Final resolution - set die color and gain 2 mana tokens.
+ * Die is returned to source immediately with chosen color.
+ */
+export interface ManaDrawSetColorEffect {
+  readonly type: typeof EFFECT_MANA_DRAW_SET_COLOR;
+  readonly dieId: string;
+  readonly color: BasicManaColor; // red, blue, green, white only
+}
+
 export interface ApplyModifierEffect {
   readonly type: typeof EFFECT_APPLY_MODIFIER;
   readonly modifier: ModifierEffect;
@@ -209,6 +240,9 @@ export type CardEffect =
   | CardBoostEffect
   | ResolveBoostTargetEffect
   | ReadyUnitEffect
+  | ManaDrawPoweredEffect
+  | ManaDrawPickDieEffect
+  | ManaDrawSetColorEffect
   | ApplyModifierEffect
   | CompoundEffect
   | ChoiceEffect

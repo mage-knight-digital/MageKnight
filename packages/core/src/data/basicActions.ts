@@ -32,6 +32,7 @@ import {
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CARD_BOOST,
   EFFECT_READY_UNIT,
+  EFFECT_MANA_DRAW_POWERED,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -175,6 +176,14 @@ function convertManaToCrystal(): CardEffect {
  */
 function cardBoost(bonus: number): CardEffect {
   return { type: EFFECT_CARD_BOOST, bonus };
+}
+
+/**
+ * Mana Draw powered effect - take a die, set its color, gain 2 mana tokens.
+ * Used by Mana Draw powered effect.
+ */
+function manaDrawPowered(): CardEffect {
+  return { type: EFFECT_MANA_DRAW_POWERED };
 }
 
 /**
@@ -358,9 +367,9 @@ export const BASIC_ACTION_CARDS = {
     categories: [CARD_CATEGORY_SPECIAL],
     // Basic: Use 1 additional mana die from Source this turn
     basicEffect: grantExtraSourceDie(),
-    // Powered: Take die, set to any non-gold color, gain 2 mana tokens
-    // TODO: Powered effect requires new effect type with player choice
-    poweredEffect: drawCards(0), // Placeholder - needs EFFECT_MANA_DRAW_POWERED
+    // Powered: Take a die, set to any basic color, gain 2 mana tokens of that color
+    // Die is returned at end of turn WITHOUT rerolling (keeps chosen color)
+    poweredEffect: manaDrawPowered(),
     sidewaysValue: 1,
   },
 

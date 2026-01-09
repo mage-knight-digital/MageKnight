@@ -20,6 +20,9 @@ import {
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CHANGE_REPUTATION,
   EFFECT_READY_UNIT,
+  EFFECT_MANA_DRAW_POWERED,
+  EFFECT_MANA_DRAW_PICK_DIE,
+  EFFECT_MANA_DRAW_SET_COLOR,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -106,6 +109,15 @@ export function describeEffect(effect: CardEffect): string {
       ).join("/");
       return `Ready a Level ${levels} Unit`;
     }
+
+    case EFFECT_MANA_DRAW_POWERED:
+      return "Take a die, set its color, gain 2 mana";
+
+    case EFFECT_MANA_DRAW_PICK_DIE:
+      return `Take die ${effect.dieId}`;
+
+    case EFFECT_MANA_DRAW_SET_COLOR:
+      return `Set die to ${effect.color}, gain 2 ${effect.color} mana`;
 
     default:
       return "Unknown effect";

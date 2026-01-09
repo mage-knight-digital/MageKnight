@@ -608,6 +608,7 @@ export class GameServer {
       pureMana: [],
       usedManaFromSource: false,
       usedDieId: null,
+      manaDrawDieId: null,
       hasMovedThisTurn: false,
       hasTakenActionThisTurn: false,
       hasCombattedThisTurn: false,

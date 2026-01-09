@@ -4,8 +4,8 @@
 
 This roadmap tracks the path from current state to a fully playable, polished Mage Knight digital implementation with AI opponents and multiplayer support.
 
-**Last Updated:** January 2025
-**Test Count:** 605 tests passing
+**Last Updated:** January 2026
+**Test Count:** 678 tests passing
 
 ---
 
@@ -82,10 +82,18 @@ This roadmap tracks the path from current state to a fully playable, polished Ma
 | Wound card mechanics | Done | Knockout, hand wounds |
 
 **Card Definition Progress:**
-- Basic Actions: 14/16 defined (Mana Draw, Crystallize have placeholder effects)
-- Advanced Actions: 0 defined
+- Basic Actions: 16/16 defined
+  - Crystallize: ✅ Fully implemented (convert mana to crystal)
+  - Concentration: ✅ Fully implemented (card boost +2)
+  - Mana Draw: Basic ✅, Powered has placeholder (needs die manipulation effect)
+- Advanced Actions: 44/44 defined (effects vary - many use existing effect types)
 - Spells: 0 defined
 - Artifacts: 0 defined
+
+**Recently Implemented Effects:**
+- `EFFECT_CONVERT_MANA_TO_CRYSTAL` - Crystallize basic effect
+- `EFFECT_CARD_BOOST` / `EFFECT_RESOLVE_BOOST_TARGET` - Concentration powered effect
+- `EFFECT_READY_UNIT` - Ready a unit (Rejuvenate, etc.)
 
 ### 2.2 Units
 
@@ -334,15 +342,20 @@ All 12 tactic cards have turn order mechanics working, but individual effects ar
 ## Current Sprint Focus
 
 **Active Work:**
-1. Bug fixes from tickets
+1. Card effect implementations
 
 **Next Up:**
-1. Announce end of round forfeit fix
-2. Challenge rampaging from adjacent
-3. Tactic card effects
-4. Scoring screen
+1. Mana Draw powered effect (die manipulation + 2 mana tokens)
+2. Announce end of round forfeit fix
+3. Challenge rampaging from adjacent
+4. Tactic card effects
+5. Scoring screen
 
 **Recently Completed:**
+- EFFECT_READY_UNIT - Ready a unit with level restriction (Rejuvenate)
+- EFFECT_CARD_BOOST - Play another Action card with boosted powered effect (Concentration)
+- EFFECT_CONVERT_MANA_TO_CRYSTAL - Convert mana token to crystal (Crystallize)
+- All 44 advanced action cards defined
 - Unit recruitment with full flow (site-specific filtering, reputation modifier, undo)
 - Combat system end-to-end
 - Block/damage/attack assignment

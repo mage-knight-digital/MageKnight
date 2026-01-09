@@ -116,6 +116,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         pureMana: [],
         usedManaFromSource: false,
         usedDieId: null,
+        manaDrawDieId: null, // Reset Mana Draw die tracking
         manaUsedThisTurn: [], // Reset mana tracking for conditional effects
         // Card flow updates
         playArea: clearedPlayArea,
@@ -147,6 +148,17 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         );
         updatedSource = { dice: diceWithClearedTaken };
         currentRng = newRng;
+      }
+
+      // Handle Mana Draw die: return it WITHOUT rerolling (keeps its set color)
+      if (currentPlayer.manaDrawDieId) {
+        // Just clear the takenByPlayerId, don't reroll
+        const diceWithManaDrawCleared = updatedSource.dice.map((die) =>
+          die.id === currentPlayer.manaDrawDieId
+            ? { ...die, takenByPlayerId: null }
+            : die
+        );
+        updatedSource = { dice: diceWithManaDrawCleared };
       }
 
       // Expire turn-duration modifiers
