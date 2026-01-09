@@ -266,6 +266,8 @@ import {
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
   EFFECT_MANA_DRAW_POWERED,
+  EFFECT_GAIN_CRYSTAL,
+  EFFECT_CONVERT_MANA_TO_CRYSTAL,
 } from "../../types/effectTypes.js";
 import { isEffectResolvable } from "../effects/resolveEffect.js";
 
@@ -335,18 +337,19 @@ function getCardPlayabilityForNormalTurn(
   playerId: string,
   card: DeedCard
 ): CardPlayability {
-  // Check if basic effect has move, influence, heal, draw, mana gain, or modifier AND is resolvable
+  // Check if basic effect has a useful effect type AND is resolvable
   const basicHasUsefulEffect =
     effectHasMove(card.basicEffect) ||
     effectHasInfluence(card.basicEffect) ||
     effectHasHeal(card.basicEffect) ||
     effectHasDraw(card.basicEffect) ||
     effectHasManaGain(card.basicEffect) ||
-    effectHasModifier(card.basicEffect);
+    effectHasModifier(card.basicEffect) ||
+    effectHasCrystal(card.basicEffect);
 
   const basicIsResolvable = isEffectResolvable(state, playerId, card.basicEffect);
 
-  // Check if powered effect has move, influence, heal, draw, mana gain, modifier, or mana draw powered AND is resolvable
+  // Check if powered effect has a useful effect type AND is resolvable
   const poweredHasUsefulEffect =
     effectHasMove(card.poweredEffect) ||
     effectHasInfluence(card.poweredEffect) ||
@@ -354,7 +357,8 @@ function getCardPlayabilityForNormalTurn(
     effectHasDraw(card.poweredEffect) ||
     effectHasManaGain(card.poweredEffect) ||
     effectHasModifier(card.poweredEffect) ||
-    effectHasManaDrawPowered(card.poweredEffect);
+    effectHasManaDrawPowered(card.poweredEffect) ||
+    effectHasCrystal(card.poweredEffect);
 
   const poweredIsResolvable = isEffectResolvable(state, playerId, card.poweredEffect);
 
@@ -551,6 +555,34 @@ function effectHasManaDrawPowered(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasManaDrawPowered(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect involves crystal manipulation (gain crystal or convert mana to crystal).
+ * These are "special" effects from Crystallize and similar cards.
+ */
+function effectHasCrystal(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_CRYSTAL:
+    case EFFECT_CONVERT_MANA_TO_CRYSTAL:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasCrystal(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasCrystal(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasCrystal(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasCrystal(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasCrystal(effect.baseEffect);
 
     default:
       return false;

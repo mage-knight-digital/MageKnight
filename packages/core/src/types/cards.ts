@@ -20,6 +20,7 @@ import {
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
+  EFFECT_CRYSTALLIZE_COLOR,
   EFFECT_CARD_BOOST,
   EFFECT_RESOLVE_BOOST_TARGET,
   EFFECT_READY_UNIT,
@@ -119,6 +120,15 @@ export interface GainCrystalEffect {
  */
 export interface ConvertManaToCrystalEffect {
   readonly type: typeof EFFECT_CONVERT_MANA_TO_CRYSTAL;
+}
+
+/**
+ * Internal: Final resolution for crystallize - consume token and gain crystal.
+ * Generated as dynamic choice options by ConvertManaToCrystalEffect.
+ */
+export interface CrystallizeColorEffect {
+  readonly type: typeof EFFECT_CRYSTALLIZE_COLOR;
+  readonly color: BasicManaColor;
 }
 
 /**
@@ -257,6 +267,7 @@ export type CardEffect =
   | ChangeReputationEffect
   | GainCrystalEffect
   | ConvertManaToCrystalEffect
+  | CrystallizeColorEffect
   | CardBoostEffect
   | ResolveBoostTargetEffect
   | ReadyUnitEffect

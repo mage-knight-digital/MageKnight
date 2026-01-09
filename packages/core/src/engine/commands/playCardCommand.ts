@@ -272,6 +272,12 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         };
       }
 
+      // If resolveEffect internally chained to a different effect (e.g., auto-resolved),
+      // update appliedEffect so undo knows what actually resolved
+      if (effectResult.resolvedEffect) {
+        appliedEffect = effectResult.resolvedEffect;
+      }
+
       return {
         state: effectResult.state,
         events: [

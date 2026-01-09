@@ -33,6 +33,7 @@ import {
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
+  EFFECT_CRYSTALLIZE_COLOR,
   EFFECT_CARD_BOOST,
   EFFECT_RESOLVE_BOOST_TARGET,
   EFFECT_READY_UNIT,
@@ -83,6 +84,17 @@ export interface EffectResolutionResult {
   readonly containsScaling?: boolean;
   /** Dynamically generated choice options (used by CardBoostEffect to list eligible cards) */
   readonly dynamicChoiceOptions?: readonly CardEffect[];
+  /**
+   * The effect that was actually resolved and modified state.
+   *
+   * CRITICAL FOR UNDO: When an entry effect (like EFFECT_CONVERT_MANA_TO_CRYSTAL)
+   * internally chains to a different effect (like EFFECT_CRYSTALLIZE_COLOR), this
+   * field captures what actually ran. The command layer needs this to call the
+   * correct reverseEffect().
+   *
+   * If not set, the command assumes the original effect was what resolved.
+   */
+  readonly resolvedEffect?: CardEffect;
 }
 
 /**
@@ -197,6 +209,7 @@ export function isEffectResolvable(
 
     case EFFECT_MANA_DRAW_PICK_DIE:
     case EFFECT_MANA_DRAW_SET_COLOR:
+    case EFFECT_CRYSTALLIZE_COLOR:
       // Internal effects, always resolvable if being called
       return true;
 
@@ -263,14 +276,52 @@ export function resolveEffect(
     case EFFECT_GAIN_CRYSTAL:
       return applyGainCrystal(state, playerIndex, player, effect.color);
 
-    case EFFECT_CONVERT_MANA_TO_CRYSTAL:
-      // Player must choose which mana token to convert
-      // This will be handled via the choice system
+    case EFFECT_CONVERT_MANA_TO_CRYSTAL: {
+      // Player must choose which mana token to convert to crystal
+      // Only basic colors (red, blue, green, white) can become crystals
+      const basicColors = ["red", "blue", "green", "white"] as const;
+      const availableColors = new Set(
+        player.pureMana
+          .filter((token) => basicColors.includes(token.color as (typeof basicColors)[number]))
+          .map((token) => token.color)
+      );
+
+      if (availableColors.size === 0) {
+        // No valid tokens to convert - shouldn't happen if isEffectResolvable was checked
+        return {
+          state,
+          description: "No mana tokens available to convert",
+        };
+      }
+
+      if (availableColors.size === 1) {
+        // Auto-resolve: only one color available, no meaningful choice
+        const color = [...availableColors][0] as "red" | "blue" | "green" | "white";
+        const crystallizeEffect = {
+          type: EFFECT_CRYSTALLIZE_COLOR as typeof EFFECT_CRYSTALLIZE_COLOR,
+          color,
+        };
+        const result = resolveEffect(state, playerId, crystallizeEffect, sourceCardId);
+        // CRITICAL: Return resolvedEffect so command layer knows what to undo
+        return {
+          ...result,
+          resolvedEffect: crystallizeEffect,
+        };
+      }
+
+      // Multiple colors available - generate choice options
+      const choiceOptions = [...availableColors].map((color) => ({
+        type: EFFECT_CRYSTALLIZE_COLOR as typeof EFFECT_CRYSTALLIZE_COLOR,
+        color: color as "red" | "blue" | "green" | "white",
+      }));
+
       return {
         state,
         description: "Choose mana token to convert to crystal",
         requiresChoice: true,
+        dynamicChoiceOptions: choiceOptions,
       };
+    }
 
     case EFFECT_APPLY_MODIFIER:
       return applyModifierEffect(state, playerId, effect, sourceCardId);
@@ -409,6 +460,36 @@ export function resolveEffect(
     case EFFECT_MANA_DRAW_SET_COLOR:
       return applyManaDrawSetColor(state, playerIndex, player, effect);
 
+    case EFFECT_CRYSTALLIZE_COLOR: {
+      // Consume one mana token of the specified color and gain a crystal of that color
+      const tokenIndex = player.pureMana.findIndex((t) => t.color === effect.color);
+      if (tokenIndex === -1) {
+        return {
+          state,
+          description: `No ${effect.color} mana token to convert`,
+        };
+      }
+
+      // Remove the mana token
+      const newPureMana = [...player.pureMana];
+      newPureMana.splice(tokenIndex, 1);
+
+      // Gain the crystal
+      const updatedPlayer: Player = {
+        ...player,
+        pureMana: newPureMana,
+        crystals: {
+          ...player.crystals,
+          [effect.color]: player.crystals[effect.color] + 1,
+        },
+      };
+
+      return {
+        state: updatePlayer(state, playerIndex, updatedPlayer),
+        description: `Converted ${effect.color} mana to ${effect.color} crystal`,
+      };
+    }
+
     default:
       // Unknown effect type — log and continue
       return {
@@ -499,6 +580,17 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
           ...player.crystals,
           [effect.color]: Math.max(0, player.crystals[effect.color] - 1),
         },
+      };
+
+    case EFFECT_CRYSTALLIZE_COLOR:
+      // Reverse crystallize: remove the crystal and restore the mana token
+      return {
+        ...player,
+        crystals: {
+          ...player.crystals,
+          [effect.color]: Math.max(0, player.crystals[effect.color] - 1),
+        },
+        pureMana: [...player.pureMana, { color: effect.color, source: "card" as const }],
       };
 
     case EFFECT_COMPOUND: {

@@ -250,12 +250,38 @@ case EFFECT_MY_NEW_EFFECT:
   // Return player unchanged and mark command as non-reversible
 ```
 
-**Important:** If your effect:
-- Reveals hidden information (drawing cards, revealing tiles)
-- Involves randomness (rolling dice)
-- Affects other players
+**CRITICAL:** This applies to ALL effect types that can be resolved, including:
+- **Entry effects** (the ones used in card definitions)
+- **Intermediate effects** (internal effects used in multi-step choice chains)
+- **Final effects** (the effect that actually applies the result)
 
-Then it should NOT be reversible. Commands using such effects should set `isReversible: false`.
+For example, `EFFECT_CRYSTALLIZE_COLOR` is an internal effect that consumes a mana token and grants a crystal. Even though it's never used directly in card definitions, it MUST have a `reverseEffect()` case because it's the effect that actually modifies player state.
+
+**What to reverse:**
+- Undo ALL state changes the effect made
+- If the effect consumed resources AND granted something, reverse BOTH:
+  ```typescript
+  case EFFECT_CRYSTALLIZE_COLOR:
+    // Reverse crystallize: remove the crystal AND restore the mana token
+    return {
+      ...player,
+      crystals: {
+        ...player.crystals,
+        [effect.color]: Math.max(0, player.crystals[effect.color] - 1),
+      },
+      pureMana: [...player.pureMana, { color: effect.color, source: "card" as const }],
+    };
+  ```
+
+**When NOT to make an effect reversible:**
+
+Effects should NOT be reversible (return player unchanged, and ensure command sets `isReversible: false`) when they:
+- **Reveal hidden information** (drawing cards shows deck contents, revealing tiles)
+- **Involve randomness** (rolling dice - the outcome can't be "un-rolled")
+- **Affect other players** (can't undo something that changed their state)
+- **Have side effects outside player state** (modifying shared game state like the source)
+
+For non-reversible effects, the command system handles this by creating checkpoints. See `CHECKPOINT_REASON_CARD_DRAWN` for an example.
 
 ### Step 7: Add Effect Description
 
@@ -321,7 +347,7 @@ Use this checklist when adding ANY new effect type:
 
 ## Multi-Step Effects (Choice Chains)
 
-Some effects require multiple player choices. Pattern used by `EFFECT_CARD_BOOST` and `EFFECT_MANA_DRAW_POWERED`:
+Some effects require multiple player choices. Pattern used by `EFFECT_CARD_BOOST`, `EFFECT_MANA_DRAW_POWERED`, and `EFFECT_CONVERT_MANA_TO_CRYSTAL`:
 
 1. **Entry Effect** - The effect type used in card definitions
 2. **Intermediate Effects** - Internal effects representing each choice step
@@ -339,32 +365,90 @@ EFFECT_MANA_DRAW_SET_COLOR (player picks a color)
     → Actually applies: sets die color, grants mana tokens
 ```
 
-All intermediate effect types need their own:
+Example flow for Crystallize Basic:
+```
+EFFECT_CONVERT_MANA_TO_CRYSTAL (card plays this)
+    → If only 1 color available: auto-resolve to EFFECT_CRYSTALLIZE_COLOR
+    → If multiple colors: requiresChoice: true, dynamicChoiceOptions: [EFFECT_CRYSTALLIZE_COLOR for each color]
+
+EFFECT_CRYSTALLIZE_COLOR (player picks a color OR auto-resolved)
+    → Actually applies: removes mana token, grants crystal
+```
+
+All intermediate/final effect types need their own:
 - Interface in cards.ts
 - Case in CardEffect union
-- Case in isEffectResolvable() (usually `return true`)
+- Case in isEffectResolvable() (usually `return true` for internal effects)
 - Case in resolveEffect()
+- **Case in reverseEffect()** - CRITICAL: the final effect that modifies state MUST be undoable
 - Case in describeEffect()
+
+**Common pitfall:** Forgetting `reverseEffect()` for internal effects. The entry effect often just generates choices and doesn't modify state, but the FINAL effect does modify state and needs undo support.
 
 ## Common Pitfalls
 
-### 1. Forgetting effectHas*() Check
+### 1. Internal Auto-Resolution Without Tracking (The "resolvedEffect" Problem)
+
+**Symptom:** Undo doesn't work correctly after an effect auto-resolves internally. Player keeps resources gained even after undo.
+
+**Root cause:** When `resolveEffect()` internally chains to a different effect (e.g., `EFFECT_CONVERT_MANA_TO_CRYSTAL` auto-resolving to `EFFECT_CRYSTALLIZE_COLOR`), the command layer doesn't know what actually ran. It calls `reverseEffect()` with the original entry effect, which has no undo logic.
+
+**Example bug flow:**
+```
+1. Card has basicEffect: { type: EFFECT_CONVERT_MANA_TO_CRYSTAL }
+2. Command stores appliedEffect = EFFECT_CONVERT_MANA_TO_CRYSTAL
+3. resolveEffect() sees only 1 color, internally chains to EFFECT_CRYSTALLIZE_COLOR
+4. State changes: mana token removed, crystal gained
+5. User clicks undo
+6. Command calls reverseEffect(player, EFFECT_CONVERT_MANA_TO_CRYSTAL)
+7. reverseEffect has no case for this entry effect → falls through to default → NO-OP!
+8. BUG: Crystal stays, card returns to hand = infinite crystal exploit
+```
+
+**Solution:** When auto-resolving internally, return `resolvedEffect` in the result:
+
+```typescript
+if (availableColors.size === 1) {
+  const crystallizeEffect = { type: EFFECT_CRYSTALLIZE_COLOR, color };
+  const result = resolveEffect(state, playerId, crystallizeEffect);
+  // CRITICAL: Tell command what actually resolved
+  return { ...result, resolvedEffect: crystallizeEffect };
+}
+```
+
+The command layer checks for this and updates `appliedEffect`:
+```typescript
+if (effectResult.resolvedEffect) {
+  appliedEffect = effectResult.resolvedEffect;
+}
+```
+
+**Key insight:** This bug class occurs when:
+1. An entry effect (in card definitions) delegates to an internal effect
+2. The delegation happens inside `resolveEffect()` without the command knowing
+3. The entry effect has no `reverseEffect()` case (because it doesn't modify state directly)
+
+**Prevention:**
+- Always return `resolvedEffect` when internally chaining to a different effect
+- OR structure like Mana Draw: always return `requiresChoice: true` with `dynamicChoiceOptions`, letting the command layer handle auto-resolution
+
+### 2. Forgetting effectHas*() Check
 **Symptom:** Card doesn't appear as playable even though isEffectResolvable() returns true
 **Solution:** Add effectHas*() function and include in playability checks
 
-### 2. Not Handling Nested Effects
+### 3. Not Handling Nested Effects
 **Symptom:** Effect works standalone but not inside choice/compound effects
 **Solution:** Ensure effectHas*() recursively checks EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_CONDITIONAL, EFFECT_SCALING
 
-### 3. Missing Import
+### 4. Missing Import
 **Symptom:** TypeScript error about missing type
 **Solution:** Import the constant from effectTypes.ts in all files that use it
 
-### 4. Combat vs Normal Turn Context
+### 5. Combat vs Normal Turn Context
 **Symptom:** Effect works during normal turn but not in combat (or vice versa)
 **Solution:** Effects relevant for combat need checks in `getCardPlayabilityForPhase()` as well as `getCardPlayabilityForNormalTurn()`
 
-### 5. Undo Breaks After Effect
+### 6. Undo Breaks After Effect
 **Symptom:** Undo button doesn't work after playing card with new effect
 **Solution:** Either implement reverseEffect() properly OR mark the command as non-reversible
 
