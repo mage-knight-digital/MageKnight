@@ -263,12 +263,13 @@ interface PlayModeMenuProps {
 }
 
 function PlayModeMenu({ cardId, playability, isInCombat, combatPhase, onPlay, onCancel }: PlayModeMenuProps) {
-  const menuOptions: Array<{ label: string; action: () => void; className: string }> = [];
+  const menuOptions: Array<{ label: string; description?: string; action: () => void; className: string }> = [];
 
   // Add basic effect option if available
   if (playability?.canPlayBasic) {
     menuOptions.push({
       label: getBasicLabel(isInCombat, combatPhase),
+      description: playability.basicEffectDescription,
       action: () => onPlay("basic"),
       className: "play-mode-menu__btn--basic",
     });
@@ -281,6 +282,7 @@ function PlayModeMenu({ cardId, playability, isInCombat, combatPhase, onPlay, on
       : "Powered Effect";
     menuOptions.push({
       label: poweredLabel,
+      description: playability.poweredEffectDescription,
       action: () => onPlay("powered"),
       className: "play-mode-menu__btn--powered",
     });
@@ -306,7 +308,7 @@ function PlayModeMenu({ cardId, playability, isInCombat, combatPhase, onPlay, on
 
   return (
     <div className="play-mode-menu" data-testid="card-play-menu">
-      <div className="play-mode-menu__title">Play {formatCardName(cardId)}</div>
+      <div className="play-mode-menu__title">Play {playability?.name ?? formatCardName(cardId)}</div>
       <div className="play-mode-menu__options">
         {menuOptions.map((opt, idx) => (
           <button
@@ -316,7 +318,10 @@ function PlayModeMenu({ cardId, playability, isInCombat, combatPhase, onPlay, on
             type="button"
             data-testid={`card-menu-option-${idx}`}
           >
-            {opt.label}
+            <span className="play-mode-menu__btn-label">{opt.label}</span>
+            {opt.description && (
+              <span className="play-mode-menu__btn-desc">{opt.description}</span>
+            )}
           </button>
         ))}
         <button

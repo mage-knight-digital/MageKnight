@@ -451,6 +451,22 @@ body {
   cursor: pointer;
   font-size: 0.75rem;
   transition: all 0.1s;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 0.25rem;
+}
+
+.play-mode-menu__btn-label {
+  font-weight: 600;
+}
+
+.play-mode-menu__btn-desc {
+  font-size: 0.65rem;
+  opacity: 0.9;
+  max-width: 200px;
+  line-height: 1.3;
 }
 
 .play-mode-menu__btn--basic {

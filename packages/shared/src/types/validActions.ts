@@ -101,11 +101,14 @@ export interface PlayCardOptions {
 
 export interface PlayableCard {
   readonly cardId: CardId;
+  readonly name: string;
   readonly canPlayBasic: boolean;
   readonly canPlayPowered: boolean;
   readonly requiredMana?: ManaColor; // For powered effect
   readonly canPlaySideways: boolean;
   readonly sidewaysOptions?: readonly SidewaysOption[];
+  readonly basicEffectDescription: string;
+  readonly poweredEffectDescription: string;
 }
 
 /** What a card can be played sideways as */

@@ -32,6 +32,7 @@ import {
 import { getBasicActionCard } from "../../data/basicActions.js";
 import { getAdvancedActionCard } from "../../data/advancedActions.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
+import { describeEffect } from "../effects/describeEffect.js";
 
 /**
  * Find the first mana color from the card's poweredBy array that the player can pay for.
@@ -74,9 +75,12 @@ export function getPlayableCardsForCombat(
     if (playability.canPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
       const playableCard: PlayableCard = {
         cardId,
+        name: card.name,
         canPlayBasic: playability.canPlayBasic,
         canPlayPowered: canActuallyPlayPowered,
         canPlaySideways: playability.canPlaySideways,
+        basicEffectDescription: describeEffect(card.basicEffect),
+        poweredEffectDescription: describeEffect(card.poweredEffect),
       };
 
       // Only add optional properties when they have values
@@ -304,9 +308,12 @@ export function getPlayableCardsForNormalTurn(
     if (playability.canPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
       const playableCard: PlayableCard = {
         cardId,
+        name: card.name,
         canPlayBasic: playability.canPlayBasic,
         canPlayPowered: canActuallyPlayPowered,
         canPlaySideways: playability.canPlaySideways,
+        basicEffectDescription: describeEffect(card.basicEffect),
+        poweredEffectDescription: describeEffect(card.poweredEffect),
       };
 
       // Only add optional properties when they have values
