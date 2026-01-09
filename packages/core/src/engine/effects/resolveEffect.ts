@@ -12,16 +12,8 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type {
-  CardEffect,
-  ScalableBaseEffect,
-  ResolveBoostTargetEffect,
-  DeedCard,
-} from "../../types/cards.js";
-import {
-  DEED_CARD_TYPE_BASIC_ACTION,
-  DEED_CARD_TYPE_ADVANCED_ACTION,
-} from "../../types/cards.js";
+import type { CardEffect, ScalableBaseEffect } from "../../types/cards.js";
+import { DEED_CARD_TYPE_BASIC_ACTION, DEED_CARD_TYPE_ADVANCED_ACTION } from "../../types/cards.js";
 import type { Player } from "../../types/player.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { getCard } from "../validActions/cards.js";
@@ -74,6 +66,11 @@ import {
   applyManaDrawSetColor,
 } from "./manaDrawEffects.js";
 import { handleReadyUnit, getSpentUnitsAtOrBelowLevel } from "./unitEffects.js";
+import {
+  getEligibleBoostTargets,
+  generateBoostChoiceOptions,
+  addBonusToEffect,
+} from "./cardBoostEffects.js";
 
 export interface EffectResolutionResult {
   readonly state: GameState;
@@ -208,82 +205,8 @@ export function isEffectResolvable(
   }
 }
 
-/**
- * Apply a bonus to an effect's amount (for Move, Influence, Attack, Block).
- * Recursively applies to compound/choice/conditional/scaling effects.
- * Other effect types (heal, draw, mana) are returned unchanged.
- */
-export function addBonusToEffect(effect: CardEffect, bonus: number): CardEffect {
-  switch (effect.type) {
-    case EFFECT_GAIN_MOVE:
-    case EFFECT_GAIN_INFLUENCE:
-      return { ...effect, amount: effect.amount + bonus };
-
-    case EFFECT_GAIN_ATTACK:
-    case EFFECT_GAIN_BLOCK:
-      return { ...effect, amount: effect.amount + bonus };
-
-    case EFFECT_CHOICE:
-      return {
-        ...effect,
-        options: effect.options.map((e) => addBonusToEffect(e, bonus)),
-      };
-
-    case EFFECT_COMPOUND:
-      return {
-        ...effect,
-        effects: effect.effects.map((e) => addBonusToEffect(e, bonus)),
-      };
-
-    case EFFECT_CONDITIONAL: {
-      const result = {
-        ...effect,
-        thenEffect: addBonusToEffect(effect.thenEffect, bonus),
-      };
-      if (effect.elseEffect) {
-        return { ...result, elseEffect: addBonusToEffect(effect.elseEffect, bonus) };
-      }
-      return result;
-    }
-
-    case EFFECT_SCALING:
-      // Apply bonus to the base effect of a scaling effect
-      return {
-        ...effect,
-        baseEffect: addBonusToEffect(effect.baseEffect, bonus) as ScalableBaseEffect,
-      };
-
-    // Other effects (heal, draw, mana, etc.) are unchanged
-    default:
-      return effect;
-  }
-}
-
-/**
- * Get cards from player's hand that are eligible for boosting.
- * Eligible: Basic Action and Advanced Action cards (not wounds, spells, artifacts).
- */
-function getEligibleBoostTargets(player: Player): DeedCard[] {
-  const eligibleCards: DeedCard[] = [];
-
-  for (const cardId of player.hand) {
-    const card = getCard(cardId);
-    if (!card) continue;
-
-    // Only action cards can be boosted (not spells, artifacts, or wounds)
-    if (
-      card.cardType === DEED_CARD_TYPE_BASIC_ACTION ||
-      card.cardType === DEED_CARD_TYPE_ADVANCED_ACTION
-    ) {
-      // Wounds have cardType basic_action but id is CARD_WOUND
-      if (cardId !== CARD_WOUND) {
-        eligibleCards.push(card);
-      }
-    }
-  }
-
-  return eligibleCards;
-}
+// addBonusToEffect is re-exported from cardBoostEffects.ts
+export { addBonusToEffect } from "./cardBoostEffects.js";
 
 
 export function resolveEffect(
@@ -421,25 +344,17 @@ export function resolveEffect(
       const eligibleCards = getEligibleBoostTargets(player);
 
       if (eligibleCards.length === 0) {
-        // No eligible cards to boost
         return {
           state,
           description: "No eligible Action cards in hand to boost",
         };
       }
 
-      // Generate dynamic choice options - one ResolveBoostTargetEffect per eligible card
-      const dynamicOptions: ResolveBoostTargetEffect[] = eligibleCards.map((card) => ({
-        type: EFFECT_RESOLVE_BOOST_TARGET,
-        targetCardId: card.id,
-        bonus: effect.bonus,
-      }));
-
       return {
         state,
         description: "Choose an Action card to boost",
         requiresChoice: true,
-        dynamicChoiceOptions: dynamicOptions,
+        dynamicChoiceOptions: generateBoostChoiceOptions(eligibleCards, effect.bonus),
       };
     }
 
