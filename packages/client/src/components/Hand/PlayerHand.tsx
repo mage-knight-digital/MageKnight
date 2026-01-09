@@ -46,8 +46,9 @@ function getAvailableManaSources(
   }
 
   // 2. Check pure mana tokens (already in play area)
-  const matchingTokens = player.pureMana.filter((t) => t.color === requiredColor);
-  for (let i = 0; i < matchingTokens.length; i++) {
+  // Tokens of the same color are fungible - only add one entry regardless of count
+  const hasMatchingToken = player.pureMana.some((t) => t.color === requiredColor);
+  if (hasMatchingToken) {
     sources.push({ type: MANA_SOURCE_TOKEN, color: requiredColor });
   }
 

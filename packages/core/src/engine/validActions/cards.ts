@@ -265,6 +265,7 @@ import {
   EFFECT_GAIN_MANA,
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
+  EFFECT_MANA_DRAW_POWERED,
 } from "../../types/effectTypes.js";
 import { isEffectResolvable } from "../effects/resolveEffect.js";
 
@@ -345,14 +346,15 @@ function getCardPlayabilityForNormalTurn(
 
   const basicIsResolvable = isEffectResolvable(state, playerId, card.basicEffect);
 
-  // Check if powered effect has move, influence, heal, draw, mana gain, or modifier AND is resolvable
+  // Check if powered effect has move, influence, heal, draw, mana gain, modifier, or mana draw powered AND is resolvable
   const poweredHasUsefulEffect =
     effectHasMove(card.poweredEffect) ||
     effectHasInfluence(card.poweredEffect) ||
     effectHasHeal(card.poweredEffect) ||
     effectHasDraw(card.poweredEffect) ||
     effectHasManaGain(card.poweredEffect) ||
-    effectHasModifier(card.poweredEffect);
+    effectHasModifier(card.poweredEffect) ||
+    effectHasManaDrawPowered(card.poweredEffect);
 
   const poweredIsResolvable = isEffectResolvable(state, playerId, card.poweredEffect);
 
@@ -522,6 +524,33 @@ function effectHasManaGain(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasManaGain(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect is the Mana Draw powered effect (take dice, set colors, gain mana).
+ * This special effect allows the player to manipulate source dice directly.
+ */
+function effectHasManaDrawPowered(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_MANA_DRAW_POWERED:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasManaDrawPowered(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasManaDrawPowered(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasManaDrawPowered(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasManaDrawPowered(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasManaDrawPowered(effect.baseEffect);
 
     default:
       return false;
