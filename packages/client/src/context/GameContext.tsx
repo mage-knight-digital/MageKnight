@@ -20,6 +20,8 @@ export interface GameContextValue {
   events: readonly GameEvent[];
   sendAction: (action: PlayerAction) => void;
   myPlayerId: string;
+  saveGame: () => string | null;
+  loadGame: (json: string) => void;
 }
 
 export const GameContext = createContext<GameContextValue | null>(null);
@@ -67,11 +69,26 @@ export function GameProvider({ children, seed }: GameProviderProps) {
     }
   }, []);
 
+  const saveGame = useCallback((): string | null => {
+    if (serverRef.current) {
+      return serverRef.current.saveGame();
+    }
+    return null;
+  }, []);
+
+  const loadGame = useCallback((json: string): void => {
+    if (serverRef.current) {
+      serverRef.current.loadGame(json);
+    }
+  }, []);
+
   const value: GameContextValue = {
     state,
     events,
     sendAction,
     myPlayerId: PLAYER_ID,
+    saveGame,
+    loadGame,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

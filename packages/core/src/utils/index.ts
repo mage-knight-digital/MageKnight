@@ -11,3 +11,4 @@ export {
   shuffleWithRng,
   randomElement,
 } from "./rng.js";
+export { serializeGameState, deserializeGameState } from "./serialization.js";

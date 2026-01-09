@@ -34,6 +34,8 @@ import {
   drawEnemiesForHex,
   createUnitDecksAndOffer,
   createSpellDeckAndOffer,
+  serializeGameState,
+  deserializeGameState,
 } from "@mage-knight/core";
 import type { HexCoord } from "@mage-knight/shared";
 import { TILE_PLACEMENT_OFFSETS } from "@mage-knight/shared";
@@ -340,6 +342,22 @@ export class GameServer {
    */
   getStateForPlayer(playerId: string): ClientGameState {
     return toClientState(this.state, playerId);
+  }
+
+  /**
+   * Serialize current game state for saving.
+   */
+  saveGame(): string {
+    return serializeGameState(this.state);
+  }
+
+  /**
+   * Load a saved game state, replacing current state.
+   * Broadcasts updated state to all connected clients.
+   */
+  loadGame(json: string): void {
+    this.state = deserializeGameState(json);
+    this.broadcastState([]);
   }
 
   /**

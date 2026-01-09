@@ -1140,3 +1140,60 @@ body {
   color: #e74c3c;
   font-style: italic;
 }
+
+/* ============================================
+   Save/Load Controls
+   ============================================ */
+.save-load-controls {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.save-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #0f0f23;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+}
+
+.save-slot__label {
+  font-size: 0.625rem;
+  color: #888;
+  min-width: 80px;
+  text-align: center;
+}
+
+.save-slot__btn {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.625rem;
+  font-weight: 600;
+  transition: all 0.1s;
+}
+
+.save-slot__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.save-slot__btn--save {
+  background: #27ae60;
+  color: white;
+}
+
+.save-slot__btn--save:hover {
+  background: #2ecc71;
+}
+
+.save-slot__btn--load {
+  background: #3498db;
+  color: white;
+}
+
+.save-slot__btn--load:hover:not(:disabled) {
+  background: #5dade2;
+}

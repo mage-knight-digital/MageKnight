@@ -181,3 +181,9 @@ export {
   shuffleWithRng,
   randomElement,
 } from "./utils/index.js";
+
+// Serialization (save/load support)
+export {
+  serializeGameState,
+  deserializeGameState,
+} from "./utils/index.js";
