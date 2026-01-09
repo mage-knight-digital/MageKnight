@@ -33,6 +33,8 @@ import {
   UNIT_ABILITY_POISON,
   UNIT_ABILITY_PARALYZE,
   CARD_WOUND,
+  MIN_REPUTATION,
+  MAX_REPUTATION,
   type RecruitSite,
   type UnitId,
   type UnitAbilityType,
@@ -55,11 +57,11 @@ import {
  */
 function getReputationCostModifier(reputation: number): number {
   // Clamp to valid range
-  const rep = Math.max(-7, Math.min(7, reputation));
+  const rep = Math.max(MIN_REPUTATION, Math.min(MAX_REPUTATION, reputation));
 
   if (rep === 0) return 0;
-  if (rep === -7) return 5;
-  if (rep === 7) return -5;
+  if (rep === MIN_REPUTATION) return 5;
+  if (rep === MAX_REPUTATION) return -5;
 
   // Symmetric pattern: ±1-2 = ±1, ±3-4 = ±2, ±5-6 = ±3
   const absRep = Math.abs(rep);

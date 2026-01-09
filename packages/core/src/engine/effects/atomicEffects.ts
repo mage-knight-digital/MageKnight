@@ -14,7 +14,7 @@ import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../typ
 import type { CardId, Element, BlockSource, ManaColor, BasicManaColor } from "@mage-knight/shared";
 import type { GainAttackEffect, GainBlockEffect, ApplyModifierEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./resolveEffect.js";
-import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
+import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD, MIN_REPUTATION, MAX_REPUTATION } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL } from "@mage-knight/shared";
 import { COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE } from "../../types/effectTypes.js";
 import { addModifier } from "../modifiers.js";
@@ -55,11 +55,7 @@ export function updateElementalValue(
   }
 }
 
-// === Reputation bounds per rulebook ===
-const MIN_REPUTATION = -7;
-const MAX_REPUTATION = 7;
-
-// Re-export for reverseEffect
+// Re-export for reverseEffect (imported from @mage-knight/shared)
 export { MIN_REPUTATION, MAX_REPUTATION };
 
 // === Atomic effect handlers ===

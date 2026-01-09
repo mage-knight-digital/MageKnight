@@ -10,6 +10,10 @@ export const STARTING_LEVEL = 1 as const;
 export const STARTING_FAME = 0 as const;
 export const STARTING_REPUTATION = 0 as const;
 
+// Reputation bounds per rulebook
+export const MIN_REPUTATION = -7 as const;
+export const MAX_REPUTATION = 7 as const;
+
 // Level 1 derived stats
 const level1 = getLevelStats(STARTING_LEVEL);
 

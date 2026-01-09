@@ -39,6 +39,7 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
+  MANA_ANY,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -245,7 +246,7 @@ export function resolveEffect(
       return applyDrawCards(state, playerIndex, player, effect.amount);
 
     case EFFECT_GAIN_MANA: {
-      if (effect.color === "any") {
+      if (effect.color === MANA_ANY) {
         // MANA_ANY should be resolved via player choice, not passed directly
         return {
           state,
