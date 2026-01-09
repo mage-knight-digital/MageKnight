@@ -14,9 +14,12 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { ManaColor, BasicManaColor } from "@mage-knight/shared";
-import type { CardEffect, ManaDrawSetColorEffect } from "../../types/cards.js";
-import { EFFECT_MANA_DRAW_SET_COLOR } from "../../types/effectTypes.js";
+import type { ManaColor, BasicManaColor, CardId } from "@mage-knight/shared";
+import type { CardEffect, ManaDrawSetColorEffect, ResolveBoostTargetEffect } from "../../types/cards.js";
+import { EFFECT_MANA_DRAW_SET_COLOR, EFFECT_RESOLVE_BOOST_TARGET } from "../../types/effectTypes.js";
+import { getCard } from "../validActions/cards.js";
+import { addBonusToEffect } from "./cardBoostEffects.js";
+import { reverseEffect } from "./resolveEffect.js";
 
 // === Undo Context Types (Discriminated Union) ===
 
@@ -34,11 +37,21 @@ export interface ManaDrawSetColorUndoContext {
 }
 
 /**
+ * Undo context for EFFECT_RESOLVE_BOOST_TARGET
+ * Captures the boosted card and effect for reversal
+ */
+export interface CardBoostUndoContext {
+  readonly type: typeof EFFECT_RESOLVE_BOOST_TARGET;
+  readonly targetCardId: CardId;
+  readonly handIndex: number; // Position in hand before it was moved to play area
+  readonly boostedEffect: CardEffect; // The effect with bonus applied that needs reversing
+}
+
+/**
  * Union of all effect undo contexts
  * Add new context types here as needed
  */
-export type EffectUndoContext = ManaDrawSetColorUndoContext;
-// Future: | ReadyUnitUndoContext | CardBoostUndoContext | ...
+export type EffectUndoContext = ManaDrawSetColorUndoContext | CardBoostUndoContext;
 
 // === Capture Functions ===
 
@@ -69,6 +82,33 @@ export function captureUndoContext(
         originalTakenByPlayerId: die.takenByPlayerId,
         tokenColor: manaDrawEffect.color,
         tokensGained: manaDrawEffect.tokensPerDie,
+      };
+    }
+
+    case EFFECT_RESOLVE_BOOST_TARGET: {
+      const boostEffect = effect as ResolveBoostTargetEffect;
+      const targetCard = getCard(boostEffect.targetCardId);
+
+      if (!targetCard) {
+        return null;
+      }
+
+      // Find the card's current position in hand
+      const player = state.players.find((p) => p.hand.includes(boostEffect.targetCardId));
+      if (!player) {
+        return null;
+      }
+
+      const handIndex = player.hand.indexOf(boostEffect.targetCardId);
+
+      // Compute the boosted effect that will be applied (needed for reversal)
+      const boostedEffect = addBonusToEffect(targetCard.poweredEffect, boostEffect.bonus);
+
+      return {
+        type: EFFECT_RESOLVE_BOOST_TARGET,
+        targetCardId: boostEffect.targetCardId,
+        handIndex,
+        boostedEffect,
       };
     }
 
@@ -147,10 +187,48 @@ export function applyUndoContext(
       };
     }
 
-    // When more context types are added, uncomment this for exhaustiveness checking:
-    // default: {
-    //   const _exhaustive: never = context;
-    //   return _exhaustive;
-    // }
+    case EFFECT_RESOLVE_BOOST_TARGET: {
+      // 1. Reverse the boosted effect (removes move points, attack, etc.)
+      const playerIndex = state.players.findIndex((p) => p.id === playerId);
+      if (playerIndex === -1) {
+        return state;
+      }
+
+      const player = state.players[playerIndex];
+      if (!player) {
+        return state;
+      }
+
+      // Reverse the boosted effect to remove the gained values
+      const playerAfterReverse = reverseEffect(player, context.boostedEffect);
+
+      // 2. Move the card from play area back to hand at its original position
+      const cardIndex = playerAfterReverse.playArea.indexOf(context.targetCardId);
+      if (cardIndex === -1) {
+        // Card not in play area, just update with reversed effect
+        const updatedPlayers = [...state.players];
+        updatedPlayers[playerIndex] = playerAfterReverse;
+        return { ...state, players: updatedPlayers };
+      }
+
+      // Remove from play area
+      const newPlayArea = [...playerAfterReverse.playArea];
+      newPlayArea.splice(cardIndex, 1);
+
+      // Insert back into hand at original position
+      const newHand = [...playerAfterReverse.hand];
+      newHand.splice(context.handIndex, 0, context.targetCardId);
+
+      const updatedPlayer = {
+        ...playerAfterReverse,
+        hand: newHand,
+        playArea: newPlayArea,
+      };
+
+      const updatedPlayers = [...state.players];
+      updatedPlayers[playerIndex] = updatedPlayer;
+
+      return { ...state, players: updatedPlayers };
+    }
   }
 }

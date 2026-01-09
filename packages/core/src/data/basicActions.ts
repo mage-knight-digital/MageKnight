@@ -207,6 +207,7 @@ function grantExtraSourceDie(): CardEffect {
       rule: RULE_EXTRA_SOURCE_DIE,
     },
     duration: DURATION_TURN,
+    description: "Use 1 extra mana die from Source this turn",
   };
 }
 
@@ -227,6 +228,7 @@ function grantExtraSourceDieWithBlackAsAnyColor(): CardEffect {
           rule: RULE_BLACK_AS_ANY_COLOR,
         },
         duration: DURATION_TURN,
+        description: "Use black dice as any basic color this turn",
       },
     ],
   };

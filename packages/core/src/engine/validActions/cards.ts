@@ -272,6 +272,7 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
+  EFFECT_CARD_BOOST,
 } from "../../types/effectTypes.js";
 import { isEffectResolvable } from "../effects/resolveEffect.js";
 
@@ -365,7 +366,8 @@ function getCardPlayabilityForNormalTurn(
     effectHasManaGain(card.poweredEffect) ||
     effectHasModifier(card.poweredEffect) ||
     effectHasManaDrawPowered(card.poweredEffect) ||
-    effectHasCrystal(card.poweredEffect);
+    effectHasCrystal(card.poweredEffect) ||
+    effectHasCardBoost(card.poweredEffect);
 
   const poweredIsResolvable = isEffectResolvable(state, playerId, card.poweredEffect);
 
@@ -590,6 +592,33 @@ function effectHasCrystal(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasCrystal(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect is a card boost effect (Concentration, Will Focus).
+ * These effects let you play another Action card with its powered effect for free.
+ */
+function effectHasCardBoost(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_CARD_BOOST:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasCardBoost(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasCardBoost(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasCardBoost(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasCardBoost(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasCardBoost(effect.baseEffect);
 
     default:
       return false;

@@ -220,6 +220,8 @@ export interface ApplyModifierEffect {
   readonly type: typeof EFFECT_APPLY_MODIFIER;
   readonly modifier: ModifierEffect;
   readonly duration: ModifierDuration;
+  /** Optional human-readable description for UI display */
+  readonly description?: string;
 }
 
 export interface CompoundEffect {

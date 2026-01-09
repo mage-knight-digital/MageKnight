@@ -69,7 +69,7 @@ export function describeEffect(effect: CardEffect): string {
         : `Draw ${effect.amount} cards`;
 
     case EFFECT_APPLY_MODIFIER:
-      return "Apply modifier";
+      return effect.description ?? "Apply modifier";
 
     case EFFECT_COMPOUND: {
       const descriptions = effect.effects.map(describeEffect);
