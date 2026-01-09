@@ -58,11 +58,16 @@ export { TileId, SiteType, RampagingEnemyType, createEmptyMapState } from "./map
 // Mana source types
 export type {
   SpecialManaColor,
+  SourceDieId,
   SourceDie,
   ManaSource,
   CrystalInventory,
 } from "./mana.js";
-export { createEmptyManaSource, createEmptyCrystalInventory } from "./mana.js";
+export {
+  sourceDieId,
+  createEmptyManaSource,
+  createEmptyCrystalInventory,
+} from "./mana.js";
 
 // Offers types
 export type { CardOffer, GameOffers } from "./offers.js";

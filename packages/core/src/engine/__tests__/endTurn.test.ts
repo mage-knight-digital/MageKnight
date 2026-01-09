@@ -17,8 +17,12 @@ import {
   CARD_DETERMINATION,
   CARD_PROMISE,
   CARD_THREATEN,
+  MANA_BLUE,
+  MANA_GREEN,
 } from "@mage-knight/shared";
 import type { SkillId } from "@mage-knight/shared";
+import type { SourceDie } from "../../types/mana.js";
+import { sourceDieId } from "../../types/mana.js";
 import {
   DURATION_ROUND,
   DURATION_TURN,
@@ -666,5 +670,96 @@ describe("END_TURN with empty deck and hand", () => {
       (e) => e.type === END_OF_ROUND_ANNOUNCED
     );
     expect(announceEvents).toHaveLength(0);
+  });
+});
+
+describe("END_TURN mana source dice cleanup", () => {
+  let engine: MageKnightEngine;
+
+  beforeEach(() => {
+    engine = createEngine();
+  });
+
+  it("should clear takenByPlayerId for all dice used this turn (not just the last one)", () => {
+    // This test reproduces a bug where playing multiple powered cards in one turn
+    // would only track the LAST die used, leaving earlier dice stuck as "taken"
+
+    // Set up dice where two are marked as taken by player1
+    // (simulating what happens after playing two powered cards)
+    const dice: SourceDie[] = [
+      { id: sourceDieId("die_0"), color: MANA_BLUE, isDepleted: false, takenByPlayerId: "player1" },
+      { id: sourceDieId("die_1"), color: MANA_GREEN, isDepleted: false, takenByPlayerId: "player1" },
+      { id: sourceDieId("die_2"), color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+    ];
+
+    // Player has used mana from source, tracking BOTH dice they used
+    const player = createTestPlayer({
+      id: "player1",
+      usedManaFromSource: true,
+      usedDieIds: [sourceDieId("die_0"), sourceDieId("die_1")], // Both dice used this turn
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      source: { dice },
+    });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    // ALL dice that were taken by this player should be cleared at end of turn
+    const resultDice = result.state.source.dice;
+
+    // die_0 was taken by player1 - should be cleared
+    expect(resultDice.find((d) => d.id === "die_0")?.takenByPlayerId).toBeNull();
+
+    // die_1 was taken by player1 - should be cleared (and rerolled)
+    expect(resultDice.find((d) => d.id === "die_1")?.takenByPlayerId).toBeNull();
+
+    // die_2 was not taken - should remain null
+    expect(resultDice.find((d) => d.id === "die_2")?.takenByPlayerId).toBeNull();
+  });
+
+  it("should not clear dice taken by other players", () => {
+    // Set up dice where one is taken by player2
+    const dice: SourceDie[] = [
+      { id: sourceDieId("die_0"), color: MANA_BLUE, isDepleted: false, takenByPlayerId: "player1" },
+      { id: sourceDieId("die_1"), color: MANA_GREEN, isDepleted: false, takenByPlayerId: "player2" },
+      { id: sourceDieId("die_2"), color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+    ];
+
+    const player1 = createTestPlayer({
+      id: "player1",
+      usedManaFromSource: true,
+      usedDieIds: [sourceDieId("die_0")],
+    });
+    const player2 = createTestPlayer({
+      id: "player2",
+      usedManaFromSource: true,
+      usedDieIds: [sourceDieId("die_1")],
+    });
+
+    const state = createTestGameState({
+      players: [player1, player2],
+      turnOrder: ["player1", "player2"],
+      currentPlayerIndex: 0,
+      source: { dice },
+    });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    const resultDice = result.state.source.dice;
+
+    // die_0 was taken by player1 - should be cleared
+    expect(resultDice.find((d) => d.id === "die_0")?.takenByPlayerId).toBeNull();
+
+    // die_1 was taken by player2 - should NOT be cleared (it's their die)
+    expect(resultDice.find((d) => d.id === "die_1")?.takenByPlayerId).toBe("player2");
+
+    // die_2 was not taken - should remain null
+    expect(resultDice.find((d) => d.id === "die_2")?.takenByPlayerId).toBeNull();
   });
 });

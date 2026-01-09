@@ -193,7 +193,7 @@ export function createEndRoundCommand(): Command {
           hasTakenActionThisTurn: false,
           hasMovedThisTurn: false,
           usedManaFromSource: false,
-          usedDieId: null,
+          usedDieIds: [],
           manaDrawDieIds: [],
           movePoints: 0,
           influencePoints: 0,

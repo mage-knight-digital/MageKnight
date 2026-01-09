@@ -115,7 +115,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         hasCombattedThisTurn: false, // Reset combat flag for next turn
         pureMana: [],
         usedManaFromSource: false,
-        usedDieId: null,
+        usedDieIds: [],
         manaDrawDieIds: [], // Reset Mana Draw/Mana Pull dice tracking
         manaUsedThisTurn: [], // Reset mana tracking for conditional effects
         // Card flow updates
@@ -130,24 +130,29 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const updatedPlayers: Player[] = [...state.players];
       updatedPlayers[playerIndex] = resetPlayer;
 
-      // Reroll the used mana die if player used one this turn
+      // Reroll dice that were used for powering cards this turn
       let updatedSource = state.source;
       let currentRng = state.rng;
-      if (currentPlayer.usedDieId) {
-        const { source: rerolledSource, rng: newRng } = rerollDie(
-          state.source,
-          currentPlayer.usedDieId,
-          state.timeOfDay,
-          currentRng
-        );
-        // Clear takenByPlayerId for the rerolled die
-        const diceWithClearedTaken = rerolledSource.dice.map((die) =>
-          die.id === currentPlayer.usedDieId
+      if (currentPlayer.usedDieIds.length > 0) {
+        const usedDieIdSet = new Set(currentPlayer.usedDieIds);
+        // Reroll each used die
+        for (const dieId of currentPlayer.usedDieIds) {
+          const { source: rerolledSource, rng: newRng } = rerollDie(
+            updatedSource,
+            dieId,
+            state.timeOfDay,
+            currentRng
+          );
+          updatedSource = rerolledSource;
+          currentRng = newRng;
+        }
+        // Clear takenByPlayerId for all used dice
+        const diceWithClearedTaken = updatedSource.dice.map((die) =>
+          usedDieIdSet.has(die.id)
             ? { ...die, takenByPlayerId: null }
             : die
         );
         updatedSource = { dice: diceWithClearedTaken };
-        currentRng = newRng;
       }
 
       // Handle Mana Draw/Mana Pull dice: return them WITHOUT rerolling (keep their set colors)
@@ -160,6 +165,17 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
             : die
         );
         updatedSource = { dice: diceWithManaDrawCleared };
+      }
+
+      // Also clear any dice that are still marked as taken by this player
+      // (safety net for any edge cases)
+      const diceWithAllCleared = updatedSource.dice.map((die) =>
+        die.takenByPlayerId === params.playerId
+          ? { ...die, takenByPlayerId: null }
+          : die
+      );
+      if (diceWithAllCleared.some((d, i) => d !== updatedSource.dice[i])) {
+        updatedSource = { dice: diceWithAllCleared };
       }
 
       // Expire turn-duration modifiers

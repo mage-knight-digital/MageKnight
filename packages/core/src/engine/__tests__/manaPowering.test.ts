@@ -111,12 +111,12 @@ describe("Mana powering", () => {
       );
     });
 
-    it("should track usedDieId when using a die", () => {
+    it("should track usedDieIds when using a die", () => {
       const player = createTestPlayer({
         hand: [CARD_MARCH],
         movePoints: 0,
         usedManaFromSource: false,
-        usedDieId: null,
+        usedDieIds: [],
       });
       const state = createTestGameState({
         players: [player],
@@ -139,7 +139,7 @@ describe("Mana powering", () => {
 
       const result = engine.processAction(state, "player1", action);
 
-      expect(result.state.players[0]?.usedDieId).toBe("die_0");
+      expect(result.state.players[0]?.usedDieIds).toContain("die_0");
       expect(result.state.source.dice[0]?.takenByPlayerId).toBe("player1");
     });
 

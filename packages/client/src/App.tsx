@@ -290,6 +290,21 @@ function SaveLoadControls() {
     }
   };
 
+  const handleExport = (slotIndex: number) => {
+    const json = localStorage.getItem(`${SAVE_KEY_PREFIX}${slotIndex}`);
+    if (!json) return;
+
+    // Pretty-print the JSON for readability
+    const formatted = JSON.stringify(JSON.parse(json), null, 2);
+    const blob = new Blob([formatted], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mage-knight-save-${slotIndex + 1}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString([], {
       hour: "2-digit",
@@ -322,6 +337,14 @@ function SaveLoadControls() {
               title={meta ? `Load from slot ${i + 1}` : "Empty slot"}
             >
               Load
+            </button>
+            <button
+              className="save-slot__btn save-slot__btn--export"
+              onClick={() => handleExport(i)}
+              disabled={!meta}
+              title={meta ? `Export slot ${i + 1} as JSON` : "Empty slot"}
+            >
+              ↓
             </button>
           </div>
         );

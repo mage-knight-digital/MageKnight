@@ -4,6 +4,7 @@
 
 import type { CardId, ManaColor, BasicManaColor, Element } from "@mage-knight/shared";
 import type { ModifierEffect, ModifierDuration } from "./modifiers.js";
+import type { SourceDieId } from "./mana.js";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
@@ -189,7 +190,7 @@ export interface ManaDrawPoweredEffect {
  */
 export interface ManaDrawPickDieEffect {
   readonly type: typeof EFFECT_MANA_DRAW_PICK_DIE;
-  readonly dieId: string;
+  readonly dieId: SourceDieId;
   /** Current color of the die (for display purposes) */
   readonly dieColor: ManaColor;
   /** Remaining dice to select after this one (for Mana Pull) */
@@ -197,7 +198,7 @@ export interface ManaDrawPickDieEffect {
   /** Tokens to grant per die */
   readonly tokensPerDie: 1 | 2;
   /** Die IDs already selected in this effect chain */
-  readonly alreadySelectedDieIds: readonly string[];
+  readonly alreadySelectedDieIds: readonly SourceDieId[];
 }
 
 /**
@@ -206,14 +207,14 @@ export interface ManaDrawPickDieEffect {
  */
 export interface ManaDrawSetColorEffect {
   readonly type: typeof EFFECT_MANA_DRAW_SET_COLOR;
-  readonly dieId: string;
+  readonly dieId: SourceDieId;
   readonly color: BasicManaColor; // red, blue, green, white only
   /** How many tokens to grant for this die */
   readonly tokensPerDie: 1 | 2;
   /** Remaining dice to select after this one (for Mana Pull) */
   readonly remainingDiceToSelect: number;
   /** Die IDs already selected in this effect chain (excluding current) */
-  readonly alreadySelectedDieIds: readonly string[];
+  readonly alreadySelectedDieIds: readonly SourceDieId[];
 }
 
 export interface ApplyModifierEffect {

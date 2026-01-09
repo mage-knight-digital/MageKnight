@@ -15,6 +15,7 @@ import type {
 import type { Hero } from "./hero.js";
 import type { CardEffect } from "./cards.js";
 import type { PlayerUnit } from "./unit.js";
+import type { SourceDieId } from "./mana.js";
 
 // Mana token in play area (temporary, not crystals)
 export interface ManaToken {
@@ -157,8 +158,8 @@ export interface Player {
   readonly playArea: readonly CardId[]; // cards played this turn
   readonly pureMana: readonly ManaToken[]; // mana in play area
   readonly usedManaFromSource: boolean;
-  readonly usedDieId: string | null; // which die from source was used this turn (rerolled at turn end)
-  readonly manaDrawDieIds: readonly string[]; // dice used via Mana Draw/Mana Pull powered (NOT rerolled at turn end)
+  readonly usedDieIds: readonly SourceDieId[]; // dice from source used this turn (rerolled at turn end)
+  readonly manaDrawDieIds: readonly SourceDieId[]; // dice used via Mana Draw/Mana Pull powered (NOT rerolled at turn end)
   readonly hasMovedThisTurn: boolean; // true once any movement occurs, enforces move-before-action
   readonly hasTakenActionThisTurn: boolean;
 

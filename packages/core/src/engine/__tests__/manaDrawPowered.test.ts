@@ -16,6 +16,7 @@ import { describe, it, expect } from "vitest";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import { resolveEffect, isEffectResolvable } from "../effects/resolveEffect.js";
 import type { ManaSource, SourceDie } from "../../types/mana.js";
+import { sourceDieId } from "../../types/mana.js";
 import { createEndTurnCommand } from "../commands/endTurnCommand.js";
 import { createResolveChoiceCommand } from "../commands/resolveChoiceCommand.js";
 import {
@@ -346,8 +347,8 @@ describe("Mana Draw Powered Effect", () => {
         id: "player1",
         hand: [CARD_MARCH], // Need a card to avoid forced round end announcement
         deck: [CARD_MARCH],
-        manaDrawDieIds: ["die_0"],
-        usedDieId: null,
+        manaDrawDieIds: [sourceDieId("die_0")],
+        usedDieIds: [],
       });
       const state = createTestGameState({
         players: [player],
@@ -368,13 +369,13 @@ describe("Mana Draw Powered Effect", () => {
       expect(returnedDie?.color).toBe(MANA_BLUE); // Color unchanged, NOT rerolled
     });
 
-    it("should still reroll usedDieId normally at end of turn", () => {
+    it("should still reroll usedDieIds normally at end of turn", () => {
       const player = createTestPlayer({
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
         manaDrawDieIds: [],
-        usedDieId: "die_0", // Normal die used for powering
+        usedDieIds: [sourceDieId("die_0")], // Normal die used for powering
       });
       const state = createTestGameState({
         players: [player],
@@ -396,13 +397,13 @@ describe("Mana Draw Powered Effect", () => {
       expect(returnedDie).toBeDefined();
     });
 
-    it("should handle both manaDrawDieIds and usedDieId in same turn", () => {
+    it("should handle both manaDrawDieIds and usedDieIds in same turn", () => {
       const player = createTestPlayer({
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
-        manaDrawDieIds: ["die_0"], // From Mana Draw
-        usedDieId: "die_1", // From normal powering
+        manaDrawDieIds: [sourceDieId("die_0")], // From Mana Draw
+        usedDieIds: [sourceDieId("die_1")], // From normal powering
       });
       const state = createTestGameState({
         players: [player],
@@ -659,8 +660,8 @@ describe("Mana Pull Powered Effect (Arythea)", () => {
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
-        manaDrawDieIds: ["die_0", "die_1"], // Both from Mana Pull
-        usedDieId: null,
+        manaDrawDieIds: [sourceDieId("die_0"), sourceDieId("die_1")], // Both from Mana Pull
+        usedDieIds: [],
       });
       const state = createTestGameState({
         players: [player],

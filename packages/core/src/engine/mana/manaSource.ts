@@ -8,7 +8,8 @@
  * - At least half the dice must show basic colors
  */
 
-import type { ManaSource, SourceDie } from "../../types/mana.js";
+import type { ManaSource, SourceDie, SourceDieId } from "../../types/mana.js";
+import { sourceDieId } from "../../types/mana.js";
 import type { RngState } from "../../utils/rng.js";
 import type { TimeOfDay, ManaColor, BasicManaColor } from "@mage-knight/shared";
 import { nextRandom } from "../../utils/rng.js";
@@ -87,7 +88,7 @@ export function createManaSource(
     const { color, rng: newRng } = rollDie(currentRng);
     currentRng = newRng;
     dice.push({
-      id: `die_${i}`,
+      id: sourceDieId(`die_${i}`),
       color,
       isDepleted: false,
       takenByPlayerId: null,
@@ -122,7 +123,7 @@ export function createManaSource(
  */
 export function rerollDie(
   source: ManaSource,
-  dieId: string,
+  dieId: SourceDieId,
   timeOfDay: TimeOfDay,
   rng: RngState
 ): { source: ManaSource; rng: RngState } {

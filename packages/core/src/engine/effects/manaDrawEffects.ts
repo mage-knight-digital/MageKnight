@@ -22,6 +22,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
+import type { SourceDieId } from "../../types/mana.js";
 import type { BasicManaColor } from "@mage-knight/shared";
 import type { ManaDrawPoweredEffect, ManaDrawPickDieEffect, ManaDrawSetColorEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./resolveEffect.js";
@@ -52,7 +53,7 @@ export function handleManaDrawPowered(
   }
 
   const remainingDiceToSelect = diceCount - 1; // After picking this die
-  const alreadySelectedDieIds: readonly string[] = [];
+  const alreadySelectedDieIds: readonly SourceDieId[] = [];
 
   // Auto-select if there's no meaningful choice:
   // - Only one die available
@@ -205,10 +206,10 @@ export function applyManaDrawSetColor(
  * Generate the four color choice options for a die.
  */
 function generateColorOptions(
-  dieId: string,
+  dieId: SourceDieId,
   tokensPerDie: 1 | 2,
   remainingDiceToSelect: number,
-  alreadySelectedDieIds: readonly string[]
+  alreadySelectedDieIds: readonly SourceDieId[]
 ): ManaDrawSetColorEffect[] {
   return [
     { type: EFFECT_MANA_DRAW_SET_COLOR, dieId, color: MANA_RED, tokensPerDie, remainingDiceToSelect, alreadySelectedDieIds },
@@ -223,14 +224,14 @@ function generateColorOptions(
  */
 function chainToNextDieSelection(
   state: GameState,
-  justSelectedDieId: string,
+  justSelectedDieId: SourceDieId,
   color: BasicManaColor,
   tokenText: string,
   tokensPerDie: 1 | 2,
   remainingDiceToSelect: number,
-  alreadySelectedDieIds: readonly string[]
+  alreadySelectedDieIds: readonly SourceDieId[]
 ): EffectResolutionResult {
-  const newAlreadySelected = [...alreadySelectedDieIds, justSelectedDieId];
+  const newAlreadySelected: SourceDieId[] = [...alreadySelectedDieIds, justSelectedDieId];
 
   // Find available dice (not taken, not already selected in this chain)
   const availableDice = state.source.dice.filter(

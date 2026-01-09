@@ -9,6 +9,7 @@
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player, Crystals } from "../../types/player.js";
+import type { SourceDieId } from "../../types/mana.js";
 import type { CardId, BasicActionCardId, ManaSourceInfo, BasicManaColor } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
@@ -103,16 +104,20 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
         switch (sourceType) {
           case MANA_SOURCE_DIE: {
-            // Mark player as having used die this turn, track which die
+            // Mark player as having used die this turn, accumulate to the list
             // Die stays in source (will be rerolled at end of turn by end turn command)
-            const dieId = params.manaSource.dieId;
+            const dieId = params.manaSource.dieId as SourceDieId;
             if (!dieId) {
               throw new Error("Die ID required when using mana from source");
             }
+            // Only add if not already in the list (avoid duplicates)
+            const alreadyUsed = updatedPlayer.usedDieIds.includes(dieId);
             updatedPlayer = {
               ...updatedPlayer,
               usedManaFromSource: true,
-              usedDieId: dieId,
+              usedDieIds: alreadyUsed
+                ? updatedPlayer.usedDieIds
+                : [...updatedPlayer.usedDieIds, dieId],
             };
             // Mark the die as taken in the source
             const updatedDice = state.source.dice.map((die) =>
@@ -345,15 +350,18 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
         switch (sourceType) {
           case MANA_SOURCE_DIE: {
-            // Restore ability to use die this turn and clear usedDieId
-            const dieId = consumedMana.dieId;
-            updatedPlayer = {
-              ...updatedPlayer,
-              usedManaFromSource: false,
-              usedDieId: null,
-            };
-            // Clear the takenByPlayerId on the die
+            // Remove this die from usedDieIds and clear takenByPlayerId
+            const dieId = consumedMana.dieId as SourceDieId;
             if (dieId) {
+              const newUsedDieIds = updatedPlayer.usedDieIds.filter(
+                (id) => id !== dieId
+              );
+              updatedPlayer = {
+                ...updatedPlayer,
+                usedManaFromSource: newUsedDieIds.length > 0,
+                usedDieIds: newUsedDieIds,
+              };
+              // Clear the takenByPlayerId on the die
               const updatedDice = state.source.dice.map((die) =>
                 die.id === dieId ? { ...die, takenByPlayerId: null } : die
               );

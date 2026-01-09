@@ -1197,3 +1197,13 @@ body {
 .save-slot__btn--load:hover:not(:disabled) {
   background: #5dade2;
 }
+
+.save-slot__btn--export {
+  background: #7f8c8d;
+  color: white;
+  padding: 0.25rem 0.375rem;
+}
+
+.save-slot__btn--export:hover:not(:disabled) {
+  background: #95a5a6;
+}
