@@ -33,6 +33,7 @@ import {
   createEnemyTokenPiles,
   drawEnemiesForHex,
   createUnitDecksAndOffer,
+  createSpellDeckAndOffer,
 } from "@mage-knight/core";
 import type { HexCoord } from "@mage-knight/shared";
 import { TILE_PLACEMENT_OFFSETS } from "@mage-knight/shared";
@@ -515,6 +516,13 @@ export class GameServer {
       rngAfterMana
     );
 
+    // Initialize spell deck and populate initial spell offer
+    const {
+      spellDeck,
+      spellOffer,
+      rng: rngAfterSpells,
+    } = createSpellDeckAndOffer(rngAfterUnits);
+
     return {
       ...baseState,
       phase: GAME_PHASE_ROUND,
@@ -527,15 +535,17 @@ export class GameServer {
       players,
       source,
       enemyTokens: currentEnemyPiles, // Enemy piles after drawing for initial tiles
-      rng: rngAfterUnits, // Updated RNG state after all shuffles
+      rng: rngAfterSpells, // Updated RNG state after all shuffles
       decks: {
         ...baseState.decks,
         regularUnits: unitDecks.regularUnits,
         eliteUnits: unitDecks.eliteUnits,
+        spells: spellDeck,
       },
       offers: {
         ...baseState.offers,
         units: unitOffer,
+        spells: { cards: [...spellOffer] },
       },
       map: {
         ...baseState.map,
@@ -616,6 +626,7 @@ export class GameServer {
       combatAccumulator: createEmptyCombatAccumulator(),
       pendingChoice: null,
       pendingLevelUps: [],
+      pendingRewards: [],
     };
 
     return { player, rng: newRng };

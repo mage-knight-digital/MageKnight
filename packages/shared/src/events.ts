@@ -797,6 +797,22 @@ export interface ShieldTokenPlacedEvent {
   readonly totalShields: number; // For cities: track multiple
 }
 
+// Reward events
+export const REWARD_QUEUED = "REWARD_QUEUED" as const;
+export interface RewardQueuedEvent {
+  readonly type: typeof REWARD_QUEUED;
+  readonly playerId: string;
+  readonly rewardType: string; // The type of reward queued (spell, artifact, etc.)
+}
+
+export const REWARD_SELECTED = "REWARD_SELECTED" as const;
+export interface RewardSelectedEvent {
+  readonly type: typeof REWARD_SELECTED;
+  readonly playerId: string;
+  readonly cardId: string;
+  readonly rewardType: string;
+}
+
 // Interaction events
 export const INTERACTION_STARTED = "INTERACTION_STARTED" as const;
 export interface InteractionStartedEvent {
@@ -944,6 +960,9 @@ export type GameEvent =
   // Conquest
   | SiteConqueredEvent
   | ShieldTokenPlacedEvent
+  // Rewards
+  | RewardQueuedEvent
+  | RewardSelectedEvent
   // Adventure sites
   | SiteEnteredEvent
   | EnemiesDrawnForSiteEvent;

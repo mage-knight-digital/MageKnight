@@ -27,6 +27,9 @@ export const CONQUER_SITE_COMMAND = "CONQUER_SITE" as const;
 // Adventure site commands
 export const ENTER_SITE_COMMAND = "ENTER_SITE" as const;
 
+// Reward selection command
+export const SELECT_REWARD_COMMAND = "SELECT_REWARD" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;

@@ -195,6 +195,14 @@ export interface ChooseLevelUpRewardsAction {
   readonly advancedActionId: string;
 }
 
+// Site reward selection action
+export const SELECT_REWARD_ACTION = "SELECT_REWARD" as const;
+export interface SelectRewardAction {
+  readonly type: typeof SELECT_REWARD_ACTION;
+  readonly cardId: CardId; // The card selected from the offer
+  readonly rewardIndex: number; // Which pending reward this selection is for (0 = first)
+}
+
 // Combat action constants
 export const ENTER_COMBAT_ACTION = "ENTER_COMBAT" as const;
 export const END_COMBAT_PHASE_ACTION = "END_COMBAT_PHASE" as const;
@@ -297,6 +305,8 @@ export type PlayerAction =
   | ResolveChoiceAction
   // Level up
   | ChooseLevelUpRewardsAction
+  // Site rewards
+  | SelectRewardAction
   // Combat
   | EnterCombatAction
   | EndCombatPhaseAction

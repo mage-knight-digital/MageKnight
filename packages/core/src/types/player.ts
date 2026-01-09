@@ -10,6 +10,7 @@ import type {
   ManaTokenSource,
   TacticId,
   BlockSource,
+  SiteReward,
 } from "@mage-knight/shared";
 import type { Hero } from "./hero.js";
 import type { CardEffect } from "./cards.js";
@@ -170,6 +171,9 @@ export interface Player {
 
   // Pending level ups to process at end of turn
   readonly pendingLevelUps: readonly number[]; // Levels crossed this turn
+
+  // Pending rewards to select at end of turn (from site conquests)
+  readonly pendingRewards: readonly SiteReward[];
 
   // Combat tracking (only one combat per turn allowed)
   readonly hasCombattedThisTurn: boolean;

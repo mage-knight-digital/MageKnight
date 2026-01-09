@@ -120,6 +120,12 @@ export const RAMPAGING_ENEMY_BLOCKS = "RAMPAGING_ENEMY_BLOCKS" as const;
 // Scenario validation codes
 export const CANNOT_ENTER_CITY = "CANNOT_ENTER_CITY" as const;
 
+// Reward selection validation codes
+export const NO_PENDING_REWARDS = "NO_PENDING_REWARDS" as const;
+export const INVALID_REWARD_INDEX = "INVALID_REWARD_INDEX" as const;
+export const CARD_NOT_IN_OFFER = "CARD_NOT_IN_OFFER" as const;
+export const PENDING_REWARDS_NOT_RESOLVED = "PENDING_REWARDS_NOT_RESOLVED" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -214,4 +220,9 @@ export type ValidationErrorCode =
   // Rampaging enemy validation
   | typeof RAMPAGING_ENEMY_BLOCKS
   // Scenario validation
-  | typeof CANNOT_ENTER_CITY;
+  | typeof CANNOT_ENTER_CITY
+  // Reward selection validation
+  | typeof NO_PENDING_REWARDS
+  | typeof INVALID_REWARD_INDEX
+  | typeof CARD_NOT_IN_OFFER
+  | typeof PENDING_REWARDS_NOT_RESOLVED;

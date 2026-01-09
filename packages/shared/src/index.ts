@@ -282,3 +282,6 @@ export * from "./scenarios.js";
 
 // Tactics
 export * from "./tactics.js";
+
+// Site rewards
+export * from "./siteRewards.js";

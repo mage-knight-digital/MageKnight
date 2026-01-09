@@ -7,6 +7,13 @@
  */
 
 import { SiteType } from "../types/map.js";
+import {
+  SiteReward,
+  spellReward,
+  artifactReward,
+  crystalRollReward,
+  compoundReward,
+} from "@mage-knight/shared";
 
 export interface SiteProperties {
   /** Requires Siege attacks to damage enemies, -1 Rep on assault */
@@ -170,4 +177,46 @@ export const HEALING_COSTS: Partial<Record<SiteType, number>> = {
  */
 export function getHealingCost(siteType: SiteType): number | null {
   return HEALING_COSTS[siteType] ?? null;
+}
+
+// =============================================================================
+// CONQUEST REWARDS
+// =============================================================================
+
+/**
+ * Rewards granted when a site is conquered (first time).
+ * Note: Dungeon reward depends on die roll (spell vs artifact) - handled specially.
+ * Note: Maze/Labyrinth rewards depend on path chosen - handled specially.
+ */
+export const CONQUEST_REWARDS: Partial<Record<SiteType, SiteReward>> = {
+  // Mage Tower: 1 spell on conquest
+  [SiteType.MageTower]: spellReward(1),
+
+  // Tomb: 1 spell + 1 artifact on conquest
+  [SiteType.Tomb]: compoundReward(spellReward(1), artifactReward(1)),
+
+  // Monster Den: 2 crystal rolls on conquest
+  [SiteType.MonsterDen]: crystalRollReward(2),
+
+  // Spawning Grounds: 1 artifact + 3 crystal rolls on conquest
+  [SiteType.SpawningGrounds]: compoundReward(
+    artifactReward(1),
+    crystalRollReward(3)
+  ),
+
+  // Note: Sites with special reward logic not listed here:
+  // - Dungeon: roll die for spell (gold/black) vs artifact (color)
+  // - Ancient Ruins: depends on yellow token
+  // - Maze: depends on path (crystals / spell / artifact)
+  // - Labyrinth: depends on path (crystals / spell / artifact) + advanced action
+  // - Keep: no reward (just ownership)
+  // - City: no reward (just conquest/ownership)
+};
+
+/**
+ * Get the conquest reward for a site type.
+ * Returns null if the site has no standard reward or uses special logic.
+ */
+export function getConquestReward(siteType: SiteType): SiteReward | null {
+  return CONQUEST_REWARDS[siteType] ?? null;
 }

@@ -117,6 +117,20 @@ export const CARD_POWER_OF_CRYSTALS = cardId("power_of_crystals");
 export const CARD_RUSH_OF_ADRENALINE = cardId("rush_of_adrenaline"); // green+red
 export const CARD_CHILLING_STARE = cardId("chilling_stare"); // blue+white
 
+// === Spell Card IDs ===
+// Red spells
+export const CARD_FIREBALL = cardId("fireball"); // #09 - Fire Ranged Attack 5 / Siege Fire Attack 8
+export const CARD_FLAME_WALL = cardId("flame_wall"); // #10 - Fire Attack 5 or Fire Block 7
+
+// Blue spells
+export const CARD_SNOWSTORM = cardId("snowstorm"); // #15 - Ice Ranged Attack 5 / Siege Ice Attack 8
+
+// Green spells
+export const CARD_RESTORATION = cardId("restoration"); // #05 - Heal 3 (5 in forest)
+
+// White spells
+export const CARD_EXPOSE = cardId("expose"); // #19 - Lose fortification/resistances
+
 // === Card ID Type Unions ===
 
 export type SharedBasicActionCardId =
@@ -205,3 +219,14 @@ export type AdvancedActionCardId =
   // Dual-color advanced actions
   | typeof CARD_RUSH_OF_ADRENALINE
   | typeof CARD_CHILLING_STARE;
+
+export type SpellCardId =
+  // Red spells
+  | typeof CARD_FIREBALL
+  | typeof CARD_FLAME_WALL
+  // Blue spells
+  | typeof CARD_SNOWSTORM
+  // Green spells
+  | typeof CARD_RESTORATION
+  // White spells
+  | typeof CARD_EXPOSE;

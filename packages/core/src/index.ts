@@ -72,6 +72,10 @@ export {
   removeUnitFromOffer,
 } from "./data/unitDeckSetup.js";
 
+// Spell deck setup
+export type { SpellDeckSetupResult } from "./data/spellDeckSetup.js";
+export { createSpellDeckAndOffer } from "./data/spellDeckSetup.js";
+
 // Site properties
 export type { SiteProperties } from "./data/siteProperties.js";
 export {

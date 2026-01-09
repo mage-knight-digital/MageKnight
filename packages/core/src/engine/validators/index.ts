@@ -24,6 +24,7 @@ import {
   INTERACT_ACTION,
   ANNOUNCE_END_OF_ROUND_ACTION,
   ENTER_SITE_ACTION,
+  SELECT_REWARD_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -147,6 +148,14 @@ import {
   validateSiteHasEnemiesOrDraws,
 } from "./siteValidators.js";
 
+// Reward validators
+import {
+  validateHasPendingRewards,
+  validateRewardIndex,
+  validateCardInOffer,
+  validateNoPendingRewards,
+} from "./rewardValidators.js";
+
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
 // Current behavior: Players must resolve card choices (e.g., "Attack 2 OR Block 2")
@@ -199,6 +208,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoPendingRewards, // Must select rewards before ending turn
   ],
   [EXPLORE_ACTION]: [
     validateIsPlayersTurn,
@@ -341,6 +351,14 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateAtAdventureSite,
     validateSiteNotConquered,
     validateSiteHasEnemiesOrDraws,
+  ],
+  [SELECT_REWARD_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateHasPendingRewards,
+    validateRewardIndex,
+    validateCardInOffer,
   ],
 };
 

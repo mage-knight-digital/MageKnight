@@ -16,6 +16,8 @@ import type { Site, HexState } from "../../types/map.js";
 import type { CityShield, CityState } from "../../types/city.js";
 import { determineCityLeader } from "../../types/city.js";
 import { CONQUER_SITE_COMMAND } from "./commandTypes.js";
+import { getConquestReward } from "../../data/siteProperties.js";
+import { queueSiteReward } from "../helpers/rewardHelpers.js";
 
 export { CONQUER_SITE_COMMAND };
 
@@ -108,12 +110,26 @@ export function createConquerSiteCommand(
             [key]: updatedHex,
           };
 
+          let finalState: GameState = {
+            ...state,
+            map: { ...state.map, hexes: updatedHexes },
+            cities: updatedCities,
+          };
+
+          // Queue conquest reward if site has one (cities don't have standard rewards)
+          const reward = getConquestReward(site.type);
+          if (reward) {
+            const { state: rewardState, events: rewardEvents } = queueSiteReward(
+              finalState,
+              params.playerId,
+              reward
+            );
+            finalState = rewardState;
+            events.push(...rewardEvents);
+          }
+
           return {
-            state: {
-              ...state,
-              map: { ...state.map, hexes: updatedHexes },
-              cities: updatedCities,
-            },
+            state: finalState,
             events,
           };
         }
@@ -146,11 +162,25 @@ export function createConquerSiteCommand(
         [key]: updatedHex,
       };
 
+      let finalState: GameState = {
+        ...state,
+        map: { ...state.map, hexes: updatedHexes },
+      };
+
+      // Queue conquest reward if site has one
+      const reward = getConquestReward(site.type);
+      if (reward) {
+        const { state: rewardState, events: rewardEvents } = queueSiteReward(
+          finalState,
+          params.playerId,
+          reward
+        );
+        finalState = rewardState;
+        events.push(...rewardEvents);
+      }
+
       return {
-        state: {
-          ...state,
-          map: { ...state.map, hexes: updatedHexes },
-        },
+        state: finalState,
         events,
       };
     },

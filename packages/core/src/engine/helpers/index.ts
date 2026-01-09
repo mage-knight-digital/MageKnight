@@ -37,3 +37,6 @@ export type {
   SiteDefenderConfig,
   DrawEnemiesForHexResult,
 } from "./enemyHelpers.js";
+
+export { grantSiteReward, queueSiteReward } from "./rewardHelpers.js";
+export type { RewardResult } from "./rewardHelpers.js";
