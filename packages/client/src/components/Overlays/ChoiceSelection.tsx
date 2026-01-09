@@ -1,4 +1,4 @@
-import { RESOLVE_CHOICE_ACTION } from "@mage-knight/shared";
+import { RESOLVE_CHOICE_ACTION, UNDO_ACTION } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 
@@ -11,7 +11,7 @@ function formatCardName(cardId: string): string {
 }
 
 export function ChoiceSelection() {
-  const { sendAction } = useGame();
+  const { state, sendAction } = useGame();
   const player = useMyPlayer();
 
   // Don't show if no pending choice
@@ -20,12 +20,17 @@ export function ChoiceSelection() {
   }
 
   const { cardId, options } = player.pendingChoice;
+  const canUndo = state?.validActions.turn?.canUndo ?? false;
 
   const handleSelectChoice = (choiceIndex: number) => {
     sendAction({
       type: RESOLVE_CHOICE_ACTION,
       choiceIndex,
     });
+  };
+
+  const handleUndo = () => {
+    sendAction({ type: UNDO_ACTION });
   };
 
   return (
@@ -48,6 +53,17 @@ export function ChoiceSelection() {
             </button>
           ))}
         </div>
+        {canUndo && (
+          <div className="choice-selection__actions">
+            <button
+              className="choice-selection__undo-btn"
+              onClick={handleUndo}
+              type="button"
+            >
+              Undo
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

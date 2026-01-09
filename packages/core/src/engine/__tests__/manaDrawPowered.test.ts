@@ -17,6 +17,7 @@ import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import { resolveEffect, isEffectResolvable } from "../effects/resolveEffect.js";
 import type { ManaSource, SourceDie } from "../../types/mana.js";
 import { createEndTurnCommand } from "../commands/endTurnCommand.js";
+import { createResolveChoiceCommand } from "../commands/resolveChoiceCommand.js";
 import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
@@ -183,6 +184,7 @@ describe("Mana Draw Powered Effect", () => {
       const effect: ManaDrawPickDieEffect = {
         type: EFFECT_MANA_DRAW_PICK_DIE,
         dieId: "die_0",
+        dieColor: MANA_GOLD,
         remainingDiceToSelect: 0,
         tokensPerDie: 2,
         alreadySelectedDieIds: [],
@@ -211,6 +213,7 @@ describe("Mana Draw Powered Effect", () => {
       const effect: ManaDrawPickDieEffect = {
         type: EFFECT_MANA_DRAW_PICK_DIE,
         dieId: "die_0",
+        dieColor: MANA_RED,
         remainingDiceToSelect: 0,
         tokensPerDie: 2,
         alreadySelectedDieIds: [],
@@ -682,5 +685,167 @@ describe("Mana Pull Powered Effect (Arythea)", () => {
       expect(die1?.takenByPlayerId).toBeNull();
       expect(die1?.color).toBe(MANA_RED); // Not rerolled
     });
+  });
+});
+
+describe("Mana Draw Undo", () => {
+  /**
+   * This test reproduces the infinite mana bug:
+   * 1. Player triggers Mana Draw, gets pending choice for color
+   * 2. Player picks red, gains 2 red mana
+   * 3. Player undoes the choice
+   * 4. BUG: Player still has 2 red mana (should have 0)
+   * 5. Player picks red again, now has 4 red mana (infinite mana exploit!)
+   */
+  it("should remove mana tokens when undoing color selection", () => {
+    // Set up state with pending choice for color selection
+    const setColorOptions: ManaDrawSetColorEffect[] = [
+      {
+        type: EFFECT_MANA_DRAW_SET_COLOR,
+        dieId: "die_0",
+        color: MANA_RED,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
+      },
+      {
+        type: EFFECT_MANA_DRAW_SET_COLOR,
+        dieId: "die_0",
+        color: MANA_BLUE,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
+      },
+      {
+        type: EFFECT_MANA_DRAW_SET_COLOR,
+        dieId: "die_0",
+        color: MANA_GREEN,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
+      },
+      {
+        type: EFFECT_MANA_DRAW_SET_COLOR,
+        dieId: "die_0",
+        color: MANA_WHITE,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
+      },
+    ];
+
+    const player = createTestPlayer({
+      id: "player1",
+      pureMana: [], // Start with no mana
+      manaDrawDieIds: [],
+      pendingChoice: {
+        cardId: CARD_MARCH, // Doesn't matter which card for this test
+        options: setColorOptions,
+      },
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      source: createTestManaSource([
+        { id: "die_0", color: MANA_GOLD, isDepleted: true, takenByPlayerId: null },
+      ]),
+    });
+
+    // Verify pendingChoice is set (TypeScript narrowing)
+    const pendingChoice = player.pendingChoice;
+    if (!pendingChoice) {
+      throw new Error("Test setup error: pendingChoice should be set");
+    }
+
+    // Step 1: Resolve choice - pick red (index 0)
+    const resolveCommand = createResolveChoiceCommand({
+      playerId: "player1",
+      choiceIndex: 0, // Pick red
+      previousPendingChoice: pendingChoice,
+    });
+
+    const afterResolve = resolveCommand.execute(state);
+
+    // Verify: Player should have 2 red mana tokens
+    const playerAfterResolve = afterResolve.state.players.find((p) => p.id === "player1");
+    expect(playerAfterResolve?.pureMana).toHaveLength(2);
+    expect(playerAfterResolve?.pureMana.every((t) => t.color === MANA_RED)).toBe(true);
+
+    // Verify: Die should be taken and set to red
+    const dieAfterResolve = afterResolve.state.source.dice.find((d) => d.id === "die_0");
+    expect(dieAfterResolve?.color).toBe(MANA_RED);
+    expect(dieAfterResolve?.takenByPlayerId).toBe("player1");
+
+    // Verify: manaDrawDieIds should include the die
+    expect(playerAfterResolve?.manaDrawDieIds).toContain("die_0");
+
+    // Step 2: Undo the choice
+    const afterUndo = resolveCommand.undo(afterResolve.state);
+
+    // Verify: Player should have 0 mana tokens (the 2 red should be removed)
+    const playerAfterUndo = afterUndo.state.players.find((p) => p.id === "player1");
+    expect(playerAfterUndo?.pureMana).toHaveLength(0); // THIS IS THE BUG - currently fails
+
+    // Verify: Die should be restored to original state
+    const dieAfterUndo = afterUndo.state.source.dice.find((d) => d.id === "die_0");
+    expect(dieAfterUndo?.color).toBe(MANA_GOLD); // Should be back to gold
+    expect(dieAfterUndo?.takenByPlayerId).toBeNull(); // Should not be taken
+
+    // Verify: manaDrawDieIds should NOT include the die
+    expect(playerAfterUndo?.manaDrawDieIds).not.toContain("die_0");
+
+    // Verify: Pending choice should be restored
+    expect(playerAfterUndo?.pendingChoice).not.toBeNull();
+    expect(playerAfterUndo?.pendingChoice?.options).toHaveLength(4);
+  });
+
+  it("should restore die to original color when undoing (not just any color)", () => {
+    // Die starts as blue, player sets it to red, undo should restore blue
+    const setColorOptions: ManaDrawSetColorEffect[] = [
+      {
+        type: EFFECT_MANA_DRAW_SET_COLOR,
+        dieId: "die_0",
+        color: MANA_RED,
+        tokensPerDie: 2,
+        remainingDiceToSelect: 0,
+        alreadySelectedDieIds: [],
+      },
+    ];
+
+    const player = createTestPlayer({
+      id: "player1",
+      pureMana: [],
+      manaDrawDieIds: [],
+      pendingChoice: {
+        cardId: CARD_MARCH,
+        options: setColorOptions,
+      },
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      source: createTestManaSource([
+        { id: "die_0", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+      ]),
+    });
+
+    // Verify pendingChoice is set (TypeScript narrowing)
+    const pendingChoice = player.pendingChoice;
+    if (!pendingChoice) {
+      throw new Error("Test setup error: pendingChoice should be set");
+    }
+
+    const resolveCommand = createResolveChoiceCommand({
+      playerId: "player1",
+      choiceIndex: 0,
+      previousPendingChoice: pendingChoice,
+    });
+
+    const afterResolve = resolveCommand.execute(state);
+    const afterUndo = resolveCommand.undo(afterResolve.state);
+
+    // Die should be back to BLUE (its original color), not gold or some default
+    const dieAfterUndo = afterUndo.state.source.dice.find((d) => d.id === "die_0");
+    expect(dieAfterUndo?.color).toBe(MANA_BLUE);
   });
 });

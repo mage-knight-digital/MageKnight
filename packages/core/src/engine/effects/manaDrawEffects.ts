@@ -77,6 +77,7 @@ export function handleManaDrawPowered(
   const dieOptions: ManaDrawPickDieEffect[] = availableDice.map((die) => ({
     type: EFFECT_MANA_DRAW_PICK_DIE,
     dieId: die.id,
+    dieColor: die.color,
     remainingDiceToSelect,
     tokensPerDie,
     alreadySelectedDieIds,
@@ -265,6 +266,7 @@ function chainToNextDieSelection(
   const dieOptions: ManaDrawPickDieEffect[] = availableDice.map((die) => ({
     type: EFFECT_MANA_DRAW_PICK_DIE,
     dieId: die.id,
+    dieColor: die.color,
     remainingDiceToSelect: nextRemainingDice,
     tokensPerDie,
     alreadySelectedDieIds: newAlreadySelected,

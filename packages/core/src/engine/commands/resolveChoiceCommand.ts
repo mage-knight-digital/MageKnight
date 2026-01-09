@@ -14,6 +14,11 @@ import { resolveEffect, reverseEffect, isEffectResolvable } from "../effects/res
 import { describeEffect } from "../effects/describeEffect.js";
 import { RESOLVE_CHOICE_COMMAND } from "./commandTypes.js";
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
+import {
+  captureUndoContext,
+  applyUndoContext,
+  type EffectUndoContext,
+} from "../effects/effectUndoContext.js";
 
 export { RESOLVE_CHOICE_COMMAND };
 
@@ -32,6 +37,9 @@ export interface ResolveChoiceCommandParams {
 export function createResolveChoiceCommand(
   params: ResolveChoiceCommandParams
 ): Command {
+  // Closure to store undo context for effects that need special handling
+  let effectUndoContext: EffectUndoContext | null = null;
+
   return {
     type: RESOLVE_CHOICE_COMMAND,
     playerId: params.playerId,
@@ -58,6 +66,10 @@ export function createResolveChoiceCommand(
       if (!chosenEffect) {
         throw new Error(`Invalid choice index: ${params.choiceIndex}`);
       }
+
+      // Capture undo context BEFORE applying the effect
+      // This stores state we'll need to restore during undo
+      effectUndoContext = captureUndoContext(state, chosenEffect);
 
       // Clear pending choice
       const playerWithoutChoice: Player = {
@@ -206,14 +218,21 @@ export function createResolveChoiceCommand(
     },
 
     undo(state: GameState): CommandResult {
-      const playerIndex = state.players.findIndex(
+      // First, apply the captured undo context if we have one
+      // This handles non-player state changes (e.g., restoring source dice)
+      let currentState = state;
+      if (effectUndoContext) {
+        currentState = applyUndoContext(state, params.playerId, effectUndoContext);
+      }
+
+      const playerIndex = currentState.players.findIndex(
         (p) => p.id === params.playerId
       );
       if (playerIndex === -1) {
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
-      const player = state.players[playerIndex];
+      const player = currentState.players[playerIndex];
       if (!player) {
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
@@ -227,16 +246,17 @@ export function createResolveChoiceCommand(
         pendingChoice: params.previousPendingChoice,
       };
 
-      // Reverse the effect if one was applied
-      if (chosenEffect) {
+      // Reverse the effect if one was applied (for player-only state changes)
+      // Skip this if we already handled it via effectUndoContext
+      if (chosenEffect && !effectUndoContext) {
         updatedPlayer = reverseEffect(updatedPlayer, chosenEffect);
       }
 
-      const players = [...state.players];
+      const players = [...currentState.players];
       players[playerIndex] = updatedPlayer;
 
       return {
-        state: { ...state, players },
+        state: { ...currentState, players },
         events: [
           {
             // Re-emit choice required event

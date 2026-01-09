@@ -114,7 +114,7 @@ export function describeEffect(effect: CardEffect): string {
       return "Take a die, set its color, gain 2 mana";
 
     case EFFECT_MANA_DRAW_PICK_DIE:
-      return `Take die ${effect.dieId}`;
+      return `Take ${effect.dieColor} die`;
 
     case EFFECT_MANA_DRAW_SET_COLOR:
       return `Set die to ${effect.color}, gain 2 ${effect.color} mana`;

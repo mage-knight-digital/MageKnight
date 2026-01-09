@@ -180,6 +180,8 @@ export interface ManaDrawPoweredEffect {
 export interface ManaDrawPickDieEffect {
   readonly type: typeof EFFECT_MANA_DRAW_PICK_DIE;
   readonly dieId: string;
+  /** Current color of the die (for display purposes) */
+  readonly dieColor: ManaColor;
   /** Remaining dice to select after this one (for Mana Pull) */
   readonly remainingDiceToSelect: number;
   /** Tokens to grant per die */
