@@ -67,6 +67,19 @@ export default tseslint.config(
           message:
             'Do not use string-literal validation codes (even with `as const`) in `invalid(...)`. Import a constant from `packages/core/src/engine/validators/validationCodes.ts`.',
         },
+        // Prefer `MANA_ANY` constant over literal `"any"` sentinel checks.
+        {
+          selector:
+            'BinaryExpression[operator=/^(===|!==)$/][right.value="any"][left.type="MemberExpression"][left.property.name="color"]',
+          message:
+            'Do not compare `effect.color` to `"any"`. Import and use `MANA_ANY` from `src/types/effectTypes.ts`.',
+        },
+        {
+          selector:
+            'BinaryExpression[operator=/^(===|!==)$/][left.value="any"][right.type="MemberExpression"][right.property.name="color"]',
+          message:
+            'Do not compare `effect.color` to `"any"`. Import and use `MANA_ANY` from `src/types/effectTypes.ts`.',
+        },
       ],
     },
   },
