@@ -136,29 +136,56 @@ function CrystalsPanel() {
 
 function ManaSourcePanel() {
   const { state } = useGame();
+  const player = useMyPlayer();
 
   if (!state) return null;
+
+  const myId = player?.id;
 
   return (
     <div className="panel">
       <h3 className="panel__title">Mana Source</h3>
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-        {state.source.dice.map((die) => (
-          <div
-            key={die.id}
-            style={{
-              padding: "0.5rem",
-              borderRadius: "4px",
-              background: die.isDepleted ? "#333" : getManaColor(die.color),
-              color: die.isDepleted ? "#666" : "#fff",
-              fontWeight: 600,
-              fontSize: "0.75rem",
-              opacity: die.isDepleted ? 0.5 : 1,
-            }}
-          >
-            {die.color.toUpperCase()}
-          </div>
-        ))}
+        {state.source.dice.map((die) => {
+          const isTakenByMe = die.takenByPlayerId === myId;
+          const isTakenByOther = die.takenByPlayerId !== null && !isTakenByMe;
+          const isUnavailable = die.isDepleted || isTakenByMe || isTakenByOther;
+
+          return (
+            <div
+              key={die.id}
+              style={{
+                padding: "0.5rem",
+                borderRadius: "4px",
+                background: isUnavailable ? "#333" : getManaColor(die.color),
+                color: isUnavailable ? "#888" : "#fff",
+                fontWeight: 600,
+                fontSize: "0.75rem",
+                opacity: isUnavailable ? 0.5 : 1,
+                position: "relative",
+                minWidth: "3rem",
+                textAlign: "center",
+              }}
+              title={
+                die.isDepleted
+                  ? `${die.color} (depleted)`
+                  : isTakenByMe
+                    ? `${die.color} (used by you)`
+                    : isTakenByOther
+                      ? `${die.color} (taken)`
+                      : die.color
+              }
+            >
+              {die.color.toUpperCase()}
+              {isTakenByMe && (
+                <div style={{ fontSize: "0.5rem", marginTop: "2px" }}>USED</div>
+              )}
+              {isTakenByOther && (
+                <div style={{ fontSize: "0.5rem", marginTop: "2px" }}>TAKEN</div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

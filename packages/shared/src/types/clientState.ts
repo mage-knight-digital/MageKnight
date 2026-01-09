@@ -131,6 +131,7 @@ export interface ClientSourceDie {
   readonly id: string;
   readonly color: ManaColor;
   readonly isDepleted: boolean;
+  readonly takenByPlayerId: string | null; // which player used this die this turn
 }
 
 // Mana source (public)
