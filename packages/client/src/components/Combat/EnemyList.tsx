@@ -75,7 +75,12 @@ export function EnemyList({ enemies, combatOptions }: EnemyListProps) {
   const isDamagePhase = combatOptions.phase === COMBAT_PHASE_ASSIGN_DAMAGE;
   const isAttackPhase = combatOptions.phase === COMBAT_PHASE_ATTACK;
   const accumulatedBlock = player?.combatAccumulator.block ?? 0;
-  const accumulatedAttack = player?.combatAccumulator.attack.normal ?? 0;
+
+  // In attack phase, all attack types (melee, ranged, siege) count equally
+  const attackAcc = player?.combatAccumulator.attack;
+  const accumulatedAttack = attackAcc
+    ? (attackAcc.normal + attackAcc.ranged + attackAcc.siege)
+    : 0;
 
   const handleAssignBlock = (enemyInstanceId: string) => {
     // Server reads block sources from player.combatAccumulator.blockSources
@@ -94,12 +99,31 @@ export function EnemyList({ enemies, combatOptions }: EnemyListProps) {
   };
 
   const handleAssignAttack = (enemyInstanceId: string) => {
-    // Build attack sources from accumulated attack (simplified - all physical for now)
+    // Build attack sources from all accumulated attack types
+    // In attack phase, melee/ranged/siege are all treated the same
     const attacks: AttackSource[] = [];
-    if (accumulatedAttack > 0) {
+
+    // Add melee attacks (normal)
+    if (attackAcc && attackAcc.normal > 0) {
       attacks.push({
         element: ELEMENT_PHYSICAL,
-        value: accumulatedAttack,
+        value: attackAcc.normal,
+      });
+    }
+
+    // Add ranged attacks
+    if (attackAcc && attackAcc.ranged > 0) {
+      attacks.push({
+        element: ELEMENT_PHYSICAL,
+        value: attackAcc.ranged,
+      });
+    }
+
+    // Add siege attacks
+    if (attackAcc && attackAcc.siege > 0) {
+      attacks.push({
+        element: ELEMENT_PHYSICAL,
+        value: attackAcc.siege,
       });
     }
 
@@ -107,7 +131,7 @@ export function EnemyList({ enemies, combatOptions }: EnemyListProps) {
       type: DECLARE_ATTACK_ACTION,
       targetEnemyInstanceIds: [enemyInstanceId],
       attacks,
-      attackType: COMBAT_TYPE_MELEE,
+      attackType: COMBAT_TYPE_MELEE, // In attack phase, type doesn't matter
     });
   };
 
