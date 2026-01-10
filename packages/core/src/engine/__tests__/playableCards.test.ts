@@ -19,6 +19,7 @@ import {
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
   MANA_BLUE,
+  MANA_WHITE,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -63,10 +64,10 @@ describe("getPlayableCardsForCombat", () => {
     });
 
     it("should allow Swiftness powered for ranged attack when mana is available", () => {
-      // Give the player blue crystals so they can pay for powered effect
+      // Give the player white crystals so they can pay for powered effect
       const player = createTestPlayer({
         hand: [CARD_SWIFTNESS],
-        crystals: { red: 0, blue: 1, green: 0, white: 0 },
+        crystals: { red: 0, blue: 0, green: 0, white: 1 },
       });
       const state = createTestGameState({ players: [player] });
       const combat = createTestCombat(COMBAT_PHASE_RANGED_SIEGE);
@@ -77,7 +78,7 @@ describe("getPlayableCardsForCombat", () => {
       expect(swiftnessCard).toBeDefined();
       expect(swiftnessCard?.canPlayBasic).toBe(false); // Basic is Move, not ranged
       expect(swiftnessCard?.canPlayPowered).toBe(true); // Powered is Ranged Attack 3
-      expect(swiftnessCard?.requiredMana).toBe(MANA_BLUE);
+      expect(swiftnessCard?.requiredMana).toBe(MANA_WHITE);
     });
 
     it("should NOT allow Swiftness powered when no mana is available", () => {
@@ -246,6 +247,27 @@ describe("getPlayableCardsForCombat", () => {
         as: PLAY_SIDEWAYS_AS_ATTACK,
         value: 1,
       });
+    });
+
+    it("should allow ranged/siege attacks in the attack phase", () => {
+      // Per rulebook: "You can combine any Attacks: Ranged, Siege or regular.
+      // In this phase, there is no difference between regular, Ranged and Siege Attacks."
+      const player = createTestPlayer({
+        hand: [CARD_SWIFTNESS], // Powered effect: Ranged Attack 3 (powered by white)
+        crystals: { red: 0, blue: 0, green: 0, white: 1 },
+      });
+      const state = createTestGameState({ players: [player] });
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      const swiftnessCard = result.cards.find(c => c.cardId === CARD_SWIFTNESS);
+      expect(swiftnessCard).toBeDefined();
+      // Basic is Move, can't be played as attack
+      expect(swiftnessCard?.canPlayBasic).toBe(false);
+      // Powered is Ranged Attack 3 - should work in attack phase!
+      expect(swiftnessCard?.canPlayPowered).toBe(true);
+      expect(swiftnessCard?.requiredMana).toBe(MANA_WHITE);
     });
 
     it("should not allow influence-only cards (except sideways)", () => {

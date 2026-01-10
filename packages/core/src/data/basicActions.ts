@@ -300,7 +300,7 @@ export const BASIC_ACTION_CARDS = {
     id: CARD_SWIFTNESS,
     name: "Swiftness",
     cardType: DEED_CARD_TYPE_BASIC_ACTION,
-    poweredBy: [MANA_BLUE],
+    poweredBy: [MANA_WHITE],
     categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_COMBAT],
     // Basic: Move 2 | Powered: Ranged Attack 3
     basicEffect: move(2),
