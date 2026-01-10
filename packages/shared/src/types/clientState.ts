@@ -19,6 +19,7 @@ import type { TacticId } from "../tactics.js";
 import type { ValidActions } from "./validActions.js";
 import type { EnemyId, EnemyAbilityType, EnemyResistances, Element } from "../enemies.js";
 import type { CombatPhase } from "../combatPhases.js";
+import type { SiteReward } from "../siteRewards.js";
 
 // Pending choice - when a card requires player selection
 export interface ClientPendingChoice {
@@ -124,6 +125,9 @@ export interface ClientPlayer {
 
   // Combat accumulator (accumulated attack/block from played cards)
   readonly combatAccumulator: ClientCombatAccumulator;
+
+  // Pending rewards from site conquest (spell, artifact, etc.)
+  readonly pendingRewards: readonly SiteReward[];
 }
 
 // Mana die in the source

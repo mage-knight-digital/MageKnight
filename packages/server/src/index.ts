@@ -214,6 +214,9 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
       block: player.combatAccumulator.block,
       blockElements: { ...player.combatAccumulator.blockElements },
     },
+
+    // Pending rewards from site conquest
+    pendingRewards: player.pendingRewards,
   };
 }
 
