@@ -8,6 +8,7 @@
  * - Removing it from the available pool
  * - Advancing to the next selector or ending the phase
  * - Setting turn order based on tactic numbers when phase ends
+ * - Solo mode: After human selects, dummy player auto-selects random tactic
  */
 
 import type { Command, CommandResult } from "../commands.js";
@@ -18,12 +19,15 @@ import {
   ROUND_PHASE_TACTICS_SELECTION,
   ROUND_PHASE_PLAYER_TURNS,
   TACTIC_SELECTED,
+  DUMMY_TACTIC_SELECTED,
   TACTICS_PHASE_ENDED,
   INVALID_ACTION,
   getTacticsForTimeOfDay,
+  DUMMY_TACTIC_AFTER_HUMANS,
 } from "@mage-knight/shared";
 import { getTacticCard } from "../../data/tactics.js";
 import { SELECT_TACTIC_COMMAND } from "./commandTypes.js";
+import { randomElement, type RngState } from "../../utils/rng.js";
 
 export { SELECT_TACTIC_COMMAND };
 
@@ -138,7 +142,33 @@ export function createSelectTacticCommand(
       const isLastSelector = nextIndex >= state.tacticsSelectionOrder.length;
 
       if (isLastSelector) {
-        // All players have selected - end tactics phase
+        // All human players have selected
+        // Check if we need to handle dummy player tactic selection (solo mode)
+        let finalAvailableTactics = updatedAvailableTactics;
+        let dummyTactic: TacticId | null = null;
+        let rng: RngState = state.rng;
+
+        if (state.scenarioConfig.dummyTacticOrder === DUMMY_TACTIC_AFTER_HUMANS) {
+          // Solo mode: Dummy player picks random tactic from remaining
+          if (finalAvailableTactics.length > 0) {
+            const result = randomElement([...finalAvailableTactics], rng);
+            // We checked length > 0, so value is guaranteed to be defined
+            dummyTactic = result.value as TacticId;
+            rng = result.rng;
+
+            // Remove dummy's tactic from available pool
+            finalAvailableTactics = finalAvailableTactics.filter(t => t !== dummyTactic);
+
+            const dummyTacticCard = getTacticCard(dummyTactic);
+            events.push({
+              type: DUMMY_TACTIC_SELECTED,
+              tacticId: dummyTactic,
+              turnOrder: dummyTacticCard.turnOrder,
+            });
+          }
+        }
+
+        // End tactics phase
         const newTurnOrder = calculateTurnOrder(updatedPlayers);
 
         events.push({
@@ -150,11 +180,13 @@ export function createSelectTacticCommand(
           state: {
             ...state,
             players: updatedPlayers,
-            availableTactics: updatedAvailableTactics,
+            availableTactics: finalAvailableTactics,
+            dummyPlayerTactic: dummyTactic,
             roundPhase: ROUND_PHASE_PLAYER_TURNS,
             currentTacticSelector: null,
             turnOrder: newTurnOrder,
             currentPlayerIndex: 0, // First player in new turn order starts
+            rng,
           },
           events,
         };

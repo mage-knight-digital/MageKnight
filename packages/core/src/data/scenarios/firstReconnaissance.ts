@@ -23,6 +23,8 @@ import {
   SCORING_CATEGORY_EXPLORATION,
   SCORING_CATEGORY_COMBAT,
   SCORING_CATEGORY_ACHIEVEMENTS,
+  TACTIC_REMOVAL_ALL_USED,
+  DUMMY_TACTIC_AFTER_HUMANS,
   type ScenarioConfig,
 } from "@mage-knight/shared";
 
@@ -58,6 +60,10 @@ export const FIRST_RECONNAISSANCE: ScenarioConfig = {
   enabledExpansions: [], // Base game only - no expansions
   famePerTileExplored: 1, // +1 Fame per tile in First Reconnaissance
   citiesCanBeEntered: false, // Cannot enter city in this scenario
+
+  // Tactic handling - Solo Conquest rules
+  tacticRemovalMode: TACTIC_REMOVAL_ALL_USED, // All used tactics removed at end of round
+  dummyTacticOrder: DUMMY_TACTIC_AFTER_HUMANS, // Human picks first, dummy gets random from remaining
 
   // End condition - game ends when city is REVEALED (not conquered)
   endTrigger: { type: END_TRIGGER_CITY_REVEALED },

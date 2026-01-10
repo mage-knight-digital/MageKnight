@@ -147,6 +147,7 @@ export type {
   ChoiceResolvedEvent,
   // Tactics
   TacticSelectedEvent,
+  DummyTacticSelectedEvent,
   TacticsPhaseEndedEvent,
 } from "./events.js";
 

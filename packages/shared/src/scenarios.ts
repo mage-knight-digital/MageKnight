@@ -4,6 +4,28 @@
  * Scenarios define the rules, map shape, and win conditions for a game.
  */
 
+// === Tactic Removal Modes ===
+// Defines what happens to tactics at end of each day/night
+export const TACTIC_REMOVAL_NONE = "none" as const; // Tactics collected and re-displayed each round
+export const TACTIC_REMOVAL_ALL_USED = "all_used" as const; // All tactics used this round removed from game
+export const TACTIC_REMOVAL_VOTE_ONE = "vote_one" as const; // Players agree to remove ONE used tactic (co-op)
+
+export type TacticRemovalMode =
+  | typeof TACTIC_REMOVAL_NONE
+  | typeof TACTIC_REMOVAL_ALL_USED
+  | typeof TACTIC_REMOVAL_VOTE_ONE;
+
+// === Dummy Player Tactic Order ===
+// Defines when dummy player selects their tactic
+export const DUMMY_TACTIC_NONE = "none" as const; // No dummy player
+export const DUMMY_TACTIC_AFTER_HUMANS = "after_humans" as const; // Human picks first, dummy gets random
+export const DUMMY_TACTIC_BEFORE_HUMANS = "before_humans" as const; // Dummy gets random first, then humans
+
+export type DummyTacticOrder =
+  | typeof DUMMY_TACTIC_NONE
+  | typeof DUMMY_TACTIC_AFTER_HUMANS
+  | typeof DUMMY_TACTIC_BEFORE_HUMANS;
+
 // === Scenario IDs ===
 export const SCENARIO_FIRST_RECONNAISSANCE = "first_reconnaissance" as const;
 export const SCENARIO_FULL_CONQUEST = "full_conquest" as const;
@@ -103,6 +125,10 @@ export interface ScenarioConfig {
   readonly enabledExpansions: readonly ExpansionId[]; // which expansions are active
   readonly famePerTileExplored: number; // 0 for scenarios that don't give fame for exploration
   readonly citiesCanBeEntered: boolean; // false for First Reconnaissance
+
+  // Tactic handling
+  readonly tacticRemovalMode: TacticRemovalMode;
+  readonly dummyTacticOrder: DummyTacticOrder;
 
   // End condition
   readonly endTrigger: ScenarioEndTrigger;

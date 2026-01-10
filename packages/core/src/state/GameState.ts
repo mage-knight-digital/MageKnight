@@ -59,6 +59,8 @@ export interface GameState {
   // Tactics selection phase
   readonly roundPhase: RoundPhase; // Sub-phase within GAME_PHASE_ROUND
   readonly availableTactics: readonly TacticId[]; // Tactics not yet selected this round
+  readonly removedTactics: readonly TacticId[]; // Tactics removed from game (solo/co-op modes)
+  readonly dummyPlayerTactic: TacticId | null; // Tactic selected by dummy player (solo mode)
   readonly tacticsSelectionOrder: readonly string[]; // Order in which players select (reverse of last turn order)
   readonly currentTacticSelector: string | null; // Player ID currently selecting, null if phase complete
 
@@ -118,6 +120,8 @@ export function createInitialGameState(
     // Tactics selection - starts in player turns (tactics phase entered at round start)
     roundPhase: ROUND_PHASE_PLAYER_TURNS,
     availableTactics: [],
+    removedTactics: [],
+    dummyPlayerTactic: null,
     tacticsSelectionOrder: [],
     currentTacticSelector: null,
     // Mana and offers

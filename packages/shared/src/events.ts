@@ -117,6 +117,13 @@ export interface TacticSelectedEvent {
   readonly turnOrder: number;
 }
 
+export const DUMMY_TACTIC_SELECTED = "DUMMY_TACTIC_SELECTED" as const;
+export interface DummyTacticSelectedEvent {
+  readonly type: typeof DUMMY_TACTIC_SELECTED;
+  readonly tacticId: TacticId;
+  readonly turnOrder: number;
+}
+
 export const TACTICS_PHASE_ENDED = "TACTICS_PHASE_ENDED" as const;
 export interface TacticsPhaseEndedEvent {
   readonly type: typeof TACTICS_PHASE_ENDED;
@@ -883,6 +890,7 @@ export type GameEvent =
   | TimeOfDayChangedEvent
   | ManaSourceResetEvent
   | TacticSelectedEvent
+  | DummyTacticSelectedEvent
   | TacticsPhaseEndedEvent
   | DecksReshuffledEvent
   | PlayerRestedEvent

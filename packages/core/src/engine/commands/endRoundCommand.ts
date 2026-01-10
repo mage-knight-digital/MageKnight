@@ -34,6 +34,7 @@ import {
   getTacticsForTimeOfDay,
   OFFER_REFRESHED,
   OFFER_TYPE_UNITS,
+  TACTIC_REMOVAL_ALL_USED,
 } from "@mage-knight/shared";
 import { createManaSource } from "../mana/manaSource.js";
 import { readyAllUnits } from "../../types/unit.js";
@@ -234,7 +235,26 @@ export function createEndRoundCommand(): Command {
         timeOfDay: newTime,
       });
 
-      // 6. Set up tactics selection phase
+      // 6. Collect tactics used this round and update removedTactics
+      const usedTacticsThisRound: TacticId[] = [];
+      for (const player of state.players) {
+        if (player.selectedTactic !== null) {
+          usedTacticsThisRound.push(player.selectedTactic);
+        }
+      }
+      if (state.dummyPlayerTactic !== null) {
+        usedTacticsThisRound.push(state.dummyPlayerTactic);
+      }
+
+      // Update removed tactics based on scenario config
+      let updatedRemovedTactics = [...state.removedTactics];
+      if (state.scenarioConfig.tacticRemovalMode === TACTIC_REMOVAL_ALL_USED) {
+        // Solo mode: All used tactics are removed from the game
+        updatedRemovedTactics = [...updatedRemovedTactics, ...usedTacticsThisRound];
+      }
+      // Note: TACTIC_REMOVAL_VOTE_ONE (co-op) would require a separate phase - not implemented yet
+
+      // 7. Set up tactics selection phase
       // Selection order is based on Fame (lowest first)
       // Ties are broken by Round Order token position (current turn order)
       const tacticsSelectionOrder = [...updatedPlayers]
@@ -252,7 +272,12 @@ export function createEndRoundCommand(): Command {
           return a.turnOrderIndex - b.turnOrderIndex;
         })
         .map((p) => p.id);
-      const availableTactics: readonly TacticId[] = getTacticsForTimeOfDay(newTime);
+
+      // Get tactics for the new time of day, filtering out removed ones
+      const allTacticsForTime = getTacticsForTimeOfDay(newTime);
+      const availableTactics: readonly TacticId[] = allTacticsForTime.filter(
+        (t) => !updatedRemovedTactics.includes(t)
+      );
       const firstSelector = tacticsSelectionOrder[0] ?? null;
 
       return {
@@ -275,6 +300,8 @@ export function createEndRoundCommand(): Command {
           // Initialize tactics selection phase
           roundPhase: ROUND_PHASE_TACTICS_SELECTION,
           availableTactics,
+          removedTactics: updatedRemovedTactics,
+          dummyPlayerTactic: null, // Reset for new round
           tacticsSelectionOrder,
           currentTacticSelector: firstSelector,
           // Keep current turn order until tactics phase ends
