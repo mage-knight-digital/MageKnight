@@ -31,6 +31,7 @@ import {
 } from "../../types/combat.js";
 import { getBasicActionCard } from "../../data/basicActions.js";
 import { getAdvancedActionCard } from "../../data/advancedActions.js";
+import { getSpellCard } from "../../data/spells.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import { describeEffect } from "../effects/describeEffect.js";
 
@@ -258,7 +259,7 @@ function effectHasAttack(effect: CardEffect): boolean {
 
 /**
  * Get a card definition by ID.
- * Supports basic action and advanced action cards.
+ * Supports basic action, advanced action, and spell cards.
  */
 export function getCard(cardId: string): DeedCard | null {
   // Try basic action cards first
@@ -275,7 +276,13 @@ export function getCard(cardId: string): DeedCard | null {
     // Not an advanced action either
   }
 
-  // Card not found - might be spell, artifact, etc.
+  // Try spell cards
+  const spell = getSpellCard(cardId as Parameters<typeof getSpellCard>[0]);
+  if (spell) {
+    return spell;
+  }
+
+  // Card not found - might be artifact, etc.
   // TODO: Add support for other card types
   return null;
 }
