@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { GameProvider } from "./context/GameContext";
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
@@ -9,6 +9,7 @@ import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { ActionBar } from "./components/Overlays/ActionBar";
 import { CombatOverlay } from "./components/Combat";
 import { UnitOfferPanel, OwnedUnitsPanel } from "./components/Offers";
+import { SaveLoadControls } from "./components/SaveLoadControls";
 import type { GameEvent } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
@@ -239,118 +240,6 @@ function formatEventDetails(event: GameEvent): string {
     default:
       return "";
   }
-}
-
-const SAVE_SLOT_COUNT = 3;
-const SAVE_KEY_PREFIX = "mageKnight_save_";
-const SAVE_META_KEY = "mageKnight_saveMeta";
-
-interface SaveSlotMeta {
-  timestamp: number;
-  round: number;
-  timeOfDay: string;
-}
-
-function SaveLoadControls() {
-  const { saveGame, loadGame, state } = useGame();
-  const [slotMeta, setSlotMeta] = useState<(SaveSlotMeta | null)[]>(() => {
-    const saved = localStorage.getItem(SAVE_META_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved) as (SaveSlotMeta | null)[];
-      } catch {
-        return Array(SAVE_SLOT_COUNT).fill(null);
-      }
-    }
-    return Array(SAVE_SLOT_COUNT).fill(null);
-  });
-
-  const handleSave = (slotIndex: number) => {
-    const json = saveGame();
-    if (!json || !state) return;
-
-    localStorage.setItem(`${SAVE_KEY_PREFIX}${slotIndex}`, json);
-
-    const meta: SaveSlotMeta = {
-      timestamp: Date.now(),
-      round: state.round,
-      timeOfDay: state.timeOfDay,
-    };
-
-    const newMeta = [...slotMeta];
-    newMeta[slotIndex] = meta;
-    setSlotMeta(newMeta);
-    localStorage.setItem(SAVE_META_KEY, JSON.stringify(newMeta));
-  };
-
-  const handleLoad = (slotIndex: number) => {
-    const json = localStorage.getItem(`${SAVE_KEY_PREFIX}${slotIndex}`);
-    if (json) {
-      loadGame(json);
-    }
-  };
-
-  const handleExport = (slotIndex: number) => {
-    const json = localStorage.getItem(`${SAVE_KEY_PREFIX}${slotIndex}`);
-    if (!json) return;
-
-    // Pretty-print the JSON for readability
-    const formatted = JSON.stringify(JSON.parse(json), null, 2);
-    const blob = new Blob([formatted], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mage-knight-save-${slotIndex + 1}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  return (
-    <div className="save-load-controls">
-      {Array.from({ length: SAVE_SLOT_COUNT }, (_, i) => {
-        const meta = slotMeta[i];
-        return (
-          <div key={i} className="save-slot">
-            <span className="save-slot__label">
-              {meta
-                ? `R${meta.round} ${meta.timeOfDay} (${formatTime(meta.timestamp)})`
-                : `Slot ${i + 1}`}
-            </span>
-            <button
-              className="save-slot__btn save-slot__btn--save"
-              onClick={() => handleSave(i)}
-              title={`Save to slot ${i + 1}`}
-            >
-              Save
-            </button>
-            <button
-              className="save-slot__btn save-slot__btn--load"
-              onClick={() => handleLoad(i)}
-              disabled={!meta}
-              title={meta ? `Load from slot ${i + 1}` : "Empty slot"}
-            >
-              Load
-            </button>
-            <button
-              className="save-slot__btn save-slot__btn--export"
-              onClick={() => handleExport(i)}
-              disabled={!meta}
-              title={meta ? `Export slot ${i + 1} as JSON` : "Empty slot"}
-            >
-              ↓
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 function EventLog() {
