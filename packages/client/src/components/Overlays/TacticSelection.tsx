@@ -1,8 +1,6 @@
 import {
-  getTacticsForTimeOfDay,
   SELECT_TACTIC_ACTION,
   type TacticId,
-  type TimeOfDay,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -56,7 +54,13 @@ export function TacticSelection() {
     return null;
   }
 
-  const availableTactics = getTacticsForTimeOfDay(state.timeOfDay as TimeOfDay);
+  // Get available tactics from validActions (filters out removed tactics)
+  const tacticsOptions = state.validActions.tactics;
+  if (!tacticsOptions) {
+    return null;
+  }
+
+  const availableTactics = tacticsOptions.availableTactics;
 
   const handleSelectTactic = (tacticId: TacticId) => {
     sendAction({
