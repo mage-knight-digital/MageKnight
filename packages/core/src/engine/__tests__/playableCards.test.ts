@@ -16,6 +16,7 @@ import {
   CARD_PROMISE,
   CARD_WOUND,
   CARD_IMPROVISATION,
+  CARD_CRYSTALLIZE,
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
   MANA_BLUE,
@@ -341,6 +342,48 @@ describe("getPlayableCardsForCombat", () => {
       expect(determinationCard?.canPlayBasic).toBe(true);
       expect(determinationCard?.canPlayPowered).toBe(true);
       expect(determinationCard?.requiredMana).toBe(MANA_BLUE);
+    });
+  });
+
+  describe("Effect resolvability in combat", () => {
+    it("should NOT allow utility cards when their effect is not resolvable", () => {
+      // Crystallize basic effect converts mana to crystal
+      // Without any mana tokens, it should NOT be playable
+      const player = createTestPlayer({
+        hand: [CARD_CRYSTALLIZE],
+        pureMana: [], // No mana tokens to convert
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+      });
+      const state = createTestGameState({ players: [player] });
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      // Crystallize is a utility card, but without mana to convert,
+      // its basic effect is not resolvable, so it shouldn't be playable
+      const crystallizeCard = result.cards.find(c => c.cardId === CARD_CRYSTALLIZE);
+      // Card might still appear for sideways play, but basic should be false
+      if (crystallizeCard) {
+        expect(crystallizeCard.canPlayBasic).toBe(false);
+      }
+    });
+
+    it("should allow utility cards when their effect IS resolvable", () => {
+      // Crystallize basic effect converts mana to crystal
+      // With mana tokens, it should be playable
+      const player = createTestPlayer({
+        hand: [CARD_CRYSTALLIZE],
+        pureMana: [{ color: "red", source: "card" }], // Has mana to convert
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+      });
+      const state = createTestGameState({ players: [player] });
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      const crystallizeCard = result.cards.find(c => c.cardId === CARD_CRYSTALLIZE);
+      expect(crystallizeCard).toBeDefined();
+      expect(crystallizeCard?.canPlayBasic).toBe(true);
     });
   });
 });

@@ -66,17 +66,24 @@ export function getPlayableCardsForCombat(
 
     const playability = getCardPlayabilityForPhase(card, combat.phase);
 
-    // Check if the card has a powered effect for this phase AND player can pay for it
-    const payableManaColor = playability.canPlayPowered
+    // Check resolvability - effect must actually be able to do something
+    const basicIsResolvable = isEffectResolvable(state, player.id, card.basicEffect);
+    const poweredIsResolvable = isEffectResolvable(state, player.id, card.poweredEffect);
+
+    // Can only play basic if the phase allows it AND the effect is resolvable
+    const canActuallyPlayBasic = playability.canPlayBasic && basicIsResolvable;
+
+    // Check if the card has a powered effect for this phase AND player can pay for it AND it's resolvable
+    const payableManaColor = (playability.canPlayPowered && poweredIsResolvable)
       ? findPayableManaColor(state, player, card)
       : undefined;
     const canActuallyPlayPowered = payableManaColor !== undefined;
 
-    if (playability.canPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
+    if (canActuallyPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
       const playableCard: PlayableCard = {
         cardId,
         name: card.name,
-        canPlayBasic: playability.canPlayBasic,
+        canPlayBasic: canActuallyPlayBasic,
         canPlayPowered: canActuallyPlayPowered,
         canPlaySideways: playability.canPlaySideways,
         basicEffectDescription: describeEffect(card.basicEffect),
