@@ -313,7 +313,14 @@ function getPendingTacticDecision(
     };
   }
 
-  // TODO: Handle other pending decision types
+  // Midnight Meditation: choose cards to shuffle into deck (then draw same amount)
+  if (pending.type === TACTIC_MIDNIGHT_MEDITATION) {
+    return {
+      type: pending.type,
+      maxCards: pending.maxCards,
+    };
+  }
+
   return undefined;
 }
 

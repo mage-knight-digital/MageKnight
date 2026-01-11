@@ -126,6 +126,12 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         discard: newDiscard,
         // Reset combat accumulator
         combatAccumulator: createEmptyCombatAccumulator(),
+        // Reset per-turn tactic state (but preserve round-persistent state like storedManaDie)
+        tacticState: {
+          ...currentPlayer.tacticState,
+          manaStealUsedThisTurn: false, // Reset so they can use it next turn if not used this turn
+          manaSearchUsedThisTurn: false, // Also reset Mana Search
+        },
       };
 
       const updatedPlayers: Player[] = [...state.players];
@@ -166,6 +172,50 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
             : die
         );
         updatedSource = { dice: diceWithManaDrawCleared };
+      }
+
+      // Handle Mana Steal: If the stolen die was used this turn, reroll and return it to source
+      if (currentPlayer.tacticState.manaStealUsedThisTurn) {
+        const storedDie = currentPlayer.tacticState.storedManaDie;
+        if (storedDie) {
+          // Reroll the die and return it to source
+          const { source: rerolledSource, rng: newRng } = rerollDie(
+            updatedSource,
+            storedDie.dieId,
+            state.timeOfDay,
+            currentRng
+          );
+          updatedSource = rerolledSource;
+          currentRng = newRng;
+
+          // Clear the takenByPlayerId on the die (return it to source)
+          const diceWithStolenCleared = updatedSource.dice.map((die) =>
+            die.id === storedDie.dieId
+              ? { ...die, takenByPlayerId: null }
+              : die
+          );
+          updatedSource = { dice: diceWithStolenCleared };
+
+          // Clear the stored die from the player (it's been returned)
+          const playerIdx = updatedPlayers.findIndex(
+            (p) => p.id === params.playerId
+          );
+          if (playerIdx !== -1) {
+            const playerToUpdate = updatedPlayers[playerIdx];
+            if (playerToUpdate) {
+              // Destructure to omit storedManaDie (exactOptionalPropertyTypes prevents assigning undefined)
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { storedManaDie: _, ...restTacticState } = playerToUpdate.tacticState;
+              updatedPlayers[playerIdx] = {
+                ...playerToUpdate,
+                tacticState: {
+                  ...restTacticState,
+                  manaStealUsedThisTurn: false,
+                },
+              };
+            }
+          }
+        }
       }
 
       // Also clear any dice that are still marked as taken by this player

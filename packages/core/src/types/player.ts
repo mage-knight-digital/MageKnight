@@ -128,6 +128,9 @@ export interface TacticState {
     readonly color: ManaColor;
   };
 
+  // Mana Steal (Day 3): used the stolen die this turn (will be returned at end of turn)
+  readonly manaStealUsedThisTurn?: boolean;
+
   // Sparing Power (Night 6): cards stored under the tactic
   readonly sparingPowerStored?: readonly CardId[];
 

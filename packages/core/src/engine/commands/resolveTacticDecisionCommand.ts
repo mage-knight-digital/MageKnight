@@ -27,6 +27,7 @@ import {
   TACTIC_DECISION_SPARING_POWER,
   TACTIC_DECISION_MANA_STEAL,
   TACTIC_DECISION_PREPARATION,
+  TACTIC_DECISION_MIDNIGHT_MEDITATION,
   TACTIC_SPARING_POWER,
   SPARING_POWER_CHOICE_STASH,
   SPARING_POWER_CHOICE_TAKE,
@@ -117,6 +118,20 @@ function validateResolution(
     }
     if (!pending.deckSnapshot.includes(decision.cardId)) {
       return `Card ${decision.cardId} is not in the deck`;
+    }
+  }
+
+  // Midnight Meditation validation
+  if (decision.type === TACTIC_DECISION_MIDNIGHT_MEDITATION) {
+    // Can select 0-5 cards
+    if (decision.cardIds.length > 5) {
+      return "Cannot shuffle more than 5 cards for Midnight Meditation";
+    }
+    // All cards must be in hand
+    for (const cardId of decision.cardIds) {
+      if (!player.hand.includes(cardId)) {
+        return `Card ${cardId} is not in your hand`;
+      }
     }
   }
 
@@ -366,6 +381,62 @@ export function createResolveTacticDecisionCommand(
           playerId,
           count: 1,
         });
+      }
+
+      // Handle Midnight Meditation resolution
+      if (decision.type === TACTIC_DECISION_MIDNIGHT_MEDITATION) {
+        const cardsToShuffle = decision.cardIds;
+        const shuffleCount = cardsToShuffle.length;
+
+        // 1. Remove chosen cards from hand
+        let newHand = player.hand.filter((c) => !cardsToShuffle.includes(c));
+
+        // 2. Add cards to deck and shuffle
+        const deckWithCards = [...player.deck, ...cardsToShuffle];
+        const { result: shuffledDeck, rng: newRng } = shuffleWithRng(
+          deckWithCards,
+          updatedState.rng
+        );
+
+        // 3. Draw the same number of cards back
+        const newDeck = [...shuffledDeck];
+        let cardsDrawn = 0;
+        const drawnCards: CardId[] = [];
+        for (let i = 0; i < shuffleCount && newDeck.length > 0; i++) {
+          const drawnCard = newDeck.shift();
+          if (drawnCard) {
+            drawnCards.push(drawnCard);
+            cardsDrawn++;
+          }
+        }
+        newHand = [...newHand, ...drawnCards];
+
+        // 4. Update player state (flip the tactic)
+        const updatedPlayers: Player[] = updatedState.players.map((p) =>
+          p.id === playerId
+            ? {
+                ...p,
+                hand: newHand,
+                deck: newDeck,
+                tacticFlipped: true, // Flip the tactic after use
+                pendingTacticDecision: null,
+              }
+            : p
+        );
+
+        updatedState = {
+          ...updatedState,
+          players: updatedPlayers,
+          rng: newRng,
+        };
+
+        if (cardsDrawn > 0) {
+          events.push({
+            type: CARD_DRAWN,
+            playerId,
+            count: cardsDrawn,
+          });
+        }
       }
 
       // Emit resolution event

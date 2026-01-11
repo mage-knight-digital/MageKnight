@@ -110,6 +110,23 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
             if (!dieId) {
               throw new Error("Die ID required when using mana from source");
             }
+
+            // Check if this is the Mana Steal stored die
+            const storedDie = updatedPlayer.tacticState.storedManaDie;
+            if (storedDie && storedDie.dieId === dieId) {
+              // Using the stolen Mana Steal die - mark it as used this turn
+              // It will be returned to source at end of turn
+              updatedPlayer = {
+                ...updatedPlayer,
+                tacticState: {
+                  ...updatedPlayer.tacticState,
+                  manaStealUsedThisTurn: true,
+                },
+              };
+              // Don't mark usedManaFromSource - stolen die is independent
+              break;
+            }
+
             // Only add if not already in the list (avoid duplicates)
             const alreadyUsed = updatedPlayer.usedDieIds.includes(dieId);
             updatedPlayer = {

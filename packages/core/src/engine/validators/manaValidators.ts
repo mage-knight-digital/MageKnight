@@ -69,6 +69,26 @@ export function validateManaAvailable(
 
   switch (sourceType) {
     case MANA_SOURCE_DIE: {
+      // Check if this is the Mana Steal stored die
+      const storedDie = player.tacticState.storedManaDie;
+      if (storedDie && storedDie.dieId === dieId) {
+        // Validate Mana Steal die
+        if (player.tacticState.manaStealUsedThisTurn) {
+          return invalid(
+            DIE_ALREADY_USED,
+            "You have already used the stolen mana die this turn"
+          );
+        }
+        // Check color match for the stolen die
+        if (storedDie.color !== color) {
+          return invalid(
+            DIE_COLOR_MISMATCH,
+            `Stolen die shows ${storedDie.color}, not ${color}`
+          );
+        }
+        return valid();
+      }
+
       // Check player hasn't used a die this turn (unless they have extra source die modifier)
       const hasExtraSourceDie = isRuleActive(state, playerId, RULE_EXTRA_SOURCE_DIE);
       if (player.usedManaFromSource && !hasExtraSourceDie) {

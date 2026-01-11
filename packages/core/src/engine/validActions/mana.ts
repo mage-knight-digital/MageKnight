@@ -32,6 +32,16 @@ export function getManaOptions(
 ): ManaOptions {
   const availableDice: AvailableDie[] = [];
 
+  // Check Mana Steal stored die first (can be used in addition to source)
+  // The stolen die doesn't count against the "one die from source per turn" limit
+  const storedDie = player.tacticState.storedManaDie;
+  if (storedDie && !player.tacticState.manaStealUsedThisTurn) {
+    availableDice.push({
+      dieId: storedDie.dieId,
+      color: storedDie.color,
+    });
+  }
+
   // Check if player can use the mana source:
   // - If they haven't used it yet this turn, OR
   // - If they have used it once but have the "extra source die" rule active (Mana Draw)
@@ -81,12 +91,21 @@ export function getManaOptions(
  * 2. The player has a crystal of that color to convert
  * 3. The player has a "pure" mana token of that color in their play area
  * 4. Gold/black mana can substitute for basic colors (with limitations)
+ * 5. The player has a stolen Mana Steal die available
  */
 export function canPayForMana(
   state: GameState,
   player: Player,
   requiredColor: ManaColor
 ): boolean {
+  // Check Mana Steal stored die (doesn't count against source usage)
+  const storedDie = player.tacticState.storedManaDie;
+  if (storedDie && !player.tacticState.manaStealUsedThisTurn) {
+    if (storedDie.color === requiredColor) {
+      return true;
+    }
+  }
+
   // Check pure mana tokens in play area (from cards like Mana Draw)
   for (const token of player.pureMana) {
     if (token.color === requiredColor) {

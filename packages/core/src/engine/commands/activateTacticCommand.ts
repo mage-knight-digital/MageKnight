@@ -16,6 +16,7 @@ import {
   TACTIC_ACTIVATED,
   TACTIC_THE_RIGHT_MOMENT,
   TACTIC_LONG_NIGHT,
+  TACTIC_MIDNIGHT_MEDITATION,
 } from "@mage-knight/shared";
 import { ACTIVATE_TACTIC_COMMAND } from "./commandTypes.js";
 import { shuffleWithRng } from "../../utils/rng.js";
@@ -66,6 +67,17 @@ function validateActivation(
     // Discard must have cards
     if (player.discard.length === 0) {
       return "Cannot use Long Night when discard pile is empty";
+    }
+  }
+
+  if (tacticId === TACTIC_MIDNIGHT_MEDITATION) {
+    // Must have cards in hand to shuffle
+    if (player.hand.length === 0) {
+      return "Cannot use Midnight Meditation when hand is empty";
+    }
+    // Must not have taken any action this turn
+    if (player.hasTakenActionThisTurn) {
+      return "Cannot use Midnight Meditation after taking an action";
     }
   }
 
@@ -154,6 +166,22 @@ export function createActivateTacticCommand(
           ...state,
           players: updatedPlayers,
           rng: newRng,
+        };
+      } else if (tacticId === TACTIC_MIDNIGHT_MEDITATION) {
+        // Midnight Meditation: Set pending decision to select cards
+        // The actual shuffle and draw happens in resolveTacticDecisionCommand
+        const updatedPlayers: Player[] = state.players.map(p =>
+          p.id === playerId
+            ? {
+                ...p,
+                pendingTacticDecision: { type: TACTIC_MIDNIGHT_MEDITATION, maxCards: 5 },
+              }
+            : p
+        );
+
+        updatedState = {
+          ...state,
+          players: updatedPlayers,
         };
       }
 
