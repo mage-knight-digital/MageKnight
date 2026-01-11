@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   RESOLVE_TACTIC_DECISION_ACTION,
-  TACTIC_DECISION_RETHINK,
+  TACTIC_DECISION_MIDNIGHT_MEDITATION,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -14,23 +14,23 @@ function formatCardName(cardId: string): string {
     .join(" ");
 }
 
-export function RethinkDecision() {
+export function MidnightMeditationDecision() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   // Track selected cards by their index in the hand array (to handle duplicates)
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
-  // Check if we have a pending Rethink decision
+  // Check if we have a pending Midnight Meditation decision
   const pendingDecision = state?.validActions.tacticEffects?.pendingDecision;
   if (
     !pendingDecision ||
-    pendingDecision.type !== TACTIC_DECISION_RETHINK ||
+    pendingDecision.type !== TACTIC_DECISION_MIDNIGHT_MEDITATION ||
     !player
   ) {
     return null;
   }
 
-  const maxCards = pendingDecision.maxCards ?? 3;
+  const maxCards = pendingDecision.maxCards ?? 5;
   const hand = Array.isArray(player.hand) ? player.hand : [];
 
   const toggleCard = (index: number) => {
@@ -47,7 +47,7 @@ export function RethinkDecision() {
     sendAction({
       type: RESOLVE_TACTIC_DECISION_ACTION,
       decision: {
-        type: TACTIC_DECISION_RETHINK,
+        type: TACTIC_DECISION_MIDNIGHT_MEDITATION,
         cardIds: selectedCards,
       },
     });
@@ -57,10 +57,10 @@ export function RethinkDecision() {
   return (
     <div className="overlay">
       <div className="overlay__content choice-selection">
-        <h2 className="choice-selection__title">Rethink</h2>
+        <h2 className="choice-selection__title">Midnight Meditation</h2>
         <p style={{ color: "#999", marginBottom: "1rem", textAlign: "center" }}>
-          Select up to {maxCards} cards to discard. Your discard pile will be
-          shuffled into your deck, then you draw that many cards.
+          Select up to {maxCards} cards to shuffle into your deck.
+          You will draw the same number of cards back.
         </p>
         <p style={{ color: "#3498db", marginBottom: "1rem", textAlign: "center" }}>
           Selected: {selectedIndices.length} / {maxCards}
@@ -93,7 +93,7 @@ export function RethinkDecision() {
                     padding: "0.75rem 1rem",
                     borderRadius: "6px",
                     background: isSelected
-                      ? "#3498db"
+                      ? "#1a237e"
                       : isWound
                         ? "#8b4513"
                         : "#2c3e50",
@@ -127,7 +127,7 @@ export function RethinkDecision() {
             style={{
               padding: "0.75rem 2rem",
               borderRadius: "6px",
-              background: "#27ae60",
+              background: "#1a237e",
               color: "#fff",
               border: "none",
               cursor: "pointer",
@@ -136,8 +136,8 @@ export function RethinkDecision() {
             }}
           >
             {selectedIndices.length === 0
-              ? "Skip (Discard Nothing)"
-              : `Discard ${selectedIndices.length} Card${selectedIndices.length > 1 ? "s" : ""}`}
+              ? "Skip (Shuffle Nothing)"
+              : `Shuffle ${selectedIndices.length} Card${selectedIndices.length > 1 ? "s" : ""}`}
           </button>
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
   TACTIC_FROM_THE_DUSK,
   TACTIC_MANA_STEAL,
   TACTIC_RETHINK,
+  TACTIC_MIDNIGHT_MEDITATION,
   TACTIC_SELECTED,
   TACTICS_PHASE_ENDED,
   INVALID_ACTION,
@@ -19,6 +20,7 @@ import {
   MANA_RED,
   MANA_BLUE,
   TACTIC_DECISION_RETHINK,
+  TACTIC_DECISION_MIDNIGHT_MEDITATION,
 } from "@mage-knight/shared";
 import { createTacticsSelectionState } from "./testHelpers.js";
 import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
@@ -528,6 +530,117 @@ describe("Tactics Selection", () => {
       // This assertion will FAIL with the current buggy code because
       // the bug only shuffles the discard (our 3 discarded cards) and draws from that
       expect(hasCardFromOriginalPool).toBe(true);
+    });
+
+    it("Midnight Meditation correctly handles duplicate cards in hand", () => {
+      // Create a state with duplicate cards in hand (like 2x March)
+      const baseState = createTacticsSelectionState(["player1"], "night");
+
+      // Hand with duplicates: 2x march, 2x swiftness, 1x rage
+      const testHand = ["march", "march", "swiftness", "swiftness", "rage"];
+      // Empty deck so we can verify the card was actually shuffled in
+      const testDeck: string[] = [];
+
+      const stateWithMidnightMeditation = {
+        ...baseState,
+        roundPhase: ROUND_PHASE_PLAYER_TURNS,
+        players: baseState.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                hand: testHand,
+                deck: testDeck,
+                selectedTactic: TACTIC_MIDNIGHT_MEDITATION,
+                pendingTacticDecision: { type: TACTIC_MIDNIGHT_MEDITATION, maxCards: 5 },
+              }
+            : p
+        ),
+      };
+
+      // Select only ONE march to shuffle (should keep the other march)
+      const resolveCommand = createResolveTacticDecisionCommand({
+        playerId: "player1",
+        decision: {
+          type: TACTIC_DECISION_MIDNIGHT_MEDITATION,
+          cardIds: ["march"], // Only one march
+        },
+      });
+
+      const result = resolveCommand.execute(stateWithMidnightMeditation);
+      const playerAfter = result.state.players.find((p) => p.id === "player1");
+
+      expect(playerAfter).toBeDefined();
+
+      // Started with 5 cards, shuffled 1, drew 1 back = still 5 cards
+      // (we draw the march back since it's the only card in the deck)
+      expect(playerAfter?.hand.length).toBe(5);
+
+      // Both swiftness should still be in hand (we didn't shuffle either of them)
+      const swiftnessInHand = playerAfter?.hand.filter((c) => c === "swiftness").length;
+      expect(swiftnessInHand).toBe(2);
+
+      // Rage should still be in hand
+      expect(playerAfter?.hand).toContain("rage");
+
+      // The key test: deck should be empty (we drew the one card we shuffled)
+      expect(playerAfter?.deck.length).toBe(0);
+
+      // And we should have 2 marches total (1 kept + 1 drawn back)
+      const marchesInHand = playerAfter?.hand.filter((c) => c === "march").length;
+      expect(marchesInHand).toBe(2);
+    });
+
+    it("Midnight Meditation only removes exact count of selected duplicate cards", () => {
+      // Test that selecting 2 marches removes exactly 2, not all matching
+      const baseState = createTacticsSelectionState(["player1"], "night");
+
+      // Hand: 3x march, 1x rage
+      const testHand = ["march", "march", "march", "rage"];
+      const testDeck: string[] = [];
+
+      const stateWithMidnightMeditation = {
+        ...baseState,
+        roundPhase: ROUND_PHASE_PLAYER_TURNS,
+        players: baseState.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                hand: testHand,
+                deck: testDeck,
+                selectedTactic: TACTIC_MIDNIGHT_MEDITATION,
+                pendingTacticDecision: { type: TACTIC_MIDNIGHT_MEDITATION, maxCards: 5 },
+              }
+            : p
+        ),
+      };
+
+      // Select TWO marches to shuffle (should keep the third)
+      const resolveCommand = createResolveTacticDecisionCommand({
+        playerId: "player1",
+        decision: {
+          type: TACTIC_DECISION_MIDNIGHT_MEDITATION,
+          cardIds: ["march", "march"], // Two marches
+        },
+      });
+
+      const result = resolveCommand.execute(stateWithMidnightMeditation);
+      const playerAfter = result.state.players.find((p) => p.id === "player1");
+
+      expect(playerAfter).toBeDefined();
+
+      // Started with 4 cards, shuffled 2, drew 2 back = still 4 cards
+      expect(playerAfter?.hand.length).toBe(4);
+
+      // After shuffling 2 marches and drawing 2 back from deck of 2,
+      // we should have all 3 marches in hand again
+      const marchesInHand = playerAfter?.hand.filter((c) => c === "march").length;
+      expect(marchesInHand).toBe(3);
+
+      // Rage should still be in hand
+      expect(playerAfter?.hand).toContain("rage");
+
+      // Deck should be empty
+      expect(playerAfter?.deck.length).toBe(0);
     });
   });
 });

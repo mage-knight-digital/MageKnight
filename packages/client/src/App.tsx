@@ -9,6 +9,10 @@ import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { RewardSelection } from "./components/Overlays/RewardSelection";
 import { ManaStealDecision } from "./components/Overlays/ManaStealDecision";
 import { RethinkDecision } from "./components/Overlays/RethinkDecision";
+import { MidnightMeditationDecision } from "./components/Overlays/MidnightMeditationDecision";
+import { PreparationDecision } from "./components/Overlays/PreparationDecision";
+import { SparingPowerDecision } from "./components/Overlays/SparingPowerDecision";
+import { ManaSearchReroll } from "./components/Overlays/ManaSearchReroll";
 import { ActionBar } from "./components/Overlays/ActionBar";
 import { CombatOverlay } from "./components/Combat";
 import { UnitOfferPanel, OwnedUnitsPanel } from "./components/Offers";
@@ -306,6 +310,10 @@ function GameView() {
       <RewardSelection />
       <ManaStealDecision />
       <RethinkDecision />
+      <MidnightMeditationDecision />
+      <PreparationDecision />
+      <SparingPowerDecision />
+      <ManaSearchReroll />
       {inCombat && (
         <CombatOverlay
           combat={state.combat}

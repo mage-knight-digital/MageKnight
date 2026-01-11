@@ -4,6 +4,8 @@ import {
   UNDO_ACTION,
   ACTIVATE_TACTIC_ACTION,
   TACTIC_THE_RIGHT_MOMENT,
+  TACTIC_LONG_NIGHT,
+  TACTIC_MIDNIGHT_MEDITATION,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -19,6 +21,8 @@ export function ActionBar() {
   // Check for activatable tactics
   const canActivate = state?.validActions.tacticEffects?.canActivate;
   const canActivateTheRightMoment = canActivate?.theRightMoment === true;
+  const canActivateLongNight = canActivate?.longNight === true;
+  const canActivateMidnightMeditation = canActivate?.midnightMeditation === true;
 
   const handleEndTurn = () => {
     sendAction({ type: END_TURN_ACTION });
@@ -30,6 +34,14 @@ export function ActionBar() {
 
   const handleActivateTheRightMoment = () => {
     sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_THE_RIGHT_MOMENT });
+  };
+
+  const handleActivateLongNight = () => {
+    sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_LONG_NIGHT });
+  };
+
+  const handleActivateMidnightMeditation = () => {
+    sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_MIDNIGHT_MEDITATION });
   };
 
   // Ctrl+Z / Cmd+Z keyboard shortcut for undo
@@ -76,6 +88,34 @@ export function ActionBar() {
             }}
           >
             The Right Moment
+          </button>
+        )}
+        {canActivateLongNight && (
+          <button
+            className="action-bar__btn action-bar__btn--tactic"
+            onClick={handleActivateLongNight}
+            type="button"
+            title="Shuffle discard, put 3 cards back in deck"
+            style={{
+              background: "#2c3e50",
+              color: "#fff",
+            }}
+          >
+            Long Night
+          </button>
+        )}
+        {canActivateMidnightMeditation && (
+          <button
+            className="action-bar__btn action-bar__btn--tactic"
+            onClick={handleActivateMidnightMeditation}
+            type="button"
+            title="Shuffle hand cards into deck, draw same amount"
+            style={{
+              background: "#1a237e",
+              color: "#fff",
+            }}
+          >
+            Midnight Meditation
           </button>
         )}
         <button

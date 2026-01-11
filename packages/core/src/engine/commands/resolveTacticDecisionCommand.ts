@@ -195,8 +195,16 @@ export function createResolveTacticDecisionCommand(
         const cardsToDiscard = decision.cardIds;
         const discardCount = cardsToDiscard.length;
 
-        // 1. Remove chosen cards from hand and add to discard
-        let newHand = player.hand.filter((c) => !cardsToDiscard.includes(c));
+        // 1. Remove chosen cards from hand (one at a time to handle duplicates correctly)
+        // e.g., if hand is ["march", "march"] and we want to discard one "march",
+        // we should end up with ["march"], not []
+        let newHand = [...player.hand];
+        for (const cardToRemove of cardsToDiscard) {
+          const idx = newHand.indexOf(cardToRemove);
+          if (idx !== -1) {
+            newHand.splice(idx, 1);
+          }
+        }
         const newDiscardPile = [...player.discard, ...cardsToDiscard];
 
         // 2. Shuffle discard pile INTO the existing deck (combine them, then shuffle)
@@ -389,8 +397,16 @@ export function createResolveTacticDecisionCommand(
         const cardsToShuffle = decision.cardIds;
         const shuffleCount = cardsToShuffle.length;
 
-        // 1. Remove chosen cards from hand
-        let newHand = player.hand.filter((c) => !cardsToShuffle.includes(c));
+        // 1. Remove chosen cards from hand (one at a time to handle duplicates correctly)
+        // e.g., if hand is ["march", "march"] and we want to remove one "march",
+        // we should end up with ["march"], not []
+        let newHand = [...player.hand];
+        for (const cardToRemove of cardsToShuffle) {
+          const idx = newHand.indexOf(cardToRemove);
+          if (idx !== -1) {
+            newHand.splice(idx, 1);
+          }
+        }
 
         // 2. Add cards to deck and shuffle
         const deckWithCards = [...player.deck, ...cardsToShuffle];
