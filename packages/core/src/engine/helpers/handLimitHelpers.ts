@@ -7,7 +7,10 @@
 
 import type { GameState } from "../../state/GameState.js";
 import { SiteType } from "../../types/map.js";
-import { hexKey, getAllNeighbors, TACTIC_PLANNING } from "@mage-knight/shared";
+import { STARTING_HAND_LIMIT, hexKey, getAllNeighbors, TACTIC_PLANNING } from "@mage-knight/shared";
+
+const PLANNING_MIN_HAND_SIZE_BEFORE_DRAW_FOR_BONUS = 2;
+const PLANNING_HAND_LIMIT_BONUS = 1;
 
 /**
  * Count how many keeps a player owns anywhere on the map.
@@ -61,7 +64,7 @@ export function getEffectiveHandLimit(
   playerId: string
 ): number {
   const player = state.players.find((p) => p.id === playerId);
-  if (!player) return 5; // Default
+  if (!player) return STARTING_HAND_LIMIT; // Fallback
 
   let handLimit = player.handLimit;
 
@@ -95,9 +98,9 @@ export function getEndTurnDrawLimit(
   const player = state.players.find((p) => p.id === playerId);
   if (
     player?.selectedTactic === TACTIC_PLANNING &&
-    currentHandSize >= 2
+    currentHandSize >= PLANNING_MIN_HAND_SIZE_BEFORE_DRAW_FOR_BONUS
   ) {
-    limit += 1;
+    limit += PLANNING_HAND_LIMIT_BONUS;
   }
 
   return limit;

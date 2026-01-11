@@ -42,6 +42,7 @@ import { shuffleWithRng, type RngState } from "../../utils/index.js";
 import { END_ROUND_COMMAND } from "./commandTypes.js";
 import { getEffectiveHandLimit } from "../helpers/handLimitHelpers.js";
 import { refreshUnitOffer } from "../../data/unitDeckSetup.js";
+import { CORE_TILE_ID_PREFIX, SYSTEM_PLAYER_ID } from "../engineConstants.js";
 
 /**
  * Check if any core tile has been revealed on the map.
@@ -49,7 +50,7 @@ import { refreshUnitOffer } from "../../data/unitDeckSetup.js";
  */
 function hasCoreTileRevealed(state: GameState): boolean {
   for (const tile of state.map.tiles) {
-    if (tile.revealed && tile.tileId.startsWith("core_")) {
+    if (tile.revealed && tile.tileId.startsWith(CORE_TILE_ID_PREFIX)) {
       return true;
     }
   }
@@ -61,7 +62,7 @@ export { END_ROUND_COMMAND };
 export function createEndRoundCommand(): Command {
   return {
     type: END_ROUND_COMMAND,
-    playerId: "system", // This is a system-triggered command
+    playerId: SYSTEM_PLAYER_ID, // This is a system-triggered command
     isReversible: false, // Cannot undo round transitions
 
     execute(state: GameState): CommandResult {

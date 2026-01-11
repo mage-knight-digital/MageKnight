@@ -425,25 +425,25 @@ If player chooses "stash" but deck is empty:
 
 ## Implementation Order
 
-1. **Foundation** (required for all tactics):
+1. ✅ **Foundation** (required for all tactics):
    - Add `TacticState` and `pendingTacticDecision` to Player type
    - Add `tacticEffects` to ValidActions
    - Add new action/event types
    - Update `createInitialPlayer()` with default values
 
-2. **Simple On-Pick** - Great Start:
+2. ✅ **Simple On-Pick** - Great Start:
    - Direct execution in `selectTacticCommand`
    - Validates on-pick flow
 
-3. **Simple Ongoing** - Planning:
+3. ✅ **Simple Ongoing** - Planning:
    - Modify `endTurnCommand` draw calculation
    - No new actions needed
 
-4. **Simple Activated** - The Right Moment:
+4. ✅ **Simple Activated** - The Right Moment:
    - `ACTIVATE_TACTIC_ACTION` + command
    - Turn order mutation in `endTurnCommand`
 
-5. **Medium Activated** - Long Night:
+5. ✅ **Medium Activated** - Long Night:
    - Deck/discard manipulation with seeded RNG
    - Validates activated flow
 

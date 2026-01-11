@@ -9,13 +9,16 @@
 
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
-import type { GameEvent, TacticId } from "@mage-knight/shared";
+import type { Player } from "../../types/player.js";
+import type { GameEvent, TacticId, CardId } from "@mage-knight/shared";
 import {
   INVALID_ACTION,
   TACTIC_ACTIVATED,
   TACTIC_THE_RIGHT_MOMENT,
+  TACTIC_LONG_NIGHT,
 } from "@mage-knight/shared";
 import { ACTIVATE_TACTIC_COMMAND } from "./commandTypes.js";
+import { shuffleWithRng } from "../../utils/rng.js";
 
 export { ACTIVATE_TACTIC_COMMAND };
 
@@ -52,6 +55,17 @@ function validateActivation(
     // Can't use on last turn of round
     if (state.endOfRoundAnnouncedBy !== null || state.scenarioEndTriggered) {
       return "Cannot use The Right Moment on the last turn of the round";
+    }
+  }
+
+  if (tacticId === TACTIC_LONG_NIGHT) {
+    // Deck must be empty
+    if (player.deck.length > 0) {
+      return "Cannot use Long Night when deck is not empty";
+    }
+    // Discard must have cards
+    if (player.discard.length === 0) {
+      return "Cannot use Long Night when discard pile is empty";
     }
   }
 
@@ -110,6 +124,36 @@ export function createActivateTacticCommand(
         updatedState = {
           ...state,
           players: updatedPlayers,
+        };
+      } else if (tacticId === TACTIC_LONG_NIGHT) {
+        // Long Night: Shuffle discard, put 3 random cards back into deck
+        // 1. Shuffle the discard pile
+        const { result: shuffledDiscard, rng: newRng } = shuffleWithRng(
+          [...player.discard],
+          state.rng
+        );
+
+        // 2. Take up to 3 cards for the new deck
+        const cardsForDeck = Math.min(3, shuffledDiscard.length);
+        const newDeck: CardId[] = shuffledDiscard.slice(0, cardsForDeck);
+        const newDiscard: CardId[] = shuffledDiscard.slice(cardsForDeck);
+
+        // 3. Update player state
+        const updatedPlayers = state.players.map(p =>
+          p.id === playerId
+            ? {
+                ...p,
+                deck: newDeck,
+                discard: newDiscard,
+                tacticFlipped: true,
+              } as Player
+            : p
+        );
+
+        updatedState = {
+          ...state,
+          players: updatedPlayers,
+          rng: newRng,
         };
       }
 

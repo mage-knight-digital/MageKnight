@@ -276,7 +276,23 @@ export default tseslint.config(
       ],
     },
   },
+  // Ban `as unknown as ...` double-casts (they defeat the type system and hide real typing issues).
+  {
+    files: ["src/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'TSAsExpression > TSAsExpression[typeAnnotation.type="TSUnknownKeyword"]',
+          message:
+            "Do not use `as unknown as ...` double casts. Fix the underlying types or use a runtime assertion.",
+        },
+      ],
+    },
+  },
   // Guardrail: avoid one-off sentinel literals in core engine commands.
+  // NOTE: must come AFTER the broad `src/**/*.ts` block above, otherwise that block overrides this one.
   {
     files: ["src/engine/commands/endRoundCommand.ts"],
     rules: {
@@ -297,17 +313,26 @@ export default tseslint.config(
       ],
     },
   },
-  // Ban `as unknown as ...` double-casts (they defeat the type system and hide real typing issues).
+  // Guardrail: tactics/hand-limit math should not be raw numbers.
   {
-    files: ["src/**/*.ts"],
+    files: ["src/engine/helpers/handLimitHelpers.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
         {
-          selector:
-            'TSAsExpression > TSAsExpression[typeAnnotation.type="TSUnknownKeyword"]',
+          selector: 'Literal[value=5]',
           message:
-            "Do not use `as unknown as ...` double casts. Fix the underlying types or use a runtime assertion.",
+            "Do not hardcode the hand-limit fallback. Use `STARTING_HAND_LIMIT` (or a named constant).",
+        },
+        {
+          selector: 'Literal[value=2]',
+          message:
+            "Do not hardcode Planning tactic threshold. Use a named constant (e.g. `PLANNING_MIN_HAND_SIZE_BEFORE_DRAW_FOR_BONUS`).",
+        },
+        {
+          selector: 'Literal[value=1]',
+          message:
+            "Do not hardcode Planning tactic bonus. Use a named constant (e.g. `PLANNING_HAND_LIMIT_BONUS`).",
         },
       ],
     },
