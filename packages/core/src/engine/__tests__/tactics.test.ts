@@ -18,9 +18,11 @@ import {
   ALL_DAY_TACTICS,
   MANA_RED,
   MANA_BLUE,
+  TACTIC_DECISION_RETHINK,
 } from "@mage-knight/shared";
 import { createTacticsSelectionState } from "./testHelpers.js";
 import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
+import { createResolveTacticDecisionCommand } from "../commands/resolveTacticDecisionCommand.js";
 import { getTacticCard } from "../../data/tactics.js";
 import { getTurnOptions } from "../validActions/turn.js";
 import { validateNoTacticDecisionPending } from "../validators/choiceValidators.js";
@@ -396,6 +398,83 @@ describe("Tactics Selection", () => {
 
       // Should still be in tactics selection phase
       expect(result.state.roundPhase).toBe(ROUND_PHASE_TACTICS_SELECTION);
+    });
+
+    it("Rethink resolution shuffles discard into deck and draws from combined pool", () => {
+      // Create state with Rethink pending
+      const baseState = createTacticsSelectionState(["player1"], "day");
+
+      // Set up specific hand, deck, and discard for predictable testing
+      const testHand = ["hand_card_1", "hand_card_2", "hand_card_3", "hand_card_4", "hand_card_5"];
+      const testDeck = ["deck_card_1", "deck_card_2", "deck_card_3"];
+      const testDiscard = ["discard_card_1", "discard_card_2"];
+
+      const stateWithRethinkPending = {
+        ...baseState,
+        players: baseState.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                hand: testHand,
+                deck: testDeck,
+                discard: testDiscard,
+                selectedTactic: TACTIC_RETHINK,
+                pendingTacticDecision: { type: TACTIC_RETHINK, maxCards: 3 },
+              }
+            : p
+        ),
+      };
+
+      // Resolve: discard 3 cards from hand
+      const cardsToDiscard = ["hand_card_1", "hand_card_2", "hand_card_3"];
+      const resolveCommand = createResolveTacticDecisionCommand({
+        playerId: "player1",
+        decision: {
+          type: TACTIC_DECISION_RETHINK,
+          cardIds: cardsToDiscard,
+        },
+      });
+
+      const result = resolveCommand.execute(stateWithRethinkPending);
+
+      const playerAfter = result.state.players.find((p) => p.id === "player1");
+      expect(playerAfter).toBeDefined();
+
+      // Hand should have 5 cards: 2 kept + 3 drawn
+      expect(playerAfter?.hand.length).toBe(5);
+
+      // The 2 cards we kept should still be in hand
+      expect(playerAfter?.hand).toContain("hand_card_4");
+      expect(playerAfter?.hand).toContain("hand_card_5");
+
+      // The 3 drawn cards should come from the combined pool of:
+      // - 3 discarded cards (hand_card_1, hand_card_2, hand_card_3)
+      // - 2 existing discard (discard_card_1, discard_card_2)
+      // - 3 existing deck (deck_card_1, deck_card_2, deck_card_3)
+      // Total pool = 8 cards, we draw 3
+
+      // The discard pile should be empty (shuffled into deck)
+      expect(playerAfter?.discard.length).toBe(0);
+
+      // Deck should have 5 cards (8 total pool - 3 drawn = 5)
+      expect(playerAfter?.deck.length).toBe(5);
+
+      // The drawn cards should NOT all be the same as what we discarded
+      // (this is the bug - we were only drawing from discard, not combined deck+discard)
+      const drawnCards = playerAfter?.hand.filter(
+        (c) => c !== "hand_card_4" && c !== "hand_card_5"
+      );
+
+      // At least one drawn card should be from the original deck or discard
+      // (not the cards we just discarded)
+      const originalDeckOrDiscard = [...testDeck, ...testDiscard];
+      const hasCardFromOriginalPool = drawnCards?.some((c) =>
+        originalDeckOrDiscard.includes(c)
+      );
+
+      // This assertion will FAIL with the current buggy code because
+      // the bug only shuffles the discard (our 3 discarded cards) and draws from that
+      expect(hasCardFromOriginalPool).toBe(true);
     });
   });
 });

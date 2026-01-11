@@ -8,6 +8,7 @@ import { TacticSelection } from "./components/Overlays/TacticSelection";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { RewardSelection } from "./components/Overlays/RewardSelection";
 import { ManaStealDecision } from "./components/Overlays/ManaStealDecision";
+import { RethinkDecision } from "./components/Overlays/RethinkDecision";
 import { ActionBar } from "./components/Overlays/ActionBar";
 import { CombatOverlay } from "./components/Combat";
 import { UnitOfferPanel, OwnedUnitsPanel } from "./components/Offers";
@@ -304,6 +305,7 @@ function GameView() {
       <ChoiceSelection />
       <RewardSelection />
       <ManaStealDecision />
+      <RethinkDecision />
       {inCombat && (
         <CombatOverlay
           combat={state.combat}

@@ -197,14 +197,15 @@ export function createResolveTacticDecisionCommand(
 
         // 1. Remove chosen cards from hand and add to discard
         let newHand = player.hand.filter((c) => !cardsToDiscard.includes(c));
-        let newDiscard = [...player.discard, ...cardsToDiscard];
+        const newDiscardPile = [...player.discard, ...cardsToDiscard];
 
-        // 2. Shuffle discard into deck
+        // 2. Shuffle discard pile INTO the existing deck (combine them, then shuffle)
+        const combinedPool = [...player.deck, ...newDiscardPile];
         const { result: shuffledDeck, rng: rng1 } = shuffleWithRng(
-          [...newDiscard],
+          combinedPool,
           state.rng
         );
-        newDiscard = [];
+        const newDiscard: CardId[] = []; // Discard is now empty
         const newDeck = [...shuffledDeck];
 
         // 3. Draw the same number of cards discarded
