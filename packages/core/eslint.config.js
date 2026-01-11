@@ -325,12 +325,13 @@ export default tseslint.config(
             "Do not hardcode the hand-limit fallback. Use `STARTING_HAND_LIMIT` (or a named constant).",
         },
         {
-          selector: 'Literal[value=2]',
+          selector:
+            'BinaryExpression[operator=">="][left.name="currentHandSize"] > Literal[value=2]',
           message:
             "Do not hardcode Planning tactic threshold. Use a named constant (e.g. `PLANNING_MIN_HAND_SIZE_BEFORE_DRAW_FOR_BONUS`).",
         },
         {
-          selector: 'Literal[value=1]',
+          selector: 'AssignmentExpression[operator="+="] > Literal[value=1]',
           message:
             "Do not hardcode Planning tactic bonus. Use a named constant (e.g. `PLANNING_HAND_LIMIT_BONUS`).",
         },
