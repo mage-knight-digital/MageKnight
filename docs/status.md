@@ -5,7 +5,7 @@
 This document captures the complete state of the Mage Knight board game engine implementation. Use this to resume development if context is lost.
 
 **Last Updated:** January 2025
-**Test Count:** 605 tests passing (564 core + 12 shared + 29 server)
+**Test Count:** 737 tests passing (693 core + 12 shared + 32 server)
 
 ---
 
@@ -217,7 +217,7 @@ packages/
 | Checkpoints | Same | Non-reversible commands create checkpoints |
 | Undo action | Same | Pop and reverse |
 
-### Tactics System ✅ (PR #7)
+### Tactics System ✅ (Complete)
 
 | Feature | Location | Notes |
 |---------|----------|-------|
@@ -228,14 +228,39 @@ packages/
 | Day/Night tactic sets | `getTacticsForTimeOfDay()` | Correct set for time of day |
 | Tactic validation | `selectTacticCommand.ts` | Can't select taken tactic, wrong time of day |
 | Events | `shared/src/events.ts` | `TACTIC_SELECTED`, `TACTICS_PHASE_ENDED` |
+| Tactic decision resolution | `resolveTacticDecisionCommand.ts` | Handles card selection, mana steal, etc. |
 
-**Tactic Effects Status:**
-- Turn order mechanics: ✅ Working
-- Individual tactic effects: ❌ Not yet implemented (marked `implemented: false`)
+**All 12 Tactic Effects: ✅ Implemented**
 
-**Day Tactics (1-6):** Early Bird, Rethink, Mana Steal, Planning, Great Start, The Right Moment
+**Day Tactics (1-6):**
+| Tactic | Effect | Status |
+|--------|--------|--------|
+| Early Bird | +1 card at start of turn (once per round) | ✅ Working |
+| Rethink | Discard up to 3 cards, shuffle discard into deck, draw same number | ✅ Working |
+| Mana Steal | Steal a basic die from source (use anytime) | ✅ Working |
+| Planning | Look at top 3 cards of deck, rearrange order | ✅ Working |
+| Great Start | Immediately draw 2 cards after tactic selection | ✅ Working |
+| The Right Moment | Store 1 card for later use | ✅ Working |
 
-**Night Tactics (1-6):** From The Dusk, Long Night, Mana Search, Midnight Meditation, Preparation, Sparing Power
+**Night Tactics (1-6):**
+| Tactic | Effect | Status |
+|--------|--------|--------|
+| From The Dusk | +1 card at start of turn (once per round) | ✅ Working |
+| Long Night | Once per turn: discard card and wound, draw 2 cards | ✅ Working |
+| Mana Search | Reroll up to 2 source dice (once per turn) | ✅ Working |
+| Midnight Meditation | Shuffle up to 5 cards into deck, draw same number, flip tactic | ✅ Working |
+| Preparation | Look at deck, take any card to hand, shuffle rest | ✅ Working |
+| Sparing Power | Before turn: stash top deck card OR take all stashed cards (flips tactic) | ✅ Working |
+
+**Tactic UI Components:**
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| RethinkDecision | `client/src/components/Overlays/RethinkDecision.tsx` | Card discard picker |
+| MidnightMeditationDecision | `client/src/components/Overlays/MidnightMeditationDecision.tsx` | Card shuffle picker |
+| PreparationDecision | `client/src/components/Overlays/PreparationDecision.tsx` | Deck card picker |
+| SparingPowerDecision | `client/src/components/Overlays/SparingPowerDecision.tsx` | Stash/Take buttons |
+| ManaSearchReroll | `client/src/components/Overlays/ManaSearchReroll.tsx` | Die reroll picker |
+| ActionBar buttons | `client/src/components/Overlays/ActionBar.tsx` | Long Night, Midnight Meditation activation |
 
 **Not Yet Implemented:**
 - Tactic removal rules (scenario-specific):
@@ -346,7 +371,7 @@ packages/
 | Feature | Complexity | Notes |
 |---------|------------|-------|
 | Standard Achievements scoring | Medium | 6 categories: Knowledge, Leader, Adventurer, Loot, Conqueror, Beating + Greatest titles |
-| Tactics cards | ✅ **PR #7** | Turn order selection — core logic implemented, effects not yet |
+| Tactics cards | ✅ **Complete** | All 12 tactics with effects and UI |
 | Provoke mechanic | Medium | Adjacent-to-adjacent combat trigger |
 | City defender bonuses | Low | +1 armor (white), +attack (red), etc. |
 | Rewards at end of turn | Low | Claim artifacts/spells from victories |
@@ -607,7 +632,7 @@ packages/core/src/engine/__tests__/
 ├── combatTriggers.test.ts
 ├── conditionalEffects.test.ts   # 44 tests for conditional effects
 ├── scalingEffects.test.ts       # ~35 tests for scaling effects
-├── tactics.test.ts              # 14 tests for tactics selection
+├── tactics.test.ts              # 117 tests for tactics (selection, effects, decisions)
 ├── conquest.test.ts
 ├── dungeonTombRestrictions.test.ts
 ├── enemiesOnMap.test.ts
@@ -668,11 +693,11 @@ When implementing new features:
 
 1. ~~**Conditional effects**~~ ✅ — Completed (enables most spell implementations)
 2. ~~**Scenario system**~~ ✅ — First Reconnaissance implemented (end trigger, city entry, fame on explore)
-3. ~~**Tactics cards**~~ ✅ — Turn order selection implemented (PR #7), individual effects pending
-4. **Spell definitions** — Start with simple spells, build up
-5. **Skill system** — Skill decks, selection, hero abilities
-6. **Tactics effects** — Implement individual tactic card effects (Rethink, Great Start, etc.)
-7. ~~**Combat UI**~~ ✅ — Combat overlay, enemy cards, phase indicator, actions
+3. ~~**Tactics cards**~~ ✅ — All 12 tactics with effects, decisions, and UI components
+4. ~~**Combat UI**~~ ✅ — Combat overlay, enemy cards, phase indicator, actions
+5. **Spell definitions** — Start with simple spells, build up
+6. **Skill system** — Skill decks, selection, hero abilities
+7. **Advanced action cards** — Higher tier action cards with complex effects
 
 ---
 
