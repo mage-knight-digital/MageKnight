@@ -12,6 +12,7 @@ import {
   NO_PENDING_CHOICE,
   INVALID_CHOICE_INDEX,
   CHOICE_PENDING,
+  TACTIC_DECISION_PENDING,
 } from "./validationCodes.js";
 
 /**
@@ -76,6 +77,22 @@ export function validateNoChoicePending(
   const player = state.players.find((p) => p.id === playerId);
   if (player?.pendingChoice) {
     return invalid(CHOICE_PENDING, "Must resolve pending choice first");
+  }
+  return valid();
+}
+
+/**
+ * Validates that the player does NOT have a pending tactic decision.
+ * Used to block actions while a tactic decision (e.g., Mana Steal die selection) is pending.
+ */
+export function validateNoTacticDecisionPending(
+  state: GameState,
+  playerId: string,
+  _action: PlayerAction
+): ValidationResult {
+  const player = state.players.find((p) => p.id === playerId);
+  if (player?.pendingTacticDecision) {
+    return invalid(TACTIC_DECISION_PENDING, "Must resolve pending tactic decision first");
   }
   return valid();
 }

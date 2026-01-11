@@ -45,11 +45,16 @@ export function getTurnOptions(state: GameState, player: Player): TurnOptions {
 
 /**
  * Check if player can end their turn.
- * Generally always possible unless there's a pending choice.
+ * Generally always possible unless there's a pending choice or pending tactic decision.
  */
 function checkCanEndTurn(_state: GameState, player: Player): boolean {
   // Can't end turn with pending choice
   if (player.pendingChoice !== null) {
+    return false;
+  }
+
+  // Can't end turn with pending tactic decision (e.g., Mana Steal die selection)
+  if (player.pendingTacticDecision !== null) {
     return false;
   }
 

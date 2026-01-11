@@ -36,6 +36,7 @@ export const CHOICE_REQUIRED_CODE = "CHOICE_REQUIRED" as const;
 export const NO_PENDING_CHOICE = "NO_PENDING_CHOICE" as const;
 export const INVALID_CHOICE_INDEX = "INVALID_CHOICE_INDEX" as const;
 export const CHOICE_PENDING = "CHOICE_PENDING" as const;
+export const TACTIC_DECISION_PENDING = "TACTIC_DECISION_PENDING" as const;
 
 // Sideways play validation codes
 export const SIDEWAYS_CHOICE_REQUIRED = "SIDEWAYS_CHOICE_REQUIRED" as const;
@@ -150,6 +151,7 @@ export type ValidationErrorCode =
   | typeof NO_PENDING_CHOICE
   | typeof INVALID_CHOICE_INDEX
   | typeof CHOICE_PENDING
+  | typeof TACTIC_DECISION_PENDING
   | typeof SIDEWAYS_CHOICE_REQUIRED
   // Rest validation
   | typeof REST_NO_DISCARD

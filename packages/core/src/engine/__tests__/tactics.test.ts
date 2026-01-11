@@ -8,15 +8,22 @@ import {
   TACTIC_GREAT_START,
   TACTIC_PLANNING,
   TACTIC_FROM_THE_DUSK,
+  TACTIC_MANA_STEAL,
+  TACTIC_RETHINK,
   TACTIC_SELECTED,
   TACTICS_PHASE_ENDED,
   INVALID_ACTION,
   ROUND_PHASE_PLAYER_TURNS,
+  ROUND_PHASE_TACTICS_SELECTION,
   ALL_DAY_TACTICS,
+  MANA_RED,
+  MANA_BLUE,
 } from "@mage-knight/shared";
 import { createTacticsSelectionState } from "./testHelpers.js";
 import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
 import { getTacticCard } from "../../data/tactics.js";
+import { getTurnOptions } from "../validActions/turn.js";
+import { validateNoTacticDecisionPending } from "../validators/choiceValidators.js";
 
 describe("Tactics Selection", () => {
   describe("selectTacticCommand", () => {
@@ -297,6 +304,98 @@ describe("Tactics Selection", () => {
       const result = command.execute(state);
 
       expect(result.state.turnOrder).toEqual(["player1"]);
+    });
+  });
+
+  describe("pending tactic decisions", () => {
+    it("Mana Steal creates pending decision when basic dice available", () => {
+      // Create state with basic color dice available
+      const state = createTacticsSelectionState(["player1"], "day", {
+        source: {
+          dice: [
+            { id: "die1", color: MANA_RED, takenByPlayerId: null, isDepleted: false },
+            { id: "die2", color: MANA_BLUE, takenByPlayerId: null, isDepleted: false },
+          ],
+        },
+      });
+
+      const command = createSelectTacticCommand({
+        playerId: "player1",
+        tacticId: TACTIC_MANA_STEAL,
+      });
+
+      const result = command.execute(state);
+
+      // Should have pending decision
+      const player = result.state.players.find((p) => p.id === "player1");
+      expect(player?.pendingTacticDecision).toBeDefined();
+      expect(player?.pendingTacticDecision?.type).toBe(TACTIC_MANA_STEAL);
+
+      // Should still be in tactics selection phase (not advanced)
+      expect(result.state.roundPhase).toBe(ROUND_PHASE_TACTICS_SELECTION);
+    });
+
+    it("cannot end turn when pending tactic decision exists", () => {
+      // Create state with a pending Mana Steal decision
+      const baseState = createTacticsSelectionState(["player1"], "day", {
+        source: {
+          dice: [
+            { id: "die1", color: MANA_RED, takenByPlayerId: null, isDepleted: false },
+          ],
+        },
+      });
+
+      // Select Mana Steal to create pending decision
+      const selectCommand = createSelectTacticCommand({
+        playerId: "player1",
+        tacticId: TACTIC_MANA_STEAL,
+      });
+      const stateAfterSelect = selectCommand.execute(baseState).state;
+
+      // Verify we have a pending decision
+      const player = stateAfterSelect.players.find((p) => p.id === "player1");
+      expect(player).toBeDefined();
+      expect(player?.pendingTacticDecision).toBeDefined();
+
+      // Check that getTurnOptions reports canEndTurn = false
+      if (player) {
+        const turnOptions = getTurnOptions(stateAfterSelect, player);
+        expect(turnOptions.canEndTurn).toBe(false);
+      }
+
+      // Check that server-side validator also blocks
+      const validationResult = validateNoTacticDecisionPending(
+        stateAfterSelect,
+        "player1",
+        { type: "END_TURN" }
+      );
+      expect(validationResult.valid).toBe(false);
+      if (!validationResult.valid) {
+        expect(validationResult.error.code).toBe("TACTIC_DECISION_PENDING");
+      }
+    });
+
+    it("Rethink creates pending decision when player has cards in hand", () => {
+      const state = createTacticsSelectionState(["player1"], "day");
+
+      // Verify player has cards in hand
+      const playerBefore = state.players.find((p) => p.id === "player1");
+      expect(playerBefore?.hand.length).toBeGreaterThan(0);
+
+      const command = createSelectTacticCommand({
+        playerId: "player1",
+        tacticId: TACTIC_RETHINK,
+      });
+
+      const result = command.execute(state);
+
+      // Should have pending decision
+      const player = result.state.players.find((p) => p.id === "player1");
+      expect(player?.pendingTacticDecision).toBeDefined();
+      expect(player?.pendingTacticDecision?.type).toBe(TACTIC_RETHINK);
+
+      // Should still be in tactics selection phase
+      expect(result.state.roundPhase).toBe(ROUND_PHASE_TACTICS_SELECTION);
     });
   });
 });

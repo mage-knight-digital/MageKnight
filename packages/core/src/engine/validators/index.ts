@@ -85,6 +85,7 @@ import {
   validateHasPendingChoice,
   validateChoiceIndex,
   validateNoChoicePending,
+  validateNoTacticDecisionPending,
 } from "./choiceValidators.js";
 
 // Rest validators
@@ -208,6 +209,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingRewards, // Must select rewards before ending turn
   ],
   [EXPLORE_ACTION]: [
