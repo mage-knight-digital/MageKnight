@@ -24,6 +24,10 @@ import {
   ROUND_PHASE_TACTICS_SELECTION,
   ROUND_PHASE_PLAYER_TURNS,
   TACTIC_DECISION_RETHINK,
+  TACTIC_DECISION_SPARING_POWER,
+  TACTIC_SPARING_POWER,
+  SPARING_POWER_CHOICE_STASH,
+  SPARING_POWER_CHOICE_TAKE,
 } from "@mage-knight/shared";
 import { RESOLVE_TACTIC_DECISION_COMMAND } from "./commandTypes.js";
 import { shuffleWithRng } from "../../utils/rng.js";
@@ -71,6 +75,17 @@ function validateResolution(
         return `Card ${cardId} is not in your hand`;
       }
     }
+  }
+
+  // Sparing Power validation
+  if (decision.type === TACTIC_DECISION_SPARING_POWER) {
+    if (decision.choice === SPARING_POWER_CHOICE_STASH) {
+      // Cannot stash if deck is empty
+      if (player.deck.length === 0) {
+        return "Cannot stash - deck is empty";
+      }
+    }
+    // "take" is always valid (can take even if no cards stored, just flips tactic)
   }
 
   return null;
@@ -185,6 +200,72 @@ export function createResolveTacticDecisionCommand(
         }
       }
 
+      // Handle Sparing Power resolution
+      if (decision.type === TACTIC_DECISION_SPARING_POWER) {
+        if (decision.choice === SPARING_POWER_CHOICE_STASH) {
+          // Stash: Take top card of deck and put under tactic
+          const topCard = player.deck[0];
+          if (topCard) {
+            const newDeck = player.deck.slice(1);
+            const currentStored = player.tacticState.sparingPowerStored ?? [];
+            const newStored = [...currentStored, topCard];
+
+            const updatedPlayers = updatedState.players.map((p) =>
+              p.id === playerId
+                ? ({
+                    ...p,
+                    deck: newDeck,
+                    tacticState: {
+                      ...p.tacticState,
+                      sparingPowerStored: newStored,
+                    },
+                    pendingTacticDecision: null,
+                    beforeTurnTacticPending: false,
+                  } as Player)
+                : p
+            );
+
+            updatedState = {
+              ...updatedState,
+              players: updatedPlayers,
+            };
+          }
+        } else if (decision.choice === SPARING_POWER_CHOICE_TAKE) {
+          // Take: Put all stored cards into hand and flip tactic
+          const storedCards = player.tacticState.sparingPowerStored ?? [];
+          const newHand: CardId[] = [...player.hand, ...storedCards];
+
+          const updatedPlayers: Player[] = updatedState.players.map((p) =>
+            p.id === playerId
+              ? {
+                  ...p,
+                  hand: newHand,
+                  tacticFlipped: true, // Flip the tactic
+                  tacticState: {
+                    ...p.tacticState,
+                    sparingPowerStored: [], // Clear stored cards (empty array, not undefined)
+                  },
+                  pendingTacticDecision: null,
+                  beforeTurnTacticPending: false,
+                }
+              : p
+          );
+
+          updatedState = {
+            ...updatedState,
+            players: updatedPlayers,
+          };
+
+          if (storedCards.length > 0) {
+            events.push({
+              type: CARD_DRAWN,
+              playerId,
+              count: storedCards.length,
+            });
+          }
+        }
+      }
+
       // Emit resolution event
       events.push({
         type: TACTIC_DECISION_RESOLVED,
@@ -202,9 +283,34 @@ export function createResolveTacticDecisionCommand(
           // End tactics phase
           const newTurnOrder = calculateTurnOrder(updatedState.players);
 
+          // Check if first player needs Sparing Power before-turn decision
+          const firstPlayerId = newTurnOrder[0];
+          const playersForTurns: Player[] = [...updatedState.players];
+          if (firstPlayerId) {
+            const firstPlayerIdx = playersForTurns.findIndex(
+              (p) => p.id === firstPlayerId
+            );
+            if (firstPlayerIdx !== -1) {
+              const firstPlayer = playersForTurns[firstPlayerIdx];
+              if (
+                firstPlayer &&
+                firstPlayer.selectedTactic === TACTIC_SPARING_POWER &&
+                !firstPlayer.tacticFlipped
+              ) {
+                const updatedFirstPlayer: Player = {
+                  ...firstPlayer,
+                  beforeTurnTacticPending: true,
+                  pendingTacticDecision: { type: TACTIC_SPARING_POWER },
+                };
+                playersForTurns[firstPlayerIdx] = updatedFirstPlayer;
+              }
+            }
+          }
+
           return {
             state: {
               ...updatedState,
+              players: playersForTurns,
               roundPhase: ROUND_PHASE_PLAYER_TURNS,
               currentTacticSelector: null,
               turnOrder: newTurnOrder,

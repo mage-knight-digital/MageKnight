@@ -34,6 +34,7 @@ import {
   LEVEL_STATS,
   LEVEL_UP_TYPE_ODD,
   TURN_START_MOVE_POINTS,
+  TACTIC_SPARING_POWER,
 } from "@mage-knight/shared";
 import { expireModifiers } from "../modifiers.js";
 import { EXPIRATION_TURN_END } from "../modifierConstants.js";
@@ -278,6 +279,11 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
           if (nextPlayerIdx !== -1) {
             const nextPlayer = newState.players[nextPlayerIdx];
             if (nextPlayer) {
+              // Check if Sparing Power before-turn decision is needed
+              const needsSparingPowerDecision =
+                nextPlayer.selectedTactic === TACTIC_SPARING_POWER &&
+                !nextPlayer.tacticFlipped;
+
               const updatedNextPlayer: Player = {
                 ...nextPlayer,
                 movePoints: TURN_START_MOVE_POINTS,
@@ -286,6 +292,11 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
                   ...nextPlayer.tacticState,
                   manaSearchUsedThisTurn: false,
                 },
+                // Set before-turn pending for Sparing Power
+                beforeTurnTacticPending: needsSparingPowerDecision,
+                pendingTacticDecision: needsSparingPowerDecision
+                  ? { type: TACTIC_SPARING_POWER }
+                  : nextPlayer.pendingTacticDecision,
               };
               const players: Player[] = [...newState.players];
               players[nextPlayerIdx] = updatedNextPlayer;

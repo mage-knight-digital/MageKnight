@@ -14,6 +14,7 @@ import {
   TACTIC_MIDNIGHT_MEDITATION,
   TACTIC_RETHINK,
   TACTIC_MANA_SEARCH,
+  TACTIC_SPARING_POWER,
   MANA_GOLD,
 } from "@mage-knight/shared";
 import {
@@ -271,6 +272,16 @@ function getPendingTacticDecision(
     return {
       type: pending.type,
       maxCards: pending.maxCards,
+    };
+  }
+
+  // Sparing Power: before-turn choice (stash or take)
+  if (pending.type === TACTIC_SPARING_POWER) {
+    return {
+      type: pending.type,
+      // Include info about whether stash is available (deck not empty)
+      canStash: player.deck.length > 0,
+      storedCount: player.tacticState.sparingPowerStored?.length ?? 0,
     };
   }
 

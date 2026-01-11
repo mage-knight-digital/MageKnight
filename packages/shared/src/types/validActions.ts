@@ -295,6 +295,10 @@ export interface PendingTacticDecisionInfo {
   readonly deckSnapshot?: readonly CardId[];
   /** For rethink/midnight_meditation: max selectable cards */
   readonly maxCards?: number;
+  /** For sparing_power: whether stash option is available (deck not empty) */
+  readonly canStash?: boolean;
+  /** For sparing_power: number of cards currently stored under tactic */
+  readonly storedCount?: number;
 }
 
 export interface BeforeTurnTacticInfo {

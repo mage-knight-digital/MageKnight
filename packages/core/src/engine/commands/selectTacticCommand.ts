@@ -27,6 +27,7 @@ import {
   DUMMY_TACTIC_AFTER_HUMANS,
   TACTIC_GREAT_START,
   TACTIC_RETHINK,
+  TACTIC_SPARING_POWER,
 } from "@mage-knight/shared";
 import { getTacticCard } from "../../data/tactics.js";
 import { SELECT_TACTIC_COMMAND } from "./commandTypes.js";
@@ -251,10 +252,35 @@ export function createSelectTacticCommand(
           turnOrder: newTurnOrder,
         });
 
+        // Check if first player needs Sparing Power before-turn decision
+        const firstPlayerId = newTurnOrder[0];
+        let playersForTurns = updatedPlayers;
+        if (firstPlayerId) {
+          const firstPlayerIdx = playersForTurns.findIndex(
+            (p) => p.id === firstPlayerId
+          );
+          if (firstPlayerIdx !== -1) {
+            const firstPlayer = playersForTurns[firstPlayerIdx];
+            if (
+              firstPlayer &&
+              firstPlayer.selectedTactic === TACTIC_SPARING_POWER &&
+              !firstPlayer.tacticFlipped
+            ) {
+              const updatedFirstPlayer: Player = {
+                ...firstPlayer,
+                beforeTurnTacticPending: true,
+                pendingTacticDecision: { type: TACTIC_SPARING_POWER },
+              };
+              playersForTurns = [...playersForTurns];
+              playersForTurns[firstPlayerIdx] = updatedFirstPlayer;
+            }
+          }
+        }
+
         return {
           state: {
             ...state,
-            players: updatedPlayers,
+            players: playersForTurns,
             availableTactics: finalAvailableTactics,
             dummyPlayerTactic: dummyTactic,
             roundPhase: ROUND_PHASE_PLAYER_TURNS,
