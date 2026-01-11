@@ -7,6 +7,7 @@ import { PlayerHand } from "./components/Hand/PlayerHand";
 import { TacticSelection } from "./components/Overlays/TacticSelection";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { RewardSelection } from "./components/Overlays/RewardSelection";
+import { ManaStealDecision } from "./components/Overlays/ManaStealDecision";
 import { ActionBar } from "./components/Overlays/ActionBar";
 import { CombatOverlay } from "./components/Combat";
 import { UnitOfferPanel, OwnedUnitsPanel } from "./components/Offers";
@@ -302,6 +303,7 @@ function GameView() {
       <TacticSelection />
       <ChoiceSelection />
       <RewardSelection />
+      <ManaStealDecision />
       {inCombat && (
         <CombatOverlay
           combat={state.combat}

@@ -220,8 +220,10 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
       // Also clear any dice that are still marked as taken by this player
       // (safety net for any edge cases)
+      // BUT exclude the Mana Steal stored die - it persists across turns until used or round ends
+      const storedManaStealDieId = resetPlayer.tacticState.storedManaDie?.dieId;
       const diceWithAllCleared = updatedSource.dice.map((die) =>
-        die.takenByPlayerId === params.playerId
+        die.takenByPlayerId === params.playerId && die.id !== storedManaStealDieId
           ? { ...die, takenByPlayerId: null }
           : die
       );
