@@ -149,6 +149,9 @@ export type {
   TacticSelectedEvent,
   DummyTacticSelectedEvent,
   TacticsPhaseEndedEvent,
+  TacticActivatedEvent,
+  TacticDecisionResolvedEvent,
+  SourceDiceRerolledEvent,
 } from "./events.js";
 
 // Actions
@@ -185,6 +188,10 @@ export type {
   BuyHealingAction,
   // Tactics
   SelectTacticAction,
+  ActivateTacticAction,
+  ResolveTacticDecisionAction,
+  ResolveTacticDecisionPayload,
+  RerollSourceDiceAction,
   // Undo
   UndoAction,
   // Choice resolution
@@ -259,6 +266,12 @@ export type {
   TacticsOptions,
   EnterCombatOptions,
   AvailableEnemy,
+  // Tactic effects
+  TacticEffectsOptions,
+  ActivatableTacticOptions,
+  ManaSearchOptions,
+  PendingTacticDecisionInfo,
+  BeforeTurnTacticInfo,
 } from "./types/validActions.js";
 
 // Shared value constants (sub-unions)

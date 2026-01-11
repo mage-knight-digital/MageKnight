@@ -15,6 +15,7 @@ import type {
   PLAY_SIDEWAYS_AS_BLOCK,
   PLAY_SIDEWAYS_AS_INFLUENCE,
   PLAY_SIDEWAYS_AS_MOVE,
+  TacticDecisionType,
 } from "../valueConstants.js";
 
 // ============================================================================
@@ -61,6 +62,9 @@ export interface ValidActions {
 
   /** Combat entry options (not in combat yet) */
   readonly enterCombat: EnterCombatOptions | undefined;
+
+  /** Tactic effect options (during player turns) */
+  readonly tacticEffects: TacticEffectsOptions | undefined;
 }
 
 // ============================================================================
@@ -246,6 +250,55 @@ export interface TurnOptions {
 export interface TacticsOptions {
   readonly availableTactics: readonly TacticId[];
   readonly isYourTurn: boolean;
+}
+
+// ============================================================================
+// Tactic effects (during player turns)
+// ============================================================================
+
+/**
+ * Tactic effect options for the current player.
+ * Present when the player has a tactic with actionable effects.
+ */
+export interface TacticEffectsOptions {
+  /** Activated tactics that can be used (flip to use) */
+  readonly canActivate?: ActivatableTacticOptions;
+
+  /** Mana Search reroll available */
+  readonly canRerollSourceDice?: ManaSearchOptions;
+
+  /** Pending tactic decision that must be resolved */
+  readonly pendingDecision?: PendingTacticDecisionInfo;
+
+  /** Before-turn decision required (blocks other actions) */
+  readonly beforeTurnRequired?: BeforeTurnTacticInfo;
+}
+
+export interface ActivatableTacticOptions {
+  /** The Right Moment (Day 6) - extra turn */
+  readonly theRightMoment?: boolean;
+  /** Long Night (Night 2) - shuffle discard into deck */
+  readonly longNight?: boolean;
+  /** Midnight Meditation (Night 4) - shuffle hand cards into deck */
+  readonly midnightMeditation?: boolean;
+}
+
+export interface ManaSearchOptions {
+  readonly maxDice: number;
+  readonly mustPickDepletedFirst: boolean;
+  readonly availableDiceIds: readonly string[];
+}
+
+export interface PendingTacticDecisionInfo {
+  readonly type: TacticDecisionType;
+  /** For preparation: visible deck cards (only sent to owning player) */
+  readonly deckSnapshot?: readonly CardId[];
+  /** For rethink/midnight_meditation: max selectable cards */
+  readonly maxCards?: number;
+}
+
+export interface BeforeTurnTacticInfo {
+  readonly tacticId: TacticId;
 }
 
 // ============================================================================

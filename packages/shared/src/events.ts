@@ -29,6 +29,7 @@ import {
   UNIT_DESTROY_REASON_PARALYZE,
   UNIT_DESTROY_REASON_POISON,
   WOUND_TARGET_HERO,
+  type TacticDecisionType,
   type ReputationChangeReason,
 } from "./valueConstants.js";
 
@@ -128,6 +129,28 @@ export const TACTICS_PHASE_ENDED = "TACTICS_PHASE_ENDED" as const;
 export interface TacticsPhaseEndedEvent {
   readonly type: typeof TACTICS_PHASE_ENDED;
   readonly turnOrder: readonly string[]; // Final turn order based on selected tactics
+}
+
+// Tactic effect events
+export const TACTIC_ACTIVATED = "TACTIC_ACTIVATED" as const;
+export interface TacticActivatedEvent {
+  readonly type: typeof TACTIC_ACTIVATED;
+  readonly playerId: string;
+  readonly tacticId: TacticId;
+}
+
+export const TACTIC_DECISION_RESOLVED = "TACTIC_DECISION_RESOLVED" as const;
+export interface TacticDecisionResolvedEvent {
+  readonly type: typeof TACTIC_DECISION_RESOLVED;
+  readonly playerId: string;
+  readonly decisionType: TacticDecisionType;
+}
+
+export const SOURCE_DICE_REROLLED = "SOURCE_DICE_REROLLED" as const;
+export interface SourceDiceRerolledEvent {
+  readonly type: typeof SOURCE_DICE_REROLLED;
+  readonly playerId: string;
+  readonly dieIds: readonly string[];
 }
 
 export const DECKS_RESHUFFLED = "DECKS_RESHUFFLED" as const;
@@ -892,6 +915,9 @@ export type GameEvent =
   | TacticSelectedEvent
   | DummyTacticSelectedEvent
   | TacticsPhaseEndedEvent
+  | TacticActivatedEvent
+  | TacticDecisionResolvedEvent
+  | SourceDiceRerolledEvent
   | DecksReshuffledEvent
   | PlayerRestedEvent
   | RestUndoneEvent

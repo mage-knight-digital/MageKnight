@@ -92,6 +92,30 @@ export default tseslint.config(
           message:
             'Do not use string-literal unions for CombatExitedEvent.reason. Add constants to `src/valueConstants.ts` and use `typeof CONST`.',
         },
+        {
+          selector:
+            'TSInterfaceDeclaration[id.name="TacticDecisionResolvedEvent"] TSPropertySignature[key.name="decisionType"] TSUnionType > TSLiteralType > Literal[value=/^(rethink|mana_steal|preparation|midnight_meditation|sparing_power)$/]',
+          message:
+            'Do not use string-literal unions for tactic decision types. Add constants to `src/valueConstants.ts` and use `typeof CONST`.',
+        },
+        {
+          selector:
+            'TSTypeAliasDeclaration[id.name="ResolveTacticDecisionPayload"] TSUnionType TSPropertySignature[key.name="type"] TSLiteralType > Literal[value=/^(rethink|mana_steal|preparation|midnight_meditation|sparing_power)$/]',
+          message:
+            'Do not use string-literal unions for ResolveTacticDecisionPayload.type. Add constants to `src/valueConstants.ts` and use `typeof CONST`.',
+        },
+        {
+          selector:
+            'TSTypeAliasDeclaration[id.name="ResolveTacticDecisionPayload"] TSUnionType TSPropertySignature[key.name="choice"] TSUnionType > TSLiteralType > Literal[value=/^(stash|take)$/]',
+          message:
+            'Do not use string-literal unions for ResolveTacticDecisionPayload.choice. Add constants to `src/valueConstants.ts` and use `typeof CONST`.',
+        },
+        {
+          selector:
+            'TSInterfaceDeclaration[id.name="PendingTacticDecisionInfo"] TSPropertySignature[key.name="type"] TSUnionType > TSLiteralType > Literal[value=/^(rethink|mana_steal|preparation|midnight_meditation|sparing_power)$/]',
+          message:
+            'Do not use string-literal unions for PendingTacticDecisionInfo.type. Add constants to `src/valueConstants.ts` and use `typeof CONST`.',
+        },
       ],
     },
   },

@@ -24,6 +24,7 @@ import {
   ENTER_SITE_ACTION,
   SELECT_TACTIC_ACTION,
   SELECT_REWARD_ACTION,
+  ACTIVATE_TACTIC_ACTION,
   hexKey,
   type TacticId,
 } from "@mage-knight/shared";
@@ -50,6 +51,7 @@ import { createAnnounceEndOfRoundCommand } from "./announceEndOfRoundCommand.js"
 import { createEnterSiteCommand } from "./enterSiteCommand.js";
 import { createSelectTacticCommand } from "./selectTacticCommand.js";
 import { createSelectRewardCommand } from "./selectRewardCommand.js";
+import { createActivateTacticCommand } from "./activateTacticCommand.js";
 
 // Command factory function type
 type CommandFactory = (
@@ -444,6 +446,16 @@ function createSelectTacticCommandFromAction(
   return createSelectTacticCommand({ playerId, tacticId });
 }
 
+// Activate tactic command factory
+function createActivateTacticCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  if (action.type !== ACTIVATE_TACTIC_ACTION) return null;
+  return createActivateTacticCommand({ playerId, tacticId: action.tacticId });
+}
+
 // Select reward command factory
 function createSelectRewardCommandFromAction(
   _state: GameState,
@@ -479,6 +491,7 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [ENTER_SITE_ACTION]: createEnterSiteCommandFromAction,
   [SELECT_TACTIC_ACTION]: createSelectTacticCommandFromAction,
   [SELECT_REWARD_ACTION]: createSelectRewardCommandFromAction,
+  [ACTIVATE_TACTIC_ACTION]: createActivateTacticCommandFromAction,
 };
 
 // Get command for an action
@@ -579,3 +592,10 @@ export {
   type SelectRewardCommandParams,
   SELECT_REWARD_COMMAND,
 } from "./selectRewardCommand.js";
+
+// Tactic activation commands
+export {
+  createActivateTacticCommand,
+  type ActivateTacticCommandArgs,
+  ACTIVATE_TACTIC_COMMAND,
+} from "./activateTacticCommand.js";

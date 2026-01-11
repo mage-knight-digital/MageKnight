@@ -90,3 +90,25 @@ export type CombatExitReason =
   | typeof COMBAT_EXIT_REASON_UNDO
   | typeof COMBAT_EXIT_REASON_WITHDRAW
   | typeof COMBAT_EXIT_REASON_FLED;
+
+// === Tactic decision types (tactic-driven prompts/decisions) ===
+export const TACTIC_DECISION_RETHINK = "rethink" as const;
+export const TACTIC_DECISION_MANA_STEAL = "mana_steal" as const;
+export const TACTIC_DECISION_PREPARATION = "preparation" as const;
+export const TACTIC_DECISION_MIDNIGHT_MEDITATION = "midnight_meditation" as const;
+export const TACTIC_DECISION_SPARING_POWER = "sparing_power" as const;
+
+export type TacticDecisionType =
+  | typeof TACTIC_DECISION_RETHINK
+  | typeof TACTIC_DECISION_MANA_STEAL
+  | typeof TACTIC_DECISION_PREPARATION
+  | typeof TACTIC_DECISION_MIDNIGHT_MEDITATION
+  | typeof TACTIC_DECISION_SPARING_POWER;
+
+// === Tactic decision sub-unions ===
+export const SPARING_POWER_CHOICE_STASH = "stash" as const;
+export const SPARING_POWER_CHOICE_TAKE = "take" as const;
+
+export type SparingPowerChoice =
+  | typeof SPARING_POWER_CHOICE_STASH
+  | typeof SPARING_POWER_CHOICE_TAKE;

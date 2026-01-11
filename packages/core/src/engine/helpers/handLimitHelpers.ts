@@ -2,11 +2,12 @@
  * Hand limit helper functions for calculating effective hand limits
  *
  * Keep bonus: +X where X = number of keeps owned (if on/adjacent to any owned keep)
+ * Planning tactic: +1 if hand size >= 2 before drawing
  */
 
 import type { GameState } from "../../state/GameState.js";
 import { SiteType } from "../../types/map.js";
-import { hexKey, getAllNeighbors } from "@mage-knight/shared";
+import { hexKey, getAllNeighbors, TACTIC_PLANNING } from "@mage-knight/shared";
 
 /**
  * Count how many keeps a player owns anywhere on the map.
@@ -75,4 +76,29 @@ export function getEffectiveHandLimit(
   // Note: Keep and city bonuses are NOT cumulative - use the higher bonus only
 
   return handLimit;
+}
+
+/**
+ * Calculate effective hand limit for end-of-turn draw.
+ * Includes base hand limit + keep bonus + Planning tactic bonus.
+ *
+ * Planning (Day 4): At end of turn, if hand size before drawing >= 2, draw as if hand limit +1
+ */
+export function getEndTurnDrawLimit(
+  state: GameState,
+  playerId: string,
+  currentHandSize: number
+): number {
+  let limit = getEffectiveHandLimit(state, playerId);
+
+  // Planning tactic: +1 if hand size >= 2 before drawing
+  const player = state.players.find((p) => p.id === playerId);
+  if (
+    player?.selectedTactic === TACTIC_PLANNING &&
+    currentHandSize >= 2
+  ) {
+    limit += 1;
+  }
+
+  return limit;
 }

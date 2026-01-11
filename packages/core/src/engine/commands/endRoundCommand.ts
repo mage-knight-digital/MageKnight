@@ -209,6 +209,9 @@ export function createEndRoundCommand(): Command {
           // Reset tactic selection for new round
           selectedTactic: null,
           tacticFlipped: false,
+          tacticState: {},
+          pendingTacticDecision: null,
+          beforeTurnTacticPending: false,
         };
 
         updatedPlayers.push(updatedPlayer);

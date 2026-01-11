@@ -14,7 +14,7 @@
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { GameEvent, TacticId } from "@mage-knight/shared";
+import type { GameEvent, TacticId, CardId } from "@mage-knight/shared";
 import {
   ROUND_PHASE_TACTICS_SELECTION,
   ROUND_PHASE_PLAYER_TURNS,
@@ -22,8 +22,10 @@ import {
   DUMMY_TACTIC_SELECTED,
   TACTICS_PHASE_ENDED,
   INVALID_ACTION,
+  CARD_DRAWN,
   getTacticsForTimeOfDay,
   DUMMY_TACTIC_AFTER_HUMANS,
+  TACTIC_GREAT_START,
 } from "@mage-knight/shared";
 import { getTacticCard } from "../../data/tactics.js";
 import { SELECT_TACTIC_COMMAND } from "./commandTypes.js";
@@ -116,10 +118,59 @@ export function createSelectTacticCommand(
 
       const tacticCard = getTacticCard(tacticId);
 
-      // Update the player with their selected tactic
+      // Find the player for on-pick effect processing
+      const player = state.players.find(p => p.id === playerId);
+      if (!player) {
+        events.push({
+          type: INVALID_ACTION,
+          playerId,
+          actionType: SELECT_TACTIC_COMMAND,
+          reason: "Player not found",
+        });
+        return { state, events };
+      }
+
+      // Process on-pick effects
+      let playerHand: readonly CardId[] = player.hand;
+      let playerDeck: readonly CardId[] = player.deck;
+      let cardsDrawn = 0;
+
+      // Great Start (Day 5): Draw 2 cards immediately
+      if (tacticId === TACTIC_GREAT_START) {
+        const newHand = [...playerHand];
+        const newDeck = [...playerDeck];
+
+        // Draw up to 2 cards (stop if deck empties)
+        for (let i = 0; i < 2 && newDeck.length > 0; i++) {
+          const drawnCard = newDeck.shift();
+          if (drawnCard) {
+            newHand.push(drawnCard);
+            cardsDrawn++;
+          }
+        }
+
+        playerHand = newHand;
+        playerDeck = newDeck;
+
+        if (cardsDrawn > 0) {
+          events.push({
+            type: CARD_DRAWN,
+            playerId,
+            count: cardsDrawn,
+          });
+        }
+      }
+
+      // Update the player with their selected tactic (and any on-pick effect results)
       const updatedPlayers = state.players.map((p) =>
         p.id === playerId
-          ? { ...p, selectedTactic: tacticId, tacticFlipped: false }
+          ? {
+              ...p,
+              selectedTactic: tacticId,
+              tacticFlipped: false,
+              hand: playerHand,
+              deck: playerDeck,
+            }
           : p
       );
 

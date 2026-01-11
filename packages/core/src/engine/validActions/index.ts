@@ -6,7 +6,13 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { ValidActions, TacticsOptions } from "@mage-knight/shared";
+import type { Player } from "../../types/player.js";
+import type { ValidActions, TacticsOptions, TacticEffectsOptions } from "@mage-knight/shared";
+import {
+  TACTIC_THE_RIGHT_MOMENT,
+  TACTIC_LONG_NIGHT,
+  TACTIC_MIDNIGHT_MEDITATION,
+} from "@mage-knight/shared";
 import {
   checkCanAct,
   isInCombat,
@@ -67,6 +73,7 @@ export function getValidActions(
       turn: undefined,
       tactics: undefined,
       enterCombat: undefined,
+      tacticEffects: undefined,
     };
   }
 
@@ -87,6 +94,7 @@ export function getValidActions(
       turn: undefined,
       tactics: getTacticsOptions(state, playerId),
       enterCombat: undefined,
+      tacticEffects: undefined,
     };
   }
 
@@ -112,6 +120,7 @@ export function getValidActions(
       },
       tactics: undefined,
       enterCombat: undefined,
+      tacticEffects: undefined,
     };
   }
 
@@ -141,6 +150,7 @@ export function getValidActions(
         },
         tactics: undefined,
         enterCombat: undefined,
+        tacticEffects: undefined,
       };
     }
   }
@@ -162,6 +172,7 @@ export function getValidActions(
     turn: getTurnOptions(state, player),
     tactics: undefined,
     enterCombat: undefined, // TODO: getEnterCombatOptions(state, player)
+    tacticEffects: getTacticEffectsOptions(state, player),
   };
 }
 
@@ -176,5 +187,72 @@ function getTacticsOptions(
     availableTactics: state.availableTactics,
     isYourTurn: state.currentTacticSelector === playerId,
   };
+}
+
+/**
+ * Get tactic effects options during player turns.
+ * Returns undefined if no tactic effects are available.
+ */
+function getTacticEffectsOptions(
+  state: GameState,
+  player: Player
+): TacticEffectsOptions | undefined {
+  const tactic = player.selectedTactic;
+  if (!tactic) {
+    return undefined;
+  }
+
+  // Check for activatable tactics
+  const canActivate = getActivatableTactics(state, player);
+
+  // TODO: Check for Mana Search reroll
+  // TODO: Check for pending tactic decisions
+  // TODO: Check for before-turn requirements
+
+  // Return undefined if nothing is available
+  if (!canActivate) {
+    return undefined;
+  }
+
+  return {
+    canActivate,
+  };
+}
+
+/**
+ * Get activatable tactics that the player can use this turn.
+ */
+function getActivatableTactics(
+  state: GameState,
+  player: Player
+): TacticEffectsOptions["canActivate"] {
+  const tactic = player.selectedTactic;
+  if (!tactic || player.tacticFlipped) {
+    return undefined;
+  }
+
+  // The Right Moment (Day 6) - can use during turn, not on last turn of round
+  if (tactic === TACTIC_THE_RIGHT_MOMENT) {
+    const isLastTurnOfRound = state.endOfRoundAnnouncedBy !== null || state.scenarioEndTriggered;
+    if (!isLastTurnOfRound) {
+      return { theRightMoment: true };
+    }
+  }
+
+  // Long Night (Night 2) - can use when deck is empty
+  if (tactic === TACTIC_LONG_NIGHT) {
+    if (player.deck.length === 0 && player.discard.length > 0) {
+      return { longNight: true };
+    }
+  }
+
+  // Midnight Meditation (Night 4) - can use before taking any action
+  if (tactic === TACTIC_MIDNIGHT_MEDITATION) {
+    if (!player.hasTakenActionThisTurn) {
+      return { midnightMeditation: true };
+    }
+  }
+
+  return undefined;
 }
 

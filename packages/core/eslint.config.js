@@ -276,6 +276,27 @@ export default tseslint.config(
       ],
     },
   },
+  // Guardrail: avoid one-off sentinel literals in core engine commands.
+  {
+    files: ["src/engine/commands/endRoundCommand.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            'CallExpression[callee.property.name="startsWith"] > Literal[value="core_"]',
+          message:
+            'Do not hardcode `"core_"` tile-id prefix. Use a named constant (e.g. `CORE_TILE_ID_PREFIX`).',
+        },
+        {
+          selector:
+            'Property[key.name="playerId"] > Literal[value="system"]',
+          message:
+            'Do not hardcode `"system"` playerId. Use a named constant (e.g. `SYSTEM_PLAYER_ID`).',
+        },
+      ],
+    },
+  },
   // Ban `as unknown as ...` double-casts (they defeat the type system and hide real typing issues).
   {
     files: ["src/**/*.ts"],

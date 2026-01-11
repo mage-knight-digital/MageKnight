@@ -5,7 +5,7 @@
 import type { HexCoord, HexDirection } from "./hex.js";
 import type { CardId, SkillId, BasicManaColor, ManaColor } from "./ids.js";
 import type { UnitId } from "./units.js";
-import type { ManaSourceType } from "./valueConstants.js";
+import type { ManaSourceType, SparingPowerChoice } from "./valueConstants.js";
 import type { EnemyId } from "./enemies.js";
 import type { CombatType } from "./combatTypes.js";
 import type { Element } from "./elements.js";
@@ -15,6 +15,11 @@ import {
   PLAY_SIDEWAYS_AS_BLOCK,
   PLAY_SIDEWAYS_AS_INFLUENCE,
   PLAY_SIDEWAYS_AS_MOVE,
+  TACTIC_DECISION_MANA_STEAL,
+  TACTIC_DECISION_MIDNIGHT_MEDITATION,
+  TACTIC_DECISION_PREPARATION,
+  TACTIC_DECISION_RETHINK,
+  TACTIC_DECISION_SPARING_POWER,
 } from "./valueConstants.js";
 
 // Movement actions
@@ -170,6 +175,37 @@ export interface SelectTacticAction {
   readonly tacticId: TacticId;
 }
 
+// Tactic effect actions
+export const ACTIVATE_TACTIC_ACTION = "ACTIVATE_TACTIC" as const;
+export interface ActivateTacticAction {
+  readonly type: typeof ACTIVATE_TACTIC_ACTION;
+  readonly tacticId: TacticId;
+}
+
+export const RESOLVE_TACTIC_DECISION_ACTION = "RESOLVE_TACTIC_DECISION" as const;
+
+// Payload types for different tactic decisions
+export type ResolveTacticDecisionPayload =
+  | { readonly type: typeof TACTIC_DECISION_RETHINK; readonly cardIds: readonly CardId[] }
+  | { readonly type: typeof TACTIC_DECISION_MANA_STEAL; readonly dieId: string }
+  | { readonly type: typeof TACTIC_DECISION_PREPARATION; readonly cardId: CardId }
+  | { readonly type: typeof TACTIC_DECISION_MIDNIGHT_MEDITATION; readonly cardIds: readonly CardId[] }
+  | {
+      readonly type: typeof TACTIC_DECISION_SPARING_POWER;
+      readonly choice: SparingPowerChoice;
+    };
+
+export interface ResolveTacticDecisionAction {
+  readonly type: typeof RESOLVE_TACTIC_DECISION_ACTION;
+  readonly decision: ResolveTacticDecisionPayload;
+}
+
+export const REROLL_SOURCE_DICE_ACTION = "REROLL_SOURCE_DICE" as const;
+export interface RerollSourceDiceAction {
+  readonly type: typeof REROLL_SOURCE_DICE_ACTION;
+  readonly dieIds: readonly string[];
+}
+
 // Undo action
 export const UNDO_ACTION = "UNDO" as const;
 export interface UndoAction {
@@ -299,6 +335,9 @@ export type PlayerAction =
   | BuyHealingAction
   // Tactics
   | SelectTacticAction
+  | ActivateTacticAction
+  | ResolveTacticDecisionAction
+  | RerollSourceDiceAction
   // Undo
   | UndoAction
   // Choice resolution

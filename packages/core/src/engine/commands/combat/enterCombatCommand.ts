@@ -5,7 +5,7 @@
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { EnemyId } from "@mage-knight/shared";
-import { COMBAT_STARTED, createCombatExitedEvent } from "@mage-knight/shared";
+import { COMBAT_EXIT_REASON_UNDO, COMBAT_STARTED, createCombatExitedEvent } from "@mage-knight/shared";
 import { createCombatState } from "../../../types/combat.js";
 
 export const ENTER_COMBAT_COMMAND = "ENTER_COMBAT" as const;
@@ -53,7 +53,7 @@ export function createEnterCombatCommand(
       // Simply exit combat - enemies go back to map (they were never "drawn")
       return {
         state: { ...state, combat: null },
-        events: [createCombatExitedEvent(params.playerId, "undo")],
+        events: [createCombatExitedEvent(params.playerId, COMBAT_EXIT_REASON_UNDO)],
       };
     },
   };

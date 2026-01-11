@@ -11,6 +11,11 @@ import type {
   TacticId,
   BlockSource,
   SiteReward,
+  TACTIC_RETHINK,
+  TACTIC_MANA_STEAL,
+  TACTIC_PREPARATION,
+  TACTIC_MIDNIGHT_MEDITATION,
+  TACTIC_SPARING_POWER,
 } from "@mage-knight/shared";
 import type { Hero } from "./hero.js";
 import type { CardEffect } from "./cards.js";
@@ -113,6 +118,39 @@ export interface PendingChoice {
   readonly options: readonly CardEffect[];
 }
 
+// === Tactic-specific state types ===
+
+// Tactic-specific persistent state (survives across turns within a round)
+export interface TacticState {
+  // Mana Steal (Day 3): stored die from source
+  readonly storedManaDie?: {
+    readonly dieId: SourceDieId;
+    readonly color: ManaColor;
+  };
+
+  // Sparing Power (Night 6): cards stored under the tactic
+  readonly sparingPowerStored?: readonly CardId[];
+
+  // The Right Moment (Day 6): extra turn queued
+  readonly extraTurnPending?: boolean;
+
+  // Mana Search (Night 3): used this turn flag
+  readonly manaSearchUsedThisTurn?: boolean;
+}
+
+// Pending tactic decision (blocks other actions until resolved)
+export type PendingTacticDecision =
+  | { readonly type: typeof TACTIC_RETHINK; readonly maxCards: 3 }
+  | { readonly type: typeof TACTIC_MANA_STEAL }
+  | { readonly type: typeof TACTIC_PREPARATION; readonly deckSnapshot: readonly CardId[] }
+  | { readonly type: typeof TACTIC_MIDNIGHT_MEDITATION; readonly maxCards: 5 }
+  | { readonly type: typeof TACTIC_SPARING_POWER };
+
+// Helper to create empty tactic state
+export function createEmptyTacticState(): TacticState {
+  return {};
+}
+
 export interface Player {
   readonly id: string;
   readonly hero: Hero; // which hero they're playing
@@ -148,6 +186,9 @@ export interface Player {
   // Tactic selection (per round)
   readonly selectedTactic: TacticId | null; // The tactic chosen for this round
   readonly tacticFlipped: boolean; // Whether the tactic's activated effect has been used
+  readonly tacticState: TacticState; // Tactic-specific persistent state
+  readonly pendingTacticDecision: PendingTacticDecision | null; // Pending tactic decision to resolve
+  readonly beforeTurnTacticPending: boolean; // Whether a before-turn tactic action is required
 
   // Combat state
   readonly knockedOut: boolean;

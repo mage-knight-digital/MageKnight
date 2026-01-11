@@ -41,7 +41,7 @@ import { END_TURN_COMMAND } from "./commandTypes.js";
 import { rerollDie } from "../mana/manaSource.js";
 import { createEndRoundCommand } from "./endRoundCommand.js";
 import { createAnnounceEndOfRoundCommand } from "./announceEndOfRoundCommand.js";
-import { getEffectiveHandLimit } from "../helpers/handLimitHelpers.js";
+import { getEndTurnDrawLimit } from "../helpers/handLimitHelpers.js";
 
 export { END_TURN_COMMAND };
 
@@ -86,9 +86,9 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const clearedPlayArea: readonly CardId[] = [];
 
       // Step 2: Draw up to effective hand limit (no mid-round reshuffle if deck empties)
-      // Effective hand limit includes keep bonus when on/adjacent to owned keep
-      const effectiveLimit = getEffectiveHandLimit(state, params.playerId);
+      // Effective hand limit includes keep bonus + Planning tactic bonus
       const currentHandSize = currentPlayer.hand.length;
+      const effectiveLimit = getEndTurnDrawLimit(state, params.playerId, currentHandSize);
       const cardsToDraw = Math.max(0, effectiveLimit - currentHandSize);
 
       const newHand: CardId[] = [...currentPlayer.hand];
@@ -220,12 +220,44 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         finalTurnsRemaining: updatedFinalTurnsRemaining,
       };
 
+      // Check if current player has "The Right Moment" extra turn pending
+      const currentPlayerAfterReset = newState.players.find(
+        (p) => p.id === params.playerId
+      );
+      const hasExtraTurnPending =
+        currentPlayerAfterReset?.tacticState?.extraTurnPending === true;
+
       // Determine next player
       let nextPlayerId: string | null = null;
 
       if (shouldTriggerRoundEnd) {
         // Round is ending - no next player in current round
         nextPlayerId = null;
+      } else if (hasExtraTurnPending) {
+        // The Right Moment: Same player takes another turn
+        nextPlayerId = params.playerId;
+
+        // Clear the extra turn pending flag
+        const playerIdx = newState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        if (playerIdx !== -1) {
+          const playerWithClearedExtra = newState.players[playerIdx];
+          if (playerWithClearedExtra) {
+            const updatedPlayer: Player = {
+              ...playerWithClearedExtra,
+              movePoints: TURN_START_MOVE_POINTS,
+              tacticState: {
+                ...playerWithClearedExtra.tacticState,
+                extraTurnPending: false,
+              },
+            };
+            const players: Player[] = [...newState.players];
+            players[playerIdx] = updatedPlayer;
+            newState = { ...newState, players };
+          }
+        }
+        // Don't change currentPlayerIndex - same player continues
       } else {
         // Advance to next player
         const nextPlayerIndex =

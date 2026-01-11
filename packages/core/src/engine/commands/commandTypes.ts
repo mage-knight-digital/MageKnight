@@ -21,6 +21,9 @@ export const END_ROUND_COMMAND = "END_ROUND" as const;
 // Tactics selection command
 export const SELECT_TACTIC_COMMAND = "SELECT_TACTIC" as const;
 
+// Tactic effect commands
+export const ACTIVATE_TACTIC_COMMAND = "ACTIVATE_TACTIC" as const;
+
 // Conquest commands
 export const CONQUER_SITE_COMMAND = "CONQUER_SITE" as const;
 
