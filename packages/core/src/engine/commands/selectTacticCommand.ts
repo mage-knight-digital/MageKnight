@@ -61,6 +61,12 @@ function validateSelection(
     return `Not your turn to select. Current selector: ${state.currentTacticSelector}`;
   }
 
+  // Must not have a pending tactic decision to resolve
+  const player = state.players.find((p) => p.id === playerId);
+  if (player?.pendingTacticDecision) {
+    return "Must resolve pending tactic decision first";
+  }
+
   // Tactic must match time of day (check before availability)
   const validTactics = getTacticsForTimeOfDay(state.timeOfDay);
   if (!validTactics.includes(tacticId)) {

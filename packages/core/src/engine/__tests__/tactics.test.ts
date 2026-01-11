@@ -25,6 +25,7 @@ import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "../commands/resolveTacticDecisionCommand.js";
 import { getTacticCard } from "../../data/tactics.js";
 import { getTurnOptions } from "../validActions/turn.js";
+import { getValidActions } from "../validActions/index.js";
 import { validateNoTacticDecisionPending } from "../validators/choiceValidators.js";
 
 describe("Tactics Selection", () => {
@@ -398,6 +399,58 @@ describe("Tactics Selection", () => {
 
       // Should still be in tactics selection phase
       expect(result.state.roundPhase).toBe(ROUND_PHASE_TACTICS_SELECTION);
+    });
+
+    it("pending tactic decision blocks selecting another tactic", () => {
+      const baseState = createTacticsSelectionState(["player1"], "day");
+
+      // Select Rethink to create pending decision
+      const selectCommand = createSelectTacticCommand({
+        playerId: "player1",
+        tacticId: TACTIC_RETHINK,
+      });
+      const stateAfterSelect = selectCommand.execute(baseState).state;
+
+      // Verify we have a pending decision
+      const player = stateAfterSelect.players.find((p) => p.id === "player1");
+      expect(player?.pendingTacticDecision).toBeDefined();
+
+      // Try to select a different tactic - should fail
+      const selectAnotherCommand = createSelectTacticCommand({
+        playerId: "player1",
+        tacticId: TACTIC_PLANNING,
+      });
+      const result = selectAnotherCommand.execute(stateAfterSelect);
+
+      // Should emit invalid action
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+    });
+
+    it("pending tactic decision only allows resolution action in validActions", () => {
+      const baseState = createTacticsSelectionState(["player1"], "day");
+
+      // Select Rethink to create pending decision
+      const selectCommand = createSelectTacticCommand({
+        playerId: "player1",
+        tacticId: TACTIC_RETHINK,
+      });
+      const stateAfterSelect = selectCommand.execute(baseState).state;
+
+      // Get valid actions
+      const validActions = getValidActions(stateAfterSelect, "player1");
+
+      // Should have pending decision
+      expect(validActions.tacticEffects?.pendingDecision).toBeDefined();
+      expect(validActions.tacticEffects?.pendingDecision?.type).toBe(TACTIC_RETHINK);
+
+      // Should NOT have tactics selection available
+      expect(validActions.tactics).toBeUndefined();
+
+      // Should NOT have other actions available
+      expect(validActions.move).toBeUndefined();
+      expect(validActions.playCard).toBeUndefined();
+      expect(validActions.turn).toBeUndefined();
     });
 
     it("Rethink resolution shuffles discard into deck and draws from combined pool", () => {
