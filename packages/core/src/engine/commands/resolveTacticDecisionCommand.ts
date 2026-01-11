@@ -25,9 +25,11 @@ import {
   ROUND_PHASE_PLAYER_TURNS,
   TACTIC_DECISION_RETHINK,
   TACTIC_DECISION_SPARING_POWER,
+  TACTIC_DECISION_MANA_STEAL,
   TACTIC_SPARING_POWER,
   SPARING_POWER_CHOICE_STASH,
   SPARING_POWER_CHOICE_TAKE,
+  BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
 import { RESOLVE_TACTIC_DECISION_COMMAND } from "./commandTypes.js";
 import { shuffleWithRng } from "../../utils/rng.js";
@@ -86,6 +88,23 @@ function validateResolution(
       }
     }
     // "take" is always valid (can take even if no cards stored, just flips tactic)
+  }
+
+  // Mana Steal validation
+  if (decision.type === TACTIC_DECISION_MANA_STEAL) {
+    const die = state.source.dice.find((d) => d.id === decision.dieId);
+    if (!die) {
+      return `Die ${decision.dieId} not found in source`;
+    }
+    if (die.takenByPlayerId !== null) {
+      return `Die ${decision.dieId} is already taken`;
+    }
+    if (die.isDepleted) {
+      return `Cannot steal depleted die`;
+    }
+    if (!BASIC_MANA_COLORS.includes(die.color as typeof BASIC_MANA_COLORS[number])) {
+      return `Can only steal basic color dice (red, blue, green, white)`;
+    }
   }
 
   return null;
@@ -263,6 +282,40 @@ export function createResolveTacticDecisionCommand(
               count: storedCards.length,
             });
           }
+        }
+      }
+
+      // Handle Mana Steal resolution
+      if (decision.type === TACTIC_DECISION_MANA_STEAL) {
+        const die = state.source.dice.find((d) => d.id === decision.dieId);
+        if (die) {
+          // Mark the die as taken by this player in the source
+          const updatedDice = state.source.dice.map((d) =>
+            d.id === decision.dieId ? { ...d, takenByPlayerId: playerId } : d
+          );
+
+          // Store the die info in the player's tactic state
+          const updatedPlayers: Player[] = updatedState.players.map((p) =>
+            p.id === playerId
+              ? {
+                  ...p,
+                  tacticState: {
+                    ...p.tacticState,
+                    storedManaDie: {
+                      dieId: die.id,
+                      color: die.color,
+                    },
+                  },
+                  pendingTacticDecision: null,
+                }
+              : p
+          );
+
+          updatedState = {
+            ...updatedState,
+            source: { dice: updatedDice },
+            players: updatedPlayers,
+          };
         }
       }
 

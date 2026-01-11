@@ -15,7 +15,9 @@ import {
   TACTIC_RETHINK,
   TACTIC_MANA_SEARCH,
   TACTIC_SPARING_POWER,
+  TACTIC_MANA_STEAL,
   MANA_GOLD,
+  BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
 import {
   checkCanAct,
@@ -86,7 +88,7 @@ export function getValidActions(
   // Handle tactics selection phase
   if (isTacticsPhase(state)) {
     // Check if player has a pending tactic decision to resolve
-    const pendingDecision = getPendingTacticDecision(player);
+    const pendingDecision = getPendingTacticDecision(state, player);
     if (pendingDecision) {
       return {
         canAct: true,
@@ -227,7 +229,7 @@ function getTacticEffectsOptions(
   }
 
   // Check for pending tactic decisions first (these take priority)
-  const pendingDecision = getPendingTacticDecision(player);
+  const pendingDecision = getPendingTacticDecision(state, player);
 
   // Check for activatable tactics
   const canActivate = getActivatableTactics(state, player);
@@ -260,6 +262,7 @@ function getTacticEffectsOptions(
  * Get pending tactic decision info for the player.
  */
 function getPendingTacticDecision(
+  state: GameState,
   player: Player
 ): TacticEffectsOptions["pendingDecision"] {
   const pending = player.pendingTacticDecision;
@@ -282,6 +285,20 @@ function getPendingTacticDecision(
       // Include info about whether stash is available (deck not empty)
       canStash: player.deck.length > 0,
       storedCount: player.tacticState.sparingPowerStored?.length ?? 0,
+    };
+  }
+
+  // Mana Steal: choose a basic color die from source
+  if (pending.type === TACTIC_MANA_STEAL) {
+    const availableBasicDice = state.source.dice.filter(
+      (d) =>
+        d.takenByPlayerId === null &&
+        !d.isDepleted &&
+        BASIC_MANA_COLORS.includes(d.color as typeof BASIC_MANA_COLORS[number])
+    );
+    return {
+      type: pending.type,
+      availableDiceIds: availableBasicDice.map((d) => d.id),
     };
   }
 

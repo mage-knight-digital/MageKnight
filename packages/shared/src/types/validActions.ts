@@ -299,6 +299,8 @@ export interface PendingTacticDecisionInfo {
   readonly canStash?: boolean;
   /** For sparing_power: number of cards currently stored under tactic */
   readonly storedCount?: number;
+  /** For mana_steal: available basic color dice to choose from */
+  readonly availableDiceIds?: readonly string[];
 }
 
 export interface BeforeTurnTacticInfo {

@@ -28,6 +28,8 @@ import {
   TACTIC_GREAT_START,
   TACTIC_RETHINK,
   TACTIC_SPARING_POWER,
+  TACTIC_MANA_STEAL,
+  BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
 import { getTacticCard } from "../../data/tactics.js";
 import { SELECT_TACTIC_COMMAND } from "./commandTypes.js";
@@ -169,6 +171,22 @@ export function createSelectTacticCommand(
       // Rethink (Day 2): Player must choose up to 3 cards to discard
       if (tacticId === TACTIC_RETHINK && playerHand.length > 0) {
         pendingTacticDecision = { type: TACTIC_RETHINK, maxCards: 3 };
+      }
+
+      // Mana Steal (Day 3): Player must choose a basic color die from source
+      if (tacticId === TACTIC_MANA_STEAL) {
+        // Check if there are any basic color dice available
+        const availableBasicDice = state.source.dice.filter(
+          (d) =>
+            d.takenByPlayerId === null &&
+            !d.isDepleted &&
+            BASIC_MANA_COLORS.includes(d.color as typeof BASIC_MANA_COLORS[number])
+        );
+        // Only set pending if there are dice to choose from
+        if (availableBasicDice.length > 0) {
+          pendingTacticDecision = { type: TACTIC_MANA_STEAL };
+        }
+        // If no basic dice available, the tactic effect is skipped (you just get the turn order)
       }
 
       // Update the player with their selected tactic (and any on-pick effect results)
