@@ -1379,3 +1379,230 @@ body {
   background: #2980b9;
   color: white;
 }
+
+/* ========================================
+   Debug Panel
+   ======================================== */
+
+.debug-panel__toggle {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: none;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.debug-panel__toggle:hover {
+  background: #34495e;
+  transform: scale(1.1);
+}
+
+.debug-panel {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  width: 350px;
+  max-height: 80vh;
+  background: #1a1a2e;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  z-index: 9999;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.debug-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #3498db;
+  color: #fff;
+}
+
+.debug-panel__header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.debug-panel__header button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.debug-panel__header button:hover {
+  opacity: 0.8;
+}
+
+.debug-panel__content {
+  padding: 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.debug-panel__section {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #333;
+}
+
+.debug-panel__section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.debug-panel__section h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #3498db;
+  font-weight: 600;
+}
+
+.debug-panel__row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.debug-panel__row:last-child {
+  margin-bottom: 0;
+}
+
+.debug-panel__row select {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+.debug-panel__row button {
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  border: none;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.debug-panel__row button:hover:not(:disabled) {
+  background: #34495e;
+}
+
+.debug-panel__row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.debug-panel__file-input {
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  border: none;
+  background: #27ae60;
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.debug-panel__file-input:hover {
+  background: #2ecc71;
+}
+
+.debug-panel__row span {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.debug-panel__search {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.debug-panel__search::placeholder {
+  color: #666;
+}
+
+.debug-panel__card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.debug-panel__card-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  border: none;
+  background: #34495e;
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.debug-panel__card-btn:hover {
+  background: #4a6278;
+}
+
+.debug-panel__card-name {
+  font-weight: 500;
+}
+
+.debug-panel__card-category {
+  font-size: 0.65rem;
+  color: #999;
+  padding: 0.1rem 0.4rem;
+  background: #2c3e50;
+  border-radius: 3px;
+}
+
+.debug-panel__no-results {
+  color: #666;
+  font-size: 0.8rem;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.debug-panel__more {
+  color: #666;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.25rem;
+}

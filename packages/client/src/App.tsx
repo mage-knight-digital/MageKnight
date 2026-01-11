@@ -17,6 +17,7 @@ import { ActionBar } from "./components/Overlays/ActionBar";
 import { CombatOverlay } from "./components/Combat";
 import { UnitOfferPanel, OwnedUnitsPanel } from "./components/Offers";
 import { SaveLoadControls } from "./components/SaveLoadControls";
+import { DebugPanel } from "./components/DebugPanel";
 import type { GameEvent } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
@@ -357,6 +358,7 @@ export function App() {
   return (
     <GameProvider seed={GAME_SEED}>
       <GameView />
+      <DebugPanel />
     </GameProvider>
   );
 }
