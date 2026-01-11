@@ -26,6 +26,7 @@ import {
   SELECT_REWARD_ACTION,
   ACTIVATE_TACTIC_ACTION,
   RESOLVE_TACTIC_DECISION_ACTION,
+  REROLL_SOURCE_DICE_ACTION,
   hexKey,
   type TacticId,
 } from "@mage-knight/shared";
@@ -54,6 +55,7 @@ import { createSelectTacticCommand } from "./selectTacticCommand.js";
 import { createSelectRewardCommand } from "./selectRewardCommand.js";
 import { createActivateTacticCommand } from "./activateTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "./resolveTacticDecisionCommand.js";
+import { createRerollSourceDiceCommand } from "./rerollSourceDiceCommand.js";
 
 // Command factory function type
 type CommandFactory = (
@@ -485,6 +487,19 @@ function createResolveTacticDecisionCommandFromAction(
   });
 }
 
+// Reroll source dice command factory (Mana Search tactic)
+function createRerollSourceDiceCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  if (action.type !== REROLL_SOURCE_DICE_ACTION) return null;
+  return createRerollSourceDiceCommand({
+    playerId,
+    dieIds: action.dieIds,
+  });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
   [MOVE_ACTION]: createMoveCommandFromAction,
@@ -508,6 +523,7 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [SELECT_REWARD_ACTION]: createSelectRewardCommandFromAction,
   [ACTIVATE_TACTIC_ACTION]: createActivateTacticCommandFromAction,
   [RESOLVE_TACTIC_DECISION_ACTION]: createResolveTacticDecisionCommandFromAction,
+  [REROLL_SOURCE_DICE_ACTION]: createRerollSourceDiceCommandFromAction,
 };
 
 // Get command for an action
@@ -622,3 +638,10 @@ export {
   type ResolveTacticDecisionCommandArgs,
   RESOLVE_TACTIC_DECISION_COMMAND,
 } from "./resolveTacticDecisionCommand.js";
+
+// Mana Search reroll command
+export {
+  createRerollSourceDiceCommand,
+  type RerollSourceDiceCommandArgs,
+  REROLL_SOURCE_DICE_COMMAND,
+} from "./rerollSourceDiceCommand.js";

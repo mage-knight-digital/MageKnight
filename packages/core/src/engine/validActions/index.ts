@@ -13,6 +13,8 @@ import {
   TACTIC_LONG_NIGHT,
   TACTIC_MIDNIGHT_MEDITATION,
   TACTIC_RETHINK,
+  TACTIC_MANA_SEARCH,
+  MANA_GOLD,
 } from "@mage-knight/shared";
 import {
   checkCanAct,
@@ -229,11 +231,13 @@ function getTacticEffectsOptions(
   // Check for activatable tactics
   const canActivate = getActivatableTactics(state, player);
 
-  // TODO: Check for Mana Search reroll
+  // Check for Mana Search reroll
+  const canRerollSourceDice = getManaSearchOptions(state, player);
+
   // TODO: Check for before-turn requirements
 
   // Return undefined if nothing is available
-  if (!canActivate && !pendingDecision) {
+  if (!canActivate && !pendingDecision && !canRerollSourceDice) {
     return undefined;
   }
 
@@ -243,6 +247,9 @@ function getTacticEffectsOptions(
   }
   if (pendingDecision) {
     (result as { pendingDecision: typeof pendingDecision }).pendingDecision = pendingDecision;
+  }
+  if (canRerollSourceDice) {
+    (result as { canRerollSourceDice: typeof canRerollSourceDice }).canRerollSourceDice = canRerollSourceDice;
   }
 
   return result;
@@ -306,5 +313,49 @@ function getActivatableTactics(
   }
 
   return undefined;
+}
+
+/**
+ * Get Mana Search reroll options for the player.
+ * Returns undefined if Mana Search is not available.
+ */
+function getManaSearchOptions(
+  state: GameState,
+  player: Player
+): TacticEffectsOptions["canRerollSourceDice"] {
+  // Must have Mana Search tactic
+  if (player.selectedTactic !== TACTIC_MANA_SEARCH) {
+    return undefined;
+  }
+
+  // Cannot use if already used this turn
+  if (player.tacticState?.manaSearchUsedThisTurn) {
+    return undefined;
+  }
+
+  // Cannot use after taking mana from source
+  if (player.usedManaFromSource) {
+    return undefined;
+  }
+
+  // Get available dice (not taken by other players)
+  const availableDice = state.source.dice.filter(
+    (d) => d.takenByPlayerId === null || d.takenByPlayerId === player.id
+  );
+
+  if (availableDice.length === 0) {
+    return undefined;
+  }
+
+  // Check if there are gold/depleted dice that must be picked first
+  const restrictedDice = availableDice.filter(
+    (d) => d.isDepleted || d.color === MANA_GOLD
+  );
+
+  return {
+    maxDice: 2,
+    mustPickDepletedFirst: restrictedDice.length > 0,
+    availableDiceIds: availableDice.map((d) => d.id),
+  };
 }
 

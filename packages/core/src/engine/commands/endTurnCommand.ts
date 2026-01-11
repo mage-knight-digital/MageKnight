@@ -237,7 +237,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         // The Right Moment: Same player takes another turn
         nextPlayerId = params.playerId;
 
-        // Clear the extra turn pending flag
+        // Clear the extra turn pending flag and reset per-turn tactic state
         const playerIdx = newState.players.findIndex(
           (p) => p.id === params.playerId
         );
@@ -250,6 +250,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
               tacticState: {
                 ...playerWithClearedExtra.tacticState,
                 extraTurnPending: false,
+                manaSearchUsedThisTurn: false, // Reset for new turn
               },
             };
             const players: Player[] = [...newState.players];
@@ -269,7 +270,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
           currentPlayerIndex: nextPlayerIndex,
         };
 
-        // Give next player their starting move points (TEMPORARY - should come from cards)
+        // Give next player their starting move points and reset per-turn tactic state
         if (nextPlayerId) {
           const nextPlayerIdx = newState.players.findIndex(
             (p) => p.id === nextPlayerId
@@ -280,6 +281,11 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
               const updatedNextPlayer: Player = {
                 ...nextPlayer,
                 movePoints: TURN_START_MOVE_POINTS,
+                // Reset per-turn tactic state (e.g., Mana Search)
+                tacticState: {
+                  ...nextPlayer.tacticState,
+                  manaSearchUsedThisTurn: false,
+                },
               };
               const players: Player[] = [...newState.players];
               players[nextPlayerIdx] = updatedNextPlayer;

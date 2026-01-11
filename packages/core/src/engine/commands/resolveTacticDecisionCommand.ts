@@ -23,7 +23,7 @@ import {
   CARD_DRAWN,
   ROUND_PHASE_TACTICS_SELECTION,
   ROUND_PHASE_PLAYER_TURNS,
-  TACTIC_DECISION_TYPE_RETHINK,
+  TACTIC_DECISION_RETHINK,
 } from "@mage-knight/shared";
 import { RESOLVE_TACTIC_DECISION_COMMAND } from "./commandTypes.js";
 import { shuffleWithRng } from "../../utils/rng.js";
@@ -60,7 +60,7 @@ function validateResolution(
   }
 
   // Tactic-specific validation
-  if (decision.type === TACTIC_DECISION_TYPE_RETHINK) {
+  if (decision.type === TACTIC_DECISION_RETHINK) {
     // Can discard 0-3 cards
     if (decision.cardIds.length > 3) {
       return "Cannot discard more than 3 cards for Rethink";
@@ -129,7 +129,7 @@ export function createResolveTacticDecisionCommand(
       let updatedState = state;
 
       // Handle Rethink resolution
-      if (decision.type === TACTIC_DECISION_TYPE_RETHINK) {
+      if (decision.type === TACTIC_DECISION_RETHINK) {
         const cardsToDiscard = decision.cardIds;
         const discardCount = cardsToDiscard.length;
 
