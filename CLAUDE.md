@@ -35,125 +35,172 @@ server → core → shared
   - `PlayerAction` (discriminated union of player inputs)
   - `GameEvent` (discriminated union of engine outputs)
   - `ClientGameState` and related types (filtered state sent to clients)
-  - `GameConnection` abstraction for local/networked play
   - Core types: `CardId`, `SkillId`, `ManaColor`, `HexCoord`, `Terrain`
 
 - **@mage-knight/core**: Pure TypeScript game engine (server-side only, never imported by client):
-  - `GameState` — full server-side state (players, map, combat, modifiers, etc.)
-  - **Modifier System** — tracks active effects from skills/cards/units with duration and scope
-  - **Command Pattern** — undo support for reversible actions (WIP)
-  - Type domains: player, hero, enemy, map, mana, offers, cards, decks, city, modifiers
-  - Data: tile definitions, site properties
+  - `GameState` — full server-side state
+  - Card effects, combat, validation, modifiers
   - Exports dual ESM/CJS builds
 
-- **@mage-knight/server**: Connects the game engine to clients:
-  - `GameServer` — multiplayer support with per-player state filtering
-  - `toClientState()` — converts full GameState to filtered ClientGameState
-  - `createGame()` / `createGameServer()` — factory functions
+- **@mage-knight/server**: Connects engine to clients:
+  - `GameServer` — multiplayer with per-player state filtering
+  - `toClientState()` — filters state (hides other players' hands, deck contents)
 
-- **@mage-knight/client**: Web UI (scaffold only). Sends actions, receives events through GameConnection.
+- **@mage-knight/client**: React UI with hex map, card display, action menus
 
 ### Communication Pattern
 
-Client ↔ Server communication uses a simple action/event model:
-1. Client sends `PlayerAction` to server via `GameConnection.sendAction()`
-2. Server's engine processes action, returns `GameEvent[]`
-3. Server filters state per-player via `toClientState()` (hides other players' hands, deck contents, etc.)
-4. Events + filtered state dispatched to clients via `EventCallback`
+1. Client sends `PlayerAction` → server
+2. Server validates, executes command, returns `GameEvent[]`
+3. Server filters state per-player via `toClientState()`
+4. Events + filtered state sent to client
 
-The `LocalConnection` class implements this for single-process play; `GameServer` handles multiplayer with broadcast to all connected players.
+---
 
-### Key Systems
+## Core Systems
 
-**Modifier System** (`core/src/engine/modifiers.ts`):
-- Skills, cards, and units apply modifiers with duration (`turn`, `combat`, `round`, `permanent`) and scope (`self`, `one_enemy`, `all_players`, etc.)
-- All game calculations use "effective value" functions that query active modifiers
-- Examples: terrain cost reduction, sideways card bonuses, enemy armor reduction
+### Card Effect System (`core/src/engine/effects/`)
 
-**Command Pattern** (`core/src/engine/commands.ts`, `commandStack.ts`):
-- Enables undo during a player's turn until an irreversible event (tile revealed, enemy drawn, die rolled)
-- Commands implement `execute()` and `undo()` methods
+Effects are a **discriminated union** with 20+ types. Key patterns:
 
-**Seeded RNG System** (`core/src/utils/rng.ts`):
-- All randomness goes through seeded RNG for reproducible games (testing, replays, debugging)
-- `RngState` is stored in `GameState.rng` and threaded through operations
-- Uses Mulberry32 algorithm for fast, well-distributed random numbers
-- Key functions:
-  - `createRng(seed?)` — create initial RNG state (defaults to `Date.now()`)
-  - `shuffleWithRng(array, rng)` — returns `{ result, rng }` (Fisher-Yates)
-  - `randomInt(rng, min, max)` — returns `{ value, rng }`
-  - `randomElement(array, rng)` — returns `{ value, rng }`
-- Pattern: All RNG functions return updated state, must thread through:
-  ```typescript
-  const { result: shuffled, rng: rng1 } = shuffleWithRng(cards, state.rng);
-  const { value: picked, rng: rng2 } = randomElement(enemies, rng1);
-  return { ...state, rng: rng2 };
-  ```
-- Pass optional `seed` to `createInitialGameState(seed)` for deterministic games
+- **Simple**: `GainMoveEffect`, `GainAttackEffect`, `GainBlockEffect`, `GainHealingEffect`
+- **Compound**: `CompoundEffect` executes sub-effects in sequence
+- **Choice**: `ChoiceEffect` presents options, creates `pendingChoice` on player
+- **Conditional**: `ConditionalEffect` branches on game state (time of day, terrain, in combat)
+- **Scaling**: `ScalingEffect` multiplies base effect (per enemy, per wound in hand)
+- **Multi-step**: `ManaDrawPoweredEffect`, `CardBoostEffect` require multiple resolutions
 
-### Dependency Rules
+**Resolution flow**: `resolveEffect()` → may create `pendingChoice` → player sends `RESOLVE_CHOICE` action → resolution continues
 
-- **@mage-knight/shared is the foundation** — defines types used by both client and server
-- **@mage-knight/core imports from shared, never the reverse**
-- **Don't re-export shared types through core files** — import directly from shared where needed
-- **Within core, keep import chains shallow** — one level deep is fine, avoid A → B → C → D chains
-- **Branded ID types live with their domain** — `EnemyTokenId` with enemy types, `TileId` with map types, etc.
-- **When in doubt, check: "if I delete this file, what breaks?"** — minimize blast radius
+**Gotcha**: Effects can be nested. Always check if resolution creates a pending choice before assuming it's complete.
 
-## No Magic Strings (Policy + Workflow)
+### Combat System (`core/src/engine/combat/`)
 
-This repo aims to avoid hard-coded string literals for anything that behaves like an identifier:
-- Discriminators (`type` fields in discriminated unions)
-- Command kinds / event kinds / action kinds
-- Validation codes
-- “Enum-ish” domains (phases, time-of-day, categories, reasons, sources, etc.)
+4-phase combat: **Ranged/Siege → Block → Assign Damage → Attack**
 
-### Preferred Pattern
+- `CombatState` tracks enemies, phase, damage, fortification
+- `ElementalCalc` handles damage with elemental resistances (fire/ice/cold)
+- Dungeons/Tombs: units cannot participate, gold mana unavailable
 
-- **Define exported constants**:
-  - `export const SOME_KIND = "some_kind" as const;`
-- **Type from constants** (keeps runtime + type-level in sync):
-  - `export type SomeKind = typeof SOME_KIND | typeof OTHER_KIND | ...;`
-- **Use constants everywhere**:
-  - comparisons (`x.type === SOME_KIND`)
-  - object literals (`{ type: SOME_KIND, ... }`)
-  - switches (`case SOME_KIND: ...`)
-  - tests (assert against constants, not string literals)
+**Commands**: `enterCombatCommand`, `declareAttackCommand`, `declareBlockCommand`, `assignDamageCommand`, `endCombatPhaseCommand`
 
-We intentionally prefer **`as const` + `typeof`** over TypeScript `enum`s to keep values tree-shakeable and ergonomic across packages.
+### Validation System (`core/src/engine/validators/`)
 
-### Red → Green Refactor Workflow (Lint-First)
+Every action goes through validators before execution:
 
-When cleaning up a “magic string” area:
-- **Red**: add a *blocking* ESLint rule (typically `no-restricted-syntax`) scoped as narrowly as possible (file or field).
-  - The rule should catch the exact pattern (e.g., string-literal unions for a field, or returning a string literal from a mapper).
-- **Green**: introduce constants/types in an appropriate “constants module”, refactor callsites to use them, and keep narrowing via `typeof`.
-- **Expand**: once green, you can broaden the lint scope to cover more files/fields.
+```typescript
+type Validator = (state, playerId, action) => ValidationResult;
+```
 
-The goal is to make the linter act like a “test” that prevents regressions.
+- Validators are **composable** — each action type has a list of validators
+- 100+ validation codes in `validationCodes.ts` (e.g., `NOT_YOUR_TURN`, `CARD_NOT_IN_HAND`)
+- `validateAction()` runs all validators for an action type
 
-### Domain Boundaries Matter
+**ValidActions**: Server computes what actions are legal and sends to client. UI uses this to enable/disable buttons.
 
-It’s OK for multiple domains to share the same underlying string values, but **do not alias semantic domains** unless they truly mean the same thing.
-Example: two domains can both contain `"blue"`, but should still have separate constant sets if they represent different concepts.
+### Mana System (`core/src/types/mana.ts`)
 
-### Monorepo Gotcha: Shared Builds
+Three mana sources:
+1. **Die Pool**: Shared dice (players + 2). Day: gold available, black depleted. Night: reversed.
+2. **Tokens**: Temporary mana from card effects. Returned at end of turn.
+3. **Crystals**: Permanent storage (max 3 per color). Can convert to/from tokens.
 
-Core/server consume `@mage-knight/shared` via built outputs. When adding new exports/constants to shared:
-- rebuild shared (`pnpm -C packages/shared build`) before expecting other packages to "see" them
-- then re-run lint/tests (`pnpm -r lint`, `pnpm test`)
+**Gotcha**: Mana Draw/Pull effects are multi-step — pick die, choose color, gain tokens. Die stays in pool (not removed) but marked with chosen color.
+
+### Command Pattern (`core/src/engine/commands/`)
+
+Commands implement `execute()` and `undo()`. Key concept: **reversibility**.
+
+- `isReversible: true` — can undo (most card plays, movement)
+- `isReversible: false` — sets undo checkpoint (tile reveals, RNG, conquest)
+
+Undo works back to last checkpoint. Commands store state needed for undo in closure.
+
+### Modifier System (`core/src/engine/modifiers.ts`)
+
+Tracks active effects with duration (`turn`, `combat`, `round`, `permanent`) and scope.
+
+Query functions: `getEffectiveTerrainCost()`, `getEffectiveSidewaysValue()`, `isRuleActive()`
+
+Modifiers expire automatically via `expireModifiers(state, reason)` at phase boundaries.
+
+### Reward System (`core/src/engine/helpers/rewardHelpers.ts`)
+
+Site conquest queues rewards to `player.pendingRewards`. Player must select before ending turn.
+
+- Choice rewards (spell, artifact, AA): queued, resolved via `SELECT_REWARD` action
+- Immediate rewards (fame, crystals): granted instantly
+- Selected cards go to **top of deed deck** (drawn next round)
+
+---
+
+## Key Gotchas
+
+### Monorepo Build Order
+Core/server consume shared via built outputs. When adding exports to shared:
+```bash
+pnpm -C packages/shared build  # Rebuild shared first
+pnpm build                      # Then full build
+```
+
+### Client Running Stale Code
+After changes to core/shared, kill dev server and rebuild:
+```bash
+pkill -f vite; pnpm build
+```
+
+### Effect Resolution Creates Pending State
+Many effects don't complete immediately. Check for `pendingChoice`, `pendingRewards`, `pendingTacticDecision` before assuming resolution is done.
+
+### Branded ID Types
+`CardId`, `UnitId`, `EnemyId` are branded strings. Use them for type safety:
+```typescript
+const cardId = "march" as CardId;  // Correct
+const cardId = "march";            // Type error in strict contexts
+```
+
+### RNG Threading
+All randomness must thread through `RngState`:
+```typescript
+const { result, rng: newRng } = shuffleWithRng(cards, state.rng);
+return { ...state, rng: newRng };
+```
+
+---
+
+## No Magic Strings Policy
+
+All identifiers use exported constants:
+```typescript
+export const SOME_KIND = "some_kind" as const;
+export type SomeKind = typeof SOME_KIND | typeof OTHER_KIND;
+```
+
+Use constants in comparisons, object literals, switches. Never raw strings.
+
+---
 
 ## Pre-Push Verification
 
-**IMPORTANT:** Before pushing changes to the remote repository, always run the full CI check locally:
-
+**Always run before pushing:**
 ```bash
 pnpm build && pnpm lint && pnpm test
 ```
 
-This matches what CI runs and catches issues like:
-- Missing properties when types are modified in one package but not updated in another
-- Build errors that only surface during TypeScript compilation (not in IDE)
-- Cross-package type mismatches
+Catches cross-package type mismatches that IDE won't see until full build.
 
-The monorepo structure means changes in `core` (e.g., adding a new field to `Player`) may require updates in `server` that won't be caught by IDE type-checking alone until a full build is performed.
+---
+
+## File Reference
+
+| What | Where |
+|------|-------|
+| Card definitions | `core/src/data/cards/` |
+| Effect types | `shared/src/effectTypes.ts` |
+| Effect resolution | `core/src/engine/effects/resolveEffect.ts` |
+| Combat commands | `core/src/engine/commands/combat/` |
+| Validators | `core/src/engine/validators/` |
+| Valid actions | `core/src/engine/validActions/` |
+| Site properties | `core/src/data/siteProperties.ts` |
+| Client state filter | `server/src/index.ts` (`toClientState`) |
+| Mana source logic | `core/src/engine/mana/` |
