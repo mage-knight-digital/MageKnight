@@ -16,6 +16,7 @@ import {
   TACTIC_MANA_SEARCH,
   TACTIC_SPARING_POWER,
   TACTIC_MANA_STEAL,
+  TACTIC_PREPARATION,
   MANA_GOLD,
   BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
@@ -299,6 +300,16 @@ function getPendingTacticDecision(
     return {
       type: pending.type,
       availableDiceIds: availableBasicDice.map((d) => d.id),
+    };
+  }
+
+  // Preparation: choose a card from deck
+  if (pending.type === TACTIC_PREPARATION) {
+    // The deckSnapshot is stored in the pending decision - this is secret info
+    // Only sent to the owning player via toClientState filtering
+    return {
+      type: pending.type,
+      deckSnapshot: pending.deckSnapshot,
     };
   }
 

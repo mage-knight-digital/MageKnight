@@ -29,6 +29,7 @@ import {
   TACTIC_RETHINK,
   TACTIC_SPARING_POWER,
   TACTIC_MANA_STEAL,
+  TACTIC_PREPARATION,
   BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
 import { getTacticCard } from "../../data/tactics.js";
@@ -187,6 +188,16 @@ export function createSelectTacticCommand(
           pendingTacticDecision = { type: TACTIC_MANA_STEAL };
         }
         // If no basic dice available, the tactic effect is skipped (you just get the turn order)
+      }
+
+      // Preparation (Night 5): Player must choose a card from their deck
+      if (tacticId === TACTIC_PREPARATION) {
+        // If deck has cards, create pending decision with deck snapshot
+        // Note: playerDeck may have already been modified by Great Start earlier (but won't be since Great Start is Day)
+        if (playerDeck.length > 0) {
+          pendingTacticDecision = { type: TACTIC_PREPARATION, deckSnapshot: [...playerDeck] };
+        }
+        // If deck is empty, effect is skipped (just get turn order)
       }
 
       // Update the player with their selected tactic (and any on-pick effect results)

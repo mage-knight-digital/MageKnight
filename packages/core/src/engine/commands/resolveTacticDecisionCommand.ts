@@ -26,6 +26,7 @@ import {
   TACTIC_DECISION_RETHINK,
   TACTIC_DECISION_SPARING_POWER,
   TACTIC_DECISION_MANA_STEAL,
+  TACTIC_DECISION_PREPARATION,
   TACTIC_SPARING_POWER,
   SPARING_POWER_CHOICE_STASH,
   SPARING_POWER_CHOICE_TAKE,
@@ -104,6 +105,18 @@ function validateResolution(
     }
     if (!BASIC_MANA_COLORS.includes(die.color as typeof BASIC_MANA_COLORS[number])) {
       return `Can only steal basic color dice (red, blue, green, white)`;
+    }
+  }
+
+  // Preparation validation
+  if (decision.type === TACTIC_DECISION_PREPARATION) {
+    // Card must exist in the deck snapshot
+    const pending = player.pendingTacticDecision;
+    if (pending?.type !== TACTIC_DECISION_PREPARATION) {
+      return "No preparation decision pending";
+    }
+    if (!pending.deckSnapshot.includes(decision.cardId)) {
+      return `Card ${decision.cardId} is not in the deck`;
     }
   }
 
@@ -317,6 +330,42 @@ export function createResolveTacticDecisionCommand(
             players: updatedPlayers,
           };
         }
+      }
+
+      // Handle Preparation resolution
+      if (decision.type === TACTIC_DECISION_PREPARATION) {
+        const chosenCardId = decision.cardId;
+
+        // Remove the card from deck and add to hand
+        const newDeck = player.deck.filter((c) => c !== chosenCardId);
+
+        // Shuffle the remaining deck
+        const { result: shuffledDeck, rng: newRng } = shuffleWithRng(newDeck, updatedState.rng);
+
+        const newHand: CardId[] = [...player.hand, chosenCardId];
+
+        const updatedPlayers: Player[] = updatedState.players.map((p) =>
+          p.id === playerId
+            ? {
+                ...p,
+                hand: newHand,
+                deck: shuffledDeck,
+                pendingTacticDecision: null,
+              }
+            : p
+        );
+
+        updatedState = {
+          ...updatedState,
+          players: updatedPlayers,
+          rng: newRng,
+        };
+
+        events.push({
+          type: CARD_DRAWN,
+          playerId,
+          count: 1,
+        });
       }
 
       // Emit resolution event
