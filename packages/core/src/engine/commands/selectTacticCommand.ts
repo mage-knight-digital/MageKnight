@@ -26,6 +26,7 @@ import {
   getTacticsForTimeOfDay,
   DUMMY_TACTIC_AFTER_HUMANS,
   TACTIC_GREAT_START,
+  TACTIC_RETHINK,
 } from "@mage-knight/shared";
 import { getTacticCard } from "../../data/tactics.js";
 import { SELECT_TACTIC_COMMAND } from "./commandTypes.js";
@@ -161,6 +162,14 @@ export function createSelectTacticCommand(
         }
       }
 
+      // Check for pending tactic decisions (on-pick effects that require player choice)
+      let pendingTacticDecision: Player["pendingTacticDecision"] = null;
+
+      // Rethink (Day 2): Player must choose up to 3 cards to discard
+      if (tacticId === TACTIC_RETHINK && playerHand.length > 0) {
+        pendingTacticDecision = { type: TACTIC_RETHINK, maxCards: 3 };
+      }
+
       // Update the player with their selected tactic (and any on-pick effect results)
       const updatedPlayers = state.players.map((p) =>
         p.id === playerId
@@ -170,6 +179,7 @@ export function createSelectTacticCommand(
               tacticFlipped: false,
               hand: playerHand,
               deck: playerDeck,
+              pendingTacticDecision,
             }
           : p
       );
@@ -186,6 +196,20 @@ export function createSelectTacticCommand(
         tacticId,
         turnOrder: tacticCard.turnOrder,
       });
+
+      // If there's a pending tactic decision, don't advance yet
+      // Player must resolve their decision before we move to next selector
+      if (pendingTacticDecision !== null) {
+        return {
+          state: {
+            ...state,
+            players: updatedPlayers,
+            availableTactics: updatedAvailableTactics,
+            // Keep currentTacticSelector unchanged - player must resolve first
+          },
+          events,
+        };
+      }
 
       // Determine next selector
       const currentIndex = state.tacticsSelectionOrder.indexOf(playerId);

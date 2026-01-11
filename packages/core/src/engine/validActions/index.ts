@@ -12,6 +12,7 @@ import {
   TACTIC_THE_RIGHT_MOMENT,
   TACTIC_LONG_NIGHT,
   TACTIC_MIDNIGHT_MEDITATION,
+  TACTIC_RETHINK,
 } from "@mage-knight/shared";
 import {
   checkCanAct,
@@ -81,6 +82,26 @@ export function getValidActions(
 
   // Handle tactics selection phase
   if (isTacticsPhase(state)) {
+    // Check if player has a pending tactic decision to resolve
+    const pendingDecision = getPendingTacticDecision(player);
+    if (pendingDecision) {
+      return {
+        canAct: true,
+        reason: undefined,
+        move: undefined,
+        explore: undefined,
+        playCard: undefined,
+        combat: undefined,
+        units: undefined,
+        sites: undefined,
+        mana: undefined,
+        turn: undefined,
+        tactics: undefined, // No more tactic selection - must resolve first
+        enterCombat: undefined,
+        tacticEffects: { pendingDecision },
+      };
+    }
+
     return {
       canAct: true,
       reason: undefined,
@@ -202,21 +223,52 @@ function getTacticEffectsOptions(
     return undefined;
   }
 
+  // Check for pending tactic decisions first (these take priority)
+  const pendingDecision = getPendingTacticDecision(player);
+
   // Check for activatable tactics
   const canActivate = getActivatableTactics(state, player);
 
   // TODO: Check for Mana Search reroll
-  // TODO: Check for pending tactic decisions
   // TODO: Check for before-turn requirements
 
   // Return undefined if nothing is available
-  if (!canActivate) {
+  if (!canActivate && !pendingDecision) {
     return undefined;
   }
 
-  return {
-    canActivate,
-  };
+  const result: TacticEffectsOptions = {};
+  if (canActivate) {
+    (result as { canActivate: typeof canActivate }).canActivate = canActivate;
+  }
+  if (pendingDecision) {
+    (result as { pendingDecision: typeof pendingDecision }).pendingDecision = pendingDecision;
+  }
+
+  return result;
+}
+
+/**
+ * Get pending tactic decision info for the player.
+ */
+function getPendingTacticDecision(
+  player: Player
+): TacticEffectsOptions["pendingDecision"] {
+  const pending = player.pendingTacticDecision;
+  if (!pending) {
+    return undefined;
+  }
+
+  // Convert to PendingTacticDecisionInfo format
+  if (pending.type === TACTIC_RETHINK) {
+    return {
+      type: pending.type,
+      maxCards: pending.maxCards,
+    };
+  }
+
+  // TODO: Handle other pending decision types
+  return undefined;
 }
 
 /**

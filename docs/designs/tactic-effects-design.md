@@ -447,7 +447,7 @@ If player chooses "stash" but deck is empty:
    - Deck/discard manipulation with seeded RNG
    - Validates activated flow
 
-6. **Complex On-Pick** - Rethink:
+6. ✅ **Complex On-Pick** - Rethink:
    - `pendingTacticDecision` pattern
    - Multi-card selection
    - Shuffle + draw

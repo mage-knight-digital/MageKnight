@@ -23,6 +23,7 @@ export const SELECT_TACTIC_COMMAND = "SELECT_TACTIC" as const;
 
 // Tactic effect commands
 export const ACTIVATE_TACTIC_COMMAND = "ACTIVATE_TACTIC" as const;
+export const RESOLVE_TACTIC_DECISION_COMMAND = "RESOLVE_TACTIC_DECISION" as const;
 
 // Conquest commands
 export const CONQUER_SITE_COMMAND = "CONQUER_SITE" as const;
