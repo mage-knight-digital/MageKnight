@@ -23,6 +23,8 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -118,6 +120,26 @@ export function describeEffect(effect: CardEffect): string {
 
     case EFFECT_MANA_DRAW_SET_COLOR:
       return `Set die to ${effect.color}, gain 2 ${effect.color} mana`;
+
+    case EFFECT_SELECT_COMBAT_ENEMY:
+      if (effect.template.defeat) {
+        return "Defeat target enemy";
+      }
+      return "Target an enemy";
+
+    case EFFECT_RESOLVE_COMBAT_ENEMY_TARGET: {
+      // Show the enemy name in the choice description
+      if (effect.template.defeat) {
+        return `Defeat ${effect.enemyName}`;
+      }
+      // Build description from modifiers, replacing "target enemy" with actual name
+      const modDescriptions = effect.template.modifiers
+        ?.map((m) => m.description)
+        .filter((desc): desc is string => Boolean(desc))
+        .map((desc) => desc.replace(/[Tt]arget enemy/g, effect.enemyName))
+        .join(", ");
+      return modDescriptions || `Target ${effect.enemyName}`;
+    }
 
     default:
       return "Unknown effect";

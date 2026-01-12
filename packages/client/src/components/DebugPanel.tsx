@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import { useGame } from "../hooks/useGame";
-import type { EnemyId, CardId, BasicManaColor } from "@mage-knight/shared";
+import type { EnemyId, CardId, BasicManaColor, ManaColor } from "@mage-knight/shared";
 import { getEnemy } from "@mage-knight/shared";
 
 // Enemy options grouped by color
@@ -98,10 +98,13 @@ const ALL_CARDS: { id: CardId; name: string; category: string }[] = [
   // Spells (Red)
   { id: "fireball" as CardId, name: "Fireball", category: "Spell Red" },
   { id: "flame_wall" as CardId, name: "Flame Wall", category: "Spell Red" },
+  { id: "tremor" as CardId, name: "Tremor", category: "Spell Red" },
   // Spells (Blue)
   { id: "snowstorm" as CardId, name: "Snowstorm", category: "Spell Blue" },
+  { id: "chill" as CardId, name: "Chill", category: "Spell Blue" },
   // Spells (Green)
   { id: "restoration" as CardId, name: "Restoration", category: "Spell Green" },
+  { id: "whirlwind" as CardId, name: "Whirlwind", category: "Spell Green" },
   // Spells (White)
   { id: "expose" as CardId, name: "Expose", category: "Spell White" },
   // Advanced Actions - Bolts
@@ -161,6 +164,16 @@ const MANA_COLORS: { id: BasicManaColor; name: string; color: string }[] = [
   { id: "blue", name: "Blue", color: "#3498db" },
   { id: "green", name: "Green", color: "#27ae60" },
   { id: "white", name: "White", color: "#ecf0f1" },
+];
+
+// All mana colors including special ones (for tokens)
+const ALL_TOKEN_COLORS: { id: ManaColor; name: string; color: string; textColor: string }[] = [
+  { id: "red", name: "Red", color: "#e74c3c", textColor: "#fff" },
+  { id: "blue", name: "Blue", color: "#3498db", textColor: "#fff" },
+  { id: "green", name: "Green", color: "#27ae60", textColor: "#fff" },
+  { id: "white", name: "White", color: "#ecf0f1", textColor: "#333" },
+  { id: "black", name: "Black", color: "#2c3e50", textColor: "#fff" },
+  { id: "gold", name: "Gold", color: "#f1c40f", textColor: "#333" },
 ];
 
 export function DebugPanel() {
@@ -266,7 +279,7 @@ export function DebugPanel() {
     loadGame(JSON.stringify(gameState));
   };
 
-  const handleAddManaToken = (color: BasicManaColor) => {
+  const handleAddManaToken = (color: ManaColor) => {
     const json = saveGame();
     if (!json) return;
 
@@ -278,6 +291,22 @@ export function DebugPanel() {
       player.manaTokens = [];
     }
     player.manaTokens.push(color);
+    loadGame(JSON.stringify(gameState));
+  };
+
+  const handleAddAllManaTokens = () => {
+    const json = saveGame();
+    if (!json) return;
+
+    const gameState = JSON.parse(json);
+    const player = gameState.players[0];
+    if (!player) return;
+
+    if (!player.manaTokens) {
+      player.manaTokens = [];
+    }
+    // Add one of each color
+    player.manaTokens.push("red", "blue", "green", "white", "black", "gold");
     loadGame(JSON.stringify(gameState));
   };
 
@@ -482,17 +511,20 @@ export function DebugPanel() {
             </button>
           </div>
           <div className="debug-panel__row">
-            {MANA_COLORS.map((mana) => (
+            {ALL_TOKEN_COLORS.map((mana) => (
               <button
                 key={mana.id}
                 type="button"
                 onClick={() => handleAddManaToken(mana.id)}
-                style={{ backgroundColor: mana.color, color: mana.id === "white" ? "#333" : "#fff" }}
+                style={{ backgroundColor: mana.color, color: mana.textColor }}
                 title={`Add ${mana.name} Token`}
               >
                 +🔮
               </button>
             ))}
+            <button type="button" onClick={handleAddAllManaTokens}>
+              +All
+            </button>
           </div>
         </section>
 
