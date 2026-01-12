@@ -212,32 +212,47 @@ body {
 /* ============================================
    Tactic Selection
    ============================================ */
+.tactic-selection {
+  width: min(95vw, 1400px);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
 .tactic-selection__title {
-  font-size: 1.5rem;
+  font-size: clamp(1.5rem, 2.5vh, 2.5rem);
   font-weight: 600;
   text-align: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.5vh;
 }
 
 .tactic-selection__subtitle {
   text-align: center;
   color: #888;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.5vh;
+  font-size: clamp(1rem, 1.5vh, 1.25rem);
 }
 
 .tactic-selection__grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  grid-template-rows: repeat(2, 1fr);
+  gap: clamp(0.5rem, 1.5vh, 1.5rem);
+  flex: 1;
+  min-height: 0;
 }
 
 .tactic-card {
   background: #0f0f23;
   border: 2px solid #333;
   border-radius: 8px;
-  padding: 0.5rem;
+  padding: clamp(0.25rem, 0.75vh, 0.75rem);
   cursor: pointer;
   transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
 }
 
 .tactic-card:hover {
@@ -246,17 +261,20 @@ body {
 }
 
 .tactic-card__image {
-  width: 150px;
-  height: auto;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  object-fit: contain;
   border-radius: 4px;
   display: block;
 }
 
 .tactic-card__name {
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
+  margin-top: 0.5vh;
+  font-size: clamp(0.75rem, 1.25vh, 1rem);
   text-align: center;
   color: #eee;
+  flex-shrink: 0;
 }
 
 /* ============================================

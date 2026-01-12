@@ -40,7 +40,6 @@ function TacticCard({ tacticId, onClick }: TacticCardProps) {
         alt={TACTIC_NAMES[tacticId]}
         className="tactic-card__image"
       />
-      <div className="tactic-card__name">{TACTIC_NAMES[tacticId]}</div>
     </button>
   );
 }
