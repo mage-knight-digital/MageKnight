@@ -360,6 +360,43 @@ export function applyDrawCards(
   };
 }
 
+/**
+ * Apply "take wound" effect - adds wound cards directly to hand.
+ * This is a COST, not combat damage - it bypasses armor.
+ * Used by Fireball powered, Snowstorm powered, etc.
+ */
+export function applyTakeWound(
+  state: GameState,
+  playerIndex: number,
+  player: Player,
+  amount: number
+): EffectResolutionResult {
+  // Create wound cards to add to hand
+  const woundsToAdd: CardId[] = Array(amount).fill(CARD_WOUND);
+
+  const updatedPlayer: Player = {
+    ...player,
+    hand: [...player.hand, ...woundsToAdd],
+  };
+
+  // Decrement wound pile (if tracked)
+  const newWoundPileCount =
+    state.woundPileCount === null ? null : Math.max(0, state.woundPileCount - amount);
+
+  const updatedState = {
+    ...updatePlayer(state, playerIndex, updatedPlayer),
+    woundPileCount: newWoundPileCount,
+  };
+
+  const description =
+    amount === 1 ? "Took 1 wound" : `Took ${amount} wounds`;
+
+  return {
+    state: updatedState,
+    description,
+  };
+}
+
 export function applyModifierEffect(
   state: GameState,
   playerId: string,

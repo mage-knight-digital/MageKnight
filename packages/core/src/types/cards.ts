@@ -29,6 +29,7 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_TAKE_WOUND,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   MANA_ANY,
@@ -220,6 +221,16 @@ export interface ManaDrawSetColorEffect {
   readonly alreadySelectedDieIds: readonly SourceDieId[];
 }
 
+/**
+ * Take a wound - add wound card(s) to hand.
+ * Used as a cost for powerful spell effects like Fireball and Snowstorm powered.
+ * This is NOT combat damage - it bypasses armor and adds wounds directly.
+ */
+export interface TakeWoundEffect {
+  readonly type: typeof EFFECT_TAKE_WOUND;
+  readonly amount: number; // Number of wounds to take (usually 1)
+}
+
 export interface ApplyModifierEffect {
   readonly type: typeof EFFECT_APPLY_MODIFIER;
   readonly modifier: ModifierEffect;
@@ -326,6 +337,7 @@ export type CardEffect =
   | ManaDrawPoweredEffect
   | ManaDrawPickDieEffect
   | ManaDrawSetColorEffect
+  | TakeWoundEffect
   | ApplyModifierEffect
   | CompoundEffect
   | ChoiceEffect

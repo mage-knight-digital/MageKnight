@@ -40,6 +40,7 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_TAKE_WOUND,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   MANA_ANY,
@@ -69,6 +70,7 @@ import {
   applyDrawCards,
   applyChangeReputation,
   applyGainCrystal,
+  applyTakeWound,
   applyModifierEffect,
   MIN_REPUTATION,
   MAX_REPUTATION,
@@ -156,6 +158,7 @@ export function isEffectResolvable(
     case EFFECT_GAIN_ATTACK:
     case EFFECT_GAIN_BLOCK:
     case EFFECT_GAIN_MANA:
+    case EFFECT_TAKE_WOUND:
       return true;
 
     case EFFECT_APPLY_MODIFIER: {
@@ -291,6 +294,9 @@ export function resolveEffect(
 
     case EFFECT_GAIN_HEALING:
       return applyGainHealing(state, playerIndex, player, effect.amount);
+
+    case EFFECT_TAKE_WOUND:
+      return applyTakeWound(state, playerIndex, player, effect.amount);
 
     case EFFECT_DRAW_CARDS:
       return applyDrawCards(state, playerIndex, player, effect.amount);
@@ -776,6 +782,13 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
       // Drawing cards reveals hidden information (deck contents), so this
       // effect should be non-reversible. Commands containing draw effects
       // should create an undo checkpoint (CHECKPOINT_REASON_CARD_DRAWN).
+      return player;
+
+    case EFFECT_TAKE_WOUND:
+      // Taking wounds can't be reliably reversed - we'd need to remove the
+      // wound from hand and return it to the wound pile, but the player
+      // might have interacted with the wound in the meantime.
+      // Commands containing take wound effects should be non-reversible.
       return player;
 
     case EFFECT_SELECT_COMBAT_ENEMY:

@@ -65,6 +65,10 @@ export type CardColor =
 // Used when an effect can produce any color of mana
 export const MANA_ANY = "any" as const;
 
+// === Cost Effects ===
+// Take a wound (add wound card to hand)
+export const EFFECT_TAKE_WOUND = "take_wound" as const;
+
 // === Enemy Targeting Effects ===
 // Entry effect for selecting an enemy in combat
 export const EFFECT_SELECT_COMBAT_ENEMY = "select_combat_enemy" as const;

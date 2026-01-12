@@ -22,6 +22,8 @@ import {
   EFFECT_CHOICE,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_APPLY_MODIFIER,
+  EFFECT_COMPOUND,
+  EFFECT_TAKE_WOUND,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
   COMBAT_TYPE_MELEE,
@@ -122,9 +124,6 @@ function choice(options: readonly CardEffect[]): CardEffect {
  * Fireball (Red Spell #09)
  * Basic: Ranged Fire Attack 5
  * Powered: Take a Wound. Siege Fire Attack 8.
- *
- * Note: The "take a wound" cost is not yet implemented.
- * For now, powered just gives Siege Fire Attack 8.
  */
 const FIREBALL: DeedCard = {
   id: CARD_FIREBALL,
@@ -133,7 +132,13 @@ const FIREBALL: DeedCard = {
   categories: [CARD_CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
   basicEffect: fireRangedAttack(5),
-  poweredEffect: fireSiegeAttack(8),
+  poweredEffect: {
+    type: EFFECT_COMPOUND,
+    effects: [
+      { type: EFFECT_TAKE_WOUND, amount: 1 },
+      fireSiegeAttack(8),
+    ],
+  },
   sidewaysValue: 1,
 };
 
@@ -160,8 +165,6 @@ const FLAME_WALL: DeedCard = {
  * Snowstorm / Blizzard (Blue Spell #15)
  * Basic: Ranged Ice Attack 5
  * Powered: Take a Wound. Siege Ice Attack 8.
- *
- * Note: The "take a wound" cost is not yet implemented.
  */
 const SNOWSTORM: DeedCard = {
   id: CARD_SNOWSTORM,
@@ -170,7 +173,13 @@ const SNOWSTORM: DeedCard = {
   categories: [CARD_CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_BLUE],
   basicEffect: iceRangedAttack(5),
-  poweredEffect: iceSiegeAttack(8),
+  poweredEffect: {
+    type: EFFECT_COMPOUND,
+    effects: [
+      { type: EFFECT_TAKE_WOUND, amount: 1 },
+      iceSiegeAttack(8),
+    ],
+  },
   sidewaysValue: 1,
 };
 
