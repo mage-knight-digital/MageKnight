@@ -7,7 +7,7 @@
  */
 
 import type { ClientCombatState, CombatOptions } from "@mage-knight/shared";
-import { UNDO_ACTION, COMBAT_PHASE_ATTACK, COMBAT_PHASE_BLOCK } from "@mage-knight/shared";
+import { UNDO_ACTION, COMBAT_PHASE_ATTACK, COMBAT_PHASE_BLOCK, COMBAT_PHASE_RANGED_SIEGE } from "@mage-knight/shared";
 import { PhaseIndicator } from "./PhaseIndicator";
 import { EnemyList } from "./EnemyList";
 import { CombatSummary } from "./CombatSummary";
@@ -31,16 +31,29 @@ function AccumulatorDisplay() {
   const phase = state.combat.phase;
   const acc = player.combatAccumulator;
 
-  // Show attack accumulator in attack phase
-  if (phase === COMBAT_PHASE_ATTACK) {
+  // Show attack accumulator in ranged/siege phase or attack phase
+  if (phase === COMBAT_PHASE_RANGED_SIEGE || phase === COMBAT_PHASE_ATTACK) {
     const { attack } = acc;
-    const hasAttack = attack.normal > 0 || attack.ranged > 0 || attack.siege > 0;
 
-    if (!hasAttack) {
+    // Calculate totals including elemental values
+    // Elemental attacks are stored separately from physical attacks
+    const totalRanged = attack.ranged + attack.rangedElements.fire + attack.rangedElements.ice;
+    const totalSiege = attack.siege + attack.siegeElements.fire + attack.siegeElements.ice;
+    const totalNormal = attack.normal + attack.normalElements.fire + attack.normalElements.ice + attack.normalElements.coldFire + attack.normalElements.physical;
+
+    // In ranged/siege phase, only ranged and siege matter
+    const isRangedSiege = phase === COMBAT_PHASE_RANGED_SIEGE;
+    const relevantAttack = isRangedSiege
+      ? totalRanged + totalSiege
+      : totalNormal + totalRanged + totalSiege;
+
+    if (relevantAttack === 0) {
       return (
         <div className="combat-accumulator">
           <span className="combat-accumulator__label">Attack:</span>
-          <span className="combat-accumulator__empty">None yet</span>
+          <span className="combat-accumulator__empty">
+            {isRangedSiege ? "No ranged/siege attacks yet" : "None yet"}
+          </span>
         </div>
       );
     }
@@ -49,25 +62,26 @@ function AccumulatorDisplay() {
       <div className="combat-accumulator">
         <span className="combat-accumulator__label">Attack:</span>
         <div className="combat-accumulator__values">
-          {attack.normal > 0 && (
+          {/* Only show melee in attack phase */}
+          {!isRangedSiege && totalNormal > 0 && (
             <span className="combat-accumulator__value combat-accumulator__value--melee">
-              {attack.normal} Melee
+              {totalNormal} Melee
               {attack.normalElements.physical > 0 && ` (${attack.normalElements.physical} phys)`}
               {attack.normalElements.fire > 0 && ` (${attack.normalElements.fire} fire)`}
               {attack.normalElements.ice > 0 && ` (${attack.normalElements.ice} ice)`}
               {attack.normalElements.coldFire > 0 && ` (${attack.normalElements.coldFire} coldfire)`}
             </span>
           )}
-          {attack.ranged > 0 && (
+          {totalRanged > 0 && (
             <span className="combat-accumulator__value combat-accumulator__value--ranged">
-              {attack.ranged} Ranged
+              {totalRanged} Ranged
               {attack.rangedElements.fire > 0 && ` (${attack.rangedElements.fire} fire)`}
               {attack.rangedElements.ice > 0 && ` (${attack.rangedElements.ice} ice)`}
             </span>
           )}
-          {attack.siege > 0 && (
+          {totalSiege > 0 && (
             <span className="combat-accumulator__value combat-accumulator__value--siege">
-              {attack.siege} Siege
+              {totalSiege} Siege
               {attack.siegeElements.fire > 0 && ` (${attack.siegeElements.fire} fire)`}
               {attack.siegeElements.ice > 0 && ` (${attack.siegeElements.ice} ice)`}
             </span>

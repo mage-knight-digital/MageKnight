@@ -37,6 +37,7 @@ interface EnemyCardProps {
   attackOption?: AttackOption;
   accumulatedAttack?: number;
   onAssignAttack?: (enemyInstanceId: string) => void;
+  isRangedSiegePhase?: boolean;
 }
 
 export function EnemyCard({
@@ -54,6 +55,7 @@ export function EnemyCard({
   attackOption,
   accumulatedAttack = 0,
   onAssignAttack,
+  isRangedSiegePhase = false,
 }: EnemyCardProps) {
   const elementIcon = ELEMENT_ICONS[enemy.attackElement] || "";
 
@@ -188,7 +190,7 @@ export function EnemyCard({
         </button>
       )}
 
-      {/* Assign Attack button during attack phase */}
+      {/* Assign Attack button during attack or ranged/siege phase */}
       {showAssignAttack && attackOption && (
         <button
           className={`enemy-card__assign-attack ${canDefeat ? "enemy-card__assign-attack--can-defeat" : "enemy-card__assign-attack--insufficient"}`}
@@ -196,8 +198,20 @@ export function EnemyCard({
           onClick={handleAssignAttack}
           disabled={!canDefeat}
         >
-          Attack ({accumulatedAttack} → {attackOption.enemyArmor})
+          {isRangedSiegePhase ? (
+            attackOption.requiresSiege
+              ? `Siege Attack (${accumulatedAttack} → ${attackOption.enemyArmor})`
+              : `Ranged Attack (${accumulatedAttack} → ${attackOption.enemyArmor})`
+          ) : (
+            `Attack (${accumulatedAttack} → ${attackOption.enemyArmor})`
+          )}
         </button>
+      )}
+      {/* Show warning if enemy requires siege but we don't have siege attacks */}
+      {isRangedSiegePhase && attackOption?.requiresSiege && accumulatedAttack > 0 && !canDefeat && (
+        <div className="enemy-card__siege-warning">
+          Fortified - requires Siege attack
+        </div>
       )}
     </div>
   );
