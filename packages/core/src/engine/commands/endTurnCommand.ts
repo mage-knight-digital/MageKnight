@@ -23,19 +23,22 @@ import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import { createEmptyCombatAccumulator } from "../../types/player.js";
-import type { CardId, GameEvent } from "@mage-knight/shared";
+import type { CardId, GameEvent, BasicManaColor } from "@mage-knight/shared";
 import {
   TURN_ENDED,
   LEVEL_UP,
   LEVEL_UP_REWARDS_PENDING,
   COMMAND_SLOT_GAINED,
   GAME_ENDED,
+  CRYSTAL_GAINED,
   getLevelUpType,
   LEVEL_STATS,
   LEVEL_UP_TYPE_ODD,
   TURN_START_MOVE_POINTS,
   TACTIC_SPARING_POWER,
+  hexKey,
 } from "@mage-knight/shared";
+import { SiteType, mineColorToBasicManaColor } from "../../types/map.js";
 import { expireModifiers } from "../modifiers.js";
 import { EXPIRATION_TURN_END } from "../modifierConstants.js";
 import { END_TURN_COMMAND } from "./commandTypes.js";
@@ -81,6 +84,35 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         return createAnnounceEndOfRoundCommand({ playerId: params.playerId }).execute(state);
       }
 
+      // Crystal Mine check: If player ends turn on a mine, gain a crystal of that color
+      // Max 3 crystals per color - if already at max, no crystal gained
+      const MAX_CRYSTALS_PER_COLOR = 3;
+      let crystalMineEvents: GameEvent[] = [];
+      let playerWithCrystal = currentPlayer;
+      if (currentPlayer.position) {
+        const hex = state.map.hexes[hexKey(currentPlayer.position)];
+        if (hex?.site?.type === SiteType.Mine && hex.site.mineColor) {
+          const manaColor: BasicManaColor = mineColorToBasicManaColor(hex.site.mineColor);
+          const currentCount = currentPlayer.crystals[manaColor];
+          // Only grant crystal if under the max
+          if (currentCount < MAX_CRYSTALS_PER_COLOR) {
+            playerWithCrystal = {
+              ...currentPlayer,
+              crystals: {
+                ...currentPlayer.crystals,
+                [manaColor]: currentCount + 1,
+              },
+            };
+            crystalMineEvents = [{
+              type: CRYSTAL_GAINED,
+              playerId: params.playerId,
+              color: manaColor,
+              source: "crystal_mine",
+            }];
+          }
+        }
+      }
+
       // Step 1: Move play area cards to discard
       const playAreaCards = currentPlayer.playArea;
       const newDiscard = [...currentPlayer.discard, ...playAreaCards];
@@ -106,8 +138,9 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       }
 
       // Reset current player's turn state with card flow updates
+      // Use playerWithCrystal to include any crystal gained from mines
       const resetPlayer: Player = {
-        ...currentPlayer,
+        ...playerWithCrystal,
         // Existing resets
         movePoints: 0,
         influencePoints: 0,
@@ -359,6 +392,8 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       }
 
       const events: GameEvent[] = [
+        // Crystal mine events come first (gain crystal before turn ends)
+        ...crystalMineEvents,
         {
           type: TURN_ENDED,
           playerId: params.playerId,

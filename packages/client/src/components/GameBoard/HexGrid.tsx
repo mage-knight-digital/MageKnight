@@ -44,6 +44,14 @@ const SITE_COLORS: Record<string, string> = {
   city: "#FFD700",
 };
 
+// Mine crystal colors (matches mana colors)
+const MINE_CRYSTAL_COLORS: Record<string, string> = {
+  red: "#DC143C",
+  blue: "#4169E1",
+  green: "#228B22",
+  white: "#F5F5F5",
+};
+
 function hexToPixel(coord: HexCoord): { x: number; y: number } {
   // Axial to pixel conversion (pointy-top hexes)
   const x = HEX_SIZE * (Math.sqrt(3) * coord.q + (Math.sqrt(3) / 2) * coord.r);
@@ -342,6 +350,20 @@ function Hex({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexProps) {
       {/* Site marker */}
       {siteColor && (
         <circle r={HEX_SIZE * 0.3} fill={siteColor} stroke="#000" strokeWidth="1" />
+      )}
+
+      {/* Mine crystal color indicator */}
+      {hex.site?.type === "mine" && hex.site.mineColor && (
+        <g>
+          {/* Crystal shape (hexagon) */}
+          <polygon
+            points={hexPoints(HEX_SIZE * 0.15)}
+            fill={MINE_CRYSTAL_COLORS[hex.site.mineColor] ?? "#888"}
+            stroke="#000"
+            strokeWidth="1"
+            transform={`translate(0, ${HEX_SIZE * 0.25})`}
+          />
+        </g>
       )}
 
       {/* Player token */}

@@ -472,6 +472,14 @@ export interface CrystalUsedEvent {
   readonly color: ManaColor;
 }
 
+export const CRYSTAL_GAINED = "CRYSTAL_GAINED" as const;
+export interface CrystalGainedEvent {
+  readonly type: typeof CRYSTAL_GAINED;
+  readonly playerId: string;
+  readonly color: ManaColor;
+  readonly source: string;
+}
+
 export const MANA_TOKEN_USED = "MANA_TOKEN_USED" as const;
 export interface ManaTokenUsedEvent {
   readonly type: typeof MANA_TOKEN_USED;
@@ -950,6 +958,7 @@ export type GameEvent =
   | CrystalConvertedEvent
   | ManaDieUsedEvent
   | CrystalUsedEvent
+  | CrystalGainedEvent
   | ManaTokenUsedEvent
   // Health/damage
   | WoundReceivedEvent
