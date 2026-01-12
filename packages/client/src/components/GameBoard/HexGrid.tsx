@@ -11,8 +11,9 @@ import { useMyPlayer } from "../../hooks/useMyPlayer";
 
 const HEX_SIZE = 50; // pixels from center to corner
 
-// Debug toggle for tile corner symbols (C/S alternating)
-const SHOW_TILE_CORNER_SYMBOLS = true;
+// TODO: Tech debt - this debug feature can be removed once tile alignment is stable.
+// Flip to `true` to debug tile corner alignment (shows C/S half-circles at tile vertices).
+const SHOW_TILE_CORNER_SYMBOLS = false;
 
 // Terrain to color mapping
 const TERRAIN_COLORS: Record<string, string> = {
@@ -61,6 +62,8 @@ function hexPoints(size: number): string {
 }
 
 /**
+ * TODO: Tech debt - delete getTileCornerPositions and TileCornerSymbols once tile alignment is stable.
+ *
  * Get the 6 corner positions for a tile's flower pattern.
  *
  * Starting from the W (left) hex's SW vertex and going clockwise:
