@@ -15,6 +15,7 @@ import {
   combineResistances,
   type Resistances,
 } from "../../combat/elementalCalc.js";
+import { getEffectiveEnemyArmor } from "../../modifiers.js";
 
 export const DECLARE_ATTACK_COMMAND = "DECLARE_ATTACK" as const;
 
@@ -44,11 +45,23 @@ export function createDeclareAttackCommand(
           params.targetEnemyInstanceIds.includes(e.instanceId) && !e.isDefeated
       );
 
-      // Calculate total armor of targets
-      const totalArmor = targets.reduce(
-        (sum, e) => sum + e.definition.armor,
-        0
-      );
+      // Calculate total effective armor of targets (including modifiers like Tremor)
+      const totalArmor = targets.reduce((sum, e) => {
+        // Count resistances for Resistance Break modifier
+        const resistances = e.definition.resistances;
+        const resistanceCount = resistances
+          ? (resistances.physical ? 1 : 0) +
+            (resistances.fire ? 1 : 0) +
+            (resistances.ice ? 1 : 0)
+          : 0;
+
+        return sum + getEffectiveEnemyArmor(
+          state,
+          e.instanceId,
+          e.definition.armor,
+          resistanceCount
+        );
+      }, 0);
 
       // Get combined resistances of all targets
       const targetResistances = combineResistances(
