@@ -287,10 +287,10 @@ export function DebugPanel() {
     const player = gameState.players[0];
     if (!player) return;
 
-    if (!player.manaTokens) {
-      player.manaTokens = [];
+    if (!player.pureMana) {
+      player.pureMana = [];
     }
-    player.manaTokens.push(color);
+    player.pureMana.push({ color, source: "debug" });
     loadGame(JSON.stringify(gameState));
   };
 
@@ -302,11 +302,18 @@ export function DebugPanel() {
     const player = gameState.players[0];
     if (!player) return;
 
-    if (!player.manaTokens) {
-      player.manaTokens = [];
+    if (!player.pureMana) {
+      player.pureMana = [];
     }
     // Add one of each color
-    player.manaTokens.push("red", "blue", "green", "white", "black", "gold");
+    player.pureMana.push(
+      { color: "red", source: "debug" },
+      { color: "blue", source: "debug" },
+      { color: "green", source: "debug" },
+      { color: "white", source: "debug" },
+      { color: "black", source: "debug" },
+      { color: "gold", source: "debug" }
+    );
     loadGame(JSON.stringify(gameState));
   };
 

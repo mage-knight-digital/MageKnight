@@ -49,6 +49,12 @@ import {
 } from "./combat/index.js";
 import { createRecruitUnitCommand, createActivateUnitCommand } from "./units/index.js";
 import { createInteractCommand } from "./interactCommand.js";
+import { getCard } from "../validActions/cards.js";
+import { DEED_CARD_TYPE_SPELL } from "../../types/cards.js";
+import { getAvailableManaSourcesForColor } from "../validActions/mana.js";
+import type { Player } from "../../types/player.js";
+import type { ManaSourceInfo } from "@mage-knight/shared";
+import { MANA_BLACK } from "@mage-knight/shared";
 import { createAnnounceEndOfRoundCommand } from "./announceEndOfRoundCommand.js";
 import { createEnterSiteCommand } from "./enterSiteCommand.js";
 import { createSelectTacticCommand } from "./selectTacticCommand.js";
@@ -161,14 +167,46 @@ function getSidewaysChoice(action: PlayerAction): SidewaysAs | null {
 function getPlayCardDetails(action: PlayerAction): {
   powered: boolean;
   manaSource: import("@mage-knight/shared").ManaSourceInfo | undefined;
+  manaSources: readonly import("@mage-knight/shared").ManaSourceInfo[] | undefined;
 } | null {
   if (action.type === PLAY_CARD_ACTION) {
     return {
       powered: action.powered,
       manaSource: action.manaSource,
+      manaSources: action.manaSources,
     };
   }
   return null;
+}
+
+/**
+ * Auto-infer mana source for spell basic plays when no source is specified.
+ * If there's exactly one valid mana source, use it automatically.
+ */
+function autoInferSpellBasicManaSource(
+  state: GameState,
+  player: Player,
+  cardId: CardId
+): ManaSourceInfo | undefined {
+  const card = getCard(cardId);
+  if (!card) return undefined;
+
+  // Only auto-infer for spells
+  if (card.cardType !== DEED_CARD_TYPE_SPELL) return undefined;
+
+  // Find the spell's color (non-black color in poweredBy)
+  const spellColor = card.poweredBy.find((c) => c !== MANA_BLACK);
+  if (!spellColor) return undefined;
+
+  // Get all available sources for this color
+  const sources = getAvailableManaSourcesForColor(state, player, spellColor);
+
+  // Only auto-infer if there's exactly one source
+  if (sources.length === 1) {
+    return sources[0];
+  }
+
+  return undefined;
 }
 
 // Play card command factory
@@ -189,7 +227,18 @@ function createPlayCardCommandFromAction(
   const handIndex = player.hand.indexOf(cardId);
   if (handIndex === -1) return null;
 
-  // Only include manaSource if it's defined (exactOptionalPropertyTypes)
+  // Handle spell with manaSources (plural)
+  if (details.manaSources && details.manaSources.length > 0) {
+    return createPlayCardCommand({
+      playerId,
+      cardId,
+      handIndex,
+      powered: details.powered,
+      manaSources: details.manaSources,
+    });
+  }
+
+  // Handle action card with manaSource (singular)
   if (details.manaSource) {
     return createPlayCardCommand({
       playerId,
@@ -198,6 +247,20 @@ function createPlayCardCommandFromAction(
       powered: details.powered,
       manaSource: details.manaSource,
     });
+  }
+
+  // For spell basic plays without manaSource, try to auto-infer
+  if (!details.powered && !details.manaSource) {
+    const inferredSource = autoInferSpellBasicManaSource(state, player, cardId);
+    if (inferredSource) {
+      return createPlayCardCommand({
+        playerId,
+        cardId,
+        handIndex,
+        powered: false,
+        manaSource: inferredSource,
+      });
+    }
   }
 
   return createPlayCardCommand({

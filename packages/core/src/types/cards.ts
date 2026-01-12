@@ -3,7 +3,8 @@
  */
 
 import type { CardId, ManaColor, BasicManaColor, Element } from "@mage-knight/shared";
-import type { ModifierEffect, ModifierDuration } from "./modifiers.js";
+import type { ModifierEffect, ModifierDuration, ModifierScope } from "./modifiers.js";
+import type { CombatPhase } from "./combat.js";
 import type { SourceDieId } from "./mana.js";
 import {
   EFFECT_GAIN_MOVE,
@@ -28,6 +29,8 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -221,6 +224,8 @@ export interface ApplyModifierEffect {
   readonly type: typeof EFFECT_APPLY_MODIFIER;
   readonly modifier: ModifierEffect;
   readonly duration: ModifierDuration;
+  /** Scope for the modifier - defaults to SCOPE_SELF if not specified */
+  readonly scope?: ModifierScope;
   /** Optional human-readable description for UI display */
   readonly description?: string;
 }
@@ -258,6 +263,50 @@ export interface ScalingEffect {
   readonly maximum?: number; // Cap (optional)
 }
 
+// === Enemy Targeting Effects ===
+
+/**
+ * Declarative template for what happens to a targeted enemy.
+ * Cleaner than nesting full CardEffect trees.
+ */
+export interface CombatEnemyTargetTemplate {
+  /** Modifiers to apply to the target enemy */
+  readonly modifiers?: readonly {
+    readonly modifier: ModifierEffect;
+    readonly duration: ModifierDuration;
+    readonly description?: string;
+  }[];
+  /** If true, defeat the enemy immediately (for powered versions like Tornado) */
+  readonly defeat?: boolean;
+}
+
+/**
+ * Entry effect for selecting an enemy in combat.
+ * Generates dynamicChoiceOptions with one option per eligible enemy.
+ * Used by Tremor, Chill, Whirlwind spells.
+ */
+export interface SelectCombatEnemyEffect {
+  readonly type: typeof EFFECT_SELECT_COMBAT_ENEMY;
+  /** Template defining what happens to the selected enemy */
+  readonly template: CombatEnemyTargetTemplate;
+  /** Include defeated enemies as valid targets (default: false) */
+  readonly includeDefeated?: boolean;
+  /** If set, effect can only be used in this combat phase (e.g., Tornado = attack only) */
+  readonly requiredPhase?: CombatPhase;
+}
+
+/**
+ * Internal effect generated as a choice option after enemy selection.
+ * Applies the template to the specific enemy.
+ */
+export interface ResolveCombatEnemyTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_COMBAT_ENEMY_TARGET;
+  readonly enemyInstanceId: string;
+  /** Stored for UI display without needing state lookup */
+  readonly enemyName: string;
+  readonly template: CombatEnemyTargetTemplate;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -281,7 +330,9 @@ export type CardEffect =
   | CompoundEffect
   | ChoiceEffect
   | ConditionalEffect
-  | ScalingEffect;
+  | ScalingEffect
+  | SelectCombatEnemyEffect
+  | ResolveCombatEnemyTargetEffect;
 
 // === Card Definition ===
 

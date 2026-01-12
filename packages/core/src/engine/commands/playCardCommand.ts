@@ -35,7 +35,8 @@ export interface PlayCardCommandParams {
   readonly cardId: CardId;
   readonly handIndex: number; // For undo — where the card was
   readonly powered?: boolean;
-  readonly manaSource?: ManaSourceInfo;
+  readonly manaSource?: ManaSourceInfo; // For action cards (single mana)
+  readonly manaSources?: readonly ManaSourceInfo[]; // For spells (black + color)
 }
 
 /**
@@ -72,7 +73,9 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       const card = getCard(params.cardId) ?? getBasicActionCard(params.cardId as BasicActionCardId);
 
       // Determine if powered and which effect to use
-      const isPowered = params.powered === true && params.manaSource !== undefined;
+      // Powered requires manaSource (single) for action cards OR manaSources (array) for spells
+      const hasManaSource = params.manaSource !== undefined || (params.manaSources !== undefined && params.manaSources.length > 0);
+      const isPowered: boolean = params.powered === true && hasManaSource;
       const effectToApply = isPowered ? card.poweredEffect : card.basicEffect;
 
       // Store the effect for undo
@@ -92,9 +95,17 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       let updatedSource = state.source;
 
       // Handle mana consumption if powered
-      if (isPowered && params.manaSource) {
-        consumedMana = params.manaSource;
-        const { type: sourceType, color } = params.manaSource;
+      // For spells, consume all sources in manaSources array
+      // For action cards, consume single manaSource
+      const sourcesToConsume: ManaSourceInfo[] = params.manaSources
+        ? [...params.manaSources]
+        : params.manaSource
+          ? [params.manaSource]
+          : [];
+
+      for (const manaSource of sourcesToConsume) {
+        consumedMana = manaSource; // Track last one for undo (simplified)
+        const { type: sourceType, color } = manaSource;
 
         // Track mana usage for conditional effects (e.g., "if you used red mana this turn")
         updatedPlayer = {
@@ -106,7 +117,7 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           case MANA_SOURCE_DIE: {
             // Mark player as having used die this turn, accumulate to the list
             // Die stays in source (will be rerolled at end of turn by end turn command)
-            const dieId = params.manaSource.dieId as SourceDieId;
+            const dieId = manaSource.dieId as SourceDieId;
             if (!dieId) {
               throw new Error("Die ID required when using mana from source");
             }

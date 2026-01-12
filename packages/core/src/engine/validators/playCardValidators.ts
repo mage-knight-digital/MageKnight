@@ -3,11 +3,11 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { PlayerAction, CardId, BasicActionCardId } from "@mage-knight/shared";
+import type { PlayerAction, CardId } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import { PLAY_CARD_ACTION } from "@mage-knight/shared";
-import { BASIC_ACTION_CARDS, getBasicActionCard } from "../../data/basicActions.js";
+import { getCard } from "../validActions/cards.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import {
   CARD_NOT_IN_HAND,
@@ -58,9 +58,9 @@ export function validateCardExists(
     return invalid(INVALID_ACTION_CODE, "Invalid play card action");
   }
 
-  // Check if card exists in basic action cards
-  const exists = cardId in BASIC_ACTION_CARDS;
-  if (!exists) {
+  // Check if card exists in any card registry (basic, advanced, spell)
+  const card = getCard(cardId);
+  if (!card) {
     return invalid(CARD_NOT_FOUND, "Card definition not found");
   }
 
@@ -78,13 +78,13 @@ export function validateNotWound(
     return invalid(INVALID_ACTION_CODE, "Invalid play card action");
   }
 
-  // Check if card exists first
-  if (!(cardId in BASIC_ACTION_CARDS)) {
+  // Check if card exists first using the universal getter
+  const card = getCard(cardId);
+  if (!card) {
     // Card not found - let validateCardExists handle this
     return valid();
   }
 
-  const card = getBasicActionCard(cardId as BasicActionCardId);
   if (card.cardType === DEED_CARD_TYPE_WOUND) {
     return invalid(
       CANNOT_PLAY_WOUND,

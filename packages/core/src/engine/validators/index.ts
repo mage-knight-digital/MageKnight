@@ -71,6 +71,8 @@ import {
   validateManaColorMatch,
   validateManaTimeOfDayWithDungeonOverride,
   validateManaDungeonTombRules,
+  validateSpellManaRequirement,
+  validateSpellBasicManaRequirement,
 } from "./manaValidators.js";
 
 // Sideways play validators
@@ -236,7 +238,9 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateCardInHand,
     validateCardExists,
     validateNotWound,
-    // Mana validators (for powered play) - dungeon/tomb rules, then time check, then availability, then color match
+    // Mana validators - spell checks first, then dungeon/tomb rules, then time check, then availability, then color match
+    validateSpellBasicManaRequirement, // Spells require mana even for basic effect
+    validateSpellManaRequirement, // Spells require two mana sources for powered (black + color)
     validateManaDungeonTombRules, // Dungeon/tomb: no gold mana
     validateManaTimeOfDayWithDungeonOverride, // Time rules (with dungeon override for black)
     validateManaAvailable,

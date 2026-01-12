@@ -64,6 +64,8 @@ export const BLACK_MANA_INVALID = "BLACK_MANA_INVALID" as const;
 export const BLACK_MANA_DAY = "BLACK_MANA_DAY" as const;
 export const GOLD_MANA_NIGHT = "GOLD_MANA_NIGHT" as const;
 export const POWERED_WITHOUT_MANA = "POWERED_WITHOUT_MANA" as const;
+export const SPELL_REQUIRES_TWO_MANA = "SPELL_REQUIRES_TWO_MANA" as const;
+export const SPELL_BASIC_REQUIRES_MANA = "SPELL_BASIC_REQUIRES_MANA" as const;
 
 // Combat validation codes
 export const ALREADY_IN_COMBAT = "ALREADY_IN_COMBAT" as const;
@@ -175,6 +177,8 @@ export type ValidationErrorCode =
   | typeof BLACK_MANA_DAY
   | typeof GOLD_MANA_NIGHT
   | typeof POWERED_WITHOUT_MANA
+  | typeof SPELL_REQUIRES_TWO_MANA
+  | typeof SPELL_BASIC_REQUIRES_MANA
   // Combat validation
   | typeof ALREADY_IN_COMBAT
   | typeof NOT_IN_COMBAT

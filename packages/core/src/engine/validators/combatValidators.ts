@@ -24,6 +24,7 @@ import {
   COMBAT_PHASE_ASSIGN_DAMAGE,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
+import { doesEnemyAttackThisCombat } from "../modifiers.js";
 import {
   ALREADY_IN_COMBAT,
   NOT_IN_COMBAT,
@@ -250,9 +251,15 @@ export function validateDamageAssignedBeforeLeaving(
   // Only check when leaving Assign Damage phase
   if (state.combat?.phase !== COMBAT_PHASE_ASSIGN_DAMAGE) return valid();
 
-  // Find enemies that need damage assigned (not blocked, not defeated, not already assigned)
+  // Find enemies that need damage assigned:
+  // - not blocked, not defeated, not already assigned
+  // - AND they actually attack this combat (not affected by Chill/Whirlwind)
   const unprocessedEnemies = state.combat.enemies.filter(
-    (e) => !e.isDefeated && !e.isBlocked && !e.damageAssigned
+    (e) =>
+      !e.isDefeated &&
+      !e.isBlocked &&
+      !e.damageAssigned &&
+      doesEnemyAttackThisCombat(state, e.instanceId)
   );
 
   if (unprocessedEnemies.length > 0) {

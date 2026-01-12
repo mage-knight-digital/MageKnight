@@ -13,12 +13,15 @@ import {
   MANA_SOURCE_TOKEN,
   MANA_GREEN,
   MANA_RED,
+  MANA_WHITE,
   MANA_GOLD,
   MANA_BLACK,
   TIME_OF_DAY_DAY,
   TIME_OF_DAY_NIGHT,
   CARD_MARCH,
   CARD_RAGE,
+  CARD_WHIRLWIND,
+  CARD_EXPLOSIVE_BOLT,
   INVALID_ACTION,
   CARD_PLAYED,
 } from "@mage-knight/shared";
@@ -535,6 +538,182 @@ describe("Mana powering", () => {
 
       // Rage powered = Attack 4 (no choice required for powered)
       expect(result.state.players[0]?.combatAccumulator.attack.normal).toBe(4);
+    });
+  });
+
+  describe("Dual-color action cards (OR powering)", () => {
+    // Explosive Bolt can be powered by RED or WHITE (not both required)
+    it("should allow dual-color action card to be powered with first color", () => {
+      const player = createTestPlayer({
+        hand: [CARD_EXPLOSIVE_BOLT], // Red OR White
+        crystals: { red: 1, blue: 0, green: 0, white: 0 },
+      });
+      const state = createTestGameState({
+        players: [player],
+        combat: {
+          phase: "ranged_siege" as const,
+          enemies: [
+            {
+              instanceId: "enemy1",
+              definition: {
+                id: "orc" as const,
+                name: "Orc",
+                attack: 3,
+                armor: 3,
+                abilities: [],
+                fame: 2,
+              },
+              isDefeated: false,
+              isBlocked: false,
+              damageAssigned: false,
+            },
+          ],
+          isAtFortifiedSite: false,
+          declaredBlocks: [],
+          declaredAttacks: [],
+          siteRewards: [],
+        },
+      });
+
+      const action: PlayCardAction = {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_EXPLOSIVE_BOLT,
+        powered: true,
+        manaSource: {
+          type: MANA_SOURCE_CRYSTAL,
+          color: MANA_RED, // First option
+        },
+      };
+
+      const result = engine.processAction(state, "player1", action);
+
+      // Should succeed - action cards only need ONE mana
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({ type: INVALID_ACTION })
+      );
+      expect(result.events).toContainEqual(
+        expect.objectContaining({ type: CARD_PLAYED, powered: true })
+      );
+    });
+
+    it("should allow dual-color action card to be powered with second color", () => {
+      const player = createTestPlayer({
+        hand: [CARD_EXPLOSIVE_BOLT], // Red OR White
+        crystals: { red: 0, blue: 0, green: 0, white: 1 },
+      });
+      const state = createTestGameState({
+        players: [player],
+        combat: {
+          phase: "ranged_siege" as const,
+          enemies: [
+            {
+              instanceId: "enemy1",
+              definition: {
+                id: "orc" as const,
+                name: "Orc",
+                attack: 3,
+                armor: 3,
+                abilities: [],
+                fame: 2,
+              },
+              isDefeated: false,
+              isBlocked: false,
+              damageAssigned: false,
+            },
+          ],
+          isAtFortifiedSite: false,
+          declaredBlocks: [],
+          declaredAttacks: [],
+          siteRewards: [],
+        },
+      });
+
+      const action: PlayCardAction = {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_EXPLOSIVE_BOLT,
+        powered: true,
+        manaSource: {
+          type: MANA_SOURCE_CRYSTAL,
+          color: MANA_WHITE, // Second option
+        },
+      };
+
+      const result = engine.processAction(state, "player1", action);
+
+      // Should succeed - action cards only need ONE mana
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({ type: INVALID_ACTION })
+      );
+      expect(result.events).toContainEqual(
+        expect.objectContaining({ type: CARD_PLAYED, powered: true })
+      );
+    });
+  });
+
+  describe("Spell mana requirements", () => {
+    it("should reject spell powered with only one mana source", () => {
+      // Spells require TWO mana sources (black + color), not just one
+      // This test verifies that providing only one mana source fails
+      const player = createTestPlayer({
+        hand: [CARD_WHIRLWIND], // White spell - requires black + white
+        crystals: { red: 0, blue: 0, green: 0, white: 1 },
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+      });
+
+      // Try to power with just one mana source - should fail for spells
+      const action: PlayCardAction = {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_WHIRLWIND,
+        powered: true,
+        manaSource: {
+          type: MANA_SOURCE_CRYSTAL,
+          color: MANA_WHITE,
+        },
+      };
+
+      const result = engine.processAction(state, "player1", action);
+
+      // Should be rejected because spells need TWO mana sources
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: expect.stringMatching(/spell.*require.*black|two mana/i),
+        })
+      );
+    });
+
+    it("should reject spell basic effect without mana source", () => {
+      // Spells require mana of their color to cast EVEN the basic effect
+      // This is different from action cards which can play basic for free
+      const player = createTestPlayer({
+        hand: [CARD_WHIRLWIND], // White spell
+        crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No mana
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+      });
+
+      // Try to play basic effect without mana - should fail for spells
+      const action: PlayCardAction = {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_WHIRLWIND,
+        powered: false,
+        // No manaSource provided
+      };
+
+      const result = engine.processAction(state, "player1", action);
+
+      // Should be rejected because spells need mana even for basic effect
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: expect.stringMatching(/spell.*require.*mana/i),
+        })
+      );
     });
   });
 

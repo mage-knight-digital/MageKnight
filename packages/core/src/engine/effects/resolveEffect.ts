@@ -40,13 +40,24 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   MANA_ANY,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
 import { evaluateScalingFactor } from "./scalingEvaluator.js";
-import { EFFECT_RULE_OVERRIDE, RULE_EXTRA_SOURCE_DIE } from "../modifierConstants.js";
+import {
+  DURATION_COMBAT,
+  EFFECT_RULE_OVERRIDE,
+  RULE_EXTRA_SOURCE_DIE,
+  SCOPE_ONE_ENEMY,
+  SOURCE_CARD,
+} from "../modifierConstants.js";
 import { evaluateCondition } from "./conditionEvaluator.js";
+import { addModifier } from "../modifiers.js";
+import type { ResolveCombatEnemyTargetEffect } from "../../types/cards.js";
+import type { CardId } from "@mage-knight/shared";
 import {
   updatePlayer,
   applyGainMove,
@@ -212,6 +223,32 @@ export function isEffectResolvable(
     case EFFECT_CRYSTALLIZE_COLOR:
       // Internal effects, always resolvable if being called
       return true;
+
+    case EFFECT_SELECT_COMBAT_ENEMY: {
+      // Only resolvable during combat with at least one eligible enemy
+      if (!state.combat) return false;
+      // Check phase restriction (e.g., Tornado can only be used in Attack phase)
+      if (effect.requiredPhase && state.combat.phase !== effect.requiredPhase) {
+        return false;
+      }
+      const eligibleEnemies = state.combat.enemies.filter(
+        (e) => effect.includeDefeated || !e.isDefeated
+      );
+      return eligibleEnemies.length > 0;
+    }
+
+    case EFFECT_RESOLVE_COMBAT_ENEMY_TARGET: {
+      // Only resolvable if in combat and the enemy exists
+      if (!state.combat) return false;
+      const enemy = state.combat.enemies.find(
+        (e) => e.instanceId === effect.enemyInstanceId
+      );
+      // For defeat template, enemy just needs to exist
+      // For modifier template, enemy shouldn't be defeated yet
+      if (!enemy) return false;
+      if (effect.template.defeat) return true;
+      return !enemy.isDefeated;
+    }
 
     default:
       // Unknown effect types are considered resolvable (fail-safe)
@@ -490,6 +527,127 @@ export function resolveEffect(
       };
     }
 
+    case EFFECT_SELECT_COMBAT_ENEMY: {
+      // Entry effect for selecting an enemy in combat
+      if (!state.combat) {
+        return {
+          state,
+          description: "Not in combat",
+        };
+      }
+
+      // Get eligible enemies
+      const eligibleEnemies = state.combat.enemies.filter(
+        (e) => effect.includeDefeated || !e.isDefeated
+      );
+
+      if (eligibleEnemies.length === 0) {
+        return {
+          state,
+          description: "No valid enemy targets",
+        };
+      }
+
+      // Generate choice options - one per eligible enemy
+      const choiceOptions: ResolveCombatEnemyTargetEffect[] = eligibleEnemies.map(
+        (enemy) => ({
+          type: EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
+          enemyInstanceId: enemy.instanceId,
+          enemyName: enemy.definition.name,
+          template: effect.template,
+        })
+      );
+
+      return {
+        state,
+        description: "Select an enemy to target",
+        requiresChoice: true,
+        dynamicChoiceOptions: choiceOptions,
+      };
+    }
+
+    case EFFECT_RESOLVE_COMBAT_ENEMY_TARGET: {
+      // Apply the template to the targeted enemy
+      if (!state.combat) {
+        return {
+          state,
+          description: "Not in combat",
+        };
+      }
+
+      const enemyIndex = state.combat.enemies.findIndex(
+        (e) => e.instanceId === effect.enemyInstanceId
+      );
+      if (enemyIndex === -1) {
+        return {
+          state,
+          description: "Enemy not found",
+        };
+      }
+
+      const enemy = state.combat.enemies[enemyIndex];
+      if (!enemy) {
+        return {
+          state,
+          description: "Enemy not found at index",
+        };
+      }
+
+      let currentState = state;
+      const descriptions: string[] = [];
+
+      // Apply modifiers from template
+      if (effect.template.modifiers) {
+        for (const mod of effect.template.modifiers) {
+          currentState = addModifier(currentState, {
+            source: {
+              type: SOURCE_CARD,
+              cardId: (sourceCardId ?? "unknown") as CardId,
+              playerId,
+            },
+            duration: mod.duration ?? DURATION_COMBAT,
+            scope: { type: SCOPE_ONE_ENEMY, enemyId: effect.enemyInstanceId },
+            effect: mod.modifier,
+            createdAtRound: currentState.round,
+            createdByPlayerId: playerId,
+          });
+          if (mod.description) {
+            descriptions.push(mod.description);
+          }
+        }
+      }
+
+      // Handle defeat
+      if (effect.template.defeat && currentState.combat) {
+        // Mark enemy defeated, award fame
+        const updatedEnemies = currentState.combat.enemies.map((e, i) =>
+          i === enemyIndex ? { ...e, isDefeated: true } : e
+        );
+
+        const fameValue = enemy.definition.fame;
+        const currentPlayer = currentState.players.find((p) => p.id === playerId);
+        const newFame = currentPlayer ? currentPlayer.fame + fameValue : fameValue;
+
+        currentState = {
+          ...currentState,
+          combat: {
+            ...currentState.combat,
+            enemies: updatedEnemies,
+            fameGained: currentState.combat.fameGained + fameValue,
+          },
+          players: currentState.players.map((p) =>
+            p.id === playerId ? { ...p, fame: newFame } : p
+          ),
+        };
+        descriptions.push(`Defeated ${effect.enemyName} (+${fameValue} fame)`);
+      }
+
+      return {
+        state: currentState,
+        description: descriptions.join("; ") || `Targeted ${effect.enemyName}`,
+      };
+    }
+
     default:
       // Unknown effect type — log and continue
       return {
@@ -618,6 +776,16 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
       // Drawing cards reveals hidden information (deck contents), so this
       // effect should be non-reversible. Commands containing draw effects
       // should create an undo checkpoint (CHECKPOINT_REASON_CARD_DRAWN).
+      return player;
+
+    case EFFECT_SELECT_COMBAT_ENEMY:
+      // This just generates choice options, doesn't modify player state
+      return player;
+
+    case EFFECT_RESOLVE_COMBAT_ENEMY_TARGET:
+      // Enemy targeting effects modify combat state and modifiers, not player state directly.
+      // The modifier removal would need to happen at GameState level, not player level.
+      // For now, these effects should be considered non-reversible in practice.
       return player;
 
     default:

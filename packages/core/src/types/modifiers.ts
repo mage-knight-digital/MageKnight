@@ -20,6 +20,7 @@ import {
   DURATION_UNTIL_NEXT_TURN,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_COMBAT_VALUE,
+  EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
@@ -149,6 +150,12 @@ export interface AbilityNullifierModifier {
   readonly ability: EnemyAbility["type"] | typeof ABILITY_ANY;
 }
 
+// Enemy skip attack modifier (e.g., "enemy does not attack this combat")
+// Used by Chill, Whirlwind spells
+export interface EnemySkipAttackModifier {
+  readonly type: typeof EFFECT_ENEMY_SKIP_ATTACK;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -156,7 +163,8 @@ export type ModifierEffect =
   | CombatValueModifier
   | EnemyStatModifier
   | RuleOverrideModifier
-  | AbilityNullifierModifier;
+  | AbilityNullifierModifier
+  | EnemySkipAttackModifier;
 
 // === Active Modifier (live in game state) ===
 

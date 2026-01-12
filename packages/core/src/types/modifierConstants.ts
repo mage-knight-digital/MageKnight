@@ -84,4 +84,8 @@ export const RULE_BLACK_AS_ANY_COLOR = "black_as_any_color" as const;
 // === AbilityNullifierModifier ===
 export const ABILITY_ANY = "any" as const;
 
+// === EnemySkipAttackModifier ===
+// Enemy does not attack this combat (used by Chill, Whirlwind)
+export const EFFECT_ENEMY_SKIP_ATTACK = "enemy_skip_attack" as const;
+
 

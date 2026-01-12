@@ -17,10 +17,12 @@ import {
   CARD_WOUND,
   CARD_IMPROVISATION,
   CARD_CRYSTALLIZE,
+  CARD_WHIRLWIND,
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
   MANA_BLUE,
   MANA_WHITE,
+  MANA_BLACK,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -29,11 +31,27 @@ import {
   COMBAT_PHASE_ASSIGN_DAMAGE,
 } from "../../types/combat.js";
 import type { CombatState } from "../../types/combat.js";
+import type { EnemyTokenId } from "../../types/enemy.js";
 
-function createTestCombat(phase: CombatState["phase"]): CombatState {
+function createTestCombat(phase: CombatState["phase"], withEnemy = false): CombatState {
   return {
     phase,
-    enemies: [],
+    enemies: withEnemy ? [{
+      instanceId: "enemy_0",
+      definition: {
+        id: "orc" as EnemyTokenId,
+        name: "Orc",
+        attack: 4,
+        armor: 3,
+        fame: 2,
+        abilities: [],
+        resistances: [],
+      },
+      isDefeated: false,
+      isBlocked: false,
+      damageAssigned: 0,
+      modifiers: [],
+    }] : [],
     isAtFortifiedSite: false,
     woundsThisCombat: 0,
     fameGained: 0,
@@ -384,6 +402,80 @@ describe("getPlayableCardsForCombat", () => {
       const crystallizeCard = result.cards.find(c => c.cardId === CARD_CRYSTALLIZE);
       expect(crystallizeCard).toBeDefined();
       expect(crystallizeCard?.canPlayBasic).toBe(true);
+    });
+  });
+
+  describe("Spell mana requirements for basic effect", () => {
+    it("should not show spell as playable basic without the spell's color mana", () => {
+      // Whirlwind is a white spell - requires white mana even for basic effect
+      const player = createTestPlayer({
+        hand: [CARD_WHIRLWIND],
+        crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No mana
+        pureMana: [],
+      });
+      const state = createTestGameState({ players: [player] });
+      const combat = createTestCombat(COMBAT_PHASE_RANGED_SIEGE);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      const whirlwindCard = result.cards.find(c => c.cardId === CARD_WHIRLWIND);
+      // Without mana, spell won't appear in playable cards at all (can't play any way)
+      // OR if it appears, canPlayBasic should be false
+      expect(whirlwindCard === undefined || whirlwindCard.canPlayBasic === false).toBe(true);
+    });
+
+    it("should show spell as playable basic with the spell's color mana", () => {
+      // Whirlwind is a white spell - requires white mana for basic effect
+      const player = createTestPlayer({
+        hand: [CARD_WHIRLWIND],
+        crystals: { red: 0, blue: 0, green: 0, white: 1 }, // Has white crystal
+        pureMana: [],
+      });
+      // Need enemy for Whirlwind to target - combat must be in state for isEffectResolvable
+      const combat = createTestCombat(COMBAT_PHASE_RANGED_SIEGE, true);
+      const state = createTestGameState({ players: [player], combat });
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      const whirlwindCard = result.cards.find(c => c.cardId === CARD_WHIRLWIND);
+      // Should be playable basic with white mana
+      expect(whirlwindCard?.canPlayBasic).toBe(true);
+    });
+
+    it("should show spell as playable powered only with black + color mana", () => {
+      // Whirlwind powered requires black + white
+      const player = createTestPlayer({
+        hand: [CARD_WHIRLWIND],
+        crystals: { red: 0, blue: 0, green: 0, white: 1 }, // Only white, no black
+        pureMana: [],
+      });
+      // Need enemy for Whirlwind to target - combat must be in state for isEffectResolvable
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK, true); // Powered requires attack phase
+      const state = createTestGameState({ players: [player], combat });
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      const whirlwindCard = result.cards.find(c => c.cardId === CARD_WHIRLWIND);
+      // Should NOT be playable powered without black mana
+      expect(whirlwindCard?.canPlayPowered).toBe(false);
+    });
+
+    it("should show spell as playable powered with black + color mana", () => {
+      // Whirlwind powered requires black + white
+      const player = createTestPlayer({
+        hand: [CARD_WHIRLWIND],
+        crystals: { red: 0, blue: 0, green: 0, white: 1 }, // White crystal
+        pureMana: [{ color: MANA_BLACK, source: "die" as const }], // Black mana token
+      });
+      // Need enemy for Whirlwind to target - combat must be in state for isEffectResolvable
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK, true); // Powered requires attack phase
+      const state = createTestGameState({ players: [player], combat });
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      const whirlwindCard = result.cards.find(c => c.cardId === CARD_WHIRLWIND);
+      // Should be playable powered with both mana sources
+      expect(whirlwindCard?.canPlayPowered).toBe(true);
     });
   });
 });

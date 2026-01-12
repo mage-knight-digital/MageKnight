@@ -184,3 +184,164 @@ function getCrystalCount(player: Player, color: ManaColor): number {
       return 0;
   }
 }
+
+/**
+ * Check if a player can pay for TWO mana colors (for spells).
+ *
+ * Spells require both black mana AND a color mana. This is more restrictive
+ * than action cards which only need one. We need to verify the player has
+ * TWO distinct mana sources available.
+ *
+ * This is a simplified check - it counts available mana sources and ensures
+ * there are at least 2 that match the required colors.
+ */
+export function canPayForTwoMana(
+  state: GameState,
+  player: Player,
+  color1: ManaColor,
+  color2: ManaColor
+): boolean {
+  // Count how many sources can pay for each color
+  const sources1 = countManaSourcesForColor(state, player, color1);
+  const sources2 = countManaSourcesForColor(state, player, color2);
+
+  // If either color has 0 sources, we can't pay
+  if (sources1 === 0 || sources2 === 0) {
+    return false;
+  }
+
+  // If the colors are different, we need at least 1 of each
+  if (color1 !== color2) {
+    return true;
+  }
+
+  // If the colors are the same, we need at least 2 sources
+  return sources1 >= 2;
+}
+
+/**
+ * Count how many distinct mana sources can provide a specific color.
+ */
+function countManaSourcesForColor(
+  state: GameState,
+  player: Player,
+  requiredColor: ManaColor
+): number {
+  let count = 0;
+
+  // Check Mana Steal stored die
+  const storedDie = player.tacticState.storedManaDie;
+  if (storedDie && !player.tacticState.manaStealUsedThisTurn) {
+    if (storedDie.color === requiredColor) {
+      count++;
+    }
+  }
+
+  // Check pure mana tokens
+  for (const token of player.pureMana) {
+    if (token.color === requiredColor) {
+      count++;
+    } else if (token.color === MANA_GOLD && isBasicMana(requiredColor)) {
+      count++;
+    } else if (token.color === MANA_BLACK && isBasicMana(requiredColor)) {
+      count++;
+    }
+  }
+
+  // Check crystals
+  if (isBasicMana(requiredColor)) {
+    count += getCrystalCount(player, requiredColor);
+  }
+
+  // Check source dice (only count if player can use source)
+  const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
+  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+
+  if (canUseSource) {
+    for (const die of state.source.dice) {
+      if (die.takenByPlayerId === null && !die.isDepleted) {
+        if (die.color === requiredColor) {
+          count++;
+        } else if (die.color === MANA_GOLD && isBasicMana(requiredColor)) {
+          count++;
+        } else if (die.color === MANA_BLACK && isBasicMana(requiredColor)) {
+          count++;
+        }
+      }
+    }
+  }
+
+  return count;
+}
+
+/**
+ * Get all available mana sources that can provide a specific color.
+ * Returns an array of ManaSourceInfo objects that could be used.
+ * Used for auto-inferring mana source when there's only one option.
+ */
+export function getAvailableManaSourcesForColor(
+  state: GameState,
+  player: Player,
+  requiredColor: ManaColor
+): import("@mage-knight/shared").ManaSourceInfo[] {
+  const sources: import("@mage-knight/shared").ManaSourceInfo[] = [];
+
+  // Check Mana Steal stored die
+  const storedDie = player.tacticState.storedManaDie;
+  if (storedDie && !player.tacticState.manaStealUsedThisTurn) {
+    if (storedDie.color === requiredColor ||
+        (storedDie.color === MANA_GOLD && isBasicMana(requiredColor)) ||
+        (storedDie.color === MANA_BLACK && isBasicMana(requiredColor))) {
+      sources.push({
+        type: "die" as const,
+        dieId: storedDie.dieId,
+        color: storedDie.color,
+      });
+    }
+  }
+
+  // Check pure mana tokens
+  for (const token of player.pureMana) {
+    if (token.color === requiredColor ||
+        (token.color === MANA_GOLD && isBasicMana(requiredColor)) ||
+        (token.color === MANA_BLACK && isBasicMana(requiredColor))) {
+      sources.push({
+        type: "token" as const,
+        color: token.color,
+      });
+    }
+  }
+
+  // Check crystals
+  if (isBasicMana(requiredColor)) {
+    const crystalCount = getCrystalCount(player, requiredColor);
+    if (crystalCount > 0) {
+      sources.push({
+        type: "crystal" as const,
+        color: requiredColor as import("@mage-knight/shared").BasicManaColor,
+      });
+    }
+  }
+
+  // Check source dice
+  const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
+  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+
+  if (canUseSource) {
+    for (const die of state.source.dice) {
+      if (die.takenByPlayerId === null && !die.isDepleted) {
+        if (die.color === requiredColor ||
+            (die.color === MANA_GOLD && isBasicMana(requiredColor)) ||
+            (die.color === MANA_BLACK && isBasicMana(requiredColor))) {
+          sources.push({
+            type: "die" as const,
+            dieId: die.id,
+            color: die.color,
+          });
+        }
+      }
+    }
+  }
+
+  return sources;
+}

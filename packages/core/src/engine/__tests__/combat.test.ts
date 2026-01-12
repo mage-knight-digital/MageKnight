@@ -54,6 +54,11 @@ import {
   UNIT_DESTROY_REASON_PARALYZE,
   UNIT_PEASANTS,
   UNIT_FORESTERS,
+  CARD_WHIRLWIND,
+  PLAY_CARD_ACTION,
+  MANA_SOURCE_TOKEN,
+  MANA_BLACK,
+  MANA_WHITE,
   type BlockSource,
 } from "@mage-knight/shared";
 import { addModifier } from "../modifiers.js";
@@ -62,6 +67,7 @@ import {
   SCOPE_ONE_ENEMY,
   SOURCE_SKILL,
   EFFECT_ABILITY_NULLIFIER,
+  EFFECT_ENEMY_SKIP_ATTACK,
 } from "../../types/modifierConstants.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -2089,6 +2095,119 @@ describe("Combat Phase 2", () => {
           })
         );
       });
+    });
+  });
+
+  describe("Enemy skip attack modifier", () => {
+    it("should allow skipping damage assignment for enemies that don't attack", () => {
+      const player = createTestPlayer();
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Diggers (Attack 3, Armor 3)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DIGGERS],
+      }).state;
+
+      const enemyInstanceId = state.combat?.enemies[0].instanceId ?? "";
+      expect(enemyInstanceId).not.toBe("");
+
+      // Apply "enemy skip attack" modifier (simulating Chill/Whirlwind effect)
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId: "test_skill" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: enemyInstanceId },
+        effect: { type: EFFECT_ENEMY_SKIP_ATTACK },
+        createdAtRound: state.round,
+        createdByPlayerId: "player1",
+      });
+
+      // Skip ranged/siege phase
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_BLOCK);
+
+      // Skip block phase (enemy doesn't attack, so nothing to block)
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_ASSIGN_DAMAGE);
+
+      // Skip assign damage phase - this is the bug! Enemy doesn't attack,
+      // so we shouldn't need to assign damage
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should succeed and move to attack phase (not INVALID_ACTION)
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+      expect(result.state.combat?.phase).toBe(COMBAT_PHASE_ATTACK);
+    });
+  });
+
+  describe("Fame tracking from spell defeats", () => {
+    it("should track fame gained in combat.fameGained when spell defeats enemy", () => {
+      // Set up combat with Diggers (2 fame)
+      let state = createTestGameState();
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DIGGERS],
+      }).state;
+
+      // We need to be in Ranged/Siege phase and have target selection
+      // Whirlwind (powered) defeats target enemy
+      // Give player black and white mana tokens
+      state = {
+        ...state,
+        players: state.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                hand: [CARD_WHIRLWIND, ...p.hand],
+                pureMana: [
+                  { color: MANA_BLACK, source: "die" as const },
+                  { color: MANA_WHITE, source: "die" as const },
+                ],
+              }
+            : p
+        ),
+      };
+
+      // Set the target for the spell
+      state = {
+        ...state,
+        combat: state.combat
+          ? {
+              ...state.combat,
+              pendingTargetEnemy: "enemy_0",
+            }
+          : null,
+      };
+
+      // Play Whirlwind powered (requires black + white mana)
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_WHIRLWIND,
+        powered: true,
+        manaSources: [
+          { type: MANA_SOURCE_TOKEN, color: MANA_BLACK },
+          { type: MANA_SOURCE_TOKEN, color: MANA_WHITE },
+        ],
+      });
+
+      // Enemy should be defeated
+      expect(result.state.combat?.enemies[0]?.isDefeated).toBe(true);
+
+      // Player should have gained fame
+      expect(result.state.players[0]?.fame).toBe(2); // Diggers = 2 fame
+
+      // combat.fameGained should also track this (this is the bug fix)
+      expect(result.state.combat?.fameGained).toBe(2);
     });
   });
 });

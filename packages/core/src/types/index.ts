@@ -90,6 +90,9 @@ export type {
   ConditionalEffect,
   ScalableBaseEffect,
   ScalingEffect,
+  CombatEnemyTargetTemplate,
+  SelectCombatEnemyEffect,
+  ResolveCombatEnemyTargetEffect,
   CardEffect,
   DeedCard,
 } from "./cards.js";
@@ -116,6 +119,8 @@ export {
   EFFECT_CHOICE,
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
+  EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -210,6 +215,7 @@ export type {
   EnemyStatModifier,
   RuleOverrideModifier,
   AbilityNullifierModifier,
+  EnemySkipAttackModifier,
   ModifierEffect,
   ActiveModifier,
 } from "./modifiers.js";

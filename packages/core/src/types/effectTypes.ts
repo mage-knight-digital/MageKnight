@@ -64,3 +64,9 @@ export type CardColor =
 // === Mana "Any" Constant ===
 // Used when an effect can produce any color of mana
 export const MANA_ANY = "any" as const;
+
+// === Enemy Targeting Effects ===
+// Entry effect for selecting an enemy in combat
+export const EFFECT_SELECT_COMBAT_ENEMY = "select_combat_enemy" as const;
+// Internal: resolve effect after enemy selection
+export const EFFECT_RESOLVE_COMBAT_ENEMY_TARGET = "resolve_combat_enemy_target" as const;

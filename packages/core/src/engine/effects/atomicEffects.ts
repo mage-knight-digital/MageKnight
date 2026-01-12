@@ -366,6 +366,9 @@ export function applyModifierEffect(
   effect: ApplyModifierEffect,
   sourceCardId?: string
 ): EffectResolutionResult {
+  // Use scope from effect if provided, otherwise default to SCOPE_SELF
+  const scope = effect.scope ?? { type: SCOPE_SELF };
+
   const newState = addModifier(state, {
     source: {
       type: SOURCE_CARD,
@@ -373,7 +376,7 @@ export function applyModifierEffect(
       playerId,
     },
     duration: effect.duration,
-    scope: { type: SCOPE_SELF },
+    scope,
     effect: effect.modifier,
     createdAtRound: state.round,
     createdByPlayerId: playerId,
@@ -381,6 +384,6 @@ export function applyModifierEffect(
 
   return {
     state: newState,
-    description: "Applied modifier",
+    description: effect.description ?? "Applied modifier",
   };
 }

@@ -26,6 +26,7 @@ import {
   DURATION_UNTIL_NEXT_TURN,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_COMBAT_VALUE,
+  EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
@@ -308,6 +309,19 @@ export function isAbilityNullified(
   }
 
   return false;
+}
+
+/**
+ * Check if an enemy attacks this combat.
+ * Returns false if the enemy has the EFFECT_ENEMY_SKIP_ATTACK modifier.
+ * Used by Chill, Whirlwind spells to prevent enemies from dealing damage.
+ */
+export function doesEnemyAttackThisCombat(
+  state: GameState,
+  enemyId: string
+): boolean {
+  const modifiers = getModifiersForEnemy(state, enemyId);
+  return !modifiers.some((m) => m.effect.type === EFFECT_ENEMY_SKIP_ATTACK);
 }
 
 // === Modifier lifecycle ===

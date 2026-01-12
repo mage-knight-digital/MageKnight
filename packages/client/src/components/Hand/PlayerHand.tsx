@@ -198,6 +198,66 @@ function getBasicLabel(isInCombat: boolean, combatPhase?: import("@mage-knight/s
   }
 }
 
+interface SpellManaSourceMenuProps {
+  cardId: CardId;
+  step: "black" | "color";
+  spellColor: ManaColor;
+  blackSource?: ManaSourceInfo;
+  sources: ManaSourceInfo[];
+  onSelect: (source: ManaSourceInfo) => void;
+  onBack: () => void;
+}
+
+function SpellManaSourceMenu({
+  cardId,
+  step,
+  spellColor,
+  blackSource,
+  sources,
+  onSelect,
+  onBack
+}: SpellManaSourceMenuProps) {
+  const currentColor = step === "black" ? MANA_BLACK : spellColor;
+  const stepLabel = step === "black" ? "Step 1/2" : "Step 2/2";
+  const colorLabel = step === "black" ? "Black" : capitalize(spellColor);
+
+  return (
+    <div className="play-mode-menu" data-testid="spell-mana-source-menu">
+      <div className="play-mode-menu__title">
+        {formatCardName(cardId)} - Powered Spell
+      </div>
+      <div className="play-mode-menu__subtitle">
+        {stepLabel}: Choose {getColorEmoji(currentColor)} {colorLabel} mana source
+        {step === "color" && blackSource && (
+          <div className="play-mode-menu__selected">
+            Selected: {getManaSourceLabel(blackSource)}
+          </div>
+        )}
+      </div>
+      <div className="play-mode-menu__options">
+        {sources.map((source, idx) => (
+          <button
+            key={`${source.type}-${source.color}-${source.dieId ?? idx}`}
+            className="play-mode-menu__btn play-mode-menu__btn--mana"
+            onClick={() => onSelect(source)}
+            type="button"
+            data-testid={`spell-mana-source-option-${idx}`}
+          >
+            {getManaSourceLabel(source)}
+          </button>
+        ))}
+        <button
+          className="play-mode-menu__btn play-mode-menu__btn--cancel"
+          onClick={onBack}
+          type="button"
+        >
+          Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
 interface ManaSourceMenuProps {
   cardId: CardId;
   requiredColor: ManaColor;
@@ -340,7 +400,8 @@ function PlayModeMenu({ cardId, playability, isInCombat, combatPhase, onPlay, on
 type MenuState =
   | { type: "none" }
   | { type: "play-mode"; cardIndex: number }
-  | { type: "mana-select"; cardIndex: number; requiredColor: ManaColor; sources: ManaSourceInfo[] };
+  | { type: "mana-select"; cardIndex: number; requiredColor: ManaColor; sources: ManaSourceInfo[] }
+  | { type: "spell-mana-select"; cardIndex: number; step: "black" | "color"; spellColor: ManaColor; blackSource?: ManaSourceInfo };
 
 export function PlayerHand() {
   const { state, sendAction } = useGame();
@@ -399,36 +460,56 @@ export function PlayerHand() {
       });
       setMenuState({ type: "none" });
     } else if (mode === "powered") {
-      // Powered play - need to select mana source
+      // Powered play - need to select mana source(s)
       const playability = playableCardMap.get(selectedCard);
       const requiredMana = playability?.requiredMana;
 
       if (requiredMana) {
-        const sources = getAvailableManaSources(state, player, requiredMana);
+        // Check if this is a spell (requires black + color mana)
+        if (playability?.isSpell) {
+          // Spells need two mana sources: black first, then the spell's color
+          const blackSources = getAvailableManaSources(state, player, MANA_BLACK);
 
-        if (sources.length === 0) {
-          // This shouldn't happen - UI shouldn't show powered option if no mana available
-          console.error("No mana source found for powered card");
-          return;
-        }
+          if (blackSources.length === 0) {
+            console.error("No black mana source found for spell");
+            return;
+          }
 
-        if (sources.length === 1) {
-          // Only one option - auto-select it
-          sendAction({
-            type: PLAY_CARD_ACTION,
-            cardId: selectedCard,
-            powered: true,
-            manaSource: sources[0],
-          });
-          setMenuState({ type: "none" });
-        } else {
-          // Multiple options - show mana source selection menu
+          // Start two-step spell mana selection (black first)
           setMenuState({
-            type: "mana-select",
+            type: "spell-mana-select",
             cardIndex: selectedIndex,
-            requiredColor: requiredMana,
-            sources,
+            step: "black",
+            spellColor: requiredMana,
           });
+        } else {
+          // Regular action card - single mana source
+          const sources = getAvailableManaSources(state, player, requiredMana);
+
+          if (sources.length === 0) {
+            // This shouldn't happen - UI shouldn't show powered option if no mana available
+            console.error("No mana source found for powered card");
+            return;
+          }
+
+          if (sources.length === 1) {
+            // Only one option - auto-select it
+            sendAction({
+              type: PLAY_CARD_ACTION,
+              cardId: selectedCard,
+              powered: true,
+              manaSource: sources[0],
+            });
+            setMenuState({ type: "none" });
+          } else {
+            // Multiple options - show mana source selection menu
+            setMenuState({
+              type: "mana-select",
+              cardIndex: selectedIndex,
+              requiredColor: requiredMana,
+              sources,
+            });
+          }
         }
       }
     } else {
@@ -454,6 +535,37 @@ export function PlayerHand() {
     setMenuState({ type: "none" });
   };
 
+  const handleSpellManaSourceSelect = (source: ManaSourceInfo) => {
+    if (selectedCard === null || selectedCard === undefined) return;
+    if (menuState.type !== "spell-mana-select") return;
+
+    if (menuState.step === "black") {
+      // Black mana selected, now need to select the spell's color
+      setMenuState({
+        type: "spell-mana-select",
+        cardIndex: menuState.cardIndex,
+        step: "color",
+        spellColor: menuState.spellColor,
+        blackSource: source,
+      });
+    } else {
+      // Color mana selected, send the action with both sources
+      const blackSource = menuState.blackSource;
+      if (!blackSource) {
+        console.error("Missing black mana source for spell");
+        return;
+      }
+
+      sendAction({
+        type: PLAY_CARD_ACTION,
+        cardId: selectedCard,
+        powered: true,
+        manaSources: [blackSource, source],
+      });
+      setMenuState({ type: "none" });
+    }
+  };
+
   const handleCancel = () => {
     setMenuState({ type: "none" });
   };
@@ -461,6 +573,19 @@ export function PlayerHand() {
   const handleBackToPlayMode = () => {
     if (menuState.type === "mana-select") {
       setMenuState({ type: "play-mode", cardIndex: menuState.cardIndex });
+    } else if (menuState.type === "spell-mana-select") {
+      if (menuState.step === "color") {
+        // Go back to black mana selection
+        setMenuState({
+          type: "spell-mana-select",
+          cardIndex: menuState.cardIndex,
+          step: "black",
+          spellColor: menuState.spellColor,
+        });
+      } else {
+        // Go back to play mode menu
+        setMenuState({ type: "play-mode", cardIndex: menuState.cardIndex });
+      }
     }
   };
 
@@ -504,6 +629,23 @@ export function PlayerHand() {
           isInCombat={isInCombat}
           combatPhase={combatPhase}
           onSelect={handleManaSourceSelect}
+          onBack={handleBackToPlayMode}
+        />
+      )}
+
+      {/* Spell mana source selection menu (two-step: black then color) */}
+      {menuState.type === "spell-mana-select" && selectedCard && (
+        <SpellManaSourceMenu
+          cardId={selectedCard}
+          step={menuState.step}
+          spellColor={menuState.spellColor}
+          blackSource={menuState.blackSource}
+          sources={getAvailableManaSources(
+            state,
+            player,
+            menuState.step === "black" ? MANA_BLACK : menuState.spellColor
+          )}
+          onSelect={handleSpellManaSourceSelect}
           onBack={handleBackToPlayMode}
         />
       )}

@@ -108,7 +108,8 @@ export interface PlayableCard {
   readonly name: string;
   readonly canPlayBasic: boolean;
   readonly canPlayPowered: boolean;
-  readonly requiredMana?: ManaColor; // For powered effect
+  readonly requiredMana?: ManaColor; // For powered effect (spell's color, not black)
+  readonly isSpell?: boolean; // If true, powered effect needs black + requiredMana
   readonly canPlaySideways: boolean;
   readonly sidewaysOptions?: readonly SidewaysOption[];
   readonly basicEffectDescription: string;

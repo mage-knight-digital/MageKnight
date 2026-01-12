@@ -15,7 +15,7 @@ import {
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
 } from "@mage-knight/shared";
-import { canPayForMana } from "./mana.js";
+import { canPayForMana, canPayForTwoMana } from "./mana.js";
 import {
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
@@ -23,6 +23,7 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
+  EFFECT_SELECT_COMBAT_ENEMY,
 } from "../../types/effectTypes.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -32,12 +33,36 @@ import {
 import { getBasicActionCard } from "../../data/basicActions.js";
 import { getAdvancedActionCard } from "../../data/advancedActions.js";
 import { getSpellCard } from "../../data/spells.js";
-import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
+import { DEED_CARD_TYPE_WOUND, DEED_CARD_TYPE_SPELL } from "../../types/cards.js";
 import { describeEffect } from "../effects/describeEffect.js";
 
+import { MANA_BLACK } from "@mage-knight/shared";
+
 /**
- * Find the first mana color from the card's poweredBy array that the player can pay for.
- * Returns undefined if the card cannot be powered or the player can't pay for any of the colors.
+ * Check if a player can pay for a spell's basic effect.
+ *
+ * Spells require mana of their color even for the basic effect (unlike action cards).
+ * The spell's color is found in poweredBy (the non-black color).
+ */
+function canPayForSpellBasic(
+  state: GameState,
+  player: Player,
+  card: DeedCard
+): boolean {
+  // Find the spell's color (the non-black color in poweredBy)
+  const spellColor = card.poweredBy.find((c) => c !== MANA_BLACK);
+  if (!spellColor) return false;
+
+  return canPayForMana(state, player, spellColor);
+}
+
+/**
+ * Check if a player can power a card.
+ *
+ * For action cards: returns the first mana color from poweredBy that the player can pay for.
+ * For spells: returns the spell's color ONLY if the player can pay for BOTH black AND that color.
+ *
+ * Returns undefined if the card cannot be powered.
  */
 function findPayableManaColor(
   state: GameState,
@@ -45,6 +70,21 @@ function findPayableManaColor(
   card: DeedCard
 ): ManaColor | undefined {
   if (card.poweredBy.length === 0) return undefined;
+
+  // Spells require BOTH black mana AND the spell's color
+  if (card.cardType === DEED_CARD_TYPE_SPELL) {
+    // Spell's poweredBy should be [MANA_BLACK, spell_color]
+    const spellColor = card.poweredBy.find((c) => c !== MANA_BLACK);
+    if (!spellColor) return undefined;
+
+    // Check if player can pay for both black AND the spell color
+    if (canPayForTwoMana(state, player, MANA_BLACK, spellColor)) {
+      return spellColor; // Return the spell color (black is implicit)
+    }
+    return undefined;
+  }
+
+  // Action cards: any one of the poweredBy colors works (OR logic)
   return card.poweredBy.find((color) => canPayForMana(state, player, color));
 }
 
@@ -71,8 +111,15 @@ export function getPlayableCardsForCombat(
     const basicIsResolvable = isEffectResolvable(state, player.id, card.basicEffect);
     const poweredIsResolvable = isEffectResolvable(state, player.id, card.poweredEffect);
 
+    // For spells, basic effect also requires mana (the spell's color)
+    // Get the spell's color from poweredBy (excluding black)
+    const spellBasicManaAvailable = card.cardType === DEED_CARD_TYPE_SPELL
+      ? canPayForSpellBasic(state, player, card)
+      : true; // Action cards don't need mana for basic effect
+
     // Can only play basic if the phase allows it AND the effect is resolvable
-    const canActuallyPlayBasic = playability.canPlayBasic && basicIsResolvable;
+    // AND for spells, the player has the spell's color mana
+    const canActuallyPlayBasic = playability.canPlayBasic && basicIsResolvable && spellBasicManaAvailable;
 
     // Check if the card has a powered effect for this phase AND player can pay for it AND it's resolvable
     const payableManaColor = (playability.canPlayPowered && poweredIsResolvable)
@@ -95,6 +142,9 @@ export function getPlayableCardsForCombat(
       if (payableManaColor && canActuallyPlayPowered) {
         (playableCard as { requiredMana?: ManaColor }).requiredMana = payableManaColor;
       }
+      if (card.cardType === DEED_CARD_TYPE_SPELL) {
+        (playableCard as { isSpell?: boolean }).isSpell = true;
+      }
       if (playability.sidewaysOptions && playability.sidewaysOptions.length > 0) {
         (playableCard as { sidewaysOptions?: readonly SidewaysOption[] }).sidewaysOptions = playability.sidewaysOptions;
       }
@@ -115,7 +165,7 @@ interface CardPlayability {
 
 /**
  * Check if an effect is a "utility" effect that can be played during any combat phase.
- * These include mana generation, card draws, healing, and card boost.
+ * These include mana generation, card draws, healing, card boost, and enemy-targeting spells.
  */
 function effectIsUtility(effect: CardEffect): boolean {
   return (
@@ -125,7 +175,8 @@ function effectIsUtility(effect: CardEffect): boolean {
     effectHasModifier(effect) ||
     effectHasManaDrawPowered(effect) ||
     effectHasCardBoost(effect) ||
-    effectHasCrystal(effect)
+    effectHasCrystal(effect) ||
+    effectHasEnemyTargeting(effect)
   );
 }
 
@@ -333,17 +384,23 @@ export function getPlayableCardsForNormalTurn(
 
     const playability = getCardPlayabilityForNormalTurn(state, player.id, card);
 
+    // For spells, basic effect also requires mana (the spell's color)
+    const spellBasicManaAvailable = card.cardType === DEED_CARD_TYPE_SPELL
+      ? canPayForSpellBasic(state, player, card)
+      : true;
+    const canActuallyPlayBasic = playability.canPlayBasic && spellBasicManaAvailable;
+
     // Check if the card has a powered effect AND player can pay for it
     const payableManaColor = playability.canPlayPowered
       ? findPayableManaColor(state, player, card)
       : undefined;
     const canActuallyPlayPowered = payableManaColor !== undefined;
 
-    if (playability.canPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
+    if (canActuallyPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
       const playableCard: PlayableCard = {
         cardId,
         name: card.name,
-        canPlayBasic: playability.canPlayBasic,
+        canPlayBasic: canActuallyPlayBasic,
         canPlayPowered: canActuallyPlayPowered,
         canPlaySideways: playability.canPlaySideways,
         basicEffectDescription: describeEffect(card.basicEffect),
@@ -353,6 +410,9 @@ export function getPlayableCardsForNormalTurn(
       // Only add optional properties when they have values
       if (payableManaColor && canActuallyPlayPowered) {
         (playableCard as { requiredMana?: ManaColor }).requiredMana = payableManaColor;
+      }
+      if (card.cardType === DEED_CARD_TYPE_SPELL) {
+        (playableCard as { isSpell?: boolean }).isSpell = true;
       }
       if (playability.sidewaysOptions && playability.sidewaysOptions.length > 0) {
         (playableCard as { sidewaysOptions?: readonly SidewaysOption[] }).sidewaysOptions = playability.sidewaysOptions;
@@ -652,6 +712,33 @@ function effectHasCardBoost(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasCardBoost(effect.baseEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect has enemy targeting (e.g., Tremor, Chill, Whirlwind).
+ * These effects target specific enemies during combat to apply modifiers or defeat them.
+ */
+function effectHasEnemyTargeting(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_SELECT_COMBAT_ENEMY:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasEnemyTargeting(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasEnemyTargeting(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasEnemyTargeting(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasEnemyTargeting(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasEnemyTargeting(effect.baseEffect);
 
     default:
       return false;

@@ -91,7 +91,17 @@ export interface PlayCardAction {
   readonly type: typeof PLAY_CARD_ACTION;
   readonly cardId: CardId;
   readonly powered: boolean;
-  readonly manaSource?: ManaSourceInfo; // Required when powered is true
+  /**
+   * Single mana source for action cards (powered by one mana).
+   * Required when powered is true for action cards.
+   */
+  readonly manaSource?: ManaSourceInfo;
+  /**
+   * Multiple mana sources for spells (require black + color mana).
+   * Required when powered is true for spell cards.
+   * When provided, manaSource is ignored.
+   */
+  readonly manaSources?: readonly ManaSourceInfo[];
 }
 
 export const PLAY_CARD_SIDEWAYS_ACTION = "PLAY_CARD_SIDEWAYS" as const;

@@ -1,9 +1,9 @@
 /**
  * Spell card definitions for Mage Knight
  *
- * Spells require mana of their color to cast. Each spell has:
+ * Spells require BLACK mana + their color mana to cast the powered effect:
  * - Basic effect (can be played with just the card)
- * - Powered effect (requires spending mana of the spell's color)
+ * - Powered effect (requires spending BLACK + the spell's color mana)
  *
  * Note: This is an initial set of simple spells. More complex spells
  * will be added as the effect system expands.
@@ -20,6 +20,8 @@ import {
   EFFECT_GAIN_BLOCK,
   EFFECT_GAIN_HEALING,
   EFFECT_CHOICE,
+  EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_APPLY_MODIFIER,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
   COMBAT_TYPE_MELEE,
@@ -29,17 +31,27 @@ import {
   MANA_BLUE,
   MANA_GREEN,
   MANA_WHITE,
+  MANA_BLACK,
   CARD_FIREBALL,
   CARD_FLAME_WALL,
   CARD_SNOWSTORM,
   CARD_RESTORATION,
   CARD_EXPOSE,
+  CARD_TREMOR,
+  CARD_CHILL,
+  CARD_WHIRLWIND,
 } from "@mage-knight/shared";
 import type { CardId } from "@mage-knight/shared";
 import {
   ELEMENT_FIRE,
   ELEMENT_ICE,
+  DURATION_COMBAT,
+  EFFECT_ENEMY_STAT,
+  EFFECT_ENEMY_SKIP_ATTACK,
+  ENEMY_STAT_ARMOR,
+  SCOPE_ALL_ENEMIES,
 } from "../types/modifierConstants.js";
+import { COMBAT_PHASE_ATTACK } from "../types/combat.js";
 
 // === Effect Helpers ===
 
@@ -119,7 +131,7 @@ const FIREBALL: DeedCard = {
   name: "Fireball",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
-  poweredBy: [MANA_RED],
+  poweredBy: [MANA_BLACK, MANA_RED],
   basicEffect: fireRangedAttack(5),
   poweredEffect: fireSiegeAttack(8),
   sidewaysValue: 1,
@@ -138,7 +150,7 @@ const FLAME_WALL: DeedCard = {
   name: "Flame Wall",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
-  poweredBy: [MANA_RED],
+  poweredBy: [MANA_BLACK, MANA_RED],
   basicEffect: choice([fireAttack(5), fireBlock(7)]),
   poweredEffect: choice([fireAttack(5), fireBlock(7)]), // TODO: Add scaling
   sidewaysValue: 1,
@@ -156,7 +168,7 @@ const SNOWSTORM: DeedCard = {
   name: "Snowstorm",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
-  poweredBy: [MANA_BLUE],
+  poweredBy: [MANA_BLACK, MANA_BLUE],
   basicEffect: iceRangedAttack(5),
   poweredEffect: iceSiegeAttack(8),
   sidewaysValue: 1,
@@ -175,7 +187,7 @@ const RESTORATION: DeedCard = {
   name: "Restoration",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_HEALING],
-  poweredBy: [MANA_GREEN],
+  poweredBy: [MANA_BLACK, MANA_GREEN],
   basicEffect: heal(3),
   poweredEffect: heal(5), // TODO: Add forest conditional and unit ready
   sidewaysValue: 1,
@@ -194,7 +206,7 @@ const EXPOSE: DeedCard = {
   name: "Expose",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
-  poweredBy: [MANA_WHITE],
+  poweredBy: [MANA_BLACK, MANA_WHITE],
   basicEffect: {
     type: EFFECT_GAIN_ATTACK,
     amount: 2,
@@ -208,13 +220,180 @@ const EXPOSE: DeedCard = {
   sidewaysValue: 1,
 };
 
+/**
+ * Tremor / Earthquake (Red Spell #11)
+ * Basic: Target enemy gets Armor -3, OR all enemies get Armor -2.
+ * Powered: Target enemy gets Armor -4, OR all enemies get Armor -3.
+ */
+const TREMOR: DeedCard = {
+  id: CARD_TREMOR,
+  name: "Tremor",
+  cardType: DEED_CARD_TYPE_SPELL,
+  categories: [CARD_CATEGORY_COMBAT],
+  poweredBy: [MANA_BLACK, MANA_RED],
+  basicEffect: {
+    type: EFFECT_CHOICE,
+    options: [
+      {
+        type: EFFECT_SELECT_COMBAT_ENEMY,
+        template: {
+          modifiers: [
+            {
+              modifier: {
+                type: EFFECT_ENEMY_STAT,
+                stat: ENEMY_STAT_ARMOR,
+                amount: -3,
+                minimum: 1,
+              },
+              duration: DURATION_COMBAT,
+              description: "Target enemy gets Armor -3",
+            },
+          ],
+        },
+      },
+      {
+        type: EFFECT_APPLY_MODIFIER,
+        scope: { type: SCOPE_ALL_ENEMIES },
+        duration: DURATION_COMBAT,
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -2,
+          minimum: 1,
+        },
+        description: "All enemies get Armor -2",
+      },
+    ],
+  },
+  poweredEffect: {
+    type: EFFECT_CHOICE,
+    options: [
+      {
+        type: EFFECT_SELECT_COMBAT_ENEMY,
+        template: {
+          modifiers: [
+            {
+              modifier: {
+                type: EFFECT_ENEMY_STAT,
+                stat: ENEMY_STAT_ARMOR,
+                amount: -4,
+                minimum: 1,
+              },
+              duration: DURATION_COMBAT,
+              description: "Target enemy gets Armor -4",
+            },
+          ],
+        },
+      },
+      {
+        type: EFFECT_APPLY_MODIFIER,
+        scope: { type: SCOPE_ALL_ENEMIES },
+        duration: DURATION_COMBAT,
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -3,
+          minimum: 1,
+        },
+        description: "All enemies get Armor -3",
+      },
+    ],
+  },
+  sidewaysValue: 1,
+};
+
+/**
+ * Chill / Lethal Chill (Blue Spell #13)
+ * Basic: Target enemy does not attack this combat. If it has Fire Resistance, it loses it.
+ * Powered (Lethal Chill): Target enemy does not attack and gets Armor -4.
+ *
+ * Note: Fire Resistance removal not yet implemented.
+ */
+const CHILL: DeedCard = {
+  id: CARD_CHILL,
+  name: "Chill",
+  cardType: DEED_CARD_TYPE_SPELL,
+  categories: [CARD_CATEGORY_COMBAT],
+  poweredBy: [MANA_BLACK, MANA_BLUE],
+  basicEffect: {
+    type: EFFECT_SELECT_COMBAT_ENEMY,
+    template: {
+      modifiers: [
+        {
+          modifier: { type: EFFECT_ENEMY_SKIP_ATTACK },
+          duration: DURATION_COMBAT,
+          description: "Target enemy does not attack",
+        },
+        // TODO: Add fire resistance removal
+      ],
+    },
+  },
+  poweredEffect: {
+    type: EFFECT_SELECT_COMBAT_ENEMY,
+    template: {
+      modifiers: [
+        {
+          modifier: { type: EFFECT_ENEMY_SKIP_ATTACK },
+          duration: DURATION_COMBAT,
+          description: "Target enemy does not attack",
+        },
+        {
+          modifier: {
+            type: EFFECT_ENEMY_STAT,
+            stat: ENEMY_STAT_ARMOR,
+            amount: -4,
+            minimum: 1,
+          },
+          duration: DURATION_COMBAT,
+          description: "Target enemy gets Armor -4",
+        },
+      ],
+    },
+  },
+  sidewaysValue: 1,
+};
+
+/**
+ * Whirlwind / Tornado (White Spell #22)
+ * Basic: Target enemy does not attack.
+ * Powered (Tornado): Defeat target enemy. Can only be played in Attack phase.
+ */
+const WHIRLWIND: DeedCard = {
+  id: CARD_WHIRLWIND,
+  name: "Whirlwind",
+  cardType: DEED_CARD_TYPE_SPELL,
+  categories: [CARD_CATEGORY_COMBAT],
+  poweredBy: [MANA_BLACK, MANA_WHITE],
+  basicEffect: {
+    type: EFFECT_SELECT_COMBAT_ENEMY,
+    template: {
+      modifiers: [
+        {
+          modifier: { type: EFFECT_ENEMY_SKIP_ATTACK },
+          duration: DURATION_COMBAT,
+          description: "Target enemy does not attack",
+        },
+      ],
+    },
+  },
+  poweredEffect: {
+    type: EFFECT_SELECT_COMBAT_ENEMY,
+    template: { defeat: true },
+    requiredPhase: COMBAT_PHASE_ATTACK,
+  },
+  sidewaysValue: 1,
+};
+
 // === Spell Registry ===
 
 export const SPELL_CARDS: Record<CardId, DeedCard> = {
   [CARD_FIREBALL]: FIREBALL,
   [CARD_FLAME_WALL]: FLAME_WALL,
+  [CARD_TREMOR]: TREMOR,
   [CARD_SNOWSTORM]: SNOWSTORM,
+  [CARD_CHILL]: CHILL,
   [CARD_RESTORATION]: RESTORATION,
+  [CARD_WHIRLWIND]: WHIRLWIND,
   [CARD_EXPOSE]: EXPOSE,
 };
 

@@ -121,12 +121,15 @@ export const CARD_CHILLING_STARE = cardId("chilling_stare"); // blue+white
 // Red spells
 export const CARD_FIREBALL = cardId("fireball"); // #09 - Fire Ranged Attack 5 / Siege Fire Attack 8
 export const CARD_FLAME_WALL = cardId("flame_wall"); // #10 - Fire Attack 5 or Fire Block 7
+export const CARD_TREMOR = cardId("tremor"); // #11 - Target/All Armor reduction
 
 // Blue spells
 export const CARD_SNOWSTORM = cardId("snowstorm"); // #15 - Ice Ranged Attack 5 / Siege Ice Attack 8
+export const CARD_CHILL = cardId("chill"); // #13 - Target doesn't attack / defeat
 
 // Green spells
 export const CARD_RESTORATION = cardId("restoration"); // #05 - Heal 3 (5 in forest)
+export const CARD_WHIRLWIND = cardId("whirlwind"); // #07 - Target doesn't attack / defeat
 
 // White spells
 export const CARD_EXPOSE = cardId("expose"); // #19 - Lose fortification/resistances
@@ -224,9 +227,12 @@ export type SpellCardId =
   // Red spells
   | typeof CARD_FIREBALL
   | typeof CARD_FLAME_WALL
+  | typeof CARD_TREMOR
   // Blue spells
   | typeof CARD_SNOWSTORM
+  | typeof CARD_CHILL
   // Green spells
   | typeof CARD_RESTORATION
+  | typeof CARD_WHIRLWIND
   // White spells
   | typeof CARD_EXPOSE;

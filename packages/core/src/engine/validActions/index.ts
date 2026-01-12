@@ -153,7 +153,7 @@ export function getValidActions(
 
   // Handle combat
   if (isInCombat(state) && state.combat) {
-    const combatOptions = getCombatOptions(state.combat);
+    const combatOptions = getCombatOptions(state);
     if (combatOptions) {
       const playCardOptions = getPlayableCardsForCombat(state, player, state.combat);
       const manaOptions = getManaOptions(state, player);
