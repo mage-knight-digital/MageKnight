@@ -765,6 +765,41 @@ export function DebugPanel() {
         <section className="debug-panel__section">
           <h4>Save/Load</h4>
           <div className="debug-panel__row">
+            <span className="debug-panel__label">Quick Slots:</span>
+            {[0, 1, 2].map((slotIndex) => {
+              const slotKey = `mageKnight_save_${slotIndex}`;
+              const hasSave = localStorage.getItem(slotKey) !== null;
+              return (
+                <div key={slotIndex} className="debug-panel__save-slot">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const json = saveGame();
+                      if (json) {
+                        localStorage.setItem(slotKey, json);
+                        alert(`Saved to slot ${slotIndex + 1}`);
+                      }
+                    }}
+                    title={`Save to slot ${slotIndex + 1}`}
+                  >
+                    S{slotIndex + 1}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const json = localStorage.getItem(slotKey);
+                      if (json) loadGame(json);
+                    }}
+                    disabled={!hasSave}
+                    title={hasSave ? `Load slot ${slotIndex + 1}` : "Empty slot"}
+                  >
+                    L{slotIndex + 1}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="debug-panel__row">
             <button type="button" onClick={handleExportState}>
               Export State
             </button>

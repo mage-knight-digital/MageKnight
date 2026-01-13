@@ -1,0 +1,1 @@
+export { OffersBar } from "./OffersBar";

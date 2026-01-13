@@ -1,0 +1,387 @@
+/**
+ * OffersBar styles
+ *
+ * Uses CSS custom properties for easy position changes:
+ * - Currently: horizontal bar at top
+ * - Future: can switch to vertical sidebar by changing --offers-bar-direction
+ */
+
+.offers-bar {
+  --offers-bar-bg: #16213e;
+  --offers-bar-tab-bg: #0f0f23;
+  --offers-bar-tab-active: #3498db;
+  --offers-bar-flyout-bg: #1a1a2e;
+
+  position: relative;
+  background: var(--offers-bar-bg);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+/* Tab bar */
+.offers-bar__tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem;
+}
+
+.offers-bar__tab {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  background: var(--offers-bar-tab-bg);
+  border: 2px solid transparent;
+  border-radius: 6px;
+  color: #888;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.offers-bar__tab:hover {
+  color: #ccc;
+  border-color: #444;
+}
+
+.offers-bar__tab--active {
+  background: var(--offers-bar-tab-active);
+  color: #fff;
+  border-color: var(--offers-bar-tab-active);
+}
+
+/* Show full label on larger screens, short on smaller */
+.offers-bar__tab-short {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .offers-bar__tab-label {
+    display: none;
+  }
+  .offers-bar__tab-short {
+    display: inline;
+  }
+}
+
+/* Flyout panel */
+.offers-bar__flyout {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--offers-bar-flyout-bg);
+  border: 2px solid #333;
+  border-radius: 0 0 8px 8px;
+  border-top: none;
+  z-index: 50;
+  max-height: 60vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.offers-bar__flyout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #0f0f23;
+  border-bottom: 1px solid #333;
+}
+
+.offers-bar__flyout-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #eee;
+}
+
+.offers-bar__close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.offers-bar__close:hover {
+  color: #fff;
+}
+
+.offers-bar__flyout-content {
+  padding: 1rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Grid layout for cards */
+.offers-bar__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.offers-bar__empty {
+  color: #666;
+  font-size: 0.875rem;
+  padding: 1rem;
+  text-align: center;
+  grid-column: 1 / -1;
+}
+
+.offers-bar__deck-info {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  color: #666;
+  padding-top: 0.5rem;
+  border-top: 1px solid #333;
+  margin-top: 0.5rem;
+}
+
+/* Unit cards in flyout */
+.offers-bar__unit-card {
+  background: #0f0f23;
+  border: 2px solid #333;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.offers-bar__unit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.offers-bar__unit-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #eee;
+}
+
+.offers-bar__unit-cost {
+  background: #3498db;
+  color: #fff;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.offers-bar__unit-stats {
+  font-size: 0.75rem;
+  color: #888;
+  margin-bottom: 0.5rem;
+}
+
+.offers-bar__recruit-btn {
+  width: 100%;
+  padding: 0.375rem;
+  border: none;
+  border-radius: 4px;
+  background: #27ae60;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.offers-bar__recruit-btn:hover:not(:disabled) {
+  background: #2ecc71;
+}
+
+.offers-bar__recruit-btn--disabled,
+.offers-bar__recruit-btn:disabled {
+  background: #555;
+  color: #888;
+  cursor: not-allowed;
+}
+
+/* Spell cards */
+.offers-bar__spell-card {
+  background: #0f0f23;
+  border: 2px solid #9b59b6;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.offers-bar__spell-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #bb8fce;
+}
+
+/* Advanced Action cards */
+.offers-bar__aa-card {
+  background: #0f0f23;
+  border: 2px solid #e67e22;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.offers-bar__aa-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #f5b041;
+}
+
+/* Level track */
+.offers-bar__level-track {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.offers-bar__level-current,
+.offers-bar__level-fame {
+  font-size: 1rem;
+  color: #ccc;
+}
+
+.offers-bar__level-current strong,
+.offers-bar__level-fame strong {
+  color: #f39c12;
+}
+
+.offers-bar__level-progress {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.offers-bar__level-pip {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f0f23;
+  border: 2px solid #333;
+  border-radius: 50%;
+  font-weight: 600;
+  color: #666;
+}
+
+.offers-bar__level-pip--achieved {
+  background: #27ae60;
+  border-color: #27ae60;
+  color: #fff;
+}
+
+.offers-bar__level-pip--current {
+  border-color: #f39c12;
+  box-shadow: 0 0 8px rgba(243, 156, 18, 0.5);
+}
+
+.offers-bar__level-info {
+  font-size: 0.875rem;
+  color: #888;
+}
+
+/* Event log */
+.offers-bar__event-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.offers-bar__event {
+  background: #0f0f23;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+}
+
+.offers-bar__event-type {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #3498db;
+  margin-bottom: 0.25rem;
+}
+
+.offers-bar__event-type--error {
+  color: #e74c3c;
+}
+
+.offers-bar__event-details {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.offers-bar__event-json {
+  font-size: 0.65rem;
+  color: #666;
+  margin: 0.25rem 0 0 0;
+  padding: 0.25rem 0.5rem;
+  background: #0a0a1a;
+  border-radius: 3px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+/* ============================================================================
+   Position variants (for future use)
+   To use: add class like .offers-bar--left or .offers-bar--right to container
+   ============================================================================ */
+
+/* Left sidebar variant */
+.offers-bar--left {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: auto;
+  margin: 0;
+  border-radius: 0;
+}
+
+.offers-bar--left .offers-bar__tabs {
+  flex-direction: column;
+  height: 100%;
+}
+
+.offers-bar--left .offers-bar__flyout {
+  top: 0;
+  left: 100%;
+  right: auto;
+  bottom: 0;
+  width: 400px;
+  max-height: none;
+  border-radius: 0 8px 8px 0;
+  border-left: none;
+}
+
+/* Right sidebar variant */
+.offers-bar--right {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: auto;
+  margin: 0;
+  border-radius: 0;
+}
+
+.offers-bar--right .offers-bar__tabs {
+  flex-direction: column;
+  height: 100%;
+}
+
+.offers-bar--right .offers-bar__flyout {
+  top: 0;
+  right: 100%;
+  left: auto;
+  bottom: 0;
+  width: 400px;
+  max-height: none;
+  border-radius: 8px 0 0 8px;
+  border-right: none;
+}

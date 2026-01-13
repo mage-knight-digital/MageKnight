@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   PLAY_CARD_ACTION,
   PLAY_CARD_SIDEWAYS_ACTION,
@@ -18,6 +18,23 @@ import {
   MANA_SOURCE_DIE,
   MANA_SOURCE_CRYSTAL,
   MANA_SOURCE_TOKEN,
+  UNITS,
+  UNIT_TYPE_ELITE,
+  UNIT_STATE_READY,
+  UNIT_ABILITY_ATTACK,
+  UNIT_ABILITY_BLOCK,
+  UNIT_ABILITY_RANGED_ATTACK,
+  UNIT_ABILITY_SIEGE_ATTACK,
+  UNIT_ABILITY_MOVE,
+  UNIT_ABILITY_INFLUENCE,
+  UNIT_ABILITY_HEAL,
+  ACTIVATE_UNIT_ACTION,
+  END_TURN_ACTION,
+  UNDO_ACTION,
+  ACTIVATE_TACTIC_ACTION,
+  TACTIC_THE_RIGHT_MOMENT,
+  TACTIC_LONG_NIGHT,
+  TACTIC_MIDNIGHT_MEDITATION,
   type CardId,
   type PlayableCard,
   type SidewaysAs,
@@ -25,6 +42,8 @@ import {
   type ManaColor,
   type ClientGameState,
   type ClientPlayer,
+  type UnitAbility,
+  type UnitId,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -403,10 +422,61 @@ type MenuState =
   | { type: "mana-select"; cardIndex: number; requiredColor: ManaColor; sources: ManaSourceInfo[] }
   | { type: "spell-mana-select"; cardIndex: number; step: "black" | "color"; spellColor: ManaColor; blackSource?: ManaSourceInfo };
 
+// Format unit ability for display
+function formatUnitAbility(ability: UnitAbility): string {
+  const value = ability.value ?? "";
+  const element = ability.element ? ` ${ability.element}` : "";
+
+  switch (ability.type) {
+    case UNIT_ABILITY_ATTACK:
+      return `Atk ${value}${element}`;
+    case UNIT_ABILITY_BLOCK:
+      return `Blk ${value}${element}`;
+    case UNIT_ABILITY_RANGED_ATTACK:
+      return `Rng ${value}${element}`;
+    case UNIT_ABILITY_SIEGE_ATTACK:
+      return `Sge ${value}${element}`;
+    case UNIT_ABILITY_MOVE:
+      return `Mov ${value}`;
+    case UNIT_ABILITY_INFLUENCE:
+      return `Inf ${value}`;
+    case UNIT_ABILITY_HEAL:
+      return `Heal ${value}`;
+    default:
+      return ability.type.replace(/_/g, " ");
+  }
+}
+
 export function PlayerHand() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
+
+  // Turn action state
+  const isMyTurn = state?.currentPlayerId === player?.id;
+  const hasTactic = player?.selectedTacticId !== null;
+  const canUndo = state?.validActions.turn?.canUndo ?? false;
+
+  // Check for activatable tactics
+  const canActivate = state?.validActions.tacticEffects?.canActivate;
+  const canActivateTheRightMoment = canActivate?.theRightMoment === true;
+  const canActivateLongNight = canActivate?.longNight === true;
+  const canActivateMidnightMeditation = canActivate?.midnightMeditation === true;
+
+  // Ctrl+Z / Cmd+Z keyboard shortcut for undo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        if (canUndo && isMyTurn) {
+          sendAction({ type: UNDO_ACTION });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canUndo, isMyTurn, sendAction]);
 
   if (!player || !Array.isArray(player.hand) || !state) {
     return null;
@@ -570,6 +640,27 @@ export function PlayerHand() {
     setMenuState({ type: "none" });
   };
 
+  // Turn action handlers
+  const handleEndTurn = () => {
+    sendAction({ type: END_TURN_ACTION });
+  };
+
+  const handleUndo = () => {
+    sendAction({ type: UNDO_ACTION });
+  };
+
+  const handleActivateTheRightMoment = () => {
+    sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_THE_RIGHT_MOMENT });
+  };
+
+  const handleActivateLongNight = () => {
+    sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_LONG_NIGHT });
+  };
+
+  const handleActivateMidnightMeditation = () => {
+    sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_MIDNIGHT_MEDITATION });
+  };
+
   const handleBackToPlayMode = () => {
     if (menuState.type === "mana-select") {
       setMenuState({ type: "play-mode", cardIndex: menuState.cardIndex });
@@ -589,22 +680,105 @@ export function PlayerHand() {
     }
   };
 
+  // Calculate fame needed for next level (simple approximation - real game has specific thresholds)
+  const fameThresholds = [0, 3, 8, 15, 24, 35, 48, 63, 80, 99, 999];
+  const nextLevelFame = fameThresholds[player.level] ?? 999;
+
   return (
     <div className="player-hand" data-testid="player-hand">
       <div className="player-hand__header">
-        <h3 className="panel__title">Hand ({player.hand.length} cards)</h3>
-        <div className="player-hand__stats">
-          Move: {player.movePoints} | Influence: {player.influencePoints}
-          {player.pureMana.length > 0 && (
-            <span className="player-hand__mana-tokens">
-              {" | Mana: "}
-              {player.pureMana.map((token, i) => (
-                <span key={i} title={`${token.color} mana token`}>
-                  {getColorEmoji(token.color)}
-                </span>
-              ))}
-            </span>
-          )}
+        <div className="player-hand__header-left">
+          <div className="player-hand__hero-stats">
+            <span className="player-hand__hero-name">{player.heroId}</span>
+            <span className="player-hand__hero-stat">Lvl {player.level}</span>
+            <span className="player-hand__hero-stat">Fame {player.fame}/{nextLevelFame}</span>
+            <span className="player-hand__hero-stat">Armor {player.armor}</span>
+            <span className="player-hand__hero-stat player-hand__hero-stat--rep">Rep {player.reputation}</span>
+          </div>
+          <div className="player-hand__deck-info">
+            Hand: {player.hand.length} | Deck: {player.deckCount} | Discard: {player.discardCount}
+          </div>
+        </div>
+        <div className="player-hand__header-center">
+          <div className="player-hand__resources">
+            <div className="player-hand__crystals">
+              {player.crystals.red > 0 && <span className="player-hand__crystal player-hand__crystal--red">{player.crystals.red}</span>}
+              {player.crystals.blue > 0 && <span className="player-hand__crystal player-hand__crystal--blue">{player.crystals.blue}</span>}
+              {player.crystals.green > 0 && <span className="player-hand__crystal player-hand__crystal--green">{player.crystals.green}</span>}
+              {player.crystals.white > 0 && <span className="player-hand__crystal player-hand__crystal--white">{player.crystals.white}</span>}
+              {player.crystals.red === 0 && player.crystals.blue === 0 && player.crystals.green === 0 && player.crystals.white === 0 && (
+                <span className="player-hand__no-crystals">No crystals</span>
+              )}
+            </div>
+            {player.pureMana.length > 0 && (
+              <div className="player-hand__mana-tokens">
+                {player.pureMana.map((token, i) => (
+                  <span key={i} className="player-hand__mana-token" title={`${token.color} mana token`}>
+                    {getColorEmoji(token.color)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="player-hand__stats">
+            Move: {player.movePoints} | Influence: {player.influencePoints}
+          </div>
+        </div>
+        <div className="player-hand__header-right">
+          <span className={`player-hand__turn-indicator ${isMyTurn ? "player-hand__turn-indicator--active" : ""}`}>
+            {isMyTurn ? "Your Turn" : `Waiting for ${state.currentPlayerId}`}
+          </span>
+          <div className="player-hand__turn-actions">
+            {canActivateTheRightMoment && (
+              <button
+                className="player-hand__action-btn player-hand__action-btn--tactic"
+                onClick={handleActivateTheRightMoment}
+                type="button"
+                title="Take another turn after this one"
+              >
+                Right Moment
+              </button>
+            )}
+            {canActivateLongNight && (
+              <button
+                className="player-hand__action-btn player-hand__action-btn--tactic-dark"
+                onClick={handleActivateLongNight}
+                type="button"
+                title="Shuffle discard, put 3 cards back in deck"
+              >
+                Long Night
+              </button>
+            )}
+            {canActivateMidnightMeditation && (
+              <button
+                className="player-hand__action-btn player-hand__action-btn--tactic-dark"
+                onClick={handleActivateMidnightMeditation}
+                type="button"
+                title="Shuffle hand cards into deck, draw same amount"
+              >
+                Meditation
+              </button>
+            )}
+            <button
+              className="player-hand__action-btn player-hand__action-btn--undo"
+              onClick={handleUndo}
+              disabled={!isMyTurn || !canUndo}
+              type="button"
+              title="Undo last action (Ctrl+Z)"
+              data-testid="undo-btn"
+            >
+              Undo
+            </button>
+            <button
+              className="player-hand__action-btn player-hand__action-btn--end-turn"
+              onClick={handleEndTurn}
+              disabled={!isMyTurn || !hasTactic}
+              type="button"
+              data-testid="end-turn-btn"
+            >
+              End Turn
+            </button>
+          </div>
         </div>
       </div>
 
@@ -650,22 +824,91 @@ export function PlayerHand() {
         />
       )}
 
-      <div className="player-hand__cards">
-        {handArray.map((cardId, index) => {
-          const playability = playableCardMap.get(cardId);
-          const isPlayable = playability !== undefined;
+      <div className="player-hand__cards-and-units">
+        <div className="player-hand__cards">
+          {handArray.map((cardId, index) => {
+            const playability = playableCardMap.get(cardId);
+            const isPlayable = playability !== undefined;
 
-          return (
-            <Card
-              key={`${cardId}-${index}`}
-              cardId={cardId}
-              isSelected={selectedIndex === index}
-              isPlayable={isPlayable}
-              isInCombat={isInCombat}
-              onClick={() => handleCardClick(index)}
-            />
-          );
-        })}
+            return (
+              <Card
+                key={`${cardId}-${index}`}
+                cardId={cardId}
+                isSelected={selectedIndex === index}
+                isPlayable={isPlayable}
+                isInCombat={isInCombat}
+                onClick={() => handleCardClick(index)}
+              />
+            );
+          })}
+        </div>
+
+        {/* Units display - always show with ghost slots for empty command tokens */}
+        <div className="player-hand__units">
+          <div className="player-hand__units-label">Units ({player.units.length}/{player.commandTokens})</div>
+          <div className="player-hand__units-list">
+            {/* Render actual units */}
+            {player.units.map((unit, index) => {
+              const unitDef = UNITS[unit.unitId];
+              if (!unitDef) return null;
+
+              const isElite = unitDef.type === UNIT_TYPE_ELITE;
+              const isReady = unit.state === UNIT_STATE_READY;
+              const isWounded = unit.wounded;
+
+              // Find activatable info for this unit
+              const activatableUnits = state.validActions?.units?.activatable ?? [];
+              const activatable = activatableUnits.find(a => a.unitId === unit.unitId);
+
+              const handleActivate = (abilityIndex: number) => {
+                if (activatable) {
+                  sendAction({
+                    type: ACTIVATE_UNIT_ACTION,
+                    unitInstanceId: activatable.unitInstanceId,
+                    abilityIndex,
+                  });
+                }
+              };
+
+              return (
+                <div
+                  key={`${unit.unitId}-${index}`}
+                  className={`player-hand__unit ${isElite ? 'player-hand__unit--elite' : ''} ${isWounded ? 'player-hand__unit--wounded' : ''} ${!isReady ? 'player-hand__unit--exhausted' : ''}`}
+                >
+                  <div className="player-hand__unit-name">
+                    {unitDef.name}
+                    {isWounded && <span className="player-hand__unit-status player-hand__unit-status--wounded">W</span>}
+                    {!isReady && <span className="player-hand__unit-status player-hand__unit-status--exhausted">E</span>}
+                  </div>
+                  <div className="player-hand__unit-abilities">
+                    {unitDef.abilities.map((ability, abilityIndex) => {
+                      const abilityInfo = activatable?.abilities.find(a => a.index === abilityIndex);
+                      const canActivate = abilityInfo?.canActivate ?? false;
+
+                      return (
+                        <button
+                          key={abilityIndex}
+                          className={`player-hand__unit-ability ${canActivate ? 'player-hand__unit-ability--active' : ''}`}
+                          onClick={() => handleActivate(abilityIndex)}
+                          disabled={!canActivate}
+                          title={abilityInfo?.reason ?? formatUnitAbility(ability)}
+                        >
+                          {formatUnitAbility(ability)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            {/* Render ghost slots for unused command tokens */}
+            {Array.from({ length: player.commandTokens - player.units.length }).map((_, index) => (
+              <div key={`ghost-${index}`} className="player-hand__unit player-hand__unit--ghost">
+                <div className="player-hand__unit-ghost-label">Empty Slot</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
