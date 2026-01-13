@@ -10,8 +10,8 @@
 
 import { useState } from "react";
 import { useGame } from "../hooks/useGame";
-import type { EnemyId, CardId, BasicManaColor, ManaColor } from "@mage-knight/shared";
-import { getEnemy } from "@mage-knight/shared";
+import type { EnemyId, CardId, BasicManaColor, ManaColor, UnitId } from "@mage-knight/shared";
+import { getEnemy, getUnit, UNIT_STATE_READY } from "@mage-knight/shared";
 
 // Enemy options grouped by color
 const ENEMIES: { label: string; enemies: { id: EnemyId; name: string }[] }[] = [
@@ -176,10 +176,77 @@ const ALL_TOKEN_COLORS: { id: ManaColor; name: string; color: string; textColor:
   { id: "gold", name: "Gold", color: "#f1c40f", textColor: "#333" },
 ];
 
+// Units grouped by type and level
+const UNITS: { label: string; units: { id: UnitId; name: string }[] }[] = [
+  {
+    label: "Regular (Level 1)",
+    units: [
+      { id: "peasants" as UnitId, name: "Peasants" },
+      { id: "foresters" as UnitId, name: "Foresters" },
+      { id: "herbalist" as UnitId, name: "Herbalist" },
+      { id: "scouts" as UnitId, name: "Scouts" },
+      { id: "thugs" as UnitId, name: "Thugs" },
+    ],
+  },
+  {
+    label: "Regular (Level 2)",
+    units: [
+      { id: "utem_crossbowmen" as UnitId, name: "Utem Crossbowmen" },
+      { id: "utem_guardsmen" as UnitId, name: "Utem Guardsmen" },
+      { id: "utem_swordsmen" as UnitId, name: "Utem Swordsmen" },
+      { id: "guardian_golems" as UnitId, name: "Guardian Golems" },
+      { id: "illusionists" as UnitId, name: "Illusionists" },
+      { id: "shocktroops" as UnitId, name: "Shocktroops" },
+      { id: "red_cape_monks" as UnitId, name: "Red Cape Monks" },
+      { id: "northern_monks" as UnitId, name: "Northern Monks" },
+      { id: "savage_monks" as UnitId, name: "Savage Monks" },
+      { id: "magic_familiars" as UnitId, name: "Magic Familiars" },
+    ],
+  },
+  {
+    label: "Elite (Level 3)",
+    units: [
+      { id: "fire_mages" as UnitId, name: "Fire Mages" },
+      { id: "ice_mages" as UnitId, name: "Ice Mages" },
+      { id: "fire_golems" as UnitId, name: "Fire Golems" },
+      { id: "ice_golems" as UnitId, name: "Ice Golems" },
+      { id: "sorcerers" as UnitId, name: "Sorcerers" },
+      { id: "catapults" as UnitId, name: "Catapults" },
+      { id: "amotep_gunners" as UnitId, name: "Amotep Gunners" },
+      { id: "amotep_freezers" as UnitId, name: "Amotep Freezers" },
+      { id: "heroes" as UnitId, name: "Heroes" },
+    ],
+  },
+  {
+    label: "Elite (Level 4)",
+    units: [
+      { id: "altem_mages" as UnitId, name: "Altem Mages" },
+      { id: "altem_guardians" as UnitId, name: "Altem Guardians" },
+      { id: "delphana_masters" as UnitId, name: "Delphana Masters" },
+    ],
+  },
+];
+
+// Level thresholds and stats from shared/levels.ts
+const LEVEL_THRESHOLDS = [0, 3, 8, 14, 21, 29, 38, 48, 59, 71];
+const LEVEL_STATS: Record<number, { armor: number; handLimit: number; commandSlots: number }> = {
+  1: { armor: 2, handLimit: 5, commandSlots: 1 },
+  2: { armor: 2, handLimit: 5, commandSlots: 1 },
+  3: { armor: 3, handLimit: 5, commandSlots: 2 },
+  4: { armor: 3, handLimit: 5, commandSlots: 2 },
+  5: { armor: 3, handLimit: 6, commandSlots: 3 },
+  6: { armor: 3, handLimit: 6, commandSlots: 3 },
+  7: { armor: 4, handLimit: 6, commandSlots: 4 },
+  8: { armor: 4, handLimit: 6, commandSlots: 4 },
+  9: { armor: 4, handLimit: 7, commandSlots: 5 },
+  10: { armor: 4, handLimit: 7, commandSlots: 5 },
+};
+
 export function DebugPanel() {
   const { state, saveGame, loadGame } = useGame();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedEnemy, setSelectedEnemy] = useState<EnemyId>("diggers" as EnemyId);
+  const [selectedUnit, setSelectedUnit] = useState<UnitId>("peasants" as UnitId);
   const [cardSearch, setCardSearch] = useState("");
 
   if (!state) return null;
@@ -317,6 +384,22 @@ export function DebugPanel() {
     loadGame(JSON.stringify(gameState));
   };
 
+  const handleAddWound = (destination: "hand" | "discard") => {
+    const json = saveGame();
+    if (!json) return;
+
+    const gameState = JSON.parse(json);
+    const player = gameState.players[0];
+    if (!player) return;
+
+    if (destination === "hand") {
+      player.hand.push("wound");
+    } else {
+      player.discard.push("wound");
+    }
+    loadGame(JSON.stringify(gameState));
+  };
+
   const handleExportState = () => {
     const json = saveGame();
     if (!json) return;
@@ -392,6 +475,80 @@ export function DebugPanel() {
 
     const gameState = JSON.parse(json);
     gameState.combat = null;
+    loadGame(JSON.stringify(gameState));
+  };
+
+  const handleAddUnit = () => {
+    const json = saveGame();
+    if (!json) return;
+
+    const gameState = JSON.parse(json);
+    const player = gameState.players[0];
+    if (!player) return;
+
+    // Create a new unit instance
+    const unitDef = getUnit(selectedUnit);
+    const newUnit = {
+      instanceId: `unit_${Date.now()}_debug`,
+      unitId: selectedUnit,
+      state: UNIT_STATE_READY,
+      wounded: false,
+      usedResistanceThisCombat: false,
+    };
+
+    if (!player.units) {
+      player.units = [];
+    }
+    player.units.push(newUnit);
+    loadGame(JSON.stringify(gameState));
+    alert(`Added ${unitDef.name} to your units!`);
+  };
+
+  const handleLevelUp = () => {
+    const json = saveGame();
+    if (!json) return;
+
+    const gameState = JSON.parse(json);
+    const player = gameState.players[0];
+    if (!player) return;
+
+    if (player.level >= 10) {
+      alert("Already at max level (10)!");
+      return;
+    }
+
+    const newLevel = player.level + 1;
+    const stats = LEVEL_STATS[newLevel];
+    const fame = LEVEL_THRESHOLDS[newLevel - 1];
+    if (!stats) return;
+
+    player.level = newLevel;
+    player.fame = fame;
+    player.armor = stats.armor;
+    player.handLimit = stats.handLimit;
+    player.commandTokens = stats.commandSlots;
+
+    loadGame(JSON.stringify(gameState));
+  };
+
+  const handleSetLevel = (targetLevel: number) => {
+    const json = saveGame();
+    if (!json) return;
+
+    const gameState = JSON.parse(json);
+    const player = gameState.players[0];
+    if (!player) return;
+
+    const stats = LEVEL_STATS[targetLevel];
+    const fame = LEVEL_THRESHOLDS[targetLevel - 1];
+    if (!stats) return;
+
+    player.level = targetLevel;
+    player.fame = fame;
+    player.armor = stats.armor;
+    player.handLimit = stats.handLimit;
+    player.commandTokens = stats.commandSlots;
+
     loadGame(JSON.stringify(gameState));
   };
 
@@ -532,6 +689,75 @@ export function DebugPanel() {
             <button type="button" onClick={handleAddAllManaTokens}>
               +All
             </button>
+          </div>
+        </section>
+
+        {/* Wounds Section */}
+        <section className="debug-panel__section">
+          <h4>Wounds</h4>
+          <div className="debug-panel__row">
+            <button type="button" onClick={() => handleAddWound("hand")}>
+              Add Wound to Hand
+            </button>
+            <button type="button" onClick={() => handleAddWound("discard")}>
+              Add Wound to Discard
+            </button>
+          </div>
+        </section>
+
+        {/* Units Section */}
+        <section className="debug-panel__section">
+          <h4>Units</h4>
+          <div className="debug-panel__row">
+            <select
+              value={selectedUnit}
+              onChange={(e) => setSelectedUnit(e.target.value as UnitId)}
+            >
+              {UNITS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <button type="button" onClick={handleAddUnit}>
+              Add Unit
+            </button>
+          </div>
+          <div className="debug-panel__row">
+            <span>Current units: {state.players[0]?.units?.length ?? 0}</span>
+          </div>
+        </section>
+
+        {/* Level Section */}
+        <section className="debug-panel__section">
+          <h4>Level ({state.players[0]?.level ?? 1})</h4>
+          <div className="debug-panel__row">
+            <button type="button" onClick={handleLevelUp} disabled={(state.players[0]?.level ?? 1) >= 10}>
+              Level Up (+1)
+            </button>
+          </div>
+          <div className="debug-panel__row debug-panel__level-buttons">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lvl) => (
+              <button
+                key={lvl}
+                type="button"
+                onClick={() => handleSetLevel(lvl)}
+                className={(state.players[0]?.level ?? 1) === lvl ? "debug-panel__level-active" : ""}
+                title={`Set to Level ${lvl} (Fame: ${LEVEL_THRESHOLDS[lvl - 1]})`}
+              >
+                {lvl}
+              </button>
+            ))}
+          </div>
+          <div className="debug-panel__row">
+            <span>
+              Fame: {state.players[0]?.fame ?? 0} | Armor: {state.players[0]?.armor ?? 2} |
+              Hand: {state.players[0]?.handLimit ?? 5} | Commands: {state.players[0]?.commandTokens ?? 1}
+            </span>
           </div>
         </section>
 
