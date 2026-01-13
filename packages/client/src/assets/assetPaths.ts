@@ -58,3 +58,7 @@ export function getTileImageUrl(tileId: string): string {
 export function getCardSheetUrl(sheet: "basic_actions" | "advanced_actions" | "spells" | "artifacts"): string {
   return `${ASSETS_BASE}/cards/${sheet}.jpg`;
 }
+
+export function getCardBackUrl(): string {
+  return `${ASSETS_BASE}/cards/card_back.jpg`;
+}

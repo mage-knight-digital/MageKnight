@@ -9,6 +9,7 @@ interface SheetInfo {
   rows: number;
   cardWidth: number;
   cardHeight: number;
+  hasEvenOddLayout?: boolean;
 }
 
 interface CardPosition {
@@ -34,8 +35,8 @@ export async function loadAtlas(): Promise<AtlasData> {
   if (atlasData) return atlasData;
 
   const response = await fetch("/assets/atlas.json");
-  atlasData = await response.json();
-  return atlasData!;
+  atlasData = (await response.json()) as AtlasData;
+  return atlasData;
 }
 
 // Synchronous version - assumes atlas is already loaded
@@ -111,16 +112,21 @@ export function getCardSpriteStyle(cardId: CardId, displayHeight: number = 140):
   const sheet = atlasData.sheets[category];
   if (!sheet) return null;
 
+  // For sheets with even/odd layout, a full card spans 2 rows (artwork + text)
+  const fullCardHeight = sheet.hasEvenOddLayout ? sheet.cardHeight * 2 : sheet.cardHeight;
+
   // Calculate aspect ratio and display width
-  const aspectRatio = sheet.cardWidth / sheet.cardHeight;
+  const aspectRatio = sheet.cardWidth / fullCardHeight;
   const displayWidth = displayHeight * aspectRatio;
 
   // Calculate scale factor
-  const scale = displayHeight / sheet.cardHeight;
+  const scale = displayHeight / fullCardHeight;
 
   // Calculate background position (negative because CSS background-position)
+  // For sheets with even/odd layout, artwork is on even rows (row * 2)
+  const physicalRow = sheet.hasEvenOddLayout ? position.row * 2 : position.row;
   const bgX = position.col * sheet.cardWidth * scale;
-  const bgY = position.row * sheet.cardHeight * scale;
+  const bgY = physicalRow * sheet.cardHeight * scale;
 
   // Calculate scaled background size
   const bgWidth = sheet.width * scale;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { CardId, PlayableCard } from "@mage-knight/shared";
 import { loadAtlas, getCardSpriteStyle, getCardColor } from "../../utils/cardAtlas";
 import "./FloatingHand.css";
@@ -18,10 +18,33 @@ interface FloatingCardProps {
 function getCardLayout(index: number, totalCards: number, cardWidth: number) {
   const centerIndex = (totalCards - 1) / 2;
   const offsetFromCenter = index - centerIndex;
-  const spreadX = offsetFromCenter * 70;
-  const rotation = offsetFromCenter * 3;
-  const arcY = Math.abs(offsetFromCenter) * 8;
-  return { spreadX, rotation, arcY, cardWidth };
+
+  // Dynamic spread - compress as hand grows
+  // Few cards (1-5): 70px spread, comfortable viewing
+  // Medium hand (6-8): 50px spread, slightly tighter
+  // Large hand (9+): 35px spread, dense but readable
+  let spreadDistance: number;
+  let rotationPerCard: number;
+  let arcPerCard: number;
+
+  if (totalCards <= 5) {
+    spreadDistance = 70;
+    rotationPerCard = 3;
+    arcPerCard = 8;
+  } else if (totalCards <= 8) {
+    spreadDistance = 50;
+    rotationPerCard = 2.5;
+    arcPerCard = 6;
+  } else {
+    spreadDistance = 35;
+    rotationPerCard = 2;
+    arcPerCard = 4;
+  }
+
+  const spreadX = offsetFromCenter * spreadDistance;
+  const rotation = offsetFromCenter * rotationPerCard;
+  const arcY = Math.abs(offsetFromCenter) * arcPerCard;
+  return { spreadX, rotation, arcY, cardWidth, spreadDistance };
 }
 
 function FloatingCard({
@@ -73,7 +96,7 @@ function FloatingCard({
     height: spriteStyle?.height,
   };
 
-  // Card style - this scales and lifts on hover
+  // Card style - scales and lifts on hover
   const cardStyle: React.CSSProperties = {
     ...spriteStyle,
     transform: isHovered ? "scale(2.5) translateY(-20px)" : "scale(1)",
@@ -86,6 +109,7 @@ function FloatingCard({
       className={`floating-card-wrapper ${!isPlayable ? "floating-card-wrapper--disabled" : ""}`}
       style={wrapperStyle}
       onClick={isPlayable ? onClick : undefined}
+      data-card-index={index}
       data-testid={`floating-card-${cardId}`}
     >
       <div className={classNames} style={cardStyle}>
@@ -102,6 +126,8 @@ interface FloatingHandProps {
   playableCards: Map<CardId, PlayableCard>;
   selectedIndex: number | null;
   onCardClick: (index: number) => void;
+  deckCount: number;
+  discardCount: number;
 }
 
 export function FloatingHand({
@@ -109,10 +135,11 @@ export function FloatingHand({
   playableCards,
   selectedIndex,
   onCardClick,
+  deckCount,
+  discardCount,
 }: FloatingHandProps) {
   const [atlasLoaded, setAtlasLoaded] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadAtlas().then(() => setAtlasLoaded(true));
@@ -131,54 +158,71 @@ export function FloatingHand({
       ? hand.filter((_, i) => i !== selectedIndex)
       : hand;
 
-  // Calculate which card is hovered based on mouse X position relative to base card centers
-  // This ignores the zoomed visual and uses the original card positions
+  // Track hovered index in a ref to avoid unnecessary state updates
+  const hoveredIndexRef = useRef<number | null>(null);
+  const cardsRef = useRef<HTMLDivElement>(null);
+
+  // Hit test using ORIGINAL stacking order (higher index = on top)
+  // This ignores the visual z-index boost when a card is hovered
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      // Disable hover when a card is expanded in modal
       if (selectedIndex !== null) {
-        setHoveredIndex(null);
+        if (hoveredIndexRef.current !== null) {
+          hoveredIndexRef.current = null;
+          setHoveredIndex(null);
+        }
         return;
       }
-      if (!containerRef.current || visibleHand.length === 0) return;
+      if (!cardsRef.current) return;
 
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const containerCenterX = containerRect.left + containerRect.width / 2;
+      const cardsRect = cardsRef.current.getBoundingClientRect();
+      const containerCenterX = cardsRect.left + cardsRect.width / 2;
       const mouseX = e.clientX;
+      const mouseY = e.clientY;
 
-      // Get the card width (approximate - we use the same for all cards)
-      const cardWidth = 120; // Base card width at 180px height
-      const spreadDistance = 70; // Same as in getCardLayout
+      const cardWidth = 120;
+      const cardHeight = 180;
 
-      // Find which card's base position the mouse is closest to
-      let closestIndex = 0;
-      let closestDistance = Infinity;
+      // Check if mouse is within vertical card area
+      const cardsBottom = cardsRect.bottom - 10;
+      const cardsTop = cardsBottom - cardHeight - 40;
+      if (mouseY < cardsTop || mouseY > cardsBottom) {
+        if (hoveredIndexRef.current !== null) {
+          hoveredIndexRef.current = null;
+          setHoveredIndex(null);
+        }
+        return;
+      }
 
-      for (let i = 0; i < visibleHand.length; i++) {
+      // Find the topmost card (by ORIGINAL index, not current z-index)
+      // that contains the mouse position
+      // Higher index = originally on top, so iterate high to low and take first match
+      let hitCard: number | null = null;
+      for (let i = visibleHand.length - 1; i >= 0; i--) {
         const { spreadX } = getCardLayout(i, visibleHand.length, cardWidth);
         const cardCenterX = containerCenterX + spreadX;
-        const distance = Math.abs(mouseX - cardCenterX);
+        const cardLeft = cardCenterX - cardWidth / 2;
+        const cardRight = cardCenterX + cardWidth / 2;
 
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = i;
+        if (mouseX >= cardLeft && mouseX <= cardRight) {
+          hitCard = i;
+          break; // Take the first (topmost in original order) match
         }
       }
 
-      // Only hover if mouse is reasonably close to a card
-      // (within half the spread distance + half card width)
-      const hoverThreshold = spreadDistance / 2 + cardWidth / 2;
-      if (closestDistance <= hoverThreshold) {
-        setHoveredIndex(closestIndex);
-      } else {
-        setHoveredIndex(null);
+      if (hoveredIndexRef.current !== hitCard) {
+        hoveredIndexRef.current = hitCard;
+        setHoveredIndex(hitCard);
       }
     },
-    [visibleHand.length, selectedIndex]
+    [selectedIndex, visibleHand.length]
   );
 
   const handleMouseLeave = useCallback(() => {
-    setHoveredIndex(null);
+    if (hoveredIndexRef.current !== null) {
+      hoveredIndexRef.current = null;
+      setHoveredIndex(null);
+    }
   }, []);
 
   // Recalculate indices for positioning (skip the gap)
@@ -195,14 +239,32 @@ export function FloatingHand({
     );
   }
 
+  // Calculate the width needed for the cards based on dynamic spread
+  // Get the spread distance for this hand size
+  const cardWidth = 120;
+  const { spreadDistance } = getCardLayout(0, visibleHand.length, cardWidth);
+  // Total span = (n-1) * spreadDistance + card width
+  // Add extra padding to account for hover zoom (2.5x scale)
+  const baseWidth = Math.max(cardWidth, (visibleHand.length - 1) * spreadDistance + cardWidth);
+  const cardsWidth = baseWidth + 100; // Extra padding for hover zoom
+
   return (
     <div
       className="floating-hand"
-      ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="floating-hand__cards">
+      {/* Deck indicator - left side */}
+      <div className="floating-hand__deck" title={`${deckCount} cards in deck`}>
+        <img
+          src="/assets/cards/card_back.jpg"
+          alt="Deck"
+          className="floating-hand__deck-image"
+        />
+        <span className="floating-hand__deck-count">{deckCount}</span>
+      </div>
+
+      <div className="floating-hand__cards" ref={cardsRef} style={{ width: cardsWidth }}>
         {visibleHand.map((cardId, visibleIndex) => {
           const originalIndex = getOriginalIndex(visibleIndex);
           const isPlayable = playableCards.has(cardId);
@@ -219,6 +281,12 @@ export function FloatingHand({
             />
           );
         })}
+      </div>
+
+      {/* Discard indicator - right side */}
+      <div className="floating-hand__discard" title={`${discardCount} cards in discard`}>
+        <div className="floating-hand__discard-pile" />
+        <span className="floating-hand__discard-count">{discardCount}</span>
       </div>
     </div>
   );

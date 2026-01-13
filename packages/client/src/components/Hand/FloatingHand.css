@@ -42,11 +42,17 @@
   padding: 0;
   border-radius: 8px;
   overflow: hidden;
-  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+  /* Fast zoom-out (0.05s), smooth zoom-in handled by --hovered */
+  transition: transform 0.05s ease-out, box-shadow 0.05s ease-out;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   transform-origin: bottom center;
   /* Card visual doesn't handle any events - wrapper and container do */
   pointer-events: none;
+}
+
+.floating-card--hovered {
+  /* Slower, satisfying zoom-in */
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
 }
 
 .floating-card:disabled {
@@ -85,4 +91,62 @@
   text-transform: uppercase;
   padding: 0.5rem;
   text-align: center;
+}
+
+/* Deck and discard - flanking the hand */
+.floating-hand__deck,
+.floating-hand__discard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 10px; /* Align with cards padding-bottom */
+  flex-shrink: 0;
+  /* Ensure deck/discard stay above cards */
+  position: relative;
+  z-index: 200;
+}
+
+.floating-hand__deck {
+  margin-right: 2rem;
+}
+
+.floating-hand__discard {
+  margin-left: 2rem;
+}
+
+.floating-hand__deck-image {
+  width: 60px;
+  height: 84px;
+  border-radius: 4px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    2px 2px 0 rgba(0, 0, 0, 0.2),
+    4px 4px 0 rgba(0, 0, 0, 0.1);
+  object-fit: cover;
+}
+
+.floating-hand__deck-count,
+.floating-hand__discard-count {
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.floating-hand__discard-count {
+  color: #888;
+}
+
+.floating-hand__discard-pile {
+  width: 60px;
+  height: 84px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #2a2a3e 0%, #1a1a28 100%);
+  border: 2px dashed #444;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }

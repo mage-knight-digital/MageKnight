@@ -5,7 +5,6 @@ import { RadialMenu, type RadialMenuItem } from "../RadialMenu";
 import {
   PLAY_CARD_ACTION,
   PLAY_CARD_SIDEWAYS_ACTION,
-  PLAY_SIDEWAYS_AS_MOVE,
   MANA_BLACK,
   MANA_BLUE,
   MANA_GOLD,
@@ -138,14 +137,6 @@ function manaSourceToRadialItem(source: ManaSourceInfo, index: number): RadialMe
   }
 }
 
-// Format card ID for display (convert snake_case to Title Case)
-function formatCardName(cardId: CardId): string {
-  return cardId
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
 // Menu state types
 type MenuState =
   | { type: "none" }
@@ -168,7 +159,6 @@ export function PlayerHand() {
 
   // Check if we're in combat
   const isInCombat = state.combat !== null;
-  const combatPhase = state.combat?.phase;
 
   // Cast hand to array since we've already checked it's an array above
   const handArray = player.hand as readonly CardId[];
@@ -402,6 +392,8 @@ export function PlayerHand() {
       playableCards={playableCardMap}
       selectedIndex={selectedIndex}
       onCardClick={handleCardClick}
+      deckCount={player.deckCount}
+      discardCount={player.discardCount}
     />
   </>
   );
