@@ -35,8 +35,10 @@ import {
   INVALID_ATTACK_TYPE,
   DAMAGE_NOT_ASSIGNED,
   FORTIFIED_NEEDS_SIEGE,
+  NO_SIEGE_ATTACK_ACCUMULATED,
   ALREADY_COMBATTED,
 } from "./validationCodes.js";
+import { getTotalElementalValue } from "../../types/player.js";
 
 // Must not already be in combat
 export function validateNotAlreadyInCombat(
@@ -331,6 +333,38 @@ export function validateFortification(
     return invalid(
       FORTIFIED_NEEDS_SIEGE,
       `Fortified enemies (${names}) can only be attacked with Siege in Ranged/Siege phase`
+    );
+  }
+
+  return valid();
+}
+
+// When attacking fortified enemies with siege type, player must have siege attack accumulated
+export function validateHasSiegeAttack(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== DECLARE_ATTACK_ACTION) return valid();
+
+  // Only applies when using siege attack type
+  if (action.attackType !== COMBAT_TYPE_SIEGE) return valid();
+
+  // Find the player
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return valid();
+
+  // Calculate total siege attack (base + elemental)
+  const siegeBase = player.combatAccumulator.attack.siege;
+  const siegeElemental = getTotalElementalValue(
+    player.combatAccumulator.attack.siegeElements
+  );
+  const totalSiege = siegeBase + siegeElemental;
+
+  if (totalSiege <= 0) {
+    return invalid(
+      NO_SIEGE_ATTACK_ACCUMULATED,
+      "Cannot use Siege attack type without any accumulated Siege attack"
     );
   }
 

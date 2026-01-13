@@ -65,6 +65,32 @@ function withBlockSources(state: GameState, playerId: string, blocks: readonly B
 }
 
 /**
+ * Helper to set up siege attack in the player's combatAccumulator.
+ * Required since validator now checks that siege attack is actually accumulated.
+ */
+function withSiegeAttack(state: GameState, playerId: string, value: number): GameState {
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  if (playerIndex === -1) throw new Error(`Player not found: ${playerId}`);
+
+  const player = state.players[playerIndex];
+  if (!player) throw new Error(`Player not found at index: ${playerIndex}`);
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = {
+    ...player,
+    combatAccumulator: {
+      ...player.combatAccumulator,
+      attack: {
+        ...player.combatAccumulator.attack,
+        siege: value,
+      },
+    },
+  };
+
+  return { ...state, players: updatedPlayers };
+}
+
+/**
  * Helper to create a keep site
  */
 function createKeepSite(): Site {
@@ -408,19 +434,22 @@ describe("Combat Trigger Integration", () => {
       });
       state = result.state;
 
-      // Assign Damage phase - skip (enemy is blocked)
+      // End Block phase -> goes to Assign Damage phase
       result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
       state = result.state;
 
-      // Attack phase - skip (just end to finish)
+      // Skip Assign Damage phase (enemy is blocked) -> goes to Attack phase
       result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
       state = result.state;
 
-      // Defeat the enemy with siege attack (Guardsmen armor 3)
+      // Now in Attack phase - defeat the enemy with siege attack (Guardsmen armor 3)
+      // Set up siege attack in accumulator (required by validator)
+      state = withSiegeAttack(state, "player1", 10);
+
       result = engine.processAction(state, "player1", {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
@@ -428,6 +457,9 @@ describe("Combat Trigger Integration", () => {
         attackType: COMBAT_TYPE_SIEGE,
       });
       state = result.state;
+
+      // Enemy should be defeated
+      expect(state.combat?.enemies[0].isDefeated).toBe(true);
 
       // End attack phase to end combat
       result = engine.processAction(state, "player1", {
@@ -494,19 +526,21 @@ describe("Combat Trigger Integration", () => {
       });
       state = result.state;
 
-      // Assign Damage phase - skip (enemy is blocked)
+      // End Block phase -> Assign Damage phase
       result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
       state = result.state;
 
-      // Attack phase
+      // Skip Assign Damage phase (enemy is blocked) -> Attack phase
       result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
       state = result.state;
 
-      // Defeat enemy
+      // Attack phase - defeat enemy
+      // Set up siege attack in accumulator (required by validator)
+      state = withSiegeAttack(state, "player1", 10);
       result = engine.processAction(state, "player1", {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
@@ -816,19 +850,21 @@ describe("Combat Trigger Integration", () => {
       });
       state = result.state;
 
-      // Skip damage assignment phase
+      // End Block phase -> Assign Damage phase
       result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
       state = result.state;
 
-      // Attack phase
+      // Skip Assign Damage phase (enemy is blocked) -> Attack phase
       result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
       state = result.state;
 
-      // Defeat enemy with siege attack
+      // Attack phase - defeat enemy with siege attack
+      // Set up siege attack in accumulator (required by validator)
+      state = withSiegeAttack(state, "player1", 10);
       result = engine.processAction(state, "player1", {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
@@ -1140,19 +1176,21 @@ describe("Combat Trigger Integration", () => {
       });
       state = result.state;
 
-      // Assign Damage phase - skip (enemy is blocked)
+      // End Block phase -> Assign Damage phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Skip Assign Damage phase (enemy is blocked) -> Attack phase
       result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
       state = result.state;
 
       // Attack phase - defeat the enemy
-      result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
-      });
-      state = result.state;
-
-      // Defeat enemy
+      // Set up siege attack in accumulator (required by validator)
+      state = withSiegeAttack(state, "player1", 10);
       result = engine.processAction(state, "player1", {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],

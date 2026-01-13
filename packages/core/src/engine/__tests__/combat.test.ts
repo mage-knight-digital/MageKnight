@@ -32,6 +32,7 @@ import {
   ENEMY_FREEZERS,
   ENEMY_DIGGERS,
   ENEMY_PROWLERS,
+  ENEMIES,
   ENEMY_CURSED_HAGS,
   ENEMY_GUARDSMEN,
   ENEMY_MEDUSA,
@@ -98,6 +99,33 @@ function withBlockSources(state: GameState, playerId: string, blocks: readonly B
       ...player.combatAccumulator,
       block: totalBlock,
       blockSources: blocks,
+    },
+  };
+
+  return { ...state, players: updatedPlayers };
+}
+
+/**
+ * Helper to set up siege attack in the player's combatAccumulator.
+ * Tests call this before DECLARE_ATTACK_ACTION with COMBAT_TYPE_SIEGE
+ * since the validator now checks that siege attack is actually accumulated.
+ */
+function withSiegeAttack(state: GameState, playerId: string, value: number): GameState {
+  const playerIndex = state.players.findIndex(p => p.id === playerId);
+  if (playerIndex === -1) throw new Error(`Player not found: ${playerId}`);
+
+  const player = state.players[playerIndex];
+  if (!player) throw new Error(`Player not found at index: ${playerIndex}`);
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = {
+    ...player,
+    combatAccumulator: {
+      ...player.combatAccumulator,
+      attack: {
+        ...player.combatAccumulator.attack,
+        siege: value,
+      },
     },
   };
 
@@ -1418,6 +1446,9 @@ describe("Combat Phase 2", () => {
           enemyIds: [ENEMY_DIGGERS],
         }).state;
 
+        // Set up siege attack in accumulator (required by validator)
+        state = withSiegeAttack(state, "player1", 3);
+
         // Attack with Siege - should work
         const result = engine.processAction(state, "player1", {
           type: DECLARE_ATTACK_ACTION,
@@ -1486,6 +1517,9 @@ describe("Combat Phase 2", () => {
           enemyIds: [ENEMY_PROWLERS],
           isAtFortifiedSite: true,
         }).state;
+
+        // Set up siege attack in accumulator (required by validator)
+        state = withSiegeAttack(state, "player1", 3);
 
         // Siege attack should work
         const result = engine.processAction(state, "player1", {
@@ -1564,6 +1598,236 @@ describe("Combat Phase 2", () => {
         });
 
         expect(result.state.combat?.enemies[0].isDefeated).toBe(true);
+      });
+    });
+
+    describe("Manually constructed combat state (DebugPanel scenario)", () => {
+      it("should still enforce fortification when combat state is set directly", () => {
+        let state = createTestGameState();
+
+        // Simulate DebugPanel: directly set combat state instead of using ENTER_COMBAT_ACTION
+        const diggersDef = ENEMIES[ENEMY_DIGGERS];
+        state = {
+          ...state,
+          combat: {
+            phase: COMBAT_PHASE_RANGED_SIEGE,
+            enemies: [
+              {
+                instanceId: "enemy_0_debug",
+                enemyId: ENEMY_DIGGERS,
+                definition: diggersDef,
+                isBlocked: false,
+                isDefeated: false,
+                damageAssigned: false,
+              },
+            ],
+            woundsThisCombat: 0,
+            attacksThisPhase: 0,
+            fameGained: 0,
+            isAtFortifiedSite: false,
+            unitsAllowed: true,
+            nightManaRules: false,
+            assaultOrigin: null,
+            allDamageBlockedThisPhase: false,
+          },
+        };
+
+        // Try to attack with Ranged - should fail because Diggers have ABILITY_FORTIFIED
+        const result = engine.processAction(state, "player1", {
+          type: DECLARE_ATTACK_ACTION,
+          targetEnemyInstanceIds: ["enemy_0_debug"],
+          attacks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
+          attackType: COMBAT_TYPE_RANGED,
+        });
+
+        expect(result.events).toContainEqual(
+          expect.objectContaining({
+            type: INVALID_ACTION,
+            reason: expect.stringContaining("Fortified enemies"),
+          })
+        );
+      });
+
+      it("should return requiresSiege=true in validActions for Diggers", async () => {
+        let state = createTestGameState();
+
+        // Simulate DebugPanel: directly set combat state
+        const diggersDef = ENEMIES[ENEMY_DIGGERS];
+        state = {
+          ...state,
+          combat: {
+            phase: COMBAT_PHASE_RANGED_SIEGE,
+            enemies: [
+              {
+                instanceId: "enemy_0_debug",
+                enemyId: ENEMY_DIGGERS,
+                definition: diggersDef,
+                isBlocked: false,
+                isDefeated: false,
+                damageAssigned: false,
+              },
+            ],
+            woundsThisCombat: 0,
+            attacksThisPhase: 0,
+            fameGained: 0,
+            isAtFortifiedSite: false,
+            unitsAllowed: true,
+            nightManaRules: false,
+            assaultOrigin: null,
+            allDamageBlockedThisPhase: false,
+          },
+        };
+
+        // Import and call getValidActions
+        const { getValidActions } = await import("../validActions/index.js");
+        const validActions = getValidActions(state, "player1");
+
+        // Check that combat attacks for Diggers have requiresSiege=true
+        expect(validActions.combat).toBeDefined();
+        expect(validActions.combat?.attacks).toBeDefined();
+        expect(validActions.combat?.attacks?.length).toBe(1);
+
+        const diggersAttack = validActions.combat?.attacks?.[0];
+        expect(diggersAttack?.enemyInstanceId).toBe("enemy_0_debug");
+        expect(diggersAttack?.isFortified).toBe(true);
+        expect(diggersAttack?.requiresSiege).toBe(true);
+      });
+
+      it("should reject siege attack when player only has ranged attack accumulated", () => {
+        // This is the actual bug: player has ranged attack but client sends attackType: SIEGE
+        let state = createTestGameState();
+
+        // Simulate DebugPanel: directly set combat state with Diggers (fortified)
+        const diggersDef = ENEMIES[ENEMY_DIGGERS];
+        state = {
+          ...state,
+          combat: {
+            phase: COMBAT_PHASE_RANGED_SIEGE,
+            enemies: [
+              {
+                instanceId: "enemy_0_debug",
+                enemyId: ENEMY_DIGGERS,
+                definition: diggersDef,
+                isBlocked: false,
+                isDefeated: false,
+                damageAssigned: false,
+              },
+            ],
+            woundsThisCombat: 0,
+            attacksThisPhase: 0,
+            fameGained: 0,
+            isAtFortifiedSite: false,
+            unitsAllowed: true,
+            nightManaRules: false,
+            assaultOrigin: null,
+            allDamageBlockedThisPhase: false,
+          },
+        };
+
+        // Player has RANGED attack accumulated (not siege)
+        const playerIndex = state.players.findIndex(p => p.id === "player1");
+        const player = state.players[playerIndex];
+        if (!player) throw new Error("Player not found");
+        const updatedPlayers = [...state.players];
+        updatedPlayers[playerIndex] = {
+          ...player,
+          combatAccumulator: {
+            ...player.combatAccumulator,
+            attack: {
+              normal: 0,
+              ranged: 3, // Has 3 ranged attack
+              siege: 0,  // But NO siege attack!
+              normalElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+              rangedElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+              siegeElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+            },
+          },
+        };
+        state = { ...state, players: updatedPlayers };
+
+        // Try to attack with Siege type (even though player only has ranged)
+        // This is what the buggy client was doing - claiming siege when only having ranged
+        const result = engine.processAction(state, "player1", {
+          type: DECLARE_ATTACK_ACTION,
+          targetEnemyInstanceIds: ["enemy_0_debug"],
+          attacks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
+          attackType: COMBAT_TYPE_SIEGE, // Client lies and says it's siege!
+        });
+
+        // Server should reject because player doesn't have siege attack accumulated
+        expect(result.events).toContainEqual(
+          expect.objectContaining({
+            type: INVALID_ACTION,
+            reason: expect.stringContaining("Siege attack"),
+          })
+        );
+      });
+
+      it("should allow siege attack when player has siege attack accumulated", () => {
+        let state = createTestGameState();
+
+        const diggersDef = ENEMIES[ENEMY_DIGGERS];
+        state = {
+          ...state,
+          combat: {
+            phase: COMBAT_PHASE_RANGED_SIEGE,
+            enemies: [
+              {
+                instanceId: "enemy_0_debug",
+                enemyId: ENEMY_DIGGERS,
+                definition: diggersDef,
+                isBlocked: false,
+                isDefeated: false,
+                damageAssigned: false,
+              },
+            ],
+            woundsThisCombat: 0,
+            attacksThisPhase: 0,
+            fameGained: 0,
+            isAtFortifiedSite: false,
+            unitsAllowed: true,
+            nightManaRules: false,
+            assaultOrigin: null,
+            allDamageBlockedThisPhase: false,
+          },
+        };
+
+        // Player has SIEGE attack accumulated
+        const playerIndex = state.players.findIndex(p => p.id === "player1");
+        const player = state.players[playerIndex];
+        if (!player) throw new Error("Player not found");
+        const updatedPlayers = [...state.players];
+        updatedPlayers[playerIndex] = {
+          ...player,
+          combatAccumulator: {
+            ...player.combatAccumulator,
+            attack: {
+              normal: 0,
+              ranged: 0,
+              siege: 3, // Has 3 siege attack
+              normalElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+              rangedElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+              siegeElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+            },
+          },
+        };
+        state = { ...state, players: updatedPlayers };
+
+        // Attack with Siege type
+        const result = engine.processAction(state, "player1", {
+          type: DECLARE_ATTACK_ACTION,
+          targetEnemyInstanceIds: ["enemy_0_debug"],
+          attacks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
+          attackType: COMBAT_TYPE_SIEGE,
+        });
+
+        // Should succeed and defeat Diggers
+        expect(result.events).toContainEqual(
+          expect.objectContaining({
+            type: ENEMY_DEFEATED,
+            enemyInstanceId: "enemy_0_debug",
+          })
+        );
       });
     });
   });
