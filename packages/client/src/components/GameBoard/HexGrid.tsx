@@ -8,49 +8,19 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { getTileImageUrl } from "../../assets/assetPaths";
 
 const HEX_SIZE = 50; // pixels from center to corner
+
+// Tile image dimensions in SVG units (calculated from hex geometry)
+// A 7-hex flower spans ~3 hex widths and ~2.5 hex heights
+// Image is 550x529 pixels, we scale to match our hex coordinate system
+const TILE_WIDTH = 3 * Math.sqrt(3) * HEX_SIZE;  // ~259.8 SVG units
+const TILE_HEIGHT = TILE_WIDTH * (529 / 550);    // Maintain aspect ratio ~249.9
 
 // TODO: Tech debt - this debug feature can be removed once tile alignment is stable.
 // Flip to `true` to debug tile corner alignment (shows C/S half-circles at tile vertices).
 const SHOW_TILE_CORNER_SYMBOLS = false;
-
-// Terrain to color mapping
-const TERRAIN_COLORS: Record<string, string> = {
-  plains: "#90EE90",
-  hills: "#C4A484",
-  forest: "#228B22",
-  wasteland: "#808080",
-  desert: "#F4A460",
-  swamp: "#556B2F",
-  lake: "#4169E1",
-  mountain: "#A0522D",
-  ocean: "#000080",
-};
-
-// Site type icons/colors
-const SITE_COLORS: Record<string, string> = {
-  portal: "#FFD700",
-  village: "#DEB887",
-  monastery: "#8B4513",
-  keep: "#696969",
-  mage_tower: "#9370DB",
-  dungeon: "#2F4F4F",
-  tomb: "#1C1C1C",
-  monster_den: "#8B0000",
-  spawning_grounds: "#006400",
-  ancient_ruins: "#4B0082",
-  mine: "#CD853F",
-  city: "#FFD700",
-};
-
-// Mine crystal colors (matches mana colors)
-const MINE_CRYSTAL_COLORS: Record<string, string> = {
-  red: "#DC143C",
-  blue: "#4169E1",
-  green: "#228B22",
-  white: "#F5F5F5",
-};
 
 function hexToPixel(coord: HexCoord): { x: number; y: number } {
   // Axial to pixel conversion (pointy-top hexes)
@@ -67,6 +37,31 @@ function hexPoints(size: number): string {
       return `${size * Math.cos(angle)},${size * Math.sin(angle)}`;
     })
     .join(" ");
+}
+
+interface TileImageProps {
+  tileId: string;
+  centerCoord: HexCoord;
+}
+
+/**
+ * Renders a tile artwork image centered on the tile's center hex.
+ */
+function TileImage({ tileId, centerCoord }: TileImageProps) {
+  const { x, y } = hexToPixel(centerCoord);
+  const imageUrl = getTileImageUrl(tileId);
+
+  return (
+    <image
+      href={imageUrl}
+      x={x - TILE_WIDTH / 2}
+      y={y - TILE_HEIGHT / 2}
+      width={TILE_WIDTH}
+      height={TILE_HEIGHT}
+      preserveAspectRatio="xMidYMid slice"
+      style={{ pointerEvents: "none" }}
+    />
+  );
 }
 
 /**
@@ -319,17 +314,19 @@ function GhostHex({ coord, onClick }: GhostHexProps) {
   );
 }
 
-interface HexProps {
+interface HexOverlayProps {
   hex: ClientHexState;
   isPlayerHere: boolean;
   isValidMoveTarget: boolean;
   onClick: () => void;
 }
 
-function Hex({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexProps) {
+/**
+ * Transparent hex overlay for interactivity on top of tile artwork.
+ * Handles click events, move highlighting, and token display.
+ */
+function HexOverlay({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexOverlayProps) {
   const { x, y } = hexToPixel(hex.coord);
-  const terrainColor = TERRAIN_COLORS[hex.terrain] ?? "#666";
-  const siteColor = hex.site ? SITE_COLORS[hex.site.type] ?? "#FFF" : null;
 
   return (
     <g
@@ -338,33 +335,14 @@ function Hex({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexProps) {
       style={{ cursor: isValidMoveTarget ? "pointer" : "default" }}
       data-coord={`${hex.coord.q},${hex.coord.r}`}
     >
-      {/* Hex background */}
+      {/* Transparent hex hitbox with optional highlight for valid moves */}
       <polygon
         points={hexPoints(HEX_SIZE * 0.95)}
-        fill={terrainColor}
-        stroke={isValidMoveTarget ? "#00FF00" : "#333"}
-        strokeWidth={isValidMoveTarget ? "3" : "1"}
-        className="hex-polygon"
+        fill={isValidMoveTarget ? "rgba(0, 255, 0, 0.2)" : "transparent"}
+        stroke={isValidMoveTarget ? "#00FF00" : "transparent"}
+        strokeWidth={isValidMoveTarget ? "3" : "0"}
+        className="hex-overlay"
       />
-
-      {/* Site marker */}
-      {siteColor && (
-        <circle r={HEX_SIZE * 0.3} fill={siteColor} stroke="#000" strokeWidth="1" />
-      )}
-
-      {/* Mine crystal color indicator */}
-      {hex.site?.type === "mine" && hex.site.mineColor && (
-        <g>
-          {/* Crystal shape (hexagon) */}
-          <polygon
-            points={hexPoints(HEX_SIZE * 0.15)}
-            fill={MINE_CRYSTAL_COLORS[hex.site.mineColor] ?? "#888"}
-            stroke="#000"
-            strokeWidth="1"
-            transform={`translate(0, ${HEX_SIZE * 0.25})`}
-          />
-        </g>
-      )}
 
       {/* Player token */}
       {isPlayerHere && (
@@ -379,33 +357,19 @@ function Hex({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexProps) {
 
       {/* Enemy indicators */}
       {hex.enemies.length > 0 && (
-        <text
-          y={HEX_SIZE * 0.5}
-          textAnchor="middle"
-          fill="#FF0000"
-          fontSize="12"
-          fontWeight="bold"
-        >
-          {hex.enemies.length}E
-        </text>
-      )}
-
-      {/* Terrain label */}
-      <text
-        y={-HEX_SIZE * 0.5}
-        textAnchor="middle"
-        fill="#000"
-        fontSize="8"
-        opacity="0.7"
-      >
-        {hex.terrain.slice(0, 3)}
-      </text>
-
-      {/* Site label */}
-      {hex.site && (
-        <text y={HEX_SIZE * 0.1} textAnchor="middle" fill="#000" fontSize="8">
-          {hex.site.type.slice(0, 4)}
-        </text>
+        <g transform={`translate(${HEX_SIZE * 0.35}, ${-HEX_SIZE * 0.35})`}>
+          <circle r={12} fill="#8B0000" stroke="#FFF" strokeWidth="1" />
+          <text
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill="#FFF"
+            fontSize="10"
+            fontWeight="bold"
+            style={{ pointerEvents: "none" }}
+          >
+            {hex.enemies.length}
+          </text>
+        </g>
       )}
     </g>
   );
@@ -482,10 +446,19 @@ export function HexGrid() {
       style={{ width: "100%", height: "100%" }}
       data-testid="hex-grid"
     >
-      {/* Render regular hexes */}
+      {/* Layer 1: Tile artwork images (background) */}
+      {state.map.tiles.map((tile) => (
+        <TileImage
+          key={`tile-${tile.tileId}-${tile.centerCoord.q},${tile.centerCoord.r}`}
+          tileId={tile.tileId}
+          centerCoord={tile.centerCoord}
+        />
+      ))}
+
+      {/* Layer 2: Hex overlays (transparent, for interactivity) */}
       {hexes.map((hex) => (
-        <Hex
-          key={`${hex.coord.q},${hex.coord.r}`}
+        <HexOverlay
+          key={`hex-${hex.coord.q},${hex.coord.r}`}
           hex={hex}
           isPlayerHere={isPlayerAt(hex.coord)}
           isValidMoveTarget={isValidMoveTarget(hex.coord)}
@@ -493,7 +466,7 @@ export function HexGrid() {
         />
       ))}
 
-      {/* Render ghost hexes for valid explore directions */}
+      {/* Layer 3: Ghost hexes for valid explore directions */}
       {exploreTargets.map((target) => (
         <GhostHex
           key={`explore-${target.coord.q},${target.coord.r}`}
