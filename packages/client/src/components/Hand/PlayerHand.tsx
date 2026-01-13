@@ -1,16 +1,11 @@
 import { useState } from "react";
 import { FloatingHand } from "./FloatingHand";
 import { ExpandedCard } from "./ExpandedCard";
+import { RadialMenu, type RadialMenuItem } from "../RadialMenu";
 import {
   PLAY_CARD_ACTION,
   PLAY_CARD_SIDEWAYS_ACTION,
   PLAY_SIDEWAYS_AS_MOVE,
-  PLAY_SIDEWAYS_AS_INFLUENCE,
-  PLAY_SIDEWAYS_AS_ATTACK,
-  PLAY_SIDEWAYS_AS_BLOCK,
-  COMBAT_PHASE_ATTACK,
-  COMBAT_PHASE_BLOCK,
-  COMBAT_PHASE_RANGED_SIEGE,
   MANA_BLACK,
   MANA_BLUE,
   MANA_GOLD,
@@ -21,7 +16,6 @@ import {
   MANA_SOURCE_CRYSTAL,
   MANA_SOURCE_TOKEN,
   type CardId,
-  type PlayableCard,
   type SidewaysAs,
   type ManaSourceInfo,
   type ManaColor,
@@ -83,27 +77,6 @@ function getAvailableManaSources(
   return sources;
 }
 
-/**
- * Get a human-readable label for a mana source option.
- */
-function getManaSourceLabel(source: ManaSourceInfo): string {
-  const colorEmoji = getColorEmoji(source.color);
-
-  switch (source.type) {
-    case MANA_SOURCE_CRYSTAL:
-      return `${colorEmoji} ${capitalize(source.color)} Crystal`;
-    case MANA_SOURCE_TOKEN:
-      return `${colorEmoji} ${capitalize(source.color)} Token`;
-    case MANA_SOURCE_DIE:
-      if (source.color === MANA_GOLD) {
-        return `🎲 Gold Die (wild)`;
-      }
-      return `🎲 ${capitalize(source.color)} Die`;
-    default:
-      return `${colorEmoji} ${capitalize(source.color)}`;
-  }
-}
-
 function getColorEmoji(color: ManaColor): string {
   switch (color) {
     case MANA_RED: return "🔴";
@@ -120,252 +93,57 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/**
+ * Convert mana sources to radial menu items
+ */
+function manaSourceToRadialItem(source: ManaSourceInfo, index: number): RadialMenuItem {
+  const colorEmoji = getColorEmoji(source.color);
+
+  switch (source.type) {
+    case MANA_SOURCE_CRYSTAL:
+      return {
+        id: `crystal-${source.color}-${index}`,
+        icon: "💎",
+        label: capitalize(source.color),
+        sublabel: "Crystal",
+      };
+    case MANA_SOURCE_TOKEN:
+      return {
+        id: `token-${source.color}-${index}`,
+        icon: colorEmoji,
+        label: capitalize(source.color),
+        sublabel: "Token",
+      };
+    case MANA_SOURCE_DIE:
+      if (source.color === MANA_GOLD) {
+        return {
+          id: `die-gold-${index}`,
+          icon: "🎲",
+          label: "Gold",
+          sublabel: "Wild Die",
+        };
+      }
+      return {
+        id: `die-${source.color}-${index}`,
+        icon: "🎲",
+        label: capitalize(source.color),
+        sublabel: "Die",
+      };
+    default:
+      return {
+        id: `unknown-${index}`,
+        icon: colorEmoji,
+        label: capitalize(source.color),
+      };
+  }
+}
+
 // Format card ID for display (convert snake_case to Title Case)
 function formatCardName(cardId: CardId): string {
   return cardId
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
-}
-
-// Get label for sideways play based on context
-function getSidewaysLabel(as: SidewaysAs, value: number, isInCombat: boolean, _combatPhase?: string): string {
-  if (!isInCombat) {
-    switch (as) {
-      case PLAY_SIDEWAYS_AS_MOVE:
-        return `+${value} Move`;
-      case PLAY_SIDEWAYS_AS_INFLUENCE:
-        return `+${value} Influence`;
-      default:
-        return `+${value}`;
-    }
-  }
-
-  // During combat, sideways options are attack or block
-  switch (as) {
-    case PLAY_SIDEWAYS_AS_BLOCK:
-      return `+${value} Block`;
-    case PLAY_SIDEWAYS_AS_ATTACK:
-      return `+${value} Attack`;
-    default:
-      return `+${value}`;
-  }
-}
-
-// Get label for basic effect based on combat phase
-function getBasicLabel(isInCombat: boolean, combatPhase?: import("@mage-knight/shared").CombatPhase): string {
-  if (!isInCombat) {
-    return "Basic Effect";
-  }
-
-  switch (combatPhase) {
-    case COMBAT_PHASE_RANGED_SIEGE:
-      return "Ranged/Siege Attack";
-    case COMBAT_PHASE_BLOCK:
-      return "Block";
-    case COMBAT_PHASE_ATTACK:
-      return "Attack";
-    default:
-      return "Basic Effect";
-  }
-}
-
-interface SpellManaSourceMenuProps {
-  cardId: CardId;
-  step: "black" | "color";
-  spellColor: ManaColor;
-  blackSource?: ManaSourceInfo;
-  sources: ManaSourceInfo[];
-  onSelect: (source: ManaSourceInfo) => void;
-  onBack: () => void;
-}
-
-function SpellManaSourceMenu({
-  cardId,
-  step,
-  spellColor,
-  blackSource,
-  sources,
-  onSelect,
-  onBack
-}: SpellManaSourceMenuProps) {
-  const currentColor = step === "black" ? MANA_BLACK : spellColor;
-  const stepLabel = step === "black" ? "Step 1/2" : "Step 2/2";
-  const colorLabel = step === "black" ? "Black" : capitalize(spellColor);
-
-  return (
-    <div className="play-mode-menu" data-testid="spell-mana-source-menu">
-      <div className="play-mode-menu__title">
-        {formatCardName(cardId)} - Powered Spell
-      </div>
-      <div className="play-mode-menu__subtitle">
-        {stepLabel}: Choose {getColorEmoji(currentColor)} {colorLabel} mana source
-        {step === "color" && blackSource && (
-          <div className="play-mode-menu__selected">
-            Selected: {getManaSourceLabel(blackSource)}
-          </div>
-        )}
-      </div>
-      <div className="play-mode-menu__options">
-        {sources.map((source, idx) => (
-          <button
-            key={`${source.type}-${source.color}-${source.dieId ?? idx}`}
-            className="play-mode-menu__btn play-mode-menu__btn--mana"
-            onClick={() => onSelect(source)}
-            type="button"
-            data-testid={`spell-mana-source-option-${idx}`}
-          >
-            {getManaSourceLabel(source)}
-          </button>
-        ))}
-        <button
-          className="play-mode-menu__btn play-mode-menu__btn--cancel"
-          onClick={onBack}
-          type="button"
-        >
-          Back
-        </button>
-      </div>
-    </div>
-  );
-}
-
-interface ManaSourceMenuProps {
-  cardId: CardId;
-  requiredColor: ManaColor;
-  sources: ManaSourceInfo[];
-  isInCombat: boolean;
-  combatPhase?: import("@mage-knight/shared").CombatPhase;
-  onSelect: (source: ManaSourceInfo) => void;
-  onBack: () => void;
-}
-
-function ManaSourceMenu({
-  cardId,
-  requiredColor,
-  sources,
-  isInCombat,
-  combatPhase,
-  onSelect,
-  onBack
-}: ManaSourceMenuProps) {
-  const poweredLabel = isInCombat
-    ? `Powered ${getBasicLabel(isInCombat, combatPhase)}`
-    : "Powered Effect";
-
-  return (
-    <div className="play-mode-menu" data-testid="mana-source-menu">
-      <div className="play-mode-menu__title">
-        {formatCardName(cardId)} - {poweredLabel}
-      </div>
-      <div className="play-mode-menu__subtitle">
-        Choose {getColorEmoji(requiredColor)} {capitalize(requiredColor)} mana source:
-      </div>
-      <div className="play-mode-menu__options">
-        {sources.map((source, idx) => (
-          <button
-            key={`${source.type}-${source.color}-${source.dieId ?? idx}`}
-            className="play-mode-menu__btn play-mode-menu__btn--mana"
-            onClick={() => onSelect(source)}
-            type="button"
-            data-testid={`mana-source-option-${idx}`}
-          >
-            {getManaSourceLabel(source)}
-          </button>
-        ))}
-        <button
-          className="play-mode-menu__btn play-mode-menu__btn--cancel"
-          onClick={onBack}
-          type="button"
-        >
-          Back
-        </button>
-      </div>
-    </div>
-  );
-}
-
-interface PlayModeMenuProps {
-  cardId: CardId;
-  playability: PlayableCard | null;
-  isInCombat: boolean;
-  combatPhase?: import("@mage-knight/shared").CombatPhase;
-  onPlay: (mode: "basic" | "powered" | { sideways: SidewaysAs }) => void;
-  onCancel: () => void;
-}
-
-function PlayModeMenu({ cardId, playability, isInCombat, combatPhase, onPlay, onCancel }: PlayModeMenuProps) {
-  const menuOptions: Array<{ label: string; description?: string; action: () => void; className: string }> = [];
-
-  // Add basic effect option if available
-  if (playability?.canPlayBasic) {
-    menuOptions.push({
-      label: getBasicLabel(isInCombat, combatPhase),
-      description: playability.basicEffectDescription,
-      action: () => onPlay("basic"),
-      className: "play-mode-menu__btn--basic",
-    });
-  }
-
-  // Add powered effect option if available
-  if (playability?.canPlayPowered) {
-    const poweredLabel = isInCombat
-      ? `Powered ${getBasicLabel(isInCombat, combatPhase)}`
-      : "Powered Effect";
-    menuOptions.push({
-      label: poweredLabel,
-      description: playability.poweredEffectDescription,
-      action: () => onPlay("powered"),
-      className: "play-mode-menu__btn--powered",
-    });
-  }
-
-  // Add sideways options if available
-  if (playability?.canPlaySideways && playability.sidewaysOptions) {
-    for (const option of playability.sidewaysOptions) {
-      menuOptions.push({
-        label: getSidewaysLabel(option.as, option.value, isInCombat, combatPhase),
-        action: () => onPlay({ sideways: option.as }),
-        className: "play-mode-menu__btn--sideways",
-      });
-    }
-  } else if (playability?.canPlaySideways && !isInCombat) {
-    // Fallback for non-combat sideways (move/influence)
-    menuOptions.push({
-      label: "+1 Move",
-      action: () => onPlay({ sideways: PLAY_SIDEWAYS_AS_MOVE }),
-      className: "play-mode-menu__btn--sideways",
-    });
-  }
-
-  return (
-    <div className="play-mode-menu" data-testid="card-play-menu">
-      <div className="play-mode-menu__title">Play {playability?.name ?? formatCardName(cardId)}</div>
-      <div className="play-mode-menu__options">
-        {menuOptions.map((opt, idx) => (
-          <button
-            key={idx}
-            className={`play-mode-menu__btn ${opt.className}`}
-            onClick={opt.action}
-            type="button"
-            data-testid={`card-menu-option-${idx}`}
-          >
-            <span className="play-mode-menu__btn-label">{opt.label}</span>
-            {opt.description && (
-              <span className="play-mode-menu__btn-desc">{opt.description}</span>
-            )}
-          </button>
-        ))}
-        <button
-          className="play-mode-menu__btn play-mode-menu__btn--cancel"
-          onClick={onCancel}
-          type="button"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
 }
 
 // Menu state types
@@ -576,35 +354,47 @@ export function PlayerHand() {
         />
       )}
 
-      {/* Mana source selection menu */}
+      {/* Mana source selection - radial menu */}
       {menuState.type === "mana-select" && selectedCard && (
-        <ManaSourceMenu
-          cardId={selectedCard}
-          requiredColor={menuState.requiredColor}
-          sources={menuState.sources}
-          isInCombat={isInCombat}
-          combatPhase={combatPhase}
-          onSelect={handleManaSourceSelect}
-          onBack={handleBackToPlayMode}
+        <RadialMenu
+          items={menuState.sources.map((source, idx) => manaSourceToRadialItem(source, idx))}
+          onSelect={(id) => {
+            // Find the source by matching the id
+            const idx = menuState.sources.findIndex((s, i) =>
+              manaSourceToRadialItem(s, i).id === id
+            );
+            const source = menuState.sources[idx];
+            if (idx !== -1 && source) {
+              handleManaSourceSelect(source);
+            }
+          }}
+          onCancel={handleBackToPlayMode}
         />
       )}
 
-      {/* Spell mana source selection menu (two-step: black then color) */}
-      {menuState.type === "spell-mana-select" && selectedCard && (
-        <SpellManaSourceMenu
-          cardId={selectedCard}
-          step={menuState.step}
-          spellColor={menuState.spellColor}
-          blackSource={menuState.blackSource}
-          sources={getAvailableManaSources(
-            state,
-            player,
-            menuState.step === "black" ? MANA_BLACK : menuState.spellColor
-          )}
-          onSelect={handleSpellManaSourceSelect}
-          onBack={handleBackToPlayMode}
-        />
-      )}
+      {/* Spell mana source selection - radial menu (two-step: black then color) */}
+      {menuState.type === "spell-mana-select" && selectedCard && (() => {
+        const sources = getAvailableManaSources(
+          state,
+          player,
+          menuState.step === "black" ? MANA_BLACK : menuState.spellColor
+        );
+        return (
+          <RadialMenu
+            items={sources.map((source, idx) => manaSourceToRadialItem(source, idx))}
+            onSelect={(id) => {
+              const idx = sources.findIndex((s, i) =>
+                manaSourceToRadialItem(s, i).id === id
+              );
+              const source = sources[idx];
+              if (idx !== -1 && source) {
+                handleSpellManaSourceSelect(source);
+              }
+            }}
+            onCancel={handleBackToPlayMode}
+          />
+        );
+      })()}
 
     {/* Floating card hand - renders at fixed position at bottom of screen */}
     <FloatingHand

@@ -1,0 +1,169 @@
+.radial-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.radial-menu {
+  position: relative;
+  width: 300px;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radial-menu__center {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(40, 40, 50, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 1.25rem;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.15s ease;
+}
+
+.radial-menu__center:hover {
+  background: rgba(60, 60, 70, 0.95);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+.radial-menu__item {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(40, 40, 50, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 8px;
+  text-align: center;
+}
+
+.radial-menu__item:hover {
+  background: rgba(60, 80, 100, 0.95);
+  border-color: rgba(100, 180, 255, 0.7);
+  transform: scale(1.15);
+  z-index: 5;
+}
+
+.radial-menu__icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.radial-menu__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 2px;
+}
+
+.radial-menu__sublabel {
+  font-size: 0.55rem;
+  opacity: 0.7;
+  margin-top: 1px;
+}
+
+/* SVG lines connecting center to items */
+.radial-menu__lines {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.radial-menu__line {
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+}
+
+/* Color-specific styling for mana sources */
+.radial-menu__item--red {
+  border-color: rgba(231, 76, 60, 0.7);
+}
+.radial-menu__item--red:hover {
+  border-color: rgba(231, 76, 60, 1);
+  box-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+}
+
+.radial-menu__item--blue {
+  border-color: rgba(52, 152, 219, 0.7);
+}
+.radial-menu__item--blue:hover {
+  border-color: rgba(52, 152, 219, 1);
+  box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);
+}
+
+.radial-menu__item--green {
+  border-color: rgba(46, 204, 113, 0.7);
+}
+.radial-menu__item--green:hover {
+  border-color: rgba(46, 204, 113, 1);
+  box-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
+}
+
+.radial-menu__item--white {
+  border-color: rgba(236, 240, 241, 0.7);
+}
+.radial-menu__item--white:hover {
+  border-color: rgba(236, 240, 241, 1);
+  box-shadow: 0 0 20px rgba(236, 240, 241, 0.5);
+}
+
+.radial-menu__item--gold {
+  border-color: rgba(241, 196, 15, 0.7);
+}
+.radial-menu__item--gold:hover {
+  border-color: rgba(241, 196, 15, 1);
+  box-shadow: 0 0 20px rgba(241, 196, 15, 0.5);
+}
+
+.radial-menu__item--black {
+  border-color: rgba(100, 100, 120, 0.7);
+}
+.radial-menu__item--black:hover {
+  border-color: rgba(150, 150, 170, 1);
+  box-shadow: 0 0 20px rgba(100, 100, 120, 0.5);
+}
+
+/* Animation on open */
+@keyframes radial-item-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.radial-menu__item {
+  animation: radial-item-appear 0.2s ease-out backwards;
+}
+
+.radial-menu__item:nth-child(2) { animation-delay: 0.02s; }
+.radial-menu__item:nth-child(3) { animation-delay: 0.04s; }
+.radial-menu__item:nth-child(4) { animation-delay: 0.06s; }
+.radial-menu__item:nth-child(5) { animation-delay: 0.08s; }
+.radial-menu__item:nth-child(6) { animation-delay: 0.10s; }
+.radial-menu__item:nth-child(7) { animation-delay: 0.12s; }
+.radial-menu__item:nth-child(8) { animation-delay: 0.14s; }
