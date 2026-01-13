@@ -45,9 +45,8 @@ export function ExpandedCard({
               className="expanded-card__zone expanded-card__zone--basic"
               onClick={onPlayBasic}
               type="button"
-            >
-              <span className="expanded-card__zone-label">Play Basic</span>
-            </button>
+              aria-label="Play Basic"
+            />
           )}
 
           {/* Powered effect zone - lower portion of card */}
@@ -56,9 +55,8 @@ export function ExpandedCard({
               className="expanded-card__zone expanded-card__zone--powered"
               onClick={onPlayPowered}
               type="button"
-            >
-              <span className="expanded-card__zone-label">Play Powered</span>
-            </button>
+              aria-label="Play Powered"
+            />
           )}
         </div>
 

@@ -57,10 +57,10 @@
   opacity: 1;
 }
 
-/* Basic zone - upper middle portion */
+/* Basic zone - between card name and mana divider */
 .expanded-card__zone--basic {
-  top: 35%;
-  height: 25%;
+  top: 57%;
+  height: 14%;
 }
 
 .expanded-card__zone--basic:hover {
@@ -68,10 +68,10 @@
   box-shadow: inset 0 0 20px rgba(46, 204, 113, 0.3);
 }
 
-/* Powered zone - lower portion */
+/* Powered zone - below mana divider */
 .expanded-card__zone--powered {
-  top: 62%;
-  height: 30%;
+  top: 75%;
+  height: 18%;
 }
 
 .expanded-card__zone--powered:hover {
