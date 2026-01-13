@@ -387,6 +387,7 @@ export function PlayerHand() {
       })()}
 
     {/* Floating card hand - renders at fixed position at bottom of screen */}
+    {/* Collapsed when tactic selection is active (player hasn't chosen yet) */}
     <FloatingHand
       hand={handArray}
       playableCards={playableCardMap}
@@ -394,6 +395,7 @@ export function PlayerHand() {
       onCardClick={handleCardClick}
       deckCount={player.deckCount}
       discardCount={player.discardCount}
+      collapsed={player.selectedTacticId === null && !!state.validActions.tactics}
     />
   </>
   );

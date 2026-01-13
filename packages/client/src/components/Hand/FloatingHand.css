@@ -10,6 +10,31 @@
   /* Container handles all mouse events for hover detection */
   pointer-events: auto;
   z-index: 50;
+  /* Smooth transition for collapse/expand and drawer effect */
+  transition: height 0.3s ease, transform 0.3s ease, filter 0.3s ease;
+}
+
+/* Collapsed state - tuck most of the hand off-screen like a drawer */
+.floating-hand--collapsed {
+  height: 220px; /* Keep full height for proper layout */
+  transform: translateY(140px); /* Slide down so only tops of cards peek out */
+}
+
+/* When hovering collapsed hand, expand it back up */
+.floating-hand--collapsed.floating-hand--expanded {
+  transform: translateY(0);
+  z-index: 70; /* Above tactic cards (z-index 60) so cards are readable */
+}
+
+/* Cards in collapsed hand are dimmed - but only when not hovering the hand */
+.floating-hand--collapsed:not(.floating-hand--expanded) .floating-card {
+  filter: brightness(0.6);
+  transition: transform 0.05s ease-out, box-shadow 0.05s ease-out, filter 0.15s ease;
+}
+
+/* Hovered card in collapsed (not expanded) hand is un-dimmed */
+.floating-hand--collapsed:not(.floating-hand--expanded) .floating-card--hovered {
+  filter: brightness(1);
 }
 
 .floating-hand--loading {
@@ -31,6 +56,8 @@
   pointer-events: auto;
   transform-origin: bottom center;
   cursor: pointer;
+  /* Smooth transition for collapse/expand fan animation */
+  transition: transform 0.3s ease;
 }
 
 .floating-card {
@@ -152,4 +179,23 @@
   background: linear-gradient(135deg, #2a2a3e 0%, #1a1a28 100%);
   border: 2px dashed #444;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Card deal animation - slides from deck position (left side) */
+@keyframes floating-card-deal {
+  0% {
+    opacity: 0;
+    transform: translateX(-300px) translateY(-20px) rotate(-15deg) scale(0.9);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+.floating-card--dealing {
+  animation: floating-card-deal 0.4s cubic-bezier(0.23, 1, 0.32, 1) backwards;
 }

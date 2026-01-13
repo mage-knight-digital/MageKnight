@@ -22,11 +22,18 @@ body {
   overflow: hidden;
 }
 
+/* Dimming effect during tactic selection - draws focus to the tactic cards */
+.app--tactic-selection .app__main {
+  filter: brightness(0.6) saturate(0.7);
+  transition: filter 0.3s ease;
+}
+
 .app__main {
   display: flex;
   flex: 1;
   min-height: 0; /* Allow shrinking below content size */
   overflow: hidden;
+  transition: filter 0.3s ease;
 }
 
 .app__board {
@@ -141,14 +148,120 @@ body {
   overflow: auto;
 }
 
+/* Tactic selection overrides the default modal styling */
+.overlay__content.tactic-selection {
+  background: transparent;
+  border-radius: 0;
+  padding: 1.5rem;
+  overflow: visible;
+}
+
 /* ============================================
    Tactic Selection
    ============================================ */
+
+/* Staggered entrance animation */
+@keyframes tactic-deal {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.8) rotateX(15deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg);
+  }
+}
+
+/* Subtle idle float for cards at rest */
+@keyframes tactic-idle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* Selected card flourish - moves to center
+   Grid positions:  0  1  2
+                    3  4  5
+   Center is between 1 and 4, so:
+   - pos 0: move right ~33%, down ~25%
+   - pos 1: move down ~25%
+   - pos 2: move left ~33%, down ~25%
+   - pos 3: move right ~33%, up ~25%
+   - pos 4: move up ~25%
+   - pos 5: move left ~33%, up ~25%
+*/
+
+/* Dismissed cards fade and shrink away */
+@keyframes tactic-dismissed {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.9);
+  }
+}
+
+/* Overlay fade out */
+@keyframes overlay-fade-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+
 .tactic-selection {
-  width: min(95vw, 1400px);
-  max-height: 85vh;
+  width: min(95vw, 1200px);
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
+  /* More transparent, less "modal box" feeling */
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    rgba(22, 33, 62, 0.95) 0%,
+    rgba(15, 15, 35, 0.98) 60%,
+    rgba(10, 10, 25, 0.99) 100%
+  );
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  position: relative;
+  overflow: visible;
+}
+
+/* Atmospheric gradient overlay - day */
+.tactic-selection--day::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(255, 193, 7, 0.08) 0%,
+    rgba(255, 152, 0, 0.04) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+/* Atmospheric gradient overlay - night */
+.tactic-selection--night::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(100, 149, 237, 0.1) 0%,
+    rgba(75, 0, 130, 0.05) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
 .tactic-selection__title {
@@ -156,57 +269,205 @@ body {
   font-weight: 600;
   text-align: center;
   margin-bottom: 0.5vh;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Day title accent */
+.tactic-selection--day .tactic-selection__title {
+  color: #fff;
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(255, 193, 7, 0.3);
+}
+
+/* Night title accent */
+.tactic-selection--night .tactic-selection__title {
+  color: #e0e7ff;
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(100, 149, 237, 0.3);
 }
 
 .tactic-selection__subtitle {
   text-align: center;
   color: #888;
   margin-bottom: 1.5vh;
-  font-size: clamp(1rem, 1.5vh, 1.25rem);
+  font-size: clamp(0.85rem, 1.25vh, 1rem);
+  position: relative;
+  z-index: 1;
 }
 
 .tactic-selection__grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, 1fr);
-  gap: clamp(0.5rem, 1.5vh, 1.5rem);
+  gap: clamp(1.5rem, 3vh, 3rem);
   flex: 1;
   min-height: 0;
+  padding: 1rem 2rem 2rem;
+  perspective: 1200px;
 }
 
+/* The button is just a transparent hit area - all visuals on the image */
 .tactic-card {
-  background: #0f0f23;
-  border: 2px solid #333;
-  border-radius: 8px;
-  padding: clamp(0.25rem, 0.75vh, 0.75rem);
+  background: transparent;
+  border: none;
+  padding: 0;
   cursor: pointer;
-  transition: all 0.15s;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
   min-height: 0;
+  position: relative;
+
+  /* Staggered deal animation */
+  opacity: 0;
+  animation: tactic-deal 0.5s ease-out forwards;
 }
 
-.tactic-card:hover {
-  border-color: #4fc3f7;
-  transform: translateY(-4px);
-}
+/* Staggered delays for each card position */
+.tactic-card:nth-child(1) { animation-delay: 0.0s; }
+.tactic-card:nth-child(2) { animation-delay: 0.08s; }
+.tactic-card:nth-child(3) { animation-delay: 0.16s; }
+.tactic-card:nth-child(4) { animation-delay: 0.24s; }
+.tactic-card:nth-child(5) { animation-delay: 0.32s; }
+.tactic-card:nth-child(6) { animation-delay: 0.40s; }
 
+/* The card image IS the card - all visual effects here */
 .tactic-card__image {
   width: 100%;
-  flex: 1;
-  min-height: 0;
+  max-height: 100%;
   object-fit: contain;
-  border-radius: 4px;
   display: block;
+
+  /* Match parchment color so clipped corners blend seamlessly */
+  background-color: #d4c9a8;
+
+  /* Clip past the dark border baked into the image files */
+  border-radius: 4%;
+
+  /* Physical card depth */
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    0 8px 24px rgba(0, 0, 0, 0.2);
+
+  /* Smooth transitions for all hover effects */
+  transition:
+    transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    box-shadow 0.3s ease,
+    filter 0.3s ease;
 }
 
-.tactic-card__name {
-  margin-top: 0.5vh;
-  font-size: clamp(0.75rem, 1.25vh, 1rem);
-  text-align: center;
-  color: #eee;
-  flex-shrink: 0;
+/* Hover: card lifts and glows */
+.tactic-card:hover .tactic-card__image {
+  transform: translateY(-16px) scale(1.08);
+  box-shadow:
+    0 0 20px rgba(79, 195, 247, 0.4),
+    0 0 40px rgba(79, 195, 247, 0.2),
+    0 20px 40px rgba(0, 0, 0, 0.4);
+  filter: brightness(1.1);
+}
+
+/* Day hover - warm golden glow */
+.tactic-selection--day .tactic-card:hover .tactic-card__image {
+  box-shadow:
+    0 0 20px rgba(255, 193, 7, 0.5),
+    0 0 40px rgba(255, 152, 0, 0.25),
+    0 20px 40px rgba(0, 0, 0, 0.4);
+  filter: brightness(1.1) saturate(1.1);
+}
+
+/* Night hover - cool blue glow */
+.tactic-selection--night .tactic-card:hover .tactic-card__image {
+  box-shadow:
+    0 0 20px rgba(100, 149, 237, 0.5),
+    0 0 40px rgba(75, 0, 130, 0.3),
+    0 20px 40px rgba(0, 0, 0, 0.4);
+  filter: brightness(1.15);
+}
+
+/* Active/click - card presses down slightly */
+.tactic-card:active .tactic-card__image {
+  transform: translateY(-8px) scale(1.04);
+  transition-duration: 0.1s;
+}
+
+/* Bring hovered card above siblings */
+.tactic-card:hover {
+  z-index: 10;
+}
+
+/* ============================================
+   Selection Animation States
+   ============================================ */
+
+/* Selected card - dramatic move to center and glow */
+.tactic-card--selected {
+  z-index: 20;
+  pointer-events: none;
+  /* Animate the card container to center */
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Position-based transforms to move selected card to center
+   Using larger offsets to account for gaps and ensure true centering */
+.tactic-card--selected.tactic-card--pos-0 { transform: translate(calc(100% + 3rem), 55%); }
+.tactic-card--selected.tactic-card--pos-1 { transform: translate(0, 55%); }
+.tactic-card--selected.tactic-card--pos-2 { transform: translate(calc(-100% - 3rem), 55%); }
+.tactic-card--selected.tactic-card--pos-3 { transform: translate(calc(100% + 3rem), -55%); }
+.tactic-card--selected.tactic-card--pos-4 { transform: translate(0, -55%); }
+.tactic-card--selected.tactic-card--pos-5 { transform: translate(calc(-100% - 3rem), -55%); }
+
+/* The image scales up for emphasis */
+.tactic-card--selected .tactic-card__image {
+  transform: scale(1.2);
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease,
+              filter 0.3s ease;
+}
+
+/* Day theme - golden glow on selected */
+.tactic-selection--day .tactic-card--selected .tactic-card__image {
+  box-shadow:
+    0 0 40px rgba(255, 193, 7, 0.8),
+    0 0 80px rgba(255, 152, 0, 0.5),
+    0 0 120px rgba(255, 193, 7, 0.3),
+    0 30px 60px rgba(0, 0, 0, 0.5);
+  filter: brightness(1.2) saturate(1.2);
+}
+
+/* Night theme - blue glow on selected */
+.tactic-selection--night .tactic-card--selected .tactic-card__image {
+  box-shadow:
+    0 0 40px rgba(100, 149, 237, 0.8),
+    0 0 80px rgba(75, 0, 130, 0.5),
+    0 0 120px rgba(100, 149, 237, 0.3),
+    0 30px 60px rgba(0, 0, 0, 0.5);
+  filter: brightness(1.25);
+}
+
+/* Dismissed cards - fade and shrink away */
+.tactic-card--dismissed {
+  pointer-events: none;
+}
+
+.tactic-card--dismissed .tactic-card__image {
+  animation: tactic-dismissed 0.4s ease-in forwards;
+}
+
+/* Title fades out during exit */
+.tactic-selection--exiting .tactic-selection__title,
+.tactic-selection--exiting .tactic-selection__subtitle {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Overlay fades out smoothly */
+.overlay--exiting {
+  animation: overlay-fade-out 0.4s ease-in forwards;
+  animation-delay: 0.2s;
 }
 
 /* ============================================

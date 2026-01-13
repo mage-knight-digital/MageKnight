@@ -1,11 +1,12 @@
 import { GameProvider } from "./context/GameContext";
 import { useGame } from "./hooks/useGame";
+import { useMyPlayer } from "./hooks/useMyPlayer";
 import { HexGrid } from "./components/GameBoard/HexGrid";
 import { ManaSourceOverlay } from "./components/GameBoard/ManaSourceOverlay";
 import { TopBar } from "./components/TopBar";
 import { TurnActions } from "./components/TurnActions";
 import { PlayerHand } from "./components/Hand/PlayerHand";
-import { TacticSelection } from "./components/Overlays/TacticSelection";
+import { TacticHand } from "./components/Hand/TacticHand";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { RewardSelection } from "./components/Overlays/RewardSelection";
 import { ManaStealDecision } from "./components/Overlays/ManaStealDecision";
@@ -40,6 +41,7 @@ const GAME_SEED = getGameSeed();
 
 function GameView() {
   const { state } = useGame();
+  const player = useMyPlayer();
 
   if (!state) {
     return <div className="loading">Loading game state...</div>;
@@ -48,10 +50,17 @@ function GameView() {
   // Show combat overlay when in combat
   const inCombat = state.combat && state.validActions.combat;
 
+  // Check if we're in tactic selection mode
+  const isTacticSelectionActive = player && player.selectedTacticId === null && !!state.validActions.tactics;
+
+  const appClassName = [
+    "app",
+    isTacticSelectionActive && "app--tactic-selection",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div className="app">
+    <div className={appClassName}>
       {/* Overlays */}
-      <TacticSelection />
       <ChoiceSelection />
       <RewardSelection />
       <ManaStealDecision />
@@ -79,6 +88,7 @@ function GameView() {
       </main>
 
       <PlayerHand />
+      <TacticHand />
       <TurnActions />
     </div>
   );

@@ -1,0 +1,202 @@
+/* Tactic Hand - appears above player hand during tactic selection */
+.tactic-hand {
+  position: fixed;
+  bottom: 130px; /* Above the collapsed player hand */
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* Banner indicating the phase */
+.tactic-hand__banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1rem;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.tactic-hand__banner-text {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+.tactic-hand__banner-subtitle {
+  font-size: 0.9rem;
+  color: #aaa;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+/* Day theme */
+.tactic-hand--day .tactic-hand__banner-text {
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.7),
+    0 0 20px rgba(255, 193, 7, 0.3);
+}
+
+/* Night theme */
+.tactic-hand--night .tactic-hand__banner-text {
+  color: #e0e7ff;
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.7),
+    0 0 20px rgba(100, 149, 237, 0.3);
+}
+
+/* Cards container */
+.tactic-hand__cards {
+  position: relative;
+  height: 240px;
+  width: 800px;
+  pointer-events: auto;
+}
+
+/* Individual tactic card - positioned absolutely from container center */
+.tactic-hand__card {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transform-origin: bottom center;
+  transition:
+    transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    opacity 0.3s ease;
+}
+
+.tactic-hand__card-image {
+  width: 140px;
+  height: auto;
+  border-radius: 8px;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.3s ease,
+    filter 0.3s ease;
+  background-color: #d4c9a8;
+}
+
+/* Hover state - card lifts and zooms */
+.tactic-hand__card--hovered {
+  z-index: 90 !important;
+}
+
+.tactic-hand__card--hovered .tactic-hand__card-image {
+  transform: scale(1.8) translateY(-20px);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    0 16px 48px rgba(0, 0, 0, 0.3);
+}
+
+/* Day hover glow */
+.tactic-hand--day .tactic-hand__card--hovered .tactic-hand__card-image {
+  box-shadow:
+    0 0 20px rgba(255, 193, 7, 0.4),
+    0 0 40px rgba(255, 152, 0, 0.2),
+    0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+/* Night hover glow */
+.tactic-hand--night .tactic-hand__card--hovered .tactic-hand__card-image {
+  box-shadow:
+    0 0 20px rgba(100, 149, 237, 0.4),
+    0 0 40px rgba(75, 0, 130, 0.2),
+    0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+/* Selected card - hero moment */
+.tactic-hand__card--selected {
+  z-index: 100 !important;
+  pointer-events: none;
+}
+
+.tactic-hand__card--selected .tactic-hand__card-image {
+  transform: scale(2.2) translateY(-40px);
+  filter: brightness(1.2);
+}
+
+/* Day selected glow */
+.tactic-hand--day .tactic-hand__card--selected .tactic-hand__card-image {
+  box-shadow:
+    0 0 40px rgba(255, 193, 7, 0.8),
+    0 0 80px rgba(255, 152, 0, 0.5),
+    0 0 120px rgba(255, 193, 7, 0.3),
+    0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* Night selected glow */
+.tactic-hand--night .tactic-hand__card--selected .tactic-hand__card-image {
+  box-shadow:
+    0 0 40px rgba(100, 149, 237, 0.8),
+    0 0 80px rgba(75, 0, 130, 0.5),
+    0 0 120px rgba(100, 149, 237, 0.3),
+    0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* Dismissed cards - fade away */
+.tactic-hand__card--dismissed {
+  pointer-events: none;
+}
+
+.tactic-hand__card--dismissed .tactic-hand__card-image {
+  opacity: 0;
+  transform: scale(0.8) translateY(20px);
+}
+
+/* When selecting, fade the banner */
+.tactic-hand--selecting .tactic-hand__banner {
+  opacity: 0;
+}
+
+/* Entrance animation */
+@keyframes tactic-hand-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tactic-hand {
+  animation: tactic-hand-enter 0.4s ease-out;
+}
+
+/* Staggered card entrance - cards dealt from above */
+@keyframes tactic-card-deal {
+  0% {
+    opacity: 0;
+    transform: translateY(-200px) rotate(-5deg);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+.tactic-hand__card-image {
+  animation: tactic-card-deal 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.tactic-hand__card:nth-child(1) .tactic-hand__card-image { animation-delay: 0.05s; }
+.tactic-hand__card:nth-child(2) .tactic-hand__card-image { animation-delay: 0.16s; }
+.tactic-hand__card:nth-child(3) .tactic-hand__card-image { animation-delay: 0.27s; }
+.tactic-hand__card:nth-child(4) .tactic-hand__card-image { animation-delay: 0.38s; }
+.tactic-hand__card:nth-child(5) .tactic-hand__card-image { animation-delay: 0.49s; }
+.tactic-hand__card:nth-child(6) .tactic-hand__card-image { animation-delay: 0.60s; }
