@@ -45,15 +45,45 @@ export function getAtlas(): AtlasData | null {
 
 export type CardCategory = "basic_actions" | "advanced_actions" | "spells" | "artifacts";
 
+// Hero prefixes used for hero-specific cards
+const HERO_PREFIXES = [
+  "arythea_",
+  "goldyx_",
+  "norowas_",
+  "tovak_",
+  "wolfhawk_",
+  "krang_",
+  "braevalar_",
+  "ymirgh_",
+];
+
+/**
+ * Strip hero prefix from card ID if present.
+ * e.g., "arythea_battle_versatility" -> "battle_versatility"
+ */
+function stripHeroPrefix(cardId: string): string {
+  for (const prefix of HERO_PREFIXES) {
+    if (cardId.startsWith(prefix)) {
+      return cardId.slice(prefix.length);
+    }
+  }
+  return cardId;
+}
+
 export function findCardInAtlas(cardId: CardId): { category: CardCategory; position: CardPosition } | null {
   if (!atlasData) return null;
 
-  for (const category of ["basic_actions", "advanced_actions", "spells", "artifacts"] as CardCategory[]) {
-    const cards = atlasData.cards[category];
-    // Skip description entries
-    const position = cards[cardId as string];
-    if (position && typeof position === "object" && "col" in position) {
-      return { category, position };
+  // Try exact match first, then try without hero prefix
+  const idsToTry = [cardId as string, stripHeroPrefix(cardId as string)];
+
+  for (const id of idsToTry) {
+    for (const category of ["basic_actions", "advanced_actions", "spells", "artifacts"] as CardCategory[]) {
+      const cards = atlasData.cards[category];
+      // Skip description entries
+      const position = cards[id];
+      if (position && typeof position === "object" && "col" in position) {
+        return { category, position };
+      }
     }
   }
 
