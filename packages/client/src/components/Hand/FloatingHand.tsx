@@ -118,6 +118,13 @@ export function FloatingHand({
     loadAtlas().then(() => setAtlasLoaded(true));
   }, []);
 
+  // Clear hover when a card is selected (modal opens)
+  useEffect(() => {
+    if (selectedIndex !== null) {
+      setHoveredIndex(null);
+    }
+  }, [selectedIndex]);
+
   // Filter out the selected card - it's shown in the expanded view
   const visibleHand =
     selectedIndex !== null
@@ -128,6 +135,11 @@ export function FloatingHand({
   // This ignores the zoomed visual and uses the original card positions
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      // Disable hover when a card is expanded in modal
+      if (selectedIndex !== null) {
+        setHoveredIndex(null);
+        return;
+      }
       if (!containerRef.current || visibleHand.length === 0) return;
 
       const containerRect = containerRef.current.getBoundingClientRect();
@@ -162,7 +174,7 @@ export function FloatingHand({
         setHoveredIndex(null);
       }
     },
-    [visibleHand.length]
+    [visibleHand.length, selectedIndex]
   );
 
   const handleMouseLeave = useCallback(() => {

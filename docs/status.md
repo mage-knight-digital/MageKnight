@@ -4,8 +4,8 @@
 
 This document captures the complete state of the Mage Knight board game engine implementation. Use this to resume development if context is lost.
 
-**Last Updated:** January 2025
-**Test Count:** 737 tests passing (693 core + 12 shared + 32 server)
+**Last Updated:** January 12, 2025
+**Test Count:** 709 tests (704 passing, 5 failing in core)
 
 ---
 
@@ -170,6 +170,35 @@ packages/
 | Adventure site explore | `core/src/engine/commands/enterSiteCommand.ts` | Dungeon/tomb draw enemies, ruins auto-conquest at day |
 | Dungeon/tomb restrictions | `manaValidators.ts`, `unitValidators.ts` | No units, night mana rules (no gold, yes black) |
 | Dungeon/tomb re-entry | `siteValidators.ts` | Can re-enter conquered dungeon/tomb for fame grinding |
+| Crystal Mine | `endTurnCommand.ts` | Gain crystal matching mine color when ending turn |
+| Magical Glade | `endTurnCommand.ts`, `validActions/index.ts` | Gain mana token or convert crystal at end of turn |
+
+**Site Effects by Type:**
+
+| Site | Effect | Backend | UI | Status |
+|------|--------|---------|-----|--------|
+| Village | Healing, recruit units | ✅ | ❌ No healing/recruit UI | Backend only |
+| Monastery | Healing, recruit units | ✅ | ❌ No healing/recruit UI | Backend only |
+| Keep | +hand limit, recruit units | ✅ | ❌ No recruit UI | Backend only |
+| Mage Tower | Recruit units (conquered) | ✅ | ❌ No recruit UI | Backend only |
+| Dungeon | No units, night mana rules | ✅ | ✅ Combat works | Working |
+| Tomb | No units, night mana rules | ✅ | ✅ Combat works | Working |
+| Ancient Ruins | Day=no enemies, night=enemies | ✅ | ✅ Combat works | Working |
+| Monster Den | Combat site, conquest rewards | ✅ | ❌ No reward selection UI | Partial |
+| Spawning Grounds | Combat site, conquest rewards | ✅ | ❌ No reward selection UI | Partial |
+| Crystal Mine | Gain crystal on end turn | ✅ | ✅ | Working |
+| Magical Glade | Gain mana/convert crystal | ✅ | ✅ | Working |
+| Portal | Figure removal, multi-hero | ❌ | ❌ | Not implemented |
+| City | Multi-hero, defender bonuses | Partial | ❌ | Not implemented |
+| Deep Mine | Lost Legion | ❌ | ❌ | Not implemented |
+| Maze/Labyrinth | Lost Legion | ❌ | ❌ | Not implemented |
+| Refugee Camp | Lost Legion | ❌ | ❌ | Not implemented |
+| Volkare's Camp | Lost Legion | ❌ | ❌ | Not implemented |
+
+**Missing UI for site interactions:**
+- Healing at Village/Monastery (spend influence for wounds)
+- Unit recruitment at inhabited sites
+- Conquest reward selection (spell/artifact offers)
 
 ### Enemies on Map ✅
 
