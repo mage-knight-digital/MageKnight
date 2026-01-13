@@ -19,7 +19,6 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 1rem;
   overflow: hidden;
 }
 
@@ -41,16 +40,12 @@ body {
 .app__main {
   display: flex;
   flex: 1;
-  gap: 1rem;
   min-height: 0; /* Allow shrinking below content size */
   overflow: hidden;
 }
 
 .app__board {
   flex: 1;
-  background: #16213e;
-  border-radius: 8px;
-  padding: 1rem;
   min-height: 0; /* Allow shrinking */
   overflow: hidden;
   position: relative; /* For mana source overlay positioning */

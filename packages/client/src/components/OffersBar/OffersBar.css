@@ -7,15 +7,11 @@
  */
 
 .offers-bar {
-  --offers-bar-bg: #16213e;
-  --offers-bar-tab-bg: #0f0f23;
+  --offers-bar-tab-bg: rgba(15, 15, 35, 0.8);
   --offers-bar-tab-active: #3498db;
-  --offers-bar-flyout-bg: #1a1a2e;
+  --offers-bar-flyout-bg: rgba(26, 26, 46, 0.95);
 
   position: relative;
-  background: var(--offers-bar-bg);
-  border-radius: 8px;
-  margin-bottom: 1rem;
 }
 
 /* Tab bar */
