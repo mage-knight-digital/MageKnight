@@ -65,6 +65,9 @@ export interface ValidActions {
 
   /** Tactic effect options (during player turns) */
   readonly tacticEffects: TacticEffectsOptions | undefined;
+
+  /** Magical Glade wound discard options (at end of turn) */
+  readonly gladeWound: GladeWoundOptions | undefined;
 }
 
 // ============================================================================
@@ -320,4 +323,19 @@ export interface AvailableEnemy {
   readonly enemyId: string;
   readonly position: HexCoord;
   readonly isFortified: boolean;
+}
+
+// ============================================================================
+// Magical Glade
+// ============================================================================
+
+/**
+ * Options for Magical Glade wound discard at end of turn.
+ * Only present when player is on a Magical Glade and has wounds.
+ */
+export interface GladeWoundOptions {
+  /** Whether wounds exist in hand */
+  readonly hasWoundsInHand: boolean;
+  /** Whether wounds exist in discard pile */
+  readonly hasWoundsInDiscard: boolean;
 }

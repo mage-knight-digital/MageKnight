@@ -272,6 +272,8 @@ export type {
   ManaSearchOptions,
   PendingTacticDecisionInfo,
   BeforeTurnTacticInfo,
+  // Glade wound options
+  GladeWoundOptions,
 } from "./types/validActions.js";
 
 // Shared value constants (sub-unions)

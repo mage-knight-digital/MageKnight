@@ -128,6 +128,9 @@ export interface ClientPlayer {
 
   // Pending rewards from site conquest (spell, artifact, etc.)
   readonly pendingRewards: readonly SiteReward[];
+
+  // Magical Glade wound discard choice pending
+  readonly pendingGladeWoundChoice: boolean;
 }
 
 // Mana die in the source

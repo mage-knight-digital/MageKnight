@@ -869,6 +869,27 @@ export interface HealingPurchasedEvent {
   readonly woundsHealed: number;
 }
 
+// Magical Glade events
+export const GLADE_WOUND_DISCARDED = "GLADE_WOUND_DISCARDED" as const;
+export interface GladeWoundDiscardedEvent {
+  readonly type: typeof GLADE_WOUND_DISCARDED;
+  readonly playerId: string;
+  readonly source: "hand" | "discard";
+}
+
+export const GLADE_WOUND_SKIPPED = "GLADE_WOUND_SKIPPED" as const;
+export interface GladeWoundSkippedEvent {
+  readonly type: typeof GLADE_WOUND_SKIPPED;
+  readonly playerId: string;
+}
+
+export const GLADE_MANA_GAINED = "GLADE_MANA_GAINED" as const;
+export interface GladeManaGainedEvent {
+  readonly type: typeof GLADE_MANA_GAINED;
+  readonly playerId: string;
+  readonly manaColor: import("./ids.js").SpecialManaColor;
+}
+
 export const INTERACTION_COMPLETED = "INTERACTION_COMPLETED" as const;
 export interface InteractionCompletedEvent {
   readonly type: typeof INTERACTION_COMPLETED;
@@ -1008,6 +1029,10 @@ export type GameEvent =
   | RewardSelectedEvent
   // Adventure sites
   | SiteEnteredEvent
-  | EnemiesDrawnForSiteEvent;
+  | EnemiesDrawnForSiteEvent
+  // Magical Glade
+  | GladeWoundDiscardedEvent
+  | GladeWoundSkippedEvent
+  | GladeManaGainedEvent;
 
 export type GameEventType = GameEvent["type"];

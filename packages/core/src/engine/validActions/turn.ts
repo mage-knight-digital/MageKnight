@@ -58,6 +58,11 @@ function checkCanEndTurn(_state: GameState, player: Player): boolean {
     return false;
   }
 
+  // Can't end turn with pending glade wound choice
+  if (player.pendingGladeWoundChoice) {
+    return false;
+  }
+
   return true;
 }
 

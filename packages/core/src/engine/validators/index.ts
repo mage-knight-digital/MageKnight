@@ -25,6 +25,7 @@ import {
   ANNOUNCE_END_OF_ROUND_ACTION,
   ENTER_SITE_ACTION,
   SELECT_REWARD_ACTION,
+  RESOLVE_GLADE_WOUND_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -111,6 +112,7 @@ import {
   validateAttackTargets,
   validateDamageAssignedBeforeLeaving,
   validateFortification,
+  validateHasSiegeAttack,
   validateOneCombatPerTurn,
 } from "./combatValidators.js";
 
@@ -158,6 +160,12 @@ import {
   validateCardInOffer,
   validateNoPendingRewards,
 } from "./rewardValidators.js";
+
+// Glade validators
+import {
+  validateHasPendingGladeChoice,
+  validateGladeWoundChoice,
+} from "./gladeValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -297,6 +305,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateAttackPhase,
     validateAttackType,
     validateFortification,
+    validateHasSiegeAttack, // Must have siege attack accumulated to use siege type
     validateAttackTargets,
   ],
   [ASSIGN_DAMAGE_ACTION]: [
@@ -365,6 +374,11 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateHasPendingRewards,
     validateRewardIndex,
     validateCardInOffer,
+  ],
+  [RESOLVE_GLADE_WOUND_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingGladeChoice,
+    validateGladeWoundChoice,
   ],
 };
 

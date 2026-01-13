@@ -217,6 +217,9 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
 
     // Pending rewards from site conquest
     pendingRewards: player.pendingRewards,
+
+    // Glade wound choice
+    pendingGladeWoundChoice: player.pendingGladeWoundChoice,
   };
 }
 
@@ -651,6 +654,7 @@ export class GameServer {
       pendingChoice: null,
       pendingLevelUps: [],
       pendingRewards: [],
+      pendingGladeWoundChoice: false,
     };
 
     return { player, rng: newRng };

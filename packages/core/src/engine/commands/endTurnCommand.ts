@@ -23,7 +23,7 @@ import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import { createEmptyCombatAccumulator } from "../../types/player.js";
-import type { CardId, GameEvent, BasicManaColor } from "@mage-knight/shared";
+import type { CardId, GameEvent, BasicManaColor, SpecialManaColor } from "@mage-knight/shared";
 import {
   TURN_ENDED,
   LEVEL_UP,
@@ -31,12 +31,18 @@ import {
   COMMAND_SLOT_GAINED,
   GAME_ENDED,
   CRYSTAL_GAINED,
+  GLADE_MANA_GAINED,
   getLevelUpType,
   LEVEL_STATS,
   LEVEL_UP_TYPE_ODD,
   TURN_START_MOVE_POINTS,
   TACTIC_SPARING_POWER,
   hexKey,
+  CARD_WOUND,
+  MANA_GOLD,
+  MANA_BLACK,
+  TIME_OF_DAY_DAY,
+  MANA_TOKEN_SOURCE_SITE,
 } from "@mage-knight/shared";
 import { SiteType, mineColorToBasicManaColor } from "../../types/map.js";
 import { expireModifiers } from "../modifiers.js";
@@ -51,6 +57,8 @@ export { END_TURN_COMMAND };
 
 export interface EndTurnCommandParams {
   readonly playerId: string;
+  /** If true, skip the Magical Glade wound check (used after resolving glade wound choice) */
+  readonly skipGladeWoundCheck?: boolean;
 }
 
 export function createEndTurnCommand(params: EndTurnCommandParams): Command {
@@ -71,6 +79,35 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const currentPlayer = state.players[playerIndex];
       if (!currentPlayer) {
         throw new Error(`Player not found at index: ${playerIndex}`);
+      }
+
+      // Check for Magical Glade wound discard opportunity
+      // If player is on a Magical Glade and has wounds anywhere, set pending choice
+      // Skip this check if we're coming from resolveGladeWoundCommand (choice already made)
+      if (currentPlayer.position && !currentPlayer.pendingGladeWoundChoice && !params.skipGladeWoundCheck) {
+        const hex = state.map.hexes[hexKey(currentPlayer.position)];
+        if (hex?.site?.type === SiteType.MagicalGlade) {
+          const hasWoundsInHand = currentPlayer.hand.some((c) => c === CARD_WOUND);
+          const hasWoundsInDiscard = currentPlayer.discard.some((c) => c === CARD_WOUND);
+
+          // If wounds exist, set pending choice and return early
+          // The actual turn end will happen after resolving the glade wound choice
+          if (hasWoundsInHand || hasWoundsInDiscard) {
+            const updatedPlayer: Player = {
+              ...currentPlayer,
+              pendingGladeWoundChoice: true,
+            };
+            return {
+              state: {
+                ...state,
+                players: state.players.map((p) =>
+                  p.id === params.playerId ? updatedPlayer : p
+                ),
+              },
+              events: [], // No events yet - waiting for player choice
+            };
+          }
+        }
       }
 
       // If deck and hand are both empty, player MUST announce end of round
@@ -315,6 +352,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
       // Determine next player
       let nextPlayerId: string | null = null;
+      let gladeManaEvent: GameEvent | null = null;
 
       if (shouldTriggerRoundEnd) {
         // Round is ending - no next player in current round
@@ -324,12 +362,28 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         nextPlayerId = params.playerId;
 
         // Clear the extra turn pending flag and reset per-turn tactic state
+        // Also check for Magical Glade mana gain
         const playerIdx = newState.players.findIndex(
           (p) => p.id === params.playerId
         );
         if (playerIdx !== -1) {
           const playerWithClearedExtra = newState.players[playerIdx];
           if (playerWithClearedExtra) {
+            // Check if player is on a Magical Glade for start-of-turn mana
+            let gladeManaToken: { color: SpecialManaColor; source: typeof MANA_TOKEN_SOURCE_SITE } | null = null;
+            if (playerWithClearedExtra.position) {
+              const playerHex = newState.map.hexes[hexKey(playerWithClearedExtra.position)];
+              if (playerHex?.site?.type === SiteType.MagicalGlade) {
+                const manaColor: SpecialManaColor = newState.timeOfDay === TIME_OF_DAY_DAY ? MANA_GOLD : MANA_BLACK;
+                gladeManaToken = { color: manaColor, source: MANA_TOKEN_SOURCE_SITE };
+                gladeManaEvent = {
+                  type: GLADE_MANA_GAINED,
+                  playerId: params.playerId,
+                  manaColor,
+                };
+              }
+            }
+
             const updatedPlayer: Player = {
               ...playerWithClearedExtra,
               movePoints: TURN_START_MOVE_POINTS,
@@ -338,6 +392,10 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
                 extraTurnPending: false,
                 manaSearchUsedThisTurn: false, // Reset for new turn
               },
+              // Add Magical Glade mana if applicable
+              pureMana: gladeManaToken
+                ? [...playerWithClearedExtra.pureMana, gladeManaToken]
+                : playerWithClearedExtra.pureMana,
             };
             const players: Player[] = [...newState.players];
             players[playerIdx] = updatedPlayer;
@@ -357,6 +415,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         };
 
         // Give next player their starting move points and reset per-turn tactic state
+        // Also check for Magical Glade mana gain
         if (nextPlayerId) {
           const nextPlayerIdx = newState.players.findIndex(
             (p) => p.id === nextPlayerId
@@ -368,6 +427,22 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
               const needsSparingPowerDecision =
                 nextPlayer.selectedTactic === TACTIC_SPARING_POWER &&
                 !nextPlayer.tacticFlipped;
+
+              // Check if next player is on a Magical Glade for start-of-turn mana
+              let gladeManaToken: { color: SpecialManaColor; source: typeof MANA_TOKEN_SOURCE_SITE } | null = null;
+              if (nextPlayer.position) {
+                const playerHex = newState.map.hexes[hexKey(nextPlayer.position)];
+                if (playerHex?.site?.type === SiteType.MagicalGlade) {
+                  // Grant gold mana during day, black mana during night
+                  const manaColor: SpecialManaColor = newState.timeOfDay === TIME_OF_DAY_DAY ? MANA_GOLD : MANA_BLACK;
+                  gladeManaToken = { color: manaColor, source: MANA_TOKEN_SOURCE_SITE };
+                  gladeManaEvent = {
+                    type: GLADE_MANA_GAINED,
+                    playerId: nextPlayerId,
+                    manaColor,
+                  };
+                }
+              }
 
               const updatedNextPlayer: Player = {
                 ...nextPlayer,
@@ -382,6 +457,10 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
                 pendingTacticDecision: needsSparingPowerDecision
                   ? { type: TACTIC_SPARING_POWER }
                   : nextPlayer.pendingTacticDecision,
+                // Add Magical Glade mana if applicable
+                pureMana: gladeManaToken
+                  ? [...nextPlayer.pureMana, gladeManaToken]
+                  : nextPlayer.pureMana,
               };
               const players: Player[] = [...newState.players];
               players[nextPlayerIdx] = updatedNextPlayer;
@@ -401,6 +480,8 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
           cardsDiscarded: playAreaCards.length,
           cardsDrawn,
         },
+        // Magical Glade mana gained event for next player (if applicable)
+        ...(gladeManaEvent ? [gladeManaEvent] : []),
       ];
 
       // Process pending level ups

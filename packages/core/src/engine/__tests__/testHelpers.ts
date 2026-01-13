@@ -94,6 +94,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingRewards: [],
     hasCombattedThisTurn: false,
     manaUsedThisTurn: [],
+    pendingGladeWoundChoice: false,
     ...rest,
   };
 }

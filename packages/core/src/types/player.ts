@@ -225,4 +225,7 @@ export interface Player {
 
   // Mana usage tracking (for conditional effects)
   readonly manaUsedThisTurn: readonly ManaColor[];
+
+  // Magical Glade wound discard choice pending (when wounds exist in both hand and discard)
+  readonly pendingGladeWoundChoice: boolean;
 }

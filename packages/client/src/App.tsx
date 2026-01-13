@@ -13,6 +13,7 @@ import { MidnightMeditationDecision } from "./components/Overlays/MidnightMedita
 import { PreparationDecision } from "./components/Overlays/PreparationDecision";
 import { SparingPowerDecision } from "./components/Overlays/SparingPowerDecision";
 import { ManaSearchReroll } from "./components/Overlays/ManaSearchReroll";
+import { GladeWoundDecision } from "./components/Overlays/GladeWoundDecision";
 import { ActionBar } from "./components/Overlays/ActionBar";
 import { CombatOverlay } from "./components/Combat";
 import { UnitOfferPanel, OwnedUnitsPanel } from "./components/Offers";
@@ -315,6 +316,7 @@ function GameView() {
       <PreparationDecision />
       <SparingPowerDecision />
       <ManaSearchReroll />
+      <GladeWoundDecision />
       {inCombat && (
         <CombatOverlay
           combat={state.combat}

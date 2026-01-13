@@ -7,7 +7,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { ValidActions, TacticsOptions, TacticEffectsOptions } from "@mage-knight/shared";
+import type { ValidActions, TacticsOptions, TacticEffectsOptions, GladeWoundOptions } from "@mage-knight/shared";
 import {
   TACTIC_THE_RIGHT_MOMENT,
   TACTIC_LONG_NIGHT,
@@ -19,7 +19,10 @@ import {
   TACTIC_PREPARATION,
   MANA_GOLD,
   BASIC_MANA_COLORS,
+  CARD_WOUND,
+  hexKey,
 } from "@mage-knight/shared";
+import { SiteType } from "../../types/map.js";
 import {
   checkCanAct,
   isInCombat,
@@ -81,6 +84,7 @@ export function getValidActions(
       tactics: undefined,
       enterCombat: undefined,
       tacticEffects: undefined,
+      gladeWound: undefined,
     };
   }
 
@@ -105,6 +109,7 @@ export function getValidActions(
         tactics: undefined, // No more tactic selection - must resolve first
         enterCombat: undefined,
         tacticEffects: { pendingDecision },
+        gladeWound: undefined,
       };
     }
 
@@ -122,6 +127,34 @@ export function getValidActions(
       tactics: getTacticsOptions(state, playerId),
       enterCombat: undefined,
       tacticEffects: undefined,
+      gladeWound: undefined,
+    };
+  }
+
+  // Handle pending glade wound choice - must resolve before other actions
+  if (player.pendingGladeWoundChoice) {
+    const gladeWoundOptions = getGladeWoundOptions(state, player);
+    return {
+      canAct: true,
+      reason: undefined,
+      move: undefined,
+      explore: undefined,
+      playCard: undefined,
+      combat: undefined,
+      units: undefined,
+      sites: undefined,
+      mana: undefined,
+      turn: {
+        canEndTurn: false,
+        canAnnounceEndOfRound: false,
+        canUndo: false, // Can't undo during glade choice
+        canRest: false,
+        restTypes: undefined,
+      },
+      tactics: undefined,
+      enterCombat: undefined,
+      tacticEffects: undefined,
+      gladeWound: gladeWoundOptions,
     };
   }
 
@@ -148,6 +181,7 @@ export function getValidActions(
       tactics: undefined,
       enterCombat: undefined,
       tacticEffects: undefined,
+      gladeWound: undefined,
     };
   }
 
@@ -178,6 +212,7 @@ export function getValidActions(
         tactics: undefined,
         enterCombat: undefined,
         tacticEffects: undefined,
+        gladeWound: undefined,
       };
     }
   }
@@ -200,6 +235,7 @@ export function getValidActions(
     tactics: undefined,
     enterCombat: undefined, // TODO: getEnterCombatOptions(state, player)
     tacticEffects: getTacticEffectsOptions(state, player),
+    gladeWound: undefined,
   };
 }
 
@@ -402,6 +438,40 @@ function getManaSearchOptions(
     maxDice: 2,
     mustPickDepletedFirst: restrictedDice.length > 0,
     availableDiceIds: availableDice.map((d) => d.id),
+  };
+}
+
+/**
+ * Get Magical Glade wound discard options for the player.
+ * Returns options if player is on a glade and has wounds.
+ */
+function getGladeWoundOptions(
+  state: GameState,
+  player: Player
+): GladeWoundOptions | undefined {
+  // Must be on the map
+  if (!player.position) {
+    return undefined;
+  }
+
+  // Check if on a Magical Glade
+  const hex = state.map.hexes[hexKey(player.position)];
+  if (!hex?.site || hex.site.type !== SiteType.MagicalGlade) {
+    return undefined;
+  }
+
+  // Check for wounds in hand and discard
+  const hasWoundsInHand = player.hand.some((c) => c === CARD_WOUND);
+  const hasWoundsInDiscard = player.discard.some((c) => c === CARD_WOUND);
+
+  // If no wounds anywhere, no options needed
+  if (!hasWoundsInHand && !hasWoundsInDiscard) {
+    return undefined;
+  }
+
+  return {
+    hasWoundsInHand,
+    hasWoundsInDiscard,
   };
 }
 

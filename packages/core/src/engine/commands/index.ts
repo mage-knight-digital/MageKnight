@@ -27,8 +27,10 @@ import {
   ACTIVATE_TACTIC_ACTION,
   RESOLVE_TACTIC_DECISION_ACTION,
   REROLL_SOURCE_DICE_ACTION,
+  RESOLVE_GLADE_WOUND_ACTION,
   hexKey,
   type TacticId,
+  type GladeWoundChoice,
 } from "@mage-knight/shared";
 import type { Command } from "../commands.js";
 import { createMoveCommand } from "./moveCommand.js";
@@ -62,6 +64,7 @@ import { createSelectRewardCommand } from "./selectRewardCommand.js";
 import { createActivateTacticCommand } from "./activateTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "./resolveTacticDecisionCommand.js";
 import { createRerollSourceDiceCommand } from "./rerollSourceDiceCommand.js";
+import { createResolveGladeWoundCommand } from "./resolveGladeWoundCommand.js";
 
 // Command factory function type
 type CommandFactory = (
@@ -563,6 +566,28 @@ function createRerollSourceDiceCommandFromAction(
   });
 }
 
+// Helper to get glade wound choice from action
+function getGladeWoundChoiceFromAction(action: PlayerAction): GladeWoundChoice | null {
+  if (action.type === RESOLVE_GLADE_WOUND_ACTION && "choice" in action) {
+    return action.choice;
+  }
+  return null;
+}
+
+// Resolve glade wound command factory
+function createResolveGladeWoundCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  const choice = getGladeWoundChoiceFromAction(action);
+  if (!choice) return null;
+  return createResolveGladeWoundCommand({
+    playerId,
+    choice,
+  });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
   [MOVE_ACTION]: createMoveCommandFromAction,
@@ -587,6 +612,7 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [ACTIVATE_TACTIC_ACTION]: createActivateTacticCommandFromAction,
   [RESOLVE_TACTIC_DECISION_ACTION]: createResolveTacticDecisionCommandFromAction,
   [REROLL_SOURCE_DICE_ACTION]: createRerollSourceDiceCommandFromAction,
+  [RESOLVE_GLADE_WOUND_ACTION]: createResolveGladeWoundCommandFromAction,
 };
 
 // Get command for an action
@@ -708,3 +734,10 @@ export {
   type RerollSourceDiceCommandArgs,
   REROLL_SOURCE_DICE_COMMAND,
 } from "./rerollSourceDiceCommand.js";
+
+// Magical Glade wound discard command
+export {
+  createResolveGladeWoundCommand,
+  type ResolveGladeWoundCommandParams,
+  RESOLVE_GLADE_WOUND_COMMAND,
+} from "./resolveGladeWoundCommand.js";

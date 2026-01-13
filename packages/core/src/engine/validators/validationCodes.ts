@@ -77,6 +77,7 @@ export const ENEMY_ALREADY_DEFEATED = "ENEMY_ALREADY_DEFEATED" as const;
 export const INVALID_ATTACK_TYPE = "INVALID_ATTACK_TYPE" as const;
 export const DAMAGE_NOT_ASSIGNED = "DAMAGE_NOT_ASSIGNED" as const;
 export const FORTIFIED_NEEDS_SIEGE = "FORTIFIED_NEEDS_SIEGE" as const;
+export const NO_SIEGE_ATTACK_ACCUMULATED = "NO_SIEGE_ATTACK_ACCUMULATED" as const;
 export const ALREADY_COMBATTED = "ALREADY_COMBATTED" as const;
 
 // Unit validation codes
@@ -128,6 +129,11 @@ export const NO_PENDING_REWARDS = "NO_PENDING_REWARDS" as const;
 export const INVALID_REWARD_INDEX = "INVALID_REWARD_INDEX" as const;
 export const CARD_NOT_IN_OFFER = "CARD_NOT_IN_OFFER" as const;
 export const PENDING_REWARDS_NOT_RESOLVED = "PENDING_REWARDS_NOT_RESOLVED" as const;
+
+// Magical Glade validation codes
+export const GLADE_WOUND_CHOICE_REQUIRED = "GLADE_WOUND_CHOICE_REQUIRED" as const;
+export const GLADE_WOUND_NO_WOUNDS_IN_HAND = "GLADE_WOUND_NO_WOUNDS_IN_HAND" as const;
+export const GLADE_WOUND_NO_WOUNDS_IN_DISCARD = "GLADE_WOUND_NO_WOUNDS_IN_DISCARD" as const;
 
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
@@ -189,6 +195,7 @@ export type ValidationErrorCode =
   | typeof INVALID_ATTACK_TYPE
   | typeof DAMAGE_NOT_ASSIGNED
   | typeof FORTIFIED_NEEDS_SIEGE
+  | typeof NO_SIEGE_ATTACK_ACCUMULATED
   | typeof ALREADY_COMBATTED
   // Unit validation
   | typeof NO_COMMAND_SLOTS
@@ -231,4 +238,8 @@ export type ValidationErrorCode =
   | typeof NO_PENDING_REWARDS
   | typeof INVALID_REWARD_INDEX
   | typeof CARD_NOT_IN_OFFER
-  | typeof PENDING_REWARDS_NOT_RESOLVED;
+  | typeof PENDING_REWARDS_NOT_RESOLVED
+  // Magical Glade validation
+  | typeof GLADE_WOUND_CHOICE_REQUIRED
+  | typeof GLADE_WOUND_NO_WOUNDS_IN_HAND
+  | typeof GLADE_WOUND_NO_WOUNDS_IN_DISCARD;

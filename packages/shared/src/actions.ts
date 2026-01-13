@@ -249,6 +249,20 @@ export interface SelectRewardAction {
   readonly rewardIndex: number; // Which pending reward this selection is for (0 = first)
 }
 
+// Magical Glade wound discard choice
+export const RESOLVE_GLADE_WOUND_ACTION = "RESOLVE_GLADE_WOUND" as const;
+export const GLADE_WOUND_CHOICE_HAND = "hand" as const;
+export const GLADE_WOUND_CHOICE_DISCARD = "discard" as const;
+export const GLADE_WOUND_CHOICE_SKIP = "skip" as const;
+export type GladeWoundChoice =
+  | typeof GLADE_WOUND_CHOICE_HAND
+  | typeof GLADE_WOUND_CHOICE_DISCARD
+  | typeof GLADE_WOUND_CHOICE_SKIP;
+export interface ResolveGladeWoundAction {
+  readonly type: typeof RESOLVE_GLADE_WOUND_ACTION;
+  readonly choice: GladeWoundChoice;
+}
+
 // Combat action constants
 export const ENTER_COMBAT_ACTION = "ENTER_COMBAT" as const;
 export const END_COMBAT_PHASE_ACTION = "END_COMBAT_PHASE" as const;
@@ -356,6 +370,8 @@ export type PlayerAction =
   | ChooseLevelUpRewardsAction
   // Site rewards
   | SelectRewardAction
+  // Magical Glade
+  | ResolveGladeWoundAction
   // Combat
   | EnterCombatAction
   | EndCombatPhaseAction
