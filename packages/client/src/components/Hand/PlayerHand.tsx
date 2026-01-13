@@ -680,46 +680,10 @@ export function PlayerHand() {
     }
   };
 
-  // Calculate fame needed for next level (simple approximation - real game has specific thresholds)
-  const fameThresholds = [0, 3, 8, 15, 24, 35, 48, 63, 80, 99, 999];
-  const nextLevelFame = fameThresholds[player.level] ?? 999;
-
   return (
     <div className="player-hand" data-testid="player-hand">
       <div className="player-hand__header">
         <div className="player-hand__header-left">
-          <div className="player-hand__hero-stats">
-            <span className="player-hand__hero-name">{player.heroId}</span>
-            <span className="player-hand__hero-stat">Lvl {player.level}</span>
-            <span className="player-hand__hero-stat">Fame {player.fame}/{nextLevelFame}</span>
-            <span className="player-hand__hero-stat">Armor {player.armor}</span>
-            <span className="player-hand__hero-stat player-hand__hero-stat--rep">Rep {player.reputation}</span>
-          </div>
-          <div className="player-hand__deck-info">
-            Hand: {player.hand.length} | Deck: {player.deckCount} | Discard: {player.discardCount}
-          </div>
-        </div>
-        <div className="player-hand__header-center">
-          <div className="player-hand__resources">
-            <div className="player-hand__crystals">
-              {player.crystals.red > 0 && <span className="player-hand__crystal player-hand__crystal--red">{player.crystals.red}</span>}
-              {player.crystals.blue > 0 && <span className="player-hand__crystal player-hand__crystal--blue">{player.crystals.blue}</span>}
-              {player.crystals.green > 0 && <span className="player-hand__crystal player-hand__crystal--green">{player.crystals.green}</span>}
-              {player.crystals.white > 0 && <span className="player-hand__crystal player-hand__crystal--white">{player.crystals.white}</span>}
-              {player.crystals.red === 0 && player.crystals.blue === 0 && player.crystals.green === 0 && player.crystals.white === 0 && (
-                <span className="player-hand__no-crystals">No crystals</span>
-              )}
-            </div>
-            {player.pureMana.length > 0 && (
-              <div className="player-hand__mana-tokens">
-                {player.pureMana.map((token, i) => (
-                  <span key={i} className="player-hand__mana-token" title={`${token.color} mana token`}>
-                    {getColorEmoji(token.color)}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
           <div className="player-hand__stats">
             Move: {player.movePoints} | Influence: {player.influencePoints}
           </div>

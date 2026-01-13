@@ -2,7 +2,7 @@ import { GameProvider } from "./context/GameContext";
 import { useGame } from "./hooks/useGame";
 import { HexGrid } from "./components/GameBoard/HexGrid";
 import { ManaSourceOverlay } from "./components/GameBoard/ManaSourceOverlay";
-import { RoundTimeOverlay } from "./components/GameBoard/RoundTimeOverlay";
+import { TopBar } from "./components/TopBar";
 import { PlayerHand } from "./components/Hand/PlayerHand";
 import { TacticSelection } from "./components/Overlays/TacticSelection";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
@@ -67,13 +67,13 @@ function GameView() {
         />
       )}
 
+      <TopBar />
       <OffersBar />
 
       <main className="app__main">
         <div className="app__board">
           <HexGrid />
           <ManaSourceOverlay />
-          <RoundTimeOverlay />
         </div>
       </main>
 

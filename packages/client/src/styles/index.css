@@ -108,42 +108,6 @@ body {
   line-height: 1;
 }
 
-/* Round/Time Overlay - positioned in top-right corner of hex grid */
-.round-time-overlay {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: rgba(15, 15, 35, 0.9);
-  border: 1px solid #444;
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.round-time-overlay__round {
-  font-size: 0.75rem;
-  color: #888;
-  font-weight: 500;
-}
-
-.round-time-overlay__time {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #f39c12;
-  padding: 0.125rem 0.5rem;
-  background: rgba(243, 156, 18, 0.15);
-  border-radius: 3px;
-}
-
-.round-time-overlay__time--night {
-  color: #9b59b6;
-  background: rgba(155, 89, 182, 0.15);
-}
-
 .app__sidebar {
   width: 300px;
   display: flex;
@@ -506,103 +470,6 @@ body {
   gap: 0.5rem;
 }
 
-.player-hand__hero-stats {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: #0f0f23;
-  padding: 0.375rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid #333;
-}
-
-.player-hand__hero-name {
-  font-weight: 600;
-  color: #f39c12;
-  font-size: 0.875rem;
-}
-
-.player-hand__hero-stat {
-  font-size: 0.8rem;
-  color: #bbb;
-  padding: 0.125rem 0.375rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-}
-
-.player-hand__hero-stat--rep {
-  color: #888;
-}
-
-.player-hand__left {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.player-hand__left .panel__title {
-  margin-bottom: 0;
-}
-
-.player-hand__deck-info {
-  font-size: 0.75rem;
-  color: #888;
-}
-
-.player-hand__resources {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.player-hand__crystals {
-  display: flex;
-  gap: 0.375rem;
-}
-
-.player-hand__crystal {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #fff;
-}
-
-.player-hand__crystal--red {
-  background: #e74c3c;
-}
-
-.player-hand__crystal--blue {
-  background: #3498db;
-}
-
-.player-hand__crystal--green {
-  background: #2ecc71;
-}
-
-.player-hand__crystal--white {
-  background: #bdc3c7;
-  color: #333;
-}
-
-.player-hand__no-crystals {
-  font-size: 0.75rem;
-  color: #666;
-}
-
-.player-hand__mana-tokens {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.player-hand__mana-token {
-  font-size: 1rem;
-}
-
 .player-hand__stats {
   font-size: 0.875rem;
   color: #4fc3f7;
@@ -723,7 +590,8 @@ body {
 
 .player-hand__units-list {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 

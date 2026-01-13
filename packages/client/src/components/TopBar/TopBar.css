@@ -1,0 +1,197 @@
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 1rem;
+  background: rgba(10, 10, 25, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.top-bar__section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.top-bar__section--left {
+  gap: 0.75rem;
+}
+
+.top-bar__section--center {
+  gap: 1.5rem;
+}
+
+.top-bar__section--right {
+  gap: 0.75rem;
+}
+
+/* Hero identity */
+.top-bar__hero {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.top-bar__hero-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  text-transform: capitalize;
+}
+
+/* Stats */
+.top-bar__stat {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: default;
+}
+
+.top-bar__icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.top-bar__icon--level {
+  color: #9b59b6;
+}
+
+.top-bar__icon--fame {
+  color: #f1c40f;
+}
+
+.top-bar__icon--armor {
+  color: #95a5a6;
+}
+
+.top-bar__icon--reputation {
+  color: #3498db;
+}
+
+.top-bar__value {
+  font-size: 0.8rem;
+  color: #ddd;
+  font-weight: 500;
+}
+
+/* Mana crystals */
+.top-bar__mana-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.top-bar__mana-group--tokens {
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.top-bar__crystal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.top-bar__crystal--red {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  box-shadow: 0 0 4px rgba(231, 76, 60, 0.5);
+}
+
+.top-bar__crystal--blue {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  box-shadow: 0 0 4px rgba(52, 152, 219, 0.5);
+}
+
+.top-bar__crystal--green {
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  box-shadow: 0 0 4px rgba(46, 204, 113, 0.5);
+}
+
+.top-bar__crystal--white {
+  background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+  box-shadow: 0 0 4px rgba(236, 240, 241, 0.5);
+  color: #333;
+}
+
+/* Mana tokens */
+.top-bar__token {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+.top-bar__token--red {
+  background: radial-gradient(circle at 30% 30%, #ff6b6b, #c0392b);
+}
+
+.top-bar__token--blue {
+  background: radial-gradient(circle at 30% 30%, #74b9ff, #2980b9);
+}
+
+.top-bar__token--green {
+  background: radial-gradient(circle at 30% 30%, #55efc4, #27ae60);
+}
+
+.top-bar__token--white {
+  background: radial-gradient(circle at 30% 30%, #fff, #bdc3c7);
+}
+
+.top-bar__token--gold {
+  background: radial-gradient(circle at 30% 30%, #ffeaa7, #f39c12);
+}
+
+.top-bar__token--black {
+  background: radial-gradient(circle at 30% 30%, #636e72, #2d3436);
+}
+
+/* Round/Time */
+.top-bar__round {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.top-bar__round-label {
+  font-size: 0.7rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.top-bar__round-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.top-bar__time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.top-bar__time--day {
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(243, 156, 18, 0.5);
+}
+
+.top-bar__time--night {
+  background: linear-gradient(135deg, #2c3e50, #1a252f);
+  color: #bdc3c7;
+  box-shadow: 0 0 8px rgba(44, 62, 80, 0.5);
+}

@@ -167,10 +167,10 @@ function SpellOfferContent() {
 
   return (
     <div className="offers-bar__grid">
-      {spellOffer.length === 0 ? (
+      {spellOffer.cards.length === 0 ? (
         <div className="offers-bar__empty">No spells available</div>
       ) : (
-        spellOffer.map((spellId, index) => (
+        spellOffer.cards.map((spellId, index) => (
           <div key={`${spellId}-${index}`} className="offers-bar__spell-card">
             <span className="offers-bar__spell-name">{spellId}</span>
           </div>
@@ -192,10 +192,10 @@ function AdvancedActionsContent() {
 
   return (
     <div className="offers-bar__grid">
-      {aaOffer.length === 0 ? (
+      {aaOffer.cards.length === 0 ? (
         <div className="offers-bar__empty">No advanced actions available</div>
       ) : (
-        aaOffer.map((aaId, index) => (
+        aaOffer.cards.map((aaId, index) => (
           <div key={`${aaId}-${index}`} className="offers-bar__aa-card">
             <span className="offers-bar__aa-name">{aaId}</span>
           </div>
