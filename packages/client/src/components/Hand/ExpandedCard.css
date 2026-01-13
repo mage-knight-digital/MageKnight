@@ -1,0 +1,130 @@
+.expanded-card-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.expanded-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.expanded-card__image {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Clickable zones on the card */
+.expanded-card__zone {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  background: transparent;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.expanded-card__zone:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.expanded-card__zone-label {
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.expanded-card__zone:hover .expanded-card__zone-label {
+  opacity: 1;
+}
+
+/* Basic zone - upper middle portion */
+.expanded-card__zone--basic {
+  top: 35%;
+  height: 25%;
+}
+
+.expanded-card__zone--basic:hover {
+  border-color: #2ecc71;
+  box-shadow: inset 0 0 20px rgba(46, 204, 113, 0.3);
+}
+
+/* Powered zone - lower portion */
+.expanded-card__zone--powered {
+  top: 62%;
+  height: 30%;
+}
+
+.expanded-card__zone--powered:hover {
+  border-color: #9b59b6;
+  box-shadow: inset 0 0 20px rgba(155, 89, 182, 0.3);
+}
+
+/* Sideways options */
+.expanded-card__sideways {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.expanded-card__sideways-btn {
+  background: rgba(30, 30, 50, 0.9);
+  border: 2px solid #555;
+  border-radius: 8px;
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.expanded-card__sideways-btn:hover {
+  background: rgba(50, 50, 80, 0.9);
+  border-color: #4fc3f7;
+  transform: translateX(4px);
+}
+
+/* Cancel button */
+.expanded-card__cancel {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #333;
+  border: 2px solid #555;
+  color: #fff;
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.expanded-card__cancel:hover {
+  background: #e74c3c;
+  border-color: #e74c3c;
+}

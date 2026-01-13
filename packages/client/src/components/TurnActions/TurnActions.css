@@ -1,0 +1,68 @@
+.turn-actions {
+  position: fixed;
+  bottom: 240px;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 60;
+}
+
+.turn-actions__btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.turn-actions__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.turn-actions__btn--undo {
+  background: rgba(50, 50, 70, 0.9);
+  color: #fff;
+  font-size: 1.25rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.turn-actions__btn--undo:not(:disabled):hover {
+  background: rgba(70, 70, 100, 0.9);
+  transform: translateX(-2px);
+}
+
+.turn-actions__btn--end-turn {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  color: #fff;
+}
+
+.turn-actions__btn--end-turn:not(:disabled):hover {
+  background: linear-gradient(135deg, #2ecc71, #58d68d);
+  transform: translateX(-2px);
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+}
+
+.turn-actions__btn--tactic {
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  color: #fff;
+}
+
+.turn-actions__btn--tactic:hover {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  transform: translateX(-2px);
+}
+
+.turn-actions__btn--tactic-dark {
+  background: linear-gradient(135deg, #8e44ad, #9b59b6);
+  color: #fff;
+}
+
+.turn-actions__btn--tactic-dark:hover {
+  background: linear-gradient(135deg, #9b59b6, #a569bd);
+  transform: translateX(-2px);
+}

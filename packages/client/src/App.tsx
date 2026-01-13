@@ -3,6 +3,7 @@ import { useGame } from "./hooks/useGame";
 import { HexGrid } from "./components/GameBoard/HexGrid";
 import { ManaSourceOverlay } from "./components/GameBoard/ManaSourceOverlay";
 import { TopBar } from "./components/TopBar";
+import { TurnActions } from "./components/TurnActions";
 import { PlayerHand } from "./components/Hand/PlayerHand";
 import { TacticSelection } from "./components/Overlays/TacticSelection";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
@@ -78,6 +79,7 @@ function GameView() {
       </main>
 
       <PlayerHand />
+      <TurnActions />
     </div>
   );
 }

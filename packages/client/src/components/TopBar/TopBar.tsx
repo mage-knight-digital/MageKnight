@@ -42,6 +42,18 @@ export function TopBar() {
           <span className="top-bar__icon top-bar__icon--reputation">⚖</span>
           <span className="top-bar__value">{player.reputation}</span>
         </div>
+
+        <div className="top-bar__divider" />
+
+        <div className="top-bar__stat top-bar__stat--move" title="Move Points">
+          <span className="top-bar__icon top-bar__icon--move">→</span>
+          <span className="top-bar__value">{player.movePoints}</span>
+        </div>
+
+        <div className="top-bar__stat top-bar__stat--influence" title="Influence Points">
+          <span className="top-bar__icon top-bar__icon--influence">♦</span>
+          <span className="top-bar__value">{player.influencePoints}</span>
+        </div>
       </div>
 
       {/* Center section: Mana */}

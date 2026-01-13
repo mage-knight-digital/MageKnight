@@ -70,6 +70,27 @@
   color: #3498db;
 }
 
+.top-bar__icon--move {
+  color: #4fc3f7;
+}
+
+.top-bar__icon--influence {
+  color: #e91e63;
+}
+
+.top-bar__stat--move .top-bar__value,
+.top-bar__stat--influence .top-bar__value {
+  color: #fff;
+  font-weight: 600;
+}
+
+.top-bar__divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 0.25rem;
+}
+
 .top-bar__value {
   font-size: 0.8rem;
   color: #ddd;

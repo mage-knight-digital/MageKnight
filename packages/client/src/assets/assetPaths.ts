@@ -38,3 +38,7 @@ export function getEnemyImageUrl(enemyId: string): string {
 export function getTileImageUrl(tileId: string): string {
   return `${ASSETS_BASE}/tiles/${tileId}.png`;
 }
+
+export function getCardSheetUrl(sheet: "basic_actions" | "advanced_actions" | "spells" | "artifacts"): string {
+  return `${ASSETS_BASE}/cards/${sheet}.jpg`;
+}
