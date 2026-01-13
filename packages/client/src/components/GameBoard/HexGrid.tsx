@@ -8,7 +8,7 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
-import { getTileImageUrl } from "../../assets/assetPaths";
+import { getTileImageUrl, getEnemyImageUrl, tokenIdToEnemyId } from "../../assets/assetPaths";
 
 const HEX_SIZE = 50; // pixels from center to corner
 
@@ -321,12 +321,81 @@ interface HexOverlayProps {
   onClick: () => void;
 }
 
+// Enemy token size relative to hex
+const ENEMY_TOKEN_SIZE = HEX_SIZE * 0.8;
+
+/**
+ * Renders an enemy token image at the specified position, clipped to a circle.
+ */
+function EnemyToken({ enemyId, offsetX, offsetY, index }: { enemyId: string; offsetX: number; offsetY: number; index: number }) {
+  const imageUrl = getEnemyImageUrl(enemyId);
+  const clipId = `enemy-clip-${enemyId}-${index}`;
+
+  return (
+    <g>
+      <defs>
+        <clipPath id={clipId}>
+          <circle cx={offsetX} cy={offsetY} r={ENEMY_TOKEN_SIZE / 2} />
+        </clipPath>
+      </defs>
+      <image
+        href={imageUrl}
+        x={offsetX - ENEMY_TOKEN_SIZE / 2}
+        y={offsetY - ENEMY_TOKEN_SIZE / 2}
+        width={ENEMY_TOKEN_SIZE}
+        height={ENEMY_TOKEN_SIZE}
+        clipPath={`url(#${clipId})`}
+        style={{ pointerEvents: "none" }}
+      />
+      {/* Subtle border around the token */}
+      <circle
+        cx={offsetX}
+        cy={offsetY}
+        r={ENEMY_TOKEN_SIZE / 2}
+        fill="none"
+        stroke="rgba(0,0,0,0.5)"
+        strokeWidth="1"
+      />
+    </g>
+  );
+}
+
 /**
  * Transparent hex overlay for interactivity on top of tile artwork.
  * Handles click events, move highlighting, and token display.
  */
 function HexOverlay({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexOverlayProps) {
   const { x, y } = hexToPixel(hex.coord);
+
+  // Combine rampaging enemies (stored as type strings) and regular enemies (stored as token IDs)
+  // For rampaging enemies, the type string IS the enemy ID (e.g., "orc_marauder", "draconum")
+  // For regular enemies, extract the base ID from token ID (e.g., "diggers_1" -> "diggers")
+  const allEnemyIds = [
+    ...hex.rampagingEnemies,
+    ...hex.enemies.map(tokenIdToEnemyId),
+  ];
+
+  // Position enemies in a grid pattern within the hex
+  const getEnemyOffset = (index: number, total: number) => {
+    if (total === 1) return { x: 0, y: 0 };
+    if (total === 2) return { x: (index - 0.5) * ENEMY_TOKEN_SIZE * 0.8, y: 0 };
+    if (total <= 4) {
+      const row = Math.floor(index / 2);
+      const col = index % 2;
+      return {
+        x: (col - 0.5) * ENEMY_TOKEN_SIZE * 0.8,
+        y: (row - 0.5) * ENEMY_TOKEN_SIZE * 0.7,
+      };
+    }
+    // For 5+ enemies, arrange in a tighter grid
+    const cols = 3;
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    return {
+      x: (col - 1) * ENEMY_TOKEN_SIZE * 0.6,
+      y: (row - 0.5) * ENEMY_TOKEN_SIZE * 0.6,
+    };
+  };
 
   return (
     <g
@@ -344,6 +413,20 @@ function HexOverlay({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexOverla
         className="hex-overlay"
       />
 
+      {/* Enemy tokens */}
+      {allEnemyIds.map((enemyId, index) => {
+        const offset = getEnemyOffset(index, allEnemyIds.length);
+        return (
+          <EnemyToken
+            key={`${enemyId}-${index}`}
+            enemyId={enemyId}
+            offsetX={offset.x}
+            offsetY={offset.y}
+            index={index}
+          />
+        );
+      })}
+
       {/* Player token */}
       {isPlayerHere && (
         <circle
@@ -353,23 +436,6 @@ function HexOverlay({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexOverla
           strokeWidth="2"
           className="hero-token"
         />
-      )}
-
-      {/* Enemy indicators */}
-      {hex.enemies.length > 0 && (
-        <g transform={`translate(${HEX_SIZE * 0.35}, ${-HEX_SIZE * 0.35})`}>
-          <circle r={12} fill="#8B0000" stroke="#FFF" strokeWidth="1" />
-          <text
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill="#FFF"
-            fontSize="10"
-            fontWeight="bold"
-            style={{ pointerEvents: "none" }}
-          >
-            {hex.enemies.length}
-          </text>
-        </g>
       )}
     </g>
   );

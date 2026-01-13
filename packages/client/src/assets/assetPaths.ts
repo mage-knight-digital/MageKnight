@@ -35,6 +35,22 @@ export function getEnemyImageUrl(enemyId: string): string {
   return `${ASSETS_BASE}/enemies/${enemyId}.jpg`;
 }
 
+export type EnemyTokenColor = "green" | "grey" | "brown" | "violet" | "red" | "white";
+
+export function getEnemyTokenBackUrl(color: EnemyTokenColor): string {
+  return `${ASSETS_BASE}/enemies/backs/${color}.png`;
+}
+
+/**
+ * Extract the base enemy ID from a token ID.
+ * Token IDs are formatted as "{enemyId}_{counter}" (e.g., "diggers_1" -> "diggers")
+ */
+export function tokenIdToEnemyId(tokenId: string): string {
+  // Remove the trailing _N counter
+  const match = tokenId.match(/^(.+)_\d+$/);
+  return match?.[1] ?? tokenId;
+}
+
 export function getTileImageUrl(tileId: string): string {
   return `${ASSETS_BASE}/tiles/${tileId}.png`;
 }
