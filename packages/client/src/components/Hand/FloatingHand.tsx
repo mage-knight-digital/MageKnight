@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import type { CardId, PlayableCard } from "@mage-knight/shared";
 import { loadAtlas, getCardSpriteStyle, getCardColor } from "../../utils/cardAtlas";
 import "./FloatingHand.css";
@@ -6,11 +6,12 @@ import "./FloatingHand.css";
 interface FloatingCardProps {
   cardId: CardId;
   index: number;
+  originalIndex: number;
   totalCards: number;
   isSelected: boolean;
   isPlayable: boolean;
   isHovered: boolean;
-  onClick: () => void;
+  onCardClick: (index: number) => void;
 }
 
 // Calculate card position based on index and total cards
@@ -47,17 +48,23 @@ function getCardLayout(index: number, totalCards: number, cardWidth: number) {
   return { spreadX, rotation, arcY, cardWidth, spreadDistance };
 }
 
-function FloatingCard({
+const FloatingCard = memo(function FloatingCard({
   cardId,
   index,
+  originalIndex,
   totalCards,
   isSelected,
   isPlayable,
   isHovered,
-  onClick,
+  onCardClick,
 }: FloatingCardProps) {
-  const spriteStyle = getCardSpriteStyle(cardId, 180);
-  const cardColor = getCardColor(cardId);
+  // Memoize sprite style - only recalculate if cardId changes
+  const spriteStyle = useMemo(() => getCardSpriteStyle(cardId, 180), [cardId]);
+  const cardColor = useMemo(() => getCardColor(cardId), [cardId]);
+
+  const handleClick = useCallback(() => {
+    onCardClick(originalIndex);
+  }, [onCardClick, originalIndex]);
 
   const cardWidth = typeof spriteStyle?.width === "number" ? spriteStyle.width : 120;
   const { spreadX, rotation, arcY } = getCardLayout(
@@ -96,7 +103,7 @@ function FloatingCard({
     height: spriteStyle?.height,
   };
 
-  // Card style - scales and lifts on hover
+  // Card style with hover zoom effect
   const cardStyle: React.CSSProperties = {
     ...spriteStyle,
     transform: isHovered ? "scale(2.5) translateY(-20px)" : "scale(1)",
@@ -108,7 +115,7 @@ function FloatingCard({
     <div
       className={`floating-card-wrapper ${!isPlayable ? "floating-card-wrapper--disabled" : ""}`}
       style={wrapperStyle}
-      onClick={isPlayable ? onClick : undefined}
+      onClick={isPlayable ? handleClick : undefined}
       data-card-index={index}
       data-testid={`floating-card-${cardId}`}
     >
@@ -119,7 +126,7 @@ function FloatingCard({
       </div>
     </div>
   );
-}
+});
 
 interface FloatingHandProps {
   hand: readonly CardId[];
@@ -273,11 +280,12 @@ export function FloatingHand({
               key={`${cardId}-${originalIndex}`}
               cardId={cardId}
               index={visibleIndex}
+              originalIndex={originalIndex}
               totalCards={visibleHand.length}
               isSelected={false}
               isPlayable={isPlayable}
               isHovered={hoveredIndex === visibleIndex}
-              onClick={() => onCardClick(originalIndex)}
+              onCardClick={onCardClick}
             />
           );
         })}

@@ -48,6 +48,9 @@
   transform-origin: bottom center;
   /* Card visual doesn't handle any events - wrapper and container do */
   pointer-events: none;
+  /* GPU acceleration hints */
+  will-change: transform, box-shadow;
+  backface-visibility: hidden;
 }
 
 .floating-card--hovered {
@@ -61,18 +64,18 @@
 
 .floating-card--playable {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4),
-    0 0 20px var(--glow-color, rgba(255, 255, 255, 0.3));
+    0 0 8px var(--glow-color, rgba(255, 255, 255, 0.2));
 }
 
 .floating-card--playable:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5),
-    0 0 30px var(--glow-color, rgba(255, 255, 255, 0.5));
+    0 0 12px var(--glow-color, rgba(255, 255, 255, 0.3));
 }
 
 .floating-card--selected {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5),
-    0 0 40px var(--glow-color, rgba(255, 255, 255, 0.7)),
-    inset 0 0 0 3px rgba(255, 255, 255, 0.8);
+    0 0 16px var(--glow-color, rgba(255, 255, 255, 0.4)),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.6);
 }
 
 .floating-card--hovered {
