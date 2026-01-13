@@ -367,13 +367,10 @@ function EnemyToken({ enemyId, offsetX, offsetY, index }: { enemyId: string; off
 function HexOverlay({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexOverlayProps) {
   const { x, y } = hexToPixel(hex.coord);
 
-  // Combine rampaging enemies (stored as type strings) and regular enemies (stored as token IDs)
-  // For rampaging enemies, the type string IS the enemy ID (e.g., "orc_marauder", "draconum")
-  // For regular enemies, extract the base ID from token ID (e.g., "diggers_1" -> "diggers")
-  const allEnemyIds = [
-    ...hex.rampagingEnemies,
-    ...hex.enemies.map(tokenIdToEnemyId),
-  ];
+  // Only render actual enemy tokens, not rampaging type markers
+  // rampagingEnemies contains category markers ("orc_marauder", "draconum") - not actual enemies
+  // enemies contains the real enemy token IDs (e.g., "diggers_1" -> "diggers")
+  const allEnemyIds = hex.enemies.map(tokenIdToEnemyId);
 
   // Position enemies in a grid pattern within the hex
   const getEnemyOffset = (index: number, total: number) => {
