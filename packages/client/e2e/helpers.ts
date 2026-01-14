@@ -15,10 +15,10 @@ import { expect, type Page } from "@playwright/test";
 // ============================================================================
 
 export async function selectTactic(page: Page, tacticId = "early_bird") {
-  await expect(page.locator('[data-testid="tactic-selection-title"]')).toBeVisible();
+  await expect(page.locator('[data-testid="tactic-hand"]')).toBeVisible();
   await page.locator(`[data-testid="tactic-card-${tacticId}"]`).click();
-  await page.waitForTimeout(300);
-  await expect(page.locator('[data-testid="tactic-selection-title"]')).not.toBeVisible();
+  await page.waitForTimeout(1000); // Wait for selection animation
+  await expect(page.locator('[data-testid="tactic-hand"]')).not.toBeVisible();
 }
 
 export async function getMovePoints(page: Page): Promise<number> {

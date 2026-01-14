@@ -163,7 +163,7 @@ export function TacticHand() {
   const selectingClass = selectedTactic ? "tactic-hand--selecting" : "";
 
   return (
-    <div className={`tactic-hand ${themeClass} ${selectingClass}`}>
+    <div className={`tactic-hand ${themeClass} ${selectingClass}`} data-testid="tactic-hand">
       {/* Phase banner */}
       <div className="tactic-hand__banner">
         <span className="tactic-hand__banner-text">
