@@ -123,42 +123,34 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
     const currentWounds = combat.woundsThisCombat;
 
     if (currentWounds > prevWounds) {
-      const newWounds = currentWounds - prevWounds;
       const attackingEnemyId = lastDamageEnemyRef.current;
 
+      // One hit animation per enemy attack (not per wound)
       // CSS animation: 0.45s total, SNAP hits at 42% = ~190ms
-      // Each hit cycle is 550ms apart (animation + brief pause)
-      const impactTime = 190; // When the SNAP connects in the CSS animation
+      const impactTime = 190;
       const animationDuration = 450;
-      const hitDelay = 550;
 
-      for (let i = 0; i < newWounds; i++) {
-        const hitStart = i * hitDelay;
-
-        // Start enemy strike animation (wind-up + slam)
-        if (attackingEnemyId) {
-          setTimeout(() => {
-            setStrikingEnemy({ instanceId: attackingEnemyId, strikeKey: Date.now() + i });
-          }, hitStart);
-        }
-
-        // Trigger screen effect at moment of impact (when SNAP hits at 42%)
-        setTimeout(() => {
-          setActiveEffect("damage");
-          setEffectKey(k => k + 1);
-        }, hitStart + impactTime);
-
-        // Clear strike animation after it completes, mark as "has attacked"
-        setTimeout(() => {
-          setStrikingEnemy(null);
-          if (attackingEnemyId) {
-            setAttackedEnemies(prev => new Set(prev).add(attackingEnemyId));
-          }
-        }, hitStart + animationDuration + 30);
+      // Start enemy strike animation (wind-up + slam)
+      if (attackingEnemyId) {
+        setStrikingEnemy({ instanceId: attackingEnemyId, strikeKey: Date.now() });
       }
 
-      // Clear screen effect after all hits
-      setTimeout(() => setActiveEffect(null), newWounds * hitDelay + 350);
+      // Trigger screen effect at moment of impact
+      setTimeout(() => {
+        setActiveEffect("damage");
+        setEffectKey(k => k + 1);
+      }, impactTime);
+
+      // Clear strike animation after it completes, mark as "has attacked"
+      setTimeout(() => {
+        setStrikingEnemy(null);
+        if (attackingEnemyId) {
+          setAttackedEnemies(prev => new Set(prev).add(attackingEnemyId));
+        }
+      }, animationDuration + 30);
+
+      // Clear screen effect
+      setTimeout(() => setActiveEffect(null), animationDuration + 100);
     }
 
     prevWoundsRef.current = currentWounds;
@@ -189,11 +181,13 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
         />
       )}
 
-      {/* Phase banner at top */}
+      {/* Phase banner at top - banner stays, text does slot machine animation */}
       <div className="combat-scene__banner">
-        <div className="combat-scene__phase">
-          {PHASE_LABELS[phase] || phase}
-          {isAtFortifiedSite && <span className="combat-scene__fortified">Fortified</span>}
+        <div className="combat-scene__phase-container">
+          <div className="combat-scene__phase" key={phase}>
+            {PHASE_LABELS[phase] || phase}
+            {isAtFortifiedSite && <span className="combat-scene__fortified">Fortified</span>}
+          </div>
         </div>
         {canUndo && (
           <button

@@ -100,7 +100,7 @@
   pointer-events: auto;
 }
 
-/* Phase banner at top */
+/* Phase banner at top - stays fixed */
 .combat-scene__banner {
   display: flex;
   justify-content: center;
@@ -108,31 +108,17 @@
   gap: 1rem;
   padding: 1rem 2rem;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 80%, transparent 100%);
-
-  /* Swinging tavern sign / falling block animation */
-  transform-origin: top center;
-  animation: banner-swing-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-  animation-delay: 0.15s;
+  overflow: hidden; /* Clip the slot machine text */
 }
 
-@keyframes banner-swing-in {
-  0% {
-    opacity: 0;
-    transform: perspective(500px) rotateX(-90deg) translateY(-20px);
-  }
-  40% {
-    opacity: 1;
-  }
-  70% {
-    transform: perspective(500px) rotateX(15deg);
-  }
-  85% {
-    transform: perspective(500px) rotateX(-8deg);
-  }
-  100% {
-    opacity: 1;
-    transform: perspective(500px) rotateX(0deg);
-  }
+/* Container for the phase text - clips overflow for slot effect */
+.combat-scene__phase-container {
+  position: relative;
+  overflow: hidden;
+  /* Give it some height for the animation */
+  height: clamp(2rem, 4vw, 3.5rem);
+  display: flex;
+  align-items: center;
 }
 
 .combat-scene__phase {
@@ -145,6 +131,43 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  /* Slot machine animation - dramatic slow reveal */
+  animation: phase-slot-in 0.8s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes phase-slot-in {
+  /* Start hidden above */
+  0% {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+  /* Slow... building tension... */
+  20% {
+    transform: translateY(-80%);
+    opacity: 0.3;
+  }
+  40% {
+    transform: translateY(-40%);
+    opacity: 0.6;
+  }
+  /* Here it comes... */
+  60% {
+    transform: translateY(-10%);
+    opacity: 0.9;
+  }
+  /* CLUNK - lands with weight */
+  75% {
+    transform: translateY(6%);
+    opacity: 1;
+  }
+  /* Subtle settle */
+  88% {
+    transform: translateY(-2%);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .combat-scene__fortified {
