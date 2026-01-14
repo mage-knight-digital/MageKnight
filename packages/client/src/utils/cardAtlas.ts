@@ -25,6 +25,7 @@ interface AtlasData {
     advanced_actions: Record<string, CardPosition>;
     spells: Record<string, CardPosition>;
     artifacts: Record<string, CardPosition>;
+    wound: Record<string, CardPosition>;
   };
 }
 
@@ -36,7 +37,7 @@ export interface CardSpriteStyle {
   height: string;
 }
 
-export type CardCategory = "basic_actions" | "advanced_actions" | "spells" | "artifacts";
+export type CardCategory = "basic_actions" | "advanced_actions" | "spells" | "artifacts" | "wound";
 
 // Precomputed caches - populated once at load time
 // Using Maps for fast, consistent O(1) lookup during renders
@@ -113,7 +114,7 @@ function computeSpriteStyle(
  * Called once at load time to populate the caches.
  */
 function precomputeAllStyles(atlasData: AtlasData, displayHeight: number): void {
-  const categories: CardCategory[] = ["basic_actions", "advanced_actions", "spells", "artifacts"];
+  const categories: CardCategory[] = ["basic_actions", "advanced_actions", "spells", "artifacts", "wound"];
 
   for (const category of categories) {
     const sheet = atlasData.sheets[category];
