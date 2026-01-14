@@ -166,6 +166,14 @@ const { result, rng: newRng } = shuffleWithRng(cards, state.rng);
 return { ...state, rng: newRng };
 ```
 
+### Volkare/Entity Support (Future)
+The Lost Legion expansion adds Volkare, an AI-controlled antagonist that takes turns but isn't a `Player`. Current architecture assumes all turn-takers have full `Player` objects. When implementing new features:
+- Avoid hardcoding `PlayerId` where a generic actor ID could work
+- Keep combat state extensible (initiator/defender tracking may be needed)
+- Don't assume `Player` object exists without considering entity case
+
+See `docs/tickets/volkare-architecture-considerations.md` for details.
+
 ---
 
 ## No Magic Strings Policy
