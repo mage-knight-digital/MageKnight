@@ -56,7 +56,7 @@ import {
   SOURCE_CARD,
 } from "../modifierConstants.js";
 import { evaluateCondition } from "./conditionEvaluator.js";
-import { addModifier } from "../modifiers.js";
+import { addModifier, isRuleActive } from "../modifiers.js";
 import type { ResolveCombatEnemyTargetEffect } from "../../types/cards.js";
 import type { CardId } from "@mage-knight/shared";
 import {
@@ -86,6 +86,12 @@ import {
   generateBoostChoiceOptions,
   addBonusToEffect,
 } from "./cardBoostEffects.js";
+import {
+  MANA_RED,
+  MANA_BLUE,
+  MANA_GREEN,
+  MANA_WHITE,
+} from "@mage-knight/shared";
 
 export interface EffectResolutionResult {
   readonly state: GameState;
@@ -184,11 +190,15 @@ export function isEffectResolvable(
     }
 
     case EFFECT_CONVERT_MANA_TO_CRYSTAL:
-      // Can only convert mana to crystal if player has mana tokens
-      // Only basic colors (red, blue, green, white) can become crystals
-      return player.pureMana.some((token) =>
-        ["red", "blue", "green", "white"].includes(token.color)
-      );
+      // Can convert mana to crystal if player can obtain basic color mana.
+      // Note: Black mana CAN'T become a crystal directly (no black crystals exist),
+      // but it can be used as wild when paying for powered effects.
+      // For Crystallize, we need actual basic color mana sources:
+      // 1. Basic color mana tokens (red/blue/green/white)
+      // 2. Gold mana tokens (wild, can become any basic color)
+      // 3. Available basic color or gold dice from source (if not used yet)
+      // 4. Crystals can be converted to tokens then to new crystals
+      return canObtainBasicColorMana(state, player);
 
     case EFFECT_CARD_BOOST:
       // Card boost is resolvable only if player has eligible Action cards in hand
@@ -257,6 +267,64 @@ export function isEffectResolvable(
       // Unknown effect types are considered resolvable (fail-safe)
       return true;
   }
+}
+
+/**
+ * Check if a player can obtain basic color mana (red/blue/green/white) for Crystallize.
+ *
+ * Black mana cannot become a crystal (no black crystals exist), so we specifically
+ * check for basic colors and gold (which is wild).
+ *
+ * Sources:
+ * - Basic color mana tokens in pureMana
+ * - Gold mana tokens (can be treated as any basic color)
+ * - Available dice from source (if player can use source)
+ * - Crystals (can be converted back to tokens)
+ */
+function canObtainBasicColorMana(state: GameState, player: Player): boolean {
+  const basicColors = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE];
+
+  // Check mana tokens - basic colors or gold
+  for (const token of player.pureMana) {
+    if (basicColors.includes(token.color as typeof MANA_RED) || token.color === "gold") {
+      return true;
+    }
+  }
+
+  // Check crystals - can be converted to tokens
+  if (
+    player.crystals.red > 0 ||
+    player.crystals.blue > 0 ||
+    player.crystals.green > 0 ||
+    player.crystals.white > 0
+  ) {
+    return true;
+  }
+
+  // Check mana source dice (if player can use source)
+  const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
+  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+
+  if (canUseSource) {
+    for (const die of state.source.dice) {
+      if (die.takenByPlayerId === null && !die.isDepleted) {
+        // Basic color dice or gold dice (gold is wild)
+        if (basicColors.includes(die.color as typeof MANA_RED) || die.color === "gold") {
+          return true;
+        }
+      }
+    }
+  }
+
+  // Check Mana Steal stored die
+  const storedDie = player.tacticState.storedManaDie;
+  if (storedDie && !player.tacticState.manaStealUsedThisTurn) {
+    if (basicColors.includes(storedDie.color as typeof MANA_RED) || storedDie.color === "gold") {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // addBonusToEffect is re-exported from cardBoostEffects.ts

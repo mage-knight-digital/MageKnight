@@ -23,6 +23,7 @@ import {
   MANA_BLUE,
   MANA_WHITE,
   MANA_BLACK,
+  MANA_GOLD,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -364,21 +365,28 @@ describe("getPlayableCardsForCombat", () => {
   });
 
   describe("Effect resolvability in combat", () => {
-    it("should NOT allow utility cards when their effect is not resolvable", () => {
+    it("should NOT allow Crystallize when no mana is available at all", () => {
       // Crystallize basic effect converts mana to crystal
-      // Without any mana tokens, it should NOT be playable
+      // Without any mana (no tokens, no crystals, no source dice, already used source)
+      // it should NOT be playable
       const player = createTestPlayer({
         hand: [CARD_CRYSTALLIZE],
-        pureMana: [], // No mana tokens to convert
-        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+        pureMana: [], // No mana tokens
+        crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No crystals
+        usedManaFromSource: true, // Already used source this turn
       });
-      const state = createTestGameState({ players: [player] });
+      // State with no available dice in source
+      const state = createTestGameState({
+        players: [player],
+        source: {
+          dice: [], // No dice available
+        },
+      });
       const combat = createTestCombat(COMBAT_PHASE_ATTACK);
 
       const result = getPlayableCardsForCombat(state, player, combat);
 
-      // Crystallize is a utility card, but without mana to convert,
-      // its basic effect is not resolvable, so it shouldn't be playable
+      // Crystallize can't be played basic without any mana source
       const crystallizeCard = result.cards.find(c => c.cardId === CARD_CRYSTALLIZE);
       // Card might still appear for sideways play, but basic should be false
       if (crystallizeCard) {
@@ -386,7 +394,7 @@ describe("getPlayableCardsForCombat", () => {
       }
     });
 
-    it("should allow utility cards when their effect IS resolvable", () => {
+    it("should allow Crystallize when player has mana tokens", () => {
       // Crystallize basic effect converts mana to crystal
       // With mana tokens, it should be playable
       const player = createTestPlayer({
@@ -395,6 +403,109 @@ describe("getPlayableCardsForCombat", () => {
         crystals: { red: 0, blue: 0, green: 0, white: 0 },
       });
       const state = createTestGameState({ players: [player] });
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      const crystallizeCard = result.cards.find(c => c.cardId === CARD_CRYSTALLIZE);
+      expect(crystallizeCard).toBeDefined();
+      expect(crystallizeCard?.canPlayBasic).toBe(true);
+    });
+
+    it("should allow Crystallize when player can use mana from source", () => {
+      // Crystallize should be playable if player hasn't used mana from source
+      // and there's an available die (even without mana tokens)
+      const player = createTestPlayer({
+        hand: [CARD_CRYSTALLIZE],
+        pureMana: [], // No mana tokens
+        crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No crystals to convert
+        usedManaFromSource: false, // Can still use source
+      });
+      const state = createTestGameState({
+        players: [player],
+        source: {
+          dice: [
+            { id: "die1", color: "red", takenByPlayerId: null, isDepleted: false },
+          ],
+        },
+      });
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      const crystallizeCard = result.cards.find(c => c.cardId === CARD_CRYSTALLIZE);
+      expect(crystallizeCard).toBeDefined();
+      expect(crystallizeCard?.canPlayBasic).toBe(true);
+    });
+
+    it("should allow Crystallize when player has crystals to convert", () => {
+      // Crystallize should be playable if player has crystals they can convert to tokens
+      const player = createTestPlayer({
+        hand: [CARD_CRYSTALLIZE],
+        pureMana: [], // No mana tokens
+        crystals: { red: 1, blue: 0, green: 0, white: 0 }, // Has a crystal
+        usedManaFromSource: true, // Already used source
+      });
+      const state = createTestGameState({
+        players: [player],
+        source: {
+          dice: [], // No dice available
+        },
+      });
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      const crystallizeCard = result.cards.find(c => c.cardId === CARD_CRYSTALLIZE);
+      expect(crystallizeCard).toBeDefined();
+      expect(crystallizeCard?.canPlayBasic).toBe(true);
+    });
+
+    it("should NOT allow Crystallize when source has only gold/black dice at wrong time", () => {
+      // Gold dice are available during day, but black dice are depleted during day
+      // Crystallize needs a basic color mana source
+      const player = createTestPlayer({
+        hand: [CARD_CRYSTALLIZE],
+        pureMana: [], // No mana tokens
+        crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No crystals
+        usedManaFromSource: false, // Can use source
+      });
+      const state = createTestGameState({
+        players: [player],
+        source: {
+          dice: [
+            // Black die is depleted during day (default timeOfDay is day)
+            { id: "die1", color: MANA_BLACK, takenByPlayerId: null, isDepleted: true },
+          ],
+        },
+      });
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+
+      // Can't crystallize - black die is depleted
+      const crystallizeCard = result.cards.find(c => c.cardId === CARD_CRYSTALLIZE);
+      if (crystallizeCard) {
+        expect(crystallizeCard.canPlayBasic).toBe(false);
+      }
+    });
+
+    it("should allow Crystallize when source has gold die (can be any basic color)", () => {
+      // Gold die can be used as any basic color
+      const player = createTestPlayer({
+        hand: [CARD_CRYSTALLIZE],
+        pureMana: [], // No mana tokens
+        crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No crystals
+        usedManaFromSource: false, // Can use source
+      });
+      const state = createTestGameState({
+        players: [player],
+        source: {
+          dice: [
+            { id: "die1", color: MANA_GOLD, takenByPlayerId: null, isDepleted: false },
+          ],
+        },
+      });
       const combat = createTestCombat(COMBAT_PHASE_ATTACK);
 
       const result = getPlayableCardsForCombat(state, player, combat);
