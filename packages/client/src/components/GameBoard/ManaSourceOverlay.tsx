@@ -16,23 +16,17 @@ import {
   MANA_BLACK,
 } from "@mage-knight/shared";
 
-function getManaColor(color: string): string {
-  switch (color) {
-    case MANA_RED:
-      return "#e74c3c";
-    case MANA_BLUE:
-      return "#3498db";
-    case MANA_GREEN:
-      return "#2ecc71";
-    case MANA_WHITE:
-      return "#bdc3c7";
-    case MANA_GOLD:
-      return "#f39c12";
-    case MANA_BLACK:
-      return "#2c3e50";
-    default:
-      return "#666";
-  }
+function getManaIconUrl(color: string): string {
+  const colorMap: Record<string, string> = {
+    [MANA_RED]: "red",
+    [MANA_BLUE]: "blue",
+    [MANA_GREEN]: "green",
+    [MANA_WHITE]: "white",
+    [MANA_GOLD]: "gold",
+    [MANA_BLACK]: "black",
+  };
+  const colorName = colorMap[color] || "white";
+  return `/assets/mana_icons/glossy/${colorName}.png`;
 }
 
 export function ManaSourceOverlay() {
@@ -56,9 +50,6 @@ export function ManaSourceOverlay() {
             <div
               key={die.id}
               className={`mana-source-overlay__die ${isUnavailable ? 'mana-source-overlay__die--unavailable' : ''}`}
-              style={{
-                backgroundColor: isUnavailable ? '#333' : getManaColor(die.color),
-              }}
               title={
                 die.isDepleted
                   ? `${die.color} (depleted)`
@@ -69,7 +60,11 @@ export function ManaSourceOverlay() {
                       : die.color
               }
             >
-              {die.color.charAt(0).toUpperCase()}
+              <img
+                src={getManaIconUrl(die.color)}
+                alt={die.color}
+                className="mana-source-overlay__die-icon"
+              />
               {isTakenByMe && <span className="mana-source-overlay__die-status">U</span>}
               {isTakenByOther && <span className="mana-source-overlay__die-status">T</span>}
               {die.isDepleted && <span className="mana-source-overlay__die-status">D</span>}
