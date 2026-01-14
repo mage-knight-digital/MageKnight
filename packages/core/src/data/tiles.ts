@@ -258,7 +258,7 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
       hex(1, -1, TERRAIN_FOREST, SiteType.AncientRuins), // NE - forest + ruins
       hex(1, 0, TERRAIN_PLAINS), // E - plains
       hex(0, 1, TERRAIN_SWAMP, SiteType.Village), // SE - swamp village
-      hex(-1, 1, TERRAIN_FOREST), // SW - forest
+      hex(-1, 1, TERRAIN_SWAMP), // SW - swamp
       hex(-1, 0, TERRAIN_FOREST), // W - forest
       hex(0, -1, TERRAIN_FOREST, SiteType.MagicalGlade), // NW - forest + glade
     ],
