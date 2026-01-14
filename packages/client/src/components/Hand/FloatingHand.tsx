@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
-import type { CardId, PlayableCard } from "@mage-knight/shared";
+import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared";
 import { loadAtlas, getCardSpriteStyle, getCardColor } from "../../utils/cardAtlas";
 import "./FloatingHand.css";
 
@@ -104,10 +104,15 @@ const FloatingCard = memo(function FloatingCard({
       }[cardColor] || "rgba(255, 255, 255, 0.3)"
     : "rgba(255, 255, 255, 0.3)";
 
+  // Wounds are never dimmed - they should stay visually prominent as a penalty
+  const isWound = cardId === CARD_WOUND;
+  const shouldDim = !isPlayable && !isWound;
+
   const classNames = [
     "floating-card",
     isSelected ? "floating-card--selected" : "",
     isPlayable ? "floating-card--playable" : "",
+    shouldDim ? "floating-card--unplayable" : "",
     isHovered ? "floating-card--hovered" : "",
     isNew ? "floating-card--dealing" : "",
   ]
@@ -126,7 +131,6 @@ const FloatingCard = memo(function FloatingCard({
   const cardStyle: React.CSSProperties = {
     ...spriteStyle,
     transform: isHovered ? "scale(2.5) translateY(-20px)" : "scale(1)",
-    opacity: isPlayable ? 1 : 0.6,
     "--glow-color": glowColor,
     ...(isNew && { animationDelay: `${dealDelay}s` }),
   } as React.CSSProperties;
@@ -137,7 +141,7 @@ const FloatingCard = memo(function FloatingCard({
       style={wrapperStyle}
       onClick={isPlayable ? handleClick : undefined}
       data-card-index={index}
-      data-testid={`floating-card-${cardId}`}
+      data-testid={`hand-card-${cardId}`}
     >
       <div className={classNames} style={cardStyle}>
         {!spriteStyle && (

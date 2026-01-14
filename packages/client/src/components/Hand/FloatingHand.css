@@ -32,9 +32,19 @@
   transition: transform 0.05s ease-out, box-shadow 0.05s ease-out, filter 0.15s ease;
 }
 
+/* Unplayable cards in collapsed hand get extra dimming */
+.floating-hand--collapsed:not(.floating-hand--expanded) .floating-card--unplayable {
+  filter: grayscale(70%) brightness(0.4);
+}
+
 /* Hovered card in collapsed (not expanded) hand is un-dimmed */
 .floating-hand--collapsed:not(.floating-hand--expanded) .floating-card--hovered {
   filter: brightness(1);
+}
+
+/* But hovered unplayable cards stay desaturated */
+.floating-hand--collapsed:not(.floating-hand--expanded) .floating-card--hovered.floating-card--unplayable {
+  filter: grayscale(70%) brightness(0.6);
 }
 
 .floating-hand--loading {
@@ -87,6 +97,11 @@
 
 .floating-card:disabled {
   cursor: not-allowed;
+}
+
+/* Unplayable cards are dimmed/desaturated rather than transparent */
+.floating-card--unplayable {
+  filter: grayscale(70%) brightness(0.6);
 }
 
 .floating-card--playable {
