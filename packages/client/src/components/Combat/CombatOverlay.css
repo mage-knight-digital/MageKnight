@@ -1,0 +1,296 @@
+/* Combat Scene - floats over dimmed game board */
+.combat-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+
+  /* Flash effect on combat start */
+  animation: combat-flash 0.4s ease-out;
+}
+
+@keyframes combat-flash {
+  0% {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* Effect overlay - separate element for damage/block/attack effects */
+.combat-scene__effect {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Damage taken effect - sharp red flash + snappy shake
+   Not wobbly - quick sharp displacement that sells impact */
+.combat-scene__effect--damage {
+  animation: damage-hit 0.35s ease-out forwards;
+}
+
+@keyframes damage-hit {
+  /* INSTANT red flash at impact */
+  0% {
+    background: rgba(255, 60, 40, 0.7);
+    transform: translate(0, 0);
+  }
+  /* Sharp displacement - ONE strong hit */
+  8% {
+    background: rgba(255, 60, 40, 0.6);
+    transform: translate(-12px, 4px);
+  }
+  16% {
+    transform: translate(10px, -3px);
+    background: rgba(231, 76, 60, 0.4);
+  }
+  /* Quick settle - not bouncy */
+  28% {
+    transform: translate(-4px, 2px);
+    background: rgba(231, 76, 60, 0.2);
+  }
+  40% {
+    transform: translate(2px, -1px);
+    background: rgba(231, 76, 60, 0.1);
+  }
+  60% {
+    transform: translate(0, 0);
+    background: rgba(231, 76, 60, 0.05);
+  }
+  100% {
+    transform: translate(0, 0);
+    background: transparent;
+  }
+}
+
+/* Block success effect - green flash */
+.combat-scene__effect--block {
+  animation: block-success 0.3s ease-out forwards;
+}
+
+@keyframes block-success {
+  0% {
+    background: rgba(39, 174, 96, 0.4);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* Attack success effect - orange flash */
+.combat-scene__effect--attack {
+  animation: attack-success 0.3s ease-out forwards;
+}
+
+@keyframes attack-success {
+  0% {
+    background: rgba(243, 156, 18, 0.4);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.combat-scene > * {
+  pointer-events: auto;
+}
+
+/* Phase banner at top */
+.combat-scene__banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 80%, transparent 100%);
+
+  /* Swinging tavern sign / falling block animation */
+  transform-origin: top center;
+  animation: banner-swing-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: 0.15s;
+}
+
+@keyframes banner-swing-in {
+  0% {
+    opacity: 0;
+    transform: perspective(500px) rotateX(-90deg) translateY(-20px);
+  }
+  40% {
+    opacity: 1;
+  }
+  70% {
+    transform: perspective(500px) rotateX(15deg);
+  }
+  85% {
+    transform: perspective(500px) rotateX(-8deg);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(500px) rotateX(0deg);
+  }
+}
+
+.combat-scene__phase {
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.combat-scene__fortified {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #f39c12;
+  background: rgba(243, 156, 18, 0.2);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(243, 156, 18, 0.4);
+}
+
+.combat-scene__undo {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.combat-scene__undo:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Battlefield - center area where enemies appear */
+.combat-scene__battlefield {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  pointer-events: none;
+}
+
+.combat-scene__battlefield > * {
+  pointer-events: auto;
+}
+
+/* Enemies container */
+.combat-scene__enemies {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Accumulator HUD */
+.combat-hud__accumulator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  border: 2px solid;
+}
+
+.combat-hud__accumulator--attack {
+  border-color: #e74c3c;
+  box-shadow: 0 0 20px rgba(231, 76, 60, 0.3);
+}
+
+.combat-hud__accumulator--block {
+  border-color: #3498db;
+  box-shadow: 0 0 20px rgba(52, 152, 219, 0.3);
+}
+
+.combat-hud__accumulator-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+
+.combat-hud__accumulator-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Action bar at bottom */
+.combat-scene__actions {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 2rem 14rem; /* Extra padding for player hand */
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 60%, transparent 100%);
+}
+
+/* Combat actions - simplified */
+.combat-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.combat-actions__description {
+  font-size: clamp(0.875rem, 1.2vw, 1.125rem);
+  color: #bbb;
+  text-align: center;
+  max-width: 500px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.combat-actions__buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.combat-actions__btn {
+  padding: clamp(0.75rem, 1.2vw, 1rem) clamp(1.5rem, 2.5vw, 2.5rem);
+  font-size: clamp(0.875rem, 1.2vw, 1.125rem);
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.combat-actions__btn--end-phase {
+  background: linear-gradient(135deg, #2c3e50 0%, #1a252f 100%);
+  color: #fff;
+  border: 1px solid #444;
+}
+
+.combat-actions__btn--end-phase:hover:not(:disabled) {
+  background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+  transform: translateY(-1px);
+}
+
+.combat-actions__btn--end-phase:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.combat-actions__warning {
+  font-size: 0.75rem;
+  color: #e74c3c;
+}

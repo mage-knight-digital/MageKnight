@@ -56,6 +56,7 @@ function GameView() {
   const appClassName = [
     "app",
     isTacticSelectionActive && "app--tactic-selection",
+    inCombat && "app--combat",
   ].filter(Boolean).join(" ");
 
   return (

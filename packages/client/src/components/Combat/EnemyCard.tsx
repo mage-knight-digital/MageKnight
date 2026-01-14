@@ -1,26 +1,14 @@
 /**
- * EnemyCard - Displays a single enemy during combat
+ * EnemyCard - Displays a single enemy during combat using token artwork
  */
 
-import type { ClientCombatEnemy, BlockOption, DamageAssignmentOption, AttackOption } from "@mage-knight/shared";
+import type { ClientCombatEnemy, BlockOption, DamageAssignmentOption, AttackOption, EnemyId } from "@mage-knight/shared";
+import "./EnemyCard.css";
 
-const ELEMENT_ICONS: Record<string, string> = {
-  physical: "",
-  fire: "F",
-  ice: "I",
-  cold_fire: "CF",
-};
-
-const ABILITY_LABELS: Record<string, string> = {
-  fortified: "Fort",
-  swift: "Swift",
-  brutal: "Brutal",
-  poison: "Poison",
-  paralyze: "Para",
-  summon: "Summon",
-  cumbersome: "Cumber",
-  unfortified: "Unfort",
-};
+// Get enemy token image URL
+function getEnemyImageUrl(enemyId: EnemyId): string {
+  return `/assets/enemies/${enemyId}.jpg`;
+}
 
 interface EnemyCardProps {
   enemy: ClientCombatEnemy;
@@ -38,6 +26,9 @@ interface EnemyCardProps {
   accumulatedAttack?: number;
   onAssignAttack?: (enemyInstanceId: string) => void;
   isRangedSiegePhase?: boolean;
+  isStriking?: boolean;
+  strikeKey?: number;
+  hasAttacked?: boolean;
 }
 
 export function EnemyCard({
@@ -56,9 +47,10 @@ export function EnemyCard({
   accumulatedAttack = 0,
   onAssignAttack,
   isRangedSiegePhase = false,
+  isStriking = false,
+  strikeKey,
+  hasAttacked = false,
 }: EnemyCardProps) {
-  const elementIcon = ELEMENT_ICONS[enemy.attackElement] || "";
-
   // Show assign block button when:
   // - In block phase
   // - Enemy is not defeated
@@ -111,108 +103,97 @@ export function EnemyCard({
     }
   };
 
+  const classNames = [
+    "enemy-token",
+    enemy.isDefeated && "enemy-token--defeated",
+    enemy.isBlocked && "enemy-token--blocked",
+    isTargetable && "enemy-token--targetable",
+    isStriking && "enemy-token--striking",
+    hasAttacked && !isStriking && "enemy-token--has-attacked",
+  ].filter(Boolean).join(" ");
+
   return (
     <div
-      className={`enemy-card ${enemy.isDefeated ? "enemy-card--defeated" : ""} ${enemy.isBlocked ? "enemy-card--blocked" : ""} ${isTargetable ? "enemy-card--targetable" : ""}`}
+      className={classNames}
       onClick={isTargetable ? onClick : undefined}
       data-testid={`enemy-card-${enemy.instanceId}`}
+      data-strike-key={strikeKey}
     >
-      <div className="enemy-card__header">
-        <span className="enemy-card__name">{enemy.name}</span>
-        {enemy.isDefeated && <span className="enemy-card__status">Defeated</span>}
+      {/* Token image */}
+      <div className="enemy-token__image-wrapper">
+        <img
+          src={getEnemyImageUrl(enemy.enemyId)}
+          alt={enemy.name}
+          className="enemy-token__image"
+          draggable={false}
+        />
+
+        {/* Status overlay */}
+        {enemy.isDefeated && (
+          <div className="enemy-token__overlay enemy-token__overlay--defeated">
+            <span>DEFEATED</span>
+          </div>
+        )}
         {enemy.isBlocked && !enemy.isDefeated && (
-          <span
-            className="enemy-card__status enemy-card__status--blocked"
+          <div
+            className="enemy-token__overlay enemy-token__overlay--blocked"
             data-testid={`enemy-${enemy.instanceId}-status`}
           >
-            Blocked
-          </span>
+            <span>BLOCKED</span>
+          </div>
         )}
       </div>
 
-      <div className="enemy-card__stats">
-        <div className="enemy-card__stat">
-          <span className="enemy-card__stat-icon">A</span>
-          <span className="enemy-card__stat-value">
-            {enemy.attack}
-            {elementIcon && <span className="enemy-card__element">{elementIcon}</span>}
-          </span>
-        </div>
-        <div className="enemy-card__stat">
-          <span className="enemy-card__stat-icon">D</span>
-          <span className="enemy-card__stat-value">{enemy.armor}</span>
-        </div>
-        <div className="enemy-card__stat">
-          <span className="enemy-card__stat-icon">F</span>
-          <span className="enemy-card__stat-value">{enemy.fame}</span>
-        </div>
+      {/* Enemy name below token */}
+      <div className="enemy-token__name">{enemy.name}</div>
+
+      {/* Action buttons */}
+      <div className="enemy-token__actions">
+        {/* Assign Block button during block phase */}
+        {showAssignBlock && blockOption && (
+          <button
+            className={`enemy-token__action-btn ${canBlock ? "enemy-token__action-btn--ready" : "enemy-token__action-btn--insufficient"}`}
+            data-testid={`assign-block-${enemy.instanceId}`}
+            onClick={handleAssignBlock}
+            disabled={!canBlock}
+          >
+            Block ({accumulatedBlock}/{blockOption.requiredBlock})
+          </button>
+        )}
+
+        {/* Assign Damage button during damage phase */}
+        {showAssignDamage && damageOption && (
+          <button
+            className="enemy-token__action-btn enemy-token__action-btn--damage"
+            data-testid={`assign-damage-${enemy.instanceId}`}
+            onClick={handleAssignDamage}
+          >
+            Take {damageOption.unassignedDamage} Damage
+          </button>
+        )}
+
+        {/* Assign Attack button during attack or ranged/siege phase */}
+        {showAssignAttack && attackOption && (
+          <button
+            className={`enemy-token__action-btn ${canDefeat ? "enemy-token__action-btn--ready" : "enemy-token__action-btn--insufficient"}`}
+            data-testid={`assign-attack-${enemy.instanceId}`}
+            onClick={handleAssignAttack}
+            disabled={!canDefeat}
+          >
+            {isRangedSiegePhase
+              ? (attackOption.requiresSiege ? "Siege" : "Ranged")
+              : "Attack"
+            } ({accumulatedAttack}/{attackOption.enemyArmor})
+          </button>
+        )}
+
+        {/* Show warning if enemy requires siege but we don't have siege attacks */}
+        {isRangedSiegePhase && attackOption?.requiresSiege && accumulatedAttack > 0 && !canDefeat && (
+          <div className="enemy-token__warning">
+            Requires Siege
+          </div>
+        )}
       </div>
-
-      {enemy.abilities.length > 0 && (
-        <div className="enemy-card__abilities">
-          {enemy.abilities.map((ability) => (
-            <span key={ability} className={`enemy-card__ability enemy-card__ability--${ability}`}>
-              {ABILITY_LABELS[ability] || ability}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Show resistances if any */}
-      {(enemy.resistances.physical || enemy.resistances.fire || enemy.resistances.ice) && (
-        <div className="enemy-card__resistances">
-          {enemy.resistances.physical && <span className="enemy-card__resistance">Phys</span>}
-          {enemy.resistances.fire && <span className="enemy-card__resistance enemy-card__resistance--fire">Fire</span>}
-          {enemy.resistances.ice && <span className="enemy-card__resistance enemy-card__resistance--ice">Ice</span>}
-        </div>
-      )}
-
-      {/* Assign Block button during block phase */}
-      {showAssignBlock && blockOption && (
-        <button
-          className={`enemy-card__assign-block ${canBlock ? "enemy-card__assign-block--can-block" : "enemy-card__assign-block--insufficient"}`}
-          data-testid={`assign-block-${enemy.instanceId}`}
-          onClick={handleAssignBlock}
-          disabled={!canBlock}
-        >
-          Assign Block ({accumulatedBlock} → {blockOption.requiredBlock})
-        </button>
-      )}
-
-      {/* Assign Damage button during damage phase */}
-      {showAssignDamage && damageOption && (
-        <button
-          className="enemy-card__assign-damage"
-          data-testid={`assign-damage-${enemy.instanceId}`}
-          onClick={handleAssignDamage}
-        >
-          Take {damageOption.unassignedDamage} Damage
-        </button>
-      )}
-
-      {/* Assign Attack button during attack or ranged/siege phase */}
-      {showAssignAttack && attackOption && (
-        <button
-          className={`enemy-card__assign-attack ${canDefeat ? "enemy-card__assign-attack--can-defeat" : "enemy-card__assign-attack--insufficient"}`}
-          data-testid={`assign-attack-${enemy.instanceId}`}
-          onClick={handleAssignAttack}
-          disabled={!canDefeat}
-        >
-          {isRangedSiegePhase ? (
-            attackOption.requiresSiege
-              ? `Siege Attack (${accumulatedAttack} → ${attackOption.enemyArmor})`
-              : `Ranged Attack (${accumulatedAttack} → ${attackOption.enemyArmor})`
-          ) : (
-            `Attack (${accumulatedAttack} → ${attackOption.enemyArmor})`
-          )}
-        </button>
-      )}
-      {/* Show warning if enemy requires siege but we don't have siege attacks */}
-      {isRangedSiegePhase && attackOption?.requiresSiege && accumulatedAttack > 0 && !canDefeat && (
-        <div className="enemy-card__siege-warning">
-          Fortified - requires Siege attack
-        </div>
-      )}
     </div>
   );
 }

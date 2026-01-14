@@ -1,26 +1,45 @@
 /**
- * CombatOverlay - Main combat UI container
+ * CombatOverlay - Combat UI that floats over the dimmed game board
  *
- * Shows when state.combat is not null.
- * Two-column layout: left has combat info, right has event log.
- * Contains: PhaseIndicator, EnemyList, CombatSummary, CombatActions, PlayerHand
+ * No modal - enemies appear as large tokens floating over the board,
+ * player hand stays visible at bottom.
  */
 
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { ClientCombatState, CombatOptions } from "@mage-knight/shared";
-import { UNDO_ACTION, COMBAT_PHASE_ATTACK, COMBAT_PHASE_BLOCK, COMBAT_PHASE_RANGED_SIEGE } from "@mage-knight/shared";
-import { PhaseIndicator } from "./PhaseIndicator";
-import { EnemyList } from "./EnemyList";
-import { CombatSummary } from "./CombatSummary";
+import {
+  UNDO_ACTION,
+  COMBAT_PHASE_ATTACK,
+  COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_RANGED_SIEGE,
+  COMBAT_PHASE_ASSIGN_DAMAGE,
+  DECLARE_BLOCK_ACTION,
+  ASSIGN_DAMAGE_ACTION,
+} from "@mage-knight/shared";
+import { EnemyCard } from "./EnemyCard";
 import { CombatActions } from "./CombatActions";
-import { PlayerHand } from "../Hand/PlayerHand";
-import { SaveLoadControls } from "../SaveLoadControls";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import "./CombatOverlay.css";
+
+type EffectType = "damage" | "block" | "attack" | null;
+
+interface StrikingEnemy {
+  instanceId: string;
+  strikeKey: number;
+}
 
 interface CombatOverlayProps {
   combat: ClientCombatState;
   combatOptions: CombatOptions;
 }
+
+const PHASE_LABELS: Record<string, string> = {
+  ranged_siege: "Ranged & Siege",
+  block: "Block",
+  assign_damage: "Assign Damage",
+  attack: "Attack",
+};
 
 function AccumulatorDisplay() {
   const player = useMyPlayer();
@@ -34,88 +53,35 @@ function AccumulatorDisplay() {
   // Show attack accumulator in ranged/siege phase or attack phase
   if (phase === COMBAT_PHASE_RANGED_SIEGE || phase === COMBAT_PHASE_ATTACK) {
     const { attack } = acc;
-
-    // Calculate totals including elemental values
-    // Elemental attacks are stored separately from physical attacks
     const totalRanged = attack.ranged + attack.rangedElements.fire + attack.rangedElements.ice;
     const totalSiege = attack.siege + attack.siegeElements.fire + attack.siegeElements.ice;
     const totalNormal = attack.normal + attack.normalElements.fire + attack.normalElements.ice + attack.normalElements.coldFire + attack.normalElements.physical;
 
-    // In ranged/siege phase, only ranged and siege matter
     const isRangedSiege = phase === COMBAT_PHASE_RANGED_SIEGE;
     const relevantAttack = isRangedSiege
       ? totalRanged + totalSiege
       : totalNormal + totalRanged + totalSiege;
 
-    if (relevantAttack === 0) {
-      return (
-        <div className="combat-accumulator">
-          <span className="combat-accumulator__label">Attack:</span>
-          <span className="combat-accumulator__empty">
-            {isRangedSiege ? "No ranged/siege attacks yet" : "None yet"}
-          </span>
-        </div>
-      );
-    }
+    if (relevantAttack === 0) return null;
 
     return (
-      <div className="combat-accumulator">
-        <span className="combat-accumulator__label">Attack:</span>
-        <div className="combat-accumulator__values">
-          {/* Only show melee in attack phase */}
-          {!isRangedSiege && totalNormal > 0 && (
-            <span className="combat-accumulator__value combat-accumulator__value--melee">
-              {totalNormal} Melee
-              {attack.normalElements.physical > 0 && ` (${attack.normalElements.physical} phys)`}
-              {attack.normalElements.fire > 0 && ` (${attack.normalElements.fire} fire)`}
-              {attack.normalElements.ice > 0 && ` (${attack.normalElements.ice} ice)`}
-              {attack.normalElements.coldFire > 0 && ` (${attack.normalElements.coldFire} coldfire)`}
-            </span>
-          )}
-          {totalRanged > 0 && (
-            <span className="combat-accumulator__value combat-accumulator__value--ranged">
-              {totalRanged} Ranged
-              {attack.rangedElements.fire > 0 && ` (${attack.rangedElements.fire} fire)`}
-              {attack.rangedElements.ice > 0 && ` (${attack.rangedElements.ice} ice)`}
-            </span>
-          )}
-          {totalSiege > 0 && (
-            <span className="combat-accumulator__value combat-accumulator__value--siege">
-              {totalSiege} Siege
-              {attack.siegeElements.fire > 0 && ` (${attack.siegeElements.fire} fire)`}
-              {attack.siegeElements.ice > 0 && ` (${attack.siegeElements.ice} ice)`}
-            </span>
-          )}
-        </div>
+      <div className="combat-hud__accumulator combat-hud__accumulator--attack">
+        <span className="combat-hud__accumulator-value">{relevantAttack}</span>
+        <span className="combat-hud__accumulator-label">
+          {isRangedSiege ? "Ranged/Siege" : "Attack"}
+        </span>
       </div>
     );
   }
 
   // Show block accumulator in block phase
   if (phase === COMBAT_PHASE_BLOCK) {
-    const hasBlock = acc.block > 0;
-
-    if (!hasBlock) {
-      return (
-        <div className="combat-accumulator">
-          <span className="combat-accumulator__label">Block:</span>
-          <span className="combat-accumulator__empty">None yet</span>
-        </div>
-      );
-    }
+    if (acc.block === 0) return null;
 
     return (
-      <div className="combat-accumulator">
-        <span className="combat-accumulator__label">Block:</span>
-        <div className="combat-accumulator__values">
-          <span className="combat-accumulator__value combat-accumulator__value--block">
-            {acc.block} Block
-            {acc.blockElements.physical > 0 && ` (${acc.blockElements.physical} phys)`}
-            {acc.blockElements.fire > 0 && ` (${acc.blockElements.fire} fire)`}
-            {acc.blockElements.ice > 0 && ` (${acc.blockElements.ice} ice)`}
-            {acc.blockElements.coldFire > 0 && ` (${acc.blockElements.coldFire} coldfire)`}
-          </span>
-        </div>
+      <div className="combat-hud__accumulator combat-hud__accumulator--block">
+        <span className="combat-hud__accumulator-value">{acc.block}</span>
+        <span className="combat-hud__accumulator-label">Block</span>
       </div>
     );
   }
@@ -124,85 +90,173 @@ function AccumulatorDisplay() {
 }
 
 export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
-  const { phase, enemies, woundsThisCombat, fameGained, isAtFortifiedSite } = combat;
-  const { state, events, sendAction } = useGame();
+  const { phase, enemies, isAtFortifiedSite } = combat;
+  const { state, sendAction } = useGame();
+  const player = useMyPlayer();
   const canUndo = state?.validActions.turn?.canUndo ?? false;
 
+  // Visual effect state - use a counter to force animation restart
+  const [activeEffect, setActiveEffect] = useState<EffectType>(null);
+  const [effectKey, setEffectKey] = useState(0);
+  const [strikingEnemy, setStrikingEnemy] = useState<StrikingEnemy | null>(null);
+  const [attackedEnemies, setAttackedEnemies] = useState<Set<string>>(new Set());
+
+  const triggerEffect = useCallback((effect: EffectType) => {
+    setActiveEffect(effect);
+    setEffectKey(k => k + 1); // Force animation restart
+    // Clear effect after animation completes
+    setTimeout(() => setActiveEffect(null), 400);
+  }, []);
+
+  // Track wounds and which enemy dealt them to trigger strike animation
+  const prevWoundsRef = useRef<number>(combat.woundsThisCombat);
+  const lastDamageEnemyRef = useRef<string | null>(null);
+
+  // When player clicks "Take Damage", record which enemy is dealing it
+  const handleAssignDamage = useCallback((enemyInstanceId: string) => {
+    lastDamageEnemyRef.current = enemyInstanceId;
+    sendAction({ type: ASSIGN_DAMAGE_ACTION, enemyInstanceId });
+  }, [sendAction]);
+
+  useEffect(() => {
+    const prevWounds = prevWoundsRef.current;
+    const currentWounds = combat.woundsThisCombat;
+
+    if (currentWounds > prevWounds) {
+      const newWounds = currentWounds - prevWounds;
+      const attackingEnemyId = lastDamageEnemyRef.current;
+
+      // CSS animation: 0.45s total, SNAP hits at 42% = ~190ms
+      // Each hit cycle is 550ms apart (animation + brief pause)
+      const impactTime = 190; // When the SNAP connects in the CSS animation
+      const animationDuration = 450;
+      const hitDelay = 550;
+
+      for (let i = 0; i < newWounds; i++) {
+        const hitStart = i * hitDelay;
+
+        // Start enemy strike animation (wind-up + slam)
+        if (attackingEnemyId) {
+          setTimeout(() => {
+            setStrikingEnemy({ instanceId: attackingEnemyId, strikeKey: Date.now() + i });
+          }, hitStart);
+        }
+
+        // Trigger screen effect at moment of impact (when SNAP hits at 42%)
+        setTimeout(() => {
+          setActiveEffect("damage");
+          setEffectKey(k => k + 1);
+        }, hitStart + impactTime);
+
+        // Clear strike animation after it completes, mark as "has attacked"
+        setTimeout(() => {
+          setStrikingEnemy(null);
+          if (attackingEnemyId) {
+            setAttackedEnemies(prev => new Set(prev).add(attackingEnemyId));
+          }
+        }, hitStart + animationDuration + 30);
+      }
+
+      // Clear screen effect after all hits
+      setTimeout(() => setActiveEffect(null), newWounds * hitDelay + 350);
+    }
+
+    prevWoundsRef.current = currentWounds;
+  }, [combat.woundsThisCombat]);
+
+  // Get accumulated values for passing to enemy cards
+  const accumulatedBlock = player?.combatAccumulator.block ?? 0;
+  const attackAcc = player?.combatAccumulator.attack;
+  const accumulatedAttack = attackAcc
+    ? attackAcc.normal + attackAcc.ranged + attackAcc.siege +
+      attackAcc.normalElements.fire + attackAcc.normalElements.ice + attackAcc.normalElements.coldFire + attackAcc.normalElements.physical +
+      attackAcc.rangedElements.fire + attackAcc.rangedElements.ice +
+      attackAcc.siegeElements.fire + attackAcc.siegeElements.ice
+    : 0;
+
+  const isBlockPhase = phase === COMBAT_PHASE_BLOCK;
+  const isDamagePhase = phase === COMBAT_PHASE_ASSIGN_DAMAGE;
+  const isAttackPhase = phase === COMBAT_PHASE_ATTACK;
+  const isRangedSiegePhase = phase === COMBAT_PHASE_RANGED_SIEGE;
+
   return (
-    <div className="combat-overlay" data-testid="combat-overlay">
-      <div className="combat-overlay__content">
-        <div className="combat-overlay__header" data-testid="combat-overlay-header">
-          <h2 className="combat-overlay__title">
-            Combat
-            {isAtFortifiedSite && (
-              <span className="combat-overlay__fortified"> (Fortified Site)</span>
-            )}
-          </h2>
-          <div className="combat-overlay__header-actions">
-            <SaveLoadControls compact />
-            {canUndo && (
-              <button
-                className="combat-overlay__undo-btn"
-                onClick={() => sendAction({ type: UNDO_ACTION })}
-                data-testid="combat-undo-button"
-                type="button"
-              >
-                Undo
-              </button>
-            )}
-            <PhaseIndicator phase={phase} />
-          </div>
+    <div className="combat-scene" data-testid="combat-overlay">
+      {/* Effect overlay - separate element for damage/block/attack flashes */}
+      {activeEffect && (
+        <div
+          key={effectKey}
+          className={`combat-scene__effect combat-scene__effect--${activeEffect}`}
+        />
+      )}
+
+      {/* Phase banner at top */}
+      <div className="combat-scene__banner">
+        <div className="combat-scene__phase">
+          {PHASE_LABELS[phase] || phase}
+          {isAtFortifiedSite && <span className="combat-scene__fortified">Fortified</span>}
         </div>
+        {canUndo && (
+          <button
+            className="combat-scene__undo"
+            onClick={() => sendAction({ type: UNDO_ACTION })}
+            type="button"
+          >
+            Undo
+          </button>
+        )}
+      </div>
 
-        {/* Two-column layout */}
-        <div className="combat-overlay__body">
-          {/* Left column: combat content */}
-          <div className="combat-overlay__left">
-            <div className="combat-overlay__main">
-              <EnemyList enemies={enemies} combatOptions={combatOptions} />
+      {/* Enemies floating in center area */}
+      <div className="combat-scene__battlefield">
+        <div className="combat-scene__enemies">
+          {enemies.map((enemy) => {
+            const blockOption = combatOptions.blocks?.find(b => b.enemyInstanceId === enemy.instanceId);
+            const damageOption = combatOptions.damageAssignments?.find(d => d.enemyInstanceId === enemy.instanceId);
+            const attackOption = combatOptions.attacks?.find(a => a.enemyInstanceId === enemy.instanceId);
 
-              <AccumulatorDisplay />
+            const isStriking = strikingEnemy?.instanceId === enemy.instanceId;
+            const strikeKey = isStriking ? strikingEnemy.strikeKey : undefined;
+            const hasAttacked = attackedEnemies.has(enemy.instanceId);
 
-              <CombatSummary
-                phase={phase}
-                enemies={enemies}
-                combatOptions={combatOptions}
-                woundsThisCombat={woundsThisCombat}
-                fameGained={fameGained}
+            return (
+              <EnemyCard
+                key={enemy.instanceId}
+                enemy={enemy}
+                isBlockPhase={isBlockPhase}
+                blockOption={blockOption}
+                accumulatedBlock={accumulatedBlock}
+                onAssignBlock={(id) => {
+                  triggerEffect("block");
+                  sendAction({ type: DECLARE_BLOCK_ACTION, targetEnemyInstanceId: id });
+                }}
+                isDamagePhase={isDamagePhase}
+                damageOption={damageOption}
+                onAssignDamage={handleAssignDamage}
+                isAttackPhase={isAttackPhase || isRangedSiegePhase}
+                attackOption={attackOption}
+                accumulatedAttack={accumulatedAttack}
+                onAssignAttack={(id) => {
+                  triggerEffect("attack");
+                  // TODO: This needs more info - attack sources and type
+                  // For now this won't work correctly, need to wire up properly
+                  console.log("Attack enemy", id);
+                }}
+                isRangedSiegePhase={isRangedSiegePhase}
+                isStriking={isStriking}
+                strikeKey={strikeKey}
+                hasAttacked={hasAttacked}
               />
-            </div>
-
-            <div className="combat-overlay__footer">
-              <CombatActions combatOptions={combatOptions} />
-            </div>
-
-            {/* Player hand inside combat overlay so it's clickable */}
-            <div className="combat-overlay__hand">
-              <PlayerHand />
-            </div>
-          </div>
-
-          {/* Right column: event log */}
-          <div className="combat-overlay__right">
-            <div className="combat-events" data-testid="combat-events">
-              <h4 className="combat-events__title">Event Log ({events.length})</h4>
-              <div className="combat-events__list">
-                {events.length === 0 ? (
-                  <div className="combat-events__empty">No events yet</div>
-                ) : (
-                  events.map((event, i) => (
-                    <div key={i} className="combat-events__item" data-testid={`event-${i}`}>
-                      <span className="combat-events__type">{event.type}</span>
-                      <pre className="combat-events__details">
-                        {JSON.stringify(event, null, 2)}
-                      </pre>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
+
+        {/* Accumulated power display */}
+        <AccumulatorDisplay />
+      </div>
+
+      {/* Action bar at bottom (above hand) */}
+      <div className="combat-scene__actions">
+        <CombatActions combatOptions={combatOptions} />
       </div>
     </div>
   );

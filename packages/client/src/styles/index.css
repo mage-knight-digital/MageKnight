@@ -28,6 +28,12 @@ body {
   transition: filter 0.3s ease;
 }
 
+/* Dimming effect during combat - board visible but darkened */
+.app--combat .app__main {
+  filter: brightness(0.4) saturate(0.6);
+  transition: filter 0.3s ease;
+}
+
 .app__main {
   display: flex;
   flex: 1;
