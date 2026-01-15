@@ -452,6 +452,7 @@ export function PlayerHand() {
             onSelectUnit={setSelectedUnitIndex}
             viewMode={handView}
             commandTokens={player.commandTokens}
+            level={player.level}
           />
         </div>
       </div>

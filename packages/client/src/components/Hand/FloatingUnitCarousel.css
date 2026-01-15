@@ -285,6 +285,12 @@
   color: #fff;
 }
 
+.floating-unit-carousel__next-slot {
+  font-size: 0.6rem;
+  color: #888;
+  font-style: italic;
+}
+
 /* ===== EMPTY STATE ===== */
 
 .floating-unit-carousel__empty-message {

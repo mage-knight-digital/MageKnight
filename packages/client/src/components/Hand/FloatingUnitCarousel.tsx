@@ -193,6 +193,16 @@ interface FloatingUnitCarouselProps {
   onActivateUnit?: (index: number) => void;
   viewMode: HandViewMode;
   commandTokens: number;
+  level: number;
+}
+
+// Command slots unlock at odd levels: 1@L1, 2@L3, 3@L5, 4@L7, 5@L9
+const COMMAND_SLOT_LEVELS = [1, 3, 5, 7, 9] as const;
+const MAX_COMMAND_SLOTS = 5;
+
+function getNextCommandSlotLevel(currentSlots: number): number | null {
+  if (currentSlots >= MAX_COMMAND_SLOTS) return null;
+  return COMMAND_SLOT_LEVELS[currentSlots] ?? null;
 }
 
 export function FloatingUnitCarousel({
@@ -201,6 +211,7 @@ export function FloatingUnitCarousel({
   onSelectUnit,
   viewMode,
   commandTokens,
+  level,
 }: FloatingUnitCarouselProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const { unitWidth, unitHeight } = useUnitDimensions(viewMode);
@@ -268,6 +279,14 @@ export function FloatingUnitCarousel({
         <span className="floating-unit-carousel__capacity-count">
           {units.length} / {commandTokens}
         </span>
+        {(() => {
+          const nextLevel = getNextCommandSlotLevel(commandTokens);
+          return nextLevel ? (
+            <span className="floating-unit-carousel__next-slot">
+              +1 at Level {nextLevel}
+            </span>
+          ) : null;
+        })()}
       </div>
 
       {units.length === 0 ? (
