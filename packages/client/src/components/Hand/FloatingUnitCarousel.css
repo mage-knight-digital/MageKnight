@@ -298,13 +298,7 @@
   position: absolute;
   bottom: 0;
   left: 50%;
-  transform: translateX(-50%);
-  /* Override parent dimensions - use playing card aspect ratio (2:3) */
-  width: auto !important;
-  height: auto !important;
-  /* Size based on viewport like the card hand */
-  min-width: calc(18vh * 0.667);
-  min-height: 18vh;
+  margin-left: -50%;
   border-radius: 8px;
   border: 2px dashed rgba(255, 255, 255, 0.5);
   background: linear-gradient(
@@ -318,6 +312,7 @@
   justify-content: center;
   gap: 8px;
   padding: 1rem;
+  box-sizing: border-box;
   /* Subtle pulsing to draw attention */
   animation: ghost-pulse 3s ease-in-out infinite;
 }
