@@ -161,14 +161,10 @@ export function PlayerHand() {
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
   const [handView, setHandView] = useState<HandView>("ready");
   const [carouselPane, setCarouselPane] = useState<CarouselPane>("cards");
-  const [selectedUnitIndex, setSelectedUnitIndex] = useState(0);
-
-  // Get unit count for A/D navigation bounds
-  const unitCount = player?.units.length ?? 0;
 
   // Keyboard controls:
   // W/S = vertical view modes (board/ready/focus)
-  // A/D = horizontal carousel (cards/units) OR cycle through units when in units pane
+  // A/D = horizontal carousel (cards/units)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input
@@ -191,33 +187,15 @@ export function PlayerHand() {
           return HAND_VIEWS[Math.max(idx - 1, 0)] ?? current;
         });
       } else if (key === "a") {
-        // A key behavior depends on current pane
-        if (carouselPane === "units" && unitCount > 1) {
-          // In units pane: cycle left through units
-          setSelectedUnitIndex(current =>
-            current > 0 ? current - 1 : unitCount - 1
-          );
-        } else {
-          // Switch to cards pane (or stay if already there)
-          setCarouselPane("cards");
-        }
+        setCarouselPane("cards");
       } else if (key === "d") {
-        // D key behavior depends on current pane
-        if (carouselPane === "units" && unitCount > 1) {
-          // In units pane: cycle right through units
-          setSelectedUnitIndex(current =>
-            current < unitCount - 1 ? current + 1 : 0
-          );
-        } else if (carouselPane === "cards") {
-          // Switch to units pane
-          setCarouselPane("units");
-        }
+        setCarouselPane("units");
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [carouselPane, unitCount]);
+  }, []);
 
   // Get playable cards from validActions - memoized to avoid hook dependency issues
   const playableCardMap = useMemo(() => {
@@ -448,11 +426,8 @@ export function PlayerHand() {
         <div className="carousel-track__pane carousel-track__pane--units">
           <FloatingUnitCarousel
             units={player.units}
-            selectedIndex={selectedUnitIndex}
-            onSelectUnit={setSelectedUnitIndex}
             viewMode={handView}
             commandTokens={player.commandTokens}
-            level={player.level}
           />
         </div>
       </div>

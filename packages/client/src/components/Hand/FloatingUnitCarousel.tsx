@@ -3,7 +3,6 @@ import {
   UNITS,
   UNIT_TYPE_ELITE,
   UNIT_STATE_READY,
-  type UnitId,
   type ClientPlayerUnit,
 } from "@mage-knight/shared";
 import { getUnitSpriteStyle, isAtlasLoaded } from "../../utils/cardAtlas";
@@ -42,55 +41,39 @@ interface FloatingUnitProps {
   unit: ClientPlayerUnit;
   index: number;
   totalUnits: number;
-  selectedIndex: number;
-  isSelected: boolean;
   isHovered: boolean;
   unitWidth: number;
   unitHeight: number;
-  onUnitClick: (index: number) => void;
 }
 
-// Calculate unit position in the carousel
-// Selected unit is centered, others fan out to sides with perspective
-function getUnitLayout(
-  index: number,
-  totalUnits: number,
-  selectedIndex: number,
-  unitWidth: number
-) {
-  const offsetFromSelected = index - selectedIndex;
+// Calculate unit position - similar to card hand fan layout
+function getUnitLayout(index: number, totalUnits: number, unitWidth: number) {
+  const centerIndex = (totalUnits - 1) / 2;
+  const offsetFromCenter = index - centerIndex;
 
-  // Scale spacing relative to unit width (base 100 for portrait cards)
+  // Scale spread relative to unit width
   const scaleFactor = unitWidth / 100;
 
-  // Base spread between cards - tighter than hand cards
-  const baseSpread = 80 * scaleFactor;
+  // Spread - tighter overlap than cards since units are narrower
+  const spreadDistance = 60 * scaleFactor;
+  const spreadX = offsetFromCenter * spreadDistance;
 
-  // Cards further from selection get pushed further apart (exponential feel)
-  const spreadX = offsetFromSelected * baseSpread;
+  // Slight rotation for fan effect
+  const rotation = offsetFromCenter * 2;
 
-  // Depth effect: cards further from center recede back and down
-  const absOffset = Math.abs(offsetFromSelected);
-  const scaleZ = Math.max(0.6, 1 - absOffset * 0.15); // Scale down further cards
-  const translateZ = -absOffset * 50; // Push back in Z
-  const translateY = absOffset * 20 * scaleFactor; // Push down slightly
+  // Arc - cards further from center sit lower
+  const arcY = Math.abs(offsetFromCenter) * 4 * scaleFactor;
 
-  // Rotation: cards tilt away from center
-  const rotateY = offsetFromSelected * -15; // Tilt into the carousel
-
-  return { spreadX, scaleZ, translateZ, translateY, rotateY };
+  return { spreadX, rotation, arcY };
 }
 
 const FloatingUnit = memo(function FloatingUnit({
   unit,
   index,
   totalUnits,
-  selectedIndex,
-  isSelected,
   isHovered,
   unitWidth,
   unitHeight,
-  onUnitClick,
 }: FloatingUnitProps) {
   const unitRef = useRef<HTMLDivElement>(null);
   const unitDef = UNITS[unit.unitId];
@@ -101,20 +84,10 @@ const FloatingUnit = memo(function FloatingUnit({
     [unit.unitId, unitHeight]
   );
 
-  const handleClick = useCallback(() => {
-    onUnitClick(index);
-  }, [onUnitClick, index]);
+  const { spreadX, rotation, arcY } = getUnitLayout(index, totalUnits, unitWidth);
 
-  const { spreadX, scaleZ, translateZ, translateY, rotateY } = getUnitLayout(
-    index,
-    totalUnits,
-    selectedIndex,
-    unitWidth
-  );
-
-  // Z-index: selected unit on top, others based on distance from selection
-  const distanceFromSelected = Math.abs(index - selectedIndex);
-  const zIndex = isSelected ? 100 : isHovered ? 90 : 50 - distanceFromSelected;
+  // Z-index: hovered cards come to front, otherwise by index
+  const zIndex = isHovered ? 100 : 50 + index;
 
   const isElite = unitDef?.type === UNIT_TYPE_ELITE;
   const isReady = unit.state === UNIT_STATE_READY;
@@ -131,7 +104,6 @@ const FloatingUnit = memo(function FloatingUnit({
 
   const classNames = [
     "floating-unit",
-    isSelected ? "floating-unit--selected" : "",
     isHovered ? "floating-unit--hovered" : "",
     isReady ? "floating-unit--ready" : "floating-unit--exhausted",
     isWounded ? "floating-unit--wounded" : "",
@@ -140,15 +112,9 @@ const FloatingUnit = memo(function FloatingUnit({
     .filter(Boolean)
     .join(" ");
 
-  // Wrapper handles 3D positioning
+  // Wrapper style - positioning
   const wrapperStyle: React.CSSProperties = {
-    transform: `
-      translateX(${spreadX}px)
-      translateY(${translateY}px)
-      translateZ(${translateZ}px)
-      rotateY(${rotateY}deg)
-      scale(${scaleZ})
-    `,
+    transform: `translateX(${spreadX}px) translateY(${arcY}px) rotate(${rotation}deg)`,
     zIndex,
     width: unitWidth,
     height: unitHeight,
@@ -157,6 +123,7 @@ const FloatingUnit = memo(function FloatingUnit({
   // Unit card style
   const unitStyle: React.CSSProperties = {
     ...spriteStyle,
+    transform: isHovered ? "scale(1.1) translateY(-10px)" : "scale(1)",
     "--status-glow": getStatusGlow(),
   } as React.CSSProperties;
 
@@ -164,7 +131,6 @@ const FloatingUnit = memo(function FloatingUnit({
     <div
       className="floating-unit-wrapper"
       style={wrapperStyle}
-      onClick={handleClick}
       data-unit-index={index}
     >
       <div ref={unitRef} className={classNames} style={unitStyle}>
@@ -189,12 +155,8 @@ const FloatingUnit = memo(function FloatingUnit({
 
 interface FloatingUnitCarouselProps {
   units: readonly ClientPlayerUnit[];
-  selectedIndex: number;
-  onSelectUnit: (index: number) => void;
-  onActivateUnit?: (index: number) => void;
   viewMode: HandViewMode;
   commandTokens: number;
-  level: number;
 }
 
 // Command slots unlock at odd levels: 1@L1, 2@L3, 3@L5, 4@L7, 5@L9
@@ -208,11 +170,8 @@ function getNextCommandSlotLevel(currentSlots: number): number | null {
 
 export function FloatingUnitCarousel({
   units,
-  selectedIndex,
-  onSelectUnit,
   viewMode,
   commandTokens,
-  level,
 }: FloatingUnitCarouselProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const { unitWidth, unitHeight } = useUnitDimensions(viewMode);
@@ -226,30 +185,26 @@ export function FloatingUnitCarousel({
         return;
       }
 
-      // Simple hover detection - find closest unit to mouse X
       const containerRect = containerRef.current.getBoundingClientRect();
       const mouseX = e.clientX - containerRect.left - containerRect.width / 2;
 
-      // Find which unit we're hovering based on spread positions
-      let closestIndex = selectedIndex;
-      let closestDistance = Infinity;
-
-      for (let i = 0; i < units.length; i++) {
-        const { spreadX } = getUnitLayout(i, units.length, selectedIndex, unitWidth);
-        const distance = Math.abs(mouseX - spreadX);
-        if (distance < closestDistance && distance < unitWidth / 2) {
-          closestDistance = distance;
-          closestIndex = i;
+      // Find which unit we're hovering (check from top to bottom in z-order)
+      let hitIndex: number | null = null;
+      for (let i = units.length - 1; i >= 0; i--) {
+        const { spreadX } = getUnitLayout(i, units.length, unitWidth);
+        const cardLeft = spreadX - unitWidth / 2;
+        const cardRight = spreadX + unitWidth / 2;
+        if (mouseX >= cardLeft && mouseX <= cardRight) {
+          hitIndex = i;
+          break;
         }
       }
 
-      if (closestDistance < unitWidth / 2 && closestIndex !== hoveredIndex) {
-        setHoveredIndex(closestIndex);
-      } else if (closestDistance >= unitWidth / 2 && hoveredIndex !== null) {
-        setHoveredIndex(null);
+      if (hitIndex !== hoveredIndex) {
+        setHoveredIndex(hitIndex);
       }
     },
-    [viewMode, selectedIndex, units.length, unitWidth, hoveredIndex]
+    [viewMode, units.length, unitWidth, hoveredIndex]
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -263,9 +218,26 @@ export function FloatingUnitCarousel({
     units.length === 0 ? "floating-unit-carousel--empty" : "",
   ].filter(Boolean).join(" ");
 
-  // Calculate container width for centering
-  const baseSpread = 80 * (unitWidth / 100);
-  const carouselWidth = Math.max(unitWidth, (units.length - 1) * baseSpread + unitWidth) + 200;
+  // Calculate container width
+  const spreadDistance = 60 * (unitWidth / 100);
+  const carouselWidth = Math.max(unitWidth, (units.length - 1) * spreadDistance + unitWidth) + 100;
+
+  // Ghost logic
+  const nextLevel = getNextCommandSlotLevel(commandTokens);
+  const atCapacity = units.length === commandTokens;
+  const hasNoUnits = units.length === 0;
+
+  type GhostType = "recruit" | "level-up" | null;
+  let ghostType: GhostType = null;
+  if (hasNoUnits) {
+    ghostType = "recruit";
+  } else if (atCapacity && nextLevel !== null) {
+    ghostType = "level-up";
+  }
+
+  const showGhost = ghostType !== null;
+  const totalItems = units.length + (showGhost ? 1 : 0);
+  const ghostIndex = units.length;
 
   return (
     <div
@@ -282,110 +254,53 @@ export function FloatingUnitCarousel({
         </span>
       </div>
 
-      {(() => {
-        const nextLevel = getNextCommandSlotLevel(commandTokens);
-        const hasOpenSlots = units.length < commandTokens;
-        const atCapacity = units.length === commandTokens;
-        const hasNoUnits = units.length === 0;
-
-        // Ghost logic:
-        // 1. No units yet -> show "recruit" hint (educational)
-        // 2. At capacity but can unlock more -> show "Level X" (aspirational)
-        // 3. Has open slots -> no ghost (they know what to do, have room)
-        // 4. Max slots -> no ghost (nothing to unlock)
-        type GhostType = "recruit" | "level-up" | null;
-        let ghostType: GhostType = null;
-
-        if (hasNoUnits) {
-          ghostType = "recruit";
-        } else if (atCapacity && nextLevel !== null) {
-          ghostType = "level-up";
-        }
-
-        const showGhost = ghostType !== null;
-        // Total items = units + 1 ghost (if applicable)
-        const totalItems = units.length + (showGhost ? 1 : 0);
-        // Ghost is always at the end
-        const ghostIndex = units.length;
-
-        // Edge case: no units and nothing to show (shouldn't happen but handle gracefully)
-        if (units.length === 0 && !showGhost) {
-          return (
-            <div className="floating-unit-carousel__empty-message">
-              No units recruited
-            </div>
-          );
-        }
-
-        return (
-          <div
-            className="floating-unit-carousel__units"
-            style={{ width: carouselWidth }}
-          >
-            {units.map((unit, index) => (
-              <FloatingUnit
-                key={`${unit.unitId}-${index}`}
-                unit={unit}
-                index={index}
-                totalUnits={totalItems}
-                selectedIndex={selectedIndex}
-                isSelected={index === selectedIndex}
-                isHovered={index === hoveredIndex}
-                unitWidth={unitWidth}
-                unitHeight={unitHeight}
-                onUnitClick={onSelectUnit}
-              />
-            ))}
-            {showGhost && (
-              <div
-                className={`floating-unit-ghost floating-unit-ghost--${ghostType}`}
-                style={{
-                  ...(() => {
-                    const { spreadX, scaleZ, translateZ, translateY, rotateY } = getUnitLayout(
-                      ghostIndex,
-                      totalItems,
-                      selectedIndex,
-                      unitWidth
-                    );
-                    return {
-                      transform: `
-                        translateX(${spreadX}px)
-                        translateY(${translateY}px)
-                        translateZ(${translateZ}px)
-                        rotateY(${rotateY}deg)
-                        scale(${scaleZ})
-                      `,
-                      width: unitWidth,
-                      height: unitHeight,
-                    };
-                  })(),
-                }}
-              >
-                <div className="floating-unit-ghost__card">
-                  {ghostType === "recruit" ? (
-                    <>
-                      <span className="floating-unit-ghost__hint">Recruit units at</span>
-                      <span className="floating-unit-ghost__hint">Village or Monastery</span>
-                    </>
-                  ) : (
-                    <span className="floating-unit-ghost__level">Level {nextLevel}</span>
-                  )}
-                </div>
+      {units.length === 0 && !showGhost ? (
+        <div className="floating-unit-carousel__empty-message">
+          No units recruited
+        </div>
+      ) : (
+        <div
+          className="floating-unit-carousel__units"
+          style={{ width: carouselWidth }}
+        >
+          {units.map((unit, index) => (
+            <FloatingUnit
+              key={`${unit.unitId}-${index}`}
+              unit={unit}
+              index={index}
+              totalUnits={totalItems}
+              isHovered={index === hoveredIndex}
+              unitWidth={unitWidth}
+              unitHeight={unitHeight}
+            />
+          ))}
+          {showGhost && (
+            <div
+              className={`floating-unit-ghost floating-unit-ghost--${ghostType}`}
+              style={{
+                ...(() => {
+                  const { spreadX, rotation, arcY } = getUnitLayout(ghostIndex, totalItems, unitWidth);
+                  return {
+                    transform: `translateX(${spreadX}px) translateY(${arcY}px) rotate(${rotation}deg)`,
+                    width: unitWidth,
+                    height: unitHeight,
+                    zIndex: 50 + ghostIndex,
+                  };
+                })(),
+              }}
+            >
+              <div className="floating-unit-ghost__card">
+                {ghostType === "recruit" ? (
+                  <>
+                    <span className="floating-unit-ghost__hint">Recruit units at</span>
+                    <span className="floating-unit-ghost__hint">Village or Monastery</span>
+                  </>
+                ) : (
+                  <span className="floating-unit-ghost__level">Level {nextLevel}</span>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Navigation hints */}
-      {units.length > 1 && (
-        <div className="floating-unit-carousel__nav-hints">
-          <span className="floating-unit-carousel__nav-hint floating-unit-carousel__nav-hint--left">
-            ◀ A
-          </span>
-          <span className="floating-unit-carousel__nav-hint floating-unit-carousel__nav-hint--right">
-            D ▶
-          </span>
+            </div>
+          )}
         </div>
       )}
     </div>
