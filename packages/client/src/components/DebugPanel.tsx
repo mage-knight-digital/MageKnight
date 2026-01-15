@@ -623,6 +623,18 @@ export function DebugPanel() {
     loadGame(JSON.stringify(gameState));
   };
 
+  const handleAddMovePoints = (amount: number) => {
+    const json = saveGame();
+    if (!json) return;
+
+    const gameState = JSON.parse(json);
+    const player = gameState.players[0];
+    if (!player) return;
+
+    player.movePoints = (player.movePoints || 0) + amount;
+    loadGame(JSON.stringify(gameState));
+  };
+
   if (!isOpen) {
     return (
       <button
@@ -829,6 +841,22 @@ export function DebugPanel() {
               Fame: {state.players[0]?.fame ?? 0} | Armor: {state.players[0]?.armor ?? 2} |
               Hand: {state.players[0]?.handLimit ?? 5} | Commands: {state.players[0]?.commandTokens ?? 1}
             </span>
+          </div>
+        </section>
+
+        {/* Move Points Section */}
+        <section className="debug-panel__section">
+          <h4>Move Points ({state.players[0]?.movePoints ?? 0})</h4>
+          <div className="debug-panel__row">
+            <button type="button" onClick={() => handleAddMovePoints(1)}>
+              +1
+            </button>
+            <button type="button" onClick={() => handleAddMovePoints(5)}>
+              +5
+            </button>
+            <button type="button" onClick={() => handleAddMovePoints(10)}>
+              +10
+            </button>
           </div>
         </section>
 

@@ -63,9 +63,11 @@ const MUSIC_CATEGORIES: TrackCategory[] = ["pad", "strings", "piano", "guitar", 
 // Configuration
 const DEFAULT_MUSIC_VOLUME = 0.3;
 const DEFAULT_NATURE_VOLUME = 0.4;
-const CROSSFADE_DURATION_MS = 3000; // 3 second crossfade
-const MIN_LOOPS_BEFORE_SWITCH = 4;
-const MAX_LOOPS_BEFORE_SWITCH = 8;
+const FADE_DURATION_MS = 4000; // 4 second fade in/out
+const MIN_LOOPS_BEFORE_SWITCH = 8; // Longer loops before switching
+const MAX_LOOPS_BEFORE_SWITCH = 15;
+const MIN_GAP_BETWEEN_TRACKS_MS = 8000; // 8 second minimum silence
+const MAX_GAP_BETWEEN_TRACKS_MS = 20000; // 20 second maximum silence
 
 // Layer state interface
 interface LayerState {
@@ -294,7 +296,7 @@ async function playTrackOnLayer(layer: LayerState, track: AmbientTrack, fadeIn =
   const targetVolume = isMuted ? 0 : layer.volume;
   if (fadeIn) {
     gain.gain.setValueAtTime(0, context.currentTime);
-    gain.gain.linearRampToValueAtTime(targetVolume, context.currentTime + CROSSFADE_DURATION_MS / 1000);
+    gain.gain.linearRampToValueAtTime(targetVolume, context.currentTime + FADE_DURATION_MS / 1000);
   } else {
     gain.gain.setValueAtTime(targetVolume, context.currentTime);
   }
@@ -331,51 +333,69 @@ function setupLoopCounterForLayer(layer: LayerState, loopDuration: number): void
 }
 
 /**
- * Crossfade to next track on a layer
+ * Calculate random gap between tracks
  */
+function calculateGapDuration(): number {
+  return MIN_GAP_BETWEEN_TRACKS_MS + Math.floor(Math.random() * (MAX_GAP_BETWEEN_TRACKS_MS - MIN_GAP_BETWEEN_TRACKS_MS));
+}
+
 async function crossfadeToNextOnLayer(layer: LayerState): Promise<void> {
   const nextTrack = pickRandomTrackForLayer(layer);
   if (!nextTrack || !audioContext || !layer.currentGain) return;
 
   const context = audioContext;
-  const buffer = await loadBuffer(nextTrack.src);
 
-  const source = context.createBufferSource();
-  const gain = context.createGain();
+  // Step 1: Fade out current track
+  layer.currentGain.gain.linearRampToValueAtTime(0, context.currentTime + FADE_DURATION_MS / 1000);
 
-  source.buffer = buffer;
-  source.loop = true;
-  source.connect(gain);
-  gain.connect(context.destination);
-
-  const targetVolume = isMuted ? 0 : layer.volume;
-  gain.gain.setValueAtTime(0, context.currentTime);
-  gain.gain.linearRampToValueAtTime(targetVolume, context.currentTime + CROSSFADE_DURATION_MS / 1000);
-
-  layer.currentGain.gain.linearRampToValueAtTime(0, context.currentTime + CROSSFADE_DURATION_MS / 1000);
-
-  source.start();
-
-  layer.nextSource = source;
-  layer.nextGain = gain;
-
-  setTimeout(() => {
+  // Step 2: After fade out, stop current and wait for silence gap
+  setTimeout(async () => {
+    // Stop and clean up current track
     if (layer.currentSource) {
       layer.currentSource.stop();
       layer.currentSource.disconnect();
     }
-
-    layer.currentSource = layer.nextSource;
-    layer.currentGain = layer.nextGain;
-    layer.currentTrackId = nextTrack.id;
-    layer.nextSource = null;
-    layer.nextGain = null;
-    layer.loopCount = 0;
-    layer.loopsUntilSwitch = calculateLoopsUntilSwitch();
-
-    setupLoopCounterForLayer(layer, buffer.duration);
+    layer.currentSource = null;
+    layer.currentGain = null;
+    layer.currentTrackId = null;
     notifyStateChange();
-  }, CROSSFADE_DURATION_MS);
+
+    // Wait for random silence gap
+    const gapDuration = calculateGapDuration();
+
+    setTimeout(async () => {
+      // Don't start if layer was stopped during the gap
+      if (!layer.isPlaying) return;
+
+      // Step 3: Load and fade in new track
+      const buffer = await loadBuffer(nextTrack.src);
+      if (!audioContext || !layer.isPlaying) return;
+
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(gain);
+      gain.connect(context.destination);
+
+      // Start silent and fade in
+      const targetVolume = isMuted ? 0 : layer.volume;
+      gain.gain.setValueAtTime(0, context.currentTime);
+      gain.gain.linearRampToValueAtTime(targetVolume, context.currentTime + FADE_DURATION_MS / 1000);
+
+      source.start();
+
+      layer.currentSource = source;
+      layer.currentGain = gain;
+      layer.currentTrackId = nextTrack.id;
+      layer.loopCount = 0;
+      layer.loopsUntilSwitch = calculateLoopsUntilSwitch();
+
+      setupLoopCounterForLayer(layer, buffer.duration);
+      notifyStateChange();
+    }, gapDuration);
+  }, FADE_DURATION_MS);
 }
 
 /**
