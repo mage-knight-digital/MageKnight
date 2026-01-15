@@ -47,9 +47,10 @@ interface FloatingUnitProps {
 }
 
 // Calculate unit position - no overlap, units sit side by side like on the table
-function getUnitLayout(index: number, totalSlots: number, unitWidth: number) {
-  const centerIndex = (totalSlots - 1) / 2;
-  const offsetFromCenter = index - centerIndex;
+// Units are centered, ghost is off to the right (not part of centering calculation)
+function getUnitLayout(index: number, totalUnits: number, unitWidth: number, isGhost: boolean = false) {
+  // Center based on actual units only (not ghost)
+  const centerIndex = (totalUnits - 1) / 2;
 
   // Scale spacing relative to unit width
   const scaleFactor = unitWidth / 100;
@@ -57,6 +58,20 @@ function getUnitLayout(index: number, totalSlots: number, unitWidth: number) {
   // Full card width + small gap (no overlap)
   const gap = 10 * scaleFactor;
   const spreadDistance = unitWidth + gap;
+
+  if (isGhost) {
+    // Ghost goes to the right of all units
+    // If no units, center the ghost
+    if (totalUnits === 0) {
+      return { spreadX: 0 };
+    }
+    // Otherwise, position after the last unit
+    const lastUnitOffset = (totalUnits - 1) - centerIndex;
+    const spreadX = (lastUnitOffset + 1) * spreadDistance;
+    return { spreadX };
+  }
+
+  const offsetFromCenter = index - centerIndex;
   const spreadX = offsetFromCenter * spreadDistance;
 
   return { spreadX };
@@ -236,11 +251,15 @@ export function FloatingUnitCarousel({
     units.length === 0 ? "floating-unit-carousel--empty" : "",
   ].filter(Boolean).join(" ");
 
-  // Calculate container width (no overlap - full card width + gap)
+  // Calculate container width
+  // Units are centered, ghost is off to the right
   const scaleFactor = unitWidth / 100;
   const gap = 10 * scaleFactor;
   const spreadDistance = unitWidth + gap;
-  const carouselWidth = Math.max(unitWidth, (totalSlots - 1) * spreadDistance + unitWidth) + 50;
+  // Width needs to accommodate units + ghost if present
+  const unitsWidth = units.length > 0 ? (units.length - 1) * spreadDistance + unitWidth : 0;
+  const ghostWidth = showGhost ? spreadDistance + unitWidth : 0;
+  const carouselWidth = Math.max(unitWidth, unitsWidth + ghostWidth) + 100;
 
   return (
     <div
@@ -266,7 +285,7 @@ export function FloatingUnitCarousel({
             key={`${unit.unitId}-${index}`}
             unit={unit}
             index={index}
-            totalUnits={totalSlots}
+            totalUnits={units.length}
             isHovered={index === hoveredIndex}
             unitWidth={unitWidth}
             unitHeight={unitHeight}
@@ -277,7 +296,7 @@ export function FloatingUnitCarousel({
             className={`floating-unit-ghost floating-unit-ghost--${ghostType}`}
             style={{
               ...(() => {
-                const { spreadX } = getUnitLayout(ghostIndex, totalSlots, unitWidth);
+                const { spreadX } = getUnitLayout(ghostIndex, units.length, unitWidth, true);
                 return {
                   transform: `translateX(${spreadX}px)`,
                   width: unitWidth,
