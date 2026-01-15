@@ -1,0 +1,68 @@
+.card-action-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  animation: overlay-fade-in 0.2s ease-out;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.card-action-menu {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The card being played - animates from hand position to center */
+.card-action-menu__card {
+  position: absolute;
+  z-index: 10;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 2px rgba(255, 255, 255, 0.1);
+  animation: card-fly-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes card-fly-in {
+  from {
+    transform: translate(var(--start-x, 0), var(--start-y, 0)) scale(var(--start-scale, 1));
+  }
+  to {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* Charging indicator when selecting mana */
+.card-action-menu__charging-indicator {
+  position: absolute;
+  inset: -4px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  animation: charging-pulse 1s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes charging-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+/* Pie menu wrapper - positions the pie menu around the card */
+.card-action-menu__pie-wrapper {
+  position: relative;
+}

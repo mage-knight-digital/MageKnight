@@ -1,4 +1,5 @@
 import { GameProvider } from "./context/GameContext";
+import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
 import { HexGrid } from "./components/GameBoard/HexGrid";
@@ -98,8 +99,10 @@ function GameView() {
 export function App() {
   return (
     <GameProvider seed={GAME_SEED}>
-      <GameView />
-      <DebugPanel />
+      <CardMenuPositionProvider>
+        <GameView />
+        <DebugPanel />
+      </CardMenuPositionProvider>
     </GameProvider>
   );
 }
