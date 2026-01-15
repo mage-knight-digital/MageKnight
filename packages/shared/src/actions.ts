@@ -263,6 +263,13 @@ export interface ResolveGladeWoundAction {
   readonly choice: GladeWoundChoice;
 }
 
+// Deep Mine crystal color choice
+export const RESOLVE_DEEP_MINE_ACTION = "RESOLVE_DEEP_MINE" as const;
+export interface ResolveDeepMineAction {
+  readonly type: typeof RESOLVE_DEEP_MINE_ACTION;
+  readonly color: BasicManaColor; // The chosen crystal color
+}
+
 // Combat action constants
 export const ENTER_COMBAT_ACTION = "ENTER_COMBAT" as const;
 export const END_COMBAT_PHASE_ACTION = "END_COMBAT_PHASE" as const;
@@ -372,6 +379,8 @@ export type PlayerAction =
   | SelectRewardAction
   // Magical Glade
   | ResolveGladeWoundAction
+  // Deep Mine
+  | ResolveDeepMineAction
   // Combat
   | EnterCombatAction
   | EndCombatPhaseAction

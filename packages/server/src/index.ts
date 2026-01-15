@@ -37,6 +37,7 @@ import {
   createSpellDeckAndOffer,
   serializeGameState,
   deserializeGameState,
+  mineColorToBasicManaColor,
 } from "@mage-knight/core";
 import type { HexCoord } from "@mage-knight/shared";
 import { TILE_PLACEMENT_OFFSETS } from "@mage-knight/shared";
@@ -224,6 +225,11 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
 
     // Glade wound choice
     pendingGladeWoundChoice: player.pendingGladeWoundChoice,
+
+    // Deep mine crystal choice (convert MineColor[] to BasicManaColor[])
+    pendingDeepMineChoice: player.pendingDeepMineChoice
+      ? player.pendingDeepMineChoice.map(mineColorToBasicManaColor)
+      : null,
   };
 }
 
@@ -680,6 +686,7 @@ export class GameServer {
       pendingLevelUps: [],
       pendingRewards: [],
       pendingGladeWoundChoice: false,
+      pendingDeepMineChoice: null,
     };
 
     return { player, rng: newRng };

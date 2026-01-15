@@ -31,6 +31,7 @@ import {
   COMMAND_SLOT_GAINED,
   GAME_ENDED,
   CRYSTAL_GAINED,
+  DEEP_MINE_CRYSTAL_GAINED,
   GLADE_MANA_GAINED,
   getLevelUpType,
   LEVEL_STATS,
@@ -59,6 +60,8 @@ export interface EndTurnCommandParams {
   readonly playerId: string;
   /** If true, skip the Magical Glade wound check (used after resolving glade wound choice) */
   readonly skipGladeWoundCheck?: boolean;
+  /** If true, skip the Deep Mine crystal check (used after resolving deep mine choice) */
+  readonly skipDeepMineCheck?: boolean;
 }
 
 export function createEndTurnCommand(params: EndTurnCommandParams): Command {
@@ -121,14 +124,65 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         return createAnnounceEndOfRoundCommand({ playerId: params.playerId }).execute(state);
       }
 
-      // Crystal Mine check: If player ends turn on a mine, gain a crystal of that color
+      // Crystal Mine / Deep Mine check: If player ends turn on a mine, gain a crystal
       // Max 3 crystals per color - if already at max, no crystal gained
       const MAX_CRYSTALS_PER_COLOR = 3;
       let crystalMineEvents: GameEvent[] = [];
       let playerWithCrystal = currentPlayer;
+
       if (currentPlayer.position) {
         const hex = state.map.hexes[hexKey(currentPlayer.position)];
-        if (hex?.site?.type === SiteType.Mine && hex.site.mineColor) {
+
+        // Deep Mine check: If player ends turn on a deep mine with multiple colors,
+        // they must choose which crystal to gain.
+        // Skip this check if we're coming from resolveDeepMineChoiceCommand (choice already made)
+        if (hex?.site?.type === SiteType.DeepMine && hex.site.deepMineColors && !params.skipDeepMineCheck) {
+          const availableColors = hex.site.deepMineColors;
+          // Filter to only colors where player can still gain crystals (under max)
+          const gainableColors = availableColors.filter((mineColor) => {
+            const manaColor = mineColorToBasicManaColor(mineColor);
+            return currentPlayer.crystals[manaColor] < MAX_CRYSTALS_PER_COLOR;
+          });
+
+          if (gainableColors.length > 1) {
+            // Multiple colors available - need player choice
+            const updatedPlayer: Player = {
+              ...currentPlayer,
+              pendingDeepMineChoice: gainableColors,
+            };
+            return {
+              state: {
+                ...state,
+                players: state.players.map((p) =>
+                  p.id === params.playerId ? updatedPlayer : p
+                ),
+              },
+              events: [], // No events yet - waiting for player choice
+            };
+          } else if (gainableColors.length === 1) {
+            // Only one color available - auto-grant it
+            const singleColor = gainableColors[0];
+            if (!singleColor) {
+              throw new Error("Expected single color but found none");
+            }
+            const manaColor = mineColorToBasicManaColor(singleColor);
+            const currentCount = currentPlayer.crystals[manaColor];
+            playerWithCrystal = {
+              ...currentPlayer,
+              crystals: {
+                ...currentPlayer.crystals,
+                [manaColor]: currentCount + 1,
+              },
+            };
+            crystalMineEvents = [{
+              type: DEEP_MINE_CRYSTAL_GAINED,
+              playerId: params.playerId,
+              color: manaColor,
+            }];
+          }
+          // If no gainable colors (all maxed), just continue with turn ending
+        } else if (hex?.site?.type === SiteType.Mine && hex.site.mineColor) {
+          // Regular Mine: single color, auto-grant
           const manaColor: BasicManaColor = mineColorToBasicManaColor(hex.site.mineColor);
           const currentCount = currentPlayer.crystals[manaColor];
           // Only grant crystal if under the max

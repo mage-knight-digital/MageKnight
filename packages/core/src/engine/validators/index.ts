@@ -26,6 +26,7 @@ import {
   ENTER_SITE_ACTION,
   SELECT_REWARD_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
+  RESOLVE_DEEP_MINE_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -166,6 +167,12 @@ import {
   validateHasPendingGladeChoice,
   validateGladeWoundChoice,
 } from "./gladeValidators.js";
+
+// Deep mine validators
+import {
+  validateHasPendingDeepMineChoice,
+  validateDeepMineColorChoice,
+} from "./deepMineValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -379,6 +386,11 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingGladeChoice,
     validateGladeWoundChoice,
+  ],
+  [RESOLVE_DEEP_MINE_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingDeepMineChoice,
+    validateDeepMineColorChoice,
   ],
 };
 

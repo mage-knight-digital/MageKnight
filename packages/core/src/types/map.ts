@@ -157,7 +157,8 @@ export interface Site {
   readonly isBurned: boolean; // only relevant for monasteries
   // Subtypes for specific sites
   readonly cityColor?: CityColor;
-  readonly mineColor?: MineColor;
+  readonly mineColor?: MineColor; // Single color for regular mines
+  readonly deepMineColors?: readonly MineColor[]; // Multiple colors for deep mines (player chooses)
 }
 
 // State of a single hex on the map

@@ -276,6 +276,8 @@ export type {
   BeforeTurnTacticInfo,
   // Glade wound options
   GladeWoundOptions,
+  // Deep mine options
+  DeepMineOptions,
 } from "./types/validActions.js";
 
 // Shared value constants (sub-unions)

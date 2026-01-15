@@ -135,6 +135,10 @@ export const GLADE_WOUND_CHOICE_REQUIRED = "GLADE_WOUND_CHOICE_REQUIRED" as cons
 export const GLADE_WOUND_NO_WOUNDS_IN_HAND = "GLADE_WOUND_NO_WOUNDS_IN_HAND" as const;
 export const GLADE_WOUND_NO_WOUNDS_IN_DISCARD = "GLADE_WOUND_NO_WOUNDS_IN_DISCARD" as const;
 
+// Deep Mine validation codes
+export const DEEP_MINE_CHOICE_REQUIRED = "DEEP_MINE_CHOICE_REQUIRED" as const;
+export const DEEP_MINE_INVALID_COLOR = "DEEP_MINE_INVALID_COLOR" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -242,4 +246,7 @@ export type ValidationErrorCode =
   // Magical Glade validation
   | typeof GLADE_WOUND_CHOICE_REQUIRED
   | typeof GLADE_WOUND_NO_WOUNDS_IN_HAND
-  | typeof GLADE_WOUND_NO_WOUNDS_IN_DISCARD;
+  | typeof GLADE_WOUND_NO_WOUNDS_IN_DISCARD
+  // Deep Mine validation
+  | typeof DEEP_MINE_CHOICE_REQUIRED
+  | typeof DEEP_MINE_INVALID_COLOR;

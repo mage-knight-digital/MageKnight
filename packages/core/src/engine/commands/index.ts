@@ -28,11 +28,13 @@ import {
   RESOLVE_TACTIC_DECISION_ACTION,
   REROLL_SOURCE_DICE_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
+  RESOLVE_DEEP_MINE_ACTION,
   hexKey,
   getAllNeighbors,
   TIME_OF_DAY_DAY,
   type TacticId,
   type GladeWoundChoice,
+  type BasicManaColor,
 } from "@mage-knight/shared";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import type { Command } from "../commands.js";
@@ -68,6 +70,7 @@ import { createActivateTacticCommand } from "./activateTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "./resolveTacticDecisionCommand.js";
 import { createRerollSourceDiceCommand } from "./rerollSourceDiceCommand.js";
 import { createResolveGladeWoundCommand } from "./resolveGladeWoundCommand.js";
+import { createResolveDeepMineChoiceCommand } from "./resolveDeepMineChoiceCommand.js";
 
 // Command factory function type
 type CommandFactory = (
@@ -632,6 +635,28 @@ function createResolveGladeWoundCommandFromAction(
   });
 }
 
+// Helper to get deep mine color choice from action
+function getDeepMineColorFromAction(action: PlayerAction): BasicManaColor | null {
+  if (action.type === RESOLVE_DEEP_MINE_ACTION && "color" in action) {
+    return action.color;
+  }
+  return null;
+}
+
+// Resolve deep mine command factory
+function createResolveDeepMineCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  const color = getDeepMineColorFromAction(action);
+  if (!color) return null;
+  return createResolveDeepMineChoiceCommand({
+    playerId,
+    color,
+  });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
   [MOVE_ACTION]: createMoveCommandFromAction,
@@ -657,6 +682,7 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_TACTIC_DECISION_ACTION]: createResolveTacticDecisionCommandFromAction,
   [REROLL_SOURCE_DICE_ACTION]: createRerollSourceDiceCommandFromAction,
   [RESOLVE_GLADE_WOUND_ACTION]: createResolveGladeWoundCommandFromAction,
+  [RESOLVE_DEEP_MINE_ACTION]: createResolveDeepMineCommandFromAction,
 };
 
 // Get command for an action

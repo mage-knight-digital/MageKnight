@@ -228,4 +228,7 @@ export interface Player {
 
   // Magical Glade wound discard choice pending (when wounds exist in both hand and discard)
   readonly pendingGladeWoundChoice: boolean;
+
+  // Deep Mine crystal color choice pending (when ending turn on a deep mine with multiple colors)
+  readonly pendingDeepMineChoice: readonly import("./map.js").MineColor[] | null;
 }

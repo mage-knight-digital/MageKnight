@@ -54,7 +54,7 @@ export type {
   TileDeck,
   MapState,
 } from "./map.js";
-export { TileId, SiteType, RampagingEnemyType, createEmptyMapState } from "./map.js";
+export { TileId, SiteType, RampagingEnemyType, createEmptyMapState, mineColorToBasicManaColor } from "./map.js";
 
 // Mana source types
 export type {

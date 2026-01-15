@@ -22,6 +22,7 @@ export {
   readyAllUnits,
   // Map helpers
   createEmptyMapState,
+  mineColorToBasicManaColor,
   // Mana helpers
   createEmptyManaSource,
   createEmptyCrystalInventory,

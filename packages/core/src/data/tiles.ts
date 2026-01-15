@@ -85,6 +85,7 @@ export interface LocalHex {
   readonly terrain: Terrain;
   readonly site: SiteType | null;
   readonly mineColor?: MineColor;
+  readonly deepMineColors?: readonly MineColor[]; // For deep mines: player chooses from these colors
   readonly rampaging?: RampagingEnemyType;
 }
 
@@ -108,7 +109,7 @@ function hex(
   position: LocalHexPosition,
   terrain: Terrain,
   site: SiteType | null = null,
-  extra?: { mineColor?: MineColor; rampaging?: RampagingEnemyType }
+  extra?: { mineColor?: MineColor; deepMineColors?: MineColor[]; rampaging?: RampagingEnemyType }
 ): LocalHex {
   return { localQ: position.q, localR: position.r, terrain, site, ...extra };
 }
@@ -365,7 +366,7 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
       hex(LOCAL_HEX.CENTER, TERRAIN_FOREST, SiteType.MageTower),
       hex(LOCAL_HEX.NE, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
       hex(LOCAL_HEX.E, TERRAIN_LAKE),
-      hex(LOCAL_HEX.SE, TERRAIN_FOREST, SiteType.DeepMine, { mineColor: MINE_COLOR_BLUE }), // Deep mine: green/blue
+      hex(LOCAL_HEX.SE, TERRAIN_FOREST, SiteType.DeepMine, { deepMineColors: [MINE_COLOR_GREEN, MINE_COLOR_BLUE] }), // Deep mine: green/blue
       hex(LOCAL_HEX.SW, TERRAIN_PLAINS),
       hex(LOCAL_HEX.W, TERRAIN_WASTELAND, SiteType.MagicalGlade),
       hex(LOCAL_HEX.NW, TERRAIN_FOREST),
@@ -384,7 +385,7 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
       hex(LOCAL_HEX.E, TERRAIN_WASTELAND, SiteType.Maze),
       hex(LOCAL_HEX.SE, TERRAIN_HILLS, SiteType.Village),
       hex(LOCAL_HEX.SW, TERRAIN_PLAINS),
-      hex(LOCAL_HEX.W, TERRAIN_DESERT, SiteType.DeepMine), // Deep mine: red/white
+      hex(LOCAL_HEX.W, TERRAIN_DESERT, SiteType.DeepMine, { deepMineColors: [MINE_COLOR_RED, MINE_COLOR_WHITE] }), // Deep mine: red/white
       hex(LOCAL_HEX.NW, TERRAIN_DESERT),
     ],
   },
@@ -563,7 +564,7 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
       hex(LOCAL_HEX.SE, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
       hex(LOCAL_HEX.SW, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
       hex(LOCAL_HEX.W, TERRAIN_FOREST, SiteType.Keep),
-      hex(LOCAL_HEX.NW, TERRAIN_WASTELAND, SiteType.DeepMine), // Deep mine: all 4 colors
+      hex(LOCAL_HEX.NW, TERRAIN_WASTELAND, SiteType.DeepMine, { deepMineColors: [MINE_COLOR_RED, MINE_COLOR_BLUE, MINE_COLOR_GREEN, MINE_COLOR_WHITE] }), // Deep mine: all 4 colors
     ],
   },
 
@@ -616,9 +617,12 @@ export function placeTile(tileId: TileId, centerCoord: HexCoord): HexState[] {
           // City color from tile definition
           ...(localHex.site === SiteType.City &&
             definition.cityColor && { cityColor: definition.cityColor }),
-          // Mine color from hex definition
+          // Mine color from hex definition (regular mines)
           ...(localHex.site === SiteType.Mine &&
             localHex.mineColor && { mineColor: localHex.mineColor }),
+          // Deep mine colors from hex definition (player chooses)
+          ...(localHex.site === SiteType.DeepMine &&
+            localHex.deepMineColors && { deepMineColors: localHex.deepMineColors }),
         }
       : null;
 

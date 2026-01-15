@@ -38,6 +38,9 @@ export const SELECT_REWARD_COMMAND = "SELECT_REWARD" as const;
 // Magical Glade command
 export const RESOLVE_GLADE_WOUND_COMMAND = "RESOLVE_GLADE_WOUND" as const;
 
+// Deep Mine command
+export const RESOLVE_DEEP_MINE_COMMAND = "RESOLVE_DEEP_MINE" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;

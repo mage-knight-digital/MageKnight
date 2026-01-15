@@ -918,6 +918,14 @@ export interface InteractionCompletedEvent {
   readonly siteType: string;
 }
 
+// Deep Mine events
+export const DEEP_MINE_CRYSTAL_GAINED = "DEEP_MINE_CRYSTAL_GAINED" as const;
+export interface DeepMineCrystalGainedEvent {
+  readonly type: typeof DEEP_MINE_CRYSTAL_GAINED;
+  readonly playerId: string;
+  readonly color: import("./ids.js").BasicManaColor;
+}
+
 export function createInvalidActionEvent(
   playerId: string,
   actionType: string,
@@ -1055,6 +1063,8 @@ export type GameEvent =
   // Magical Glade
   | GladeWoundDiscardedEvent
   | GladeWoundSkippedEvent
-  | GladeManaGainedEvent;
+  | GladeManaGainedEvent
+  // Deep Mine
+  | DeepMineCrystalGainedEvent;
 
 export type GameEventType = GameEvent["type"];

@@ -68,6 +68,9 @@ export interface ValidActions {
 
   /** Magical Glade wound discard options (at end of turn) */
   readonly gladeWound: GladeWoundOptions | undefined;
+
+  /** Deep Mine crystal choice options (at end of turn) */
+  readonly deepMine: DeepMineOptions | undefined;
 }
 
 // ============================================================================
@@ -360,4 +363,17 @@ export interface GladeWoundOptions {
   readonly hasWoundsInHand: boolean;
   /** Whether wounds exist in discard pile */
   readonly hasWoundsInDiscard: boolean;
+}
+
+// ============================================================================
+// Deep Mine
+// ============================================================================
+
+/**
+ * Options for Deep Mine crystal color choice at end of turn.
+ * Only present when player has a pending deep mine choice.
+ */
+export interface DeepMineOptions {
+  /** Available crystal colors to choose from */
+  readonly availableColors: readonly BasicManaColor[];
 }

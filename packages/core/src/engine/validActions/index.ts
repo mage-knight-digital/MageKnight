@@ -7,7 +7,8 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { ValidActions, TacticsOptions, TacticEffectsOptions, GladeWoundOptions } from "@mage-knight/shared";
+import type { ValidActions, TacticsOptions, TacticEffectsOptions, GladeWoundOptions, DeepMineOptions, BasicManaColor } from "@mage-knight/shared";
+import { mineColorToBasicManaColor } from "../../types/map.js";
 import {
   TACTIC_THE_RIGHT_MOMENT,
   TACTIC_LONG_NIGHT,
@@ -85,6 +86,7 @@ export function getValidActions(
       enterCombat: undefined,
       tacticEffects: undefined,
       gladeWound: undefined,
+      deepMine: undefined,
     };
   }
 
@@ -110,6 +112,7 @@ export function getValidActions(
         enterCombat: undefined,
         tacticEffects: { pendingDecision },
         gladeWound: undefined,
+      deepMine: undefined,
       };
     }
 
@@ -128,6 +131,7 @@ export function getValidActions(
       enterCombat: undefined,
       tacticEffects: undefined,
       gladeWound: undefined,
+      deepMine: undefined,
     };
   }
 
@@ -155,6 +159,35 @@ export function getValidActions(
       enterCombat: undefined,
       tacticEffects: undefined,
       gladeWound: gladeWoundOptions,
+      deepMine: undefined,
+    };
+  }
+
+  // Handle pending deep mine choice - must resolve before other actions
+  if (player.pendingDeepMineChoice) {
+    const deepMineOptions = getDeepMineOptions(state, player);
+    return {
+      canAct: true,
+      reason: undefined,
+      move: undefined,
+      explore: undefined,
+      playCard: undefined,
+      combat: undefined,
+      units: undefined,
+      sites: undefined,
+      mana: undefined,
+      turn: {
+        canEndTurn: false,
+        canAnnounceEndOfRound: false,
+        canUndo: false, // Can't undo during deep mine choice
+        canRest: false,
+        restTypes: undefined,
+      },
+      tactics: undefined,
+      enterCombat: undefined,
+      tacticEffects: undefined,
+      gladeWound: undefined,
+      deepMine: deepMineOptions,
     };
   }
 
@@ -182,6 +215,7 @@ export function getValidActions(
       enterCombat: undefined,
       tacticEffects: undefined,
       gladeWound: undefined,
+      deepMine: undefined,
     };
   }
 
@@ -213,6 +247,7 @@ export function getValidActions(
         enterCombat: undefined,
         tacticEffects: undefined,
         gladeWound: undefined,
+      deepMine: undefined,
       };
     }
   }
@@ -236,6 +271,7 @@ export function getValidActions(
     enterCombat: undefined, // TODO: getEnterCombatOptions(state, player)
     tacticEffects: getTacticEffectsOptions(state, player),
     gladeWound: undefined,
+      deepMine: undefined,
   };
 }
 
@@ -472,6 +508,29 @@ function getGladeWoundOptions(
   return {
     hasWoundsInHand,
     hasWoundsInDiscard,
+  };
+}
+
+/**
+ * Get Deep Mine crystal color choice options for the player.
+ * Returns options if player has a pending deep mine choice.
+ */
+function getDeepMineOptions(
+  _state: GameState,
+  player: Player
+): DeepMineOptions | undefined {
+  // Check if player has a pending deep mine choice
+  if (!player.pendingDeepMineChoice || player.pendingDeepMineChoice.length === 0) {
+    return undefined;
+  }
+
+  // Convert mine colors to basic mana colors
+  const availableColors: BasicManaColor[] = player.pendingDeepMineChoice.map(
+    mineColorToBasicManaColor
+  );
+
+  return {
+    availableColors,
   };
 }
 
