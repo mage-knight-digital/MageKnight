@@ -360,7 +360,7 @@ export function FloatingUnitCarousel({
                   })(),
                 }}
               >
-                <div className="floating-unit-ghost__card" style={{ width: unitWidth, height: unitHeight }}>
+                <div className="floating-unit-ghost__card">
                   {ghostType === "recruit" ? (
                     <>
                       <span className="floating-unit-ghost__hint">Recruit units at</span>

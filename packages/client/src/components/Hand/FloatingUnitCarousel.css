@@ -295,10 +295,9 @@
 }
 
 .floating-unit-ghost__card {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  margin-left: -50%;
+  /* Fill the parent wrapper which has the correct dimensions */
+  width: 100%;
+  height: 100%;
   border-radius: 8px;
   border: 2px dashed rgba(255, 255, 255, 0.5);
   background: linear-gradient(
