@@ -87,26 +87,28 @@
 /* Cards container - responsive sizing */
 .tactic-carousel__cards {
   position: relative;
-  /* Height scales with viewport */
-  height: clamp(180px, 25vh, 280px);
-  width: 800px;
+  /* Height scales with viewport - matches hand card sizing */
+  height: 25vh;
+  width: 100%;
+  max-width: 1200px;
   pointer-events: auto;
 }
 
 /* Scale cards container based on view mode */
 .tactic-carousel--ready .tactic-carousel__cards {
-  height: clamp(160px, 22vh, 240px);
+  height: 22vh;
 }
 
 .tactic-carousel--focus .tactic-carousel__cards {
-  height: clamp(240px, 35vh, 400px);
+  height: 55vh; /* Consistent with hand cards focus mode */
 }
 
-/* Individual tactic card - positioned absolutely from container center */
+/* Individual tactic card - positioned absolutely, left set via inline style */
 .tactic-carousel__card {
   position: absolute;
-  left: 50%;
+  /* left is set via inline style for dynamic positioning */
   bottom: 0;
+  height: 90%; /* Card button fills most of container height */
   background: transparent;
   border: none;
   padding: 0;
@@ -114,13 +116,15 @@
   transform-origin: bottom center;
   transition:
     transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    opacity 0.3s ease;
+    opacity 0.3s ease,
+    left 0.25s ease,
+    height 0.3s ease;
 }
 
 .tactic-carousel__card-image {
-  /* Responsive card sizing based on container */
-  width: clamp(100px, 12vh, 160px);
-  height: auto;
+  /* Image fills the button height */
+  height: 100%;
+  width: auto;
   border-radius: 8px;
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.4),
@@ -132,21 +136,16 @@
   background-color: #d4c9a8;
 }
 
-/* Larger cards in focus mode */
-.tactic-carousel--focus .tactic-carousel__card-image {
-  width: clamp(140px, 18vh, 200px);
-}
-
-/* Hover state - card lifts and zooms */
+/* Hover state - card lifts up like pulling from hand (no zoom needed at this size) */
 .tactic-carousel__card--hovered {
   z-index: 90 !important;
 }
 
 .tactic-carousel__card--hovered .tactic-carousel__card-image {
-  transform: scale(1.6) translateY(-15px);
+  transform: translateY(-30px);
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.5),
-    0 16px 48px rgba(0, 0, 0, 0.3);
+    0 12px 32px rgba(0, 0, 0, 0.5),
+    0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 /* Day hover glow */
@@ -172,8 +171,8 @@
 }
 
 .tactic-carousel__card--selected .tactic-carousel__card-image {
-  transform: scale(2) translateY(-30px);
-  filter: brightness(1.2);
+  transform: translateY(-50px);
+  filter: brightness(1.1);
 }
 
 /* Day selected glow */

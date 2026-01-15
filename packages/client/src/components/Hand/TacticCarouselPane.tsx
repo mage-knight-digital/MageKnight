@@ -28,7 +28,8 @@ interface TacticCardProps {
   tacticId: TacticId;
   index: number;
   totalCards: number;
-  isHovered: boolean;
+  hoveredIndex: number | null;  // For hover visual effect (lift)
+  zIndexAnchor: number | null;  // For z-ordering (persists after mouse leave)
   isSelected: boolean;
   isDismissed: boolean;
   onClick: () => void;
@@ -39,32 +40,63 @@ function getTacticCardLayout(index: number, totalCards: number) {
   const centerIndex = (totalCards - 1) / 2;
   const offsetFromCenter = index - centerIndex;
 
-  // Tactic cards spread wider since they're bigger and fewer
-  const spreadDistance = 110;
-  const rotationPerCard = 5;
-  const arcPerCard = 6;
+  // Use percentage-based spread that works at any card size
+  // Cards overlap more like a fanned hand (similar to FloatingHand)
+  const spreadPercentage = 12; // % of container width per card offset
+  const rotationPerCard = 3;   // degrees rotation per card offset
+  const arcPerCard = 1.5;      // % vertical arc per card offset
 
-  const spreadX = offsetFromCenter * spreadDistance;
+  const spreadX = offsetFromCenter * spreadPercentage; // In percentage
   const rotation = offsetFromCenter * rotationPerCard;
-  const arcY = Math.abs(offsetFromCenter) * arcPerCard;
+  const arcY = Math.abs(offsetFromCenter) * arcPerCard; // In percentage
 
   return { spreadX, rotation, arcY };
 }
 
-// Card width for centering calculation
-const CARD_WIDTH = 140;
+/**
+ * Calculate z-index for a card based on which card is hovered.
+ * Inscryption-style: when hovering, reorder entire hand so hovered card
+ * is on top, cards to the left stack behind going left, cards to the right
+ * have lowest z-index.
+ */
+function calculateZIndex(index: number, totalCards: number, hoveredIndex: number | null): number {
+  if (hoveredIndex === null) {
+    // Default: rightmost card on top (ascending z-index left to right)
+    return 50 + index;
+  }
+
+  // When hovering, reorder z-indexes:
+  // - Hovered card gets highest
+  // - Cards to the LEFT of hovered: descending from hovered (they go "behind")
+  // - Cards to the RIGHT of hovered: get lowest values
+
+  if (index === hoveredIndex) {
+    // Hovered card is always on top
+    return 50 + totalCards;
+  } else if (index < hoveredIndex) {
+    // Cards to the left: higher z-index the closer to hovered
+    // e.g., if hovered is 3, card 2 gets higher z than card 1
+    return 50 + index;
+  } else {
+    // Cards to the right of hovered: push them behind
+    // They get z-index below the leftmost card
+    return 40 + (totalCards - index);
+  }
+}
 
 function TacticCard({
   tacticId,
   index,
   totalCards,
-  isHovered,
+  hoveredIndex,
+  zIndexAnchor,
   isSelected,
   isDismissed,
   onClick,
   onMouseEnter,
 }: TacticCardProps) {
   const { spreadX, rotation, arcY } = getTacticCardLayout(index, totalCards);
+  const isHovered = hoveredIndex === index;
 
   const classNames = [
     "tactic-carousel__card",
@@ -75,14 +107,14 @@ function TacticCard({
     .filter(Boolean)
     .join(" ");
 
-  // Z-index: hovered/selected cards come to front
-  const zIndex = isSelected ? 100 : isHovered ? 90 : 50 + index;
+  // Z-index: selected always on top, otherwise use Inscryption-style ordering based on anchor
+  const zIndex = isSelected ? 100 : calculateZIndex(index, totalCards, zIndexAnchor);
 
-  // Position card: center it (-half width) plus the fan spread offset
-  const translateX = spreadX - CARD_WIDTH / 2;
-
+  // Position using CSS left percentage + transform for centering
+  // spreadX is now a percentage offset from center
   const cardStyle: React.CSSProperties = {
-    transform: `translateX(${translateX}px) translateY(${arcY}px) rotate(${rotation}deg)`,
+    left: `calc(50% + ${spreadX}%)`,
+    transform: `translateX(-50%) translateY(${arcY}%) rotate(${rotation}deg)`,
     zIndex,
   };
 
@@ -119,6 +151,8 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
   const player = useMyPlayer();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedTactic, setSelectedTactic] = useState<TacticId | null>(null);
+  // Track which card the z-ordering is anchored to (Inscryption-style: persists after mouse leave)
+  const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
 
   // All hooks must be called before any early returns
   const handleCardClick = useCallback(
@@ -142,6 +176,7 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
     (index: number) => {
       if (!selectedTactic) {
         setHoveredIndex(index);
+        setZIndexAnchor(index); // Update z-ordering anchor when hovering
       }
     },
     [selectedTactic]
@@ -149,6 +184,7 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
 
   const handleMouseLeave = useCallback(() => {
     setHoveredIndex(null);
+    // Don't reset zIndexAnchor - keep the z-ordering until next hover
   }, []);
 
   // Don't show if no state or player already selected a tactic
@@ -197,7 +233,8 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
             tacticId={tacticId}
             index={index}
             totalCards={availableTactics.length}
-            isHovered={hoveredIndex === index}
+            hoveredIndex={hoveredIndex}
+            zIndexAnchor={zIndexAnchor}
             isSelected={selectedTactic === tacticId}
             isDismissed={selectedTactic !== null && selectedTactic !== tacticId}
             onClick={() => handleCardClick(tacticId)}

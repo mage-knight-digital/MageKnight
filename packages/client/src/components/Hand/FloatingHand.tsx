@@ -13,6 +13,36 @@ const VIEW_CARD_SCALE: Record<HandViewMode, number> = {
   focus: 0.60,  // Focus mode - 60% of viewport height (big enough to read card text)
 };
 
+/**
+ * Calculate z-index for a card based on which card is the z-index anchor.
+ * Inscryption-style: when hovering, reorder entire hand so anchored card
+ * is on top, cards to the left stack behind going left, cards to the right
+ * have lowest z-index. The anchor persists after mouse leaves until a new
+ * card is hovered.
+ */
+function calculateZIndex(index: number, totalCards: number, zIndexAnchor: number | null): number {
+  if (zIndexAnchor === null) {
+    // Default: rightmost card on top (ascending z-index left to right)
+    return 50 + index;
+  }
+
+  // When anchored, reorder z-indexes:
+  // - Anchored card gets highest
+  // - Cards to the LEFT of anchor: higher z-index closer to anchor
+  // - Cards to the RIGHT of anchor: get lowest values
+
+  if (index === zIndexAnchor) {
+    // Anchored card is always on top
+    return 50 + totalCards;
+  } else if (index < zIndexAnchor) {
+    // Cards to the left: higher z-index the closer to anchor
+    return 50 + index;
+  } else {
+    // Cards to the right of anchor: push them behind
+    return 40 + (totalCards - index);
+  }
+}
+
 // Hook to get responsive card dimensions based on view mode
 function useCardDimensions(viewMode: HandViewMode) {
   const [dimensions, setDimensions] = useState({ cardWidth: 120, cardHeight: 180 });
@@ -51,6 +81,7 @@ interface FloatingCardProps {
   isSelected: boolean;
   isPlayable: boolean;
   isHovered: boolean;
+  zIndexAnchor: number | null;  // For Inscryption-style z-ordering
   isCollapsed: boolean;
   isNew: boolean;
   dealDelay: number;
@@ -109,6 +140,7 @@ const FloatingCard = memo(function FloatingCard({
   isSelected,
   isPlayable,
   isHovered,
+  zIndexAnchor,
   isCollapsed,
   isNew,
   dealDelay,
@@ -136,8 +168,8 @@ const FloatingCard = memo(function FloatingCard({
     isCollapsed
   );
 
-  // Z-index: hovered cards come to front
-  const zIndex = isHovered ? 100 : 50 + index;
+  // Z-index: use Inscryption-style ordering based on anchor (persists after mouse leave)
+  const zIndex = calculateZIndex(index, totalCards, zIndexAnchor);
 
   // Color-coded glow for playable cards
   const glowColor = cardColor
@@ -218,6 +250,8 @@ export function FloatingHand({
 }: FloatingHandProps) {
   const [atlasLoaded, setAtlasLoaded] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  // Track which card the z-ordering is anchored to (Inscryption-style: persists after mouse leave)
+  const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
   const { cardWidth, cardHeight } = useCardDimensions(viewMode);
 
   // Track which cards are newly dealt for animation
@@ -334,6 +368,11 @@ export function FloatingHand({
       if (hoveredIndexRef.current !== hitCard) {
         hoveredIndexRef.current = hitCard;
         setHoveredIndex(hitCard);
+        // Update z-index anchor when hovering a new card (Inscryption-style)
+        if (hitCard !== null) {
+          setZIndexAnchor(hitCard);
+        }
+        // Don't reset zIndexAnchor when hitCard is null - keep the ordering
       }
     },
     [selectedIndex, visibleHand.length, viewMode, cardWidth, cardHeight]
@@ -343,6 +382,7 @@ export function FloatingHand({
     if (hoveredIndexRef.current !== null) {
       hoveredIndexRef.current = null;
       setHoveredIndex(null);
+      // Don't reset zIndexAnchor - keep the z-ordering until next hover
     }
   }, []);
 
@@ -402,6 +442,7 @@ export function FloatingHand({
                 isSelected={false}
                 isPlayable={isPlayable}
                 isHovered={hoveredIndex === visibleIndex}
+                zIndexAnchor={zIndexAnchor}
                 isCollapsed={false}
                 isNew={isNew}
                 dealDelay={dealDelay}
