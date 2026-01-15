@@ -12,6 +12,21 @@ import { useState } from "react";
 import { useGame } from "../hooks/useGame";
 import type { EnemyId, CardId, BasicManaColor, ManaColor, UnitId } from "@mage-knight/shared";
 import { getEnemy, getUnit, UNIT_STATE_READY } from "@mage-knight/shared";
+import {
+  AVAILABLE_SOUNDS,
+  getSoundEvents,
+  getSoundAssignment,
+  setSoundAssignment,
+  setSoundVolume,
+  playSoundById,
+  playSound,
+  getIsMuted,
+  toggleMute,
+  getMasterVolume,
+  setMasterVolume,
+  type SoundEvent,
+  type SoundId,
+} from "../utils/audioManager";
 
 // Enemy options grouped by color
 const ENEMIES: { label: string; enemies: { id: EnemyId; name: string }[] }[] = [
@@ -242,12 +257,22 @@ const LEVEL_STATS: Record<number, { armor: number; handLimit: number; commandSlo
   10: { armor: 4, handLimit: 7, commandSlots: 5 },
 };
 
+// Sound event labels for display
+const SOUND_EVENT_LABELS: Record<SoundEvent, string> = {
+  cardHover: "Card Hover",
+  cardDeal: "Card Deal",
+  cardPlay: "Card Play",
+};
+
 export function DebugPanel() {
   const { state, saveGame, loadGame } = useGame();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedEnemy, setSelectedEnemy] = useState<EnemyId>("diggers" as EnemyId);
   const [selectedUnit, setSelectedUnit] = useState<UnitId>("peasants" as UnitId);
   const [cardSearch, setCardSearch] = useState("");
+  // Sound state - use a counter to force re-render when assignments change
+  const [, setSoundUpdateCounter] = useState(0);
+  const forceUpdate = () => setSoundUpdateCounter(c => c + 1);
 
   if (!state) return null;
 
@@ -812,6 +837,110 @@ export function DebugPanel() {
                 style={{ display: "none" }}
               />
             </label>
+          </div>
+        </section>
+
+        {/* Sound Section */}
+        <section className="debug-panel__section">
+          <h4>Sound Effects</h4>
+
+          {/* Master controls */}
+          <div className="debug-panel__row debug-panel__sound-master">
+            <button
+              type="button"
+              onClick={() => { toggleMute(); forceUpdate(); }}
+              className={getIsMuted() ? "debug-panel__mute-btn--muted" : ""}
+            >
+              {getIsMuted() ? "🔇 Unmute" : "🔊 Mute"}
+            </button>
+            <label className="debug-panel__volume-label">
+              Vol:
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(getMasterVolume() * 100)}
+                onChange={(e) => { setMasterVolume(Number(e.target.value) / 100); forceUpdate(); }}
+                className="debug-panel__volume-slider"
+              />
+              <span>{Math.round(getMasterVolume() * 100)}%</span>
+            </label>
+          </div>
+
+          {/* Available sounds preview */}
+          <div className="debug-panel__subsection">
+            <h5>Preview Sounds</h5>
+            <div className="debug-panel__sound-grid">
+              {AVAILABLE_SOUNDS.map((sound) => (
+                <button
+                  key={sound.id}
+                  type="button"
+                  onClick={() => playSoundById(sound.id)}
+                  className="debug-panel__sound-preview-btn"
+                  title={sound.src}
+                >
+                  ▶ {sound.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Event assignments */}
+          <div className="debug-panel__subsection">
+            <h5>Event Assignments</h5>
+            {getSoundEvents().map((event) => {
+              const assignment = getSoundAssignment(event);
+              return (
+                <div key={event} className="debug-panel__sound-event">
+                  <div className="debug-panel__sound-event-header">
+                    <span className="debug-panel__sound-event-name">
+                      {SOUND_EVENT_LABELS[event]}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => playSound(event)}
+                      className="debug-panel__sound-test-btn"
+                      title="Test this event"
+                    >
+                      ▶
+                    </button>
+                  </div>
+                  <div className="debug-panel__sound-event-controls">
+                    <select
+                      multiple
+                      value={assignment.soundIds}
+                      onChange={(e) => {
+                        const selected = Array.from(e.target.selectedOptions, opt => opt.value as SoundId);
+                        setSoundAssignment(event, selected);
+                        forceUpdate();
+                      }}
+                      className="debug-panel__sound-select"
+                    >
+                      {AVAILABLE_SOUNDS.map((sound) => (
+                        <option key={sound.id} value={sound.id}>
+                          {sound.label}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="debug-panel__volume-label debug-panel__volume-label--small">
+                      Vol:
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={Math.round(assignment.volume * 100)}
+                        onChange={(e) => {
+                          setSoundVolume(event, Number(e.target.value) / 100);
+                          forceUpdate();
+                        }}
+                        className="debug-panel__volume-slider"
+                      />
+                      <span>{Math.round(assignment.volume * 100)}%</span>
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>

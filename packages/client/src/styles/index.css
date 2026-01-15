@@ -1720,3 +1720,147 @@ body {
     stroke-dashoffset: -20;
   }
 }
+
+/* ============================================
+   Debug Panel - Sound Section
+   ============================================ */
+
+.debug-panel__sound-master {
+  gap: 0.75rem;
+}
+
+.debug-panel__mute-btn--muted {
+  background: #c0392b !important;
+}
+
+.debug-panel__volume-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.debug-panel__volume-slider {
+  width: 80px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #3498db;
+}
+
+.debug-panel__volume-label span {
+  min-width: 32px;
+  text-align: right;
+}
+
+.debug-panel__subsection {
+  margin-top: 0.75rem;
+}
+
+.debug-panel__subsection h5 {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: #888;
+  font-weight: 500;
+}
+
+.debug-panel__sound-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.25rem;
+}
+
+.debug-panel__sound-preview-btn {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.7rem;
+  text-align: left;
+  background: #34495e;
+  border: none;
+  border-radius: 3px;
+  color: #ddd;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.debug-panel__sound-preview-btn:hover {
+  background: #4a6278;
+}
+
+.debug-panel__sound-event {
+  background: #2c3e50;
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.debug-panel__sound-event:last-child {
+  margin-bottom: 0;
+}
+
+.debug-panel__sound-event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.debug-panel__sound-event-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #3498db;
+}
+
+.debug-panel__sound-test-btn {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  background: #27ae60;
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.debug-panel__sound-test-btn:hover {
+  background: #2ecc71;
+}
+
+.debug-panel__sound-event-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.debug-panel__sound-select {
+  width: 100%;
+  min-height: 60px;
+  max-height: 80px;
+  padding: 0.25rem;
+  border-radius: 3px;
+  border: 1px solid #444;
+  background: #1a1a2e;
+  color: #ddd;
+  font-size: 0.7rem;
+}
+
+.debug-panel__sound-select option {
+  padding: 0.2rem 0.4rem;
+}
+
+.debug-panel__volume-label--small {
+  font-size: 0.7rem;
+}
+
+.debug-panel__volume-label--small .debug-panel__volume-slider {
+  width: 60px;
+}
+
+.debug-panel__label {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.debug-panel__save-slot {
+  display: flex;
+  gap: 0.25rem;
+}

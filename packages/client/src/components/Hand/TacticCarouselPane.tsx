@@ -7,6 +7,7 @@ import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { loadAtlas, getTacticSpriteStyle } from "../../utils/cardAtlas";
 import { calculateZIndex, CARD_FAN_SCALE, type CardFanViewMode } from "../../utils/cardFanLayout";
+import { playSound } from "../../utils/audioManager";
 import "./TacticCarouselPane.css";
 
 // Human-readable tactic names for alt text
@@ -192,6 +193,7 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
       if (!selectedTactic) {
         setHoveredIndex(index);
         setZIndexAnchor(index); // Update z-ordering anchor when hovering
+        playSound("cardHover");
       }
     },
     [selectedTactic]

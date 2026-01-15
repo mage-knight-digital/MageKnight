@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared";
 import { loadAtlas, getCardSpriteStyle, getCardColor } from "../../utils/cardAtlas";
 import { calculateZIndex, CARD_FAN_SCALE, CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
+import { playSound } from "../../utils/audioManager";
 import "./FloatingHand.css";
 
 // Hand view modes - re-export for backwards compatibility
@@ -335,6 +336,7 @@ export function FloatingHand({
         // Update z-index anchor when hovering a new card (Inscryption-style)
         if (hitCard !== null) {
           setZIndexAnchor(hitCard);
+          playSound("cardHover");
         }
         // Don't reset zIndexAnchor when hitCard is null - keep the ordering
       }
