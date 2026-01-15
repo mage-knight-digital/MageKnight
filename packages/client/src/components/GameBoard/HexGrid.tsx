@@ -938,6 +938,8 @@ export function HexGrid() {
   // ============================================
   // Track known tile keys to detect newly revealed tiles
   const knownTileKeys = useRef<Set<string>>(new Set());
+  // Whether we've done the initial tile population (to skip animation on first load)
+  const hasInitializedTiles = useRef(false);
   // Tiles currently animating their reveal
   const [revealingTiles, setRevealingTiles] = useState<Set<string>>(new Set());
   // Track which ghost hex is being clicked (for anticipation animation)
@@ -953,6 +955,14 @@ export function HexGrid() {
     const currentTileKeys = new Set(
       tiles.map((t) => `${t.tileId}-${t.centerCoord.q},${t.centerCoord.r}`)
     );
+
+    // On first load, just populate knownTileKeys without triggering animations
+    // This prevents the starting tile(s) from animating on page load
+    if (!hasInitializedTiles.current) {
+      hasInitializedTiles.current = true;
+      currentTileKeys.forEach((key) => knownTileKeys.current.add(key));
+      return;
+    }
 
     // Find tiles that are new (not in our known set)
     const newTiles: string[] = [];
