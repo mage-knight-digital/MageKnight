@@ -10,22 +10,23 @@ import { getUnitSpriteStyle, isAtlasLoaded } from "../../utils/cardAtlas";
 import type { HandViewMode } from "./FloatingHand";
 import "./FloatingUnitCarousel.css";
 
-// Unit card size multipliers for each view mode
+// Unit card size multipliers for each view mode (% of viewport height)
 const VIEW_UNIT_SCALE: Record<HandViewMode, number> = {
   board: 0.18,  // Hidden off screen anyway
-  ready: 0.18,  // Ready stance - smaller than cards (units are landscape)
+  ready: 0.18,  // Ready stance - smaller than deed cards
   focus: 0.40,  // Focus mode - big enough to see details
 };
 
 // Hook to get responsive unit card dimensions based on view mode
+// Unit cards are portrait (1000x1400 in atlas with even/odd layout = 0.714 aspect ratio)
 function useUnitDimensions(viewMode: HandViewMode) {
-  const [dimensions, setDimensions] = useState({ unitWidth: 200, unitHeight: 140 });
+  const [dimensions, setDimensions] = useState({ unitWidth: 100, unitHeight: 140 });
 
   useEffect(() => {
     const updateDimensions = () => {
       const scale = VIEW_UNIT_SCALE[viewMode];
       const unitHeight = Math.round(window.innerHeight * scale);
-      const unitWidth = Math.round(unitHeight * 1.43); // ~10:7 aspect ratio for unit cards
+      const unitWidth = Math.round(unitHeight * 0.714); // 1000:1400 aspect ratio (portrait)
       setDimensions({ unitWidth, unitHeight });
     };
 
@@ -59,11 +60,11 @@ function getUnitLayout(
 ) {
   const offsetFromSelected = index - selectedIndex;
 
-  // Scale spacing relative to unit width
-  const scaleFactor = unitWidth / 200;
+  // Scale spacing relative to unit width (base 100 for portrait cards)
+  const scaleFactor = unitWidth / 100;
 
   // Base spread between cards - tighter than hand cards
-  const baseSpread = 120 * scaleFactor;
+  const baseSpread = 80 * scaleFactor;
 
   // Cards further from selection get pushed further apart (exponential feel)
   const spreadX = offsetFromSelected * baseSpread;
@@ -263,7 +264,7 @@ export function FloatingUnitCarousel({
   ].filter(Boolean).join(" ");
 
   // Calculate container width for centering
-  const baseSpread = 120 * (unitWidth / 200);
+  const baseSpread = 80 * (unitWidth / 100);
   const carouselWidth = Math.max(unitWidth, (units.length - 1) * baseSpread + unitWidth) + 200;
 
   return (
