@@ -1864,3 +1864,182 @@ body {
   display: flex;
   gap: 0.25rem;
 }
+
+/* ============================================
+   Debug Panel - Ambient Music Section
+   ============================================ */
+
+.debug-panel__ambient-controls {
+  gap: 0.5rem;
+}
+
+.debug-panel__playing {
+  background: #27ae60 !important;
+}
+
+.debug-panel__current-track {
+  font-size: 0.75rem;
+  color: #27ae60;
+  font-style: italic;
+}
+
+.debug-panel__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: #ccc;
+  cursor: pointer;
+}
+
+.debug-panel__checkbox-label input {
+  cursor: pointer;
+}
+
+.debug-panel__ambient-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.25rem;
+}
+
+.debug-panel__ambient-preview-btn {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.7rem;
+  text-align: left;
+  background: #34495e;
+  border: none;
+  border-radius: 3px;
+  color: #ddd;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.debug-panel__ambient-preview-btn:hover {
+  background: #4a6278;
+}
+
+.debug-panel__ambient-preview-btn--playing {
+  background: #27ae60;
+  color: #fff;
+}
+
+.debug-panel__ambient-preview-btn--playing:hover {
+  background: #2ecc71;
+}
+
+.debug-panel__ambient-preview-btn--disliked {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.debug-panel__ambient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.debug-panel__ambient-track {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.debug-panel__ambient-track .debug-panel__ambient-preview-btn {
+  flex: 1;
+}
+
+.debug-panel__rating-btns {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.debug-panel__rating-btn {
+  padding: 0.2rem 0.35rem;
+  font-size: 0.65rem;
+  background: #2c3e50;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.debug-panel__rating-btn:hover {
+  opacity: 0.8;
+}
+
+.debug-panel__rating-btn--active-up {
+  opacity: 1;
+  background: #27ae60;
+}
+
+.debug-panel__rating-btn--active-down {
+  opacity: 1;
+  background: #c0392b;
+}
+
+.debug-panel__clear-ratings-btn {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.6rem;
+  background: #7f8c8d;
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.debug-panel__clear-ratings-btn:hover {
+  background: #95a5a6;
+}
+
+.debug-panel__subsection h5 {
+  display: flex;
+  align-items: center;
+}
+
+/* Layer sections for two-layer audio */
+.debug-panel__layer-section {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.debug-panel__layer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.3rem;
+}
+
+.debug-panel__layer-header h5 {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #fff;
+}
+
+.debug-panel__layer-controls {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.debug-panel__layer-controls button {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+/* Track category grouping in preview list */
+.debug-panel__track-category {
+  margin-bottom: 0.5rem;
+}
+
+.debug-panel__track-category-label {
+  font-size: 0.65rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+  padding-left: 0.25rem;
+  border-left: 2px solid #444;
+}

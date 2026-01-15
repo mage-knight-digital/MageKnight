@@ -257,7 +257,7 @@
   top: 0;
   width: 100vw;
   height: 100%;
-  pointer-events: auto;
+  pointer-events: none; /* Allow clicks to pass through to hex grid */
 }
 
 /* Tactics pane on the left */

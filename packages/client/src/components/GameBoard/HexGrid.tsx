@@ -924,6 +924,8 @@ export function HexGrid() {
   const maxY = Math.max(...allPositions.map((p) => p.y)) + HEX_SIZE * 2;
 
   const handleHexClick = (coord: HexCoord) => {
+    console.log("[HexClick] Clicked:", coord, "isAnimating:", isAnimating, "validMoveTargets:", validMoveTargets.length, "reachableHexes:", reachableHexes.length);
+
     // Don't allow clicks while animating
     if (isAnimating) return;
 
