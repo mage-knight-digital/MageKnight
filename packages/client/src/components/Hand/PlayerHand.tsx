@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { FloatingHand, type CardClickInfo } from "./FloatingHand";
+import { FloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./FloatingHand";
+import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
 import { CardActionMenu } from "../CardActionMenu";
 import { RadialMenu, type RadialMenuItem } from "../RadialMenu";
 import {
@@ -150,14 +151,24 @@ type MenuState =
 type HandView = "board" | "ready" | "focus";
 const HAND_VIEWS: HandView[] = ["board", "ready", "focus"];
 
+// Carousel axis: cards vs units
+type CarouselPane = "cards" | "units";
+const CAROUSEL_PANES: CarouselPane[] = ["cards", "units"];
+
 export function PlayerHand() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
   const [handView, setHandView] = useState<HandView>("ready");
+  const [carouselPane, setCarouselPane] = useState<CarouselPane>("cards");
+  const [selectedUnitIndex, setSelectedUnitIndex] = useState(0);
 
-  // Keyboard controls for hand visibility (Inscryption style)
-  // S = look down (toward hand), W = look up (toward board)
+  // Get unit count for A/D navigation bounds
+  const unitCount = player?.units.length ?? 0;
+
+  // Keyboard controls:
+  // W/S = vertical view modes (board/ready/focus)
+  // A/D = horizontal carousel (cards/units) OR cycle through units when in units pane
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input
@@ -165,24 +176,48 @@ export function PlayerHand() {
         return;
       }
 
-      if (e.key === "s" || e.key === "S") {
+      const key = e.key.toLowerCase();
+
+      if (key === "s") {
         // Move toward hand (board -> ready -> focus)
         setHandView(current => {
           const idx = HAND_VIEWS.indexOf(current);
           return HAND_VIEWS[Math.min(idx + 1, HAND_VIEWS.length - 1)] ?? current;
         });
-      } else if (e.key === "w" || e.key === "W") {
+      } else if (key === "w") {
         // Move toward board (focus -> ready -> board)
         setHandView(current => {
           const idx = HAND_VIEWS.indexOf(current);
           return HAND_VIEWS[Math.max(idx - 1, 0)] ?? current;
         });
+      } else if (key === "a") {
+        // A key behavior depends on current pane
+        if (carouselPane === "units" && unitCount > 1) {
+          // In units pane: cycle left through units
+          setSelectedUnitIndex(current =>
+            current > 0 ? current - 1 : unitCount - 1
+          );
+        } else {
+          // Switch to cards pane (or stay if already there)
+          setCarouselPane("cards");
+        }
+      } else if (key === "d") {
+        // D key behavior depends on current pane
+        if (carouselPane === "units" && unitCount > 1) {
+          // In units pane: cycle right through units
+          setSelectedUnitIndex(current =>
+            current < unitCount - 1 ? current + 1 : 0
+          );
+        } else if (carouselPane === "cards") {
+          // Switch to units pane
+          setCarouselPane("units");
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [carouselPane, unitCount]);
 
   // Get playable cards from validActions - memoized to avoid hook dependency issues
   const playableCardMap = useMemo(() => {
@@ -393,16 +428,50 @@ export function PlayerHand() {
         );
       })()}
 
-      {/* Floating card hand - renders at fixed position at bottom of screen */}
-      {/* Controlled by keyboard: S/W to cycle views (Inscryption style) */}
-      <FloatingHand
-        hand={handArray}
-        playableCards={playableCardMap}
-        selectedIndex={selectedIndex}
-        onCardClick={handleCardClick}
+      {/* Carousel track - slides horizontally between cards and units */}
+      {/* Both panes are always rendered, positioned side by side */}
+      <div className={`carousel-track carousel-track--${carouselPane}`}>
+        {/* Cards pane (left position) */}
+        <div className="carousel-track__pane carousel-track__pane--cards">
+          <FloatingHand
+            hand={handArray}
+            playableCards={playableCardMap}
+            selectedIndex={selectedIndex}
+            onCardClick={handleCardClick}
+            deckCount={player.deckCount}
+            discardCount={player.discardCount}
+            viewMode={handView}
+          />
+        </div>
+
+        {/* Units pane (right position) */}
+        <div className="carousel-track__pane carousel-track__pane--units">
+          <FloatingUnitCarousel
+            units={player.units}
+            selectedIndex={selectedUnitIndex}
+            onSelectUnit={setSelectedUnitIndex}
+            viewMode={handView}
+            commandTokens={player.commandTokens}
+          />
+        </div>
+      </div>
+
+      {/* Carousel pane indicator */}
+      <div className="carousel-pane-indicator">
+        <span className={`carousel-pane-indicator__item ${carouselPane === "cards" ? "carousel-pane-indicator__item--active" : ""}`}>
+          Cards
+        </span>
+        <span className="carousel-pane-indicator__divider">|</span>
+        <span className={`carousel-pane-indicator__item ${carouselPane === "units" ? "carousel-pane-indicator__item--active" : ""}`}>
+          Units
+        </span>
+      </div>
+
+      {/* Deck/Discard - fixed position outside carousel */}
+      <DeckDiscardIndicator
         deckCount={player.deckCount}
         discardCount={player.discardCount}
-        viewMode={handView}
+        isHidden={handView === "focus"}
       />
     </>
   );

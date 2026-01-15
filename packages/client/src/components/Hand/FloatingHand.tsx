@@ -374,30 +374,8 @@ export function FloatingHand({
     `floating-hand--${viewMode}`,
   ].filter(Boolean).join(" ");
 
-  // Deck/discard indicator class - hidden in board mode (when hand is hidden)
-  const deckDiscardClassName = [
-    "floating-hand__deck-discard",
-    viewMode === "board" && "floating-hand__deck-discard--hidden",
-  ].filter(Boolean).join(" ");
-
   return (
     <>
-      {/* Deck and Discard - fixed position in bottom right, independent of hand */}
-      <div className={deckDiscardClassName}>
-        <div className="floating-hand__deck" title={`${deckCount} cards in deck`}>
-          <img
-            src="/assets/cards/card_back.jpg"
-            alt="Deck"
-            className="floating-hand__deck-image"
-          />
-          <span className="floating-hand__deck-count">{deckCount}</span>
-        </div>
-        <div className="floating-hand__discard" title={`${discardCount} cards in discard`}>
-          <div className="floating-hand__discard-pile" />
-          <span className="floating-hand__discard-count">{discardCount}</span>
-        </div>
-      </div>
-
       {/* Card hand - moves with view mode */}
       <div
         className={handClassName}
@@ -436,5 +414,36 @@ export function FloatingHand({
         </div>
       </div>
     </>
+  );
+}
+
+// Separate component for deck/discard that stays fixed outside the carousel
+interface DeckDiscardIndicatorProps {
+  deckCount: number;
+  discardCount: number;
+  isHidden: boolean;
+}
+
+export function DeckDiscardIndicator({ deckCount, discardCount, isHidden }: DeckDiscardIndicatorProps) {
+  const className = [
+    "floating-hand__deck-discard",
+    isHidden && "floating-hand__deck-discard--hidden",
+  ].filter(Boolean).join(" ");
+
+  return (
+    <div className={className}>
+      <div className="floating-hand__deck" title={`${deckCount} cards in deck`}>
+        <img
+          src="/assets/cards/card_back.jpg"
+          alt="Deck"
+          className="floating-hand__deck-image"
+        />
+        <span className="floating-hand__deck-count">{deckCount}</span>
+      </div>
+      <div className="floating-hand__discard" title={`${discardCount} cards in discard`}>
+        <div className="floating-hand__discard-pile" />
+        <span className="floating-hand__discard-count">{discardCount}</span>
+      </div>
+    </div>
   );
 }

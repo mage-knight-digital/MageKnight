@@ -113,11 +113,41 @@
   flex: 1;
 }
 
-/* Grid layout for cards */
+/* Grid layout for cards - uses CSS custom property for responsive unit card sizing */
 .offers-bar__grid {
+  --unit-card-height: 140px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 0.75rem;
+}
+
+/* Responsive grid and card sizing based on viewport */
+@media (min-width: 1400px) {
+  .offers-bar__grid {
+    --unit-card-height: 160px;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  }
+}
+
+@media (min-width: 1800px) {
+  .offers-bar__grid {
+    --unit-card-height: 180px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+}
+
+@media (min-width: 2200px) {
+  .offers-bar__grid {
+    --unit-card-height: 200px;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  }
+}
+
+@media (min-width: 2600px) {
+  .offers-bar__grid {
+    --unit-card-height: 220px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
 }
 
 .offers-bar__empty {
@@ -139,17 +169,28 @@
 
 /* Unit cards in flyout */
 .offers-bar__unit-card {
+  position: relative;
   background: #0f0f23;
-  border: 2px solid #333;
+  border: 2px solid #7f8c8d;
   border-radius: 6px;
-  padding: 0.75rem;
+  overflow: hidden;
 }
 
-.offers-bar__unit-header {
+.offers-bar__unit-card--elite {
+  border-color: #f39c12;
+}
+
+.offers-bar__unit-image {
+  display: block;
+  border-radius: 4px;
+}
+
+.offers-bar__unit-fallback {
+  padding: 0.75rem;
+  min-height: 100px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .offers-bar__unit-name {
@@ -159,41 +200,49 @@
 }
 
 .offers-bar__unit-cost {
-  background: #3498db;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(52, 152, 219, 0.9);
   color: #fff;
-  padding: 0.125rem 0.375rem;
+  padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
+  z-index: 1;
 }
 
 .offers-bar__unit-stats {
   font-size: 0.75rem;
   color: #888;
-  margin-bottom: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .offers-bar__recruit-btn {
-  width: 100%;
-  padding: 0.375rem;
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  padding: 4px 8px;
   border: none;
   border-radius: 4px;
-  background: #27ae60;
+  background: rgba(39, 174, 96, 0.9);
   color: #fff;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
+  z-index: 1;
 }
 
 .offers-bar__recruit-btn:hover:not(:disabled) {
-  background: #2ecc71;
+  background: rgba(46, 204, 113, 0.95);
 }
 
 .offers-bar__recruit-btn--disabled,
 .offers-bar__recruit-btn:disabled {
-  background: #555;
-  color: #888;
+  background: rgba(85, 85, 85, 0.9);
+  color: #aaa;
   cursor: not-allowed;
 }
 

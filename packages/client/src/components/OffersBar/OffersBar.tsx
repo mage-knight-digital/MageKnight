@@ -5,11 +5,13 @@
  * Each tab expands a flyout panel with the offer contents.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { getUnitSpriteStyle, isAtlasLoaded } from "../../utils/cardAtlas";
 import {
   UNITS,
+  UNIT_TYPE_ELITE,
   RECRUIT_UNIT_ACTION,
   CARD_PLAYED,
   COMBAT_STARTED,
@@ -27,6 +29,36 @@ import {
   type GameEvent,
 } from "@mage-knight/shared";
 import "./OffersBar.css";
+
+const DEFAULT_UNIT_CARD_HEIGHT = 140;
+
+/**
+ * Hook to get responsive unit card height from CSS custom property
+ */
+function useUnitCardHeight(gridRef: React.RefObject<HTMLDivElement | null>): number {
+  const [height, setHeight] = useState(DEFAULT_UNIT_CARD_HEIGHT);
+
+  const updateHeight = useCallback(() => {
+    if (gridRef.current) {
+      const computed = getComputedStyle(gridRef.current);
+      const cssHeight = computed.getPropertyValue("--unit-card-height");
+      if (cssHeight) {
+        const parsed = parseInt(cssHeight, 10);
+        if (!isNaN(parsed) && parsed !== height) {
+          setHeight(parsed);
+        }
+      }
+    }
+  }, [gridRef, height]);
+
+  useEffect(() => {
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, [updateHeight]);
+
+  return height;
+}
 
 type TabId = "units" | "spells" | "advancedActions" | "level" | "events";
 
@@ -97,6 +129,8 @@ export function OffersBar() {
 
 function UnitOfferContent() {
   const { state, sendAction } = useGame();
+  const gridRef = useRef<HTMLDivElement>(null);
+  const cardHeight = useUnitCardHeight(gridRef);
 
   if (!state) return <div className="offers-bar__empty">Loading...</div>;
 
@@ -113,7 +147,7 @@ function UnitOfferContent() {
   };
 
   return (
-    <div className="offers-bar__grid">
+    <div className="offers-bar__grid" ref={gridRef}>
       {unitOffer.length === 0 ? (
         <div className="offers-bar__empty">No units available</div>
       ) : (
@@ -121,19 +155,28 @@ function UnitOfferContent() {
           const unit = UNITS[unitId];
           const recruitInfo = recruitableMap.get(unitId);
           const canRecruit = recruitInfo?.canAfford ?? false;
+          const spriteStyle = isAtlasLoaded() ? getUnitSpriteStyle(unitId, cardHeight) : null;
+          const isElite = unit?.type === UNIT_TYPE_ELITE;
 
           if (!unit) return null;
 
           return (
-            <div key={`${unitId}-${index}`} className="offers-bar__unit-card">
-              <div className="offers-bar__unit-header">
-                <span className="offers-bar__unit-name">{unit.name}</span>
-                <span className="offers-bar__unit-cost">
-                  {recruitInfo ? recruitInfo.cost : unit.influence}
-                </span>
-              </div>
-              <div className="offers-bar__unit-stats">
-                Lvl {unit.level} | Armor {unit.armor}
+            <div
+              key={`${unitId}-${index}`}
+              className={`offers-bar__unit-card ${isElite ? "offers-bar__unit-card--elite" : ""}`}
+            >
+              {spriteStyle ? (
+                <div className="offers-bar__unit-image" style={spriteStyle} />
+              ) : (
+                <div className="offers-bar__unit-fallback">
+                  <div className="offers-bar__unit-name">{unit.name}</div>
+                  <div className="offers-bar__unit-stats">
+                    Lvl {unit.level} | Armor {unit.armor}
+                  </div>
+                </div>
+              )}
+              <div className="offers-bar__unit-cost">
+                {recruitInfo ? recruitInfo.cost : unit.influence}
               </div>
               {recruitInfo && (
                 <button

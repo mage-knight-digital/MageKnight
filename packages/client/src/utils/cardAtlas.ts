@@ -1,4 +1,4 @@
-import type { CardId } from "@mage-knight/shared";
+import type { CardId, UnitId } from "@mage-knight/shared";
 
 // Atlas data - matches public/assets/atlas.json
 interface SheetInfo {
@@ -18,6 +18,12 @@ interface CardPosition {
   color: string;
 }
 
+interface UnitPosition {
+  sheet: string;
+  col: number;
+  row: number;
+}
+
 interface AtlasData {
   sheets: Record<string, SheetInfo>;
   cards: {
@@ -26,6 +32,10 @@ interface AtlasData {
     spells: Record<string, CardPosition>;
     artifacts: Record<string, CardPosition>;
     wound: Record<string, CardPosition>;
+  };
+  units: {
+    elite: Record<string, UnitPosition>;
+    regular: Record<string, UnitPosition>;
   };
 }
 
@@ -43,6 +53,7 @@ export type CardCategory = "basic_actions" | "advanced_actions" | "spells" | "ar
 // Using Maps for fast, consistent O(1) lookup during renders
 const spriteStyleCache = new Map<string, CardSpriteStyle>();
 const cardColorCache = new Map<string, string>();
+const unitSpriteStyleCache = new Map<string, CardSpriteStyle>();
 
 // Track if atlas has been loaded and processed
 let atlasLoaded = false;
@@ -139,6 +150,41 @@ function precomputeAllStyles(atlasData: AtlasData, displayHeight: number): void 
   // via stripHeroPrefix() - no need to precompute all combinations
 }
 
+// Default display height for units (shorter than deed cards)
+const UNIT_DEFAULT_HEIGHT = 140;
+
+/**
+ * Precompute all unit sprite styles.
+ * Units have a different structure in atlas.json (nested by type with sheet reference).
+ */
+function precomputeUnitStyles(atlasData: AtlasData, displayHeight: number): void {
+  const unitTypes = ["elite", "regular"] as const;
+
+  for (const unitType of unitTypes) {
+    const units = atlasData.units[unitType];
+    if (!units) continue;
+
+    for (const [unitId, position] of Object.entries(units)) {
+      // Skip description entries
+      if (unitId.startsWith("_")) continue;
+      if (!position || typeof position !== "object" || !("sheet" in position)) continue;
+
+      const sheet = atlasData.sheets[position.sheet];
+      if (!sheet) continue;
+
+      // Create a CardPosition-compatible object for computeSpriteStyle
+      const cardPosition: CardPosition = {
+        col: position.col,
+        row: position.row,
+        color: unitType === "elite" ? "gold" : "silver",
+      };
+
+      const style = computeSpriteStyle(sheet, cardPosition, displayHeight);
+      unitSpriteStyleCache.set(unitId, style);
+    }
+  }
+}
+
 /**
  * Load the atlas and precompute all sprite styles.
  * This is the only function that accesses the raw JSON data.
@@ -152,6 +198,9 @@ export async function loadAtlas(): Promise<void> {
   // Precompute all styles at the default display height used by FloatingHand
   // Additional heights can be computed on-demand if needed
   precomputeAllStyles(atlasData, 180);
+
+  // Precompute unit styles at their default height
+  precomputeUnitStyles(atlasData, UNIT_DEFAULT_HEIGHT);
 
   // Mark as loaded - we no longer need the raw atlas data
   atlasLoaded = true;
@@ -243,4 +292,35 @@ export function getCardColor(cardId: CardId): string | null {
   if (color) return color;
 
   return null;
+}
+
+/**
+ * Get CSS styles to display a unit from the sprite sheet.
+ * Returns precomputed styles from cache - O(1) Map lookup.
+ *
+ * Note: For "heroes" unit, the atlas has heroes_1, heroes_2, heroes_3, heroes_4.
+ * Pass the specific variant ID (e.g., "heroes_1") or just "heroes" for the first variant.
+ */
+export function getUnitSpriteStyle(unitId: UnitId, displayHeight: number = UNIT_DEFAULT_HEIGHT): CardSpriteStyle | null {
+  if (!atlasLoaded) return null;
+
+  const id = unitId as string;
+
+  // Try exact match first
+  let style = unitSpriteStyleCache.get(id);
+
+  // For "heroes" unit type, try heroes_1 as fallback
+  if (!style && id === "heroes") {
+    style = unitSpriteStyleCache.get("heroes_1");
+  }
+
+  if (!style) return null;
+
+  // If requested height matches cached height, return directly
+  if (displayHeight === UNIT_DEFAULT_HEIGHT) {
+    return style;
+  }
+
+  // Otherwise scale the cached style to the requested height
+  return scaleStyle(style, UNIT_DEFAULT_HEIGHT, displayHeight);
 }

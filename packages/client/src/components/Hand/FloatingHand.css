@@ -215,3 +215,101 @@
 .floating-card--dealing {
   animation: floating-card-deal 0.4s cubic-bezier(0.23, 1, 0.32, 1) backwards;
 }
+
+/* ===== CAROUSEL TRACK ===== */
+/* Horizontal sliding track containing cards and units panes */
+
+.carousel-track {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  /* Track is 200vw wide (two viewport widths side by side) */
+  width: 200vw;
+  height: 100vh;
+  pointer-events: none;
+  /* Smooth sliding transition with slight overshoot for juicy feel */
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 50;
+}
+
+/* Cards pane visible (track at default position) */
+.carousel-track--cards {
+  transform: translateX(0);
+}
+
+/* Units pane visible (track slid left by one viewport width) */
+.carousel-track--units {
+  transform: translateX(-100vw);
+}
+
+/* Each pane takes up one viewport width */
+.carousel-track__pane {
+  position: absolute;
+  top: 0;
+  width: 100vw;
+  height: 100%;
+  pointer-events: auto;
+}
+
+/* Cards pane on the left */
+.carousel-track__pane--cards {
+  left: 0;
+}
+
+/* Units pane on the right */
+.carousel-track__pane--units {
+  left: 100vw;
+}
+
+/* Override the fixed positioning of children - they're now relative to the pane */
+.carousel-track__pane .floating-hand,
+.carousel-track__pane .floating-unit-carousel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+/* ===== CAROUSEL PANE INDICATOR ===== */
+/* Shows which pane is active: Cards or Units */
+
+.carousel-pane-indicator {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 200;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.carousel-pane-indicator__item {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.carousel-pane-indicator__item:hover {
+  color: #999;
+}
+
+.carousel-pane-indicator__item--active {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.carousel-pane-indicator__divider {
+  color: #444;
+  font-size: 0.75rem;
+}
