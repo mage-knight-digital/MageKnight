@@ -374,58 +374,67 @@ export function FloatingHand({
     `floating-hand--${viewMode}`,
   ].filter(Boolean).join(" ");
 
+  // Deck/discard indicator class - hidden in board mode (when hand is hidden)
+  const deckDiscardClassName = [
+    "floating-hand__deck-discard",
+    viewMode === "board" && "floating-hand__deck-discard--hidden",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div
-      className={handClassName}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Deck indicator - left side */}
-      <div className="floating-hand__deck" title={`${deckCount} cards in deck`}>
-        <img
-          src="/assets/cards/card_back.jpg"
-          alt="Deck"
-          className="floating-hand__deck-image"
-        />
-        <span className="floating-hand__deck-count">{deckCount}</span>
+    <>
+      {/* Deck and Discard - fixed position in bottom right, independent of hand */}
+      <div className={deckDiscardClassName}>
+        <div className="floating-hand__deck" title={`${deckCount} cards in deck`}>
+          <img
+            src="/assets/cards/card_back.jpg"
+            alt="Deck"
+            className="floating-hand__deck-image"
+          />
+          <span className="floating-hand__deck-count">{deckCount}</span>
+        </div>
+        <div className="floating-hand__discard" title={`${discardCount} cards in discard`}>
+          <div className="floating-hand__discard-pile" />
+          <span className="floating-hand__discard-count">{discardCount}</span>
+        </div>
       </div>
 
-      <div className="floating-hand__cards" ref={cardsRef} style={{ width: cardsWidth }}>
-        {visibleHand.map((cardId, visibleIndex) => {
-          const originalIndex = getOriginalIndex(visibleIndex);
-          const isPlayable = playableCards.has(cardId);
-          // Check if this card is newly dealt (by original index in hand)
-          const isNew = newCardIndices.has(originalIndex);
-          // Calculate staggered delay based on position among new cards
-          const newIndicesArray = Array.from(newCardIndices).sort((a, b) => a - b);
-          const newCardPosition = newIndicesArray.indexOf(originalIndex);
-          const dealDelay = isNew ? 0.08 + newCardPosition * 0.18 : 0;
-          return (
-            <FloatingCard
-              key={`${cardId}-${originalIndex}`}
-              cardId={cardId}
-              index={visibleIndex}
-              originalIndex={originalIndex}
-              totalCards={visibleHand.length}
-              isSelected={false}
-              isPlayable={isPlayable}
-              isHovered={hoveredIndex === visibleIndex}
-              isCollapsed={false}
-              isNew={isNew}
-              dealDelay={dealDelay}
-              cardWidth={cardWidth}
-              cardHeight={cardHeight}
-              onCardClick={onCardClick}
-            />
-          );
-        })}
+      {/* Card hand - moves with view mode */}
+      <div
+        className={handClassName}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div className="floating-hand__cards" ref={cardsRef} style={{ width: cardsWidth }}>
+          {visibleHand.map((cardId, visibleIndex) => {
+            const originalIndex = getOriginalIndex(visibleIndex);
+            const isPlayable = playableCards.has(cardId);
+            // Check if this card is newly dealt (by original index in hand)
+            const isNew = newCardIndices.has(originalIndex);
+            // Calculate staggered delay based on position among new cards
+            const newIndicesArray = Array.from(newCardIndices).sort((a, b) => a - b);
+            const newCardPosition = newIndicesArray.indexOf(originalIndex);
+            const dealDelay = isNew ? 0.08 + newCardPosition * 0.18 : 0;
+            return (
+              <FloatingCard
+                key={`${cardId}-${originalIndex}`}
+                cardId={cardId}
+                index={visibleIndex}
+                originalIndex={originalIndex}
+                totalCards={visibleHand.length}
+                isSelected={false}
+                isPlayable={isPlayable}
+                isHovered={hoveredIndex === visibleIndex}
+                isCollapsed={false}
+                isNew={isNew}
+                dealDelay={dealDelay}
+                cardWidth={cardWidth}
+                cardHeight={cardHeight}
+                onCardClick={onCardClick}
+              />
+            );
+          })}
+        </div>
       </div>
-
-      {/* Discard indicator - right side */}
-      <div className="floating-hand__discard" title={`${discardCount} cards in discard`}>
-        <div className="floating-hand__discard-pile" />
-        <span className="floating-hand__discard-count">{discardCount}</span>
-      </div>
-    </div>
+    </>
   );
 }

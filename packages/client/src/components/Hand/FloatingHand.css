@@ -1,8 +1,8 @@
 /* Responsive card sizing - scales with viewport height */
 :root {
-  /* Deck/discard sizing - fixed size independent of card size */
-  --hand-deck-width: 50px;
-  --hand-deck-height: 70px;
+  /* Deck/discard sizing - scales with viewport, roughly 15% of viewport height */
+  --hand-deck-height: clamp(100px, 15vh, 220px);
+  --hand-deck-width: calc(var(--hand-deck-height) * 0.714); /* Card aspect ratio */
 
   /* Spacing */
   --hand-margin: clamp(1rem, 2vw, 2rem);
@@ -133,26 +133,32 @@
   text-align: center;
 }
 
-/* Deck and discard - flanking the hand */
+/* Deck and discard container - fixed position bottom right */
+.floating-hand__deck-discard {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  z-index: 60;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Hide deck/discard in focus mode */
+.floating-hand__deck-discard--hidden {
+  opacity: 0;
+  transform: translateY(100%);
+  pointer-events: none;
+}
+
+/* Deck and discard indicators */
 .floating-hand__deck,
 .floating-hand__discard {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
-  margin-bottom: 10px; /* Align with cards padding-bottom */
-  flex-shrink: 0;
-  /* Ensure deck/discard stay above cards */
-  position: relative;
-  z-index: 200;
-}
-
-.floating-hand__deck {
-  margin-right: var(--hand-margin);
-}
-
-.floating-hand__discard {
-  margin-left: var(--hand-margin);
 }
 
 .floating-hand__deck-image {
