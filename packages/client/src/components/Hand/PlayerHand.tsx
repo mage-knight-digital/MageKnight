@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { FloatingHand } from "./FloatingHand";
-import { ExpandedCard } from "./ExpandedCard";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { FloatingHand, type CardClickInfo } from "./FloatingHand";
+import { CardActionMenu } from "../CardActionMenu";
 import { RadialMenu, type RadialMenuItem } from "../RadialMenu";
 import {
   PLAY_CARD_ACTION,
@@ -140,35 +140,79 @@ function manaSourceToRadialItem(source: ManaSourceInfo, index: number): RadialMe
 // Menu state types
 type MenuState =
   | { type: "none" }
-  | { type: "play-mode"; cardIndex: number }
-  | { type: "mana-select"; cardIndex: number; requiredColor: ManaColor; sources: ManaSourceInfo[] }
-  | { type: "spell-mana-select"; cardIndex: number; step: "black" | "color"; spellColor: ManaColor; blackSource?: ManaSourceInfo };
+  | { type: "card-action"; cardIndex: number; sourceRect: DOMRect }
+  | { type: "spell-mana-select"; cardIndex: number; step: "black" | "color"; spellColor: ManaColor; blackSource?: ManaSourceInfo; sourceRect: DOMRect };
+
+// Hand view modes (Inscryption style)
+// board: cards completely hidden, full board view
+// ready: cards peeking ~33%, ready to play
+// focus: cards large ~80%, studying hand
+type HandView = "board" | "ready" | "focus";
+const HAND_VIEWS: HandView[] = ["board", "ready", "focus"];
 
 export function PlayerHand() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
+  const [handView, setHandView] = useState<HandView>("ready");
 
-  if (!player || !Array.isArray(player.hand) || !state) {
-    return null;
-  }
+  // Keyboard controls for hand visibility (Inscryption style)
+  // S = look down (toward hand), W = look up (toward board)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
 
-  // Get playable cards from validActions
-  const playableCards = state.validActions.playCard?.cards ?? [];
-  const playableCardMap = new Map(playableCards.map(c => [c.cardId, c]));
+      if (e.key === "s" || e.key === "S") {
+        // Move toward hand (board -> ready -> focus)
+        setHandView(current => {
+          const idx = HAND_VIEWS.indexOf(current);
+          return HAND_VIEWS[Math.min(idx + 1, HAND_VIEWS.length - 1)] ?? current;
+        });
+      } else if (e.key === "w" || e.key === "W") {
+        // Move toward board (focus -> ready -> board)
+        setHandView(current => {
+          const idx = HAND_VIEWS.indexOf(current);
+          return HAND_VIEWS[Math.max(idx - 1, 0)] ?? current;
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Get playable cards from validActions - memoized to avoid hook dependency issues
+  const playableCardMap = useMemo(() => {
+    if (!state) return new Map();
+    const playableCards = state.validActions.playCard?.cards ?? [];
+    return new Map(playableCards.map(c => [c.cardId, c]));
+  }, [state]);
 
   // Check if we're in combat
-  const isInCombat = state.combat !== null;
+  const isInCombat = state?.combat !== null;
 
-  // Cast hand to array since we've already checked it's an array above
-  const handArray = player.hand as readonly CardId[];
+  // Cast hand to array - memoized for stable reference
+  const handArray = useMemo(
+    () => (player?.hand ?? []) as readonly CardId[],
+    [player?.hand]
+  );
 
   // Get selected card info from menu state
   const selectedIndex = menuState.type !== "none" ? menuState.cardIndex : null;
   const selectedCard = selectedIndex !== null ? handArray[selectedIndex] : null;
   const selectedPlayability = selectedCard ? playableCardMap.get(selectedCard) ?? null : null;
 
-  const handleCardClick = (index: number) => {
+  // Get available mana sources for the selected card
+  const manaSources = useMemo(() => {
+    if (!selectedPlayability?.requiredMana || !state || !player) return [];
+    return getAvailableManaSources(state, player, selectedPlayability.requiredMana);
+  }, [selectedPlayability?.requiredMana, state, player]);
+
+  const handleCardClick = useCallback((info: CardClickInfo) => {
+    const { index, rect } = info;
     const cardId = handArray[index];
     if (!cardId) return;
 
@@ -183,98 +227,53 @@ export function PlayerHand() {
       // Clicking same card again deselects
       setMenuState({ type: "none" });
     } else {
-      // Show play mode menu for this card
-      setMenuState({ type: "play-mode", cardIndex: index });
+      // Show card action menu
+      setMenuState({ type: "card-action", cardIndex: index, sourceRect: rect });
     }
-  };
+  }, [handArray, playableCardMap, menuState]);
 
-  const handlePlay = (mode: "basic" | "powered" | { sideways: SidewaysAs }) => {
-    if (selectedCard === null || selectedCard === undefined || selectedIndex === null) return;
+  // Handlers for CardActionMenu
+  const handlePlayBasic = useCallback(() => {
+    if (!selectedCard) return;
+    sendAction({
+      type: PLAY_CARD_ACTION,
+      cardId: selectedCard,
+      powered: false,
+    });
+    setMenuState({ type: "none" });
+  }, [selectedCard, sendAction]);
 
-    if (typeof mode === "object" && "sideways" in mode) {
-      // Sideways play - no mana needed
-      sendAction({
-        type: PLAY_CARD_SIDEWAYS_ACTION,
-        cardId: selectedCard,
-        as: mode.sideways,
-      });
-      setMenuState({ type: "none" });
-    } else if (mode === "powered") {
-      // Powered play - need to select mana source(s)
-      const playability = playableCardMap.get(selectedCard);
-      const requiredMana = playability?.requiredMana;
-
-      if (requiredMana) {
-        // Check if this is a spell (requires black + color mana)
-        if (playability?.isSpell) {
-          // Spells need two mana sources: black first, then the spell's color
-          const blackSources = getAvailableManaSources(state, player, MANA_BLACK);
-
-          if (blackSources.length === 0) {
-            console.error("No black mana source found for spell");
-            return;
-          }
-
-          // Start two-step spell mana selection (black first)
-          setMenuState({
-            type: "spell-mana-select",
-            cardIndex: selectedIndex,
-            step: "black",
-            spellColor: requiredMana,
-          });
-        } else {
-          // Regular action card - single mana source
-          const sources = getAvailableManaSources(state, player, requiredMana);
-
-          if (sources.length === 0) {
-            // This shouldn't happen - UI shouldn't show powered option if no mana available
-            console.error("No mana source found for powered card");
-            return;
-          }
-
-          if (sources.length === 1) {
-            // Only one option - auto-select it
-            sendAction({
-              type: PLAY_CARD_ACTION,
-              cardId: selectedCard,
-              powered: true,
-              manaSource: sources[0],
-            });
-            setMenuState({ type: "none" });
-          } else {
-            // Multiple options - show mana source selection menu
-            setMenuState({
-              type: "mana-select",
-              cardIndex: selectedIndex,
-              requiredColor: requiredMana,
-              sources,
-            });
-          }
-        }
-      }
-    } else {
-      // Basic play - no mana source needed
-      sendAction({
-        type: PLAY_CARD_ACTION,
-        cardId: selectedCard,
-        powered: false,
-      });
-      setMenuState({ type: "none" });
-    }
-  };
-
-  const handleManaSourceSelect = (source: ManaSourceInfo) => {
-    if (selectedCard === null || selectedCard === undefined) return;
-
+  const handlePlayPowered = useCallback((manaSource: ManaSourceInfo) => {
+    if (!selectedCard) return;
     sendAction({
       type: PLAY_CARD_ACTION,
       cardId: selectedCard,
       powered: true,
-      manaSource: source,
+      manaSource,
     });
     setMenuState({ type: "none" });
-  };
+  }, [selectedCard, sendAction]);
 
+  const handlePlaySideways = useCallback((as: SidewaysAs) => {
+    if (!selectedCard) return;
+    sendAction({
+      type: PLAY_CARD_SIDEWAYS_ACTION,
+      cardId: selectedCard,
+      as,
+    });
+    setMenuState({ type: "none" });
+  }, [selectedCard, sendAction]);
+
+  const handleCancel = useCallback(() => {
+    setMenuState({ type: "none" });
+  }, []);
+
+  // Early return after all hooks
+  if (!player || !Array.isArray(player.hand) || !state) {
+    return null;
+  }
+
+  // Spell handling (two-step mana selection) - kept separate for now
   const handleSpellManaSourceSelect = (source: ManaSourceInfo) => {
     if (selectedCard === null || selectedCard === undefined) return;
     if (menuState.type !== "spell-mana-select") return;
@@ -287,6 +286,7 @@ export function PlayerHand() {
         step: "color",
         spellColor: menuState.spellColor,
         blackSource: source,
+        sourceRect: menuState.sourceRect,
       });
     } else {
       // Color mana selected, send the action with both sources
@@ -306,59 +306,66 @@ export function PlayerHand() {
     }
   };
 
-  const handleCancel = () => {
-    setMenuState({ type: "none" });
-  };
-
-  const handleBackToPlayMode = () => {
-    if (menuState.type === "mana-select") {
-      setMenuState({ type: "play-mode", cardIndex: menuState.cardIndex });
-    } else if (menuState.type === "spell-mana-select") {
-      if (menuState.step === "color") {
-        // Go back to black mana selection
-        setMenuState({
-          type: "spell-mana-select",
-          cardIndex: menuState.cardIndex,
-          step: "black",
-          spellColor: menuState.spellColor,
-        });
-      } else {
-        // Go back to play mode menu
-        setMenuState({ type: "play-mode", cardIndex: menuState.cardIndex });
-      }
+  const handleSpellBackToBlack = () => {
+    if (menuState.type !== "spell-mana-select") return;
+    if (menuState.step === "color") {
+      setMenuState({
+        type: "spell-mana-select",
+        cardIndex: menuState.cardIndex,
+        step: "black",
+        spellColor: menuState.spellColor,
+        sourceRect: menuState.sourceRect,
+      });
+    } else {
+      // Go back to card action menu
+      setMenuState({
+        type: "card-action",
+        cardIndex: menuState.cardIndex,
+        sourceRect: menuState.sourceRect,
+      });
     }
   };
 
   return (
     <>
-      {/* Expanded card view for play selection */}
-      {menuState.type === "play-mode" && selectedCard && selectedPlayability && (
-        <ExpandedCard
+      {/* Card Action Menu - for non-spell cards */}
+      {menuState.type === "card-action" && selectedCard && selectedPlayability && !selectedPlayability.isSpell && (
+        <CardActionMenu
           cardId={selectedCard}
           playability={selectedPlayability}
           isInCombat={isInCombat}
-          onPlayBasic={() => handlePlay("basic")}
-          onPlayPowered={() => handlePlay("powered")}
-          onPlaySideways={(as) => handlePlay({ sideways: as })}
+          sourceRect={menuState.sourceRect}
+          manaSources={manaSources}
+          onPlayBasic={handlePlayBasic}
+          onPlayPowered={handlePlayPowered}
+          onPlaySideways={handlePlaySideways}
           onCancel={handleCancel}
         />
       )}
 
-      {/* Mana source selection - radial menu */}
-      {menuState.type === "mana-select" && selectedCard && (
-        <RadialMenu
-          items={menuState.sources.map((source, idx) => manaSourceToRadialItem(source, idx))}
-          onSelect={(id) => {
-            // Find the source by matching the id
-            const idx = menuState.sources.findIndex((s, i) =>
-              manaSourceToRadialItem(s, i).id === id
-            );
-            const source = menuState.sources[idx];
-            if (idx !== -1 && source) {
-              handleManaSourceSelect(source);
+      {/* Spell cards still use the old flow for now (two-step mana selection) */}
+      {menuState.type === "card-action" && selectedCard && selectedPlayability && selectedPlayability.isSpell && (
+        <CardActionMenu
+          cardId={selectedCard}
+          playability={selectedPlayability}
+          isInCombat={isInCombat}
+          sourceRect={menuState.sourceRect}
+          manaSources={[]} // Empty - spell handling is separate
+          onPlayBasic={handlePlayBasic}
+          onPlayPowered={() => {
+            // Transition to spell mana selection
+            if (selectedPlayability.requiredMana && selectedIndex !== null) {
+              setMenuState({
+                type: "spell-mana-select",
+                cardIndex: selectedIndex,
+                step: "black",
+                spellColor: selectedPlayability.requiredMana,
+                sourceRect: menuState.sourceRect,
+              });
             }
           }}
-          onCancel={handleBackToPlayMode}
+          onPlaySideways={handlePlaySideways}
+          onCancel={handleCancel}
         />
       )}
 
@@ -381,22 +388,22 @@ export function PlayerHand() {
                 handleSpellManaSourceSelect(source);
               }
             }}
-            onCancel={handleBackToPlayMode}
+            onCancel={handleSpellBackToBlack}
           />
         );
       })()}
 
-    {/* Floating card hand - renders at fixed position at bottom of screen */}
-    {/* Collapsed when tactic selection is active (player hasn't chosen yet) */}
-    <FloatingHand
-      hand={handArray}
-      playableCards={playableCardMap}
-      selectedIndex={selectedIndex}
-      onCardClick={handleCardClick}
-      deckCount={player.deckCount}
-      discardCount={player.discardCount}
-      collapsed={player.selectedTacticId === null && !!state.validActions.tactics}
-    />
-  </>
+      {/* Floating card hand - renders at fixed position at bottom of screen */}
+      {/* Controlled by keyboard: S/W to cycle views (Inscryption style) */}
+      <FloatingHand
+        hand={handArray}
+        playableCards={playableCardMap}
+        selectedIndex={selectedIndex}
+        onCardClick={handleCardClick}
+        deckCount={player.deckCount}
+        discardCount={player.discardCount}
+        viewMode={handView}
+      />
+    </>
   );
 }

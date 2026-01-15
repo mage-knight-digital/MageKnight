@@ -1,50 +1,45 @@
+/* Responsive card sizing - scales with viewport height */
+:root {
+  /* Deck/discard sizing - fixed size independent of card size */
+  --hand-deck-width: 50px;
+  --hand-deck-height: 70px;
+
+  /* Spacing */
+  --hand-margin: clamp(1rem, 2vw, 2rem);
+}
+
 .floating-hand {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 220px;
   display: flex;
   justify-content: center;
   align-items: flex-end;
   /* Container handles all mouse events for hover detection */
   pointer-events: auto;
   z-index: 50;
-  /* Smooth transition for collapse/expand and drawer effect */
-  transition: height 0.3s ease, transform 0.3s ease, filter 0.3s ease;
+  /* Smooth transition for view mode changes */
+  transition: transform 0.3s ease;
 }
 
-/* Collapsed state - tuck most of the hand off-screen like a drawer */
-.floating-hand--collapsed {
-  height: 220px; /* Keep full height for proper layout */
-  transform: translateY(140px); /* Slide down so only tops of cards peek out */
+/* ===== VIEW MODES ===== */
+
+/* Board view: cards completely hidden off screen */
+.floating-hand--board {
+  transform: translateY(calc(25vh + 50px)); /* Card height + padding, fully off screen */
+  pointer-events: none; /* Can't interact when hidden */
 }
 
-/* When hovering collapsed hand, expand it back up */
-.floating-hand--collapsed.floating-hand--expanded {
-  transform: translateY(0);
-  z-index: 70; /* Above tactic cards (z-index 60) so cards are readable */
+/* Ready view: cards visible enough to see titles */
+.floating-hand--ready {
+  transform: translateY(7vh); /* Show more of cards - titles should be visible */
 }
 
-/* Cards in collapsed hand are dimmed - but only when not hovering the hand */
-.floating-hand--collapsed:not(.floating-hand--expanded) .floating-card {
-  filter: brightness(0.6);
-  transition: transform 0.05s ease-out, box-shadow 0.05s ease-out, filter 0.15s ease;
-}
-
-/* Unplayable cards in collapsed hand get extra dimming */
-.floating-hand--collapsed:not(.floating-hand--expanded) .floating-card--unplayable {
-  filter: grayscale(70%) brightness(0.4);
-}
-
-/* Hovered card in collapsed (not expanded) hand is un-dimmed */
-.floating-hand--collapsed:not(.floating-hand--expanded) .floating-card--hovered {
-  filter: brightness(1);
-}
-
-/* But hovered unplayable cards stay desaturated */
-.floating-hand--collapsed:not(.floating-hand--expanded) .floating-card--hovered.floating-card--unplayable {
-  filter: grayscale(70%) brightness(0.6);
+/* Focus view: cards large and moved up to be more centered */
+.floating-hand--focus {
+  transform: translateY(-15vh); /* Move up so cards are more centered on screen */
+  z-index: 100; /* Above everything when focusing on hand */
 }
 
 .floating-hand--loading {
@@ -153,16 +148,16 @@
 }
 
 .floating-hand__deck {
-  margin-right: 2rem;
+  margin-right: var(--hand-margin);
 }
 
 .floating-hand__discard {
-  margin-left: 2rem;
+  margin-left: var(--hand-margin);
 }
 
 .floating-hand__deck-image {
-  width: 60px;
-  height: 84px;
+  width: var(--hand-deck-width);
+  height: var(--hand-deck-height);
   border-radius: 4px;
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.4),
@@ -188,8 +183,8 @@
 }
 
 .floating-hand__discard-pile {
-  width: 60px;
-  height: 84px;
+  width: var(--hand-deck-width);
+  height: var(--hand-deck-height);
   border-radius: 4px;
   background: linear-gradient(135deg, #2a2a3e 0%, #1a1a28 100%);
   border: 2px dashed #444;

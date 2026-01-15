@@ -3,6 +3,46 @@ import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared"
 import { loadAtlas, getCardSpriteStyle, getCardColor } from "../../utils/cardAtlas";
 import "./FloatingHand.css";
 
+// Hand view modes
+export type HandViewMode = "board" | "ready" | "focus";
+
+// Card size multipliers for each view mode
+const VIEW_CARD_SCALE: Record<HandViewMode, number> = {
+  board: 0.25,  // Same as ready (hidden off screen anyway)
+  ready: 0.25,  // Ready stance - 25% of viewport height
+  focus: 0.40,  // Focus mode - 40% of viewport height (bigger but not overwhelming)
+};
+
+// Hook to get responsive card dimensions based on view mode
+function useCardDimensions(viewMode: HandViewMode) {
+  const [dimensions, setDimensions] = useState({ cardWidth: 120, cardHeight: 180 });
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      const scale = VIEW_CARD_SCALE[viewMode];
+      const cardHeight = Math.round(window.innerHeight * scale);
+      const cardWidth = Math.round(cardHeight * 0.667); // 2:3 aspect ratio
+      setDimensions({ cardWidth, cardHeight });
+    };
+
+    updateDimensions();
+
+    // Update on resize
+    window.addEventListener("resize", updateDimensions);
+    return () => {
+      window.removeEventListener("resize", updateDimensions);
+    };
+  }, [viewMode]);
+
+  return dimensions;
+}
+
+// Info passed when a card is clicked
+export interface CardClickInfo {
+  index: number;
+  rect: DOMRect;
+}
+
 interface FloatingCardProps {
   cardId: CardId;
   index: number;
@@ -14,47 +54,46 @@ interface FloatingCardProps {
   isCollapsed: boolean;
   isNew: boolean;
   dealDelay: number;
-  onCardClick: (index: number) => void;
+  cardWidth: number;
+  cardHeight: number;
+  onCardClick: (info: CardClickInfo) => void;
 }
 
 // Calculate card position based on index and total cards
 // Exported so the parent can use the same logic for hit testing
-function getCardLayout(index: number, totalCards: number, cardWidth: number, collapsed: boolean = false) {
+// collapsed param no longer affects layout - cards stay fanned out
+function getCardLayout(index: number, totalCards: number, cardWidth: number, _collapsed: boolean = false) {
   const centerIndex = (totalCards - 1) / 2;
   const offsetFromCenter = index - centerIndex;
 
-  // When collapsed, stack cards tightly like a pile
-  if (collapsed) {
-    const spreadDistance = 8; // Very tight overlap
-    const rotationPerCard = 0.5; // Minimal rotation
-
-    const spreadX = offsetFromCenter * spreadDistance;
-    const rotation = offsetFromCenter * rotationPerCard;
-    const arcY = 0;
-    return { spreadX, rotation, arcY, cardWidth, spreadDistance };
-  }
+  // Scale spread distances relative to card width (base: 120px)
+  const scaleFactor = cardWidth / 120;
 
   // Dynamic spread - compress as hand grows
-  // Few cards (1-5): 70px spread, comfortable viewing
+  // Few cards (1-5): 70px spread (at 120px width), comfortable viewing
   // Medium hand (6-8): 50px spread, slightly tighter
   // Large hand (9+): 35px spread, dense but readable
-  let spreadDistance: number;
+  let baseSpread: number;
   let rotationPerCard: number;
-  let arcPerCard: number;
+  let baseArc: number;
 
   if (totalCards <= 5) {
-    spreadDistance = 70;
-    rotationPerCard = 3;
-    arcPerCard = 8;
-  } else if (totalCards <= 8) {
-    spreadDistance = 50;
-    rotationPerCard = 2.5;
-    arcPerCard = 6;
-  } else {
-    spreadDistance = 35;
+    baseSpread = 70;
     rotationPerCard = 2;
-    arcPerCard = 4;
+    baseArc = 4;
+  } else if (totalCards <= 8) {
+    baseSpread = 50;
+    rotationPerCard = 1.5;
+    baseArc = 3;
+  } else {
+    baseSpread = 35;
+    rotationPerCard = 1;
+    baseArc = 2;
   }
+
+  // Scale spread and arc with card size
+  const spreadDistance = baseSpread * scaleFactor;
+  const arcPerCard = baseArc * scaleFactor;
 
   const spreadX = offsetFromCenter * spreadDistance;
   const rotation = offsetFromCenter * rotationPerCard;
@@ -73,17 +112,23 @@ const FloatingCard = memo(function FloatingCard({
   isCollapsed,
   isNew,
   dealDelay,
+  cardWidth,
+  cardHeight,
   onCardClick,
 }: FloatingCardProps) {
-  // Memoize sprite style - only recalculate if cardId changes
-  const spriteStyle = useMemo(() => getCardSpriteStyle(cardId, 180), [cardId]);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Memoize sprite style - recalculate if cardId or dimensions change
+  const spriteStyle = useMemo(() => getCardSpriteStyle(cardId, cardHeight), [cardId, cardHeight]);
   const cardColor = useMemo(() => getCardColor(cardId), [cardId]);
 
   const handleClick = useCallback(() => {
-    onCardClick(originalIndex);
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      onCardClick({ index: originalIndex, rect });
+    }
   }, [onCardClick, originalIndex]);
 
-  const cardWidth = typeof spriteStyle?.width === "number" ? spriteStyle.width : 120;
   const { spreadX, rotation, arcY } = getCardLayout(
     index,
     totalCards,
@@ -123,14 +168,14 @@ const FloatingCard = memo(function FloatingCard({
   const wrapperStyle: React.CSSProperties = {
     transform: `translateX(${spreadX}px) translateY(${arcY}px) rotate(${rotation}deg)`,
     zIndex,
-    width: spriteStyle?.width,
-    height: spriteStyle?.height,
+    width: cardWidth,
+    height: cardHeight,
   };
 
-  // Card style with hover zoom effect
+  // Card style with subtle hover effect (cards are already big enough in each view)
   const cardStyle: React.CSSProperties = {
     ...spriteStyle,
-    transform: isHovered ? "scale(2.5) translateY(-20px)" : "scale(1)",
+    transform: isHovered ? "scale(1.1) translateY(-10px)" : "scale(1)",
     "--glow-color": glowColor,
     ...(isNew && { animationDelay: `${dealDelay}s` }),
   } as React.CSSProperties;
@@ -143,7 +188,7 @@ const FloatingCard = memo(function FloatingCard({
       data-card-index={index}
       data-testid={`hand-card-${cardId}`}
     >
-      <div className={classNames} style={cardStyle}>
+      <div ref={cardRef} className={classNames} style={cardStyle}>
         {!spriteStyle && (
           <span className="floating-card__fallback">{cardId}</span>
         )}
@@ -156,10 +201,10 @@ interface FloatingHandProps {
   hand: readonly CardId[];
   playableCards: Map<CardId, PlayableCard>;
   selectedIndex: number | null;
-  onCardClick: (index: number) => void;
+  onCardClick: (info: CardClickInfo) => void;
   deckCount: number;
   discardCount: number;
-  collapsed?: boolean;
+  viewMode: HandViewMode;
 }
 
 export function FloatingHand({
@@ -169,19 +214,16 @@ export function FloatingHand({
   onCardClick,
   deckCount,
   discardCount,
-  collapsed = false,
+  viewMode,
 }: FloatingHandProps) {
   const [atlasLoaded, setAtlasLoaded] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [isHoveringHand, setIsHoveringHand] = useState(false);
+  const { cardWidth, cardHeight } = useCardDimensions(viewMode);
 
   // Track which cards are newly dealt for animation
   const prevHandLengthRef = useRef<number>(hand.length); // Initialize to current length
   const isFirstRenderRef = useRef<boolean>(true);
   const [newCardIndices, setNewCardIndices] = useState<Set<number>>(new Set());
-
-  // When collapsed, hovering expands temporarily
-  const effectivelyCollapsed = collapsed && !isHoveringHand;
 
   useEffect(() => {
     loadAtlas().then(() => setAtlasLoaded(true));
@@ -239,9 +281,13 @@ export function FloatingHand({
   // This ignores the visual z-index boost when a card is hovered
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      // Always set hovering state when mouse moves over hand
-      if (!isHoveringHand) {
-        setIsHoveringHand(true);
+      // Only do card hover detection in ready or focus mode
+      if (viewMode === "board") {
+        if (hoveredIndexRef.current !== null) {
+          hoveredIndexRef.current = null;
+          setHoveredIndex(null);
+        }
+        return;
       }
 
       if (selectedIndex !== null) {
@@ -257,9 +303,6 @@ export function FloatingHand({
       const containerCenterX = cardsRect.left + cardsRect.width / 2;
       const mouseX = e.clientX;
       const mouseY = e.clientY;
-
-      const cardWidth = 120;
-      const cardHeight = 180;
 
       // Check if mouse is within vertical card area
       const cardsBottom = cardsRect.bottom - 10;
@@ -293,7 +336,7 @@ export function FloatingHand({
         setHoveredIndex(hitCard);
       }
     },
-    [selectedIndex, visibleHand.length, isHoveringHand]
+    [selectedIndex, visibleHand.length, viewMode, cardWidth, cardHeight]
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -301,7 +344,6 @@ export function FloatingHand({
       hoveredIndexRef.current = null;
       setHoveredIndex(null);
     }
-    setIsHoveringHand(false);
   }, []);
 
   // Recalculate indices for positioning (skip the gap)
@@ -320,19 +362,16 @@ export function FloatingHand({
 
   // Calculate the width needed for the cards based on dynamic spread
   // Get the spread distance for this hand size
-  const cardWidth = 120;
-  const { spreadDistance } = getCardLayout(0, visibleHand.length, cardWidth, effectivelyCollapsed);
+  const { spreadDistance } = getCardLayout(0, visibleHand.length, cardWidth);
   // Total span = (n-1) * spreadDistance + card width
-  // Add extra padding to account for hover zoom (2.5x scale)
+  // Add extra padding to account for hover zoom
   const baseWidth = Math.max(cardWidth, (visibleHand.length - 1) * spreadDistance + cardWidth);
-  const cardsWidth = effectivelyCollapsed ? cardWidth + 60 : baseWidth + 100; // Narrower when collapsed
+  const cardsWidth = baseWidth + 100;
 
-  // Use collapsed prop directly for CSS class - CSS :hover handles the visual expansion
-  // But use effectivelyCollapsed for card layout (fan vs stack)
+  // CSS classes based on view mode
   const handClassName = [
     "floating-hand",
-    collapsed && "floating-hand--collapsed",
-    collapsed && isHoveringHand && "floating-hand--expanded",
+    `floating-hand--${viewMode}`,
   ].filter(Boolean).join(" ");
 
   return (
@@ -340,7 +379,6 @@ export function FloatingHand({
       className={handClassName}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      onMouseEnter={() => setIsHoveringHand(true)}
     >
       {/* Deck indicator - left side */}
       <div className="floating-hand__deck" title={`${deckCount} cards in deck`}>
@@ -372,9 +410,11 @@ export function FloatingHand({
               isSelected={false}
               isPlayable={isPlayable}
               isHovered={hoveredIndex === visibleIndex}
-              isCollapsed={effectivelyCollapsed}
+              isCollapsed={false}
               isNew={isNew}
               dealDelay={dealDelay}
+              cardWidth={cardWidth}
+              cardHeight={cardHeight}
               onCardClick={onCardClick}
             />
           );
