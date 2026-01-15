@@ -63,61 +63,66 @@ export function TurnActions() {
   };
 
   return (
-    <div className="turn-actions">
-      {/* Tactic buttons */}
-      {canActivateTheRightMoment && (
-        <button
-          className="turn-actions__btn turn-actions__btn--tactic"
-          onClick={handleActivateTheRightMoment}
-          type="button"
-          title="Take another turn after this one"
-        >
-          Right Moment
-        </button>
-      )}
-      {canActivateLongNight && (
-        <button
-          className="turn-actions__btn turn-actions__btn--tactic-dark"
-          onClick={handleActivateLongNight}
-          type="button"
-          title="Shuffle discard, put 3 cards back in deck"
-        >
-          Long Night
-        </button>
-      )}
-      {canActivateMidnightMeditation && (
-        <button
-          className="turn-actions__btn turn-actions__btn--tactic-dark"
-          onClick={handleActivateMidnightMeditation}
-          type="button"
-          title="Shuffle hand cards into deck, draw same amount"
-        >
-          Meditation
-        </button>
-      )}
-
-      {/* Undo button */}
+    <>
+      {/* End Turn - fixed bottom left, styled like a seal/sigil */}
       <button
-        className="turn-actions__btn turn-actions__btn--undo"
-        onClick={handleUndo}
-        disabled={!isMyTurn || !canUndo}
-        type="button"
-        title="Undo last action (Ctrl+Z)"
-        data-testid="undo-btn"
-      >
-        ↩
-      </button>
-
-      {/* End Turn button */}
-      <button
-        className="turn-actions__btn turn-actions__btn--end-turn"
+        className="end-turn-seal"
         onClick={handleEndTurn}
         disabled={!isMyTurn || !hasTactic}
         type="button"
         data-testid="end-turn-btn"
+        title="End your turn"
       >
-        End Turn
+        <span className="end-turn-seal__icon">⚔</span>
+        <span className="end-turn-seal__text">End Turn</span>
       </button>
-    </div>
+
+      {/* Other actions - right side */}
+      <div className="turn-actions">
+        {/* Tactic buttons */}
+        {canActivateTheRightMoment && (
+          <button
+            className="turn-actions__btn turn-actions__btn--tactic"
+            onClick={handleActivateTheRightMoment}
+            type="button"
+            title="Take another turn after this one"
+          >
+            Right Moment
+          </button>
+        )}
+        {canActivateLongNight && (
+          <button
+            className="turn-actions__btn turn-actions__btn--tactic-dark"
+            onClick={handleActivateLongNight}
+            type="button"
+            title="Shuffle discard, put 3 cards back in deck"
+          >
+            Long Night
+          </button>
+        )}
+        {canActivateMidnightMeditation && (
+          <button
+            className="turn-actions__btn turn-actions__btn--tactic-dark"
+            onClick={handleActivateMidnightMeditation}
+            type="button"
+            title="Shuffle hand cards into deck, draw same amount"
+          >
+            Meditation
+          </button>
+        )}
+
+        {/* Undo button */}
+        <button
+          className="turn-actions__btn turn-actions__btn--undo"
+          onClick={handleUndo}
+          disabled={!isMyTurn || !canUndo}
+          type="button"
+          title="Undo last action (Ctrl+Z)"
+          data-testid="undo-btn"
+        >
+          ↩
+        </button>
+      </div>
+    </>
   );
 }

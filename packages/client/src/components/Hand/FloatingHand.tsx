@@ -10,7 +10,7 @@ export type HandViewMode = "board" | "ready" | "focus";
 const VIEW_CARD_SCALE: Record<HandViewMode, number> = {
   board: 0.25,  // Same as ready (hidden off screen anyway)
   ready: 0.25,  // Ready stance - 25% of viewport height
-  focus: 0.40,  // Focus mode - 40% of viewport height (bigger but not overwhelming)
+  focus: 0.60,  // Focus mode - 60% of viewport height (big enough to read card text)
 };
 
 // Hook to get responsive card dimensions based on view mode
