@@ -57,6 +57,27 @@ import {
   TILE_TYPE_STARTING,
 } from "./tileConstants.js";
 
+// ============================================================================
+// Local hex position constants (relative to tile center)
+// ============================================================================
+
+/**
+ * Local hex positions within a 7-hex tile "flower" pattern.
+ * These are the only valid positions for hexes within a tile.
+ */
+export const LOCAL_HEX = {
+  CENTER: { q: 0, r: 0 },
+  NE: { q: 1, r: -1 },
+  E: { q: 1, r: 0 },
+  SE: { q: 0, r: 1 },
+  SW: { q: -1, r: 1 },
+  W: { q: -1, r: 0 },
+  NW: { q: 0, r: -1 },
+} as const;
+
+/** Type representing valid local hex positions */
+export type LocalHexPosition = (typeof LOCAL_HEX)[keyof typeof LOCAL_HEX];
+
 // Hex definition within a tile template (before placement)
 export interface LocalHex {
   readonly localQ: number;
@@ -84,13 +105,12 @@ export interface TileDefinition {
 
 // Helper to create a local hex
 function hex(
-  localQ: number,
-  localR: number,
+  position: LocalHexPosition,
   terrain: Terrain,
   site: SiteType | null = null,
   extra?: { mineColor?: MineColor; rampaging?: RampagingEnemyType }
 ): LocalHex {
-  return { localQ, localR, terrain, site, ...extra };
+  return { localQ: position.q, localR: position.r, terrain, site, ...extra };
 }
 
 /**
@@ -108,13 +128,13 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     type: TILE_TYPE_STARTING,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, SiteType.Portal), // Center - portal
-      hex(0, -1, TERRAIN_PLAINS), // NW - plains (coastal edge)
-      hex(1, -1, TERRAIN_FOREST), // NE - forest
-      hex(-1, 0, TERRAIN_LAKE), // W - ocean (impassable)
-      hex(1, 0, TERRAIN_PLAINS), // E - plains
-      hex(-1, 1, TERRAIN_LAKE), // SW - ocean (impassable)
-      hex(0, 1, TERRAIN_MOUNTAIN), // SE - mountain/cliff (coastal, impassable) 
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS, SiteType.Portal),
+      hex(LOCAL_HEX.NW, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.NE, TERRAIN_FOREST),
+      hex(LOCAL_HEX.W, TERRAIN_LAKE),
+      hex(LOCAL_HEX.E, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.SW, TERRAIN_LAKE),
+      hex(LOCAL_HEX.SE, TERRAIN_MOUNTAIN),
     ],
   },
 
@@ -124,13 +144,13 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     type: TILE_TYPE_STARTING,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, SiteType.Portal), // Center - portal
-      hex(1, -1, TERRAIN_FOREST), // NE - forest
-      hex(1, 0, TERRAIN_PLAINS), // E - plains
-      hex(0, 1, TERRAIN_PLAINS), // SE - plains
-      hex(-1, 1, TERRAIN_MOUNTAIN), // SW - mountain/cliff (coastal)
-      hex(-1, 0, TERRAIN_LAKE), // W - ocean (impassable)
-      hex(0, -1, TERRAIN_PLAINS), // NW - plains (coastal edge)
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS, SiteType.Portal),
+      hex(LOCAL_HEX.NE, TERRAIN_FOREST),
+      hex(LOCAL_HEX.E, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.SE, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.SW, TERRAIN_MOUNTAIN),
+      hex(LOCAL_HEX.W, TERRAIN_LAKE),
+      hex(LOCAL_HEX.NW, TERRAIN_PLAINS),
     ],
   },
 
@@ -144,29 +164,29 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_FOREST, SiteType.MagicalGlade), // Center - forest with magical glade
-      hex(1, -1, TERRAIN_LAKE), // NE - lake
-      hex(1, 0, TERRAIN_PLAINS, SiteType.Village), // E - village
-      hex(0, 1, TERRAIN_PLAINS), // SE - plains
-      hex(-1, 1, TERRAIN_PLAINS), // SW - plains
-      hex(-1, 0, TERRAIN_FOREST), // W - forest
-      hex(0, -1, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }), // NW - forest + orcs
+      hex(LOCAL_HEX.CENTER, TERRAIN_FOREST, SiteType.MagicalGlade),
+      hex(LOCAL_HEX.NE, TERRAIN_LAKE),
+      hex(LOCAL_HEX.E, TERRAIN_PLAINS, SiteType.Village),
+      hex(LOCAL_HEX.SE, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.SW, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.W, TERRAIN_FOREST),
+      hex(LOCAL_HEX.NW, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }),
     ],
   },
 
-  // Countryside 2 - Hills center, Magical Glade, Village, Monster Den, Orc Marauders
+  // Countryside 2 - Hills center, Magical Glade, Village, Mine (green), Orc Marauders
   [TileId.Countryside2]: {
     id: TileId.Countryside2,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_HILLS), // Center - hills
-      hex(1, -1, TERRAIN_FOREST, SiteType.MagicalGlade), // NE - forest + glade
-      hex(1, 0, TERRAIN_PLAINS, SiteType.Village), // E - village
-      hex(0, 1, TERRAIN_PLAINS), // SE - plains
-      hex(-1, 1, TERRAIN_HILLS, SiteType.Mine, {mineColor: MINE_COLOR_GREEN}), // SW - hills
-      hex(-1, 0, TERRAIN_PLAINS), // W - plains
-      hex(0, -1, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }), // NW - hills + orcs
+      hex(LOCAL_HEX.CENTER, TERRAIN_HILLS),
+      hex(LOCAL_HEX.NE, TERRAIN_FOREST, SiteType.MagicalGlade),
+      hex(LOCAL_HEX.E, TERRAIN_PLAINS, SiteType.Village),
+      hex(LOCAL_HEX.SE, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.SW, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_GREEN }),
+      hex(LOCAL_HEX.W, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.NW, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
     ],
   },
 
@@ -176,141 +196,141 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_FOREST), // Center - forest
-      hex(1, -1, TERRAIN_HILLS, SiteType.Keep), // NE - keep
-      hex(1, 0, TERRAIN_HILLS), // E - hills
-      hex(0, 1, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_WHITE }), // SE - white mine
-      hex(-1, 1, TERRAIN_PLAINS, SiteType.Village), // SW - village
-      hex(-1, 0, TERRAIN_PLAINS), // W - plains
-      hex(0, -1, TERRAIN_PLAINS), // NW - plains
+      hex(LOCAL_HEX.CENTER, TERRAIN_FOREST),
+      hex(LOCAL_HEX.NE, TERRAIN_HILLS, SiteType.Keep),
+      hex(LOCAL_HEX.E, TERRAIN_HILLS),
+      hex(LOCAL_HEX.SE, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_WHITE }),
+      hex(LOCAL_HEX.SW, TERRAIN_PLAINS, SiteType.Village),
+      hex(LOCAL_HEX.W, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.NW, TERRAIN_PLAINS),
     ],
   },
 
-  // Countryside 4 - Desert, Mage Tower, Village, Mountain, Orc Marauders
+  // Countryside 4 - Mage Tower, Village, Mountain, Orc Marauders
   [TileId.Countryside4]: {
     id: TileId.Countryside4,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_DESERT, SiteType.MageTower), // Center - mage tower
-      hex(1, -1, TERRAIN_DESERT), // NE - desert
-      hex(1, 0, TERRAIN_MOUNTAIN), // E - mountain
-      hex(0, 1, TERRAIN_PLAINS, SiteType.Village), // SE - village
-      hex(-1, 1, TERRAIN_PLAINS), // SW - plains
-      hex(-1, 0, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }), // W - hills + orcs
-      hex(0, -1, TERRAIN_DESERT), // NW - desert
+      hex(LOCAL_HEX.CENTER, TERRAIN_DESERT, SiteType.MageTower),
+      hex(LOCAL_HEX.NE, TERRAIN_DESERT),
+      hex(LOCAL_HEX.E, TERRAIN_MOUNTAIN),
+      hex(LOCAL_HEX.SE, TERRAIN_PLAINS, SiteType.Village),
+      hex(LOCAL_HEX.SW, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.W, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.NW, TERRAIN_DESERT),
     ],
   },
 
-  // Countryside 5 - Lake center, Monastery, Mine (blue), Magical Glade, Orc Marauders
+  // Countryside 5 - Monastery, Mine (blue), Magical Glade, Orc Marauders
   [TileId.Countryside5]: {
     id: TileId.Countryside5,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_LAKE), // Center - lake
-      hex(1, -1, TERRAIN_PLAINS, SiteType.Monastery), // NE - monastery
-      hex(1, 0, TERRAIN_PLAINS, null, { rampaging: RampagingEnemyType.OrcMarauder }), // E - plains + orcs
-      hex(0, 1, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_BLUE }), // SE - blue mine
-      hex(-1, 1, TERRAIN_FOREST), // SW - forest
-      hex(-1, 0, TERRAIN_FOREST, SiteType.MagicalGlade), // W - forest + glade
-      hex(0, -1, TERRAIN_FOREST), // NW - forest
+      hex(LOCAL_HEX.CENTER, TERRAIN_LAKE),
+      hex(LOCAL_HEX.NE, TERRAIN_PLAINS, SiteType.Monastery),
+      hex(LOCAL_HEX.E, TERRAIN_PLAINS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.SE, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_BLUE }),
+      hex(LOCAL_HEX.SW, TERRAIN_FOREST),
+      hex(LOCAL_HEX.W, TERRAIN_FOREST, SiteType.MagicalGlade),
+      hex(LOCAL_HEX.NW, TERRAIN_FOREST),
     ],
   },
 
-  // Countryside 6 - Hills center with Monster Den, Mountain, Dungeon, Orc Marauders
+  // Countryside 6 - Mine (red), Monster Den, Orc Marauders
   [TileId.Countryside6]: {
     id: TileId.Countryside6,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_HILLS, SiteType.Mine, {mineColor: MINE_COLOR_RED}), // Center - red mine
-      hex(1, -1, TERRAIN_FOREST), // NE - forest
-      hex(1, 0, TERRAIN_PLAINS), // E - plains
-      hex(0, 1, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }), // SE - forest + orcs
-      hex(-1, 1, TERRAIN_HILLS), // SW - hills
-      hex(-1, 0, TERRAIN_HILLS, SiteType.MonsterDen), // W - monster den
-      hex(0, -1, TERRAIN_MOUNTAIN), // NW - mountain
+      hex(LOCAL_HEX.CENTER, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_RED }),
+      hex(LOCAL_HEX.NE, TERRAIN_FOREST),
+      hex(LOCAL_HEX.E, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.SE, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.SW, TERRAIN_HILLS),
+      hex(LOCAL_HEX.W, TERRAIN_HILLS, SiteType.MonsterDen),
+      hex(LOCAL_HEX.NW, TERRAIN_MOUNTAIN),
     ],
   },
 
-  // Countryside 7 - Swamp center, Monastery, Ancient Ruins, Magical Glade, Orc Marauders
+  // Countryside 7 - Monastery, Tomb, Magical Glade, Orc Marauders
   [TileId.Countryside7]: {
     id: TileId.Countryside7,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_SWAMP), // Center - swamp
-      hex(1, -1, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }), // NE - forest + orcs
-      hex(1, 0, TERRAIN_FOREST, SiteType.MagicalGlade), // E - forest + glade
-      hex(0, 1, TERRAIN_PLAINS, SiteType.Tomb), // SE - tomb
-      hex(-1, 1, TERRAIN_PLAINS), // SW - plains
-      hex(-1, 0, TERRAIN_PLAINS, SiteType.Monastery), // W - monastery
-      hex(0, -1, TERRAIN_LAKE), // NW - lake
+      hex(LOCAL_HEX.CENTER, TERRAIN_SWAMP),
+      hex(LOCAL_HEX.NE, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.E, TERRAIN_FOREST, SiteType.MagicalGlade),
+      hex(LOCAL_HEX.SE, TERRAIN_PLAINS, SiteType.Tomb),
+      hex(LOCAL_HEX.SW, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.W, TERRAIN_PLAINS, SiteType.Monastery),
+      hex(LOCAL_HEX.NW, TERRAIN_LAKE),
     ],
   },
 
-  // Countryside 8 - Swamp center with Orc Marauders, Ancient Ruins, Village, Magical Glade
+  // Countryside 8 - Ancient Ruins, Village, Magical Glade, Orc Marauders
   [TileId.Countryside8]: {
     id: TileId.Countryside8,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_SWAMP, null, { rampaging: RampagingEnemyType.OrcMarauder }), // Center - swamp + orcs
-      hex(1, -1, TERRAIN_FOREST, SiteType.AncientRuins), // NE - forest + ruins
-      hex(1, 0, TERRAIN_PLAINS), // E - plains
-      hex(0, 1, TERRAIN_SWAMP, SiteType.Village), // SE - swamp village
-      hex(-1, 1, TERRAIN_SWAMP), // SW - swamp
-      hex(-1, 0, TERRAIN_FOREST), // W - forest
-      hex(0, -1, TERRAIN_FOREST, SiteType.MagicalGlade), // NW - forest + glade
+      hex(LOCAL_HEX.CENTER, TERRAIN_SWAMP, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.NE, TERRAIN_FOREST, SiteType.AncientRuins),
+      hex(LOCAL_HEX.E, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.SE, TERRAIN_SWAMP, SiteType.Village),
+      hex(LOCAL_HEX.SW, TERRAIN_SWAMP),
+      hex(LOCAL_HEX.W, TERRAIN_FOREST),
+      hex(LOCAL_HEX.NW, TERRAIN_FOREST, SiteType.MagicalGlade),
     ],
   },
 
-  // Countryside 9 - Mountain center, Keep, Mage Tower, Ancient Ruins
+  // Countryside 9 - Keep, Mage Tower, Tomb
   [TileId.Countryside9]: {
     id: TileId.Countryside9,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_MOUNTAIN), // Center - mountain
-      hex(1, -1, TERRAIN_MOUNTAIN), // NE - mountain
-      hex(1, 0, TERRAIN_WASTELAND, SiteType.Keep), // E - keep on wasteland
-      hex(0, 1, TERRAIN_PLAINS), // SE - plains
-      hex(-1, 1, TERRAIN_WASTELAND, SiteType.MageTower), // SW - mage tower on wasteland
-      hex(-1, 0, TERRAIN_PLAINS), // W - plains
-      hex(0, -1, TERRAIN_WASTELAND, SiteType.Tomb), // NW - tomb on wasteland
+      hex(LOCAL_HEX.CENTER, TERRAIN_MOUNTAIN),
+      hex(LOCAL_HEX.NE, TERRAIN_MOUNTAIN),
+      hex(LOCAL_HEX.E, TERRAIN_WASTELAND, SiteType.Keep),
+      hex(LOCAL_HEX.SE, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.SW, TERRAIN_WASTELAND, SiteType.MageTower),
+      hex(LOCAL_HEX.W, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.NW, TERRAIN_WASTELAND, SiteType.Tomb),
     ],
   },
 
-  // Countryside 10 - Mountain center, Keep, Ancient Ruins, Dungeon
+  // Countryside 10 - Keep, Ancient Ruins, Monster Den
   [TileId.Countryside10]: {
     id: TileId.Countryside10,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_MOUNTAIN), // Center - mountain
-      hex(1, -1, TERRAIN_FOREST), // NE - forest
-      hex(1, 0, TERRAIN_PLAINS), // E - plains
-      hex(0, 1, TERRAIN_HILLS, SiteType.AncientRuins), // SE - ancient ruins
-      hex(-1, 1, TERRAIN_HILLS, SiteType.Keep), // SW - keep
-      hex(-1, 0, TERRAIN_HILLS), // W - hills
-      hex(0, -1, TERRAIN_HILLS, SiteType.MonsterDen), // NW - spawning grounds
+      hex(LOCAL_HEX.CENTER, TERRAIN_MOUNTAIN),
+      hex(LOCAL_HEX.NE, TERRAIN_FOREST),
+      hex(LOCAL_HEX.E, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.SE, TERRAIN_HILLS, SiteType.AncientRuins),
+      hex(LOCAL_HEX.SW, TERRAIN_HILLS, SiteType.Keep),
+      hex(LOCAL_HEX.W, TERRAIN_HILLS),
+      hex(LOCAL_HEX.NW, TERRAIN_HILLS, SiteType.MonsterDen),
     ],
   },
 
-  // Countryside 11 - Mage Tower center, Lakes, Ancient Ruins, Orc Marauders
+  // Countryside 11 - Mage Tower, Ancient Ruins, Orc Marauders
   [TileId.Countryside11]: {
     id: TileId.Countryside11,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, SiteType.MageTower), // Center - mage tower
-      hex(1, -1, TERRAIN_LAKE), // NE - lake
-      hex(1, 0, TERRAIN_LAKE), // E - lake
-      hex(0, 1, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }), // SE - hills + orcs
-      hex(-1, 1, TERRAIN_LAKE), // SW - lake
-      hex(-1, 0, TERRAIN_PLAINS, SiteType.AncientRuins), // W - ancient ruins
-      hex(0, -1, TERRAIN_HILLS), // NW - hills
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS, SiteType.MageTower),
+      hex(LOCAL_HEX.NE, TERRAIN_LAKE),
+      hex(LOCAL_HEX.E, TERRAIN_LAKE),
+      hex(LOCAL_HEX.SE, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.SW, TERRAIN_LAKE),
+      hex(LOCAL_HEX.W, TERRAIN_PLAINS, SiteType.AncientRuins),
+      hex(LOCAL_HEX.NW, TERRAIN_HILLS),
     ],
   },
 
@@ -318,51 +338,54 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
   // COUNTRYSIDE TILES (Green back) - Lost Legion Expansion
   // ============================================================================
 
-  // Countryside 12 - Orc Marauders with walls, Monastery, Maze, Refugee Camp
+  // Countryside 12 - Monastery, Maze, Refugee Camp, Orc Marauders
+  // Walls: CENTER walled to E, SW, W
   [TileId.Countryside12]: {
     id: TileId.Countryside12,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, null, { rampaging: RampagingEnemyType.OrcMarauder }), // Center - plains + orcs (walled to the east, south west, and west)
-      hex(1, -1, TERRAIN_WASTELAND), // NE - wasteland
-      hex(1, 0, TERRAIN_HILLS, SiteType.Monastery), // E - monastery
-      hex(0, 1, TERRAIN_MOUNTAIN), // SE - mountain
-      hex(-1, 1, TERRAIN_PLAINS, SiteType.Maze), // SW - maze (6/4/2)
-      hex(-1, 0, TERRAIN_HILLS, SiteType.RefugeeCamp), // W - refugee camp
-      hex(0, -1, TERRAIN_MOUNTAIN), // NW - mountain
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.NE, TERRAIN_WASTELAND),
+      hex(LOCAL_HEX.E, TERRAIN_HILLS, SiteType.Monastery),
+      hex(LOCAL_HEX.SE, TERRAIN_MOUNTAIN),
+      hex(LOCAL_HEX.SW, TERRAIN_PLAINS, SiteType.Maze),
+      hex(LOCAL_HEX.W, TERRAIN_HILLS, SiteType.RefugeeCamp),
+      hex(LOCAL_HEX.NW, TERRAIN_MOUNTAIN),
     ],
   },
 
-  // Countryside 13 - Mage Tower with walls, Mine, Magical Glade, Orc Marauders
+  // Countryside 13 - Mage Tower, Deep Mine (green/blue), Magical Glade, Orc Marauders
+  // Walls: CENTER walled to NE; NE walled to E, SE; NW walled to E
   [TileId.Countryside13]: {
     id: TileId.Countryside13,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_FOREST, SiteType.MageTower), // Center - mage tower (walled to north east)
-      hex(1, -1, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }), // NE - hills + orcs (walled to east, south east)
-      hex(1, 0, TERRAIN_LAKE), // E - lake
-      hex(0, 1, TERRAIN_FOREST, SiteType.DeepMine, { mineColor: MINE_COLOR_BLUE }), // SE - (deep mine green,blue)
-      hex(-1, 1, TERRAIN_PLAINS), // SW - plains
-      hex(-1, 0, TERRAIN_WASTELAND, SiteType.MagicalGlade), // W - wasteland + glade
-      hex(0, -1, TERRAIN_FOREST), // NW - forest (walled to east)
+      hex(LOCAL_HEX.CENTER, TERRAIN_FOREST, SiteType.MageTower),
+      hex(LOCAL_HEX.NE, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.E, TERRAIN_LAKE),
+      hex(LOCAL_HEX.SE, TERRAIN_FOREST, SiteType.DeepMine, { mineColor: MINE_COLOR_BLUE }), // Deep mine: green/blue
+      hex(LOCAL_HEX.SW, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.W, TERRAIN_WASTELAND, SiteType.MagicalGlade),
+      hex(LOCAL_HEX.NW, TERRAIN_FOREST),
     ],
   },
 
-  // Countryside 14 - Desert, Keep with walls, Maze, Village, Deep Mine
+  // Countryside 14 - Keep, Maze, Village, Deep Mine (red/white)
+  // Walls: NE walled to SW
   [TileId.Countryside14]: {
     id: TileId.Countryside14,
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS), // Center - plains
-      hex(1, -1, TERRAIN_PLAINS, SiteType.Keep), // NE - keep (walled, south west)
-      hex(1, 0, TERRAIN_WASTELAND, SiteType.Maze), // E - maze (6/4/2)
-      hex(0, 1, TERRAIN_HILLS, SiteType.Village), // SE - hills village
-      hex(-1, 1, TERRAIN_PLAINS), // SW - plains
-      hex(-1, 0, TERRAIN_DESERT, SiteType.DeepMine), // W - deep mine (red/white crystals)
-      hex(0, -1, TERRAIN_DESERT), // NW - desert
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.NE, TERRAIN_PLAINS, SiteType.Keep),
+      hex(LOCAL_HEX.E, TERRAIN_WASTELAND, SiteType.Maze),
+      hex(LOCAL_HEX.SE, TERRAIN_HILLS, SiteType.Village),
+      hex(LOCAL_HEX.SW, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.W, TERRAIN_DESERT, SiteType.DeepMine), // Deep mine: red/white
+      hex(LOCAL_HEX.NW, TERRAIN_DESERT),
     ],
   },
 
@@ -370,67 +393,67 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
   // CORE TILES (Brown back) - Non-city - Base Game
   // ============================================================================
 
-  // Core 1 - Monastery, Ancient Ruins, Spawning Grounds
+  // Core 1 - Monastery, Tomb, Spawning Grounds
   [TileId.Core1]: {
     id: TileId.Core1,
     type: TILE_TYPE_CORE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_DESERT, SiteType.Monastery), // Center - monastery
-      hex(1, -1, TERRAIN_DESERT, SiteType.Tomb), // NE - tomb
-      hex(1, 0, TERRAIN_DESERT), // E - desert
-      hex(0, 1, TERRAIN_DESERT), // SE - desert
-      hex(-1, 1, TERRAIN_HILLS), // SW - hills
-      hex(-1, 0, TERRAIN_HILLS, SiteType.SpawningGrounds), // W - spawning grounds
-      hex(0, -1, TERRAIN_MOUNTAIN), // NW - mountain
+      hex(LOCAL_HEX.CENTER, TERRAIN_DESERT, SiteType.Monastery),
+      hex(LOCAL_HEX.NE, TERRAIN_DESERT, SiteType.Tomb),
+      hex(LOCAL_HEX.E, TERRAIN_DESERT),
+      hex(LOCAL_HEX.SE, TERRAIN_DESERT),
+      hex(LOCAL_HEX.SW, TERRAIN_HILLS),
+      hex(LOCAL_HEX.W, TERRAIN_HILLS, SiteType.SpawningGrounds),
+      hex(LOCAL_HEX.NW, TERRAIN_MOUNTAIN),
     ],
   },
 
-  // Core 2 - Lake center, Mage Tower, Ancient Ruins, Tomb, Draconum
+  // Core 2 - Mage Tower, Ancient Ruins, Mine (green), Draconum
   [TileId.Core2]: {
     id: TileId.Core2,
     type: TILE_TYPE_CORE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_LAKE), // Center - lake
-      hex(1, -1, TERRAIN_WASTELAND, SiteType.AncientRuins), // NE - ancient ruins
-      hex(1, 0, TERRAIN_HILLS, SiteType.Mine, {mineColor: MINE_COLOR_GREEN}), // E - green mine
-      hex(0, 1, TERRAIN_SWAMP, null, { rampaging: RampagingEnemyType.Draconum }), // SE - swamp + draconum
-      hex(-1, 1, TERRAIN_SWAMP, SiteType.MageTower), // SW - mage tower
-      hex(-1, 0, TERRAIN_FOREST), // W - forest
-      hex(0, -1, TERRAIN_LAKE), // NW - lake
+      hex(LOCAL_HEX.CENTER, TERRAIN_LAKE),
+      hex(LOCAL_HEX.NE, TERRAIN_WASTELAND, SiteType.AncientRuins),
+      hex(LOCAL_HEX.E, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_GREEN }),
+      hex(LOCAL_HEX.SE, TERRAIN_SWAMP, null, { rampaging: RampagingEnemyType.Draconum }),
+      hex(LOCAL_HEX.SW, TERRAIN_SWAMP, SiteType.MageTower),
+      hex(LOCAL_HEX.W, TERRAIN_FOREST),
+      hex(LOCAL_HEX.NW, TERRAIN_LAKE),
     ],
   },
 
-  // Core 3 - Wasteland center, Mage Tower, Ancient Ruins, Tombs
+  // Core 3 - Mage Tower, Ancient Ruins, Tomb, Mine (white)
   [TileId.Core3]: {
     id: TileId.Core3,
     type: TILE_TYPE_CORE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_WASTELAND), // Center - wasteland
-      hex(1, -1, TERRAIN_WASTELAND, SiteType.AncientRuins), // NE - ancient ruins
-      hex(1, 0, TERRAIN_HILLS, SiteType.MageTower), // E - mage tower
-      hex(0, 1, TERRAIN_WASTELAND), // SE - wasteland
-      hex(-1, 1, TERRAIN_HILLS, SiteType.Mine, {mineColor: MINE_COLOR_WHITE}), // SW - white mine
-      hex(-1, 0, TERRAIN_WASTELAND, SiteType.Tomb), // W - tomb
-      hex(0, -1, TERRAIN_MOUNTAIN), // NW - mountain 
+      hex(LOCAL_HEX.CENTER, TERRAIN_WASTELAND),
+      hex(LOCAL_HEX.NE, TERRAIN_WASTELAND, SiteType.AncientRuins),
+      hex(LOCAL_HEX.E, TERRAIN_HILLS, SiteType.MageTower),
+      hex(LOCAL_HEX.SE, TERRAIN_WASTELAND),
+      hex(LOCAL_HEX.SW, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_WHITE }),
+      hex(LOCAL_HEX.W, TERRAIN_WASTELAND, SiteType.Tomb),
+      hex(LOCAL_HEX.NW, TERRAIN_MOUNTAIN),
     ],
   },
 
-  // Core 4 - Mountain center with Draconum, Keep, Tomb, Ancient Ruins
+  // Core 4 - Keep, Ancient Ruins, Mine (blue), Draconum
   [TileId.Core4]: {
     id: TileId.Core4,
     type: TILE_TYPE_CORE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_MOUNTAIN, null, { rampaging: RampagingEnemyType.Draconum }), // Center - mountain + draconum
-      hex(1, -1, TERRAIN_HILLS), // NE - hills
-      hex(1, 0, TERRAIN_HILLS, SiteType.Keep ), // E 
-      hex(0, 1, TERRAIN_WASTELAND), // SE - wasteland
-      hex(-1, 1, TERRAIN_WASTELAND, SiteType.AncientRuins), // SW - ancient ruins
-      hex(-1, 0, TERRAIN_WASTELAND), // W - wasteland
-      hex(0, -1, TERRAIN_WASTELAND, SiteType.Mine, {mineColor: MINE_COLOR_BLUE}), // NW - blue mine
+      hex(LOCAL_HEX.CENTER, TERRAIN_MOUNTAIN, null, { rampaging: RampagingEnemyType.Draconum }),
+      hex(LOCAL_HEX.NE, TERRAIN_HILLS),
+      hex(LOCAL_HEX.E, TERRAIN_HILLS, SiteType.Keep),
+      hex(LOCAL_HEX.SE, TERRAIN_WASTELAND),
+      hex(LOCAL_HEX.SW, TERRAIN_WASTELAND, SiteType.AncientRuins),
+      hex(LOCAL_HEX.W, TERRAIN_WASTELAND),
+      hex(LOCAL_HEX.NW, TERRAIN_WASTELAND, SiteType.Mine, { mineColor: MINE_COLOR_BLUE }),
     ],
   },
 
@@ -445,13 +468,13 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     hasCity: true,
     cityColor: CITY_COLOR_GREEN,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, SiteType.City), // Center - Green City
-      hex(1, -1, TERRAIN_SWAMP, SiteType.Village), // NE - village
-      hex(1, 0, TERRAIN_SWAMP, null, { rampaging: RampagingEnemyType.OrcMarauder }), // E - swamp + orcs
-      hex(0, 1, TERRAIN_SWAMP), // SE - swamp 
-      hex(-1, 1, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }), // SW - forest + orcs
-      hex(-1, 0, TERRAIN_LAKE), // W - lake
-      hex(0, -1, TERRAIN_FOREST, SiteType.MagicalGlade), // NW - forest with magical glade
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS, SiteType.City),
+      hex(LOCAL_HEX.NE, TERRAIN_SWAMP, SiteType.Village),
+      hex(LOCAL_HEX.E, TERRAIN_SWAMP, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.SE, TERRAIN_SWAMP),
+      hex(LOCAL_HEX.SW, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.W, TERRAIN_LAKE),
+      hex(LOCAL_HEX.NW, TERRAIN_FOREST, SiteType.MagicalGlade),
     ],
   },
 
@@ -462,13 +485,13 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     hasCity: true,
     cityColor: CITY_COLOR_BLUE,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, SiteType.City), // Center - Blue City
-      hex(1, -1, TERRAIN_PLAINS, SiteType.Monastery), // NE - monastery
-      hex(1, 0, TERRAIN_LAKE), // E - lake
-      hex(0, 1, TERRAIN_LAKE), // SE - lake
-      hex(-1, 1, TERRAIN_HILLS), // SW - hills
-      hex(-1, 0, TERRAIN_MOUNTAIN, null, { rampaging: RampagingEnemyType.Draconum }), // W - mountain + draconum
-      hex(0, -1, TERRAIN_FOREST), // NW - forest
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS, SiteType.City),
+      hex(LOCAL_HEX.NE, TERRAIN_PLAINS, SiteType.Monastery),
+      hex(LOCAL_HEX.E, TERRAIN_LAKE),
+      hex(LOCAL_HEX.SE, TERRAIN_LAKE),
+      hex(LOCAL_HEX.SW, TERRAIN_HILLS),
+      hex(LOCAL_HEX.W, TERRAIN_MOUNTAIN, null, { rampaging: RampagingEnemyType.Draconum }),
+      hex(LOCAL_HEX.NW, TERRAIN_FOREST),
     ],
   },
 
@@ -479,13 +502,13 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     hasCity: true,
     cityColor: CITY_COLOR_WHITE,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, SiteType.City), // Center - White City
-      hex(1, -1, TERRAIN_PLAINS), // NE - plains
-      hex(1, 0, TERRAIN_FOREST), // E - forest
-      hex(0, 1, TERRAIN_LAKE, null, { rampaging: RampagingEnemyType.Draconum }), // SE - lake + draconum
-      hex(-1, 1, TERRAIN_LAKE), // SW - lake
-      hex(-1, 0, TERRAIN_WASTELAND, SiteType.Keep), // W - keep
-      hex(0, -1, TERRAIN_WASTELAND, SiteType.SpawningGrounds), // NW - spawning grounds
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS, SiteType.City),
+      hex(LOCAL_HEX.NE, TERRAIN_PLAINS),
+      hex(LOCAL_HEX.E, TERRAIN_FOREST),
+      hex(LOCAL_HEX.SE, TERRAIN_LAKE, null, { rampaging: RampagingEnemyType.Draconum }),
+      hex(LOCAL_HEX.SW, TERRAIN_LAKE),
+      hex(LOCAL_HEX.W, TERRAIN_WASTELAND, SiteType.Keep),
+      hex(LOCAL_HEX.NW, TERRAIN_WASTELAND, SiteType.SpawningGrounds),
     ],
   },
 
@@ -496,13 +519,13 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     hasCity: true,
     cityColor: CITY_COLOR_RED,
     hexes: [
-      hex(0, 0, TERRAIN_WASTELAND, SiteType.City), // Center - Red City
-      hex(1, -1, TERRAIN_HILLS, SiteType.Mine, {mineColor: MINE_COLOR_RED}), // NE - red mine
-      hex(1, 0, TERRAIN_DESERT), // E - desert
-      hex(0, 1, TERRAIN_DESERT, null, { rampaging: RampagingEnemyType.Draconum }), // SE - desert + draconum
-      hex(-1, 1, TERRAIN_WASTELAND), // SW - wasteland
-      hex(-1, 0, TERRAIN_WASTELAND, null, { rampaging: RampagingEnemyType.Draconum }), // W - wasteland + draconum
-      hex(0, -1, TERRAIN_DESERT, SiteType.AncientRuins), // NW - ancient ruins
+      hex(LOCAL_HEX.CENTER, TERRAIN_WASTELAND, SiteType.City),
+      hex(LOCAL_HEX.NE, TERRAIN_HILLS, SiteType.Mine, { mineColor: MINE_COLOR_RED }),
+      hex(LOCAL_HEX.E, TERRAIN_DESERT),
+      hex(LOCAL_HEX.SE, TERRAIN_DESERT, null, { rampaging: RampagingEnemyType.Draconum }),
+      hex(LOCAL_HEX.SW, TERRAIN_WASTELAND),
+      hex(LOCAL_HEX.W, TERRAIN_WASTELAND, null, { rampaging: RampagingEnemyType.Draconum }),
+      hex(LOCAL_HEX.NW, TERRAIN_DESERT, SiteType.AncientRuins),
     ],
   },
 
@@ -510,35 +533,37 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
   // CORE TILES (Brown back) - Lost Legion Expansion
   // ============================================================================
 
-  // Core 9 - Draconum center with walls, Mage Tower, Labyrinth, Refugee Camp
+  // Core 9 - Mage Tower, Labyrinth, Refugee Camp, Draconum
+  // Walls: CENTER walled to W, SW, SE; SE walled to NE, NW; SW walled to NE; W walled to E, NE; NW walled to SW
   [TileId.Core9]: {
     id: TileId.Core9,
     type: TILE_TYPE_CORE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, null, { rampaging: RampagingEnemyType.Draconum }), // Center - plains + draconum (walled to W, SW, and SE)
-      hex(1, -1, TERRAIN_HILLS, SiteType.MageTower), // NE - mage tower
-      hex(1, 0, TERRAIN_MOUNTAIN), // E - mountain
-      hex(0, 1, TERRAIN_DESERT, SiteType.RefugeeCamp), // SE - refugee camp (walled to north east and north west)
-      hex(-1, 1, TERRAIN_DESERT), // SW - desert (wall to north east)
-      hex(-1, 0, TERRAIN_WASTELAND), // W - wasteland (walled to east and north east )
-      hex(0, -1, TERRAIN_HILLS, SiteType.Labyrinth), // NW - labyrinth (6/4/2) Walled to SW
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS, null, { rampaging: RampagingEnemyType.Draconum }),
+      hex(LOCAL_HEX.NE, TERRAIN_HILLS, SiteType.MageTower),
+      hex(LOCAL_HEX.E, TERRAIN_MOUNTAIN),
+      hex(LOCAL_HEX.SE, TERRAIN_DESERT, SiteType.RefugeeCamp),
+      hex(LOCAL_HEX.SW, TERRAIN_DESERT),
+      hex(LOCAL_HEX.W, TERRAIN_WASTELAND),
+      hex(LOCAL_HEX.NW, TERRAIN_HILLS, SiteType.Labyrinth),
     ],
   },
 
-  // Core 10 - Wasteland center, Deep Mine, Labyrinth, Keep with walls, Orc Marauders
+  // Core 10 - Deep Mine (all 4 colors), Labyrinth, Keep, Orc Marauders
+  // Walls: W walled (keep fortified)
   [TileId.Core10]: {
     id: TileId.Core10,
     type: TILE_TYPE_CORE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_WASTELAND), // Center - wasteland
-      hex(1, -1, TERRAIN_LAKE), // NE - lake
-      hex(1, 0, TERRAIN_FOREST, SiteType.Labyrinth), // E - labyrinth (6/4/2)
-      hex(0, 1, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }), // SE - hills + orcs
-      hex(-1, 1, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }), // SW - hills + orcs
-      hex(-1, 0, TERRAIN_FOREST, SiteType.Keep), // W - keep (walled)
-      hex(0, -1, TERRAIN_WASTELAND, SiteType.DeepMine), // NW - deep mine (4 colors)
+      hex(LOCAL_HEX.CENTER, TERRAIN_WASTELAND),
+      hex(LOCAL_HEX.NE, TERRAIN_LAKE),
+      hex(LOCAL_HEX.E, TERRAIN_FOREST, SiteType.Labyrinth),
+      hex(LOCAL_HEX.SE, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.SW, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }),
+      hex(LOCAL_HEX.W, TERRAIN_FOREST, SiteType.Keep),
+      hex(LOCAL_HEX.NW, TERRAIN_WASTELAND, SiteType.DeepMine), // Deep mine: all 4 colors
     ],
   },
 
@@ -547,18 +572,19 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
   // ============================================================================
 
   // Volkare's Camp
+  // Walls: CENTER walled (camp fortified); SE walled (village fortified)
   [TileId.CoreVolkare]: {
     id: TileId.CoreVolkare,
     type: TILE_TYPE_CORE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, SiteType.VolkaresCamp), // Center - Volkare's Camp (walled)
-      hex(1, -1, TERRAIN_MOUNTAIN), // NE - mountain
-      hex(1, 0, TERRAIN_WASTELAND, null, { rampaging: RampagingEnemyType.Draconum }), // E - wasteland + draconum
-      hex(0, 1, TERRAIN_DESERT, SiteType.Village), // SE - village (walled)
-      hex(-1, 1, TERRAIN_HILLS), // SW - hills
-      hex(-1, 0, TERRAIN_LAKE), // W - lake
-      hex(0, -1, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }), // NW - forest + orcs
+      hex(LOCAL_HEX.CENTER, TERRAIN_PLAINS, SiteType.VolkaresCamp),
+      hex(LOCAL_HEX.NE, TERRAIN_MOUNTAIN),
+      hex(LOCAL_HEX.E, TERRAIN_WASTELAND, null, { rampaging: RampagingEnemyType.Draconum }),
+      hex(LOCAL_HEX.SE, TERRAIN_DESERT, SiteType.Village),
+      hex(LOCAL_HEX.SW, TERRAIN_HILLS),
+      hex(LOCAL_HEX.W, TERRAIN_LAKE),
+      hex(LOCAL_HEX.NW, TERRAIN_FOREST, null, { rampaging: RampagingEnemyType.OrcMarauder }),
     ],
   },
 };

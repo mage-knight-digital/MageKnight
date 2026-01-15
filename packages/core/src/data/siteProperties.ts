@@ -116,13 +116,13 @@ export const SITE_PROPERTIES: Record<SiteType, SiteProperties> = {
   [SiteType.Maze]: {
     fortified: false,
     inhabited: false,
-    adventureSite: true, // numbered adventure site (6/4/2)
+    adventureSite: true,
     allowsMultipleHeroes: false,
   },
   [SiteType.Labyrinth]: {
     fortified: false,
     inhabited: false,
-    adventureSite: true, // core version of Maze (6/4/2)
+    adventureSite: true,
     allowsMultipleHeroes: false,
   },
   [SiteType.RefugeeCamp]: {
@@ -220,3 +220,20 @@ export const CONQUEST_REWARDS: Partial<Record<SiteType, SiteReward>> = {
 export function getConquestReward(siteType: SiteType): SiteReward | null {
   return CONQUEST_REWARDS[siteType] ?? null;
 }
+
+// =============================================================================
+// MAZE/LABYRINTH PATH ENEMY COUNTS
+// =============================================================================
+
+/**
+ * Enemy counts for the three paths in Maze and Labyrinth sites.
+ * Player chooses a path; more enemies = better rewards.
+ */
+export const MAZE_LABYRINTH_ENEMY_COUNTS = {
+  /** Shortest path - fewest enemies, worst reward (crystals only) */
+  SHORT: 2,
+  /** Medium path - moderate enemies, spell reward */
+  MEDIUM: 4,
+  /** Long path - most enemies, artifact reward (+ advanced action for Labyrinth) */
+  LONG: 6,
+} as const;
