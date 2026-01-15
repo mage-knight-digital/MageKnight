@@ -194,7 +194,7 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
       hex(1, -1, TERRAIN_DESERT), // NE - desert
       hex(1, 0, TERRAIN_MOUNTAIN), // E - mountain
       hex(0, 1, TERRAIN_PLAINS, SiteType.Village), // SE - village
-      hex(-1, 1, TERRAIN_DESERT), // SW - desert
+      hex(-1, 1, TERRAIN_PLAINS), // SW - plains
       hex(-1, 0, TERRAIN_HILLS, null, { rampaging: RampagingEnemyType.OrcMarauder }), // W - hills + orcs
       hex(0, -1, TERRAIN_DESERT), // NW - desert
     ],
@@ -272,11 +272,11 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     hexes: [
       hex(0, 0, TERRAIN_MOUNTAIN), // Center - mountain
       hex(1, -1, TERRAIN_MOUNTAIN), // NE - mountain
-      hex(1, 0, TERRAIN_HILLS, SiteType.Keep), // E - keep
-      hex(0, 1, TERRAIN_PLAINS, SiteType.MageTower), // SE - mage tower
-      hex(-1, 1, TERRAIN_PLAINS), // SW - plains
+      hex(1, 0, TERRAIN_WASTELAND, SiteType.Keep), // E - keep on wasteland
+      hex(0, 1, TERRAIN_PLAINS), // SE - plains
+      hex(-1, 1, TERRAIN_WASTELAND, SiteType.MageTower), // SW - mage tower on wasteland
       hex(-1, 0, TERRAIN_PLAINS), // W - plains
-      hex(0, -1, TERRAIN_HILLS, SiteType.AncientRuins), // NW - ancient ruins
+      hex(0, -1, TERRAIN_WASTELAND, SiteType.AncientRuins), // NW - ancient ruins on wasteland
     ],
   },
 
