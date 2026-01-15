@@ -142,7 +142,7 @@ export const TILE_DEFINITIONS: Record<TileId, TileDefinition> = {
     type: TILE_TYPE_COUNTRYSIDE,
     hasCity: false,
     hexes: [
-      hex(0, 0, TERRAIN_PLAINS, SiteType.MagicalGlade), // Center - magical glade
+      hex(0, 0, TERRAIN_FOREST, SiteType.MagicalGlade), // Center - forest with magical glade
       hex(1, -1, TERRAIN_LAKE), // NE - lake
       hex(1, 0, TERRAIN_PLAINS, SiteType.Village), // E - village
       hex(0, 1, TERRAIN_PLAINS), // SE - plains
