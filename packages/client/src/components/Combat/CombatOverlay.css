@@ -100,100 +100,35 @@
   pointer-events: auto;
 }
 
-/* Phase banner at top - stays fixed */
-.combat-scene__banner {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 2rem;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 80%, transparent 100%);
-  overflow: hidden; /* Clip the slot machine text */
-}
-
-/* Container for the phase text - clips overflow for slot effect */
-.combat-scene__phase-container {
+/* Header - contains phase rail and undo button */
+.combat-scene__header {
   position: relative;
-  overflow: hidden;
-  /* Give it some height for the animation */
-  height: clamp(2rem, 4vw, 3.5rem);
   display: flex;
+  flex-direction: column;
   align-items: center;
-}
-
-.combat-scene__phase {
-  font-size: clamp(1.5rem, 3vw, 2.5rem);
-  font-weight: 700;
-  color: #fff;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  /* Slot machine animation - dramatic slow reveal */
-  animation: phase-slot-in 0.8s cubic-bezier(0.23, 1, 0.32, 1) both;
-}
-
-@keyframes phase-slot-in {
-  /* Start hidden above */
-  0% {
-    transform: translateY(-120%);
-    opacity: 0;
-  }
-  /* Slow... building tension... */
-  20% {
-    transform: translateY(-80%);
-    opacity: 0.3;
-  }
-  40% {
-    transform: translateY(-40%);
-    opacity: 0.6;
-  }
-  /* Here it comes... */
-  60% {
-    transform: translateY(-10%);
-    opacity: 0.9;
-  }
-  /* CLUNK - lands with weight */
-  75% {
-    transform: translateY(6%);
-    opacity: 1;
-  }
-  /* Subtle settle */
-  88% {
-    transform: translateY(-2%);
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.combat-scene__fortified {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #f39c12;
-  background: rgba(243, 156, 18, 0.2);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  border: 1px solid rgba(243, 156, 18, 0.4);
 }
 
 .combat-scene__undo {
+  position: absolute;
+  top: 0.75rem;
+  right: 1rem;
   padding: 0.5rem 1rem;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #aaa;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .combat-scene__undo:hover {
-  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 /* Battlefield - center area where enemies appear */
@@ -256,64 +191,3 @@
   letter-spacing: 0.1em;
 }
 
-/* Action bar at bottom */
-.combat-scene__actions {
-  display: flex;
-  justify-content: center;
-  padding: 1rem 2rem 14rem; /* Extra padding for player hand */
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 60%, transparent 100%);
-}
-
-/* Combat actions - simplified */
-.combat-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.combat-actions__description {
-  font-size: clamp(0.875rem, 1.2vw, 1.125rem);
-  color: #bbb;
-  text-align: center;
-  max-width: 500px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-
-.combat-actions__buttons {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.combat-actions__btn {
-  padding: clamp(0.75rem, 1.2vw, 1rem) clamp(1.5rem, 2.5vw, 2.5rem);
-  font-size: clamp(0.875rem, 1.2vw, 1.125rem);
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.combat-actions__btn--end-phase {
-  background: linear-gradient(135deg, #2c3e50 0%, #1a252f 100%);
-  color: #fff;
-  border: 1px solid #444;
-}
-
-.combat-actions__btn--end-phase:hover:not(:disabled) {
-  background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
-  transform: translateY(-1px);
-}
-
-.combat-actions__btn--end-phase:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.combat-actions__warning {
-  font-size: 0.75rem;
-  color: #e74c3c;
-}

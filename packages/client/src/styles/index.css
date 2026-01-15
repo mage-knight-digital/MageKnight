@@ -39,6 +39,22 @@ body {
   z-index: 150;
 }
 
+/* When hand is focused during combat, it should be ABOVE everything */
+.app--combat .floating-hand--focus {
+  z-index: 500;
+}
+
+/* Same for carousel track when in focus mode during combat */
+.app--combat .carousel-track {
+  z-index: 150;
+}
+
+/* Focused carousel panes need highest priority during combat */
+.app--combat .tactic-carousel--focus,
+.app--combat .floating-unit-carousel--focus {
+  z-index: 500;
+}
+
 .app__main {
   display: flex;
   flex: 1;

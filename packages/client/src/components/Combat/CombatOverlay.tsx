@@ -15,9 +15,10 @@ import {
   COMBAT_PHASE_ASSIGN_DAMAGE,
   DECLARE_BLOCK_ACTION,
   ASSIGN_DAMAGE_ACTION,
+  END_COMBAT_PHASE_ACTION,
 } from "@mage-knight/shared";
 import { EnemyCard } from "./EnemyCard";
-import { CombatActions } from "./CombatActions";
+import { PhaseRail } from "./PhaseRail";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import "./CombatOverlay.css";
@@ -34,12 +35,6 @@ interface CombatOverlayProps {
   combatOptions: CombatOptions;
 }
 
-const PHASE_LABELS: Record<string, string> = {
-  ranged_siege: "Ranged & Siege",
-  block: "Block",
-  assign_damage: "Assign Damage",
-  attack: "Attack",
-};
 
 function AccumulatorDisplay() {
   const player = useMyPlayer();
@@ -181,14 +176,14 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
         />
       )}
 
-      {/* Phase banner at top - banner stays, text does slot machine animation */}
-      <div className="combat-scene__banner">
-        <div className="combat-scene__phase-container">
-          <div className="combat-scene__phase" key={phase}>
-            {PHASE_LABELS[phase] || phase}
-            {isAtFortifiedSite && <span className="combat-scene__fortified">Fortified</span>}
-          </div>
-        </div>
+      {/* Phase Rail at top - includes action button, always visible */}
+      <div className="combat-scene__header">
+        <PhaseRail
+          currentPhase={phase}
+          isAtFortifiedSite={isAtFortifiedSite}
+          canEndPhase={combatOptions.canEndPhase}
+          onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
+        />
         {canUndo && (
           <button
             className="combat-scene__undo"
@@ -246,11 +241,6 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
 
         {/* Accumulated power display */}
         <AccumulatorDisplay />
-      </div>
-
-      {/* Action bar at bottom (above hand) */}
-      <div className="combat-scene__actions">
-        <CombatActions combatOptions={combatOptions} />
       </div>
     </div>
   );
