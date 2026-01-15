@@ -35,9 +35,10 @@ import {
   PLAYER_KNOCKED_OUT,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
-import type { Site, HexState } from "../../types/map.js";
+import type { Site, HexState, HexEnemy } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
 import type { EnemyTokenId } from "../../types/enemy.js";
+import { createHexEnemy } from "./testHelpers.js";
 import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemyHelpers.js";
 import type { BlockSource } from "@mage-knight/shared";
 
@@ -119,7 +120,7 @@ function createConqueredKeepSite(owner: string): Site {
  */
 function createTestStateWithKeep(
   keepCoord: { q: number; r: number },
-  enemies: readonly EnemyTokenId[] = [],
+  enemies: readonly HexEnemy[] = [],
   isConquered = false,
   owner: string | null = null
 ): GameState {
@@ -163,7 +164,7 @@ describe("Combat Trigger Integration", () => {
 
       // Set up state with player adjacent to keep
       const keepCoord = { q: 1, r: 0 };
-      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+      let state = createTestStateWithKeep(keepCoord, [createHexEnemy(enemyToken)]);
 
       // Update player with enough move points
       const player = createTestPlayer({
@@ -303,7 +304,7 @@ describe("Combat Trigger Integration", () => {
     it("should apply -1 reputation on assault", () => {
       const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
       const keepCoord = { q: 1, r: 0 };
-      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+      let state = createTestStateWithKeep(keepCoord, [createHexEnemy(enemyToken)]);
 
       const player = createTestPlayer({
         id: "player1",
@@ -399,7 +400,7 @@ describe("Combat Trigger Integration", () => {
     it("should conquest site on combat victory", () => {
       const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
       const keepCoord = { q: 1, r: 0 };
-      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+      let state = createTestStateWithKeep(keepCoord, [createHexEnemy(enemyToken)]);
 
       const player = createTestPlayer({
         id: "player1",
@@ -491,7 +492,7 @@ describe("Combat Trigger Integration", () => {
     it("should clear enemies from hex on victory", () => {
       const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
       const keepCoord = { q: 1, r: 0 };
-      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+      let state = createTestStateWithKeep(keepCoord, [createHexEnemy(enemyToken)]);
 
       const player = createTestPlayer({
         id: "player1",
@@ -630,7 +631,7 @@ describe("Combat Trigger Integration", () => {
     it("should be set when assault triggers combat", () => {
       const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
       const keepCoord = { q: 1, r: 0 };
-      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+      let state = createTestStateWithKeep(keepCoord, [createHexEnemy(enemyToken)]);
 
       const player = createTestPlayer({
         id: "player1",
@@ -661,7 +662,7 @@ describe("Combat Trigger Integration", () => {
       const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
       const keepCoord = { q: 1, r: 0 };
       const originCoord = { q: 0, r: 0 };
-      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+      let state = createTestStateWithKeep(keepCoord, [createHexEnemy(enemyToken)]);
 
       const player = createTestPlayer({
         id: "player1",
@@ -816,7 +817,7 @@ describe("Combat Trigger Integration", () => {
       const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
       const keepCoord = { q: 1, r: 0 };
       const originCoord = { q: 0, r: 0 };
-      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+      let state = createTestStateWithKeep(keepCoord, [createHexEnemy(enemyToken)]);
 
       const player = createTestPlayer({
         id: "player1",
@@ -902,7 +903,7 @@ describe("Combat Trigger Integration", () => {
       const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
       const keepCoord = { q: 1, r: 0 };
       const originCoord = { q: 0, r: 0 };
-      let state = createTestStateWithKeep(keepCoord, [enemyToken]);
+      let state = createTestStateWithKeep(keepCoord, [createHexEnemy(enemyToken)]);
 
       const player = createTestPlayer({
         id: "player1",

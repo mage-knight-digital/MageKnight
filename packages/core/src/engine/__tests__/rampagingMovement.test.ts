@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, MageKnightEngine } from "../MageKnightEngine.js";
-import { createTestGameState, createTestPlayer, createTestHex } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer, createTestHex, createHexEnemy } from "./testHelpers.js";
 import {
   MOVE_ACTION,
   TERRAIN_PLAINS,
@@ -49,7 +49,7 @@ describe("Rampaging Enemy Movement Restrictions", () => {
       const rampagingHex: HexState = {
         ...createTestHex(1, 0, TERRAIN_PLAINS),
         rampagingEnemies: [RampagingEnemyType.OrcMarauder],
-        enemies: [enemyToken], // Enemy is present
+        enemies: [createHexEnemy(enemyToken)], // Enemy is present
       };
 
       state = {
@@ -156,7 +156,7 @@ describe("Rampaging Enemy Movement Restrictions", () => {
       const correctlySetupHex: HexState = {
         ...createTestHex(1, 0, TERRAIN_PLAINS),
         rampagingEnemies: [RampagingEnemyType.OrcMarauder], // Should be preserved
-        enemies: [enemyToken], // Enemies were drawn
+        enemies: [createHexEnemy(enemyToken)], // Enemies were drawn
       };
 
       // Verify both are set
@@ -201,7 +201,7 @@ describe("Rampaging Enemy Movement Restrictions", () => {
       const rampagingHex: HexState = {
         ...createTestHex(1, 0, TERRAIN_PLAINS),
         rampagingEnemies: [RampagingEnemyType.OrcMarauder],
-        enemies: [enemyToken],
+        enemies: [createHexEnemy(enemyToken)],
       };
 
       // Create player's starting hex (0,0) - adjacent to rampaging enemy
@@ -270,7 +270,7 @@ describe("Rampaging Enemy Movement Restrictions", () => {
       const rampagingHex: HexState = {
         ...createTestHex(1, 0, TERRAIN_PLAINS),
         rampagingEnemies: [RampagingEnemyType.OrcMarauder],
-        enemies: [enemyToken],
+        enemies: [createHexEnemy(enemyToken)],
       };
 
       const startHex = createTestHex(0, 0, TERRAIN_PLAINS);
@@ -332,7 +332,7 @@ describe("Rampaging Enemy Movement Restrictions", () => {
       const rampagingHex: HexState = {
         ...createTestHex(1, 0, TERRAIN_PLAINS),
         rampagingEnemies: [RampagingEnemyType.OrcMarauder],
-        enemies: [enemyToken],
+        enemies: [createHexEnemy(enemyToken)],
       };
 
       const startHex = createTestHex(-1, 0, TERRAIN_PLAINS);

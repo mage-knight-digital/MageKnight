@@ -27,9 +27,9 @@ import {
 } from "@mage-knight/shared";
 import { createCombatTriggeredEvent } from "@mage-knight/shared";
 import { getAdventureSiteEnemies, drawEnemy, getEnemyIdFromToken } from "../helpers/enemyHelpers.js";
-import type { HexState } from "../../types/map.js";
+import type { HexState, HexEnemy } from "../../types/map.js";
 import { SiteType } from "../../types/map.js";
-import type { EnemyTokenId } from "../../types/enemy.js";
+import type { EnemyTokenId, EnemyColor } from "../../types/enemy.js";
 import { createCombatState } from "../../types/combat.js";
 import { createConquerSiteCommand } from "./conquerSiteCommand.js";
 import { ENTER_SITE_COMMAND } from "./commandTypes.js";
@@ -71,7 +71,8 @@ export function createEnterSiteCommand(params: EnterSiteCommandParams): Command 
       });
 
       // Get enemies — either from hex or draw new ones
-      const enemyTokenIds: EnemyTokenId[] = [...hex.enemies];
+      // hex.enemies is now HexEnemy[], copy them
+      const hexEnemies: HexEnemy[] = [...hex.enemies];
 
       // Dungeons and tombs draw enemies now
       const adventureEnemies = getAdventureSiteEnemies(site.type);
@@ -84,14 +85,19 @@ export function createEnterSiteCommand(params: EnterSiteCommandParams): Command 
           currentPiles = result.piles;
           currentRng = result.rng;
           if (result.tokenId) {
-            enemyTokenIds.push(result.tokenId);
+            // Enemies drawn on site entry are revealed (face-up)
+            hexEnemies.push({
+              tokenId: result.tokenId,
+              color: adventureEnemies.color,
+              isRevealed: true,
+            });
           }
         }
 
         // Update hex with drawn enemies
         const updatedHex: HexState = {
           ...hex,
-          enemies: enemyTokenIds,
+          enemies: hexEnemies,
         };
 
         const updatedHexes = {
@@ -129,7 +135,7 @@ export function createEnterSiteCommand(params: EnterSiteCommandParams): Command 
       updatedState = { ...updatedState, players: updatedPlayers };
 
       // Special case: Ruins at day with no enemies = instant conquest
-      if (enemyTokenIds.length === 0) {
+      if (hexEnemies.length === 0) {
         // No enemies — instant conquest
         const conquestResult = createConquerSiteCommand({
           playerId: params.playerId,
@@ -142,8 +148,9 @@ export function createEnterSiteCommand(params: EnterSiteCommandParams): Command 
         };
       }
 
-      // Convert enemy token IDs to enemy IDs for combat
-      const enemyIds = enemyTokenIds.map((tokenId) => getEnemyIdFromToken(tokenId));
+      // Convert HexEnemy[] to enemy IDs for combat
+      const enemyIds = hexEnemies.map((e) => getEnemyIdFromToken(e.tokenId));
+      const tokenIds = hexEnemies.map((e) => e.tokenId);
 
       // Emit COMBAT_TRIGGERED event
       events.push(
@@ -151,7 +158,7 @@ export function createEnterSiteCommand(params: EnterSiteCommandParams): Command 
           params.playerId,
           COMBAT_TRIGGER_VOLUNTARY_EXPLORE,
           player.position,
-          enemyTokenIds
+          tokenIds
         )
       );
 

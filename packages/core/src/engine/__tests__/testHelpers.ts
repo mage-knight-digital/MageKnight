@@ -5,10 +5,13 @@
 import { createInitialGameState } from "../../state/GameState.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { HexState } from "../../types/map.js";
+import type { HexState, HexEnemy } from "../../types/map.js";
 import { Hero } from "../../types/hero.js";
 import { TileId, SiteType } from "../../types/map.js";
 import type { Site } from "../../types/map.js";
+import type { EnemyTokenId, EnemyColor } from "../../types/enemy.js";
+import type { EnemyId } from "@mage-knight/shared";
+import { ENEMIES } from "@mage-knight/shared";
 import type { Terrain } from "@mage-knight/shared";
 import {
   GAME_PHASE_ROUND,
@@ -25,6 +28,35 @@ import {
   ALL_NIGHT_TACTICS,
   type TacticId,
 } from "@mage-knight/shared";
+
+/**
+ * Get the enemy ID part from a token ID (format: "enemyId_counter")
+ */
+function getEnemyIdFromTokenId(tokenId: EnemyTokenId): EnemyId {
+  const parts = String(tokenId).split("_");
+  parts.pop(); // Remove counter
+  return parts.join("_") as EnemyId;
+}
+
+/**
+ * Create a HexEnemy from an EnemyTokenId for test purposes.
+ * Defaults to revealed (face-up), which is common for test scenarios.
+ */
+export function createHexEnemy(
+  tokenId: EnemyTokenId,
+  isRevealed: boolean = true
+): HexEnemy {
+  const enemyId = getEnemyIdFromTokenId(tokenId);
+  const enemy = ENEMIES[enemyId];
+  if (!enemy) {
+    throw new Error(`Unknown enemy ID: ${enemyId}`);
+  }
+  return {
+    tokenId,
+    color: enemy.color as EnemyColor,
+    isRevealed,
+  };
+}
 
 // Default combat accumulator values
 const defaultCombatAccumulator = {

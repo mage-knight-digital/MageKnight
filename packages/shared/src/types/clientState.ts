@@ -17,7 +17,7 @@ import type { ManaTokenSource } from "../valueConstants.js";
 import type { UnitState } from "../unitState.js";
 import type { TacticId } from "../tactics.js";
 import type { ValidActions } from "./validActions.js";
-import type { EnemyId, EnemyAbilityType, EnemyResistances, Element } from "../enemies.js";
+import type { EnemyId, EnemyAbilityType, EnemyResistances, Element, EnemyColor } from "../enemies.js";
 import type { CombatPhase } from "../combatPhases.js";
 import type { SiteReward } from "../siteRewards.js";
 
@@ -156,6 +156,20 @@ export interface ClientSite {
   readonly mineColor?: string;
 }
 
+/**
+ * Enemy token on a hex as seen by the client.
+ * When revealed, full token info is available.
+ * When unrevealed, only the color (token back) is visible.
+ */
+export interface ClientHexEnemy {
+  /** The token back color - always visible */
+  readonly color: EnemyColor;
+  /** Whether the enemy has been revealed */
+  readonly isRevealed: boolean;
+  /** The enemy token ID - only present when revealed */
+  readonly tokenId?: string;
+}
+
 // Hex state (public)
 export interface ClientHexState {
   readonly coord: HexCoord;
@@ -163,7 +177,7 @@ export interface ClientHexState {
   readonly tileId: string;
   readonly site: ClientSite | null;
   readonly rampagingEnemies: readonly string[]; // "orc_marauder" | "draconum"
-  readonly enemies: readonly string[]; // enemy token IDs
+  readonly enemies: readonly ClientHexEnemy[]; // enemy tokens with visibility
   readonly shieldTokens: readonly string[]; // player IDs
 }
 

@@ -26,7 +26,7 @@ import { MOVE_COMMAND } from "./commandTypes.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { createCombatState } from "../../types/combat.js";
 import { getEnemyIdFromToken } from "../helpers/enemyHelpers.js";
-import { SiteType, type HexState } from "../../types/map.js";
+import { SiteType, type HexState, type HexEnemy } from "../../types/map.js";
 import type { EnemyTokenId } from "../../types/enemy.js";
 
 export { MOVE_COMMAND };
@@ -39,7 +39,7 @@ function findProvokedRampagingEnemies(
   from: HexCoord,
   to: HexCoord,
   hexes: Record<string, HexState>
-): { hex: HexState; enemies: readonly EnemyTokenId[] }[] {
+): { hex: HexState; enemies: readonly HexEnemy[] }[] {
   // Get all hexes adjacent to the starting position
   const fromNeighbors = getAllNeighbors(from);
   const fromNeighborKeys = new Set(fromNeighbors.map(hexKey));
@@ -54,7 +54,7 @@ function findProvokedRampagingEnemies(
   );
 
   // Check each common neighbor for rampaging enemies
-  const provokedEnemies: { hex: HexState; enemies: readonly EnemyTokenId[] }[] = [];
+  const provokedEnemies: { hex: HexState; enemies: readonly HexEnemy[] }[] = [];
 
   for (const key of commonNeighborKeys) {
     const hex = hexes[key];
@@ -154,7 +154,8 @@ export function createMoveCommand(params: MoveCommandParams): Command {
 
           // Get enemies at hex - for opponent keeps with no garrison, draw would happen
           // TODO: Draw random gray enemy as garrison for opponent keeps (half fame)
-          const enemyIds = destinationHex.enemies;
+          const hexEnemies = destinationHex.enemies;
+          const enemyTokenIds = hexEnemies.map((e) => e.tokenId);
 
           // Emit combat triggered event
           events.push(
@@ -162,7 +163,7 @@ export function createMoveCommand(params: MoveCommandParams): Command {
               params.playerId,
               COMBAT_TRIGGER_FORTIFIED_ASSAULT,
               params.to,
-              enemyIds
+              enemyTokenIds
             )
           );
 
@@ -175,7 +176,7 @@ export function createMoveCommand(params: MoveCommandParams): Command {
 
           // Create combat state with assault origin (where player was before assault)
           const combatState = createCombatState(
-            enemyIds.map((tokenId) => getEnemyIdFromToken(tokenId)),
+            hexEnemies.map((e) => getEnemyIdFromToken(e.tokenId)),
             true, // isAtFortifiedSite
             { assaultOrigin: params.from }
           );
@@ -197,7 +198,8 @@ export function createMoveCommand(params: MoveCommandParams): Command {
         const firstProvoked = provokedEnemies[0];
         if (firstProvoked) {
           // Collect all enemy tokens from all provoked hexes
-          const allEnemyTokens = provokedEnemies.flatMap((p) => p.enemies);
+          const allHexEnemies = provokedEnemies.flatMap((p) => p.enemies);
+          const allEnemyTokenIds = allHexEnemies.map((e) => e.tokenId);
           const rampagingHexCoord = firstProvoked.hex.coord;
 
           // Emit combat triggered event
@@ -206,7 +208,7 @@ export function createMoveCommand(params: MoveCommandParams): Command {
               params.playerId,
               COMBAT_TRIGGER_PROVOKE_RAMPAGING,
               rampagingHexCoord,
-              allEnemyTokens
+              allEnemyTokenIds
             )
           );
 
@@ -218,7 +220,7 @@ export function createMoveCommand(params: MoveCommandParams): Command {
 
           // Create combat state (not at fortified site)
           const combatState = createCombatState(
-            allEnemyTokens.map((tokenId) => getEnemyIdFromToken(tokenId)),
+            allHexEnemies.map((e) => getEnemyIdFromToken(e.tokenId)),
             false // isAtFortifiedSite - rampaging enemies are not fortified
           );
 

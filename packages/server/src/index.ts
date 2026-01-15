@@ -7,6 +7,7 @@ import {
   type GameState,
   type Player,
   type HexState,
+  type HexEnemy,
   type TilePlacement,
   type TileSlot,
   type RngState,
@@ -53,6 +54,7 @@ import {
   type ClientPendingChoice,
   type ClientCombatState,
   type ClientCombatEnemy,
+  type ClientHexEnemy,
   type EventCallback,
   GAME_PHASE_ROUND,
   GAME_STARTED,
@@ -110,7 +112,9 @@ export function toClientState(
                   ...(hex.site.mineColor && { mineColor: hex.site.mineColor }),
                 }
               : null,
-            enemies: hex.enemies.map(String),
+            enemies: hex.enemies.map((enemy): ClientHexEnemy =>
+              toClientHexEnemy(enemy)
+            ),
             shieldTokens: [...hex.shieldTokens],
             rampagingEnemies: hex.rampagingEnemies.map(String),
           },
@@ -233,6 +237,27 @@ function toClientPendingChoice(
       description: describeEffect(effect),
     })),
   };
+}
+
+/**
+ * Convert a HexEnemy to ClientHexEnemy.
+ * Masks the token ID when the enemy is unrevealed, only showing the color (token back).
+ */
+function toClientHexEnemy(enemy: HexEnemy): ClientHexEnemy {
+  if (enemy.isRevealed) {
+    // Revealed: include the token ID so client can display the enemy face
+    return {
+      color: enemy.color,
+      isRevealed: true,
+      tokenId: String(enemy.tokenId),
+    };
+  } else {
+    // Unrevealed: only show the color (token back), no token ID
+    return {
+      color: enemy.color,
+      isRevealed: false,
+    };
+  }
 }
 
 /**

@@ -2043,3 +2043,226 @@ body {
   padding-left: 0.25rem;
   border-left: 2px solid #444;
 }
+
+/* ============================================
+   Tile Reveal Animation System
+
+   Disney principles applied:
+   - Anticipation: ghost hex pulses before reveal
+   - Squash & Stretch: tile overshoots then settles
+   - Follow-through: enemies/sites appear with delay
+   - Secondary action: particles and glow effects
+   - Timing: 800ms total, feels momentous
+   ============================================ */
+
+/* Phase 1: Ghost hex anticipation - pulses before disappearing */
+@keyframes ghost-hex-anticipation {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.1);
+    filter: brightness(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+    filter: brightness(2);
+  }
+}
+
+.ghost-hex-polygon--clicking {
+  animation: ghost-hex-anticipation 0.3s ease-out forwards;
+  pointer-events: none;
+}
+
+/* Phase 2: Tile reveal - emerges from darkness with overshoot */
+@keyframes tile-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+    filter: blur(8px) brightness(0.3);
+  }
+  20% {
+    opacity: 0.3;
+    filter: blur(6px) brightness(0.5);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.06);
+    filter: blur(2px) brightness(1.3);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(0.98);
+    filter: blur(0) brightness(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0) brightness(1);
+  }
+}
+
+.tile-image--revealing {
+  animation: tile-reveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform-origin: center center;
+}
+
+/* Phase 3: Light bloom effect - radial glow from center */
+@keyframes tile-bloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  30% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.5);
+  }
+}
+
+.tile-bloom {
+  animation: tile-bloom 0.8s ease-out forwards;
+  pointer-events: none;
+}
+
+/* Phase 4: Hex content fade-in - terrain overlays appear with stagger */
+@keyframes hex-content-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hex-overlay--revealing {
+  animation: hex-content-reveal 0.4s ease-out forwards;
+  animation-delay: var(--reveal-delay, 0.2s);
+  opacity: 0;
+}
+
+/* Phase 5: Enemy token pop-in - bouncy entrance for each enemy */
+@keyframes enemy-token-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-20deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(5deg);
+  }
+  70% {
+    transform: scale(0.9) rotate(-3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.enemy-token--revealing {
+  animation: enemy-token-reveal 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: var(--enemy-reveal-delay, 0.4s);
+  opacity: 0;
+}
+
+/* Phase 6: Site icon emergence - special treatment for sites */
+@keyframes site-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) translateY(10px);
+    filter: brightness(2) saturate(0);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15) translateY(-3px);
+    filter: brightness(1.3) saturate(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: brightness(1) saturate(1);
+  }
+}
+
+.site-marker--revealing {
+  animation: site-reveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: 0.35s;
+  opacity: 0;
+}
+
+/* Reveal particles - sparkles that emanate from center */
+@keyframes reveal-particle {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--particle-x, 50px), var(--particle-y, -30px)) scale(0.3);
+  }
+}
+
+.reveal-particle {
+  animation: reveal-particle 0.7s ease-out forwards;
+  animation-delay: var(--particle-delay, 0.1s);
+  pointer-events: none;
+}
+
+/* Shimmer effect on newly revealed tile */
+@keyframes tile-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.tile-shimmer-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 25%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.1) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: tile-shimmer 0.8s ease-in-out;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* Ghost hex hover pulse (always active, not just during reveal) */
+@keyframes ghost-hex-pulse {
+  0%, 100% {
+    opacity: 0.2;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.35;
+    filter: brightness(1.2);
+  }
+}
+
+.ghost-hex-polygon {
+  animation: ghost-hex-pulse 2s ease-in-out infinite;
+}
+
+.ghost-hex-polygon:hover {
+  animation: none;
+  opacity: 0.5;
+  filter: brightness(1.3);
+  transition: all 0.15s ease-out;
+}

@@ -10,7 +10,7 @@ import {
   BASIC_MANA_RED,
   BASIC_MANA_WHITE,
 } from "@mage-knight/shared";
-import type { EnemyTokenId } from "./enemy.js";
+import type { EnemyTokenId, EnemyColor } from "./enemy.js";
 import {
   CITY_COLOR_BLUE,
   CITY_COLOR_GREEN,
@@ -136,6 +136,19 @@ export enum RampagingEnemyType {
   Draconum = "draconum",
 }
 
+/**
+ * An enemy token on a hex with visibility tracking.
+ * Per rules:
+ * - Rampaging enemies (orcs/draconum): placed face-UP on tile reveal
+ * - Fortified sites (keeps, mage towers, cities): face-DOWN, revealed when adjacent during Day
+ * - Adventure sites: mixed (some face-up on failure, some drawn on entry)
+ */
+export interface HexEnemy {
+  readonly tokenId: EnemyTokenId;
+  readonly color: EnemyColor;
+  readonly isRevealed: boolean;
+}
+
 // Site on a hex
 export interface Site {
   readonly type: SiteType;
@@ -154,7 +167,7 @@ export interface HexState {
   readonly tileId: TileId;
   readonly site: Site | null;
   readonly rampagingEnemies: readonly RampagingEnemyType[]; // spawned on tile reveal
-  readonly enemies: readonly EnemyTokenId[]; // enemy tokens from sites/events
+  readonly enemies: readonly HexEnemy[]; // enemy tokens with visibility tracking
   readonly shieldTokens: readonly string[]; // player IDs with shields here
 }
 

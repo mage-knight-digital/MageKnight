@@ -29,10 +29,11 @@ import {
   ENEMIES,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
-import type { Site, HexState } from "../../types/map.js";
+import type { Site, HexState, HexEnemy } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
 import type { EnemyTokenId } from "../../types/enemy.js";
 import { createEnemyTokenId, resetTokenCounter, createEnemyTokenPiles } from "../helpers/enemyHelpers.js";
+import { createHexEnemy } from "./testHelpers.js";
 import { createRng } from "../../utils/rng.js";
 
 /**
@@ -100,7 +101,7 @@ function createVillageSite(): Site {
  */
 function createTestStateWithSite(
   site: Site,
-  enemies: readonly EnemyTokenId[] = [],
+  enemies: readonly HexEnemy[] = [],
   timeOfDay: typeof TIME_OF_DAY_DAY | typeof TIME_OF_DAY_NIGHT = TIME_OF_DAY_DAY
 ): GameState {
   const baseState = createTestGameState();
@@ -353,7 +354,7 @@ describe("Enter adventure site", () => {
       if (!greenEnemyId) throw new Error("No green enemy found");
 
       const enemyToken = createEnemyTokenId(greenEnemyId);
-      const state = createTestStateWithSite(createMonsterDenSite(), [enemyToken]);
+      const state = createTestStateWithSite(createMonsterDenSite(), [createHexEnemy(enemyToken)]);
 
       const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,
@@ -390,7 +391,7 @@ describe("Enter adventure site", () => {
       const enemyToken = createEnemyTokenId(brownEnemyId);
       const state = createTestStateWithSite(
         createRuinsSite(),
-        [enemyToken],
+        [createHexEnemy(enemyToken)],
         TIME_OF_DAY_NIGHT
       );
 
@@ -519,7 +520,7 @@ describe("Enter adventure site", () => {
       if (!greenEnemyId) throw new Error("No green enemy found");
 
       const enemyToken = createEnemyTokenId(greenEnemyId);
-      const state = createTestStateWithSite(createMonsterDenSite(), [enemyToken]);
+      const state = createTestStateWithSite(createMonsterDenSite(), [createHexEnemy(enemyToken)]);
 
       const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,
@@ -535,7 +536,7 @@ describe("Enter adventure site", () => {
       if (!greenEnemyId) throw new Error("No green enemy found");
 
       const enemyToken = createEnemyTokenId(greenEnemyId);
-      const state = createTestStateWithSite(createMonsterDenSite(), [enemyToken]);
+      const state = createTestStateWithSite(createMonsterDenSite(), [createHexEnemy(enemyToken)]);
 
       const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,

@@ -47,6 +47,7 @@ export type {
   CityColor,
   MineColor,
   Site,
+  HexEnemy,
   HexState,
   TilePlacement,
   TileSlot,

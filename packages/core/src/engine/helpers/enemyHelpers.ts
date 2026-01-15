@@ -17,7 +17,7 @@ import {
   TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 import type { EnemyTokenId, EnemyTokenPiles } from "../../types/enemy.js";
-import { SiteType, RampagingEnemyType } from "../../types/map.js";
+import { SiteType, RampagingEnemyType, type HexEnemy } from "../../types/map.js";
 import type { RngState } from "../../utils/rng.js";
 import { shuffleWithRng } from "../../utils/rng.js";
 
@@ -314,11 +314,52 @@ export function getRampagingEnemyColor(
 }
 
 // =============================================================================
+// VISIBILITY RULES
+// =============================================================================
+
+/**
+ * Determine if enemies at a site are placed face-up (revealed) or face-down.
+ * Per Mage Knight rules:
+ * - Fortified sites (Keep, Mage Tower): face-DOWN, revealed when adjacent during Day
+ * - Adventure sites (Monster Den, Spawning Grounds): face-UP (immediately visible)
+ * - Cities: face-DOWN (complex setup, handled separately)
+ * - Ancient Ruins at night: face-UP
+ */
+function isSiteEnemyRevealed(siteType: SiteType): boolean {
+  switch (siteType) {
+    // Fortified sites - face DOWN
+    case SiteType.Keep:
+    case SiteType.MageTower:
+    case SiteType.City:
+      return false;
+
+    // Adventure sites - face UP when placed
+    // (Monster Den, Spawning Grounds have enemies drawn when you enter,
+    //  and they're revealed to fight. Maze/Labyrinth similar.)
+    case SiteType.MonsterDen:
+    case SiteType.SpawningGrounds:
+    case SiteType.AncientRuins:
+    case SiteType.Maze:
+    case SiteType.Labyrinth:
+      return true;
+
+    // Dungeon/Tomb enemies drawn on explore - face UP when drawn
+    case SiteType.Dungeon:
+    case SiteType.Tomb:
+      return true;
+
+    // Safe sites don't have enemies, but default to revealed
+    default:
+      return true;
+  }
+}
+
+// =============================================================================
 // DRAW ENEMIES FOR HEX
 // =============================================================================
 
 export interface DrawEnemiesForHexResult {
-  readonly enemies: readonly EnemyTokenId[];
+  readonly enemies: readonly HexEnemy[];
   readonly piles: EnemyTokenPiles;
   readonly rng: RngState;
 }
@@ -326,6 +367,11 @@ export interface DrawEnemiesForHexResult {
 /**
  * Draw all enemies needed for a hex (rampaging + site defenders).
  * Pass timeOfDay to correctly handle sites like Ancient Ruins (night-only enemies).
+ *
+ * Returns HexEnemy[] with proper isRevealed values:
+ * - Rampaging enemies: always face-UP (revealed)
+ * - Fortified sites: face-DOWN (unrevealed)
+ * - Adventure sites: face-UP (revealed)
  */
 export function drawEnemiesForHex(
   rampagingTypes: readonly RampagingEnemyType[],
@@ -334,16 +380,20 @@ export function drawEnemiesForHex(
   rng: RngState,
   timeOfDay?: TimeOfDay
 ): DrawEnemiesForHexResult {
-  const enemies: EnemyTokenId[] = [];
+  const enemies: HexEnemy[] = [];
   let currentPiles = piles;
   let currentRng = rng;
 
-  // Draw rampaging enemies
+  // Draw rampaging enemies - always face UP (revealed)
   for (const rampagingType of rampagingTypes) {
     const color = getRampagingEnemyColor(rampagingType);
     const result = drawEnemy(currentPiles, color, currentRng);
     if (result.tokenId) {
-      enemies.push(result.tokenId);
+      enemies.push({
+        tokenId: result.tokenId,
+        color,
+        isRevealed: true, // Rampaging enemies are always face-up
+      });
     }
     currentPiles = result.piles;
     currentRng = result.rng;
@@ -353,10 +403,15 @@ export function drawEnemiesForHex(
   if (siteType) {
     const defenderConfig = getSiteDefenders(siteType, timeOfDay);
     if (defenderConfig) {
+      const isRevealed = isSiteEnemyRevealed(siteType);
       for (let i = 0; i < defenderConfig.count; i++) {
         const result = drawEnemy(currentPiles, defenderConfig.color, currentRng);
         if (result.tokenId) {
-          enemies.push(result.tokenId);
+          enemies.push({
+            tokenId: result.tokenId,
+            color: defenderConfig.color,
+            isRevealed,
+          });
         }
         currentPiles = result.piles;
         currentRng = result.rng;

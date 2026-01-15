@@ -229,6 +229,7 @@ export type {
   ClientSourceDie,
   ClientManaSource,
   ClientSite,
+  ClientHexEnemy,
   ClientHexState,
   ClientMapState,
   ClientCardOffer,
