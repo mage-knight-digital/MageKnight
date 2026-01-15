@@ -39,6 +39,15 @@
   pointer-events: none;
 }
 
+/* Loading state */
+.tactic-carousel--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  font-size: 1rem;
+}
+
 /* Banner indicating the phase */
 .tactic-carousel__banner {
   display: flex;
@@ -108,7 +117,7 @@
   position: absolute;
   /* left is set via inline style for dynamic positioning */
   bottom: 0;
-  height: 90%; /* Card button fills most of container height */
+  /* Button wrapper - dimensions come from child */
   background: transparent;
   border: none;
   padding: 0;
@@ -117,14 +126,11 @@
   transition:
     transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
     opacity 0.3s ease,
-    left 0.25s ease,
-    height 0.3s ease;
+    left 0.25s ease;
 }
 
 .tactic-carousel__card-image {
-  /* Image fills the button height */
-  height: 100%;
-  width: auto;
+  /* Dimensions set via inline style from sprite atlas */
   border-radius: 8px;
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.4),
@@ -134,6 +140,17 @@
     box-shadow 0.3s ease,
     filter 0.3s ease;
   background-color: #d4c9a8;
+}
+
+/* Fallback text when sprite not loaded */
+.tactic-carousel__card-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #333;
+  font-size: 0.8rem;
 }
 
 /* Hover state - card lifts up like pulling from hand (no zoom needed at this size) */

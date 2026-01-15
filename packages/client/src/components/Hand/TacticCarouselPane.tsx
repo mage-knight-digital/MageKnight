@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   SELECT_TACTIC_ACTION,
   type TacticId,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
-import { getTacticImageUrl } from "../../assets/assetPaths";
+import { loadAtlas, getTacticSpriteStyle } from "../../utils/cardAtlas";
 import "./TacticCarouselPane.css";
 
 // Human-readable tactic names for alt text
@@ -32,6 +32,7 @@ interface TacticCardProps {
   zIndexAnchor: number | null;  // For z-ordering (persists after mouse leave)
   isSelected: boolean;
   isDismissed: boolean;
+  cardHeight: number;
   onClick: () => void;
   onMouseEnter: () => void;
 }
@@ -92,11 +93,18 @@ function TacticCard({
   zIndexAnchor,
   isSelected,
   isDismissed,
+  cardHeight,
   onClick,
   onMouseEnter,
 }: TacticCardProps) {
   const { spreadX, rotation, arcY } = getTacticCardLayout(index, totalCards);
   const isHovered = hoveredIndex === index;
+
+  // Memoize sprite style - recalculate if tacticId or cardHeight changes
+  const spriteStyle = useMemo(
+    () => getTacticSpriteStyle(tacticId, cardHeight),
+    [tacticId, cardHeight]
+  );
 
   const classNames = [
     "tactic-carousel__card",
@@ -112,27 +120,35 @@ function TacticCard({
 
   // Position using CSS left percentage + transform for centering
   // spreadX is now a percentage offset from center
-  const cardStyle: React.CSSProperties = {
+  const wrapperStyle: React.CSSProperties = {
     left: `calc(50% + ${spreadX}%)`,
     transform: `translateX(-50%) translateY(${arcY}%) rotate(${rotation}deg)`,
     zIndex,
   };
 
+  // Card inner style combines sprite positioning with dimensions
+  const cardInnerStyle: React.CSSProperties = spriteStyle
+    ? { ...spriteStyle }
+    : {};
+
   return (
     <button
       className={classNames}
-      style={cardStyle}
+      style={wrapperStyle}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       disabled={isDismissed}
       data-testid={`tactic-card-${tacticId}`}
+      aria-label={TACTIC_NAMES[tacticId]}
     >
-      <img
-        src={getTacticImageUrl(tacticId)}
-        alt={TACTIC_NAMES[tacticId]}
+      <div
         className="tactic-carousel__card-image"
-        draggable={false}
-      />
+        style={cardInnerStyle}
+      >
+        {!spriteStyle && (
+          <span className="tactic-carousel__card-fallback">{tacticId}</span>
+        )}
+      </div>
     </button>
   );
 }
@@ -140,19 +156,54 @@ function TacticCard({
 // Animation timing
 const SELECTION_DELAY_MS = 800;
 
+// Card height scale factors for each view mode (percentage of viewport height)
+const VIEW_CARD_SCALE: Record<ViewMode, number> = {
+  board: 0.22,  // Hidden off screen anyway
+  ready: 0.22,  // Ready stance
+  focus: 0.55,  // Focus mode - large for selection
+};
+
 export type ViewMode = "board" | "ready" | "focus";
 
 interface TacticCarouselPaneProps {
   viewMode: ViewMode;
 }
 
+// Hook to get responsive card height based on view mode
+function useCardHeight(viewMode: ViewMode): number {
+  const [cardHeight, setCardHeight] = useState(() => {
+    const scale = VIEW_CARD_SCALE[viewMode];
+    return Math.round(window.innerHeight * scale);
+  });
+
+  useEffect(() => {
+    const updateHeight = () => {
+      const scale = VIEW_CARD_SCALE[viewMode];
+      setCardHeight(Math.round(window.innerHeight * scale));
+    };
+
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, [viewMode]);
+
+  return cardHeight;
+}
+
 export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const [atlasLoaded, setAtlasLoaded] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedTactic, setSelectedTactic] = useState<TacticId | null>(null);
   // Track which card the z-ordering is anchored to (Inscryption-style: persists after mouse leave)
   const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
+  const cardHeight = useCardHeight(viewMode);
+
+  // Load atlas on mount
+  useEffect(() => {
+    loadAtlas().then(() => setAtlasLoaded(true));
+  }, []);
 
   // All hooks must be called before any early returns
   const handleCardClick = useCallback(
@@ -192,6 +243,15 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
     return (
       <div className={`tactic-carousel tactic-carousel--${viewMode} tactic-carousel--empty`}>
         {/* Empty state - tactic already selected */}
+      </div>
+    );
+  }
+
+  // Show loading state while atlas loads
+  if (!atlasLoaded) {
+    return (
+      <div className={`tactic-carousel tactic-carousel--${viewMode} tactic-carousel--loading`}>
+        Loading tactics...
       </div>
     );
   }
@@ -237,6 +297,7 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
             zIndexAnchor={zIndexAnchor}
             isSelected={selectedTactic === tacticId}
             isDismissed={selectedTactic !== null && selectedTactic !== tacticId}
+            cardHeight={cardHeight}
             onClick={() => handleCardClick(tacticId)}
             onMouseEnter={() => handleMouseEnter(index)}
           />

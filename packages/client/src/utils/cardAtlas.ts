@@ -1,4 +1,4 @@
-import type { CardId, UnitId } from "@mage-knight/shared";
+import type { CardId, UnitId, TacticId } from "@mage-knight/shared";
 
 // Atlas data - matches public/assets/atlas.json
 interface SheetInfo {
@@ -32,6 +32,7 @@ interface AtlasData {
     spells: Record<string, CardPosition>;
     artifacts: Record<string, CardPosition>;
     wound: Record<string, CardPosition>;
+    tactics: Record<string, CardPosition>;
   };
   units: {
     elite: Record<string, UnitPosition>;
@@ -47,13 +48,14 @@ export interface CardSpriteStyle {
   height: string;
 }
 
-export type CardCategory = "basic_actions" | "advanced_actions" | "spells" | "artifacts" | "wound";
+export type CardCategory = "basic_actions" | "advanced_actions" | "spells" | "artifacts" | "wound" | "tactics";
 
 // Precomputed caches - populated once at load time
 // Using Maps for fast, consistent O(1) lookup during renders
 const spriteStyleCache = new Map<string, CardSpriteStyle>();
 const cardColorCache = new Map<string, string>();
 const unitSpriteStyleCache = new Map<string, CardSpriteStyle>();
+const tacticSpriteStyleCache = new Map<string, CardSpriteStyle>();
 
 // Track if atlas has been loaded and processed
 let atlasLoaded = false;
@@ -153,6 +155,9 @@ function precomputeAllStyles(atlasData: AtlasData, displayHeight: number): void 
 // Default display height for units (shorter than deed cards)
 const UNIT_DEFAULT_HEIGHT = 140;
 
+// Default display height for tactics (same as deed cards)
+const TACTIC_DEFAULT_HEIGHT = 180;
+
 /**
  * Precompute all unit sprite styles.
  * Units have a different structure in atlas.json (nested by type with sheet reference).
@@ -186,6 +191,25 @@ function precomputeUnitStyles(atlasData: AtlasData, displayHeight: number): void
 }
 
 /**
+ * Precompute all tactic sprite styles.
+ */
+function precomputeTacticStyles(atlasData: AtlasData, displayHeight: number): void {
+  const sheet = atlasData.sheets["tactics"];
+  const tactics = atlasData.cards["tactics"];
+
+  if (!sheet || !tactics) return;
+
+  for (const [tacticId, position] of Object.entries(tactics)) {
+    // Skip description entries
+    if (tacticId.startsWith("_")) continue;
+    if (!position || typeof position !== "object" || !("col" in position)) continue;
+
+    const style = computeSpriteStyle(sheet, position, displayHeight);
+    tacticSpriteStyleCache.set(tacticId, style);
+  }
+}
+
+/**
  * Load the atlas and precompute all sprite styles.
  * This is the only function that accesses the raw JSON data.
  */
@@ -201,6 +225,9 @@ export async function loadAtlas(): Promise<void> {
 
   // Precompute unit styles at their default height
   precomputeUnitStyles(atlasData, UNIT_DEFAULT_HEIGHT);
+
+  // Precompute tactic styles at their default height
+  precomputeTacticStyles(atlasData, TACTIC_DEFAULT_HEIGHT);
 
   // Mark as loaded - we no longer need the raw atlas data
   atlasLoaded = true;
@@ -323,4 +350,25 @@ export function getUnitSpriteStyle(unitId: UnitId, displayHeight: number = UNIT_
 
   // Otherwise scale the cached style to the requested height
   return scaleStyle(style, UNIT_DEFAULT_HEIGHT, displayHeight);
+}
+
+/**
+ * Get CSS styles to display a tactic from the sprite sheet.
+ * Returns precomputed styles from cache - O(1) Map lookup.
+ */
+export function getTacticSpriteStyle(tacticId: TacticId, displayHeight: number = TACTIC_DEFAULT_HEIGHT): CardSpriteStyle | null {
+  if (!atlasLoaded) return null;
+
+  const id = tacticId as string;
+  const style = tacticSpriteStyleCache.get(id);
+
+  if (!style) return null;
+
+  // If requested height matches cached height, return directly
+  if (displayHeight === TACTIC_DEFAULT_HEIGHT) {
+    return style;
+  }
+
+  // Otherwise scale the cached style to the requested height
+  return scaleStyle(style, TACTIC_DEFAULT_HEIGHT, displayHeight);
 }
