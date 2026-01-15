@@ -15,11 +15,13 @@ import {
   createPlayerMovedEvent,
   createCombatTriggeredEvent,
   createReputationChangedEvent,
+  createEnemiesRevealedEvent,
   hexKey,
   getAllNeighbors,
   COMBAT_TRIGGER_FORTIFIED_ASSAULT,
   COMBAT_TRIGGER_PROVOKE_RAMPAGING,
   REPUTATION_REASON_ASSAULT,
+  TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
 import type { Player } from "../../types/player.js";
 import { MOVE_COMMAND } from "./commandTypes.js";
@@ -27,9 +29,44 @@ import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { createCombatState } from "../../types/combat.js";
 import { getEnemyIdFromToken } from "../helpers/enemyHelpers.js";
 import { SiteType, type HexState, type HexEnemy } from "../../types/map.js";
-import type { EnemyTokenId } from "../../types/enemy.js";
 
 export { MOVE_COMMAND };
+
+/**
+ * Find fortified sites that are newly adjacent after a move and have unrevealed enemies.
+ * Returns the hexes with enemies that should be revealed.
+ */
+function findNewlyAdjacentFortifiedSites(
+  from: HexCoord,
+  to: HexCoord,
+  hexes: Record<string, HexState>
+): { hex: HexState; key: string }[] {
+  const fromNeighbors = new Set(getAllNeighbors(from).map(hexKey));
+  const toNeighbors = getAllNeighbors(to);
+
+  const sitesToReveal: { hex: HexState; key: string }[] = [];
+
+  for (const neighbor of toNeighbors) {
+    const key = hexKey(neighbor);
+    // Skip hexes already adjacent to 'from' position
+    if (fromNeighbors.has(key)) continue;
+
+    const hex = hexes[key];
+    if (!hex?.site) continue;
+
+    // Check if it's a fortified site
+    const props = SITE_PROPERTIES[hex.site.type];
+    if (!props.fortified) continue;
+
+    // Check if it has unrevealed enemies
+    const hasUnrevealedEnemies = hex.enemies.some((e) => !e.isRevealed);
+    if (hasUnrevealedEnemies) {
+      sitesToReveal.push({ hex, key });
+    }
+  }
+
+  return sitesToReveal;
+}
 
 /**
  * Find rampaging enemies that are adjacent to both the 'from' and 'to' hexes.
@@ -76,6 +113,7 @@ export interface MoveCommandParams {
   readonly to: HexCoord;
   readonly terrainCost: number;
   readonly hadMovedThisTurn: boolean; // capture state before this move for proper undo
+  readonly wouldRevealEnemies?: boolean; // whether this move reveals hidden enemies (Day only)
 }
 
 /**
@@ -91,8 +129,8 @@ export function createMoveCommand(params: MoveCommandParams): Command {
   return {
     type: MOVE_COMMAND,
     playerId: params.playerId,
-    // Movement is always reversible - even if it triggers combat, enemies were already visible
-    isReversible: true,
+    // Movement is reversible unless it reveals hidden enemies (like revealing a tile)
+    isReversible: !params.wouldRevealEnemies,
 
     execute(state: GameState): CommandResult {
       // Find player and update position
@@ -231,6 +269,53 @@ export function createMoveCommand(params: MoveCommandParams): Command {
 
       const updatedPlayers: Player[] = [...state.players];
       updatedPlayers[playerIndex] = updatedPlayer;
+
+      // During Day, reveal enemies at newly adjacent fortified sites
+      let updatedHexes = updatedState.map.hexes;
+      if (state.timeOfDay === TIME_OF_DAY_DAY) {
+        const sitesToReveal = findNewlyAdjacentFortifiedSites(
+          params.from,
+          params.to,
+          updatedHexes
+        );
+
+        for (const { hex, key } of sitesToReveal) {
+          // Reveal all unrevealed enemies at this hex
+          const revealedEnemies = hex.enemies.map((e) =>
+            e.isRevealed ? e : { ...e, isRevealed: true }
+          );
+          const revealedTokenIds = hex.enemies
+            .filter((e) => !e.isRevealed)
+            .map((e) => String(e.tokenId));
+
+          // Emit reveal event
+          if (revealedTokenIds.length > 0) {
+            events.push(
+              createEnemiesRevealedEvent(params.playerId, hex.coord, revealedTokenIds)
+            );
+          }
+
+          // Update the hex with revealed enemies
+          updatedHexes = {
+            ...updatedHexes,
+            [key]: {
+              ...hex,
+              enemies: revealedEnemies,
+            },
+          };
+        }
+      }
+
+      // Apply hex updates to map if any reveals happened
+      if (updatedHexes !== updatedState.map.hexes) {
+        updatedState = {
+          ...updatedState,
+          map: {
+            ...updatedState.map,
+            hexes: updatedHexes,
+          },
+        };
+      }
 
       return {
         state: { ...updatedState, players: updatedPlayers },

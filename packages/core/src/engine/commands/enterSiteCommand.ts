@@ -29,7 +29,6 @@ import { createCombatTriggeredEvent } from "@mage-knight/shared";
 import { getAdventureSiteEnemies, drawEnemy, getEnemyIdFromToken } from "../helpers/enemyHelpers.js";
 import type { HexState, HexEnemy } from "../../types/map.js";
 import { SiteType } from "../../types/map.js";
-import type { EnemyTokenId, EnemyColor } from "../../types/enemy.js";
 import { createCombatState } from "../../types/combat.js";
 import { createConquerSiteCommand } from "./conquerSiteCommand.js";
 import { ENTER_SITE_COMMAND } from "./commandTypes.js";

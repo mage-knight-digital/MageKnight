@@ -86,6 +86,8 @@ export interface MoveTarget {
   readonly cost: number;
   /** Whether entering this hex triggers combat (fortified site, provokes rampaging, etc.) */
   readonly isTerminal?: boolean;
+  /** Whether this move would reveal unrevealed enemies at adjacent fortified sites (Day only) */
+  readonly wouldRevealEnemies?: boolean;
 }
 
 /**
@@ -99,6 +101,8 @@ export interface ReachableHex {
   readonly totalCost: number;
   /** Whether entering this hex ends movement (triggers combat, fortified site, etc.) */
   readonly isTerminal: boolean;
+  /** Whether moving to this hex would reveal unrevealed enemies at adjacent fortified sites (Day only) */
+  readonly wouldRevealEnemies?: boolean;
 }
 
 // ============================================================================

@@ -8,7 +8,7 @@
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { MoveOptions, MoveTarget, ReachableHex, HexCoord } from "@mage-knight/shared";
-import { HEX_DIRECTIONS, hexKey, getNeighbor, getAllNeighbors } from "@mage-knight/shared";
+import { HEX_DIRECTIONS, hexKey, getNeighbor, getAllNeighbors, TIME_OF_DAY_DAY } from "@mage-knight/shared";
 import { getEffectiveTerrainCost } from "../modifiers.js";
 import { SiteType, type HexState } from "../../types/map.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
@@ -72,11 +72,24 @@ export function getValidMoveTargets(
       isTerminalHex(hex, player.id, state) ||
       wouldProvokeRampaging(player.position, adjacent, state.map.hexes);
 
+    // Check if this move would reveal enemies at adjacent fortified sites (Day only)
+    const isDay = state.timeOfDay === TIME_OF_DAY_DAY;
+    const wouldReveal = wouldMoveRevealEnemies(
+      player.position,
+      adjacent,
+      state.map.hexes,
+      isDay
+    );
+
     const target: MoveTarget = { hex: adjacent, cost };
     if (isTerminal) {
-      targets.push({ ...target, isTerminal: true });
+      targets.push(wouldReveal
+        ? { ...target, isTerminal: true, wouldRevealEnemies: true }
+        : { ...target, isTerminal: true });
     } else {
-      targets.push(target);
+      targets.push(wouldReveal
+        ? { ...target, wouldRevealEnemies: true }
+        : target);
     }
   }
 
@@ -141,6 +154,51 @@ function isTerminalHex(
   // is already handled as impassable, so any hex with enemies here is enterable but terminal
   if (hex.enemies.length > 0) {
     return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if moving to a hex would reveal unrevealed enemies at adjacent fortified sites.
+ * Per rules: During Day, moving adjacent to a fortified site reveals its defenders.
+ *
+ * @param from - Current player position
+ * @param to - Destination hex
+ * @param hexes - Map hexes
+ * @param isDay - Whether it's currently Day time
+ * @returns true if this move would reveal at least one unrevealed enemy
+ */
+function wouldMoveRevealEnemies(
+  from: HexCoord,
+  to: HexCoord,
+  hexes: Record<string, HexState>,
+  isDay: boolean
+): boolean {
+  // Only reveal during Day
+  if (!isDay) return false;
+
+  // Get hexes that will become newly adjacent (adjacent to 'to' but not to 'from')
+  const fromNeighbors = new Set(getAllNeighbors(from).map(hexKey));
+  const toNeighbors = getAllNeighbors(to);
+
+  for (const neighbor of toNeighbors) {
+    const key = hexKey(neighbor);
+    // Skip hexes already adjacent to current position (already revealed if applicable)
+    if (fromNeighbors.has(key)) continue;
+
+    const hex = hexes[key];
+    if (!hex?.site) continue;
+
+    // Check if it's a fortified site
+    const props = SITE_PROPERTIES[hex.site.type];
+    if (!props.fortified) continue;
+
+    // Check if it has unrevealed enemies
+    const hasUnrevealedEnemies = hex.enemies.some((e) => !e.isRevealed);
+    if (hasUnrevealedEnemies) {
+      return true;
+    }
   }
 
   return false;
@@ -218,7 +276,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
   const startKey = hexKey(player.position);
   const movePoints = player.movePoints;
 
-  // Priority queue entries: [totalCost, hexKey, coord, isTerminal, cameFromKey]
+  // Priority queue entries: [totalCost, hexKey, coord, isTerminal, cameFromKey, wouldRevealEnemies]
   // Using array sorted by cost (simple implementation, fine for small graphs)
   type QueueEntry = {
     totalCost: number;
@@ -226,13 +284,17 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
     coord: HexCoord;
     isTerminal: boolean;
     cameFromKey: string | null;
+    wouldRevealEnemies: boolean;
   };
 
   const queue: QueueEntry[] = [];
-  const visited = new Map<string, { totalCost: number; isTerminal: boolean }>();
+  const visited = new Map<string, { totalCost: number; isTerminal: boolean; wouldRevealEnemies: boolean }>();
+
+  // Check if it's Day (for enemy reveal detection)
+  const isDay = state.timeOfDay === TIME_OF_DAY_DAY;
 
   // Start from player position (cost 0, not terminal, don't include in results)
-  visited.set(startKey, { totalCost: 0, isTerminal: false });
+  visited.set(startKey, { totalCost: 0, isTerminal: false, wouldRevealEnemies: false });
 
   // Add initial neighbors to queue
   for (const dir of HEX_DIRECTIONS) {
@@ -243,12 +305,19 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
     const cost = getHexEntryCost(hex, state, player.id);
     if (cost <= movePoints && cost !== Infinity) {
       const terminal = hex ? isTerminalHex(hex, player.id, state) : false;
+      const wouldReveal = wouldMoveRevealEnemies(
+        player.position,
+        neighbor,
+        state.map.hexes,
+        isDay
+      );
       queue.push({
         totalCost: cost,
         key: neighborKey,
         coord: neighbor,
         isTerminal: terminal,
         cameFromKey: startKey,
+        wouldRevealEnemies: wouldReveal,
       });
     }
   }
@@ -283,6 +352,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
     visited.set(current.key, {
       totalCost: current.totalCost,
       isTerminal: current.isTerminal,
+      wouldRevealEnemies: current.wouldRevealEnemies,
     });
 
     // If terminal, don't expand further from this hex
@@ -312,6 +382,14 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
       const wouldProvoke = wouldProvokeRampaging(current.coord, neighbor, state.map.hexes);
       const terminal = (hex ? isTerminalHex(hex, player.id, state) : false) || wouldProvoke;
 
+      // Check if moving here would reveal enemies at adjacent fortified sites
+      const wouldReveal = wouldMoveRevealEnemies(
+        current.coord,
+        neighbor,
+        state.map.hexes,
+        isDay
+      );
+
       // Add to queue (will be sorted on next iteration)
       queue.push({
         totalCost: newTotalCost,
@@ -319,6 +397,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
         coord: neighbor,
         isTerminal: terminal,
         cameFromKey: current.key,
+        wouldRevealEnemies: wouldReveal,
       });
 
       // Keep queue sorted
@@ -334,11 +413,17 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
     const parts = key.split(",");
     const q = parseInt(parts[0] ?? "0", 10);
     const r = parseInt(parts[1] ?? "0", 10);
-    result.push({
+    const base: ReachableHex = {
       hex: { q, r },
       totalCost: data.totalCost,
       isTerminal: data.isTerminal,
-    });
+    };
+    // Only include wouldRevealEnemies if true (to match exactOptionalPropertyTypes)
+    if (data.wouldRevealEnemies) {
+      result.push({ ...base, wouldRevealEnemies: true });
+    } else {
+      result.push(base);
+    }
   }
 
   // Sort by total cost

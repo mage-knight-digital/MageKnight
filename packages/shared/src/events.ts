@@ -827,6 +827,27 @@ export interface EnemiesDrawnForSiteEvent {
   readonly enemyCount: number;
 }
 
+export const ENEMIES_REVEALED = "ENEMIES_REVEALED" as const;
+export interface EnemiesRevealedEvent {
+  readonly type: typeof ENEMIES_REVEALED;
+  readonly playerId: string;
+  readonly hexCoord: HexCoord;
+  readonly enemyTokenIds: readonly string[];
+}
+
+export function createEnemiesRevealedEvent(
+  playerId: string,
+  hexCoord: HexCoord,
+  enemyTokenIds: readonly string[]
+): EnemiesRevealedEvent {
+  return {
+    type: ENEMIES_REVEALED,
+    playerId,
+    hexCoord,
+    enemyTokenIds,
+  };
+}
+
 export const SHIELD_TOKEN_PLACED = "SHIELD_TOKEN_PLACED" as const;
 export interface ShieldTokenPlacedEvent {
   readonly type: typeof SHIELD_TOKEN_PLACED;
@@ -1030,6 +1051,7 @@ export type GameEvent =
   // Adventure sites
   | SiteEnteredEvent
   | EnemiesDrawnForSiteEvent
+  | EnemiesRevealedEvent
   // Magical Glade
   | GladeWoundDiscardedEvent
   | GladeWoundSkippedEvent

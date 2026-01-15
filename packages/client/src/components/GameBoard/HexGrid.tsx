@@ -1208,7 +1208,23 @@ export function HexGrid() {
   // Determine hovered hex state (for path line color)
   const hoveredHighlight = hoveredHex ? getMoveHighlight(hoveredHex) : { type: "none" as const };
   const isHoveredTerminal = hoveredHighlight.type === "terminal";
-  const wouldReveal = false; // TODO: Implement enemy reveal detection if needed
+
+  // Check if moving to hovered hex would reveal enemies (from server-computed data)
+  const getWouldRevealEnemies = (coord: HexCoord | null): boolean => {
+    if (!coord) return false;
+    // Check adjacent targets
+    const adjacentTarget = validMoveTargets.find(
+      (t) => t.hex.q === coord.q && t.hex.r === coord.r
+    );
+    if (adjacentTarget?.wouldRevealEnemies) return true;
+    // Check reachable hexes
+    const reachable = reachableHexes.find(
+      (r) => r.hex.q === coord.q && r.hex.r === coord.r
+    );
+    if (reachable?.wouldRevealEnemies) return true;
+    return false;
+  };
+  const wouldReveal = getWouldRevealEnemies(hoveredHex);
 
   // Helper to check if a tile is currently revealing
   const isTileRevealing = (tile: { tileId: string; centerCoord: HexCoord }) => {

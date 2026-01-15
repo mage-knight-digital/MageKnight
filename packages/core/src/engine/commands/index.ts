@@ -29,9 +29,12 @@ import {
   REROLL_SOURCE_DICE_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
   hexKey,
+  getAllNeighbors,
+  TIME_OF_DAY_DAY,
   type TacticId,
   type GladeWoundChoice,
 } from "@mage-knight/shared";
+import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import type { Command } from "../commands.js";
 import { createMoveCommand } from "./moveCommand.js";
 import { createEndTurnCommand } from "./endTurnCommand.js";
@@ -81,6 +84,43 @@ function getMoveTarget(action: PlayerAction): HexCoord | null {
   return null;
 }
 
+/**
+ * Check if moving from one hex to another would reveal unrevealed enemies.
+ * Only applies during Day, when moving adjacent to fortified sites.
+ */
+function checkWouldRevealEnemies(
+  state: GameState,
+  from: HexCoord,
+  to: HexCoord
+): boolean {
+  // Only reveal during Day
+  if (state.timeOfDay !== TIME_OF_DAY_DAY) return false;
+
+  const fromNeighbors = new Set(getAllNeighbors(from).map(hexKey));
+  const toNeighbors = getAllNeighbors(to);
+
+  for (const neighbor of toNeighbors) {
+    const key = hexKey(neighbor);
+    // Skip hexes already adjacent to 'from' position
+    if (fromNeighbors.has(key)) continue;
+
+    const hex = state.map.hexes[key];
+    if (!hex?.site) continue;
+
+    // Check if it's a fortified site
+    const props = SITE_PROPERTIES[hex.site.type];
+    if (!props.fortified) continue;
+
+    // Check if it has unrevealed enemies
+    const hasUnrevealedEnemies = hex.enemies.some((e) => !e.isRevealed);
+    if (hasUnrevealedEnemies) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Move command factory
 function createMoveCommandFromAction(
   state: GameState,
@@ -97,12 +137,16 @@ function createMoveCommandFromAction(
 
   const terrainCost = getEffectiveTerrainCost(state, hex.terrain, playerId);
 
+  // Check if this move would reveal hidden enemies
+  const wouldRevealEnemies = checkWouldRevealEnemies(state, player.position, target);
+
   return createMoveCommand({
     playerId,
     from: player.position,
     to: target,
     terrainCost,
     hadMovedThisTurn: player.hasMovedThisTurn,
+    ...(wouldRevealEnemies && { wouldRevealEnemies: true }),
   });
 }
 
