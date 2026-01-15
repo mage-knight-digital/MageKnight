@@ -1,3 +1,4 @@
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   MOVE_ACTION,
   EXPLORE_ACTION,
@@ -5,6 +6,9 @@ import {
   type HexDirection,
   type ClientHexState,
   type MoveTarget,
+  type ReachableHex,
+  hexKey,
+  getAllNeighbors,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -37,6 +41,186 @@ function hexPoints(size: number): string {
       return `${size * Math.cos(angle)},${size * Math.sin(angle)}`;
     })
     .join(" ");
+}
+
+/**
+ * Simple A* pathfinding for path preview visualization.
+ * Uses the reachable hexes data from the server to find optimal path.
+ *
+ * Terminal hexes (combat triggers, including rampaging skirt) are treated as
+ * "can path TO but not THROUGH" - they're valid destinations but not waypoints.
+ */
+function findPath(
+  start: HexCoord,
+  end: HexCoord,
+  reachableHexes: readonly ReachableHex[],
+  adjacentTargets: readonly MoveTarget[]
+): HexCoord[] {
+  // Build lookup maps for costs and terminal status
+  const reachableMap = new Map<string, { cost: number; isTerminal: boolean }>();
+  for (const r of reachableHexes) {
+    reachableMap.set(hexKey(r.hex), { cost: r.totalCost, isTerminal: r.isTerminal });
+  }
+  // Adjacent targets now include isTerminal flag from server
+  for (const t of adjacentTargets) {
+    reachableMap.set(hexKey(t.hex), { cost: t.cost, isTerminal: t.isTerminal ?? false });
+  }
+
+  const endKey = hexKey(end);
+  if (!reachableMap.has(endKey)) {
+    return []; // Not reachable
+  }
+
+  // A* search from start to end
+  type Node = { f: number; g: number; coord: HexCoord; path: HexCoord[] };
+
+  const heuristic = (a: HexCoord, b: HexCoord): number => {
+    // Hex distance heuristic
+    return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
+  };
+
+  const startKey = hexKey(start);
+  const openSet: Node[] = [{ f: heuristic(start, end), g: 0, coord: start, path: [start] }];
+  const visited = new Set<string>();
+
+  while (openSet.length > 0) {
+    // Get node with lowest f score
+    openSet.sort((a, b) => a.f - b.f);
+    const current = openSet.shift();
+    if (!current) break;
+
+    const currentKey = hexKey(current.coord);
+
+    // Found the goal
+    if (currentKey === endKey) {
+      return current.path;
+    }
+
+    if (visited.has(currentKey)) continue;
+    visited.add(currentKey);
+
+    // Don't expand from terminal hexes (can't path THROUGH them, only TO them)
+    // Exception: we can always expand from start position
+    if (currentKey !== startKey) {
+      const currentData = reachableMap.get(currentKey);
+      if (currentData?.isTerminal) {
+        continue; // Terminal hex - don't explore neighbors
+      }
+    }
+
+    // Explore neighbors
+    const neighbors = getAllNeighbors(current.coord);
+    for (const neighbor of neighbors) {
+      const neighborKey = hexKey(neighbor);
+      if (visited.has(neighborKey)) continue;
+
+      // Check if neighbor is reachable (either in reachableMap or is the start)
+      const neighborData = reachableMap.get(neighborKey);
+      if (neighborKey !== startKey && !neighborData) continue;
+
+      // Get the cost to reach this neighbor
+      const neighborTotalCost = neighborData?.cost ?? 0;
+      const currentTotalCost = currentKey === startKey ? 0 : (reachableMap.get(currentKey)?.cost ?? 0);
+
+      // Edge cost is approximately the difference (this is a simplification)
+      const edgeCost = Math.max(1, neighborTotalCost - currentTotalCost);
+      const gScore = current.g + edgeCost;
+      const fScore = gScore + heuristic(neighbor, end);
+
+      openSet.push({
+        f: fScore,
+        g: gScore,
+        coord: neighbor,
+        path: [...current.path, neighbor],
+      });
+    }
+  }
+
+  return []; // No path found
+}
+
+/**
+ * Renders a path line between hexes for movement preview.
+ */
+function PathLine({ path, isTerminal }: { path: HexCoord[]; isTerminal: boolean }) {
+  if (path.length < 2) return null;
+
+  const points = path.map((coord) => {
+    const { x, y } = hexToPixel(coord);
+    return `${x},${y}`;
+  }).join(" ");
+
+  const color = isTerminal ? "#FFA500" : "#00FF00";
+
+  return (
+    <g className="path-line" style={{ pointerEvents: "none" }}>
+      {/* Outer glow/stroke for visibility */}
+      <polyline
+        points={points}
+        fill="none"
+        stroke="rgba(0,0,0,0.5)"
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Main path line */}
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Animated dashes for direction */}
+      <polyline
+        points={points}
+        fill="none"
+        stroke="white"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeDasharray="8,12"
+        style={{
+          animation: "pathFlow 1s linear infinite",
+        }}
+      />
+      {/* Arrow at the end */}
+      {path.length >= 2 && <PathArrow path={path} color={color} />}
+    </g>
+  );
+}
+
+/**
+ * Renders an arrow at the end of the path.
+ */
+function PathArrow({ path, color }: { path: HexCoord[]; color: string }) {
+  if (path.length < 2) return null;
+
+  const lastIdx = path.length - 1;
+  const endCoord = path[lastIdx];
+  const prevCoord = path[lastIdx - 1];
+  if (!endCoord || !prevCoord) return null;
+
+  const end = hexToPixel(endCoord);
+  const prev = hexToPixel(prevCoord);
+
+  // Calculate angle from prev to end
+  const angle = Math.atan2(end.y - prev.y, end.x - prev.x) * (180 / Math.PI);
+
+  // Arrow size
+  const size = 12;
+
+  return (
+    <g transform={`translate(${end.x},${end.y}) rotate(${angle})`}>
+      <polygon
+        points={`0,0 ${-size},${ size / 2} ${-size},${-size / 2}`}
+        fill={color}
+        stroke="rgba(0,0,0,0.5)"
+        strokeWidth="1"
+      />
+    </g>
+  );
 }
 
 interface TileImageProps {
@@ -314,11 +498,19 @@ function GhostHex({ coord, onClick }: GhostHexProps) {
   );
 }
 
+/** Movement highlight state for a hex */
+type MoveHighlight =
+  | { type: "none" }
+  | { type: "adjacent"; cost: number }      // Can move here in one step
+  | { type: "reachable"; cost: number }     // Can reach via multi-hop
+  | { type: "terminal"; cost: number };     // Reachable but triggers combat
+
 interface HexOverlayProps {
   hex: ClientHexState;
-  isPlayerHere: boolean;
-  isValidMoveTarget: boolean;
+  moveHighlight: MoveHighlight;
   onClick: () => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
 }
 
 // Enemy token size relative to hex
@@ -361,10 +553,53 @@ function EnemyToken({ enemyId, offsetX, offsetY, index }: { enemyId: string; off
 }
 
 /**
+ * Get visual styles for movement highlight based on type.
+ */
+function getMoveHighlightStyles(highlight: MoveHighlight): {
+  fill: string;
+  stroke: string;
+  strokeWidth: string;
+  strokeDasharray?: string;
+} {
+  switch (highlight.type) {
+    case "adjacent":
+      // Solid green - can move here immediately
+      return {
+        fill: "rgba(0, 255, 0, 0.25)",
+        stroke: "#00FF00",
+        strokeWidth: "3",
+      };
+    case "reachable":
+      // Dashed green - can reach via multi-hop
+      return {
+        fill: "rgba(0, 255, 0, 0.12)",
+        stroke: "#00CC00",
+        strokeWidth: "2",
+        strokeDasharray: "6,3",
+      };
+    case "terminal":
+      // Amber/orange - reachable but triggers combat
+      return {
+        fill: "rgba(255, 165, 0, 0.2)",
+        stroke: "#FFA500",
+        strokeWidth: "2",
+        strokeDasharray: "6,3",
+      };
+    case "none":
+    default:
+      return {
+        fill: "transparent",
+        stroke: "transparent",
+        strokeWidth: "0",
+      };
+  }
+}
+
+/**
  * Transparent hex overlay for interactivity on top of tile artwork.
  * Handles click events, move highlighting, and token display.
  */
-function HexOverlay({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexOverlayProps) {
+function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave }: HexOverlayProps) {
   const { x, y } = hexToPixel(hex.coord);
 
   // Only render actual enemy tokens, not rampaging type markers
@@ -394,21 +629,50 @@ function HexOverlay({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexOverla
     };
   };
 
+  const isClickable = moveHighlight.type !== "none";
+  const styles = getMoveHighlightStyles(moveHighlight);
+  const showCost = moveHighlight.type !== "none";
+
   return (
     <g
       transform={`translate(${x},${y})`}
       onClick={onClick}
-      style={{ cursor: isValidMoveTarget ? "pointer" : "default" }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{ cursor: isClickable ? "pointer" : "default" }}
       data-coord={`${hex.coord.q},${hex.coord.r}`}
     >
-      {/* Transparent hex hitbox with optional highlight for valid moves */}
+      {/* Transparent hex hitbox with movement highlight */}
       <polygon
         points={hexPoints(HEX_SIZE * 0.95)}
-        fill={isValidMoveTarget ? "rgba(0, 255, 0, 0.2)" : "transparent"}
-        stroke={isValidMoveTarget ? "#00FF00" : "transparent"}
-        strokeWidth={isValidMoveTarget ? "3" : "0"}
+        fill={styles.fill}
+        stroke={styles.stroke}
+        strokeWidth={styles.strokeWidth}
+        strokeDasharray={styles.strokeDasharray}
         className="hex-overlay"
       />
+
+      {/* Movement cost badge */}
+      {showCost && (
+        <g transform={`translate(${HEX_SIZE * 0.55}, ${-HEX_SIZE * 0.55})`}>
+          <circle
+            r={12}
+            fill={moveHighlight.type === "terminal" ? "#FFA500" : "#00AA00"}
+            stroke="#FFF"
+            strokeWidth="1.5"
+          />
+          <text
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill="#FFF"
+            fontSize="11"
+            fontWeight="bold"
+            style={{ pointerEvents: "none" }}
+          >
+            {moveHighlight.cost}
+          </text>
+        </g>
+      )}
 
       {/* Enemy tokens */}
       {allEnemyIds.map((enemyId, index) => {
@@ -424,16 +688,92 @@ function HexOverlay({ hex, isPlayerHere, isValidMoveTarget, onClick }: HexOverla
         );
       })}
 
-      {/* Player token */}
-      {isPlayerHere && (
-        <circle
-          r={HEX_SIZE * 0.25}
-          fill="#FF4444"
-          stroke="#FFF"
-          strokeWidth="2"
-          className="hero-token"
-        />
-      )}
+    </g>
+  );
+}
+
+// Animation constants
+const HOP_DURATION_MS = 200; // Time per hex hop
+const HOP_SCALE_PEAK = 1.15; // Scale at peak of hop
+
+/**
+ * Animated hero token that hops between hexes.
+ * Uses CSS transitions for smooth movement with a slight scale "bounce" effect.
+ */
+function AnimatedHeroToken({
+  startPosition,
+  targetPosition,
+  restPosition,
+  onAnimationComplete,
+}: {
+  startPosition: { x: number; y: number } | null; // Where we're animating FROM
+  targetPosition: { x: number; y: number } | null; // Where we're animating TO
+  restPosition: { x: number; y: number }; // Where to be when not animating (player's actual position)
+  onAnimationComplete: () => void;
+}) {
+  const [currentPos, setCurrentPos] = useState(restPosition);
+  const [scale, setScale] = useState(1);
+  const animatingRef = useRef(false);
+
+  // When target changes, animate to it
+  useEffect(() => {
+    if (!targetPosition || !startPosition || animatingRef.current) return;
+
+    // Start from the start position
+    setCurrentPos(startPosition);
+    animatingRef.current = true;
+
+    // Start hop - scale up
+    setScale(HOP_SCALE_PEAK);
+
+    // Move to target after brief delay (anticipation)
+    const moveTimeout = setTimeout(() => {
+      setCurrentPos(targetPosition);
+    }, 30);
+
+    // Scale back down at end of hop
+    const scaleTimeout = setTimeout(() => {
+      setScale(1);
+    }, HOP_DURATION_MS * 0.6);
+
+    // Signal completion
+    const completeTimeout = setTimeout(() => {
+      animatingRef.current = false;
+      onAnimationComplete();
+    }, HOP_DURATION_MS);
+
+    return () => {
+      clearTimeout(moveTimeout);
+      clearTimeout(scaleTimeout);
+      clearTimeout(completeTimeout);
+    };
+  }, [targetPosition, startPosition, onAnimationComplete]);
+
+  // Sync to rest position when not animating
+  useEffect(() => {
+    if (!animatingRef.current && !targetPosition) {
+      setCurrentPos(restPosition);
+    }
+  }, [restPosition, targetPosition]);
+
+  return (
+    <g
+      transform={`translate(${currentPos.x},${currentPos.y})`}
+      style={{
+        transition: `transform ${HOP_DURATION_MS}ms ease-in-out`,
+      }}
+    >
+      <circle
+        r={HEX_SIZE * 0.25}
+        fill="#FF4444"
+        stroke="#FFF"
+        strokeWidth="2"
+        className="hero-token"
+        style={{
+          transform: `scale(${scale})`,
+          transition: `transform ${HOP_DURATION_MS * 0.4}ms ease-out`,
+        }}
+      />
     </g>
   );
 }
@@ -442,12 +782,122 @@ export function HexGrid() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
 
+  // Track which hex is being hovered for path preview
+  const [hoveredHex, setHoveredHex] = useState<HexCoord | null>(null);
+
+  // Animation state for hero movement
+  // Queue of hex coordinates we're animating through (the full path)
+  const animationPath = useRef<HexCoord[]>([]);
+  // Current index in the animation path (which hex we're moving TO)
+  const animationIndex = useRef<number>(0);
+  // Whether we're currently animating
+  const [isAnimating, setIsAnimating] = useState(false);
+  // The position we're currently animating FROM (pixel coords)
+  const [animationStart, setAnimationStart] = useState<{ x: number; y: number } | null>(null);
+  // The position we're currently animating TO (pixel coords)
+  const [animationTarget, setAnimationTarget] = useState<{ x: number; y: number } | null>(null);
+
+  // Get valid move targets from server-computed validActions
+  // Memoize to avoid recreating arrays on every render
+  const validMoveTargets = useMemo<readonly MoveTarget[]>(
+    () => state?.validActions.move?.targets ?? [],
+    [state?.validActions.move?.targets]
+  );
+
+  // Get reachable hexes (multi-hop) from server if available
+  // Falls back to just using adjacent targets if server doesn't provide reachable data
+  const reachableHexes = useMemo<readonly ReachableHex[]>(
+    () => state?.validActions.move?.reachable ?? [],
+    [state?.validActions.move?.reachable]
+  );
+
+  // Compute path to hovered hex (only if it's reachable)
+  // Must be called before any early returns to follow hooks rules
+  const pathToHovered = useMemo(() => {
+    if (!hoveredHex || !player?.position) return [];
+
+    // Check if hovered hex is reachable
+    const isAdjacent = validMoveTargets.some(
+      t => t.hex.q === hoveredHex.q && t.hex.r === hoveredHex.r
+    );
+    const isReachable = reachableHexes.some(
+      r => r.hex.q === hoveredHex.q && r.hex.r === hoveredHex.r
+    );
+
+    if (!isAdjacent && !isReachable) return [];
+
+    return findPath(player.position, hoveredHex, reachableHexes, validMoveTargets);
+  }, [hoveredHex, player?.position, reachableHexes, validMoveTargets]);
+
+  // Handle animation completion - move to next hop or finish
+  const handleAnimationComplete = useCallback(() => {
+    const path = animationPath.current;
+    const currentIndex = animationIndex.current;
+
+    // Move to next step in path
+    const nextIndex = currentIndex + 1;
+
+    if (nextIndex >= path.length) {
+      // Animation complete - no more hops
+      setIsAnimating(false);
+      setAnimationStart(null);
+      setAnimationTarget(null);
+      animationPath.current = [];
+      animationIndex.current = 0;
+      return;
+    }
+
+    // Set up next hop
+    const fromHex = path[currentIndex];
+    const toHex = path[nextIndex];
+
+    if (fromHex && toHex) {
+      animationIndex.current = nextIndex;
+      setAnimationStart(hexToPixel(fromHex));
+      setAnimationTarget(hexToPixel(toHex));
+
+      // Send the move action for this hop
+      sendAction({
+        type: MOVE_ACTION,
+        target: toHex,
+      });
+    }
+  }, [sendAction]);
+
+  // Start a multi-hop animation sequence
+  const startPathAnimation = useCallback((path: HexCoord[]) => {
+    if (path.length < 2) return;
+
+    // Store the full path
+    animationPath.current = path;
+    animationIndex.current = 1; // Start at index 1 (moving TO first destination)
+
+    const fromHex = path[0];
+    const toHex = path[1];
+
+    if (fromHex && toHex) {
+      setIsAnimating(true);
+      setAnimationStart(hexToPixel(fromHex));
+      setAnimationTarget(hexToPixel(toHex));
+
+      // Send the first move action
+      sendAction({
+        type: MOVE_ACTION,
+        target: toHex,
+      });
+    }
+  }, [sendAction]);
+
+  // Calculate hero's display position (for animated token)
+  // Must be before early return to follow hooks rules
+  const heroDisplayPosition = useMemo(() => {
+    if (!player?.position) return null;
+    return hexToPixel(player.position);
+  }, [player?.position]);
+
   if (!state) return null;
 
   const hexes = Object.values(state.map.hexes);
-
-  // Get valid move targets from server-computed validActions
-  const validMoveTargets: readonly MoveTarget[] = state.validActions.move?.targets ?? [];
 
   // Get valid explore directions from server-computed validActions
   // Server now provides exact target coordinates and fromTileCoord for each explore direction
@@ -474,15 +924,32 @@ export function HexGrid() {
   const maxY = Math.max(...allPositions.map((p) => p.y)) + HEX_SIZE * 2;
 
   const handleHexClick = (coord: HexCoord) => {
-    // Only send move action if it's a valid target
-    const isValidTarget = validMoveTargets.some(
+    // Don't allow clicks while animating
+    if (isAnimating) return;
+
+    // Check if it's an adjacent target (single move)
+    const isAdjacentTarget = validMoveTargets.some(
       (t) => t.hex.q === coord.q && t.hex.r === coord.r
     );
-    if (isValidTarget) {
-      sendAction({
-        type: MOVE_ACTION,
-        target: coord,
-      });
+
+    if (isAdjacentTarget && player?.position) {
+      // Single-hex move - still animate it
+      startPathAnimation([player.position, coord]);
+      return;
+    }
+
+    // Check if it's a reachable (multi-hop) target
+    const isReachableTarget = reachableHexes.some(
+      (r) => r.hex.q === coord.q && r.hex.r === coord.r
+    );
+
+    if (isReachableTarget && player?.position) {
+      // Compute path and start animated movement
+      const path = findPath(player.position, coord, reachableHexes, validMoveTargets);
+
+      if (path.length > 1) {
+        startPathAnimation(path);
+      }
     }
   };
 
@@ -495,12 +962,46 @@ export function HexGrid() {
     });
   };
 
-  const isPlayerAt = (coord: HexCoord) =>
-    player?.position?.q === coord.q && player?.position?.r === coord.r;
+  /**
+   * Get movement highlight state for a hex.
+   * Priority: adjacent > reachable (with terminal distinction)
+   * Adjacent terminal hexes show as "terminal" not "adjacent" for visual clarity
+   */
+  const getMoveHighlight = (coord: HexCoord): MoveHighlight => {
+    // Hide movement highlights while animating - avoids flickering costs
+    if (isAnimating) {
+      return { type: "none" };
+    }
 
-  // Check if a hex is a valid move target
-  const isValidMoveTarget = (coord: HexCoord) =>
-    validMoveTargets.some((t) => t.hex.q === coord.q && t.hex.r === coord.r);
+    // Check adjacent targets first
+    const adjacentTarget = validMoveTargets.find(
+      (t) => t.hex.q === coord.q && t.hex.r === coord.r
+    );
+    if (adjacentTarget) {
+      // Adjacent but terminal (would trigger combat) - show as terminal
+      if (adjacentTarget.isTerminal) {
+        return { type: "terminal", cost: adjacentTarget.cost };
+      }
+      return { type: "adjacent", cost: adjacentTarget.cost };
+    }
+
+    // Check reachable hexes (dashed green or amber for terminal)
+    const reachable = reachableHexes.find(
+      (r) => r.hex.q === coord.q && r.hex.r === coord.r
+    );
+    if (reachable) {
+      if (reachable.isTerminal) {
+        return { type: "terminal", cost: reachable.totalCost };
+      }
+      return { type: "reachable", cost: reachable.totalCost };
+    }
+
+    return { type: "none" };
+  };
+
+  // Determine if hovered hex is terminal (for path line color)
+  const hoveredHighlight = hoveredHex ? getMoveHighlight(hoveredHex) : { type: "none" as const };
+  const isHoveredTerminal = hoveredHighlight.type === "terminal";
 
   return (
     <svg
@@ -518,14 +1019,21 @@ export function HexGrid() {
         />
       ))}
 
-      {/* Layer 2: Hex overlays (transparent, for interactivity) */}
+      {/* Layer 2: Path line preview (rendered before hex overlays so it's underneath) */}
+      {/* Hide while animating to avoid visual clutter */}
+      {!isAnimating && pathToHovered.length > 1 && (
+        <PathLine path={pathToHovered} isTerminal={isHoveredTerminal} />
+      )}
+
+      {/* Layer 3: Hex overlays (transparent, for interactivity) */}
       {hexes.map((hex) => (
         <HexOverlay
           key={`hex-${hex.coord.q},${hex.coord.r}`}
           hex={hex}
-          isPlayerHere={isPlayerAt(hex.coord)}
-          isValidMoveTarget={isValidMoveTarget(hex.coord)}
+          moveHighlight={getMoveHighlight(hex.coord)}
           onClick={() => handleHexClick(hex.coord)}
+          onMouseEnter={() => setHoveredHex(hex.coord)}
+          onMouseLeave={() => setHoveredHex(null)}
         />
       ))}
 
@@ -547,6 +1055,16 @@ export function HexGrid() {
             tileId={tile.tileId}
           />
         ))}
+
+      {/* Layer 5: Animated hero token (rendered on top) */}
+      {heroDisplayPosition && (
+        <AnimatedHeroToken
+          startPosition={animationStart}
+          targetPosition={animationTarget}
+          restPosition={heroDisplayPosition}
+          onAnimationComplete={handleAnimationComplete}
+        />
+      )}
     </svg>
   );
 }

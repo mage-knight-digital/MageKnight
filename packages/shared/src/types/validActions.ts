@@ -75,12 +75,30 @@ export interface ValidActions {
 // ============================================================================
 
 export interface MoveOptions {
+  /** Adjacent hexes the player can move to immediately (one-hop) */
   readonly targets: readonly MoveTarget[];
+  /** All hexes reachable within current move points (multi-hop, optional) */
+  readonly reachable?: readonly ReachableHex[];
 }
 
 export interface MoveTarget {
   readonly hex: HexCoord;
   readonly cost: number;
+  /** Whether entering this hex triggers combat (fortified site, provokes rampaging, etc.) */
+  readonly isTerminal?: boolean;
+}
+
+/**
+ * A hex that can be reached with current move points.
+ * Used for movement range visualization (flood-fill reachability).
+ */
+export interface ReachableHex {
+  /** The reachable hex coordinate */
+  readonly hex: HexCoord;
+  /** Total movement cost to reach this hex via optimal path */
+  readonly totalCost: number;
+  /** Whether entering this hex ends movement (triggers combat, fortified site, etc.) */
+  readonly isTerminal: boolean;
 }
 
 // ============================================================================

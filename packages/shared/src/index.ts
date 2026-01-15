@@ -244,6 +244,7 @@ export type {
   ValidActions,
   MoveOptions,
   MoveTarget,
+  ReachableHex,
   ExploreOptions,
   ExploreDirection,
   PlayCardOptions,
