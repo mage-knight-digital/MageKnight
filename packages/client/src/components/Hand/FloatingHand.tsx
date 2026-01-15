@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared";
 import { loadAtlas, getCardSpriteStyle, getCardColor } from "../../utils/cardAtlas";
+import { calculateZIndex, type CardFanViewMode } from "../../utils/cardFanLayout";
 import "./FloatingHand.css";
 
-// Hand view modes
-export type HandViewMode = "board" | "ready" | "focus";
+// Hand view modes - re-export for backwards compatibility
+export type HandViewMode = CardFanViewMode;
 
 // Card size multipliers for each view mode
 const VIEW_CARD_SCALE: Record<HandViewMode, number> = {
@@ -12,36 +13,6 @@ const VIEW_CARD_SCALE: Record<HandViewMode, number> = {
   ready: 0.25,  // Ready stance - 25% of viewport height
   focus: 0.60,  // Focus mode - 60% of viewport height (big enough to read card text)
 };
-
-/**
- * Calculate z-index for a card based on which card is the z-index anchor.
- * Inscryption-style: when hovering, reorder entire hand so anchored card
- * is on top, cards to the left stack behind going left, cards to the right
- * have lowest z-index. The anchor persists after mouse leaves until a new
- * card is hovered.
- */
-function calculateZIndex(index: number, totalCards: number, zIndexAnchor: number | null): number {
-  if (zIndexAnchor === null) {
-    // Default: rightmost card on top (ascending z-index left to right)
-    return 50 + index;
-  }
-
-  // When anchored, reorder z-indexes:
-  // - Anchored card gets highest
-  // - Cards to the LEFT of anchor: higher z-index closer to anchor
-  // - Cards to the RIGHT of anchor: get lowest values
-
-  if (index === zIndexAnchor) {
-    // Anchored card is always on top
-    return 50 + totalCards;
-  } else if (index < zIndexAnchor) {
-    // Cards to the left: higher z-index the closer to anchor
-    return 50 + index;
-  } else {
-    // Cards to the right of anchor: push them behind
-    return 40 + (totalCards - index);
-  }
-}
 
 // Hook to get responsive card dimensions based on view mode
 function useCardDimensions(viewMode: HandViewMode) {

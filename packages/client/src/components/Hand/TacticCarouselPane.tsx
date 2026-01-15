@@ -6,6 +6,7 @@ import {
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { loadAtlas, getTacticSpriteStyle } from "../../utils/cardAtlas";
+import { calculateZIndex, type CardFanViewMode } from "../../utils/cardFanLayout";
 import "./TacticCarouselPane.css";
 
 // Human-readable tactic names for alt text
@@ -52,37 +53,6 @@ function getTacticCardLayout(index: number, totalCards: number) {
   const arcY = Math.abs(offsetFromCenter) * arcPerCard; // In percentage
 
   return { spreadX, rotation, arcY };
-}
-
-/**
- * Calculate z-index for a card based on which card is hovered.
- * Inscryption-style: when hovering, reorder entire hand so hovered card
- * is on top, cards to the left stack behind going left, cards to the right
- * have lowest z-index.
- */
-function calculateZIndex(index: number, totalCards: number, hoveredIndex: number | null): number {
-  if (hoveredIndex === null) {
-    // Default: rightmost card on top (ascending z-index left to right)
-    return 50 + index;
-  }
-
-  // When hovering, reorder z-indexes:
-  // - Hovered card gets highest
-  // - Cards to the LEFT of hovered: descending from hovered (they go "behind")
-  // - Cards to the RIGHT of hovered: get lowest values
-
-  if (index === hoveredIndex) {
-    // Hovered card is always on top
-    return 50 + totalCards;
-  } else if (index < hoveredIndex) {
-    // Cards to the left: higher z-index the closer to hovered
-    // e.g., if hovered is 3, card 2 gets higher z than card 1
-    return 50 + index;
-  } else {
-    // Cards to the right of hovered: push them behind
-    // They get z-index below the leftmost card
-    return 40 + (totalCards - index);
-  }
 }
 
 function TacticCard({
@@ -156,14 +126,15 @@ function TacticCard({
 // Animation timing
 const SELECTION_DELAY_MS = 800;
 
+// Re-export for backwards compatibility
+export type ViewMode = CardFanViewMode;
+
 // Card height scale factors for each view mode (percentage of viewport height)
 const VIEW_CARD_SCALE: Record<ViewMode, number> = {
   board: 0.22,  // Hidden off screen anyway
   ready: 0.22,  // Ready stance
   focus: 0.55,  // Focus mode - large for selection
 };
-
-export type ViewMode = "board" | "ready" | "focus";
 
 interface TacticCarouselPaneProps {
   viewMode: ViewMode;
