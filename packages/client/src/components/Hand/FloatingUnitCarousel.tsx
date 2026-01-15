@@ -279,41 +279,76 @@ export function FloatingUnitCarousel({
         <span className="floating-unit-carousel__capacity-count">
           {units.length} / {commandTokens}
         </span>
-        {(() => {
-          const nextLevel = getNextCommandSlotLevel(commandTokens);
-          return nextLevel ? (
-            <span className="floating-unit-carousel__next-slot">
-              +1 at Level {nextLevel}
-            </span>
-          ) : null;
-        })()}
       </div>
 
-      {units.length === 0 ? (
-        <div className="floating-unit-carousel__empty-message">
-          No units recruited
-        </div>
-      ) : (
-        <div
-          className="floating-unit-carousel__units"
-          style={{ width: carouselWidth }}
-        >
-          {units.map((unit, index) => (
-            <FloatingUnit
-              key={`${unit.unitId}-${index}`}
-              unit={unit}
-              index={index}
-              totalUnits={units.length}
-              selectedIndex={selectedIndex}
-              isSelected={index === selectedIndex}
-              isHovered={index === hoveredIndex}
-              unitWidth={unitWidth}
-              unitHeight={unitHeight}
-              onUnitClick={onSelectUnit}
-            />
-          ))}
-        </div>
-      )}
+      {(() => {
+        const nextLevel = getNextCommandSlotLevel(commandTokens);
+        const showGhost = nextLevel !== null;
+        // Total items = units + 1 ghost (if applicable)
+        const totalItems = units.length + (showGhost ? 1 : 0);
+        // Ghost is always at the end
+        const ghostIndex = units.length;
+
+        if (units.length === 0 && !showGhost) {
+          return (
+            <div className="floating-unit-carousel__empty-message">
+              No units recruited
+            </div>
+          );
+        }
+
+        return (
+          <div
+            className="floating-unit-carousel__units"
+            style={{ width: carouselWidth }}
+          >
+            {units.map((unit, index) => (
+              <FloatingUnit
+                key={`${unit.unitId}-${index}`}
+                unit={unit}
+                index={index}
+                totalUnits={totalItems}
+                selectedIndex={selectedIndex}
+                isSelected={index === selectedIndex}
+                isHovered={index === hoveredIndex}
+                unitWidth={unitWidth}
+                unitHeight={unitHeight}
+                onUnitClick={onSelectUnit}
+              />
+            ))}
+            {showGhost && (
+              <div
+                className="floating-unit-ghost"
+                style={{
+                  ...(() => {
+                    const { spreadX, scaleZ, translateZ, translateY, rotateY } = getUnitLayout(
+                      ghostIndex,
+                      totalItems,
+                      selectedIndex,
+                      unitWidth
+                    );
+                    return {
+                      transform: `
+                        translateX(${spreadX}px)
+                        translateY(${translateY}px)
+                        translateZ(${translateZ}px)
+                        rotateY(${rotateY}deg)
+                        scale(${scaleZ})
+                      `,
+                      width: unitWidth,
+                      height: unitHeight,
+                    };
+                  })(),
+                }}
+              >
+                <div className="floating-unit-ghost__card" style={{ width: unitWidth, height: unitHeight }}>
+                  <span className="floating-unit-ghost__level">Level {nextLevel}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Navigation hints */}
       {units.length > 1 && (
