@@ -6,7 +6,7 @@ import {
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { loadAtlas, getTacticSpriteStyle } from "../../utils/cardAtlas";
-import { calculateZIndex, type CardFanViewMode } from "../../utils/cardFanLayout";
+import { calculateZIndex, CARD_FAN_SCALE, type CardFanViewMode } from "../../utils/cardFanLayout";
 import "./TacticCarouselPane.css";
 
 // Human-readable tactic names for alt text
@@ -129,13 +129,6 @@ const SELECTION_DELAY_MS = 800;
 // Re-export for backwards compatibility
 export type ViewMode = CardFanViewMode;
 
-// Card height scale factors for each view mode (percentage of viewport height)
-const VIEW_CARD_SCALE: Record<ViewMode, number> = {
-  board: 0.22,  // Hidden off screen anyway
-  ready: 0.22,  // Ready stance
-  focus: 0.55,  // Focus mode - large for selection
-};
-
 interface TacticCarouselPaneProps {
   viewMode: ViewMode;
 }
@@ -143,13 +136,13 @@ interface TacticCarouselPaneProps {
 // Hook to get responsive card height based on view mode
 function useCardHeight(viewMode: ViewMode): number {
   const [cardHeight, setCardHeight] = useState(() => {
-    const scale = VIEW_CARD_SCALE[viewMode];
+    const scale = CARD_FAN_SCALE[viewMode];
     return Math.round(window.innerHeight * scale);
   });
 
   useEffect(() => {
     const updateHeight = () => {
-      const scale = VIEW_CARD_SCALE[viewMode];
+      const scale = CARD_FAN_SCALE[viewMode];
       setCardHeight(Math.round(window.innerHeight * scale));
     };
 

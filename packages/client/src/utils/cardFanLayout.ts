@@ -46,3 +46,22 @@ export function calculateZIndex(
  * View mode type shared across card fan components
  */
 export type CardFanViewMode = "board" | "ready" | "focus";
+
+/**
+ * Shared card height scale factors for each view mode (percentage of viewport height).
+ * Used by all card fan components to ensure consistent sizing.
+ */
+export const CARD_FAN_SCALE: Record<CardFanViewMode, number> = {
+  board: 0.25,  // Hidden off screen anyway
+  ready: 0.25,  // Ready stance - 25% of viewport height
+  focus: 0.55,  // Focus mode - 55% of viewport height
+};
+
+/**
+ * Shared hover effect configuration.
+ * Inscryption-style: lift only, no zoom.
+ */
+export const CARD_FAN_HOVER = {
+  /** Vertical lift in pixels when hovered */
+  liftY: 30,
+} as const;

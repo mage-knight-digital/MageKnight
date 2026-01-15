@@ -1,4 +1,10 @@
 /* Tactic Carousel Pane - appears in carousel during tactic selection */
+
+/* Shared card fan hover lift - should match CARD_FAN_HOVER.liftY in cardFanLayout.ts */
+:root {
+  --card-fan-hover-lift: 30px;
+}
+
 .tactic-carousel {
   position: absolute;
   bottom: 0;
@@ -103,13 +109,13 @@
   pointer-events: auto;
 }
 
-/* Scale cards container based on view mode */
+/* Scale cards container based on view mode - matches CARD_FAN_SCALE in cardFanLayout.ts */
 .tactic-carousel--ready .tactic-carousel__cards {
-  height: 22vh;
+  height: 25vh;
 }
 
 .tactic-carousel--focus .tactic-carousel__cards {
-  height: 55vh; /* Consistent with hand cards focus mode */
+  height: 55vh;
 }
 
 /* Individual tactic card - positioned absolutely, left set via inline style */
@@ -159,7 +165,7 @@
 }
 
 .tactic-carousel__card--hovered .tactic-carousel__card-image {
-  transform: translateY(-30px);
+  transform: translateY(calc(-1 * var(--card-fan-hover-lift)));
   box-shadow:
     0 12px 32px rgba(0, 0, 0, 0.5),
     0 20px 60px rgba(0, 0, 0, 0.3);

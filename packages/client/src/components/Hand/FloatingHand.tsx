@@ -1,18 +1,11 @@
 import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared";
 import { loadAtlas, getCardSpriteStyle, getCardColor } from "../../utils/cardAtlas";
-import { calculateZIndex, type CardFanViewMode } from "../../utils/cardFanLayout";
+import { calculateZIndex, CARD_FAN_SCALE, CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
 import "./FloatingHand.css";
 
 // Hand view modes - re-export for backwards compatibility
 export type HandViewMode = CardFanViewMode;
-
-// Card size multipliers for each view mode
-const VIEW_CARD_SCALE: Record<HandViewMode, number> = {
-  board: 0.25,  // Same as ready (hidden off screen anyway)
-  ready: 0.25,  // Ready stance - 25% of viewport height
-  focus: 0.60,  // Focus mode - 60% of viewport height (big enough to read card text)
-};
 
 // Hook to get responsive card dimensions based on view mode
 function useCardDimensions(viewMode: HandViewMode) {
@@ -20,7 +13,7 @@ function useCardDimensions(viewMode: HandViewMode) {
 
   useEffect(() => {
     const updateDimensions = () => {
-      const scale = VIEW_CARD_SCALE[viewMode];
+      const scale = CARD_FAN_SCALE[viewMode];
       const cardHeight = Math.round(window.innerHeight * scale);
       const cardWidth = Math.round(cardHeight * 0.667); // 2:3 aspect ratio
       setDimensions({ cardWidth, cardHeight });
@@ -175,10 +168,10 @@ const FloatingCard = memo(function FloatingCard({
     height: cardHeight,
   };
 
-  // Card style with subtle hover effect (cards are already big enough in each view)
+  // Card style with Inscryption-style hover effect (lift only, no zoom)
   const cardStyle: React.CSSProperties = {
     ...spriteStyle,
-    transform: isHovered ? "scale(1.1) translateY(-10px)" : "scale(1)",
+    transform: isHovered ? `translateY(-${CARD_FAN_HOVER.liftY}px)` : "translateY(0)",
     "--glow-color": glowColor,
     ...(isNew && { animationDelay: `${dealDelay}s` }),
   } as React.CSSProperties;
