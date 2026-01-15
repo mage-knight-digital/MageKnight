@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { FloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./FloatingHand";
 import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
+import { TacticCarouselPane } from "./TacticCarouselPane";
 import { CardActionMenu } from "../CardActionMenu";
 import { RadialMenu, type RadialMenuItem } from "../RadialMenu";
 import {
@@ -151,20 +152,53 @@ type MenuState =
 type HandView = "board" | "ready" | "focus";
 const HAND_VIEWS: HandView[] = ["board", "ready", "focus"];
 
-// Carousel axis: cards vs units
-type CarouselPane = "cards" | "units";
-const CAROUSEL_PANES: CarouselPane[] = ["cards", "units"];
+// Carousel axis: tactics -> cards -> units
+type CarouselPane = "tactics" | "cards" | "units";
+const CAROUSEL_PANES: CarouselPane[] = ["tactics", "cards", "units"];
 
 export function PlayerHand() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
   const [handView, setHandView] = useState<HandView>("ready");
-  const [carouselPane, setCarouselPane] = useState<CarouselPane>("cards");
+  // Default to tactics - most game loads are at round start with tactic selection
+  // The useEffect below handles moving to cards if tactic is already selected
+  const [carouselPane, setCarouselPane] = useState<CarouselPane>("tactics");
+
+  // Track whether we need tactic selection (for auto-navigation)
+  const needsTacticSelection = !!(
+    player &&
+    player.selectedTacticId === null &&
+    state?.validActions.tactics
+  );
+
+  // Track previous tactic selection state to detect when selection completes
+  const prevNeedsTacticRef = useRef<boolean | null>(null); // null = not yet initialized
+
+  // Auto-navigate to tactics pane when tactic selection is needed (start of round)
+  // Auto-navigate away from tactics pane when tactic is selected
+  useEffect(() => {
+    const isFirstRun = prevNeedsTacticRef.current === null;
+
+    if (isFirstRun && needsTacticSelection) {
+      // Initial load and tactic selection is needed - start on tactics pane
+      setCarouselPane("tactics");
+    } else if (needsTacticSelection && prevNeedsTacticRef.current === false) {
+      // Tactic selection just became needed (new round started)
+      setCarouselPane("tactics");
+    } else if (!needsTacticSelection && prevNeedsTacticRef.current === true) {
+      // Tactic was just selected, move to cards
+      setCarouselPane("cards");
+    } else if (!needsTacticSelection && carouselPane === "tactics") {
+      // Edge case: on tactics pane but shouldn't be (e.g., page load after selection)
+      setCarouselPane("cards");
+    }
+    prevNeedsTacticRef.current = needsTacticSelection;
+  }, [needsTacticSelection, carouselPane]);
 
   // Keyboard controls:
   // W/S = vertical view modes (board/ready/focus)
-  // A/D = horizontal carousel (cards/units)
+  // A/D = horizontal carousel (tactics/cards/units)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input
@@ -187,15 +221,25 @@ export function PlayerHand() {
           return HAND_VIEWS[Math.max(idx - 1, 0)] ?? current;
         });
       } else if (key === "a") {
-        setCarouselPane("cards");
+        // Move left through panes: units -> cards -> tactics (if available)
+        setCarouselPane(current => {
+          const idx = CAROUSEL_PANES.indexOf(current);
+          // Don't allow navigation to tactics pane if tactic already selected
+          const minIdx = needsTacticSelection ? 0 : 1;
+          return CAROUSEL_PANES[Math.max(idx - 1, minIdx)] ?? current;
+        });
       } else if (key === "d") {
-        setCarouselPane("units");
+        // Move right through panes: tactics -> cards -> units
+        setCarouselPane(current => {
+          const idx = CAROUSEL_PANES.indexOf(current);
+          return CAROUSEL_PANES[Math.min(idx + 1, CAROUSEL_PANES.length - 1)] ?? current;
+        });
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [needsTacticSelection]);
 
   // Get playable cards from validActions - memoized to avoid hook dependency issues
   const playableCardMap = useMemo(() => {
@@ -406,10 +450,15 @@ export function PlayerHand() {
         );
       })()}
 
-      {/* Carousel track - slides horizontally between cards and units */}
-      {/* Both panes are always rendered, positioned side by side */}
+      {/* Carousel track - slides horizontally between tactics, cards, and units */}
+      {/* All panes are always rendered, positioned side by side */}
       <div className={`carousel-track carousel-track--${carouselPane}`}>
-        {/* Cards pane (left position) */}
+        {/* Tactics pane (leftmost position) */}
+        <div className="carousel-track__pane carousel-track__pane--tactics">
+          <TacticCarouselPane viewMode={handView} />
+        </div>
+
+        {/* Cards pane (middle position) */}
         <div className="carousel-track__pane carousel-track__pane--cards">
           <FloatingHand
             hand={handArray}
@@ -422,7 +471,7 @@ export function PlayerHand() {
           />
         </div>
 
-        {/* Units pane (right position) */}
+        {/* Units pane (rightmost position) */}
         <div className="carousel-track__pane carousel-track__pane--units">
           <FloatingUnitCarousel
             units={player.units}
@@ -434,6 +483,14 @@ export function PlayerHand() {
 
       {/* Carousel pane indicator */}
       <div className="carousel-pane-indicator">
+        {needsTacticSelection && (
+          <>
+            <span className={`carousel-pane-indicator__item carousel-pane-indicator__item--needs-attention ${carouselPane === "tactics" ? "carousel-pane-indicator__item--active" : ""}`}>
+              Tactics
+            </span>
+            <span className="carousel-pane-indicator__divider">|</span>
+          </>
+        )}
         <span className={`carousel-pane-indicator__item ${carouselPane === "cards" ? "carousel-pane-indicator__item--active" : ""}`}>
           Cards
         </span>

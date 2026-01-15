@@ -217,14 +217,14 @@
 }
 
 /* ===== CAROUSEL TRACK ===== */
-/* Horizontal sliding track containing cards and units panes */
+/* Horizontal sliding track containing tactics, cards, and units panes */
 
 .carousel-track {
   position: fixed;
   bottom: 0;
   left: 0;
-  /* Track is 200vw wide (two viewport widths side by side) */
-  width: 200vw;
+  /* Track is 300vw wide (three viewport widths side by side) */
+  width: 300vw;
   height: 100vh;
   pointer-events: none;
   /* Smooth sliding transition with slight overshoot for juicy feel */
@@ -232,14 +232,19 @@
   z-index: 50;
 }
 
-/* Cards pane visible (track at default position) */
-.carousel-track--cards {
+/* Tactics pane visible (track at default position) */
+.carousel-track--tactics {
   transform: translateX(0);
 }
 
-/* Units pane visible (track slid left by one viewport width) */
-.carousel-track--units {
+/* Cards pane visible (track slid left by one viewport width) */
+.carousel-track--cards {
   transform: translateX(-100vw);
+}
+
+/* Units pane visible (track slid left by two viewport widths) */
+.carousel-track--units {
+  transform: translateX(-200vw);
 }
 
 /* Each pane takes up one viewport width */
@@ -251,19 +256,25 @@
   pointer-events: auto;
 }
 
-/* Cards pane on the left */
-.carousel-track__pane--cards {
+/* Tactics pane on the left */
+.carousel-track__pane--tactics {
   left: 0;
+}
+
+/* Cards pane in the middle */
+.carousel-track__pane--cards {
+  left: 100vw;
 }
 
 /* Units pane on the right */
 .carousel-track__pane--units {
-  left: 100vw;
+  left: 200vw;
 }
 
 /* Override the fixed positioning of children - they're now relative to the pane */
 .carousel-track__pane .floating-hand,
-.carousel-track__pane .floating-unit-carousel {
+.carousel-track__pane .floating-unit-carousel,
+.carousel-track__pane .tactic-carousel {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -271,7 +282,7 @@
 }
 
 /* ===== CAROUSEL PANE INDICATOR ===== */
-/* Shows which pane is active: Cards or Units */
+/* Shows which pane is active: Tactics, Cards, or Units */
 
 .carousel-pane-indicator {
   position: fixed;
@@ -307,6 +318,29 @@
 .carousel-pane-indicator__item--active {
   color: #fff;
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+/* Pulsing attention state for tactics indicator when selection is needed */
+@keyframes indicator-pulse {
+  0%, 100% {
+    color: #f0a030;
+    text-shadow: 0 0 8px rgba(240, 160, 48, 0.6);
+  }
+  50% {
+    color: #ffd080;
+    text-shadow: 0 0 16px rgba(255, 208, 128, 0.9);
+  }
+}
+
+.carousel-pane-indicator__item--needs-attention {
+  animation: indicator-pulse 1.5s ease-in-out infinite;
+}
+
+/* When needs attention AND active, keep the glow but stop pulsing */
+.carousel-pane-indicator__item--needs-attention.carousel-pane-indicator__item--active {
+  animation: none;
+  color: #ffd080;
+  text-shadow: 0 0 12px rgba(255, 208, 128, 0.8);
 }
 
 .carousel-pane-indicator__divider {

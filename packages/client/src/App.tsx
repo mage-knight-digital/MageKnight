@@ -7,7 +7,6 @@ import { ManaSourceOverlay } from "./components/GameBoard/ManaSourceOverlay";
 import { TopBar } from "./components/TopBar";
 import { TurnActions } from "./components/TurnActions";
 import { PlayerHand } from "./components/Hand/PlayerHand";
-import { TacticHand } from "./components/Hand/TacticHand";
 import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
 import { RewardSelection } from "./components/Overlays/RewardSelection";
 import { ManaStealDecision } from "./components/Overlays/ManaStealDecision";
@@ -90,7 +89,6 @@ function GameView() {
       </main>
 
       <PlayerHand />
-      <TacticHand />
       <TurnActions />
     </div>
   );
