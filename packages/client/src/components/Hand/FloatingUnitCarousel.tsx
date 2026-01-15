@@ -46,25 +46,20 @@ interface FloatingUnitProps {
   unitHeight: number;
 }
 
-// Calculate unit position - similar to card hand fan layout
-function getUnitLayout(index: number, totalUnits: number, unitWidth: number) {
-  const centerIndex = (totalUnits - 1) / 2;
+// Calculate unit position - no overlap, units sit side by side like on the table
+function getUnitLayout(index: number, totalSlots: number, unitWidth: number) {
+  const centerIndex = (totalSlots - 1) / 2;
   const offsetFromCenter = index - centerIndex;
 
-  // Scale spread relative to unit width
+  // Scale spacing relative to unit width
   const scaleFactor = unitWidth / 100;
 
-  // Spread - tighter overlap than cards since units are narrower
-  const spreadDistance = 60 * scaleFactor;
+  // Full card width + small gap (no overlap)
+  const gap = 10 * scaleFactor;
+  const spreadDistance = unitWidth + gap;
   const spreadX = offsetFromCenter * spreadDistance;
 
-  // Slight rotation for fan effect
-  const rotation = offsetFromCenter * 2;
-
-  // Arc - cards further from center sit lower
-  const arcY = Math.abs(offsetFromCenter) * 4 * scaleFactor;
-
-  return { spreadX, rotation, arcY };
+  return { spreadX };
 }
 
 const FloatingUnit = memo(function FloatingUnit({
@@ -84,10 +79,10 @@ const FloatingUnit = memo(function FloatingUnit({
     [unit.unitId, unitHeight]
   );
 
-  const { spreadX, rotation, arcY } = getUnitLayout(index, totalUnits, unitWidth);
+  const { spreadX } = getUnitLayout(index, totalUnits, unitWidth);
 
-  // Z-index: hovered cards come to front, otherwise by index
-  const zIndex = isHovered ? 100 : 50 + index;
+  // Z-index: hovered cards come to front
+  const zIndex = isHovered ? 100 : 50;
 
   const isElite = unitDef?.type === UNIT_TYPE_ELITE;
   const isReady = unit.state === UNIT_STATE_READY;
@@ -112,9 +107,9 @@ const FloatingUnit = memo(function FloatingUnit({
     .filter(Boolean)
     .join(" ");
 
-  // Wrapper style - positioning
+  // Wrapper style - positioning (no rotation or arc, just side by side)
   const wrapperStyle: React.CSSProperties = {
-    transform: `translateX(${spreadX}px) translateY(${arcY}px) rotate(${rotation}deg)`,
+    transform: `translateX(${spreadX}px)`,
     zIndex,
     width: unitWidth,
     height: unitHeight,
@@ -211,6 +206,29 @@ export function FloatingUnitCarousel({
     setHoveredIndex(null);
   }, []);
 
+  // Ghost logic:
+  // - Open slot (units < commandTokens): show empty slot where next unit goes
+  // - At capacity but can level up: show "Level X" tease
+  // - Maxed out (5/5): no ghost
+  const hasOpenSlot = units.length < commandTokens;
+  const atCapacity = units.length === commandTokens;
+  const nextLevel = getNextCommandSlotLevel(commandTokens);
+  const hasNoUnits = units.length === 0;
+
+  type GhostType = "open-slot" | "level-up" | null;
+  let ghostType: GhostType = null;
+  if (hasOpenSlot) {
+    ghostType = "open-slot";
+  } else if (atCapacity && nextLevel !== null) {
+    ghostType = "level-up";
+  }
+
+  const showGhost = ghostType !== null;
+  // Total slots to lay out = units + 1 ghost if showing
+  const totalSlots = units.length + (showGhost ? 1 : 0);
+  // Ghost goes in the last position (rightmost)
+  const ghostIndex = units.length;
+
   // CSS classes based on view mode
   const carouselClassName = [
     "floating-unit-carousel",
@@ -218,26 +236,11 @@ export function FloatingUnitCarousel({
     units.length === 0 ? "floating-unit-carousel--empty" : "",
   ].filter(Boolean).join(" ");
 
-  // Calculate container width
-  const spreadDistance = 60 * (unitWidth / 100);
-  const carouselWidth = Math.max(unitWidth, (units.length - 1) * spreadDistance + unitWidth) + 100;
-
-  // Ghost logic
-  const nextLevel = getNextCommandSlotLevel(commandTokens);
-  const atCapacity = units.length === commandTokens;
-  const hasNoUnits = units.length === 0;
-
-  type GhostType = "recruit" | "level-up" | null;
-  let ghostType: GhostType = null;
-  if (hasNoUnits) {
-    ghostType = "recruit";
-  } else if (atCapacity && nextLevel !== null) {
-    ghostType = "level-up";
-  }
-
-  const showGhost = ghostType !== null;
-  const totalItems = units.length + (showGhost ? 1 : 0);
-  const ghostIndex = units.length;
+  // Calculate container width (no overlap - full card width + gap)
+  const scaleFactor = unitWidth / 100;
+  const gap = 10 * scaleFactor;
+  const spreadDistance = unitWidth + gap;
+  const carouselWidth = Math.max(unitWidth, (totalSlots - 1) * spreadDistance + unitWidth) + 50;
 
   return (
     <div
@@ -254,55 +257,53 @@ export function FloatingUnitCarousel({
         </span>
       </div>
 
-      {units.length === 0 && !showGhost ? (
-        <div className="floating-unit-carousel__empty-message">
-          No units recruited
-        </div>
-      ) : (
-        <div
-          className="floating-unit-carousel__units"
-          style={{ width: carouselWidth }}
-        >
-          {units.map((unit, index) => (
-            <FloatingUnit
-              key={`${unit.unitId}-${index}`}
-              unit={unit}
-              index={index}
-              totalUnits={totalItems}
-              isHovered={index === hoveredIndex}
-              unitWidth={unitWidth}
-              unitHeight={unitHeight}
-            />
-          ))}
-          {showGhost && (
-            <div
-              className={`floating-unit-ghost floating-unit-ghost--${ghostType}`}
-              style={{
-                ...(() => {
-                  const { spreadX, rotation, arcY } = getUnitLayout(ghostIndex, totalItems, unitWidth);
-                  return {
-                    transform: `translateX(${spreadX}px) translateY(${arcY}px) rotate(${rotation}deg)`,
-                    width: unitWidth,
-                    height: unitHeight,
-                    zIndex: 50 + ghostIndex,
-                  };
-                })(),
-              }}
-            >
-              <div className="floating-unit-ghost__card">
-                {ghostType === "recruit" ? (
+      <div
+        className="floating-unit-carousel__units"
+        style={{ width: carouselWidth }}
+      >
+        {units.map((unit, index) => (
+          <FloatingUnit
+            key={`${unit.unitId}-${index}`}
+            unit={unit}
+            index={index}
+            totalUnits={totalSlots}
+            isHovered={index === hoveredIndex}
+            unitWidth={unitWidth}
+            unitHeight={unitHeight}
+          />
+        ))}
+        {showGhost && (
+          <div
+            className={`floating-unit-ghost floating-unit-ghost--${ghostType}`}
+            style={{
+              ...(() => {
+                const { spreadX } = getUnitLayout(ghostIndex, totalSlots, unitWidth);
+                return {
+                  transform: `translateX(${spreadX}px)`,
+                  width: unitWidth,
+                  height: unitHeight,
+                  zIndex: 40,
+                };
+              })(),
+            }}
+          >
+            <div className="floating-unit-ghost__card">
+              {ghostType === "open-slot" ? (
+                hasNoUnits ? (
                   <>
-                    <span className="floating-unit-ghost__hint">Recruit units at</span>
+                    <span className="floating-unit-ghost__hint">Recruit at</span>
                     <span className="floating-unit-ghost__hint">Village or Monastery</span>
                   </>
                 ) : (
-                  <span className="floating-unit-ghost__level">Level {nextLevel}</span>
-                )}
-              </div>
+                  <span className="floating-unit-ghost__hint">Open Slot</span>
+                )
+              ) : (
+                <span className="floating-unit-ghost__level">Level {nextLevel}</span>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
