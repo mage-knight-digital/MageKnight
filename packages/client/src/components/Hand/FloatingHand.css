@@ -322,6 +322,9 @@
 .carousel-pane-indicator__item--active {
   color: #fff;
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
 }
 
 /* Pulsing attention state for tactics indicator when selection is needed */
@@ -340,11 +343,13 @@
   animation: indicator-pulse 1.5s ease-in-out infinite;
 }
 
-/* When needs attention AND active, keep the glow but stop pulsing */
+/* When needs attention AND active, show consistent white underline for "you are here" */
 .carousel-pane-indicator__item--needs-attention.carousel-pane-indicator__item--active {
   animation: none;
   color: #ffd080;
   text-shadow: 0 0 12px rgba(255, 208, 128, 0.8);
+  /* Underline stays white for consistency - it's the selection indicator */
+  text-decoration-color: #fff;
 }
 
 .carousel-pane-indicator__divider {
