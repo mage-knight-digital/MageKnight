@@ -283,12 +283,31 @@ export function FloatingUnitCarousel({
 
       {(() => {
         const nextLevel = getNextCommandSlotLevel(commandTokens);
-        const showGhost = nextLevel !== null;
+        const hasOpenSlots = units.length < commandTokens;
+        const atCapacity = units.length === commandTokens;
+        const hasNoUnits = units.length === 0;
+
+        // Ghost logic:
+        // 1. No units yet -> show "recruit" hint (educational)
+        // 2. At capacity but can unlock more -> show "Level X" (aspirational)
+        // 3. Has open slots -> no ghost (they know what to do, have room)
+        // 4. Max slots -> no ghost (nothing to unlock)
+        type GhostType = "recruit" | "level-up" | null;
+        let ghostType: GhostType = null;
+
+        if (hasNoUnits) {
+          ghostType = "recruit";
+        } else if (atCapacity && nextLevel !== null) {
+          ghostType = "level-up";
+        }
+
+        const showGhost = ghostType !== null;
         // Total items = units + 1 ghost (if applicable)
         const totalItems = units.length + (showGhost ? 1 : 0);
         // Ghost is always at the end
         const ghostIndex = units.length;
 
+        // Edge case: no units and nothing to show (shouldn't happen but handle gracefully)
         if (units.length === 0 && !showGhost) {
           return (
             <div className="floating-unit-carousel__empty-message">
@@ -318,7 +337,7 @@ export function FloatingUnitCarousel({
             ))}
             {showGhost && (
               <div
-                className="floating-unit-ghost"
+                className={`floating-unit-ghost floating-unit-ghost--${ghostType}`}
                 style={{
                   ...(() => {
                     const { spreadX, scaleZ, translateZ, translateY, rotateY } = getUnitLayout(
@@ -342,7 +361,14 @@ export function FloatingUnitCarousel({
                 }}
               >
                 <div className="floating-unit-ghost__card" style={{ width: unitWidth, height: unitHeight }}>
-                  <span className="floating-unit-ghost__level">Level {nextLevel}</span>
+                  {ghostType === "recruit" ? (
+                    <>
+                      <span className="floating-unit-ghost__hint">Recruit units at</span>
+                      <span className="floating-unit-ghost__hint">Village or Monastery</span>
+                    </>
+                  ) : (
+                    <span className="floating-unit-ghost__level">Level {nextLevel}</span>
+                  )}
                 </div>
               </div>
             )}

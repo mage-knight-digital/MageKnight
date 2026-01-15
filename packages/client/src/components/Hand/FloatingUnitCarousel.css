@@ -323,6 +323,13 @@
   letter-spacing: 1px;
 }
 
+.floating-unit-ghost__hint {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  line-height: 1.4;
+}
+
 @keyframes ghost-pulse {
   0%, 100% {
     border-color: rgba(255, 255, 255, 0.2);
