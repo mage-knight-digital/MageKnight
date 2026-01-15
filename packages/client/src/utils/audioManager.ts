@@ -32,10 +32,11 @@ interface SoundAssignment {
 }
 
 // Default sound assignments (can be changed via debug panel)
+// Note: volumes are lower since there's no ambient music to blend with
 const defaultAssignments: Record<SoundEvent, SoundAssignment> = {
   cardHover: {
-    soundIds: ["card_hover"],
-    volume: 0.3,
+    soundIds: ["card_hover", "card_slide_2"],
+    volume: 0.15,
   },
   cardDeal: {
     soundIds: ["card_deal_1", "card_deal_2", "card_deal_3"],

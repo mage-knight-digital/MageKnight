@@ -60,8 +60,11 @@ export const CARD_FAN_SCALE: Record<CardFanViewMode, number> = {
 /**
  * Shared hover effect configuration.
  * Inscryption-style: lift only, no zoom.
+ * Duration synced to card slide audio clips (~265ms).
  */
 export const CARD_FAN_HOVER = {
   /** Vertical lift in pixels when hovered */
   liftY: 30,
+  /** Hover animation duration in seconds (synced to audio) */
+  durationSec: 0.265,
 } as const;

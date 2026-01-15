@@ -6,6 +6,10 @@
 
   /* Spacing */
   --hand-margin: clamp(1rem, 2vw, 2rem);
+
+  /* Hover animation duration - synced to card slide audio (~265ms) */
+  /* Should match CARD_FAN_HOVER.durationSec in cardFanLayout.ts */
+  --card-hover-duration: 0.265s;
 }
 
 .floating-hand {
@@ -86,8 +90,8 @@
 }
 
 .floating-card--hovered {
-  /* Slower, satisfying zoom-in */
-  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+  /* Duration synced to card slide audio */
+  transition: transform var(--card-hover-duration) ease-out, box-shadow var(--card-hover-duration) ease-out;
 }
 
 .floating-card:disabled {

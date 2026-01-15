@@ -1,8 +1,10 @@
 /* Tactic Carousel Pane - appears in carousel during tactic selection */
 
-/* Shared card fan hover lift - should match CARD_FAN_HOVER.liftY in cardFanLayout.ts */
+/* Shared card fan hover settings - should match CARD_FAN_HOVER in cardFanLayout.ts */
 :root {
   --card-fan-hover-lift: 30px;
+  /* Hover animation duration - synced to card slide audio (~265ms) */
+  --card-hover-duration: 0.265s;
 }
 
 .tactic-carousel {
@@ -142,7 +144,7 @@
     0 4px 12px rgba(0, 0, 0, 0.4),
     0 8px 24px rgba(0, 0, 0, 0.2);
   transition:
-    transform 0.2s ease,
+    transform var(--card-hover-duration) ease,
     box-shadow 0.3s ease,
     filter 0.3s ease;
   background-color: #d4c9a8;
