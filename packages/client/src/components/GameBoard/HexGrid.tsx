@@ -14,6 +14,7 @@ import {
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro } from "../../contexts/GameIntroContext";
+import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import { getTileImageUrl, getEnemyImageUrl, getEnemyTokenBackUrl, tokenIdToEnemyId, type EnemyTokenColor } from "../../assets/assetPaths";
 
 const HEX_SIZE = 50; // pixels from center to corner
@@ -33,6 +34,10 @@ const TILE_REVEAL_DURATION_MS = 600;
 const GHOST_ANTICIPATION_DURATION_MS = 300;
 const ENEMY_REVEAL_BASE_DELAY_MS = 400;
 const ENEMY_REVEAL_STAGGER_MS = 80;
+
+// CSS animation names - must match keyframe names in HexGrid.css
+const TILE_CASCADE_ANIMATION = "tile-cascade";
+const ENEMY_FLIP_ANIMATION = "enemy-token-flip";
 
 function hexToPixel(coord: HexCoord): { x: number; y: number } {
   // Axial to pixel conversion (pointy-top hexes)
@@ -243,6 +248,8 @@ interface TileImageProps {
   isRevealing?: boolean;
   /** For intro sequence: staggered delay in seconds */
   introDelay?: number;
+  /** Callback when intro animation ends */
+  onIntroAnimationEnd?: () => void;
 }
 
 /**
@@ -250,7 +257,7 @@ interface TileImageProps {
  * Supports reveal animation when isRevealing is true.
  * Supports intro cascade animation with introDelay.
  */
-function TileImage({ tileId, centerCoord, isRevealing, introDelay }: TileImageProps) {
+function TileImage({ tileId, centerCoord, isRevealing, introDelay, onIntroAnimationEnd }: TileImageProps) {
   const { x, y } = hexToPixel(centerCoord);
   const imageUrl = getTileImageUrl(tileId);
 
@@ -262,6 +269,14 @@ function TileImage({ tileId, centerCoord, isRevealing, introDelay }: TileImagePr
     className = "tile-image--intro";
   }
 
+  // Handle animation end - only fire for intro animations
+  const handleAnimationEnd = useCallback((e: React.AnimationEvent) => {
+    // Only handle the tile-cascade animation (not other animations that might bubble)
+    if (e.animationName === TILE_CASCADE_ANIMATION && onIntroAnimationEnd) {
+      onIntroAnimationEnd();
+    }
+  }, [onIntroAnimationEnd]);
+
   return (
     <g
       className={className}
@@ -269,6 +284,7 @@ function TileImage({ tileId, centerCoord, isRevealing, introDelay }: TileImagePr
         transformOrigin: `${x}px ${y}px`,
         "--intro-delay": introDelay !== undefined ? `${introDelay}s` : undefined,
       } as React.CSSProperties}
+      onAnimationEnd={introDelay !== undefined ? handleAnimationEnd : undefined}
     >
       <image
         href={imageUrl}
@@ -626,6 +642,8 @@ interface HexOverlayProps {
   enemyStartIndex?: number;
   /** Hide enemies during intro (before enemies phase) */
   hideEnemiesDuringIntro?: boolean;
+  /** Callback when an enemy intro animation ends */
+  onEnemyIntroAnimationEnd?: () => void;
 }
 
 // Enemy token size relative to hex
@@ -642,6 +660,8 @@ interface EnemyTokenProps {
   introDelay?: number;
   /** Hide during intro (before enemies phase) */
   hiddenDuringIntro?: boolean;
+  /** Callback when intro animation ends */
+  onIntroAnimationEnd?: () => void;
 }
 
 /**
@@ -650,7 +670,7 @@ interface EnemyTokenProps {
  * Supports staggered reveal animation when tiles are explored.
  * Supports intro flip animation with introDelay.
  */
-function EnemyToken({ enemy, offsetX, offsetY, index, isRevealing, revealDelay = 0, introDelay, hiddenDuringIntro }: EnemyTokenProps) {
+function EnemyToken({ enemy, offsetX, offsetY, index, isRevealing, revealDelay = 0, introDelay, hiddenDuringIntro, onIntroAnimationEnd }: EnemyTokenProps) {
   // Get the appropriate image URL based on reveal status
   let imageUrl: string;
   let tokenKey: string;
@@ -680,6 +700,14 @@ function EnemyToken({ enemy, offsetX, offsetY, index, isRevealing, revealDelay =
     className = "enemy-token--intro";
   }
 
+  // Handle animation end - only fire for intro animations
+  const handleAnimationEnd = useCallback((e: React.AnimationEvent) => {
+    // Only handle the enemy-token-flip animation (not other animations that might bubble)
+    if (e.animationName === ENEMY_FLIP_ANIMATION && onIntroAnimationEnd) {
+      onIntroAnimationEnd();
+    }
+  }, [onIntroAnimationEnd]);
+
   return (
     <g
       className={className}
@@ -688,6 +716,7 @@ function EnemyToken({ enemy, offsetX, offsetY, index, isRevealing, revealDelay =
         "--intro-delay": introDelay !== undefined ? `${introDelay}s` : undefined,
         transformOrigin: `${offsetX}px ${offsetY}px`,
       } as React.CSSProperties}
+      onAnimationEnd={introDelay !== undefined ? handleAnimationEnd : undefined}
     >
       <defs>
         <clipPath id={clipId}>
@@ -764,7 +793,7 @@ function getMoveHighlightStyles(highlight: MoveHighlight): {
  * Handles click events, move highlighting, and token display.
  * Supports reveal animation when the parent tile is being revealed.
  */
-function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, isRevealing, getEnemyIntroDelay, enemyStartIndex = 0, hideEnemiesDuringIntro }: HexOverlayProps) {
+function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, isRevealing, getEnemyIntroDelay, enemyStartIndex = 0, hideEnemiesDuringIntro, onEnemyIntroAnimationEnd }: HexOverlayProps) {
   const { x, y } = hexToPixel(hex.coord);
 
   // Position enemies in a grid pattern within the hex
@@ -864,6 +893,7 @@ function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, i
             revealDelay={enemyRevealDelay}
             introDelay={introDelay}
             hiddenDuringIntro={hideEnemiesDuringIntro}
+            onIntroAnimationEnd={onEnemyIntroAnimationEnd}
           />
         );
       })}
@@ -962,6 +992,7 @@ export function HexGrid() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const { phase: introPhase, startIntro, getTileDelay, getEnemyDelay } = useGameIntro();
+  const { emit: emitAnimationEvent } = useAnimationDispatcher();
 
   // Track which hex is being hovered for path preview
   const [hoveredHex, setHoveredHex] = useState<HexCoord | null>(null);
@@ -990,6 +1021,47 @@ export function HexGrid() {
   // Track which ghost hex is being clicked (for anticipation animation)
   const [clickingExploreCoord, setClickingExploreCoord] = useState<string | null>(null);
 
+  // ============================================
+  // Intro Animation Completion Tracking
+  // ============================================
+  // Consolidated tracking for intro animation completion
+  const introTrackingRef = useRef({
+    tileCount: 0,
+    tileCompleted: 0,
+    enemyCount: 0,
+    enemyCompleted: 0,
+    tilesEmitted: false,
+    enemiesEmitted: false,
+  });
+
+  // Callback when a tile's intro animation completes
+  const handleTileIntroAnimationEnd = useCallback(() => {
+    const tracking = introTrackingRef.current;
+    tracking.tileCompleted += 1;
+    if (
+      tracking.tileCompleted >= tracking.tileCount &&
+      tracking.tileCount > 0 &&
+      !tracking.tilesEmitted
+    ) {
+      tracking.tilesEmitted = true;
+      emitAnimationEvent("tiles-complete");
+    }
+  }, [emitAnimationEvent]);
+
+  // Callback when an enemy's intro animation completes
+  const handleEnemyIntroAnimationEnd = useCallback(() => {
+    const tracking = introTrackingRef.current;
+    tracking.enemyCompleted += 1;
+    if (
+      tracking.enemyCompleted >= tracking.enemyCount &&
+      tracking.enemyCount > 0 &&
+      !tracking.enemiesEmitted
+    ) {
+      tracking.enemiesEmitted = true;
+      emitAnimationEvent("enemies-complete");
+    }
+  }, [emitAnimationEvent]);
+
   // Memoize tiles to a stable reference for the effect dependency
   const tiles = state?.map.tiles;
 
@@ -1007,6 +1079,10 @@ export function HexGrid() {
       0
     );
 
+    // Store counts for animation completion tracking
+    introTrackingRef.current.tileCount = tileCount;
+    introTrackingRef.current.enemyCount = enemyCount;
+
     // Initialize tiles as known (skip normal reveal animation during intro)
     tiles.forEach((t) => {
       const key = `${t.tileId}-${t.centerCoord.q},${t.centerCoord.r}`;
@@ -1014,9 +1090,10 @@ export function HexGrid() {
     });
     hasInitializedTiles.current = true;
 
-    // Start the intro sequence
+    // Emit intro-start and start the intro sequence
+    emitAnimationEvent("intro-start");
     startIntro(tileCount, enemyCount);
-  }, [tiles, introPhase, startIntro, state?.map.hexes]);
+  }, [tiles, introPhase, startIntro, state?.map.hexes, emitAnimationEvent]);
 
   // Detect newly revealed tiles and trigger animations
   useEffect(() => {
@@ -1350,6 +1427,7 @@ export function HexGrid() {
             centerCoord={tile.centerCoord}
             isRevealing={isRevealing}
             introDelay={introDelay}
+            onIntroAnimationEnd={introDelay !== undefined ? handleTileIntroAnimationEnd : undefined}
           />
         );
       })}
@@ -1405,6 +1483,7 @@ export function HexGrid() {
               getEnemyIntroDelay={shouldAnimateEnemyIntro ? getEnemyDelay : undefined}
               enemyStartIndex={enemyStartIndex}
               hideEnemiesDuringIntro={shouldHideEnemies}
+              onEnemyIntroAnimationEnd={shouldAnimateEnemyIntro ? handleEnemyIntroAnimationEnd : undefined}
             />
           );
         });

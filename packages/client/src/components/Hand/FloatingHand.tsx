@@ -209,8 +209,8 @@ export function FloatingHand({
   playableCards,
   selectedIndex,
   onCardClick,
-  deckCount,
-  discardCount,
+  deckCount: _deckCount,
+  discardCount: _discardCount,
   viewMode,
 }: FloatingHandProps) {
   const [atlasLoaded, setAtlasLoaded] = useState(false);

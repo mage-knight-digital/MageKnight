@@ -6,6 +6,7 @@ import {
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro } from "../../contexts/GameIntroContext";
+import { useOnAnimationEvent, useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import { getTacticImageUrl } from "../../assets/assetPaths";
 import "./TacticHand.css";
 
@@ -112,9 +113,18 @@ const SELECTION_DELAY_MS = 800;
 export function TacticHand() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
-  const { phase: introPhase } = useGameIntro();
+  const { isIntroComplete } = useGameIntro();
+  const { emit: emitAnimationEvent } = useAnimationDispatcher();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedTactic, setSelectedTactic] = useState<TacticId | null>(null);
+
+  // Track if enemies animation is complete (triggers showing tactics)
+  const [enemiesComplete, setEnemiesComplete] = useState(false);
+
+  // Listen for enemies-complete event to know when to show tactics
+  useOnAnimationEvent("enemies-complete", useCallback(() => {
+    setEnemiesComplete(true);
+  }, []));
 
   // All hooks must be called before any early returns
   const handleCardClick = useCallback(
@@ -123,15 +133,17 @@ export function TacticHand() {
 
       setSelectedTactic(tacticId);
 
-      // Send action after animation
+      // Send action after animation, then emit tactics-complete
       setTimeout(() => {
         sendAction({
           type: SELECT_TACTIC_ACTION,
           tacticId,
         });
+        // Signal that tactic selection is complete
+        emitAnimationEvent("tactics-complete");
       }, SELECTION_DELAY_MS);
     },
-    [selectedTactic, sendAction]
+    [selectedTactic, sendAction, emitAnimationEvent]
   );
 
   const handleMouseEnter = useCallback(
@@ -152,9 +164,9 @@ export function TacticHand() {
     return null;
   }
 
-  // Wait for intro sequence to reach tactics phase before showing
-  // TODO: This timing check is unreliable - see docs/tickets/animation-event-dispatcher.md
-  if (introPhase !== "tactics" && introPhase !== "complete") {
+  // Wait for enemies animation to complete before showing tactics
+  // This uses the event-based dispatcher instead of setTimeout-based timing
+  if (!enemiesComplete && !isIntroComplete) {
     return null;
   }
 

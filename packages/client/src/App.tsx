@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { GameProvider } from "./context/GameContext";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
 import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
+import { AnimationDispatcherProvider } from "./contexts/AnimationDispatcherContext";
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
 import { HexGrid } from "./components/GameBoard/HexGrid";
@@ -123,12 +124,14 @@ export function App() {
 
   return (
     <GameProvider seed={GAME_SEED}>
-      <GameIntroProvider>
-        <CardMenuPositionProvider>
-          <GameView />
-          <DebugPanel />
-        </CardMenuPositionProvider>
-      </GameIntroProvider>
+      <AnimationDispatcherProvider>
+        <GameIntroProvider>
+          <CardMenuPositionProvider>
+            <GameView />
+            <DebugPanel />
+          </CardMenuPositionProvider>
+        </GameIntroProvider>
+      </AnimationDispatcherProvider>
     </GameProvider>
   );
 }
