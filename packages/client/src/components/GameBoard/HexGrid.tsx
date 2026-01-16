@@ -35,6 +35,10 @@ const GHOST_ANTICIPATION_DURATION_MS = 300;
 const ENEMY_REVEAL_BASE_DELAY_MS = 400;
 const ENEMY_REVEAL_STAGGER_MS = 80;
 
+// CSS animation names - must match keyframe names in HexGrid.css
+const TILE_CASCADE_ANIMATION = "tile-cascade";
+const ENEMY_FLIP_ANIMATION = "enemy-token-flip";
+
 function hexToPixel(coord: HexCoord): { x: number; y: number } {
   // Axial to pixel conversion (pointy-top hexes)
   const x = HEX_SIZE * (Math.sqrt(3) * coord.q + (Math.sqrt(3) / 2) * coord.r);
@@ -268,7 +272,7 @@ function TileImage({ tileId, centerCoord, isRevealing, introDelay, onIntroAnimat
   // Handle animation end - only fire for intro animations
   const handleAnimationEnd = useCallback((e: React.AnimationEvent) => {
     // Only handle the tile-cascade animation (not other animations that might bubble)
-    if (e.animationName === "tile-cascade" && onIntroAnimationEnd) {
+    if (e.animationName === TILE_CASCADE_ANIMATION && onIntroAnimationEnd) {
       onIntroAnimationEnd();
     }
   }, [onIntroAnimationEnd]);
@@ -699,7 +703,7 @@ function EnemyToken({ enemy, offsetX, offsetY, index, isRevealing, revealDelay =
   // Handle animation end - only fire for intro animations
   const handleAnimationEnd = useCallback((e: React.AnimationEvent) => {
     // Only handle the enemy-token-flip animation (not other animations that might bubble)
-    if (e.animationName === "enemy-token-flip" && onIntroAnimationEnd) {
+    if (e.animationName === ENEMY_FLIP_ANIMATION && onIntroAnimationEnd) {
       onIntroAnimationEnd();
     }
   }, [onIntroAnimationEnd]);
@@ -1020,36 +1024,40 @@ export function HexGrid() {
   // ============================================
   // Intro Animation Completion Tracking
   // ============================================
-  // Track how many tiles/enemies have completed their intro animation
-  const introTileCountRef = useRef(0);
-  const introTileCompletedRef = useRef(0);
-  const introEnemyCountRef = useRef(0);
-  const introEnemyCompletedRef = useRef(0);
-  const tilesCompleteEmittedRef = useRef(false);
-  const enemiesCompleteEmittedRef = useRef(false);
+  // Consolidated tracking for intro animation completion
+  const introTrackingRef = useRef({
+    tileCount: 0,
+    tileCompleted: 0,
+    enemyCount: 0,
+    enemyCompleted: 0,
+    tilesEmitted: false,
+    enemiesEmitted: false,
+  });
 
   // Callback when a tile's intro animation completes
   const handleTileIntroAnimationEnd = useCallback(() => {
-    introTileCompletedRef.current += 1;
+    const tracking = introTrackingRef.current;
+    tracking.tileCompleted += 1;
     if (
-      introTileCompletedRef.current >= introTileCountRef.current &&
-      introTileCountRef.current > 0 &&
-      !tilesCompleteEmittedRef.current
+      tracking.tileCompleted >= tracking.tileCount &&
+      tracking.tileCount > 0 &&
+      !tracking.tilesEmitted
     ) {
-      tilesCompleteEmittedRef.current = true;
+      tracking.tilesEmitted = true;
       emitAnimationEvent("tiles-complete");
     }
   }, [emitAnimationEvent]);
 
   // Callback when an enemy's intro animation completes
   const handleEnemyIntroAnimationEnd = useCallback(() => {
-    introEnemyCompletedRef.current += 1;
+    const tracking = introTrackingRef.current;
+    tracking.enemyCompleted += 1;
     if (
-      introEnemyCompletedRef.current >= introEnemyCountRef.current &&
-      introEnemyCountRef.current > 0 &&
-      !enemiesCompleteEmittedRef.current
+      tracking.enemyCompleted >= tracking.enemyCount &&
+      tracking.enemyCount > 0 &&
+      !tracking.enemiesEmitted
     ) {
-      enemiesCompleteEmittedRef.current = true;
+      tracking.enemiesEmitted = true;
       emitAnimationEvent("enemies-complete");
     }
   }, [emitAnimationEvent]);
@@ -1072,8 +1080,8 @@ export function HexGrid() {
     );
 
     // Store counts for animation completion tracking
-    introTileCountRef.current = tileCount;
-    introEnemyCountRef.current = enemyCount;
+    introTrackingRef.current.tileCount = tileCount;
+    introTrackingRef.current.enemyCount = enemyCount;
 
     // Initialize tiles as known (skip normal reveal animation during intro)
     tiles.forEach((t) => {

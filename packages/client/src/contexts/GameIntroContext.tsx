@@ -47,6 +47,9 @@ export function GameIntroProvider({ children }: { children: ReactNode }) {
   const hasStarted = useRef(false);
   const { on: onAnimationEvent, emit: emitAnimationEvent } = useAnimationDispatcher();
 
+  // Track edge-case listener cleanup function
+  const edgeCaseUnsubRef = useRef<(() => void) | null>(null);
+
   // Subscribe to animation events to drive phase transitions
   useEffect(() => {
     // When tiles animation completes, transition to enemies phase
@@ -69,6 +72,11 @@ export function GameIntroProvider({ children }: { children: ReactNode }) {
       unsubTiles();
       unsubEnemies();
       unsubTactics();
+      // Clean up any edge-case listener that might still be active
+      if (edgeCaseUnsubRef.current) {
+        edgeCaseUnsubRef.current();
+        edgeCaseUnsubRef.current = null;
+      }
     };
   }, [onAnimationEvent, emitAnimationEvent]);
 
@@ -94,9 +102,13 @@ export function GameIntroProvider({ children }: { children: ReactNode }) {
       // but only if tiles exist (otherwise we already moved to enemies)
       if (tileCount > 0) {
         // Register a one-time listener to emit enemies-complete after tiles
-        const unsub = onAnimationEvent("tiles-complete", () => {
+        // Store in ref for cleanup on unmount
+        edgeCaseUnsubRef.current = onAnimationEvent("tiles-complete", () => {
           emitAnimationEvent("enemies-complete");
-          unsub();
+          if (edgeCaseUnsubRef.current) {
+            edgeCaseUnsubRef.current();
+            edgeCaseUnsubRef.current = null;
+          }
         });
       } else {
         // No tiles AND no enemies - emit enemies-complete immediately
