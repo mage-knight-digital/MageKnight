@@ -205,14 +205,15 @@ describe("Enemies on Map", () => {
       expect(config).toEqual({ color: ENEMY_COLOR_VIOLET, count: 1 });
     });
 
-    it("should return 2 green enemies for Spawning Grounds", () => {
+    // Monster Den and Spawning Grounds: enemies drawn on EXPLORE, not at tile reveal
+    it("should return null for Spawning Grounds at tile reveal (enemies drawn on explore)", () => {
       const config = getSiteDefenders(SiteType.SpawningGrounds);
-      expect(config).toEqual({ color: ENEMY_COLOR_GREEN, count: 2 });
+      expect(config).toBeNull();
     });
 
-    it("should return green defender for Monster Den", () => {
+    it("should return null for Monster Den at tile reveal (enemies drawn on explore)", () => {
       const config = getSiteDefenders(SiteType.MonsterDen);
-      expect(config).toEqual({ color: ENEMY_COLOR_GREEN, count: 1 });
+      expect(config).toBeNull();
     });
 
     it("should return null for Village (no defenders)", () => {
@@ -249,14 +250,28 @@ describe("Enemies on Map", () => {
   });
 
   describe("Adventure site enemies (drawn on explore)", () => {
-    it("should return 2 brown enemies for Dungeon", () => {
+    it("should return 1 brown enemy for Dungeon", () => {
+      // Per rules: "reveal a brown enemy token and fight it"
       const config = getAdventureSiteEnemies(SiteType.Dungeon);
-      expect(config).toEqual({ color: ENEMY_COLOR_BROWN, count: 2 });
+      expect(config).toEqual({ color: ENEMY_COLOR_BROWN, count: 1 });
     });
 
-    it("should return 2 red enemies for Tomb", () => {
+    it("should return 1 red enemy for Tomb", () => {
+      // Per rules: "draw a red Draconum enemy token to fight"
       const config = getAdventureSiteEnemies(SiteType.Tomb);
-      expect(config).toEqual({ color: ENEMY_COLOR_RED, count: 2 });
+      expect(config).toEqual({ color: ENEMY_COLOR_RED, count: 1 });
+    });
+
+    it("should return 1 brown enemy for Monster Den", () => {
+      // Per rules: "draw a brown enemy token to fight"
+      const config = getAdventureSiteEnemies(SiteType.MonsterDen);
+      expect(config).toEqual({ color: ENEMY_COLOR_BROWN, count: 1 });
+    });
+
+    it("should return 2 brown enemies for Spawning Grounds", () => {
+      // Per rules: "draw two brown enemy tokens and fight them"
+      const config = getAdventureSiteEnemies(SiteType.SpawningGrounds);
+      expect(config).toEqual({ color: ENEMY_COLOR_BROWN, count: 2 });
     });
 
     it("should return null for Keep (defenders drawn at reveal)", () => {

@@ -89,8 +89,9 @@ export function createEndCombatPhaseCommand(
           const key = hexKey(player.position);
           const hex = state.map.hexes[key];
 
-          if (victory && hex) {
-            // Clear enemies from hex on victory
+          // Clear enemies from hex on victory, or for dungeon/tomb (enemies always discarded)
+          const shouldClearEnemies = victory || state.combat.discardEnemiesOnFailure;
+          if (shouldClearEnemies && hex) {
             const updatedHex: HexState = {
               ...hex,
               enemies: [],
@@ -104,8 +105,8 @@ export function createEndCombatPhaseCommand(
               map: { ...newState.map, hexes: updatedHexes },
             };
 
-            // Trigger conquest if at an unconquered site
-            if (hex.site && !hex.site.isConquered) {
+            // Trigger conquest if at an unconquered site (only on victory)
+            if (victory && hex.site && !hex.site.isConquered) {
               const conquestCommand = createConquerSiteCommand({
                 playerId: params.playerId,
                 hexCoord: player.position,

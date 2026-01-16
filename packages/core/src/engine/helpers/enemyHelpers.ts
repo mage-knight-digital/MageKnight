@@ -232,11 +232,11 @@ export function getSiteDefenders(
     case SiteType.MageTower:
       return { color: ENEMY_COLOR_VIOLET, count: 1 };
 
-    // Adventure sites with enemies at reveal
+    // Monster Den and Spawning Grounds: enemies drawn on EXPLORE, not at tile reveal
+    // Per rules: "draw a brown enemy token" / "draw two brown enemy tokens"
     case SiteType.MonsterDen:
-      return { color: ENEMY_COLOR_GREEN, count: 1 };
     case SiteType.SpawningGrounds:
-      return { color: ENEMY_COLOR_GREEN, count: 2 };
+      return null;
 
     // Dungeon/Tomb: enemies drawn on EXPLORE, not at tile reveal
     case SiteType.Dungeon:
@@ -287,9 +287,17 @@ export function getAdventureSiteEnemies(
 ): SiteDefenderConfig | null {
   switch (siteType) {
     case SiteType.Dungeon:
-      return { color: ENEMY_COLOR_BROWN, count: 2 };
+      // Per rules: "reveal a brown enemy token and fight it"
+      return { color: ENEMY_COLOR_BROWN, count: 1 };
     case SiteType.Tomb:
-      return { color: ENEMY_COLOR_RED, count: 2 };
+      // Per rules: "draw a red Draconum enemy token to fight"
+      return { color: ENEMY_COLOR_RED, count: 1 };
+    case SiteType.MonsterDen:
+      // Per rules: "draw a brown enemy token to fight"
+      return { color: ENEMY_COLOR_BROWN, count: 1 };
+    case SiteType.SpawningGrounds:
+      // Per rules: "draw two brown enemy tokens and fight them"
+      return { color: ENEMY_COLOR_BROWN, count: 2 };
     default:
       return null;
   }

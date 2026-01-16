@@ -3,9 +3,9 @@
  *
  * Tests for:
  * - Validation: must be at adventure site, site not conquered
- * - Dungeon: draws 2 brown enemies, starts combat
- * - Tomb: draws 2 red enemies, starts combat
- * - Monster den: fights existing enemy
+ * - Dungeon: draws 1 brown enemy, starts combat (night rules, no units)
+ * - Tomb: draws 1 red Draconum, starts combat (night rules, no units)
+ * - Monster den: draws 1 brown enemy OR fights existing (normal rules)
  * - Ruins: day = auto-conquest if empty, night = fight brown enemy
  */
 
@@ -14,6 +14,8 @@ import { createEngine, MageKnightEngine } from "../MageKnightEngine.js";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import {
   ENTER_SITE_ACTION,
+  END_COMBAT_PHASE_ACTION,
+  ASSIGN_DAMAGE_ACTION,
   INVALID_ACTION,
   SITE_ENTERED,
   ENEMIES_DRAWN_FOR_SITE,
@@ -25,7 +27,6 @@ import {
   TIME_OF_DAY_NIGHT,
   ENEMY_COLOR_BROWN,
   ENEMY_COLOR_RED,
-  ENEMY_COLOR_GREEN,
   ENEMIES,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
@@ -240,25 +241,12 @@ describe("Enter adventure site", () => {
       );
     });
 
-    it("should reject if monster den has no enemies", () => {
-      // Monster den with no enemies (shouldn't happen normally, but test the validator)
-      const state = createTestStateWithSite(createMonsterDenSite(), []);
-
-      const result = engine.processAction(state, "player1", {
-        type: ENTER_SITE_ACTION,
-      });
-
-      expect(result.events).toContainEqual(
-        expect.objectContaining({
-          type: INVALID_ACTION,
-          reason: "There are no enemies at this site",
-        })
-      );
-    });
+    // NOTE: Monster den now draws enemies on enter (per rules), so
+    // "no enemies" rejection no longer applies to monster den
   });
 
   describe("dungeon", () => {
-    it("should draw 2 brown enemies when entering dungeon", () => {
+    it("should draw 1 brown enemy when entering dungeon", () => {
       const state = createTestStateWithSite(createDungeonSite());
 
       const result = engine.processAction(state, "player1", {
@@ -274,13 +262,14 @@ describe("Enter adventure site", () => {
         })
       );
 
-      // Should emit ENEMIES_DRAWN_FOR_SITE event with 2 enemies
+      // Should emit ENEMIES_DRAWN_FOR_SITE event with 1 enemy
+      // Per rules: "reveal a brown enemy token and fight it"
       expect(result.events).toContainEqual(
         expect.objectContaining({
           type: ENEMIES_DRAWN_FOR_SITE,
           playerId: "player1",
           siteType: SiteType.Dungeon,
-          enemyCount: 2,
+          enemyCount: 1,
         })
       );
 
@@ -292,11 +281,11 @@ describe("Enter adventure site", () => {
         })
       );
 
-      // Combat should have 2 enemies
+      // Combat should have 1 enemy
       expect(result.state.combat).not.toBeNull();
-      expect(result.state.combat?.enemies).toHaveLength(2);
+      expect(result.state.combat?.enemies).toHaveLength(1);
 
-      // Enemies should be from brown deck
+      // Enemy should be from brown deck
       for (const enemy of result.state.combat?.enemies ?? []) {
         const enemyDef = ENEMIES[enemy.enemyId];
         expect(enemyDef.color).toBe(ENEMY_COLOR_BROWN);
@@ -317,42 +306,140 @@ describe("Enter adventure site", () => {
   });
 
   describe("tomb", () => {
-    it("should draw 2 red enemies when entering tomb", () => {
+    it("should draw 1 red Draconum enemy when entering tomb", () => {
       const state = createTestStateWithSite(createTombSite());
 
       const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,
       });
 
-      // Should emit ENEMIES_DRAWN_FOR_SITE event with 2 enemies
+      // Should emit ENEMIES_DRAWN_FOR_SITE event with 1 enemy
+      // Per rules: "draw a red Draconum enemy token to fight"
       expect(result.events).toContainEqual(
         expect.objectContaining({
           type: ENEMIES_DRAWN_FOR_SITE,
           siteType: SiteType.Tomb,
-          enemyCount: 2,
+          enemyCount: 1,
         })
       );
 
-      // Combat should have 2 enemies
-      expect(result.state.combat?.enemies).toHaveLength(2);
+      // Combat should have 1 enemy
+      expect(result.state.combat?.enemies).toHaveLength(1);
 
-      // Enemies should be from red deck
+      // Enemy should be from red deck (Draconum)
       for (const enemy of result.state.combat?.enemies ?? []) {
         const enemyDef = ENEMIES[enemy.enemyId];
         expect(enemyDef.color).toBe(ENEMY_COLOR_RED);
       }
     });
+
+    it("should always draw fresh enemy even if one exists on hex (enemies discarded after combat)", () => {
+      // Per rules: "discard it afterwards (next time, a new token will be drawn)"
+      // This means even if combat fails and enemy "stays", re-entering draws fresh
+      // The existing enemy should be replaced/ignored
+
+      // Create a red enemy already on the hex (simulating failed previous attempt)
+      const redEnemyId = (Object.keys(ENEMIES) as (keyof typeof ENEMIES)[]).find(
+        (id) => ENEMIES[id].color === ENEMY_COLOR_RED
+      );
+      if (!redEnemyId) throw new Error("No red enemy found");
+
+      const existingEnemyToken = createEnemyTokenId(redEnemyId);
+      const state = createTestStateWithSite(createTombSite(), [createHexEnemy(existingEnemyToken)]);
+
+      const result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+
+      // Should emit ENEMIES_DRAWN_FOR_SITE (always draws fresh for tomb)
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMIES_DRAWN_FOR_SITE,
+          siteType: SiteType.Tomb,
+          enemyCount: 1,
+        })
+      );
+
+      // Combat should have exactly 1 enemy (the newly drawn one, NOT 2)
+      expect(result.state.combat?.enemies).toHaveLength(1);
+    });
+  });
+
+  describe("dungeon", () => {
+    it("should always draw fresh enemy even if one exists on hex (enemies discarded after combat)", () => {
+      // Per rules: dungeons also discard enemies after combat
+      // "discard this token and claim your reward"
+
+      // Create a brown enemy already on the hex (simulating failed previous attempt)
+      const brownEnemyId = (Object.keys(ENEMIES) as (keyof typeof ENEMIES)[]).find(
+        (id) => ENEMIES[id].color === ENEMY_COLOR_BROWN
+      );
+      if (!brownEnemyId) throw new Error("No brown enemy found");
+
+      const existingEnemyToken = createEnemyTokenId(brownEnemyId);
+      const state = createTestStateWithSite(createDungeonSite(), [createHexEnemy(existingEnemyToken)]);
+
+      const result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+
+      // Should emit ENEMIES_DRAWN_FOR_SITE (always draws fresh for dungeon)
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMIES_DRAWN_FOR_SITE,
+          siteType: SiteType.Dungeon,
+          enemyCount: 1,
+        })
+      );
+
+      // Combat should have exactly 1 enemy (the newly drawn one, NOT 2)
+      expect(result.state.combat?.enemies).toHaveLength(1);
+    });
   });
 
   describe("monster den", () => {
-    it("should fight existing enemy at monster den", () => {
-      // Create a green enemy already on the hex (from tile reveal)
-      const greenEnemyId = (Object.keys(ENEMIES) as (keyof typeof ENEMIES)[]).find(
-        (id) => ENEMIES[id].color === ENEMY_COLOR_GREEN
-      );
-      if (!greenEnemyId) throw new Error("No green enemy found");
+    it("should draw 1 brown enemy when entering empty monster den", () => {
+      // Monster den with no existing enemies - should draw fresh
+      const state = createTestStateWithSite(createMonsterDenSite(), []);
 
-      const enemyToken = createEnemyTokenId(greenEnemyId);
+      const result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+
+      // Should emit SITE_ENTERED
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: SITE_ENTERED,
+          siteType: SiteType.MonsterDen,
+        })
+      );
+
+      // Should emit ENEMIES_DRAWN_FOR_SITE with 1 enemy
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMIES_DRAWN_FOR_SITE,
+          siteType: SiteType.MonsterDen,
+          enemyCount: 1,
+        })
+      );
+
+      // Combat should have 1 brown enemy
+      expect(result.state.combat?.enemies).toHaveLength(1);
+      const enemy = result.state.combat?.enemies[0];
+      if (enemy) {
+        expect(ENEMIES[enemy.enemyId].color).toBe(ENEMY_COLOR_BROWN);
+      }
+    });
+
+    it("should fight existing enemy at monster den (from failed previous attempt)", () => {
+      // Create a brown enemy already on the hex (persisted from failed attempt)
+      // Per rules: "If you fail to defeat it, leave the enemy token face up on the space"
+      const brownEnemyId = (Object.keys(ENEMIES) as (keyof typeof ENEMIES)[]).find(
+        (id) => ENEMIES[id].color === ENEMY_COLOR_BROWN
+      );
+      if (!brownEnemyId) throw new Error("No brown enemy found");
+
+      const enemyToken = createEnemyTokenId(brownEnemyId);
       const state = createTestStateWithSite(createMonsterDenSite(), [createHexEnemy(enemyToken)]);
 
       const result = engine.processAction(state, "player1", {
@@ -367,14 +454,14 @@ describe("Enter adventure site", () => {
         })
       );
 
-      // Should NOT emit ENEMIES_DRAWN_FOR_SITE (enemies already there)
+      // Should NOT emit ENEMIES_DRAWN_FOR_SITE (fight existing enemy)
       expect(result.events).not.toContainEqual(
         expect.objectContaining({
           type: ENEMIES_DRAWN_FOR_SITE,
         })
       );
 
-      // Combat should have 1 enemy
+      // Combat should have 1 enemy (the existing one)
       expect(result.state.combat?.enemies).toHaveLength(1);
     });
   });
@@ -452,9 +539,9 @@ describe("Enter adventure site", () => {
         type: ENTER_SITE_ACTION,
       });
 
-      // Should have 2 fewer brown enemies in draw pile
+      // Should have 1 fewer brown enemy in draw pile (dungeon draws 1)
       const brownAfter = result.state.enemyTokens.drawPiles[ENEMY_COLOR_BROWN].length;
-      expect(brownAfter).toBe(brownBefore - 2);
+      expect(brownAfter).toBe(brownBefore - 1);
     });
 
     it("should update hex with drawn enemies", () => {
@@ -464,9 +551,126 @@ describe("Enter adventure site", () => {
         type: ENTER_SITE_ACTION,
       });
 
-      // Hex should have enemies
+      // Hex should have 1 enemy (dungeon draws 1)
       const hex = result.state.map.hexes[hexKey({ q: 0, r: 0 })];
-      expect(hex?.enemies).toHaveLength(2);
+      expect(hex?.enemies).toHaveLength(1);
+    });
+  });
+
+  describe("dungeon/tomb enemy discard on failure", () => {
+    /**
+     * Helper to run through all combat phases without defeating enemy.
+     * This simulates a failed combat where player takes wounds but doesn't kill enemy.
+     */
+    function failCombat(
+      eng: MageKnightEngine,
+      initialState: GameState
+    ): { state: GameState; events: import("@mage-knight/shared").GameEvent[] } {
+      let state = initialState;
+      let allEvents: import("@mage-knight/shared").GameEvent[] = [];
+
+      // Phase 1: Ranged/Siege -> Block
+      let result = eng.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+      allEvents.push(...result.events);
+
+      // Phase 2: Block -> Assign Damage
+      result = eng.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+      allEvents.push(...result.events);
+
+      // Phase 3: Assign Damage - must process damage from unblocked enemy
+      const enemyInstanceId = state.combat?.enemies[0]?.instanceId;
+      if (enemyInstanceId) {
+        result = eng.processAction(state, "player1", {
+          type: ASSIGN_DAMAGE_ACTION,
+          enemyInstanceId,
+        });
+        state = result.state;
+        allEvents.push(...result.events);
+      }
+
+      // Phase 3 continued: Assign Damage -> Attack
+      result = eng.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+      allEvents.push(...result.events);
+
+      // Phase 4: Attack -> Combat ends (enemy not defeated = failure)
+      result = eng.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+      allEvents.push(...result.events);
+
+      return { state, events: allEvents };
+    }
+
+    it("should discard tomb enemy immediately when combat fails (not persist on hex)", () => {
+      // This is the key rule: "discard it afterwards (next time, a new token will be drawn)"
+      // Enemy should be discarded AFTER combat ends, not left on hex
+      const state = createTestStateWithSite(createTombSite());
+
+      // Enter tomb - starts combat with 1 red enemy
+      let result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+      expect(result.state.combat).not.toBeNull();
+      expect(result.state.combat?.enemies).toHaveLength(1);
+      expect(result.state.combat?.discardEnemiesOnFailure).toBe(true);
+
+      // Run through combat, failing to defeat the enemy
+      const finalResult = failCombat(engine, result.state);
+
+      // Combat should have ended
+      expect(finalResult.state.combat).toBeNull();
+
+      // CRITICAL: Enemy should be discarded from hex (not persist for next attempt)
+      const hex = finalResult.state.map.hexes[hexKey({ q: 0, r: 0 })];
+      expect(hex?.enemies).toHaveLength(0);
+    });
+
+    it("should discard dungeon enemy immediately when combat fails (not persist on hex)", () => {
+      const state = createTestStateWithSite(createDungeonSite());
+
+      // Enter dungeon - starts combat with 1 brown enemy
+      let result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+      expect(result.state.combat).not.toBeNull();
+      expect(result.state.combat?.discardEnemiesOnFailure).toBe(true);
+
+      // Run through combat, failing to defeat the enemy
+      const finalResult = failCombat(engine, result.state);
+
+      // Combat ended, enemy should be discarded
+      expect(finalResult.state.combat).toBeNull();
+      const hex = finalResult.state.map.hexes[hexKey({ q: 0, r: 0 })];
+      expect(hex?.enemies).toHaveLength(0);
+    });
+
+    it("should NOT discard monster den enemy when combat fails (persists for next attempt)", () => {
+      const state = createTestStateWithSite(createMonsterDenSite(), []);
+
+      // Enter monster den - draws 1 brown enemy
+      let result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+      expect(result.state.combat).not.toBeNull();
+      expect(result.state.combat?.discardEnemiesOnFailure).toBe(false);
+
+      // Run through combat, failing to defeat the enemy
+      const finalResult = failCombat(engine, result.state);
+
+      // Combat ended, but enemy SHOULD persist on hex for monster den
+      expect(finalResult.state.combat).toBeNull();
+      const hex = finalResult.state.map.hexes[hexKey({ q: 0, r: 0 })];
+      expect(hex?.enemies).toHaveLength(1); // Enemy stays!
     });
   });
 
@@ -512,14 +716,8 @@ describe("Enter adventure site", () => {
     });
 
     it("should set unitsAllowed=true for monster den combat", () => {
-      // Create a green enemy for monster den
-      const greenEnemyId = (Object.keys(ENEMIES) as (keyof typeof ENEMIES)[]).find(
-        (id) => ENEMIES[id].color === ENEMY_COLOR_GREEN
-      );
-      if (!greenEnemyId) throw new Error("No green enemy found");
-
-      const enemyToken = createEnemyTokenId(greenEnemyId);
-      const state = createTestStateWithSite(createMonsterDenSite(), [createHexEnemy(enemyToken)]);
+      // Monster den allows units (unlike dungeon/tomb)
+      const state = createTestStateWithSite(createMonsterDenSite(), []);
 
       const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,
@@ -529,13 +727,8 @@ describe("Enter adventure site", () => {
     });
 
     it("should set nightManaRules=false for monster den combat", () => {
-      const greenEnemyId = (Object.keys(ENEMIES) as (keyof typeof ENEMIES)[]).find(
-        (id) => ENEMIES[id].color === ENEMY_COLOR_GREEN
-      );
-      if (!greenEnemyId) throw new Error("No green enemy found");
-
-      const enemyToken = createEnemyTokenId(greenEnemyId);
-      const state = createTestStateWithSite(createMonsterDenSite(), [createHexEnemy(enemyToken)]);
+      // Monster den uses normal mana rules (unlike dungeon/tomb)
+      const state = createTestStateWithSite(createMonsterDenSite(), []);
 
       const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,

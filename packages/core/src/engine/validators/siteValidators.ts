@@ -92,8 +92,14 @@ export function validateSiteHasEnemiesOrDraws(
 
   const site = hex.site;
 
-  // Dungeons and tombs draw enemies on enter — always valid
-  if (site.type === SiteType.Dungeon || site.type === SiteType.Tomb) {
+  // Sites that draw enemies on enter — always valid (enemies drawn by command)
+  // Per rules: Dungeon, Tomb, Monster Den, Spawning Grounds all draw when you ENTER
+  if (
+    site.type === SiteType.Dungeon ||
+    site.type === SiteType.Tomb ||
+    site.type === SiteType.MonsterDen ||
+    site.type === SiteType.SpawningGrounds
+  ) {
     return valid();
   }
 

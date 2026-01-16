@@ -2,14 +2,14 @@
  * Enter site command - handles entering adventure sites for combat
  *
  * Adventure sites include:
- * - Dungeon: Draws 2 brown enemies when entered
- * - Tomb: Draws 2 red enemies when entered
- * - Monster Den: Fight existing green enemy from tile reveal
- * - Spawning Grounds: Fight existing green enemies from tile reveal
+ * - Dungeon: Draws 1 brown enemy when entered (always fresh per rules)
+ * - Tomb: Draws 1 red Draconum when entered (always fresh per rules)
+ * - Monster Den: Draws 1 brown enemy OR fights existing one from failed attempt
+ * - Spawning Grounds: Draws 2 brown enemies OR fights existing ones from failed attempt
  * - Ancient Ruins: Fight brown enemy at night, or auto-conquest at day if empty
  *
  * This is an irreversible action that:
- * - Draws enemies (for dungeon/tomb)
+ * - Draws enemies (if site type requires and no existing enemies)
  * - Initiates combat (if enemies present)
  * - Marks hasTakenActionThisTurn = true
  * - Triggers instant conquest for day ruins with no enemies
@@ -70,12 +70,22 @@ export function createEnterSiteCommand(params: EnterSiteCommandParams): Command 
       });
 
       // Get enemies — either from hex or draw new ones
-      // hex.enemies is now HexEnemy[], copy them
-      const hexEnemies: HexEnemy[] = [...hex.enemies];
-
-      // Dungeons and tombs draw enemies now
+      // Adventure sites draw enemies when entered
+      // - Dungeon/Tomb: Always draw fresh (enemies discarded after combat per rules)
+      //   so we START with empty array, ignoring any existing enemies
+      // - Monster Den/Spawning Grounds: Only draw if no enemies already on hex
+      //   (enemies persist from failed attempts)
       const adventureEnemies = getAdventureSiteEnemies(site.type);
-      if (adventureEnemies) {
+      const alwaysDrawsFresh = site.type === SiteType.Dungeon || site.type === SiteType.Tomb;
+
+      // For dungeon/tomb: start fresh. For others: copy existing enemies
+      const hexEnemies: HexEnemy[] = alwaysDrawsFresh ? [] : [...hex.enemies];
+
+      const shouldDrawEnemies = adventureEnemies && (
+        alwaysDrawsFresh || hexEnemies.length === 0
+      );
+
+      if (shouldDrawEnemies && adventureEnemies) {
         let currentPiles = updatedState.enemyTokens;
         let currentRng = updatedState.rng;
 
@@ -172,6 +182,7 @@ export function createEnterSiteCommand(params: EnterSiteCommandParams): Command 
         {
           unitsAllowed: !isDungeonOrTomb,
           nightManaRules: isDungeonOrTomb,
+          discardEnemiesOnFailure: isDungeonOrTomb, // Dungeon/Tomb enemies discarded after combat regardless of outcome
         }
       );
 
