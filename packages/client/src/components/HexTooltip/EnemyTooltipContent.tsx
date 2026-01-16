@@ -18,6 +18,8 @@ export interface EnemyTooltipContentProps {
   isAnimating: boolean;
   /** Whether to show "Guarded by:" header (when shown with site) */
   showHeader?: boolean;
+  /** Starting index for animation delay (for chaining with other content) */
+  startIndex?: number;
 }
 
 // Element display names
@@ -62,8 +64,9 @@ export function EnemyTooltipContent({
   enemies,
   isAnimating,
   showHeader = false,
+  startIndex = 0,
 }: EnemyTooltipContentProps) {
-  let lineIndex = 0;
+  let lineIndex = startIndex;
 
   const getLineStyle = () => {
     const delay = isAnimating ? `${lineIndex++ * 0.08}s` : "0s";

@@ -30,6 +30,10 @@ const SITE_LABYRINTH = "labyrinth";
 export interface SiteTooltipContentProps {
   site: ClientSite;
   isAnimating: boolean;
+  /** Starting index for animation delay (for chaining with other content) */
+  startIndex?: number;
+  /** Callback to report how many lines were rendered (for chaining) */
+  onLineCount?: (count: number) => void;
 }
 
 interface SiteInfo {
@@ -206,9 +210,9 @@ function getSiteInfo(site: ClientSite): SiteInfo {
   }
 }
 
-export function SiteTooltipContent({ site, isAnimating }: SiteTooltipContentProps) {
+export function SiteTooltipContent({ site, isAnimating, startIndex = 0 }: SiteTooltipContentProps) {
   const info = getSiteInfo(site);
-  let lineIndex = 0;
+  let lineIndex = startIndex;
 
   const getLineStyle = () => {
     const delay = isAnimating ? `${lineIndex++ * 0.08}s` : "0s";
@@ -227,7 +231,7 @@ export function SiteTooltipContent({ site, isAnimating }: SiteTooltipContentProp
         )}
       </div>
 
-      <div className="site-tooltip__divider" />
+      <div className="site-tooltip__divider" style={getLineStyle()} />
 
       {info.fight && (
         <div className="site-tooltip__line" style={getLineStyle()}>
