@@ -433,6 +433,12 @@ export function PlayerHand() {
           player,
           menuState.step === "black" ? MANA_BLACK : menuState.spellColor
         );
+
+        // No sources available - shouldn't happen but handle gracefully
+        if (sources.length === 0) {
+          return null;
+        }
+
         return (
           <RadialMenu
             items={sources.map((source, idx) => manaSourceToRadialItem(source, idx))}

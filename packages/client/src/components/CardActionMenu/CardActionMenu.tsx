@@ -156,14 +156,28 @@ export function CardActionMenu({
   }, [playability, isInCombat]);
 
   // Convert action options to pie menu items
+  // If there's only one action, add a Cancel option so the menu has 2 items
   const actionPieItems = useMemo((): PieMenuItem[] => {
-    return actionOptions.map((opt) => ({
+    const items = actionOptions.map((opt) => ({
       id: opt.id,
       label: opt.label,
       sublabel: opt.sublabel,
       color: getActionColor(opt.type),
       disabled: opt.id === "basic-disabled",
     }));
+
+    // Add explicit Cancel option when only one action available
+    if (items.length === 1) {
+      items.push({
+        id: "cancel",
+        label: "Cancel",
+        sublabel: undefined,
+        color: "rgba(80, 40, 40, 0.95)",
+        disabled: false,
+      });
+    }
+
+    return items;
   }, [actionOptions]);
 
   // Convert mana sources to pie menu items
@@ -178,6 +192,12 @@ export function CardActionMenu({
   }, [manaSources]);
 
   const handleActionSelect = useCallback((id: string) => {
+    // Handle cancel option
+    if (id === "cancel") {
+      onCancel();
+      return;
+    }
+
     const option = actionOptions.find((o) => o.id === id);
     if (!option) return;
 
@@ -197,7 +217,7 @@ export function CardActionMenu({
     } else if (option.type === "sideways" && option.sidewaysAs) {
       onPlaySideways(option.sidewaysAs);
     }
-  }, [actionOptions, onPlayBasic, onPlayPowered, onPlaySideways, manaSources, playability.requiredMana]);
+  }, [actionOptions, onPlayBasic, onPlayPowered, onPlaySideways, onCancel, manaSources, playability.requiredMana]);
 
   const handleManaSelect = useCallback((id: string) => {
     // Parse the ID to find the source
