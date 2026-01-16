@@ -26,7 +26,7 @@ import {
 import type { Player } from "../../types/player.js";
 import { MOVE_COMMAND } from "./commandTypes.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
-import { createCombatState } from "../../types/combat.js";
+import { createCombatState, type CombatEnemyInput } from "../../types/combat.js";
 import { getEnemyIdFromToken } from "../helpers/enemyHelpers.js";
 import { SiteType, type HexState, type HexEnemy } from "../../types/map.js";
 
@@ -225,38 +225,59 @@ export function createMoveCommand(params: MoveCommandParams): Command {
       }
 
       // Check for provoking rampaging enemies (skirting around them)
-      // Only check if combat wasn't already triggered by assault
-      if (!updatedState.combat) {
-        const provokedEnemies = findProvokedRampagingEnemies(
-          params.from,
-          params.to,
-          state.map.hexes
+      // Per rulebook: An assault can provoke rampaging enemies. You must fight both
+      // the defenders and these rampaging enemies at once.
+      const provokedEnemies = findProvokedRampagingEnemies(
+        params.from,
+        params.to,
+        state.map.hexes
+      );
+
+      const firstProvoked = provokedEnemies[0];
+      if (firstProvoked) {
+        // Collect all enemy tokens from all provoked hexes
+        const allHexEnemies = provokedEnemies.flatMap((p) => p.enemies);
+        const allEnemyTokenIds = allHexEnemies.map((e) => e.tokenId);
+        const rampagingHexCoord = firstProvoked.hex.coord;
+
+        // Emit combat triggered event for the provoked enemies
+        events.push(
+          createCombatTriggeredEvent(
+            params.playerId,
+            COMBAT_TRIGGER_PROVOKE_RAMPAGING,
+            rampagingHexCoord,
+            allEnemyTokenIds
+          )
         );
 
-        const firstProvoked = provokedEnemies[0];
-        if (firstProvoked) {
-          // Collect all enemy tokens from all provoked hexes
-          const allHexEnemies = provokedEnemies.flatMap((p) => p.enemies);
-          const allEnemyTokenIds = allHexEnemies.map((e) => e.tokenId);
-          const rampagingHexCoord = firstProvoked.hex.coord;
+        // Mark player as having combatted this turn
+        updatedPlayer = {
+          ...updatedPlayer,
+          hasCombattedThisTurn: true,
+        };
 
-          // Emit combat triggered event
-          events.push(
-            createCombatTriggeredEvent(
-              params.playerId,
-              COMBAT_TRIGGER_PROVOKE_RAMPAGING,
-              rampagingHexCoord,
-              allEnemyTokenIds
-            )
+        if (updatedState.combat) {
+          // Assault already triggered combat - add provoked enemies to existing combat
+          // Per rulebook: rampaging enemies are NOT fortified and you do not need to
+          // defeat them to conquer the site. Mark them as isRequiredForConquest: false.
+          const existingEnemyInputs: CombatEnemyInput[] = updatedState.combat.enemies.map(
+            (e) => ({ enemyId: e.enemyId, isRequiredForConquest: true })
+          );
+          const provokedEnemyInputs: CombatEnemyInput[] = allHexEnemies.map((e) => ({
+            enemyId: getEnemyIdFromToken(e.tokenId),
+            isRequiredForConquest: false, // Rampaging enemies not required for conquest
+          }));
+          const allEnemyInputs = [...existingEnemyInputs, ...provokedEnemyInputs];
+
+          const mergedCombatState = createCombatState(
+            allEnemyInputs,
+            updatedState.combat.isAtFortifiedSite,
+            { assaultOrigin: updatedState.combat.assaultOrigin }
           );
 
-          // Mark player as having combatted this turn
-          updatedPlayer = {
-            ...updatedPlayer,
-            hasCombattedThisTurn: true,
-          };
-
-          // Create combat state (not at fortified site)
+          updatedState = { ...updatedState, combat: mergedCombatState };
+        } else {
+          // No assault - just rampaging enemy provocation
           const combatState = createCombatState(
             allHexEnemies.map((e) => getEnemyIdFromToken(e.tokenId)),
             false // isAtFortifiedSite - rampaging enemies are not fortified

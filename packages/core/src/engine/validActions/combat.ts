@@ -87,8 +87,10 @@ function getAttackOptions(
 ): readonly AttackOption[] {
   return enemies.map((enemy) => {
     const hasFortified = enemy.definition.abilities.includes(ABILITY_FORTIFIED);
-    // Enemy is fortified if it has the ability OR if at a fortified site
-    const isFortified = hasFortified || isAtFortifiedSite;
+    // Site fortification only applies to site defenders (isRequiredForConquest: true)
+    // Provoked rampaging enemies do NOT get site fortification per rulebook
+    const siteFortified = isAtFortifiedSite && enemy.isRequiredForConquest;
+    const isFortified = hasFortified || siteFortified;
     // In ranged/siege phase, fortified enemies require siege attacks
     const requiresSiege = isRangedSiegePhase && isFortified;
 

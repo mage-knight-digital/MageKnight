@@ -30,14 +30,16 @@ import {
   COMBAT_TRIGGER_FORTIFIED_ASSAULT,
   REPUTATION_REASON_ASSAULT,
   ENEMY_GUARDSMEN,
+  ENEMY_DIGGERS,
   PLAYER_WITHDREW,
   TERRAIN_FOREST,
   PLAYER_KNOCKED_OUT,
+  COMBAT_TRIGGER_PROVOKE_RAMPAGING,
 } from "@mage-knight/shared";
-import { SiteType } from "../../types/map.js";
+import { SiteType, RampagingEnemyType } from "../../types/map.js";
 import type { Site, HexState, HexEnemy } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
-import { createHexEnemy } from "./testHelpers.js";
+import { createHexEnemy, createTestHex } from "./testHelpers.js";
 import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemyHelpers.js";
 import type { BlockSource } from "@mage-knight/shared";
 
@@ -1293,6 +1295,371 @@ describe("Combat Trigger Integration", () => {
       // hasTakenActionThisTurn should be true after combat
       const updatedPlayer = result.state.players.find((p) => p.id === "player1");
       expect(updatedPlayer?.hasTakenActionThisTurn).toBe(true);
+    });
+  });
+
+  describe("Fortified assault with provoked rampaging enemies", () => {
+    /**
+     * Per rulebook (line 608):
+     * "An assault is a move, and it can happen that it provokes one or more rampaging enemies.
+     * You have to fight both the defenders and these rampaging enemies at once. The rampaging
+     * enemies are not fortified, though, and you can conquer the site even if you do not defeat them."
+     *
+     * Test scenario:
+     * - Player at (0,0)
+     * - Rampaging enemy at (1,0)
+     * - Keep (fortified site) at (1,-1) with a garrison
+     * - Player moves from (0,0) to (1,-1)
+     *
+     * Both (0,0) and (1,-1) are adjacent to (1,0), so moving between them provokes
+     * the rampaging enemy. The player must fight BOTH the keep garrison AND the
+     * provoked rampaging enemy in a single combat.
+     */
+    it("should include both fortified site defenders AND provoked rampaging enemies in combat", () => {
+      // Create enemy tokens
+      const keepDefenderToken = createEnemyTokenId(ENEMY_GUARDSMEN);
+      const rampagingEnemyToken = createEnemyTokenId(ENEMY_DIGGERS);
+
+      // Set up state
+      let state = createTestGameState();
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        movePoints: 4,
+        reputation: 0,
+      });
+
+      // Create the keep at (1,-1) with garrison
+      const keepHex: HexState = {
+        ...createTestHex(1, -1, TERRAIN_PLAINS),
+        site: createKeepSite(),
+        enemies: [createHexEnemy(keepDefenderToken)],
+      };
+
+      // Create rampaging enemy at (1,0) - adjacent to both (0,0) and (1,-1)
+      const rampagingHex: HexState = {
+        ...createTestHex(1, 0, TERRAIN_PLAINS),
+        rampagingEnemies: [RampagingEnemyType.OrcMarauder],
+        enemies: [createHexEnemy(rampagingEnemyToken)],
+      };
+
+      // Create player's starting hex (0,0)
+      const startHex = createTestHex(0, 0, TERRAIN_PLAINS);
+
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+        map: {
+          ...state.map,
+          hexes: {
+            ...state.map.hexes,
+            [hexKey({ q: 0, r: 0 })]: startHex,
+            [hexKey({ q: 1, r: 0 })]: rampagingHex,
+            [hexKey({ q: 1, r: -1 })]: keepHex,
+          },
+        },
+      };
+
+      // Move from (0,0) to (1,-1)
+      // This should:
+      // 1. Trigger fortified assault (keep)
+      // 2. Provoke rampaging enemy at (1,0)
+      // 3. Both enemies should be in the same combat
+      const result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: { q: 1, r: -1 },
+      });
+
+      // Should have moved
+      expect(result.events).toContainEqual(
+        expect.objectContaining({ type: PLAYER_MOVED })
+      );
+
+      // Should have triggered combat
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_TRIGGERED,
+          triggerType: COMBAT_TRIGGER_FORTIFIED_ASSAULT,
+        })
+      );
+
+      // Should be in combat
+      expect(result.state.combat).not.toBeNull();
+
+      // CRITICAL ASSERTION: Combat should have BOTH enemies
+      // - The keep defender (guardsmen)
+      // - The provoked rampaging enemy (diggers)
+      expect(result.state.combat?.enemies).toHaveLength(2);
+
+      // Verify both enemy types are present
+      const enemyIds = result.state.combat?.enemies.map((e) => e.enemyId) ?? [];
+      expect(enemyIds).toContain(ENEMY_GUARDSMEN);
+      expect(enemyIds).toContain(ENEMY_DIGGERS);
+
+      // Combat should be at fortified site (for the keep defenders)
+      expect(result.state.combat?.isAtFortifiedSite).toBe(true);
+
+      // Player reputation should be -1 from assault
+      const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+      expect(updatedPlayer?.reputation).toBe(-1);
+    });
+
+    it("should emit both COMBAT_TRIGGERED events when provoking during assault", () => {
+      const keepDefenderToken = createEnemyTokenId(ENEMY_GUARDSMEN);
+      const rampagingEnemyToken = createEnemyTokenId(ENEMY_DIGGERS);
+
+      let state = createTestGameState();
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        movePoints: 4,
+      });
+
+      const keepHex: HexState = {
+        ...createTestHex(1, -1, TERRAIN_PLAINS),
+        site: createKeepSite(),
+        enemies: [createHexEnemy(keepDefenderToken)],
+      };
+
+      const rampagingHex: HexState = {
+        ...createTestHex(1, 0, TERRAIN_PLAINS),
+        rampagingEnemies: [RampagingEnemyType.OrcMarauder],
+        enemies: [createHexEnemy(rampagingEnemyToken)],
+      };
+
+      const startHex = createTestHex(0, 0, TERRAIN_PLAINS);
+
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+        map: {
+          ...state.map,
+          hexes: {
+            ...state.map.hexes,
+            [hexKey({ q: 0, r: 0 })]: startHex,
+            [hexKey({ q: 1, r: 0 })]: rampagingHex,
+            [hexKey({ q: 1, r: -1 })]: keepHex,
+          },
+        },
+      };
+
+      const result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: { q: 1, r: -1 },
+      });
+
+      // Should have two COMBAT_TRIGGERED events:
+      // 1. FORTIFIED_ASSAULT for the keep
+      // 2. PROVOKE_RAMPAGING for the orc
+      const combatTriggeredEvents = result.events.filter(
+        (e) => e.type === COMBAT_TRIGGERED
+      );
+
+      expect(combatTriggeredEvents).toHaveLength(2);
+
+      expect(combatTriggeredEvents).toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_TRIGGERED,
+          triggerType: COMBAT_TRIGGER_FORTIFIED_ASSAULT,
+        })
+      );
+
+      expect(combatTriggeredEvents).toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_TRIGGERED,
+          triggerType: COMBAT_TRIGGER_PROVOKE_RAMPAGING,
+        })
+      );
+    });
+
+    it("should mark provoked rampaging enemies as not required for conquest", () => {
+      const keepDefenderToken = createEnemyTokenId(ENEMY_GUARDSMEN);
+      const rampagingEnemyToken = createEnemyTokenId(ENEMY_DIGGERS);
+
+      let state = createTestGameState();
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        movePoints: 4,
+      });
+
+      const keepHex: HexState = {
+        ...createTestHex(1, -1, TERRAIN_PLAINS),
+        site: createKeepSite(),
+        enemies: [createHexEnemy(keepDefenderToken)],
+      };
+
+      const rampagingHex: HexState = {
+        ...createTestHex(1, 0, TERRAIN_PLAINS),
+        rampagingEnemies: [RampagingEnemyType.OrcMarauder],
+        enemies: [createHexEnemy(rampagingEnemyToken)],
+      };
+
+      const startHex = createTestHex(0, 0, TERRAIN_PLAINS);
+
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+        map: {
+          ...state.map,
+          hexes: {
+            ...state.map.hexes,
+            [hexKey({ q: 0, r: 0 })]: startHex,
+            [hexKey({ q: 1, r: 0 })]: rampagingHex,
+            [hexKey({ q: 1, r: -1 })]: keepHex,
+          },
+        },
+      };
+
+      const result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: { q: 1, r: -1 },
+      });
+
+      // Verify the flags are set correctly
+      const enemies = result.state.combat?.enemies ?? [];
+      expect(enemies).toHaveLength(2);
+
+      // Site defender (guardsmen) should be required for conquest
+      const siteDefender = enemies.find((e) => e.enemyId === ENEMY_GUARDSMEN);
+      expect(siteDefender?.isRequiredForConquest).toBe(true);
+
+      // Provoked rampaging enemy (diggers) should NOT be required for conquest
+      const rampagingEnemy = enemies.find((e) => e.enemyId === ENEMY_DIGGERS);
+      expect(rampagingEnemy?.isRequiredForConquest).toBe(false);
+    });
+
+    it("should conquer site when only site defenders are defeated (rampaging enemies survive)", () => {
+      const keepDefenderToken = createEnemyTokenId(ENEMY_GUARDSMEN);
+      const rampagingEnemyToken = createEnemyTokenId(ENEMY_DIGGERS);
+
+      let state = createTestGameState();
+      const keepCoord = { q: 1, r: -1 };
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        movePoints: 4,
+      });
+
+      const keepHex: HexState = {
+        ...createTestHex(1, -1, TERRAIN_PLAINS),
+        site: createKeepSite(),
+        enemies: [createHexEnemy(keepDefenderToken)],
+      };
+
+      const rampagingHex: HexState = {
+        ...createTestHex(1, 0, TERRAIN_PLAINS),
+        rampagingEnemies: [RampagingEnemyType.OrcMarauder],
+        enemies: [createHexEnemy(rampagingEnemyToken)],
+      };
+
+      const startHex = createTestHex(0, 0, TERRAIN_PLAINS);
+
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+        map: {
+          ...state.map,
+          hexes: {
+            ...state.map.hexes,
+            [hexKey({ q: 0, r: 0 })]: startHex,
+            [hexKey({ q: 1, r: 0 })]: rampagingHex,
+            [hexKey({ q: 1, r: -1 })]: keepHex,
+          },
+        },
+      };
+
+      // Move to keep (triggers assault + provoke)
+      let result = engine.processAction(state, "player1", {
+        type: MOVE_ACTION,
+        target: keepCoord,
+      });
+      state = result.state;
+
+      // Skip ranged phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Block phase - only block the site defender (guardsmen)
+      // Guardsmen: attack 3, Swift doubles to 6 block needed
+      state = withBlockSources(state, "player1", [{ element: "physical", value: 6 }]);
+      result = engine.processAction(state, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0", // Guardsmen (site defender)
+      });
+      state = result.state;
+
+      // End Block phase -> Assign Damage phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Assign Damage from unblocked rampaging enemy (enemy_1 - Diggers)
+      // This will deal wounds but we continue
+      result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_1", // Diggers (rampaging) - unblocked
+      });
+      state = result.state;
+
+      // End Assign Damage phase -> Attack phase
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+      state = result.state;
+
+      // Attack phase - defeat ONLY the site defender (guardsmen), leave rampaging enemy alive
+      state = withSiegeAttack(state, "player1", 5); // Guardsmen armor 3, need at least 3
+      result = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"], // Only target guardsmen (site defender)
+        attacks: [{ element: "physical", value: 5 }],
+        attackType: COMBAT_TYPE_SIEGE,
+      });
+      state = result.state;
+
+      // Verify only guardsmen is defeated, diggers survives
+      expect(state.combat?.enemies[0]?.isDefeated).toBe(true); // Guardsmen defeated
+      expect(state.combat?.enemies[1]?.isDefeated).toBe(false); // Diggers survives
+
+      // End attack phase to end combat
+      result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should have VICTORY even though rampaging enemy survives
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: COMBAT_ENDED,
+          victory: true, // Victory because all REQUIRED enemies defeated
+          enemiesDefeated: 1,
+          enemiesSurvived: 1,
+        })
+      );
+
+      // Should have conquered the site
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: SITE_CONQUERED,
+          playerId: "player1",
+        })
+      );
+
+      // Site should be conquered
+      const hex = result.state.map.hexes[hexKey(keepCoord)];
+      expect(hex?.site?.isConquered).toBe(true);
+      expect(hex?.site?.owner).toBe("player1");
     });
   });
 });

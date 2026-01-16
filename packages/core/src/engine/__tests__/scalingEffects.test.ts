@@ -16,7 +16,7 @@ import { createPlayerUnit } from "../../types/unit.js";
 import {
   CARD_WOUND,
   CARD_MARCH,
-  ENEMY_OROG_ARCHER,
+  ENEMY_PROWLERS,
   ENEMY_ALTEM_GUARDSMEN,
   UNIT_PEASANTS,
   UNIT_FORESTERS,
@@ -46,7 +46,7 @@ describe("Scaling Effects", () => {
       });
 
       it("should count undefeated enemies in combat", () => {
-        const combat = createCombatState([ENEMY_OROG_ARCHER, ENEMY_ALTEM_GUARDSMEN, ENEMY_OROG_ARCHER]);
+        const combat = createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN, ENEMY_PROWLERS]);
         const state = createTestGameState({ combat });
         const count = evaluateScalingFactor(state, "player1", { type: SCALING_PER_ENEMY });
         expect(count).toBe(3);
@@ -54,12 +54,12 @@ describe("Scaling Effects", () => {
 
       it("should not count defeated enemies", () => {
         const combat = {
-          ...createCombatState([ENEMY_OROG_ARCHER, ENEMY_ALTEM_GUARDSMEN]),
+          ...createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN]),
           enemies: [
             {
               instanceId: "enemy_0",
-              enemyId: ENEMY_OROG_ARCHER,
-              definition: { id: ENEMY_OROG_ARCHER, armor: 4, attack: 3 },
+              enemyId: ENEMY_PROWLERS,
+              definition: { id: ENEMY_PROWLERS, armor: 4, attack: 3 },
               isBlocked: false,
               isDefeated: false,
               damageAssigned: false,
@@ -156,7 +156,7 @@ describe("Scaling Effects", () => {
       });
 
       it("should scale attack by enemy count", () => {
-        const combat = createCombatState([ENEMY_OROG_ARCHER, ENEMY_ALTEM_GUARDSMEN, ENEMY_OROG_ARCHER]);
+        const combat = createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN, ENEMY_PROWLERS]);
         const state = createTestGameState({ combat });
         const effect = fireAttackPerEnemy(5, 2); // 5 base + 2 per enemy
 
@@ -188,7 +188,7 @@ describe("Scaling Effects", () => {
       });
 
       it("should scale block by enemy count", () => {
-        const combat = createCombatState([ENEMY_OROG_ARCHER, ENEMY_ALTEM_GUARDSMEN]);
+        const combat = createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN]);
         const state = createTestGameState({ combat });
         const effect = fireBlockPerEnemy(7, 2); // 7 base + 2 per enemy
 
@@ -204,7 +204,7 @@ describe("Scaling Effects", () => {
         const player = createTestPlayer({
           hand: [CARD_WOUND, CARD_WOUND, CARD_MARCH],
         });
-        const combat = createCombatState([ENEMY_OROG_ARCHER]);
+        const combat = createCombatState([ENEMY_PROWLERS]);
         const state = createTestGameState({ players: [player], combat });
         const effect = attackPerWoundInHand(0, 2); // 2 per wound
 
@@ -223,7 +223,7 @@ describe("Scaling Effects", () => {
             createPlayerUnit(UNIT_FORESTERS),
           ],
         });
-        const combat = createCombatState([ENEMY_OROG_ARCHER]);
+        const combat = createCombatState([ENEMY_PROWLERS]);
         const state = createTestGameState({ players: [player], combat });
         const effect = attackPerUnit(2, 1); // 2 base + 1 per unit
 
@@ -243,7 +243,7 @@ describe("Scaling Effects", () => {
             createPlayerUnit(UNIT_PEASANTS),
           ],
         });
-        const combat = createCombatState([ENEMY_OROG_ARCHER]);
+        const combat = createCombatState([ENEMY_PROWLERS]);
         const state = createTestGameState({ players: [player], combat });
         const effect = blockPerUnit(1, 2); // 1 base + 2 per unit
 
@@ -268,11 +268,11 @@ describe("Scaling Effects", () => {
 
     it("should apply maximum", () => {
       const combat = createCombatState([
-        ENEMY_OROG_ARCHER,
-        ENEMY_OROG_ARCHER,
-        ENEMY_OROG_ARCHER,
-        ENEMY_OROG_ARCHER,
-        ENEMY_OROG_ARCHER,
+        ENEMY_PROWLERS,
+        ENEMY_PROWLERS,
+        ENEMY_PROWLERS,
+        ENEMY_PROWLERS,
+        ENEMY_PROWLERS,
       ]); // 5 enemies
       const effect = scalingAttack(0, { type: SCALING_PER_ENEMY }, 2, undefined, "melee", { maximum: 6 });
       const state = createTestGameState({ combat });
@@ -296,12 +296,12 @@ describe("Scaling Effects", () => {
 
       // Test maximum
       const combatManyEnemies = createCombatState([
-        ENEMY_OROG_ARCHER,
-        ENEMY_OROG_ARCHER,
-        ENEMY_OROG_ARCHER,
-        ENEMY_OROG_ARCHER,
-        ENEMY_OROG_ARCHER,
-        ENEMY_OROG_ARCHER,
+        ENEMY_PROWLERS,
+        ENEMY_PROWLERS,
+        ENEMY_PROWLERS,
+        ENEMY_PROWLERS,
+        ENEMY_PROWLERS,
+        ENEMY_PROWLERS,
       ]); // 6 enemies = 12, capped at 8
       const stateManyEnemies = createTestGameState({ combat: combatManyEnemies });
       const resultMax = resolveEffect(stateManyEnemies, "player1", effect, "test");
@@ -354,7 +354,7 @@ describe("Scaling Effects", () => {
     });
 
     it("should produce 11 fire attack with 3 enemies when attack option chosen (5 + 2×3)", () => {
-      const combat = createCombatState([ENEMY_OROG_ARCHER, ENEMY_ALTEM_GUARDSMEN, ENEMY_OROG_ARCHER]);
+      const combat = createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN, ENEMY_PROWLERS]);
       const state = createTestGameState({ combat });
 
       // Get the attack option from the powered effect choice
@@ -368,7 +368,7 @@ describe("Scaling Effects", () => {
     });
 
     it("should produce 11 fire block with 2 enemies when block option chosen (7 + 2×2)", () => {
-      const combat = createCombatState([ENEMY_OROG_ARCHER, ENEMY_ALTEM_GUARDSMEN]);
+      const combat = createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN]);
       const state = createTestGameState({ combat });
 
       // Get the block option from the powered effect choice

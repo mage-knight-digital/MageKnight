@@ -284,6 +284,7 @@ export function validateDamageAssignedBeforeLeaving(
  * - Enemy ability fortification from ABILITY_FORTIFIED
  * - ABILITY_UNFORTIFIED negates site fortification (e.g., Summoned enemies)
  * - Double fortified = site + ability (requires 2 Siege attacks)
+ * - Provoked rampaging enemies (isRequiredForConquest: false) do NOT get site fortification
  */
 export function getFortificationLevel(
   enemy: CombatEnemy,
@@ -292,8 +293,12 @@ export function getFortificationLevel(
   const hasAbilityFortified = enemy.definition.abilities.includes(ABILITY_FORTIFIED);
   const hasUnfortified = enemy.definition.abilities.includes(ABILITY_UNFORTIFIED);
 
+  // Site fortification only applies to site defenders (isRequiredForConquest: true)
+  // Provoked rampaging enemies do NOT get site fortification per rulebook
+  const isSiteDefender = enemy.isRequiredForConquest;
+
   // ABILITY_UNFORTIFIED negates site fortification
-  const effectiveSiteFortification = isAtFortifiedSite && !hasUnfortified;
+  const effectiveSiteFortification = isAtFortifiedSite && isSiteDefender && !hasUnfortified;
 
   let level = 0;
   if (effectiveSiteFortification) level += 1;

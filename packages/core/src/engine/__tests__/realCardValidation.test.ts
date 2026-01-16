@@ -15,7 +15,7 @@ import {
   TERRAIN_HILLS,
   TERRAIN_PLAINS,
   hexKey,
-  ENEMY_OROG_ARCHER,
+  ENEMY_PROWLERS,
 } from "@mage-knight/shared";
 
 import {
@@ -105,7 +105,7 @@ describe("Real Card Validation", () => {
   describe("Burning Shield (Nested conditional pattern)", () => {
     it("should provide Fire Block 4 in block phase", () => {
       const combat = {
-        ...createCombatState([ENEMY_OROG_ARCHER]),
+        ...createCombatState([ENEMY_PROWLERS]),
         phase: COMBAT_PHASE_BLOCK,
         allDamageBlockedThisPhase: false,
       };
@@ -120,7 +120,7 @@ describe("Real Card Validation", () => {
 
     it("should NOT provide attack bonus if block failed", () => {
       const combat = {
-        ...createCombatState([ENEMY_OROG_ARCHER]),
+        ...createCombatState([ENEMY_PROWLERS]),
         phase: COMBAT_PHASE_ATTACK,
         allDamageBlockedThisPhase: false,
       };
@@ -136,7 +136,7 @@ describe("Real Card Validation", () => {
 
     it("should provide Fire Attack 4 in attack phase after successful block", () => {
       const combat = {
-        ...createCombatState([ENEMY_OROG_ARCHER]),
+        ...createCombatState([ENEMY_PROWLERS]),
         phase: COMBAT_PHASE_ATTACK,
         allDamageBlockedThisPhase: true,
       };
@@ -150,7 +150,7 @@ describe("Real Card Validation", () => {
 
     it("powered version should provide Fire Attack 6 after successful block", () => {
       const combat = {
-        ...createCombatState([ENEMY_OROG_ARCHER]),
+        ...createCombatState([ENEMY_PROWLERS]),
         phase: COMBAT_PHASE_ATTACK,
         allDamageBlockedThisPhase: true,
       };
@@ -319,7 +319,7 @@ describe("Elemental Effect Accumulation", () => {
   });
 
   it("should track fire block in blockElements.fire", () => {
-    const combat = createCombatState([ENEMY_OROG_ARCHER]);
+    const combat = createCombatState([ENEMY_PROWLERS]);
     const state = createTestGameState({ combat });
     const result = resolveEffect(state, "player1", BURNING_SHIELD.basicEffect, "burning_shield");
 
@@ -359,21 +359,21 @@ describe("Cold Fire Helpers", () => {
 describe("Condition Wiring", () => {
   describe("allDamageBlockedThisPhase", () => {
     it("should be false initially", () => {
-      const combat = createCombatState([ENEMY_OROG_ARCHER]);
+      const combat = createCombatState([ENEMY_PROWLERS]);
       expect(combat.allDamageBlockedThisPhase).toBe(false);
     });
 
     it("should be set to true when all enemies are blocked after block phase", () => {
       // Create combat in block phase with one blocked enemy
       const combat = {
-        ...createCombatState([ENEMY_OROG_ARCHER]),
+        ...createCombatState([ENEMY_PROWLERS]),
         phase: COMBAT_PHASE_BLOCK,
         enemies: [
           {
             instanceId: "enemy_0",
-            enemyId: ENEMY_OROG_ARCHER,
+            enemyId: ENEMY_PROWLERS,
             definition: {
-              id: ENEMY_OROG_ARCHER,
+              id: ENEMY_PROWLERS,
               armor: 4,
               attack: 3,
               attackElement: undefined,
@@ -400,14 +400,14 @@ describe("Condition Wiring", () => {
     it("should be set to false when some enemies are not blocked", () => {
       // Create combat in block phase with one unblocked enemy
       const combat = {
-        ...createCombatState([ENEMY_OROG_ARCHER]),
+        ...createCombatState([ENEMY_PROWLERS]),
         phase: COMBAT_PHASE_BLOCK,
         enemies: [
           {
             instanceId: "enemy_0",
-            enemyId: ENEMY_OROG_ARCHER,
+            enemyId: ENEMY_PROWLERS,
             definition: {
-              id: ENEMY_OROG_ARCHER,
+              id: ENEMY_PROWLERS,
               armor: 4,
               attack: 3,
               attackElement: undefined,

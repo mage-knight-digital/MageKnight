@@ -35,6 +35,7 @@ export interface CombatEnemy {
   readonly isBlocked: boolean;
   readonly isDefeated: boolean;
   readonly damageAssigned: boolean; // Track if damage was processed in Assign Damage phase
+  readonly isRequiredForConquest: boolean; // True for site defenders, false for provoked rampaging enemies
 }
 
 // Combat state
@@ -60,20 +61,36 @@ export interface CombatStateOptions {
   readonly discardEnemiesOnFailure?: boolean;
 }
 
+// Input for creating a combat enemy - allows specifying if required for conquest
+export interface CombatEnemyInput {
+  readonly enemyId: EnemyId;
+  readonly isRequiredForConquest?: boolean; // Default true (site defenders)
+}
+
 // Create initial combat state
 export function createCombatState(
-  enemyIds: readonly EnemyId[],
+  enemyInputs: readonly (EnemyId | CombatEnemyInput)[],
   isAtFortifiedSite: boolean = false,
   options?: CombatStateOptions
 ): CombatState {
-  const enemies: CombatEnemy[] = enemyIds.map((enemyId, index) => ({
-    instanceId: `enemy_${index}`,
-    enemyId,
-    definition: getEnemy(enemyId),
-    isBlocked: false,
-    isDefeated: false,
-    damageAssigned: false,
-  }));
+  const enemies: CombatEnemy[] = enemyInputs
+    .filter((input): input is EnemyId | CombatEnemyInput => input !== undefined && input !== null)
+    .map((input, index) => {
+      // Support both simple EnemyId and full CombatEnemyInput
+      const enemyId = typeof input === "string" ? input : input.enemyId;
+      const isRequiredForConquest =
+        typeof input === "string" ? true : (input.isRequiredForConquest ?? true);
+
+      return {
+        instanceId: `enemy_${index}`,
+        enemyId,
+        definition: getEnemy(enemyId),
+        isBlocked: false,
+        isDefeated: false,
+        damageAssigned: false,
+        isRequiredForConquest,
+      };
+    });
 
   return {
     phase: COMBAT_PHASE_RANGED_SIEGE,

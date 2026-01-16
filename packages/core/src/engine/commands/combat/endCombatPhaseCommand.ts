@@ -69,7 +69,12 @@ export function createEndCombatPhaseCommand(
         const enemiesSurvived = state.combat.enemies.filter(
           (e) => !e.isDefeated
         ).length;
-        const victory = enemiesSurvived === 0;
+        // Victory (conquest) requires defeating all enemies that are required for conquest
+        // Provoked rampaging enemies are NOT required - you can conquer even if they survive
+        const requiredEnemiesSurvived = state.combat.enemies.filter(
+          (e) => !e.isDefeated && e.isRequiredForConquest
+        ).length;
+        const victory = requiredEnemiesSurvived === 0;
 
         const events: GameEvent[] = [
           {

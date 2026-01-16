@@ -46,7 +46,7 @@ import {
   ifManaUsed,
   ifHasWoundsInHand,
 } from "../../data/effectHelpers.js";
-import { ENEMY_OROG_ARCHER } from "@mage-knight/shared";
+import { ENEMY_PROWLERS } from "@mage-knight/shared";
 
 describe("Conditional Effects", () => {
   describe("evaluateCondition", () => {
@@ -82,7 +82,7 @@ describe("Conditional Effects", () => {
       });
 
       it("should return true when in combat", () => {
-        const combat = createCombatState([ENEMY_OROG_ARCHER]);
+        const combat = createCombatState([ENEMY_PROWLERS]);
         const state = createTestGameState({ combat });
         const condition = { type: CONDITION_IN_COMBAT } as const;
 
@@ -100,7 +100,7 @@ describe("Conditional Effects", () => {
 
       it("should return true when in matching phase", () => {
         const combat = {
-          ...createCombatState([ENEMY_OROG_ARCHER]),
+          ...createCombatState([ENEMY_PROWLERS]),
           phase: COMBAT_PHASE_ATTACK,
         };
         const state = createTestGameState({ combat });
@@ -111,7 +111,7 @@ describe("Conditional Effects", () => {
 
       it("should return false when in different phase", () => {
         const combat = {
-          ...createCombatState([ENEMY_OROG_ARCHER]),
+          ...createCombatState([ENEMY_PROWLERS]),
           phase: COMBAT_PHASE_BLOCK,
         };
         const state = createTestGameState({ combat });
@@ -122,7 +122,7 @@ describe("Conditional Effects", () => {
 
       it("should return true when phase is in list of phases", () => {
         const combat = {
-          ...createCombatState([ENEMY_OROG_ARCHER]),
+          ...createCombatState([ENEMY_PROWLERS]),
           phase: COMBAT_PHASE_BLOCK,
         };
         const state = createTestGameState({ combat });
@@ -185,7 +185,7 @@ describe("Conditional Effects", () => {
 
       it("should return false when damage not fully blocked", () => {
         const combat = {
-          ...createCombatState([ENEMY_OROG_ARCHER]),
+          ...createCombatState([ENEMY_PROWLERS]),
           allDamageBlockedThisPhase: false,
         };
         const state = createTestGameState({ combat });
@@ -196,7 +196,7 @@ describe("Conditional Effects", () => {
 
       it("should return true when all damage blocked", () => {
         const combat = {
-          ...createCombatState([ENEMY_OROG_ARCHER]),
+          ...createCombatState([ENEMY_PROWLERS]),
           allDamageBlockedThisPhase: true,
         };
         const state = createTestGameState({ combat });
@@ -215,7 +215,7 @@ describe("Conditional Effects", () => {
       });
 
       it("should return false when no enemies defeated", () => {
-        const combat = createCombatState([ENEMY_OROG_ARCHER]);
+        const combat = createCombatState([ENEMY_PROWLERS]);
         const state = createTestGameState({ combat });
         const condition = { type: CONDITION_ENEMY_DEFEATED_THIS_COMBAT } as const;
 
@@ -224,12 +224,12 @@ describe("Conditional Effects", () => {
 
       it("should return true when an enemy is defeated", () => {
         const combat = {
-          ...createCombatState([ENEMY_OROG_ARCHER]),
+          ...createCombatState([ENEMY_PROWLERS]),
           enemies: [
             {
               instanceId: "enemy_0",
-              enemyId: ENEMY_OROG_ARCHER,
-              definition: { id: ENEMY_OROG_ARCHER, armor: 4, attack: 3 },
+              enemyId: ENEMY_PROWLERS,
+              definition: { id: ENEMY_PROWLERS, armor: 4, attack: 3 },
               isBlocked: false,
               isDefeated: true,
               damageAssigned: false,
@@ -344,7 +344,7 @@ describe("Conditional Effects", () => {
     });
 
     it("should work with ifInCombat helper", () => {
-      const combat = createCombatState([ENEMY_OROG_ARCHER]);
+      const combat = createCombatState([ENEMY_PROWLERS]);
       const state = createTestGameState({ combat });
       const effect = ifInCombat(attack(5), move(2));
 
@@ -375,7 +375,7 @@ describe("Conditional Effects", () => {
 
     it("should work with ifInPhase during combat", () => {
       const combat = {
-        ...createCombatState([ENEMY_OROG_ARCHER]),
+        ...createCombatState([ENEMY_PROWLERS]),
         phase: COMBAT_PHASE_ATTACK,
       };
       const state = createTestGameState({ combat });
@@ -414,7 +414,7 @@ describe("Conditional Effects", () => {
 
     it("should work with ifBlockedSuccessfully", () => {
       const combat = {
-        ...createCombatState([ENEMY_OROG_ARCHER]),
+        ...createCombatState([ENEMY_PROWLERS]),
         allDamageBlockedThisPhase: true,
       };
       const state = createTestGameState({ combat });
@@ -427,12 +427,12 @@ describe("Conditional Effects", () => {
 
     it("should work with ifEnemyDefeated", () => {
       const combat = {
-        ...createCombatState([ENEMY_OROG_ARCHER]),
+        ...createCombatState([ENEMY_PROWLERS]),
         enemies: [
           {
             instanceId: "enemy_0",
-            enemyId: ENEMY_OROG_ARCHER,
-            definition: { id: ENEMY_OROG_ARCHER, armor: 4, attack: 3 },
+            enemyId: ENEMY_PROWLERS,
+            definition: { id: ENEMY_PROWLERS, armor: 4, attack: 3 },
             isBlocked: false,
             isDefeated: true,
             damageAssigned: false,
