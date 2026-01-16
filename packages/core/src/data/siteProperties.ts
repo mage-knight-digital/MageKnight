@@ -180,6 +180,21 @@ export function getHealingCost(siteType: SiteType): number | null {
 }
 
 // =============================================================================
+// OFFER PURCHASE COSTS
+// =============================================================================
+
+/**
+ * Influence cost to buy a spell at a conquered Mage Tower.
+ */
+export const SPELL_PURCHASE_COST = 7;
+
+/**
+ * Influence cost to buy an Advanced Action at a Monastery.
+ * (The monastery reveals the top card of the AA deck when discovered)
+ */
+export const MONASTERY_AA_PURCHASE_COST = 6;
+
+// =============================================================================
 // CONQUEST REWARDS
 // =============================================================================
 

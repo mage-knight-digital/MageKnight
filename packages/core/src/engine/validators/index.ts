@@ -180,9 +180,11 @@ import {
 import {
   validateSpellInOffer,
   validateAtSpellSite,
-  validateHasManaForSpell,
+  validateHasInfluenceForSpell,
   validateAdvancedActionInOffer,
   validateAtAdvancedActionSite,
+  validateHasInfluenceForMonasteryAA,
+  validateInLevelUpContext,
 } from "./offerValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
@@ -411,7 +413,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateMustAnnounceEndOfRound,
     validateSpellInOffer,
     validateAtSpellSite,
-    validateHasManaForSpell,
+    validateHasInfluenceForSpell,
   ],
   [LEARN_ADVANCED_ACTION_ACTION]: [
     validateIsPlayersTurn,
@@ -421,6 +423,8 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateMustAnnounceEndOfRound,
     validateAdvancedActionInOffer,
     validateAtAdvancedActionSite,
+    validateHasInfluenceForMonasteryAA,
+    validateInLevelUpContext,
   ],
 };
 

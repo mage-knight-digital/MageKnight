@@ -37,7 +37,6 @@ import {
   type TacticId,
   type GladeWoundChoice,
   type BasicManaColor,
-  type ManaColor,
 } from "@mage-knight/shared";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import type { Command } from "../commands.js";
@@ -667,13 +666,9 @@ function createResolveDeepMineCommandFromAction(
 // Helper to get buy spell params from action
 function getBuySpellParams(
   action: PlayerAction
-): { cardId: CardId; manaPaid: ManaColor } | null {
-  if (
-    action.type === BUY_SPELL_ACTION &&
-    "cardId" in action &&
-    "manaPaid" in action
-  ) {
-    return { cardId: action.cardId, manaPaid: action.manaPaid };
+): { cardId: CardId } | null {
+  if (action.type === BUY_SPELL_ACTION && "cardId" in action) {
+    return { cardId: action.cardId };
   }
   return null;
 }
@@ -689,7 +684,6 @@ function createBuySpellCommandFromAction(
   return createBuySpellCommand({
     playerId,
     cardId: params.cardId,
-    manaPaid: params.manaPaid,
   });
 }
 

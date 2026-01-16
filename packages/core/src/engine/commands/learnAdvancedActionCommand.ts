@@ -1,21 +1,27 @@
 /**
  * Learn Advanced Action command
  *
- * Handles learning an advanced action from the offer:
- * - Removes the advanced action from the offer (regular or monastery)
- * - Adds the advanced action to the player's discard pile
+ * Handles learning an advanced action:
+ * - Monastery AA: Bought at non-burned Monastery for 6 influence
+ * - Regular AA: Gained as level-up reward (consumes pending reward)
+ *
+ * Both cases:
+ * - Removes the AA from the offer
+ * - Adds the AA to the player's discard pile
  * - Replenishes the offer from the deck (regular offer only)
  */
 
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
-import type { CardId, GameEvent } from "@mage-knight/shared";
+import type { CardId, GameEvent, SiteReward } from "@mage-knight/shared";
 import {
   ADVANCED_ACTION_GAINED,
   OFFER_CARD_TAKEN,
   OFFER_TYPE_ADVANCED_ACTIONS,
   OFFER_REFRESHED,
+  SITE_REWARD_ADVANCED_ACTION,
 } from "@mage-knight/shared";
+import { MONASTERY_AA_PURCHASE_COST } from "../../data/siteProperties.js";
 
 export const LEARN_ADVANCED_ACTION_COMMAND = "LEARN_ADVANCED_ACTION" as const;
 
@@ -82,6 +88,24 @@ function removeAAFromMonastery(
   };
 }
 
+/**
+ * Remove the first AA reward from pending rewards
+ */
+function consumeAAReward(
+  pendingRewards: readonly SiteReward[]
+): readonly SiteReward[] {
+  const rewardIndex = pendingRewards.findIndex(
+    (r) => r.type === SITE_REWARD_ADVANCED_ACTION
+  );
+  if (rewardIndex === -1) {
+    return pendingRewards;
+  }
+  return [
+    ...pendingRewards.slice(0, rewardIndex),
+    ...pendingRewards.slice(rewardIndex + 1),
+  ];
+}
+
 export function createLearnAdvancedActionCommand(
   params: LearnAdvancedActionCommandParams
 ): Command {
@@ -89,6 +113,8 @@ export function createLearnAdvancedActionCommand(
   let previousOffers: GameState["offers"] | null = null;
   let previousDecks: GameState["decks"] | null = null;
   let previousDiscard: readonly CardId[] = [];
+  let previousInfluencePoints = 0;
+  let previousPendingRewards: readonly SiteReward[] = [];
   let previousHasTakenAction = false;
 
   return {
@@ -113,14 +139,30 @@ export function createLearnAdvancedActionCommand(
       previousOffers = state.offers;
       previousDecks = state.decks;
       previousDiscard = player.discard;
+      previousInfluencePoints = player.influencePoints;
+      previousPendingRewards = player.pendingRewards;
       previousHasTakenAction = player.hasTakenActionThisTurn;
 
-      // Add advanced action to discard pile
-      const updatedPlayer = {
+      // Base update: add AA to discard pile
+      let updatedPlayer = {
         ...player,
         discard: [...player.discard, params.cardId],
         hasTakenActionThisTurn: true,
       };
+
+      if (params.fromMonastery) {
+        // Monastery AA: consume influence
+        updatedPlayer = {
+          ...updatedPlayer,
+          influencePoints: player.influencePoints - MONASTERY_AA_PURCHASE_COST,
+        };
+      } else {
+        // Level-up AA: consume pending reward
+        updatedPlayer = {
+          ...updatedPlayer,
+          pendingRewards: consumeAAReward(player.pendingRewards),
+        };
+      }
 
       const players = state.players.map((p, i) =>
         i === playerIndex ? updatedPlayer : p
@@ -193,6 +235,8 @@ export function createLearnAdvancedActionCommand(
       const updatedPlayer = {
         ...player,
         discard: previousDiscard,
+        influencePoints: previousInfluencePoints,
+        pendingRewards: previousPendingRewards,
         hasTakenActionThisTurn: previousHasTakenAction,
       };
 

@@ -1,28 +1,30 @@
 /**
  * Offer-related validators for spell purchase and advanced action learning
+ *
+ * RULES:
+ * - Spells: Bought at conquered Mage Towers for 7 influence
+ * - Monastery AAs: Bought at non-burned Monasteries for 6 influence
+ * - Regular AAs: Only gained through level-up rewards (not purchased)
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { PlayerAction, ManaColor } from "@mage-knight/shared";
+import type { PlayerAction } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import {
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
-  MANA_RED,
-  MANA_BLUE,
-  MANA_GREEN,
-  MANA_WHITE,
-  MANA_BLACK,
-  MANA_GOLD,
+  SITE_REWARD_ADVANCED_ACTION,
 } from "@mage-knight/shared";
 import {
   SPELL_NOT_IN_OFFER,
   NOT_AT_SPELL_SITE,
-  NO_MANA_FOR_SPELL,
+  INSUFFICIENT_INFLUENCE_FOR_SPELL,
   AA_NOT_IN_OFFER,
   NOT_AT_AA_SITE,
   AA_NOT_IN_MONASTERY_OFFER,
+  INSUFFICIENT_INFLUENCE_FOR_AA,
+  NOT_IN_LEVEL_UP_CONTEXT,
   NO_SITE,
   SITE_NOT_CONQUERED,
   MONASTERY_BURNED,
@@ -30,6 +32,10 @@ import {
 } from "./validationCodes.js";
 import { getPlayerSite } from "../helpers/siteHelpers.js";
 import { SiteType } from "../../types/map.js";
+import {
+  SPELL_PURCHASE_COST,
+  MONASTERY_AA_PURCHASE_COST,
+} from "../../data/siteProperties.js";
 
 // === Spell Purchase Validators ===
 
@@ -51,8 +57,8 @@ export function validateSpellInOffer(
 }
 
 /**
- * Validate player is at a site that allows spell purchases
- * Spells can be bought at Mage Towers (conquered) or Monasteries (not burned)
+ * Validate player is at a conquered Mage Tower.
+ * Spells can ONLY be bought at Mage Towers (not Monasteries).
  */
 export function validateAtSpellSite(
   state: GameState,
@@ -64,35 +70,29 @@ export function validateAtSpellSite(
   const site = getPlayerSite(state, playerId);
 
   if (!site) {
-    return invalid(NO_SITE, "You must be at a site to buy spells");
+    return invalid(NO_SITE, "You must be at a Mage Tower to buy spells");
   }
 
-  // Check if site type allows spell purchases
-  if (site.type !== SiteType.MageTower && site.type !== SiteType.Monastery) {
+  // Spells can ONLY be bought at Mage Towers
+  if (site.type !== SiteType.MageTower) {
     return invalid(
       NOT_AT_SPELL_SITE,
-      "Spells can only be bought at Mage Towers or Monasteries"
+      "Spells can only be bought at Mage Towers"
     );
   }
 
   // Mage Tower must be conquered
-  if (site.type === SiteType.MageTower && !site.isConquered) {
+  if (!site.isConquered) {
     return invalid(SITE_NOT_CONQUERED, "You must conquer this Mage Tower first");
-  }
-
-  // Monastery must not be burned
-  if (site.type === SiteType.Monastery && site.isBurned) {
-    return invalid(MONASTERY_BURNED, "Cannot buy spells from a burned monastery");
   }
 
   return valid();
 }
 
 /**
- * Validate player has mana of the specified color to pay for the spell
- * Spells cost one mana of the specified color
+ * Validate player has enough influence to buy a spell (costs 7 influence)
  */
-export function validateHasManaForSpell(
+export function validateHasInfluenceForSpell(
   state: GameState,
   playerId: string,
   action: PlayerAction
@@ -104,45 +104,14 @@ export function validateHasManaForSpell(
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
-  const color = action.manaPaid;
-
-  // Check mana tokens
-  const hasToken = player.pureMana.some((t) => t.color === color);
-  if (hasToken) return valid();
-
-  // Check crystals (basic colors only)
-  const basicColors: ManaColor[] = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE];
-  if (basicColors.includes(color)) {
-    const crystalCount = player.crystals[color as keyof typeof player.crystals];
-    if (crystalCount > 0) return valid();
-  }
-
-  // Check mana dice from source
-  const availableDie = state.source.dice.find(
-    (d) => d.color === color && d.takenByPlayerId === null && !d.isDepleted
-  );
-  if (availableDie) return valid();
-
-  // Special: gold can come from gold die
-  if (color === MANA_GOLD) {
-    const goldDie = state.source.dice.find(
-      (d) => d.color === MANA_GOLD && d.takenByPlayerId === null && !d.isDepleted
+  if (player.influencePoints < SPELL_PURCHASE_COST) {
+    return invalid(
+      INSUFFICIENT_INFLUENCE_FOR_SPELL,
+      `You need ${SPELL_PURCHASE_COST} influence to buy a spell (have ${player.influencePoints})`
     );
-    if (goldDie) return valid();
   }
 
-  // Special: black mana (night only normally, but dungeon overrides)
-  if (color === MANA_BLACK) {
-    const blackDie = state.source.dice.find(
-      (d) => d.color === MANA_BLACK && d.takenByPlayerId === null && !d.isDepleted
-    );
-    if (blackDie) return valid();
-  }
-
-  return invalid(
-    NO_MANA_FOR_SPELL,
-    `You need ${color} mana to buy this spell`
-  );
+  return valid();
 }
 
 // === Advanced Action Learning Validators ===
@@ -179,9 +148,9 @@ export function validateAdvancedActionInOffer(
 }
 
 /**
- * Validate player is at a site that allows learning advanced actions
- * Regular AA offer: at Mage Tower (conquered)
- * Monastery AA offer: at Monastery (not burned)
+ * Validate player is at a valid site for learning advanced actions.
+ * - Monastery AAs: Must be at a non-burned Monastery
+ * - Regular AAs: No site requirement (gained through level-up)
  */
 export function validateAtAdvancedActionSite(
   state: GameState,
@@ -190,42 +159,96 @@ export function validateAtAdvancedActionSite(
 ): ValidationResult {
   if (action.type !== LEARN_ADVANCED_ACTION_ACTION) return valid();
 
+  // Regular AAs (from level-up) don't require being at a specific site
+  if (!action.fromMonastery) {
+    return valid();
+  }
+
+  // Monastery AAs require being at a monastery
   const site = getPlayerSite(state, playerId);
 
   if (!site) {
-    return invalid(NO_SITE, "You must be at a site to learn advanced actions");
+    return invalid(NO_SITE, "You must be at a Monastery to buy advanced actions");
   }
 
+  if (site.type !== SiteType.Monastery) {
+    return invalid(
+      NOT_AT_AA_SITE,
+      "Monastery advanced actions can only be bought at a Monastery"
+    );
+  }
+
+  if (site.isBurned) {
+    return invalid(
+      MONASTERY_BURNED,
+      "Cannot buy advanced actions from a burned monastery"
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate player has enough influence for monastery AA purchase (costs 6 influence)
+ */
+export function validateHasInfluenceForMonasteryAA(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== LEARN_ADVANCED_ACTION_ACTION) return valid();
+
+  // Only monastery AAs cost influence
+  if (!action.fromMonastery) {
+    return valid();
+  }
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
+  if (player.influencePoints < MONASTERY_AA_PURCHASE_COST) {
+    return invalid(
+      INSUFFICIENT_INFLUENCE_FOR_AA,
+      `You need ${MONASTERY_AA_PURCHASE_COST} influence to buy an advanced action (have ${player.influencePoints})`
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate that regular AA selection is part of a level-up reward.
+ * Regular AAs from the offer can only be taken as level-up rewards, not purchased.
+ */
+export function validateInLevelUpContext(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== LEARN_ADVANCED_ACTION_ACTION) return valid();
+
+  // Monastery AAs are purchased, not level-up rewards
   if (action.fromMonastery) {
-    // Must be at a monastery for monastery advanced actions
-    if (site.type !== SiteType.Monastery) {
-      return invalid(
-        NOT_AT_AA_SITE,
-        "Monastery advanced actions can only be learned at a Monastery"
-      );
-    }
+    return valid();
+  }
 
-    if (site.isBurned) {
-      return invalid(
-        MONASTERY_BURNED,
-        "Cannot learn advanced actions from a burned monastery"
-      );
-    }
-  } else {
-    // Regular advanced actions require being at a Mage Tower
-    if (site.type !== SiteType.MageTower) {
-      return invalid(
-        NOT_AT_AA_SITE,
-        "Advanced actions can only be learned at Mage Towers"
-      );
-    }
+  // Regular AAs require a pending level-up reward that offers AA selection
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
 
-    if (!site.isConquered) {
-      return invalid(
-        SITE_NOT_CONQUERED,
-        "You must conquer this Mage Tower first"
-      );
-    }
+  const hasAAReward = player.pendingRewards.some(
+    (reward) => reward.type === SITE_REWARD_ADVANCED_ACTION
+  );
+
+  if (!hasAAReward) {
+    return invalid(
+      NOT_IN_LEVEL_UP_CONTEXT,
+      "Advanced actions can only be selected as level-up rewards"
+    );
   }
 
   return valid();

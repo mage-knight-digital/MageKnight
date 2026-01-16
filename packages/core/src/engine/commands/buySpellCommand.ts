@@ -1,36 +1,30 @@
 /**
  * Buy Spell command
  *
- * Handles purchasing a spell from the spell offer:
- * - Consumes mana of the specified color
+ * Handles purchasing a spell from the spell offer at a conquered Mage Tower:
+ * - Costs 7 influence points
  * - Removes the spell from the offer
  * - Adds the spell to the player's discard pile
  * - Replenishes the offer from the spell deck
  */
 
 import type { Command, CommandResult } from "../commands.js";
-import type { GameState, ManaSource } from "../../state/GameState.js";
-import type { CardId, ManaColor, GameEvent } from "@mage-knight/shared";
-import type { ManaToken } from "../../types/player.js";
-import type { SourceDieId } from "../../types/mana.js";
+import type { GameState } from "../../state/GameState.js";
+import type { CardId, GameEvent } from "@mage-knight/shared";
 import {
   CARD_GAINED,
   CARD_GAIN_SOURCE_OFFER,
   OFFER_CARD_TAKEN,
   OFFER_TYPE_SPELLS,
   OFFER_REFRESHED,
-  MANA_RED,
-  MANA_BLUE,
-  MANA_GREEN,
-  MANA_WHITE,
 } from "@mage-knight/shared";
+import { SPELL_PURCHASE_COST } from "../../data/siteProperties.js";
 
 export const BUY_SPELL_COMMAND = "BUY_SPELL" as const;
 
 export interface BuySpellCommandParams {
   readonly playerId: string;
   readonly cardId: CardId;
-  readonly manaPaid: ManaColor;
 }
 
 /**
@@ -80,17 +74,8 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
   let previousOffers: GameState["offers"] | null = null;
   let previousDecks: GameState["decks"] | null = null;
   let previousDiscard: readonly CardId[] = [];
+  let previousInfluencePoints = 0;
   let previousHasTakenAction = false;
-  let consumedManaToken: ManaToken | null = null;
-  let consumedCrystalColor: keyof typeof crystalColors | null = null;
-  let consumedDieId: SourceDieId | null = null;
-
-  const crystalColors = {
-    [MANA_RED]: "red" as const,
-    [MANA_BLUE]: "blue" as const,
-    [MANA_GREEN]: "green" as const,
-    [MANA_WHITE]: "white" as const,
-  };
 
   return {
     type: BUY_SPELL_COMMAND,
@@ -114,64 +99,14 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
       previousOffers = state.offers;
       previousDecks = state.decks;
       previousDiscard = player.discard;
+      previousInfluencePoints = player.influencePoints;
       previousHasTakenAction = player.hasTakenActionThisTurn;
 
-      // Find and consume mana source
-      let updatedPlayer = { ...player };
-      let updatedSource: ManaSource = state.source;
-
-      // Try mana tokens first
-      const tokenIndex = player.pureMana.findIndex(
-        (t) => t.color === params.manaPaid
-      );
-      if (tokenIndex !== -1) {
-        consumedManaToken = player.pureMana[tokenIndex] ?? null;
-        updatedPlayer = {
-          ...updatedPlayer,
-          pureMana: [
-            ...player.pureMana.slice(0, tokenIndex),
-            ...player.pureMana.slice(tokenIndex + 1),
-          ],
-        };
-      } else {
-        // Try crystals (basic colors only)
-        const crystalKey = crystalColors[params.manaPaid as keyof typeof crystalColors];
-        if (crystalKey && player.crystals[crystalKey] > 0) {
-          consumedCrystalColor = params.manaPaid as keyof typeof crystalColors;
-          updatedPlayer = {
-            ...updatedPlayer,
-            crystals: {
-              ...player.crystals,
-              [crystalKey]: player.crystals[crystalKey] - 1,
-            },
-          };
-        } else {
-          // Try mana die from source
-          const dieIndex = state.source.dice.findIndex(
-            (d) =>
-              d.color === params.manaPaid &&
-              d.takenByPlayerId === null &&
-              !d.isDepleted
-          );
-          if (dieIndex !== -1) {
-            const die = state.source.dice[dieIndex];
-            if (die) {
-              consumedDieId = die.id;
-              updatedSource = {
-                ...state.source,
-                dice: state.source.dice.map((d, i) =>
-                  i === dieIndex ? { ...d, takenByPlayerId: params.playerId } : d
-                ),
-              };
-            }
-          }
-        }
-      }
-
-      // Add spell to discard pile
-      updatedPlayer = {
-        ...updatedPlayer,
-        discard: [...updatedPlayer.discard, params.cardId],
+      // Consume influence and add spell to discard pile
+      const updatedPlayer = {
+        ...player,
+        influencePoints: player.influencePoints - SPELL_PURCHASE_COST,
+        discard: [...player.discard, params.cardId],
         hasTakenActionThisTurn: true,
       };
 
@@ -213,7 +148,6 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
           players,
           offers,
           decks,
-          source: updatedSource,
         },
         events,
       };
@@ -233,37 +167,12 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
       }
 
       // Restore player state
-      let updatedPlayer = {
+      const updatedPlayer = {
         ...player,
         discard: previousDiscard,
+        influencePoints: previousInfluencePoints,
         hasTakenActionThisTurn: previousHasTakenAction,
       };
-
-      // Restore mana source
-      let updatedSource: ManaSource = state.source;
-
-      if (consumedManaToken) {
-        updatedPlayer = {
-          ...updatedPlayer,
-          pureMana: [...updatedPlayer.pureMana, consumedManaToken],
-        };
-      } else if (consumedCrystalColor) {
-        const crystalKey = crystalColors[consumedCrystalColor];
-        updatedPlayer = {
-          ...updatedPlayer,
-          crystals: {
-            ...updatedPlayer.crystals,
-            [crystalKey]: updatedPlayer.crystals[crystalKey] + 1,
-          },
-        };
-      } else if (consumedDieId) {
-        updatedSource = {
-          ...state.source,
-          dice: state.source.dice.map((d) =>
-            d.id === consumedDieId ? { ...d, takenByPlayerId: null } : d
-          ),
-        };
-      }
 
       const players = state.players.map((p, i) =>
         i === playerIndex ? updatedPlayer : p
@@ -275,7 +184,6 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
           players,
           offers: previousOffers ?? state.offers,
           decks: previousDecks ?? state.decks,
-          source: updatedSource,
         },
         events: [],
       };
