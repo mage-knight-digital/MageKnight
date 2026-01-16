@@ -159,10 +159,13 @@ export interface DisbandUnitAction {
 }
 
 export const BUY_SPELL_ACTION = "BUY_SPELL" as const;
+/**
+ * Buy a spell from the spell offer at a conquered Mage Tower.
+ * Costs 7 influence points.
+ */
 export interface BuySpellAction {
   readonly type: typeof BUY_SPELL_ACTION;
   readonly cardId: CardId;
-  readonly manaPaid: ManaColor;
 }
 
 export const LEARN_ADVANCED_ACTION_ACTION = "LEARN_ADVANCED_ACTION" as const;

@@ -139,6 +139,18 @@ export const GLADE_WOUND_NO_WOUNDS_IN_DISCARD = "GLADE_WOUND_NO_WOUNDS_IN_DISCAR
 export const DEEP_MINE_CHOICE_REQUIRED = "DEEP_MINE_CHOICE_REQUIRED" as const;
 export const DEEP_MINE_INVALID_COLOR = "DEEP_MINE_INVALID_COLOR" as const;
 
+// Spell purchase validation codes
+export const SPELL_NOT_IN_OFFER = "SPELL_NOT_IN_OFFER" as const;
+export const NOT_AT_SPELL_SITE = "NOT_AT_SPELL_SITE" as const;
+export const INSUFFICIENT_INFLUENCE_FOR_SPELL = "INSUFFICIENT_INFLUENCE_FOR_SPELL" as const;
+
+// Advanced action learning validation codes
+export const AA_NOT_IN_OFFER = "AA_NOT_IN_OFFER" as const;
+export const NOT_AT_AA_SITE = "NOT_AT_AA_SITE" as const;
+export const AA_NOT_IN_MONASTERY_OFFER = "AA_NOT_IN_MONASTERY_OFFER" as const;
+export const INSUFFICIENT_INFLUENCE_FOR_AA = "INSUFFICIENT_INFLUENCE_FOR_AA" as const;
+export const NOT_IN_LEVEL_UP_CONTEXT = "NOT_IN_LEVEL_UP_CONTEXT" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -249,4 +261,14 @@ export type ValidationErrorCode =
   | typeof GLADE_WOUND_NO_WOUNDS_IN_DISCARD
   // Deep Mine validation
   | typeof DEEP_MINE_CHOICE_REQUIRED
-  | typeof DEEP_MINE_INVALID_COLOR;
+  | typeof DEEP_MINE_INVALID_COLOR
+  // Spell purchase validation
+  | typeof SPELL_NOT_IN_OFFER
+  | typeof NOT_AT_SPELL_SITE
+  | typeof INSUFFICIENT_INFLUENCE_FOR_SPELL
+  // Advanced action learning validation
+  | typeof AA_NOT_IN_OFFER
+  | typeof NOT_AT_AA_SITE
+  | typeof AA_NOT_IN_MONASTERY_OFFER
+  | typeof INSUFFICIENT_INFLUENCE_FOR_AA
+  | typeof NOT_IN_LEVEL_UP_CONTEXT;

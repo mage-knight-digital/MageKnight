@@ -1,5 +1,9 @@
 # Offer View Design Plan
 
+> **Backend Status**: The `BUY_SPELL` and `LEARN_ADVANCED_ACTION` commands are implemented.
+> See `docs/tickets/spell-aa-purchase-commands.md` for details.
+> This document covers the remaining **UI work**.
+
 ## The Fantasy
 
 In Mage Knight, you're seated at a table with the map spread before you. The offers aren't UI elements - they're physical card rows laid out on the table, just beyond the map. When you "look up" (press W from board view), you lift your gaze from the hex tiles to the merchandise the game is presenting.
@@ -225,9 +229,10 @@ packages/client/src/components/OffersBar/           # Entire directory (after mi
 
 ### Acquiring Cards
 
-Same action types already exist:
-- `RECRUIT_UNIT_ACTION` for units
-- Spell/AA acquisition actions (verify these exist)
+Action types implemented:
+- `RECRUIT_UNIT_ACTION` for units ✅
+- `BUY_SPELL_ACTION` for spells at Mage Towers (7 influence) ✅
+- `LEARN_ADVANCED_ACTION_ACTION` for AAs (monastery: 6 influence, level-up: free) ✅
 
 The offer view shows acquire buttons only when `validActions` permits:
 - During level-up reward selection (spell or AA choice)
