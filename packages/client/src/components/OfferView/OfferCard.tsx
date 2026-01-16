@@ -27,7 +27,7 @@ export interface OfferCardProps {
 
 /**
  * Generate a pseudo-random rotation based on card ID and index.
- * Range: -1.5° to +1.5° (very subtle tilt on hover)
+ * Range: -2° to +2° (subtle tilt on hover), never exactly 0
  */
 function getHoverRotation(cardId: string, index: number): number {
   // Simple hash of card ID + index for consistent rotation
@@ -39,10 +39,12 @@ function getHoverRotation(cardId: string, index: number): number {
     hash = hash & hash; // Convert to 32bit integer
   }
 
-  // Ensure positive value, then map to -1.5 to +1.5 range
+  // Map to rotation values, ensuring we never get exactly 0
   const positive = Math.abs(hash);
-  const normalized = (positive % 30) / 10 - 1.5; // 0-29 -> 0-2.9 -> -1.5 to +1.4
-  return Math.round(normalized * 10) / 10; // Round to 1 decimal
+  const sign = hash >= 0 ? 1 : -1;
+  // Range 0.5 to 2.0 degrees, then apply sign
+  const magnitude = 0.5 + (positive % 16) / 10; // 0.5 to 2.0
+  return Math.round(sign * magnitude * 10) / 10;
 }
 
 export function OfferCard({
