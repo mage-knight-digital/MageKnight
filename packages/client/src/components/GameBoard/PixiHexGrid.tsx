@@ -1,18 +1,25 @@
 /**
  * PixiJS-based hex grid renderer
  *
- * Phase 1: Basic static rendering
- * - Initialize PixiJS Application
- * - Render tiles, hexes, hero, enemies
- * - No animations or interactions yet
+ * Phase 1: Basic static rendering ✓
+ * Phase 2: Interactivity (click, hover, path preview)
  */
 
-import { useEffect, useRef, useState } from "react";
-import { Application, Container, Sprite, Graphics, Assets, Texture } from "pixi.js";
-import type { HexCoord, ClientHexState, ClientGameState } from "@mage-knight/shared";
-import { hexKey } from "@mage-knight/shared";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { Application, Container, Sprite, Graphics, Assets, Texture, Text, TextStyle } from "pixi.js";
+import type {
+  HexCoord,
+  ClientHexState,
+  ClientGameState,
+  MoveTarget,
+  ReachableHex,
+  HexDirection,
+} from "@mage-knight/shared";
+import { hexKey, MOVE_ACTION, EXPLORE_ACTION, getAllNeighbors } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useGameIntro } from "../../contexts/GameIntroContext";
+import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import {
   getTileImageUrl,
   getEnemyImageUrl,
@@ -30,6 +37,95 @@ import {
   type WorldLayers,
   type PixelPosition,
 } from "./pixi/types";
+
+// Movement highlight types
+type MoveHighlightType = "none" | "adjacent" | "reachable" | "terminal";
+
+interface MoveHighlight {
+  type: MoveHighlightType;
+  cost?: number;
+}
+
+// Explore target with direction info
+interface ExploreTarget {
+  coord: HexCoord;
+  direction: HexDirection;
+  fromTileCoord: HexCoord;
+}
+
+// Colors for movement highlights
+const HIGHLIGHT_COLORS: Record<string, number> = {
+  adjacent: 0x00ff00,    // Green - safe move
+  reachable: 0x00ff00,   // Green - safe multi-hop
+  terminal: 0xffa500,    // Orange - triggers combat
+  hover: 0xffffff,       // White - hover highlight
+  none: 0x000000,        // Black - no highlight
+};
+
+/**
+ * Simple A* pathfinding for path preview visualization.
+ */
+function findPath(
+  start: HexCoord,
+  end: HexCoord,
+  reachableHexes: readonly ReachableHex[],
+  adjacentTargets: readonly MoveTarget[]
+): HexCoord[] {
+  const reachableMap = new Map<string, { cost: number; isTerminal: boolean }>();
+  for (const r of reachableHexes) {
+    reachableMap.set(hexKey(r.hex), { cost: r.totalCost, isTerminal: r.isTerminal });
+  }
+  for (const t of adjacentTargets) {
+    reachableMap.set(hexKey(t.hex), { cost: t.cost, isTerminal: t.isTerminal ?? false });
+  }
+
+  const endKey = hexKey(end);
+  if (!reachableMap.has(endKey)) {
+    return [];
+  }
+
+  type Node = { f: number; g: number; coord: HexCoord; path: HexCoord[] };
+
+  const heuristic = (a: HexCoord, b: HexCoord): number => {
+    return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
+  };
+
+  const startKey = hexKey(start);
+  const openSet: Node[] = [{ f: heuristic(start, end), g: 0, coord: start, path: [start] }];
+  const visited = new Set<string>([startKey]);
+
+  while (openSet.length > 0) {
+    openSet.sort((a, b) => a.f - b.f);
+    const current = openSet.shift()!;
+    const currentKey = hexKey(current.coord);
+
+    if (currentKey === endKey) {
+      return current.path;
+    }
+
+    // Don't expand from terminal hexes (except start)
+    const currentData = reachableMap.get(currentKey);
+    if (currentData?.isTerminal && currentKey !== startKey) {
+      continue;
+    }
+
+    const neighbors = getAllNeighbors(current.coord);
+    for (const neighbor of neighbors) {
+      const neighborKey = hexKey(neighbor);
+      if (visited.has(neighborKey)) continue;
+
+      const neighborData = reachableMap.get(neighborKey);
+      if (!neighborData) continue;
+
+      visited.add(neighborKey);
+      const g = current.g + 1;
+      const f = g + heuristic(neighbor, end);
+      openSet.push({ f, g, coord: neighbor, path: [...current.path, neighbor] });
+    }
+  }
+
+  return [];
+}
 
 /**
  * Draw a hex polygon on a Graphics object
@@ -59,7 +155,6 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
   const world = new Container();
   world.label = "world";
 
-  // Create layers in render order (back to front)
   const layers: WorldLayers = {
     tiles: new Container(),
     hexOverlays: new Container(),
@@ -70,7 +165,6 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
     ui: new Container(),
   };
 
-  // Set labels for debugging
   layers.tiles.label = "tiles";
   layers.hexOverlays.label = "hexOverlays";
   layers.pathPreview.label = "pathPreview";
@@ -79,7 +173,6 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
   layers.ghostHexes.label = "ghostHexes";
   layers.ui.label = "ui";
 
-  // Add layers to world in order
   world.addChild(layers.tiles);
   world.addChild(layers.hexOverlays);
   world.addChild(layers.pathPreview);
@@ -95,11 +188,9 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
  * Load a texture with caching
  */
 async function loadTexture(url: string): Promise<Texture> {
-  // Check if already loaded
   if (Assets.cache.has(url)) {
     return Assets.get(url);
   }
-  // Load and cache
   return Assets.load(url);
 }
 
@@ -110,7 +201,6 @@ async function renderTiles(
   layers: WorldLayers,
   tiles: ClientGameState["map"]["tiles"]
 ): Promise<void> {
-  // Clear existing tiles
   layers.tiles.removeChildren();
 
   for (const tile of tiles) {
@@ -121,14 +211,10 @@ async function renderTiles(
       const texture = await loadTexture(imageUrl);
       const sprite = new Sprite(texture);
 
-      // Center the sprite on the tile center
       sprite.anchor.set(0.5, 0.5);
       sprite.position.set(x, y);
-
-      // Scale to match expected tile dimensions
       sprite.width = TILE_WIDTH;
       sprite.height = TILE_HEIGHT;
-
       sprite.label = `tile-${tile.tileId}`;
       layers.tiles.addChild(sprite);
     } catch (error) {
@@ -138,35 +224,144 @@ async function renderTiles(
 }
 
 /**
- * Render hex overlays (transparent polygons for hit detection)
+ * Render interactive hex overlays with movement highlights
  */
 function renderHexOverlays(
   layers: WorldLayers,
-  hexes: Record<string, ClientHexState>
+  hexes: Record<string, ClientHexState>,
+  getHighlight: (coord: HexCoord) => MoveHighlight,
+  hoveredHex: HexCoord | null,
+  onHexClick: (coord: HexCoord) => void,
+  onHexHover: (coord: HexCoord | null) => void
 ): void {
-  // Clear existing overlays
   layers.hexOverlays.removeChildren();
 
   for (const hex of Object.values(hexes)) {
     const { x, y } = hexToPixel(hex.coord);
+    const highlight = getHighlight(hex.coord);
+    const isHovered = hoveredHex && hoveredHex.q === hex.coord.q && hoveredHex.r === hex.coord.r;
 
     const graphics = new Graphics();
     graphics.label = `hex-${hexKey(hex.coord)}`;
 
-    // Draw transparent hex for hit detection
-    drawHexPolygon(
-      graphics,
-      { x, y },
-      HEX_SIZE * 0.95,
-      0x000000, // fill color (won't be visible due to alpha)
-      0.01,    // fill alpha (nearly transparent but still interactive)
-      0x666666, // stroke color
-      1,       // stroke width
-      0.3      // stroke alpha
-    );
+    // Determine fill based on highlight type
+    let fillColor = 0x000000;
+    let fillAlpha = 0.01;
+    let strokeColor = 0x666666;
+    let strokeAlpha = 0.3;
+
+    if (highlight.type !== "none") {
+      fillColor = HIGHLIGHT_COLORS[highlight.type] ?? 0x00ff00;
+      fillAlpha = isHovered ? 0.4 : 0.2;
+      strokeColor = HIGHLIGHT_COLORS[highlight.type] ?? 0x00ff00;
+      strokeAlpha = 0.8;
+    } else if (isHovered) {
+      fillAlpha = 0.1;
+      strokeColor = HIGHLIGHT_COLORS["hover"] ?? 0xffffff;
+      strokeAlpha = 0.5;
+    }
+
+    drawHexPolygon(graphics, { x, y }, HEX_SIZE * 0.95, fillColor, fillAlpha, strokeColor, 1, strokeAlpha);
+
+    // Make interactive
+    graphics.eventMode = "static";
+    graphics.cursor = highlight.type !== "none" ? "pointer" : "default";
+
+    // Store coord for event handlers
+    const coord = hex.coord;
+    graphics.on("pointerdown", () => onHexClick(coord));
+    graphics.on("pointerenter", () => onHexHover(coord));
+    graphics.on("pointerleave", () => onHexHover(null));
 
     layers.hexOverlays.addChild(graphics);
+
+    // Add cost badge if there's a movement cost
+    if (highlight.cost !== undefined && highlight.cost > 0) {
+      const badgeX = x;
+      const badgeY = y + HEX_SIZE * 0.5;
+
+      // Badge background
+      const badge = new Graphics();
+      badge.circle(badgeX, badgeY, 12);
+      badge.fill({ color: HIGHLIGHT_COLORS[highlight.type], alpha: 0.9 });
+      badge.stroke({ color: 0x000000, width: 1, alpha: 0.5 });
+      layers.hexOverlays.addChild(badge);
+
+      // Cost text
+      const style = new TextStyle({
+        fontSize: 14,
+        fontWeight: "bold",
+        fill: 0x000000,
+      });
+      const costText = new Text({ text: String(highlight.cost), style });
+      costText.anchor.set(0.5, 0.5);
+      costText.position.set(badgeX, badgeY);
+      layers.hexOverlays.addChild(costText);
+    }
   }
+}
+
+/**
+ * Render path preview line
+ */
+function renderPathPreview(
+  layers: WorldLayers,
+  path: HexCoord[],
+  isTerminal: boolean
+): void {
+  layers.pathPreview.removeChildren();
+
+  if (path.length < 2) return;
+
+  const graphics = new Graphics();
+  graphics.label = "path-line";
+
+  const color = isTerminal ? 0xffa500 : 0x00ff00;
+
+  // Draw path line
+  const points = path.map((coord) => hexToPixel(coord));
+  const firstPoint = points[0];
+  if (!firstPoint) return;
+
+  // Outer glow
+  graphics.moveTo(firstPoint.x, firstPoint.y);
+  for (let i = 1; i < points.length; i++) {
+    const pt = points[i];
+    if (pt) graphics.lineTo(pt.x, pt.y);
+  }
+  graphics.stroke({ color: 0x000000, width: 8, alpha: 0.5 });
+
+  // Main line
+  graphics.moveTo(firstPoint.x, firstPoint.y);
+  for (let i = 1; i < points.length; i++) {
+    const pt = points[i];
+    if (pt) graphics.lineTo(pt.x, pt.y);
+  }
+  graphics.stroke({ color, width: 4, alpha: 1 });
+
+  // Arrow at the end
+  if (points.length >= 2) {
+    const last = points[points.length - 1];
+    const prev = points[points.length - 2];
+    if (last && prev) {
+      const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+      const arrowSize = 12;
+
+      graphics.moveTo(last.x, last.y);
+      graphics.lineTo(
+        last.x - arrowSize * Math.cos(angle - Math.PI / 6),
+        last.y - arrowSize * Math.sin(angle - Math.PI / 6)
+      );
+      graphics.moveTo(last.x, last.y);
+      graphics.lineTo(
+        last.x - arrowSize * Math.cos(angle + Math.PI / 6),
+        last.y - arrowSize * Math.sin(angle + Math.PI / 6)
+      );
+      graphics.stroke({ color, width: 4, alpha: 1 });
+    }
+  }
+
+  layers.pathPreview.addChild(graphics);
 }
 
 /**
@@ -176,7 +371,6 @@ async function renderEnemies(
   layers: WorldLayers,
   hexes: Record<string, ClientHexState>
 ): Promise<void> {
-  // Clear existing enemies
   layers.enemies.removeChildren();
 
   for (const hex of Object.values(hexes)) {
@@ -190,7 +384,6 @@ async function renderEnemies(
 
       const offset = getEnemyOffset(i, hex.enemies.length, ENEMY_TOKEN_SIZE);
 
-      // Get the appropriate image URL
       let imageUrl: string;
       if (enemy.isRevealed && enemy.tokenId) {
         const enemyId = tokenIdToEnemyId(enemy.tokenId);
@@ -204,27 +397,21 @@ async function renderEnemies(
         const texture = await loadTexture(imageUrl);
         const sprite = new Sprite(texture);
 
-        // Position relative to hex center
         sprite.anchor.set(0.5, 0.5);
         sprite.position.set(hexCenter.x + offset.x, hexCenter.y + offset.y);
-
-        // Size the token
         sprite.width = ENEMY_TOKEN_SIZE;
         sprite.height = ENEMY_TOKEN_SIZE;
 
-        // Create circular mask
         const mask = new Graphics();
         mask.circle(hexCenter.x + offset.x, hexCenter.y + offset.y, ENEMY_TOKEN_SIZE / 2);
         mask.fill({ color: 0xffffff });
         sprite.mask = mask;
 
-        // Add mask to container so it renders
         const enemyContainer = new Container();
         enemyContainer.label = `enemy-${hexKey(hex.coord)}-${i}`;
         enemyContainer.addChild(mask);
         enemyContainer.addChild(sprite);
 
-        // Add subtle border
         const border = new Graphics();
         border.circle(hexCenter.x + offset.x, hexCenter.y + offset.y, ENEMY_TOKEN_SIZE / 2);
         border.stroke({ color: 0x000000, width: 1, alpha: 0.5 });
@@ -241,11 +428,7 @@ async function renderEnemies(
 /**
  * Render the hero token
  */
-function renderHero(
-  layers: WorldLayers,
-  position: HexCoord | null
-): void {
-  // Clear existing hero
+function renderHero(layers: WorldLayers, position: HexCoord | null): void {
   layers.hero.removeChildren();
 
   if (!position) return;
@@ -255,7 +438,6 @@ function renderHero(
   const heroGraphics = new Graphics();
   heroGraphics.label = "hero-token";
 
-  // Red circle with white stroke (matching SVG version)
   heroGraphics
     .circle(x, y, HERO_TOKEN_RADIUS)
     .fill({ color: 0xff4444 })
@@ -265,13 +447,13 @@ function renderHero(
 }
 
 /**
- * Render ghost hexes for exploration targets
+ * Render ghost hexes for exploration targets with click handling
  */
 function renderGhostHexes(
   layers: WorldLayers,
-  exploreTargets: Array<{ coord: HexCoord }>
+  exploreTargets: ExploreTarget[],
+  onExploreClick: (target: ExploreTarget) => void
 ): void {
-  // Clear existing ghost hexes
   layers.ghostHexes.removeChildren();
 
   for (const target of exploreTargets) {
@@ -280,8 +462,6 @@ function renderGhostHexes(
     const graphics = new Graphics();
     graphics.label = `ghost-${hexKey(target.coord)}`;
 
-    // Dashed border hex (approximated with solid for Phase 1)
-    // TODO: Add dashed line support in Phase 2
     const vertices = getHexVertices(HEX_SIZE * 0.95);
 
     graphics
@@ -289,35 +469,32 @@ function renderGhostHexes(
       .fill({ color: 0x6495ed, alpha: 0.2 })
       .stroke({ color: 0x4169e1, width: 2, alpha: 0.8 });
 
-    // Question mark text (placeholder - PixiJS text requires more setup)
-    // TODO: Add text rendering in Phase 2
+    // Make interactive
+    graphics.eventMode = "static";
+    graphics.cursor = "pointer";
+    graphics.on("pointerdown", () => onExploreClick(target));
+
+    // Hover effect
+    graphics.on("pointerenter", () => {
+      graphics.alpha = 1.2;
+    });
+    graphics.on("pointerleave", () => {
+      graphics.alpha = 1.0;
+    });
 
     layers.ghostHexes.addChild(graphics);
-  }
-}
 
-/**
- * Main render function - updates all layers based on game state
- */
-async function renderGameState(
-  layers: WorldLayers,
-  state: ClientGameState,
-  heroPosition: HexCoord | null
-): Promise<void> {
-  // Extract explore targets from validActions
-  const exploreTargets: Array<{ coord: HexCoord }> = [];
-  if (state.validActions.explore) {
-    for (const exploreDir of state.validActions.explore.directions) {
-      exploreTargets.push({ coord: exploreDir.targetCoord });
-    }
+    // Add "?" text
+    const style = new TextStyle({
+      fontSize: 24,
+      fontWeight: "bold",
+      fill: 0x4169e1,
+    });
+    const questionMark = new Text({ text: "?", style });
+    questionMark.anchor.set(0.5, 0.5);
+    questionMark.position.set(x, y);
+    layers.ghostHexes.addChild(questionMark);
   }
-
-  // Render all layers (tiles async, others sync)
-  await renderTiles(layers, state.map.tiles);
-  renderHexOverlays(layers, state.map.hexes);
-  await renderEnemies(layers, state.map.hexes);
-  renderHero(layers, heroPosition);
-  renderGhostHexes(layers, exploreTargets);
 }
 
 /**
@@ -329,9 +506,133 @@ export function PixiHexGrid() {
   const layersRef = useRef<WorldLayers | null>(null);
   const worldRef = useRef<Container | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [hoveredHex, setHoveredHex] = useState<HexCoord | null>(null);
 
-  const { state } = useGame();
+  const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const { startIntro } = useGameIntro();
+  const { emit: emitAnimationEvent } = useAnimationDispatcher();
+
+  // Get valid move targets from server
+  const validMoveTargets = useMemo<readonly MoveTarget[]>(
+    () => state?.validActions.move?.targets ?? [],
+    [state?.validActions.move?.targets]
+  );
+
+  // Get reachable hexes (multi-hop)
+  const reachableHexes = useMemo<readonly ReachableHex[]>(
+    () => state?.validActions.move?.reachable ?? [],
+    [state?.validActions.move?.reachable]
+  );
+
+  // Extract explore targets
+  const exploreTargets = useMemo<ExploreTarget[]>(() => {
+    if (!state?.validActions.explore) return [];
+    return state.validActions.explore.directions.map((dir) => ({
+      coord: dir.targetCoord,
+      direction: dir.direction,
+      fromTileCoord: dir.fromTileCoord,
+    }));
+  }, [state?.validActions.explore]);
+
+  // Compute path to hovered hex
+  const pathPreview = useMemo<HexCoord[]>(() => {
+    if (!hoveredHex || !player?.position) return [];
+
+    const isAdjacent = validMoveTargets.some(
+      (t) => t.hex.q === hoveredHex.q && t.hex.r === hoveredHex.r
+    );
+    const isReachable = reachableHexes.some(
+      (r) => r.hex.q === hoveredHex.q && r.hex.r === hoveredHex.r
+    );
+
+    if (!isAdjacent && !isReachable) return [];
+
+    return findPath(player.position, hoveredHex, reachableHexes, validMoveTargets);
+  }, [hoveredHex, player?.position, reachableHexes, validMoveTargets]);
+
+  // Check if path ends at terminal hex
+  const isPathTerminal = useMemo(() => {
+    if (pathPreview.length === 0) return false;
+    const endHex = pathPreview[pathPreview.length - 1];
+    if (!endHex) return false;
+    const reachable = reachableHexes.find(
+      (r) => r.hex.q === endHex.q && r.hex.r === endHex.r
+    );
+    const adjacent = validMoveTargets.find(
+      (t) => t.hex.q === endHex.q && t.hex.r === endHex.r
+    );
+    return reachable?.isTerminal || adjacent?.isTerminal || false;
+  }, [pathPreview, reachableHexes, validMoveTargets]);
+
+  // Get movement highlight for a hex
+  const getMoveHighlight = useCallback(
+    (coord: HexCoord): MoveHighlight => {
+      const adjacentTarget = validMoveTargets.find(
+        (t) => t.hex.q === coord.q && t.hex.r === coord.r
+      );
+      if (adjacentTarget) {
+        if (adjacentTarget.isTerminal) {
+          return { type: "terminal", cost: adjacentTarget.cost };
+        }
+        return { type: "adjacent", cost: adjacentTarget.cost };
+      }
+
+      const reachable = reachableHexes.find(
+        (r) => r.hex.q === coord.q && r.hex.r === coord.r
+      );
+      if (reachable) {
+        if (reachable.isTerminal) {
+          return { type: "terminal", cost: reachable.totalCost };
+        }
+        return { type: "reachable", cost: reachable.totalCost };
+      }
+
+      return { type: "none" };
+    },
+    [validMoveTargets, reachableHexes]
+  );
+
+  // Handle hex click for movement
+  const handleHexClick = useCallback(
+    (coord: HexCoord) => {
+      if (!player?.position) return;
+
+      const isAdjacentTarget = validMoveTargets.some(
+        (t) => t.hex.q === coord.q && t.hex.r === coord.r
+      );
+
+      if (isAdjacentTarget) {
+        sendAction({ type: MOVE_ACTION, target: coord });
+        return;
+      }
+
+      const isReachableTarget = reachableHexes.some(
+        (r) => r.hex.q === coord.q && r.hex.r === coord.r
+      );
+
+      if (isReachableTarget) {
+        // For multi-hop, compute path and move to first hop
+        const path = findPath(player.position, coord, reachableHexes, validMoveTargets);
+        if (path.length > 1 && path[1]) {
+          sendAction({ type: MOVE_ACTION, target: path[1] });
+        }
+      }
+    },
+    [player?.position, validMoveTargets, reachableHexes, sendAction]
+  );
+
+  // Handle explore click
+  const handleExploreClick = useCallback(
+    (target: ExploreTarget) => {
+      sendAction({
+        type: EXPLORE_ACTION,
+        direction: target.direction,
+        fromTileCoord: target.fromTileCoord,
+      });
+    },
+    [sendAction]
+  );
 
   // Initialize PixiJS application
   useEffect(() => {
@@ -341,31 +642,30 @@ export function PixiHexGrid() {
     let destroyed = false;
 
     const initPixi = async () => {
-      // Create application
       const app = new Application();
 
       await app.init({
-        background: 0x1a1a2e, // Dark background matching game theme
+        background: 0x1a1a2e,
         resizeTo: container,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
       });
 
-      // Check if we were destroyed while initializing
       if (destroyed) {
         app.destroy(true);
         return;
       }
 
-      // Add canvas to DOM
       container.appendChild(app.canvas);
 
-      // Create world container hierarchy
       const { world, layers } = createWorldLayers();
       app.stage.addChild(world);
 
-      // Store refs
+      // Enable interactivity on stage
+      app.stage.eventMode = "static";
+      app.stage.hitArea = app.screen;
+
       appRef.current = app;
       layersRef.current = layers;
       worldRef.current = world;
@@ -376,7 +676,6 @@ export function PixiHexGrid() {
 
     initPixi();
 
-    // Cleanup on unmount
     return () => {
       destroyed = true;
       if (appRef.current) {
@@ -390,42 +689,61 @@ export function PixiHexGrid() {
     };
   }, []);
 
+  // Trigger intro sequence immediately (no animations in Pixi yet)
+  useEffect(() => {
+    if (!isInitialized || !state) return;
+
+    // Count tiles and enemies for the intro system
+    const tileCount = state.map.tiles.length;
+    const enemyCount = Object.values(state.map.hexes).reduce(
+      (sum, hex) => sum + hex.enemies.length,
+      0
+    );
+
+    // Start the intro sequence
+    startIntro(tileCount, enemyCount);
+
+    // Since we don't animate tiles/enemies in Pixi yet, emit completion immediately
+    // This allows the tactic selection overlay to appear
+    emitAnimationEvent("tiles-complete");
+    emitAnimationEvent("enemies-complete");
+
+    console.log("[PixiHexGrid] Triggered intro completion for tactic selection");
+  }, [isInitialized, state, startIntro, emitAnimationEvent]);
+
   // Update rendering when game state changes
   useEffect(() => {
     if (!isInitialized || !state || !layersRef.current || !worldRef.current) return;
 
+    const layers = layersRef.current;
     const heroPosition = player?.position ?? null;
 
-    // Render the game state
-    renderGameState(layersRef.current, state, heroPosition).then(() => {
-      // After rendering, center the world in the viewport
+    // Render static layers
+    const renderAsync = async () => {
+      await renderTiles(layers, state.map.tiles);
+      await renderEnemies(layers, state.map.hexes);
+      renderHero(layers, heroPosition);
+
+      // Center the world
       if (!appRef.current || !worldRef.current) return;
 
-      // Calculate bounds of all hexes
       const hexes = Object.values(state.map.hexes);
       const positions = hexes.map((h) => hexToPixel(h.coord));
 
-      // Add explore target positions
-      if (state.validActions.explore) {
-        for (const exploreDir of state.validActions.explore.directions) {
-          positions.push(hexToPixel(exploreDir.targetCoord));
-        }
+      for (const target of exploreTargets) {
+        positions.push(hexToPixel(target.coord));
       }
 
       const bounds = calculateBounds(positions);
-
-      // Center world in viewport
       const app = appRef.current;
       const world = worldRef.current;
 
-      // Calculate scale to fit bounds in viewport with padding
       const scaleX = app.screen.width / bounds.width;
       const scaleY = app.screen.height / bounds.height;
-      const scale = Math.min(scaleX, scaleY) * 0.9; // 90% to add padding
+      const scale = Math.min(scaleX, scaleY) * 0.9;
 
       world.scale.set(scale);
 
-      // Center the world
       const centerX = bounds.minX + bounds.width / 2;
       const centerY = bounds.minY + bounds.height / 2;
 
@@ -435,8 +753,43 @@ export function PixiHexGrid() {
       );
 
       console.log("[PixiHexGrid] Rendered:", state.map.tiles.length, "tiles,", hexes.length, "hexes");
-    });
-  }, [isInitialized, state, player?.position]);
+    };
+
+    renderAsync();
+  }, [isInitialized, state, player?.position, exploreTargets]);
+
+  // Update interactive layers (hex overlays, ghost hexes, path preview)
+  useEffect(() => {
+    if (!isInitialized || !state || !layersRef.current) return;
+
+    const layers = layersRef.current;
+
+    // Render interactive hex overlays
+    renderHexOverlays(
+      layers,
+      state.map.hexes,
+      getMoveHighlight,
+      hoveredHex,
+      handleHexClick,
+      setHoveredHex
+    );
+
+    // Render ghost hexes
+    renderGhostHexes(layers, exploreTargets, handleExploreClick);
+
+    // Render path preview
+    renderPathPreview(layers, pathPreview, isPathTerminal);
+  }, [
+    isInitialized,
+    state,
+    hoveredHex,
+    pathPreview,
+    isPathTerminal,
+    getMoveHighlight,
+    handleHexClick,
+    handleExploreClick,
+    exploreTargets,
+  ]);
 
   return (
     <div
