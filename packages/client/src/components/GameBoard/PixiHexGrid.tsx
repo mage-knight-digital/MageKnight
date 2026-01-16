@@ -4,7 +4,14 @@
  * Phase 1: Basic static rendering ✓
  * Phase 2: Interactivity (click, hover, path preview) ✓
  * Phase 3: Camera controls (pan/zoom) ✓
- * Phase 4: Animations (hero movement, intro, tile reveal)
+ * Phase 4: Animations (hero movement, intro, tile reveal) ✓
+ * Phase 5: Particle effects and polish ✓
+ *   - Magic hex outline tracing with sparkles
+ *   - Drop shadows for 3D rising effect
+ *   - Tiles rise, slam down with squash animation
+ *   - Dust burst particles on landing
+ *   - Screen shake on impact
+ *   - Enemy sparkle effects on materialize
  */
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
@@ -51,12 +58,21 @@ import {
   Easing,
   HERO_MOVE_DURATION_MS,
   TILE_CASCADE_DURATION_MS,
-  TILE_CASCADE_STAGGER_MS,
   ENEMY_FLIP_DURATION_MS,
   ENEMY_FLIP_STAGGER_MS,
-  CAMERA_FOLLOW_DURATION_MS,
   INTRO_PHASE_GAP_MS,
 } from "./pixi/animations";
+import {
+  ParticleManager,
+  ParticleEmitter,
+  DropShadow,
+  HEX_OUTLINE_DURATION_MS,
+  TILE_RISE_DURATION_MS,
+  TILE_SLAM_DURATION_MS,
+  DUST_BURST_DELAY_MS,
+  SCREEN_SHAKE_DURATION_MS,
+  SCREEN_SHAKE_INTENSITY,
+} from "./pixi/particles";
 
 // Movement highlight types
 type MoveHighlightType = "none" | "adjacent" | "reachable" | "terminal";
@@ -176,7 +192,9 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
   world.label = "world";
 
   const layers: WorldLayers = {
+    shadows: new Container(),
     tiles: new Container(),
+    particles: new Container(),
     hexOverlays: new Container(),
     pathPreview: new Container(),
     enemies: new Container(),
@@ -185,7 +203,9 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
     ui: new Container(),
   };
 
+  layers.shadows.label = "shadows";
   layers.tiles.label = "tiles";
+  layers.particles.label = "particles";
   layers.hexOverlays.label = "hexOverlays";
   layers.pathPreview.label = "pathPreview";
   layers.enemies.label = "enemies";
@@ -193,7 +213,10 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
   layers.ghostHexes.label = "ghostHexes";
   layers.ui.label = "ui";
 
+  // Order matters: shadows at bottom, particles above tiles
+  world.addChild(layers.shadows);
   world.addChild(layers.tiles);
+  world.addChild(layers.particles);
   world.addChild(layers.hexOverlays);
   world.addChild(layers.pathPreview);
   world.addChild(layers.enemies);
@@ -215,24 +238,71 @@ async function loadTexture(url: string): Promise<Texture> {
 }
 
 /**
- * Render all tiles with optional intro/reveal animation
+ * Apply screen shake effect
+ */
+function applyScreenShake(
+  world: Container,
+  intensity: number,
+  duration: number
+): void {
+  const originalX = world.position.x;
+  const originalY = world.position.y;
+  const startTime = performance.now();
+
+  const shake = () => {
+    const elapsed = performance.now() - startTime;
+    if (elapsed >= duration) {
+      world.position.set(originalX, originalY);
+      return;
+    }
+
+    const progress = elapsed / duration;
+    const currentIntensity = intensity * (1 - progress); // Decay over time
+    const offsetX = (Math.random() - 0.5) * 2 * currentIntensity;
+    const offsetY = (Math.random() - 0.5) * 2 * currentIntensity;
+
+    world.position.set(originalX + offsetX, originalY + offsetY);
+    requestAnimationFrame(shake);
+  };
+
+  requestAnimationFrame(shake);
+}
+
+/**
+ * Render all tiles with Phase 5 theatrical intro sequence:
+ * 1. Magic outline traces the hex
+ * 2. Drop shadow appears
+ * 3. Tile rises from below
+ * 4. Slam down with squash/stretch
+ * 5. Dust burst on impact
+ * 6. Screen shake
  */
 async function renderTiles(
   layers: WorldLayers,
   tiles: ClientGameState["map"]["tiles"],
   animManager: AnimationManager | null,
+  particleManager: ParticleManager | null,
+  world: Container | null,
   playIntro: boolean,
   knownTileIds: Set<string>,
   onIntroComplete?: () => void
 ): Promise<void> {
   layers.tiles.removeChildren();
+  layers.shadows.removeChildren();
 
   // Track sprites that need intro animation along with their target scales
-  const introSprites: { sprite: Sprite; targetScaleX: number; targetScaleY: number }[] = [];
-  const revealSprites: { sprite: Sprite; targetScaleX: number; targetScaleY: number }[] = [];
+  interface TileAnimData {
+    sprite: Sprite;
+    targetScaleX: number;
+    targetScaleY: number;
+    position: PixelPosition;
+    tileId: string;
+  }
+  const introTiles: TileAnimData[] = [];
+  const revealTiles: TileAnimData[] = [];
 
   for (const tile of tiles) {
-    const { x, y } = hexToPixel(tile.centerCoord);
+    const position = hexToPixel(tile.centerCoord);
     const imageUrl = getTileImageUrl(tile.tileId);
     const isNewTile = !knownTileIds.has(tile.tileId);
 
@@ -241,7 +311,7 @@ async function renderTiles(
       const sprite = new Sprite(texture);
 
       sprite.anchor.set(0.5, 0.5);
-      sprite.position.set(x, y);
+      sprite.position.set(position.x, position.y);
       sprite.width = TILE_WIDTH;
       sprite.height = TILE_HEIGHT;
       sprite.label = `tile-${tile.tileId}`;
@@ -250,16 +320,16 @@ async function renderTiles(
       const targetScaleX = sprite.scale.x;
       const targetScaleY = sprite.scale.y;
 
-      if (playIntro && animManager) {
-        // Start with tile hidden and scaled down for intro
+      if (playIntro && animManager && particleManager) {
+        // Start with tile completely hidden for theatrical intro
         sprite.alpha = 0;
-        sprite.scale.set(targetScaleX * 0.7, targetScaleY * 0.7);
-        introSprites.push({ sprite, targetScaleX, targetScaleY });
-      } else if (isNewTile && animManager && !playIntro) {
-        // New tile discovered during gameplay - animate reveal
+        sprite.scale.set(targetScaleX * 0.8, targetScaleY * 0.8);
+        introTiles.push({ sprite, targetScaleX, targetScaleY, position, tileId: tile.tileId });
+      } else if (isNewTile && animManager && particleManager && !playIntro) {
+        // New tile discovered during gameplay - use theatrical reveal
         sprite.alpha = 0;
-        sprite.scale.set(targetScaleX * 0.5, targetScaleY * 0.5);
-        revealSprites.push({ sprite, targetScaleX, targetScaleY });
+        sprite.scale.set(targetScaleX * 0.8, targetScaleY * 0.8);
+        revealTiles.push({ sprite, targetScaleX, targetScaleY, position, tileId: tile.tileId });
       }
 
       // Track this tile as known
@@ -271,50 +341,153 @@ async function renderTiles(
     }
   }
 
-  // Animate tiles if intro is playing
-  if (playIntro && animManager && introSprites.length > 0) {
-    introSprites.forEach(({ sprite, targetScaleX, targetScaleY }, index) => {
-      const delay = index * TILE_CASCADE_STAGGER_MS;
-      const isLast = index === introSprites.length - 1;
+  // Phase 5 theatrical intro sequence
+  if (playIntro && animManager && particleManager && introTiles.length > 0) {
+    // Timing constants for intro sequence
+    const OUTLINE_TIME = HEX_OUTLINE_DURATION_MS;
+    const RISE_TIME = TILE_RISE_DURATION_MS;
+    const SLAM_TIME = TILE_SLAM_DURATION_MS;
+    const TILE_STAGGER = 200; // Overlap tiles for fluid sequence
+
+    introTiles.forEach(({ sprite, targetScaleX, targetScaleY, position, tileId }, index) => {
+      const delay = index * TILE_STAGGER;
+      const isLast = index === introTiles.length - 1;
 
       setTimeout(() => {
-        // Custom animation that handles non-uniform scale
-        const startScaleX = sprite.scale.x;
-        const startScaleY = sprite.scale.y;
-        const startAlpha = sprite.alpha;
+        // Phase 1: Magic outline traces the hex with sparkles
+        particleManager.traceHexOutline(
+          layers.particles,
+          position,
+          OUTLINE_TIME,
+          0x88ccff,
+          () => {
+            // Phase 2: Show drop shadow
+            const shadow = new DropShadow(layers.shadows, position, TILE_WIDTH / 2);
+            shadow.alpha = 0;
+            shadow.scale = 0.6;
 
-        animManager.animate(`tile-intro-${index}`, sprite, {
-          endAlpha: 1,
-          duration: TILE_CASCADE_DURATION_MS,
-          easing: Easing.easeOutBack,
-          onUpdate: (progress) => {
-            // Manually interpolate non-uniform scale
-            sprite.scale.x = startScaleX + (targetScaleX - startScaleX) * progress;
-            sprite.scale.y = startScaleY + (targetScaleY - startScaleY) * progress;
-          },
-          onComplete: isLast ? onIntroComplete : undefined,
-        });
+            // Fade in shadow
+            const shadowFadeIn = () => {
+              let shadowProgress = 0;
+              const shadowStep = () => {
+                shadowProgress += 0.05;
+                if (shadowProgress >= 1) {
+                  shadow.alpha = 0.25;
+                  shadow.scale = 0.9;
+                  return;
+                }
+                shadow.alpha = 0.25 * shadowProgress;
+                shadow.scale = 0.6 + 0.3 * shadowProgress;
+                requestAnimationFrame(shadowStep);
+              };
+              requestAnimationFrame(shadowStep);
+            };
+            shadowFadeIn();
+
+            // Phase 3: Tile rises from below
+            const riseOffset = 60; // Start 60px below
+            sprite.position.y = position.y + riseOffset;
+            sprite.alpha = 1;
+
+            animManager.animate(`tile-rise-${tileId}`, sprite, {
+              endY: position.y + 15, // Overshoot slightly above final
+              duration: RISE_TIME,
+              easing: Easing.easeOutCubic,
+              onUpdate: (progress) => {
+                // Scale up during rise
+                const scaleProgress = Easing.easeOutCubic(progress);
+                sprite.scale.x = targetScaleX * (0.8 + 0.2 * scaleProgress);
+                sprite.scale.y = targetScaleY * (0.8 + 0.2 * scaleProgress);
+
+                // Shadow grows as tile rises
+                shadow.scale = 0.9 + 0.1 * scaleProgress;
+              },
+              onComplete: () => {
+                // Phase 4: Slam down with squash effect
+                animManager.animate(`tile-slam-${tileId}`, sprite, {
+                  endY: position.y,
+                  duration: SLAM_TIME,
+                  easing: Easing.easeOutQuad,
+                  onUpdate: (progress) => {
+                    // Squash on impact (wider, shorter)
+                    if (progress < 0.5) {
+                      // Squashing phase
+                      const squashProgress = progress * 2;
+                      sprite.scale.x = targetScaleX * (1 + 0.08 * squashProgress);
+                      sprite.scale.y = targetScaleY * (1 - 0.06 * squashProgress);
+                    } else {
+                      // Recovery phase
+                      const recoveryProgress = (progress - 0.5) * 2;
+                      sprite.scale.x = targetScaleX * (1.08 - 0.08 * recoveryProgress);
+                      sprite.scale.y = targetScaleY * (0.94 + 0.06 * recoveryProgress);
+                    }
+
+                    // Shadow shrinks on impact
+                    shadow.scale = 1 - 0.15 * Math.sin(progress * Math.PI);
+                  },
+                  onComplete: () => {
+                    // Reset to exact final scale
+                    sprite.scale.set(targetScaleX, targetScaleY);
+                    sprite.position.set(position.x, position.y);
+                    shadow.scale = 1;
+                    shadow.alpha = 0.2;
+
+                    // Phase 5: Dust burst
+                    setTimeout(() => {
+                      particleManager.dustBurst(layers.particles, position);
+                    }, DUST_BURST_DELAY_MS);
+
+                    // Phase 6: Screen shake (only for first few tiles to avoid chaos)
+                    if (index < 3 && world) {
+                      applyScreenShake(world, SCREEN_SHAKE_INTENSITY, SCREEN_SHAKE_DURATION_MS);
+                    }
+
+                    if (isLast && onIntroComplete) {
+                      // Add a small delay for dust to settle
+                      setTimeout(onIntroComplete, 200);
+                    }
+                  },
+                });
+              },
+            });
+          }
+        );
       }, delay);
     });
   }
 
-  // Animate newly discovered tiles (exploration)
-  if (!playIntro && animManager && revealSprites.length > 0) {
-    revealSprites.forEach(({ sprite, targetScaleX, targetScaleY }, index) => {
-      const startScaleX = sprite.scale.x;
-      const startScaleY = sprite.scale.y;
+  // Theatrical reveal for newly discovered tiles (exploration)
+  if (!playIntro && animManager && particleManager && revealTiles.length > 0) {
+    revealTiles.forEach(({ sprite, targetScaleX, targetScaleY, position, tileId }) => {
+      // Magic sparkles first
+      particleManager.magicSparkles(layers.particles, position);
 
-      animManager.animate(`tile-reveal-${Date.now()}-${index}`, sprite, {
+      // Then animate tile in with similar but quicker sequence
+      const riseOffset = 40;
+      sprite.position.y = position.y + riseOffset;
+      sprite.alpha = 0;
+
+      // Fade in and rise
+      animManager.animate(`tile-reveal-${tileId}`, sprite, {
+        endY: position.y,
         endAlpha: 1,
         duration: TILE_CASCADE_DURATION_MS,
         easing: Easing.easeOutBack,
         onUpdate: (progress) => {
-          sprite.scale.x = startScaleX + (targetScaleX - startScaleX) * progress;
-          sprite.scale.y = startScaleY + (targetScaleY - startScaleY) * progress;
+          sprite.scale.x = targetScaleX * (0.8 + 0.2 * progress);
+          sprite.scale.y = targetScaleY * (0.8 + 0.2 * progress);
+        },
+        onComplete: () => {
+          sprite.scale.set(targetScaleX, targetScaleY);
+          // Dust burst on reveal too
+          particleManager.dustBurst(layers.particles, position);
+          if (world) {
+            applyScreenShake(world, SCREEN_SHAKE_INTENSITY * 0.5, SCREEN_SHAKE_DURATION_MS);
+          }
         },
       });
     });
-    console.log("[PixiHexGrid] Animated", revealSprites.length, "new tile(s)");
+    console.log("[PixiHexGrid] Animated", revealTiles.length, "new tile(s) with Phase 5 effects");
   }
 }
 
@@ -460,20 +633,27 @@ function renderPathPreview(
 }
 
 /**
- * Render enemy tokens on hexes with optional intro animation
+ * Render enemy tokens on hexes with Phase 5 theatrical intro:
+ * - Magic sparkles appear first
+ * - Enemy materializes with spin and scale
+ * - Slight bounce on landing
  */
 async function renderEnemies(
   layers: WorldLayers,
   hexes: Record<string, ClientHexState>,
   animManager: AnimationManager | null,
+  particleManager: ParticleManager | null,
   playIntro: boolean,
   initialDelayMs: number = 0,
   onIntroComplete?: () => void
 ): Promise<void> {
   layers.enemies.removeChildren();
 
-  const enemyContainers: Container[] = [];
-  let enemyIndex = 0;
+  interface EnemyAnimData {
+    container: Container;
+    position: PixelPosition;
+  }
+  const enemyData: EnemyAnimData[] = [];
 
   for (const hex of Object.values(hexes)) {
     if (hex.enemies.length === 0) continue;
@@ -485,6 +665,7 @@ async function renderEnemies(
       if (!enemy) continue;
 
       const offset = getEnemyOffset(i, hex.enemies.length, ENEMY_TOKEN_SIZE);
+      const enemyPos = { x: hexCenter.x + offset.x, y: hexCenter.y + offset.y };
 
       let imageUrl: string;
       if (enemy.isRevealed && enemy.tokenId) {
@@ -500,12 +681,12 @@ async function renderEnemies(
         const sprite = new Sprite(texture);
 
         sprite.anchor.set(0.5, 0.5);
-        sprite.position.set(hexCenter.x + offset.x, hexCenter.y + offset.y);
+        sprite.position.set(enemyPos.x, enemyPos.y);
         sprite.width = ENEMY_TOKEN_SIZE;
         sprite.height = ENEMY_TOKEN_SIZE;
 
         const mask = new Graphics();
-        mask.circle(hexCenter.x + offset.x, hexCenter.y + offset.y, ENEMY_TOKEN_SIZE / 2);
+        mask.circle(enemyPos.x, enemyPos.y, ENEMY_TOKEN_SIZE / 2);
         mask.fill({ color: 0xffffff });
         sprite.mask = mask;
 
@@ -515,45 +696,74 @@ async function renderEnemies(
         enemyContainer.addChild(sprite);
 
         const border = new Graphics();
-        border.circle(hexCenter.x + offset.x, hexCenter.y + offset.y, ENEMY_TOKEN_SIZE / 2);
+        border.circle(enemyPos.x, enemyPos.y, ENEMY_TOKEN_SIZE / 2);
         border.stroke({ color: 0x000000, width: 1, alpha: 0.5 });
         enemyContainer.addChild(border);
 
         if (playIntro && animManager) {
-          // Start with enemy hidden, rotated, and scaled down for flip effect
+          // Start with enemy completely hidden for dramatic reveal
           enemyContainer.alpha = 0;
-          enemyContainer.scale.set(0.3);
-          enemyContainer.rotation = -0.3;
+          enemyContainer.scale.set(0);
+          enemyContainer.rotation = -Math.PI * 0.5; // Start rotated 90 degrees
         }
 
         layers.enemies.addChild(enemyContainer);
-        enemyContainers.push(enemyContainer);
-        enemyIndex++;
+        enemyData.push({ container: enemyContainer, position: enemyPos });
       } catch (error) {
         console.error(`Failed to load enemy texture: ${imageUrl}`, error);
       }
     }
   }
 
-  // Animate enemies if intro is playing
-  if (playIntro && animManager && enemyContainers.length > 0) {
-    enemyContainers.forEach((container, index) => {
-      // Add initial delay plus stagger for each enemy
+  // Phase 5 theatrical enemy intro
+  if (playIntro && animManager && particleManager && enemyData.length > 0) {
+    enemyData.forEach(({ container, position }, index) => {
       const delay = initialDelayMs + index * ENEMY_FLIP_STAGGER_MS;
-      const isLast = index === enemyContainers.length - 1;
+      const isLast = index === enemyData.length - 1;
 
       setTimeout(() => {
+        // Magic sparkles appear first (ominous red/purple for enemies)
+        new ParticleEmitter(
+          layers.particles,
+          position,
+          {
+            count: 12,
+            lifetime: 350,
+            lifetimeVariance: 100,
+            startSize: 2,
+            endSize: 0,
+            sizeVariance: 1,
+            colors: [0xff6666, 0xcc44cc, 0xffaaaa, 0x8844ff], // Red/purple sparkles
+            startAlpha: 1,
+            endAlpha: 0,
+            speed: 40,
+            speedVariance: 20,
+            gravity: -5,
+            rotationSpeed: 2,
+          }
+        );
+
+        // Animate enemy materializing
         animManager.animate(`enemy-intro-${index}`, container, {
-          endScale: 1,
+          endScale: 1.1, // Slight overshoot
           endAlpha: 1,
-          endRotation: 0,
-          duration: ENEMY_FLIP_DURATION_MS,
-          easing: Easing.easeOutBack,
-          onComplete: isLast ? onIntroComplete : undefined,
+          endRotation: 0.1, // Slight overshoot rotation
+          duration: ENEMY_FLIP_DURATION_MS * 0.7,
+          easing: Easing.easeOutCubic,
+          onComplete: () => {
+            // Settle animation - bounce back to final position
+            animManager.animate(`enemy-settle-${index}`, container, {
+              endScale: 1,
+              endRotation: 0,
+              duration: ENEMY_FLIP_DURATION_MS * 0.3,
+              easing: Easing.easeOutQuad,
+              onComplete: isLast ? onIntroComplete : undefined,
+            });
+          },
         });
       }, delay);
     });
-  } else if (playIntro && enemyContainers.length === 0 && onIntroComplete) {
+  } else if (playIntro && enemyData.length === 0 && onIntroComplete) {
     // No enemies to animate, call complete after initial delay
     setTimeout(onIntroComplete, initialDelayMs);
   }
@@ -687,6 +897,7 @@ export function PixiHexGrid() {
 
   // Animation state
   const animationManagerRef = useRef<AnimationManager | null>(null);
+  const particleManagerRef = useRef<ParticleManager | null>(null);
   const prevHeroPositionRef = useRef<HexCoord | null>(null);
   const heroContainerRef = useRef<Container | null>(null);
   const introPlayedRef = useRef(false);
@@ -1008,6 +1219,11 @@ export function PixiHexGrid() {
       animManager.attach(app.ticker);
       animationManagerRef.current = animManager;
 
+      // Create particle manager and attach to ticker
+      const particleManager = new ParticleManager();
+      particleManager.attach(app.ticker);
+      particleManagerRef.current = particleManager;
+
       appRef.current = app;
       layersRef.current = layers;
       worldRef.current = world;
@@ -1023,6 +1239,11 @@ export function PixiHexGrid() {
       if (animationManagerRef.current) {
         animationManagerRef.current.detach();
         animationManagerRef.current = null;
+      }
+      if (particleManagerRef.current) {
+        particleManagerRef.current.clear();
+        particleManagerRef.current.detach();
+        particleManagerRef.current = null;
       }
       if (appRef.current) {
         console.log("[PixiHexGrid] Destroying PixiJS application");
@@ -1080,8 +1301,10 @@ export function PixiHexGrid() {
     if (!isInitialized || !state || !layersRef.current || !worldRef.current) return;
 
     const layers = layersRef.current;
+    const world = worldRef.current;
     const heroPosition = player?.position ?? null;
     const animManager = animationManagerRef.current;
+    const particleManager = particleManagerRef.current;
 
     // Check if we should play intro animations
     const currentTileCount = state.map.tiles.length;
@@ -1090,11 +1313,13 @@ export function PixiHexGrid() {
 
     // Render static layers
     const renderAsync = async () => {
-      // Render tiles with intro animation if this is the first render
+      // Render tiles with Phase 5 theatrical intro animation
       await renderTiles(
         layers,
         state.map.tiles,
         animManager,
+        particleManager,
+        world,
         shouldPlayTileIntro,
         knownTileIdsRef.current,
         () => {
@@ -1105,16 +1330,20 @@ export function PixiHexGrid() {
       );
 
       // Calculate delay for enemies to start after tiles finish
-      // Total tile time = (tileCount - 1) * stagger + duration
+      // Phase 5 tile time: stagger between tiles + full sequence per tile
+      // Sequence: outline → rise → slam + dust
+      const PHASE5_TILE_STAGGER = 200;
+      const PHASE5_SINGLE_TILE_TIME = HEX_OUTLINE_DURATION_MS + TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS + 200;
       const tileAnimationTime = shouldPlayTileIntro
-        ? (state.map.tiles.length - 1) * TILE_CASCADE_STAGGER_MS + TILE_CASCADE_DURATION_MS + INTRO_PHASE_GAP_MS
+        ? (state.map.tiles.length - 1) * PHASE5_TILE_STAGGER + PHASE5_SINGLE_TILE_TIME + INTRO_PHASE_GAP_MS
         : 0;
 
-      // Render enemies with intro animation (delayed to start after tiles)
+      // Render enemies with Phase 5 theatrical intro (delayed to start after tiles)
       await renderEnemies(
         layers,
         state.map.hexes,
         animManager,
+        particleManager,
         shouldPlayTileIntro,
         tileAnimationTime,
         () => {

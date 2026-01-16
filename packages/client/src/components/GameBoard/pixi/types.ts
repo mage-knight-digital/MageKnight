@@ -33,6 +33,10 @@ export interface CameraState {
 export interface WorldLayers {
   /** Background tile images */
   tiles: Container;
+  /** Drop shadows below tiles */
+  shadows: Container;
+  /** Particle effects */
+  particles: Container;
   /** Hex overlay graphics for interactivity */
   hexOverlays: Container;
   /** Path preview line */
