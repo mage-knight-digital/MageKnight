@@ -304,7 +304,9 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
 
     const cost = getHexEntryCost(hex, state, player.id);
     if (cost <= movePoints && cost !== Infinity) {
-      const terminal = hex ? isTerminalHex(hex, player.id, state) : false;
+      // Check if moving from start to this neighbor would provoke rampaging enemies
+      const wouldProvoke = wouldProvokeRampaging(player.position, neighbor, state.map.hexes);
+      const terminal = (hex ? isTerminalHex(hex, player.id, state) : false) || wouldProvoke;
       const wouldReveal = wouldMoveRevealEnemies(
         player.position,
         neighbor,
@@ -331,9 +333,16 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
     if (!current) break; // Type guard (should never happen given while condition)
 
     // Skip if already visited with equal or lower cost
+    // EXCEPTION: If existing visit is terminal but current is not, prefer the non-terminal path
     const existingVisit = visited.get(current.key);
     if (existingVisit && existingVisit.totalCost <= current.totalCost) {
-      continue;
+      // Check if we found a better path (same cost, but non-terminal vs terminal)
+      const isBetterPath = existingVisit.totalCost === current.totalCost &&
+        existingVisit.isTerminal && !current.isTerminal;
+      if (!isBetterPath) {
+        continue;
+      }
+      // Fall through to update the visit with the non-terminal path
     }
 
     // Check for rampaging provocation from the hex we came from
@@ -365,8 +374,10 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
       const neighbor = getNeighbor(current.coord, dir);
       const neighborKey = hexKey(neighbor);
 
-      // Skip if already visited
-      if (visited.has(neighborKey)) continue;
+      // Skip if already visited with a non-terminal path
+      // (If visited with terminal path, we might find a better non-terminal path later)
+      const existingNeighborVisit = visited.get(neighborKey);
+      if (existingNeighborVisit && !existingNeighborVisit.isTerminal) continue;
 
       const hex = state.map.hexes[neighborKey];
       const edgeCost = getHexEntryCost(hex, state, player.id);

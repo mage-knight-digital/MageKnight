@@ -864,6 +864,36 @@ export function DebugPanel() {
         <section className="debug-panel__section">
           <h4>Save/Load</h4>
           <div className="debug-panel__row">
+            <button
+              type="button"
+              onClick={() => {
+                console.log("=== CLIENT STATE (with validActions) ===");
+                console.log(state);
+                console.log("=== validActions.move ===");
+                console.log(state.validActions?.move);
+              }}
+              title="Log client state to console (includes validActions)"
+            >
+              Log Client State
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const formatted = JSON.stringify(state, null, 2);
+                const blob = new Blob([formatted], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `mage-knight-client-state-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              title="Download client state as JSON (includes validActions)"
+            >
+              Download Client State
+            </button>
+          </div>
+          <div className="debug-panel__row">
             <span className="debug-panel__label">Quick Slots:</span>
             {[0, 1, 2].map((slotIndex) => {
               const slotKey = `mageKnight_save_${slotIndex}`;
@@ -899,11 +929,11 @@ export function DebugPanel() {
             })}
           </div>
           <div className="debug-panel__row">
-            <button type="button" onClick={handleExportState}>
-              Export State
+            <button type="button" onClick={handleExportState} title="Download server state (for save/load)">
+              Export Server State
             </button>
             <label className="debug-panel__file-input">
-              Import State
+              Import Server State
               <input
                 type="file"
                 accept=".json"
