@@ -19,13 +19,6 @@ import "./OfferView.css";
 export type OfferPane = "units" | "spells" | "advancedActions";
 const OFFER_PANES: OfferPane[] = ["units", "spells", "advancedActions"];
 
-// Pane display names
-const PANE_LABELS: Record<OfferPane, string> = {
-  units: "Units",
-  spells: "Spells",
-  advancedActions: "Advanced Actions",
-};
-
 export interface OfferViewProps {
   isVisible: boolean;
   onClose: () => void;
@@ -157,19 +150,26 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
 
         {/* Pane indicator - reuses the same styling as hand carousel */}
         <div className="carousel-pane-indicator carousel-pane-indicator--offer">
-          {OFFER_PANES.map((pane, index) => (
-            <span key={pane}>
-              {index > 0 && <span className="carousel-pane-indicator__divider">|</span>}
-              <span
-                className={`carousel-pane-indicator__item ${
-                  currentPane === pane ? "carousel-pane-indicator__item--active" : ""
-                }`}
-                onClick={() => setCurrentPane(pane)}
-              >
-                {PANE_LABELS[pane]}
-              </span>
-            </span>
-          ))}
+          <span
+            className={`carousel-pane-indicator__item ${currentPane === "units" ? "carousel-pane-indicator__item--active" : ""}`}
+            onClick={() => setCurrentPane("units")}
+          >
+            Units
+          </span>
+          <span className="carousel-pane-indicator__divider">|</span>
+          <span
+            className={`carousel-pane-indicator__item ${currentPane === "spells" ? "carousel-pane-indicator__item--active" : ""}`}
+            onClick={() => setCurrentPane("spells")}
+          >
+            Spells
+          </span>
+          <span className="carousel-pane-indicator__divider">|</span>
+          <span
+            className={`carousel-pane-indicator__item ${currentPane === "advancedActions" ? "carousel-pane-indicator__item--active" : ""}`}
+            onClick={() => setCurrentPane("advancedActions")}
+          >
+            Advanced Actions
+          </span>
         </div>
 
         {/* Navigation hint */}

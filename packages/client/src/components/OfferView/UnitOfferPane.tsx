@@ -102,9 +102,6 @@ export function UnitOfferPane() {
             onAcquire={recruitInfo ? () => handleRecruit(unitId, recruitInfo.cost) : undefined}
             shouldAnimate={shouldAnimate}
           >
-            <div className="offer-card__cost">
-              {recruitInfo ? recruitInfo.cost : unit.influence}
-            </div>
             {spriteStyle ? (
               <div className="offer-card__unit-image" style={spriteStyle} />
             ) : (
