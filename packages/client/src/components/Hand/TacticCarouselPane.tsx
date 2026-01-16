@@ -5,6 +5,8 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useGameIntro } from "../../contexts/GameIntroContext";
+import { useOnAnimationEvent, useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import { loadAtlas, getTacticSpriteStyle } from "../../utils/cardAtlas";
 import { calculateZIndex, CARD_FAN_SCALE, type CardFanViewMode } from "../../utils/cardFanLayout";
 import { playSound } from "../../utils/audioManager";
@@ -158,12 +160,22 @@ function useCardHeight(viewMode: ViewMode): number {
 export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const { isIntroComplete } = useGameIntro();
+  const { emit: emitAnimationEvent } = useAnimationDispatcher();
   const [atlasLoaded, setAtlasLoaded] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedTactic, setSelectedTactic] = useState<TacticId | null>(null);
   // Track which card the z-ordering is anchored to (Inscryption-style: persists after mouse leave)
   const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
   const cardHeight = useCardHeight(viewMode);
+
+  // Track if enemies animation is complete (triggers showing tactics)
+  const [enemiesComplete, setEnemiesComplete] = useState(false);
+
+  // Listen for enemies-complete event to know when to show tactics
+  useOnAnimationEvent("enemies-complete", useCallback(() => {
+    setEnemiesComplete(true);
+  }, []));
 
   // Load atlas on mount
   useEffect(() => {
@@ -183,9 +195,11 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
           type: SELECT_TACTIC_ACTION,
           tacticId,
         });
+        // Signal that tactic selection is complete
+        emitAnimationEvent("tactics-complete");
       }, SELECTION_DELAY_MS);
     },
-    [selectedTactic, sendAction]
+    [selectedTactic, sendAction, emitAnimationEvent]
   );
 
   const handleMouseEnter = useCallback(
@@ -209,6 +223,16 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
     return (
       <div className={`tactic-carousel tactic-carousel--${viewMode} tactic-carousel--empty`}>
         {/* Empty state - tactic already selected */}
+      </div>
+    );
+  }
+
+  // Wait for enemies animation to complete before showing tactics
+  // This uses the event-based dispatcher instead of setTimeout-based timing
+  if (!enemiesComplete && !isIntroComplete) {
+    return (
+      <div className={`tactic-carousel tactic-carousel--${viewMode} tactic-carousel--empty`}>
+        {/* Waiting for intro animation */}
       </div>
     );
   }
