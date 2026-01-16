@@ -18,6 +18,8 @@ import { useGameIntro } from "../../contexts/GameIntroContext";
 import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import { getTileImageUrl, getEnemyImageUrl, getEnemyTokenBackUrl, tokenIdToEnemyId, type EnemyTokenColor } from "../../assets/assetPaths";
 import { HexContextMenu } from "../HexContextMenu";
+import { HexTooltip } from "../HexTooltip";
+import { useHexHover } from "../../hooks/useHexHover";
 
 const HEX_SIZE = 50; // pixels from center to corner
 
@@ -635,8 +637,9 @@ interface HexOverlayProps {
   hex: ClientHexState;
   moveHighlight: MoveHighlight;
   onClick: () => void;
-  onMouseEnter: () => void;
+  onMouseEnter: (e: React.MouseEvent) => void;
   onMouseLeave: () => void;
+  onMouseMove?: (e: React.MouseEvent) => void;
   isRevealing?: boolean;
   /** For intro sequence: get intro delay for enemy at global index */
   getEnemyIntroDelay?: (globalIndex: number) => number;
@@ -795,7 +798,7 @@ function getMoveHighlightStyles(highlight: MoveHighlight): {
  * Handles click events, move highlighting, and token display.
  * Supports reveal animation when the parent tile is being revealed.
  */
-function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, isRevealing, getEnemyIntroDelay, enemyStartIndex = 0, hideEnemiesDuringIntro, onEnemyIntroAnimationEnd }: HexOverlayProps) {
+function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, onMouseMove, isRevealing, getEnemyIntroDelay, enemyStartIndex = 0, hideEnemiesDuringIntro, onEnemyIntroAnimationEnd }: HexOverlayProps) {
   const { x, y } = hexToPixel(hex.coord);
 
   // Position enemies in a grid pattern within the hex
@@ -830,6 +833,7 @@ function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, i
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onMouseMove={onMouseMove}
       style={{ cursor: isClickable ? "pointer" : "default" }}
       data-coord={`${hex.coord.q},${hex.coord.r}`}
       className={isRevealing ? "hex-overlay--revealing" : ""}
@@ -1032,6 +1036,18 @@ export function HexGrid() {
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
   // Reference to the SVG element for coordinate conversion
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // ============================================
+  // Hex Tooltip State (with hover delay)
+  // ============================================
+  const {
+    hoveredHex: tooltipHoveredHex,
+    tooltipPosition,
+    isTooltipVisible,
+    handleHexMouseEnter: handleTooltipMouseEnter,
+    handleHexMouseLeave: handleTooltipMouseLeave,
+    handleHexMouseMove: handleTooltipMouseMove,
+  } = useHexHover({ delay: 400 });
 
   // ============================================
   // Intro Animation Completion Tracking
@@ -1372,6 +1388,20 @@ export function HexGrid() {
     // Don't allow clicks while animating
     if (isAnimating) return;
 
+    // Check if player is clicking their own hex with a site - reopen context menu
+    if (player?.position && coord.q === player.position.q && coord.r === player.position.r) {
+      // Player clicked their current position
+      if (siteOptions && (siteOptions.canEnter || siteOptions.canInteract)) {
+        // Has an actionable site - reopen the context menu
+        if (heroDisplayPosition) {
+          const screenPos = svgToScreenCoords(heroDisplayPosition.x, heroDisplayPosition.y);
+          setContextMenuPosition(screenPos);
+          setShowSiteContextMenu(true);
+        }
+        return;
+      }
+    }
+
     // Check if it's an adjacent target (single move)
     const isAdjacentTarget = validMoveTargets.some(
       (t) => t.hex.q === coord.q && t.hex.r === coord.r
@@ -1573,8 +1603,17 @@ export function HexGrid() {
               hex={hex}
               moveHighlight={getMoveHighlight(hex.coord)}
               onClick={() => handleHexClick(hex.coord)}
-              onMouseEnter={() => setHoveredHex(hex.coord)}
-              onMouseLeave={() => setHoveredHex(null)}
+              onMouseEnter={(e) => {
+                setHoveredHex(hex.coord);
+                handleTooltipMouseEnter(hex.coord, { x: e.clientX, y: e.clientY });
+              }}
+              onMouseLeave={() => {
+                setHoveredHex(null);
+                handleTooltipMouseLeave();
+              }}
+              onMouseMove={(e) => {
+                handleTooltipMouseMove({ x: e.clientX, y: e.clientY });
+              }}
               isRevealing={isOnRevealingTile}
               getEnemyIntroDelay={shouldAnimateEnemyIntro ? getEnemyDelay : undefined}
               enemyStartIndex={enemyStartIndex}
@@ -1629,6 +1668,14 @@ export function HexGrid() {
         onClose={handleContextMenuClose}
       />
     )}
+
+    {/* Hex Tooltip - shows site/enemy info on hover */}
+    <HexTooltip
+      hex={tooltipHoveredHex ? state.map.hexes[hexKey(tooltipHoveredHex)] ?? null : null}
+      coord={tooltipHoveredHex}
+      position={tooltipPosition}
+      isVisible={isTooltipVisible && !showSiteContextMenu}
+    />
     </>
   );
 }

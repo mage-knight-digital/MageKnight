@@ -1,0 +1,285 @@
+/**
+ * HexTooltip Styles
+ *
+ * Disney animation principles:
+ * - Page unfold reveal (rotateX)
+ * - Staggered line appearance
+ * - Subtle bounce settle
+ */
+
+/* ============================================
+   Container - Page unfold animation
+   ============================================ */
+.hex-tooltip {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  transform-origin: top left;
+
+  /* Page unfold animation */
+  animation: tooltip-unfold 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes tooltip-unfold {
+  0% {
+    opacity: 0;
+    transform: perspective(400px) rotateX(-15deg) translateY(-10px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(400px) rotateX(0) translateY(0) scale(1);
+  }
+}
+
+.hex-tooltip__content {
+  background: rgba(15, 15, 35, 0.95);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 0.75rem;
+  min-width: 200px;
+  max-width: 280px;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+}
+
+/* ============================================
+   Site Tooltip Content
+   ============================================ */
+.site-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.site-tooltip__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  /* Staggered animation */
+  opacity: 0;
+  animation: line-appear 0.25s ease-out forwards;
+}
+
+.site-tooltip__icon {
+  font-size: 1.25rem;
+}
+
+.site-tooltip__name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.site-tooltip__status {
+  font-size: 0.65rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.site-tooltip__status--conquered {
+  background: #27ae60;
+  color: #fff;
+}
+
+.site-tooltip__divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #444, transparent);
+  margin: 0.25rem 0;
+}
+
+.site-tooltip__line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #ccc;
+
+  /* Staggered animation */
+  opacity: 0;
+  animation: line-appear 0.25s ease-out forwards;
+}
+
+.site-tooltip__line--special {
+  color: #f39c12;
+  font-size: 0.8rem;
+}
+
+.site-tooltip__line-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  text-align: center;
+}
+
+.site-tooltip__line-text {
+  flex: 1;
+}
+
+/* ============================================
+   Enemy Tooltip Content
+   ============================================ */
+.enemy-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.enemy-tooltip__header {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #333;
+
+  /* Staggered animation */
+  opacity: 0;
+  animation: line-appear 0.25s ease-out forwards;
+}
+
+.enemy-tooltip__enemy {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 0.5rem;
+
+  /* Staggered animation */
+  opacity: 0;
+  animation: line-appear 0.25s ease-out forwards;
+}
+
+.enemy-tooltip__enemy-header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+
+.enemy-tooltip__enemy-color {
+  font-size: 0.75rem;
+}
+
+.enemy-tooltip__enemy-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.enemy-tooltip__enemy-stats {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.enemy-tooltip__stat {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.enemy-tooltip__stat-icon {
+  font-size: 0.7rem;
+}
+
+.enemy-tooltip__stat-value {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.enemy-tooltip__stat-element {
+  font-size: 0.65rem;
+  color: #888;
+  padding: 0.05rem 0.25rem;
+  background: #333;
+  border-radius: 3px;
+  margin-left: 0.125rem;
+}
+
+.enemy-tooltip__abilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+.enemy-tooltip__ability {
+  font-size: 0.7rem;
+  padding: 0.125rem 0.375rem;
+  background: #333;
+  border-radius: 4px;
+  color: #ddd;
+}
+
+.enemy-tooltip__resistances {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.enemy-tooltip__resistance-label {
+  font-size: 0.65rem;
+  color: #888;
+}
+
+.enemy-tooltip__resistance {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.3rem;
+  background: #555;
+  border-radius: 3px;
+  color: #ddd;
+}
+
+.enemy-tooltip__resistance--fire {
+  background: #c0392b;
+  color: #fff;
+}
+
+.enemy-tooltip__resistance--ice {
+  background: #2980b9;
+  color: #fff;
+}
+
+.enemy-tooltip__unrevealed {
+  font-size: 0.8rem;
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  padding: 0.25rem;
+
+  /* Staggered animation */
+  opacity: 0;
+  animation: line-appear 0.25s ease-out forwards;
+}
+
+/* ============================================
+   Line appear animation (typewriter feel)
+   ============================================ */
+@keyframes line-appear {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   When animating, enable staggered delays
+   ============================================ */
+.hex-tooltip--animating .site-tooltip__header,
+.hex-tooltip--animating .site-tooltip__line,
+.hex-tooltip--animating .enemy-tooltip__header,
+.hex-tooltip--animating .enemy-tooltip__enemy,
+.hex-tooltip--animating .enemy-tooltip__unrevealed {
+  /* Animation delay set via inline style */
+}
