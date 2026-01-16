@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { FloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./FloatingHand";
 import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
 import { TacticCarouselPane } from "./TacticCarouselPane";
+import { NavHints } from "./NavHints";
 import { CardActionMenu } from "../CardActionMenu";
 import { RadialMenu, type RadialMenuItem } from "../RadialMenu";
 import {
@@ -514,8 +515,8 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         </div>
       </div>
 
-      {/* Carousel pane indicator - hidden when in offer view */}
-      <div className={`carousel-pane-indicator ${handView === "offer" ? "carousel-pane-indicator--hidden" : ""}`}>
+      {/* Carousel pane indicator - hidden when in offer view or board view */}
+      <div className={`carousel-pane-indicator ${(handView === "offer" || handView === "board") ? "carousel-pane-indicator--hidden" : ""}`}>
         {needsTacticSelection && (
           <>
             <span className={`carousel-pane-indicator__item carousel-pane-indicator__item--needs-attention ${carouselPane === "tactics" ? "carousel-pane-indicator__item--active" : ""}`}>
@@ -533,12 +534,15 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         </span>
       </div>
 
-      {/* Deck/Discard - fixed position outside carousel, hidden in offer view */}
+      {/* Deck/Discard - fixed position outside carousel, hidden in offer/board/focus view */}
       <DeckDiscardIndicator
         deckCount={player.deckCount}
         discardCount={player.discardCount}
-        isHidden={handView === "focus" || handView === "offer"}
+        isHidden={handView === "focus" || handView === "offer" || handView === "board"}
       />
+
+      {/* Navigation hints - contextual W/S hints */}
+      <NavHints currentView={handView} />
     </>
   );
 }

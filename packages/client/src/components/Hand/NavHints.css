@@ -1,0 +1,83 @@
+/**
+ * NavHints styles - Contextual navigation hints
+ */
+
+.nav-hint {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #888;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  z-index: 150;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.nav-hint:hover {
+  opacity: 1;
+}
+
+.nav-hint--top {
+  top: 80px; /* Below the top bar */
+}
+
+.nav-hint--bottom {
+  bottom: 20px;
+}
+
+.nav-hint__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.nav-hint__arrow {
+  font-size: 0.6rem;
+  color: #666;
+}
+
+.nav-hint__label {
+  color: #aaa;
+}
+
+/* Pulsing animation after inactivity */
+@keyframes hint-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.05);
+  }
+}
+
+.nav-hint--pulse {
+  animation: hint-pulse 2s ease-in-out infinite;
+}
+
+/* Stop pulsing on hover */
+.nav-hint--pulse:hover {
+  animation: none;
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
