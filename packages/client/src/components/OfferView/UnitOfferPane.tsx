@@ -5,7 +5,7 @@
  * when the player has sufficient influence.
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useGame } from "../../hooks/useGame";
 import {
   UNITS,
@@ -16,25 +16,23 @@ import {
 import { getUnitSpriteStyle, isAtlasLoaded } from "../../utils/cardAtlas";
 import { OfferCard } from "./OfferCard";
 
-const DEFAULT_UNIT_CARD_HEIGHT = 140;
-
 export function UnitOfferPane() {
   const { state, sendAction } = useGame();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [cardHeight, setCardHeight] = useState(DEFAULT_UNIT_CARD_HEIGHT);
+  const [cardHeight, setCardHeight] = useState(280); // Fallback, CSS takes precedence
   const [shouldAnimate, setShouldAnimate] = useState(true);
 
-  // Update card height based on container
+  // Read card height from CSS custom property (responsive via clamp)
   useEffect(() => {
     const updateHeight = () => {
-      if (containerRef.current) {
-        const computed = getComputedStyle(containerRef.current);
-        const cssHeight = computed.getPropertyValue("--unit-card-height");
-        if (cssHeight) {
-          const parsed = parseInt(cssHeight, 10);
-          if (!isNaN(parsed)) {
-            setCardHeight(parsed);
-          }
+      // Read from :root CSS variable
+      const cssHeight = getComputedStyle(document.documentElement)
+        .getPropertyValue("--offer-card-height")
+        .trim();
+      if (cssHeight) {
+        // Parse the computed value (will be in px after clamp resolves)
+        const parsed = parseInt(cssHeight, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          setCardHeight(parsed);
         }
       }
     };
@@ -69,14 +67,14 @@ export function UnitOfferPane() {
 
   if (unitOffer.length === 0) {
     return (
-      <div className="offer-pane" ref={containerRef}>
+      <div className="offer-pane">
         <div className="offer-pane__empty">No units available</div>
       </div>
     );
   }
 
   return (
-    <div className="offer-pane" ref={containerRef} style={{ "--unit-card-height": `${cardHeight}px` } as React.CSSProperties}>
+    <div className="offer-pane">
       {unitOffer.map((unitId, index) => {
         const unit = UNITS[unitId];
         if (!unit) return null;

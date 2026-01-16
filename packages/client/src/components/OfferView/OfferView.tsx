@@ -155,19 +155,19 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
           {currentPane === "advancedActions" && <AAOfferPane />}
         </OfferTray>
 
-        {/* Pane indicator */}
-        <div className="offer-view__pane-indicator">
+        {/* Pane indicator - reuses the same styling as hand carousel */}
+        <div className="carousel-pane-indicator carousel-pane-indicator--offer">
           {OFFER_PANES.map((pane, index) => (
             <span key={pane}>
-              {index > 0 && <span className="offer-view__pane-divider">|</span>}
-              <button
-                className={`offer-view__pane-btn ${
-                  currentPane === pane ? "offer-view__pane-btn--active" : ""
+              {index > 0 && <span className="carousel-pane-indicator__divider">|</span>}
+              <span
+                className={`carousel-pane-indicator__item ${
+                  currentPane === pane ? "carousel-pane-indicator__item--active" : ""
                 }`}
                 onClick={() => setCurrentPane(pane)}
               >
                 {PANE_LABELS[pane]}
-              </button>
+              </span>
             </span>
           ))}
         </div>

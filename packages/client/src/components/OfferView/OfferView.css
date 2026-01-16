@@ -7,6 +7,17 @@
  */
 
 /* ============================================================================
+   Responsive card sizing
+   ============================================================================ */
+
+:root {
+  /* Offer card sizing - scales with viewport height for readability on all displays */
+  /* Min 180px (small screens), prefer 28vh, max 400px (huge screens) */
+  --offer-card-height: clamp(180px, 28vh, 400px);
+  --offer-card-width: calc(var(--offer-card-height) * 0.714); /* Card aspect ratio */
+}
+
+/* ============================================================================
    Main container
    ============================================================================ */
 
@@ -116,45 +127,15 @@
 }
 
 /* ============================================================================
-   Pane indicator
+   Pane indicator (reuses .carousel-pane-indicator from FloatingHand.css)
    ============================================================================ */
 
-.offer-view__pane-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: rgba(20, 20, 40, 0.8);
-  border-radius: 6px;
-}
-
-.offer-view__pane-divider {
-  color: #444;
-  font-size: 0.875rem;
-}
-
-.offer-view__pane-btn {
-  background: none;
-  border: none;
-  padding: 0.25rem 0.75rem;
-  color: #666;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  border-radius: 4px;
-}
-
-.offer-view__pane-btn:hover {
-  color: #aaa;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.offer-view__pane-btn--active {
-  color: #fff;
-  background: rgba(52, 152, 219, 0.3);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+/* Override positioning for offer view context - relative instead of fixed */
+.carousel-pane-indicator--offer {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  transform: none;
 }
 
 /* ============================================================================
@@ -209,23 +190,24 @@
    ============================================================================ */
 
 .offer-card {
-  --rotation: 0deg;
+  --hover-rotation: 0deg;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  transform: rotate(var(--rotation));
+  /* Cards are straight by default */
+  transform: rotate(0deg);
   transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
 }
 
-/* Hover: straighten and lift */
+/* Hover: slight tilt and lift for organic feel */
 .offer-card:hover {
-  transform: rotate(0deg) translateY(-15px) scale(1.05);
+  transform: rotate(var(--hover-rotation)) translateY(-15px) scale(1.05);
   z-index: 10;
 }
 
 .offer-card--not-acquirable:hover {
-  transform: rotate(0deg) translateY(-8px);
+  transform: rotate(var(--hover-rotation)) translateY(-8px);
 }
 
 /* Card content wrapper */
@@ -256,11 +238,11 @@
 @keyframes card-stagger-in {
   from {
     opacity: 0;
-    transform: rotate(var(--rotation)) translateY(-20px);
+    transform: translateY(-20px);
   }
   to {
     opacity: 1;
-    transform: rotate(var(--rotation)) translateY(0);
+    transform: translateY(0);
   }
 }
 

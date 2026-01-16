@@ -2,8 +2,8 @@
  * OfferCard - Individual card in the offer tray
  *
  * Features:
- * - Random rotation (-8° to +8°) for organic "laid out by hand" feel
- * - Straightens on hover
+ * - Cards are straight by default
+ * - Slight random rotation (-3° to +3°) on hover for organic feel
  * - Staggered entrance animation
  * - Acquire button appears on hover when valid
  */
@@ -27,9 +27,9 @@ export interface OfferCardProps {
 
 /**
  * Generate a pseudo-random rotation based on card ID and index.
- * Range: -8° to +8°
+ * Range: -3° to +3° (subtle tilt on hover only)
  */
-function getCardRotation(cardId: string, index: number): number {
+function getHoverRotation(cardId: string, index: number): number {
   // Simple hash of card ID + index for consistent rotation
   let hash = 0;
   const str = `${cardId}-${index}`;
@@ -39,8 +39,8 @@ function getCardRotation(cardId: string, index: number): number {
     hash = hash & hash; // Convert to 32bit integer
   }
 
-  // Map to -8 to +8 range
-  const normalized = ((hash % 160) / 10) - 8;
+  // Map to -3 to +3 range (subtle)
+  const normalized = ((hash % 60) / 10) - 3;
   return Math.round(normalized * 10) / 10; // Round to 1 decimal
 }
 
@@ -55,7 +55,8 @@ export function OfferCard({
   shouldAnimate = false,
   children,
 }: OfferCardProps) {
-  const rotation = useMemo(() => getCardRotation(cardId, index), [cardId, index]);
+  // Rotation is applied on hover only (cards are straight by default)
+  const hoverRotation = useMemo(() => getHoverRotation(cardId, index), [cardId, index]);
   const animationDelay = index * 50; // 50ms stagger between cards
 
   const cardClassName = [
@@ -86,7 +87,7 @@ export function OfferCard({
     <div
       className={cardClassName}
       style={{
-        "--rotation": `${rotation}deg`,
+        "--hover-rotation": `${hoverRotation}deg`,
         animationDelay: shouldAnimate ? `${animationDelay}ms` : undefined,
       } as React.CSSProperties}
     >
