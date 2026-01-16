@@ -70,3 +70,11 @@ export const ENEMY_TOKEN_SIZE = HEX_SIZE * 0.8;
 
 // Hero token radius
 export const HERO_TOKEN_RADIUS = HEX_SIZE * 0.25;
+
+// Camera constants
+export const CAMERA_MIN_ZOOM = 0.3;
+export const CAMERA_MAX_ZOOM = 2.5;
+export const CAMERA_ZOOM_SPEED = 0.1;       // Multiplier per wheel tick
+export const CAMERA_PAN_SPEED = 10;          // Pixels per key press
+export const CAMERA_LERP_FACTOR = 0.15;      // Smooth interpolation (0-1, higher = snappier)
+export const CAMERA_KEYBOARD_PAN_SPEED = 300; // Pixels per second for keyboard pan
