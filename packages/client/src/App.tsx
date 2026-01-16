@@ -6,6 +6,7 @@ import { AnimationDispatcherProvider } from "./contexts/AnimationDispatcherConte
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
 import { HexGrid } from "./components/GameBoard/HexGrid";
+import { PixiHexGrid } from "./components/GameBoard/PixiHexGrid";
 import { ManaSourceOverlay } from "./components/GameBoard/ManaSourceOverlay";
 import { TopBar } from "./components/TopBar";
 import { TurnActions } from "./components/TurnActions";
@@ -42,6 +43,19 @@ function getGameSeed(): number {
 }
 
 const GAME_SEED = getGameSeed();
+
+// Check if PixiJS renderer is enabled via URL param (?renderer=pixi)
+function getUsePixiRenderer(): boolean {
+  const urlParams = new URLSearchParams(window.location.search);
+  const rendererParam = urlParams.get("renderer");
+  const usePixi = rendererParam === "pixi";
+  if (usePixi) {
+    console.log("Renderer: PixiJS (experimental)");
+  }
+  return usePixi;
+}
+
+const USE_PIXI_RENDERER = getUsePixiRenderer();
 
 function GameView() {
   const { state } = useGame();
@@ -103,7 +117,7 @@ function GameView() {
 
       <main className="app__main">
         <div className="app__board">
-          <HexGrid />
+          {USE_PIXI_RENDERER ? <PixiHexGrid /> : <HexGrid />}
           <ManaSourceOverlay />
         </div>
       </main>
