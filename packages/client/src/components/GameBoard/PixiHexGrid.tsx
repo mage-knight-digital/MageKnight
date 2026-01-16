@@ -354,8 +354,8 @@ async function renderTiles(
       const isLast = index === introTiles.length - 1;
 
       setTimeout(() => {
-        // Phase 1: Magic outline traces the hex with sparkles
-        particleManager.traceHexOutline(
+        // Phase 1: Magic outline traces the TILE shape with sparkles
+        particleManager.traceTileOutline(
           layers.particles,
           position,
           OUTLINE_TIME,

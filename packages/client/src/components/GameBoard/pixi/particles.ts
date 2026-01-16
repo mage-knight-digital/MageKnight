@@ -7,7 +7,7 @@
 
 import { Container, Graphics, Ticker } from "pixi.js";
 import type { PixelPosition } from "./types";
-import { HEX_SIZE } from "./types";
+import { HEX_SIZE, TILE_WIDTH, TILE_HEIGHT } from "./types";
 import { getHexVertices } from "./hexMath";
 
 /**
@@ -198,7 +198,225 @@ export class ParticleEmitter {
 }
 
 /**
- * Hex outline tracer - draws magic outline with sparkles
+ * Generate vertices for a large tile outline (pointy-topped hex scaled to tile size)
+ * The tile covers a 7-hex cluster so we use tile dimensions
+ */
+function getTileOutlineVertices(width: number, height: number): PixelPosition[] {
+  // Create a hexagonal shape scaled to tile dimensions
+  // Pointy-top hex with width and height matching tile
+  const vertices: PixelPosition[] = [];
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+
+  // Pointy-top hex vertices (starting from top, going clockwise)
+  // Top point
+  vertices.push({ x: 0, y: -halfHeight });
+  // Top-right
+  vertices.push({ x: halfWidth * 0.9, y: -halfHeight * 0.5 });
+  // Bottom-right
+  vertices.push({ x: halfWidth * 0.9, y: halfHeight * 0.5 });
+  // Bottom point
+  vertices.push({ x: 0, y: halfHeight });
+  // Bottom-left
+  vertices.push({ x: -halfWidth * 0.9, y: halfHeight * 0.5 });
+  // Top-left
+  vertices.push({ x: -halfWidth * 0.9, y: -halfHeight * 0.5 });
+
+  return vertices;
+}
+
+/**
+ * Tile outline tracer - draws magic outline around the entire tile with sparkles
+ */
+export class TileOutlineTracer {
+  private graphics: Graphics;
+  private progress = 0;
+  private duration: number;
+  private isActive = true;
+  private vertices: PixelPosition[];
+  private sparkles: Particle[] = [];
+  private onComplete?: () => void;
+
+  constructor(
+    private container: Container,
+    private center: PixelPosition,
+    duration: number,
+    private color: number = 0x88ccff,
+    onComplete?: () => void
+  ) {
+    this.graphics = new Graphics();
+    this.container.addChild(this.graphics);
+    this.duration = duration;
+    // Use tile dimensions for the outline
+    this.vertices = getTileOutlineVertices(TILE_WIDTH * 0.95, TILE_HEIGHT * 0.95);
+    this.onComplete = onComplete;
+  }
+
+  update(deltaMs: number): boolean {
+    if (!this.isActive) return false;
+
+    this.progress += deltaMs / this.duration;
+
+    // Spawn sparkles along the drawing path
+    if (this.progress < 1) {
+      const totalLength = 6; // 6 sides
+      const currentPos = this.progress * totalLength;
+      const sideIndex = Math.floor(currentPos) % 6;
+      const sideProgress = currentPos - Math.floor(currentPos);
+
+      const v1 = this.vertices[sideIndex];
+      const v2 = this.vertices[(sideIndex + 1) % 6];
+      if (!v1 || !v2) return true;
+
+      const sparkleX =
+        this.center.x + v1.x + (v2.x - v1.x) * sideProgress;
+      const sparkleY =
+        this.center.y + v1.y + (v2.y - v1.y) * sideProgress;
+
+      // Add sparkles at trace point (more sparkles for larger outline)
+      if (Math.random() < 0.6) {
+        this.sparkles.push({
+          x: sparkleX + (Math.random() - 0.5) * 8,
+          y: sparkleY + (Math.random() - 0.5) * 8,
+          vx: (Math.random() - 0.5) * 30,
+          vy: (Math.random() - 0.5) * 30 - 15,
+          life: 400 + Math.random() * 300,
+          maxLife: 700,
+          size: 3 + Math.random() * 3,
+          startSize: 4,
+          endSize: 0,
+          color: Math.random() < 0.5 ? 0xffffff : this.color,
+          alpha: 1,
+          startAlpha: 1,
+          endAlpha: 0,
+          rotation: 0,
+          rotationSpeed: 0,
+          gravity: 15,
+        });
+      }
+    }
+
+    // Update sparkles
+    const dt = deltaMs / 1000;
+    for (let i = this.sparkles.length - 1; i >= 0; i--) {
+      const s = this.sparkles[i];
+      if (!s) continue;
+      s.life -= deltaMs;
+      if (s.life <= 0) {
+        this.sparkles.splice(i, 1);
+        continue;
+      }
+      s.vy += s.gravity * dt * 100;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      const progress = 1 - s.life / s.maxLife;
+      s.size = s.startSize + (s.endSize - s.startSize) * progress;
+      s.alpha = s.startAlpha + (s.endAlpha - s.startAlpha) * progress;
+    }
+
+    this.render();
+
+    // Complete when fully drawn and sparkles gone
+    if (this.progress >= 1 && this.sparkles.length === 0) {
+      this.destroy();
+      return false;
+    }
+
+    return true;
+  }
+
+  private render(): void {
+    this.graphics.clear();
+
+    // Draw the outline up to current progress
+    const totalLength = 6;
+    const currentPos = Math.min(this.progress, 1) * totalLength;
+
+    const firstVertex = this.vertices[0];
+    if (!firstVertex) return;
+
+    this.graphics.moveTo(
+      this.center.x + firstVertex.x,
+      this.center.y + firstVertex.y
+    );
+
+    for (let i = 0; i < 6; i++) {
+      if (i >= currentPos) break;
+
+      const nextVertex = this.vertices[(i + 1) % 6];
+      if (!nextVertex) continue;
+
+      if (i + 1 <= currentPos) {
+        this.graphics.lineTo(
+          this.center.x + nextVertex.x,
+          this.center.y + nextVertex.y
+        );
+      } else {
+        const sideProgress = currentPos - i;
+        const v1 = this.vertices[i];
+        const v2 = nextVertex;
+        if (v1) {
+          const x = this.center.x + v1.x + (v2.x - v1.x) * sideProgress;
+          const y = this.center.y + v1.y + (v2.y - v1.y) * sideProgress;
+          this.graphics.lineTo(x, y);
+        }
+      }
+    }
+
+    // Thicker line for tile outline
+    this.graphics.stroke({ width: 3, color: this.color, alpha: 0.9 });
+
+    // Draw glow effect
+    this.graphics.moveTo(
+      this.center.x + firstVertex.x,
+      this.center.y + firstVertex.y
+    );
+
+    for (let i = 0; i < 6 && i < currentPos; i++) {
+      const nextVertex = this.vertices[(i + 1) % 6];
+      if (!nextVertex) continue;
+
+      if (i + 1 <= currentPos) {
+        this.graphics.lineTo(
+          this.center.x + nextVertex.x,
+          this.center.y + nextVertex.y
+        );
+      } else {
+        const sideProgress = currentPos - i;
+        const v1 = this.vertices[i];
+        const v2 = nextVertex;
+        if (v1) {
+          this.graphics.lineTo(
+            this.center.x + v1.x + (v2.x - v1.x) * sideProgress,
+            this.center.y + v1.y + (v2.y - v1.y) * sideProgress
+          );
+        }
+      }
+    }
+
+    // Wider glow for tile
+    this.graphics.stroke({ width: 10, color: this.color, alpha: 0.15 });
+
+    // Draw sparkles
+    for (const s of this.sparkles) {
+      this.graphics
+        .circle(s.x, s.y, s.size)
+        .fill({ color: s.color, alpha: s.alpha });
+    }
+  }
+
+  destroy(): void {
+    this.isActive = false;
+    this.container.removeChild(this.graphics);
+    this.graphics.destroy();
+    if (this.onComplete) {
+      this.onComplete();
+    }
+  }
+}
+
+/**
+ * Hex outline tracer - draws magic outline with sparkles (for single hex effects)
  */
 export class HexOutlineTracer {
   private graphics: Graphics;
@@ -503,12 +721,15 @@ export function createMagicSparkles(
   );
 }
 
+// Union type for tracers
+type OutlineTracer = HexOutlineTracer | TileOutlineTracer;
+
 /**
  * Particle system manager - coordinates all active effects
  */
 export class ParticleManager {
   private emitters: Set<ParticleEmitter> = new Set();
-  private tracers: Set<HexOutlineTracer> = new Set();
+  private tracers: Set<OutlineTracer> = new Set();
   private shadows: Map<string, DropShadow> = new Map();
   private ticker: Ticker | null = null;
   private tickerCallback: ((ticker: Ticker) => void) | null = null;
@@ -550,7 +771,7 @@ export class ParticleManager {
     this.emitters.add(emitter);
   }
 
-  addTracer(tracer: HexOutlineTracer): void {
+  addTracer(tracer: OutlineTracer): void {
     this.tracers.add(tracer);
   }
 
@@ -571,7 +792,7 @@ export class ParticleManager {
   }
 
   /**
-   * Create a hex outline trace effect
+   * Create a hex outline trace effect (for single hex)
    */
   traceHexOutline(
     container: Container,
@@ -581,6 +802,21 @@ export class ParticleManager {
     onComplete?: () => void
   ): HexOutlineTracer {
     const tracer = new HexOutlineTracer(container, center, duration, color, onComplete);
+    this.tracers.add(tracer);
+    return tracer;
+  }
+
+  /**
+   * Create a tile outline trace effect (for full tile cluster)
+   */
+  traceTileOutline(
+    container: Container,
+    center: PixelPosition,
+    duration: number,
+    color?: number,
+    onComplete?: () => void
+  ): TileOutlineTracer {
+    const tracer = new TileOutlineTracer(container, center, duration, color, onComplete);
     this.tracers.add(tracer);
     return tracer;
   }
