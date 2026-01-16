@@ -709,4 +709,230 @@ describe("Spell Purchase and Advanced Action Learning", () => {
       });
     });
   });
+
+  /**
+   * =============================================================================
+   * CORRECT GAME RULES - These tests document the actual Mage Knight rules
+   * =============================================================================
+   *
+   * Current implementation has several rule violations. These tests should FAIL
+   * until the implementation is corrected.
+   *
+   * RULE: Spells cost 7 INFLUENCE (not mana) at Mage Towers ONLY
+   * RULE: Monasteries sell Advanced Actions (not spells) for 6 influence
+   * RULE: Regular Advanced Actions are gained through LEVEL UP rewards only
+   */
+  describe("CORRECT RULES - Spell Purchase", () => {
+    describe("spells should cost influence, not mana", () => {
+      it.skip("should buy a spell with 7 influence at mage tower", () => {
+        const mageTowerSite: Site = {
+          type: SiteType.MageTower,
+          owner: "player1",
+          isConquered: true,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          mageTowerSite,
+          { spells: [CARD_FIREBALL] },
+          {
+            // Player has 7+ influence accumulated (not mana)
+            influenceAccumulated: 7,
+          }
+        );
+
+        // The action should NOT require manaPaid - it should use influence
+        const result = engine.processAction(state, "player1", {
+          type: BUY_SPELL_ACTION,
+          cardId: CARD_FIREBALL,
+          // No manaPaid - influence cost instead
+        });
+
+        expect(result.state.players[0].discard).toContain(CARD_FIREBALL);
+        // Influence should be consumed
+        expect(result.state.players[0].influenceAccumulated).toBe(0);
+      });
+
+      it.skip("should reject spell purchase with insufficient influence", () => {
+        const mageTowerSite: Site = {
+          type: SiteType.MageTower,
+          owner: "player1",
+          isConquered: true,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          mageTowerSite,
+          { spells: [CARD_FIREBALL] },
+          {
+            influenceAccumulated: 6, // Need 7
+          }
+        );
+
+        const result = engine.processAction(state, "player1", {
+          type: BUY_SPELL_ACTION,
+          cardId: CARD_FIREBALL,
+        });
+
+        const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+        expect(invalidEvent).toBeDefined();
+        if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+          expect(invalidEvent.reason).toContain("influence");
+        }
+      });
+    });
+
+    describe("spells should only be available at Mage Towers", () => {
+      it.skip("should reject buying spells at monastery", () => {
+        // RULE: Monasteries do NOT sell spells - they sell Advanced Actions
+        const monasterySite: Site = {
+          type: SiteType.Monastery,
+          owner: null,
+          isConquered: false,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          monasterySite,
+          { spells: [CARD_FIREBALL] },
+          { influenceAccumulated: 7 }
+        );
+
+        const result = engine.processAction(state, "player1", {
+          type: BUY_SPELL_ACTION,
+          cardId: CARD_FIREBALL,
+        });
+
+        const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+        expect(invalidEvent).toBeDefined();
+        if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+          expect(invalidEvent.reason).toContain("Mage Tower");
+        }
+      });
+    });
+  });
+
+  describe("CORRECT RULES - Monastery Advanced Actions", () => {
+    describe("monasteries should sell AAs for 6 influence", () => {
+      it.skip("should buy monastery AA with 6 influence", () => {
+        const monasterySite: Site = {
+          type: SiteType.Monastery,
+          owner: null,
+          isConquered: false,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          monasterySite,
+          { monasteryAdvancedActions: [CARD_BLOOD_RAGE] },
+          {
+            influenceAccumulated: 6,
+          }
+        );
+
+        const result = engine.processAction(state, "player1", {
+          type: LEARN_ADVANCED_ACTION_ACTION,
+          cardId: CARD_BLOOD_RAGE,
+          fromMonastery: true,
+        });
+
+        expect(result.state.players[0].discard).toContain(CARD_BLOOD_RAGE);
+        expect(result.state.players[0].influenceAccumulated).toBe(0);
+      });
+
+      it.skip("should reject monastery AA purchase with insufficient influence", () => {
+        const monasterySite: Site = {
+          type: SiteType.Monastery,
+          owner: null,
+          isConquered: false,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          monasterySite,
+          { monasteryAdvancedActions: [CARD_BLOOD_RAGE] },
+          {
+            influenceAccumulated: 5, // Need 6
+          }
+        );
+
+        const result = engine.processAction(state, "player1", {
+          type: LEARN_ADVANCED_ACTION_ACTION,
+          cardId: CARD_BLOOD_RAGE,
+          fromMonastery: true,
+        });
+
+        const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+        expect(invalidEvent).toBeDefined();
+        if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+          expect(invalidEvent.reason).toContain("influence");
+        }
+      });
+    });
+  });
+
+  describe("CORRECT RULES - Regular Advanced Actions", () => {
+    describe("regular AAs should only be gained through level up", () => {
+      it.skip("should reject direct purchase of regular AA (not level up context)", () => {
+        // RULE: Regular advanced actions from the offer are gained through
+        // leveling up, not purchased with influence at mage towers
+        const mageTowerSite: Site = {
+          type: SiteType.MageTower,
+          owner: "player1",
+          isConquered: true,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          mageTowerSite,
+          { advancedActions: [CARD_FIRE_BOLT] },
+          {
+            // Player is NOT in a level-up reward selection context
+            pendingRewards: [],
+          }
+        );
+
+        const result = engine.processAction(state, "player1", {
+          type: LEARN_ADVANCED_ACTION_ACTION,
+          cardId: CARD_FIRE_BOLT,
+          fromMonastery: false,
+        });
+
+        // Should be rejected - can only take AA during level up
+        const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+        expect(invalidEvent).toBeDefined();
+        if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+          expect(invalidEvent.reason).toContain("level up");
+        }
+      });
+
+      it.skip("should allow AA selection during level up reward", () => {
+        const mageTowerSite: Site = {
+          type: SiteType.MageTower,
+          owner: "player1",
+          isConquered: true,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          mageTowerSite,
+          { advancedActions: [CARD_FIRE_BOLT, CARD_ICE_BOLT] },
+          {
+            // Player IS in a level-up reward context that offers AA choice
+            pendingRewards: [{ type: "advancedAction" }],
+          }
+        );
+
+        const result = engine.processAction(state, "player1", {
+          type: LEARN_ADVANCED_ACTION_ACTION,
+          cardId: CARD_FIRE_BOLT,
+          fromMonastery: false,
+        });
+
+        expect(result.state.players[0].discard).toContain(CARD_FIRE_BOLT);
+        // Pending reward should be consumed
+        expect(result.state.players[0].pendingRewards).toHaveLength(0);
+      });
+    });
+  });
 });
