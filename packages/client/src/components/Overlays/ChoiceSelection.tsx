@@ -130,7 +130,6 @@ export function ChoiceSelection() {
   // Extract data before hooks (may be undefined if no pending choice)
   const pendingChoice = player?.pendingChoice;
   const cardId = pendingChoice?.cardId ?? "";
-  const options = pendingChoice?.options ?? [];
   const canUndo = state?.validActions.turn?.canUndo ?? false;
 
   // All hooks must be called before any early returns
@@ -147,6 +146,7 @@ export function ChoiceSelection() {
 
   // Convert options to pie menu items
   const pieItems: PieMenuItem[] = useMemo(() => {
+    const options = pendingChoice?.options ?? [];
     return options.map((option, index) => {
       // Try to create a short label with sublabel for longer descriptions
       const { label, sublabel } = formatEffectLabel(option.description);
@@ -158,7 +158,7 @@ export function ChoiceSelection() {
         color: getEffectColor(option.type, option.description),
       };
     });
-  }, [options]);
+  }, [pendingChoice?.options]);
 
   const handlePieSelect = useCallback((id: string) => {
     const index = parseInt(id, 10);

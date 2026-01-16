@@ -239,8 +239,6 @@ export function FloatingUnitCarousel({
   }
 
   const showGhost = ghostType !== null;
-  // Total slots to lay out = units + 1 ghost if showing
-  const totalSlots = units.length + (showGhost ? 1 : 0);
   // Ghost goes in the last position (rightmost)
   const ghostIndex = units.length;
 
