@@ -205,19 +205,70 @@
   margin-left: 0.125rem;
 }
 
+.enemy-tooltip__rampaging {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background: linear-gradient(135deg, #8b0000, #b22222);
+  border-radius: 4px;
+  margin-bottom: 0.375rem;
+
+  /* Staggered animation */
+  opacity: 0;
+  animation: line-appear 0.25s ease-out forwards;
+}
+
+.enemy-tooltip__rampaging-icon {
+  font-size: 0.8rem;
+}
+
+.enemy-tooltip__rampaging-text {
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.enemy-tooltip__rampaging-desc {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-left: auto;
+}
+
 .enemy-tooltip__abilities {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
+  flex-direction: column;
+  gap: 0.25rem;
   margin-top: 0.25rem;
 }
 
 .enemy-tooltip__ability {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.7rem;
-  padding: 0.125rem 0.375rem;
+  padding: 0.2rem 0.375rem;
   background: #333;
   border-radius: 4px;
   color: #ddd;
+  cursor: help;
+}
+
+.enemy-tooltip__ability-icon {
+  flex-shrink: 0;
+}
+
+.enemy-tooltip__ability-name {
+  font-weight: 600;
+  color: #fff;
+}
+
+.enemy-tooltip__ability-desc {
+  color: #999;
+  font-size: 0.65rem;
+  margin-left: 0.25rem;
 }
 
 .enemy-tooltip__resistances {

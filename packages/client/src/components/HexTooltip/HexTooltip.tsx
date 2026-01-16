@@ -130,6 +130,7 @@ export function HexTooltip({
             isAnimating={isAnimating}
             showHeader={hasSite}
             startIndex={enemyStartIndex}
+            isRampaging={hex.rampagingEnemies && hex.rampagingEnemies.length > 0}
           />
         )}
       </div>

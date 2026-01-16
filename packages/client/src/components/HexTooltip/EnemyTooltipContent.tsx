@@ -6,12 +6,13 @@
  * - Attack value and element
  * - Armor value
  * - Fame reward
- * - Abilities (swift, poison, etc.)
+ * - Abilities (swift, poison, etc.) with short descriptions
  * - Resistances
+ * - Rampaging indicator if applicable
  */
 
-import type { ClientHexEnemy } from "@mage-knight/shared";
-import { ENEMIES } from "@mage-knight/shared";
+import type { ClientHexEnemy, EnemyAbilityType } from "@mage-knight/shared";
+import { ENEMIES, ABILITY_DESCRIPTIONS } from "@mage-knight/shared";
 
 export interface EnemyTooltipContentProps {
   enemies: readonly ClientHexEnemy[];
@@ -20,6 +21,8 @@ export interface EnemyTooltipContentProps {
   showHeader?: boolean;
   /** Starting index for animation delay (for chaining with other content) */
   startIndex?: number;
+  /** Whether these are rampaging enemies */
+  isRampaging?: boolean;
 }
 
 // Element display names
@@ -28,18 +31,6 @@ const ELEMENT_NAMES: Record<string, string> = {
   fire: "Fire",
   ice: "Ice",
   cold_fire: "ColdFire",
-};
-
-// Ability display with icons
-const ABILITY_DISPLAY: Record<string, { icon: string; name: string }> = {
-  swift: { icon: "⚡", name: "Swift" },
-  brutal: { icon: "💀", name: "Brutal" },
-  poison: { icon: "☠️", name: "Poison" },
-  paralyze: { icon: "🔒", name: "Paralyze" },
-  fortified: { icon: "🛡️", name: "Fortified" },
-  summon: { icon: "✨", name: "Summon" },
-  cumbersome: { icon: "🐢", name: "Cumbersome" },
-  unfortified: { icon: "📍", name: "Unfortified" },
 };
 
 // Enemy color display
@@ -65,6 +56,7 @@ export function EnemyTooltipContent({
   isAnimating,
   showHeader = false,
   startIndex = 0,
+  isRampaging = false,
 }: EnemyTooltipContentProps) {
   let lineIndex = startIndex;
 
@@ -82,6 +74,14 @@ export function EnemyTooltipContent({
       {showHeader && (
         <div className="enemy-tooltip__header" style={getLineStyle()}>
           GUARDED BY
+        </div>
+      )}
+
+      {isRampaging && (
+        <div className="enemy-tooltip__rampaging" style={getLineStyle()}>
+          <span className="enemy-tooltip__rampaging-icon">🚨</span>
+          <span className="enemy-tooltip__rampaging-text">RAMPAGING</span>
+          <span className="enemy-tooltip__rampaging-desc">Blocks movement, can be provoked</span>
         </div>
       )}
 
@@ -141,10 +141,12 @@ export function EnemyTooltipContent({
             {definition.abilities.length > 0 && (
               <div className="enemy-tooltip__abilities">
                 {definition.abilities.map((ability) => {
-                  const display = ABILITY_DISPLAY[ability];
+                  const desc = ABILITY_DESCRIPTIONS[ability as EnemyAbilityType];
                   return (
-                    <span key={ability} className="enemy-tooltip__ability">
-                      {display?.icon || "•"} {display?.name || ability}
+                    <span key={ability} className="enemy-tooltip__ability" title={desc?.fullDesc}>
+                      <span className="enemy-tooltip__ability-icon">{desc?.icon || "•"}</span>
+                      <span className="enemy-tooltip__ability-name">{desc?.name || ability}</span>
+                      <span className="enemy-tooltip__ability-desc">{desc?.shortDesc}</span>
                     </span>
                   );
                 })}
