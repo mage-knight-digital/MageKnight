@@ -12,8 +12,8 @@
 
 :root {
   /* Offer card sizing - scales with viewport height for readability on all displays */
-  /* Min 180px (small screens), prefer 28vh, max 400px (huge screens) */
-  --offer-card-height: clamp(180px, 28vh, 400px);
+  /* Min 220px (small screens), prefer 35vh, max 500px (huge screens) */
+  --offer-card-height: clamp(220px, 35vh, 500px);
   --offer-card-width: calc(var(--offer-card-height) * 0.714); /* Card aspect ratio */
 }
 
@@ -171,6 +171,8 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   width: 100%;
   min-height: 200px;
+  /* Allow cards to extend beyond tray on hover */
+  overflow: visible;
 }
 
 /* Tray shadow beneath */
@@ -380,8 +382,10 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 1rem;
+  gap: 1.5rem;
   width: 100%;
+  /* Padding to give cards room for hover rotation/lift without clipping */
+  padding: 1rem 1rem 2rem;
 }
 
 .offer-pane__empty {
@@ -408,7 +412,8 @@
 
 .offer-tray__content {
   position: relative;
-  overflow: hidden;
+  /* Allow rotated cards to extend beyond bounds without clipping */
+  overflow: visible;
 }
 
 .offer-tray__pane {
