@@ -1,13 +1,80 @@
 /**
  * EnemyCard - Displays a single enemy during combat using token artwork
+ *
+ * Hover shows a tooltip with stats and abilities.
  */
 
-import type { ClientCombatEnemy, BlockOption, DamageAssignmentOption, AttackOption, EnemyId } from "@mage-knight/shared";
+import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
+import type { ClientCombatEnemy, BlockOption, DamageAssignmentOption, AttackOption, EnemyId, EnemyAbilityType } from "@mage-knight/shared";
+import { ABILITY_DESCRIPTIONS } from "@mage-knight/shared";
 import "./EnemyCard.css";
 
 // Get enemy token image URL
 function getEnemyImageUrl(enemyId: EnemyId): string {
   return `/assets/enemies/${enemyId}.jpg`;
+}
+
+// Element display names
+const ELEMENT_NAMES: Record<string, string> = {
+  physical: "",
+  fire: "Fire",
+  ice: "Ice",
+  cold_fire: "ColdFire",
+};
+
+// Tooltip for enemy stats/abilities
+function EnemyTooltip({ enemy, position }: { enemy: ClientCombatEnemy; position: { x: number; y: number } }) {
+  const elementName = ELEMENT_NAMES[enemy.attackElement] || "";
+  const hasResistances = enemy.resistances.physical || enemy.resistances.fire || enemy.resistances.ice;
+
+  return (
+    <div
+      className="enemy-combat-tooltip"
+      style={{ left: position.x, top: position.y }}
+    >
+      <div className="enemy-combat-tooltip__content">
+        {/* Stats row */}
+        <div className="enemy-combat-tooltip__stats">
+          <span className="enemy-combat-tooltip__stat">
+            <span className="enemy-combat-tooltip__stat-icon">⚔️</span>
+            <span className="enemy-combat-tooltip__stat-value">{enemy.attack}</span>
+            {elementName && <span className="enemy-combat-tooltip__stat-element">{elementName}</span>}
+          </span>
+          <span className="enemy-combat-tooltip__stat">
+            <span className="enemy-combat-tooltip__stat-icon">🛡️</span>
+            <span className="enemy-combat-tooltip__stat-value">{enemy.armor}</span>
+          </span>
+        </div>
+
+        {/* Abilities */}
+        {enemy.abilities.length > 0 && (
+          <div className="enemy-combat-tooltip__abilities">
+            {enemy.abilities.map((ability) => {
+              const desc = ABILITY_DESCRIPTIONS[ability as EnemyAbilityType];
+              return (
+                <div key={ability} className="enemy-combat-tooltip__ability">
+                  <span className="enemy-combat-tooltip__ability-icon">{desc?.icon || "•"}</span>
+                  <span className="enemy-combat-tooltip__ability-name">{desc?.name || ability}</span>
+                  <span className="enemy-combat-tooltip__ability-desc">{desc?.shortDesc}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Resistances */}
+        {hasResistances && (
+          <div className="enemy-combat-tooltip__resistances">
+            <span className="enemy-combat-tooltip__resistance-label">Resists:</span>
+            {enemy.resistances.physical && <span className="enemy-combat-tooltip__resistance">Physical</span>}
+            {enemy.resistances.fire && <span className="enemy-combat-tooltip__resistance enemy-combat-tooltip__resistance--fire">Fire</span>}
+            {enemy.resistances.ice && <span className="enemy-combat-tooltip__resistance enemy-combat-tooltip__resistance--ice">Ice</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 interface EnemyCardProps {
@@ -51,6 +118,33 @@ export function EnemyCard({
   strikeKey,
   hasAttacked = false,
 }: EnemyCardProps) {
+  // Tooltip hover state
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const hoverTimerRef = useRef<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = () => {
+    // Show tooltip after brief delay
+    hoverTimerRef.current = window.setTimeout(() => {
+      if (cardRef.current) {
+        const rect = cardRef.current.getBoundingClientRect();
+        setTooltipPosition({
+          x: rect.right + 12,
+          y: rect.top,
+        });
+        setShowTooltip(true);
+      }
+    }, 300);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setShowTooltip(false);
+  };
   // Show assign block button when:
   // - In block phase
   // - Enemy is not defeated
@@ -114,8 +208,11 @@ export function EnemyCard({
 
   return (
     <div
+      ref={cardRef}
       className={classNames}
       onClick={isTargetable ? onClick : undefined}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       data-testid={`enemy-card-${enemy.instanceId}`}
       data-strike-key={strikeKey}
     >
@@ -194,6 +291,12 @@ export function EnemyCard({
           </div>
         )}
       </div>
+
+      {/* Hover tooltip - rendered via portal to escape transform context */}
+      {showTooltip && createPortal(
+        <EnemyTooltip enemy={enemy} position={tooltipPosition} />,
+        document.body
+      )}
     </div>
   );
 }

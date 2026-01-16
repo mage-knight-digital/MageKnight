@@ -1,0 +1,219 @@
+/* Combat Phase Rail - Game UI, not web form */
+
+.vertical-phase-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.5rem, 1vh, 1rem);
+  padding: clamp(1rem, 2vw, 2rem);
+  background: none;
+  min-width: clamp(80px, 8vw, 140px);
+  /* Vertical rule of thirds - center in middle 2/3 */
+  height: 66vh;
+  margin-top: auto;
+  margin-bottom: auto;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* Phase track - vertical stack of icons */
+.vertical-phase-rail__track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.25rem, 0.5vh, 0.5rem);
+}
+
+/* Individual phase marker */
+.vertical-phase-rail__phase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: clamp(0.5rem, 1vh, 0.75rem);
+  transition: all 0.3s ease;
+}
+
+/* Phase icon - the main visual */
+.vertical-phase-rail__phase-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(2.5rem, 4vw, 4rem);
+  height: clamp(2.5rem, 4vw, 4rem);
+  font-size: clamp(1.25rem, 2vw, 2rem);
+  opacity: 0.3;
+  filter: grayscale(1);
+  transition: all 0.3s ease;
+}
+
+/* Phase label - small, secondary */
+.vertical-phase-rail__phase-label {
+  font-size: clamp(0.6rem, 0.9vw, 0.75rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+/* ===== STATE VARIATIONS ===== */
+
+/* Completed phases - subtle checkmark */
+.vertical-phase-rail__phase--completed .vertical-phase-rail__phase-icon {
+  opacity: 0.5;
+  filter: grayscale(0);
+  color: #27ae60;
+}
+
+.vertical-phase-rail__phase--completed .vertical-phase-rail__phase-label {
+  color: rgba(39, 174, 96, 0.5);
+}
+
+/* Active phase - DRAMATIC */
+.vertical-phase-rail__phase--active .vertical-phase-rail__phase-icon {
+  opacity: 1;
+  filter: grayscale(0) drop-shadow(0 0 12px rgba(231, 76, 60, 0.8));
+  transform: scale(1.2);
+  animation: phase-pulse 2s ease-in-out infinite;
+}
+
+.vertical-phase-rail__phase--active .vertical-phase-rail__phase-label {
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+}
+
+@keyframes phase-pulse {
+  0%, 100% {
+    filter: grayscale(0) drop-shadow(0 0 12px rgba(231, 76, 60, 0.8));
+  }
+  50% {
+    filter: grayscale(0) drop-shadow(0 0 20px rgba(231, 76, 60, 1));
+  }
+}
+
+/* Upcoming phases - barely visible */
+.vertical-phase-rail__phase--upcoming .vertical-phase-rail__phase-icon {
+  opacity: 0.2;
+  filter: grayscale(1);
+}
+
+.vertical-phase-rail__phase--upcoming .vertical-phase-rail__phase-label {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+/* ===== ACTION BUTTON ===== */
+
+/* Default: subtle arrow to proceed */
+.vertical-phase-rail__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(3rem, 5vw, 4.5rem);
+  height: clamp(3rem, 5vw, 4.5rem);
+  font-size: clamp(1.5rem, 2.5vw, 2.5rem);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: clamp(1rem, 2vh, 2rem);
+}
+
+.vertical-phase-rail__action:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.1);
+}
+
+.vertical-phase-rail__action:active:not(:disabled) {
+  transform: scale(1.05);
+}
+
+/* Finish button - dramatic crimson/gold */
+.vertical-phase-rail__action--finish {
+  width: auto;
+  height: auto;
+  padding: clamp(0.75rem, 1.25vh, 1rem) clamp(1.25rem, 2vw, 1.75rem);
+  font-size: clamp(0.75rem, 1.1vw, 0.9rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-radius: 4px;
+  color: #ffd700;
+  background: linear-gradient(135deg, rgba(139, 69, 19, 0.8) 0%, rgba(101, 67, 33, 0.9) 100%);
+  border: 2px solid rgba(255, 215, 0, 0.4);
+  box-shadow:
+    0 0 15px rgba(255, 215, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.vertical-phase-rail__action--finish:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(160, 82, 45, 0.9) 0%, rgba(139, 90, 43, 1) 100%);
+  border-color: rgba(255, 215, 0, 0.6);
+  box-shadow:
+    0 0 25px rgba(255, 215, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+/* Disabled state */
+.vertical-phase-rail__action--disabled,
+.vertical-phase-rail__action:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ===== WARNING ===== */
+
+.vertical-phase-rail__warning {
+  padding: 0.375rem 0.75rem;
+  font-size: clamp(0.55rem, 0.8vw, 0.65rem);
+  font-weight: 600;
+  color: #e74c3c;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: 3px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ===== ENTRANCE ANIMATION ===== */
+
+.vertical-phase-rail {
+  animation: rail-fade-in 0.4s ease-out;
+}
+
+@keyframes rail-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.vertical-phase-rail__phase {
+  animation: phase-fade-in 0.3s ease-out backwards;
+}
+
+.vertical-phase-rail__phase:nth-child(1) { animation-delay: 0.1s; }
+.vertical-phase-rail__phase:nth-child(2) { animation-delay: 0.15s; }
+.vertical-phase-rail__phase:nth-child(3) { animation-delay: 0.2s; }
+.vertical-phase-rail__phase:nth-child(4) { animation-delay: 0.25s; }
+
+@keyframes phase-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

@@ -1,4 +1,4 @@
-/* Combat Scene - floats over dimmed game board */
+/* Combat Scene - full screen combat arena */
 .combat-scene {
   position: fixed;
   inset: 0;
@@ -7,8 +7,92 @@
   flex-direction: column;
   pointer-events: none;
 
+  /* Solid dark backdrop - hides the hex grid completely */
+  background: linear-gradient(
+    135deg,
+    rgba(10, 10, 20, 0.98) 0%,
+    rgba(20, 15, 30, 0.98) 50%,
+    rgba(15, 10, 25, 0.98) 100%
+  );
+
   /* Flash effect on combat start */
   animation: combat-flash 0.4s ease-out;
+}
+
+/* Site backdrop - faded background image */
+.combat-scene__backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.combat-scene__backdrop-image {
+  max-height: 85vh;
+  max-width: 60vw;
+  object-fit: contain;
+  opacity: 0.25;
+  filter: blur(2px) saturate(0.7);
+  animation: backdrop-fade-in 1s ease-out;
+}
+
+@keyframes backdrop-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+}
+
+/* Main layout - 2 columns: phase rail | battle */
+.combat-scene__layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  min-height: 0;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+
+.combat-scene__layout > * {
+  pointer-events: auto;
+}
+
+/* Left column - phase rail */
+.combat-scene__phase-rail {
+  display: flex;
+  pointer-events: auto;
+}
+
+/* Mana Source - in the battle area */
+.combat-scene__mana-source {
+  pointer-events: auto;
+  margin-bottom: 1.5rem;
+}
+
+/* Override mana source styles for combat */
+.combat-scene__mana-source .mana-source-overlay {
+  position: relative;
+  top: auto;
+  right: auto;
+  background: rgba(10, 10, 25, 0.9);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.combat-scene__mana-source .mana-source-overlay__die {
+  width: clamp(2.5rem, 4vw, 3.5rem);
+  height: clamp(2.5rem, 4vw, 3.5rem);
 }
 
 @keyframes combat-flash {
@@ -100,17 +184,25 @@
   pointer-events: auto;
 }
 
-/* Header - contains phase rail and undo button */
-.combat-scene__header {
-  position: relative;
+/* Battlefield - center column where enemies appear */
+.combat-scene__battlefield {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  pointer-events: none;
+  position: relative;
 }
 
+.combat-scene__battlefield > * {
+  pointer-events: auto;
+}
+
+/* Undo button - top right of battle area */
 .combat-scene__undo {
   position: absolute;
-  top: 0.75rem;
+  top: 1rem;
   right: 1rem;
   padding: 0.5rem 1rem;
   font-size: 0.75rem;
@@ -123,27 +215,13 @@
   transition: all 0.15s ease;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  z-index: 10;
 }
 
 .combat-scene__undo:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.3);
-}
-
-/* Battlefield - center area where enemies appear */
-.combat-scene__battlefield {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  pointer-events: none;
-}
-
-.combat-scene__battlefield > * {
-  pointer-events: auto;
 }
 
 /* Enemies container */

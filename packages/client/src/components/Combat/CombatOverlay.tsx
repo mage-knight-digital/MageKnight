@@ -18,7 +18,8 @@ import {
   END_COMBAT_PHASE_ACTION,
 } from "@mage-knight/shared";
 import { EnemyCard } from "./EnemyCard";
-import { PhaseRail } from "./PhaseRail";
+import { VerticalPhaseRail } from "./VerticalPhaseRail";
+import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import "./CombatOverlay.css";
@@ -85,7 +86,7 @@ function AccumulatorDisplay() {
 }
 
 export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
-  const { phase, enemies, isAtFortifiedSite } = combat;
+  const { phase, enemies } = combat;
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const canUndo = state?.validActions.turn?.canUndo ?? false;
@@ -176,71 +177,92 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
         />
       )}
 
-      {/* Phase Rail at top - includes action button, always visible */}
-      <div className="combat-scene__header">
-        <PhaseRail
-          currentPhase={phase}
-          isAtFortifiedSite={isAtFortifiedSite}
-          canEndPhase={combatOptions.canEndPhase}
-          onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
+      {/* Site backdrop - faded background behind enemies */}
+      <div className="combat-scene__backdrop">
+        <img
+          src="/assets/sites/mage_tower.png"
+          alt=""
+          className="combat-scene__backdrop-image"
+          draggable={false}
         />
-        {canUndo && (
-          <button
-            className="combat-scene__undo"
-            onClick={() => sendAction({ type: UNDO_ACTION })}
-            type="button"
-          >
-            Undo
-          </button>
-        )}
       </div>
 
-      {/* Enemies floating in center area */}
-      <div className="combat-scene__battlefield">
-        <div className="combat-scene__enemies">
-          {enemies.map((enemy) => {
-            const blockOption = combatOptions.blocks?.find(b => b.enemyInstanceId === enemy.instanceId);
-            const damageOption = combatOptions.damageAssignments?.find(d => d.enemyInstanceId === enemy.instanceId);
-            const attackOption = combatOptions.attacks?.find(a => a.enemyInstanceId === enemy.instanceId);
-
-            const isStriking = strikingEnemy?.instanceId === enemy.instanceId;
-            const strikeKey = isStriking ? strikingEnemy.strikeKey : undefined;
-            const hasAttacked = attackedEnemies.has(enemy.instanceId);
-
-            return (
-              <EnemyCard
-                key={enemy.instanceId}
-                enemy={enemy}
-                isBlockPhase={isBlockPhase}
-                blockOption={blockOption}
-                accumulatedBlock={accumulatedBlock}
-                onAssignBlock={(id) => {
-                  triggerEffect("block");
-                  sendAction({ type: DECLARE_BLOCK_ACTION, targetEnemyInstanceId: id });
-                }}
-                isDamagePhase={isDamagePhase}
-                damageOption={damageOption}
-                onAssignDamage={handleAssignDamage}
-                isAttackPhase={isAttackPhase || isRangedSiegePhase}
-                attackOption={attackOption}
-                accumulatedAttack={accumulatedAttack}
-                onAssignAttack={(id) => {
-                  triggerEffect("attack");
-                  // TODO: This needs more info - attack sources and type
-                  // For now this won't work correctly, need to wire up properly
-                  console.log("Attack enemy", id);
-                }}
-                isRangedSiegePhase={isRangedSiegePhase}
-                isStriking={isStriking}
-                strikeKey={strikeKey}
-                hasAttacked={hasAttacked}
-              />
-            );
-          })}
+      {/* Main layout: phase rail | battle area | info panel */}
+      <div className="combat-scene__layout">
+        {/* Left - Vertical phase rail */}
+        <div className="combat-scene__phase-rail">
+          <VerticalPhaseRail
+            currentPhase={phase}
+            canEndPhase={combatOptions.canEndPhase}
+            onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
+          />
         </div>
 
-        {/* Accumulated power display */}
-        <AccumulatorDisplay />
+        {/* Center - Battle area with enemies */}
+        <div className="combat-scene__battlefield">
+          {/* Undo button */}
+          {canUndo && (
+            <button
+              className="combat-scene__undo"
+              onClick={() => sendAction({ type: UNDO_ACTION })}
+              type="button"
+            >
+              Undo
+            </button>
+          )}
+
+          {/* Mana Source */}
+          <div className="combat-scene__mana-source">
+            <ManaSourceOverlay />
+          </div>
+
+          {/* Enemies */}
+          <div className="combat-scene__enemies">
+            {enemies.map((enemy) => {
+              const blockOption = combatOptions.blocks?.find(b => b.enemyInstanceId === enemy.instanceId);
+              const damageOption = combatOptions.damageAssignments?.find(d => d.enemyInstanceId === enemy.instanceId);
+              const attackOption = combatOptions.attacks?.find(a => a.enemyInstanceId === enemy.instanceId);
+
+              const isStriking = strikingEnemy?.instanceId === enemy.instanceId;
+              const strikeKey = isStriking ? strikingEnemy.strikeKey : undefined;
+              const hasAttacked = attackedEnemies.has(enemy.instanceId);
+
+              return (
+                <EnemyCard
+                  key={enemy.instanceId}
+                  enemy={enemy}
+                  isBlockPhase={isBlockPhase}
+                  blockOption={blockOption}
+                  accumulatedBlock={accumulatedBlock}
+                  onAssignBlock={(id) => {
+                    triggerEffect("block");
+                    sendAction({ type: DECLARE_BLOCK_ACTION, targetEnemyInstanceId: id });
+                  }}
+                  isDamagePhase={isDamagePhase}
+                  damageOption={damageOption}
+                  onAssignDamage={handleAssignDamage}
+                  isAttackPhase={isAttackPhase || isRangedSiegePhase}
+                  attackOption={attackOption}
+                  accumulatedAttack={accumulatedAttack}
+                  onAssignAttack={(id) => {
+                    triggerEffect("attack");
+                    // TODO: This needs more info - attack sources and type
+                    // For now this won't work correctly, need to wire up properly
+                    console.log("Attack enemy", id);
+                  }}
+                  isRangedSiegePhase={isRangedSiegePhase}
+                  isStriking={isStriking}
+                  strikeKey={strikeKey}
+                  hasAttacked={hasAttacked}
+                />
+              );
+            })}
+          </div>
+
+          {/* Accumulated power display */}
+          <AccumulatorDisplay />
+        </div>
+
       </div>
     </div>
   );
