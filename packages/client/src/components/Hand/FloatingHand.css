@@ -251,6 +251,13 @@
   transform: translateX(-200vw);
 }
 
+/* Hidden state when in offer view */
+.carousel-track--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease-out;
+}
+
 /* Each pane takes up one viewport width */
 .carousel-track__pane {
   position: absolute;
@@ -303,6 +310,12 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   z-index: 200;
   transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Hidden state when in offer view */
+.carousel-pane-indicator--hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .carousel-pane-indicator__item {

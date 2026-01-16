@@ -146,17 +146,25 @@ type MenuState =
   | { type: "spell-mana-select"; cardIndex: number; step: "black" | "color"; spellColor: ManaColor; blackSource?: ManaSourceInfo; sourceRect: DOMRect };
 
 // Hand view modes (Inscryption style)
+// offer: looking up at offer tray (above board)
 // board: cards completely hidden, full board view
 // ready: cards peeking ~33%, ready to play
 // focus: cards large ~80%, studying hand
-type HandView = "board" | "ready" | "focus";
-const HAND_VIEWS: HandView[] = ["board", "ready", "focus"];
+type HandView = "offer" | "board" | "ready" | "focus";
+const HAND_VIEWS: HandView[] = ["offer", "board", "ready", "focus"];
 
 // Carousel axis: tactics -> cards -> units
 type CarouselPane = "tactics" | "cards" | "units";
 const CAROUSEL_PANES: CarouselPane[] = ["tactics", "cards", "units"];
 
-export function PlayerHand() {
+// Export hand view type for other components
+export type { HandView };
+
+export interface PlayerHandProps {
+  onOfferViewChange?: (isVisible: boolean) => void;
+}
+
+export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
@@ -196,9 +204,14 @@ export function PlayerHand() {
     prevNeedsTacticRef.current = needsTacticSelection;
   }, [needsTacticSelection, carouselPane]);
 
+  // Notify parent when offer view state changes
+  useEffect(() => {
+    onOfferViewChange?.(handView === "offer");
+  }, [handView, onOfferViewChange]);
+
   // Keyboard controls:
-  // W/S = vertical view modes (board/ready/focus)
-  // A/D = horizontal carousel (tactics/cards/units)
+  // W/S = vertical view modes (offer/board/ready/focus)
+  // A/D = horizontal carousel (tactics/cards/units) - disabled when in offer view
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input
@@ -209,30 +222,43 @@ export function PlayerHand() {
       const key = e.key.toLowerCase();
 
       if (key === "s") {
-        // Move toward hand (board -> ready -> focus)
+        // Move toward hand (offer -> board -> ready -> focus)
         setHandView(current => {
           const idx = HAND_VIEWS.indexOf(current);
           return HAND_VIEWS[Math.min(idx + 1, HAND_VIEWS.length - 1)] ?? current;
         });
       } else if (key === "w") {
-        // Move toward board (focus -> ready -> board)
+        // Move toward offer view (focus -> ready -> board -> offer)
         setHandView(current => {
           const idx = HAND_VIEWS.indexOf(current);
           return HAND_VIEWS[Math.max(idx - 1, 0)] ?? current;
         });
-      } else if (key === "a") {
-        // Move left through panes: units -> cards -> tactics (if available)
-        setCarouselPane(current => {
-          const idx = CAROUSEL_PANES.indexOf(current);
-          // Don't allow navigation to tactics pane if tactic already selected
-          const minIdx = needsTacticSelection ? 0 : 1;
-          return CAROUSEL_PANES[Math.max(idx - 1, minIdx)] ?? current;
-        });
-      } else if (key === "d") {
-        // Move right through panes: tactics -> cards -> units
-        setCarouselPane(current => {
-          const idx = CAROUSEL_PANES.indexOf(current);
-          return CAROUSEL_PANES[Math.min(idx + 1, CAROUSEL_PANES.length - 1)] ?? current;
+      } else if (key === "a" || key === "d") {
+        // A/D carousel navigation - only when NOT in offer view
+        // (Offer view has its own A/D handling for Units/Spells/AAs)
+        setHandView(current => {
+          if (current === "offer") {
+            // Don't handle carousel navigation when in offer view
+            return current;
+          }
+
+          if (key === "a") {
+            // Move left through panes: units -> cards -> tactics (if available)
+            setCarouselPane(pane => {
+              const idx = CAROUSEL_PANES.indexOf(pane);
+              // Don't allow navigation to tactics pane if tactic already selected
+              const minIdx = needsTacticSelection ? 0 : 1;
+              return CAROUSEL_PANES[Math.max(idx - 1, minIdx)] ?? pane;
+            });
+          } else {
+            // Move right through panes: tactics -> cards -> units
+            setCarouselPane(pane => {
+              const idx = CAROUSEL_PANES.indexOf(pane);
+              return CAROUSEL_PANES[Math.min(idx + 1, CAROUSEL_PANES.length - 1)] ?? pane;
+            });
+          }
+
+          return current;
         });
       }
     };
@@ -458,10 +484,11 @@ export function PlayerHand() {
 
       {/* Carousel track - slides horizontally between tactics, cards, and units */}
       {/* All panes are always rendered, positioned side by side */}
-      <div className={`carousel-track carousel-track--${carouselPane}`}>
+      {/* Hidden when in offer view */}
+      <div className={`carousel-track carousel-track--${carouselPane} ${handView === "offer" ? "carousel-track--hidden" : ""}`}>
         {/* Tactics pane (leftmost position) */}
         <div className="carousel-track__pane carousel-track__pane--tactics">
-          <TacticCarouselPane viewMode={handView} />
+          <TacticCarouselPane viewMode={handView === "offer" ? "board" : handView} />
         </div>
 
         {/* Cards pane (middle position) */}
@@ -473,7 +500,7 @@ export function PlayerHand() {
             onCardClick={handleCardClick}
             deckCount={player.deckCount}
             discardCount={player.discardCount}
-            viewMode={handView}
+            viewMode={handView === "offer" ? "board" : handView}
           />
         </div>
 
@@ -481,14 +508,14 @@ export function PlayerHand() {
         <div className="carousel-track__pane carousel-track__pane--units">
           <FloatingUnitCarousel
             units={player.units}
-            viewMode={handView}
+            viewMode={handView === "offer" ? "board" : handView}
             commandTokens={player.commandTokens}
           />
         </div>
       </div>
 
-      {/* Carousel pane indicator */}
-      <div className="carousel-pane-indicator">
+      {/* Carousel pane indicator - hidden when in offer view */}
+      <div className={`carousel-pane-indicator ${handView === "offer" ? "carousel-pane-indicator--hidden" : ""}`}>
         {needsTacticSelection && (
           <>
             <span className={`carousel-pane-indicator__item carousel-pane-indicator__item--needs-attention ${carouselPane === "tactics" ? "carousel-pane-indicator__item--active" : ""}`}>
@@ -506,11 +533,11 @@ export function PlayerHand() {
         </span>
       </div>
 
-      {/* Deck/Discard - fixed position outside carousel */}
+      {/* Deck/Discard - fixed position outside carousel, hidden in offer view */}
       <DeckDiscardIndicator
         deckCount={player.deckCount}
         discardCount={player.discardCount}
-        isHidden={handView === "focus"}
+        isHidden={handView === "focus" || handView === "offer"}
       />
     </>
   );
