@@ -29,12 +29,15 @@ import {
   REROLL_SOURCE_DICE_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
+  BUY_SPELL_ACTION,
+  LEARN_ADVANCED_ACTION_ACTION,
   hexKey,
   getAllNeighbors,
   TIME_OF_DAY_DAY,
   type TacticId,
   type GladeWoundChoice,
   type BasicManaColor,
+  type ManaColor,
 } from "@mage-knight/shared";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import type { Command } from "../commands.js";
@@ -71,6 +74,8 @@ import { createResolveTacticDecisionCommand } from "./resolveTacticDecisionComma
 import { createRerollSourceDiceCommand } from "./rerollSourceDiceCommand.js";
 import { createResolveGladeWoundCommand } from "./resolveGladeWoundCommand.js";
 import { createResolveDeepMineChoiceCommand } from "./resolveDeepMineChoiceCommand.js";
+import { createBuySpellCommand } from "./buySpellCommand.js";
+import { createLearnAdvancedActionCommand } from "./learnAdvancedActionCommand.js";
 
 // Command factory function type
 type CommandFactory = (
@@ -657,6 +662,68 @@ function createResolveDeepMineCommandFromAction(
   });
 }
 
+// === Buy Spell command factory ===
+
+// Helper to get buy spell params from action
+function getBuySpellParams(
+  action: PlayerAction
+): { cardId: CardId; manaPaid: ManaColor } | null {
+  if (
+    action.type === BUY_SPELL_ACTION &&
+    "cardId" in action &&
+    "manaPaid" in action
+  ) {
+    return { cardId: action.cardId, manaPaid: action.manaPaid };
+  }
+  return null;
+}
+
+// Buy spell command factory
+function createBuySpellCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  const params = getBuySpellParams(action);
+  if (!params) return null;
+  return createBuySpellCommand({
+    playerId,
+    cardId: params.cardId,
+    manaPaid: params.manaPaid,
+  });
+}
+
+// === Learn Advanced Action command factory ===
+
+// Helper to get learn advanced action params from action
+function getLearnAdvancedActionParams(
+  action: PlayerAction
+): { cardId: CardId; fromMonastery: boolean } | null {
+  if (
+    action.type === LEARN_ADVANCED_ACTION_ACTION &&
+    "cardId" in action &&
+    "fromMonastery" in action
+  ) {
+    return { cardId: action.cardId, fromMonastery: action.fromMonastery };
+  }
+  return null;
+}
+
+// Learn advanced action command factory
+function createLearnAdvancedActionCommandFromAction(
+  _state: GameState,
+  playerId: string,
+  action: PlayerAction
+): Command | null {
+  const params = getLearnAdvancedActionParams(action);
+  if (!params) return null;
+  return createLearnAdvancedActionCommand({
+    playerId,
+    cardId: params.cardId,
+    fromMonastery: params.fromMonastery,
+  });
+}
+
 // Command factory registry
 const commandFactoryRegistry: Record<string, CommandFactory> = {
   [MOVE_ACTION]: createMoveCommandFromAction,
@@ -683,6 +750,8 @@ const commandFactoryRegistry: Record<string, CommandFactory> = {
   [REROLL_SOURCE_DICE_ACTION]: createRerollSourceDiceCommandFromAction,
   [RESOLVE_GLADE_WOUND_ACTION]: createResolveGladeWoundCommandFromAction,
   [RESOLVE_DEEP_MINE_ACTION]: createResolveDeepMineCommandFromAction,
+  [BUY_SPELL_ACTION]: createBuySpellCommandFromAction,
+  [LEARN_ADVANCED_ACTION_ACTION]: createLearnAdvancedActionCommandFromAction,
 };
 
 // Get command for an action
@@ -811,3 +880,17 @@ export {
   type ResolveGladeWoundCommandParams,
   RESOLVE_GLADE_WOUND_COMMAND,
 } from "./resolveGladeWoundCommand.js";
+
+// Buy spell command
+export {
+  createBuySpellCommand,
+  type BuySpellCommandParams,
+  BUY_SPELL_COMMAND,
+} from "./buySpellCommand.js";
+
+// Learn advanced action command
+export {
+  createLearnAdvancedActionCommand,
+  type LearnAdvancedActionCommandParams,
+  LEARN_ADVANCED_ACTION_COMMAND,
+} from "./learnAdvancedActionCommand.js";

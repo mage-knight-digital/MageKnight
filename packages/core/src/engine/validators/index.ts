@@ -27,6 +27,8 @@ import {
   SELECT_REWARD_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
+  BUY_SPELL_ACTION,
+  LEARN_ADVANCED_ACTION_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -173,6 +175,15 @@ import {
   validateHasPendingDeepMineChoice,
   validateDeepMineColorChoice,
 } from "./deepMineValidators.js";
+
+// Offer validators (spell purchase, advanced action learning)
+import {
+  validateSpellInOffer,
+  validateAtSpellSite,
+  validateHasManaForSpell,
+  validateAdvancedActionInOffer,
+  validateAtAdvancedActionSite,
+} from "./offerValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -391,6 +402,25 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingDeepMineChoice,
     validateDeepMineColorChoice,
+  ],
+  [BUY_SPELL_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateMustAnnounceEndOfRound,
+    validateSpellInOffer,
+    validateAtSpellSite,
+    validateHasManaForSpell,
+  ],
+  [LEARN_ADVANCED_ACTION_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateMustAnnounceEndOfRound,
+    validateAdvancedActionInOffer,
+    validateAtAdvancedActionSite,
   ],
 };
 
