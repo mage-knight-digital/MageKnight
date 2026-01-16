@@ -12,8 +12,8 @@
 
 :root {
   /* Offer card sizing - scales with viewport height for readability on all displays */
-  /* Min 220px (small screens), prefer 35vh, max 500px (huge screens) */
-  --offer-card-height: clamp(220px, 35vh, 500px);
+  /* Min 280px (small screens), prefer 45vh, max 600px (huge screens) */
+  --offer-card-height: clamp(280px, 45vh, 600px);
   --offer-card-width: calc(var(--offer-card-height) * 0.714); /* Card aspect ratio */
 }
 
