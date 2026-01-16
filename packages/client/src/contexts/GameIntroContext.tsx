@@ -8,9 +8,13 @@
  *
  * This creates an Inscryption-style layered reveal that feels intentional
  * and polished rather than everything appearing at once.
+ *
+ * Phase transitions are now driven by the AnimationDispatcher events,
+ * which fire when CSS animations actually complete (not estimated timing).
  */
 
-import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
+import { useAnimationDispatcher } from "./AnimationDispatcherContext";
 
 export type IntroPhase =
   | "idle"           // Before game loads
@@ -30,56 +34,76 @@ interface GameIntroContextValue {
   getTileDelay: (index: number) => number;
   /** Get the stagger delay for an enemy based on its index */
   getEnemyDelay: (index: number) => number;
-  /** Get the delay before tactic cards should start animating */
-  getTacticsDelay: () => number;
 }
 
 const GameIntroContext = createContext<GameIntroContextValue | null>(null);
 
-// Timing constants (in milliseconds)
+// Timing constants (in milliseconds) - used for stagger delays only
 const TILE_STAGGER_MS = 120;        // Delay between each tile
-const TILE_ANIMATION_MS = 600;      // Duration of tile reveal animation
 const ENEMY_STAGGER_MS = 80;        // Delay between each enemy
-const ENEMY_ANIMATION_MS = 400;     // Duration of enemy flip animation
-const PHASE_GAP_MS = 200;           // Brief pause between phases
 
 export function GameIntroProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<IntroPhase>("idle");
   const hasStarted = useRef(false);
-  const timingRef = useRef({ tileCount: 0, enemyCount: 0 });
+  const { on: onAnimationEvent, emit: emitAnimationEvent } = useAnimationDispatcher();
+
+  // Subscribe to animation events to drive phase transitions
+  useEffect(() => {
+    // When tiles animation completes, transition to enemies phase
+    const unsubTiles = onAnimationEvent("tiles-complete", () => {
+      setPhase("enemies");
+    });
+
+    // When enemies animation completes, transition to tactics phase
+    const unsubEnemies = onAnimationEvent("enemies-complete", () => {
+      setPhase("tactics");
+    });
+
+    // When tactics animation completes, transition to complete phase
+    const unsubTactics = onAnimationEvent("tactics-complete", () => {
+      setPhase("complete");
+      emitAnimationEvent("intro-complete");
+    });
+
+    return () => {
+      unsubTiles();
+      unsubEnemies();
+      unsubTactics();
+    };
+  }, [onAnimationEvent, emitAnimationEvent]);
 
   const startIntro = useCallback((tileCount: number, enemyCount: number) => {
     // Only run intro once per game session
     if (hasStarted.current) return;
     hasStarted.current = true;
 
-    timingRef.current = { tileCount, enemyCount };
-
-    // Calculate timing
-    // TODO: This setTimeout-based approach is unreliable - see docs/tickets/animation-event-dispatcher.md
-    const tilesEndTime = tileCount * TILE_STAGGER_MS + TILE_ANIMATION_MS;
-    const enemiesEndTime = tilesEndTime + PHASE_GAP_MS + enemyCount * ENEMY_STAGGER_MS + ENEMY_ANIMATION_MS;
-    const tacticsAnimationTime = 500 + 6 * 80; // ~1 second for 6 cards
-
-    // Phase 1: Tiles
-    setPhase("tiles");
-
-    // Phase 2: Enemies (after tiles + gap)
-    setTimeout(() => {
+    // Handle edge case: no tiles or enemies to animate
+    // In this case, we still need to progress through phases
+    if (tileCount === 0) {
+      // Skip directly to enemies phase if no tiles
       setPhase("enemies");
-    }, tilesEndTime + PHASE_GAP_MS);
+      emitAnimationEvent("tiles-complete");
+    } else {
+      // Start with tiles phase
+      setPhase("tiles");
+    }
 
-    // Phase 3: Tactics (after enemies + gap)
-    setTimeout(() => {
-      setPhase("tactics");
-    }, enemiesEndTime + PHASE_GAP_MS);
-
-    // Phase 4: Complete (after tactics have had time to deal)
-    setTimeout(() => {
-      setPhase("complete");
-    }, enemiesEndTime + PHASE_GAP_MS + tacticsAnimationTime);
-
-  }, []);
+    // Handle edge case: no enemies to animate
+    if (enemyCount === 0) {
+      // We'll emit enemies-complete right after tiles-complete
+      // but only if tiles exist (otherwise we already moved to enemies)
+      if (tileCount > 0) {
+        // Register a one-time listener to emit enemies-complete after tiles
+        const unsub = onAnimationEvent("tiles-complete", () => {
+          emitAnimationEvent("enemies-complete");
+          unsub();
+        });
+      } else {
+        // No tiles AND no enemies - emit enemies-complete immediately
+        emitAnimationEvent("enemies-complete");
+      }
+    }
+  }, [emitAnimationEvent, onAnimationEvent]);
 
   const getTileDelay = useCallback((index: number): number => {
     return index * TILE_STAGGER_MS;
@@ -87,15 +111,7 @@ export function GameIntroProvider({ children }: { children: ReactNode }) {
 
   const getEnemyDelay = useCallback((index: number): number => {
     // Return just the stagger delay for this enemy (relative to when enemies phase starts)
-    // The phase transition handles waiting for tiles to finish
     return index * ENEMY_STAGGER_MS;
-  }, []);
-
-  const getTacticsDelay = useCallback((): number => {
-    const { tileCount, enemyCount } = timingRef.current;
-    const tilesEndTime = tileCount * TILE_STAGGER_MS + TILE_ANIMATION_MS;
-    const enemiesEndTime = tilesEndTime + PHASE_GAP_MS + enemyCount * ENEMY_STAGGER_MS + ENEMY_ANIMATION_MS;
-    return enemiesEndTime + PHASE_GAP_MS;
   }, []);
 
   const value: GameIntroContextValue = {
@@ -104,7 +120,6 @@ export function GameIntroProvider({ children }: { children: ReactNode }) {
     startIntro,
     getTileDelay,
     getEnemyDelay,
-    getTacticsDelay,
   };
 
   return (
