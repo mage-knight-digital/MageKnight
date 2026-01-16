@@ -16,28 +16,26 @@ import {
 import { getUnitSpriteStyle, isAtlasLoaded } from "../../utils/cardAtlas";
 import { OfferCard } from "./OfferCard";
 
+// Calculate card height based on viewport (matches CSS clamp logic)
+function calculateCardHeight(): number {
+  const vh = window.innerHeight;
+  const preferred = vh * 0.45; // 45vh
+  const min = 280;
+  const max = 600;
+  return Math.min(Math.max(preferred, min), max);
+}
+
 export function UnitOfferPane() {
   const { state, sendAction } = useGame();
-  const [cardHeight, setCardHeight] = useState(280); // Fallback, CSS takes precedence
+  const [cardHeight, setCardHeight] = useState(calculateCardHeight);
   const [shouldAnimate, setShouldAnimate] = useState(true);
 
-  // Read card height from CSS custom property (responsive via clamp)
+  // Update card height on resize (matches CSS clamp: 280px, 45vh, 600px)
   useEffect(() => {
     const updateHeight = () => {
-      // Read from :root CSS variable
-      const cssHeight = getComputedStyle(document.documentElement)
-        .getPropertyValue("--offer-card-height")
-        .trim();
-      if (cssHeight) {
-        // Parse the computed value (will be in px after clamp resolves)
-        const parsed = parseInt(cssHeight, 10);
-        if (!isNaN(parsed) && parsed > 0) {
-          setCardHeight(parsed);
-        }
-      }
+      setCardHeight(calculateCardHeight());
     };
 
-    updateHeight();
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
