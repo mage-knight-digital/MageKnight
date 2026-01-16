@@ -13,6 +13,7 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useGameIntro } from "../../contexts/GameIntroContext";
 import { getTileImageUrl, getEnemyImageUrl, getEnemyTokenBackUrl, tokenIdToEnemyId, type EnemyTokenColor } from "../../assets/assetPaths";
 
 const HEX_SIZE = 50; // pixels from center to corner
@@ -240,20 +241,34 @@ interface TileImageProps {
   tileId: string;
   centerCoord: HexCoord;
   isRevealing?: boolean;
+  /** For intro sequence: staggered delay in seconds */
+  introDelay?: number;
 }
 
 /**
  * Renders a tile artwork image centered on the tile's center hex.
  * Supports reveal animation when isRevealing is true.
+ * Supports intro cascade animation with introDelay.
  */
-function TileImage({ tileId, centerCoord, isRevealing }: TileImageProps) {
+function TileImage({ tileId, centerCoord, isRevealing, introDelay }: TileImageProps) {
   const { x, y } = hexToPixel(centerCoord);
   const imageUrl = getTileImageUrl(tileId);
 
+  // Determine which animation class to use
+  let className = "";
+  if (isRevealing) {
+    className = "tile-image--revealing";
+  } else if (introDelay !== undefined) {
+    className = "tile-image--intro";
+  }
+
   return (
     <g
-      className={isRevealing ? "tile-image--revealing" : ""}
-      style={{ transformOrigin: `${x}px ${y}px` }}
+      className={className}
+      style={{
+        transformOrigin: `${x}px ${y}px`,
+        "--intro-delay": introDelay !== undefined ? `${introDelay}s` : undefined,
+      } as React.CSSProperties}
     >
       <image
         href={imageUrl}
@@ -605,6 +620,12 @@ interface HexOverlayProps {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   isRevealing?: boolean;
+  /** For intro sequence: get intro delay for enemy at global index */
+  getEnemyIntroDelay?: (globalIndex: number) => number;
+  /** For intro sequence: starting index for enemies on this hex */
+  enemyStartIndex?: number;
+  /** Hide enemies during intro (before enemies phase) */
+  hideEnemiesDuringIntro?: boolean;
 }
 
 // Enemy token size relative to hex
@@ -617,14 +638,19 @@ interface EnemyTokenProps {
   index: number;
   isRevealing?: boolean;
   revealDelay?: number;
+  /** For intro sequence: staggered delay in seconds */
+  introDelay?: number;
+  /** Hide during intro (before enemies phase) */
+  hiddenDuringIntro?: boolean;
 }
 
 /**
  * Renders an enemy token image at the specified position, clipped to a circle.
  * Shows the enemy face when revealed, or the token back (by color) when unrevealed.
  * Supports staggered reveal animation when tiles are explored.
+ * Supports intro flip animation with introDelay.
  */
-function EnemyToken({ enemy, offsetX, offsetY, index, isRevealing, revealDelay = 0 }: EnemyTokenProps) {
+function EnemyToken({ enemy, offsetX, offsetY, index, isRevealing, revealDelay = 0, introDelay, hiddenDuringIntro }: EnemyTokenProps) {
   // Get the appropriate image URL based on reveal status
   let imageUrl: string;
   let tokenKey: string;
@@ -644,11 +670,22 @@ function EnemyToken({ enemy, offsetX, offsetY, index, isRevealing, revealDelay =
 
   const clipId = `enemy-clip-${tokenKey}-${index}`;
 
+  // Determine which animation class to use
+  let className = "";
+  if (hiddenDuringIntro) {
+    className = "enemy-token--hidden";
+  } else if (isRevealing) {
+    className = "enemy-token--revealing";
+  } else if (introDelay !== undefined) {
+    className = "enemy-token--intro";
+  }
+
   return (
     <g
-      className={isRevealing ? "enemy-token--revealing" : ""}
+      className={className}
       style={{
         "--enemy-reveal-delay": `${revealDelay}s`,
+        "--intro-delay": introDelay !== undefined ? `${introDelay}s` : undefined,
         transformOrigin: `${offsetX}px ${offsetY}px`,
       } as React.CSSProperties}
     >
@@ -727,7 +764,7 @@ function getMoveHighlightStyles(highlight: MoveHighlight): {
  * Handles click events, move highlighting, and token display.
  * Supports reveal animation when the parent tile is being revealed.
  */
-function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, isRevealing }: HexOverlayProps) {
+function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, isRevealing, getEnemyIntroDelay, enemyStartIndex = 0, hideEnemiesDuringIntro }: HexOverlayProps) {
   const { x, y } = hexToPixel(hex.coord);
 
   // Position enemies in a grid pattern within the hex
@@ -811,6 +848,11 @@ function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, i
           ? (ENEMY_REVEAL_BASE_DELAY_MS + index * ENEMY_REVEAL_STAGGER_MS) / 1000
           : 0;
 
+        // Get intro delay for this enemy (global index = starting index + local index)
+        const introDelay = getEnemyIntroDelay
+          ? getEnemyIntroDelay(enemyStartIndex + index) / 1000
+          : undefined;
+
         return (
           <EnemyToken
             key={key}
@@ -820,6 +862,8 @@ function HexOverlay({ hex, moveHighlight, onClick, onMouseEnter, onMouseLeave, i
             index={index}
             isRevealing={isRevealing}
             revealDelay={enemyRevealDelay}
+            introDelay={introDelay}
+            hiddenDuringIntro={hideEnemiesDuringIntro}
           />
         );
       })}
@@ -917,6 +961,7 @@ function AnimatedHeroToken({
 export function HexGrid() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const { phase: introPhase, startIntro, getTileDelay, getEnemyDelay } = useGameIntro();
 
   // Track which hex is being hovered for path preview
   const [hoveredHex, setHoveredHex] = useState<HexCoord | null>(null);
@@ -947,6 +992,31 @@ export function HexGrid() {
 
   // Memoize tiles to a stable reference for the effect dependency
   const tiles = state?.map.tiles;
+
+  // ============================================
+  // Game Intro Sequence
+  // ============================================
+  // Start the intro sequence when the game first loads
+  useEffect(() => {
+    if (!tiles || introPhase !== "idle") return;
+
+    // Count tiles and enemies for timing calculation
+    const tileCount = tiles.length;
+    const enemyCount = Object.values(state?.map.hexes ?? {}).reduce(
+      (sum, hex) => sum + hex.enemies.length,
+      0
+    );
+
+    // Initialize tiles as known (skip normal reveal animation during intro)
+    tiles.forEach((t) => {
+      const key = `${t.tileId}-${t.centerCoord.q},${t.centerCoord.r}`;
+      knownTileKeys.current.add(key);
+    });
+    hasInitializedTiles.current = true;
+
+    // Start the intro sequence
+    startIntro(tileCount, enemyCount);
+  }, [tiles, introPhase, startIntro, state?.map.hexes]);
 
   // Detect newly revealed tiles and trigger animations
   useEffect(() => {
@@ -1265,9 +1335,13 @@ export function HexGrid() {
       </defs>
 
       {/* Layer 1: Tile artwork images (background) */}
-      {state.map.tiles.map((tile) => {
+      {state.map.tiles.map((tile, tileIndex) => {
         const tileKey = `${tile.tileId}-${tile.centerCoord.q},${tile.centerCoord.r}`;
         const isRevealing = revealingTiles.has(tileKey);
+
+        // During intro phase, use staggered cascade animation
+        const isInIntro = introPhase === "tiles" || introPhase === "idle";
+        const introDelay = isInIntro && !isRevealing ? getTileDelay(tileIndex) / 1000 : undefined;
 
         return (
           <TileImage
@@ -1275,6 +1349,7 @@ export function HexGrid() {
             tileId={tile.tileId}
             centerCoord={tile.centerCoord}
             isRevealing={isRevealing}
+            introDelay={introDelay}
           />
         );
       })}
@@ -1298,25 +1373,42 @@ export function HexGrid() {
       )}
 
       {/* Layer 3: Hex overlays (transparent, for interactivity) */}
-      {hexes.map((hex) => {
-        // Check if this hex is on a revealing tile
-        const hexTile = state.map.tiles.find(
-          (t) => t.tileId === hex.tileId
-        );
-        const isOnRevealingTile = hexTile ? isTileRevealing(hexTile) : false;
+      {(() => {
+        // Track global enemy index for intro staggering
+        let globalEnemyIndex = 0;
 
-        return (
-          <HexOverlay
-            key={hexKey(hex.coord)}
-            hex={hex}
-            moveHighlight={getMoveHighlight(hex.coord)}
-            onClick={() => handleHexClick(hex.coord)}
-            onMouseEnter={() => setHoveredHex(hex.coord)}
-            onMouseLeave={() => setHoveredHex(null)}
-            isRevealing={isOnRevealingTile}
-          />
-        );
-      })}
+        return hexes.map((hex) => {
+          // Check if this hex is on a revealing tile
+          const hexTile = state.map.tiles.find(
+            (t) => t.tileId === hex.tileId
+          );
+          const isOnRevealingTile = hexTile ? isTileRevealing(hexTile) : false;
+
+          // Capture current starting index for this hex's enemies
+          const enemyStartIndex = globalEnemyIndex;
+          globalEnemyIndex += hex.enemies.length;
+
+          // Only pass intro delay during "enemies" phase
+          const shouldAnimateEnemyIntro = introPhase === "enemies";
+          // Hide enemies during tiles phase (before enemies animate in)
+          const shouldHideEnemies = introPhase === "tiles" || introPhase === "idle";
+
+          return (
+            <HexOverlay
+              key={hexKey(hex.coord)}
+              hex={hex}
+              moveHighlight={getMoveHighlight(hex.coord)}
+              onClick={() => handleHexClick(hex.coord)}
+              onMouseEnter={() => setHoveredHex(hex.coord)}
+              onMouseLeave={() => setHoveredHex(null)}
+              isRevealing={isOnRevealingTile}
+              getEnemyIntroDelay={shouldAnimateEnemyIntro ? getEnemyDelay : undefined}
+              enemyStartIndex={enemyStartIndex}
+              hideEnemiesDuringIntro={shouldHideEnemies}
+            />
+          );
+        });
+      })()}
 
       {/* Layer 4: Ghost hexes for valid explore directions */}
       {exploreTargets.map((target) => {

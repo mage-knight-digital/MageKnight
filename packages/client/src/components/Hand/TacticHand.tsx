@@ -5,6 +5,7 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useGameIntro } from "../../contexts/GameIntroContext";
 import { getTacticImageUrl } from "../../assets/assetPaths";
 import "./TacticHand.css";
 
@@ -111,6 +112,7 @@ const SELECTION_DELAY_MS = 800;
 export function TacticHand() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const { phase: introPhase } = useGameIntro();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedTactic, setSelectedTactic] = useState<TacticId | null>(null);
 
@@ -147,6 +149,12 @@ export function TacticHand() {
 
   // Don't show if no state or player already selected a tactic
   if (!state || !player || player.selectedTacticId !== null) {
+    return null;
+  }
+
+  // Wait for intro sequence to reach tactics phase before showing
+  // TODO: This timing check is unreliable - see docs/tickets/animation-event-dispatcher.md
+  if (introPhase !== "tactics" && introPhase !== "complete") {
     return null;
   }
 

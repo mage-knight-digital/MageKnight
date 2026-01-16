@@ -2165,7 +2165,7 @@ body {
   opacity: 0;
 }
 
-/* Phase 5: Enemy token pop-in - bouncy entrance for each enemy */
+/* Phase 5: Enemy token pop-in - bouncy entrance for each enemy (during exploration) */
 @keyframes enemy-token-reveal {
   0% {
     opacity: 0;
@@ -2187,6 +2187,68 @@ body {
 .enemy-token--revealing {
   animation: enemy-token-reveal 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   animation-delay: var(--enemy-reveal-delay, 0.4s);
+  opacity: 0;
+}
+
+/* Game intro: Enemy token 3D flip - like a poker chip being tossed onto the table */
+@keyframes enemy-token-flip {
+  0% {
+    opacity: 0;
+    transform: perspective(400px) rotateX(-90deg) translateY(-30px) scale(0.6);
+  }
+  40% {
+    opacity: 1;
+    transform: perspective(400px) rotateX(15deg) translateY(5px) scale(1.1);
+  }
+  60% {
+    transform: perspective(400px) rotateX(-8deg) translateY(-2px) scale(0.95);
+  }
+  80% {
+    transform: perspective(400px) rotateX(4deg) translateY(1px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(400px) rotateX(0deg) translateY(0) scale(1);
+  }
+}
+
+.enemy-token--intro {
+  animation: enemy-token-flip 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: var(--intro-delay, 0s);
+  opacity: 0;
+}
+
+/* Hidden during intro - before enemies phase */
+.enemy-token--hidden {
+  opacity: 0;
+}
+
+/* Game intro: Tile cascade - tiles slide in from slightly above with scale */
+@keyframes tile-cascade {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(-20px);
+    filter: blur(4px) brightness(0.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03) translateY(3px);
+    filter: blur(0) brightness(1.1);
+  }
+  80% {
+    transform: scale(0.98) translateY(-1px);
+    filter: blur(0) brightness(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0) brightness(1);
+  }
+}
+
+.tile-image--intro {
+  animation: tile-cascade 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: var(--intro-delay, 0s);
   opacity: 0;
 }
 

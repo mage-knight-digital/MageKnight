@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { GameProvider } from "./context/GameContext";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
+import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
 import { HexGrid } from "./components/GameBoard/HexGrid";
@@ -44,6 +45,7 @@ const GAME_SEED = getGameSeed();
 function GameView() {
   const { state } = useGame();
   const player = useMyPlayer();
+  const { isIntroComplete } = useGameIntro();
 
   if (!state) {
     return <div className="loading">Loading game state...</div>;
@@ -53,11 +55,13 @@ function GameView() {
   const inCombat = state.combat && state.validActions.combat;
 
   // Check if we're in tactic selection mode
+  // Only dim the world after intro completes - don't dim during the theatrical reveal
   const isTacticSelectionActive = player && player.selectedTacticId === null && !!state.validActions.tactics;
+  const shouldDimForTactics = isTacticSelectionActive && isIntroComplete;
 
   const appClassName = [
     "app",
-    isTacticSelectionActive && "app--tactic-selection",
+    shouldDimForTactics && "app--tactic-selection",
     inCombat && "app--combat",
   ].filter(Boolean).join(" ");
 
@@ -119,10 +123,12 @@ export function App() {
 
   return (
     <GameProvider seed={GAME_SEED}>
-      <CardMenuPositionProvider>
-        <GameView />
-        <DebugPanel />
-      </CardMenuPositionProvider>
+      <GameIntroProvider>
+        <CardMenuPositionProvider>
+          <GameView />
+          <DebugPanel />
+        </CardMenuPositionProvider>
+      </GameIntroProvider>
     </GameProvider>
   );
 }
