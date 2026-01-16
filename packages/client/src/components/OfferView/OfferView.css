@@ -313,7 +313,9 @@
    Unit Card specific
    ============================================================================ */
 
-.offer-card__unit-image {
+.offer-card__unit-image,
+.offer-card__spell-image,
+.offer-card__aa-image {
   display: block;
   border-radius: 6px;
 }

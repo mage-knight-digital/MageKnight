@@ -14,10 +14,20 @@ import {
   SITE_REWARD_SPELL,
   type CardId,
 } from "@mage-knight/shared";
+import { getCardSpriteStyle, isAtlasLoaded } from "../../utils/cardAtlas";
 import { OfferCard } from "./OfferCard";
 
 // Cost to buy a spell at a Mage Tower
 const SPELL_PURCHASE_COST = 7;
+
+// Calculate card height based on viewport (matches CSS clamp logic)
+function calculateCardHeight(): number {
+  const vh = window.innerHeight;
+  const preferred = vh * 0.45; // 45vh
+  const min = 280;
+  const max = 600;
+  return Math.min(Math.max(preferred, min), max);
+}
 
 /**
  * Check if player is at a conquered Mage Tower
@@ -38,7 +48,15 @@ function isAtConqueredMageTower(
 export function SpellOfferPane() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const [cardHeight, setCardHeight] = useState(calculateCardHeight);
   const [shouldAnimate, setShouldAnimate] = useState(true);
+
+  // Update card height on resize
+  useEffect(() => {
+    const updateHeight = () => setCardHeight(calculateCardHeight());
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
 
   // Disable animation after initial render
   useEffect(() => {
@@ -135,6 +153,7 @@ export function SpellOfferPane() {
       )}
       {spellOffer.map((spellId, index) => {
         const acquireInfo = getAcquireInfo(spellId);
+        const spriteStyle = isAtlasLoaded() ? getCardSpriteStyle(spellId, cardHeight) : null;
 
         return (
           <OfferCard
@@ -147,9 +166,13 @@ export function SpellOfferPane() {
             onAcquire={acquireInfo.onAcquire}
             shouldAnimate={shouldAnimate}
           >
-            <div className="offer-card__card-name">
-              <span className="offer-card__spell-name">{spellId}</span>
-            </div>
+            {spriteStyle ? (
+              <div className="offer-card__spell-image" style={spriteStyle} />
+            ) : (
+              <div className="offer-card__card-name">
+                <span className="offer-card__spell-name">{spellId}</span>
+              </div>
+            )}
           </OfferCard>
         );
       })}
