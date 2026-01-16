@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { GameProvider } from "./context/GameContext";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
 import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
@@ -20,7 +20,7 @@ import { SparingPowerDecision } from "./components/Overlays/SparingPowerDecision
 import { ManaSearchReroll } from "./components/Overlays/ManaSearchReroll";
 import { GladeWoundDecision } from "./components/Overlays/GladeWoundDecision";
 import { CombatOverlay } from "./components/Combat";
-import { OffersBar } from "./components/OffersBar";
+import { OfferView } from "./components/OfferView";
 import { DebugPanel } from "./components/DebugPanel";
 import { startAmbientMusic, isAmbientPlaying } from "./utils/ambientMusicManager";
 
@@ -47,6 +47,17 @@ function GameView() {
   const { state } = useGame();
   const player = useMyPlayer();
   const { isIntroComplete } = useGameIntro();
+  const [isOfferViewVisible, setIsOfferViewVisible] = useState(false);
+
+  // Handle offer view state from PlayerHand
+  const handleOfferViewChange = useCallback((isVisible: boolean) => {
+    setIsOfferViewVisible(isVisible);
+  }, []);
+
+  // Handle closing offer view (from overlay click or S key in OfferView)
+  const handleOfferViewClose = useCallback(() => {
+    setIsOfferViewVisible(false);
+  }, []);
 
   if (!state) {
     return <div className="loading">Loading game state...</div>;
@@ -86,7 +97,9 @@ function GameView() {
       )}
 
       <TopBar />
-      <OffersBar />
+
+      {/* Offer View - Inscryption-style offer display */}
+      <OfferView isVisible={isOfferViewVisible} onClose={handleOfferViewClose} />
 
       <main className="app__main">
         <div className="app__board">
@@ -95,7 +108,7 @@ function GameView() {
         </div>
       </main>
 
-      <PlayerHand />
+      <PlayerHand onOfferViewChange={handleOfferViewChange} />
       <TurnActions />
     </div>
   );
