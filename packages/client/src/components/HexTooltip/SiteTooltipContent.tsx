@@ -48,8 +48,10 @@ function getSiteInfo(site: ClientSite): SiteInfo {
         name: "Dungeon",
         icon: "🏚️",
         fight: "1 Brown Enemy",
-        reward: site.isConquered ? "Fame only" : "Spell or Artifact (die roll)",
-        special: ["Night mana rules", "No units allowed"],
+        reward: site.isConquered
+          ? "Fame only"
+          : "Spell (gold/black) or Artifact (color)",
+        special: ["Night rules", "No units"],
       };
 
     case SITE_TOMB:
@@ -58,7 +60,7 @@ function getSiteInfo(site: ClientSite): SiteInfo {
         icon: "🪦",
         fight: "1 Red Draconum",
         reward: site.isConquered ? "Fame only" : "Spell + Artifact",
-        special: ["Night mana rules", "No units allowed"],
+        special: ["Night rules", "No units"],
       };
 
     case SITE_MONSTER_DEN:
@@ -66,7 +68,8 @@ function getSiteInfo(site: ClientSite): SiteInfo {
         name: "Monster Den",
         icon: "🕳️",
         fight: "1 Brown Enemy",
-        reward: "2 Crystal Rolls",
+        reward: "2 Crystals (roll for color)",
+        special: ["Undefeated enemy stays"],
       };
 
     case SITE_SPAWNING_GROUNDS:
@@ -74,99 +77,125 @@ function getSiteInfo(site: ClientSite): SiteInfo {
         name: "Spawning Grounds",
         icon: "🥚",
         fight: "2 Brown Enemies",
-        reward: "Artifact + 3 Crystal Rolls",
+        reward: "Artifact + 3 Crystals",
+        special: ["Undefeated enemies stay"],
       };
 
     case SITE_ANCIENT_RUINS:
       return {
         name: "Ancient Ruins",
         icon: "🏛️",
-        fight: "1 Brown Enemy (night only)",
-        reward: "Yellow Token Reward",
-        special: ["Day: Auto-conquest if empty"],
+        fight: "Yellow token: Altar or Enemies",
+        reward: "Varies by token",
+        special: ["Altar: Pay 3 mana for 7 Fame"],
       };
 
     case SITE_VILLAGE:
       return {
         name: "Village",
         icon: "🏘️",
-        interaction: "Recruit units, Heal (3 Inf = 1 HP)",
+        interaction: "Recruit, Heal (3 Inf = 1 HP)",
+        special: ["Plunder: Draw 2, -1 Rep"],
       };
 
     case SITE_MONASTERY:
       return {
         name: "Monastery",
         icon: "⛪",
-        interaction: "Buy Advanced Action (6 Inf), Heal (2 Inf = 1 HP)",
+        interaction: "Buy AA (6 Inf), Heal (2 Inf = 1 HP)",
+        special: ["Burn: Fight violet, no units, -3 Rep"],
       };
 
     case SITE_KEEP:
+      if (site.isConquered) {
+        return {
+          name: "Keep",
+          icon: "🏰",
+          interaction: "Recruit units",
+          special: ["+1 Hand limit (end turn here)"],
+        };
+      }
       return {
         name: "Keep",
         icon: "🏰",
-        fight: site.isConquered ? undefined : "Garrison (fortified)",
-        interaction: site.isConquered ? "Recruit units" : undefined,
-        special: site.isConquered ? undefined : ["Fortified: Siege required"],
+        fight: "1 Grey Enemy (fortified)",
+        special: ["Siege required", "-1 Rep on assault"],
       };
 
     case SITE_MAGE_TOWER:
+      if (site.isConquered) {
+        return {
+          name: "Mage Tower",
+          icon: "🗼",
+          interaction: "Buy Spells (7 Inf + matching mana)",
+        };
+      }
       return {
         name: "Mage Tower",
         icon: "🗼",
-        fight: site.isConquered ? undefined : "Garrison (fortified)",
-        reward: site.isConquered ? undefined : "1 Spell",
-        interaction: site.isConquered ? "Buy spells (7 Inf each)" : undefined,
-        special: site.isConquered ? undefined : ["Fortified: Siege required"],
+        fight: "1 Violet Enemy (fortified)",
+        reward: "1 Spell",
+        special: ["Siege required", "-1 Rep on assault"],
       };
 
-    case SITE_CITY:
+    case SITE_CITY: {
       const cityColor = site.cityColor || "Unknown";
+      const capitalizedColor = cityColor.charAt(0).toUpperCase() + cityColor.slice(1);
+      if (site.isConquered) {
+        return {
+          name: `${capitalizedColor} City`,
+          icon: "🏙️",
+          interaction: "Full city services",
+        };
+      }
       return {
-        name: `${cityColor} City`,
+        name: `${capitalizedColor} City`,
         icon: "🏙️",
-        fight: site.isConquered ? undefined : "City garrison (fortified)",
-        interaction: site.isConquered ? "Full city services" : undefined,
-        special: site.isConquered ? undefined : ["Fortified: Siege required", "-1 Rep on assault"],
+        fight: "City garrison (fortified)",
+        special: ["Siege required", "-1 Rep on assault"],
       };
+    }
 
-    case SITE_MINE:
+    case SITE_MINE: {
       const mineColor = site.mineColor || "crystal";
+      const capitalizedMineColor = mineColor.charAt(0).toUpperCase() + mineColor.slice(1);
       return {
-        name: `${mineColor.charAt(0).toUpperCase() + mineColor.slice(1)} Mine`,
+        name: `${capitalizedMineColor} Mine`,
         icon: "⛏️",
-        interaction: `Gain 1 ${mineColor} mana (end of turn)`,
+        interaction: `End turn: Gain 1 ${mineColor} crystal`,
       };
+    }
 
     case SITE_MAGICAL_GLADE:
       return {
         name: "Magical Glade",
         icon: "✨",
-        interaction: "Gain gold mana OR discard a wound",
+        interaction: "Start: Gold/black mana. End: Discard wound",
       };
 
     case SITE_DEEP_MINE:
       return {
         name: "Deep Mine",
         icon: "💎",
-        interaction: "Gain 1 crystal of chosen color (end of turn)",
+        interaction: "End turn: Gain 1 crystal (choose color)",
       };
 
     case SITE_MAZE:
       return {
         name: "Maze",
         icon: "🌀",
-        fight: "2/4/6 Green Enemies (path choice)",
-        reward: "Crystals / Spell / Artifact",
-        special: ["Choose your path difficulty"],
+        fight: "1 Brown Enemy",
+        reward: "Path reward (2/4/6 Move cost)",
+        special: ["One unit allowed", "Enemy discarded after"],
       };
 
     case SITE_LABYRINTH:
       return {
         name: "Labyrinth",
         icon: "🔮",
-        fight: "2/4/6 Green Enemies (path choice)",
-        reward: "Crystals / Spell / Artifact + AA",
-        special: ["Choose your path difficulty"],
+        fight: "1 Red Draconum",
+        reward: "Path reward + AA (2/4/6 Move)",
+        special: ["One unit allowed", "Enemy discarded after"],
       };
 
     default:
