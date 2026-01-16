@@ -3,7 +3,8 @@
  *
  * Phase 1: Basic static rendering ✓
  * Phase 2: Interactivity (click, hover, path preview) ✓
- * Phase 3: Camera controls (pan/zoom)
+ * Phase 3: Camera controls (pan/zoom) ✓
+ * Phase 4: Animations (hero movement, intro, tile reveal)
  */
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
@@ -45,6 +46,17 @@ import {
   type PixelPosition,
   type CameraState,
 } from "./pixi/types";
+import {
+  AnimationManager,
+  Easing,
+  HERO_MOVE_DURATION_MS,
+  TILE_CASCADE_DURATION_MS,
+  TILE_CASCADE_STAGGER_MS,
+  ENEMY_FLIP_DURATION_MS,
+  ENEMY_FLIP_STAGGER_MS,
+  CAMERA_FOLLOW_DURATION_MS,
+  INTRO_PHASE_GAP_MS,
+} from "./pixi/animations";
 
 // Movement highlight types
 type MoveHighlightType = "none" | "adjacent" | "reachable" | "terminal";
@@ -203,17 +215,26 @@ async function loadTexture(url: string): Promise<Texture> {
 }
 
 /**
- * Render all tiles
+ * Render all tiles with optional intro/reveal animation
  */
 async function renderTiles(
   layers: WorldLayers,
-  tiles: ClientGameState["map"]["tiles"]
+  tiles: ClientGameState["map"]["tiles"],
+  animManager: AnimationManager | null,
+  playIntro: boolean,
+  knownTileIds: Set<string>,
+  onIntroComplete?: () => void
 ): Promise<void> {
   layers.tiles.removeChildren();
+
+  // Track sprites that need intro animation along with their target scales
+  const introSprites: { sprite: Sprite; targetScaleX: number; targetScaleY: number }[] = [];
+  const revealSprites: { sprite: Sprite; targetScaleX: number; targetScaleY: number }[] = [];
 
   for (const tile of tiles) {
     const { x, y } = hexToPixel(tile.centerCoord);
     const imageUrl = getTileImageUrl(tile.tileId);
+    const isNewTile = !knownTileIds.has(tile.tileId);
 
     try {
       const texture = await loadTexture(imageUrl);
@@ -224,10 +245,76 @@ async function renderTiles(
       sprite.width = TILE_WIDTH;
       sprite.height = TILE_HEIGHT;
       sprite.label = `tile-${tile.tileId}`;
+
+      // Store the target scale values (set by width/height assignment)
+      const targetScaleX = sprite.scale.x;
+      const targetScaleY = sprite.scale.y;
+
+      if (playIntro && animManager) {
+        // Start with tile hidden and scaled down for intro
+        sprite.alpha = 0;
+        sprite.scale.set(targetScaleX * 0.7, targetScaleY * 0.7);
+        introSprites.push({ sprite, targetScaleX, targetScaleY });
+      } else if (isNewTile && animManager && !playIntro) {
+        // New tile discovered during gameplay - animate reveal
+        sprite.alpha = 0;
+        sprite.scale.set(targetScaleX * 0.5, targetScaleY * 0.5);
+        revealSprites.push({ sprite, targetScaleX, targetScaleY });
+      }
+
+      // Track this tile as known
+      knownTileIds.add(tile.tileId);
+
       layers.tiles.addChild(sprite);
     } catch (error) {
       console.error(`Failed to load tile texture: ${imageUrl}`, error);
     }
+  }
+
+  // Animate tiles if intro is playing
+  if (playIntro && animManager && introSprites.length > 0) {
+    introSprites.forEach(({ sprite, targetScaleX, targetScaleY }, index) => {
+      const delay = index * TILE_CASCADE_STAGGER_MS;
+      const isLast = index === introSprites.length - 1;
+
+      setTimeout(() => {
+        // Custom animation that handles non-uniform scale
+        const startScaleX = sprite.scale.x;
+        const startScaleY = sprite.scale.y;
+        const startAlpha = sprite.alpha;
+
+        animManager.animate(`tile-intro-${index}`, sprite, {
+          endAlpha: 1,
+          duration: TILE_CASCADE_DURATION_MS,
+          easing: Easing.easeOutBack,
+          onUpdate: (progress) => {
+            // Manually interpolate non-uniform scale
+            sprite.scale.x = startScaleX + (targetScaleX - startScaleX) * progress;
+            sprite.scale.y = startScaleY + (targetScaleY - startScaleY) * progress;
+          },
+          onComplete: isLast ? onIntroComplete : undefined,
+        });
+      }, delay);
+    });
+  }
+
+  // Animate newly discovered tiles (exploration)
+  if (!playIntro && animManager && revealSprites.length > 0) {
+    revealSprites.forEach(({ sprite, targetScaleX, targetScaleY }, index) => {
+      const startScaleX = sprite.scale.x;
+      const startScaleY = sprite.scale.y;
+
+      animManager.animate(`tile-reveal-${Date.now()}-${index}`, sprite, {
+        endAlpha: 1,
+        duration: TILE_CASCADE_DURATION_MS,
+        easing: Easing.easeOutBack,
+        onUpdate: (progress) => {
+          sprite.scale.x = startScaleX + (targetScaleX - startScaleX) * progress;
+          sprite.scale.y = startScaleY + (targetScaleY - startScaleY) * progress;
+        },
+      });
+    });
+    console.log("[PixiHexGrid] Animated", revealSprites.length, "new tile(s)");
   }
 }
 
@@ -373,13 +460,20 @@ function renderPathPreview(
 }
 
 /**
- * Render enemy tokens on hexes
+ * Render enemy tokens on hexes with optional intro animation
  */
 async function renderEnemies(
   layers: WorldLayers,
-  hexes: Record<string, ClientHexState>
+  hexes: Record<string, ClientHexState>,
+  animManager: AnimationManager | null,
+  playIntro: boolean,
+  initialDelayMs: number = 0,
+  onIntroComplete?: () => void
 ): Promise<void> {
   layers.enemies.removeChildren();
+
+  const enemyContainers: Container[] = [];
+  let enemyIndex = 0;
 
   for (const hex of Object.values(hexes)) {
     if (hex.enemies.length === 0) continue;
@@ -425,33 +519,81 @@ async function renderEnemies(
         border.stroke({ color: 0x000000, width: 1, alpha: 0.5 });
         enemyContainer.addChild(border);
 
+        if (playIntro && animManager) {
+          // Start with enemy hidden, rotated, and scaled down for flip effect
+          enemyContainer.alpha = 0;
+          enemyContainer.scale.set(0.3);
+          enemyContainer.rotation = -0.3;
+        }
+
         layers.enemies.addChild(enemyContainer);
+        enemyContainers.push(enemyContainer);
+        enemyIndex++;
       } catch (error) {
         console.error(`Failed to load enemy texture: ${imageUrl}`, error);
       }
     }
   }
+
+  // Animate enemies if intro is playing
+  if (playIntro && animManager && enemyContainers.length > 0) {
+    enemyContainers.forEach((container, index) => {
+      // Add initial delay plus stagger for each enemy
+      const delay = initialDelayMs + index * ENEMY_FLIP_STAGGER_MS;
+      const isLast = index === enemyContainers.length - 1;
+
+      setTimeout(() => {
+        animManager.animate(`enemy-intro-${index}`, container, {
+          endScale: 1,
+          endAlpha: 1,
+          endRotation: 0,
+          duration: ENEMY_FLIP_DURATION_MS,
+          easing: Easing.easeOutBack,
+          onComplete: isLast ? onIntroComplete : undefined,
+        });
+      }, delay);
+    });
+  } else if (playIntro && enemyContainers.length === 0 && onIntroComplete) {
+    // No enemies to animate, call complete after initial delay
+    setTimeout(onIntroComplete, initialDelayMs);
+  }
 }
 
 /**
- * Render the hero token
+ * Render the hero token into a container (for animation support)
+ * Returns the container so it can be animated
  */
-function renderHero(layers: WorldLayers, position: HexCoord | null): void {
-  layers.hero.removeChildren();
+function renderHeroIntoContainer(container: Container, position: HexCoord | null): void {
+  container.removeChildren();
 
   if (!position) return;
-
-  const { x, y } = hexToPixel(position);
 
   const heroGraphics = new Graphics();
   heroGraphics.label = "hero-token";
 
+  // Draw hero at origin (container position handles world coords)
   heroGraphics
-    .circle(x, y, HERO_TOKEN_RADIUS)
+    .circle(0, 0, HERO_TOKEN_RADIUS)
     .fill({ color: 0xff4444 })
     .stroke({ color: 0xffffff, width: 2 });
 
-  layers.hero.addChild(heroGraphics);
+  container.addChild(heroGraphics);
+}
+
+/**
+ * Create or get the hero container for animation
+ */
+function getOrCreateHeroContainer(
+  layers: WorldLayers,
+  heroContainerRef: React.MutableRefObject<Container | null>
+): Container {
+  if (!heroContainerRef.current) {
+    const container = new Container();
+    container.label = "hero-container";
+    layers.hero.addChild(container);
+    heroContainerRef.current = container;
+  }
+  return heroContainerRef.current;
 }
 
 /**
@@ -542,6 +684,14 @@ export function PixiHexGrid() {
   const lastPointerPosRef = useRef<PixelPosition>({ x: 0, y: 0 });
   const keysDownRef = useRef<Set<string>>(new Set());
   const hasCenteredOnHeroRef = useRef(false);
+
+  // Animation state
+  const animationManagerRef = useRef<AnimationManager | null>(null);
+  const prevHeroPositionRef = useRef<HexCoord | null>(null);
+  const heroContainerRef = useRef<Container | null>(null);
+  const introPlayedRef = useRef(false);
+  const prevTileCountRef = useRef(0);
+  const knownTileIdsRef = useRef<Set<string>>(new Set());
 
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
@@ -853,11 +1003,16 @@ export function PixiHexGrid() {
         updateCamera(ticker.deltaMS);
       });
 
+      // Create animation manager and attach to ticker
+      const animManager = new AnimationManager();
+      animManager.attach(app.ticker);
+      animationManagerRef.current = animManager;
+
       appRef.current = app;
       layersRef.current = layers;
       worldRef.current = world;
 
-      console.log("[PixiHexGrid] Initialized PixiJS application with camera controls");
+      console.log("[PixiHexGrid] Initialized PixiJS application with camera controls and animations");
       setIsInitialized(true);
     };
 
@@ -865,12 +1020,17 @@ export function PixiHexGrid() {
 
     return () => {
       destroyed = true;
+      if (animationManagerRef.current) {
+        animationManagerRef.current.detach();
+        animationManagerRef.current = null;
+      }
       if (appRef.current) {
         console.log("[PixiHexGrid] Destroying PixiJS application");
         appRef.current.destroy(true, { children: true, texture: true });
         appRef.current = null;
         layersRef.current = null;
         worldRef.current = null;
+        heroContainerRef.current = null;
         setIsInitialized(false);
       }
     };
@@ -897,9 +1057,9 @@ export function PixiHexGrid() {
     };
   }, [isInitialized, handleWheel, handleKeyDown, handleKeyUp]);
 
-  // Trigger intro sequence immediately (no animations in Pixi yet)
+  // Trigger intro sequence - now with actual animations
   useEffect(() => {
-    if (!isInitialized || !state) return;
+    if (!isInitialized || !state || introPlayedRef.current) return;
 
     // Count tiles and enemies for the intro system
     const tileCount = state.map.tiles.length;
@@ -908,16 +1068,12 @@ export function PixiHexGrid() {
       0
     );
 
-    // Start the intro sequence
+    // Start the intro sequence (this triggers the GameIntroContext)
     startIntro(tileCount, enemyCount);
+    introPlayedRef.current = true;
 
-    // Since we don't animate tiles/enemies in Pixi yet, emit completion immediately
-    // This allows the tactic selection overlay to appear
-    emitAnimationEvent("tiles-complete");
-    emitAnimationEvent("enemies-complete");
-
-    console.log("[PixiHexGrid] Triggered intro completion for tactic selection");
-  }, [isInitialized, state, startIntro, emitAnimationEvent]);
+    console.log("[PixiHexGrid] Started intro sequence with", tileCount, "tiles and", enemyCount, "enemies");
+  }, [isInitialized, state, startIntro]);
 
   // Update rendering when game state changes
   useEffect(() => {
@@ -925,12 +1081,92 @@ export function PixiHexGrid() {
 
     const layers = layersRef.current;
     const heroPosition = player?.position ?? null;
+    const animManager = animationManagerRef.current;
+
+    // Check if we should play intro animations
+    const currentTileCount = state.map.tiles.length;
+    const shouldPlayTileIntro = prevTileCountRef.current === 0 && currentTileCount > 0;
+    prevTileCountRef.current = currentTileCount;
 
     // Render static layers
     const renderAsync = async () => {
-      await renderTiles(layers, state.map.tiles);
-      await renderEnemies(layers, state.map.hexes);
-      renderHero(layers, heroPosition);
+      // Render tiles with intro animation if this is the first render
+      await renderTiles(
+        layers,
+        state.map.tiles,
+        animManager,
+        shouldPlayTileIntro,
+        knownTileIdsRef.current,
+        () => {
+          // When tiles finish animating, emit tiles-complete event
+          emitAnimationEvent("tiles-complete");
+          console.log("[PixiHexGrid] Tile intro animation complete");
+        }
+      );
+
+      // Calculate delay for enemies to start after tiles finish
+      // Total tile time = (tileCount - 1) * stagger + duration
+      const tileAnimationTime = shouldPlayTileIntro
+        ? (state.map.tiles.length - 1) * TILE_CASCADE_STAGGER_MS + TILE_CASCADE_DURATION_MS + INTRO_PHASE_GAP_MS
+        : 0;
+
+      // Render enemies with intro animation (delayed to start after tiles)
+      await renderEnemies(
+        layers,
+        state.map.hexes,
+        animManager,
+        shouldPlayTileIntro,
+        tileAnimationTime,
+        () => {
+          // When enemies finish animating, emit enemies-complete event
+          emitAnimationEvent("enemies-complete");
+          console.log("[PixiHexGrid] Enemy intro animation complete");
+        }
+      );
+
+      // If no intro animation, emit events immediately
+      if (!shouldPlayTileIntro) {
+        // Events already emitted or not needed
+      }
+
+      // Handle hero rendering and animation
+      const heroContainer = getOrCreateHeroContainer(layers, heroContainerRef);
+      const prevPos = prevHeroPositionRef.current;
+
+      if (heroPosition) {
+        const targetPixel = hexToPixel(heroPosition);
+
+        // Check if hero moved (and this isn't the first render)
+        const heroMoved = prevPos &&
+          (prevPos.q !== heroPosition.q || prevPos.r !== heroPosition.r);
+
+        if (heroMoved && animManager) {
+          // Animate hero to new position
+          animManager.moveTo(
+            "hero-move",
+            heroContainer,
+            targetPixel,
+            HERO_MOVE_DURATION_MS,
+            Easing.easeOutQuad,
+            () => {
+              // Camera follows hero after movement completes
+              centerCameraOn(targetPixel, false);
+            }
+          );
+
+          // Immediately start camera following (smooth transition)
+          centerCameraOn(targetPixel, false);
+        } else {
+          // No animation - just set position directly
+          heroContainer.position.set(targetPixel.x, targetPixel.y);
+        }
+
+        // Render hero graphics into container
+        renderHeroIntoContainer(heroContainer, heroPosition);
+      }
+
+      // Update previous position
+      prevHeroPositionRef.current = heroPosition;
 
       // Initialize camera on first render (center on hero)
       if (!hasCenteredOnHeroRef.current && appRef.current) {
@@ -972,7 +1208,7 @@ export function PixiHexGrid() {
     };
 
     renderAsync();
-  }, [isInitialized, state, player?.position, exploreTargets, centerCameraOn]);
+  }, [isInitialized, state, player?.position, exploreTargets, centerCameraOn, emitAnimationEvent]);
 
   // Update interactive layers (hex overlays, ghost hexes, path preview)
   useEffect(() => {

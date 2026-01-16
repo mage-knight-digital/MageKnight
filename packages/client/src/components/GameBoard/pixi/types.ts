@@ -66,7 +66,7 @@ export const TILE_WIDTH = 3 * Math.sqrt(3) * HEX_SIZE;  // ~259.8 units
 export const TILE_HEIGHT = TILE_WIDTH * (529 / 550);    // ~249.9 units
 
 // Enemy token size relative to hex
-export const ENEMY_TOKEN_SIZE = HEX_SIZE * 0.8;
+export const ENEMY_TOKEN_SIZE = HEX_SIZE * 1.37; // ~71% bigger than original (was 0.8, now 1.37)
 
 // Hero token radius
 export const HERO_TOKEN_RADIUS = HEX_SIZE * 0.25;
