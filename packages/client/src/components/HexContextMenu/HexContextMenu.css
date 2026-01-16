@@ -1,0 +1,76 @@
+/**
+ * HexContextMenu styles
+ */
+
+.hex-context-menu__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  /* Semi-transparent backdrop */
+  background: rgba(0, 0, 0, 0.4);
+  /* Fade in */
+  animation: hex-context-menu-fade-in 0.15s ease-out;
+}
+
+@keyframes hex-context-menu-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hex-context-menu__container {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  /* Scale in animation */
+  animation: hex-context-menu-scale-in 0.2s ease-out;
+}
+
+@keyframes hex-context-menu-scale-in {
+  from {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Center content styling */
+.hex-context-menu__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  padding: 8px;
+}
+
+.hex-context-menu__site-icon {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.hex-context-menu__site-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hex-context-menu__conquered {
+  font-size: 0.65rem;
+  color: #8f8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}

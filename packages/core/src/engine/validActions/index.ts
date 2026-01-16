@@ -37,6 +37,7 @@ import { getCombatOptions } from "./combat.js";
 import { getPlayableCardsForCombat, getPlayableCardsForNormalTurn } from "./cards.js";
 import { getManaOptions } from "./mana.js";
 import { getUnitOptionsForCombat, getFullUnitOptions } from "./units.js";
+import { getSiteOptions } from "./sites.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -264,7 +265,7 @@ export function getValidActions(
     playCard: playCardOptions.cards.length > 0 ? playCardOptions : undefined,
     combat: undefined,
     units: getFullUnitOptions(state, player),
-    sites: undefined, // TODO Phase 6: getSiteOptions(state, player)
+    sites: getSiteOptions(state, player),
     mana: manaOptions,
     turn: getTurnOptions(state, player),
     tactics: undefined,

@@ -233,16 +233,82 @@ export interface ActivatableAbility {
 // Sites
 // ============================================================================
 
+/**
+ * Site options for the hex the player is currently on.
+ * Provides rich info for UI display and actions.
+ */
 export interface SiteOptions {
+  /** The site type (e.g., "dungeon", "tomb", "village") */
+  readonly siteType: string;
+
+  /** Human-readable display name (e.g., "Dungeon", "Mage Tower") */
+  readonly siteName: string;
+
+  /** Whether this site has been conquered */
+  readonly isConquered: boolean;
+
+  /** Player ID of owner (if conquered fortified site) */
+  readonly owner: string | null;
+
+  // --- Adventure Site Entry ---
+
+  /** Can enter this site as an action (adventure sites) */
   readonly canEnter: boolean;
+
+  /** Description of what entering does (e.g., "Fight 1 brown enemy") */
+  readonly enterDescription?: string;
+
+  /** Combat restrictions when entering */
+  readonly enterRestrictions?: SiteEnterRestrictions;
+
+  /** Reward description for conquering (e.g., "Spell or Artifact") */
+  readonly conquestReward?: string;
+
+  // --- Inhabited Site Interaction ---
+
+  /** Can interact with this site (inhabited sites) */
   readonly canInteract: boolean;
+
+  /** Interaction options (healing, recruiting, buying) */
   readonly interactOptions?: InteractOptions;
+
+  // --- Passive Effects ---
+
+  /** Passive effect that triggers at end of turn (e.g., "+1 Blue Crystal") */
+  readonly endOfTurnEffect?: string;
+
+  /** Passive effect that triggers at start of turn (e.g., "+1 Gold Mana") */
+  readonly startOfTurnEffect?: string;
 }
 
+/**
+ * Combat restrictions for entering certain sites (dungeons, tombs).
+ */
+export interface SiteEnterRestrictions {
+  /** Night mana rules apply (gold mana unavailable) */
+  readonly nightManaRules: boolean;
+  /** Units cannot participate in combat */
+  readonly unitsAllowed: boolean;
+}
+
+/**
+ * Interaction options for inhabited sites.
+ */
 export interface InteractOptions {
+  /** Can buy healing here */
   readonly canHeal: boolean;
+  /** Influence cost per healing point */
   readonly healCost?: number;
+  /** Can recruit units here */
   readonly canRecruit: boolean;
+  /** Can buy spells here (conquered Mage Tower) */
+  readonly canBuySpells: boolean;
+  /** Spell purchase cost */
+  readonly spellCost?: number;
+  /** Can buy advanced actions here (Monastery) */
+  readonly canBuyAdvancedActions: boolean;
+  /** Advanced action purchase cost */
+  readonly advancedActionCost?: number;
 }
 
 // ============================================================================

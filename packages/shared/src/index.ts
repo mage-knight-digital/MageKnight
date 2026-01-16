@@ -261,6 +261,7 @@ export type {
   ActivatableUnit,
   ActivatableAbility,
   SiteOptions,
+  SiteEnterRestrictions,
   InteractOptions,
   ManaOptions,
   AvailableDie,

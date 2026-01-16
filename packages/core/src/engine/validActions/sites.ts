@@ -1,0 +1,355 @@
+/**
+ * Site interaction valid actions computation.
+ *
+ * Computes what site-related actions are available to a player
+ * based on their current position and the site's state.
+ */
+
+import type { SiteOptions, InteractOptions } from "@mage-knight/shared";
+import { hexKey, TIME_OF_DAY_DAY, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
+import type { GameState } from "../../state/GameState.js";
+import type { Player } from "../../types/player.js";
+import type { HexState, Site } from "../../types/map.js";
+import { SiteType, mineColorToBasicManaColor } from "../../types/map.js";
+import {
+  SITE_PROPERTIES,
+  HEALING_COSTS,
+  SPELL_PURCHASE_COST,
+  MONASTERY_AA_PURCHASE_COST,
+} from "../../data/siteProperties.js";
+
+// =============================================================================
+// MAIN FUNCTION
+// =============================================================================
+
+/**
+ * Compute site options for the player's current hex.
+ * Returns undefined if player is not on a hex with a site.
+ */
+export function getSiteOptions(
+  state: GameState,
+  player: Player
+): SiteOptions | undefined {
+  if (!player.position) return undefined;
+
+  const hex = state.map.hexes[hexKey(player.position)];
+  if (!hex?.site) return undefined;
+
+  const site = hex.site;
+  const props = SITE_PROPERTIES[site.type];
+
+  // Determine if can enter (adventure sites)
+  const canEnter = canEnterSite(state, player, site, hex);
+
+  // Build enter description
+  const enterDescription = canEnter
+    ? getEnterDescription(site.type, site.isConquered, hex)
+    : undefined;
+
+  // Combat restrictions
+  const enterRestrictions =
+    canEnter && hasCombatRestrictions(site.type)
+      ? { nightManaRules: true, unitsAllowed: false }
+      : undefined;
+
+  // Conquest reward
+  const conquestReward = !site.isConquered
+    ? getConquestRewardDescription(site.type)
+    : undefined;
+
+  // Interaction options (inhabited sites)
+  const canInteract = canInteractWithSite(site, props);
+  const interactOptions = canInteract
+    ? getInteractOptions(state, player, site)
+    : undefined;
+
+  // Passive effects
+  const endOfTurnEffect = getEndOfTurnEffectDescription(site.type, site);
+  const startOfTurnEffect = getStartOfTurnEffectDescription(
+    site.type,
+    state.timeOfDay
+  );
+
+  // Build result with required properties
+  const result: SiteOptions = {
+    siteType: site.type,
+    siteName: getSiteName(site.type),
+    isConquered: site.isConquered,
+    owner: site.owner,
+    canEnter,
+    canInteract,
+  };
+
+  // Only add optional properties if they have values
+  if (enterDescription !== undefined) {
+    (result as { enterDescription?: string }).enterDescription = enterDescription;
+  }
+  if (enterRestrictions !== undefined) {
+    (result as { enterRestrictions?: typeof enterRestrictions }).enterRestrictions = enterRestrictions;
+  }
+  if (conquestReward !== undefined) {
+    (result as { conquestReward?: string }).conquestReward = conquestReward;
+  }
+  if (interactOptions !== undefined) {
+    (result as { interactOptions?: typeof interactOptions }).interactOptions = interactOptions;
+  }
+  if (endOfTurnEffect !== undefined) {
+    (result as { endOfTurnEffect?: string }).endOfTurnEffect = endOfTurnEffect;
+  }
+  if (startOfTurnEffect !== undefined) {
+    (result as { startOfTurnEffect?: string }).startOfTurnEffect = startOfTurnEffect;
+  }
+
+  return result;
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Check if player can enter this site as an action.
+ */
+function canEnterSite(
+  state: GameState,
+  player: Player,
+  site: Site,
+  hex: HexState
+): boolean {
+  const props = SITE_PROPERTIES[site.type];
+
+  // Only adventure sites can be "entered"
+  if (!props.adventureSite) return false;
+
+  // Can't enter if already took action this turn
+  if (player.hasTakenActionThisTurn) return false;
+
+  // For conquered adventure sites, can re-enter for fame (dungeon/tomb only)
+  if (site.isConquered) {
+    return site.type === SiteType.Dungeon || site.type === SiteType.Tomb;
+  }
+
+  // Unconquered adventure site - can always enter
+  return true;
+}
+
+/**
+ * Check if site has dungeon/tomb style combat restrictions.
+ */
+function hasCombatRestrictions(siteType: SiteType): boolean {
+  return siteType === SiteType.Dungeon || siteType === SiteType.Tomb;
+}
+
+/**
+ * Check if player can interact with this site (inhabited sites).
+ */
+function canInteractWithSite(
+  site: Site,
+  props: (typeof SITE_PROPERTIES)[SiteType]
+): boolean {
+  if (!props.inhabited) return false;
+
+  // Fortified inhabited sites (Keep, Mage Tower, City) require conquest
+  if (props.fortified && !site.isConquered) return false;
+
+  return true;
+}
+
+/**
+ * Get human-readable site name.
+ */
+function getSiteName(siteType: SiteType): string {
+  const names: Record<SiteType, string> = {
+    [SiteType.Village]: "Village",
+    [SiteType.Monastery]: "Monastery",
+    [SiteType.MagicalGlade]: "Magical Glade",
+    [SiteType.Keep]: "Keep",
+    [SiteType.MageTower]: "Mage Tower",
+    [SiteType.AncientRuins]: "Ancient Ruins",
+    [SiteType.Dungeon]: "Dungeon",
+    [SiteType.Tomb]: "Tomb",
+    [SiteType.MonsterDen]: "Monster Den",
+    [SiteType.SpawningGrounds]: "Spawning Grounds",
+    [SiteType.Mine]: "Crystal Mine",
+    [SiteType.DeepMine]: "Deep Mine",
+    [SiteType.Portal]: "Portal",
+    [SiteType.City]: "City",
+    [SiteType.Maze]: "Maze",
+    [SiteType.Labyrinth]: "Labyrinth",
+    [SiteType.RefugeeCamp]: "Refugee Camp",
+    [SiteType.VolkaresCamp]: "Volkare's Camp",
+  };
+  return names[siteType] ?? siteType;
+}
+
+/**
+ * Get description of what happens when entering a site.
+ */
+function getEnterDescription(
+  siteType: SiteType,
+  isConquered: boolean,
+  hex: HexState
+): string | undefined {
+  switch (siteType) {
+    case SiteType.Dungeon:
+      return isConquered
+        ? "Fight 1 brown enemy (fame only)"
+        : "Fight 1 brown enemy";
+
+    case SiteType.Tomb:
+      return isConquered
+        ? "Fight 1 Draconum (fame only)"
+        : "Fight 1 Draconum";
+
+    case SiteType.MonsterDen:
+      if (hex.enemies.length > 0) {
+        return "Fight the monster";
+      }
+      return "Fight 1 brown enemy";
+
+    case SiteType.SpawningGrounds:
+      if (hex.enemies.length > 0) {
+        return `Fight ${hex.enemies.length} ${hex.enemies.length === 1 ? "enemy" : "enemies"}`;
+      }
+      return "Fight 2 brown enemies";
+
+    case SiteType.AncientRuins:
+      if (hex.enemies.length > 0) {
+        return `Fight ${hex.enemies.length} ${hex.enemies.length === 1 ? "enemy" : "enemies"}`;
+      }
+      return "Explore the ruins";
+
+    case SiteType.Maze:
+      return "Choose path (2/4/6 Move) and fight";
+
+    case SiteType.Labyrinth:
+      return "Choose path (2/4/6 Move) and fight Draconum";
+
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Get description of conquest reward.
+ */
+function getConquestRewardDescription(siteType: SiteType): string | undefined {
+  switch (siteType) {
+    case SiteType.Dungeon:
+      return "Spell or Artifact (die roll)";
+
+    case SiteType.Tomb:
+      return "Spell + Artifact";
+
+    case SiteType.MonsterDen:
+      return "2 random crystals";
+
+    case SiteType.SpawningGrounds:
+      return "Artifact + 3 random crystals";
+
+    case SiteType.MageTower:
+      return "Spell";
+
+    case SiteType.AncientRuins:
+      return "Depends on token";
+
+    case SiteType.Maze:
+      return "Crystals / Spell / Artifact (by path)";
+
+    case SiteType.Labyrinth:
+      return "Crystals / Spell / Artifact + Advanced Action";
+
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Get interaction options for inhabited sites.
+ */
+function getInteractOptions(
+  state: GameState,
+  _player: Player,
+  site: Site
+): InteractOptions {
+  const healCost = HEALING_COSTS[site.type];
+
+  // Check if can recruit (needs units in offer)
+  const canRecruit = state.offers.units.length > 0;
+
+  // Check if can buy spells (conquered Mage Tower)
+  const canBuySpells =
+    site.type === SiteType.MageTower &&
+    site.isConquered &&
+    state.offers.spells.cards.length > 0;
+
+  // Check if can buy advanced actions (Monastery)
+  const canBuyAdvancedActions =
+    site.type === SiteType.Monastery &&
+    state.offers.advancedActions.cards.length > 0;
+
+  const result: InteractOptions = {
+    canHeal: healCost !== undefined,
+    canRecruit,
+    canBuySpells,
+    canBuyAdvancedActions,
+  };
+
+  // Only add optional properties if they have values
+  if (healCost !== undefined) {
+    (result as { healCost?: number }).healCost = healCost;
+  }
+  if (canBuySpells) {
+    (result as { spellCost?: number }).spellCost = SPELL_PURCHASE_COST;
+  }
+  if (canBuyAdvancedActions) {
+    (result as { advancedActionCost?: number }).advancedActionCost =
+      MONASTERY_AA_PURCHASE_COST;
+  }
+
+  return result;
+}
+
+/**
+ * Get end-of-turn passive effect description.
+ */
+function getEndOfTurnEffectDescription(
+  siteType: SiteType,
+  site: Site
+): string | undefined {
+  switch (siteType) {
+    case SiteType.Mine: {
+      if (site.mineColor) {
+        const manaColor = mineColorToBasicManaColor(site.mineColor);
+        const colorName = manaColor.charAt(0).toUpperCase() + manaColor.slice(1);
+        return `+1 ${colorName} Crystal`;
+      }
+      return "+1 Crystal";
+    }
+
+    case SiteType.DeepMine:
+      return "Choose crystal color";
+
+    case SiteType.MagicalGlade:
+      return "Discard 1 Wound";
+
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Get start-of-turn passive effect description.
+ */
+function getStartOfTurnEffectDescription(
+  siteType: SiteType,
+  timeOfDay: string
+): string | undefined {
+  switch (siteType) {
+    case SiteType.MagicalGlade:
+      return timeOfDay === TIME_OF_DAY_DAY ? "+1 Gold Mana" : "+1 Black Mana";
+
+    default:
+      return undefined;
+  }
+}

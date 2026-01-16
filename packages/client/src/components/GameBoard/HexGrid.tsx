@@ -8,6 +8,7 @@ import {
   type ClientHexEnemy,
   type MoveTarget,
   type ReachableHex,
+  type SiteOptions,
   hexKey,
   getAllNeighbors,
 } from "@mage-knight/shared";
@@ -16,6 +17,7 @@ import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro } from "../../contexts/GameIntroContext";
 import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import { getTileImageUrl, getEnemyImageUrl, getEnemyTokenBackUrl, tokenIdToEnemyId, type EnemyTokenColor } from "../../assets/assetPaths";
+import { HexContextMenu } from "../HexContextMenu";
 
 const HEX_SIZE = 50; // pixels from center to corner
 
@@ -1022,6 +1024,16 @@ export function HexGrid() {
   const [clickingExploreCoord, setClickingExploreCoord] = useState<string | null>(null);
 
   // ============================================
+  // Site Context Menu State
+  // ============================================
+  // Whether to show the site context menu
+  const [showSiteContextMenu, setShowSiteContextMenu] = useState(false);
+  // Screen position for the context menu (computed from hero's hex position)
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  // Reference to the SVG element for coordinate conversion
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  // ============================================
   // Intro Animation Completion Tracking
   // ============================================
   // Consolidated tracking for intro animation completion
@@ -1244,6 +1256,88 @@ export function HexGrid() {
     return hexToPixel(player.position);
   }, [player?.position]);
 
+  // Get site options from validActions
+  const siteOptions = state?.validActions.sites;
+
+  // Convert SVG coordinates to screen coordinates for context menu positioning
+  const svgToScreenCoords = useCallback((svgX: number, svgY: number): { x: number; y: number } => {
+    if (!svgRef.current) {
+      // Fallback: return center of viewport
+      return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    }
+
+    // Create a point in SVG coordinates
+    const svg = svgRef.current;
+    const pt = svg.createSVGPoint();
+    pt.x = svgX;
+    pt.y = svgY;
+
+    // Transform to screen coordinates using the current transformation matrix
+    const ctm = svg.getScreenCTM();
+    if (!ctm) {
+      return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    }
+
+    const screenPt = pt.matrixTransform(ctm);
+    return { x: screenPt.x, y: screenPt.y };
+  }, []);
+
+  // Track the last position where we showed the menu to prevent re-opening
+  const lastMenuPositionRef = useRef<string | null>(null);
+
+  // Effect to show context menu when appropriate
+  useEffect(() => {
+    // Conditions to NOT show the menu
+    if (!siteOptions) return; // No site options
+    if (isAnimating) return; // Currently animating
+    if (state?.combat) return; // In combat
+    if (!heroDisplayPosition) return; // No hero position
+    if (!player?.position) return; // No player position
+
+    // Check if we have any actionable options (more than just "dismiss")
+    const hasActions = siteOptions.canEnter || siteOptions.canInteract;
+    if (!hasActions) return;
+
+    // Don't re-show if we're at the same position and menu was dismissed
+    const posKey = hexKey(player.position);
+    if (lastMenuPositionRef.current === posKey && !showSiteContextMenu) {
+      return;
+    }
+
+    // Show the menu!
+    const screenPos = svgToScreenCoords(heroDisplayPosition.x, heroDisplayPosition.y);
+    setContextMenuPosition(screenPos);
+    setShowSiteContextMenu(true);
+    lastMenuPositionRef.current = posKey;
+  }, [
+    siteOptions,
+    isAnimating,
+    state?.combat,
+    heroDisplayPosition,
+    player?.position,
+    showSiteContextMenu,
+    svgToScreenCoords,
+  ]);
+
+  // Clear the last menu position when player moves to a new hex
+  useEffect(() => {
+    if (player?.position) {
+      const posKey = hexKey(player.position);
+      if (lastMenuPositionRef.current !== posKey) {
+        lastMenuPositionRef.current = null;
+      }
+    }
+  }, [player?.position]);
+
+  // Handler to close the context menu
+  const handleContextMenuClose = useCallback(() => {
+    setShowSiteContextMenu(false);
+    // Mark the current position as "dismissed" so we don't re-open
+    if (player?.position) {
+      lastMenuPositionRef.current = hexKey(player.position);
+    }
+  }, [player?.position]);
+
   if (!state) return null;
 
   const hexes = Object.values(state.map.hexes);
@@ -1395,7 +1489,9 @@ export function HexGrid() {
     .map((t) => t.centerCoord);
 
   return (
+    <>
     <svg
+      ref={svgRef}
       viewBox={`${minX} ${minY} ${maxX - minX} ${maxY - minY}`}
       className="hex-grid"
       style={{ width: "100%", height: "100%" }}
@@ -1524,6 +1620,16 @@ export function HexGrid() {
         />
       )}
     </svg>
+
+    {/* Site Context Menu - rendered outside SVG for proper positioning */}
+    {showSiteContextMenu && siteOptions && contextMenuPosition && (
+      <HexContextMenu
+        siteOptions={siteOptions}
+        position={contextMenuPosition}
+        onClose={handleContextMenuClose}
+      />
+    )}
+    </>
   );
 }
 
