@@ -1,0 +1,16 @@
+.crystal-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Make crystals more prominent in tooltips */
+.hex-tooltip .crystal-icon {
+  transform: scale(1.4);
+  margin: 0 0.15em;
+}
+
+.crystal-icon--fallback {
+  font-size: 0.75em;
+  text-transform: capitalize;
+}

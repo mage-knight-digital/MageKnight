@@ -12,6 +12,16 @@ interface SheetInfo {
   hasEvenOddLayout?: boolean;
 }
 
+interface IconSheetInfo {
+  file: string;
+  width: number;
+  height: number;
+  cols: number;
+  rows: number;
+  iconWidth: number;
+  iconHeight: number;
+}
+
 interface CardPosition {
   col: number;
   row: number;
@@ -20,6 +30,11 @@ interface CardPosition {
 
 interface UnitPosition {
   sheet: string;
+  col: number;
+  row: number;
+}
+
+interface IconPosition {
   col: number;
   row: number;
 }
@@ -38,6 +53,14 @@ interface AtlasData {
     elite: Record<string, UnitPosition>;
     regular: Record<string, UnitPosition>;
   };
+  icons: {
+    crystals: Record<string, IconPosition>;
+  };
+}
+
+// Separate type for raw JSON which may have icon sheets mixed in
+interface RawAtlasData extends Omit<AtlasData, "sheets"> {
+  sheets: Record<string, SheetInfo | IconSheetInfo>;
 }
 
 export interface CardSpriteStyle {
@@ -56,6 +79,10 @@ const spriteStyleCache = new Map<string, CardSpriteStyle>();
 const cardColorCache = new Map<string, string>();
 const unitSpriteStyleCache = new Map<string, CardSpriteStyle>();
 const tacticSpriteStyleCache = new Map<string, CardSpriteStyle>();
+const crystalSpriteStyleCache = new Map<string, CardSpriteStyle>();
+
+// Default display height for crystals
+const CRYSTAL_DEFAULT_HEIGHT = 24;
 
 // Track if atlas has been loaded and processed
 let atlasLoaded = false;
@@ -210,6 +237,57 @@ function precomputeTacticStyles(atlasData: AtlasData, displayHeight: number): vo
 }
 
 /**
+ * Compute sprite style for an icon (not a card - uses iconWidth/iconHeight)
+ */
+function computeIconSpriteStyle(
+  sheet: IconSheetInfo,
+  position: IconPosition,
+  displayHeight: number
+): CardSpriteStyle {
+  // Calculate aspect ratio and display width
+  const aspectRatio = sheet.iconWidth / sheet.iconHeight;
+  const displayWidth = displayHeight * aspectRatio;
+
+  // Calculate scale factor
+  const scale = displayHeight / sheet.iconHeight;
+
+  // Calculate background position (negative because CSS background-position)
+  const bgX = position.col * sheet.iconWidth * scale;
+  const bgY = position.row * sheet.iconHeight * scale;
+
+  // Calculate scaled background size
+  const bgWidth = sheet.width * scale;
+  const bgHeight = sheet.height * scale;
+
+  return {
+    backgroundImage: `url(/assets/${sheet.file})`,
+    backgroundPosition: `-${bgX}px -${bgY}px`,
+    backgroundSize: `${bgWidth}px ${bgHeight}px`,
+    width: `${displayWidth}px`,
+    height: `${displayHeight}px`,
+  };
+}
+
+/**
+ * Precompute all crystal icon sprite styles.
+ */
+function precomputeCrystalStyles(atlasData: RawAtlasData, displayHeight: number): void {
+  const sheet = atlasData.sheets["crystals"] as IconSheetInfo | undefined;
+  const crystals = atlasData.icons?.crystals;
+
+  if (!sheet || !crystals) return;
+
+  for (const [crystalColor, position] of Object.entries(crystals)) {
+    // Skip description entries
+    if (crystalColor.startsWith("_")) continue;
+    if (!position || typeof position !== "object" || !("col" in position)) continue;
+
+    const style = computeIconSpriteStyle(sheet, position, displayHeight);
+    crystalSpriteStyleCache.set(crystalColor, style);
+  }
+}
+
+/**
  * Load the atlas and precompute all sprite styles.
  * This is the only function that accesses the raw JSON data.
  */
@@ -217,7 +295,10 @@ export async function loadAtlas(): Promise<void> {
   if (atlasLoaded) return;
 
   const response = await fetch("/assets/atlas.json");
-  const atlasData = (await response.json()) as AtlasData;
+  const rawData = (await response.json()) as RawAtlasData;
+
+  // Cast to AtlasData for card/unit/tactic functions (they only access SheetInfo sheets)
+  const atlasData = rawData as unknown as AtlasData;
 
   // Precompute all styles at the default display height used by FloatingHand
   // Additional heights can be computed on-demand if needed
@@ -228,6 +309,9 @@ export async function loadAtlas(): Promise<void> {
 
   // Precompute tactic styles at their default height
   precomputeTacticStyles(atlasData, TACTIC_DEFAULT_HEIGHT);
+
+  // Precompute crystal icon styles at their default height (uses raw data for icon sheets)
+  precomputeCrystalStyles(rawData, CRYSTAL_DEFAULT_HEIGHT);
 
   // Mark as loaded - we no longer need the raw atlas data
   atlasLoaded = true;
@@ -371,4 +455,26 @@ export function getTacticSpriteStyle(tacticId: TacticId, displayHeight: number =
 
   // Otherwise scale the cached style to the requested height
   return scaleStyle(style, TACTIC_DEFAULT_HEIGHT, displayHeight);
+}
+
+/** Valid crystal colors for getCrystalSpriteStyle */
+export type CrystalColor = "white" | "green" | "red" | "blue";
+
+/**
+ * Get CSS styles to display a crystal icon from the sprite sheet.
+ * Returns precomputed styles from cache - O(1) Map lookup.
+ */
+export function getCrystalSpriteStyle(color: CrystalColor, displayHeight: number = CRYSTAL_DEFAULT_HEIGHT): CardSpriteStyle | null {
+  if (!atlasLoaded) return null;
+
+  const style = crystalSpriteStyleCache.get(color);
+  if (!style) return null;
+
+  // If requested height matches cached height, return directly
+  if (displayHeight === CRYSTAL_DEFAULT_HEIGHT) {
+    return style;
+  }
+
+  // Otherwise scale the cached style to the requested height
+  return scaleStyle(style, CRYSTAL_DEFAULT_HEIGHT, displayHeight);
 }

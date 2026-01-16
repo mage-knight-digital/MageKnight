@@ -70,6 +70,10 @@ export interface HexTooltipProps {
   showSite?: boolean;
   /** Show enemy information (default true) */
   showEnemies?: boolean;
+  /** Handler for mouse entering tooltip (keeps it open) */
+  onMouseEnter?: () => void;
+  /** Handler for mouse leaving tooltip (closes it) */
+  onMouseLeave?: () => void;
 }
 
 export function HexTooltip({
@@ -79,6 +83,8 @@ export function HexTooltip({
   isVisible,
   showSite = true,
   showEnemies = true,
+  onMouseEnter,
+  onMouseLeave,
 }: HexTooltipProps) {
   // Track animation state for staggered reveals
   const [isAnimating, setIsAnimating] = useState(false);
@@ -119,6 +125,8 @@ export function HexTooltip({
     <div
       className={`hex-tooltip ${isAnimating ? "hex-tooltip--animating" : ""}`}
       style={tooltipStyle}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       <div className="hex-tooltip__content">
         {hasSite && hex.site && (

@@ -14,6 +14,8 @@ export interface UseHexHoverOptions {
   delay?: number;
   /** Callback when hover state changes */
   onHoverChange?: (coord: HexCoord | null) => void;
+  /** If true, tooltip stays at initial position instead of following cursor (default true) */
+  static?: boolean;
 }
 
 export interface HexHoverState {
@@ -29,17 +31,23 @@ export interface HexHoverState {
   handleHexMouseLeave: () => void;
   /** Handler for mouse move (updates tooltip position) */
   handleHexMouseMove: (screenPos: { x: number; y: number }) => void;
+  /** Handler for when mouse enters the tooltip itself */
+  handleTooltipMouseEnter: () => void;
+  /** Handler for when mouse leaves the tooltip */
+  handleTooltipMouseLeave: () => void;
 }
 
 export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
-  const { delay = 300, onHoverChange } = options;
+  const { delay = 300, onHoverChange, static: isStatic = true } = options;
 
   const [hoveredHex, setHoveredHex] = useState<HexCoord | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
 
   const delayTimerRef = useRef<number | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
   const currentHexRef = useRef<HexCoord | null>(null);
+  const isOverTooltipRef = useRef<boolean>(false);
 
   // Clear any pending timer
   const clearDelayTimer = useCallback(() => {
@@ -49,10 +57,21 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
     }
   }, []);
 
+  // Clear close timer
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
-    return () => clearDelayTimer();
-  }, [clearDelayTimer]);
+    return () => {
+      clearDelayTimer();
+      clearCloseTimer();
+    };
+  }, [clearDelayTimer, clearCloseTimer]);
 
   const handleHexMouseEnter = useCallback(
     (coord: HexCoord, screenPos: { x: number; y: number }) => {
@@ -62,10 +81,13 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
         currentHexRef.current.q === coord.q &&
         currentHexRef.current.r === coord.r
       ) {
+        // But do cancel any pending close
+        clearCloseTimer();
         return;
       }
 
       clearDelayTimer();
+      clearCloseTimer();
       currentHexRef.current = coord;
       setHoveredHex(coord);
       setTooltipPosition(screenPos);
@@ -82,21 +104,50 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
         setIsTooltipVisible(true);
       }
     },
-    [delay, clearDelayTimer, onHoverChange]
+    [delay, clearDelayTimer, clearCloseTimer, onHoverChange]
   );
 
-  const handleHexMouseLeave = useCallback(() => {
-    clearDelayTimer();
+  // Actually close the tooltip (called after delay or immediately)
+  const doClose = useCallback(() => {
     currentHexRef.current = null;
     setHoveredHex(null);
     setTooltipPosition(null);
     setIsTooltipVisible(false);
     onHoverChange?.(null);
-  }, [clearDelayTimer, onHoverChange]);
+  }, [onHoverChange]);
+
+  const handleHexMouseLeave = useCallback(() => {
+    clearDelayTimer();
+
+    // Don't close immediately - give time to move cursor to tooltip
+    // Use a short delay to check if mouse entered the tooltip
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      // Only close if mouse is not over the tooltip
+      if (!isOverTooltipRef.current) {
+        doClose();
+      }
+    }, 100); // 100ms grace period to move to tooltip
+  }, [clearDelayTimer, clearCloseTimer, doClose]);
 
   const handleHexMouseMove = useCallback((screenPos: { x: number; y: number }) => {
-    setTooltipPosition(screenPos);
-  }, []);
+    // Only update position if not in static mode
+    if (!isStatic) {
+      setTooltipPosition(screenPos);
+    }
+  }, [isStatic]);
+
+  // When mouse enters the tooltip, keep it open
+  const handleTooltipMouseEnter = useCallback(() => {
+    isOverTooltipRef.current = true;
+    clearCloseTimer(); // Cancel any pending close
+  }, [clearCloseTimer]);
+
+  // When mouse leaves the tooltip, close it
+  const handleTooltipMouseLeave = useCallback(() => {
+    isOverTooltipRef.current = false;
+    doClose();
+  }, [doClose]);
 
   return {
     hoveredHex,
@@ -105,5 +156,7 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
     handleHexMouseEnter,
     handleHexMouseLeave,
     handleHexMouseMove,
+    handleTooltipMouseEnter,
+    handleTooltipMouseLeave,
   };
 }

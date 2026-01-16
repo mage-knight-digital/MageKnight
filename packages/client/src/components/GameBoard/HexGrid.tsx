@@ -1044,9 +1044,11 @@ export function HexGrid() {
     hoveredHex: tooltipHoveredHex,
     tooltipPosition,
     isTooltipVisible,
-    handleHexMouseEnter: handleTooltipMouseEnter,
-    handleHexMouseLeave: handleTooltipMouseLeave,
-    handleHexMouseMove: handleTooltipMouseMove,
+    handleHexMouseEnter: handleHexTooltipEnter,
+    handleHexMouseLeave: handleHexTooltipLeave,
+    handleHexMouseMove: handleHexTooltipMove,
+    handleTooltipMouseEnter,
+    handleTooltipMouseLeave,
   } = useHexHover({ delay: 400 });
 
   // ============================================
@@ -1603,16 +1605,19 @@ export function HexGrid() {
               hex={hex}
               moveHighlight={getMoveHighlight(hex.coord)}
               onClick={() => handleHexClick(hex.coord)}
-              onMouseEnter={(e) => {
+              onMouseEnter={() => {
                 setHoveredHex(hex.coord);
-                handleTooltipMouseEnter(hex.coord, { x: e.clientX, y: e.clientY });
+                // Use hex center position for static tooltip
+                const hexCenter = hexToPixel(hex.coord);
+                const screenPos = svgToScreenCoords(hexCenter.x, hexCenter.y);
+                handleHexTooltipEnter(hex.coord, screenPos);
               }}
               onMouseLeave={() => {
                 setHoveredHex(null);
-                handleTooltipMouseLeave();
+                handleHexTooltipLeave();
               }}
               onMouseMove={(e) => {
-                handleTooltipMouseMove({ x: e.clientX, y: e.clientY });
+                handleHexTooltipMove({ x: e.clientX, y: e.clientY });
               }}
               isRevealing={isOnRevealingTile}
               getEnemyIntroDelay={shouldAnimateEnemyIntro ? getEnemyDelay : undefined}
@@ -1675,6 +1680,8 @@ export function HexGrid() {
       coord={tooltipHoveredHex}
       position={tooltipPosition}
       isVisible={isTooltipVisible && !showSiteContextMenu}
+      onMouseEnter={handleTooltipMouseEnter}
+      onMouseLeave={handleTooltipMouseLeave}
     />
     </>
   );

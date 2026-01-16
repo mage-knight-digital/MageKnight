@@ -9,6 +9,8 @@
  */
 
 import type { ClientSite } from "@mage-knight/shared";
+import { CrystalIcon } from "../Icons";
+import type { CrystalColor } from "../../utils/cardAtlas";
 
 // Site type constants (matching core SiteType enum values)
 const SITE_DUNGEON = "dungeon";
@@ -40,9 +42,9 @@ interface SiteInfo {
   name: string;
   icon: string;
   fight?: string;
-  reward?: string;
+  reward?: string | React.ReactNode;
   special?: string[];
-  interaction?: string;
+  interaction?: string | React.ReactNode;
 }
 
 function getSiteInfo(site: ClientSite): SiteInfo {
@@ -72,7 +74,16 @@ function getSiteInfo(site: ClientSite): SiteInfo {
         name: "Monster Den",
         icon: "🕳️",
         fight: "1 Brown Enemy",
-        reward: "2 Crystals (roll for color)",
+        reward: (
+          <>
+            2{" "}
+            <CrystalIcon color="white" size={28} />
+            <CrystalIcon color="green" size={28} />
+            <CrystalIcon color="red" size={28} />
+            <CrystalIcon color="blue" size={28} />
+            {" "}(roll)
+          </>
+        ),
         special: ["Undefeated enemy stays"],
       };
 
@@ -81,7 +92,15 @@ function getSiteInfo(site: ClientSite): SiteInfo {
         name: "Spawning Grounds",
         icon: "🥚",
         fight: "2 Brown Enemies",
-        reward: "Artifact + 3 Crystals",
+        reward: (
+          <>
+            Artifact + 3{" "}
+            <CrystalIcon color="white" size={28} />
+            <CrystalIcon color="green" size={28} />
+            <CrystalIcon color="red" size={28} />
+            <CrystalIcon color="blue" size={28} />
+          </>
+        ),
         special: ["Undefeated enemies stay"],
       };
 
@@ -161,12 +180,16 @@ function getSiteInfo(site: ClientSite): SiteInfo {
     }
 
     case SITE_MINE: {
-      const mineColor = site.mineColor || "crystal";
+      const mineColor = site.mineColor || "white";
       const capitalizedMineColor = mineColor.charAt(0).toUpperCase() + mineColor.slice(1);
+      // Map mine color to crystal color (handle any edge cases)
+      const crystalColor = (["white", "green", "red", "blue"].includes(mineColor) ? mineColor : "white") as CrystalColor;
       return {
         name: `${capitalizedMineColor} Mine`,
         icon: "⛏️",
-        interaction: `End turn: Gain 1 ${mineColor} crystal`,
+        interaction: (
+          <>End turn: Gain <CrystalIcon color={crystalColor} size={28} /></>
+        ),
       };
     }
 
@@ -181,7 +204,15 @@ function getSiteInfo(site: ClientSite): SiteInfo {
       return {
         name: "Deep Mine",
         icon: "💎",
-        interaction: "End turn: Gain 1 crystal (choose color)",
+        interaction: (
+          <>
+            End turn: Gain{" "}
+            <CrystalIcon color="white" size={28} />
+            <CrystalIcon color="green" size={28} />
+            <CrystalIcon color="red" size={28} />
+            <CrystalIcon color="blue" size={28} />
+          </>
+        ),
       };
 
     case SITE_MAZE:
