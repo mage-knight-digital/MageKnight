@@ -33,7 +33,7 @@
  * ```
  */
 
-import type { UnitId, UnitAbilityType } from "../units.js";
+import type { UnitId, UnitAbilityType } from "../units/index.js";
 import type { Element } from "../elements.js";
 import {
   UNIT_DESTROY_REASON_DISBANDED,

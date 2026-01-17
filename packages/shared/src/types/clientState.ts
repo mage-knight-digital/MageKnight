@@ -9,7 +9,7 @@
  */
 
 import type { CardId, SkillId, ManaColor, BasicManaColor } from "../ids.js";
-import type { UnitId } from "../units.js";
+import type { UnitId } from "../units/index.js";
 import type { HexCoord } from "../hex.js";
 import type { Terrain } from "../terrain.js";
 import type { GamePhase, TimeOfDay, RoundPhase } from "../stateConstants.js";

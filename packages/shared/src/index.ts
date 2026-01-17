@@ -221,8 +221,9 @@ export * from "./startingValues.js";
 // See enemies/index.ts for comprehensive documentation and usage examples
 export * from "./enemies/index.js";
 
-// Unit definitions
-export * from "./units.js";
+// Unit definitions - Modular unit system organized by type and level
+// See units/index.ts for comprehensive documentation and usage examples
+export * from "./units/index.js";
 
 // Scenario definitions
 export * from "./scenarios.js";

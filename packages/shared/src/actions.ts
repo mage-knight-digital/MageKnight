@@ -4,7 +4,7 @@
 
 import type { HexCoord, HexDirection } from "./hex.js";
 import type { CardId, SkillId, BasicManaColor, ManaColor } from "./ids.js";
-import type { UnitId } from "./units.js";
+import type { UnitId } from "./units/index.js";
 import type { ManaSourceType, SparingPowerChoice } from "./valueConstants.js";
 import type { EnemyId } from "./enemies/index.js";
 import type { CombatType } from "./combatTypes.js";
