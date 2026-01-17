@@ -17,7 +17,7 @@ import type { ManaTokenSource } from "../valueConstants.js";
 import type { UnitState } from "../unitState.js";
 import type { TacticId } from "../tactics.js";
 import type { ValidActions } from "./validActions.js";
-import type { EnemyId, EnemyAbilityType, EnemyResistances, Element, EnemyColor } from "../enemies.js";
+import type { EnemyId, EnemyAbilityType, EnemyResistances, Element, EnemyColor } from "../enemies/index.js";
 import type { CombatPhase } from "../combatPhases.js";
 import type { SiteReward } from "../siteRewards.js";
 
