@@ -75,84 +75,9 @@ export * from "./stateConstants.js";
 // Unit state
 export * from "./unitState.js";
 
-// Events
-export * from "./events.js";
-export type {
-  GameEvent,
-  GameEventType,
-  // Game lifecycle
-  GameStartedEvent,
-  RoundStartedEvent,
-  TurnStartedEvent,
-  TurnEndedEvent,
-  RoundEndedEvent,
-  GameEndedEvent,
-  ScenarioEndTriggeredEvent,
-  EndOfRoundAnnouncedEvent,
-  NewRoundStartedEvent,
-  TimeOfDayChangedEvent,
-  ManaSourceResetEvent,
-  DecksReshuffledEvent,
-  PlayerRestedEvent,
-  RestUndoneEvent,
-  // Movement
-  PlayerMovedEvent,
-  TileRevealedEvent,
-  TileExploredEvent,
-  // Combat
-  CombatStartedEvent,
-  CombatEndedEvent,
-  CombatTriggeredEvent,
-  // Cards
-  CardPlayedEvent,
-  CardDrawnEvent,
-  CardDiscardedEvent,
-  CardGainedEvent,
-  // Mana
-  ManaDieTakenEvent,
-  ManaDieReturnedEvent,
-  CrystalConvertedEvent,
-  // Health/damage
-  WoundReceivedEvent,
-  WoundHealedEvent,
-  // Progression
-  FameGainedEvent,
-  FameLostEvent,
-  ReputationChangedEvent,
-  LevelUpEvent,
-  LevelUpRewardsPendingEvent,
-  AdvancedActionGainedEvent,
-  CommandSlotGainedEvent,
-  // Units
-  UnitRecruitedEvent,
-  UnitDisbandedEvent,
-  UnitActivatedEvent,
-  UnitWoundedEvent,
-  UnitHealedEvent,
-  UnitReadiedEvent,
-  UnitsReadiedEvent,
-  UnitDestroyedEvent,
-  // Skills
-  SkillUsedEvent,
-  SkillGainedEvent,
-  // Offers
-  OfferRefreshedEvent,
-  OfferCardTakenEvent,
-  // Undo
-  MoveUndoneEvent,
-  UndoFailedEvent,
-  UndoCheckpointSetEvent,
-  // Choice
-  ChoiceRequiredEvent,
-  ChoiceResolvedEvent,
-  // Tactics
-  TacticSelectedEvent,
-  DummyTacticSelectedEvent,
-  TacticsPhaseEndedEvent,
-  TacticActivatedEvent,
-  TacticDecisionResolvedEvent,
-  SourceDiceRerolledEvent,
-} from "./events.js";
+// Events - Modular event system optimized for LLM-driven development
+// See events/index.ts for comprehensive documentation and usage examples
+export * from "./events/index.js";
 
 // Actions
 export * from "./actions.js";
