@@ -18,7 +18,7 @@ import type { Player } from "../../types/player.js";
 import type { DeedCard, CardEffect, ScalableBaseEffect, ResolveBoostTargetEffect } from "../../types/cards.js";
 import { DEED_CARD_TYPE_BASIC_ACTION, DEED_CARD_TYPE_ADVANCED_ACTION } from "../../types/cards.js";
 import { CARD_WOUND } from "@mage-knight/shared";
-import { getCard } from "../validActions/cards.js";
+import { getCard } from "../validActions/cards/index.js";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,

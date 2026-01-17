@@ -22,7 +22,7 @@ import {
   TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 import { getBasicActionCard, BASIC_ACTION_CARDS } from "../../data/basicActions/index.js";
-import { getCard } from "../validActions/cards.js";
+import { getCard } from "../validActions/cards/index.js";
 import { getAvailableManaSourcesForColor } from "../validActions/mana.js";
 import { DEED_CARD_TYPE_SPELL } from "../../types/cards.js";
 import { isRuleActive } from "../modifiers.js";

@@ -23,7 +23,7 @@ import { resolveEffect, reverseEffect, isEffectResolvable, describeEffect } from
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
 import type { ChoiceEffect } from "../../types/cards.js";
 import { getBasicActionCard } from "../../data/basicActions/index.js";
-import { getCard } from "../validActions/cards.js";
+import { getCard } from "../validActions/cards/index.js";
 import { PLAY_CARD_COMMAND } from "./commandTypes.js";
 import type { CardEffect } from "../../types/cards.js";
 
