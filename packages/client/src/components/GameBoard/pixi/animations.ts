@@ -14,6 +14,9 @@ export const Easing = {
   // Linear - no easing
   linear: (t: number): number => t,
 
+  // Ease in quad - accelerating
+  easeInQuad: (t: number): number => t * t,
+
   // Ease out quad - decelerating
   easeOutQuad: (t: number): number => t * (2 - t),
 

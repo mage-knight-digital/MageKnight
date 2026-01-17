@@ -198,35 +198,78 @@ export class ParticleEmitter {
 }
 
 /**
- * Generate vertices for a large tile outline (pointy-topped hex scaled to tile size)
- * The tile covers a 7-hex cluster so we use tile dimensions
+ * Generate vertices for a 7-hex cluster outline (the actual tile boundary)
+ * This traces the outer edge of the center hex + 6 surrounding hexes
+ * creating the characteristic "flower" shape of a Mage Knight tile.
+ *
+ * Uses the EXACT same vertex calculation as getHexVertices and hexToPixel
+ * to ensure perfect alignment with the rendered hex overlays.
+ *
+ * Returns 18 vertices RELATIVE TO THE TILE CENTER for continuous tracing.
  */
-function getTileOutlineVertices(width: number, height: number): PixelPosition[] {
-  // Create a hexagonal shape scaled to tile dimensions
-  // Pointy-top hex with width and height matching tile
-  const vertices: PixelPosition[] = [];
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
+function get7HexClusterVertices(hexSize: number): PixelPosition[] {
+  // Use the exact same vertex calculation as getHexVertices
+  const getVertex = (hexCenterX: number, hexCenterY: number, vertexIndex: number): PixelPosition => {
+    const angle = (Math.PI / 3) * vertexIndex - Math.PI / 6; // Same as getHexVertices
+    return {
+      x: hexCenterX + hexSize * Math.cos(angle),
+      y: hexCenterY + hexSize * Math.sin(angle)
+    };
+  };
 
-  // Pointy-top hex vertices (starting from top, going clockwise)
-  // Top point
-  vertices.push({ x: 0, y: -halfHeight });
-  // Top-right
-  vertices.push({ x: halfWidth * 0.9, y: -halfHeight * 0.5 });
-  // Bottom-right
-  vertices.push({ x: halfWidth * 0.9, y: halfHeight * 0.5 });
-  // Bottom point
-  vertices.push({ x: 0, y: halfHeight });
-  // Bottom-left
-  vertices.push({ x: -halfWidth * 0.9, y: halfHeight * 0.5 });
-  // Top-left
-  vertices.push({ x: -halfWidth * 0.9, y: -halfHeight * 0.5 });
+  // Use the exact same center calculation as hexToPixel
+  const getHexCenter = (q: number, r: number): PixelPosition => ({
+    x: hexSize * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r),
+    y: hexSize * ((3 / 2) * r)
+  });
 
-  return vertices;
+  // The 6 outer hexes using TILE_HEX_OFFSETS from the game engine
+  // NE: (1, -1), E: (1, 0), SE: (0, 1), SW: (-1, 1), W: (-1, 0), NW: (0, -1)
+  const nw = getHexCenter(0, -1);
+  const ne = getHexCenter(1, -1);
+  const e = getHexCenter(1, 0);
+  const se = getHexCenter(0, 1);
+  const sw = getHexCenter(-1, 1);
+  const w = getHexCenter(-1, 0);
+
+  // Trace clockwise starting from NW hex
+  // getHexVertices returns: 0=top-right, 1=right, 2=bottom-right, 3=bottom-left, 4=left, 5=top-left
+  // Each outer hex contributes 3 outer vertices to the boundary (18 total)
+  return [
+    // NW hex - outer vertices 4, 5, 0
+    getVertex(nw.x, nw.y, 4),
+    getVertex(nw.x, nw.y, 5),
+    getVertex(nw.x, nw.y, 0),
+
+    // NE hex - outer vertices 5, 0, 1
+    getVertex(ne.x, ne.y, 5),
+    getVertex(ne.x, ne.y, 0),
+    getVertex(ne.x, ne.y, 1),
+
+    // E hex - outer vertices 0, 1, 2
+    getVertex(e.x, e.y, 0),
+    getVertex(e.x, e.y, 1),
+    getVertex(e.x, e.y, 2),
+
+    // SE hex - outer vertices 1, 2, 3
+    getVertex(se.x, se.y, 1),
+    getVertex(se.x, se.y, 2),
+    getVertex(se.x, se.y, 3),
+
+    // SW hex - outer vertices 2, 3, 4
+    getVertex(sw.x, sw.y, 2),
+    getVertex(sw.x, sw.y, 3),
+    getVertex(sw.x, sw.y, 4),
+
+    // W hex - outer vertices 3, 4, 5
+    getVertex(w.x, w.y, 3),
+    getVertex(w.x, w.y, 4),
+    getVertex(w.x, w.y, 5),
+  ];
 }
 
 /**
- * Tile outline tracer - draws magic outline around the entire tile with sparkles
+ * Tile outline tracer - draws magic outline around the 7-hex cluster with sparkles
  */
 export class TileOutlineTracer {
   private graphics: Graphics;
@@ -234,6 +277,7 @@ export class TileOutlineTracer {
   private duration: number;
   private isActive = true;
   private vertices: PixelPosition[];
+  private numVertices: number;
   private sparkles: Particle[] = [];
   private onComplete?: () => void;
 
@@ -247,8 +291,10 @@ export class TileOutlineTracer {
     this.graphics = new Graphics();
     this.container.addChild(this.graphics);
     this.duration = duration;
-    // Use tile dimensions for the outline
-    this.vertices = getTileOutlineVertices(TILE_WIDTH * 0.95, TILE_HEIGHT * 0.95);
+    // Use actual 7-hex cluster boundary (18 vertices: 6 outer hexes × 3 outer vertices each)
+    // Use full HEX_SIZE to match the tile images
+    this.vertices = get7HexClusterVertices(HEX_SIZE);
+    this.numVertices = this.vertices.length;
     this.onComplete = onComplete;
   }
 
@@ -259,13 +305,13 @@ export class TileOutlineTracer {
 
     // Spawn sparkles along the drawing path
     if (this.progress < 1) {
-      const totalLength = 6; // 6 sides
+      const totalLength = this.numVertices; // 18 edges around the cluster
       const currentPos = this.progress * totalLength;
-      const sideIndex = Math.floor(currentPos) % 6;
+      const sideIndex = Math.floor(currentPos) % this.numVertices;
       const sideProgress = currentPos - Math.floor(currentPos);
 
       const v1 = this.vertices[sideIndex];
-      const v2 = this.vertices[(sideIndex + 1) % 6];
+      const v2 = this.vertices[(sideIndex + 1) % this.numVertices];
       if (!v1 || !v2) return true;
 
       const sparkleX =
@@ -273,17 +319,17 @@ export class TileOutlineTracer {
       const sparkleY =
         this.center.y + v1.y + (v2.y - v1.y) * sideProgress;
 
-      // Add sparkles at trace point (more sparkles for larger outline)
-      if (Math.random() < 0.6) {
+      // Add sparkles at trace point
+      if (Math.random() < 0.5) {
         this.sparkles.push({
-          x: sparkleX + (Math.random() - 0.5) * 8,
-          y: sparkleY + (Math.random() - 0.5) * 8,
-          vx: (Math.random() - 0.5) * 30,
-          vy: (Math.random() - 0.5) * 30 - 15,
-          life: 400 + Math.random() * 300,
-          maxLife: 700,
-          size: 3 + Math.random() * 3,
-          startSize: 4,
+          x: sparkleX + (Math.random() - 0.5) * 6,
+          y: sparkleY + (Math.random() - 0.5) * 6,
+          vx: (Math.random() - 0.5) * 25,
+          vy: (Math.random() - 0.5) * 25 - 10,
+          life: 350 + Math.random() * 250,
+          maxLife: 600,
+          size: 2 + Math.random() * 2,
+          startSize: 3,
           endSize: 0,
           color: Math.random() < 0.5 ? 0xffffff : this.color,
           alpha: 1,
@@ -291,7 +337,7 @@ export class TileOutlineTracer {
           endAlpha: 0,
           rotation: 0,
           rotationSpeed: 0,
-          gravity: 15,
+          gravity: 12,
         });
       }
     }
@@ -329,7 +375,7 @@ export class TileOutlineTracer {
     this.graphics.clear();
 
     // Draw the outline up to current progress
-    const totalLength = 6;
+    const totalLength = this.numVertices;
     const currentPos = Math.min(this.progress, 1) * totalLength;
 
     const firstVertex = this.vertices[0];
@@ -340,10 +386,10 @@ export class TileOutlineTracer {
       this.center.y + firstVertex.y
     );
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < this.numVertices; i++) {
       if (i >= currentPos) break;
 
-      const nextVertex = this.vertices[(i + 1) % 6];
+      const nextVertex = this.vertices[(i + 1) % this.numVertices];
       if (!nextVertex) continue;
 
       if (i + 1 <= currentPos) {
@@ -363,8 +409,8 @@ export class TileOutlineTracer {
       }
     }
 
-    // Thicker line for tile outline
-    this.graphics.stroke({ width: 3, color: this.color, alpha: 0.9 });
+    // Line for tile outline
+    this.graphics.stroke({ width: 2, color: this.color, alpha: 0.9 });
 
     // Draw glow effect
     this.graphics.moveTo(
@@ -372,8 +418,8 @@ export class TileOutlineTracer {
       this.center.y + firstVertex.y
     );
 
-    for (let i = 0; i < 6 && i < currentPos; i++) {
-      const nextVertex = this.vertices[(i + 1) % 6];
+    for (let i = 0; i < this.numVertices && i < currentPos; i++) {
+      const nextVertex = this.vertices[(i + 1) % this.numVertices];
       if (!nextVertex) continue;
 
       if (i + 1 <= currentPos) {
@@ -394,8 +440,8 @@ export class TileOutlineTracer {
       }
     }
 
-    // Wider glow for tile
-    this.graphics.stroke({ width: 10, color: this.color, alpha: 0.15 });
+    // Wider glow
+    this.graphics.stroke({ width: 8, color: this.color, alpha: 0.15 });
 
     // Draw sparkles
     for (const s of this.sparkles) {
@@ -605,21 +651,25 @@ export class HexOutlineTracer {
 }
 
 /**
- * Drop shadow for 3D rising effect
+ * Drop shadow for 3D rising effect - uses hex cluster shape
  */
 export class DropShadow {
   private graphics: Graphics;
   private _scale = 1;
   private _alpha = 0.3;
+  private _offsetY = 0; // Vertical offset for shadow (increases as tile rises)
+  private vertices: PixelPosition[];
 
   constructor(
     private container: Container,
     private center: PixelPosition,
-    private radius: number
+    hexSize: number
   ) {
     this.graphics = new Graphics();
     this.graphics.zIndex = -1; // Below other content
     this.container.addChild(this.graphics);
+    // Get the hex cluster vertices for the shadow shape
+    this.vertices = get7HexClusterVertices(hexSize);
     this.render();
   }
 
@@ -641,16 +691,28 @@ export class DropShadow {
     return this._alpha;
   }
 
+  set offsetY(value: number) {
+    this._offsetY = value;
+    this.render();
+  }
+
+  get offsetY(): number {
+    return this._offsetY;
+  }
+
   private render(): void {
     this.graphics.clear();
 
-    // Elliptical shadow (flattened vertically for 3D perspective)
-    const shadowWidth = this.radius * this._scale;
-    const shadowHeight = this.radius * this._scale * 0.4;
+    // Shadow centered directly under tile - no offset
+    const shadowPoints = this.vertices.map(v => ({
+      x: this.center.x + v.x * this._scale,
+      y: this.center.y + v.y * this._scale
+    }));
 
+    // Soft dark shadow
     this.graphics
-      .ellipse(this.center.x, this.center.y + this.radius * 0.3, shadowWidth, shadowHeight)
-      .fill({ color: 0x000000, alpha: this._alpha });
+      .poly(shadowPoints)
+      .fill({ color: 0x000000, alpha: 0.25 });
   }
 
   destroy(): void {
@@ -660,7 +722,8 @@ export class DropShadow {
 }
 
 /**
- * Dust burst effect - "flour from dropped book" explosion
+ * Dust puff effect - soft ground-level dust that spreads outward and settles
+ * Like dust being pushed out from under a heavy object landing
  */
 export function createDustBurst(
   container: Container,
@@ -671,21 +734,21 @@ export function createDustBurst(
     container,
     origin,
     {
-      count: 24,
-      lifetime: 600,
-      lifetimeVariance: 200,
-      startSize: 3,
-      endSize: 8,
-      sizeVariance: 2,
-      colors: [0xd4c4a8, 0xc9b896, 0xbfae84, 0xe0d4bc], // Dusty tan colors
-      startAlpha: 0.6,
+      count: 16,
+      lifetime: 1200,           // Longer life for slow drift
+      lifetimeVariance: 400,
+      startSize: 4,
+      endSize: 12,              // Grow as they dissipate
+      sizeVariance: 3,
+      colors: [0x8b8b8b, 0x9a9a9a, 0x7a7a7a, 0xa5a5a5], // Muted gray dust
+      startAlpha: 0.35,         // Start more transparent
       endAlpha: 0,
-      speed: 80,
-      speedVariance: 40,
-      direction: -Math.PI / 2, // Upward bias
-      spread: Math.PI * 1.5, // Wide spread
-      gravity: 30, // Light gravity to drift down
-      rotationSpeed: 2,
+      speed: 25,                // Much slower - gentle puff
+      speedVariance: 15,
+      direction: Math.PI / 2,   // Horizontal outward (will be randomized by spread)
+      spread: Math.PI * 2,      // Full 360 degrees
+      gravity: -2,              // Slight upward drift (dust floats)
+      rotationSpeed: 0.5,
     },
     onComplete
   );
@@ -868,10 +931,13 @@ export class ParticleManager {
   }
 }
 
+// Debug: Slow down animations for analysis (1 = normal, higher = slower)
+const DEBUG_SLOWDOWN = 1; // Normal speed
+
 // Animation timing for Phase 5 effects
-export const HEX_OUTLINE_DURATION_MS = 300;
-export const TILE_RISE_DURATION_MS = 400;
-export const TILE_SLAM_DURATION_MS = 150;
-export const DUST_BURST_DELAY_MS = 50; // Slight delay after slam
-export const SCREEN_SHAKE_DURATION_MS = 100;
+export const HEX_OUTLINE_DURATION_MS = 300 * DEBUG_SLOWDOWN;
+export const TILE_RISE_DURATION_MS = 400 * DEBUG_SLOWDOWN;
+export const TILE_SLAM_DURATION_MS = 150 * DEBUG_SLOWDOWN;
+export const DUST_BURST_DELAY_MS = 50 * DEBUG_SLOWDOWN; // Slight delay after slam
+export const SCREEN_SHAKE_DURATION_MS = 100 * DEBUG_SLOWDOWN;
 export const SCREEN_SHAKE_INTENSITY = 3;

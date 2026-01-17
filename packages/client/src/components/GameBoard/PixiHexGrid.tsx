@@ -347,7 +347,7 @@ async function renderTiles(
     const OUTLINE_TIME = HEX_OUTLINE_DURATION_MS;
     const RISE_TIME = TILE_RISE_DURATION_MS;
     const SLAM_TIME = TILE_SLAM_DURATION_MS;
-    const TILE_STAGGER = 200; // Overlap tiles for fluid sequence
+    const TILE_STAGGER = 200; // Stagger between tiles
 
     introTiles.forEach(({ sprite, targetScaleX, targetScaleY, position, tileId }, index) => {
       const delay = index * TILE_STAGGER;
@@ -361,93 +361,79 @@ async function renderTiles(
           OUTLINE_TIME,
           0x88ccff,
           () => {
-            // Phase 2: Show drop shadow
-            const shadow = new DropShadow(layers.shadows, position, TILE_WIDTH / 2);
+            // Phase 2: Tile drops from above in one continuous motion
+            // Shadow in particles layer (above tiles) so it casts onto already-placed tiles
+            const shadow = new DropShadow(layers.particles, position, HEX_SIZE);
             shadow.alpha = 0;
-            shadow.scale = 0.6;
+            shadow.scale = 1.5;      // Big blurry shadow when tile is far away
 
-            // Fade in shadow
-            const shadowFadeIn = () => {
-              let shadowProgress = 0;
-              const shadowStep = () => {
-                shadowProgress += 0.05;
-                if (shadowProgress >= 1) {
-                  shadow.alpha = 0.25;
-                  shadow.scale = 0.9;
-                  return;
-                }
-                shadow.alpha = 0.25 * shadowProgress;
-                shadow.scale = 0.6 + 0.3 * shadowProgress;
-                requestAnimationFrame(shadowStep);
-              };
-              requestAnimationFrame(shadowStep);
-            };
-            shadowFadeIn();
+            // Start high above and larger (perspective effect)
+            const startY = position.y - 150; // Much higher starting point
+            const startScale = 1.5;  // Start bigger (closer to camera)
+            sprite.position.y = startY;
+            sprite.scale.set(targetScaleX * startScale, targetScaleY * startScale);
+            sprite.alpha = 0;
 
-            // Phase 3: Tile rises from below
-            const riseOffset = 60; // Start 60px below
-            sprite.position.y = position.y + riseOffset;
-            sprite.alpha = 1;
+            // Single continuous drop with easeInQuad (accelerating fall)
+            const totalDropTime = RISE_TIME + SLAM_TIME; // Combine into one longer drop
 
-            animManager.animate(`tile-rise-${tileId}`, sprite, {
-              endY: position.y + 15, // Overshoot slightly above final
-              duration: RISE_TIME,
-              easing: Easing.easeOutCubic,
+            animManager.animate(`tile-drop-${tileId}`, sprite, {
+              endY: position.y,
+              endAlpha: 1,
+              duration: totalDropTime,
+              easing: Easing.easeInQuad, // Accelerate downward like gravity
               onUpdate: (progress) => {
-                // Scale up during rise
-                const scaleProgress = Easing.easeOutCubic(progress);
-                sprite.scale.x = targetScaleX * (0.8 + 0.2 * scaleProgress);
-                sprite.scale.y = targetScaleY * (0.8 + 0.2 * scaleProgress);
+                // Scale down as tile falls (perspective: getting farther from camera)
+                const currentScale = startScale - (startScale - 1) * progress;
+                sprite.scale.x = targetScaleX * currentScale;
+                sprite.scale.y = targetScaleY * currentScale;
 
-                // Shadow grows as tile rises
-                shadow.scale = 0.9 + 0.1 * scaleProgress;
+                // Shadow shrinks from big (far away) to exactly tile size (covered when lands)
+                // Scale goes from 1.5 -> 1.0 as tile falls
+                shadow.scale = 1.5 - 0.5 * progress; // 1.5 -> 1.0
+                shadow.alpha = 0.3; // Constant alpha - tile covers it when it lands
+
+                // Squash in the final 10% of the drop
+                if (progress > 0.9) {
+                  const squashProgress = (progress - 0.9) / 0.1;
+                  sprite.scale.x = targetScaleX * (1 + 0.12 * squashProgress);
+                  sprite.scale.y = targetScaleY * (1 - 0.08 * squashProgress);
+                }
               },
               onComplete: () => {
-                // Phase 4: Slam down with squash effect
-                animManager.animate(`tile-slam-${tileId}`, sprite, {
-                  endY: position.y,
-                  duration: SLAM_TIME,
-                  easing: Easing.easeOutQuad,
-                  onUpdate: (progress) => {
-                    // Squash on impact (wider, shorter)
-                    if (progress < 0.5) {
-                      // Squashing phase
-                      const squashProgress = progress * 2;
-                      sprite.scale.x = targetScaleX * (1 + 0.08 * squashProgress);
-                      sprite.scale.y = targetScaleY * (1 - 0.06 * squashProgress);
-                    } else {
-                      // Recovery phase
-                      const recoveryProgress = (progress - 0.5) * 2;
-                      sprite.scale.x = targetScaleX * (1.08 - 0.08 * recoveryProgress);
-                      sprite.scale.y = targetScaleY * (0.94 + 0.06 * recoveryProgress);
-                    }
+                // Tile has landed - destroy shadow, start bounce
+                shadow.destroy();
+                sprite.scale.x = targetScaleX * 1.12;
+                sprite.scale.y = targetScaleY * 0.92;
 
-                    // Shadow shrinks on impact
-                    shadow.scale = 1 - 0.15 * Math.sin(progress * Math.PI);
-                  },
-                  onComplete: () => {
-                    // Reset to exact final scale
+                // Dust puff on impact
+                particleManager.dustBurst(layers.particles, position);
+
+                // Bounce-back starts immediately
+                let bounceProgress = 0;
+                const bounceStep = () => {
+                  bounceProgress += 0.08;
+                  if (bounceProgress >= 1) {
                     sprite.scale.set(targetScaleX, targetScaleY);
                     sprite.position.set(position.x, position.y);
-                    shadow.scale = 1;
-                    shadow.alpha = 0.2;
+                    return;
+                  }
+                  // Smooth ease-out bounce back to normal
+                  const ease = 1 - Math.pow(1 - bounceProgress, 3);
+                  sprite.scale.x = targetScaleX * (1.12 - 0.12 * ease);
+                  sprite.scale.y = targetScaleY * (0.92 + 0.08 * ease);
+                  requestAnimationFrame(bounceStep);
+                };
+                requestAnimationFrame(bounceStep);
 
-                    // Phase 5: Dust burst
-                    setTimeout(() => {
-                      particleManager.dustBurst(layers.particles, position);
-                    }, DUST_BURST_DELAY_MS);
+                // Phase 4: Screen shake (only for first few tiles)
+                if (index < 3 && world) {
+                  applyScreenShake(world, SCREEN_SHAKE_INTENSITY, SCREEN_SHAKE_DURATION_MS);
+                }
 
-                    // Phase 6: Screen shake (only for first few tiles to avoid chaos)
-                    if (index < 3 && world) {
-                      applyScreenShake(world, SCREEN_SHAKE_INTENSITY, SCREEN_SHAKE_DURATION_MS);
-                    }
-
-                    if (isLast && onIntroComplete) {
-                      // Add a small delay for dust to settle
-                      setTimeout(onIntroComplete, 200);
-                    }
-                  },
-                });
+                if (isLast && onIntroComplete) {
+                  setTimeout(onIntroComplete, 200);
+                }
               },
             });
           }
@@ -529,7 +515,7 @@ function renderHexOverlays(
       strokeAlpha = 0.5;
     }
 
-    drawHexPolygon(graphics, { x, y }, HEX_SIZE * 0.95, fillColor, fillAlpha, strokeColor, 1, strokeAlpha);
+    drawHexPolygon(graphics, { x, y }, HEX_SIZE, fillColor, fillAlpha, strokeColor, 1, strokeAlpha);
 
     // Make interactive
     graphics.eventMode = "static";
@@ -906,7 +892,7 @@ export function PixiHexGrid() {
 
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
-  const { startIntro } = useGameIntro();
+  const { startIntro, isIntroComplete } = useGameIntro();
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
 
   // Get valid move targets from server
@@ -1440,10 +1426,17 @@ export function PixiHexGrid() {
   }, [isInitialized, state, player?.position, exploreTargets, centerCameraOn, emitAnimationEvent]);
 
   // Update interactive layers (hex overlays, ghost hexes, path preview)
+  // Only show hex overlays after intro is complete
   useEffect(() => {
     if (!isInitialized || !state || !layersRef.current) return;
 
     const layers = layersRef.current;
+
+    // Hide hex overlays during intro animation
+    if (!isIntroComplete) {
+      layers.hexOverlays.removeChildren();
+      return;
+    }
 
     // Render interactive hex overlays
     renderHexOverlays(
@@ -1462,6 +1455,7 @@ export function PixiHexGrid() {
     renderPathPreview(layers, pathPreview, isPathTerminal);
   }, [
     isInitialized,
+    isIntroComplete,
     state,
     hoveredHex,
     pathPreview,
