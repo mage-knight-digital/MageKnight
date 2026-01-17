@@ -26,7 +26,7 @@
  */
 
 import type { CardId } from "../ids.js";
-import type { UnitId } from "../units.js";
+import type { UnitId } from "../units/index.js";
 import {
   OFFER_TYPE_ADVANCED_ACTIONS,
   OFFER_TYPE_SPELLS,
