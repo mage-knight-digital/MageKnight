@@ -59,18 +59,16 @@ import {
   Easing,
   HERO_MOVE_DURATION_MS,
   TILE_CASCADE_DURATION_MS,
-  ENEMY_FLIP_DURATION_MS,
   ENEMY_FLIP_STAGGER_MS,
   INTRO_PHASE_GAP_MS,
 } from "./pixi/animations";
 import {
   ParticleManager,
-  ParticleEmitter,
   DropShadow,
+  CircleShadow,
   HEX_OUTLINE_DURATION_MS,
   TILE_RISE_DURATION_MS,
   TILE_SLAM_DURATION_MS,
-  DUST_BURST_DELAY_MS,
   SCREEN_SHAKE_DURATION_MS,
   SCREEN_SHAKE_INTENSITY,
   PORTAL_OPEN_DURATION_MS,
@@ -359,12 +357,15 @@ async function renderTiles(
 
       setTimeout(() => {
         // Phase 1: Magic outline traces the TILE shape with sparkles
-        particleManager.traceTileOutline(
+        const tracer = particleManager.traceTileOutline(
           layers.particles,
           position,
           OUTLINE_TIME,
           0x88ccff,
           () => {
+            // Move tracer to shadows layer so it renders below the dropping tile
+            tracer.moveToBackground(layers.shadows);
+
             // Phase 2: Tile drops from above in one continuous motion
             // Shadow in particles layer (above tiles) so it casts onto already-placed tiles
             const shadow = new DropShadow(layers.particles, position, HEX_SIZE);
@@ -709,23 +710,30 @@ async function renderEnemies(
 
   // Phase 5 theatrical enemy intro - drop from sky like tiles (consistent visual language)
   if (playIntro && animManager && particleManager && enemyData.length > 0) {
-    const ENEMY_DROP_DURATION = 250; // Faster than tiles - enemies are smaller
-    const ENEMY_DROP_HEIGHT = 80;    // Lower drop height
+    const DEBUG_ENEMY_SLOWDOWN = 1; // Set to 1 for normal speed, higher to slow down for debugging
+    const ENEMY_DROP_DURATION = 250 * DEBUG_ENEMY_SLOWDOWN; // Faster than tiles - enemies are smaller
+    const ENEMY_DROP_HEIGHT = 120;   // Drop height (was 80)
+    const ENEMY_BOUNCE_DURATION = 100 * DEBUG_ENEMY_SLOWDOWN;
+    const ENEMY_TOKEN_RADIUS = ENEMY_TOKEN_SIZE / 2; // Actual radius from token size constant
 
     enemyData.forEach(({ container, position }, index) => {
-      const delay = initialDelayMs + index * ENEMY_FLIP_STAGGER_MS;
+      // Add slight jitter to stagger for more organic feel (Blizzard-style)
+      const jitter = (Math.random() - 0.5) * 80; // ±40ms random variation
+      const delay = initialDelayMs + index * ENEMY_FLIP_STAGGER_MS + jitter;
       const isLast = index === enemyData.length - 1;
 
       setTimeout(() => {
-        // Create small drop shadow for enemy
-        const shadow = new DropShadow(layers.shadows, position, HEX_SIZE * 0.4);
-        shadow.alpha = 0;
-        shadow.scale = 1.3;
+        // Create circular drop shadow for enemy (in particles layer - above tiles)
+        // Shadow should end at exactly the token size so it's completely covered
+        const shadow = new CircleShadow(layers.particles, position, ENEMY_TOKEN_RADIUS);
+        shadow.alpha = 0.08; // Start slightly visible so it doesn't pop in
+        shadow.scale = 2.5; // Start much larger when far away
 
-        // Start above and larger
+        // Start above and larger (perspective: closer to camera = bigger)
         const startY = position.y - ENEMY_DROP_HEIGHT;
+        const startScale = 1.5; // Start 50% bigger (like tiles)
         container.position.y = startY;
-        container.scale.set(1.2);
+        container.scale.set(startScale);
         container.alpha = 0;
 
         // Drop animation with shadow shrinking
@@ -735,22 +743,25 @@ async function renderEnemies(
           duration: ENEMY_DROP_DURATION,
           easing: Easing.easeInQuad, // Accelerate like gravity
           onUpdate: (progress) => {
-            // Scale down as it falls (perspective)
-            const currentScale = 1.2 - 0.2 * progress;
+            // Scale down as it falls (perspective: getting farther from camera)
+            const currentScale = startScale - (startScale - 1) * progress; // 1.5 -> 1.0
             container.scale.set(currentScale);
 
-            // Shadow shrinks to match enemy
-            shadow.alpha = 0.2 * (1 - progress * 0.3);
-            shadow.scale = 1.3 - 0.3 * progress;
+            // Shadow: fades in with token, shrinks to token size, gets darker as it lands
+            shadow.scale = 2.5 - 1.5 * progress; // 2.5 -> 1.0 (ends at token size)
+            shadow.alpha = 0.08 + 0.27 * progress; // 0.08 -> 0.35 (fades in as token falls)
           },
           onComplete: () => {
             shadow.destroy();
             container.scale.set(1);
 
+            // Mini dust puff on landing (particles layer so it's visible above tiles)
+            particleManager.miniDustBurst(layers.particles, position, ENEMY_TOKEN_RADIUS);
+
             // Small bounce on landing
             animManager.animate(`enemy-bounce-${index}`, container, {
               endScale: 1,
-              duration: 100,
+              duration: ENEMY_BOUNCE_DURATION,
               easing: Easing.easeOutQuad,
               onUpdate: (p) => {
                 // Quick squash and stretch

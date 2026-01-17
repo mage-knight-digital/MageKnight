@@ -7,7 +7,7 @@
 
 import { Container, Graphics, Ticker } from "pixi.js";
 import type { PixelPosition } from "./types";
-import { HEX_SIZE, TILE_WIDTH, TILE_HEIGHT } from "./types";
+import { HEX_SIZE } from "./types";
 import { getHexVertices } from "./hexMath";
 
 /**
@@ -270,6 +270,11 @@ function get7HexClusterVertices(hexSize: number): PixelPosition[] {
 
 /**
  * Tile outline tracer - draws magic outline around the 7-hex cluster with sparkles
+ *
+ * Phases:
+ * 1. Drawing - traces the outline with sparkles
+ * 2. Pulse - circuit completes with bright pulse
+ * 3. Linger - stays visible (dimmed) while tile drops, fades out slowly
  */
 export class TileOutlineTracer {
   private graphics: Graphics;
@@ -284,6 +289,11 @@ export class TileOutlineTracer {
   private isCircuitComplete = false;
   private pulseProgress = 0;
   private pulseDuration = 240; // ms for the pulse effect (20% slower for breathing room)
+  // Linger phase - trace stays visible during tile drop
+  private isLingering = false;
+  private lingerProgress = 0;
+  private lingerDuration = 800; // ms to linger and fade (covers tile drop + slam)
+  private lingerAlpha = 1; // Fades during linger
 
   constructor(
     private container: Container,
@@ -300,6 +310,16 @@ export class TileOutlineTracer {
     this.vertices = get7HexClusterVertices(HEX_SIZE);
     this.numVertices = this.vertices.length;
     this.onComplete = onComplete;
+  }
+
+  /**
+   * Move graphics to a lower z-index layer (call when tile starts dropping)
+   */
+  moveToBackground(backgroundContainer: Container): void {
+    // Remove from current container and add to background
+    this.container.removeChild(this.graphics);
+    backgroundContainer.addChild(this.graphics);
+    this.container = backgroundContainer;
   }
 
   update(deltaMs: number): boolean {
@@ -325,25 +345,68 @@ export class TileOutlineTracer {
         const sparkleY =
           this.center.y + v1.y + (v2.y - v1.y) * sideProgress;
 
-        // Add sparkles at trace point
-        if (Math.random() < 0.5) {
+        // Add sparkles at trace point with varied behavior
+        if (Math.random() < 0.7) { // Slightly more particles
+          // Determine particle type for variety
+          const particleType = Math.random();
+
+          // Some float up, some fall, some drift sideways, some spiral
+          let vx, vy, gravity, rotationSpeed;
+          let size, startAlpha;
+
+          if (particleType < 0.25) {
+            // Floaters - rise up with gentle sway
+            vx = (Math.random() - 0.5) * 30;
+            vy = -20 - Math.random() * 30;
+            gravity = -8 - Math.random() * 8; // Stronger float
+            rotationSpeed = (Math.random() - 0.5) * 4;
+            size = 2 + Math.random() * 2;
+            startAlpha = 0.9;
+          } else if (particleType < 0.5) {
+            // Drifters - mostly horizontal with tumble
+            vx = (Math.random() - 0.5) * 60; // More horizontal speed
+            vy = (Math.random() - 0.5) * 20;
+            gravity = 5 + Math.random() * 8;
+            rotationSpeed = (Math.random() - 0.5) * 6;
+            size = 1.5 + Math.random() * 2;
+            startAlpha = 0.85;
+          } else if (particleType < 0.75) {
+            // Fallers - drop down with varied weight
+            vx = (Math.random() - 0.5) * 25;
+            vy = 5 + Math.random() * 15;
+            gravity = 15 + Math.random() * 25;
+            rotationSpeed = (Math.random() - 0.5) * 3;
+            size = 1 + Math.random() * 2;
+            startAlpha = 0.8;
+          } else {
+            // Sparklers - burst outward then fade quickly (the "pop")
+            const burstAngle = Math.random() * Math.PI * 2;
+            const burstSpeed = 40 + Math.random() * 40;
+            vx = Math.cos(burstAngle) * burstSpeed;
+            vy = Math.sin(burstAngle) * burstSpeed;
+            gravity = 2; // Almost no gravity
+            rotationSpeed = 0;
+            size = 2.5 + Math.random() * 2;
+            startAlpha = 1;
+          }
+
           this.sparkles.push({
-            x: sparkleX + (Math.random() - 0.5) * 6,
-            y: sparkleY + (Math.random() - 0.5) * 6,
-            vx: (Math.random() - 0.5) * 25,
-            vy: (Math.random() - 0.5) * 25 - 10,
-            life: 350 + Math.random() * 250,
-            maxLife: 600,
-            size: 2 + Math.random() * 2,
-            startSize: 3,
+            x: sparkleX + (Math.random() - 0.5) * 10,
+            y: sparkleY + (Math.random() - 0.5) * 10,
+            vx,
+            vy,
+            life: 250 + Math.random() * 450, // Slightly shorter for snappier feel
+            maxLife: 700,
+            size,
+            startSize: size,
             endSize: 0,
-            color: Math.random() < 0.5 ? 0xffffff : this.color,
-            alpha: 1,
-            startAlpha: 1,
+            color: Math.random() < 0.35 ? 0xffffff : this.color,
+            alpha: startAlpha,
+            startAlpha,
             endAlpha: 0,
-            rotation: 0,
-            rotationSpeed: 0,
-            gravity: 12,
+            rotation: Math.random() * Math.PI * 2,
+            rotationSpeed,
+            gravity,
           });
         }
       }
@@ -376,9 +439,25 @@ export class TileOutlineTracer {
           });
         }
       }
-    } else {
+    } else if (!this.isLingering) {
       // Phase 2: Pulse effect after circuit completes
       this.pulseProgress += deltaMs / this.pulseDuration;
+
+      // Transition to linger phase when pulse completes
+      if (this.pulseProgress >= 1) {
+        this.isLingering = true;
+        this.lingerProgress = 0;
+        // Fire onComplete now so tile drop can start while we linger
+        if (this.onComplete) {
+          this.onComplete();
+          this.onComplete = undefined; // Only fire once
+        }
+      }
+    } else {
+      // Phase 3: Linger - trace stays visible but fades during tile drop
+      this.lingerProgress += deltaMs / this.lingerDuration;
+      // Ease out the fade for a gentle disappearance
+      this.lingerAlpha = 1 - Math.pow(this.lingerProgress, 1.5);
     }
 
     // Update sparkles
@@ -401,8 +480,8 @@ export class TileOutlineTracer {
 
     this.render();
 
-    // Complete when pulse done and sparkles gone
-    if (this.pulseProgress >= 1 && this.sparkles.length === 0) {
+    // Complete when linger done (sparkles may still be finishing but that's ok)
+    if (this.isLingering && this.lingerProgress >= 1) {
       this.destroy();
       return false;
     }
@@ -422,7 +501,13 @@ export class TileOutlineTracer {
     let glowWidth: number;
     let glowAlpha: number;
 
-    if (this.isCircuitComplete) {
+    if (this.isLingering) {
+      // Linger phase: solid line that fades out
+      lineWidth = 2;
+      lineAlpha = 0.7 * this.lingerAlpha;
+      glowWidth = 10;
+      glowAlpha = 0.2 * this.lingerAlpha;
+    } else if (this.isCircuitComplete) {
       // Pulse effect: line gets thicker and brighter, then fades
       // Use sine wave for smooth pulse that peaks in the middle
       const pulseIntensity = Math.sin(Math.min(this.pulseProgress, 1) * Math.PI);
@@ -438,9 +523,9 @@ export class TileOutlineTracer {
       glowAlpha = 0.15;
     }
 
-    // Draw the outline up to current progress (or full if circuit complete)
+    // Draw the outline up to current progress (or full if circuit complete/lingering)
     const totalLength = this.numVertices;
-    const currentPos = this.isCircuitComplete ? totalLength : Math.min(this.progress, 1) * totalLength;
+    const currentPos = (this.isCircuitComplete || this.isLingering) ? totalLength : Math.min(this.progress, 1) * totalLength;
 
     this.graphics.moveTo(
       this.center.x + firstVertex.x,
@@ -504,11 +589,30 @@ export class TileOutlineTracer {
     // Glow
     this.graphics.stroke({ width: glowWidth, color: this.color, alpha: glowAlpha });
 
-    // Draw sparkles
+    // Draw sparkles with twinkle effect (also fade during linger)
     for (const s of this.sparkles) {
+      // Twinkle: modulate alpha based on rotation for shimmer
+      const twinkle = 0.7 + 0.3 * Math.sin(s.rotation * 3);
+      const effectiveAlpha = s.alpha * twinkle * this.lingerAlpha;
+
+      // Draw glow halo for brighter particles
+      if (s.size > 2 && effectiveAlpha > 0.4) {
+        this.graphics
+          .circle(s.x, s.y, s.size * 2)
+          .fill({ color: s.color, alpha: effectiveAlpha * 0.15 });
+      }
+
+      // Main sparkle
       this.graphics
         .circle(s.x, s.y, s.size)
-        .fill({ color: s.color, alpha: s.alpha });
+        .fill({ color: s.color, alpha: effectiveAlpha });
+
+      // Bright core for larger particles
+      if (s.size > 1.5) {
+        this.graphics
+          .circle(s.x, s.y, s.size * 0.4)
+          .fill({ color: 0xffffff, alpha: effectiveAlpha * 0.6 });
+      }
     }
   }
 
@@ -783,12 +887,233 @@ export class DropShadow {
 }
 
 /**
+ * Dust cloud particle - extends base particle with turbulence
+ * (Defined here so it can be used by both DustBurstEffect and MiniDustBurstEffect)
+ */
+interface DustParticle extends Particle {
+  turbulencePhase: number;  // Phase offset for organic wobble
+  turbulenceSpeed: number;  // How fast it wobbles
+  turbulenceAmp: number;    // Amplitude of wobble
+  layer: number;            // 0 = background wisp, 1 = mid, 2 = foreground puff
+}
+
+/**
+ * Simple circular drop shadow for small objects like enemies
+ */
+export class CircleShadow {
+  private graphics: Graphics;
+  private _scale = 1;
+  private _alpha = 0.3;
+  private radius: number;
+
+  constructor(
+    private container: Container,
+    private center: PixelPosition,
+    radius: number
+  ) {
+    this.graphics = new Graphics();
+    this.graphics.zIndex = -1;
+    this.container.addChild(this.graphics);
+    this.radius = radius;
+    this.render();
+  }
+
+  set scale(value: number) {
+    this._scale = value;
+    this.render();
+  }
+
+  get scale(): number {
+    return this._scale;
+  }
+
+  set alpha(value: number) {
+    this._alpha = value;
+    this.render();
+  }
+
+  get alpha(): number {
+    return this._alpha;
+  }
+
+  private render(): void {
+    this.graphics.clear();
+    // Simple circular shadow
+    this.graphics
+      .circle(this.center.x, this.center.y, this.radius * this._scale)
+      .fill({ color: 0x000000, alpha: this._alpha });
+  }
+
+  destroy(): void {
+    this.container.removeChild(this.graphics);
+    this.graphics.destroy();
+  }
+}
+
+/**
+ * Mini dust burst for smaller objects (enemies, tokens)
+ * Scaled down version of the main dust burst
+ */
+export class MiniDustBurstEffect {
+  private particles: DustParticle[] = [];
+  private graphics: Graphics;
+  private isActive = true;
+  private onComplete?: () => void;
+
+  constructor(
+    private container: Container,
+    private center: PixelPosition,
+    private radius: number = 20,
+    onComplete?: () => void
+  ) {
+    this.graphics = new Graphics();
+    this.container.addChild(this.graphics);
+    this.onComplete = onComplete;
+    this.spawn();
+  }
+
+  private spawn(): void {
+    // Fewer, smaller particles than the tile dust burst
+    // Layer 1: Small mid-ground puffs
+    for (let i = 0; i < 6; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const startX = this.center.x + Math.cos(angle) * this.radius;
+      const startY = this.center.y + Math.sin(angle) * this.radius;
+      const outwardSpeed = 8 + Math.random() * 15;
+
+      this.particles.push({
+        x: startX,
+        y: startY,
+        vx: Math.cos(angle) * outwardSpeed,
+        vy: Math.sin(angle) * outwardSpeed * 0.25,
+        life: 350 + Math.random() * 250,
+        maxLife: 600,
+        size: 3 + Math.random() * 3,
+        startSize: 3,
+        endSize: 8,
+        color: [0x9a9a9a, 0x8b8b8b, 0xa0a0a0][Math.floor(Math.random() * 3)] ?? 0x9a9a9a,
+        alpha: 0.3,
+        startAlpha: 0.35,
+        endAlpha: 0,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.6,
+        gravity: 5,
+        turbulencePhase: Math.random() * Math.PI * 2,
+        turbulenceSpeed: 3 + Math.random() * 2,
+        turbulenceAmp: 3 + Math.random() * 2,
+        layer: 1,
+      });
+    }
+
+    // Layer 2: Tiny foreground puffs
+    for (let i = 0; i < 4; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const startX = this.center.x + Math.cos(angle) * (this.radius * 1.1);
+      const startY = this.center.y + Math.sin(angle) * (this.radius * 1.1);
+      const outwardSpeed = 12 + Math.random() * 18;
+
+      this.particles.push({
+        x: startX,
+        y: startY,
+        vx: Math.cos(angle) * outwardSpeed,
+        vy: Math.sin(angle) * outwardSpeed * 0.3,
+        life: 250 + Math.random() * 200,
+        maxLife: 450,
+        size: 2 + Math.random() * 2,
+        startSize: 2,
+        endSize: 5,
+        color: [0xa8a8a8, 0xb0b0b0][Math.floor(Math.random() * 2)] ?? 0xa8a8a8,
+        alpha: 0.4,
+        startAlpha: 0.45,
+        endAlpha: 0,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.8,
+        gravity: 8,
+        turbulencePhase: Math.random() * Math.PI * 2,
+        turbulenceSpeed: 4 + Math.random() * 2,
+        turbulenceAmp: 2 + Math.random() * 2,
+        layer: 2,
+      });
+    }
+  }
+
+  update(deltaMs: number): boolean {
+    if (!this.isActive) return false;
+
+    const dt = deltaMs / 1000;
+
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      if (!p) continue;
+      p.life -= deltaMs;
+
+      if (p.life <= 0) {
+        this.particles.splice(i, 1);
+        continue;
+      }
+
+      // Physics with drag
+      const drag = 0.96;
+      p.vx *= drag;
+      p.vy *= drag;
+      p.vy += p.gravity * dt * 6;
+
+      // Turbulence
+      p.turbulencePhase += p.turbulenceSpeed * dt;
+      const wobbleX = Math.sin(p.turbulencePhase) * p.turbulenceAmp * dt;
+      const wobbleY = Math.cos(p.turbulencePhase * 0.7) * p.turbulenceAmp * 0.5 * dt;
+
+      p.x += p.vx * dt + wobbleX;
+      p.y += p.vy * dt + wobbleY;
+      p.rotation += p.rotationSpeed * dt;
+
+      const progress = 1 - p.life / p.maxLife;
+      const sizeProgress = 1 - Math.pow(1 - progress, 2);
+      p.size = p.startSize + (p.endSize - p.startSize) * sizeProgress;
+      const fadeProgress = progress * progress;
+      p.alpha = p.startAlpha * (1 - fadeProgress);
+    }
+
+    this.render();
+
+    if (this.particles.length === 0) {
+      this.destroy();
+      return false;
+    }
+
+    return true;
+  }
+
+  private render(): void {
+    this.graphics.clear();
+
+    const sorted = [...this.particles].sort((a, b) => a.layer - b.layer);
+
+    for (const p of sorted) {
+      // Main dust body
+      this.graphics
+        .circle(p.x, p.y, p.size)
+        .fill({ color: p.color, alpha: p.alpha });
+    }
+  }
+
+  destroy(): void {
+    this.isActive = false;
+    this.container.removeChild(this.graphics);
+    this.graphics.destroy();
+    if (this.onComplete) {
+      this.onComplete();
+    }
+  }
+}
+
+/**
  * Dust puff effect - spreads outward along the ground from tile edges
- * Like dust being pushed out from under a heavy object slamming down
- * Hearthstone-style: particles spread horizontally, stay low, then dissipate
+ * More naturalistic: layered particles with turbulence and varied sizes
+ * Inspired by real dust physics - heavier particles settle, lighter ones drift
  */
 export class DustBurstEffect {
-  private particles: Particle[] = [];
+  private particles: DustParticle[] = [];
   private graphics: Graphics;
   private isActive = true;
   private onComplete?: () => void;
@@ -805,41 +1130,98 @@ export class DustBurstEffect {
   }
 
   private spawn(): void {
-    // Spawn dust particles around the tile perimeter
-    // Each particle starts at an edge and moves outward
-    const tileRadius = HEX_SIZE * 2.2; // Approximate tile edge distance
-    const numParticles = 20;
+    const tileRadius = HEX_SIZE * 2.2;
 
-    for (let i = 0; i < numParticles; i++) {
-      // Random angle around the tile
+    // Layer 0: Background wisps - large, faint, slow
+    for (let i = 0; i < 8; i++) {
       const angle = Math.random() * Math.PI * 2;
-
-      // Start position: at the tile edge
-      const startX = this.center.x + Math.cos(angle) * tileRadius;
-      const startY = this.center.y + Math.sin(angle) * tileRadius;
-
-      // Velocity: outward from center, mostly horizontal
-      const outwardSpeed = 15 + Math.random() * 25; // Slow spread
-      const vx = Math.cos(angle) * outwardSpeed;
-      const vy = Math.sin(angle) * outwardSpeed * 0.3; // Flatten vertical component
+      const startX = this.center.x + Math.cos(angle) * (tileRadius * 0.9);
+      const startY = this.center.y + Math.sin(angle) * (tileRadius * 0.9);
+      const outwardSpeed = 8 + Math.random() * 12;
 
       this.particles.push({
         x: startX,
         y: startY,
-        vx,
-        vy,
-        life: 600 + Math.random() * 400, // 600-1000ms
+        vx: Math.cos(angle) * outwardSpeed,
+        vy: Math.sin(angle) * outwardSpeed * 0.2,
+        life: 800 + Math.random() * 500,
+        maxLife: 1300,
+        size: 18 + Math.random() * 12,
+        startSize: 15,
+        endSize: 30,
+        color: 0x8a8a8a,
+        alpha: 0.12,
+        startAlpha: 0.15,
+        endAlpha: 0,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.3,
+        gravity: 3,
+        turbulencePhase: Math.random() * Math.PI * 2,
+        turbulenceSpeed: 2 + Math.random() * 2,
+        turbulenceAmp: 8 + Math.random() * 6,
+        layer: 0,
+      });
+    }
+
+    // Layer 1: Mid-ground dust - medium size, moderate opacity
+    for (let i = 0; i < 14; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const startX = this.center.x + Math.cos(angle) * tileRadius;
+      const startY = this.center.y + Math.sin(angle) * tileRadius;
+      const outwardSpeed = 12 + Math.random() * 20;
+
+      this.particles.push({
+        x: startX,
+        y: startY,
+        vx: Math.cos(angle) * outwardSpeed,
+        vy: Math.sin(angle) * outwardSpeed * 0.25,
+        life: 600 + Math.random() * 400,
         maxLife: 1000,
-        size: 6 + Math.random() * 4,
+        size: 8 + Math.random() * 6,
         startSize: 6,
-        endSize: 14, // Grow as they dissipate
-        color: [0x9a9a9a, 0x8b8b8b, 0xa5a5a5, 0x7a7a7a][Math.floor(Math.random() * 4)] ?? 0x9a9a9a,
-        alpha: 0.4,
+        endSize: 16,
+        color: [0x9a9a9a, 0x8b8b8b, 0xa0a0a0][Math.floor(Math.random() * 3)] ?? 0x9a9a9a,
+        alpha: 0.25,
+        startAlpha: 0.28,
+        endAlpha: 0,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.6,
+        gravity: 6,
+        turbulencePhase: Math.random() * Math.PI * 2,
+        turbulenceSpeed: 3 + Math.random() * 3,
+        turbulenceAmp: 4 + Math.random() * 4,
+        layer: 1,
+      });
+    }
+
+    // Layer 2: Foreground puffs - smaller, more opaque, faster settling
+    for (let i = 0; i < 10; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const startX = this.center.x + Math.cos(angle) * (tileRadius * 1.05);
+      const startY = this.center.y + Math.sin(angle) * (tileRadius * 1.05);
+      const outwardSpeed = 18 + Math.random() * 25;
+
+      this.particles.push({
+        x: startX,
+        y: startY,
+        vx: Math.cos(angle) * outwardSpeed,
+        vy: Math.sin(angle) * outwardSpeed * 0.3,
+        life: 400 + Math.random() * 350,
+        maxLife: 750,
+        size: 4 + Math.random() * 4,
+        startSize: 4,
+        endSize: 10,
+        color: [0xa8a8a8, 0xb0b0b0, 0x989898][Math.floor(Math.random() * 3)] ?? 0xa8a8a8,
+        alpha: 0.35,
         startAlpha: 0.4,
         endAlpha: 0,
         rotation: Math.random() * Math.PI * 2,
-        rotationSpeed: (Math.random() - 0.5) * 0.5,
-        gravity: 8, // Gentle downward pull to keep dust low
+        rotationSpeed: (Math.random() - 0.5) * 0.8,
+        gravity: 12,
+        turbulencePhase: Math.random() * Math.PI * 2,
+        turbulenceSpeed: 4 + Math.random() * 3,
+        turbulenceAmp: 2 + Math.random() * 3,
+        layer: 2,
       });
     }
   }
@@ -849,7 +1231,6 @@ export class DustBurstEffect {
 
     const dt = deltaMs / 1000;
 
-    // Update particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       if (!p) continue;
@@ -860,23 +1241,33 @@ export class DustBurstEffect {
         continue;
       }
 
-      // Physics - add drag to slow particles down
-      p.vx *= 0.98;
-      p.vy *= 0.98;
-      p.vy += p.gravity * dt * 10; // Gentle gravity
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
+      // Physics with drag
+      const drag = 0.97 + p.layer * 0.005; // Heavier particles (layer 2) have less drag
+      p.vx *= drag;
+      p.vy *= drag;
+      p.vy += p.gravity * dt * 8;
+
+      // Turbulence - organic wobble
+      p.turbulencePhase += p.turbulenceSpeed * dt;
+      const wobbleX = Math.sin(p.turbulencePhase) * p.turbulenceAmp * dt;
+      const wobbleY = Math.cos(p.turbulencePhase * 0.7) * p.turbulenceAmp * 0.5 * dt;
+
+      p.x += p.vx * dt + wobbleX;
+      p.y += p.vy * dt + wobbleY;
       p.rotation += p.rotationSpeed * dt;
 
-      // Interpolate properties
+      // Interpolate properties with smooth easing
       const progress = 1 - p.life / p.maxLife;
-      p.size = p.startSize + (p.endSize - p.startSize) * progress;
-      p.alpha = p.startAlpha * (1 - progress * progress); // Fade out with easing
+      // Ease out cubic for more natural growth
+      const sizeProgress = 1 - Math.pow(1 - progress, 2);
+      p.size = p.startSize + (p.endSize - p.startSize) * sizeProgress;
+      // Fade with ease-in for lingering effect
+      const fadeProgress = progress * progress;
+      p.alpha = p.startAlpha * (1 - fadeProgress);
     }
 
     this.render();
 
-    // Complete when all particles gone
     if (this.particles.length === 0) {
       this.destroy();
       return false;
@@ -888,11 +1279,28 @@ export class DustBurstEffect {
   private render(): void {
     this.graphics.clear();
 
-    for (const p of this.particles) {
-      // Draw soft circular dust puff
+    // Sort by layer so background renders first
+    const sorted = [...this.particles].sort((a, b) => a.layer - b.layer);
+
+    for (const p of sorted) {
+      // Outer soft glow for organic edge
+      if (p.layer < 2) {
+        this.graphics
+          .circle(p.x, p.y, p.size * 1.4)
+          .fill({ color: p.color, alpha: p.alpha * 0.3 });
+      }
+
+      // Main dust body
       this.graphics
         .circle(p.x, p.y, p.size)
         .fill({ color: p.color, alpha: p.alpha });
+
+      // Slightly brighter core for depth
+      if (p.size > 6) {
+        this.graphics
+          .circle(p.x, p.y, p.size * 0.5)
+          .fill({ color: p.color, alpha: p.alpha * 0.4 });
+      }
     }
   }
 
@@ -973,6 +1381,7 @@ export class ParticleManager {
   private emitters: Set<ParticleEmitter> = new Set();
   private tracers: Set<OutlineTracer> = new Set();
   private dustEffects: Set<DustBurstEffect> = new Set();
+  private miniDustEffects: Set<MiniDustBurstEffect> = new Set();
   private portalEffects: Set<PortalEffect> = new Set();
   private shadows: Map<string, DropShadow> = new Map();
   private ticker: Ticker | null = null;
@@ -1014,6 +1423,13 @@ export class ParticleManager {
     for (const dust of this.dustEffects) {
       if (!dust.update(deltaMs)) {
         this.dustEffects.delete(dust);
+      }
+    }
+
+    // Update mini dust effects
+    for (const dust of this.miniDustEffects) {
+      if (!dust.update(deltaMs)) {
+        this.miniDustEffects.delete(dust);
       }
     }
 
@@ -1093,6 +1509,20 @@ export class ParticleManager {
   }
 
   /**
+   * Create a mini dust burst effect for smaller objects (enemies, tokens)
+   */
+  miniDustBurst(
+    container: Container,
+    origin: PixelPosition,
+    radius: number = 20,
+    onComplete?: () => void
+  ): MiniDustBurstEffect {
+    const dust = new MiniDustBurstEffect(container, origin, radius, onComplete);
+    this.miniDustEffects.add(dust);
+    return dust;
+  }
+
+  /**
    * Create magic sparkles effect
    */
   magicSparkles(
@@ -1140,6 +1570,11 @@ export class ParticleManager {
       dust.destroy();
     }
     this.dustEffects.clear();
+
+    for (const dust of this.miniDustEffects) {
+      dust.destroy();
+    }
+    this.miniDustEffects.clear();
 
     for (const portal of this.portalEffects) {
       portal.destroy();
@@ -1282,13 +1717,22 @@ export class PortalEffect {
     this.onHeroEmerge = options.onHeroEmerge;
     this.onComplete = options.onComplete;
 
-    // Set colors based on hero
+    // Set colors based on hero - default fallback is always defined
+    const defaultColors = {
+      primary: 0x6633ff,
+      secondary: 0x9966ff,
+      glow: 0x3311aa,
+      energy: 0xaa88ff,
+    };
     const heroColors = options.heroId
-      ? (PortalEffect.HERO_COLORS[options.heroId] ?? PortalEffect.HERO_COLORS.default)
-      : PortalEffect.HERO_COLORS.default;
+      ? (PortalEffect.HERO_COLORS[options.heroId] ?? defaultColors)
+      : defaultColors;
 
     this.colors = {
-      ...heroColors,
+      primary: heroColors.primary,
+      secondary: heroColors.secondary,
+      glow: heroColors.glow,
+      energy: heroColors.energy,
       spark: 0xffffff, // White sparks for all heroes
     };
 
