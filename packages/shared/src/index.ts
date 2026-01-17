@@ -217,8 +217,9 @@ export * from "./combatPhases.js";
 // Tier-A starting values
 export * from "./startingValues.js";
 
-// Enemy definitions
-export * from "./enemies.js";
+// Enemy definitions - Modular enemy system organized by faction/color
+// See enemies/index.ts for comprehensive documentation and usage examples
+export * from "./enemies/index.js";
 
 // Unit definitions
 export * from "./units.js";

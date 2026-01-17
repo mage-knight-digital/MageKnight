@@ -70,7 +70,7 @@ export type UnitAbilityType =
 // UNIT RESISTANCES
 // =============================================================================
 // Re-use EnemyResistances interface for consistency
-import { type EnemyResistances, NO_RESISTANCES } from "./enemies.js";
+import { type EnemyResistances, NO_RESISTANCES } from "./enemies/index.js";
 
 export type UnitResistances = EnemyResistances;
 
