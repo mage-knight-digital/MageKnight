@@ -34,7 +34,7 @@ import { getTurnOptions } from "./turn.js";
 import { getValidMoveTargets } from "./movement.js";
 import { getValidExploreOptions } from "./exploration.js";
 import { getCombatOptions } from "./combat.js";
-import { getPlayableCardsForCombat, getPlayableCardsForNormalTurn } from "./cards.js";
+import { getPlayableCardsForCombat, getPlayableCardsForNormalTurn } from "./cards/index.js";
 import { getManaOptions } from "./mana.js";
 import { getUnitOptionsForCombat, getFullUnitOptions } from "./units.js";
 import { getSiteOptions } from "./sites.js";

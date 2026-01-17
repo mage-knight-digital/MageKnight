@@ -27,7 +27,7 @@ import {
   type SidewaysAs,
 } from "../playCardSidewaysCommand.js";
 import { createResolveChoiceCommand } from "../resolveChoiceCommand.js";
-import { getCard } from "../../validActions/cards.js";
+import { getCard } from "../../validActions/cards/index.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { getAvailableManaSourcesForColor } from "../../validActions/mana.js";
 import type { Player } from "../../../types/player.js";

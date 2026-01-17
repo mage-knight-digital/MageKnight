@@ -28,7 +28,7 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
-import { getCard } from "../validActions/cards.js";
+import { getCard } from "../validActions/cards/index.js";
 
 /**
  * Convert a card effect to a human-readable description.

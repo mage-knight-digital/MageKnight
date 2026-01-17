@@ -17,7 +17,7 @@ import type { GameState } from "../../state/GameState.js";
 import type { ManaColor, BasicManaColor, CardId } from "@mage-knight/shared";
 import type { CardEffect, ManaDrawSetColorEffect, ResolveBoostTargetEffect } from "../../types/cards.js";
 import { EFFECT_MANA_DRAW_SET_COLOR, EFFECT_RESOLVE_BOOST_TARGET } from "../../types/effectTypes.js";
-import { getCard } from "../validActions/cards.js";
+import { getCard } from "../validActions/cards/index.js";
 import { addBonusToEffect } from "./cardBoostEffects.js";
 import { reverseEffect } from "./reverse.js";
 

@@ -31,7 +31,7 @@ import {
   MANA_GREEN,
   MANA_WHITE,
 } from "@mage-knight/shared";
-import { getCard } from "../validActions/cards.js";
+import { getCard } from "../validActions/cards/index.js";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,

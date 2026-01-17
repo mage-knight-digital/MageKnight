@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
-import { getPlayableCardsForCombat } from "../validActions/cards.js";
+import { getPlayableCardsForCombat } from "../validActions/cards/index.js";
 import {
   CARD_RAGE,
   CARD_DETERMINATION,

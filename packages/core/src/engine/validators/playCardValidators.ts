@@ -7,7 +7,7 @@ import type { PlayerAction, CardId } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import { PLAY_CARD_ACTION } from "@mage-knight/shared";
-import { getCard } from "../validActions/cards.js";
+import { getCard } from "../validActions/cards/index.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import {
   CARD_NOT_IN_HAND,

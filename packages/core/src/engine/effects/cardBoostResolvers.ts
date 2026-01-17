@@ -34,7 +34,7 @@ import type {
 } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import type { EffectResolver } from "./compound.js";
-import { getCard } from "../validActions/cards.js";
+import { getCard } from "../validActions/cards/index.js";
 import { updatePlayer } from "./atomicEffects.js";
 import {
   getEligibleBoostTargets,
