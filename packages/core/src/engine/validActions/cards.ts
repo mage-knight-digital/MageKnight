@@ -30,7 +30,7 @@ import {
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
-import { getBasicActionCard } from "../../data/basicActions.js";
+import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { getAdvancedActionCard } from "../../data/advancedActions.js";
 import { getSpellCard } from "../../data/spells.js";
 import { DEED_CARD_TYPE_WOUND, DEED_CARD_TYPE_SPELL } from "../../types/cards.js";

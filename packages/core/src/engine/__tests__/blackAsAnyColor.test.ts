@@ -28,7 +28,7 @@ import {
   SOURCE_CARD,
 } from "../../types/modifierConstants.js";
 import type { ActiveModifier } from "../../types/modifiers.js";
-import { BASIC_ACTION_CARDS } from "../../data/basicActions.js";
+import { BASIC_ACTION_CARDS } from "../../data/basicActions/index.js";
 
 function createTestManaSource(dice: SourceDie[]): ManaSource {
   return { dice };

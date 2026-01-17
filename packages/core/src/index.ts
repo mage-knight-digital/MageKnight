@@ -88,7 +88,7 @@ export {
 } from "./data/siteProperties.js";
 
 // Basic action cards
-export { BASIC_ACTION_CARDS, getBasicActionCard } from "./data/basicActions.js";
+export { BASIC_ACTION_CARDS, getBasicActionCard } from "./data/basicActions/index.js";
 
 // Engine
 export { MageKnightEngine, createEngine } from "./engine/index.js";
