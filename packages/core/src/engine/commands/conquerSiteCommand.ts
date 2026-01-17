@@ -17,7 +17,7 @@ import type { CityShield, CityState } from "../../types/city.js";
 import { determineCityLeader } from "../../types/city.js";
 import { CONQUER_SITE_COMMAND } from "./commandTypes.js";
 import { getConquestReward } from "../../data/siteProperties.js";
-import { queueSiteReward } from "../helpers/rewardHelpers.js";
+import { queueSiteReward } from "../helpers/rewards/index.js";
 
 export { CONQUER_SITE_COMMAND };
 

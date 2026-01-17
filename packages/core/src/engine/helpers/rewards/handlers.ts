@@ -1,12 +1,14 @@
 /**
- * Site reward granting helpers
+ * Individual reward handlers.
  *
- * Functions to grant rewards when conquering or exploring sites.
+ * Functions to grant specific reward types to players.
  */
 
-import type { GameState } from "../../state/GameState.js";
-import type { Player } from "../../types/player.js";
-import { randomElement } from "../../utils/rng.js";
+import type { GameState } from "../../../state/GameState.js";
+import type { Player } from "../../../types/player.js";
+import type { RewardResult } from "./types.js";
+import { DIE_FACES } from "./types.js";
+import { randomElement } from "../../../utils/rng.js";
 import {
   SiteReward,
   SITE_REWARD_SPELL,
@@ -19,103 +21,10 @@ import {
   CARD_GAINED,
   CARD_GAIN_SOURCE_REWARD,
   FAME_GAINED,
-  REWARD_QUEUED,
-  MANA_RED,
-  MANA_BLUE,
-  MANA_GREEN,
-  MANA_WHITE,
   MANA_GOLD,
   MANA_BLACK,
   BasicManaColor,
 } from "@mage-knight/shared";
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-export interface RewardResult {
-  readonly state: GameState;
-  readonly events: readonly GameEvent[];
-}
-
-// The 6 die faces for crystal rolls
-const DIE_FACES = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE, MANA_GOLD, MANA_BLACK] as const;
-
-// =============================================================================
-// QUEUE REWARD FUNCTION
-// =============================================================================
-
-/**
- * Queue a site reward for the player to select at end of turn.
- *
- * Rewards that require player choice (spells, artifacts, advanced actions)
- * are queued for selection. Immediate rewards (fame, crystal rolls) are granted
- * immediately.
- */
-export function queueSiteReward(
-  state: GameState,
-  playerId: string,
-  reward: SiteReward
-): RewardResult {
-  // Some rewards can be granted immediately (no choice required)
-  if (reward.type === SITE_REWARD_FAME) {
-    return grantFameReward(state, playerId, reward.amount);
-  }
-
-  if (reward.type === SITE_REWARD_CRYSTAL_ROLL) {
-    return grantCrystalRollReward(state, playerId, reward.count);
-  }
-
-  // Compound rewards: queue each sub-reward
-  if (reward.type === SITE_REWARD_COMPOUND) {
-    let currentState = state;
-    const allEvents: GameEvent[] = [];
-
-    for (const subReward of reward.rewards) {
-      const { state: newState, events } = queueSiteReward(
-        currentState,
-        playerId,
-        subReward
-      );
-      currentState = newState;
-      allEvents.push(...events);
-    }
-
-    return { state: currentState, events: allEvents };
-  }
-
-  // Queue rewards that require player choice
-  const player = state.players.find((p) => p.id === playerId);
-  if (!player) {
-    return { state, events: [] };
-  }
-
-  const updatedPlayer: Player = {
-    ...player,
-    pendingRewards: [...player.pendingRewards, reward],
-  };
-
-  const updatedState: GameState = {
-    ...state,
-    players: state.players.map((p) =>
-      p.id === playerId ? updatedPlayer : p
-    ),
-  };
-
-  const events: GameEvent[] = [
-    {
-      type: REWARD_QUEUED,
-      playerId,
-      rewardType: reward.type,
-    },
-  ];
-
-  return { state: updatedState, events };
-}
-
-// =============================================================================
-// MAIN REWARD FUNCTION
-// =============================================================================
 
 /**
  * Grant a site reward to a player.
@@ -150,11 +59,10 @@ export function grantSiteReward(
   }
 }
 
-// =============================================================================
-// INDIVIDUAL REWARD HANDLERS
-// =============================================================================
-
-function grantSpellReward(
+/**
+ * Grant spell reward - draw from spell offer.
+ */
+export function grantSpellReward(
   state: GameState,
   playerId: string,
   count: number
@@ -227,7 +135,10 @@ function grantSpellReward(
   return { state: currentState, events };
 }
 
-function grantArtifactReward(
+/**
+ * Grant artifact reward - draw from artifact deck.
+ */
+export function grantArtifactReward(
   state: GameState,
   playerId: string,
   count: number
@@ -277,7 +188,10 @@ function grantArtifactReward(
   return { state: currentState, events };
 }
 
-function grantCrystalRollReward(
+/**
+ * Grant crystal roll reward - roll dice for crystals.
+ */
+export function grantCrystalRollReward(
   state: GameState,
   playerId: string,
   count: number
@@ -347,7 +261,10 @@ function grantCrystalRollReward(
   return { state: currentState, events };
 }
 
-function grantAdvancedActionReward(
+/**
+ * Grant advanced action reward - draw from offer.
+ */
+export function grantAdvancedActionReward(
   state: GameState,
   playerId: string,
   count: number
@@ -412,7 +329,10 @@ function grantAdvancedActionReward(
   return { state: currentState, events };
 }
 
-function grantFameReward(
+/**
+ * Grant fame reward - add fame to player.
+ */
+export function grantFameReward(
   state: GameState,
   playerId: string,
   amount: number
@@ -447,7 +367,10 @@ function grantFameReward(
   return { state: updatedState, events };
 }
 
-function grantCompoundReward(
+/**
+ * Grant compound reward - grant each sub-reward in sequence.
+ */
+export function grantCompoundReward(
   state: GameState,
   playerId: string,
   rewards: readonly SiteReward[]
