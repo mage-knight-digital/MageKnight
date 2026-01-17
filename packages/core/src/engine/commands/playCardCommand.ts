@@ -22,7 +22,7 @@ import {
 import { resolveEffect, reverseEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
 import type { ChoiceEffect } from "../../types/cards.js";
-import { getBasicActionCard } from "../../data/basicActions.js";
+import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { getCard } from "../validActions/cards.js";
 import { PLAY_CARD_COMMAND } from "./commandTypes.js";
 import type { CardEffect } from "../../types/cards.js";

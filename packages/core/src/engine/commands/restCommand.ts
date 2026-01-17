@@ -19,7 +19,7 @@ import {
   END_OF_ROUND_ANNOUNCED,
   REST_UNDONE,
 } from "@mage-knight/shared";
-import { getBasicActionCard } from "../../data/basicActions.js";
+import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import { REST_COMMAND } from "./commandTypes.js";
 

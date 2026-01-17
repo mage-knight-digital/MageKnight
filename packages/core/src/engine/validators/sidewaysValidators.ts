@@ -31,7 +31,7 @@ import {
   PLAY_SIDEWAYS_AS_BLOCK,
   CARD_WOUND,
 } from "@mage-knight/shared";
-import { BASIC_ACTION_CARDS, getBasicActionCard } from "../../data/basicActions.js";
+import { BASIC_ACTION_CARDS, getBasicActionCard } from "../../data/basicActions/index.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import {
   CARD_NOT_IN_HAND,
