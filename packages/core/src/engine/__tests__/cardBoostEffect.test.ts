@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { addBonusToEffect } from "../effects/resolveEffect.js";
+import { addBonusToEffect } from "../effects/index.js";
 import type { CardEffect, ChoiceEffect, CompoundEffect, ConditionalEffect } from "../../types/cards.js";
 import {
   EFFECT_GAIN_MOVE,

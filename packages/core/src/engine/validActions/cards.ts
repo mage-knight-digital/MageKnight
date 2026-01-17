@@ -358,7 +358,7 @@ import {
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CARD_BOOST,
 } from "../../types/effectTypes.js";
-import { isEffectResolvable } from "../effects/resolveEffect.js";
+import { isEffectResolvable } from "../effects/index.js";
 
 /**
  * Get playable cards for normal (non-combat) turns.

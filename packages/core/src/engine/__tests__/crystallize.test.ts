@@ -13,7 +13,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
-import { resolveEffect, isEffectResolvable } from "../effects/resolveEffect.js";
+import { resolveEffect, isEffectResolvable } from "../effects/index.js";
 import { createPlayCardCommand } from "../commands/playCardCommand.js";
 import {
   EFFECT_CONVERT_MANA_TO_CRYSTAL,

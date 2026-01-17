@@ -13,7 +13,7 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../types/player.js";
 import type { CardId, Element, BlockSource, ManaColor, BasicManaColor } from "@mage-knight/shared";
 import type { GainAttackEffect, GainBlockEffect, ApplyModifierEffect } from "../../types/cards.js";
-import type { EffectResolutionResult } from "./resolveEffect.js";
+import type { EffectResolutionResult } from "./types.js";
 import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD, MIN_REPUTATION, MAX_REPUTATION } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL } from "@mage-knight/shared";
 import { COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE } from "../../types/effectTypes.js";

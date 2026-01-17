@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import { evaluateScalingFactor } from "../effects/scalingEvaluator.js";
-import { resolveEffect } from "../effects/resolveEffect.js";
+import { resolveEffect } from "../effects/index.js";
 import {
   SCALING_PER_ENEMY,
   SCALING_PER_WOUND_IN_HAND,

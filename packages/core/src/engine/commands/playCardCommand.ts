@@ -19,8 +19,7 @@ import {
   MANA_SOURCE_CRYSTAL,
   MANA_SOURCE_TOKEN,
 } from "@mage-knight/shared";
-import { resolveEffect, reverseEffect, isEffectResolvable } from "../effects/resolveEffect.js";
-import { describeEffect } from "../effects/describeEffect.js";
+import { resolveEffect, reverseEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
 import type { ChoiceEffect } from "../../types/cards.js";
 import { getBasicActionCard } from "../../data/basicActions.js";

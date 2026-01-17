@@ -19,7 +19,7 @@ import type { CardEffect, ManaDrawSetColorEffect, ResolveBoostTargetEffect } fro
 import { EFFECT_MANA_DRAW_SET_COLOR, EFFECT_RESOLVE_BOOST_TARGET } from "../../types/effectTypes.js";
 import { getCard } from "../validActions/cards.js";
 import { addBonusToEffect } from "./cardBoostEffects.js";
-import { reverseEffect } from "./resolveEffect.js";
+import { reverseEffect } from "./reverse.js";
 
 // === Undo Context Types (Discriminated Union) ===
 

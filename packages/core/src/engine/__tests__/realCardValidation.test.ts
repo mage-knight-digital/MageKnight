@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createTestGameState, createTestPlayer, createTestHex } from "./testHelpers.js";
-import { resolveEffect } from "../effects/resolveEffect.js";
+import { resolveEffect } from "../effects/index.js";
 import { createCombatState, COMBAT_PHASE_ATTACK, COMBAT_PHASE_BLOCK, COMBAT_PHASE_ASSIGN_DAMAGE } from "../../types/combat.js";
 import {
   TIME_OF_DAY_DAY,

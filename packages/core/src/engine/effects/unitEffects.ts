@@ -9,7 +9,7 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { PlayerUnit } from "../../types/unit.js";
 import type { ReadyUnitEffect } from "../../types/cards.js";
-import type { EffectResolutionResult } from "./resolveEffect.js";
+import type { EffectResolutionResult } from "./types.js";
 import { UNITS, UNIT_STATE_READY, UNIT_STATE_SPENT } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
 
