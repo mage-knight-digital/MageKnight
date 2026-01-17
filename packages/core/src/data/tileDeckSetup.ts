@@ -11,7 +11,7 @@ import type { TileDeck } from "../types/map.js";
 import type { RngState } from "../utils/rng.js";
 import { shuffleWithRng } from "../utils/rng.js";
 import { TileId } from "../types/map.js";
-import { TILE_DEFINITIONS } from "./tiles.js";
+import { TILE_DEFINITIONS } from "./tiles/index.js";
 
 /**
  * Get all base game countryside tile IDs (no expansion content)

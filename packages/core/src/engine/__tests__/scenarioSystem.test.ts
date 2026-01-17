@@ -32,7 +32,7 @@ import {
 } from "@mage-knight/shared";
 import { CANNOT_ENTER_CITY } from "../validators/validationCodes.js";
 import { FIRST_RECONNAISSANCE } from "../../data/scenarios/firstReconnaissance.js";
-import { TILE_DEFINITIONS } from "../../data/tiles.js";
+import { TILE_DEFINITIONS } from "../../data/tiles/index.js";
 import { CITY_COLOR_GREEN } from "../../types/mapConstants.js";
 
 // Import the shared test helper
