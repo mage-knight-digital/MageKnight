@@ -28,6 +28,7 @@ import {
 export type AnimationEvent =
   | "intro-start"        // Intro sequence begins (triggers tile animations)
   | "tiles-complete"     // All tile animations finished
+  | "hero-complete"      // Hero reveal animation finished
   | "enemies-complete"   // All enemy animations finished
   | "tactics-complete"   // Tactic dealing animation finished
   | "intro-complete";    // Entire intro sequence finished

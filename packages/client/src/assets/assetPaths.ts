@@ -62,3 +62,9 @@ export function getCardSheetUrl(sheet: "basic_actions" | "advanced_actions" | "s
 export function getCardBackUrl(): string {
   return `${ASSETS_BASE}/cards/card_back.jpg`;
 }
+
+export function getHeroTokenUrl(heroId: string): string {
+  // Note: "_card" files are actually the octagonal portrait tokens for the board
+  // "_token" files are smaller circular tokens (naming is backwards in assets)
+  return `${ASSETS_BASE}/heroes/${heroId}_card.png`;
+}

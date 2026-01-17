@@ -34,6 +34,7 @@ import {
   getTileImageUrl,
   getEnemyImageUrl,
   getEnemyTokenBackUrl,
+  getHeroTokenUrl,
   tokenIdToEnemyId,
   type EnemyTokenColor,
 } from "../../assets/assetPaths";
@@ -72,6 +73,9 @@ import {
   DUST_BURST_DELAY_MS,
   SCREEN_SHAKE_DURATION_MS,
   SCREEN_SHAKE_INTENSITY,
+  PORTAL_OPEN_DURATION_MS,
+  PORTAL_HERO_EMERGE_DURATION_MS,
+  PORTAL_CLOSE_DURATION_MS,
 } from "./pixi/particles";
 
 // Movement highlight types
@@ -407,7 +411,7 @@ async function renderTiles(
                 sprite.scale.y = targetScaleY * 0.92;
 
                 // Dust puff on impact
-                particleManager.dustBurst(layers.particles, position);
+                particleManager.dustBurst(layers.shadows, position); // Below tiles - dust spreads from under
 
                 // Bounce-back starts immediately
                 let bounceProgress = 0;
@@ -466,7 +470,7 @@ async function renderTiles(
         onComplete: () => {
           sprite.scale.set(targetScaleX, targetScaleY);
           // Dust burst on reveal too
-          particleManager.dustBurst(layers.particles, position);
+          particleManager.dustBurst(layers.shadows, position); // Below tiles - dust spreads from under
           if (world) {
             applyScreenShake(world, SCREEN_SHAKE_INTENSITY * 0.5, SCREEN_SHAKE_DURATION_MS);
           }
@@ -666,23 +670,26 @@ async function renderEnemies(
         const texture = await loadTexture(imageUrl);
         const sprite = new Sprite(texture);
 
+        // Position sprite at origin - container position handles world coords
         sprite.anchor.set(0.5, 0.5);
-        sprite.position.set(enemyPos.x, enemyPos.y);
+        sprite.position.set(0, 0);
         sprite.width = ENEMY_TOKEN_SIZE;
         sprite.height = ENEMY_TOKEN_SIZE;
 
         const mask = new Graphics();
-        mask.circle(enemyPos.x, enemyPos.y, ENEMY_TOKEN_SIZE / 2);
+        mask.circle(0, 0, ENEMY_TOKEN_SIZE / 2);
         mask.fill({ color: 0xffffff });
         sprite.mask = mask;
 
         const enemyContainer = new Container();
         enemyContainer.label = `enemy-${hexKey(hex.coord)}-${i}`;
+        // Set container position to world coords
+        enemyContainer.position.set(enemyPos.x, enemyPos.y);
         enemyContainer.addChild(mask);
         enemyContainer.addChild(sprite);
 
         const border = new Graphics();
-        border.circle(enemyPos.x, enemyPos.y, ENEMY_TOKEN_SIZE / 2);
+        border.circle(0, 0, ENEMY_TOKEN_SIZE / 2);
         border.stroke({ color: 0x000000, width: 1, alpha: 0.5 });
         enemyContainer.addChild(border);
 
@@ -690,7 +697,6 @@ async function renderEnemies(
           // Start with enemy completely hidden for dramatic reveal
           enemyContainer.alpha = 0;
           enemyContainer.scale.set(0);
-          enemyContainer.rotation = -Math.PI * 0.5; // Start rotated 90 degrees
         }
 
         layers.enemies.addChild(enemyContainer);
@@ -701,48 +707,57 @@ async function renderEnemies(
     }
   }
 
-  // Phase 5 theatrical enemy intro
+  // Phase 5 theatrical enemy intro - drop from sky like tiles (consistent visual language)
   if (playIntro && animManager && particleManager && enemyData.length > 0) {
+    const ENEMY_DROP_DURATION = 250; // Faster than tiles - enemies are smaller
+    const ENEMY_DROP_HEIGHT = 80;    // Lower drop height
+
     enemyData.forEach(({ container, position }, index) => {
       const delay = initialDelayMs + index * ENEMY_FLIP_STAGGER_MS;
       const isLast = index === enemyData.length - 1;
 
       setTimeout(() => {
-        // Magic sparkles appear first (ominous red/purple for enemies)
-        new ParticleEmitter(
-          layers.particles,
-          position,
-          {
-            count: 12,
-            lifetime: 350,
-            lifetimeVariance: 100,
-            startSize: 2,
-            endSize: 0,
-            sizeVariance: 1,
-            colors: [0xff6666, 0xcc44cc, 0xffaaaa, 0x8844ff], // Red/purple sparkles
-            startAlpha: 1,
-            endAlpha: 0,
-            speed: 40,
-            speedVariance: 20,
-            gravity: -5,
-            rotationSpeed: 2,
-          }
-        );
+        // Create small drop shadow for enemy
+        const shadow = new DropShadow(layers.shadows, position, HEX_SIZE * 0.4);
+        shadow.alpha = 0;
+        shadow.scale = 1.3;
 
-        // Animate enemy materializing
-        animManager.animate(`enemy-intro-${index}`, container, {
-          endScale: 1.1, // Slight overshoot
+        // Start above and larger
+        const startY = position.y - ENEMY_DROP_HEIGHT;
+        container.position.y = startY;
+        container.scale.set(1.2);
+        container.alpha = 0;
+
+        // Drop animation with shadow shrinking
+        animManager.animate(`enemy-drop-${index}`, container, {
+          endY: position.y,
           endAlpha: 1,
-          endRotation: 0.1, // Slight overshoot rotation
-          duration: ENEMY_FLIP_DURATION_MS * 0.7,
-          easing: Easing.easeOutCubic,
+          duration: ENEMY_DROP_DURATION,
+          easing: Easing.easeInQuad, // Accelerate like gravity
+          onUpdate: (progress) => {
+            // Scale down as it falls (perspective)
+            const currentScale = 1.2 - 0.2 * progress;
+            container.scale.set(currentScale);
+
+            // Shadow shrinks to match enemy
+            shadow.alpha = 0.2 * (1 - progress * 0.3);
+            shadow.scale = 1.3 - 0.3 * progress;
+          },
           onComplete: () => {
-            // Settle animation - bounce back to final position
-            animManager.animate(`enemy-settle-${index}`, container, {
+            shadow.destroy();
+            container.scale.set(1);
+
+            // Small bounce on landing
+            animManager.animate(`enemy-bounce-${index}`, container, {
               endScale: 1,
-              endRotation: 0,
-              duration: ENEMY_FLIP_DURATION_MS * 0.3,
+              duration: 100,
               easing: Easing.easeOutQuad,
+              onUpdate: (p) => {
+                // Quick squash and stretch
+                const squash = p < 0.5 ? 1 + 0.08 * (p * 2) : 1 + 0.08 * (2 - p * 2);
+                const stretch = p < 0.5 ? 1 - 0.06 * (p * 2) : 1 - 0.06 * (2 - p * 2);
+                container.scale.set(squash, stretch);
+              },
               onComplete: isLast ? onIntroComplete : undefined,
             });
           },
@@ -757,23 +772,56 @@ async function renderEnemies(
 
 /**
  * Render the hero token into a container (for animation support)
- * Returns the container so it can be animated
+ * Uses the actual hero sprite from assets
  */
-function renderHeroIntoContainer(container: Container, position: HexCoord | null): void {
+async function renderHeroIntoContainer(
+  container: Container,
+  position: HexCoord | null,
+  heroId: string | null
+): Promise<void> {
   container.removeChildren();
 
-  if (!position) return;
+  if (!position || !heroId) return;
 
-  const heroGraphics = new Graphics();
-  heroGraphics.label = "hero-token";
+  try {
+    const tokenUrl = getHeroTokenUrl(heroId);
+    const texture = await Assets.load(tokenUrl);
+    const sprite = new Sprite(texture);
+    sprite.label = "hero-token";
 
-  // Draw hero at origin (container position handles world coords)
-  heroGraphics
-    .circle(0, 0, HERO_TOKEN_RADIUS)
-    .fill({ color: 0xff4444 })
-    .stroke({ color: 0xffffff, width: 2 });
+    // Center the sprite and scale to appropriate size
+    sprite.anchor.set(0.5);
 
-  container.addChild(heroGraphics);
+    // Scale to fit nicely on the hex (hero tokens are larger images)
+    // Aim for about 70% of hex size
+    const targetSize = HEX_SIZE * 1.4;
+    const scale = targetSize / Math.max(sprite.width, sprite.height);
+    sprite.scale.set(scale);
+
+    // Create circular mask to clip the octagonal asset to a circle
+    const maskRadius = (targetSize / 2) * 0.95; // Slightly smaller than sprite
+    const mask = new Graphics();
+    mask.circle(0, 0, maskRadius).fill({ color: 0xffffff });
+    sprite.mask = mask;
+
+    // Add border ring around the hero
+    const border = new Graphics();
+    border.circle(0, 0, maskRadius).stroke({ color: 0xffffff, width: 2, alpha: 0.8 });
+
+    container.addChild(mask);
+    container.addChild(sprite);
+    container.addChild(border);
+  } catch (error) {
+    // Fallback to simple circle if sprite fails to load
+    console.error(`Failed to load hero token for ${heroId}:`, error);
+    const heroGraphics = new Graphics();
+    heroGraphics.label = "hero-token";
+    heroGraphics
+      .circle(0, 0, HERO_TOKEN_RADIUS)
+      .fill({ color: 0xff4444 })
+      .stroke({ color: 0xffffff, width: 2 });
+    container.addChild(heroGraphics);
+  }
 }
 
 /**
@@ -1324,14 +1372,20 @@ export function PixiHexGrid() {
         ? (state.map.tiles.length - 1) * PHASE5_TILE_STAGGER + PHASE5_SINGLE_TILE_TIME + INTRO_PHASE_GAP_MS
         : 0;
 
-      // Render enemies with Phase 5 theatrical intro (delayed to start after tiles)
+      // Calculate hero portal reveal time (after tiles, before enemies)
+      // Portal phases: opening + emerge + closing
+      const HERO_PORTAL_TOTAL_DURATION = PORTAL_OPEN_DURATION_MS + PORTAL_HERO_EMERGE_DURATION_MS + PORTAL_CLOSE_DURATION_MS;
+      const heroRevealTime = tileAnimationTime;
+
+      // Render enemies with Phase 5 theatrical intro (delayed to start after tiles + hero portal)
+      const enemyStartTime = tileAnimationTime + (shouldPlayTileIntro ? HERO_PORTAL_TOTAL_DURATION + 200 : 0);
       await renderEnemies(
         layers,
         state.map.hexes,
         animManager,
         particleManager,
         shouldPlayTileIntro,
-        tileAnimationTime,
+        enemyStartTime,
         () => {
           // When enemies finish animating, emit enemies-complete event
           emitAnimationEvent("enemies-complete");
@@ -1377,7 +1431,43 @@ export function PixiHexGrid() {
         }
 
         // Render hero graphics into container
-        renderHeroIntoContainer(heroContainer, heroPosition);
+        const heroId = player?.heroId ?? null;
+        renderHeroIntoContainer(heroContainer, heroPosition, heroId);
+
+        // During intro: theatrical portal emergence
+        if (shouldPlayTileIntro && animManager && particleManager) {
+          // Hide hero initially - will shimmer into existence
+          heroContainer.alpha = 0;
+          heroContainer.scale.set(0.8); // Start slightly smaller
+          // Position hero at final position (no rising - materializes in place)
+          heroContainer.position.set(targetPixel.x, targetPixel.y);
+
+          setTimeout(() => {
+            // Create the portal effect with hero-themed colors
+            particleManager.createPortal(
+              layers.particles,
+              targetPixel,
+              {
+                heroId: heroId ?? undefined,
+                onHeroEmerge: () => {
+                  // When portal opens, hero shimmers/materializes
+                  // Fade in from transparent while scaling up slightly
+                  animManager.animate("hero-emerge", heroContainer, {
+                    endAlpha: 1,
+                    endScale: 1,
+                    duration: PORTAL_HERO_EMERGE_DURATION_MS,
+                    easing: Easing.easeOutCubic,
+                  });
+                },
+                onComplete: () => {
+                  // Portal finished - hero intro complete
+                  emitAnimationEvent("hero-complete");
+                  console.log("[PixiHexGrid] Hero portal emergence complete");
+                },
+              }
+            );
+          }, heroRevealTime);
+        }
       }
 
       // Update previous position
