@@ -25,7 +25,7 @@ import type { Player } from "../../types/player.js";
 import type { SourceDieId } from "../../types/mana.js";
 import type { BasicManaColor } from "@mage-knight/shared";
 import type { ManaDrawPoweredEffect, ManaDrawPickDieEffect, ManaDrawSetColorEffect } from "../../types/cards.js";
-import type { EffectResolutionResult } from "./resolveEffect.js";
+import type { EffectResolutionResult } from "./types.js";
 import { MANA_TOKEN_SOURCE_CARD, MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from "@mage-knight/shared";
 import { EFFECT_MANA_DRAW_PICK_DIE, EFFECT_MANA_DRAW_SET_COLOR } from "../../types/effectTypes.js";
 import { updatePlayer } from "./atomicEffects.js";

@@ -10,8 +10,7 @@ import {
   CHOICE_REQUIRED,
   CHOICE_RESOLVED,
 } from "@mage-knight/shared";
-import { resolveEffect, reverseEffect, isEffectResolvable } from "../effects/resolveEffect.js";
-import { describeEffect } from "../effects/describeEffect.js";
+import { resolveEffect, reverseEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
 import { RESOLVE_CHOICE_COMMAND } from "./commandTypes.js";
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
 import {

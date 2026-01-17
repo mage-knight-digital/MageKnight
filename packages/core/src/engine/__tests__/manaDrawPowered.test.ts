@@ -14,7 +14,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
-import { resolveEffect, isEffectResolvable } from "../effects/resolveEffect.js";
+import { resolveEffect, isEffectResolvable } from "../effects/index.js";
 import type { ManaSource, SourceDie } from "../../types/mana.js";
 import { sourceDieId } from "../../types/mana.js";
 import { createEndTurnCommand } from "../commands/endTurnCommand.js";

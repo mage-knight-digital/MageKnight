@@ -8,8 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { resolveEffect, isEffectResolvable } from "../effects/resolveEffect.js";
-import { describeEffect } from "../effects/describeEffect.js";
+import { resolveEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
 import type { ReadyUnitEffect } from "../../types/cards.js";
 import { EFFECT_READY_UNIT } from "../../types/effectTypes.js";
 import { UNIT_STATE_READY, UNIT_STATE_SPENT, UNITS, type UnitId } from "@mage-knight/shared";
