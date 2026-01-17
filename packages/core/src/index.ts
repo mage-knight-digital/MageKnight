@@ -53,8 +53,8 @@ export {
 } from "./hex/HexCoord.js";
 
 // Tile data
-export type { LocalHex, TileType, TileDefinition } from "./data/tiles.js";
-export { TILE_DEFINITIONS, placeTile, getTilesByType } from "./data/tiles.js";
+export type { LocalHex, TileType, TileDefinition } from "./data/tiles/index.js";
+export { TILE_DEFINITIONS, placeTile, getTilesByType } from "./data/tiles/index.js";
 
 // Tile deck setup
 export type { TileDeckSetupResult } from "./data/tileDeckSetup.js";

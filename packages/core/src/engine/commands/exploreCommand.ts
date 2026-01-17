@@ -22,7 +22,7 @@ import {
 } from "@mage-knight/shared";
 import type { TileId, HexState, TilePlacement } from "../../types/map.js";
 import type { Player } from "../../types/player.js";
-import { placeTile, TILE_DEFINITIONS } from "../../data/tiles.js";
+import { placeTile, TILE_DEFINITIONS } from "../../data/tiles/index.js";
 import { calculateTilePlacement } from "../explore/index.js";
 import { EXPLORE_COMMAND } from "./commandTypes.js";
 import { drawEnemiesForHex } from "../helpers/enemyHelpers.js";
