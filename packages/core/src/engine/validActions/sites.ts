@@ -6,7 +6,7 @@
  */
 
 import type { SiteOptions, InteractOptions } from "@mage-knight/shared";
-import { hexKey, TIME_OF_DAY_DAY, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
+import { hexKey, TIME_OF_DAY_DAY } from "@mage-knight/shared";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { HexState, Site } from "../../types/map.js";
@@ -114,7 +114,7 @@ function canEnterSite(
   state: GameState,
   player: Player,
   site: Site,
-  hex: HexState
+  _hex: HexState
 ): boolean {
   const props = SITE_PROPERTIES[site.type];
 

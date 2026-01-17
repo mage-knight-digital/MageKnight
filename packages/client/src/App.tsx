@@ -3,6 +3,7 @@ import { GameProvider } from "./context/GameContext";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
 import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
 import { AnimationDispatcherProvider } from "./contexts/AnimationDispatcherContext";
+import { CinematicProvider, useCinematic } from "./contexts/CinematicContext";
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
 import { HexGrid } from "./components/GameBoard/HexGrid";
@@ -61,6 +62,7 @@ function GameView() {
   const { state } = useGame();
   const player = useMyPlayer();
   const { isIntroComplete } = useGameIntro();
+  const { isInCinematic } = useCinematic();
   const [isOfferViewVisible, setIsOfferViewVisible] = useState(false);
 
   // Handle offer view state from PlayerHand
@@ -89,6 +91,7 @@ function GameView() {
     "app",
     shouldDimForTactics && "app--tactic-selection",
     inCombat && "app--combat",
+    isInCinematic && "app--cinematic",
   ].filter(Boolean).join(" ");
 
   return (
@@ -153,10 +156,12 @@ export function App() {
     <GameProvider seed={GAME_SEED}>
       <AnimationDispatcherProvider>
         <GameIntroProvider>
-          <CardMenuPositionProvider>
-            <GameView />
-            <DebugPanel />
-          </CardMenuPositionProvider>
+          <CinematicProvider>
+            <CardMenuPositionProvider>
+              <GameView />
+              <DebugPanel />
+            </CardMenuPositionProvider>
+          </CinematicProvider>
         </GameIntroProvider>
       </AnimationDispatcherProvider>
     </GameProvider>

@@ -2344,3 +2344,61 @@ body {
   filter: brightness(1.3);
   transition: all 0.15s ease-out;
 }
+
+/* ============================================
+   Cinematic Mode
+
+   When a cinematic is playing, UI elements fade
+   to let the player focus on the map action.
+   ============================================ */
+
+/* Fade transition for cinematic elements */
+.cinematic-fade {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* During cinematic mode - fade out UI elements */
+.app--cinematic .floating-hand,
+.app--cinematic .end-turn-seal,
+.app--cinematic .turn-actions,
+.app--cinematic .carousel-track,
+.app--cinematic .tactic-carousel,
+.app--cinematic .floating-unit-carousel,
+.app--cinematic .mana-source-overlay {
+  opacity: 0.15;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Top bar stays visible but slightly dimmed */
+.app--cinematic .top-bar {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* Ghost hexes (explore targets) hidden during cinematic */
+.app--cinematic .ghost-hex-polygon {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* Hex overlays (movement highlights) hidden during cinematic */
+.app--cinematic .hex-overlay {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Restore elements when cinematic ends */
+.app:not(.app--cinematic) .floating-hand,
+.app:not(.app--cinematic) .end-turn-seal,
+.app:not(.app--cinematic) .turn-actions,
+.app:not(.app--cinematic) .carousel-track,
+.app:not(.app--cinematic) .tactic-carousel,
+.app:not(.app--cinematic) .floating-unit-carousel,
+.app:not(.app--cinematic) .mana-source-overlay,
+.app:not(.app--cinematic) .top-bar {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}

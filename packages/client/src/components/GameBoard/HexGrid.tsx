@@ -8,7 +8,6 @@ import {
   type ClientHexEnemy,
   type MoveTarget,
   type ReachableHex,
-  type SiteOptions,
   hexKey,
   getAllNeighbors,
 } from "@mage-knight/shared";

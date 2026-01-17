@@ -567,7 +567,7 @@ describe("Enter adventure site", () => {
       initialState: GameState
     ): { state: GameState; events: import("@mage-knight/shared").GameEvent[] } {
       let state = initialState;
-      let allEvents: import("@mage-knight/shared").GameEvent[] = [];
+      const allEvents: import("@mage-knight/shared").GameEvent[] = [];
 
       // Phase 1: Ranged/Siege -> Block
       let result = eng.processAction(state, "player1", {
@@ -617,7 +617,7 @@ describe("Enter adventure site", () => {
       const state = createTestStateWithSite(createTombSite());
 
       // Enter tomb - starts combat with 1 red enemy
-      let result = engine.processAction(state, "player1", {
+      const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,
       });
       expect(result.state.combat).not.toBeNull();
@@ -639,7 +639,7 @@ describe("Enter adventure site", () => {
       const state = createTestStateWithSite(createDungeonSite());
 
       // Enter dungeon - starts combat with 1 brown enemy
-      let result = engine.processAction(state, "player1", {
+      const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,
       });
       expect(result.state.combat).not.toBeNull();
@@ -658,7 +658,7 @@ describe("Enter adventure site", () => {
       const state = createTestStateWithSite(createMonsterDenSite(), []);
 
       // Enter monster den - draws 1 brown enemy
-      let result = engine.processAction(state, "player1", {
+      const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,
       });
       expect(result.state.combat).not.toBeNull();

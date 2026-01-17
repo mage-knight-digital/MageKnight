@@ -10,7 +10,7 @@
  * controlled by user settings later.
  */
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import type { HexCoord, ClientHexState, ClientSite } from "@mage-knight/shared";
 import { SiteTooltipContent } from "./SiteTooltipContent";
 import { EnemyTooltipContent } from "./EnemyTooltipContent";

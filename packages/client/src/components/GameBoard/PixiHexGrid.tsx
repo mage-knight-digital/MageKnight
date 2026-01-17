@@ -30,6 +30,8 @@ import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro } from "../../contexts/GameIntroContext";
 import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
+import { useCinematic } from "../../contexts/CinematicContext";
+import type { CinematicSequence } from "../../contexts/CinematicContext";
 import {
   getTileImageUrl,
   getEnemyImageUrl,
@@ -58,7 +60,6 @@ import {
   AnimationManager,
   Easing,
   HERO_MOVE_DURATION_MS,
-  TILE_CASCADE_DURATION_MS,
   ENEMY_FLIP_STAGGER_MS,
   INTRO_PHASE_GAP_MS,
 } from "./pixi/animations";
@@ -71,9 +72,7 @@ import {
   TILE_SLAM_DURATION_MS,
   SCREEN_SHAKE_DURATION_MS,
   SCREEN_SHAKE_INTENSITY,
-  PORTAL_OPEN_DURATION_MS,
   PORTAL_HERO_EMERGE_DURATION_MS,
-  PORTAL_CLOSE_DURATION_MS,
 } from "./pixi/particles";
 
 // Movement highlight types
@@ -134,7 +133,7 @@ function findPath(
 
   while (openSet.length > 0) {
     openSet.sort((a, b) => a.f - b.f);
-    const current = openSet.shift()!;
+    const current = openSet.shift() as Node;
     const currentKey = hexKey(current.coord);
 
     if (currentKey === endKey) {
@@ -1002,6 +1001,7 @@ export function PixiHexGrid() {
   const player = useMyPlayer();
   const { startIntro, isIntroComplete } = useGameIntro();
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
+  const { playCinematic, isInCinematic } = useCinematic();
 
   // Get valid move targets from server
   const validMoveTargets = useMemo<readonly MoveTarget[]>(
@@ -1405,6 +1405,63 @@ export function PixiHexGrid() {
     const shouldPlayTileIntro = prevTileCountRef.current === 0 && currentTileCount > 0;
     prevTileCountRef.current = currentTileCount;
 
+    // Detect new tiles (exploration) - check if any tiles are not yet known
+    const newTiles = state.map.tiles.filter(tile => !knownTileIdsRef.current.has(tile.tileId));
+    const isExploration = !shouldPlayTileIntro && newTiles.length > 0;
+
+    // If this is an exploration (not intro), trigger cinematic mode
+    if (isExploration && !isInCinematic) {
+      // Get the center position of the new tile for camera focus
+      const newTile = newTiles[0];
+      const newTilePosition = newTile ? hexToPixel(newTile.centerCoord) : null;
+      const heroPixelPosition = heroPosition ? hexToPixel(heroPosition) : null;
+
+      // Estimate animation duration
+      const EXPLORATION_TILE_DURATION = TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS + 300;
+      const CAMERA_PAN_DURATION = 400;
+
+      // Create exploration cinematic sequence
+      const explorationCinematic: CinematicSequence = {
+        id: "exploration",
+        name: `Explore tile ${newTiles[0]?.tileId}`,
+        steps: [
+          {
+            id: "pan-to-tile",
+            description: "Pan camera to new tile",
+            duration: newTilePosition ? CAMERA_PAN_DURATION : 0,
+            execute: () => {
+              if (newTilePosition) {
+                centerCameraOn(newTilePosition, false);
+              }
+            },
+          },
+          {
+            id: "tile-animation",
+            description: "Tile drop animation",
+            duration: EXPLORATION_TILE_DURATION + 200, // Extra buffer for bounce
+            execute: () => {
+              // Animation is handled by renderTiles
+            },
+          },
+          {
+            id: "pan-to-hero",
+            description: "Pan camera back to hero",
+            duration: heroPixelPosition ? CAMERA_PAN_DURATION : 0,
+            execute: () => {
+              if (heroPixelPosition) {
+                centerCameraOn(heroPixelPosition, false);
+              }
+            },
+          },
+        ],
+        onComplete: () => {
+          console.log("[PixiHexGrid] Exploration cinematic complete");
+        },
+      };
+
+      playCinematic(explorationCinematic);
+    }
+
     // Render static layers
     const renderAsync = async () => {
       // Render tiles with Phase 5 theatrical intro animation
@@ -1436,8 +1493,6 @@ export function PixiHexGrid() {
       const enemyStartTime = tileAnimationTime;
 
       // Calculate hero portal reveal time (after tiles + enemies)
-      // Portal phases: opening + emerge + closing
-      const HERO_PORTAL_TOTAL_DURATION = PORTAL_OPEN_DURATION_MS + PORTAL_HERO_EMERGE_DURATION_MS + PORTAL_CLOSE_DURATION_MS;
       // Estimate enemy animation duration: stagger * count + single drop duration
       const enemyCount = Object.values(state.map.hexes).reduce(
         (count, hex) => count + (hex.enemies?.length ?? 0), 0
@@ -1582,6 +1637,7 @@ export function PixiHexGrid() {
     };
 
     renderAsync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- playCinematic and isInCinematic are stable refs, player?.heroId only affects intro
   }, [isInitialized, state, player?.position, exploreTargets, centerCameraOn, emitAnimationEvent]);
 
   // Update interactive layers (hex overlays, ghost hexes, path preview)
