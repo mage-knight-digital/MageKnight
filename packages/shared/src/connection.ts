@@ -3,7 +3,7 @@
  */
 
 import type { PlayerAction } from "./actions.js";
-import type { GameEvent } from "./events.js";
+import type { GameEvent } from "./events/index.js";
 import type { ClientGameState } from "./types/clientState.js";
 
 // Callback receives all events from an action plus the resulting state
