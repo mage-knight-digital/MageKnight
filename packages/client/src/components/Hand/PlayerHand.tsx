@@ -25,6 +25,7 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useGameIntro, UI_REVEAL_TIMING } from "../../contexts/GameIntroContext";
 
 /**
  * Get all available mana sources that can pay for a specific color.
@@ -165,11 +166,49 @@ export interface PlayerHandProps {
 export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const { phase, shouldRevealUI, isIntroComplete } = useGameIntro();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
   const [handView, setHandView] = useState<HandView>("ready");
   // Default to tactics - most game loads are at round start with tactic selection
   // The useEffect below handles moving to cards if tactic is already selected
   const [carouselPane, setCarouselPane] = useState<CarouselPane>("tactics");
+
+  // Track intro animation state for the carousel indicator
+  // Always start hidden - will reveal after intro completes
+  const [indicatorAnimState, setIndicatorAnimState] = useState<
+    "hidden" | "revealing" | "visible"
+  >("hidden");
+
+  // Track if we've animated in already
+  const indicatorAnimatedRef = useRef(false);
+
+  // Trigger reveal animation when shouldRevealUI becomes true
+  useEffect(() => {
+    if (shouldRevealUI && !indicatorAnimatedRef.current) {
+      indicatorAnimatedRef.current = true;
+
+      const revealTimer = setTimeout(() => {
+        setIndicatorAnimState("revealing");
+      }, UI_REVEAL_TIMING.carouselIndicator.delay);
+
+      const visibleTimer = setTimeout(() => {
+        setIndicatorAnimState("visible");
+      }, UI_REVEAL_TIMING.carouselIndicator.delay + UI_REVEAL_TIMING.carouselIndicator.duration);
+
+      return () => {
+        clearTimeout(revealTimer);
+        clearTimeout(visibleTimer);
+      };
+    }
+  }, [shouldRevealUI]);
+
+  // If intro is already complete on mount (e.g., hot reload), show immediately
+  useEffect(() => {
+    if (isIntroComplete) {
+      indicatorAnimatedRef.current = true;
+      setIndicatorAnimState("visible");
+    }
+  }, []);
 
   // Track whether we need tactic selection (for auto-navigation)
   const needsTacticSelection = !!(
@@ -504,6 +543,30 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
             commandTokens={player.commandTokens}
           />
         </div>
+      </div>
+
+      {/* Carousel pane indicator - hidden when in offer view or board view */}
+      <div className={[
+        "carousel-pane-indicator",
+        (handView === "offer" || handView === "board") && "carousel-pane-indicator--hidden",
+        indicatorAnimState === "hidden" && "carousel-pane-indicator--intro-hidden",
+        indicatorAnimState === "revealing" && "carousel-pane-indicator--intro-reveal",
+      ].filter(Boolean).join(" ")}>
+        {needsTacticSelection && (
+          <>
+            <span className={`carousel-pane-indicator__item carousel-pane-indicator__item--needs-attention ${carouselPane === "tactics" ? "carousel-pane-indicator__item--active" : ""}`}>
+              Tactics
+            </span>
+            <span className="carousel-pane-indicator__divider">|</span>
+          </>
+        )}
+        <span className={`carousel-pane-indicator__item ${carouselPane === "cards" ? "carousel-pane-indicator__item--active" : ""}`}>
+          Cards
+        </span>
+        <span className="carousel-pane-indicator__divider">|</span>
+        <span className={`carousel-pane-indicator__item ${carouselPane === "units" ? "carousel-pane-indicator__item--active" : ""}`}>
+          Units
+        </span>
       </div>
 
       {/* Deck/Discard - fixed position outside carousel, hidden in offer/board/focus view */}

@@ -1,4 +1,28 @@
 /* ===== END TURN SEAL - Bottom Left ===== */
+
+/* Intro animation: Seal stamps down with authority
+   Disney principles: anticipation (scale up), overshoot, settle */
+@keyframes seal-stamp {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-15deg);
+  }
+  /* Anticipation - seal appears and overshoots */
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(5deg);
+  }
+  /* Slight undershoot */
+  75% {
+    transform: scale(0.95) rotate(-2deg);
+  }
+  /* Settle into place */
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 .end-turn-seal {
   position: fixed;
   bottom: 1rem;
@@ -27,6 +51,18 @@
 
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+/* Hidden during intro - before ui-settle phase */
+/* Use higher specificity to override :disabled state */
+.end-turn-seal.end-turn-seal--intro-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Animate in during ui-settle phase */
+.end-turn-seal--intro-reveal {
+  animation: seal-stamp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .end-turn-seal:not(:disabled):hover {

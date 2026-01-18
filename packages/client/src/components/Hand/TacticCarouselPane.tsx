@@ -169,12 +169,13 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
   const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
   const cardHeight = useCardHeight(viewMode);
 
-  // Track if enemies animation is complete (triggers showing tactics)
-  const [enemiesComplete, setEnemiesComplete] = useState(false);
+  // Track if hero portal animation is complete (triggers showing tactics)
+  const [heroComplete, setHeroComplete] = useState(false);
 
-  // Listen for enemies-complete event to know when to show tactics
-  useOnAnimationEvent("enemies-complete", useCallback(() => {
-    setEnemiesComplete(true);
+  // Listen for hero-complete event to know when to show tactics
+  // This ensures tactics don't appear until the hero has emerged through the portal
+  useOnAnimationEvent("hero-complete", useCallback(() => {
+    setHeroComplete(true);
   }, []));
 
   // Load atlas on mount
@@ -227,12 +228,12 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
     );
   }
 
-  // Wait for enemies animation to complete before showing tactics
+  // Wait for hero portal animation to complete before showing tactics
   // This uses the event-based dispatcher instead of setTimeout-based timing
-  if (!enemiesComplete && !isIntroComplete) {
+  if (!heroComplete && !isIntroComplete) {
     return (
       <div className={`tactic-carousel tactic-carousel--${viewMode} tactic-carousel--empty`}>
-        {/* Waiting for intro animation */}
+        {/* Waiting for hero to emerge through portal */}
       </div>
     );
   }

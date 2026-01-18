@@ -1,3 +1,19 @@
+/* Intro animation: Top bar slides down from above */
+@keyframes topbar-slide-down {
+  0% {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .top-bar {
   display: flex;
   align-items: center;
@@ -7,6 +23,17 @@
   background: rgba(10, 10, 25, 0.9);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
+}
+
+/* Hidden during intro */
+.top-bar--intro-hidden {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+
+/* Animate in during ui-settle */
+.top-bar--intro-reveal {
+  animation: topbar-slide-down 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .top-bar__section {

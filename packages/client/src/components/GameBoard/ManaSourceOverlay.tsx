@@ -2,13 +2,20 @@
  * ManaSourceOverlay - Displays mana source dice in a corner of the game board
  *
  * Shows the shared mana dice pool that all players can see.
- * Positioned in the bottom-left corner of the hex grid area.
+ * Positioned in the top-right corner of the hex grid area.
  * Animates dice when they are rerolled (color changes).
+ *
+ * Intro animation: The overlay slides in from the right, then dice "cast"
+ * onto the tray one by one with a satisfying bounce.
  */
 
 import { useState, useEffect, useRef } from "react";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import {
+  useGameIntro,
+  UI_REVEAL_TIMING,
+} from "../../contexts/GameIntroContext";
 import {
   MANA_RED,
   MANA_BLUE,
@@ -40,6 +47,16 @@ const STAGGER_DELAY_MS = 80;
 export function ManaSourceOverlay() {
   const { state } = useGame();
   const player = useMyPlayer();
+  const { phase, shouldRevealUI, isIntroComplete } = useGameIntro();
+
+  // Track intro animation state
+  // Always start hidden - will reveal after intro completes
+  const [introAnimState, setIntroAnimState] = useState<
+    "hidden" | "revealing" | "visible"
+  >("hidden");
+
+  // Track if we've animated in already
+  const hasAnimatedRef = useRef(false);
 
   // Track which dice are currently animating
   const [rollingDieIds, setRollingDieIds] = useState<Set<string>>(new Set());
@@ -48,6 +65,35 @@ export function ManaSourceOverlay() {
   // Track previous dice state to detect changes
   const prevDiceColorsRef = useRef<Map<string, string>>(new Map());
   const prevTakenByRef = useRef<Map<string, string | null>>(new Map());
+
+  // Trigger reveal animation when shouldRevealUI becomes true
+  useEffect(() => {
+    if (shouldRevealUI && !hasAnimatedRef.current) {
+      hasAnimatedRef.current = true;
+
+      // Mana source appears first among UI elements
+      const revealTimer = setTimeout(() => {
+        setIntroAnimState("revealing");
+      }, UI_REVEAL_TIMING.manaSource.delay);
+
+      const visibleTimer = setTimeout(() => {
+        setIntroAnimState("visible");
+      }, UI_REVEAL_TIMING.manaSource.delay + UI_REVEAL_TIMING.manaSource.duration);
+
+      return () => {
+        clearTimeout(revealTimer);
+        clearTimeout(visibleTimer);
+      };
+    }
+  }, [shouldRevealUI]);
+
+  // If intro is already complete on mount (e.g., hot reload), show immediately
+  useEffect(() => {
+    if (isIntroComplete) {
+      hasAnimatedRef.current = true;
+      setIntroAnimState("visible");
+    }
+  }, []);
 
   // Detect dice color changes and trigger roll animation
   useEffect(() => {
@@ -76,7 +122,8 @@ export function ManaSourceOverlay() {
       setRollingDieIds(new Set(changedDieIds));
 
       // Clear animation after it completes (with stagger time)
-      const totalDuration = ROLL_ANIMATION_MS + (changedDieIds.length * STAGGER_DELAY_MS);
+      const totalDuration =
+        ROLL_ANIMATION_MS + changedDieIds.length * STAGGER_DELAY_MS;
       const timeout = setTimeout(() => {
         setRollingDieIds(new Set());
       }, totalDuration);
@@ -126,8 +173,17 @@ export function ManaSourceOverlay() {
   // Calculate stagger index for each rolling die
   const rollingDieArray = Array.from(rollingDieIds);
 
+  // Build overlay class names based on intro animation state
+  const overlayClassNames = [
+    "mana-source-overlay",
+    introAnimState === "hidden" && "mana-source-overlay--intro-hidden",
+    introAnimState === "revealing" && "mana-source-overlay--intro-reveal",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="mana-source-overlay">
+    <div className={overlayClassNames}>
       <div className="mana-source-overlay__label">Source</div>
       <div className="mana-source-overlay__dice">
         {state.source.dice.map((die) => {
@@ -137,20 +193,25 @@ export function ManaSourceOverlay() {
           const isRolling = rollingDieIds.has(die.id);
           const isTakenAnimating = takenDieIds.has(die.id);
           const staggerIndex = rollingDieArray.indexOf(die.id);
-          const staggerDelay = staggerIndex >= 0 ? staggerIndex * STAGGER_DELAY_MS : 0;
+          const staggerDelay =
+            staggerIndex >= 0 ? staggerIndex * STAGGER_DELAY_MS : 0;
 
           const classNames = [
-            'mana-source-overlay__die',
-            isUnavailable && 'mana-source-overlay__die--unavailable',
-            isRolling && 'mana-source-overlay__die--rolling',
-            isTakenAnimating && 'mana-source-overlay__die--taken',
-          ].filter(Boolean).join(' ');
+            "mana-source-overlay__die",
+            isUnavailable && "mana-source-overlay__die--unavailable",
+            isRolling && "mana-source-overlay__die--rolling",
+            isTakenAnimating && "mana-source-overlay__die--taken",
+          ]
+            .filter(Boolean)
+            .join(" ");
 
           return (
             <div
               key={die.id}
               className={classNames}
-              style={isRolling ? { animationDelay: `${staggerDelay}ms` } : undefined}
+              style={
+                isRolling ? { animationDelay: `${staggerDelay}ms` } : undefined
+              }
               title={
                 die.isDepleted
                   ? `${die.color} (depleted)`
@@ -165,7 +226,11 @@ export function ManaSourceOverlay() {
                 src={getManaIconUrl(die.color)}
                 alt={die.color}
                 className="mana-source-overlay__die-icon"
-                style={isRolling ? { animationDelay: `${staggerDelay}ms` } : undefined}
+                style={
+                  isRolling
+                    ? { animationDelay: `${staggerDelay}ms` }
+                    : undefined
+                }
               />
             </div>
           );

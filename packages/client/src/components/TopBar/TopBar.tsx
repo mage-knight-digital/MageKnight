@@ -1,16 +1,53 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TIME_OF_DAY_DAY, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useGameIntro, UI_REVEAL_TIMING } from "../../contexts/GameIntroContext";
 import { HotkeyHelp } from "./HotkeyHelp";
 import "./TopBar.css";
 
 export function TopBar() {
   const { state } = useGame();
   const player = useMyPlayer();
+  const { shouldRevealUI, isIntroComplete } = useGameIntro();
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
+  // Track intro animation state - start hidden
+  const [introAnimState, setIntroAnimState] = useState<"hidden" | "revealing" | "visible">("hidden");
+  const hasAnimatedRef = useRef(false);
+
+  // Trigger reveal animation when shouldRevealUI becomes true
+  useEffect(() => {
+    if (shouldRevealUI && !hasAnimatedRef.current) {
+      hasAnimatedRef.current = true;
+
+      const revealTimer = setTimeout(() => {
+        setIntroAnimState("revealing");
+      }, UI_REVEAL_TIMING.topBar.delay);
+
+      const visibleTimer = setTimeout(() => {
+        setIntroAnimState("visible");
+      }, UI_REVEAL_TIMING.topBar.delay + UI_REVEAL_TIMING.topBar.duration);
+
+      return () => {
+        clearTimeout(revealTimer);
+        clearTimeout(visibleTimer);
+      };
+    }
+  }, [shouldRevealUI]);
+
+  // If intro is already complete on mount (e.g., hot reload), show immediately
+  useEffect(() => {
+    if (isIntroComplete) {
+      hasAnimatedRef.current = true;
+      setIntroAnimState("visible");
+    }
+  }, []);
+
   if (!state || !player) return null;
+
+  // Don't render until ready to show
+  if (introAnimState === "hidden") return null;
 
   // Calculate fame needed for next level
   const fameThresholds = [0, 3, 8, 15, 24, 35, 48, 63, 80, 99, 999];
@@ -18,8 +55,13 @@ export function TopBar() {
 
   const isNight = state.timeOfDay === TIME_OF_DAY_NIGHT;
 
+  const topBarClassNames = [
+    "top-bar",
+    introAnimState === "revealing" && "top-bar--intro-reveal",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div className="top-bar">
+    <div className={topBarClassNames}>
       {/* Left section: Hero identity */}
       <div className="top-bar__section top-bar__section--left">
         <div className="top-bar__hero">

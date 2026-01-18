@@ -380,6 +380,12 @@ export class PortalEffect {
     if (progress >= 1) {
       this.phase = "breath";
       this.phaseElapsed = 0;
+      // Signal hero emergence complete - tactics can now appear
+      // The portal will continue its closing animation independently
+      if (this.onComplete) {
+        this.onComplete();
+        this.onComplete = undefined; // Only call once
+      }
     }
   }
 

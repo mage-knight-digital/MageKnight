@@ -71,6 +71,49 @@ body {
 }
 
 /* Mana Source Overlay - positioned in top-right corner */
+
+/* Intro animation: Dice tray slides in from right with dice cascade
+   Disney principles: Staging (appears first among UI), overlapping action (dice stagger) */
+@keyframes mana-source-reveal {
+  0% {
+    opacity: 0;
+    transform: translateX(50px) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(-5px) scale(1.02);
+  }
+  80% {
+    transform: translateX(2px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Individual die entrance - like dice being cast onto a table */
+@keyframes die-intro-cast {
+  0% {
+    opacity: 0;
+    transform: translateY(-30px) rotate(-45deg) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(5px) rotate(10deg) scale(1.1);
+  }
+  70% {
+    transform: translateY(-3px) rotate(-5deg) scale(0.95);
+  }
+  85% {
+    transform: translateY(1px) rotate(2deg) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
 .mana-source-overlay {
   position: absolute;
   top: 1rem;
@@ -81,6 +124,34 @@ body {
   padding: 0.5rem;
   z-index: 10;
 }
+
+/* Hidden during intro - before ui-settle phase */
+.mana-source-overlay--intro-hidden {
+  opacity: 0;
+  transform: translateX(50px);
+  pointer-events: none;
+}
+
+/* Container animates in first */
+.mana-source-overlay--intro-reveal {
+  animation: mana-source-reveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Individual dice cascade in with stagger */
+.mana-source-overlay--intro-reveal .mana-source-overlay__die {
+  opacity: 0;
+  animation: die-intro-cast 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Stagger delays for each die - cast one after another */
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(1) { animation-delay: 0.1s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(2) { animation-delay: 0.16s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(3) { animation-delay: 0.22s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(4) { animation-delay: 0.28s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(5) { animation-delay: 0.34s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(6) { animation-delay: 0.40s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(7) { animation-delay: 0.46s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(8) { animation-delay: 0.52s; }
 
 .mana-source-overlay__label {
   font-size: 0.6rem;

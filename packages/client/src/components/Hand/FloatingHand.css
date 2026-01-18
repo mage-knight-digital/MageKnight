@@ -138,6 +138,29 @@
 }
 
 /* Deck and discard container - fixed position bottom right */
+
+/* Intro animation: Deck slides in from right edge with settle
+   Disney principles: Follow-through (overshoot and settle) */
+@keyframes deck-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+  /* Overshoot slightly */
+  70% {
+    opacity: 1;
+    transform: translateX(-8px);
+  }
+  /* Settle back */
+  85% {
+    transform: translateX(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .floating-hand__deck-discard {
   position: fixed;
   bottom: 1rem;
@@ -154,6 +177,18 @@
   opacity: 0;
   transform: translateY(100%);
   pointer-events: none;
+}
+
+/* Hidden during intro - before ui-settle phase */
+.floating-hand__deck-discard--intro-hidden {
+  opacity: 0;
+  transform: translateX(120%);
+  pointer-events: none;
+}
+
+/* Animate in during ui-settle phase */
+.floating-hand__deck-discard--intro-reveal {
+  animation: deck-slide-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 /* Deck and discard indicators */
@@ -295,6 +330,23 @@
 /* ===== CAROUSEL PANE INDICATOR ===== */
 /* Shows which pane is active: Tactics, Cards, or Units */
 
+/* Intro animation: Indicator fades in from below
+   Disney principles: subtle entrance, doesn't steal focus from main content */
+@keyframes indicator-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 .carousel-pane-indicator {
   position: fixed;
   bottom: 10px;
@@ -316,6 +368,18 @@
 .carousel-pane-indicator--hidden {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Hidden during intro - before ui-settle phase */
+.carousel-pane-indicator--intro-hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+  pointer-events: none;
+}
+
+/* Animate in during ui-settle phase */
+.carousel-pane-indicator--intro-reveal {
+  animation: indicator-fade-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .carousel-pane-indicator__item {

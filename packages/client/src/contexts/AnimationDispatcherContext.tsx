@@ -9,7 +9,7 @@
  * making the system resilient to CSS timing changes.
  *
  * Event flow for intro sequence:
- *   intro-start → tiles-complete → enemies-complete → tactics-complete → intro-complete
+ *   intro-start → tiles-complete → enemies-complete → hero-complete → tactics-complete → intro-complete
  */
 
 import {
@@ -31,6 +31,7 @@ export type AnimationEvent =
   | "hero-complete"      // Hero reveal animation finished
   | "enemies-complete"   // All enemy animations finished
   | "tactics-complete"   // Tactic dealing animation finished
+  | "ui-settle-start"    // UI elements begin animating in (mana, deck, seal)
   | "intro-complete";    // Entire intro sequence finished
 
 type EventCallback = () => void;
