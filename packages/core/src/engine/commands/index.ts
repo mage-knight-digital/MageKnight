@@ -76,7 +76,7 @@ export {
 export {
   createEndTurnCommand,
   type EndTurnCommandParams,
-} from "./endTurnCommand.js";
+} from "./endTurn/index.js";
 
 // Explore command
 export {

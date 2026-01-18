@@ -21,7 +21,7 @@ import {
 } from "@mage-knight/shared";
 import type { Player } from "../../types/player.js";
 import { RESOLVE_GLADE_WOUND_COMMAND } from "./commandTypes.js";
-import { createEndTurnCommand } from "./endTurnCommand.js";
+import { createEndTurnCommand } from "./endTurn/index.js";
 
 export { RESOLVE_GLADE_WOUND_COMMAND };
 

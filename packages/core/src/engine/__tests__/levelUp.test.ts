@@ -11,7 +11,7 @@ import {
   LEVEL_UP_REWARDS_PENDING,
 } from "@mage-knight/shared";
 import { createTestPlayer, createTestGameState } from "./testHelpers.js";
-import { createEndTurnCommand } from "../commands/endTurnCommand.js";
+import { createEndTurnCommand } from "../commands/endTurn/index.js";
 
 describe("Level calculations", () => {
   describe("getLevelFromFame", () => {

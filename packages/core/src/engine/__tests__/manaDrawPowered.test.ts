@@ -17,7 +17,7 @@ import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import { resolveEffect, isEffectResolvable } from "../effects/index.js";
 import type { ManaSource, SourceDie } from "../../types/mana.js";
 import { sourceDieId } from "../../types/mana.js";
-import { createEndTurnCommand } from "../commands/endTurnCommand.js";
+import { createEndTurnCommand } from "../commands/endTurn/index.js";
 import { createResolveChoiceCommand } from "../commands/resolveChoiceCommand.js";
 import {
   EFFECT_MANA_DRAW_POWERED,

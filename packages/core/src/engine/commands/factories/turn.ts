@@ -14,7 +14,7 @@
 
 import type { CommandFactory } from "./types.js";
 import { REST_ACTION, ANNOUNCE_END_OF_ROUND_ACTION } from "@mage-knight/shared";
-import { createEndTurnCommand } from "../endTurnCommand.js";
+import { createEndTurnCommand } from "../endTurn/index.js";
 import { createRestCommand } from "../restCommand.js";
 import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js";
 

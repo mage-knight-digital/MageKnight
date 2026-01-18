@@ -15,7 +15,7 @@ import { DEEP_MINE_CRYSTAL_GAINED } from "@mage-knight/shared";
 import type { Player } from "../../types/player.js";
 import { mineColorToBasicManaColor } from "../../types/map.js";
 import { RESOLVE_DEEP_MINE_COMMAND } from "./commandTypes.js";
-import { createEndTurnCommand } from "./endTurnCommand.js";
+import { createEndTurnCommand } from "./endTurn/index.js";
 
 export { RESOLVE_DEEP_MINE_COMMAND };
 
