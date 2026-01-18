@@ -507,25 +507,6 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         </div>
       </div>
 
-      {/* Carousel pane indicator - hidden when in offer view or board view */}
-      <div className={`carousel-pane-indicator ${(handView === "offer" || handView === "board") ? "carousel-pane-indicator--hidden" : ""}`}>
-        {needsTacticSelection && (
-          <>
-            <span className={`carousel-pane-indicator__item carousel-pane-indicator__item--needs-attention ${carouselPane === "tactics" ? "carousel-pane-indicator__item--active" : ""}`}>
-              Tactics
-            </span>
-            <span className="carousel-pane-indicator__divider">|</span>
-          </>
-        )}
-        <span className={`carousel-pane-indicator__item ${carouselPane === "cards" ? "carousel-pane-indicator__item--active" : ""}`}>
-          Cards
-        </span>
-        <span className="carousel-pane-indicator__divider">|</span>
-        <span className={`carousel-pane-indicator__item ${carouselPane === "units" ? "carousel-pane-indicator__item--active" : ""}`}>
-          Units
-        </span>
-      </div>
-
       {/* Deck/Discard - fixed position outside carousel, hidden in offer/board/focus view */}
       <DeckDiscardIndicator
         deckCount={player.deckCount}
@@ -533,7 +514,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         isHidden={handView === "focus" || handView === "offer" || handView === "board"}
       />
 
-      {/* Navigation hints - contextual W/S hints */}
+      {/* Navigation hints - contextual view mode hints */}
       <NavHints currentView={handView} />
     </>
   );
