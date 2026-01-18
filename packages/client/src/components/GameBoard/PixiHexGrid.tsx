@@ -649,9 +649,11 @@ export function PixiHexGrid() {
         const bounds = calculateBounds(positions);
         const app = appRef.current;
 
+        // Calculate zoom to fit all hexes on screen with some padding
         const scaleX = app.screen.width / bounds.width;
         const scaleY = app.screen.height / bounds.height;
-        const initialZoom = Math.min(Math.max(scaleX, scaleY) * 0.9, CAMERA_MAX_ZOOM, CAMERA_MIN_ZOOM);
+        const fitZoom = Math.min(scaleX, scaleY) * 0.85; // Use min to ensure everything fits, with 15% padding
+        const initialZoom = Math.max(CAMERA_MIN_ZOOM, Math.min(fitZoom, CAMERA_MAX_ZOOM));
 
         const camera = cameraRef.current;
         camera.targetZoom = initialZoom;
