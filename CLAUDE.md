@@ -25,8 +25,9 @@ This is a pnpm monorepo implementing the Mage Knight board game with a client/se
 ### Package Dependency Graph
 
 ```
-client → shared
-server → core → shared
+client → server → core → shared
+       ↘        ↗
+         shared
 ```
 
 ### Packages
@@ -69,6 +70,15 @@ Effects are a **discriminated union** with 20+ types. Key patterns:
 - **Conditional**: `ConditionalEffect` branches on game state (time of day, terrain, in combat)
 - **Scaling**: `ScalingEffect` multiplies base effect (per enemy, per wound in hand)
 - **Multi-step**: `ManaDrawPoweredEffect`, `CardBoostEffect` require multiple resolutions
+
+**Resolution modules** (split by category):
+- `atomicEffects.ts` — GainMove, GainAttack, GainBlock, etc.
+- `compound.ts` — Compound, Conditional, Scaling
+- `choice.ts` — Choice effects
+- `manaDrawEffects.ts` — Mana draw/pull effects
+- `cardBoostResolvers.ts` — Card boost effects
+- `combatEffects.ts` — Combat targeting
+- `index.ts` — Main `resolveEffect()` dispatcher
 
 **Resolution flow**: `resolveEffect()` → may create `pendingChoice` → player sends `RESOLVE_CHOICE` action → resolution continues
 
@@ -203,10 +213,13 @@ Catches cross-package type mismatches that IDE won't see until full build.
 
 | What | Where |
 |------|-------|
-| Card definitions | `core/src/data/cards/` |
-| Effect types | `shared/src/effectTypes.ts` |
-| Effect resolution | `core/src/engine/effects/resolveEffect.ts` |
+| Basic action cards | `core/src/data/basicActions/` (by color) |
+| Advanced action cards | `core/src/data/advancedActions/` (by color/type) |
+| Spells | `core/src/data/spells.ts` |
+| Effect types | `core/src/types/effectTypes.ts` |
+| Effect resolution | `core/src/engine/effects/` (modular) |
 | Combat commands | `core/src/engine/commands/combat/` |
+| End turn phases | `core/src/engine/commands/endTurn/` |
 | Validators | `core/src/engine/validators/` |
 | Valid actions | `core/src/engine/validActions/` |
 | Site properties | `core/src/data/siteProperties.ts` |
