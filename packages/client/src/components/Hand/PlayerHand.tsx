@@ -152,11 +152,9 @@ type MenuState =
 // ready: cards peeking ~33%, ready to play
 // focus: cards large ~80%, studying hand
 type HandView = "offer" | "board" | "ready" | "focus";
-const HAND_VIEWS: HandView[] = ["offer", "board", "ready", "focus"];
 
 // Carousel axis: tactics -> cards -> units
 type CarouselPane = "tactics" | "cards" | "units";
-const CAROUSEL_PANES: CarouselPane[] = ["tactics", "cards", "units"];
 
 // Export hand view type for other components
 export type { HandView };
@@ -211,8 +209,8 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   }, [handView, onOfferViewChange]);
 
   // Keyboard controls:
-  // W/S = vertical view modes (offer/board/ready/focus)
-  // A/D = horizontal carousel (tactics/cards/units) - disabled when in offer view
+  // 1/2/3/4 = direct view mode selection (offer/board/ready/focus)
+  // Q/W/E = direct carousel pane selection (tactics/cards/units) - disabled when in offer view
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input
@@ -222,41 +220,35 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
       const key = e.key.toLowerCase();
 
-      if (key === "s") {
-        // Move toward hand (offer -> board -> ready -> focus)
-        setHandView(current => {
-          const idx = HAND_VIEWS.indexOf(current);
-          return HAND_VIEWS[Math.min(idx + 1, HAND_VIEWS.length - 1)] ?? current;
-        });
-      } else if (key === "w") {
-        // Move toward offer view (focus -> ready -> board -> offer)
-        setHandView(current => {
-          const idx = HAND_VIEWS.indexOf(current);
-          return HAND_VIEWS[Math.max(idx - 1, 0)] ?? current;
-        });
-      } else if (key === "a" || key === "d") {
-        // A/D carousel navigation - only when NOT in offer view
-        // (Offer view has its own A/D handling for Units/Spells/AAs)
+      // View mode keys: 1=offer, 2=board, 3=ready, 4=focus
+      if (key === "1") {
+        setHandView("offer");
+      } else if (key === "2") {
+        setHandView("board");
+      } else if (key === "3") {
+        setHandView("ready");
+      } else if (key === "4") {
+        setHandView("focus");
+      } else if (key === "q" || key === "w" || key === "e") {
+        // Q/W/E carousel navigation - only when NOT in offer view
+        // (Offer view has its own Q/W/E handling for Units/Spells/AAs)
         setHandView(current => {
           if (current === "offer") {
             // Don't handle carousel navigation when in offer view
             return current;
           }
 
-          if (key === "a") {
-            // Move left through panes: units -> cards -> tactics (if available)
-            setCarouselPane(pane => {
-              const idx = CAROUSEL_PANES.indexOf(pane);
-              // Don't allow navigation to tactics pane if tactic already selected
-              const minIdx = needsTacticSelection ? 0 : 1;
-              return CAROUSEL_PANES[Math.max(idx - 1, minIdx)] ?? pane;
-            });
-          } else {
-            // Move right through panes: tactics -> cards -> units
-            setCarouselPane(pane => {
-              const idx = CAROUSEL_PANES.indexOf(pane);
-              return CAROUSEL_PANES[Math.min(idx + 1, CAROUSEL_PANES.length - 1)] ?? pane;
-            });
+          if (key === "q") {
+            // Tactics pane - only if tactic selection is needed
+            if (needsTacticSelection) {
+              setCarouselPane("tactics");
+            }
+          } else if (key === "w") {
+            // Cards pane
+            setCarouselPane("cards");
+          } else if (key === "e") {
+            // Units pane
+            setCarouselPane("units");
           }
 
           return current;

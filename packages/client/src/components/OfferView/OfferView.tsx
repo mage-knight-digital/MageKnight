@@ -1,8 +1,8 @@
 /**
  * OfferView - Full-screen offer display with Inscryption-style presentation
  *
- * Activated with W from board view, dismissed with S or clicking overlay.
- * Uses A/D for carousel between Units | Spells | Advanced Actions.
+ * Activated with 1 from board view, dismissed with 2/S or clicking overlay.
+ * Uses Q/W/E for direct pane selection: Units | Spells | Advanced Actions.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -17,7 +17,6 @@ import "./OfferView.css";
 
 // Offer pane types
 export type OfferPane = "units" | "spells" | "advancedActions";
-const OFFER_PANES: OfferPane[] = ["units", "spells", "advancedActions"];
 
 export interface OfferViewProps {
   isVisible: boolean;
@@ -74,7 +73,7 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
     }
   }, [isVisible]);
 
-  // A/D keyboard navigation for panes
+  // Q/W/E keyboard navigation for panes, 2/S/Escape to close
   useEffect(() => {
     if (!isVisible) return;
 
@@ -86,20 +85,15 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
 
       const key = e.key.toLowerCase();
 
-      if (key === "a") {
-        // Move left through panes
-        setCurrentPane((current) => {
-          const idx = OFFER_PANES.indexOf(current);
-          return OFFER_PANES[Math.max(idx - 1, 0)] ?? current;
-        });
-      } else if (key === "d") {
-        // Move right through panes
-        setCurrentPane((current) => {
-          const idx = OFFER_PANES.indexOf(current);
-          return OFFER_PANES[Math.min(idx + 1, OFFER_PANES.length - 1)] ?? current;
-        });
-      } else if (key === "s" || key === "escape") {
-        // Exit offer view
+      // Direct pane selection: Q=units, W=spells, E=advancedActions
+      if (key === "q") {
+        setCurrentPane("units");
+      } else if (key === "w") {
+        setCurrentPane("spells");
+      } else if (key === "e") {
+        setCurrentPane("advancedActions");
+      } else if (key === "2" || key === "s" || key === "escape") {
+        // Exit offer view (2=board view, S=legacy close, Escape=dismiss)
         handleClose();
       }
     };
@@ -174,8 +168,8 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
 
         {/* Navigation hint */}
         <div className="offer-view__nav-hint">
-          <span>A/D to switch</span>
-          <span>S to close</span>
+          <span>Q/W/E to switch</span>
+          <span>2 to close</span>
         </div>
       </div>
     </div>

@@ -1,9 +1,9 @@
 /**
- * NavHints - Contextual navigation hints for W/S view switching
+ * NavHints - Contextual navigation hints for 1/2/3/4 view switching
  *
  * Shows pulsing hints at screen edges to help users discover navigation:
- * - Board mode: "▼ S - Hand" at bottom, "▲ W - Offers" at top
- * - Ready mode: "▲ W - Map" at top
+ * - Board mode: "1 ▲ Offers" at top, "3 ▼ Hand" at bottom
+ * - Ready mode: "2 ▲ Map" at top
  */
 
 import { useState, useEffect } from "react";
@@ -37,7 +37,7 @@ export function NavHints({ currentView, pulseDelay = 5000 }: NavHintsProps) {
     <>
       {/* Top hint */}
       <div className={`nav-hint nav-hint--top ${pulseClass}`}>
-        <span className="nav-hint__key">W</span>
+        <span className="nav-hint__key">{currentView === "board" ? "1" : "2"}</span>
         <span className="nav-hint__arrow">▲</span>
         <span className="nav-hint__label">
           {currentView === "board" ? "Offers" : "Map"}
@@ -49,7 +49,7 @@ export function NavHints({ currentView, pulseDelay = 5000 }: NavHintsProps) {
         <div className={`nav-hint nav-hint--bottom ${pulseClass}`}>
           <span className="nav-hint__label">Hand</span>
           <span className="nav-hint__arrow">▼</span>
-          <span className="nav-hint__key">S</span>
+          <span className="nav-hint__key">3</span>
         </div>
       )}
     </>
