@@ -7,6 +7,6 @@
 export { renderTiles, applyScreenShake } from "./tiles";
 export { renderEnemies } from "./enemies";
 export { renderHeroIntoContainer, getOrCreateHeroContainer } from "./hero";
-export { renderHexOverlays, type MoveHighlight, type MoveHighlightType } from "./overlays";
+export { renderHexOverlays, type MoveHighlight, type MoveHighlightType, type HexHoverEvent } from "./overlays";
 export { renderPathPreview } from "./pathPreview";
 export { renderGhostHexes, type ExploreTarget } from "./ghostHexes";

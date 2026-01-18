@@ -22,12 +22,15 @@ import type { FederatedPointerEvent } from "pixi.js";
 import { Application, Container } from "pixi.js";
 import type { HexCoord, MoveTarget, ReachableHex } from "@mage-knight/shared";
 import { MOVE_ACTION, EXPLORE_ACTION } from "@mage-knight/shared";
+import { hexKey } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro } from "../../contexts/GameIntroContext";
 import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import { useCinematic } from "../../contexts/CinematicContext";
 import type { CinematicSequence } from "../../contexts/CinematicContext";
+import { useHexHover } from "../../hooks/useHexHover";
+import { HexTooltip } from "../HexTooltip";
 
 // Pixi utilities
 import { hexToPixel, calculateBounds } from "./pixi/hexMath";
@@ -62,6 +65,7 @@ import {
   renderGhostHexes,
   type MoveHighlight,
   type ExploreTarget,
+  type HexHoverEvent,
 } from "./pixi/rendering";
 
 /**
@@ -142,6 +146,17 @@ export function PixiHexGrid() {
   const { startIntro, isIntroComplete } = useGameIntro();
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
   const { playCinematic, isInCinematic } = useCinematic();
+
+  // Tooltip hover hook
+  const {
+    hoveredHex: tooltipHoveredHex,
+    tooltipPosition,
+    isTooltipVisible,
+    handleHexMouseEnter: handleHexTooltipEnter,
+    handleHexMouseLeave: handleHexTooltipLeave,
+    handleTooltipMouseEnter,
+    handleTooltipMouseLeave,
+  } = useHexHover({ delay: 400 });
 
   // Memoized valid move targets
   const validMoveTargets = useMemo<readonly MoveTarget[]>(
@@ -257,6 +272,41 @@ export function PixiHexGrid() {
       });
     },
     [sendAction]
+  );
+
+  /**
+   * Convert world coordinates to screen coordinates
+   * Accounts for camera pan and zoom
+   */
+  const worldToScreen = useCallback(
+    (worldPos: PixelPosition): { x: number; y: number } => {
+      const app = appRef.current;
+      if (!app) {
+        return { x: 0, y: 0 };
+      }
+
+      const camera = cameraRef.current;
+      // Apply camera transform: screen = (world - center) * zoom + screenCenter
+      const screenX = (worldPos.x - camera.center.x) * camera.zoom + app.screen.width / 2;
+      const screenY = (worldPos.y - camera.center.y) * camera.zoom + app.screen.height / 2;
+
+      return { x: screenX, y: screenY };
+    },
+    []
+  );
+
+  /**
+   * Handle tooltip hover events from hex overlays
+   */
+  const handleHexHoverWithPos = useCallback(
+    (event: HexHoverEvent | null) => {
+      if (event) {
+        handleHexTooltipEnter(event.coord, event.screenPos);
+      } else {
+        handleHexTooltipLeave();
+      }
+    },
+    [handleHexTooltipEnter, handleHexTooltipLeave]
   );
 
   // Camera helper to center and apply
@@ -665,7 +715,9 @@ export function PixiHexGrid() {
       getMoveHighlight,
       hoveredHex,
       handleHexClick,
-      setHoveredHex
+      setHoveredHex,
+      worldToScreen,
+      handleHexHoverWithPos
     );
 
     renderGhostHexes(layers, exploreTargets, handleExploreClick);
@@ -681,19 +733,36 @@ export function PixiHexGrid() {
     handleHexClick,
     handleExploreClick,
     exploreTargets,
+    worldToScreen,
+    handleHexHoverWithPos,
   ]);
 
+  // Get hex data for tooltip
+  const tooltipHex = tooltipHoveredHex && state
+    ? state.map.hexes[hexKey(tooltipHoveredHex)] ?? null
+    : null;
+
   return (
-    <div
-      ref={containerRef}
-      className="hex-grid"
-      style={{
-        width: "100%",
-        height: "100%",
-        overflow: "hidden",
-      }}
-      tabIndex={0}
-      data-testid="pixi-hex-grid"
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="hex-grid"
+        style={{
+          width: "100%",
+          height: "100%",
+          overflow: "hidden",
+        }}
+        tabIndex={0}
+        data-testid="pixi-hex-grid"
+      />
+      <HexTooltip
+        hex={tooltipHex}
+        coord={tooltipHoveredHex}
+        position={tooltipPosition}
+        isVisible={isTooltipVisible && isIntroComplete}
+        onMouseEnter={handleTooltipMouseEnter}
+        onMouseLeave={handleTooltipMouseLeave}
+      />
+    </>
   );
 }
