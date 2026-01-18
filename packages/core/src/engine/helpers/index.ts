@@ -39,5 +39,5 @@ export type {
   DrawEnemiesForHexResult,
 } from "./enemyHelpers.js";
 
-export { grantSiteReward, queueSiteReward } from "./rewardHelpers.js";
-export type { RewardResult } from "./rewardHelpers.js";
+export { grantSiteReward, queueSiteReward } from "./rewards/index.js";
+export type { RewardResult } from "./rewards/index.js";

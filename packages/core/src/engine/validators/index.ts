@@ -77,7 +77,7 @@ import {
   validateManaDungeonTombRules,
   validateSpellManaRequirement,
   validateSpellBasicManaRequirement,
-} from "./manaValidators.js";
+} from "./mana/index.js";
 
 // Sideways play validators
 import {
@@ -133,7 +133,7 @@ import {
   validateSiegeRequirement,
   validateCombatRequiredForAbility,
   validateUnitsAllowedInCombat,
-} from "./unitValidators.js";
+} from "./units/index.js";
 
 // Interact validators
 import {

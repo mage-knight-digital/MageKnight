@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { validateManaAvailable } from "../validators/manaValidators.js";
+import { validateManaAvailable } from "../validators/mana/index.js";
 import { addModifier } from "../modifiers.js";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import type { ManaSource, SourceDie } from "../../state/GameState.js";
