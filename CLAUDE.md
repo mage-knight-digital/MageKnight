@@ -25,10 +25,11 @@ This is a pnpm monorepo implementing the Mage Knight board game with a client/se
 ### Package Dependency Graph
 
 ```
-client → server → core → shared
-       ↘        ↗
-         shared
+client → shared
+server → core → shared
 ```
+
+Note: Client currently embeds server for local single-player mode, but the architectural boundary is `client → shared` only.
 
 ### Packages
 
