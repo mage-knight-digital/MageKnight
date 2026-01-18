@@ -77,7 +77,7 @@ export interface HexHoverEvent {
  * @param hoveredHex - Currently hovered hex (null if none)
  * @param onHexClick - Callback when hex is clicked
  * @param onHexHover - Callback when hex hover state changes
- * @param worldToScreen - Optional function to convert world coords to screen coords (for tooltips)
+ * @param onHexHoverWithPos - Optional callback with screen position for tooltips
  */
 export function renderHexOverlays(
   layers: WorldLayers,
@@ -86,7 +86,6 @@ export function renderHexOverlays(
   hoveredHex: HexCoord | null,
   onHexClick: (coord: HexCoord) => void,
   onHexHover: (coord: HexCoord | null) => void,
-  worldToScreen?: (worldPos: PixelPosition) => { x: number; y: number },
   onHexHoverWithPos?: (event: HexHoverEvent | null) => void
 ): void {
   layers.hexOverlays.removeChildren();
@@ -124,12 +123,12 @@ export function renderHexOverlays(
 
     // Store coord for event handlers
     const coord = hex.coord;
-    const worldPos = { x, y };
     graphics.on("pointerdown", () => onHexClick(coord));
-    graphics.on("pointerenter", () => {
+    graphics.on("pointerenter", (event) => {
       onHexHover(coord);
-      if (worldToScreen && onHexHoverWithPos) {
-        const screenPos = worldToScreen(worldPos);
+      if (onHexHoverWithPos) {
+        // Use actual cursor position for tooltip positioning
+        const screenPos = { x: event.globalX, y: event.globalY };
         onHexHoverWithPos({ coord, screenPos });
       }
     });

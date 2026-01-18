@@ -275,27 +275,6 @@ export function PixiHexGrid() {
   );
 
   /**
-   * Convert world coordinates to screen coordinates
-   * Accounts for camera pan and zoom
-   */
-  const worldToScreen = useCallback(
-    (worldPos: PixelPosition): { x: number; y: number } => {
-      const app = appRef.current;
-      if (!app) {
-        return { x: 0, y: 0 };
-      }
-
-      const camera = cameraRef.current;
-      // Apply camera transform: screen = (world - center) * zoom + screenCenter
-      const screenX = (worldPos.x - camera.center.x) * camera.zoom + app.screen.width / 2;
-      const screenY = (worldPos.y - camera.center.y) * camera.zoom + app.screen.height / 2;
-
-      return { x: screenX, y: screenY };
-    },
-    []
-  );
-
-  /**
    * Handle tooltip hover events from hex overlays
    */
   const handleHexHoverWithPos = useCallback(
@@ -716,7 +695,6 @@ export function PixiHexGrid() {
       hoveredHex,
       handleHexClick,
       setHoveredHex,
-      worldToScreen,
       handleHexHoverWithPos
     );
 
@@ -733,7 +711,6 @@ export function PixiHexGrid() {
     handleHexClick,
     handleExploreClick,
     exploreTargets,
-    worldToScreen,
     handleHexHoverWithPos,
   ]);
 
