@@ -86,8 +86,13 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
         return;
       }
 
+      // If tooltip is visible and we're in the grace period (close timer running),
+      // don't switch to new hex - let user reach the tooltip first
+      if (closeTimerRef.current !== null) {
+        return;
+      }
+
       clearDelayTimer();
-      clearCloseTimer();
       currentHexRef.current = coord;
       setHoveredHex(coord);
       setTooltipPosition(screenPos);
