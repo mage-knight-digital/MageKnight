@@ -5,7 +5,7 @@
  */
 
 export { renderTiles, renderStaticTileOutlines, applyScreenShake, type RenderTilesResult } from "./tiles";
-export { renderEnemies } from "./enemies";
+export { renderEnemies, animateEnemyFlips, type EnemyFlipTarget } from "./enemies";
 export { renderHeroIntoContainer, getOrCreateHeroContainer } from "./hero";
 export { renderHexOverlays, type MoveHighlight, type MoveHighlightType, type HexHoverEvent } from "./overlays";
 export { renderPathPreview } from "./pathPreview";

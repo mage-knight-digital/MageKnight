@@ -61,6 +61,7 @@ import {
   renderTiles,
   renderStaticTileOutlines,
   renderEnemies,
+  animateEnemyFlips,
   renderHeroIntoContainer,
   getOrCreateHeroContainer,
   renderHexOverlays,
@@ -72,6 +73,7 @@ import {
   type MoveHighlight,
   type ExploreTarget,
   type HexHoverEvent,
+  type EnemyFlipTarget,
 } from "./pixi/rendering";
 import { preloadIntroAssets } from "./pixi/preloadIntroAssets";
 import { TILE_HEX_OFFSETS } from "@mage-knight/shared";
@@ -153,6 +155,10 @@ export function PixiHexGrid() {
   const introPlayedRef = useRef(false);
   const prevTileCountRef = useRef(0);
   const knownTileIdsRef = useRef<Set<string>>(new Set());
+  const revealedEnemyTokenIdsRef = useRef<Set<string>>(new Set());
+  const pendingFlipTokenIdsRef = useRef<Set<string>>(new Set());
+  const pendingFlipTargetsRef = useRef<EnemyFlipTarget[]>([]);
+  const flipAnimationInProgressRef = useRef(false);
 
   // Track hexes being revealed (during exploration animation)
   // These hexes should not show movement overlays until animation completes
@@ -676,6 +682,73 @@ export function PixiHexGrid() {
       playCinematic(explorationCinematic);
     }
 
+    // Detect newly revealed enemies (for enemy reveal cinematic)
+    // This happens when moving adjacent to fortified sites during the day
+    // Skip if we're in an exploration cinematic (those enemies get animated differently)
+    const currentRevealedEnemyIds = new Set<string>();
+    const enemyInfoByTokenId = new Map<string, { hexCoord: { q: number; r: number }; color: string; indexInHex: number; totalInHex: number }>();
+
+    for (const hex of Object.values(state.map.hexes)) {
+      for (let i = 0; i < hex.enemies.length; i++) {
+        const enemy = hex.enemies[i];
+        if (enemy?.isRevealed && enemy.tokenId) {
+          currentRevealedEnemyIds.add(enemy.tokenId);
+          enemyInfoByTokenId.set(enemy.tokenId, {
+            hexCoord: hex.coord,
+            color: enemy.color,
+            indexInHex: i,
+            totalInHex: hex.enemies.length,
+          });
+        }
+      }
+    }
+
+    // Find newly revealed enemies (not in our previous set)
+    const newlyRevealedTokenIds: string[] = [];
+    for (const tokenId of currentRevealedEnemyIds) {
+      if (!revealedEnemyTokenIdsRef.current.has(tokenId)) {
+        newlyRevealedTokenIds.push(tokenId);
+      }
+    }
+
+    // Update the ref for next render
+    revealedEnemyTokenIdsRef.current = currentRevealedEnemyIds;
+
+    // Trigger enemy reveal cinematic if:
+    // 1. There are newly revealed enemies
+    // 2. Not during exploration (exploration handles its own enemy animations)
+    // 3. Not already in a cinematic
+    // 4. Not the first load (intro handles enemy animation)
+    const shouldPlayEnemyReveal =
+      newlyRevealedTokenIds.length > 0 &&
+      !isExploration &&
+      !isInCinematic &&
+      !isFirstLoad &&
+      animManager &&
+      particleManager;
+
+    if (shouldPlayEnemyReveal) {
+      console.log("[PixiHexGrid] Scheduling enemy reveal for:", newlyRevealedTokenIds);
+
+      // Mark these tokens as pending flip so renderEnemies shows them as unrevealed
+      pendingFlipTokenIdsRef.current = new Set(newlyRevealedTokenIds);
+
+      // Build flip targets with position info (will be used after render completes)
+      pendingFlipTargetsRef.current = newlyRevealedTokenIds
+        .map(tokenId => {
+          const info = enemyInfoByTokenId.get(tokenId);
+          if (!info) return null;
+          return {
+            tokenId,
+            hexCoord: info.hexCoord,
+            color: info.color,
+            indexInHex: info.indexInHex,
+            totalInHex: info.totalInHex,
+          };
+        })
+        .filter((t): t is EnemyFlipTarget => t !== null);
+    }
+
     // Async rendering
     const renderAsync = async () => {
       const renderStart = performance.now();
@@ -849,7 +922,7 @@ export function PixiHexGrid() {
 
         // Render enemies (for exploration, handled in onRevealComplete callback above)
         const t_enemies = performance.now();
-        if (!isExploration) {
+        if (!isExploration && !flipAnimationInProgressRef.current) {
           await renderEnemies(
             layers,
             state.map.hexes,
@@ -860,8 +933,37 @@ export function PixiHexGrid() {
             () => {
               emitAnimationEvent("enemies-complete");
               console.log("[PixiHexGrid] Enemy intro complete");
-            }
+            },
+            undefined, // onlyAnimateHexKeys
+            pendingFlipTokenIdsRef.current // Render pending flips as unrevealed
           );
+
+          // Trigger flip animation for any pending reveals (after enemies are rendered)
+          if (pendingFlipTargetsRef.current.length > 0 && animManager && particleManager) {
+            const flipTargets = pendingFlipTargetsRef.current;
+            pendingFlipTargetsRef.current = []; // Clear immediately to prevent double-triggering
+            flipAnimationInProgressRef.current = true;
+
+            console.log("[PixiHexGrid] Starting enemy flip animation for:", flipTargets.map(t => t.tokenId));
+
+            // Delay flip to let hero movement start/complete
+            const FLIP_DELAY_AFTER_MOVE = HERO_MOVE_DURATION_MS + 100;
+            setTimeout(() => {
+              animateEnemyFlips(
+                layers,
+                flipTargets,
+                animManager,
+                particleManager,
+                0,
+                () => {
+                  // Clear pending flip tokens when animation completes
+                  pendingFlipTokenIdsRef.current = new Set();
+                  flipAnimationInProgressRef.current = false;
+                  console.log("[PixiHexGrid] Enemy flip animation complete");
+                }
+              );
+            }, FLIP_DELAY_AFTER_MOVE);
+          }
         }
         console.log(`[renderAsync] renderEnemies: ${(performance.now() - t_enemies).toFixed(1)}ms`);
 

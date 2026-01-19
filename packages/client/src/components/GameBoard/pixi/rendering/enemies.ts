@@ -21,7 +21,7 @@ import { hexToPixel, getEnemyOffset } from "../hexMath";
 import type { WorldLayers, PixelPosition } from "../types";
 import { ENEMY_TOKEN_SIZE } from "../types";
 import type { AnimationManager } from "../animations";
-import { Easing, ENEMY_FLIP_STAGGER_MS } from "../animations";
+import { Easing, ENEMY_FLIP_STAGGER_MS, ENEMY_FLIP_DURATION_MS } from "../animations";
 import type { ParticleManager } from "../particles";
 import { CircleShadow } from "../particles";
 
@@ -131,6 +131,7 @@ function animateEnemyDrop(
  * @param initialDelayMs - Delay before starting animations (for sequencing after tiles)
  * @param onIntroComplete - Callback when intro animation finishes
  * @param onlyAnimateHexKeys - If provided, only animate enemies on these hexes (others render static)
+ * @param pendingFlipTokenIds - Token IDs that should render as unrevealed (back) even if state says revealed
  */
 export async function renderEnemies(
   layers: WorldLayers,
@@ -140,7 +141,8 @@ export async function renderEnemies(
   playIntro: boolean,
   initialDelayMs: number = 0,
   onIntroComplete?: () => void,
-  onlyAnimateHexKeys?: Set<string>
+  onlyAnimateHexKeys?: Set<string>,
+  pendingFlipTokenIds?: Set<string>
 ): Promise<void> {
   layers.enemies.removeChildren();
 
@@ -161,8 +163,12 @@ export async function renderEnemies(
       const offset = getEnemyOffset(i, hex.enemies.length, ENEMY_TOKEN_SIZE);
       const enemyPos = { x: hexCenter.x + offset.x, y: hexCenter.y + offset.y };
 
+      // Check if this enemy should show as unrevealed (for pending flip animation)
+      const isPendingFlip = pendingFlipTokenIds?.has(enemy.tokenId ?? "");
+      const shouldShowRevealed = enemy.isRevealed && enemy.tokenId && !isPendingFlip;
+
       let imageUrl: string;
-      if (enemy.isRevealed && enemy.tokenId) {
+      if (shouldShowRevealed && enemy.tokenId) {
         const enemyId = tokenIdToEnemyId(enemy.tokenId);
         imageUrl = getEnemyImageUrl(enemyId);
       } else {
@@ -228,5 +234,164 @@ export async function renderEnemies(
   } else if (playIntro && enemyData.length === 0 && onIntroComplete) {
     // No enemies to animate but intro was requested - call complete after initial delay
     setTimeout(onIntroComplete, initialDelayMs);
+  }
+}
+
+/**
+ * Data needed to flip an enemy token from unrevealed to revealed
+ */
+export interface EnemyFlipTarget {
+  /** The token ID (e.g., "orc_1") */
+  tokenId: string;
+  /** The hex coordinate where the enemy is located */
+  hexCoord: { q: number; r: number };
+  /** The enemy's color for finding the back texture */
+  color: string;
+  /** Index of the enemy within the hex (for positioning) */
+  indexInHex: number;
+  /** Total enemies in the hex (for positioning) */
+  totalInHex: number;
+}
+
+/**
+ * Animate enemy tokens flipping from unrevealed (back) to revealed (front).
+ *
+ * Creates a card-flip effect by scaling X from 1 → 0 → 1 while swapping
+ * the texture at the midpoint.
+ *
+ * @param layers - World layer containers
+ * @param targets - Enemy flip targets with position and texture info
+ * @param animManager - Animation manager for tweening
+ * @param particleManager - Particle manager for effects
+ * @param initialDelayMs - Delay before starting (for sequencing after hero move)
+ * @param onComplete - Callback when all flips finish
+ */
+export async function animateEnemyFlips(
+  layers: WorldLayers,
+  targets: EnemyFlipTarget[],
+  animManager: AnimationManager,
+  particleManager: ParticleManager,
+  initialDelayMs: number = 0,
+  onComplete?: () => void
+): Promise<void> {
+  if (targets.length === 0) {
+    onComplete?.();
+    return;
+  }
+
+  // Find existing enemy containers by label and animate them
+  let completedCount = 0;
+  const totalToAnimate = targets.length;
+
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    if (!target) continue;
+
+    const containerLabel = `enemy-${hexKey(target.hexCoord)}-${target.indexInHex}`;
+    const container = layers.enemies.children.find(
+      (child) => child.label === containerLabel
+    ) as Container | undefined;
+
+    if (!container) {
+      console.warn(`[animateEnemyFlips] Could not find container: ${containerLabel}`);
+      completedCount++;
+      if (completedCount === totalToAnimate) {
+        onComplete?.();
+      }
+      continue;
+    }
+
+    // Get the sprite (second child after mask)
+    const sprite = container.children[1] as Sprite | undefined;
+    if (!sprite) {
+      console.warn(`[animateEnemyFlips] No sprite in container: ${containerLabel}`);
+      completedCount++;
+      if (completedCount === totalToAnimate) {
+        onComplete?.();
+      }
+      continue;
+    }
+
+    // Load the revealed texture
+    const enemyId = tokenIdToEnemyId(target.tokenId);
+    const revealedUrl = getEnemyImageUrl(enemyId);
+
+    // Stagger the flips
+    const jitter = (Math.random() - 0.5) * 50;
+    const delay = initialDelayMs + i * ENEMY_FLIP_STAGGER_MS + jitter;
+    const isLast = i === targets.length - 1;
+
+    setTimeout(async () => {
+      try {
+        console.log(`[animateEnemyFlips] Loading texture for ${target.tokenId}: ${revealedUrl}`);
+        const revealedTexture = await loadTexture(revealedUrl);
+        console.log(`[animateEnemyFlips] Texture loaded, width=${revealedTexture.width}, height=${revealedTexture.height}`);
+        const halfDuration = ENEMY_FLIP_DURATION_MS / 2;
+
+        // First half: scale X from 1 to 0 (flip away)
+        animManager.animate(`enemy-flip-out-${i}`, container, {
+          duration: halfDuration,
+          easing: Easing.easeInQuad,
+          onUpdate: (progress) => {
+            container.scale.x = 1 - progress;
+          },
+          onComplete: () => {
+            // Swap texture at midpoint
+            console.log(`[animateEnemyFlips] Swapping texture for ${target.tokenId}, sprite exists=${!!sprite}, sprite.parent=${sprite.parent?.label}, container.parent=${container.parent?.label}`);
+
+            // Guard: if container was destroyed/removed, abort
+            if (!container.parent) {
+              console.warn(`[animateEnemyFlips] Container was destroyed before texture swap for ${target.tokenId}`);
+              completedCount++;
+              if (completedCount === totalToAnimate) {
+                onComplete?.();
+              }
+              return;
+            }
+
+            sprite.texture = revealedTexture;
+            // Reset sprite dimensions after texture swap (texture change can affect size)
+            sprite.width = ENEMY_TOKEN_SIZE;
+            sprite.height = ENEMY_TOKEN_SIZE;
+            console.log(`[animateEnemyFlips] Texture swapped, sprite: width=${sprite.width}, height=${sprite.height}, visible=${sprite.visible}, alpha=${sprite.alpha}, scale=(${sprite.scale.x}, ${sprite.scale.y}), container.scale=(${container.scale.x}, ${container.scale.y}), container.alpha=${container.alpha}`);
+
+            // Second half: scale X from 0 to 1 (flip back)
+            console.log(`[animateEnemyFlips] Starting flip-in animation for ${target.tokenId}, duration=${halfDuration}`);
+            animManager.animate(`enemy-flip-in-${i}`, container, {
+              duration: halfDuration,
+              easing: Easing.easeOutQuad,
+              onUpdate: (progress) => {
+                container.scale.x = progress;
+              },
+              onComplete: () => {
+                console.log(`[animateEnemyFlips] Flip-in complete for ${target.tokenId}, container.scale.x=${container.scale.x}, children=${container.children.length}, sprite.texture.width=${sprite.texture.width}`);
+                container.scale.x = 1;
+                // Debug: log all children
+                container.children.forEach((child, idx) => {
+                  console.log(`  child[${idx}]: label=${child.label}, visible=${child.visible}, alpha=${child.alpha}`);
+                });
+
+                // Small dust puff on reveal
+                const hexCenter = hexToPixel(target.hexCoord);
+                const offset = getEnemyOffset(target.indexInHex, target.totalInHex, ENEMY_TOKEN_SIZE);
+                const enemyPos = { x: hexCenter.x + offset.x, y: hexCenter.y + offset.y };
+                particleManager.miniDustBurst(layers.particles, enemyPos, ENEMY_TOKEN_SIZE / 2);
+
+                completedCount++;
+                if (completedCount === totalToAnimate && isLast) {
+                  onComplete?.();
+                }
+              },
+            });
+          },
+        });
+      } catch (error) {
+        console.error(`[animateEnemyFlips] Failed to load texture: ${revealedUrl}`, error);
+        completedCount++;
+        if (completedCount === totalToAnimate) {
+          onComplete?.();
+        }
+      }
+    }, delay);
   }
 }

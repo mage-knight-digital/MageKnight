@@ -42,16 +42,6 @@ export const AMBIENT_TRACKS: AmbientTrack[] = [
   { id: "nature_fields_09", label: "Fields 09", category: "nature", src: "/assets/music/nature_fields_09.wav" },
   { id: "nature_fields_10", label: "Fields 10", category: "nature", src: "/assets/music/nature_fields_10.wav" },
   { id: "nature_fields_11", label: "Fields 11", category: "nature", src: "/assets/music/nature_fields_11.wav" },
-  { id: "nature_morocco_01", label: "Morocco 01", category: "nature", src: "/assets/music/nature_morocco_01.wav" },
-  { id: "nature_morocco_02", label: "Morocco 02", category: "nature", src: "/assets/music/nature_morocco_02.wav" },
-  { id: "nature_morocco_03", label: "Morocco 03", category: "nature", src: "/assets/music/nature_morocco_03.wav" },
-  { id: "nature_morocco_04", label: "Morocco 04", category: "nature", src: "/assets/music/nature_morocco_04.wav" },
-  { id: "nature_morocco_05", label: "Morocco 05", category: "nature", src: "/assets/music/nature_morocco_05.wav" },
-  { id: "nature_morocco_06", label: "Morocco 06", category: "nature", src: "/assets/music/nature_morocco_06.wav" },
-  { id: "nature_morocco_07", label: "Morocco 07", category: "nature", src: "/assets/music/nature_morocco_07.wav" },
-  { id: "nature_morocco_08", label: "Morocco 08", category: "nature", src: "/assets/music/nature_morocco_08.wav" },
-  { id: "nature_morocco_09", label: "Morocco 09", category: "nature", src: "/assets/music/nature_morocco_09.wav" },
-  { id: "nature_morocco_10", label: "Morocco 10", category: "nature", src: "/assets/music/nature_morocco_10.wav" },
 ];
 
 export type TrackCategory = AmbientTrack["category"];

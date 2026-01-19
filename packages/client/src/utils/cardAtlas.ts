@@ -114,51 +114,23 @@ export interface SpriteData {
 }
 
 /**
- * Preload and decode an atlas image so it's ready for rendering.
+ * Preload an atlas image into browser cache.
  *
- * Uses createImageBitmap() for off-main-thread decoding which handles large images
- * better than Image.decode().
- *
- * Note: This only handles DECODING, not GPU texture upload. GPU upload for DOM images
- * happens when they're first composited/painted. The SpriteSheetPrimer component
- * handles forcing GPU upload by rendering images early.
- *
- * @see https://developer.mozilla.org/en-US/docs/Web/API/Window/createImageBitmap
+ * Note: This only handles browser HTTP cache. GPU texture upload is handled
+ * separately by PixiJS Assets.load() in preloadAllSpriteSheets().
  */
 async function preloadImage(file: string): Promise<void> {
   const url = `/assets/${file}`;
 
   try {
-    // Fetch the image as a blob
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch: ${response.status}`);
-    }
-    const blob = await response.blob();
-
-    // Use createImageBitmap for off-main-thread decoding
-    const bitmap = await createImageBitmap(blob);
-
-    // Create an HTMLImageElement for CSS background-image usage
     const img = new Image();
-    const blobUrl = URL.createObjectURL(blob);
-
     await new Promise<void>((resolve, reject) => {
-      img.onload = () => {
-        URL.revokeObjectURL(blobUrl);
-        resolve();
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(blobUrl);
-        reject(new Error(`Failed to load image from blob`));
-      };
-      img.src = blobUrl;
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error(`Failed to load: ${url}`));
+      img.src = url;
     });
 
     preloadedImages.set(file, img);
-
-    // Close the bitmap to free memory
-    bitmap.close();
   } catch (error) {
     console.warn(`Failed to preload atlas image: ${file}`, error);
   }
@@ -413,18 +385,18 @@ export async function loadAtlas(): Promise<void> {
   // Store the atlas data for sprite info lookups
   storedAtlasData = atlasData;
 
-  // Preload all atlas images in parallel so they're decoded and ready for GPU
-  // This prevents lag when cards first become visible
+  // Preload all atlas images in parallel so they're decoded and ready
+  // IMPORTANT: We WAIT for all images to load before marking atlas as ready.
+  // This prevents the "card div visible but image missing" pop-in effect.
   const sheetFiles = Object.values(rawData.sheets).map((sheet) => sheet.file);
   const uniqueFiles = [...new Set(sheetFiles)];
 
-  // Fire off all preloads but don't block on them - they'll be ready by the time
-  // the user sees the offer view (happens after intro animation)
-  Promise.all(uniqueFiles.map(preloadImage)).then(() => {
-    console.log(`Atlas: Preloaded ${uniqueFiles.length} sprite sheets`);
-  });
+  const startTime = performance.now();
+  await Promise.all(uniqueFiles.map(preloadImage));
+  const elapsed = performance.now() - startTime;
+  console.log(`Atlas: Preloaded ${uniqueFiles.length} sprite sheets in ${elapsed.toFixed(0)}ms`);
 
-  // Mark as loaded
+  // Mark as loaded only AFTER all images are ready
   atlasLoaded = true;
 }
 

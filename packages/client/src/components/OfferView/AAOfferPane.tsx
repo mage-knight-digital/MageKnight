@@ -4,6 +4,8 @@
  * Shows two sections:
  * 1. Regular AAs - available during level-up reward selection
  * 2. Monastery AAs - purchasable at monasteries for 6 influence
+ *
+ * Uses PixiJS for card rendering to eliminate image decode jank.
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -15,10 +17,19 @@ import {
   SITE_REWARD_ADVANCED_ACTION,
   type CardId,
 } from "@mage-knight/shared";
-import { OfferCard } from "./OfferCard";
+import { PixiOfferCards, type CardInfo } from "./PixiOfferCards";
 
 // Cost to buy an AA at a Monastery
 const MONASTERY_AA_COST = 6;
+
+// Calculate card height based on viewport (matches CSS clamp logic)
+function calculateCardHeight(): number {
+  const vh = window.innerHeight;
+  const preferred = vh * 0.45; // 45vh
+  const min = 280;
+  const max = 600;
+  return Math.min(Math.max(preferred, min), max);
+}
 
 /**
  * Check if player is at a non-burned Monastery
@@ -39,12 +50,13 @@ function isAtMonastery(
 export function AAOfferPane() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
-  const [shouldAnimate, setShouldAnimate] = useState(true);
+  const [cardHeight, setCardHeight] = useState(calculateCardHeight);
 
-  // Disable animation after initial render
+  // Update card height on resize
   useEffect(() => {
-    const timer = setTimeout(() => setShouldAnimate(false), 600);
-    return () => clearTimeout(timer);
+    const updateHeight = () => setCardHeight(calculateCardHeight());
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
   // Check if player has a pending AA reward (from level-up)
@@ -89,50 +101,60 @@ export function AAOfferPane() {
     [sendAction]
   );
 
+  // Convert regular AA offer to CardInfo array
+  const regularAACards: CardInfo[] = useMemo(() => {
+    if (!state) return [];
+
+    return state.offers.advancedActions.cards.map((aaId) => {
+      let canAcquire = false;
+      let acquireLabel: string | undefined = "Level-up only";
+      let onAcquire: (() => void) | undefined;
+
+      // If pending AA reward, can select for free
+      if (pendingAAReward) {
+        canAcquire = true;
+        acquireLabel = "Select";
+        onAcquire = () => handleSelectAAReward(aaId, pendingAAReward.index);
+      }
+
+      return {
+        id: aaId,
+        canAcquire,
+        acquireLabel,
+        onAcquire,
+      };
+    });
+  }, [state?.offers.advancedActions.cards, pendingAAReward, handleSelectAAReward]);
+
+  // Convert monastery AA offer to CardInfo array
+  const monasteryAACards: CardInfo[] = useMemo(() => {
+    if (!state) return [];
+
+    return state.offers.monasteryAdvancedActions.map((aaId) => {
+      let canAcquire = false;
+      let acquireLabel: string | undefined = "Monastery only";
+      let onAcquire: (() => void) | undefined;
+
+      if (canBuyFromMonastery) {
+        const canAfford = playerInfluence >= MONASTERY_AA_COST;
+        canAcquire = canAfford;
+        acquireLabel = canAfford ? `Buy (${MONASTERY_AA_COST})` : `Need ${MONASTERY_AA_COST}`;
+        onAcquire = () => handleBuyMonasteryAA(aaId);
+      }
+
+      return {
+        id: aaId,
+        canAcquire,
+        acquireLabel,
+        onAcquire,
+      };
+    });
+  }, [state?.offers.monasteryAdvancedActions, canBuyFromMonastery, playerInfluence, handleBuyMonasteryAA]);
+
   if (!state) return <div className="offer-pane__empty">Loading...</div>;
 
-  const aaOffer = state.offers.advancedActions.cards;
-  const monasteryAAOffer = state.offers.monasteryAdvancedActions;
-
-  // Determine acquire ability for regular AAs
-  const getRegularAAInfo = (cardId: CardId) => {
-    // If pending AA reward, can select for free
-    if (pendingAAReward) {
-      return {
-        canAcquire: true,
-        label: "Select",
-        onAcquire: () => handleSelectAAReward(cardId, pendingAAReward.index),
-      };
-    }
-
-    // Regular AAs can only be acquired through level-up
-    return {
-      canAcquire: false,
-      label: "Level-up only",
-      onAcquire: undefined,
-    };
-  };
-
-  // Determine acquire ability for monastery AAs
-  const getMonasteryAAInfo = (cardId: CardId) => {
-    if (canBuyFromMonastery) {
-      const canAfford = playerInfluence >= MONASTERY_AA_COST;
-      return {
-        canAcquire: canAfford,
-        label: canAfford ? `Buy (${MONASTERY_AA_COST})` : `Need ${MONASTERY_AA_COST}`,
-        onAcquire: () => handleBuyMonasteryAA(cardId),
-      };
-    }
-
-    return {
-      canAcquire: false,
-      label: "Monastery only",
-      onAcquire: undefined,
-    };
-  };
-
-  const hasRegularAAs = aaOffer.length > 0;
-  const hasMonasteryAAs = monasteryAAOffer.length > 0;
+  const hasRegularAAs = regularAACards.length > 0;
+  const hasMonasteryAAs = monasteryAACards.length > 0;
 
   if (!hasRegularAAs && !hasMonasteryAAs) {
     return (
@@ -154,28 +176,7 @@ export function AAOfferPane() {
       {hasRegularAAs && (
         <div className="offer-pane__section">
           <div className="offer-pane__section-title">Advanced Actions</div>
-          <div className="offer-pane__cards">
-            {aaOffer.map((aaId, index) => {
-              const acquireInfo = getRegularAAInfo(aaId);
-
-              return (
-                <OfferCard
-                  key={`aa-${aaId}-${index}`}
-                  type="aa"
-                  index={index}
-                  cardId={aaId}
-                  canAcquire={acquireInfo.canAcquire}
-                  acquireLabel={acquireInfo.label}
-                  onAcquire={acquireInfo.onAcquire}
-                  shouldAnimate={shouldAnimate}
-                >
-                  <div className="offer-card__card-name">
-                    <span className="offer-card__aa-name">{aaId}</span>
-                  </div>
-                </OfferCard>
-              );
-            })}
-          </div>
+          <PixiOfferCards cards={regularAACards} cardHeight={cardHeight} type="aa" />
         </div>
       )}
 
@@ -183,28 +184,7 @@ export function AAOfferPane() {
       {hasMonasteryAAs && (
         <div className="offer-pane__section">
           <div className="offer-pane__section-title">Monastery Advanced Actions</div>
-          <div className="offer-pane__cards">
-            {monasteryAAOffer.map((aaId, index) => {
-              const acquireInfo = getMonasteryAAInfo(aaId);
-
-              return (
-                <OfferCard
-                  key={`monastery-${aaId}-${index}`}
-                  type="aa"
-                  index={index + aaOffer.length}
-                  cardId={aaId}
-                  canAcquire={acquireInfo.canAcquire}
-                  acquireLabel={acquireInfo.label}
-                  onAcquire={acquireInfo.onAcquire}
-                  shouldAnimate={shouldAnimate}
-                >
-                  <div className="offer-card__card-name">
-                    <span className="offer-card__aa-name">{aaId}</span>
-                  </div>
-                </OfferCard>
-              );
-            })}
-          </div>
+          <PixiOfferCards cards={monasteryAACards} cardHeight={cardHeight} type="aa" />
         </div>
       )}
 

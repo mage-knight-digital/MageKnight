@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { loadAtlas } from "./utils/cardAtlas";
+import { preloadAllSpriteSheets } from "./components/PixiCard/PixiCardCanvas";
 import "./styles/index.css";
 
 // DEBUG: Instrument requestAnimationFrame to catch slow frames
@@ -22,11 +23,14 @@ if (!rootElement) {
   throw new Error("Root element not found");
 }
 
-// Load atlas early so sprites are ready for all components
-loadAtlas();
-
-createRoot(rootElement).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-);
+// Preload all assets before rendering:
+// 1. loadAtlas() - loads atlas.json and precomputes sprite styles
+// 2. preloadAllSpriteSheets() - uses PixiJS Assets.load() to upload textures to GPU
+// PixiJS properly handles GPU texture upload, unlike DOM/CSS approaches.
+Promise.all([loadAtlas(), preloadAllSpriteSheets()]).then(() => {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <App />
+    </StrictMode>
+  );
+});

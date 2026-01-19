@@ -3,6 +3,8 @@
  *
  * Shows spells available for purchase at Mage Towers.
  * Also handles spell rewards from site conquest.
+ *
+ * Uses PixiJS for card rendering to eliminate image decode jank.
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -14,9 +16,7 @@ import {
   SITE_REWARD_SPELL,
   type CardId,
 } from "@mage-knight/shared";
-import { getCardSpriteData, isAtlasLoaded } from "../../utils/cardAtlas";
-import { SpriteImage } from "../SpriteImage/SpriteImage";
-import { OfferCard } from "./OfferCard";
+import { PixiOfferCards, type CardInfo } from "./PixiOfferCards";
 
 // Cost to buy a spell at a Mage Tower
 const SPELL_PURCHASE_COST = 7;
@@ -50,19 +50,12 @@ export function SpellOfferPane() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const [cardHeight, setCardHeight] = useState(calculateCardHeight);
-  const [shouldAnimate, setShouldAnimate] = useState(true);
 
   // Update card height on resize
   useEffect(() => {
     const updateHeight = () => setCardHeight(calculateCardHeight());
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
-  }, []);
-
-  // Disable animation after initial render
-  useEffect(() => {
-    const timer = setTimeout(() => setShouldAnimate(false), 600);
-    return () => clearTimeout(timer);
   }, []);
 
   // Check if player has a pending spell reward
@@ -104,46 +97,48 @@ export function SpellOfferPane() {
     [sendAction]
   );
 
+  // Convert spell offer to CardInfo array for PixiOfferCards
+  const cards: CardInfo[] = useMemo(() => {
+    if (!state) return [];
+
+    return state.offers.spells.cards.map((spellId) => {
+      // Determine acquire ability for this spell
+      let canAcquire = false;
+      let acquireLabel: string | undefined;
+      let onAcquire: (() => void) | undefined;
+
+      // If pending spell reward, can select for free
+      if (pendingSpellReward) {
+        canAcquire = true;
+        acquireLabel = "Select";
+        onAcquire = () => handleSelectSpellReward(spellId, pendingSpellReward.index);
+      }
+      // If at conquered Mage Tower, can buy with influence
+      else if (canBuySpells) {
+        const canAfford = playerInfluence >= SPELL_PURCHASE_COST;
+        canAcquire = canAfford;
+        acquireLabel = canAfford ? `Buy (${SPELL_PURCHASE_COST})` : `Need ${SPELL_PURCHASE_COST}`;
+        onAcquire = () => handleBuySpell(spellId);
+      }
+
+      return {
+        id: spellId,
+        canAcquire,
+        acquireLabel,
+        onAcquire,
+      };
+    });
+  }, [state?.offers.spells.cards, pendingSpellReward, canBuySpells, playerInfluence, handleBuySpell, handleSelectSpellReward]);
+
   if (!state) return <div className="offer-pane__empty">Loading...</div>;
 
-  const spellOffer = state.offers.spells.cards;
-
-  if (spellOffer.length === 0) {
+  if (state.offers.spells.cards.length === 0) {
     return (
       <div className="offer-pane">
         <div className="offer-pane__empty">No spells available</div>
       </div>
     );
   }
-
-  // Determine acquire ability for each spell
-  const getAcquireInfo = (cardId: CardId) => {
-    // If pending spell reward, can select for free
-    if (pendingSpellReward) {
-      return {
-        canAcquire: true,
-        label: "Select",
-        onAcquire: () => handleSelectSpellReward(cardId, pendingSpellReward.index),
-      };
-    }
-
-    // If at conquered Mage Tower, can buy with influence
-    if (canBuySpells) {
-      const canAfford = playerInfluence >= SPELL_PURCHASE_COST;
-      return {
-        canAcquire: canAfford,
-        label: canAfford ? `Buy (${SPELL_PURCHASE_COST})` : `Need ${SPELL_PURCHASE_COST}`,
-        onAcquire: () => handleBuySpell(cardId),
-      };
-    }
-
-    // Not at a valid location
-    return {
-      canAcquire: false,
-      label: undefined,
-      onAcquire: undefined,
-    };
-  };
 
   return (
     <div className="offer-pane">
@@ -152,47 +147,7 @@ export function SpellOfferPane() {
           Select a spell reward!
         </div>
       )}
-      {spellOffer.map((spellId, index) => {
-        const acquireInfo = getAcquireInfo(spellId);
-        const spriteData = isAtlasLoaded() ? getCardSpriteData(spellId) : null;
-
-        // Calculate display dimensions maintaining aspect ratio
-        const aspectRatio = spriteData ? spriteData.spriteWidth / spriteData.spriteHeight : 0.714;
-        const displayWidth = Math.round(cardHeight * aspectRatio);
-
-        return (
-          <OfferCard
-            key={`${spellId}-${index}`}
-            type="spell"
-            index={index}
-            cardId={spellId}
-            canAcquire={acquireInfo.canAcquire}
-            acquireLabel={acquireInfo.label}
-            onAcquire={acquireInfo.onAcquire}
-            shouldAnimate={shouldAnimate}
-          >
-            {spriteData ? (
-              <SpriteImage
-                src={spriteData.src}
-                spriteWidth={spriteData.spriteWidth}
-                spriteHeight={spriteData.spriteHeight}
-                col={spriteData.col}
-                row={spriteData.row}
-                sheetWidth={spriteData.sheetWidth}
-                sheetHeight={spriteData.sheetHeight}
-                displayWidth={displayWidth}
-                displayHeight={cardHeight}
-                alt={spellId}
-                className="offer-card__spell-image"
-              />
-            ) : (
-              <div className="offer-card__card-name">
-                <span className="offer-card__spell-name">{spellId}</span>
-              </div>
-            )}
-          </OfferCard>
-        );
-      })}
+      <PixiOfferCards cards={cards} cardHeight={cardHeight} type="spell" />
       <div className="offer-pane__deck-info">
         {state.deckCounts.spells} spells remaining in deck
       </div>

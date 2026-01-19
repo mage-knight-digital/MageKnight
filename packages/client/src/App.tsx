@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { GameProvider } from "./context/GameContext";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
 import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
@@ -25,7 +25,6 @@ import { GladeWoundDecision } from "./components/Overlays/GladeWoundDecision";
 import { CombatOverlay } from "./components/Combat";
 import { OfferView } from "./components/OfferView";
 import { DebugPanel } from "./components/DebugPanel";
-import { startAmbientMusic, isAmbientPlaying } from "./utils/ambientMusicManager";
 
 // Get seed from URL param (?seed=12345) or use current time
 // This allows reproducible games for testing and debugging
@@ -120,26 +119,6 @@ function GameView() {
 }
 
 export function App() {
-  // Start ambient music on first user interaction
-  useEffect(() => {
-    const startMusicOnInteraction = () => {
-      if (!isAmbientPlaying()) {
-        startAmbientMusic();
-      }
-      // Remove listeners after first interaction
-      document.removeEventListener("click", startMusicOnInteraction);
-      document.removeEventListener("keydown", startMusicOnInteraction);
-    };
-
-    document.addEventListener("click", startMusicOnInteraction);
-    document.addEventListener("keydown", startMusicOnInteraction);
-
-    return () => {
-      document.removeEventListener("click", startMusicOnInteraction);
-      document.removeEventListener("keydown", startMusicOnInteraction);
-    };
-  }, []);
-
   return (
     <GameProvider seed={GAME_SEED}>
       <AnimationDispatcherProvider>
