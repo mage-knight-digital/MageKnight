@@ -1,37 +1,20 @@
 /**
- * A* pathfinding for hex grid path preview visualization
+ * Path reconstruction for hex grid movement preview visualization
  *
- * Provides path computation between hexes for movement preview UI.
- * Uses A* algorithm with hex-based heuristics.
+ * Reconstructs paths from server-provided cameFrom links.
+ * This ensures the displayed path exactly matches the path the server computed,
+ * avoiding issues where client A* might find a different (potentially provoking) path.
  */
 
 import type { HexCoord, MoveTarget, ReachableHex } from "@mage-knight/shared";
-import { hexKey, getAllNeighbors } from "@mage-knight/shared";
+import { hexKey } from "@mage-knight/shared";
 
 /**
- * Hex distance heuristic for A* pathfinding
- * Uses axial coordinate distance formula for pointy-top hexes
- */
-function heuristic(a: HexCoord, b: HexCoord): number {
-  return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
-}
-
-/**
- * A* pathfinding node
- */
-interface PathNode {
-  f: number;        // Total estimated cost (g + h)
-  g: number;        // Cost from start
-  coord: HexCoord;  // Current position
-  path: HexCoord[]; // Path taken to reach this node
-}
-
-/**
- * Find path between two hexes using A* algorithm
+ * Reconstruct path from start to end using cameFrom links from server
  *
- * @param start - Starting hex coordinate
+ * @param start - Starting hex coordinate (player position)
  * @param end - Target hex coordinate
- * @param reachableHexes - Multi-hop reachable hexes from game state
+ * @param reachableHexes - Reachable hexes from game state (with cameFrom links)
  * @param adjacentTargets - Adjacent move targets from game state
  * @returns Array of hex coordinates forming the path, or empty array if no path exists
  */
@@ -41,68 +24,64 @@ export function findPath(
   reachableHexes: readonly ReachableHex[],
   adjacentTargets: readonly MoveTarget[]
 ): HexCoord[] {
-  // Build lookup map of valid hexes
-  const reachableMap = new Map<string, { cost: number; isTerminal: boolean }>();
+  const startKey = hexKey(start);
+  const endKey = hexKey(end);
 
-  for (const r of reachableHexes) {
-    reachableMap.set(hexKey(r.hex), { cost: r.totalCost, isTerminal: r.isTerminal });
+  // Build lookup map for cameFrom links
+  const cameFromMap = new Map<string, HexCoord | null>();
+
+  // Start position has no cameFrom
+  cameFromMap.set(startKey, null);
+
+  // Adjacent targets - their cameFrom is the start
+  for (const t of adjacentTargets) {
+    const key = hexKey(t.hex);
+    cameFromMap.set(key, start);
   }
 
-  for (const t of adjacentTargets) {
-    reachableMap.set(hexKey(t.hex), { cost: t.cost, isTerminal: t.isTerminal ?? false });
+  // Add all reachable hexes with their cameFrom links
+  for (const r of reachableHexes) {
+    const key = hexKey(r.hex);
+    if (r.cameFrom) {
+      // Use server-provided cameFrom (may override adjacent target fallback)
+      cameFromMap.set(key, r.cameFrom);
+    } else if (!cameFromMap.has(key)) {
+      // Hex is reachable but has no cameFrom and isn't adjacent - shouldn't happen
+      // but we need to include it in the map for the "is reachable" check
+      // Leave it out of the map so path reconstruction will fail gracefully
+    }
   }
 
   // Check if end is reachable
-  const endKey = hexKey(end);
-  if (!reachableMap.has(endKey)) {
+  if (!cameFromMap.has(endKey)) {
     return [];
   }
 
-  // A* search
-  const startKey = hexKey(start);
-  const openSet: PathNode[] = [
-    { f: heuristic(start, end), g: 0, coord: start, path: [start] }
-  ];
-  const visited = new Set<string>([startKey]);
+  // Reconstruct path by following cameFrom links backwards from end to start
+  const path: HexCoord[] = [];
+  let currentKey = endKey;
+  let current: HexCoord = end;
 
-  while (openSet.length > 0) {
-    // Get node with lowest f score
-    openSet.sort((a, b) => a.f - b.f);
-    const current = openSet.shift() as PathNode;
-    const currentKey = hexKey(current.coord);
+  // Safety limit to prevent infinite loops
+  const maxIterations = 100;
+  let iterations = 0;
 
-    // Found the target
-    if (currentKey === endKey) {
-      return current.path;
+  while (currentKey !== startKey && iterations < maxIterations) {
+    path.unshift(current);
+
+    const cameFrom = cameFromMap.get(currentKey);
+    if (!cameFrom) {
+      // No path found (shouldn't happen if end is reachable)
+      return [];
     }
 
-    // Don't expand from terminal hexes (except start)
-    const currentData = reachableMap.get(currentKey);
-    if (currentData?.isTerminal && currentKey !== startKey) {
-      continue;
-    }
-
-    // Explore neighbors
-    const neighbors = getAllNeighbors(current.coord);
-    for (const neighbor of neighbors) {
-      const neighborKey = hexKey(neighbor);
-      if (visited.has(neighborKey)) continue;
-
-      const neighborData = reachableMap.get(neighborKey);
-      if (!neighborData) continue;
-
-      visited.add(neighborKey);
-      const g = current.g + 1;
-      const f = g + heuristic(neighbor, end);
-      openSet.push({
-        f,
-        g,
-        coord: neighbor,
-        path: [...current.path, neighbor],
-      });
-    }
+    current = cameFrom;
+    currentKey = hexKey(current);
+    iterations++;
   }
 
-  // No path found
-  return [];
+  // Add start to the beginning
+  path.unshift(start);
+
+  return path;
 }

@@ -9,7 +9,6 @@ import {
   type MoveTarget,
   type ReachableHex,
   hexKey,
-  getAllNeighbors,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -18,6 +17,7 @@ import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContex
 import { getTileImageUrl, getEnemyImageUrl, getEnemyTokenBackUrl, tokenIdToEnemyId, type EnemyTokenColor } from "../../assets/assetPaths";
 import { HexContextMenu } from "../HexContextMenu";
 import { HexTooltip } from "../HexTooltip";
+import { SitePanel } from "../SitePanel";
 import { useHexHover } from "../../hooks/useHexHover";
 
 const HEX_SIZE = 50; // pixels from center to corner
@@ -60,11 +60,10 @@ function hexPoints(size: number): string {
 }
 
 /**
- * Simple A* pathfinding for path preview visualization.
- * Uses the reachable hexes data from the server to find optimal path.
- *
- * Terminal hexes (combat triggers, including rampaging skirt) are treated as
- * "can path TO but not THROUGH" - they're valid destinations but not waypoints.
+ * Path reconstruction from server-provided cameFrom links.
+ * This ensures the displayed path exactly matches what the server computed,
+ * avoiding issues where a different path algorithm might find a provoking path
+ * when a non-provoking path exists.
  */
 function findPath(
   start: HexCoord,
@@ -72,87 +71,63 @@ function findPath(
   reachableHexes: readonly ReachableHex[],
   adjacentTargets: readonly MoveTarget[]
 ): HexCoord[] {
-  // Build lookup maps for costs and terminal status
-  const reachableMap = new Map<string, { cost: number; isTerminal: boolean }>();
-  for (const r of reachableHexes) {
-    reachableMap.set(hexKey(r.hex), { cost: r.totalCost, isTerminal: r.isTerminal });
-  }
-  // Adjacent targets now include isTerminal flag from server
-  for (const t of adjacentTargets) {
-    reachableMap.set(hexKey(t.hex), { cost: t.cost, isTerminal: t.isTerminal ?? false });
-  }
-
-  const endKey = hexKey(end);
-  if (!reachableMap.has(endKey)) {
-    return []; // Not reachable
-  }
-
-  // A* search from start to end
-  type Node = { f: number; g: number; coord: HexCoord; path: HexCoord[] };
-
-  const heuristic = (a: HexCoord, b: HexCoord): number => {
-    // Hex distance heuristic
-    return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
-  };
-
   const startKey = hexKey(start);
-  const openSet: Node[] = [{ f: heuristic(start, end), g: 0, coord: start, path: [start] }];
-  const visited = new Set<string>();
+  const endKey = hexKey(end);
 
-  while (openSet.length > 0) {
-    // Get node with lowest f score
-    openSet.sort((a, b) => a.f - b.f);
-    const current = openSet.shift();
-    if (!current) break;
+  // Build lookup map for cameFrom links
+  const cameFromMap = new Map<string, HexCoord | null>();
 
-    const currentKey = hexKey(current.coord);
+  // Start position has no cameFrom
+  cameFromMap.set(startKey, null);
 
-    // Found the goal
-    if (currentKey === endKey) {
-      return current.path;
-    }
-
-    if (visited.has(currentKey)) continue;
-    visited.add(currentKey);
-
-    // Don't expand from terminal hexes (can't path THROUGH them, only TO them)
-    // Exception: we can always expand from start position
-    if (currentKey !== startKey) {
-      const currentData = reachableMap.get(currentKey);
-      if (currentData?.isTerminal) {
-        continue; // Terminal hex - don't explore neighbors
-      }
-    }
-
-    // Explore neighbors
-    const neighbors = getAllNeighbors(current.coord);
-    for (const neighbor of neighbors) {
-      const neighborKey = hexKey(neighbor);
-      if (visited.has(neighborKey)) continue;
-
-      // Check if neighbor is reachable (either in reachableMap or is the start)
-      const neighborData = reachableMap.get(neighborKey);
-      if (neighborKey !== startKey && !neighborData) continue;
-
-      // Get the cost to reach this neighbor
-      const neighborTotalCost = neighborData?.cost ?? 0;
-      const currentTotalCost = currentKey === startKey ? 0 : (reachableMap.get(currentKey)?.cost ?? 0);
-
-      // Edge cost is approximately the difference (this is a simplification)
-      const edgeCost = Math.max(1, neighborTotalCost - currentTotalCost);
-      const gScore = current.g + edgeCost;
-      const fScore = gScore + heuristic(neighbor, end);
-
-      openSet.push({
-        f: fScore,
-        g: gScore,
-        coord: neighbor,
-        path: [...current.path, neighbor],
-      });
-    }
+  // Adjacent targets - their cameFrom is the start
+  for (const t of adjacentTargets) {
+    const key = hexKey(t.hex);
+    cameFromMap.set(key, start);
   }
 
-  return []; // No path found
+  // Add all reachable hexes with their cameFrom links
+  for (const r of reachableHexes) {
+    const key = hexKey(r.hex);
+    if (r.cameFrom) {
+      // Use server-provided cameFrom (may override adjacent target fallback)
+      cameFromMap.set(key, r.cameFrom);
+    }
+    // If no cameFrom, keep the adjacentTargets fallback (or leave as-is if not adjacent)
+  }
+
+  // Check if end is reachable
+  if (!cameFromMap.has(endKey)) {
+    return [];
+  }
+
+  // Reconstruct path by following cameFrom links backwards from end to start
+  const path: HexCoord[] = [];
+  let currentKey = endKey;
+  let current: HexCoord = end;
+
+  // Safety limit to prevent infinite loops
+  const maxIterations = 100;
+  let iterations = 0;
+
+  while (currentKey !== startKey && iterations < maxIterations) {
+    path.unshift(current);
+
+    const cameFrom = cameFromMap.get(currentKey);
+    if (!cameFrom) {
+      // No path found (shouldn't happen if end is reachable)
+      return [];
+    }
+
+    current = cameFrom;
+    currentKey = hexKey(current);
+    iterations++;
+  }
+
+  // Add start to the beginning
+  path.unshift(start);
+
+  return path;
 }
 
 /**
@@ -1051,6 +1026,13 @@ export function HexGrid() {
   } = useHexHover({ delay: 400 });
 
   // ============================================
+  // Site Panel State (detailed info panel)
+  // ============================================
+  const [isSitePanelOpen, setIsSitePanelOpen] = useState(false);
+  // Track which hex's site is being shown in the panel
+  const [sitePanelHex, setSitePanelHex] = useState<HexCoord | null>(null);
+
+  // ============================================
   // Intro Animation Completion Tracking
   // ============================================
   // Consolidated tracking for intro animation completion
@@ -1354,6 +1336,20 @@ export function HexGrid() {
       lastMenuPositionRef.current = hexKey(player.position);
     }
   }, [player?.position]);
+
+  // Handler to open the site panel from tooltip "More Info" click
+  const handleOpenSitePanel = useCallback((coord: HexCoord) => {
+    setSitePanelHex(coord);
+    setIsSitePanelOpen(true);
+    // Close the tooltip when opening panel
+    handleHexTooltipLeave();
+  }, [handleHexTooltipLeave]);
+
+  // Handler to close the site panel
+  const handleCloseSitePanel = useCallback(() => {
+    setIsSitePanelOpen(false);
+    // Don't clear sitePanelHex immediately - let it animate out first
+  }, []);
 
   if (!state) return null;
 
@@ -1680,9 +1676,25 @@ export function HexGrid() {
       hex={tooltipHoveredHex ? state.map.hexes[hexKey(tooltipHoveredHex)] ?? null : null}
       coord={tooltipHoveredHex}
       position={tooltipPosition}
-      isVisible={isTooltipVisible && !showSiteContextMenu}
+      isVisible={isTooltipVisible && !showSiteContextMenu && !isSitePanelOpen}
       onMouseEnter={handleTooltipMouseEnter}
       onMouseLeave={handleTooltipMouseLeave}
+      onClickMoreInfo={tooltipHoveredHex ? () => handleOpenSitePanel(tooltipHoveredHex) : undefined}
+    />
+
+    {/* Site Panel - detailed site information panel */}
+    {/* For Phase 1: Use validActions.sites when viewing player's hex, otherwise use basic hex data */}
+    <SitePanel
+      isOpen={isSitePanelOpen}
+      siteOptions={
+        sitePanelHex && player?.position &&
+        sitePanelHex.q === player.position.q && sitePanelHex.r === player.position.r
+          ? siteOptions ?? null
+          : null
+      }
+      hex={sitePanelHex ? state.map.hexes[hexKey(sitePanelHex)] ?? null : null}
+      onClose={handleCloseSitePanel}
+      isArrivalMode={false}
     />
     </>
   );

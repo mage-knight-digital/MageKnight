@@ -106,6 +106,8 @@ export interface ReachableHex {
   readonly isTerminal: boolean;
   /** Whether moving to this hex would reveal unrevealed enemies at adjacent fortified sites (Day only) */
   readonly wouldRevealEnemies?: boolean;
+  /** The hex we came from to reach this hex (for path reconstruction) */
+  readonly cameFrom?: HexCoord;
 }
 
 // ============================================================================

@@ -288,13 +288,13 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
   };
 
   const queue: QueueEntry[] = [];
-  const visited = new Map<string, { totalCost: number; isTerminal: boolean; wouldRevealEnemies: boolean }>();
+  const visited = new Map<string, { totalCost: number; isTerminal: boolean; wouldRevealEnemies: boolean; cameFromKey: string | null }>();
 
   // Check if it's Day (for enemy reveal detection)
   const isDay = state.timeOfDay === TIME_OF_DAY_DAY;
 
   // Start from player position (cost 0, not terminal, don't include in results)
-  visited.set(startKey, { totalCost: 0, isTerminal: false, wouldRevealEnemies: false });
+  visited.set(startKey, { totalCost: 0, isTerminal: false, wouldRevealEnemies: false, cameFromKey: null });
 
   // Add initial neighbors to queue
   for (const dir of HEX_DIRECTIONS) {
@@ -362,6 +362,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
       totalCost: current.totalCost,
       isTerminal: current.isTerminal,
       wouldRevealEnemies: current.wouldRevealEnemies,
+      cameFromKey: current.cameFromKey,
     });
 
     // If terminal, don't expand further from this hex
@@ -424,17 +425,30 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
     const parts = key.split(",");
     const q = parseInt(parts[0] ?? "0", 10);
     const r = parseInt(parts[1] ?? "0", 10);
+
+    // Parse cameFrom coordinate from key
+    let cameFrom: { q: number; r: number } | undefined;
+    if (data.cameFromKey) {
+      const fromParts = data.cameFromKey.split(",");
+      cameFrom = {
+        q: parseInt(fromParts[0] ?? "0", 10),
+        r: parseInt(fromParts[1] ?? "0", 10),
+      };
+    }
+
     const base: ReachableHex = {
       hex: { q, r },
       totalCost: data.totalCost,
       isTerminal: data.isTerminal,
     };
-    // Only include wouldRevealEnemies if true (to match exactOptionalPropertyTypes)
-    if (data.wouldRevealEnemies) {
-      result.push({ ...base, wouldRevealEnemies: true });
-    } else {
-      result.push(base);
-    }
+
+    // Build result with optional fields (to match exactOptionalPropertyTypes)
+    const entry: ReachableHex = {
+      ...base,
+      ...(data.wouldRevealEnemies ? { wouldRevealEnemies: true } : {}),
+      ...(cameFrom ? { cameFrom } : {}),
+    };
+    result.push(entry);
   }
 
   // Sort by total cost
