@@ -192,25 +192,32 @@
 }
 
 .enemy-tooltip__enemy {
-  background: rgba(20, 15, 10, 0.5);
-  border: 1px solid rgba(92, 74, 58, 0.5);
-  border-radius: 4px;
-  padding: clamp(0.6rem, 1.1vw, 0.85rem);
+  padding: clamp(0.3rem, 0.6vw, 0.5rem) 0;
 
   /* Staggered animation */
   opacity: 0;
   animation: line-appear 0.25s ease-out forwards;
 }
 
+/* Rampaging enemy - subtle left border accent */
+.enemy-tooltip__enemy--rampaging {
+  border-left: 3px solid rgba(160, 60, 45, 0.8);
+  padding-left: clamp(0.5rem, 0.8vw, 0.7rem);
+}
+
 .enemy-tooltip__enemy-header {
   display: flex;
   align-items: center;
-  gap: clamp(0.375rem, 0.8vw, 0.5rem);
+  gap: clamp(0.4rem, 0.8vw, 0.6rem);
   margin-bottom: clamp(0.375rem, 0.8vw, 0.5rem);
 }
 
-.enemy-tooltip__enemy-color {
-  font-size: clamp(0.85rem, 1.4vw, 1.1rem);
+.enemy-tooltip__token-back {
+  width: clamp(24px, 3vw, 36px);
+  height: clamp(24px, 3vw, 36px);
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .enemy-tooltip__enemy-name {
@@ -259,38 +266,18 @@
   margin-left: 0.2rem;
 }
 
-.enemy-tooltip__rampaging {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.375rem, 0.8vw, 0.5rem);
-  padding: clamp(0.4rem, 0.8vw, 0.6rem) clamp(0.5rem, 1vw, 0.75rem);
-  background: linear-gradient(135deg, #6b1a1a, #8b2222);
-  border: 1px solid #9a3030;
-  border-radius: 4px;
-  margin-bottom: clamp(0.375rem, 0.8vw, 0.5rem);
-
-  /* Staggered animation */
-  opacity: 0;
-  animation: line-appear 0.25s ease-out forwards;
-}
-
-.enemy-tooltip__rampaging-icon {
-  font-size: clamp(0.9rem, 1.4vw, 1.1rem);
-}
-
-.enemy-tooltip__rampaging-text {
-  font-weight: 700;
-  font-size: clamp(0.8rem, 1.2vw, 1rem);
-  color: #f0e6d2;
+/* Rampaging badge - inline with enemy name */
+.enemy-tooltip__rampaging-badge {
+  font-size: clamp(0.65rem, 1vw, 0.8rem);
+  font-weight: 600;
+  color: #f0d0c0;
+  background: rgba(120, 40, 30, 0.7);
+  border: 1px solid rgba(160, 60, 45, 0.6);
+  padding: 0.1em 0.5em;
+  border-radius: 3px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.enemy-tooltip__rampaging-desc {
-  font-size: clamp(0.7rem, 1.1vw, 0.9rem);
-  color: #d4c4a8;
+  letter-spacing: 0.04em;
   margin-left: auto;
-  font-style: italic;
 }
 
 .enemy-tooltip__abilities {
@@ -303,12 +290,8 @@
 .enemy-tooltip__ability {
   display: flex;
   align-items: center;
-  gap: clamp(0.25rem, 0.5vw, 0.375rem);
-  font-size: clamp(0.8rem, 1.2vw, 1rem);
-  padding: clamp(0.3rem, 0.6vw, 0.4rem) clamp(0.5rem, 0.9vw, 0.6rem);
-  background: rgba(40, 32, 24, 0.6);
-  border: 1px solid rgba(92, 74, 58, 0.4);
-  border-radius: 3px;
+  gap: clamp(0.3rem, 0.6vw, 0.4rem);
+  font-size: clamp(0.85rem, 1.3vw, 1.05rem);
   color: #d4c4a8;
   cursor: help;
 }

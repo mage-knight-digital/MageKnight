@@ -34,14 +34,15 @@ const ELEMENT_NAMES: Record<string, string> = {
   cold_fire: "ColdFire",
 };
 
-// Enemy color display
-const COLOR_EMOJI: Record<string, string> = {
-  green: "🟢",
-  gray: "⚪",
-  brown: "🟤",
-  violet: "🟣",
-  red: "🔴",
-  white: "⬜",
+// Enemy token back images by color
+const TOKEN_BACK_PATHS: Record<string, string> = {
+  green: "/assets/enemies/backs/green.png",
+  gray: "/assets/enemies/backs/grey.png",
+  grey: "/assets/enemies/backs/grey.png",
+  brown: "/assets/enemies/backs/brown.png",
+  violet: "/assets/enemies/backs/violet.png",
+  red: "/assets/enemies/backs/red.png",
+  white: "/assets/enemies/backs/white.png",
 };
 
 function getEnemyIdFromToken(tokenId: string): string {
@@ -78,14 +79,6 @@ export function EnemyTooltipContent({
         </div>
       )}
 
-      {isRampaging && (
-        <div className="enemy-tooltip__rampaging" style={getLineStyle()}>
-          <span className="enemy-tooltip__rampaging-icon">🚨</span>
-          <span className="enemy-tooltip__rampaging-text">RAMPAGING</span>
-          <span className="enemy-tooltip__rampaging-desc">Blocks movement, can be provoked</span>
-        </div>
-      )}
-
       {revealedEnemies.map((enemy, idx) => {
         if (!enemy.tokenId) return null;
 
@@ -94,13 +87,25 @@ export function EnemyTooltipContent({
 
         if (!definition) {
           // Unknown enemy - show just the color
+          const tokenBackPath = TOKEN_BACK_PATHS[enemy.color];
           return (
-            <div key={idx} className="enemy-tooltip__enemy" style={getLineStyle()}>
+            <div
+              key={idx}
+              className={`enemy-tooltip__enemy ${isRampaging ? "enemy-tooltip__enemy--rampaging" : ""}`}
+              style={getLineStyle()}
+            >
               <div className="enemy-tooltip__enemy-header">
-                <span className="enemy-tooltip__enemy-color">
-                  {COLOR_EMOJI[enemy.color] || "❓"}
-                </span>
+                {tokenBackPath && (
+                  <img
+                    src={tokenBackPath}
+                    alt={`${enemy.color} enemy`}
+                    className="enemy-tooltip__token-back"
+                  />
+                )}
                 <span className="enemy-tooltip__enemy-name">Unknown Enemy</span>
+                {isRampaging && (
+                  <span className="enemy-tooltip__rampaging-badge">Rampaging</span>
+                )}
               </div>
             </div>
           );
@@ -111,14 +116,26 @@ export function EnemyTooltipContent({
           definition.resistances.physical ||
           definition.resistances.fire ||
           definition.resistances.ice;
+        const tokenBackPath = TOKEN_BACK_PATHS[definition.color];
 
         return (
-          <div key={idx} className="enemy-tooltip__enemy" style={getLineStyle()}>
+          <div
+            key={idx}
+            className={`enemy-tooltip__enemy ${isRampaging ? "enemy-tooltip__enemy--rampaging" : ""}`}
+            style={getLineStyle()}
+          >
             <div className="enemy-tooltip__enemy-header">
-              <span className="enemy-tooltip__enemy-color">
-                {COLOR_EMOJI[definition.color] || "❓"}
-              </span>
+              {tokenBackPath && (
+                <img
+                  src={tokenBackPath}
+                  alt={`${definition.color} enemy`}
+                  className="enemy-tooltip__token-back"
+                />
+              )}
               <span className="enemy-tooltip__enemy-name">{definition.name}</span>
+              {isRampaging && (
+                <span className="enemy-tooltip__rampaging-badge">Rampaging</span>
+              )}
             </div>
 
             <div className="enemy-tooltip__enemy-stats">
