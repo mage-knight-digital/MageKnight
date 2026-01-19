@@ -250,3 +250,123 @@ export const ENEMY_FLIP_STAGGER_MS = 250; // Stagger to guide the eye across the
 export const TILE_REVEAL_DURATION_MS = 500;
 export const CAMERA_FOLLOW_DURATION_MS = 300;
 export const INTRO_PHASE_GAP_MS = 400; // Breathing room between intro phases
+
+// Flip animation constants
+export const FLIP_LIFT_SCALE = 1.2; // Scale up 20% at peak of flip
+export const FLIP_LIFT_Y = -15; // Move up 15px at peak of flip
+
+/**
+ * Options for the flip animation
+ */
+export interface FlipAnimationOptions {
+  /** Duration of the full flip in ms (default: 400) */
+  duration?: number;
+  /** Scale multiplier at peak of flip (default: 1.2) */
+  liftScale?: number;
+  /** Y offset at peak of flip in px (default: -15) */
+  liftY?: number;
+  /** Additional elements to scale X along with the main target (e.g., mask, border) */
+  additionalScaleTargets?: { scale: { x: number } }[];
+  /** Called at midpoint to swap content (e.g., change texture) */
+  onMidpoint?: () => void;
+  /** Called when animation completes */
+  onComplete?: () => void;
+}
+
+/**
+ * Animate a "card flip" effect on a container.
+ *
+ * The animation:
+ * 1. Scales X from 1 to 0 while lifting up and scaling larger
+ * 2. Calls onMidpoint (to swap texture/content)
+ * 3. Scales X from 0 to 1 while settling back down
+ *
+ * Works for any container - cards, tokens, tiles, etc.
+ * For masked elements (like circular tokens), pass the mask in additionalScaleTargets.
+ *
+ * @param animManager - The animation manager
+ * @param id - Unique ID for this animation (for cancellation)
+ * @param container - The container to flip
+ * @param options - Animation options
+ */
+export function animateFlip(
+  animManager: AnimationManager,
+  id: string,
+  container: Container,
+  options: FlipAnimationOptions = {}
+): void {
+  const {
+    duration = ENEMY_FLIP_DURATION_MS,
+    liftScale = FLIP_LIFT_SCALE,
+    liftY = FLIP_LIFT_Y,
+    additionalScaleTargets = [],
+    onMidpoint,
+    onComplete,
+  } = options;
+
+  const halfDuration = duration / 2;
+  const originalY = container.position.y;
+  const originalScaleY = container.scale.y;
+
+  // First half: scale X from 1 to 0 while lifting
+  animManager.animate(`${id}-out`, container, {
+    duration: halfDuration,
+    easing: Easing.easeInQuad,
+    onUpdate: (progress) => {
+      const scaleX = 1 - progress;
+      container.scale.x = scaleX;
+      for (const target of additionalScaleTargets) {
+        target.scale.x = scaleX;
+      }
+
+      // Lift effect
+      const lift = 1 + (liftScale - 1) * progress;
+      container.scale.y = originalScaleY * lift;
+      container.position.y = originalY + liftY * progress;
+    },
+    onComplete: () => {
+      // Guard: if container was destroyed, abort
+      if (!container.parent) {
+        onComplete?.();
+        return;
+      }
+
+      // Call midpoint callback to swap content
+      onMidpoint?.();
+
+      // Reset X scale to 0 for second half
+      container.scale.x = 0;
+      for (const target of additionalScaleTargets) {
+        target.scale.x = 0;
+      }
+
+      // Second half: scale X from 0 to 1 while settling
+      animManager.animate(`${id}-in`, container, {
+        duration: halfDuration,
+        easing: Easing.easeOutQuad,
+        onUpdate: (progress) => {
+          container.scale.x = progress;
+          for (const target of additionalScaleTargets) {
+            target.scale.x = progress;
+          }
+
+          // Settle back down
+          const settleProgress = 1 - progress;
+          const lift = 1 + (liftScale - 1) * settleProgress;
+          container.scale.y = originalScaleY * lift;
+          container.position.y = originalY + liftY * settleProgress;
+        },
+        onComplete: () => {
+          // Reset to exact final values
+          container.scale.x = 1;
+          container.scale.y = originalScaleY;
+          container.position.y = originalY;
+          for (const target of additionalScaleTargets) {
+            target.scale.x = 1;
+          }
+          onComplete?.();
+        },
+      });
+    },
+  });
+}

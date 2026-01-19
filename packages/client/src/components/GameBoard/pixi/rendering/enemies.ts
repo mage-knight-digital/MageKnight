@@ -21,7 +21,7 @@ import { hexToPixel, getEnemyOffset } from "../hexMath";
 import type { WorldLayers, PixelPosition } from "../types";
 import { ENEMY_TOKEN_SIZE } from "../types";
 import type { AnimationManager } from "../animations";
-import { Easing, ENEMY_FLIP_STAGGER_MS, ENEMY_FLIP_DURATION_MS } from "../animations";
+import { Easing, ENEMY_FLIP_STAGGER_MS, ENEMY_FLIP_DURATION_MS, animateFlip } from "../animations";
 import type { ParticleManager } from "../particles";
 import { CircleShadow } from "../particles";
 
@@ -319,70 +319,40 @@ export async function animateEnemyFlips(
     // Stagger the flips
     const jitter = (Math.random() - 0.5) * 50;
     const delay = initialDelayMs + i * ENEMY_FLIP_STAGGER_MS + jitter;
-    const isLast = i === targets.length - 1;
 
     setTimeout(async () => {
       try {
-        console.log(`[animateEnemyFlips] Loading texture for ${target.tokenId}: ${revealedUrl}`);
         const revealedTexture = await loadTexture(revealedUrl);
-        console.log(`[animateEnemyFlips] Texture loaded, width=${revealedTexture.width}, height=${revealedTexture.height}`);
-        const halfDuration = ENEMY_FLIP_DURATION_MS / 2;
 
-        // First half: scale X from 1 to 0 (flip away)
-        animManager.animate(`enemy-flip-out-${i}`, container, {
-          duration: halfDuration,
-          easing: Easing.easeInQuad,
-          onUpdate: (progress) => {
-            container.scale.x = 1 - progress;
-          },
-          onComplete: () => {
+        // Get the mask (first child - index 0) and border (third child - index 2)
+        const mask = container.children[0] as Graphics | undefined;
+        const border = container.children[2] as Graphics | undefined;
+
+        // Build list of additional elements that need X scaling (mask, border)
+        const additionalScaleTargets: { scale: { x: number } }[] = [];
+        if (mask) additionalScaleTargets.push(mask);
+        if (border) additionalScaleTargets.push(border);
+
+        animateFlip(animManager, `enemy-flip-${i}`, container, {
+          duration: ENEMY_FLIP_DURATION_MS,
+          additionalScaleTargets,
+          onMidpoint: () => {
             // Swap texture at midpoint
-            console.log(`[animateEnemyFlips] Swapping texture for ${target.tokenId}, sprite exists=${!!sprite}, sprite.parent=${sprite.parent?.label}, container.parent=${container.parent?.label}`);
-
-            // Guard: if container was destroyed/removed, abort
-            if (!container.parent) {
-              console.warn(`[animateEnemyFlips] Container was destroyed before texture swap for ${target.tokenId}`);
-              completedCount++;
-              if (completedCount === totalToAnimate) {
-                onComplete?.();
-              }
-              return;
-            }
-
             sprite.texture = revealedTexture;
-            // Reset sprite dimensions after texture swap (texture change can affect size)
             sprite.width = ENEMY_TOKEN_SIZE;
             sprite.height = ENEMY_TOKEN_SIZE;
-            console.log(`[animateEnemyFlips] Texture swapped, sprite: width=${sprite.width}, height=${sprite.height}, visible=${sprite.visible}, alpha=${sprite.alpha}, scale=(${sprite.scale.x}, ${sprite.scale.y}), container.scale=(${container.scale.x}, ${container.scale.y}), container.alpha=${container.alpha}`);
+          },
+          onComplete: () => {
+            // Small dust puff on reveal
+            const hexCenter = hexToPixel(target.hexCoord);
+            const offset = getEnemyOffset(target.indexInHex, target.totalInHex, ENEMY_TOKEN_SIZE);
+            const enemyPos = { x: hexCenter.x + offset.x, y: hexCenter.y + offset.y };
+            particleManager.miniDustBurst(layers.particles, enemyPos, ENEMY_TOKEN_SIZE / 2);
 
-            // Second half: scale X from 0 to 1 (flip back)
-            console.log(`[animateEnemyFlips] Starting flip-in animation for ${target.tokenId}, duration=${halfDuration}`);
-            animManager.animate(`enemy-flip-in-${i}`, container, {
-              duration: halfDuration,
-              easing: Easing.easeOutQuad,
-              onUpdate: (progress) => {
-                container.scale.x = progress;
-              },
-              onComplete: () => {
-                console.log(`[animateEnemyFlips] Flip-in complete for ${target.tokenId}, container.scale.x=${container.scale.x}, children=${container.children.length}, sprite.texture.width=${sprite.texture.width}`);
-                container.scale.x = 1;
-                // Debug: log all children
-                container.children.forEach((child, idx) => {
-                  console.log(`  child[${idx}]: label=${child.label}, visible=${child.visible}, alpha=${child.alpha}`);
-                });
-
-                // Small dust puff on reveal
-                const hexCenter = hexToPixel(target.hexCoord);
-                const offset = getEnemyOffset(target.indexInHex, target.totalInHex, ENEMY_TOKEN_SIZE);
-                const enemyPos = { x: hexCenter.x + offset.x, y: hexCenter.y + offset.y };
-                particleManager.miniDustBurst(layers.particles, enemyPos, ENEMY_TOKEN_SIZE / 2);
-
-                completedCount++;
-                if (completedCount === totalToAnimate && isLast) {
-                  onComplete?.();
-                }
-              },
-            });
+            completedCount++;
+            if (completedCount === totalToAnimate) {
+              onComplete?.();
+            }
           },
         });
       } catch (error) {
