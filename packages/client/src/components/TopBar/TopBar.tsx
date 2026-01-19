@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { TIME_OF_DAY_DAY, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { HotkeyHelp } from "./HotkeyHelp";
 import "./TopBar.css";
 
 export function TopBar() {
   const { state } = useGame();
   const player = useMyPlayer();
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   if (!state || !player) return null;
 
@@ -94,7 +97,7 @@ export function TopBar() {
         )}
       </div>
 
-      {/* Right section: Round/Time */}
+      {/* Right section: Round/Time/Help */}
       <div className="top-bar__section top-bar__section--right">
         <div className="top-bar__round" title="Current Round">
           <span className="top-bar__round-label">Round</span>
@@ -107,7 +110,17 @@ export function TopBar() {
         >
           {state.timeOfDay === TIME_OF_DAY_DAY ? "☀" : "☾"}
         </div>
+
+        <button
+          className="top-bar__help-btn"
+          onClick={() => setIsHelpOpen(true)}
+          title="Keyboard shortcuts"
+        >
+          ?
+        </button>
       </div>
+
+      <HotkeyHelp isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
   );
 }
