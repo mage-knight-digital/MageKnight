@@ -131,10 +131,12 @@
   padding: 0;
   cursor: pointer;
   transform-origin: bottom center;
+  /* GPU acceleration - promote to compositor layer */
+  will-change: transform, opacity;
+  /* Only transition GPU-friendly properties (no 'left' - causes reflow) */
   transition:
     transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    opacity 0.3s ease,
-    left 0.25s ease;
+    opacity 0.3s ease;
 }
 
 .tactic-carousel__card-image {
@@ -143,10 +145,10 @@
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.4),
     0 8px 24px rgba(0, 0, 0, 0.2);
-  transition:
-    transform var(--card-hover-duration) ease,
-    box-shadow 0.3s ease,
-    filter 0.3s ease;
+  /* GPU acceleration */
+  will-change: transform;
+  /* Only transition transform - box-shadow/filter transitions are expensive */
+  transition: transform var(--card-hover-duration) ease;
   background-color: #d4c9a8;
 }
 
@@ -169,24 +171,22 @@
 .tactic-carousel__card--hovered .tactic-carousel__card-image {
   transform: translateY(calc(-1 * var(--card-fan-hover-lift)));
   box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.5),
-    0 20px 60px rgba(0, 0, 0, 0.3);
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    0 12px 32px rgba(0, 0, 0, 0.3);
 }
 
 /* Day hover glow */
 .tactic-carousel--day .tactic-carousel__card--hovered .tactic-carousel__card-image {
   box-shadow:
-    0 0 20px rgba(255, 193, 7, 0.4),
-    0 0 40px rgba(255, 152, 0, 0.2),
-    0 16px 48px rgba(0, 0, 0, 0.4);
+    0 0 15px rgba(255, 193, 7, 0.5),
+    0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* Night hover glow */
 .tactic-carousel--night .tactic-carousel__card--hovered .tactic-carousel__card-image {
   box-shadow:
-    0 0 20px rgba(100, 149, 237, 0.4),
-    0 0 40px rgba(75, 0, 130, 0.2),
-    0 16px 48px rgba(0, 0, 0, 0.4);
+    0 0 15px rgba(100, 149, 237, 0.5),
+    0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* Selected card - hero moment */
@@ -200,22 +200,20 @@
   filter: brightness(1.1);
 }
 
-/* Day selected glow */
+/* Day selected glow - reduced blur radii for performance */
 .tactic-carousel--day .tactic-carousel__card--selected .tactic-carousel__card-image {
   box-shadow:
-    0 0 40px rgba(255, 193, 7, 0.8),
-    0 0 80px rgba(255, 152, 0, 0.5),
-    0 0 120px rgba(255, 193, 7, 0.3),
-    0 20px 60px rgba(0, 0, 0, 0.5);
+    0 0 20px rgba(255, 193, 7, 0.9),
+    0 0 40px rgba(255, 152, 0, 0.5),
+    0 12px 30px rgba(0, 0, 0, 0.5);
 }
 
-/* Night selected glow */
+/* Night selected glow - reduced blur radii for performance */
 .tactic-carousel--night .tactic-carousel__card--selected .tactic-carousel__card-image {
   box-shadow:
-    0 0 40px rgba(100, 149, 237, 0.8),
-    0 0 80px rgba(75, 0, 130, 0.5),
-    0 0 120px rgba(100, 149, 237, 0.3),
-    0 20px 60px rgba(0, 0, 0, 0.5);
+    0 0 20px rgba(100, 149, 237, 0.9),
+    0 0 40px rgba(75, 0, 130, 0.5),
+    0 12px 30px rgba(0, 0, 0, 0.5);
 }
 
 /* Dismissed cards - fade away */

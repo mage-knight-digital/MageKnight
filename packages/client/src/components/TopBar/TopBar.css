@@ -23,6 +23,8 @@
   background: rgba(10, 10, 25, 0.9);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
+  /* GPU acceleration - promote entire bar to compositor layer for smooth animation */
+  will-change: transform, opacity;
 }
 
 /* Hidden during intro */
@@ -258,7 +260,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .top-bar__help-btn:hover {

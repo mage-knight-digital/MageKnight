@@ -50,7 +50,10 @@
   gap: 0.25rem;
 
   cursor: pointer;
-  transition: all 0.2s ease;
+  /* GPU acceleration for stamp animation */
+  will-change: transform, opacity;
+  /* Only transition GPU-friendly properties */
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 /* Hidden during intro - before ui-settle phase */
@@ -118,7 +121,8 @@
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  /* Only transition GPU-friendly properties */
+  transition: transform 0.15s ease, background 0.15s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
