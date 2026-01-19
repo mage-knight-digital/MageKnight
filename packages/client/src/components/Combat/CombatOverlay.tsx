@@ -23,7 +23,6 @@ import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { hexKey } from "@mage-knight/shared";
-import { SpriteImage } from "../SpriteImage/SpriteImage";
 import "./CombatOverlay.css";
 
 type EffectType = "damage" | "block" | "attack" | null;
@@ -41,28 +40,41 @@ const SITES_SHEET = {
 
 // Map site types to sprite positions in the sheet
 const SITE_SPRITE_MAP: Record<string, { col: number; row: number }> = {
+  // Adventure sites
   ancient_ruins: { col: 0, row: 0 },
+  tomb: { col: 2, row: 3 },
+  spawning_grounds: { col: 1, row: 3 },
+  dungeon: { col: 3, row: 1 },  // labyrinth sprite
+  monster_den: { col: 0, row: 0 },  // ancient ruins sprite
+
+  // Fortified sites
+  keep: { col: 2, row: 1 },
+  mage_tower: { col: 2, row: 1 },  // keep sprite as fallback
+
+  // Cities
+  city: { col: 1, row: 0 },  // default to blue city
   city_blue: { col: 1, row: 0 },
   city_green: { col: 2, row: 0 },
   city_red: { col: 3, row: 0 },
   city_white: { col: 4, row: 0 },
-  deep_mine: { col: 0, row: 1 },
-  draconum: { col: 1, row: 1 },
-  keep: { col: 2, row: 1 },
-  labyrinth: { col: 3, row: 1 },
-  monastery: { col: 0, row: 2 },
-  necropolis: { col: 1, row: 2 },
-  orc_marauder: { col: 4, row: 2 },
-  refugee_camp: { col: 0, row: 3 },
-  spawning_grounds: { col: 1, row: 3 },
-  tomb: { col: 2, row: 3 },
+
+  // Safe sites
   village: { col: 3, row: 3 },
-  // Mage tower uses keep sprite as fallback
-  mage_tower: { col: 2, row: 1 },
-  // Monster den uses ancient ruins as fallback
-  monster_den: { col: 0, row: 0 },
-  // Dungeon uses labyrinth as fallback
-  dungeon: { col: 3, row: 1 },
+  monastery: { col: 0, row: 2 },
+  magical_glade: { col: 1, row: 2 },  // necropolis sprite (green/mystical) - TODO: need proper glade sprite
+
+  // Resource sites
+  deep_mine: { col: 0, row: 1 },
+  mine: { col: 0, row: 1 },  // same as deep_mine
+
+  // Rampaging enemies
+  orc_marauder: { col: 4, row: 2 },
+  draconum: { col: 1, row: 1 },
+
+  // Other
+  refugee_camp: { col: 0, row: 3 },
+  labyrinth: { col: 3, row: 1 },
+  necropolis: { col: 1, row: 2 },
 };
 
 interface StrikingEnemy {
@@ -130,16 +142,42 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
   const player = useMyPlayer();
   const canUndo = state?.validActions.turn?.canUndo ?? false;
 
-  // Get site type from player's current position
-  const siteType = (() => {
+  // Get site type or rampaging enemy type from player's current position
+  const backdropType = (() => {
     if (!player?.position || !state?.map.hexes) return null;
     const key = hexKey(player.position);
     const hex = state.map.hexes[key];
-    return hex?.site?.type ?? null;
+
+    // Check for site first
+    if (hex?.site?.type) {
+      // For cities, use the specific city color sprite
+      if (hex.site.type === 'city' && hex.site.cityColor) {
+        return `city_${hex.site.cityColor}`;
+      }
+      return hex.site.type;
+    }
+
+    // Check for rampaging enemies (use first one as backdrop)
+    if (hex?.rampagingEnemies && hex.rampagingEnemies.length > 0) {
+      return hex.rampagingEnemies[0];
+    }
+
+    // Fallback: check combat enemies for green tokens (orc marauders)
+    // Green enemies = orc marauder territory
+    if (combat.enemies.length > 0) {
+      const greenEnemyIds = ['diggers', 'prowlers', 'cursed_hags', 'wolf_riders', 'ironclads', 'orc_summoners'];
+      const enemyIds = combat.enemies.map(e => e.enemyId);
+      if (enemyIds.some(id => greenEnemyIds.includes(id))) {
+        return 'orc_marauder';
+      }
+      // Note: Draconum uses red enemies (not implemented yet)
+    }
+
+    return null;
   })();
 
-  // Get sprite position for the site (or null to hide backdrop)
-  const siteSprite = siteType ? SITE_SPRITE_MAP[siteType] : null;
+  // Get sprite position for the backdrop (or null to hide)
+  const siteSprite = backdropType ? SITE_SPRITE_MAP[backdropType] : null;
 
   // Visual effect state - use a counter to force animation restart
   const [activeEffect, setActiveEffect] = useState<EffectType>(null);
@@ -229,21 +267,17 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
 
       {/* Site backdrop - faded background behind enemies */}
       {siteSprite && (
-        <div className="combat-scene__backdrop">
-          <SpriteImage
-            src={SITES_SHEET.src}
-            spriteWidth={SITES_SHEET.spriteWidth}
-            spriteHeight={SITES_SHEET.spriteHeight}
-            col={siteSprite.col}
-            row={siteSprite.row}
-            sheetWidth={SITES_SHEET.width}
-            sheetHeight={SITES_SHEET.height}
-            displayWidth={512}
-            displayHeight={512}
-            alt={siteType ?? ""}
-            className="combat-scene__backdrop-image"
-          />
-        </div>
+        <div
+          className="combat-scene__backdrop"
+          style={{
+            backgroundImage: `url(${SITES_SHEET.src})`,
+            // Position as percentage of sprite sheet (col/totalCols, row/totalRows)
+            backgroundPosition: `${(siteSprite.col / (SITES_SHEET.cols - 1)) * 100}% ${(siteSprite.row / (SITES_SHEET.rows - 1)) * 100}%`,
+            // Size so each sprite fills the container (totalCols * 100%, totalRows * 100%)
+            backgroundSize: `${SITES_SHEET.cols * 100}% ${SITES_SHEET.rows * 100}%`,
+          }}
+          role="presentation"
+        />
       )}
 
       {/* Main layout: phase rail | battle area | info panel */}
