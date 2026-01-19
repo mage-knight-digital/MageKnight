@@ -17,7 +17,8 @@
 
 .expanded-card__image {
   position: relative;
-  border-radius: 12px;
+  /* Use percentage to match card artwork's rounded corners */
+  border-radius: 4%;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }

@@ -36,6 +36,8 @@ export function renderPathPreview(
 
   const graphics = new Graphics();
   graphics.label = "path-line";
+  // Allow clicks to pass through to hex overlays beneath
+  graphics.eventMode = "none";
 
   const color = isTerminal ? PATH_COLOR_TERMINAL : PATH_COLOR_SAFE;
 
