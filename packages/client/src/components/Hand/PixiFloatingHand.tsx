@@ -1,12 +1,12 @@
 /**
  * PixiFloatingHand - PixiJS-based card rendering for the hand
  *
- * Renders hand cards entirely in PixiJS using the shared Application from PixiAppContext.
- * This eliminates DOM overhead and provides smoother animations while avoiding
- * the WebGL context conflicts that occur with multiple PixiJS Applications.
+ * Renders hand cards in a dedicated PixiJS Application with its own canvas.
+ * This canvas is positioned above the combat overlay via CSS z-index, ensuring
+ * the hand is always visible during combat.
  *
  * Features:
- * - Uses shared PixiJS canvas (no separate Application)
+ * - Dedicated PixiJS canvas with high z-index (above combat overlay)
  * - Screen-space overlay (not affected by camera pan/zoom)
  * - Fan layout with spread, rotation, arc
  * - Inscryption-style z-ordering (persists after mouse leave)
@@ -16,12 +16,11 @@
  */
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { Sprite, Texture, Rectangle, Assets, Graphics, Container } from "pixi.js";
+import { Application, Sprite, Texture, Rectangle, Assets, Graphics, Container } from "pixi.js";
 import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared";
 import { getCardSpriteData, getCardColor } from "../../utils/cardAtlas";
-import { calculateZIndex, CARD_FAN_BASE_SCALE, CARD_FAN_HOVER, CARD_FAN_VIEW_SCALE, type CardFanViewMode } from "../../utils/cardFanLayout";
+import { calculateZIndex, CARD_FAN_BASE_SCALE, CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
 import { playSound } from "../../utils/audioManager";
-import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import "./FloatingHand.css";
 
@@ -169,6 +168,7 @@ export function PixiFloatingHand({
   viewMode,
 }: PixiFloatingHandProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const appRef = useRef<Application | null>(null);
   const handContainerRef = useRef<Container | null>(null);
   const cardContainersRef = useRef<Map<number, Container>>(new Map());
   const glowGraphicsRef = useRef<Map<number, Graphics>>(new Map());
@@ -176,12 +176,10 @@ export function PixiFloatingHand({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
   const [screenDimensions, setScreenDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [isAppReady, setIsAppReady] = useState(false);
 
   // Track previous view mode for transitions
   const prevViewModeRef = useRef<HandViewMode>(viewMode);
-
-  // Get the shared PixiJS app and overlay layer
-  const { app, overlayLayer } = usePixiApp();
 
   // Track new cards for deal animation
   const prevHandLengthRef = useRef<number>(hand.length);
@@ -303,32 +301,72 @@ export function PixiFloatingHand({
     return null;
   }, [cardPositions, cardWidth, cardHeight]);
 
-  // Create and manage the hand container in the shared overlay layer
+  // Create dedicated PixiJS Application for the hand overlay
   useEffect(() => {
-    if (!app || !overlayLayer) return;
+    if (!containerRef.current) return;
 
-    // Create hand container
-    const handContainer = new Container();
-    handContainer.label = "floating-hand";
-    handContainer.sortableChildren = true; // Enable z-index sorting
-    handContainer.eventMode = "static"; // Enable events for container-level hover detection
-    handContainer.interactiveChildren = true;
+    let app: Application | null = null;
+    let destroyed = false;
 
+    const initApp = async () => {
+      app = new Application();
+      await app.init({
+        backgroundAlpha: 0, // Transparent background
+        width: window.innerWidth,
+        height: window.innerHeight,
+        antialias: true,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+      });
 
-    // Initial position will be set by the view mode effect
-    overlayLayer.addChild(handContainer);
-    handContainerRef.current = handContainer;
+      if (destroyed) {
+        app.destroy(true, { children: true });
+        return;
+      }
 
-    // Also ensure overlay layer has events enabled
-    overlayLayer.eventMode = "static";
-    overlayLayer.interactiveChildren = true;
+      // Style canvas: full screen, above combat overlay
+      // pointer-events: none lets clicks pass through to combat UI beneath
+      // IMPORTANT: Append to document.body, not a parent with CSS transform,
+      // because transform creates a new containing block for position: fixed
+      app.canvas.style.position = "fixed";
+      app.canvas.style.top = "0";
+      app.canvas.style.left = "0";
+      app.canvas.style.width = "100%";
+      app.canvas.style.height = "100%";
+      app.canvas.style.zIndex = "200"; // Above combat overlay (z-index: 100)
+      app.canvas.style.pointerEvents = "none"; // Pass through to combat UI
 
-    // Create and attach animation manager
-    const animManager = new AnimationManager();
-    animManager.attach(app.ticker);
-    animationManagerRef.current = animManager;
+      document.body.appendChild(app.canvas);
+      appRef.current = app;
+
+      // Create hand container
+      const handContainer = new Container();
+      handContainer.label = "floating-hand";
+      handContainer.sortableChildren = true;
+      handContainer.eventMode = "none"; // Events handled via DOM
+      handContainer.interactiveChildren = false;
+
+      app.stage.addChild(handContainer);
+      handContainerRef.current = handContainer;
+
+      // Stage doesn't need events - we handle via DOM
+      app.stage.eventMode = "none";
+      app.stage.interactiveChildren = false;
+
+      // Create and attach animation manager
+      const animManager = new AnimationManager();
+      animManager.attach(app.ticker);
+      animationManagerRef.current = animManager;
+
+      setIsAppReady(true);
+    };
+
+    initApp();
 
     return () => {
+      destroyed = true;
+      setIsAppReady(false);
+
       // Clean up animation manager
       if (animationManagerRef.current) {
         animationManagerRef.current.cancelAll();
@@ -337,21 +375,28 @@ export function PixiFloatingHand({
       }
 
       if (handContainerRef.current) {
-        if (handContainerRef.current.parent) {
-          handContainerRef.current.parent.removeChild(handContainerRef.current);
-        }
         handContainerRef.current.destroy({ children: true });
         handContainerRef.current = null;
       }
+
+      if (appRef.current) {
+        // Remove canvas from body before destroying
+        if (appRef.current.canvas.parentNode) {
+          appRef.current.canvas.parentNode.removeChild(appRef.current.canvas);
+        }
+        appRef.current.destroy(true, { children: true });
+        appRef.current = null;
+      }
+
       cardContainersRef.current.clear();
       glowGraphicsRef.current.clear();
     };
-  }, [app, overlayLayer]);
+  }, []);
 
   // Update sprites when hand changes
   useEffect(() => {
     const handContainer = handContainerRef.current;
-    if (!handContainer || !app) return;
+    if (!handContainer || !isAppReady) return;
 
     const updateSprites = async () => {
       handContainer.removeChildren();
@@ -420,29 +465,8 @@ export function PixiFloatingHand({
         border.stroke();
         cardContainer.addChild(border);
 
-        // Store card metadata for click handling
-        cardContainer.eventMode = "static";
-        cardContainer.cursor = isPlayable ? "pointer" : "default";
-
-        // Click handler only - hover is handled at container level
-        cardContainer.on("pointerdown", () => {
-          if (isPlayable) {
-            // Get the global position of the card in screen coordinates
-            const globalPos = cardContainer.getGlobalPosition();
-            const viewConfig = VIEW_MODE_OFFSETS[viewMode];
-            const scale = viewConfig.scale;
-
-            // Calculate the card's screen rect based on its global position
-            // The pivot is at bottom center, so adjust accordingly
-            const cardRect = new DOMRect(
-              globalPos.x - (cardWidth * scale) / 2,
-              globalPos.y - (cardHeight * scale),
-              cardWidth * scale,
-              cardHeight * scale
-            );
-            onCardClick({ index: originalIndex, rect: cardRect });
-          }
-        });
+        // No PixiJS events - clicks handled via DOM
+        cardContainer.eventMode = "none";
 
         // Set initial z-index
         cardContainer.zIndex = calculateZIndex(i, visibleHand.length, zIndexAnchor);
@@ -457,20 +481,20 @@ export function PixiFloatingHand({
     updateSprites();
   // Note: zIndexAnchor intentionally excluded - z-index updates happen in the hover effect, not by recreating sprites
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleHand, cardPositions, cardWidth, cardHeight, app, playableCards, getOriginalIndex, onCardClick, viewMode]);
+  }, [visibleHand, cardPositions, cardWidth, cardHeight, isAppReady, playableCards, getOriginalIndex, onCardClick, viewMode]);
 
-  // Handle hover detection at container level for reliable detection with overlapping cards
+  // Handle hover detection using DOM events (canvas has pointer-events: none)
   useEffect(() => {
     const handContainer = handContainerRef.current;
-    if (!handContainer || !app) return;
+    if (!handContainer || !isAppReady) return;
 
     let lastHoveredIndex: number | null = null;
 
-    const handlePointerMove = (e: { global: { x: number; y: number } }) => {
+    const handleMouseMove = (e: MouseEvent) => {
       if (viewMode === "board") return;
 
-      // Convert global position to hand container local position
-      const localPos = handContainer.toLocal({ x: e.global.x, y: e.global.y });
+      // Convert screen position to hand container local position
+      const localPos = handContainer.toLocal({ x: e.clientX, y: e.clientY });
       const cardIndex = findCardAtPosition(localPos.x, localPos.y);
 
       if (cardIndex !== lastHoveredIndex) {
@@ -487,20 +511,61 @@ export function PixiFloatingHand({
       }
     };
 
-    const handlePointerLeave = () => {
-      setHoveredIndex(null);
-      lastHoveredIndex = null;
-    };
-
-    // Listen on the stage for global pointer tracking
-    app.stage.on("pointermove", handlePointerMove);
-    handContainer.on("pointerleave", handlePointerLeave);
+    // Use document-level listener since canvas has pointer-events: none
+    document.addEventListener("mousemove", handleMouseMove);
 
     return () => {
-      app.stage.off("pointermove", handlePointerMove);
-      handContainer.off("pointerleave", handlePointerLeave);
+      document.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [app, viewMode, findCardAtPosition]);
+  }, [isAppReady, viewMode, findCardAtPosition]);
+
+  // Handle card clicks via DOM events (canvas has pointer-events: none)
+  useEffect(() => {
+    const handContainer = handContainerRef.current;
+    if (!handContainer || !isAppReady) return;
+
+    const handleClick = (e: MouseEvent) => {
+      if (viewMode === "board") return;
+
+      // Convert screen position to hand container local position
+      const localPos = handContainer.toLocal({ x: e.clientX, y: e.clientY });
+      const cardIndex = findCardAtPosition(localPos.x, localPos.y);
+
+      if (cardIndex !== null) {
+        const cardId = visibleHand[cardIndex];
+        const originalIndex = getOriginalIndex(cardIndex);
+
+        if (cardId && playableCards.has(cardId)) {
+          // Prevent the click from propagating to elements below
+          e.stopPropagation();
+          e.preventDefault();
+
+          // Get card position for menu
+          const container = cardContainersRef.current.get(cardIndex);
+          if (container) {
+            const globalPos = container.getGlobalPosition();
+            const viewConfig = VIEW_MODE_OFFSETS[viewMode];
+            const scale = viewConfig.scale;
+
+            const cardRect = new DOMRect(
+              globalPos.x - (cardWidth * scale) / 2,
+              globalPos.y - (cardHeight * scale),
+              cardWidth * scale,
+              cardHeight * scale
+            );
+            onCardClick({ index: originalIndex, rect: cardRect });
+          }
+        }
+      }
+    };
+
+    // Use capture phase to intercept clicks before they reach elements below
+    document.addEventListener("click", handleClick, true);
+
+    return () => {
+      document.removeEventListener("click", handleClick, true);
+    };
+  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick]);
 
   // Track previous hovered index for animation
   const prevHoveredIndexRef = useRef<number | null>(null);
@@ -580,19 +645,24 @@ export function PixiFloatingHand({
     const prevViewMode = prevViewModeRef.current;
     const isViewModeChange = prevViewMode !== viewMode;
 
-    // Calculate base position (bottom center)
-    const baseX = (screenDimensions.width - containerWidth) / 2;
-    const baseY = screenDimensions.height - containerHeight;
+    // The hand container uses bottom-center pivot for all modes
+    // This matches CSS transform-origin: bottom center
+    handContainer.pivot.set(containerWidth / 2, containerHeight);
 
-    // Apply view mode offset
+    // Base position: horizontally centered, bottom of screen
+    const baseX = screenDimensions.width / 2;
+    const baseY = screenDimensions.height;
+
+    // yOffset is a percentage of screen height (positive = down, negative = up)
+    // This matches CSS translateY behavior
     const yOffset = viewConfig.yOffset * screenDimensions.height;
 
     // Calculate target position and scale
-    let targetX: number;
-    let targetY: number;
-    let targetScale = viewConfig.scale;
+    let targetX: number = baseX;
+    let targetY: number = baseY + yOffset;
+    let targetScale: number = viewConfig.scale;
 
-    // For focus mode, scale from center and move up
+    // For focus mode, constrain scale to fit on screen
     if (viewMode === "focus") {
       // Calculate max scale that fits cards on screen with some padding
       const horizontalPadding = 40; // 20px on each side
@@ -606,16 +676,6 @@ export function PixiFloatingHand({
 
       // Use the smaller of: desired scale, max horizontal, max vertical
       targetScale = Math.min(viewConfig.scale, maxHorizontalScale, maxVerticalScale);
-
-      // Scale from the bottom center of the hand
-      handContainer.pivot.set(containerWidth / 2, containerHeight);
-      targetX = screenDimensions.width / 2;
-      targetY = baseY + containerHeight + yOffset;
-    } else {
-      // Normal positioning
-      handContainer.pivot.set(0, 0);
-      targetX = baseX;
-      targetY = baseY + yOffset;
     }
 
     // Show container before animating in (but hide if going to board mode)
