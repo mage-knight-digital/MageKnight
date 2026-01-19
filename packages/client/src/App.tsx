@@ -6,6 +6,7 @@ import { AnimationDispatcherProvider } from "./contexts/AnimationDispatcherConte
 import { CinematicProvider, useCinematic } from "./contexts/CinematicContext";
 import { OverlayProvider } from "./contexts/OverlayContext";
 import { DebugDisplayProvider } from "./contexts/DebugDisplayContext";
+import { PixiAppProvider } from "./contexts/PixiAppContext";
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
 import { PixiHexGrid } from "./components/GameBoard/PixiHexGrid";
@@ -126,10 +127,12 @@ export function App() {
           <CinematicProvider>
             <OverlayProvider>
               <DebugDisplayProvider>
-                <CardMenuPositionProvider>
-                  <GameView />
-                  <DebugPanel />
-                </CardMenuPositionProvider>
+                <PixiAppProvider>
+                  <CardMenuPositionProvider>
+                    <GameView />
+                    <DebugPanel />
+                  </CardMenuPositionProvider>
+                </PixiAppProvider>
               </DebugDisplayProvider>
             </OverlayProvider>
           </CinematicProvider>

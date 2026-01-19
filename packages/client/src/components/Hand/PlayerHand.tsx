@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { FloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./FloatingHand";
+import { PixiFloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./PixiFloatingHand";
 import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
 import { TacticCarouselPane } from "./TacticCarouselPane";
 import { CardActionMenu } from "../CardActionMenu";
@@ -496,7 +496,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
         {/* Cards pane (middle position) */}
         <div className="carousel-track__pane carousel-track__pane--cards">
-          <FloatingHand
+          <PixiFloatingHand
             hand={handArray}
             playableCards={playableCardMap}
             selectedIndex={selectedIndex}

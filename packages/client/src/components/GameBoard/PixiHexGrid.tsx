@@ -31,6 +31,7 @@ import { useCinematic } from "../../contexts/CinematicContext";
 import type { CinematicSequence } from "../../contexts/CinematicContext";
 import { useOverlay } from "../../contexts/OverlayContext";
 import { useDebugDisplay } from "../../contexts/DebugDisplayContext";
+import { usePixiApp } from "../../contexts/PixiAppContext";
 import { useHexHover } from "../../hooks/useHexHover";
 import { HexTooltip } from "../HexTooltip";
 import { SitePanel } from "../SitePanel";
@@ -175,6 +176,7 @@ export function PixiHexGrid() {
   const { playCinematic, isInCinematic } = useCinematic();
   const { isOverlayActive } = useOverlay();
   const { settings: debugDisplaySettings } = useDebugDisplay();
+  const { setApp, setOverlayLayer } = usePixiApp();
 
   // Tooltip hover hook
   const {
@@ -467,6 +469,12 @@ export function PixiHexGrid() {
       app.stage.addChild(background.getContainer());
       app.stage.addChild(world);
 
+      // Create screen-space overlay layer for UI elements (hand, etc.)
+      // This is NOT part of the world, so it won't be affected by camera pan/zoom
+      const screenOverlay = new Container();
+      screenOverlay.label = "screenOverlay";
+      app.stage.addChild(screenOverlay);
+
       // Hide world until camera is properly positioned to avoid jarring initial movement
       world.visible = false;
 
@@ -519,6 +527,10 @@ export function PixiHexGrid() {
       layersRef.current = layers;
       worldRef.current = world;
 
+      // Register app and overlay layer with context for other components to use
+      setApp(app);
+      setOverlayLayer(screenOverlay);
+
       console.log("[PixiHexGrid] Initialized");
       setIsInitialized(true);
     };
@@ -527,6 +539,9 @@ export function PixiHexGrid() {
 
     return () => {
       destroyed = true;
+      // Unregister from context
+      setApp(null);
+      setOverlayLayer(null);
       animationManagerRef.current?.detach();
       animationManagerRef.current = null;
       particleManagerRef.current?.clear();
@@ -553,7 +568,7 @@ export function PixiHexGrid() {
         setIsInitialized(false);
       }
     };
-  }, [handlePointerDown, handlePointerMove, handlePointerUp]);
+  }, [handlePointerDown, handlePointerMove, handlePointerUp, setApp, setOverlayLayer]);
 
   // DOM event listeners
   useEffect(() => {
