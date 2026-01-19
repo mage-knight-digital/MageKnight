@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared";
-import { loadAtlas, getCardSpriteStyle, getCardColor } from "../../utils/cardAtlas";
+import { loadAtlas, getCardSpriteData, getCardColor } from "../../utils/cardAtlas";
+import { SpriteImage } from "../SpriteImage/SpriteImage";
 import { calculateZIndex, CARD_FAN_SCALE, CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
 import { playSound } from "../../utils/audioManager";
 import { useGameIntro, UI_REVEAL_TIMING } from "../../contexts/GameIntroContext";
@@ -116,8 +117,8 @@ const FloatingCard = memo(function FloatingCard({
 }: FloatingCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Memoize sprite style - recalculate if cardId or dimensions change
-  const spriteStyle = useMemo(() => getCardSpriteStyle(cardId, cardHeight), [cardId, cardHeight]);
+  // Memoize sprite data - recalculate only if cardId changes (SpriteImage handles scaling)
+  const spriteData = useMemo(() => getCardSpriteData(cardId), [cardId]);
   const cardColor = useMemo(() => getCardColor(cardId), [cardId]);
 
   const handleClick = useCallback(() => {
@@ -172,7 +173,8 @@ const FloatingCard = memo(function FloatingCard({
 
   // Card style with Inscryption-style hover effect (lift only, no zoom)
   const cardStyle: React.CSSProperties = {
-    ...spriteStyle,
+    width: cardWidth,
+    height: cardHeight,
     transform: isHovered ? `translateY(-${CARD_FAN_HOVER.liftY}px)` : "translateY(0)",
     "--glow-color": glowColor,
     ...(isNew && { animationDelay: `${dealDelay}s` }),
@@ -187,7 +189,21 @@ const FloatingCard = memo(function FloatingCard({
       data-testid={`hand-card-${cardId}`}
     >
       <div ref={cardRef} className={classNames} style={cardStyle}>
-        {!spriteStyle && (
+        {spriteData ? (
+          <SpriteImage
+            src={spriteData.src}
+            spriteWidth={spriteData.spriteWidth}
+            spriteHeight={spriteData.spriteHeight}
+            col={spriteData.col}
+            row={spriteData.row}
+            sheetWidth={spriteData.sheetWidth}
+            sheetHeight={spriteData.sheetHeight}
+            displayWidth={cardWidth}
+            displayHeight={cardHeight}
+            alt={cardId}
+            className="floating-card__sprite"
+          />
+        ) : (
           <span className="floating-card__fallback">{cardId}</span>
         )}
       </div>

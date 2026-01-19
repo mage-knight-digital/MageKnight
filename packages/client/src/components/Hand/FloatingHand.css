@@ -138,6 +138,14 @@
   text-align: center;
 }
 
+/* Sprite fills the card - uses async decoding for performance */
+.floating-card__sprite {
+  width: 100%;
+  height: 100%;
+  /* Match card's border-radius */
+  border-radius: 4%;
+}
+
 /* Deck and discard container - fixed position bottom right */
 
 /* Intro animation: Deck slides in from right edge with settle
