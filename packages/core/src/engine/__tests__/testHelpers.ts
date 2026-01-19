@@ -128,6 +128,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     manaUsedThisTurn: [],
     pendingGladeWoundChoice: false,
     pendingDeepMineChoice: null,
+    healingPoints: 0,
     ...rest,
   };
 }

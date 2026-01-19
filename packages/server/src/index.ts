@@ -230,6 +230,9 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
     pendingDeepMineChoice: player.pendingDeepMineChoice
       ? player.pendingDeepMineChoice.map(mineColorToBasicManaColor)
       : null,
+
+    // Healing points accumulated this turn
+    healingPoints: player.healingPoints,
   };
 }
 
@@ -687,6 +690,7 @@ export class GameServer {
       pendingRewards: [],
       pendingGladeWoundChoice: false,
       pendingDeepMineChoice: null,
+      healingPoints: 0,
     };
 
     return { player, rng: newRng };
