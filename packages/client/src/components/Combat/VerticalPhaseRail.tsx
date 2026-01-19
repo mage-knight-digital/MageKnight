@@ -18,6 +18,7 @@ interface VerticalPhaseRailProps {
   currentPhase: CombatPhase;
   canEndPhase: boolean;
   onEndPhase: () => void;
+  allEnemiesDefeated: boolean;
 }
 
 // Combat icons - thematic, not numbered checkout steps
@@ -32,9 +33,16 @@ export function VerticalPhaseRail({
   currentPhase,
   canEndPhase,
   onEndPhase,
+  allEnemiesDefeated,
 }: VerticalPhaseRailProps) {
   const currentIndex = PHASES.findIndex((p) => p.id === currentPhase);
   const isLastPhase = currentPhase === COMBAT_PHASE_ATTACK;
+
+  // Button text depends on phase and enemy state
+  const getButtonText = () => {
+    if (!isLastPhase) return "→";
+    return allEnemiesDefeated ? "Claim Victory" : "Withdraw";
+  };
 
   return (
     <div className="vertical-phase-rail" role="navigation" aria-label="Combat phases">
@@ -81,7 +89,7 @@ export function VerticalPhaseRail({
         type="button"
         data-testid="end-combat-phase-btn"
       >
-        {isLastPhase ? "End Combat" : "→"}
+        {getButtonText()}
       </button>
 
       {/* Warning - only when blocked */}

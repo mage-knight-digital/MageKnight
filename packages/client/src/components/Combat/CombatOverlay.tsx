@@ -195,6 +195,7 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
             currentPhase={phase}
             canEndPhase={combatOptions.canEndPhase}
             onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
+            allEnemiesDefeated={enemies.every((e) => e.isDefeated)}
           />
         </div>
 
