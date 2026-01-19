@@ -5,9 +5,9 @@ import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
 import { AnimationDispatcherProvider } from "./contexts/AnimationDispatcherContext";
 import { CinematicProvider, useCinematic } from "./contexts/CinematicContext";
 import { OverlayProvider } from "./contexts/OverlayContext";
+import { DebugDisplayProvider } from "./contexts/DebugDisplayContext";
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
-import { HexGrid } from "./components/GameBoard/HexGrid";
 import { PixiHexGrid } from "./components/GameBoard/PixiHexGrid";
 import { ManaSourceOverlay } from "./components/GameBoard/ManaSourceOverlay";
 import { TopBar } from "./components/TopBar";
@@ -45,19 +45,6 @@ function getGameSeed(): number {
 }
 
 const GAME_SEED = getGameSeed();
-
-// Check if PixiJS renderer is enabled via URL param (?renderer=pixi)
-function getUsePixiRenderer(): boolean {
-  const urlParams = new URLSearchParams(window.location.search);
-  const rendererParam = urlParams.get("renderer");
-  const usePixi = rendererParam === "pixi";
-  if (usePixi) {
-    console.log("Renderer: PixiJS (experimental)");
-  }
-  return usePixi;
-}
-
-const USE_PIXI_RENDERER = getUsePixiRenderer();
 
 function GameView() {
   const { state } = useGame();
@@ -121,7 +108,7 @@ function GameView() {
 
       <main className="app__main">
         <div className="app__board">
-          {USE_PIXI_RENDERER ? <PixiHexGrid /> : <HexGrid />}
+          <PixiHexGrid />
           <ManaSourceOverlay />
         </div>
       </main>
@@ -159,10 +146,12 @@ export function App() {
         <GameIntroProvider>
           <CinematicProvider>
             <OverlayProvider>
-              <CardMenuPositionProvider>
-                <GameView />
-                <DebugPanel />
-              </CardMenuPositionProvider>
+              <DebugDisplayProvider>
+                <CardMenuPositionProvider>
+                  <GameView />
+                  <DebugPanel />
+                </CardMenuPositionProvider>
+              </DebugDisplayProvider>
             </OverlayProvider>
           </CinematicProvider>
         </GameIntroProvider>
