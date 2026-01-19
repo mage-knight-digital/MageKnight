@@ -38,11 +38,11 @@ export function TopBar() {
 
   // If intro is already complete on mount (e.g., hot reload), show immediately
   useEffect(() => {
-    if (isIntroComplete) {
+    if (isIntroComplete && !hasAnimatedRef.current) {
       hasAnimatedRef.current = true;
       setIntroAnimState("visible");
     }
-  }, []);
+  }, [isIntroComplete]);
 
   if (!state || !player) return null;
 

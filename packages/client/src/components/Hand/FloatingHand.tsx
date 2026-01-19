@@ -433,7 +433,7 @@ interface DeckDiscardIndicatorProps {
 }
 
 export function DeckDiscardIndicator({ deckCount, discardCount, isHidden }: DeckDiscardIndicatorProps) {
-  const { phase, shouldRevealUI, isIntroComplete } = useGameIntro();
+  const { shouldRevealUI, isIntroComplete } = useGameIntro();
 
   // Track intro animation state for the deck/discard
   // Always start hidden - will reveal after intro completes
@@ -466,11 +466,11 @@ export function DeckDiscardIndicator({ deckCount, discardCount, isHidden }: Deck
 
   // If intro is already complete on mount (e.g., hot reload), show immediately
   useEffect(() => {
-    if (isIntroComplete) {
+    if (isIntroComplete && !hasAnimatedRef.current) {
       hasAnimatedRef.current = true;
       setIntroAnimState("visible");
     }
-  }, []);
+  }, [isIntroComplete]);
 
   const className = [
     "floating-hand__deck-discard",

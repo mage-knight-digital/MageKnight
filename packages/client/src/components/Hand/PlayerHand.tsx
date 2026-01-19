@@ -166,7 +166,7 @@ export interface PlayerHandProps {
 export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
-  const { phase, shouldRevealUI, isIntroComplete } = useGameIntro();
+  const { shouldRevealUI, isIntroComplete } = useGameIntro();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
   const [handView, setHandView] = useState<HandView>("ready");
   // Default to tactics - most game loads are at round start with tactic selection
@@ -204,11 +204,11 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   // If intro is already complete on mount (e.g., hot reload), show immediately
   useEffect(() => {
-    if (isIntroComplete) {
+    if (isIntroComplete && !indicatorAnimatedRef.current) {
       indicatorAnimatedRef.current = true;
       setIndicatorAnimState("visible");
     }
-  }, []);
+  }, [isIntroComplete]);
 
   // Track whether we need tactic selection (for auto-navigation)
   const needsTacticSelection = !!(

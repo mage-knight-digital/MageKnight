@@ -18,7 +18,7 @@ import "./TurnActions.css";
 export function TurnActions() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
-  const { phase, isIntroComplete } = useGameIntro();
+  const { isIntroComplete } = useGameIntro();
 
   const isMyTurn = state?.currentPlayerId === player?.id;
   // Must check player exists AND has a tactic (not null/undefined)
@@ -59,11 +59,11 @@ export function TurnActions() {
 
   // If tactic is already selected on mount (e.g., hot reload), show immediately
   useEffect(() => {
-    if (hasTactic && isIntroComplete) {
+    if (hasTactic && isIntroComplete && !hasAnimatedRef.current) {
       hasAnimatedRef.current = true;
       setSealAnimState("visible");
     }
-  }, []);
+  }, [hasTactic, isIntroComplete]);
   const canUndo = state?.validActions.turn?.canUndo ?? false;
 
   // Check for activatable tactics

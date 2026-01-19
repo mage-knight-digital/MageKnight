@@ -506,11 +506,12 @@ export function PixiHexGrid() {
   }, [isInitialized, state, startIntro]);
 
   // Update background day/night state
+  const timeOfDay = state?.timeOfDay;
   useEffect(() => {
-    if (!isInitialized || !state || !backgroundRef.current) return;
-    const isNight = state.timeOfDay === TIME_OF_DAY_NIGHT;
+    if (!isInitialized || !timeOfDay || !backgroundRef.current) return;
+    const isNight = timeOfDay === TIME_OF_DAY_NIGHT;
     backgroundRef.current.setNight(isNight);
-  }, [isInitialized, state?.timeOfDay]);
+  }, [isInitialized, timeOfDay]);
 
   // Main render effect
   useEffect(() => {

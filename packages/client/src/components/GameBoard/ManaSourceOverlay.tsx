@@ -47,7 +47,7 @@ const STAGGER_DELAY_MS = 80;
 export function ManaSourceOverlay() {
   const { state } = useGame();
   const player = useMyPlayer();
-  const { phase, shouldRevealUI, isIntroComplete } = useGameIntro();
+  const { shouldRevealUI, isIntroComplete } = useGameIntro();
 
   // Track intro animation state
   // Always start hidden - will reveal after intro completes
@@ -89,11 +89,11 @@ export function ManaSourceOverlay() {
 
   // If intro is already complete on mount (e.g., hot reload), show immediately
   useEffect(() => {
-    if (isIntroComplete) {
+    if (isIntroComplete && !hasAnimatedRef.current) {
       hasAnimatedRef.current = true;
       setIntroAnimState("visible");
     }
-  }, []);
+  }, [isIntroComplete]);
 
   // Detect dice color changes and trigger roll animation
   useEffect(() => {
