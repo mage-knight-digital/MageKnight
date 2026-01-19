@@ -10,7 +10,7 @@ export interface DebugTabProps {
   loadGame: (json: string) => void;
 }
 
-export type TabId = "gameplay" | "saveload" | "audio";
+export type TabId = "gameplay" | "saveload" | "audio" | "display";
 
 export interface TabConfig {
   id: TabId;
@@ -21,4 +21,5 @@ export const TABS: TabConfig[] = [
   { id: "gameplay", label: "Gameplay" },
   { id: "saveload", label: "Save/Load" },
   { id: "audio", label: "Audio" },
+  { id: "display", label: "Display" },
 ];

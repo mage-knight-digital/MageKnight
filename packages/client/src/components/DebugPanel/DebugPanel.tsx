@@ -12,6 +12,7 @@ import { useGame } from "../../hooks/useGame";
 import { GameplayTab } from "./GameplayTab";
 import { SaveLoadTab } from "./SaveLoadTab";
 import { AudioTab } from "./AudioTab";
+import { DisplayTab } from "./DisplayTab";
 import { TABS, type TabId } from "./types";
 
 export function DebugPanel() {
@@ -42,6 +43,8 @@ export function DebugPanel() {
         return <SaveLoadTab state={state} saveGame={saveGame} loadGame={loadGame} />;
       case "audio":
         return <AudioTab />;
+      case "display":
+        return <DisplayTab />;
       default:
         return null;
     }

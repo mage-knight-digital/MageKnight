@@ -511,6 +511,9 @@ export function GameplayTab({ state, saveGame, loadGame }: DebugTabProps) {
           <button type="button" onClick={() => handleAddMovePoints(10)}>
             +10
           </button>
+          <button type="button" onClick={() => handleAddMovePoints(100)}>
+            +100
+          </button>
         </div>
       </section>
     </>
