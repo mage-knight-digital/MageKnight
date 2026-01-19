@@ -156,6 +156,7 @@ export type {
   ClientSite,
   ClientHexEnemy,
   ClientHexState,
+  ClientTileSlot,
   ClientMapState,
   ClientCardOffer,
   ClientGameOffers,

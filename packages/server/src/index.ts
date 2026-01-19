@@ -122,6 +122,7 @@ export function toClientState(
         ])
       ),
       tiles: state.map.tiles,
+      tileSlots: state.map.tileSlots,
     },
 
     source: {

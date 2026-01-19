@@ -13,6 +13,16 @@ export interface PixelPosition {
 }
 
 /**
+ * Camera bounds for clamping pan
+ */
+export interface CameraBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+/**
  * Camera state for pan/zoom (Phase 3)
  */
 export interface CameraState {
@@ -25,12 +35,21 @@ export interface CameraState {
   targetZoom: number;
   /** Whether user is currently panning */
   isPanning: boolean;
+  /** Dynamic minimum zoom (calculated based on background/screen size) */
+  minZoom: number;
+  /** World bounds for clamping camera pan */
+  bounds: CameraBounds;
+  /** Screen dimensions for bounds calculation */
+  screenWidth: number;
+  screenHeight: number;
 }
 
 /**
  * Layer containers in the world
  */
 export interface WorldLayers {
+  /** Board shape outline (unfilled tile slots) */
+  boardShape: Container;
   /** Background tile images */
   tiles: Container;
   /** Drop shadows below tiles */
@@ -63,7 +82,7 @@ export interface SpriteCache {
 /**
  * Render constants matching the SVG version
  */
-export const HEX_SIZE = 50; // pixels from center to corner
+export const HEX_SIZE = 85; // pixels from center to corner
 
 // Tile image dimensions (same as SVG version)
 export const TILE_WIDTH = 3 * Math.sqrt(3) * HEX_SIZE;  // ~259.8 units
@@ -76,7 +95,7 @@ export const ENEMY_TOKEN_SIZE = HEX_SIZE * 1.37; // ~71% bigger than original (w
 export const HERO_TOKEN_RADIUS = HEX_SIZE * 0.25;
 
 // Camera constants
-export const CAMERA_MIN_ZOOM = 0.3;
+export const CAMERA_MIN_ZOOM = 0.25; // Will be dynamically adjusted based on screen/background
 export const CAMERA_MAX_ZOOM = 2.5;
 export const CAMERA_ZOOM_SPEED = 0.1;       // Multiplier per wheel tick
 export const CAMERA_PAN_SPEED = 10;          // Pixels per key press

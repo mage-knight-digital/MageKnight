@@ -11,7 +11,7 @@
 import { Graphics, Text, TextStyle } from "pixi.js";
 import type { HexCoord, ClientHexState } from "@mage-knight/shared";
 import { hexKey } from "@mage-knight/shared";
-import { hexToPixel, getHexVertices } from "../hexMath";
+import { hexToPixel, getHexVertices, rotatePoint } from "../hexMath";
 import type { WorldLayers, PixelPosition } from "../types";
 import { HEX_SIZE } from "../types";
 
@@ -54,8 +54,9 @@ function drawHexPolygon(
 ): void {
   const vertices = getHexVertices(size);
 
+  // Rotate vertices to match map orientation
   graphics
-    .poly(vertices.map((v) => ({ x: center.x + v.x, y: center.y + v.y })))
+    .poly(vertices.map((v) => { const r = rotatePoint(v.x, v.y); return { x: center.x + r.x, y: center.y + r.y }; }))
     .fill({ color: fillColor, alpha: fillAlpha })
     .stroke({ color: strokeColor, width: strokeWidth, alpha: strokeAlpha });
 }

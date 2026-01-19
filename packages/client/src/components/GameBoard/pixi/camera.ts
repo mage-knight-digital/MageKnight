@@ -9,11 +9,11 @@ import type { Application, Container } from "pixi.js";
 import type { FederatedPointerEvent } from "pixi.js";
 import type { CameraState, PixelPosition } from "./types";
 import {
-  CAMERA_MIN_ZOOM,
   CAMERA_MAX_ZOOM,
   CAMERA_ZOOM_SPEED,
   CAMERA_LERP_FACTOR,
   CAMERA_KEYBOARD_PAN_SPEED,
+  CAMERA_MIN_ZOOM,
 } from "./types";
 
 /**
@@ -33,7 +33,44 @@ export function createInitialCameraState(): CameraState {
     targetCenter: { x: 0, y: 0 },
     targetZoom: 1,
     isPanning: false,
+    minZoom: CAMERA_MIN_ZOOM, // Will be updated dynamically based on screen/background
+    bounds: { minX: -2400, maxX: 2400, minY: -1600, maxY: 1600 }, // Default, will be updated
+    screenWidth: 1920,
+    screenHeight: 1080,
   };
+}
+
+/**
+ * Clamp camera center to stay within bounds (accounting for screen size and zoom)
+ */
+function clampCameraCenter(camera: CameraState): void {
+  // Calculate how much world space is visible at current zoom
+  const visibleWidth = camera.screenWidth / camera.zoom;
+  const visibleHeight = camera.screenHeight / camera.zoom;
+
+  // Calculate the allowed center range so the camera doesn't show outside bounds
+  const halfVisibleW = visibleWidth / 2;
+  const halfVisibleH = visibleHeight / 2;
+
+  // If visible area is larger than bounds, center on bounds
+  const boundsWidth = camera.bounds.maxX - camera.bounds.minX;
+  const boundsHeight = camera.bounds.maxY - camera.bounds.minY;
+
+  if (visibleWidth >= boundsWidth) {
+    camera.targetCenter.x = (camera.bounds.minX + camera.bounds.maxX) / 2;
+  } else {
+    const minCenterX = camera.bounds.minX + halfVisibleW;
+    const maxCenterX = camera.bounds.maxX - halfVisibleW;
+    camera.targetCenter.x = Math.max(minCenterX, Math.min(maxCenterX, camera.targetCenter.x));
+  }
+
+  if (visibleHeight >= boundsHeight) {
+    camera.targetCenter.y = (camera.bounds.minY + camera.bounds.maxY) / 2;
+  } else {
+    const minCenterY = camera.bounds.minY + halfVisibleH;
+    const maxCenterY = camera.bounds.maxY - halfVisibleH;
+    camera.targetCenter.y = Math.max(minCenterY, Math.min(maxCenterY, camera.targetCenter.y));
+  }
 }
 
 /**
@@ -93,6 +130,9 @@ export function updateCamera(
   if (keysDown.has("arrowright")) {
     camera.targetCenter.x += panAmount;
   }
+
+  // Clamp camera to bounds
+  clampCameraCenter(camera);
 }
 
 /**
@@ -115,10 +155,10 @@ export function handleWheelZoom(
   const worldMouseX = (mouseX - app.screen.width / 2) / camera.zoom + camera.center.x;
   const worldMouseY = (mouseY - app.screen.height / 2) / camera.zoom + camera.center.y;
 
-  // Calculate new zoom
+  // Calculate new zoom (use dynamic minZoom from camera state)
   const zoomDelta = event.deltaY > 0 ? -CAMERA_ZOOM_SPEED : CAMERA_ZOOM_SPEED;
   const newZoom = Math.max(
-    CAMERA_MIN_ZOOM,
+    camera.minZoom,
     Math.min(CAMERA_MAX_ZOOM, camera.targetZoom * (1 + zoomDelta))
   );
 
@@ -128,6 +168,9 @@ export function handleWheelZoom(
   // Adjust center to keep mouse position stable (cursor-centered zoom)
   camera.targetCenter.x = worldMouseX - (mouseX - app.screen.width / 2) / newZoom;
   camera.targetCenter.y = worldMouseY - (mouseY - app.screen.height / 2) / newZoom;
+
+  // Clamp camera to bounds
+  clampCameraCenter(camera);
 }
 
 /**
@@ -167,6 +210,9 @@ export function handlePointerMove(
   // Move camera center (opposite direction of drag, scaled by zoom)
   camera.targetCenter.x -= dx / camera.zoom;
   camera.targetCenter.y -= dy / camera.zoom;
+
+  // Clamp camera to bounds
+  clampCameraCenter(camera);
 
   lastPointerPos.x = event.globalX;
   lastPointerPos.y = event.globalY;

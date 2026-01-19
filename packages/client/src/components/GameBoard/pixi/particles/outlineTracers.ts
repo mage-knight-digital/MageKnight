@@ -7,7 +7,7 @@
 import { Container, Graphics } from "pixi.js";
 import type { PixelPosition } from "../types";
 import { HEX_SIZE } from "../types";
-import { getHexVertices } from "../hexMath";
+import { getHexVertices, rotatePoint } from "../hexMath";
 import type { Particle } from "./types";
 
 /**
@@ -123,8 +123,9 @@ export class TileOutlineTracer {
     this.container.addChild(this.graphics);
     this.duration = duration;
     // Use actual 7-hex cluster boundary (18 vertices: 6 outer hexes × 3 outer vertices each)
-    // Use full HEX_SIZE to match the tile images
-    this.vertices = get7HexClusterVertices(HEX_SIZE);
+    // Use full HEX_SIZE to match the tile images, rotated to match map orientation
+    const rawVertices = get7HexClusterVertices(HEX_SIZE);
+    this.vertices = rawVertices.map(v => rotatePoint(v.x, v.y));
     this.numVertices = this.vertices.length;
     this.onComplete = onComplete;
   }
@@ -479,7 +480,9 @@ export class HexOutlineTracer {
     this.graphics = new Graphics();
     this.container.addChild(this.graphics);
     this.duration = duration;
-    this.vertices = getHexVertices(HEX_SIZE * 0.95);
+    // Rotate vertices to match map orientation
+    const rawVertices = getHexVertices(HEX_SIZE * 0.95);
+    this.vertices = rawVertices.map(v => rotatePoint(v.x, v.y));
     this.onComplete = onComplete;
   }
 

@@ -13,7 +13,7 @@
 import { Container, Sprite, Assets, Texture } from "pixi.js";
 import type { ClientGameState } from "@mage-knight/shared";
 import { getTileImageUrl } from "../../../../assets/assetPaths";
-import { hexToPixel } from "../hexMath";
+import { hexToPixel, MAP_ROTATION } from "../hexMath";
 import type { WorldLayers, PixelPosition } from "../types";
 import { TILE_WIDTH, TILE_HEIGHT, HEX_SIZE } from "../types";
 import type { AnimationManager } from "../animations";
@@ -27,6 +27,7 @@ import {
   SCREEN_SHAKE_DURATION_MS,
   SCREEN_SHAKE_INTENSITY,
 } from "../particles";
+import { applyTileEffects } from "./tileEffects";
 
 /**
  * Data for a tile that needs intro animation
@@ -300,7 +301,18 @@ export async function renderTiles(
       sprite.position.set(position.x, position.y);
       sprite.width = TILE_WIDTH;
       sprite.height = TILE_HEIGHT;
+      sprite.rotation = MAP_ROTATION; // Rotate to match map orientation
       sprite.label = `tile-${tile.tileId}`;
+
+      // Apply visual effects (shadow, border, warm tint) to blend with parchment
+      applyTileEffects(sprite, layers.shadows, position, HEX_SIZE, {
+        enableShadow: true,
+        enableBorder: true,
+        enableWarmTint: true,
+        shadowAlpha: 0.1,    // Very subtle shadow
+        borderAlpha: 0.45,   // Dark border around tile
+        tintIntensity: 0.06, // Subtle warm tint
+      });
 
       const targetScaleX = sprite.scale.x;
       const targetScaleY = sprite.scale.y;

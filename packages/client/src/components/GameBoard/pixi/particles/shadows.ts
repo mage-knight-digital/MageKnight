@@ -7,6 +7,7 @@
 import { Container, Graphics } from "pixi.js";
 import type { PixelPosition } from "../types";
 import { get7HexClusterVertices } from "./outlineTracers";
+import { rotatePoint } from "../hexMath";
 
 /**
  * Drop shadow for 3D rising effect - uses hex cluster shape
@@ -26,8 +27,9 @@ export class DropShadow {
     this.graphics = new Graphics();
     this.graphics.zIndex = -1; // Below other content
     this.container.addChild(this.graphics);
-    // Get the hex cluster vertices for the shadow shape
-    this.vertices = get7HexClusterVertices(hexSize);
+    // Get the hex cluster vertices for the shadow shape, rotated to match map
+    const rawVertices = get7HexClusterVertices(hexSize);
+    this.vertices = rawVertices.map(v => rotatePoint(v.x, v.y));
     this.render();
   }
 

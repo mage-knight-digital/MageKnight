@@ -226,3 +226,13 @@ Catches cross-package type mismatches that IDE won't see until full build.
 | Site properties | `core/src/data/siteProperties.ts` |
 | Client state filter | `server/src/index.ts` (`toClientState`) |
 | Mana source logic | `core/src/engine/mana/` |
+
+---
+
+## External Documentation
+
+| Library | LLM Reference |
+|---------|---------------|
+| PixiJS | https://pixijs.com/llms.txt |
+
+When working with PixiJS, always consult the LLM reference above for API details and examples.

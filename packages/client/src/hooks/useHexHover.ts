@@ -75,19 +75,30 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
 
   const handleHexMouseEnter = useCallback(
     (coord: HexCoord, screenPos: { x: number; y: number }) => {
-      // If same hex, don't restart timer
+      // Cancel any pending close - we're on a hex
+      clearCloseTimer();
+
+      // If same hex, nothing more to do
       if (
         currentHexRef.current &&
         currentHexRef.current.q === coord.q &&
         currentHexRef.current.r === coord.r
       ) {
-        // But do cancel any pending close
-        clearCloseTimer();
         return;
       }
 
+      // If tooltip is already visible, just update to new hex instantly
+      // This allows smooth transition when moving between hexes
+      if (isTooltipVisible) {
+        currentHexRef.current = coord;
+        setHoveredHex(coord);
+        setTooltipPosition(screenPos);
+        onHoverChange?.(coord);
+        return;
+      }
+
+      // New hover - start fresh
       clearDelayTimer();
-      clearCloseTimer();
       currentHexRef.current = coord;
       setHoveredHex(coord);
       setTooltipPosition(screenPos);
@@ -104,7 +115,7 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
         setIsTooltipVisible(true);
       }
     },
-    [delay, clearDelayTimer, clearCloseTimer, onHoverChange]
+    [delay, clearDelayTimer, clearCloseTimer, onHoverChange, isTooltipVisible]
   );
 
   // Actually close the tooltip (called after delay or immediately)

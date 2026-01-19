@@ -21,7 +21,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { FederatedPointerEvent } from "pixi.js";
 import { Application, Container } from "pixi.js";
 import type { HexCoord, MoveTarget, ReachableHex } from "@mage-knight/shared";
-import { MOVE_ACTION, EXPLORE_ACTION } from "@mage-knight/shared";
+import { MOVE_ACTION, EXPLORE_ACTION, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
 import { hexKey } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -35,13 +35,11 @@ import { HexTooltip } from "../HexTooltip";
 // Pixi utilities
 import { hexToPixel, calculateBounds } from "./pixi/hexMath";
 import type { WorldLayers, PixelPosition, CameraState } from "./pixi/types";
-import {
-  CAMERA_MIN_ZOOM,
-  CAMERA_MAX_ZOOM,
-} from "./pixi/types";
+import { CAMERA_MAX_ZOOM } from "./pixi/types";
 import { AnimationManager, Easing, HERO_MOVE_DURATION_MS, ENEMY_FLIP_STAGGER_MS, INTRO_PHASE_GAP_MS } from "./pixi/animations";
 import { ParticleManager, HEX_OUTLINE_DURATION_MS, TILE_RISE_DURATION_MS, TILE_SLAM_DURATION_MS, PORTAL_HERO_EMERGE_DURATION_MS } from "./pixi/particles";
 import { findPath } from "./pixi/pathfinding";
+import { BackgroundAtmosphere } from "./pixi/background";
 import {
   createInitialCameraState,
   applyCamera,
@@ -63,6 +61,7 @@ import {
   renderHexOverlays,
   renderPathPreview,
   renderGhostHexes,
+  renderBoardShape,
   type MoveHighlight,
   type ExploreTarget,
   type HexHoverEvent,
@@ -76,6 +75,7 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
   world.label = "world";
 
   const layers: WorldLayers = {
+    boardShape: new Container(),
     shadows: new Container(),
     tiles: new Container(),
     particles: new Container(),
@@ -88,6 +88,7 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
   };
 
   // Label layers for debugging
+  layers.boardShape.label = "boardShape";
   layers.shadows.label = "shadows";
   layers.tiles.label = "tiles";
   layers.particles.label = "particles";
@@ -99,6 +100,7 @@ function createWorldLayers(): { world: Container; layers: WorldLayers } {
   layers.ui.label = "ui";
 
   // Add in z-order (bottom to top)
+  world.addChild(layers.boardShape);
   world.addChild(layers.shadows);
   world.addChild(layers.tiles);
   world.addChild(layers.particles);
@@ -134,6 +136,7 @@ export function PixiHexGrid() {
   // Animation state refs
   const animationManagerRef = useRef<AnimationManager | null>(null);
   const particleManagerRef = useRef<ParticleManager | null>(null);
+  const backgroundRef = useRef<BackgroundAtmosphere | null>(null);
   const prevHeroPositionRef = useRef<HexCoord | null>(null);
   const heroContainerRef = useRef<Container | null>(null);
   const introPlayedRef = useRef(false);
@@ -358,7 +361,7 @@ export function PixiHexGrid() {
       const app = new Application();
 
       await app.init({
-        background: 0x1a1a2e,
+        background: 0x0a0a12, // Dark fallback, atmosphere will cover this
         resizeTo: container,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
@@ -373,7 +376,23 @@ export function PixiHexGrid() {
       container.appendChild(app.canvas);
 
       const { world, layers } = createWorldLayers();
+
+      // Create atmospheric background fixed to screen (parallax effect)
+      const background = new BackgroundAtmosphere();
+      background.initialize(app.screen.width, app.screen.height);
+      backgroundRef.current = background;
+
+      // Add background to stage BEFORE world so it's behind everything
+      app.stage.addChild(background.getContainer());
       app.stage.addChild(world);
+
+      // Handle resize
+      const handleResize = () => {
+        if (backgroundRef.current) {
+          backgroundRef.current.resize(app.screen.width, app.screen.height);
+        }
+      };
+      app.renderer.on("resize", handleResize);
 
       // Enable interactivity
       app.stage.eventMode = "static";
@@ -403,6 +422,11 @@ export function PixiHexGrid() {
       particleManager.attach(app.ticker);
       particleManagerRef.current = particleManager;
 
+      // Attach background atmosphere to ticker for dust animation
+      background.attach(app.ticker);
+
+      // Background is now part of world (fixed size), no resize needed
+
       appRef.current = app;
       layersRef.current = layers;
       worldRef.current = world;
@@ -420,6 +444,11 @@ export function PixiHexGrid() {
       particleManagerRef.current?.clear();
       particleManagerRef.current?.detach();
       particleManagerRef.current = null;
+      if (backgroundRef.current && appRef.current) {
+        backgroundRef.current.detach(appRef.current.ticker);
+        backgroundRef.current.destroy();
+        backgroundRef.current = null;
+      }
       if (appRef.current) {
         console.log("[PixiHexGrid] Destroying");
         appRef.current.destroy(true, { children: true, texture: true });
@@ -465,6 +494,13 @@ export function PixiHexGrid() {
 
     console.log("[PixiHexGrid] Started intro:", tileCount, "tiles,", enemyCount, "enemies");
   }, [isInitialized, state, startIntro]);
+
+  // Update background day/night state
+  useEffect(() => {
+    if (!isInitialized || !state || !backgroundRef.current) return;
+    const isNight = state.timeOfDay === TIME_OF_DAY_NIGHT;
+    backgroundRef.current.setNight(isNight);
+  }, [isInitialized, state?.timeOfDay]);
 
   // Main render effect
   useEffect(() => {
@@ -534,6 +570,9 @@ export function PixiHexGrid() {
 
     // Async rendering
     const renderAsync = async () => {
+      // Render board shape ghosts (unfilled tile slots)
+      renderBoardShape(layers, state.map.tileSlots);
+
       // Render tiles
       await renderTiles(
         layers,
@@ -639,37 +678,65 @@ export function PixiHexGrid() {
 
       // Initial camera setup
       if (!hasCenteredOnHeroRef.current && appRef.current) {
-        const hexes = Object.values(state.map.hexes);
-        const positions = hexes.map((h) => hexToPixel(h.coord));
-
-        for (const target of exploreTargets) {
-          positions.push(hexToPixel(target.coord));
-        }
-
-        const bounds = calculateBounds(positions);
         const app = appRef.current;
 
-        // Calculate zoom to fit all hexes on screen with some padding
-        const scaleX = app.screen.width / bounds.width;
-        const scaleY = app.screen.height / bounds.height;
-        const fitZoom = Math.min(scaleX, scaleY) * 0.85; // Use min to ensure everything fits, with 15% padding
-        const initialZoom = Math.max(CAMERA_MIN_ZOOM, Math.min(fitZoom, CAMERA_MAX_ZOOM));
+        // Calculate bounds from tiles in play (not the full grid)
+        // Camera focuses on what's actually there, ghost hexes still show full board shape
+        const hexes = Object.values(state.map.hexes);
+        const hexPositions = hexes.map((h) => hexToPixel(h.coord));
+        for (const target of exploreTargets) {
+          hexPositions.push(hexToPixel(target.coord));
+        }
+        const currentBounds = calculateBounds(hexPositions);
+
+        // Add padding around current tiles for breathing room
+        const GRID_PADDING = 150;
+        const paddedBounds = {
+          minX: currentBounds.minX - GRID_PADDING,
+          maxX: currentBounds.maxX + GRID_PADDING,
+          minY: currentBounds.minY - GRID_PADDING,
+          maxY: currentBounds.maxY + GRID_PADDING,
+          width: currentBounds.width + GRID_PADDING * 2,
+          height: currentBounds.height + GRID_PADDING * 2,
+        };
+
+        // Calculate min zoom to fit tiles in play (with padding)
+        // Use 0.6 multiplier to allow zooming out well beyond "just fits"
+        const minZoomX = app.screen.width / paddedBounds.width;
+        const minZoomY = app.screen.height / paddedBounds.height;
+        const dynamicMinZoom = Math.max(minZoomX, minZoomY) * 0.6;
+
+        // Initial zoom fits current hexes nicely
+        const scaleX = app.screen.width / currentBounds.width;
+        const scaleY = app.screen.height / currentBounds.height;
+        const fitZoom = Math.min(scaleX, scaleY) * 0.85; // 15% padding
+        const initialZoom = Math.max(dynamicMinZoom, Math.min(fitZoom, CAMERA_MAX_ZOOM));
 
         const camera = cameraRef.current;
+        camera.minZoom = dynamicMinZoom;
         camera.targetZoom = initialZoom;
         camera.zoom = initialZoom;
+        // Camera bounds based on tiles in play, centered on current content
+        camera.bounds = {
+          minX: paddedBounds.minX,
+          maxX: paddedBounds.maxX,
+          minY: paddedBounds.minY,
+          maxY: paddedBounds.maxY,
+        };
+        camera.screenWidth = app.screen.width;
+        camera.screenHeight = app.screen.height;
 
         if (heroPosition) {
           centerAndApplyCamera(hexToPixel(heroPosition), true);
         } else {
           centerAndApplyCamera({
-            x: bounds.minX + bounds.width / 2,
-            y: bounds.minY + bounds.height / 2,
+            x: currentBounds.minX + currentBounds.width / 2,
+            y: currentBounds.minY + currentBounds.height / 2,
           }, true);
         }
 
         hasCenteredOnHeroRef.current = true;
-        console.log("[PixiHexGrid] Camera centered, zoom:", initialZoom.toFixed(2));
+        console.log("[PixiHexGrid] Camera centered on tiles, zoom:", initialZoom.toFixed(2), "minZoom:", dynamicMinZoom.toFixed(2));
       }
 
       console.log("[PixiHexGrid] Rendered:", state.map.tiles.length, "tiles");

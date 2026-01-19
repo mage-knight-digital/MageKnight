@@ -7,12 +7,38 @@ import type { HexCoord } from "@mage-knight/shared";
 import { HEX_SIZE, type PixelPosition } from "./types";
 
 /**
+ * Rotation angle for the map layout (in radians)
+ * 0 = wedge opens northeast, positive = counter-clockwise
+ * CHANGE THIS ONE VALUE TO ROTATE THE ENTIRE MAP
+ */
+export const MAP_ROTATION = 0; // No rotation
+
+// Pre-calculate for performance
+const MAP_COS = Math.cos(MAP_ROTATION);
+const MAP_SIN = Math.sin(MAP_ROTATION);
+
+/**
+ * Rotate a point around the origin by MAP_ROTATION
+ * Use this for all map element rotations to keep them in sync
+ */
+export function rotatePoint(x: number, y: number): { x: number; y: number } {
+  return {
+    x: x * MAP_COS - y * MAP_SIN,
+    y: x * MAP_SIN + y * MAP_COS,
+  };
+}
+
+/**
  * Convert axial hex coordinates to pixel position (pointy-top hexes)
+ * Applies rotation so map expands eastward instead of northeast
  */
 export function hexToPixel(coord: HexCoord): PixelPosition {
-  const x = HEX_SIZE * (Math.sqrt(3) * coord.q + (Math.sqrt(3) / 2) * coord.r);
-  const y = HEX_SIZE * ((3 / 2) * coord.r);
-  return { x, y };
+  // Standard hex to pixel conversion
+  const rawX = HEX_SIZE * (Math.sqrt(3) * coord.q + (Math.sqrt(3) / 2) * coord.r);
+  const rawY = HEX_SIZE * ((3 / 2) * coord.r);
+
+  // Apply rotation
+  return rotatePoint(rawX, rawY);
 }
 
 /**

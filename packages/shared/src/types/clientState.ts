@@ -187,6 +187,13 @@ export interface ClientHexState {
   readonly shieldTokens: readonly string[]; // player IDs
 }
 
+// Tile slot for constrained map shapes (wedge, etc.)
+export interface ClientTileSlot {
+  readonly coord: HexCoord;
+  readonly row: number;
+  readonly filled: boolean;
+}
+
 // Map state (public)
 export interface ClientMapState {
   readonly hexes: Record<string, ClientHexState>;
@@ -195,6 +202,8 @@ export interface ClientMapState {
     readonly centerCoord: HexCoord;
     readonly revealed: boolean;
   }[];
+  /** Tile slots defining the board shape. Key is hexKey(coord). */
+  readonly tileSlots: Record<string, ClientTileSlot>;
 }
 
 // Card offer (public)
