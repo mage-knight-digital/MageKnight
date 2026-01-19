@@ -87,6 +87,49 @@ const CRYSTAL_DEFAULT_HEIGHT = 24;
 // Track if atlas has been loaded and processed
 let atlasLoaded = false;
 
+// Store raw atlas data for sprite info lookups (used by SpriteImage component)
+let storedAtlasData: AtlasData | null = null;
+
+// Track preloaded images for reference
+const preloadedImages = new Map<string, HTMLImageElement>();
+
+/**
+ * Raw sprite data for use with <img> elements instead of CSS background
+ */
+export interface SpriteData {
+  /** URL to the sprite sheet */
+  src: string;
+  /** Width of individual sprite in the sheet */
+  spriteWidth: number;
+  /** Height of individual sprite in the sheet */
+  spriteHeight: number;
+  /** Column position (0-indexed) */
+  col: number;
+  /** Row position (0-indexed) */
+  row: number;
+  /** Total sheet width */
+  sheetWidth: number;
+  /** Total sheet height */
+  sheetHeight: number;
+}
+
+/**
+ * Preload and decode an atlas image so it's ready for GPU rendering.
+ * Uses Image.decode() which returns when the image is fully decoded.
+ */
+async function preloadImage(file: string): Promise<void> {
+  const url = `/assets/${file}`;
+  const img = new Image();
+  img.src = url;
+
+  try {
+    await img.decode();
+    preloadedImages.set(file, img);
+  } catch (error) {
+    console.warn(`Failed to preload atlas image: ${file}`, error);
+  }
+}
+
 // Hero prefixes used for hero-specific cards
 const HERO_PREFIXES = [
   "arythea_",
@@ -113,7 +156,16 @@ function stripHeroPrefix(cardId: string): string {
 }
 
 /**
+ * Inset fraction for sprite extraction.
+ * Card spritesheets have rounded cards with dark fill between them.
+ * We inset slightly to clip past the dark corners.
+ * 1.5% on each edge clips the ~3% corner radius in the source images.
+ */
+const SPRITE_INSET_FRACTION = 0.015;
+
+/**
  * Compute sprite style for a single card (internal helper, called at load time)
+ * Applies a small inset to clip past the dark corners in spritesheets.
  */
 function computeSpriteStyle(
   sheet: SheetInfo,
@@ -122,19 +174,30 @@ function computeSpriteStyle(
 ): CardSpriteStyle {
   // For sheets with even/odd layout, a full card spans 2 rows (artwork + text)
   const fullCardHeight = sheet.hasEvenOddLayout ? sheet.cardHeight * 2 : sheet.cardHeight;
+  const fullCardWidth = sheet.cardWidth;
 
-  // Calculate aspect ratio and display width
-  const aspectRatio = sheet.cardWidth / fullCardHeight;
+  // Calculate the inset in source pixels to clip dark corners
+  const insetX = fullCardWidth * SPRITE_INSET_FRACTION;
+  const insetY = fullCardHeight * SPRITE_INSET_FRACTION;
+
+  // The visible area is smaller due to inset
+  const visibleWidth = fullCardWidth - 2 * insetX;
+  const visibleHeight = fullCardHeight - 2 * insetY;
+
+  // Calculate aspect ratio and display width from visible area
+  const aspectRatio = visibleWidth / visibleHeight;
   const displayWidth = displayHeight * aspectRatio;
 
-  // Calculate scale factor
-  const scale = displayHeight / fullCardHeight;
+  // Scale factor based on visible area
+  const scale = displayHeight / visibleHeight;
 
   // Calculate background position (negative because CSS background-position)
   // For sheets with even/odd layout, artwork is on even rows (row * 2)
   const physicalRow = sheet.hasEvenOddLayout ? position.row * 2 : position.row;
-  const bgX = position.col * sheet.cardWidth * scale;
-  const bgY = physicalRow * sheet.cardHeight * scale;
+  const cardStartX = position.col * fullCardWidth;
+  const cardStartY = physicalRow * sheet.cardHeight;
+  const bgX = (cardStartX + insetX) * scale;
+  const bgY = (cardStartY + insetY) * scale;
 
   // Calculate scaled background size
   const bgWidth = sheet.width * scale;
@@ -313,7 +376,21 @@ export async function loadAtlas(): Promise<void> {
   // Precompute crystal icon styles at their default height (uses raw data for icon sheets)
   precomputeCrystalStyles(rawData, CRYSTAL_DEFAULT_HEIGHT);
 
-  // Mark as loaded - we no longer need the raw atlas data
+  // Store the atlas data for sprite info lookups
+  storedAtlasData = atlasData;
+
+  // Preload all atlas images in parallel so they're decoded and ready for GPU
+  // This prevents lag when cards first become visible
+  const sheetFiles = Object.values(rawData.sheets).map((sheet) => sheet.file);
+  const uniqueFiles = [...new Set(sheetFiles)];
+
+  // Fire off all preloads but don't block on them - they'll be ready by the time
+  // the user sees the offer view (happens after intro animation)
+  Promise.all(uniqueFiles.map(preloadImage)).then(() => {
+    console.log(`Atlas: Preloaded ${uniqueFiles.length} sprite sheets`);
+  });
+
+  // Mark as loaded
   atlasLoaded = true;
 }
 
@@ -477,4 +554,82 @@ export function getCrystalSpriteStyle(color: CrystalColor, displayHeight: number
 
   // Otherwise scale the cached style to the requested height
   return scaleStyle(style, CRYSTAL_DEFAULT_HEIGHT, displayHeight);
+}
+
+/**
+ * Get raw sprite data for a unit (for use with SpriteImage component).
+ * Returns sprite sheet info needed to render with an <img> element.
+ */
+export function getUnitSpriteData(unitId: UnitId): SpriteData | null {
+  if (!atlasLoaded || !storedAtlasData) return null;
+
+  const id = unitId as string;
+
+  // Check elite units first
+  let position = storedAtlasData.units.elite[id];
+  let sheetKey = position?.sheet;
+
+  // Then check regular units
+  if (!position) {
+    position = storedAtlasData.units.regular[id];
+    sheetKey = position?.sheet;
+  }
+
+  if (!position || !sheetKey) return null;
+
+  const sheet = storedAtlasData.sheets[sheetKey];
+  if (!sheet) return null;
+
+  // For sheets with even/odd layout, a full card spans 2 rows
+  const fullCardHeight = sheet.hasEvenOddLayout ? sheet.cardHeight * 2 : sheet.cardHeight;
+  const physicalRow = sheet.hasEvenOddLayout ? position.row * 2 : position.row;
+
+  return {
+    src: `/assets/${sheet.file}`,
+    spriteWidth: sheet.cardWidth,
+    spriteHeight: fullCardHeight,
+    col: position.col,
+    row: physicalRow,
+    sheetWidth: sheet.width,
+    sheetHeight: sheet.height,
+  };
+}
+
+/**
+ * Get raw sprite data for a card (spell, AA, etc) for use with SpriteImage component.
+ */
+export function getCardSpriteData(cardId: CardId): SpriteData | null {
+  if (!atlasLoaded || !storedAtlasData) return null;
+
+  const id = cardId as string;
+  const baseId = stripHeroPrefix(id);
+
+  // Search through card categories
+  const categories: CardCategory[] = ["basic_actions", "advanced_actions", "spells", "artifacts", "wound"];
+
+  for (const category of categories) {
+    const cards = storedAtlasData.cards[category];
+    const position = cards?.[id] || cards?.[baseId];
+
+    if (position && typeof position === "object" && "col" in position) {
+      const sheet = storedAtlasData.sheets[category];
+      if (!sheet) continue;
+
+      // For sheets with even/odd layout, a full card spans 2 rows
+      const fullCardHeight = sheet.hasEvenOddLayout ? sheet.cardHeight * 2 : sheet.cardHeight;
+      const physicalRow = sheet.hasEvenOddLayout ? position.row * 2 : position.row;
+
+      return {
+        src: `/assets/${sheet.file}`,
+        spriteWidth: sheet.cardWidth,
+        spriteHeight: fullCardHeight,
+        col: position.col,
+        row: physicalRow,
+        sheetWidth: sheet.width,
+        sheetHeight: sheet.height,
+      };
+    }
+  }
+
+  return null;
 }

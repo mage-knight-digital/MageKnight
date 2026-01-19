@@ -1,0 +1,22 @@
+/**
+ * SpriteImage - Clipping container for sprite sheet images
+ */
+
+.sprite-image {
+  /* Clip to show only the sprite portion */
+  overflow: hidden;
+  /* Prevent layout shifts */
+  flex-shrink: 0;
+  /* GPU layer for smooth animations */
+  will-change: transform;
+}
+
+.sprite-image img {
+  /* Remove default img spacing */
+  display: block;
+  /* GPU acceleration for the transform positioning */
+  will-change: transform;
+  /* Hint browser to keep texture ready */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}

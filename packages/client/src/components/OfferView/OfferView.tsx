@@ -39,7 +39,7 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
       setIsAnimatingIn(true);
       setIsAnimatingOut(false);
 
-      // Animation duration matches CSS (400ms)
+      // Animation duration matches CSS (350ms + buffer)
       const timer = setTimeout(() => {
         setIsAnimatingIn(false);
         setIsFullyVisible(true);
@@ -102,10 +102,8 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isVisible, handleClose]);
 
-  // Don't render if not visible and not animating
-  if (!isVisible && !isAnimatingOut) {
-    return null;
-  }
+  // Always render but hide when not visible (keeps component mounted for smooth animations)
+  const isHidden = !isVisible && !isAnimatingOut;
 
   if (!state || !player) {
     return null;
@@ -129,8 +127,13 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
     .filter(Boolean)
     .join(" ");
 
+  const containerClassName = [
+    "offer-view",
+    isHidden && "offer-view--hidden",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div className="offer-view">
+    <div className={containerClassName}>
       {/* Dark overlay */}
       <div className={overlayClassName} onClick={handleClose} />
 
@@ -141,30 +144,6 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
           {currentPane === "spells" && <SpellOfferPane />}
           {currentPane === "advancedActions" && <AAOfferPane />}
         </OfferTray>
-
-        {/* Pane indicator - reuses the same styling as hand carousel */}
-        <div className="carousel-pane-indicator carousel-pane-indicator--offer">
-          <span
-            className={`carousel-pane-indicator__item ${currentPane === "units" ? "carousel-pane-indicator__item--active" : ""}`}
-            onClick={() => setCurrentPane("units")}
-          >
-            Units
-          </span>
-          <span className="carousel-pane-indicator__divider">|</span>
-          <span
-            className={`carousel-pane-indicator__item ${currentPane === "spells" ? "carousel-pane-indicator__item--active" : ""}`}
-            onClick={() => setCurrentPane("spells")}
-          >
-            Spells
-          </span>
-          <span className="carousel-pane-indicator__divider">|</span>
-          <span
-            className={`carousel-pane-indicator__item ${currentPane === "advancedActions" ? "carousel-pane-indicator__item--active" : ""}`}
-            onClick={() => setCurrentPane("advancedActions")}
-          >
-            Advanced Actions
-          </span>
-        </div>
 
         {/* Navigation hint */}
         <div className="offer-view__nav-hint">

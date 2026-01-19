@@ -77,20 +77,18 @@
   bottom: 0;
   left: 50%;
   margin-left: -50%;
-  border-radius: 8px;
+  /* Use percentage to match card artwork's rounded corners */
+  border-radius: 4%;
   overflow: hidden;
   pointer-events: none;
-  /* Smooth hover transitions */
-  transition:
-    transform 0.12s ease-out,
-    box-shadow 0.12s ease-out,
-    filter 0.25s ease-out;
+  /* Only transition transform - box-shadow/filter are expensive */
+  transition: transform 0.12s ease-out;
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.4),
     0 0 0 2px rgba(255, 255, 255, 0.1);
   transform-origin: bottom center;
   /* GPU acceleration */
-  will-change: transform, box-shadow;
+  will-change: transform;
 }
 
 /* ===== STATUS STATES ===== */

@@ -14,7 +14,8 @@ import {
   SITE_REWARD_SPELL,
   type CardId,
 } from "@mage-knight/shared";
-import { getCardSpriteStyle, isAtlasLoaded } from "../../utils/cardAtlas";
+import { getCardSpriteData, isAtlasLoaded } from "../../utils/cardAtlas";
+import { SpriteImage } from "../SpriteImage/SpriteImage";
 import { OfferCard } from "./OfferCard";
 
 // Cost to buy a spell at a Mage Tower
@@ -153,7 +154,11 @@ export function SpellOfferPane() {
       )}
       {spellOffer.map((spellId, index) => {
         const acquireInfo = getAcquireInfo(spellId);
-        const spriteStyle = isAtlasLoaded() ? getCardSpriteStyle(spellId, cardHeight) : null;
+        const spriteData = isAtlasLoaded() ? getCardSpriteData(spellId) : null;
+
+        // Calculate display dimensions maintaining aspect ratio
+        const aspectRatio = spriteData ? spriteData.spriteWidth / spriteData.spriteHeight : 0.714;
+        const displayWidth = Math.round(cardHeight * aspectRatio);
 
         return (
           <OfferCard
@@ -166,8 +171,20 @@ export function SpellOfferPane() {
             onAcquire={acquireInfo.onAcquire}
             shouldAnimate={shouldAnimate}
           >
-            {spriteStyle ? (
-              <div className="offer-card__spell-image" style={spriteStyle} />
+            {spriteData ? (
+              <SpriteImage
+                src={spriteData.src}
+                spriteWidth={spriteData.spriteWidth}
+                spriteHeight={spriteData.spriteHeight}
+                col={spriteData.col}
+                row={spriteData.row}
+                sheetWidth={spriteData.sheetWidth}
+                sheetHeight={spriteData.sheetHeight}
+                displayWidth={displayWidth}
+                displayHeight={cardHeight}
+                alt={spellId}
+                className="offer-card__spell-image"
+              />
             ) : (
               <div className="offer-card__card-name">
                 <span className="offer-card__spell-name">{spellId}</span>

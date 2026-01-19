@@ -25,7 +25,6 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
-import { useGameIntro, UI_REVEAL_TIMING } from "../../contexts/GameIntroContext";
 
 /**
  * Get all available mana sources that can pay for a specific color.
@@ -166,49 +165,11 @@ export interface PlayerHandProps {
 export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
-  const { shouldRevealUI, isIntroComplete } = useGameIntro();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
   const [handView, setHandView] = useState<HandView>("ready");
   // Default to tactics - most game loads are at round start with tactic selection
   // The useEffect below handles moving to cards if tactic is already selected
   const [carouselPane, setCarouselPane] = useState<CarouselPane>("tactics");
-
-  // Track intro animation state for the carousel indicator
-  // Always start hidden - will reveal after intro completes
-  const [indicatorAnimState, setIndicatorAnimState] = useState<
-    "hidden" | "revealing" | "visible"
-  >("hidden");
-
-  // Track if we've animated in already
-  const indicatorAnimatedRef = useRef(false);
-
-  // Trigger reveal animation when shouldRevealUI becomes true
-  useEffect(() => {
-    if (shouldRevealUI && !indicatorAnimatedRef.current) {
-      indicatorAnimatedRef.current = true;
-
-      const revealTimer = setTimeout(() => {
-        setIndicatorAnimState("revealing");
-      }, UI_REVEAL_TIMING.carouselIndicator.delay);
-
-      const visibleTimer = setTimeout(() => {
-        setIndicatorAnimState("visible");
-      }, UI_REVEAL_TIMING.carouselIndicator.delay + UI_REVEAL_TIMING.carouselIndicator.duration);
-
-      return () => {
-        clearTimeout(revealTimer);
-        clearTimeout(visibleTimer);
-      };
-    }
-  }, [shouldRevealUI]);
-
-  // If intro is already complete on mount (e.g., hot reload), show immediately
-  useEffect(() => {
-    if (isIntroComplete && !indicatorAnimatedRef.current) {
-      indicatorAnimatedRef.current = true;
-      setIndicatorAnimState("visible");
-    }
-  }, [isIntroComplete]);
 
   // Track whether we need tactic selection (for auto-navigation)
   const needsTacticSelection = !!(
@@ -219,6 +180,17 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   // Track previous tactic selection state to detect when selection completes
   const prevNeedsTacticRef = useRef<boolean | null>(null); // null = not yet initialized
+
+  // Track previous view mode (excluding offer) so children don't transition when entering offer view
+  // This prevents expensive transform changes while the carousel is fading out
+  const prevViewModeRef = useRef<Exclude<HandView, "offer">>("ready");
+
+  // Update prevViewModeRef when handView changes to a non-offer mode
+  useEffect(() => {
+    if (handView !== "offer") {
+      prevViewModeRef.current = handView as Exclude<HandView, "offer">;
+    }
+  }, [handView]);
 
   // Auto-navigate to tactics pane when tactic selection is needed (start of round)
   // Auto-navigate away from tactics pane when tactic is selected
@@ -515,11 +487,11 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
       {/* Carousel track - slides horizontally between tactics, cards, and units */}
       {/* All panes are always rendered, positioned side by side */}
-      {/* Hidden when in offer view */}
+      {/* Hidden when in offer view - children keep their current viewMode to avoid transform jank */}
       <div className={`carousel-track carousel-track--${carouselPane} ${handView === "offer" ? "carousel-track--hidden" : ""}`}>
         {/* Tactics pane (leftmost position) */}
         <div className="carousel-track__pane carousel-track__pane--tactics">
-          <TacticCarouselPane viewMode={handView === "offer" ? "board" : handView} />
+          <TacticCarouselPane viewMode={handView === "offer" ? prevViewModeRef.current : handView} />
         </div>
 
         {/* Cards pane (middle position) */}
@@ -531,7 +503,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
             onCardClick={handleCardClick}
             deckCount={player.deckCount}
             discardCount={player.discardCount}
-            viewMode={handView === "offer" ? "board" : handView}
+            viewMode={handView === "offer" ? prevViewModeRef.current : handView}
           />
         </div>
 
@@ -539,34 +511,10 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         <div className="carousel-track__pane carousel-track__pane--units">
           <FloatingUnitCarousel
             units={player.units}
-            viewMode={handView === "offer" ? "board" : handView}
+            viewMode={handView === "offer" ? prevViewModeRef.current : handView}
             commandTokens={player.commandTokens}
           />
         </div>
-      </div>
-
-      {/* Carousel pane indicator - hidden when in offer view or board view */}
-      <div className={[
-        "carousel-pane-indicator",
-        (handView === "offer" || handView === "board") && "carousel-pane-indicator--hidden",
-        indicatorAnimState === "hidden" && "carousel-pane-indicator--intro-hidden",
-        indicatorAnimState === "revealing" && "carousel-pane-indicator--intro-reveal",
-      ].filter(Boolean).join(" ")}>
-        {needsTacticSelection && (
-          <>
-            <span className={`carousel-pane-indicator__item carousel-pane-indicator__item--needs-attention ${carouselPane === "tactics" ? "carousel-pane-indicator__item--active" : ""}`}>
-              Tactics
-            </span>
-            <span className="carousel-pane-indicator__divider">|</span>
-          </>
-        )}
-        <span className={`carousel-pane-indicator__item ${carouselPane === "cards" ? "carousel-pane-indicator__item--active" : ""}`}>
-          Cards
-        </span>
-        <span className="carousel-pane-indicator__divider">|</span>
-        <span className={`carousel-pane-indicator__item ${carouselPane === "units" ? "carousel-pane-indicator__item--active" : ""}`}>
-          Units
-        </span>
       </div>
 
       {/* Deck/Discard - fixed position outside carousel, hidden in offer/board/focus view */}

@@ -76,22 +76,23 @@
   margin-left: -50%; /* Center the card in the wrapper */
   border: none;
   padding: 0;
-  border-radius: 8px;
+  /* Use percentage to match card artwork's rounded corners */
+  border-radius: 4%;
   overflow: hidden;
-  /* Fast zoom-out (0.05s), smooth zoom-in handled by --hovered */
-  transition: transform 0.05s ease-out, box-shadow 0.05s ease-out;
+  /* Fast zoom-out (0.05s) - only transform, box-shadow changes instantly */
+  transition: transform 0.05s ease-out;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   transform-origin: bottom center;
   /* Card visual doesn't handle any events - wrapper and container do */
   pointer-events: none;
   /* GPU acceleration hints */
-  will-change: transform, box-shadow;
+  will-change: transform;
   backface-visibility: hidden;
 }
 
 .floating-card--hovered {
-  /* Duration synced to card slide audio */
-  transition: transform var(--card-hover-duration) ease-out, box-shadow var(--card-hover-duration) ease-out;
+  /* Duration synced to card slide audio - only transform, box-shadow is instant */
+  transition: transform var(--card-hover-duration) ease-out;
 }
 
 .floating-card:disabled {
@@ -266,6 +267,8 @@
   width: 300vw;
   height: 100vh;
   pointer-events: none;
+  /* GPU acceleration - critical for this massive element */
+  will-change: transform;
   /* Smooth sliding transition with slight overshoot for juicy feel */
   transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   z-index: 50;
@@ -290,7 +293,16 @@
 .carousel-track--hidden {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s ease-out;
+  /* Remove from compositor when hidden to avoid conflicts with OfferView */
+  visibility: hidden;
+  /* Keep both transitions so transform doesn't snap when unhiding */
+  transition: opacity 0.3s ease-out, transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94), visibility 0s 0.3s;
+}
+
+/* When not hidden, ensure visibility is immediate */
+.carousel-track:not(.carousel-track--hidden) {
+  visibility: visible;
+  transition: opacity 0.3s ease-out, transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94), visibility 0s;
 }
 
 /* Each pane takes up one viewport width */
@@ -327,109 +339,3 @@
   right: 0;
 }
 
-/* ===== CAROUSEL PANE INDICATOR ===== */
-/* Shows which pane is active: Tactics, Cards, or Units */
-
-/* Intro animation: Indicator fades in from below
-   Disney principles: subtle entrance, doesn't steal focus from main content */
-@keyframes indicator-fade-in {
-  0% {
-    opacity: 0;
-    transform: translateX(-50%) translateY(20px);
-  }
-  70% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(-3px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-.carousel-pane-indicator {
-  position: fixed;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 20px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 20px;
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  z-index: 200;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-/* Hidden state when in offer view */
-.carousel-pane-indicator--hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Hidden during intro - before ui-settle phase */
-.carousel-pane-indicator--intro-hidden {
-  opacity: 0;
-  transform: translateX(-50%) translateY(20px);
-  pointer-events: none;
-}
-
-/* Animate in during ui-settle phase */
-.carousel-pane-indicator--intro-reveal {
-  animation: indicator-fade-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-.carousel-pane-indicator__item {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #666;
-  cursor: pointer;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
-}
-
-.carousel-pane-indicator__item:hover {
-  color: #999;
-}
-
-.carousel-pane-indicator__item--active {
-  color: #fff;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  text-decoration-thickness: 2px;
-}
-
-/* Pulsing attention state for tactics indicator when selection is needed */
-@keyframes indicator-pulse {
-  0%, 100% {
-    color: #f0a030;
-    text-shadow: 0 0 8px rgba(240, 160, 48, 0.6);
-  }
-  50% {
-    color: #ffd080;
-    text-shadow: 0 0 16px rgba(255, 208, 128, 0.9);
-  }
-}
-
-.carousel-pane-indicator__item--needs-attention {
-  animation: indicator-pulse 1.5s ease-in-out infinite;
-}
-
-/* When needs attention AND active, show consistent white underline for "you are here" */
-.carousel-pane-indicator__item--needs-attention.carousel-pane-indicator__item--active {
-  animation: none;
-  color: #ffd080;
-  text-shadow: 0 0 12px rgba(255, 208, 128, 0.8);
-  /* Underline stays white for consistency - it's the selection indicator */
-  text-decoration-color: #fff;
-}
-
-.carousel-pane-indicator__divider {
-  color: #444;
-  font-size: 0.75rem;
-}

@@ -13,7 +13,8 @@ import {
   RECRUIT_UNIT_ACTION,
   type UnitId,
 } from "@mage-knight/shared";
-import { getUnitSpriteStyle, isAtlasLoaded } from "../../utils/cardAtlas";
+import { getUnitSpriteData, isAtlasLoaded } from "../../utils/cardAtlas";
+import { SpriteImage } from "../SpriteImage/SpriteImage";
 import { OfferCard } from "./OfferCard";
 
 // Calculate card height based on viewport (matches CSS clamp logic)
@@ -80,13 +81,17 @@ export function UnitOfferPane() {
         const recruitInfo = recruitableMap.get(unitId);
         const canRecruit = recruitInfo?.canAfford ?? false;
         const isElite = unit.type === UNIT_TYPE_ELITE;
-        const spriteStyle = isAtlasLoaded() ? getUnitSpriteStyle(unitId, cardHeight) : null;
+        const spriteData = isAtlasLoaded() ? getUnitSpriteData(unitId) : null;
 
         const acquireLabel = recruitInfo
           ? canRecruit
             ? `Recruit (${recruitInfo.cost})`
             : `Need ${recruitInfo.cost}`
           : undefined;
+
+        // Calculate display dimensions maintaining aspect ratio
+        const aspectRatio = spriteData ? spriteData.spriteWidth / spriteData.spriteHeight : 0.714;
+        const displayWidth = Math.round(cardHeight * aspectRatio);
 
         return (
           <OfferCard
@@ -100,8 +105,20 @@ export function UnitOfferPane() {
             onAcquire={recruitInfo ? () => handleRecruit(unitId, recruitInfo.cost) : undefined}
             shouldAnimate={shouldAnimate}
           >
-            {spriteStyle ? (
-              <div className="offer-card__unit-image" style={spriteStyle} />
+            {spriteData ? (
+              <SpriteImage
+                src={spriteData.src}
+                spriteWidth={spriteData.spriteWidth}
+                spriteHeight={spriteData.spriteHeight}
+                col={spriteData.col}
+                row={spriteData.row}
+                sheetWidth={spriteData.sheetWidth}
+                sheetHeight={spriteData.sheetHeight}
+                displayWidth={displayWidth}
+                displayHeight={cardHeight}
+                alt={unit.name}
+                className="offer-card__unit-image"
+              />
             ) : (
               <div className="offer-card__unit-fallback">
                 <div className="offer-card__unit-name">{unit.name}</div>

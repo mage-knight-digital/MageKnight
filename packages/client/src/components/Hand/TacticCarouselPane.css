@@ -141,7 +141,10 @@
 
 .tactic-carousel__card-image {
   /* Dimensions set via inline style from sprite atlas */
-  border-radius: 8px;
+  /* Use percentage border-radius to match the card artwork's rounded corners
+     This clips past the black fill between cards in the spritesheet */
+  border-radius: 4%;
+  overflow: hidden;
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.4),
     0 8px 24px rgba(0, 0, 0, 0.2);
@@ -149,6 +152,7 @@
   will-change: transform;
   /* Only transition transform - box-shadow/filter transitions are expensive */
   transition: transform var(--card-hover-duration) ease;
+  /* Match parchment color so clipped corners blend seamlessly */
   background-color: #d4c9a8;
 }
 
