@@ -339,6 +339,41 @@
 .hex-tooltip--animating .site-tooltip__line,
 .hex-tooltip--animating .enemy-tooltip__header,
 .hex-tooltip--animating .enemy-tooltip__enemy,
-.hex-tooltip--animating .enemy-tooltip__unrevealed {
+.hex-tooltip--animating .enemy-tooltip__unrevealed,
+.hex-tooltip--animating .hex-tooltip__more-info {
   /* Animation delay set via inline style */
+}
+
+/* ============================================
+   More Info Button
+   ============================================ */
+.hex-tooltip__more-info {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(135deg, rgba(61, 90, 128, 0.4) 0%, rgba(61, 90, 128, 0.2) 100%);
+  border: 1px solid rgba(61, 90, 128, 0.5);
+  border-radius: 6px;
+  color: #a0c4e8;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+
+  /* Staggered animation */
+  opacity: 0;
+  animation: line-appear 0.25s ease-out forwards;
+}
+
+.hex-tooltip__more-info:hover {
+  background: linear-gradient(135deg, rgba(61, 90, 128, 0.6) 0%, rgba(61, 90, 128, 0.4) 100%);
+  border-color: rgba(61, 90, 128, 0.8);
+  color: #d0e8ff;
+  transform: translateY(-1px);
+}
+
+.hex-tooltip__more-info:active {
+  transform: translateY(0);
 }
