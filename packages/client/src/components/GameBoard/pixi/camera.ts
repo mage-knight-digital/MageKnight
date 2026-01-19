@@ -42,8 +42,10 @@ export function createInitialCameraState(): CameraState {
 
 /**
  * Clamp camera center to stay within bounds (accounting for screen size and zoom)
+ * This modifies targetCenter to ensure it stays within valid bounds.
+ * If the visible area exceeds bounds, centers on bounds.
  */
-function clampCameraCenter(camera: CameraState): void {
+export function clampCameraCenter(camera: CameraState): void {
   // Calculate how much world space is visible at current zoom
   const visibleWidth = camera.screenWidth / camera.zoom;
   const visibleHeight = camera.screenHeight / camera.zoom;
@@ -108,12 +110,28 @@ export function updateCamera(
   // Smooth interpolation toward target
   const t = 1 - Math.pow(1 - CAMERA_LERP_FACTOR, (deltaTime * 60) / 1000);
 
+  // Snap if very close to target (avoid endless tiny interpolations)
+  const SNAP_THRESHOLD = 0.01;
+
   // Interpolate zoom
-  camera.zoom = lerp(camera.zoom, camera.targetZoom, t);
+  if (Math.abs(camera.zoom - camera.targetZoom) < SNAP_THRESHOLD) {
+    camera.zoom = camera.targetZoom;
+  } else {
+    camera.zoom = lerp(camera.zoom, camera.targetZoom, t);
+  }
 
   // Interpolate center position
-  camera.center.x = lerp(camera.center.x, camera.targetCenter.x, t);
-  camera.center.y = lerp(camera.center.y, camera.targetCenter.y, t);
+  if (Math.abs(camera.center.x - camera.targetCenter.x) < SNAP_THRESHOLD) {
+    camera.center.x = camera.targetCenter.x;
+  } else {
+    camera.center.x = lerp(camera.center.x, camera.targetCenter.x, t);
+  }
+
+  if (Math.abs(camera.center.y - camera.targetCenter.y) < SNAP_THRESHOLD) {
+    camera.center.y = camera.targetCenter.y;
+  } else {
+    camera.center.y = lerp(camera.center.y, camera.targetCenter.y, t);
+  }
 
   // Handle keyboard panning
   const panAmount = (CAMERA_KEYBOARD_PAN_SPEED * deltaTime) / 1000 / camera.zoom;

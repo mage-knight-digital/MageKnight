@@ -32,6 +32,7 @@ import type { CinematicSequence } from "../../contexts/CinematicContext";
 import { useOverlay } from "../../contexts/OverlayContext";
 import { useHexHover } from "../../hooks/useHexHover";
 import { HexTooltip } from "../HexTooltip";
+import { SitePanel } from "../SitePanel";
 
 // Pixi utilities
 import { hexToPixel, calculateBounds } from "./pixi/hexMath";
@@ -51,6 +52,7 @@ import {
   handlePointerUp as cameraPointerUp,
   centerCameraOn,
   isCameraPanKey,
+  clampCameraCenter,
 } from "./pixi/camera";
 
 // Rendering modules
@@ -67,6 +69,7 @@ import {
   type ExploreTarget,
   type HexHoverEvent,
 } from "./pixi/rendering";
+import { preloadIntroAssets } from "./pixi/preloadIntroAssets";
 
 /**
  * Create the world container hierarchy with labeled layers
@@ -133,6 +136,7 @@ export function PixiHexGrid() {
   const lastPointerPosRef = useRef<PixelPosition>({ x: 0, y: 0 });
   const keysDownRef = useRef<Set<string>>(new Set());
   const hasCenteredOnHeroRef = useRef(false);
+  const cameraReadyRef = useRef(false); // Don't apply camera until properly positioned
 
   // Animation state refs
   const animationManagerRef = useRef<AnimationManager | null>(null);
@@ -163,6 +167,47 @@ export function PixiHexGrid() {
     handleTooltipMouseEnter,
     handleTooltipMouseLeave,
   } = useHexHover({ delay: 400 });
+
+  // Site Panel state (detailed info panel)
+  const [isSitePanelOpen, setIsSitePanelOpen] = useState(false);
+  const [sitePanelHex, setSitePanelHex] = useState<HexCoord | null>(null);
+
+  // Handler to open the site panel from tooltip "More Info" click
+  const handleOpenSitePanel = useCallback((coord: HexCoord) => {
+    setSitePanelHex(coord);
+    setIsSitePanelOpen(true);
+    handleHexTooltipLeave();
+  }, [handleHexTooltipLeave]);
+
+  // Handler to close the site panel
+  const handleCloseSitePanel = useCallback(() => {
+    setIsSitePanelOpen(false);
+  }, []);
+
+  // Track camera offset for panel (to restore when closed)
+  const panelCameraOffsetRef = useRef<number>(0);
+
+  // Shift camera when panel opens/closes
+  useEffect(() => {
+    const camera = cameraRef.current;
+    const app = appRef.current;
+    if (!app) return;
+
+    // Panel takes ~40% of screen width (max 480px), shift camera left by half that
+    // This keeps the game board centered in the remaining visible area
+    const panelWidth = Math.min(app.screen.width * 0.4, 480);
+    const offsetAmount = panelWidth / 2 / camera.zoom;
+
+    if (isSitePanelOpen) {
+      // Shift camera right (so viewport shows more of the left side)
+      camera.targetCenter.x += offsetAmount;
+      panelCameraOffsetRef.current = offsetAmount;
+    } else if (panelCameraOffsetRef.current !== 0) {
+      // Restore camera position
+      camera.targetCenter.x -= panelCameraOffsetRef.current;
+      panelCameraOffsetRef.current = 0;
+    }
+  }, [isSitePanelOpen]);
 
   // Memoized valid move targets
   const validMoveTargets = useMemo<readonly MoveTarget[]>(
@@ -396,6 +441,9 @@ export function PixiHexGrid() {
       app.stage.addChild(background.getContainer());
       app.stage.addChild(world);
 
+      // Hide world until camera is properly positioned to avoid jarring initial movement
+      world.visible = false;
+
       // Handle resize
       const handleResize = () => {
         if (backgroundRef.current) {
@@ -417,8 +465,9 @@ export function PixiHexGrid() {
       // Disable context menu for right-click pan
       app.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-      // Camera update ticker
+      // Camera update ticker - only apply camera after it's been properly positioned
       app.ticker.add((ticker) => {
+        if (!cameraReadyRef.current) return;
         updateCamera(cameraRef.current, keysDownRef.current, ticker.deltaMS);
         applyCamera(app, world, cameraRef.current);
       });
@@ -466,6 +515,9 @@ export function PixiHexGrid() {
         layersRef.current = null;
         worldRef.current = null;
         heroContainerRef.current = null;
+        // Reset camera state for potential re-init (hot reload)
+        hasCenteredOnHeroRef.current = false;
+        cameraReadyRef.current = false;
         setIsInitialized(false);
       }
     };
@@ -489,7 +541,7 @@ export function PixiHexGrid() {
     };
   }, [isInitialized, handleWheel, handleKeyDown, handleKeyUp]);
 
-  // Trigger intro sequence
+  // Trigger intro sequence (after preloading assets)
   useEffect(() => {
     if (!isInitialized || !state || introPlayedRef.current) return;
 
@@ -499,11 +551,15 @@ export function PixiHexGrid() {
       0
     );
 
-    startIntro(tileCount, enemyCount);
-    introPlayedRef.current = true;
-
-    console.log("[PixiHexGrid] Started intro:", tileCount, "tiles,", enemyCount, "enemies");
-  }, [isInitialized, state, startIntro]);
+    // Preload all intro assets before starting animation
+    // This prevents jank during tile drop by decoding images off main thread
+    const heroId = player?.heroId ?? null;
+    preloadIntroAssets(state, heroId).then(() => {
+      startIntro(tileCount, enemyCount);
+      introPlayedRef.current = true;
+      console.log("[PixiHexGrid] Started intro:", tileCount, "tiles,", enemyCount, "enemies");
+    });
+  }, [isInitialized, state, startIntro, player?.heroId]);
 
   // Update background day/night state
   const timeOfDay = state?.timeOfDay;
@@ -525,13 +581,15 @@ export function PixiHexGrid() {
 
     // Check for intro vs exploration
     const currentTileCount = state.map.tiles.length;
-    const shouldPlayTileIntro = prevTileCountRef.current === 0 && currentTileCount > 0;
+    const isFirstLoad = prevTileCountRef.current === 0 && currentTileCount > 0;
+    const shouldPlayTileIntro = isFirstLoad;
     prevTileCountRef.current = currentTileCount;
 
     const newTiles = state.map.tiles.filter(tile => !knownTileIdsRef.current.has(tile.tileId));
-    const isExploration = !shouldPlayTileIntro && newTiles.length > 0;
+    // Only treat as exploration if it's NOT the first load (exploration = discovering tiles mid-game)
+    const isExploration = !isFirstLoad && newTiles.length > 0;
 
-    // Exploration cinematic
+    // Exploration cinematic (only for mid-game tile discovery, not initial load)
     if (isExploration && !isInCinematic) {
       const newTile = newTiles[0];
       const newTilePosition = newTile ? hexToPixel(newTile.centerCoord) : null;
@@ -581,6 +639,74 @@ export function PixiHexGrid() {
 
     // Async rendering
     const renderAsync = async () => {
+      // FIRST: Set up camera before any rendering so position is correct from the start
+      if (!hasCenteredOnHeroRef.current && appRef.current) {
+        const app = appRef.current;
+
+        // Calculate bounds from tiles in play
+        const hexes = Object.values(state.map.hexes);
+        const hexPositions = hexes.map((h) => hexToPixel(h.coord));
+        for (const target of exploreTargets) {
+          hexPositions.push(hexToPixel(target.coord));
+        }
+        const currentBounds = calculateBounds(hexPositions);
+
+        // Add padding around current tiles for breathing room
+        const GRID_PADDING = 150;
+        const paddedBounds = {
+          minX: currentBounds.minX - GRID_PADDING,
+          maxX: currentBounds.maxX + GRID_PADDING,
+          minY: currentBounds.minY - GRID_PADDING,
+          maxY: currentBounds.maxY + GRID_PADDING,
+          width: currentBounds.width + GRID_PADDING * 2,
+          height: currentBounds.height + GRID_PADDING * 2,
+        };
+
+        // Calculate zoom to fit tiles
+        const minZoomX = app.screen.width / paddedBounds.width;
+        const minZoomY = app.screen.height / paddedBounds.height;
+        const dynamicMinZoom = Math.max(minZoomX, minZoomY) * 0.6;
+        const scaleX = app.screen.width / currentBounds.width;
+        const scaleY = app.screen.height / currentBounds.height;
+        const fitZoom = Math.min(scaleX, scaleY) * 0.85;
+        const initialZoom = Math.max(dynamicMinZoom, Math.min(fitZoom, CAMERA_MAX_ZOOM));
+
+        const camera = cameraRef.current;
+        camera.minZoom = dynamicMinZoom;
+        camera.targetZoom = initialZoom;
+        camera.zoom = initialZoom;
+        camera.bounds = {
+          minX: paddedBounds.minX,
+          maxX: paddedBounds.maxX,
+          minY: paddedBounds.minY,
+          maxY: paddedBounds.maxY,
+        };
+        camera.screenWidth = app.screen.width;
+        camera.screenHeight = app.screen.height;
+
+        // Set initial camera position, then clamp to bounds, then sync center with clamped target
+        const initialPos = heroPosition
+          ? hexToPixel(heroPosition)
+          : { x: currentBounds.minX + currentBounds.width / 2, y: currentBounds.minY + currentBounds.height / 2 };
+        camera.targetCenter = { ...initialPos };
+
+        // Clamp adjusts targetCenter to valid bounds (may change it if view exceeds bounds)
+        clampCameraCenter(camera);
+
+        // Now sync center with the clamped targetCenter so there's no interpolation
+        camera.center = { ...camera.targetCenter };
+
+        // Apply camera transform and make world visible
+        applyCamera(app, world, camera);
+        world.visible = true;
+
+        hasCenteredOnHeroRef.current = true;
+        cameraReadyRef.current = true;
+
+        // Force an immediate render so first frame shows correct position
+        app.renderer.render(app.stage);
+      }
+
       // Render board shape ghosts (unfilled tile slots)
       renderBoardShape(layers, state.map.tileSlots);
 
@@ -687,69 +813,6 @@ export function PixiHexGrid() {
 
       prevHeroPositionRef.current = heroPosition;
 
-      // Initial camera setup
-      if (!hasCenteredOnHeroRef.current && appRef.current) {
-        const app = appRef.current;
-
-        // Calculate bounds from tiles in play (not the full grid)
-        // Camera focuses on what's actually there, ghost hexes still show full board shape
-        const hexes = Object.values(state.map.hexes);
-        const hexPositions = hexes.map((h) => hexToPixel(h.coord));
-        for (const target of exploreTargets) {
-          hexPositions.push(hexToPixel(target.coord));
-        }
-        const currentBounds = calculateBounds(hexPositions);
-
-        // Add padding around current tiles for breathing room
-        const GRID_PADDING = 150;
-        const paddedBounds = {
-          minX: currentBounds.minX - GRID_PADDING,
-          maxX: currentBounds.maxX + GRID_PADDING,
-          minY: currentBounds.minY - GRID_PADDING,
-          maxY: currentBounds.maxY + GRID_PADDING,
-          width: currentBounds.width + GRID_PADDING * 2,
-          height: currentBounds.height + GRID_PADDING * 2,
-        };
-
-        // Calculate min zoom to fit tiles in play (with padding)
-        // Use 0.6 multiplier to allow zooming out well beyond "just fits"
-        const minZoomX = app.screen.width / paddedBounds.width;
-        const minZoomY = app.screen.height / paddedBounds.height;
-        const dynamicMinZoom = Math.max(minZoomX, minZoomY) * 0.6;
-
-        // Initial zoom fits current hexes nicely
-        const scaleX = app.screen.width / currentBounds.width;
-        const scaleY = app.screen.height / currentBounds.height;
-        const fitZoom = Math.min(scaleX, scaleY) * 0.85; // 15% padding
-        const initialZoom = Math.max(dynamicMinZoom, Math.min(fitZoom, CAMERA_MAX_ZOOM));
-
-        const camera = cameraRef.current;
-        camera.minZoom = dynamicMinZoom;
-        camera.targetZoom = initialZoom;
-        camera.zoom = initialZoom;
-        // Camera bounds based on tiles in play, centered on current content
-        camera.bounds = {
-          minX: paddedBounds.minX,
-          maxX: paddedBounds.maxX,
-          minY: paddedBounds.minY,
-          maxY: paddedBounds.maxY,
-        };
-        camera.screenWidth = app.screen.width;
-        camera.screenHeight = app.screen.height;
-
-        if (heroPosition) {
-          centerAndApplyCamera(hexToPixel(heroPosition), true);
-        } else {
-          centerAndApplyCamera({
-            x: currentBounds.minX + currentBounds.width / 2,
-            y: currentBounds.minY + currentBounds.height / 2,
-          }, true);
-        }
-
-        hasCenteredOnHeroRef.current = true;
-        console.log("[PixiHexGrid] Camera centered on tiles, zoom:", initialZoom.toFixed(2), "minZoom:", dynamicMinZoom.toFixed(2));
-      }
-
       console.log("[PixiHexGrid] Rendered:", state.map.tiles.length, "tiles");
     };
 
@@ -817,9 +880,24 @@ export function PixiHexGrid() {
         coord={tooltipHoveredHex}
         position={tooltipPosition}
         hexRadius={screenHexRadius}
-        isVisible={isTooltipVisible && isIntroComplete && !isOverlayActive}
+        isVisible={isTooltipVisible && isIntroComplete && !isOverlayActive && !isSitePanelOpen}
         onMouseEnter={handleTooltipMouseEnter}
         onMouseLeave={handleTooltipMouseLeave}
+        onClickMoreInfo={tooltipHoveredHex ? () => handleOpenSitePanel(tooltipHoveredHex) : undefined}
+      />
+
+      {/* Site Panel - detailed site information panel */}
+      <SitePanel
+        isOpen={isSitePanelOpen}
+        siteOptions={
+          sitePanelHex && player?.position &&
+          sitePanelHex.q === player.position.q && sitePanelHex.r === player.position.r
+            ? state?.validActions.sites ?? null
+            : null
+        }
+        hex={sitePanelHex ? state?.map.hexes[hexKey(sitePanelHex)] ?? null : null}
+        onClose={handleCloseSitePanel}
+        isArrivalMode={false}
       />
     </>
   );
