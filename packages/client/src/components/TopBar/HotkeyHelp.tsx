@@ -42,13 +42,13 @@ export function HotkeyHelp({ isOpen, onClose }: HotkeyHelpProps) {
             <h3 className="hotkey-help__section-title">View Modes</h3>
             <div className="hotkey-help__grid">
               <div className="hotkey-help__key">1</div>
-              <div className="hotkey-help__desc">Offers view (units, spells, advanced actions)</div>
-              <div className="hotkey-help__key">2</div>
-              <div className="hotkey-help__desc">Board view (full map, hand hidden)</div>
-              <div className="hotkey-help__key">3</div>
-              <div className="hotkey-help__desc">Ready view (hand peeking)</div>
-              <div className="hotkey-help__key">4</div>
               <div className="hotkey-help__desc">Focus view (large hand)</div>
+              <div className="hotkey-help__key">2</div>
+              <div className="hotkey-help__desc">Ready view (hand peeking)</div>
+              <div className="hotkey-help__key">3</div>
+              <div className="hotkey-help__desc">Map view (full map, hand hidden)</div>
+              <div className="hotkey-help__key">4</div>
+              <div className="hotkey-help__desc">Offers view (units, spells, advanced actions)</div>
             </div>
           </section>
 

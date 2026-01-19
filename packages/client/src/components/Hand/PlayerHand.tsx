@@ -258,15 +258,15 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
       const key = e.key.toLowerCase();
 
-      // View mode keys: 1=offer, 2=board, 3=ready, 4=focus
+      // View mode keys: 1=focus, 2=ready, 3=board (map), 4=offer
       if (key === "1") {
-        setHandView("offer");
-      } else if (key === "2") {
-        setHandView("board");
-      } else if (key === "3") {
-        setHandView("ready");
-      } else if (key === "4") {
         setHandView("focus");
+      } else if (key === "2") {
+        setHandView("ready");
+      } else if (key === "3") {
+        setHandView("board");
+      } else if (key === "4") {
+        setHandView("offer");
       } else if (key === "q" || key === "w" || key === "e") {
         // Q/W/E carousel navigation - only when NOT in offer view
         // (Offer view has its own Q/W/E handling for Units/Spells/AAs)
