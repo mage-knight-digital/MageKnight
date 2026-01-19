@@ -115,16 +115,48 @@ export interface SpriteData {
 
 /**
  * Preload and decode an atlas image so it's ready for GPU rendering.
- * Uses Image.decode() which returns when the image is fully decoded.
+ * Uses createImageBitmap() for off-main-thread decoding which handles large images
+ * better than Image.decode().
+ *
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/Window/createImageBitmap
+ * @see https://calendar.perfplanet.com/2025/non-blocking-image-canvas/
  */
 async function preloadImage(file: string): Promise<void> {
   const url = `/assets/${file}`;
-  const img = new Image();
-  img.src = url;
 
   try {
-    await img.decode();
+    // Fetch the image as a blob
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch: ${response.status}`);
+    }
+    const blob = await response.blob();
+
+    // Use createImageBitmap for off-main-thread decoding
+    // This handles large images (20-40MB) that Image.decode() fails on
+    const bitmap = await createImageBitmap(blob);
+
+    // Also create an HTMLImageElement for CSS background-image usage
+    // The blob URL ensures it's from cache
+    const img = new Image();
+    const blobUrl = URL.createObjectURL(blob);
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => {
+        URL.revokeObjectURL(blobUrl); // Clean up blob URL
+        resolve();
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error(`Failed to load image from blob`));
+      };
+      img.src = blobUrl;
+    });
+
     preloadedImages.set(file, img);
+
+    // Close the bitmap to free memory (we've loaded into img now)
+    bitmap.close();
   } catch (error) {
     console.warn(`Failed to preload atlas image: ${file}`, error);
   }
