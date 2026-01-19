@@ -134,6 +134,9 @@ export interface ClientPlayer {
 
   // Deep Mine crystal color choice pending (available colors to choose from)
   readonly pendingDeepMineChoice: readonly BasicManaColor[] | null;
+
+  // Healing points accumulated this turn (cleared on combat entry)
+  readonly healingPoints: number;
 }
 
 // Mana die in the source

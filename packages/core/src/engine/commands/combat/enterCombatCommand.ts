@@ -19,6 +19,10 @@ export interface EnterCombatCommandParams {
 export function createEnterCombatCommand(
   params: EnterCombatCommandParams
 ): Command {
+  // Store healing points for undo - per rulebook line 929:
+  // "Any unspent Healing points disappear when entering combat."
+  let savedHealingPoints = 0;
+
   return {
     type: ENTER_COMBAT_COMMAND,
     playerId: params.playerId,
@@ -32,8 +36,25 @@ export function createEnterCombatCommand(
         params.isAtFortifiedSite ?? false
       );
 
+      // Find the player and clear their healing points
+      const playerIndex = state.players.findIndex(
+        (p) => p.id === params.playerId
+      );
+      const player = state.players[playerIndex];
+
+      // Save for undo
+      savedHealingPoints = player?.healingPoints ?? 0;
+
+      // Update player with cleared healing points
+      const updatedPlayers =
+        player && savedHealingPoints > 0
+          ? state.players.map((p, i) =>
+              i === playerIndex ? { ...p, healingPoints: 0 } : p
+            )
+          : state.players;
+
       return {
-        state: { ...state, combat },
+        state: { ...state, combat, players: updatedPlayers },
         events: [
           {
             type: COMBAT_STARTED,
@@ -50,9 +71,22 @@ export function createEnterCombatCommand(
     },
 
     undo(state: GameState): CommandResult {
-      // Simply exit combat - enemies go back to map (they were never "drawn")
+      // Restore healing points
+      const playerIndex = state.players.findIndex(
+        (p) => p.id === params.playerId
+      );
+      const player = state.players[playerIndex];
+
+      const updatedPlayers =
+        player && savedHealingPoints > 0
+          ? state.players.map((p, i) =>
+              i === playerIndex ? { ...p, healingPoints: savedHealingPoints } : p
+            )
+          : state.players;
+
+      // Exit combat and restore healing points
       return {
-        state: { ...state, combat: null },
+        state: { ...state, combat: null, players: updatedPlayers },
         events: [createCombatExitedEvent(params.playerId, COMBAT_EXIT_REASON_UNDO)],
       };
     },
