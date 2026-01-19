@@ -1,0 +1,28 @@
+/**
+ * GameIcon styles
+ */
+
+.game-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  /* Default responsive size - can be overridden via inline styles or parent CSS */
+  min-width: 16px;
+  min-height: 16px;
+}
+
+.game-icon--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #333;
+  border-radius: 4px;
+  font-size: 0.8em;
+  color: #888;
+}
+
+/* Ensure crisp rendering at all sizes */
+.game-icon {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}

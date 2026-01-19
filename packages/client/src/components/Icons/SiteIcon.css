@@ -1,0 +1,22 @@
+/**
+ * SiteIcon styles
+ */
+
+.site-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  /* Ensure crisp rendering at all sizes */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+.site-icon--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #333;
+  border-radius: 4px;
+  font-size: 0.8em;
+  color: #888;
+}

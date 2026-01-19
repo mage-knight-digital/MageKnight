@@ -13,6 +13,7 @@
 
 import type { ClientHexEnemy, EnemyAbilityType } from "@mage-knight/shared";
 import { ENEMIES, ABILITY_DESCRIPTIONS } from "@mage-knight/shared";
+import { GameIcon } from "../Icons";
 
 export interface EnemyTooltipContentProps {
   enemies: readonly ClientHexEnemy[];
@@ -122,18 +123,24 @@ export function EnemyTooltipContent({
 
             <div className="enemy-tooltip__enemy-stats">
               <span className="enemy-tooltip__stat">
-                <span className="enemy-tooltip__stat-icon">⚔️</span>
+                <span className="enemy-tooltip__stat-icon">
+                  <GameIcon type="attack" size={20} title="Attack" />
+                </span>
                 <span className="enemy-tooltip__stat-value">{definition.attack}</span>
                 {elementName && (
                   <span className="enemy-tooltip__stat-element">{elementName}</span>
                 )}
               </span>
               <span className="enemy-tooltip__stat">
-                <span className="enemy-tooltip__stat-icon">🛡️</span>
+                <span className="enemy-tooltip__stat-icon">
+                  <GameIcon type="block" size={20} title="Armor" />
+                </span>
                 <span className="enemy-tooltip__stat-value">{definition.armor}</span>
               </span>
               <span className="enemy-tooltip__stat">
-                <span className="enemy-tooltip__stat-icon">⭐</span>
+                <span className="enemy-tooltip__stat-icon">
+                  <GameIcon type="fame" size={20} title="Fame" />
+                </span>
                 <span className="enemy-tooltip__stat-value">{definition.fame}</span>
               </span>
             </div>

@@ -122,14 +122,18 @@
   background: rgba(61, 90, 128, 0.8);
 }
 
-/* Site artwork placeholder */
+/* Site artwork container */
 .site-panel__artwork {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.5) 100%);
   border-radius: 12px;
   border: 1px solid rgba(61, 90, 128, 0.4);
   overflow: hidden;
+  padding: 16px;
 }
 
 .site-panel__artwork-placeholder {
@@ -152,6 +156,14 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 2px;
+}
+
+.site-panel__artwork-sprite {
+  display: block;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+  /* Override inline size for responsive scaling */
+  width: clamp(120px, 40vw, 200px) !important;
+  height: clamp(120px, 40vw, 200px) !important;
 }
 
 /* Sections */
@@ -179,6 +191,14 @@
 
 .site-panel__section-icon {
   font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+/* Responsive game icons in section titles */
+.site-panel__section-icon .game-icon {
+  width: clamp(18px, 2.5vw, 24px) !important;
+  height: clamp(18px, 2.5vw, 24px) !important;
 }
 
 .site-panel__section-content {
@@ -220,6 +240,14 @@
 .site-panel__restriction-icon {
   font-size: 18px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Responsive game icons in restrictions */
+.site-panel__restriction-icon .game-icon {
+  width: clamp(20px, 2.5vw, 28px) !important;
+  height: clamp(20px, 2.5vw, 28px) !important;
 }
 
 .site-panel__restriction-text {
@@ -254,6 +282,14 @@
 .site-panel__service-icon {
   font-size: 18px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Responsive game icons in services */
+.site-panel__service-icon .game-icon {
+  width: clamp(20px, 2.5vw, 28px) !important;
+  height: clamp(20px, 2.5vw, 28px) !important;
 }
 
 .site-panel__service-text {
@@ -311,5 +347,42 @@
   .site-panel {
     width: 100%;
     max-width: none;
+  }
+
+  .site-panel__artwork {
+    min-height: 140px;
+    padding: 12px;
+  }
+
+  .site-panel__name {
+    font-size: 16px;
+  }
+
+  .site-panel__section-title {
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+
+  .site-panel__section-content {
+    padding: 10px 12px;
+  }
+
+  .site-panel__description {
+    font-size: 13px;
+  }
+}
+
+/* Large screens - bigger artwork */
+@media (min-width: 1200px) {
+  .site-panel {
+    max-width: 520px;
+  }
+
+  .site-panel__artwork {
+    min-height: 220px;
+  }
+
+  .site-panel__artwork-sprite {
+    max-height: 240px;
   }
 }
