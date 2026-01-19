@@ -11,7 +11,7 @@
  */
 
 import { Container, Sprite, Assets, Texture } from "pixi.js";
-import type { ClientGameState } from "@mage-knight/shared";
+import type { ClientGameState, HexCoord } from "@mage-knight/shared";
 import { getTileImageUrl } from "../../../../assets/assetPaths";
 import { hexToPixel, MAP_ROTATION } from "../hexMath";
 import type { WorldLayers, PixelPosition } from "../types";
@@ -187,7 +187,10 @@ function animateTileIntro(
 }
 
 /**
- * Animate tile reveal during exploration (simpler than intro)
+ * Animate tile reveal during exploration
+ *
+ * Similar to intro animation but with gold tracer effect and callback
+ * for sequencing enemies after tile lands.
  */
 function animateTileReveal(
   data: TileAnimData,
@@ -195,69 +198,99 @@ function animateTileReveal(
   layers: WorldLayers,
   world: Container,
   animManager: AnimationManager,
-  particleManager: ParticleManager
+  particleManager: ParticleManager,
+  onTileRevealed?: () => void
 ): void {
   const { sprite, targetScaleX, targetScaleY, position, tileId } = data;
-  const delay = index * 150;
+  const TILE_STAGGER = 200;
+  const delay = index * TILE_STAGGER;
 
   setTimeout(() => {
-    const shadow = new DropShadow(layers.particles, position, HEX_SIZE);
-    shadow.alpha = 0;
-    shadow.scale = 1.5;
+    // Phase 1: Magic outline traces the tile shape with gold sparkles
+    const tracer = particleManager.traceTileOutline(
+      layers.particles,
+      position,
+      HEX_OUTLINE_DURATION_MS,
+      0xd4a84b, // Warm gold color to match explore ghost
+      () => {
+        // Move tracer to shadows layer so it renders below the dropping tile
+        tracer.moveToBackground(layers.shadows);
 
-    const startY = position.y - 150;
-    const startScale = 1.5;
-    sprite.position.y = startY;
-    sprite.scale.set(targetScaleX * startScale, targetScaleY * startScale);
-    sprite.alpha = 0;
+        // Phase 2: Tile drops from above
+        const shadow = new DropShadow(layers.particles, position, HEX_SIZE);
+        shadow.alpha = 0;
+        shadow.scale = 1.5;
 
-    const totalDropTime = TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS;
+        const startY = position.y - 150;
+        const startScale = 1.5;
+        sprite.position.y = startY;
+        sprite.scale.set(targetScaleX * startScale, targetScaleY * startScale);
+        sprite.alpha = 0;
 
-    animManager.animate(`tile-reveal-${tileId}`, sprite, {
-      endY: position.y,
-      endAlpha: 1,
-      duration: totalDropTime,
-      easing: Easing.easeInQuad,
-      onUpdate: (progress) => {
-        const currentScale = startScale - (startScale - 1) * progress;
-        sprite.scale.x = targetScaleX * currentScale;
-        sprite.scale.y = targetScaleY * currentScale;
+        const totalDropTime = TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS;
 
-        shadow.scale = 1.5 - 0.5 * progress;
-        shadow.alpha = 0.3;
+        animManager.animate(`tile-reveal-${tileId}`, sprite, {
+          endY: position.y,
+          endAlpha: 1,
+          duration: totalDropTime,
+          easing: Easing.easeInQuad,
+          onUpdate: (progress) => {
+            const currentScale = startScale - (startScale - 1) * progress;
+            sprite.scale.x = targetScaleX * currentScale;
+            sprite.scale.y = targetScaleY * currentScale;
 
-        if (progress > 0.9) {
-          const squashProgress = (progress - 0.9) / 0.1;
-          sprite.scale.x = targetScaleX * (1 + 0.12 * squashProgress);
-          sprite.scale.y = targetScaleY * (1 - 0.08 * squashProgress);
-        }
-      },
-      onComplete: () => {
-        shadow.destroy();
-        sprite.scale.x = targetScaleX * 1.12;
-        sprite.scale.y = targetScaleY * 0.92;
+            shadow.scale = 1.5 - 0.5 * progress;
+            shadow.alpha = 0.3;
 
-        particleManager.dustBurst(layers.shadows, position);
+            if (progress > 0.9) {
+              const squashProgress = (progress - 0.9) / 0.1;
+              sprite.scale.x = targetScaleX * (1 + 0.12 * squashProgress);
+              sprite.scale.y = targetScaleY * (1 - 0.08 * squashProgress);
+            }
+          },
+          onComplete: () => {
+            shadow.destroy();
+            sprite.scale.x = targetScaleX * 1.12;
+            sprite.scale.y = targetScaleY * 0.92;
 
-        let bounceProgress = 0;
-        const bounceStep = () => {
-          bounceProgress += 0.08;
-          if (bounceProgress >= 1) {
-            sprite.scale.set(targetScaleX, targetScaleY);
-            sprite.position.set(position.x, position.y);
-            return;
-          }
-          const ease = 1 - Math.pow(1 - bounceProgress, 3);
-          sprite.scale.x = targetScaleX * (1.12 - 0.12 * ease);
-          sprite.scale.y = targetScaleY * (0.92 + 0.08 * ease);
-          requestAnimationFrame(bounceStep);
-        };
-        requestAnimationFrame(bounceStep);
+            particleManager.dustBurst(layers.shadows, position);
 
-        applyScreenShake(world, SCREEN_SHAKE_INTENSITY, SCREEN_SHAKE_DURATION_MS);
-      },
-    });
+            let bounceProgress = 0;
+            const bounceStep = () => {
+              bounceProgress += 0.08;
+              if (bounceProgress >= 1) {
+                sprite.scale.set(targetScaleX, targetScaleY);
+                sprite.position.set(position.x, position.y);
+
+                // Tile is fully landed - notify caller
+                if (onTileRevealed) {
+                  onTileRevealed();
+                }
+                return;
+              }
+              const ease = 1 - Math.pow(1 - bounceProgress, 3);
+              sprite.scale.x = targetScaleX * (1.12 - 0.12 * ease);
+              sprite.scale.y = targetScaleY * (0.92 + 0.08 * ease);
+              requestAnimationFrame(bounceStep);
+            };
+            requestAnimationFrame(bounceStep);
+
+            applyScreenShake(world, SCREEN_SHAKE_INTENSITY, SCREEN_SHAKE_DURATION_MS);
+          },
+        });
+      }
+    );
   }, delay);
+}
+
+/**
+ * Result from renderTiles indicating which tiles are being revealed
+ */
+export interface RenderTilesResult {
+  /** Tile IDs that are being revealed with animation */
+  revealingTileIds: string[];
+  /** Center coords of tiles being revealed */
+  revealingTileCoords: HexCoord[];
 }
 
 /**
@@ -271,6 +304,7 @@ function animateTileReveal(
  * @param playIntro - Whether to play intro animation
  * @param knownTileIds - Set of already-known tile IDs (mutated to track new tiles)
  * @param onIntroComplete - Callback when intro animation finishes
+ * @param onRevealComplete - Callback when exploration reveal animation finishes (tiles landed)
  */
 export async function renderTiles(
   layers: WorldLayers,
@@ -280,13 +314,16 @@ export async function renderTiles(
   world: Container | null,
   playIntro: boolean,
   knownTileIds: Set<string>,
-  onIntroComplete?: () => void
-): Promise<void> {
+  onIntroComplete?: () => void,
+  onRevealComplete?: () => void
+): Promise<RenderTilesResult> {
   layers.tiles.removeChildren();
   layers.shadows.removeChildren();
 
   const introTiles: TileAnimData[] = [];
   const revealTiles: TileAnimData[] = [];
+  const revealingTileIds: string[] = [];
+  const revealingTileCoords: HexCoord[] = [];
 
   for (const tile of tiles) {
     const position = hexToPixel(tile.centerCoord);
@@ -325,6 +362,8 @@ export async function renderTiles(
         sprite.alpha = 0;
         sprite.scale.set(targetScaleX * 0.8, targetScaleY * 0.8);
         revealTiles.push({ sprite, targetScaleX, targetScaleY, position, tileId: tile.tileId });
+        revealingTileIds.push(tile.tileId);
+        revealingTileCoords.push(tile.centerCoord);
       }
 
       knownTileIds.add(tile.tileId);
@@ -344,9 +383,18 @@ export async function renderTiles(
 
   // Play exploration reveal animations
   if (!playIntro && animManager && particleManager && world && revealTiles.length > 0) {
+    let completedCount = 0;
     revealTiles.forEach((data, index) => {
-      animateTileReveal(data, index, layers, world, animManager, particleManager);
+      animateTileReveal(data, index, layers, world, animManager, particleManager, () => {
+        completedCount++;
+        // Call onRevealComplete when all tiles have landed
+        if (completedCount === revealTiles.length && onRevealComplete) {
+          onRevealComplete();
+        }
+      });
     });
-    console.log("[renderTiles] Animated", revealTiles.length, "new tile(s) with drop effect");
+    console.log("[renderTiles] Animating", revealTiles.length, "new tile(s) with reveal effect");
   }
+
+  return { revealingTileIds, revealingTileCoords };
 }

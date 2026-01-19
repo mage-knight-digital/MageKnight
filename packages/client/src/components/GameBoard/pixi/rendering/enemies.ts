@@ -130,6 +130,7 @@ function animateEnemyDrop(
  * @param playIntro - Whether to play intro animation
  * @param initialDelayMs - Delay before starting animations (for sequencing after tiles)
  * @param onIntroComplete - Callback when intro animation finishes
+ * @param onlyAnimateHexKeys - If provided, only animate enemies on these hexes (others render static)
  */
 export async function renderEnemies(
   layers: WorldLayers,
@@ -138,7 +139,8 @@ export async function renderEnemies(
   particleManager: ParticleManager | null,
   playIntro: boolean,
   initialDelayMs: number = 0,
-  onIntroComplete?: () => void
+  onIntroComplete?: () => void,
+  onlyAnimateHexKeys?: Set<string>
 ): Promise<void> {
   layers.enemies.removeChildren();
 
@@ -148,6 +150,9 @@ export async function renderEnemies(
     if (hex.enemies.length === 0) continue;
 
     const hexCenter = hexToPixel(hex.coord);
+    const thisHexKey = hexKey(hex.coord);
+    // If filtering is enabled, check if this hex should be animated
+    const shouldAnimateThisHex = !onlyAnimateHexKeys || onlyAnimateHexKeys.has(thisHexKey);
 
     for (let i = 0; i < hex.enemies.length; i++) {
       const enemy = hex.enemies[i];
@@ -190,20 +195,21 @@ export async function renderEnemies(
         border.stroke({ color: 0x000000, width: 1, alpha: 0.5 });
         enemyContainer.addChild(border);
 
-        if (playIntro && animManager) {
+        // Only set up for animation if this hex should be animated
+        if (playIntro && animManager && shouldAnimateThisHex) {
           enemyContainer.alpha = 0;
           enemyContainer.scale.set(0);
+          enemyData.push({ container: enemyContainer, position: enemyPos });
         }
 
         layers.enemies.addChild(enemyContainer);
-        enemyData.push({ container: enemyContainer, position: enemyPos });
       } catch (error) {
         console.error(`Failed to load enemy texture: ${imageUrl}`, error);
       }
     }
   }
 
-  // Play intro animations
+  // Play intro animations only for enemies that should be animated
   if (playIntro && animManager && particleManager && enemyData.length > 0) {
     enemyData.forEach(({ container, position }, index) => {
       const isLast = index === enemyData.length - 1;
@@ -220,7 +226,7 @@ export async function renderEnemies(
       );
     });
   } else if (playIntro && enemyData.length === 0 && onIntroComplete) {
-    // No enemies to animate, call complete after initial delay
+    // No enemies to animate but intro was requested - call complete after initial delay
     setTimeout(onIntroComplete, initialDelayMs);
   }
 }

@@ -4,9 +4,15 @@
  * Re-exports all rendering functions for convenient imports.
  */
 
-export { renderTiles, applyScreenShake } from "./tiles";
+export { renderTiles, applyScreenShake, type RenderTilesResult } from "./tiles";
 export { renderEnemies } from "./enemies";
 export { renderHeroIntoContainer, getOrCreateHeroContainer } from "./hero";
 export { renderHexOverlays, type MoveHighlight, type MoveHighlightType, type HexHoverEvent } from "./overlays";
 export { renderPathPreview } from "./pathPreview";
-export { renderGhostHexes, renderBoardShape, type ExploreTarget } from "./ghostHexes";
+export {
+  renderGhostHexes,
+  renderBoardShape,
+  setGhostHexTicker,
+  cleanupGhostHexEffects,
+  type ExploreTarget,
+} from "./ghostHexes";

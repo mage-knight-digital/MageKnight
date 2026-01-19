@@ -81,6 +81,8 @@ export interface HexHoverEvent {
  * @param onHexClick - Callback when hex is clicked
  * @param onHexHover - Callback when hex hover state changes
  * @param onHexHoverWithPos - Optional callback with screen position for tooltips
+ * @param showCoordinates - Whether to show hex coordinates (debug feature)
+ * @param excludeHexKeys - Set of hex keys to exclude from rendering (e.g., during reveal animation)
  */
 export function renderHexOverlays(
   layers: WorldLayers,
@@ -89,11 +91,17 @@ export function renderHexOverlays(
   hoveredHex: HexCoord | null,
   onHexClick: (coord: HexCoord) => void,
   onHexHover: (coord: HexCoord | null) => void,
-  onHexHoverWithPos?: (event: HexHoverEvent | null) => void
+  onHexHoverWithPos?: (event: HexHoverEvent | null) => void,
+  showCoordinates?: boolean,
+  excludeHexKeys?: Set<string>
 ): void {
   layers.hexOverlays.removeChildren();
 
   for (const hex of Object.values(hexes)) {
+    // Skip hexes that are being revealed (animation in progress)
+    if (excludeHexKeys && excludeHexKeys.has(hexKey(hex.coord))) {
+      continue;
+    }
     const { x, y } = hexToPixel(hex.coord);
     const highlight = getHighlight(hex.coord);
     const isHovered = hoveredHex && hoveredHex.q === hex.coord.q && hoveredHex.r === hex.coord.r;
@@ -174,6 +182,23 @@ export function renderHexOverlays(
       costText.anchor.set(0.5, 0.5);
       costText.position.set(badgeX, badgeY);
       layers.hexOverlays.addChild(costText);
+    }
+
+    // Add coordinate label if debug option is enabled
+    if (showCoordinates) {
+      const coordStyle = new TextStyle({
+        fontSize: 12,
+        fontWeight: "bold",
+        fill: 0xffffff,
+        stroke: { color: 0x000000, width: 3 },
+      });
+      const coordText = new Text({
+        text: `${hex.coord.q},${hex.coord.r}`,
+        style: coordStyle,
+      });
+      coordText.anchor.set(0.5, 0.5);
+      coordText.position.set(x, y);
+      layers.hexOverlays.addChild(coordText);
     }
   }
 }

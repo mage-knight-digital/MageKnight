@@ -30,6 +30,7 @@ import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContex
 import { useCinematic } from "../../contexts/CinematicContext";
 import type { CinematicSequence } from "../../contexts/CinematicContext";
 import { useOverlay } from "../../contexts/OverlayContext";
+import { useDebugDisplay } from "../../contexts/DebugDisplayContext";
 import { useHexHover } from "../../hooks/useHexHover";
 import { HexTooltip } from "../HexTooltip";
 import { SitePanel } from "../SitePanel";
@@ -65,11 +66,14 @@ import {
   renderPathPreview,
   renderGhostHexes,
   renderBoardShape,
+  setGhostHexTicker,
+  cleanupGhostHexEffects,
   type MoveHighlight,
   type ExploreTarget,
   type HexHoverEvent,
 } from "./pixi/rendering";
 import { preloadIntroAssets } from "./pixi/preloadIntroAssets";
+import { TILE_HEX_OFFSETS } from "@mage-knight/shared";
 
 /**
  * Create the world container hierarchy with labeled layers
@@ -148,6 +152,13 @@ export function PixiHexGrid() {
   const prevTileCountRef = useRef(0);
   const knownTileIdsRef = useRef<Set<string>>(new Set());
 
+  // Track hexes being revealed (during exploration animation)
+  // These hexes should not show movement overlays until animation completes
+  // Use ref for immediate updates (no async delay) and state to trigger re-renders
+  const revealingHexKeysRef = useRef<Set<string>>(new Set());
+  // Use a counter to force effect re-run when revealing state changes
+  const [revealingUpdateCounter, setRevealingUpdateCounter] = useState(0);
+
   // Game state hooks
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
@@ -155,6 +166,7 @@ export function PixiHexGrid() {
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
   const { playCinematic, isInCinematic } = useCinematic();
   const { isOverlayActive } = useOverlay();
+  const { settings: debugDisplaySettings } = useDebugDisplay();
 
   // Tooltip hover hook
   const {
@@ -481,6 +493,9 @@ export function PixiHexGrid() {
       particleManager.attach(app.ticker);
       particleManagerRef.current = particleManager;
 
+      // Set up ticker for ghost hex hover effects
+      setGhostHexTicker(app.ticker);
+
       // Attach background atmosphere to ticker for dust animation
       background.attach(app.ticker);
 
@@ -503,6 +518,7 @@ export function PixiHexGrid() {
       particleManagerRef.current?.clear();
       particleManagerRef.current?.detach();
       particleManagerRef.current = null;
+      cleanupGhostHexEffects();
       if (backgroundRef.current && appRef.current) {
         backgroundRef.current.detach(appRef.current.ticker);
         backgroundRef.current.destroy();
@@ -518,6 +534,8 @@ export function PixiHexGrid() {
         // Reset camera state for potential re-init (hot reload)
         hasCenteredOnHeroRef.current = false;
         cameraReadyRef.current = false;
+        // Clear revealing hex state for HMR
+        revealingHexKeysRef.current = new Set();
         setIsInitialized(false);
       }
     };
@@ -595,8 +613,38 @@ export function PixiHexGrid() {
       const newTilePosition = newTile ? hexToPixel(newTile.centerCoord) : null;
       const heroPixelPosition = heroPosition ? hexToPixel(heroPosition) : null;
 
-      const EXPLORATION_TILE_DURATION = TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS + 300;
-      const CAMERA_PAN_DURATION = 400;
+      // IMMEDIATELY hide overlays for new hexes (before any async operations)
+      // This prevents the pathfinding grid from flashing before the animation starts
+      const newHexKeysImmediate = new Set<string>();
+      for (const tile of newTiles) {
+        newHexKeysImmediate.add(hexKey(tile.centerCoord));
+        for (const offset of TILE_HEX_OFFSETS) {
+          newHexKeysImmediate.add(hexKey({ q: tile.centerCoord.q + offset.q, r: tile.centerCoord.r + offset.r }));
+        }
+      }
+      revealingHexKeysRef.current = newHexKeysImmediate;
+      setRevealingUpdateCounter(c => c + 1);
+
+      // Expand camera bounds to include the new tile BEFORE panning
+      // This prevents the camera from being clamped back during the pan
+      const camera = cameraRef.current;
+      for (const tile of newTiles) {
+        const tileCenter = hexToPixel(tile.centerCoord);
+        // Expand bounds to include this tile with generous padding
+        const TILE_PADDING = 200;
+        camera.bounds.minX = Math.min(camera.bounds.minX, tileCenter.x - TILE_PADDING);
+        camera.bounds.maxX = Math.max(camera.bounds.maxX, tileCenter.x + TILE_PADDING);
+        camera.bounds.minY = Math.min(camera.bounds.minY, tileCenter.y - TILE_PADDING);
+        camera.bounds.maxY = Math.max(camera.bounds.maxY, tileCenter.y + TILE_PADDING);
+      }
+
+      // Tracer (outline trace) + tile drop + bounce + enemy drops
+      const TRACER_DURATION = HEX_OUTLINE_DURATION_MS + 240 + 100; // trace + pulse + small gap
+      const TILE_DROP_DURATION = TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS + 200; // drop + bounce
+      const ENEMY_DROP_ESTIMATE = 400; // enemies drop after tile lands
+      const EXPLORATION_TOTAL_DURATION = TRACER_DURATION + TILE_DROP_DURATION + ENEMY_DROP_ESTIMATE;
+      // Camera pan duration - must be long enough for smooth lerp interpolation
+      const CAMERA_PAN_DURATION = 600;
 
       const explorationCinematic: CinematicSequence = {
         id: "exploration",
@@ -614,8 +662,8 @@ export function PixiHexGrid() {
           },
           {
             id: "tile-animation",
-            description: "Tile drop animation",
-            duration: EXPLORATION_TILE_DURATION + 200,
+            description: "Tile reveal animation (tracer + drop + enemies)",
+            duration: EXPLORATION_TOTAL_DURATION,
             execute: () => {},
           },
           {
@@ -710,8 +758,21 @@ export function PixiHexGrid() {
       // Render board shape ghosts (unfilled tile slots)
       renderBoardShape(layers, state.map.tileSlots);
 
-      // Render tiles
-      await renderTiles(
+      // Helper to get all hex keys for a tile (center + 6 surrounding)
+      const getTileHexKeys = (centerCoord: HexCoord): string[] => {
+        const keys = [hexKey(centerCoord)];
+        for (const offset of TILE_HEX_OFFSETS) {
+          keys.push(hexKey({ q: centerCoord.q + offset.q, r: centerCoord.r + offset.r }));
+        }
+        return keys;
+      };
+
+      // Capture the current revealing hex keys for use in callbacks
+      // (using the ref value since it was set synchronously before renderAsync)
+      const hexKeysToReveal = new Set(revealingHexKeysRef.current);
+
+      // Render tiles and track which hexes are being revealed
+      const { revealingTileCoords } = await renderTiles(
         layers,
         state.map.tiles,
         animManager,
@@ -722,10 +783,47 @@ export function PixiHexGrid() {
         () => {
           emitAnimationEvent("tiles-complete");
           console.log("[PixiHexGrid] Tile intro complete");
+        },
+        // onRevealComplete - called when exploration tile lands
+        () => {
+          // Tile has landed, now animate enemies on the new tile
+          if (isExploration && animManager && particleManager && hexKeysToReveal.size > 0) {
+            console.log("[PixiHexGrid] Tile revealed, starting enemy animation for hexes:", [...hexKeysToReveal]);
+
+            // Render enemies with drop animation (small delay after tile lands)
+            renderEnemies(
+              layers,
+              state.map.hexes,
+              animManager,
+              particleManager,
+              true, // playIntro = true for new enemies
+              100, // Small delay after tile lands
+              () => {
+                // Enemies done, clear revealing hexes to show overlays
+                revealingHexKeysRef.current = new Set();
+                setRevealingUpdateCounter(c => c + 1);
+                // NOTE: Do NOT emit enemies-complete here - that's only for the initial intro
+                // Emitting it during exploration resets the intro state machine
+              },
+              hexKeysToReveal // Only animate enemies on new hexes
+            );
+          } else {
+            // No enemies or not exploration, just clear revealing hexes
+            revealingHexKeysRef.current = new Set();
+            setRevealingUpdateCounter(c => c + 1);
+          }
         }
       );
 
-      // Calculate timing for sequenced animations
+      // Safety check: if renderTiles didn't find any tiles to reveal (maybe they were
+      // already known), clear the revealing state immediately to avoid stuck overlays
+      if (revealingTileCoords.length === 0 && revealingHexKeysRef.current.size > 0) {
+        console.log("[PixiHexGrid] No tiles to reveal, clearing revealing state");
+        revealingHexKeysRef.current = new Set();
+        setRevealingUpdateCounter(c => c + 1);
+      }
+
+      // Calculate timing for sequenced animations (intro only, not exploration)
       const PHASE5_TILE_STAGGER = 200;
       const PHASE5_SINGLE_TILE_TIME = HEX_OUTLINE_DURATION_MS + TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS + 200;
       const tileAnimationTime = shouldPlayTileIntro
@@ -742,19 +840,22 @@ export function PixiHexGrid() {
         : 0;
       const heroRevealTime = tileAnimationTime + (shouldPlayTileIntro ? estimatedEnemyDuration : 0);
 
-      // Render enemies
-      await renderEnemies(
-        layers,
-        state.map.hexes,
-        animManager,
-        particleManager,
-        shouldPlayTileIntro,
-        tileAnimationTime,
-        () => {
-          emitAnimationEvent("enemies-complete");
-          console.log("[PixiHexGrid] Enemy intro complete");
-        }
-      );
+      // Render enemies (for intro animation or static for non-exploration)
+      // For exploration, enemies are handled in the onRevealComplete callback above
+      if (!isExploration) {
+        await renderEnemies(
+          layers,
+          state.map.hexes,
+          animManager,
+          particleManager,
+          shouldPlayTileIntro,
+          tileAnimationTime,
+          () => {
+            emitAnimationEvent("enemies-complete");
+            console.log("[PixiHexGrid] Enemy intro complete");
+          }
+        );
+      }
 
       // Render hero
       const heroContainer = getOrCreateHeroContainer(layers, heroContainerRef);
@@ -765,15 +866,14 @@ export function PixiHexGrid() {
         const heroMoved = prevPos && (prevPos.q !== heroPosition.q || prevPos.r !== heroPosition.r);
 
         if (heroMoved && animManager) {
+          // Animate hero movement (camera stays put - no tracking)
           animManager.moveTo(
             "hero-move",
             heroContainer,
             targetPixel,
             HERO_MOVE_DURATION_MS,
-            Easing.easeOutQuad,
-            () => centerAndApplyCamera(targetPixel, false)
+            Easing.easeOutQuad
           );
-          centerAndApplyCamera(targetPixel, false);
         } else {
           heroContainer.position.set(targetPixel.x, targetPixel.y);
         }
@@ -831,6 +931,11 @@ export function PixiHexGrid() {
       return;
     }
 
+    // Use ref for the actual hex keys (updated synchronously)
+    const excludeHexes = revealingHexKeysRef.current.size > 0
+      ? revealingHexKeysRef.current
+      : undefined;
+
     renderHexOverlays(
       layers,
       state.map.hexes,
@@ -838,7 +943,9 @@ export function PixiHexGrid() {
       hoveredHex,
       handleHexClick,
       setHoveredHex,
-      handleHexHoverWithPos
+      handleHexHoverWithPos,
+      debugDisplaySettings.showCoordinates,
+      excludeHexes
     );
 
     renderGhostHexes(layers, exploreTargets, handleExploreClick);
@@ -855,6 +962,8 @@ export function PixiHexGrid() {
     handleExploreClick,
     exploreTargets,
     handleHexHoverWithPos,
+    debugDisplaySettings.showCoordinates,
+    revealingUpdateCounter, // Force re-run when revealing state changes
   ]);
 
   // Get hex data for tooltip
