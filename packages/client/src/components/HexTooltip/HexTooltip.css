@@ -14,23 +14,23 @@
   position: fixed;
   z-index: 1000;
   pointer-events: auto; /* Enable for future interactivity */
-  transform-origin: top left;
+  transform-origin: left center;
 
   /* Responsive font size base - scales with viewport */
   font-size: clamp(14px, 1.6vw, 20px);
 
-  /* Page unfold animation */
+  /* Page unfold animation - includes vertical centering */
   animation: tooltip-unfold 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes tooltip-unfold {
   0% {
     opacity: 0;
-    transform: perspective(400px) rotateX(-15deg) translateY(-10px) scale(0.95);
+    transform: perspective(400px) rotateX(-15deg) translateY(calc(-50% - 10px)) scale(0.95);
   }
   100% {
     opacity: 1;
-    transform: perspective(400px) rotateX(0) translateY(0) scale(1);
+    transform: perspective(400px) rotateX(0) translateY(-50%) scale(1);
   }
 }
 

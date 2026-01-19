@@ -21,12 +21,14 @@ export interface UseHexHoverOptions {
 export interface HexHoverState {
   /** Currently hovered hex coordinate (null if none) */
   hoveredHex: HexCoord | null;
-  /** Screen position for tooltip (near cursor) */
+  /** Screen position for tooltip (hex center in screen coords) */
   tooltipPosition: { x: number; y: number } | null;
+  /** Hex radius in screen pixels (accounts for zoom) */
+  screenHexRadius: number | null;
   /** Whether tooltip should be visible (after delay) */
   isTooltipVisible: boolean;
   /** Handler to attach to hex elements */
-  handleHexMouseEnter: (coord: HexCoord, screenPos: { x: number; y: number }) => void;
+  handleHexMouseEnter: (coord: HexCoord, screenPos: { x: number; y: number }, screenHexRadius: number) => void;
   /** Handler for mouse leave */
   handleHexMouseLeave: () => void;
   /** Handler for mouse move (updates tooltip position) */
@@ -42,6 +44,7 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
 
   const [hoveredHex, setHoveredHex] = useState<HexCoord | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const [screenHexRadius, setScreenHexRadius] = useState<number | null>(null);
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
 
   const delayTimerRef = useRef<number | null>(null);
@@ -74,7 +77,7 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
   }, [clearDelayTimer, clearCloseTimer]);
 
   const handleHexMouseEnter = useCallback(
-    (coord: HexCoord, screenPos: { x: number; y: number }) => {
+    (coord: HexCoord, screenPos: { x: number; y: number }, hexRadius: number) => {
       // If mouse is over the tooltip, ignore hex hover events entirely
       // (The tooltip DOM is on top, but PixiJS canvas underneath still fires events)
       if (isOverTooltipRef.current) {
@@ -99,6 +102,7 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
         currentHexRef.current = coord;
         setHoveredHex(coord);
         setTooltipPosition(screenPos);
+        setScreenHexRadius(hexRadius);
         onHoverChange?.(coord);
         return;
       }
@@ -108,6 +112,7 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
       currentHexRef.current = coord;
       setHoveredHex(coord);
       setTooltipPosition(screenPos);
+      setScreenHexRadius(hexRadius);
       setIsTooltipVisible(false);
 
       onHoverChange?.(coord);
@@ -129,6 +134,7 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
     currentHexRef.current = null;
     setHoveredHex(null);
     setTooltipPosition(null);
+    setScreenHexRadius(null);
     setIsTooltipVisible(false);
     onHoverChange?.(null);
   }, [onHoverChange]);
@@ -169,6 +175,7 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
   return {
     hoveredHex,
     tooltipPosition,
+    screenHexRadius,
     isTooltipVisible,
     handleHexMouseEnter,
     handleHexMouseLeave,

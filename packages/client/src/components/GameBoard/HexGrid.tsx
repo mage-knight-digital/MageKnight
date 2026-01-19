@@ -1609,7 +1609,9 @@ export function HexGrid() {
                 // Use hex center position for static tooltip
                 const hexCenter = hexToPixel(hex.coord);
                 const screenPos = svgToScreenCoords(hexCenter.x, hexCenter.y);
-                handleHexTooltipEnter(hex.coord, screenPos);
+                // SVG renderer uses HEX_SIZE=50, so hex radius ≈ 43px (HEX_SIZE * sqrt(3)/2)
+                const hexRadius = HEX_SIZE * Math.sqrt(3) / 2;
+                handleHexTooltipEnter(hex.coord, screenPos, hexRadius);
               }}
               onMouseLeave={() => {
                 setHoveredHex(null);

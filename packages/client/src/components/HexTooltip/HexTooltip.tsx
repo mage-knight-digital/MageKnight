@@ -62,8 +62,10 @@ export interface HexTooltipProps {
   hex: ClientHexState | null;
   /** Hex coordinate (for key/identity) */
   coord: HexCoord | null;
-  /** Screen position for tooltip */
+  /** Screen position for tooltip (hex center in screen coords) */
   position: { x: number; y: number } | null;
+  /** Hex radius in screen pixels (accounts for zoom) */
+  hexRadius?: number | null;
   /** Whether tooltip should be visible (after hover delay) */
   isVisible: boolean;
   /** Show site information (default true) */
@@ -80,6 +82,7 @@ export function HexTooltip({
   hex,
   coord,
   position,
+  hexRadius,
   isVisible,
   showSite = true,
   showEnemies = true,
@@ -114,11 +117,14 @@ export function HexTooltip({
   // Calculate starting index for enemy content (after site lines)
   const enemyStartIndex = hasSite && hex.site ? countSiteLines(hex.site) : 0;
 
-  // Position tooltip near cursor but offset to not cover the hex
-  // Also ensure it stays on screen
+  // Position tooltip directly adjacent to the right edge of the hex
+  // Use actual hex radius (accounts for zoom) + tiny gap
+  // Vertical centering is handled by CSS animation (translateY(-50%))
+  const gap = 4; // Tiny gap between hex edge and tooltip
+  const offset = (hexRadius ?? 73) + gap; // Fallback to ~73px if no radius provided
   const tooltipStyle: React.CSSProperties = {
-    left: position.x + 20,
-    top: position.y - 10,
+    left: position.x + offset,
+    top: position.y,
   };
 
   return (

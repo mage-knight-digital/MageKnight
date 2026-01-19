@@ -67,6 +67,8 @@ function drawHexPolygon(
 export interface HexHoverEvent {
   coord: HexCoord;
   screenPos: { x: number; y: number };
+  /** Hex radius in screen pixels (accounts for zoom) */
+  screenHexRadius: number;
 }
 
 /**
@@ -122,15 +124,23 @@ export function renderHexOverlays(
     graphics.eventMode = "static";
     graphics.cursor = highlight.type !== "none" ? "pointer" : "default";
 
-    // Store coord for event handlers
+    // Store coord and world position for event handlers
     const coord = hex.coord;
+    const hexWorldPos = { x, y };
+    // Point at hex edge (right side) to calculate screen-space hex width
+    const hexEdgePos = { x: x + HEX_SIZE * Math.sqrt(3) / 2, y };
     graphics.on("pointerdown", () => onHexClick(coord));
-    graphics.on("pointerenter", (event) => {
+    graphics.on("pointerenter", () => {
       onHexHover(coord);
       if (onHexHoverWithPos) {
-        // Use actual cursor position for tooltip positioning
-        const screenPos = { x: event.globalX, y: event.globalY };
-        onHexHoverWithPos({ coord, screenPos });
+        // Convert hex center from world coords to screen coords
+        // This gives a consistent tooltip position regardless of where in the hex the cursor entered
+        const globalPos = graphics.toGlobal(hexWorldPos);
+        const globalEdgePos = graphics.toGlobal(hexEdgePos);
+        const screenPos = { x: globalPos.x, y: globalPos.y };
+        // Calculate screen-space hex radius (distance from center to edge)
+        const screenHexRadius = globalEdgePos.x - globalPos.x;
+        onHexHoverWithPos({ coord, screenPos, screenHexRadius });
       }
     });
     graphics.on("pointerleave", () => {

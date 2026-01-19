@@ -156,6 +156,7 @@ export function PixiHexGrid() {
   const {
     hoveredHex: tooltipHoveredHex,
     tooltipPosition,
+    screenHexRadius,
     isTooltipVisible,
     handleHexMouseEnter: handleHexTooltipEnter,
     handleHexMouseLeave: handleHexTooltipLeave,
@@ -292,7 +293,7 @@ export function PixiHexGrid() {
       }
 
       if (event) {
-        handleHexTooltipEnter(event.coord, event.screenPos);
+        handleHexTooltipEnter(event.coord, event.screenPos, event.screenHexRadius);
       } else {
         handleHexTooltipLeave();
       }
@@ -814,6 +815,7 @@ export function PixiHexGrid() {
         hex={tooltipHex}
         coord={tooltipHoveredHex}
         position={tooltipPosition}
+        hexRadius={screenHexRadius}
         isVisible={isTooltipVisible && isIntroComplete && !isOverlayActive}
         onMouseEnter={handleTooltipMouseEnter}
         onMouseLeave={handleTooltipMouseLeave}
