@@ -25,30 +25,6 @@ import {
  *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Window/createImageBitmap
  */
-async function preloadAndCache(url: string): Promise<void> {
-  // Skip if already in PixiJS cache
-  if (Assets.cache.has(url)) {
-    return;
-  }
-
-  try {
-    // Fetch the image as a blob
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch: ${response.status}`);
-    }
-    const blob = await response.blob();
-
-    // Use createImageBitmap for off-main-thread decoding
-    // This is more reliable than Image.decode() for various image sizes
-    await createImageBitmap(blob);
-
-    // Now load into PixiJS cache - should be instant since image is in browser cache
-    await Assets.load(url);
-  } catch (error) {
-    console.warn(`[preloadIntroAssets] Failed to preload: ${url}`, error);
-  }
-}
 
 /**
  * Preload all assets needed for the intro animation.
@@ -87,8 +63,17 @@ export async function preloadIntroAssets(
     urlsToPreload.push(getHeroTokenUrl(heroId));
   }
 
-  // Preload all URLs in parallel
-  await Promise.all(urlsToPreload.map(preloadAndCache));
+  // GPU texture upload is unavoidably blocking in JavaScript.
+  // To minimize perceived jank, we load textures ONE AT A TIME with yields
+  // between each upload, allowing animations (dust particles) to run.
+  // See: https://pixijs.com/8.x/guides/components/textures
+  for (const url of urlsToPreload) {
+    if (!Assets.cache.has(url)) {
+      await Assets.load(url);
+      // Yield to event loop after each texture upload so animations can run
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+  }
 
   const elapsed = performance.now() - startTime;
   console.log(

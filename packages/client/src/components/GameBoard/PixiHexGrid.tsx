@@ -59,6 +59,7 @@ import {
 // Rendering modules
 import {
   renderTiles,
+  renderStaticTileOutlines,
   renderEnemies,
   renderHeroIntoContainer,
   getOrCreateHeroContainer,
@@ -132,6 +133,7 @@ export function PixiHexGrid() {
   const layersRef = useRef<WorldLayers | null>(null);
   const worldRef = useRef<Container | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Loading screen state
   const [hoveredHex, setHoveredHex] = useState<HexCoord | null>(null);
 
   // Camera state refs
@@ -425,6 +427,7 @@ export function PixiHexGrid() {
     let destroyed = false;
 
     const initPixi = async () => {
+      const t0 = performance.now();
       const app = new Application();
 
       await app.init({
@@ -434,6 +437,7 @@ export function PixiHexGrid() {
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
       });
+      console.log(`[initPixi] app.init: ${(performance.now() - t0).toFixed(1)}ms`);
 
       if (destroyed) {
         app.destroy(true);
@@ -442,11 +446,15 @@ export function PixiHexGrid() {
 
       container.appendChild(app.canvas);
 
+      const t1 = performance.now();
       const { world, layers } = createWorldLayers();
+      console.log(`[initPixi] createWorldLayers: ${(performance.now() - t1).toFixed(1)}ms`);
 
       // Create atmospheric background fixed to screen (parallax effect)
+      const t2 = performance.now();
       const background = new BackgroundAtmosphere();
       background.initialize(app.screen.width, app.screen.height);
+      console.log(`[initPixi] BackgroundAtmosphere: ${(performance.now() - t2).toFixed(1)}ms`);
       backgroundRef.current = background;
 
       // Add background to stage BEFORE world so it's behind everything
@@ -559,25 +567,8 @@ export function PixiHexGrid() {
     };
   }, [isInitialized, handleWheel, handleKeyDown, handleKeyUp]);
 
-  // Trigger intro sequence (after preloading assets)
-  useEffect(() => {
-    if (!isInitialized || !state || introPlayedRef.current) return;
-
-    const tileCount = state.map.tiles.length;
-    const enemyCount = Object.values(state.map.hexes).reduce(
-      (sum, hex) => sum + hex.enemies.length,
-      0
-    );
-
-    // Preload all intro assets before starting animation
-    // This prevents jank during tile drop by decoding images off main thread
-    const heroId = player?.heroId ?? null;
-    preloadIntroAssets(state, heroId).then(() => {
-      startIntro(tileCount, enemyCount);
-      introPlayedRef.current = true;
-      console.log("[PixiHexGrid] Started intro:", tileCount, "tiles,", enemyCount, "enemies");
-    });
-  }, [isInitialized, state, startIntro, player?.heroId]);
+  // Intro sequence is now triggered from renderAsync after board fade-in completes
+  // This ensures smooth transition: background → fade in board → intro animation
 
   // Update background day/night state
   const timeOfDay = state?.timeOfDay;
@@ -687,6 +678,16 @@ export function PixiHexGrid() {
 
     // Async rendering
     const renderAsync = async () => {
+      const renderStart = performance.now();
+
+      // Preload all intro assets FIRST (tiles, enemies, hero) to avoid blocking frames
+      // This must happen before any rendering to prevent jank during initial load
+      // Loading screen is shown during this phase
+      const heroId = player?.heroId ?? null;
+      await preloadIntroAssets(state, heroId);
+
+      // NOTE: Loading screen stays visible until fade animation starts (see below)
+
       // FIRST: Set up camera before any rendering so position is correct from the start
       if (!hasCenteredOnHeroRef.current && appRef.current) {
         const app = appRef.current;
@@ -748,6 +749,12 @@ export function PixiHexGrid() {
         applyCamera(app, world, camera);
         world.visible = true;
 
+        // For intro sequence, start with world invisible (will fade in later)
+        // This must be set BEFORE the forced render to avoid a flash
+        if (shouldPlayTileIntro && !introPlayedRef.current) {
+          world.alpha = 0;
+        }
+
         hasCenteredOnHeroRef.current = true;
         cameraReadyRef.current = true;
 
@@ -756,7 +763,12 @@ export function PixiHexGrid() {
       }
 
       // Render board shape ghosts (unfilled tile slots)
+      const t_board = performance.now();
       renderBoardShape(layers, state.map.tileSlots);
+      console.log(`[renderAsync] renderBoardShape: ${(performance.now() - t_board).toFixed(1)}ms`);
+
+      // Static tile outlines container - rendered for intro fade, removed when tracer starts
+      let staticOutlinesContainer: Container | null = null;
 
       // Helper to get all hex keys for a tile (center + 6 surrounding)
       const getTileHexKeys = (centerCoord: HexCoord): string[] => {
@@ -771,154 +783,250 @@ export function PixiHexGrid() {
       // (using the ref value since it was set synchronously before renderAsync)
       const hexKeysToReveal = new Set(revealingHexKeysRef.current);
 
-      // Render tiles and track which hexes are being revealed
-      const { revealingTileCoords } = await renderTiles(
-        layers,
-        state.map.tiles,
-        animManager,
-        particleManager,
-        world,
-        shouldPlayTileIntro,
-        knownTileIdsRef.current,
-        () => {
-          emitAnimationEvent("tiles-complete");
-          console.log("[PixiHexGrid] Tile intro complete");
-        },
-        // onRevealComplete - called when exploration tile lands
-        () => {
-          // Tile has landed, now animate enemies on the new tile
-          if (isExploration && animManager && particleManager && hexKeysToReveal.size > 0) {
-            console.log("[PixiHexGrid] Tile revealed, starting enemy animation for hexes:", [...hexKeysToReveal]);
-
-            // Render enemies with drop animation (small delay after tile lands)
-            renderEnemies(
-              layers,
-              state.map.hexes,
-              animManager,
-              particleManager,
-              true, // playIntro = true for new enemies
-              100, // Small delay after tile lands
-              () => {
-                // Enemies done, clear revealing hexes to show overlays
-                revealingHexKeysRef.current = new Set();
-                setRevealingUpdateCounter(c => c + 1);
-                // NOTE: Do NOT emit enemies-complete here - that's only for the initial intro
-                // Emitting it during exploration resets the intro state machine
-              },
-              hexKeysToReveal // Only animate enemies on new hexes
-            );
-          } else {
-            // No enemies or not exploration, just clear revealing hexes
-            revealingHexKeysRef.current = new Set();
-            setRevealingUpdateCounter(c => c + 1);
-          }
-        }
-      );
-
-      // Safety check: if renderTiles didn't find any tiles to reveal (maybe they were
-      // already known), clear the revealing state immediately to avoid stuck overlays
-      if (revealingTileCoords.length === 0 && revealingHexKeysRef.current.size > 0) {
-        console.log("[PixiHexGrid] No tiles to reveal, clearing revealing state");
-        revealingHexKeysRef.current = new Set();
-        setRevealingUpdateCounter(c => c + 1);
-      }
-
-      // Calculate timing for sequenced animations (intro only, not exploration)
-      const PHASE5_TILE_STAGGER = 200;
-      const PHASE5_SINGLE_TILE_TIME = HEX_OUTLINE_DURATION_MS + TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS + 200;
-      const tileAnimationTime = shouldPlayTileIntro
-        ? (state.map.tiles.length - 1) * PHASE5_TILE_STAGGER + PHASE5_SINGLE_TILE_TIME + INTRO_PHASE_GAP_MS
-        : 0;
-
-      const enemyCount = Object.values(state.map.hexes).reduce(
-        (count, hex) => count + (hex.enemies?.length ?? 0), 0
-      );
-      const ENEMY_DROP_DURATION = 250;
-      const ENEMY_BOUNCE_DURATION = 100;
-      const estimatedEnemyDuration = enemyCount > 0
-        ? (enemyCount - 1) * ENEMY_FLIP_STAGGER_MS + ENEMY_DROP_DURATION + ENEMY_BOUNCE_DURATION + 200
-        : 0;
-      const heroRevealTime = tileAnimationTime + (shouldPlayTileIntro ? estimatedEnemyDuration : 0);
-
-      // Render enemies (for intro animation or static for non-exploration)
-      // For exploration, enemies are handled in the onRevealComplete callback above
-      if (!isExploration) {
-        await renderEnemies(
+      // For first load (intro), we SKIP tile rendering here - it happens after fade-in
+      // For subsequent updates (exploration), render tiles normally
+      const t_tiles = performance.now();
+      if (!shouldPlayTileIntro) {
+        const { revealingTileCoords } = await renderTiles(
           layers,
-          state.map.hexes,
+          state.map.tiles,
           animManager,
           particleManager,
-          shouldPlayTileIntro,
-          tileAnimationTime,
+          world,
+          false,
+          knownTileIdsRef.current,
           () => {
-            emitAnimationEvent("enemies-complete");
-            console.log("[PixiHexGrid] Enemy intro complete");
+            emitAnimationEvent("tiles-complete");
+            console.log("[PixiHexGrid] Tile intro complete");
+          },
+          // onRevealComplete - called when exploration tile lands
+          () => {
+            // Tile has landed, now animate enemies on the new tile
+            if (isExploration && animManager && particleManager && hexKeysToReveal.size > 0) {
+              console.log("[PixiHexGrid] Tile revealed, starting enemy animation for hexes:", [...hexKeysToReveal]);
+
+              // Render enemies with drop animation (small delay after tile lands)
+              renderEnemies(
+                layers,
+                state.map.hexes,
+                animManager,
+                particleManager,
+                true, // playIntro = true for new enemies
+                100, // Small delay after tile lands
+                () => {
+                  // Enemies done, clear revealing hexes to show overlays
+                  revealingHexKeysRef.current = new Set();
+                  setRevealingUpdateCounter(c => c + 1);
+                  // NOTE: Do NOT emit enemies-complete here - that's only for the initial intro
+                  // Emitting it during exploration resets the intro state machine
+                },
+                hexKeysToReveal // Only animate enemies on new hexes
+              );
+            } else {
+              // No enemies or not exploration, just clear revealing hexes
+              revealingHexKeysRef.current = new Set();
+              setRevealingUpdateCounter(c => c + 1);
+            }
           }
         );
+
+        // Safety check: if renderTiles didn't find any tiles to reveal
+        if (revealingTileCoords.length === 0 && revealingHexKeysRef.current.size > 0) {
+          console.log("[PixiHexGrid] No tiles to reveal, clearing revealing state");
+          revealingHexKeysRef.current = new Set();
+          setRevealingUpdateCounter(c => c + 1);
+        }
       }
+      console.log(`[renderAsync] renderTiles: ${(performance.now() - t_tiles).toFixed(1)}ms`);
 
-      // Render hero
-      const heroContainer = getOrCreateHeroContainer(layers, heroContainerRef);
-      const prevPos = prevHeroPositionRef.current;
+      // For first load (intro): skip all rendering here, it happens after fade-in below
+      // For subsequent updates: render enemies and hero normally
+      if (!shouldPlayTileIntro) {
+        // Calculate timing for sequenced animations
+        const PHASE5_TILE_STAGGER = 200;
+        const PHASE5_SINGLE_TILE_TIME = HEX_OUTLINE_DURATION_MS + TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS + 200;
+        const tileAnimationTime = 0;
 
-      if (heroPosition) {
-        const targetPixel = hexToPixel(heroPosition);
-        const heroMoved = prevPos && (prevPos.q !== heroPosition.q || prevPos.r !== heroPosition.r);
-
-        if (heroMoved && animManager) {
-          // Animate hero movement (camera stays put - no tracking)
-          animManager.moveTo(
-            "hero-move",
-            heroContainer,
-            targetPixel,
-            HERO_MOVE_DURATION_MS,
-            Easing.easeOutQuad
+        // Render enemies (for exploration, handled in onRevealComplete callback above)
+        const t_enemies = performance.now();
+        if (!isExploration) {
+          await renderEnemies(
+            layers,
+            state.map.hexes,
+            animManager,
+            particleManager,
+            false,
+            tileAnimationTime,
+            () => {
+              emitAnimationEvent("enemies-complete");
+              console.log("[PixiHexGrid] Enemy intro complete");
+            }
           );
-        } else {
-          heroContainer.position.set(targetPixel.x, targetPixel.y);
         }
+        console.log(`[renderAsync] renderEnemies: ${(performance.now() - t_enemies).toFixed(1)}ms`);
 
-        const heroId = player?.heroId ?? null;
-        renderHeroIntoContainer(heroContainer, heroPosition, heroId);
+        // Render hero
+        const heroContainer = getOrCreateHeroContainer(layers, heroContainerRef);
+        const prevPos = prevHeroPositionRef.current;
 
-        // Hero portal intro
-        if (shouldPlayTileIntro && animManager && particleManager) {
-          heroContainer.alpha = 0;
-          heroContainer.scale.set(0.8);
-          heroContainer.position.set(targetPixel.x, targetPixel.y);
+        if (heroPosition) {
+          const targetPixel = hexToPixel(heroPosition);
+          const heroMoved = prevPos && (prevPos.q !== heroPosition.q || prevPos.r !== heroPosition.r);
 
-          setTimeout(() => {
-            particleManager.createPortal(
-              layers.particles,
+          if (heroMoved && animManager) {
+            animManager.moveTo(
+              "hero-move",
+              heroContainer,
               targetPixel,
-              {
-                heroId: heroId ?? undefined,
-                onHeroEmerge: () => {
-                  animManager.animate("hero-emerge", heroContainer, {
-                    endAlpha: 1,
-                    endScale: 1,
-                    duration: PORTAL_HERO_EMERGE_DURATION_MS,
-                    easing: Easing.easeOutCubic,
-                  });
-                },
-                onComplete: () => {
-                  emitAnimationEvent("hero-complete");
-                  console.log("[PixiHexGrid] Hero portal complete");
-                },
-              }
+              HERO_MOVE_DURATION_MS,
+              Easing.easeOutQuad
             );
-          }, heroRevealTime);
+          } else {
+            heroContainer.position.set(targetPixel.x, targetPixel.y);
+          }
+
+          const heroId = player?.heroId ?? null;
+          renderHeroIntoContainer(heroContainer, heroPosition, heroId);
         }
+
+        prevHeroPositionRef.current = heroPosition;
+
+        // Hide loading screen for non-intro renders
+        setIsLoading(false);
       }
 
-      prevHeroPositionRef.current = heroPosition;
+      // For first load: fade in the board shape, THEN render tiles/enemies/hero with intro animations
+      // This creates a smooth transition: background → board fades in → pause → intro animation
+      if (shouldPlayTileIntro && animManager && particleManager && !introPlayedRef.current) {
+        const BOARD_FADE_DURATION = 800;
+        const PAUSE_BEFORE_INTRO = 450; // Pause after fade before tracers start
 
+        // world.alpha is already set to 0 earlier (before forced render) to avoid flash
+
+        // Render static tile outlines that fade in with the board (matches board shape style)
+        // These get removed when the tracer animation starts drawing animated outlines
+        const BOARD_SHAPE_STROKE_COLOR = 0x8b7355; // Darker parchment edge - matches ghostHexes.ts
+        staticOutlinesContainer = renderStaticTileOutlines(
+          layers.boardShape, // Add to boardShape layer so it fades with the ghosts
+          state.map.tiles,
+          0.6, // alpha - matches board shape stroke alpha
+          BOARD_SHAPE_STROKE_COLOR
+        );
+
+        // Fade in the world (board shape ghosts + tile outlines together)
+        animManager.animate("board-fade-in", world, {
+          endAlpha: 1,
+          duration: BOARD_FADE_DURATION,
+          easing: Easing.easeOutCubic,
+          onComplete: () => {
+            // Pause to let the board settle before starting intro
+            setTimeout(async () => {
+              console.log("[PixiHexGrid] Fade complete, rendering tiles with intro...");
+
+              // Keep static brown outlines visible - tracer draws blue over them
+              // This maintains visual consistency during the animation
+
+              // NOW render tiles with intro animations (tracer draws the outlines)
+              await renderTiles(
+                layers,
+                state.map.tiles,
+                animManager,
+                particleManager,
+                world,
+                true, // playIntro = true
+                knownTileIdsRef.current,
+                () => {
+                  emitAnimationEvent("tiles-complete");
+                  console.log("[PixiHexGrid] Tile intro complete");
+                }
+              );
+
+              // Calculate timing for enemies/hero
+              const PHASE5_TILE_STAGGER = 200;
+              const PHASE5_SINGLE_TILE_TIME = HEX_OUTLINE_DURATION_MS + TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS + 200;
+              const tileAnimationTime = (state.map.tiles.length - 1) * PHASE5_TILE_STAGGER + PHASE5_SINGLE_TILE_TIME + INTRO_PHASE_GAP_MS;
+
+              const enemyCount = Object.values(state.map.hexes).reduce(
+                (count, hex) => count + (hex.enemies?.length ?? 0), 0
+              );
+              const ENEMY_DROP_DURATION = 250;
+              const ENEMY_BOUNCE_DURATION = 100;
+              const estimatedEnemyDuration = enemyCount > 0
+                ? (enemyCount - 1) * ENEMY_FLIP_STAGGER_MS + ENEMY_DROP_DURATION + ENEMY_BOUNCE_DURATION + 200
+                : 0;
+              const heroRevealTime = tileAnimationTime + estimatedEnemyDuration;
+
+              // Render enemies with intro
+              await renderEnemies(
+                layers,
+                state.map.hexes,
+                animManager,
+                particleManager,
+                true, // playIntro
+                tileAnimationTime,
+                () => {
+                  emitAnimationEvent("enemies-complete");
+                  console.log("[PixiHexGrid] Enemy intro complete");
+                }
+              );
+
+              // Render hero with portal intro
+              const heroContainer = getOrCreateHeroContainer(layers, heroContainerRef);
+              if (heroPosition) {
+                const targetPixel = hexToPixel(heroPosition);
+                const heroId = player?.heroId ?? null;
+
+                heroContainer.alpha = 0;
+                heroContainer.scale.set(0.8);
+                heroContainer.position.set(targetPixel.x, targetPixel.y);
+                renderHeroIntoContainer(heroContainer, heroPosition, heroId);
+
+                setTimeout(() => {
+                  particleManager.createPortal(
+                    layers.particles,
+                    targetPixel,
+                    {
+                      heroId: heroId ?? undefined,
+                      onHeroEmerge: () => {
+                        animManager.animate("hero-emerge", heroContainer, {
+                          endAlpha: 1,
+                          endScale: 1,
+                          duration: PORTAL_HERO_EMERGE_DURATION_MS,
+                          easing: Easing.easeOutCubic,
+                        });
+                      },
+                      onComplete: () => {
+                        emitAnimationEvent("hero-complete");
+                        console.log("[PixiHexGrid] Hero portal complete");
+                      },
+                    }
+                  );
+                }, heroRevealTime);
+
+                prevHeroPositionRef.current = heroPosition;
+              }
+
+              // Start intro state machine
+              const tileCount = state.map.tiles.length;
+              startIntro(tileCount, enemyCount);
+              introPlayedRef.current = true;
+              console.log("[PixiHexGrid] Starting intro:", tileCount, "tiles,", enemyCount, "enemies");
+            }, PAUSE_BEFORE_INTRO);
+          },
+        });
+
+        // Hide loading screen now that fade animation has started
+        // (world.alpha = 0 so nothing visible yet, fade will reveal it)
+        setIsLoading(false);
+      }
+
+      console.log(`[renderAsync] TOTAL: ${(performance.now() - renderStart).toFixed(1)}ms`);
       console.log("[PixiHexGrid] Rendered:", state.map.tiles.length, "tiles");
     };
 
     renderAsync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitialized, state, player?.position, exploreTargets, centerAndApplyCamera, emitAnimationEvent]);
+  }, [isInitialized, state, player?.position, exploreTargets, centerAndApplyCamera, emitAnimationEvent, startIntro]);
 
   // Interactive layer updates
   useEffect(() => {
@@ -984,6 +1092,44 @@ export function PixiHexGrid() {
         tabIndex={0}
         data-testid="pixi-hex-grid"
       />
+
+      {/* Loading overlay - shown while assets are loading */}
+      {isLoading && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(10, 10, 18, 0.85)",
+            zIndex: 100,
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              color: "rgba(255, 248, 220, 0.8)",
+              fontSize: "max(1rem, 2.5vw)",
+              fontFamily: "serif",
+              letterSpacing: "0.1em",
+              animation: "pulse-opacity 2.5s ease-in-out infinite",
+            }}
+          >
+            Preparing the realm...
+          </div>
+          <style>{`
+            @keyframes pulse-opacity {
+              0%, 100% { opacity: 0.6; }
+              50% { opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )}
+
       <HexTooltip
         hex={tooltipHex}
         coord={tooltipHoveredHex}
