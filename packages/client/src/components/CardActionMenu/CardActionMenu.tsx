@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import type { CardId, PlayableCard, SidewaysAs, ManaSourceInfo } from "@mage-knight/shared";
 import {
   PLAY_SIDEWAYS_AS_MOVE,
@@ -49,6 +50,9 @@ export function CardActionMenu({
   onPlaySideways,
   onCancel,
 }: CardActionMenuProps) {
+  // Register this component as an active overlay to disable background interactions
+  useRegisterOverlay(true);
+
   const [menuState, setMenuState] = useState<MenuState>({ type: "action-select" });
   const { setPosition } = useCardMenuPosition();
 

@@ -29,6 +29,7 @@ import { useGameIntro } from "../../contexts/GameIntroContext";
 import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import { useCinematic } from "../../contexts/CinematicContext";
 import type { CinematicSequence } from "../../contexts/CinematicContext";
+import { useOverlay } from "../../contexts/OverlayContext";
 import { useHexHover } from "../../hooks/useHexHover";
 import { HexTooltip } from "../HexTooltip";
 
@@ -149,6 +150,7 @@ export function PixiHexGrid() {
   const { startIntro, isIntroComplete } = useGameIntro();
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
   const { playCinematic, isInCinematic } = useCinematic();
+  const { isOverlayActive } = useOverlay();
 
   // Tooltip hover hook
   const {
@@ -279,16 +281,23 @@ export function PixiHexGrid() {
 
   /**
    * Handle tooltip hover events from hex overlays
+   * Disabled when an overlay (card action menu, combat, etc.) is active
    */
   const handleHexHoverWithPos = useCallback(
     (event: HexHoverEvent | null) => {
+      // Don't show tooltips when an overlay is active
+      if (isOverlayActive) {
+        handleHexTooltipLeave();
+        return;
+      }
+
       if (event) {
         handleHexTooltipEnter(event.coord, event.screenPos);
       } else {
         handleHexTooltipLeave();
       }
     },
-    [handleHexTooltipEnter, handleHexTooltipLeave]
+    [handleHexTooltipEnter, handleHexTooltipLeave, isOverlayActive]
   );
 
   // Camera helper to center and apply
@@ -805,7 +814,7 @@ export function PixiHexGrid() {
         hex={tooltipHex}
         coord={tooltipHoveredHex}
         position={tooltipPosition}
-        isVisible={isTooltipVisible && isIntroComplete}
+        isVisible={isTooltipVisible && isIntroComplete && !isOverlayActive}
         onMouseEnter={handleTooltipMouseEnter}
         onMouseLeave={handleTooltipMouseLeave}
       />

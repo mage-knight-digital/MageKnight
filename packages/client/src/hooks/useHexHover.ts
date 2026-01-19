@@ -75,6 +75,12 @@ export function useHexHover(options: UseHexHoverOptions = {}): HexHoverState {
 
   const handleHexMouseEnter = useCallback(
     (coord: HexCoord, screenPos: { x: number; y: number }) => {
+      // If mouse is over the tooltip, ignore hex hover events entirely
+      // (The tooltip DOM is on top, but PixiJS canvas underneath still fires events)
+      if (isOverTooltipRef.current) {
+        return;
+      }
+
       // Cancel any pending close - we're on a hex
       clearCloseTimer();
 

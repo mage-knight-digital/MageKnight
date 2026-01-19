@@ -4,6 +4,7 @@ import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
 import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
 import { AnimationDispatcherProvider } from "./contexts/AnimationDispatcherContext";
 import { CinematicProvider, useCinematic } from "./contexts/CinematicContext";
+import { OverlayProvider } from "./contexts/OverlayContext";
 import { useGame } from "./hooks/useGame";
 import { useMyPlayer } from "./hooks/useMyPlayer";
 import { HexGrid } from "./components/GameBoard/HexGrid";
@@ -157,10 +158,12 @@ export function App() {
       <AnimationDispatcherProvider>
         <GameIntroProvider>
           <CinematicProvider>
-            <CardMenuPositionProvider>
-              <GameView />
-              <DebugPanel />
-            </CardMenuPositionProvider>
+            <OverlayProvider>
+              <CardMenuPositionProvider>
+                <GameView />
+                <DebugPanel />
+              </CardMenuPositionProvider>
+            </OverlayProvider>
           </CinematicProvider>
         </GameIntroProvider>
       </AnimationDispatcherProvider>
