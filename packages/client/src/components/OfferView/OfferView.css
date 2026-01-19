@@ -70,6 +70,12 @@
   transition: background 250ms ease-in;
 }
 
+/* Ensure overlay doesn't block clicks when hidden
+   Higher specificity than .offer-view__overlay to override its pointer-events: auto */
+.offer-view--hidden .offer-view__overlay {
+  pointer-events: none;
+}
+
 /* ============================================================================
    Tray container
    ============================================================================ */
