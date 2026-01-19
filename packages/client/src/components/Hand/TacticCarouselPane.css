@@ -36,9 +36,11 @@
   transform: translateY(5vh);
 }
 
-/* Focus view: tactics large and centered */
+/* Focus view: tactics scaled up 2.2x (to ~55% vh from 25% vh) and moved up
+   Uses transform for GPU acceleration - no layout recalc needed */
 .tactic-carousel--focus {
-  transform: translateY(-12vh);
+  transform: translateY(-35vh) scale(2.2);
+  transform-origin: bottom center;
   z-index: 100;
 }
 
@@ -101,23 +103,14 @@
     0 0 20px rgba(100, 149, 237, 0.3);
 }
 
-/* Cards container - responsive sizing */
+/* Cards container - fixed base sizing (view mode scaling done via parent transform) */
 .tactic-carousel__cards {
   position: relative;
-  /* Height scales with viewport - matches hand card sizing */
+  /* Fixed height at base scale - view mode scaling is applied via parent transform */
   height: 25vh;
   width: 100%;
   max-width: 1200px;
   pointer-events: auto;
-}
-
-/* Scale cards container based on view mode - matches CARD_FAN_SCALE in cardFanLayout.ts */
-.tactic-carousel--ready .tactic-carousel__cards {
-  height: 25vh;
-}
-
-.tactic-carousel--focus .tactic-carousel__cards {
-  height: 55vh;
 }
 
 /* Individual tactic card - positioned absolutely, left set via inline style */

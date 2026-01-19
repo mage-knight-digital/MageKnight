@@ -140,9 +140,16 @@ export function OfferView({ isVisible, onClose }: OfferViewProps) {
       {/* Tray container */}
       <div className={trayClassName}>
         <OfferTray currentPane={currentPane} isAnimating={isAnimatingIn || isAnimatingOut}>
-          {currentPane === "units" && <UnitOfferPane />}
-          {currentPane === "spells" && <SpellOfferPane />}
-          {currentPane === "advancedActions" && <AAOfferPane />}
+          {/* All panes stay mounted to avoid re-decoding large sprite sheets on tab switch */}
+          <div className={`offer-pane-wrapper ${currentPane === "units" ? "offer-pane-wrapper--active" : "offer-pane-wrapper--hidden"}`}>
+            <UnitOfferPane />
+          </div>
+          <div className={`offer-pane-wrapper ${currentPane === "spells" ? "offer-pane-wrapper--active" : "offer-pane-wrapper--hidden"}`}>
+            <SpellOfferPane />
+          </div>
+          <div className={`offer-pane-wrapper ${currentPane === "advancedActions" ? "offer-pane-wrapper--active" : "offer-pane-wrapper--hidden"}`}>
+            <AAOfferPane />
+          </div>
         </OfferTray>
 
         {/* Navigation hint */}

@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared";
-import { loadAtlas, getCardSpriteData, getCardColor } from "../../utils/cardAtlas";
-import { SpriteImage } from "../SpriteImage/SpriteImage";
-import { calculateZIndex, CARD_FAN_SCALE, CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
+import { loadAtlas, getCardSpriteStyle, getCardColor } from "../../utils/cardAtlas";
+import { calculateZIndex, CARD_FAN_BASE_SCALE, CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
 import { playSound } from "../../utils/audioManager";
 import { useGameIntro, UI_REVEAL_TIMING } from "../../contexts/GameIntroContext";
 import "./FloatingHand.css";
@@ -10,26 +9,27 @@ import "./FloatingHand.css";
 // Hand view modes - re-export for backwards compatibility
 export type HandViewMode = CardFanViewMode;
 
-// Hook to get responsive card dimensions based on view mode
-function useCardDimensions(viewMode: HandViewMode) {
+// Hook to get responsive card dimensions - uses FIXED base scale (view mode scaling done via CSS)
+// This prevents re-rendering cards when switching view modes
+function useCardDimensions() {
   const [dimensions, setDimensions] = useState({ cardWidth: 120, cardHeight: 180 });
 
   useEffect(() => {
     const updateDimensions = () => {
-      const scale = CARD_FAN_SCALE[viewMode];
-      const cardHeight = Math.round(window.innerHeight * scale);
+      // Always use base scale - view mode is handled via CSS transform for GPU acceleration
+      const cardHeight = Math.round(window.innerHeight * CARD_FAN_BASE_SCALE);
       const cardWidth = Math.round(cardHeight * 0.667); // 2:3 aspect ratio
       setDimensions({ cardWidth, cardHeight });
     };
 
     updateDimensions();
 
-    // Update on resize
+    // Update on resize only
     window.addEventListener("resize", updateDimensions);
     return () => {
       window.removeEventListener("resize", updateDimensions);
     };
-  }, [viewMode]);
+  }, []); // No viewMode dependency - dimensions are fixed
 
   return dimensions;
 }
@@ -117,8 +117,9 @@ const FloatingCard = memo(function FloatingCard({
 }: FloatingCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Memoize sprite data - recalculate only if cardId changes (SpriteImage handles scaling)
-  const spriteData = useMemo(() => getCardSpriteData(cardId), [cardId]);
+  // Use CSS background-image approach - browser shares ONE copy of each sprite sheet
+  // across all cards, unlike <img> which creates separate image objects
+  const spriteStyle = useMemo(() => getCardSpriteStyle(cardId, cardHeight), [cardId, cardHeight]);
   const cardColor = useMemo(() => getCardColor(cardId), [cardId]);
 
   const handleClick = useCallback(() => {
@@ -189,19 +190,12 @@ const FloatingCard = memo(function FloatingCard({
       data-testid={`hand-card-${cardId}`}
     >
       <div ref={cardRef} className={classNames} style={cardStyle}>
-        {spriteData ? (
-          <SpriteImage
-            src={spriteData.src}
-            spriteWidth={spriteData.spriteWidth}
-            spriteHeight={spriteData.spriteHeight}
-            col={spriteData.col}
-            row={spriteData.row}
-            sheetWidth={spriteData.sheetWidth}
-            sheetHeight={spriteData.sheetHeight}
-            displayWidth={cardWidth}
-            displayHeight={cardHeight}
-            alt={cardId}
+        {spriteStyle ? (
+          <div
             className="floating-card__sprite"
+            style={spriteStyle}
+            role="img"
+            aria-label={cardId}
           />
         ) : (
           <span className="floating-card__fallback">{cardId}</span>
@@ -234,7 +228,7 @@ export function FloatingHand({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   // Track which card the z-ordering is anchored to (Inscryption-style: persists after mouse leave)
   const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
-  const { cardWidth, cardHeight } = useCardDimensions(viewMode);
+  const { cardWidth, cardHeight } = useCardDimensions();
 
   // Track which cards are newly dealt for animation
   const prevHandLengthRef = useRef<number>(hand.length); // Initialize to current length

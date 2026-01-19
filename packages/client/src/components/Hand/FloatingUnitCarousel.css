@@ -40,9 +40,12 @@
   transform: translateY(5vh);
 }
 
-/* Focus view: units large and centered for inspection */
+/* Focus view: units scaled up ~2.2x (to ~40% vh from 18% vh) and moved up
+   Uses transform for GPU acceleration - no layout recalc needed
+   Scale factor: 0.40 / 0.18 ≈ 2.22 */
 .floating-unit-carousel--focus {
-  transform: translateY(-12vh);
+  transform: translateY(-30vh) scale(2.22);
+  transform-origin: bottom center;
   z-index: 100;
 }
 

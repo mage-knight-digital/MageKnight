@@ -32,12 +32,14 @@
 }
 
 .combat-scene__backdrop-image {
-  max-height: 85vh;
-  max-width: 60vw;
-  object-fit: contain;
   opacity: 0.25;
   filter: blur(2px) saturate(0.7);
   animation: backdrop-fade-in 1s ease-out;
+}
+
+.combat-scene__backdrop-image img {
+  /* Ensure the sprite image doesn't have any object-fit issues */
+  object-fit: contain;
 }
 
 @keyframes backdrop-fade-in {

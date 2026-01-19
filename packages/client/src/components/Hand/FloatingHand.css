@@ -23,16 +23,24 @@
   /* Container handles all mouse events for hover detection */
   pointer-events: auto;
   z-index: 50;
-  /* Smooth transition for view mode changes */
-  transition: transform 0.3s ease;
+  /* Smooth transition for view mode changes - visibility transitions immediately when showing */
+  transition: transform 0.3s ease, visibility 0s;
 }
 
 /* ===== VIEW MODES ===== */
+/* View mode scaling uses CSS transform (GPU-accelerated) instead of resizing cards.
+   This prevents expensive layout recalculation when switching modes. */
 
-/* Board view: cards completely hidden off screen */
+/* Board view: cards hidden but GPU textures cached
+   Uses content-visibility:hidden which tells Chrome to skip painting BUT keep the
+   rendering state (including GPU textures) cached. This makes re-showing instant.
+   See: https://web.dev/articles/content-visibility */
 .floating-hand--board {
   transform: translateY(calc(25vh + 50px)); /* Card height + padding, fully off screen */
   pointer-events: none; /* Can't interact when hidden */
+  content-visibility: hidden; /* Skip painting but KEEP GPU textures cached */
+  contain: strict; /* Required for content-visibility to work properly */
+  transition: transform 0.3s ease;
 }
 
 /* Ready view: cards visible enough to see titles */
@@ -40,9 +48,12 @@
   transform: translateY(7vh); /* Show more of cards - titles should be visible */
 }
 
-/* Focus view: cards large and moved up to be more centered */
+/* Focus view: cards scaled up 2.2x (to ~55% vh from 25% vh) and moved up
+   Uses transform for GPU acceleration - no layout recalc needed */
 .floating-hand--focus {
-  transform: translateY(-15vh); /* Move up so cards are more centered on screen */
+  /* Scale from bottom center, then translate up to center on screen */
+  transform: translateY(-35vh) scale(2.2);
+  transform-origin: bottom center;
   z-index: 100; /* Above everything when focusing on hand */
 }
 
@@ -178,14 +189,18 @@
   flex-direction: row;
   gap: 1rem;
   z-index: 60;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  /* Only transform transition - opacity is expensive */
+  transition: transform 0.3s ease, visibility 0s;
 }
 
-/* Hide deck/discard in focus mode */
+/* Hide deck/discard in focus mode
+   Uses content-visibility:hidden to keep GPU textures cached */
 .floating-hand__deck-discard--hidden {
-  opacity: 0;
   transform: translateY(100%);
   pointer-events: none;
+  content-visibility: hidden;
+  contain: strict;
+  transition: transform 0.3s ease;
 }
 
 /* Hidden during intro - before ui-settle phase */
@@ -280,6 +295,10 @@
   /* Smooth sliding transition with slight overshoot for juicy feel */
   transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   z-index: 50;
+  /* CSS containment - lets browser optimize layout/paint calculations */
+  contain: layout style;
+  /* Isolate from PixiJS canvas compositing */
+  isolation: isolate;
 }
 
 /* Tactics pane visible (track at default position) */
@@ -297,20 +316,14 @@
   transform: translateX(-200vw);
 }
 
-/* Hidden state when in offer view */
+/* Hidden state when in offer view
+   Uses content-visibility:hidden to skip painting but KEEP GPU textures cached.
+   This makes showing the carousel again instant without re-decoding sprite sheets. */
 .carousel-track--hidden {
-  opacity: 0;
   pointer-events: none;
-  /* Remove from compositor when hidden to avoid conflicts with OfferView */
-  visibility: hidden;
-  /* Keep both transitions so transform doesn't snap when unhiding */
-  transition: opacity 0.3s ease-out, transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94), visibility 0s 0.3s;
-}
-
-/* When not hidden, ensure visibility is immediate */
-.carousel-track:not(.carousel-track--hidden) {
-  visibility: visible;
-  transition: opacity 0.3s ease-out, transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94), visibility 0s;
+  content-visibility: hidden; /* Skip painting but KEEP GPU textures cached */
+  contain: strict; /* Required for content-visibility */
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* Each pane takes up one viewport width */

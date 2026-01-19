@@ -8,7 +8,7 @@ import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro } from "../../contexts/GameIntroContext";
 import { useOnAnimationEvent, useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import { loadAtlas, getTacticSpriteStyle } from "../../utils/cardAtlas";
-import { calculateZIndex, CARD_FAN_SCALE, type CardFanViewMode } from "../../utils/cardFanLayout";
+import { calculateZIndex, CARD_FAN_BASE_SCALE, type CardFanViewMode } from "../../utils/cardFanLayout";
 import { playSound } from "../../utils/audioManager";
 import "./TacticCarouselPane.css";
 
@@ -136,23 +136,22 @@ interface TacticCarouselPaneProps {
   viewMode: ViewMode;
 }
 
-// Hook to get responsive card height based on view mode
-function useCardHeight(viewMode: ViewMode): number {
+// Hook to get responsive card height - uses FIXED base scale (view mode scaling done via CSS)
+// This prevents re-rendering cards when switching view modes
+function useCardHeight(): number {
   const [cardHeight, setCardHeight] = useState(() => {
-    const scale = CARD_FAN_SCALE[viewMode];
-    return Math.round(window.innerHeight * scale);
+    return Math.round(window.innerHeight * CARD_FAN_BASE_SCALE);
   });
 
   useEffect(() => {
     const updateHeight = () => {
-      const scale = CARD_FAN_SCALE[viewMode];
-      setCardHeight(Math.round(window.innerHeight * scale));
+      setCardHeight(Math.round(window.innerHeight * CARD_FAN_BASE_SCALE));
     };
 
     updateHeight();
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
-  }, [viewMode]);
+  }, []); // No viewMode dependency - dimensions are fixed
 
   return cardHeight;
 }
@@ -167,7 +166,7 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
   const [selectedTactic, setSelectedTactic] = useState<TacticId | null>(null);
   // Track which card the z-ordering is anchored to (Inscryption-style: persists after mouse leave)
   const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
-  const cardHeight = useCardHeight(viewMode);
+  const cardHeight = useCardHeight();
 
   // Track if hero portal animation is complete (triggers showing tactics)
   const [heroComplete, setHeroComplete] = useState(false);

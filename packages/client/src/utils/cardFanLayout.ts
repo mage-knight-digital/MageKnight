@@ -48,8 +48,25 @@ export function calculateZIndex(
 export type CardFanViewMode = "board" | "ready" | "focus";
 
 /**
- * Shared card height scale factors for each view mode (percentage of viewport height).
- * Used by all card fan components to ensure consistent sizing.
+ * Base card height scale (percentage of viewport height).
+ * Cards are always rendered at this size for consistent layout.
+ * View mode scaling is done via CSS transform for GPU-acceleration.
+ */
+export const CARD_FAN_BASE_SCALE = 0.25;
+
+/**
+ * CSS transform scale factors for each view mode.
+ * Applied via CSS for GPU-accelerated scaling (no layout recalc).
+ */
+export const CARD_FAN_VIEW_SCALE: Record<CardFanViewMode, number> = {
+  board: 1,     // Same size but translated off screen
+  ready: 1,     // Base size - 25% of viewport height
+  focus: 2.2,   // Scaled up to ~55% of viewport height (0.55/0.25 = 2.2)
+};
+
+/**
+ * @deprecated Use CARD_FAN_BASE_SCALE and CARD_FAN_VIEW_SCALE instead.
+ * Kept for backwards compatibility during migration.
  */
 export const CARD_FAN_SCALE: Record<CardFanViewMode, number> = {
   board: 0.25,  // Hidden off screen anyway

@@ -420,6 +420,31 @@
   width: 100%;
 }
 
+/* ============================================================================
+   Pane wrapper - keeps all panes mounted to avoid re-decoding large sprites
+   ============================================================================ */
+
+.offer-pane-wrapper {
+  width: 100%;
+}
+
+.offer-pane-wrapper--hidden {
+  /* Use visibility instead of display:none to keep images decoded in GPU memory */
+  visibility: hidden;
+  /* Remove from layout flow so active pane positions correctly */
+  position: absolute;
+  /* Prevent layout thrashing - browser can skip layout/paint for this subtree */
+  contain: strict;
+  /* Zero height when hidden to prevent affecting scroll/layout */
+  height: 0;
+  overflow: hidden;
+}
+
+.offer-pane-wrapper--active {
+  visibility: visible;
+  position: relative;
+}
+
 .offer-tray__pane--exiting {
   animation: pane-exit-left 350ms ease-in-out forwards;
   position: absolute;

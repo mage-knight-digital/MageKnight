@@ -22,9 +22,48 @@ import { VerticalPhaseRail } from "./VerticalPhaseRail";
 import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { hexKey } from "@mage-knight/shared";
+import { SpriteImage } from "../SpriteImage/SpriteImage";
 import "./CombatOverlay.css";
 
 type EffectType = "damage" | "block" | "attack" | null;
+
+// Site sprite sheet configuration
+const SITES_SHEET = {
+  src: "/assets/sites/sites_sprite_sheet.png",
+  width: 1280,
+  height: 1024,
+  spriteWidth: 256,
+  spriteHeight: 256,
+  cols: 5,
+  rows: 4,
+};
+
+// Map site types to sprite positions in the sheet
+const SITE_SPRITE_MAP: Record<string, { col: number; row: number }> = {
+  ancient_ruins: { col: 0, row: 0 },
+  city_blue: { col: 1, row: 0 },
+  city_green: { col: 2, row: 0 },
+  city_red: { col: 3, row: 0 },
+  city_white: { col: 4, row: 0 },
+  deep_mine: { col: 0, row: 1 },
+  draconum: { col: 1, row: 1 },
+  keep: { col: 2, row: 1 },
+  labyrinth: { col: 3, row: 1 },
+  monastery: { col: 0, row: 2 },
+  necropolis: { col: 1, row: 2 },
+  orc_marauder: { col: 4, row: 2 },
+  refugee_camp: { col: 0, row: 3 },
+  spawning_grounds: { col: 1, row: 3 },
+  tomb: { col: 2, row: 3 },
+  village: { col: 3, row: 3 },
+  // Mage tower uses keep sprite as fallback
+  mage_tower: { col: 2, row: 1 },
+  // Monster den uses ancient ruins as fallback
+  monster_den: { col: 0, row: 0 },
+  // Dungeon uses labyrinth as fallback
+  dungeon: { col: 3, row: 1 },
+};
 
 interface StrikingEnemy {
   instanceId: string;
@@ -90,6 +129,17 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const canUndo = state?.validActions.turn?.canUndo ?? false;
+
+  // Get site type from player's current position
+  const siteType = (() => {
+    if (!player?.position || !state?.map.hexes) return null;
+    const key = hexKey(player.position);
+    const hex = state.map.hexes[key];
+    return hex?.site?.type ?? null;
+  })();
+
+  // Get sprite position for the site (or null to hide backdrop)
+  const siteSprite = siteType ? SITE_SPRITE_MAP[siteType] : null;
 
   // Visual effect state - use a counter to force animation restart
   const [activeEffect, setActiveEffect] = useState<EffectType>(null);
@@ -178,14 +228,23 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
       )}
 
       {/* Site backdrop - faded background behind enemies */}
-      <div className="combat-scene__backdrop">
-        <img
-          src="/assets/sites/mage_tower.png"
-          alt=""
-          className="combat-scene__backdrop-image"
-          draggable={false}
-        />
-      </div>
+      {siteSprite && (
+        <div className="combat-scene__backdrop">
+          <SpriteImage
+            src={SITES_SHEET.src}
+            spriteWidth={SITES_SHEET.spriteWidth}
+            spriteHeight={SITES_SHEET.spriteHeight}
+            col={siteSprite.col}
+            row={siteSprite.row}
+            sheetWidth={SITES_SHEET.width}
+            sheetHeight={SITES_SHEET.height}
+            displayWidth={512}
+            displayHeight={512}
+            alt={siteType ?? ""}
+            className="combat-scene__backdrop-image"
+          />
+        </div>
+      )}
 
       {/* Main layout: phase rail | battle area | info panel */}
       <div className="combat-scene__layout">

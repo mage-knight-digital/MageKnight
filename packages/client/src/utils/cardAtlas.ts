@@ -114,12 +114,16 @@ export interface SpriteData {
 }
 
 /**
- * Preload and decode an atlas image so it's ready for GPU rendering.
+ * Preload and decode an atlas image so it's ready for rendering.
+ *
  * Uses createImageBitmap() for off-main-thread decoding which handles large images
  * better than Image.decode().
  *
+ * Note: This only handles DECODING, not GPU texture upload. GPU upload for DOM images
+ * happens when they're first composited/painted. The SpriteSheetPrimer component
+ * handles forcing GPU upload by rendering images early.
+ *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Window/createImageBitmap
- * @see https://calendar.perfplanet.com/2025/non-blocking-image-canvas/
  */
 async function preloadImage(file: string): Promise<void> {
   const url = `/assets/${file}`;
@@ -133,17 +137,15 @@ async function preloadImage(file: string): Promise<void> {
     const blob = await response.blob();
 
     // Use createImageBitmap for off-main-thread decoding
-    // This handles large images (20-40MB) that Image.decode() fails on
     const bitmap = await createImageBitmap(blob);
 
-    // Also create an HTMLImageElement for CSS background-image usage
-    // The blob URL ensures it's from cache
+    // Create an HTMLImageElement for CSS background-image usage
     const img = new Image();
     const blobUrl = URL.createObjectURL(blob);
 
     await new Promise<void>((resolve, reject) => {
       img.onload = () => {
-        URL.revokeObjectURL(blobUrl); // Clean up blob URL
+        URL.revokeObjectURL(blobUrl);
         resolve();
       };
       img.onerror = () => {
@@ -155,7 +157,7 @@ async function preloadImage(file: string): Promise<void> {
 
     preloadedImages.set(file, img);
 
-    // Close the bitmap to free memory (we've loaded into img now)
+    // Close the bitmap to free memory
     bitmap.close();
   } catch (error) {
     console.warn(`Failed to preload atlas image: ${file}`, error);

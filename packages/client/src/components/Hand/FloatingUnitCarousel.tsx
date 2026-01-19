@@ -9,22 +9,19 @@ import { getUnitSpriteStyle, isAtlasLoaded } from "../../utils/cardAtlas";
 import type { HandViewMode } from "./FloatingHand";
 import "./FloatingUnitCarousel.css";
 
-// Unit card size multipliers for each view mode (% of viewport height)
-const VIEW_UNIT_SCALE: Record<HandViewMode, number> = {
-  board: 0.18,  // Hidden off screen anyway
-  ready: 0.18,  // Ready stance - smaller than deed cards
-  focus: 0.40,  // Focus mode - big enough to see details
-};
+// Base unit card scale (% of viewport height) - view mode scaling done via CSS transform
+const UNIT_BASE_SCALE = 0.18;
 
-// Hook to get responsive unit card dimensions based on view mode
+// Hook to get responsive unit card dimensions - uses FIXED base scale
+// View mode scaling is done via CSS transform for GPU acceleration
 // Unit cards are portrait (1000x1400 in atlas with even/odd layout = 0.714 aspect ratio)
-function useUnitDimensions(viewMode: HandViewMode) {
+function useUnitDimensions() {
   const [dimensions, setDimensions] = useState({ unitWidth: 100, unitHeight: 140 });
 
   useEffect(() => {
     const updateDimensions = () => {
-      const scale = VIEW_UNIT_SCALE[viewMode];
-      const unitHeight = Math.round(window.innerHeight * scale);
+      // Always use base scale - view mode is handled via CSS transform
+      const unitHeight = Math.round(window.innerHeight * UNIT_BASE_SCALE);
       const unitWidth = Math.round(unitHeight * 0.714); // 1000:1400 aspect ratio (portrait)
       setDimensions({ unitWidth, unitHeight });
     };
@@ -32,7 +29,7 @@ function useUnitDimensions(viewMode: HandViewMode) {
     updateDimensions();
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
-  }, [viewMode]);
+  }, []); // No viewMode dependency - dimensions are fixed
 
   return dimensions;
 }
@@ -184,7 +181,7 @@ export function FloatingUnitCarousel({
   commandTokens,
 }: FloatingUnitCarouselProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const { unitWidth, unitHeight } = useUnitDimensions(viewMode);
+  const { unitWidth, unitHeight } = useUnitDimensions();
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Handle mouse movement for hover detection
