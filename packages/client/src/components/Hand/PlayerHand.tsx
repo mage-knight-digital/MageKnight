@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { FloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./FloatingHand";
 import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
 import { TacticCarouselPane } from "./TacticCarouselPane";
-import { NavHints } from "./NavHints";
 import { CardActionMenu } from "../CardActionMenu";
 import { RadialMenu, type RadialMenuItem } from "../RadialMenu";
 import {
@@ -513,9 +512,6 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         discardCount={player.discardCount}
         isHidden={handView === "focus" || handView === "offer" || handView === "board"}
       />
-
-      {/* Navigation hints - contextual view mode hints */}
-      <NavHints currentView={handView} />
     </>
   );
 }
