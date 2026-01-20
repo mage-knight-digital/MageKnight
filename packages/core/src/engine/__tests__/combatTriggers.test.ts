@@ -1591,8 +1591,8 @@ describe("Combat Trigger Integration", () => {
       state = result.state;
 
       // Block phase - only block the site defender (guardsmen)
-      // Guardsmen: attack 3, Swift doubles to 6 block needed
-      state = withBlockSources(state, "player1", [{ element: "physical", value: 6 }]);
+      // Guardsmen: attack 3, Fortified (not Swift), need 3 block
+      state = withBlockSources(state, "player1", [{ element: "physical", value: 3 }]);
       result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
         targetEnemyInstanceId: "enemy_0", // Guardsmen (site defender)
@@ -1620,11 +1620,11 @@ describe("Combat Trigger Integration", () => {
       state = result.state;
 
       // Attack phase - defeat ONLY the site defender (guardsmen), leave rampaging enemy alive
-      state = withSiegeAttack(state, "player1", 5); // Guardsmen armor 3, need at least 3
+      state = withSiegeAttack(state, "player1", 7); // Guardsmen armor 7
       result = engine.processAction(state, "player1", {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"], // Only target guardsmen (site defender)
-        attacks: [{ element: "physical", value: 5 }],
+        attacks: [{ element: "physical", value: 7 }],
         attackType: COMBAT_TYPE_SIEGE,
       });
       state = result.state;

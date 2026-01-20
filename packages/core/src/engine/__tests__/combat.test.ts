@@ -35,6 +35,7 @@ import {
   ENEMIES,
   ENEMY_CURSED_HAGS,
   ENEMY_GUARDSMEN,
+  ENEMY_WOLF_RIDERS,
   ENEMY_MEDUSA,
   ENEMY_ICE_DRAGON,
   COMBAT_TYPE_MELEE,
@@ -352,11 +353,11 @@ describe("Combat Phase 2", () => {
     it("should require double block against swift enemy", () => {
       let state = createTestGameState();
 
-      // Enter combat with Guardsmen (attack 3, Swift)
+      // Enter combat with Wolf Riders (attack 3, Swift)
       // Swift doubles block requirement: need 6 block, not 3
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_GUARDSMEN],
+        enemyIds: [ENEMY_WOLF_RIDERS],
       }).state;
 
       // Advance to Block phase
@@ -386,10 +387,10 @@ describe("Combat Phase 2", () => {
     it("should block swift enemy with double block value", () => {
       let state = createTestGameState();
 
-      // Enter combat with Guardsmen (attack 3, Swift)
+      // Enter combat with Wolf Riders (attack 3, Swift)
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_GUARDSMEN],
+        enemyIds: [ENEMY_WOLF_RIDERS],
       }).state;
 
       // Advance to Block phase
@@ -418,10 +419,10 @@ describe("Combat Phase 2", () => {
     it("should use normal block if swift is nullified", () => {
       let state = createTestGameState();
 
-      // Enter combat with Guardsmen (attack 3, Swift)
+      // Enter combat with Wolf Riders (attack 3, Swift)
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_GUARDSMEN],
+        enemyIds: [ENEMY_WOLF_RIDERS],
       }).state;
 
       // Add ability nullifier for Swift on this enemy
@@ -460,14 +461,14 @@ describe("Combat Phase 2", () => {
     it("should NOT affect ranged/siege phase attack", () => {
       let state = createTestGameState();
 
-      // Enter combat with Guardsmen (attack 3, Swift, armor 4)
+      // Enter combat with Wolf Riders (attack 3, Swift, armor 4)
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_GUARDSMEN],
+        enemyIds: [ENEMY_WOLF_RIDERS],
       }).state;
 
       // Attack in Ranged phase (Swift should not affect attack requirements)
-      // Guardsmen has armor 4
+      // Wolf Riders has armor 4
       const result = engine.processAction(state, "player1", {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
@@ -847,22 +848,22 @@ describe("Combat Phase 2", () => {
     it("should complete a full combat: enter, block, attack, end", () => {
       let state = createTestGameState();
 
-      // Enter combat with Orc (Diggers: attack 3, armor 3, fame 2) and Wolf (Guardsmen: attack 3, armor 4, fame 3)
+      // Enter combat with Orc (Diggers: attack 3, armor 3, fame 2) and Wolf Riders (attack 3, armor 4, fame 3)
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_ORC, ENEMY_WOLF],
+        enemyIds: [ENEMY_ORC, ENEMY_WOLF_RIDERS],
       }).state;
 
-      // Ranged/Siege phase - defeat Wolf with ranged attack
+      // Ranged/Siege phase - defeat Wolf Riders with ranged attack
       state = engine.processAction(state, "player1", {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_1"],
-        attacks: [{ element: ELEMENT_PHYSICAL, value: 4 }], // Wolf (Guardsmen) has armor 4
+        attacks: [{ element: ELEMENT_PHYSICAL, value: 4 }], // Wolf Riders has armor 4
         attackType: COMBAT_TYPE_RANGED,
       }).state;
 
       expect(state.combat?.enemies[1].isDefeated).toBe(true);
-      expect(state.players[0].fame).toBe(3); // Wolf (Guardsmen) gives 3 fame
+      expect(state.players[0].fame).toBe(3); // Wolf Riders gives 3 fame
 
       // Block phase
       state = engine.processAction(state, "player1", {
@@ -2484,20 +2485,20 @@ describe("Combat Phase 2", () => {
       const player = createTestPlayer();
       let state = createTestGameState({ players: [player] });
 
-      // Enter combat with Wolf (Attack 3, Armor 2)
+      // Enter combat with Diggers (Attack 3, Armor 3)
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_WOLF],
+        enemyIds: [ENEMY_DIGGERS],
       }).state;
 
       const enemyInstanceId = state.combat?.enemies[0].instanceId ?? "";
 
-      // Apply armor -3 modifier (would reduce armor 2 to -1, but minimum is 1)
+      // Apply armor -4 modifier (would reduce armor 3 to -1, but minimum is 1)
       state = addModifier(state, {
         source: { type: SOURCE_SKILL, skillId: "test_skill" },
         duration: DURATION_COMBAT,
         scope: { type: SCOPE_ONE_ENEMY, enemyId: enemyInstanceId },
-        effect: { type: EFFECT_ENEMY_STAT, stat: ENEMY_STAT_ARMOR, amount: -3, minimum: 1 },
+        effect: { type: EFFECT_ENEMY_STAT, stat: ENEMY_STAT_ARMOR, amount: -4, minimum: 1 },
         createdAtRound: state.round,
         createdByPlayerId: "player1",
       });
