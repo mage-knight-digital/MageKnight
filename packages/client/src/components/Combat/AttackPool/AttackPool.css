@@ -1,0 +1,361 @@
+/**
+ * AttackPool styles - Damage chip pool and section layout
+ */
+
+/* ============================================================================
+   Attack Pool Container
+   ============================================================================ */
+
+.attack-pool {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid rgba(231, 76, 60, 0.6);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ============================================================================
+   Section (Ranged / Siege / Melee)
+   ============================================================================ */
+
+.attack-pool__section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  min-width: 80px;
+}
+
+.attack-pool__section:not(:last-child) {
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  padding-right: 1rem;
+}
+
+.attack-pool__section--warning {
+  border-color: rgba(243, 156, 18, 0.5);
+}
+
+.attack-pool__section-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.attack-pool__section-title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+.attack-pool__section-total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.attack-pool__chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  justify-content: center;
+}
+
+.attack-pool__warning {
+  font-size: 0.6rem;
+  color: #f39c12;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+  animation: warning-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes warning-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ============================================================================
+   Damage Chip
+   ============================================================================ */
+
+.damage-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.5rem;
+  background: linear-gradient(135deg, rgba(60, 60, 60, 0.9) 0%, rgba(40, 40, 40, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: grab;
+  user-select: none;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+  touch-action: none;
+}
+
+.damage-chip:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.damage-chip:active {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+.damage-chip--dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+.damage-chip--preview {
+  cursor: grabbing;
+  transform: scale(2);
+  padding: 0.5rem 0.75rem;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.7),
+    0 0 30px rgba(255, 255, 255, 0.15),
+    0 0 60px currentColor;
+  z-index: 10000;
+  animation: chip-preview-pulse 0.6s ease-in-out infinite;
+}
+
+.damage-chip--preview .damage-chip__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.damage-chip--preview .damage-chip__amount {
+  font-size: 1.25rem;
+}
+
+@keyframes chip-preview-pulse {
+  0%, 100% {
+    transform: scale(2);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(2.1);
+    filter: brightness(1.2);
+  }
+}
+
+/* Element-specific colors */
+.damage-chip--physical {
+  border-color: rgba(149, 165, 166, 0.5);
+  background: linear-gradient(135deg, rgba(60, 60, 65, 0.9) 0%, rgba(45, 45, 50, 0.95) 100%);
+}
+
+.damage-chip--fire {
+  border-color: rgba(231, 76, 60, 0.6);
+  background: linear-gradient(135deg, rgba(80, 40, 35, 0.9) 0%, rgba(60, 30, 25, 0.95) 100%);
+  box-shadow: 0 0 8px rgba(231, 76, 60, 0.2);
+}
+
+.damage-chip--ice {
+  border-color: rgba(52, 152, 219, 0.6);
+  background: linear-gradient(135deg, rgba(35, 60, 80, 0.9) 0%, rgba(25, 45, 60, 0.95) 100%);
+  box-shadow: 0 0 8px rgba(52, 152, 219, 0.2);
+}
+
+.damage-chip--coldFire {
+  border-color: rgba(155, 89, 182, 0.6);
+  background: linear-gradient(135deg, rgba(60, 35, 70, 0.9) 0%, rgba(45, 25, 55, 0.95) 100%);
+  box-shadow: 0 0 8px rgba(155, 89, 182, 0.2);
+}
+
+.damage-chip__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.damage-chip__amount {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  min-width: 1ch;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.damage-chip__type {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.125rem;
+}
+
+/* ============================================================================
+   Block Pool (same styling, different border color)
+   ============================================================================ */
+
+.block-pool {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid rgba(39, 174, 96, 0.6);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.block-pool__section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  min-width: 60px;
+}
+
+.block-pool__section-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.block-pool__section-title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+.block-pool__section-total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.block-pool__chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  justify-content: center;
+}
+
+/* Block chip styling */
+.block-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.5rem;
+  background: linear-gradient(135deg, rgba(39, 100, 60, 0.9) 0%, rgba(30, 80, 50, 0.95) 100%);
+  border: 1px solid rgba(39, 174, 96, 0.4);
+  border-radius: 6px;
+  cursor: grab;
+  user-select: none;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+  touch-action: none;
+}
+
+.block-chip:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 12px rgba(39, 174, 96, 0.3);
+}
+
+.block-chip--dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+.block-chip--preview {
+  cursor: grabbing;
+  transform: scale(2);
+  padding: 0.5rem 0.75rem;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.7),
+    0 0 30px rgba(39, 174, 96, 0.4),
+    0 0 60px rgba(39, 174, 96, 0.2);
+  z-index: 10000;
+  animation: block-chip-preview-pulse 0.6s ease-in-out infinite;
+}
+
+.block-chip--preview .block-chip__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.block-chip--preview .block-chip__amount {
+  font-size: 1.25rem;
+}
+
+@keyframes block-chip-preview-pulse {
+  0%, 100% {
+    transform: scale(2);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(2.1);
+    filter: brightness(1.2);
+  }
+}
+
+/* Element-specific block colors */
+.block-chip--physical {
+  background: linear-gradient(135deg, rgba(45, 80, 55, 0.9) 0%, rgba(35, 65, 45, 0.95) 100%);
+}
+
+.block-chip--fire {
+  background: linear-gradient(135deg, rgba(100, 60, 45, 0.9) 0%, rgba(80, 45, 35, 0.95) 100%);
+  border-color: rgba(231, 76, 60, 0.4);
+}
+
+.block-chip--ice {
+  background: linear-gradient(135deg, rgba(45, 75, 95, 0.9) 0%, rgba(35, 60, 80, 0.95) 100%);
+  border-color: rgba(52, 152, 219, 0.4);
+}
+
+.block-chip--coldFire {
+  background: linear-gradient(135deg, rgba(70, 50, 85, 0.9) 0%, rgba(55, 40, 70, 0.95) 100%);
+  border-color: rgba(155, 89, 182, 0.4);
+}
+
+.block-chip__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.block-chip__amount {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  min-width: 1ch;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
