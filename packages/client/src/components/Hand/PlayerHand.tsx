@@ -43,10 +43,23 @@ function getAvailableManaSources(
   }
 
   // 2. Check pure mana tokens (already in play area)
-  // Tokens of the same color are fungible - only add one entry regardless of count
-  const hasMatchingToken = player.pureMana.some((t) => t.color === requiredColor);
-  if (hasMatchingToken) {
-    sources.push({ type: MANA_SOURCE_TOKEN, color: requiredColor });
+  // Track which token colors we've already added (tokens of same color are fungible)
+  const addedTokenColors = new Set<string>();
+
+  for (const token of player.pureMana) {
+    // Exact color match
+    if (token.color === requiredColor && !addedTokenColors.has(token.color)) {
+      sources.push({ type: MANA_SOURCE_TOKEN, color: token.color });
+      addedTokenColors.add(token.color);
+    }
+    // Gold tokens can substitute for basic colors (red, blue, green, white)
+    // Note: Black mana is NOT wild - it's only used specifically for powering spells
+    const isBasic = requiredColor === MANA_RED || requiredColor === MANA_BLUE ||
+                    requiredColor === MANA_GREEN || requiredColor === MANA_WHITE;
+    if (token.color === MANA_GOLD && isBasic && !addedTokenColors.has(MANA_GOLD)) {
+      sources.push({ type: MANA_SOURCE_TOKEN, color: MANA_GOLD });
+      addedTokenColors.add(MANA_GOLD);
+    }
   }
 
   // 3. Check available dice from the source
@@ -64,14 +77,19 @@ function getAvailableManaSources(
       });
     }
 
-    // Gold dice (wildcard for any basic color during day)
-    const goldDice = manaOptions.availableDice.filter((d) => d.color === "gold");
-    for (const die of goldDice) {
-      sources.push({
-        type: MANA_SOURCE_DIE,
-        color: "gold",
-        dieId: die.dieId,
-      });
+    // Gold dice (wildcard for basic colors ONLY - not for black or gold)
+    // Basic colors are: red, blue, green, white
+    const isBasicColor = requiredColor === MANA_RED || requiredColor === MANA_BLUE ||
+                         requiredColor === MANA_GREEN || requiredColor === MANA_WHITE;
+    if (isBasicColor) {
+      const goldDice = manaOptions.availableDice.filter((d) => d.color === "gold");
+      for (const die of goldDice) {
+        sources.push({
+          type: MANA_SOURCE_DIE,
+          color: "gold",
+          dieId: die.dieId,
+        });
+      }
     }
   }
 
@@ -361,10 +379,21 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   // Spell handling (two-step mana selection) - kept separate for now
   const handleSpellManaSourceSelect = (source: ManaSourceInfo) => {
-    if (selectedCard === null || selectedCard === undefined) return;
-    if (menuState.type !== "spell-mana-select") return;
+    console.log("[Spell Mana Select] Called with source:", source);
+    console.log("[Spell Mana Select] selectedCard:", selectedCard);
+    console.log("[Spell Mana Select] menuState:", menuState);
+
+    if (selectedCard === null || selectedCard === undefined) {
+      console.warn("[Spell Mana Select] selectedCard is null/undefined, returning");
+      return;
+    }
+    if (menuState.type !== "spell-mana-select") {
+      console.warn("[Spell Mana Select] menuState.type is not spell-mana-select:", menuState.type);
+      return;
+    }
 
     if (menuState.step === "black") {
+      console.log("[Spell Mana Select] Step is 'black', transitioning to 'color' step");
       // Black mana selected, now need to select the spell's color
       setMenuState({
         type: "spell-mana-select",
@@ -377,17 +406,20 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
     } else {
       // Color mana selected, send the action with both sources
       const blackSource = menuState.blackSource;
+      console.log("[Spell Mana Select] Step is 'color', blackSource:", blackSource);
       if (!blackSource) {
-        console.error("Missing black mana source for spell");
+        console.error("[Spell Mana Select] Missing black mana source for spell");
         return;
       }
 
-      sendAction({
+      const action = {
         type: PLAY_CARD_ACTION,
         cardId: selectedCard,
         powered: true,
         manaSources: [blackSource, source],
-      });
+      };
+      console.log("[Spell Mana Select] Sending action:", action);
+      sendAction(action);
       setMenuState({ type: "none" });
     }
   };
@@ -441,8 +473,29 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
           sizeMultiplier={handView === "focus" ? 1.4 : 1}
           onPlayBasic={handlePlayBasic}
           onPlayPowered={() => {
-            // Transition to spell mana selection
-            if (selectedPlayability.requiredMana && selectedIndex !== null) {
+            console.log("[Spell Powered] onPlayPowered called");
+            console.log("[Spell Powered] selectedPlayability:", selectedPlayability);
+            console.log("[Spell Powered] selectedIndex:", selectedIndex);
+            console.log("[Spell Powered] requiredMana:", selectedPlayability?.requiredMana);
+
+            // Transition to spell mana selection - but first check if black mana is available
+            if (selectedPlayability?.requiredMana && selectedIndex !== null) {
+              const blackSources = getAvailableManaSources(state, player, MANA_BLACK);
+
+              // Debug: Log available mana sources for spell powered play
+              console.log("[Spell Powered] Black mana sources:", blackSources);
+              console.log("[Spell Powered] Player pureMana:", player.pureMana);
+              console.log("[Spell Powered] Available dice:", state.validActions.mana?.availableDice);
+              console.log("[Spell Powered] Full validActions.mana:", state.validActions.mana);
+
+              if (blackSources.length === 0) {
+                // No black mana available - this shouldn't happen if canPlayPowered is true
+                // but handle gracefully by staying on card-action menu
+                console.warn("[Spell Powered] No black mana sources found, but canPlayPowered was true. Possible mismatch.");
+                return;
+              }
+
+              console.log("[Spell Powered] Transitioning to spell-mana-select state");
               setMenuState({
                 type: "spell-mana-select",
                 cardIndex: selectedIndex,
@@ -450,6 +503,8 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
                 spellColor: selectedPlayability.requiredMana,
                 sourceRect: menuState.sourceRect,
               });
+            } else {
+              console.warn("[Spell Powered] Condition not met - requiredMana:", selectedPlayability?.requiredMana, "selectedIndex:", selectedIndex);
             }
           }}
           onPlaySideways={handlePlaySideways}

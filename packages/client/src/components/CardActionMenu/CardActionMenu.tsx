@@ -40,6 +40,8 @@ interface ActionOption {
   sublabel?: string;
   type: "basic" | "powered" | "sideways";
   sidewaysAs?: SidewaysAs;
+  weight: number; // Relative wedge size (2 for main actions, 1 for sideways)
+  disabled: boolean;
 }
 
 export function CardActionMenu({
@@ -84,121 +86,112 @@ export function CardActionMenu({
 
   const spriteStyle = useMemo(() => getCardSpriteStyle(cardId, sizes.cardHeight), [cardId, sizes.cardHeight]);
 
-  // Build action options based on playability and context
-  // Order matters for spatial alignment with card:
-  // - Basic at top (12 o'clock) - aligns with top half of card
-  // - Sideways on sides
-  // - Powered at bottom (6 o'clock) - aligns with bottom half of card
+  // Build action options - ALWAYS 6 fixed slots for consistent positioning
+  // Clockwise from top:
+  //   1. Basic (top, weight 2) - main action
+  //   2. Attack (top-right, weight 1) - combat sideways
+  //   3. Block (bottom-right, weight 1) - combat sideways
+  //   4. Powered (bottom, weight 2) - main action
+  //   5. Influence (bottom-left, weight 1) - exploration sideways
+  //   6. Move (top-left, weight 1) - exploration sideways
+  //
+  // This creates consistent muscle memory:
+  // - Main actions (Basic/Powered) are large wedges at top/bottom
+  // - Combat options (Attack/Block) on right side
+  // - Exploration options (Move/Influence) on left side
+  // - Unavailable options are shown but disabled
   const actionOptions = useMemo((): ActionOption[] => {
-    const basic: ActionOption | null = playability.canPlayBasic
-      ? { id: "basic", label: "Basic", type: "basic" }
-      : null;
+    // Get sideways values from playability (may have modifiers like Pathfinding)
+    const sidewaysOptions = playability.sidewaysOptions ?? [];
+    const getSidewaysValue = (type: SidewaysAs): number => {
+      const opt = sidewaysOptions.find(o => o.as === type);
+      return opt?.value ?? 1;
+    };
 
-    const powered: ActionOption | null = playability.canPlayPowered
-      ? {
-          id: "powered",
-          label: "Powered",
-          sublabel: playability.requiredMana ? `(${playability.requiredMana})` : undefined,
-          type: "powered",
-        }
-      : null;
+    // Check what's actually available
+    const canBasic = playability.canPlayBasic;
+    const canPowered = playability.canPlayPowered;
+    const canSideways = playability.canPlaySideways;
 
-    const sideways: ActionOption[] = [];
-    if (playability.canPlaySideways) {
-      const sidewaysOptions = playability.sidewaysOptions ?? [];
+    // Combat sideways (attack/block) only available in combat
+    const canAttack = canSideways && isInCombat;
+    const canBlock = canSideways && isInCombat;
 
-      if (sidewaysOptions.length > 0) {
-        for (const opt of sidewaysOptions) {
-          sideways.push({
-            id: `sideways-${opt.as}`,
-            label: `+${opt.value}`,
-            sublabel: getSidewaysLabel(opt.as, isInCombat),
-            type: "sideways",
-            sidewaysAs: opt.as,
-          });
-        }
-      } else if (!isInCombat) {
-        sideways.push({
-          id: "sideways-move",
-          label: "+1",
-          sublabel: "Move",
-          type: "sideways",
-          sidewaysAs: PLAY_SIDEWAYS_AS_MOVE,
-        });
-        sideways.push({
-          id: "sideways-influence",
-          label: "+1",
-          sublabel: "Influence",
-          type: "sideways",
-          sidewaysAs: PLAY_SIDEWAYS_AS_INFLUENCE,
-        });
-      }
-    }
+    // Exploration sideways (move/influence) only available outside combat
+    const canMove = canSideways && !isInCombat;
+    const canInfluence = canSideways && !isInCombat;
 
-    // Arrange: Basic (top), sideways split on sides, Powered (bottom)
-    // The pie menu starts at top and goes clockwise
-    //
-    // For consistent positioning, we always want 4 slots when we have both
-    // sideways options, so Powered stays at the bottom (180°):
-    //   - Top (0°): Basic
-    //   - Right (90°): Move
-    //   - Bottom (180°): Powered
-    //   - Left (270°): Influence
-    //
-    // If Basic is unavailable, we still need 4 slots to keep Powered at bottom,
-    // so we add a disabled placeholder.
-
-    const options: ActionOption[] = [];
-
-    // Always include Basic slot (even if disabled) when we have 2 sideways options
-    // This keeps the 4-way layout consistent
-    if (basic) {
-      options.push(basic);
-    } else if (sideways.length >= 2 && powered) {
-      // Add disabled placeholder to maintain positioning
-      options.push({
-        id: "basic-disabled",
+    return [
+      // 1. Basic (top)
+      {
+        id: "basic",
         label: "Basic",
-        type: "basic",
-        // Mark as disabled - we'll handle this in the pie item conversion
-      });
-    }
-
-    // Split sideways: first half on right side, second half on left side
-    const midpoint = Math.ceil(sideways.length / 2);
-    const rightSideways = sideways.slice(0, midpoint);
-    const leftSideways = sideways.slice(midpoint);
-
-    options.push(...rightSideways);
-    if (powered) options.push(powered);
-    options.push(...leftSideways);
-
-    return options;
+        type: "basic" as const,
+        weight: 2,
+        disabled: !canBasic,
+      },
+      // 2. Attack (top-right)
+      {
+        id: "sideways-attack",
+        label: `+${getSidewaysValue(PLAY_SIDEWAYS_AS_ATTACK)}`,
+        sublabel: "Attack",
+        type: "sideways" as const,
+        sidewaysAs: PLAY_SIDEWAYS_AS_ATTACK,
+        weight: 1,
+        disabled: !canAttack,
+      },
+      // 3. Block (bottom-right)
+      {
+        id: "sideways-block",
+        label: `+${getSidewaysValue(PLAY_SIDEWAYS_AS_BLOCK)}`,
+        sublabel: "Block",
+        type: "sideways" as const,
+        sidewaysAs: PLAY_SIDEWAYS_AS_BLOCK,
+        weight: 1,
+        disabled: !canBlock,
+      },
+      // 4. Powered (bottom)
+      {
+        id: "powered",
+        label: "Powered",
+        sublabel: playability.requiredMana ? `(${playability.requiredMana})` : undefined,
+        type: "powered" as const,
+        weight: 2,
+        disabled: !canPowered,
+      },
+      // 5. Influence (bottom-left)
+      {
+        id: "sideways-influence",
+        label: `+${getSidewaysValue(PLAY_SIDEWAYS_AS_INFLUENCE)}`,
+        sublabel: "Influence",
+        type: "sideways" as const,
+        sidewaysAs: PLAY_SIDEWAYS_AS_INFLUENCE,
+        weight: 1,
+        disabled: !canInfluence,
+      },
+      // 6. Move (top-left)
+      {
+        id: "sideways-move",
+        label: `+${getSidewaysValue(PLAY_SIDEWAYS_AS_MOVE)}`,
+        sublabel: "Move",
+        type: "sideways" as const,
+        sidewaysAs: PLAY_SIDEWAYS_AS_MOVE,
+        weight: 1,
+        disabled: !canMove,
+      },
+    ];
   }, [playability, isInCombat]);
 
-  // Convert action options to pie menu items
-  // If there's only one action, add a Cancel option so the menu has 2 items
+  // Convert action options to pie menu items with weights
   const actionPieItems = useMemo((): PieMenuItem[] => {
-    const items = actionOptions.map((opt) => ({
+    return actionOptions.map((opt) => ({
       id: opt.id,
       label: opt.label,
       sublabel: opt.sublabel,
-      color: getActionColor(opt.type),
-      disabled: opt.id === "basic-disabled",
+      color: getActionColor(opt.type, opt.disabled),
+      disabled: opt.disabled,
+      weight: opt.weight,
     }));
-
-    // Add explicit Cancel option when only one action available
-    if (items.length === 1) {
-      items.push({
-        id: "cancel",
-        label: "Cancel",
-        sublabel: undefined,
-        color: "rgba(80, 40, 40, 0.95)",
-        disabled: false,
-      });
-    }
-
-    return items;
   }, [actionOptions]);
 
   // Convert mana sources to pie menu items
@@ -228,8 +221,12 @@ export function CardActionMenu({
     if (option.type === "basic") {
       onPlayBasic();
     } else if (option.type === "powered") {
-      // If only one mana source, auto-select it
-      if (manaSources.length === 1 && manaSources[0]) {
+      // If no mana sources provided, call onPlayPowered with no argument
+      // This is used by spells which handle their own two-step mana selection
+      if (manaSources.length === 0) {
+        (onPlayPowered as () => void)();
+      } else if (manaSources.length === 1 && manaSources[0]) {
+        // If only one mana source, auto-select it
         onPlayPowered(manaSources[0]);
       } else {
         // Transition to mana selection
@@ -354,29 +351,13 @@ export function CardActionMenu({
   );
 }
 
-function getSidewaysLabel(as: SidewaysAs, isInCombat: boolean): string {
-  if (!isInCombat) {
-    switch (as) {
-      case PLAY_SIDEWAYS_AS_MOVE:
-        return "Move";
-      case PLAY_SIDEWAYS_AS_INFLUENCE:
-        return "Influence";
-      default:
-        return "";
-    }
-  }
-  switch (as) {
-    case PLAY_SIDEWAYS_AS_ATTACK:
-      return "Attack";
-    case PLAY_SIDEWAYS_AS_BLOCK:
-      return "Block";
-    default:
-      return "";
-  }
-}
-
-function getActionColor(type: "basic" | "powered" | "sideways"): string {
+function getActionColor(type: "basic" | "powered" | "sideways", disabled?: boolean): string {
   // Parchment/fantasy colors - warm browns with subtle color coding
+  // Disabled items get a much darker, desaturated color
+  if (disabled) {
+    return "rgba(35, 35, 40, 0.85)";
+  }
+
   switch (type) {
     case "basic":
       // Neutral warm brown - reliable, straightforward

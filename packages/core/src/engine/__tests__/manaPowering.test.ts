@@ -487,6 +487,81 @@ describe("Mana powering", () => {
         })
       );
     });
+
+    it("should NOT treat black tokens as wild for basic colors", () => {
+      // BUG TEST: Black mana is NOT a wildcard. It can only power spells.
+      // If player only has black token, they should NOT be able to power March (green card)
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        pureMana: [{ color: MANA_BLACK, source: "die" as const }],
+        // No green mana available
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+        source: createTestManaSource([]), // No dice
+      });
+
+      // Try to use black token to power a green card - should fail
+      const action: PlayCardAction = {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_MARCH,
+        powered: true,
+        manaSource: {
+          type: MANA_SOURCE_TOKEN,
+          color: MANA_BLACK,
+        },
+      };
+
+      const result = engine.processAction(state, "player1", action);
+
+      // Should be rejected - black cannot substitute for green
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+    });
+
+    it("should NOT treat black dice as wild for basic colors", () => {
+      // BUG TEST: Black dice are NOT wildcards for basic colors
+      // If player only has black die, they should NOT be able to power March (green card)
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        // No green mana available
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+        pureMana: [],
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_BLACK, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Try to use black die to power a green card - should fail
+      const action: PlayCardAction = {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_MARCH,
+        powered: true,
+        manaSource: {
+          type: MANA_SOURCE_DIE,
+          color: MANA_BLACK,
+          dieId: "die_0",
+        },
+      };
+
+      const result = engine.processAction(state, "player1", action);
+
+      // Should be rejected - black cannot substitute for green
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+    });
   });
 
   describe("Color matching", () => {

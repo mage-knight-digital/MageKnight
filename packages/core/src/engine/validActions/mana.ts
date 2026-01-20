@@ -13,7 +13,6 @@ import {
   MANA_GREEN,
   MANA_WHITE,
   MANA_GOLD,
-  MANA_BLACK,
 } from "@mage-knight/shared";
 import { isRuleActive } from "../modifiers.js";
 import { RULE_EXTRA_SOURCE_DIE } from "../../types/modifierConstants.js";
@@ -90,8 +89,11 @@ export function getManaOptions(
  * 1. There's a die of that color available in the source (and player hasn't used source)
  * 2. The player has a crystal of that color to convert
  * 3. The player has a "pure" mana token of that color in their play area
- * 4. Gold/black mana can substitute for basic colors (with limitations)
+ * 4. Gold mana can substitute for basic colors (day only - gold depleted at night)
  * 5. The player has a stolen Mana Steal die available
+ *
+ * NOTE: Black mana is NOT wild - it can only be used to power spells (match exact MANA_BLACK).
+ * At night, black dice become available but they don't substitute for basic colors.
  */
 export function canPayForMana(
   state: GameState,
@@ -115,10 +117,7 @@ export function canPayForMana(
     if (token.color === MANA_GOLD && isBasicMana(requiredColor)) {
       return true;
     }
-    // Black mana is wild (can be any basic color) - but limited in daytime
-    if (token.color === MANA_BLACK && isBasicMana(requiredColor)) {
-      return true;
-    }
+    // Note: Black mana is NOT wild - it can only power spells (match exact color MANA_BLACK)
   }
 
   // Check crystals - crystals can be converted to their color
@@ -140,14 +139,11 @@ export function canPayForMana(
         if (die.color === requiredColor) {
           return true;
         }
-        // Gold dice are wild
+        // Gold dice are wild (can substitute for basic colors)
         if (die.color === MANA_GOLD && isBasicMana(requiredColor)) {
           return true;
         }
-        // Black dice are wild at night (but they're depleted during day)
-        if (die.color === MANA_BLACK && isBasicMana(requiredColor)) {
-          return true;
-        }
+        // Note: Black dice are NOT wild - they can only power spells (match exact color MANA_BLACK)
       }
     }
   }
@@ -242,10 +238,10 @@ function countManaSourcesForColor(
     if (token.color === requiredColor) {
       count++;
     } else if (token.color === MANA_GOLD && isBasicMana(requiredColor)) {
-      count++;
-    } else if (token.color === MANA_BLACK && isBasicMana(requiredColor)) {
+      // Gold mana is wild for basic colors
       count++;
     }
+    // Note: Black mana is NOT wild - only counts for exact MANA_BLACK match (handled above)
   }
 
   // Check crystals
@@ -263,10 +259,10 @@ function countManaSourcesForColor(
         if (die.color === requiredColor) {
           count++;
         } else if (die.color === MANA_GOLD && isBasicMana(requiredColor)) {
-          count++;
-        } else if (die.color === MANA_BLACK && isBasicMana(requiredColor)) {
+          // Gold dice are wild for basic colors
           count++;
         }
+        // Note: Black dice are NOT wild - only count for exact MANA_BLACK match (handled above)
       }
     }
   }
@@ -289,9 +285,10 @@ export function getAvailableManaSourcesForColor(
   // Check Mana Steal stored die
   const storedDie = player.tacticState.storedManaDie;
   if (storedDie && !player.tacticState.manaStealUsedThisTurn) {
+    // Match exact color, or gold die for basic colors (gold is wild)
+    // Note: Black dice are NOT wild - they only match exact MANA_BLACK
     if (storedDie.color === requiredColor ||
-        (storedDie.color === MANA_GOLD && isBasicMana(requiredColor)) ||
-        (storedDie.color === MANA_BLACK && isBasicMana(requiredColor))) {
+        (storedDie.color === MANA_GOLD && isBasicMana(requiredColor))) {
       sources.push({
         type: "die" as const,
         dieId: storedDie.dieId,
@@ -301,10 +298,11 @@ export function getAvailableManaSourcesForColor(
   }
 
   // Check pure mana tokens
+  // Match exact color, or gold token for basic colors (gold is wild)
+  // Note: Black tokens are NOT wild - they only match exact MANA_BLACK
   for (const token of player.pureMana) {
     if (token.color === requiredColor ||
-        (token.color === MANA_GOLD && isBasicMana(requiredColor)) ||
-        (token.color === MANA_BLACK && isBasicMana(requiredColor))) {
+        (token.color === MANA_GOLD && isBasicMana(requiredColor))) {
       sources.push({
         type: "token" as const,
         color: token.color,
@@ -330,9 +328,10 @@ export function getAvailableManaSourcesForColor(
   if (canUseSource) {
     for (const die of state.source.dice) {
       if (die.takenByPlayerId === null && !die.isDepleted) {
+        // Match exact color, or gold die for basic colors (gold is wild)
+        // Note: Black dice are NOT wild - they only match exact MANA_BLACK
         if (die.color === requiredColor ||
-            (die.color === MANA_GOLD && isBasicMana(requiredColor)) ||
-            (die.color === MANA_BLACK && isBasicMana(requiredColor))) {
+            (die.color === MANA_GOLD && isBasicMana(requiredColor))) {
           sources.push({
             type: "die" as const,
             dieId: die.id,

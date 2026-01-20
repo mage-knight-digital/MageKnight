@@ -13,6 +13,7 @@ import { GameplayTab } from "./GameplayTab";
 import { SaveLoadTab } from "./SaveLoadTab";
 import { AudioTab } from "./AudioTab";
 import { DisplayTab } from "./DisplayTab";
+import { EventLogTab } from "./EventLogTab";
 import { TABS, type TabId } from "./types";
 
 export function DebugPanel() {
@@ -45,6 +46,8 @@ export function DebugPanel() {
         return <AudioTab />;
       case "display":
         return <DisplayTab />;
+      case "eventlog":
+        return <EventLogTab />;
       default:
         return null;
     }

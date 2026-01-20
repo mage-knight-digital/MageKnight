@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
-import { getPlayableCardsForCombat } from "../validActions/cards/index.js";
+import { getPlayableCardsForCombat, getPlayableCardsForNormalTurn } from "../validActions/cards/index.js";
 import {
   CARD_RAGE,
   CARD_DETERMINATION,
@@ -24,6 +24,8 @@ import {
   MANA_WHITE,
   MANA_BLACK,
   MANA_GOLD,
+  MANA_GREEN,
+  TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -587,6 +589,73 @@ describe("getPlayableCardsForCombat", () => {
       const whirlwindCard = result.cards.find(c => c.cardId === CARD_WHIRLWIND);
       // Should be playable powered with both mana sources
       expect(whirlwindCard?.canPlayPowered).toBe(true);
+    });
+  });
+
+  describe("Black mana is NOT wild (bug regression tests)", () => {
+    // These tests verify that black mana is NOT treated as a wildcard.
+    // Black mana can ONLY be used to power spells (as part of the black + color requirement).
+    // It should NOT enable canPlayPowered for action cards.
+
+    it("should NOT show canPlayPowered when only black token available for action card", () => {
+      // BUG TEST: If player only has black mana token, they should NOT be able to power March
+      // Black is NOT a wildcard - it can only be used for spells
+      const player = createTestPlayer({
+        hand: [CARD_MARCH], // Green card - needs green mana
+        crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No crystals
+        pureMana: [{ color: MANA_BLACK, source: "die" as const }], // Only black token
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT, // Night so black is usable (for spells)
+      });
+
+      const result = getPlayableCardsForNormalTurn(state, player);
+
+      const marchCard = result.cards.find(c => c.cardId === CARD_MARCH);
+      // March should NOT have canPlayPowered=true because black cannot substitute for green
+      expect(marchCard?.canPlayPowered).toBe(false);
+    });
+
+    it("should NOT show canPlayPowered when only black die available for action card", () => {
+      // BUG TEST: Black die should not enable powered play for action cards
+      const player = createTestPlayer({
+        hand: [CARD_RAGE], // Red card - needs red mana
+        crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No crystals
+        pureMana: [], // No tokens
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+        source: {
+          dice: [
+            { id: "die_0", color: MANA_BLACK, isDepleted: false, takenByPlayerId: null },
+          ],
+        },
+      });
+
+      const result = getPlayableCardsForNormalTurn(state, player);
+
+      const rageCard = result.cards.find(c => c.cardId === CARD_RAGE);
+      // Rage should NOT have canPlayPowered=true because black cannot substitute for red
+      expect(rageCard?.canPlayPowered).toBe(false);
+    });
+
+    it("should show canPlayPowered when correct color mana available (control test)", () => {
+      // Control test: verify green mana DOES enable powered for March
+      const player = createTestPlayer({
+        hand: [CARD_MARCH], // Green card
+        crystals: { red: 0, blue: 0, green: 1, white: 0 }, // Green crystal available
+        pureMana: [],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = getPlayableCardsForNormalTurn(state, player);
+
+      const marchCard = result.cards.find(c => c.cardId === CARD_MARCH);
+      // March SHOULD be playable powered with green mana
+      expect(marchCard?.canPlayPowered).toBe(true);
+      expect(marchCard?.requiredMana).toBe(MANA_GREEN);
     });
   });
 });
