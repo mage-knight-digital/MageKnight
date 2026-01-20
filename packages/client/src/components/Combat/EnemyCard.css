@@ -127,18 +127,20 @@
 }
 
 .enemy-token--targetable .enemy-token__image-wrapper {
+  /* Antique gold targeting - matches PixiJS dust palette */
   box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.5),
-    0 0 0 3px rgba(243, 156, 18, 0.6),
-    0 0 20px rgba(243, 156, 18, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.6),
+    0 0 0 3px rgba(212, 165, 116, 0.65),
+    0 0 25px rgba(212, 165, 116, 0.3),
     inset 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
 .enemy-token--blocked .enemy-token__image-wrapper {
+  /* Verdigris/teal blocked state */
   box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.5),
-    0 0 0 3px rgba(39, 174, 96, 0.8),
-    0 0 15px rgba(39, 174, 96, 0.4),
+    0 4px 12px rgba(0, 0, 0, 0.6),
+    0 0 0 3px rgba(46, 107, 90, 0.75),
+    0 0 20px rgba(46, 107, 90, 0.35),
     inset 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -177,12 +179,13 @@
 }
 
 .enemy-token__overlay--blocked {
-  background: rgba(39, 174, 96, 0.3);
+  /* Verdigris blocked state */
+  background: rgba(46, 107, 90, 0.3);
 }
 
 .enemy-token__overlay--blocked span {
-  color: #fff;
-  background: rgba(39, 174, 96, 0.9);
+  color: #e8e0d0;
+  background: rgba(46, 107, 90, 0.9);
 }
 
 /* Enemy name */
@@ -202,7 +205,8 @@
 .enemy-token__click-hint {
   font-size: 0.55rem;
   font-weight: 400;
-  color: rgba(255, 215, 0, 0.5);
+  /* Antique gold hint */
+  color: rgba(212, 165, 116, 0.6);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   opacity: 0;
@@ -251,46 +255,51 @@
 
 .enemy-token__action-result {
   font-size: 0.6rem;
-  color: #2ecc71;
+  /* Moss green success */
+  color: #8ba06a;
   font-weight: 700;
 }
 
 .enemy-token__action-result--need {
-  color: #f39c12;
+  /* Burnt sienna warning */
+  color: #c08050;
 }
 
 .enemy-token__swift-note {
   font-size: 0.7em;
-  color: #f1c40f;
+  /* Antique gold */
+  color: #d4a574;
   margin-left: 0.2rem;
 }
 
 .enemy-token__action-btn--ready {
-  background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(39, 174, 96, 0.4);
+  /* Verdigris/forest ready state */
+  background: linear-gradient(135deg, #3a6a58 0%, #2a5044 100%);
+  color: #e8e0d0;
+  box-shadow: 0 2px 8px rgba(46, 107, 90, 0.4);
 }
 
 .enemy-token__action-btn--ready:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.5);
+  box-shadow: 0 4px 12px rgba(46, 107, 90, 0.5);
 }
 
 .enemy-token__action-btn--insufficient {
-  background: #444;
-  color: #888;
+  background: rgba(40, 38, 45, 0.9);
+  color: #707580;
   cursor: not-allowed;
 }
 
 .enemy-token__action-btn--damage {
-  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
+  /* Rust/copper damage state */
+  background: linear-gradient(135deg, #8b4030 0%, #6a3025 100%);
+  color: #e8e0d0;
+  box-shadow: 0 2px 8px rgba(139, 64, 48, 0.4);
 }
 
 .enemy-token__action-btn--damage:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.5);
+  box-shadow: 0 4px 12px rgba(139, 64, 48, 0.5);
 }
 
 .enemy-token__action-btn:disabled {
@@ -302,20 +311,22 @@
 /* Warning text */
 .enemy-token__warning {
   font-size: 0.625rem;
-  color: #f39c12;
+  /* Burnt sienna warning */
+  color: #c08050;
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.25rem 0.5rem;
-  background: rgba(243, 156, 18, 0.15);
-  border: 1px solid rgba(243, 156, 18, 0.3);
+  background: rgba(192, 128, 80, 0.12);
+  border: 1px solid rgba(192, 128, 80, 0.3);
   border-radius: 3px;
 }
 
 .enemy-token__warning--severe {
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.15);
-  border-color: rgba(231, 76, 60, 0.3);
+  /* Deep crimson severe warning */
+  color: #c06040;
+  background: rgba(160, 64, 48, 0.12);
+  border-color: rgba(160, 64, 48, 0.3);
 }
 
 /* ============================================
@@ -340,15 +351,20 @@
 }
 
 .enemy-combat-tooltip__content {
-  background: rgba(15, 15, 35, 0.95);
-  border: 1px solid #444;
+  /* Match PixiJS night palette */
+  background: linear-gradient(
+    135deg,
+    rgba(26, 29, 46, 0.96) 0%,
+    rgba(18, 20, 32, 0.98) 100%
+  );
+  border: 1px solid rgba(106, 74, 138, 0.35);
   border-radius: 8px;
   padding: 0.75rem;
   min-width: 180px;
   max-width: 280px;
   box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+    0 4px 24px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(212, 165, 116, 0.08);
   backdrop-filter: blur(8px);
 }
 
@@ -396,8 +412,9 @@
   gap: 0.375rem;
   font-size: 0.75rem;
   padding: 0.3rem 0.5rem;
-  background: rgba(155, 89, 182, 0.15);
-  border-left: 2px solid rgba(155, 89, 182, 0.5);
+  /* Dusty purple ability highlight */
+  background: rgba(106, 74, 138, 0.15);
+  border-left: 2px solid rgba(106, 74, 138, 0.5);
   border-radius: 0 4px 4px 0;
 }
 
@@ -436,13 +453,15 @@
 }
 
 .enemy-combat-tooltip__resistance--fire {
-  background: rgba(192, 57, 43, 0.8);
-  color: #fff;
+  /* Deep crimson fire resistance */
+  background: rgba(160, 64, 48, 0.8);
+  color: #e8e0d0;
 }
 
 .enemy-combat-tooltip__resistance--ice {
-  background: rgba(41, 128, 185, 0.8);
-  color: #fff;
+  /* Steel blue ice resistance */
+  background: rgba(74, 112, 144, 0.8);
+  color: #e8e0d0;
 }
 
 /* ============================================
@@ -454,16 +473,26 @@
   flex-direction: column;
   gap: 0.375rem;
   padding: 0.5rem;
-  background: rgba(30, 30, 50, 0.9);
-  border: 1px solid #444;
+  /* Match PixiJS night palette */
+  background: linear-gradient(
+    135deg,
+    rgba(26, 29, 46, 0.94) 0%,
+    rgba(20, 22, 35, 0.96) 100%
+  );
+  border: 1px solid rgba(184, 115, 51, 0.35);
   border-radius: 6px;
   min-width: 120px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(184, 115, 51, 0.1);
 }
 
 .enemy-token__attack-allocation--can-defeat {
-  border-color: #27ae60;
-  box-shadow: 0 0 12px rgba(39, 174, 96, 0.3);
+  /* Verdigris/moss success state */
+  border-color: rgba(46, 107, 90, 0.6);
+  box-shadow:
+    0 0 16px rgba(46, 107, 90, 0.25),
+    inset 0 1px 0 rgba(46, 107, 90, 0.15);
 }
 
 /* Header with attack type label and progress */
@@ -491,8 +520,9 @@
 .enemy-token__can-defeat {
   font-size: 0.65rem;
   font-weight: 700;
-  color: #2ecc71;
-  background: rgba(39, 174, 96, 0.2);
+  /* Moss/sage green success */
+  color: #8ba06a;
+  background: rgba(139, 160, 106, 0.2);
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
   animation: pulse-defeat 1.5s ease-in-out infinite;
@@ -523,7 +553,7 @@
   flex-wrap: wrap;
   gap: 0.25rem;
   padding: 0.25rem 0;
-  border-top: 1px solid #333;
+  border-top: 1px solid rgba(184, 115, 51, 0.2);
 }
 
 .enemy-token__damage-row {
@@ -531,13 +561,13 @@
   align-items: center;
   gap: 0.2rem;
   padding: 0.15rem 0.3rem;
-  background: rgba(50, 50, 70, 0.6);
+  background: rgba(35, 38, 50, 0.7);
   border-radius: 3px;
   font-size: 0.75rem;
 }
 
 .enemy-token__damage-row--resisted {
-  background: rgba(100, 60, 60, 0.4);
+  background: rgba(80, 50, 45, 0.5);
 }
 
 .enemy-token__damage-icon {
@@ -551,7 +581,8 @@
 
 .enemy-token__damage-effective {
   font-size: 0.65rem;
-  color: #e74c3c;
+  /* Deep crimson damage */
+  color: #c06040;
   font-weight: 600;
 }
 
@@ -561,7 +592,7 @@
   flex-wrap: wrap;
   gap: 0.375rem;
   padding-top: 0.375rem;
-  border-top: 1px solid #333;
+  border-top: 1px solid rgba(184, 115, 51, 0.2);
 }
 
 .enemy-token__element-control {
@@ -569,12 +600,12 @@
   align-items: center;
   gap: 0.15rem;
   padding: 0.15rem;
-  background: rgba(40, 40, 60, 0.6);
+  background: rgba(32, 35, 48, 0.7);
   border-radius: 4px;
 }
 
 .enemy-token__element-control--resisted {
-  background: rgba(100, 60, 60, 0.3);
+  background: rgba(70, 45, 42, 0.45);
 }
 
 .enemy-token__element-icon {
@@ -599,36 +630,39 @@
 }
 
 .enemy-token__control-btn--plus {
-  background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
-  color: #fff;
+  /* Verdigris/forest plus button */
+  background: linear-gradient(135deg, #3a6a58 0%, #2a5044 100%);
+  color: #e8e0d0;
 }
 
 .enemy-token__control-btn--plus:hover {
   transform: scale(1.1);
-  box-shadow: 0 0 8px rgba(39, 174, 96, 0.5);
+  box-shadow: 0 0 10px rgba(46, 107, 90, 0.5);
 }
 
 .enemy-token__control-btn--plus--warning {
-  background: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+  /* Burnt sienna warning state */
+  background: linear-gradient(135deg, #a07040 0%, #806030 100%);
 }
 
 .enemy-token__control-btn--minus {
-  background: #555;
-  color: #ccc;
+  background: rgba(50, 48, 58, 0.9);
+  color: #a0a5aa;
 }
 
 .enemy-token__control-btn--minus:hover {
-  background: #666;
+  background: rgba(60, 58, 68, 0.9);
   transform: scale(1.1);
 }
 
 /* Insufficient attack message */
 .enemy-token__attack-insufficient {
   font-size: 0.65rem;
-  color: #f39c12;
+  /* Burnt sienna warning */
+  color: #c08050;
   text-align: center;
   padding: 0.25rem;
-  background: rgba(243, 156, 18, 0.1);
+  background: rgba(192, 128, 80, 0.1);
   border-radius: 3px;
 }
 

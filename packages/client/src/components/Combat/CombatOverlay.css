@@ -1,3 +1,21 @@
+/* ============================================================================
+   MAGE KNIGHT COMBAT THEME
+   Color palette aligned with PixiJS background atmosphere
+
+   Day palette: warm brown #3d3528 → #1a1610
+   Night palette: deep blue-purple #1a1d2e → #0a0a12
+
+   Combat accent colors (fantasy/earthy):
+   - Attack/Combat: Bronze #b87333, Copper #a06030, Rust #8b4513
+   - Block/Defense: Verdigris #2e6b5a, Forest #1a4d3e
+   - Targeting: Antique Gold #d4a574, #c9a86c
+   - Success: Moss #8b9a6b
+   - Warning: Burnt Sienna #a65d3f
+   - Fire: Deep Crimson #a04030
+   - Ice: Steel Blue #4a7090
+   - ColdFire: Dusty Purple #6a4a8a
+   ============================================================================ */
+
 /* Combat Scene - full screen combat arena */
 .combat-scene {
   position: fixed;
@@ -7,12 +25,12 @@
   flex-direction: column;
   pointer-events: none;
 
-  /* Solid dark backdrop - hides the hex grid completely */
-  background: linear-gradient(
-    135deg,
-    rgba(10, 10, 20, 0.98) 0%,
-    rgba(20, 15, 30, 0.98) 50%,
-    rgba(15, 10, 25, 0.98) 100%
+  /* Match PixiJS night palette - deep blue-purple gradient */
+  background: radial-gradient(
+    ellipse at center,
+    rgba(26, 29, 46, 0.98) 0%,
+    rgba(15, 15, 25, 0.98) 50%,
+    rgba(10, 10, 18, 0.99) 100%
   );
 
   /* Flash effect on combat start */
@@ -90,11 +108,18 @@
   opacity: 1 !important;
   transform: none !important;
   pointer-events: auto !important;
-  background: rgba(10, 10, 25, 0.95);
-  border: 1px solid rgba(255, 215, 0, 0.3);
+  /* Match PixiJS night palette with antique gold accent */
+  background: linear-gradient(
+    135deg,
+    rgba(26, 29, 46, 0.95) 0%,
+    rgba(20, 22, 35, 0.95) 100%
+  );
+  border: 1px solid rgba(212, 165, 116, 0.35);
   border-radius: 8px;
   padding: 0.4rem 0.6rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(212, 165, 116, 0.1);
 }
 
 .combat-scene__mana-source .mana-source-overlay__dice {
@@ -116,7 +141,7 @@
 
 @keyframes combat-flash {
   0% {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(212, 165, 116, 0.25);
   }
   100% {
     background: transparent;
@@ -131,39 +156,39 @@
   z-index: 1000;
 }
 
-/* Damage taken effect - sharp red flash + snappy shake
+/* Damage taken effect - sharp rust/crimson flash + snappy shake
    Not wobbly - quick sharp displacement that sells impact */
 .combat-scene__effect--damage {
   animation: damage-hit 0.35s ease-out forwards;
 }
 
 @keyframes damage-hit {
-  /* INSTANT red flash at impact */
+  /* INSTANT crimson flash at impact */
   0% {
-    background: rgba(255, 60, 40, 0.7);
+    background: rgba(160, 64, 48, 0.7);
     transform: translate(0, 0);
   }
   /* Sharp displacement - ONE strong hit */
   8% {
-    background: rgba(255, 60, 40, 0.6);
+    background: rgba(160, 64, 48, 0.6);
     transform: translate(-12px, 4px);
   }
   16% {
     transform: translate(10px, -3px);
-    background: rgba(231, 76, 60, 0.4);
+    background: rgba(139, 69, 19, 0.4);
   }
   /* Quick settle - not bouncy */
   28% {
     transform: translate(-4px, 2px);
-    background: rgba(231, 76, 60, 0.2);
+    background: rgba(139, 69, 19, 0.2);
   }
   40% {
     transform: translate(2px, -1px);
-    background: rgba(231, 76, 60, 0.1);
+    background: rgba(139, 69, 19, 0.1);
   }
   60% {
     transform: translate(0, 0);
-    background: rgba(231, 76, 60, 0.05);
+    background: rgba(139, 69, 19, 0.05);
   }
   100% {
     transform: translate(0, 0);
@@ -171,28 +196,28 @@
   }
 }
 
-/* Block success effect - green flash */
+/* Block success effect - verdigris/teal flash */
 .combat-scene__effect--block {
   animation: block-success 0.3s ease-out forwards;
 }
 
 @keyframes block-success {
   0% {
-    background: rgba(39, 174, 96, 0.4);
+    background: rgba(46, 107, 90, 0.45);
   }
   100% {
     background: transparent;
   }
 }
 
-/* Attack success effect - orange flash */
+/* Attack success effect - bronze/copper flash */
 .combat-scene__effect--attack {
   animation: attack-success 0.3s ease-out forwards;
 }
 
 @keyframes attack-success {
   0% {
-    background: rgba(243, 156, 18, 0.4);
+    background: rgba(184, 115, 51, 0.4);
   }
   100% {
     background: transparent;
@@ -274,7 +299,12 @@
   flex-direction: column;
   align-items: center;
   padding: 0.5rem 1.25rem;
-  background: rgba(0, 0, 0, 0.85);
+  /* Match PixiJS night palette */
+  background: linear-gradient(
+    135deg,
+    rgba(26, 29, 46, 0.92) 0%,
+    rgba(15, 15, 25, 0.95) 100%
+  );
   border-radius: 8px;
   border: 2px solid;
   z-index: 150; /* Above hand cards */
@@ -282,13 +312,19 @@
 }
 
 .combat-hud__accumulator--attack {
-  border-color: #e74c3c;
-  box-shadow: 0 0 20px rgba(231, 76, 60, 0.3);
+  /* Bronze/copper attack accent */
+  border-color: rgba(184, 115, 51, 0.7);
+  box-shadow:
+    0 0 20px rgba(184, 115, 51, 0.25),
+    inset 0 1px 0 rgba(184, 115, 51, 0.15);
 }
 
 .combat-hud__accumulator--block {
-  border-color: #3498db;
-  box-shadow: 0 0 20px rgba(52, 152, 219, 0.3);
+  /* Verdigris/teal block accent */
+  border-color: rgba(46, 107, 90, 0.7);
+  box-shadow:
+    0 0 20px rgba(46, 107, 90, 0.25),
+    inset 0 1px 0 rgba(46, 107, 90, 0.15);
 }
 
 .combat-hud__accumulator-value {
@@ -327,22 +363,26 @@
 }
 
 .combat-hud__element--physical {
-  color: #bdc3c7;
+  color: #a0a5aa;
+  background: rgba(120, 125, 130, 0.15);
 }
 
 .combat-hud__element--fire {
-  color: #ff6b35;
-  background: rgba(255, 107, 53, 0.2);
+  /* Deep crimson, not bright orange */
+  color: #c06040;
+  background: rgba(160, 64, 48, 0.2);
 }
 
 .combat-hud__element--ice {
-  color: #5dade2;
-  background: rgba(93, 173, 226, 0.2);
+  /* Steel blue, muted */
+  color: #6090b0;
+  background: rgba(74, 112, 144, 0.2);
 }
 
 .combat-hud__element--coldFire {
-  color: #9b59b6;
-  background: rgba(155, 89, 182, 0.2);
+  /* Dusty purple */
+  color: #8a6aaa;
+  background: rgba(106, 74, 138, 0.2);
 }
 
 .combat-hud__element--halved {
@@ -353,7 +393,8 @@
 
 .combat-hud__halved-note {
   font-size: 0.7rem;
-  color: #f39c12;
+  /* Burnt sienna warning */
+  color: #c08050;
   margin-left: 0.2rem;
   text-decoration: none !important;
 }
@@ -361,7 +402,8 @@
 .combat-hud__resistance-warning {
   margin-top: 0.5rem;
   font-size: 0.65rem;
-  color: #f39c12;
+  /* Burnt sienna warning */
+  color: #c08050;
   text-align: center;
 }
 
@@ -380,22 +422,24 @@
 }
 
 .combat-hud__attack-type--warning .combat-hud__accumulator-value {
-  color: #e74c3c;
+  /* Burnt sienna warning */
+  color: #c06040;
 }
 
 .combat-hud__attack-type--warning .combat-hud__accumulator-label {
-  color: #e74c3c;
+  color: #c06040;
 }
 
 .combat-hud__attack-divider {
   width: 1px;
   align-self: stretch;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(212, 165, 116, 0.2);
 }
 
 .combat-hud__siege-hint {
   font-size: 0.55rem;
-  color: #e74c3c;
+  /* Burnt sienna warning */
+  color: #c06040;
   margin-top: 0.15rem;
   white-space: nowrap;
 }
@@ -418,10 +462,18 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.4rem 0.6rem;
-  background: rgba(10, 10, 25, 0.95);
-  border: 1px solid rgba(155, 89, 182, 0.4);
+  /* Match PixiJS night palette */
+  background: linear-gradient(
+    135deg,
+    rgba(26, 29, 46, 0.95) 0%,
+    rgba(20, 22, 35, 0.95) 100%
+  );
+  /* Dusty purple accent for mana */
+  border: 1px solid rgba(106, 74, 138, 0.4);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(106, 74, 138, 0.1);
 }
 
 .combat-mana__label {
@@ -464,24 +516,28 @@
 }
 
 .combat-mana__crystal--red {
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
-  box-shadow: 0 0 4px rgba(231, 76, 60, 0.5);
+  /* Deep ruby red, more fantasy */
+  background: linear-gradient(135deg, #a04040, #802828);
+  box-shadow: 0 0 6px rgba(160, 64, 64, 0.5);
 }
 
 .combat-mana__crystal--blue {
-  background: linear-gradient(135deg, #3498db, #2980b9);
-  box-shadow: 0 0 4px rgba(52, 152, 219, 0.5);
+  /* Steel blue, muted */
+  background: linear-gradient(135deg, #4a7090, #3a5a70);
+  box-shadow: 0 0 6px rgba(74, 112, 144, 0.5);
 }
 
 .combat-mana__crystal--green {
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
-  box-shadow: 0 0 4px rgba(46, 204, 113, 0.5);
+  /* Forest/verdigris green */
+  background: linear-gradient(135deg, #3a8060, #2a6048);
+  box-shadow: 0 0 6px rgba(58, 128, 96, 0.5);
 }
 
 .combat-mana__crystal--white {
-  background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
-  box-shadow: 0 0 4px rgba(236, 240, 241, 0.5);
-  color: #333;
+  /* Ivory/parchment white */
+  background: linear-gradient(135deg, #e8e0d0, #c8c0b0);
+  box-shadow: 0 0 6px rgba(232, 224, 208, 0.5);
+  color: #3a3020;
 }
 
 /* Tokens - small colored circles */
@@ -489,30 +545,33 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 3px rgba(0, 0, 0, 0.4),
+    inset 0 1px 2px rgba(255, 255, 255, 0.2);
 }
 
 .combat-mana__token--red {
-  background: radial-gradient(circle at 30% 30%, #ff6b6b, #c0392b);
+  background: radial-gradient(circle at 30% 30%, #c06060, #802828);
 }
 
 .combat-mana__token--blue {
-  background: radial-gradient(circle at 30% 30%, #74b9ff, #2980b9);
+  background: radial-gradient(circle at 30% 30%, #6090b0, #3a5a70);
 }
 
 .combat-mana__token--green {
-  background: radial-gradient(circle at 30% 30%, #55efc4, #27ae60);
+  background: radial-gradient(circle at 30% 30%, #50a080, #2a6048);
 }
 
 .combat-mana__token--white {
-  background: radial-gradient(circle at 30% 30%, #fff, #bdc3c7);
+  background: radial-gradient(circle at 30% 30%, #f0e8d8, #c8c0b0);
 }
 
 .combat-mana__token--gold {
-  background: radial-gradient(circle at 30% 30%, #ffeaa7, #f39c12);
+  /* Antique gold matching PixiJS dust palette */
+  background: radial-gradient(circle at 30% 30%, #d4a574, #a08050);
 }
 
 .combat-mana__token--black {
-  background: radial-gradient(circle at 30% 30%, #636e72, #2d3436);
+  background: radial-gradient(circle at 30% 30%, #505560, #252830);
 }
 
