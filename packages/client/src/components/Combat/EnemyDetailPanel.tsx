@@ -121,7 +121,6 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
           <div className="enemy-detail-stat">
             <GameIcon
               type={enemy.attackElement === "physical" ? "attack" : enemy.attackElement as GameIconType}
-              size={32}
               className="enemy-detail-stat-icon"
             />
             <div className="enemy-detail-stat-content">
@@ -134,14 +133,14 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
             </div>
           </div>
           <div className="enemy-detail-stat">
-            <GameIcon type="armor" size={32} className="enemy-detail-stat-icon" />
+            <GameIcon type="armor" className="enemy-detail-stat-icon" />
             <div className="enemy-detail-stat-content">
               <span className="enemy-detail-stat-value">{enemy.armor}</span>
               <span className="enemy-detail-stat-label">Armor</span>
             </div>
           </div>
           <div className="enemy-detail-stat">
-            <GameIcon type="fame" size={32} className="enemy-detail-stat-icon" />
+            <GameIcon type="fame" className="enemy-detail-stat-icon" />
             <div className="enemy-detail-stat-content">
               <span className="enemy-detail-stat-value">{enemy.fame}</span>
               <span className="enemy-detail-stat-label">Fame</span>
@@ -177,7 +176,7 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
                   <div key={ability} className="enemy-detail-ability">
                     <div className="enemy-detail-ability-header">
                       {iconType ? (
-                        <GameIcon type={iconType} size={24} className="enemy-detail-ability-icon" />
+                        <GameIcon type={iconType} className="enemy-detail-ability-icon" />
                       ) : iconPath ? (
                         <img src={iconPath} alt={desc.name} className="enemy-detail-ability-icon" />
                       ) : (
@@ -205,7 +204,7 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
                   <div key={resistance} className="enemy-detail-resistance">
                     <div className="enemy-detail-resistance-header">
                       {iconType ? (
-                        <GameIcon type={iconType} size={24} className="enemy-detail-resistance-icon" />
+                        <GameIcon type={iconType} className="enemy-detail-resistance-icon" />
                       ) : (
                         <span className="enemy-detail-resistance-icon-fallback">{desc.icon}</span>
                       )}

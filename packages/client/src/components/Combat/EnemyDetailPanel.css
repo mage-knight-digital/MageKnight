@@ -1,4 +1,5 @@
 /* Enemy Detail Panel - Parchment-style rulebook details */
+/* Responsive design scales from mobile to 5K displays */
 
 .enemy-detail-backdrop {
   position: fixed;
@@ -18,19 +19,23 @@
 }
 
 .enemy-detail-panel {
-  width: min(92vw, 380px);
+  /* Responsive width: min 320px, scales with viewport, max 600px */
+  width: clamp(320px, 35vw, 600px);
   max-height: 85vh;
   overflow-y: auto;
   /* Parchment background */
   background:
     linear-gradient(135deg, rgba(62, 47, 32, 0.97) 0%, rgba(45, 35, 25, 0.98) 100%);
-  border: 3px solid rgba(139, 90, 43, 0.6);
-  border-radius: 8px;
+  border: clamp(2px, 0.2vw, 4px) solid rgba(139, 90, 43, 0.6);
+  border-radius: clamp(6px, 0.5vw, 12px);
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.2);
   animation: panel-slide-in 0.25s ease-out;
+
+  /* Base font size that scales with viewport for 5K support */
+  font-size: clamp(14px, 1vw, 18px);
 }
 
 @keyframes panel-slide-in {
@@ -49,22 +54,23 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
-  border-bottom: 2px solid rgba(139, 90, 43, 0.4);
+  padding: clamp(0.6rem, 1vw, 1.25rem) clamp(0.75rem, 1.25vw, 1.5rem);
+  border-bottom: clamp(1px, 0.15vw, 3px) solid rgba(139, 90, 43, 0.4);
   background: rgba(0, 0, 0, 0.2);
 }
 
 .enemy-detail-header-content {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: clamp(0.5rem, 1vw, 1rem);
 }
 
 .enemy-detail-portrait {
-  width: 48px;
-  height: 48px;
+  /* Responsive portrait: 48px min, scales to 80px on 5K */
+  width: clamp(48px, 5vw, 80px);
+  height: clamp(48px, 5vw, 80px);
   border-radius: 50%;
-  border: 2px solid rgba(255, 215, 0, 0.5);
+  border: clamp(2px, 0.2vw, 3px) solid rgba(255, 215, 0, 0.5);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   object-fit: cover;
 }
@@ -72,35 +78,36 @@
 .enemy-detail-header-text {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: clamp(0.1rem, 0.2vw, 0.25rem);
 }
 
 .enemy-detail-name {
   margin: 0;
-  font-size: 1.1rem;
+  /* Responsive name: 1.1rem min, scales to 1.6rem on 5K */
+  font-size: clamp(1.1rem, 1.5vw, 1.6rem);
   font-weight: 700;
   color: #f4e4bc;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .enemy-detail-esc-hint {
-  font-size: 0.6rem;
+  font-size: clamp(0.55rem, 0.7vw, 0.8rem);
   color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .enemy-detail-close {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: clamp(1.75rem, 2.5vw, 2.5rem);
+  height: clamp(1.75rem, 2.5vw, 2.5rem);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
+  font-size: clamp(0.9rem, 1.2vw, 1.3rem);
   color: rgba(255, 255, 255, 0.5);
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+  border-radius: clamp(3px, 0.3vw, 6px);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -115,8 +122,8 @@
 .enemy-detail-stats {
   display: flex;
   justify-content: space-around;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  gap: clamp(0.4rem, 0.8vw, 1rem);
+  padding: clamp(0.6rem, 1vw, 1.25rem) clamp(0.75rem, 1.25vw, 1.5rem);
   background: rgba(0, 0, 0, 0.15);
   border-bottom: 1px solid rgba(139, 90, 43, 0.3);
 }
@@ -124,12 +131,13 @@
 .enemy-detail-stat {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: clamp(0.35rem, 0.6vw, 0.75rem);
 }
 
 .enemy-detail-stat-icon {
-  width: 28px;
-  height: 28px;
+  /* Responsive icons: 28px min, scales to 48px on 5K */
+  width: clamp(28px, 3vw, 48px);
+  height: clamp(28px, 3vw, 48px);
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
@@ -141,14 +149,15 @@
 }
 
 .enemy-detail-stat-value {
-  font-size: 1.25rem;
+  /* Responsive stat value: 1.25rem min, scales to 2rem on 5K */
+  font-size: clamp(1.25rem, 1.8vw, 2rem);
   font-weight: 700;
   color: #fff;
   line-height: 1;
 }
 
 .enemy-detail-stat-label {
-  font-size: 0.55rem;
+  font-size: clamp(0.55rem, 0.75vw, 0.9rem);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -157,7 +166,7 @@
 
 /* Sections */
 .enemy-detail-section {
-  padding: 0.75rem 1rem;
+  padding: clamp(0.6rem, 1vw, 1.25rem) clamp(0.75rem, 1.25vw, 1.5rem);
   border-bottom: 1px solid rgba(139, 90, 43, 0.25);
 }
 
@@ -168,13 +177,13 @@
 .enemy-detail-section-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: clamp(0.4rem, 0.6vw, 0.75rem);
+  margin-bottom: clamp(0.4rem, 0.6vw, 0.75rem);
 }
 
 .enemy-detail-section-title {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.75rem;
+  margin: 0 0 clamp(0.4rem, 0.6vw, 0.75rem) 0;
+  font-size: clamp(0.7rem, 1vw, 1rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -186,37 +195,37 @@
 }
 
 .enemy-detail-element-badge {
-  padding: 0.2rem 0.5rem;
-  font-size: 0.65rem;
+  padding: clamp(0.15rem, 0.25vw, 0.3rem) clamp(0.4rem, 0.6vw, 0.75rem);
+  font-size: clamp(0.6rem, 0.85vw, 0.9rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: #fff;
-  border-radius: 3px;
+  border-radius: clamp(3px, 0.25vw, 5px);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 /* Rules text */
 .enemy-detail-rule {
-  margin: 0 0 0.4rem 0;
-  font-size: 0.8rem;
-  line-height: 1.45;
+  margin: 0 0 clamp(0.3rem, 0.5vw, 0.6rem) 0;
+  font-size: clamp(0.8rem, 1.1vw, 1.1rem);
+  line-height: 1.5;
   color: rgba(255, 255, 255, 0.85);
 }
 
 .enemy-detail-tip {
-  margin: 0.4rem 0 0 0;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.7rem;
+  margin: clamp(0.3rem, 0.5vw, 0.6rem) 0 0 0;
+  padding: clamp(0.35rem, 0.5vw, 0.6rem) clamp(0.5rem, 0.75vw, 0.9rem);
+  font-size: clamp(0.65rem, 0.9vw, 0.95rem);
   color: #7dd87d;
   background: rgba(39, 174, 96, 0.15);
-  border-left: 2px solid rgba(39, 174, 96, 0.5);
-  border-radius: 0 4px 4px 0;
+  border-left: clamp(2px, 0.2vw, 3px) solid rgba(39, 174, 96, 0.5);
+  border-radius: 0 clamp(3px, 0.3vw, 6px) clamp(3px, 0.3vw, 6px) 0;
 }
 
 .enemy-detail-note {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: clamp(0.75rem, 1vw, 1rem);
   font-style: italic;
   color: rgba(255, 255, 255, 0.6);
 }
@@ -225,36 +234,37 @@
 .enemy-detail-abilities {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: clamp(0.6rem, 0.9vw, 1rem);
 }
 
 .enemy-detail-ability {
-  padding: 0.6rem;
+  padding: clamp(0.5rem, 0.75vw, 0.9rem);
   background: rgba(0, 0, 0, 0.15);
-  border-radius: 6px;
+  border-radius: clamp(4px, 0.4vw, 8px);
   border: 1px solid rgba(139, 90, 43, 0.25);
 }
 
 .enemy-detail-ability-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.4rem;
+  gap: clamp(0.4rem, 0.6vw, 0.75rem);
+  margin-bottom: clamp(0.3rem, 0.5vw, 0.6rem);
 }
 
 .enemy-detail-ability-icon {
-  width: 24px;
-  height: 24px;
+  /* Responsive ability icons: 24px min, scales to 36px on 5K */
+  width: clamp(24px, 2.5vw, 36px);
+  height: clamp(24px, 2.5vw, 36px);
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
 
 .enemy-detail-ability-icon-fallback {
-  font-size: 1.1rem;
+  font-size: clamp(1rem, 1.4vw, 1.5rem);
 }
 
 .enemy-detail-ability-name {
-  font-size: 0.85rem;
+  font-size: clamp(0.85rem, 1.15vw, 1.2rem);
   font-weight: 700;
   color: #f4e4bc;
 }
@@ -263,36 +273,37 @@
 .enemy-detail-resistances {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: clamp(0.6rem, 0.9vw, 1rem);
 }
 
 .enemy-detail-resistance {
-  padding: 0.6rem;
+  padding: clamp(0.5rem, 0.75vw, 0.9rem);
   background: rgba(0, 0, 0, 0.15);
-  border-radius: 6px;
+  border-radius: clamp(4px, 0.4vw, 8px);
   border: 1px solid rgba(139, 90, 43, 0.25);
 }
 
 .enemy-detail-resistance-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.4rem;
+  gap: clamp(0.4rem, 0.6vw, 0.75rem);
+  margin-bottom: clamp(0.3rem, 0.5vw, 0.6rem);
 }
 
 .enemy-detail-resistance-icon {
-  width: 24px;
-  height: 24px;
+  /* Responsive resistance icons: 24px min, scales to 36px on 5K */
+  width: clamp(24px, 2.5vw, 36px);
+  height: clamp(24px, 2.5vw, 36px);
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
 
 .enemy-detail-resistance-icon-fallback {
-  font-size: 1.1rem;
+  font-size: clamp(1rem, 1.4vw, 1.5rem);
 }
 
 .enemy-detail-resistance-name {
-  font-size: 0.85rem;
+  font-size: clamp(0.85rem, 1.15vw, 1.2rem);
   font-weight: 700;
   color: #f4e4bc;
 }
