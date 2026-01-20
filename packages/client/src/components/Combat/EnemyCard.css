@@ -444,3 +444,190 @@
   background: rgba(41, 128, 185, 0.8);
   color: #fff;
 }
+
+/* ============================================
+   Phase 5: Incremental Attack Allocation UI
+   ============================================ */
+
+.enemy-token__attack-allocation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  background: rgba(30, 30, 50, 0.9);
+  border: 1px solid #444;
+  border-radius: 6px;
+  min-width: 120px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.enemy-token__attack-allocation--can-defeat {
+  border-color: #27ae60;
+  box-shadow: 0 0 12px rgba(39, 174, 96, 0.3);
+}
+
+/* Header with attack type label and progress */
+.enemy-token__attack-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.enemy-token__attack-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.enemy-token__attack-progress {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.enemy-token__can-defeat {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #2ecc71;
+  background: rgba(39, 174, 96, 0.2);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  animation: pulse-defeat 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-defeat {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Resistance indicators */
+.enemy-token__resistances {
+  display: flex;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+}
+
+.enemy-token__resistance {
+  padding: 0.1rem 0.25rem;
+  background: rgba(100, 100, 100, 0.4);
+  border-radius: 3px;
+  opacity: 0.8;
+}
+
+/* Pending damage breakdown */
+.enemy-token__pending-damage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem 0;
+  border-top: 1px solid #333;
+}
+
+.enemy-token__damage-row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.3rem;
+  background: rgba(50, 50, 70, 0.6);
+  border-radius: 3px;
+  font-size: 0.75rem;
+}
+
+.enemy-token__damage-row--resisted {
+  background: rgba(100, 60, 60, 0.4);
+}
+
+.enemy-token__damage-icon {
+  font-size: 0.7rem;
+}
+
+.enemy-token__damage-raw {
+  font-weight: 700;
+  color: #fff;
+}
+
+.enemy-token__damage-effective {
+  font-size: 0.65rem;
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+/* Attack +/- controls */
+.enemy-token__attack-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding-top: 0.375rem;
+  border-top: 1px solid #333;
+}
+
+.enemy-token__element-control {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  background: rgba(40, 40, 60, 0.6);
+  border-radius: 4px;
+}
+
+.enemy-token__element-control--resisted {
+  background: rgba(100, 60, 60, 0.3);
+}
+
+.enemy-token__element-icon {
+  font-size: 0.75rem;
+  width: 1.2rem;
+  text-align: center;
+}
+
+.enemy-token__control-btn {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  line-height: 1;
+}
+
+.enemy-token__control-btn--plus {
+  background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+  color: #fff;
+}
+
+.enemy-token__control-btn--plus:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 8px rgba(39, 174, 96, 0.5);
+}
+
+.enemy-token__control-btn--plus--warning {
+  background: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+}
+
+.enemy-token__control-btn--minus {
+  background: #555;
+  color: #ccc;
+}
+
+.enemy-token__control-btn--minus:hover {
+  background: #666;
+  transform: scale(1.1);
+}
+
+/* Insufficient attack message */
+.enemy-token__attack-insufficient {
+  font-size: 0.65rem;
+  color: #f39c12;
+  text-align: center;
+  padding: 0.25rem;
+  background: rgba(243, 156, 18, 0.1);
+  border-radius: 3px;
+}
