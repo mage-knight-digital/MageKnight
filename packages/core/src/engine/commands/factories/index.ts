@@ -31,6 +31,8 @@ import {
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
+  ASSIGN_ATTACK_ACTION,
+  UNASSIGN_ATTACK_ACTION,
   RECRUIT_UNIT_ACTION,
   ACTIVATE_UNIT_ACTION,
   INTERACT_ACTION,
@@ -70,6 +72,8 @@ export {
   createDeclareBlockCommandFromAction,
   createDeclareAttackCommandFromAction,
   createAssignDamageCommandFromAction,
+  createAssignAttackCommandFromAction,
+  createUnassignAttackCommandFromAction,
 } from "./combat.js";
 
 // Unit factories
@@ -126,6 +130,8 @@ import {
   createDeclareBlockCommandFromAction,
   createDeclareAttackCommandFromAction,
   createAssignDamageCommandFromAction,
+  createAssignAttackCommandFromAction,
+  createUnassignAttackCommandFromAction,
 } from "./combat.js";
 
 import {
@@ -180,6 +186,8 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [DECLARE_BLOCK_ACTION]: createDeclareBlockCommandFromAction,
   [DECLARE_ATTACK_ACTION]: createDeclareAttackCommandFromAction,
   [ASSIGN_DAMAGE_ACTION]: createAssignDamageCommandFromAction,
+  [ASSIGN_ATTACK_ACTION]: createAssignAttackCommandFromAction,
+  [UNASSIGN_ATTACK_ACTION]: createUnassignAttackCommandFromAction,
   [RECRUIT_UNIT_ACTION]: createRecruitUnitCommandFromAction,
   [ACTIVATE_UNIT_ACTION]: createActivateUnitCommandFromAction,
   [INTERACT_ACTION]: createInteractCommandFromAction,

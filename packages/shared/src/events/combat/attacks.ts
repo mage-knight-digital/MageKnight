@@ -123,3 +123,138 @@ export function createAttackFailedEvent(
     requiredAttack,
   };
 }
+
+// ============================================================================
+// ATTACK_ASSIGNED
+// ============================================================================
+
+/**
+ * Event type constant for attack assignment.
+ * @see AttackAssignedEvent
+ */
+export const ATTACK_ASSIGNED = "ATTACK_ASSIGNED" as const;
+
+/**
+ * Emitted when damage is incrementally assigned to an enemy.
+ *
+ * Part of the incremental damage allocation system where players
+ * assign attack damage point-by-point to enemies.
+ *
+ * @remarks
+ * - Used in RANGED_SIEGE and ATTACK phases
+ * - Damage is "pending" until END_COMBAT_PHASE resolves it
+ * - Can be undone until phase ends
+ *
+ * @example
+ * ```typescript
+ * if (event.type === ATTACK_ASSIGNED) {
+ *   updatePendingDamage(event.enemyInstanceId, event.element, event.amount);
+ *   showDamagePreview();
+ * }
+ * ```
+ */
+export interface AttackAssignedEvent {
+  readonly type: typeof ATTACK_ASSIGNED;
+  /** Instance ID of the enemy receiving damage */
+  readonly enemyInstanceId: string;
+  /** Attack type used (ranged, siege, melee) */
+  readonly attackType: "ranged" | "siege" | "melee";
+  /** Element of the attack (physical, fire, ice, coldFire) */
+  readonly element: "physical" | "fire" | "ice" | "coldFire";
+  /** Amount of damage assigned */
+  readonly amount: number;
+}
+
+/**
+ * Creates an AttackAssignedEvent.
+ */
+export function createAttackAssignedEvent(
+  enemyInstanceId: string,
+  attackType: "ranged" | "siege" | "melee",
+  element: "physical" | "fire" | "ice" | "coldFire",
+  amount: number
+): AttackAssignedEvent {
+  return {
+    type: ATTACK_ASSIGNED,
+    enemyInstanceId,
+    attackType,
+    element,
+    amount,
+  };
+}
+
+/**
+ * Type guard for AttackAssignedEvent.
+ */
+export function isAttackAssignedEvent(event: {
+  type: string;
+}): event is AttackAssignedEvent {
+  return event.type === ATTACK_ASSIGNED;
+}
+
+// ============================================================================
+// ATTACK_UNASSIGNED
+// ============================================================================
+
+/**
+ * Event type constant for attack unassignment.
+ * @see AttackUnassignedEvent
+ */
+export const ATTACK_UNASSIGNED = "ATTACK_UNASSIGNED" as const;
+
+/**
+ * Emitted when previously assigned damage is removed from an enemy.
+ *
+ * Allows players to reallocate damage before committing with END_COMBAT_PHASE.
+ *
+ * @remarks
+ * - Only possible before phase ends
+ * - Damage returns to available pool
+ * - Supports exploration of different allocations
+ *
+ * @example
+ * ```typescript
+ * if (event.type === ATTACK_UNASSIGNED) {
+ *   reducePendingDamage(event.enemyInstanceId, event.element, event.amount);
+ *   showDamagePreview();
+ * }
+ * ```
+ */
+export interface AttackUnassignedEvent {
+  readonly type: typeof ATTACK_UNASSIGNED;
+  /** Instance ID of the enemy losing damage */
+  readonly enemyInstanceId: string;
+  /** Attack type being unassigned (ranged, siege, melee) */
+  readonly attackType: "ranged" | "siege" | "melee";
+  /** Element of the attack (physical, fire, ice, coldFire) */
+  readonly element: "physical" | "fire" | "ice" | "coldFire";
+  /** Amount of damage removed */
+  readonly amount: number;
+}
+
+/**
+ * Creates an AttackUnassignedEvent.
+ */
+export function createAttackUnassignedEvent(
+  enemyInstanceId: string,
+  attackType: "ranged" | "siege" | "melee",
+  element: "physical" | "fire" | "ice" | "coldFire",
+  amount: number
+): AttackUnassignedEvent {
+  return {
+    type: ATTACK_UNASSIGNED,
+    enemyInstanceId,
+    attackType,
+    element,
+    amount,
+  };
+}
+
+/**
+ * Type guard for AttackUnassignedEvent.
+ */
+export function isAttackUnassignedEvent(event: {
+  type: string;
+}): event is AttackUnassignedEvent {
+  return event.type === ATTACK_UNASSIGNED;
+}

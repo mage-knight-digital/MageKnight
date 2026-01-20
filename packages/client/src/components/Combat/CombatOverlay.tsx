@@ -590,7 +590,16 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
             {enemies.map((enemy) => {
               const blockOption = combatOptions.blocks?.find(b => b.enemyInstanceId === enemy.instanceId);
               const damageOption = combatOptions.damageAssignments?.find(d => d.enemyInstanceId === enemy.instanceId);
-              const attackOption = combatOptions.attacks?.find(a => a.enemyInstanceId === enemy.instanceId);
+              // TODO Phase 5: Use new incremental attack assignment (combatOptions.enemies, combatOptions.assignableAttacks)
+              // For now, provide a minimal placeholder
+              const attackOption = enemy.isDefeated ? undefined : {
+                enemyInstanceId: enemy.instanceId,
+                enemyName: enemy.name,
+                enemyArmor: enemy.armor,
+                isDefeated: enemy.isDefeated,
+                isFortified: false, // TODO: compute from enemy abilities + site
+                requiresSiege: false, // TODO: compute from phase + fortification
+              };
 
               const isStriking = strikingEnemy?.instanceId === enemy.instanceId;
               const strikeKey = isStriking ? strikingEnemy.strikeKey : undefined;

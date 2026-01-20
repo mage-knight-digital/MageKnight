@@ -31,3 +31,15 @@ export {
   ASSIGN_DAMAGE_COMMAND,
   type AssignDamageCommandParams,
 } from "./assignDamageCommand.js";
+
+export {
+  createAssignAttackCommand,
+  ASSIGN_ATTACK_COMMAND,
+  type AssignAttackCommandParams,
+} from "./assignAttackCommand.js";
+
+export {
+  createUnassignAttackCommand,
+  UNASSIGN_ATTACK_COMMAND,
+  type UnassignAttackCommandParams,
+} from "./unassignAttackCommand.js";

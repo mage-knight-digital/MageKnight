@@ -2,11 +2,14 @@
  * Combat options computation for ValidActions.
  *
  * Computes what combat actions are valid based on the current combat phase.
+ *
+ * NOTE: Phase 3 will add incremental attack assignment fields (availableAttack, enemies,
+ * assignableAttacks, unassignableAttacks). For now, this provides the legacy structure
+ * minus the removed `attacks` field.
  */
 
 import type {
   CombatOptions,
-  AttackOption,
   BlockOption,
   DamageAssignmentOption,
 } from "@mage-knight/shared";
@@ -18,9 +21,8 @@ import {
   COMBAT_PHASE_ASSIGN_DAMAGE,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
-import { ABILITY_FORTIFIED, ABILITY_SWIFT, ABILITY_BRUTAL } from "@mage-knight/shared";
+import { ABILITY_SWIFT, ABILITY_BRUTAL } from "@mage-knight/shared";
 import {
-  getEffectiveEnemyArmor,
   getEffectiveEnemyAttack,
   doesEnemyAttackThisCombat,
 } from "../modifiers.js";
@@ -35,15 +37,17 @@ export function getCombatOptions(state: GameState): CombatOptions | null {
   const combat = state.combat;
   if (!combat) return null;
 
-  const { phase, enemies, isAtFortifiedSite } = combat;
+  const { phase, enemies } = combat;
 
   // Compute phase-specific options
+  // NOTE: Phase 3 will add incremental attack assignment (availableAttack, enemies,
+  // assignableAttacks, unassignableAttacks) for RANGED_SIEGE and ATTACK phases
   switch (phase) {
     case COMBAT_PHASE_RANGED_SIEGE:
       return {
         phase,
         canEndPhase: true, // Can always skip ranged/siege
-        attacks: getAttackOptions(state, enemies, isAtFortifiedSite, true),
+        // Phase 3 TODO: Add assignableAttacks, unassignableAttacks, availableAttack, enemies
       };
 
     case COMBAT_PHASE_BLOCK:
@@ -64,7 +68,7 @@ export function getCombatOptions(state: GameState): CombatOptions | null {
       return {
         phase,
         canEndPhase: true, // Can skip attacking (enemies survive)
-        attacks: getAttackOptions(state, enemies, isAtFortifiedSite, false),
+        // Phase 3 TODO: Add assignableAttacks, unassignableAttacks, availableAttack, enemies
       };
 
     default:
@@ -75,51 +79,8 @@ export function getCombatOptions(state: GameState): CombatOptions | null {
   }
 }
 
-/**
- * Get attack options for ranged/siege or attack phase.
- * Uses effective armor (after modifiers like Tremor's armor reduction).
- */
-function getAttackOptions(
-  state: GameState,
-  enemies: readonly CombatEnemy[],
-  isAtFortifiedSite: boolean,
-  isRangedSiegePhase: boolean
-): readonly AttackOption[] {
-  return enemies.map((enemy) => {
-    const hasFortified = enemy.definition.abilities.includes(ABILITY_FORTIFIED);
-    // Site fortification only applies to site defenders (isRequiredForConquest: true)
-    // Provoked rampaging enemies do NOT get site fortification per rulebook
-    const siteFortified = isAtFortifiedSite && enemy.isRequiredForConquest;
-    const isFortified = hasFortified || siteFortified;
-    // In ranged/siege phase, fortified enemies require siege attacks
-    const requiresSiege = isRangedSiegePhase && isFortified;
-
-    // Count resistances for Resistance Break modifier
-    const resistances = enemy.definition.resistances;
-    const resistanceCount = resistances
-      ? (resistances.physical ? 1 : 0) +
-        (resistances.fire ? 1 : 0) +
-        (resistances.ice ? 1 : 0)
-      : 0;
-
-    // Use effective armor (after modifiers like Tremor)
-    const effectiveArmor = getEffectiveEnemyArmor(
-      state,
-      enemy.instanceId,
-      enemy.definition.armor,
-      resistanceCount
-    );
-
-    return {
-      enemyInstanceId: enemy.instanceId,
-      enemyName: enemy.definition.name,
-      enemyArmor: effectiveArmor,
-      isDefeated: enemy.isDefeated,
-      isFortified,
-      requiresSiege,
-    };
-  });
-}
+// NOTE: getAttackOptions was removed. Phase 3 will add computation for
+// incremental attack assignment (availableAttack, enemies, assignableAttacks, unassignableAttacks).
 
 /**
  * Get block options for block phase.

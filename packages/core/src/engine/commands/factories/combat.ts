@@ -12,6 +12,8 @@
  * - createDeclareBlockCommandFromAction - Declare block against enemy
  * - createDeclareAttackCommandFromAction - Declare attack against enemy
  * - createAssignDamageCommandFromAction - Assign unblocked damage
+ * - createAssignAttackCommandFromAction - Incrementally assign attack damage to enemy
+ * - createUnassignAttackCommandFromAction - Remove assigned attack damage from enemy
  */
 
 import type { CommandFactory } from "./types.js";
@@ -21,6 +23,8 @@ import {
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
+  ASSIGN_ATTACK_ACTION,
+  UNASSIGN_ATTACK_ACTION,
 } from "@mage-knight/shared";
 import {
   createEnterCombatCommand,
@@ -28,6 +32,8 @@ import {
   createDeclareBlockCommand,
   createDeclareAttackCommand,
   createAssignDamageCommand,
+  createAssignAttackCommand,
+  createUnassignAttackCommand,
 } from "../combat/index.js";
 
 /**
@@ -120,5 +126,47 @@ export const createAssignDamageCommandFromAction: CommandFactory = (
   return createAssignDamageCommand({
     playerId,
     enemyInstanceId: action.enemyInstanceId,
+  });
+};
+
+/**
+ * Assign attack command factory.
+ * Creates a command to incrementally assign attack damage to an enemy.
+ *
+ * Part of the incremental damage allocation system.
+ */
+export const createAssignAttackCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== ASSIGN_ATTACK_ACTION) return null;
+  return createAssignAttackCommand({
+    playerId,
+    enemyInstanceId: action.enemyInstanceId,
+    attackType: action.attackType,
+    element: action.element,
+    amount: action.amount,
+  });
+};
+
+/**
+ * Unassign attack command factory.
+ * Creates a command to remove assigned attack damage from an enemy.
+ *
+ * Part of the incremental damage allocation system.
+ */
+export const createUnassignAttackCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== UNASSIGN_ATTACK_ACTION) return null;
+  return createUnassignAttackCommand({
+    playerId,
+    enemyInstanceId: action.enemyInstanceId,
+    attackType: action.attackType,
+    element: action.element,
+    amount: action.amount,
   });
 };

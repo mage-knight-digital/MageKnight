@@ -34,7 +34,6 @@ import {
   ENEMY_PROWLERS,
   ENEMIES,
   ENEMY_CURSED_HAGS,
-  ENEMY_GUARDSMEN,
   ENEMY_WOLF_RIDERS,
   ENEMY_MEDUSA,
   ENEMY_ICE_DRAGON,
@@ -1649,50 +1648,8 @@ describe("Combat Phase 2", () => {
         );
       });
 
-      it("should return requiresSiege=true in validActions for Diggers", async () => {
-        let state = createTestGameState();
-
-        // Simulate DebugPanel: directly set combat state
-        const diggersDef = ENEMIES[ENEMY_DIGGERS];
-        state = {
-          ...state,
-          combat: {
-            phase: COMBAT_PHASE_RANGED_SIEGE,
-            enemies: [
-              {
-                instanceId: "enemy_0_debug",
-                enemyId: ENEMY_DIGGERS,
-                definition: diggersDef,
-                isBlocked: false,
-                isDefeated: false,
-                damageAssigned: false,
-              },
-            ],
-            woundsThisCombat: 0,
-            attacksThisPhase: 0,
-            fameGained: 0,
-            isAtFortifiedSite: false,
-            unitsAllowed: true,
-            nightManaRules: false,
-            assaultOrigin: null,
-            allDamageBlockedThisPhase: false,
-          },
-        };
-
-        // Import and call getValidActions
-        const { getValidActions } = await import("../validActions/index.js");
-        const validActions = getValidActions(state, "player1");
-
-        // Check that combat attacks for Diggers have requiresSiege=true
-        expect(validActions.combat).toBeDefined();
-        expect(validActions.combat?.attacks).toBeDefined();
-        expect(validActions.combat?.attacks?.length).toBe(1);
-
-        const diggersAttack = validActions.combat?.attacks?.[0];
-        expect(diggersAttack?.enemyInstanceId).toBe("enemy_0_debug");
-        expect(diggersAttack?.isFortified).toBe(true);
-        expect(diggersAttack?.requiresSiege).toBe(true);
-      });
+// TODO: Removed test for validActions.combat.attacks - this was the old legacy interface.
+      // Phase 3 will add tests for the new incremental attack assignment validActions fields.
 
       it("should reject siege attack when player only has ranged attack accumulated", () => {
         // This is the actual bug: player has ranged attack but client sends attackType: SIEGE

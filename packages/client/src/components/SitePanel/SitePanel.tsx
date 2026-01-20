@@ -577,6 +577,20 @@ export function SitePanel({
     }
   }, [isOpen]);
 
+  // Handle escape key to close panel
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Can render with either siteOptions (detailed) or hex.site (basic)
   const site = hex?.site;
   if (!shouldRender || (!siteOptions && !site)) {

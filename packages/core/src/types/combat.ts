@@ -27,6 +27,29 @@ export type { CombatPhase };
 // Combat attack type (method) - reuses shared CombatType
 export type CombatAttackType = CombatType;
 
+// Elemental damage values for pending damage assignment
+export interface PendingElementalDamage {
+  readonly physical: number;
+  readonly fire: number;
+  readonly ice: number;
+  readonly coldFire: number;
+}
+
+// Pending damage assigned to enemies (before resolution)
+export type PendingDamageMap = {
+  readonly [enemyInstanceId: string]: PendingElementalDamage;
+};
+
+// Helper to create empty pending elemental damage
+export function createEmptyPendingDamage(): PendingElementalDamage {
+  return {
+    physical: 0,
+    fire: 0,
+    ice: 0,
+    coldFire: 0,
+  };
+}
+
 // Enemy instance in combat (tracks state during fight)
 export interface CombatEnemy {
   readonly instanceId: string; // Unique ID for this combat instance
@@ -51,6 +74,7 @@ export interface CombatState {
   readonly assaultOrigin: HexCoord | null; // Where player was before assault (null if not assault)
   readonly allDamageBlockedThisPhase: boolean; // True if all enemy damage was blocked in block phase
   readonly discardEnemiesOnFailure: boolean; // true for dungeon/tomb (enemies discarded even on failed combat)
+  readonly pendingDamage: PendingDamageMap; // Damage assigned to enemies before resolution
 }
 
 // Options for special combat rules
@@ -104,5 +128,6 @@ export function createCombatState(
     assaultOrigin: options?.assaultOrigin ?? null,
     allDamageBlockedThisPhase: false,
     discardEnemiesOnFailure: options?.discardEnemiesOnFailure ?? false,
+    pendingDamage: {},
   };
 }

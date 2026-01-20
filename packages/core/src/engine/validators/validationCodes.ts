@@ -79,6 +79,10 @@ export const DAMAGE_NOT_ASSIGNED = "DAMAGE_NOT_ASSIGNED" as const;
 export const FORTIFIED_NEEDS_SIEGE = "FORTIFIED_NEEDS_SIEGE" as const;
 export const NO_SIEGE_ATTACK_ACCUMULATED = "NO_SIEGE_ATTACK_ACCUMULATED" as const;
 export const ALREADY_COMBATTED = "ALREADY_COMBATTED" as const;
+// Incremental attack assignment validation codes
+export const INSUFFICIENT_ATTACK = "INSUFFICIENT_ATTACK" as const;
+export const NOTHING_TO_UNASSIGN = "NOTHING_TO_UNASSIGN" as const;
+export const INVALID_ASSIGNMENT_AMOUNT = "INVALID_ASSIGNMENT_AMOUNT" as const;
 
 // Unit validation codes
 export const NO_COMMAND_SLOTS = "NO_COMMAND_SLOTS" as const;
@@ -213,6 +217,9 @@ export type ValidationErrorCode =
   | typeof FORTIFIED_NEEDS_SIEGE
   | typeof NO_SIEGE_ATTACK_ACCUMULATED
   | typeof ALREADY_COMBATTED
+  | typeof INSUFFICIENT_ATTACK
+  | typeof NOTHING_TO_UNASSIGN
+  | typeof INVALID_ASSIGNMENT_AMOUNT
   // Unit validation
   | typeof NO_COMMAND_SLOTS
   | typeof INSUFFICIENT_INFLUENCE

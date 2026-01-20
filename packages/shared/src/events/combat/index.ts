@@ -46,7 +46,7 @@ export * from "./resolution.js";
 import { COMBAT_TRIGGERED, COMBAT_STARTED } from "./initiation.js";
 import { COMBAT_PHASE_CHANGED } from "./phases.js";
 import { ENEMY_BLOCKED, BLOCK_FAILED } from "./blocking.js";
-import { ENEMY_DEFEATED, ATTACK_FAILED } from "./attacks.js";
+import { ENEMY_DEFEATED, ATTACK_FAILED, ATTACK_ASSIGNED, ATTACK_UNASSIGNED } from "./attacks.js";
 import {
   DAMAGE_ASSIGNED,
   COMBAT_ENDED,
@@ -67,6 +67,8 @@ export function isCombatEvent(event: { type: string }): boolean {
     BLOCK_FAILED,
     ENEMY_DEFEATED,
     ATTACK_FAILED,
+    ATTACK_ASSIGNED,
+    ATTACK_UNASSIGNED,
     DAMAGE_ASSIGNED,
     COMBAT_ENDED,
     COMBAT_EXITED,

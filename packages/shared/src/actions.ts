@@ -280,6 +280,30 @@ export const DECLARE_BLOCK_ACTION = "DECLARE_BLOCK" as const;
 export const DECLARE_ATTACK_ACTION = "DECLARE_ATTACK" as const;
 export const ASSIGN_DAMAGE_ACTION = "ASSIGN_DAMAGE" as const;
 
+// Incremental attack assignment actions
+export const ASSIGN_ATTACK_ACTION = "ASSIGN_ATTACK" as const;
+export const UNASSIGN_ATTACK_ACTION = "UNASSIGN_ATTACK" as const;
+
+// Attack type for incremental assignment
+export const ATTACK_TYPE_RANGED = "ranged" as const;
+export const ATTACK_TYPE_SIEGE = "siege" as const;
+export const ATTACK_TYPE_MELEE = "melee" as const;
+export type AttackType =
+  | typeof ATTACK_TYPE_RANGED
+  | typeof ATTACK_TYPE_SIEGE
+  | typeof ATTACK_TYPE_MELEE;
+
+// Element type for incremental assignment
+export const ATTACK_ELEMENT_PHYSICAL = "physical" as const;
+export const ATTACK_ELEMENT_FIRE = "fire" as const;
+export const ATTACK_ELEMENT_ICE = "ice" as const;
+export const ATTACK_ELEMENT_COLD_FIRE = "coldFire" as const;
+export type AttackElement =
+  | typeof ATTACK_ELEMENT_PHYSICAL
+  | typeof ATTACK_ELEMENT_FIRE
+  | typeof ATTACK_ELEMENT_ICE
+  | typeof ATTACK_ELEMENT_COLD_FIRE;
+
 // Enter combat with specified enemies
 export interface EnterCombatAction {
   readonly type: typeof ENTER_COMBAT_ACTION;
@@ -340,6 +364,24 @@ export interface AssignDamageAction {
   readonly assignments?: readonly DamageAssignment[]; // If not provided, all damage goes to hero
 }
 
+// Incrementally assign attack damage to an enemy (for new allocation system)
+export interface AssignAttackAction {
+  readonly type: typeof ASSIGN_ATTACK_ACTION;
+  readonly enemyInstanceId: string;
+  readonly attackType: AttackType;
+  readonly element: AttackElement;
+  readonly amount: number; // Usually 1 for AI, can be more for UI batching
+}
+
+// Remove assigned attack damage from an enemy (for new allocation system)
+export interface UnassignAttackAction {
+  readonly type: typeof UNASSIGN_ATTACK_ACTION;
+  readonly enemyInstanceId: string;
+  readonly attackType: AttackType;
+  readonly element: AttackElement;
+  readonly amount: number;
+}
+
 export type PlayerAction =
   // Movement
   | MoveAction
@@ -389,6 +431,9 @@ export type PlayerAction =
   | EndCombatPhaseAction
   | DeclareBlockAction
   | DeclareAttackAction
-  | AssignDamageAction;
+  | AssignDamageAction
+  // Incremental attack assignment
+  | AssignAttackAction
+  | UnassignAttackAction;
 
 export type PlayerActionType = PlayerAction["type"];

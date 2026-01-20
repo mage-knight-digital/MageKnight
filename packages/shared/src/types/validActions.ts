@@ -8,7 +8,7 @@
 import type { HexCoord, HexDirection } from "../hex.js";
 import type { CardId, ManaColor, BasicManaColor } from "../ids.js";
 import type { TacticId } from "../tactics.js";
-import type { RestType } from "../actions.js";
+import type { RestType, AttackType, AttackElement } from "../actions.js";
 import type { CombatPhase } from "../combatPhases.js";
 import type {
   PLAY_SIDEWAYS_AS_ATTACK,
@@ -167,23 +167,23 @@ export interface CombatOptions {
   readonly phase: CombatPhase;
   readonly canEndPhase: boolean;
 
-  /** Attack options (RANGED_SIEGE or ATTACK phase) */
-  readonly attacks?: readonly AttackOption[];
-
   /** Block options (BLOCK phase) */
   readonly blocks?: readonly BlockOption[];
 
   /** Damage assignment options (ASSIGN_DAMAGE phase) */
   readonly damageAssignments?: readonly DamageAssignmentOption[];
-}
 
-export interface AttackOption {
-  readonly enemyInstanceId: string;
-  readonly enemyName: string;
-  readonly enemyArmor: number;
-  readonly isDefeated: boolean;
-  readonly isFortified: boolean;
-  readonly requiresSiege: boolean;
+  /** Available attack pool (what player can still assign) */
+  readonly availableAttack?: AvailableAttackPool;
+
+  /** Enemy states with pending damage (for incremental allocation) */
+  readonly enemies?: readonly EnemyAttackState[];
+
+  /** Valid attack assignment actions */
+  readonly assignableAttacks?: readonly AssignAttackOption[];
+
+  /** Valid attack unassignment actions */
+  readonly unassignableAttacks?: readonly UnassignAttackOption[];
 }
 
 export interface BlockOption {
@@ -200,6 +200,79 @@ export interface DamageAssignmentOption {
   readonly enemyInstanceId: string;
   readonly enemyName: string;
   readonly unassignedDamage: number;
+}
+
+// ============================================================================
+// Incremental Attack Assignment (new system)
+// ============================================================================
+
+/** Elemental damage values for pending/effective damage */
+export interface ElementalDamageValues {
+  readonly physical: number;
+  readonly fire: number;
+  readonly ice: number;
+  readonly coldFire: number;
+}
+
+/** Available attack pool by type and element */
+export interface AvailableAttackPool {
+  // Base (physical) attack by type
+  readonly ranged: number;
+  readonly siege: number;
+  readonly melee: number;
+  // Elemental attack by type
+  readonly fireRanged: number;
+  readonly fireSiege: number;
+  readonly fireMelee: number;
+  readonly iceRanged: number;
+  readonly iceSiege: number;
+  readonly iceMelee: number;
+  readonly coldFireMelee: number;
+}
+
+/** Enemy state with pending damage for incremental allocation */
+export interface EnemyAttackState {
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+  readonly armor: number;
+  readonly isDefeated: boolean;
+  readonly isFortified: boolean;
+  readonly requiresSiege: boolean; // In ranged/siege phase
+
+  /** Raw pending damage (what's been assigned, before resistances) */
+  readonly pendingDamage: ElementalDamageValues;
+
+  /** Effective pending damage (after resistances applied by server) */
+  readonly effectiveDamage: ElementalDamageValues;
+
+  /** Total effective damage (sum of effectiveDamage) */
+  readonly totalEffectiveDamage: number;
+
+  /** Can this enemy be defeated with current pending damage? */
+  readonly canDefeat: boolean;
+
+  /** Enemy resistances (for UI to show warnings) */
+  readonly resistances: {
+    readonly physical: boolean;
+    readonly fire: boolean;
+    readonly ice: boolean;
+  };
+}
+
+/** A single valid attack assignment action */
+export interface AssignAttackOption {
+  readonly enemyInstanceId: string;
+  readonly attackType: AttackType;
+  readonly element: AttackElement;
+  readonly amount: number;
+}
+
+/** A single valid attack unassignment action */
+export interface UnassignAttackOption {
+  readonly enemyInstanceId: string;
+  readonly attackType: AttackType;
+  readonly element: AttackElement;
+  readonly amount: number;
 }
 
 // ============================================================================

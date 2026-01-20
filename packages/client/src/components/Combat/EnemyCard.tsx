@@ -5,7 +5,18 @@
  */
 
 import { useState, useRef } from "react";
-import type { ClientCombatEnemy, BlockOption, DamageAssignmentOption, AttackOption, EnemyId, EnemyAbilityType } from "@mage-knight/shared";
+import type { ClientCombatEnemy, BlockOption, DamageAssignmentOption, EnemyId } from "@mage-knight/shared";
+
+// Temporary placeholder for AttackOption until Phase 5 UI migration
+// Phase 5 will use the new EnemyAttackState from incremental allocation
+interface LegacyAttackOption {
+  enemyInstanceId: string;
+  enemyName: string;
+  enemyArmor: number;
+  isDefeated: boolean;
+  isFortified: boolean;
+  requiresSiege: boolean;
+}
 import { EnemyDetailPanel } from "./EnemyDetailPanel";
 import "./EnemyCard.css";
 
@@ -26,7 +37,7 @@ interface EnemyCardProps {
   damageOption?: DamageAssignmentOption;
   onAssignDamage?: (enemyInstanceId: string) => void;
   isAttackPhase?: boolean;
-  attackOption?: AttackOption;
+  attackOption?: LegacyAttackOption;
   accumulatedAttack?: number;
   accumulatedSiege?: number;
   accumulatedRangedSiege?: number;
@@ -59,7 +70,7 @@ export function EnemyCard({
   isStriking = false,
   strikeKey,
   hasAttacked = false,
-  isAtFortifiedSite = false,
+  isAtFortifiedSite: _isAtFortifiedSite = false, // Unused until Phase 5 UI migration
 }: EnemyCardProps) {
   // Detail panel state (click to show)
   const [showDetailPanel, setShowDetailPanel] = useState(false);

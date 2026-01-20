@@ -179,9 +179,15 @@ export type {
   SidewaysAs,
   SidewaysOption,
   CombatOptions,
-  AttackOption,
   BlockOption,
   DamageAssignmentOption,
+  // Incremental attack allocation types
+  ElementalDamageValues,
+  AvailableAttackPool,
+  EnemyAttackState,
+  AssignAttackOption,
+  UnassignAttackOption,
+  // Units
   UnitOptions,
   RecruitableUnit,
   ActivatableUnit,

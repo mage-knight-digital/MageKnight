@@ -65,6 +65,7 @@ export interface AccumulatedAttack {
 
 export interface CombatAccumulator {
   readonly attack: AccumulatedAttack;
+  readonly assignedAttack: AccumulatedAttack; // Attack that has been assigned to enemies (pending resolution)
   readonly block: number;
   readonly blockElements: ElementalAttackValues;
   readonly blockSources: readonly BlockSource[];
@@ -80,17 +81,23 @@ export function createEmptyElementalValues(): ElementalAttackValues {
   };
 }
 
+// Helper to create empty accumulated attack
+export function createEmptyAccumulatedAttack(): AccumulatedAttack {
+  return {
+    normal: 0,
+    ranged: 0,
+    siege: 0,
+    normalElements: createEmptyElementalValues(),
+    rangedElements: createEmptyElementalValues(),
+    siegeElements: createEmptyElementalValues(),
+  };
+}
+
 // Helper to create empty combat accumulator
 export function createEmptyCombatAccumulator(): CombatAccumulator {
   return {
-    attack: {
-      normal: 0,
-      ranged: 0,
-      siege: 0,
-      normalElements: createEmptyElementalValues(),
-      rangedElements: createEmptyElementalValues(),
-      siegeElements: createEmptyElementalValues(),
-    },
+    attack: createEmptyAccumulatedAttack(),
+    assignedAttack: createEmptyAccumulatedAttack(),
     block: 0,
     blockElements: createEmptyElementalValues(),
     blockSources: [],
