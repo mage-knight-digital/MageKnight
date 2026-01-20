@@ -47,11 +47,10 @@
   }
 }
 
-/* Main layout - 2 columns: phase rail | battle */
+/* Main layout - phase rail overlaid on left, battle area full width */
 .combat-scene__layout {
   flex: 1;
-  display: grid;
-  grid-template-columns: auto 1fr;
+  display: flex;
   min-height: 0;
   pointer-events: none;
   position: relative;
@@ -62,33 +61,57 @@
   pointer-events: auto;
 }
 
-/* Left column - phase rail */
+/* Left column - phase rail positioned absolutely so it doesn't affect centering */
 .combat-scene__phase-rail {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   pointer-events: auto;
+  z-index: 150;
 }
 
-/* Mana Source - in the battle area */
+/* Mana Source - positioned top right corner */
 .combat-scene__mana-source {
+  position: fixed;
+  top: 0.75rem;
+  right: 1rem;
   pointer-events: auto;
-  margin-bottom: 1.5rem;
+  z-index: 200;
 }
 
 /* Override mana source styles for combat */
 .combat-scene__mana-source .mana-source-overlay {
-  position: relative;
-  top: auto;
-  right: auto;
-  background: rgba(10, 10, 25, 0.9);
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  /* Force visible - override intro animation states */
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+  background: rgba(10, 10, 25, 0.95);
   border: 1px solid rgba(255, 215, 0, 0.3);
   border-radius: 8px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
+.combat-scene__mana-source .mana-source-overlay__dice {
+  gap: 0.3rem;
+}
+
 .combat-scene__mana-source .mana-source-overlay__die {
-  width: clamp(2.5rem, 4vw, 3.5rem);
-  height: clamp(2.5rem, 4vw, 3.5rem);
+  width: clamp(1.8rem, 3vw, 2.5rem);
+  height: clamp(1.8rem, 3vw, 2.5rem);
+  /* Force visible */
+  opacity: 1 !important;
+  animation: none !important;
+}
+
+.combat-scene__mana-source .mana-source-overlay__label {
+  font-size: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 @keyframes combat-flash {
@@ -180,13 +203,16 @@
   pointer-events: auto;
 }
 
-/* Battlefield - center column where enemies appear */
+/* Battlefield - full width, enemies centered */
 .combat-scene__battlefield {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 1rem 2rem;
+  /* Leave space at bottom for hand cards */
+  padding-bottom: clamp(200px, 26vh, 280px);
   pointer-events: none;
   position: relative;
 }
@@ -228,16 +254,21 @@
   flex-wrap: wrap;
 }
 
-/* Accumulator HUD */
+/* Accumulator HUD - fixed position above hand cards */
 .combat-hud__accumulator {
+  position: fixed;
+  bottom: clamp(180px, 25vh, 280px); /* Stay above the hand cards */
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(0, 0, 0, 0.7);
+  padding: 0.5rem 1.25rem;
+  background: rgba(0, 0, 0, 0.85);
   border-radius: 8px;
   border: 2px solid;
+  z-index: 150; /* Above hand cards */
+  backdrop-filter: blur(4px);
 }
 
 .combat-hud__accumulator--attack {
@@ -251,17 +282,111 @@
 }
 
 .combat-hud__accumulator-value {
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 4vw, 2rem);
   font-weight: 700;
   color: #fff;
   line-height: 1;
 }
 
 .combat-hud__accumulator-label {
-  font-size: 0.75rem;
+  font-size: clamp(0.6rem, 1.5vw, 0.75rem);
   font-weight: 600;
   color: #888;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+
+/* Elemental breakdown display */
+.combat-hud__elements {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.combat-hud__element {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.combat-hud__element--physical {
+  color: #bdc3c7;
+}
+
+.combat-hud__element--fire {
+  color: #ff6b35;
+  background: rgba(255, 107, 53, 0.2);
+}
+
+.combat-hud__element--ice {
+  color: #5dade2;
+  background: rgba(93, 173, 226, 0.2);
+}
+
+.combat-hud__element--coldFire {
+  color: #9b59b6;
+  background: rgba(155, 89, 182, 0.2);
+}
+
+.combat-hud__element--halved {
+  opacity: 0.7;
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+}
+
+.combat-hud__halved-note {
+  font-size: 0.7rem;
+  color: #f39c12;
+  margin-left: 0.2rem;
+  text-decoration: none !important;
+}
+
+.combat-hud__resistance-warning {
+  margin-top: 0.5rem;
+  font-size: 0.65rem;
+  color: #f39c12;
+  text-align: center;
+}
+
+/* Split Ranged/Siege display */
+.combat-hud__accumulator--split {
+  flex-direction: row;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+}
+
+.combat-hud__attack-type {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 50px;
+}
+
+.combat-hud__attack-type--warning .combat-hud__accumulator-value {
+  color: #e74c3c;
+}
+
+.combat-hud__attack-type--warning .combat-hud__accumulator-label {
+  color: #e74c3c;
+}
+
+.combat-hud__attack-divider {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.combat-hud__siege-hint {
+  font-size: 0.55rem;
+  color: #e74c3c;
+  margin-top: 0.15rem;
+  white-space: nowrap;
 }
 

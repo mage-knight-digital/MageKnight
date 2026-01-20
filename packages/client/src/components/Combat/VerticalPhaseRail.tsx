@@ -20,12 +20,32 @@ interface VerticalPhaseRailProps {
   onEndPhase: () => void;
 }
 
-// Combat icons - thematic, not numbered checkout steps
-const PHASES: { id: CombatPhase; label: string; icon: string }[] = [
-  { id: COMBAT_PHASE_RANGED_SIEGE, label: "Ranged", icon: "🏹" },
-  { id: COMBAT_PHASE_BLOCK, label: "Block", icon: "🛡️" },
-  { id: COMBAT_PHASE_ASSIGN_DAMAGE, label: "Damage", icon: "💀" },
-  { id: COMBAT_PHASE_ATTACK, label: "Attack", icon: "⚔️" },
+// Combat icons with instructions - thematic, not numbered checkout steps
+const PHASES: { id: CombatPhase; label: string; icon: string; instruction: string }[] = [
+  {
+    id: COMBAT_PHASE_RANGED_SIEGE,
+    label: "Ranged",
+    icon: "🏹",
+    instruction: "Strike from afar before enemies close in"
+  },
+  {
+    id: COMBAT_PHASE_BLOCK,
+    label: "Block",
+    icon: "🛡️",
+    instruction: "Defend against enemy attacks"
+  },
+  {
+    id: COMBAT_PHASE_ASSIGN_DAMAGE,
+    label: "Damage",
+    icon: "💀",
+    instruction: "Unblocked enemies deal damage"
+  },
+  {
+    id: COMBAT_PHASE_ATTACK,
+    label: "Attack",
+    icon: "⚔️",
+    instruction: "Finish off remaining enemies"
+  },
 ];
 
 export function VerticalPhaseRail({
@@ -35,9 +55,17 @@ export function VerticalPhaseRail({
 }: VerticalPhaseRailProps) {
   const currentIndex = PHASES.findIndex((p) => p.id === currentPhase);
   const isLastPhase = currentPhase === COMBAT_PHASE_ATTACK;
+  const activePhase = PHASES.find((p) => p.id === currentPhase);
 
   return (
     <div className="vertical-phase-rail" role="navigation" aria-label="Combat phases">
+      {/* Phase instruction - explains what to do */}
+      {activePhase && (
+        <div className="vertical-phase-rail__instruction">
+          {activePhase.instruction}
+        </div>
+      )}
+
       {/* Phase markers - icons, not checkout steps */}
       <div className="vertical-phase-rail__track">
         {PHASES.map((phase, index) => {

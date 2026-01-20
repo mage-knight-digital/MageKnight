@@ -76,3 +76,50 @@ export const PHYSICAL_ICE_RESISTANCE: EnemyResistances = {
   fire: false,
   ice: true,
 };
+
+// =============================================================================
+// RESISTANCE DESCRIPTIONS (Rulebook text)
+// =============================================================================
+
+/**
+ * Resistance type for description lookup
+ */
+export type ResistanceType = "physical" | "fire" | "ice";
+
+/**
+ * Resistance description for UI display
+ */
+export interface ResistanceDescription {
+  readonly name: string;
+  /** Icon for visual display */
+  readonly icon: string;
+  /** Full rulebook description */
+  readonly fullDesc: string;
+  /** What counters this resistance */
+  readonly counter: string;
+}
+
+/**
+ * Descriptions for resistance types.
+ * Source: Mage Knight Ultimate Edition Rulebook
+ */
+export const RESISTANCE_DESCRIPTIONS: Record<ResistanceType, ResistanceDescription> = {
+  physical: {
+    name: "Physical Resistance",
+    icon: "🛡️",
+    fullDesc: "All physical Attacks (including cards played sideways) are inefficient – their Attack value is halved.",
+    counter: "Use Fire, Ice, or ColdFire attacks for full damage.",
+  },
+  fire: {
+    name: "Fire Resistance",
+    icon: "🔥",
+    fullDesc: "All Fire Attacks are inefficient – their Attack value is halved.",
+    counter: "Use Physical, Ice, or ColdFire attacks for full damage.",
+  },
+  ice: {
+    name: "Ice Resistance",
+    icon: "❄️",
+    fullDesc: "All Ice Attacks are inefficient – their Attack value is halved.",
+    counter: "Use Physical, Fire, or ColdFire attacks for full damage.",
+  },
+};

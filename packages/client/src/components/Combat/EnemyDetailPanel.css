@@ -1,0 +1,219 @@
+/* Enemy Detail Panel - Full rulebook details on click */
+
+.enemy-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  animation: backdrop-fade-in 0.2s ease-out;
+}
+
+@keyframes backdrop-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.enemy-detail-panel {
+  width: min(90vw, 400px);
+  max-height: 80vh;
+  overflow-y: auto;
+  background: linear-gradient(
+    135deg,
+    rgba(30, 25, 40, 0.98) 0%,
+    rgba(20, 18, 30, 0.98) 100%
+  );
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(255, 215, 0, 0.1);
+  animation: panel-slide-in 0.25s ease-out;
+}
+
+@keyframes panel-slide-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Header */
+.enemy-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.enemy-detail-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffd700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.enemy-detail-close {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: #888;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.enemy-detail-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Stats row */
+.enemy-detail-stats {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.enemy-detail-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.enemy-detail-stat-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+}
+
+.enemy-detail-stat-value {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.enemy-detail-stat-element {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #ff6b35;
+  padding: 0.1rem 0.3rem;
+  background: rgba(255, 107, 53, 0.2);
+  border-radius: 3px;
+}
+
+/* Sections */
+.enemy-detail-section {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.enemy-detail-section:last-child {
+  border-bottom: none;
+}
+
+.enemy-detail-section-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 215, 0, 0.8);
+}
+
+/* Rules text */
+.enemy-detail-rule {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #ddd;
+}
+
+.enemy-detail-tip {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: #27ae60;
+}
+
+.enemy-detail-note {
+  margin: 0;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #888;
+}
+
+/* Abilities */
+.enemy-detail-ability {
+  margin-bottom: 1rem;
+}
+
+.enemy-detail-ability:last-child {
+  margin-bottom: 0;
+}
+
+.enemy-detail-ability-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.enemy-detail-ability-icon {
+  font-size: 1.1rem;
+}
+
+.enemy-detail-ability-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* Resistances */
+.enemy-detail-resistance {
+  margin-bottom: 1rem;
+}
+
+.enemy-detail-resistance:last-child {
+  margin-bottom: 0;
+}
+
+.enemy-detail-resistance-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.enemy-detail-resistance-icon {
+  font-size: 1.1rem;
+}
+
+.enemy-detail-resistance-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+}

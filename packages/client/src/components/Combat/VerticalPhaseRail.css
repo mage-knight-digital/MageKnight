@@ -7,13 +7,40 @@
   gap: clamp(0.5rem, 1vh, 1rem);
   padding: clamp(1rem, 2vw, 2rem);
   background: none;
-  min-width: clamp(80px, 8vw, 140px);
+  min-width: clamp(80px, 8vw, 180px);
   /* Vertical rule of thirds - center in middle 2/3 */
   height: 66vh;
   margin-top: auto;
   margin-bottom: auto;
   justify-content: center;
   pointer-events: auto;
+}
+
+/* Phase instruction - explains what to do in current phase */
+.vertical-phase-rail__instruction {
+  max-width: clamp(120px, 12vw, 180px);
+  padding: clamp(0.5rem, 1vh, 0.75rem) clamp(0.75rem, 1.5vw, 1rem);
+  font-size: clamp(0.65rem, 0.9vw, 0.8rem);
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1.4;
+  color: rgba(255, 215, 0, 0.9);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-left: 2px solid rgba(255, 215, 0, 0.5);
+  border-radius: 0 4px 4px 0;
+  animation: instruction-fade-in 0.4s ease-out;
+}
+
+@keyframes instruction-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* Phase track - vertical stack of icons */

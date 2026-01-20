@@ -88,6 +88,21 @@ interface CombatOverlayProps {
 }
 
 
+// Element icons for display
+const ELEMENT_ICONS: Record<string, string> = {
+  fire: "🔥",
+  ice: "❄️",
+  coldFire: "💜",
+  physical: "⚔️",
+};
+
+interface ElementBreakdown {
+  fire: number;
+  ice: number;
+  coldFire: number;
+  physical: number;
+}
+
 function AccumulatorDisplay() {
   const player = useMyPlayer();
   const { state } = useGame();
@@ -100,23 +115,127 @@ function AccumulatorDisplay() {
   // Show attack accumulator in ranged/siege phase or attack phase
   if (phase === COMBAT_PHASE_RANGED_SIEGE || phase === COMBAT_PHASE_ATTACK) {
     const { attack } = acc;
+    const isRangedSiege = phase === COMBAT_PHASE_RANGED_SIEGE;
+
     const totalRanged = attack.ranged + attack.rangedElements.fire + attack.rangedElements.ice;
     const totalSiege = attack.siege + attack.siegeElements.fire + attack.siegeElements.ice;
     const totalNormal = attack.normal + attack.normalElements.fire + attack.normalElements.ice + attack.normalElements.coldFire + attack.normalElements.physical;
 
-    const isRangedSiege = phase === COMBAT_PHASE_RANGED_SIEGE;
     const relevantAttack = isRangedSiege
       ? totalRanged + totalSiege
       : totalNormal + totalRanged + totalSiege;
 
     if (relevantAttack === 0) return null;
 
+    // Check if any living enemies are fortified (need siege to hit in ranged phase)
+    const combat = state.combat;
+    const hasFortifiedEnemy = combat.enemies.some(e =>
+      !e.isDefeated && (e.abilities.includes("fortified") || combat.isAtFortifiedSite)
+    );
+
+    // In ranged/siege phase, show Ranged and Siege separately when:
+    // - There are fortified enemies (so player knows they need siege)
+    // - Or player has both types (so they understand what they have)
+    const showSeparateRangedSiege = isRangedSiege && (hasFortifiedEnemy || (totalRanged > 0 && totalSiege > 0));
+
+    // Check if any enemies have resistances that would halve some of our attack
+    const hasFireResistantEnemy = state.combat.enemies.some(e => e.resistances.fire && !e.isDefeated);
+    const hasIceResistantEnemy = state.combat.enemies.some(e => e.resistances.ice && !e.isDefeated);
+
+    // Calculate elemental breakdown for display
+    const elements: ElementBreakdown = {
+      fire: attack.normalElements.fire + attack.rangedElements.fire + attack.siegeElements.fire,
+      ice: attack.normalElements.ice + attack.rangedElements.ice + attack.siegeElements.ice,
+      coldFire: attack.normalElements.coldFire,
+      physical: attack.normal + attack.ranged + attack.siege + attack.normalElements.physical,
+    };
+    const showElementBreakdown = elements.fire > 0 || elements.ice > 0 || elements.coldFire > 0;
+
+    // Ranged/Siege phase with separate display
+    if (showSeparateRangedSiege) {
+      return (
+        <div className="combat-hud__accumulator combat-hud__accumulator--attack combat-hud__accumulator--split">
+          {/* Ranged section */}
+          <div className="combat-hud__attack-type">
+            <span className="combat-hud__accumulator-value">{totalRanged}</span>
+            <span className="combat-hud__accumulator-label">Ranged</span>
+          </div>
+
+          <div className="combat-hud__attack-divider" />
+
+          {/* Siege section - highlight if fortified enemies present */}
+          <div className={`combat-hud__attack-type ${hasFortifiedEnemy && totalSiege === 0 ? "combat-hud__attack-type--warning" : ""}`}>
+            <span className="combat-hud__accumulator-value">{totalSiege}</span>
+            <span className="combat-hud__accumulator-label">Siege</span>
+            {hasFortifiedEnemy && totalSiege === 0 && (
+              <span className="combat-hud__siege-hint">needed for 🏰</span>
+            )}
+          </div>
+
+          {/* Elemental breakdown */}
+          {showElementBreakdown && (
+            <div className="combat-hud__elements">
+              {elements.fire > 0 && (
+                <span className={`combat-hud__element combat-hud__element--fire ${hasFireResistantEnemy ? "combat-hud__element--halved" : ""}`}>
+                  {ELEMENT_ICONS["fire"]} {elements.fire}
+                  {hasFireResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.fire / 2)}</span>}
+                </span>
+              )}
+              {elements.ice > 0 && (
+                <span className={`combat-hud__element combat-hud__element--ice ${hasIceResistantEnemy ? "combat-hud__element--halved" : ""}`}>
+                  {ELEMENT_ICONS["ice"]} {elements.ice}
+                  {hasIceResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.ice / 2)}</span>}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Standard single-value display (attack phase or no fortified enemies)
     return (
       <div className="combat-hud__accumulator combat-hud__accumulator--attack">
         <span className="combat-hud__accumulator-value">{relevantAttack}</span>
         <span className="combat-hud__accumulator-label">
-          {isRangedSiege ? "Ranged/Siege" : "Attack"}
+          {isRangedSiege ? "Ranged" : "Attack"}
         </span>
+
+        {/* Elemental breakdown */}
+        {showElementBreakdown && (
+          <div className="combat-hud__elements">
+            {elements.physical > 0 && (
+              <span className="combat-hud__element combat-hud__element--physical">
+                {ELEMENT_ICONS["physical"]} {elements.physical}
+              </span>
+            )}
+            {elements.fire > 0 && (
+              <span className={`combat-hud__element combat-hud__element--fire ${hasFireResistantEnemy ? "combat-hud__element--halved" : ""}`}>
+                {ELEMENT_ICONS["fire"]} {elements.fire}
+                {hasFireResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.fire / 2)}</span>}
+              </span>
+            )}
+            {elements.ice > 0 && (
+              <span className={`combat-hud__element combat-hud__element--ice ${hasIceResistantEnemy ? "combat-hud__element--halved" : ""}`}>
+                {ELEMENT_ICONS["ice"]} {elements.ice}
+                {hasIceResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.ice / 2)}</span>}
+              </span>
+            )}
+            {elements.coldFire > 0 && (
+              <span className={`combat-hud__element combat-hud__element--coldFire ${hasFireResistantEnemy && hasIceResistantEnemy ? "combat-hud__element--halved" : ""}`}>
+                {ELEMENT_ICONS["coldFire"]} {elements.coldFire}
+                {hasFireResistantEnemy && hasIceResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.coldFire / 2)}</span>}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Resistance warning */}
+        {(hasFireResistantEnemy && elements.fire > 0) || (hasIceResistantEnemy && elements.ice > 0) ? (
+          <div className="combat-hud__resistance-warning">
+            ⚠️ Some enemies resist elemental attacks
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -125,10 +244,40 @@ function AccumulatorDisplay() {
   if (phase === COMBAT_PHASE_BLOCK) {
     if (acc.block === 0) return null;
 
+    // Get elemental block breakdown
+    const blockElements = acc.blockElements;
+    const hasElementalBlock = blockElements.fire > 0 || blockElements.ice > 0 || blockElements.coldFire > 0;
+
     return (
       <div className="combat-hud__accumulator combat-hud__accumulator--block">
         <span className="combat-hud__accumulator-value">{acc.block}</span>
         <span className="combat-hud__accumulator-label">Block</span>
+
+        {/* Elemental block breakdown */}
+        {hasElementalBlock && (
+          <div className="combat-hud__elements">
+            {blockElements.physical > 0 && (
+              <span className="combat-hud__element combat-hud__element--physical">
+                {ELEMENT_ICONS["physical"]} {blockElements.physical}
+              </span>
+            )}
+            {blockElements.fire > 0 && (
+              <span className="combat-hud__element combat-hud__element--fire">
+                {ELEMENT_ICONS["fire"]} {blockElements.fire}
+              </span>
+            )}
+            {blockElements.ice > 0 && (
+              <span className="combat-hud__element combat-hud__element--ice">
+                {ELEMENT_ICONS["ice"]} {blockElements.ice}
+              </span>
+            )}
+            {blockElements.coldFire > 0 && (
+              <span className="combat-hud__element combat-hud__element--coldFire">
+                {ELEMENT_ICONS["coldFire"]} {blockElements.coldFire}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -243,9 +392,24 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
   // Get accumulated values for passing to enemy cards
   const accumulatedBlock = player?.combatAccumulator.block ?? 0;
   const attackAcc = player?.combatAccumulator.attack;
+
+  // Calculate total attack (for normal attack phase)
   const accumulatedAttack = attackAcc
     ? attackAcc.normal + attackAcc.ranged + attackAcc.siege +
       attackAcc.normalElements.fire + attackAcc.normalElements.ice + attackAcc.normalElements.coldFire + attackAcc.normalElements.physical +
+      attackAcc.rangedElements.fire + attackAcc.rangedElements.ice +
+      attackAcc.siegeElements.fire + attackAcc.siegeElements.ice
+    : 0;
+
+  // Calculate siege-only attack (for fortified enemies in ranged/siege phase)
+  // Only siege attacks can defeat fortified enemies
+  const accumulatedSiege = attackAcc
+    ? attackAcc.siege + attackAcc.siegeElements.fire + attackAcc.siegeElements.ice
+    : 0;
+
+  // Calculate ranged + siege attack (for ranged/siege phase against non-fortified)
+  const accumulatedRangedSiege = attackAcc
+    ? attackAcc.ranged + attackAcc.siege +
       attackAcc.rangedElements.fire + attackAcc.rangedElements.ice +
       attackAcc.siegeElements.fire + attackAcc.siegeElements.ice
     : 0;
@@ -337,6 +501,8 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
                   isAttackPhase={isAttackPhase || isRangedSiegePhase}
                   attackOption={attackOption}
                   accumulatedAttack={accumulatedAttack}
+                  accumulatedSiege={accumulatedSiege}
+                  accumulatedRangedSiege={accumulatedRangedSiege}
                   onAssignAttack={(id) => {
                     triggerEffect("attack");
                     // TODO: This needs more info - attack sources and type
@@ -347,6 +513,7 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
                   isStriking={isStriking}
                   strikeKey={strikeKey}
                   hasAttacked={hasAttacked}
+                  isAtFortifiedSite={combat.isAtFortifiedSite}
                 />
               );
             })}

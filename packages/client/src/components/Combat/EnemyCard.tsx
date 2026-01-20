@@ -1,80 +1,17 @@
 /**
  * EnemyCard - Displays a single enemy during combat using token artwork
  *
- * Hover shows a tooltip with stats and abilities.
+ * Click shows full rulebook details panel.
  */
 
 import { useState, useRef } from "react";
-import { createPortal } from "react-dom";
 import type { ClientCombatEnemy, BlockOption, DamageAssignmentOption, AttackOption, EnemyId, EnemyAbilityType } from "@mage-knight/shared";
-import { ABILITY_DESCRIPTIONS } from "@mage-knight/shared";
+import { EnemyDetailPanel } from "./EnemyDetailPanel";
 import "./EnemyCard.css";
 
 // Get enemy token image URL
 function getEnemyImageUrl(enemyId: EnemyId): string {
   return `/assets/enemies/${enemyId}.jpg`;
-}
-
-// Element display names
-const ELEMENT_NAMES: Record<string, string> = {
-  physical: "",
-  fire: "Fire",
-  ice: "Ice",
-  cold_fire: "ColdFire",
-};
-
-// Tooltip for enemy stats/abilities
-function EnemyTooltip({ enemy, position }: { enemy: ClientCombatEnemy; position: { x: number; y: number } }) {
-  const elementName = ELEMENT_NAMES[enemy.attackElement] || "";
-  const hasResistances = enemy.resistances.physical || enemy.resistances.fire || enemy.resistances.ice;
-
-  return (
-    <div
-      className="enemy-combat-tooltip"
-      style={{ left: position.x, top: position.y }}
-    >
-      <div className="enemy-combat-tooltip__content">
-        {/* Stats row */}
-        <div className="enemy-combat-tooltip__stats">
-          <span className="enemy-combat-tooltip__stat">
-            <span className="enemy-combat-tooltip__stat-icon">⚔️</span>
-            <span className="enemy-combat-tooltip__stat-value">{enemy.attack}</span>
-            {elementName && <span className="enemy-combat-tooltip__stat-element">{elementName}</span>}
-          </span>
-          <span className="enemy-combat-tooltip__stat">
-            <span className="enemy-combat-tooltip__stat-icon">🛡️</span>
-            <span className="enemy-combat-tooltip__stat-value">{enemy.armor}</span>
-          </span>
-        </div>
-
-        {/* Abilities */}
-        {enemy.abilities.length > 0 && (
-          <div className="enemy-combat-tooltip__abilities">
-            {enemy.abilities.map((ability) => {
-              const desc = ABILITY_DESCRIPTIONS[ability as EnemyAbilityType];
-              return (
-                <div key={ability} className="enemy-combat-tooltip__ability">
-                  <span className="enemy-combat-tooltip__ability-icon">{desc?.icon || "•"}</span>
-                  <span className="enemy-combat-tooltip__ability-name">{desc?.name || ability}</span>
-                  <span className="enemy-combat-tooltip__ability-desc">{desc?.shortDesc}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Resistances */}
-        {hasResistances && (
-          <div className="enemy-combat-tooltip__resistances">
-            <span className="enemy-combat-tooltip__resistance-label">Resists:</span>
-            {enemy.resistances.physical && <span className="enemy-combat-tooltip__resistance">Physical</span>}
-            {enemy.resistances.fire && <span className="enemy-combat-tooltip__resistance enemy-combat-tooltip__resistance--fire">Fire</span>}
-            {enemy.resistances.ice && <span className="enemy-combat-tooltip__resistance enemy-combat-tooltip__resistance--ice">Ice</span>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 interface EnemyCardProps {
@@ -91,11 +28,14 @@ interface EnemyCardProps {
   isAttackPhase?: boolean;
   attackOption?: AttackOption;
   accumulatedAttack?: number;
+  accumulatedSiege?: number;
+  accumulatedRangedSiege?: number;
   onAssignAttack?: (enemyInstanceId: string) => void;
   isRangedSiegePhase?: boolean;
   isStriking?: boolean;
   strikeKey?: number;
   hasAttacked?: boolean;
+  isAtFortifiedSite?: boolean;
 }
 
 export function EnemyCard({
@@ -112,38 +52,22 @@ export function EnemyCard({
   isAttackPhase,
   attackOption,
   accumulatedAttack = 0,
+  accumulatedSiege = 0,
+  accumulatedRangedSiege = 0,
   onAssignAttack,
   isRangedSiegePhase = false,
   isStriking = false,
   strikeKey,
   hasAttacked = false,
+  isAtFortifiedSite = false,
 }: EnemyCardProps) {
-  // Tooltip hover state
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const hoverTimerRef = useRef<number | null>(null);
+  // Detail panel state (click to show)
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseEnter = () => {
-    // Show tooltip after brief delay
-    hoverTimerRef.current = window.setTimeout(() => {
-      if (cardRef.current) {
-        const rect = cardRef.current.getBoundingClientRect();
-        setTooltipPosition({
-          x: rect.right + 12,
-          y: rect.top,
-        });
-        setShowTooltip(true);
-      }
-    }, 300);
-  };
-
-  const handleMouseLeave = () => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
-    setShowTooltip(false);
+  const handleCardClick = () => {
+    // Show detail panel on click
+    setShowDetailPanel(true);
   };
   // Show assign block button when:
   // - In block phase
@@ -178,17 +102,35 @@ export function EnemyCard({
     }
   };
 
+  // Determine the effective attack value based on phase and fortification
+  // - If enemy requires siege (fortified), only siege attacks count
+  // - In ranged/siege phase (non-fortified), ranged + siege attacks count
+  // - In normal attack phase, all attack types count
+  const effectiveAttack = (() => {
+    if (!attackOption) return 0;
+    if (attackOption.requiresSiege) {
+      // Fortified enemy - only siege attacks work
+      return accumulatedSiege;
+    }
+    if (isRangedSiegePhase) {
+      // Ranged/siege phase, non-fortified - ranged + siege attacks work
+      return accumulatedRangedSiege;
+    }
+    // Normal attack phase - all attack types work
+    return accumulatedAttack;
+  })();
+
   // Show assign attack button when:
   // - In attack phase
   // - Enemy is not defeated
-  // - We have some accumulated attack
+  // - We have some relevant accumulated attack for this target
   const showAssignAttack =
     isAttackPhase &&
     attackOption &&
     !enemy.isDefeated &&
-    accumulatedAttack > 0;
+    effectiveAttack > 0;
 
-  const canDefeat = showAssignAttack && accumulatedAttack >= (attackOption?.enemyArmor ?? 0);
+  const canDefeat = showAssignAttack && effectiveAttack >= (attackOption?.enemyArmor ?? 0);
 
   const handleAssignAttack = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -196,6 +138,11 @@ export function EnemyCard({
       onAssignAttack(enemy.instanceId);
     }
   };
+
+  // Check for fortification (for indicator badge)
+  const hasFortifiedAbility = enemy.abilities.includes("fortified" as EnemyAbilityType);
+  const isFortified = isAtFortifiedSite || hasFortifiedAbility;
+  const isDoublyFortified = isAtFortifiedSite && hasFortifiedAbility;
 
   const classNames = [
     "enemy-token",
@@ -210,11 +157,12 @@ export function EnemyCard({
     <div
       ref={cardRef}
       className={classNames}
-      onClick={isTargetable ? onClick : undefined}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onClick={isTargetable ? onClick : handleCardClick}
       data-testid={`enemy-card-${enemy.instanceId}`}
       data-strike-key={strikeKey}
+      role="button"
+      tabIndex={0}
+      style={{ cursor: "pointer" }}
     >
       {/* Token image */}
       <div className="enemy-token__image-wrapper">
@@ -239,10 +187,23 @@ export function EnemyCard({
             <span>BLOCKED</span>
           </div>
         )}
+
+        {/* Fortification indicator - top left of token */}
+        {isFortified && !enemy.isDefeated && (
+          <div
+            className={`enemy-token__fortified ${isDoublyFortified ? "enemy-token__fortified--double" : ""}`}
+            title={isDoublyFortified ? "Doubly Fortified - Cannot target in Ranged phase" : "Fortified - Requires Siege in Ranged phase"}
+          >
+            🏰
+          </div>
+        )}
       </div>
 
       {/* Enemy name below token */}
-      <div className="enemy-token__name">{enemy.name}</div>
+      <div className="enemy-token__name">
+        {enemy.name}
+        <span className="enemy-token__click-hint">click for details</span>
+      </div>
 
       {/* Action buttons */}
       <div className="enemy-token__actions">
@@ -254,7 +215,17 @@ export function EnemyCard({
             onClick={handleAssignBlock}
             disabled={!canBlock}
           >
-            Block ({accumulatedBlock}/{blockOption.requiredBlock})
+            <span className="enemy-token__action-label">Block</span>
+            <span className="enemy-token__action-values">
+              {accumulatedBlock} / {blockOption.requiredBlock}
+              {blockOption.isSwift && <span className="enemy-token__swift-note">(2×)</span>}
+            </span>
+            {canBlock && <span className="enemy-token__action-result">✓ Blocked</span>}
+            {!canBlock && accumulatedBlock > 0 && (
+              <span className="enemy-token__action-result enemy-token__action-result--need">
+                Need {blockOption.requiredBlock - accumulatedBlock} more
+              </span>
+            )}
           </button>
         )}
 
@@ -277,25 +248,32 @@ export function EnemyCard({
             onClick={handleAssignAttack}
             disabled={!canDefeat}
           >
-            {isRangedSiegePhase
-              ? (attackOption.requiresSiege ? "Siege" : "Ranged")
-              : "Attack"
-            } ({accumulatedAttack}/{attackOption.enemyArmor})
+            <span className="enemy-token__action-label">
+              {isRangedSiegePhase
+                ? (attackOption.requiresSiege ? "Siege" : "Ranged")
+                : "Attack"
+              }
+            </span>
+            <span className="enemy-token__action-values">
+              {effectiveAttack} / {attackOption.enemyArmor}
+            </span>
+            {canDefeat && <span className="enemy-token__action-result">✓ Defeat</span>}
+            {!canDefeat && effectiveAttack > 0 && (
+              <span className="enemy-token__action-result enemy-token__action-result--need">
+                Need {attackOption.enemyArmor - effectiveAttack} more
+              </span>
+            )}
           </button>
         )}
 
-        {/* Show warning if enemy requires siege but we don't have siege attacks */}
-        {isRangedSiegePhase && attackOption?.requiresSiege && accumulatedAttack > 0 && !canDefeat && (
-          <div className="enemy-token__warning">
-            Requires Siege
-          </div>
-        )}
       </div>
 
-      {/* Hover tooltip - rendered via portal to escape transform context */}
-      {showTooltip && createPortal(
-        <EnemyTooltip enemy={enemy} position={tooltipPosition} />,
-        document.body
+      {/* Detail panel - full rulebook details on click */}
+      {showDetailPanel && (
+        <EnemyDetailPanel
+          enemy={enemy}
+          onClose={() => setShowDetailPanel(false)}
+        />
       )}
     </div>
   );

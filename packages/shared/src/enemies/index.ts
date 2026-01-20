@@ -82,7 +82,9 @@ export {
   FIRE_ICE_RESISTANCE,
   PHYSICAL_FIRE_RESISTANCE,
   PHYSICAL_ICE_RESISTANCE,
+  RESISTANCE_DESCRIPTIONS,
 } from "./resistances.js";
+export type { ResistanceType, ResistanceDescription } from "./resistances.js";
 
 // =============================================================================
 // RE-EXPORT ELEMENTS (for convenience, as original file did)
