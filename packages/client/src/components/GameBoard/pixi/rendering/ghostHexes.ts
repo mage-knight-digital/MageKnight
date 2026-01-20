@@ -11,7 +11,7 @@
  *    - Click to trigger exploration
  */
 
-import { Graphics, Text, TextStyle, Container, MeshRope, Point, Texture } from "pixi.js";
+import { Graphics, Text, TextStyle, Container } from "pixi.js";
 import type { Ticker } from "pixi.js";
 import type { HexCoord, HexDirection, ClientTileSlot } from "@mage-knight/shared";
 import { hexKey } from "@mage-knight/shared";
@@ -21,58 +21,6 @@ import { HEX_SIZE } from "../types";
 import { get7HexClusterVertices } from "../particles/outlineTracers";
 import type { Particle } from "../particles/types";
 
-/**
- * Create a gradient texture for the rope trail
- * Goes from bright gold (head) to transparent (tail)
- */
-function createTrailGradientTexture(): Texture {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 8; // Thin trail
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return Texture.WHITE;
-
-  // Create horizontal gradient from bright to transparent
-  const gradient = ctx.createLinearGradient(0, 0, 256, 0);
-  gradient.addColorStop(0, "rgba(255, 229, 160, 0.9)"); // Bright gold (head)
-  gradient.addColorStop(0.1, "rgba(255, 229, 160, 0.7)");
-  gradient.addColorStop(0.3, "rgba(212, 168, 75, 0.5)");
-  gradient.addColorStop(0.6, "rgba(212, 168, 75, 0.25)");
-  gradient.addColorStop(0.85, "rgba(212, 168, 75, 0.1)");
-  gradient.addColorStop(1, "rgba(212, 168, 75, 0)"); // Transparent (tail)
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 256, 8);
-
-  // Add a brighter center line for the glow core
-  ctx.globalCompositeOperation = "lighter";
-  const vertGradient = ctx.createLinearGradient(0, 0, 0, 8);
-  vertGradient.addColorStop(0, "rgba(255, 255, 255, 0)");
-  vertGradient.addColorStop(0.4, "rgba(255, 255, 255, 0.3)");
-  vertGradient.addColorStop(0.5, "rgba(255, 255, 255, 0.5)");
-  vertGradient.addColorStop(0.6, "rgba(255, 255, 255, 0.3)");
-  vertGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-
-  // Apply vertical gradient to make it glow from center
-  ctx.fillStyle = vertGradient;
-  ctx.fillRect(0, 0, 100, 8); // Only bright core near the head
-
-  return Texture.from(canvas);
-}
-
-// Cache the trail texture (recreated on first use after code changes)
-let trailTexture: Texture | null = null;
-function getTrailTexture(): Texture {
-  if (!trailTexture) {
-    trailTexture = createTrailGradientTexture();
-  }
-  return trailTexture;
-}
-
-// Clear texture cache (for hot reload)
-export function clearTrailTextureCache(): void {
-  trailTexture = null;
-}
 
 /**
  * Explore target with direction info

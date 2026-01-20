@@ -101,11 +101,15 @@ export function AAOfferPane() {
     [sendAction]
   );
 
+  // Extract specific state properties for stable dependencies
+  const regularAAOffer = state?.offers.advancedActions.cards;
+  const monasteryAAOffer = state?.offers.monasteryAdvancedActions;
+
   // Convert regular AA offer to CardInfo array
   const regularAACards: CardInfo[] = useMemo(() => {
-    if (!state) return [];
+    if (!regularAAOffer) return [];
 
-    return state.offers.advancedActions.cards.map((aaId) => {
+    return regularAAOffer.map((aaId) => {
       let canAcquire = false;
       let acquireLabel: string | undefined = "Level-up only";
       let onAcquire: (() => void) | undefined;
@@ -124,13 +128,13 @@ export function AAOfferPane() {
         onAcquire,
       };
     });
-  }, [state?.offers.advancedActions.cards, pendingAAReward, handleSelectAAReward]);
+  }, [regularAAOffer, pendingAAReward, handleSelectAAReward]);
 
   // Convert monastery AA offer to CardInfo array
   const monasteryAACards: CardInfo[] = useMemo(() => {
-    if (!state) return [];
+    if (!monasteryAAOffer) return [];
 
-    return state.offers.monasteryAdvancedActions.map((aaId) => {
+    return monasteryAAOffer.map((aaId) => {
       let canAcquire = false;
       let acquireLabel: string | undefined = "Monastery only";
       let onAcquire: (() => void) | undefined;
@@ -149,7 +153,7 @@ export function AAOfferPane() {
         onAcquire,
       };
     });
-  }, [state?.offers.monasteryAdvancedActions, canBuyFromMonastery, playerInfluence, handleBuyMonasteryAA]);
+  }, [monasteryAAOffer, canBuyFromMonastery, playerInfluence, handleBuyMonasteryAA]);
 
   if (!state) return <div className="offer-pane__empty">Loading...</div>;
 
