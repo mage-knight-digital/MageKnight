@@ -70,7 +70,7 @@ export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
     color: ENEMY_COLOR_GRAY,
     attack: 6,
     attackElement: ELEMENT_PHYSICAL,
-    armor: 4,
+    armor: 5,
     fame: 4,
     resistances: NO_RESISTANCES,
     abilities: [],
