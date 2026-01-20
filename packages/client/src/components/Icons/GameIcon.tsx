@@ -17,6 +17,7 @@ import "./GameIcon.css";
 
 export type GameIconType =
   | "attack"
+  | "combat"
   | "block"
   | "fortified"
   | "fame"
@@ -32,10 +33,12 @@ export type GameIconType =
   | "cumbersome"
   | "unfortified"
   | "vampiric"
-  | "fire"
-  | "ice"
   | "armor"
   | "arcane_immune"
+  // Attack elements
+  | "fire"
+  | "ice"
+  | "cold_fire"
   // Resistances
   | "fire_resist"
   | "ice_resist"
@@ -43,6 +46,7 @@ export type GameIconType =
 
 const ICON_PATHS: Record<GameIconType, string> = {
   attack: "/assets/icons/attack.png",
+  combat: "/assets/icons/combat.png",
   block: "/assets/icons/block.png",
   fortified: "/assets/icons/fortified.png",
   fame: "/assets/icons/fame.png",
@@ -57,38 +61,46 @@ const ICON_PATHS: Record<GameIconType, string> = {
   summon: "/assets/icons/summon.png",
   cumbersome: "/assets/icons/cumbersome.png",
   unfortified: "/assets/icons/unfortified.png",
-  vampiric: "/assets/icons/vampiric.png", // TODO: Add icon asset
-  fire: "/assets/icons/fire_resist.png", // Reuse fire resist icon
-  ice: "/assets/icons/ice_resist.png", // Reuse ice resist icon
-  armor: "/assets/icons/block.png", // Use block icon for armor
-  arcane_immune: "/assets/icons/arcane_immune.png", // TODO: Add icon asset
+  vampiric: "/assets/icons/heal.png", // TODO: Add dedicated vampiric icon
+  armor: "/assets/icons/armor.png",
+  arcane_immune: "/assets/icons/arcane_immune.png",
+  // Attack elements
+  fire: "/assets/icons/fire_attack.png",
+  ice: "/assets/icons/ice_attack.png",
+  cold_fire: "/assets/icons/cold_fire_attack.png",
   // Resistances
   fire_resist: "/assets/icons/fire_resist.png",
   ice_resist: "/assets/icons/ice_resist.png",
-  physical_resist: "/assets/icons/block.png", // Use block icon for physical resist
+  physical_resist: "/assets/icons/physical_resist.png",
 };
+
+/** Preset sizes for responsive icons */
+export type GameIconSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 export interface GameIconProps {
   /** The icon type to display */
   type: GameIconType;
-  /** Display size in pixels (default: 20) */
-  size?: number;
+  /** Display size - number for pixels, or preset name for responsive em-based sizing */
+  size?: number | GameIconSize;
   /** Additional CSS class */
   className?: string;
   /** Title for tooltip */
   title?: string;
 }
 
-export function GameIcon({ type, size = 20, className, title }: GameIconProps) {
+export function GameIcon({ type, size = "md", className, title }: GameIconProps) {
   const path = ICON_PATHS[type];
 
   if (!path) {
     return <span className={`game-icon game-icon--fallback ${className ?? ""}`}>?</span>;
   }
 
+  // If size is a number, use pixels; otherwise use CSS class for responsive sizing
+  const isPixelSize = typeof size === "number";
+  const sizeClass = isPixelSize ? "" : `game-icon--size-${size}`;
+
   const style: React.CSSProperties = {
-    width: size,
-    height: size,
+    ...(isPixelSize ? { width: size, height: size } : {}),
     backgroundImage: `url('${path}')`,
     backgroundSize: "contain",
     backgroundPosition: "center",
@@ -97,7 +109,7 @@ export function GameIcon({ type, size = 20, className, title }: GameIconProps) {
 
   return (
     <span
-      className={`game-icon game-icon--${type} ${className ?? ""}`}
+      className={`game-icon game-icon--${type} ${sizeClass} ${className ?? ""}`}
       style={style}
       title={title ?? type}
     />

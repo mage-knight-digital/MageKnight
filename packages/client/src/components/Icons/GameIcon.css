@@ -11,6 +11,42 @@
   min-height: 16px;
 }
 
+/* Responsive size presets using em units - scales with parent font size */
+.game-icon--size-xs {
+  width: 0.875em;
+  height: 0.875em;
+  min-width: 14px;
+  min-height: 14px;
+}
+
+.game-icon--size-sm {
+  width: 1em;
+  height: 1em;
+  min-width: 16px;
+  min-height: 16px;
+}
+
+.game-icon--size-md {
+  width: 1.25em;
+  height: 1.25em;
+  min-width: 18px;
+  min-height: 18px;
+}
+
+.game-icon--size-lg {
+  width: 1.5em;
+  height: 1.5em;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.game-icon--size-xl {
+  width: 2em;
+  height: 2em;
+  min-width: 24px;
+  min-height: 24px;
+}
+
 .game-icon--fallback {
   display: inline-flex;
   align-items: center;
