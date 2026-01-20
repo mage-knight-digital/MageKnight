@@ -50,19 +50,49 @@
     0 0 0 5px rgba(45, 36, 28, 0.8),
     0 8px 32px rgba(0, 0, 0, 0.6),
     0 0 60px rgba(255, 200, 100, 0.15);
-  animation: card-fly-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  /* Slower, more deliberate animation - feels like pulling card from hand */
+  animation: card-pull-up 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
   pointer-events: none;
 }
 
-@keyframes card-fly-in {
-  from {
-    transform: translate(var(--start-x, 0), var(--start-y, 0)) scale(var(--start-scale, 1)) rotate(var(--start-rotation, 0deg));
-    filter: brightness(0.8);
+/*
+ * Card pull animation - creates a "lifting from hand" feel
+ * The card lifts slightly, arcs upward, then settles into position
+ */
+@keyframes card-pull-up {
+  0% {
+    /* Start at hand position */
+    transform:
+      translate(var(--start-x, 0), var(--start-y, 0))
+      scale(var(--start-scale, 1))
+      rotate(var(--start-rotation, 0deg));
+    filter: brightness(0.9);
+    opacity: 1;
+  }
+  20% {
+    /* Lift slightly - card rises from hand with a small "pop" */
+    transform:
+      translate(
+        calc(var(--start-x, 0) * 0.85),
+        calc(var(--start-y, 0) * 0.7 - 20px)
+      )
+      scale(calc(var(--start-scale, 1) * 1.05))
+      rotate(calc(var(--start-rotation, 0deg) * 0.5));
+    filter: brightness(1);
   }
   60% {
+    /* Arc toward destination - slight overshoot upward */
+    transform:
+      translate(
+        calc(var(--start-x, 0) * 0.2),
+        calc(var(--start-y, 0) * 0.15 - 10px)
+      )
+      scale(1.02)
+      rotate(0deg);
     filter: brightness(1.1);
   }
-  to {
+  100% {
+    /* Settle into final position */
     transform: translate(0, 0) scale(1) rotate(0deg);
     filter: brightness(1);
   }

@@ -22,6 +22,8 @@ export interface CardActionMenuProps {
   isInCombat: boolean;
   sourceRect: DOMRect; // Where the card was clicked in the hand
   manaSources: ManaSourceInfo[]; // Available mana sources for powered play
+  /** Scale multiplier for the menu (e.g., 1.5 for focus mode) */
+  sizeMultiplier?: number;
   onPlayBasic: () => void;
   onPlayPowered: (manaSource: ManaSourceInfo) => void;
   onPlaySideways: (as: SidewaysAs) => void;
@@ -46,6 +48,7 @@ export function CardActionMenu({
   isInCombat,
   sourceRect,
   manaSources,
+  sizeMultiplier = 1,
   onPlayBasic,
   onPlayPowered,
   onPlaySideways,
@@ -57,14 +60,27 @@ export function CardActionMenu({
   const [menuState, setMenuState] = useState<MenuState>({ type: "action-select" });
   const { setPosition } = useCardMenuPosition();
 
-  // Calculate responsive sizes based on viewport
-  const [sizes, setSizes] = useState(() => calculateSizes());
+  // Calculate responsive sizes based on viewport and size multiplier
+  const [sizes, setSizes] = useState(() => calculateSizes(sizeMultiplier));
 
   useEffect(() => {
-    const handleResize = () => setSizes(calculateSizes());
+    const handleResize = () => setSizes(calculateSizes(sizeMultiplier));
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [sizeMultiplier]);
+
+  // Handle Escape key to dismiss the menu
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onCancel();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel]);
 
   const spriteStyle = useMemo(() => getCardSpriteStyle(cardId, sizes.cardHeight), [cardId, sizes.cardHeight]);
 
@@ -428,13 +444,18 @@ function getManaSourceTypeLabel(source: ManaSourceInfo): string {
  * Calculate responsive sizes based on viewport dimensions.
  * Uses the smaller of width/height (vmin-like behavior) to ensure
  * the menu fits on screen regardless of aspect ratio.
+ *
+ * @param multiplier - Scale multiplier (e.g., 1.4 for focus mode)
  */
-function calculateSizes() {
+function calculateSizes(multiplier: number = 1) {
   const vmin = Math.min(window.innerWidth, window.innerHeight);
 
-  // Pie menu takes up ~50% of the smaller viewport dimension
-  // Clamp between 300px (minimum usable) and 600px (maximum comfortable)
-  const pieSize = Math.max(300, Math.min(600, vmin * 0.5));
+  // Base pie menu takes up ~50% of the smaller viewport dimension
+  // Apply multiplier for focus mode (larger cards = larger menu)
+  const baseSize = vmin * 0.5 * multiplier;
+
+  // Clamp between 300px (minimum usable) and 750px (maximum comfortable)
+  const pieSize = Math.max(300, Math.min(750, baseSize));
 
   // Card height is proportional to pie size
   // Inner radius is 0.42, so inner diameter is 0.84 * pieSize

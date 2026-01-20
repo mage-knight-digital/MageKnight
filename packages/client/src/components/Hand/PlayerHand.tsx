@@ -422,6 +422,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
           isInCombat={isInCombat}
           sourceRect={menuState.sourceRect}
           manaSources={manaSources}
+          sizeMultiplier={handView === "focus" ? 1.4 : 1}
           onPlayBasic={handlePlayBasic}
           onPlayPowered={handlePlayPowered}
           onPlaySideways={handlePlaySideways}
@@ -437,6 +438,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
           isInCombat={isInCombat}
           sourceRect={menuState.sourceRect}
           manaSources={[]} // Empty - spell handling is separate
+          sizeMultiplier={handView === "focus" ? 1.4 : 1}
           onPlayBasic={handlePlayBasic}
           onPlayPowered={() => {
             // Transition to spell mana selection
