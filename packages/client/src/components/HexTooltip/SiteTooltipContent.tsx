@@ -315,7 +315,7 @@ export function SiteTooltipContent({ site, isAnimating, startIndex = 0, timeOfDa
       {info.fight && (
         <div className="site-tooltip__line" style={getLineStyle()}>
           <span className="site-tooltip__line-icon">
-            <GameIcon type="attack" size={20} />
+            <GameIcon type="combat" size={20} />
           </span>
           <span className="site-tooltip__line-text">{info.fight}</span>
         </div>

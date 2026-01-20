@@ -139,11 +139,6 @@ export function EnemyCard({
     }
   };
 
-  // Check for fortification (for indicator badge)
-  const hasFortifiedAbility = enemy.abilities.includes("fortified" as EnemyAbilityType);
-  const isFortified = isAtFortifiedSite || hasFortifiedAbility;
-  const isDoublyFortified = isAtFortifiedSite && hasFortifiedAbility;
-
   const classNames = [
     "enemy-token",
     enemy.isDefeated && "enemy-token--defeated",
@@ -188,15 +183,6 @@ export function EnemyCard({
           </div>
         )}
 
-        {/* Fortification indicator - top left of token */}
-        {isFortified && !enemy.isDefeated && (
-          <div
-            className={`enemy-token__fortified ${isDoublyFortified ? "enemy-token__fortified--double" : ""}`}
-            title={isDoublyFortified ? "Doubly Fortified - Cannot target in Ranged phase" : "Fortified - Requires Siege in Ranged phase"}
-          >
-            🏰
-          </div>
-        )}
       </div>
 
       {/* Enemy name below token */}

@@ -26,14 +26,6 @@ export interface EnemyTooltipContentProps {
   isRampaging?: boolean;
 }
 
-// Element display names
-const ELEMENT_NAMES: Record<string, string> = {
-  physical: "",
-  fire: "Fire",
-  ice: "Ice",
-  cold_fire: "ColdFire",
-};
-
 // Enemy token back images by color
 const TOKEN_BACK_PATHS: Record<string, string> = {
   green: "/assets/enemies/backs/green.png",
@@ -111,7 +103,6 @@ export function EnemyTooltipContent({
           );
         }
 
-        const elementName = ELEMENT_NAMES[definition.attackElement] || "";
         const hasResistances =
           definition.resistances.physical ||
           definition.resistances.fire ||
@@ -142,16 +133,13 @@ export function EnemyTooltipContent({
             <div className="enemy-tooltip__enemy-stats">
               <span className="enemy-tooltip__stat">
                 <span className="enemy-tooltip__stat-icon">
-                  <GameIcon type="attack" size={20} title="Attack" />
+                  <GameIcon type={definition.attackElement === "physical" ? "attack" : definition.attackElement as GameIconType} size={20} title="Attack" />
                 </span>
                 <span className="enemy-tooltip__stat-value">{hasSummon ? "?" : definition.attack}</span>
-                {elementName && !hasSummon && (
-                  <span className="enemy-tooltip__stat-element">{elementName}</span>
-                )}
               </span>
               <span className="enemy-tooltip__stat">
                 <span className="enemy-tooltip__stat-icon">
-                  <GameIcon type="block" size={20} title="Armor" />
+                  <GameIcon type="armor" size={20} title="Armor" />
                 </span>
                 <span className="enemy-tooltip__stat-value">{definition.armor}</span>
               </span>

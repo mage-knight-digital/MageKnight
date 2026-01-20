@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import type { SiteOptions, TimeOfDay, ClientHexEnemy, EnemyAbilityType } from "@mage-knight/shared";
 import type { ClientHexState, ClientSite } from "@mage-knight/shared";
-import { TIME_OF_DAY_NIGHT, ENEMIES, ABILITY_DESCRIPTIONS } from "@mage-knight/shared";
+import { TIME_OF_DAY_NIGHT, ENEMIES, ABILITY_DESCRIPTIONS, RESISTANCE_DESCRIPTIONS, ATTACK_ELEMENT_DESCRIPTIONS, type Element } from "@mage-knight/shared";
 import { SiteIcon, GameIcon, type SiteIconType, type GameIconType } from "../Icons";
 import "./SitePanel.css";
 
@@ -29,13 +29,6 @@ const TOKEN_BACK_PATHS: Record<string, string> = {
   white: "/assets/enemies/backs/white.png",
 };
 
-// Element display names
-const ELEMENT_NAMES: Record<string, string> = {
-  physical: "",
-  fire: "Fire",
-  ice: "Ice",
-  cold_fire: "ColdFire",
-};
 
 function getEnemyIdFromToken(tokenId: string): string {
   const parts = tokenId.split("_");
@@ -43,33 +36,19 @@ function getEnemyIdFromToken(tokenId: string): string {
   return parts.join("_");
 }
 
-// Resistance descriptions
-const RESISTANCE_DESCRIPTIONS: Record<string, { name: string; desc: string }> = {
-  physical: {
-    name: "Physical Resistance",
-    desc: "Physical attacks (non-elemental) are ineffective. Use Fire or Ice attacks instead.",
-  },
-  fire: {
-    name: "Fire Resistance",
-    desc: "Fire attacks are ineffective. Use Physical or Ice attacks instead.",
-  },
-  ice: {
-    name: "Ice Resistance",
-    desc: "Ice attacks are ineffective. Use Physical or Fire attacks instead.",
-  },
-};
-
 interface EnemyDetailsProps {
   enemies: readonly ClientHexEnemy[];
 }
 
-/** Collect unique abilities and resistances from all enemies for the reference section */
+/** Collect unique abilities, resistances, and attack elements from all enemies for the reference section */
 function collectUniqueTraits(enemies: readonly ClientHexEnemy[]): {
   abilities: Set<string>;
   resistances: Set<string>;
+  attackElements: Set<string>;
 } {
   const abilities = new Set<string>();
   const resistances = new Set<string>();
+  const attackElements = new Set<string>();
 
   for (const enemy of enemies) {
     if (!enemy.isRevealed || !enemy.tokenId) continue;
@@ -83,9 +62,13 @@ function collectUniqueTraits(enemies: readonly ClientHexEnemy[]): {
     if (definition.resistances.physical) resistances.add("physical");
     if (definition.resistances.fire) resistances.add("fire");
     if (definition.resistances.ice) resistances.add("ice");
+    // Track non-physical attack elements for reference section
+    if (definition.attackElement && definition.attackElement !== "physical") {
+      attackElements.add(definition.attackElement);
+    }
   }
 
-  return { abilities, resistances };
+  return { abilities, resistances, attackElements };
 }
 
 function EnemyDetails({ enemies }: EnemyDetailsProps) {
@@ -97,7 +80,7 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
   }
 
   // Collect unique traits for reference section
-  const { abilities: uniqueAbilities, resistances: uniqueResistances } = collectUniqueTraits(enemies);
+  const { abilities: uniqueAbilities, resistances: uniqueResistances, attackElements: uniqueAttackElements } = collectUniqueTraits(enemies);
 
   return (
     <div className="site-panel__enemies">
@@ -121,8 +104,8 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
         }
 
         const tokenBackPath = TOKEN_BACK_PATHS[definition.color];
-        const elementName = ELEMENT_NAMES[definition.attackElement] || "";
         const hasResistances = definition.resistances.physical || definition.resistances.fire || definition.resistances.ice;
+        const hasSummon = definition.abilities.includes("summon");
 
         return (
           <div key={idx} className="site-panel__enemy">
@@ -135,12 +118,11 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
 
             <div className="site-panel__enemy-stats">
               <span className="site-panel__enemy-stat">
-                <GameIcon type="attack" size={18} />
-                <span>{definition.attack}</span>
-                {elementName && <span className="site-panel__enemy-element">{elementName}</span>}
+                <GameIcon type={definition.attackElement === "physical" ? "attack" : definition.attackElement as GameIconType} size={18} />
+                <span>{hasSummon ? "?" : definition.attack}</span>
               </span>
               <span className="site-panel__enemy-stat">
-                <GameIcon type="block" size={18} />
+                <GameIcon type="armor" size={18} />
                 <span>{definition.armor}</span>
               </span>
               <span className="site-panel__enemy-stat">
@@ -196,8 +178,8 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
         </div>
       )}
 
-      {/* Reference section: full descriptions for all unique abilities and resistances */}
-      {(uniqueAbilities.size > 0 || uniqueResistances.size > 0) && (
+      {/* Reference section: full descriptions for all unique abilities, resistances, and attack elements */}
+      {(uniqueAbilities.size > 0 || uniqueResistances.size > 0 || uniqueAttackElements.size > 0) && (
         <div className="site-panel__traits-reference">
           <div className="site-panel__traits-reference-title">Ability & Resistance Reference</div>
 
@@ -216,7 +198,7 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
           })}
 
           {Array.from(uniqueResistances).map((resist) => {
-            const desc = RESISTANCE_DESCRIPTIONS[resist];
+            const desc = RESISTANCE_DESCRIPTIONS[resist as keyof typeof RESISTANCE_DESCRIPTIONS];
             if (!desc) return null;
             const iconType = `${resist}_resist` as GameIconType;
             return (
@@ -224,7 +206,21 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
                 <span className="site-panel__trait-entry-header site-panel__trait-entry-header--resist">
                   <GameIcon type={iconType} size={18} /> {desc.name}
                 </span>
-                <span className="site-panel__trait-entry-desc">{desc.desc}</span>
+                <span className="site-panel__trait-entry-desc">{desc.fullDesc}</span>
+              </div>
+            );
+          })}
+
+          {Array.from(uniqueAttackElements).map((element) => {
+            const desc = ATTACK_ELEMENT_DESCRIPTIONS[element as Element];
+            if (!desc) return null;
+            const iconType = desc.icon as GameIconType;
+            return (
+              <div key={element} className="site-panel__trait-entry">
+                <span className="site-panel__trait-entry-header site-panel__trait-entry-header--element">
+                  <GameIcon type={iconType} size={18} /> {desc.name}
+                </span>
+                <span className="site-panel__trait-entry-desc">{desc.fullDesc}</span>
               </div>
             );
           })}
@@ -416,7 +412,7 @@ function computeSiteInfo(
       return {
         fight: `1 Grey enemy${enemyRevealNote}`,
         isFortified: true,
-        special: ["Fortified (Siege attack required)", "Assault: −1 Reputation"],
+        special: ["Assault: −1 Reputation"],
       };
 
     case "mage_tower":
@@ -429,7 +425,7 @@ function computeSiteInfo(
         fight: `1 Violet enemy${enemyRevealNote}`,
         reward: "1 Spell",
         isFortified: true,
-        special: ["Fortified (Siege attack required)", "Assault: −1 Reputation"],
+        special: ["Assault: −1 Reputation"],
       };
 
     case "city": {
@@ -441,7 +437,7 @@ function computeSiteInfo(
       return {
         fight: `City garrison${enemyRevealNote}`,
         isFortified: true,
-        special: ["Fortified (Siege attack required)", "Assault: −1 Reputation"],
+        special: ["Assault: −1 Reputation"],
       };
     }
 
@@ -651,7 +647,7 @@ export function SitePanel({
             {computedInfo.fight && (
               <section className="site-panel__section">
                 <h3 className="site-panel__section-title">
-                  <GameIcon type="attack" size={20} className="site-panel__section-icon" />
+                  <GameIcon type="combat" size={20} className="site-panel__section-icon" />
                   Combat
                 </h3>
                 <div className="site-panel__section-content">
@@ -715,7 +711,7 @@ export function SitePanel({
             {siteOptions.canEnter && siteOptions.enterDescription && (
               <section className="site-panel__section">
                 <h3 className="site-panel__section-title">
-                  <GameIcon type="attack" size={20} className="site-panel__section-icon" />
+                  <GameIcon type="combat" size={20} className="site-panel__section-icon" />
                   Combat
                 </h3>
                 <div className="site-panel__section-content">

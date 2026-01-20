@@ -14,9 +14,18 @@ import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_ASSIGN_DAMAGE,
   DECLARE_BLOCK_ACTION,
+  DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
   END_COMBAT_PHASE_ACTION,
+  COMBAT_TYPE_RANGED,
+  COMBAT_TYPE_SIEGE,
+  COMBAT_TYPE_MELEE,
+  ELEMENT_PHYSICAL,
+  ELEMENT_FIRE,
+  ELEMENT_ICE,
+  ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
+import type { AttackSource, CombatType } from "@mage-knight/shared";
 import { EnemyCard } from "./EnemyCard";
 import { VerticalPhaseRail } from "./VerticalPhaseRail";
 import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
@@ -419,6 +428,109 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
   const isAttackPhase = phase === COMBAT_PHASE_ATTACK;
   const isRangedSiegePhase = phase === COMBAT_PHASE_RANGED_SIEGE;
 
+  // Build attack sources from combat accumulator based on phase and target
+  const buildAttackAction = useCallback((
+    enemyInstanceId: string,
+    requiresSiege: boolean
+  ) => {
+    if (!attackAcc) return;
+
+    const attacks: AttackSource[] = [];
+    let attackType: CombatType;
+
+    if (isRangedSiegePhase) {
+      // In ranged/siege phase, use ranged and/or siege attacks
+      if (requiresSiege) {
+        // Fortified enemy - only siege attacks work
+        attackType = COMBAT_TYPE_SIEGE;
+        if (attackAcc.siege > 0) {
+          attacks.push({ element: ELEMENT_PHYSICAL, value: attackAcc.siege });
+        }
+        if (attackAcc.siegeElements.fire > 0) {
+          attacks.push({ element: ELEMENT_FIRE, value: attackAcc.siegeElements.fire });
+        }
+        if (attackAcc.siegeElements.ice > 0) {
+          attacks.push({ element: ELEMENT_ICE, value: attackAcc.siegeElements.ice });
+        }
+      } else {
+        // Non-fortified enemy - ranged attacks work (siege also works)
+        // Prefer ranged type if we have ranged, otherwise use siege
+        const hasRanged = attackAcc.ranged > 0 ||
+          attackAcc.rangedElements.fire > 0 ||
+          attackAcc.rangedElements.ice > 0;
+        attackType = hasRanged ? COMBAT_TYPE_RANGED : COMBAT_TYPE_SIEGE;
+
+        // Add ranged attacks
+        if (attackAcc.ranged > 0) {
+          attacks.push({ element: ELEMENT_PHYSICAL, value: attackAcc.ranged });
+        }
+        if (attackAcc.rangedElements.fire > 0) {
+          attacks.push({ element: ELEMENT_FIRE, value: attackAcc.rangedElements.fire });
+        }
+        if (attackAcc.rangedElements.ice > 0) {
+          attacks.push({ element: ELEMENT_ICE, value: attackAcc.rangedElements.ice });
+        }
+        // Add siege attacks too (they work on non-fortified)
+        if (attackAcc.siege > 0) {
+          attacks.push({ element: ELEMENT_PHYSICAL, value: attackAcc.siege });
+        }
+        if (attackAcc.siegeElements.fire > 0) {
+          attacks.push({ element: ELEMENT_FIRE, value: attackAcc.siegeElements.fire });
+        }
+        if (attackAcc.siegeElements.ice > 0) {
+          attacks.push({ element: ELEMENT_ICE, value: attackAcc.siegeElements.ice });
+        }
+      }
+    } else {
+      // In attack phase, all attack types work - use melee as base type
+      attackType = COMBAT_TYPE_MELEE;
+
+      // Add all accumulated attacks (normal, ranged, siege)
+      if (attackAcc.normal > 0) {
+        attacks.push({ element: ELEMENT_PHYSICAL, value: attackAcc.normal });
+      }
+      if (attackAcc.normalElements.physical > 0) {
+        attacks.push({ element: ELEMENT_PHYSICAL, value: attackAcc.normalElements.physical });
+      }
+      if (attackAcc.normalElements.fire > 0) {
+        attacks.push({ element: ELEMENT_FIRE, value: attackAcc.normalElements.fire });
+      }
+      if (attackAcc.normalElements.ice > 0) {
+        attacks.push({ element: ELEMENT_ICE, value: attackAcc.normalElements.ice });
+      }
+      if (attackAcc.normalElements.coldFire > 0) {
+        attacks.push({ element: ELEMENT_COLD_FIRE, value: attackAcc.normalElements.coldFire });
+      }
+      if (attackAcc.ranged > 0) {
+        attacks.push({ element: ELEMENT_PHYSICAL, value: attackAcc.ranged });
+      }
+      if (attackAcc.rangedElements.fire > 0) {
+        attacks.push({ element: ELEMENT_FIRE, value: attackAcc.rangedElements.fire });
+      }
+      if (attackAcc.rangedElements.ice > 0) {
+        attacks.push({ element: ELEMENT_ICE, value: attackAcc.rangedElements.ice });
+      }
+      if (attackAcc.siege > 0) {
+        attacks.push({ element: ELEMENT_PHYSICAL, value: attackAcc.siege });
+      }
+      if (attackAcc.siegeElements.fire > 0) {
+        attacks.push({ element: ELEMENT_FIRE, value: attackAcc.siegeElements.fire });
+      }
+      if (attackAcc.siegeElements.ice > 0) {
+        attacks.push({ element: ELEMENT_ICE, value: attackAcc.siegeElements.ice });
+      }
+    }
+
+    if (attacks.length === 0) return;
+
+    sendAction({
+      type: DECLARE_ATTACK_ACTION,
+      targetEnemyInstanceIds: [enemyInstanceId],
+      attacks,
+      attackType,
+    });
+  }, [attackAcc, isRangedSiegePhase, sendAction]);
+
   return (
     <div className="combat-scene" data-testid="combat-overlay">
       {/* Effect overlay - separate element for damage/block/attack flashes */}
@@ -505,9 +617,7 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
                   accumulatedRangedSiege={accumulatedRangedSiege}
                   onAssignAttack={(id) => {
                     triggerEffect("attack");
-                    // TODO: This needs more info - attack sources and type
-                    // For now this won't work correctly, need to wire up properly
-                    console.log("Attack enemy", id);
+                    buildAttackAction(id, attackOption?.requiresSiege ?? false);
                   }}
                   isRangedSiegePhase={isRangedSiegePhase}
                   isStriking={isStriking}

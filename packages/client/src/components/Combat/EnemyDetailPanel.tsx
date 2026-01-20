@@ -27,17 +27,10 @@ const ABILITY_ICONS: Record<string, string> = {
 };
 
 // Icon paths for resistances
-const RESISTANCE_ICONS: Record<string, string> = {
-  physical: "/assets/icons/block.png",
-  fire: "/assets/icons/fire_resist.png",
-  ice: "/assets/icons/ice_resist.png",
-};
-
-// Icon paths for stats
-const STAT_ICONS = {
-  attack: "/assets/icons/attack.png",
-  block: "/assets/icons/block.png",
-  fame: "/assets/icons/fame.png",
+const RESISTANCE_ICONS: Record<string, GameIconType> = {
+  physical: "physical_resist",
+  fire: "fire_resist",
+  ice: "ice_resist",
 };
 
 // Element display info
@@ -126,7 +119,11 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
         {/* Stats */}
         <div className="enemy-detail-stats">
           <div className="enemy-detail-stat">
-            <img src={STAT_ICONS.attack} alt="Attack" className="enemy-detail-stat-icon" />
+            <GameIcon
+              type={enemy.attackElement === "physical" ? "attack" : enemy.attackElement as GameIconType}
+              size={32}
+              className="enemy-detail-stat-icon"
+            />
             <div className="enemy-detail-stat-content">
               <span className="enemy-detail-stat-value" style={{ color: elementInfo.color }}>
                 {enemy.attack}
@@ -137,14 +134,14 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
             </div>
           </div>
           <div className="enemy-detail-stat">
-            <img src={STAT_ICONS.block} alt="Armor" className="enemy-detail-stat-icon" />
+            <GameIcon type="armor" size={32} className="enemy-detail-stat-icon" />
             <div className="enemy-detail-stat-content">
               <span className="enemy-detail-stat-value">{enemy.armor}</span>
               <span className="enemy-detail-stat-label">Armor</span>
             </div>
           </div>
           <div className="enemy-detail-stat">
-            <img src={STAT_ICONS.fame} alt="Fame" className="enemy-detail-stat-icon" />
+            <GameIcon type="fame" size={32} className="enemy-detail-stat-icon" />
             <div className="enemy-detail-stat-content">
               <span className="enemy-detail-stat-value">{enemy.fame}</span>
               <span className="enemy-detail-stat-label">Fame</span>
@@ -203,12 +200,12 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
             <div className="enemy-detail-resistances">
               {activeResistances.map((resistance) => {
                 const desc = RESISTANCE_DESCRIPTIONS[resistance];
-                const iconPath = RESISTANCE_ICONS[resistance] || null;
+                const iconType = RESISTANCE_ICONS[resistance] || null;
                 return (
                   <div key={resistance} className="enemy-detail-resistance">
                     <div className="enemy-detail-resistance-header">
-                      {iconPath ? (
-                        <img src={iconPath} alt={desc.name} className="enemy-detail-resistance-icon" />
+                      {iconType ? (
+                        <GameIcon type={iconType} size={24} className="enemy-detail-resistance-icon" />
                       ) : (
                         <span className="enemy-detail-resistance-icon-fallback">{desc.icon}</span>
                       )}

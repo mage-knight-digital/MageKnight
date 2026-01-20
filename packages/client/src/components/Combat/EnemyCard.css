@@ -185,32 +185,6 @@
   background: rgba(39, 174, 96, 0.9);
 }
 
-/* Fortification indicator - top left of token */
-.enemy-token__fortified {
-  position: absolute;
-  top: 5%;
-  left: 5%;
-  width: clamp(1.75rem, 3vw, 2.5rem);
-  height: clamp(1.75rem, 3vw, 2.5rem);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: clamp(1rem, 1.75vw, 1.5rem);
-  background: rgba(139, 90, 43, 0.9);
-  border: 2px solid rgba(255, 215, 0, 0.6);
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  z-index: 10;
-}
-
-.enemy-token__fortified--double {
-  background: rgba(120, 60, 20, 0.95);
-  border-color: rgba(255, 100, 0, 0.8);
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.5),
-    0 0 12px rgba(255, 100, 0, 0.4);
-}
-
 /* Enemy name */
 .enemy-token__name {
   display: flex;
