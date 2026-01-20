@@ -74,6 +74,8 @@ export interface HexTooltipProps {
   showSite?: boolean;
   /** Show enemy information (default true) */
   showEnemies?: boolean;
+  /** Current time of day (for enemy visibility rules) */
+  timeOfDay?: TimeOfDay;
   /** Handler for mouse entering tooltip (keeps it open) */
   onMouseEnter?: () => void;
   /** Handler for mouse leaving tooltip (closes it) */

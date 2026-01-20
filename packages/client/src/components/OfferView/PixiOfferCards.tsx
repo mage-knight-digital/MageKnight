@@ -11,86 +11,9 @@
  * - Responsive sizing based on container width
  */
 
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { Application, Sprite, Texture, Rectangle, Assets, Graphics, Container } from "pixi.js";
-import { getCardSpriteData, getUnitSpriteData, type SpriteData } from "../../utils/cardAtlas";
-
-// Texture cache
-const textureCache = new Map<string, Texture>();
-
-// Placeholder texture for missing cards
-let placeholderTexture: Texture | null = null;
-
-function getPlaceholderTexture(): Texture {
-  if (!placeholderTexture) {
-    // Create a simple dark placeholder texture
-    const canvas = document.createElement("canvas");
-    canvas.width = 200;
-    canvas.height = 280;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.fillStyle = "#1a1a2e";
-      ctx.fillRect(0, 0, 200, 280);
-      ctx.strokeStyle = "#333";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(4, 4, 192, 272);
-      ctx.fillStyle = "#444";
-      ctx.font = "14px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("Loading...", 100, 140);
-    }
-    placeholderTexture = Texture.from(canvas);
-  }
-  return placeholderTexture;
-}
-
-/**
- * Get a PixiJS texture for a card or unit.
- * Uses the existing cardAtlas functions to get sprite coordinates.
- * Returns placeholder texture if card not found.
- */
-async function getCardTexture(cardId: string, type: "unit" | "spell" | "aa"): Promise<Texture> {
-  const cacheKey = `${type}:${cardId}`;
-  const cached = textureCache.get(cacheKey);
-  if (cached) return cached;
-
-  // Get sprite data from cardAtlas
-  let spriteData: SpriteData | null = null;
-
-  if (type === "unit") {
-    spriteData = getUnitSpriteData(cardId as never);
-  } else {
-    // Spells and AAs are both cards
-    spriteData = getCardSpriteData(cardId as never);
-  }
-
-  if (!spriteData) {
-    console.warn(`[PixiOfferCards] No sprite data for ${type}: ${cardId}`);
-    return getPlaceholderTexture();
-  }
-
-  try {
-    // Get base texture (already loaded via preloadAllSpriteSheets)
-    const baseTexture = await Assets.load(spriteData.src);
-
-    // Calculate frame coordinates
-    const x = spriteData.col * spriteData.spriteWidth;
-    const y = spriteData.row * spriteData.spriteHeight;
-
-    // Create sub-texture with frame
-    const frame = new Rectangle(x, y, spriteData.spriteWidth, spriteData.spriteHeight);
-    const subTexture = new Texture({
-      source: baseTexture.source,
-      frame,
-    });
-
-    textureCache.set(cacheKey, subTexture);
-    return subTexture;
-  } catch (error) {
-    console.warn(`[PixiOfferCards] Failed to load texture for ${cardId}:`, error);
-    return getPlaceholderTexture();
-  }
-}
+import { useEffect, useRef, useState, useMemo } from "react";
+import { Application, Sprite, Graphics, Container } from "pixi.js";
+import { getOfferCardTexture } from "../../utils/pixiTextureLoader";
 
 export interface CardInfo {
   id: string;
@@ -253,7 +176,7 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
         const pos = cardPositions[i];
         if (!pos) continue;
 
-        const texture = await getCardTexture(card.id, type);
+        const texture = await getOfferCardTexture(card.id, type);
 
         // Create container for card + border
         const cardContainer = new Container();

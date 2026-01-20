@@ -7,98 +7,12 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Application, Sprite, Texture, Rectangle, Assets, Container } from "pixi.js";
-import type { CardId, UnitId } from "@mage-knight/shared";
-
-// Atlas data for looking up card positions
-interface AtlasSheet {
-  file: string;
-  width: number;
-  height: number;
-}
-
-interface AtlasSprite {
-  sheet: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface AtlasData {
-  sheets: Record<string, AtlasSheet>;
-  sprites: Record<string, AtlasSprite>;
-}
-
-// Cached atlas data
-let atlasData: AtlasData | null = null;
-let atlasLoadPromise: Promise<AtlasData> | null = null;
-
-async function loadAtlasData(): Promise<AtlasData> {
-  if (atlasData) return atlasData;
-  if (atlasLoadPromise) return atlasLoadPromise;
-
-  atlasLoadPromise = fetch("/assets/atlas.json")
-    .then((res) => res.json())
-    .then((data: AtlasData) => {
-      atlasData = data;
-      return data;
-    });
-
-  return atlasLoadPromise;
-}
-
-// Texture cache - shared across all PixiCardCanvas instances
-const textureCache = new Map<string, Texture>();
-const loadingTextures = new Map<string, Promise<Texture>>();
-
-async function getCardTexture(cardId: string): Promise<Texture | null> {
-  // Check cache first
-  const cached = textureCache.get(cardId);
-  if (cached) return cached;
-
-  // Check if already loading
-  const loading = loadingTextures.get(cardId);
-  if (loading) return loading;
-
-  // Load atlas data
-  const atlas = await loadAtlasData();
-
-  // Find sprite in atlas
-  const sprite = atlas.sprites[cardId];
-  if (!sprite) {
-    console.warn(`Card not found in atlas: ${cardId}`);
-    return null;
-  }
-
-  // Get sheet info
-  const sheet = atlas.sheets[sprite.sheet];
-  if (!sheet) {
-    console.warn(`Sheet not found: ${sprite.sheet}`);
-    return null;
-  }
-
-  // Load or get base texture
-  const sheetUrl = `/assets/${sheet.file}`;
-  const loadPromise = (async () => {
-    const baseTexture = await Assets.load(sheetUrl);
-
-    // Create sub-texture with frame
-    const frame = new Rectangle(sprite.x, sprite.y, sprite.width, sprite.height);
-    const subTexture = new Texture({
-      source: baseTexture.source,
-      frame,
-    });
-
-    textureCache.set(cardId, subTexture);
-    loadingTextures.delete(cardId);
-
-    return subTexture;
-  })();
-
-  loadingTextures.set(cardId, loadPromise);
-  return loadPromise;
-}
+import { Application, Sprite } from "pixi.js";
+import {
+  getCardTextureFromAtlas,
+  preloadCardTextures as sharedPreloadCardTextures,
+  preloadAllSpriteSheets as sharedPreloadAllSpriteSheets,
+} from "../../utils/pixiTextureLoader";
 
 export interface CardRenderInfo {
   id: string; // CardId or UnitId
@@ -204,8 +118,8 @@ export function PixiCardCanvas({
         let sprite = currentSprites.get(key);
 
         if (!sprite) {
-          // Create new sprite
-          const texture = await getCardTexture(card.id);
+          // Create new sprite using shared texture loader
+          const texture = await getCardTextureFromAtlas(card.id);
           if (!texture) continue;
 
           sprite = new Sprite(texture);
@@ -244,27 +158,12 @@ export function PixiCardCanvas({
  * Call this during app initialization to warm the GPU cache
  */
 export async function preloadCardTextures(cardIds: string[]): Promise<void> {
-  const startTime = performance.now();
-
-  await Promise.all(cardIds.map((id) => getCardTexture(id)));
-
-  const elapsed = performance.now() - startTime;
-  console.log(`[PixiCardCanvas] Preloaded ${cardIds.length} card textures in ${elapsed.toFixed(0)}ms`);
+  return sharedPreloadCardTextures(cardIds);
 }
 
 /**
  * Preload all sprite sheets (loads entire sheets to GPU)
  */
 export async function preloadAllSpriteSheets(): Promise<void> {
-  const startTime = performance.now();
-
-  const atlas = await loadAtlasData();
-  const sheetUrls = Object.values(atlas.sheets).map((s) => `/assets/${s.file}`);
-  const uniqueUrls = [...new Set(sheetUrls)];
-
-  // Load all sheets via PixiJS Assets (this uploads to GPU)
-  await Promise.all(uniqueUrls.map((url) => Assets.load(url)));
-
-  const elapsed = performance.now() - startTime;
-  console.log(`[PixiCardCanvas] Preloaded ${uniqueUrls.length} sprite sheets in ${elapsed.toFixed(0)}ms`);
+  return sharedPreloadAllSpriteSheets();
 }

@@ -16,9 +16,10 @@
  */
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { Application, Sprite, Texture, Rectangle, Assets, Graphics, Container } from "pixi.js";
+import { Application, Sprite, Graphics, Container } from "pixi.js";
 import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared";
-import { getCardSpriteData, getCardColor } from "../../utils/cardAtlas";
+import { getCardColor } from "../../utils/cardAtlas";
+import { getCardTexture, getPlaceholderTexture } from "../../utils/pixiTextureLoader";
 import { calculateZIndex, CARD_FAN_BASE_SCALE, CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
 import { playSound } from "../../utils/audioManager";
 import { useOverlay } from "../../contexts/OverlayContext";
@@ -43,62 +44,6 @@ export type HandViewMode = CardFanViewMode;
 
 // Card aspect ratio (width / height)
 const CARD_ASPECT = 0.667;
-
-// Texture cache
-const textureCache = new Map<string, Texture>();
-
-// Placeholder texture for missing cards
-let placeholderTexture: Texture | null = null;
-
-function getPlaceholderTexture(): Texture {
-  if (!placeholderTexture) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 200;
-    canvas.height = 300;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.fillStyle = "#1a1a2e";
-      ctx.fillRect(0, 0, 200, 300);
-      ctx.strokeStyle = "#333";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(4, 4, 192, 292);
-    }
-    placeholderTexture = Texture.from(canvas);
-  }
-  return placeholderTexture;
-}
-
-/**
- * Get a PixiJS texture for a card.
- */
-async function getCardTexture(cardId: CardId): Promise<Texture> {
-  const cacheKey = `card:${cardId}`;
-  const cached = textureCache.get(cacheKey);
-  if (cached) return cached;
-
-  const spriteData = getCardSpriteData(cardId);
-
-  if (!spriteData) {
-    console.warn(`[PixiFloatingHand] No sprite data for card: ${cardId}`);
-    return getPlaceholderTexture();
-  }
-
-  try {
-    const baseTexture = await Assets.load(spriteData.src);
-    const x = spriteData.col * spriteData.spriteWidth;
-    const y = spriteData.row * spriteData.spriteHeight;
-    const frame = new Rectangle(x, y, spriteData.spriteWidth, spriteData.spriteHeight);
-    const subTexture = new Texture({
-      source: baseTexture.source,
-      frame,
-    });
-    textureCache.set(cacheKey, subTexture);
-    return subTexture;
-  } catch (error) {
-    console.warn(`[PixiFloatingHand] Failed to load texture for ${cardId}:`, error);
-    return getPlaceholderTexture();
-  }
-}
 
 // Glow colors by card color
 const GLOW_COLORS: Record<string, number> = {
