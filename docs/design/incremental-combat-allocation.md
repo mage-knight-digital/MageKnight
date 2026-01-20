@@ -400,26 +400,39 @@ AI learns:
 
 **Validation**: ✅ EnemyCard renders incremental allocation UI, CombatOverlay passes props
 
-### Phase 6: Block Phase (Same Pattern)
-**Goal**: Apply incremental assignment to blocking
+### Phase 6: Block Phase ⏸️ DEFERRED
+**Status**: Deferred - current block system works well
 
+**Rationale**: Unlike attacks, blocking is fundamentally different:
+- **Single-target**: Block applies to one enemy at a time (no allocation problem)
+- **All-or-nothing**: Either meet threshold or fail (no partial assignment)
+- **Current UI works**: Shows accumulated vs required, assigns when sufficient
+
+The incremental attack system solved **multi-enemy damage allocation**. Since blocking doesn't have this complexity, the existing system suffices. Consider revisiting if:
+- RL training reveals block action space issues
+- UX feedback suggests reversible blocking would help
+
+Original tasks (for future reference):
 - [ ] Add `pendingBlock` to `CombatState`
 - [ ] Add `assignedBlock` to `CombatAccumulator`
 - [ ] Create `ASSIGN_BLOCK_ACTION`, `UNASSIGN_BLOCK_ACTION`
 - [ ] Update block resolution in END_COMBAT_PHASE
 - [ ] Update UI for incremental block assignment
 
-**Validation**: Full combat flow works with new system
+### Phase 7: Cleanup ✅ COMPLETE
+**Goal**: Mark deprecated code, ensure clean separation
 
-### Phase 7: Cleanup
-**Goal**: Remove deprecated code
+- [x] Mark `DECLARE_ATTACK_ACTION` as deprecated (kept for tests, removed from UI)
+- [x] Remove old `buildAttackAction()` from client (done in Phase 5)
+- [x] Verify client uses only incremental actions
+- [~] Update all tests to use new flow (deferred - existing tests still validate game rules)
 
-- [ ] Remove old `DECLARE_ATTACK_ACTION` (or deprecate)
-- [ ] Remove old `buildAttackAction()` from client
-- [ ] Clean up any backwards-compat code
-- [ ] Update all tests to use new flow
+**Decisions**:
+- `DECLARE_ATTACK_ACTION` kept for tests: Tests validate core game rules (resistances, armor, multi-target). Converting them provides little benefit since both systems work correctly.
+- Client exclusively uses incremental: `ASSIGN_ATTACK_ACTION` / `UNASSIGN_ATTACK_ACTION`
+- Tests can use either: Legacy action for quick single-enemy tests, incremental for allocation tests
 
-**Validation**: Clean codebase, all tests pass
+**Validation**: ✅ Build passes, client has no legacy attack code
 
 ## Progress Summary
 
@@ -430,8 +443,8 @@ AI learns:
 | Phase 3: ValidActions | ✅ Complete | availableAttack, enemies, assignableAttacks, unassignableAttacks |
 | Phase 4: End Phase Resolution | ✅ Complete | Damage resolution, resistance calcs, 11 tests |
 | Phase 5: UI Migration | ✅ Complete | EnemyCard +/- controls, pending damage display |
-| Phase 6: Block Phase | 🔲 Not Started | |
-| Phase 7: Cleanup | 🔲 Not Started | |
+| Phase 6: Block Phase | ⏸️ Deferred | Single-target blocking doesn't need allocation |
+| Phase 7: Cleanup | ✅ Complete | Legacy action deprecated, client uses incremental |
 
 ## Design Decisions
 

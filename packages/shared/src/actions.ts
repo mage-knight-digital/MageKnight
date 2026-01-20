@@ -277,6 +277,10 @@ export interface ResolveDeepMineAction {
 export const ENTER_COMBAT_ACTION = "ENTER_COMBAT" as const;
 export const END_COMBAT_PHASE_ACTION = "END_COMBAT_PHASE" as const;
 export const DECLARE_BLOCK_ACTION = "DECLARE_BLOCK" as const;
+/**
+ * @deprecated Use incremental ASSIGN_ATTACK_ACTION + END_COMBAT_PHASE_ACTION instead.
+ * Kept for backward compatibility with existing tests.
+ */
 export const DECLARE_ATTACK_ACTION = "DECLARE_ATTACK" as const;
 export const ASSIGN_DAMAGE_ACTION = "ASSIGN_DAMAGE" as const;
 
@@ -335,7 +339,12 @@ export interface AttackSource {
   readonly value: number;
 }
 
-// Declare an attack against enemies
+/**
+ * @deprecated Use incremental AssignAttackAction + END_COMBAT_PHASE_ACTION instead.
+ * This action resolves attacks immediately (all-or-nothing).
+ * The incremental system allows partial allocation and undo before committing.
+ * Kept for backward compatibility with existing tests.
+ */
 export interface DeclareAttackAction {
   readonly type: typeof DECLARE_ATTACK_ACTION;
   readonly targetEnemyInstanceIds: readonly string[];
