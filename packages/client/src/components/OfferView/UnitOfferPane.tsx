@@ -51,19 +51,23 @@ export function UnitOfferPane() {
     [sendAction]
   );
 
+  // Extract specific state properties for stable dependencies
+  const recruitableUnits = state?.validActions?.units?.recruitable;
+  const unitOffer = state?.offers.units;
+
   const recruitableMap = useMemo(
     () => {
-      const recruitableUnits = state?.validActions?.units?.recruitable ?? [];
-      return new Map(recruitableUnits.map((r) => [r.unitId, r]));
+      const units = recruitableUnits ?? [];
+      return new Map(units.map((r) => [r.unitId, r]));
     },
-    [state?.validActions?.units?.recruitable]
+    [recruitableUnits]
   );
 
   // Convert unit offer to CardInfo array for PixiOfferCards
   const cards: CardInfo[] = useMemo(() => {
-    if (!state) return [];
+    if (!unitOffer) return [];
 
-    return state.offers.units.map((unitId) => {
+    return unitOffer.map((unitId) => {
       const unit = UNITS[unitId];
       const recruitInfo = recruitableMap.get(unitId);
       const canRecruit = recruitInfo?.canAfford ?? false;
@@ -83,9 +87,7 @@ export function UnitOfferPane() {
         onAcquire: recruitInfo ? () => handleRecruit(unitId, recruitInfo.cost) : undefined,
       };
     });
-    // Only re-run when the specific offer property changes, not the entire state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.offers.units, recruitableMap, handleRecruit]);
+  }, [unitOffer, recruitableMap, handleRecruit]);
 
   if (!state) return <div className="offer-pane__empty">Loading...</div>;
 

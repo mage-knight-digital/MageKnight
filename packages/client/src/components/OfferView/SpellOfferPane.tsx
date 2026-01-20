@@ -97,11 +97,14 @@ export function SpellOfferPane() {
     [sendAction]
   );
 
+  // Extract specific state property for stable dependency
+  const spellOfferCards = state?.offers.spells.cards;
+
   // Convert spell offer to CardInfo array for PixiOfferCards
   const cards: CardInfo[] = useMemo(() => {
-    if (!state) return [];
+    if (!spellOfferCards) return [];
 
-    return state.offers.spells.cards.map((spellId) => {
+    return spellOfferCards.map((spellId) => {
       // Determine acquire ability for this spell
       let canAcquire = false;
       let acquireLabel: string | undefined;
@@ -128,9 +131,7 @@ export function SpellOfferPane() {
         onAcquire,
       };
     });
-    // Only re-run when the specific offer property changes, not the entire state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.offers.spells.cards, pendingSpellReward, canBuySpells, playerInfluence, handleBuySpell, handleSelectSpellReward]);
+  }, [spellOfferCards, pendingSpellReward, canBuySpells, playerInfluence, handleBuySpell, handleSelectSpellReward]);
 
   if (!state) return <div className="offer-pane__empty">Loading...</div>;
 
