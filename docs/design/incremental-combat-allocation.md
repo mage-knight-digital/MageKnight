@@ -365,16 +365,16 @@ AI learns:
 
 **Validation**: ✅ New command tests pass, 807 total tests passing
 
-### Phase 3: ValidActions Update
+### Phase 3: ValidActions Update ✅ COMPLETE
 **Goal**: Server computes and sends new assignment info
 
-- [ ] Update `getCombatOptions()` in `core/src/engine/validActions/combat.ts`
-- [ ] Add helper to compute `availableAttack` (accumulated - assigned)
-- [ ] Add helper to compute `effectiveDamage` per enemy
-- [ ] Generate `assignableAttacks` list based on available attack and phase rules
-- [ ] Generate `unassignableAttacks` list based on pending damage
+- [x] Update `getCombatOptions()` in `core/src/engine/validActions/combat.ts`
+- [x] Add helper to compute `availableAttack` (accumulated - assigned)
+- [x] Add helper to compute `effectiveDamage` per enemy
+- [x] Generate `assignableAttacks` list based on available attack and phase rules
+- [x] Generate `unassignableAttacks` list based on pending damage
 
-**Validation**: Can inspect new ValidActions fields in browser dev tools
+**Validation**: ✅ 22 tests in `combatValidActions.test.ts`, 804 total tests passing
 
 ### Phase 4: End Phase Resolution
 **Goal**: END_COMBAT_PHASE resolves pending damage
@@ -427,8 +427,8 @@ AI learns:
 |-------|--------|-------|
 | Phase 1: Foundation | ✅ Complete | State structures in place |
 | Phase 2: Server Commands | ✅ Complete | Commands, validators, tests done |
-| Phase 3: ValidActions | 🔲 Not Started | Next up |
-| Phase 4: End Phase Resolution | 🔲 Not Started | |
+| Phase 3: ValidActions | ✅ Complete | availableAttack, enemies, assignableAttacks, unassignableAttacks |
+| Phase 4: End Phase Resolution | 🔲 Not Started | Next up |
 | Phase 5: UI Migration | 🔲 Not Started | |
 | Phase 6: Block Phase | 🔲 Not Started | |
 | Phase 7: Cleanup | 🔲 Not Started | |
@@ -469,7 +469,10 @@ AI learns:
 | Action types | `shared/src/actions.ts` |
 | ValidActions types | `shared/src/types/validActions.ts` |
 | Combat ValidActions computation | `core/src/engine/validActions/combat.ts` |
-| Assign attack command | `core/src/engine/commands/combat/assignAttackCommand.ts` (new) |
+| ValidActions tests | `core/src/engine/validActions/__tests__/combatValidActions.test.ts` |
+| Assign attack command | `core/src/engine/commands/combat/assignAttackCommand.ts` |
+| Unassign attack command | `core/src/engine/commands/combat/unassignAttackCommand.ts` |
+| Incremental attack tests | `core/src/engine/commands/combat/__tests__/incrementalAttack.test.ts` |
 | End phase command | `core/src/engine/commands/combat/endCombatPhaseCommand.ts` |
 | Combat validators | `core/src/engine/validators/combatValidators.ts` |
 | Elemental calc | `core/src/engine/combat/elementalCalc.ts` |
