@@ -124,6 +124,8 @@ export function AAOfferPane() {
         onAcquire,
       };
     });
+    // Only re-run when the specific offer property changes, not the entire state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.offers.advancedActions.cards, pendingAAReward, handleSelectAAReward]);
 
   // Convert monastery AA offer to CardInfo array
@@ -149,6 +151,8 @@ export function AAOfferPane() {
         onAcquire,
       };
     });
+    // Only re-run when the specific offer property changes, not the entire state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.offers.monasteryAdvancedActions, canBuyFromMonastery, playerInfluence, handleBuyMonasteryAA]);
 
   if (!state) return <div className="offer-pane__empty">Loading...</div>;

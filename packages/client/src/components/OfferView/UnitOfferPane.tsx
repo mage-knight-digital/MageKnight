@@ -51,10 +51,12 @@ export function UnitOfferPane() {
     [sendAction]
   );
 
-  const recruitableUnits = state?.validActions?.units?.recruitable ?? [];
   const recruitableMap = useMemo(
-    () => new Map(recruitableUnits.map((r) => [r.unitId, r])),
-    [recruitableUnits]
+    () => {
+      const recruitableUnits = state?.validActions?.units?.recruitable ?? [];
+      return new Map(recruitableUnits.map((r) => [r.unitId, r]));
+    },
+    [state?.validActions?.units?.recruitable]
   );
 
   // Convert unit offer to CardInfo array for PixiOfferCards
@@ -81,6 +83,8 @@ export function UnitOfferPane() {
         onAcquire: recruitInfo ? () => handleRecruit(unitId, recruitInfo.cost) : undefined,
       };
     });
+    // Only re-run when the specific offer property changes, not the entire state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.offers.units, recruitableMap, handleRecruit]);
 
   if (!state) return <div className="offer-pane__empty">Loading...</div>;
