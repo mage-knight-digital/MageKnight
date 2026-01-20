@@ -919,18 +919,6 @@ export function PixiHexGrid() {
       renderBoardShape(layers, state.map.tileSlots);
       console.log(`[renderAsync] renderBoardShape: ${(performance.now() - t_board).toFixed(1)}ms`);
 
-      // Static tile outlines container - rendered for intro fade, removed when tracer starts
-      let staticOutlinesContainer: Container | null = null;
-
-      // Helper to get all hex keys for a tile (center + 6 surrounding)
-      const getTileHexKeys = (centerCoord: HexCoord): string[] => {
-        const keys = [hexKey(centerCoord)];
-        for (const offset of TILE_HEX_OFFSETS) {
-          keys.push(hexKey({ q: centerCoord.q + offset.q, r: centerCoord.r + offset.r }));
-        }
-        return keys;
-      };
-
       // Capture the current revealing hex keys for use in callbacks
       // (using the ref value since it was set synchronously before renderAsync)
       const hexKeysToReveal = new Set(revealingHexKeysRef.current);
@@ -997,9 +985,7 @@ export function PixiHexGrid() {
       // For first load (intro): skip all rendering here, it happens after fade-in below
       // For subsequent updates: render enemies and hero normally
       if (!shouldPlayTileIntro) {
-        // Calculate timing for sequenced animations
-        const PHASE5_TILE_STAGGER = 200;
-        const PHASE5_SINGLE_TILE_TIME = HEX_OUTLINE_DURATION_MS + TILE_RISE_DURATION_MS + TILE_SLAM_DURATION_MS + 200;
+        // For non-intro, enemies render immediately (no tile animation delay)
         const tileAnimationTime = 0;
 
         // Render enemies (for exploration, handled in onRevealComplete callback above)
@@ -1090,7 +1076,7 @@ export function PixiHexGrid() {
         // Render static tile outlines that fade in with the board (matches board shape style)
         // These get removed when the tracer animation starts drawing animated outlines
         const BOARD_SHAPE_STROKE_COLOR = 0x8b7355; // Darker parchment edge - matches ghostHexes.ts
-        staticOutlinesContainer = renderStaticTileOutlines(
+        renderStaticTileOutlines(
           layers.boardShape, // Add to boardShape layer so it fades with the ghosts
           state.map.tiles,
           0.6, // alpha - matches board shape stroke alpha

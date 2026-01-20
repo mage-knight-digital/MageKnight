@@ -28,7 +28,6 @@ import "./FloatingHand.css";
 
 // Animation timing constants
 const HOVER_LIFT_DURATION_MS = CARD_FAN_HOVER.durationSec * 1000; // ~265ms synced to audio
-const CARD_MOVE_DURATION_MS = 200; // Duration for card position changes
 const VIEW_MODE_TRANSITION_MS = 300; // Duration for view mode transitions
 
 // View mode position offsets (matching CSS transforms from FloatingHand.css)
@@ -133,6 +132,8 @@ export function PixiFloatingHand({
   // Track new cards for deal animation
   const prevHandLengthRef = useRef<number>(hand.length);
   const isFirstRenderRef = useRef<boolean>(true);
+  // State for tracking new cards (setter used for deal animation, getter reserved for future use)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [newCardIndices, setNewCardIndices] = useState<Set<number>>(new Set());
 
   // Card dimensions based on viewport
@@ -158,7 +159,7 @@ export function PixiFloatingHand({
 
   const containerHeight = cardHeight + 80; // Extra space for hover lift and arc
 
-  // Card positions
+  // Card positions - only depends on count, not card IDs (positions don't change when cards change)
   const cardPositions = useMemo(() => {
     return visibleHand.map((_, index) => {
       const { spreadX, rotation, arcY } = getCardLayout(index, visibleHand.length, cardWidth);
@@ -168,6 +169,7 @@ export function PixiFloatingHand({
         rotation,
       };
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleHand.length, cardWidth, containerWidth, containerHeight]);
 
   // Track screen resize
@@ -312,6 +314,10 @@ export function PixiFloatingHand({
 
     initApp();
 
+    // Capture refs for cleanup
+    const cardContainers = cardContainersRef.current;
+    const glowGraphics = glowGraphicsRef.current;
+
     return () => {
       destroyed = true;
       setIsAppReady(false);
@@ -337,8 +343,9 @@ export function PixiFloatingHand({
         appRef.current = null;
       }
 
-      cardContainersRef.current.clear();
-      glowGraphicsRef.current.clear();
+      // Clear tracked containers
+      cardContainers.clear();
+      glowGraphics.clear();
     };
   }, []);
 
@@ -364,7 +371,6 @@ export function PixiFloatingHand({
         const pos = cardPositions[i];
         if (!pos) continue;
 
-        const originalIndex = getOriginalIndex(i);
         const isPlayable = playableCards.has(cardId);
         const isWound = cardId === CARD_WOUND;
         const shouldDim = !isPlayable && !isWound;
@@ -620,8 +626,8 @@ export function PixiFloatingHand({
     const yOffset = viewConfig.yOffset * screenDimensions.height;
 
     // Calculate target position and scale
-    let targetX: number = baseX;
-    let targetY: number = baseY + yOffset;
+    const targetX: number = baseX;
+    const targetY: number = baseY + yOffset;
     let targetScale: number = viewConfig.scale;
 
     // For focus mode, constrain scale to fit on screen

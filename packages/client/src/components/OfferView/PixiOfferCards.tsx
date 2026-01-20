@@ -108,6 +108,7 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
   }, []);
 
   // Card base positions (before hover transforms) - uses scaled dimensions
+  // Only depends on cards.length, not cards content (positions don't change when card IDs change)
   const cardPositions = useMemo(() => {
     const padding = 20 * scaleFactor;
     const topPadding = 30 * scaleFactor;
@@ -115,6 +116,7 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
       x: padding + index * (scaledCardWidth + scaledGap) + scaledCardWidth / 2, // Center anchor
       y: topPadding + scaledCardHeight / 2, // Center anchor with top padding
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cards.length, scaledCardWidth, scaledCardHeight, scaledGap, scaleFactor]);
 
   // Initialize PixiJS app
@@ -147,13 +149,16 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
 
     initApp();
 
+    // Capture ref for cleanup
+    const cardContainers = cardContainersRef.current;
+
     return () => {
       destroyed = true;
       if (appRef.current) {
         appRef.current.destroy(true);
         appRef.current = null;
       }
-      cardContainersRef.current.clear();
+      cardContainers.clear();
       setIsReady(false);
     };
   }, [canvasWidth, canvasHeight]);

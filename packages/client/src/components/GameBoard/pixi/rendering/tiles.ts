@@ -40,16 +40,6 @@ interface TileAnimData {
 }
 
 /**
- * Load a texture with caching
- */
-async function loadTexture(url: string): Promise<Texture> {
-  if (Assets.cache.has(url)) {
-    return Assets.get(url);
-  }
-  return Assets.load(url);
-}
-
-/**
  * Apply screen shake effect to world container
  */
 export function applyScreenShake(
@@ -108,13 +98,16 @@ export function renderStaticTileOutlines(
     const graphics = new Graphics();
 
     // Draw the complete outline
-    const firstVertex = vertices[0]!;
+    const firstVertex = vertices[0];
+    if (!firstVertex) continue;
+
     graphics.moveTo(
       position.x + firstVertex.x,
       position.y + firstVertex.y
     );
     for (let i = 1; i < vertices.length; i++) {
-      const vertex = vertices[i]!;
+      const vertex = vertices[i];
+      if (!vertex) continue;
       graphics.lineTo(
         position.x + vertex.x,
         position.y + vertex.y
