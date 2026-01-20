@@ -13,7 +13,7 @@
  * - Illusionists - Physical resistance, illusion magic
  * - Ice Mages - Ice attack, ice resistance
  * - Fire Mages - Fire attack, fire resistance
- * - Sorcerers - ColdFire attack, fire and ice resistance
+ * - Sorcerers - ColdFire attack, fire and ice resistance, assassination, poison, arcane immunity
  */
 
 import {
@@ -23,7 +23,12 @@ import {
   ELEMENT_COLD_FIRE,
 } from "../elements.js";
 import { ENEMY_COLOR_VIOLET, type EnemyDefinition } from "./types.js";
-import { ABILITY_POISON } from "./abilities.js";
+import {
+  ABILITY_POISON,
+  ABILITY_SUMMON,
+  ABILITY_ASSASSINATION,
+  ABILITY_ARCANE_IMMUNITY,
+} from "./abilities.js";
 import {
   NO_RESISTANCES,
   PHYSICAL_RESISTANCE,
@@ -72,12 +77,12 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     id: ENEMY_ILLUSIONISTS,
     name: "Illusionists",
     color: ENEMY_COLOR_VIOLET,
-    attack: 3,
+    attack: 0, // Summoners don't attack directly
     attackElement: ELEMENT_PHYSICAL,
     armor: 3,
-    fame: 5,
+    fame: 4,
     resistances: PHYSICAL_RESISTANCE,
-    abilities: [], // Special: physical resistance
+    abilities: [ABILITY_SUMMON], // Summons brown enemy
   },
   [ENEMY_ICE_MAGES]: {
     id: ENEMY_ICE_MAGES,
@@ -105,12 +110,12 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     id: ENEMY_SORCERERS,
     name: "Sorcerers",
     color: ENEMY_COLOR_VIOLET,
-    attack: 5,
+    attack: 6,
     attackElement: ELEMENT_COLD_FIRE,
-    armor: 5,
-    fame: 6,
+    armor: 6,
+    fame: 5,
     resistances: FIRE_ICE_RESISTANCE,
-    abilities: [],
+    abilities: [ABILITY_ASSASSINATION, ABILITY_POISON, ABILITY_ARCANE_IMMUNITY],
   },
 };
 

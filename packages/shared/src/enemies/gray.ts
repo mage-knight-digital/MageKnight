@@ -3,20 +3,20 @@
  *
  * Gray enemies defend keeps and are stronger than green orcs.
  * They range from fame 3-4 and represent trained human soldiers.
- * Guardsmen are swift, while Golems have physical resistance.
+ * Guardsmen are fortified, while Golems have physical resistance.
  *
  * @module enemies/gray
  *
  * @remarks Enemies in this module:
  * - Crossbowmen - Ranged defenders
- * - Guardsmen - Swift melee guards
+ * - Guardsmen - Fortified melee guards
  * - Swordsmen - Heavy infantry
  * - Golems - Physically resistant constructs
  */
 
 import { ELEMENT_PHYSICAL } from "../elements.js";
 import { ENEMY_COLOR_GRAY, type EnemyDefinition } from "./types.js";
-import { ABILITY_SWIFT } from "./abilities.js";
+import { ABILITY_FORTIFIED } from "./abilities.js";
 import { NO_RESISTANCES, PHYSICAL_RESISTANCE } from "./resistances.js";
 
 // =============================================================================
@@ -59,10 +59,10 @@ export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
     color: ENEMY_COLOR_GRAY,
     attack: 3,
     attackElement: ELEMENT_PHYSICAL,
-    armor: 4,
+    armor: 7,
     fame: 3,
     resistances: NO_RESISTANCES,
-    abilities: [ABILITY_SWIFT],
+    abilities: [ABILITY_FORTIFIED],
   },
   [ENEMY_SWORDSMEN]: {
     id: ENEMY_SWORDSMEN,
