@@ -31,6 +31,11 @@ export type GameIconType =
   | "summon"
   | "cumbersome"
   | "unfortified"
+  | "vampiric"
+  | "fire"
+  | "ice"
+  | "armor"
+  | "arcane_immune"
   // Resistances
   | "fire_resist"
   | "ice_resist"
@@ -52,6 +57,11 @@ const ICON_PATHS: Record<GameIconType, string> = {
   summon: "/assets/icons/summon.png",
   cumbersome: "/assets/icons/cumbersome.png",
   unfortified: "/assets/icons/unfortified.png",
+  vampiric: "/assets/icons/vampiric.png", // TODO: Add icon asset
+  fire: "/assets/icons/fire_resist.png", // Reuse fire resist icon
+  ice: "/assets/icons/ice_resist.png", // Reuse ice resist icon
+  armor: "/assets/icons/block.png", // Use block icon for armor
+  arcane_immune: "/assets/icons/arcane_immune.png", // TODO: Add icon asset
   // Resistances
   fire_resist: "/assets/icons/fire_resist.png",
   ice_resist: "/assets/icons/ice_resist.png",

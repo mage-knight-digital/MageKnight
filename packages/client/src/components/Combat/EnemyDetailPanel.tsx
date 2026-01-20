@@ -3,47 +3,76 @@
  *
  * Shows when player clicks an enemy token during combat.
  * Displays actual rulebook text for abilities and resistances.
+ * Uses actual game icons instead of emojis.
  */
 
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { ClientCombatEnemy, EnemyAbilityType } from "@mage-knight/shared";
 import { ABILITY_DESCRIPTIONS, RESISTANCE_DESCRIPTIONS } from "@mage-knight/shared";
 import type { ResistanceType } from "@mage-knight/shared";
+import { GameIcon, type GameIconType } from "../Icons";
 import "./EnemyDetailPanel.css";
+
+// Icon paths for abilities (fallback for abilities without GameIcon support)
+const ABILITY_ICONS: Record<string, string> = {
+  fortified: "/assets/icons/fortified.png",
+  unfortified: "/assets/icons/unfortified.png",
+  swift: "/assets/icons/swift.png",
+  brutal: "/assets/icons/brutal.png",
+  poison: "/assets/icons/poison.png",
+  paralyze: "/assets/icons/paralyze.png",
+  summon: "/assets/icons/summon.png",
+  cumbersome: "/assets/icons/cumbersome.png",
+};
+
+// Icon paths for resistances
+const RESISTANCE_ICONS: Record<string, string> = {
+  physical: "/assets/icons/block.png",
+  fire: "/assets/icons/fire_resist.png",
+  ice: "/assets/icons/ice_resist.png",
+};
+
+// Icon paths for stats
+const STAT_ICONS = {
+  attack: "/assets/icons/attack.png",
+  block: "/assets/icons/block.png",
+  fame: "/assets/icons/fame.png",
+};
 
 // Element display info
 interface ElementInfoEntry {
   name: string;
-  icon: string;
+  color: string;
   blockTip: string;
 }
 
 const ELEMENT_INFO: Record<string, ElementInfoEntry> = {
   physical: {
     name: "Physical",
-    icon: "⚔️",
+    color: "#9ca3af",
     blockTip: "Any Block type is fully efficient.",
   },
   fire: {
     name: "Fire",
-    icon: "🔥",
+    color: "#ef4444",
     blockTip: "Ice or ColdFire Block is fully efficient. Other Block types are halved.",
   },
   ice: {
     name: "Ice",
-    icon: "❄️",
+    color: "#3b82f6",
     blockTip: "Fire or ColdFire Block is fully efficient. Other Block types are halved.",
   },
   cold_fire: {
     name: "ColdFire",
-    icon: "💜",
+    color: "#a855f7",
     blockTip: "Only ColdFire Block is fully efficient. All other Block types are halved.",
   },
 };
 
 const DEFAULT_ELEMENT_INFO: ElementInfoEntry = {
   name: "Physical",
-  icon: "⚔️",
+  color: "#9ca3af",
   blockTip: "Any Block type is fully efficient.",
 };
 
@@ -62,12 +91,33 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
   if (enemy.resistances.fire) activeResistances.push("fire");
   if (enemy.resistances.ice) activeResistances.push("ice");
 
+  // Handle ESC key to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return createPortal(
     <div className="enemy-detail-backdrop" onClick={onClose}>
       <div className="enemy-detail-panel" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
+        {/* Header with enemy image */}
         <div className="enemy-detail-header">
-          <h2 className="enemy-detail-name">{enemy.name}</h2>
+          <div className="enemy-detail-header-content">
+            <img
+              src={`/assets/enemies/${enemy.enemyId}.jpg`}
+              alt={enemy.name}
+              className="enemy-detail-portrait"
+            />
+            <div className="enemy-detail-header-text">
+              <h2 className="enemy-detail-name">{enemy.name}</h2>
+              <span className="enemy-detail-esc-hint">Press ESC to close</span>
+            </div>
+          </div>
           <button className="enemy-detail-close" onClick={onClose} type="button">
             ✕
           </button>
@@ -76,30 +126,41 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
         {/* Stats */}
         <div className="enemy-detail-stats">
           <div className="enemy-detail-stat">
-            <span className="enemy-detail-stat-label">Attack</span>
-            <span className="enemy-detail-stat-value">
-              {elementInfo.icon} {enemy.attack}
-              {enemy.attackElement !== "physical" && (
-                <span className="enemy-detail-stat-element">{elementInfo.name}</span>
-              )}
-            </span>
+            <img src={STAT_ICONS.attack} alt="Attack" className="enemy-detail-stat-icon" />
+            <div className="enemy-detail-stat-content">
+              <span className="enemy-detail-stat-value" style={{ color: elementInfo.color }}>
+                {enemy.attack}
+              </span>
+              <span className="enemy-detail-stat-label">
+                {enemy.attackElement !== "physical" ? elementInfo.name : "Attack"}
+              </span>
+            </div>
           </div>
           <div className="enemy-detail-stat">
-            <span className="enemy-detail-stat-label">Armor</span>
-            <span className="enemy-detail-stat-value">🛡️ {enemy.armor}</span>
+            <img src={STAT_ICONS.block} alt="Armor" className="enemy-detail-stat-icon" />
+            <div className="enemy-detail-stat-content">
+              <span className="enemy-detail-stat-value">{enemy.armor}</span>
+              <span className="enemy-detail-stat-label">Armor</span>
+            </div>
           </div>
           <div className="enemy-detail-stat">
-            <span className="enemy-detail-stat-label">Fame</span>
-            <span className="enemy-detail-stat-value">⭐ {enemy.fame}</span>
+            <img src={STAT_ICONS.fame} alt="Fame" className="enemy-detail-stat-icon" />
+            <div className="enemy-detail-stat-content">
+              <span className="enemy-detail-stat-value">{enemy.fame}</span>
+              <span className="enemy-detail-stat-label">Fame</span>
+            </div>
           </div>
         </div>
 
         {/* Attack Element Info */}
         {enemy.attackElement !== "physical" && (
           <div className="enemy-detail-section">
-            <h3 className="enemy-detail-section-title">
-              {elementInfo.icon} {elementInfo.name} Attack
-            </h3>
+            <div className="enemy-detail-section-header">
+              <span className="enemy-detail-element-badge" style={{ background: elementInfo.color }}>
+                {elementInfo.name}
+              </span>
+              <span className="enemy-detail-section-title">Attack</span>
+            </div>
             <p className="enemy-detail-rule">{elementInfo.blockTip}</p>
           </div>
         )}
@@ -107,20 +168,31 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
         {/* Abilities */}
         {enemy.abilities.length > 0 && (
           <div className="enemy-detail-section">
-            <h3 className="enemy-detail-section-title">Special Abilities</h3>
-            {enemy.abilities.map((ability) => {
-              const desc = ABILITY_DESCRIPTIONS[ability as EnemyAbilityType];
-              if (!desc) return null;
-              return (
-                <div key={ability} className="enemy-detail-ability">
-                  <div className="enemy-detail-ability-header">
-                    <span className="enemy-detail-ability-icon">{desc.icon}</span>
-                    <span className="enemy-detail-ability-name">{desc.name}</span>
+            <h3 className="enemy-detail-section-title">Abilities</h3>
+            <div className="enemy-detail-abilities">
+              {enemy.abilities.map((ability) => {
+                const desc = ABILITY_DESCRIPTIONS[ability as EnemyAbilityType];
+                if (!desc) return null;
+                // Try to use GameIcon first, fallback to image path, then to text
+                const iconType = desc.icon as GameIconType | undefined;
+                const iconPath = ABILITY_ICONS[ability] || null;
+                return (
+                  <div key={ability} className="enemy-detail-ability">
+                    <div className="enemy-detail-ability-header">
+                      {iconType ? (
+                        <GameIcon type={iconType} size={24} className="enemy-detail-ability-icon" />
+                      ) : iconPath ? (
+                        <img src={iconPath} alt={desc.name} className="enemy-detail-ability-icon" />
+                      ) : (
+                        <span className="enemy-detail-ability-icon-fallback">{desc.icon}</span>
+                      )}
+                      <span className="enemy-detail-ability-name">{desc.name}</span>
+                    </div>
+                    <p className="enemy-detail-rule">{desc.fullDesc}</p>
                   </div>
-                  <p className="enemy-detail-rule">{desc.fullDesc}</p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -128,19 +200,26 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
         {hasResistances && (
           <div className="enemy-detail-section">
             <h3 className="enemy-detail-section-title">Resistances</h3>
-            {activeResistances.map((resistance) => {
-              const desc = RESISTANCE_DESCRIPTIONS[resistance];
-              return (
-                <div key={resistance} className="enemy-detail-resistance">
-                  <div className="enemy-detail-resistance-header">
-                    <span className="enemy-detail-resistance-icon">{desc.icon}</span>
-                    <span className="enemy-detail-resistance-name">{desc.name}</span>
+            <div className="enemy-detail-resistances">
+              {activeResistances.map((resistance) => {
+                const desc = RESISTANCE_DESCRIPTIONS[resistance];
+                const iconPath = RESISTANCE_ICONS[resistance] || null;
+                return (
+                  <div key={resistance} className="enemy-detail-resistance">
+                    <div className="enemy-detail-resistance-header">
+                      {iconPath ? (
+                        <img src={iconPath} alt={desc.name} className="enemy-detail-resistance-icon" />
+                      ) : (
+                        <span className="enemy-detail-resistance-icon-fallback">{desc.icon}</span>
+                      )}
+                      <span className="enemy-detail-resistance-name">{desc.name}</span>
+                    </div>
+                    <p className="enemy-detail-rule">{desc.fullDesc}</p>
+                    <p className="enemy-detail-tip">{desc.counter}</p>
                   </div>
-                  <p className="enemy-detail-rule">{desc.fullDesc}</p>
-                  <p className="enemy-detail-tip">💡 {desc.counter}</p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -148,7 +227,7 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
         {enemy.abilities.length === 0 && !hasResistances && enemy.attackElement === "physical" && (
           <div className="enemy-detail-section">
             <p className="enemy-detail-note">
-              This enemy has no special abilities or resistances.
+              This enemy has no special abilities or resistances. Standard attacks and blocks are fully effective.
             </p>
           </div>
         )}

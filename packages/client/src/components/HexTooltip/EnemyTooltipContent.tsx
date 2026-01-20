@@ -13,7 +13,7 @@
 
 import type { ClientHexEnemy, EnemyAbilityType } from "@mage-knight/shared";
 import { ENEMIES, ABILITY_DESCRIPTIONS } from "@mage-knight/shared";
-import { GameIcon } from "../Icons";
+import { GameIcon, type GameIconType } from "../Icons";
 
 export interface EnemyTooltipContentProps {
   enemies: readonly ClientHexEnemy[];
@@ -117,6 +117,7 @@ export function EnemyTooltipContent({
           definition.resistances.fire ||
           definition.resistances.ice;
         const tokenBackPath = TOKEN_BACK_PATHS[definition.color];
+        const hasSummon = definition.abilities.includes("summon");
 
         return (
           <div
@@ -143,8 +144,8 @@ export function EnemyTooltipContent({
                 <span className="enemy-tooltip__stat-icon">
                   <GameIcon type="attack" size={20} title="Attack" />
                 </span>
-                <span className="enemy-tooltip__stat-value">{definition.attack}</span>
-                {elementName && (
+                <span className="enemy-tooltip__stat-value">{hasSummon ? "?" : definition.attack}</span>
+                {elementName && !hasSummon && (
                   <span className="enemy-tooltip__stat-element">{elementName}</span>
                 )}
               </span>
@@ -166,11 +167,20 @@ export function EnemyTooltipContent({
               <div className="enemy-tooltip__abilities">
                 {definition.abilities.map((ability) => {
                   const desc = ABILITY_DESCRIPTIONS[ability as EnemyAbilityType];
+                  if (!desc) return null;
+                  // Try to use GameIcon if the icon type exists, otherwise show fallback
+                  const iconType = desc.icon as GameIconType | undefined;
                   return (
-                    <span key={ability} className="enemy-tooltip__ability" title={desc?.fullDesc}>
-                      <span className="enemy-tooltip__ability-icon">{desc?.icon || "•"}</span>
-                      <span className="enemy-tooltip__ability-name">{desc?.name || ability}</span>
-                      <span className="enemy-tooltip__ability-desc">{desc?.shortDesc}</span>
+                    <span key={ability} className="enemy-tooltip__ability" title={desc.fullDesc}>
+                      <span className="enemy-tooltip__ability-icon">
+                        {iconType ? (
+                          <GameIcon type={iconType} size={20} />
+                        ) : (
+                          <span>{desc.icon || "•"}</span>
+                        )}
+                      </span>
+                      <span className="enemy-tooltip__ability-name">{desc.name}</span>
+                      <span className="enemy-tooltip__ability-desc">{desc.shortDesc}</span>
                     </span>
                   );
                 })}
