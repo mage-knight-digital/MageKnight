@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import type { SiteOptions, TimeOfDay, ClientHexEnemy, EnemyAbilityType } from "@mage-knight/shared";
 import type { ClientHexState, ClientSite } from "@mage-knight/shared";
-import { TIME_OF_DAY_NIGHT, ENEMIES, ABILITY_DESCRIPTIONS, RESISTANCE_DESCRIPTIONS, ATTACK_ELEMENT_DESCRIPTIONS, type Element } from "@mage-knight/shared";
+import { TIME_OF_DAY_NIGHT, ENEMIES, ABILITY_DESCRIPTIONS, RESISTANCE_DESCRIPTIONS, ATTACK_ELEMENT_DESCRIPTIONS, getSitePanelInfo, type Element } from "@mage-knight/shared";
 import { SiteIcon, GameIcon, type SiteIconType, type GameIconType } from "../Icons";
 import "./SitePanel.css";
 
@@ -339,6 +339,8 @@ interface ComputedSiteInfo {
   services?: string[];
   /** Is this site fortified? */
   isFortified?: boolean;
+  /** Optional deep-dive sections */
+  sections?: { title: string; body: string[] }[];
 }
 
 /**
@@ -353,6 +355,15 @@ function computeSiteInfo(
   const isNight = timeOfDay === TIME_OF_DAY_NIGHT;
   const hasUnrevealedEnemies = enemies?.some(e => !e.isRevealed) ?? false;
   const enemyRevealNote = hasUnrevealedEnemies && isNight ? " (revealed on assault)" : "";
+  const sharedInfo = getSitePanelInfo({
+    siteType: site.type,
+    isConquered: site.isConquered,
+    timeOfDay,
+    hasUnrevealedEnemies,
+  });
+  if (sharedInfo) {
+    return sharedInfo;
+  }
 
   switch (site.type) {
     case "dungeon":
@@ -607,6 +618,16 @@ export function SitePanel({
   const computedInfo = site && !siteOptions
     ? computeSiteInfo(site, hex?.enemies, timeOfDay)
     : null;
+  const sharedPanelInfo = site
+    ? getSitePanelInfo({
+      siteType: site.type,
+      isConquered: site.isConquered,
+      timeOfDay,
+      hasUnrevealedEnemies: hex?.enemies?.some(e => !e.isRevealed) ?? false,
+    })
+    : null;
+  const panelSections = computedInfo?.sections ?? sharedPanelInfo?.sections ?? null;
+  const shouldShowSpecial = !panelSections || panelSections.length === 0;
 
   // Compute fortification info (both modes)
   const fortificationInfo = computeFortificationInfo(siteType, hex?.enemies, isConquered);
@@ -702,7 +723,7 @@ export function SitePanel({
             )}
 
             {/* Special Rules Section */}
-            {computedInfo.special && computedInfo.special.length > 0 && (
+            {shouldShowSpecial && computedInfo.special && computedInfo.special.length > 0 && (
               <section className="site-panel__section">
                 <h3 className="site-panel__section-title">
                   <GameIcon type="fortified" size={20} className="site-panel__section-icon" />
@@ -859,6 +880,20 @@ export function SitePanel({
             </div>
           </section>
         )}
+
+        {/* Deep-dive Sections (shared rules detail) */}
+        {panelSections && panelSections.map((section, idx) => (
+          <section key={idx} className="site-panel__section">
+            <h3 className="site-panel__section-title">
+              {section.title}
+            </h3>
+            <div className="site-panel__section-content">
+              {section.body.map((line, lineIdx) => (
+                <p key={lineIdx} className="site-panel__description">{line}</p>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
 
       {/* Footer with mode indicator (placeholder for action buttons) */}

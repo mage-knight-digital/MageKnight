@@ -71,6 +71,7 @@ export {
 
 // Shared state constants/types
 export * from "./stateConstants.js";
+export * from "./siteInfo.js";
 
 // Unit state
 export * from "./unitState.js";
@@ -187,6 +188,11 @@ export type {
   EnemyAttackState,
   AssignAttackOption,
   UnassignAttackOption,
+  // Incremental block allocation types
+  AvailableBlockPool,
+  EnemyBlockState,
+  AssignBlockOption,
+  UnassignBlockOption,
   // Units
   UnitOptions,
   RecruitableUnit,

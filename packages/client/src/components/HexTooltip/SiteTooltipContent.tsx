@@ -9,7 +9,7 @@
  */
 
 import type { ClientSite, ClientHexEnemy, TimeOfDay } from "@mage-knight/shared";
-import { TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
+import { TIME_OF_DAY_NIGHT, getSiteTooltipInfo } from "@mage-knight/shared";
 import { CrystalIcon, SiteIcon, GameIcon, type SiteIconType } from "../Icons";
 import type { CrystalColor } from "../../utils/cardAtlas";
 
@@ -29,6 +29,14 @@ const SITE_MAGICAL_GLADE = "magical_glade";
 const SITE_DEEP_MINE = "deep_mine";
 const SITE_MAZE = "maze";
 const SITE_LABYRINTH = "labyrinth";
+
+const SHARED_SITE_ICONS: Record<string, SiteIconType> = {
+  [SITE_KEEP]: "keep",
+  [SITE_MAGE_TOWER]: "mage_tower",
+  [SITE_ANCIENT_RUINS]: "ancient_ruins",
+  [SITE_MAGICAL_GLADE]: "magical_glade",
+  [SITE_TOMB]: "tomb",
+};
 
 export interface SiteTooltipContentProps {
   site: ClientSite;
@@ -63,6 +71,18 @@ function getSiteInfo({ site, timeOfDay, enemies }: GetSiteInfoOptions): SiteInfo
   const isNight = timeOfDay === TIME_OF_DAY_NIGHT;
   // Check if any enemies on this hex are unrevealed
   const hasUnrevealedEnemies = enemies?.some(e => !e.isRevealed) ?? false;
+  const sharedInfo = getSiteTooltipInfo({
+    siteType: site.type,
+    isConquered: site.isConquered,
+    timeOfDay,
+    hasUnrevealedEnemies,
+  });
+  if (sharedInfo) {
+    return {
+      ...sharedInfo,
+      siteIcon: SHARED_SITE_ICONS[site.type] ?? null,
+    };
+  }
 
   // Helper to get city icon type based on color
   const getCityIconType = (color?: string): SiteIconType => {
