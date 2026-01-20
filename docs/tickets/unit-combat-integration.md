@@ -1,101 +1,71 @@
-# Unit Combat Integration
+# Ticket: Unit Combat Integration
+
+**Created:** January 2025
+**Updated:** January 2025
+**Priority:** Medium
+**Complexity:** Medium
+**Status:** In Progress
+**Affects:** Combat system, units UI
+**Authoritative:** Yes
+
+---
 
 ## Summary
 
-Units can be recruited but cannot yet be used in combat. This ticket tracks all remaining unit functionality needed for full combat integration.
+Core unit combat logic exists (activation validation, command, damage assignment), and the UI shows owned units. Remaining gaps are combat UI for activating units and completing special abilities.
 
-## Current State
+## Problem Statement
 
-**Working:**
-- Unit definitions (all 27 units with abilities, stats, recruit sites)
-- Unit deck initialization and offer population
-- Unit recruitment at valid sites (Village, Monastery, Keep, Mage Tower, City)
-- Site-type filtering (only matching units shown)
-- Reputation cost modifier
-- Influence deduction on recruit
-- Unit removed from offer (offer does NOT replenish until round end)
-- Undo support for recruitment
-- Round refresh of unit offer (Elite/Regular alternating after core tile revealed)
+Units can be recruited and their combat effects are implemented in the engine, but players do not yet have a combat UI to activate unit abilities or assign damage through the UI.
 
-**Not Working:**
-- No UI to display owned units
-- No combat usage
+## Current Behavior
 
-## Tasks
+- Unit activation is implemented server-side (`activateUnitCommand`, `validActions/units/activation.ts`).
+- Damage assignment supports units (`assignDamageCommand.ts`).
+- Owned units UI exists (`FloatingUnitCarousel`).
+- No combat UI for activating units or selecting damage assignments.
 
-### 1. UI: Display Owned Units
-- Add panel showing player's recruited units
-- Show unit state (ready/spent/wounded)
-- Show abilities and stats
+## Expected Behavior
 
-### 2. Combat: Unit Activation
-- Activate unit ability during combat (Attack, Block, Ranged, Siege)
-- Mark unit as "spent" after activation
-- Validate ability matches current combat phase
-- Handle elemental abilities
+- Players can activate unit abilities during combat.
+- Players can assign damage to units via UI.
+- Special unit abilities are supported (mana generation, etc.).
 
-### 3. Combat: Damage Assignment to Units
-- UI for player to choose: damage to hero vs unit
-- Unit armor reduces incoming damage
-- Resistant units double armor vs matching element
-- Track wounds on units
+## Scope
 
-### 4. Combat: Unit Wounding
-- First wound: unit becomes "wounded" (still usable)
-- Second wound: unit destroyed
-- Poison ability: 2 wounds from single poison attack = destroyed
-- Paralyze ability: any wound = immediately destroyed
+### In Scope
+- Combat UI for unit activation.
+- Damage assignment UI for unit targets.
+- Special ability handling for units that require custom flows.
 
-### 5. Combat: Passive Abilities
-- Swift units: attack before block phase
-- Brutal units: deal double damage when attacking
-- Poison units: wounds go to hand AND discard (hero) or 2 wounds (unit)
-- Paralyze units: discard non-wound cards (hero) or destroy (unit)
+### Out of Scope
+- Non-combat unit management beyond existing UI.
 
-### 6. Unit Management
-- Command token limit enforcement (can't recruit if at max for level)
-- **See [unit-disbanding.md](unit-disbanding.md)** for detailed disband-on-recruit implementation
+## Proposed Approach
 
-### 7. Unit Healing
-- Target unit with healing effect (vs hero)
-- Remove wounded status from unit
-- Healing at inhabited sites can target units
+- Surface `validActions.units` in combat overlay.
+- Add UI affordances to activate unit abilities and choose damage targets.
+- Implement any remaining special unit abilities.
 
-### 8. Ready at Round End
-- All units (including wounded) become ready at round start
-- Already implemented in `endRoundCommand.ts`
+## Implementation Notes
 
-### 9. Special Unit Abilities
-These units have custom abilities not covered by standard Attack/Block:
-- **Magic Familiars** - Custom mana generation ability
-- **Sorcerers** - Custom spell-like ability
-- **Delphana Masters** - Custom ability
-- **Altem Mages** - Tiered mana payment for Cold Fire attack
-
-## Files to Modify
-
-- `packages/core/src/engine/validActions/units.ts` - Add `activatable` units logic
-- `packages/core/src/engine/commands/units/activateUnitCommand.ts` - Enhance activation
-- `packages/core/src/engine/commands/combat/assignDamageCommand.ts` - Unit targeting
-- `packages/core/src/types/unit.ts` - State management
-- `packages/client/src/components/` - New owned units panel
+- Core logic: `packages/core/src/engine/commands/units/activateUnitCommand.ts`
+- Combat damage: `packages/core/src/engine/commands/combat/assignDamageCommand.ts`
+- UI: `packages/client/src/components/Hand/FloatingUnitCarousel.tsx`
 
 ## Acceptance Criteria
 
-- [ ] Player can see their recruited units in UI
-- [ ] Player can activate unit abilities during combat
-- [ ] Player can assign damage to units instead of hero
-- [ ] Units properly wound and get destroyed
-- [ ] Command token limit prevents over-recruiting
-- [ ] Wounded units can still be used
-- [ ] All units ready at round start
+- [ ] Unit abilities can be activated in combat via UI.
+- [ ] Damage can be assigned to units via UI.
+- [ ] Special unit abilities are implemented where needed.
 
-## Priority
+## Test Plan
 
-Medium - Units are optional for First Reconnaissance but important for Full Conquest scenarios.
+### Manual
+1. Recruit a unit and enter combat.
+2. Activate its ability and verify combat accumulator changes.
+3. Assign damage to a unit and verify wound/destroy logic.
 
-## Related
+## Open Questions
 
-- Unit definitions: `packages/shared/src/units.ts`
-- Unit deck setup: `packages/core/src/data/unitDeckSetup.ts`
-- Recruit command: `packages/core/src/engine/commands/units/recruitUnitCommand.ts`
+- Which UI pattern should be used for unit activation in combat (radial menu vs inline buttons)?

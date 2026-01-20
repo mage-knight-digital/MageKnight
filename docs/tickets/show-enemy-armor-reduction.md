@@ -1,94 +1,69 @@
-# Ticket: Show Enemy Armor Reduction in UI
+# Ticket: Show enemy armor reduction in UI
 
 **Created:** January 2025
+**Updated:** September 2025
 **Priority:** Medium
 **Complexity:** Low
-**Affects:** Client UI, EnemyCard component
 **Status:** Not Started
+**Affects:** Client combat UI, server client-state mapping
+**Authoritative:** No
 
 ---
+
+## Summary
+
+When effects like Tremor reduce enemy armor, the UI still displays the base armor value. We should surface effective armor in the combat UI so players can see active debuffs without inferring from attack requirements.
 
 ## Problem Statement
 
-When spells like Tremor or Chill (powered) reduce enemy armor, the UI doesn't show this. The player only sees the original armor value. The only indication is that the "Attack" button shows the correct (reduced) armor requirement.
-
----
+Armor reduction is applied in combat resolution, but the UI only shows base armor. This creates confusion and forces players to cross-check the attack button or memorize the effect.
 
 ## Current Behavior
 
-1. Play Tremor on enemy with Armor 3
-2. Enemy card still shows "D 3" (original armor)
-3. Attack button shows "Attack (5 → 1)" (correct reduced armor)
-4. Player has to infer the reduction happened
-
----
+- `packages/server/src/index.ts` sends `ClientCombatEnemy.armor` using `enemy.definition.armor` only.
+- `packages/core/src/engine/modifiers.ts` computes effective armor via `getEffectiveEnemyArmor`, but the result is not surfaced to the client.
+- The UI relies on `EnemyCard` base armor display with no debuff indicator.
 
 ## Expected Behavior
 
-1. Play Tremor on enemy with Armor 3
-2. Enemy card shows armor reduction: "D 1" (with strikethrough on original) or "D 3→1"
-3. Visual indicator that a debuff is active (icon, color change, etc.)
+When enemy armor is reduced, the UI should show the effective armor and optionally the base armor in a secondary/struck-through format.
 
----
+## Scope
 
-## Design Options
+### In Scope
+- Add an effective armor value to the client combat state.
+- Update the enemy card UI to display reduced armor with a clear visual cue.
 
-### Option A: Strikethrough original + new value
-```
-D 3̶ → 1
-```
+### Out of Scope
+- Redesigning the entire combat card layout.
+- Visual effects for other modifiers not related to armor.
 
-### Option B: Color change + tooltip
-- Show "D 1" in a different color (red/orange for debuffed)
-- Tooltip shows "Base: 3, Modifier: -2 (Tremor)"
+## Proposed Approach
 
-### Option C: Modifier icon
-- Show "D 1" with a down-arrow icon indicating reduction
-- Hover/click shows modifier details
+- Compute effective armor on the server using existing modifier logic and include it in `ClientCombatEnemy`.
+- In the client, compare base vs effective armor and show a reduced indicator (strike-through or arrow).
 
----
+## Implementation Notes
 
-## Implementation
-
-The server already sends effective armor in `AttackOption.enemyArmor`. We need to:
-
-1. Also send effective armor in `ClientCombatEnemy` (or compute it client-side)
-2. Compare effective vs base armor
-3. Display difference in EnemyCard
-
-```typescript
-// In EnemyCard.tsx
-const hasArmorReduction = enemy.effectiveArmor < enemy.armor;
-
-<div className="enemy-card__stat">
-  <span className="enemy-card__stat-icon">D</span>
-  <span className={`enemy-card__stat-value ${hasArmorReduction ? 'enemy-card__stat-value--reduced' : ''}`}>
-    {hasArmorReduction ? (
-      <>
-        <span className="enemy-card__original-value">{enemy.armor}</span>
-        <span className="enemy-card__arrow">→</span>
-        {enemy.effectiveArmor}
-      </>
-    ) : (
-      enemy.armor
-    )}
-  </span>
-</div>
-```
-
----
-
-## Files to Modify
-
-- `packages/shared/src/types/clientState.ts` - Add `effectiveArmor` to `ClientCombatEnemy`
-- `packages/server/src/toClientState.ts` - Compute and include effective armor
-- `packages/client/src/components/Combat/EnemyCard.tsx` - Display reduction
-
----
+- Add `effectiveArmor` to `packages/shared/src/types/clientState.ts` `ClientCombatEnemy`.
+- Update `packages/server/src/index.ts` `toClientCombatState` to call `getEffectiveEnemyArmor` and include it.
+- Adjust `packages/client/src/components/Combat/EnemyCard.tsx` to display reduced armor when `effectiveArmor < armor`.
 
 ## Acceptance Criteria
 
-- [ ] Enemy card shows reduced armor when modifier active
-- [ ] Original armor is still visible (strikethrough or secondary display)
-- [ ] Visual distinction between normal and reduced armor
-- [ ] Works for Tremor, Chill (powered), and any future armor reduction effects
+- [ ] Enemy cards show reduced armor when modifiers are active.
+- [ ] Base armor remains visible (strike-through or secondary display).
+- [ ] No change for enemies without armor reduction.
+
+## Test Plan
+
+### Manual
+1. Start combat, apply an armor-reduction effect (e.g., Tremor).
+2. Verify the enemy card shows the reduced armor value.
+
+### Automated (optional)
+- UI snapshot/unit test for `EnemyCard` when `effectiveArmor < armor`.
+
+## Open Questions
+
+- Preferred UI treatment for reduced armor (arrow vs strike-through)?

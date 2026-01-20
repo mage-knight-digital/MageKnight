@@ -1,167 +1,69 @@
 # Ticket: Async Reward Selection for Multiplayer
 
 **Created:** January 2025
+**Updated:** January 2025
 **Priority:** Low
 **Complexity:** Medium
-**Affects:** Site rewards, Multiplayer timing, Turn flow
+**Status:** Not Started
+**Affects:** Site rewards, turn flow, multiplayer UX
+**Authoritative:** No
 
 ---
+
+## Summary
+
+Reward selection is currently forced before end of turn. This diverges from tabletop timing, where selections can occur during other players’ turns. Decide if/when to support async reward selection.
 
 ## Problem Statement
 
-When a player conquers a site, they receive rewards (spell, artifact, advanced action). Currently, reward selection is forced at end of turn. In physical Mage Knight, reward selection can happen during other players' turns (truly async).
+`pendingRewards` must be resolved before ending a turn, which blocks async selection and removes offer race dynamics present in physical play.
 
-**Current behavior:**
-1. Player conquers site, reward is queued to `pendingRewards`
-2. Player MUST select reward before end turn (validated)
-3. Selected card goes to top of deed deck (will draw next round)
+## Current Behavior
 
-**Correct physical game behavior:**
-1. Player conquers site
-2. Player can select from offer at any time (even during opponent's turn)
-3. Must select before next turn starts
-4. Cards can be taken from the offer by other players racing you
+- Rewards that require choice are queued to `player.pendingRewards`.
+- End turn is blocked while `pendingRewards` exist (`packages/core/src/engine/validators/rewardValidators.ts`).
+- Selection is only validated against current offers/decks in `selectRewardCommand`.
 
----
+## Expected Behavior
 
-## Rulebook References
+- Optionally allow reward selection after the turn ends (ideally before the player’s next turn), matching tabletop flexibility and offer competition.
 
-### Reward Timing
+## Scope
 
-> "After each combat at an adventure site, take one of the offered Artifacts (from the top three cards of the Artifact deck)." (General reward pattern)
+### In Scope
+- Decide async policy (allow during other turns vs force at next turn start).
+- Adjust validation gates for `END_TURN_ACTION` and `SELECT_REWARD_ACTION` accordingly.
 
-### Spell/Advanced Action Selection
+### Out of Scope
+- Full multiplayer UI/notification system unless required for the selected option.
 
-> "Take one Spell card from the Spell offer" - Players choose from the visible offer, not immediately.
+## Proposed Approach
 
-### Race Condition
-
-In physical play, if multiple players have pending rewards, there's a race for who selects first from limited offers.
-
----
-
-## Current Implementation
-
-The reward system currently:
-1. Queues choice-based rewards to `player.pendingRewards` at conquest time
-2. Immediately grants non-choice rewards (fame, crystals)
-3. Blocks END_TURN action if `pendingRewards.length > 0`
-4. Uses SELECT_REWARD action to pick from offer and move to discard
-
-**Relevant files:**
-- `packages/core/src/types/player.ts` - `pendingRewards` field
-- `packages/core/src/engine/helpers/rewardHelpers.ts` - `queueSiteReward()`
-- `packages/core/src/engine/commands/selectRewardCommand.ts`
-- `packages/core/src/engine/validators/rewardValidators.ts`
-
----
-
-## Proposed Future Enhancement
-
-### Option A: Async Selection During Any Player's Turn
-
-Allow SELECT_REWARD action even when it's not your turn:
-1. Remove `validateIsPlayersTurn` from SELECT_REWARD_ACTION validators
-2. Add turn-based deadline (must select before your next turn starts)
-3. Handle race conditions for limited offers
-
-**Pros:** Most accurate to physical game
-**Cons:** Complex race condition handling, requires multiplayer testing
-
-### Option B: Block at Start of Next Turn
-
-1. Allow end turn without selecting
-2. At start of next turn, force selection before any action
-3. Simpler than true async
-
-**Pros:** Simpler to implement
-**Cons:** Not exactly like physical game
-
-### Option C: Keep Current Behavior (End of Turn)
-
-Current implementation is valid for solo play. Leave as-is until multiplayer becomes priority.
-
-**Pros:** Already working
-**Cons:** Doesn't match physical game exactly
-
----
+- **Option A (closest to tabletop):** allow `SELECT_REWARD_ACTION` out of turn; enforce a deadline before the player’s next turn.
+- **Option B (simpler):** allow end turn with pending rewards; block the player at next turn start until rewards are chosen.
+- **Option C (status quo):** keep current behavior for now.
 
 ## Implementation Notes
 
-### Race Condition Handling (Option A)
-
-If two players have pending spell rewards:
-1. Both see spell offer with cards A, B, C
-2. Player 1 selects card A
-3. Offer replenishes to B, C, D
-4. Player 2's selection must revalidate - if they selected A, reject
-
-```typescript
-// In selectRewardCommand
-// Before executing, re-validate card is still in offer
-if (!offer.includes(cardId)) {
-  throw new Error("Card no longer available - another player selected it");
-}
-```
-
-### UI Considerations
-
-- Show "You have pending rewards" notification
-- Allow selecting even during opponent's turn
-- Update offer display in real-time as cards are taken
-
----
-
-## Testing Plan
-
-```typescript
-describe('Async Reward Selection', () => {
-  describe('option A - true async', () => {
-    it('should allow reward selection when not your turn');
-    it('should handle race conditions for limited offers');
-    it('should reject selection if card no longer in offer');
-    it('should force selection before your next turn starts');
-  });
-
-  describe('multiplayer scenarios', () => {
-    it('should allow multiple players to have pending rewards');
-    it('should update offers in real-time as cards are taken');
-    it('should notify when selected card was taken by another');
-  });
-});
-```
-
----
-
-## Related Files
-
-**Current Implementation:**
-- `packages/core/src/types/player.ts` - pendingRewards
-- `packages/core/src/engine/helpers/rewardHelpers.ts`
-- `packages/core/src/engine/commands/selectRewardCommand.ts`
-- `packages/core/src/engine/validators/rewardValidators.ts`
-
-**Related Tickets:**
-- `turn-structure-and-phases.md` - Turn flow
-
----
+- Files:
+  - `packages/core/src/types/player.ts` (pending rewards)
+  - `packages/core/src/engine/validators/rewardValidators.ts`
+  - `packages/core/src/engine/commands/selectRewardCommand.ts`
+- Race condition handling is already partially covered by `validateCardInOffer`.
 
 ## Acceptance Criteria
 
-For Option A (full async):
-- [ ] Players can select rewards during any player's turn
-- [ ] Race conditions handled gracefully
-- [ ] Selection must complete before your next turn
-- [ ] UI shows pending rewards notification
-- [ ] Real-time offer updates when cards are taken
+- [ ] Chosen async policy is implemented and documented.
+- [ ] Reward selection remains validated against current offers/decks.
+- [ ] Pending rewards do not block gameplay outside the chosen policy.
 
-For Option B (block at turn start):
-- [ ] End turn allowed with pending rewards
-- [ ] Start of turn blocks until rewards selected
-- [ ] Simpler than Option A
+## Test Plan
 
-Current Implementation (Option C):
-- [x] Rewards queued at conquest
-- [x] Must select before end turn
-- [x] Cards go to top of deed deck
-- [x] Validators prevent end turn with pending rewards
+### Manual
+1. Conquer a site that grants a spell/AA reward.
+2. Verify end turn behavior matches chosen policy.
+3. Select reward while offers are changing; ensure invalid selections are rejected.
+
+## Open Questions
+
+- Which policy do we want for multiplayer (Option A vs B vs C)?

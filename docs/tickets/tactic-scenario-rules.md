@@ -1,111 +1,67 @@
-# Scenario-Specific Tactic Rules
+# Ticket: Scenario-Specific Tactic Rules
+
+**Created:** January 2025
+**Updated:** January 2025
+**Priority:** Medium
+**Complexity:** Medium
+**Status:** Partially Complete
+**Affects:** Tactics selection, scenario config, round flow
+**Authoritative:** Yes
+
+---
 
 ## Summary
 
-Tactic card handling varies significantly between game modes (solo, co-op, competitive). The current implementation handles basic tactic selection and turn order but doesn't account for scenario-specific rules around tactic removal and dummy player behavior.
+Scenario config already supports tactic removal and dummy order. Solo-style removal (`all_used`) and dummy selection after humans are implemented. Co-op vote removal and dummy-before-humans are not yet implemented.
 
-## Current State
+## Problem Statement
 
-- Basic tactic selection works (lowest Fame picks first)
-- Turn order is determined by tactic number
-- No scenario-specific tactic handling
-- No dummy player tactic logic
+The tactics system supports some scenario-specific rules but not all. Co-op voting to remove a single used tactic and dummy-first selection remain unimplemented.
 
-## Required ScenarioConfig Additions
+## Current Behavior
 
-Add these fields to `ScenarioConfig` in `packages/shared/src/scenarios.ts`:
+- Scenario config includes `tacticRemovalMode` and `dummyTacticOrder` (`packages/shared/src/scenarios.ts`).
+- End-round removes all used tactics when `TACTIC_REMOVAL_ALL_USED` is set (`packages/core/src/engine/commands/endRoundCommand.ts`).
+- Dummy tactic selection after humans is implemented in `selectTacticCommand` when `DUMMY_TACTIC_AFTER_HUMANS`.
+- `TACTIC_REMOVAL_VOTE_ONE` and `DUMMY_TACTIC_BEFORE_HUMANS` are not implemented.
 
-```typescript
-// Tactic handling
-readonly tacticRemovalMode: TacticRemovalMode;
-readonly dummyPlayerTacticOrder: DummyTacticOrder;
-```
+## Expected Behavior
 
-### TacticRemovalMode
+- Co-op mode should allow players to vote to remove one used tactic at round end.
+- Dummy-first selection should be supported when configured.
 
-Defines what happens to tactics at end of each day/night:
+## Scope
 
-| Mode | Description | Used In |
-|------|-------------|---------|
-| `none` | Tactics collected and re-displayed each round | Competitive multiplayer |
-| `all_used` | All tactics used this round removed from game | Solo Conquest |
-| `vote_one` | Players agree to remove ONE used tactic (not dummy's) | Cooperative Conquest |
+### In Scope
+- Implement vote-one tactic removal flow.
+- Implement dummy-first tactic selection.
 
-### DummyTacticOrder
+### Out of Scope
+- Redesigning tactic selection UI.
 
-Defines when dummy player selects their tactic:
+## Proposed Approach
 
-| Mode | Description | Used In |
-|------|-------------|---------|
-| `none` | No dummy player | Standard multiplayer |
-| `after_humans` | Human picks first, dummy gets random from remaining | Solo Conquest |
-| `before_humans` | Dummy gets random first, then humans choose | Cooperative Conquest |
+- Add a round phase for tactic removal voting in co-op.
+- Extend `selectTacticCommand` to handle dummy-first selection when configured.
 
-## Implementation Tasks
+## Implementation Notes
 
-### 1. Add types to shared package
-
-```typescript
-// packages/shared/src/scenarios.ts
-
-export const TACTIC_REMOVAL_NONE = "none" as const;
-export const TACTIC_REMOVAL_ALL_USED = "all_used" as const;
-export const TACTIC_REMOVAL_VOTE_ONE = "vote_one" as const;
-
-export type TacticRemovalMode =
-  | typeof TACTIC_REMOVAL_NONE
-  | typeof TACTIC_REMOVAL_ALL_USED
-  | typeof TACTIC_REMOVAL_VOTE_ONE;
-
-export const DUMMY_TACTIC_NONE = "none" as const;
-export const DUMMY_TACTIC_AFTER_HUMANS = "after_humans" as const;
-export const DUMMY_TACTIC_BEFORE_HUMANS = "before_humans" as const;
-
-export type DummyTacticOrder =
-  | typeof DUMMY_TACTIC_NONE
-  | typeof DUMMY_TACTIC_AFTER_HUMANS
-  | typeof DUMMY_TACTIC_BEFORE_HUMANS;
-```
-
-### 2. Update ScenarioConfig
-
-Add the new fields with appropriate values for each scenario.
-
-### 3. Track removed tactics in GameState
-
-```typescript
-// In GameState
-readonly removedTactics: readonly TacticId[];
-```
-
-### 4. Update end-of-round logic
-
-In `endRoundCommand.ts`, after round ends:
-
-- If `tacticRemovalMode === 'all_used'`: Add all selected tactics to `removedTactics`
-- If `tacticRemovalMode === 'vote_one'`: Trigger a new phase for players to vote on which tactic to remove
-- If `tacticRemovalMode === 'none'`: Do nothing (current behavior)
-
-### 5. Update tactic selection phase
-
-- Filter `availableTactics` to exclude `removedTactics`
-- Handle dummy player selection based on `dummyPlayerTacticOrder`
-
-### 6. Add vote phase for co-op mode
-
-New round phase `ROUND_PHASE_TACTIC_REMOVAL_VOTE` where co-op players must agree on which tactic to remove.
+- `packages/shared/src/scenarios.ts`
+- `packages/core/src/engine/commands/selectTacticCommand.ts`
+- `packages/core/src/engine/commands/endRoundCommand.ts`
 
 ## Acceptance Criteria
 
-- [ ] Solo Conquest: Player picks tactic, dummy gets random, both removed at end of day/night
-- [ ] Cooperative: Dummy picks random first, players pick after, players vote to remove one at end
-- [ ] Competitive: All tactics available each round (current behavior preserved)
-- [ ] Removed tactics don't appear in subsequent rounds
-- [ ] Each tactic used exactly once across the game in solo mode
+- [ ] Co-op vote removes one used tactic per round.
+- [ ] Dummy-first selection works when configured.
+- [x] All-used removal works for solo configurations.
 
-## References
+## Test Plan
 
-- Rulebook sections on Solo Conquest and Cooperative Conquest scenarios
-- `packages/shared/src/scenarios.ts` - ScenarioConfig
-- `packages/core/src/engine/commands/selectTacticCommand.ts` - Current selection logic
-- `packages/core/src/engine/commands/endRoundCommand.ts` - End of round handling
+### Manual
+1. Run solo scenario with removal mode `all_used` and verify tactics disappear.
+2. Run co-op config and verify vote phase triggers and removes one tactic.
+
+## Open Questions
+
+- How should the vote UI be presented in the client?

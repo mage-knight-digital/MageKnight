@@ -1,53 +1,65 @@
-# Long Night Mid-Draw Activation
+# Ticket: Long Night Mid-Draw Activation
 
-## Status: Backlog
+**Created:** January 2025
+**Updated:** January 2025
+**Priority:** Low
+**Complexity:** Low-Medium
+**Status:** Backlog
+**Affects:** End-of-turn draw flow, tactic activation
+**Authoritative:** Yes
+
+---
 
 ## Summary
 
-The Long Night tactic (Night 2) should be activatable during end-of-turn card drawing if the deck empties mid-draw, but the current implementation only supports activation as a standalone action.
+Long Night should be usable when the deck empties mid-draw at end of turn, per rulebook. Current draw logic stops immediately and does not offer the tactic.
 
-## Rules Reference
+## Problem Statement
 
-From rulebook (line 894-895):
-> "The Long Night Tactic can be used even during card drawing: once your Deed deck is empty, follow its instructions and then continue drawing."
+`processCardFlow` stops drawing when the deck empties and does not allow mid-draw activation of Long Night, which deviates from the rulebook.
 
 ## Current Behavior
 
-1. Player ends turn and starts drawing cards
-2. Deck empties mid-draw (e.g., needed 2 cards, only 1 in deck)
-3. Drawing stops
-4. Long Night must be activated on the next turn (if there is one)
+- End-of-turn draw stops when deck empties (`packages/core/src/engine/commands/endTurn/cardFlow.ts`).
+- Long Night is activatable only as a normal tactic action and requires an empty deck (`packages/core/src/engine/commands/activateTacticCommand.ts`).
 
 ## Expected Behavior
 
-1. Player ends turn and starts drawing cards
-2. Deck empties mid-draw
-3. Game pauses and offers Long Night activation
-4. If activated: shuffle discard, put 3 cards in deck, continue drawing remaining cards
-5. If declined: drawing stops as normal
+- If the deck empties while drawing, the player can activate Long Night immediately and continue drawing.
 
-## Impact
+## Scope
 
-Low - This is a rare edge case requiring:
-- Deck emptying specifically mid-draw (not before)
-- Having the Long Night tactic selected and not yet flipped
-- Wanting to use it at that moment
+### In Scope
+- Add a mid-draw interrupt path to offer Long Night activation.
+- Resume drawing after activation.
 
-The tactic is still fully functional, just with slightly different timing.
+### Out of Scope
+- Changes to Long Night’s core effect.
+
+## Proposed Approach
+
+- Refactor `processCardFlow` to return a pending decision when deck empties mid-draw and Long Night is available.
+- Resume drawing after tactic resolution.
 
 ## Implementation Notes
 
-Would require:
-1. Refactoring `endTurnCommand.ts` draw logic to support interruption
-2. Adding a new pending state for "mid-draw tactic activation opportunity"
-3. Handling the continuation of drawing after tactic resolution
-4. UI changes to present the activation choice during draw
+- Rulebook reference: `docs/rules/rulebook.md` (Long Night note after line ~894).
+- Files:
+  - `packages/core/src/engine/commands/endTurn/cardFlow.ts`
+  - `packages/core/src/engine/commands/activateTacticCommand.ts`
+  - UI to prompt tactic activation during draw
 
-## Related Files
+## Acceptance Criteria
 
-- `packages/core/src/engine/commands/endTurnCommand.ts` - Draw logic
-- `packages/core/src/engine/commands/activateTacticCommand.ts` - Long Night activation
+- [ ] When deck empties mid-draw, Long Night can be activated immediately.
+- [ ] After activation, drawing continues to the hand limit.
 
-## Priority
+## Test Plan
 
-Low - MVP simplification is acceptable. Consider implementing if players report confusion or frustration with the timing limitation.
+### Manual
+1. End turn with deck smaller than draw requirement and Long Night selected.
+2. Confirm activation prompt during draw and continued draw after activation.
+
+## Open Questions
+
+- Should the prompt appear automatically or require explicit player action?

@@ -1,88 +1,76 @@
-# Unit Disbanding When Recruiting at Command Limit
+# Ticket: Unit disbanding on recruitment at command limit
+
+**Created:** July 2024
+**Updated:** September 2025
+**Priority:** Medium
+**Complexity:** Medium
+**Status:** Not Started
+**Affects:** Core engine recruitment flow, shared actions/events, unit offer UI
+**Authoritative:** Yes
+
+---
 
 ## Summary
 
-Players should be able to recruit units even when at command limit by disbanding an existing unit. Currently, recruitment is blocked entirely when command slots are full.
+Recruitment currently fails when a player is at their command limit, but the rulebook requires players to disband an existing unit to make room. We need to allow recruitment at the command limit by forcing a disband choice during the recruit flow.
 
-## Rulebook Reference
+## Problem Statement
 
-**Line 232:** "If you want to gain a new Unit but all of your Command tokens are occupied, you must disband one of your Units."
-
-**Line 868:** "If you do not have an open Command token for the Unit to occupy, you must disband one of your Units or forfeit the reward."
-
-## Key Rules
-
-1. **Disbanding is tied to gaining a unit** - Cannot disband arbitrarily to free up a slot
-2. **Mandatory when gaining** - If recruiting and slots are full, must disband (or forfeit if reward)
-3. **Removed from game** - Disbanded units are gone forever, NOT returned to deck
-4. **Any unit can be disbanded** - Spent, wounded, ready - state doesn't matter
-5. **Attached Banner** - Goes to discard pile (line 247) - not yet relevant since banners not implemented
+The rules explicitly allow recruitment at the command limit if the player disbands a unit. Today, command slots block recruitment entirely, which prevents legal gameplay and misleads the UI about why recruitment is unavailable.
 
 ## Current Behavior
 
-- When at command limit (e.g., 1/1), `canAfford` is `false` even if player has enough influence
-- UI shows "Need X Influence" but the real blocker is command tokens
-- No way to disband and recruit
+- `packages/core/src/engine/validActions/units/recruitment.ts` sets `canAfford` to `false` when command tokens are full.
+- `packages/core/src/engine/validators/units/recruitmentValidators.ts` returns `NO_COMMAND_SLOTS` if `player.units.length >= player.commandTokens`.
+- `packages/core/src/engine/commands/units/recruitUnitCommand.ts` only adds the recruited unit and has no disband step.
+- `packages/shared/src/actions.ts` defines `DISBAND_UNIT_ACTION`, but no core command/validator implements it.
 
-## Proposed Solution
+## Expected Behavior
 
-### Server Changes
+When a player recruits at the command limit, the UI should prompt them to disband an existing unit. The server should validate and apply the disband before adding the newly recruited unit.
 
-1. **Update `getUnitOptions`** in `validActions/units.ts`:
-   - Add `requiresDisband: boolean` field to `RecruitableUnit`
-   - Set `canAfford = true` if player has influence, regardless of command slots
-   - Set `requiresDisband = true` if at command limit
+## Scope
 
-2. **Modify recruit flow**:
-   - Add `disbandUnitInstanceId?: string` to `RecruitUnitAction`
-   - If recruiting at command limit without disband ID, reject
-   - If disband ID provided, remove that unit from game before adding new one
+### In Scope
+- Allow recruitment offers even when command slots are full.
+- Require disband selection as part of recruitment when at the command limit.
+- Permanently remove the disbanded unit from the player.
 
-3. **Add validation** in `unitValidators.ts`:
-   - Verify disband target exists and belongs to player
-   - Remove unit permanently (not to deck)
+### Out of Scope
+- Disbanding for combat rewards (rulebook line 868).
+- Banner discard handling (not implemented).
+- Freeform disbanding outside recruitment.
 
-### Client Changes
+## Proposed Approach
 
-1. **Update UnitOfferPanel**:
-   - When `requiresDisband` is true, show "Recruit (requires disband)" or similar
-   - Clicking recruit opens a selection UI for which unit to disband
+- Add a `requiresDisband` flag to recruitable unit options when command slots are full.
+- Extend the recruitment action/command to include the disbanded unit instance ID, or use a pending choice flow that forces a disband selection before completing recruitment.
+- Relax command-slot validation to allow recruitment if a disband is provided or pending.
 
-2. **Add DisbandSelectionOverlay** or integrate into existing choice system:
-   - Show player's units
-   - Player selects one to disband
-   - Confirm and proceed with recruitment
+## Implementation Notes
 
-### Alternative: Choice System
+- Update `packages/core/src/engine/validActions/units/recruitment.ts` to compute `requiresDisband` and allow `canAfford` based on influence only.
+- Add `disbandUnitInstanceId?: string` to `RecruitUnitAction` (or introduce a pending choice and a follow-up `DISBAND_UNIT_ACTION`).
+- Implement server-side validation for disband targets and ownership.
+- Update `packages/core/src/engine/commands/units/recruitUnitCommand.ts` to remove the disbanded unit before adding the new one.
+- Wire the client offer UI (`packages/client/src/components/Offers/UnitOfferPanel.tsx` or equivalent) to collect the disband choice.
 
-Could use existing `PendingChoice` mechanism:
-1. Player clicks recruit at command limit
-2. Server returns `ChoiceRequiredEvent` with disband options
-3. Player resolves choice
-4. Server completes recruitment
+## Acceptance Criteria
 
-## Out of Scope
+- [ ] Recruitment is available at the command limit when the player has enough influence.
+- [ ] Recruiting at the command limit requires selecting a unit to disband.
+- [ ] Disbanded units are removed from the player and not returned to any deck.
 
-- Combat reward disbanding (line 868) - separate ticket
-- Banner handling - banners not implemented yet
-- Voluntary disbanding outside recruitment - rules don't allow this
+## Test Plan
 
-## Files to Modify
+### Manual
+1. Fill command tokens, open a recruitment site, and verify recruitment is offered with a disband requirement.
+2. Recruit a unit, select one to disband, and confirm the roster updates correctly.
 
-- `packages/core/src/engine/validActions/units.ts`
-- `packages/core/src/engine/commands/units/recruitUnitCommand.ts`
-- `packages/core/src/engine/validators/unitValidators.ts`
-- `packages/shared/src/actions.ts` (add `disbandUnitInstanceId` field)
-- `packages/shared/src/types/validActions.ts` (add `requiresDisband` field)
-- `packages/client/src/components/Offers/UnitOfferPanel.tsx`
+### Automated (optional)
+- Unit test for recruit validation when command slots are full and disband is provided.
 
-## Priority
+## Open Questions
 
-Medium - Affects edge case of being at command limit and wanting different units
-
-## Related
-
-- Unit recruitment system (Done)
-- OwnedUnitsPanel (Done)
-- Combat rewards (Not Started)
-- [unit-combat-integration.md](unit-combat-integration.md) - Broader unit combat features
+- Should the disband be a separate `DISBAND_UNIT_ACTION` or a field on `RECRUIT_UNIT_ACTION`?
+- Do we need a generic pending-choice flow for disbanding (reused later for rewards)?

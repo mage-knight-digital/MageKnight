@@ -1,164 +1,88 @@
-# Ticket: Mana System Implementation Gaps
+# Ticket: Mana System Gaps and Rule Alignment
 
 **Created:** January 2025
 **Updated:** January 2025
 **Priority:** Low
-**Complexity:** Low-Medium
-**Status:** Mostly Complete
+**Complexity:** Medium
+**Status:** In Progress
+**Affects:** Core engine, shared actions, client UI, rules fidelity
+**Authoritative:** No
 
 ---
 
-## Overview
+## Summary
 
-The mana system is **largely complete** on both server and client.
+Most mana flow is implemented, but crystal overflow handling, standalone mana actions, and combat UI visibility are inconsistent or missing. Some rules around crystal overflow conflict within the rulebook and need a decision.
 
-**COMPLETED:**
-- ✅ Server-side mana validation and consumption
-- ✅ Client auto-selects mana source when playing powered cards
-- ✅ Powered options only show when player can afford them
+## Problem Statement
 
----
+Mana core mechanics work, but several edge cases and rule-alignment gaps remain. These gaps can produce illegal crystal counts, omit optional mana actions, or hide combat mana options from the player.
 
-## What's Working
+## Current Behavior
 
-### Server-Side (Complete)
+- **Mana Draw / Mana Pull** powered effects are implemented via `EFFECT_MANA_DRAW_POWERED` and `manaDrawEffects.ts`.
+- **Crystallize** is implemented via `effects/crystallize.ts` and `EFFECT_CONVERT_MANA_TO_CRYSTAL`.
+- **Crystal gain** in several paths does not enforce the 3-per-color limit or overflow behavior:
+  - `applyGainCrystal()` in `packages/core/src/engine/effects/atomicEffects.ts`.
+  - Crystal roll rewards in `packages/core/src/engine/helpers/rewards/handlers.ts`.
+  - Crystallize resolution in `packages/core/src/engine/effects/crystallize.ts`.
+- **Mine rewards** explicitly skip crystal gain if already at 3 (`packages/core/src/engine/commands/endTurn/siteChecks.ts`).
+- **Standalone mana actions** exist in `packages/shared/src/actions.ts` but are not wired in core.
+- **Combat UI** does not surface available mana options even though `validActions.mana` is populated.
 
-#### Mana Dice (Source)
-- [x] Creation: `playerCount + 2` dice with basic color constraint
-- [x] Once-per-turn limit enforced via `usedManaFromSource` flag
-- [x] Die rerolling at end of turn
-- [x] Gold depleted at NIGHT, Black depleted at DAY
-- [x] Track `takenByPlayerId` on each die
-- [x] Dungeon/tomb override for black mana during day
+## Expected Behavior
 
-#### Mana Tokens (Pure Mana)
-- [x] Storage in `player.pureMana` array
-- [x] Cleanup at end of turn (reset to empty)
-- [x] Track source (die/card/skill/site)
-- [x] Consumption when powering cards
+- Crystal gains should respect the 3-per-color limit and follow a clear overflow rule.
+- Optional mana actions (use die, convert crystal) should be available if required by cards or player choice.
+- Combat UI should display available mana sources consistently with non-combat UI.
 
-#### Crystals
-- [x] Storage in `player.crystals` (red/blue/green/white)
-- [x] Consumption when powering cards
-- [x] Restoration on undo
+## Scope
 
-#### Powering Cards
-- [x] Full validation chain in `manaValidators.ts`
-- [x] Consumption logic in `playCardCommand.ts`
-- [x] Gold mana as wildcard (day only)
-- [x] Black mana for spells only (night/dungeon)
-- [x] Color matching validation
-- [x] `manaUsedThisTurn` tracking for conditional effects
+### In Scope
+- Decide and implement crystal overflow behavior (cap vs overflow-to-token).
+- Wire standalone mana actions (if still desired) through validators and commands.
+- Surface mana source UI during combat.
 
-### Client-Side (Complete)
+### Out of Scope
+- Reworking mana rules beyond alignment with the rulebook.
+- Large UI redesigns for combat overlay.
 
-#### Mana Source Auto-Selection (DONE)
-- [x] `findAvailableManaSource()` in `PlayerHand.tsx`
-- [x] Priority: crystal > token > die > gold wildcard
-- [x] Sends `manaSource` in `PlayCardAction` when `powered: true`
+## Proposed Approach
 
-#### Validation Integration (DONE)
-- [x] `canPayForMana()` checks before showing powered option
-- [x] Powered options hidden when player can't afford them
-- [x] E2E tests verify behavior
+1. **Crystal overflow rule**: Align gain logic across effects and rewards. If overflow-to-token is adopted, implement in `applyGainCrystal()` and reward handlers; if not, cap and document exception for mines.
+2. **Standalone mana actions**: Add validators/commands for `USE_MANA_DIE_ACTION` and `CONVERT_CRYSTAL_ACTION` if these are needed for gameplay flexibility.
+3. **Combat UI**: Reuse `ManaSourcePanel` or add a compact display to the combat overlay.
 
----
+## Implementation Notes
 
-## Remaining Gaps (Low Priority)
+- Relevant files:
+  - `packages/core/src/engine/effects/atomicEffects.ts`
+  - `packages/core/src/engine/helpers/rewards/handlers.ts`
+  - `packages/core/src/engine/effects/crystallize.ts`
+  - `packages/core/src/engine/validators/index.ts`
+  - `packages/core/src/engine/commands/index.ts`
+  - `packages/client/src/components/Combat/CombatOverlay.tsx`
+- Rulebook references:
+  - General gain rule: `docs/rules/rulebook.md` ("Gain" effects: crystal overflow becomes mana token).
+  - Mine reward sections also state "nothing happens" if at 3 crystals.
 
-### 1. Crystal Overflow Rule
+## Acceptance Criteria
 
-When gaining a 4th crystal of a color, it should become a mana token instead.
+- [ ] Crystal gains are consistent across effects and rewards and never exceed 3-per-color unless explicitly allowed.
+- [ ] Overflow behavior is documented and implemented (token conversion or cap).
+- [ ] Standalone mana actions are either implemented or explicitly removed from shared actions.
+- [ ] Combat UI shows available mana sources.
 
-**Current:** Not implemented - likely just silently caps at 3
-**Expected:** Overflow to `pureMana` array as a token
+## Test Plan
 
-**Files to modify:**
-- Whatever handles gaining crystals (not yet implemented - no cards do this)
+### Manual
+1. Gain a 4th crystal via effect; verify overflow behavior matches decision.
+2. Use Mana Draw / Mana Pull powered effects; verify tokens and source dice behavior.
+3. Enter combat and confirm mana source visibility.
 
----
+### Automated (optional)
+- Unit tests for crystal overflow in `effects/atomicEffects` and `rewards/handlers`.
 
-### 2. Standalone Mana Actions
+## Open Questions
 
-These actions are **defined in shared** but **not wired in core**:
-
-```typescript
-// packages/shared/src/actions.ts
-USE_MANA_DIE_ACTION    // Take a die from source independently
-CONVERT_CRYSTAL_ACTION // Convert crystal to mana token independently
-```
-
-**Current:** Not needed - mana usage is integrated into card powering
-**Future:** May be useful for:
-- Spell casting that costs mana
-- "Bank" mana before deciding what to do with it
-
-**Files to modify (if needed):**
-- `packages/core/src/engine/validators/index.ts` - register validators
-- `packages/core/src/engine/commands/index.ts` - create command handlers
-
----
-
-### 3. Cards That Generate Mana
-
-Some cards have placeholder effects that should generate mana tokens:
-
-- **Mana Draw** - Should give pure mana of chosen basic color
-- **Crystallize** - Should convert mana to crystal (or vice versa)
-
-**Current:** `drawCards(0)` placeholder effects
-**Files:** Card definitions in `packages/core/src/data/basicActions.ts`
-
----
-
-### 4. Mana Source UI During Combat
-
-Show available mana dice visually in combat overlay.
-
-**Current:** `validActions.mana` is populated with available dice/crystals during combat
-**Missing:** No UI component displays this in combat
-
-**Note:** The main `ManaSourcePanel` exists in `App.tsx` but is only visible outside combat.
-Could add it to the combat overlay or show crystals/dice inline.
-
----
-
-## Test Coverage
-
-Existing tests in `packages/core/src/engine/__tests__/manaPowering.test.ts`:
-- Die usage and consumption
-- Crystal consumption
-- Token consumption
-- Gold/black wildcard behavior
-- Dungeon/tomb rules
-- Color mismatch validation
-- Time-of-day restrictions
-
-Unit tests in `packages/core/src/engine/__tests__/playableCards.test.ts`:
-- Powered options require mana availability
-- Cards hidden when mana not available
-
-E2E tests in `packages/client/e2e/combat.spec.ts`:
-- Powered option hidden without mana
-- Mana source integration check
-
-**Missing tests:**
-- Crystal overflow to token
-
----
-
-## Related Files
-
-**Server (complete):**
-- `packages/core/src/engine/mana/manaSource.ts`
-- `packages/core/src/engine/validators/manaValidators.ts`
-- `packages/core/src/engine/commands/playCardCommand.ts`
-- `packages/core/src/engine/validActions/mana.ts`
-- `packages/core/src/engine/validActions/cards.ts`
-
-**Client (complete):**
-- `packages/client/src/components/Hand/PlayerHand.tsx` - `findAvailableManaSource()`
-
-**Types:**
-- `packages/shared/src/actions.ts` - `ManaSourceInfo`, `PlayCardAction`
-- `packages/shared/src/types/validActions.ts` - `ManaOptions`
+- The rulebook has conflicting guidance: "Gain" effects say overflow becomes a mana token, while mine rewards say no gain when at 3. Which rule should the implementation follow?

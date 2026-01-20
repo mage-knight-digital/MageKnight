@@ -1,162 +1,64 @@
-# Site Panel UI - Detailed Site Information View
+# Ticket: Site Panel UI
 
-## Overview
+**Created:** January 2025
+**Updated:** January 2025
+**Priority:** Medium
+**Complexity:** Medium
+**Status:** In Progress
+**Affects:** Client UI, site info presentation
+**Authoritative:** No
 
-A detailed information panel that shows comprehensive site information, replacing the need to memorize rules. Works in two contexts:
-1. **Scouting** - Click into tooltip while exploring to see full details
-2. **Arrival** - Auto-opens when landing on an interactive site
+---
 
-## User Flow
+## Summary
 
-### Scouting (before moving)
-1. Hover hex → small tooltip (quick info)
-2. Click tooltip or "More Info" → full site panel slides in on right (50% screen)
-3. Camera shifts left to make room
-4. Player can close and continue exploring
+A detailed SitePanel exists and is wired to the hex tooltip “More Info” flow; remaining work is polish and arrival-mode automation.
 
-### Arriving at Site
-1. Hero lands on interactive site
-2. Screen auto-transitions:
-   - Left 50%: Hero token + radial action menu
-   - Right 50%: Full site panel
-3. Experienced player: glance, click action, done
-4. New player: read panel, understand options, then decide
+## Problem Statement
 
-## Site Panel Layout
+The panel was originally specified as a large new UI surface. Most structure is in place, but some integration behaviors (auto-open on arrival, split layout) and asset polish remain.
 
-```
-┌──────────────────────────────────────────────┐
-│ 🪦 TOMB                              [X]     │
-├──────────────────────────────────────────────┤
-│                                              │
-│  ┌──────────────────────────────────────┐    │
-│  │                                      │    │
-│  │         [ Site Artwork PNG ]         │    │
-│  │         (transparent background)     │    │
-│  │                                      │    │
-│  └──────────────────────────────────────┘    │
-│                                              │
-│  ══════════════════════════════════════════  │
-│  COMBAT                                      │
-│  ──────────────────────────────────────────  │
-│  ┌─────────────┐                             │
-│  │  [enemy    │  🔴 DRACONUM                 │
-│  │   token    │  ⚔️ 8 Fire   🛡️ 7   ⭐ 8    │
-│  │   image]   │                              │
-│  │            │  ⚡ Swift - requires 2x Block │
-│  └─────────────┘ 💀 Brutal - deals 2x damage │
-│                                              │
-│  ══════════════════════════════════════════  │
-│  RESTRICTIONS                                │
-│  ──────────────────────────────────────────  │
-│  🌙 Night Rules                              │
-│     No gold mana, black mana available       │
-│                                              │
-│  🚫 No Units                                 │
-│     You must fight alone                     │
-│                                              │
-│  ══════════════════════════════════════════  │
-│  REWARD (if victorious)                      │
-│  ──────────────────────────────────────────  │
-│  📜 1 Spell                                  │
-│  🏺 1 Artifact                               │
-│                                              │
-└──────────────────────────────────────────────┘
-```
+## Current Behavior
 
-## Panel Sections by Site Type
+- `SitePanel` renders with scouting mode (computed info) or arrival mode (SiteOptions) (`packages/client/src/components/SitePanel/SitePanel.tsx`).
+- `PixiHexGrid` opens the panel from the tooltip “More Info” flow.
+- Panel has animations, close handling, and multiple sections.
 
-### Adventure Sites (Dungeon, Tomb, Monster Den, Spawning Grounds, Ruins)
-- Site artwork
-- COMBAT section with enemy card(s)
-- RESTRICTIONS section (if any)
-- REWARD section
+## Expected Behavior
 
-### Interaction Sites (Village, Monastery)
-- Site artwork
-- SERVICES section (Recruit, Heal, Buy AA, etc.)
-- AVAILABLE UNITS section (if applicable)
-- Special actions (Plunder, Burn)
+- Auto-open the panel on arrival at actionable sites when appropriate.
+- Provide a polished presentation with consistent artwork and icons.
 
-### Fortified Sites (Keep, Mage Tower, City)
-- Site artwork
-- GARRISON section with enemy card(s) - if unconquered
-- SERVICES section - if conquered
-- Fortification warning
+## Scope
 
-### Passive Sites (Mine, Magical Glade, Deep Mine)
-- Site artwork
-- EFFECT section (end of turn / start of turn effects)
+### In Scope
+- Arrival-mode auto-open integration.
+- Minor polish for layout and assets.
 
-## Enemy Card Component
+### Out of Scope
+- Large redesign of the panel system.
 
-Reusable component showing:
-- Enemy token image
-- Name and color indicator
-- Stats row: Attack (with element), Armor, Fame
-- Abilities with short descriptions
-- Resistances (if any)
+## Proposed Approach
 
-```
-┌─────────────────────────────────────┐
-│  [token]  🔴 FIRE DRAGON            │
-│           ⚔️ 9 Fire  🛡️ 7  ⭐ 8     │
-│                                     │
-│           ⚡ Swift - requires 2x Block
-│           🔥 Fire Resistance        │
-│           ❄️ Ice Resistance         │
-└─────────────────────────────────────┘
-```
+- Connect arrival-based triggers to `SitePanel` (likely in `PixiHexGrid` or interaction flow).
+- Use available sprites/icons for consistent artwork.
 
-## Implementation Phases
+## Implementation Notes
 
-### Phase 1: Basic Panel Structure
-- [ ] Create `SitePanel` component with dark theme
-- [ ] Implement slide-in animation from right
-- [ ] Add close button functionality
-- [ ] Camera shift logic (shift view left when panel opens)
+- `packages/client/src/components/SitePanel/SitePanel.tsx`
+- `packages/client/src/components/GameBoard/PixiHexGrid.tsx`
 
-### Phase 2: Site Content
-- [ ] Site header with icon and name
-- [ ] Site artwork display (use Mage Tower as placeholder)
-- [ ] Section components (Combat, Restrictions, Rewards, Services)
-- [ ] Wire up site data from `SiteOptions`
+## Acceptance Criteria
 
-### Phase 3: Enemy Cards
-- [ ] Create `EnemyCard` component (larger than tooltip version)
-- [ ] Enemy token image display
-- [ ] Stats layout
-- [ ] Ability display with descriptions
+- [ ] SitePanel auto-opens on arrival when appropriate.
+- [ ] Visual presentation matches site type and shows correct details.
 
-### Phase 4: Integration
-- [ ] "More Info" trigger from tooltip hover
-- [ ] Auto-open on site arrival
-- [ ] Integrate with radial menu (50/50 split layout)
-- [ ] Handle panel + radial menu interaction
+## Test Plan
 
-### Phase 5: Polish
-- [ ] Scroll behavior if content overflows
-- [ ] Transitions and animations
-- [ ] High-res ability icons (when available)
-- [ ] Site artwork for all site types
+### Manual
+1. Hover a site, open panel via tooltip.
+2. Move onto an interactive site and confirm auto-open.
 
-## Assets Needed
+## Open Questions
 
-- [ ] Site artwork PNGs (transparent) - have some, need to add to repo
-- [ ] Mage Tower image (placeholder) - already in repo
-- [ ] High-res ability icons - coming soon
-- [ ] Enemy token images - already have
-
-## Design Decisions
-
-- **Scrollable**: Avoid if possible, but support if needed for many enemies
-- **Ability reference**: Start without, add expandable reference later
-- **Theme**: Dark theme consistent with current UI
-- **Controller support**: Panel navigable with bumper/button, scroll with stick
-
-## Related Files
-
-- `packages/client/src/components/HexTooltip/` - Current tooltip system
-- `packages/client/src/components/HexContextMenu/` - Current radial menu
-- `packages/shared/src/types/validActions.ts` - SiteOptions type
-- `packages/core/src/engine/validActions/sites.ts` - getSiteOptions()
+- Should auto-open be disabled for experienced players?

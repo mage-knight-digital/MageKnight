@@ -1,112 +1,66 @@
-# Hero Selection and Expansion-Aware Starting Decks
+# Ticket: Hero Expansion Deck Wiring
+
+**Created:** January 2025
+**Updated:** January 2025
+**Priority:** Medium
+**Complexity:** Medium
+**Status:** Not Started
+**Affects:** Hero selection, starting decks, scenario config
+**Authoritative:** Yes
+
+---
 
 ## Summary
 
-Wire up the expansion system to properly control hero availability and starting deck composition based on `ScenarioConfig.enabledExpansions`.
+Expansion-aware hero availability and starting deck composition are not yet wired to `ScenarioConfig.enabledExpansions`.
 
-## Current State
+## Problem Statement
 
-- `ExpansionId` type exists with `lost_legion`, `krang`, `shades_of_tezla`
-- `ScenarioConfig.enabledExpansions` array is in place
-- Hero definitions exist with base game card replacements only
-- Standard 16-card starting deck is defined
+Hero definitions include expansion heroes and mention expansion-only replacements, but the selection and deck building logic do not yet respect `enabledExpansions`.
 
-## Expansion Modularity
+## Current Behavior
 
-Expansions are designed to be modular. Most components can be mixed and matched independently:
+- `HEROES` includes expansion heroes and base-game decks with single unique replacements (`packages/core/src/types/hero.ts`).
+- TODO comments note that Lost Legion replacements and hero selection gating are not wired.
+- Scenario configs include `enabledExpansions` but no selection validation uses it (`packages/shared/src/scenarios.ts`, `packages/core/src/data/scenarios/*`).
 
-### Lost Legion - Modular Components
-- **Wolfhawk hero** - "Treat Wolfhawk as any other hero in the game"
-- **Second unique cards for base heroes** - Can be used independently
-- **New Advanced Actions, Spells, Artifacts** - "just get shuffled into the original decks"
-- **New map tiles** - "just add to the original piles"
-- **New enemy tokens** - "just add to the corresponding piles"
-- **Cooperative Skills** - can replace competitive skills in any cooperative/solo game
-- **Volkare** - Can be used in any scenario with cities via "Volkare's Camp in Place of a City" variant
+## Expected Behavior
 
-### Krang Expansion - Modular Components
-- **Krang hero** - Standalone character, fully modular
+- Expansion heroes only available when their expansion is enabled.
+- Base heroes receive expansion-specific replacements when those expansions are enabled.
 
-### Shades of Tezla - Modular Components
-- **Braevalar hero** - Standalone character, fully modular
+## Scope
 
-## Requirements
+### In Scope
+- Add helpers for available heroes and expansion-aware deck building.
+- Validate hero selection against enabled expansions.
 
-### Hero Availability
+### Out of Scope
+- Fine-grained component toggles beyond `enabledExpansions`.
 
-Heroes should only be selectable if their required expansion is enabled:
+## Proposed Approach
 
-| Hero | Required Expansion |
-|------|-------------------|
-| Arythea | Base game |
-| Goldyx | Base game |
-| Norowas | Base game |
-| Tovak | Base game |
-| Wolfhawk | `lost_legion` |
-| Krang | `krang` |
-| Braevalar | `shades_of_tezla` |
+- Add `getAvailableHeroes(enabledExpansions)`.
+- Add `getStartingDeckForHero(hero, enabledExpansions)` using replacement rules.
+- Use these in player creation and hero selection validation.
 
-### Starting Deck Composition
+## Implementation Notes
 
-Each hero's starting deck depends on which expansions are enabled:
+- `packages/core/src/types/hero.ts` (deck building)
+- `packages/shared/src/scenarios.ts` (expansion list)
+- Player initialization and hero selection flow
 
-**Base game only (`enabledExpansions: []`):**
-- Standard 16-card deck
-- Base hero gets their 1 unique card replacement:
-  - Arythea: Battle Versatility replaces Rage
-  - Goldyx: Will Focus replaces Concentration
-  - Norowas: Noble Manners replaces Promise
-  - Tovak: Cold Toughness replaces Determination
+## Acceptance Criteria
 
-**With Lost Legion (`enabledExpansions: ["lost_legion"]`):**
-- Base heroes get their expansion card replacement too:
-  - Arythea: Mana Pull replaces Mana Draw
-  - Goldyx: Crystal Joy replaces Crystallize
-  - Norowas: Rejuvenate replaces Tranquility
-  - Tovak: Instinct replaces Improvisation
-- Wolfhawk available with:
-  - Swift Reflexes replaces Swiftness
-  - Tirelessness replaces Stamina
+- [ ] Expansion heroes are unavailable unless the expansion is enabled.
+- [ ] Base heroes receive expansion-specific card replacements when enabled.
 
-**With Krang (`enabledExpansions: ["krang"]`):**
-- Krang available with:
-  - Savage Harvesting replaces March
-  - Ruthless Coercion replaces Threaten
+## Test Plan
 
-**With Shades of Tezla (`enabledExpansions: ["shades_of_tezla"]`):**
-- Braevalar available with:
-  - One With the Land replaces March
-  - Druidic Paths replaces Stamina
+### Manual
+1. Start scenario with no expansions; expansion heroes unavailable.
+2. Enable Lost Legion; Wolfhawk appears and base heroes receive second replacements.
 
-## Implementation Tasks
+## Open Questions
 
-1. **Create `getAvailableHeroes(enabledExpansions)` function**
-   - Returns list of heroes that can be selected given enabled expansions
-
-2. **Create `getStartingDeckForHero(hero, enabledExpansions)` function**
-   - Builds the correct starting deck based on hero and enabled expansions
-   - Replaces the current pre-built `startingCards` on `HeroDefinition`
-
-3. **Update player creation to use these functions**
-   - Find where player deck is initialized
-   - Pass `scenarioConfig.enabledExpansions` to deck builder
-
-4. **Add hero selection validation**
-   - Reject hero selection if expansion not enabled
-
-5. **Update tests**
-   - Test various expansion combinations
-   - Verify correct cards in starting decks
-
-## Future Considerations
-
-Since expansions are modular, we may want finer-grained control:
-- Toggle individual components (e.g., use Lost Legion cards but not Volkare)
-- Could evolve `enabledExpansions` into a more granular module system
-- For now, enabling an expansion enables all its modular components
-
-## Notes
-
-- First Reconnaissance uses `enabledExpansions: []` (base game only)
-- Full Conquest stub uses all expansions for testing
-- The UI will eventually need to show which heroes are available based on config
+- Should expansion-specific base hero replacements be optional independently of the expansion toggle?

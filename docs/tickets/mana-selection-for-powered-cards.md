@@ -2,100 +2,68 @@
 
 **Created:** January 2025
 **Updated:** January 2025
-**Priority:** ~~High~~ Low (core issue fixed)
+**Priority:** Low
 **Complexity:** Medium
-**Affects:** Combat UI, Card play system, Mana system
-**Status:** Partially Complete
+**Status:** Mostly Complete
+**Affects:** Card play, mana UI, combat UX
+**Authoritative:** No
 
 ---
+
+## Summary
+
+Powered play gating is fixed and mana selection UI exists for action cards and spells. Remaining work is mostly combat UI visibility and polish, not core logic.
 
 ## Problem Statement
 
-~~The UI currently shows "Powered" options for cards even when the player has no way to pay the mana cost.~~
+Previously, powered options appeared without available mana. That is fixed. The remaining concern was selecting a mana source; the current UI supports this via a card action menu and a radial selector for spells.
 
-**FIXED:** Powered options now only show when player has available mana (crystals, mana source dice, or pure mana tokens).
+## Current Behavior
 
-**Remaining work:** Add UI for selecting which mana source to use when playing powered cards.
+- Powered options only show if mana is available (`packages/core/src/engine/validActions/mana.ts`).
+- Action cards use `CardActionMenu` with available mana sources (crystals, tokens, dice) (`packages/client/src/components/Hand/PlayerHand.tsx`).
+- Spells use a two-step mana source selection (black then color) via a radial menu (`packages/client/src/components/Hand/PlayerHand.tsx`).
+- Mana sources are consumed by `playCardCommand` when `manaSource`/`manaSources` is provided.
 
----
+## Expected Behavior
 
-## What Was Fixed
+- Mana selection works for powered plays in both combat and non-combat contexts.
+- UI exposes available sources during combat as needed.
 
-### Core Issue (RESOLVED)
+## Scope
 
-- `getPlayableCardsForCombat()` now checks `canPayForMana()` before setting `canPlayPowered: true`
-- `getManaOptions()` implemented and wired into `validActions.mana`
-- Powered options only appear when player can actually pay for them
+### In Scope
+- Ensure combat overlays show/allow mana selection consistently.
+- Verify powered play flow for spells and action cards.
 
-### Implementation Details
+### Out of Scope
+- Redesigning the entire hand UI.
 
-```typescript
-// packages/core/src/engine/validActions/mana.ts
-export function canPayForMana(state: GameState, player: Player, requiredColor: ManaColor): boolean {
-  // Check pure mana tokens in play area
-  // Check crystals (can be converted to their color)
-  // Check mana source dice (if player hasn't used source this turn)
-  // Handle gold/black wildcard mana
-}
-```
+## Proposed Approach
 
-### Tests Added
+- Confirm combat overlay access to hand menu/radial selection and mana source visibility.
+- Add or adjust combat UI if sources are not visible during combat.
 
-- Unit tests in `playableCards.test.ts`:
-  - "should allow Swiftness powered for ranged attack when mana is available"
-  - "should NOT allow Swiftness powered when no mana is available"
-  - "should not allow powered block without mana"
+## Implementation Notes
 
-- E2E test in `combat.spec.ts`:
-  - "seed 123 - powered option should NOT show without mana available"
-
----
-
-## Remaining Work
-
-### Phase 2: Mana Source Selection UI (NOT STARTED)
-
-Currently, when a player has mana available and plays a powered card, the system needs a way to know WHICH mana source to consume:
-- A die from the mana source?
-- A crystal?
-- A pure mana token from the play area?
-
-**Options:**
-
-1. **Auto-select** - Use crystals first, then pure mana, then dice (simplest)
-2. **Sub-menu** - When clicking powered option, show sub-menu to select source
-3. **Pre-selection** - Player clicks mana source first, then plays card
-
-### Phase 3: Mana Consumption
-
-When playing a powered card:
-1. Include `manaSource: { type, id/color }` in action
-2. Engine validates and consumes the mana
-3. Update player state (remove crystal, mark die as used, etc.)
-
----
+- Core validation: `packages/core/src/engine/validActions/mana.ts`
+- UI selection: `packages/client/src/components/Hand/PlayerHand.tsx`
+- Powered play consumption: `packages/core/src/engine/commands/playCardCommand.ts`
 
 ## Acceptance Criteria
 
-- [x] `getManaOptions()` implemented and wired into `validActions.mana`
-- [ ] Combat overlay shows available mana dice (UI enhancement)
-- [ ] Player can select which mana source to use for powered play
-- [x] Powered options only show when player can pay for them
-- [ ] Playing powered card consumes selected mana
-- [ ] E2E test passes (powered Swiftness can be played when mana available)
+- [x] Powered options only appear when mana is available.
+- [x] Player can select a mana source for action cards.
+- [x] Player can select both sources for powered spells.
+- [ ] Combat UI clearly exposes mana source options if needed.
 
----
+## Test Plan
 
-## Related Issues
+### Manual
+1. Play a powered action card and select a mana source.
+2. Play a powered spell and select black + color mana.
+3. Verify mana sources are consumed.
 
-- Event log not visible during combat modal (separate UI issue)
-- Combat accumulator values not displayed (block/attack accumulated)
+## Open Questions
 
----
-
-## Notes
-
-We chose the "strict" approach after all - checking mana availability upfront rather than the "select mana first" flow. This is simpler because:
-- No need for "pending mana" state
-- Powered options just don't appear if you can't pay
-- Matches how digital games typically handle resource costs
+- Do we need explicit combat-only mana source UI, or is the hand menu sufficient?
