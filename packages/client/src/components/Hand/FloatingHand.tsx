@@ -493,7 +493,7 @@ export function DeckDiscardIndicator({ deckCount, discardCount, isHidden }: Deck
     <div className={className}>
       <div className="floating-hand__deck" title={`${deckCount} cards in deck`}>
         <img
-          src="/assets/cards/card_back.jpg"
+          src="/assets/atlas/cards/card_back.jpg"
           alt="Deck"
           className="floating-hand__deck-image"
         />

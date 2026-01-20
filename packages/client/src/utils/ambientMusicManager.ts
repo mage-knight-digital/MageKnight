@@ -16,32 +16,32 @@ export interface AmbientTrack {
 // Available ambient tracks
 export const AMBIENT_TRACKS: AmbientTrack[] = [
   // Pads - atmospheric drones
-  { id: "pad_04", label: "Pad 04", category: "pad", src: "/assets/music/pad_04.wav" },
+  { id: "pad_04", label: "Pad 04", category: "pad", src: "/assets/audio/music/pad_04.wav" },
   // Strings - orchestral atmosphere
-  { id: "strings_03", label: "Strings 03", category: "strings", src: "/assets/music/strings_03.wav" },
-  { id: "strings_04", label: "Strings 04", category: "strings", src: "/assets/music/strings_04.wav" },
+  { id: "strings_03", label: "Strings 03", category: "strings", src: "/assets/audio/music/strings_03.wav" },
+  { id: "strings_04", label: "Strings 04", category: "strings", src: "/assets/audio/music/strings_04.wav" },
   // Piano - contemplative mood
-  { id: "piano_01", label: "Piano 01", category: "piano", src: "/assets/music/piano_01.wav" },
-  { id: "piano_02", label: "Piano 02", category: "piano", src: "/assets/music/piano_02.wav" },
-  { id: "piano_03", label: "Piano 03", category: "piano", src: "/assets/music/piano_03.wav" },
+  { id: "piano_01", label: "Piano 01", category: "piano", src: "/assets/audio/music/piano_01.wav" },
+  { id: "piano_02", label: "Piano 02", category: "piano", src: "/assets/audio/music/piano_02.wav" },
+  { id: "piano_03", label: "Piano 03", category: "piano", src: "/assets/audio/music/piano_03.wav" },
   // Guitar - ambient guitar
-  { id: "guitar_01", label: "Guitar 01", category: "guitar", src: "/assets/music/guitar_01.wav" },
-  { id: "guitar_02", label: "Guitar 02", category: "guitar", src: "/assets/music/guitar_02.wav" },
-  { id: "guitar_03", label: "Guitar 03", category: "guitar", src: "/assets/music/guitar_03.wav" },
+  { id: "guitar_01", label: "Guitar 01", category: "guitar", src: "/assets/audio/music/guitar_01.wav" },
+  { id: "guitar_02", label: "Guitar 02", category: "guitar", src: "/assets/audio/music/guitar_02.wav" },
+  { id: "guitar_03", label: "Guitar 03", category: "guitar", src: "/assets/audio/music/guitar_03.wav" },
   // Mallets - vibraphone/marimba atmosphere
-  { id: "mallets_02", label: "Mallets 02", category: "mallets", src: "/assets/music/mallets_02.wav" },
+  { id: "mallets_02", label: "Mallets 02", category: "mallets", src: "/assets/audio/music/mallets_02.wav" },
   // Nature - countryside ambience (birds, wind, etc.)
-  { id: "nature_fields_01", label: "Fields 01", category: "nature", src: "/assets/music/nature_fields_01.wav" },
-  { id: "nature_fields_02", label: "Fields 02", category: "nature", src: "/assets/music/nature_fields_02.wav" },
-  { id: "nature_fields_03", label: "Fields 03", category: "nature", src: "/assets/music/nature_fields_03.wav" },
-  { id: "nature_fields_04", label: "Fields 04", category: "nature", src: "/assets/music/nature_fields_04.wav" },
-  { id: "nature_fields_05", label: "Fields 05", category: "nature", src: "/assets/music/nature_fields_05.wav" },
-  { id: "nature_fields_06", label: "Fields 06", category: "nature", src: "/assets/music/nature_fields_06.wav" },
-  { id: "nature_fields_07", label: "Fields 07", category: "nature", src: "/assets/music/nature_fields_07.wav" },
-  { id: "nature_fields_08", label: "Fields 08", category: "nature", src: "/assets/music/nature_fields_08.wav" },
-  { id: "nature_fields_09", label: "Fields 09", category: "nature", src: "/assets/music/nature_fields_09.wav" },
-  { id: "nature_fields_10", label: "Fields 10", category: "nature", src: "/assets/music/nature_fields_10.wav" },
-  { id: "nature_fields_11", label: "Fields 11", category: "nature", src: "/assets/music/nature_fields_11.wav" },
+  { id: "nature_fields_01", label: "Fields 01", category: "nature", src: "/assets/audio/music/nature_fields_01.wav" },
+  { id: "nature_fields_02", label: "Fields 02", category: "nature", src: "/assets/audio/music/nature_fields_02.wav" },
+  { id: "nature_fields_03", label: "Fields 03", category: "nature", src: "/assets/audio/music/nature_fields_03.wav" },
+  { id: "nature_fields_04", label: "Fields 04", category: "nature", src: "/assets/audio/music/nature_fields_04.wav" },
+  { id: "nature_fields_05", label: "Fields 05", category: "nature", src: "/assets/audio/music/nature_fields_05.wav" },
+  { id: "nature_fields_06", label: "Fields 06", category: "nature", src: "/assets/audio/music/nature_fields_06.wav" },
+  { id: "nature_fields_07", label: "Fields 07", category: "nature", src: "/assets/audio/music/nature_fields_07.wav" },
+  { id: "nature_fields_08", label: "Fields 08", category: "nature", src: "/assets/audio/music/nature_fields_08.wav" },
+  { id: "nature_fields_09", label: "Fields 09", category: "nature", src: "/assets/audio/music/nature_fields_09.wav" },
+  { id: "nature_fields_10", label: "Fields 10", category: "nature", src: "/assets/audio/music/nature_fields_10.wav" },
+  { id: "nature_fields_11", label: "Fields 11", category: "nature", src: "/assets/audio/music/nature_fields_11.wav" },
 ];
 
 export type TrackCategory = AmbientTrack["category"];

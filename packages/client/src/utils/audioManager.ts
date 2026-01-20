@@ -8,20 +8,20 @@ export type SoundEvent = "cardHover" | "cardDeal" | "cardPlay";
 
 // All available sound files (for debug panel)
 export const AVAILABLE_SOUNDS = [
-  { id: "card_hover", label: "Card Slide 1", src: "/assets/sounds/card_hover.wav" },
-  { id: "card_slide_2", label: "Card Slide 2", src: "/assets/sounds/card_slide_2.wav" },
-  { id: "card_playing_0", label: "Card Playing 0", src: "/assets/sounds/card_playing_0.wav" },
-  { id: "card_playing_1", label: "Card Playing 1", src: "/assets/sounds/card_playing_1.wav" },
-  { id: "card_playing_2", label: "Card Playing 2", src: "/assets/sounds/card_playing_2.wav" },
-  { id: "card_playing_3", label: "Card Playing 3", src: "/assets/sounds/card_playing_3.wav" },
-  { id: "card_playing_4", label: "Card Playing 4", src: "/assets/sounds/card_playing_4.wav" },
-  { id: "card_deal_1", label: "Card Deal 1", src: "/assets/sounds/card_deal_1.wav" },
-  { id: "card_deal_2", label: "Card Deal 2", src: "/assets/sounds/card_deal_2.wav" },
-  { id: "card_deal_3", label: "Card Deal 3", src: "/assets/sounds/card_deal_3.wav" },
-  { id: "card_deal_4", label: "Card Deal 4", src: "/assets/sounds/card_deal_4.wav" },
-  { id: "card_deal_5", label: "Card Deal 5", src: "/assets/sounds/card_deal_5.wav" },
-  { id: "card_play", label: "Card Slap 1", src: "/assets/sounds/card_play.wav" },
-  { id: "card_slap_2", label: "Card Slap 2", src: "/assets/sounds/card_slap_2.wav" },
+  { id: "card_hover", label: "Card Slide 1", src: "/assets/audio/sounds/card_hover.wav" },
+  { id: "card_slide_2", label: "Card Slide 2", src: "/assets/audio/sounds/card_slide_2.wav" },
+  { id: "card_playing_0", label: "Card Playing 0", src: "/assets/audio/sounds/card_playing_0.wav" },
+  { id: "card_playing_1", label: "Card Playing 1", src: "/assets/audio/sounds/card_playing_1.wav" },
+  { id: "card_playing_2", label: "Card Playing 2", src: "/assets/audio/sounds/card_playing_2.wav" },
+  { id: "card_playing_3", label: "Card Playing 3", src: "/assets/audio/sounds/card_playing_3.wav" },
+  { id: "card_playing_4", label: "Card Playing 4", src: "/assets/audio/sounds/card_playing_4.wav" },
+  { id: "card_deal_1", label: "Card Deal 1", src: "/assets/audio/sounds/card_deal_1.wav" },
+  { id: "card_deal_2", label: "Card Deal 2", src: "/assets/audio/sounds/card_deal_2.wav" },
+  { id: "card_deal_3", label: "Card Deal 3", src: "/assets/audio/sounds/card_deal_3.wav" },
+  { id: "card_deal_4", label: "Card Deal 4", src: "/assets/audio/sounds/card_deal_4.wav" },
+  { id: "card_deal_5", label: "Card Deal 5", src: "/assets/audio/sounds/card_deal_5.wav" },
+  { id: "card_play", label: "Card Slap 1", src: "/assets/audio/sounds/card_play.wav" },
+  { id: "card_slap_2", label: "Card Slap 2", src: "/assets/audio/sounds/card_slap_2.wav" },
 ] as const;
 
 export type SoundId = typeof AVAILABLE_SOUNDS[number]["id"];
