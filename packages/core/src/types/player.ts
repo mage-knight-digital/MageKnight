@@ -69,6 +69,8 @@ export interface CombatAccumulator {
   readonly block: number;
   readonly blockElements: ElementalAttackValues;
   readonly blockSources: readonly BlockSource[];
+  readonly assignedBlock: number; // Block that has been assigned to enemies (pending resolution)
+  readonly assignedBlockElements: ElementalAttackValues; // Breakdown of assigned block by element
 }
 
 // Helper to create empty elemental values
@@ -101,6 +103,8 @@ export function createEmptyCombatAccumulator(): CombatAccumulator {
     block: 0,
     blockElements: createEmptyElementalValues(),
     blockSources: [],
+    assignedBlock: 0,
+    assignedBlockElements: createEmptyElementalValues(),
   };
 }
 

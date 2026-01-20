@@ -44,14 +44,39 @@ import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemyHelpers.j
 import type { BlockSource } from "@mage-knight/shared";
 
 /**
- * Helper to set up block sources in the player's combatAccumulator.
+ * Helper to set up block sources in the player's combatAccumulator and pendingBlock in combat state.
+ * Updated for incremental block allocation system.
  */
-function withBlockSources(state: GameState, playerId: string, blocks: readonly BlockSource[]): GameState {
+function withBlockSources(
+  state: GameState,
+  playerId: string,
+  blocks: readonly BlockSource[],
+  enemyInstanceId: string = "enemy_0"
+): GameState {
   const playerIndex = state.players.findIndex(p => p.id === playerId);
   if (playerIndex === -1) throw new Error(`Player not found: ${playerId}`);
 
   const player = state.players[playerIndex];
   const totalBlock = blocks.reduce((sum, b) => sum + b.value, 0);
+
+  // Calculate block by element for new system
+  const blockByElement = { physical: 0, fire: 0, ice: 0, coldFire: 0 };
+  for (const block of blocks) {
+    switch (block.element) {
+      case "physical":
+        blockByElement.physical += block.value;
+        break;
+      case "fire":
+        blockByElement.fire += block.value;
+        break;
+      case "ice":
+        blockByElement.ice += block.value;
+        break;
+      case "cold_fire":
+        blockByElement.coldFire += block.value;
+        break;
+    }
+  }
 
   const updatedPlayers = [...state.players];
   updatedPlayers[playerIndex] = {
@@ -60,10 +85,29 @@ function withBlockSources(state: GameState, playerId: string, blocks: readonly B
       ...player.combatAccumulator,
       block: totalBlock,
       blockSources: blocks,
+      blockElements: blockByElement,
+      assignedBlock: totalBlock,
+      assignedBlockElements: blockByElement,
     },
   };
 
-  return { ...state, players: updatedPlayers };
+  // Also set up pendingBlock in combat state for the new system
+  const combat = state.combat;
+  if (!combat) {
+    return { ...state, players: updatedPlayers };
+  }
+
+  return {
+    ...state,
+    players: updatedPlayers,
+    combat: {
+      ...combat,
+      pendingBlock: {
+        ...combat.pendingBlock,
+        [enemyInstanceId]: blockByElement,
+      },
+    },
+  };
 }
 
 /**

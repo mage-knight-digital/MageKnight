@@ -43,3 +43,15 @@ export {
   UNASSIGN_ATTACK_COMMAND,
   type UnassignAttackCommandParams,
 } from "./unassignAttackCommand.js";
+
+export {
+  createAssignBlockCommand,
+  ASSIGN_BLOCK_COMMAND,
+  type AssignBlockCommandParams,
+} from "./assignBlockCommand.js";
+
+export {
+  createUnassignBlockCommand,
+  UNASSIGN_BLOCK_COMMAND,
+  type UnassignBlockCommandParams,
+} from "./unassignBlockCommand.js";

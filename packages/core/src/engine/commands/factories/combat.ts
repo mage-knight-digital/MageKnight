@@ -14,6 +14,8 @@
  * - createAssignDamageCommandFromAction - Assign unblocked damage
  * - createAssignAttackCommandFromAction - Incrementally assign attack damage to enemy
  * - createUnassignAttackCommandFromAction - Remove assigned attack damage from enemy
+ * - createAssignBlockCommandFromAction - Incrementally assign block to enemy
+ * - createUnassignBlockCommandFromAction - Remove assigned block from enemy
  */
 
 import type { CommandFactory } from "./types.js";
@@ -25,6 +27,8 @@ import {
   ASSIGN_DAMAGE_ACTION,
   ASSIGN_ATTACK_ACTION,
   UNASSIGN_ATTACK_ACTION,
+  ASSIGN_BLOCK_ACTION,
+  UNASSIGN_BLOCK_ACTION,
 } from "@mage-knight/shared";
 import {
   createEnterCombatCommand,
@@ -34,6 +38,8 @@ import {
   createAssignDamageCommand,
   createAssignAttackCommand,
   createUnassignAttackCommand,
+  createAssignBlockCommand,
+  createUnassignBlockCommand,
 } from "../combat/index.js";
 
 /**
@@ -166,6 +172,46 @@ export const createUnassignAttackCommandFromAction: CommandFactory = (
     playerId,
     enemyInstanceId: action.enemyInstanceId,
     attackType: action.attackType,
+    element: action.element,
+    amount: action.amount,
+  });
+};
+
+/**
+ * Assign block command factory.
+ * Creates a command to incrementally assign block to an enemy.
+ *
+ * Part of the incremental block allocation system.
+ */
+export const createAssignBlockCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== ASSIGN_BLOCK_ACTION) return null;
+  return createAssignBlockCommand({
+    playerId,
+    enemyInstanceId: action.enemyInstanceId,
+    element: action.element,
+    amount: action.amount,
+  });
+};
+
+/**
+ * Unassign block command factory.
+ * Creates a command to remove assigned block from an enemy.
+ *
+ * Part of the incremental block allocation system.
+ */
+export const createUnassignBlockCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== UNASSIGN_BLOCK_ACTION) return null;
+  return createUnassignBlockCommand({
+    playerId,
+    enemyInstanceId: action.enemyInstanceId,
     element: action.element,
     amount: action.amount,
   });

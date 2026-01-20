@@ -109,3 +109,83 @@ export function createBlockFailedEvent(
     requiredBlock,
   };
 }
+
+// ============================================================================
+// BLOCK_ASSIGNED (Incremental block allocation)
+// ============================================================================
+
+/**
+ * Event type constant for block assignment.
+ * @see BlockAssignedEvent
+ */
+export const BLOCK_ASSIGNED = "BLOCK_ASSIGNED" as const;
+
+/**
+ * Emitted when block is incrementally assigned to an enemy.
+ *
+ * Part of the incremental block allocation system where players
+ * assign block point-by-point before committing.
+ *
+ * @example
+ * ```typescript
+ * if (event.type === BLOCK_ASSIGNED) {
+ *   updateBlockAllocationUI(event.enemyInstanceId, event.element, event.amount);
+ * }
+ * ```
+ */
+export interface BlockAssignedEvent {
+  readonly type: typeof BLOCK_ASSIGNED;
+  /** Instance ID of the target enemy */
+  readonly enemyInstanceId: string;
+  /** Element of the block assigned */
+  readonly element: string;
+  /** Amount of block assigned */
+  readonly amount: number;
+}
+
+/**
+ * Type guard for BlockAssignedEvent.
+ */
+export function isBlockAssignedEvent(event: { type: string }): event is BlockAssignedEvent {
+  return event.type === BLOCK_ASSIGNED;
+}
+
+// ============================================================================
+// BLOCK_UNASSIGNED (Incremental block allocation)
+// ============================================================================
+
+/**
+ * Event type constant for block unassignment.
+ * @see BlockUnassignedEvent
+ */
+export const BLOCK_UNASSIGNED = "BLOCK_UNASSIGNED" as const;
+
+/**
+ * Emitted when previously assigned block is removed from an enemy.
+ *
+ * Part of the incremental block allocation system that allows
+ * players to reallocate block before committing.
+ *
+ * @example
+ * ```typescript
+ * if (event.type === BLOCK_UNASSIGNED) {
+ *   updateBlockAllocationUI(event.enemyInstanceId, event.element, -event.amount);
+ * }
+ * ```
+ */
+export interface BlockUnassignedEvent {
+  readonly type: typeof BLOCK_UNASSIGNED;
+  /** Instance ID of the target enemy */
+  readonly enemyInstanceId: string;
+  /** Element of the block unassigned */
+  readonly element: string;
+  /** Amount of block unassigned */
+  readonly amount: number;
+}
+
+/**
+ * Type guard for BlockUnassignedEvent.
+ */
+export function isBlockUnassignedEvent(event: { type: string }): event is BlockUnassignedEvent {
+  return event.type === BLOCK_UNASSIGNED;
+}

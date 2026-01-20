@@ -29,7 +29,10 @@ import {
   type PendingElementalDamage,
 } from "../../../types/combat.js";
 import type { Player, CombatAccumulator } from "../../../types/player.js";
-import { createEmptyAccumulatedAttack } from "../../../types/player.js";
+import {
+  createEmptyAccumulatedAttack,
+  createEmptyElementalValues,
+} from "../../../types/player.js";
 import type { HexState } from "../../../types/map.js";
 import { createConquerSiteCommand } from "../conquerSiteCommand.js";
 import { isAttackResisted, type Resistances } from "../../combat/elementalCalc.js";
@@ -173,6 +176,51 @@ function clearPendingAndAssigned(
   const updatedAccumulator: CombatAccumulator = {
     ...player.combatAccumulator,
     assignedAttack: createEmptyAccumulatedAttack(),
+  };
+
+  const updatedPlayer: Player = {
+    ...player,
+    combatAccumulator: updatedAccumulator,
+  };
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = updatedPlayer;
+
+  return {
+    ...state,
+    combat: updatedCombat,
+    players: updatedPlayers,
+  };
+}
+
+/**
+ * Clear pending block and assigned block from combat and player state.
+ * Called when transitioning from BLOCK phase - any uncommitted block is lost.
+ */
+function clearPendingBlock(state: GameState, playerId: string): GameState {
+  // Clear combat pending block
+  const updatedCombat = state.combat
+    ? {
+        ...state.combat,
+        pendingBlock: {},
+      }
+    : null;
+
+  // Clear player's assigned block tracking
+  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  if (playerIndex === -1) {
+    return { ...state, combat: updatedCombat };
+  }
+
+  const player = state.players[playerIndex];
+  if (!player) {
+    return { ...state, combat: updatedCombat };
+  }
+
+  const updatedAccumulator: CombatAccumulator = {
+    ...player.combatAccumulator,
+    assignedBlock: 0,
+    assignedBlockElements: createEmptyElementalValues(),
   };
 
   const updatedPlayer: Player = {
@@ -408,12 +456,23 @@ export function createEndCombatPhaseCommand(
         updatedCombat = updatedState.combat;
       }
 
-      // When transitioning from BLOCK to ASSIGN_DAMAGE, calculate if all damage was blocked
-      // This is used by conditional effects like Burning Shield
+      // When transitioning from BLOCK to ASSIGN_DAMAGE:
+      // - Clear any uncommitted pending block (it's lost if not used)
+      // - Calculate if all damage was blocked (for conditional effects like Burning Shield)
       if (
         currentPhase === COMBAT_PHASE_BLOCK &&
         nextPhase === COMBAT_PHASE_ASSIGN_DAMAGE
       ) {
+        // Clear uncommitted pending block
+        updatedState = clearPendingBlock(
+          { ...updatedState, combat: updatedCombat },
+          params.playerId
+        );
+        if (!updatedState.combat) {
+          throw new Error("Combat state unexpectedly cleared");
+        }
+        updatedCombat = updatedState.combat;
+
         // All damage is blocked if every undefeated enemy is blocked
         const undefeatedEnemies = updatedCombat.enemies.filter(
           (e) => !e.isDefeated

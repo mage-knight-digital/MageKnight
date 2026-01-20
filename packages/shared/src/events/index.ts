@@ -164,6 +164,8 @@ import type {
   CombatPhaseChangedEvent,
   EnemyBlockedEvent,
   BlockFailedEvent,
+  BlockAssignedEvent,
+  BlockUnassignedEvent,
   EnemyDefeatedEvent,
   AttackFailedEvent,
   AttackAssignedEvent,
@@ -314,6 +316,8 @@ export type GameEvent =
   | CombatPhaseChangedEvent
   | EnemyBlockedEvent
   | BlockFailedEvent
+  | BlockAssignedEvent
+  | BlockUnassignedEvent
   | EnemyDefeatedEvent
   | AttackFailedEvent
   | AttackAssignedEvent

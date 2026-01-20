@@ -40,6 +40,12 @@ export type PendingDamageMap = {
   readonly [enemyInstanceId: string]: PendingElementalDamage;
 };
 
+// Pending block assigned to enemies (before resolution)
+// Reuses PendingElementalDamage since block also has elemental types
+export type PendingBlockMap = {
+  readonly [enemyInstanceId: string]: PendingElementalDamage;
+};
+
 // Helper to create empty pending elemental damage
 export function createEmptyPendingDamage(): PendingElementalDamage {
   return {
@@ -75,6 +81,7 @@ export interface CombatState {
   readonly allDamageBlockedThisPhase: boolean; // True if all enemy damage was blocked in block phase
   readonly discardEnemiesOnFailure: boolean; // true for dungeon/tomb (enemies discarded even on failed combat)
   readonly pendingDamage: PendingDamageMap; // Damage assigned to enemies before resolution
+  readonly pendingBlock: PendingBlockMap; // Block assigned to enemies before resolution
 }
 
 // Options for special combat rules
@@ -129,5 +136,6 @@ export function createCombatState(
     allDamageBlockedThisPhase: false,
     discardEnemiesOnFailure: options?.discardEnemiesOnFailure ?? false,
     pendingDamage: {},
+    pendingBlock: {},
   };
 }

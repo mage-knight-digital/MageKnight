@@ -14,6 +14,8 @@ import {
   ASSIGN_DAMAGE_ACTION,
   ASSIGN_ATTACK_ACTION,
   UNASSIGN_ATTACK_ACTION,
+  ASSIGN_BLOCK_ACTION,
+  UNASSIGN_BLOCK_ACTION,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
   ABILITY_FORTIFIED,
@@ -50,6 +52,8 @@ import {
   INSUFFICIENT_ATTACK,
   NOTHING_TO_UNASSIGN,
   INVALID_ASSIGNMENT_AMOUNT,
+  INSUFFICIENT_BLOCK,
+  NOTHING_TO_UNASSIGN_BLOCK,
 } from "./validationCodes.js";
 import type { AccumulatedAttack, ElementalAttackValues } from "../../types/player.js";
 import { getTotalElementalValue } from "../../types/player.js";
@@ -687,6 +691,207 @@ export function validateAssignAttackFortification(
     return invalid(
       FORTIFIED_NEEDS_SIEGE,
       `Fortified enemy (${enemy.definition.name}) can only receive Siege attacks in Ranged/Siege phase`
+    );
+  }
+
+  return valid();
+}
+
+// ============================================================================
+// Incremental Block Assignment Validators
+// ============================================================================
+
+/**
+ * Get the available amount for a specific element of block.
+ * Available = accumulated - assigned
+ */
+function getAvailableBlock(
+  blockElements: ElementalAttackValues,
+  assignedBlockElements: ElementalAttackValues,
+  element: AttackElement
+): number {
+  const getElementalValue = (elements: ElementalAttackValues, el: AttackElement): number => {
+    switch (el) {
+      case ATTACK_ELEMENT_FIRE:
+        return elements.fire;
+      case ATTACK_ELEMENT_ICE:
+        return elements.ice;
+      case ATTACK_ELEMENT_COLD_FIRE:
+        return elements.coldFire;
+      default:
+        return elements.physical;
+    }
+  };
+
+  const accumulated = getElementalValue(blockElements, element);
+  const alreadyAssigned = getElementalValue(assignedBlockElements, element);
+
+  return accumulated - alreadyAssigned;
+}
+
+/**
+ * Get the currently assigned block amount for a specific element to a specific enemy.
+ */
+function getAssignedBlockToEnemy(
+  state: GameState,
+  enemyInstanceId: string,
+  element: AttackElement
+): number {
+  const pending = state.combat?.pendingBlock[enemyInstanceId];
+  if (!pending) return 0;
+
+  switch (element) {
+    case ATTACK_ELEMENT_FIRE:
+      return pending.fire;
+    case ATTACK_ELEMENT_ICE:
+      return pending.ice;
+    case ATTACK_ELEMENT_COLD_FIRE:
+      return pending.coldFire;
+    default:
+      return pending.physical;
+  }
+}
+
+// Assign/Unassign block must be in combat
+export function validateAssignBlockInCombat(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  const blockActions = [ASSIGN_BLOCK_ACTION, UNASSIGN_BLOCK_ACTION];
+
+  if (!blockActions.includes(action.type as typeof ASSIGN_BLOCK_ACTION)) {
+    return valid();
+  }
+
+  if (state.combat === null) {
+    return invalid(NOT_IN_COMBAT, "Not in combat");
+  }
+
+  return valid();
+}
+
+// Assign/Unassign block only in Block phase
+export function validateAssignBlockPhase(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  const blockActions = [ASSIGN_BLOCK_ACTION, UNASSIGN_BLOCK_ACTION];
+
+  if (!blockActions.includes(action.type as typeof ASSIGN_BLOCK_ACTION)) {
+    return valid();
+  }
+
+  if (state.combat?.phase !== COMBAT_PHASE_BLOCK) {
+    return invalid(
+      WRONG_COMBAT_PHASE,
+      "Can only assign/unassign block during Block phase"
+    );
+  }
+
+  return valid();
+}
+
+// Target enemy must exist and not be defeated or already blocked (for assign block)
+export function validateAssignBlockTargetEnemy(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ASSIGN_BLOCK_ACTION) return valid();
+
+  const enemy = state.combat?.enemies.find(
+    (e) => e.instanceId === action.enemyInstanceId
+  );
+
+  if (!enemy) {
+    return invalid(ENEMY_NOT_FOUND, "Target enemy not found");
+  }
+
+  if (enemy.isDefeated) {
+    return invalid(ENEMY_ALREADY_DEFEATED, "Target enemy is already defeated");
+  }
+
+  if (enemy.isBlocked) {
+    return invalid(ENEMY_ALREADY_BLOCKED, "Target enemy is already blocked");
+  }
+
+  return valid();
+}
+
+// Target enemy must exist (for unassign block)
+export function validateUnassignBlockTargetEnemy(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== UNASSIGN_BLOCK_ACTION) return valid();
+
+  const enemy = state.combat?.enemies.find(
+    (e) => e.instanceId === action.enemyInstanceId
+  );
+
+  if (!enemy) {
+    return invalid(ENEMY_NOT_FOUND, "Target enemy not found");
+  }
+
+  return valid();
+}
+
+// Validate player has enough available block to assign
+export function validateHasAvailableBlock(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ASSIGN_BLOCK_ACTION) return valid();
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return valid();
+
+  const available = getAvailableBlock(
+    player.combatAccumulator.blockElements,
+    player.combatAccumulator.assignedBlockElements,
+    action.element
+  );
+
+  if (action.amount <= 0) {
+    return invalid(INVALID_ASSIGNMENT_AMOUNT, "Assignment amount must be positive");
+  }
+
+  if (action.amount > available) {
+    return invalid(
+      INSUFFICIENT_BLOCK,
+      `Insufficient ${action.element} block: need ${action.amount}, have ${available}`
+    );
+  }
+
+  return valid();
+}
+
+// Validate there's enough assigned block to unassign
+export function validateHasAssignedBlockToUnassign(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== UNASSIGN_BLOCK_ACTION) return valid();
+
+  if (action.amount <= 0) {
+    return invalid(INVALID_ASSIGNMENT_AMOUNT, "Unassignment amount must be positive");
+  }
+
+  const currentlyAssigned = getAssignedBlockToEnemy(
+    state,
+    action.enemyInstanceId,
+    action.element
+  );
+
+  if (action.amount > currentlyAssigned) {
+    return invalid(
+      NOTHING_TO_UNASSIGN_BLOCK,
+      `Cannot unassign ${action.amount} ${action.element} block: only ${currentlyAssigned} assigned to this enemy`
     );
   }
 

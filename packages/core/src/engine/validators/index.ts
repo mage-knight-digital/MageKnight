@@ -21,6 +21,8 @@ import {
   ASSIGN_DAMAGE_ACTION,
   ASSIGN_ATTACK_ACTION,
   UNASSIGN_ATTACK_ACTION,
+  ASSIGN_BLOCK_ACTION,
+  UNASSIGN_BLOCK_ACTION,
   RECRUIT_UNIT_ACTION,
   ACTIVATE_UNIT_ACTION,
   INTERACT_ACTION,
@@ -128,6 +130,13 @@ import {
   validateHasAssignedToUnassign,
   validateAssignAttackTypeForPhase,
   validateAssignAttackFortification,
+  // Incremental block assignment validators
+  validateAssignBlockInCombat,
+  validateAssignBlockPhase,
+  validateAssignBlockTargetEnemy,
+  validateUnassignBlockTargetEnemy,
+  validateHasAvailableBlock,
+  validateHasAssignedBlockToUnassign,
 } from "./combatValidators.js";
 
 // Unit validators
@@ -362,6 +371,21 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateAssignAttackPhase,
     validateUnassignAttackTargetEnemy,
     validateHasAssignedToUnassign,
+  ],
+  // Incremental block assignment actions
+  [ASSIGN_BLOCK_ACTION]: [
+    validateIsPlayersTurn,
+    validateAssignBlockInCombat,
+    validateAssignBlockPhase,
+    validateAssignBlockTargetEnemy,
+    validateHasAvailableBlock,
+  ],
+  [UNASSIGN_BLOCK_ACTION]: [
+    validateIsPlayersTurn,
+    validateAssignBlockInCombat,
+    validateAssignBlockPhase,
+    validateUnassignBlockTargetEnemy,
+    validateHasAssignedBlockToUnassign,
   ],
   [RECRUIT_UNIT_ACTION]: [
     validateIsPlayersTurn,

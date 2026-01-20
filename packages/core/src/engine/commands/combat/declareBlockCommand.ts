@@ -1,22 +1,56 @@
 /**
  * Declare block command
+ *
+ * Updated for incremental block allocation:
+ * - Reads from state.combat.pendingBlock[enemyInstanceId] instead of accumulator
+ * - Players assign block incrementally before committing via DECLARE_BLOCK
  */
 
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
-import type { EnemyAbilityType } from "@mage-knight/shared";
-import { ENEMY_BLOCKED, BLOCK_FAILED, ABILITY_SWIFT } from "@mage-knight/shared";
-import type { CombatEnemy } from "../../../types/combat.js";
+import type { EnemyAbilityType, BlockSource, Element } from "@mage-knight/shared";
+import {
+  ENEMY_BLOCKED,
+  BLOCK_FAILED,
+  ABILITY_SWIFT,
+  ELEMENT_PHYSICAL,
+  ELEMENT_FIRE,
+  ELEMENT_ICE,
+  ELEMENT_COLD_FIRE,
+} from "@mage-knight/shared";
+import type { CombatEnemy, PendingElementalDamage } from "../../../types/combat.js";
+import { createEmptyPendingDamage } from "../../../types/combat.js";
 import { getFinalBlockValue } from "../../combat/elementalCalc.js";
 import { isAbilityNullified } from "../../modifiers.js";
-import { createEmptyCombatAccumulator } from "../../../types/player.js";
 
 export const DECLARE_BLOCK_COMMAND = "DECLARE_BLOCK" as const;
 
 export interface DeclareBlockCommandParams {
   readonly playerId: string;
   readonly targetEnemyInstanceId: string;
-  // blocks field removed - server now reads from player.combatAccumulator.blockSources
+}
+
+/**
+ * Convert PendingElementalDamage to BlockSource[] format for block calculation.
+ * Only includes elements with non-zero values.
+ */
+function pendingBlockToBlockSources(pending: PendingElementalDamage): BlockSource[] {
+  const sources: BlockSource[] = [];
+
+  if (pending.physical > 0) {
+    sources.push({ element: ELEMENT_PHYSICAL as Element, value: pending.physical });
+  }
+  if (pending.fire > 0) {
+    sources.push({ element: ELEMENT_FIRE as Element, value: pending.fire });
+  }
+  if (pending.ice > 0) {
+    sources.push({ element: ELEMENT_ICE as Element, value: pending.ice });
+  }
+  if (pending.coldFire > 0) {
+    sources.push({ element: ELEMENT_COLD_FIRE as Element, value: pending.coldFire });
+  }
+
+  return sources;
 }
 
 /**
@@ -73,7 +107,7 @@ export function createDeclareBlockCommand(
         throw new Error("Not in combat");
       }
 
-      // Find the player to get their block sources
+      // Find the player to update their assigned block tracking
       const player = state.players.find((p) => p.id === params.playerId);
       if (!player) {
         throw new Error(`Player not found: ${params.playerId}`);
@@ -87,8 +121,20 @@ export function createDeclareBlockCommand(
         throw new Error(`Enemy not found: ${params.targetEnemyInstanceId}`);
       }
 
-      // Read block sources from server-side accumulator (not from client params)
-      const blockSources = player.combatAccumulator.blockSources;
+      // Read from pendingBlock (incremental allocation system)
+      const pendingBlock =
+        state.combat.pendingBlock[params.targetEnemyInstanceId] ??
+        createEmptyPendingDamage();
+
+      // Convert pendingBlock to BlockSource[] format for calculation
+      const blockSources = pendingBlockToBlockSources(pendingBlock);
+
+      // Check if any block was assigned
+      const hasPendingBlock =
+        pendingBlock.physical > 0 ||
+        pendingBlock.fire > 0 ||
+        pendingBlock.ice > 0 ||
+        pendingBlock.coldFire > 0;
 
       // Calculate final block value including elemental efficiency and combat modifiers
       const effectiveBlockValue = getFinalBlockValue(
@@ -108,27 +154,49 @@ export function createDeclareBlockCommand(
       // Check if block is sufficient (Block >= Attack, or 2x Attack for Swift)
       const isSuccessful = effectiveBlockValue >= requiredBlock;
 
-      // Clear block accumulator (block is "spent" whether successful or not)
-      // Keep attack accumulator intact as it's used in the attack phase
-      const emptyAccumulator = createEmptyCombatAccumulator();
-      const updatedPlayers = state.players.map((p, i) =>
-        i === playerIndex
-          ? {
-              ...p,
-              combatAccumulator: {
-                ...p.combatAccumulator,
-                block: 0,
-                blockElements: emptyAccumulator.blockElements,
-                blockSources: [],
-              },
-            }
-          : p
-      );
+      // Clear the pendingBlock for this enemy (new system)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [params.targetEnemyInstanceId]: _removed, ...remainingPendingBlock } =
+        state.combat.pendingBlock;
+
+      // Update player's accumulator - reduce assigned block tracking
+      const emptyBlockElements = { physical: 0, fire: 0, ice: 0, coldFire: 0 };
+      const updatedPlayers = state.players.map((p, i) => {
+        if (i !== playerIndex) return p;
+
+        const currentAssignedBlockElements =
+          p.combatAccumulator.assignedBlockElements ?? emptyBlockElements;
+        return {
+          ...p,
+          combatAccumulator: {
+            ...p.combatAccumulator,
+            assignedBlock:
+              (p.combatAccumulator.assignedBlock ?? 0) -
+              pendingBlock.physical -
+              pendingBlock.fire -
+              pendingBlock.ice -
+              pendingBlock.coldFire,
+            assignedBlockElements: {
+              physical:
+                currentAssignedBlockElements.physical - pendingBlock.physical,
+              fire: currentAssignedBlockElements.fire - pendingBlock.fire,
+              ice: currentAssignedBlockElements.ice - pendingBlock.ice,
+              coldFire:
+                currentAssignedBlockElements.coldFire - pendingBlock.coldFire,
+            },
+          },
+        };
+      });
 
       if (!isSuccessful) {
         // Block failed — no effect, but still consumed
+        const updatedCombat = {
+          ...state.combat,
+          pendingBlock: remainingPendingBlock,
+        };
+
         return {
-          state: { ...state, players: updatedPlayers },
+          state: { ...state, players: updatedPlayers, combat: updatedCombat },
           events: [
             {
               type: BLOCK_FAILED,
@@ -150,6 +218,7 @@ export function createDeclareBlockCommand(
       const updatedCombat = {
         ...state.combat,
         enemies: updatedEnemies,
+        pendingBlock: remainingPendingBlock,
       };
 
       return {

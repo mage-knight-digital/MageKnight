@@ -83,6 +83,9 @@ export const ALREADY_COMBATTED = "ALREADY_COMBATTED" as const;
 export const INSUFFICIENT_ATTACK = "INSUFFICIENT_ATTACK" as const;
 export const NOTHING_TO_UNASSIGN = "NOTHING_TO_UNASSIGN" as const;
 export const INVALID_ASSIGNMENT_AMOUNT = "INVALID_ASSIGNMENT_AMOUNT" as const;
+// Incremental block assignment validation codes
+export const INSUFFICIENT_BLOCK = "INSUFFICIENT_BLOCK" as const;
+export const NOTHING_TO_UNASSIGN_BLOCK = "NOTHING_TO_UNASSIGN_BLOCK" as const;
 
 // Unit validation codes
 export const NO_COMMAND_SLOTS = "NO_COMMAND_SLOTS" as const;
@@ -220,6 +223,8 @@ export type ValidationErrorCode =
   | typeof INSUFFICIENT_ATTACK
   | typeof NOTHING_TO_UNASSIGN
   | typeof INVALID_ASSIGNMENT_AMOUNT
+  | typeof INSUFFICIENT_BLOCK
+  | typeof NOTHING_TO_UNASSIGN_BLOCK
   // Unit validation
   | typeof NO_COMMAND_SLOTS
   | typeof INSUFFICIENT_INFLUENCE

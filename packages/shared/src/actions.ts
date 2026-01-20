@@ -288,6 +288,10 @@ export const ASSIGN_DAMAGE_ACTION = "ASSIGN_DAMAGE" as const;
 export const ASSIGN_ATTACK_ACTION = "ASSIGN_ATTACK" as const;
 export const UNASSIGN_ATTACK_ACTION = "UNASSIGN_ATTACK" as const;
 
+// Incremental block assignment actions
+export const ASSIGN_BLOCK_ACTION = "ASSIGN_BLOCK" as const;
+export const UNASSIGN_BLOCK_ACTION = "UNASSIGN_BLOCK" as const;
+
 // Attack type for incremental assignment
 export const ATTACK_TYPE_RANGED = "ranged" as const;
 export const ATTACK_TYPE_SIEGE = "siege" as const;
@@ -391,6 +395,23 @@ export interface UnassignAttackAction {
   readonly amount: number;
 }
 
+// Incrementally assign block to an enemy (for new allocation system)
+// Unlike attacks, block has no "type" - it's just elemental block value
+export interface AssignBlockAction {
+  readonly type: typeof ASSIGN_BLOCK_ACTION;
+  readonly enemyInstanceId: string;
+  readonly element: AttackElement;
+  readonly amount: number; // Usually 1 for AI, can be more for UI batching
+}
+
+// Remove assigned block from an enemy (for new allocation system)
+export interface UnassignBlockAction {
+  readonly type: typeof UNASSIGN_BLOCK_ACTION;
+  readonly enemyInstanceId: string;
+  readonly element: AttackElement;
+  readonly amount: number;
+}
+
 export type PlayerAction =
   // Movement
   | MoveAction
@@ -443,6 +464,9 @@ export type PlayerAction =
   | AssignDamageAction
   // Incremental attack assignment
   | AssignAttackAction
-  | UnassignAttackAction;
+  | UnassignAttackAction
+  // Incremental block assignment
+  | AssignBlockAction
+  | UnassignBlockAction;
 
 export type PlayerActionType = PlayerAction["type"];

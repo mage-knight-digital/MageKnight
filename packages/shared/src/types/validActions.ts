@@ -167,7 +167,7 @@ export interface CombatOptions {
   readonly phase: CombatPhase;
   readonly canEndPhase: boolean;
 
-  /** Block options (BLOCK phase) */
+  /** Block options (BLOCK phase) - legacy display info */
   readonly blocks?: readonly BlockOption[];
 
   /** Damage assignment options (ASSIGN_DAMAGE phase) */
@@ -176,7 +176,7 @@ export interface CombatOptions {
   /** Available attack pool (what player can still assign) */
   readonly availableAttack?: AvailableAttackPool;
 
-  /** Enemy states with pending damage (for incremental allocation) */
+  /** Enemy states with pending damage (for incremental attack allocation) */
   readonly enemies?: readonly EnemyAttackState[];
 
   /** Valid attack assignment actions */
@@ -184,6 +184,20 @@ export interface CombatOptions {
 
   /** Valid attack unassignment actions */
   readonly unassignableAttacks?: readonly UnassignAttackOption[];
+
+  // ---- Block allocation (BLOCK phase) ----
+
+  /** Available block pool by element (what player can still assign) */
+  readonly availableBlock?: AvailableBlockPool;
+
+  /** Enemy states with pending block (for incremental block allocation) */
+  readonly enemyBlockStates?: readonly EnemyBlockState[];
+
+  /** Valid block assignment actions */
+  readonly assignableBlocks?: readonly AssignBlockOption[];
+
+  /** Valid block unassignment actions */
+  readonly unassignableBlocks?: readonly UnassignBlockOption[];
 }
 
 export interface BlockOption {
@@ -271,6 +285,55 @@ export interface AssignAttackOption {
 export interface UnassignAttackOption {
   readonly enemyInstanceId: string;
   readonly attackType: AttackType;
+  readonly element: AttackElement;
+  readonly amount: number;
+}
+
+// ============================================================================
+// Incremental Block Assignment (new system)
+// ============================================================================
+
+/** Available block pool by element */
+export interface AvailableBlockPool {
+  readonly physical: number;
+  readonly fire: number;
+  readonly ice: number;
+  readonly coldFire: number;
+}
+
+/** Enemy state with pending block for incremental allocation */
+export interface EnemyBlockState {
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+  readonly enemyAttack: number;
+  /** Enemy's attack element (physical, fire, ice, cold_fire) - determines block efficiency */
+  readonly attackElement: string;
+  readonly requiredBlock: number; // Pre-calculated (2x for Swift)
+  readonly isSwift: boolean;
+  readonly isBrutal: boolean;
+  readonly isBlocked: boolean;
+  readonly isDefeated: boolean;
+
+  /** Raw pending block (what's been assigned) */
+  readonly pendingBlock: ElementalDamageValues;
+
+  /** Effective pending block (after elemental efficiency) */
+  readonly effectiveBlock: number;
+
+  /** Can this enemy be blocked with current pending block? */
+  readonly canBlock: boolean;
+}
+
+/** A single valid block assignment action */
+export interface AssignBlockOption {
+  readonly enemyInstanceId: string;
+  readonly element: AttackElement;
+  readonly amount: number;
+}
+
+/** A single valid block unassignment action */
+export interface UnassignBlockOption {
+  readonly enemyInstanceId: string;
   readonly element: AttackElement;
   readonly amount: number;
 }
