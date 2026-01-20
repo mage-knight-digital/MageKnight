@@ -5,7 +5,7 @@
  * player hand stays visible at bottom.
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import type { ClientCombatState, CombatOptions } from "@mage-knight/shared";
 import {
   UNDO_ACTION,
@@ -18,11 +18,24 @@ import {
   END_COMBAT_PHASE_ACTION,
   ASSIGN_ATTACK_ACTION,
   UNASSIGN_ATTACK_ACTION,
+  ASSIGN_BLOCK_ACTION,
+  UNASSIGN_BLOCK_ACTION,
 } from "@mage-knight/shared";
-import type { AssignAttackOption, UnassignAttackOption } from "@mage-knight/shared";
+import type {
+  AssignAttackOption,
+  UnassignAttackOption,
+  AssignBlockOption,
+  UnassignBlockOption,
+} from "@mage-knight/shared";
 import { EnemyCard } from "./EnemyCard";
 import { VerticalPhaseRail } from "./VerticalPhaseRail";
 import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
+import { CombatDnDProvider, type ChipData, type DamageChipData, type BlockChipData } from "./DnDContext";
+import { AttackPool } from "./AttackPool";
+import { DamageChipPreview } from "./AttackPool/DamageChip";
+import { BlockPool } from "./BlockPool";
+import { BlockChipPreview } from "./BlockPool/BlockChip";
+import { AmountPicker } from "./AmountPicker";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { hexKey } from "@mage-knight/shared";
@@ -104,6 +117,66 @@ interface ElementBreakdown {
   ice: number;
   coldFire: number;
   physical: number;
+}
+
+/**
+ * CombatManaDisplay - Shows player's mana tokens and crystals during combat
+ */
+function CombatManaDisplay() {
+  const player = useMyPlayer();
+  if (!player) return null;
+
+  const { crystals, pureMana } = player;
+  const hasCrystals = crystals.red > 0 || crystals.blue > 0 || crystals.green > 0 || crystals.white > 0;
+  const hasTokens = pureMana.length > 0;
+
+  if (!hasCrystals && !hasTokens) return null;
+
+  return (
+    <div className="combat-mana">
+      <div className="combat-mana__label">Mana</div>
+      <div className="combat-mana__content">
+        {/* Crystals */}
+        {hasCrystals && (
+          <div className="combat-mana__group">
+            {crystals.red > 0 && (
+              <span className="combat-mana__crystal combat-mana__crystal--red" title="Red Crystal">
+                {crystals.red}
+              </span>
+            )}
+            {crystals.blue > 0 && (
+              <span className="combat-mana__crystal combat-mana__crystal--blue" title="Blue Crystal">
+                {crystals.blue}
+              </span>
+            )}
+            {crystals.green > 0 && (
+              <span className="combat-mana__crystal combat-mana__crystal--green" title="Green Crystal">
+                {crystals.green}
+              </span>
+            )}
+            {crystals.white > 0 && (
+              <span className="combat-mana__crystal combat-mana__crystal--white" title="White Crystal">
+                {crystals.white}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Tokens */}
+        {hasTokens && (
+          <div className="combat-mana__group combat-mana__group--tokens">
+            {pureMana.map((token, i) => (
+              <span
+                key={i}
+                className={`combat-mana__token combat-mana__token--${token.color}`}
+                title={`${token.color} mana token`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function AccumulatorDisplay() {
@@ -288,7 +361,7 @@ function AccumulatorDisplay() {
   return null;
 }
 
-export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
+function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   const { phase, enemies } = combat;
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
@@ -336,6 +409,14 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
   const [effectKey, setEffectKey] = useState(0);
   const [strikingEnemy, setStrikingEnemy] = useState<StrikingEnemy | null>(null);
   const [attackedEnemies, setAttackedEnemies] = useState<Set<string>>(new Set());
+
+  // Amount picker state for drag-drop overkill handling
+  const [pendingDrop, setPendingDrop] = useState<{
+    chip: ChipData;
+    enemyInstanceId: string;
+    enemyName: string;
+    position: { x: number; y: number };
+  } | null>(null);
 
   const triggerEffect = useCallback((effect: EffectType) => {
     setActiveEffect(effect);
@@ -400,6 +481,16 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
   const isAttackPhase = phase === COMBAT_PHASE_ATTACK;
   const isRangedSiegePhase = phase === COMBAT_PHASE_RANGED_SIEGE;
 
+  // Detect touch device to use +/- buttons instead of drag-drop
+  const isTouchDevice = useMemo(() => {
+    // Check for touch capability
+    if (typeof window === "undefined") return false;
+    return "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  }, []);
+
+  // Use drag-drop on desktop, +/- buttons on touch devices
+  const useDragDrop = !isTouchDevice;
+
   // ========================================
   // Incremental Attack Handlers (Phase 5)
   // ========================================
@@ -424,7 +515,126 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
     });
   }, [sendAction]);
 
+  // ========================================
+  // Incremental Block Handlers (Phase 6)
+  // ========================================
+
+  const handleAssignBlock = useCallback((option: AssignBlockOption) => {
+    sendAction({
+      type: ASSIGN_BLOCK_ACTION,
+      enemyInstanceId: option.enemyInstanceId,
+      element: option.element,
+      amount: option.amount,
+    });
+  }, [sendAction]);
+
+  const handleUnassignBlock = useCallback((option: UnassignBlockOption) => {
+    sendAction({
+      type: UNASSIGN_BLOCK_ACTION,
+      enemyInstanceId: option.enemyInstanceId,
+      element: option.element,
+      amount: option.amount,
+    });
+  }, [sendAction]);
+
+  const handleCommitBlock = useCallback((enemyInstanceId: string) => {
+    triggerEffect("block");
+    sendAction({ type: DECLARE_BLOCK_ACTION, targetEnemyInstanceId: enemyInstanceId });
+  }, [sendAction, triggerEffect]);
+
+  // ========================================
+  // Drag & Drop Handlers
+  // ========================================
+
+  // Handle drag-drop completion - may show amount picker for overkill
+  const handleDragEnd = useCallback((chip: ChipData, enemyInstanceId: string) => {
+    // Find enemy name for the picker
+    const enemy = enemies.find(e => e.instanceId === enemyInstanceId);
+    if (!enemy) return;
+
+    // For now, always assign the full amount (no overkill detection yet)
+    // TODO: Add overkill detection and show amount picker
+    if (chip.poolType === "attack" && "attackType" in chip) {
+      const damageChip = chip as DamageChipData;
+      triggerEffect("attack");
+      sendAction({
+        type: ASSIGN_ATTACK_ACTION,
+        enemyInstanceId,
+        attackType: damageChip.attackType,
+        element: damageChip.element,
+        amount: damageChip.amount,
+      });
+    } else if (chip.poolType === "block") {
+      const blockChip = chip as BlockChipData;
+      sendAction({
+        type: ASSIGN_BLOCK_ACTION,
+        enemyInstanceId,
+        element: blockChip.element,
+        amount: blockChip.amount,
+      });
+    }
+  }, [enemies, sendAction, triggerEffect]);
+
+  // Handle amount picker confirmation
+  const handleAmountConfirm = useCallback((amount: number) => {
+    if (!pendingDrop) return;
+
+    const { chip, enemyInstanceId } = pendingDrop;
+    if (chip.poolType === "attack" && "attackType" in chip) {
+      const damageChip = chip as DamageChipData;
+      triggerEffect("attack");
+      sendAction({
+        type: ASSIGN_ATTACK_ACTION,
+        enemyInstanceId,
+        attackType: damageChip.attackType,
+        element: damageChip.element,
+        amount,
+      });
+    } else if (chip.poolType === "block") {
+      const blockChip = chip as BlockChipData;
+      sendAction({
+        type: ASSIGN_BLOCK_ACTION,
+        enemyInstanceId,
+        element: blockChip.element,
+        amount,
+      });
+    }
+    setPendingDrop(null);
+  }, [pendingDrop, sendAction, triggerEffect]);
+
+  const handleAmountCancel = useCallback(() => {
+    setPendingDrop(null);
+  }, []);
+
+  // Render drag overlay preview
+  const renderDragOverlay = useCallback((chip: ChipData) => {
+    if (chip.poolType === "attack" && "attackType" in chip) {
+      const damageChip = chip as DamageChipData;
+      return (
+        <DamageChipPreview
+          attackType={damageChip.attackType}
+          element={damageChip.element}
+          amount={damageChip.amount}
+        />
+      );
+    } else {
+      const blockChip = chip as BlockChipData;
+      return (
+        <BlockChipPreview
+          element={blockChip.element}
+          amount={blockChip.amount}
+        />
+      );
+    }
+  }, []);
+
+  // Calculate if all enemies can be defeated (for continue button pulse)
+  const allEnemiesDefeatable = combatOptions.enemies?.every(
+    e => e.isDefeated || e.canDefeat
+  ) ?? false;
+
   return (
+    <CombatDnDProvider onDragEnd={handleDragEnd} renderDragOverlay={renderDragOverlay}>
     <div className="combat-scene" data-testid="combat-overlay">
       {/* Effect overlay - separate element for damage/block/attack flashes */}
       {activeEffect && (
@@ -457,6 +667,7 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
             currentPhase={phase}
             canEndPhase={combatOptions.canEndPhase}
             onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
+            allEnemiesDefeatable={allEnemiesDefeatable && (isAttackPhase || isRangedSiegePhase)}
           />
         </div>
 
@@ -478,6 +689,11 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
             <ManaSourceOverlay />
           </div>
 
+          {/* Player's mana tokens/crystals */}
+          <div className="combat-scene__mana-resources">
+            <CombatManaDisplay />
+          </div>
+
           {/* Enemies */}
           <div className="combat-scene__enemies">
             {enemies.map((enemy) => {
@@ -488,6 +704,11 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
               const enemyAttackState = combatOptions.enemies?.find(e => e.enemyInstanceId === enemy.instanceId);
               const assignableAttacks = combatOptions.assignableAttacks?.filter(a => a.enemyInstanceId === enemy.instanceId) ?? [];
               const unassignableAttacks = combatOptions.unassignableAttacks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
+
+              // Phase 6: Use incremental block allocation from server
+              const enemyBlockState = combatOptions.enemyBlockStates?.find(e => e.enemyInstanceId === enemy.instanceId);
+              const assignableBlocks = combatOptions.assignableBlocks?.filter(b => b.enemyInstanceId === enemy.instanceId) ?? [];
+              const unassignableBlocks = combatOptions.unassignableBlocks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
 
               const isStriking = strikingEnemy?.instanceId === enemy.instanceId;
               const strikeKey = isStriking ? strikingEnemy.strikeKey : undefined;
@@ -500,10 +721,12 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
                   isBlockPhase={isBlockPhase}
                   blockOption={blockOption}
                   accumulatedBlock={accumulatedBlock}
-                  onAssignBlock={(id) => {
-                    triggerEffect("block");
-                    sendAction({ type: DECLARE_BLOCK_ACTION, targetEnemyInstanceId: id });
-                  }}
+                  enemyBlockState={enemyBlockState}
+                  assignableBlocks={assignableBlocks}
+                  unassignableBlocks={unassignableBlocks}
+                  onAssignBlockIncremental={handleAssignBlock}
+                  onUnassignBlock={handleUnassignBlock}
+                  onCommitBlock={handleCommitBlock}
                   isDamagePhase={isDamagePhase}
                   damageOption={damageOption}
                   onAssignDamage={handleAssignDamage}
@@ -521,16 +744,53 @@ export function CombatOverlay({ combat, combatOptions }: CombatOverlayProps) {
                   strikeKey={strikeKey}
                   hasAttacked={hasAttacked}
                   isAtFortifiedSite={combat.isAtFortifiedSite}
+                  useDragDrop={useDragDrop}
                 />
               );
             })}
           </div>
 
-          {/* Accumulated power display */}
-          <AccumulatorDisplay />
+          {/* Drag-drop pool display (desktop only) */}
+          {useDragDrop && (isAttackPhase || isRangedSiegePhase) && combatOptions.availableAttack && (
+            <div className="combat-scene__pool">
+              <AttackPool
+                availableAttack={combatOptions.availableAttack}
+                showSiegeWarning={combat.isAtFortifiedSite}
+                isRangedSiegePhase={isRangedSiegePhase}
+              />
+            </div>
+          )}
+          {useDragDrop && isBlockPhase && combatOptions.availableBlock && (
+            <div className="combat-scene__pool">
+              <BlockPool availableBlock={combatOptions.availableBlock} />
+            </div>
+          )}
+
+          {/* Legacy accumulated power display (mobile fallback or when pool data unavailable) */}
+          {(!useDragDrop || (!combatOptions.availableAttack && !combatOptions.availableBlock)) && (
+            <AccumulatorDisplay />
+          )}
         </div>
 
       </div>
+
+      {/* Amount picker modal for overkill handling */}
+      {pendingDrop && (
+        <AmountPicker
+          maxAmount={pendingDrop.chip.amount}
+          attackType={"attackType" in pendingDrop.chip ? pendingDrop.chip.attackType : undefined}
+          element={pendingDrop.chip.element}
+          enemyName={pendingDrop.enemyName}
+          position={pendingDrop.position}
+          mode={pendingDrop.chip.poolType === "block" ? "block" : "attack"}
+          onConfirm={handleAmountConfirm}
+          onCancel={handleAmountCancel}
+        />
+      )}
     </div>
+    </CombatDnDProvider>
   );
 }
+
+// Export the component with provider
+export { CombatOverlayInner as CombatOverlay };

@@ -254,6 +254,16 @@
   flex-wrap: wrap;
 }
 
+/* Pool container - fixed position above hand cards for drag-drop pools */
+.combat-scene__pool {
+  position: fixed;
+  bottom: clamp(180px, 25vh, 280px); /* Stay above the hand cards */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 150; /* Above hand cards */
+  pointer-events: auto;
+}
+
 /* Accumulator HUD - fixed position above hand cards */
 .combat-hud__accumulator {
   position: fixed;
@@ -388,5 +398,121 @@
   color: #e74c3c;
   margin-top: 0.15rem;
   white-space: nowrap;
+}
+
+/* ============================================================================
+   Combat Mana Resources Display
+   ============================================================================ */
+
+.combat-scene__mana-resources {
+  position: fixed;
+  top: 0.75rem;
+  right: 8rem; /* To the left of mana source dice */
+  pointer-events: auto;
+  z-index: 200;
+}
+
+.combat-mana {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(10, 10, 25, 0.95);
+  border: 1px solid rgba(155, 89, 182, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.combat-mana__label {
+  font-size: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.combat-mana__content {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.combat-mana__group {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.combat-mana__group--tokens {
+  padding-left: 0.4rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Crystals - compact squares with count */
+.combat-mana__crystal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.combat-mana__crystal--red {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  box-shadow: 0 0 4px rgba(231, 76, 60, 0.5);
+}
+
+.combat-mana__crystal--blue {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  box-shadow: 0 0 4px rgba(52, 152, 219, 0.5);
+}
+
+.combat-mana__crystal--green {
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  box-shadow: 0 0 4px rgba(46, 204, 113, 0.5);
+}
+
+.combat-mana__crystal--white {
+  background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+  box-shadow: 0 0 4px rgba(236, 240, 241, 0.5);
+  color: #333;
+}
+
+/* Tokens - small colored circles */
+.combat-mana__token {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+.combat-mana__token--red {
+  background: radial-gradient(circle at 30% 30%, #ff6b6b, #c0392b);
+}
+
+.combat-mana__token--blue {
+  background: radial-gradient(circle at 30% 30%, #74b9ff, #2980b9);
+}
+
+.combat-mana__token--green {
+  background: radial-gradient(circle at 30% 30%, #55efc4, #27ae60);
+}
+
+.combat-mana__token--white {
+  background: radial-gradient(circle at 30% 30%, #fff, #bdc3c7);
+}
+
+.combat-mana__token--gold {
+  background: radial-gradient(circle at 30% 30%, #ffeaa7, #f39c12);
+}
+
+.combat-mana__token--black {
+  background: radial-gradient(circle at 30% 30%, #636e72, #2d3436);
 }
 

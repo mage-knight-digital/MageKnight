@@ -16,7 +16,12 @@ import type {
   ElementalDamageValues,
   AttackType,
   AttackElement,
+  AvailableBlockPool,
+  EnemyBlockState,
+  AssignBlockOption,
+  UnassignBlockOption,
 } from "@mage-knight/shared";
+import type { Element } from "@mage-knight/shared";
 import {
   ATTACK_TYPE_RANGED,
   ATTACK_TYPE_SIEGE,
@@ -43,7 +48,8 @@ import {
   doesEnemyAttackThisCombat,
 } from "../modifiers.js";
 import type { Resistances } from "../combat/elementalCalc.js";
-import { isAttackResisted } from "../combat/elementalCalc.js";
+import { isAttackResisted, calculateTotalBlock } from "../combat/elementalCalc.js";
+import type { ElementalAttackValues } from "../../types/player.js";
 
 // ============================================================================
 // Available Attack Pool Computation
@@ -52,27 +58,43 @@ import { isAttackResisted } from "../combat/elementalCalc.js";
 /**
  * Compute the available attack pool (accumulated - assigned).
  * This shows what attack the player can still assign to enemies.
+ *
+ * @param isRangedSiegePhase - If true, only include ranged/siege. If false (attack phase), only include melee.
  */
 function computeAvailableAttack(
   attack: AccumulatedAttack,
-  assigned: AccumulatedAttack
+  assigned: AccumulatedAttack,
+  isRangedSiegePhase: boolean
 ): AvailableAttackPool {
-  return {
-    // Physical attack by type
-    ranged: Math.max(0, attack.ranged - assigned.ranged),
-    siege: Math.max(0, attack.siege - assigned.siege),
-    melee: Math.max(0, attack.normal - assigned.normal),
-    // Elemental ranged
-    fireRanged: Math.max(0, attack.rangedElements.fire - assigned.rangedElements.fire),
-    iceRanged: Math.max(0, attack.rangedElements.ice - assigned.rangedElements.ice),
-    // Elemental siege
-    fireSiege: Math.max(0, attack.siegeElements.fire - assigned.siegeElements.fire),
-    iceSiege: Math.max(0, attack.siegeElements.ice - assigned.siegeElements.ice),
-    // Elemental melee
-    fireMelee: Math.max(0, attack.normalElements.fire - assigned.normalElements.fire),
-    iceMelee: Math.max(0, attack.normalElements.ice - assigned.normalElements.ice),
-    coldFireMelee: Math.max(0, attack.normalElements.coldFire - assigned.normalElements.coldFire),
-  };
+  if (isRangedSiegePhase) {
+    // Ranged/Siege phase: only ranged and siege attack available
+    return {
+      ranged: Math.max(0, attack.ranged - assigned.ranged),
+      siege: Math.max(0, attack.siege - assigned.siege),
+      melee: 0, // Not available in ranged/siege phase
+      fireRanged: Math.max(0, attack.rangedElements.fire - assigned.rangedElements.fire),
+      iceRanged: Math.max(0, attack.rangedElements.ice - assigned.rangedElements.ice),
+      fireSiege: Math.max(0, attack.siegeElements.fire - assigned.siegeElements.fire),
+      iceSiege: Math.max(0, attack.siegeElements.ice - assigned.siegeElements.ice),
+      fireMelee: 0,
+      iceMelee: 0,
+      coldFireMelee: 0,
+    };
+  } else {
+    // Attack phase: only melee attack available
+    return {
+      ranged: 0, // Not available in attack phase
+      siege: 0,
+      melee: Math.max(0, attack.normal - assigned.normal),
+      fireRanged: 0,
+      iceRanged: 0,
+      fireSiege: 0,
+      iceSiege: 0,
+      fireMelee: Math.max(0, attack.normalElements.fire - assigned.normalElements.fire),
+      iceMelee: Math.max(0, attack.normalElements.ice - assigned.normalElements.ice),
+      coldFireMelee: Math.max(0, attack.normalElements.coldFire - assigned.normalElements.coldFire),
+    };
+  }
 }
 
 // ============================================================================
@@ -319,6 +341,247 @@ function generateUnassignableAttacks(
 }
 
 // ============================================================================
+// Block Allocation Computation
+// ============================================================================
+
+/**
+ * Compute the available block pool (accumulated - assigned).
+ * This shows what block the player can still assign to enemies.
+ */
+function computeAvailableBlock(
+  blockElements: ElementalAttackValues,
+  assignedBlockElements: ElementalAttackValues
+): AvailableBlockPool {
+  return {
+    physical: Math.max(0, blockElements.physical - assignedBlockElements.physical),
+    fire: Math.max(0, blockElements.fire - assignedBlockElements.fire),
+    ice: Math.max(0, blockElements.ice - assignedBlockElements.ice),
+    coldFire: Math.max(0, blockElements.coldFire - assignedBlockElements.coldFire),
+  };
+}
+
+/**
+ * Compute the block state for a single enemy during BLOCK phase.
+ */
+function computeEnemyBlockState(
+  enemy: CombatEnemy,
+  combat: CombatState,
+  state: GameState
+): EnemyBlockState {
+  const isSwift = enemy.definition.abilities.includes(ABILITY_SWIFT);
+  const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
+
+  // Use effective attack (after modifiers)
+  const effectiveAttack = getEffectiveEnemyAttack(
+    state,
+    enemy.instanceId,
+    enemy.definition.attack
+  );
+
+  // Swift enemies require 2x block
+  const requiredBlock = isSwift ? effectiveAttack * 2 : effectiveAttack;
+
+  // Get pending block for this enemy
+  const rawPending = combat.pendingBlock[enemy.instanceId] ?? createEmptyPendingDamage();
+  const pendingBlock: ElementalDamageValues = {
+    physical: rawPending.physical,
+    fire: rawPending.fire,
+    ice: rawPending.ice,
+    coldFire: rawPending.coldFire,
+  };
+
+  // Calculate effective block value after elemental efficiency
+  const blockSources: { element: Element; value: number }[] = [];
+  if (rawPending.physical > 0) {
+    blockSources.push({ element: "physical" as Element, value: rawPending.physical });
+  }
+  if (rawPending.fire > 0) {
+    blockSources.push({ element: "fire" as Element, value: rawPending.fire });
+  }
+  if (rawPending.ice > 0) {
+    blockSources.push({ element: "ice" as Element, value: rawPending.ice });
+  }
+  if (rawPending.coldFire > 0) {
+    blockSources.push({ element: "cold_fire" as Element, value: rawPending.coldFire });
+  }
+
+  const effectiveBlock = calculateTotalBlock(
+    blockSources,
+    enemy.definition.attackElement
+  );
+
+  // Can block if effective block >= required
+  const canBlock = effectiveBlock >= requiredBlock;
+
+  return {
+    enemyInstanceId: enemy.instanceId,
+    enemyName: enemy.definition.name,
+    enemyAttack: effectiveAttack,
+    attackElement: enemy.definition.attackElement,
+    requiredBlock,
+    isSwift,
+    isBrutal,
+    isBlocked: enemy.isBlocked,
+    isDefeated: enemy.isDefeated,
+    pendingBlock,
+    effectiveBlock,
+    canBlock,
+  };
+}
+
+/** All block elements for iteration */
+interface BlockElementCombo {
+  element: AttackElement;
+  poolKey: keyof AvailableBlockPool;
+}
+
+const BLOCK_ELEMENT_COMBOS: readonly BlockElementCombo[] = [
+  { element: ATTACK_ELEMENT_PHYSICAL, poolKey: "physical" },
+  { element: ATTACK_ELEMENT_FIRE, poolKey: "fire" },
+  { element: ATTACK_ELEMENT_ICE, poolKey: "ice" },
+  { element: ATTACK_ELEMENT_COLD_FIRE, poolKey: "coldFire" },
+];
+
+/**
+ * Generate list of valid block assignments for the current phase.
+ * Each option represents a single point of block that can be assigned.
+ */
+function generateAssignableBlocks(
+  enemies: readonly EnemyBlockState[],
+  availablePool: AvailableBlockPool,
+  state: GameState
+): readonly AssignBlockOption[] {
+  const options: AssignBlockOption[] = [];
+
+  // For each non-defeated, non-blocked, attacking enemy
+  for (const enemy of enemies) {
+    if (enemy.isDefeated || enemy.isBlocked) continue;
+
+    // Check if enemy actually attacks this combat (not affected by Chill/Whirlwind)
+    // We need the raw CombatEnemy to check this
+    const combatEnemy = state.combat?.enemies.find(
+      (e) => e.instanceId === enemy.enemyInstanceId
+    );
+    if (combatEnemy && !doesEnemyAttackThisCombat(state, combatEnemy.instanceId)) {
+      continue;
+    }
+
+    // For each element
+    for (const combo of BLOCK_ELEMENT_COMBOS) {
+      const available = availablePool[combo.poolKey];
+      if (available <= 0) continue;
+
+      // Add option for assigning 1 point
+      options.push({
+        enemyInstanceId: enemy.enemyInstanceId,
+        element: combo.element,
+        amount: 1,
+      });
+    }
+  }
+
+  return options;
+}
+
+/**
+ * Generate list of valid block unassignments based on pending block.
+ * Each option represents removing a single point of assigned block.
+ */
+function generateUnassignableBlocks(
+  enemies: readonly EnemyBlockState[],
+  combat: CombatState
+): readonly UnassignBlockOption[] {
+  const options: UnassignBlockOption[] = [];
+
+  // For each enemy with pending block
+  for (const enemy of enemies) {
+    const pending = combat.pendingBlock[enemy.enemyInstanceId];
+    if (!pending) continue;
+
+    // For each element with pending block
+    for (const combo of BLOCK_ELEMENT_COMBOS) {
+      let pendingAmount = 0;
+      switch (combo.element) {
+        case ATTACK_ELEMENT_PHYSICAL:
+          pendingAmount = pending.physical;
+          break;
+        case ATTACK_ELEMENT_FIRE:
+          pendingAmount = pending.fire;
+          break;
+        case ATTACK_ELEMENT_ICE:
+          pendingAmount = pending.ice;
+          break;
+        case ATTACK_ELEMENT_COLD_FIRE:
+          pendingAmount = pending.coldFire;
+          break;
+      }
+
+      if (pendingAmount > 0) {
+        options.push({
+          enemyInstanceId: enemy.enemyInstanceId,
+          element: combo.element,
+          amount: 1,
+        });
+      }
+    }
+  }
+
+  return options;
+}
+
+/**
+ * Compute options for BLOCK phase.
+ * Uses the incremental block assignment system.
+ */
+function computeBlockPhaseOptions(
+  state: GameState,
+  combat: CombatState,
+  player: Player | undefined
+): CombatOptions {
+  // If no player found, return minimal options
+  if (!player) {
+    return {
+      phase: COMBAT_PHASE_BLOCK,
+      canEndPhase: true,
+      blocks: getBlockOptions(state, combat.enemies),
+    };
+  }
+
+  // Compute available block pool (with fallbacks for legacy state)
+  const emptyBlockElements = { physical: 0, fire: 0, ice: 0, coldFire: 0 };
+  const availableBlock = computeAvailableBlock(
+    player.combatAccumulator.blockElements ?? emptyBlockElements,
+    player.combatAccumulator.assignedBlockElements ?? emptyBlockElements
+  );
+
+  // Compute enemy block states
+  const enemyBlockStates = combat.enemies
+    .filter((enemy) => !enemy.isDefeated)
+    .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
+    .map((enemy) => computeEnemyBlockState(enemy, combat, state));
+
+  // Generate assignable blocks
+  const assignableBlocks = generateAssignableBlocks(
+    enemyBlockStates,
+    availableBlock,
+    state
+  );
+
+  // Generate unassignable blocks
+  const unassignableBlocks = generateUnassignableBlocks(enemyBlockStates, combat);
+
+  return {
+    phase: COMBAT_PHASE_BLOCK,
+    canEndPhase: true, // Can skip blocking (take damage instead)
+    blocks: getBlockOptions(state, combat.enemies),
+    availableBlock,
+    enemyBlockStates,
+    assignableBlocks,
+    unassignableBlocks,
+  };
+}
+
+// ============================================================================
 // Main getCombatOptions function
 // ============================================================================
 
@@ -344,11 +607,7 @@ export function getCombatOptions(state: GameState): CombatOptions | null {
       return computeAttackPhaseOptions(state, combat, currentPlayer, true);
 
     case COMBAT_PHASE_BLOCK:
-      return {
-        phase,
-        canEndPhase: true, // Can skip blocking (take damage instead)
-        blocks: getBlockOptions(state, enemies),
-      };
+      return computeBlockPhaseOptions(state, combat, currentPlayer);
 
     case COMBAT_PHASE_ASSIGN_DAMAGE:
       return {
@@ -388,10 +647,11 @@ function computeAttackPhaseOptions(
     };
   }
 
-  // Compute available attack pool
+  // Compute available attack pool (only include phase-relevant attack types)
   const availableAttack = computeAvailableAttack(
     player.combatAccumulator.attack,
-    player.combatAccumulator.assignedAttack
+    player.combatAccumulator.assignedAttack,
+    isRangedSiegePhase
   );
 
   // Compute enemy states
