@@ -1,0 +1,162 @@
+/**
+ * AmountPicker styles - Modal for selecting damage amount
+ */
+
+.amount-picker {
+  position: fixed;
+  z-index: 1000;
+  background: rgba(20, 20, 35, 0.98);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+  min-width: 180px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -100%);
+  margin-top: -1rem;
+  animation: picker-pop 0.2s ease-out;
+}
+
+@keyframes picker-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
+}
+
+.amount-picker__header {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.amount-picker__type {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.amount-picker__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  object-fit: contain;
+}
+
+.amount-picker__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.amount-picker__btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.amount-picker__btn--minus {
+  background: rgba(231, 76, 60, 0.8);
+  color: #fff;
+}
+
+.amount-picker__btn--minus:hover:not(:disabled) {
+  background: rgba(231, 76, 60, 1);
+  transform: scale(1.1);
+}
+
+.amount-picker__btn--plus {
+  background: rgba(39, 174, 96, 0.8);
+  color: #fff;
+}
+
+.amount-picker__btn--plus:hover:not(:disabled) {
+  background: rgba(39, 174, 96, 1);
+  transform: scale(1.1);
+}
+
+.amount-picker__btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.amount-picker__amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  min-width: 3rem;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.amount-picker__info {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.amount-picker__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.amount-picker__confirm {
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.amount-picker__confirm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+}
+
+.amount-picker__cancel {
+  padding: 0.4rem 1rem;
+  font-size: 0.7rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.amount-picker__cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+}
