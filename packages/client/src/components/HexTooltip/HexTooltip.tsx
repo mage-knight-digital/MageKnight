@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
-import type { HexCoord, ClientHexState, ClientSite } from "@mage-knight/shared";
+import type { HexCoord, ClientHexState, ClientSite, TimeOfDay } from "@mage-knight/shared";
 import { SiteTooltipContent } from "./SiteTooltipContent";
 import { EnemyTooltipContent } from "./EnemyTooltipContent";
 import "./HexTooltip.css";
@@ -68,6 +68,8 @@ export interface HexTooltipProps {
   hexRadius?: number | null;
   /** Whether tooltip should be visible (after hover delay) */
   isVisible: boolean;
+  /** Current time of day (affects reveal rules display) */
+  timeOfDay?: TimeOfDay;
   /** Show site information (default true) */
   showSite?: boolean;
   /** Show enemy information (default true) */
@@ -86,6 +88,7 @@ export function HexTooltip({
   position,
   hexRadius,
   isVisible,
+  timeOfDay,
   showSite = true,
   showEnemies = true,
   onMouseEnter,
@@ -139,7 +142,12 @@ export function HexTooltip({
     >
       <div className="hex-tooltip__content">
         {hasSite && hex.site && (
-          <SiteTooltipContent site={hex.site} isAnimating={isAnimating} />
+          <SiteTooltipContent
+            site={hex.site}
+            isAnimating={isAnimating}
+            timeOfDay={timeOfDay}
+            enemies={hex.enemies}
+          />
         )}
         {hasEnemies && hex.enemies && hex.enemies.length > 0 && (
           <EnemyTooltipContent
