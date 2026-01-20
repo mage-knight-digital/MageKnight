@@ -18,6 +18,8 @@ interface VerticalPhaseRailProps {
   currentPhase: CombatPhase;
   canEndPhase: boolean;
   onEndPhase: () => void;
+  /** All enemies can be defeated - highlight continue button */
+  allEnemiesDefeatable?: boolean;
 }
 
 // Combat icons with instructions - thematic, not numbered checkout steps
@@ -52,10 +54,12 @@ export function VerticalPhaseRail({
   currentPhase,
   canEndPhase,
   onEndPhase,
+  allEnemiesDefeatable = false,
 }: VerticalPhaseRailProps) {
   const currentIndex = PHASES.findIndex((p) => p.id === currentPhase);
   const isLastPhase = currentPhase === COMBAT_PHASE_ATTACK;
   const activePhase = PHASES.find((p) => p.id === currentPhase);
+  const showReadyPulse = allEnemiesDefeatable && canEndPhase;
 
   return (
     <div className="vertical-phase-rail" role="navigation" aria-label="Combat phases">
@@ -101,6 +105,7 @@ export function VerticalPhaseRail({
           "vertical-phase-rail__action",
           isLastPhase && "vertical-phase-rail__action--finish",
           !canEndPhase && "vertical-phase-rail__action--disabled",
+          showReadyPulse && "vertical-phase-rail__action--ready",
         ]
           .filter(Boolean)
           .join(" ")}

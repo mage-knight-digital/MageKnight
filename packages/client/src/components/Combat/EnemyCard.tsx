@@ -3,9 +3,11 @@
  *
  * Click shows full rulebook details panel.
  * Phase 5: Now uses incremental attack allocation with EnemyAttackState.
+ * Supports drag-and-drop: Acts as drop target for damage chips.
  */
 
 import { useState, useRef } from "react";
+import { useDroppable } from "@dnd-kit/core";
 import type {
   ClientCombatEnemy,
   BlockOption,
@@ -14,14 +16,29 @@ import type {
   EnemyAttackState,
   AssignAttackOption,
   UnassignAttackOption,
+  EnemyBlockState,
+  AssignBlockOption,
+  UnassignBlockOption,
 } from "@mage-knight/shared";
 import { EnemyDetailPanel } from "./EnemyDetailPanel";
+import { CrackEffect } from "./CrackEffect";
+import { useCombatDnD } from "./DnDContext";
+import type { DamageChipData } from "./DnDContext";
 import "./EnemyCard.css";
+import "./CrackEffect.css";
 
 // Get enemy token image URL
 function getEnemyImageUrl(enemyId: EnemyId): string {
   return `/assets/enemies/${enemyId}.jpg`;
 }
+
+// Element icon paths for drop preview
+const ELEMENT_ICONS: Record<string, string> = {
+  physical: "/assets/icons/attack.png",
+  fire: "/assets/icons/fire_attack.png",
+  ice: "/assets/icons/ice_attack.png",
+  coldFire: "/assets/icons/cold_fire_attack.png",
+};
 
 interface EnemyCardProps {
   enemy: ClientCombatEnemy;
@@ -30,7 +47,18 @@ interface EnemyCardProps {
   isBlockPhase?: boolean;
   blockOption?: BlockOption;
   accumulatedBlock?: number;
-  onAssignBlock?: (enemyInstanceId: string) => void;
+  /** Enemy state with pending block from incremental allocation */
+  enemyBlockState?: EnemyBlockState;
+  /** Valid assign block options for this enemy */
+  assignableBlocks?: readonly AssignBlockOption[];
+  /** Valid unassign block options for this enemy */
+  unassignableBlocks?: readonly UnassignBlockOption[];
+  /** Callback to incrementally assign block */
+  onAssignBlockIncremental?: (option: AssignBlockOption) => void;
+  /** Callback to unassign block */
+  onUnassignBlock?: (option: UnassignBlockOption) => void;
+  /** Callback to commit block (DECLARE_BLOCK) */
+  onCommitBlock?: (enemyInstanceId: string) => void;
   isDamagePhase?: boolean;
   damageOption?: DamageAssignmentOption;
   onAssignDamage?: (enemyInstanceId: string) => void;
@@ -50,6 +78,8 @@ interface EnemyCardProps {
   strikeKey?: number;
   hasAttacked?: boolean;
   isAtFortifiedSite?: boolean;
+  /** Whether drag-and-drop mode is active (vs +/- buttons) */
+  useDragDrop?: boolean;
 }
 
 export function EnemyCard({
@@ -59,7 +89,12 @@ export function EnemyCard({
   isBlockPhase,
   blockOption,
   accumulatedBlock = 0,
-  onAssignBlock,
+  enemyBlockState,
+  assignableBlocks = [],
+  unassignableBlocks = [],
+  onAssignBlockIncremental,
+  onUnassignBlock,
+  onCommitBlock,
   isDamagePhase,
   damageOption,
   onAssignDamage,
@@ -74,35 +109,107 @@ export function EnemyCard({
   strikeKey,
   hasAttacked = false,
   isAtFortifiedSite: _isAtFortifiedSite = false,
+  useDragDrop = false,
 }: EnemyCardProps) {
   // Detail panel state (click to show)
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // ========================================
+  // Drag and Drop Setup (when enabled)
+  // ========================================
+
+  // Get DnD context - may not exist if not in DnD mode
+  let dragStateActiveChip: DamageChipData | null = null;
+  let isOverAnyEnemy = false;
+  try {
+    const dndContext = useCombatDnD();
+    // Only use if it's an attack chip (not block)
+    if (dndContext.dragState.activeChip?.poolType === "attack") {
+      dragStateActiveChip = dndContext.dragState.activeChip as DamageChipData;
+    }
+    isOverAnyEnemy = dndContext.dragState.overEnemyId !== null;
+  } catch {
+    // Not in DnD context - that's fine
+  }
+
+  // Set up drop target
+  const dropId = `enemy-drop-${enemy.instanceId}`;
+  const isValidDropTarget = useDragDrop && !enemy.isDefeated && isAttackPhase;
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: dropId,
+    disabled: !isValidDropTarget,
+  });
+
   const handleCardClick = () => {
     // Show detail panel on click
     setShowDetailPanel(true);
   };
-  // Show assign block button when:
+  // ========================================
+  // Incremental Block Allocation (Phase 6)
+  // ========================================
+
+  // Show block allocation UI when:
   // - In block phase
   // - Enemy is not defeated
   // - Enemy is not already blocked
-  // - We have some accumulated block
-  const showAssignBlock =
+  // - We have enemy block state from server
+  const showBlockAllocation =
+    isBlockPhase &&
+    enemyBlockState &&
+    !enemy.isDefeated &&
+    !enemy.isBlocked;
+
+  // Get values from server-computed enemy block state
+  const pendingBlock = enemyBlockState?.pendingBlock;
+  const effectiveBlock = enemyBlockState?.effectiveBlock ?? 0;
+  const requiredBlock = enemyBlockState?.requiredBlock ?? blockOption?.requiredBlock ?? 0;
+  const canBlock = enemyBlockState?.canBlock ?? false;
+  const isSwift = enemyBlockState?.isSwift ?? blockOption?.isSwift ?? false;
+  const attackElement = enemyBlockState?.attackElement ?? "physical";
+
+  // Group assignable blocks by element for the +/- buttons
+  const hasAssignableBlocks = assignableBlocks.length > 0;
+  const hasUnassignableBlocks = unassignableBlocks.length > 0;
+  const hasPendingBlock =
+    pendingBlock &&
+    (pendingBlock.physical > 0 || pendingBlock.fire > 0 || pendingBlock.ice > 0 || pendingBlock.coldFire > 0);
+
+  // Handle assigning +1 block of a given element
+  const handleAssignBlockIncremental = (e: React.MouseEvent, option: AssignBlockOption) => {
+    e.stopPropagation();
+    if (onAssignBlockIncremental) {
+      onAssignBlockIncremental(option);
+    }
+  };
+
+  // Handle unassigning -1 block of a given element
+  const handleUnassignBlock = (e: React.MouseEvent, option: UnassignBlockOption) => {
+    e.stopPropagation();
+    if (onUnassignBlock) {
+      onUnassignBlock(option);
+    }
+  };
+
+  // Handle committing block (DECLARE_BLOCK)
+  const handleCommitBlock = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onCommitBlock) {
+      onCommitBlock(enemy.instanceId);
+    }
+  };
+
+  // Fallback: Show old-style block button if no incremental data
+  // (for backward compatibility during transition)
+  const showLegacyBlockButton =
     isBlockPhase &&
     blockOption &&
     !enemy.isDefeated &&
     !enemy.isBlocked &&
-    accumulatedBlock > 0;
+    accumulatedBlock > 0 &&
+    !enemyBlockState;
 
-  const canBlock = showAssignBlock && accumulatedBlock >= (blockOption?.requiredBlock ?? 0);
-
-  const handleAssignBlock = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onAssignBlock) {
-      onAssignBlock(enemy.instanceId);
-    }
-  };
+  const canBlockLegacy = showLegacyBlockButton && accumulatedBlock >= (blockOption?.requiredBlock ?? 0);
 
   // Show assign damage button when:
   // - In damage phase
@@ -138,6 +245,30 @@ export function EnemyCard({
   const resistances = enemyAttackState?.resistances;
   const requiresSiege = enemyAttackState?.requiresSiege ?? false;
 
+  // ========================================
+  // Drag and Drop Preview Calculation
+  // ========================================
+
+  // Calculate drop preview when hovering (needs attack state vars)
+  const activeChip = dragStateActiveChip;
+  const showDropPreview = isOver && activeChip !== null;
+
+  // Calculate effective damage for preview
+  let previewEffective = 0;
+  let previewIsHalved = false;
+  if (showDropPreview && activeChip) {
+    const rawAmount = activeChip.amount;
+    const chipElement = activeChip.element;
+    const isResisted = (chipElement === "fire" && resistances?.fire === true) ||
+                       (chipElement === "ice" && resistances?.ice === true) ||
+                       (chipElement === "physical" && resistances?.physical === true);
+    previewEffective = isResisted ? Math.floor(rawAmount / 2) : rawAmount;
+    previewIsHalved = isResisted;
+  }
+
+  // Would this drop defeat the enemy?
+  const previewWouldDefeat = showDropPreview && (totalEffectiveDamage + previewEffective) >= armor;
+
   // Group assignable attacks by element for the +/- buttons
   const hasAssignableAttacks = assignableAttacks.length > 0;
   const hasUnassignableAttacks = unassignableAttacks.length > 0;
@@ -158,6 +289,10 @@ export function EnemyCard({
     }
   };
 
+  // Determine if this is a valid drop target while dragging
+  const isDragValidTarget = useDragDrop && isValidDropTarget && dragStateActiveChip !== null;
+  const isDragInvalidTarget = useDragDrop && dragStateActiveChip !== null && !isValidDropTarget;
+
   const classNames = [
     "enemy-token",
     enemy.isDefeated && "enemy-token--defeated",
@@ -165,11 +300,23 @@ export function EnemyCard({
     isTargetable && "enemy-token--targetable",
     isStriking && "enemy-token--striking",
     hasAttacked && !isStriking && "enemy-token--has-attacked",
+    canDefeat && !enemy.isDefeated && "enemy-token--can-defeat",
+    isDragValidTarget && "enemy-token--drop-valid",
+    isDragInvalidTarget && "enemy-token--drop-invalid",
+    isOver && isValidDropTarget && "enemy-token--drop-over",
   ].filter(Boolean).join(" ");
+
+  // Merge refs for both drop target and card ref
+  const setRefs = (node: HTMLDivElement | null) => {
+    setDropRef(node);
+    if (cardRef) {
+      (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    }
+  };
 
   return (
     <div
-      ref={cardRef}
+      ref={setRefs}
       className={classNames}
       onClick={isTargetable ? onClick : handleCardClick}
       data-testid={`enemy-card-${enemy.instanceId}`}
@@ -178,6 +325,30 @@ export function EnemyCard({
       tabIndex={0}
       style={{ cursor: "pointer" }}
     >
+      {/* Drop preview overlay - shows damage that would be applied */}
+      {showDropPreview && activeChip && (
+        <div className="enemy-token__drop-preview">
+          <div className="enemy-token__drop-preview-amount">
+            <img
+              src={ELEMENT_ICONS[activeChip.element]}
+              alt={activeChip.element}
+              className="enemy-token__drop-preview-icon"
+            />
+            <span>{activeChip.amount}</span>
+          </div>
+          {previewIsHalved && (
+            <div className="enemy-token__drop-preview-effective enemy-token__drop-preview-effective--halved">
+              → {previewEffective} (halved)
+            </div>
+          )}
+          <div className={`enemy-token__drop-preview-result ${previewWouldDefeat ? "enemy-token__drop-preview-result--defeat" : "enemy-token__drop-preview-result--partial"}`}>
+            {previewWouldDefeat
+              ? "Will Defeat!"
+              : `${totalEffectiveDamage + previewEffective} / ${armor}`}
+          </div>
+        </div>
+      )}
+
       {/* Token image */}
       <div className="enemy-token__image-wrapper">
         <img
@@ -186,6 +357,9 @@ export function EnemyCard({
           className="enemy-token__image"
           draggable={false}
         />
+
+        {/* Crack effect overlay - shows when enemy can be defeated */}
+        <CrackEffect active={canDefeat && !enemy.isDefeated} />
 
         {/* Status overlay */}
         {enemy.isDefeated && (
@@ -212,21 +386,148 @@ export function EnemyCard({
 
       {/* Action buttons */}
       <div className="enemy-token__actions">
-        {/* Assign Block button during block phase */}
-        {showAssignBlock && blockOption && (
+        {/* Incremental Block Allocation UI (Phase 6) */}
+        {showBlockAllocation && (
+          <div
+            className={`enemy-token__block-allocation ${canBlock ? "enemy-token__block-allocation--can-block" : ""}`}
+            data-testid={`block-allocation-${enemy.instanceId}`}
+          >
+            {/* Header: Block progress */}
+            <div className="enemy-token__block-header">
+              <span className="enemy-token__block-label">Block</span>
+              <span className="enemy-token__block-progress">
+                {effectiveBlock} / {requiredBlock}
+                {isSwift && <span className="enemy-token__swift-note">(2× Swift)</span>}
+              </span>
+              {canBlock && (
+                <span className="enemy-token__can-block">✓ Can Block!</span>
+              )}
+            </div>
+
+            {/* Enemy attack element info */}
+            {attackElement !== "physical" && (
+              <div className="enemy-token__attack-element">
+                Enemy attacks with: {attackElement === "fire" ? "🔥 Fire" : attackElement === "ice" ? "❄️ Ice" : "💜 Cold Fire"}
+              </div>
+            )}
+
+            {/* Pending block breakdown by element */}
+            {hasPendingBlock && pendingBlock && (
+              <div className="enemy-token__pending-block">
+                {pendingBlock.physical > 0 && (
+                  <div className="enemy-token__block-row">
+                    <span className="enemy-token__block-icon">⚔️</span>
+                    <span className="enemy-token__block-value">{pendingBlock.physical}</span>
+                  </div>
+                )}
+                {pendingBlock.fire > 0 && (
+                  <div className="enemy-token__block-row">
+                    <span className="enemy-token__block-icon">🔥</span>
+                    <span className="enemy-token__block-value">{pendingBlock.fire}</span>
+                    {attackElement === "ice" && <span className="enemy-token__block-bonus">×2!</span>}
+                  </div>
+                )}
+                {pendingBlock.ice > 0 && (
+                  <div className="enemy-token__block-row">
+                    <span className="enemy-token__block-icon">❄️</span>
+                    <span className="enemy-token__block-value">{pendingBlock.ice}</span>
+                    {attackElement === "fire" && <span className="enemy-token__block-bonus">×2!</span>}
+                  </div>
+                )}
+                {pendingBlock.coldFire > 0 && (
+                  <div className="enemy-token__block-row">
+                    <span className="enemy-token__block-icon">💜</span>
+                    <span className="enemy-token__block-value">{pendingBlock.coldFire}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* +/- buttons for available block assignments */}
+            {(hasAssignableBlocks || hasUnassignableBlocks) && (
+              <div className="enemy-token__block-controls">
+                {/* Group buttons by element */}
+                {["physical", "fire", "ice", "coldFire"].map((element) => {
+                  const assignOptions = assignableBlocks.filter(b => b.element === element);
+                  const unassignOptions = unassignableBlocks.filter(u => u.element === element);
+
+                  if (assignOptions.length === 0 && unassignOptions.length === 0) return null;
+
+                  const icon = element === "physical" ? "⚔️" :
+                               element === "fire" ? "🔥" :
+                               element === "ice" ? "❄️" : "💜";
+                  // Show bonus indicator if this element is effective vs enemy attack
+                  const isBonus = (element === "fire" && attackElement === "ice") ||
+                                  (element === "ice" && attackElement === "fire");
+
+                  const firstUnassign = unassignOptions[0];
+                  const firstAssign = assignOptions[0];
+
+                  return (
+                    <div
+                      key={element}
+                      className={`enemy-token__element-control ${isBonus ? "enemy-token__element-control--bonus" : ""}`}
+                    >
+                      <span className="enemy-token__element-icon">{icon}</span>
+                      {firstUnassign && (
+                        <button
+                          className="enemy-token__control-btn enemy-token__control-btn--minus"
+                          onClick={(e) => handleUnassignBlock(e, firstUnassign)}
+                          title={`Remove ${element} block`}
+                        >
+                          −
+                        </button>
+                      )}
+                      {firstAssign && (
+                        <button
+                          className={`enemy-token__control-btn enemy-token__control-btn--plus ${isBonus ? "enemy-token__control-btn--bonus" : ""}`}
+                          onClick={(e) => handleAssignBlockIncremental(e, firstAssign)}
+                          title={`Add ${element} block${isBonus ? " (×2 effective!)" : ""}`}
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Commit Block button */}
+            {hasPendingBlock && (
+              <button
+                className={`enemy-token__commit-block ${canBlock ? "enemy-token__commit-block--ready" : "enemy-token__commit-block--insufficient"}`}
+                onClick={handleCommitBlock}
+                disabled={!canBlock}
+              >
+                {canBlock ? "✓ Block Enemy" : `Need ${requiredBlock - effectiveBlock} more`}
+              </button>
+            )}
+
+            {/* No block assigned yet message */}
+            {!hasPendingBlock && hasAssignableBlocks && (
+              <div className="enemy-token__block-hint">
+                Use +/- to assign block
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Legacy Block button (fallback if no incremental data) */}
+        {showLegacyBlockButton && blockOption && (
           <button
-            className={`enemy-token__action-btn ${canBlock ? "enemy-token__action-btn--ready" : "enemy-token__action-btn--insufficient"}`}
+            className={`enemy-token__action-btn ${canBlockLegacy ? "enemy-token__action-btn--ready" : "enemy-token__action-btn--insufficient"}`}
             data-testid={`assign-block-${enemy.instanceId}`}
-            onClick={handleAssignBlock}
-            disabled={!canBlock}
+            onClick={handleCommitBlock}
+            disabled={!canBlockLegacy}
           >
             <span className="enemy-token__action-label">Block</span>
             <span className="enemy-token__action-values">
               {accumulatedBlock} / {blockOption.requiredBlock}
               {blockOption.isSwift && <span className="enemy-token__swift-note">(2×)</span>}
             </span>
-            {canBlock && <span className="enemy-token__action-result">✓ Blocked</span>}
-            {!canBlock && accumulatedBlock > 0 && (
+            {canBlockLegacy && <span className="enemy-token__action-result">✓ Blocked</span>}
+            {!canBlockLegacy && accumulatedBlock > 0 && (
               <span className="enemy-token__action-result enemy-token__action-result--need">
                 Need {blockOption.requiredBlock - accumulatedBlock} more
               </span>
@@ -318,8 +619,8 @@ export function EnemyCard({
               </div>
             )}
 
-            {/* +/- buttons for available attack assignments */}
-            {(hasAssignableAttacks || hasUnassignableAttacks) && (
+            {/* +/- buttons for available attack assignments (hidden in DnD mode) */}
+            {!useDragDrop && (hasAssignableAttacks || hasUnassignableAttacks) && (
               <div className="enemy-token__attack-controls">
                 {/* Group buttons by element */}
                 {["physical", "fire", "ice", "coldFire"].map((element) => {
@@ -372,6 +673,13 @@ export function EnemyCard({
             {!hasAssignableAttacks && totalEffectiveDamage > 0 && totalEffectiveDamage < armor && (
               <div className="enemy-token__attack-insufficient">
                 Need {armor - totalEffectiveDamage} more
+              </div>
+            )}
+
+            {/* DnD hint when no damage assigned yet */}
+            {useDragDrop && totalEffectiveDamage === 0 && (
+              <div className="enemy-token__dnd-hint">
+                Drag damage here
               </div>
             )}
           </div>

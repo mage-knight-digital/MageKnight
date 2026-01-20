@@ -195,6 +195,30 @@
   transform: none !important;
 }
 
+/* Ready state - all enemies defeatable, pulse to draw attention */
+.vertical-phase-rail__action--ready {
+  animation: action-ready-pulse 1s ease-in-out infinite;
+  border-color: rgba(39, 174, 96, 0.8);
+  box-shadow:
+    0 0 20px rgba(39, 174, 96, 0.5),
+    0 0 40px rgba(39, 174, 96, 0.2);
+}
+
+@keyframes action-ready-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 20px rgba(39, 174, 96, 0.5),
+      0 0 40px rgba(39, 174, 96, 0.2);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow:
+      0 0 30px rgba(39, 174, 96, 0.7),
+      0 0 60px rgba(39, 174, 96, 0.3);
+  }
+}
+
 /* ===== WARNING ===== */
 
 .vertical-phase-rail__warning {

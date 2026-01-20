@@ -631,3 +631,13 @@
   background: rgba(243, 156, 18, 0.1);
   border-radius: 3px;
 }
+
+/* DnD hint message */
+.enemy-token__dnd-hint {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  padding: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
