@@ -304,6 +304,22 @@ test.describe("Challenge Rampaging Enemies", () => {
 | Provoke + challenge same turn | Allowed - add challenged to provoked combat |
 | Assault + challenge same turn | Allowed - add challenged to assault combat |
 | Challenge after combat ended | Not allowed (already combatted) |
+| **Ancient Ruins enemies** (see below) | **Cannot challenge - not rampaging** |
+
+### CRITICAL: Ancient Ruins Edge Case
+
+Ancient Ruins can spawn enemy types that are normally "rampaging creatures" (e.g., Orc Marauders, Golems), but when drawn for Ancient Ruins:
+
+- They are placed in the hex's `enemies[]` array
+- The hex does NOT have entries in `rampagingEnemies[]`
+- They are **NOT considered rampaging** for challenge purposes
+- Player must enter the site to fight them (use `ENTER_SITE_ACTION`)
+
+**The key distinction:**
+- `hex.rampagingEnemies.length > 0` = Can challenge from adjacent
+- `hex.enemies.length > 0` but `hex.rampagingEnemies.length === 0` = Must be on same hex to fight
+
+This is per the rulebook: "rampaging" is a property of HOW an enemy arrived on the hex, not WHAT type of enemy it is.
 
 ---
 
@@ -331,3 +347,27 @@ test.describe("Challenge Rampaging Enemies", () => {
 - Provoking rampaging enemies (DONE - commit `096041c`)
 - Cannot enter rampaging hex (DONE - commit `ba3b873`)
 - Enemy visibility tracking (see `enemy-visibility-and-undo.md`)
+- Ancient Ruins implementation (see `ancient-ruins-implementation.md`)
+
+---
+
+## Prerequisite: Combat Position Validation Bug
+
+**BUG DISCOVERED:** There is currently NO server-side validation that enemies are at the player's location when entering combat via `ENTER_COMBAT_ACTION`.
+
+A malicious client could theoretically:
+1. Send `ENTER_COMBAT_ACTION` with any `enemyIds`
+2. Fight enemies from across the map
+3. Potentially exploit this for easier fights
+
+**Test file demonstrating bug:** `core/src/engine/__tests__/combatPositionValidation.test.ts`
+
+**This bug should be fixed as part of implementing challenge rampaging:**
+
+1. Add validator `validateEnemyLocation()` for `ENTER_COMBAT_ACTION`
+2. Check that all `enemyIds` are either:
+   - On the player's current hex (normal combat)
+   - On an adjacent hex with `rampagingEnemies.length > 0` (challenge)
+3. Add validation codes:
+   - `ENEMY_NOT_AT_LOCATION`: "Cannot fight enemy that is not at your location"
+   - `CANNOT_CHALLENGE_NON_RAMPAGING`: "Can only challenge rampaging enemies from adjacent hex"

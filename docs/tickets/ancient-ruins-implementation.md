@@ -329,6 +329,25 @@ Add `ruinsTokenPools: RuinsTokenPools`
 
 ---
 
+## IMPORTANT: Enemies Are NOT Rampaging
+
+When enemies are drawn for Ancient Ruins (from yellow enemy tokens like `ruins_gargoyles`, `ruins_golems`, etc.), they are **NOT considered rampaging enemies** even if the creature type would normally be rampaging.
+
+**Implementation requirement:**
+- Place enemies in `hex.enemies[]` only
+- Do NOT populate `hex.rampagingEnemies[]`
+- Player must use `ENTER_SITE_ACTION` to fight them
+- Player CANNOT challenge them from an adjacent hex
+
+**Why this matters:**
+The "Challenge Rampaging Enemies" feature (see `challenge-rampaging-enemies.md`) allows players to fight rampaging enemies from an adjacent hex. The validation checks `hex.rampagingEnemies.length > 0`, NOT the enemy creature type.
+
+Ancient Ruins enemies like Golems (which are normally a rampaging type) should NOT be challengeable from adjacent because they were drawn for the site, not placed as rampaging enemies on the map.
+
+**Test coverage:** See `combatPositionValidation.test.ts` for tests documenting this edge case.
+
+---
+
 ## Acceptance Criteria
 
 - [ ] Yellow token pool initializes with 8 base game tokens
