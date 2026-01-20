@@ -387,18 +387,18 @@ AI learns:
 
 **Validation**: ✅ 11 tests in `endPhaseResolution.test.ts`, 815 total tests passing
 
-### Phase 5: UI Migration
+### Phase 5: UI Migration ✅ COMPLETE
 **Goal**: Client uses new incremental flow
 
-- [ ] Update `CombatOverlay.tsx` to show pending damage per enemy
-- [ ] Add +/- controls or input for damage assignment
-- [ ] Show effective damage (from server) vs raw
-- [ ] Show resistance warnings when assigning to resistant enemy
-- [ ] Show "Can Defeat!" when `canDefeat: true`
-- [ ] Remove old `buildAttackAction()` code
-- [ ] Remove `LegacyAttackOption` placeholder from `EnemyCard.tsx`
+- [x] Update `CombatOverlay.tsx` to show pending damage per enemy
+- [x] Add +/- controls or input for damage assignment
+- [x] Show effective damage (from server) vs raw
+- [x] Show resistance warnings when assigning to resistant enemy
+- [x] Show "Can Defeat!" when `canDefeat: true`
+- [x] Remove old `buildAttackAction()` code
+- [x] Remove `LegacyAttackOption` placeholder from `EnemyCard.tsx`
 
-**Validation**: Can play through combat in browser with new UI
+**Validation**: ✅ EnemyCard renders incremental allocation UI, CombatOverlay passes props
 
 ### Phase 6: Block Phase (Same Pattern)
 **Goal**: Apply incremental assignment to blocking
@@ -429,7 +429,7 @@ AI learns:
 | Phase 2: Server Commands | ✅ Complete | Commands, validators, tests done |
 | Phase 3: ValidActions | ✅ Complete | availableAttack, enemies, assignableAttacks, unassignableAttacks |
 | Phase 4: End Phase Resolution | ✅ Complete | Damage resolution, resistance calcs, 11 tests |
-| Phase 5: UI Migration | 🔲 Not Started | Next up |
+| Phase 5: UI Migration | ✅ Complete | EnemyCard +/- controls, pending damage display |
 | Phase 6: Block Phase | 🔲 Not Started | |
 | Phase 7: Cleanup | 🔲 Not Started | |
 
