@@ -495,5 +495,5 @@ case COMBAT_PHASE_ATTACK:
 
 ## Related Documents
 
-- `docs/designs/mana-draw-powered-effect.md` - Example of a complex multi-step effect
+- `docs/design/mana-draw-powered-effect.md` - Example of a complex multi-step effect
 - `CLAUDE.md` - Project conventions and build commands
