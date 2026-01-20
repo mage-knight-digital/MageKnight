@@ -21,6 +21,7 @@ import { CARD_WOUND, type CardId, type PlayableCard } from "@mage-knight/shared"
 import { getCardSpriteData, getCardColor } from "../../utils/cardAtlas";
 import { calculateZIndex, CARD_FAN_BASE_SCALE, CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
 import { playSound } from "../../utils/audioManager";
+import { useOverlay } from "../../contexts/OverlayContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import "./FloatingHand.css";
 
@@ -177,6 +178,9 @@ export function PixiFloatingHand({
   const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
   const [screenDimensions, setScreenDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [isAppReady, setIsAppReady] = useState(false);
+
+  // Check if an overlay (like CardActionMenu) is active - don't intercept clicks when it is
+  const { isOverlayActive } = useOverlay();
 
   // Track previous view mode for transitions
   const prevViewModeRef = useRef<HandViewMode>(viewMode);
@@ -493,6 +497,15 @@ export function PixiFloatingHand({
     const handleMouseMove = (e: MouseEvent) => {
       if (viewMode === "board") return;
 
+      // Don't process hover when an overlay is active
+      if (isOverlayActive) {
+        if (lastHoveredIndex !== null) {
+          setHoveredIndex(null);
+          lastHoveredIndex = null;
+        }
+        return;
+      }
+
       // Convert screen position to hand container local position
       const localPos = handContainer.toLocal({ x: e.clientX, y: e.clientY });
       const cardIndex = findCardAtPosition(localPos.x, localPos.y);
@@ -517,7 +530,7 @@ export function PixiFloatingHand({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [isAppReady, viewMode, findCardAtPosition]);
+  }, [isAppReady, viewMode, findCardAtPosition, isOverlayActive]);
 
   // Handle card clicks via DOM events (canvas has pointer-events: none)
   useEffect(() => {
@@ -526,6 +539,10 @@ export function PixiFloatingHand({
 
     const handleClick = (e: MouseEvent) => {
       if (viewMode === "board") return;
+
+      // Don't intercept clicks when an overlay (like CardActionMenu) is active
+      // This allows clicks on the menu to work properly
+      if (isOverlayActive) return;
 
       // Convert screen position to hand container local position
       const localPos = handContainer.toLocal({ x: e.clientX, y: e.clientY });
@@ -565,7 +582,7 @@ export function PixiFloatingHand({
     return () => {
       document.removeEventListener("click", handleClick, true);
     };
-  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick]);
+  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick, isOverlayActive]);
 
   // Track previous hovered index for animation
   const prevHoveredIndexRef = useRef<number | null>(null);

@@ -12,6 +12,7 @@ import {
 } from "@mage-knight/shared";
 import { getCardSpriteStyle } from "../../utils/cardAtlas";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
+import { playSound } from "../../utils/audioManager";
 import { PieMenu, type PieMenuItem } from "./PieMenu";
 import "./CardActionMenu.css";
 
@@ -205,6 +206,9 @@ export function CardActionMenu({
     const option = actionOptions.find((o) => o.id === id);
     if (!option) return;
 
+    // Play satisfying card play sound
+    playSound("cardPlay");
+
     if (option.type === "basic") {
       onPlayBasic();
     } else if (option.type === "powered") {
@@ -230,6 +234,8 @@ export function CardActionMenu({
     );
     const source = manaSources[index];
     if (source) {
+      // Play satisfying card play sound
+      playSound("cardPlay");
       onPlayPowered(source);
     }
   }, [manaSources, onPlayPowered]);
@@ -354,32 +360,37 @@ function getSidewaysLabel(as: SidewaysAs, isInCombat: boolean): string {
 }
 
 function getActionColor(type: "basic" | "powered" | "sideways"): string {
+  // Parchment/fantasy colors - warm browns with subtle color coding
   switch (type) {
     case "basic":
-      return "rgba(80, 80, 90, 0.95)";
+      // Neutral warm brown - reliable, straightforward
+      return "rgba(60, 50, 40, 0.95)";
     case "powered":
-      return "rgba(90, 60, 130, 0.95)";
+      // Rich purple - magical, powerful
+      return "rgba(70, 50, 80, 0.95)";
     case "sideways":
-      return "rgba(60, 90, 130, 0.95)";
+      // Muted blue/teal - versatile, adaptive
+      return "rgba(45, 60, 75, 0.95)";
   }
 }
 
 function getManaColor(color: string): string {
+  // Parchment-style mana colors - richer, more saturated
   switch (color) {
     case "red":
-      return "rgba(140, 50, 50, 0.95)";
+      return "rgba(110, 45, 40, 0.95)";
     case "blue":
-      return "rgba(40, 80, 130, 0.95)";
+      return "rgba(40, 65, 100, 0.95)";
     case "green":
-      return "rgba(40, 100, 60, 0.95)";
+      return "rgba(40, 80, 55, 0.95)";
     case "white":
-      return "rgba(100, 100, 110, 0.95)";
+      return "rgba(85, 85, 90, 0.95)";
     case "gold":
-      return "rgba(120, 100, 40, 0.95)";
+      return "rgba(100, 85, 40, 0.95)";
     case "black":
-      return "rgba(50, 50, 60, 0.95)";
+      return "rgba(40, 40, 50, 0.95)";
     default:
-      return "rgba(60, 60, 70, 0.95)";
+      return "rgba(55, 45, 35, 0.95)";
   }
 }
 
