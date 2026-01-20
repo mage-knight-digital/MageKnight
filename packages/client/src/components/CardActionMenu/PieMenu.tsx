@@ -8,6 +8,7 @@ export interface PieMenuItem {
   icon?: string;
   color?: string; // CSS color for the wedge
   disabled?: boolean; // If true, wedge is shown but not clickable
+  weight?: number; // Relative size of wedge (default 1). Higher = larger angle.
 }
 
 export interface PieMenuProps {
@@ -38,18 +39,27 @@ export function PieMenu({
   const outerRadius = size / 2;
   const inner = outerRadius * innerRadius;
 
-  // Calculate wedge paths
+  // Calculate wedge paths with weighted sizes
   const wedges = useMemo(() => {
     const count = items.length;
     if (count === 0) return [];
 
-    const anglePerItem = (2 * Math.PI) / count;
-    // Start from top (-90 degrees) and go clockwise
-    const startOffset = -Math.PI / 2 - anglePerItem / 2;
+    // Calculate total weight (default weight is 1)
+    const totalWeight = items.reduce((sum, item) => sum + (item.weight ?? 1), 0);
 
-    return items.map((item, index) => {
-      const startAngle = startOffset + index * anglePerItem;
-      const endAngle = startAngle + anglePerItem;
+    // Build cumulative angles based on weights
+    // Start from top (-90 degrees), first wedge centered at top
+    const firstWeight = items[0]?.weight ?? 1;
+    const firstAngle = (firstWeight / totalWeight) * (2 * Math.PI);
+    let currentAngle = -Math.PI / 2 - firstAngle / 2;
+
+    return items.map((item) => {
+      const weight = item.weight ?? 1;
+      const angleSpan = (weight / totalWeight) * (2 * Math.PI);
+
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + angleSpan;
+      currentAngle = endAngle;
 
       // Calculate arc path
       const path = describeArc(outerRadius, outerRadius, inner, outerRadius - 2, startAngle, endAngle);
