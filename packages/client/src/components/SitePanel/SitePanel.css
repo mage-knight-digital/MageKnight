@@ -176,26 +176,86 @@
   height: clamp(120px, 35vw, 180px) !important;
 }
 
-/* Sections */
-.site-panel__section {
-  background: rgba(20, 15, 10, 0.3);
+/* Fortification Summary - prominent alert box */
+.site-panel__fortification {
   border-radius: 4px;
-  border: 1px solid rgba(92, 74, 58, 0.4);
-  overflow: hidden;
+  padding: clamp(12px, 2vw, 18px);
+  margin-bottom: clamp(4px, 0.8vw, 8px);
+}
+
+.site-panel__fortification--single {
+  background: linear-gradient(135deg, rgba(120, 90, 50, 0.3) 0%, rgba(90, 70, 40, 0.35) 100%);
+  border: 2px solid rgba(180, 140, 80, 0.5);
+}
+
+.site-panel__fortification--double {
+  background: linear-gradient(135deg, rgba(140, 50, 40, 0.35) 0%, rgba(100, 40, 30, 0.4) 100%);
+  border: 2px solid rgba(200, 80, 60, 0.6);
+}
+
+.site-panel__fortification-header {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.2vw, 12px);
+  margin-bottom: clamp(8px, 1.2vw, 12px);
+}
+
+.site-panel__fortification-header .game-icon {
+  width: clamp(22px, 3vw, 30px) !important;
+  height: clamp(22px, 3vw, 30px) !important;
+}
+
+.site-panel__fortification-title {
+  font-weight: 700;
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  color: #f0e6d2;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.site-panel__fortification--double .site-panel__fortification-title {
+  color: #f8d0c0;
+}
+
+.site-panel__fortification-details {
+  margin: 0;
+  padding-left: clamp(18px, 2.5vw, 24px);
+  list-style: disc;
+}
+
+.site-panel__fortification-details li {
+  font-size: clamp(0.8rem, 1.3vw, 0.95rem);
+  color: #d4c4a8;
+  line-height: 1.5;
+  margin-bottom: clamp(4px, 0.6vw, 6px);
+}
+
+.site-panel__fortification--double .site-panel__fortification-details li {
+  color: #e8c8b8;
+}
+
+.site-panel__fortification-details li:last-child {
+  margin-bottom: 0;
+}
+
+/* Sections - flattened, no boxes */
+.site-panel__section {
+  /* No background or border - flat layout */
 }
 
 .site-panel__section-title {
   display: flex;
   align-items: center;
   gap: clamp(6px, 1vw, 10px);
-  padding: clamp(10px, 1.5vw, 14px) clamp(12px, 2vw, 18px);
+  padding: 0;
+  padding-bottom: clamp(6px, 1vw, 10px);
   margin: 0;
-  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
+  font-size: clamp(0.7rem, 1.1vw, 0.85rem);
   font-weight: 600;
-  color: #a89878;
+  color: #8a7a60;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  background: rgba(50, 40, 30, 0.4);
+  letter-spacing: 0.1em;
   border-bottom: 1px solid rgba(92, 74, 58, 0.3);
 }
 
@@ -206,12 +266,13 @@
 
 /* Responsive game icons in section titles */
 .site-panel__section-icon .game-icon {
-  width: clamp(18px, 2.5vw, 26px) !important;
-  height: clamp(18px, 2.5vw, 26px) !important;
+  width: clamp(16px, 2vw, 22px) !important;
+  height: clamp(16px, 2vw, 22px) !important;
+  opacity: 0.7;
 }
 
 .site-panel__section-content {
-  padding: clamp(10px, 1.5vw, 14px) clamp(12px, 2vw, 18px);
+  padding: clamp(8px, 1.2vw, 12px) 0;
   display: flex;
   flex-direction: column;
   gap: clamp(8px, 1.2vw, 12px);
@@ -224,14 +285,178 @@
   line-height: 1.5;
 }
 
-/* Enemies placeholder */
-.site-panel__enemies-placeholder {
-  font-size: clamp(0.8rem, 1.3vw, 0.95rem);
+/* Enemy Details - card-like but lighter */
+.site-panel__enemies {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2.5vw, 24px);
+}
+
+.site-panel__enemy {
+  /* No box - just spacing and subtle left accent */
+  padding-left: clamp(10px, 1.5vw, 14px);
+  border-left: 3px solid rgba(92, 74, 58, 0.5);
+}
+
+.site-panel__enemy-header {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.5vw, 14px);
+  margin-bottom: clamp(6px, 1vw, 10px);
+}
+
+.site-panel__enemy-token {
+  width: clamp(32px, 5vw, 48px);
+  height: clamp(32px, 5vw, 48px);
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(92, 74, 58, 0.6);
+}
+
+.site-panel__enemy-name {
+  font-weight: 700;
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  color: #f0e6d2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.site-panel__enemy-stats {
+  display: flex;
+  gap: clamp(12px, 2vw, 18px);
+  margin-bottom: clamp(8px, 1.2vw, 12px);
+  flex-wrap: wrap;
+}
+
+.site-panel__enemy-stat {
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 0.6vw, 6px);
+  font-weight: 600;
+  font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+  color: #f0e6d2;
+}
+
+.site-panel__enemy-stat .game-icon {
+  width: clamp(18px, 2.5vw, 24px) !important;
+  height: clamp(18px, 2.5vw, 24px) !important;
+}
+
+.site-panel__enemy-element {
+  font-size: clamp(0.7rem, 1.1vw, 0.85rem);
+  color: #c4a882;
+  padding: 0.15rem 0.4rem;
+  background: rgba(60, 45, 30, 0.6);
+  border: 1px solid rgba(92, 74, 58, 0.4);
+  border-radius: 3px;
+  margin-left: 0.25rem;
+}
+
+/* Inline traits (abilities shown as tags) */
+.site-panel__enemy-traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(6px, 1vw, 10px);
+  margin-top: clamp(6px, 1vw, 10px);
+}
+
+.site-panel__enemy-trait {
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 0.6vw, 6px);
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  font-weight: 600;
+  color: #e8c476;
+  /* No background/border - just text with icon */
+}
+
+.site-panel__enemy-resistances {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.2vw, 12px);
+  margin-top: clamp(6px, 1vw, 10px);
+  flex-wrap: wrap;
+}
+
+.site-panel__enemy-resist-label {
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  color: #a89878;
+  font-weight: 500;
+}
+
+.site-panel__enemy-resist {
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 0.6vw, 6px);
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  font-weight: 600;
+  color: #c4a882;
+  /* No background/border - just text with icon */
+}
+
+.site-panel__enemy-resist--fire {
   color: #e8a090;
-  background: rgba(120, 50, 40, 0.2);
+}
+
+.site-panel__enemy-resist--ice {
+  color: #90c8e8;
+}
+
+.site-panel__enemy-unrevealed {
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  color: #a89878;
+  font-style: italic;
   padding: clamp(8px, 1.2vw, 12px);
+  background: rgba(40, 32, 25, 0.4);
   border-radius: 4px;
-  border: 1px solid rgba(140, 60, 50, 0.3);
+  border: 1px dashed rgba(92, 74, 58, 0.4);
+  text-align: center;
+}
+
+/* Traits Reference Section */
+.site-panel__traits-reference {
+  margin-top: clamp(12px, 2vw, 18px);
+  padding-top: clamp(12px, 2vw, 18px);
+  border-top: 2px solid rgba(92, 74, 58, 0.4);
+}
+
+.site-panel__traits-reference-title {
+  font-size: clamp(0.7rem, 1.1vw, 0.85rem);
+  font-weight: 600;
+  color: #a89878;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: clamp(10px, 1.5vw, 14px);
+}
+
+.site-panel__trait-entry {
+  margin-bottom: clamp(10px, 1.5vw, 14px);
+}
+
+.site-panel__trait-entry:last-child {
+  margin-bottom: 0;
+}
+
+.site-panel__trait-entry-header {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.8vw, 8px);
+  font-weight: 600;
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  color: #e8c476;
+  margin-bottom: clamp(2px, 0.4vw, 4px);
+}
+
+.site-panel__trait-entry-header--resist {
+  color: #c4a882;
+}
+
+.site-panel__trait-entry-desc {
+  display: block;
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  color: #a89878;
+  line-height: 1.5;
 }
 
 /* Restrictions */

@@ -9,6 +9,8 @@
  * - heal (heart)
  * - spell (scroll)
  * - influence (speech bubble)
+ * - Enemy abilities: swift, brutal, poison, paralyze, summon, cumbersome, unfortified
+ * - Resistances: fire_resist, ice_resist, physical_resist
  */
 
 import "./GameIcon.css";
@@ -20,7 +22,19 @@ export type GameIconType =
   | "fame"
   | "heal"
   | "spell"
-  | "influence";
+  | "influence"
+  // Enemy abilities
+  | "swift"
+  | "brutal"
+  | "poison"
+  | "paralyze"
+  | "summon"
+  | "cumbersome"
+  | "unfortified"
+  // Resistances
+  | "fire_resist"
+  | "ice_resist"
+  | "physical_resist";
 
 const ICON_PATHS: Record<GameIconType, string> = {
   attack: "/assets/icons/attack.png",
@@ -30,6 +44,18 @@ const ICON_PATHS: Record<GameIconType, string> = {
   heal: "/assets/icons/heal.png",
   spell: "/assets/icons/spell.png",
   influence: "/assets/icons/influence.png",
+  // Enemy abilities
+  swift: "/assets/icons/swift.png",
+  brutal: "/assets/icons/brutal.png",
+  poison: "/assets/icons/poison.png",
+  paralyze: "/assets/icons/paralyze.png",
+  summon: "/assets/icons/summon.png",
+  cumbersome: "/assets/icons/cumbersome.png",
+  unfortified: "/assets/icons/unfortified.png",
+  // Resistances
+  fire_resist: "/assets/icons/fire_resist.png",
+  ice_resist: "/assets/icons/ice_resist.png",
+  physical_resist: "/assets/icons/block.png", // Use block icon for physical resist
 };
 
 export interface GameIconProps {

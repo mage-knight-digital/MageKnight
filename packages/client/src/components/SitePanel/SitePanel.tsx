@@ -5,14 +5,484 @@
  * Used for:
  * - Scouting: Click into tooltip to see full details
  * - Arrival: Auto-opens when landing on an interactive site
- *
- * Phase 1: Basic structure with dark theme and slide-in animation
  */
 
 import { useEffect, useState } from "react";
-import type { SiteOptions } from "@mage-knight/shared";
-import type { ClientHexState } from "@mage-knight/shared";
+import type { SiteOptions, TimeOfDay, ClientHexEnemy, EnemyAbilityType } from "@mage-knight/shared";
+import type { ClientHexState, ClientSite } from "@mage-knight/shared";
+import { TIME_OF_DAY_NIGHT, ENEMIES, ABILITY_DESCRIPTIONS } from "@mage-knight/shared";
+import { SiteIcon, GameIcon, type SiteIconType, type GameIconType } from "../Icons";
 import "./SitePanel.css";
+
+// =============================================================================
+// Enemy Details Component
+// =============================================================================
+
+// Token back images by color
+const TOKEN_BACK_PATHS: Record<string, string> = {
+  green: "/assets/enemies/backs/green.png",
+  gray: "/assets/enemies/backs/grey.png",
+  grey: "/assets/enemies/backs/grey.png",
+  brown: "/assets/enemies/backs/brown.png",
+  violet: "/assets/enemies/backs/violet.png",
+  red: "/assets/enemies/backs/red.png",
+  white: "/assets/enemies/backs/white.png",
+};
+
+// Element display names
+const ELEMENT_NAMES: Record<string, string> = {
+  physical: "",
+  fire: "Fire",
+  ice: "Ice",
+  cold_fire: "ColdFire",
+};
+
+function getEnemyIdFromToken(tokenId: string): string {
+  const parts = tokenId.split("_");
+  parts.pop();
+  return parts.join("_");
+}
+
+// Resistance descriptions
+const RESISTANCE_DESCRIPTIONS: Record<string, { name: string; desc: string }> = {
+  physical: {
+    name: "Physical Resistance",
+    desc: "Physical attacks (non-elemental) are ineffective. Use Fire or Ice attacks instead.",
+  },
+  fire: {
+    name: "Fire Resistance",
+    desc: "Fire attacks are ineffective. Use Physical or Ice attacks instead.",
+  },
+  ice: {
+    name: "Ice Resistance",
+    desc: "Ice attacks are ineffective. Use Physical or Fire attacks instead.",
+  },
+};
+
+interface EnemyDetailsProps {
+  enemies: readonly ClientHexEnemy[];
+}
+
+/** Collect unique abilities and resistances from all enemies for the reference section */
+function collectUniqueTraits(enemies: readonly ClientHexEnemy[]): {
+  abilities: Set<string>;
+  resistances: Set<string>;
+} {
+  const abilities = new Set<string>();
+  const resistances = new Set<string>();
+
+  for (const enemy of enemies) {
+    if (!enemy.isRevealed || !enemy.tokenId) continue;
+    const enemyId = getEnemyIdFromToken(enemy.tokenId);
+    const definition = ENEMIES[enemyId as keyof typeof ENEMIES];
+    if (!definition) continue;
+
+    for (const ability of definition.abilities) {
+      abilities.add(ability);
+    }
+    if (definition.resistances.physical) resistances.add("physical");
+    if (definition.resistances.fire) resistances.add("fire");
+    if (definition.resistances.ice) resistances.add("ice");
+  }
+
+  return { abilities, resistances };
+}
+
+function EnemyDetails({ enemies }: EnemyDetailsProps) {
+  const revealedEnemies = enemies.filter((e) => e.isRevealed && e.tokenId);
+  const unrevealedCount = enemies.filter((e) => !e.isRevealed).length;
+
+  if (revealedEnemies.length === 0 && unrevealedCount === 0) {
+    return null;
+  }
+
+  // Collect unique traits for reference section
+  const { abilities: uniqueAbilities, resistances: uniqueResistances } = collectUniqueTraits(enemies);
+
+  return (
+    <div className="site-panel__enemies">
+      {revealedEnemies.map((enemy, idx) => {
+        if (!enemy.tokenId) return null;
+        const enemyId = getEnemyIdFromToken(enemy.tokenId);
+        const definition = ENEMIES[enemyId as keyof typeof ENEMIES];
+
+        if (!definition) {
+          const tokenBackPath = TOKEN_BACK_PATHS[enemy.color];
+          return (
+            <div key={idx} className="site-panel__enemy">
+              <div className="site-panel__enemy-header">
+                {tokenBackPath && (
+                  <img src={tokenBackPath} alt={enemy.color} className="site-panel__enemy-token" />
+                )}
+                <span className="site-panel__enemy-name">Unknown Enemy</span>
+              </div>
+            </div>
+          );
+        }
+
+        const tokenBackPath = TOKEN_BACK_PATHS[definition.color];
+        const elementName = ELEMENT_NAMES[definition.attackElement] || "";
+        const hasResistances = definition.resistances.physical || definition.resistances.fire || definition.resistances.ice;
+
+        return (
+          <div key={idx} className="site-panel__enemy">
+            <div className="site-panel__enemy-header">
+              {tokenBackPath && (
+                <img src={tokenBackPath} alt={definition.color} className="site-panel__enemy-token" />
+              )}
+              <span className="site-panel__enemy-name">{definition.name}</span>
+            </div>
+
+            <div className="site-panel__enemy-stats">
+              <span className="site-panel__enemy-stat">
+                <GameIcon type="attack" size={18} />
+                <span>{definition.attack}</span>
+                {elementName && <span className="site-panel__enemy-element">{elementName}</span>}
+              </span>
+              <span className="site-panel__enemy-stat">
+                <GameIcon type="block" size={18} />
+                <span>{definition.armor}</span>
+              </span>
+              <span className="site-panel__enemy-stat">
+                <GameIcon type="fame" size={18} />
+                <span>{definition.fame}</span>
+              </span>
+            </div>
+
+            {/* Show ability names inline (short) */}
+            {definition.abilities.length > 0 && (
+              <div className="site-panel__enemy-traits">
+                {definition.abilities.map((ability) => {
+                  const desc = ABILITY_DESCRIPTIONS[ability as EnemyAbilityType];
+                  const iconType = desc?.icon as GameIconType | undefined;
+                  return (
+                    <span key={ability} className="site-panel__enemy-trait">
+                      {iconType && <GameIcon type={iconType} size={16} />}
+                      {desc?.name || ability}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Show resistance names inline (short) */}
+            {hasResistances && (
+              <div className="site-panel__enemy-resistances">
+                <span className="site-panel__enemy-resist-label">Resists:</span>
+                {definition.resistances.physical && (
+                  <span className="site-panel__enemy-resist">
+                    <GameIcon type="physical_resist" size={14} /> Physical
+                  </span>
+                )}
+                {definition.resistances.fire && (
+                  <span className="site-panel__enemy-resist site-panel__enemy-resist--fire">
+                    <GameIcon type="fire_resist" size={14} /> Fire
+                  </span>
+                )}
+                {definition.resistances.ice && (
+                  <span className="site-panel__enemy-resist site-panel__enemy-resist--ice">
+                    <GameIcon type="ice_resist" size={14} /> Ice
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {unrevealedCount > 0 && (
+        <div className="site-panel__enemy-unrevealed">
+          {unrevealedCount} unrevealed {unrevealedCount === 1 ? "enemy" : "enemies"}
+        </div>
+      )}
+
+      {/* Reference section: full descriptions for all unique abilities and resistances */}
+      {(uniqueAbilities.size > 0 || uniqueResistances.size > 0) && (
+        <div className="site-panel__traits-reference">
+          <div className="site-panel__traits-reference-title">Ability & Resistance Reference</div>
+
+          {Array.from(uniqueAbilities).map((ability) => {
+            const desc = ABILITY_DESCRIPTIONS[ability as EnemyAbilityType];
+            if (!desc) return null;
+            const iconType = desc.icon as GameIconType;
+            return (
+              <div key={ability} className="site-panel__trait-entry">
+                <span className="site-panel__trait-entry-header">
+                  <GameIcon type={iconType} size={18} /> {desc.name}
+                </span>
+                <span className="site-panel__trait-entry-desc">{desc.fullDesc}</span>
+              </div>
+            );
+          })}
+
+          {Array.from(uniqueResistances).map((resist) => {
+            const desc = RESISTANCE_DESCRIPTIONS[resist];
+            if (!desc) return null;
+            const iconType = `${resist}_resist` as GameIconType;
+            return (
+              <div key={resist} className="site-panel__trait-entry">
+                <span className="site-panel__trait-entry-header site-panel__trait-entry-header--resist">
+                  <GameIcon type={iconType} size={18} /> {desc.name}
+                </span>
+                <span className="site-panel__trait-entry-desc">{desc.desc}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Fortification Summary Component
+// =============================================================================
+
+interface FortificationInfo {
+  siteIsFortified: boolean;
+  hasDoubleFortifiedEnemy: boolean; // Enemy with fortified ability at a fortified site
+  hasFortifiedEnemy: boolean; // Enemy with fortified ability (anywhere)
+  summary: string;
+  details: string[];
+}
+
+function computeFortificationInfo(
+  siteType: string,
+  enemies: readonly ClientHexEnemy[] | undefined,
+  isConquered: boolean
+): FortificationInfo | null {
+  // Fortified sites: keep, mage_tower, city (when not conquered)
+  const fortifiedSiteTypes = ["keep", "mage_tower", "city"];
+  const siteIsFortified = fortifiedSiteTypes.includes(siteType) && !isConquered;
+
+  // Check if any revealed enemy has the fortified ability
+  let hasFortifiedEnemy = false;
+  if (enemies) {
+    for (const enemy of enemies) {
+      if (enemy.isRevealed && enemy.tokenId) {
+        const enemyId = getEnemyIdFromToken(enemy.tokenId);
+        const definition = ENEMIES[enemyId as keyof typeof ENEMIES];
+        if (definition?.abilities.includes("fortified")) {
+          hasFortifiedEnemy = true;
+          break;
+        }
+      }
+    }
+  }
+
+  // If neither site nor enemy is fortified, no special info needed
+  if (!siteIsFortified && !hasFortifiedEnemy) {
+    return null;
+  }
+
+  const hasDoubleFortifiedEnemy = siteIsFortified && hasFortifiedEnemy;
+  const details: string[] = [];
+  let summary: string;
+
+  if (hasDoubleFortifiedEnemy) {
+    summary = "Double Fortified";
+    details.push("Site is fortified: Ranged attacks require Siege");
+    details.push("Enemy is also fortified: Cannot be targeted in Ranged phase at all");
+    details.push("You must defeat this enemy in Block/Attack phase only");
+  } else if (siteIsFortified) {
+    summary = "Fortified Site";
+    details.push("Only Siege attacks can target enemies in Ranged phase");
+    details.push("Regular Ranged attacks have no effect");
+  } else {
+    // hasFortifiedEnemy only (at non-fortified site)
+    summary = "Fortified Enemy";
+    details.push("Only Siege attacks can target this enemy in Ranged phase");
+    details.push("At a non-fortified site, Siege attacks still work");
+  }
+
+  return {
+    siteIsFortified,
+    hasDoubleFortifiedEnemy,
+    hasFortifiedEnemy,
+    summary,
+    details,
+  };
+}
+
+interface FortificationSummaryProps {
+  info: FortificationInfo;
+}
+
+function FortificationSummary({ info }: FortificationSummaryProps) {
+  const alertClass = info.hasDoubleFortifiedEnemy
+    ? "site-panel__fortification--double"
+    : "site-panel__fortification--single";
+
+  return (
+    <div className={`site-panel__fortification ${alertClass}`}>
+      <div className="site-panel__fortification-header">
+        <GameIcon type="fortified" size={24} />
+        <span className="site-panel__fortification-title">{info.summary}</span>
+      </div>
+      <ul className="site-panel__fortification-details">
+        {info.details.map((detail, idx) => (
+          <li key={idx}>{detail}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// =============================================================================
+// Site Info Computation (for scouting mode when siteOptions is unavailable)
+// =============================================================================
+
+interface ComputedSiteInfo {
+  /** What you'll fight */
+  fight?: string;
+  /** Conquest reward */
+  reward?: string;
+  /** Special rules/restrictions */
+  special?: string[];
+  /** Services available (for inhabited sites) */
+  services?: string[];
+  /** Is this site fortified? */
+  isFortified?: boolean;
+}
+
+/**
+ * Compute site info client-side when siteOptions isn't available (scouting mode).
+ * This mirrors the logic in SiteTooltipContent but structured for the panel.
+ */
+function computeSiteInfo(
+  site: ClientSite,
+  enemies?: readonly ClientHexEnemy[],
+  timeOfDay?: TimeOfDay
+): ComputedSiteInfo {
+  const isNight = timeOfDay === TIME_OF_DAY_NIGHT;
+  const hasUnrevealedEnemies = enemies?.some(e => !e.isRevealed) ?? false;
+  const enemyRevealNote = hasUnrevealedEnemies && isNight ? " (revealed on assault)" : "";
+
+  switch (site.type) {
+    case "dungeon":
+      return {
+        fight: `1 Brown enemy${enemyRevealNote}`,
+        reward: site.isConquered ? "Fame only" : "Spell (gold/black die) or Artifact (color die)",
+        special: ["Night mana rules (no gold, black available)", "No units allowed"],
+      };
+
+    case "tomb":
+      return {
+        fight: `1 Red Draconum${enemyRevealNote}`,
+        reward: site.isConquered ? "Fame only" : "1 Spell + 1 Artifact",
+        special: ["Night mana rules (no gold, black available)", "No units allowed"],
+      };
+
+    case "monster_den":
+      return {
+        fight: `1 Brown enemy${enemyRevealNote}`,
+        reward: "2 Crystal rolls",
+        special: ["Undefeated enemy remains"],
+      };
+
+    case "spawning_grounds":
+      return {
+        fight: `2 Brown enemies${enemyRevealNote}`,
+        reward: "1 Artifact + 3 Crystal rolls",
+        special: ["Undefeated enemies remain"],
+      };
+
+    case "ancient_ruins":
+      return {
+        fight: "Draw yellow token: Altar or Enemies",
+        reward: "Varies by token",
+        special: ["Altar: Pay 3 mana for 7 Fame"],
+      };
+
+    case "village":
+      return {
+        services: ["Recruit units", "Heal: 3 Influence = 1 HP"],
+        special: ["Plunder: Draw 2 cards, −1 Reputation"],
+      };
+
+    case "monastery":
+      return {
+        services: ["Buy Advanced Action: 6 Influence", "Heal: 2 Influence = 1 HP"],
+        special: ["Burn: Fight violet enemy, no units, −3 Reputation"],
+      };
+
+    case "keep":
+      if (site.isConquered) {
+        return {
+          services: ["Recruit units"],
+          special: ["+1 Hand limit when ending turn here"],
+        };
+      }
+      return {
+        fight: `1 Grey enemy${enemyRevealNote}`,
+        isFortified: true,
+        special: ["Fortified (Siege attack required)", "Assault: −1 Reputation"],
+      };
+
+    case "mage_tower":
+      if (site.isConquered) {
+        return {
+          services: ["Buy Spells: 7 Influence + mana matching spell color"],
+        };
+      }
+      return {
+        fight: `1 Violet enemy${enemyRevealNote}`,
+        reward: "1 Spell",
+        isFortified: true,
+        special: ["Fortified (Siege attack required)", "Assault: −1 Reputation"],
+      };
+
+    case "city": {
+      if (site.isConquered) {
+        return {
+          services: ["Full city services available"],
+        };
+      }
+      return {
+        fight: `City garrison${enemyRevealNote}`,
+        isFortified: true,
+        special: ["Fortified (Siege attack required)", "Assault: −1 Reputation"],
+      };
+    }
+
+    case "mine": {
+      const color = site.mineColor || "white";
+      return {
+        services: [`End turn here: Gain 1 ${color} crystal`],
+      };
+    }
+
+    case "deep_mine":
+      return {
+        services: ["End turn here: Gain 1 crystal (choose color)"],
+      };
+
+    case "magical_glade":
+      return {
+        services: [
+          "Start of turn: Gain gold mana (day) or black mana (night)",
+          "End of turn: Discard 1 Wound from hand",
+        ],
+      };
+
+    case "maze":
+      return {
+        fight: `1 Brown enemy${enemyRevealNote}`,
+        reward: "Varies by path (2/4/6 Move cost)",
+        special: ["One unit allowed", "Enemy discarded after combat"],
+      };
+
+    case "labyrinth":
+      return {
+        fight: `1 Red Draconum${enemyRevealNote}`,
+        reward: "Varies by path + Advanced Action",
+        special: ["One unit allowed", "Enemy discarded after combat"],
+      };
+
+    default:
+      return {};
+  }
+}
 
 export interface SitePanelProps {
   /** Whether the panel is open */
@@ -25,6 +495,8 @@ export interface SitePanelProps {
   onClose: () => void;
   /** Whether this is arrival mode (shows action buttons) vs scouting mode */
   isArrivalMode?: boolean;
+  /** Current time of day (for enemy reveal info) */
+  timeOfDay?: TimeOfDay;
 }
 
 // Helper to format site name from type when siteOptions not available
@@ -47,24 +519,35 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Site type to icon mapping (emoji placeholders for now)
-const SITE_ICONS: Record<string, string> = {
-  dungeon: "🏚️",
-  tomb: "🪦",
-  monster_den: "🕳️",
-  spawning_grounds: "🥚",
-  ancient_ruins: "🏛️",
-  village: "🏘️",
-  monastery: "⛪",
-  keep: "🏰",
-  mage_tower: "🗼",
-  city: "🏙️",
-  mine: "⛏️",
-  magical_glade: "✨",
-  deep_mine: "💎",
-  maze: "🌀",
-  labyrinth: "🔮",
-};
+// Map site type string to SiteIconType for sprite rendering
+// Cities use color-specific sprites
+function getSiteIconType(siteType: string, cityColor?: string): SiteIconType | null {
+  switch (siteType) {
+    case "dungeon": return "dungeon";
+    case "tomb": return "tomb";
+    case "monster_den": return "monster_den";
+    case "spawning_grounds": return "spawning_grounds";
+    case "ancient_ruins": return "ancient_ruins";
+    case "village": return "village";
+    case "monastery": return "monastery";
+    case "keep": return "keep";
+    case "mage_tower": return "mage_tower";
+    case "mine": return "mine";
+    case "magical_glade": return "magical_glade";
+    case "deep_mine": return "mine"; // Use mine sprite
+    case "maze": return "maze";
+    case "labyrinth": return "labyrinth";
+    case "city":
+      // Return color-specific city sprite
+      if (cityColor === "blue") return "blue_city";
+      if (cityColor === "green") return "green_city";
+      if (cityColor === "red") return "red_city";
+      if (cityColor === "white") return "white_city";
+      return "blue_city"; // Default fallback
+    default:
+      return null;
+  }
+}
 
 export function SitePanel({
   isOpen,
@@ -72,6 +555,7 @@ export function SitePanel({
   hex,
   onClose,
   isArrivalMode = false,
+  timeOfDay,
 }: SitePanelProps) {
   // Track animation state
   const [isAnimating, setIsAnimating] = useState(false);
@@ -107,14 +591,26 @@ export function SitePanel({
   const siteType = siteOptions?.siteType ?? site?.type ?? "unknown";
   const siteName = siteOptions?.siteName ?? formatSiteName(siteType, site);
   const isConquered = siteOptions?.isConquered ?? site?.isConquered ?? false;
-  const siteIcon = SITE_ICONS[siteType] || "📍";
+  const siteIconType = getSiteIconType(siteType, site?.cityColor);
+
+  // Compute site info for scouting mode (when siteOptions is unavailable)
+  const computedInfo = site && !siteOptions
+    ? computeSiteInfo(site, hex?.enemies, timeOfDay)
+    : null;
+
+  // Compute fortification info (both modes)
+  const fortificationInfo = computeFortificationInfo(siteType, hex?.enemies, isConquered);
 
   return (
     <div className={`site-panel ${isAnimating ? "site-panel--open" : ""}`}>
       {/* Header */}
       <div className="site-panel__header">
         <div className="site-panel__title">
-          <span className="site-panel__icon">{siteIcon}</span>
+          {siteIconType ? (
+            <SiteIcon site={siteIconType} size={32} className="site-panel__icon" />
+          ) : (
+            <span className="site-panel__icon">📍</span>
+          )}
           <span className="site-panel__name">{siteName}</span>
           {isConquered && (
             <span className="site-panel__status">Conquered</span>
@@ -131,150 +627,210 @@ export function SitePanel({
 
       {/* Content */}
       <div className="site-panel__content">
-        {/* Site Artwork Placeholder */}
+        {/* Site Artwork */}
         <div className="site-panel__artwork">
-          <div className="site-panel__artwork-placeholder">
-            <span className="site-panel__artwork-icon">{siteIcon}</span>
-            <span className="site-panel__artwork-text">Site Artwork</span>
-          </div>
+          {siteIconType ? (
+            <SiteIcon site={siteIconType} size={160} className="site-panel__artwork-sprite" />
+          ) : (
+            <div className="site-panel__artwork-placeholder">
+              <span className="site-panel__artwork-icon">📍</span>
+              <span className="site-panel__artwork-text">Site Artwork</span>
+            </div>
+          )}
         </div>
 
-        {/* Combat Section (for adventure sites) - only when siteOptions available */}
-        {siteOptions?.canEnter && siteOptions.enterDescription && (
-          <section className="site-panel__section">
-            <h3 className="site-panel__section-title">
-              <span className="site-panel__section-icon">⚔️</span>
-              Combat
-            </h3>
-            <div className="site-panel__section-content">
-              <p className="site-panel__description">
-                {siteOptions.enterDescription}
-              </p>
-              {/* Enemy cards will go here in Phase 3 */}
-              {hex?.enemies && hex.enemies.length > 0 && (
-                <div className="site-panel__enemies-placeholder">
-                  {hex.enemies.length} enemy token(s) present
-                </div>
-              )}
-            </div>
-          </section>
+        {/* Fortification Summary - shown prominently when applicable */}
+        {fortificationInfo && (
+          <FortificationSummary info={fortificationInfo} />
         )}
 
-        {/* Enemies Section - show even without siteOptions if enemies present */}
-        {!siteOptions?.canEnter && hex?.enemies && hex.enemies.length > 0 && (
-          <section className="site-panel__section">
-            <h3 className="site-panel__section-title">
-              <span className="site-panel__section-icon">⚔️</span>
-              Enemies
-            </h3>
-            <div className="site-panel__section-content">
-              <div className="site-panel__enemies-placeholder">
-                {hex.enemies.length} enemy token(s) present
-              </div>
-            </div>
-          </section>
+        {/* === SCOUTING MODE: Show computed info when siteOptions unavailable === */}
+        {computedInfo && (
+          <>
+            {/* Combat/Fight Section */}
+            {computedInfo.fight && (
+              <section className="site-panel__section">
+                <h3 className="site-panel__section-title">
+                  <GameIcon type="attack" size={20} className="site-panel__section-icon" />
+                  Combat
+                </h3>
+                <div className="site-panel__section-content">
+                  <p className="site-panel__description">{computedInfo.fight}</p>
+                  {hex?.enemies && hex.enemies.length > 0 && (
+                    <EnemyDetails enemies={hex.enemies} />
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Reward Section */}
+            {computedInfo.reward && (
+              <section className="site-panel__section">
+                <h3 className="site-panel__section-title">
+                  <GameIcon type="fame" size={20} className="site-panel__section-icon" />
+                  Reward
+                </h3>
+                <div className="site-panel__section-content">
+                  <p className="site-panel__description">{computedInfo.reward}</p>
+                </div>
+              </section>
+            )}
+
+            {/* Services Section */}
+            {computedInfo.services && computedInfo.services.length > 0 && (
+              <section className="site-panel__section">
+                <h3 className="site-panel__section-title">
+                  <GameIcon type="influence" size={20} className="site-panel__section-icon" />
+                  Services
+                </h3>
+                <div className="site-panel__section-content">
+                  {computedInfo.services.map((service, i) => (
+                    <p key={i} className="site-panel__description">{service}</p>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Special Rules Section */}
+            {computedInfo.special && computedInfo.special.length > 0 && (
+              <section className="site-panel__section">
+                <h3 className="site-panel__section-title">
+                  <GameIcon type="fortified" size={20} className="site-panel__section-icon" />
+                  Rules
+                </h3>
+                <div className="site-panel__section-content">
+                  {computedInfo.special.map((rule, i) => (
+                    <p key={i} className="site-panel__description">{rule}</p>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
 
-        {/* Restrictions Section */}
-        {siteOptions?.enterRestrictions && (
-          <section className="site-panel__section">
-            <h3 className="site-panel__section-title">
-              <span className="site-panel__section-icon">⚠️</span>
-              Restrictions
-            </h3>
-            <div className="site-panel__section-content">
-              {siteOptions.enterRestrictions.nightManaRules && (
-                <div className="site-panel__restriction">
-                  <span className="site-panel__restriction-icon">🌙</span>
-                  <div className="site-panel__restriction-text">
-                    <strong>Night Rules</strong>
-                    <span>No gold mana, black mana available</span>
-                  </div>
+        {/* === ARRIVAL MODE: Show siteOptions when available === */}
+        {siteOptions && (
+          <>
+            {/* Combat Section (for adventure sites) */}
+            {siteOptions.canEnter && siteOptions.enterDescription && (
+              <section className="site-panel__section">
+                <h3 className="site-panel__section-title">
+                  <GameIcon type="attack" size={20} className="site-panel__section-icon" />
+                  Combat
+                </h3>
+                <div className="site-panel__section-content">
+                  <p className="site-panel__description">
+                    {siteOptions.enterDescription}
+                  </p>
+                  {hex?.enemies && hex.enemies.length > 0 && (
+                    <EnemyDetails enemies={hex.enemies} />
+                  )}
                 </div>
-              )}
-              {siteOptions.enterRestrictions.unitsAllowed === false && (
-                <div className="site-panel__restriction">
-                  <span className="site-panel__restriction-icon">🚫</span>
-                  <div className="site-panel__restriction-text">
-                    <strong>No Units</strong>
-                    <span>You must fight alone</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+              </section>
+            )}
 
-        {/* Rewards Section */}
-        {siteOptions?.conquestReward && (
-          <section className="site-panel__section">
-            <h3 className="site-panel__section-title">
-              <span className="site-panel__section-icon">🎁</span>
-              Reward
-            </h3>
-            <div className="site-panel__section-content">
-              <p className="site-panel__description">
-                {siteOptions.conquestReward}
-              </p>
-            </div>
-          </section>
-        )}
+            {/* Restrictions Section */}
+            {siteOptions.enterRestrictions && (
+              <section className="site-panel__section">
+                <h3 className="site-panel__section-title">
+                  <GameIcon type="fortified" size={20} className="site-panel__section-icon" />
+                  Restrictions
+                </h3>
+                <div className="site-panel__section-content">
+                  {siteOptions.enterRestrictions.nightManaRules && (
+                    <div className="site-panel__restriction">
+                      <GameIcon type="spell" size={24} className="site-panel__restriction-icon" />
+                      <div className="site-panel__restriction-text">
+                        <strong>Night Rules</strong>
+                        <span>No gold mana, black mana available</span>
+                      </div>
+                    </div>
+                  )}
+                  {siteOptions.enterRestrictions.unitsAllowed === false && (
+                    <div className="site-panel__restriction">
+                      <GameIcon type="block" size={24} className="site-panel__restriction-icon" />
+                      <div className="site-panel__restriction-text">
+                        <strong>No Units</strong>
+                        <span>You must fight alone</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
-        {/* Services Section (for inhabited sites) */}
-        {siteOptions?.canInteract && siteOptions.interactOptions && (
-          <section className="site-panel__section">
-            <h3 className="site-panel__section-title">
-              <span className="site-panel__section-icon">💬</span>
-              Services
-            </h3>
-            <div className="site-panel__section-content">
-              {siteOptions.interactOptions.canHeal && (
-                <div className="site-panel__service">
-                  <span className="site-panel__service-icon">❤️</span>
-                  <div className="site-panel__service-text">
-                    <strong>Healing</strong>
-                    <span>
-                      {siteOptions.interactOptions.healCost} Influence = 1 HP
-                    </span>
-                  </div>
+            {/* Rewards Section */}
+            {siteOptions.conquestReward && (
+              <section className="site-panel__section">
+                <h3 className="site-panel__section-title">
+                  <GameIcon type="fame" size={20} className="site-panel__section-icon" />
+                  Reward
+                </h3>
+                <div className="site-panel__section-content">
+                  <p className="site-panel__description">
+                    {siteOptions.conquestReward}
+                  </p>
                 </div>
-              )}
-              {siteOptions.interactOptions.canRecruit && (
-                <div className="site-panel__service">
-                  <span className="site-panel__service-icon">🛡️</span>
-                  <div className="site-panel__service-text">
-                    <strong>Recruit Units</strong>
-                    <span>Units available for hire</span>
-                  </div>
+              </section>
+            )}
+
+            {/* Services Section (for inhabited sites) */}
+            {siteOptions.canInteract && siteOptions.interactOptions && (
+              <section className="site-panel__section">
+                <h3 className="site-panel__section-title">
+                  <GameIcon type="influence" size={20} className="site-panel__section-icon" />
+                  Services
+                </h3>
+                <div className="site-panel__section-content">
+                  {siteOptions.interactOptions.canHeal && (
+                    <div className="site-panel__service">
+                      <GameIcon type="heal" size={20} className="site-panel__service-icon" />
+                      <div className="site-panel__service-text">
+                        <strong>Healing</strong>
+                        <span>
+                          {siteOptions.interactOptions.healCost} Influence = 1 HP
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {siteOptions.interactOptions.canRecruit && (
+                    <div className="site-panel__service">
+                      <GameIcon type="block" size={20} className="site-panel__service-icon" />
+                      <div className="site-panel__service-text">
+                        <strong>Recruit Units</strong>
+                        <span>Units available for hire</span>
+                      </div>
+                    </div>
+                  )}
+                  {siteOptions.interactOptions.canBuySpells && (
+                    <div className="site-panel__service">
+                      <GameIcon type="spell" size={20} className="site-panel__service-icon" />
+                      <div className="site-panel__service-text">
+                        <strong>Buy Spells</strong>
+                        <span>{siteOptions.interactOptions.spellCost ?? 7} Influence + matching mana</span>
+                      </div>
+                    </div>
+                  )}
+                  {siteOptions.interactOptions.canBuyAdvancedActions && (
+                    <div className="site-panel__service">
+                      <GameIcon type="attack" size={20} className="site-panel__service-icon" />
+                      <div className="site-panel__service-text">
+                        <strong>Buy Advanced Action</strong>
+                        <span>{siteOptions.interactOptions.advancedActionCost ?? 6} Influence</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-              {siteOptions.interactOptions.canBuySpells && (
-                <div className="site-panel__service">
-                  <span className="site-panel__service-icon">📜</span>
-                  <div className="site-panel__service-text">
-                    <strong>Buy Spells</strong>
-                    <span>{siteOptions.interactOptions.spellCost ?? 7} Influence + matching mana</span>
-                  </div>
-                </div>
-              )}
-              {siteOptions.interactOptions.canBuyAdvancedActions && (
-                <div className="site-panel__service">
-                  <span className="site-panel__service-icon">⚡</span>
-                  <div className="site-panel__service-text">
-                    <strong>Buy Advanced Action</strong>
-                    <span>{siteOptions.interactOptions.advancedActionCost ?? 6} Influence</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
+              </section>
+            )}
+          </>
         )}
 
         {/* Passive Effects Section */}
         {(siteOptions?.endOfTurnEffect || siteOptions?.startOfTurnEffect) && (
           <section className="site-panel__section">
             <h3 className="site-panel__section-title">
-              <span className="site-panel__section-icon">✨</span>
+              <GameIcon type="spell" size={20} className="site-panel__section-icon" />
               Effects
             </h3>
             <div className="site-panel__section-content">

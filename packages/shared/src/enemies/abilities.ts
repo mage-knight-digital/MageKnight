@@ -85,54 +85,56 @@ export interface AbilityDescription {
 /**
  * Descriptions for all enemy abilities.
  * Source: Mage Knight Ultimate Edition Rulebook
+ *
+ * The `icon` field is a GameIconType string that maps to an actual icon asset.
  */
 export const ABILITY_DESCRIPTIONS: Record<EnemyAbilityType, AbilityDescription> = {
   [ABILITY_SWIFT]: {
     name: "Swift",
     shortDesc: "requires 2x Block",
     fullDesc: "To block this enemy, you need twice as much Block as its Attack value.",
-    icon: "⚡",
+    icon: "swift",
   },
   [ABILITY_BRUTAL]: {
     name: "Brutal",
     shortDesc: "deals 2x damage",
     fullDesc: "If unblocked, this enemy deals twice as much damage as its Attack value.",
-    icon: "💀",
+    icon: "brutal",
   },
   [ABILITY_POISON]: {
     name: "Poison",
     shortDesc: "extra wounds",
-    fullDesc: "Units take 2 Wounds instead of 1. Heroes also put 1 Wound in discard per Wound taken to hand.",
-    icon: "☠️",
+    fullDesc: "When assigned damage: Units receive 2 Wound cards instead of 1. For each Wound a Hero would take, they take 1 Wound card to hand and put 1 Wound card into discard.",
+    icon: "poison",
   },
   [ABILITY_PARALYZE]: {
     name: "Paralyze",
     shortDesc: "destroys units",
     fullDesc: "Wounded Units are destroyed. Heroes must discard all non-Wound cards from hand when wounded.",
-    icon: "🔒",
+    icon: "paralyze",
   },
   [ABILITY_SUMMON]: {
     name: "Summon",
     shortDesc: "summons brown enemy",
     fullDesc: "At Block phase start, draw a Brown enemy. It replaces the summoner for Block and Damage phases, then is discarded.",
-    icon: "✨",
+    icon: "summon",
   },
   [ABILITY_CUMBERSOME]: {
     name: "Cumbersome",
     shortDesc: "spend Move to reduce",
     fullDesc: "In Block phase, spend Move points to reduce this attack by 1 per Move spent. Reduced to 0 = blocked.",
-    icon: "🐢",
+    icon: "cumbersome",
   },
   [ABILITY_FORTIFIED]: {
     name: "Fortified",
     shortDesc: "Siege only in ranged",
     fullDesc: "Only Siege Attacks can target this enemy in the Ranged/Siege phase. If also at a fortified site, no attacks at all.",
-    icon: "🛡️",
+    icon: "fortified",
   },
   [ABILITY_UNFORTIFIED]: {
     name: "Unfortified",
     shortDesc: "ignores site fortification",
     fullDesc: "Site fortifications are ignored for this enemy. Summoned enemies have this ability.",
-    icon: "📍",
+    icon: "unfortified",
   },
 };
