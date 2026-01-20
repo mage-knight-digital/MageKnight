@@ -376,16 +376,16 @@ AI learns:
 
 **Validation**: ✅ 22 tests in `combatValidActions.test.ts`, 804 total tests passing
 
-### Phase 4: End Phase Resolution
+### Phase 4: End Phase Resolution ✅ COMPLETE
 **Goal**: END_COMBAT_PHASE resolves pending damage
 
-- [ ] Modify `endCombatPhaseCommand.ts` to resolve `pendingDamage`
-- [ ] Apply resistance calculations at resolution time
-- [ ] Defeat enemies where effective >= armor
-- [ ] Clear pending and assigned after resolution
-- [ ] Handle refund/clear of unresolved damage on phase transition
+- [x] Modify `endCombatPhaseCommand.ts` to resolve `pendingDamage`
+- [x] Apply resistance calculations at resolution time
+- [x] Defeat enemies where effective >= armor
+- [x] Clear pending and assigned after resolution
+- [x] Handle refund/clear of unresolved damage on phase transition
 
-**Validation**: Can defeat enemies using new assignment flow (via tests)
+**Validation**: ✅ 11 tests in `endPhaseResolution.test.ts`, 815 total tests passing
 
 ### Phase 5: UI Migration
 **Goal**: Client uses new incremental flow
@@ -428,8 +428,8 @@ AI learns:
 | Phase 1: Foundation | ✅ Complete | State structures in place |
 | Phase 2: Server Commands | ✅ Complete | Commands, validators, tests done |
 | Phase 3: ValidActions | ✅ Complete | availableAttack, enemies, assignableAttacks, unassignableAttacks |
-| Phase 4: End Phase Resolution | 🔲 Not Started | Next up |
-| Phase 5: UI Migration | 🔲 Not Started | |
+| Phase 4: End Phase Resolution | ✅ Complete | Damage resolution, resistance calcs, 11 tests |
+| Phase 5: UI Migration | 🔲 Not Started | Next up |
 | Phase 6: Block Phase | 🔲 Not Started | |
 | Phase 7: Cleanup | 🔲 Not Started | |
 
@@ -445,7 +445,7 @@ AI learns:
 - Matches rulebook ("if insufficient, don't play them")
 - Punishes mistakes more
 
-**Decision**: TBD - probably Option A for better UX, with clear messaging
+**Decision**: Option B (Clear). Pending damage is resolved at phase transition - enemies are defeated if damage >= armor, otherwise damage is discarded. This matches the rulebook where you must commit enough to defeat, and the UI will show real-time effective damage so players know before committing.
 
 ### Q: Should ASSIGN_ATTACK be reversible?
 

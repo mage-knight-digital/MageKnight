@@ -4,6 +4,8 @@
  * When combat ends with victory at a site:
  * - Triggers automatic conquest
  * - Clears enemies from hex
+ *
+ * Also resolves pending damage when transitioning out of RANGED_SIEGE or ATTACK phases.
  */
 
 import type { Command, CommandResult } from "../../commands.js";
@@ -14,6 +16,7 @@ import {
   COMBAT_ENDED,
   hexKey,
   createPlayerWithdrewEvent,
+  createEnemyDefeatedEvent,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -21,12 +24,175 @@ import {
   COMBAT_PHASE_ASSIGN_DAMAGE,
   COMBAT_PHASE_ATTACK,
   type CombatPhase,
+  type CombatEnemy,
+  type CombatState,
+  type PendingElementalDamage,
 } from "../../../types/combat.js";
-import type { Player } from "../../../types/player.js";
+import type { Player, CombatAccumulator } from "../../../types/player.js";
+import { createEmptyAccumulatedAttack } from "../../../types/player.js";
 import type { HexState } from "../../../types/map.js";
 import { createConquerSiteCommand } from "../conquerSiteCommand.js";
+import { isAttackResisted, type Resistances } from "../../combat/elementalCalc.js";
 
 export const END_COMBAT_PHASE_COMMAND = "END_COMBAT_PHASE" as const;
+
+// ============================================================================
+// Pending Damage Resolution
+// ============================================================================
+
+/**
+ * Get enemy resistances from their definition.
+ */
+function getEnemyResistances(enemy: CombatEnemy): Resistances {
+  return enemy.definition.resistances;
+}
+
+/**
+ * Calculate effective damage after applying resistances.
+ */
+function calculateEffectiveDamage(
+  pending: PendingElementalDamage,
+  resistances: Resistances
+): number {
+  let total = 0;
+
+  // Physical damage
+  if (pending.physical > 0) {
+    total += isAttackResisted("physical", resistances)
+      ? Math.floor(pending.physical / 2)
+      : pending.physical;
+  }
+
+  // Fire damage
+  if (pending.fire > 0) {
+    total += isAttackResisted("fire", resistances)
+      ? Math.floor(pending.fire / 2)
+      : pending.fire;
+  }
+
+  // Ice damage
+  if (pending.ice > 0) {
+    total += isAttackResisted("ice", resistances)
+      ? Math.floor(pending.ice / 2)
+      : pending.ice;
+  }
+
+  // Cold Fire damage
+  if (pending.coldFire > 0) {
+    total += isAttackResisted("cold_fire", resistances)
+      ? Math.floor(pending.coldFire / 2)
+      : pending.coldFire;
+  }
+
+  return total;
+}
+
+/**
+ * Result of resolving pending damage for combat.
+ */
+interface ResolvePendingDamageResult {
+  /** Updated enemies with isDefeated flags set */
+  enemies: readonly CombatEnemy[];
+  /** Total fame gained from defeating enemies */
+  fameGained: number;
+  /** Events for defeated enemies */
+  events: readonly GameEvent[];
+}
+
+/**
+ * Resolve all pending damage against enemies.
+ * Returns updated enemy list with defeated enemies marked.
+ */
+function resolvePendingDamage(
+  combat: CombatState,
+  _playerId: string
+): ResolvePendingDamageResult {
+  const events: GameEvent[] = [];
+  let fameGained = 0;
+
+  const updatedEnemies = combat.enemies.map((enemy) => {
+    // Skip already defeated enemies
+    if (enemy.isDefeated) return enemy;
+
+    // Get pending damage for this enemy
+    const pending = combat.pendingDamage[enemy.instanceId];
+    if (!pending) return enemy;
+
+    // Calculate effective damage
+    const resistances = getEnemyResistances(enemy);
+    const effectiveDamage = calculateEffectiveDamage(pending, resistances);
+
+    // Check if enemy is defeated
+    if (effectiveDamage >= enemy.definition.armor) {
+      const fame = enemy.definition.fame;
+      fameGained += fame;
+      events.push(createEnemyDefeatedEvent(enemy.instanceId, enemy.definition.name, fame));
+
+      return {
+        ...enemy,
+        isDefeated: true,
+      };
+    }
+
+    return enemy;
+  });
+
+  return {
+    enemies: updatedEnemies,
+    fameGained,
+    events,
+  };
+}
+
+/**
+ * Clear pending damage and assigned attack from combat and player state.
+ */
+function clearPendingAndAssigned(
+  state: GameState,
+  playerId: string
+): GameState {
+  // Clear combat pending damage
+  const updatedCombat = state.combat
+    ? {
+        ...state.combat,
+        pendingDamage: {},
+      }
+    : null;
+
+  // Clear player's assigned attack
+  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  if (playerIndex === -1) {
+    return { ...state, combat: updatedCombat };
+  }
+
+  const player = state.players[playerIndex];
+  if (!player) {
+    return { ...state, combat: updatedCombat };
+  }
+
+  const updatedAccumulator: CombatAccumulator = {
+    ...player.combatAccumulator,
+    assignedAttack: createEmptyAccumulatedAttack(),
+  };
+
+  const updatedPlayer: Player = {
+    ...player,
+    combatAccumulator: updatedAccumulator,
+  };
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = updatedPlayer;
+
+  return {
+    ...state,
+    combat: updatedCombat,
+    players: updatedPlayers,
+  };
+}
+
+// ============================================================================
+// Phase Transitions
+// ============================================================================
 
 function getNextPhase(current: CombatPhase): CombatPhase | null {
   switch (current) {
@@ -63,30 +229,55 @@ export function createEndCombatPhaseCommand(
 
       // Combat ends after Attack phase
       if (nextPhase === null) {
-        const enemiesDefeated = state.combat.enemies.filter(
+        // Resolve pending damage from ATTACK phase before ending combat
+        const damageResult = resolvePendingDamage(state.combat, params.playerId);
+
+        // Update combat state with defeated enemies and fame
+        const combatAfterResolution: CombatState = {
+          ...state.combat,
+          enemies: damageResult.enemies,
+          fameGained: state.combat.fameGained + damageResult.fameGained,
+          pendingDamage: {},
+        };
+
+        // Clear assigned attack from player
+        const stateAfterResolution = clearPendingAndAssigned(
+          { ...state, combat: combatAfterResolution },
+          params.playerId
+        );
+
+        // Use resolved combat state for victory calculation
+        // Combat exists because we just created it above
+        if (!stateAfterResolution.combat) {
+          throw new Error("Combat state unexpectedly cleared");
+        }
+        const resolvedCombat = stateAfterResolution.combat;
+        const enemiesDefeated = resolvedCombat.enemies.filter(
           (e) => e.isDefeated
         ).length;
-        const enemiesSurvived = state.combat.enemies.filter(
+        const enemiesSurvived = resolvedCombat.enemies.filter(
           (e) => !e.isDefeated
         ).length;
         // Victory (conquest) requires defeating all enemies that are required for conquest
         // Provoked rampaging enemies are NOT required - you can conquer even if they survive
-        const requiredEnemiesSurvived = state.combat.enemies.filter(
+        const requiredEnemiesSurvived = resolvedCombat.enemies.filter(
           (e) => !e.isDefeated && e.isRequiredForConquest
         ).length;
         const victory = requiredEnemiesSurvived === 0;
 
+        // Include enemy defeated events from damage resolution
         const events: GameEvent[] = [
+          ...damageResult.events,
           {
             type: COMBAT_ENDED,
             victory,
-            totalFameGained: state.combat.fameGained,
+            totalFameGained: resolvedCombat.fameGained,
             enemiesDefeated,
             enemiesSurvived,
           },
         ];
 
-        let newState: GameState = { ...state, combat: null };
+        let newState: GameState = { ...stateAfterResolution, combat: null };
 
         // Find the player to get their position
         const player = state.players.find((p) => p.id === params.playerId);
@@ -95,7 +286,7 @@ export function createEndCombatPhaseCommand(
           const hex = state.map.hexes[key];
 
           // Clear enemies from hex on victory, or for dungeon/tomb (enemies always discarded)
-          const shouldClearEnemies = victory || state.combat.discardEnemiesOnFailure;
+          const shouldClearEnemies = victory || resolvedCombat.discardEnemiesOnFailure;
           if (shouldClearEnemies && hex) {
             const updatedHex: HexState = {
               ...hex,
@@ -129,8 +320,8 @@ export function createEndCombatPhaseCommand(
           // case if player used special movement to reach an unsafe space before assaulting.
           if (
             !victory &&
-            state.combat.isAtFortifiedSite &&
-            state.combat.assaultOrigin
+            resolvedCombat.isAtFortifiedSite &&
+            resolvedCombat.assaultOrigin
           ) {
             const playerIndex = newState.players.findIndex(
               (p) => p.id === params.playerId
@@ -140,7 +331,7 @@ export function createEndCombatPhaseCommand(
             if (playerIndex !== -1 && currentPlayer?.position) {
               const updatedPlayer: Player = {
                 ...currentPlayer,
-                position: state.combat.assaultOrigin,
+                position: resolvedCombat.assaultOrigin,
                 hasCombattedThisTurn: true,
                 hasTakenActionThisTurn: true,
               };
@@ -152,7 +343,7 @@ export function createEndCombatPhaseCommand(
                 createPlayerWithdrewEvent(
                   params.playerId,
                   currentPlayer.position,
-                  state.combat.assaultOrigin
+                  resolvedCombat.assaultOrigin
                 )
               );
             }
@@ -182,11 +373,40 @@ export function createEndCombatPhaseCommand(
       }
 
       // Advance to next phase
-      let updatedCombat = {
+      let updatedCombat: CombatState = {
         ...state.combat,
         phase: nextPhase,
         attacksThisPhase: 0,
       };
+      let updatedState = state;
+      const phaseEvents: GameEvent[] = [];
+
+      // When transitioning from RANGED_SIEGE to BLOCK, resolve pending damage
+      if (
+        currentPhase === COMBAT_PHASE_RANGED_SIEGE &&
+        nextPhase === COMBAT_PHASE_BLOCK
+      ) {
+        const damageResult = resolvePendingDamage(state.combat, params.playerId);
+        phaseEvents.push(...damageResult.events);
+
+        updatedCombat = {
+          ...updatedCombat,
+          enemies: damageResult.enemies,
+          fameGained: state.combat.fameGained + damageResult.fameGained,
+          pendingDamage: {},
+        };
+
+        // Clear assigned attack from player
+        updatedState = clearPendingAndAssigned(
+          { ...state, combat: updatedCombat },
+          params.playerId
+        );
+        // Combat exists because we just passed it in
+        if (!updatedState.combat) {
+          throw new Error("Combat state unexpectedly cleared");
+        }
+        updatedCombat = updatedState.combat;
+      }
 
       // When transitioning from BLOCK to ASSIGN_DAMAGE, calculate if all damage was blocked
       // This is used by conditional effects like Burning Shield
@@ -195,7 +415,7 @@ export function createEndCombatPhaseCommand(
         nextPhase === COMBAT_PHASE_ASSIGN_DAMAGE
       ) {
         // All damage is blocked if every undefeated enemy is blocked
-        const undefeatedEnemies = state.combat.enemies.filter(
+        const undefeatedEnemies = updatedCombat.enemies.filter(
           (e) => !e.isDefeated
         );
         const allBlocked =
@@ -209,8 +429,9 @@ export function createEndCombatPhaseCommand(
       }
 
       return {
-        state: { ...state, combat: updatedCombat },
+        state: { ...updatedState, combat: updatedCombat },
         events: [
+          ...phaseEvents,
           {
             type: COMBAT_PHASE_CHANGED,
             previousPhase: currentPhase,
