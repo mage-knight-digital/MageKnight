@@ -3,8 +3,7 @@
  *
  * Violet enemies defend mage towers. They are magical enemies
  * with elemental attacks and resistances. Fame ranges from 5-6.
- * Ice Mages have ice resistance, Fire Mages have fire resistance,
- * and Sorcerers resist both fire and ice.
+ * Ice Mages have ice resistance, Fire Mages have fire resistance.
  *
  * @module enemies/violet
  *
@@ -13,7 +12,7 @@
  * - Illusionists - Physical resistance, illusion magic
  * - Ice Mages - Ice attack, ice resistance
  * - Fire Mages - Fire attack, fire resistance
- * - Sorcerers - ColdFire attack, fire and ice resistance, assassination, poison, arcane immunity
+ * - Sorcerers - ColdFire attack, assassination, poison, arcane immunity
  */
 
 import {
@@ -114,7 +113,7 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_COLD_FIRE,
     armor: 6,
     fame: 5,
-    resistances: FIRE_ICE_RESISTANCE,
+    resistances: NO_RESISTANCES,
     abilities: [ABILITY_ASSASSINATION, ABILITY_POISON, ABILITY_ARCANE_IMMUNITY],
   },
 };

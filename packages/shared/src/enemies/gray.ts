@@ -8,7 +8,7 @@
  * @module enemies/gray
  *
  * @remarks Enemies in this module:
- * - Crossbowmen - Ranged defenders
+ * - Crossbowmen - Ranged defenders with swift ability
  * - Guardsmen - Fortified melee guards
  * - Swordsmen - Heavy infantry
  * - Golems - Physically resistant constructs
@@ -16,7 +16,7 @@
 
 import { ELEMENT_PHYSICAL } from "../elements.js";
 import { ENEMY_COLOR_GRAY, type EnemyDefinition } from "./types.js";
-import { ABILITY_FORTIFIED } from "./abilities.js";
+import { ABILITY_FORTIFIED, ABILITY_SWIFT } from "./abilities.js";
 import { NO_RESISTANCES, PHYSICAL_RESISTANCE } from "./resistances.js";
 
 // =============================================================================
@@ -48,10 +48,10 @@ export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
     color: ENEMY_COLOR_GRAY,
     attack: 4,
     attackElement: ELEMENT_PHYSICAL,
-    armor: 3,
+    armor: 4,
     fame: 3,
     resistances: NO_RESISTANCES,
-    abilities: [],
+    abilities: [ABILITY_SWIFT],
   },
   [ENEMY_GUARDSMEN]: {
     id: ENEMY_GUARDSMEN,
