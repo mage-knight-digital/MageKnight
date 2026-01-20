@@ -194,14 +194,19 @@ export interface ClientTileSlot {
   readonly filled: boolean;
 }
 
+// Tile placement as seen by the client
+// tileId is only present for revealed tiles to prevent "map hacking"
+export interface ClientTilePlacement {
+  readonly centerCoord: HexCoord;
+  readonly revealed: boolean;
+  /** Only present when tile is revealed */
+  readonly tileId?: string;
+}
+
 // Map state (public)
 export interface ClientMapState {
   readonly hexes: Record<string, ClientHexState>;
-  readonly tiles: readonly {
-    readonly tileId: string;
-    readonly centerCoord: HexCoord;
-    readonly revealed: boolean;
-  }[];
+  readonly tiles: readonly ClientTilePlacement[];
   /** Tile slots defining the board shape. Key is hexKey(coord). */
   readonly tileSlots: Record<string, ClientTileSlot>;
 }

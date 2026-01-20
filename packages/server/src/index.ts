@@ -121,7 +121,12 @@ export function toClientState(
           },
         ])
       ),
-      tiles: state.map.tiles,
+      tiles: state.map.tiles.map((tile) => ({
+        centerCoord: tile.centerCoord,
+        revealed: tile.revealed,
+        // Only include tileId for revealed tiles to prevent map hacking
+        ...(tile.revealed && { tileId: tile.tileId }),
+      })),
       tileSlots: state.map.tileSlots,
     },
 

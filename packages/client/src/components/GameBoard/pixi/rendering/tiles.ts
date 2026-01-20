@@ -364,8 +364,14 @@ export async function renderTiles(
   layers.tiles.removeChildren();
   layers.shadows.removeChildren();
 
+  // Only render tiles that are revealed (have a tileId)
+  // Unrevealed tiles don't send tileId to prevent map hacking
+  const revealedTiles = tiles.filter((tile): tile is typeof tile & { tileId: string } =>
+    tile.tileId !== undefined
+  );
+
   // Preload all tile textures in parallel to avoid sequential loading blocking frames
-  const textureUrls = tiles.map(tile => getTileImageUrl(tile.tileId));
+  const textureUrls = revealedTiles.map(tile => getTileImageUrl(tile.tileId));
   await Assets.load(textureUrls);
 
   const introTiles: TileAnimData[] = [];
@@ -373,7 +379,7 @@ export async function renderTiles(
   const revealingTileIds: string[] = [];
   const revealingTileCoords: HexCoord[] = [];
 
-  for (const tile of tiles) {
+  for (const tile of revealedTiles) {
     const position = hexToPixel(tile.centerCoord);
     const imageUrl = getTileImageUrl(tile.tileId);
     const isNewTile = !knownTileIds.has(tile.tileId);

@@ -41,9 +41,11 @@ export async function preloadIntroAssets(
   const startTime = performance.now();
   const urlsToPreload: string[] = [];
 
-  // Collect tile image URLs
+  // Collect tile image URLs (only for revealed tiles that have tileId)
   for (const tile of state.map.tiles) {
-    urlsToPreload.push(getTileImageUrl(tile.tileId));
+    if (tile.tileId) {
+      urlsToPreload.push(getTileImageUrl(tile.tileId));
+    }
   }
 
   // Collect enemy token back URLs (we only need the back colors for unrevealed enemies)

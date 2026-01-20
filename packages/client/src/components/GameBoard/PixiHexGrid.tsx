@@ -615,7 +615,8 @@ export function PixiHexGrid() {
     const shouldPlayTileIntro = isFirstLoad;
     prevTileCountRef.current = currentTileCount;
 
-    const newTiles = state.map.tiles.filter(tile => !knownTileIdsRef.current.has(tile.tileId));
+    // Only consider revealed tiles (those with tileId) - unrevealed tiles don't send tileId to prevent map hacking
+    const newTiles = state.map.tiles.filter(tile => tile.tileId && !knownTileIdsRef.current.has(tile.tileId));
     // Only treat as exploration if it's NOT the first load (exploration = discovering tiles mid-game)
     const isExploration = !isFirstLoad && newTiles.length > 0;
 
@@ -637,6 +638,39 @@ export function PixiHexGrid() {
       revealingHexKeysRef.current = newHexKeysImmediate;
       setRevealingUpdateCounter(c => c + 1);
 
+      // Check for enemies that should flip after exploration completes
+      // These are enemies on EXISTING tiles (not the new tile) that became revealed
+      // because the hero is now adjacent to them after the tile was placed
+      const adjacentFlipTargets: EnemyFlipTarget[] = [];
+      for (const hex of Object.values(state.map.hexes)) {
+        const hKey = hexKey(hex.coord);
+        // Skip hexes on the new tile - those get drop animation
+        if (newHexKeysImmediate.has(hKey)) continue;
+
+        for (let i = 0; i < hex.enemies.length; i++) {
+          const enemy = hex.enemies[i];
+          if (enemy?.isRevealed && enemy.tokenId) {
+            // Check if this enemy was just revealed (not in our previous set)
+            if (!revealedEnemyTokenIdsRef.current.has(enemy.tokenId)) {
+              adjacentFlipTargets.push({
+                tokenId: enemy.tokenId,
+                hexCoord: hex.coord,
+                color: enemy.color,
+                indexInHex: i,
+                totalInHex: hex.enemies.length,
+              });
+            }
+          }
+        }
+      }
+
+      // If there are adjacent enemies to flip, mark them as pending
+      if (adjacentFlipTargets.length > 0) {
+        console.log("[PixiHexGrid] Will flip adjacent enemies after exploration:", adjacentFlipTargets.map(t => t.tokenId));
+        pendingFlipTokenIdsRef.current = new Set(adjacentFlipTargets.map(t => t.tokenId));
+        pendingFlipTargetsRef.current = adjacentFlipTargets;
+      }
+
       // Expand camera bounds to include the new tile BEFORE panning
       // This prevents the camera from being clamped back during the pan
       const camera = cameraRef.current;
@@ -657,6 +691,11 @@ export function PixiHexGrid() {
       const EXPLORATION_TOTAL_DURATION = TRACER_DURATION + TILE_DROP_DURATION + ENEMY_DROP_ESTIMATE;
       // Camera pan duration - must be long enough for smooth lerp interpolation
       const CAMERA_PAN_DURATION = 600;
+
+      // Capture refs for use in cinematic callbacks
+      const capturedLayers = layersRef.current;
+      const capturedAnimManager = animManager;
+      const capturedParticleManager = particleManager;
 
       const explorationCinematic: CinematicSequence = {
         id: "exploration",
@@ -691,6 +730,31 @@ export function PixiHexGrid() {
         ],
         onComplete: () => {
           console.log("[PixiHexGrid] Exploration cinematic complete");
+
+          // Trigger flip animation for any adjacent enemies that were revealed
+          if (pendingFlipTargetsRef.current.length > 0 && capturedLayers && capturedAnimManager && capturedParticleManager) {
+            const flipTargets = pendingFlipTargetsRef.current;
+            pendingFlipTargetsRef.current = [];
+            flipAnimationInProgressRef.current = true;
+
+            console.log("[PixiHexGrid] Starting post-exploration flip for:", flipTargets.map(t => t.tokenId));
+
+            // Small delay after exploration completes before flipping
+            setTimeout(() => {
+              animateEnemyFlips(
+                capturedLayers,
+                flipTargets,
+                capturedAnimManager,
+                capturedParticleManager,
+                0,
+                () => {
+                  pendingFlipTokenIdsRef.current = new Set();
+                  flipAnimationInProgressRef.current = false;
+                  console.log("[PixiHexGrid] Post-exploration flip complete");
+                }
+              );
+            }, 200);
+          }
         },
       };
 
@@ -894,6 +958,8 @@ export function PixiHexGrid() {
               console.log("[PixiHexGrid] Tile revealed, starting enemy animation for hexes:", [...hexKeysToReveal]);
 
               // Render enemies with drop animation (small delay after tile lands)
+              // Also pass pendingFlipTokenIds so enemies on existing tiles that need
+              // to flip (because hero is now adjacent) render as unrevealed
               renderEnemies(
                 layers,
                 state.map.hexes,
@@ -908,7 +974,8 @@ export function PixiHexGrid() {
                   // NOTE: Do NOT emit enemies-complete here - that's only for the initial intro
                   // Emitting it during exploration resets the intro state machine
                 },
-                hexKeysToReveal // Only animate enemies on new hexes
+                hexKeysToReveal, // Only animate enemies on new hexes
+                pendingFlipTokenIdsRef.current // Render adjacent enemies as unrevealed for flip
               );
             } else {
               // No enemies or not exploration, just clear revealing hexes
@@ -1253,6 +1320,7 @@ export function PixiHexGrid() {
         position={tooltipPosition}
         hexRadius={screenHexRadius}
         isVisible={isTooltipVisible && isIntroComplete && !isOverlayActive && !isSitePanelOpen}
+        timeOfDay={state?.timeOfDay}
         onMouseEnter={handleTooltipMouseEnter}
         onMouseLeave={handleTooltipMouseLeave}
         onClickMoreInfo={tooltipHoveredHex ? () => handleOpenSitePanel(tooltipHoveredHex) : undefined}
@@ -1270,6 +1338,7 @@ export function PixiHexGrid() {
         hex={sitePanelHex ? state?.map.hexes[hexKey(sitePanelHex)] ?? null : null}
         onClose={handleCloseSitePanel}
         isArrivalMode={false}
+        timeOfDay={state?.timeOfDay}
       />
     </>
   );
