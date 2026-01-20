@@ -97,9 +97,9 @@ export const ALL_CARDS: { id: CardId; name: string; category: string }[] = [
   { id: "chill" as CardId, name: "Chill", category: "Spell Blue" },
   // Spells (Green)
   { id: "restoration" as CardId, name: "Restoration", category: "Spell Green" },
-  { id: "whirlwind" as CardId, name: "Whirlwind", category: "Spell Green" },
   // Spells (White)
   { id: "expose" as CardId, name: "Expose", category: "Spell White" },
+  { id: "whirlwind" as CardId, name: "Whirlwind", category: "Spell White" },
   // Advanced Actions - Bolts
   { id: "fire_bolt" as CardId, name: "Fire Bolt", category: "Advanced" },
   { id: "ice_bolt" as CardId, name: "Ice Bolt", category: "Advanced" },
