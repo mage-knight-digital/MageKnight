@@ -34,6 +34,21 @@ body {
   transition: filter 0.3s ease;
 }
 
+/*
+ * During combat, the PixiJS canvas needs special handling:
+ * - The canvas is inside .app__main which gets dimmed via filter
+ * - We need the hand (rendered in PixiJS overlay layer) to be visible above combat overlay
+ * - Solution: Position the canvas as fixed with high z-index, and exclude from filter
+ */
+.app--combat .hex-grid canvas {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  z-index: 150 !important;
+  /* Prevent inheriting the brightness filter from parent */
+  filter: brightness(1) saturate(1) !important;
+}
+
 /* Boost hand z-index during combat so it's above the combat overlay */
 .app--combat .floating-hand {
   z-index: 150;
