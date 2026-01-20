@@ -1,8 +1,9 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import { RESOLVE_CHOICE_ACTION, UNDO_ACTION } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
+import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { PieMenu, type PieMenuItem } from "../CardActionMenu";
 import { getCardSpriteStyle } from "../../utils/cardAtlas";
 import "./ChoiceSelection.css";
@@ -132,6 +133,10 @@ export function ChoiceSelection() {
   const cardId = pendingChoice?.cardId ?? "";
   const canUndo = state?.validActions.turn?.canUndo ?? false;
 
+  // Register this component as an active overlay to disable background interactions
+  // Must be called unconditionally - the hook handles the conditional registration
+  useRegisterOverlay(!!pendingChoice);
+
   // All hooks must be called before any early returns
   const handleSelectChoice = useCallback((choiceIndex: number) => {
     sendAction({
@@ -143,6 +148,21 @@ export function ChoiceSelection() {
   const handleUndo = useCallback(() => {
     sendAction({ type: UNDO_ACTION });
   }, [sendAction]);
+
+  // Handle Escape key to undo (if available)
+  useEffect(() => {
+    if (!pendingChoice || !canUndo) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        sendAction({ type: UNDO_ACTION });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pendingChoice, canUndo, sendAction]);
 
   // Convert options to pie menu items
   const pieItems: PieMenuItem[] = useMemo(() => {
@@ -189,8 +209,8 @@ export function ChoiceSelection() {
     : "choice-selection choice-selection--centered";
 
   return (
-    <div className="choice-selection-overlay">
-      <div className={containerClass} style={menuStyle}>
+    <div className="choice-selection-overlay" onClick={canUndo ? handleUndo : undefined}>
+      <div className={containerClass} style={menuStyle} onClick={(e) => e.stopPropagation()}>
         {/* Card in center */}
         <div className="choice-selection__card" style={cardStyle ?? undefined} />
 
