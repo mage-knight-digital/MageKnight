@@ -189,6 +189,10 @@ export function PixiCardActionMenu({
   const cardContainerRef = useRef<Container | null>(null);
   const isDestroyedRef = useRef(false);
 
+  // Store callbacks in refs to avoid stale closure issues
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+
   // Resize handler
   useEffect(() => {
     const handleResize = () => setSizes(calculateSizes(sizeMultiplier));
@@ -471,16 +475,18 @@ export function PixiCardActionMenu({
         return;
       }
 
-      // Style canvas
-      app.canvas.style.position = "fixed";
+      // Style canvas - position absolute within the container
+      app.canvas.style.position = "absolute";
       app.canvas.style.top = "0";
       app.canvas.style.left = "0";
       app.canvas.style.width = "100%";
       app.canvas.style.height = "100%";
-      app.canvas.style.zIndex = "250";
       app.canvas.style.pointerEvents = "auto";
 
-      document.body.appendChild(app.canvas);
+      // Append to our container div (not document.body) for proper event layering
+      if (containerRef.current) {
+        containerRef.current.appendChild(app.canvas);
+      }
       appRef.current = app;
 
       // Create animation manager
@@ -488,13 +494,13 @@ export function PixiCardActionMenu({
       animManager.attach(app.ticker);
       animManagerRef.current = animManager;
 
-      // Create overlay background
+      // Create overlay background - catches clicks outside the menu
       const overlay = new Graphics();
       overlay.rect(0, 0, window.innerWidth, window.innerHeight);
       overlay.fill({ color: 0x0a0805, alpha: 0.6 });
       overlay.eventMode = "static";
       overlay.cursor = "default";
-      overlay.on("pointerdown", onCancel);
+      overlay.on("pointerdown", () => onCancelRef.current());
       app.stage.addChild(overlay);
 
       // Create main menu container
@@ -855,9 +861,8 @@ export function PixiCardActionMenu({
       }
 
       if (appRef.current) {
-        if (appRef.current.canvas.parentNode) {
-          appRef.current.canvas.parentNode.removeChild(appRef.current.canvas);
-        }
+        // Canvas is a child of containerRef, will be cleaned up automatically
+        // but we still destroy the PixiJS app
         appRef.current.destroy(true, { children: true });
         appRef.current = null;
       }
@@ -877,14 +882,23 @@ export function PixiCardActionMenu({
     // For now, we handle this in the main init effect
   }, [menuState]);
 
+  // Handle click on DOM overlay (backup for PixiJS overlay)
+  const handleOverlayClick = useCallback((e: React.MouseEvent) => {
+    // Only cancel if clicking the overlay itself, not its children
+    if (e.target === e.currentTarget) {
+      onCancel();
+    }
+  }, [onCancel]);
+
   return (
     <div
       ref={containerRef}
+      onClick={handleOverlayClick}
       style={{
         position: "fixed",
         inset: 0,
         zIndex: 250,
-        pointerEvents: "none",
+        pointerEvents: "auto", // Block events from reaching elements below
       }}
     />
   );
