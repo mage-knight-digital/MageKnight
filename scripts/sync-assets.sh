@@ -55,8 +55,29 @@ upload() {
     echo -e "${GREEN}Done!${NC}"
 }
 
+backup() {
+    local dir=$1
+    local name=$2
+
+    if [[ -d "$dir" ]]; then
+        local backup_dir="$PROJECT_DIR/.backups"
+        local timestamp=$(date +%Y%m%d_%H%M%S)
+        local backup_path="$backup_dir/${name}_${timestamp}"
+
+        mkdir -p "$backup_dir"
+        echo -e "${YELLOW}Backing up $name to $backup_path...${NC}"
+        cp -r "$dir" "$backup_path"
+    fi
+}
+
 download() {
     local include_local=$1
+
+    # Backup before downloading
+    backup "$ASSETS_DIR" "assets"
+    if [[ "$include_local" == "true" ]]; then
+        backup "$LOCAL_DIR" "_local"
+    fi
 
     echo -e "${GREEN}Downloading assets from B2...${NC}"
     mkdir -p "$ASSETS_DIR"
