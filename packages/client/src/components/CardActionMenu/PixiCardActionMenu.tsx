@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
-import { Application, Container, Graphics, Text, Sprite, BlurFilter } from "pixi.js";
+import { Application, Container, Graphics, Text, BlurFilter } from "pixi.js";
 import type { CardId, PlayableCard, SidewaysAs, ManaSourceInfo } from "@mage-knight/shared";
 import {
   PLAY_SIDEWAYS_AS_MOVE,
@@ -23,7 +23,6 @@ import {
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { playSound } from "../../utils/audioManager";
-import { getCardTexture } from "../../utils/pixiTextureLoader";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 
 // ============================================
@@ -73,6 +72,20 @@ interface Particle {
   color: number;
   alpha: number;
   graphics: Graphics;
+  type: "ambient" | "orbit" | "trail" | "burst";
+  // Orbit-specific properties
+  angle?: number;
+  orbitRadius?: number;
+  orbitSpeed?: number;
+  // Trail-specific properties
+  targetRadius?: number;
+  // Fairy dust properties
+  wobblePhase?: number;    // Phase offset for sine wobble
+  wobbleAmount?: number;   // How much it wobbles perpendicular to travel
+  twinkleSpeed?: number;   // How fast opacity fluctuates
+  shape?: "circle" | "star" | "streak";  // Visual shape
+  rotation?: number;       // Current rotation for non-circular shapes
+  rotationSpeed?: number;  // How fast it spins
 }
 
 type MenuState =
@@ -108,6 +121,11 @@ const COLORS = {
   TEXT_SHADOW: 0x000000,
   GLOW: 0xffc864,
   PARTICLE: 0xffd080,
+  // Action-themed particle colors
+  PARTICLE_BASIC: 0xd4a574,      // Warm brown/tan
+  PARTICLE_POWERED: 0xb088d0,    // Soft purple
+  PARTICLE_SIDEWAYS: 0x7aaccf,   // Cool blue
+  PARTICLE_ORBIT: 0xffe4b5,      // Soft golden
 };
 
 const MANA_COLORS: Record<string, { fill: number; hover: number; stroke: number }> = {
@@ -158,7 +176,7 @@ function getActionColors(type: "basic" | "powered" | "sideways", disabled: boole
 // ============================================
 
 export function PixiCardActionMenu({
-  cardId,
+  cardId: _cardId, // Card is now rendered by the hand component, not here
   playability,
   isInCombat,
   sourceRect,
@@ -183,10 +201,12 @@ export function PixiCardActionMenu({
   const animManagerRef = useRef<AnimationManager | null>(null);
   const particlesRef = useRef<Particle[]>([]);
   const hoveredIndexRef = useRef<number | null>(null);
+  const hoveredWedgeTypeRef = useRef<"basic" | "powered" | "sideways" | null>(null);
   const wedgeContainersRef = useRef<Container[]>([]);
   const glowGraphicsRef = useRef<Graphics[]>([]);
   const menuContainerRef = useRef<Container | null>(null);
-  const cardContainerRef = useRef<Container | null>(null);
+  const centerGlowRef = useRef<Graphics | null>(null);
+  const tickerTimeRef = useRef<number>(0);
   const isDestroyedRef = useRef(false);
 
   // Store callbacks in refs to avoid stale closure issues
@@ -411,25 +431,35 @@ export function PixiCardActionMenu({
     setMenuState({ type: "action-select" });
   }, []);
 
-  // Spawn particle
-  const spawnParticle = useCallback((
+  // Get particle color based on wedge type
+  const getParticleColor = useCallback((wedgeType: "basic" | "powered" | "sideways" | null): number => {
+    switch (wedgeType) {
+      case "basic": return COLORS.PARTICLE_BASIC;
+      case "powered": return COLORS.PARTICLE_POWERED;
+      case "sideways": return COLORS.PARTICLE_SIDEWAYS;
+      default: return COLORS.PARTICLE_ORBIT;
+    }
+  }, []);
+
+  // Spawn a basic ambient particle (drifting, gravity-affected)
+  const spawnAmbientParticle = useCallback((
     container: Container,
     x: number,
     y: number,
-    color: number = COLORS.PARTICLE,
-    velocity?: { vx: number; vy: number }
+    color: number = COLORS.PARTICLE
   ) => {
     const particle: Particle = {
       x,
       y,
-      vx: velocity?.vx ?? (Math.random() - 0.5) * 2,
-      vy: velocity?.vy ?? (Math.random() - 0.5) * 2 - 1,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: (Math.random() - 0.5) * 1.5 - 0.5,
       life: 1,
       maxLife: 1,
-      size: 2 + Math.random() * 3,
+      size: 1.5 + Math.random() * 2,
       color,
-      alpha: 0.8 + Math.random() * 0.2,
+      alpha: 0.6 + Math.random() * 0.3,
       graphics: new Graphics(),
+      type: "ambient",
     };
 
     particle.graphics.circle(0, 0, particle.size);
@@ -439,20 +469,160 @@ export function PixiCardActionMenu({
     particlesRef.current.push(particle);
   }, []);
 
-  // Spawn selection burst
+  // Spawn an orbiting particle (circles around center)
+  const spawnOrbitParticle = useCallback((
+    container: Container,
+    orbitRadius: number,
+    color: number = COLORS.PARTICLE_ORBIT
+  ) => {
+    const startAngle = Math.random() * Math.PI * 2;
+    const pos = polarToCartesian(0, 0, orbitRadius, startAngle);
+
+    const particle: Particle = {
+      x: pos.x,
+      y: pos.y,
+      vx: 0,
+      vy: 0,
+      life: 1,
+      maxLife: 1,
+      size: 1.5 + Math.random() * 1.5,
+      color,
+      alpha: 0.5 + Math.random() * 0.3,
+      graphics: new Graphics(),
+      type: "orbit",
+      angle: startAngle,
+      orbitRadius,
+      orbitSpeed: (0.008 + Math.random() * 0.006) * (Math.random() > 0.5 ? 1 : -1), // Variable speed, random direction
+    };
+
+    particle.graphics.circle(0, 0, particle.size);
+    particle.graphics.fill({ color: particle.color, alpha: particle.alpha });
+    particle.graphics.position.set(pos.x, pos.y);
+    container.addChild(particle.graphics);
+    particlesRef.current.push(particle);
+  }, []);
+
+  // Draw a particle shape (star, streak, or circle)
+  const drawParticleShape = useCallback((graphics: Graphics, shape: "circle" | "star" | "streak", size: number, color: number, alpha: number) => {
+    graphics.clear();
+
+    if (shape === "star") {
+      // 4-pointed star / sparkle
+      const outer = size;
+      const inner = size * 0.3;
+      graphics.moveTo(0, -outer);
+      graphics.lineTo(inner * 0.5, -inner * 0.5);
+      graphics.lineTo(outer, 0);
+      graphics.lineTo(inner * 0.5, inner * 0.5);
+      graphics.lineTo(0, outer);
+      graphics.lineTo(-inner * 0.5, inner * 0.5);
+      graphics.lineTo(-outer, 0);
+      graphics.lineTo(-inner * 0.5, -inner * 0.5);
+      graphics.closePath();
+      graphics.fill({ color, alpha });
+    } else if (shape === "streak") {
+      // Elongated ellipse / comet tail
+      graphics.ellipse(0, 0, size * 0.4, size * 1.5);
+      graphics.fill({ color, alpha });
+    } else {
+      // Simple circle
+      graphics.circle(0, 0, size);
+      graphics.fill({ color, alpha });
+    }
+  }, []);
+
+  // Spawn fairy dust trail particle (organic, varied, magical)
+  const spawnTrailParticle = useCallback((
+    container: Container,
+    startRadius: number,
+    targetRadius: number,
+    angle: number,
+    color: number
+  ) => {
+    // Scatter the origin - don't all come from the same point
+    const radiusJitter = (Math.random() - 0.5) * 40;
+    const angleJitter = (Math.random() - 0.5) * 0.4;
+    const actualStartRadius = startRadius + radiusJitter;
+    const actualAngle = angle + angleJitter;
+
+    const pos = polarToCartesian(0, 0, actualStartRadius, actualAngle);
+    const targetPos = polarToCartesian(0, 0, targetRadius, angle); // Target stays on the wedge
+
+    // Varied speeds - some lazy drifters, some zippy
+    const speed = 0.8 + Math.random() * 2.5;
+    const dx = targetPos.x - pos.x;
+    const dy = targetPos.y - pos.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Pick a random shape
+    const shapes: Array<"circle" | "star" | "streak"> = ["circle", "star", "streak", "star", "circle"];
+    const shape = shapes[Math.floor(Math.random() * shapes.length)] ?? "circle";
+
+    // Varied sizes - mostly small with occasional larger sparkles
+    const sizeRoll = Math.random();
+    const size = sizeRoll < 0.7 ? 1 + Math.random() * 1.5 : 2.5 + Math.random() * 2;
+
+    const particle: Particle = {
+      x: pos.x,
+      y: pos.y,
+      vx: (dx / dist) * speed,
+      vy: (dy / dist) * speed,
+      life: 1,
+      maxLife: 1,
+      size,
+      color,
+      alpha: 0.5 + Math.random() * 0.5,
+      graphics: new Graphics(),
+      type: "trail",
+      targetRadius,
+      // Fairy dust properties
+      wobblePhase: Math.random() * Math.PI * 2,
+      wobbleAmount: 0.3 + Math.random() * 0.7,
+      twinkleSpeed: 3 + Math.random() * 5,
+      shape,
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 0.2,
+    };
+
+    drawParticleShape(particle.graphics, shape, size, color, particle.alpha);
+    particle.graphics.position.set(pos.x, pos.y);
+    if (shape !== "circle") {
+      particle.graphics.rotation = particle.rotation ?? 0;
+    }
+    container.addChild(particle.graphics);
+    particlesRef.current.push(particle);
+  }, [drawParticleShape]);
+
+  // Spawn selection burst (radial explosion)
   const spawnSelectionBurst = useCallback((container: Container, x: number, y: number, color: number) => {
-    const particleCount = 20;
+    const particleCount = 24;
     for (let i = 0; i < particleCount; i++) {
-      const angle = (i / particleCount) * Math.PI * 2;
-      const speed = 3 + Math.random() * 4;
-      spawnParticle(container, x, y, color, {
+      const angle = (i / particleCount) * Math.PI * 2 + Math.random() * 0.2;
+      const speed = 4 + Math.random() * 5;
+
+      const particle: Particle = {
+        x,
+        y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-      });
-    }
-  }, [spawnParticle]);
+        life: 1,
+        maxLife: 1,
+        size: 2.5 + Math.random() * 2.5,
+        color,
+        alpha: 0.9,
+        graphics: new Graphics(),
+        type: "burst",
+      };
 
-  // Initialize PixiJS
+      particle.graphics.circle(0, 0, particle.size);
+      particle.graphics.fill({ color: particle.color, alpha: particle.alpha });
+      particle.graphics.position.set(x, y);
+      container.addChild(particle.graphics);
+      particlesRef.current.push(particle);
+    }
+  }, []);
+
+  // Initialize PixiJS - card is rendered by the hand, we only render wedges
   useEffect(() => {
     if (!containerRef.current) return;
     isDestroyedRef.current = false;
@@ -510,24 +680,17 @@ export function PixiCardActionMenu({
       app.stage.addChild(menuContainer);
       menuContainerRef.current = menuContainer;
 
-      // Create particle container (behind everything)
-      const particleContainer = new Container();
-      particleContainer.label = "particles";
-      menuContainer.addChild(particleContainer);
+      // Create particle containers for proper layering:
+      // - backParticles: orbiting particles that circle behind the wedges (in the donut hole)
+      // - frontParticles: trail/burst particles that appear ON TOP of wedges
+      const backParticleContainer = new Container();
+      backParticleContainer.label = "back-particles";
+      menuContainer.addChild(backParticleContainer);
 
-      // Load card texture
-      const cardTexture = await getCardTexture(cardId);
-      const cardHeight = sizes.cardHeight;
-      const cardWidth = cardHeight * 0.667;
-
-      // Calculate positions - card starts at source, ends at center (which is 0,0 in menuContainer)
-      const startX = sourceRect.left + sourceRect.width / 2 - menuPosition.x;
-      const startY = sourceRect.top + sourceRect.height / 2 - menuPosition.y;
-      const startScale = sourceRect.height / cardHeight;
+      // Placeholder for wedgeContainer (added next)
+      // frontParticleContainer will be added AFTER wedgeContainer
 
       // Animation timing constants for sequencing
-      const CARD_LIFT_DURATION = 350;
-      const CARD_LIFT_DELAY = 0;
       const OVERLAY_FADE_DELAY = 150;
       const OVERLAY_FADE_DURATION = 200;
       const WEDGE_START_DELAY = 200;
@@ -624,15 +787,16 @@ export function PixiCardActionMenu({
         fill.on("pointerenter", () => {
           if (wedge.disabled) return;
           hoveredIndexRef.current = index;
+          hoveredWedgeTypeRef.current = wedge.type;
 
-          // Animate wedge
+          // Animate wedge with slight scale and "lean" toward center
           animManager.animate(`wedge-hover-${index}`, container, {
-            endScale: 1.03,
+            endScale: 1.05,
             duration: ANIMATION_DURATION.HOVER,
             easing: Easing.easeOutBack,
           });
 
-          // Show glow
+          // Show glow with pulsing intensity
           animManager.animate(`glow-${index}`, glow, {
             endAlpha: 1,
             duration: ANIMATION_DURATION.HOVER,
@@ -645,18 +809,18 @@ export function PixiCardActionMenu({
           fill.fill({ color: wedge.hoverColor, alpha: 0.98 });
           fill.stroke({ color: COLORS.STROKE_HOVER, width: 2.5 });
 
-          // Spawn hover particles
-          for (let i = 0; i < 3; i++) {
+          // Spawn themed hover particles (trail from center outward) - on TOP of wedges
+          const particleColor = getParticleColor(wedge.type);
+          for (let i = 0; i < 5; i++) {
             const angle = wedge.startAngle + Math.random() * (wedge.endAngle - wedge.startAngle);
-            const radius = innerRadius + Math.random() * (outerRadius - innerRadius);
-            const pos = polarToCartesian(0, 0, radius, angle);
-            spawnParticle(particleContainer, pos.x, pos.y, COLORS.PARTICLE);
+            spawnTrailParticle(frontParticleContainer, innerRadius * 0.8, (innerRadius + outerRadius) / 2, angle, particleColor);
           }
         });
 
         fill.on("pointerleave", () => {
           if (wedge.disabled) return;
           hoveredIndexRef.current = null;
+          hoveredWedgeTypeRef.current = null;
 
           animManager.animate(`wedge-hover-${index}`, container, {
             endScale: 1,
@@ -679,9 +843,9 @@ export function PixiCardActionMenu({
         fill.on("pointerdown", () => {
           if (wedge.disabled) return;
 
-          // Selection burst
+          // Selection burst - on TOP of everything
           const burstPos = polarToCartesian(0, 0, labelRadius, wedge.midAngle);
-          spawnSelectionBurst(particleContainer, burstPos.x, burstPos.y, wedge.hoverColor);
+          spawnSelectionBurst(frontParticleContainer, burstPos.x, burstPos.y, wedge.hoverColor);
 
           // Flash effect
           animManager.animate(`wedge-select-${index}`, container, {
@@ -714,6 +878,16 @@ export function PixiCardActionMenu({
           });
         }, WEDGE_START_DELAY + index * WEDGE_STAGGER);
       });
+
+      // Center glow (pulsing, behind center circle)
+      const centerGlow = new Graphics();
+      centerGlow.circle(0, 0, innerRadius * 0.9);
+      centerGlow.fill({ color: COLORS.GLOW, alpha: 0.2 });
+      const centerGlowBlur = new BlurFilter({ strength: 15 });
+      centerGlow.filters = [centerGlowBlur];
+      centerGlow.alpha = 0;
+      wedgeContainer.addChild(centerGlow);
+      centerGlowRef.current = centerGlow;
 
       // Center circle - at origin, starts hidden
       const center = new Graphics();
@@ -766,7 +940,12 @@ export function PixiCardActionMenu({
       centerLabel.alpha = 0;
       wedgeContainer.addChild(centerLabel);
 
-      // Animate center circle and label in with wedges
+      // Front particle container - added AFTER wedges so trails/bursts render on top
+      const frontParticleContainer = new Container();
+      frontParticleContainer.label = "front-particles";
+      menuContainer.addChild(frontParticleContainer);
+
+      // Animate center circle, glow, and label in with wedges
       const centerDelay = WEDGE_START_DELAY + wedges.length * WEDGE_STAGGER;
       setTimeout(() => {
         if (isDestroyedRef.current) return;
@@ -776,73 +955,34 @@ export function PixiCardActionMenu({
           duration: 250,
           easing: Easing.easeOutBack,
         });
+        animManager.animate("center-glow-entry", centerGlow, {
+          endAlpha: 0.6,
+          duration: 400,
+          easing: Easing.easeOutQuad,
+        });
         animManager.animate("center-label-entry", centerLabel, {
           endAlpha: 1,
           duration: 200,
           easing: Easing.easeOutQuad,
         });
+
+        // Spawn initial orbiting particles once menu is ready (behind wedges)
+        const orbitRadiusInner = innerRadius * 0.7;
+        const orbitRadiusOuter = innerRadius * 0.95;
+        for (let i = 0; i < 8; i++) {
+          const radius = orbitRadiusInner + Math.random() * (orbitRadiusOuter - orbitRadiusInner);
+          spawnOrbitParticle(backParticleContainer, radius, COLORS.PARTICLE_ORBIT);
+        }
       }, centerDelay);
 
       // wedgeContainer is already centered at origin, no offset needed
-
-      // Card container - added AFTER wedges so it renders on top (in the center hole)
-      const cardContainer = new Container();
-      cardContainer.label = "card";
-      cardContainerRef.current = cardContainer;
-
-      // Card glow (behind card)
-      const cardGlow = new Graphics();
-      cardGlow.circle(0, 0, cardWidth * 0.8);
-      cardGlow.fill({ color: COLORS.GLOW, alpha: 0.3 });
-      const blurFilter = new BlurFilter({ strength: 20 });
-      cardGlow.filters = [blurFilter];
-      cardContainer.addChild(cardGlow);
-
-      // Card sprite
-      const cardSprite = new Sprite(cardTexture);
-      cardSprite.anchor.set(0.5);
-      cardSprite.width = cardWidth;
-      cardSprite.height = cardHeight;
-      cardContainer.addChild(cardSprite);
-
-      // Card border
-      const cardBorder = new Graphics();
-      cardBorder.roundRect(-cardWidth / 2 - 3, -cardHeight / 2 - 3, cardWidth + 6, cardHeight + 6, 8);
-      cardBorder.stroke({ color: 0x5c4a3a, width: 3 });
-      cardBorder.roundRect(-cardWidth / 2 - 5, -cardHeight / 2 - 5, cardWidth + 10, cardHeight + 10, 10);
-      cardBorder.stroke({ color: 0x2d241c, width: 2 });
-      cardContainer.addChild(cardBorder);
-
-      menuContainer.addChild(cardContainer);
-
-      // Set card's initial position - starts visible immediately at source location!
-      cardContainer.position.set(startX, startY);
-      cardContainer.scale.set(startScale);
-      // Card glow starts hidden, fades in during lift
-      cardGlow.alpha = 0;
+      // Card is rendered by the hand component - it animates up to menuPosition
 
       // ========================================
-      // SEQUENCED ANIMATION FLOW
+      // ANIMATION FLOW (card handled by hand)
       // ========================================
 
-      // Phase 1: Card lifts immediately (0ms start)
-      // The card is already visible, so this creates the connected feeling
-      animManager.animate("card-entry", cardContainer, {
-        endX: 0,
-        endY: 0,
-        endScale: 1,
-        duration: CARD_LIFT_DURATION,
-        easing: Easing.easeOutCubic,
-      });
-
-      // Card glow fades in as card lifts
-      animManager.animate("card-glow-entry", cardGlow, {
-        endAlpha: 1,
-        duration: CARD_LIFT_DURATION,
-        easing: Easing.easeOutQuad,
-      });
-
-      // Phase 2: Overlay fades in (slightly delayed)
+      // Overlay fades in
       setTimeout(() => {
         if (isDestroyedRef.current) return;
         animManager.animate("overlay-fade", overlay, {
@@ -854,38 +994,149 @@ export function PixiCardActionMenu({
 
       // Phase 3: Wedges animate in (handled above with WEDGE_START_DELAY)
 
-      // Particle update loop
-      app.ticker.add(() => {
+      // Particle update loop with type-specific behavior
+      app.ticker.add((ticker) => {
         if (isDestroyedRef.current) return;
+
+        // Track time for pulsing effects
+        tickerTimeRef.current += ticker.deltaMS / 1000;
+        const time = tickerTimeRef.current;
+
+        // Pulse the center glow (breathing effect)
+        const centerGlowRef_ = centerGlowRef.current;
+        if (centerGlowRef_) {
+          const breathe = 0.5 + 0.15 * Math.sin(time * 2); // Slow breathe
+          centerGlowRef_.alpha = breathe;
+        }
+
+        // Pulse wedge glows when hovered (subtle shimmer)
+        const hoveredIdx = hoveredIndexRef.current;
+        if (hoveredIdx !== null) {
+          const hoveredGlow = glowGraphicsRef.current[hoveredIdx];
+          if (hoveredGlow) {
+            const shimmer = 0.85 + 0.15 * Math.sin(time * 6); // Faster shimmer
+            hoveredGlow.alpha = shimmer;
+          }
+        }
 
         const particles = particlesRef.current;
         for (let i = particles.length - 1; i >= 0; i--) {
           const p = particles[i];
           if (!p) continue;
 
-          p.life -= 0.02;
-          p.x += p.vx;
-          p.y += p.vy;
-          p.vy += 0.05; // Gravity
-          p.vx *= 0.98; // Drag
-          p.vy *= 0.98;
+          // Type-specific update logic
+          switch (p.type) {
+            case "orbit":
+              // Orbit around center - no gravity, slow fade
+              if (p.angle !== undefined && p.orbitRadius !== undefined && p.orbitSpeed !== undefined) {
+                p.angle += p.orbitSpeed;
+                const newPos = polarToCartesian(0, 0, p.orbitRadius, p.angle);
+                p.x = newPos.x;
+                p.y = newPos.y;
+              }
+              p.life -= 0.003; // Very slow fade
+              p.graphics.position.set(p.x, p.y);
+              p.graphics.alpha = p.life * p.alpha * (0.7 + 0.3 * Math.sin(time * 4 + i)); // Twinkle
+              p.graphics.scale.set(0.8 + 0.4 * p.life);
+              break;
 
-          p.graphics.position.set(p.x, p.y);
-          p.graphics.alpha = p.life * p.alpha;
-          p.graphics.scale.set(p.life);
+            case "trail": {
+              // Fairy dust movement with wobble
+              const wobblePhase = p.wobblePhase ?? 0;
+              const wobbleAmount = p.wobbleAmount ?? 0;
+              const twinkleSpeed = p.twinkleSpeed ?? 4;
 
+              // Calculate perpendicular direction for wobble
+              const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+              const perpX = -p.vy / speed;
+              const perpY = p.vx / speed;
+
+              // Wobble offset (sine wave perpendicular to travel direction)
+              const wobbleOffset = Math.sin(time * 8 + wobblePhase) * wobbleAmount * 2;
+
+              p.x += p.vx + perpX * wobbleOffset * 0.1;
+              p.y += p.vy + perpY * wobbleOffset * 0.1;
+              p.life -= 0.02;
+
+              // Twinkle effect
+              const twinkle = 0.6 + 0.4 * Math.sin(time * twinkleSpeed + wobblePhase);
+
+              p.graphics.position.set(p.x, p.y);
+              p.graphics.alpha = p.life * p.alpha * twinkle;
+              p.graphics.scale.set(0.7 + p.life * 0.5);
+
+              // Rotate non-circular shapes
+              if (p.shape !== "circle" && p.rotationSpeed !== undefined) {
+                p.rotation = (p.rotation ?? 0) + p.rotationSpeed;
+                p.graphics.rotation = p.rotation;
+              }
+              break;
+            }
+
+            case "burst":
+              // Explode outward, strong drag, fast fade
+              p.x += p.vx;
+              p.y += p.vy;
+              p.vx *= 0.92;
+              p.vy *= 0.92;
+              p.life -= 0.035;
+              p.graphics.position.set(p.x, p.y);
+              p.graphics.alpha = p.life * p.alpha;
+              p.graphics.scale.set(0.5 + p.life * 0.8);
+              break;
+
+            case "ambient":
+            default:
+              // Gentle drift with slight gravity
+              p.x += p.vx;
+              p.y += p.vy;
+              p.vy += 0.02; // Light gravity
+              p.vx *= 0.99;
+              p.vy *= 0.99;
+              p.life -= 0.015;
+              p.graphics.position.set(p.x, p.y);
+              p.graphics.alpha = p.life * p.alpha;
+              p.graphics.scale.set(p.life);
+              break;
+          }
+
+          // Remove dead particles
           if (p.life <= 0) {
             p.graphics.destroy();
             particles.splice(i, 1);
           }
         }
 
-        // Ambient particles
-        if (Math.random() < 0.1) {
+        // ========================================
+        // IDLE PARTICLE SPAWNING (always moving)
+        // ========================================
+
+        // Maintain orbiting particles (replenish when they fade) - BEHIND wedges
+        const orbitCount = particles.filter(p => p.type === "orbit").length;
+        if (orbitCount < 10 && Math.random() < 0.05) {
+          const orbitRadiusInner = innerRadius * 0.7;
+          const orbitRadiusOuter = innerRadius * 0.95;
+          const radius = orbitRadiusInner + Math.random() * (orbitRadiusOuter - orbitRadiusInner);
+          spawnOrbitParticle(backParticleContainer, radius, COLORS.PARTICLE_ORBIT);
+        }
+
+        // Occasional ambient particles in the wedge area - on TOP so they're visible
+        if (Math.random() < 0.03) {
           const angle = Math.random() * Math.PI * 2;
-          const radius = innerRadius + Math.random() * (outerRadius - innerRadius) * 0.8;
+          const radius = innerRadius + Math.random() * (outerRadius - innerRadius) * 0.7;
           const pos = polarToCartesian(0, 0, radius, angle);
-          spawnParticle(particleContainer, pos.x, pos.y, COLORS.PARTICLE);
+          const color = getParticleColor(hoveredWedgeTypeRef.current);
+          spawnAmbientParticle(frontParticleContainer, pos.x, pos.y, color);
+        }
+
+        // When hovering a wedge, spawn more trail particles toward it - on TOP
+        if (hoveredIdx !== null && Math.random() < 0.08) {
+          const hoveredWedge = wedges[hoveredIdx];
+          if (hoveredWedge && !hoveredWedge.disabled) {
+            const angle = hoveredWedge.startAngle + Math.random() * (hoveredWedge.endAngle - hoveredWedge.startAngle);
+            const color = getParticleColor(hoveredWedge.type);
+            spawnTrailParticle(frontParticleContainer, innerRadius * 0.6, (innerRadius + outerRadius) / 2, angle, color);
+          }
         }
       });
     };
@@ -912,7 +1163,7 @@ export function PixiCardActionMenu({
         appRef.current = null;
       }
     };
-  // We intentionally only run this once on mount
+  // Run once on mount - card is handled by hand component
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
