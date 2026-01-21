@@ -17,6 +17,7 @@ import {
   hexKey,
   createPlayerWithdrewEvent,
   createEnemyDefeatedEvent,
+  getLevelsCrossed,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -238,6 +239,49 @@ function clearPendingBlock(state: GameState, playerId: string): GameState {
   };
 }
 
+/**
+ * Apply fame gained from defeated enemies to a player.
+ * Also handles level-up tracking when fame thresholds are crossed.
+ */
+function applyFameToPlayer(
+  state: GameState,
+  playerId: string,
+  fameGained: number
+): GameState {
+  if (fameGained <= 0) {
+    return state;
+  }
+
+  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  if (playerIndex === -1) {
+    return state;
+  }
+
+  const player = state.players[playerIndex];
+  if (!player) {
+    return state;
+  }
+
+  // Check for level ups when fame changes
+  const oldFame = player.fame;
+  const newFame = oldFame + fameGained;
+  const levelsCrossed = getLevelsCrossed(oldFame, newFame);
+
+  const updatedPlayer: Player = {
+    ...player,
+    fame: newFame,
+    pendingLevelUps: [...player.pendingLevelUps, ...levelsCrossed],
+  };
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = updatedPlayer;
+
+  return {
+    ...state,
+    players: updatedPlayers,
+  };
+}
+
 // ============================================================================
 // Phase Transitions
 // ============================================================================
@@ -289,9 +333,16 @@ export function createEndCombatPhaseCommand(
         };
 
         // Clear assigned attack from player
-        const stateAfterResolution = clearPendingAndAssigned(
+        let stateAfterResolution = clearPendingAndAssigned(
           { ...state, combat: combatAfterResolution },
           params.playerId
+        );
+
+        // Apply fame gained from defeated enemies to the player
+        stateAfterResolution = applyFameToPlayer(
+          stateAfterResolution,
+          params.playerId,
+          damageResult.fameGained
         );
 
         // Use resolved combat state for victory calculation
@@ -454,6 +505,13 @@ export function createEndCombatPhaseCommand(
           throw new Error("Combat state unexpectedly cleared");
         }
         updatedCombat = updatedState.combat;
+
+        // Apply fame gained from defeated enemies to the player
+        updatedState = applyFameToPlayer(
+          updatedState,
+          params.playerId,
+          damageResult.fameGained
+        );
       }
 
       // When transitioning from BLOCK to ASSIGN_DAMAGE:

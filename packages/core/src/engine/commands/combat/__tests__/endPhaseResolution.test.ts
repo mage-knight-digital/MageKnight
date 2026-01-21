@@ -529,6 +529,98 @@ describe("End Phase Damage Resolution", () => {
           : 0
       ).toBeGreaterThan(initialFameGained);
     });
+
+    it("should increase player.fame when defeating enemy via pending damage resolution", () => {
+      let state = createTestGameState();
+
+      // Get initial player fame
+      const initialPlayerFame =
+        state.players.find((p) => p.id === "player1")?.fame ?? 0;
+
+      // Enter combat with Prowlers (fame: 2)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_PROWLERS],
+      }).state;
+
+      // Skip to attack phase
+      state = {
+        ...state,
+        combat: state.combat
+          ? {
+              ...state.combat,
+              phase: COMBAT_PHASE_ATTACK,
+            }
+          : null,
+      };
+
+      state = withAccumulatedAttack(state, "player1", { normal: 5 });
+
+      // Assign enough to defeat (Prowlers have armor 3)
+      state = engine.processAction(state, "player1", {
+        type: ASSIGN_ATTACK_ACTION,
+        enemyInstanceId: "enemy_0",
+        attackType: ATTACK_TYPE_MELEE,
+        element: ATTACK_ELEMENT_PHYSICAL,
+        amount: 3,
+      }).state;
+
+      // End combat phase - this triggers pending damage resolution
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Combat should have ended
+      expect(result.state.combat).toBeNull();
+
+      // Player's fame should have increased by the enemy's fame value (Prowlers = 2)
+      const finalPlayerFame =
+        result.state.players.find((p) => p.id === "player1")?.fame ?? 0;
+      expect(finalPlayerFame).toBeGreaterThan(initialPlayerFame);
+      expect(finalPlayerFame).toBe(initialPlayerFame + 2); // Prowlers give 2 fame
+    });
+
+    it("should increase player.fame when defeating enemy in ranged phase via pending damage", () => {
+      let state = createTestGameState();
+
+      // Get initial player fame
+      const initialPlayerFame =
+        state.players.find((p) => p.id === "player1")?.fame ?? 0;
+
+      // Enter combat with Prowlers (fame: 2)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_PROWLERS],
+      }).state;
+
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_RANGED_SIEGE);
+
+      // Give player ranged attack
+      state = withAccumulatedAttack(state, "player1", { ranged: 5 });
+
+      // Assign enough ranged damage to defeat (Prowlers have armor 3)
+      state = engine.processAction(state, "player1", {
+        type: ASSIGN_ATTACK_ACTION,
+        enemyInstanceId: "enemy_0",
+        attackType: ATTACK_TYPE_RANGED,
+        element: ATTACK_ELEMENT_PHYSICAL,
+        amount: 3,
+      }).state;
+
+      // End ranged phase - this triggers pending damage resolution
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should have advanced to block phase
+      expect(result.state.combat?.phase).toBe(COMBAT_PHASE_BLOCK);
+
+      // Player's fame should have increased by the enemy's fame value (Prowlers = 2)
+      const finalPlayerFame =
+        result.state.players.find((p) => p.id === "player1")?.fame ?? 0;
+      expect(finalPlayerFame).toBeGreaterThan(initialPlayerFame);
+      expect(finalPlayerFame).toBe(initialPlayerFame + 2); // Prowlers give 2 fame
+    });
   });
 
   describe("state clearing after resolution", () => {
