@@ -142,12 +142,10 @@ export function PixiFloatingHand({
   }, [screenDimensions.height]);
   const cardWidth = Math.round(cardHeight * CARD_ASPECT);
 
-  // Filter out selected card
+  // Keep all cards visible - selected card stays as placeholder while pie menu animates on top
   const visibleHand = useMemo(() => {
-    return selectedIndex !== null
-      ? hand.filter((_, i) => i !== selectedIndex)
-      : [...hand];
-  }, [hand, selectedIndex]);
+    return [...hand];
+  }, [hand]);
 
   // Calculate container dimensions
   const containerWidth = useMemo(() => {
@@ -215,11 +213,10 @@ export function PixiFloatingHand({
     }
   }, [selectedIndex]);
 
-  // Get original index (accounting for selected card gap)
+  // Get original index - now same as visible index since we don't filter
   const getOriginalIndex = useCallback((visibleIndex: number): number => {
-    if (selectedIndex === null) return visibleIndex;
-    return visibleIndex >= selectedIndex ? visibleIndex + 1 : visibleIndex;
-  }, [selectedIndex]);
+    return visibleIndex;
+  }, []);
 
   // Helper to find which card index is at a given local position
   const findCardAtPosition = useCallback((localX: number, localY: number): number | null => {

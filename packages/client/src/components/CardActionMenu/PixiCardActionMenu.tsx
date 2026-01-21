@@ -494,20 +494,19 @@ export function PixiCardActionMenu({
       animManager.attach(app.ticker);
       animManagerRef.current = animManager;
 
-      // Create overlay background - catches clicks outside the menu
+      // Create overlay background - starts transparent, fades in
       const overlay = new Graphics();
       overlay.rect(0, 0, window.innerWidth, window.innerHeight);
       overlay.fill({ color: 0x0a0805, alpha: 0.6 });
       overlay.eventMode = "static";
       overlay.cursor = "default";
       overlay.on("pointerdown", () => onCancelRef.current());
+      overlay.alpha = 0; // Start invisible
       app.stage.addChild(overlay);
 
-      // Create main menu container
+      // Create main menu container - starts visible but wedges will animate in
       const menuContainer = new Container();
       menuContainer.position.set(menuPosition.x, menuPosition.y);
-      menuContainer.alpha = 0;
-      menuContainer.scale.set(0.8);
       app.stage.addChild(menuContainer);
       menuContainerRef.current = menuContainer;
 
@@ -516,15 +515,23 @@ export function PixiCardActionMenu({
       particleContainer.label = "particles";
       menuContainer.addChild(particleContainer);
 
-      // Load card texture for later use
+      // Load card texture
       const cardTexture = await getCardTexture(cardId);
       const cardHeight = sizes.cardHeight;
       const cardWidth = cardHeight * 0.667;
 
-      // Calculate start position for card animation
+      // Calculate positions - card starts at source, ends at center (which is 0,0 in menuContainer)
       const startX = sourceRect.left + sourceRect.width / 2 - menuPosition.x;
       const startY = sourceRect.top + sourceRect.height / 2 - menuPosition.y;
       const startScale = sourceRect.height / cardHeight;
+
+      // Animation timing constants for sequencing
+      const CARD_LIFT_DURATION = 350;
+      const CARD_LIFT_DELAY = 0;
+      const OVERLAY_FADE_DELAY = 150;
+      const OVERLAY_FADE_DURATION = 200;
+      const WEDGE_START_DELAY = 200;
+      const WEDGE_STAGGER = 40;
 
       // Build and render wedges FIRST (so card renders on top)
       const outerRadius = sizes.pieSize / 2;
@@ -694,7 +701,7 @@ export function PixiCardActionMenu({
         wedgeContainer.addChild(container);
         wedgeContainersRef.current.push(container);
 
-        // Staggered entry animation
+        // Staggered entry animation - delayed until card is lifting
         container.scale.set(0);
         container.alpha = 0;
         setTimeout(() => {
@@ -702,19 +709,21 @@ export function PixiCardActionMenu({
           animManager.animate(`wedge-entry-${index}`, container, {
             endScale: 1,
             endAlpha: wedge.disabled ? 0.4 : 1,
-            duration: ANIMATION_DURATION.ENTRY,
+            duration: 300,
             easing: Easing.easeOutBack,
           });
-        }, index * ANIMATION_DURATION.WEDGE_STAGGER);
+        }, WEDGE_START_DELAY + index * WEDGE_STAGGER);
       });
 
-      // Center circle - at origin
+      // Center circle - at origin, starts hidden
       const center = new Graphics();
       center.circle(0, 0, innerRadius - 4);
       center.fill({ color: COLORS.CENTER, alpha: 0.95 });
       center.stroke({ color: COLORS.STROKE, width: 3 });
       center.eventMode = "static";
       center.cursor = "pointer";
+      center.scale.set(0);
+      center.alpha = 0;
 
       center.on("pointerenter", () => {
         center.clear();
@@ -734,13 +743,13 @@ export function PixiCardActionMenu({
         if (menuState.type === "mana-select") {
           handleBackToActions();
         } else {
-          onCancel();
+          onCancelRef.current();
         }
       });
 
       wedgeContainer.addChild(center);
 
-      // Center label - at origin
+      // Center label - at origin, starts hidden
       const centerLabel = new Text({
         text: menuState.type === "mana-select" ? "Back" : "Cancel",
         style: {
@@ -754,7 +763,25 @@ export function PixiCardActionMenu({
       centerLabel.anchor.set(0.5);
       centerLabel.position.set(0, 0);
       centerLabel.eventMode = "none";
+      centerLabel.alpha = 0;
       wedgeContainer.addChild(centerLabel);
+
+      // Animate center circle and label in with wedges
+      const centerDelay = WEDGE_START_DELAY + wedges.length * WEDGE_STAGGER;
+      setTimeout(() => {
+        if (isDestroyedRef.current) return;
+        animManager.animate("center-entry", center, {
+          endScale: 1,
+          endAlpha: 1,
+          duration: 250,
+          easing: Easing.easeOutBack,
+        });
+        animManager.animate("center-label-entry", centerLabel, {
+          endAlpha: 1,
+          duration: 200,
+          easing: Easing.easeOutQuad,
+        });
+      }, centerDelay);
 
       // wedgeContainer is already centered at origin, no offset needed
 
@@ -788,26 +815,44 @@ export function PixiCardActionMenu({
 
       menuContainer.addChild(cardContainer);
 
-      // Set card's initial position for animation
+      // Set card's initial position - starts visible immediately at source location!
       cardContainer.position.set(startX, startY);
       cardContainer.scale.set(startScale);
+      // Card glow starts hidden, fades in during lift
+      cardGlow.alpha = 0;
 
-      // Entry animations
-      animManager.animate("menu-entry", menuContainer, {
-        endAlpha: 1,
-        endScale: 1,
-        duration: ANIMATION_DURATION.ENTRY,
-        easing: Easing.easeOutBack,
-      });
+      // ========================================
+      // SEQUENCED ANIMATION FLOW
+      // ========================================
 
-      // Card pull-up animation
+      // Phase 1: Card lifts immediately (0ms start)
+      // The card is already visible, so this creates the connected feeling
       animManager.animate("card-entry", cardContainer, {
         endX: 0,
         endY: 0,
         endScale: 1,
-        duration: ANIMATION_DURATION.ENTRY + 100,
+        duration: CARD_LIFT_DURATION,
         easing: Easing.easeOutCubic,
       });
+
+      // Card glow fades in as card lifts
+      animManager.animate("card-glow-entry", cardGlow, {
+        endAlpha: 1,
+        duration: CARD_LIFT_DURATION,
+        easing: Easing.easeOutQuad,
+      });
+
+      // Phase 2: Overlay fades in (slightly delayed)
+      setTimeout(() => {
+        if (isDestroyedRef.current) return;
+        animManager.animate("overlay-fade", overlay, {
+          endAlpha: 1,
+          duration: OVERLAY_FADE_DURATION,
+          easing: Easing.easeOutQuad,
+        });
+      }, OVERLAY_FADE_DELAY);
+
+      // Phase 3: Wedges animate in (handled above with WEDGE_START_DELAY)
 
       // Particle update loop
       app.ticker.add(() => {
