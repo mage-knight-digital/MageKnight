@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { PixiFloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./PixiFloatingHand";
 import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
 import { TacticCarouselPane } from "./TacticCarouselPane";
-import { CardActionMenu, PieMenu, type PieMenuItem } from "../CardActionMenu";
+import { CardActionMenu, PixiCardActionMenu, PieMenu, type PieMenuItem } from "../CardActionMenu";
 import {
   PLAY_CARD_ACTION,
   PLAY_CARD_SIDEWAYS_ACTION,
@@ -453,9 +453,9 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   return (
     <>
-      {/* Card Action Menu - for non-spell cards */}
+      {/* Card Action Menu - for non-spell cards (PixiJS version with full juice) */}
       {menuState.type === "card-action" && selectedCard && selectedPlayability && !selectedPlayability.isSpell && (
-        <CardActionMenu
+        <PixiCardActionMenu
           cardId={selectedCard}
           playability={selectedPlayability}
           isInCombat={isInCombat}

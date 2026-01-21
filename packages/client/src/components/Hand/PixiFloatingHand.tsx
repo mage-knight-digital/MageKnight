@@ -28,6 +28,9 @@ import "./FloatingHand.css";
 
 // Animation timing constants
 const HOVER_LIFT_DURATION_MS = CARD_FAN_HOVER.durationSec * 1000; // ~265ms synced to audio
+const CARD_TO_MENU_DURATION_MS = 300; // Duration for card to animate to menu center
+const CARD_RETURN_DURATION_MS = 300; // Duration for card to animate back to hand
+const MENU_CARD_SCALE = 1.4; // Card scales up 40% when in menu (must match PixiCardActionMenu)
 const VIEW_MODE_TRANSITION_MS = 300; // Duration for view mode transitions
 
 // View mode position offsets (matching CSS transforms from FloatingHand.css)
@@ -129,6 +132,10 @@ export function PixiFloatingHand({
   // Track previous view mode for transitions
   const prevViewModeRef = useRef<HandViewMode>(viewMode);
 
+  // Track when a card selection is in progress - used to skip updateSprites
+  // This is set synchronously in click handler BEFORE React state updates
+  const selectionInProgressRef = useRef<number | null>(null);
+
   // Track new cards for deal animation
   const prevHandLengthRef = useRef<number>(hand.length);
   const isFirstRenderRef = useRef<boolean>(true);
@@ -142,12 +149,10 @@ export function PixiFloatingHand({
   }, [screenDimensions.height]);
   const cardWidth = Math.round(cardHeight * CARD_ASPECT);
 
-  // Filter out selected card
+  // Keep all cards visible - selected card stays as placeholder while pie menu animates on top
   const visibleHand = useMemo(() => {
-    return selectedIndex !== null
-      ? hand.filter((_, i) => i !== selectedIndex)
-      : [...hand];
-  }, [hand, selectedIndex]);
+    return [...hand];
+  }, [hand]);
 
   // Calculate container dimensions
   const containerWidth = useMemo(() => {
@@ -208,18 +213,59 @@ export function PixiFloatingHand({
     prevHandLengthRef.current = currentLength;
   }, [hand]);
 
-  // Clear hover when card is selected
+  // When menu closes (selectedIndex goes from something to null), animate card back
+  // The "animate up" is handled directly in the click handler for immediate response
+  const prevSelectedIndexRef = useRef<number | null>(null);
   useEffect(() => {
-    if (selectedIndex !== null) {
-      setHoveredIndex(null);
-    }
-  }, [selectedIndex]);
+    const prevSelected = prevSelectedIndexRef.current;
+    const animManager = animationManagerRef.current;
+    const handContainer = handContainerRef.current;
+    const app = appRef.current;
 
-  // Get original index (accounting for selected card gap)
+    // Raise/lower canvas z-index based on selection state
+    // When selected: z-index 300 (above pie menu at 250)
+    // When not selected: z-index 200 (normal)
+    if (app?.canvas) {
+      app.canvas.style.zIndex = selectedIndex !== null ? "300" : "200";
+    }
+
+    // If we HAD a selected card and now we don't, animate it back to resting position
+    if (prevSelected !== null && selectedIndex === null) {
+
+      // Clear the selection-in-progress flag
+      selectionInProgressRef.current = null;
+
+      // Restore all cards visibility
+      cardContainersRef.current.forEach((container) => {
+        container.alpha = 1;
+      });
+
+      const prevContainer = cardContainersRef.current.get(prevSelected);
+      const pos = cardPositions[prevSelected];
+      if (prevContainer && pos && animManager) {
+        // Animate back to resting position (scale back to 1)
+        animManager.animate(`card-return-${prevSelected}`, prevContainer, {
+          endX: pos.x,
+          endY: pos.y,
+          endScale: 1,
+          endRotation: pos.rotation,
+          duration: CARD_RETURN_DURATION_MS,
+          easing: Easing.easeOutCubic,
+          onComplete: () => {
+            prevContainer.zIndex = calculateZIndex(prevSelected, visibleHand.length, zIndexAnchor);
+            handContainer?.sortChildren();
+          },
+        });
+      }
+    }
+
+    prevSelectedIndexRef.current = selectedIndex;
+  }, [selectedIndex, cardPositions, visibleHand.length, zIndexAnchor]);
+
+  // Get original index - now same as visible index since we don't filter
   const getOriginalIndex = useCallback((visibleIndex: number): number => {
-    if (selectedIndex === null) return visibleIndex;
-    return visibleIndex >= selectedIndex ? visibleIndex + 1 : visibleIndex;
-  }, [selectedIndex]);
+    return visibleIndex;
+  }, []);
 
   // Helper to find which card index is at a given local position
   const findCardAtPosition = useCallback((localX: number, localY: number): number | null => {
@@ -355,6 +401,12 @@ export function PixiFloatingHand({
     if (!handContainer || !isAppReady) return;
 
     const updateSprites = async () => {
+      // SKIP updateSprites if a card selection is in progress
+      // This prevents destroying the card during the transition animation
+      if (selectionInProgressRef.current !== null) {
+        return;
+      }
+
       handContainer.removeChildren();
       cardContainersRef.current.clear();
       glowGraphicsRef.current.clear();
@@ -434,7 +486,9 @@ export function PixiFloatingHand({
     };
 
     updateSprites();
-  // Note: zIndexAnchor intentionally excluded - z-index updates happen in the hover effect, not by recreating sprites
+  // Note: zIndexAnchor and selectedIndex intentionally excluded
+  // - z-index updates happen in the hover effect
+  // - selectedIndex changes are handled by a separate effect (we don't want to recreate sprites just because a card was selected)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleHand, cardPositions, cardWidth, cardHeight, isAppReady, playableCards, getOriginalIndex, onCardClick, viewMode]);
 
@@ -448,12 +502,9 @@ export function PixiFloatingHand({
     const handleMouseMove = (e: MouseEvent) => {
       if (viewMode === "board") return;
 
-      // Don't process hover when an overlay is active
-      if (isOverlayActive) {
-        if (lastHoveredIndex !== null) {
-          setHoveredIndex(null);
-          lastHoveredIndex = null;
-        }
+      // Don't process hover when an overlay is active OR when a card is selected
+      // Keep the card raised so pie menu can animate smoothly from it
+      if (isOverlayActive || selectedIndex !== null) {
         return;
       }
 
@@ -481,7 +532,7 @@ export function PixiFloatingHand({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [isAppReady, viewMode, findCardAtPosition, isOverlayActive]);
+  }, [isAppReady, viewMode, findCardAtPosition, isOverlayActive, selectedIndex]);
 
   // Handle card clicks via DOM events (canvas has pointer-events: none)
   useEffect(() => {
@@ -508,13 +559,53 @@ export function PixiFloatingHand({
           e.stopPropagation();
           e.preventDefault();
 
-          // Get card position for menu
           const container = cardContainersRef.current.get(cardIndex);
-          if (container) {
+          const animManager = animationManagerRef.current;
+
+          if (container && handContainer && animManager) {
+            // Mark selection in progress to prevent other effects from interfering
+            selectionInProgressRef.current = cardIndex;
+
+            // Cancel any hover animation
+            animManager.cancel(`card-hover-${cardIndex}`);
+
+            // Calculate target: center of screen in LOCAL coordinates
+            const screenCenterX = window.innerWidth / 2;
+            const screenCenterY = window.innerHeight / 2;
+            const targetLocal = handContainer.toLocal({ x: screenCenterX, y: screenCenterY });
+
+            // Adjust for card pivot (bottom center) and SCALE
+            // Card scales to MENU_CARD_SCALE, so its visual height is cardHeight * scale
+            // To center the visual card, we need pivot at screenCenter + (visualHeight / 2)
+            const scaledCardHeight = cardHeight * MENU_CARD_SCALE;
+            const targetY = targetLocal.y + (scaledCardHeight / 2);
+
+            // Bring card to front
+            container.zIndex = 1000;
+            handContainer.sortChildren();
+
+            // Hide all OTHER cards so they don't show above pie menu
+            cardContainersRef.current.forEach((otherContainer, idx) => {
+              if (idx !== cardIndex) {
+                otherContainer.alpha = 0;
+              }
+            });
+
+            // ANIMATE RIGHT NOW - no waiting for React
+            // Card scales up as it moves to center for emphasis
+            animManager.animate(`card-to-center-${cardIndex}`, container, {
+              endX: targetLocal.x,
+              endY: targetY,
+              endScale: MENU_CARD_SCALE,
+              endRotation: 0,
+              duration: CARD_TO_MENU_DURATION_MS,
+              easing: Easing.easeOutCubic,
+            });
+
+            // Now notify parent (this triggers pie menu, but animation already started)
             const globalPos = container.getGlobalPosition();
             const viewConfig = VIEW_MODE_OFFSETS[viewMode];
             const scale = viewConfig.scale;
-
             const cardRect = new DOMRect(
               globalPos.x - (cardWidth * scale) / 2,
               globalPos.y - (cardHeight * scale),
@@ -557,7 +648,10 @@ export function PixiFloatingHand({
     handContainerRef.current?.sortChildren();
 
     // Animate the previously hovered card back down (if different from current)
-    if (prevHovered !== null && prevHovered !== hoveredIndex) {
+    // BUT: Don't animate the selected card back down - it's exiting the hand upward
+    // Also check selectionInProgressRef which is set synchronously before React state updates
+    const selectionInProgress = selectionInProgressRef.current;
+    if (prevHovered !== null && prevHovered !== hoveredIndex && prevHovered !== selectedIndex && prevHovered !== selectionInProgress) {
       const prevContainer = containers.get(prevHovered);
       const prevPos = cardPositions[prevHovered];
       if (prevContainer && prevPos) {
@@ -577,7 +671,8 @@ export function PixiFloatingHand({
     }
 
     // Animate the newly hovered card up
-    if (hoveredIndex !== null && viewMode !== "board") {
+    // BUT: don't animate if this card is selected (it's being animated by click handler)
+    if (hoveredIndex !== null && viewMode !== "board" && hoveredIndex !== selectedIndex && hoveredIndex !== selectionInProgress) {
       const container = containers.get(hoveredIndex);
       const pos = cardPositions[hoveredIndex];
       const cardId = visibleHand[hoveredIndex];
@@ -599,9 +694,11 @@ export function PixiFloatingHand({
         }
       }
     }
+    // Note: if hoveredIndex === selectedIndex or selectionInProgress, we skip hover animation
+    // because the card is being animated by the click handler
 
     prevHoveredIndexRef.current = hoveredIndex;
-  }, [hoveredIndex, zIndexAnchor, visibleHand, cardPositions, playableCards, viewMode]);
+  }, [hoveredIndex, zIndexAnchor, visibleHand, cardPositions, playableCards, viewMode, selectedIndex]);
 
   // Update position, scale, and visibility based on view mode
   useEffect(() => {

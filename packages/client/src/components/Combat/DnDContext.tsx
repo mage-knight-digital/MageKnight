@@ -70,6 +70,8 @@ function PowerLine({ start, end, element }: { start: Position; end: Position; el
 
   const { primary, glow } = colors[element ?? "physical"];
 
+  // Line is drawn directly using start/end coordinates in SVG
+
   return (
     <svg
       style={{
