@@ -16,51 +16,79 @@ function formatCardName(cardId: string): string {
     .join(" ");
 }
 
-// Map effect types to colors for visual distinction
+/**
+ * Map effect types to colors - using the fantasy/parchment palette
+ * from CombatOverlay and CardActionMenu for visual consistency.
+ *
+ * Palette reference:
+ * - Attack/Combat: Bronze #b87333, Copper #a06030
+ * - Block/Defense: Verdigris #2e6b5a, Forest #1a4d3e
+ * - Move: Earthy brown-green
+ * - Influence: Dusty purple
+ * - Heal: Moss green #8b9a6b
+ * - Mana: Matches CardActionMenu's getManaColor
+ */
 function getEffectColor(type: string, description: string): string {
-  // Check for mana-related effects
-  if (description.toLowerCase().includes("red mana")) {
-    return "rgba(140, 50, 50, 0.95)";
+  const desc = description.toLowerCase();
+
+  // Check for mana-related effects - match CardActionMenu palette
+  if (desc.includes("red mana")) {
+    return "rgba(110, 45, 40, 0.95)";  // Deep ruby
   }
-  if (description.toLowerCase().includes("blue mana")) {
-    return "rgba(40, 80, 130, 0.95)";
+  if (desc.includes("blue mana")) {
+    return "rgba(40, 65, 100, 0.95)";  // Steel blue
   }
-  if (description.toLowerCase().includes("green mana")) {
-    return "rgba(40, 100, 60, 0.95)";
+  if (desc.includes("green mana")) {
+    return "rgba(40, 80, 55, 0.95)";   // Forest green
   }
-  if (description.toLowerCase().includes("white mana")) {
-    return "rgba(100, 100, 110, 0.95)";
+  if (desc.includes("white mana")) {
+    return "rgba(85, 85, 90, 0.95)";   // Ivory/silver
   }
-  if (description.toLowerCase().includes("gold mana")) {
-    return "rgba(120, 100, 40, 0.95)";
+  if (desc.includes("gold mana")) {
+    return "rgba(100, 85, 40, 0.95)";  // Antique gold
   }
-  if (description.toLowerCase().includes("black mana")) {
-    return "rgba(50, 50, 60, 0.95)";
+  if (desc.includes("black mana")) {
+    return "rgba(40, 40, 50, 0.95)";   // Dark slate
   }
 
-  // Check for combat effects
-  if (type.includes("attack") || description.toLowerCase().includes("attack")) {
-    return "rgba(180, 60, 60, 0.95)";
+  // Check for combat effects - match CombatOverlay palette
+  if (type.includes("attack") || desc.includes("attack")) {
+    // Check for elemental attacks
+    if (desc.includes("fire")) {
+      return "rgba(160, 64, 48, 0.95)";  // Deep crimson
+    }
+    if (desc.includes("ice") || desc.includes("cold")) {
+      return "rgba(74, 112, 144, 0.95)"; // Steel blue
+    }
+    // Default attack: Bronze/copper
+    return "rgba(140, 90, 50, 0.95)";
   }
-  if (type.includes("block") || description.toLowerCase().includes("block")) {
-    return "rgba(60, 100, 180, 0.95)";
+  if (type.includes("block") || desc.includes("block")) {
+    // Check for elemental blocks
+    if (desc.includes("fire")) {
+      return "rgba(130, 70, 55, 0.95)";  // Burnt copper
+    }
+    // Default block: Verdigris/teal
+    return "rgba(46, 90, 75, 0.95)";
   }
 
-  // Check for movement/influence
-  if (type.includes("move") || description.toLowerCase().includes("move")) {
-    return "rgba(100, 140, 80, 0.95)";
-  }
-  if (type.includes("influence") || description.toLowerCase().includes("influence")) {
-    return "rgba(140, 100, 160, 0.95)";
+  // Check for movement - earthy brown-green
+  if (type.includes("move") || desc.includes("move")) {
+    return "rgba(70, 85, 55, 0.95)";
   }
 
-  // Check for healing
-  if (type.includes("heal") || description.toLowerCase().includes("heal")) {
-    return "rgba(80, 160, 80, 0.95)";
+  // Check for influence - dusty purple
+  if (type.includes("influence") || desc.includes("influence")) {
+    return "rgba(85, 65, 95, 0.95)";
   }
 
-  // Default
-  return "rgba(70, 70, 80, 0.95)";
+  // Check for healing - moss green
+  if (type.includes("heal") || desc.includes("heal")) {
+    return "rgba(100, 115, 75, 0.95)";
+  }
+
+  // Default - warm neutral brown (parchment theme)
+  return "rgba(60, 55, 50, 0.95)";
 }
 
 // Get icon based on effect type/description
