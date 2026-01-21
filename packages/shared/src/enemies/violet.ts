@@ -12,7 +12,7 @@
  * - Illusionists - Physical resistance, illusion magic
  * - Ice Mages - Ice attack, ice resistance
  * - Fire Mages - Fire attack, fire resistance
- * - Sorcerers - ColdFire attack, assassination, poison, arcane immunity
+ * - Sorcerers - Physical attack, assassination, poison, arcane immunity
  */
 
 import {
@@ -110,7 +110,7 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     name: "Sorcerers",
     color: ENEMY_COLOR_VIOLET,
     attack: 6,
-    attackElement: ELEMENT_COLD_FIRE,
+    attackElement: ELEMENT_PHYSICAL,
     armor: 6,
     fame: 5,
     resistances: NO_RESISTANCES,
