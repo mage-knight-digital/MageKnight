@@ -5,7 +5,11 @@
  */
 
 import type { BlockSource } from "@mage-knight/shared";
+import { hexKey, TERRAIN_PLAINS, TERRAIN_FOREST } from "@mage-knight/shared";
 import type { GameState } from "../../state/GameState.js";
+import type { Site, HexState, HexEnemy } from "../../types/map.js";
+import { SiteType, TileId } from "../../types/map.js";
+import { createTestGameState } from "./testHelpers.js";
 
 /**
  * Helper to set up block sources in the player's combatAccumulator.
@@ -104,4 +108,103 @@ export function withSiegeAttack(
   };
 
   return { ...state, players: updatedPlayers };
+}
+
+/**
+ * Helper to create a keep site
+ */
+export function createKeepSite(): Site {
+  return {
+    type: SiteType.Keep,
+    owner: null,
+    isConquered: false,
+    isBurned: false,
+  };
+}
+
+/**
+ * Helper to create a conquered keep site
+ */
+export function createConqueredKeepSite(owner: string): Site {
+  return {
+    type: SiteType.Keep,
+    owner,
+    isConquered: true,
+    isBurned: false,
+  };
+}
+
+/**
+ * Create test state with a keep at a specific location with enemies
+ */
+export function createTestStateWithKeep(
+  keepCoord: { q: number; r: number },
+  enemies: readonly HexEnemy[] = [],
+  isConquered = false,
+  owner: string | null = null
+): GameState {
+  const baseState = createTestGameState();
+
+  // Create hex with keep and enemies
+  const originHex = baseState.map.hexes[hexKey({ q: 0, r: 0 })];
+  const keepHex: HexState = {
+    coord: keepCoord,
+    terrain: TERRAIN_PLAINS,
+    tileId: originHex?.tileId ?? TileId.StartingTileA,
+    site: isConquered && owner ? createConqueredKeepSite(owner) : createKeepSite(),
+    enemies: enemies,
+    shieldTokens: owner ? [owner] : [],
+    rampagingEnemies: [],
+  };
+
+  const hexes: Record<string, HexState> = {
+    ...baseState.map.hexes,
+    [hexKey(keepCoord)]: keepHex,
+  };
+
+  return {
+    ...baseState,
+    map: { ...baseState.map, hexes },
+  };
+}
+
+/**
+ * Helper to create a state with adjacent hexes for movement testing.
+ * Creates a player at (0,0) with an adjacent forest at (1,0) and another at (2,-1).
+ */
+export function createStateWithAdjacentHexes(): GameState {
+  const baseState = createTestGameState();
+  const originHex = baseState.map.hexes[hexKey({ q: 0, r: 0 })];
+
+  // Create adjacent hexes for movement
+  const hex1: HexState = {
+    coord: { q: 1, r: 0 },
+    terrain: TERRAIN_FOREST,
+    tileId: originHex?.tileId ?? TileId.StartingTileA,
+    site: null,
+    enemies: [],
+    shieldTokens: [],
+    rampagingEnemies: [],
+  };
+  const hex2: HexState = {
+    coord: { q: 2, r: -1 },
+    terrain: TERRAIN_PLAINS,
+    tileId: originHex?.tileId ?? TileId.StartingTileA,
+    site: null,
+    enemies: [],
+    shieldTokens: [],
+    rampagingEnemies: [],
+  };
+
+  return {
+    ...baseState,
+    map: {
+      ...baseState.map,
+      hexes: {
+        ...baseState.map.hexes,
+        [hexKey(hex1.coord)]: hex1,
+        [hexKey(hex2.coord)]: hex2,
+      },
+    },
+  };
 }
