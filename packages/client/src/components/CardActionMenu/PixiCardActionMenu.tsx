@@ -171,7 +171,11 @@ export function PixiCardActionMenu({
     // Outer radius: extend past the card with visible wedge area
     const wedgeVisibleThickness = Math.max(90, vmin * 0.13);
     const outerRadius = cardCoverRadius + wedgeVisibleThickness;
-    return { cardWidth, cardHeight, innerRadius, outerRadius, cardCoverRadius };
+    // Font sizes scale with viewport (vmin-based)
+    // Base: ~18px on 1080p, ~24px on 1440p, ~36px on 4K
+    const labelFontSize = Math.round(Math.max(16, vmin * 0.018));
+    const sublabelFontSize = Math.round(Math.max(12, vmin * 0.012));
+    return { cardWidth, cardHeight, innerRadius, outerRadius, cardCoverRadius, labelFontSize, sublabelFontSize };
   }, [sizeMultiplier]);
 
   useEffect(() => {
@@ -469,18 +473,19 @@ export function PixiCardActionMenu({
         const labelPos = polarToCartesian(labelRadius, wedge.midAngle);
 
         // Main label
+        const labelOffset = wedge.sublabel ? sizes.sublabelFontSize * 0.7 : 0;
         const label = new Text({
           text: wedge.label,
           style: {
             fontFamily: "Arial, sans-serif",
-            fontSize: wedge.sublabel ? 18 : 16,
+            fontSize: sizes.labelFontSize,
             fontWeight: "bold",
             fill: wedge.disabled ? COLORS.TEXT_DISABLED : COLORS.TEXT,
             align: "center",
           },
         });
         label.anchor.set(0.5);
-        label.position.set(labelPos.x, labelPos.y - (wedge.sublabel ? 8 : 0));
+        label.position.set(labelPos.x, labelPos.y - labelOffset);
         wedgeContainer.addChild(label);
 
         // Sublabel
@@ -489,13 +494,13 @@ export function PixiCardActionMenu({
             text: wedge.sublabel,
             style: {
               fontFamily: "Arial, sans-serif",
-              fontSize: 12,
+              fontSize: sizes.sublabelFontSize,
               fill: wedge.disabled ? COLORS.TEXT_DISABLED : 0xb0a090,
               align: "center",
             },
           });
           sublabel.anchor.set(0.5);
-          sublabel.position.set(labelPos.x, labelPos.y + 10);
+          sublabel.position.set(labelPos.x, labelPos.y + sizes.sublabelFontSize * 0.9);
           wedgeContainer.addChild(sublabel);
         }
 

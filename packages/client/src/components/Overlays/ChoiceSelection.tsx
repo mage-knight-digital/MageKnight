@@ -1,109 +1,72 @@
-import { useMemo, useCallback, useEffect } from "react";
+import { useMemo, useCallback } from "react";
 import { RESOLVE_CHOICE_ACTION, UNDO_ACTION } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
-import { PieMenu, type PieMenuItem } from "../CardActionMenu";
-import { getCardSpriteStyle } from "../../utils/cardAtlas";
-import "./ChoiceSelection.css";
-
-// Format card ID for display (convert snake_case to Title Case)
-function formatCardName(cardId: string): string {
-  return cardId
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
+import { PixiPieMenu, type PixiPieMenuItem } from "../CardActionMenu";
 
 /**
- * Map effect types to colors - using the fantasy/parchment palette
- * from CombatOverlay and CardActionMenu for visual consistency.
- *
- * Palette reference:
- * - Attack/Combat: Bronze #b87333, Copper #a06030
- * - Block/Defense: Verdigris #2e6b5a, Forest #1a4d3e
- * - Move: Earthy brown-green
- * - Influence: Dusty purple
- * - Heal: Moss green #8b9a6b
- * - Mana: Matches CardActionMenu's getManaColor
+ * Map effect types to hex colors for PixiJS rendering.
+ * Returns { fill, hover } colors for the wedge.
  */
-function getEffectColor(type: string, description: string): string {
+function getEffectColors(type: string, description: string): { fill: number; hover: number } {
   const desc = description.toLowerCase();
 
-  // Check for mana-related effects - match CardActionMenu palette
+  // Check for mana-related effects
   if (desc.includes("red mana")) {
-    return "rgba(110, 45, 40, 0.95)";  // Deep ruby
+    return { fill: 0x6e2d28, hover: 0x8c3c32 };
   }
   if (desc.includes("blue mana")) {
-    return "rgba(40, 65, 100, 0.95)";  // Steel blue
+    return { fill: 0x284164, hover: 0x325582 };
   }
   if (desc.includes("green mana")) {
-    return "rgba(40, 80, 55, 0.95)";   // Forest green
+    return { fill: 0x285037, hover: 0x326946 };
   }
   if (desc.includes("white mana")) {
-    return "rgba(85, 85, 90, 0.95)";   // Ivory/silver
+    return { fill: 0x55555a, hover: 0x737378 };
   }
   if (desc.includes("gold mana")) {
-    return "rgba(100, 85, 40, 0.95)";  // Antique gold
+    return { fill: 0x645528, hover: 0x826e32 };
   }
   if (desc.includes("black mana")) {
-    return "rgba(40, 40, 50, 0.95)";   // Dark slate
+    return { fill: 0x282832, hover: 0x373746 };
   }
 
-  // Check for combat effects - match CombatOverlay palette
+  // Check for combat effects
   if (type.includes("attack") || desc.includes("attack")) {
-    // Check for elemental attacks
     if (desc.includes("fire")) {
-      return "rgba(160, 64, 48, 0.95)";  // Deep crimson
+      return { fill: 0xa04030, hover: 0xc05040 };
     }
     if (desc.includes("ice") || desc.includes("cold")) {
-      return "rgba(74, 112, 144, 0.95)"; // Steel blue
+      return { fill: 0x4a7090, hover: 0x5a88a8 };
     }
-    // Default attack: Bronze/copper
-    return "rgba(140, 90, 50, 0.95)";
+    return { fill: 0x8c5a32, hover: 0xa87040 };
   }
   if (type.includes("block") || desc.includes("block")) {
-    // Check for elemental blocks
     if (desc.includes("fire")) {
-      return "rgba(130, 70, 55, 0.95)";  // Burnt copper
+      return { fill: 0x824637, hover: 0x9a5847 };
     }
-    // Default block: Verdigris/teal
-    return "rgba(46, 90, 75, 0.95)";
+    return { fill: 0x2e5a4b, hover: 0x3e7060 };
   }
 
-  // Check for movement - earthy brown-green
+  // Movement - earthy brown-green
   if (type.includes("move") || desc.includes("move")) {
-    return "rgba(70, 85, 55, 0.95)";
+    return { fill: 0x465537, hover: 0x566848 };
   }
 
-  // Check for influence - dusty purple
+  // Influence - dusty purple
   if (type.includes("influence") || desc.includes("influence")) {
-    return "rgba(85, 65, 95, 0.95)";
+    return { fill: 0x55415f, hover: 0x6a5475 };
   }
 
-  // Check for healing - moss green
+  // Healing - moss green
   if (type.includes("heal") || desc.includes("heal")) {
-    return "rgba(100, 115, 75, 0.95)";
+    return { fill: 0x64734b, hover: 0x788860 };
   }
 
-  // Default - warm neutral brown (parchment theme)
-  return "rgba(60, 55, 50, 0.95)";
-}
-
-// Get icon based on effect type/description
-function getEffectIcon(type: string, description: string): string | undefined {
-  const desc = description.toLowerCase();
-
-  if (desc.includes("mana")) return "✦";
-  if (desc.includes("attack")) return "⚔";
-  if (desc.includes("block")) return "🛡";
-  if (desc.includes("move")) return "→";
-  if (desc.includes("influence")) return "★";
-  if (desc.includes("heal")) return "♥";
-  if (desc.includes("draw")) return "📜";
-
-  return undefined;
+  // Default - warm neutral brown
+  return { fill: 0x3c3732, hover: 0x4e4842 };
 }
 
 // Format effect description into label + sublabel for pie menu
@@ -145,12 +108,6 @@ function formatEffectLabel(description: string): { label: string; sublabel?: str
   return { label: description };
 }
 
-// Calculate responsive pie size
-function calculatePieSize(): number {
-  const vmin = Math.min(window.innerWidth, window.innerHeight);
-  return Math.max(280, Math.min(500, vmin * 0.45));
-}
-
 export function ChoiceSelection() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
@@ -158,15 +115,12 @@ export function ChoiceSelection() {
 
   // Extract data before hooks (may be undefined if no pending choice)
   const pendingChoice = player?.pendingChoice;
-  const cardId = pendingChoice?.cardId ?? "";
   const canUndo = state?.validActions.turn?.canUndo ?? false;
   const isInCombat = state?.combat !== null;
 
   // Register this component as an active overlay to disable background interactions
-  // Must be called unconditionally - the hook handles the conditional registration
   useRegisterOverlay(!!pendingChoice);
 
-  // All hooks must be called before any early returns
   const handleSelectChoice = useCallback((choiceIndex: number) => {
     sendAction({
       type: RESOLVE_CHOICE_ACTION,
@@ -178,33 +132,18 @@ export function ChoiceSelection() {
     sendAction({ type: UNDO_ACTION });
   }, [sendAction]);
 
-  // Handle Escape key to undo (if available)
-  useEffect(() => {
-    if (!pendingChoice || !canUndo) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        sendAction({ type: UNDO_ACTION });
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [pendingChoice, canUndo, sendAction]);
-
-  // Convert options to pie menu items
-  const pieItems: PieMenuItem[] = useMemo(() => {
+  // Convert options to PixiPieMenu items
+  const pieItems: PixiPieMenuItem[] = useMemo(() => {
     const options = pendingChoice?.options ?? [];
     return options.map((option, index) => {
-      // Try to create a short label with sublabel for longer descriptions
       const { label, sublabel } = formatEffectLabel(option.description);
+      const colors = getEffectColors(option.type, option.description);
       return {
         id: String(index),
         label,
         sublabel,
-        icon: getEffectIcon(option.type, option.description),
-        color: getEffectColor(option.type, option.description),
+        color: colors.fill,
+        hoverColor: colors.hover,
       };
     });
   }, [pendingChoice?.options]);
@@ -216,55 +155,19 @@ export function ChoiceSelection() {
     }
   }, [handleSelectChoice]);
 
-  const pieSize = useMemo(() => calculatePieSize(), []);
-  const cardHeight = Math.floor(pieSize * 0.42 * 2 * 0.65);
-  const cardStyle = useMemo(() => {
-    if (!cardId) return null;
-    return getCardSpriteStyle(cardId, cardHeight);
-  }, [cardId, cardHeight]);
-
-  // Don't render if no pending choice (after all hooks)
+  // Don't render if no pending choice
   if (!pendingChoice) {
     return null;
   }
 
-  // Use saved position from CardActionMenu if available, otherwise center
-  const menuStyle: React.CSSProperties = savedPosition
-    ? { left: savedPosition.x, top: savedPosition.y }
-    : {};
-
-  const containerClass = savedPosition
-    ? "choice-selection choice-selection--positioned"
-    : "choice-selection choice-selection--centered";
-
-  // Use a more subtle overlay when in combat so the combat scene stays visible
-  const overlayClass = isInCombat
-    ? "choice-selection-overlay choice-selection-overlay--combat"
-    : "choice-selection-overlay";
-
   return (
-    <div className={overlayClass} onClick={canUndo ? handleUndo : undefined}>
-      <div className={containerClass} style={menuStyle} onClick={(e) => e.stopPropagation()}>
-        {/* Card in center */}
-        <div className="choice-selection__card" style={cardStyle ?? undefined} />
-
-        {/* Title above the pie */}
-        <div className="choice-selection__title">
-          {formatCardName(cardId)}
-        </div>
-
-        {/* Pie menu around the card */}
-        <div className="choice-selection__pie">
-          <PieMenu
-            items={pieItems}
-            onSelect={handlePieSelect}
-            onCancel={canUndo ? handleUndo : () => {}}
-            size={pieSize}
-            innerRadius={0.38}
-            centerContent={canUndo ? <span>Undo</span> : undefined}
-          />
-        </div>
-      </div>
-    </div>
+    <PixiPieMenu
+      items={pieItems}
+      onSelect={handlePieSelect}
+      onCancel={canUndo ? handleUndo : () => {}}
+      position={savedPosition ?? undefined}
+      overlayOpacity={isInCombat ? 0.4 : 0.7}
+      centerLabel={canUndo ? "Undo" : undefined}
+    />
   );
 }

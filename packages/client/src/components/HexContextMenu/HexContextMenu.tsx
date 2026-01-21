@@ -2,15 +2,14 @@
  * HexContextMenu - Context menu for site interactions
  *
  * Appears when player is on a hex with actionable site options.
- * Uses PieMenu component for consistent UI with card actions.
+ * Uses PixiPieMenu component for consistent UI with card actions.
  */
 
-import { useMemo, useCallback, useEffect } from "react";
+import { useMemo, useCallback } from "react";
 import { ENTER_SITE_ACTION, END_TURN_ACTION } from "@mage-knight/shared";
 import type { SiteOptions } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
-import { PieMenu, type PieMenuItem } from "../CardActionMenu";
-import "./HexContextMenu.css";
+import { PixiPieMenu, type PixiPieMenuItem } from "../CardActionMenu";
 
 interface HexContextMenuProps {
   /** Site options from validActions */
@@ -22,53 +21,27 @@ interface HexContextMenuProps {
 }
 
 /**
- * Get icon for site type
+ * Get colors for menu item based on action type (hex values for PixiJS)
  */
-function getSiteIcon(siteType: string): string {
-  const icons: Record<string, string> = {
-    dungeon: "🏚️",
-    tomb: "⚰️",
-    monster_den: "🕳️",
-    spawning_grounds: "🪺",
-    ancient_ruins: "🏛️",
-    village: "🏘️",
-    monastery: "⛪",
-    keep: "🏰",
-    mage_tower: "🗼",
-    mine: "⛏️",
-    deep_mine: "⛏️",
-    magical_glade: "🌳",
-    city: "🏙️",
-    maze: "🌀",
-    labyrinth: "🌀",
-    refugee_camp: "⛺",
-    portal: "🌀",
-  };
-  return icons[siteType] ?? "📍";
-}
-
-/**
- * Get color for menu item based on action type
- */
-function getActionColor(actionType: string): string {
+function getActionColors(actionType: string): { fill: number; hover: number } {
   switch (actionType) {
     case "enter":
-      return "rgba(180, 60, 60, 0.95)"; // Combat red
+      return { fill: 0xb43c3c, hover: 0xd04848 }; // Combat red
     case "recruit":
-      return "rgba(60, 120, 180, 0.95)"; // Unit blue
+      return { fill: 0x3c78b4, hover: 0x4890d0 }; // Unit blue
     case "heal":
-      return "rgba(60, 160, 60, 0.95)"; // Healing green
+      return { fill: 0x3ca03c, hover: 0x48c048 }; // Healing green
     case "buy-spell":
-      return "rgba(120, 60, 180, 0.95)"; // Spell purple
+      return { fill: 0x783cb4, hover: 0x9048d0 }; // Spell purple
     case "buy-aa":
-      return "rgba(180, 120, 60, 0.95)"; // AA orange
+      return { fill: 0xb4783c, hover: 0xd09048 }; // AA orange
     case "reward-info":
-      return "rgba(180, 150, 50, 0.7)"; // Gold (info)
+      return { fill: 0xb49632, hover: 0xd0b048 }; // Gold (info)
     case "end-turn":
-      return "rgba(60, 60, 70, 0.95)"; // Neutral dark
+      return { fill: 0x3c3c46, hover: 0x4e4e5a }; // Neutral dark
     case "stay":
     default:
-      return "rgba(80, 80, 90, 0.95)"; // Neutral gray
+      return { fill: 0x50505a, hover: 0x646470 }; // Neutral gray
   }
 }
 
@@ -80,8 +53,8 @@ export function HexContextMenu({
   const { state, sendAction } = useGame();
 
   // Build menu items from site options
-  const menuItems = useMemo<PieMenuItem[]>(() => {
-    const items: PieMenuItem[] = [];
+  const menuItems = useMemo<PixiPieMenuItem[]>(() => {
+    const items: PixiPieMenuItem[] = [];
 
     // Enter site action (adventure sites)
     if (siteOptions.canEnter) {
@@ -96,22 +69,24 @@ export function HexContextMenu({
         }
       }
 
+      const enterColors = getActionColors("enter");
       items.push({
         id: "enter",
-        label: `Enter ${siteOptions.siteName}`,
-        sublabel: sublabel || undefined,
-        icon: "⚔️",
-        color: getActionColor("enter"),
+        label: `Enter`,
+        sublabel: sublabel || siteOptions.siteName,
+        color: enterColors.fill,
+        hoverColor: enterColors.hover,
       });
 
       // Show reward as separate info item (disabled)
       if (siteOptions.conquestReward && !siteOptions.isConquered) {
+        const rewardColors = getActionColors("reward-info");
         items.push({
           id: "reward-info",
           label: "Reward",
           sublabel: siteOptions.conquestReward,
-          icon: "🏆",
-          color: getActionColor("reward-info"),
+          color: rewardColors.fill,
+          hoverColor: rewardColors.hover,
           disabled: true,
         });
       }
@@ -122,42 +97,46 @@ export function HexContextMenu({
       const opts = siteOptions.interactOptions;
 
       if (opts.canRecruit) {
+        const recruitColors = getActionColors("recruit");
         items.push({
           id: "recruit",
           label: "Recruit",
-          sublabel: "View available units",
-          icon: "👥",
-          color: getActionColor("recruit"),
+          sublabel: "View units",
+          color: recruitColors.fill,
+          hoverColor: recruitColors.hover,
         });
       }
 
       if (opts.canHeal && opts.healCost) {
+        const healColors = getActionColors("heal");
         items.push({
           id: "heal",
           label: "Heal",
-          sublabel: `${opts.healCost} Influence per wound`,
-          icon: "💚",
-          color: getActionColor("heal"),
+          sublabel: `${opts.healCost} Inf/wound`,
+          color: healColors.fill,
+          hoverColor: healColors.hover,
         });
       }
 
       if (opts.canBuySpells) {
+        const spellColors = getActionColors("buy-spell");
         items.push({
           id: "buy-spell",
-          label: "Buy Spell",
-          sublabel: `${opts.spellCost ?? 7} Influence + mana`,
-          icon: "✨",
-          color: getActionColor("buy-spell"),
+          label: "Spell",
+          sublabel: `${opts.spellCost ?? 7} Inf`,
+          color: spellColors.fill,
+          hoverColor: spellColors.hover,
         });
       }
 
       if (opts.canBuyAdvancedActions) {
+        const aaColors = getActionColors("buy-aa");
         items.push({
           id: "buy-aa",
-          label: "Buy Training",
-          sublabel: `${opts.advancedActionCost ?? 6} Influence`,
-          icon: "📜",
-          color: getActionColor("buy-aa"),
+          label: "Training",
+          sublabel: `${opts.advancedActionCost ?? 6} Inf`,
+          color: aaColors.fill,
+          hoverColor: aaColors.hover,
         });
       }
     }
@@ -165,21 +144,23 @@ export function HexContextMenu({
     // End Turn option (if valid and has passive effect)
     const canEndTurn = state?.validActions.turn?.canEndTurn ?? false;
     if (canEndTurn && siteOptions.endOfTurnEffect) {
+      const endColors = getActionColors("end-turn");
       items.push({
         id: "end-turn",
         label: "End Turn",
         sublabel: siteOptions.endOfTurnEffect,
-        icon: "⏭️",
-        color: getActionColor("end-turn"),
+        color: endColors.fill,
+        hoverColor: endColors.hover,
       });
     }
 
     // Always show "Stay Here" / dismiss option
+    const stayColors = getActionColors("stay");
     items.push({
       id: "stay",
       label: "Dismiss",
-      icon: "✕",
-      color: getActionColor("stay"),
+      color: stayColors.fill,
+      hoverColor: stayColors.hover,
     });
 
     return items;
@@ -220,54 +201,22 @@ export function HexContextMenu({
     [sendAction, onClose]
   );
 
-  // Handle ESC key to dismiss
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
   // Don't render if no actionable items (only "stay")
   if (menuItems.length <= 1) {
     return null;
   }
 
-  // Center content shows site info
-  const centerContent = (
-    <div className="hex-context-menu__center">
-      <div className="hex-context-menu__site-icon">
-        {getSiteIcon(siteOptions.siteType)}
-      </div>
-      <div className="hex-context-menu__site-name">{siteOptions.siteName}</div>
-      {siteOptions.isConquered && (
-        <div className="hex-context-menu__conquered">Conquered</div>
-      )}
-    </div>
-  );
+  const centerLabel = siteOptions.isConquered
+    ? `${siteOptions.siteName} ✓`
+    : siteOptions.siteName;
 
   return (
-    <div className="hex-context-menu__overlay" onClick={onClose}>
-      <div
-        className="hex-context-menu__container"
-        style={{
-          left: position.x,
-          top: position.y,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <PieMenu
-          items={menuItems}
-          onSelect={handleSelect}
-          onCancel={onClose}
-          centerContent={centerContent}
-          size={380}
-          innerRadius={0.38}
-        />
-      </div>
-    </div>
+    <PixiPieMenu
+      items={menuItems}
+      onSelect={handleSelect}
+      onCancel={onClose}
+      position={position}
+      centerLabel={centerLabel}
+    />
   );
 }

@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { PixiFloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./PixiFloatingHand";
 import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
 import { TacticCarouselPane } from "./TacticCarouselPane";
-import { CardActionMenu, PixiCardActionMenu, PieMenu, type PieMenuItem } from "../CardActionMenu";
+import { PixiCardActionMenu, PixiPieMenu, type PixiPieMenuItem } from "../CardActionMenu";
 import {
   PLAY_CARD_ACTION,
   PLAY_CARD_SIDEWAYS_ACTION,
@@ -100,66 +100,71 @@ function capitalize(str: string): string {
 }
 
 /**
- * Get wedge color for mana - matches the combat mana theme from CombatOverlay
+ * Get wedge colors for mana (hex values for PixiJS)
  */
-function getManaWedgeColor(color: ManaColor): string {
+function getManaWedgeColors(color: ManaColor): { fill: number; hover: number; stroke: number } {
   switch (color) {
-    case MANA_RED: return "rgba(160, 64, 64, 0.95)";    // Deep ruby
-    case MANA_BLUE: return "rgba(74, 112, 144, 0.95)";  // Steel blue
-    case MANA_GREEN: return "rgba(58, 128, 96, 0.95)";  // Forest green
-    case MANA_WHITE: return "rgba(200, 192, 176, 0.95)"; // Ivory
-    case MANA_GOLD: return "rgba(212, 165, 116, 0.95)"; // Antique gold
-    case MANA_BLACK: return "rgba(80, 85, 96, 0.95)";   // Dark gray
-    default: return "rgba(70, 70, 80, 0.95)";
+    case MANA_RED: return { fill: 0x6e2d28, hover: 0x8c3c32, stroke: 0xe76450 };
+    case MANA_BLUE: return { fill: 0x284164, hover: 0x325582, stroke: 0x5096dc };
+    case MANA_GREEN: return { fill: 0x285037, hover: 0x326946, stroke: 0x50c878 };
+    case MANA_WHITE: return { fill: 0x55555a, hover: 0x737378, stroke: 0xf0f0f5 };
+    case MANA_GOLD: return { fill: 0x645528, hover: 0x826e32, stroke: 0xf1c432 };
+    case MANA_BLACK: return { fill: 0x282832, hover: 0x373746, stroke: 0x8c8ca0 };
+    default: return { fill: 0x464650, hover: 0x5a5a68, stroke: 0x888888 };
   }
 }
 
 /**
- * Convert mana sources to pie menu items with proper styling
+ * Convert mana sources to PixiPieMenu items with proper styling
  */
-function manaSourceToPieItem(source: ManaSourceInfo, index: number): PieMenuItem {
-  const baseColor = getManaWedgeColor(source.color);
+function manaSourceToPixiPieItem(source: ManaSourceInfo, index: number): PixiPieMenuItem {
+  const colors = getManaWedgeColors(source.color);
 
   switch (source.type) {
     case MANA_SOURCE_CRYSTAL:
       return {
         id: `crystal-${source.color}-${index}`,
-        icon: "💎",
         label: capitalize(source.color),
         sublabel: "Crystal",
-        color: baseColor,
+        color: colors.fill,
+        hoverColor: colors.hover,
+        strokeColor: colors.stroke,
       };
     case MANA_SOURCE_TOKEN:
       return {
         id: `token-${source.color}-${index}`,
-        icon: "✦",
         label: capitalize(source.color),
         sublabel: "Token",
-        color: baseColor,
+        color: colors.fill,
+        hoverColor: colors.hover,
+        strokeColor: colors.stroke,
       };
     case MANA_SOURCE_DIE:
       if (source.color === MANA_GOLD) {
         return {
           id: `die-gold-${index}`,
-          icon: "🎲",
           label: "Gold",
           sublabel: "Wild Die",
-          color: baseColor,
+          color: colors.fill,
+          hoverColor: colors.hover,
+          strokeColor: colors.stroke,
         };
       }
       return {
         id: `die-${source.color}-${index}`,
-        icon: "🎲",
         label: capitalize(source.color),
         sublabel: "Die",
-        color: baseColor,
+        color: colors.fill,
+        hoverColor: colors.hover,
+        strokeColor: colors.stroke,
       };
     default:
       return {
         id: `unknown-${index}`,
-        icon: "✦",
         label: capitalize(source.color),
-        color: baseColor,
+        color: colors.fill,
+        hoverColor: colors.hover,
+        strokeColor: colors.stroke,
       };
   }
 }
@@ -469,40 +474,26 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         />
       )}
 
-      {/* Spell cards still use the old flow for now (two-step mana selection) */}
+      {/* Spell cards use PixiCardActionMenu with two-step mana selection */}
       {menuState.type === "card-action" && selectedCard && selectedPlayability && selectedPlayability.isSpell && (
-        <CardActionMenu
+        <PixiCardActionMenu
           cardId={selectedCard}
           playability={selectedPlayability}
           isInCombat={isInCombat}
           sourceRect={menuState.sourceRect}
-          manaSources={[]} // Empty - spell handling is separate
+          manaSources={[]} // Empty - spell handling uses separate two-step flow
           sizeMultiplier={handView === "focus" ? 1.4 : 1}
           onPlayBasic={handlePlayBasic}
           onPlayPowered={() => {
-            console.log("[Spell Powered] onPlayPowered called");
-            console.log("[Spell Powered] selectedPlayability:", selectedPlayability);
-            console.log("[Spell Powered] selectedIndex:", selectedIndex);
-            console.log("[Spell Powered] requiredMana:", selectedPlayability?.requiredMana);
-
-            // Transition to spell mana selection - but first check if black mana is available
+            // Transition to spell mana selection - first check if black mana is available
             if (selectedPlayability?.requiredMana && selectedIndex !== null) {
               const blackSources = getAvailableManaSources(state, player, MANA_BLACK);
 
-              // Debug: Log available mana sources for spell powered play
-              console.log("[Spell Powered] Black mana sources:", blackSources);
-              console.log("[Spell Powered] Player pureMana:", player.pureMana);
-              console.log("[Spell Powered] Available dice:", state.validActions.mana?.availableDice);
-              console.log("[Spell Powered] Full validActions.mana:", state.validActions.mana);
-
               if (blackSources.length === 0) {
-                // No black mana available - this shouldn't happen if canPlayPowered is true
-                // but handle gracefully by staying on card-action menu
-                console.warn("[Spell Powered] No black mana sources found, but canPlayPowered was true. Possible mismatch.");
+                console.warn("[Spell Powered] No black mana sources found, but canPlayPowered was true.");
                 return;
               }
 
-              console.log("[Spell Powered] Transitioning to spell-mana-select state");
               setMenuState({
                 type: "spell-mana-select",
                 cardIndex: selectedIndex,
@@ -510,8 +501,6 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
                 spellColor: selectedPlayability.requiredMana,
                 sourceRect: menuState.sourceRect,
               });
-            } else {
-              console.warn("[Spell Powered] Condition not met - requiredMana:", selectedPlayability?.requiredMana, "selectedIndex:", selectedIndex);
             }
           }}
           onPlaySideways={handlePlaySideways}
@@ -519,7 +508,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         />
       )}
 
-      {/* Spell mana source selection - PieMenu (two-step: black then color) */}
+      {/* Spell mana source selection - PixiPieMenu (two-step: black then color) */}
       {menuState.type === "spell-mana-select" && selectedCard && (() => {
         const sources = getAvailableManaSources(
           state,
@@ -532,61 +521,24 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
           return null;
         }
 
-        const stepLabel = menuState.step === "black"
-          ? "Select Black Mana"
-          : `Select ${capitalize(menuState.spellColor)} Mana`;
-
-        // Use subtle overlay in combat so combat scene stays visible
-        const overlayBackground = isInCombat
-          ? "radial-gradient(ellipse at center, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.5) 100%)"
-          : "radial-gradient(ellipse at center, rgba(15, 10, 5, 0.5) 0%, rgba(10, 8, 5, 0.7) 100%)";
+        const items = sources.map((source, idx) => manaSourceToPixiPieItem(source, idx));
 
         return (
-          <div
-            className="spell-mana-overlay"
-            onClick={handleSpellBackToBlack}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: overlayBackground,
-              zIndex: 250,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexDirection: "column",
-              gap: "1rem",
+          <PixiPieMenu
+            items={items}
+            onSelect={(id) => {
+              const idx = sources.findIndex((s, i) =>
+                manaSourceToPixiPieItem(s, i).id === id
+              );
+              const source = sources[idx];
+              if (idx !== -1 && source) {
+                handleSpellManaSourceSelect(source);
+              }
             }}
-          >
-            <div
-              style={{
-                color: "#fff",
-                fontSize: "1.1rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)",
-              }}
-            >
-              {stepLabel}
-            </div>
-            <div onClick={(e) => e.stopPropagation()}>
-              <PieMenu
-                items={sources.map((source, idx) => manaSourceToPieItem(source, idx))}
-                onSelect={(id) => {
-                  const idx = sources.findIndex((s, i) =>
-                    manaSourceToPieItem(s, i).id === id
-                  );
-                  const source = sources[idx];
-                  if (idx !== -1 && source) {
-                    handleSpellManaSourceSelect(source);
-                  }
-                }}
-                onCancel={handleSpellBackToBlack}
-                size={320}
-                centerContent={<span style={{ fontSize: "0.75rem", color: "#888" }}>Back</span>}
-              />
-            </div>
-          </div>
+            onCancel={handleSpellBackToBlack}
+            overlayOpacity={isInCombat ? 0.4 : 0.7}
+            centerLabel="Back"
+          />
         );
       })()}
 
