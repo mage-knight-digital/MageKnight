@@ -206,12 +206,14 @@ export function PixiFloatingHand({
     prevHandLengthRef.current = currentLength;
   }, [hand]);
 
-  // Clear hover when card is selected
+  // Keep selected card in hovered/raised state - don't clear hover
+  // The pie menu will animate from this raised position
   useEffect(() => {
-    if (selectedIndex !== null) {
-      setHoveredIndex(null);
+    if (selectedIndex !== null && hoveredIndex !== selectedIndex) {
+      // If somehow the hovered card isn't the selected one, sync them
+      setHoveredIndex(selectedIndex);
     }
-  }, [selectedIndex]);
+  }, [selectedIndex, hoveredIndex]);
 
   // Get original index - now same as visible index since we don't filter
   const getOriginalIndex = useCallback((visibleIndex: number): number => {
