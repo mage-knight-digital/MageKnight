@@ -17,11 +17,10 @@
  * Phase 5: Particle effects and polish ✓
  */
 
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import type { FederatedPointerEvent } from "pixi.js";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Application, Container } from "pixi.js";
-import type { HexCoord, MoveTarget, ReachableHex } from "@mage-knight/shared";
-import { MOVE_ACTION, EXPLORE_ACTION, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
+import type { HexCoord } from "@mage-knight/shared";
+import { TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
 import { hexKey } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -38,24 +37,18 @@ import { SitePanel } from "../SitePanel";
 
 // Pixi utilities
 import { hexToPixel, calculateBounds } from "./pixi/hexMath";
-import type { WorldLayers, PixelPosition, CameraState } from "./pixi/types";
+import type { WorldLayers } from "./pixi/types";
 import { CAMERA_MAX_ZOOM } from "./pixi/types";
 import { AnimationManager, Easing, HERO_MOVE_DURATION_MS, ENEMY_FLIP_STAGGER_MS, INTRO_PHASE_GAP_MS } from "./pixi/animations";
 import { ParticleManager, HEX_OUTLINE_DURATION_MS, TILE_RISE_DURATION_MS, TILE_SLAM_DURATION_MS, PORTAL_HERO_EMERGE_DURATION_MS } from "./pixi/particles";
-import { findPath } from "./pixi/pathfinding";
 import { BackgroundAtmosphere } from "./pixi/background";
 import {
-  createInitialCameraState,
   applyCamera,
-  updateCamera,
-  handleWheelZoom,
-  handlePointerDown as cameraPointerDown,
-  handlePointerMove as cameraPointerMove,
-  handlePointerUp as cameraPointerUp,
-  centerCameraOn,
-  isCameraPanKey,
   clampCameraCenter,
 } from "./pixi/camera";
+import { useCameraControl } from "./hooks/useCameraControl";
+import { useHexInteraction } from "./hooks/useHexInteraction";
+import { useGameBoardSelectors } from "./hooks/useGameBoardSelectors";
 
 // Rendering modules
 import {
@@ -71,8 +64,6 @@ import {
   renderBoardShape,
   setGhostHexTicker,
   cleanupGhostHexEffects,
-  type MoveHighlight,
-  type ExploreTarget,
   type HexHoverEvent,
   type EnemyFlipTarget,
 } from "./pixi/rendering";
@@ -139,13 +130,20 @@ export function PixiHexGrid() {
   const [isLoading, setIsLoading] = useState(true); // Loading screen state
   const [hoveredHex, setHoveredHex] = useState<HexCoord | null>(null);
 
-  // Camera state refs
-  const cameraRef = useRef<CameraState>(createInitialCameraState());
-  const isDraggingRef = useRef(false);
-  const lastPointerPosRef = useRef<PixelPosition>({ x: 0, y: 0 });
-  const keysDownRef = useRef<Set<string>>(new Set());
-  const hasCenteredOnHeroRef = useRef(false);
-  const cameraReadyRef = useRef(false); // Don't apply camera until properly positioned
+  // Camera control hook
+  const {
+    cameraRef,
+    hasCenteredOnHeroRef,
+    cameraReadyRef,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handleWheel,
+    handleKeyDown,
+    handleKeyUp,
+    centerAndApplyCamera,
+    updateCameraTick,
+  } = useCameraControl({ appRef, worldRef });
 
   // Animation state refs
   const animationManagerRef = useRef<AnimationManager | null>(null);
@@ -229,123 +227,28 @@ export function PixiHexGrid() {
       camera.targetCenter.x -= panelCameraOffsetRef.current;
       panelCameraOffsetRef.current = 0;
     }
-  }, [isSitePanelOpen]);
+  }, [isSitePanelOpen, cameraRef]);
 
-  // Memoized valid move targets
-  const validMoveTargets = useMemo<readonly MoveTarget[]>(
-    () => state?.validActions.move?.targets ?? [],
-    [state?.validActions.move?.targets]
-  );
+  // Memoized game board selectors
+  const {
+    validMoveTargets,
+    reachableHexes,
+    exploreTargets,
+    pathPreview,
+    isPathTerminal,
+  } = useGameBoardSelectors({
+    state,
+    hoveredHex,
+    playerPosition: player?.position ?? null,
+  });
 
-  const reachableHexes = useMemo<readonly ReachableHex[]>(
-    () => state?.validActions.move?.reachable ?? [],
-    [state?.validActions.move?.reachable]
-  );
-
-  const exploreTargets = useMemo<ExploreTarget[]>(() => {
-    if (!state?.validActions.explore) return [];
-    return state.validActions.explore.directions.map((dir) => ({
-      coord: dir.targetCoord,
-      direction: dir.direction,
-      fromTileCoord: dir.fromTileCoord,
-    }));
-  }, [state?.validActions.explore]);
-
-  // Path preview computation
-  const pathPreview = useMemo<HexCoord[]>(() => {
-    if (!hoveredHex || !player?.position) return [];
-
-    const isAdjacent = validMoveTargets.some(
-      (t) => t.hex.q === hoveredHex.q && t.hex.r === hoveredHex.r
-    );
-    const isReachable = reachableHexes.some(
-      (r) => r.hex.q === hoveredHex.q && r.hex.r === hoveredHex.r
-    );
-
-    if (!isAdjacent && !isReachable) return [];
-
-    return findPath(player.position, hoveredHex, reachableHexes, validMoveTargets);
-  }, [hoveredHex, player?.position, reachableHexes, validMoveTargets]);
-
-  const isPathTerminal = useMemo(() => {
-    if (pathPreview.length === 0) return false;
-    const endHex = pathPreview[pathPreview.length - 1];
-    if (!endHex) return false;
-    const reachable = reachableHexes.find(
-      (r) => r.hex.q === endHex.q && r.hex.r === endHex.r
-    );
-    const adjacent = validMoveTargets.find(
-      (t) => t.hex.q === endHex.q && t.hex.r === endHex.r
-    );
-    return reachable?.isTerminal || adjacent?.isTerminal || false;
-  }, [pathPreview, reachableHexes, validMoveTargets]);
-
-  // Movement highlight getter
-  const getMoveHighlight = useCallback(
-    (coord: HexCoord): MoveHighlight => {
-      const adjacentTarget = validMoveTargets.find(
-        (t) => t.hex.q === coord.q && t.hex.r === coord.r
-      );
-      if (adjacentTarget) {
-        if (adjacentTarget.isTerminal) {
-          return { type: "terminal", cost: adjacentTarget.cost };
-        }
-        return { type: "adjacent", cost: adjacentTarget.cost };
-      }
-
-      const reachable = reachableHexes.find(
-        (r) => r.hex.q === coord.q && r.hex.r === coord.r
-      );
-      if (reachable) {
-        if (reachable.isTerminal) {
-          return { type: "terminal", cost: reachable.totalCost };
-        }
-        return { type: "reachable", cost: reachable.totalCost };
-      }
-
-      return { type: "none" };
-    },
-    [validMoveTargets, reachableHexes]
-  );
-
-  // Action handlers
-  const handleHexClick = useCallback(
-    (coord: HexCoord) => {
-      if (!player?.position) return;
-
-      const isAdjacentTarget = validMoveTargets.some(
-        (t) => t.hex.q === coord.q && t.hex.r === coord.r
-      );
-
-      if (isAdjacentTarget) {
-        sendAction({ type: MOVE_ACTION, target: coord });
-        return;
-      }
-
-      const isReachableTarget = reachableHexes.some(
-        (r) => r.hex.q === coord.q && r.hex.r === coord.r
-      );
-
-      if (isReachableTarget) {
-        const path = findPath(player.position, coord, reachableHexes, validMoveTargets);
-        if (path.length > 1 && path[1]) {
-          sendAction({ type: MOVE_ACTION, target: path[1] });
-        }
-      }
-    },
-    [player?.position, validMoveTargets, reachableHexes, sendAction]
-  );
-
-  const handleExploreClick = useCallback(
-    (target: ExploreTarget) => {
-      sendAction({
-        type: EXPLORE_ACTION,
-        direction: target.direction,
-        fromTileCoord: target.fromTileCoord,
-      });
-    },
-    [sendAction]
-  );
+  // Hex interaction handlers
+  const { getMoveHighlight, handleHexClick, handleExploreClick } = useHexInteraction({
+    validMoveTargets,
+    reachableHexes,
+    playerPosition: player?.position ?? null,
+    sendAction,
+  });
 
   /**
    * Handle tooltip hover events from hex overlays
@@ -368,64 +271,6 @@ export function PixiHexGrid() {
     [handleHexTooltipEnter, handleHexTooltipLeave, isOverlayActive]
   );
 
-  // Camera helper to center and apply
-  const centerAndApplyCamera = useCallback(
-    (worldPos: PixelPosition, instant: boolean = false) => {
-      const app = appRef.current;
-      const world = worldRef.current;
-      if (!app || !world) return;
-
-      centerCameraOn(cameraRef.current, worldPos, instant);
-      if (instant) {
-        applyCamera(app, world, cameraRef.current);
-      }
-    },
-    []
-  );
-
-  // Camera event handlers
-  const handlePointerDown = useCallback((event: FederatedPointerEvent) => {
-    cameraPointerDown(
-      event,
-      cameraRef.current,
-      lastPointerPosRef.current,
-      (dragging) => { isDraggingRef.current = dragging; }
-    );
-  }, []);
-
-  const handlePointerMove = useCallback((event: FederatedPointerEvent) => {
-    cameraPointerMove(
-      event,
-      cameraRef.current,
-      lastPointerPosRef.current,
-      isDraggingRef.current
-    );
-  }, []);
-
-  const handlePointerUp = useCallback(() => {
-    cameraPointerUp(
-      cameraRef.current,
-      (dragging) => { isDraggingRef.current = dragging; }
-    );
-  }, []);
-
-  const handleWheel = useCallback((event: WheelEvent) => {
-    const app = appRef.current;
-    if (!app) return;
-    handleWheelZoom(event, app, cameraRef.current);
-  }, []);
-
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    const key = event.key.toLowerCase();
-    if (isCameraPanKey(key)) {
-      keysDownRef.current.add(key);
-    }
-  }, []);
-
-  const handleKeyUp = useCallback((event: KeyboardEvent) => {
-    const key = event.key.toLowerCase();
-    keysDownRef.current.delete(key);
-  }, []);
 
   // Initialize PixiJS application
   useEffect(() => {
@@ -501,9 +346,7 @@ export function PixiHexGrid() {
 
       // Camera update ticker - only apply camera after it's been properly positioned
       app.ticker.add((ticker) => {
-        if (!cameraReadyRef.current) return;
-        updateCamera(cameraRef.current, keysDownRef.current, ticker.deltaMS);
-        applyCamera(app, world, cameraRef.current);
+        updateCameraTick(ticker.deltaMS);
       });
 
       // Animation managers
@@ -568,7 +411,7 @@ export function PixiHexGrid() {
         setIsInitialized(false);
       }
     };
-  }, [handlePointerDown, handlePointerMove, handlePointerUp, setApp, setOverlayLayer]);
+  }, [handlePointerDown, handlePointerMove, handlePointerUp, updateCameraTick, setApp, setOverlayLayer, cameraReadyRef, hasCenteredOnHeroRef]);
 
   // DOM event listeners
   useEffect(() => {
