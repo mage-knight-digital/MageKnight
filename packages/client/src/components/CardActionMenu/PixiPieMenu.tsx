@@ -6,12 +6,17 @@
  * its own Application, avoiding WebGL context conflicts.
  *
  * Used by PixiCardActionMenu, spell mana selection, and choice overlays.
+ *
+ * Architecture: Separates app lifecycle from content lifecycle.
+ * - App created once on mount, destroyed on unmount
+ * - Content (wedges) can smoothly transition when items change
  */
 
-import { useEffect, useRef, useCallback, useId } from "react";
+import { useEffect, useRef, useCallback, useMemo, useId } from "react";
 import { Container, Graphics, Text, BlurFilter } from "pixi.js";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
+import { cleanupFilters } from "../../utils/pixiFilterCleanup";
 
 // ============================================
 // Types
@@ -49,6 +54,12 @@ export interface PixiPieMenuProps {
   centerLabel?: string;
 }
 
+interface WedgeData extends PixiPieMenuItem {
+  startAngle: number;
+  endAngle: number;
+  midAngle: number;
+}
+
 // ============================================
 // Constants
 // ============================================
@@ -62,6 +73,11 @@ const COLORS = {
   GLOW: 0xffc864,
   OVERLAY: 0x0a0805,
 };
+
+// Animation timing
+const ENTRY_DURATION = 250;
+const ENTRY_STAGGER = 40;
+const ENTRY_DELAY = 50;
 
 function polarToCartesian(radius: number, angle: number) {
   return {
@@ -95,21 +111,30 @@ export function PixiPieMenu({
   const isDestroyedRef = useRef(false);
   const timeoutIdsRef = useRef<number[]>([]);
 
+  // Stable callback refs
   const onCancelRef = useRef(onCancel);
   const onSelectRef = useRef(onSelect);
   onCancelRef.current = onCancel;
   onSelectRef.current = onSelect;
 
-  // Calculate sizes based on viewport
-  const vmin = Math.min(window.innerWidth, window.innerHeight);
-  const outerRadius = outerRadiusProp ?? Math.max(120, vmin * 0.15);
-  const innerRadius = innerRadiusProp;
-  const labelFontSize = labelFontSizeProp ?? Math.round(Math.max(16, vmin * 0.018));
-  const sublabelFontSize = sublabelFontSizeProp ?? Math.round(Math.max(12, vmin * 0.012));
-  const menuPosition = position ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  // Calculate sizes based on viewport (memoized to avoid recalc)
+  const sizes = useMemo(() => {
+    const vmin = Math.min(window.innerWidth, window.innerHeight);
+    return {
+      outerRadius: outerRadiusProp ?? Math.max(120, vmin * 0.15),
+      innerRadius: innerRadiusProp,
+      labelFontSize: labelFontSizeProp ?? Math.round(Math.max(16, vmin * 0.018)),
+      sublabelFontSize: sublabelFontSizeProp ?? Math.round(Math.max(12, vmin * 0.012)),
+    };
+  }, [outerRadiusProp, innerRadiusProp, labelFontSizeProp, sublabelFontSizeProp]);
+
+  const menuPosition = useMemo(
+    () => position ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+    [position]
+  );
 
   // Calculate wedge geometry
-  const calculateWedges = useCallback(() => {
+  const calculateWedges = useCallback((): WedgeData[] => {
     if (items.length === 0) return [];
 
     const totalWeight = items.reduce((sum, item) => sum + (item.weight ?? 1), 0);
@@ -166,6 +191,8 @@ export function PixiPieMenu({
     if (!app || !overlayLayer) return;
     isDestroyedRef.current = false;
     timeoutIdsRef.current = [];
+
+    const { outerRadius, innerRadius, labelFontSize, sublabelFontSize } = sizes;
 
     // Create root container for this pie menu instance
     const rootContainer = new Container();
@@ -333,10 +360,10 @@ export function PixiPieMenu({
         animManager.animate(`wedge-entry-${index}`, wedgeContainer, {
           endScale: 1,
           endAlpha: wedge.disabled ? 0.5 : 1,
-          duration: 250,
+          duration: ENTRY_DURATION,
           easing: Easing.easeOutBack,
         });
-      }, 50 + index * 40);
+      }, ENTRY_DELAY + index * ENTRY_STAGGER);
       timeoutIdsRef.current.push(wedgeTimeoutId);
     });
 
@@ -404,17 +431,7 @@ export function PixiPieMenu({
       // Remove and destroy our container from the overlay layer
       if (rootContainerRef.current) {
         // Clear filters before destroying to prevent stencil/mask errors
-        const clearFiltersRecursive = (container: Container) => {
-          if (container.filters) {
-            container.filters = [];
-          }
-          for (const child of container.children) {
-            if (child instanceof Container) {
-              clearFiltersRecursive(child);
-            }
-          }
-        };
-        clearFiltersRecursive(rootContainerRef.current);
+        cleanupFilters(rootContainerRef.current);
 
         if (rootContainerRef.current.parent) {
           rootContainerRef.current.parent.removeChild(rootContainerRef.current);
@@ -424,7 +441,7 @@ export function PixiPieMenu({
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [app, overlayLayer, items, outerRadius, innerRadius, labelFontSize, sublabelFontSize, showOverlay, overlayOpacity, centerLabel]);
+  }, [app, overlayLayer, items, sizes.outerRadius, sizes.innerRadius, sizes.labelFontSize, sizes.sublabelFontSize, showOverlay, overlayOpacity, centerLabel]);
 
   // Escape key handler
   useEffect(() => {

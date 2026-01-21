@@ -10,6 +10,10 @@
  * Layout (clockwise from top):
  *   Basic (top) → Attack (right-top) → Block (right-bottom) →
  *   Powered (bottom) → Influence (left-bottom) → Move (left-top)
+ *
+ * Architecture: Separates app lifecycle from content lifecycle.
+ * - App created once on mount, destroyed on unmount
+ * - Wedges smoothly transition when menuState changes (action → mana selection)
  */
 
 import { useEffect, useRef, useCallback, useMemo, useState, useId } from "react";
@@ -28,6 +32,7 @@ import { usePixiApp } from "../../contexts/PixiAppContext";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { playSound } from "../../utils/audioManager";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
+import { cleanupFilters } from "../../utils/pixiFilterCleanup";
 
 // ============================================
 // Types
@@ -103,6 +108,13 @@ const CARD_ASPECT = 0.667;
 const CARD_FAN_BASE_SCALE = 0.25; // From cardFanLayout.ts
 const MENU_CARD_SCALE = 1.4; // Card scales up 40% when in menu
 
+// Animation timing
+const EXIT_DURATION = 150;
+const EXIT_STAGGER = 25;
+const ENTRY_DURATION = 250;
+const ENTRY_STAGGER = 40;
+const ENTRY_DELAY = 50;
+
 function polarToCartesian(radius: number, angle: number) {
   return {
     x: radius * Math.cos(angle),
@@ -162,23 +174,16 @@ export function PixiCardActionMenu({
   }, []);
 
   // Calculate sizes based on viewport and card
-  // Must match PixiFloatingHand: cardHeight = screenHeight * CARD_FAN_BASE_SCALE * MENU_CARD_SCALE
   const sizes = useMemo(() => {
     const screenHeight = window.innerHeight;
     const screenWidth = window.innerWidth;
     const vmin = Math.min(screenWidth, screenHeight);
-    // Card size matches the hand's scaled-up card in menu mode
     const cardHeight = Math.round(screenHeight * CARD_FAN_BASE_SCALE * MENU_CARD_SCALE * sizeMultiplier);
     const cardWidth = Math.round(cardHeight * CARD_ASPECT);
-    // Inner radius: 0 for full pie slices, card sits on top covering the center
     const innerRadius = 0;
-    // Card covers a circular area roughly equal to its half-diagonal
     const cardCoverRadius = Math.max(cardWidth, cardHeight) / 2;
-    // Outer radius: extend past the card with visible wedge area
     const wedgeVisibleThickness = Math.max(90, vmin * 0.13);
     const outerRadius = cardCoverRadius + wedgeVisibleThickness;
-    // Font sizes scale with viewport (vmin-based)
-    // Base: ~18px on 1080p, ~24px on 1440p, ~36px on 4K
     const labelFontSize = Math.round(Math.max(16, vmin * 0.018));
     const sublabelFontSize = Math.round(Math.max(12, vmin * 0.012));
     return { cardWidth, cardHeight, innerRadius, outerRadius, cardCoverRadius, labelFontSize, sublabelFontSize };
@@ -217,14 +222,12 @@ export function PixiCardActionMenu({
     const canMove = canSideways && !isInCombat;
     const canInfluence = canSideways && !isInCombat;
 
-    // Order: Basic (top), Attack (right-top), Block (right-bottom),
-    //        Powered (bottom), Influence (left-bottom), Move (left-top)
     return [
       {
         id: "basic",
         label: "Basic",
         type: "basic" as const,
-        weight: 1.5, // Slightly larger
+        weight: 1.5,
         disabled: !canBasic,
         ...getActionColors("basic", !canBasic),
       },
@@ -304,7 +307,6 @@ export function PixiCardActionMenu({
     if (options.length === 0) return [];
 
     const totalWeight = options.reduce((sum, item) => sum + item.weight, 0);
-    // Start from top (-π/2), offset by half of first wedge so it centers at top
     const firstWeight = options[0]?.weight ?? 1;
     const firstAngle = (firstWeight / totalWeight) * (2 * Math.PI);
     let currentAngle = -Math.PI / 2 - firstAngle / 2;
@@ -316,13 +318,40 @@ export function PixiCardActionMenu({
       const midAngle = (startAngle + endAngle) / 2;
       currentAngle = endAngle;
 
-      return {
-        ...option,
-        startAngle,
-        endAngle,
-        midAngle,
-      };
+      return { ...option, startAngle, endAngle, midAngle };
     });
+  }, []);
+
+  // Draw a wedge path
+  const drawWedge = useCallback((
+    graphics: Graphics,
+    innerR: number,
+    outerR: number,
+    startAngle: number,
+    endAngle: number,
+    color: number,
+    strokeColor: number,
+    strokeWidth: number
+  ) => {
+    graphics.clear();
+
+    if (innerR === 0) {
+      graphics.moveTo(0, 0);
+      graphics.arc(0, 0, outerR, startAngle, endAngle);
+      graphics.lineTo(0, 0);
+    } else {
+      const innerStart = polarToCartesian(innerR, startAngle);
+      const outerEnd = polarToCartesian(outerR, endAngle);
+
+      graphics.moveTo(innerStart.x, innerStart.y);
+      graphics.arc(0, 0, innerR, startAngle, endAngle);
+      graphics.lineTo(outerEnd.x, outerEnd.y);
+      graphics.arc(0, 0, outerR, endAngle, startAngle, true);
+      graphics.lineTo(innerStart.x, innerStart.y);
+    }
+
+    graphics.fill({ color, alpha: 0.95 });
+    graphics.stroke({ color: strokeColor, width: strokeWidth });
   }, []);
 
   // Handle action selection
@@ -345,7 +374,7 @@ export function PixiCardActionMenu({
     } else if (option.type === "sideways" && option.sidewaysAs) {
       onPlaySideways(option.sidewaysAs);
     }
-  }, [actionOptions, onPlayBasic, onPlayPowered, onPlaySideways, manaSources, playability.requiredMana]);
+  }, [actionOptions, manaSources, onPlayBasic, onPlayPowered, onPlaySideways, playability.requiredMana]);
 
   // Handle mana selection
   const handleManaSelect = useCallback((id: string) => {
@@ -356,40 +385,6 @@ export function PixiCardActionMenu({
       onPlayPowered(source);
     }
   }, [manaSources, onPlayPowered]);
-
-  // Draw a wedge path (full pie slice when innerR = 0, annular sector otherwise)
-  const drawWedge = useCallback((
-    graphics: Graphics,
-    innerR: number,
-    outerR: number,
-    startAngle: number,
-    endAngle: number,
-    color: number,
-    strokeColor: number,
-    strokeWidth: number
-  ) => {
-    graphics.clear();
-
-    if (innerR === 0) {
-      // Full pie slice: start at center, arc at outer radius, back to center
-      graphics.moveTo(0, 0);
-      graphics.arc(0, 0, outerR, startAngle, endAngle);
-      graphics.lineTo(0, 0);
-    } else {
-      // Annular sector (ring segment)
-      const innerStart = polarToCartesian(innerR, startAngle);
-      const outerEnd = polarToCartesian(outerR, endAngle);
-
-      graphics.moveTo(innerStart.x, innerStart.y);
-      graphics.arc(0, 0, innerR, startAngle, endAngle);
-      graphics.lineTo(outerEnd.x, outerEnd.y);
-      graphics.arc(0, 0, outerR, endAngle, startAngle, true);
-      graphics.lineTo(innerStart.x, innerStart.y);
-    }
-
-    graphics.fill({ color, alpha: 0.95 });
-    graphics.stroke({ color: strokeColor, width: strokeWidth });
-  }, []);
 
   // Build the pie menu using the shared PixiJS Application
   useEffect(() => {
@@ -615,17 +610,7 @@ export function PixiCardActionMenu({
       if (rootContainerRef.current) {
         // Clear filters before destroying to prevent stencil/mask errors
         // Per PixiJS docs: "Release memory: container.filters = null"
-        const clearFiltersRecursive = (container: Container) => {
-          if (container.filters) {
-            container.filters = [];
-          }
-          for (const child of container.children) {
-            if (child instanceof Container) {
-              clearFiltersRecursive(child);
-            }
-          }
-        };
-        clearFiltersRecursive(rootContainerRef.current);
+        cleanupFilters(rootContainerRef.current);
 
         if (rootContainerRef.current.parent) {
           rootContainerRef.current.parent.removeChild(rootContainerRef.current);

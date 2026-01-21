@@ -137,7 +137,7 @@ import {
   validateUnassignBlockTargetEnemy,
   validateHasAvailableBlock,
   validateHasAssignedBlockToUnassign,
-} from "./combatValidators.js";
+} from "./combatValidators/index.js";
 
 // Unit validators
 import {

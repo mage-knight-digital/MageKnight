@@ -107,6 +107,12 @@ export class AnimationManager {
     const completed: string[] = [];
 
     for (const [id, tween] of this.tweens) {
+      // Guard: skip if container was destroyed (prevents null access errors)
+      if (tween.target.destroyed) {
+        completed.push(id);
+        continue;
+      }
+
       tween.elapsed += deltaMs;
       const progress = Math.min(tween.elapsed / tween.duration, 1);
       const easedProgress = tween.easing(progress);
@@ -238,6 +244,24 @@ export class AnimationManager {
    */
   cancelAll(): void {
     this.tweens.clear();
+  }
+
+  /**
+   * Cancel all tweens targeting a specific container
+   */
+  cancelForTarget(target: Container): void {
+    for (const [id, tween] of this.tweens) {
+      if (tween.target === target) {
+        this.tweens.delete(id);
+      }
+    }
+  }
+
+  /**
+   * Get the number of active tweens
+   */
+  get activeCount(): number {
+    return this.tweens.size;
   }
 }
 
