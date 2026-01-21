@@ -17,6 +17,21 @@
   );
   z-index: 250; /* Must be above PixiJS hand canvas (z-index: 200) - matches CardActionMenu */
   animation: choice-overlay-fade-in 0.25s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Combat variant - minimal overlay so combat scene stays visible */
+.choice-selection-overlay--combat {
+  /* Very subtle darkening - just enough to make the menu pop */
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+  /* No blur in combat - keep the action crisp */
+  backdrop-filter: none;
 }
 
 @keyframes choice-overlay-fade-in {

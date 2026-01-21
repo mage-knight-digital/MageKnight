@@ -132,6 +132,7 @@ export function ChoiceSelection() {
   const pendingChoice = player?.pendingChoice;
   const cardId = pendingChoice?.cardId ?? "";
   const canUndo = state?.validActions.turn?.canUndo ?? false;
+  const isInCombat = state?.combat !== null;
 
   // Register this component as an active overlay to disable background interactions
   // Must be called unconditionally - the hook handles the conditional registration
@@ -208,8 +209,13 @@ export function ChoiceSelection() {
     ? "choice-selection choice-selection--positioned"
     : "choice-selection choice-selection--centered";
 
+  // Use a more subtle overlay when in combat so the combat scene stays visible
+  const overlayClass = isInCombat
+    ? "choice-selection-overlay choice-selection-overlay--combat"
+    : "choice-selection-overlay";
+
   return (
-    <div className="choice-selection-overlay" onClick={canUndo ? handleUndo : undefined}>
+    <div className={overlayClass} onClick={canUndo ? handleUndo : undefined}>
       <div className={containerClass} style={menuStyle} onClick={(e) => e.stopPropagation()}>
         {/* Card in center */}
         <div className="choice-selection__card" style={cardStyle ?? undefined} />

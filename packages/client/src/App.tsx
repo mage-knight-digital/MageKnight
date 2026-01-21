@@ -68,7 +68,10 @@ function GameView() {
   }
 
   // Show combat overlay when in combat
-  const inCombat = state.combat && state.validActions.combat;
+  // Note: We check state.combat existence, not validActions.combat
+  // validActions.combat may be undefined during choice resolution, but we still want
+  // to show the combat scene (enemies, phase rail, etc.) while the player makes their choice
+  const inCombat = state.combat !== null;
 
   // Check if we're in tactic selection mode
   // Only dim the world after intro completes - don't dim during the theatrical reveal

@@ -100,7 +100,9 @@ interface StrikingEnemy {
 
 interface CombatOverlayProps {
   combat: ClientCombatState;
-  combatOptions: CombatOptions;
+  // combatOptions may be undefined during choice resolution - combat scene stays visible
+  // but action buttons are disabled
+  combatOptions?: CombatOptions;
 }
 
 
@@ -629,7 +631,8 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   }, []);
 
   // Calculate if all enemies can be defeated (for continue button pulse)
-  const allEnemiesDefeatable = combatOptions.enemies?.every(
+  // Note: combatOptions may be undefined during choice resolution
+  const allEnemiesDefeatable = combatOptions?.enemies?.every(
     e => e.isDefeated || e.canDefeat
   ) ?? false;
 
@@ -665,7 +668,7 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
         <div className="combat-scene__phase-rail">
           <VerticalPhaseRail
             currentPhase={phase}
-            canEndPhase={combatOptions.canEndPhase}
+            canEndPhase={combatOptions?.canEndPhase ?? false}
             onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
             allEnemiesDefeatable={allEnemiesDefeatable && (isAttackPhase || isRangedSiegePhase)}
           />
@@ -697,18 +700,19 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
           {/* Enemies */}
           <div className="combat-scene__enemies">
             {enemies.map((enemy) => {
-              const blockOption = combatOptions.blocks?.find(b => b.enemyInstanceId === enemy.instanceId);
-              const damageOption = combatOptions.damageAssignments?.find(d => d.enemyInstanceId === enemy.instanceId);
+              // Note: combatOptions may be undefined during choice resolution
+              const blockOption = combatOptions?.blocks?.find(b => b.enemyInstanceId === enemy.instanceId);
+              const damageOption = combatOptions?.damageAssignments?.find(d => d.enemyInstanceId === enemy.instanceId);
 
               // Phase 5: Use incremental attack allocation from server
-              const enemyAttackState = combatOptions.enemies?.find(e => e.enemyInstanceId === enemy.instanceId);
-              const assignableAttacks = combatOptions.assignableAttacks?.filter(a => a.enemyInstanceId === enemy.instanceId) ?? [];
-              const unassignableAttacks = combatOptions.unassignableAttacks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
+              const enemyAttackState = combatOptions?.enemies?.find(e => e.enemyInstanceId === enemy.instanceId);
+              const assignableAttacks = combatOptions?.assignableAttacks?.filter(a => a.enemyInstanceId === enemy.instanceId) ?? [];
+              const unassignableAttacks = combatOptions?.unassignableAttacks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
 
               // Phase 6: Use incremental block allocation from server
-              const enemyBlockState = combatOptions.enemyBlockStates?.find(e => e.enemyInstanceId === enemy.instanceId);
-              const assignableBlocks = combatOptions.assignableBlocks?.filter(b => b.enemyInstanceId === enemy.instanceId) ?? [];
-              const unassignableBlocks = combatOptions.unassignableBlocks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
+              const enemyBlockState = combatOptions?.enemyBlockStates?.find(e => e.enemyInstanceId === enemy.instanceId);
+              const assignableBlocks = combatOptions?.assignableBlocks?.filter(b => b.enemyInstanceId === enemy.instanceId) ?? [];
+              const unassignableBlocks = combatOptions?.unassignableBlocks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
 
               const isStriking = strikingEnemy?.instanceId === enemy.instanceId;
               const strikeKey = isStriking ? strikingEnemy.strikeKey : undefined;
@@ -751,7 +755,7 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
           </div>
 
           {/* Drag-drop pool display (desktop only) */}
-          {useDragDrop && (isAttackPhase || isRangedSiegePhase) && combatOptions.availableAttack && (
+          {useDragDrop && (isAttackPhase || isRangedSiegePhase) && combatOptions?.availableAttack && (
             <div className="combat-scene__pool">
               <AttackPool
                 availableAttack={combatOptions.availableAttack}
@@ -760,14 +764,14 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
               />
             </div>
           )}
-          {useDragDrop && isBlockPhase && combatOptions.availableBlock && (
+          {useDragDrop && isBlockPhase && combatOptions?.availableBlock && (
             <div className="combat-scene__pool">
               <BlockPool availableBlock={combatOptions.availableBlock} />
             </div>
           )}
 
           {/* Legacy accumulated power display (mobile fallback or when pool data unavailable) */}
-          {(!useDragDrop || (!combatOptions.availableAttack && !combatOptions.availableBlock)) && (
+          {(!useDragDrop || (!combatOptions?.availableAttack && !combatOptions?.availableBlock)) && (
             <AccumulatorDisplay />
           )}
         </div>

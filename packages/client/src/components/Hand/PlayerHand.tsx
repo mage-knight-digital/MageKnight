@@ -2,8 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { PixiFloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./PixiFloatingHand";
 import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
 import { TacticCarouselPane } from "./TacticCarouselPane";
-import { CardActionMenu } from "../CardActionMenu";
-import { RadialMenu, type RadialMenuItem } from "../RadialMenu";
+import { CardActionMenu, PieMenu, type PieMenuItem } from "../CardActionMenu";
 import {
   PLAY_CARD_ACTION,
   PLAY_CARD_SIDEWAYS_ACTION,
@@ -96,27 +95,30 @@ function getAvailableManaSources(
   return sources;
 }
 
-function getColorEmoji(color: ManaColor): string {
-  switch (color) {
-    case MANA_RED: return "🔴";
-    case MANA_BLUE: return "🔵";
-    case MANA_GREEN: return "🟢";
-    case MANA_WHITE: return "⚪";
-    case MANA_GOLD: return "🟡";
-    case MANA_BLACK: return "⚫";
-    default: return "⬜";
-  }
-}
-
 function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 /**
- * Convert mana sources to radial menu items
+ * Get wedge color for mana - matches the combat mana theme from CombatOverlay
  */
-function manaSourceToRadialItem(source: ManaSourceInfo, index: number): RadialMenuItem {
-  const colorEmoji = getColorEmoji(source.color);
+function getManaWedgeColor(color: ManaColor): string {
+  switch (color) {
+    case MANA_RED: return "rgba(160, 64, 64, 0.95)";    // Deep ruby
+    case MANA_BLUE: return "rgba(74, 112, 144, 0.95)";  // Steel blue
+    case MANA_GREEN: return "rgba(58, 128, 96, 0.95)";  // Forest green
+    case MANA_WHITE: return "rgba(200, 192, 176, 0.95)"; // Ivory
+    case MANA_GOLD: return "rgba(212, 165, 116, 0.95)"; // Antique gold
+    case MANA_BLACK: return "rgba(80, 85, 96, 0.95)";   // Dark gray
+    default: return "rgba(70, 70, 80, 0.95)";
+  }
+}
+
+/**
+ * Convert mana sources to pie menu items with proper styling
+ */
+function manaSourceToPieItem(source: ManaSourceInfo, index: number): PieMenuItem {
+  const baseColor = getManaWedgeColor(source.color);
 
   switch (source.type) {
     case MANA_SOURCE_CRYSTAL:
@@ -125,13 +127,15 @@ function manaSourceToRadialItem(source: ManaSourceInfo, index: number): RadialMe
         icon: "💎",
         label: capitalize(source.color),
         sublabel: "Crystal",
+        color: baseColor,
       };
     case MANA_SOURCE_TOKEN:
       return {
         id: `token-${source.color}-${index}`,
-        icon: colorEmoji,
+        icon: "✦",
         label: capitalize(source.color),
         sublabel: "Token",
+        color: baseColor,
       };
     case MANA_SOURCE_DIE:
       if (source.color === MANA_GOLD) {
@@ -140,6 +144,7 @@ function manaSourceToRadialItem(source: ManaSourceInfo, index: number): RadialMe
           icon: "🎲",
           label: "Gold",
           sublabel: "Wild Die",
+          color: baseColor,
         };
       }
       return {
@@ -147,12 +152,14 @@ function manaSourceToRadialItem(source: ManaSourceInfo, index: number): RadialMe
         icon: "🎲",
         label: capitalize(source.color),
         sublabel: "Die",
+        color: baseColor,
       };
     default:
       return {
         id: `unknown-${index}`,
-        icon: colorEmoji,
+        icon: "✦",
         label: capitalize(source.color),
+        color: baseColor,
       };
   }
 }
@@ -512,7 +519,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         />
       )}
 
-      {/* Spell mana source selection - radial menu (two-step: black then color) */}
+      {/* Spell mana source selection - PieMenu (two-step: black then color) */}
       {menuState.type === "spell-mana-select" && selectedCard && (() => {
         const sources = getAvailableManaSources(
           state,
@@ -525,20 +532,61 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
           return null;
         }
 
+        const stepLabel = menuState.step === "black"
+          ? "Select Black Mana"
+          : `Select ${capitalize(menuState.spellColor)} Mana`;
+
+        // Use subtle overlay in combat so combat scene stays visible
+        const overlayBackground = isInCombat
+          ? "radial-gradient(ellipse at center, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.5) 100%)"
+          : "radial-gradient(ellipse at center, rgba(15, 10, 5, 0.5) 0%, rgba(10, 8, 5, 0.7) 100%)";
+
         return (
-          <RadialMenu
-            items={sources.map((source, idx) => manaSourceToRadialItem(source, idx))}
-            onSelect={(id) => {
-              const idx = sources.findIndex((s, i) =>
-                manaSourceToRadialItem(s, i).id === id
-              );
-              const source = sources[idx];
-              if (idx !== -1 && source) {
-                handleSpellManaSourceSelect(source);
-              }
+          <div
+            className="spell-mana-overlay"
+            onClick={handleSpellBackToBlack}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: overlayBackground,
+              zIndex: 250,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "column",
+              gap: "1rem",
             }}
-            onCancel={handleSpellBackToBlack}
-          />
+          >
+            <div
+              style={{
+                color: "#fff",
+                fontSize: "1.1rem",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)",
+              }}
+            >
+              {stepLabel}
+            </div>
+            <div onClick={(e) => e.stopPropagation()}>
+              <PieMenu
+                items={sources.map((source, idx) => manaSourceToPieItem(source, idx))}
+                onSelect={(id) => {
+                  const idx = sources.findIndex((s, i) =>
+                    manaSourceToPieItem(s, i).id === id
+                  );
+                  const source = sources[idx];
+                  if (idx !== -1 && source) {
+                    handleSpellManaSourceSelect(source);
+                  }
+                }}
+                onCancel={handleSpellBackToBlack}
+                size={320}
+                centerContent={<span style={{ fontSize: "0.75rem", color: "#888" }}>Back</span>}
+              />
+            </div>
+          </div>
         );
       })()}
 
