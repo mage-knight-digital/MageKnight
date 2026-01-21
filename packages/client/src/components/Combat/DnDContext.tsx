@@ -3,7 +3,7 @@
  * for damage and block allocation in combat phases.
  */
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import type { ReactNode } from "react";
 import {
   DndContext,
@@ -13,9 +13,8 @@ import {
   useSensor,
   useSensors,
   pointerWithin,
-  useDndMonitor,
 } from "@dnd-kit/core";
-import type { DragStartEvent, DragEndEvent, DragOverEvent, DragMoveEvent } from "@dnd-kit/core";
+import type { DragStartEvent, DragEndEvent, DragOverEvent } from "@dnd-kit/core";
 import type { AttackType, AttackElement } from "@mage-knight/shared";
 
 // ============================================================================
@@ -70,12 +69,6 @@ function PowerLine({ start, end, element }: { start: Position; end: Position; el
   };
 
   const { primary, glow } = colors[element ?? "physical"];
-
-  // Calculate line properties
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const length = Math.sqrt(dx * dx + dy * dy);
-  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
   return (
     <svg

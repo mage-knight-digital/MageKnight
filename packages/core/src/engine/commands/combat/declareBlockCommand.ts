@@ -129,13 +129,6 @@ export function createDeclareBlockCommand(
       // Convert pendingBlock to BlockSource[] format for calculation
       const blockSources = pendingBlockToBlockSources(pendingBlock);
 
-      // Check if any block was assigned
-      const hasPendingBlock =
-        pendingBlock.physical > 0 ||
-        pendingBlock.fire > 0 ||
-        pendingBlock.ice > 0 ||
-        pendingBlock.coldFire > 0;
-
       // Calculate final block value including elemental efficiency and combat modifiers
       const effectiveBlockValue = getFinalBlockValue(
         blockSources,

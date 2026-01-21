@@ -121,14 +121,12 @@ export function EnemyCard({
 
   // Get DnD context - may not exist if not in DnD mode
   let dragStateActiveChip: DamageChipData | null = null;
-  let isOverAnyEnemy = false;
   try {
     const dndContext = useCombatDnD();
     // Only use if it's an attack chip (not block)
     if (dndContext.dragState.activeChip?.poolType === "attack") {
       dragStateActiveChip = dndContext.dragState.activeChip as DamageChipData;
     }
-    isOverAnyEnemy = dndContext.dragState.overEnemyId !== null;
   } catch {
     // Not in DnD context - that's fine
   }
