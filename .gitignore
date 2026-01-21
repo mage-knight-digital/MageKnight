@@ -5,6 +5,8 @@ dist/
 
 # Local working files (copyrighted PDFs, asset staging)
 _local/
+docs/rules/
+docs/sprites/
 
 # Build artifacts
 *.tsbuildinfo
