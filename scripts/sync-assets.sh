@@ -1,11 +1,18 @@
 #!/bin/bash
-# Sync assets to/from Backblaze B2
+# Sync assets to/from Backblaze B2 with optimized delta sync
 #
 # Usage:
-#   ./scripts/sync-assets.sh upload        # Upload assets to B2
-#   ./scripts/sync-assets.sh download      # Download assets from B2
-#   ./scripts/sync-assets.sh upload --all  # Upload assets + _local
-#   ./scripts/sync-assets.sh download --all # Download assets + _local
+#   ./scripts/sync-assets.sh upload           # Upload changed assets to B2
+#   ./scripts/sync-assets.sh download         # Download changed assets from B2
+#   ./scripts/sync-assets.sh upload --all     # Include _local directory
+#   ./scripts/sync-assets.sh download --all   # Include _local directory
+#   ./scripts/sync-assets.sh upload --dry-run # Preview what would be transferred
+#   ./scripts/sync-assets.sh status           # Show what would sync (both dirs)
+#
+# Optimizations:
+#   - Delta sync: Only transfers files where SIZE differs (not timestamps)
+#   - Excludes temp/backup files (.bak, .tmp, .DS_Store)
+#   - Parallel transfers for speed
 
 set -e
 
@@ -20,7 +27,18 @@ LOCAL_DIR="$PROJECT_DIR/_local"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# Sync options for bandwidth optimization
+# --compare-versions size: Only sync if file SIZE differs (ignores timestamps)
+#   This is key for multi-machine workflows where timestamps vary
+# --exclude-regex: Skip temp/backup files
+SYNC_OPTS=(
+    --compare-versions size
+    --exclude-regex '.*\.(bak|tmp|DS_Store)$'
+    --exclude-regex '.*/\..*'
+)
 
 # Check for b2 CLI
 if ! command -v b2 &> /dev/null; then
@@ -41,17 +59,43 @@ if [[ -z "$B2_APPLICATION_KEY_ID" || -z "$B2_APPLICATION_KEY" ]]; then
     exit 1
 fi
 
+# Show local directory sizes
+show_sizes() {
+    echo -e "${CYAN}Local sizes:${NC}"
+    if [[ -d "$ASSETS_DIR" ]]; then
+        echo -e "  assets: $(du -sh "$ASSETS_DIR" 2>/dev/null | cut -f1)"
+    fi
+    if [[ -d "$LOCAL_DIR" ]]; then
+        echo -e "  _local: $(du -sh "$LOCAL_DIR" 2>/dev/null | cut -f1)"
+    fi
+    echo ""
+}
+
 upload() {
     local include_local=$1
+    local dry_run=$2
+    local extra_opts=()
 
-    echo -e "${GREEN}Uploading assets to B2...${NC}"
-    b2 sync --delete "$ASSETS_DIR" "b2://$BUCKET/assets"
-
-    if [[ "$include_local" == "true" && -d "$LOCAL_DIR" ]]; then
-        echo -e "${GREEN}Uploading _local to B2...${NC}"
-        b2 sync --delete "$LOCAL_DIR" "b2://$BUCKET/_local"
+    if [[ "$dry_run" == "true" ]]; then
+        extra_opts+=(--dry-run)
+        echo -e "${YELLOW}DRY RUN - No files will be transferred${NC}"
+        echo ""
     fi
 
+    show_sizes
+
+    echo -e "${GREEN}Syncing assets to B2...${NC}"
+    echo -e "${CYAN}(Only files with different sizes will transfer)${NC}"
+    echo ""
+    b2 sync "${SYNC_OPTS[@]}" "${extra_opts[@]}" --delete "$ASSETS_DIR" "b2://$BUCKET/assets"
+
+    if [[ "$include_local" == "true" && -d "$LOCAL_DIR" ]]; then
+        echo ""
+        echo -e "${GREEN}Syncing _local to B2...${NC}"
+        b2 sync "${SYNC_OPTS[@]}" "${extra_opts[@]}" --delete "$LOCAL_DIR" "b2://$BUCKET/_local"
+    fi
+
+    echo ""
     echo -e "${GREEN}Done!${NC}"
 }
 
@@ -72,50 +116,123 @@ backup() {
 
 download() {
     local include_local=$1
+    local dry_run=$2
+    local extra_opts=()
 
-    # Backup before downloading
-    backup "$ASSETS_DIR" "assets"
-    if [[ "$include_local" == "true" ]]; then
-        backup "$LOCAL_DIR" "_local"
+    if [[ "$dry_run" == "true" ]]; then
+        extra_opts+=(--dry-run)
+        echo -e "${YELLOW}DRY RUN - No files will be transferred${NC}"
+        echo ""
+    else
+        # Only backup on actual downloads
+        backup "$ASSETS_DIR" "assets"
+        if [[ "$include_local" == "true" ]]; then
+            backup "$LOCAL_DIR" "_local"
+        fi
     fi
 
-    echo -e "${GREEN}Downloading assets from B2...${NC}"
+    show_sizes
+
+    echo -e "${GREEN}Syncing assets from B2...${NC}"
+    echo -e "${CYAN}(Only files with different sizes will transfer)${NC}"
+    echo ""
     mkdir -p "$ASSETS_DIR"
-    b2 sync --delete "b2://$BUCKET/assets" "$ASSETS_DIR"
+    b2 sync "${SYNC_OPTS[@]}" "${extra_opts[@]}" --delete "b2://$BUCKET/assets" "$ASSETS_DIR"
 
     if [[ "$include_local" == "true" ]]; then
-        echo -e "${GREEN}Downloading _local from B2...${NC}"
+        echo ""
+        echo -e "${GREEN}Syncing _local from B2...${NC}"
         mkdir -p "$LOCAL_DIR"
-        b2 sync --delete "b2://$BUCKET/_local" "$LOCAL_DIR"
+        b2 sync "${SYNC_OPTS[@]}" "${extra_opts[@]}" --delete "b2://$BUCKET/_local" "$LOCAL_DIR"
     fi
 
+    echo ""
     echo -e "${GREEN}Done!${NC}"
+}
+
+status() {
+    echo -e "${CYAN}Checking what would sync...${NC}"
+    echo ""
+
+    show_sizes
+
+    echo -e "${YELLOW}=== UPLOAD preview (local → B2) ===${NC}"
+    echo ""
+    b2 sync "${SYNC_OPTS[@]}" --dry-run --delete "$ASSETS_DIR" "b2://$BUCKET/assets" 2>&1 || true
+
+    if [[ -d "$LOCAL_DIR" ]]; then
+        echo ""
+        echo -e "${YELLOW}_local:${NC}"
+        b2 sync "${SYNC_OPTS[@]}" --dry-run --delete "$LOCAL_DIR" "b2://$BUCKET/_local" 2>&1 || true
+    fi
+
+    echo ""
+    echo -e "${YELLOW}=== DOWNLOAD preview (B2 → local) ===${NC}"
+    echo ""
+    b2 sync "${SYNC_OPTS[@]}" --dry-run --delete "b2://$BUCKET/assets" "$ASSETS_DIR" 2>&1 || true
+
+    if [[ -d "$LOCAL_DIR" ]]; then
+        echo ""
+        echo -e "${YELLOW}_local:${NC}"
+        b2 sync "${SYNC_OPTS[@]}" --dry-run --delete "b2://$BUCKET/_local" "$LOCAL_DIR" 2>&1 || true
+    fi
 }
 
 # Parse arguments
 COMMAND=$1
 INCLUDE_LOCAL="false"
+DRY_RUN="false"
 
-if [[ "$2" == "--all" ]]; then
-    INCLUDE_LOCAL="true"
-fi
+shift || true
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --all)
+            INCLUDE_LOCAL="true"
+            shift
+            ;;
+        --dry-run|-n)
+            DRY_RUN="true"
+            shift
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            exit 1
+            ;;
+    esac
+done
 
 case $COMMAND in
-    upload)
-        upload "$INCLUDE_LOCAL"
+    upload|up|u)
+        upload "$INCLUDE_LOCAL" "$DRY_RUN"
         ;;
-    download)
-        download "$INCLUDE_LOCAL"
+    download|down|d)
+        download "$INCLUDE_LOCAL" "$DRY_RUN"
+        ;;
+    status|s)
+        status
         ;;
     *)
-        echo "Usage: $0 [upload|download] [--all]"
+        echo "Usage: $0 [upload|download|status] [options]"
         echo ""
         echo "Commands:"
-        echo "  upload     Upload local assets to B2"
-        echo "  download   Download assets from B2"
+        echo "  upload, up, u      Sync local assets to B2 (only changed files)"
+        echo "  download, down, d  Sync assets from B2 (only changed files)"
+        echo "  status, s          Preview what would sync in both directions"
         echo ""
         echo "Options:"
-        echo "  --all      Include _local directory (rulebooks, sprites staging)"
+        echo "  --all              Include _local directory"
+        echo "  --dry-run, -n      Preview changes without transferring"
+        echo ""
+        echo "Examples:"
+        echo "  $0 up              # Quick upload at end of day"
+        echo "  $0 down            # Sync to another machine"
+        echo "  $0 status          # See what's different"
+        echo "  $0 up --dry-run    # Preview upload"
+        echo ""
+        echo "Bandwidth optimization:"
+        echo "  - Only files with DIFFERENT SIZES are transferred"
+        echo "  - Timestamps are ignored (safe across machines)"
+        echo "  - Temp files (.bak, .tmp, .DS_Store) excluded"
         exit 1
         ;;
 esac
