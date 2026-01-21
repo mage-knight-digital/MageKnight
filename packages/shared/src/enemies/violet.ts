@@ -19,7 +19,6 @@ import {
   ELEMENT_PHYSICAL,
   ELEMENT_FIRE,
   ELEMENT_ICE,
-  ELEMENT_COLD_FIRE,
 } from "../elements.js";
 import { ENEMY_COLOR_VIOLET, type EnemyDefinition } from "./types.js";
 import {
@@ -33,7 +32,6 @@ import {
   PHYSICAL_RESISTANCE,
   FIRE_RESISTANCE,
   ICE_RESISTANCE,
-  FIRE_ICE_RESISTANCE,
 } from "./resistances.js";
 
 // =============================================================================

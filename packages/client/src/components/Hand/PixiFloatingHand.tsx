@@ -30,6 +30,7 @@ import "./FloatingHand.css";
 const HOVER_LIFT_DURATION_MS = CARD_FAN_HOVER.durationSec * 1000; // ~265ms synced to audio
 const CARD_TO_MENU_DURATION_MS = 300; // Duration for card to animate to menu center
 const CARD_RETURN_DURATION_MS = 300; // Duration for card to animate back to hand
+const MENU_CARD_SCALE = 1.4; // Card scales up 40% when in menu (must match PixiCardActionMenu)
 const VIEW_MODE_TRANSITION_MS = 300; // Duration for view mode transitions
 
 // View mode position offsets (matching CSS transforms from FloatingHand.css)
@@ -219,6 +220,14 @@ export function PixiFloatingHand({
     const prevSelected = prevSelectedIndexRef.current;
     const animManager = animationManagerRef.current;
     const handContainer = handContainerRef.current;
+    const app = appRef.current;
+
+    // Raise/lower canvas z-index based on selection state
+    // When selected: z-index 300 (above pie menu at 250)
+    // When not selected: z-index 200 (normal)
+    if (app?.canvas) {
+      app.canvas.style.zIndex = selectedIndex !== null ? "300" : "200";
+    }
 
     // If we HAD a selected card and now we don't, animate it back to resting position
     if (prevSelected !== null && selectedIndex === null) {
@@ -226,10 +235,15 @@ export function PixiFloatingHand({
       // Clear the selection-in-progress flag
       selectionInProgressRef.current = null;
 
+      // Restore all cards visibility
+      cardContainersRef.current.forEach((container) => {
+        container.alpha = 1;
+      });
+
       const prevContainer = cardContainersRef.current.get(prevSelected);
       const pos = cardPositions[prevSelected];
       if (prevContainer && pos && animManager) {
-        // Animate back to resting position
+        // Animate back to resting position (scale back to 1)
         animManager.animate(`card-return-${prevSelected}`, prevContainer, {
           endX: pos.x,
           endY: pos.y,
@@ -560,17 +574,29 @@ export function PixiFloatingHand({
             const screenCenterY = window.innerHeight / 2;
             const targetLocal = handContainer.toLocal({ x: screenCenterX, y: screenCenterY });
 
-            // Adjust for card pivot (bottom center) - add half card height so card CENTER is at screen center
-            const targetY = targetLocal.y + (cardHeight / 2);
+            // Adjust for card pivot (bottom center) and SCALE
+            // Card scales to MENU_CARD_SCALE, so its visual height is cardHeight * scale
+            // To center the visual card, we need pivot at screenCenter + (visualHeight / 2)
+            const scaledCardHeight = cardHeight * MENU_CARD_SCALE;
+            const targetY = targetLocal.y + (scaledCardHeight / 2);
 
             // Bring card to front
             container.zIndex = 1000;
             handContainer.sortChildren();
 
+            // Hide all OTHER cards so they don't show above pie menu
+            cardContainersRef.current.forEach((otherContainer, idx) => {
+              if (idx !== cardIndex) {
+                otherContainer.alpha = 0;
+              }
+            });
+
             // ANIMATE RIGHT NOW - no waiting for React
+            // Card scales up as it moves to center for emphasis
             animManager.animate(`card-to-center-${cardIndex}`, container, {
               endX: targetLocal.x,
               endY: targetY,
+              endScale: MENU_CARD_SCALE,
               endRotation: 0,
               duration: CARD_TO_MENU_DURATION_MS,
               easing: Easing.easeOutCubic,
