@@ -26,8 +26,11 @@ import {
   ROUND_PHASE_TACTICS_SELECTION,
   ALL_DAY_TACTICS,
   ALL_NIGHT_TACTICS,
+  ENEMY_DIGGERS,
+  ELEMENT_PHYSICAL,
   type TacticId,
 } from "@mage-knight/shared";
+import type { CombatState, CombatPhase } from "../../types/combat.js";
 
 /**
  * Get the enemy ID part from a token ID (format: "enemyId_counter")
@@ -213,6 +216,32 @@ export function createTestGameState(
 }
 
 /**
+ * Create a game state where the player is at a village (for recruitment/interaction tests)
+ */
+export function createStateWithVillage(
+  playerOverrides: Partial<Player> = {}
+): GameState {
+  const player = createTestPlayer({
+    position: { q: 0, r: 0 },
+    ...playerOverrides,
+  });
+
+  const hexWithVillage = createTestHex(0, 0, undefined, createVillageSite());
+
+  return createTestGameState({
+    players: [player],
+    phase: GAME_PHASE_ROUND,
+    map: {
+      hexes: {
+        [hexKey({ q: 0, r: 0 })]: hexWithVillage,
+      },
+      tiles: [],
+      tileDeck: { countryside: [], core: [] },
+    },
+  });
+}
+
+/**
  * Create a game state ready for tactics selection phase
  */
 export function createTacticsSelectionState(
@@ -279,5 +308,43 @@ export function createTacticsSelectionState(
     tacticsSelectionOrder,
     currentTacticSelector: tacticsSelectionOrder[0] ?? null,
     ...overrides,
+  };
+}
+
+/**
+ * Create a combat state for unit tests with a default enemy
+ */
+export function createUnitCombatState(
+  phase: CombatPhase,
+  isAtFortifiedSite = false
+): CombatState {
+  return {
+    enemies: [
+      {
+        instanceId: "enemy_1",
+        enemyId: ENEMY_DIGGERS,
+        definition: {
+          id: ENEMY_DIGGERS,
+          name: "Diggers",
+          color: "green" as const,
+          attack: 3,
+          attackElement: ELEMENT_PHYSICAL,
+          armor: 3,
+          fame: 2,
+          resistances: { physical: false, fire: false, ice: false },
+          abilities: [],
+        },
+        isBlocked: false,
+        isDefeated: false,
+        damageAssigned: false,
+      },
+    ],
+    phase,
+    woundsThisCombat: 0,
+    attacksThisPhase: 0,
+    fameGained: 0,
+    isAtFortifiedSite,
+    unitsAllowed: true,
+    nightManaRules: false,
   };
 }
