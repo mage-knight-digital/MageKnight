@@ -320,7 +320,7 @@ export function PixiCardActionMenu({
     });
   }, [manaSources]);
 
-  // Calculate wedge geometry
+  // Calculate wedge geometry - centered at origin (0, 0)
   const calculateWedges = useCallback((options: ActionOption[], outerRadius: number, innerRadius: number): WedgeData[] => {
     if (options.length === 0) return [];
 
@@ -337,9 +337,9 @@ export function PixiCardActionMenu({
 
       const midAngle = (startAngle + endAngle) / 2;
 
-      // Build path points for wedge
-      const cx = outerRadius;
-      const cy = outerRadius;
+      // Build path points for wedge - centered at origin
+      const cx = 0;
+      const cy = 0;
       const inner = innerRadius;
       const outer = outerRadius - 2;
 
@@ -505,55 +505,22 @@ export function PixiCardActionMenu({
       app.stage.addChild(menuContainer);
       menuContainerRef.current = menuContainer;
 
-      // Create particle container (behind wedges)
+      // Create particle container (behind everything)
       const particleContainer = new Container();
       particleContainer.label = "particles";
       menuContainer.addChild(particleContainer);
 
-      // Load card texture and create card display
+      // Load card texture for later use
       const cardTexture = await getCardTexture(cardId);
       const cardHeight = sizes.cardHeight;
       const cardWidth = cardHeight * 0.667;
-
-      // Card container (centered)
-      const cardContainer = new Container();
-      cardContainer.label = "card";
-      cardContainerRef.current = cardContainer;
-
-      // Card glow (behind card)
-      const cardGlow = new Graphics();
-      cardGlow.circle(0, 0, cardWidth * 0.8);
-      cardGlow.fill({ color: COLORS.GLOW, alpha: 0.3 });
-      const blurFilter = new BlurFilter({ strength: 20 });
-      cardGlow.filters = [blurFilter];
-      cardContainer.addChild(cardGlow);
-
-      // Card sprite
-      const cardSprite = new Sprite(cardTexture);
-      cardSprite.anchor.set(0.5);
-      cardSprite.width = cardWidth;
-      cardSprite.height = cardHeight;
-      cardContainer.addChild(cardSprite);
-
-      // Card border
-      const cardBorder = new Graphics();
-      cardBorder.roundRect(-cardWidth / 2 - 3, -cardHeight / 2 - 3, cardWidth + 6, cardHeight + 6, 8);
-      cardBorder.stroke({ color: 0x5c4a3a, width: 3 });
-      cardBorder.roundRect(-cardWidth / 2 - 5, -cardHeight / 2 - 5, cardWidth + 10, cardHeight + 10, 10);
-      cardBorder.stroke({ color: 0x2d241c, width: 2 });
-      cardContainer.addChild(cardBorder);
-
-      menuContainer.addChild(cardContainer);
 
       // Calculate start position for card animation
       const startX = sourceRect.left + sourceRect.width / 2 - menuPosition.x;
       const startY = sourceRect.top + sourceRect.height / 2 - menuPosition.y;
       const startScale = sourceRect.height / cardHeight;
 
-      cardContainer.position.set(startX, startY);
-      cardContainer.scale.set(startScale);
-
-      // Build and render wedges
+      // Build and render wedges FIRST (so card renders on top)
       const outerRadius = sizes.pieSize / 2;
       const innerRadius = outerRadius * 0.42;
       const currentOptions = menuState.type === "action-select" ? actionOptions : manaOptions;
@@ -568,7 +535,7 @@ export function PixiCardActionMenu({
 
       wedges.forEach((wedge, index) => {
         const container = new Container();
-        container.pivot.set(outerRadius, outerRadius);
+        // No pivot needed - wedges are already centered at origin
 
         // Glow layer (initially hidden)
         const glow = new Graphics();
@@ -587,9 +554,9 @@ export function PixiCardActionMenu({
         fill.stroke({ color: COLORS.STROKE, width: 2 });
         container.addChild(fill);
 
-        // Labels
+        // Labels - centered at origin
         const labelRadius = (innerRadius + outerRadius) / 2;
-        const labelPos = polarToCartesian(outerRadius, outerRadius, labelRadius, wedge.midAngle);
+        const labelPos = polarToCartesian(0, 0, labelRadius, wedge.midAngle);
 
         // Main label
         const label = new Text({
@@ -735,9 +702,9 @@ export function PixiCardActionMenu({
         }, index * ANIMATION_DURATION.WEDGE_STAGGER);
       });
 
-      // Center circle
+      // Center circle - at origin
       const center = new Graphics();
-      center.circle(outerRadius, outerRadius, innerRadius - 4);
+      center.circle(0, 0, innerRadius - 4);
       center.fill({ color: COLORS.CENTER, alpha: 0.95 });
       center.stroke({ color: COLORS.STROKE, width: 3 });
       center.eventMode = "static";
@@ -745,14 +712,14 @@ export function PixiCardActionMenu({
 
       center.on("pointerenter", () => {
         center.clear();
-        center.circle(outerRadius, outerRadius, innerRadius - 4);
+        center.circle(0, 0, innerRadius - 4);
         center.fill({ color: COLORS.CENTER_HOVER, alpha: 0.95 });
         center.stroke({ color: 0xb46450, width: 3 });
       });
 
       center.on("pointerleave", () => {
         center.clear();
-        center.circle(outerRadius, outerRadius, innerRadius - 4);
+        center.circle(0, 0, innerRadius - 4);
         center.fill({ color: COLORS.CENTER, alpha: 0.95 });
         center.stroke({ color: COLORS.STROKE, width: 3 });
       });
@@ -767,7 +734,7 @@ export function PixiCardActionMenu({
 
       wedgeContainer.addChild(center);
 
-      // Center label
+      // Center label - at origin
       const centerLabel = new Text({
         text: menuState.type === "mana-select" ? "Back" : "Cancel",
         style: {
@@ -779,12 +746,45 @@ export function PixiCardActionMenu({
         },
       });
       centerLabel.anchor.set(0.5);
-      centerLabel.position.set(outerRadius, outerRadius);
+      centerLabel.position.set(0, 0);
       centerLabel.eventMode = "none";
       wedgeContainer.addChild(centerLabel);
 
-      // Position wedge container centered
-      wedgeContainer.position.set(-outerRadius, -outerRadius);
+      // wedgeContainer is already centered at origin, no offset needed
+
+      // Card container - added AFTER wedges so it renders on top (in the center hole)
+      const cardContainer = new Container();
+      cardContainer.label = "card";
+      cardContainerRef.current = cardContainer;
+
+      // Card glow (behind card)
+      const cardGlow = new Graphics();
+      cardGlow.circle(0, 0, cardWidth * 0.8);
+      cardGlow.fill({ color: COLORS.GLOW, alpha: 0.3 });
+      const blurFilter = new BlurFilter({ strength: 20 });
+      cardGlow.filters = [blurFilter];
+      cardContainer.addChild(cardGlow);
+
+      // Card sprite
+      const cardSprite = new Sprite(cardTexture);
+      cardSprite.anchor.set(0.5);
+      cardSprite.width = cardWidth;
+      cardSprite.height = cardHeight;
+      cardContainer.addChild(cardSprite);
+
+      // Card border
+      const cardBorder = new Graphics();
+      cardBorder.roundRect(-cardWidth / 2 - 3, -cardHeight / 2 - 3, cardWidth + 6, cardHeight + 6, 8);
+      cardBorder.stroke({ color: 0x5c4a3a, width: 3 });
+      cardBorder.roundRect(-cardWidth / 2 - 5, -cardHeight / 2 - 5, cardWidth + 10, cardHeight + 10, 10);
+      cardBorder.stroke({ color: 0x2d241c, width: 2 });
+      cardContainer.addChild(cardBorder);
+
+      menuContainer.addChild(cardContainer);
+
+      // Set card's initial position for animation
+      cardContainer.position.set(startX, startY);
+      cardContainer.scale.set(startScale);
 
       // Entry animations
       animManager.animate("menu-entry", menuContainer, {
