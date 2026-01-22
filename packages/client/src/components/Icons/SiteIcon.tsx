@@ -43,7 +43,7 @@ const SITE_IMAGE_PATHS: Record<SiteIconType, string> = {
   monastery: "/assets/sites/monastery.png",
   village: "/assets/sites/village.png",
   spawning_grounds: "/assets/sites/spawning_grounds.png",
-  magical_glade: "/assets/sites/refugee_camp.png",  // No magical glade image, use camp
+  magical_glade: "/assets/sites/magic_glade.png",
   camp: "/assets/sites/refugee_camp.png",
   monster_den: "/assets/sites/orc_marauder.png",
   tomb: "/assets/sites/tomb.png",
