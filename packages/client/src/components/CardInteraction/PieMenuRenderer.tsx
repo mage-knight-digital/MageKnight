@@ -7,11 +7,13 @@
  * Uses the shared PixiJS Application from PixiAppContext to avoid WebGL context conflicts.
  */
 
-import { useEffect, useRef, useCallback, useId } from "react";
-import { Container, Graphics, Text, BlurFilter } from "pixi.js";
+import { useEffect, useRef, useCallback, useId, useState } from "react";
+import { Container, Graphics, Text, BlurFilter, Sprite, Texture } from "pixi.js";
+import type { CardId } from "@mage-knight/shared";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { UI_COLORS } from "./utils/colorHelpers";
+import { getCardTexture } from "../../utils/pixiTextureLoader";
 
 // ============================================================================
 // Types
@@ -65,6 +67,11 @@ export interface PieMenuRendererProps {
   readonly overlayOpacity?: number;
   /** Center label text */
   readonly centerLabel?: string;
+  /** Card ID to render in center (for effect-choice state) */
+  readonly centerCardId?: CardId;
+  /** Card dimensions for center card rendering */
+  readonly cardWidth?: number;
+  readonly cardHeight?: number;
 }
 
 // ============================================================================
@@ -95,6 +102,9 @@ export function PieMenuRenderer({
   showOverlay = true,
   overlayOpacity = 0.7,
   centerLabel,
+  centerCardId,
+  cardWidth: cardWidthProp,
+  cardHeight: cardHeightProp,
 }: PieMenuRendererProps) {
   const uniqueId = useId();
   const { app, overlayLayer } = usePixiApp();
@@ -103,6 +113,16 @@ export function PieMenuRenderer({
   const animManagerRef = useRef<AnimationManager | null>(null);
   const isDestroyedRef = useRef(false);
   const timeoutIdsRef = useRef<number[]>([]);
+
+  // Load card texture if centerCardId is provided
+  const [cardTexture, setCardTexture] = useState<Texture | null>(null);
+  useEffect(() => {
+    if (!centerCardId) {
+      setCardTexture(null);
+      return;
+    }
+    getCardTexture(centerCardId).then(setCardTexture);
+  }, [centerCardId]);
 
   // Keep callbacks in refs to avoid stale closures
   const onCancelRef = useRef(onCancel);
@@ -409,6 +429,30 @@ export function PieMenuRenderer({
     }, 200);
     timeoutIdsRef.current.push(glowTimeoutId);
 
+    // Center card (for effect-choice state when card is no longer in hand)
+    if (cardTexture && cardWidthProp && cardHeightProp) {
+      const cardSprite = new Sprite(cardTexture);
+      cardSprite.width = cardWidthProp;
+      cardSprite.height = cardHeightProp;
+      // Center the card (anchor at center)
+      cardSprite.anchor.set(0.5, 0.5);
+      cardSprite.position.set(0, 0);
+      cardSprite.alpha = 0;
+      cardSprite.zIndex = 500; // Above wedges
+      menuContainer.addChild(cardSprite);
+
+      // Animate card fade in
+      const cardTimeoutId = window.setTimeout(() => {
+        if (isDestroyedRef.current || !cardSprite.parent) return;
+        animManager.animate("center-card", cardSprite, {
+          endAlpha: 1,
+          duration: 200,
+          easing: Easing.easeOutQuad,
+        });
+      }, 100);
+      timeoutIdsRef.current.push(cardTimeoutId);
+    }
+
     // Center label
     if (centerLabel) {
       const centerText = new Text({
@@ -486,6 +530,9 @@ export function PieMenuRenderer({
     showOverlay,
     overlayOpacity,
     centerLabel,
+    cardTexture,
+    cardWidthProp,
+    cardHeightProp,
   ]);
 
   // Escape key handler

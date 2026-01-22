@@ -87,9 +87,16 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   }, [handView, onOfferViewChange]);
 
   // Sync local menuState with CardInteraction context state
-  // When context state returns to idle (action completed), clear local state
+  // Clear menuState when:
+  // - context returns to idle (action completed)
+  // - context transitions to completing/effect-choice (card has been played, no longer in hand)
   useEffect(() => {
-    if (cardInteractionState.type === "idle" && menuState.type !== "none") {
+    const shouldClearMenu =
+      cardInteractionState.type === "idle" ||
+      cardInteractionState.type === "completing" ||
+      cardInteractionState.type === "effect-choice";
+
+    if (shouldClearMenu && menuState.type !== "none") {
       setMenuState({ type: "none" });
     }
   }, [cardInteractionState.type, menuState.type]);

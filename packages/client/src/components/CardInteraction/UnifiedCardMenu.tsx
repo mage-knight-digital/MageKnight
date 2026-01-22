@@ -362,7 +362,7 @@ export function UnifiedCardMenu() {
     // Font sizes scale with viewport
     const labelFontSize = Math.round(Math.max(16, vmin * 0.018));
     const sublabelFontSize = Math.round(Math.max(12, vmin * 0.012));
-    return { outerRadius, cardCoverRadius, labelFontSize, sublabelFontSize };
+    return { outerRadius, cardCoverRadius, labelFontSize, sublabelFontSize, cardWidth, cardHeight };
   }, []);
 
   // Don't render if idle or completing
@@ -373,6 +373,10 @@ export function UnifiedCardMenu() {
   ) {
     return null;
   }
+
+  // For effect-choice state, we need to render the card in the center since it's no longer in the hand
+  const showCenterCard = interactionState.type === "effect-choice";
+  const centerCardId = showCenterCard ? interactionState.cardId : undefined;
 
   return (
     <PieMenuRenderer
@@ -393,6 +397,9 @@ export function UnifiedCardMenu() {
           ? menuConfig.config.centerLabel
           : undefined
       }
+      centerCardId={centerCardId}
+      cardWidth={sizes.cardWidth}
+      cardHeight={sizes.cardHeight}
     />
   );
 }
