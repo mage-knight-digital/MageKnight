@@ -569,16 +569,29 @@ export function PixiFloatingHand({
             // Cancel any hover animation
             animManager.cancel(`card-hover-${cardIndex}`);
 
-            // Calculate target: center of screen in LOCAL coordinates
+            // Calculate target: center of screen
             const screenCenterX = window.innerWidth / 2;
             const screenCenterY = window.innerHeight / 2;
-            const targetLocal = handContainer.toLocal({ x: screenCenterX, y: screenCenterY });
 
-            // Adjust for card pivot (bottom center) and SCALE
-            // Card scales to MENU_CARD_SCALE, so its visual height is cardHeight * scale
-            // To center the visual card, we need pivot at screenCenter + (visualHeight / 2)
-            const scaledCardHeight = cardHeight * MENU_CARD_SCALE;
-            const targetY = targetLocal.y + (scaledCardHeight / 2);
+            // Get the hand container's current scale (affects how local units map to screen pixels)
+            const containerScale = handContainer.scale.x; // Assumes uniform scaling
+
+            // Card pivot is at bottom-center. After scaling to MENU_CARD_SCALE, the visual height is:
+            //   cardHeight * MENU_CARD_SCALE * containerScale (in screen pixels)
+            // To center the card visually on screen, the pivot (bottom-center) needs to be at:
+            //   screenCenterY + (visualHeight / 2)
+            const visualCardHeight = cardHeight * MENU_CARD_SCALE * containerScale;
+            const pivotTargetY = screenCenterY + (visualCardHeight / 2);
+
+            // Convert the desired pivot position from screen coords to local coords
+            const targetLocal = handContainer.toLocal({ x: screenCenterX, y: pivotTargetY });
+
+            // Additional offset: the card container scales around its pivot (bottom-center),
+            // but the sprite inside is anchored at top-left. When scaling up, the sprite
+            // extends upward from the pivot, but also shifts because the container's
+            // local origin (0,0) moves relative to the pivot during scaling.
+            // Empirically, we need a small downward shift to compensate.
+            const targetY = targetLocal.y + (cardHeight * 0.15);
 
             // Bring card to front
             container.zIndex = 1000;
