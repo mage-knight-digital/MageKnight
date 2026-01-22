@@ -24,6 +24,7 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useCardInteraction } from "../CardInteraction";
 
 /**
  * Get all available mana sources that can pay for a specific color.
@@ -195,6 +196,7 @@ export interface PlayerHandProps {
 export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const { state: cardInteractionState, dispatch: cardInteractionDispatch } = useCardInteraction();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
   const [handView, setHandView] = useState<HandView>("ready");
   // Default to tactics - most game loads are at round start with tactic selection
@@ -247,6 +249,14 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   useEffect(() => {
     onOfferViewChange?.(handView === "offer");
   }, [handView, onOfferViewChange]);
+
+  // Sync local menuState with CardInteraction context state
+  // When context state returns to idle (action completed), clear local state
+  useEffect(() => {
+    if (cardInteractionState.type === "idle" && menuState.type !== "none") {
+      setMenuState({ type: "none" });
+    }
+  }, [cardInteractionState.type, menuState.type]);
 
   // Keyboard controls:
   // 1/2/3/4 = direct view mode selection (offer/board/ready/focus)
@@ -342,11 +352,19 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
     if (menuState.type !== "none" && menuState.cardIndex === index) {
       // Clicking same card again deselects
       setMenuState({ type: "none" });
+      cardInteractionDispatch({ type: "CLOSE_MENU" });
     } else {
-      // Show card action menu
+      // Show card action menu - dispatch to new unified system
       setMenuState({ type: "card-action", cardIndex: index, sourceRect: rect });
+      cardInteractionDispatch({
+        type: "OPEN_MENU",
+        cardId,
+        cardIndex: index,
+        playability,
+        sourceRect: rect,
+      });
     }
-  }, [handArray, playableCardMap, menuState]);
+  }, [handArray, playableCardMap, menuState, cardInteractionDispatch]);
 
   // Handlers for CardActionMenu
   const handlePlayBasic = useCallback(() => {
@@ -382,7 +400,8 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   const handleCancel = useCallback(() => {
     setMenuState({ type: "none" });
-  }, []);
+    cardInteractionDispatch({ type: "CLOSE_MENU" });
+  }, [cardInteractionDispatch]);
 
   // Early return after all hooks
   if (!player || !Array.isArray(player.hand) || !state) {
@@ -458,7 +477,10 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   return (
     <>
-      {/* Card Action Menu - for non-spell cards (PixiJS version with full juice) */}
+      {/* Card menus are now handled by UnifiedCardMenu in App.tsx via CardInteractionContext */}
+      {/* The old PixiCardActionMenu and spell handling code below is kept for reference during transition */}
+
+      {/* TODO: Remove in Phase 4 cleanup
       {menuState.type === "card-action" && selectedCard && selectedPlayability && !selectedPlayability.isSpell && (
         <PixiCardActionMenu
           cardId={selectedCard}
@@ -474,26 +496,22 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         />
       )}
 
-      {/* Spell cards use PixiCardActionMenu with two-step mana selection */}
       {menuState.type === "card-action" && selectedCard && selectedPlayability && selectedPlayability.isSpell && (
         <PixiCardActionMenu
           cardId={selectedCard}
           playability={selectedPlayability}
           isInCombat={isInCombat}
           sourceRect={menuState.sourceRect}
-          manaSources={[]} // Empty - spell handling uses separate two-step flow
+          manaSources={[]}
           sizeMultiplier={handView === "focus" ? 1.4 : 1}
           onPlayBasic={handlePlayBasic}
           onPlayPowered={() => {
-            // Transition to spell mana selection - first check if black mana is available
             if (selectedPlayability?.requiredMana && selectedIndex !== null) {
               const blackSources = getAvailableManaSources(state, player, MANA_BLACK);
-
               if (blackSources.length === 0) {
                 console.warn("[Spell Powered] No black mana sources found, but canPlayPowered was true.");
                 return;
               }
-
               setMenuState({
                 type: "spell-mana-select",
                 cardIndex: selectedIndex,
@@ -507,33 +525,24 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
           onCancel={handleCancel}
         />
       )}
+      */}
 
-      {/* Spell mana source selection - PixiPieMenu (two-step: black then color) */}
+      {/* TODO: Remove in Phase 4 - Spell mana source selection handled by UnifiedCardMenu now
       {menuState.type === "spell-mana-select" && selectedCard && (() => {
         const sources = getAvailableManaSources(
           state,
           player,
           menuState.step === "black" ? MANA_BLACK : menuState.spellColor
         );
-
-        // No sources available - shouldn't happen but handle gracefully
-        if (sources.length === 0) {
-          return null;
-        }
-
+        if (sources.length === 0) return null;
         const items = sources.map((source, idx) => manaSourceToPixiPieItem(source, idx));
-
         return (
           <PixiPieMenu
             items={items}
             onSelect={(id) => {
-              const idx = sources.findIndex((s, i) =>
-                manaSourceToPixiPieItem(s, i).id === id
-              );
+              const idx = sources.findIndex((s, i) => manaSourceToPixiPieItem(s, i).id === id);
               const source = sources[idx];
-              if (idx !== -1 && source) {
-                handleSpellManaSourceSelect(source);
-              }
+              if (idx !== -1 && source) handleSpellManaSourceSelect(source);
             }}
             onCancel={handleSpellBackToBlack}
             overlayOpacity={isInCombat ? 0.4 : 0.7}
@@ -541,6 +550,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
           />
         );
       })()}
+      */}
 
       {/* Carousel track - slides horizontally between tactics, cards, and units */}
       {/* All panes are always rendered, positioned side by side */}

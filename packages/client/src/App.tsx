@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { GameProvider } from "./context/GameContext";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
+import { CardInteractionProvider, UnifiedCardMenu } from "./components/CardInteraction";
 import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
 import { AnimationDispatcherProvider } from "./contexts/AnimationDispatcherContext";
 import { CinematicProvider, useCinematic } from "./contexts/CinematicContext";
@@ -63,6 +64,11 @@ function GameView() {
     setIsOfferViewVisible(false);
   }, []);
 
+  // Handle navigating to unit offer from SitePanel
+  const handleNavigateToUnitOffer = useCallback(() => {
+    setIsOfferViewVisible(true);
+  }, []);
+
   if (!state) {
     return <div className="loading">Loading game state...</div>;
   }
@@ -88,6 +94,7 @@ function GameView() {
   return (
     <div className={appClassName}>
       {/* Overlays */}
+      <UnifiedCardMenu />
       <ChoiceSelection />
       <RewardSelection />
       <ManaStealDecision />
@@ -111,7 +118,7 @@ function GameView() {
 
       <main className="app__main">
         <div className="app__board">
-          <PixiHexGrid />
+          <PixiHexGrid onNavigateToUnitOffer={handleNavigateToUnitOffer} />
           <ManaSourceOverlay />
         </div>
       </main>
@@ -132,8 +139,10 @@ export function App() {
               <DebugDisplayProvider>
                 <PixiAppProvider>
                   <CardMenuPositionProvider>
-                    <GameView />
-                    <DebugPanel />
+                    <CardInteractionProvider>
+                      <GameView />
+                      <DebugPanel />
+                    </CardInteractionProvider>
                   </CardMenuPositionProvider>
                 </PixiAppProvider>
               </DebugDisplayProvider>

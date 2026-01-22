@@ -4,6 +4,7 @@ import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
+import { useCardInteraction } from "../CardInteraction";
 import { PixiPieMenu, type PixiPieMenuItem } from "../CardActionMenu";
 
 /**
@@ -112,14 +113,19 @@ export function ChoiceSelection() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const { position: savedPosition } = useCardMenuPosition();
+  const { state: cardInteractionState } = useCardInteraction();
 
   // Extract data before hooks (may be undefined if no pending choice)
   const pendingChoice = player?.pendingChoice;
   const canUndo = state?.validActions.turn?.canUndo ?? false;
   const isInCombat = state?.combat !== null;
 
+  // Don't render if UnifiedCardMenu is handling the interaction
+  // This covers all non-idle states since the unified menu owns the entire card interaction flow
+  const unifiedMenuHandling = cardInteractionState.type !== "idle";
+
   // Register this component as an active overlay to disable background interactions
-  useRegisterOverlay(!!pendingChoice);
+  useRegisterOverlay(!!pendingChoice && !unifiedMenuHandling);
 
   const handleSelectChoice = useCallback((choiceIndex: number) => {
     sendAction({
@@ -155,8 +161,8 @@ export function ChoiceSelection() {
     }
   }, [handleSelectChoice]);
 
-  // Don't render if no pending choice
-  if (!pendingChoice) {
+  // Don't render if no pending choice or if UnifiedCardMenu is handling it
+  if (!pendingChoice || unifiedMenuHandling) {
     return null;
   }
 
