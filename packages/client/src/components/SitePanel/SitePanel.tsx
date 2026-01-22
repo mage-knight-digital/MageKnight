@@ -8,11 +8,58 @@
  */
 
 import { useEffect, useState } from "react";
-import type { SiteOptions, TimeOfDay, ClientHexEnemy, EnemyAbilityType } from "@mage-knight/shared";
-import type { ClientHexState, ClientSite } from "@mage-knight/shared";
-import { TIME_OF_DAY_NIGHT, ENEMIES, ABILITY_DESCRIPTIONS, RESISTANCE_DESCRIPTIONS, ATTACK_ELEMENT_DESCRIPTIONS, getSitePanelInfo, type Element } from "@mage-knight/shared";
+import type { SiteOptions, TimeOfDay, ClientHexEnemy, EnemyAbilityType, UnitId } from "@mage-knight/shared";
+import type { ClientHexState, ClientSite, RecruitSite } from "@mage-knight/shared";
+import {
+  TIME_OF_DAY_NIGHT,
+  ENEMIES,
+  ABILITY_DESCRIPTIONS,
+  RESISTANCE_DESCRIPTIONS,
+  ATTACK_ELEMENT_DESCRIPTIONS,
+  getSitePanelInfo,
+  UNITS,
+  canRecruitAt,
+  RECRUIT_SITE_VILLAGE,
+  RECRUIT_SITE_KEEP,
+  RECRUIT_SITE_MAGE_TOWER,
+  RECRUIT_SITE_MONASTERY,
+  RECRUIT_SITE_CITY,
+  type Element,
+} from "@mage-knight/shared";
+import { useGame } from "../../hooks/useGame";
 import { SiteIcon, GameIcon, type SiteIconType, type GameIconType } from "../Icons";
 import "./SitePanel.css";
+
+// =============================================================================
+// Unit Recruitment Helpers
+// =============================================================================
+
+/**
+ * Map site type string to RecruitSite constant
+ */
+function getRecruitSiteFromType(siteType: string): RecruitSite | null {
+  switch (siteType) {
+    case "village": return RECRUIT_SITE_VILLAGE;
+    case "keep": return RECRUIT_SITE_KEEP;
+    case "mage_tower": return RECRUIT_SITE_MAGE_TOWER;
+    case "monastery": return RECRUIT_SITE_MONASTERY;
+    case "city": return RECRUIT_SITE_CITY;
+    default: return null;
+  }
+}
+
+/**
+ * Get units from the offer that can be recruited at the given site
+ */
+function getUnitsRecruitableAtSite(
+  unitOffer: readonly UnitId[],
+  recruitSite: RecruitSite
+): Array<{ id: UnitId; name: string }> {
+  return unitOffer
+    .map((unitId) => UNITS[unitId])
+    .filter((unit) => unit && canRecruitAt(unit, recruitSite))
+    .map((unit) => ({ id: unit.id, name: unit.name }));
+}
 
 // =============================================================================
 // Enemy Details Component
@@ -504,6 +551,8 @@ export interface SitePanelProps {
   isArrivalMode?: boolean;
   /** Current time of day (for enemy reveal info) */
   timeOfDay?: TimeOfDay;
+  /** Callback to navigate to unit offer panel */
+  onNavigateToUnitOffer?: () => void;
 }
 
 // Helper to format site name from type when siteOptions not available
@@ -563,10 +612,14 @@ export function SitePanel({
   onClose,
   isArrivalMode = false,
   timeOfDay,
+  onNavigateToUnitOffer,
 }: SitePanelProps) {
   // Track animation state
   const [isAnimating, setIsAnimating] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
+
+  // Get game state for unit offer
+  const { state } = useGame();
 
   // Handle open/close animation
   useEffect(() => {
@@ -631,6 +684,12 @@ export function SitePanel({
 
   // Compute fortification info (both modes)
   const fortificationInfo = computeFortificationInfo(siteType, hex?.enemies, isConquered);
+
+  // Compute recruitable units from the current offer
+  const recruitSite = getRecruitSiteFromType(siteType);
+  const recruitableUnits = recruitSite && state?.offers.units
+    ? getUnitsRecruitableAtSite(state.offers.units, recruitSite)
+    : null;
 
   return (
     <div className={`site-panel ${isAnimating ? "site-panel--open" : ""}`}>
@@ -715,9 +774,40 @@ export function SitePanel({
                   Services
                 </h3>
                 <div className="site-panel__section-content">
-                  {computedInfo.services.map((service, i) => (
-                    <p key={i} className="site-panel__description">{service}</p>
-                  ))}
+                  {computedInfo.services.map((service, i) => {
+                    // Check if this is the "Recruit units" service
+                    const isRecruitService = service.toLowerCase().includes("recruit");
+                    if (isRecruitService && recruitableUnits) {
+                      return (
+                        <div
+                          key={i}
+                          className={`site-panel__service ${onNavigateToUnitOffer ? "site-panel__service--clickable" : ""}`}
+                          onClick={onNavigateToUnitOffer}
+                        >
+                          <GameIcon type="block" size={20} className="site-panel__service-icon" />
+                          <div className="site-panel__service-text">
+                            <strong>Recruit Units</strong>
+                            {recruitableUnits.length > 0 ? (
+                              <>
+                                <span>{recruitableUnits.length} unit{recruitableUnits.length !== 1 ? "s" : ""} available</span>
+                                <ul className="site-panel__unit-list">
+                                  {recruitableUnits.map((unit) => (
+                                    <li key={unit.id}>{unit.name}</li>
+                                  ))}
+                                </ul>
+                                {onNavigateToUnitOffer && (
+                                  <span className="site-panel__view-offer-link">View in Offer</span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="site-panel__no-units">No matching units in current offer</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return <p key={i} className="site-panel__description">{service}</p>;
+                  })}
                 </div>
               </section>
             )}
@@ -825,11 +915,30 @@ export function SitePanel({
                     </div>
                   )}
                   {siteOptions.interactOptions.canRecruit && (
-                    <div className="site-panel__service">
+                    <div
+                      className={`site-panel__service ${onNavigateToUnitOffer ? "site-panel__service--clickable" : ""}`}
+                      onClick={onNavigateToUnitOffer}
+                    >
                       <GameIcon type="block" size={20} className="site-panel__service-icon" />
                       <div className="site-panel__service-text">
                         <strong>Recruit Units</strong>
-                        <span>Units available for hire</span>
+                        {recruitableUnits && recruitableUnits.length > 0 ? (
+                          <>
+                            <span>{recruitableUnits.length} unit{recruitableUnits.length !== 1 ? "s" : ""} available</span>
+                            <ul className="site-panel__unit-list">
+                              {recruitableUnits.map((unit) => (
+                                <li key={unit.id}>{unit.name}</li>
+                              ))}
+                            </ul>
+                            {onNavigateToUnitOffer && (
+                              <span className="site-panel__view-offer-link">View in Offer</span>
+                            )}
+                          </>
+                        ) : recruitableUnits ? (
+                          <span className="site-panel__no-units">No matching units in current offer</span>
+                        ) : (
+                          <span>Units available for hire</span>
+                        )}
                       </div>
                     </div>
                   )}

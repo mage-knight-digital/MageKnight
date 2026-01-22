@@ -543,6 +543,61 @@
   line-height: 1.4;
 }
 
+/* Clickable service item */
+.site-panel__service--clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  margin: -6px -8px;
+  padding: calc(6px + clamp(6px, 1vw, 10px)) calc(8px + clamp(8px, 1.2vw, 12px));
+  transition: background 0.2s ease;
+}
+
+.site-panel__service--clickable:hover {
+  background: rgba(100, 130, 160, 0.15);
+}
+
+/* Unit list within service text */
+.site-panel__unit-list {
+  margin: 4px 0 0 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.site-panel__unit-list li {
+  font-size: clamp(0.75rem, 1.1vw, 0.85rem);
+  color: #c4b898;
+  padding: 2px 0;
+  padding-left: 12px;
+  position: relative;
+}
+
+.site-panel__unit-list li::before {
+  content: "·";
+  position: absolute;
+  left: 0;
+  color: #8a7a60;
+}
+
+/* Link to view offer */
+.site-panel__view-offer-link {
+  display: inline-block;
+  color: #7ab8e0 !important;
+  font-size: clamp(0.7rem, 1.1vw, 0.8rem) !important;
+  margin-top: 6px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.site-panel__service--clickable:hover .site-panel__view-offer-link {
+  color: #98d0f8 !important;
+}
+
+/* No units available state */
+.site-panel__no-units {
+  color: #8a7a60 !important;
+  font-style: italic;
+}
+
 /* Effects */
 .site-panel__effect {
   display: flex;

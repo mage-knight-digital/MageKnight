@@ -52,10 +52,15 @@ import {
   type HexHoverEvent,
 } from "./pixi/rendering";
 
+export interface PixiHexGridProps {
+  /** Callback when user wants to navigate to unit offer panel */
+  onNavigateToUnitOffer?: () => void;
+}
+
 /**
  * PixiJS Hex Grid Component
  */
-export function PixiHexGrid() {
+export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
   // Refs for PixiJS objects
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
@@ -378,6 +383,7 @@ export function PixiHexGrid() {
         onClose={handleCloseSitePanel}
         isArrivalMode={false}
         timeOfDay={state?.timeOfDay}
+        onNavigateToUnitOffer={onNavigateToUnitOffer}
       />
     </>
   );
