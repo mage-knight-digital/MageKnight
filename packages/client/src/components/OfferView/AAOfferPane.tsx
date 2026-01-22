@@ -31,6 +31,11 @@ function calculateCardHeight(): number {
   return Math.min(Math.max(preferred, min), max);
 }
 
+interface AAOfferPaneProps {
+  /** Whether this pane is currently visible (for Pixi container visibility) */
+  visible?: boolean;
+}
+
 /**
  * Check if player is at a non-burned Monastery
  */
@@ -47,7 +52,7 @@ function isAtMonastery(
   return hex.site.type === "monastery" && !hex.site.isBurned;
 }
 
-export function AAOfferPane() {
+export function AAOfferPane({ visible = true }: AAOfferPaneProps) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const [cardHeight, setCardHeight] = useState(calculateCardHeight);
@@ -180,7 +185,7 @@ export function AAOfferPane() {
       {hasRegularAAs && (
         <div className="offer-pane__section">
           <div className="offer-pane__section-title">Advanced Actions</div>
-          <PixiOfferCards cards={regularAACards} cardHeight={cardHeight} type="aa" />
+          <PixiOfferCards cards={regularAACards} cardHeight={cardHeight} type="aa" visible={visible} />
         </div>
       )}
 
@@ -188,7 +193,7 @@ export function AAOfferPane() {
       {hasMonasteryAAs && (
         <div className="offer-pane__section">
           <div className="offer-pane__section-title">Monastery Advanced Actions</div>
-          <PixiOfferCards cards={monasteryAACards} cardHeight={cardHeight} type="aa" />
+          <PixiOfferCards cards={monasteryAACards} cardHeight={cardHeight} type="aa" visible={visible} />
         </div>
       )}
 

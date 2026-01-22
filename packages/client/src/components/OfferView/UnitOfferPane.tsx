@@ -26,7 +26,12 @@ function calculateCardHeight(): number {
   return Math.min(Math.max(preferred, min), max);
 }
 
-export function UnitOfferPane() {
+interface UnitOfferPaneProps {
+  /** Whether this pane is currently visible (for Pixi container visibility) */
+  visible?: boolean;
+}
+
+export function UnitOfferPane({ visible = true }: UnitOfferPaneProps) {
   const { state, sendAction } = useGame();
   const [cardHeight, setCardHeight] = useState(calculateCardHeight);
 
@@ -101,7 +106,7 @@ export function UnitOfferPane() {
 
   return (
     <div className="offer-pane">
-      <PixiOfferCards cards={cards} cardHeight={cardHeight} type="unit" />
+      <PixiOfferCards cards={cards} cardHeight={cardHeight} type="unit" visible={visible} />
       <div className="offer-pane__deck-info">
         {state.deckCounts.regularUnits} regular, {state.deckCounts.eliteUnits} elite remaining
       </div>

@@ -30,6 +30,11 @@ function calculateCardHeight(): number {
   return Math.min(Math.max(preferred, min), max);
 }
 
+interface SpellOfferPaneProps {
+  /** Whether this pane is currently visible (for Pixi container visibility) */
+  visible?: boolean;
+}
+
 /**
  * Check if player is at a conquered Mage Tower
  */
@@ -46,7 +51,7 @@ function isAtConqueredMageTower(
   return hex.site.type === "mage_tower" && hex.site.isConquered;
 }
 
-export function SpellOfferPane() {
+export function SpellOfferPane({ visible = true }: SpellOfferPaneProps) {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const [cardHeight, setCardHeight] = useState(calculateCardHeight);
@@ -150,7 +155,7 @@ export function SpellOfferPane() {
           Select a spell reward!
         </div>
       )}
-      <PixiOfferCards cards={cards} cardHeight={cardHeight} type="spell" />
+      <PixiOfferCards cards={cards} cardHeight={cardHeight} type="spell" visible={visible} />
       <div className="offer-pane__deck-info">
         {state.deckCounts.spells} spells remaining in deck
       </div>

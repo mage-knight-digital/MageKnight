@@ -1,21 +1,16 @@
 /**
- * OfferView - Full-screen offer display with Inscryption-style presentation
+ * OfferView - Full-screen offer display
  *
  * Activated with 1 from board view, dismissed with 2/S or clicking overlay.
  * Uses Q/W/E for direct pane selection: Units | Spells | Advanced Actions.
+ *
+ * Renders entirely in PixiJS via PixiOfferView for smooth performance
+ * and to avoid DOM/Pixi coordination issues.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import { useGame } from "../../hooks/useGame";
-import { useMyPlayer } from "../../hooks/useMyPlayer";
-import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
-import { OfferTray } from "./OfferTray";
-import { UnitOfferPane } from "./UnitOfferPane";
-import { SpellOfferPane } from "./SpellOfferPane";
-import { AAOfferPane } from "./AAOfferPane";
-import "./OfferView.css";
+import { PixiOfferView } from "./PixiOfferView";
 
-// Offer pane types
+// Offer pane types (exported for external use)
 export type OfferPane = "units" | "spells" | "advancedActions";
 
 export interface OfferViewProps {
@@ -24,140 +19,6 @@ export interface OfferViewProps {
 }
 
 export function OfferView({ isVisible, onClose }: OfferViewProps) {
-  const { state } = useGame();
-  const player = useMyPlayer();
-  const { emit } = useAnimationDispatcher();
-
-  const [currentPane, setCurrentPane] = useState<OfferPane>("units");
-  const [isAnimatingIn, setIsAnimatingIn] = useState(false);
-  const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-  const [isFullyVisible, setIsFullyVisible] = useState(false);
-
-  // Handle enter animation
-  useEffect(() => {
-    if (isVisible && !isFullyVisible) {
-      setIsAnimatingIn(true);
-      setIsAnimatingOut(false);
-
-      // Animation duration matches CSS (350ms + buffer)
-      const timer = setTimeout(() => {
-        setIsAnimatingIn(false);
-        setIsFullyVisible(true);
-        emit("offer-view-entered" as never);
-      }, 400);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isVisible, isFullyVisible, emit]);
-
-  // Handle exit animation
-  const handleClose = useCallback(() => {
-    if (!isFullyVisible) return;
-
-    setIsAnimatingOut(true);
-    setIsFullyVisible(false);
-
-    // Animation duration matches CSS (300ms)
-    setTimeout(() => {
-      setIsAnimatingOut(false);
-      onClose();
-    }, 300);
-  }, [isFullyVisible, onClose]);
-
-  // Reset state when hidden
-  useEffect(() => {
-    if (!isVisible) {
-      setIsFullyVisible(false);
-      setIsAnimatingIn(false);
-      setIsAnimatingOut(false);
-    }
-  }, [isVisible]);
-
-  // Q/W/E keyboard navigation for panes, 2/S/Escape to close
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      const key = e.key.toLowerCase();
-
-      // Direct pane selection: Q=units, W=spells, E=advancedActions
-      if (key === "q") {
-        setCurrentPane("units");
-      } else if (key === "w") {
-        setCurrentPane("spells");
-      } else if (key === "e") {
-        setCurrentPane("advancedActions");
-      } else if (key === "2" || key === "s" || key === "escape") {
-        // Exit offer view (2=board view, S=legacy close, Escape=dismiss)
-        handleClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isVisible, handleClose]);
-
-  // Always render but hide when not visible (keeps component mounted for smooth animations)
-  const isHidden = !isVisible && !isAnimatingOut;
-
-  if (!state || !player) {
-    return null;
-  }
-
-  const overlayClassName = [
-    "offer-view__overlay",
-    isAnimatingIn && "offer-view__overlay--entering",
-    isAnimatingOut && "offer-view__overlay--exiting",
-    isFullyVisible && "offer-view__overlay--visible",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const trayClassName = [
-    "offer-view__tray-container",
-    isAnimatingIn && "offer-view__tray-container--entering",
-    isAnimatingOut && "offer-view__tray-container--exiting",
-    isFullyVisible && "offer-view__tray-container--visible",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const containerClassName = [
-    "offer-view",
-    isHidden && "offer-view--hidden",
-  ].filter(Boolean).join(" ");
-
-  return (
-    <div className={containerClassName}>
-      {/* Dark overlay */}
-      <div className={overlayClassName} onClick={handleClose} />
-
-      {/* Tray container */}
-      <div className={trayClassName}>
-        <OfferTray currentPane={currentPane} isAnimating={isAnimatingIn || isAnimatingOut}>
-          {/* All panes stay mounted to avoid re-decoding large sprite sheets on tab switch */}
-          <div className={`offer-pane-wrapper ${currentPane === "units" ? "offer-pane-wrapper--active" : "offer-pane-wrapper--hidden"}`}>
-            <UnitOfferPane />
-          </div>
-          <div className={`offer-pane-wrapper ${currentPane === "spells" ? "offer-pane-wrapper--active" : "offer-pane-wrapper--hidden"}`}>
-            <SpellOfferPane />
-          </div>
-          <div className={`offer-pane-wrapper ${currentPane === "advancedActions" ? "offer-pane-wrapper--active" : "offer-pane-wrapper--hidden"}`}>
-            <AAOfferPane />
-          </div>
-        </OfferTray>
-
-        {/* Navigation hint */}
-        <div className="offer-view__nav-hint">
-          <span>Q/W/E to switch</span>
-          <span>2 to close</span>
-        </div>
-      </div>
-    </div>
-  );
+  // Delegate entirely to the Pixi implementation
+  return <PixiOfferView isVisible={isVisible} onClose={onClose} />;
 }

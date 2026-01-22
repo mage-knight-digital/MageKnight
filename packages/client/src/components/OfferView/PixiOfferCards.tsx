@@ -4,6 +4,9 @@
  * Renders card sprites entirely in PixiJS with pre-uploaded GPU textures.
  * This eliminates the 300-500ms jank from DOM/CSS image decoding.
  *
+ * Uses the shared PixiJS Application from PixiAppContext instead of creating
+ * its own Application, avoiding WebGL context conflicts.
+ *
  * Features:
  * - Single PixiJS canvas for all cards with hover/interaction
  * - Textures pre-loaded via Assets.load() during app init
@@ -11,8 +14,9 @@
  * - Responsive sizing based on container width
  */
 
-import { useEffect, useRef, useState, useMemo } from "react";
-import { Application, Sprite, Graphics, Container } from "pixi.js";
+import { useEffect, useRef, useState, useMemo, useId, useCallback } from "react";
+import { Sprite, Graphics, Container } from "pixi.js";
+import { usePixiApp } from "../../contexts/PixiAppContext";
 import { getOfferCardTexture } from "../../utils/pixiTextureLoader";
 
 export interface CardInfo {
@@ -27,6 +31,8 @@ interface PixiOfferCardsProps {
   cards: CardInfo[];
   cardHeight: number;
   type: "unit" | "spell" | "aa";
+  /** Whether this offer pane is currently visible (for tab switching) */
+  visible?: boolean;
 }
 
 // Card aspect ratio (width / height)
@@ -58,15 +64,17 @@ function getHoverRotation(cardId: string, index: number): number {
   return sign * magnitude * (Math.PI / 180); // Convert to radians
 }
 
-export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps) {
+export function PixiOfferCards({ cards, cardHeight, type, visible = true }: PixiOfferCardsProps) {
+  const uniqueId = useId();
+  const { app, overlayLayer } = usePixiApp();
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasContainerRef = useRef<HTMLDivElement>(null);
-  const appRef = useRef<Application | null>(null);
+  const rootContainerRef = useRef<Container | null>(null);
   const cardContainersRef = useRef<Map<number, Container>>(new Map());
-  const [isReady, setIsReady] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [buttonPosition, setButtonPosition] = useState<{ x: number; y: number; width: number } | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [screenPosition, setScreenPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const cardWidth = Math.round(cardHeight * CARD_ASPECT);
 
@@ -92,20 +100,30 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
   const scaledCardHeight = Math.round(cardHeight * scaleFactor);
   const scaledGap = Math.round(CARD_GAP * scaleFactor);
 
-  // Track container width for responsive scaling
+  // Track container width and screen position for responsive scaling
+  // Also update when visibility changes since DOM position may have changed
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const updateWidth = () => {
+    const updateDimensions = () => {
       const parentWidth = container.parentElement?.clientWidth ?? window.innerWidth;
       setContainerWidth(parentWidth - 48); // Account for padding
+
+      const rect = container.getBoundingClientRect();
+      setScreenPosition({ x: rect.left, y: rect.top });
     };
 
-    updateWidth();
-    window.addEventListener("resize", updateWidth);
-    return () => window.removeEventListener("resize", updateWidth);
-  }, []);
+    // Update immediately and when visibility changes
+    // Use requestAnimationFrame to ensure DOM has settled after visibility change
+    if (visible) {
+      requestAnimationFrame(updateDimensions);
+    }
+
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
+  }, [visible]);
 
   // Card base positions (before hover transforms) - uses scaled dimensions
   // Only depends on cards.length, not cards content (positions don't change when card IDs change)
@@ -119,58 +137,86 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cards.length, scaledCardWidth, scaledCardHeight, scaledGap, scaleFactor]);
 
-  // Initialize PixiJS app
+  // Stable hover handlers using useCallback
+  const handlePointerEnter = useCallback((cardIndex: number) => {
+    setHoveredIndex(cardIndex);
+  }, []);
+
+  const handlePointerLeave = useCallback(() => {
+    setHoveredIndex(null);
+  }, []);
+
+  const handlePointerDown = useCallback((card: CardInfo) => {
+    if (card.canAcquire && card.onAcquire) {
+      card.onAcquire();
+    }
+  }, []);
+
+  // Create root container and add to overlay layer
+  // Container stays in overlay layer but visibility is controlled
   useEffect(() => {
-    const container = canvasContainerRef.current;
-    if (!container) return;
+    if (!app || !overlayLayer) return;
 
-    let destroyed = false;
-
-    const initApp = async () => {
-      const app = new Application();
-      await app.init({
-        width: canvasWidth,
-        height: canvasHeight,
-        backgroundAlpha: 0,
-        antialias: true,
-        resolution: window.devicePixelRatio || 1,
-        autoDensity: true,
-      });
-
-      if (destroyed) {
-        app.destroy(true);
-        return;
-      }
-
-      container.appendChild(app.canvas);
-      appRef.current = app;
-      setIsReady(true);
-    };
-
-    initApp();
+    // Create root container for this offer cards instance
+    const rootContainer = new Container();
+    rootContainer.label = `offer-cards-${uniqueId}`;
+    rootContainer.visible = false; // Start hidden
+    overlayLayer.addChild(rootContainer);
+    rootContainerRef.current = rootContainer;
 
     // Capture ref for cleanup
     const cardContainers = cardContainersRef.current;
 
     return () => {
-      destroyed = true;
-      if (appRef.current) {
-        appRef.current.destroy(true);
-        appRef.current = null;
+      if (rootContainerRef.current) {
+        if (rootContainerRef.current.parent) {
+          rootContainerRef.current.parent.removeChild(rootContainerRef.current);
+        }
+        rootContainerRef.current.destroy({ children: true });
+        rootContainerRef.current = null;
       }
       cardContainers.clear();
-      setIsReady(false);
     };
-  }, [canvasWidth, canvasHeight]);
+  }, [app, overlayLayer, uniqueId]);
+
+  // Control visibility and position - only show when visible AND position is valid
+  useEffect(() => {
+    const rootContainer = rootContainerRef.current;
+    if (!rootContainer) return;
+
+    if (visible) {
+      // When becoming visible, update position from DOM then show
+      const domContainer = containerRef.current;
+      if (domContainer) {
+        // Use requestAnimationFrame to ensure DOM has laid out
+        requestAnimationFrame(() => {
+          if (!rootContainerRef.current) return;
+          const rect = domContainer.getBoundingClientRect();
+          rootContainerRef.current.position.set(rect.left, rect.top);
+          rootContainerRef.current.visible = true;
+        });
+      }
+    } else {
+      rootContainer.visible = false;
+    }
+  }, [visible]);
+
+  // Update container position when screen position changes (only when visible)
+  useEffect(() => {
+    const rootContainer = rootContainerRef.current;
+    if (!rootContainer || !visible) return;
+
+    rootContainer.position.set(screenPosition.x, screenPosition.y);
+  }, [screenPosition, visible]);
 
   // Update sprites when cards change
   useEffect(() => {
-    const app = appRef.current;
-    if (!app || !isReady) return;
+    const rootContainer = rootContainerRef.current;
+    if (!rootContainer || !app) return;
 
     const updateSprites = async () => {
-      // Clear old containers
-      app.stage.removeChildren();
+      // Clear old children
+      rootContainer.removeChildren();
       cardContainersRef.current.clear();
 
       // Add new card containers
@@ -210,25 +256,18 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
         cardContainer.cursor = "pointer";
 
         const cardIndex = i; // Capture for closure
-        cardContainer.on("pointerenter", () => {
-          setHoveredIndex(cardIndex);
-        });
-        cardContainer.on("pointerleave", () => {
-          setHoveredIndex(null);
-        });
-        cardContainer.on("pointerdown", () => {
-          if (card.canAcquire && card.onAcquire) {
-            card.onAcquire();
-          }
-        });
+        const cardRef = card; // Capture for closure
+        cardContainer.on("pointerenter", () => handlePointerEnter(cardIndex));
+        cardContainer.on("pointerleave", handlePointerLeave);
+        cardContainer.on("pointerdown", () => handlePointerDown(cardRef));
 
-        app.stage.addChild(cardContainer);
+        rootContainer.addChild(cardContainer);
         cardContainersRef.current.set(i, cardContainer);
       }
     };
 
     updateSprites();
-  }, [cards, cardPositions, scaledCardWidth, scaledCardHeight, scaleFactor, isReady, type]);
+  }, [cards, cardPositions, scaledCardWidth, scaledCardHeight, scaleFactor, app, type, handlePointerEnter, handlePointerLeave, handlePointerDown]);
 
   // Handle hover animation
   useEffect(() => {
@@ -256,10 +295,12 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
 
         // Update button position for DOM overlay
         if (card.onAcquire) {
-          const globalPos = container.getGlobalPosition();
+          // Calculate position relative to screen (container is at screenPosition)
+          const localX = pos.x;
+          const localY = pos.y + liftY;
           setButtonPosition({
-            x: globalPos.x - (scaledCardWidth * scale) / 2,
-            y: globalPos.y + (scaledCardHeight * scale) / 2 - 40 * scaleFactor,
+            x: localX - (scaledCardWidth * scale) / 2,
+            y: localY + (scaledCardHeight * scale) / 2 - 40 * scaleFactor,
             width: scaledCardWidth * scale,
           });
         }
@@ -272,7 +313,7 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
     });
 
     // Sort by zIndex
-    appRef.current?.stage.sortChildren();
+    rootContainerRef.current?.sortChildren();
 
     // Clear button position when not hovering
     if (hoveredIndex === null) {
@@ -297,20 +338,8 @@ export function PixiOfferCards({ cards, cardHeight, type }: PixiOfferCardsProps)
         margin: "0 auto",
       }}
     >
-      {/* PixiJS canvas container */}
-      <div
-        ref={canvasContainerRef}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: canvasWidth,
-          height: canvasHeight,
-        }}
-      />
-
       {/* Acquire button overlay - only shown when hovering a card with onAcquire */}
-      {hoveredCard?.onAcquire && buttonPosition && (
+      {visible && hoveredCard?.onAcquire && buttonPosition && (
         <button
           className={`offer-card__acquire-btn ${!hoveredCard.canAcquire ? "offer-card__acquire-btn--disabled" : ""}`}
           style={{
