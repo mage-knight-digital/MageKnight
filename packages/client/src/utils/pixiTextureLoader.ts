@@ -201,7 +201,8 @@ async function createTextureFromSpriteData(
     try {
       const baseTexture = await Assets.load(spriteData.src);
       const x = spriteData.col * spriteData.spriteWidth;
-      const y = spriteData.row * spriteData.spriteHeight;
+      // Use rowHeight for Y position (important for even/odd layout sheets where row is physical)
+      const y = spriteData.row * spriteData.rowHeight;
       const frame = new Rectangle(x, y, spriteData.spriteWidth, spriteData.spriteHeight);
       const subTexture = new Texture({
         source: baseTexture.source,

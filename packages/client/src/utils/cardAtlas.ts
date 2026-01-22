@@ -105,8 +105,10 @@ export interface SpriteData {
   spriteHeight: number;
   /** Column position (0-indexed) */
   col: number;
-  /** Row position (0-indexed) */
+  /** Row position (0-indexed) - NOTE: For even/odd layout, this is already the physical row */
   row: number;
+  /** Height of one row in the sheet (for Y position calculation) */
+  rowHeight: number;
   /** Total sheet width */
   sheetWidth: number;
   /** Total sheet height */
@@ -596,6 +598,7 @@ export function getUnitSpriteData(unitId: UnitId): SpriteData | null {
     spriteHeight: fullCardHeight,
     col: position.col,
     row: physicalRow,
+    rowHeight: sheet.cardHeight, // Base row height for Y calculation
     sheetWidth: sheet.width,
     sheetHeight: sheet.height,
   };
@@ -631,6 +634,7 @@ export function getCardSpriteData(cardId: CardId): SpriteData | null {
         spriteHeight: fullCardHeight,
         col: position.col,
         row: physicalRow,
+        rowHeight: sheet.cardHeight, // Base row height for Y calculation
         sheetWidth: sheet.width,
         sheetHeight: sheet.height,
       };
