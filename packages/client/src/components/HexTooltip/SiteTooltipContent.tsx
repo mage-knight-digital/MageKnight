@@ -11,7 +11,6 @@
 import type { ClientSite, ClientHexEnemy, TimeOfDay } from "@mage-knight/shared";
 import { TIME_OF_DAY_NIGHT, getSiteTooltipInfo } from "@mage-knight/shared";
 import { CrystalIcon, SiteIcon, GameIcon, type SiteIconType } from "../Icons";
-import type { CrystalColor } from "../../utils/cardAtlas";
 
 // Site type constants (matching core SiteType enum values)
 const SITE_DUNGEON = "dungeon";
@@ -36,6 +35,9 @@ const SHARED_SITE_ICONS: Record<string, SiteIconType> = {
   [SITE_ANCIENT_RUINS]: "ancient_ruins",
   [SITE_MAGICAL_GLADE]: "magical_glade",
   [SITE_TOMB]: "tomb",
+  [SITE_MINE]: "mine",
+  [SITE_VILLAGE]: "village",
+  [SITE_MONASTERY]: "monastery",
 };
 
 export interface SiteTooltipContentProps {
@@ -71,11 +73,16 @@ function getSiteInfo({ site, timeOfDay, enemies }: GetSiteInfoOptions): SiteInfo
   const isNight = timeOfDay === TIME_OF_DAY_NIGHT;
   // Check if any enemies on this hex are unrevealed
   const hasUnrevealedEnemies = enemies?.some(e => !e.isRevealed) ?? false;
+
+  // Get mine color for context (if applicable)
+  const mineColor = site.mineColor as "white" | "green" | "red" | "blue" | undefined;
+
   const sharedInfo = getSiteTooltipInfo({
     siteType: site.type,
     isConquered: site.isConquered,
     timeOfDay,
     hasUnrevealedEnemies,
+    mineColor,
   });
   if (sharedInfo) {
     return {
@@ -160,22 +167,6 @@ function getSiteInfo({ site, timeOfDay, enemies }: GetSiteInfoOptions): SiteInfo
         special: ["Altar: Pay 3 mana for 7 Fame"],
       };
 
-    case SITE_VILLAGE:
-      return {
-        name: "Village",
-        siteIcon: "village",
-        interaction: "Recruit, Heal (3 Inf = 1 HP)",
-        special: ["Plunder: Draw 2, -1 Rep"],
-      };
-
-    case SITE_MONASTERY:
-      return {
-        name: "Monastery",
-        siteIcon: "monastery",
-        interaction: "Buy AA (6 Inf), Heal (2 Inf = 1 HP)",
-        special: ["Burn: Fight violet, no units, -3 Rep"],
-      };
-
     case SITE_KEEP:
       if (site.isConquered) {
         return {
@@ -241,31 +232,10 @@ function getSiteInfo({ site, timeOfDay, enemies }: GetSiteInfoOptions): SiteInfo
       };
     }
 
-    case SITE_MINE: {
-      const mineColor = site.mineColor || "white";
-      const capitalizedMineColor = mineColor.charAt(0).toUpperCase() + mineColor.slice(1);
-      // Map mine color to crystal color (handle any edge cases)
-      const crystalColor = (["white", "green", "red", "blue"].includes(mineColor) ? mineColor : "white") as CrystalColor;
-      return {
-        name: `${capitalizedMineColor} Mine`,
-        siteIcon: "mine",
-        interaction: (
-          <>End turn: Gain <CrystalIcon color={crystalColor} size={16} /></>
-        ),
-      };
-    }
-
-    case SITE_MAGICAL_GLADE:
-      return {
-        name: "Magical Glade",
-        siteIcon: "magical_glade",
-        interaction: "Start: Gold/black mana. End: Discard wound",
-      };
-
     case SITE_DEEP_MINE:
       return {
         name: "Deep Mine",
-        siteIcon: "mine", // Uses mine sprite
+        siteIcon: "deep_mine",
         interaction: (
           <>
             End turn: Gain{" "}
@@ -353,7 +323,7 @@ export function SiteTooltipContent({ site, isAnimating, startIndex = 0, timeOfDa
       {info.interaction && (
         <div className="site-tooltip__line" style={getLineStyle()}>
           <span className="site-tooltip__line-icon">
-            <GameIcon type="influence" size={20} />
+            <GameIcon type={site.type === SITE_MINE || site.type === SITE_DEEP_MINE ? "end_turn" : "influence"} size={20} />
           </span>
           <span className="site-tooltip__line-text">{info.interaction}</span>
         </div>

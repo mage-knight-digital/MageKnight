@@ -24,6 +24,7 @@ export type GameIconType =
   | "heal"
   | "spell"
   | "influence"
+  | "end_turn"
   // Enemy abilities
   | "swift"
   | "brutal"
@@ -53,6 +54,7 @@ const ICON_PATHS: Record<GameIconType, string> = {
   heal: "/assets/icons/heal.png",
   spell: "/assets/icons/spell.png",
   influence: "/assets/icons/influence.png",
+  end_turn: "/assets/icons/end_turn.png",
   // Enemy abilities
   swift: "/assets/icons/swift.png",
   brutal: "/assets/icons/brutal.png",

@@ -407,6 +407,7 @@ function computeSiteInfo(
     isConquered: site.isConquered,
     timeOfDay,
     hasUnrevealedEnemies,
+    mineColor: site.mineColor as "white" | "green" | "red" | "blue" | undefined,
   });
   if (sharedInfo) {
     return sharedInfo;
@@ -446,12 +447,6 @@ function computeSiteInfo(
         fight: "Draw yellow token: Altar or Enemies",
         reward: "Varies by token",
         special: ["Altar: Pay 3 mana for 7 Fame"],
-      };
-
-    case "village":
-      return {
-        services: ["Recruit units", "Heal: 3 Influence = 1 HP"],
-        special: ["Plunder: Draw 2 cards, −1 Reputation"],
       };
 
     case "monastery":
@@ -677,6 +672,7 @@ export function SitePanel({
       isConquered: site.isConquered,
       timeOfDay,
       hasUnrevealedEnemies: hex?.enemies?.some(e => !e.isRevealed) ?? false,
+      mineColor: site.mineColor as "white" | "green" | "red" | "blue" | undefined,
     })
     : null;
   const panelSections = computedInfo?.sections ?? sharedPanelInfo?.sections ?? null;

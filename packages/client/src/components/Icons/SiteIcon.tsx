@@ -13,6 +13,7 @@ export type SiteIconType =
   | "red_city"
   | "white_city"
   | "mine"
+  | "deep_mine"
   | "draconum"
   | "keep"
   | "mage_tower"
@@ -34,7 +35,8 @@ const SITE_IMAGE_PATHS: Record<SiteIconType, string> = {
   green_city: "/assets/sites/city_green.png",
   red_city: "/assets/sites/city_red.png",
   white_city: "/assets/sites/city_white.png",
-  mine: "/assets/sites/deep_mine.png",
+  mine: "/assets/sites/crystal_mine.png",
+  deep_mine: "/assets/sites/deep_mine.png",
   draconum: "/assets/sites/draconum.png",
   keep: "/assets/sites/keep.png",
   mage_tower: "/assets/sites/mage_tower.png",

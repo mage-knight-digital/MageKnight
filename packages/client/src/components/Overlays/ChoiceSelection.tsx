@@ -117,6 +117,7 @@ export function ChoiceSelection() {
 
   // Extract data before hooks (may be undefined if no pending choice)
   const pendingChoice = player?.pendingChoice;
+  const sourceCardId = pendingChoice?.cardId;
   const canUndo = state?.validActions.turn?.canUndo ?? false;
   const isInCombat = state?.combat !== null;
 
@@ -173,7 +174,8 @@ export function ChoiceSelection() {
       onCancel={canUndo ? handleUndo : () => {}}
       position={savedPosition ?? undefined}
       overlayOpacity={isInCombat ? 0.4 : 0.7}
-      centerLabel={canUndo ? "Undo" : undefined}
+      centerLabel={canUndo && !sourceCardId ? "Undo" : undefined}
+      centerCardId={sourceCardId}
     />
   );
 }
