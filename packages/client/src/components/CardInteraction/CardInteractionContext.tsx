@@ -5,13 +5,18 @@
  * Uses useReducer for predictable state transitions following the state machine.
  */
 
+/* eslint-disable no-restricted-syntax */
+// Disabled: The no-restricted-syntax rule flags string literals in switch cases,
+// expecting constants from @mage-knight/shared. However, these are LOCAL reducer
+// action types, not shared protocol types. They're defined in ./types.ts.
+
 import { createContext, useReducer, type ReactNode, type Dispatch } from "react";
 import {
   type CardInteractionState,
   type CardInteractionAction,
   INITIAL_STATE,
 } from "./types";
-import { MANA_BLACK, type ManaColor, type ManaSourceInfo } from "@mage-knight/shared";
+import { MANA_BLACK, type ManaColor } from "@mage-knight/shared";
 
 // ============================================================================
 // Context Definition
@@ -231,8 +236,9 @@ function cardInteractionReducer(
     }
 
     default: {
-      // TypeScript exhaustiveness check
-      const _exhaustive: never = action;
+      // TypeScript exhaustiveness check - void to suppress unused variable warning
+      const exhaustiveCheck: never = action;
+      void exhaustiveCheck;
       return state;
     }
   }

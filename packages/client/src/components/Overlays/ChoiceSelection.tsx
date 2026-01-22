@@ -175,7 +175,6 @@ export function ChoiceSelection() {
       position={savedPosition ?? undefined}
       overlayOpacity={isInCombat ? 0.4 : 0.7}
       centerLabel={canUndo && !sourceCardId ? "Undo" : undefined}
-      centerCardId={sourceCardId}
     />
   );
 }

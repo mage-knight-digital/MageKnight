@@ -9,7 +9,7 @@ import { setGhostHexTicker, cleanupGhostHexEffects } from "../pixi/rendering";
 import { createWorldLayers } from "../pixi/worldLayers";
 
 interface UsePixiAppLifecycleParams {
-  containerRef: RefObject<HTMLDivElement>;
+  containerRef: RefObject<HTMLDivElement | null>;
   appRef: MutableRefObject<Application | null>;
   layersRef: MutableRefObject<WorldLayers | null>;
   worldRef: MutableRefObject<Container | null>;

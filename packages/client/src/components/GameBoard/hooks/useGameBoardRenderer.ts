@@ -3,7 +3,8 @@ import type { MutableRefObject, RefObject } from "react";
 import type { Application, Container } from "pixi.js";
 import type { ClientGameState, ClientPlayer, HexCoord } from "@mage-knight/shared";
 import { TIME_OF_DAY_NIGHT, hexKey, TILE_HEX_OFFSETS } from "@mage-knight/shared";
-import type { CinematicSequence } from "../../contexts/CinematicContext";
+import type { CinematicSequence } from "../../../contexts/CinematicContext";
+import type { AnimationEvent } from "../../../contexts/AnimationDispatcherContext";
 import type { PixelPosition, CameraState } from "../pixi/types";
 import { CAMERA_MAX_ZOOM } from "../pixi/types";
 import {
@@ -53,7 +54,7 @@ interface UseGameBoardRendererParams {
   hasCenteredOnHeroRef: MutableRefObject<boolean>;
   cameraReadyRef: MutableRefObject<boolean>;
   centerAndApplyCamera: (worldPos: PixelPosition, instant?: boolean) => void;
-  emitAnimationEvent: (event: string) => void;
+  emitAnimationEvent: (event: AnimationEvent) => void;
   startIntro: (tileCount: number, enemyCount: number) => void;
   isInCinematic: boolean;
   playCinematic: (sequence: CinematicSequence) => void;

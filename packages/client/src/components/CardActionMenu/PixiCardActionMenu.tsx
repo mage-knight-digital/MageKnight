@@ -108,13 +108,6 @@ const CARD_ASPECT = 0.667;
 const CARD_FAN_BASE_SCALE = 0.25; // From cardFanLayout.ts
 const MENU_CARD_SCALE = 1.4; // Card scales up 40% when in menu
 
-// Animation timing
-const EXIT_DURATION = 150;
-const EXIT_STAGGER = 25;
-const ENTRY_DURATION = 250;
-const ENTRY_STAGGER = 40;
-const ENTRY_DELAY = 50;
-
 function polarToCartesian(radius: number, angle: number) {
   return {
     x: radius * Math.cos(angle),

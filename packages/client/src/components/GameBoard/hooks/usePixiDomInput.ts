@@ -3,7 +3,7 @@ import type { RefObject } from "react";
 
 interface UsePixiDomInputParams {
   isInitialized: boolean;
-  containerRef: RefObject<HTMLDivElement>;
+  containerRef: RefObject<HTMLDivElement | null>;
   handleWheel: (event: WheelEvent) => void;
   handleKeyDown: (event: KeyboardEvent) => void;
   handleKeyUp: (event: KeyboardEvent) => void;
