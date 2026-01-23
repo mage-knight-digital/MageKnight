@@ -83,6 +83,7 @@ export interface HexHoverEvent {
  * @param onHexHoverWithPos - Optional callback with screen position for tooltips
  * @param showCoordinates - Whether to show hex coordinates (debug feature)
  * @param excludeHexKeys - Set of hex keys to exclude from rendering (e.g., during reveal animation)
+ * @param onHexRightClick - Optional callback when hex is right-clicked (for opening site panel)
  */
 export function renderHexOverlays(
   layers: WorldLayers,
@@ -93,7 +94,8 @@ export function renderHexOverlays(
   onHexHover: (coord: HexCoord | null) => void,
   onHexHoverWithPos?: (event: HexHoverEvent | null) => void,
   showCoordinates?: boolean,
-  excludeHexKeys?: Set<string>
+  excludeHexKeys?: Set<string>,
+  onHexRightClick?: (coord: HexCoord) => void
 ): void {
   layers.hexOverlays.removeChildren();
 
@@ -140,6 +142,12 @@ export function renderHexOverlays(
     // Point at hex edge (right side) to calculate screen-space hex width
     const hexEdgePos = { x: x + HEX_SIZE * Math.sqrt(3) / 2, y };
     graphics.on("pointerdown", () => onHexClick(coord));
+    graphics.on("rightclick", (e) => {
+      e.preventDefault?.();
+      if (onHexRightClick) {
+        onHexRightClick(coord);
+      }
+    });
     graphics.on("pointerenter", () => {
       onHexHover(coord);
       if (onHexHoverWithPos) {

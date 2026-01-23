@@ -148,12 +148,16 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
   const [isSitePanelOpen, setIsSitePanelOpen] = useState(false);
   const [sitePanelHex, setSitePanelHex] = useState<HexCoord | null>(null);
 
-  // Handler to open the site panel from tooltip "More Info" click
+  // Handler to open the site panel (from right-click on hex)
   const handleOpenSitePanel = useCallback((coord: HexCoord) => {
+    // Only open if the hex has a site
+    const hex = state?.map.hexes[hexKey(coord)];
+    if (!hex?.site) return;
+
     setSitePanelHex(coord);
     setIsSitePanelOpen(true);
     handleHexTooltipLeave();
-  }, [handleHexTooltipLeave]);
+  }, [handleHexTooltipLeave, state?.map.hexes]);
 
   // Handler to close the site panel
   const handleCloseSitePanel = useCallback(() => {
@@ -282,7 +286,8 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
       setHoveredHex,
       handleHexHoverWithPos,
       debugDisplaySettings.showCoordinates,
-      excludeHexes
+      excludeHexes,
+      handleOpenSitePanel
     );
 
     renderGhostHexes(layers, exploreTargets, handleExploreClick);
@@ -307,6 +312,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     debugDisplaySettings.showBoundaryEdges,
     revealingHexKeysRef, // Ref is stable, added for exhaustive-deps compliance
     revealingUpdateCounter, // Force re-run when revealing state changes
+    handleOpenSitePanel,
   ]);
 
   // Get hex data for tooltip
@@ -374,7 +380,6 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
         timeOfDay={state?.timeOfDay}
         onMouseEnter={handleTooltipMouseEnter}
         onMouseLeave={handleTooltipMouseLeave}
-        onClickMoreInfo={tooltipHoveredHex ? () => handleOpenSitePanel(tooltipHoveredHex) : undefined}
       />
 
       {/* Site Panel - detailed site information panel */}
