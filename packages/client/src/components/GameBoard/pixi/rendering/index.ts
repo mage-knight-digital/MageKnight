@@ -9,6 +9,7 @@ export { renderEnemies, animateEnemyFlips, type EnemyFlipTarget } from "./enemie
 export { renderHeroIntoContainer, getOrCreateHeroContainer } from "./hero";
 export { renderHexOverlays, type MoveHighlight, type MoveHighlightType, type HexHoverEvent } from "./overlays";
 export { renderPathPreview } from "./pathPreview";
+export { renderReachabilityBoundary } from "./boundaryOutline";
 export {
   renderGhostHexes,
   renderBoardShape,

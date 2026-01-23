@@ -8,7 +8,7 @@
 import { useDebugDisplay } from "../../contexts/DebugDisplayContext";
 
 export function DisplayTab() {
-  const { settings, setShowCoordinates } = useDebugDisplay();
+  const { settings, setShowCoordinates, setShowBoundaryEdges } = useDebugDisplay();
 
   return (
     <>
@@ -22,6 +22,16 @@ export function DisplayTab() {
               onChange={(e) => setShowCoordinates(e.target.checked)}
             />
             Show hex coordinates
+          </label>
+        </div>
+        <div className="debug-panel__row">
+          <label className="debug-panel__checkbox-label">
+            <input
+              type="checkbox"
+              checked={settings.showBoundaryEdges}
+              onChange={(e) => setShowBoundaryEdges(e.target.checked)}
+            />
+            Show boundary edge debug
           </label>
         </div>
       </section>

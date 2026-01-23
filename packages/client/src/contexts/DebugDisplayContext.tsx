@@ -17,15 +17,19 @@ import {
 interface DebugDisplaySettings {
   /** Whether to show hex coordinates on tiles */
   showCoordinates: boolean;
+  /** Whether to show boundary edge debug labels */
+  showBoundaryEdges: boolean;
 }
 
 interface DebugDisplayContextValue {
   settings: DebugDisplaySettings;
   setShowCoordinates: (show: boolean) => void;
+  setShowBoundaryEdges: (show: boolean) => void;
 }
 
 const defaultSettings: DebugDisplaySettings = {
   showCoordinates: false,
+  showBoundaryEdges: false,
 };
 
 const DebugDisplayContext = createContext<DebugDisplayContextValue | null>(null);
@@ -37,12 +41,17 @@ export function DebugDisplayProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({ ...prev, showCoordinates: show }));
   }, []);
 
+  const setShowBoundaryEdges = useCallback((show: boolean) => {
+    setSettings((prev) => ({ ...prev, showBoundaryEdges: show }));
+  }, []);
+
   const value = useMemo(
     () => ({
       settings,
       setShowCoordinates,
+      setShowBoundaryEdges,
     }),
-    [settings, setShowCoordinates]
+    [settings, setShowCoordinates, setShowBoundaryEdges]
   );
 
   return (

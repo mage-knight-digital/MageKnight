@@ -49,6 +49,7 @@ import {
   renderHexOverlays,
   renderPathPreview,
   renderGhostHexes,
+  renderReachabilityBoundary,
   type HexHoverEvent,
 } from "./pixi/rendering";
 
@@ -285,6 +286,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     );
 
     renderGhostHexes(layers, exploreTargets, handleExploreClick);
+    renderReachabilityBoundary(layers, reachableHexes, validMoveTargets, player?.position ?? null, debugDisplaySettings.showBoundaryEdges);
     renderPathPreview(layers, pathPreview, isPathTerminal);
   }, [
     isInitialized,
@@ -297,8 +299,12 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     handleHexClick,
     handleExploreClick,
     exploreTargets,
+    reachableHexes,
+    validMoveTargets,
+    player?.position,
     handleHexHoverWithPos,
     debugDisplaySettings.showCoordinates,
+    debugDisplaySettings.showBoundaryEdges,
     revealingUpdateCounter, // Force re-run when revealing state changes
   ]);
 

@@ -117,9 +117,11 @@ export function renderHexOverlays(
 
     if (highlight.type !== "none") {
       fillColor = HIGHLIGHT_COLORS[highlight.type] ?? 0x00ff00;
-      fillAlpha = isHovered ? 0.4 : 0.2;
-      strokeColor = HIGHLIGHT_COLORS[highlight.type] ?? 0x00ff00;
-      strokeAlpha = 0.8;
+      // Subtle fill - boundary outline handles the main visual
+      fillAlpha = isHovered ? 0.15 : 0.05;
+      // No per-hex stroke - boundary outline handles this
+      strokeColor = 0x000000;
+      strokeAlpha = 0;
     } else if (isHovered) {
       fillAlpha = 0.1;
       strokeColor = HIGHLIGHT_COLORS["hover"] ?? 0xffffff;
