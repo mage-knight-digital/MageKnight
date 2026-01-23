@@ -78,8 +78,6 @@ export interface HexTooltipProps {
   onMouseEnter?: () => void;
   /** Handler for mouse leaving tooltip (closes it) */
   onMouseLeave?: () => void;
-  /** Handler for clicking "More Info" to open detailed panel */
-  onClickMoreInfo?: () => void;
 }
 
 export function HexTooltip({
@@ -93,7 +91,6 @@ export function HexTooltip({
   showEnemies = true,
   onMouseEnter,
   onMouseLeave,
-  onClickMoreInfo,
 }: HexTooltipProps) {
   // Track animation state for staggered reveals
   const [isAnimating, setIsAnimating] = useState(false);
@@ -158,22 +155,18 @@ export function HexTooltip({
             isRampaging={hex.rampagingEnemies && hex.rampagingEnemies.length > 0}
           />
         )}
-        {/* More Info button - only show when there's a site and handler */}
-        {hasSite && onClickMoreInfo && (
-          <button
-            className="hex-tooltip__more-info"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClickMoreInfo();
-            }}
+        {/* Right-click hint - only show when there's a site */}
+        {hasSite && (
+          <div
+            className="hex-tooltip__hint"
             style={{
               animationDelay: isAnimating
                 ? `${(enemyStartIndex + (hasEnemies ? hex.enemies.length + 2 : 0)) * 0.08}s`
                 : "0s",
             }}
           >
-            More Info →
-          </button>
+            Right-click for details
+          </div>
         )}
       </div>
     </div>
