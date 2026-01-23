@@ -159,6 +159,12 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     handleHexTooltipLeave();
   }, [handleHexTooltipLeave, state?.map.hexes]);
 
+  // Handler for right-click on hero token (opens site panel for hero's current location)
+  const handleHeroRightClick = useCallback(() => {
+    if (!player?.position) return;
+    handleOpenSitePanel(player.position);
+  }, [player?.position, handleOpenSitePanel]);
+
   // Handler to close the site panel
   const handleCloseSitePanel = useCallback(() => {
     setIsSitePanelOpen(false);
@@ -202,6 +208,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     startIntro,
     isInCinematic,
     playCinematic,
+    onHeroRightClick: handleHeroRightClick,
   });
 
   resetRendererRef.current = resetRenderer;
