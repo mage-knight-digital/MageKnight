@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Git Worktrees
 
+When working in a git worktree:
+- Commit to the worktree branch
+- When asked to "commit to main" or "merge to main", commit on worktree branch first, then merge into `main` from the main repo
+- The worktree branch is temporary — `main` is the source of truth
+
 The `packages/client/public/` folder is gitignored (contains large binary assets). A post-checkout hook in `.githooks/` automatically symlinks it from the main repo when you create a worktree.
 
 If the symlink wasn't created automatically, run from the worktree:
