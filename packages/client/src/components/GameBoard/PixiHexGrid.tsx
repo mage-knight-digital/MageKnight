@@ -239,6 +239,24 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     sendAction,
   });
 
+  // Hide world and background when in combat (so hand overlay shows through transparent canvas)
+  const inCombat = state?.combat !== null;
+  useEffect(() => {
+    if (!isInitialized) return;
+    const world = worldRef.current;
+    const background = backgroundRef.current;
+
+    if (world) {
+      // Only toggle if intro is complete (world starts hidden during intro)
+      if (isIntroComplete) {
+        world.visible = !inCombat;
+      }
+    }
+    if (background) {
+      background.getContainer().visible = !inCombat;
+    }
+  }, [isInitialized, inCombat, isIntroComplete]);
+
   /**
    * Handle tooltip hover events from hex overlays
    * Disabled when an overlay (card action menu, combat, etc.) is active
