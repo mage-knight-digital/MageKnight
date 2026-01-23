@@ -1,0 +1,16 @@
+{
+  "worktreeCopyPatterns": [".env*", ".vscode/**"],
+  "worktreeCopyIgnores": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.git/**",
+    "**/packages/client/public/**"
+  ],
+  "worktreePathTemplate": "/Users/erishaff/.claude-worktrees/$BASE_PATH/$BRANCH_NAME",
+  "postCreateCmd": [
+    "pnpm install",
+    "claude --dangerously-skip-permissions"
+  ],
+  "terminalCommand": "",
+  "deleteBranchWithWorktree": true
+}

@@ -1,0 +1,244 @@
+#!/bin/bash
+# mage-dev - Open a labeled terminal running dev server for a MageKnight worktree
+#
+# Usage:
+#   mage-dev                    # Interactive picker (arrow keys + enter)
+#   mage-dev <worktree-name>    # Opens dev server for specific worktree
+#   mage-dev list               # List worktrees with ports (non-interactive)
+#   mage-dev ports              # Show running dev servers
+#
+# Examples:
+#   mage-dev                      # Pick from menu
+#   mage-dev interesting-thompson # Direct start
+#
+# Setup:
+#   ln -s /path/to/MageKnight/scripts/mage-dev ~/bin/mage-dev
+
+# Auto-detect the worktree base from this script's location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+REPO_NAME="$(basename "$REPO_ROOT")"
+
+# Default worktree location (can be overridden with MAGE_KNIGHT_WORKTREES env var)
+WORKTREE_BASE="${MAGE_KNIGHT_WORKTREES:-$HOME/.claude-worktrees/$REPO_NAME}"
+
+# Base port for dev servers (Vite default is 5173)
+BASE_PORT=5173
+
+# Generate a deterministic port from worktree name (5173-5199 range)
+get_port_for_worktree() {
+    local name="$1"
+    # Simple hash: sum of ASCII values mod 27, then add to base port
+    local hash=0
+    for (( i=0; i<${#name}; i++ )); do
+        hash=$((hash + $(printf '%d' "'${name:$i:1}")))
+    done
+    echo $((BASE_PORT + (hash % 27)))
+}
+
+# Get array of worktree names
+get_worktrees() {
+    local worktrees=()
+    if [ -d "$WORKTREE_BASE" ]; then
+        for dir in "$WORKTREE_BASE"/*/; do
+            if [ -d "$dir" ]; then
+                worktrees+=("$(basename "$dir")")
+            fi
+        done
+    fi
+    echo "${worktrees[@]}"
+}
+
+# Interactive picker using arrow keys
+interactive_picker() {
+    local worktrees=($(get_worktrees))
+
+    if [ ${#worktrees[@]} -eq 0 ]; then
+        echo "No worktrees found in $WORKTREE_BASE"
+        exit 1
+    fi
+
+    local selected=0
+    local num_items=${#worktrees[@]}
+
+    # Hide cursor
+    tput civis
+    trap 'tput cnorm; exit' INT TERM
+
+    while true; do
+        # Clear screen and show header
+        clear
+        echo "🎮 MageKnight Dev Server"
+        echo ""
+        echo "↑/↓ select  |  Enter start  |  k kill  |  q quit"
+        echo ""
+
+        # Show worktrees with selection indicator
+        for i in "${!worktrees[@]}"; do
+            local name="${worktrees[$i]}"
+            local port=$(get_port_for_worktree "$name")
+            local status=""
+
+            # Check if already running
+            if lsof -ti :$port > /dev/null 2>&1; then
+                status=" ● RUNNING"
+            fi
+
+            if [ $i -eq $selected ]; then
+                echo "  → $name :$port$status"
+            else
+                echo "    $name :$port$status"
+            fi
+        done
+
+        # Read single keypress
+        read -rsn1 key
+
+        # Handle arrow keys (they send escape sequences)
+        if [[ $key == $'\x1b' ]]; then
+            read -rsn2 key
+            case $key in
+                '[A') # Up arrow
+                    ((selected--))
+                    [ $selected -lt 0 ] && selected=$((num_items - 1))
+                    ;;
+                '[B') # Down arrow
+                    ((selected++))
+                    [ $selected -ge $num_items ] && selected=0
+                    ;;
+            esac
+        elif [[ $key == "" ]]; then  # Enter
+            tput cnorm  # Show cursor
+            echo ""
+            start_dev_server "${worktrees[$selected]}"
+            exit 0
+        elif [[ $key == "k" || $key == "K" ]]; then
+            # Kill the selected server if running
+            local name="${worktrees[$selected]}"
+            local port=$(get_port_for_worktree "$name")
+            local pid=$(lsof -ti :$port 2>/dev/null | head -1)
+            if [ -n "$pid" ]; then
+                kill $pid 2>/dev/null
+                # Brief pause to let it die
+                sleep 0.5
+            fi
+            # Stay in picker (will refresh on next loop)
+        elif [[ $key == "q" || $key == "Q" ]]; then
+            tput cnorm  # Show cursor
+            echo ""
+            echo "Cancelled."
+            exit 0
+        fi
+    done
+}
+
+# List all worktrees with their assigned ports (non-interactive)
+list_worktrees() {
+    echo "Available $REPO_NAME worktrees:"
+    echo ""
+    printf "  %-30s %s\n" "WORKTREE" "PORT"
+    printf "  %-30s %s\n" "--------" "----"
+    if [ -d "$WORKTREE_BASE" ]; then
+        for dir in "$WORKTREE_BASE"/*/; do
+            if [ -d "$dir" ]; then
+                name=$(basename "$dir")
+                port=$(get_port_for_worktree "$name")
+                printf "  %-30s %s\n" "$name" "http://localhost:$port"
+            fi
+        done
+    else
+        echo "  (none found in $WORKTREE_BASE)"
+    fi
+    echo ""
+    echo "Usage: mage-dev <worktree-name>"
+}
+
+# Show which ports are currently in use
+show_running_ports() {
+    echo "Running MageKnight dev servers:"
+    echo ""
+
+    local found=false
+    if [ -d "$WORKTREE_BASE" ]; then
+        for dir in "$WORKTREE_BASE"/*/; do
+            if [ -d "$dir" ]; then
+                name=$(basename "$dir")
+                port=$(get_port_for_worktree "$name")
+                # Check if something is listening on this port
+                pid=$(lsof -ti :$port 2>/dev/null | head -1)
+                if [ -n "$pid" ]; then
+                    found=true
+                    echo "  🎮 $name"
+                    echo "     http://localhost:$port"
+                    echo ""
+                fi
+            fi
+        done
+    fi
+
+    if [ "$found" = false ]; then
+        echo "  (no dev servers running)"
+        echo ""
+    fi
+}
+
+# Start dev server for a worktree
+start_dev_server() {
+    local WORKTREE_NAME="$1"
+    local WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
+    local PORT=$(get_port_for_worktree "$WORKTREE_NAME")
+
+    # Check if port is already in use
+    if lsof -ti :$PORT > /dev/null 2>&1; then
+        echo "⚠️  Port $PORT is already in use (probably this worktree's dev server)"
+        echo "   Opening browser to http://localhost:$PORT"
+        open "http://localhost:$PORT"
+        return 0
+    fi
+
+    # Open a new Terminal window with the dev server, labeled with the worktree name and port
+    osascript <<EOF
+tell application "Terminal"
+    activate
+    do script "cd '$WORKTREE_PATH' && echo '🎮 MageKnight Dev Server' && echo '   Worktree: $WORKTREE_NAME' && echo '   URL: http://localhost:$PORT' && echo '' && pnpm run dev:client -- --port $PORT"
+    set custom title of front window to "🎮 $WORKTREE_NAME :$PORT"
+end tell
+EOF
+
+    echo "Opened dev server for: $WORKTREE_NAME"
+    echo "URL: http://localhost:$PORT"
+    echo ""
+
+    # Wait a moment for server to start, then open browser
+    echo "Opening browser in 3 seconds..."
+    sleep 3
+    open "http://localhost:$PORT"
+}
+
+# Handle commands
+case "$1" in
+    "")
+        interactive_picker
+        ;;
+    "list")
+        list_worktrees
+        exit 0
+        ;;
+    "ports"|"running")
+        show_running_ports
+        exit 0
+        ;;
+    *)
+        WORKTREE_NAME="$1"
+        WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
+
+        if [ ! -d "$WORKTREE_PATH" ]; then
+            echo "Error: Worktree not found: $WORKTREE_PATH"
+            echo ""
+            list_worktrees
+            exit 1
+        fi
+
+        start_dev_server "$WORKTREE_NAME"
+        ;;
+esac
