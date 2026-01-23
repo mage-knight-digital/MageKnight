@@ -160,8 +160,8 @@ export function renderHexOverlays(
 
     layers.hexOverlays.addChild(graphics);
 
-    // Add cost badge if there's a movement cost
-    if (highlight.cost !== undefined && highlight.cost > 0) {
+    // Add cost badge only for hovered hex
+    if (isHovered && highlight.cost !== undefined && highlight.cost > 0) {
       const badgeX = x;
       const badgeY = y + HEX_SIZE * 0.5;
 
