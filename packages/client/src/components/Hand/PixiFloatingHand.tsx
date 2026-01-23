@@ -69,6 +69,8 @@ interface PixiFloatingHandProps {
   deckCount: number;
   discardCount: number;
   viewMode: HandViewMode;
+  /** Whether this pane is active in the carousel (controls visibility) */
+  isActive?: boolean;
 }
 
 /**
@@ -119,6 +121,7 @@ export function PixiFloatingHand({
   selectedIndex,
   onCardClick,
   viewMode,
+  isActive = true,
 }: PixiFloatingHandProps) {
   const { app, overlayLayer } = usePixiApp();
   const handContainerRef = useRef<Container | null>(null);
@@ -352,6 +355,14 @@ export function PixiFloatingHand({
     handContainer.zIndex = HAND_Z_INDEX_BASE;
     handContainer.eventMode = "none"; // Events handled via DOM
     handContainer.interactiveChildren = false;
+
+    // Set initial position at bottom center (hidden by default until isActive becomes true)
+    // This prevents a flash at (0,0) before other effects run
+    // Use "ready" mode position as safe default - other effects will adjust as needed
+    handContainer.visible = false;
+    const readyConfig = VIEW_MODE_OFFSETS.ready;
+    handContainer.x = window.innerWidth / 2;
+    handContainer.y = window.innerHeight + readyConfig.yOffset * window.innerHeight;
 
     overlayLayer.addChild(handContainer);
     overlayLayer.sortChildren();
@@ -783,6 +794,48 @@ export function PixiFloatingHand({
     // Update ref for next comparison
     prevViewModeRef.current = viewMode;
   }, [viewMode, screenDimensions.width, screenDimensions.height, containerWidth, containerHeight]);
+
+  // Hide/show based on isActive (carousel pane visibility)
+  // Also ensure position is correct when becoming active
+  useEffect(() => {
+    const handContainer = handContainerRef.current;
+    if (!handContainer) return;
+
+    if (!isActive) {
+      // Hide when not the active carousel pane
+      handContainer.visible = false;
+      handContainer.eventMode = "none";
+    } else {
+      // When becoming active, ensure position is correct and respect view mode's visibility
+      const viewConfig = VIEW_MODE_OFFSETS[viewMode];
+
+      // Set pivot for bottom-center origin
+      handContainer.pivot.set(containerWidth / 2, containerHeight);
+
+      // Calculate correct position (same logic as view mode effect)
+      const baseX = screenDimensions.width / 2;
+      const baseY = screenDimensions.height;
+      const yOffset = viewConfig.yOffset * screenDimensions.height;
+
+      let targetScale: number = viewConfig.scale;
+      if (viewMode === "focus") {
+        const horizontalPadding = 40;
+        const maxScaledWidth = screenDimensions.width - horizontalPadding;
+        const maxHorizontalScale = maxScaledWidth / containerWidth;
+        const verticalPadding = 60;
+        const availableHeight = screenDimensions.height - verticalPadding;
+        const maxVerticalScale = availableHeight / containerHeight;
+        targetScale = Math.min(viewConfig.scale, maxHorizontalScale, maxVerticalScale);
+      }
+
+      // Apply position immediately (no animation needed when becoming active)
+      handContainer.x = baseX;
+      handContainer.y = baseY + yOffset;
+      handContainer.scale.set(targetScale);
+      handContainer.visible = viewConfig.visible;
+      handContainer.eventMode = viewConfig.visible ? "static" : "none";
+    }
+  }, [isActive, viewMode, screenDimensions.width, screenDimensions.height, containerWidth, containerHeight]);
 
   // No DOM element needed - everything renders in PixiJS overlay layer
   return null;

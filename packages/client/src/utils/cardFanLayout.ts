@@ -85,3 +85,52 @@ export const CARD_FAN_HOVER = {
   /** Hover animation duration in seconds (synced to audio) */
   durationSec: 0.265,
 } as const;
+
+/**
+ * Tactic card aspect ratio (width / height).
+ * Standard Mage Knight card proportions.
+ */
+export const TACTIC_ASPECT_RATIO = 1000 / 1400; // ~0.714
+
+/**
+ * Tactic fan layout configuration.
+ * Tactics use a tighter fan than hand cards since there are only 6.
+ */
+export interface TacticLayoutResult {
+  /** Horizontal offset from center in pixels */
+  spreadX: number;
+  /** Rotation in radians */
+  rotation: number;
+  /** Vertical arc offset in pixels (cards away from center lift up slightly) */
+  arcY: number;
+}
+
+/**
+ * Calculate layout position for a tactic card in a fan.
+ *
+ * @param index - Card index (0-based)
+ * @param totalCards - Total number of cards in fan
+ * @param cardWidth - Width of a card in pixels
+ * @returns Layout position { spreadX, rotation, arcY }
+ */
+export function getTacticLayout(
+  index: number,
+  totalCards: number,
+  cardWidth: number
+): TacticLayoutResult {
+  const centerIndex = (totalCards - 1) / 2;
+  const offsetFromCenter = index - centerIndex;
+
+  // Tactic-specific layout parameters
+  // Spread: 70px base, scales with card width
+  const scaleFactor = cardWidth / 120;
+  const spreadDistance = 70 * scaleFactor;
+  const rotationPerCard = 3; // degrees
+  const arcPerCard = 4 * scaleFactor; // pixels
+
+  const spreadX = offsetFromCenter * spreadDistance;
+  const rotation = offsetFromCenter * rotationPerCard * (Math.PI / 180);
+  const arcY = Math.abs(offsetFromCenter) * arcPerCard;
+
+  return { spreadX, rotation, arcY };
+}

@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { PixiFloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./PixiFloatingHand";
 import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
-import { TacticCarouselPane } from "./TacticCarouselPane";
+import { PixiTacticCarousel } from "./PixiTacticCarousel";
 import { type CardId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -205,26 +205,36 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   return (
     <>
+      {/* PixiJS Tactic Carousel - renders to overlay layer, visibility controlled by isActive */}
+      <PixiTacticCarousel
+        viewMode={handView === "offer" ? prevViewModeRef.current : handView}
+        isActive={carouselPane === "tactics"}
+      />
+
+      {/* PixiJS Floating Hand - renders to overlay layer, visibility controlled by isActive */}
+      <PixiFloatingHand
+        hand={handArray}
+        playableCards={playableCardMap}
+        selectedIndex={selectedIndex}
+        onCardClick={handleCardClick}
+        deckCount={player.deckCount}
+        discardCount={player.discardCount}
+        viewMode={handView === "offer" ? prevViewModeRef.current : handView}
+        isActive={carouselPane === "cards"}
+      />
+
       {/* Carousel track - slides horizontally between tactics, cards, and units */}
-      {/* All panes are always rendered, positioned side by side */}
+      {/* PixiJS components render independently; this track handles DOM-based panes (units) */}
       {/* Hidden when in offer view - children keep their current viewMode to avoid transform jank */}
       <div className={`carousel-track carousel-track--${carouselPane} ${handView === "offer" ? "carousel-track--hidden" : ""}`}>
-        {/* Tactics pane (leftmost position) */}
+        {/* Tactics pane (leftmost position) - rendered via PixiJS overlay */}
         <div className="carousel-track__pane carousel-track__pane--tactics">
-          <TacticCarouselPane viewMode={handView === "offer" ? prevViewModeRef.current : handView} />
+          {/* PixiTacticCarousel renders above */}
         </div>
 
-        {/* Cards pane (middle position) */}
+        {/* Cards pane (middle position) - rendered via PixiJS overlay */}
         <div className="carousel-track__pane carousel-track__pane--cards">
-          <PixiFloatingHand
-            hand={handArray}
-            playableCards={playableCardMap}
-            selectedIndex={selectedIndex}
-            onCardClick={handleCardClick}
-            deckCount={player.deckCount}
-            discardCount={player.discardCount}
-            viewMode={handView === "offer" ? prevViewModeRef.current : handView}
-          />
+          {/* PixiFloatingHand renders above */}
         </div>
 
         {/* Units pane (rightmost position) */}

@@ -18,8 +18,8 @@
  */
 
 import { Texture, Rectangle, Assets } from "pixi.js";
-import type { CardId, UnitId } from "@mage-knight/shared";
-import { getCardSpriteData, getUnitSpriteData, type SpriteData } from "./cardAtlas";
+import type { CardId, UnitId, TacticId } from "@mage-knight/shared";
+import { getCardSpriteData, getUnitSpriteData, getTacticSpriteData, type SpriteData } from "./cardAtlas";
 
 // ============================================================================
 // Types
@@ -237,6 +237,27 @@ export async function getCardTexture(cardId: CardId): Promise<Texture> {
 
   if (!spriteData) {
     console.warn(`[pixiTextureLoader] No sprite data for card: ${cardId}`);
+    return getPlaceholderTexture();
+  }
+
+  return createTextureFromSpriteData(cacheKey, spriteData);
+}
+
+/**
+ * Get a PixiJS texture for a tactic card.
+ * Uses cardAtlas.ts for sprite data lookup.
+ */
+export async function getTacticTexture(tacticId: TacticId): Promise<Texture> {
+  const cacheKey = `tactic:${tacticId}`;
+
+  // Check cache first
+  const cached = textureCache.get(cacheKey);
+  if (cached) return cached;
+
+  const spriteData = getTacticSpriteData(tacticId);
+
+  if (!spriteData) {
+    console.warn(`[pixiTextureLoader] No sprite data for tactic: ${tacticId}`);
     return getPlaceholderTexture();
   }
 

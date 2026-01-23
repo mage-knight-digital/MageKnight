@@ -605,6 +605,35 @@ export function getUnitSpriteData(unitId: UnitId): SpriteData | null {
 }
 
 /**
+ * Get raw sprite data for a tactic for use with PixiJS texture loading.
+ */
+export function getTacticSpriteData(tacticId: TacticId): SpriteData | null {
+  if (!atlasLoaded || !storedAtlasData) return null;
+
+  const id = tacticId as string;
+  const position = storedAtlasData.cards.tactics?.[id];
+
+  if (!position || typeof position !== "object" || !("col" in position)) {
+    return null;
+  }
+
+  const sheet = storedAtlasData.sheets["tactics"];
+  if (!sheet) return null;
+
+  // Tactics sheet doesn't use even/odd layout
+  return {
+    src: `/assets/${sheet.file}`,
+    spriteWidth: sheet.cardWidth,
+    spriteHeight: sheet.cardHeight,
+    col: position.col,
+    row: position.row,
+    rowHeight: sheet.cardHeight,
+    sheetWidth: sheet.width,
+    sheetHeight: sheet.height,
+  };
+}
+
+/**
  * Get raw sprite data for a card (spell, AA, etc) for use with SpriteImage component.
  */
 export function getCardSpriteData(cardId: CardId): SpriteData | null {
