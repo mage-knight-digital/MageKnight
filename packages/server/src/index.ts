@@ -132,7 +132,16 @@ export function toClientState(
     },
 
     source: {
-      dice: state.source.dice,
+      dice: state.source.dice.map((die) => {
+        // Check if this die is stolen by any player's Mana Steal tactic
+        const isStolenByTactic = state.players.some(
+          (p) => p.tacticState.storedManaDie?.dieId === die.id
+        );
+        return {
+          ...die,
+          isStolenByTactic,
+        };
+      }),
     },
 
     offers: {
@@ -240,6 +249,14 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
 
     // Healing points accumulated this turn
     healingPoints: player.healingPoints,
+
+    // Stolen mana die from Mana Steal tactic
+    stolenManaDie: player.tacticState.storedManaDie
+      ? {
+          dieId: player.tacticState.storedManaDie.dieId,
+          color: player.tacticState.storedManaDie.color,
+        }
+      : null,
   };
 }
 

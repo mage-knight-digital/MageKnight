@@ -268,3 +268,50 @@
   border-color: rgba(255, 255, 255, 0.3);
   color: #fff;
 }
+
+/* Stolen mana section (Mana Steal tactic) */
+.top-bar__mana-group--stolen {
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 193, 7, 0.4);
+}
+
+/* Stolen token styling - pulsing amber border to indicate "special" status */
+.top-bar__token--stolen {
+  position: relative;
+  animation: stolen-mana-pulse 2s ease-in-out infinite;
+}
+
+/* Dashed amber border around stolen token */
+.top-bar__token--stolen::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255, 193, 7, 0.7);
+  animation: stolen-border-spin 8s linear infinite;
+}
+
+/* Subtle glow pulse animation */
+@keyframes stolen-mana-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 3px rgba(0, 0, 0, 0.3),
+      0 0 4px rgba(255, 193, 7, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 3px rgba(0, 0, 0, 0.3),
+      0 0 8px rgba(255, 193, 7, 0.6),
+      0 0 12px rgba(255, 193, 7, 0.3);
+  }
+}
+
+/* Rotating dashed border for extra visual interest */
+@keyframes stolen-border-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
