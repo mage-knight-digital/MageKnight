@@ -16,8 +16,8 @@
   pointer-events: auto; /* Enable for future interactivity */
   transform-origin: left center;
 
-  /* Responsive font size base - scales with viewport */
-  font-size: clamp(14px, 1.8vw, 28px);
+  /* Responsive font size base - scales with viewport (reduced ~15%) */
+  font-size: clamp(12px, 1.5vw, 24px);
 
   /* Page unfold animation - includes vertical centering */
   animation: tooltip-unfold 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -43,10 +43,10 @@
       rgba(40, 32, 25, 0.97) 100%);
   border: 2px solid #5c4a3a;
   border-radius: 4px;
-  padding: 1em;
-  /* Responsive width - scales with viewport for high-DPI displays */
-  min-width: clamp(260px, 28vw, 500px);
-  max-width: clamp(360px, 38vw, 700px);
+  padding: 0.85em;
+  /* Responsive width - scales with viewport for high-DPI displays (reduced ~15%) */
+  min-width: clamp(220px, 24vw, 425px);
+  max-width: clamp(305px, 32vw, 595px);
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 240, 200, 0.08),
@@ -71,7 +71,7 @@
 .site-tooltip {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .site-tooltip__header {
@@ -84,23 +84,9 @@
   animation: line-appear 0.25s ease-out forwards;
 }
 
-.site-tooltip__icon {
-  font-size: 1.4em;
-  /* Make icon containers responsive */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Override inline sizes for site icons in header */
-.site-tooltip__icon .site-icon {
-  width: clamp(36px, 5vw, 72px) !important;
-  height: clamp(36px, 5vw, 72px) !important;
-}
-
 .site-tooltip__name {
   font-weight: 700;
-  font-size: clamp(1.1rem, 2vw, 1.75rem);
+  font-size: clamp(0.95rem, 1.7vw, 1.5rem);
   color: #f0e6d2;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   letter-spacing: 0.02em;
@@ -122,7 +108,7 @@
 .site-tooltip__divider {
   height: 1px;
   background: linear-gradient(90deg, transparent, #6b5344, transparent);
-  margin: 0.4rem 0;
+  margin: 0.3rem 0;
 
   /* Staggered animation */
   opacity: 0;
@@ -132,8 +118,8 @@
 .site-tooltip__line {
   display: flex;
   align-items: flex-start;
-  gap: 0.6em;
-  font-size: clamp(0.95rem, 1.5vw, 1.3rem);
+  gap: 0.5em;
+  font-size: clamp(0.8rem, 1.3vw, 1.1rem);
   color: #d4c4a8;
   line-height: 1.4;
 
@@ -144,7 +130,7 @@
 
 .site-tooltip__line--special {
   color: #e8c476;
-  font-size: clamp(0.85rem, 1.3vw, 1.15rem);
+  font-size: clamp(0.72rem, 1.1vw, 0.98rem);
   font-style: italic;
 }
 
@@ -159,8 +145,8 @@
 
 /* Responsive game icons in tooltip lines */
 .site-tooltip__line-icon .game-icon {
-  width: clamp(22px, 3vw, 42px) !important;
-  height: clamp(22px, 3vw, 42px) !important;
+  width: clamp(18px, 2.5vw, 36px) !important;
+  height: clamp(18px, 2.5vw, 36px) !important;
 }
 
 .site-tooltip__line-text {
@@ -173,17 +159,17 @@
 .enemy-tooltip {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .enemy-tooltip__header {
-  font-size: clamp(0.75rem, 1.2vw, 0.95rem);
+  font-size: clamp(0.65rem, 1vw, 0.8rem);
   font-weight: 600;
   color: #a89878;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-top: 0.6rem;
-  padding-top: 0.6rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
   border-top: 1px solid rgba(92, 74, 58, 0.5);
 
   /* Staggered animation */
@@ -192,7 +178,7 @@
 }
 
 .enemy-tooltip__enemy {
-  padding: clamp(0.3rem, 0.6vw, 0.5rem) 0;
+  padding: clamp(0.25rem, 0.5vw, 0.4rem) 0;
 
   /* Staggered animation */
   opacity: 0;
@@ -202,19 +188,19 @@
 /* Rampaging enemy - subtle left border accent */
 .enemy-tooltip__enemy--rampaging {
   border-left: 3px solid rgba(160, 60, 45, 0.8);
-  padding-left: clamp(0.5rem, 0.8vw, 0.7rem);
+  padding-left: clamp(0.4rem, 0.7vw, 0.6rem);
 }
 
 .enemy-tooltip__enemy-header {
   display: flex;
   align-items: center;
-  gap: clamp(0.4rem, 0.8vw, 0.6rem);
-  margin-bottom: clamp(0.375rem, 0.8vw, 0.5rem);
+  gap: clamp(0.35rem, 0.7vw, 0.5rem);
+  margin-bottom: clamp(0.3rem, 0.7vw, 0.4rem);
 }
 
 .enemy-tooltip__token-back {
-  width: clamp(28px, 4vw, 56px);
-  height: clamp(28px, 4vw, 56px);
+  width: clamp(24px, 3.5vw, 48px);
+  height: clamp(24px, 3.5vw, 48px);
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
@@ -222,21 +208,21 @@
 
 .enemy-tooltip__enemy-name {
   font-weight: 700;
-  font-size: clamp(1.1rem, 2vw, 1.75rem);
+  font-size: clamp(0.95rem, 1.7vw, 1.5rem);
   color: #f0e6d2;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .enemy-tooltip__enemy-stats {
   display: flex;
-  gap: clamp(0.75rem, 1.5vw, 1rem);
-  margin-bottom: clamp(0.25rem, 0.6vw, 0.375rem);
+  gap: clamp(0.65rem, 1.3vw, 0.85rem);
+  margin-bottom: clamp(0.2rem, 0.5vw, 0.3rem);
 }
 
 .enemy-tooltip__stat {
   display: flex;
   align-items: center;
-  gap: clamp(0.2rem, 0.5vw, 0.35rem);
+  gap: clamp(0.15rem, 0.4vw, 0.3rem);
 }
 
 .enemy-tooltip__stat-icon {
@@ -246,34 +232,34 @@
 
 /* Responsive game icons in enemy stats */
 .enemy-tooltip__stat-icon .game-icon {
-  width: clamp(22px, 3vw, 48px) !important;
-  height: clamp(22px, 3vw, 48px) !important;
+  width: clamp(18px, 2.5vw, 40px) !important;
+  height: clamp(18px, 2.5vw, 40px) !important;
 }
 
 .enemy-tooltip__stat-value {
   font-weight: 700;
-  font-size: clamp(1.1rem, 2vw, 1.75rem);
+  font-size: clamp(0.95rem, 1.7vw, 1.5rem);
   color: #f0e6d2;
 }
 
 .enemy-tooltip__stat-element {
-  font-size: clamp(0.7rem, 1.1vw, 0.85rem);
+  font-size: clamp(0.6rem, 0.95vw, 0.72rem);
   color: #c4a882;
-  padding: 0.15rem 0.35rem;
+  padding: 0.12rem 0.3rem;
   background: rgba(60, 45, 30, 0.6);
   border: 1px solid rgba(92, 74, 58, 0.4);
   border-radius: 3px;
-  margin-left: 0.2rem;
+  margin-left: 0.15rem;
 }
 
 /* Rampaging badge - inline with enemy name */
 .enemy-tooltip__rampaging-badge {
-  font-size: clamp(0.7rem, 1.2vw, 1.05rem);
+  font-size: clamp(0.6rem, 1vw, 0.9rem);
   font-weight: 600;
   color: #f0d0c0;
   background: rgba(120, 40, 30, 0.7);
   border: 1px solid rgba(160, 60, 45, 0.6);
-  padding: 0.15em 0.6em;
+  padding: 0.12em 0.5em;
   border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -283,15 +269,15 @@
 .enemy-tooltip__abilities {
   display: flex;
   flex-direction: column;
-  gap: clamp(0.25rem, 0.5vw, 0.375rem);
-  margin-top: clamp(0.25rem, 0.5vw, 0.375rem);
+  gap: clamp(0.2rem, 0.4vw, 0.3rem);
+  margin-top: clamp(0.2rem, 0.4vw, 0.3rem);
 }
 
 .enemy-tooltip__ability {
   display: flex;
   align-items: center;
-  gap: clamp(0.4rem, 0.8vw, 0.6rem);
-  font-size: clamp(0.95rem, 1.6vw, 1.35rem);
+  gap: clamp(0.35rem, 0.7vw, 0.5rem);
+  font-size: clamp(0.8rem, 1.35vw, 1.15rem);
   color: #d4c4a8;
   cursor: help;
 }
@@ -304,8 +290,8 @@
 
 /* Responsive ability icons */
 .enemy-tooltip__ability-icon .game-icon {
-  width: clamp(20px, 2.5vw, 40px) !important;
-  height: clamp(20px, 2.5vw, 40px) !important;
+  width: clamp(17px, 2.1vw, 34px) !important;
+  height: clamp(17px, 2.1vw, 34px) !important;
 }
 
 .enemy-tooltip__ability-name {
@@ -315,27 +301,27 @@
 
 .enemy-tooltip__ability-desc {
   color: #a89878;
-  font-size: clamp(0.8rem, 1.3vw, 1.15rem);
-  margin-left: 0.25rem;
+  font-size: clamp(0.68rem, 1.1vw, 0.98rem);
+  margin-left: 0.2rem;
   font-style: italic;
 }
 
 .enemy-tooltip__resistances {
   display: flex;
   align-items: center;
-  gap: clamp(0.375rem, 0.8vw, 0.5rem);
-  margin-top: clamp(0.25rem, 0.5vw, 0.375rem);
+  gap: clamp(0.3rem, 0.7vw, 0.4rem);
+  margin-top: clamp(0.2rem, 0.4vw, 0.3rem);
   flex-wrap: wrap;
 }
 
 .enemy-tooltip__resistance-label {
-  font-size: clamp(0.7rem, 1.1vw, 0.85rem);
+  font-size: clamp(0.6rem, 0.95vw, 0.72rem);
   color: #a89878;
 }
 
 .enemy-tooltip__resistance {
-  font-size: clamp(0.7rem, 1.1vw, 0.85rem);
-  padding: clamp(0.15rem, 0.35vw, 0.25rem) clamp(0.35rem, 0.7vw, 0.5rem);
+  font-size: clamp(0.6rem, 0.95vw, 0.72rem);
+  padding: clamp(0.12rem, 0.3vw, 0.2rem) clamp(0.3rem, 0.6vw, 0.4rem);
   background: rgba(60, 50, 40, 0.6);
   border: 1px solid rgba(92, 74, 58, 0.5);
   border-radius: 3px;
@@ -355,11 +341,11 @@
 }
 
 .enemy-tooltip__unrevealed {
-  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  font-size: clamp(0.72rem, 1.1vw, 0.85rem);
   color: #a89878;
   font-style: italic;
   text-align: center;
-  padding: 0.4rem;
+  padding: 0.35rem;
 
   /* Staggered animation */
   opacity: 0;
@@ -398,13 +384,13 @@
 .hex-tooltip__more-info {
   display: block;
   width: 100%;
-  margin-top: 0.6rem;
-  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.65rem;
   background: linear-gradient(135deg, rgba(70, 55, 40, 0.5) 0%, rgba(50, 40, 30, 0.5) 100%);
   border: 1px solid rgba(92, 74, 58, 0.6);
   border-radius: 3px;
   color: #d4c4a8;
-  font-size: 0.9em;
+  font-size: 0.85em;
   font-weight: 500;
   cursor: pointer;
   text-align: center;
