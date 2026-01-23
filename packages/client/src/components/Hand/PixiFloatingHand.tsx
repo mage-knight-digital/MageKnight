@@ -687,7 +687,7 @@ export function PixiFloatingHand({
     const animManager = animationManagerRef.current;
     const prevHovered = prevHoveredIndexRef.current;
 
-    const liftY = CARD_FAN_HOVER.liftY * 1.25; // 25% more lift
+    const liftY = CARD_FAN_HOVER.liftY * 0.25; // Minimal lift (7.5px)
 
     // Update z-index for all cards
     visibleHand.forEach((_, index) => {
