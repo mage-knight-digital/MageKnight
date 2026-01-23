@@ -53,7 +53,7 @@ export function UnifiedCardMenu() {
   const { state: gameState, sendAction } = useGame();
   const player = useMyPlayer();
   const { state: interactionState, dispatch } = useCardInteraction();
-  const { setPosition } = useCardMenuPosition();
+  const { setPosition, visualScale } = useCardMenuPosition();
 
   // Register as overlay when menu is open
   const isMenuOpen = interactionState.type !== "idle";
@@ -346,24 +346,28 @@ export function UnifiedCardMenu() {
   }, [interactionState.type]);
 
   // Calculate sizes based on viewport and card
-  // Must match PixiFloatingHand: cardHeight = screenHeight * CARD_FAN_BASE_SCALE * MENU_CARD_SCALE
+  // Must match PixiFloatingHand's actual card size, which varies by view mode
+  // visualScale is set by PixiFloatingHand: 1.0 for ready mode, ~2.0 for focus mode
   const sizes = useMemo(() => {
     const screenHeight = window.innerHeight;
     const screenWidth = window.innerWidth;
     const vmin = Math.min(screenWidth, screenHeight);
-    // Card size matches the hand's scaled-up card in menu mode
-    const cardHeight = Math.round(screenHeight * CARD_FAN_BASE_SCALE * MENU_CARD_SCALE);
+    // Base card size is what ready mode uses
+    const baseCardHeight = screenHeight * CARD_FAN_BASE_SCALE * MENU_CARD_SCALE;
+    // Scale up for focus mode (visualScale > 1)
+    const cardHeight = Math.round(baseCardHeight * visualScale);
     const cardWidth = Math.round(cardHeight * CARD_ASPECT);
     // Card covers a circular area roughly equal to its half-diagonal
     const cardCoverRadius = Math.max(cardWidth, cardHeight) / 2;
     // Outer radius: extend past the card with visible wedge area
-    const wedgeVisibleThickness = Math.max(90, vmin * 0.13);
+    // Scale the wedge thickness with visualScale so it stays proportional
+    const wedgeVisibleThickness = Math.max(90, vmin * 0.13) * visualScale;
     const outerRadius = cardCoverRadius + wedgeVisibleThickness;
-    // Font sizes scale with viewport
-    const labelFontSize = Math.round(Math.max(16, vmin * 0.018));
-    const sublabelFontSize = Math.round(Math.max(12, vmin * 0.012));
+    // Font sizes scale with viewport and visualScale
+    const labelFontSize = Math.round(Math.max(16, vmin * 0.018) * visualScale);
+    const sublabelFontSize = Math.round(Math.max(12, vmin * 0.012) * visualScale);
     return { outerRadius, cardCoverRadius, labelFontSize, sublabelFontSize, cardWidth, cardHeight };
-  }, []);
+  }, [visualScale]);
 
   // Don't render if idle or completing
   if (
