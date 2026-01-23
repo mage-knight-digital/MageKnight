@@ -28,25 +28,29 @@ body {
   transition: filter 0.3s ease;
 }
 
-/* Dimming effect during combat - board visible but darkened */
+/* Dimming effect during combat - handled by combat overlay's dark background */
 .app--combat .app__main {
-  filter: brightness(0.4) saturate(0.6);
+  /* No filter here - the PixiJS world is hidden and combat overlay provides the dark background */
   transition: filter 0.3s ease;
 }
 
 /*
  * During combat, the PixiJS canvas needs special handling:
- * - The canvas is inside .app__main which gets dimmed via filter
- * - We need the hand (rendered in PixiJS overlay layer) to be visible above combat overlay
- * - Solution: Position the canvas as fixed with high z-index, and exclude from filter
+ * - The world/background layers are hidden in PixiJS (see PixiHexGrid.tsx)
+ * - Only the overlay layer (containing the hand) renders on a transparent canvas
+ * - The hex-grid container needs to be above the combat overlay so the hand is visible
+ * - Use pointer-events: none so clicks pass through to combat UI beneath
  */
-.app--combat .hex-grid canvas {
+.app--combat .hex-grid {
   position: fixed !important;
-  top: 0;
-  left: 0;
+  inset: 0;
   z-index: 150 !important;
-  /* Prevent inheriting the brightness filter from parent */
-  filter: brightness(1) saturate(1) !important;
+  pointer-events: none;
+  background: transparent !important; /* Remove background so combat overlay shows through */
+}
+
+.app--combat .hex-grid canvas {
+  pointer-events: auto;
 }
 
 /* Boost hand z-index during combat so it's above the combat overlay */
