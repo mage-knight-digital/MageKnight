@@ -141,7 +141,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     handleHexMouseLeave: handleHexTooltipLeave,
     handleTooltipMouseEnter,
     handleTooltipMouseLeave,
-  } = useHexHover({ delay: 400 });
+  } = useHexHover({ delay: 650 });
 
 
   // Site Panel state (detailed info panel)
