@@ -23,6 +23,7 @@ import { getCardTexture, getPlaceholderTexture } from "../../utils/pixiTextureLo
 import { calculateZIndex, CARD_FAN_BASE_SCALE, CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
 import { playSound } from "../../utils/audioManager";
 import { useOverlay } from "../../contexts/OverlayContext";
+import { useCardInteraction } from "../CardInteraction";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import "./FloatingHand.css";
 
@@ -129,6 +130,9 @@ export function PixiFloatingHand({
   // Check if an overlay (like CardActionMenu) is active - don't intercept clicks when it is
   const { isOverlayActive } = useOverlay();
 
+  // Card interaction state - used to coordinate sprite handoff to PieMenuRenderer
+  const { state: cardInteractionState } = useCardInteraction();
+
   // Track previous view mode for transitions
   const prevViewModeRef = useRef<HandViewMode>(viewMode);
 
@@ -230,7 +234,19 @@ export function PixiFloatingHand({
     }
 
     // If we HAD a selected card and now we don't, animate it back to resting position
+    // UNLESS we're in completing/effect-choice state - in that case, keep the card at center
+    // so it can smoothly transition to the PieMenuRenderer's card sprite
     if (prevSelected !== null && selectedIndex === null) {
+      const isHandingOffToPieMenu =
+        cardInteractionState.type === "completing" ||
+        cardInteractionState.type === "effect-choice";
+
+      if (isHandingOffToPieMenu) {
+        // Don't animate back - keep card at center, let PieMenuRenderer take over
+        // selectionInProgressRef stays set so the card isn't destroyed by updateSprites
+        prevSelectedIndexRef.current = selectedIndex;
+        return;
+      }
 
       // Clear the selection-in-progress flag
       selectionInProgressRef.current = null;
@@ -260,7 +276,29 @@ export function PixiFloatingHand({
     }
 
     prevSelectedIndexRef.current = selectedIndex;
-  }, [selectedIndex, cardPositions, visibleHand.length, zIndexAnchor]);
+  }, [selectedIndex, cardPositions, visibleHand.length, zIndexAnchor, cardInteractionState.type]);
+
+  // When effect-choice is active, fade out the hand's card sprite so PieMenuRenderer's card takes over
+  // This creates a smooth crossfade handoff between the two sprites
+  useEffect(() => {
+    const animManager = animationManagerRef.current;
+    const cardIndex = selectionInProgressRef.current;
+
+    if (cardInteractionState.type === "effect-choice" && cardIndex !== null && animManager) {
+      const cardContainer = cardContainersRef.current.get(cardIndex);
+      if (cardContainer) {
+        // Fade out over 150ms to crossfade with PieMenuRenderer's card fading in
+        animManager.animate(`card-handover-${cardIndex}`, cardContainer, {
+          endAlpha: 0,
+          duration: 150,
+          onComplete: () => {
+            // After fade out, clear selection so card can be cleaned up
+            selectionInProgressRef.current = null;
+          },
+        });
+      }
+    }
+  }, [cardInteractionState.type]);
 
   // Get original index - now same as visible index since we don't filter
   const getOriginalIndex = useCallback((visibleIndex: number): number => {

@@ -23,7 +23,10 @@ packages/
 
 ```bash
 pnpm install
+git config core.hooksPath .githooks
 ```
+
+The hooks configuration enables automatic asset symlinking when using git worktrees.
 
 ### Scripts
 

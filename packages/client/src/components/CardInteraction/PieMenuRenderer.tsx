@@ -430,6 +430,8 @@ export function PieMenuRenderer({
     timeoutIdsRef.current.push(glowTimeoutId);
 
     // Center card (for effect-choice state when card is no longer in hand)
+    // Starts partially visible (alpha=0.3) and fades in immediately (no delay)
+    // to create a smooth crossfade with the hand's card fading out
     if (cardTexture && cardWidthProp && cardHeightProp) {
       const cardSprite = new Sprite(cardTexture);
       cardSprite.width = cardWidthProp;
@@ -437,20 +439,16 @@ export function PieMenuRenderer({
       // Center the card (anchor at center)
       cardSprite.anchor.set(0.5, 0.5);
       cardSprite.position.set(0, 0);
-      cardSprite.alpha = 0;
+      cardSprite.alpha = 0.3; // Start partially visible for smooth crossfade
       cardSprite.zIndex = 500; // Above wedges
       menuContainer.addChild(cardSprite);
 
-      // Animate card fade in
-      const cardTimeoutId = window.setTimeout(() => {
-        if (isDestroyedRef.current || !cardSprite.parent) return;
-        animManager.animate("center-card", cardSprite, {
-          endAlpha: 1,
-          duration: 200,
-          easing: Easing.easeOutQuad,
-        });
-      }, 100);
-      timeoutIdsRef.current.push(cardTimeoutId);
+      // Animate card fade in immediately (no delay) to crossfade with hand card
+      animManager.animate("center-card", cardSprite, {
+        endAlpha: 1,
+        duration: 150, // Matches hand card fade out duration
+        easing: Easing.easeOutQuad,
+      });
     }
 
     // Center label

@@ -4,6 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **PRs should always target the `main` branch.**
 
+## Git Worktrees
+
+The `packages/client/public/` folder is gitignored (contains large binary assets). A post-checkout hook in `.githooks/` automatically symlinks it from the main repo when you create a worktree.
+
+If the symlink wasn't created automatically, run from the worktree:
+```bash
+MAIN_REPO="$(git worktree list --porcelain | head -1 | sed 's/worktree //')"
+ln -s "$MAIN_REPO/packages/client/public" packages/client/public
+```
+
 ## Build & Test Commands
 
 ```bash

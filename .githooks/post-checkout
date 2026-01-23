@@ -1,0 +1,14 @@
+#!/bin/bash
+# Auto-symlink gitignored assets for worktrees
+
+CURRENT_DIR="$(git rev-parse --show-toplevel 2>/dev/null)"
+# Get the main worktree (first line of git worktree list)
+MAIN_REPO="$(git worktree list --porcelain | head -1 | sed 's/worktree //')"
+
+if [[ "$CURRENT_DIR" != "$MAIN_REPO" && -n "$CURRENT_DIR" && -n "$MAIN_REPO" ]]; then
+    PUBLIC_DIR="$CURRENT_DIR/packages/client/public"
+    if [[ ! -e "$PUBLIC_DIR" ]]; then
+        ln -s "$MAIN_REPO/packages/client/public" "$PUBLIC_DIR"
+        echo "Symlinked assets: $PUBLIC_DIR -> $MAIN_REPO/packages/client/public"
+    fi
+fi
