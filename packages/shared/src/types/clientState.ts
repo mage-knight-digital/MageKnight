@@ -51,6 +51,12 @@ export interface ClientManaToken {
   readonly source: ManaTokenSource;
 }
 
+// Stolen mana die from Mana Steal tactic
+export interface ClientStolenManaDie {
+  readonly dieId: string;
+  readonly color: ManaColor;
+}
+
 // Elemental attack/block values
 export interface ClientElementalValues {
   readonly physical: number;
@@ -137,6 +143,9 @@ export interface ClientPlayer {
 
   // Healing points accumulated this turn (cleared on combat entry)
   readonly healingPoints: number;
+
+  // Stolen mana die from Mana Steal tactic (if any)
+  readonly stolenManaDie: ClientStolenManaDie | null;
 }
 
 // Mana die in the source
@@ -145,6 +154,7 @@ export interface ClientSourceDie {
   readonly color: ManaColor;
   readonly isDepleted: boolean;
   readonly takenByPlayerId: string | null; // which player used this die this turn
+  readonly isStolenByTactic: boolean; // true if stolen via Mana Steal tactic (vs normal use)
 }
 
 // Mana source (public)
