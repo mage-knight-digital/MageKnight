@@ -141,7 +141,12 @@ export function renderHexOverlays(
     const hexWorldPos = { x, y };
     // Point at hex edge (right side) to calculate screen-space hex width
     const hexEdgePos = { x: x + HEX_SIZE * Math.sqrt(3) / 2, y };
-    graphics.on("pointerdown", () => onHexClick(coord));
+    graphics.on("pointerdown", (e) => {
+      // Only handle left mouse button (button 0)
+      if (e.button === 0) {
+        onHexClick(coord);
+      }
+    });
     graphics.on("rightclick", (e) => {
       e.preventDefault?.();
       if (onHexRightClick) {
