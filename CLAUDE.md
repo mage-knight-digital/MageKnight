@@ -225,6 +225,23 @@ Catches cross-package type mismatches that IDE won't see until full build.
 
 ---
 
+## Lint Error Policy
+
+**Always fix the root cause of lint errors — never bypass them.**
+
+- Do not use `// eslint-disable`, `@ts-ignore`, `@ts-expect-error`, or similar suppression comments
+- Do not modify ESLint/TypeScript config to weaken rules
+- If a lint error seems incorrect, investigate the underlying issue first
+
+**Bypass is only acceptable with strong justification:**
+1. Perform a web search to confirm the bypass aligns with established best practices
+2. Document the justification in a comment explaining why the bypass is necessary
+3. The justification must be a genuine edge case (e.g., library type definitions are wrong, rule conflicts with framework requirements)
+
+When in doubt, fix the code to satisfy the linter rather than silencing the warning.
+
+---
+
 ## File Reference
 
 | What | Where |
