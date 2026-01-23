@@ -152,6 +152,10 @@ export function PixiFloatingHand({
   // This is set synchronously in click handler BEFORE React state updates
   const selectionInProgressRef = useRef<number | null>(null);
 
+  // Counter to force updateSprites to re-run after clearing selectionInProgress
+  // Incremented when we need to rebuild sprites after a card play completes
+  const [spriteRebuildTrigger, setSpriteRebuildTrigger] = useState(0);
+
   // Track new cards for deal animation
   const prevHandLengthRef = useRef<number>(hand.length);
   const isFirstRenderRef = useRef<boolean>(true);
@@ -290,8 +294,9 @@ export function PixiFloatingHand({
     prevSelectedIndexRef.current = selectedIndex;
   }, [selectedIndex, cardPositions, visibleHand.length, zIndexAnchor, cardInteractionState.type, overlayLayer]);
 
-  // When effect-choice is active, fade out the hand's card sprite so PieMenuRenderer's card takes over
-  // This creates a smooth crossfade handoff between the two sprites
+  // Handle card visibility transitions based on interaction state
+  // - effect-choice: fade out hand's card so PieMenuRenderer's card takes over (crossfade)
+  // - idle (from completing): action completed, restore all card visibility
   useEffect(() => {
     const animManager = animationManagerRef.current;
     const cardIndex = selectionInProgressRef.current;
@@ -309,6 +314,18 @@ export function PixiFloatingHand({
           },
         });
       }
+    }
+
+    // When returning to idle while a selection is in progress, the action completed
+    // successfully without requiring an effect choice. Clean up the card state.
+    if (cardInteractionState.type === "idle" && cardIndex !== null) {
+      // Clear the selection flag
+      selectionInProgressRef.current = null;
+
+      // Force updateSprites to re-run. The hand changed while selectionInProgress
+      // was set, so updateSprites was skipped. Now we need to rebuild the sprites
+      // with the new hand (minus the played card).
+      setSpriteRebuildTrigger(prev => prev + 1);
     }
   }, [cardInteractionState.type]);
 
@@ -497,8 +514,9 @@ export function PixiFloatingHand({
   // Note: zIndexAnchor and selectedIndex intentionally excluded
   // - z-index updates happen in the hover effect
   // - selectedIndex changes are handled by a separate effect (we don't want to recreate sprites just because a card was selected)
+  // spriteRebuildTrigger forces a rebuild after card play completes (when selectionInProgress blocked the normal rebuild)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleHand, cardPositions, cardWidth, cardHeight, isAppReady, playableCards, getOriginalIndex, onCardClick, viewMode]);
+  }, [visibleHand, cardPositions, cardWidth, cardHeight, isAppReady, playableCards, getOriginalIndex, onCardClick, viewMode, spriteRebuildTrigger]);
 
   // Handle hover detection using DOM events (canvas has pointer-events: none)
   useEffect(() => {
