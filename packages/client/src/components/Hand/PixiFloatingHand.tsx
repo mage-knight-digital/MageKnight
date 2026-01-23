@@ -618,13 +618,7 @@ export function PixiFloatingHand({
 
             // Convert the desired pivot position from screen coords to local coords
             const targetLocal = handContainer.toLocal({ x: screenCenterX, y: pivotTargetY });
-
-            // Additional offset: the card container scales around its pivot (bottom-center),
-            // but the sprite inside is anchored at top-left. When scaling up, the sprite
-            // extends upward from the pivot, but also shifts because the container's
-            // local origin (0,0) moves relative to the pivot during scaling.
-            // Scale the offset by targetLocalScale since offset is proportional to card size
-            const targetY = targetLocal.y + (cardHeight * 0.15 * targetLocalScale);
+            const targetY = targetLocal.y;
 
             // Bring card to front
             container.zIndex = 1000;
