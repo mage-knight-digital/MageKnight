@@ -24,6 +24,7 @@ import { playSound } from "../../utils/audioManager";
 import { useOverlay } from "../../contexts/OverlayContext";
 import { useCardInteraction } from "../CardInteraction";
 import { usePixiApp } from "../../contexts/PixiAppContext";
+import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 
 // Animation timing constants
@@ -140,6 +141,9 @@ export function PixiFloatingHand({
 
   // Card interaction state - used to coordinate sprite handoff to PieMenuRenderer
   const { state: cardInteractionState } = useCardInteraction();
+
+  // Card menu position context - used to communicate visual scale to pie menu
+  const { setVisualScale } = useCardMenuPosition();
 
   // Track previous view mode for transitions
   const prevViewModeRef = useRef<HandViewMode>(viewMode);
@@ -580,11 +584,34 @@ export function PixiFloatingHand({
             // Get the hand container's current scale (affects how local units map to screen pixels)
             const containerScale = handContainer.scale.x; // Assumes uniform scaling
 
-            // Card pivot is at bottom-center. After scaling to MENU_CARD_SCALE, the visual height is:
-            //   cardHeight * MENU_CARD_SCALE * containerScale (in screen pixels)
+            // Determine target scale and visual scale factor based on view mode
+            // In focus mode, the card is already large - don't scale it up further
+            // In ready mode, scale up as usual
+            const isInFocusMode = containerScale > 1.5; // Focus mode has scale ~2.8
+            let targetLocalScale: number;
+            let visualScaleFactor: number;
+
+            if (isInFocusMode) {
+              // Focus mode: keep card at current size (don't scale up)
+              targetLocalScale = 1.0;
+              // Visual size = cardHeight * 1.0 * containerScale
+              // Compared to ready mode's cardHeight * MENU_CARD_SCALE * 1.0
+              // So visual scale factor = containerScale / MENU_CARD_SCALE
+              visualScaleFactor = containerScale / MENU_CARD_SCALE;
+            } else {
+              // Ready mode: scale up as before
+              targetLocalScale = MENU_CARD_SCALE;
+              visualScaleFactor = 1.0;
+            }
+
+            // Communicate visual scale to pie menu via context
+            setVisualScale(visualScaleFactor);
+
+            // Card pivot is at bottom-center. After scaling, the visual height is:
+            //   cardHeight * targetLocalScale * containerScale (in screen pixels)
             // To center the card visually on screen, the pivot (bottom-center) needs to be at:
             //   screenCenterY + (visualHeight / 2)
-            const visualCardHeight = cardHeight * MENU_CARD_SCALE * containerScale;
+            const visualCardHeight = cardHeight * targetLocalScale * containerScale;
             const pivotTargetY = screenCenterY + (visualCardHeight / 2);
 
             // Convert the desired pivot position from screen coords to local coords
@@ -594,8 +621,8 @@ export function PixiFloatingHand({
             // but the sprite inside is anchored at top-left. When scaling up, the sprite
             // extends upward from the pivot, but also shifts because the container's
             // local origin (0,0) moves relative to the pivot during scaling.
-            // Empirically, we need a small downward shift to compensate.
-            const targetY = targetLocal.y + (cardHeight * 0.15);
+            // Scale the offset by targetLocalScale since offset is proportional to card size
+            const targetY = targetLocal.y + (cardHeight * 0.15 * targetLocalScale);
 
             // Bring card to front
             container.zIndex = 1000;
@@ -609,11 +636,11 @@ export function PixiFloatingHand({
             });
 
             // ANIMATE RIGHT NOW - no waiting for React
-            // Card scales up as it moves to center for emphasis
+            // Card moves to center (and scales up in ready mode, stays same in focus mode)
             animManager.animate(`card-to-center-${cardIndex}`, container, {
               endX: targetLocal.x,
               endY: targetY,
-              endScale: MENU_CARD_SCALE,
+              endScale: targetLocalScale,
               endRotation: 0,
               duration: CARD_TO_MENU_DURATION_MS,
               easing: Easing.easeOutCubic,
@@ -641,7 +668,7 @@ export function PixiFloatingHand({
     return () => {
       document.removeEventListener("click", handleClick, true);
     };
-  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick, isOverlayActive]);
+  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick, isOverlayActive, setVisualScale]);
 
   // Track previous hovered index for animation
   const prevHoveredIndexRef = useRef<number | null>(null);
