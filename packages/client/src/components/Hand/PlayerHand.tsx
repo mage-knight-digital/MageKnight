@@ -6,6 +6,7 @@ import { type CardId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useCardInteraction } from "../CardInteraction";
+import { useRegisterOverlay } from "../../contexts/OverlayContext";
 
 // Menu state types
 type MenuState =
@@ -38,6 +39,9 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   // Default to tactics - most game loads are at round start with tactic selection
   // The useEffect below handles moving to cards if tactic is already selected
   const [carouselPane, setCarouselPane] = useState<CarouselPane>("tactics");
+
+  // Register focus mode as an overlay to suppress hex tooltips
+  useRegisterOverlay(handView === "focus");
 
   // Track whether we need tactic selection (for auto-navigation)
   const needsTacticSelection = !!(
