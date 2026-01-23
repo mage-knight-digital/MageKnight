@@ -192,6 +192,8 @@ export async function renderEnemies(
 
         const enemyContainer = new Container();
         enemyContainer.label = `enemy-${hexKey(hex.coord)}-${i}`;
+        // Allow pointer events to pass through to hex overlays below
+        enemyContainer.eventMode = "none";
         enemyContainer.position.set(enemyPos.x, enemyPos.y);
         enemyContainer.addChild(mask);
         enemyContainer.addChild(sprite);
