@@ -168,13 +168,13 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
   const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
   const cardHeight = useCardHeight();
 
-  // Track if hero portal animation is complete (triggers showing tactics)
-  const [heroComplete, setHeroComplete] = useState(false);
+  // Track if mana source animation is complete (triggers showing tactics)
+  const [manaSourceComplete, setManaSourceComplete] = useState(false);
 
-  // Listen for hero-complete event to know when to show tactics
-  // This ensures tactics don't appear until the hero has emerged through the portal
-  useOnAnimationEvent("hero-complete", useCallback(() => {
-    setHeroComplete(true);
+  // Listen for mana-source-complete event to know when to show tactics
+  // This ensures tactics don't appear until the mana dice are revealed
+  useOnAnimationEvent("mana-source-complete", useCallback(() => {
+    setManaSourceComplete(true);
   }, []));
 
   // Load atlas on mount
@@ -227,12 +227,12 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
     );
   }
 
-  // Wait for hero portal animation to complete before showing tactics
+  // Wait for mana source animation to complete before showing tactics
   // This uses the event-based dispatcher instead of setTimeout-based timing
-  if (!heroComplete && !isIntroComplete) {
+  if (!manaSourceComplete && !isIntroComplete) {
     return (
       <div className={`tactic-carousel tactic-carousel--${viewMode} tactic-carousel--empty`}>
-        {/* Waiting for hero to emerge through portal */}
+        {/* Waiting for mana source to reveal */}
       </div>
     );
   }

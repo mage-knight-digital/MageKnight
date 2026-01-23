@@ -16,6 +16,7 @@ import {
   useGameIntro,
   UI_REVEAL_TIMING,
 } from "../../contexts/GameIntroContext";
+import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import {
   MANA_RED,
   MANA_BLUE,
@@ -47,7 +48,8 @@ const STAGGER_DELAY_MS = 80;
 export function ManaSourceOverlay() {
   const { state } = useGame();
   const player = useMyPlayer();
-  const { shouldRevealUI, isIntroComplete } = useGameIntro();
+  const { shouldRevealManaSource, isIntroComplete } = useGameIntro();
+  const { emit: emitAnimationEvent } = useAnimationDispatcher();
 
   // Track intro animation state
   // Always start hidden - will reveal after intro completes
@@ -66,12 +68,20 @@ export function ManaSourceOverlay() {
   const prevDiceColorsRef = useRef<Map<string, string>>(new Map());
   const prevTakenByRef = useRef<Map<string, string | null>>(new Map());
 
-  // Trigger reveal animation when shouldRevealUI becomes true
+  // Trigger reveal animation when shouldRevealManaSource becomes true
   useEffect(() => {
-    if (shouldRevealUI && !hasAnimatedRef.current) {
+    if (shouldRevealManaSource && !hasAnimatedRef.current) {
       hasAnimatedRef.current = true;
 
-      // Mana source appears first among UI elements
+      // Calculate total animation time including dice stagger
+      const diceCount = state?.source.dice.length ?? 0;
+      const totalDiceStagger = diceCount * STAGGER_DELAY_MS;
+      const totalAnimTime =
+        UI_REVEAL_TIMING.manaSource.delay +
+        UI_REVEAL_TIMING.manaSource.duration +
+        totalDiceStagger;
+
+      // Start the reveal animation
       const revealTimer = setTimeout(() => {
         setIntroAnimState("revealing");
       }, UI_REVEAL_TIMING.manaSource.delay);
@@ -80,12 +90,18 @@ export function ManaSourceOverlay() {
         setIntroAnimState("visible");
       }, UI_REVEAL_TIMING.manaSource.delay + UI_REVEAL_TIMING.manaSource.duration);
 
+      // Emit completion event after all dice have animated in
+      const completeTimer = setTimeout(() => {
+        emitAnimationEvent("mana-source-complete");
+      }, totalAnimTime);
+
       return () => {
         clearTimeout(revealTimer);
         clearTimeout(visibleTimer);
+        clearTimeout(completeTimer);
       };
     }
-  }, [shouldRevealUI]);
+  }, [shouldRevealManaSource, state?.source.dice.length, emitAnimationEvent]);
 
   // If intro is already complete on mount (e.g., hot reload), show immediately
   useEffect(() => {

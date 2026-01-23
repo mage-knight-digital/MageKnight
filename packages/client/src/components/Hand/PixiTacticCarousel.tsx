@@ -87,7 +87,7 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [zIndexAnchor, setZIndexAnchor] = useState<number | null>(null);
   const [selectedTactic, setSelectedTactic] = useState<TacticId | null>(null);
-  const [heroComplete, setHeroComplete] = useState(false);
+  const [manaSourceComplete, setManaSourceComplete] = useState(false);
   const [screenDimensions, setScreenDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -115,15 +115,15 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
 
   const timeOfDay = state?.timeOfDay ?? "day";
 
-  // Should show tactics: active pane, atlas loaded, hero complete (or intro done), player hasn't selected yet
+  // Should show tactics: active pane, atlas loaded, mana source complete (or intro done), player hasn't selected yet
   const shouldShowTactics = useMemo(() => {
     if (!isActive) return false;
     if (!atlasLoaded) return false;
-    if (!heroComplete && !isIntroComplete) return false;
+    if (!manaSourceComplete && !isIntroComplete) return false;
     if (!player || player.selectedTacticId !== null) return false;
     if (availableTactics.length === 0) return false;
     return true;
-  }, [isActive, atlasLoaded, heroComplete, isIntroComplete, player, availableTactics.length]);
+  }, [isActive, atlasLoaded, manaSourceComplete, isIntroComplete, player, availableTactics.length]);
 
   // Calculate container dimensions
   const containerWidth = useMemo(() => {
@@ -148,9 +148,9 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
   // eslint-disable-next-line react-hooks/exhaustive-deps -- positions only depend on count, not IDs
   }, [availableTactics.length, cardWidth, containerWidth, containerHeight]);
 
-  // Listen for hero-complete event
-  useOnAnimationEvent("hero-complete", useCallback(() => {
-    setHeroComplete(true);
+  // Listen for mana-source-complete event (tactics show after mana dice are revealed)
+  useOnAnimationEvent("mana-source-complete", useCallback(() => {
+    setManaSourceComplete(true);
   }, []));
 
   // Load atlas on mount

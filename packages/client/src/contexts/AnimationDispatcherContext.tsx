@@ -26,13 +26,14 @@ import {
  * Add new events here as new animation sequences are added.
  */
 export type AnimationEvent =
-  | "intro-start"        // Intro sequence begins (triggers tile animations)
-  | "tiles-complete"     // All tile animations finished
-  | "hero-complete"      // Hero reveal animation finished
-  | "enemies-complete"   // All enemy animations finished
-  | "tactics-complete"   // Tactic dealing animation finished
-  | "ui-settle-start"    // UI elements begin animating in (mana, deck, seal)
-  | "intro-complete";    // Entire intro sequence finished
+  | "intro-start"           // Intro sequence begins (triggers tile animations)
+  | "tiles-complete"        // All tile animations finished
+  | "hero-complete"         // Hero reveal animation finished
+  | "enemies-complete"      // All enemy animations finished
+  | "mana-source-complete"  // Mana source dice reveal finished (before tactics)
+  | "tactics-complete"      // Tactic dealing animation finished
+  | "ui-settle-start"       // UI elements begin animating in (deck, seal)
+  | "intro-complete";       // Entire intro sequence finished
 
 type EventCallback = () => void;
 

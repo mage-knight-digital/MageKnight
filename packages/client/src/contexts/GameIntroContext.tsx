@@ -5,9 +5,10 @@
  * 1. Tiles cascade onto the board (staggered by position)
  * 2. Enemies flip onto their hexes (after tiles settle)
  * 3. Hero emerges through portal (dramatic entrance after enemies)
- * 4. Tactic cards deal into hand (after hero fully emerges)
- * 5. UI elements settle in (mana source, end turn, deck/discard, carousel indicator)
- * 6. "The Hold" - a brief pause before the game becomes interactive
+ * 4. Mana source dice reveal (players see available mana before choosing tactics)
+ * 5. Tactic cards deal into hand (after mana source settles)
+ * 6. UI elements settle in (end turn, deck/discard, carousel indicator)
+ * 7. "The Hold" - a brief pause before the game becomes interactive
  *
  * This creates an Inscryption-style layered reveal that feels intentional
  * and polished rather than everything appearing at once.
@@ -16,7 +17,7 @@
  * which fire when CSS animations actually complete (not estimated timing).
  *
  * Disney Animation Principles Applied:
- * - Staging: Direct attention through sequence (board → threats → hero entrance → choices → tools)
+ * - Staging: Direct attention through sequence (board → threats → hero entrance → resources → choices → tools)
  * - Anticipation: Hero portal builds tension before reveal, tactics wait for the moment
  * - Overlapping Action: UI elements animate during/after tactics, not as separate phase
  * - Follow-through: Elements settle with overshoot before resting
@@ -39,8 +40,9 @@ export type IntroPhase =
   | "tiles" // Tiles are cascading in
   | "enemies" // Enemies are flipping onto board
   | "hero" // Hero is emerging through portal
+  | "mana-source" // Mana source dice are revealing (before tactics so player can plan)
   | "tactics" // Tactic cards are dealing
-  | "ui-settle" // UI elements (mana, deck, end turn) are animating in
+  | "ui-settle" // UI elements (deck, end turn) are animating in
   | "complete"; // Intro sequence finished, game interactive
 
 /** UI element reveal timing (relative to ui-settle phase start) */
@@ -64,6 +66,8 @@ interface GameIntroContextValue {
   phase: IntroPhase;
   /** Whether the intro sequence has completed (for components that just need to know if they should animate) */
   isIntroComplete: boolean;
+  /** Whether we're at mana-source phase or later (mana source should start revealing) */
+  shouldRevealManaSource: boolean;
   /** Whether we're past the tactics phase (UI elements should start revealing) */
   shouldRevealUI: boolean;
   /** Start the intro sequence (called when game state first arrives) */
@@ -109,8 +113,13 @@ export function GameIntroProvider({ children }: { children: ReactNode }) {
       setPhase("hero");
     });
 
-    // When hero emerges through portal, transition to tactics phase
+    // When hero emerges through portal, transition to mana-source phase
     const unsubHero = onAnimationEvent("hero-complete", () => {
+      setPhase("mana-source");
+    });
+
+    // When mana source animation completes, transition to tactics phase
+    const unsubManaSource = onAnimationEvent("mana-source-complete", () => {
       setPhase("tactics");
     });
 
@@ -130,6 +139,7 @@ export function GameIntroProvider({ children }: { children: ReactNode }) {
       unsubTiles();
       unsubEnemies();
       unsubHero();
+      unsubManaSource();
       unsubTactics();
       // Clean up any edge-case listener that might still be active
       if (edgeCaseUnsubRef.current) {
@@ -193,12 +203,20 @@ export function GameIntroProvider({ children }: { children: ReactNode }) {
     return index * ENEMY_STAGGER_MS;
   }, []);
 
+  // Mana source should reveal once we're at mana-source phase or later
+  const shouldRevealManaSource =
+    phase === "mana-source" ||
+    phase === "tactics" ||
+    phase === "ui-settle" ||
+    phase === "complete";
+
   // UI should start revealing once we're past tactics (during ui-settle or complete)
   const shouldRevealUI = phase === "ui-settle" || phase === "complete";
 
   const value: GameIntroContextValue = {
     phase,
     isIntroComplete: phase === "complete",
+    shouldRevealManaSource,
     shouldRevealUI,
     startIntro,
     getTileDelay,
