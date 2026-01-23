@@ -35,6 +35,7 @@ import {
   drawEnemiesForHex,
   createUnitDecksAndOffer,
   createSpellDeckAndOffer,
+  createAdvancedActionDeckAndOffer,
   serializeGameState,
   deserializeGameState,
   mineColorToBasicManaColor,
@@ -587,6 +588,13 @@ export class GameServer {
       rng: rngAfterSpells,
     } = createSpellDeckAndOffer(rngAfterUnits);
 
+    // Initialize advanced action deck and populate initial AA offer
+    const {
+      advancedActionDeck,
+      advancedActionOffer,
+      rng: rngAfterAA,
+    } = createAdvancedActionDeckAndOffer(rngAfterSpells);
+
     return {
       ...baseState,
       phase: GAME_PHASE_ROUND,
@@ -599,17 +607,19 @@ export class GameServer {
       players,
       source,
       enemyTokens: currentEnemyPiles, // Enemy piles after drawing for initial tiles
-      rng: rngAfterSpells, // Updated RNG state after all shuffles
+      rng: rngAfterAA, // Updated RNG state after all shuffles
       decks: {
         ...baseState.decks,
         regularUnits: unitDecks.regularUnits,
         eliteUnits: unitDecks.eliteUnits,
         spells: spellDeck,
+        advancedActions: advancedActionDeck,
       },
       offers: {
         ...baseState.offers,
         units: unitOffer,
         spells: { cards: [...spellOffer] },
+        advancedActions: { cards: [...advancedActionOffer] },
       },
       map: {
         ...baseState.map,
