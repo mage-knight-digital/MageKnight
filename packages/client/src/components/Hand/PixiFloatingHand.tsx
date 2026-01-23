@@ -508,7 +508,8 @@ export function PixiFloatingHand({
 
       // Don't process hover when an overlay is active OR when a card is selected
       // Keep the card raised so pie menu can animate smoothly from it
-      if (isOverlayActive || selectedIndex !== null) {
+      // Exception: allow hover in focus mode where WE are the overlay (to suppress hex tooltips)
+      if ((isOverlayActive && viewMode !== "focus") || selectedIndex !== null) {
         return;
       }
 
@@ -548,7 +549,8 @@ export function PixiFloatingHand({
 
       // Don't intercept clicks when an overlay (like CardActionMenu) is active
       // This allows clicks on the menu to work properly
-      if (isOverlayActive) return;
+      // Exception: allow clicks in focus mode where WE are the overlay (to suppress hex tooltips)
+      if (isOverlayActive && viewMode !== "focus") return;
 
       // Convert screen position to hand container local position
       const localPos = handContainer.toLocal({ x: e.clientX, y: e.clientY });
