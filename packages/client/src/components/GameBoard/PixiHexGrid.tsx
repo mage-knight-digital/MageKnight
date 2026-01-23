@@ -305,6 +305,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     handleHexHoverWithPos,
     debugDisplaySettings.showCoordinates,
     debugDisplaySettings.showBoundaryEdges,
+    revealingHexKeysRef, // Ref is stable, added for exhaustive-deps compliance
     revealingUpdateCounter, // Force re-run when revealing state changes
   ]);
 

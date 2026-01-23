@@ -166,6 +166,12 @@ export function usePixiAppLifecycle({
     };
   }, [
     containerRef,
+    appRef,
+    layersRef,
+    worldRef,
+    backgroundRef,
+    animationManagerRef,
+    particleManagerRef,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,

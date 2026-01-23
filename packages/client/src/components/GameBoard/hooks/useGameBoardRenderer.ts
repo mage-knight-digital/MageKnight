@@ -646,6 +646,7 @@ export function useGameBoardRenderer({
     isInitialized,
     state,
     player?.position,
+    player?.heroId,
     exploreTargets,
     centerAndApplyCamera,
     emitAnimationEvent,
@@ -661,6 +662,7 @@ export function useGameBoardRenderer({
     hasCenteredOnHeroRef,
     cameraReadyRef,
     backgroundRef,
+    heroContainerRef,
   ]);
 
   return {
