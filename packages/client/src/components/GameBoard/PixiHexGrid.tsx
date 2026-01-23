@@ -164,31 +164,6 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     setIsSitePanelOpen(false);
   }, []);
 
-  // Track camera offset for panel (to restore when closed)
-  const panelCameraOffsetRef = useRef<number>(0);
-
-  // Shift camera when panel opens/closes
-  useEffect(() => {
-    const camera = cameraRef.current;
-    const app = appRef.current;
-    if (!app) return;
-
-    // Panel takes ~40% of screen width (max 480px), shift camera left by half that
-    // This keeps the game board centered in the remaining visible area
-    const panelWidth = Math.min(app.screen.width * 0.4, 480);
-    const offsetAmount = panelWidth / 2 / camera.zoom;
-
-    if (isSitePanelOpen) {
-      // Shift camera right (so viewport shows more of the left side)
-      camera.targetCenter.x += offsetAmount;
-      panelCameraOffsetRef.current = offsetAmount;
-    } else if (panelCameraOffsetRef.current !== 0) {
-      // Restore camera position
-      camera.targetCenter.x -= panelCameraOffsetRef.current;
-      panelCameraOffsetRef.current = 0;
-    }
-  }, [isSitePanelOpen, cameraRef]);
-
   // Memoized game board selectors
   const {
     validMoveTargets,
