@@ -23,6 +23,7 @@ import type {
 import { EnemyDetailPanel } from "./EnemyDetailPanel";
 import { CrackEffect } from "./CrackEffect";
 import { useCombatDnD } from "./DnDContext";
+import { useOverlay } from "../../contexts/OverlayContext";
 import type { DamageChipData } from "./DnDContext";
 import "./EnemyCard.css";
 import "./CrackEffect.css";
@@ -115,6 +116,9 @@ export function EnemyCard({
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // Check if an overlay (like pie menu) is active - don't respond to clicks if so
+  const { isOverlayActive } = useOverlay();
+
   // ========================================
   // Drag and Drop Setup (when enabled)
   // ========================================
@@ -140,7 +144,8 @@ export function EnemyCard({
   });
 
   const handleCardClick = () => {
-    // Show detail panel on click
+    // Don't show detail panel if an overlay (pie menu) is active
+    if (isOverlayActive) return;
     setShowDetailPanel(true);
   };
   // ========================================

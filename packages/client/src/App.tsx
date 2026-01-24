@@ -5,7 +5,7 @@ import { CardInteractionProvider, UnifiedCardMenu } from "./components/CardInter
 import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
 import { AnimationDispatcherProvider } from "./contexts/AnimationDispatcherContext";
 import { CinematicProvider, useCinematic } from "./contexts/CinematicContext";
-import { OverlayProvider } from "./contexts/OverlayContext";
+import { OverlayProvider, useOverlay } from "./contexts/OverlayContext";
 import { DebugDisplayProvider } from "./contexts/DebugDisplayContext";
 import { PixiAppProvider } from "./contexts/PixiAppContext";
 import { useGame } from "./hooks/useGame";
@@ -52,6 +52,7 @@ function GameView() {
   const player = useMyPlayer();
   const { isIntroComplete } = useGameIntro();
   const { isInCinematic } = useCinematic();
+  const { isOverlayActive } = useOverlay();
   const [isOfferViewVisible, setIsOfferViewVisible] = useState(false);
 
   // Handle offer view state from PlayerHand
@@ -89,6 +90,7 @@ function GameView() {
     shouldDimForTactics && "app--tactic-selection",
     inCombat && "app--combat",
     isInCinematic && "app--cinematic",
+    isOverlayActive && "app--overlay-active",
   ].filter(Boolean).join(" ");
 
   return (
