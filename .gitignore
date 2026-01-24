@@ -18,8 +18,8 @@ docs/sprites/
 test-results/
 playwright-report/
 
-# Game assets (potentially copyrighted)
-packages/client/public/assets/
+# Game assets (potentially copyrighted, symlinked in worktrees)
+packages/client/public
 packages/client/e2e/screenshots/
 packages/client/vite.config.d.ts
 packages/client/vite.config.js
