@@ -237,15 +237,13 @@ describe("Enemies on Map", () => {
       expect(config).toBeNull();
     });
 
-    // Ancient Ruins: enemies only at night
-    it("should return null for Ancient Ruins during day", () => {
-      const config = getSiteDefenders(SiteType.AncientRuins, TIME_OF_DAY_DAY);
-      expect(config).toBeNull();
-    });
-
-    it("should return 1 brown enemy for Ancient Ruins at night", () => {
-      const config = getSiteDefenders(SiteType.AncientRuins, TIME_OF_DAY_NIGHT);
-      expect(config).toEqual({ color: ENEMY_COLOR_BROWN, count: 1 });
+    // Ancient Ruins: uses yellow ruins tokens (not enemy tokens)
+    // Ruins tokens are handled separately via ruinsTokenHelpers
+    it("should return null for Ancient Ruins (uses ruins tokens instead)", () => {
+      // Day
+      expect(getSiteDefenders(SiteType.AncientRuins, TIME_OF_DAY_DAY)).toBeNull();
+      // Night
+      expect(getSiteDefenders(SiteType.AncientRuins, TIME_OF_DAY_NIGHT)).toBeNull();
     });
   });
 
@@ -393,23 +391,29 @@ describe("Enemies on Map", () => {
       );
     });
 
-    it("should place 1 brown enemy at ancient ruins at night", () => {
+    it("should place no enemies at ancient ruins (uses ruins tokens instead)", () => {
       const rng = createRng(42);
       const { piles, rng: rng2 } = createEnemyTokenPiles(rng);
 
-      const result = drawEnemiesForHex(
+      // Ancient Ruins no longer use enemy tokens - they use yellow ruins tokens
+      // which are handled separately via ruinsTokenHelpers
+      const resultDay = drawEnemiesForHex(
         [], // no rampaging
         SiteType.AncientRuins,
         piles,
         rng2,
+        TIME_OF_DAY_DAY
+      );
+      expect(resultDay.enemies).toHaveLength(0);
+
+      const resultNight = drawEnemiesForHex(
+        [], // no rampaging
+        SiteType.AncientRuins,
+        piles,
+        resultDay.rng,
         TIME_OF_DAY_NIGHT
       );
-
-      expect(result.enemies).toHaveLength(1);
-      // Should have drawn 1 from brown deck
-      expect(result.piles.drawPiles[ENEMY_COLOR_BROWN].length).toBe(
-        piles.drawPiles[ENEMY_COLOR_BROWN].length - 1
-      );
+      expect(resultNight.enemies).toHaveLength(0);
     });
 
     it("should place both rampaging and site defenders", () => {

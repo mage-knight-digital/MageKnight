@@ -69,6 +69,7 @@ export function placeTile(tileId: TileId, centerCoord: HexCoord): HexState[] {
       site,
       rampagingEnemies,
       enemies: [],
+      ruinsToken: null, // Populated when tile is revealed (via drawRuinsToken)
       shieldTokens: [],
     };
   });

@@ -21,7 +21,7 @@ import {
   END_TRIGGER_CITY_REVEALED,
   FAME_SOURCE_TILE_EXPLORED,
 } from "@mage-knight/shared";
-import type { TileId, HexState, TilePlacement } from "../../types/map.js";
+import { SiteType, type TileId, type HexState, type TilePlacement } from "../../types/map.js";
 import type { Player } from "../../types/player.js";
 import { placeTile, TILE_DEFINITIONS } from "../../data/tiles/index.js";
 import { calculateTilePlacement } from "../explore/index.js";
@@ -31,6 +31,7 @@ import {
   countMonasteries,
   drawMonasteryAdvancedAction,
 } from "../helpers/monasteryHelpers.js";
+import { drawRuinsToken } from "../helpers/ruinsTokenHelpers.js";
 
 export { EXPLORE_COMMAND };
 
@@ -63,8 +64,9 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
       // Place the tile - get all hexes with world coordinates
       const newHexes = placeTile(tileId, tilePosition);
 
-      // Draw enemies for each hex and add to map
-      let currentPiles = state.enemyTokens;
+      // Draw enemies and ruins tokens for each hex and add to map
+      let currentEnemyPiles = state.enemyTokens;
+      let currentRuinsPiles = state.ruinsTokens;
       let currentRng = state.rng;
       const updatedHexes = { ...state.map.hexes };
 
@@ -72,22 +74,35 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
         const key = hexKey(hex.coord);
 
         // Draw enemies for rampaging types and site defenders
-        // Pass timeOfDay for sites like Ancient Ruins (night-only enemies)
-        const { enemies, piles, rng } = drawEnemiesForHex(
+        const { enemies, piles: enemyPiles, rng: rngAfterEnemies } = drawEnemiesForHex(
           hex.rampagingEnemies,
           hex.site?.type ?? null,
-          currentPiles,
+          currentEnemyPiles,
           currentRng,
           state.timeOfDay
         );
 
-        currentPiles = piles;
-        currentRng = rng;
+        currentEnemyPiles = enemyPiles;
+        currentRng = rngAfterEnemies;
 
-        // Update hex with drawn enemies
+        // Draw ruins token for Ancient Ruins sites
+        let ruinsToken = hex.ruinsToken;
+        if (hex.site?.type === SiteType.AncientRuins) {
+          const ruinsResult = drawRuinsToken(
+            currentRuinsPiles,
+            currentRng,
+            state.timeOfDay
+          );
+          ruinsToken = ruinsResult.token;
+          currentRuinsPiles = ruinsResult.piles;
+          currentRng = ruinsResult.rng;
+        }
+
+        // Update hex with drawn enemies and ruins token
         updatedHexes[key] = {
           ...hex,
           enemies,
+          ruinsToken,
         };
       }
 
@@ -188,7 +203,8 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
         },
         offers: currentOffers,
         decks: currentDecks,
-        enemyTokens: currentPiles,
+        enemyTokens: currentEnemyPiles,
+        ruinsTokens: currentRuinsPiles,
         rng: currentRng,
         scenarioEndTriggered: shouldTriggerScenarioEnd || state.scenarioEndTriggered,
         finalTurnsRemaining,

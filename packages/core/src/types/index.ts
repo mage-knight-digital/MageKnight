@@ -48,6 +48,7 @@ export type {
   MineColor,
   Site,
   HexEnemy,
+  RuinsToken,
   HexState,
   TilePlacement,
   TileSlot,

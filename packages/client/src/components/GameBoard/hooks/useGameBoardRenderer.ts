@@ -30,6 +30,7 @@ import {
   renderStaticTileOutlines,
   renderEnemies,
   animateEnemyFlips,
+  renderRuinsTokens,
   renderHeroIntoContainer,
   getOrCreateHeroContainer,
   renderBoardShape,
@@ -414,6 +415,16 @@ export function useGameBoardRenderer({
                 hexKeysToReveal,
                 pendingFlipTokenIdsRef.current
               );
+
+              // Render ruins tokens with drop animation (same timing as enemies)
+              renderRuinsTokens(
+                layers,
+                state.map.hexes,
+                animManager,
+                particleManager,
+                true,
+                100
+              );
             } else {
               revealingHexKeysRef.current = new Set();
               setRevealingUpdateCounter((c) => c + 1);
@@ -480,6 +491,9 @@ export function useGameBoardRenderer({
               );
             }, FLIP_DELAY_AFTER_MOVE);
           }
+
+          // Render ruins tokens (static, no animation for normal updates)
+          await renderRuinsTokens(layers, state.map.hexes);
         }
         console.log(
           `[renderAsync] renderEnemies: ${(performance.now() - t_enemies).toFixed(
@@ -587,6 +601,16 @@ export function useGameBoardRenderer({
                   emitAnimationEvent("enemies-complete");
                   console.log("[PixiHexGrid] Enemy intro complete");
                 }
+              );
+
+              // Render ruins tokens with drop animation (same timing as enemies)
+              await renderRuinsTokens(
+                layers,
+                state.map.hexes,
+                animManager,
+                particleManager,
+                true,
+                tileAnimationTime
               );
 
               const heroContainer = getOrCreateHeroContainer(layers, heroContainerRef);

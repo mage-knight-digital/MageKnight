@@ -20,6 +20,7 @@ import type { ValidActions } from "./validActions.js";
 import type { EnemyId, EnemyAbilityType, EnemyResistances, Element, EnemyColor } from "../enemies/index.js";
 import type { CombatPhase } from "../combatPhases.js";
 import type { SiteReward } from "../siteRewards.js";
+import type { RuinsTokenId } from "../ruinsTokens.js";
 
 // Pending choice - when a card requires player selection
 export interface ClientPendingChoice {
@@ -186,6 +187,22 @@ export interface ClientHexEnemy {
   readonly tokenId?: string;
 }
 
+/**
+ * Ruins token on an Ancient Ruins hex as seen by the client.
+ * - Day: token is revealed (face-up, showing contents)
+ * - Night: token is unrevealed (face-down, showing yellow back)
+ *
+ * When unrevealed, tokenId is hidden to prevent cheating (player shouldn't
+ * know what's on the token until it's flipped). All unrevealed tokens show
+ * the same yellow back.
+ */
+export interface ClientRuinsToken {
+  /** Whether the token has been revealed (face-up) */
+  readonly isRevealed: boolean;
+  /** The ruins token ID - only present when revealed */
+  readonly tokenId?: RuinsTokenId;
+}
+
 // Hex state (public)
 export interface ClientHexState {
   readonly coord: HexCoord;
@@ -194,6 +211,7 @@ export interface ClientHexState {
   readonly site: ClientSite | null;
   readonly rampagingEnemies: readonly string[]; // "orc_marauder" | "draconum"
   readonly enemies: readonly ClientHexEnemy[]; // enemy tokens with visibility
+  readonly ruinsToken: ClientRuinsToken | null; // Ancient Ruins yellow token
   readonly shieldTokens: readonly string[]; // player IDs
 }
 

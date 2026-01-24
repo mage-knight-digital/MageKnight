@@ -17,6 +17,10 @@ import {
   type EnemyTokenPiles,
   createEmptyEnemyTokenPiles,
 } from "../types/enemy.js";
+import {
+  type RuinsTokenPiles,
+  createEmptyRuinsTokenPiles,
+} from "../engine/helpers/ruinsTokenHelpers.js";
 import { type GameDecks, createEmptyDecks } from "../types/decks.js";
 import type { CityState } from "../types/city.js";
 import type { ActiveModifier } from "../types/modifiers.js";
@@ -38,6 +42,7 @@ export type { MapState } from "../types/map.js";
 export type { ManaSource } from "../types/mana.js";
 export type { GameOffers } from "../types/offers.js";
 export type { EnemyTokenPiles } from "../types/enemy.js";
+export type { RuinsTokenPiles } from "../engine/helpers/ruinsTokenHelpers.js";
 export type { GameDecks } from "../types/decks.js";
 export type { CityState } from "../types/city.js";
 export type { ActiveModifier } from "../types/modifiers.js";
@@ -72,6 +77,9 @@ export interface GameState {
 
   // Enemy tokens
   readonly enemyTokens: EnemyTokenPiles;
+
+  // Ruins tokens (Ancient Ruins yellow tokens)
+  readonly ruinsTokens: RuinsTokenPiles;
 
   // All draw decks (spells, advanced actions, artifacts, units)
   readonly decks: GameDecks;
@@ -128,6 +136,7 @@ export function createInitialGameState(
     source: createEmptyManaSource(),
     offers: createEmptyOffers(),
     enemyTokens: createEmptyEnemyTokenPiles(),
+    ruinsTokens: createEmptyRuinsTokenPiles(),
     decks: createEmptyDecks(),
     cities: {},
     activeModifiers: [],

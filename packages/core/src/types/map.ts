@@ -2,7 +2,7 @@
  * Map types for Mage Knight
  */
 
-import type { HexCoord, Terrain } from "@mage-knight/shared";
+import type { HexCoord, Terrain, RuinsTokenId } from "@mage-knight/shared";
 import type { BasicManaColor } from "@mage-knight/shared";
 import {
   BASIC_MANA_BLUE,
@@ -149,6 +149,17 @@ export interface HexEnemy {
   readonly isRevealed: boolean;
 }
 
+/**
+ * A ruins token on an Ancient Ruins hex with visibility tracking.
+ * Per rules:
+ * - Day: token is face-UP (revealed) showing altar or enemy encounter
+ * - Night: token is face-DOWN (unrevealed), reveals when player enters or at dawn
+ */
+export interface RuinsToken {
+  readonly tokenId: RuinsTokenId;
+  readonly isRevealed: boolean;
+}
+
 // Site on a hex
 export interface Site {
   readonly type: SiteType;
@@ -169,6 +180,7 @@ export interface HexState {
   readonly site: Site | null;
   readonly rampagingEnemies: readonly RampagingEnemyType[]; // spawned on tile reveal
   readonly enemies: readonly HexEnemy[]; // enemy tokens with visibility tracking
+  readonly ruinsToken: RuinsToken | null; // Ancient Ruins yellow token
   readonly shieldTokens: readonly string[]; // player IDs with shields here
 }
 
