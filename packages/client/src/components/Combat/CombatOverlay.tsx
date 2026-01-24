@@ -28,7 +28,6 @@ import type {
   UnassignBlockOption,
 } from "@mage-knight/shared";
 import { EnemyCard } from "./EnemyCard";
-import { VerticalPhaseRail } from "./VerticalPhaseRail";
 import { PixiPhaseRail } from "./PixiPhaseRail";
 import { PixiEnemyTokens } from "./PixiEnemyTokens";
 import { PixiScreenEffects } from "./PixiScreenEffects";
@@ -41,60 +40,9 @@ import { BlockChipPreview } from "./BlockPool/BlockChip";
 import { AmountPicker } from "./AmountPicker";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
-import { hexKey } from "@mage-knight/shared";
 import "./CombatOverlay.css";
 
 type EffectType = "damage" | "block" | "attack" | null;
-
-// Site sprite sheet configuration
-const SITES_SHEET = {
-  src: "/assets/sites/sites_sprite_sheet.png",
-  width: 1280,
-  height: 1024,
-  spriteWidth: 256,
-  spriteHeight: 256,
-  cols: 5,
-  rows: 4,
-};
-
-// Map site types to sprite positions in the sheet
-const SITE_SPRITE_MAP: Record<string, { col: number; row: number }> = {
-  // Adventure sites
-  ancient_ruins: { col: 0, row: 0 },
-  tomb: { col: 2, row: 3 },
-  spawning_grounds: { col: 1, row: 3 },
-  dungeon: { col: 3, row: 1 },  // labyrinth sprite
-  monster_den: { col: 0, row: 0 },  // ancient ruins sprite
-
-  // Fortified sites
-  keep: { col: 2, row: 1 },
-  mage_tower: { col: 2, row: 1 },  // keep sprite as fallback
-
-  // Cities
-  city: { col: 1, row: 0 },  // default to blue city
-  city_blue: { col: 1, row: 0 },
-  city_green: { col: 2, row: 0 },
-  city_red: { col: 3, row: 0 },
-  city_white: { col: 4, row: 0 },
-
-  // Safe sites
-  village: { col: 3, row: 3 },
-  monastery: { col: 0, row: 2 },
-  magical_glade: { col: 1, row: 2 },  // necropolis sprite (green/mystical) - TODO: need proper glade sprite
-
-  // Resource sites
-  deep_mine: { col: 0, row: 1 },
-  mine: { col: 0, row: 1 },  // same as deep_mine
-
-  // Rampaging enemies
-  orc_marauder: { col: 4, row: 2 },
-  draconum: { col: 1, row: 1 },
-
-  // Other
-  refugee_camp: { col: 0, row: 3 },
-  labyrinth: { col: 3, row: 1 },
-  necropolis: { col: 1, row: 2 },
-};
 
 interface StrikingEnemy {
   instanceId: string;
@@ -372,43 +320,6 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   const player = useMyPlayer();
   const canUndo = state?.validActions.turn?.canUndo ?? false;
 
-  // Get site type or rampaging enemy type from player's current position
-  const backdropType = (() => {
-    if (!player?.position || !state?.map.hexes) return null;
-    const key = hexKey(player.position);
-    const hex = state.map.hexes[key];
-
-    // Check for site first
-    if (hex?.site?.type) {
-      // For cities, use the specific city color sprite
-      if (hex.site.type === 'city' && hex.site.cityColor) {
-        return `city_${hex.site.cityColor}`;
-      }
-      return hex.site.type;
-    }
-
-    // Check for rampaging enemies (use first one as backdrop)
-    if (hex?.rampagingEnemies && hex.rampagingEnemies.length > 0) {
-      return hex.rampagingEnemies[0];
-    }
-
-    // Fallback: check combat enemies for green tokens (orc marauders)
-    // Green enemies = orc marauder territory
-    if (combat.enemies.length > 0) {
-      const greenEnemyIds = ['diggers', 'prowlers', 'cursed_hags', 'wolf_riders', 'ironclads', 'orc_summoners'];
-      const enemyIds = combat.enemies.map(e => e.enemyId);
-      if (enemyIds.some(id => greenEnemyIds.includes(id))) {
-        return 'orc_marauder';
-      }
-      // Note: Draconum uses red enemies (not implemented yet)
-    }
-
-    return null;
-  })();
-
-  // Get sprite position for the backdrop (or null to hide)
-  const siteSprite = backdropType ? SITE_SPRITE_MAP[backdropType] : null;
-
   // Visual effect state - use a counter to force animation restart
   const [activeEffect, setActiveEffect] = useState<EffectType>(null);
   const [effectKey, setEffectKey] = useState(0);
@@ -645,21 +556,6 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
       {/* PixiJS Screen Effects - damage/block/attack flashes */}
       <PixiScreenEffects activeEffect={activeEffect} effectKey={effectKey} />
 
-      {/* Site backdrop - faded background behind enemies (hidden, rendered by PixiCombatOverlay) */}
-      {siteSprite && (
-        <div
-          className="combat-scene__backdrop"
-          style={{
-            backgroundImage: `url(${SITES_SHEET.src})`,
-            // Position as percentage of sprite sheet (col/totalCols, row/totalRows)
-            backgroundPosition: `${(siteSprite.col / (SITES_SHEET.cols - 1)) * 100}% ${(siteSprite.row / (SITES_SHEET.rows - 1)) * 100}%`,
-            // Size so each sprite fills the container (totalCols * 100%, totalRows * 100%)
-            backgroundSize: `${SITES_SHEET.cols * 100}% ${SITES_SHEET.rows * 100}%`,
-          }}
-          role="presentation"
-        />
-      )}
-
       {/* PixiJS Phase Rail - renders to canvas */}
       <PixiPhaseRail
         currentPhase={phase}
@@ -676,19 +572,9 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
         }))}
       />
 
-      {/* Main layout: phase rail | battle area | info panel */}
+      {/* Main layout: battle area (phase rail now rendered by PixiPhaseRail) */}
       <div className="combat-scene__layout">
-        {/* Left - Vertical phase rail (HTML version - hidden, replaced by PixiPhaseRail) */}
-        <div className="combat-scene__phase-rail combat-scene__phase-rail--hidden">
-          <VerticalPhaseRail
-            currentPhase={phase}
-            canEndPhase={combatOptions?.canEndPhase ?? false}
-            onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
-            allEnemiesDefeatable={allEnemiesDefeatable && (isAttackPhase || isRangedSiegePhase)}
-          />
-        </div>
-
-        {/* Center - Battle area with enemies */}
+        {/* Battle area with enemies */}
         <div className="combat-scene__battlefield">
           {/* Undo button */}
           {canUndo && (

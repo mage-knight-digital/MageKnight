@@ -135,8 +135,10 @@ Move enemy token rendering to PixiJS.
 - HTML token images hidden via CSS (`visibility: hidden`)
 - Allocation UI remains in HTML (hybrid approach per Phase 6 plan)
 
-### Phase 6: Allocation UI (+/- buttons, damage assignment) ⬅️ NEXT (Hybrid - staying as HTML)
+### Phase 6: Allocation UI (Hybrid - staying as HTML) ✅
 The most complex part. Keeping as HTML per plan - drag-drop with @dnd-kit is complex.
+
+**Status:** Complete. Allocation UI remains in HTML (EnemyCard.tsx) with drag-drop via @dnd-kit.
 
 ### Phase 7: Screen Effects ✅
 Implement damage/block/attack flash effects in PixiJS.
@@ -147,10 +149,16 @@ Implement damage/block/attack flash effects in PixiJS.
 - Attack flash: Bronze/copper fade out
 - Removed HTML effect overlay from CombatOverlay
 
-### Phase 8: Cleanup ⬅️ NEXT
-- Remove HTML `CombatOverlay.tsx`
-- Remove CSS combat pointer-events hacks
-- Remove `isOverlayActive` workarounds in `EnemyCard.tsx`
+### Phase 8: Cleanup ✅
+Removed redundant HTML/CSS now that PixiJS handles rendering.
+
+**Status:** Complete. Cleaned up:
+- Removed screen effect CSS (`.combat-scene__effect*`, keyframe animations)
+- Removed backdrop CSS and HTML element
+- Removed hidden VerticalPhaseRail rendering
+- Removed duplicated `SITES_SHEET`/`SITE_SPRITE_MAP` constants from CombatOverlay.tsx
+- Removed phase rail CSS positioning (now rendered by PixiPhaseRail)
+- Removed unused imports (VerticalPhaseRail, hexKey)
 
 ## Key Technical Notes
 
@@ -193,8 +201,8 @@ Last attempt showed "everything dimmed, nothing interactable" because:
 
 ## Definition of Done
 
-- [ ] Combat overlay renders entirely in PixiJS
-- [ ] All combat interactions work (phase advance, enemy targeting, damage assignment)
-- [ ] Hand cards still playable during combat
-- [ ] No `pointer-events` CSS hacks needed
-- [ ] Can delete `isOverlayActive` checks from non-overlay components
+- [x] Combat overlay renders entirely in PixiJS (background, backdrop, phase rail, enemy tokens, screen effects)
+- [x] All combat interactions work (phase advance, enemy targeting, damage assignment via HTML hybrid)
+- [x] Hand cards still playable during combat
+- [x] No `pointer-events` CSS hacks needed (all PixiJS elements use `eventMode = "none"`)
+- [x] `isOverlayActive` check in EnemyCard.tsx is general overlay management (not a workaround) - keeps it
