@@ -574,6 +574,18 @@ export function PixiFloatingHand({
       // Exception: allow clicks in focus mode where WE are the overlay (to suppress hex tooltips)
       if (isOverlayActive && viewMode !== "focus") return;
 
+      // Check if click target is an interactive element - let those clicks through
+      // This allows combat overlay buttons, enemy card actions, etc. to work
+      // even when the hand is visible and interactive
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const interactiveSelector =
+          'button, [role="button"], input, select, a, [data-interactive="true"]';
+        if (target.closest(interactiveSelector)) {
+          return; // Let click propagate to the interactive element
+        }
+      }
+
       // Convert screen position to hand container local position
       const localPos = handContainer.toLocal({ x: e.clientX, y: e.clientY });
       const cardIndex = findCardAtPosition(localPos.x, localPos.y);
