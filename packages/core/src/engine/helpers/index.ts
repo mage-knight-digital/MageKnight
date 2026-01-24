@@ -41,3 +41,10 @@ export type {
 
 export { grantSiteReward, queueSiteReward } from "./rewards/index.js";
 export type { RewardResult } from "./rewards/index.js";
+
+export {
+  hasMonasterySite,
+  countMonasteries,
+  drawMonasteryAdvancedAction,
+} from "./monasteryHelpers.js";
+export type { MonasteryAADrawResult } from "./monasteryHelpers.js";
