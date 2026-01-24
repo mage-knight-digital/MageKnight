@@ -153,6 +153,52 @@ export function createOfferCardTakenEvent(
 }
 
 // ============================================================================
+// MONASTERY_AA_REVEALED
+// ============================================================================
+
+/**
+ * Event type constant for monastery AA reveal.
+ * @see MonasteryAARevealedEvent
+ */
+export const MONASTERY_AA_REVEALED = "MONASTERY_AA_REVEALED" as const;
+
+/**
+ * Emitted when an Advanced Action is revealed for a monastery.
+ *
+ * This happens when a tile containing a monastery is explored.
+ * The AA is drawn from the deck and added to the monastery offer.
+ *
+ * @remarks
+ * - Monastery AAs can be purchased by any player at a non-burned monastery
+ * - Cost is 6 influence
+ * - Unlike regular AA offer, monastery AAs are not replenished when taken
+ *
+ * @example
+ * ```typescript
+ * if (event.type === MONASTERY_AA_REVEALED) {
+ *   addToMonasteryOffer(event.cardId);
+ * }
+ * ```
+ */
+export interface MonasteryAARevealedEvent {
+  readonly type: typeof MONASTERY_AA_REVEALED;
+  /** The Advanced Action card drawn for the monastery */
+  readonly cardId: CardId;
+}
+
+/**
+ * Creates a MonasteryAARevealedEvent.
+ */
+export function createMonasteryAARevealedEvent(
+  cardId: CardId
+): MonasteryAARevealedEvent {
+  return {
+    type: MONASTERY_AA_REVEALED,
+    cardId,
+  };
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 
@@ -198,10 +244,19 @@ export function isCardOfferTaken(
 }
 
 /**
+ * Type guard for MonasteryAARevealedEvent.
+ */
+export function isMonasteryAARevealedEvent(event: {
+  type: string;
+}): event is MonasteryAARevealedEvent {
+  return event.type === MONASTERY_AA_REVEALED;
+}
+
+/**
  * Check if an event is any offer-related event.
  */
 export function isOfferEvent(event: { type: string }): boolean {
-  return [OFFER_REFRESHED, OFFER_CARD_TAKEN].includes(
+  return [OFFER_REFRESHED, OFFER_CARD_TAKEN, MONASTERY_AA_REVEALED].includes(
     event.type as typeof OFFER_REFRESHED
   );
 }

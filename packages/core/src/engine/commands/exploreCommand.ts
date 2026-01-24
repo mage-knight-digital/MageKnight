@@ -15,6 +15,7 @@ import type { HexCoord, HexDirection, GameEvent } from "@mage-knight/shared";
 import {
   hexKey,
   createTileExploredEvent,
+  createMonasteryAARevealedEvent,
   FAME_GAINED,
   SCENARIO_END_TRIGGERED,
   END_TRIGGER_CITY_REVEALED,
@@ -26,6 +27,10 @@ import { placeTile, TILE_DEFINITIONS } from "../../data/tiles/index.js";
 import { calculateTilePlacement } from "../explore/index.js";
 import { EXPLORE_COMMAND } from "./commandTypes.js";
 import { drawEnemiesForHex } from "../helpers/enemyHelpers.js";
+import {
+  countMonasteries,
+  drawMonasteryAdvancedAction,
+} from "../helpers/monasteryHelpers.js";
 
 export { EXPLORE_COMMAND };
 
@@ -84,6 +89,23 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
           ...hex,
           enemies,
         };
+      }
+
+      // Draw Advanced Actions for monasteries on this tile
+      const monasteryCount = countMonasteries(newHexes);
+      let currentOffers = state.offers;
+      let currentDecks = state.decks;
+      const monasteryAAEvents: GameEvent[] = [];
+
+      for (let i = 0; i < monasteryCount; i++) {
+        const result = drawMonasteryAdvancedAction(currentOffers, currentDecks);
+        currentOffers = result.offers;
+        currentDecks = result.decks;
+
+        // Only emit event if a card was actually drawn
+        if (result.cardId) {
+          monasteryAAEvents.push(createMonasteryAARevealedEvent(result.cardId));
+        }
       }
 
       // Add tile placement record
@@ -164,6 +186,8 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
           tileDeck: updatedTileDeck,
           tileSlots: updatedTileSlots,
         },
+        offers: currentOffers,
+        decks: currentDecks,
         enemyTokens: currentPiles,
         rng: currentRng,
         scenarioEndTriggered: shouldTriggerScenarioEnd || state.scenarioEndTriggered,
@@ -200,6 +224,9 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
           trigger: END_TRIGGER_CITY_REVEALED,
         });
       }
+
+      // Add monastery AA revealed events
+      events.push(...monasteryAAEvents);
 
       return {
         state: newState,

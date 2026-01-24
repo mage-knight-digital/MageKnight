@@ -221,7 +221,11 @@ import type {
   UnitDestroyedEvent,
 } from "./units.js";
 
-import type { OfferRefreshedEvent, OfferCardTakenEvent } from "./offers.js";
+import type {
+  OfferRefreshedEvent,
+  OfferCardTakenEvent,
+  MonasteryAARevealedEvent,
+} from "./offers.js";
 
 import type {
   CardPlayUndoneEvent,
@@ -367,6 +371,7 @@ export type GameEvent =
   // Offers
   | OfferRefreshedEvent
   | OfferCardTakenEvent
+  | MonasteryAARevealedEvent
   // Undo
   | CardPlayUndoneEvent
   | MoveUndoneEvent
