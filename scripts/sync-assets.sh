@@ -7,6 +7,7 @@
 #   ./scripts/sync-assets.sh upload --all     # Include _local directory
 #   ./scripts/sync-assets.sh download --all   # Include _local directory
 #   ./scripts/sync-assets.sh upload --dry-run # Preview what would be transferred
+#   ./scripts/sync-assets.sh upload --force   # Upload even if B2 has files you don't
 #   ./scripts/sync-assets.sh status           # Show what would sync (both dirs)
 #
 # Optimizations:
@@ -59,6 +60,41 @@ if [[ -z "$B2_APPLICATION_KEY_ID" || -z "$B2_APPLICATION_KEY" ]]; then
     exit 1
 fi
 
+# Check for files that would be deleted from B2 (indicates you should pull first)
+check_upload_conflicts() {
+    local local_dir=$1
+    local remote_path=$2
+    local force=$3
+
+    if [[ "$force" == "true" ]]; then
+        return 0
+    fi
+
+    # Do a dry-run to see what would be deleted
+    local deletes
+    deletes=$(b2 sync "${SYNC_OPTS[@]}" --dry-run --delete "$local_dir" "$remote_path" 2>&1 | grep "^delete" || true)
+    local count=0
+    if [[ -n "$deletes" ]]; then
+        count=$(echo "$deletes" | wc -l | tr -d ' ')
+    fi
+
+    if [[ $count -gt 0 ]]; then
+        echo -e "${RED}⚠️  Warning: Upload would delete $count file(s) from B2 that you don't have locally:${NC}"
+        echo "$deletes" | head -10
+        if [[ $count -gt 10 ]]; then
+            echo "  ... and $((count - 10)) more"
+        fi
+        echo ""
+        echo -e "${YELLOW}This usually means you forgot to pull first. Run:${NC}"
+        echo "  $0 download"
+        echo ""
+        echo -e "${YELLOW}Or use --force to override:${NC}"
+        echo "  $0 upload --force"
+        return 1
+    fi
+    return 0
+}
+
 # Show local directory sizes
 show_sizes() {
     echo -e "${CYAN}Local sizes:${NC}"
@@ -74,6 +110,7 @@ show_sizes() {
 upload() {
     local include_local=$1
     local dry_run=$2
+    local force=$3
     local extra_opts=()
 
     if [[ "$dry_run" == "true" ]]; then
@@ -83,6 +120,21 @@ upload() {
     fi
 
     show_sizes
+
+    # Check for conflicts (files in B2 that we don't have locally)
+    if [[ "$dry_run" != "true" ]]; then
+        echo -e "${CYAN}Checking for conflicts...${NC}"
+        if ! check_upload_conflicts "$ASSETS_DIR" "b2://$BUCKET/assets" "$force"; then
+            exit 1
+        fi
+        if [[ "$include_local" == "true" && -d "$LOCAL_DIR" ]]; then
+            if ! check_upload_conflicts "$LOCAL_DIR" "b2://$BUCKET/_local" "$force"; then
+                exit 1
+            fi
+        fi
+        echo -e "${GREEN}No conflicts detected.${NC}"
+        echo ""
+    fi
 
     echo -e "${GREEN}Syncing assets to B2...${NC}"
     echo -e "${CYAN}(Only files with different sizes will transfer)${NC}"
@@ -182,6 +234,7 @@ status() {
 COMMAND=$1
 INCLUDE_LOCAL="false"
 DRY_RUN="false"
+FORCE="false"
 
 shift || true
 while [[ $# -gt 0 ]]; do
@@ -194,6 +247,10 @@ while [[ $# -gt 0 ]]; do
             DRY_RUN="true"
             shift
             ;;
+        --force|-f)
+            FORCE="true"
+            shift
+            ;;
         *)
             echo -e "${RED}Unknown option: $1${NC}"
             exit 1
@@ -203,7 +260,7 @@ done
 
 case $COMMAND in
     upload|up|u)
-        upload "$INCLUDE_LOCAL" "$DRY_RUN"
+        upload "$INCLUDE_LOCAL" "$DRY_RUN" "$FORCE"
         ;;
     download|down|d)
         download "$INCLUDE_LOCAL" "$DRY_RUN"
@@ -222,12 +279,14 @@ case $COMMAND in
         echo "Options:"
         echo "  --all              Include _local directory"
         echo "  --dry-run, -n      Preview changes without transferring"
+        echo "  --force, -f        Upload even if B2 has files you don't have locally"
         echo ""
         echo "Examples:"
         echo "  $0 up              # Quick upload at end of day"
         echo "  $0 down            # Sync to another machine"
         echo "  $0 status          # See what's different"
         echo "  $0 up --dry-run    # Preview upload"
+        echo "  $0 up --force      # Upload even with conflicts (use carefully!)"
         echo ""
         echo "Bandwidth optimization:"
         echo "  - Only files with DIFFERENT SIZES are transferred"
