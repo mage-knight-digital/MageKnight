@@ -77,6 +77,10 @@ export {
 export type { SpellDeckSetupResult } from "./data/spellDeckSetup.js";
 export { createSpellDeckAndOffer } from "./data/spellDeckSetup.js";
 
+// Advanced action deck setup
+export type { AdvancedActionDeckSetupResult } from "./data/advancedActionDeckSetup.js";
+export { createAdvancedActionDeckAndOffer } from "./data/advancedActionDeckSetup.js";
+
 // Site properties
 export type { SiteProperties } from "./data/siteProperties.js";
 export {

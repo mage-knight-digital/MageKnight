@@ -22,12 +22,19 @@ export function usePixiDomInput({
     const container = containerRef.current;
     if (!container) return;
 
+    // Prevent default context menu on right-click (we use it for site panel)
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
     container.addEventListener("wheel", handleWheel, { passive: false });
+    container.addEventListener("contextmenu", handleContextMenu);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
     return () => {
       container.removeEventListener("wheel", handleWheel);
+      container.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };

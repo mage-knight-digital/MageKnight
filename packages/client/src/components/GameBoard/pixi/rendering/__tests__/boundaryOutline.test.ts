@@ -42,7 +42,11 @@ describe("Boundary outline edge mapping", () => {
     // Verify the mapping makes geometric sense
     // Each direction should use consecutive vertices (mod 6)
     for (let i = 0; i < 6; i++) {
-      const [v1, v2] = DIRECTION_TO_EDGE_VERTICES[i]!;
+      const edge = DIRECTION_TO_EDGE_VERTICES[i];
+      if (edge === undefined) {
+        expect.fail(`Expected edge at index ${i} to be defined`);
+      }
+      const [v1, v2] = edge;
       // The vertices should be adjacent (differ by 1, wrapping at 6)
       const diff = (v2 - v1 + 6) % 6;
       expect(diff === 1 || diff === 5).toBe(true);
@@ -107,14 +111,16 @@ describe("Boundary edge computation", () => {
     const boundaries = computeBoundaryEdgeDirections(reachable);
 
     // Origin hex: E edge should NOT be a boundary
-    const originBoundaries = boundaries.get("0,0")!;
+    const originBoundaries = boundaries.get("0,0");
+    expect(originBoundaries).toBeDefined();
     expect(originBoundaries).not.toContain("E");
-    expect(originBoundaries.length).toBe(5);
+    expect(originBoundaries?.length).toBe(5);
 
     // East hex: W edge should NOT be a boundary
-    const eastBoundaries = boundaries.get("1,0")!;
+    const eastBoundaries = boundaries.get("1,0");
+    expect(eastBoundaries).toBeDefined();
     expect(eastBoundaries).not.toContain("W");
-    expect(eastBoundaries.length).toBe(5);
+    expect(eastBoundaries?.length).toBe(5);
   });
 
   it("three hexes in a line should have correct boundaries", () => {
@@ -126,10 +132,11 @@ describe("Boundary edge computation", () => {
     const boundaries = computeBoundaryEdgeDirections(reachable);
 
     // Middle hex should only have 4 boundary edges (not E or W)
-    const middleBoundaries = boundaries.get("1,0")!;
+    const middleBoundaries = boundaries.get("1,0");
+    expect(middleBoundaries).toBeDefined();
     expect(middleBoundaries).not.toContain("E");
     expect(middleBoundaries).not.toContain("W");
-    expect(middleBoundaries.length).toBe(4);
+    expect(middleBoundaries?.length).toBe(4);
   });
 
   it("cluster of 7 hexes (tile shape) should have outer boundary only", () => {
@@ -147,8 +154,9 @@ describe("Boundary edge computation", () => {
     // Each outer hex should have exactly 3 boundary edges
     for (const dir of HEX_DIRECTIONS) {
       const neighborCoord = getNeighbor(center, dir);
-      const neighborBoundaries = boundaries.get(hexKey(neighborCoord))!;
-      expect(neighborBoundaries.length).toBe(3);
+      const neighborBoundaries = boundaries.get(hexKey(neighborCoord));
+      expect(neighborBoundaries).toBeDefined();
+      expect(neighborBoundaries?.length).toBe(3);
     }
   });
 
@@ -179,7 +187,8 @@ describe("Boundary edge computation", () => {
 
     it("should compute correct boundary edges for hex 0,-1", () => {
       const boundaries = computeBoundaryEdgeDirections(reachable);
-      const hex0m1 = boundaries.get("0,-1")!;
+      const hex0m1 = boundaries.get("0,-1");
+      expect(hex0m1).toBeDefined();
 
       // 0,-1's neighbors:
       // NE(1,-2) - not reachable -> boundary
@@ -195,12 +204,13 @@ describe("Boundary edge computation", () => {
       expect(hex0m1).toContain("SW");
       expect(hex0m1).toContain("W");
       expect(hex0m1).toContain("NW");
-      expect(hex0m1.length).toBe(5);
+      expect(hex0m1?.length).toBe(5);
     });
 
     it("should compute correct boundary edges for hex 1,0", () => {
       const boundaries = computeBoundaryEdgeDirections(reachable);
-      const hex1_0 = boundaries.get("1,0")!;
+      const hex1_0 = boundaries.get("1,0");
+      expect(hex1_0).toBeDefined();
 
       // 1,0's neighbors:
       // NE(2,-1) - not reachable -> boundary
@@ -216,12 +226,13 @@ describe("Boundary edge computation", () => {
       expect(hex1_0).toContain("SW");
       expect(hex1_0).not.toContain("W"); // Shared with 0,0
       expect(hex1_0).toContain("NW");
-      expect(hex1_0.length).toBe(5);
+      expect(hex1_0?.length).toBe(5);
     });
 
     it("should compute correct boundary edges for hex 0,0", () => {
       const boundaries = computeBoundaryEdgeDirections(reachable);
-      const hex0_0 = boundaries.get("0,0")!;
+      const hex0_0 = boundaries.get("0,0");
+      expect(hex0_0).toBeDefined();
 
       // 0,0's neighbors:
       // NE(1,-1) - not reachable -> boundary
@@ -237,7 +248,7 @@ describe("Boundary edge computation", () => {
       expect(hex0_0).toContain("SW");
       expect(hex0_0).toContain("W");
       expect(hex0_0).not.toContain("NW"); // Shared with 0,-1
-      expect(hex0_0.length).toBe(4);
+      expect(hex0_0?.length).toBe(4);
     });
 
     it("should have total of 14 boundary edges forming continuous outline", () => {

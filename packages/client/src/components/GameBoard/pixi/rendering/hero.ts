@@ -20,11 +20,13 @@ import { HEX_SIZE, HERO_TOKEN_RADIUS } from "../types";
  * @param container - Container to render hero into
  * @param position - Hero's hex position (null to clear)
  * @param heroId - Hero identifier for sprite lookup
+ * @param onRightClick - Optional callback when hero token is right-clicked
  */
 export async function renderHeroIntoContainer(
   container: Container,
   position: HexCoord | null,
-  heroId: string | null
+  heroId: string | null,
+  onRightClick?: () => void
 ): Promise<void> {
   container.removeChildren();
 
@@ -57,6 +59,25 @@ export async function renderHeroIntoContainer(
     container.addChild(mask);
     container.addChild(sprite);
     container.addChild(border);
+
+    // Make container interactive for right-click to open site panel
+    // Add hit area LAST so it's on top and captures events
+    if (onRightClick) {
+      container.eventMode = "static";
+      container.cursor = "pointer";
+      // Create a hit area that covers the hero token (on top of all visuals)
+      const hitArea = new Graphics();
+      hitArea.circle(0, 0, maskRadius).fill({ color: 0xffffff, alpha: 0.001 });
+      hitArea.eventMode = "static";
+      hitArea.cursor = "pointer";
+      hitArea.on("rightclick", (e) => {
+        console.log("[Hero] Right-click detected on hero token");
+        e.preventDefault?.();
+        onRightClick();
+      });
+      container.addChild(hitArea);
+      console.log("[Hero] Added right-click hit area to hero token, radius:", maskRadius);
+    }
   } catch (error) {
     // Fallback to simple circle if sprite fails to load
     console.error(`Failed to load hero token for ${heroId}:`, error);
@@ -66,6 +87,18 @@ export async function renderHeroIntoContainer(
       .circle(0, 0, HERO_TOKEN_RADIUS)
       .fill({ color: 0xff4444 })
       .stroke({ color: 0xffffff, width: 2 });
+
+    // Make fallback token also interactive for right-click
+    if (onRightClick) {
+      container.eventMode = "static";
+      container.cursor = "pointer";
+      heroGraphics.eventMode = "static";
+      heroGraphics.on("rightclick", (e) => {
+        e.preventDefault?.();
+        onRightClick();
+      });
+    }
+
     container.addChild(heroGraphics);
   }
 }
@@ -85,6 +118,8 @@ export function getOrCreateHeroContainer(
   if (!heroContainerRef.current) {
     const container = new Container();
     container.label = "hero-container";
+    // Enable event passthrough on the hero layer so children can receive events
+    layers.hero.eventMode = "passive";
     layers.hero.addChild(container);
     heroContainerRef.current = container;
   }

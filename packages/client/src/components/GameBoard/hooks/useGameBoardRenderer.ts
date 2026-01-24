@@ -58,6 +58,7 @@ interface UseGameBoardRendererParams {
   startIntro: (tileCount: number, enemyCount: number) => void;
   isInCinematic: boolean;
   playCinematic: (sequence: CinematicSequence) => void;
+  onHeroRightClick?: () => void;
 }
 
 interface UseGameBoardRendererReturn {
@@ -89,6 +90,7 @@ export function useGameBoardRenderer({
   startIntro,
   isInCinematic,
   playCinematic,
+  onHeroRightClick,
 }: UseGameBoardRendererParams): UseGameBoardRendererReturn {
   const [isLoading, setIsLoading] = useState(true);
 
@@ -506,7 +508,7 @@ export function useGameBoardRenderer({
           }
 
           const activeHeroId = player?.heroId ?? null;
-          renderHeroIntoContainer(heroContainer, heroPosition, activeHeroId);
+          renderHeroIntoContainer(heroContainer, heroPosition, activeHeroId, onHeroRightClick);
         }
 
         prevHeroPositionRef.current = heroPosition;
@@ -595,7 +597,7 @@ export function useGameBoardRenderer({
                 heroContainer.alpha = 0;
                 heroContainer.scale.set(0.8);
                 heroContainer.position.set(targetPixel.x, targetPixel.y);
-                renderHeroIntoContainer(heroContainer, heroPosition, activeHeroId);
+                renderHeroIntoContainer(heroContainer, heroPosition, activeHeroId, onHeroRightClick);
 
                 setTimeout(() => {
                   particleManager.createPortal(layers.particles, targetPixel, {
@@ -646,6 +648,7 @@ export function useGameBoardRenderer({
     isInitialized,
     state,
     player?.position,
+    player?.heroId,
     exploreTargets,
     centerAndApplyCamera,
     emitAnimationEvent,
@@ -661,6 +664,8 @@ export function useGameBoardRenderer({
     hasCenteredOnHeroRef,
     cameraReadyRef,
     backgroundRef,
+    heroContainerRef,
+    onHeroRightClick,
   ]);
 
   return {

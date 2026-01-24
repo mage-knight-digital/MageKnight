@@ -141,54 +141,40 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     handleHexMouseLeave: handleHexTooltipLeave,
     handleTooltipMouseEnter,
     handleTooltipMouseLeave,
-  } = useHexHover({ delay: 400 });
+  } = useHexHover({ delay: 650 });
 
 
   // Site Panel state (detailed info panel)
   const [isSitePanelOpen, setIsSitePanelOpen] = useState(false);
   const [sitePanelHex, setSitePanelHex] = useState<HexCoord | null>(null);
 
-  // Handler to open the site panel from tooltip "More Info" click
+  // Handler to open the site panel (from right-click on hex)
   const handleOpenSitePanel = useCallback((coord: HexCoord) => {
+    // Only open if the hex has a site
+    const hex = state?.map.hexes[hexKey(coord)];
+    if (!hex?.site) return;
+
     setSitePanelHex(coord);
     setIsSitePanelOpen(true);
     handleHexTooltipLeave();
-  }, [handleHexTooltipLeave]);
+  }, [handleHexTooltipLeave, state?.map.hexes]);
+
+  // Handler for right-click on hero token (opens site panel for hero's current location)
+  const handleHeroRightClick = useCallback(() => {
+    if (!player?.position) return;
+    handleOpenSitePanel(player.position);
+  }, [player?.position, handleOpenSitePanel]);
 
   // Handler to close the site panel
   const handleCloseSitePanel = useCallback(() => {
     setIsSitePanelOpen(false);
   }, []);
 
-  // Track camera offset for panel (to restore when closed)
-  const panelCameraOffsetRef = useRef<number>(0);
-
-  // Shift camera when panel opens/closes
-  useEffect(() => {
-    const camera = cameraRef.current;
-    const app = appRef.current;
-    if (!app) return;
-
-    // Panel takes ~40% of screen width (max 480px), shift camera left by half that
-    // This keeps the game board centered in the remaining visible area
-    const panelWidth = Math.min(app.screen.width * 0.4, 480);
-    const offsetAmount = panelWidth / 2 / camera.zoom;
-
-    if (isSitePanelOpen) {
-      // Shift camera right (so viewport shows more of the left side)
-      camera.targetCenter.x += offsetAmount;
-      panelCameraOffsetRef.current = offsetAmount;
-    } else if (panelCameraOffsetRef.current !== 0) {
-      // Restore camera position
-      camera.targetCenter.x -= panelCameraOffsetRef.current;
-      panelCameraOffsetRef.current = 0;
-    }
-  }, [isSitePanelOpen, cameraRef]);
-
   // Memoized game board selectors
   const {
     validMoveTargets,
     reachableHexes,
+    challengeTargetHexes,
     exploreTargets,
     pathPreview,
     isPathTerminal,
@@ -223,6 +209,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     startIntro,
     isInCinematic,
     playCinematic,
+    onHeroRightClick: handleHeroRightClick,
   });
 
   resetRendererRef.current = resetRenderer;
@@ -231,9 +218,28 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
   const { getMoveHighlight, handleHexClick, handleExploreClick } = useHexInteraction({
     validMoveTargets,
     reachableHexes,
+    challengeTargetHexes,
     playerPosition: player?.position ?? null,
     sendAction,
   });
+
+  // Hide world and background when in combat (so hand overlay shows through transparent canvas)
+  const inCombat = state?.combat !== null;
+  useEffect(() => {
+    if (!isInitialized) return;
+    const world = worldRef.current;
+    const background = backgroundRef.current;
+
+    if (world) {
+      // Only toggle if intro is complete (world starts hidden during intro)
+      if (isIntroComplete) {
+        world.visible = !inCombat;
+      }
+    }
+    if (background) {
+      background.getContainer().visible = !inCombat;
+    }
+  }, [isInitialized, inCombat, isIntroComplete]);
 
   /**
    * Handle tooltip hover events from hex overlays
@@ -282,7 +288,8 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
       setHoveredHex,
       handleHexHoverWithPos,
       debugDisplaySettings.showCoordinates,
-      excludeHexes
+      excludeHexes,
+      handleOpenSitePanel
     );
 
     renderGhostHexes(layers, exploreTargets, handleExploreClick);
@@ -305,7 +312,9 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     handleHexHoverWithPos,
     debugDisplaySettings.showCoordinates,
     debugDisplaySettings.showBoundaryEdges,
+    revealingHexKeysRef, // Ref is stable, added for exhaustive-deps compliance
     revealingUpdateCounter, // Force re-run when revealing state changes
+    handleOpenSitePanel,
   ]);
 
   // Get hex data for tooltip
@@ -373,7 +382,6 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
         timeOfDay={state?.timeOfDay}
         onMouseEnter={handleTooltipMouseEnter}
         onMouseLeave={handleTooltipMouseLeave}
-        onClickMoreInfo={tooltipHoveredHex ? () => handleOpenSitePanel(tooltipHoveredHex) : undefined}
       />
 
       {/* Site Panel - detailed site information panel */}

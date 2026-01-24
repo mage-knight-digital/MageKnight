@@ -55,3 +55,9 @@ export {
   UNASSIGN_BLOCK_COMMAND,
   type UnassignBlockCommandParams,
 } from "./unassignBlockCommand.js";
+
+export {
+  createChallengeRampagingCommand,
+  CHALLENGE_RAMPAGING_COMMAND,
+  type ChallengeRampagingCommandParams,
+} from "./challengeRampagingCommand.js";

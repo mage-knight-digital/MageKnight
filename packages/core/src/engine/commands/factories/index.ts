@@ -27,6 +27,7 @@ import {
   RESOLVE_CHOICE_ACTION,
   REST_ACTION,
   ENTER_COMBAT_ACTION,
+  CHALLENGE_RAMPAGING_ACTION,
   END_COMBAT_PHASE_ACTION,
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
@@ -70,6 +71,7 @@ export {
 // Combat factories
 export {
   createEnterCombatCommandFromAction,
+  createChallengeRampagingCommandFromAction,
   createEndCombatPhaseCommandFromAction,
   createDeclareBlockCommandFromAction,
   createDeclareAttackCommandFromAction,
@@ -130,6 +132,7 @@ import {
 
 import {
   createEnterCombatCommandFromAction,
+  createChallengeRampagingCommandFromAction,
   createEndCombatPhaseCommandFromAction,
   createDeclareBlockCommandFromAction,
   createDeclareAttackCommandFromAction,
@@ -188,6 +191,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_CHOICE_ACTION]: createResolveChoiceCommandFromAction,
   [REST_ACTION]: createRestCommandFromAction,
   [ENTER_COMBAT_ACTION]: createEnterCombatCommandFromAction,
+  [CHALLENGE_RAMPAGING_ACTION]: createChallengeRampagingCommandFromAction,
   [END_COMBAT_PHASE_ACTION]: createEndCombatPhaseCommandFromAction,
   [DECLARE_BLOCK_ACTION]: createDeclareBlockCommandFromAction,
   [DECLARE_ATTACK_ACTION]: createDeclareAttackCommandFromAction,

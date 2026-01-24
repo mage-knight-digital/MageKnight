@@ -374,40 +374,24 @@
 .hex-tooltip--animating .enemy-tooltip__header,
 .hex-tooltip--animating .enemy-tooltip__enemy,
 .hex-tooltip--animating .enemy-tooltip__unrevealed,
-.hex-tooltip--animating .hex-tooltip__more-info {
+.hex-tooltip--animating .hex-tooltip__hint {
   /* Animation delay set via inline style */
 }
 
 /* ============================================
-   More Info Button
+   Right-click Hint
    ============================================ */
-.hex-tooltip__more-info {
-  display: block;
-  width: 100%;
+.hex-tooltip__hint {
   margin-top: 0.5rem;
-  padding: 0.4rem 0.65rem;
-  background: linear-gradient(135deg, rgba(70, 55, 40, 0.5) 0%, rgba(50, 40, 30, 0.5) 100%);
-  border: 1px solid rgba(92, 74, 58, 0.6);
-  border-radius: 3px;
-  color: #d4c4a8;
-  font-size: 0.85em;
-  font-weight: 500;
-  cursor: pointer;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(92, 74, 58, 0.4);
+  color: #8a7a68;
+  font-size: 0.75em;
+  font-style: italic;
   text-align: center;
-  transition: all 0.2s ease;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 
   /* Staggered animation */
   opacity: 0;
   animation: line-appear 0.25s ease-out forwards;
-}
-
-.hex-tooltip__more-info:hover {
-  background: linear-gradient(135deg, rgba(90, 70, 50, 0.6) 0%, rgba(70, 55, 40, 0.6) 100%);
-  border-color: rgba(120, 95, 70, 0.8);
-  color: #f0e6d2;
-}
-
-.hex-tooltip__more-info:active {
-  background: linear-gradient(135deg, rgba(60, 48, 35, 0.7) 0%, rgba(45, 36, 28, 0.7) 100%);
 }

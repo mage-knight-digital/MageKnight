@@ -137,6 +137,15 @@ export function TopBar() {
             ))}
           </div>
         )}
+
+        {player.stolenManaDie && (
+          <div className="top-bar__mana-group top-bar__mana-group--stolen" title="Stolen Mana (Mana Steal Tactic)">
+            <span
+              className={`top-bar__token top-bar__token--${player.stolenManaDie.color} top-bar__token--stolen`}
+              title={`${player.stolenManaDie.color} mana (stolen via Mana Steal tactic - use anytime this turn)`}
+            />
+          </div>
+        )}
       </div>
 
       {/* Right section: Round/Time/Help */}

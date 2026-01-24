@@ -35,6 +35,7 @@ import {
   drawEnemiesForHex,
   createUnitDecksAndOffer,
   createSpellDeckAndOffer,
+  createAdvancedActionDeckAndOffer,
   serializeGameState,
   deserializeGameState,
   mineColorToBasicManaColor,
@@ -131,7 +132,16 @@ export function toClientState(
     },
 
     source: {
-      dice: state.source.dice,
+      dice: state.source.dice.map((die) => {
+        // Check if this die is stolen by any player's Mana Steal tactic
+        const isStolenByTactic = state.players.some(
+          (p) => p.tacticState.storedManaDie?.dieId === die.id
+        );
+        return {
+          ...die,
+          isStolenByTactic,
+        };
+      }),
     },
 
     offers: {
@@ -239,6 +249,14 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
 
     // Healing points accumulated this turn
     healingPoints: player.healingPoints,
+
+    // Stolen mana die from Mana Steal tactic
+    stolenManaDie: player.tacticState.storedManaDie
+      ? {
+          dieId: player.tacticState.storedManaDie.dieId,
+          color: player.tacticState.storedManaDie.color,
+        }
+      : null,
   };
 }
 
@@ -587,6 +605,13 @@ export class GameServer {
       rng: rngAfterSpells,
     } = createSpellDeckAndOffer(rngAfterUnits);
 
+    // Initialize advanced action deck and populate initial AA offer
+    const {
+      advancedActionDeck,
+      advancedActionOffer,
+      rng: rngAfterAA,
+    } = createAdvancedActionDeckAndOffer(rngAfterSpells);
+
     return {
       ...baseState,
       phase: GAME_PHASE_ROUND,
@@ -599,17 +624,19 @@ export class GameServer {
       players,
       source,
       enemyTokens: currentEnemyPiles, // Enemy piles after drawing for initial tiles
-      rng: rngAfterSpells, // Updated RNG state after all shuffles
+      rng: rngAfterAA, // Updated RNG state after all shuffles
       decks: {
         ...baseState.decks,
         regularUnits: unitDecks.regularUnits,
         eliteUnits: unitDecks.eliteUnits,
         spells: spellDeck,
+        advancedActions: advancedActionDeck,
       },
       offers: {
         ...baseState.offers,
         units: unitOffer,
         spells: { cards: [...spellOffer] },
+        advancedActions: { cards: [...advancedActionOffer] },
       },
       map: {
         ...baseState.map,

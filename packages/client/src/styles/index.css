@@ -28,25 +28,29 @@ body {
   transition: filter 0.3s ease;
 }
 
-/* Dimming effect during combat - board visible but darkened */
+/* Dimming effect during combat - handled by combat overlay's dark background */
 .app--combat .app__main {
-  filter: brightness(0.4) saturate(0.6);
+  /* No filter here - the PixiJS world is hidden and combat overlay provides the dark background */
   transition: filter 0.3s ease;
 }
 
 /*
  * During combat, the PixiJS canvas needs special handling:
- * - The canvas is inside .app__main which gets dimmed via filter
- * - We need the hand (rendered in PixiJS overlay layer) to be visible above combat overlay
- * - Solution: Position the canvas as fixed with high z-index, and exclude from filter
+ * - The world/background layers are hidden in PixiJS (see PixiHexGrid.tsx)
+ * - Only the overlay layer (containing the hand) renders on a transparent canvas
+ * - The hex-grid container needs to be above the combat overlay so the hand is visible
+ * - Use pointer-events: none so clicks pass through to combat UI beneath
  */
-.app--combat .hex-grid canvas {
+.app--combat .hex-grid {
   position: fixed !important;
-  top: 0;
-  left: 0;
+  inset: 0;
   z-index: 150 !important;
-  /* Prevent inheriting the brightness filter from parent */
-  filter: brightness(1) saturate(1) !important;
+  pointer-events: none;
+  background: transparent !important; /* Remove background so combat overlay shows through */
+}
+
+.app--combat .hex-grid canvas {
+  pointer-events: auto;
 }
 
 /* Boost hand z-index during combat so it's above the combat overlay */
@@ -213,6 +217,52 @@ body {
 
 .mana-source-overlay__die--unavailable .mana-source-overlay__die-icon {
   filter: grayscale(100%) brightness(0.6);
+}
+
+/* Stolen die styling - mana steal tactic
+   Distinct amber/gold tint instead of grayscale to indicate "reserved" status */
+.mana-source-overlay__die--stolen {
+  opacity: 0.65;
+  background: linear-gradient(145deg, #d4a574, #b8956a);
+  position: relative;
+}
+
+.mana-source-overlay__die--stolen .mana-source-overlay__die-icon {
+  filter: sepia(40%) saturate(70%) brightness(0.85);
+}
+
+/* Tactic badge overlay for stolen dice */
+.mana-source-overlay__die-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 12px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+}
+
+/* Stolen die animation - when a die is stolen via Mana Steal tactic */
+@keyframes dice-stolen {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  30% {
+    transform: scale(1.25) rotate(8deg);
+    filter: brightness(1.4);
+    box-shadow:
+      0 0 20px rgba(255, 193, 7, 0.7),
+      0 0 40px rgba(255, 193, 7, 0.4);
+  }
+  60% {
+    transform: scale(0.9) rotate(-4deg);
+    filter: brightness(0.9);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1);
+  }
 }
 
 /* Dice roll animation - Disney "juice" principles:

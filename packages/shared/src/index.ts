@@ -207,6 +207,8 @@ export type {
   TacticsOptions,
   EnterCombatOptions,
   AvailableEnemy,
+  // Challenge rampaging
+  ChallengeOptions,
   // Tactic effects
   TacticEffectsOptions,
   ActivatableTacticOptions,

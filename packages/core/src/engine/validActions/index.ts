@@ -36,6 +36,7 @@ import { getUnitOptionsForCombat, getFullUnitOptions } from "./units/index.js";
 import { getSiteOptions } from "./sites.js";
 import { getTacticsOptions, getTacticEffectsOptions, getPendingTacticDecision } from "./tactics.js";
 import { getGladeWoundOptions, getDeepMineOptions } from "./pending.js";
+import { getChallengeOptions } from "./challenge.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -51,10 +52,11 @@ export {
 // Re-export turn options
 export { getTurnOptions } from "./turn.js";
 
-// Re-export movement, exploration, combat, and units
+// Re-export movement, exploration, combat, challenge, and units
 export { getValidMoveTargets } from "./movement.js";
 export { getValidExploreOptions } from "./exploration.js";
 export { getCombatOptions } from "./combat.js";
+export { getChallengeOptions } from "./challenge.js";
 export { getUnitOptions, getUnitOptionsForCombat, getActivatableUnits, getFullUnitOptions } from "./units/index.js";
 
 /**
@@ -83,6 +85,7 @@ export function getValidActions(
       turn: undefined,
       tactics: undefined,
       enterCombat: undefined,
+      challenge: undefined,
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: undefined,
@@ -109,6 +112,7 @@ export function getValidActions(
         turn: undefined,
         tactics: undefined, // No more tactic selection - must resolve first
         enterCombat: undefined,
+        challenge: undefined,
         tacticEffects: { pendingDecision },
         gladeWound: undefined,
         deepMine: undefined,
@@ -128,6 +132,7 @@ export function getValidActions(
       turn: undefined,
       tactics: getTacticsOptions(state, playerId),
       enterCombat: undefined,
+      challenge: undefined,
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: undefined,
@@ -156,6 +161,7 @@ export function getValidActions(
       },
       tactics: undefined,
       enterCombat: undefined,
+      challenge: undefined,
       tacticEffects: undefined,
       gladeWound: gladeWoundOptions,
       deepMine: undefined,
@@ -184,6 +190,7 @@ export function getValidActions(
       },
       tactics: undefined,
       enterCombat: undefined,
+      challenge: undefined,
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: deepMineOptions,
@@ -212,6 +219,7 @@ export function getValidActions(
       },
       tactics: undefined,
       enterCombat: undefined,
+      challenge: undefined,
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: undefined,
@@ -244,6 +252,7 @@ export function getValidActions(
         },
         tactics: undefined,
         enterCombat: undefined,
+        challenge: undefined,
         tacticEffects: undefined,
         gladeWound: undefined,
         deepMine: undefined,
@@ -268,6 +277,7 @@ export function getValidActions(
     turn: getTurnOptions(state, player),
     tactics: undefined,
     enterCombat: undefined, // TODO: getEnterCombatOptions(state, player)
+    challenge: getChallengeOptions(state, player),
     tacticEffects: getTacticEffectsOptions(state, player),
     gladeWound: undefined,
     deepMine: undefined,

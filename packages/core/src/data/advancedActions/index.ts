@@ -93,3 +93,12 @@ export function getAdvancedActionCard(id: AdvancedActionCardId): DeedCard {
   }
   return card;
 }
+
+/**
+ * Get all advanced action card IDs.
+ *
+ * @returns Array of all advanced action card IDs
+ */
+export function getAllAdvancedActionCardIds(): AdvancedActionCardId[] {
+  return Object.keys(ADVANCED_ACTION_CARDS) as AdvancedActionCardId[];
+}

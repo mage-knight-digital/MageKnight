@@ -58,7 +58,7 @@ export function usePixiAppLifecycle({
       const app = new Application();
 
       await app.init({
-        background: 0x0a0a12,
+        backgroundAlpha: 0, // Transparent background - BackgroundAtmosphere provides the color
         resizeTo: container,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
@@ -166,6 +166,12 @@ export function usePixiAppLifecycle({
     };
   }, [
     containerRef,
+    appRef,
+    layersRef,
+    worldRef,
+    backgroundRef,
+    animationManagerRef,
+    particleManagerRef,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,

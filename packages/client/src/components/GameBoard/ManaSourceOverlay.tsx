@@ -205,7 +205,12 @@ export function ManaSourceOverlay() {
         {state.source.dice.map((die) => {
           const isTakenByMe = die.takenByPlayerId === myId;
           const isTakenByOther = die.takenByPlayerId !== null && !isTakenByMe;
-          const isUnavailable = die.isDepleted || isTakenByMe || isTakenByOther;
+          const isStolen = die.isStolenByTactic;
+          const isStolenByMe = isStolen && isTakenByMe;
+          const isStolenByOther = isStolen && isTakenByOther;
+          // Stolen dice get different treatment than normally used dice
+          const isUnavailable =
+            die.isDepleted || isTakenByMe || isTakenByOther;
           const isRolling = rollingDieIds.has(die.id);
           const isTakenAnimating = takenDieIds.has(die.id);
           const staggerIndex = rollingDieArray.indexOf(die.id);
@@ -214,12 +219,29 @@ export function ManaSourceOverlay() {
 
           const classNames = [
             "mana-source-overlay__die",
-            isUnavailable && "mana-source-overlay__die--unavailable",
+            // Stolen dice get distinct "stolen" styling instead of generic "unavailable"
+            isStolen
+              ? "mana-source-overlay__die--stolen"
+              : isUnavailable && "mana-source-overlay__die--unavailable",
             isRolling && "mana-source-overlay__die--rolling",
             isTakenAnimating && "mana-source-overlay__die--taken",
           ]
             .filter(Boolean)
             .join(" ");
+
+          // Build tooltip text based on die state
+          let titleText: string = die.color;
+          if (die.isDepleted) {
+            titleText = `${die.color} (depleted)`;
+          } else if (isStolenByMe) {
+            titleText = `${die.color} (stolen by you - on tactic card)`;
+          } else if (isStolenByOther) {
+            titleText = `${die.color} (stolen by another player)`;
+          } else if (isTakenByMe) {
+            titleText = `${die.color} (used by you)`;
+          } else if (isTakenByOther) {
+            titleText = `${die.color} (taken)`;
+          }
 
           return (
             <div
@@ -228,15 +250,7 @@ export function ManaSourceOverlay() {
               style={
                 isRolling ? { animationDelay: `${staggerDelay}ms` } : undefined
               }
-              title={
-                die.isDepleted
-                  ? `${die.color} (depleted)`
-                  : isTakenByMe
-                    ? `${die.color} (used by you)`
-                    : isTakenByOther
-                      ? `${die.color} (taken)`
-                      : die.color
-              }
+              title={titleText}
             >
               <img
                 src={getManaIconUrl(die.color)}
@@ -248,6 +262,11 @@ export function ManaSourceOverlay() {
                     : undefined
                 }
               />
+              {isStolen && (
+                <span className="mana-source-overlay__die-badge" title="On tactic card">
+                  📜
+                </span>
+              )}
             </div>
           );
         })}

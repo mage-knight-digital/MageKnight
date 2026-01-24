@@ -128,6 +128,10 @@ export const MUST_ANNOUNCE_END_OF_ROUND = "MUST_ANNOUNCE_END_OF_ROUND" as const;
 // Rampaging enemy validation codes
 export const RAMPAGING_ENEMY_BLOCKS = "RAMPAGING_ENEMY_BLOCKS" as const;
 
+// Challenge rampaging validation codes
+export const NOT_ADJACENT_TO_TARGET = "NOT_ADJACENT_TO_TARGET" as const;
+export const TARGET_NOT_RAMPAGING = "TARGET_NOT_RAMPAGING" as const;
+
 // Scenario validation codes
 export const CANNOT_ENTER_CITY = "CANNOT_ENTER_CITY" as const;
 
@@ -260,6 +264,9 @@ export type ValidationErrorCode =
   | typeof MUST_ANNOUNCE_END_OF_ROUND
   // Rampaging enemy validation
   | typeof RAMPAGING_ENEMY_BLOCKS
+  // Challenge rampaging validation
+  | typeof NOT_ADJACENT_TO_TARGET
+  | typeof TARGET_NOT_RAMPAGING
   // Scenario validation
   | typeof CANNOT_ENTER_CITY
   // Reward selection validation
