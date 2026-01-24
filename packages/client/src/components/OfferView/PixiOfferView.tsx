@@ -139,7 +139,7 @@ export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
       const recruitableUnits = state.validActions?.units?.recruitable ?? [];
       const recruitableMap = new Map(recruitableUnits.map((r) => [r.unitId, r]));
 
-      return state.offers.units.map((unitId) => {
+      const unitCards = state.offers.units.map((unitId) => {
         const unit = UNITS[unitId];
         const recruitInfo = recruitableMap.get(unitId);
         const canRecruit = recruitInfo?.canAfford ?? false;
@@ -157,6 +157,30 @@ export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
             : undefined,
         };
       });
+
+      // Add monastery AAs to unit pane (per game rules)
+      const playerPos = player.position;
+      const hexKey = playerPos ? `${playerPos.q},${playerPos.r}` : "";
+      const hex = hexKey ? state.map.hexes[hexKey] : null;
+      const canBuyFromMonastery = hex?.site?.type === "monastery" && !hex.site.isBurned;
+      const playerInfluence = player.influencePoints ?? 0;
+
+      const monasteryAAs = (state.offers.monasteryAdvancedActions ?? []).map((aaId) => {
+        let canAcquire = false;
+        let acquireLabel = "Monastery only";
+        let onAcquire: (() => void) | undefined;
+
+        if (canBuyFromMonastery) {
+          const canAfford = playerInfluence >= MONASTERY_AA_COST;
+          canAcquire = canAfford;
+          acquireLabel = canAfford ? `Buy (${MONASTERY_AA_COST})` : `Need ${MONASTERY_AA_COST}`;
+          onAcquire = () => sendAction({ type: LEARN_ADVANCED_ACTION_ACTION, cardId: aaId as CardId, fromMonastery: true });
+        }
+
+        return { id: aaId, canAcquire, acquireLabel, onAcquire };
+      });
+
+      return [...unitCards, ...monasteryAAs];
     }
 
     if (pane === "spells") {
@@ -198,15 +222,8 @@ export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
         ? player.pendingRewards?.indexOf(pendingAAReward) ?? -1
         : -1;
 
-      // Check if at monastery
-      const playerPos = player.position;
-      const hexKey = playerPos ? `${playerPos.q},${playerPos.r}` : "";
-      const hex = hexKey ? state.map.hexes[hexKey] : null;
-      const canBuyFromMonastery = hex?.site?.type === "monastery" && !hex.site.isBurned;
-      const playerInfluence = player.influencePoints ?? 0;
-
-      // Combine regular and monastery AAs
-      const regularAAs = state.offers.advancedActions.cards.map((aaId) => {
+      // Regular AAs only (monastery AAs are in the units pane per game rules)
+      return state.offers.advancedActions.cards.map((aaId) => {
         let canAcquire = false;
         let acquireLabel = "Level-up only";
         let onAcquire: (() => void) | undefined;
@@ -219,23 +236,6 @@ export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
 
         return { id: aaId, canAcquire, acquireLabel, onAcquire };
       });
-
-      const monasteryAAs = (state.offers.monasteryAdvancedActions ?? []).map((aaId) => {
-        let canAcquire = false;
-        let acquireLabel = "Monastery only";
-        let onAcquire: (() => void) | undefined;
-
-        if (canBuyFromMonastery) {
-          const canAfford = playerInfluence >= MONASTERY_AA_COST;
-          canAcquire = canAfford;
-          acquireLabel = canAfford ? `Buy (${MONASTERY_AA_COST})` : `Need ${MONASTERY_AA_COST}`;
-          onAcquire = () => sendAction({ type: LEARN_ADVANCED_ACTION_ACTION, cardId: aaId as CardId, fromMonastery: true });
-        }
-
-        return { id: aaId, canAcquire, acquireLabel, onAcquire };
-      });
-
-      return [...regularAAs, ...monasteryAAs];
     }
 
     return [];
