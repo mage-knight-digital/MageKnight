@@ -36,7 +36,7 @@ Stage
 
 ## Migration Plan - Stupidly Incremental
 
-### Phase 0: Red Rectangle (MUST COMPLETE FIRST)
+### Phase 0: Red Rectangle (MUST COMPLETE FIRST) ✅
 **Goal:** Prove we can render anything in PixiJS during combat in the right place.
 
 1. Create `packages/client/src/components/Combat/PixiCombatOverlay.tsx`
@@ -47,11 +47,9 @@ Stage
    - Add it to a new combat layer (or overlay layer with low zIndex)
 4. When combat ends, remove it
 
-**Success criteria:** Red rectangle visible during combat, disappears when combat ends, doesn't break existing functionality.
+**Status:** Complete. Used `overlayLayer` with `zIndex = -100` to sit behind hand cards.
 
-**If this fails:** Debug layer ordering. The rectangle might be behind the world layer or not added to the stage at all.
-
-### Phase 1: Gradient Background
+### Phase 1: Gradient Background ✅
 Replace the red rectangle with the actual gradient.
 
 ```typescript
@@ -77,7 +75,9 @@ const texture = Texture.from(canvas);
 const background = new Sprite(texture);
 ```
 
-### Phase 2: Site Backdrop Sprite
+**Status:** Complete. Gradient renders with canvas-based texture, handles resize.
+
+### Phase 2: Site Backdrop Sprite ✅
 Add the site/enemy backdrop image on top of gradient.
 
 1. Load the sprite sheet texture
@@ -85,18 +85,20 @@ Add the site/enemy backdrop image on top of gradient.
 3. Position centered, apply opacity/blur filters
 4. Layer on top of gradient
 
-### Phase 3: Verify Clicks Still Work
+**Status:** Complete. Backdrop sprite loads from sheet, centered at 70% viewport size, BlurFilter applied, 0.25 opacity.
+
+### Phase 3: Verify Clicks Still Work ✅
 At this point we have a PixiJS backdrop but still HTML UI on top.
 
 Test:
-- [ ] Combat buttons (Continue, etc.) still clickable
-- [ ] Enemy tokens still clickable
-- [ ] Hand cards still playable
-- [ ] Pie menu still works
+- [x] Combat buttons (Continue, etc.) still clickable
+- [x] Enemy tokens still clickable
+- [x] Hand cards still playable
+- [x] Pie menu still works
 
-If clicks break, the issue is likely z-index or pointer-events on the canvas.
+**Status:** Complete. All clicks work because `eventMode = "none"` on all PixiJS background graphics.
 
-### Phase 4: Phase Rail
+### Phase 4: Phase Rail ✅
 Move the phase rail to PixiJS.
 
 Reference: `PixiCardActionMenu.tsx` for button patterns
@@ -104,7 +106,16 @@ Reference: `PixiCardActionMenu.tsx` for button patterns
 - `Text` for labels
 - `eventMode: 'static'` for click handling
 
-### Phase 5: Enemy Tokens
+**Status:** Complete. Created `PixiPhaseRail.tsx` with:
+- Phase markers with icons (emoji) and labels
+- Active/completed/upcoming states with different styling
+- Instruction text for current phase
+- Action button (arrow or "End Combat") with hover effects
+- Ready pulse animation when all enemies defeatable
+- Warning message in damage phase
+- HTML version hidden via CSS class
+
+### Phase 5: Enemy Tokens ⬅️ NEXT
 Move enemy token rendering to PixiJS.
 
 - Circular mask on enemy sprite: use `Graphics` as mask

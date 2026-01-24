@@ -29,6 +29,7 @@ import type {
 } from "@mage-knight/shared";
 import { EnemyCard } from "./EnemyCard";
 import { VerticalPhaseRail } from "./VerticalPhaseRail";
+import { PixiPhaseRail } from "./PixiPhaseRail";
 import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
 import { CombatDnDProvider, type ChipData, type DamageChipData, type BlockChipData } from "./DnDContext";
 import { AttackPool } from "./AttackPool";
@@ -662,10 +663,18 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
         />
       )}
 
+      {/* PixiJS Phase Rail - renders to canvas */}
+      <PixiPhaseRail
+        currentPhase={phase}
+        canEndPhase={combatOptions?.canEndPhase ?? false}
+        onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
+        allEnemiesDefeatable={allEnemiesDefeatable && (isAttackPhase || isRangedSiegePhase)}
+      />
+
       {/* Main layout: phase rail | battle area | info panel */}
       <div className="combat-scene__layout">
-        {/* Left - Vertical phase rail */}
-        <div className="combat-scene__phase-rail">
+        {/* Left - Vertical phase rail (HTML version - hidden, replaced by PixiPhaseRail) */}
+        <div className="combat-scene__phase-rail combat-scene__phase-rail--hidden">
           <VerticalPhaseRail
             currentPhase={phase}
             canEndPhase={combatOptions?.canEndPhase ?? false}

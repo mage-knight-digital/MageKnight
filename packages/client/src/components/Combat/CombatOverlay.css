@@ -62,6 +62,11 @@
   z-index: 150;
 }
 
+/* HTML phase rail hidden - now rendered by PixiPhaseRail */
+.combat-scene__phase-rail--hidden {
+  display: none;
+}
+
 /* Mana Source - positioned top right corner */
 .combat-scene__mana-source {
   position: fixed;
