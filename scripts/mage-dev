@@ -258,8 +258,8 @@ start_dev_server() {
 
     echo "🎮 Starting dev server: $WORKTREE_NAME"
 
-    # Start in background, save PID
-    (cd "$WORKTREE_PATH" && pnpm run dev:client > "$LOG_FILE" 2>&1) &
+    # Start in background, save PID (use exec so pnpm replaces the subshell)
+    (cd "$WORKTREE_PATH" && exec pnpm run dev:client > "$LOG_FILE" 2>&1) &
     echo $! > "$PID_FILE"
     disown
 
