@@ -32,6 +32,13 @@ REPO_NAME="$(basename "$REPO_ROOT")"
 # Default worktree location (can be overridden with MAGE_KNIGHT_WORKTREES env var)
 WORKTREE_BASE="${MAGE_KNIGHT_WORKTREES:-$HOME/.claude-worktrees/$REPO_NAME}"
 
+# Colors
+GREEN='\033[32m'
+RED='\033[31m'
+YELLOW='\033[33m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
 # Base port for dev servers (Vite default is 5173)
 BASE_PORT=5173
 
@@ -104,7 +111,7 @@ interactive_picker() {
     while true; do
         # Clear screen and show header
         clear
-        echo "🎮 MageKnight Dev Server"
+        echo -e "${BOLD}MageKnight Dev Server${RESET}"
         echo ""
         echo "↑/↓ select  |  Enter start  |  k kill  |  q quit"
         echo ""
@@ -210,7 +217,7 @@ show_running_ports() {
         found=true
         local url
         url=$(grep "Local:" "$REPO_ROOT/.dev-server.log" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
-        echo "  🎮 main"
+        echo "  main"
         echo "     ${url:-running}"
         echo ""
     fi
@@ -225,7 +232,7 @@ show_running_ports() {
                     found=true
                     local url
                     url=$(grep "Local:" "$dir/.dev-server.log" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
-                    echo "  🎮 $name"
+                    echo "  $name"
                     echo "     ${url:-running}"
                     echo ""
                 fi
@@ -251,12 +258,12 @@ start_dev_server() {
     if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
         local url
         url=$(grep "Local:" "$LOG_FILE" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
-        echo "⚠️  Already running: ${url:-check logs}"
+        echo -e "${YELLOW}Already running:${RESET} ${url:-check logs}"
         [ -n "$url" ] && open "$url"
         return 0
     fi
 
-    echo "🎮 Starting dev server: $WORKTREE_NAME"
+    echo "==> Starting dev server: $WORKTREE_NAME"
 
     # Start in background, save PID (use exec so pnpm replaces the subshell)
     (cd "$WORKTREE_PATH" && exec pnpm run dev:client > "$LOG_FILE" 2>&1) &
@@ -269,7 +276,7 @@ start_dev_server() {
         if grep -q "ready in" "$LOG_FILE" 2>/dev/null; then
             local url
             url=$(grep "Local:" "$LOG_FILE" | sed 's/.*http/http/' | tr -d ' ')
-            echo "✅ $url"
+            echo -e "${GREEN}[ok]${RESET} $url"
             open "$url"
             return 0
         fi
@@ -278,13 +285,13 @@ start_dev_server() {
 
     # Check for errors
     if grep -q "ERROR\|Error\|error" "$LOG_FILE" 2>/dev/null; then
-        echo "❌ Server failed to start:"
+        echo -e "${RED}[err]${RESET} Server failed to start:"
         grep -A2 "ERROR\|Error" "$LOG_FILE" | head -5
         echo ""
         echo "Full log: $LOG_FILE"
         rm -f "$PID_FILE"
     else
-        echo "⚠️  Still starting. Logs: tail -f $LOG_FILE"
+        echo -e "${YELLOW}[...]${RESET} Still starting. Logs: tail -f $LOG_FILE"
     fi
 }
 
@@ -341,7 +348,7 @@ create_worktree() {
     # Ensure base directory exists
     mkdir -p "$WORKTREE_BASE"
 
-    echo "🎮 Creating worktree: $branch_name"
+    echo "==> Creating worktree: $branch_name"
     echo ""
 
     # Create the worktree (post-checkout hook handles assets)
@@ -355,10 +362,18 @@ create_worktree() {
     echo "Running pnpm install && pnpm build..."
     (cd "$worktree_path" && pnpm install && pnpm build)
 
-    # Start claude
+    # Start claude (try full path first, fall back to PATH)
     echo ""
     echo "Starting claude..."
-    cd "$worktree_path" && claude --dangerously-skip-permissions
+    cd "$worktree_path"
+    if [ -x "$HOME/.claude/local/claude" ]; then
+        "$HOME/.claude/local/claude" --dangerously-skip-permissions
+    elif command -v claude &>/dev/null; then
+        claude --dangerously-skip-permissions
+    else
+        echo "Error: claude not found. Install from https://claude.ai/code"
+        exit 1
+    fi
 }
 
 # Delete worktree
@@ -403,6 +418,10 @@ delete_worktree() {
         exit 1
     fi
 
+    # Get actual branch name (may differ from dir name if branch had slashes)
+    local branch_name
+    branch_name=$(git -C "$worktree_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
     # Kill any running dev server
     if is_server_running "$worktree_name"; then
         echo "Stopping dev server..."
@@ -411,7 +430,7 @@ delete_worktree() {
     fi
 
     echo ""
-    read -rp "Delete worktree '$worktree_name' and its branch? [y/N] " confirm
+    read -rp "Delete worktree '$worktree_name' (branch: $branch_name)? [y/N] " confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         echo "Cancelled."
         exit 0
@@ -421,10 +440,10 @@ delete_worktree() {
     git worktree remove "$worktree_path" --force
 
     echo "Deleting branch..."
-    git branch -D "$worktree_name" 2>/dev/null || true
+    git branch -D "$branch_name" 2>/dev/null || true
 
     echo ""
-    echo "✅ Deleted: $worktree_name"
+    echo -e "${GREEN}[ok]${RESET} Deleted: $worktree_name (branch: $branch_name)"
 }
 
 # Handle commands
@@ -449,7 +468,7 @@ case "$1" in
         exit 0
         ;;
     "cleanup")
-        echo "🧹 Checking for merged worktrees..."
+        echo "==> Checking for merged worktrees..."
         echo ""
         cd "$REPO_ROOT" || exit 1
 
@@ -499,7 +518,7 @@ case "$1" in
         fi
         if is_server_running "$2"; then
             kill_dev_server "$2"
-            echo "✅ Stopped $2"
+            echo -e "${GREEN}[ok]${RESET} Stopped $2"
         else
             echo "No server running for $2"
         fi
