@@ -48,3 +48,14 @@ export {
   drawMonasteryAdvancedAction,
 } from "./monasteryHelpers.js";
 export type { MonasteryAADrawResult } from "./monasteryHelpers.js";
+
+// Ruins token helpers
+export {
+  createEmptyRuinsTokenPiles,
+  createRuinsTokenPiles,
+  drawRuinsToken,
+  discardRuinsToken,
+  shouldRuinsTokenBeRevealed,
+  revealRuinsToken,
+} from "./ruinsTokenHelpers.js";
+export type { RuinsTokenPiles, DrawRuinsTokenResult } from "./ruinsTokenHelpers.js";

@@ -43,3 +43,19 @@ export function getHeroTokenUrl(heroId: string): string {
   // "_token" files are smaller circular tokens (naming is backwards in assets)
   return `${ASSETS_BASE}/heroes/${heroId}_card.png`;
 }
+
+/**
+ * Get the URL for a ruins token face image.
+ * Used when the token is revealed (face-up).
+ */
+export function getRuinsTokenFaceUrl(tokenId: string): string {
+  return `${ASSETS_BASE}/sites/ruins/${tokenId}.png`;
+}
+
+/**
+ * Get the URL for the ruins token back image.
+ * All unrevealed ruins tokens show the same yellow back.
+ */
+export function getRuinsTokenBackUrl(): string {
+  return `${ASSETS_BASE}/enemies/backs/yellow.png`;
+}

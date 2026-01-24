@@ -156,6 +156,7 @@ export type {
   ClientManaSource,
   ClientSite,
   ClientHexEnemy,
+  ClientRuinsToken,
   ClientHexState,
   ClientTileSlot,
   ClientMapState,
@@ -248,3 +249,6 @@ export * from "./tactics.js";
 
 // Site rewards
 export * from "./siteRewards.js";
+
+// Ruins tokens (Ancient Ruins yellow tokens)
+export * from "./ruinsTokens.js";

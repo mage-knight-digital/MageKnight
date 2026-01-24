@@ -8,12 +8,14 @@ import {
   type Player,
   type HexState,
   type HexEnemy,
+  type RuinsToken,
   type TilePlacement,
   type TileSlot,
   type RngState,
   type TileDeck,
   type CombatState,
   type EnemyTokenPiles,
+  type RuinsTokenPiles,
   createInitialGameState,
   MageKnightEngine,
   createEngine,
@@ -33,6 +35,8 @@ import {
   getValidActions,
   createEnemyTokenPiles,
   drawEnemiesForHex,
+  createRuinsTokenPiles,
+  drawRuinsToken,
   createUnitDecksAndOffer,
   createSpellDeckAndOffer,
   createAdvancedActionDeckAndOffer,
@@ -59,6 +63,7 @@ import {
   type ClientCombatState,
   type ClientCombatEnemy,
   type ClientHexEnemy,
+  type ClientRuinsToken,
   type EventCallback,
   GAME_PHASE_ROUND,
   GAME_STARTED,
@@ -119,6 +124,9 @@ export function toClientState(
             enemies: hex.enemies.map((enemy): ClientHexEnemy =>
               toClientHexEnemy(enemy)
             ),
+            ruinsToken: hex.ruinsToken
+              ? toClientRuinsToken(hex.ruinsToken)
+              : null,
             shieldTokens: [...hex.shieldTokens],
             rampagingEnemies: hex.rampagingEnemies.map(String),
           },
@@ -296,6 +304,25 @@ function toClientHexEnemy(enemy: HexEnemy): ClientHexEnemy {
 }
 
 /**
+ * Convert a RuinsToken to ClientRuinsToken.
+ * Masks the token ID when unrevealed to prevent cheating - player shouldn't
+ * know what's on the token until it's flipped. All unrevealed tokens show
+ * the same yellow back.
+ */
+function toClientRuinsToken(token: RuinsToken): ClientRuinsToken {
+  if (token.isRevealed) {
+    return {
+      isRevealed: true,
+      tokenId: token.tokenId,
+    };
+  } else {
+    return {
+      isRevealed: false,
+    };
+  }
+}
+
+/**
  * Convert core CombatState to ClientCombatState.
  * Extracts enemy details from definitions for client display.
  */
@@ -453,7 +480,11 @@ export class GameServer {
     // Initialize enemy token piles FIRST so we can draw enemies as tiles are placed
     const { piles: initialEnemyPiles, rng: rngAfterEnemyInit } = createEnemyTokenPiles(rngAfterDeck);
     let currentEnemyPiles: EnemyTokenPiles = initialEnemyPiles;
-    let currentRng: RngState = rngAfterEnemyInit;
+
+    // Initialize ruins token piles for Ancient Ruins yellow tokens
+    const { piles: initialRuinsPiles, rng: rngAfterRuinsInit } = createRuinsTokenPiles(rngAfterEnemyInit);
+    let currentRuinsPiles: RuinsTokenPiles = initialRuinsPiles;
+    let currentRng: RngState = rngAfterRuinsInit;
 
     // Calculate total tiles for scenario
     const totalTiles =
@@ -530,7 +561,7 @@ export class GameServer {
 
           const siteType = hex.site?.type ?? null;
 
-          const { enemies, piles, rng } = drawEnemiesForHex(
+          const { enemies, piles: enemyPiles, rng: rngAfterEnemies } = drawEnemiesForHex(
             rampagingTypes,
             siteType,
             currentEnemyPiles,
@@ -538,15 +569,29 @@ export class GameServer {
             baseState.timeOfDay
           );
 
-          currentEnemyPiles = piles;
-          currentRng = rng;
+          currentEnemyPiles = enemyPiles;
+          currentRng = rngAfterEnemies;
 
-          // Update hex with drawn enemies
+          // Draw ruins token for Ancient Ruins sites
+          let ruinsToken = hex.ruinsToken;
+          if (siteType === SiteType.AncientRuins) {
+            const ruinsResult = drawRuinsToken(
+              currentRuinsPiles,
+              currentRng,
+              baseState.timeOfDay
+            );
+            ruinsToken = ruinsResult.token;
+            currentRuinsPiles = ruinsResult.piles;
+            currentRng = ruinsResult.rng;
+          }
+
+          // Update hex with drawn enemies and ruins token
           // NOTE: Preserve rampagingEnemies marker - it's needed for movement validation
           // (validateNotBlockedByRampaging checks BOTH rampagingEnemies.length > 0 AND enemies.length > 0)
           hexes[key] = {
             ...hex,
             enemies: enemies,
+            ruinsToken,
           };
         }
 
@@ -644,6 +689,7 @@ export class GameServer {
       players,
       source,
       enemyTokens: currentEnemyPiles, // Enemy piles after drawing for initial tiles
+      ruinsTokens: currentRuinsPiles, // Ruins piles after drawing for initial tiles
       rng: rngAfterAA, // Updated RNG state after all shuffles
       decks: {
         ...baseState.decks,

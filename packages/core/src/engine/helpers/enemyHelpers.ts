@@ -14,7 +14,6 @@ import {
   ENEMY_COLOR_RED,
   ENEMY_COLOR_VIOLET,
   ENEMY_COLOR_WHITE,
-  TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 import type { EnemyTokenId, EnemyTokenPiles } from "../../types/enemy.js";
 import { SiteType, RampagingEnemyType, type HexEnemy } from "../../types/map.js";
@@ -219,11 +218,13 @@ export interface SiteDefenderConfig {
  *
  * NOTE: Dungeon and Tomb enemies are drawn when the player EXPLORES the site,
  * not when the tile is revealed. Use getAdventureSiteEnemies() for those.
- * Ancient Ruins only have enemies at night.
+ * Ancient Ruins use yellow ruins tokens (not enemy tokens) - handled separately.
+ *
+ * @param _timeOfDay - Currently unused, kept for potential future time-based defenders
  */
 export function getSiteDefenders(
   siteType: SiteType,
-  timeOfDay?: TimeOfDay
+  _timeOfDay?: TimeOfDay
 ): SiteDefenderConfig | null {
   switch (siteType) {
     // Fortified sites - gray defenders
@@ -243,11 +244,10 @@ export function getSiteDefenders(
     case SiteType.Tomb:
       return null;
 
-    // Ancient ruins: enemies only at night
+    // Ancient Ruins: uses yellow ruins tokens (not enemy tokens)
+    // Ruins tokens are handled separately via ruinsTokenHelpers
     case SiteType.AncientRuins:
-      return timeOfDay === TIME_OF_DAY_NIGHT
-        ? { color: ENEMY_COLOR_BROWN, count: 1 }
-        : null;
+      return null;
 
     // Maze/Labyrinth have numbered defenders (6/4/2 pattern) - simplified to 1
     case SiteType.Maze:

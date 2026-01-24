@@ -102,3 +102,14 @@ export {
   countMonasteries,
   drawMonasteryAdvancedAction,
 } from "./helpers/index.js";
+
+// Ruins token helpers
+export {
+  createEmptyRuinsTokenPiles,
+  createRuinsTokenPiles,
+  drawRuinsToken,
+  discardRuinsToken,
+  shouldRuinsTokenBeRevealed,
+  revealRuinsToken,
+} from "./helpers/index.js";
+export type { DrawRuinsTokenResult } from "./helpers/index.js";

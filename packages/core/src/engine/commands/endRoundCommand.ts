@@ -43,6 +43,8 @@ import { END_ROUND_COMMAND } from "./commandTypes.js";
 import { getEffectiveHandLimit } from "../helpers/handLimitHelpers.js";
 import { refreshUnitOffer } from "../../data/unitDeckSetup.js";
 import { CORE_TILE_ID_PREFIX, SYSTEM_PLAYER_ID } from "../engineConstants.js";
+import { revealRuinsToken } from "../helpers/ruinsTokenHelpers.js";
+import type { HexState } from "../../types/map.js";
 
 /**
  * Check if any core tile has been revealed on the map.
@@ -123,6 +125,34 @@ export function createEndRoundCommand(): Command {
         from: oldTime,
         to: newTime,
       });
+
+      // 2b. Reveal any face-down ruins tokens at dawn (Night → Day)
+      let updatedHexes = state.map.hexes;
+      if (newTime === TIME_OF_DAY_DAY) {
+        const hexEntries = Object.entries(state.map.hexes);
+        let hasUnrevealedRuins = false;
+
+        for (const [, hex] of hexEntries) {
+          if (hex.ruinsToken && !hex.ruinsToken.isRevealed) {
+            hasUnrevealedRuins = true;
+            break;
+          }
+        }
+
+        if (hasUnrevealedRuins) {
+          updatedHexes = {};
+          for (const [key, hex] of hexEntries) {
+            if (hex.ruinsToken && !hex.ruinsToken.isRevealed) {
+              updatedHexes[key] = {
+                ...hex,
+                ruinsToken: revealRuinsToken(hex.ruinsToken),
+              } as HexState;
+            } else {
+              updatedHexes[key] = hex;
+            }
+          }
+        }
+      }
 
       // 3. Reset mana source (reroll all dice)
       const playerCount = state.players.length;
@@ -297,6 +327,11 @@ export function createEndRoundCommand(): Command {
           offers: {
             ...state.offers,
             units: refreshedUnitOffer,
+          },
+          // Updated map with revealed ruins tokens (at dawn)
+          map: {
+            ...state.map,
+            hexes: updatedHexes,
           },
           // Reset round-end tracking
           endOfRoundAnnouncedBy: null,
