@@ -50,7 +50,7 @@ body {
 }
 
 .app--combat .hex-grid canvas {
-  pointer-events: auto;
+  pointer-events: none; /* Hand uses document-level listeners, not canvas events */
 }
 
 /* Boost hand z-index during combat so it's above the combat overlay */
