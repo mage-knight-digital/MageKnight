@@ -21,9 +21,7 @@ import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGame } from "../../hooks/useGame";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { cleanupFilters } from "../../utils/pixiFilterCleanup";
-
-// Combat overlay sits behind hand cards (hand uses zIndex 100+)
-const COMBAT_OVERLAY_Z_INDEX = -100;
+import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 
 // Site sprite sheet configuration (matches CombatOverlay.tsx)
 const SITES_SHEET = {
@@ -175,11 +173,9 @@ export function PixiCombatOverlay({ combat }: PixiCombatOverlayProps) {
     // Create root container for combat overlay
     const rootContainer = new Container();
     rootContainer.label = `combat-overlay-${uniqueId}`;
-    rootContainer.zIndex = COMBAT_OVERLAY_Z_INDEX;
+    rootContainer.zIndex = PIXI_Z_INDEX.COMBAT_BACKGROUND;
     rootContainer.sortableChildren = true;
 
-    // Ensure overlay layer is sortable
-    overlayLayer.sortableChildren = true;
     overlayLayer.addChild(rootContainer);
     overlayLayer.sortChildren();
     rootContainerRef.current = rootContainer;

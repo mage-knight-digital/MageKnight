@@ -26,6 +26,7 @@ import { useCardInteraction } from "../CardInteraction";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
+import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 
 // Animation timing constants
 const HOVER_LIFT_DURATION_MS = CARD_FAN_HOVER.durationSec * 1000; // ~265ms synced to audio
@@ -111,10 +112,6 @@ function getCardLayout(index: number, totalCards: number, cardWidth: number) {
   return { spreadX, rotation, arcY, spreadDistance };
 }
 
-// Z-index constants for overlay coordination
-// Hand sits below pie menu by default, raised above when card is selected
-const HAND_Z_INDEX_BASE = 100;
-const HAND_Z_INDEX_SELECTED = 1100; // Above pie menu (1000) so selected card shows on top
 
 export function PixiFloatingHand({
   hand,
@@ -245,7 +242,7 @@ export function PixiFloatingHand({
     // When selected: high z-index (above pie menu)
     // When not selected: base z-index
     if (handContainer) {
-      handContainer.zIndex = selectedIndex !== null ? HAND_Z_INDEX_SELECTED : HAND_Z_INDEX_BASE;
+      handContainer.zIndex = selectedIndex !== null ? PIXI_Z_INDEX.HAND_ACTIVE : PIXI_Z_INDEX.HAND;
       overlayLayer?.sortChildren();
     }
 
@@ -373,7 +370,7 @@ export function PixiFloatingHand({
     const handContainer = new Container();
     handContainer.label = "floating-hand";
     handContainer.sortableChildren = true;
-    handContainer.zIndex = HAND_Z_INDEX_BASE;
+    handContainer.zIndex = PIXI_Z_INDEX.HAND;
     handContainer.eventMode = "none"; // Events handled via DOM
     handContainer.interactiveChildren = false;
 

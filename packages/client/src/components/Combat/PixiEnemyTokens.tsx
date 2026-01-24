@@ -17,9 +17,7 @@ import { Container, Graphics, Sprite, Texture, Assets } from "pixi.js";
 import type { ClientCombatEnemy, EnemyId } from "@mage-knight/shared";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
-
-// Enemy tokens sit above background but below phase rail
-const ENEMY_TOKENS_Z_INDEX = 5;
+import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 
 // Colors
 const COLORS = {
@@ -131,10 +129,9 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
     // Create root container
     const rootContainer = new Container();
     rootContainer.label = `enemy-tokens-${uniqueId}`;
-    rootContainer.zIndex = ENEMY_TOKENS_Z_INDEX;
+    rootContainer.zIndex = PIXI_Z_INDEX.ENEMY_TOKENS;
     rootContainer.sortableChildren = true;
 
-    overlayLayer.sortableChildren = true;
     overlayLayer.addChild(rootContainer);
     overlayLayer.sortChildren();
     rootContainerRef.current = rootContainer;

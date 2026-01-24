@@ -14,6 +14,7 @@ import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { UI_COLORS } from "./utils/colorHelpers";
 import { getCardTexture } from "../../utils/pixiTextureLoader";
+import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 
 // ============================================================================
 // Types
@@ -205,8 +206,7 @@ export function PieMenuRenderer({
     // Create root container
     const rootContainer = new Container();
     rootContainer.label = `pie-menu-${uniqueId}`;
-    rootContainer.zIndex = 1000; // Above all combat UI (enemy tokens, phase rail, etc.)
-    overlayLayer.sortableChildren = true;
+    rootContainer.zIndex = PIXI_Z_INDEX.PIE_MENU;
     overlayLayer.addChild(rootContainer);
     overlayLayer.sortChildren();
     rootContainerRef.current = rootContainer;
