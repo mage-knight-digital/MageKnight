@@ -50,6 +50,11 @@ body {
 }
 
 .app--combat .hex-grid canvas {
+  pointer-events: none; /* Hand uses document-level listeners, not canvas events */
+}
+
+/* When pie menu (overlay) is active during combat, canvas needs pointer-events for PixiJS clicks */
+.app--combat.app--overlay-active .hex-grid canvas {
   pointer-events: auto;
 }
 
