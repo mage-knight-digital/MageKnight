@@ -49,6 +49,8 @@ interface CardData {
   acquireLabel: string;
   isElite?: boolean;
   onAcquire?: () => void;
+  /** Card type for texture loading (defaults to pane type if not specified) */
+  cardType?: "unit" | "spell" | "aa";
 }
 
 // ============================================
@@ -177,7 +179,7 @@ export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
           onAcquire = () => sendAction({ type: LEARN_ADVANCED_ACTION_ACTION, cardId: aaId as CardId, fromMonastery: true });
         }
 
-        return { id: aaId, canAcquire, acquireLabel, onAcquire };
+        return { id: aaId, canAcquire, acquireLabel, onAcquire, cardType: "aa" as const };
       });
 
       return [...unitCards, ...monasteryAAs];
@@ -321,7 +323,8 @@ export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
       const card = cards[i];
       if (!card) continue;
 
-      const textureType = pane === "advancedActions" ? "aa" : pane === "spells" ? "spell" : "unit";
+      // Use card-specific type if available, otherwise derive from pane
+      const textureType = card.cardType ?? (pane === "advancedActions" ? "aa" : pane === "spells" ? "spell" : "unit");
       const texture = await getOfferCardTexture(card.id, textureType);
 
       const cardContainer = new Container();
