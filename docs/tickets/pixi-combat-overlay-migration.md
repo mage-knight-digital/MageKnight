@@ -138,7 +138,16 @@ Move enemy token rendering to PixiJS.
 ### Phase 6: Allocation UI (+/- buttons, damage assignment) ⬅️ NEXT (Hybrid - staying as HTML)
 The most complex part. Keeping as HTML per plan - drag-drop with @dnd-kit is complex.
 
-### Phase 7: Cleanup
+### Phase 7: Screen Effects ✅
+Implement damage/block/attack flash effects in PixiJS.
+
+**Status:** Complete. Created `PixiScreenEffects.tsx` with:
+- Damage flash: Crimson overlay with screen shake animation
+- Block flash: Verdigris/teal fade out
+- Attack flash: Bronze/copper fade out
+- Removed HTML effect overlay from CombatOverlay
+
+### Phase 8: Cleanup ⬅️ NEXT
 - Remove HTML `CombatOverlay.tsx`
 - Remove CSS combat pointer-events hacks
 - Remove `isOverlayActive` workarounds in `EnemyCard.tsx`

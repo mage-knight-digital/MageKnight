@@ -31,6 +31,7 @@ import { EnemyCard } from "./EnemyCard";
 import { VerticalPhaseRail } from "./VerticalPhaseRail";
 import { PixiPhaseRail } from "./PixiPhaseRail";
 import { PixiEnemyTokens } from "./PixiEnemyTokens";
+import { PixiScreenEffects } from "./PixiScreenEffects";
 import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
 import { CombatDnDProvider, type ChipData, type DamageChipData, type BlockChipData } from "./DnDContext";
 import { AttackPool } from "./AttackPool";
@@ -641,15 +642,10 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   return (
     <CombatDnDProvider onDragEnd={handleDragEnd} renderDragOverlay={renderDragOverlay}>
     <div className="combat-scene" data-testid="combat-overlay">
-      {/* Effect overlay - separate element for damage/block/attack flashes */}
-      {activeEffect && (
-        <div
-          key={effectKey}
-          className={`combat-scene__effect combat-scene__effect--${activeEffect}`}
-        />
-      )}
+      {/* PixiJS Screen Effects - damage/block/attack flashes */}
+      <PixiScreenEffects activeEffect={activeEffect} effectKey={effectKey} />
 
-      {/* Site backdrop - faded background behind enemies */}
+      {/* Site backdrop - faded background behind enemies (hidden, rendered by PixiCombatOverlay) */}
       {siteSprite && (
         <div
           className="combat-scene__backdrop"
