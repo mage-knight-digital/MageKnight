@@ -1,21 +1,31 @@
 #!/bin/bash
-# mage-dev - Open a labeled terminal running dev server for a MageKnight worktree
+# mage-dev - Unified tool for MageKnight worktree management and dev servers
 #
 # Usage:
 #   mage-dev                    # Interactive picker (arrow keys + enter)
 #   mage-dev <worktree-name>    # Opens dev server for specific worktree
+#   mage-dev new <branch>       # Create worktree → install → build → claude
+#   mage-dev delete [branch]    # Delete a worktree
 #   mage-dev list               # List worktrees with ports (non-interactive)
 #   mage-dev ports              # Show running dev servers
 #
 # Examples:
-#   mage-dev                      # Pick from menu
-#   mage-dev interesting-thompson # Direct start
+#   mage-dev new fix-combat       # Create worktree → build → claude
+#   mage-dev                      # Pick from menu to start dev server
+#   mage-dev interesting-thompson # Start dev server directly
+#   mage-dev delete               # Delete worktree (shows picker)
 #
 # Setup:
 #   ln -s /path/to/MageKnight/scripts/mage-dev ~/bin/mage-dev
 
-# Auto-detect the worktree base from this script's location
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Auto-detect the worktree base from this script's location (resolve symlinks)
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [ -L "$SCRIPT_PATH" ]; do
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+    SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+    [[ $SCRIPT_PATH != /* ]] && SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_PATH"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 REPO_NAME="$(basename "$REPO_ROOT")"
 
@@ -36,12 +46,28 @@ get_port_for_worktree() {
     echo $((BASE_PORT + (hash % 27)))
 }
 
+# Prune stale worktrees and clean up invalid directories
+cleanup_stale_worktrees() {
+    # Prune git's worktree references
+    git -C "$REPO_ROOT" worktree prune 2>/dev/null
+    # Remove directories that aren't valid worktrees (no .git file)
+    if [ -d "$WORKTREE_BASE" ]; then
+        for dir in "$WORKTREE_BASE"/*/; do
+            if [ -d "$dir" ] && [ ! -f "$dir/.git" ]; then
+                rm -rf "$dir"
+            fi
+        done
+    fi
+}
+
 # Get array of worktree names
 get_worktrees() {
+    cleanup_stale_worktrees
     local worktrees=()
     if [ -d "$WORKTREE_BASE" ]; then
         for dir in "$WORKTREE_BASE"/*/; do
-            if [ -d "$dir" ]; then
+            # Only include valid worktrees (have .git file)
+            if [ -d "$dir" ] && [ -f "$dir/.git" ]; then
                 worktrees+=("$(basename "$dir")")
             fi
         done
@@ -80,7 +106,7 @@ interactive_picker() {
             local status=""
 
             # Check if already running
-            if lsof -ti :$port > /dev/null 2>&1; then
+            if is_server_running "$name"; then
                 status=" ● RUNNING"
             fi
 
@@ -115,13 +141,8 @@ interactive_picker() {
         elif [[ $key == "k" || $key == "K" ]]; then
             # Kill the selected server if running
             local name="${worktrees[$selected]}"
-            local port=$(get_port_for_worktree "$name")
-            local pid=$(lsof -ti :$port 2>/dev/null | head -1)
-            if [ -n "$pid" ]; then
-                kill $pid 2>/dev/null
-                # Brief pause to let it die
-                sleep 0.5
-            fi
+            kill_dev_server "$name"
+            sleep 0.3
             # Stay in picker (will refresh on next loop)
         elif [[ $key == "q" || $key == "Q" ]]; then
             tput cnorm  # Show cursor
@@ -153,7 +174,7 @@ list_worktrees() {
     echo "Usage: mage-dev <worktree-name>"
 }
 
-# Show which ports are currently in use
+# Show which dev servers are currently running
 show_running_ports() {
     echo "Running MageKnight dev servers:"
     echo ""
@@ -161,15 +182,15 @@ show_running_ports() {
     local found=false
     if [ -d "$WORKTREE_BASE" ]; then
         for dir in "$WORKTREE_BASE"/*/; do
-            if [ -d "$dir" ]; then
+            if [ -d "$dir" ] && [ -f "$dir/.git" ]; then
+                local name
                 name=$(basename "$dir")
-                port=$(get_port_for_worktree "$name")
-                # Check if something is listening on this port
-                pid=$(lsof -ti :$port 2>/dev/null | head -1)
-                if [ -n "$pid" ]; then
+                if is_server_running "$name"; then
                     found=true
+                    local url
+                    url=$(grep "Local:" "$dir/.dev-server.log" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
                     echo "  🎮 $name"
-                    echo "     http://localhost:$port"
+                    echo "     ${url:-running}"
                     echo ""
                 fi
             fi
@@ -182,37 +203,188 @@ show_running_ports() {
     fi
 }
 
-# Start dev server for a worktree
+# Start dev server for a worktree (runs in background)
 start_dev_server() {
     local WORKTREE_NAME="$1"
     local WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
-    local PORT=$(get_port_for_worktree "$WORKTREE_NAME")
+    local LOG_FILE="$WORKTREE_PATH/.dev-server.log"
+    local PID_FILE="$WORKTREE_PATH/.dev-server.pid"
 
-    # Check if port is already in use
-    if lsof -ti :$PORT > /dev/null 2>&1; then
-        echo "⚠️  Port $PORT is already in use (probably this worktree's dev server)"
-        echo "   Opening browser to http://localhost:$PORT"
-        open "http://localhost:$PORT"
+    # Check if already running
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        local url
+        url=$(grep "Local:" "$LOG_FILE" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
+        echo "⚠️  Already running: ${url:-check logs}"
+        [ -n "$url" ] && open "$url"
         return 0
     fi
 
-    # Open a new Terminal window with the dev server, labeled with the worktree name and port
-    osascript <<EOF
-tell application "Terminal"
-    activate
-    do script "cd '$WORKTREE_PATH' && echo '🎮 MageKnight Dev Server' && echo '   Worktree: $WORKTREE_NAME' && echo '   URL: http://localhost:$PORT' && echo '' && pnpm run dev:client -- --port $PORT"
-    set custom title of front window to "🎮 $WORKTREE_NAME :$PORT"
-end tell
-EOF
+    echo "🎮 Starting dev server: $WORKTREE_NAME"
 
-    echo "Opened dev server for: $WORKTREE_NAME"
-    echo "URL: http://localhost:$PORT"
+    # Start in background, save PID
+    (cd "$WORKTREE_PATH" && pnpm run dev:client > "$LOG_FILE" 2>&1) &
+    echo $! > "$PID_FILE"
+    disown
+
+    # Wait for "ready" in log and extract actual port
+    echo "Waiting for server..."
+    for i in {1..20}; do
+        if grep -q "ready in" "$LOG_FILE" 2>/dev/null; then
+            local url
+            url=$(grep "Local:" "$LOG_FILE" | sed 's/.*http/http/' | tr -d ' ')
+            echo "✅ $url"
+            open "$url"
+            return 0
+        fi
+        sleep 0.5
+    done
+
+    # Check for errors
+    if grep -q "ERROR\|Error\|error" "$LOG_FILE" 2>/dev/null; then
+        echo "❌ Server failed to start:"
+        grep -A2 "ERROR\|Error" "$LOG_FILE" | head -5
+        echo ""
+        echo "Full log: $LOG_FILE"
+        rm -f "$PID_FILE"
+    else
+        echo "⚠️  Still starting. Logs: tail -f $LOG_FILE"
+    fi
+}
+
+# Kill dev server for a worktree
+kill_dev_server() {
+    local WORKTREE_NAME="$1"
+    local WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
+    local PID_FILE="$WORKTREE_PATH/.dev-server.pid"
+
+    if [ -f "$PID_FILE" ]; then
+        local pid
+        pid=$(cat "$PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null
+            # Also kill child processes (vite)
+            pkill -P "$pid" 2>/dev/null
+            echo "Killed dev server for $WORKTREE_NAME"
+        fi
+        rm -f "$PID_FILE"
+    fi
+}
+
+# Check if dev server is running for a worktree
+is_server_running() {
+    local WORKTREE_NAME="$1"
+    local PID_FILE="$WORKTREE_BASE/$WORKTREE_NAME/.dev-server.pid"
+    [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
+}
+
+# Create new worktree and start claude
+create_worktree() {
+    local branch_name="$1"
+
+    if [ -z "$branch_name" ]; then
+        echo "Usage: mage-dev new <branch-name>"
+        exit 1
+    fi
+
+    cd "$REPO_ROOT" || exit 1
+
+    # Flatten branch name for directory (replace / with -)
+    local dir_name="${branch_name//\//-}"
+    local worktree_path="$WORKTREE_BASE/$dir_name"
+
+    # Check if already exists
+    if [ -d "$worktree_path" ]; then
+        echo "Error: Worktree already exists: $worktree_path"
+        exit 1
+    fi
+
+    # Ensure base directory exists
+    mkdir -p "$WORKTREE_BASE"
+
+    echo "🎮 Creating worktree: $branch_name"
     echo ""
 
-    # Wait a moment for server to start, then open browser
-    echo "Opening browser in 3 seconds..."
-    sleep 3
-    open "http://localhost:$PORT"
+    # Create the worktree (post-checkout hook handles assets)
+    if ! git worktree add -b "$branch_name" "$worktree_path"; then
+        echo "Error: Failed to create worktree"
+        exit 1
+    fi
+
+    # Install deps and build packages (client needs built server/core/shared)
+    echo ""
+    echo "Running pnpm install && pnpm build..."
+    (cd "$worktree_path" && pnpm install && pnpm build)
+
+    # Start claude
+    echo ""
+    echo "Starting claude..."
+    cd "$worktree_path" && claude --dangerously-skip-permissions
+}
+
+# Delete worktree
+delete_worktree() {
+    local worktree_name="$1"
+
+    cd "$REPO_ROOT" || exit 1
+
+    # If no name provided, show picker
+    if [ -z "$worktree_name" ]; then
+        local worktrees=($(get_worktrees))
+        if [ ${#worktrees[@]} -eq 0 ]; then
+            echo "No worktrees found in $WORKTREE_BASE"
+            exit 1
+        fi
+
+        echo "Select worktree to delete:"
+        echo ""
+        for i in "${!worktrees[@]}"; do
+            echo "  $((i+1))) ${worktrees[$i]}"
+        done
+        echo ""
+        read -rp "Enter number (or q to quit): " choice
+
+        if [[ "$choice" == "q" ]]; then
+            echo "Cancelled."
+            exit 0
+        fi
+
+        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt ${#worktrees[@]} ]; then
+            echo "Invalid selection"
+            exit 1
+        fi
+
+        worktree_name="${worktrees[$((choice-1))]}"
+    fi
+
+    local worktree_path="$WORKTREE_BASE/$worktree_name"
+
+    if [ ! -d "$worktree_path" ]; then
+        echo "Error: Worktree not found: $worktree_path"
+        exit 1
+    fi
+
+    # Kill any running dev server
+    if is_server_running "$worktree_name"; then
+        echo "Stopping dev server..."
+        kill_dev_server "$worktree_name"
+        sleep 0.3
+    fi
+
+    echo ""
+    read -rp "Delete worktree '$worktree_name' and its branch? [y/N] " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "Cancelled."
+        exit 0
+    fi
+
+    echo "Removing worktree..."
+    git worktree remove "$worktree_path" --force
+
+    echo "Deleting branch..."
+    git branch -D "$worktree_name" 2>/dev/null || true
+
+    echo ""
+    echo "✅ Deleted: $worktree_name"
 }
 
 # Handle commands
@@ -220,12 +392,96 @@ case "$1" in
     "")
         interactive_picker
         ;;
+    "new"|"create")
+        create_worktree "$2"
+        exit 0
+        ;;
+    "delete"|"rm"|"remove")
+        delete_worktree "$2"
+        exit 0
+        ;;
     "list")
         list_worktrees
         exit 0
         ;;
     "ports"|"running")
         show_running_ports
+        exit 0
+        ;;
+    "cleanup")
+        echo "🧹 Checking for merged worktrees..."
+        echo ""
+        cd "$REPO_ROOT" || exit 1
+
+        # Get list of branches merged to main
+        merged_branches=$(git branch --merged main | grep -v "^\*\|main" | sed 's/^[[:space:]]*//')
+
+        found=false
+        for dir in "$WORKTREE_BASE"/*/; do
+            if [ -d "$dir" ] && [ -f "$dir/.git" ]; then
+                name=$(basename "$dir")
+                # Get the branch name for this worktree
+                branch=$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+                # Check if branch is merged to main
+                if echo "$merged_branches" | grep -qx "$branch"; then
+                    found=true
+                    echo "  $name (branch: $branch) - merged to main"
+
+                    # Kill dev server if running
+                    if is_server_running "$name"; then
+                        kill_dev_server "$name"
+                        echo "    ↳ Stopped dev server"
+                    fi
+
+                    read -rp "    Delete this worktree? [y/N] " confirm
+                    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                        git worktree remove "$dir" --force 2>/dev/null
+                        git branch -d "$branch" 2>/dev/null
+                        echo "    ↳ Deleted"
+                    fi
+                    echo ""
+                fi
+            fi
+        done
+
+        if [ "$found" = false ]; then
+            echo "  No merged worktrees found."
+        fi
+        exit 0
+        ;;
+    "kill"|"stop")
+        if [ -z "$2" ]; then
+            echo "Usage: mage-dev kill <worktree-name>"
+            echo ""
+            show_running_ports
+            exit 1
+        fi
+        if is_server_running "$2"; then
+            kill_dev_server "$2"
+            echo "✅ Stopped $2"
+        else
+            echo "No server running for $2"
+        fi
+        exit 0
+        ;;
+    "help"|"-h"|"--help")
+        echo "mage-dev - MageKnight worktree management and dev servers"
+        echo ""
+        echo "Commands:"
+        echo "  new <branch>        Create worktree → install → build → claude"
+        echo "  delete [branch]     Delete a worktree"
+        echo "  cleanup             Delete worktrees merged to main"
+        echo "  <worktree-name>     Start dev server (background)"
+        echo "  kill <worktree>     Stop dev server"
+        echo "  ports               Show running dev servers"
+        echo "  list                List all worktrees"
+        echo ""
+        echo "Examples:"
+        echo "  mage-dev new fix-combat       # Create worktree and start claude"
+        echo "  mage-dev feat-challenge       # Start dev server"
+        echo "  mage-dev kill feat-challenge  # Stop dev server"
+        echo "  mage-dev cleanup              # Clean up merged worktrees"
         exit 0
         ;;
     *)

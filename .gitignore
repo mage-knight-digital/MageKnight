@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.log
+*.pid
 .DS_Store
 
 # Local working files (copyrighted PDFs, asset staging)
