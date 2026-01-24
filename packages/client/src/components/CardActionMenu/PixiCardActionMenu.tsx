@@ -33,6 +33,7 @@ import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { playSound } from "../../utils/audioManager";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { cleanupFilters } from "../../utils/pixiFilterCleanup";
+import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 
 // ============================================
 // Types
@@ -388,8 +389,7 @@ export function PixiCardActionMenu({
     // Create root container for this menu instance
     const rootContainer = new Container();
     rootContainer.label = `card-action-menu-${uniqueId}`;
-    rootContainer.zIndex = 1000; // Above all combat UI (enemy tokens, phase rail, etc.)
-    overlayLayer.sortableChildren = true;
+    rootContainer.zIndex = PIXI_Z_INDEX.PIE_MENU;
     overlayLayer.addChild(rootContainer);
     overlayLayer.sortChildren();
     rootContainerRef.current = rootContainer;

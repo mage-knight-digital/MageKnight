@@ -22,9 +22,7 @@ import {
 } from "@mage-knight/shared";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
-
-// Phase rail sits above the combat background but below hand cards
-const PHASE_RAIL_Z_INDEX = 10;
+import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 
 // Colors matching CSS
 const COLORS = {
@@ -141,10 +139,9 @@ export function PixiPhaseRail({
     // Create root container
     const rootContainer = new Container();
     rootContainer.label = `phase-rail-${uniqueId}`;
-    rootContainer.zIndex = PHASE_RAIL_Z_INDEX;
+    rootContainer.zIndex = PIXI_Z_INDEX.PHASE_RAIL;
     rootContainer.sortableChildren = true;
 
-    overlayLayer.sortableChildren = true;
     overlayLayer.addChild(rootContainer);
     overlayLayer.sortChildren();
     rootContainerRef.current = rootContainer;

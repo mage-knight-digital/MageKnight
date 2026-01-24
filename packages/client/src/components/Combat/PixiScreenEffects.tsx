@@ -11,9 +11,7 @@ import { useEffect, useRef, useId } from "react";
 import { Container, Graphics } from "pixi.js";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
-
-// Screen effects sit on top of everything except hand
-const SCREEN_EFFECTS_Z_INDEX = 50;
+import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 
 // Effect colors (matching CSS)
 const EFFECT_COLORS = {
@@ -47,9 +45,8 @@ export function PixiScreenEffects({ activeEffect, effectKey }: PixiScreenEffects
     // Create root container for effects
     const rootContainer = new Container();
     rootContainer.label = `screen-effects-${uniqueId}`;
-    rootContainer.zIndex = SCREEN_EFFECTS_Z_INDEX;
+    rootContainer.zIndex = PIXI_Z_INDEX.SCREEN_EFFECTS;
 
-    overlayLayer.sortableChildren = true;
     overlayLayer.addChild(rootContainer);
     overlayLayer.sortChildren();
     rootContainerRef.current = rootContainer;

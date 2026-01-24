@@ -35,6 +35,7 @@ import {
 import { playSound } from "../../utils/audioManager";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
+import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 
 // Animation timing constants
 const HOVER_LIFT_DURATION_MS = CARD_FAN_HOVER.durationSec * 1000; // ~265ms synced to audio
@@ -59,9 +60,6 @@ const VIEW_MODE_OFFSETS = {
   ready: { yOffset: 0.05, scale: 1, visible: true },
   focus: { yOffset: -0.35, scale: 2.2, visible: true },
 } as const;
-
-// Z-index for the tactic container in the overlay layer
-const TACTIC_Z_INDEX = 50;
 
 interface PixiTacticCarouselProps {
   viewMode: CardFanViewMode;
@@ -205,7 +203,7 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
     const tacticContainer = new Container();
     tacticContainer.label = "tactic-carousel";
     tacticContainer.sortableChildren = true;
-    tacticContainer.zIndex = TACTIC_Z_INDEX;
+    tacticContainer.zIndex = PIXI_Z_INDEX.TACTIC_CAROUSEL;
     tacticContainer.eventMode = "none"; // Events handled via DOM
     tacticContainer.interactiveChildren = false;
     tacticContainer.visible = false; // Start hidden
