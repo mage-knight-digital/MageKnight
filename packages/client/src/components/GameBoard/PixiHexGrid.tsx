@@ -403,7 +403,8 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
       handleHexHoverWithPos,
       debugDisplaySettings.showCoordinates,
       excludeHexes,
-      handleOpenSitePanel
+      handleOpenSitePanel,
+      debugDisplaySettings.showTileNames
     );
 
     renderGhostHexes(layers, exploreTargets, handleExploreClick);
@@ -426,6 +427,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     handleHexHoverWithPos,
     debugDisplaySettings.showCoordinates,
     debugDisplaySettings.showBoundaryEdges,
+    debugDisplaySettings.showTileNames,
     revealingHexKeysRef, // Ref is stable, added for exhaustive-deps compliance
     revealingUpdateCounter, // Force re-run when revealing state changes
     handleOpenSitePanel,

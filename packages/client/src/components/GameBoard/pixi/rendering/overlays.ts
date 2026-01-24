@@ -85,6 +85,7 @@ export interface HexHoverEvent {
  * @param showCoordinates - Whether to show hex coordinates (debug feature)
  * @param excludeHexKeys - Set of hex keys to exclude from rendering (e.g., during reveal animation)
  * @param onHexRightClick - Optional callback when hex is right-clicked (for opening site panel)
+ * @param showTileNames - Whether to show tile names (debug feature)
  */
 export function renderHexOverlays(
   layers: WorldLayers,
@@ -96,7 +97,8 @@ export function renderHexOverlays(
   onHexHoverWithPos?: (event: HexHoverEvent | null) => void,
   showCoordinates?: boolean,
   excludeHexKeys?: Set<string>,
-  onHexRightClick?: (coord: HexCoord) => void
+  onHexRightClick?: (coord: HexCoord) => void,
+  showTileNames?: boolean
 ): void {
   layers.hexOverlays.removeChildren();
 
@@ -213,8 +215,29 @@ export function renderHexOverlays(
         style: coordStyle,
       });
       coordText.anchor.set(0.5, 0.5);
-      coordText.position.set(x, y);
+      // Offset up if tile names are also shown
+      const coordY = showTileNames ? y - 12 : y;
+      coordText.position.set(x, coordY);
       layers.hexOverlays.addChild(coordText);
+    }
+
+    // Add tile name label if debug option is enabled
+    if (showTileNames && hex.tileId) {
+      const tileStyle = new TextStyle({
+        fontSize: 10,
+        fontWeight: "bold",
+        fill: 0xffff88,
+        stroke: { color: 0x000000, width: 3 },
+      });
+      const tileText = new Text({
+        text: hex.tileId,
+        style: tileStyle,
+      });
+      tileText.anchor.set(0.5, 0.5);
+      // Offset down if coordinates are also shown
+      const tileY = showCoordinates ? y + 12 : y;
+      tileText.position.set(x, tileY);
+      layers.hexOverlays.addChild(tileText);
     }
   }
 }

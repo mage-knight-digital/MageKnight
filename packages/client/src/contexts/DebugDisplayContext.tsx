@@ -19,17 +19,21 @@ interface DebugDisplaySettings {
   showCoordinates: boolean;
   /** Whether to show boundary edge debug labels */
   showBoundaryEdges: boolean;
+  /** Whether to show tile names on the map */
+  showTileNames: boolean;
 }
 
 interface DebugDisplayContextValue {
   settings: DebugDisplaySettings;
   setShowCoordinates: (show: boolean) => void;
   setShowBoundaryEdges: (show: boolean) => void;
+  setShowTileNames: (show: boolean) => void;
 }
 
 const defaultSettings: DebugDisplaySettings = {
   showCoordinates: false,
   showBoundaryEdges: false,
+  showTileNames: false,
 };
 
 const DebugDisplayContext = createContext<DebugDisplayContextValue | null>(null);
@@ -45,13 +49,18 @@ export function DebugDisplayProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({ ...prev, showBoundaryEdges: show }));
   }, []);
 
+  const setShowTileNames = useCallback((show: boolean) => {
+    setSettings((prev) => ({ ...prev, showTileNames: show }));
+  }, []);
+
   const value = useMemo(
     () => ({
       settings,
       setShowCoordinates,
       setShowBoundaryEdges,
+      setShowTileNames,
     }),
-    [settings, setShowCoordinates, setShowBoundaryEdges]
+    [settings, setShowCoordinates, setShowBoundaryEdges, setShowTileNames]
   );
 
   return (
