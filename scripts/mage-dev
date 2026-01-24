@@ -102,18 +102,19 @@ interactive_picker() {
         # Show worktrees with selection indicator
         for i in "${!worktrees[@]}"; do
             local name="${worktrees[$i]}"
-            local port=$(get_port_for_worktree "$name")
             local status=""
 
-            # Check if already running
+            # Check if already running and get URL
             if is_server_running "$name"; then
-                status=" ● RUNNING"
+                local url
+                url=$(grep "Local:" "$WORKTREE_BASE/$name/.dev-server.log" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
+                status=" ● ${url:-RUNNING}"
             fi
 
             if [ $i -eq $selected ]; then
-                echo "  → $name :$port$status"
+                echo "  → $name$status"
             else
-                echo "    $name :$port$status"
+                echo "    $name$status"
             fi
         done
 
