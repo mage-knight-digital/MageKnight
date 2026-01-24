@@ -110,10 +110,6 @@
 
 /* Screen effects (damage/block/attack flashes) now rendered by PixiScreenEffects.tsx */
 
-.combat-scene > * {
-  pointer-events: auto;
-}
-
 /* Battlefield - full width, enemies centered */
 .combat-scene__battlefield {
   flex: 1;

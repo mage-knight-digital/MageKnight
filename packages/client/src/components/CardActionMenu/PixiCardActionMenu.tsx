@@ -388,7 +388,10 @@ export function PixiCardActionMenu({
     // Create root container for this menu instance
     const rootContainer = new Container();
     rootContainer.label = `card-action-menu-${uniqueId}`;
+    rootContainer.zIndex = 1000; // Above all combat UI (enemy tokens, phase rail, etc.)
+    overlayLayer.sortableChildren = true;
     overlayLayer.addChild(rootContainer);
+    overlayLayer.sortChildren();
     rootContainerRef.current = rootContainer;
 
     // Create animation manager attached to the shared app's ticker

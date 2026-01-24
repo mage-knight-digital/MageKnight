@@ -205,7 +205,10 @@ export function PieMenuRenderer({
     // Create root container
     const rootContainer = new Container();
     rootContainer.label = `pie-menu-${uniqueId}`;
+    rootContainer.zIndex = 1000; // Above all combat UI (enemy tokens, phase rail, etc.)
+    overlayLayer.sortableChildren = true;
     overlayLayer.addChild(rootContainer);
+    overlayLayer.sortChildren();
     rootContainerRef.current = rootContainer;
 
     // Create animation manager

@@ -57,6 +57,8 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
   const tokenContainersRef = useRef<Map<string, Container>>(new Map());
   const isDestroyedRef = useRef(false);
   const [texturesLoaded, setTexturesLoaded] = useState(false);
+  // Track which enemies have already played their entry animation
+  const animatedEnemiesRef = useRef<Set<string>>(new Set());
 
   // Stable callback ref
   const onEnemyClickRef = useRef(onEnemyClick);
@@ -292,21 +294,27 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
         });
       });
 
-      // Entry animation (slam in from above)
-      tokenContainer.alpha = 0;
-      tokenContainer.scale.set(2);
-      tokenContainer.y = pos.y - 100;
+      // Entry animation (slam in from above) - only for newly added enemies
+      const hasAnimated = animatedEnemiesRef.current.has(enemy.instanceId);
+      if (!hasAnimated) {
+        tokenContainer.alpha = 0;
+        tokenContainer.scale.set(2);
+        tokenContainer.y = pos.y - 100;
 
-      setTimeout(() => {
-        if (isDestroyedRef.current || !tokenContainer.parent) return;
-        animManager.animate(`entry-${enemy.instanceId}`, tokenContainer, {
-          endY: pos.y,
-          endScale: 1,
-          endAlpha: 1,
-          duration: 500,
-          easing: Easing.easeOutBack,
-        });
-      }, 100 + index * 150);
+        setTimeout(() => {
+          if (isDestroyedRef.current || !tokenContainer.parent) return;
+          animManager.animate(`entry-${enemy.instanceId}`, tokenContainer, {
+            endY: pos.y,
+            endScale: 1,
+            endAlpha: 1,
+            duration: 500,
+            easing: Easing.easeOutBack,
+          });
+        }, 100 + index * 150);
+
+        // Mark this enemy as animated
+        animatedEnemiesRef.current.add(enemy.instanceId);
+      }
 
       rootContainer.addChild(tokenContainer);
       tokenContainersRef.current.set(enemy.instanceId, tokenContainer);
