@@ -115,7 +115,7 @@ Reference: `PixiCardActionMenu.tsx` for button patterns
 - Warning message in damage phase
 - HTML version hidden via CSS class
 
-### Phase 5: Enemy Tokens ⬅️ NEXT
+### Phase 5: Enemy Tokens ✅
 Move enemy token rendering to PixiJS.
 
 - Circular mask on enemy sprite: use `Graphics` as mask
@@ -123,8 +123,20 @@ Move enemy token rendering to PixiJS.
 - Defeated state: tint/alpha changes
 - Click handling: PixiJS `pointertap` event
 
-### Phase 6: Allocation UI (+/- buttons, damage assignment)
-The most complex part. Consider keeping as HTML initially if too complex.
+**Status:** Complete. Created `PixiEnemyTokens.tsx` with:
+- Circular enemy token images with Graphics mask
+- Border rings with state-based colors (default/blocked/can-defeat)
+- Defeated overlay with tint and alpha
+- Blocked overlay with verdigris tint
+- Can-defeat glow effect with pulse animation
+- Entry animation (slam in from above)
+- Hover effects
+- Armor indicator below token
+- HTML token images hidden via CSS (`visibility: hidden`)
+- Allocation UI remains in HTML (hybrid approach per Phase 6 plan)
+
+### Phase 6: Allocation UI (+/- buttons, damage assignment) ⬅️ NEXT (Hybrid - staying as HTML)
+The most complex part. Keeping as HTML per plan - drag-drop with @dnd-kit is complex.
 
 ### Phase 7: Cleanup
 - Remove HTML `CombatOverlay.tsx`

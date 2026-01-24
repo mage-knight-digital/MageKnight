@@ -109,8 +109,8 @@
   }
 }
 
-/* Token image wrapper - maintains circular shape */
-/* Use min of vw/vh for responsive sizing that works on all screen sizes */
+/* Token image wrapper - now rendered by PixiEnemyTokens, hidden here */
+/* Maintain the sizing for layout purposes but hide visually */
 .enemy-token__image-wrapper {
   position: relative;
   /* Use the smaller of width or height to ensure it fits */
@@ -118,12 +118,8 @@
   height: clamp(100px, min(18vw, 28vh), 280px);
   border-radius: 50%;
   overflow: hidden;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.6),
-    0 0 0 4px rgba(0, 0, 0, 0.4),
-    0 0 60px rgba(0, 0, 0, 0.4),
-    inset 0 0 30px rgba(0, 0, 0, 0.3);
-  transition: box-shadow 0.2s ease;
+  /* Hide the HTML token - PixiJS renders it now */
+  visibility: hidden;
 }
 
 .enemy-token--targetable .enemy-token__image-wrapper {

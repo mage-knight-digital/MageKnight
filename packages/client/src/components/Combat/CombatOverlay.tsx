@@ -30,6 +30,7 @@ import type {
 import { EnemyCard } from "./EnemyCard";
 import { VerticalPhaseRail } from "./VerticalPhaseRail";
 import { PixiPhaseRail } from "./PixiPhaseRail";
+import { PixiEnemyTokens } from "./PixiEnemyTokens";
 import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
 import { CombatDnDProvider, type ChipData, type DamageChipData, type BlockChipData } from "./DnDContext";
 import { AttackPool } from "./AttackPool";
@@ -669,6 +670,14 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
         canEndPhase={combatOptions?.canEndPhase ?? false}
         onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
         allEnemiesDefeatable={allEnemiesDefeatable && (isAttackPhase || isRangedSiegePhase)}
+      />
+
+      {/* PixiJS Enemy Tokens - renders token visuals to canvas */}
+      <PixiEnemyTokens
+        enemies={enemies.map((enemy) => ({
+          enemy,
+          canDefeat: combatOptions?.enemies?.find(e => e.enemyInstanceId === enemy.instanceId)?.canDefeat ?? false,
+        }))}
       />
 
       {/* Main layout: phase rail | battle area | info panel */}
