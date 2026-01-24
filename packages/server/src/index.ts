@@ -39,8 +39,10 @@ import {
   serializeGameState,
   deserializeGameState,
   mineColorToBasicManaColor,
+  countMonasteries,
+  drawMonasteryAdvancedAction,
 } from "@mage-knight/core";
-import type { HexCoord } from "@mage-knight/shared";
+import type { HexCoord, CardId } from "@mage-knight/shared";
 import { TILE_PLACEMENT_OFFSETS } from "@mage-knight/shared";
 import {
   LocalConnection,
@@ -507,6 +509,9 @@ export class GameServer {
       TILE_PLACEMENT_OFFSETS.E,  // E direction: tiles touch along 3 edges
     ];
 
+    // Track all hexes from initial tiles to count monasteries later
+    const initialTileHexes: HexState[] = [];
+
     let currentDeck: TileDeck = initialDeck;
     for (const position of initialTilePositions) {
       const drawResult = drawTileFromDeck(currentDeck);
@@ -516,6 +521,7 @@ export class GameServer {
 
         // Place the tile and add its hexes to the map
         const tileHexes = placeTile(tileId, position);
+        initialTileHexes.push(...tileHexes);
         for (const hex of tileHexes) {
           const key = hexKey(hex.coord);
 
@@ -612,6 +618,20 @@ export class GameServer {
       rng: rngAfterAA,
     } = createAdvancedActionDeckAndOffer(rngAfterSpells);
 
+    // Draw Advanced Actions for any monasteries on initial tiles
+    const monasteryCount = countMonasteries(initialTileHexes);
+    let currentAADeck = advancedActionDeck;
+    let monasteryAAs: readonly CardId[] = [];
+
+    for (let i = 0; i < monasteryCount; i++) {
+      const result = drawMonasteryAdvancedAction(
+        { ...baseState.offers, monasteryAdvancedActions: monasteryAAs },
+        { ...baseState.decks, advancedActions: currentAADeck }
+      );
+      currentAADeck = result.decks.advancedActions;
+      monasteryAAs = result.offers.monasteryAdvancedActions;
+    }
+
     return {
       ...baseState,
       phase: GAME_PHASE_ROUND,
@@ -630,13 +650,14 @@ export class GameServer {
         regularUnits: unitDecks.regularUnits,
         eliteUnits: unitDecks.eliteUnits,
         spells: spellDeck,
-        advancedActions: advancedActionDeck,
+        advancedActions: currentAADeck,
       },
       offers: {
         ...baseState.offers,
         units: unitOffer,
         spells: { cards: [...spellOffer] },
         advancedActions: { cards: [...advancedActionOffer] },
+        monasteryAdvancedActions: monasteryAAs,
       },
       map: {
         ...baseState.map,

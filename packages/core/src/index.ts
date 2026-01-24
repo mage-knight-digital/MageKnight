@@ -155,6 +155,9 @@ export { describeEffect } from "./engine/index.js";
 // Enemy token helpers
 export { createEnemyTokenPiles, drawEnemiesForHex } from "./engine/index.js";
 
+// Monastery helpers
+export { countMonasteries, drawMonasteryAdvancedAction } from "./engine/index.js";
+
 // Command system (undo support)
 export type {
   Command,

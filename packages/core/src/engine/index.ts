@@ -96,3 +96,9 @@ export {
 
 // Enemy token helpers
 export { createEnemyTokenPiles, drawEnemiesForHex } from "./helpers/index.js";
+
+// Monastery helpers
+export {
+  countMonasteries,
+  drawMonasteryAdvancedAction,
+} from "./helpers/index.js";
