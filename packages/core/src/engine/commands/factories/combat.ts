@@ -21,6 +21,7 @@
 import type { CommandFactory } from "./types.js";
 import {
   ENTER_COMBAT_ACTION,
+  CHALLENGE_RAMPAGING_ACTION,
   END_COMBAT_PHASE_ACTION,
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
@@ -32,6 +33,7 @@ import {
 } from "@mage-knight/shared";
 import {
   createEnterCombatCommand,
+  createChallengeRampagingCommand,
   createEndCombatPhaseCommand,
   createDeclareBlockCommand,
   createDeclareAttackCommand,
@@ -58,6 +60,22 @@ export const createEnterCombatCommandFromAction: CommandFactory = (
     ...(action.isAtFortifiedSite === undefined
       ? {}
       : { isAtFortifiedSite: action.isAtFortifiedSite }),
+  });
+};
+
+/**
+ * Challenge rampaging command factory.
+ * Creates a command to challenge rampaging enemies from an adjacent hex.
+ */
+export const createChallengeRampagingCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== CHALLENGE_RAMPAGING_ACTION) return null;
+  return createChallengeRampagingCommand({
+    playerId,
+    targetHex: action.targetHex,
   });
 };
 
