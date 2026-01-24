@@ -25,44 +25,16 @@
   flex-direction: column;
   pointer-events: none;
 
-  /* Match PixiJS night palette - deep blue-purple gradient */
-  background: radial-gradient(
-    ellipse at center,
-    rgba(26, 29, 46, 0.98) 0%,
-    rgba(15, 15, 25, 0.98) 50%,
-    rgba(10, 10, 18, 0.99) 100%
-  );
+  /* Background now rendered by PixiCombatOverlay */
+  background: transparent;
 
   /* Flash effect on combat start */
   animation: combat-flash 0.4s ease-out;
 }
 
-/* Site backdrop - faded background image using CSS sprite */
+/* Site backdrop - now rendered by PixiCombatOverlay, hidden here */
 .combat-scene__backdrop {
-  position: absolute;
-  /* Center the backdrop */
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  /* Responsive size - 70% of the smaller viewport dimension */
-  width: min(70vw, 70vh);
-  height: min(70vw, 70vh);
-  /* Visual styling */
-  opacity: 0.25;
-  filter: blur(2px) saturate(0.7);
-  pointer-events: none;
-  z-index: 0;
-  /* Animation - just fade, no transform to avoid jarring shift */
-  animation: backdrop-fade-in 0.8s ease-out;
-}
-
-@keyframes backdrop-fade-in {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0.25;
-  }
+  display: none;
 }
 
 /* Main layout - phase rail overlaid on left, battle area full width */

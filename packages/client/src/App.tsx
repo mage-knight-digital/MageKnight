@@ -24,7 +24,7 @@ import { PreparationDecision } from "./components/Overlays/PreparationDecision";
 import { SparingPowerDecision } from "./components/Overlays/SparingPowerDecision";
 import { ManaSearchReroll } from "./components/Overlays/ManaSearchReroll";
 import { GladeWoundDecision } from "./components/Overlays/GladeWoundDecision";
-import { CombatOverlay } from "./components/Combat";
+import { CombatOverlay, PixiCombatOverlay } from "./components/Combat";
 import { OfferView } from "./components/OfferView";
 import { DebugPanel } from "./components/DebugPanel";
 
@@ -107,10 +107,13 @@ function GameView() {
       <ManaSearchReroll />
       <GladeWoundDecision />
       {inCombat && (
-        <CombatOverlay
-          combat={state.combat}
-          combatOptions={state.validActions.combat}
-        />
+        <>
+          <PixiCombatOverlay combat={state.combat} />
+          <CombatOverlay
+            combat={state.combat}
+            combatOptions={state.validActions.combat}
+          />
+        </>
       )}
 
       <TopBar />
