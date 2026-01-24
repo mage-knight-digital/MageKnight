@@ -114,7 +114,7 @@ function getCardLayout(index: number, totalCards: number, cardWidth: number) {
 // Z-index constants for overlay coordination
 // Hand sits below pie menu by default, raised above when card is selected
 const HAND_Z_INDEX_BASE = 100;
-const HAND_Z_INDEX_SELECTED = 1000;
+const HAND_Z_INDEX_SELECTED = 1100; // Above pie menu (1000) so selected card shows on top
 
 export function PixiFloatingHand({
   hand,

@@ -88,6 +88,7 @@ export function usePixiAppLifecycle({
 
       const screenOverlay = new Container();
       screenOverlay.label = "screenOverlay";
+      screenOverlay.sortableChildren = true; // Enable z-index sorting for overlays
       app.stage.addChild(screenOverlay);
 
       world.visible = false;
