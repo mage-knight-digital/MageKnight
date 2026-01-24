@@ -60,10 +60,10 @@ cleanup_stale_worktrees() {
     fi
 }
 
-# Get array of worktree names
+# Get array of worktree names (includes "main" for the main repo)
 get_worktrees() {
     cleanup_stale_worktrees
-    local worktrees=()
+    local worktrees=("main")  # Always include main repo
     if [ -d "$WORKTREE_BASE" ]; then
         for dir in "$WORKTREE_BASE"/*/; do
             # Only include valid worktrees (have .git file)
@@ -73,6 +73,16 @@ get_worktrees() {
         done
     fi
     echo "${worktrees[@]}"
+}
+
+# Get the path for a worktree (or main repo)
+get_worktree_path() {
+    local name="$1"
+    if [ "$name" = "main" ]; then
+        echo "$REPO_ROOT"
+    else
+        echo "$WORKTREE_BASE/$name"
+    fi
 }
 
 # Interactive picker using arrow keys
@@ -106,8 +116,9 @@ interactive_picker() {
 
             # Check if already running and get URL
             if is_server_running "$name"; then
-                local url
-                url=$(grep "Local:" "$WORKTREE_BASE/$name/.dev-server.log" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
+                local wt_path url
+                wt_path=$(get_worktree_path "$name")
+                url=$(grep "Local:" "$wt_path/.dev-server.log" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
                 status=" ● ${url:-RUNNING}"
             fi
 
@@ -156,23 +167,35 @@ interactive_picker() {
 
 # List all worktrees with their assigned ports (non-interactive)
 list_worktrees() {
-    echo "Available $REPO_NAME worktrees:"
+    echo "Available $REPO_NAME environments:"
     echo ""
-    printf "  %-30s %s\n" "WORKTREE" "PORT"
-    printf "  %-30s %s\n" "--------" "----"
+
+    # Show main repo
+    printf "  main"
+    if is_server_running "main"; then
+        local url
+        url=$(grep "Local:" "$REPO_ROOT/.dev-server.log" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
+        printf " ● %s" "${url:-running}"
+    fi
+    printf "\n"
+
+    # Show worktrees
     if [ -d "$WORKTREE_BASE" ]; then
         for dir in "$WORKTREE_BASE"/*/; do
-            if [ -d "$dir" ]; then
+            if [ -d "$dir" ] && [ -f "$dir/.git" ]; then
+                local name
                 name=$(basename "$dir")
-                port=$(get_port_for_worktree "$name")
-                printf "  %-30s %s\n" "$name" "http://localhost:$port"
+                printf "  %s" "$name"
+                if is_server_running "$name"; then
+                    local url
+                    url=$(grep "Local:" "$dir/.dev-server.log" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
+                    printf " ● %s" "${url:-running}"
+                fi
+                printf "\n"
             fi
         done
-    else
-        echo "  (none found in $WORKTREE_BASE)"
     fi
     echo ""
-    echo "Usage: mage-dev <worktree-name>"
 }
 
 # Show which dev servers are currently running
@@ -181,6 +204,18 @@ show_running_ports() {
     echo ""
 
     local found=false
+
+    # Check main repo
+    if is_server_running "main"; then
+        found=true
+        local url
+        url=$(grep "Local:" "$REPO_ROOT/.dev-server.log" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
+        echo "  🎮 main"
+        echo "     ${url:-running}"
+        echo ""
+    fi
+
+    # Check worktrees
     if [ -d "$WORKTREE_BASE" ]; then
         for dir in "$WORKTREE_BASE"/*/; do
             if [ -d "$dir" ] && [ -f "$dir/.git" ]; then
@@ -207,7 +242,8 @@ show_running_ports() {
 # Start dev server for a worktree (runs in background)
 start_dev_server() {
     local WORKTREE_NAME="$1"
-    local WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
+    local WORKTREE_PATH
+    WORKTREE_PATH=$(get_worktree_path "$WORKTREE_NAME")
     local LOG_FILE="$WORKTREE_PATH/.dev-server.log"
     local PID_FILE="$WORKTREE_PATH/.dev-server.pid"
 
@@ -255,7 +291,8 @@ start_dev_server() {
 # Kill dev server for a worktree
 kill_dev_server() {
     local WORKTREE_NAME="$1"
-    local WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
+    local WORKTREE_PATH
+    WORKTREE_PATH=$(get_worktree_path "$WORKTREE_NAME")
     local PID_FILE="$WORKTREE_PATH/.dev-server.pid"
 
     if [ -f "$PID_FILE" ]; then
@@ -274,7 +311,9 @@ kill_dev_server() {
 # Check if dev server is running for a worktree
 is_server_running() {
     local WORKTREE_NAME="$1"
-    local PID_FILE="$WORKTREE_BASE/$WORKTREE_NAME/.dev-server.pid"
+    local WORKTREE_PATH
+    WORKTREE_PATH=$(get_worktree_path "$WORKTREE_NAME")
+    local PID_FILE="$WORKTREE_PATH/.dev-server.pid"
     [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
 }
 
@@ -480,17 +519,18 @@ case "$1" in
         echo ""
         echo "Examples:"
         echo "  mage-dev new fix-combat       # Create worktree and start claude"
-        echo "  mage-dev feat-challenge       # Start dev server"
-        echo "  mage-dev kill feat-challenge  # Stop dev server"
+        echo "  mage-dev main                 # Start dev server in main repo"
+        echo "  mage-dev feat-challenge       # Start dev server in worktree"
+        echo "  mage-dev kill main            # Stop dev server"
         echo "  mage-dev cleanup              # Clean up merged worktrees"
         exit 0
         ;;
     *)
         WORKTREE_NAME="$1"
-        WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
+        WORKTREE_PATH=$(get_worktree_path "$WORKTREE_NAME")
 
         if [ ! -d "$WORKTREE_PATH" ]; then
-            echo "Error: Worktree not found: $WORKTREE_PATH"
+            echo "Error: Worktree not found: $WORKTREE_NAME"
             echo ""
             list_worktrees
             exit 1
