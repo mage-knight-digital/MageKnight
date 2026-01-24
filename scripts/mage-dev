@@ -413,8 +413,8 @@ case "$1" in
         echo ""
         cd "$REPO_ROOT" || exit 1
 
-        # Get list of branches merged to main
-        merged_branches=$(git branch --merged main | grep -v "^\*\|main" | sed 's/^[[:space:]]*//')
+        # Get list of branches merged to main (strip leading spaces, *, and + markers)
+        merged_branches=$(git branch --merged main | grep -v "^\*\|main" | sed 's/^[[:space:]*+]*//')
 
         found=false
         for dir in "$WORKTREE_BASE"/*/; do
