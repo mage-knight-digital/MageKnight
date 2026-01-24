@@ -20,7 +20,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Application, Container } from "pixi.js";
 import type { HexCoord } from "@mage-knight/shared";
-import { hexKey } from "@mage-knight/shared";
+import { hexKey, ENTER_SITE_ACTION } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro } from "../../contexts/GameIntroContext";
@@ -32,8 +32,11 @@ import { usePixiApp } from "../../contexts/PixiAppContext";
 import { useHexHover } from "../../hooks/useHexHover";
 import { HexTooltip } from "../HexTooltip";
 import { SitePanel } from "../SitePanel";
+import { SiteActionList, type SiteAction } from "../SiteActionList";
 
 import { useCameraControl } from "./hooks/useCameraControl";
+import { hexToPixel } from "./pixi/hexMath";
+import { HEX_SIZE } from "./pixi/types";
 import { useHexInteraction } from "./hooks/useHexInteraction";
 import { useGameBoardSelectors } from "./hooks/useGameBoardSelectors";
 import { usePixiAppLifecycle } from "./hooks/usePixiAppLifecycle";
@@ -123,14 +126,6 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
     onDestroyed: handlePixiDestroyed,
   });
 
-  usePixiDomInput({
-    isInitialized,
-    containerRef,
-    handleWheel,
-    handleKeyDown,
-    handleKeyUp,
-  });
-
   // Tooltip hover hook
   const {
     hoveredHex: tooltipHoveredHex,
@@ -147,6 +142,10 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
   // Site Panel state (detailed info panel)
   const [isSitePanelOpen, setIsSitePanelOpen] = useState(false);
   const [sitePanelHex, setSitePanelHex] = useState<HexCoord | null>(null);
+
+  // Site Action List state (compact action menu on Space key)
+  const [showSiteActionList, setShowSiteActionList] = useState(false);
+  const [actionListPosition, setActionListPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Handler to open the site panel (from right-click on hex)
   const handleOpenSitePanel = useCallback((coord: HexCoord) => {
@@ -169,6 +168,112 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
   const handleCloseSitePanel = useCallback(() => {
     setIsSitePanelOpen(false);
   }, []);
+
+  // Handler to close the site action list
+  const handleCloseSiteActionList = useCallback(() => {
+    setShowSiteActionList(false);
+    setActionListPosition(null);
+  }, []);
+
+  // Handler for site action list actions
+  const handleSiteAction = useCallback((action: SiteAction) => {
+    switch (action) {
+      case "enter":
+        sendAction({ type: ENTER_SITE_ACTION });
+        break;
+      case "details":
+        if (player?.position) {
+          handleOpenSitePanel(player.position);
+        }
+        break;
+      case "heal":
+        // TODO: Implement healing UI
+        console.log("Heal action - not yet implemented");
+        break;
+      case "recruit":
+        // TODO: Open offers view to units tab
+        console.log("Recruit action - open offers view");
+        break;
+      case "buySpell":
+        // TODO: Open offers view to spells tab
+        console.log("Buy spell action - open offers view");
+        break;
+      case "buyAA":
+        // TODO: Open offers view to AA tab
+        console.log("Buy AA action - open offers view");
+        break;
+    }
+    handleCloseSiteActionList();
+  }, [sendAction, player?.position, handleOpenSitePanel, handleCloseSiteActionList]);
+
+  // Calculate screen position for hero (for action list)
+  const getHeroScreenPosition = useCallback((): { x: number; y: number } | null => {
+    if (!player?.position || !worldRef.current || !appRef.current) return null;
+
+    // Get world position of hero
+    const worldPos = hexToPixel(player.position);
+
+    // Convert to screen position using the world container's transform
+    const world = worldRef.current;
+    const globalPos = world.toGlobal({ x: worldPos.x, y: worldPos.y });
+
+    // Calculate the screen-space hex radius
+    const hexEdgeWorld = { x: worldPos.x + HEX_SIZE * Math.sqrt(3) / 2, y: worldPos.y };
+    const hexEdgeScreen = world.toGlobal(hexEdgeWorld);
+    const screenHexRadius = hexEdgeScreen.x - globalPos.x;
+
+    // Position action list to the right of the hero
+    return {
+      x: globalPos.x + screenHexRadius + 10,
+      y: globalPos.y,
+    };
+  }, [player?.position]);
+
+  // Enhanced keyboard handler that intercepts Space for site actions
+  const handleGameKeyDown = useCallback((event: KeyboardEvent) => {
+    // Don't handle if overlays are active or site panel is open
+    if (isOverlayActive || isSitePanelOpen) {
+      handleKeyDown(event);
+      return;
+    }
+
+    // Space - toggle site action list
+    if (event.code === "Space" && state?.validActions.sites) {
+      event.preventDefault();
+      if (showSiteActionList) {
+        handleCloseSiteActionList();
+      } else {
+        const pos = getHeroScreenPosition();
+        if (pos) {
+          setActionListPosition(pos);
+          setShowSiteActionList(true);
+          handleHexTooltipLeave(); // Hide tooltip when showing action list
+        }
+      }
+      return;
+    }
+
+    // Pass other keys to camera control
+    handleKeyDown(event);
+  }, [
+    state?.validActions.sites,
+    showSiteActionList,
+    isOverlayActive,
+    isSitePanelOpen,
+    handleKeyDown,
+    getHeroScreenPosition,
+    handleCloseSiteActionList,
+    handleHexTooltipLeave,
+  ]);
+
+  // Attach DOM event handlers (moved here after handleGameKeyDown is defined)
+  usePixiDomInput({
+    isInitialized,
+    containerRef,
+    handleWheel,
+    handleKeyDown: handleGameKeyDown,
+    handleKeyUp,
+  });
 
   // Memoized game board selectors
   const {
@@ -240,6 +345,15 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
       background.getContainer().visible = !inCombat;
     }
   }, [isInitialized, inCombat, isIntroComplete]);
+
+  // Close site action list when player moves or enters combat
+  useEffect(() => {
+    if (showSiteActionList) {
+      handleCloseSiteActionList();
+    }
+    // Intentionally only trigger on player position or combat change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player?.position?.q, player?.position?.r, inCombat]);
 
   /**
    * Handle tooltip hover events from hex overlays
@@ -399,6 +513,16 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
         timeOfDay={state?.timeOfDay}
         onNavigateToUnitOffer={onNavigateToUnitOffer}
       />
+
+      {/* Site Action List - compact action menu on Space key */}
+      {showSiteActionList && actionListPosition && state?.validActions.sites && (
+        <SiteActionList
+          siteOptions={state.validActions.sites}
+          position={actionListPosition}
+          onAction={handleSiteAction}
+          onClose={handleCloseSiteActionList}
+        />
+      )}
     </>
   );
 }

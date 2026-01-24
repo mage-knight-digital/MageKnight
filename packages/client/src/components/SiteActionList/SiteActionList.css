@@ -1,0 +1,160 @@
+/**
+ * SiteActionList Styles
+ *
+ * Compact floating action list for site interactions
+ * Appears near hero position when Space is pressed at a site
+ */
+
+/* ============================================
+   Container - Compact floating panel
+   ============================================ */
+.site-action-list {
+  position: fixed;
+  z-index: 1001;
+  pointer-events: auto;
+
+  /* Responsive font size base */
+  font-size: clamp(12px, 1.5vw, 20px);
+
+  /* Fade/scale in animation */
+  animation: action-list-appear 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes action-list-appear {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+.site-action-list__content {
+  /* Parchment/aged paper aesthetic - matches tooltip */
+  background:
+    linear-gradient(135deg,
+      rgba(45, 36, 28, 0.98) 0%,
+      rgba(35, 28, 22, 0.99) 50%,
+      rgba(40, 32, 25, 0.98) 100%);
+  border: 2px solid #5c4a3a;
+  border-radius: 6px;
+  padding: 0.5em 0;
+  min-width: clamp(160px, 18vw, 280px);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 240, 200, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+/* Subtle texture overlay */
+.site-action-list__content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  border-radius: 4px;
+}
+
+/* ============================================
+   Action Items
+   ============================================ */
+.site-action-list__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.5em 0.9em;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.site-action-list__item:hover {
+  background: rgba(255, 240, 200, 0.08);
+}
+
+.site-action-list__item:active {
+  background: rgba(255, 240, 200, 0.12);
+}
+
+/* Icon */
+.site-action-list__item-icon {
+  flex-shrink: 0;
+  width: 1.4em;
+  height: 1.4em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1em;
+}
+
+/* Label */
+.site-action-list__item-label {
+  flex: 1;
+  font-size: clamp(0.85rem, 1.3vw, 1.1rem);
+  color: #f0e6d2;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Keyboard shortcut badge */
+.site-action-list__item-shortcut {
+  font-size: clamp(0.65rem, 1vw, 0.85rem);
+  color: #8a7a68;
+  background: rgba(30, 25, 20, 0.6);
+  border: 1px solid rgba(92, 74, 58, 0.5);
+  padding: 0.15em 0.45em;
+  border-radius: 3px;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================
+   Action Type Variants (icon colors)
+   ============================================ */
+.site-action-list__item--enter .site-action-list__item-icon {
+  color: #d04848; /* Combat red */
+}
+
+.site-action-list__item--details .site-action-list__item-icon {
+  color: #d4c4a8; /* Neutral parchment */
+}
+
+.site-action-list__item--heal .site-action-list__item-icon {
+  color: #48c048; /* Healing green */
+}
+
+.site-action-list__item--recruit .site-action-list__item-icon {
+  color: #4890d0; /* Unit blue */
+}
+
+.site-action-list__item--buy-spell .site-action-list__item-icon {
+  color: #9048d0; /* Spell purple */
+}
+
+.site-action-list__item--buy-aa .site-action-list__item-icon {
+  color: #d09048; /* AA orange */
+}
+
+/* ============================================
+   Divider
+   ============================================ */
+.site-action-list__divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #6b5344, transparent);
+  margin: 0.3em 0.6em;
+}
+
+/* ============================================
+   Click-away overlay
+   ============================================ */
+.site-action-list__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: transparent;
+}

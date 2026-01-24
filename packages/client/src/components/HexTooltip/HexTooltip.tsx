@@ -155,7 +155,7 @@ export function HexTooltip({
             isRampaging={hex.rampagingEnemies && hex.rampagingEnemies.length > 0}
           />
         )}
-        {/* Right-click hint - only show when there's a site */}
+        {/* Interaction hint - only show when there's a site */}
         {hasSite && (
           <div
             className="hex-tooltip__hint"
@@ -165,7 +165,7 @@ export function HexTooltip({
                 : "0s",
             }}
           >
-            Right-click for details
+            Space for actions &bull; Right-click for details
           </div>
         )}
       </div>
