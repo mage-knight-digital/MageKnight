@@ -482,6 +482,14 @@ case "$1" in
                 # Get the branch name for this worktree
                 branch=$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
 
+                # Skip branches that never diverged (no unique commits to merge)
+                merge_base=$(git merge-base main "$branch" 2>/dev/null)
+                branch_tip=$(git rev-parse "$branch" 2>/dev/null)
+                if [ "$merge_base" = "$branch_tip" ]; then
+                    echo "  $name (branch: $branch) - no commits yet, skipping"
+                    continue
+                fi
+
                 # Check if branch is merged to main
                 if echo "$merged_branches" | grep -qx "$branch"; then
                     found=true
