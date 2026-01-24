@@ -63,6 +63,9 @@ export interface ValidActions {
   /** Combat entry options (not in combat yet) */
   readonly enterCombat: EnterCombatOptions | undefined;
 
+  /** Challenge rampaging enemies from adjacent hex */
+  readonly challenge: ChallengeOptions | undefined;
+
   /** Tactic effect options (during player turns) */
   readonly tacticEffects: TacticEffectsOptions | undefined;
 
@@ -552,6 +555,21 @@ export interface AvailableEnemy {
   readonly enemyId: string;
   readonly position: HexCoord;
   readonly isFortified: boolean;
+}
+
+// ============================================================================
+// Challenge rampaging enemies (from adjacent hex)
+// ============================================================================
+
+/**
+ * Options for challenging rampaging enemies from an adjacent hex.
+ * Only present when there are rampaging enemies adjacent to the player.
+ */
+export interface ChallengeOptions {
+  /** Whether the player can challenge (true if targetHexes is non-empty) */
+  readonly canChallenge: boolean;
+  /** Adjacent hexes containing rampaging enemies that can be challenged */
+  readonly targetHexes: readonly HexCoord[];
 }
 
 // ============================================================================

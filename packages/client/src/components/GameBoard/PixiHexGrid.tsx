@@ -174,6 +174,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
   const {
     validMoveTargets,
     reachableHexes,
+    challengeTargetHexes,
     exploreTargets,
     pathPreview,
     isPathTerminal,
@@ -217,6 +218,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
   const { getMoveHighlight, handleHexClick, handleExploreClick } = useHexInteraction({
     validMoveTargets,
     reachableHexes,
+    challengeTargetHexes,
     playerPosition: player?.position ?? null,
     sendAction,
   });

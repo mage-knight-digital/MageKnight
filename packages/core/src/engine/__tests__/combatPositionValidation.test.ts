@@ -40,6 +40,7 @@ import { createEngine, MageKnightEngine } from "../MageKnightEngine.js";
 import { createTestGameState, createTestPlayer, createTestHex, createHexEnemy } from "./testHelpers.js";
 import {
   ENTER_COMBAT_ACTION,
+  CHALLENGE_RAMPAGING_ACTION,
   INVALID_ACTION,
   TERRAIN_PLAINS,
   hexKey,
@@ -221,10 +222,10 @@ describe("Combat Position Validation", () => {
      * This is a core Mage Knight rule - you don't have to move INTO the
      * rampaging enemy's hex to fight them.
      *
-     * NOTE: This requires a new action type or a flag on ENTER_COMBAT_ACTION
-     * to distinguish "challenge from adjacent" from "fight at my location".
+     * Uses CHALLENGE_RAMPAGING_ACTION to distinguish "challenge from adjacent"
+     * from "fight at my location".
      */
-    it.skip("should ALLOW challenging rampaging enemy from adjacent hex", () => {
+    it("should ALLOW challenging rampaging enemy from adjacent hex", () => {
       const rampagingToken = createEnemyTokenId(ENEMY_ORC_SUMMONERS);
 
       let state = createTestGameState();
@@ -255,13 +256,10 @@ describe("Combat Position Validation", () => {
         },
       };
 
-      // Challenge the rampaging enemy from adjacent hex
-      // NOTE: This may need a different action type like CHALLENGE_RAMPAGING_ACTION
-      // or a flag like { type: ENTER_COMBAT_ACTION, enemyIds: [...], challengeFromAdjacent: true }
+      // Challenge the rampaging enemy from adjacent hex using the new action type
       const result = engine.processAction(state, "player1", {
-        type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_ORC_SUMMONERS],
-        // TODO: Add challenge flag or use new action type
+        type: CHALLENGE_RAMPAGING_ACTION,
+        targetHex: { q: 1, r: 0 },
       });
 
       // Should succeed - rampaging enemies can be challenged from adjacent
@@ -273,7 +271,7 @@ describe("Combat Position Validation", () => {
      * Non-rampaging enemies on adjacent hexes CANNOT be challenged.
      * You must move to their hex to fight them.
      */
-    it.skip("should REJECT challenging non-rampaging enemy from adjacent hex", () => {
+    it("should REJECT challenging non-rampaging enemy from adjacent hex", () => {
       const enemyToken = createEnemyTokenId(ENEMY_GUARDSMEN);
 
       let state = createTestGameState();
@@ -311,9 +309,8 @@ describe("Combat Position Validation", () => {
 
       // Try to challenge from adjacent - should fail because they're not rampaging
       const result = engine.processAction(state, "player1", {
-        type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_GUARDSMEN],
-        // Even with challenge flag, should fail for non-rampaging
+        type: CHALLENGE_RAMPAGING_ACTION,
+        targetHex: { q: 1, r: 0 },
       });
 
       // Should fail - can't challenge non-rampaging enemies from adjacent
@@ -329,7 +326,7 @@ describe("Combat Position Validation", () => {
      * Rampaging enemies that are NOT adjacent cannot be challenged.
      * The player must be adjacent (1 hex away) to challenge.
      */
-    it.skip("should REJECT challenging rampaging enemy from non-adjacent hex", () => {
+    it("should REJECT challenging rampaging enemy from non-adjacent hex", () => {
       const rampagingToken = createEnemyTokenId(ENEMY_ORC_SUMMONERS);
 
       let state = createTestGameState();
@@ -361,8 +358,8 @@ describe("Combat Position Validation", () => {
 
       // Try to challenge from 3 hexes away - should fail
       const result = engine.processAction(state, "player1", {
-        type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_ORC_SUMMONERS],
+        type: CHALLENGE_RAMPAGING_ACTION,
+        targetHex: { q: 3, r: 0 },
       });
 
       // Should fail - too far away even for rampaging challenge
@@ -388,7 +385,7 @@ describe("Combat Position Validation", () => {
      * This is because "rampaging" is about HOW an enemy arrived on the map,
      * not WHAT type of creature it is.
      */
-    it.skip("should REJECT challenging Ancient Ruins enemies even if they are rampaging creature types", () => {
+    it("should REJECT challenging Ancient Ruins enemies even if they are rampaging creature types", () => {
       // Use an Orc Summoner - a creature that is normally rampaging
       // But when drawn for Ancient Ruins, it's NOT rampaging
       const orcToken = createEnemyTokenId(ENEMY_ORC_SUMMONERS);
@@ -430,8 +427,8 @@ describe("Combat Position Validation", () => {
       // Try to challenge from adjacent - should FAIL
       // Even though the creature TYPE is "orc", it's not RAMPAGING
       const result = engine.processAction(state, "player1", {
-        type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_ORC_SUMMONERS],
+        type: CHALLENGE_RAMPAGING_ACTION,
+        targetHex: { q: 1, r: 0 },
       });
 
       // Should fail - these are site enemies, not rampaging enemies
@@ -448,7 +445,7 @@ describe("Combat Position Validation", () => {
     /**
      * Contrast with actual rampaging orcs on an adjacent hex.
      */
-    it.skip("should ALLOW challenging actual rampaging orcs from adjacent hex", () => {
+    it("should ALLOW challenging actual rampaging orcs from adjacent hex", () => {
       const orcToken = createEnemyTokenId(ENEMY_ORC_SUMMONERS);
 
       let state = createTestGameState();
@@ -481,8 +478,8 @@ describe("Combat Position Validation", () => {
 
       // Challenge from adjacent - should SUCCEED
       const result = engine.processAction(state, "player1", {
-        type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_ORC_SUMMONERS],
+        type: CHALLENGE_RAMPAGING_ACTION,
+        targetHex: { q: 1, r: 0 },
       });
 
       // Should succeed - these ARE rampaging enemies

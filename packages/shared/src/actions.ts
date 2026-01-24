@@ -275,6 +275,7 @@ export interface ResolveDeepMineAction {
 
 // Combat action constants
 export const ENTER_COMBAT_ACTION = "ENTER_COMBAT" as const;
+export const CHALLENGE_RAMPAGING_ACTION = "CHALLENGE_RAMPAGING" as const;
 export const END_COMBAT_PHASE_ACTION = "END_COMBAT_PHASE" as const;
 export const DECLARE_BLOCK_ACTION = "DECLARE_BLOCK" as const;
 /**
@@ -317,6 +318,12 @@ export interface EnterCombatAction {
   readonly type: typeof ENTER_COMBAT_ACTION;
   readonly enemyIds: readonly EnemyId[];
   readonly isAtFortifiedSite?: boolean; // Optional: site provides fortification (Keeps, Mage Towers, Cities)
+}
+
+// Challenge rampaging enemies from adjacent hex
+export interface ChallengeRampagingAction {
+  readonly type: typeof CHALLENGE_RAMPAGING_ACTION;
+  readonly targetHex: HexCoord;
 }
 
 // Advance to next combat phase (or skip current)
@@ -458,6 +465,7 @@ export type PlayerAction =
   | ResolveDeepMineAction
   // Combat
   | EnterCombatAction
+  | ChallengeRampagingAction
   | EndCombatPhaseAction
   | DeclareBlockAction
   | DeclareAttackAction

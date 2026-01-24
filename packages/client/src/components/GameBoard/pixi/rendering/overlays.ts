@@ -18,7 +18,7 @@ import { HEX_SIZE } from "../types";
 /**
  * Movement highlight types
  */
-export type MoveHighlightType = "none" | "adjacent" | "reachable" | "terminal";
+export type MoveHighlightType = "none" | "adjacent" | "reachable" | "terminal" | "challenge";
 
 /**
  * Movement highlight data for a hex
@@ -35,6 +35,7 @@ const HIGHLIGHT_COLORS: Record<string, number> = {
   adjacent: 0x00ff00,    // Green - safe move
   reachable: 0x00ff00,   // Green - safe multi-hop
   terminal: 0xffa500,    // Orange - triggers combat
+  challenge: 0xff4444,   // Red - challenge rampaging enemies
   hover: 0xffffff,       // White - hover highlight
   none: 0x000000,        // Black - no highlight
 };

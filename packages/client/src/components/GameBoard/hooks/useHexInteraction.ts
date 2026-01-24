@@ -6,13 +6,14 @@
 
 import { useCallback } from "react";
 import type { HexCoord, MoveTarget, ReachableHex, PlayerAction } from "@mage-knight/shared";
-import { MOVE_ACTION, EXPLORE_ACTION } from "@mage-knight/shared";
+import { MOVE_ACTION, EXPLORE_ACTION, CHALLENGE_RAMPAGING_ACTION } from "@mage-knight/shared";
 import type { MoveHighlight, ExploreTarget } from "../pixi/rendering";
 import { findPath } from "../pixi/pathfinding";
 
 interface UseHexInteractionParams {
   validMoveTargets: readonly MoveTarget[];
   reachableHexes: readonly ReachableHex[];
+  challengeTargetHexes: readonly HexCoord[];
   playerPosition: HexCoord | null;
   sendAction: (action: PlayerAction) => void;
 }
@@ -26,12 +27,21 @@ interface UseHexInteractionReturn {
 export function useHexInteraction({
   validMoveTargets,
   reachableHexes,
+  challengeTargetHexes,
   playerPosition,
   sendAction,
 }: UseHexInteractionParams): UseHexInteractionReturn {
   // Movement highlight getter
   const getMoveHighlight = useCallback(
     (coord: HexCoord): MoveHighlight => {
+      // Check challenge targets first (takes precedence over movement)
+      const isChallengeTarget = challengeTargetHexes.some(
+        (t) => t.q === coord.q && t.r === coord.r
+      );
+      if (isChallengeTarget) {
+        return { type: "challenge" };
+      }
+
       const adjacentTarget = validMoveTargets.find(
         (t) => t.hex.q === coord.q && t.hex.r === coord.r
       );
@@ -54,13 +64,23 @@ export function useHexInteraction({
 
       return { type: "none" };
     },
-    [validMoveTargets, reachableHexes]
+    [validMoveTargets, reachableHexes, challengeTargetHexes]
   );
 
-  // Handle hex click for movement
+  // Handle hex click for movement or challenge
   const handleHexClick = useCallback(
     (coord: HexCoord) => {
       if (!playerPosition) return;
+
+      // Check for challenge action first
+      const isChallengeTarget = challengeTargetHexes.some(
+        (t) => t.q === coord.q && t.r === coord.r
+      );
+
+      if (isChallengeTarget) {
+        sendAction({ type: CHALLENGE_RAMPAGING_ACTION, targetHex: coord });
+        return;
+      }
 
       const isAdjacentTarget = validMoveTargets.some(
         (t) => t.hex.q === coord.q && t.hex.r === coord.r
@@ -82,7 +102,7 @@ export function useHexInteraction({
         }
       }
     },
-    [playerPosition, validMoveTargets, reachableHexes, sendAction]
+    [playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, sendAction]
   );
 
   // Handle explore click

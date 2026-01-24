@@ -18,6 +18,7 @@ interface UseGameBoardSelectorsParams {
 interface UseGameBoardSelectorsReturn {
   validMoveTargets: readonly MoveTarget[];
   reachableHexes: readonly ReachableHex[];
+  challengeTargetHexes: readonly HexCoord[];
   exploreTargets: ExploreTarget[];
   pathPreview: HexCoord[];
   isPathTerminal: boolean;
@@ -37,6 +38,12 @@ export function useGameBoardSelectors({
   const reachableHexes = useMemo<readonly ReachableHex[]>(
     () => state?.validActions.move?.reachable ?? [],
     [state?.validActions.move?.reachable]
+  );
+
+  // Challenge target hexes (rampaging enemies that can be challenged from adjacent hex)
+  const challengeTargetHexes = useMemo<readonly HexCoord[]>(
+    () => state?.validActions.challenge?.targetHexes ?? [],
+    [state?.validActions.challenge?.targetHexes]
   );
 
   const exploreTargets = useMemo<ExploreTarget[]>(() => {
@@ -80,6 +87,7 @@ export function useGameBoardSelectors({
   return {
     validMoveTargets,
     reachableHexes,
+    challengeTargetHexes,
     exploreTargets,
     pathPreview,
     isPathTerminal,

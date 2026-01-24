@@ -65,11 +65,13 @@ export const WOUND_TARGET_HERO = "hero" as const;
 export const COMBAT_TRIGGER_FORTIFIED_ASSAULT = "fortified_assault" as const;
 export const COMBAT_TRIGGER_PROVOKE_RAMPAGING = "provoke_rampaging" as const;
 export const COMBAT_TRIGGER_VOLUNTARY_EXPLORE = "voluntary_explore" as const;
+export const COMBAT_TRIGGER_CHALLENGE = "challenge" as const;
 
 export type CombatTriggerType =
   | typeof COMBAT_TRIGGER_FORTIFIED_ASSAULT
   | typeof COMBAT_TRIGGER_PROVOKE_RAMPAGING
-  | typeof COMBAT_TRIGGER_VOLUNTARY_EXPLORE;
+  | typeof COMBAT_TRIGGER_VOLUNTARY_EXPLORE
+  | typeof COMBAT_TRIGGER_CHALLENGE;
 
 // === Reputation change reasons ===
 export const REPUTATION_REASON_ASSAULT = "assault" as const;

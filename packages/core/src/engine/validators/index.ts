@@ -15,6 +15,7 @@ import {
   RESOLVE_CHOICE_ACTION,
   REST_ACTION,
   ENTER_COMBAT_ACTION,
+  CHALLENGE_RAMPAGING_ACTION,
   END_COMBAT_PHASE_ACTION,
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
@@ -207,6 +208,15 @@ import {
   validateInLevelUpContext,
 } from "./offerValidators.js";
 
+// Challenge rampaging validators
+import {
+  validateChallengePlayerOnMap,
+  validateNotInCombat as validateChallengeNotInCombat,
+  validateNoCombatThisTurn,
+  validateAdjacentToTarget,
+  validateTargetHasRampagingEnemies,
+} from "./challengeValidators.js";
+
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
 // Current behavior: Players must resolve card choices (e.g., "Attack 2 OR Block 2")
@@ -327,6 +337,17 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotAlreadyInCombat,
     validateOneCombatPerTurn, // Can only have one combat per turn
+  ],
+  [CHALLENGE_RAMPAGING_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNoChoicePending,
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateChallengePlayerOnMap,
+    validateChallengeNotInCombat, // Can't challenge while in combat
+    validateNoCombatThisTurn, // One combat per turn rule
+    validateAdjacentToTarget,
+    validateTargetHasRampagingEnemies,
   ],
   [END_COMBAT_PHASE_ACTION]: [
     validateIsPlayersTurn,
