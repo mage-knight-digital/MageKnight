@@ -10,12 +10,14 @@
  * - Health bar indicator
  * - Click handling to show detail panel
  * - "Can defeat" crack/glow effect
+ * - Drop target highlighting for drag-and-drop
  */
 
 import { useEffect, useRef, useId, useCallback, useState } from "react";
 import { Container, Graphics, Sprite, Texture, Assets } from "pixi.js";
 import type { ClientCombatEnemy, EnemyId } from "@mage-knight/shared";
 import { usePixiApp } from "../../contexts/PixiAppContext";
+import { useCombatDragOptional } from "../../contexts/CombatDragContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 
@@ -29,6 +31,7 @@ const COLORS = {
   HEALTH_BG: 0x1a1d2e,
   HEALTH_FILL: 0xb87333, // Bronze
   CAN_DEFEAT_GLOW: 0x5a8a70,
+  DROP_HIGHLIGHT: 0xffd700, // Gold for drop target
 };
 
 // Get enemy token image URL
@@ -49,10 +52,12 @@ interface PixiEnemyTokensProps {
 export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps) {
   const uniqueId = useId();
   const { app, overlayLayer } = usePixiApp();
+  const combatDrag = useCombatDragOptional();
 
   const rootContainerRef = useRef<Container | null>(null);
   const animManagerRef = useRef<AnimationManager | null>(null);
   const tokenContainersRef = useRef<Map<string, Container>>(new Map());
+  const dropHighlightsRef = useRef<Map<string, Graphics>>(new Map());
   const isDestroyedRef = useRef(false);
   const [texturesLoaded, setTexturesLoaded] = useState(false);
   // Track which enemies have already played their entry animation
@@ -123,8 +128,9 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
     const tokenSize = getTokenSize();
     const positions = getTokenPositions(tokenSize, enemies.length);
 
-    // Capture the token containers map for cleanup
+    // Capture refs for cleanup
     const tokenContainers = tokenContainersRef.current;
+    const dropHighlights = dropHighlightsRef.current;
 
     // Create root container
     const rootContainer = new Container();
@@ -315,6 +321,16 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
 
       rootContainer.addChild(tokenContainer);
       tokenContainersRef.current.set(enemy.instanceId, tokenContainer);
+
+      // Register bounds with drag context for hit-testing
+      if (combatDrag && !enemy.isDefeated) {
+        combatDrag.registerEnemyBounds({
+          instanceId: enemy.instanceId,
+          x: pos.x,
+          y: pos.y,
+          radius: radius,
+        });
+      }
     });
 
     // Handle resize
@@ -341,6 +357,13 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
       isDestroyedRef.current = true;
       window.removeEventListener("resize", handleResize);
 
+      // Unregister enemy bounds from drag context
+      if (combatDrag) {
+        enemies.forEach((data) => {
+          combatDrag.unregisterEnemyBounds(data.enemy.instanceId);
+        });
+      }
+
       if (animManagerRef.current) {
         animManagerRef.current.cancelAll();
         animManagerRef.current.detach();
@@ -356,8 +379,61 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
       }
 
       tokenContainers.clear();
+      dropHighlights.clear();
     };
-  }, [app, overlayLayer, uniqueId, enemies, texturesLoaded, getTokenSize, getTokenPositions]);
+  }, [app, overlayLayer, uniqueId, enemies, texturesLoaded, getTokenSize, getTokenPositions, combatDrag]);
+
+  // Handle drop target highlighting based on drag state
+  useEffect(() => {
+    if (!combatDrag || !animManagerRef.current) return;
+
+    const { dragState } = combatDrag;
+    const animManager = animManagerRef.current;
+    const tokenSize = getTokenSize();
+    const radius = tokenSize / 2;
+
+    enemies.forEach((data) => {
+      const { enemy } = data;
+      if (enemy.isDefeated) return;
+
+      const container = tokenContainersRef.current.get(enemy.instanceId);
+      if (!container) return;
+
+      const isHovered = dragState.isDragging && dragState.hoveredEnemyId === enemy.instanceId;
+      const existingHighlight = dropHighlightsRef.current.get(enemy.instanceId);
+
+      if (isHovered && !existingHighlight) {
+        // Add drop highlight ring
+        const highlight = new Graphics();
+        highlight.label = "drop-highlight";
+        highlight.circle(0, 0, radius + 12);
+        highlight.stroke({ color: COLORS.DROP_HIGHLIGHT, width: 4, alpha: 0.8 });
+        highlight.zIndex = -2;
+        container.addChildAt(highlight, 0);
+        container.sortChildren();
+        dropHighlightsRef.current.set(enemy.instanceId, highlight);
+
+        // Scale up the token
+        animManager.animate(`drop-hover-${enemy.instanceId}`, container, {
+          endScale: 1.1,
+          duration: 100,
+          easing: Easing.easeOutQuad,
+        });
+      } else if (!isHovered && existingHighlight) {
+        // Remove highlight
+        container.removeChild(existingHighlight);
+        existingHighlight.destroy();
+        dropHighlightsRef.current.delete(enemy.instanceId);
+
+        // Scale back down
+        animManager.animate(`drop-hover-${enemy.instanceId}`, container, {
+          endScale: 1,
+          duration: 100,
+          easing: Easing.easeOutQuad,
+        });
+      }
+    });
+  }, [combatDrag, combatDrag?.dragState.hoveredEnemyId, combatDrag?.dragState.isDragging, enemies, getTokenSize]);
 
   return null;
 }

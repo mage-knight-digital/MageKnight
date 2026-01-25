@@ -31,12 +31,16 @@ import { EnemyCard } from "./EnemyCard";
 import { PixiPhaseRail } from "./PixiPhaseRail";
 import { PixiEnemyTokens } from "./PixiEnemyTokens";
 import { PixiScreenEffects } from "./PixiScreenEffects";
+import { PixiAttackPool } from "./PixiAttackPool";
+import { PixiBlockPool } from "./PixiBlockPool";
+import { PixiPowerLine } from "./PixiPowerLine";
 import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
-import { CombatDnDProvider, type ChipData, type DamageChipData, type BlockChipData } from "./DnDContext";
-import { AttackPool } from "./AttackPool";
-import { DamageChipPreview } from "./AttackPool/DamageChip";
-import { BlockPool } from "./BlockPool";
-import { BlockChipPreview } from "./BlockPool/BlockChip";
+import {
+  CombatDragProvider,
+  type ChipData,
+  type DamageChipData,
+  type BlockChipData,
+} from "../../contexts/CombatDragContext";
 import { AmountPicker } from "./AmountPicker";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -459,11 +463,11 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   }, [sendAction, triggerEffect]);
 
   // ========================================
-  // Drag & Drop Handlers
+  // Drag & Drop Handlers (PixiJS)
   // ========================================
 
-  // Handle drag-drop completion - may show amount picker for overkill
-  const handleDragEnd = useCallback((chip: ChipData, enemyInstanceId: string) => {
+  // Handle drag-drop completion from CombatDragContext
+  const handleDragAssign = useCallback((chip: ChipData, enemyInstanceId: string) => {
     // Find enemy name for the picker
     const enemy = enemies.find(e => e.instanceId === enemyInstanceId);
     if (!enemy) return;
@@ -522,28 +526,6 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
     setPendingDrop(null);
   }, []);
 
-  // Render drag overlay preview
-  const renderDragOverlay = useCallback((chip: ChipData) => {
-    if (chip.poolType === "attack" && "attackType" in chip) {
-      const damageChip = chip as DamageChipData;
-      return (
-        <DamageChipPreview
-          attackType={damageChip.attackType}
-          element={damageChip.element}
-          amount={damageChip.amount}
-        />
-      );
-    } else {
-      const blockChip = chip as BlockChipData;
-      return (
-        <BlockChipPreview
-          element={blockChip.element}
-          amount={blockChip.amount}
-        />
-      );
-    }
-  }, []);
-
   // Calculate if all enemies can be defeated (for continue button pulse)
   // Note: combatOptions may be undefined during choice resolution
   const allEnemiesDefeatable = combatOptions?.enemies?.every(
@@ -551,7 +533,7 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   ) ?? false;
 
   return (
-    <CombatDnDProvider onDragEnd={handleDragEnd} renderDragOverlay={renderDragOverlay}>
+    <CombatDragProvider onAssign={handleDragAssign}>
     <div className="combat-scene" data-testid="combat-overlay">
       {/* PixiJS Screen Effects - damage/block/attack flashes */}
       <PixiScreenEffects activeEffect={activeEffect} effectKey={effectKey} />
@@ -571,6 +553,19 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
           canDefeat: combatOptions?.enemies?.find(e => e.enemyInstanceId === enemy.instanceId)?.canDefeat ?? false,
         }))}
       />
+
+      {/* PixiJS Attack/Block pools and power line - render to canvas */}
+      {useDragDrop && (isAttackPhase || isRangedSiegePhase) && combatOptions?.availableAttack && (
+        <PixiAttackPool
+          availableAttack={combatOptions.availableAttack}
+          isRangedSiegePhase={isRangedSiegePhase}
+          showSiegeWarning={combat.isAtFortifiedSite}
+        />
+      )}
+      {useDragDrop && isBlockPhase && combatOptions?.availableBlock && (
+        <PixiBlockPool availableBlock={combatOptions.availableBlock} />
+      )}
+      <PixiPowerLine />
 
       {/* Main layout: battle area (phase rail now rendered by PixiPhaseRail) */}
       <div className="combat-scene__layout">
@@ -654,22 +649,6 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
             })}
           </div>
 
-          {/* Drag-drop pool display (desktop only) */}
-          {useDragDrop && (isAttackPhase || isRangedSiegePhase) && combatOptions?.availableAttack && (
-            <div className="combat-scene__pool">
-              <AttackPool
-                availableAttack={combatOptions.availableAttack}
-                showSiegeWarning={combat.isAtFortifiedSite}
-                isRangedSiegePhase={isRangedSiegePhase}
-              />
-            </div>
-          )}
-          {useDragDrop && isBlockPhase && combatOptions?.availableBlock && (
-            <div className="combat-scene__pool">
-              <BlockPool availableBlock={combatOptions.availableBlock} />
-            </div>
-          )}
-
           {/* Legacy accumulated power display (mobile fallback or when pool data unavailable) */}
           {(!useDragDrop || (!combatOptions?.availableAttack && !combatOptions?.availableBlock)) && (
             <AccumulatorDisplay />
@@ -692,7 +671,7 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
         />
       )}
     </div>
-    </CombatDnDProvider>
+    </CombatDragProvider>
   );
 }
 

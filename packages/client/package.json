@@ -10,8 +10,6 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/utilities": "^3.2.2",
     "@mage-knight/server": "workspace:*",
     "@mage-knight/shared": "workspace:*",
     "pixi.js": "^8.15.0",

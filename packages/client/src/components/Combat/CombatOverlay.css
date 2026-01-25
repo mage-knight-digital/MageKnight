@@ -161,16 +161,6 @@
   flex-wrap: wrap;
 }
 
-/* Pool container - fixed position above hand cards for drag-drop pools */
-.combat-scene__pool {
-  position: fixed;
-  bottom: clamp(180px, 25vh, 280px); /* Stay above the hand cards */
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 150; /* Above hand cards */
-  pointer-events: auto;
-}
-
 /* Accumulator HUD - fixed position above hand cards */
 .combat-hud__accumulator {
   position: fixed;

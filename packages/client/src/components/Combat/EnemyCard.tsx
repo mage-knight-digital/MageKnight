@@ -3,11 +3,10 @@
  *
  * Click shows full rulebook details panel.
  * Phase 5: Now uses incremental attack allocation with EnemyAttackState.
- * Supports drag-and-drop: Acts as drop target for damage chips.
+ * Drop target highlighting handled by PixiEnemyTokens.
  */
 
 import { useState, useRef } from "react";
-import { useDroppable } from "@dnd-kit/core";
 import type {
   ClientCombatEnemy,
   BlockOption,
@@ -22,9 +21,7 @@ import type {
 } from "@mage-knight/shared";
 import { EnemyDetailPanel } from "./EnemyDetailPanel";
 import { CrackEffect } from "./CrackEffect";
-import { useCombatDnD } from "./DnDContext";
 import { useOverlay } from "../../contexts/OverlayContext";
-import type { DamageChipData } from "./DnDContext";
 import "./EnemyCard.css";
 import "./CrackEffect.css";
 
@@ -32,14 +29,6 @@ import "./CrackEffect.css";
 function getEnemyImageUrl(enemyId: EnemyId): string {
   return `/assets/enemies/${enemyId}.jpg`;
 }
-
-// Element icon paths for drop preview
-const ELEMENT_ICONS: Record<string, string> = {
-  physical: "/assets/icons/attack.png",
-  fire: "/assets/icons/fire_attack.png",
-  ice: "/assets/icons/ice_attack.png",
-  coldFire: "/assets/icons/cold_fire_attack.png",
-};
 
 interface EnemyCardProps {
   enemy: ClientCombatEnemy;
@@ -118,30 +107,6 @@ export function EnemyCard({
 
   // Check if an overlay (like pie menu) is active - don't respond to clicks if so
   const { isOverlayActive } = useOverlay();
-
-  // ========================================
-  // Drag and Drop Setup (when enabled)
-  // ========================================
-
-  // Get DnD context - may not exist if not in DnD mode
-  let dragStateActiveChip: DamageChipData | null = null;
-  try {
-    const dndContext = useCombatDnD();
-    // Only use if it's an attack chip (not block)
-    if (dndContext.dragState.activeChip?.poolType === "attack") {
-      dragStateActiveChip = dndContext.dragState.activeChip as DamageChipData;
-    }
-  } catch {
-    // Not in DnD context - that's fine
-  }
-
-  // Set up drop target
-  const dropId = `enemy-drop-${enemy.instanceId}`;
-  const isValidDropTarget = useDragDrop && !enemy.isDefeated && isAttackPhase;
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: dropId,
-    disabled: !isValidDropTarget,
-  });
 
   const handleCardClick = () => {
     // Don't show detail panel if an overlay (pie menu) is active
@@ -248,30 +213,6 @@ export function EnemyCard({
   const resistances = enemyAttackState?.resistances;
   const requiresSiege = enemyAttackState?.requiresSiege ?? false;
 
-  // ========================================
-  // Drag and Drop Preview Calculation
-  // ========================================
-
-  // Calculate drop preview when hovering (needs attack state vars)
-  const activeChip = dragStateActiveChip;
-  const showDropPreview = isOver && activeChip !== null;
-
-  // Calculate effective damage for preview
-  let previewEffective = 0;
-  let previewIsHalved = false;
-  if (showDropPreview && activeChip) {
-    const rawAmount = activeChip.amount;
-    const chipElement = activeChip.element;
-    const isResisted = (chipElement === "fire" && resistances?.fire === true) ||
-                       (chipElement === "ice" && resistances?.ice === true) ||
-                       (chipElement === "physical" && resistances?.physical === true);
-    previewEffective = isResisted ? Math.floor(rawAmount / 2) : rawAmount;
-    previewIsHalved = isResisted;
-  }
-
-  // Would this drop defeat the enemy?
-  const previewWouldDefeat = showDropPreview && (totalEffectiveDamage + previewEffective) >= armor;
-
   // Group assignable attacks by element for the +/- buttons
   const hasAssignableAttacks = assignableAttacks.length > 0;
   const hasUnassignableAttacks = unassignableAttacks.length > 0;
@@ -292,10 +233,6 @@ export function EnemyCard({
     }
   };
 
-  // Determine if this is a valid drop target while dragging
-  const isDragValidTarget = useDragDrop && isValidDropTarget && dragStateActiveChip !== null;
-  const isDragInvalidTarget = useDragDrop && dragStateActiveChip !== null && !isValidDropTarget;
-
   const classNames = [
     "enemy-token",
     enemy.isDefeated && "enemy-token--defeated",
@@ -304,22 +241,11 @@ export function EnemyCard({
     isStriking && "enemy-token--striking",
     hasAttacked && !isStriking && "enemy-token--has-attacked",
     canDefeat && !enemy.isDefeated && "enemy-token--can-defeat",
-    isDragValidTarget && "enemy-token--drop-valid",
-    isDragInvalidTarget && "enemy-token--drop-invalid",
-    isOver && isValidDropTarget && "enemy-token--drop-over",
   ].filter(Boolean).join(" ");
-
-  // Merge refs for both drop target and card ref
-  const setRefs = (node: HTMLDivElement | null) => {
-    setDropRef(node);
-    if (cardRef) {
-      (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    }
-  };
 
   return (
     <div
-      ref={setRefs}
+      ref={cardRef}
       className={classNames}
       onClick={isTargetable ? onClick : handleCardClick}
       data-testid={`enemy-card-${enemy.instanceId}`}
@@ -328,30 +254,6 @@ export function EnemyCard({
       tabIndex={0}
       style={{ cursor: "pointer" }}
     >
-      {/* Drop preview overlay - shows damage that would be applied */}
-      {showDropPreview && activeChip && (
-        <div className="enemy-token__drop-preview">
-          <div className="enemy-token__drop-preview-amount">
-            <img
-              src={ELEMENT_ICONS[activeChip.element]}
-              alt={activeChip.element}
-              className="enemy-token__drop-preview-icon"
-            />
-            <span>{activeChip.amount}</span>
-          </div>
-          {previewIsHalved && (
-            <div className="enemy-token__drop-preview-effective enemy-token__drop-preview-effective--halved">
-              → {previewEffective} (halved)
-            </div>
-          )}
-          <div className={`enemy-token__drop-preview-result ${previewWouldDefeat ? "enemy-token__drop-preview-result--defeat" : "enemy-token__drop-preview-result--partial"}`}>
-            {previewWouldDefeat
-              ? "Will Defeat!"
-              : `${totalEffectiveDamage + previewEffective} / ${armor}`}
-          </div>
-        </div>
-      )}
-
       {/* Token image */}
       <div className="enemy-token__image-wrapper">
         <img

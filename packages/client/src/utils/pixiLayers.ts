@@ -11,9 +11,13 @@ import type { Container } from "pixi.js";
  *   50  SCREEN_EFFECTS       Flash/shake effects
  *   60  TACTIC_CAROUSEL      Tactic card display
  *  100  HAND                 Player's card hand
+ *  120  ATTACK_POOL          Draggable attack chips
+ *  120  BLOCK_POOL           Draggable block chips
  *  500  CONTEXT_MENU         Hex context menus
  * 1000  PIE_MENU             Card action pie menus
  * 1100  HAND_ACTIVE          Selected card (above pie menu)
+ * 1150  POWER_LINE           Drag connection line
+ * 1200  DRAG_PREVIEW         Dragged chip preview
  * ─────────────────────────────────────────────────────
  *
  * RULES:
@@ -33,6 +37,8 @@ export const PIXI_Z_INDEX = {
 
   // Interactive layers (100-499)
   HAND: 100,
+  ATTACK_POOL: 120,
+  BLOCK_POOL: 120,
 
   // Menus and overlays (500-999)
   CONTEXT_MENU: 500,
@@ -40,6 +46,8 @@ export const PIXI_Z_INDEX = {
   // Modal overlays (1000+)
   PIE_MENU: 1000,
   HAND_ACTIVE: 1100,
+  POWER_LINE: 1150,
+  DRAG_PREVIEW: 1200,
 } as const;
 
 export type PixiZIndex = (typeof PIXI_Z_INDEX)[keyof typeof PIXI_Z_INDEX];
