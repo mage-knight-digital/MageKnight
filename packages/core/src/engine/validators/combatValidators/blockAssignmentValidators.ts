@@ -17,6 +17,7 @@ import {
 } from "@mage-knight/shared";
 import { COMBAT_PHASE_BLOCK } from "../../../types/combat.js";
 import type { ElementalAttackValues } from "../../../types/player.js";
+import { getElementalValue } from "../../helpers/elementalValueHelpers.js";
 import {
   NOT_IN_COMBAT,
   WRONG_COMBAT_PHASE,
@@ -37,19 +38,6 @@ function getAvailableBlock(
   assignedBlockElements: ElementalAttackValues,
   element: AttackElement
 ): number {
-  const getElementalValue = (elements: ElementalAttackValues, el: AttackElement): number => {
-    switch (el) {
-      case ATTACK_ELEMENT_FIRE:
-        return elements.fire;
-      case ATTACK_ELEMENT_ICE:
-        return elements.ice;
-      case ATTACK_ELEMENT_COLD_FIRE:
-        return elements.coldFire;
-      default:
-        return elements.physical;
-    }
-  };
-
   const accumulated = getElementalValue(blockElements, element);
   const alreadyAssigned = getElementalValue(assignedBlockElements, element);
 

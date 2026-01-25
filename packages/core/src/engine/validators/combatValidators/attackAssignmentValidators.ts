@@ -20,8 +20,9 @@ import {
   ATTACK_ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
 import { createEmptyPendingDamage, COMBAT_PHASE_RANGED_SIEGE } from "../../../types/combat.js";
-import type { AccumulatedAttack, ElementalAttackValues } from "../../../types/player.js";
+import type { AccumulatedAttack } from "../../../types/player.js";
 import { getFortificationLevel } from "./fortificationValidators.js";
+import { getElementalValue } from "../../helpers/elementalValueHelpers.js";
 import {
   NOT_IN_COMBAT,
   WRONG_COMBAT_PHASE,
@@ -46,19 +47,6 @@ function getAvailableAttack(
 ): number {
   let accumulated = 0;
   let alreadyAssigned = 0;
-
-  const getElementalValue = (elements: ElementalAttackValues, el: AttackElement): number => {
-    switch (el) {
-      case ATTACK_ELEMENT_FIRE:
-        return elements.fire;
-      case ATTACK_ELEMENT_ICE:
-        return elements.ice;
-      case ATTACK_ELEMENT_COLD_FIRE:
-        return elements.coldFire;
-      default:
-        return elements.physical;
-    }
-  };
 
   switch (attackType) {
     case ATTACK_TYPE_RANGED:
