@@ -114,7 +114,7 @@ export function poolContainerLayout(): Partial<LayoutStyles> {
 }
 
 // ============================================================================
-// Card Layout Presets (for future enemy card migration)
+// Card Layout Presets (generic)
 // ============================================================================
 
 export const CARD_LAYOUT_CONSTANTS = {
@@ -144,6 +144,134 @@ export function cardControlsLayout(): Partial<LayoutStyles> {
     gap: 4,
     alignItems: "center",
     justifyContent: "space-between",
+  };
+}
+
+// ============================================================================
+// Enemy Card Layout Presets (PixiEnemyCard.tsx)
+// ============================================================================
+
+/** Constants matching PixiEnemyCard dimensions */
+export const ENEMY_CARD_CONSTANTS = {
+  CARD_WIDTH: 200,
+  CARD_PADDING: 10,
+  ROW_GAP: 6,
+  SECTION_GAP: 8,
+  BTN_SIZE: 24,
+  BTN_RADIUS: 4,
+  BADGE_HEIGHT: 20,
+  COMMIT_BTN_HEIGHT: 28,
+} as const;
+
+/**
+ * Root layout for an enemy card - vertical stack centered
+ * Children are stacked vertically with consistent gap
+ */
+export function enemyCardRootLayout(): Partial<LayoutStyles> {
+  return {
+    flexDirection: "column",
+    gap: ENEMY_CARD_CONSTANTS.ROW_GAP,
+    alignItems: "center",
+  };
+}
+
+/**
+ * Layout for enemy card section (block/attack allocation boxes)
+ * Column with padding, full width
+ */
+export function enemyCardSectionLayout(): Partial<LayoutStyles> {
+  return {
+    flexDirection: "column",
+    gap: ENEMY_CARD_CONSTANTS.ROW_GAP,
+    alignItems: "center",
+    padding: ENEMY_CARD_CONSTANTS.CARD_PADDING,
+    width: ENEMY_CARD_CONSTANTS.CARD_WIDTH,
+  };
+}
+
+/**
+ * Layout for a row of +/- control buttons
+ * Horizontal with small gap, left-aligned
+ */
+export function enemyCardControlsRowLayout(): Partial<LayoutStyles> {
+  return {
+    flexDirection: "row",
+    gap: 2,
+    alignItems: "center",
+  };
+}
+
+/**
+ * Layout for element control group (icon + minus + plus buttons)
+ */
+export function enemyCardElementGroupLayout(): Partial<LayoutStyles> {
+  return {
+    flexDirection: "row",
+    gap: 2,
+    alignItems: "center",
+    marginRight: 6,
+  };
+}
+
+/**
+ * Layout for badge containers (DEFEATED, BLOCKED)
+ */
+export function enemyCardBadgeLayout(): Partial<LayoutStyles> {
+  return {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: ENEMY_CARD_CONSTANTS.BADGE_HEIGHT,
+    width: 80,
+  };
+}
+
+/**
+ * Layout for a button with fixed dimensions
+ */
+export function enemyCardButtonLayout(
+  width: number,
+  height: number
+): Partial<LayoutStyles> {
+  return {
+    width,
+    height,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+}
+
+/**
+ * Layout for +/- square buttons
+ */
+export function enemyCardPlusMinusLayout(): Partial<LayoutStyles> {
+  return enemyCardButtonLayout(
+    ENEMY_CARD_CONSTANTS.BTN_SIZE,
+    ENEMY_CARD_CONSTANTS.BTN_SIZE
+  );
+}
+
+/**
+ * Layout for full-width action buttons (commit block, take damage)
+ */
+export function enemyCardActionButtonLayout(): Partial<LayoutStyles> {
+  return enemyCardButtonLayout(
+    ENEMY_CARD_CONSTANTS.CARD_WIDTH - ENEMY_CARD_CONSTANTS.CARD_PADDING * 2,
+    ENEMY_CARD_CONSTANTS.COMMIT_BTN_HEIGHT
+  );
+}
+
+/**
+ * Layout for centered text row (labels, progress)
+ */
+export function enemyCardTextRowLayout(height?: number): Partial<LayoutStyles> {
+  return {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%" as unknown as number, // Full width of parent
+    ...(height !== undefined && { height }),
   };
 }
 

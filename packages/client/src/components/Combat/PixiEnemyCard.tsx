@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useCallback, useId } from "react";
 import { Container, Graphics, Text } from "pixi.js";
+import "@pixi/layout"; // Side-effect import for layout types on Container
 import type {
   ClientCombatEnemy,
   EnemyBlockState,
@@ -29,6 +30,11 @@ import type {
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import {
+  ENEMY_CARD_CONSTANTS,
+  enemyCardRootLayout,
+  enemyCardBadgeLayout,
+} from "../../utils/pixiLayout";
 
 // ============================================================================
 // Constants
@@ -90,14 +96,9 @@ const ELEMENT_ICONS: Record<AttackElement, string> = {
   coldFire: "\uD83D\uDC9C", // Purple heart (cold fire)
 };
 
-// Layout constants
-const CARD_WIDTH = 200;
-const CARD_PADDING = 10;
-const ROW_GAP = 6;
-const BTN_SIZE = 24;
-const BTN_RADIUS = 4;
-const BADGE_HEIGHT = 20;
-const COMMIT_BTN_HEIGHT = 28;
+// Layout constants - use shared constants from pixiLayout.ts
+const { CARD_WIDTH, CARD_PADDING, BTN_SIZE, BTN_RADIUS, BADGE_HEIGHT, COMMIT_BTN_HEIGHT } =
+  ENEMY_CARD_CONSTANTS;
 
 // ============================================================================
 // Types
@@ -164,21 +165,48 @@ function createRoundedRect(
   }
 }
 
-function createButton(
-  label: string,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  bgColor: number,
-  textColor: number,
-  onClick: () => void,
-  disabled = false,
-  fontSize = 12
-): Container {
+interface CreateButtonOptions {
+  label: string;
+  width: number;
+  height: number;
+  bgColor: number;
+  textColor: number;
+  onClick: () => void;
+  disabled?: boolean;
+  fontSize?: number;
+  /** Legacy positioning - omit when using layout */
+  x?: number;
+  /** Legacy positioning - omit when using layout */
+  y?: number;
+  /** When true, container gets layout property for flex participation */
+  useLayout?: boolean;
+}
+
+function createButton(options: CreateButtonOptions): Container {
+  const {
+    label,
+    width,
+    height,
+    bgColor,
+    textColor,
+    onClick,
+    disabled = false,
+    fontSize = 12,
+    x,
+    y,
+    useLayout = false,
+  } = options;
+
   const container = new Container();
-  container.x = x;
-  container.y = y;
+
+  // Legacy positioning (for gradual migration)
+  if (x !== undefined) container.x = x;
+  if (y !== undefined) container.y = y;
+
+  // Layout mode: set fixed dimensions for flex participation
+  if (useLayout) {
+    container.layout = { width, height };
+  }
 
   const bg = new Graphics();
   createRoundedRect(bg, 0, 0, width, height, BTN_RADIUS, bgColor, disabled ? 0.6 : 1);
@@ -216,16 +244,31 @@ function createButton(
   return container;
 }
 
-function createPlusMinus(
-  type: "plus" | "minus",
-  x: number,
-  y: number,
-  onClick: () => void,
-  isWarning = false
-): Container {
+interface CreatePlusMinusOptions {
+  type: "plus" | "minus";
+  onClick: () => void;
+  isWarning?: boolean;
+  /** Legacy positioning - omit when using layout */
+  x?: number;
+  /** Legacy positioning - omit when using layout */
+  y?: number;
+  /** When true, container gets layout property for flex participation */
+  useLayout?: boolean;
+}
+
+function createPlusMinus(options: CreatePlusMinusOptions): Container {
+  const { type, onClick, isWarning = false, x, y, useLayout = false } = options;
+
   const container = new Container();
-  container.x = x;
-  container.y = y;
+
+  // Legacy positioning (for gradual migration)
+  if (x !== undefined) container.x = x;
+  if (y !== undefined) container.y = y;
+
+  // Layout mode: set fixed dimensions for flex participation
+  if (useLayout) {
+    container.layout = { width: BTN_SIZE, height: BTN_SIZE };
+  }
 
   const bgColor =
     type === "plus"
@@ -317,17 +360,29 @@ export function PixiEnemyCard({
       container.label = `enemy-card-${enemy.instanceId}`;
       container.sortableChildren = true;
 
-      // Position below the token
-      container.x = position.x;
+      // Position below the token, centered horizontally
+      // Offset by -CARD_WIDTH/2 so the layout container is centered under the token
+      container.x = position.x - CARD_WIDTH / 2;
       container.y = position.y + tokenRadius + 8;
 
-      let yOffset = 0;
+      // Enable layout for children - vertical stack, centered
+      // Set width so alignItems: "center" has a reference
+      container.layout = {
+        ...enemyCardRootLayout(),
+        width: CARD_WIDTH,
+      };
 
       // ========================================
-      // Enemy Name (clickable)
+      // Enemy Name (clickable) - LAYOUT MANAGED
       // ========================================
       const nameContainer = new Container();
-      nameContainer.y = yOffset;
+      nameContainer.label = "name-section";
+      // Layout: fixed height, centered content
+      nameContainer.layout = {
+        height: 20,
+        alignItems: "center",
+        justifyContent: "center",
+      };
 
       const nameText = new Text({
         text: enemy.name,
@@ -338,8 +393,8 @@ export function PixiEnemyCard({
           fill: COLORS.TEXT_PRIMARY,
         },
       });
-      nameText.anchor.set(0.5, 0);
-      nameText.x = 0;
+      // Note: anchor is ignored in layout mode - centering handled by container layout
+      nameText.layout = {}; // Opt into layout (intrinsic sizing)
       nameText.eventMode = "static";
       nameText.cursor = "pointer";
       nameText.on("pointertap", () => {
@@ -348,17 +403,18 @@ export function PixiEnemyCard({
       nameContainer.addChild(nameText);
 
       container.addChild(nameContainer);
-      yOffset += 20;
 
       // ========================================
-      // Status Badges
+      // Status Badges - LAYOUT MANAGED
       // ========================================
       if (enemy.isDefeated) {
         const badge = new Container();
-        badge.y = yOffset;
+        badge.label = "defeated-badge";
+        badge.layout = enemyCardBadgeLayout();
 
         const bg = new Graphics();
-        createRoundedRect(bg, -40, 0, 80, BADGE_HEIGHT, 4, COLORS.BADGE_DEFEATED_BG, 0.8);
+        // Draw at 0,0 - layout handles positioning
+        createRoundedRect(bg, 0, 0, 80, BADGE_HEIGHT, 4, COLORS.BADGE_DEFEATED_BG, 0.8);
         badge.addChild(bg);
 
         const text = new Text({
@@ -371,18 +427,20 @@ export function PixiEnemyCard({
             letterSpacing: 1,
           },
         });
+        // Center text manually within the badge (internal positioning)
         text.anchor.set(0.5);
-        text.position.set(0, BADGE_HEIGHT / 2);
+        text.position.set(40, BADGE_HEIGHT / 2);
         badge.addChild(text);
 
         container.addChild(badge);
-        yOffset += BADGE_HEIGHT + ROW_GAP;
       } else if (enemy.isBlocked) {
         const badge = new Container();
-        badge.y = yOffset;
+        badge.label = "blocked-badge";
+        badge.layout = enemyCardBadgeLayout();
 
         const bg = new Graphics();
-        createRoundedRect(bg, -40, 0, 80, BADGE_HEIGHT, 4, COLORS.BADGE_BLOCKED_BG, 0.9);
+        // Draw at 0,0 - layout handles positioning
+        createRoundedRect(bg, 0, 0, 80, BADGE_HEIGHT, 4, COLORS.BADGE_BLOCKED_BG, 0.9);
         badge.addChild(bg);
 
         const text = new Text({
@@ -395,36 +453,34 @@ export function PixiEnemyCard({
             letterSpacing: 1,
           },
         });
+        // Center text manually within the badge (internal positioning)
         text.anchor.set(0.5);
-        text.position.set(0, BADGE_HEIGHT / 2);
+        text.position.set(40, BADGE_HEIGHT / 2);
         badge.addChild(text);
 
         container.addChild(badge);
-        yOffset += BADGE_HEIGHT + ROW_GAP;
       }
 
       // ========================================
-      // Damage Phase UI
+      // Damage Phase UI - LAYOUT MANAGED
       // ========================================
       if (data.isDamagePhase && data.damageOption && data.damageOption.unassignedDamage > 0) {
-        const damageBtn = createButton(
-          `Take ${data.damageOption.unassignedDamage} Damage`,
-          -CARD_WIDTH / 2,
-          yOffset,
-          CARD_WIDTH,
-          COMMIT_BTN_HEIGHT,
-          COLORS.BTN_DAMAGE_BG,
-          COLORS.TEXT_PRIMARY,
-          () => onAssignDamageRef.current?.(enemy.instanceId),
-          false,
-          13
-        );
+        const damageBtn = createButton({
+          label: `Take ${data.damageOption.unassignedDamage} Damage`,
+          width: CARD_WIDTH,
+          height: COMMIT_BTN_HEIGHT,
+          bgColor: COLORS.BTN_DAMAGE_BG,
+          textColor: COLORS.TEXT_PRIMARY,
+          onClick: () => onAssignDamageRef.current?.(enemy.instanceId),
+          disabled: false,
+          fontSize: 13,
+          useLayout: true, // Layout manages positioning
+        });
         container.addChild(damageBtn);
-        yOffset += COMMIT_BTN_HEIGHT + ROW_GAP;
       }
 
       // ========================================
-      // Block Allocation UI
+      // Block Allocation UI - LAYOUT MANAGED (outer container)
       // ========================================
       const showBlockAllocation =
         data.isBlockPhase &&
@@ -438,10 +494,9 @@ export function PixiEnemyCard({
         const unassignableBlocks = data.unassignableBlocks ?? [];
 
         const blockContainer = new Container();
-        blockContainer.y = yOffset;
-        blockContainer.x = -CARD_WIDTH / 2;
+        blockContainer.label = "block-section";
 
-        // Calculate background height
+        // Calculate background height (still needed for bg sizing)
         // Base: padding + label(14) + progress(20) + padding = ~54
         let bgHeight = 54;
         if (blockState.canBlock) {
@@ -467,7 +522,13 @@ export function PixiEnemyCard({
           bgHeight += COMMIT_BTN_HEIGHT + CARD_PADDING;
         }
 
-        // Background
+        // Layout: fixed size box, participates in root flex
+        blockContainer.layout = {
+          width: CARD_WIDTH,
+          height: bgHeight,
+        };
+
+        // Background - draw at 0,0 since layout handles positioning
         const bg = new Graphics();
         createRoundedRect(
           bg,
@@ -483,6 +544,7 @@ export function PixiEnemyCard({
         );
         blockContainer.addChild(bg);
 
+        // Internal elements use manual positioning (relative to blockContainer origin)
         let blockY = CARD_PADDING;
 
         // Label row (centered)
@@ -604,8 +666,13 @@ export function PixiEnemyCard({
             // Minus button
             const firstUnassign = unassignOpts[0];
             if (firstUnassign) {
-              const minusBtn = createPlusMinus("minus", controlX, 0, () => {
-                onUnassignBlockRef.current?.(firstUnassign);
+              const minusBtn = createPlusMinus({
+                type: "minus",
+                x: controlX,
+                y: 0,
+                onClick: () => {
+                  onUnassignBlockRef.current?.(firstUnassign);
+                },
               });
               controlsRow.addChild(minusBtn);
               controlX += BTN_SIZE + 2;
@@ -617,15 +684,15 @@ export function PixiEnemyCard({
               const isBonus =
                 (element === "fire" && blockState.attackElement === "ice") ||
                 (element === "ice" && blockState.attackElement === "fire");
-              const plusBtn = createPlusMinus(
-                "plus",
-                controlX,
-                0,
-                () => {
+              const plusBtn = createPlusMinus({
+                type: "plus",
+                x: controlX,
+                y: 0,
+                onClick: () => {
                   onAssignBlockRef.current?.(firstAssign);
                 },
-                isBonus
-              );
+                isWarning: isBonus,
+              });
               controlsRow.addChild(plusBtn);
               controlX += BTN_SIZE + 8;
             }
@@ -641,28 +708,27 @@ export function PixiEnemyCard({
             ? "\u2713 Block Enemy"
             : `Need ${blockState.requiredBlock - blockState.effectiveBlock} more`;
 
-          const commitBtn = createButton(
-            commitLabel,
-            CARD_PADDING,
-            blockY,
-            CARD_WIDTH - CARD_PADDING * 2,
-            COMMIT_BTN_HEIGHT,
-            blockState.canBlock ? COLORS.BTN_READY_BG : COLORS.BTN_DISABLED_BG,
-            blockState.canBlock ? COLORS.TEXT_PRIMARY : COLORS.BTN_DISABLED_TEXT,
-            () => onCommitBlockRef.current?.(enemy.instanceId),
-            !blockState.canBlock,
-            12
-          );
+          const commitBtn = createButton({
+            label: commitLabel,
+            x: CARD_PADDING,
+            y: blockY,
+            width: CARD_WIDTH - CARD_PADDING * 2,
+            height: COMMIT_BTN_HEIGHT,
+            bgColor: blockState.canBlock ? COLORS.BTN_READY_BG : COLORS.BTN_DISABLED_BG,
+            textColor: blockState.canBlock ? COLORS.TEXT_PRIMARY : COLORS.BTN_DISABLED_TEXT,
+            onClick: () => onCommitBlockRef.current?.(enemy.instanceId),
+            disabled: !blockState.canBlock,
+            fontSize: 12,
+          });
           blockContainer.addChild(commitBtn);
           blockY += COMMIT_BTN_HEIGHT + CARD_PADDING;
         }
 
         container.addChild(blockContainer);
-        yOffset += bgHeight + ROW_GAP;
       }
 
       // ========================================
-      // Attack Allocation UI
+      // Attack Allocation UI - LAYOUT MANAGED (outer container)
       // ========================================
       const showAttackAllocation =
         data.isAttackPhase && data.enemyAttackState && !enemy.isDefeated;
@@ -675,10 +741,9 @@ export function PixiEnemyCard({
           !data.useDragDrop && (assignableAttacks.length > 0 || unassignableAttacks.length > 0);
 
         const attackContainer = new Container();
-        attackContainer.y = yOffset;
-        attackContainer.x = -CARD_WIDTH / 2;
+        attackContainer.label = "attack-section";
 
-        // Calculate background height
+        // Calculate background height (still needed for bg sizing)
         // Base: padding + label(14) + progress(20) + padding = ~54
         let bgHeight = 54;
         if (attackState.canDefeat) {
@@ -691,7 +756,13 @@ export function PixiEnemyCard({
           bgHeight += BTN_SIZE + 10; // +/- buttons row
         }
 
-        // Background
+        // Layout: fixed size box, participates in root flex
+        attackContainer.layout = {
+          width: CARD_WIDTH,
+          height: bgHeight,
+        };
+
+        // Background - draw at 0,0 since layout handles positioning
         const bg = new Graphics();
         createRoundedRect(
           bg,
@@ -854,8 +925,13 @@ export function PixiEnemyCard({
             // Minus button
             const firstUnassignAttack = unassignOpts[0];
             if (firstUnassignAttack) {
-              const minusBtn = createPlusMinus("minus", controlX, 0, () => {
-                onUnassignAttackRef.current?.(firstUnassignAttack);
+              const minusBtn = createPlusMinus({
+                type: "minus",
+                x: controlX,
+                y: 0,
+                onClick: () => {
+                  onUnassignAttackRef.current?.(firstUnassignAttack);
+                },
               });
               controlsRow.addChild(minusBtn);
               controlX += BTN_SIZE + 2;
@@ -868,15 +944,15 @@ export function PixiEnemyCard({
                 (element === "fire" && resistances?.fire) ||
                 (element === "ice" && resistances?.ice) ||
                 (element === "physical" && resistances?.physical);
-              const plusBtn = createPlusMinus(
-                "plus",
-                controlX,
-                0,
-                () => {
+              const plusBtn = createPlusMinus({
+                type: "plus",
+                x: controlX,
+                y: 0,
+                onClick: () => {
                   onAssignAttackRef.current?.(firstAssignAttack);
                 },
-                isResisted
-              );
+                isWarning: isResisted,
+              });
               controlsRow.addChild(plusBtn);
               controlX += BTN_SIZE + 8;
             }
@@ -924,7 +1000,6 @@ export function PixiEnemyCard({
         }
 
         container.addChild(attackContainer);
-        yOffset += bgHeight + ROW_GAP;
       }
 
       return container;
