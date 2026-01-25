@@ -21,6 +21,7 @@ import {
   Assets,
   FederatedPointerEvent,
 } from "pixi.js";
+import "@pixi/layout"; // Side-effect import for layout types on Container
 import type {
   AvailableAttackPool,
   AttackType,
@@ -30,6 +31,7 @@ import { usePixiApp } from "../../contexts/PixiAppContext";
 import { useCombatDrag, type DamageChipData } from "../../contexts/CombatDragContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import { chipRowLayout } from "../../utils/pixiLayout";
 
 // ============================================================================
 // Constants
@@ -231,11 +233,20 @@ export function PixiAttackPool({
   }, []);
 
   // Create a single chip container
+  // Note: Chip internal layout still uses manual positioning for background/icon/text
+  // The parent chipsContainer uses @pixi/layout for horizontal arrangement
   const createChip = useCallback(
     (chipData: ChipRenderData): Container => {
       const { attackType, element, amount } = chipData;
       const container = new Container();
       container.label = `chip-${attackType}-${element}`;
+
+      // Enable layout participation - parent will handle positioning
+      // Fixed dimensions so parent layout knows the size
+      container.layout = {
+        width: CHIP_WIDTH,
+        height: CHIP_HEIGHT,
+      };
 
       // Background
       const bg = new Graphics();
@@ -614,13 +625,15 @@ export function PixiAttackPool({
       totalText.position.set(40, 14);
       sectionContainer.addChild(totalText);
 
-      // Chips
+      // Chips - uses @pixi/layout for horizontal arrangement
       const chipsContainer = new Container();
+      chipsContainer.label = `chips-row-${section.type}`;
+      chipsContainer.layout = chipRowLayout(); // flexDirection: row, gap: CHIP_GAP
       chipsContainer.position.set(0, 42);
 
       section.chips.forEach((chipRenderData, chipIndex) => {
         const chipContainer = createChip(chipRenderData);
-        chipContainer.position.set(chipIndex * (CHIP_WIDTH + CHIP_GAP), 0);
+        // No manual position.set needed - layout handles horizontal spacing
 
         // Create chip data for drag
         const chipData: DamageChipData = {

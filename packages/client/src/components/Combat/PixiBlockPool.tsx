@@ -23,11 +23,13 @@ import {
   Assets,
   FederatedPointerEvent,
 } from "pixi.js";
+import "@pixi/layout"; // Side-effect import for layout types on Container
 import type { AvailableBlockPool, AttackElement } from "@mage-knight/shared";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { useCombatDrag, type BlockChipData } from "../../contexts/CombatDragContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import { chipRowLayout } from "../../utils/pixiLayout";
 
 // ============================================================================
 // Constants
@@ -172,10 +174,19 @@ export function PixiBlockPool({ availableBlock }: PixiBlockPoolProps) {
   }, []);
 
   // Create a single chip container
+  // Note: Chip internal layout still uses manual positioning for background/icon/text
+  // The parent chipsContainer uses @pixi/layout for horizontal arrangement
   const createChip = useCallback((chipData: ChipRenderData): Container => {
     const { element, amount } = chipData;
     const container = new Container();
     container.label = `block-chip-${element}`;
+
+    // Enable layout participation - parent will handle positioning
+    // Fixed dimensions so parent layout knows the size
+    container.layout = {
+      width: CHIP_WIDTH,
+      height: CHIP_HEIGHT,
+    };
 
     // Background
     const bg = new Graphics();
@@ -483,14 +494,17 @@ export function PixiBlockPool({ availableBlock }: PixiBlockPoolProps) {
     totalText.position.set((totalWidth - POOL_PADDING * 2) / 2, 14);
     sectionContainer.addChild(totalText);
 
-    // Chips container - centered
+    // Chips container - uses @pixi/layout for horizontal arrangement
     const chipsContainer = new Container();
-    const chipsStartX = ((totalWidth - POOL_PADDING * 2) - chipsWidth) / 2;
-    chipsContainer.position.set(chipsStartX, 42);
+    chipsContainer.label = "chips-row";
+    chipsContainer.layout = chipRowLayout(); // flexDirection: row, gap: CHIP_GAP
+    // Center the chips row within the section
+    const sectionWidth = totalWidth - POOL_PADDING * 2;
+    chipsContainer.position.set((sectionWidth - chipsWidth) / 2, 42);
 
     chips.forEach((chipRenderData, chipIndex) => {
       const chipContainer = createChip(chipRenderData);
-      chipContainer.position.set(chipIndex * (CHIP_WIDTH + CHIP_GAP), 0);
+      // No manual position.set needed - layout handles horizontal spacing
 
       // Create chip data for drag
       const chipData: BlockChipData = {

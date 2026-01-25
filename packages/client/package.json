@@ -12,6 +12,7 @@
   "dependencies": {
     "@mage-knight/server": "workspace:*",
     "@mage-knight/shared": "workspace:*",
+    "@pixi/layout": "^3.2.0",
     "pixi.js": "^8.15.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

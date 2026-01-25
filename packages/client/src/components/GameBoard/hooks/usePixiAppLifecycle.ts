@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Application, Container, type FederatedPointerEvent } from "pixi.js";
+import "@pixi/layout"; // Side-effect import to register layout system with PixiJS
 import type { MutableRefObject, RefObject } from "react";
 import type { WorldLayers } from "../pixi/types";
 import { AnimationManager } from "../pixi/animations";
@@ -63,6 +64,13 @@ export function usePixiAppLifecycle({
         antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
+        // @pixi/layout v3 configuration
+        layout: {
+          autoUpdate: true,
+          enableDebug: false, // Set to true to visualize layout boxes during development
+          debugModificationCount: 0,
+          throttle: 100,
+        } as unknown as import("@pixi/layout").LayoutSystemOptions,
       });
       console.log(`[initPixi] app.init: ${(performance.now() - t0).toFixed(1)}ms`);
 
@@ -128,6 +136,9 @@ export function usePixiAppLifecycle({
       appRef.current = app;
       layersRef.current = layers;
       worldRef.current = world;
+
+      // Expose app globally for debugging (accessible via window.__PIXI_APP__)
+      (window as unknown as { __PIXI_APP__: typeof app }).__PIXI_APP__ = app;
 
       setApp(app);
       setOverlayLayer(screenOverlay);
