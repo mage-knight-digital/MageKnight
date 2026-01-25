@@ -158,15 +158,16 @@ export function PixiBlockPool({ availableBlock }: PixiBlockPoolProps) {
     loadTextures();
   }, []);
 
-  // Calculate pool position (centered horizontally, above hand)
+  // Calculate pool position (centered horizontally, between enemies and hand)
   const getPoolPosition = useCallback(() => {
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
 
-    // Position near bottom, above the hand cards
+    // Enemies at 38% from top, hand at bottom ~18%
+    // Position pool at ~70% from top (between them)
     return {
       x: screenWidth / 2,
-      y: screenHeight - 220, // Above hand area
+      y: screenHeight * 0.68,
     };
   }, []);
 
