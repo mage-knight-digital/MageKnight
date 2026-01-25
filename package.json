@@ -8,7 +8,8 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
-    "dev:client": "pnpm --filter @mage-knight/client dev"
+    "dev:client": "pnpm --filter @mage-knight/client dev",
+    "mage-dev": "node packages/mage-dev/dist/cli.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
