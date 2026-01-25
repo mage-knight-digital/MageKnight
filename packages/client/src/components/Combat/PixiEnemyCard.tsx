@@ -91,9 +91,9 @@ const ELEMENT_ICONS: Record<AttackElement, string> = {
 };
 
 // Layout constants
-const CARD_WIDTH = 160;
-const CARD_PADDING = 8;
-const ROW_GAP = 4;
+const CARD_WIDTH = 200;
+const CARD_PADDING = 10;
+const ROW_GAP = 6;
 const BTN_SIZE = 24;
 const BTN_RADIUS = 4;
 const BADGE_HEIGHT = 20;
@@ -464,9 +464,34 @@ export function PixiEnemyCard({
         blockContainer.y = yOffset;
         blockContainer.x = -CARD_WIDTH / 2;
 
+        // Calculate background height
+        // Base: padding + label(14) + progress(20) + padding = ~54
+        let bgHeight = 54;
+        if (blockState.canBlock) {
+          bgHeight += 16; // "Can Block!" row
+        }
+        if (blockState.isSwift) {
+          bgHeight += 14; // Swift indicator
+        }
+        if (blockState.attackElement !== "physical") {
+          bgHeight += 14; // Attack element info
+        }
+        if (assignableBlocks.length > 0 || unassignableBlocks.length > 0) {
+          bgHeight += BTN_SIZE + 8; // +/- buttons row
+        }
+        // Add space for commit button if there's pending block
+        const hasPendingBlock =
+          blockState.pendingBlock &&
+          (blockState.pendingBlock.physical > 0 ||
+            blockState.pendingBlock.fire > 0 ||
+            blockState.pendingBlock.ice > 0 ||
+            blockState.pendingBlock.coldFire > 0);
+        if (hasPendingBlock) {
+          bgHeight += COMMIT_BTN_HEIGHT + CARD_PADDING;
+        }
+
         // Background
         const bg = new Graphics();
-        const bgHeight = 80 + (assignableBlocks.length > 0 || unassignableBlocks.length > 0 ? 32 : 0);
         createRoundedRect(
           bg,
           0,
@@ -483,10 +508,7 @@ export function PixiEnemyCard({
 
         let blockY = CARD_PADDING;
 
-        // Header row
-        const headerRow = new Container();
-        headerRow.y = blockY;
-
+        // Label row (centered)
         const blockLabel = new Text({
           text: "Block",
           style: {
@@ -497,37 +519,45 @@ export function PixiEnemyCard({
             letterSpacing: 0.5,
           },
         });
-        blockLabel.x = CARD_PADDING;
-        headerRow.addChild(blockLabel);
+        blockLabel.anchor.set(0.5, 0);
+        blockLabel.x = CARD_WIDTH / 2;
+        blockLabel.y = blockY;
+        blockContainer.addChild(blockLabel);
+        blockY += 14;
 
+        // Progress row (centered)
         const progressText = new Text({
           text: `${blockState.effectiveBlock} / ${blockState.requiredBlock}`,
           style: {
             fontFamily: "Arial, sans-serif",
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: "700",
             fill: COLORS.TEXT_PRIMARY,
           },
         });
-        progressText.x = CARD_PADDING + 40;
-        headerRow.addChild(progressText);
+        progressText.anchor.set(0.5, 0);
+        progressText.x = CARD_WIDTH / 2;
+        progressText.y = blockY;
+        blockContainer.addChild(progressText);
+        blockY += 20;
 
+        // "Can Block!" indicator (own row, centered)
         if (blockState.canBlock) {
           const canBlockText = new Text({
             text: "\u2713 Can Block!",
             style: {
               fontFamily: "Arial, sans-serif",
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: "700",
               fill: COLORS.TEXT_SUCCESS,
             },
           });
-          canBlockText.x = CARD_WIDTH - CARD_PADDING - 60;
-          headerRow.addChild(canBlockText);
+          canBlockText.anchor.set(0.5, 0);
+          canBlockText.x = CARD_WIDTH / 2;
+          canBlockText.y = blockY;
+          blockContainer.addChild(canBlockText);
+          blockY += 16;
         }
-
-        blockContainer.addChild(headerRow);
-        blockY += 20;
 
         // Swift indicator
         if (blockState.isSwift) {
@@ -628,14 +658,7 @@ export function PixiEnemyCard({
           blockY += BTN_SIZE + 4;
         }
 
-        // Commit button
-        const hasPendingBlock =
-          blockState.pendingBlock &&
-          (blockState.pendingBlock.physical > 0 ||
-            blockState.pendingBlock.fire > 0 ||
-            blockState.pendingBlock.ice > 0 ||
-            blockState.pendingBlock.coldFire > 0);
-
+        // Commit button (hasPendingBlock already calculated above for bgHeight)
         if (hasPendingBlock) {
           const commitLabel = blockState.canBlock
             ? "\u2713 Block Enemy"
@@ -679,12 +702,16 @@ export function PixiEnemyCard({
         attackContainer.x = -CARD_WIDTH / 2;
 
         // Calculate background height
-        let bgHeight = 50;
+        // Base: padding + label(14) + progress(20) + padding = ~54
+        let bgHeight = 54;
+        if (attackState.canDefeat) {
+          bgHeight += 16; // "Can Defeat!" row
+        }
         if (attackState.resistances?.fire || attackState.resistances?.ice || attackState.resistances?.physical) {
-          bgHeight += 16;
+          bgHeight += 18; // Resistances row
         }
         if (hasControls) {
-          bgHeight += BTN_SIZE + 8;
+          bgHeight += BTN_SIZE + 10; // +/- buttons row
         }
 
         // Background
@@ -705,10 +732,7 @@ export function PixiEnemyCard({
 
         let attackY = CARD_PADDING;
 
-        // Header row
-        const headerRow = new Container();
-        headerRow.y = attackY;
-
+        // Label row (centered)
         const attackLabel = new Text({
           text: data.isRangedSiegePhase
             ? attackState.requiresSiege
@@ -723,33 +747,43 @@ export function PixiEnemyCard({
             letterSpacing: 0.5,
           },
         });
-        attackLabel.x = CARD_PADDING;
-        headerRow.addChild(attackLabel);
+        attackLabel.anchor.set(0.5, 0);
+        attackLabel.x = CARD_WIDTH / 2;
+        attackLabel.y = attackY;
+        attackContainer.addChild(attackLabel);
+        attackY += 14;
 
+        // Progress row (centered)
         const progressText = new Text({
           text: `${attackState.totalEffectiveDamage} / ${attackState.armor}`,
           style: {
             fontFamily: "Arial, sans-serif",
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: "700",
             fill: COLORS.TEXT_PRIMARY,
           },
         });
-        progressText.x = CARD_PADDING + 70;
-        headerRow.addChild(progressText);
+        progressText.anchor.set(0.5, 0);
+        progressText.x = CARD_WIDTH / 2;
+        progressText.y = attackY;
+        attackContainer.addChild(progressText);
+        attackY += 20;
 
+        // "Can Defeat!" indicator (own row, centered)
         if (attackState.canDefeat) {
           const canDefeatText = new Text({
             text: "\u2713 Can Defeat!",
             style: {
               fontFamily: "Arial, sans-serif",
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: "700",
               fill: COLORS.TEXT_SUCCESS,
             },
           });
-          canDefeatText.x = CARD_WIDTH - CARD_PADDING - 65;
-          headerRow.addChild(canDefeatText);
+          canDefeatText.anchor.set(0.5, 0);
+          canDefeatText.x = CARD_WIDTH / 2;
+          canDefeatText.y = attackY;
+          attackContainer.addChild(canDefeatText);
 
           // Pulse animation on "Can Defeat!" text
           const pulseCanDefeat = () => {
@@ -770,10 +804,8 @@ export function PixiEnemyCard({
             });
           };
           pulseCanDefeat();
+          attackY += 16;
         }
-
-        attackContainer.addChild(headerRow);
-        attackY += 20;
 
         // Resistance warnings
         const resistances = attackState.resistances;

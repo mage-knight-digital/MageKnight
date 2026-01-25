@@ -222,10 +222,10 @@ export function PixiAttackPool({
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
 
-    // Position near bottom, above the hand cards
+    // Position near bottom, well above the hand cards
     return {
       x: screenWidth / 2,
-      y: screenHeight - 220, // Above hand area
+      y: screenHeight - 320, // Higher up to avoid overlapping hand
     };
   }, []);
 
