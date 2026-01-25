@@ -340,38 +340,15 @@ export function PixiEnemyCard({
       });
       nameText.anchor.set(0.5, 0);
       nameText.x = 0;
-      nameContainer.addChild(nameText);
-
-      // Click hint (shows on hover)
-      const hintText = new Text({
-        text: "click for details",
-        style: {
-          fontFamily: "Arial, sans-serif",
-          fontSize: 8,
-          fill: COLORS.TEXT_GOLD,
-          letterSpacing: 0.5,
-        },
-      });
-      hintText.anchor.set(0.5, 0);
-      hintText.y = 16;
-      hintText.alpha = 0;
-      nameContainer.addChild(hintText);
-
-      // Make name clickable
       nameText.eventMode = "static";
       nameText.cursor = "pointer";
       nameText.on("pointertap", () => {
         onEnemyClickRef.current?.(enemy.instanceId);
       });
-      nameText.on("pointerenter", () => {
-        hintText.alpha = 1;
-      });
-      nameText.on("pointerleave", () => {
-        hintText.alpha = 0;
-      });
+      nameContainer.addChild(nameText);
 
       container.addChild(nameContainer);
-      yOffset += 28;
+      yOffset += 20;
 
       // ========================================
       // Status Badges
