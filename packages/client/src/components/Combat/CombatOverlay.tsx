@@ -27,7 +27,8 @@ import type {
   AssignBlockOption,
   UnassignBlockOption,
 } from "@mage-knight/shared";
-import { EnemyCard } from "./EnemyCard";
+import { PixiEnemyCard } from "./PixiEnemyCard";
+import { EnemyDetailPanel } from "./EnemyDetailPanel";
 import { PixiPhaseRail } from "./PixiPhaseRail";
 import { PixiEnemyTokens } from "./PixiEnemyTokens";
 import { PixiScreenEffects } from "./PixiScreenEffects";
@@ -47,11 +48,6 @@ import { useMyPlayer } from "../../hooks/useMyPlayer";
 import "./CombatOverlay.css";
 
 type EffectType = "damage" | "block" | "attack" | null;
-
-interface StrikingEnemy {
-  instanceId: string;
-  strikeKey: number;
-}
 
 interface CombatOverlayProps {
   combat: ClientCombatState;
@@ -321,14 +317,17 @@ function AccumulatorDisplay() {
 function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   const { phase, enemies } = combat;
   const { state, sendAction } = useGame();
-  const player = useMyPlayer();
   const canUndo = state?.validActions.turn?.canUndo ?? false;
 
   // Visual effect state - use a counter to force animation restart
   const [activeEffect, setActiveEffect] = useState<EffectType>(null);
   const [effectKey, setEffectKey] = useState(0);
-  const [strikingEnemy, setStrikingEnemy] = useState<StrikingEnemy | null>(null);
-  const [attackedEnemies, setAttackedEnemies] = useState<Set<string>>(new Set());
+
+  // Enemy detail panel state
+  const [detailPanelEnemy, setDetailPanelEnemy] = useState<string | null>(null);
+  const selectedEnemy = detailPanelEnemy
+    ? enemies.find((e) => e.instanceId === detailPanelEnemy)
+    : null;
 
   // Amount picker state for drag-drop overkill handling
   const [pendingDrop, setPendingDrop] = useState<{
@@ -360,17 +359,10 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
     const currentWounds = combat.woundsThisCombat;
 
     if (currentWounds > prevWounds) {
-      const attackingEnemyId = lastDamageEnemyRef.current;
-
       // One hit animation per enemy attack (not per wound)
-      // CSS animation: 0.45s total, SNAP hits at 42% = ~190ms
+      // Impact effect at ~190ms into the animation
       const impactTime = 190;
       const animationDuration = 450;
-
-      // Start enemy strike animation (wind-up + slam)
-      if (attackingEnemyId) {
-        setStrikingEnemy({ instanceId: attackingEnemyId, strikeKey: Date.now() });
-      }
 
       // Trigger screen effect at moment of impact
       setTimeout(() => {
@@ -378,23 +370,12 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
         setEffectKey(k => k + 1);
       }, impactTime);
 
-      // Clear strike animation after it completes, mark as "has attacked"
-      setTimeout(() => {
-        setStrikingEnemy(null);
-        if (attackingEnemyId) {
-          setAttackedEnemies(prev => new Set(prev).add(attackingEnemyId));
-        }
-      }, animationDuration + 30);
-
       // Clear screen effect
       setTimeout(() => setActiveEffect(null), animationDuration + 100);
     }
 
     prevWoundsRef.current = currentWounds;
   }, [combat.woundsThisCombat]);
-
-  // Get accumulated values for passing to enemy cards
-  const accumulatedBlock = player?.combatAccumulator.block ?? 0;
 
   const isBlockPhase = phase === COMBAT_PHASE_BLOCK;
   const isDamagePhase = phase === COMBAT_PHASE_ASSIGN_DAMAGE;
@@ -532,6 +513,52 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
     e => e.isDefeated || e.canDefeat
   ) ?? false;
 
+  // Calculate token positions for PixiEnemyCard (must match PixiEnemyTokens layout)
+  const enemyCardData = useMemo(() => {
+    // Match CSS clamp: clamp(100px, min(18vw, 28vh), 280px)
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const tokenSize = Math.min(Math.max(100, Math.min(vw * 0.18, vh * 0.28)), 280);
+    const tokenRadius = tokenSize / 2;
+
+    const gap = 32;
+    const totalWidth = enemies.length * tokenSize + (enemies.length - 1) * gap;
+    const startX = (vw - totalWidth) / 2;
+    const baseY = vh * 0.38;
+
+    return enemies.map((enemy, index) => {
+      const damageOption = combatOptions?.damageAssignments?.find(d => d.enemyInstanceId === enemy.instanceId);
+      const enemyAttackState = combatOptions?.enemies?.find(e => e.enemyInstanceId === enemy.instanceId);
+      const assignableAttacks = combatOptions?.assignableAttacks?.filter(a => a.enemyInstanceId === enemy.instanceId) ?? [];
+      const unassignableAttacks = combatOptions?.unassignableAttacks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
+      const enemyBlockState = combatOptions?.enemyBlockStates?.find(e => e.enemyInstanceId === enemy.instanceId);
+      const assignableBlocks = combatOptions?.assignableBlocks?.filter(b => b.enemyInstanceId === enemy.instanceId) ?? [];
+      const unassignableBlocks = combatOptions?.unassignableBlocks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
+
+      return {
+        enemy,
+        position: {
+          x: startX + index * (tokenSize + gap) + tokenRadius,
+          y: baseY,
+        },
+        tokenRadius,
+        isBlockPhase,
+        enemyBlockState,
+        assignableBlocks,
+        unassignableBlocks,
+        isDamagePhase,
+        damageOption,
+        isAttackPhase: isAttackPhase || isRangedSiegePhase,
+        isRangedSiegePhase,
+        enemyAttackState,
+        assignableAttacks,
+        unassignableAttacks,
+        canDefeat: enemyAttackState?.canDefeat ?? false,
+        useDragDrop,
+      };
+    });
+  }, [enemies, combatOptions, isBlockPhase, isDamagePhase, isAttackPhase, isRangedSiegePhase, useDragDrop]);
+
   return (
     <CombatDragProvider onAssign={handleDragAssign}>
     <div className="combat-scene" data-testid="combat-overlay">
@@ -552,6 +579,21 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
           enemy,
           canDefeat: combatOptions?.enemies?.find(e => e.enemyInstanceId === enemy.instanceId)?.canDefeat ?? false,
         }))}
+      />
+
+      {/* PixiJS Enemy Cards - renders allocation UI below tokens */}
+      <PixiEnemyCard
+        enemies={enemyCardData}
+        onEnemyClick={setDetailPanelEnemy}
+        onAssignBlockIncremental={handleAssignBlock}
+        onUnassignBlock={handleUnassignBlock}
+        onCommitBlock={handleCommitBlock}
+        onAssignDamage={handleAssignDamage}
+        onAssignAttack={(option) => {
+          triggerEffect("attack");
+          handleAssignAttack(option);
+        }}
+        onUnassignAttack={handleUnassignAttack}
       />
 
       {/* PixiJS Attack/Block pools and power line - render to canvas */}
@@ -592,62 +634,8 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
             <CombatManaDisplay />
           </div>
 
-          {/* Enemies */}
-          <div className="combat-scene__enemies">
-            {enemies.map((enemy) => {
-              // Note: combatOptions may be undefined during choice resolution
-              const blockOption = combatOptions?.blocks?.find(b => b.enemyInstanceId === enemy.instanceId);
-              const damageOption = combatOptions?.damageAssignments?.find(d => d.enemyInstanceId === enemy.instanceId);
-
-              // Phase 5: Use incremental attack allocation from server
-              const enemyAttackState = combatOptions?.enemies?.find(e => e.enemyInstanceId === enemy.instanceId);
-              const assignableAttacks = combatOptions?.assignableAttacks?.filter(a => a.enemyInstanceId === enemy.instanceId) ?? [];
-              const unassignableAttacks = combatOptions?.unassignableAttacks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
-
-              // Phase 6: Use incremental block allocation from server
-              const enemyBlockState = combatOptions?.enemyBlockStates?.find(e => e.enemyInstanceId === enemy.instanceId);
-              const assignableBlocks = combatOptions?.assignableBlocks?.filter(b => b.enemyInstanceId === enemy.instanceId) ?? [];
-              const unassignableBlocks = combatOptions?.unassignableBlocks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
-
-              const isStriking = strikingEnemy?.instanceId === enemy.instanceId;
-              const strikeKey = isStriking ? strikingEnemy.strikeKey : undefined;
-              const hasAttacked = attackedEnemies.has(enemy.instanceId);
-
-              return (
-                <EnemyCard
-                  key={enemy.instanceId}
-                  enemy={enemy}
-                  isBlockPhase={isBlockPhase}
-                  blockOption={blockOption}
-                  accumulatedBlock={accumulatedBlock}
-                  enemyBlockState={enemyBlockState}
-                  assignableBlocks={assignableBlocks}
-                  unassignableBlocks={unassignableBlocks}
-                  onAssignBlockIncremental={handleAssignBlock}
-                  onUnassignBlock={handleUnassignBlock}
-                  onCommitBlock={handleCommitBlock}
-                  isDamagePhase={isDamagePhase}
-                  damageOption={damageOption}
-                  onAssignDamage={handleAssignDamage}
-                  isAttackPhase={isAttackPhase || isRangedSiegePhase}
-                  enemyAttackState={enemyAttackState}
-                  assignableAttacks={assignableAttacks}
-                  unassignableAttacks={unassignableAttacks}
-                  onAssignAttack={(option) => {
-                    triggerEffect("attack");
-                    handleAssignAttack(option);
-                  }}
-                  onUnassignAttack={handleUnassignAttack}
-                  isRangedSiegePhase={isRangedSiegePhase}
-                  isStriking={isStriking}
-                  strikeKey={strikeKey}
-                  hasAttacked={hasAttacked}
-                  isAtFortifiedSite={combat.isAtFortifiedSite}
-                  useDragDrop={useDragDrop}
-                />
-              );
-            })}
-          </div>
+          {/* Enemies - layout placeholder for positioning, actual tokens rendered by PixiEnemyTokens */}
+          <div className="combat-scene__enemies" />
 
           {/* Legacy accumulated power display (mobile fallback or when pool data unavailable) */}
           {(!useDragDrop || (!combatOptions?.availableAttack && !combatOptions?.availableBlock)) && (
@@ -668,6 +656,14 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
           mode={pendingDrop.chip.poolType === "block" ? "block" : "attack"}
           onConfirm={handleAmountConfirm}
           onCancel={handleAmountCancel}
+        />
+      )}
+
+      {/* Enemy Detail Panel - full rulebook details (stays HTML for complex layout) */}
+      {selectedEnemy && (
+        <EnemyDetailPanel
+          enemy={selectedEnemy}
+          onClose={() => setDetailPanelEnemy(null)}
         />
       )}
     </div>

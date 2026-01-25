@@ -7,6 +7,7 @@ import type { Container } from "pixi.js";
  * ─────────────────────────────────────────────────────
  * -100  COMBAT_BACKGROUND    Combat gradient overlay
  *    5  ENEMY_TOKENS         Enemy token circles
+ *    6  ENEMY_CARDS          Interactive UI below enemy tokens
  *   10  PHASE_RAIL           Combat phase indicator
  *   50  SCREEN_EFFECTS       Flash/shake effects
  *   60  TACTIC_CAROUSEL      Tactic card display
@@ -31,6 +32,7 @@ export const PIXI_Z_INDEX = {
 
   // Combat UI (10-99)
   ENEMY_TOKENS: 5,
+  ENEMY_CARDS: 6,
   PHASE_RAIL: 10,
   SCREEN_EFFECTS: 50,
   TACTIC_CAROUSEL: 60,
