@@ -1,5 +1,8 @@
 /* Enemy Token - circular token with artwork */
 .enemy-token {
+  position: relative;
+  /* Above the PixiJS canvas (z-index 150) so buttons are clickable */
+  z-index: 200;
   display: flex;
   flex-direction: column;
   align-items: center;
