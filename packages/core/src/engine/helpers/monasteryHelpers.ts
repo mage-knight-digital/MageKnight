@@ -31,6 +31,16 @@ export function countMonasteries(hexes: readonly HexState[]): number {
   return hexes.filter((hex) => hex.site?.type === SiteType.Monastery).length;
 }
 
+/**
+ * Count the number of unburned monasteries in the given hexes.
+ * Used for refreshing the monastery AA offer at round end.
+ */
+export function countUnburnedMonasteries(hexes: readonly HexState[]): number {
+  return hexes.filter(
+    (hex) => hex.site?.type === SiteType.Monastery && !hex.site.isBurned
+  ).length;
+}
+
 // =============================================================================
 // MONASTERY AA DRAWING
 // =============================================================================

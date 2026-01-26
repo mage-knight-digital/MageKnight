@@ -45,6 +45,7 @@ export type { RewardResult } from "./rewards/index.js";
 export {
   hasMonasterySite,
   countMonasteries,
+  countUnburnedMonasteries,
   drawMonasteryAdvancedAction,
 } from "./monasteryHelpers.js";
 export type { MonasteryAADrawResult } from "./monasteryHelpers.js";
