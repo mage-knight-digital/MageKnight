@@ -337,6 +337,7 @@ export function createUnitCombatState(
         isBlocked: false,
         isDefeated: false,
         damageAssigned: false,
+        isRequiredForConquest: true,
       },
     ],
     phase,
@@ -346,5 +347,11 @@ export function createUnitCombatState(
     isAtFortifiedSite,
     unitsAllowed: true,
     nightManaRules: false,
+    assaultOrigin: null,
+    combatHexCoord: null,
+    allDamageBlockedThisPhase: false,
+    discardEnemiesOnFailure: false,
+    pendingDamage: {},
+    pendingBlock: {},
   };
 }

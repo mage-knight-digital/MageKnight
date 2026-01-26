@@ -78,6 +78,7 @@ export interface CombatState {
   readonly unitsAllowed: boolean; // false for dungeon/tomb combat
   readonly nightManaRules: boolean; // true for dungeon/tomb (no gold, yes black)
   readonly assaultOrigin: HexCoord | null; // Where player was before assault (null if not assault)
+  readonly combatHexCoord: HexCoord | null; // Hex where combat is occurring (for remote combat like rampaging challenge)
   readonly allDamageBlockedThisPhase: boolean; // True if all enemy damage was blocked in block phase
   readonly discardEnemiesOnFailure: boolean; // true for dungeon/tomb (enemies discarded even on failed combat)
   readonly pendingDamage: PendingDamageMap; // Damage assigned to enemies before resolution
@@ -89,6 +90,7 @@ export interface CombatStateOptions {
   readonly unitsAllowed?: boolean;
   readonly nightManaRules?: boolean;
   readonly assaultOrigin?: HexCoord | null;
+  readonly combatHexCoord?: HexCoord | null;
   readonly discardEnemiesOnFailure?: boolean;
 }
 
@@ -133,6 +135,7 @@ export function createCombatState(
     unitsAllowed: options?.unitsAllowed ?? true,
     nightManaRules: options?.nightManaRules ?? false,
     assaultOrigin: options?.assaultOrigin ?? null,
+    combatHexCoord: options?.combatHexCoord ?? null,
     allDamageBlockedThisPhase: false,
     discardEnemiesOnFailure: options?.discardEnemiesOnFailure ?? false,
     pendingDamage: {},

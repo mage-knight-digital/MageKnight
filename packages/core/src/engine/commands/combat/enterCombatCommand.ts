@@ -4,7 +4,7 @@
 
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
-import type { EnemyId } from "@mage-knight/shared";
+import type { EnemyId, HexCoord } from "@mage-knight/shared";
 import { COMBAT_EXIT_REASON_UNDO, COMBAT_STARTED, createCombatExitedEvent } from "@mage-knight/shared";
 import { createCombatState } from "../../../types/combat.js";
 
@@ -14,6 +14,7 @@ export interface EnterCombatCommandParams {
   readonly playerId: string;
   readonly enemyIds: readonly EnemyId[];
   readonly isAtFortifiedSite?: boolean; // Optional: site provides fortification
+  readonly combatHexCoord?: HexCoord; // Optional: hex where combat occurs (for remote combat like rampaging challenge)
 }
 
 export function createEnterCombatCommand(
@@ -33,7 +34,8 @@ export function createEnterCombatCommand(
     execute(state: GameState): CommandResult {
       const combat = createCombatState(
         params.enemyIds,
-        params.isAtFortifiedSite ?? false
+        params.isAtFortifiedSite ?? false,
+        { combatHexCoord: params.combatHexCoord ?? null }
       );
 
       // Find the player and clear their healing points

@@ -102,10 +102,12 @@ export function createChallengeRampagingCommand(
       updatedPlayers[playerIndex] = updatedPlayer;
 
       // Use the enter combat command to generate the COMBAT_STARTED event
+      // Pass the target hex as combatHexCoord so enemies are cleared from the correct location
       const innerCommand = createEnterCombatCommand({
         playerId: params.playerId,
         enemyIds,
         isAtFortifiedSite: false,
+        combatHexCoord: params.targetHex,
       });
       const innerResult = innerCommand.execute({
         ...state,
