@@ -274,8 +274,8 @@ function getInteractOptions(
 ): InteractOptions {
   const healCost = HEALING_COSTS[site.type];
 
-  // Check if can recruit (needs units in offer)
-  const canRecruit = state.offers.units.length > 0;
+  // Check if can recruit (needs units in offer, site not burned)
+  const canRecruit = state.offers.units.length > 0 && !site.isBurned;
 
   // Check if can buy spells (conquered Mage Tower)
   const canBuySpells =
