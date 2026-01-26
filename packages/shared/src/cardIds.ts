@@ -117,6 +117,9 @@ export const CARD_POWER_OF_CRYSTALS = cardId("power_of_crystals");
 export const CARD_RUSH_OF_ADRENALINE = cardId("rush_of_adrenaline"); // green+red
 export const CARD_CHILLING_STARE = cardId("chilling_stare"); // blue+white
 
+// === Artifact Card IDs ===
+export const CARD_ENDLESS_BAG_OF_GOLD = cardId("endless_bag_of_gold");
+
 // === Spell Card IDs ===
 // Red spells
 export const CARD_FIREBALL = cardId("fireball"); // #09 - Fire Ranged Attack 5 / Siege Fire Attack 8
@@ -236,3 +239,5 @@ export type SpellCardId =
   | typeof CARD_WHIRLWIND
   // White spells
   | typeof CARD_EXPOSE;
+
+export type ArtifactCardId = typeof CARD_ENDLESS_BAG_OF_GOLD;

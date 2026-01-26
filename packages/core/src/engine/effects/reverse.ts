@@ -40,6 +40,7 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_CHANGE_REPUTATION,
+  EFFECT_GAIN_FAME,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CRYSTALLIZE_COLOR,
   EFFECT_DRAW_CARDS,
@@ -49,6 +50,7 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
+import { getLevelsCrossed } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION } from "./atomicEffects.js";
 
 // ============================================================================
@@ -124,6 +126,17 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
           MIN_REPUTATION,
           Math.min(MAX_REPUTATION, player.reputation - effect.amount)
         ),
+      };
+
+    case EFFECT_GAIN_FAME:
+      // Reverse fame gain and remove any pending level ups that would have resulted
+      // Note: This is a simplified reversal - we subtract fame and recalculate pending level ups
+      // based on the new (lower) fame value. This works correctly because level thresholds are fixed.
+      return {
+        ...player,
+        fame: Math.max(0, player.fame - effect.amount),
+        // Remove the most recently added pending level ups (equal to the number we would have gained)
+        pendingLevelUps: player.pendingLevelUps.slice(0, -getLevelsCrossed(player.fame - effect.amount, player.fame).length),
       };
 
     case EFFECT_GAIN_CRYSTAL:

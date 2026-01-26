@@ -13,6 +13,7 @@ import type {
   GainAttackEffect,
   GainBlockEffect,
   GainHealingEffect,
+  GainFameEffect,
   CompoundEffect,
   ChoiceEffect,
   ScalingEffect,
@@ -41,6 +42,7 @@ import {
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
   EFFECT_GAIN_HEALING,
+  EFFECT_GAIN_FAME,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   EFFECT_SCALING,
@@ -80,6 +82,10 @@ export function block(amount: number): GainBlockEffect {
 
 export function heal(amount: number): GainHealingEffect {
   return { type: EFFECT_GAIN_HEALING, amount };
+}
+
+export function fame(amount: number): GainFameEffect {
+  return { type: EFFECT_GAIN_FAME, amount };
 }
 
 export function compound(effects: CardEffect[]): CompoundEffect {

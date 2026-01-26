@@ -196,12 +196,13 @@ export function createEndRoundCommand(): Command {
         const readiedUnits = readyAllUnits(player.units);
 
         // Shuffle all cards (hand + discard + play area + deck) into deck
+        // Filter out removed cards (destroyed artifacts, etc.)
         const allCards: CardId[] = [
           ...player.hand,
           ...player.discard,
           ...player.playArea,
           ...player.deck,
-        ];
+        ].filter(cardId => !player.removedCards.includes(cardId));
 
         const { result: shuffled, rng: rngAfterShuffle } = shuffleWithRng(
           allCards,

@@ -272,6 +272,61 @@ export function createCardGainedEvent(
 }
 
 // ============================================================================
+// CARD_DESTROYED
+// ============================================================================
+
+/**
+ * Event type constant for card destruction.
+ * @see CardDestroyedEvent
+ */
+export const CARD_DESTROYED = "CARD_DESTROYED" as const;
+
+/**
+ * Emitted when a card is permanently removed from the game.
+ *
+ * Cards are destroyed when their powered effect specifies destruction
+ * (e.g., artifacts with destroyOnPowered: true).
+ *
+ * @remarks
+ * - Card is added to player's removedCards array
+ * - Destroyed cards never return to the deed deck
+ * - Different from discard - this is permanent removal
+ *
+ * @example
+ * ```typescript
+ * if (event.type === CARD_DESTROYED) {
+ *   showDestroyedAnimation(event.cardId);
+ *   updateDeckCount(event.playerId);
+ * }
+ * ```
+ */
+export interface CardDestroyedEvent {
+  readonly type: typeof CARD_DESTROYED;
+  /** ID of the player whose card was destroyed */
+  readonly playerId: string;
+  /** ID of the destroyed card */
+  readonly cardId: CardId;
+}
+
+/**
+ * Creates a CardDestroyedEvent.
+ *
+ * @param playerId - ID of the player
+ * @param cardId - ID of the destroyed card
+ * @returns A new CardDestroyedEvent
+ */
+export function createCardDestroyedEvent(
+  playerId: string,
+  cardId: CardId
+): CardDestroyedEvent {
+  return {
+    type: CARD_DESTROYED,
+    playerId,
+    cardId,
+  };
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 
@@ -312,10 +367,19 @@ export function isCardGainedEvent(event: {
 }
 
 /**
+ * Type guard for CardDestroyedEvent.
+ */
+export function isCardDestroyedEvent(event: {
+  type: string;
+}): event is CardDestroyedEvent {
+  return event.type === CARD_DESTROYED;
+}
+
+/**
  * Check if an event is any card-related event.
  */
 export function isCardEvent(event: { type: string }): boolean {
-  return [CARD_PLAYED, CARD_DRAWN, CARD_DISCARDED, CARD_GAINED].includes(
+  return [CARD_PLAYED, CARD_DRAWN, CARD_DISCARDED, CARD_GAINED, CARD_DESTROYED].includes(
     event.type as typeof CARD_PLAYED
   );
 }

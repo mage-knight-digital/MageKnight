@@ -11,11 +11,12 @@ import {
   SiteReward,
   SITE_REWARD_FAME,
   SITE_REWARD_CRYSTAL_ROLL,
+  SITE_REWARD_ARTIFACT,
   SITE_REWARD_COMPOUND,
   GameEvent,
   REWARD_QUEUED,
 } from "@mage-knight/shared";
-import { grantFameReward, grantCrystalRollReward } from "./handlers.js";
+import { grantFameReward, grantCrystalRollReward, grantArtifactReward } from "./handlers.js";
 
 /**
  * Queue a site reward for the player to select at end of turn.
@@ -36,6 +37,11 @@ export function queueSiteReward(
 
   if (reward.type === SITE_REWARD_CRYSTAL_ROLL) {
     return grantCrystalRollReward(state, playerId, reward.count);
+  }
+
+  // Artifacts are auto-drawn from deck (no selection for now)
+  if (reward.type === SITE_REWARD_ARTIFACT) {
+    return grantArtifactReward(state, playerId, reward.count);
   }
 
   // Compound rewards: queue each sub-reward
