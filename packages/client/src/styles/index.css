@@ -398,15 +398,6 @@ body {
   padding: 1rem;
 }
 
-.panel__title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.75rem;
-}
-
 /* ============================================
    Overlay (modal-like backdrop)
    ============================================ */
@@ -430,12 +421,6 @@ body {
 }
 
 /* Tactic selection overrides the default modal styling */
-.overlay__content.tactic-selection {
-  background: transparent;
-  border-radius: 0;
-  padding: 1.5rem;
-  overflow: visible;
-}
 
 /* ============================================
    Tactic Selection
@@ -497,259 +482,50 @@ body {
   }
 }
 
-
-.tactic-selection {
-  width: min(95vw, 1200px);
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  /* More transparent, less "modal box" feeling */
-  background: radial-gradient(
-    ellipse at 50% 30%,
-    rgba(22, 33, 62, 0.95) 0%,
-    rgba(15, 15, 35, 0.98) 60%,
-    rgba(10, 10, 25, 0.99) 100%
-  );
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  position: relative;
-  overflow: visible;
-}
-
 /* Atmospheric gradient overlay - day */
-.tactic-selection--day::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at 50% 0%,
-    rgba(255, 193, 7, 0.08) 0%,
-    rgba(255, 152, 0, 0.04) 40%,
-    transparent 70%
-  );
-  pointer-events: none;
-}
 
 /* Atmospheric gradient overlay - night */
-.tactic-selection--night::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at 50% 0%,
-    rgba(100, 149, 237, 0.1) 0%,
-    rgba(75, 0, 130, 0.05) 40%,
-    transparent 70%
-  );
-  pointer-events: none;
-}
-
-.tactic-selection__title {
-  font-size: clamp(1.5rem, 2.5vh, 2.5rem);
-  font-weight: 600;
-  text-align: center;
-  margin-bottom: 0.5vh;
-  position: relative;
-  z-index: 1;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-}
 
 /* Day title accent */
-.tactic-selection--day .tactic-selection__title {
-  color: #fff;
-  text-shadow:
-    0 2px 10px rgba(0, 0, 0, 0.5),
-    0 0 30px rgba(255, 193, 7, 0.3);
-}
 
 /* Night title accent */
-.tactic-selection--night .tactic-selection__title {
-  color: #e0e7ff;
-  text-shadow:
-    0 2px 10px rgba(0, 0, 0, 0.5),
-    0 0 30px rgba(100, 149, 237, 0.3);
-}
-
-.tactic-selection__subtitle {
-  text-align: center;
-  color: #888;
-  margin-bottom: 1.5vh;
-  font-size: clamp(0.85rem, 1.25vh, 1rem);
-  position: relative;
-  z-index: 1;
-}
-
-.tactic-selection__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: clamp(1.5rem, 3vh, 3rem);
-  flex: 1;
-  min-height: 0;
-  padding: 1rem 2rem 2rem;
-  perspective: 1200px;
-}
 
 /* The button is just a transparent hit area - all visuals on the image */
-.tactic-card {
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  position: relative;
-
-  /* Staggered deal animation */
-  opacity: 0;
-  animation: tactic-deal 0.5s ease-out forwards;
-}
 
 /* Staggered delays for each card position */
-.tactic-card:nth-child(1) { animation-delay: 0.0s; }
-.tactic-card:nth-child(2) { animation-delay: 0.08s; }
-.tactic-card:nth-child(3) { animation-delay: 0.16s; }
-.tactic-card:nth-child(4) { animation-delay: 0.24s; }
-.tactic-card:nth-child(5) { animation-delay: 0.32s; }
-.tactic-card:nth-child(6) { animation-delay: 0.40s; }
 
 /* The card image IS the card - all visual effects here */
-.tactic-card__image {
-  width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  display: block;
-
-  /* Match parchment color so clipped corners blend seamlessly */
-  background-color: #d4c9a8;
-
-  /* Clip past the dark border baked into the image files */
-  border-radius: 4%;
-
-  /* Physical card depth */
-  box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.3),
-    0 8px 24px rgba(0, 0, 0, 0.2);
-
-  /* Smooth transitions for all hover effects */
-  transition:
-    transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    box-shadow 0.3s ease,
-    filter 0.3s ease;
-}
 
 /* Hover: card lifts and glows */
-.tactic-card:hover .tactic-card__image {
-  transform: translateY(-16px) scale(1.08);
-  box-shadow:
-    0 0 20px rgba(79, 195, 247, 0.4),
-    0 0 40px rgba(79, 195, 247, 0.2),
-    0 20px 40px rgba(0, 0, 0, 0.4);
-  filter: brightness(1.1);
-}
 
 /* Day hover - warm golden glow */
-.tactic-selection--day .tactic-card:hover .tactic-card__image {
-  box-shadow:
-    0 0 20px rgba(255, 193, 7, 0.5),
-    0 0 40px rgba(255, 152, 0, 0.25),
-    0 20px 40px rgba(0, 0, 0, 0.4);
-  filter: brightness(1.1) saturate(1.1);
-}
 
 /* Night hover - cool blue glow */
-.tactic-selection--night .tactic-card:hover .tactic-card__image {
-  box-shadow:
-    0 0 20px rgba(100, 149, 237, 0.5),
-    0 0 40px rgba(75, 0, 130, 0.3),
-    0 20px 40px rgba(0, 0, 0, 0.4);
-  filter: brightness(1.15);
-}
 
 /* Active/click - card presses down slightly */
-.tactic-card:active .tactic-card__image {
-  transform: translateY(-8px) scale(1.04);
-  transition-duration: 0.1s;
-}
 
 /* Bring hovered card above siblings */
-.tactic-card:hover {
-  z-index: 10;
-}
 
 /* ============================================
    Selection Animation States
    ============================================ */
 
 /* Selected card - dramatic move to center and glow */
-.tactic-card--selected {
-  z-index: 20;
-  pointer-events: none;
-  /* Animate the card container to center */
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
 
 /* Position-based transforms to move selected card to center
    Using larger offsets to account for gaps and ensure true centering */
-.tactic-card--selected.tactic-card--pos-0 { transform: translate(calc(100% + 3rem), 55%); }
-.tactic-card--selected.tactic-card--pos-1 { transform: translate(0, 55%); }
-.tactic-card--selected.tactic-card--pos-2 { transform: translate(calc(-100% - 3rem), 55%); }
-.tactic-card--selected.tactic-card--pos-3 { transform: translate(calc(100% + 3rem), -55%); }
-.tactic-card--selected.tactic-card--pos-4 { transform: translate(0, -55%); }
-.tactic-card--selected.tactic-card--pos-5 { transform: translate(calc(-100% - 3rem), -55%); }
 
 /* The image scales up for emphasis */
-.tactic-card--selected .tactic-card__image {
-  transform: scale(1.2);
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.3s ease,
-              filter 0.3s ease;
-}
 
 /* Day theme - golden glow on selected */
-.tactic-selection--day .tactic-card--selected .tactic-card__image {
-  box-shadow:
-    0 0 40px rgba(255, 193, 7, 0.8),
-    0 0 80px rgba(255, 152, 0, 0.5),
-    0 0 120px rgba(255, 193, 7, 0.3),
-    0 30px 60px rgba(0, 0, 0, 0.5);
-  filter: brightness(1.2) saturate(1.2);
-}
 
 /* Night theme - blue glow on selected */
-.tactic-selection--night .tactic-card--selected .tactic-card__image {
-  box-shadow:
-    0 0 40px rgba(100, 149, 237, 0.8),
-    0 0 80px rgba(75, 0, 130, 0.5),
-    0 0 120px rgba(100, 149, 237, 0.3),
-    0 30px 60px rgba(0, 0, 0, 0.5);
-  filter: brightness(1.25);
-}
 
 /* Dismissed cards - fade and shrink away */
-.tactic-card--dismissed {
-  pointer-events: none;
-}
-
-.tactic-card--dismissed .tactic-card__image {
-  animation: tactic-dismissed 0.4s ease-in forwards;
-}
 
 /* Title fades out during exit */
-.tactic-selection--exiting .tactic-selection__title,
-.tactic-selection--exiting .tactic-selection__subtitle {
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
 
 /* Overlay fades out smoothly */
-.overlay--exiting {
-  animation: overlay-fade-out 0.4s ease-in forwards;
-  animation-delay: 0.2s;
-}
 
 /* ============================================
    Choice Selection
@@ -782,10 +558,6 @@ body {
 .choice-selection__option:hover {
   border-color: #4fc3f7;
   background: #1a1a3e;
-}
-
-.choice-selection__option-description {
-  font-size: 1.125rem;
 }
 
 /* ============================================
@@ -859,16 +631,6 @@ body {
   border-radius: 8px;
 }
 
-.hex-polygon {
-  transition: all 0.1s;
-}
-
-.hex-polygon:hover {
-  filter: brightness(1.2);
-  stroke: #4fc3f7;
-  stroke-width: 2;
-}
-
 .hero-token {
   filter: drop-shadow(0 0 4px #FF4444);
 }
@@ -886,596 +648,31 @@ body {
   z-index: 200;
 }
 
-.combat-overlay__content {
-  background: #16213e;
-  border-radius: 12px;
-  padding: 1.5rem;
-  max-width: 1200px;
-  width: 95vw;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
 /* Two-column body layout */
-.combat-overlay__body {
-  display: flex;
-  gap: 1.5rem;
-  flex: 1;
-  min-height: 0;
-}
-
-.combat-overlay__left {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  min-width: 0;
-  overflow-y: auto;
-}
-
-.combat-overlay__right {
-  flex: 1;
-  min-width: 280px;
-  max-width: 350px;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.combat-overlay__right .combat-events {
-  margin-top: 0;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.combat-overlay__right .combat-events__list {
-  flex: 1;
-  max-height: none;
-  overflow-y: auto;
-}
-
-.combat-overlay__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  border-bottom: 1px solid #333;
-  padding-bottom: 1rem;
-}
-
-.combat-overlay__title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #e74c3c;
-  margin: 0;
-}
-
-.combat-overlay__fortified {
-  font-size: 1rem;
-  color: #f39c12;
-}
-
-.combat-overlay__header-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.combat-overlay__undo-btn {
-  padding: 0.4rem 0.8rem;
-  background: #444;
-  border: 1px solid #666;
-  border-radius: 4px;
-  color: #fff;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.combat-overlay__undo-btn:hover {
-  background: #555;
-}
-
-.combat-overlay__main {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.combat-overlay__footer {
-  border-top: 1px solid #333;
-  padding-top: 1rem;
-}
-
-.combat-overlay__hand {
-  border-top: 1px solid #333;
-  padding-top: 1rem;
-  margin-top: 1rem;
-}
-
-.combat-overlay__hand .player-hand {
-  background: transparent;
-  padding: 0;
-}
-
-.combat-overlay__hand .player-hand__header {
-  margin-bottom: 0.75rem;
-}
-
-.combat-overlay__hand .player-hand__cards {
-  justify-content: center;
-}
 
 /* ============================================
    Combat Events Log
    ============================================ */
-.combat-events {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 6px;
-  border-top: 1px solid #333;
-}
-
-.combat-events__title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem 0;
-  color: #aaa;
-}
-
-.combat-events__list {
-  max-height: 200px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  font-family: monospace;
-  font-size: 0.75rem;
-}
-
-.combat-events__empty {
-  color: #666;
-  font-style: italic;
-}
-
-.combat-events__item {
-  padding: 0.375rem 0.5rem;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  border-left: 3px solid #444;
-}
-
-.combat-events__type {
-  color: #8f8;
-  font-weight: bold;
-  display: block;
-  margin-bottom: 0.25rem;
-}
-
-.combat-events__details {
-  color: #bbb;
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-  font-size: 0.6875rem;
-  line-height: 1.4;
-}
 
 /* ============================================
    Combat Phase Indicator
    ============================================ */
-.combat-phase-indicator {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.combat-phase-indicator__label {
-  font-size: 0.75rem;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.combat-phase-indicator__steps {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.combat-phase-indicator__step {
-  padding: 0.375rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  background: #0f0f23;
-  color: #666;
-  border: 1px solid #333;
-}
-
-.combat-phase-indicator__step--active {
-  background: #e74c3c;
-  color: white;
-  border-color: #e74c3c;
-  font-weight: 600;
-}
 
 /* ============================================
    Enemy List
    ============================================ */
-.enemy-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.enemy-list__title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.enemy-list__grid {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
 
 /* ============================================
    Enemy Card
    ============================================ */
-.enemy-card {
-  background: #0f0f23;
-  border: 2px solid #444;
-  border-radius: 8px;
-  padding: 1rem;
-  min-width: 160px;
-  max-width: 200px;
-  transition: all 0.15s;
-}
-
-.enemy-card--defeated {
-  opacity: 0.5;
-  border-color: #333;
-}
-
-.enemy-card--blocked {
-  border-color: #27ae60;
-}
-
-.enemy-card--targetable {
-  cursor: pointer;
-  border-color: #f39c12;
-}
-
-.enemy-card--targetable:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
-}
-
-.enemy-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.enemy-card__name {
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: #eee;
-}
-
-.enemy-card__status {
-  font-size: 0.625rem;
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-  background: #666;
-  color: white;
-  text-transform: uppercase;
-}
-
-.enemy-card__status--blocked {
-  background: #27ae60;
-}
-
-.enemy-card__stats {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.enemy-card__stat {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.enemy-card__stat-icon {
-  font-size: 0.625rem;
-  color: #888;
-  font-weight: 600;
-}
-
-.enemy-card__stat-value {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #eee;
-}
-
-.enemy-card__element {
-  font-size: 0.625rem;
-  margin-left: 0.125rem;
-  padding: 0.0625rem 0.25rem;
-  border-radius: 2px;
-  background: #444;
-  color: #ddd;
-}
-
-.enemy-card__abilities {
-  display: flex;
-  gap: 0.375rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.5rem;
-}
-
-.enemy-card__ability {
-  font-size: 0.625rem;
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-  background: #333;
-  color: #aaa;
-}
-
-.enemy-card__ability--swift {
-  background: #2980b9;
-  color: white;
-}
-
-.enemy-card__ability--brutal {
-  background: #8e44ad;
-  color: white;
-}
-
-.enemy-card__ability--poison {
-  background: #27ae60;
-  color: white;
-}
-
-.enemy-card__ability--paralyze {
-  background: #2c3e50;
-  color: white;
-}
-
-.enemy-card__ability--fortified {
-  background: #7f8c8d;
-  color: white;
-}
-
-.enemy-card__ability--summon {
-  background: #d35400;
-  color: white;
-}
-
-.enemy-card__resistances {
-  display: flex;
-  gap: 0.375rem;
-  flex-wrap: wrap;
-}
-
-.enemy-card__resistance {
-  font-size: 0.625rem;
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-  background: #555;
-  color: #ddd;
-}
-
-.enemy-card__resistance--fire {
-  background: #e74c3c;
-  color: white;
-}
-
-.enemy-card__resistance--ice {
-  background: #3498db;
-  color: white;
-}
-
-.enemy-card__assign-block {
-  margin-top: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  font-size: 0.75rem;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  width: 100%;
-  transition: all 0.2s ease;
-}
-
-.enemy-card__assign-block--can-block {
-  background: #27ae60;
-  color: white;
-}
-
-.enemy-card__assign-block--can-block:hover {
-  background: #2ecc71;
-  transform: translateY(-1px);
-}
-
-.enemy-card__assign-block--insufficient {
-  background: #7f8c8d;
-  color: #bdc3c7;
-  cursor: not-allowed;
-}
-
-.enemy-card__assign-block:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.enemy-card__assign-damage {
-  margin-top: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  font-size: 0.75rem;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  width: 100%;
-  transition: all 0.2s ease;
-  background: #c0392b;
-  color: white;
-}
-
-.enemy-card__assign-damage:hover {
-  background: #e74c3c;
-  transform: translateY(-1px);
-}
-
-.enemy-card__assign-attack {
-  margin-top: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  font-size: 0.75rem;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  width: 100%;
-  transition: all 0.2s ease;
-}
-
-.enemy-card__assign-attack--can-defeat {
-  background: #e67e22;
-  color: white;
-}
-
-.enemy-card__assign-attack--can-defeat:hover {
-  background: #f39c12;
-  transform: translateY(-1px);
-}
-
-.enemy-card__assign-attack--insufficient {
-  background: #7f8c8d;
-  color: #bdc3c7;
-  cursor: not-allowed;
-}
-
-.enemy-card__assign-attack:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 /* ============================================
    Combat Summary
    ============================================ */
-.combat-summary {
-  background: #0f0f23;
-  border-radius: 8px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.combat-summary__block,
-.combat-summary__damage,
-.combat-summary__attack,
-.combat-summary__totals {
-  display: flex;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.combat-summary__totals {
-  padding-top: 1rem;
-  border-top: 1px solid #333;
-}
-
-.combat-summary__stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.combat-summary__label {
-  font-size: 0.75rem;
-  color: #888;
-  text-transform: uppercase;
-}
-
-.combat-summary__value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #eee;
-}
-
-.combat-summary__value--danger {
-  color: #e74c3c;
-}
-
-.combat-summary__value--success {
-  color: #27ae60;
-}
-
-.combat-summary__value--fame {
-  color: #f39c12;
-}
 
 /* ============================================
    Combat Actions
    ============================================ */
-.combat-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  align-items: flex-start;
-}
-
-.combat-actions__description {
-  font-size: 0.875rem;
-  color: #888;
-}
-
-.combat-actions__buttons {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.combat-actions__btn {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: all 0.15s;
-}
-
-.combat-actions__btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.combat-actions__btn--end-phase {
-  background: #3498db;
-  color: white;
-}
-
-.combat-actions__btn--end-phase:hover:not(:disabled) {
-  background: #2980b9;
-}
-
-.combat-actions__warning {
-  font-size: 0.75rem;
-  color: #e74c3c;
-  font-style: italic;
-}
 
 /* ============================================
    Save/Load Controls
@@ -1562,60 +759,6 @@ body {
 /* ============================================
    Combat Accumulator Display
    ============================================ */
-.combat-accumulator {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
-  border-left: 3px solid #e74c3c;
-}
-
-.combat-accumulator__label {
-  font-weight: 600;
-  color: #e74c3c;
-  font-size: 0.875rem;
-}
-
-.combat-accumulator__empty {
-  color: #666;
-  font-style: italic;
-  font-size: 0.8rem;
-}
-
-.combat-accumulator__values {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.combat-accumulator__value {
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.combat-accumulator__value--melee {
-  background: #c0392b;
-  color: white;
-}
-
-.combat-accumulator__value--ranged {
-  background: #8e44ad;
-  color: white;
-}
-
-.combat-accumulator__value--siege {
-  background: #d35400;
-  color: white;
-}
-
-.combat-accumulator__value--block {
-  background: #2980b9;
-  color: white;
-}
 
 /* ========================================
    Debug Panel
@@ -2007,11 +1150,6 @@ body {
   width: 60px;
 }
 
-.debug-panel__label {
-  font-size: 0.75rem;
-  color: #888;
-}
-
 .debug-panel__save-slot {
   display: flex;
   gap: 0.25rem;
@@ -2046,12 +1184,6 @@ body {
 
 .debug-panel__checkbox-label input {
   cursor: pointer;
-}
-
-.debug-panel__ambient-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.25rem;
 }
 
 .debug-panel__ambient-preview-btn {
@@ -2225,11 +1357,6 @@ body {
   }
 }
 
-.ghost-hex-polygon--clicking {
-  animation: ghost-hex-anticipation 0.3s ease-out forwards;
-  pointer-events: none;
-}
-
 /* Phase 2: Tile reveal - emerges from darkness with overshoot */
 @keyframes tile-reveal {
   0% {
@@ -2258,11 +1385,6 @@ body {
   }
 }
 
-.tile-image--revealing {
-  animation: tile-reveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  transform-origin: center center;
-}
-
 /* Phase 3: Light bloom effect - radial glow from center */
 @keyframes tile-bloom {
   0% {
@@ -2278,11 +1400,6 @@ body {
   }
 }
 
-.tile-bloom {
-  animation: tile-bloom 0.8s ease-out forwards;
-  pointer-events: none;
-}
-
 /* Phase 4: Hex content fade-in - terrain overlays appear with stagger */
 @keyframes hex-content-reveal {
   0% {
@@ -2293,12 +1410,6 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.hex-overlay--revealing {
-  animation: hex-content-reveal 0.4s ease-out forwards;
-  animation-delay: var(--reveal-delay, 0.2s);
-  opacity: 0;
 }
 
 /* Phase 5: Enemy token pop-in - bouncy entrance for each enemy (during exploration) */
@@ -2318,12 +1429,6 @@ body {
     opacity: 1;
     transform: scale(1) rotate(0deg);
   }
-}
-
-.enemy-token--revealing {
-  animation: enemy-token-reveal 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  animation-delay: var(--enemy-reveal-delay, 0.4s);
-  opacity: 0;
 }
 
 /* Game intro: Enemy token 3D flip - like a poker chip being tossed onto the table */
@@ -2348,16 +1453,7 @@ body {
   }
 }
 
-.enemy-token--intro {
-  animation: enemy-token-flip 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  animation-delay: var(--intro-delay, 0s);
-  opacity: 0;
-}
-
 /* Hidden during intro - before enemies phase */
-.enemy-token--hidden {
-  opacity: 0;
-}
 
 /* Game intro: Tile cascade - tiles slide in from slightly above with scale */
 @keyframes tile-cascade {
@@ -2382,12 +1478,6 @@ body {
   }
 }
 
-.tile-image--intro {
-  animation: tile-cascade 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  animation-delay: var(--intro-delay, 0s);
-  opacity: 0;
-}
-
 /* Phase 6: Site icon emergence - special treatment for sites */
 @keyframes site-reveal {
   0% {
@@ -2407,12 +1497,6 @@ body {
   }
 }
 
-.site-marker--revealing {
-  animation: site-reveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  animation-delay: 0.35s;
-  opacity: 0;
-}
-
 /* Reveal particles - sparkles that emanate from center */
 @keyframes reveal-particle {
   0% {
@@ -2425,12 +1509,6 @@ body {
   }
 }
 
-.reveal-particle {
-  animation: reveal-particle 0.7s ease-out forwards;
-  animation-delay: var(--particle-delay, 0.1s);
-  pointer-events: none;
-}
-
 /* Shimmer effect on newly revealed tile */
 @keyframes tile-shimmer {
   0% {
@@ -2439,23 +1517,6 @@ body {
   100% {
     background-position: 200% center;
   }
-}
-
-.tile-shimmer-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.1) 25%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0.1) 75%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: tile-shimmer 0.8s ease-in-out;
-  pointer-events: none;
-  mix-blend-mode: overlay;
 }
 
 /* Ghost hex hover pulse (always active, not just during reveal) */
@@ -2470,17 +1531,6 @@ body {
   }
 }
 
-.ghost-hex-polygon {
-  animation: ghost-hex-pulse 2s ease-in-out infinite;
-}
-
-.ghost-hex-polygon:hover {
-  animation: none;
-  opacity: 0.5;
-  filter: brightness(1.3);
-  transition: all 0.15s ease-out;
-}
-
 /* ============================================
    Cinematic Mode
 
@@ -2489,9 +1539,6 @@ body {
    ============================================ */
 
 /* Fade transition for cinematic elements */
-.cinematic-fade {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
 
 /* During cinematic mode - fade out UI elements */
 .app--cinematic .floating-hand,

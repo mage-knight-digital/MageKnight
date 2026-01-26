@@ -242,16 +242,6 @@
   color: #f0e6d2;
 }
 
-.enemy-tooltip__stat-element {
-  font-size: clamp(0.6rem, 0.95vw, 0.72rem);
-  color: #c4a882;
-  padding: 0.12rem 0.3rem;
-  background: rgba(60, 45, 30, 0.6);
-  border: 1px solid rgba(92, 74, 58, 0.4);
-  border-radius: 3px;
-  margin-left: 0.15rem;
-}
-
 /* Rampaging badge - inline with enemy name */
 .enemy-tooltip__rampaging-badge {
   font-size: clamp(0.6rem, 1vw, 0.9rem);

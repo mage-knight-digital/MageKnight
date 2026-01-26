@@ -43,21 +43,6 @@
   border-color: rgba(255, 255, 255, 0.6);
 }
 
-.expanded-card__zone-label {
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.expanded-card__zone:hover .expanded-card__zone-label {
-  opacity: 1;
-}
-
 /* Basic zone - between card name and mana divider */
 .expanded-card__zone--basic {
   top: 57%;
