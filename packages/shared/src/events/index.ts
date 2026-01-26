@@ -184,6 +184,7 @@ import type {
   CardDrawnEvent,
   CardDiscardedEvent,
   CardGainedEvent,
+  CardDestroyedEvent,
 } from "./cards.js";
 
 import type {
@@ -338,6 +339,7 @@ export type GameEvent =
   | CardDrawnEvent
   | CardDiscardedEvent
   | CardGainedEvent
+  | CardDestroyedEvent
   // Mana
   | ManaDieTakenEvent
   | ManaDieReturnedEvent

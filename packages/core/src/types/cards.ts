@@ -20,6 +20,7 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_CHANGE_REPUTATION,
+  EFFECT_GAIN_FAME,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CRYSTALLIZE_COLOR,
@@ -111,6 +112,11 @@ export interface DrawCardsEffect {
 export interface ChangeReputationEffect {
   readonly type: typeof EFFECT_CHANGE_REPUTATION;
   readonly amount: number; // positive = gain, negative = lose
+}
+
+export interface GainFameEffect {
+  readonly type: typeof EFFECT_GAIN_FAME;
+  readonly amount: number;
 }
 
 export interface GainCrystalEffect {
@@ -328,6 +334,7 @@ export type CardEffect =
   | GainManaEffect
   | DrawCardsEffect
   | ChangeReputationEffect
+  | GainFameEffect
   | GainCrystalEffect
   | ConvertManaToCrystalEffect
   | CrystallizeColorEffect
@@ -369,4 +376,7 @@ export interface DeedCard {
 
   // Sideways value (usually 1, wounds are 0)
   readonly sidewaysValue: number;
+
+  // If true, card is destroyed after playing its powered effect (artifacts only)
+  readonly destroyOnPowered?: boolean;
 }

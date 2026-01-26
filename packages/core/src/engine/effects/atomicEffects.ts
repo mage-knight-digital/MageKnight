@@ -14,7 +14,7 @@ import type { Player, AccumulatedAttack, ElementalAttackValues } from "../../typ
 import type { CardId, Element, BlockSource, ManaColor, BasicManaColor } from "@mage-knight/shared";
 import type { GainAttackEffect, GainBlockEffect, ApplyModifierEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
-import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD, MIN_REPUTATION, MAX_REPUTATION } from "@mage-knight/shared";
+import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD, MIN_REPUTATION, MAX_REPUTATION, getLevelsCrossed } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL } from "@mage-knight/shared";
 import { COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE } from "../../types/effectTypes.js";
 import { addModifier } from "../modifiers.js";
@@ -139,6 +139,27 @@ export function applyChangeReputation(
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),
     description: `${direction} ${absAmount} Reputation`,
+  };
+}
+
+export function applyGainFame(
+  state: GameState,
+  playerIndex: number,
+  player: Player,
+  amount: number
+): EffectResolutionResult {
+  const newFame = player.fame + amount;
+  const levelsCrossed = getLevelsCrossed(player.fame, newFame);
+
+  const updatedPlayer: Player = {
+    ...player,
+    fame: newFame,
+    pendingLevelUps: [...player.pendingLevelUps, ...levelsCrossed],
+  };
+
+  return {
+    state: updatePlayer(state, playerIndex, updatedPlayer),
+    description: `Gained ${amount} Fame`,
   };
 }
 

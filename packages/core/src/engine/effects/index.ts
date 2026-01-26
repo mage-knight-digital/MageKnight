@@ -84,6 +84,7 @@ export {
   applyGainHealing,
   applyDrawCards,
   applyChangeReputation,
+  applyGainFame,
   applyGainCrystal,
   applyTakeWound,
   applyModifierEffect,
@@ -162,6 +163,7 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_CHANGE_REPUTATION,
+  EFFECT_GAIN_FAME,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CRYSTALLIZE_COLOR,
@@ -187,6 +189,7 @@ import {
   applyGainHealing,
   applyDrawCards,
   applyChangeReputation,
+  applyGainFame,
   applyGainCrystal,
   applyTakeWound,
   applyModifierEffect,
@@ -313,6 +316,9 @@ export function resolveEffect(
 
     case EFFECT_CHANGE_REPUTATION:
       return applyChangeReputation(state, playerIndex, player, effect.amount);
+
+    case EFFECT_GAIN_FAME:
+      return applyGainFame(state, playerIndex, player, effect.amount);
 
     case EFFECT_GAIN_CRYSTAL:
       return applyGainCrystal(state, playerIndex, player, effect.color);

@@ -13,12 +13,14 @@ import type { SourceDieId } from "../../types/mana.js";
 import type { CardId, BasicActionCardId, ManaSourceInfo, BasicManaColor } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
+  CARD_DESTROYED,
   CHOICE_REQUIRED,
   createCardPlayUndoneEvent,
   MANA_SOURCE_DIE,
   MANA_SOURCE_CRYSTAL,
   MANA_SOURCE_TOKEN,
 } from "@mage-knight/shared";
+import type { GameEvent } from "@mage-knight/shared";
 import { resolveEffect, reverseEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
 import type { ChoiceEffect } from "../../types/cards.js";
@@ -310,18 +312,47 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         appliedEffect = effectResult.resolvedEffect;
       }
 
-      return {
-        state: effectResult.state,
-        events: [
-          {
-            type: CARD_PLAYED,
+      // Handle artifact destruction if this was a powered play of a destroyOnPowered card
+      let finalState = effectResult.state;
+      const events: GameEvent[] = [
+        {
+          type: CARD_PLAYED,
+          playerId: params.playerId,
+          cardId: params.cardId,
+          powered: isPowered,
+          sideways: false,
+          effect: effectResult.description,
+        },
+      ];
+
+      if (isPowered && card.destroyOnPowered) {
+        const currentPlayerIndex = finalState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        const currentPlayer = finalState.players[currentPlayerIndex];
+        if (currentPlayer) {
+          // Remove from play area, add to removedCards
+          const newPlayArea = currentPlayer.playArea.filter(c => c !== params.cardId);
+          const updatedPlayerWithRemoval: Player = {
+            ...currentPlayer,
+            playArea: newPlayArea,
+            removedCards: [...currentPlayer.removedCards, params.cardId],
+          };
+          const players = [...finalState.players];
+          players[currentPlayerIndex] = updatedPlayerWithRemoval;
+          finalState = { ...finalState, players };
+
+          events.push({
+            type: CARD_DESTROYED,
             playerId: params.playerId,
             cardId: params.cardId,
-            powered: isPowered,
-            sideways: false,
-            effect: effectResult.description,
-          },
-        ],
+          });
+        }
+      }
+
+      return {
+        state: finalState,
+        events,
       };
     },
 

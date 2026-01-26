@@ -81,6 +81,13 @@ export { createSpellDeckAndOffer } from "./data/spellDeckSetup.js";
 export type { AdvancedActionDeckSetupResult } from "./data/advancedActionDeckSetup.js";
 export { createAdvancedActionDeckAndOffer } from "./data/advancedActionDeckSetup.js";
 
+// Artifact deck setup
+export type { ArtifactDeckSetupResult } from "./data/artifactDeckSetup.js";
+export { createArtifactDeck } from "./data/artifactDeckSetup.js";
+
+// Artifact cards
+export { getArtifactCard, getAllArtifactCardIds } from "./data/artifacts.js";
+
 // Site properties
 export type { SiteProperties } from "./data/siteProperties.js";
 export {
