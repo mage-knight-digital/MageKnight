@@ -10,6 +10,7 @@ import type { HexState } from "../../types/map.js";
 import { SiteType } from "../../types/map.js";
 import type { GameOffers } from "../../types/offers.js";
 import type { GameDecks } from "../../types/decks.js";
+import type { GameState } from "../../state/GameState.js";
 
 // =============================================================================
 // MONASTERY DETECTION
@@ -29,6 +30,27 @@ export function hasMonasterySite(hexes: readonly HexState[]): boolean {
  */
 export function countMonasteries(hexes: readonly HexState[]): number {
   return hexes.filter((hex) => hex.site?.type === SiteType.Monastery).length;
+}
+
+/**
+ * Count the number of unburned monasteries on the entire map.
+ * Used for determining the monastery AA offer size at round start.
+ *
+ * Only counts monasteries that are not burned.
+ *
+ * @param state The current game state
+ * @returns The number of unburned monasteries on the map
+ */
+export function countUnburnedMonasteriesOnMap(state: GameState): number {
+  let count = 0;
+
+  for (const hexState of Object.values(state.map.hexes)) {
+    if (hexState.site?.type === SiteType.Monastery && !hexState.site.isBurned) {
+      count++;
+    }
+  }
+
+  return count;
 }
 
 // =============================================================================

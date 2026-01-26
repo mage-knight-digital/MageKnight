@@ -210,3 +210,10 @@ export {
   type LearnAdvancedActionCommandParams,
   LEARN_ADVANCED_ACTION_COMMAND,
 } from "./learnAdvancedActionCommand.js";
+
+// Burn monastery command
+export {
+  createBurnMonasteryCommand,
+  type BurnMonasteryCommandParams,
+  BURN_MONASTERY_COMMAND,
+} from "./burnMonasteryCommand.js";

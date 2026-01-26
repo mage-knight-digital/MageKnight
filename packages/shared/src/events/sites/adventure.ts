@@ -294,3 +294,123 @@ export function createShieldTokenPlacedEvent(
     totalShields,
   };
 }
+
+// ============================================================================
+// MONASTERY_BURN_STARTED
+// ============================================================================
+
+/**
+ * Event type constant for starting to burn a monastery.
+ * @see MonasteryBurnStartedEvent
+ */
+export const MONASTERY_BURN_STARTED = "MONASTERY_BURN_STARTED" as const;
+
+/**
+ * Emitted when a player starts burning a monastery.
+ *
+ * Burning a monastery initiates combat with a violet enemy.
+ *
+ * @remarks
+ * - Player loses 3 reputation immediately
+ * - Combat starts with a violet enemy
+ * - Units cannot participate
+ * - Enemy is always discarded after combat
+ *
+ * @example
+ * ```typescript
+ * if (event.type === MONASTERY_BURN_STARTED) {
+ *   showBurnAnimation(event.hexCoord);
+ *   showReputationLoss(event.playerId, 3);
+ * }
+ * ```
+ */
+export interface MonasteryBurnStartedEvent {
+  readonly type: typeof MONASTERY_BURN_STARTED;
+  /** ID of the player burning the monastery */
+  readonly playerId: string;
+  /** Location of the monastery */
+  readonly hexCoord: HexCoord;
+}
+
+/**
+ * Creates a MonasteryBurnStartedEvent.
+ */
+export function createMonasteryBurnStartedEvent(
+  playerId: string,
+  hexCoord: HexCoord
+): MonasteryBurnStartedEvent {
+  return {
+    type: MONASTERY_BURN_STARTED,
+    playerId,
+    hexCoord,
+  };
+}
+
+/**
+ * Type guard for MonasteryBurnStartedEvent.
+ */
+export function isMonasteryBurnStartedEvent(event: {
+  type: string;
+}): event is MonasteryBurnStartedEvent {
+  return event.type === MONASTERY_BURN_STARTED;
+}
+
+// ============================================================================
+// MONASTERY_BURNED
+// ============================================================================
+
+/**
+ * Event type constant for a burned monastery.
+ * @see MonasteryBurnedEvent
+ */
+export const MONASTERY_BURNED = "MONASTERY_BURNED" as const;
+
+/**
+ * Emitted when a monastery is successfully burned.
+ *
+ * The monastery is marked as burned and the player receives an artifact.
+ *
+ * @remarks
+ * - Monastery is permanently burned
+ * - No healing, recruiting, or AA purchases available
+ * - Artifact reward is queued
+ * - Burned monasteries don't count toward monastery AA offer
+ *
+ * @example
+ * ```typescript
+ * if (event.type === MONASTERY_BURNED) {
+ *   markMonasteryAsBurned(event.hexCoord);
+ *   queueArtifactReward(event.playerId);
+ * }
+ * ```
+ */
+export interface MonasteryBurnedEvent {
+  readonly type: typeof MONASTERY_BURNED;
+  /** ID of the player who burned the monastery */
+  readonly playerId: string;
+  /** Location of the monastery */
+  readonly hexCoord: HexCoord;
+}
+
+/**
+ * Creates a MonasteryBurnedEvent.
+ */
+export function createMonasteryBurnedEvent(
+  playerId: string,
+  hexCoord: HexCoord
+): MonasteryBurnedEvent {
+  return {
+    type: MONASTERY_BURNED,
+    playerId,
+    hexCoord,
+  };
+}
+
+/**
+ * Type guard for MonasteryBurnedEvent.
+ */
+export function isMonasteryBurnedEvent(event: {
+  type: string;
+}): event is MonasteryBurnedEvent {
+  return event.type === MONASTERY_BURNED;
+}

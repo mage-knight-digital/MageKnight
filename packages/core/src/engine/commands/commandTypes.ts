@@ -44,6 +44,9 @@ export const RESOLVE_GLADE_WOUND_COMMAND = "RESOLVE_GLADE_WOUND" as const;
 // Deep Mine command
 export const RESOLVE_DEEP_MINE_COMMAND = "RESOLVE_DEEP_MINE" as const;
 
+// Burn monastery command
+export const BURN_MONASTERY_COMMAND = "BURN_MONASTERY" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;

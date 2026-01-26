@@ -50,6 +50,7 @@ import {
   RESOLVE_DEEP_MINE_ACTION,
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
+  BURN_MONASTERY_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -101,6 +102,7 @@ export {
   createEnterSiteCommandFromAction,
   createResolveGladeWoundCommandFromAction,
   createResolveDeepMineCommandFromAction,
+  createBurnMonasteryCommandFromAction,
 } from "./sites.js";
 
 // Tactics factories
@@ -159,6 +161,7 @@ import {
   createEnterSiteCommandFromAction,
   createResolveGladeWoundCommandFromAction,
   createResolveDeepMineCommandFromAction,
+  createBurnMonasteryCommandFromAction,
 } from "./sites.js";
 
 import {
@@ -214,4 +217,5 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_DEEP_MINE_ACTION]: createResolveDeepMineCommandFromAction,
   [BUY_SPELL_ACTION]: createBuySpellCommandFromAction,
   [LEARN_ADVANCED_ACTION_ACTION]: createLearnAdvancedActionCommandFromAction,
+  [BURN_MONASTERY_ACTION]: createBurnMonasteryCommandFromAction,
 };

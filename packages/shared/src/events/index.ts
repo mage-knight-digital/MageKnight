@@ -252,6 +252,8 @@ import type {
   GladeWoundSkippedEvent,
   GladeManaGainedEvent,
   DeepMineCrystalGainedEvent,
+  MonasteryBurnStartedEvent,
+  MonasteryBurnedEvent,
 } from "./sites.js";
 
 import type { InvalidActionEvent } from "./validation.js";
@@ -403,7 +405,10 @@ export type GameEvent =
   | GladeWoundSkippedEvent
   | GladeManaGainedEvent
   // Deep Mine
-  | DeepMineCrystalGainedEvent;
+  | DeepMineCrystalGainedEvent
+  // Monastery burning
+  | MonasteryBurnStartedEvent
+  | MonasteryBurnedEvent;
 
 /**
  * Type of all game event type constants.

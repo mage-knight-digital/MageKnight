@@ -45,6 +45,9 @@ import { refreshUnitOffer } from "../../data/unitDeckSetup.js";
 import { CORE_TILE_ID_PREFIX, SYSTEM_PLAYER_ID } from "../engineConstants.js";
 import { revealRuinsToken } from "../helpers/ruinsTokenHelpers.js";
 import type { HexState } from "../../types/map.js";
+import { countUnburnedMonasteriesOnMap } from "../helpers/monasteryHelpers.js";
+import type { GameDecks } from "../../types/decks.js";
+import type { GameOffers } from "../../types/offers.js";
 
 /**
  * Check if any core tile has been revealed on the map.
@@ -187,6 +190,35 @@ export function createEndRoundCommand(): Command {
         offerType: OFFER_TYPE_UNITS,
       });
 
+      // 4b. Refresh monastery AA offer
+      // Return current monastery AAs to bottom of AA deck
+      // Then draw new AAs equal to unburned monastery count
+      const unburnedMonasteryCount = countUnburnedMonasteriesOnMap({
+        ...state,
+        map: { ...state.map, hexes: updatedHexes },
+      });
+
+      // Put current monastery AAs at the bottom of the AA deck
+      let updatedAADeck = [
+        ...refreshedDecks.advancedActions,
+        ...state.offers.monasteryAdvancedActions,
+      ];
+
+      // Draw new AAs for unburned monasteries
+      const newMonasteryAAs = updatedAADeck.slice(0, unburnedMonasteryCount);
+      updatedAADeck = updatedAADeck.slice(unburnedMonasteryCount);
+
+      const decksWithMonasteryRefresh: GameDecks = {
+        ...refreshedDecks,
+        advancedActions: updatedAADeck,
+      };
+
+      const offersWithMonasteryRefresh: GameOffers = {
+        ...state.offers,
+        units: refreshedUnitOffer,
+        monasteryAdvancedActions: newMonasteryAAs,
+      };
+
       // 5. Process each player
       let currentRng: RngState = rngAfterUnitRefresh;
       const updatedPlayers: Player[] = [];
@@ -323,12 +355,9 @@ export function createEndRoundCommand(): Command {
           source: newSource,
           players: updatedPlayers,
           rng: currentRng,
-          // Updated decks and offers from unit refresh
-          decks: refreshedDecks,
-          offers: {
-            ...state.offers,
-            units: refreshedUnitOffer,
-          },
+          // Updated decks and offers from unit refresh and monastery AA refresh
+          decks: decksWithMonasteryRefresh,
+          offers: offersWithMonasteryRefresh,
           // Updated map with revealed ruins tokens (at dawn)
           map: {
             ...state.map,

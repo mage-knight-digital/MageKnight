@@ -269,7 +269,7 @@ function getConquestRewardDescription(siteType: SiteType): string | undefined {
  */
 function getInteractOptions(
   state: GameState,
-  _player: Player,
+  player: Player,
   site: Site
 ): InteractOptions {
   const healCost = HEALING_COSTS[site.type];
@@ -286,17 +286,25 @@ function getInteractOptions(
   // Check if can buy advanced actions (Monastery)
   const canBuyAdvancedActions =
     site.type === SiteType.Monastery &&
+    !site.isBurned &&
     state.offers.advancedActions.cards.length > 0;
 
+  // Check if can burn monastery
+  const canBurnMonastery =
+    site.type === SiteType.Monastery &&
+    !site.isBurned &&
+    !player.hasTakenActionThisTurn &&
+    !player.hasCombattedThisTurn;
+
   const result: InteractOptions = {
-    canHeal: healCost !== undefined,
+    canHeal: healCost !== undefined && !site.isBurned,
     canRecruit,
     canBuySpells,
     canBuyAdvancedActions,
   };
 
   // Only add optional properties if they have values
-  if (healCost !== undefined) {
+  if (healCost !== undefined && !site.isBurned) {
     (result as { healCost?: number }).healCost = healCost;
   }
   if (canBuySpells) {
@@ -305,6 +313,9 @@ function getInteractOptions(
   if (canBuyAdvancedActions) {
     (result as { advancedActionCost?: number }).advancedActionCost =
       MONASTERY_AA_PURCHASE_COST;
+  }
+  if (canBurnMonastery) {
+    (result as { canBurnMonastery?: boolean }).canBurnMonastery = canBurnMonastery;
   }
 
   return result;

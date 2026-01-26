@@ -20,11 +20,13 @@ import {
   ENTER_SITE_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
+  BURN_MONASTERY_ACTION,
 } from "@mage-knight/shared";
 import { createInteractCommand } from "../interactCommand.js";
 import { createEnterSiteCommand } from "../enterSiteCommand.js";
 import { createResolveGladeWoundCommand } from "../resolveGladeWoundCommand.js";
 import { createResolveDeepMineChoiceCommand } from "../resolveDeepMineChoiceCommand.js";
+import { createBurnMonasteryCommand } from "../burnMonasteryCommand.js";
 
 /**
  * Helper to get glade wound choice from action.
@@ -121,4 +123,17 @@ export const createResolveDeepMineCommandFromAction: CommandFactory = (
     playerId,
     color,
   });
+};
+
+/**
+ * Burn monastery command factory.
+ * Creates a command to burn a monastery (initiates combat).
+ */
+export const createBurnMonasteryCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== BURN_MONASTERY_ACTION) return null;
+  return createBurnMonasteryCommand({ playerId });
 };

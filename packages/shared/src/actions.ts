@@ -42,6 +42,12 @@ export interface EnterSiteAction {
   readonly type: typeof ENTER_SITE_ACTION;
 }
 
+// Burn monastery action
+export const BURN_MONASTERY_ACTION = "BURN_MONASTERY" as const;
+export interface BurnMonasteryAction {
+  readonly type: typeof BURN_MONASTERY_ACTION;
+}
+
 // Turn structure actions
 export const END_TURN_ACTION = "END_TURN" as const;
 export interface EndTurnAction {
@@ -425,6 +431,7 @@ export type PlayerAction =
   | ExploreAction
   // Adventure sites
   | EnterSiteAction
+  | BurnMonasteryAction
   // Turn structure
   | EndTurnAction
   | RestAction

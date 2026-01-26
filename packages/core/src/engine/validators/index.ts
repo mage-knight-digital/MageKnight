@@ -34,6 +34,7 @@ import {
   RESOLVE_DEEP_MINE_ACTION,
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
+  BURN_MONASTERY_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -216,6 +217,13 @@ import {
   validateAdjacentToTarget,
   validateTargetHasRampagingEnemies,
 } from "./challengeValidators.js";
+
+// Burn monastery validators
+import {
+  validateAtMonastery,
+  validateMonasteryNotBurned,
+  validateNoCombatThisTurnForBurn,
+} from "./burnMonasteryValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -498,6 +506,17 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateAtAdvancedActionSite,
     validateHasInfluenceForMonasteryAA,
     validateInLevelUpContext,
+  ],
+  [BURN_MONASTERY_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateMustAnnounceEndOfRound,
+    validateHasNotActed, // Can only burn if haven't taken action
+    validateNoCombatThisTurnForBurn, // Can only have one combat per turn
+    validateAtMonastery,
+    validateMonasteryNotBurned,
   ],
 };
 

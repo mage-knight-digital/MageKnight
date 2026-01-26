@@ -18,12 +18,16 @@ import {
   createPlayerWithdrewEvent,
   createEnemyDefeatedEvent,
   getLevelsCrossed,
+  createMonasteryBurnedEvent,
+  createShieldTokenPlacedEvent,
+  artifactReward,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ASSIGN_DAMAGE,
   COMBAT_PHASE_ATTACK,
+  COMBAT_CONTEXT_BURN_MONASTERY,
   type CombatPhase,
   type CombatEnemy,
   type CombatState,
@@ -34,8 +38,9 @@ import {
   createEmptyAccumulatedAttack,
   createEmptyElementalValues,
 } from "../../../types/player.js";
-import type { HexState } from "../../../types/map.js";
+import type { HexState, Site } from "../../../types/map.js";
 import { createConquerSiteCommand } from "../conquerSiteCommand.js";
+import { queueSiteReward } from "../../helpers/rewards/index.js";
 import { isAttackResisted, type Resistances } from "../../combat/elementalCalc.js";
 
 export const END_COMBAT_PHASE_COMMAND = "END_COMBAT_PHASE" as const;
@@ -407,9 +412,53 @@ export function createEndCombatPhaseCommand(
               map: { ...newState.map, hexes: updatedHexes },
             };
 
+            // Handle burn monastery victory
+            if (victory && resolvedCombat.combatContext === COMBAT_CONTEXT_BURN_MONASTERY && hex.site) {
+              // Mark monastery as burned and conquered
+              const updatedSite: Site = {
+                ...hex.site,
+                isBurned: true,
+                isConquered: true,
+                owner: params.playerId,
+              };
+
+              // Add shield token
+              const updatedShieldTokens = [...hex.shieldTokens, params.playerId];
+
+              const burnedHex: HexState = {
+                ...newState.map.hexes[key] ?? hex,
+                site: updatedSite,
+                shieldTokens: updatedShieldTokens,
+                enemies: [],
+              };
+
+              const burnedHexes = {
+                ...newState.map.hexes,
+                [key]: burnedHex,
+              };
+
+              newState = {
+                ...newState,
+                map: { ...newState.map, hexes: burnedHexes },
+              };
+
+              // Emit events
+              events.push(createShieldTokenPlacedEvent(params.playerId, combatHexPosition, 1));
+              events.push(createMonasteryBurnedEvent(params.playerId, combatHexPosition));
+
+              // Queue artifact reward
+              const { state: rewardState, events: rewardEvents } = queueSiteReward(
+                newState,
+                params.playerId,
+                artifactReward(1)
+              );
+              newState = rewardState;
+              events.push(...rewardEvents);
+            }
             // Trigger conquest if at an unconquered site (only on victory)
             // Note: conquest only happens at player's position, not at remote combat locations
-            if (victory && hex.site && !hex.site.isConquered && player?.position) {
+            // Skip for burn monastery (already handled above)
+            else if (victory && hex.site && !hex.site.isConquered && player?.position) {
               const playerHexKey = hexKey(player.position);
               // Only trigger conquest if combat was at player's position (not remote rampaging challenge)
               if (key === playerHexKey) {
