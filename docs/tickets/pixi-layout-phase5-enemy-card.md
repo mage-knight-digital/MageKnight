@@ -1,6 +1,6 @@
 # @pixi/layout Phase 5: PixiEnemyCard Migration
 
-## Implementation Status: Phase 5a Complete ✅
+## Implementation Status: Complete ✅
 
 **Completed (Phase 5a - Outer Container Migration):**
 - [x] Added enemy card layout utilities to `pixiLayout.ts`
@@ -14,12 +14,13 @@
 - [x] Migrated attack section outer container to layout (fixed width/height)
 - [x] Removed all vestigial `yOffset` tracking code
 
-**Not Yet Migrated (Phase 5b - Internal Layouts, Future Work):**
-- [ ] Block section internal elements (still use manual `blockY` positioning)
-- [ ] Attack section internal elements (still use manual `attackY` positioning)
-- [ ] Controls row (+/- buttons) internal layout (still use manual `controlX` positioning)
-
-The internal elements of block/attack sections still use manual positioning within their fixed-size containers. This is acceptable because the outer containers participate in the root flex layout, eliminating the main pain point (yOffset tracking).
+**Completed (Phase 5b - Internal Layouts):**
+- [x] Block section internal elements migrated to layout (removed `blockY` positioning)
+- [x] Attack section internal elements migrated to layout (removed `attackY` positioning)
+- [x] Controls row (+/- buttons) internal layout migrated (removed `controlX` positioning)
+- [x] Added `enemyCardInfoRowLayout()` for left-aligned swift/element info rows
+- [x] Added `enemyCardSectionContentLayout()` for inner content containers
+- [x] All text elements wrapped in row containers with centered or left-aligned layouts
 
 ---
 
@@ -29,9 +30,7 @@ Migrate `PixiEnemyCard.tsx` from manual positioning (yOffset tracking) to declar
 
 **Original State:** 1001 lines with manual `yOffset` tracking, explicit `x`/`y` positioning, and manual background height calculations.
 
-**Current State (Post Phase 5a):** 1071 lines. Root container uses layout for section stacking. Internal section positioning remains manual but is self-contained.
-
-**Future Target State (Phase 5b):** Full declarative layouts including internal section elements.
+**Final State (Post Phase 5b):** Full declarative layouts for all elements. Root container uses layout for section stacking. Block/attack sections use `enemyCardSectionContentLayout()` for internal positioning. Controls use `enemyCardControlsRowLayout()` and `enemyCardElementGroupLayout()`. All manual `blockY`, `attackY`, and `controlX` tracking removed.
 
 ## Background
 

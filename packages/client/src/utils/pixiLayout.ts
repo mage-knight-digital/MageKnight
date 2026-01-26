@@ -275,6 +275,36 @@ export function enemyCardTextRowLayout(height?: number): Partial<LayoutStyles> {
   };
 }
 
+/**
+ * Left-aligned info row (swift, element info)
+ */
+export function enemyCardInfoRowLayout(): Partial<LayoutStyles> {
+  return {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    width: ENEMY_CARD_CONSTANTS.CARD_WIDTH - ENEMY_CARD_CONSTANTS.CARD_PADDING * 2,
+    height: 14,
+  };
+}
+
+/**
+ * Inner content container for block/attack sections
+ * Vertical stack with padding and gap
+ */
+export function enemyCardSectionContentLayout(): Partial<LayoutStyles> {
+  return {
+    flexDirection: "column",
+    gap: 4,
+    alignItems: "center",
+    paddingTop: ENEMY_CARD_CONSTANTS.CARD_PADDING,
+    paddingBottom: ENEMY_CARD_CONSTANTS.CARD_PADDING,
+    paddingLeft: ENEMY_CARD_CONSTANTS.CARD_PADDING,
+    paddingRight: ENEMY_CARD_CONSTANTS.CARD_PADDING,
+    width: ENEMY_CARD_CONSTANTS.CARD_WIDTH,
+  };
+}
+
 // ============================================================================
 // Type Utilities
 // ============================================================================

@@ -34,6 +34,11 @@ import {
   ENEMY_CARD_CONSTANTS,
   enemyCardRootLayout,
   enemyCardBadgeLayout,
+  enemyCardSectionContentLayout,
+  enemyCardTextRowLayout,
+  enemyCardInfoRowLayout,
+  enemyCardControlsRowLayout,
+  enemyCardElementGroupLayout,
 } from "../../utils/pixiLayout";
 
 // ============================================================================
@@ -480,7 +485,7 @@ export function PixiEnemyCard({
       }
 
       // ========================================
-      // Block Allocation UI - LAYOUT MANAGED (outer container)
+      // Block Allocation UI - LAYOUT MANAGED
       // ========================================
       const showBlockAllocation =
         data.isBlockPhase &&
@@ -496,20 +501,20 @@ export function PixiEnemyCard({
         const blockContainer = new Container();
         blockContainer.label = "block-section";
 
-        // Calculate background height (still needed for bg sizing)
-        // Base: padding + label(14) + progress(20) + padding = ~54
-        let bgHeight = 54;
+        // Calculate background height for sizing
+        // Base: padding(10) + label(14) + gap(4) + progress(20) + gap(4) + padding(10) = 62
+        let bgHeight = 62;
         if (blockState.canBlock) {
-          bgHeight += 16; // "Can Block!" row
+          bgHeight += 20; // "Can Block!" row + gap
         }
         if (blockState.isSwift) {
-          bgHeight += 14; // Swift indicator
+          bgHeight += 18; // Swift indicator + gap
         }
         if (blockState.attackElement !== "physical") {
-          bgHeight += 14; // Attack element info
+          bgHeight += 18; // Attack element info + gap
         }
         if (assignableBlocks.length > 0 || unassignableBlocks.length > 0) {
-          bgHeight += BTN_SIZE + 8; // +/- buttons row
+          bgHeight += BTN_SIZE + 8; // +/- buttons row + gap
         }
         // Add space for commit button if there's pending block
         const hasPendingBlock =
@@ -519,7 +524,7 @@ export function PixiEnemyCard({
             blockState.pendingBlock.ice > 0 ||
             blockState.pendingBlock.coldFire > 0);
         if (hasPendingBlock) {
-          bgHeight += COMMIT_BTN_HEIGHT + CARD_PADDING;
+          bgHeight += COMMIT_BTN_HEIGHT + 4;
         }
 
         // Layout: fixed size box, participates in root flex
@@ -544,10 +549,14 @@ export function PixiEnemyCard({
         );
         blockContainer.addChild(bg);
 
-        // Internal elements use manual positioning (relative to blockContainer origin)
-        let blockY = CARD_PADDING;
+        // Content container - uses layout for internal positioning
+        const blockContent = new Container();
+        blockContent.label = "block-content";
+        blockContent.layout = enemyCardSectionContentLayout();
 
         // Label row (centered)
+        const labelRow = new Container();
+        labelRow.layout = enemyCardTextRowLayout(14);
         const blockLabel = new Text({
           text: "Block",
           style: {
@@ -558,13 +567,13 @@ export function PixiEnemyCard({
             letterSpacing: 0.5,
           },
         });
-        blockLabel.anchor.set(0.5, 0);
-        blockLabel.x = CARD_WIDTH / 2;
-        blockLabel.y = blockY;
-        blockContainer.addChild(blockLabel);
-        blockY += 14;
+        blockLabel.layout = {};
+        labelRow.addChild(blockLabel);
+        blockContent.addChild(labelRow);
 
         // Progress row (centered)
+        const progressRow = new Container();
+        progressRow.layout = enemyCardTextRowLayout(20);
         const progressText = new Text({
           text: `${blockState.effectiveBlock} / ${blockState.requiredBlock}`,
           style: {
@@ -574,14 +583,14 @@ export function PixiEnemyCard({
             fill: COLORS.TEXT_PRIMARY,
           },
         });
-        progressText.anchor.set(0.5, 0);
-        progressText.x = CARD_WIDTH / 2;
-        progressText.y = blockY;
-        blockContainer.addChild(progressText);
-        blockY += 20;
+        progressText.layout = {};
+        progressRow.addChild(progressText);
+        blockContent.addChild(progressRow);
 
         // "Can Block!" indicator (own row, centered)
         if (blockState.canBlock) {
+          const canBlockRow = new Container();
+          canBlockRow.layout = enemyCardTextRowLayout(16);
           const canBlockText = new Text({
             text: "\u2713 Can Block!",
             style: {
@@ -591,15 +600,15 @@ export function PixiEnemyCard({
               fill: COLORS.TEXT_SUCCESS,
             },
           });
-          canBlockText.anchor.set(0.5, 0);
-          canBlockText.x = CARD_WIDTH / 2;
-          canBlockText.y = blockY;
-          blockContainer.addChild(canBlockText);
-          blockY += 16;
+          canBlockText.layout = {};
+          canBlockRow.addChild(canBlockText);
+          blockContent.addChild(canBlockRow);
         }
 
-        // Swift indicator
+        // Swift indicator (left-aligned)
         if (blockState.isSwift) {
+          const swiftRow = new Container();
+          swiftRow.layout = enemyCardInfoRowLayout();
           const swiftText = new Text({
             text: "(2\u00D7 Swift)",
             style: {
@@ -608,19 +617,20 @@ export function PixiEnemyCard({
               fill: COLORS.TEXT_GOLD,
             },
           });
-          swiftText.x = CARD_PADDING;
-          swiftText.y = blockY;
-          blockContainer.addChild(swiftText);
-          blockY += 14;
+          swiftText.layout = {};
+          swiftRow.addChild(swiftText);
+          blockContent.addChild(swiftRow);
         }
 
-        // Attack element info
+        // Attack element info (left-aligned)
         if (blockState.attackElement !== "physical") {
           const elementNames: Record<string, string> = {
             fire: "\uD83D\uDD25 Fire",
             ice: "\u2744 Ice",
             coldFire: "\uD83D\uDC9C Cold Fire",
           };
+          const elementRow = new Container();
+          elementRow.layout = enemyCardInfoRowLayout();
           const elementText = new Text({
             text: `Enemy attacks with: ${elementNames[blockState.attackElement] ?? blockState.attackElement}`,
             style: {
@@ -629,19 +639,16 @@ export function PixiEnemyCard({
               fill: COLORS.TEXT_SECONDARY,
             },
           });
-          elementText.x = CARD_PADDING;
-          elementText.y = blockY;
-          blockContainer.addChild(elementText);
-          blockY += 14;
+          elementText.layout = {};
+          elementRow.addChild(elementText);
+          blockContent.addChild(elementRow);
         }
 
-        // +/- controls
+        // +/- controls (layout-based row)
         if (assignableBlocks.length > 0 || unassignableBlocks.length > 0) {
           const controlsRow = new Container();
-          controlsRow.y = blockY;
-          controlsRow.x = CARD_PADDING;
+          controlsRow.layout = enemyCardControlsRowLayout();
 
-          let controlX = 0;
           const elements: AttackElement[] = ["physical", "fire", "ice", "coldFire"];
 
           for (const element of elements) {
@@ -649,6 +656,10 @@ export function PixiEnemyCard({
             const unassignOpts = unassignableBlocks.filter((u) => u.element === element);
 
             if (assignOpts.length === 0 && unassignOpts.length === 0) continue;
+
+            // Element group container (icon + buttons)
+            const elementGroup = new Container();
+            elementGroup.layout = enemyCardElementGroupLayout();
 
             // Element icon
             const iconText = new Text({
@@ -658,24 +669,20 @@ export function PixiEnemyCard({
                 fontSize: 12,
               },
             });
-            iconText.x = controlX;
-            iconText.y = 4;
-            controlsRow.addChild(iconText);
-            controlX += 18;
+            iconText.layout = { width: 16 };
+            elementGroup.addChild(iconText);
 
             // Minus button
             const firstUnassign = unassignOpts[0];
             if (firstUnassign) {
               const minusBtn = createPlusMinus({
                 type: "minus",
-                x: controlX,
-                y: 0,
+                useLayout: true,
                 onClick: () => {
                   onUnassignBlockRef.current?.(firstUnassign);
                 },
               });
-              controlsRow.addChild(minusBtn);
-              controlX += BTN_SIZE + 2;
+              elementGroup.addChild(minusBtn);
             }
 
             // Plus button
@@ -686,23 +693,22 @@ export function PixiEnemyCard({
                 (element === "ice" && blockState.attackElement === "fire");
               const plusBtn = createPlusMinus({
                 type: "plus",
-                x: controlX,
-                y: 0,
+                useLayout: true,
                 onClick: () => {
                   onAssignBlockRef.current?.(firstAssign);
                 },
                 isWarning: isBonus,
               });
-              controlsRow.addChild(plusBtn);
-              controlX += BTN_SIZE + 8;
+              elementGroup.addChild(plusBtn);
             }
+
+            controlsRow.addChild(elementGroup);
           }
 
-          blockContainer.addChild(controlsRow);
-          blockY += BTN_SIZE + 4;
+          blockContent.addChild(controlsRow);
         }
 
-        // Commit button (hasPendingBlock already calculated above for bgHeight)
+        // Commit button
         if (hasPendingBlock) {
           const commitLabel = blockState.canBlock
             ? "\u2713 Block Enemy"
@@ -710,8 +716,6 @@ export function PixiEnemyCard({
 
           const commitBtn = createButton({
             label: commitLabel,
-            x: CARD_PADDING,
-            y: blockY,
             width: CARD_WIDTH - CARD_PADDING * 2,
             height: COMMIT_BTN_HEIGHT,
             bgColor: blockState.canBlock ? COLORS.BTN_READY_BG : COLORS.BTN_DISABLED_BG,
@@ -719,16 +723,17 @@ export function PixiEnemyCard({
             onClick: () => onCommitBlockRef.current?.(enemy.instanceId),
             disabled: !blockState.canBlock,
             fontSize: 12,
+            useLayout: true,
           });
-          blockContainer.addChild(commitBtn);
-          blockY += COMMIT_BTN_HEIGHT + CARD_PADDING;
+          blockContent.addChild(commitBtn);
         }
 
+        blockContainer.addChild(blockContent);
         container.addChild(blockContainer);
       }
 
       // ========================================
-      // Attack Allocation UI - LAYOUT MANAGED (outer container)
+      // Attack Allocation UI - LAYOUT MANAGED
       // ========================================
       const showAttackAllocation =
         data.isAttackPhase && data.enemyAttackState && !enemy.isDefeated;
@@ -739,21 +744,31 @@ export function PixiEnemyCard({
         const unassignableAttacks = data.unassignableAttacks ?? [];
         const hasControls =
           !data.useDragDrop && (assignableAttacks.length > 0 || unassignableAttacks.length > 0);
+        const resistances = attackState.resistances;
 
         const attackContainer = new Container();
         attackContainer.label = "attack-section";
 
-        // Calculate background height (still needed for bg sizing)
-        // Base: padding + label(14) + progress(20) + padding = ~54
-        let bgHeight = 54;
+        // Calculate background height for sizing
+        // Base: padding(10) + label(14) + gap(4) + progress(20) + gap(4) + padding(10) = 62
+        let bgHeight = 62;
         if (attackState.canDefeat) {
-          bgHeight += 16; // "Can Defeat!" row
+          bgHeight += 20; // "Can Defeat!" row + gap
         }
-        if (attackState.resistances?.fire || attackState.resistances?.ice || attackState.resistances?.physical) {
-          bgHeight += 18; // Resistances row
+        if (resistances?.fire || resistances?.ice || resistances?.physical) {
+          bgHeight += 18; // Resistances row + gap
         }
         if (hasControls) {
-          bgHeight += BTN_SIZE + 10; // +/- buttons row
+          bgHeight += BTN_SIZE + 8; // +/- buttons row + gap
+        }
+        // Account for insufficient/dnd hint (mutually exclusive, shown at same position)
+        const showInsufficient =
+          assignableAttacks.length === 0 &&
+          attackState.totalEffectiveDamage > 0 &&
+          attackState.totalEffectiveDamage < attackState.armor;
+        const showDndHint = data.useDragDrop && attackState.totalEffectiveDamage === 0;
+        if (showInsufficient || showDndHint) {
+          bgHeight += 18; // Message row + gap
         }
 
         // Layout: fixed size box, participates in root flex
@@ -778,9 +793,14 @@ export function PixiEnemyCard({
         );
         attackContainer.addChild(bg);
 
-        let attackY = CARD_PADDING;
+        // Content container - uses layout for internal positioning
+        const attackContent = new Container();
+        attackContent.label = "attack-content";
+        attackContent.layout = enemyCardSectionContentLayout();
 
         // Label row (centered)
+        const labelRow = new Container();
+        labelRow.layout = enemyCardTextRowLayout(14);
         const attackLabel = new Text({
           text: data.isRangedSiegePhase
             ? attackState.requiresSiege
@@ -795,13 +815,13 @@ export function PixiEnemyCard({
             letterSpacing: 0.5,
           },
         });
-        attackLabel.anchor.set(0.5, 0);
-        attackLabel.x = CARD_WIDTH / 2;
-        attackLabel.y = attackY;
-        attackContainer.addChild(attackLabel);
-        attackY += 14;
+        attackLabel.layout = {};
+        labelRow.addChild(attackLabel);
+        attackContent.addChild(labelRow);
 
         // Progress row (centered)
+        const progressRow = new Container();
+        progressRow.layout = enemyCardTextRowLayout(20);
         const progressText = new Text({
           text: `${attackState.totalEffectiveDamage} / ${attackState.armor}`,
           style: {
@@ -811,14 +831,14 @@ export function PixiEnemyCard({
             fill: COLORS.TEXT_PRIMARY,
           },
         });
-        progressText.anchor.set(0.5, 0);
-        progressText.x = CARD_WIDTH / 2;
-        progressText.y = attackY;
-        attackContainer.addChild(progressText);
-        attackY += 20;
+        progressText.layout = {};
+        progressRow.addChild(progressText);
+        attackContent.addChild(progressRow);
 
-        // "Can Defeat!" indicator (own row, centered)
+        // "Can Defeat!" indicator (own row, centered, with pulse animation)
         if (attackState.canDefeat) {
+          const canDefeatRow = new Container();
+          canDefeatRow.layout = enemyCardTextRowLayout(16);
           const canDefeatText = new Text({
             text: "\u2713 Can Defeat!",
             style: {
@@ -828,10 +848,9 @@ export function PixiEnemyCard({
               fill: COLORS.TEXT_SUCCESS,
             },
           });
-          canDefeatText.anchor.set(0.5, 0);
-          canDefeatText.x = CARD_WIDTH / 2;
-          canDefeatText.y = attackY;
-          attackContainer.addChild(canDefeatText);
+          canDefeatText.layout = {};
+          canDefeatRow.addChild(canDefeatText);
+          attackContent.addChild(canDefeatRow);
 
           // Pulse animation on "Can Defeat!" text
           const pulseCanDefeat = () => {
@@ -852,55 +871,49 @@ export function PixiEnemyCard({
             });
           };
           pulseCanDefeat();
-          attackY += 16;
         }
 
-        // Resistance warnings
-        const resistances = attackState.resistances;
+        // Resistance warnings (left-aligned row with icons)
         if (resistances && (resistances.fire || resistances.ice || resistances.physical)) {
           const resistRow = new Container();
-          resistRow.y = attackY;
-          resistRow.x = CARD_PADDING;
+          resistRow.layout = {
+            ...enemyCardInfoRowLayout(),
+            gap: 8,
+          };
 
-          let resistX = 0;
           if (resistances.physical) {
             const physResist = new Text({
               text: `${ELEMENT_ICONS.physical}\u00BD`,
               style: { fontFamily: "Arial, sans-serif", fontSize: 11 },
             });
-            physResist.x = resistX;
+            physResist.layout = {};
             resistRow.addChild(physResist);
-            resistX += 28;
           }
           if (resistances.fire) {
             const fireResist = new Text({
               text: `${ELEMENT_ICONS.fire}\u00BD`,
               style: { fontFamily: "Arial, sans-serif", fontSize: 11 },
             });
-            fireResist.x = resistX;
+            fireResist.layout = {};
             resistRow.addChild(fireResist);
-            resistX += 28;
           }
           if (resistances.ice) {
             const iceResist = new Text({
               text: `${ELEMENT_ICONS.ice}\u00BD`,
               style: { fontFamily: "Arial, sans-serif", fontSize: 11 },
             });
-            iceResist.x = resistX;
+            iceResist.layout = {};
             resistRow.addChild(iceResist);
           }
 
-          attackContainer.addChild(resistRow);
-          attackY += 16;
+          attackContent.addChild(resistRow);
         }
 
-        // +/- controls (only in non-DnD mode)
+        // +/- controls (layout-based row, only in non-DnD mode)
         if (hasControls) {
           const controlsRow = new Container();
-          controlsRow.y = attackY;
-          controlsRow.x = CARD_PADDING;
+          controlsRow.layout = enemyCardControlsRowLayout();
 
-          let controlX = 0;
           const elements: AttackElement[] = ["physical", "fire", "ice", "coldFire"];
 
           for (const element of elements) {
@@ -908,6 +921,10 @@ export function PixiEnemyCard({
             const unassignOpts = unassignableAttacks.filter((u) => u.element === element);
 
             if (assignOpts.length === 0 && unassignOpts.length === 0) continue;
+
+            // Element group container (icon + buttons)
+            const elementGroup = new Container();
+            elementGroup.layout = enemyCardElementGroupLayout();
 
             // Element icon
             const iconText = new Text({
@@ -917,24 +934,20 @@ export function PixiEnemyCard({
                 fontSize: 12,
               },
             });
-            iconText.x = controlX;
-            iconText.y = 4;
-            controlsRow.addChild(iconText);
-            controlX += 18;
+            iconText.layout = { width: 16 };
+            elementGroup.addChild(iconText);
 
             // Minus button
             const firstUnassignAttack = unassignOpts[0];
             if (firstUnassignAttack) {
               const minusBtn = createPlusMinus({
                 type: "minus",
-                x: controlX,
-                y: 0,
+                useLayout: true,
                 onClick: () => {
                   onUnassignAttackRef.current?.(firstUnassignAttack);
                 },
               });
-              controlsRow.addChild(minusBtn);
-              controlX += BTN_SIZE + 2;
+              elementGroup.addChild(minusBtn);
             }
 
             // Plus button
@@ -946,28 +959,25 @@ export function PixiEnemyCard({
                 (element === "physical" && resistances?.physical);
               const plusBtn = createPlusMinus({
                 type: "plus",
-                x: controlX,
-                y: 0,
+                useLayout: true,
                 onClick: () => {
                   onAssignAttackRef.current?.(firstAssignAttack);
                 },
                 isWarning: isResisted,
               });
-              controlsRow.addChild(plusBtn);
-              controlX += BTN_SIZE + 8;
+              elementGroup.addChild(plusBtn);
             }
+
+            controlsRow.addChild(elementGroup);
           }
 
-          attackContainer.addChild(controlsRow);
-          attackY += BTN_SIZE + 8;
+          attackContent.addChild(controlsRow);
         }
 
-        // Insufficient damage message
-        if (
-          assignableAttacks.length === 0 &&
-          attackState.totalEffectiveDamage > 0 &&
-          attackState.totalEffectiveDamage < attackState.armor
-        ) {
+        // Insufficient damage message (centered)
+        if (showInsufficient) {
+          const insufficientRow = new Container();
+          insufficientRow.layout = enemyCardTextRowLayout(14);
           const insufficientText = new Text({
             text: `Need ${attackState.armor - attackState.totalEffectiveDamage} more`,
             style: {
@@ -976,14 +986,15 @@ export function PixiEnemyCard({
               fill: COLORS.TEXT_WARNING,
             },
           });
-          insufficientText.anchor.set(0.5, 0);
-          insufficientText.x = CARD_WIDTH / 2;
-          insufficientText.y = attackY;
-          attackContainer.addChild(insufficientText);
+          insufficientText.layout = {};
+          insufficientRow.addChild(insufficientText);
+          attackContent.addChild(insufficientRow);
         }
 
-        // DnD hint when no damage assigned
-        if (data.useDragDrop && attackState.totalEffectiveDamage === 0) {
+        // DnD hint when no damage assigned (centered)
+        if (showDndHint) {
+          const dndHintRow = new Container();
+          dndHintRow.layout = enemyCardTextRowLayout(14);
           const dndHint = new Text({
             text: "Drag damage here",
             style: {
@@ -993,12 +1004,12 @@ export function PixiEnemyCard({
               letterSpacing: 0.5,
             },
           });
-          dndHint.anchor.set(0.5, 0);
-          dndHint.x = CARD_WIDTH / 2;
-          dndHint.y = attackY;
-          attackContainer.addChild(dndHint);
+          dndHint.layout = {};
+          dndHintRow.addChild(dndHint);
+          attackContent.addChild(dndHintRow);
         }
 
+        attackContainer.addChild(attackContent);
         container.addChild(attackContainer);
       }
 
