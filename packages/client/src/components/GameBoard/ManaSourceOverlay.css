@@ -1,0 +1,293 @@
+/* ============================================
+   Mana Source Overlay
+   ============================================ */
+
+/* Intro animation: Dice tray slides in from right with dice cascade
+   Disney principles: Staging (appears first among UI), overlapping action (dice stagger) */
+@keyframes mana-source-reveal {
+  0% {
+    opacity: 0;
+    transform: translateX(50px) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(-5px) scale(1.02);
+  }
+  80% {
+    transform: translateX(2px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Individual die entrance - like dice being cast onto a table */
+@keyframes die-intro-cast {
+  0% {
+    opacity: 0;
+    transform: translateY(-30px) rotate(-45deg) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(5px) rotate(10deg) scale(1.1);
+  }
+  70% {
+    transform: translateY(-3px) rotate(-5deg) scale(0.95);
+  }
+  85% {
+    transform: translateY(1px) rotate(2deg) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+.mana-source-overlay {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(15, 15, 35, 0.9);
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 0.5rem;
+  z-index: 10;
+}
+
+/* Hidden during intro - before ui-settle phase */
+.mana-source-overlay--intro-hidden {
+  opacity: 0;
+  transform: translateX(50px);
+  pointer-events: none;
+}
+
+/* Container animates in first */
+.mana-source-overlay--intro-reveal {
+  animation: mana-source-reveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Individual dice cascade in with stagger */
+.mana-source-overlay--intro-reveal .mana-source-overlay__die {
+  opacity: 0;
+  animation: die-intro-cast 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Stagger delays for each die - cast one after another */
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(1) { animation-delay: 0.1s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(2) { animation-delay: 0.16s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(3) { animation-delay: 0.22s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(4) { animation-delay: 0.28s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(5) { animation-delay: 0.34s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(6) { animation-delay: 0.40s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(7) { animation-delay: 0.46s; }
+.mana-source-overlay--intro-reveal .mana-source-overlay__die:nth-child(8) { animation-delay: 0.52s; }
+
+.mana-source-overlay__label {
+  font-size: 0.6rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.375rem;
+  text-align: center;
+}
+
+.mana-source-overlay__dice {
+  display: flex;
+  gap: clamp(0.375rem, 0.8vw, 0.75rem);
+}
+
+.mana-source-overlay__die {
+  width: clamp(2.5rem, 4vw, 5rem);
+  height: clamp(2.5rem, 4vw, 5rem);
+  border-radius: clamp(6px, 0.8vw, 12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: linear-gradient(145deg, #f5f5f5, #d0d0d0);
+  box-shadow:
+    3px 3px 6px rgba(0, 0, 0, 0.3),
+    -2px -2px 4px rgba(255, 255, 255, 0.8),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.9),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.mana-source-overlay__die-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.mana-source-overlay__die--unavailable {
+  opacity: 0.5;
+  background: linear-gradient(145deg, #888, #666);
+}
+
+.mana-source-overlay__die--unavailable .mana-source-overlay__die-icon {
+  filter: grayscale(100%) brightness(0.6);
+}
+
+/* Stolen die styling - mana steal tactic
+   Distinct amber/gold tint instead of grayscale to indicate "reserved" status */
+.mana-source-overlay__die--stolen {
+  opacity: 0.65;
+  background: linear-gradient(145deg, #d4a574, #b8956a);
+  position: relative;
+}
+
+.mana-source-overlay__die--stolen .mana-source-overlay__die-icon {
+  filter: sepia(40%) saturate(70%) brightness(0.85);
+}
+
+/* Tactic badge overlay for stolen dice */
+.mana-source-overlay__die-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 12px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+}
+
+/* Stolen die animation - when a die is stolen via Mana Steal tactic */
+@keyframes dice-stolen {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  30% {
+    transform: scale(1.25) rotate(8deg);
+    filter: brightness(1.4);
+    box-shadow:
+      0 0 20px rgba(255, 193, 7, 0.7),
+      0 0 40px rgba(255, 193, 7, 0.4);
+  }
+  60% {
+    transform: scale(0.9) rotate(-4deg);
+    filter: brightness(0.9);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1);
+  }
+}
+
+/* Dice roll animation - Disney "juice" principles:
+   - Anticipation: slight scale up before roll
+   - Squash/stretch: wobble during rotation
+   - Secondary motion: glow effect
+   - Satisfying settle: bounce at end */
+@keyframes dice-roll {
+  0% {
+    transform: scale(1) rotateZ(0deg);
+    filter: brightness(1);
+  }
+  /* Anticipation - wind up */
+  10% {
+    transform: scale(1.15) rotateZ(-15deg);
+    filter: brightness(1.1);
+  }
+  /* Fast spins with squash/stretch */
+  30% {
+    transform: scale(0.9, 1.1) rotateZ(180deg);
+    filter: brightness(1.3);
+  }
+  50% {
+    transform: scale(1.1, 0.9) rotateZ(360deg);
+    filter: brightness(1.2);
+  }
+  70% {
+    transform: scale(0.95, 1.05) rotateZ(540deg);
+    filter: brightness(1.15);
+  }
+  /* Overshoot and settle */
+  85% {
+    transform: scale(1.08) rotateZ(710deg);
+    filter: brightness(1.1);
+  }
+  95% {
+    transform: scale(0.98) rotateZ(718deg);
+    filter: brightness(1.02);
+  }
+  100% {
+    transform: scale(1) rotateZ(720deg);
+    filter: brightness(1);
+  }
+}
+
+/* Glow pulse during roll */
+@keyframes dice-glow {
+  0%, 100% {
+    box-shadow:
+      3px 3px 6px rgba(0, 0, 0, 0.3),
+      -2px -2px 4px rgba(255, 255, 255, 0.8),
+      inset 1px 1px 2px rgba(255, 255, 255, 0.9),
+      inset -1px -1px 2px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow:
+      3px 3px 6px rgba(0, 0, 0, 0.3),
+      -2px -2px 4px rgba(255, 255, 255, 0.8),
+      inset 1px 1px 2px rgba(255, 255, 255, 0.9),
+      inset -1px -1px 2px rgba(0, 0, 0, 0.1),
+      0 0 20px rgba(255, 215, 0, 0.6),
+      0 0 40px rgba(255, 215, 0, 0.3);
+  }
+}
+
+.mana-source-overlay__die--rolling {
+  animation:
+    dice-roll 0.7s cubic-bezier(0.34, 1.56, 0.64, 1),
+    dice-glow 0.7s ease-in-out;
+  will-change: transform, filter;
+}
+
+/* Hide icon briefly mid-roll for "mystery" effect */
+.mana-source-overlay__die--rolling .mana-source-overlay__die-icon {
+  animation: icon-flash 0.7s ease-in-out;
+}
+
+@keyframes icon-flash {
+  0%, 100% {
+    opacity: 1;
+  }
+  30%, 60% {
+    opacity: 0.3;
+    filter: blur(2px) brightness(1.5);
+  }
+}
+
+/* "Taken" animation - when a die is used from source
+   Quick pulse out then settle into unavailable state */
+@keyframes dice-taken {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  /* Quick bright flash */
+  20% {
+    transform: scale(1.2);
+    filter: brightness(1.4);
+    box-shadow:
+      0 0 15px rgba(255, 255, 255, 0.8),
+      0 0 30px rgba(255, 215, 0, 0.5);
+  }
+  /* Shrink down */
+  60% {
+    transform: scale(0.85);
+    filter: brightness(0.8);
+  }
+  /* Settle */
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.mana-source-overlay__die--taken {
+  animation: dice-taken 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}

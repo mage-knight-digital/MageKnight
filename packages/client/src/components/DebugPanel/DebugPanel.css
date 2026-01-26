@@ -1,0 +1,551 @@
+/* ========================================
+   Debug Panel
+   ======================================== */
+
+.debug-panel__toggle {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: none;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.debug-panel__toggle:hover {
+  background: #34495e;
+  transform: scale(1.1);
+}
+
+.debug-panel {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  width: 350px;
+  max-height: 80vh;
+  background: #1a1a2e;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  z-index: 9999;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.debug-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #3498db;
+  color: #fff;
+}
+
+.debug-panel__header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.debug-panel__header button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.debug-panel__header button:hover {
+  opacity: 0.8;
+}
+
+.debug-panel__content {
+  padding: 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.debug-panel__section {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #333;
+}
+
+.debug-panel__section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.debug-panel__section h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #3498db;
+  font-weight: 600;
+}
+
+.debug-panel__row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.debug-panel__row:last-child {
+  margin-bottom: 0;
+}
+
+.debug-panel__row select {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+.debug-panel__row button {
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  border: none;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.debug-panel__row button:hover:not(:disabled) {
+  background: #34495e;
+}
+
+.debug-panel__row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.debug-panel__file-input {
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  border: none;
+  background: #27ae60;
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.debug-panel__file-input:hover {
+  background: #2ecc71;
+}
+
+.debug-panel__row span {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.debug-panel__search {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.debug-panel__search::placeholder {
+  color: #666;
+}
+
+.debug-panel__card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.debug-panel__card-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  border: none;
+  background: #34495e;
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.debug-panel__card-btn:hover {
+  background: #4a6278;
+}
+
+.debug-panel__card-name {
+  font-weight: 500;
+}
+
+.debug-panel__card-category {
+  font-size: 0.65rem;
+  color: #999;
+  padding: 0.1rem 0.4rem;
+  background: #2c3e50;
+  border-radius: 3px;
+}
+
+.debug-panel__no-results {
+  color: #666;
+  font-size: 0.8rem;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.debug-panel__more {
+  color: #666;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.25rem;
+}
+
+.debug-panel__level-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.debug-panel__level-buttons button {
+  min-width: 28px;
+  padding: 0.25rem 0.5rem;
+}
+
+.debug-panel__level-active {
+  background: #27ae60 !important;
+  font-weight: bold;
+}
+
+/* ============================================
+   Debug Panel - Sound Section
+   ============================================ */
+
+.debug-panel__sound-master {
+  gap: 0.75rem;
+}
+
+.debug-panel__mute-btn--muted {
+  background: #c0392b !important;
+}
+
+.debug-panel__volume-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.debug-panel__volume-slider {
+  width: 80px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #3498db;
+}
+
+.debug-panel__volume-label span {
+  min-width: 32px;
+  text-align: right;
+}
+
+.debug-panel__subsection {
+  margin-top: 0.75rem;
+}
+
+.debug-panel__subsection h5 {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: #888;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.debug-panel__sound-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.25rem;
+}
+
+.debug-panel__sound-preview-btn {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.7rem;
+  text-align: left;
+  background: #34495e;
+  border: none;
+  border-radius: 3px;
+  color: #ddd;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.debug-panel__sound-preview-btn:hover {
+  background: #4a6278;
+}
+
+.debug-panel__sound-event {
+  background: #2c3e50;
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.debug-panel__sound-event:last-child {
+  margin-bottom: 0;
+}
+
+.debug-panel__sound-event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.debug-panel__sound-event-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #3498db;
+}
+
+.debug-panel__sound-test-btn {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  background: #27ae60;
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.debug-panel__sound-test-btn:hover {
+  background: #2ecc71;
+}
+
+.debug-panel__sound-event-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.debug-panel__sound-select {
+  width: 100%;
+  min-height: 60px;
+  max-height: 80px;
+  padding: 0.25rem;
+  border-radius: 3px;
+  border: 1px solid #444;
+  background: #1a1a2e;
+  color: #ddd;
+  font-size: 0.7rem;
+}
+
+.debug-panel__sound-select option {
+  padding: 0.2rem 0.4rem;
+}
+
+.debug-panel__volume-label--small {
+  font-size: 0.7rem;
+}
+
+.debug-panel__volume-label--small .debug-panel__volume-slider {
+  width: 60px;
+}
+
+.debug-panel__save-slot {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* ============================================
+   Debug Panel - Ambient Music Section
+   ============================================ */
+
+.debug-panel__ambient-controls {
+  gap: 0.5rem;
+}
+
+.debug-panel__playing {
+  background: #27ae60 !important;
+}
+
+.debug-panel__current-track {
+  font-size: 0.75rem;
+  color: #27ae60;
+  font-style: italic;
+}
+
+.debug-panel__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: #ccc;
+  cursor: pointer;
+}
+
+.debug-panel__checkbox-label input {
+  cursor: pointer;
+}
+
+.debug-panel__ambient-preview-btn {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.7rem;
+  text-align: left;
+  background: #34495e;
+  border: none;
+  border-radius: 3px;
+  color: #ddd;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.debug-panel__ambient-preview-btn:hover {
+  background: #4a6278;
+}
+
+.debug-panel__ambient-preview-btn--playing {
+  background: #27ae60;
+  color: #fff;
+}
+
+.debug-panel__ambient-preview-btn--playing:hover {
+  background: #2ecc71;
+}
+
+.debug-panel__ambient-preview-btn--disliked {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.debug-panel__ambient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.debug-panel__ambient-track {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.debug-panel__ambient-track .debug-panel__ambient-preview-btn {
+  flex: 1;
+}
+
+.debug-panel__rating-btns {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.debug-panel__rating-btn {
+  padding: 0.2rem 0.35rem;
+  font-size: 0.65rem;
+  background: #2c3e50;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.debug-panel__rating-btn:hover {
+  opacity: 0.8;
+}
+
+.debug-panel__rating-btn--active-up {
+  opacity: 1;
+  background: #27ae60;
+}
+
+.debug-panel__rating-btn--active-down {
+  opacity: 1;
+  background: #c0392b;
+}
+
+.debug-panel__clear-ratings-btn {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.6rem;
+  background: #7f8c8d;
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.debug-panel__clear-ratings-btn:hover {
+  background: #95a5a6;
+}
+
+/* Layer sections for two-layer audio */
+.debug-panel__layer-section {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.debug-panel__layer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.3rem;
+}
+
+.debug-panel__layer-header h5 {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #fff;
+}
+
+.debug-panel__layer-controls {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.debug-panel__layer-controls button {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+/* Track category grouping in preview list */
+.debug-panel__track-category {
+  margin-bottom: 0.5rem;
+}
+
+.debug-panel__track-category-label {
+  font-size: 0.65rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+  padding-left: 0.25rem;
+  border-left: 2px solid #444;
+}

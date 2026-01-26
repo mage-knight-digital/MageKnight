@@ -6,6 +6,7 @@ import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { useCardInteraction } from "../CardInteraction";
 import { PixiPieMenu, type PixiPieMenuItem } from "../CardActionMenu";
+import "./ChoiceSelection.css";
 
 /**
  * Map effect types to hex colors for PixiJS rendering.
