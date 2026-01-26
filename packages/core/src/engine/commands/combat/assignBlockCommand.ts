@@ -21,6 +21,10 @@ import {
 import type { ElementalAttackValues } from "../../../types/player.js";
 import type { PendingElementalDamage } from "../../../types/combat.js";
 import { createEmptyPendingDamage } from "../../../types/combat.js";
+import {
+  getElementalValue,
+  addToElementalValues,
+} from "../../helpers/elementalValueHelpers.js";
 
 export const ASSIGN_BLOCK_COMMAND = "ASSIGN_BLOCK" as const;
 
@@ -43,39 +47,6 @@ function getAvailableBlock(
   const accumulated = getElementalValue(blockElements, element);
   const alreadyAssigned = getElementalValue(assignedBlockElements, element);
   return accumulated - alreadyAssigned;
-}
-
-function getElementalValue(elements: ElementalAttackValues, element: AttackElement): number {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return elements.fire;
-    case ATTACK_ELEMENT_ICE:
-      return elements.ice;
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return elements.coldFire;
-    default:
-      return elements.physical;
-  }
-}
-
-/**
- * Add to elemental values.
- */
-function addToElementalValues(
-  values: ElementalAttackValues,
-  element: AttackElement,
-  amount: number
-): ElementalAttackValues {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return { ...values, fire: values.fire + amount };
-    case ATTACK_ELEMENT_ICE:
-      return { ...values, ice: values.ice + amount };
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return { ...values, coldFire: values.coldFire + amount };
-    default:
-      return { ...values, physical: values.physical + amount };
-  }
 }
 
 /**

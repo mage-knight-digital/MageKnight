@@ -22,9 +22,13 @@ import {
   ATTACK_ELEMENT_ICE,
   ATTACK_ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
-import type { AccumulatedAttack, ElementalAttackValues } from "../../../types/player.js";
+import type { AccumulatedAttack } from "../../../types/player.js";
 import type { PendingElementalDamage } from "../../../types/combat.js";
 import { createEmptyPendingDamage } from "../../../types/combat.js";
+import {
+  getElementalValue,
+  addToElementalValues,
+} from "../../helpers/elementalValueHelpers.js";
 
 export const ASSIGN_ATTACK_COMMAND = "ASSIGN_ATTACK" as const;
 
@@ -86,19 +90,6 @@ function getAvailableAttack(
   return accumulated - alreadyAssigned;
 }
 
-function getElementalValue(elements: ElementalAttackValues, element: AttackElement): number {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return elements.fire;
-    case ATTACK_ELEMENT_ICE:
-      return elements.ice;
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return elements.coldFire;
-    default:
-      return elements.physical;
-  }
-}
-
 /**
  * Update accumulated attack values by adding to a specific type/element combo.
  */
@@ -133,23 +124,6 @@ function addToAccumulatedAttack(
         ...attack,
         normalElements: addToElementalValues(attack.normalElements, element, amount),
       };
-  }
-}
-
-function addToElementalValues(
-  values: ElementalAttackValues,
-  element: AttackElement,
-  amount: number
-): ElementalAttackValues {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return { ...values, fire: values.fire + amount };
-    case ATTACK_ELEMENT_ICE:
-      return { ...values, ice: values.ice + amount };
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return { ...values, coldFire: values.coldFire + amount };
-    default:
-      return { ...values, physical: values.physical + amount };
   }
 }
 

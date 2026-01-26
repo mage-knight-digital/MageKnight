@@ -59,3 +59,9 @@ export {
   revealRuinsToken,
 } from "./ruinsTokenHelpers.js";
 export type { RuinsTokenPiles, DrawRuinsTokenResult } from "./ruinsTokenHelpers.js";
+
+// Elemental value helpers
+export {
+  getElementalValue,
+  addToElementalValues,
+} from "./elementalValueHelpers.js";
