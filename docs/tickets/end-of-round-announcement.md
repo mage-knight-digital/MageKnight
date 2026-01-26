@@ -170,5 +170,5 @@ Add new `FORFEIT_TURN` action for when end of round already announced and player
 
 ## Related Tickets
 
-- Dummy player for solo mode (not yet created)
+- `dummy-player-solo-mode.md` - Dummy player implementation (triggers end of round when deck empty)
 - `scenario-end-game-flow.md` (may have overlap with round end handling)

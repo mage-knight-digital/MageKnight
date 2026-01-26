@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, type MageKnightEngine } from "../MageKnightEngine.js";
-import { createTestPlayer, createTestGameState } from "./testHelpers.js";
+import { createTestPlayer, createTestGameState, createTestHex } from "./testHelpers.js";
 import {
   ANNOUNCE_END_OF_ROUND_ACTION,
   END_TURN_ACTION,
@@ -26,11 +26,16 @@ import {
   INVALID_ACTION,
   CARD_MARCH,
   CARD_STAMINA,
+  hexKey,
+  TERRAIN_PLAINS,
+  type CardId,
 } from "@mage-knight/shared";
 import type { GameState } from "../../state/GameState.js";
 import { UNIT_STATE_SPENT, UNIT_STATE_READY } from "@mage-knight/shared";
 import type { PlayerUnit } from "../../types/unit.js";
 import type { UnitId } from "@mage-knight/shared";
+import { SiteType } from "../../types/map.js";
+import type { Site } from "../../types/map.js";
 
 describe("Round Cycle", () => {
   let engine: MageKnightEngine;
@@ -509,6 +514,164 @@ describe("Round Cycle", () => {
           reason: expect.stringContaining("must announce"),
         })
       );
+    });
+  });
+
+  describe("Monastery AA refresh at round end", () => {
+    /**
+     * Create a monastery site for testing
+     */
+    function createMonasterySite(burned: boolean = false): Site {
+      return {
+        type: SiteType.Monastery,
+        owner: null,
+        isConquered: false,
+        isBurned: burned,
+      };
+    }
+
+    it("should return old monastery AAs to bottom of AA deck at round end", () => {
+      const player = createTestPlayer({ id: "player1", deck: [], hand: [] });
+
+      // Create a hex with an unburned monastery
+      const hexWithMonastery = createTestHex(0, 0, TERRAIN_PLAINS, createMonasterySite());
+
+      const state: GameState = {
+        ...createTestGameState({
+          players: [player],
+          turnOrder: ["player1"],
+          currentPlayerIndex: 0,
+          endOfRoundAnnouncedBy: "player1",
+          playersWithFinalTurn: [],
+          round: 1,
+        }),
+        map: {
+          hexes: {
+            [hexKey({ q: 0, r: 0 })]: hexWithMonastery,
+          },
+          tiles: [],
+          tileDeck: { countryside: [], core: [] },
+        },
+        offers: {
+          units: [],
+          advancedActions: { cards: [] },
+          spells: { cards: [] },
+          commonSkills: [],
+          // Monastery offer has an old AA from previous round
+          monasteryAdvancedActions: ["old_monastery_aa" as CardId],
+        },
+        decks: {
+          regularUnits: [],
+          eliteUnits: [],
+          advancedActions: ["aa_1" as CardId, "aa_2" as CardId, "aa_3" as CardId],
+          spells: [],
+        },
+      };
+
+      const result = engine.processAction(state, "player1", {
+        type: END_TURN_ACTION,
+      });
+
+      // Old monastery AA should be at the BOTTOM of the AA deck (after the refresh that
+      // cycles the regular AA offer)
+      expect(result.state.decks.advancedActions).toContain("old_monastery_aa");
+
+      // New monastery AA should have been drawn for the unburned monastery
+      expect(result.state.offers.monasteryAdvancedActions).not.toContain("old_monastery_aa");
+      expect(result.state.offers.monasteryAdvancedActions.length).toBe(1);
+    });
+
+    it("should draw new monastery AAs for each unburned monastery", () => {
+      const player = createTestPlayer({ id: "player1", deck: [], hand: [] });
+
+      // Create hexes: one with unburned monastery, one with burned monastery
+      const hexWithUnburnedMonastery = createTestHex(0, 0, TERRAIN_PLAINS, createMonasterySite(false));
+      const hexWithBurnedMonastery = createTestHex(1, 0, TERRAIN_PLAINS, createMonasterySite(true));
+      const hexWithSecondUnburnedMonastery = createTestHex(2, 0, TERRAIN_PLAINS, createMonasterySite(false));
+
+      const state: GameState = {
+        ...createTestGameState({
+          players: [player],
+          turnOrder: ["player1"],
+          currentPlayerIndex: 0,
+          endOfRoundAnnouncedBy: "player1",
+          playersWithFinalTurn: [],
+          round: 1,
+        }),
+        map: {
+          hexes: {
+            [hexKey({ q: 0, r: 0 })]: hexWithUnburnedMonastery,
+            [hexKey({ q: 1, r: 0 })]: hexWithBurnedMonastery,
+            [hexKey({ q: 2, r: 0 })]: hexWithSecondUnburnedMonastery,
+          },
+          tiles: [],
+          tileDeck: { countryside: [], core: [] },
+        },
+        offers: {
+          units: [],
+          advancedActions: { cards: [] },
+          spells: { cards: [] },
+          commonSkills: [],
+          monasteryAdvancedActions: [], // Empty at start
+        },
+        decks: {
+          regularUnits: [],
+          eliteUnits: [],
+          advancedActions: ["aa_1" as CardId, "aa_2" as CardId, "aa_3" as CardId, "aa_4" as CardId],
+          spells: [],
+        },
+      };
+
+      const result = engine.processAction(state, "player1", {
+        type: END_TURN_ACTION,
+      });
+
+      // Should have 2 monastery AAs (one per unburned monastery, NOT for the burned one)
+      expect(result.state.offers.monasteryAdvancedActions.length).toBe(2);
+    });
+
+    it("should not draw monastery AAs if AA deck is empty", () => {
+      const player = createTestPlayer({ id: "player1", deck: [], hand: [] });
+
+      const hexWithMonastery = createTestHex(0, 0, TERRAIN_PLAINS, createMonasterySite());
+
+      const state: GameState = {
+        ...createTestGameState({
+          players: [player],
+          turnOrder: ["player1"],
+          currentPlayerIndex: 0,
+          endOfRoundAnnouncedBy: "player1",
+          playersWithFinalTurn: [],
+          round: 1,
+        }),
+        map: {
+          hexes: {
+            [hexKey({ q: 0, r: 0 })]: hexWithMonastery,
+          },
+          tiles: [],
+          tileDeck: { countryside: [], core: [] },
+        },
+        offers: {
+          units: [],
+          advancedActions: { cards: [] },
+          spells: { cards: [] },
+          commonSkills: [],
+          monasteryAdvancedActions: [],
+        },
+        decks: {
+          regularUnits: [],
+          eliteUnits: [],
+          advancedActions: [], // Empty AA deck
+          spells: [],
+        },
+      };
+
+      const result = engine.processAction(state, "player1", {
+        type: END_TURN_ACTION,
+      });
+
+      // Should have 0 monastery AAs since deck was empty
+      expect(result.state.offers.monasteryAdvancedActions.length).toBe(0);
     });
   });
 });

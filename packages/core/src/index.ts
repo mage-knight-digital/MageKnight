@@ -75,11 +75,17 @@ export {
 
 // Spell deck setup
 export type { SpellDeckSetupResult } from "./data/spellDeckSetup.js";
-export { createSpellDeckAndOffer } from "./data/spellDeckSetup.js";
+export { createSpellDeckAndOffer, refreshSpellOffer } from "./data/spellDeckSetup.js";
 
 // Advanced action deck setup
-export type { AdvancedActionDeckSetupResult } from "./data/advancedActionDeckSetup.js";
-export { createAdvancedActionDeckAndOffer } from "./data/advancedActionDeckSetup.js";
+export type {
+  AdvancedActionDeckSetupResult,
+  CardOfferRefreshResult,
+} from "./data/advancedActionDeckSetup.js";
+export {
+  createAdvancedActionDeckAndOffer,
+  refreshAdvancedActionOffer,
+} from "./data/advancedActionDeckSetup.js";
 
 // Artifact deck setup
 export type { ArtifactDeckSetupResult } from "./data/artifactDeckSetup.js";

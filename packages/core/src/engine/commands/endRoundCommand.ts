@@ -34,6 +34,8 @@ import {
   getTacticsForTimeOfDay,
   OFFER_REFRESHED,
   OFFER_TYPE_UNITS,
+  OFFER_TYPE_ADVANCED_ACTIONS,
+  OFFER_TYPE_SPELLS,
   TACTIC_REMOVAL_ALL_USED,
 } from "@mage-knight/shared";
 import { createManaSource } from "../mana/manaSource.js";
@@ -42,12 +44,12 @@ import { shuffleWithRng, type RngState } from "../../utils/index.js";
 import { END_ROUND_COMMAND } from "./commandTypes.js";
 import { getEffectiveHandLimit } from "../helpers/handLimitHelpers.js";
 import { refreshUnitOffer } from "../../data/unitDeckSetup.js";
+import { refreshAdvancedActionOffer } from "../../data/advancedActionDeckSetup.js";
+import { refreshSpellOffer } from "../../data/spellDeckSetup.js";
 import { CORE_TILE_ID_PREFIX, SYSTEM_PLAYER_ID } from "../engineConstants.js";
 import { revealRuinsToken } from "../helpers/ruinsTokenHelpers.js";
+import { countUnburnedMonasteries } from "../helpers/monasteryHelpers.js";
 import type { HexState } from "../../types/map.js";
-import { countUnburnedMonasteriesOnMap } from "../helpers/monasteryHelpers.js";
-import type { GameDecks } from "../../types/decks.js";
-import type { GameOffers } from "../../types/offers.js";
 
 /**
  * Check if any core tile has been revealed on the map.
@@ -190,34 +192,52 @@ export function createEndRoundCommand(): Command {
         offerType: OFFER_TYPE_UNITS,
       });
 
-      // 4b. Refresh monastery AA offer
-      // Return current monastery AAs to bottom of AA deck
-      // Then draw new AAs equal to unburned monastery count
-      const unburnedMonasteryCount = countUnburnedMonasteriesOnMap({
-        ...state,
-        map: { ...state.map, hexes: updatedHexes },
+      // 4b. Refresh Advanced Action offer
+      const { offer: refreshedAAOffer, deck: refreshedAADeck } =
+        refreshAdvancedActionOffer(
+          state.offers.advancedActions,
+          refreshedDecks.advancedActions
+        );
+
+      events.push({
+        type: OFFER_REFRESHED,
+        offerType: OFFER_TYPE_ADVANCED_ACTIONS,
       });
 
-      // Put current monastery AAs at the bottom of the AA deck
-      let updatedAADeck = [
-        ...refreshedDecks.advancedActions,
-        ...state.offers.monasteryAdvancedActions,
-      ];
+      // 4c. Refresh Spell offer
+      const { offer: refreshedSpellOffer, deck: refreshedSpellDeck } =
+        refreshSpellOffer(state.offers.spells, refreshedDecks.spells);
 
-      // Draw new AAs for unburned monasteries
-      const newMonasteryAAs = updatedAADeck.slice(0, unburnedMonasteryCount);
-      updatedAADeck = updatedAADeck.slice(unburnedMonasteryCount);
+      events.push({
+        type: OFFER_REFRESHED,
+        offerType: OFFER_TYPE_SPELLS,
+      });
 
-      const decksWithMonasteryRefresh: GameDecks = {
-        ...refreshedDecks,
-        advancedActions: updatedAADeck,
-      };
+      // 4d. Refresh Monastery AA offer
+      // Per rulebook: "If there are some Advanced Action cards in the Unit offer,
+      // put them to the bottom of the Advanced Action deck."
+      // Then: "If there are any monasteries on the map, add one Advanced Action
+      // card to the Unit offer for each monastery that has not been burned."
 
-      const offersWithMonasteryRefresh: GameOffers = {
-        ...state.offers,
-        units: refreshedUnitOffer,
-        monasteryAdvancedActions: newMonasteryAAs,
-      };
+      // Return old monastery AAs to bottom of AA deck
+      let currentAADeck = [...refreshedAADeck];
+      for (const oldAA of state.offers.monasteryAdvancedActions) {
+        currentAADeck.push(oldAA);
+      }
+
+      // Count unburned monasteries on the map
+      const hexArray = Object.values(updatedHexes);
+      const unburnedMonasteryCount = countUnburnedMonasteries(hexArray);
+
+      // Draw new monastery AAs (one per unburned monastery)
+      const newMonasteryAAs: CardId[] = [];
+      for (let i = 0; i < unburnedMonasteryCount && currentAADeck.length > 0; i++) {
+        const [drawnAA, ...remainingDeck] = currentAADeck;
+        if (drawnAA !== undefined) {
+          newMonasteryAAs.push(drawnAA);
+          currentAADeck = remainingDeck;
+        }
+      }
 
       // 5. Process each player
       let currentRng: RngState = rngAfterUnitRefresh;
@@ -355,9 +375,19 @@ export function createEndRoundCommand(): Command {
           source: newSource,
           players: updatedPlayers,
           rng: currentRng,
-          // Updated decks and offers from unit refresh and monastery AA refresh
-          decks: decksWithMonasteryRefresh,
-          offers: offersWithMonasteryRefresh,
+          // Updated decks and offers from unit/AA/spell/monastery refresh
+          decks: {
+            ...refreshedDecks,
+            advancedActions: currentAADeck,
+            spells: refreshedSpellDeck,
+          },
+          offers: {
+            ...state.offers,
+            units: refreshedUnitOffer,
+            advancedActions: refreshedAAOffer,
+            spells: refreshedSpellOffer,
+            monasteryAdvancedActions: newMonasteryAAs,
+          },
           // Updated map with revealed ruins tokens (at dawn)
           map: {
             ...state.map,
