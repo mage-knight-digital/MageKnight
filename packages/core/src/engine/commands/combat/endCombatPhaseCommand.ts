@@ -380,8 +380,13 @@ export function createEndCombatPhaseCommand(
 
         // Find the player to get their position
         const player = state.players.find((p) => p.id === params.playerId);
-        if (player?.position) {
-          const key = hexKey(player.position);
+
+        // Use combatHexCoord if set (for remote combat like rampaging challenge),
+        // otherwise fall back to player's position
+        const combatHexPosition = resolvedCombat.combatHexCoord ?? player?.position;
+
+        if (combatHexPosition) {
+          const key = hexKey(combatHexPosition);
           const hex = state.map.hexes[key];
 
           // Clear enemies from hex on victory, or for dungeon/tomb (enemies always discarded)
@@ -390,6 +395,8 @@ export function createEndCombatPhaseCommand(
             const updatedHex: HexState = {
               ...hex,
               enemies: [],
+              // Also clear rampagingEnemies if this was a rampaging hex
+              rampagingEnemies: hex.rampagingEnemies.length > 0 ? [] : hex.rampagingEnemies,
             };
             const updatedHexes = {
               ...newState.map.hexes,
@@ -401,15 +408,20 @@ export function createEndCombatPhaseCommand(
             };
 
             // Trigger conquest if at an unconquered site (only on victory)
-            if (victory && hex.site && !hex.site.isConquered) {
-              const conquestCommand = createConquerSiteCommand({
-                playerId: params.playerId,
-                hexCoord: player.position,
-                enemiesDefeated,
-              });
-              const conquestResult = conquestCommand.execute(newState);
-              newState = conquestResult.state;
-              events.push(...conquestResult.events);
+            // Note: conquest only happens at player's position, not at remote combat locations
+            if (victory && hex.site && !hex.site.isConquered && player?.position) {
+              const playerHexKey = hexKey(player.position);
+              // Only trigger conquest if combat was at player's position (not remote rampaging challenge)
+              if (key === playerHexKey) {
+                const conquestCommand = createConquerSiteCommand({
+                  playerId: params.playerId,
+                  hexCoord: player.position,
+                  enemiesDefeated,
+                });
+                const conquestResult = conquestCommand.execute(newState);
+                newState = conquestResult.state;
+                events.push(...conquestResult.events);
+              }
             }
           }
 
