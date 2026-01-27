@@ -1,5 +1,4 @@
 import {
-  createContext,
   useCallback,
   useEffect,
   useRef,
@@ -7,37 +6,10 @@ import {
   type ReactNode,
 } from "react";
 import { createGameServer, type GameServer } from "@mage-knight/server";
-import type {
-  ClientGameState,
-  GameEvent,
-  PlayerAction,
-} from "@mage-knight/shared";
+import type { ClientGameState, GameEvent } from "@mage-knight/shared";
+import { GameContext, type ActionLogEntry, type GameContextValue } from "./GameContext";
 
 const PLAYER_ID = "player1";
-
-/** A single log entry for debugging actions and events */
-export interface ActionLogEntry {
-  id: number;
-  timestamp: Date;
-  type: "action" | "events";
-  data: PlayerAction | readonly GameEvent[];
-}
-
-export interface GameContextValue {
-  state: ClientGameState | null;
-  events: readonly GameEvent[];
-  sendAction: (action: PlayerAction) => void;
-  myPlayerId: string;
-  saveGame: () => string | null;
-  loadGame: (json: string) => void;
-  /** Debug action/event log */
-  actionLog: ActionLogEntry[];
-  clearActionLog: () => void;
-  isActionLogEnabled: boolean;
-  setActionLogEnabled: (enabled: boolean) => void;
-}
-
-export const GameContext = createContext<GameContextValue | null>(null);
 
 interface GameProviderProps {
   children: ReactNode;
@@ -45,6 +17,26 @@ interface GameProviderProps {
 }
 
 let nextLogId = 1;
+
+/**
+ * Get or create a GameServer instance.
+ * In development, the server is preserved across HMR updates using import.meta.hot.data
+ * to maintain game state (e.g., staying in combat) during code changes.
+ */
+function getOrCreateServer(seed?: number): GameServer {
+  if (import.meta.hot) {
+    // Development: preserve server across HMR updates
+    if (!import.meta.hot.data.server) {
+      import.meta.hot.data.server = createGameServer(seed);
+      import.meta.hot.data.server.initializeGame([PLAYER_ID]);
+    }
+    return import.meta.hot.data.server;
+  }
+  // Production: create fresh server
+  const server = createGameServer(seed);
+  server.initializeGame([PLAYER_ID]);
+  return server;
+}
 
 export function GameProvider({ children, seed }: GameProviderProps) {
   const [state, setState] = useState<ClientGameState | null>(null);
@@ -60,11 +52,9 @@ export function GameProvider({ children, seed }: GameProviderProps) {
   }, [isActionLogEnabled]);
 
   useEffect(() => {
-    // Create game server with optional seed for reproducibility
-    const server = createGameServer(seed);
-
-    // Initialize with single player
-    server.initializeGame([PLAYER_ID]);
+    // Get existing server (HMR) or create new one
+    const server = getOrCreateServer(seed);
+    serverRef.current = server;
 
     // Connect and receive state updates
     server.connect(PLAYER_ID, (newEvents, newState) => {
@@ -92,14 +82,12 @@ export function GameProvider({ children, seed }: GameProviderProps) {
       }
     });
 
-    serverRef.current = server;
-
     return () => {
       server.disconnect(PLAYER_ID);
     };
   }, [seed]);
 
-  const sendAction = useCallback((action: PlayerAction) => {
+  const sendAction = useCallback((action: Parameters<GameContextValue["sendAction"]>[0]) => {
     if (serverRef.current) {
       // Log action for debugging
       if (isActionLogEnabledRef.current) {

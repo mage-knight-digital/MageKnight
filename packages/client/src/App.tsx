@@ -1,4 +1,4 @@
-import { GameProvider } from "./context/GameContext";
+import { GameProvider } from "./context/GameProvider";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
 import { CardInteractionProvider } from "./components/CardInteraction";
 import { GameIntroProvider } from "./contexts/GameIntroContext";
