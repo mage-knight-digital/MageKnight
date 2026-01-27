@@ -16,6 +16,7 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import type {
   DamageAssignmentOption,
   UnitDamageTarget,
@@ -217,7 +218,9 @@ export function DamageAssignmentPanel({
     ]);
   }, [damageOption.enemyInstanceId, totalDamage, onAssign]);
 
-  return (
+  // Use portal to escape combat-scene stacking context (z-index: 100)
+  // so panel appears above the PixiJS canvas (z-index: 150)
+  return createPortal(
     <div className="damage-assignment-panel" data-testid="damage-assignment-panel">
       <div className="damage-assignment-panel__backdrop" onClick={onCancel} />
 
@@ -449,6 +452,7 @@ export function DamageAssignmentPanel({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
