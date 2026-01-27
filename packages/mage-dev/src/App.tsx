@@ -69,19 +69,8 @@ export function App() {
     const result = startDevServer(selectedWorktree.name);
     if (result.alreadyRunning) {
       showMessage(`Already running: ${selectedWorktree.serverUrl ?? ""}`, "yellow");
-      if (selectedWorktree.serverUrl) {
-        openInBrowser(selectedWorktree.serverUrl);
-      }
     } else if (result.success) {
       showMessage(`Starting server for ${selectedWorktree.name}...`, "green");
-      // Open browser after a short delay
-      setTimeout(() => {
-        refresh();
-        const wt = getWorktrees().find((w) => w.name === selectedWorktree.name);
-        if (wt?.serverUrl) {
-          openInBrowser(wt.serverUrl);
-        }
-      }, 3000);
     } else {
       showMessage(`Failed: ${result.error}`, "red");
     }
