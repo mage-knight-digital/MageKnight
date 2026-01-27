@@ -204,6 +204,7 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
 
     units: player.units.map(
       (unit): ClientPlayerUnit => ({
+        instanceId: unit.instanceId,
         unitId: unit.unitId,
         state: unit.state,
         wounded: unit.wounded,

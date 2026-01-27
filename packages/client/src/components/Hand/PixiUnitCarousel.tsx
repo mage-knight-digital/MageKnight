@@ -23,6 +23,7 @@ import {
   UNIT_STATE_READY,
   type ClientPlayerUnit,
   type UnitId,
+  type ActivatableUnit,
 } from "@mage-knight/shared";
 import { getUnitTexture, getPlaceholderTexture } from "../../utils/pixiTextureLoader";
 import { loadAtlas } from "../../utils/cardAtlas";
@@ -48,6 +49,7 @@ const STATUS_COLORS = {
   readyElite: 0xf39c12, // Gold for elite ready
   exhausted: 0x808080, // Gray
   wounded: 0xe74c3c, // Red
+  activatable: 0x00ffff, // Cyan - indicates unit can be activated
 } as const;
 
 // Use shared view mode offsets (same as hand)
@@ -62,12 +64,25 @@ function getNextCommandSlotLevel(currentSlots: number): number | null {
   return COMMAND_SLOT_LEVELS[currentSlots] ?? null;
 }
 
+// Info passed when a unit is clicked
+export interface UnitClickInfo {
+  unitIndex: number;
+  unitInstanceId: string;
+  rect: DOMRect;
+}
+
 interface PixiUnitCarouselProps {
   units: readonly ClientPlayerUnit[];
   viewMode: CardFanViewMode;
   commandTokens: number;
   /** Whether this pane is active in the carousel (controls visibility) */
   isActive?: boolean;
+  /** Activatable unit data from validActions (undefined = no activation possible) */
+  activatableUnits?: readonly ActivatableUnit[];
+  /** Callback when a unit with activatable abilities is clicked */
+  onUnitClick?: (info: UnitClickInfo) => void;
+  /** Index of currently selected unit (for menu state) */
+  selectedIndex?: number | null;
 }
 
 /**
@@ -104,7 +119,11 @@ export function PixiUnitCarousel({
   viewMode,
   commandTokens,
   isActive = true,
+  activatableUnits,
+  onUnitClick,
+  selectedIndex: _selectedIndex = null, // Reserved for future selection highlight
 }: PixiUnitCarouselProps) {
+  void _selectedIndex; // Suppress unused warning until selection highlight is implemented
   const { app, overlayLayer } = usePixiApp();
 
   // PixiJS object refs
@@ -171,6 +190,17 @@ export function PixiUnitCarousel({
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- positions only depend on count, not IDs
   }, [units.length, unitWidth, containerWidth, containerHeight]);
+
+  // Build a map of unit instance IDs to activatable info for quick lookup
+  const activatableMap = useMemo(() => {
+    const map = new Map<string, ActivatableUnit>();
+    if (activatableUnits) {
+      for (const au of activatableUnits) {
+        map.set(au.unitInstanceId, au);
+      }
+    }
+    return map;
+  }, [activatableUnits]);
 
   // Load atlas on mount
   useEffect(() => {
@@ -287,12 +317,19 @@ export function PixiUnitCarousel({
         const isReady = unit.state === UNIT_STATE_READY;
         const isWounded = unit.wounded;
 
+        // Check if this unit has any activatable abilities
+        const activatableInfo = activatableMap.get(unit.instanceId);
+        const hasActivatableAbility = activatableInfo?.abilities.some(a => a.canActivate) ?? false;
+
         // Determine glow color based on status
+        // Priority: wounded > exhausted > activatable > ready
         let glowColor: number;
         if (isWounded) {
           glowColor = STATUS_COLORS.wounded;
         } else if (!isReady) {
           glowColor = STATUS_COLORS.exhausted;
+        } else if (hasActivatableAbility) {
+          glowColor = STATUS_COLORS.activatable;
         } else {
           glowColor = isElite ? STATUS_COLORS.readyElite : STATUS_COLORS.ready;
         }
@@ -549,6 +586,7 @@ export function PixiUnitCarousel({
     hasNoUnits,
     nextLevel,
     commandTokens,
+    activatableMap,
   ]);
 
   // Handle hover detection using DOM events
@@ -580,6 +618,67 @@ export function PixiUnitCarousel({
     document.addEventListener("mousemove", handleMouseMove);
     return () => document.removeEventListener("mousemove", handleMouseMove);
   }, [isAppReady, viewMode, findUnitAtPosition, isActive]);
+
+  // Handle unit clicks via DOM events
+  useEffect(() => {
+    const unitContainer = containerRef.current;
+    if (!unitContainer || !isAppReady || !isActive || !onUnitClick) return;
+
+    const handleClick = (e: MouseEvent) => {
+      if (viewMode === "board") return;
+
+      // Check if click target is an interactive element - let those clicks through
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const interactiveSelector =
+          'button, [role="button"], input, select, a, [data-interactive="true"]';
+        if (target.closest(interactiveSelector)) {
+          return;
+        }
+      }
+
+      const localPos = unitContainer.toLocal({ x: e.clientX, y: e.clientY });
+      const unitIndex = findUnitAtPosition(localPos.x, localPos.y);
+
+      if (unitIndex !== null) {
+        const unit = units[unitIndex];
+        if (!unit) return;
+
+        // Check if this unit has any activatable abilities
+        const activatableInfo = activatableMap.get(unit.instanceId);
+        const hasActivatableAbility = activatableInfo?.abilities.some(a => a.canActivate);
+
+        if (hasActivatableAbility) {
+          e.stopPropagation();
+          e.preventDefault();
+
+          playSound("cardPlay");
+
+          // Get the unit container's global position for menu placement
+          const container = unitContainersRef.current.get(unitIndex);
+          if (container) {
+            const globalPos = container.getGlobalPosition();
+            const viewConfig = VIEW_MODE_OFFSETS[viewMode];
+            const scale = viewConfig.scale;
+            const unitRect = new DOMRect(
+              globalPos.x - (unitWidth * scale) / 2,
+              globalPos.y - (unitHeight * scale),
+              unitWidth * scale,
+              unitHeight * scale
+            );
+            onUnitClick({
+              unitIndex,
+              unitInstanceId: unit.instanceId,
+              rect: unitRect,
+            });
+          }
+        }
+      }
+    };
+
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, [isAppReady, viewMode, findUnitAtPosition, isActive, units, activatableMap, onUnitClick, unitWidth, unitHeight]);
 
   // Track previous hovered index for animation
   const prevHoveredIndexRef = useRef<number | null>(null);

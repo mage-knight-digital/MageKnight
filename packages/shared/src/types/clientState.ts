@@ -49,6 +49,7 @@ export interface ClientCrystals {
 
 // Client-visible unit state
 export interface ClientPlayerUnit {
+  readonly instanceId: string;
   readonly unitId: UnitId;
   readonly state: UnitState;
   readonly wounded: boolean;

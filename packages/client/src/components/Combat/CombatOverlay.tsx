@@ -6,7 +6,12 @@
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import type { ClientCombatState, CombatOptions } from "@mage-knight/shared";
+import type {
+  ClientCombatState,
+  CombatOptions,
+  DamageAssignmentOption,
+  DamageAssignment,
+} from "@mage-knight/shared";
 import {
   UNDO_ACTION,
   COMBAT_PHASE_ATTACK,
@@ -43,6 +48,7 @@ import {
   type BlockChipData,
 } from "../../contexts/CombatDragContext";
 import { AmountPicker } from "./AmountPicker";
+import { DamageAssignmentPanel } from "./DamageAssignmentPanel";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import "./CombatOverlay.css";
@@ -337,6 +343,9 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
     position: { x: number; y: number };
   } | null>(null);
 
+  // Damage assignment panel state
+  const [selectedDamageOption, setSelectedDamageOption] = useState<DamageAssignmentOption | null>(null);
+
   const triggerEffect = useCallback((effect: EffectType) => {
     setActiveEffect(effect);
     setEffectKey(k => k + 1); // Force animation restart
@@ -348,11 +357,47 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   const prevWoundsRef = useRef<number>(combat.woundsThisCombat);
   const lastDamageEnemyRef = useRef<string | null>(null);
 
-  // When player clicks "Take Damage", record which enemy is dealing it
+  const player = useMyPlayer();
+
+  // When player clicks "Take Damage", check if units are available
+  // If so, show the DamageAssignmentPanel. Otherwise, send damage directly to hero.
   const handleAssignDamage = useCallback((enemyInstanceId: string) => {
     lastDamageEnemyRef.current = enemyInstanceId;
-    sendAction({ type: ASSIGN_DAMAGE_ACTION, enemyInstanceId });
-  }, [sendAction]);
+
+    // Find the damage option for this enemy
+    const damageOption = combatOptions?.damageAssignments?.find(
+      (d) => d.enemyInstanceId === enemyInstanceId
+    );
+
+    // If player has units that can be assigned, show the panel
+    const hasAvailableUnits = damageOption?.availableUnits?.some((u) => u.canBeAssigned) ?? false;
+
+    if (hasAvailableUnits && damageOption) {
+      setSelectedDamageOption(damageOption);
+    } else {
+      // No units available - assign all damage to hero
+      sendAction({ type: ASSIGN_DAMAGE_ACTION, enemyInstanceId });
+    }
+  }, [sendAction, combatOptions?.damageAssignments]);
+
+  // Handle damage assignment confirmation from panel
+  const handleDamageAssignmentConfirm = useCallback(
+    (enemyInstanceId: string, assignments: readonly DamageAssignment[]) => {
+      lastDamageEnemyRef.current = enemyInstanceId;
+      sendAction({
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId,
+        assignments,
+      });
+      setSelectedDamageOption(null);
+    },
+    [sendAction]
+  );
+
+  // Handle damage assignment panel cancel
+  const handleDamageAssignmentCancel = useCallback(() => {
+    setSelectedDamageOption(null);
+  }, []);
 
   useEffect(() => {
     const prevWounds = prevWoundsRef.current;
@@ -664,6 +709,17 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
         <EnemyDetailPanel
           enemy={selectedEnemy}
           onClose={() => setDetailPanelEnemy(null)}
+        />
+      )}
+
+      {/* Damage Assignment Panel - unit selection for damage absorption */}
+      {selectedDamageOption && player && (
+        <DamageAssignmentPanel
+          damageOption={selectedDamageOption}
+          onAssign={handleDamageAssignmentConfirm}
+          onCancel={handleDamageAssignmentCancel}
+          handLimit={player.handLimit}
+          woundsThisCombat={combat.woundsThisCombat}
         />
       )}
     </div>

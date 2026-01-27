@@ -782,6 +782,7 @@ function computeAvailableUnitTargets(
 
     return {
       unitInstanceId: unit.instanceId,
+      unitId: unit.unitId,
       unitName: unitDef.name,
       armor: unitDef.armor,
       isResistantToAttack,

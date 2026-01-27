@@ -521,7 +521,8 @@ export function PixiFloatingHand({
     let lastHoveredIndex: number | null = null;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (viewMode === "board") return;
+      // Don't process hover when hand is hidden (board mode or inactive pane)
+      if (viewMode === "board" || !isActive) return;
 
       // Don't process hover when an overlay is active OR when a card is selected
       // Keep the card raised so pie menu can animate smoothly from it
@@ -556,7 +557,7 @@ export function PixiFloatingHand({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [isAppReady, viewMode, findCardAtPosition, isOverlayActive, inCombat, selectedIndex]);
+  }, [isAppReady, viewMode, findCardAtPosition, isOverlayActive, inCombat, selectedIndex, isActive]);
 
   // Handle card clicks via DOM events (canvas has pointer-events: none)
   useEffect(() => {
@@ -564,7 +565,8 @@ export function PixiFloatingHand({
     if (!handContainer || !isAppReady) return;
 
     const handleClick = (e: MouseEvent) => {
-      if (viewMode === "board") return;
+      // Don't process clicks when hand is hidden (board mode or inactive pane)
+      if (viewMode === "board" || !isActive) return;
 
       // Don't intercept clicks when an overlay (like CardActionMenu) is active
       // This allows clicks on the menu to work properly
@@ -694,7 +696,7 @@ export function PixiFloatingHand({
     return () => {
       document.removeEventListener("click", handleClick, true);
     };
-  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick, isOverlayActive, inCombat, setVisualScale]);
+  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick, isOverlayActive, inCombat, setVisualScale, isActive]);
 
   // Track previous hovered index for animation
   const prevHoveredIndexRef = useRef<number | null>(null);
