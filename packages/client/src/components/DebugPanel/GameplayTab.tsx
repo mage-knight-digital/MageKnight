@@ -292,55 +292,101 @@ export function GameplayTab({ state, saveGame, loadGame, sendAction }: DebugTabP
 
   return (
     <>
-      {/* Combat Section */}
+      {/* Move Points Section - Most frequently used, at top */}
       <section className="debug-panel__section">
-        <h4>Combat</h4>
-        <div className="debug-panel__row">
-          <span>Status: {state.combat ? "In Combat" : "Not in Combat"}</span>
-        </div>
-        <div className="debug-panel__row">
-          {!state.combat ? (
-            <button type="button" onClick={handleEnterCombat}>
-              Enter Combat with Selected Enemy
-            </button>
-          ) : (
-            <button type="button" onClick={handleExitCombat}>
-              Exit Combat
-            </button>
-          )}
-        </div>
-        <div className="debug-panel__row">
-          <select
-            value={selectedEnemy}
-            onChange={(e) => setSelectedEnemy(e.target.value as EnemyId)}
-          >
-            {ENEMIES.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.enemies.map((enemy) => (
-                  <option key={enemy.id} value={enemy.id}>
-                    {enemy.name}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <button type="button" onClick={handleAddEnemy} disabled={!state.combat}>
-            Add Enemy
-          </button>
+        <h4>Move ({state.players[0]?.movePoints ?? 0})</h4>
+        <div className="debug-panel__row debug-panel__compact-row">
+          <button type="button" onClick={() => handleAddMovePoints(1)}>+1</button>
+          <button type="button" onClick={() => handleAddMovePoints(5)}>+5</button>
+          <button type="button" onClick={() => handleAddMovePoints(10)}>+10</button>
+          <button type="button" onClick={() => handleAddMovePoints(100)}>+100</button>
         </div>
       </section>
 
-      {/* Cards Section */}
+      {/* Mana Section - Compact layout */}
       <section className="debug-panel__section">
-        <h4>Cards ({ALL_CARDS.length} total)</h4>
+        <h4>Mana</h4>
+        <div className="debug-panel__row debug-panel__compact-row">
+          <span className="debug-panel__mana-label">Crystals:</span>
+          {MANA_COLORS.map((mana) => (
+            <button
+              key={mana.id}
+              type="button"
+              onClick={() => handleAddCrystal(mana.id)}
+              className="debug-panel__mana-btn"
+              style={{ backgroundColor: mana.color, color: mana.id === "white" ? "#333" : "#fff" }}
+              title={`Add ${mana.name} Crystal`}
+            >
+              +
+            </button>
+          ))}
+          <button type="button" onClick={handleAddAllCrystals} className="debug-panel__mana-btn">All</button>
+        </div>
+        <div className="debug-panel__row debug-panel__compact-row">
+          <span className="debug-panel__mana-label">Tokens:</span>
+          {ALL_TOKEN_COLORS.map((mana) => (
+            <button
+              key={mana.id}
+              type="button"
+              onClick={() => handleAddManaToken(mana.id)}
+              className="debug-panel__mana-btn"
+              style={{ backgroundColor: mana.color, color: mana.textColor }}
+              title={`Add ${mana.name} Token`}
+            >
+              +
+            </button>
+          ))}
+          <button type="button" onClick={handleAddAllManaTokens} className="debug-panel__mana-btn">All</button>
+        </div>
+      </section>
+
+      {/* Level & Fame Section - Compact */}
+      <section className="debug-panel__section">
+        <h4>Level {state.players[0]?.level ?? 1} <span className="debug-panel__stats-inline">Fame: {state.players[0]?.fame ?? 0}</span></h4>
+        <div className="debug-panel__row debug-panel__compact-row">
+          <button type="button" onClick={() => handleAddFame(3)} title="Add 3 fame">+3</button>
+          <button type="button" onClick={() => handleAddFame(5)} title="Add 5 fame">+5</button>
+          <button type="button" onClick={() => handleAddFame(10)} title="Add 10 fame">+10</button>
+          <button type="button" onClick={() => handleAddFame(20)} title="Add 20 fame">+20</button>
+          <button
+            type="button"
+            onClick={handleTriggerLevelUp}
+            disabled={(state.players[0]?.pendingLevelUps?.length ?? 0) === 0}
+            title="Process pending level ups"
+          >
+            Level Up ({state.players[0]?.pendingLevelUps?.length ?? 0})
+          </button>
+        </div>
+        <div className="debug-panel__row debug-panel__compact-row">
+          <span className="debug-panel__mana-label">Set:</span>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lvl) => (
+            <button
+              key={lvl}
+              type="button"
+              onClick={() => handleSetLevel(lvl)}
+              className={`debug-panel__level-btn ${(state.players[0]?.level ?? 1) === lvl ? "debug-panel__level-active" : ""}`}
+              title={`Set to Level ${lvl}`}
+            >
+              {lvl}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Cards & Units Section - Combined */}
+      <section className="debug-panel__section">
+        <h4>Cards & Units</h4>
         <div className="debug-panel__row">
           <input
             type="text"
-            placeholder="Search cards... (e.g. 'fire', 'spell', 'attack')"
+            placeholder="Search cards..."
             value={cardSearch}
             onChange={(e) => setCardSearch(e.target.value)}
-            className="debug-panel__search"
+            className="debug-panel__search debug-panel__search--compact"
           />
+          <button type="button" onClick={handleAddAllSpells} title="Add all spells to hand">
+            +Spells
+          </button>
         </div>
         {cardSearch.length > 0 && (
           <div className="debug-panel__card-list">
@@ -362,75 +408,16 @@ export function GameplayTab({ state, saveGame, loadGame, sendAction }: DebugTabP
             )}
             {filteredCards.length > 10 && (
               <div className="debug-panel__more">
-                +{filteredCards.length - 10} more matches...
+                +{filteredCards.length - 10} more...
               </div>
             )}
           </div>
         )}
         <div className="debug-panel__row">
-          <button type="button" onClick={handleAddAllSpells}>
-            Add All Spells
-          </button>
-        </div>
-      </section>
-
-      {/* Mana Section */}
-      <section className="debug-panel__section">
-        <h4>Crystals & Mana</h4>
-        <div className="debug-panel__row">
-          {MANA_COLORS.map((mana) => (
-            <button
-              key={mana.id}
-              type="button"
-              onClick={() => handleAddCrystal(mana.id)}
-              style={{ backgroundColor: mana.color, color: mana.id === "white" ? "#333" : "#fff" }}
-              title={`Add ${mana.name} Crystal`}
-            >
-              +Crystal
-            </button>
-          ))}
-          <button type="button" onClick={handleAddAllCrystals}>
-            +All
-          </button>
-        </div>
-        <div className="debug-panel__row">
-          {ALL_TOKEN_COLORS.map((mana) => (
-            <button
-              key={mana.id}
-              type="button"
-              onClick={() => handleAddManaToken(mana.id)}
-              style={{ backgroundColor: mana.color, color: mana.textColor }}
-              title={`Add ${mana.name} Token`}
-            >
-              +Token
-            </button>
-          ))}
-          <button type="button" onClick={handleAddAllManaTokens}>
-            +All
-          </button>
-        </div>
-      </section>
-
-      {/* Wounds Section */}
-      <section className="debug-panel__section">
-        <h4>Wounds</h4>
-        <div className="debug-panel__row">
-          <button type="button" onClick={() => handleAddWound("hand")}>
-            Add Wound to Hand
-          </button>
-          <button type="button" onClick={() => handleAddWound("discard")}>
-            Add Wound to Discard
-          </button>
-        </div>
-      </section>
-
-      {/* Units Section */}
-      <section className="debug-panel__section">
-        <h4>Units</h4>
-        <div className="debug-panel__row">
           <select
             value={selectedUnit}
             onChange={(e) => setSelectedUnit(e.target.value as UnitId)}
+            className="debug-panel__select--compact"
           >
             {UNITS.map((group) => (
               <optgroup key={group.label} label={group.label}>
@@ -443,82 +430,53 @@ export function GameplayTab({ state, saveGame, loadGame, sendAction }: DebugTabP
             ))}
           </select>
           <button type="button" onClick={handleAddUnit}>
-            Add Unit
+            +Unit
           </button>
-        </div>
-        <div className="debug-panel__row">
-          <span>Current units: {state.players[0]?.units?.length ?? 0}</span>
+          <span className="debug-panel__unit-count">({state.players[0]?.units?.length ?? 0})</span>
         </div>
       </section>
 
-      {/* Level Section */}
+      {/* Wounds Section */}
       <section className="debug-panel__section">
-        <h4>Level ({state.players[0]?.level ?? 1})</h4>
-        <div className="debug-panel__row">
-          <span>
-            Fame: {state.players[0]?.fame ?? 0} | Armor: {state.players[0]?.armor ?? 2} |
-            Hand: {state.players[0]?.handLimit ?? 5} | Commands: {state.players[0]?.commandTokens ?? 1}
-          </span>
+        <h4>Wounds</h4>
+        <div className="debug-panel__row debug-panel__compact-row">
+          <button type="button" onClick={() => handleAddWound("hand")}>+Hand</button>
+          <button type="button" onClick={() => handleAddWound("discard")}>+Discard</button>
         </div>
+      </section>
+
+      {/* Combat Section - Moved down, partially broken */}
+      <section className="debug-panel__section">
+        <h4>Combat <span className="debug-panel__stats-inline">{state.combat ? "Active" : "None"}</span></h4>
         <div className="debug-panel__row">
-          <button type="button" onClick={() => handleAddFame(3)} title="Add 3 fame (triggers level 2 from 0)">
-            +3 Fame
-          </button>
-          <button type="button" onClick={() => handleAddFame(5)} title="Add 5 fame">
-            +5 Fame
-          </button>
-          <button type="button" onClick={() => handleAddFame(10)} title="Add 10 fame">
-            +10 Fame
-          </button>
-          <button type="button" onClick={() => handleAddFame(20)} title="Add 20 fame">
-            +20 Fame
-          </button>
-        </div>
-        <div className="debug-panel__row">
-          <button
-            type="button"
-            onClick={handleTriggerLevelUp}
-            disabled={(state.players[0]?.pendingLevelUps?.length ?? 0) === 0}
-            title="Process any pending level ups immediately (normally happens at end of turn)"
-          >
-            Process Level Ups ({state.players[0]?.pendingLevelUps?.length ?? 0} pending)
-          </button>
-        </div>
-        <div className="debug-panel__row debug-panel__level-buttons">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lvl) => (
-            <button
-              key={lvl}
-              type="button"
-              onClick={() => handleSetLevel(lvl)}
-              className={(state.players[0]?.level ?? 1) === lvl ? "debug-panel__level-active" : ""}
-              title={`Set to Level ${lvl} (Fame: ${LEVEL_THRESHOLDS[lvl - 1]})`}
-            >
-              {lvl}
+          {!state.combat ? (
+            <button type="button" onClick={handleEnterCombat}>
+              Enter Combat
             </button>
-          ))}
+          ) : (
+            <button type="button" onClick={handleExitCombat}>
+              Exit Combat
+            </button>
+          )}
         </div>
         <div className="debug-panel__row">
-          <span style={{ fontSize: "0.8em", color: "#888" }}>
-            Quick set: bypasses level up UI (useful for testing other things)
-          </span>
-        </div>
-      </section>
-
-      {/* Move Points Section */}
-      <section className="debug-panel__section">
-        <h4>Move Points ({state.players[0]?.movePoints ?? 0})</h4>
-        <div className="debug-panel__row">
-          <button type="button" onClick={() => handleAddMovePoints(1)}>
-            +1
-          </button>
-          <button type="button" onClick={() => handleAddMovePoints(5)}>
-            +5
-          </button>
-          <button type="button" onClick={() => handleAddMovePoints(10)}>
-            +10
-          </button>
-          <button type="button" onClick={() => handleAddMovePoints(100)}>
-            +100
+          <select
+            value={selectedEnemy}
+            onChange={(e) => setSelectedEnemy(e.target.value as EnemyId)}
+            className="debug-panel__select--compact"
+          >
+            {ENEMIES.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.enemies.map((enemy) => (
+                  <option key={enemy.id} value={enemy.id}>
+                    {enemy.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <button type="button" onClick={handleAddEnemy} disabled={!state.combat}>
+            +Enemy
           </button>
         </div>
       </section>

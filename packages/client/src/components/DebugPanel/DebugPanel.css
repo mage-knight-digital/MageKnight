@@ -241,6 +241,65 @@
   font-weight: bold;
 }
 
+/* Compact row styling */
+.debug-panel__compact-row {
+  gap: 0.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.debug-panel__compact-row button {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+/* Mana button styling */
+.debug-panel__mana-btn {
+  min-width: 24px;
+  padding: 0.25rem 0.4rem !important;
+  font-size: 0.7rem !important;
+}
+
+.debug-panel__mana-label {
+  font-size: 0.7rem;
+  color: #888;
+  min-width: 50px;
+}
+
+/* Level button styling */
+.debug-panel__level-btn {
+  min-width: 22px;
+  padding: 0.2rem 0.35rem !important;
+  font-size: 0.7rem !important;
+}
+
+/* Stats inline with header */
+.debug-panel__stats-inline {
+  font-weight: normal;
+  color: #888;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+}
+
+/* Compact search */
+.debug-panel__search--compact {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Compact select */
+.debug-panel__select--compact {
+  flex: 1;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+/* Unit count display */
+.debug-panel__unit-count {
+  font-size: 0.7rem;
+  color: #888;
+}
+
 /* ============================================
    Debug Panel - Sound Section
    ============================================ */
