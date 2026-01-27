@@ -50,6 +50,9 @@ import {
   RESOLVE_DEEP_MINE_ACTION,
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
+  CHOOSE_LEVEL_UP_REWARDS_ACTION,
+  DEBUG_ADD_FAME_ACTION,
+  DEBUG_TRIGGER_LEVEL_UP_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -116,7 +119,14 @@ export {
   createBuySpellCommandFromAction,
   createLearnAdvancedActionCommandFromAction,
   createSelectRewardCommandFromAction,
+  createChooseLevelUpRewardsCommandFromAction,
 } from "./offers.js";
+
+// Debug factories
+export {
+  createDebugAddFameCommandFromAction,
+  createDebugTriggerLevelUpCommandFromAction,
+} from "./debug.js";
 
 // Import all factories for the registry
 import {
@@ -172,7 +182,13 @@ import {
   createBuySpellCommandFromAction,
   createLearnAdvancedActionCommandFromAction,
   createSelectRewardCommandFromAction,
+  createChooseLevelUpRewardsCommandFromAction,
 } from "./offers.js";
+
+import {
+  createDebugAddFameCommandFromAction,
+  createDebugTriggerLevelUpCommandFromAction,
+} from "./debug.js";
 
 import type { CommandFactory } from "./types.js";
 
@@ -214,4 +230,8 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_DEEP_MINE_ACTION]: createResolveDeepMineCommandFromAction,
   [BUY_SPELL_ACTION]: createBuySpellCommandFromAction,
   [LEARN_ADVANCED_ACTION_ACTION]: createLearnAdvancedActionCommandFromAction,
+  [CHOOSE_LEVEL_UP_REWARDS_ACTION]: createChooseLevelUpRewardsCommandFromAction,
+  // Debug actions
+  [DEBUG_ADD_FAME_ACTION]: createDebugAddFameCommandFromAction,
+  [DEBUG_TRIGGER_LEVEL_UP_ACTION]: createDebugTriggerLevelUpCommandFromAction,
 };

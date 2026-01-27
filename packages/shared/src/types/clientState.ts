@@ -22,6 +22,14 @@ import type { CombatPhase } from "../combatPhases.js";
 import type { SiteReward } from "../siteRewards.js";
 import type { RuinsTokenId } from "../ruinsTokens.js";
 
+// Pending level up reward - drawn skills for even level reward selection
+export interface ClientPendingLevelUpReward {
+  /** The level this reward is for (2, 4, 6, 8, 10) */
+  readonly level: number;
+  /** 2 skills drawn from hero's remaining pool */
+  readonly drawnSkills: readonly SkillId[];
+}
+
 // Pending choice - when a card requires player selection
 export interface ClientPendingChoice {
   readonly cardId: CardId;
@@ -147,6 +155,12 @@ export interface ClientPlayer {
 
   // Stolen mana die from Mana Steal tactic (if any)
   readonly stolenManaDie: ClientStolenManaDie | null;
+
+  // Pending level up rewards (skill + AA selection at even levels)
+  readonly pendingLevelUpRewards: readonly ClientPendingLevelUpReward[];
+
+  // Pending level ups that will be processed at end of turn (levels crossed this turn)
+  readonly pendingLevelUps: readonly number[];
 }
 
 // Mana die in the source

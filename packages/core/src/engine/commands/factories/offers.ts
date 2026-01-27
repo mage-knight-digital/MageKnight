@@ -13,15 +13,17 @@
  */
 
 import type { CommandFactory } from "./types.js";
-import type { PlayerAction, CardId } from "@mage-knight/shared";
+import type { PlayerAction, CardId, SkillId } from "@mage-knight/shared";
 import {
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
   SELECT_REWARD_ACTION,
+  CHOOSE_LEVEL_UP_REWARDS_ACTION,
 } from "@mage-knight/shared";
 import { createBuySpellCommand } from "../buySpellCommand.js";
 import { createLearnAdvancedActionCommand } from "../learnAdvancedActionCommand.js";
 import { createSelectRewardCommand } from "../selectRewardCommand.js";
+import { createChooseLevelUpRewardsCommand } from "../chooseLevelUpRewardsCommand.js";
 
 /**
  * Helper to get buy spell params from action.
@@ -98,5 +100,26 @@ export const createSelectRewardCommandFromAction: CommandFactory = (
     playerId,
     cardId: action.cardId,
     rewardIndex: action.rewardIndex,
+  });
+};
+
+/**
+ * Choose level up rewards command factory.
+ * Creates a command to select skill and advanced action for level up.
+ */
+export const createChooseLevelUpRewardsCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== CHOOSE_LEVEL_UP_REWARDS_ACTION) return null;
+  return createChooseLevelUpRewardsCommand({
+    playerId,
+    level: action.level,
+    skillChoice: {
+      fromCommonPool: action.skillChoice.fromCommonPool,
+      skillId: action.skillChoice.skillId as SkillId,
+    },
+    advancedActionId: action.advancedActionId as CardId,
   });
 };

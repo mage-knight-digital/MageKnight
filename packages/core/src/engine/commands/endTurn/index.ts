@@ -177,14 +177,18 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         (p) => p.id === params.playerId
       );
       if (playerForLevelUp && playerForLevelUp.pendingLevelUps.length > 0) {
-        const levelUpResult = processLevelUps(playerForLevelUp);
+        const levelUpResult = processLevelUps(playerForLevelUp, newState.rng);
 
         const playerIdx = newState.players.findIndex(
           (p) => p.id === params.playerId
         );
         const playersWithLevelUp: Player[] = [...newState.players];
         playersWithLevelUp[playerIdx] = levelUpResult.player;
-        newState = { ...newState, players: playersWithLevelUp };
+        newState = {
+          ...newState,
+          players: playersWithLevelUp,
+          rng: levelUpResult.rng,
+        };
 
         events.push(...levelUpResult.events);
       }

@@ -17,6 +17,21 @@ import type {
   TACTIC_MIDNIGHT_MEDITATION,
   TACTIC_SPARING_POWER,
 } from "@mage-knight/shared";
+
+// ============================================================================
+// Level Up Rewards Types
+// ============================================================================
+
+/**
+ * Pending level up reward for an even level.
+ * Contains the 2 skills drawn from the hero's pool for selection.
+ */
+export interface PendingLevelUpReward {
+  /** The level this reward is for (2, 4, 6, 8, 10) */
+  readonly level: number;
+  /** 2 skills drawn from hero's remaining pool */
+  readonly drawnSkills: readonly SkillId[];
+}
 import type { Hero } from "./hero.js";
 import type { CardEffect } from "./cards.js";
 import type { PlayerUnit } from "./unit.js";
@@ -227,6 +242,12 @@ export interface Player {
 
   // Pending level ups to process at end of turn
   readonly pendingLevelUps: readonly number[]; // Levels crossed this turn
+
+  // Pending level up rewards for even levels (skill + AA selection)
+  readonly pendingLevelUpRewards: readonly PendingLevelUpReward[];
+
+  // Skills remaining in hero's personal pool (not yet drawn)
+  readonly remainingHeroSkills: readonly SkillId[];
 
   // Pending rewards to select at end of turn (from site conquests)
   readonly pendingRewards: readonly SiteReward[];

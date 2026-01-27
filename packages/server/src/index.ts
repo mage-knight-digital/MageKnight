@@ -267,6 +267,12 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
           color: player.tacticState.storedManaDie.color,
         }
       : null,
+
+    // Pending level up rewards (skill + AA selection)
+    pendingLevelUpRewards: player.pendingLevelUpRewards,
+
+    // Pending level ups (levels crossed, processed at end of turn)
+    pendingLevelUps: player.pendingLevelUps,
   };
 }
 
@@ -787,6 +793,8 @@ export class GameServer {
       combatAccumulator: createEmptyCombatAccumulator(),
       pendingChoice: null,
       pendingLevelUps: [],
+      pendingLevelUpRewards: [],
+      remainingHeroSkills: [...heroDefinition.skills],
       pendingRewards: [],
       pendingGladeWoundChoice: false,
       pendingDeepMineChoice: null,

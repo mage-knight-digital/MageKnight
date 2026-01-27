@@ -13,7 +13,7 @@
 
 import { useState } from "react";
 import type { EnemyId, CardId, BasicManaColor, ManaColor, UnitId } from "@mage-knight/shared";
-import { getEnemy, getUnit, UNIT_STATE_READY } from "@mage-knight/shared";
+import { getEnemy, getUnit, UNIT_STATE_READY, DEBUG_ADD_FAME_ACTION, DEBUG_TRIGGER_LEVEL_UP_ACTION } from "@mage-knight/shared";
 import type { DebugTabProps } from "./types";
 import {
   ENEMIES,
@@ -25,7 +25,7 @@ import {
   LEVEL_STATS,
 } from "./debugPanelData";
 
-export function GameplayTab({ state, saveGame, loadGame }: DebugTabProps) {
+export function GameplayTab({ state, saveGame, loadGame, sendAction }: DebugTabProps) {
   const [selectedEnemy, setSelectedEnemy] = useState<EnemyId>("diggers" as EnemyId);
   const [selectedUnit, setSelectedUnit] = useState<UnitId>("peasants" as UnitId);
   const [cardSearch, setCardSearch] = useState("");
@@ -248,33 +248,15 @@ export function GameplayTab({ state, saveGame, loadGame }: DebugTabProps) {
     alert(`Added ${unitDef.name} to your units!`);
   };
 
-  const handleLevelUp = () => {
-    const json = saveGame();
-    if (!json) return;
-
-    const gameState = JSON.parse(json);
-    const player = gameState.players[0];
-    if (!player) return;
-
-    if (player.level >= 10) {
-      alert("Already at max level (10)!");
-      return;
-    }
-
-    const newLevel = player.level + 1;
-    const stats = LEVEL_STATS[newLevel];
-    const fame = LEVEL_THRESHOLDS[newLevel - 1];
-    if (!stats) return;
-
-    player.level = newLevel;
-    player.fame = fame;
-    player.armor = stats.armor;
-    player.handLimit = stats.handLimit;
-    player.commandTokens = stats.commandSlots;
-
-    loadGame(JSON.stringify(gameState));
+  const handleAddFame = (amount: number) => {
+    sendAction({ type: DEBUG_ADD_FAME_ACTION, amount });
   };
 
+  const handleTriggerLevelUp = () => {
+    sendAction({ type: DEBUG_TRIGGER_LEVEL_UP_ACTION });
+  };
+
+  // Legacy level set - still uses JSON for quick testing
   const handleSetLevel = (targetLevel: number) => {
     const json = saveGame();
     if (!json) return;
@@ -473,8 +455,33 @@ export function GameplayTab({ state, saveGame, loadGame }: DebugTabProps) {
       <section className="debug-panel__section">
         <h4>Level ({state.players[0]?.level ?? 1})</h4>
         <div className="debug-panel__row">
-          <button type="button" onClick={handleLevelUp} disabled={(state.players[0]?.level ?? 1) >= 10}>
-            Level Up (+1)
+          <span>
+            Fame: {state.players[0]?.fame ?? 0} | Armor: {state.players[0]?.armor ?? 2} |
+            Hand: {state.players[0]?.handLimit ?? 5} | Commands: {state.players[0]?.commandTokens ?? 1}
+          </span>
+        </div>
+        <div className="debug-panel__row">
+          <button type="button" onClick={() => handleAddFame(3)} title="Add 3 fame (triggers level 2 from 0)">
+            +3 Fame
+          </button>
+          <button type="button" onClick={() => handleAddFame(5)} title="Add 5 fame">
+            +5 Fame
+          </button>
+          <button type="button" onClick={() => handleAddFame(10)} title="Add 10 fame">
+            +10 Fame
+          </button>
+          <button type="button" onClick={() => handleAddFame(20)} title="Add 20 fame">
+            +20 Fame
+          </button>
+        </div>
+        <div className="debug-panel__row">
+          <button
+            type="button"
+            onClick={handleTriggerLevelUp}
+            disabled={(state.players[0]?.pendingLevelUps?.length ?? 0) === 0}
+            title="Process any pending level ups immediately (normally happens at end of turn)"
+          >
+            Process Level Ups ({state.players[0]?.pendingLevelUps?.length ?? 0} pending)
           </button>
         </div>
         <div className="debug-panel__row debug-panel__level-buttons">
@@ -491,9 +498,8 @@ export function GameplayTab({ state, saveGame, loadGame }: DebugTabProps) {
           ))}
         </div>
         <div className="debug-panel__row">
-          <span>
-            Fame: {state.players[0]?.fame ?? 0} | Armor: {state.players[0]?.armor ?? 2} |
-            Hand: {state.players[0]?.handLimit ?? 5} | Commands: {state.players[0]?.commandTokens ?? 1}
+          <span style={{ fontSize: "0.8em", color: "#888" }}>
+            Quick set: bypasses level up UI (useful for testing other things)
           </span>
         </div>
       </section>

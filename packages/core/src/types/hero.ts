@@ -34,6 +34,7 @@ import {
   CARD_BRAEVALAR_DRUIDIC_PATHS,
   CARD_BRAEVALAR_ONE_WITH_THE_LAND,
 } from "@mage-knight/shared";
+import { HERO_SKILLS } from "../data/skills/index.js";
 
 export enum Hero {
   Arythea = "arythea",
@@ -123,7 +124,7 @@ export const HEROES: Record<Hero, HeroDefinition> = {
     startingCards: buildStartingDeck([
       { replace: CARD_RAGE, with: CARD_ARYTHEA_BATTLE_VERSATILITY },
     ]),
-    skills: [] as SkillId[],
+    skills: HERO_SKILLS[Hero.Arythea],
     crystalColors: [BASIC_MANA_RED, BASIC_MANA_RED, BASIC_MANA_WHITE],
   },
   [Hero.Tovak]: {
@@ -134,7 +135,7 @@ export const HEROES: Record<Hero, HeroDefinition> = {
     startingCards: buildStartingDeck([
       { replace: CARD_DETERMINATION, with: CARD_TOVAK_COLD_TOUGHNESS },
     ]),
-    skills: [] as SkillId[],
+    skills: HERO_SKILLS[Hero.Tovak],
     crystalColors: [BASIC_MANA_BLUE, BASIC_MANA_RED, BASIC_MANA_WHITE],
   },
   [Hero.Goldyx]: {
@@ -145,7 +146,7 @@ export const HEROES: Record<Hero, HeroDefinition> = {
     startingCards: buildStartingDeck([
       { replace: CARD_CONCENTRATION, with: CARD_GOLDYX_WILL_FOCUS },
     ]),
-    skills: [] as SkillId[],
+    skills: HERO_SKILLS[Hero.Goldyx],
     crystalColors: [BASIC_MANA_BLUE, BASIC_MANA_BLUE, BASIC_MANA_WHITE],
   },
   [Hero.Norowas]: {
@@ -156,7 +157,7 @@ export const HEROES: Record<Hero, HeroDefinition> = {
     startingCards: buildStartingDeck([
       { replace: CARD_PROMISE, with: CARD_NOROWAS_NOBLE_MANNERS },
     ]),
-    skills: [] as SkillId[],
+    skills: HERO_SKILLS[Hero.Norowas],
     crystalColors: [BASIC_MANA_GREEN, BASIC_MANA_GREEN, BASIC_MANA_WHITE],
   },
   // Expansion heroes - only available when their expansion is enabled
@@ -170,7 +171,7 @@ export const HEROES: Record<Hero, HeroDefinition> = {
       { replace: CARD_SWIFTNESS, with: CARD_WOLFHAWK_SWIFT_REFLEXES },
       { replace: CARD_STAMINA, with: CARD_WOLFHAWK_TIRELESSNESS },
     ]),
-    skills: [] as SkillId[],
+    skills: HERO_SKILLS[Hero.Wolfhawk],
     crystalColors: [BASIC_MANA_GREEN, BASIC_MANA_WHITE, BASIC_MANA_WHITE],
   },
   [Hero.Krang]: {
@@ -182,7 +183,7 @@ export const HEROES: Record<Hero, HeroDefinition> = {
       { replace: CARD_MARCH, with: CARD_KRANG_SAVAGE_HARVESTING },
       { replace: CARD_THREATEN, with: CARD_KRANG_RUTHLESS_COERCION },
     ]),
-    skills: [] as SkillId[],
+    skills: HERO_SKILLS[Hero.Krang],
     crystalColors: [BASIC_MANA_RED, BASIC_MANA_GREEN, BASIC_MANA_WHITE],
   },
   [Hero.Braevalar]: {
@@ -194,7 +195,7 @@ export const HEROES: Record<Hero, HeroDefinition> = {
       { replace: CARD_MARCH, with: CARD_BRAEVALAR_ONE_WITH_THE_LAND },
       { replace: CARD_STAMINA, with: CARD_BRAEVALAR_DRUIDIC_PATHS },
     ]),
-    skills: [] as SkillId[],
+    skills: HERO_SKILLS[Hero.Braevalar],
     crystalColors: [BASIC_MANA_GREEN, BASIC_MANA_BLUE, BASIC_MANA_WHITE],
   },
 };

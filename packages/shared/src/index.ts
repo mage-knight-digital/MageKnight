@@ -166,6 +166,7 @@ export type {
   ClientCombatState,
   ClientCombatEnemy,
   ClientPendingChoice,
+  ClientPendingLevelUpReward,
 } from "./types/clientState.js";
 
 // Valid actions types
@@ -220,6 +221,8 @@ export type {
   GladeWoundOptions,
   // Deep mine options
   DeepMineOptions,
+  // Level up rewards options
+  LevelUpRewardsOptions,
 } from "./types/validActions.js";
 
 // Shared value constants (sub-unions)

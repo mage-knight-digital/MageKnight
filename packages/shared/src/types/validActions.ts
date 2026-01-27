@@ -6,7 +6,7 @@
  */
 
 import type { HexCoord, HexDirection } from "../hex.js";
-import type { CardId, ManaColor, BasicManaColor } from "../ids.js";
+import type { CardId, ManaColor, BasicManaColor, SkillId } from "../ids.js";
 import type { TacticId } from "../tactics.js";
 import type { RestType, AttackType, AttackElement } from "../actions.js";
 import type { CombatPhase } from "../combatPhases.js";
@@ -74,6 +74,9 @@ export interface ValidActions {
 
   /** Deep Mine crystal choice options (at end of turn) */
   readonly deepMine: DeepMineOptions | undefined;
+
+  /** Level up reward options (when pending level up rewards exist) */
+  readonly levelUpRewards: LevelUpRewardsOptions | undefined;
 }
 
 // ============================================================================
@@ -598,4 +601,28 @@ export interface GladeWoundOptions {
 export interface DeepMineOptions {
   /** Available crystal colors to choose from */
   readonly availableColors: readonly BasicManaColor[];
+}
+
+// ============================================================================
+// Level Up Rewards
+// ============================================================================
+
+/**
+ * Options for selecting level up rewards at even levels.
+ * Player must choose 1 skill and 1 advanced action.
+ *
+ * Skill selection mechanics:
+ * - 2 skills drawn from hero's personal pool
+ * - Can pick one of the drawn skills OR a skill from the common pool
+ * - Rejected skill(s) go to common pool
+ */
+export interface LevelUpRewardsOptions {
+  /** The level being resolved (e.g., 2, 4, 6) */
+  readonly level: number;
+  /** 2 skills drawn from player's hero skill pool */
+  readonly drawnSkills: readonly SkillId[];
+  /** Skills in the shared common pool (from other players' rejected draws) */
+  readonly commonPoolSkills: readonly SkillId[];
+  /** Available advanced action cards in the offer */
+  readonly availableAAs: readonly CardId[];
 }

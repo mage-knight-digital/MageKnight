@@ -134,6 +134,8 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     combatAccumulator: mergedAccumulator,
     pendingChoice: null,
     pendingLevelUps: [],
+    pendingLevelUpRewards: [],
+    remainingHeroSkills: [],
     pendingRewards: [],
     hasCombattedThisTurn: false,
     manaUsedThisTurn: [],

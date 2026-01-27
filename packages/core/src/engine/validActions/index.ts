@@ -89,6 +89,7 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: undefined,
+      levelUpRewards: undefined,
     };
   }
 
@@ -116,6 +117,7 @@ export function getValidActions(
         tacticEffects: { pendingDecision },
         gladeWound: undefined,
         deepMine: undefined,
+        levelUpRewards: undefined,
       };
     }
 
@@ -136,6 +138,7 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: undefined,
+      levelUpRewards: undefined,
     };
   }
 
@@ -165,6 +168,7 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: gladeWoundOptions,
       deepMine: undefined,
+      levelUpRewards: undefined,
     };
   }
 
@@ -194,7 +198,45 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: deepMineOptions,
+      levelUpRewards: undefined,
     };
+  }
+
+  // Handle pending level up rewards - must resolve before other actions
+  if (player.pendingLevelUpRewards.length > 0) {
+    const firstPending = player.pendingLevelUpRewards[0];
+    if (firstPending) {
+      return {
+        canAct: true,
+        reason: undefined,
+        move: undefined,
+        explore: undefined,
+        playCard: undefined,
+        combat: undefined,
+        units: undefined,
+        sites: undefined,
+        mana: undefined,
+        turn: {
+          canEndTurn: false,
+          canAnnounceEndOfRound: false,
+          canUndo: false, // Can't undo during level up selection
+          canRest: false,
+          restTypes: undefined,
+        },
+        tactics: undefined,
+        enterCombat: undefined,
+        challenge: undefined,
+        tacticEffects: undefined,
+        gladeWound: undefined,
+        deepMine: undefined,
+        levelUpRewards: {
+          level: firstPending.level,
+          drawnSkills: firstPending.drawnSkills,
+          commonPoolSkills: state.offers.commonSkills,
+          availableAAs: state.offers.advancedActions.cards,
+        },
+      };
+    }
   }
 
   // Handle pending choice - must resolve before other actions
@@ -223,6 +265,7 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: undefined,
+      levelUpRewards: undefined,
     };
   }
 
@@ -256,6 +299,7 @@ export function getValidActions(
         tacticEffects: undefined,
         gladeWound: undefined,
         deepMine: undefined,
+        levelUpRewards: undefined,
       };
     }
   }
@@ -281,5 +325,6 @@ export function getValidActions(
     tacticEffects: getTacticEffectsOptions(state, player),
     gladeWound: undefined,
     deepMine: undefined,
+    levelUpRewards: undefined,
   };
 }

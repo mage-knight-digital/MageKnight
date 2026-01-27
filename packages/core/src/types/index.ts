@@ -14,6 +14,7 @@ export type {
   ElementalAttackValues,
   AccumulatedAttack,
   CombatAccumulator,
+  PendingLevelUpReward,
 } from "./player.js";
 export {
   createEmptyElementalValues,

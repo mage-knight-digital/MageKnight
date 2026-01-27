@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { TIME_OF_DAY_DAY, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
+import { TIME_OF_DAY_DAY, TIME_OF_DAY_NIGHT, LEVEL_THRESHOLDS } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro, UI_REVEAL_TIMING } from "../../contexts/GameIntroContext";
@@ -50,8 +50,7 @@ export function TopBar() {
   if (introAnimState === "hidden") return null;
 
   // Calculate fame needed for next level
-  const fameThresholds = [0, 3, 8, 15, 24, 35, 48, 63, 80, 99, 999];
-  const nextLevelFame = fameThresholds[player.level] ?? 999;
+  const nextLevelFame = LEVEL_THRESHOLDS[player.level + 1] ?? 999;
 
   const isNight = state.timeOfDay === TIME_OF_DAY_NIGHT;
 

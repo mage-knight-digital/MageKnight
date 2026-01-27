@@ -76,6 +76,7 @@ export interface NextPlayerSetupResult {
 export interface LevelUpResult {
   readonly player: Player;
   readonly events: GameEvent[];
+  readonly rng: RngState;
 }
 
 /**

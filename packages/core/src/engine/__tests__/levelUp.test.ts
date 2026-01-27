@@ -9,9 +9,22 @@ import {
   LEVEL_UP,
   COMMAND_SLOT_GAINED,
   LEVEL_UP_REWARDS_PENDING,
+  SKILL_GAINED,
+  ADVANCED_ACTION_GAINED,
+  CARD_BLOOD_RAGE,
+  CARD_INTIMIDATE,
+  type SkillId,
+  type CardId,
 } from "@mage-knight/shared";
 import { createTestPlayer, createTestGameState } from "./testHelpers.js";
 import { createEndTurnCommand } from "../commands/endTurn/index.js";
+import { createChooseLevelUpRewardsCommand } from "../commands/chooseLevelUpRewardsCommand.js";
+import {
+  SKILL_ARYTHEA_DARK_PATHS,
+  SKILL_ARYTHEA_BURNING_POWER,
+  SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
+  SKILL_TOVAK_DOUBLE_TIME,
+} from "../../data/skills/index.js";
 
 describe("Level calculations", () => {
   describe("getLevelFromFame", () => {
@@ -326,5 +339,492 @@ describe("Level up at end of turn", () => {
     if (commandSlotEvent?.type === COMMAND_SLOT_GAINED) {
       expect(commandSlotEvent.newTotal).toBe(2);
     }
+  });
+});
+
+describe("Choose level up rewards", () => {
+  it("should add selected skill to player when picking from drawn pair", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_DARK_PATHS,
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    const result = command.execute(state);
+
+    const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+    expect(updatedPlayer?.skills).toContain(SKILL_ARYTHEA_DARK_PATHS);
+  });
+
+  it("should move rejected skill to common pool when picking from drawn pair", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_DARK_PATHS,
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    const result = command.execute(state);
+
+    // The rejected skill (burning_power) should be in common pool
+    expect(result.state.offers.commonSkills).toContain(SKILL_ARYTHEA_BURNING_POWER);
+    // Selected skill should NOT be in common pool
+    expect(result.state.offers.commonSkills).not.toContain(SKILL_ARYTHEA_DARK_PATHS);
+  });
+
+  it("should move BOTH drawn skills to common pool when picking from common pool", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [SKILL_TOVAK_DOUBLE_TIME], // Start with one skill in common pool
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: true,
+        skillId: SKILL_TOVAK_DOUBLE_TIME,
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    const result = command.execute(state);
+
+    // Player should have the skill from common pool
+    const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+    expect(updatedPlayer?.skills).toContain(SKILL_TOVAK_DOUBLE_TIME);
+
+    // BOTH drawn skills should be in common pool
+    expect(result.state.offers.commonSkills).toContain(SKILL_ARYTHEA_DARK_PATHS);
+    expect(result.state.offers.commonSkills).toContain(SKILL_ARYTHEA_BURNING_POWER);
+    // Selected skill should be removed from common pool
+    expect(result.state.offers.commonSkills).not.toContain(SKILL_TOVAK_DOUBLE_TIME);
+  });
+
+  it("should add selected AA to top of player deck", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      deck: ["existing_card" as CardId],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_DARK_PATHS,
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    const result = command.execute(state);
+
+    const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+    // AA should be at top of deck (first position)
+    expect(updatedPlayer?.deck[0]).toBe(CARD_BLOOD_RAGE);
+    // Existing card should still be there
+    expect(updatedPlayer?.deck).toContain("existing_card" as CardId);
+  });
+
+  it("should remove selected AA from offer", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_DARK_PATHS,
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    const result = command.execute(state);
+
+    // Selected AA should be removed from offer
+    expect(result.state.offers.advancedActions.cards).not.toContain(CARD_BLOOD_RAGE);
+    // Other AA should still be there
+    expect(result.state.offers.advancedActions.cards).toContain(CARD_INTIMIDATE);
+  });
+
+  it("should remove pending level up reward after selection", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_DARK_PATHS,
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    const result = command.execute(state);
+
+    const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+    expect(updatedPlayer?.pendingLevelUpRewards).toEqual([]);
+  });
+
+  it("should emit SKILL_GAINED and ADVANCED_ACTION_GAINED events", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_DARK_PATHS,
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    const result = command.execute(state);
+
+    const skillEvent = result.events.find((e) => e.type === SKILL_GAINED);
+    expect(skillEvent).toBeDefined();
+    if (skillEvent?.type === SKILL_GAINED) {
+      expect(skillEvent.playerId).toBe("player1");
+      expect(skillEvent.skillId).toBe(SKILL_ARYTHEA_DARK_PATHS);
+    }
+
+    const aaEvent = result.events.find((e) => e.type === ADVANCED_ACTION_GAINED);
+    expect(aaEvent).toBeDefined();
+    if (aaEvent?.type === ADVANCED_ACTION_GAINED) {
+      expect(aaEvent.playerId).toBe("player1");
+      expect(aaEvent.cardId).toBe(CARD_BLOOD_RAGE);
+    }
+  });
+
+  it("should handle multiple pending level up rewards sequentially", () => {
+    const player = createTestPlayer({
+      level: 4,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+        {
+          level: 4,
+          drawnSkills: [SKILL_ARYTHEA_HOT_SWORDSMANSHIP, "arythea_dark_negotiation" as SkillId],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    // Select rewards for level 2
+    const command1 = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_DARK_PATHS,
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    const result1 = command1.execute(state);
+
+    // Level 2 reward should be removed, level 4 should remain
+    const updatedPlayer1 = result1.state.players.find((p) => p.id === "player1");
+    expect(updatedPlayer1?.pendingLevelUpRewards.length).toBe(1);
+    expect(updatedPlayer1?.pendingLevelUpRewards[0]?.level).toBe(4);
+    expect(updatedPlayer1?.skills).toContain(SKILL_ARYTHEA_DARK_PATHS);
+
+    // Now select rewards for level 4
+    const command2 = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 4,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
+      },
+      advancedActionId: CARD_INTIMIDATE,
+    });
+
+    const result2 = command2.execute(result1.state);
+
+    const updatedPlayer2 = result2.state.players.find((p) => p.id === "player1");
+    expect(updatedPlayer2?.pendingLevelUpRewards.length).toBe(0);
+    expect(updatedPlayer2?.skills).toContain(SKILL_ARYTHEA_DARK_PATHS);
+    expect(updatedPlayer2?.skills).toContain(SKILL_ARYTHEA_HOT_SWORDSMANSHIP);
+  });
+
+  it("should throw error when selecting skill not in drawn skills or common pool", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_TOVAK_DOUBLE_TIME, // Not in drawn skills
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    expect(() => command.execute(state)).toThrow();
+  });
+
+  it("should throw error when selecting AA not in offer", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_DARK_PATHS,
+      },
+      advancedActionId: "not_in_offer" as CardId, // Not in offer
+    });
+
+    expect(() => command.execute(state)).toThrow();
+  });
+
+  it("should replenish AA offer from deck after selection", () => {
+    const player = createTestPlayer({
+      level: 2,
+      skills: [],
+      pendingLevelUpRewards: [
+        {
+          level: 2,
+          drawnSkills: [SKILL_ARYTHEA_DARK_PATHS, SKILL_ARYTHEA_BURNING_POWER],
+        },
+      ],
+    });
+
+    const newAACard = "blood_ritual" as CardId;
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+      },
+      decks: {
+        advancedActions: [newAACard],
+        spells: [],
+        artifacts: [],
+        units: { regular: [], elite: [] },
+      },
+    });
+
+    const command = createChooseLevelUpRewardsCommand({
+      playerId: "player1",
+      level: 2,
+      skillChoice: {
+        fromCommonPool: false,
+        skillId: SKILL_ARYTHEA_DARK_PATHS,
+      },
+      advancedActionId: CARD_BLOOD_RAGE,
+    });
+
+    const result = command.execute(state);
+
+    // New AA should be drawn from deck to replenish offer
+    expect(result.state.offers.advancedActions.cards).toContain(newAACard);
+    expect(result.state.offers.advancedActions.cards.length).toBe(2);
+    // Deck should be empty now
+    expect(result.state.decks.advancedActions.length).toBe(0);
   });
 });

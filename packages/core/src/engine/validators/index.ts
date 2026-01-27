@@ -34,6 +34,9 @@ import {
   RESOLVE_DEEP_MINE_ACTION,
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
+  CHOOSE_LEVEL_UP_REWARDS_ACTION,
+  DEBUG_ADD_FAME_ACTION,
+  DEBUG_TRIGGER_LEVEL_UP_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -208,6 +211,16 @@ import {
   validateInLevelUpContext,
 } from "./offerValidators.js";
 
+// Level up reward validators
+import {
+  validateHasPendingLevelUpRewards,
+  validateLevelInPendingRewards,
+  validateSkillAvailable,
+  validateSkillNotAlreadyOwned,
+  validateAAInLevelUpOffer,
+  validateNoPendingLevelUpRewards,
+} from "./levelUpValidators.js";
+
 // Challenge rampaging validators
 import {
   validateChallengePlayerOnMap,
@@ -216,6 +229,12 @@ import {
   validateAdjacentToTarget,
   validateTargetHasRampagingEnemies,
 } from "./challengeValidators.js";
+
+// Debug validators
+import {
+  validateDevModeOnly,
+  validateHasPendingLevelUps,
+} from "./debugValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -250,6 +269,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateHasNotActed, // Must move BEFORE taking action
     validatePlayerOnMap,
@@ -271,12 +291,14 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoChoicePending, // Must resolve pending choice first
     validateNoTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingRewards, // Must select rewards before ending turn
+    validateNoPendingLevelUpRewards, // Must select level up rewards before ending turn
   ],
   [EXPLORE_ACTION]: [
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateHasNotActed,
     validatePlayerOnMapForExplore,
@@ -291,6 +313,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     // Note: Playing cards is allowed during combat and doesn't count as the "action"
     validateCardInHand,
@@ -308,6 +331,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateSidewaysCardInHand,
     validateSidewaysNotWound, // Any non-wound card is valid for sideways play
@@ -322,6 +346,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateHasNotActed, // Can only rest if you haven't taken an action
     validateRestHasDiscard,
@@ -334,6 +359,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotAlreadyInCombat,
     validateOneCombatPerTurn, // Can only have one combat per turn
@@ -422,6 +448,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateHasNotActed,
     validateAtInhabitedSite,
@@ -498,6 +525,24 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateAtAdvancedActionSite,
     validateHasInfluenceForMonasteryAA,
     validateInLevelUpContext,
+  ],
+  [CHOOSE_LEVEL_UP_REWARDS_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingLevelUpRewards,
+    validateLevelInPendingRewards,
+    validateSkillAvailable,
+    validateSkillNotAlreadyOwned,
+    validateAAInLevelUpOffer,
+  ],
+  // Debug actions
+  [DEBUG_ADD_FAME_ACTION]: [
+    validateDevModeOnly,
+    validateIsPlayersTurn,
+  ],
+  [DEBUG_TRIGGER_LEVEL_UP_ACTION]: [
+    validateDevModeOnly,
+    validateIsPlayersTurn,
+    validateHasPendingLevelUps,
   ],
 };
 

@@ -162,6 +162,17 @@ export const AA_NOT_IN_MONASTERY_OFFER = "AA_NOT_IN_MONASTERY_OFFER" as const;
 export const INSUFFICIENT_INFLUENCE_FOR_AA = "INSUFFICIENT_INFLUENCE_FOR_AA" as const;
 export const NOT_IN_LEVEL_UP_CONTEXT = "NOT_IN_LEVEL_UP_CONTEXT" as const;
 
+// Level up rewards validation codes
+export const LEVEL_UP_REWARDS_PENDING = "LEVEL_UP_REWARDS_PENDING" as const;
+export const NO_PENDING_LEVEL_UP_REWARDS = "NO_PENDING_LEVEL_UP_REWARDS" as const;
+export const INVALID_LEVEL_UP_LEVEL = "INVALID_LEVEL_UP_LEVEL" as const;
+export const SKILL_NOT_AVAILABLE = "SKILL_NOT_AVAILABLE" as const;
+export const SKILL_ALREADY_OWNED = "SKILL_ALREADY_OWNED" as const;
+
+// Debug validation codes
+export const DEV_MODE_REQUIRED = "DEV_MODE_REQUIRED" as const;
+export const NO_PENDING_LEVEL_UPS = "NO_PENDING_LEVEL_UPS" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -290,4 +301,13 @@ export type ValidationErrorCode =
   | typeof NOT_AT_AA_SITE
   | typeof AA_NOT_IN_MONASTERY_OFFER
   | typeof INSUFFICIENT_INFLUENCE_FOR_AA
-  | typeof NOT_IN_LEVEL_UP_CONTEXT;
+  | typeof NOT_IN_LEVEL_UP_CONTEXT
+  // Level up rewards validation
+  | typeof LEVEL_UP_REWARDS_PENDING
+  | typeof NO_PENDING_LEVEL_UP_REWARDS
+  | typeof INVALID_LEVEL_UP_LEVEL
+  | typeof SKILL_NOT_AVAILABLE
+  | typeof SKILL_ALREADY_OWNED
+  // Debug validation
+  | typeof DEV_MODE_REQUIRED
+  | typeof NO_PENDING_LEVEL_UPS;

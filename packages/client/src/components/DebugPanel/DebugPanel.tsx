@@ -17,7 +17,7 @@ import { EventLogTab } from "./EventLogTab";
 import { TABS, type TabId } from "./types";
 
 export function DebugPanel() {
-  const { state, saveGame, loadGame } = useGame();
+  const { state, saveGame, loadGame, sendAction } = useGame();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("gameplay");
 
@@ -39,9 +39,9 @@ export function DebugPanel() {
   const renderTab = () => {
     switch (activeTab) {
       case "gameplay":
-        return <GameplayTab state={state} saveGame={saveGame} loadGame={loadGame} />;
+        return <GameplayTab state={state} saveGame={saveGame} loadGame={loadGame} sendAction={sendAction} />;
       case "saveload":
-        return <SaveLoadTab state={state} saveGame={saveGame} loadGame={loadGame} />;
+        return <SaveLoadTab state={state} saveGame={saveGame} loadGame={loadGame} sendAction={sendAction} />;
       case "audio":
         return <AudioTab />;
       case "display":

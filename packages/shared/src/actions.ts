@@ -293,6 +293,18 @@ export const UNASSIGN_ATTACK_ACTION = "UNASSIGN_ATTACK" as const;
 export const ASSIGN_BLOCK_ACTION = "ASSIGN_BLOCK" as const;
 export const UNASSIGN_BLOCK_ACTION = "UNASSIGN_BLOCK" as const;
 
+// Debug actions (dev-only)
+export const DEBUG_ADD_FAME_ACTION = "DEBUG_ADD_FAME" as const;
+export interface DebugAddFameAction {
+  readonly type: typeof DEBUG_ADD_FAME_ACTION;
+  readonly amount: number;
+}
+
+export const DEBUG_TRIGGER_LEVEL_UP_ACTION = "DEBUG_TRIGGER_LEVEL_UP" as const;
+export interface DebugTriggerLevelUpAction {
+  readonly type: typeof DEBUG_TRIGGER_LEVEL_UP_ACTION;
+}
+
 // Attack type for incremental assignment
 export const ATTACK_TYPE_RANGED = "ranged" as const;
 export const ATTACK_TYPE_SIEGE = "siege" as const;
@@ -475,6 +487,9 @@ export type PlayerAction =
   | UnassignAttackAction
   // Incremental block assignment
   | AssignBlockAction
-  | UnassignBlockAction;
+  | UnassignBlockAction
+  // Debug actions (dev-only)
+  | DebugAddFameAction
+  | DebugTriggerLevelUpAction;
 
 export type PlayerActionType = PlayerAction["type"];

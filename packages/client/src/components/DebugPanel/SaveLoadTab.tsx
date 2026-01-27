@@ -9,7 +9,7 @@
 
 import type { DebugTabProps } from "./types";
 
-export function SaveLoadTab({ state, saveGame, loadGame }: DebugTabProps) {
+export function SaveLoadTab({ state, saveGame, loadGame, sendAction: _sendAction }: DebugTabProps) {
   const handleExportState = () => {
     const json = saveGame();
     if (!json) return;
