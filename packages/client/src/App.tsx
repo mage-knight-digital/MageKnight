@@ -1,32 +1,13 @@
-import { useState, useCallback } from "react";
 import { GameProvider } from "./context/GameContext";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
-import { CardInteractionProvider, UnifiedCardMenu } from "./components/CardInteraction";
-import { GameIntroProvider, useGameIntro } from "./contexts/GameIntroContext";
+import { CardInteractionProvider } from "./components/CardInteraction";
+import { GameIntroProvider } from "./contexts/GameIntroContext";
 import { AnimationDispatcherProvider } from "./contexts/AnimationDispatcherContext";
-import { CinematicProvider, useCinematic } from "./contexts/CinematicContext";
-import { OverlayProvider, useOverlay } from "./contexts/OverlayContext";
+import { CinematicProvider } from "./contexts/CinematicContext";
+import { OverlayProvider } from "./contexts/OverlayContext";
 import { DebugDisplayProvider } from "./contexts/DebugDisplayContext";
 import { PixiAppProvider } from "./contexts/PixiAppContext";
-import { useGame } from "./hooks/useGame";
-import { useMyPlayer } from "./hooks/useMyPlayer";
-import { PixiHexGrid } from "./components/GameBoard/PixiHexGrid";
-import { ManaSourceOverlay } from "./components/GameBoard/ManaSourceOverlay";
-import { TopBar } from "./components/TopBar";
-import { TurnActions } from "./components/TurnActions";
-import { PlayerHand } from "./components/Hand/PlayerHand";
-import { ChoiceSelection } from "./components/Overlays/ChoiceSelection";
-import { RewardSelection } from "./components/Overlays/RewardSelection";
-import { ManaStealDecision } from "./components/Overlays/ManaStealDecision";
-import { RethinkDecision } from "./components/Overlays/RethinkDecision";
-import { MidnightMeditationDecision } from "./components/Overlays/MidnightMeditationDecision";
-import { PreparationDecision } from "./components/Overlays/PreparationDecision";
-import { SparingPowerDecision } from "./components/Overlays/SparingPowerDecision";
-import { ManaSearchReroll } from "./components/Overlays/ManaSearchReroll";
-import { GladeWoundDecision } from "./components/Overlays/GladeWoundDecision";
-import { LevelUpRewardSelection } from "./components/Overlays/LevelUpRewardSelection";
-import { CombatOverlay, PixiCombatOverlay } from "./components/Combat";
-import { OfferView } from "./components/OfferView";
+import { GameView } from "./components/GameView";
 import { DebugPanel } from "./components/DebugPanel";
 
 // Get seed from URL param (?seed=12345) or use current time
@@ -47,94 +28,6 @@ function getGameSeed(): number {
 }
 
 const GAME_SEED = getGameSeed();
-
-function GameView() {
-  const { state } = useGame();
-  const player = useMyPlayer();
-  const { isIntroComplete } = useGameIntro();
-  const { isInCinematic } = useCinematic();
-  const { isOverlayActive } = useOverlay();
-  const [isOfferViewVisible, setIsOfferViewVisible] = useState(false);
-
-  // Handle offer view state from PlayerHand
-  const handleOfferViewChange = useCallback((isVisible: boolean) => {
-    setIsOfferViewVisible(isVisible);
-  }, []);
-
-  // Handle closing offer view (from overlay click or S key in OfferView)
-  const handleOfferViewClose = useCallback(() => {
-    setIsOfferViewVisible(false);
-  }, []);
-
-  // Handle navigating to unit offer from SitePanel
-  const handleNavigateToUnitOffer = useCallback(() => {
-    setIsOfferViewVisible(true);
-  }, []);
-
-  if (!state) {
-    return <div className="loading">Loading game state...</div>;
-  }
-
-  // Show combat overlay when in combat
-  // Note: We check state.combat existence, not validActions.combat
-  // validActions.combat may be undefined during choice resolution, but we still want
-  // to show the combat scene (enemies, phase rail, etc.) while the player makes their choice
-  const inCombat = state.combat !== null;
-
-  // Check if we're in tactic selection mode
-  // Only dim the world after intro completes - don't dim during the theatrical reveal
-  const isTacticSelectionActive = player && player.selectedTacticId === null && !!state.validActions.tactics;
-  const shouldDimForTactics = isTacticSelectionActive && isIntroComplete;
-
-  const appClassName = [
-    "app",
-    shouldDimForTactics && "app--tactic-selection",
-    inCombat && "app--combat",
-    isInCinematic && "app--cinematic",
-    isOverlayActive && "app--overlay-active",
-  ].filter(Boolean).join(" ");
-
-  return (
-    <div className={appClassName}>
-      {/* Overlays */}
-      <UnifiedCardMenu />
-      <ChoiceSelection />
-      <RewardSelection />
-      <LevelUpRewardSelection />
-      <ManaStealDecision />
-      <RethinkDecision />
-      <MidnightMeditationDecision />
-      <PreparationDecision />
-      <SparingPowerDecision />
-      <ManaSearchReroll />
-      <GladeWoundDecision />
-      {inCombat && (
-        <>
-          <PixiCombatOverlay combat={state.combat} />
-          <CombatOverlay
-            combat={state.combat}
-            combatOptions={state.validActions.combat}
-          />
-        </>
-      )}
-
-      <TopBar />
-
-      {/* Offer View - Inscryption-style offer display */}
-      <OfferView isVisible={isOfferViewVisible} onClose={handleOfferViewClose} />
-
-      <main className="app__main">
-        <div className="app__board">
-          <PixiHexGrid onNavigateToUnitOffer={handleNavigateToUnitOffer} />
-          <ManaSourceOverlay />
-        </div>
-      </main>
-
-      <PlayerHand onOfferViewChange={handleOfferViewChange} />
-      <TurnActions />
-    </div>
-  );
-}
 
 export function App() {
   return (
