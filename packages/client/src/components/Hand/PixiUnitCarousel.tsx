@@ -31,19 +31,16 @@ import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 import { STANDARD_VIEW_MODE_OFFSETS, VIEW_MODE_TRANSITION_MS } from "../../utils/carouselViewModes";
-import type { CardFanViewMode } from "../../utils/cardFanLayout";
+import { CARD_FAN_HOVER, type CardFanViewMode } from "../../utils/cardFanLayout";
 
-// Animation timing constants
-const HOVER_LIFT_DURATION_MS = 265; // Synced to card hover audio
+// Animation timing constants - synced with hand/tactic carousels
+const HOVER_LIFT_DURATION_MS = CARD_FAN_HOVER.durationSec * 1000; // ~265ms synced to audio
 
 // Unit card scale (% of viewport height)
 const UNIT_BASE_SCALE = 0.18;
 
 // Unit card aspect ratio (1000:1400 in atlas = 0.714)
 const UNIT_ASPECT_RATIO = 0.714;
-
-// Hover lift amount
-const HOVER_LIFT_Y = 10;
 
 // Status glow colors
 const STATUS_COLORS = {
@@ -204,7 +201,7 @@ export function PixiUnitCarousel({
         const bottom = pos.y;
 
         // Check if point is inside unit bounds (with tolerance for lift area)
-        const liftTolerance = HOVER_LIFT_Y * 1.5;
+        const liftTolerance = CARD_FAN_HOVER.liftY * 1.5;
         if (localX >= left && localX <= right && localY >= top - liftTolerance && localY <= bottom) {
           return i;
         }
@@ -616,7 +613,8 @@ export function PixiUnitCarousel({
       const container = containers.get(hoveredIndex);
       const pos = unitPositions[hoveredIndex];
       if (container && pos) {
-        const targetY = pos.y - HOVER_LIFT_Y;
+        const liftY = CARD_FAN_HOVER.liftY * 0.25; // Minimal lift (7.5px) - matches hand
+        const targetY = pos.y - liftY;
         if (animManager) {
           animManager.animate(`unit-hover-${hoveredIndex}`, container, {
             endY: targetY,
