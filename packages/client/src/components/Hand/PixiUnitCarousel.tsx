@@ -598,7 +598,6 @@ export function PixiUnitCarousel({
         if (animManager) {
           animManager.animate(`unit-hover-${prevHovered}`, prevContainer, {
             endY: prevPos.y,
-            endScale: 1,
             duration: HOVER_LIFT_DURATION_MS,
             easing: Easing.easeOutCubic,
           });
@@ -618,7 +617,6 @@ export function PixiUnitCarousel({
         if (animManager) {
           animManager.animate(`unit-hover-${hoveredIndex}`, container, {
             endY: targetY,
-            endScale: 1.1,
             duration: HOVER_LIFT_DURATION_MS,
             easing: Easing.easeOutCubic,
           });
