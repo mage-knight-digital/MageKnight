@@ -393,10 +393,7 @@ export async function loadAtlas(): Promise<void> {
   const sheetFiles = Object.values(rawData.sheets).map((sheet) => sheet.file);
   const uniqueFiles = [...new Set(sheetFiles)];
 
-  const startTime = performance.now();
   await Promise.all(uniqueFiles.map(preloadImage));
-  const elapsed = performance.now() - startTime;
-  console.log(`Atlas: Preloaded ${uniqueFiles.length} sprite sheets in ${elapsed.toFixed(0)}ms`);
 
   // Mark as loaded only AFTER all images are ready
   atlasLoaded = true;

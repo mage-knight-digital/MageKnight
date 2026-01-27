@@ -326,29 +326,19 @@ export async function getOfferCardTexture(
  * Call this during app initialization to warm the GPU cache.
  */
 export async function preloadCardTextures(cardIds: string[]): Promise<void> {
-  const startTime = performance.now();
-
   await Promise.all(cardIds.map((id) => getCardTextureFromAtlas(id)));
-
-  const elapsed = performance.now() - startTime;
-  console.log(`[pixiTextureLoader] Preloaded ${cardIds.length} card textures in ${elapsed.toFixed(0)}ms`);
 }
 
 /**
  * Preload all sprite sheets (loads entire sheets to GPU).
  */
 export async function preloadAllSpriteSheets(): Promise<void> {
-  const startTime = performance.now();
-
   const atlas = await loadAtlasData();
   const sheetUrls = Object.values(atlas.sheets).map((s) => `/assets/${s.file}`);
   const uniqueUrls = [...new Set(sheetUrls)];
 
   // Load all sheets via PixiJS Assets (this uploads to GPU)
   await Promise.all(uniqueUrls.map((url) => Assets.load(url)));
-
-  const elapsed = performance.now() - startTime;
-  console.log(`[pixiTextureLoader] Preloaded ${uniqueUrls.length} sprite sheets in ${elapsed.toFixed(0)}ms`);
 }
 
 // ============================================================================
@@ -391,8 +381,6 @@ export function disposeAllTextures(): void {
   // Clear atlas data
   atlasData = null;
   atlasLoadPromise = null;
-
-  console.log("[pixiTextureLoader] Disposed all textures");
 }
 
 /**

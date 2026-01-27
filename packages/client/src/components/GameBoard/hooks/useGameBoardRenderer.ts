@@ -146,10 +146,6 @@ export function useGameBoardRenderer({
       );
 
       if (adjacentFlipTargets.length > 0) {
-        console.log(
-          "[PixiHexGrid] Will flip adjacent enemies after exploration:",
-          adjacentFlipTargets.map((t) => t.tokenId)
-        );
         pendingFlipTokenIdsRef.current = new Set(
           adjacentFlipTargets.map((t) => t.tokenId)
         );
@@ -209,8 +205,6 @@ export function useGameBoardRenderer({
           },
         ],
         onComplete: () => {
-          console.log("[PixiHexGrid] Exploration cinematic complete");
-
           if (
             pendingFlipTargetsRef.current.length > 0 &&
             capturedLayers &&
@@ -220,11 +214,6 @@ export function useGameBoardRenderer({
             const flipTargets = pendingFlipTargetsRef.current;
             pendingFlipTargetsRef.current = [];
             flipAnimationInProgressRef.current = true;
-
-            console.log(
-              "[PixiHexGrid] Starting post-exploration flip for:",
-              flipTargets.map((t) => t.tokenId)
-            );
 
             setTimeout(() => {
               animateEnemyFlips(
@@ -236,7 +225,6 @@ export function useGameBoardRenderer({
                 () => {
                   pendingFlipTokenIdsRef.current = new Set();
                   flipAnimationInProgressRef.current = false;
-                  console.log("[PixiHexGrid] Post-exploration flip complete");
                 }
               );
             }, 200);
@@ -268,11 +256,6 @@ export function useGameBoardRenderer({
       particleManager;
 
     if (shouldPlayEnemyReveal) {
-      console.log(
-        "[PixiHexGrid] Scheduling enemy reveal for:",
-        newlyRevealedTokenIds
-      );
-
       pendingFlipTokenIdsRef.current = new Set(newlyRevealedTokenIds);
 
       pendingFlipTargetsRef.current = newlyRevealedTokenIds
@@ -291,8 +274,6 @@ export function useGameBoardRenderer({
     }
 
     const renderAsync = async () => {
-      const renderStart = performance.now();
-
       const heroId = player?.heroId ?? null;
       await preloadIntroAssets(state, heroId);
 
@@ -365,17 +346,10 @@ export function useGameBoardRenderer({
         app.renderer.render(app.stage);
       }
 
-      const t_board = performance.now();
       renderBoardShape(layers, state.map.tileSlots);
-      console.log(
-        `[renderAsync] renderBoardShape: ${(performance.now() - t_board).toFixed(
-          1
-        )}ms`
-      );
 
       const hexKeysToReveal = new Set(revealingHexKeysRef.current);
 
-      const t_tiles = performance.now();
       if (!shouldPlayTileIntro) {
         const { revealingTileCoords } = await renderTiles(
           layers,
@@ -387,7 +361,6 @@ export function useGameBoardRenderer({
           knownTileIdsRef.current,
           () => {
             emitAnimationEvent("tiles-complete");
-            console.log("[PixiHexGrid] Tile intro complete");
           },
           () => {
             if (
@@ -396,11 +369,6 @@ export function useGameBoardRenderer({
               particleManager &&
               hexKeysToReveal.size > 0
             ) {
-              console.log(
-                "[PixiHexGrid] Tile revealed, starting enemy animation for hexes:",
-                [...hexKeysToReveal]
-              );
-
               renderEnemies(
                 layers,
                 state.map.hexes,
@@ -436,19 +404,14 @@ export function useGameBoardRenderer({
           revealingTileCoords.length === 0 &&
           revealingHexKeysRef.current.size > 0
         ) {
-          console.log("[PixiHexGrid] No tiles to reveal, clearing revealing state");
           revealingHexKeysRef.current = new Set();
           setRevealingUpdateCounter((c) => c + 1);
         }
       }
-      console.log(
-        `[renderAsync] renderTiles: ${(performance.now() - t_tiles).toFixed(1)}ms`
-      );
 
       if (!shouldPlayTileIntro) {
         const tileAnimationTime = 0;
 
-        const t_enemies = performance.now();
         if (!isExploration && !flipAnimationInProgressRef.current) {
           await renderEnemies(
             layers,
@@ -459,7 +422,6 @@ export function useGameBoardRenderer({
             tileAnimationTime,
             () => {
               emitAnimationEvent("enemies-complete");
-              console.log("[PixiHexGrid] Enemy intro complete");
             },
             undefined,
             pendingFlipTokenIdsRef.current
@@ -469,11 +431,6 @@ export function useGameBoardRenderer({
             const flipTargets = pendingFlipTargetsRef.current;
             pendingFlipTargetsRef.current = [];
             flipAnimationInProgressRef.current = true;
-
-            console.log(
-              "[PixiHexGrid] Starting enemy flip animation for:",
-              flipTargets.map((t) => t.tokenId)
-            );
 
             const FLIP_DELAY_AFTER_MOVE = HERO_MOVE_DURATION_MS + 100;
             setTimeout(() => {
@@ -486,7 +443,6 @@ export function useGameBoardRenderer({
                 () => {
                   pendingFlipTokenIdsRef.current = new Set();
                   flipAnimationInProgressRef.current = false;
-                  console.log("[PixiHexGrid] Enemy flip animation complete");
                 }
               );
             }, FLIP_DELAY_AFTER_MOVE);
@@ -495,11 +451,6 @@ export function useGameBoardRenderer({
           // Render ruins tokens (static, no animation for normal updates)
           await renderRuinsTokens(layers, state.map.hexes);
         }
-        console.log(
-          `[renderAsync] renderEnemies: ${(performance.now() - t_enemies).toFixed(
-            1
-          )}ms`
-        );
 
         const heroContainer = getOrCreateHeroContainer(layers, heroContainerRef);
         const prevPos = prevHeroPositionRef.current;
@@ -548,8 +499,6 @@ export function useGameBoardRenderer({
           easing: Easing.easeOutCubic,
           onComplete: () => {
             setTimeout(async () => {
-              console.log("[PixiHexGrid] Fade complete, rendering tiles with intro...");
-
               await renderTiles(
                 layers,
                 state.map.tiles,
@@ -560,7 +509,6 @@ export function useGameBoardRenderer({
                 knownTileIdsRef.current,
                 () => {
                   emitAnimationEvent("tiles-complete");
-                  console.log("[PixiHexGrid] Tile intro complete");
                 }
               );
 
@@ -599,7 +547,6 @@ export function useGameBoardRenderer({
                 tileAnimationTime,
                 () => {
                   emitAnimationEvent("enemies-complete");
-                  console.log("[PixiHexGrid] Enemy intro complete");
                 }
               );
 
@@ -636,7 +583,6 @@ export function useGameBoardRenderer({
                     },
                     onComplete: () => {
                       emitAnimationEvent("hero-complete");
-                      console.log("[PixiHexGrid] Hero portal complete");
                     },
                   });
                 }, heroRevealTime);
@@ -647,24 +593,12 @@ export function useGameBoardRenderer({
               const tileCount = state.map.tiles.length;
               startIntro(tileCount, enemyCount);
               introPlayedRef.current = true;
-              console.log(
-                "[PixiHexGrid] Starting intro:",
-                tileCount,
-                "tiles,",
-                enemyCount,
-                "enemies"
-              );
             }, PAUSE_BEFORE_INTRO);
           },
         });
 
         setIsLoading(false);
       }
-
-      console.log(
-        `[renderAsync] TOTAL: ${(performance.now() - renderStart).toFixed(1)}ms`
-      );
-      console.log("[PixiHexGrid] Rendered:", state.map.tiles.length, "tiles");
     };
 
     renderAsync();

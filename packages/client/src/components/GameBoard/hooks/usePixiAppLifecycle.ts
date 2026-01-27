@@ -55,7 +55,6 @@ export function usePixiAppLifecycle({
     let destroyed = false;
 
     const initPixi = async () => {
-      const t0 = performance.now();
       const app = new Application();
 
       await app.init({
@@ -72,7 +71,6 @@ export function usePixiAppLifecycle({
           throttle: 100,
         } as unknown as import("@pixi/layout").LayoutSystemOptions,
       });
-      console.log(`[initPixi] app.init: ${(performance.now() - t0).toFixed(1)}ms`);
 
       if (destroyed) {
         app.destroy(true);
@@ -81,14 +79,10 @@ export function usePixiAppLifecycle({
 
       container.appendChild(app.canvas);
 
-      const t1 = performance.now();
       const { world, layers } = createWorldLayers();
-      console.log(`[initPixi] createWorldLayers: ${(performance.now() - t1).toFixed(1)}ms`);
 
-      const t2 = performance.now();
       const background = new BackgroundAtmosphere();
       background.initialize(app.screen.width, app.screen.height);
-      console.log(`[initPixi] BackgroundAtmosphere: ${(performance.now() - t2).toFixed(1)}ms`);
       backgroundRef.current = background;
 
       app.stage.addChild(background.getContainer());
@@ -143,7 +137,6 @@ export function usePixiAppLifecycle({
       setApp(app);
       setOverlayLayer(screenOverlay);
 
-      console.log("[PixiHexGrid] Initialized");
       setIsInitialized(true);
     };
 
@@ -165,7 +158,6 @@ export function usePixiAppLifecycle({
         backgroundRef.current = null;
       }
       if (appRef.current) {
-        console.log("[PixiHexGrid] Destroying");
         appRef.current.destroy(true, { children: true, texture: true });
         appRef.current = null;
         layersRef.current = null;

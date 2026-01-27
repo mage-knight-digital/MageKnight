@@ -38,7 +38,6 @@ export async function preloadIntroAssets(
   state: ClientGameState,
   heroId: string | null
 ): Promise<void> {
-  const startTime = performance.now();
   const urlsToPreload: string[] = [];
 
   // Collect tile image URLs (only for revealed tiles that have tileId)
@@ -76,9 +75,4 @@ export async function preloadIntroAssets(
       await new Promise(resolve => setTimeout(resolve, 0));
     }
   }
-
-  const elapsed = performance.now() - startTime;
-  console.log(
-    `[preloadIntroAssets] Preloaded ${urlsToPreload.length} assets in ${elapsed.toFixed(0)}ms`
-  );
 }

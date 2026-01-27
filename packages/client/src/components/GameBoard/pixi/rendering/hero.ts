@@ -71,12 +71,10 @@ export async function renderHeroIntoContainer(
       hitArea.eventMode = "static";
       hitArea.cursor = "pointer";
       hitArea.on("rightclick", (e) => {
-        console.log("[Hero] Right-click detected on hero token");
         e.preventDefault?.();
         onRightClick();
       });
       container.addChild(hitArea);
-      console.log("[Hero] Added right-click hit area to hero token, radius:", maskRadius);
     }
   } catch (error) {
     // Fallback to simple circle if sprite fails to load

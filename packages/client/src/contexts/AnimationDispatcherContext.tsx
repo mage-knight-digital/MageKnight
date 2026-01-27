@@ -78,9 +78,6 @@ export function AnimationDispatcherProvider({
   const emittedEventsRef = useRef<Set<AnimationEvent>>(new Set());
 
   const emit = useCallback((event: AnimationEvent) => {
-    // Log for debugging
-    console.log(`[AnimationDispatcher] 🎬 ${event}`);
-
     // Mark as emitted
     emittedEventsRef.current.add(event);
 
@@ -123,7 +120,6 @@ export function AnimationDispatcherProvider({
   }, []);
 
   const reset = useCallback(() => {
-    console.log("[AnimationDispatcher] 🔄 Reset");
     emittedEventsRef.current.clear();
   }, []);
 
