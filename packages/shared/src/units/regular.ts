@@ -86,6 +86,8 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 2, element: ELEMENT_PHYSICAL },
       { type: UNIT_ABILITY_BLOCK, value: 2, element: ELEMENT_PHYSICAL },
+      { type: UNIT_ABILITY_INFLUENCE, value: 2 },
+      { type: UNIT_ABILITY_MOVE, value: 2 },
     ],
     copies: 3,
   },
