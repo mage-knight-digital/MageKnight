@@ -223,6 +223,8 @@ export interface BlockOption {
 export interface UnitDamageTarget {
   /** Unique instance ID for this unit */
   readonly unitInstanceId: string;
+  /** Unit type ID (e.g., "peasants", "guardian_golems") */
+  readonly unitId: string;
   /** Unit display name */
   readonly unitName: string;
   /** Unit's armor value (damage absorbed per wound) */

@@ -1,0 +1,480 @@
+/* ============================================================================
+   DamageAssignmentPanel - Modal for unit damage assignment
+
+   Uses the Mage Knight combat theme palette:
+   - Night palette: deep blue-purple #1a1d2e
+   - Attack/Damage: Bronze #b87333, Rust #8b4513
+   - Defense: Verdigris #2e6b5a
+   - Warning: Burnt Sienna #a65d3f
+   - Success: Moss #8b9a6b
+   ============================================================================ */
+
+.damage-assignment-panel {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  pointer-events: auto;
+}
+
+.damage-assignment-panel__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.damage-assignment-panel__content {
+  position: relative;
+  width: min(90vw, 520px);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: linear-gradient(
+    135deg,
+    rgba(26, 29, 46, 0.98) 0%,
+    rgba(15, 15, 25, 0.98) 100%
+  );
+  border: 2px solid rgba(184, 115, 51, 0.6);
+  border-radius: 12px;
+  box-shadow:
+    0 0 40px rgba(184, 115, 51, 0.25),
+    0 20px 60px rgba(0, 0, 0, 0.6);
+  padding: 1.5rem;
+}
+
+/* Header */
+.damage-assignment-panel__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(184, 115, 51, 0.3);
+}
+
+.damage-assignment-panel__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.damage-assignment-panel__enemy-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.damage-assignment-panel__enemy-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #d4a574;
+}
+
+.damage-assignment-panel__element {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.damage-assignment-panel__damage-total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.damage-assignment-panel__damage-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #c06040;
+  line-height: 1;
+}
+
+.damage-assignment-panel__damage-label {
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.damage-assignment-panel__brutal {
+  color: #a65d3f;
+  margin-left: 0.5rem;
+  font-weight: 400;
+}
+
+/* Section styling */
+.damage-assignment-panel__section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.damage-assignment-panel__section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.damage-assignment-panel__section-hint {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+/* Units section */
+.damage-assignment-panel__units-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Assigned units list */
+.damage-assignment-panel__assigned-units {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.damage-assignment-panel__assigned-unit {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(46, 107, 90, 0.2);
+  border: 1px solid rgba(46, 107, 90, 0.4);
+  border-radius: 6px;
+}
+
+.damage-assignment-panel__unit-order {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(46, 107, 90, 0.5);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.damage-assignment-panel__unit-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.damage-assignment-panel__unit-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.damage-assignment-panel__unit-armor {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.damage-assignment-panel__resistant {
+  margin-left: 0.5rem;
+  color: #6090b0;
+}
+
+.damage-assignment-panel__absorption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.damage-assignment-panel__absorbed {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8b9a6b;
+}
+
+.damage-assignment-panel__wound-badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #fff;
+  padding: 0.125rem 0.5rem;
+  background: #a65d3f;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.damage-assignment-panel__no-wound-badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #fff;
+  padding: 0.125rem 0.5rem;
+  background: #2e6b5a;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.damage-assignment-panel__remove-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(139, 69, 19, 0.3);
+  border: 1px solid rgba(139, 69, 19, 0.5);
+  border-radius: 4px;
+  color: #a65d3f;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.damage-assignment-panel__remove-btn:hover {
+  background: rgba(139, 69, 19, 0.5);
+  border-color: rgba(139, 69, 19, 0.8);
+}
+
+/* Available units */
+.damage-assignment-panel__available-units {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.damage-assignment-panel__available-label {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.damage-assignment-panel__unit-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.damage-assignment-panel__add-unit-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(46, 107, 90, 0.15);
+  border: 1px solid rgba(46, 107, 90, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.damage-assignment-panel__add-unit-btn:hover {
+  background: rgba(46, 107, 90, 0.3);
+  border-color: rgba(46, 107, 90, 0.6);
+}
+
+.damage-assignment-panel__add-unit-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.damage-assignment-panel__add-unit-stats {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.damage-assignment-panel__add-unit-resistant {
+  margin-left: 0.25rem;
+  opacity: 0.8;
+}
+
+/* Unavailable units */
+.damage-assignment-panel__unavailable-units {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.damage-assignment-panel__unavailable-label {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.damage-assignment-panel__unavailable-unit {
+  font-size: 0.75rem;
+  color: #666;
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  text-decoration: line-through;
+}
+
+/* Hero section */
+.damage-assignment-panel__hero-section {
+  padding: 1rem;
+  background: rgba(139, 69, 19, 0.15);
+  border: 1px solid rgba(139, 69, 19, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.damage-assignment-panel__hero-header {
+  margin-bottom: 0.75rem;
+}
+
+.damage-assignment-panel__hero-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #d4a574;
+}
+
+.damage-assignment-panel__hero-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.damage-assignment-panel__hero-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.damage-assignment-panel__hero-label {
+  font-size: 0.875rem;
+  color: #888;
+}
+
+.damage-assignment-panel__hero-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.damage-assignment-panel__hero-wounds {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(139, 69, 19, 0.3);
+}
+
+.damage-assignment-panel__wounds-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.damage-assignment-panel__wounds-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #8b9a6b;
+}
+
+.damage-assignment-panel__wounds-value--taking {
+  color: #c06040;
+}
+
+/* Knockout warning */
+.damage-assignment-panel__knockout-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(166, 93, 63, 0.3);
+  border: 1px solid rgba(166, 93, 63, 0.6);
+  border-radius: 6px;
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+.damage-assignment-panel__knockout-icon {
+  font-size: 1.25rem;
+}
+
+.damage-assignment-panel__knockout-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ff9966;
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(166, 93, 63, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 15px 3px rgba(166, 93, 63, 0.4);
+  }
+}
+
+/* Action buttons */
+.damage-assignment-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.damage-assignment-panel__cancel-btn {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #888;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.damage-assignment-panel__cancel-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.damage-assignment-panel__take-all-btn {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #a65d3f;
+  background: rgba(166, 93, 63, 0.15);
+  border: 1px solid rgba(166, 93, 63, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.damage-assignment-panel__take-all-btn:hover {
+  background: rgba(166, 93, 63, 0.3);
+  border-color: rgba(166, 93, 63, 0.6);
+}
+
+.damage-assignment-panel__confirm-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #2e6b5a, #1a4d3e);
+  border: 1px solid rgba(46, 107, 90, 0.6);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.damage-assignment-panel__confirm-btn:hover {
+  background: linear-gradient(135deg, #3a8070, #2e6b5a);
+  box-shadow: 0 0 15px rgba(46, 107, 90, 0.4);
+}
