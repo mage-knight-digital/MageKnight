@@ -30,11 +30,11 @@ import { playSound } from "../../utils/audioManager";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import { STANDARD_VIEW_MODE_OFFSETS, VIEW_MODE_TRANSITION_MS } from "../../utils/carouselViewModes";
 import type { CardFanViewMode } from "../../utils/cardFanLayout";
 
 // Animation timing constants
 const HOVER_LIFT_DURATION_MS = 265; // Synced to card hover audio
-const VIEW_MODE_TRANSITION_MS = 300; // Duration for view mode transitions
 
 // Unit card scale (% of viewport height)
 const UNIT_BASE_SCALE = 0.18;
@@ -53,12 +53,8 @@ const STATUS_COLORS = {
   wounded: 0xe74c3c, // Red
 } as const;
 
-// View mode position offsets (matching original CSS behavior)
-const VIEW_MODE_OFFSETS = {
-  board: { yOffset: 0.25 + 0.05, scale: 1, visible: false },
-  ready: { yOffset: 0.07, scale: 1, visible: true },
-  focus: { yOffset: -0.30, scale: 2.22, visible: true }, // -30vh from original CSS
-} as const;
+// Use shared view mode offsets (same as hand)
+const VIEW_MODE_OFFSETS = STANDARD_VIEW_MODE_OFFSETS;
 
 // Command slots unlock at odd levels: 1@L1, 2@L3, 3@L5, 4@L7, 5@L9
 const COMMAND_SLOT_LEVELS = [1, 3, 5, 7, 9] as const;

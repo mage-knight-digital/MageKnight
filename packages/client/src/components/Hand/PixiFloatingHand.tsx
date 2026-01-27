@@ -27,21 +27,16 @@ import { usePixiApp } from "../../contexts/PixiAppContext";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import { STANDARD_VIEW_MODE_OFFSETS, VIEW_MODE_TRANSITION_MS } from "../../utils/carouselViewModes";
 
 // Animation timing constants
 const HOVER_LIFT_DURATION_MS = CARD_FAN_HOVER.durationSec * 1000; // ~265ms synced to audio
 const CARD_TO_MENU_DURATION_MS = 300; // Duration for card to animate to menu center
 const CARD_RETURN_DURATION_MS = 300; // Duration for card to animate back to hand
 const MENU_CARD_SCALE = 1.4; // Card scales up 40% when in menu (must match PixiCardActionMenu)
-const VIEW_MODE_TRANSITION_MS = 300; // Duration for view mode transitions
 
-// View mode position offsets (matching CSS transforms from FloatingHand.css)
-// These are applied to the PixiJS container position
-const VIEW_MODE_OFFSETS = {
-  board: { yOffset: 0.25 + 0.05, scale: 1, visible: false }, // 25vh + 50px ≈ 30vh off screen
-  ready: { yOffset: 0.07, scale: 1, visible: true },          // 7vh down from bottom
-  focus: { yOffset: -0.15, scale: 2.8, visible: true },       // 15vh up, scaled 2.8x
-} as const;
+// Use shared view mode offsets for hand (same as units)
+const VIEW_MODE_OFFSETS = STANDARD_VIEW_MODE_OFFSETS;
 
 // Re-export for backwards compatibility
 export type HandViewMode = CardFanViewMode;
