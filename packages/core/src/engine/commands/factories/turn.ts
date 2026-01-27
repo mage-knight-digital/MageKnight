@@ -51,6 +51,7 @@ export const createRestCommandFromAction: CommandFactory = (
     announceEndOfRound: action.announceEndOfRound ?? false,
     previousHand: [...player.hand],
     previousDiscard: [...player.discard],
+    previousPlayedCardFromHand: player.playedCardFromHandThisTurn,
   });
 };
 

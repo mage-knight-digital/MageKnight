@@ -203,6 +203,8 @@ export function createPlayCardSidewaysCommand(
         ...player,
         hand: newHand,
         playArea: newPlayArea,
+        // Mark that a card was played from hand this turn (for minimum turn requirement)
+        playedCardFromHandThisTurn: true,
       };
 
       // Apply the sideways effect

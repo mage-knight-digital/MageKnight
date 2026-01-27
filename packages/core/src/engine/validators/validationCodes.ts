@@ -126,6 +126,9 @@ export const DECK_NOT_EMPTY = "DECK_NOT_EMPTY" as const;
 export const ALREADY_ANNOUNCED = "ALREADY_ANNOUNCED" as const;
 export const MUST_ANNOUNCE_END_OF_ROUND = "MUST_ANNOUNCE_END_OF_ROUND" as const;
 
+// Minimum turn validation codes
+export const MUST_PLAY_OR_DISCARD_CARD = "MUST_PLAY_OR_DISCARD_CARD" as const;
+
 // Rampaging enemy validation codes
 export const RAMPAGING_ENEMY_BLOCKS = "RAMPAGING_ENEMY_BLOCKS" as const;
 
@@ -275,6 +278,8 @@ export type ValidationErrorCode =
   | typeof DECK_NOT_EMPTY
   | typeof ALREADY_ANNOUNCED
   | typeof MUST_ANNOUNCE_END_OF_ROUND
+  // Minimum turn validation
+  | typeof MUST_PLAY_OR_DISCARD_CARD
   // Rampaging enemy validation
   | typeof RAMPAGING_ENEMY_BLOCKS
   // Challenge rampaging validation

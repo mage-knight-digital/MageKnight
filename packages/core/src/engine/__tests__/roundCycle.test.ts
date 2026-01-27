@@ -140,7 +140,7 @@ describe("Round Cycle", () => {
   describe("Final turn tracking", () => {
     it("should remove player from final turn list when they end turn", () => {
       const player1 = createTestPlayer({ id: "player1", deck: [] });
-      const player2 = createTestPlayer({ id: "player2", deck: [], hand: [CARD_MARCH] });
+      const player2 = createTestPlayer({ id: "player2", deck: [], hand: [CARD_MARCH], playedCardFromHandThisTurn: true });
 
       const state = createTestGameState({
         players: [player1, player2],
@@ -294,6 +294,7 @@ describe("Round Cycle", () => {
         discard: [CARD_STAMINA],
         playArea: [],
         handLimit: 5,
+        playedCardFromHandThisTurn: true,
       });
       const state = createTestGameState({
         players: [player],
@@ -422,8 +423,8 @@ describe("Round Cycle", () => {
     it("should trigger round end only after ALL final turns complete", () => {
       // Setup: 3 players, announcement already made, player2 and player3 have final turns
       const player1 = createTestPlayer({ id: "player1", deck: [], hasTakenActionThisTurn: true });
-      const player2 = createTestPlayer({ id: "player2", deck: [], hand: [CARD_MARCH] });
-      const player3 = createTestPlayer({ id: "player3", deck: [], hand: [CARD_STAMINA] });
+      const player2 = createTestPlayer({ id: "player2", deck: [], hand: [CARD_MARCH], playedCardFromHandThisTurn: true });
+      const player3 = createTestPlayer({ id: "player3", deck: [], hand: [CARD_STAMINA], playedCardFromHandThisTurn: true });
 
       let state: GameState = createTestGameState({
         players: [player1, player2, player3],

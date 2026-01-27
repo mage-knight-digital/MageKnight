@@ -90,6 +90,8 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         ...player,
         hand: newHand,
         playArea: newPlayArea,
+        // Mark that a card was played from hand this turn (for minimum turn requirement)
+        playedCardFromHandThisTurn: true,
       };
 
       // Track source updates (for die usage)
