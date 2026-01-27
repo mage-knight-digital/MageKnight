@@ -3,7 +3,7 @@ import { useGame } from "../hooks/useGame";
 import { useMyPlayer } from "../hooks/useMyPlayer";
 import { useGameIntro } from "../contexts/GameIntroContext";
 import { useCinematic } from "../contexts/CinematicContext";
-import { useOverlay } from "../contexts/OverlayContext";
+import { useOverlay, useRegisterOverlay } from "../contexts/OverlayContext";
 import { UnifiedCardMenu } from "./CardInteraction";
 import { PixiHexGrid } from "./GameBoard/PixiHexGrid";
 import { ManaSourceOverlay } from "./GameBoard/ManaSourceOverlay";
@@ -31,6 +31,15 @@ export function GameView() {
   const { isOverlayActive } = useOverlay();
   const [isOfferViewVisible, setIsOfferViewVisible] = useState(false);
 
+  // Show combat overlay when in combat
+  // Note: We check state.combat existence, not validActions.combat
+  // validActions.combat may be undefined during choice resolution, but we still want
+  // to show the combat scene (enemies, phase rail, etc.) while the player makes their choice
+  const inCombat = state?.combat != null;
+
+  // Register combat as an overlay to disable hex tooltips during combat
+  useRegisterOverlay(inCombat);
+
   // Handle offer view state from PlayerHand
   const handleOfferViewChange = useCallback((isVisible: boolean) => {
     setIsOfferViewVisible(isVisible);
@@ -49,12 +58,6 @@ export function GameView() {
   if (!state) {
     return <div className="loading">Loading game state...</div>;
   }
-
-  // Show combat overlay when in combat
-  // Note: We check state.combat existence, not validActions.combat
-  // validActions.combat may be undefined during choice resolution, but we still want
-  // to show the combat scene (enemies, phase rail, etc.) while the player makes their choice
-  const inCombat = state.combat !== null;
 
   // Check if we're in tactic selection mode
   // Only dim the world after intro completes - don't dim during the theatrical reveal
