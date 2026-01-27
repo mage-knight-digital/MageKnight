@@ -39,6 +39,7 @@ Issues are tracked in [GitHub Projects](https://github.com/users/eshaffer321/pro
 **Type:** `bug`, `feature`, `edge-case`, `tech-debt`, `docs`
 **Area:** `area:combat`, `area:cards`, `area:mana`, `area:turn`, `area:rest`, `area:movement`, `area:units`, `area:sites`, `area:ui`
 **Complexity:** `complexity:low`, `complexity:high`
+**Status:** `needs-refinement` (stub tickets needing details)
 
 ### Workflow
 
