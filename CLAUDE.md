@@ -295,7 +295,6 @@ When in doubt, fix the code to satisfy the linter rather than silencing the warn
 | Client state filter | `server/src/index.ts` (`toClientState`) |
 | Mana source logic | `core/src/engine/mana/` |
 | Claude Code skills | `.claude/skills/` |
-| Markdown ticket specs | `docs/tickets/` |
 
 
 
