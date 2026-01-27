@@ -9,6 +9,7 @@ import type {
   CombatOptions,
   BlockOption,
   DamageAssignmentOption,
+  UnitDamageTarget,
   AvailableAttackPool,
   EnemyAttackState,
   AssignAttackOption,
@@ -32,6 +33,7 @@ import {
   ATTACK_ELEMENT_COLD_FIRE,
   ABILITY_SWIFT,
   ABILITY_BRUTAL,
+  getUnit,
 } from "@mage-knight/shared";
 import type { CombatEnemy, CombatState } from "../../types/combat.js";
 import { createEmptyPendingDamage } from "../../types/combat.js";
@@ -725,31 +727,105 @@ function getBlockOptions(
     });
 }
 
+// ============================================================================
+// Unit Damage Target Computation
+// ============================================================================
+
+/**
+ * Compute available unit targets for damage assignment.
+ *
+ * Rules:
+ * - Only unwounded units can be assigned damage
+ * - Units that already had damage assigned this combat cannot be assigned again
+ *   (even if they weren't wounded due to resistance)
+ * - Units not present in combat (dungeons/tombs/mazes) are excluded
+ *
+ * @param player - Player whose units to check
+ * @param attackElement - Element of the enemy's attack
+ * @param unitsAllowed - Whether units are allowed in this combat
+ */
+function computeAvailableUnitTargets(
+  player: Player,
+  attackElement: Element,
+  unitsAllowed: boolean
+): readonly UnitDamageTarget[] {
+  // If units are not allowed in this combat (dungeon/tomb), return empty array
+  if (!unitsAllowed) {
+    return [];
+  }
+
+  return player.units.map((unit) => {
+    const unitDef = getUnit(unit.unitId);
+    const resistances = unitDef.resistances;
+
+    // Check if unit is resistant to this attack element
+    const isResistantToAttack = isAttackResisted(attackElement, resistances);
+
+    // Unit can be assigned if not wounded AND hasn't been assigned this combat
+    const canBeAssigned = !unit.wounded && !unit.usedResistanceThisCombat;
+
+    return {
+      unitInstanceId: unit.instanceId,
+      unitName: unitDef.name,
+      armor: unitDef.armor,
+      isResistantToAttack,
+      alreadyAssignedThisCombat: unit.usedResistanceThisCombat,
+      isWounded: unit.wounded,
+      canBeAssigned,
+    };
+  });
+}
+
 /**
  * Get damage assignment options for assign damage phase.
  * Filters out enemies that don't attack (due to Chill/Whirlwind).
  * Uses effective attack values (after modifiers).
+ * Includes unit targets for damage assignment.
  */
 function getDamageAssignmentOptions(
   state: GameState,
   enemies: readonly CombatEnemy[]
 ): readonly DamageAssignmentOption[] {
+  const combat = state.combat;
+  if (!combat) return [];
+
+  // Get current player for unit access
+  const currentPlayerId = state.turnOrder[state.currentPlayerIndex];
+  const currentPlayer = state.players.find((p) => p.id === currentPlayerId);
+
   return enemies
     .filter((enemy) => !enemy.isDefeated && !enemy.isBlocked && !enemy.damageAssigned)
     // Filter out enemies that don't attack this combat (Chill, Whirlwind)
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
     .map((enemy) => {
       // Use effective attack (after modifiers)
-      const effectiveAttack = getEffectiveEnemyAttack(
+      const rawAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
         enemy.definition.attack
       );
 
+      // Check for Brutal ability
+      const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
+      const totalDamage = isBrutal ? rawAttack * 2 : rawAttack;
+
+      // Get attack element
+      const attackElement = enemy.definition.attackElement;
+
+      // Compute available unit targets
+      const availableUnits = currentPlayer
+        ? computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed)
+        : [];
+
       return {
         enemyInstanceId: enemy.instanceId,
         enemyName: enemy.definition.name,
-        unassignedDamage: effectiveAttack,
+        attackElement,
+        isBrutal,
+        rawAttackValue: rawAttack,
+        totalDamage,
+        unassignedDamage: totalDamage, // Deprecated but kept for backwards compatibility
+        availableUnits,
       };
     });
 }
