@@ -292,7 +292,6 @@ start_dev_server() {
         local url
         url=$(grep "Local:" "$LOG_FILE" 2>/dev/null | sed 's/.*http/http/' | tr -d ' ')
         echo -e "${YELLOW}Already running:${RESET} ${url:-check logs}"
-        [ -n "$url" ] && open "$url"
         return 0
     fi
 
@@ -310,7 +309,6 @@ start_dev_server() {
             local url
             url=$(grep "Local:" "$LOG_FILE" | sed 's/.*http/http/' | tr -d ' ')
             echo -e "${GREEN}[ok]${RESET} $url"
-            open "$url"
             return 0
         fi
         sleep 0.5

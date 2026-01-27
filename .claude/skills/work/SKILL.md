@@ -88,3 +88,24 @@ Response:
 1. "Looking for highest priority issue..."
 2. "Found #33 (P1-high): Resting as State with Card Play Allowed"
 3. "Starting work on #33..."
+
+## Summary Output
+
+After gathering context and creating the implementation plan, provide a **Validation Steps** section that tells the user exactly how to verify the work once complete:
+
+```markdown
+## Validation Steps
+
+To verify this feature works correctly:
+1. [Step-by-step user journey to test the feature]
+2. [Expected behavior at each step]
+3. [Edge cases to check]
+```
+
+For example, if the issue is about mandatory card play:
+- "Start a new game and begin your turn"
+- "Attempt to end turn without playing a card - should see error"
+- "Play one card, then end turn - should succeed"
+- "Test with sideways play as well"
+
+This helps the user know exactly what to test when implementation is complete.
