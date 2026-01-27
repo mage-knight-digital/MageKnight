@@ -34,6 +34,7 @@ export interface PlayCardSidewaysCommandParams {
   readonly cardId: CardId;
   readonly handIndex: number;
   readonly as: SidewaysAs;
+  readonly previousPlayedCardFromHand: boolean; // For undo - restore minimum turn state
 }
 
 /**
@@ -211,6 +212,8 @@ export function createPlayCardSidewaysCommand(
         ...player,
         hand: newHand,
         playArea: newPlayArea,
+        // Mark that a card was played from hand this turn (for minimum turn requirement)
+        playedCardFromHandThisTurn: true,
       };
 
       // Apply the sideways effect
@@ -261,6 +264,8 @@ export function createPlayCardSidewaysCommand(
         ...player,
         hand: newHand,
         playArea: newPlayArea,
+        // Restore minimum turn requirement state
+        playedCardFromHandThisTurn: params.previousPlayedCardFromHand,
       };
 
       // Reverse the sideways effect

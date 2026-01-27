@@ -131,6 +131,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     manaDrawDieIds: [],
     hasMovedThisTurn: false,
     hasTakenActionThisTurn: false,
+    playedCardFromHandThisTurn: false,
     combatAccumulator: mergedAccumulator,
     pendingChoice: null,
     pendingLevelUps: [],

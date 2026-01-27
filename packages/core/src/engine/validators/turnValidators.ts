@@ -10,6 +10,7 @@ import { valid, invalid } from "./types.js";
 import {
   ALREADY_ACTED,
   IN_COMBAT,
+  MUST_PLAY_OR_DISCARD_CARD,
   NOT_YOUR_TURN,
   PLAYER_NOT_FOUND,
   WRONG_PHASE,
@@ -69,4 +70,34 @@ export function validateHasNotActed(
     return invalid(ALREADY_ACTED, "You have already taken an action this turn");
   }
   return valid();
+}
+
+// Check minimum turn requirement: must play or discard at least one card from hand
+// Per rulebook Minimum Turn S1: "Every turn you must play at least one card from your hand.
+// Failing that, you must discard one unplayed card from your hand."
+export function validateMinimumTurnRequirement(
+  state: GameState,
+  playerId: string,
+  _action: PlayerAction
+): ValidationResult {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
+  // If player has no cards in hand, requirement is waived
+  if (player.hand.length === 0) {
+    return valid();
+  }
+
+  // If player already played or discarded a card from hand, requirement is satisfied
+  if (player.playedCardFromHandThisTurn) {
+    return valid();
+  }
+
+  // Player has cards in hand but hasn't played or discarded - cannot end turn
+  return invalid(
+    MUST_PLAY_OR_DISCARD_CARD,
+    "You must play or discard at least one card from your hand before ending your turn"
+  );
 }

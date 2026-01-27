@@ -224,6 +224,7 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
     hasMovedThisTurn: player.hasMovedThisTurn,
     hasTakenActionThisTurn: player.hasTakenActionThisTurn,
     usedManaFromSource: player.usedManaFromSource,
+    playedCardFromHandThisTurn: player.playedCardFromHandThisTurn,
 
     knockedOut: player.knockedOut,
     selectedTacticId: player.selectedTactic,
@@ -798,6 +799,7 @@ export class GameServer {
       hasMovedThisTurn: false,
       hasTakenActionThisTurn: false,
       hasCombattedThisTurn: false,
+      playedCardFromHandThisTurn: false,
       manaUsedThisTurn: [],
       combatAccumulator: createEmptyCombatAccumulator(),
       pendingChoice: null,

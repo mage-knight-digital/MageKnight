@@ -32,6 +32,7 @@ export interface RestCommandParams {
   readonly announceEndOfRound: boolean;
   readonly previousHand: readonly CardId[]; // For undo
   readonly previousDiscard: readonly CardId[]; // For undo
+  readonly previousPlayedCardFromHand: boolean; // For undo - restore minimum turn state
 }
 
 export function createRestCommand(params: RestCommandParams): Command {
@@ -79,11 +80,13 @@ export function createRestCommand(params: RestCommandParams): Command {
       const newDiscard = [...player.discard, ...params.discardCardIds];
 
       // Mark that player has taken their action
+      // Rest also satisfies minimum turn requirement (discarding counts as satisfying "play or discard")
       const updatedPlayer: Player = {
         ...player,
         hand: newHand,
         discard: newDiscard,
         hasTakenActionThisTurn: true,
+        playedCardFromHandThisTurn: true,
       };
 
       const players = [...state.players];
@@ -132,6 +135,7 @@ export function createRestCommand(params: RestCommandParams): Command {
         hand: [...params.previousHand],
         discard: [...params.previousDiscard],
         hasTakenActionThisTurn: false,
+        playedCardFromHandThisTurn: params.previousPlayedCardFromHand,
       };
 
       const players = [...state.players];

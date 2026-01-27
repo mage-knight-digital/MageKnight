@@ -129,6 +129,7 @@ export interface ClientPlayer {
   readonly hasMovedThisTurn: boolean;
   readonly hasTakenActionThisTurn: boolean;
   readonly usedManaFromSource: boolean;
+  readonly playedCardFromHandThisTurn: boolean; // Minimum turn requirement tracking
 
   // Round state
   readonly knockedOut: boolean;

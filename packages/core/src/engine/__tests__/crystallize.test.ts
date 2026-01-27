@@ -161,6 +161,7 @@ describe("Crystallize Basic Effect", () => {
         cardId: CARD_CRYSTALLIZE,
         handIndex: 0,
         powered: false,
+        previousPlayedCardFromHand: false,
       });
 
       const result = command.execute(state);
@@ -188,6 +189,7 @@ describe("Crystallize Basic Effect", () => {
         cardId: CARD_CRYSTALLIZE,
         handIndex: 0,
         powered: false,
+        previousPlayedCardFromHand: false,
       });
 
       const result = command.execute(state);
@@ -220,6 +222,7 @@ describe("Crystallize Undo", () => {
       cardId: CARD_CRYSTALLIZE,
       handIndex: 0,
       powered: false,
+      previousPlayedCardFromHand: false,
     });
 
     const result = command.execute(state);
@@ -283,6 +286,7 @@ describe("Crystallize Powered Effect", () => {
       handIndex: 0,
       powered: true,
       manaSource: { type: "die", color: MANA_BLUE, dieId: "die_0" },
+      previousPlayedCardFromHand: false,
     });
 
     const result = command.execute(state);

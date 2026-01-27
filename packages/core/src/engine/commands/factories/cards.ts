@@ -141,6 +141,9 @@ export const createPlayCardCommandFromAction: CommandFactory = (
   const handIndex = player.hand.indexOf(cardId);
   if (handIndex === -1) return null;
 
+  // Capture current state for undo
+  const previousPlayedCardFromHand = player.playedCardFromHandThisTurn;
+
   // Handle spell with manaSources (plural)
   if (details.manaSources && details.manaSources.length > 0) {
     return createPlayCardCommand({
@@ -149,6 +152,7 @@ export const createPlayCardCommandFromAction: CommandFactory = (
       handIndex,
       powered: details.powered,
       manaSources: details.manaSources,
+      previousPlayedCardFromHand,
     });
   }
 
@@ -160,6 +164,7 @@ export const createPlayCardCommandFromAction: CommandFactory = (
       handIndex,
       powered: details.powered,
       manaSource: details.manaSource,
+      previousPlayedCardFromHand,
     });
   }
 
@@ -173,6 +178,7 @@ export const createPlayCardCommandFromAction: CommandFactory = (
         handIndex,
         powered: false,
         manaSource: inferredSource,
+        previousPlayedCardFromHand,
       });
     }
   }
@@ -182,6 +188,7 @@ export const createPlayCardCommandFromAction: CommandFactory = (
     cardId,
     handIndex,
     powered: details.powered,
+    previousPlayedCardFromHand,
   });
 };
 
@@ -211,6 +218,7 @@ export const createPlayCardSidewaysCommandFromAction: CommandFactory = (
     cardId,
     handIndex,
     as: sidewaysChoice,
+    previousPlayedCardFromHand: player.playedCardFromHandThisTurn,
   });
 };
 

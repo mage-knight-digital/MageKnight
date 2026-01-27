@@ -47,6 +47,7 @@ import {
   validateRoundPhase,
   validateNotInCombat,
   validateHasNotActed,
+  validateMinimumTurnRequirement,
 } from "./turnValidators.js";
 
 // Movement validators
@@ -300,6 +301,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingRewards, // Must select rewards before ending turn
     validateNoPendingLevelUpRewards, // Must select level up rewards before ending turn
+    validateMinimumTurnRequirement, // Must play or discard at least one card from hand
   ],
   [EXPLORE_ACTION]: [
     validateIsPlayersTurn,

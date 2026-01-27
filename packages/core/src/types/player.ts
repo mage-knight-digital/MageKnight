@@ -255,6 +255,10 @@ export interface Player {
   // Combat tracking (only one combat per turn allowed)
   readonly hasCombattedThisTurn: boolean;
 
+  // Minimum turn requirement tracking - must play at least one card from hand per turn
+  // (or discard if no card is played). Set by playCardCommand/playCardSidewaysCommand.
+  readonly playedCardFromHandThisTurn: boolean;
+
   // Mana usage tracking (for conditional effects)
   readonly manaUsedThisTurn: readonly ManaColor[];
 

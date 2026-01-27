@@ -40,7 +40,7 @@ describe("END_TURN action", () => {
   });
 
   it("should advance to next player", () => {
-    const player1 = createTestPlayer({ id: "player1", movePoints: 4 });
+    const player1 = createTestPlayer({ id: "player1", movePoints: 4, playedCardFromHandThisTurn: true });
     const player2 = createTestPlayer({ id: "player2", movePoints: 0 });
     const state = createTestGameState({
       turnOrder: ["player1", "player2"],
@@ -64,7 +64,7 @@ describe("END_TURN action", () => {
 
   it("should wrap around to first player", () => {
     const player1 = createTestPlayer({ id: "player1", movePoints: 0 });
-    const player2 = createTestPlayer({ id: "player2", movePoints: 4 });
+    const player2 = createTestPlayer({ id: "player2", movePoints: 4, playedCardFromHandThisTurn: true });
     const state = createTestGameState({
       turnOrder: ["player1", "player2"],
       currentPlayerIndex: 1,
@@ -100,6 +100,7 @@ describe("END_TURN action", () => {
       hasTakenActionThisTurn: true,
       influencePoints: 5,
       usedManaFromSource: true,
+      playedCardFromHandThisTurn: true,
     });
 
     const state = createTestGameState({
@@ -121,7 +122,7 @@ describe("END_TURN action", () => {
   });
 
   it("should give next player starting move points", () => {
-    const player1 = createTestPlayer({ id: "player1", movePoints: 4 });
+    const player1 = createTestPlayer({ id: "player1", movePoints: 4, playedCardFromHandThisTurn: true });
     const player2 = createTestPlayer({ id: "player2", movePoints: 0 });
     const state = createTestGameState({
       turnOrder: ["player1", "player2"],
@@ -138,7 +139,9 @@ describe("END_TURN action", () => {
   });
 
   it("should clear command stack (not undoable)", () => {
-    const state = createTestGameState();
+    const state = createTestGameState({
+      players: [createTestPlayer({ movePoints: 4, playedCardFromHandThisTurn: true })],
+    });
 
     // Move first
     const afterMove = engine.processAction(state, "player1", {
@@ -160,6 +163,7 @@ describe("END_TURN action", () => {
 
   it("should expire turn-duration modifiers", () => {
     const state = createTestGameState({
+      players: [createTestPlayer({ movePoints: 4, playedCardFromHandThisTurn: true })],
       activeModifiers: [
         {
           id: "test-mod",
@@ -191,6 +195,7 @@ describe("END_TURN action", () => {
 
   it("should not expire round-duration modifiers", () => {
     const state = createTestGameState({
+      players: [createTestPlayer({ movePoints: 4, playedCardFromHandThisTurn: true })],
       activeModifiers: [
         {
           id: "round-mod",
@@ -273,6 +278,7 @@ describe("END_TURN card flow", () => {
       deck: [CARD_SWIFTNESS, CARD_DETERMINATION],
       hand: [],
       handLimit: 5,
+      playedCardFromHandThisTurn: true,
     });
     const state = createTestGameState({ players: [player] });
 
@@ -301,6 +307,7 @@ describe("END_TURN card flow", () => {
       discard: [],
       playArea: [],
       handLimit: 5,
+      playedCardFromHandThisTurn: true,
     });
     const state = createTestGameState({ players: [player] });
 
@@ -320,6 +327,7 @@ describe("END_TURN card flow", () => {
       discard: [CARD_SWIFTNESS, CARD_DETERMINATION], // Cards in discard
       playArea: [],
       handLimit: 5,
+      playedCardFromHandThisTurn: true,
     });
     const state = createTestGameState({ players: [player] });
 
@@ -347,6 +355,7 @@ describe("END_TURN card flow", () => {
       discard: [],
       playArea: [],
       handLimit: 5, // Over limit
+      playedCardFromHandThisTurn: true,
     });
     const state = createTestGameState({ players: [player] });
 
@@ -365,6 +374,7 @@ describe("END_TURN card flow", () => {
       discard: [],
       playArea: [CARD_PROMISE, CARD_THREATEN],
       handLimit: 5,
+      playedCardFromHandThisTurn: true,
     });
     const state = createTestGameState({ players: [player] });
 
@@ -397,6 +407,7 @@ describe("END_TURN card flow", () => {
     };
     const player = createTestPlayer({
       combatAccumulator: modifiedAccumulator,
+      playedCardFromHandThisTurn: true,
     });
     const state = createTestGameState({ players: [player] });
 
@@ -432,6 +443,7 @@ describe("Round end reshuffling", () => {
       discard: [],
       playArea: [],
       handLimit: 5,
+      playedCardFromHandThisTurn: true,
     });
 
     const state = createTestGameState({
@@ -479,6 +491,7 @@ describe("Round end reshuffling", () => {
       discard: [],
       playArea: [],
       handLimit: 5,
+      playedCardFromHandThisTurn: true, // Empty hand, but satisfies requirement via flag
     });
 
     const state = createTestGameState({
@@ -506,7 +519,7 @@ describe("Round end reshuffling", () => {
 
   it("should emit ROUND_ENDED event with round number", () => {
     const player1 = createTestPlayer({ id: "player1" });
-    const player2 = createTestPlayer({ id: "player2" });
+    const player2 = createTestPlayer({ id: "player2", playedCardFromHandThisTurn: true });
 
     const state = createTestGameState({
       players: [player1, player2],
@@ -604,13 +617,14 @@ describe("END_TURN with empty deck and hand", () => {
     expect(announceEvents).toHaveLength(0);
   });
 
-  it("should allow normal end turn if hand has cards", () => {
+  it("should allow normal end turn if hand has cards (and played one)", () => {
     const player = createTestPlayer({
       id: "player1",
       deck: [],
       hand: [CARD_MARCH], // Has card in hand
       discard: [CARD_RAGE],
       playArea: [],
+      playedCardFromHandThisTurn: true, // Must have played a card to end turn
     });
     const state = createTestGameState({
       players: [player],
@@ -673,6 +687,135 @@ describe("END_TURN with empty deck and hand", () => {
   });
 });
 
+describe("END_TURN minimum turn requirement", () => {
+  let engine: MageKnightEngine;
+
+  beforeEach(() => {
+    engine = createEngine();
+  });
+
+  it("should reject END_TURN if player has cards but hasn't played any", () => {
+    const player = createTestPlayer({
+      hand: [CARD_MARCH, CARD_RAGE], // Has cards in hand
+      playedCardFromHandThisTurn: false, // Hasn't played a card
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: INVALID_ACTION,
+        reason: "You must play or discard at least one card from your hand before ending your turn",
+      })
+    );
+    // State should not change
+    expect(result.state.currentPlayerIndex).toBe(state.currentPlayerIndex);
+  });
+
+  it("should allow END_TURN if player played a card from hand", () => {
+    const player = createTestPlayer({
+      hand: [CARD_MARCH],
+      playedCardFromHandThisTurn: true, // Played a card
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: TURN_ENDED,
+        playerId: "player1",
+      })
+    );
+  });
+
+  it("should allow END_TURN if player has empty hand", () => {
+    const player = createTestPlayer({
+      hand: [], // No cards in hand
+      deck: [CARD_MARCH], // But has cards in deck
+      playedCardFromHandThisTurn: false, // Didn't play a card
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    // Should succeed - empty hand waives the requirement
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: TURN_ENDED,
+        playerId: "player1",
+      })
+    );
+  });
+
+  it("should reset playedCardFromHandThisTurn at start of next turn", () => {
+    const player1 = createTestPlayer({
+      id: "player1",
+      playedCardFromHandThisTurn: true,
+    });
+    const player2 = createTestPlayer({
+      id: "player2",
+      playedCardFromHandThisTurn: true,
+    });
+    const state = createTestGameState({
+      players: [player1, player2],
+      turnOrder: ["player1", "player2"],
+      currentPlayerIndex: 0,
+    });
+
+    const result = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    // Player 1's flag should be reset for their next turn
+    const updatedPlayer1 = result.state.players.find((p) => p.id === "player1");
+    expect(updatedPlayer1?.playedCardFromHandThisTurn).toBe(false);
+  });
+
+  it("should set playedCardFromHandThisTurn when resting", () => {
+    // This test verifies that resting satisfies the minimum turn requirement
+    // because rest involves discarding cards from hand
+    const player = createTestPlayer({
+      hand: [CARD_MARCH, CARD_RAGE, CARD_STAMINA],
+      deck: [],
+      discard: [],
+      playedCardFromHandThisTurn: false,
+      hasTakenActionThisTurn: false,
+    });
+    const state = createTestGameState({ players: [player] });
+
+    // Rest by discarding one non-wound card
+    const restResult = engine.processAction(state, "player1", {
+      type: "REST",
+      restType: "standard",
+      discardCardIds: [CARD_MARCH],
+    });
+
+    // After resting, the flag should be set
+    const updatedPlayer = restResult.state.players[0];
+    expect(updatedPlayer?.playedCardFromHandThisTurn).toBe(true);
+
+    // Now player should be able to END_TURN
+    const endResult = engine.processAction(restResult.state, "player1", {
+      type: END_TURN_ACTION,
+    });
+
+    expect(endResult.events).toContainEqual(
+      expect.objectContaining({
+        type: TURN_ENDED,
+        playerId: "player1",
+      })
+    );
+  });
+});
+
 describe("END_TURN mana source dice cleanup", () => {
   let engine: MageKnightEngine;
 
@@ -697,6 +840,7 @@ describe("END_TURN mana source dice cleanup", () => {
       id: "player1",
       usedManaFromSource: true,
       usedDieIds: [sourceDieId("die_0"), sourceDieId("die_1")], // Both dice used this turn
+      playedCardFromHandThisTurn: true,
     });
 
     const state = createTestGameState({
@@ -733,6 +877,7 @@ describe("END_TURN mana source dice cleanup", () => {
       id: "player1",
       usedManaFromSource: true,
       usedDieIds: [sourceDieId("die_0")],
+      playedCardFromHandThisTurn: true,
     });
     const player2 = createTestPlayer({
       id: "player2",
