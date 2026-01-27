@@ -130,6 +130,8 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
       });
 
       expect(result.state.players[0].combatAccumulator.block).toBe(1);
+      // Verify blockElements.physical is also updated (used by valid actions computation)
+      expect(result.state.players[0].combatAccumulator.blockElements.physical).toBe(1);
       expect(result.events).toContainEqual(
         expect.objectContaining({
           type: CARD_PLAYED,

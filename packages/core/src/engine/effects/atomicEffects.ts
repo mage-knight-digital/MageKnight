@@ -279,12 +279,14 @@ export function applyGainBlock(
     };
     blockTypeName = `${element} Block`;
   } else {
-    // Track physical block
+    // Track physical block - update both block total and blockElements.physical
+    // for consistency with valid actions computation which reads from blockElements
     updatedPlayer = {
       ...player,
       combatAccumulator: {
         ...player.combatAccumulator,
         block: player.combatAccumulator.block + amount,
+        blockElements: updateElementalValue(player.combatAccumulator.blockElements, ELEMENT_PHYSICAL, amount),
         blockSources: [...player.combatAccumulator.blockSources, blockSource],
       },
     };

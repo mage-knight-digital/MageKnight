@@ -50,8 +50,27 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
-import { getLevelsCrossed } from "@mage-knight/shared";
+import { getLevelsCrossed, ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "@mage-knight/shared";
+import type { Element } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION } from "./atomicEffects.js";
+
+/**
+ * Maps Element type to the property key in ElementalAttackValues.
+ * Element uses "cold_fire" but ElementalAttackValues uses "coldFire".
+ */
+function elementToPropertyKey(element: Element | undefined): "physical" | "fire" | "ice" | "coldFire" {
+  if (!element) return "physical";
+  switch (element) {
+    case ELEMENT_FIRE:
+      return "fire";
+    case ELEMENT_ICE:
+      return "ice";
+    case ELEMENT_COLD_FIRE:
+      return "coldFire";
+    default:
+      return "physical";
+  }
+}
 
 // ============================================================================
 // REVERSE EFFECT
@@ -109,14 +128,21 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
       };
     }
 
-    case EFFECT_GAIN_BLOCK:
+    case EFFECT_GAIN_BLOCK: {
+      // Reverse block: update both block total and blockElements
+      const blockElements = { ...player.combatAccumulator.blockElements };
+      const elementKey = elementToPropertyKey(effect.element);
+      blockElements[elementKey] = Math.max(0, blockElements[elementKey] - effect.amount);
+
       return {
         ...player,
         combatAccumulator: {
           ...player.combatAccumulator,
-          block: player.combatAccumulator.block - effect.amount,
+          block: effect.element ? player.combatAccumulator.block : Math.max(0, player.combatAccumulator.block - effect.amount),
+          blockElements,
         },
       };
+    }
 
     case EFFECT_CHANGE_REPUTATION:
       // Reverse reputation change (clamp to bounds)
