@@ -129,7 +129,8 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
     }
 
     case EFFECT_GAIN_BLOCK: {
-      // Reverse block: update both block total and blockElements
+      // Reverse block: always update both block total and blockElements
+      // (matches applyGainBlock which updates both for all block types)
       const blockElements = { ...player.combatAccumulator.blockElements };
       const elementKey = elementToPropertyKey(effect.element);
       blockElements[elementKey] = Math.max(0, blockElements[elementKey] - effect.amount);
@@ -138,7 +139,7 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
         ...player,
         combatAccumulator: {
           ...player.combatAccumulator,
-          block: effect.element ? player.combatAccumulator.block : Math.max(0, player.combatAccumulator.block - effect.amount),
+          block: Math.max(0, player.combatAccumulator.block - effect.amount),
           blockElements,
         },
       };

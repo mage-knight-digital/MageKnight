@@ -258,8 +258,6 @@ export function applyGainBlock(
   effect: GainBlockEffect
 ): EffectResolutionResult {
   const { amount, element } = effect;
-  let updatedPlayer: Player;
-  let blockTypeName: string;
 
   // Create a block source for tracking (for elemental efficiency calculations)
   const blockSource: BlockSource = {
@@ -267,31 +265,24 @@ export function applyGainBlock(
     value: amount,
   };
 
-  if (element) {
-    // Track elemental block
-    updatedPlayer = {
-      ...player,
-      combatAccumulator: {
-        ...player.combatAccumulator,
-        blockElements: updateElementalValue(player.combatAccumulator.blockElements, element, amount),
-        blockSources: [...player.combatAccumulator.blockSources, blockSource],
-      },
-    };
-    blockTypeName = `${element} Block`;
-  } else {
-    // Track physical block - update both block total and blockElements.physical
-    // for consistency with valid actions computation which reads from blockElements
-    updatedPlayer = {
-      ...player,
-      combatAccumulator: {
-        ...player.combatAccumulator,
-        block: player.combatAccumulator.block + amount,
-        blockElements: updateElementalValue(player.combatAccumulator.blockElements, ELEMENT_PHYSICAL, amount),
-        blockSources: [...player.combatAccumulator.blockSources, blockSource],
-      },
-    };
-    blockTypeName = "Block";
-  }
+  // Always update both block total and blockElements for consistency with:
+  // 1. activateUnitCommand (which updates both for all block types)
+  // 2. UI which checks acc.block to determine if accumulator should render
+  // 3. Valid actions computation which reads from blockElements
+  const updatedPlayer: Player = {
+    ...player,
+    combatAccumulator: {
+      ...player.combatAccumulator,
+      block: player.combatAccumulator.block + amount,
+      blockElements: updateElementalValue(
+        player.combatAccumulator.blockElements,
+        element ?? ELEMENT_PHYSICAL,
+        amount
+      ),
+      blockSources: [...player.combatAccumulator.blockSources, blockSource],
+    },
+  };
+  const blockTypeName = element ? `${element} Block` : "Block";
 
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),
