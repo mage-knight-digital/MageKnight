@@ -98,6 +98,10 @@ function applySidewaysEffect(
         combatAccumulator: {
           ...player.combatAccumulator,
           block: player.combatAccumulator.block + value,
+          blockElements: {
+            ...player.combatAccumulator.blockElements,
+            physical: player.combatAccumulator.blockElements.physical + value,
+          },
           blockSources: [...player.combatAccumulator.blockSources, blockSource],
         },
       };
@@ -149,6 +153,10 @@ function reverseSidewaysEffect(
         combatAccumulator: {
           ...player.combatAccumulator,
           block: player.combatAccumulator.block - value,
+          blockElements: {
+            ...player.combatAccumulator.blockElements,
+            physical: Math.max(0, player.combatAccumulator.blockElements.physical - value),
+          },
           blockSources: newBlockSources,
         },
       };
