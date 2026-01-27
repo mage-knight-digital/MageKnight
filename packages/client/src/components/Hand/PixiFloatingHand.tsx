@@ -68,6 +68,8 @@ interface PixiFloatingHandProps {
   viewMode: HandViewMode;
   /** Whether this pane is active in the carousel (controls visibility) */
   isActive?: boolean;
+  /** Whether we're currently in combat (allows clicks even when overlay is active) */
+  inCombat?: boolean;
 }
 
 /**
@@ -115,6 +117,7 @@ export function PixiFloatingHand({
   onCardClick,
   viewMode,
   isActive = true,
+  inCombat = false,
 }: PixiFloatingHandProps) {
   const { app, overlayLayer } = usePixiApp();
   const handContainerRef = useRef<Container | null>(null);
@@ -563,8 +566,11 @@ export function PixiFloatingHand({
 
       // Don't intercept clicks when an overlay (like CardActionMenu) is active
       // This allows clicks on the menu to work properly
-      // Exception: allow clicks in focus mode where WE are the overlay (to suppress hex tooltips)
-      if (isOverlayActive && viewMode !== "focus") return;
+      // Exceptions:
+      // 1. Allow clicks in focus mode where WE are the overlay (to suppress hex tooltips)
+      // 2. Allow clicks during combat - combat registers as an overlay to hide hex tooltips,
+      //    but we still want card clicks to work
+      if (isOverlayActive && viewMode !== "focus" && !inCombat) return;
 
       // Check if click target is an interactive element - let those clicks through
       // This allows combat overlay buttons, enemy card actions, etc. to work
@@ -686,7 +692,7 @@ export function PixiFloatingHand({
     return () => {
       document.removeEventListener("click", handleClick, true);
     };
-  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick, isOverlayActive, setVisualScale]);
+  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick, isOverlayActive, inCombat, setVisualScale]);
 
   // Track previous hovered index for animation
   const prevHoveredIndexRef = useRef<number | null>(null);
