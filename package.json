@@ -12,11 +12,11 @@
     "mage-dev": "node packages/mage-dev/dist/cli.js"
   },
   "devDependencies": {
-    "@eslint/js": "^9.17.0",
-    "eslint": "^9.17.0",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.19.0",
-    "vitest": "^2.1.8"
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0",
+    "vitest": "^2.1.9"
   },
   "packageManager": "pnpm@9.15.1",
   "engines": {
