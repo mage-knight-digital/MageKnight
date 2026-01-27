@@ -177,6 +177,8 @@ import type {
   ParalyzeHandDiscardedEvent,
   CombatTriggeredEvent,
   PlayerWithdrewEvent,
+  EnemySummonedEvent,
+  SummonedEnemyDiscardedEvent,
 } from "./combat.js";
 
 import type {
@@ -337,6 +339,8 @@ export type GameEvent =
   | ParalyzeHandDiscardedEvent
   | CombatTriggeredEvent
   | PlayerWithdrewEvent
+  | EnemySummonedEvent
+  | SummonedEnemyDiscardedEvent
   // Cards
   | CardPlayedEvent
   | CardDrawnEvent

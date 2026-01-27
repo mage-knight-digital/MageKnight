@@ -21,7 +21,7 @@ import {
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ASSIGN_DAMAGE,
 } from "../../../types/combat.js";
-import { doesEnemyAttackThisCombat } from "../../modifiers.js";
+import { doesEnemyAttackThisCombat, getEffectiveEnemyAttack } from "../../modifiers.js";
 import {
   WRONG_COMBAT_PHASE,
   INVALID_ATTACK_TYPE,
@@ -125,12 +125,16 @@ export function validateDamageAssignedBeforeLeaving(
   // Find enemies that need damage assigned:
   // - not blocked, not defeated, not already assigned
   // - AND they actually attack this combat (not affected by Chill/Whirlwind)
+  // - AND not a hidden summoner (their summoned enemy deals damage instead)
+  // - AND have effective attack > 0 (no damage to assign from 0-attack enemies)
   const unprocessedEnemies = state.combat.enemies.filter(
     (e) =>
       !e.isDefeated &&
       !e.isBlocked &&
       !e.damageAssigned &&
-      doesEnemyAttackThisCombat(state, e.instanceId)
+      !e.isSummonerHidden &&
+      doesEnemyAttackThisCombat(state, e.instanceId) &&
+      getEffectiveEnemyAttack(state, e.instanceId, e.definition.attack) > 0
   );
 
   if (unprocessedEnemies.length > 0) {

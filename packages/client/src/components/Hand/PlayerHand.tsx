@@ -287,6 +287,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         discardCount={player.discardCount}
         viewMode={handView === "offer" ? prevViewModeRef.current : handView}
         isActive={carouselPane === "cards"}
+        inCombat={state.combat != null}
       />
 
       {/* PixiJS Unit Carousel - renders to overlay layer, visibility controlled by isActive */}
