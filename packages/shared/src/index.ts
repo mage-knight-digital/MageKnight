@@ -184,6 +184,7 @@ export type {
   CombatOptions,
   BlockOption,
   DamageAssignmentOption,
+  UnitDamageTarget,
   // Incremental attack allocation types
   ElementalDamageValues,
   AvailableAttackPool,

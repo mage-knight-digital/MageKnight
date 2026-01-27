@@ -10,6 +10,7 @@ import type { CardId, ManaColor, BasicManaColor, SkillId } from "../ids.js";
 import type { TacticId } from "../tactics.js";
 import type { RestType, AttackType, AttackElement } from "../actions.js";
 import type { CombatPhase } from "../combatPhases.js";
+import type { Element } from "../elements.js";
 import type {
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
@@ -216,10 +217,41 @@ export interface BlockOption {
   readonly isBlocked: boolean;
 }
 
+/**
+ * Information about a unit that can receive damage during ASSIGN_DAMAGE phase.
+ */
+export interface UnitDamageTarget {
+  /** Unique instance ID for this unit */
+  readonly unitInstanceId: string;
+  /** Unit display name */
+  readonly unitName: string;
+  /** Unit's armor value (damage absorbed per wound) */
+  readonly armor: number;
+  /** Whether unit has resistance to the attack element */
+  readonly isResistantToAttack: boolean;
+  /** Whether unit already had damage assigned this combat (can't assign again) */
+  readonly alreadyAssignedThisCombat: boolean;
+  /** Whether unit is currently wounded */
+  readonly isWounded: boolean;
+  /** Computed: true if unit can receive damage (!isWounded && !alreadyAssignedThisCombat) */
+  readonly canBeAssigned: boolean;
+}
+
 export interface DamageAssignmentOption {
   readonly enemyInstanceId: string;
   readonly enemyName: string;
+  /** Enemy's attack element (physical, fire, ice, cold_fire) */
+  readonly attackElement: Element;
+  /** Whether enemy has Brutal ability (doubles damage) */
+  readonly isBrutal: boolean;
+  /** Raw attack value before Brutal modifier */
+  readonly rawAttackValue: number;
+  /** Total damage to assign (2x if Brutal) */
+  readonly totalDamage: number;
+  /** @deprecated Use totalDamage instead */
   readonly unassignedDamage: number;
+  /** Units available to absorb damage (empty if units not allowed in combat) */
+  readonly availableUnits: readonly UnitDamageTarget[];
 }
 
 // ============================================================================

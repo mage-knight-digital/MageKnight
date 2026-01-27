@@ -16,17 +16,25 @@ import {
   ENTER_COMBAT_ACTION,
   ENEMY_PROWLERS,
   ENEMY_FIRE_MAGES,
+  ENEMY_DIGGERS,
+  ENEMY_IRONCLADS,
   ATTACK_TYPE_MELEE,
   ATTACK_TYPE_RANGED,
   ATTACK_TYPE_SIEGE,
   ATTACK_ELEMENT_PHYSICAL,
   ATTACK_ELEMENT_FIRE,
   ATTACK_ELEMENT_ICE,
+  UNIT_PEASANTS,
+  UNIT_GUARDIAN_GOLEMS,
+  UNIT_FIRE_GOLEMS,
+  ELEMENT_PHYSICAL,
 } from "@mage-knight/shared";
+import { createPlayerUnit } from "../../../types/unit.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_ATTACK,
   COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_ASSIGN_DAMAGE,
 } from "../../../types/combat.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { AccumulatedAttack } from "../../../types/player.js";
@@ -556,6 +564,242 @@ describe("getCombatOptions", () => {
       // Should have block-specific fields instead
       expect(options?.availableAttack).toBeUndefined();
       expect(options?.assignableAttacks).toBeUndefined();
+    });
+  });
+
+  describe("damageAssignments (ASSIGN_DAMAGE phase)", () => {
+    /**
+     * Helper to set up combat in ASSIGN_DAMAGE phase with specific enemies
+     */
+    function setupAssignDamagePhase(
+      enemyIds: string[],
+      options: { unitsAllowed?: boolean } = {}
+    ): GameState {
+      const engine = createEngine();
+      let state = createTestGameState();
+
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds,
+      }).state;
+
+      // Set to assign damage phase
+      if (state.combat) {
+        state = {
+          ...state,
+          combat: {
+            ...state.combat,
+            phase: COMBAT_PHASE_ASSIGN_DAMAGE,
+            unitsAllowed: options.unitsAllowed ?? true,
+          },
+        };
+      }
+
+      return state;
+    }
+
+    /**
+     * Helper to add units to a player
+     */
+    function withPlayerUnits(
+      state: GameState,
+      playerId: string,
+      units: ReturnType<typeof createPlayerUnit>[]
+    ): GameState {
+      const playerIndex = state.players.findIndex((p) => p.id === playerId);
+      if (playerIndex === -1) throw new Error(`Player not found: ${playerId}`);
+
+      const updatedPlayers = [...state.players];
+      updatedPlayers[playerIndex] = {
+        ...updatedPlayers[playerIndex],
+        units,
+      };
+
+      return { ...state, players: updatedPlayers };
+    }
+
+    describe("enemy attack info", () => {
+      it("should include enemy attack element", () => {
+        const state = setupAssignDamagePhase([ENEMY_DIGGERS]);
+
+        const options = getCombatOptions(state);
+
+        // Diggers have physical attack
+        expect(options?.damageAssignments?.[0].attackElement).toBe(ELEMENT_PHYSICAL);
+      });
+
+      it("should include enemy Brutal status", () => {
+        // Ironclads enemy has Brutal ability
+        const state = setupAssignDamagePhase([ENEMY_IRONCLADS]);
+
+        const options = getCombatOptions(state);
+
+        expect(options?.damageAssignments?.[0].isBrutal).toBe(true);
+      });
+
+      it("should compute totalDamage with Brutal (2x)", () => {
+        // Ironclads have attack 4 and Brutal
+        const state = setupAssignDamagePhase([ENEMY_IRONCLADS]);
+
+        const options = getCombatOptions(state);
+
+        // Ironclads have 4 attack, Brutal doubles it to 8
+        expect(options?.damageAssignments?.[0].rawAttackValue).toBe(4);
+        expect(options?.damageAssignments?.[0].totalDamage).toBe(8);
+      });
+
+      it("should compute totalDamage without Brutal (1x)", () => {
+        const state = setupAssignDamagePhase([ENEMY_DIGGERS]);
+
+        const options = getCombatOptions(state);
+
+        // Diggers have attack 3, no Brutal
+        expect(options?.damageAssignments?.[0].rawAttackValue).toBe(3);
+        expect(options?.damageAssignments?.[0].totalDamage).toBe(3);
+      });
+    });
+
+    describe("unit targets", () => {
+      it("should include available units with basic info", () => {
+        let state = setupAssignDamagePhase([ENEMY_DIGGERS]);
+        state = withPlayerUnits(state, "player1", [
+          createPlayerUnit(UNIT_PEASANTS, "peasant_1"),
+        ]);
+
+        const options = getCombatOptions(state);
+
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        expect(availableUnits).toHaveLength(1);
+        expect(availableUnits[0].unitInstanceId).toBe("peasant_1");
+        expect(availableUnits[0].unitName).toBe("Peasants");
+        expect(availableUnits[0].armor).toBe(3);
+      });
+
+      it("should compute resistance status based on attack element", () => {
+        // Diggers have physical attack
+        let state = setupAssignDamagePhase([ENEMY_DIGGERS]);
+        // Guardian Golems have physical resistance
+        state = withPlayerUnits(state, "player1", [
+          createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "golem_1"),
+        ]);
+
+        const options = getCombatOptions(state);
+
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        expect(availableUnits[0].isResistantToAttack).toBe(true);
+      });
+
+      it("should compute resistance correctly for fire attack", () => {
+        // Fire Mages have fire attack
+        let state = setupAssignDamagePhase([ENEMY_FIRE_MAGES]);
+        // Fire Golems have fire resistance
+        state = withPlayerUnits(state, "player1", [
+          createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1"),
+          createPlayerUnit(UNIT_PEASANTS, "peasant_1"),
+        ]);
+
+        const options = getCombatOptions(state);
+
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        const fireGolem = availableUnits.find((u) => u.unitInstanceId === "fire_golem_1");
+        const peasant = availableUnits.find((u) => u.unitInstanceId === "peasant_1");
+
+        expect(fireGolem?.isResistantToAttack).toBe(true);
+        expect(peasant?.isResistantToAttack).toBe(false);
+      });
+
+      it("should mark wounded units as not assignable", () => {
+        let state = setupAssignDamagePhase([ENEMY_DIGGERS]);
+        const woundedUnit = {
+          ...createPlayerUnit(UNIT_PEASANTS, "peasant_1"),
+          wounded: true,
+        };
+        state = withPlayerUnits(state, "player1", [woundedUnit]);
+
+        const options = getCombatOptions(state);
+
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        expect(availableUnits[0].isWounded).toBe(true);
+        expect(availableUnits[0].canBeAssigned).toBe(false);
+      });
+
+      it("should mark units that used resistance this combat as not assignable", () => {
+        let state = setupAssignDamagePhase([ENEMY_DIGGERS]);
+        const usedResistanceUnit = {
+          ...createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "golem_1"),
+          usedResistanceThisCombat: true,
+        };
+        state = withPlayerUnits(state, "player1", [usedResistanceUnit]);
+
+        const options = getCombatOptions(state);
+
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        expect(availableUnits[0].alreadyAssignedThisCombat).toBe(true);
+        expect(availableUnits[0].canBeAssigned).toBe(false);
+      });
+
+      it("should mark unwounded units that haven't used resistance as assignable", () => {
+        let state = setupAssignDamagePhase([ENEMY_DIGGERS]);
+        state = withPlayerUnits(state, "player1", [
+          createPlayerUnit(UNIT_PEASANTS, "peasant_1"),
+        ]);
+
+        const options = getCombatOptions(state);
+
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        expect(availableUnits[0].isWounded).toBe(false);
+        expect(availableUnits[0].alreadyAssignedThisCombat).toBe(false);
+        expect(availableUnits[0].canBeAssigned).toBe(true);
+      });
+
+      it("should return empty availableUnits when units not allowed in combat", () => {
+        let state = setupAssignDamagePhase([ENEMY_DIGGERS], { unitsAllowed: false });
+        state = withPlayerUnits(state, "player1", [
+          createPlayerUnit(UNIT_PEASANTS, "peasant_1"),
+        ]);
+
+        const options = getCombatOptions(state);
+
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        expect(availableUnits).toHaveLength(0);
+      });
+
+      it("should include multiple units with correct info", () => {
+        let state = setupAssignDamagePhase([ENEMY_DIGGERS]);
+        state = withPlayerUnits(state, "player1", [
+          createPlayerUnit(UNIT_PEASANTS, "peasant_1"),
+          createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "golem_1"),
+        ]);
+
+        const options = getCombatOptions(state);
+
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        expect(availableUnits).toHaveLength(2);
+
+        const peasant = availableUnits.find((u) => u.unitInstanceId === "peasant_1");
+        const golem = availableUnits.find((u) => u.unitInstanceId === "golem_1");
+
+        expect(peasant?.unitName).toBe("Peasants");
+        expect(peasant?.armor).toBe(3);
+        expect(peasant?.isResistantToAttack).toBe(false); // No physical resistance
+
+        expect(golem?.unitName).toBe("Guardian Golems");
+        expect(golem?.armor).toBe(3);
+        expect(golem?.isResistantToAttack).toBe(true); // Has physical resistance
+      });
+    });
+
+    describe("backwards compatibility", () => {
+      it("should maintain unassignedDamage field for backwards compatibility", () => {
+        const state = setupAssignDamagePhase([ENEMY_DIGGERS]);
+
+        const options = getCombatOptions(state);
+
+        // unassignedDamage should equal totalDamage
+        expect(options?.damageAssignments?.[0].unassignedDamage).toBe(
+          options?.damageAssignments?.[0].totalDamage
+        );
+      });
     });
   });
 });
