@@ -53,11 +53,11 @@ const STATUS_COLORS = {
   wounded: 0xe74c3c, // Red
 } as const;
 
-// View mode position offsets (matching card hand)
+// View mode position offsets (matching original CSS behavior)
 const VIEW_MODE_OFFSETS = {
   board: { yOffset: 0.25 + 0.05, scale: 1, visible: false },
   ready: { yOffset: 0.07, scale: 1, visible: true },
-  focus: { yOffset: -0.15, scale: 2.22, visible: true },
+  focus: { yOffset: -0.30, scale: 2.22, visible: true }, // -30vh from original CSS
 } as const;
 
 // Command slots unlock at odd levels: 1@L1, 2@L3, 3@L5, 4@L7, 5@L9
