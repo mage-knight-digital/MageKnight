@@ -32,14 +32,16 @@ import {
   ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { GameIcon, type GameIconType } from "../Icons/GameIcon";
 import "./DamageAssignmentPanel.css";
 
-// Element display info
-const ELEMENT_DISPLAY: Record<Element, { icon: string; name: string; color: string }> = {
-  [ELEMENT_PHYSICAL]: { icon: "\u2694\uFE0F", name: "Physical", color: "#a0a5aa" },
-  [ELEMENT_FIRE]: { icon: "\uD83D\uDD25", name: "Fire", color: "#c06040" },
-  [ELEMENT_ICE]: { icon: "\u2744\uFE0F", name: "Ice", color: "#6090b0" },
-  [ELEMENT_COLD_FIRE]: { icon: "\uD83D\uDC9C", name: "Cold Fire", color: "#8a6aaa" },
+// Element display info - maps Element to display properties
+// Physical uses "attack" icon, others use their element name as icon type
+const ELEMENT_DISPLAY: Record<Element, { iconType: GameIconType; name: string; color: string }> = {
+  [ELEMENT_PHYSICAL]: { iconType: "attack", name: "Physical", color: "#a0a5aa" },
+  [ELEMENT_FIRE]: { iconType: "fire", name: "Fire", color: "#c06040" },
+  [ELEMENT_ICE]: { iconType: "ice", name: "Ice", color: "#6090b0" },
+  [ELEMENT_COLD_FIRE]: { iconType: "cold_fire", name: "Cold Fire", color: "#8a6aaa" },
 };
 
 interface UnitAssignment {
@@ -240,7 +242,7 @@ export function DamageAssignmentPanel({
               className="damage-assignment-panel__element"
               style={{ color: elementInfo.color }}
             >
-              {elementInfo.icon} {elementInfo.name}
+              <GameIcon type={elementInfo.iconType} size="sm" /> {elementInfo.name}
             </span>
           </div>
           <div className="damage-assignment-panel__damage-total">
@@ -287,7 +289,7 @@ export function DamageAssignmentPanel({
                         Armor {unit.armor}
                         {unit.isResistant && (
                           <span className="damage-assignment-panel__resistant">
-                            {elementInfo.icon} Resistant
+                            <GameIcon type={elementInfo.iconType} size="xs" /> Resistant
                           </span>
                         )}
                       </span>
@@ -341,7 +343,7 @@ export function DamageAssignmentPanel({
                           Armor {unit.armor}
                           {unit.isResistantToAttack && (
                             <span className="damage-assignment-panel__add-unit-resistant">
-                              {elementInfo.icon}
+                              <GameIcon type={elementInfo.iconType} size="xs" />
                             </span>
                           )}
                         </span>
