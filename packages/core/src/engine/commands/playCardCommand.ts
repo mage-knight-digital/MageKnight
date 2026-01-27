@@ -38,6 +38,7 @@ export interface PlayCardCommandParams {
   readonly powered?: boolean;
   readonly manaSource?: ManaSourceInfo; // For action cards (single mana)
   readonly manaSources?: readonly ManaSourceInfo[]; // For spells (black + color)
+  readonly previousPlayedCardFromHand: boolean; // For undo - restore minimum turn state
 }
 
 /**
@@ -386,6 +387,8 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         hand: newHand,
         playArea: newPlayArea,
         pendingChoice: null, // Clear any pending choice
+        // Restore minimum turn requirement state
+        playedCardFromHandThisTurn: params.previousPlayedCardFromHand,
       };
 
       // Reverse the effect if we stored one (only if it wasn't a choice effect)
