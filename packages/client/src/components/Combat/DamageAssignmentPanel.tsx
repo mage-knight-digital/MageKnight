@@ -26,16 +26,20 @@ import type {
 import {
   DAMAGE_TARGET_HERO,
   DAMAGE_TARGET_UNIT,
+  ELEMENT_PHYSICAL,
+  ELEMENT_FIRE,
+  ELEMENT_ICE,
+  ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import "./DamageAssignmentPanel.css";
 
 // Element display info
 const ELEMENT_DISPLAY: Record<Element, { icon: string; name: string; color: string }> = {
-  physical: { icon: "\u2694\uFE0F", name: "Physical", color: "#a0a5aa" },
-  fire: { icon: "\uD83D\uDD25", name: "Fire", color: "#c06040" },
-  ice: { icon: "\u2744\uFE0F", name: "Ice", color: "#6090b0" },
-  cold_fire: { icon: "\uD83D\uDC9C", name: "Cold Fire", color: "#8a6aaa" },
+  [ELEMENT_PHYSICAL]: { icon: "\u2694\uFE0F", name: "Physical", color: "#a0a5aa" },
+  [ELEMENT_FIRE]: { icon: "\uD83D\uDD25", name: "Fire", color: "#c06040" },
+  [ELEMENT_ICE]: { icon: "\u2744\uFE0F", name: "Ice", color: "#6090b0" },
+  [ELEMENT_COLD_FIRE]: { icon: "\uD83D\uDC9C", name: "Cold Fire", color: "#8a6aaa" },
 };
 
 interface UnitAssignment {
