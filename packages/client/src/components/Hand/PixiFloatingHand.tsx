@@ -525,8 +525,10 @@ export function PixiFloatingHand({
 
       // Don't process hover when an overlay is active OR when a card is selected
       // Keep the card raised so pie menu can animate smoothly from it
-      // Exception: allow hover in focus mode where WE are the overlay (to suppress hex tooltips)
-      if ((isOverlayActive && viewMode !== "focus") || selectedIndex !== null) {
+      // Exceptions:
+      // 1. Allow hover in focus mode where WE are the overlay (to suppress hex tooltips)
+      // 2. Allow hover during combat - combat registers as overlay for hex tooltips
+      if ((isOverlayActive && viewMode !== "focus" && !inCombat) || selectedIndex !== null) {
         return;
       }
 
@@ -554,7 +556,7 @@ export function PixiFloatingHand({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [isAppReady, viewMode, findCardAtPosition, isOverlayActive, selectedIndex]);
+  }, [isAppReady, viewMode, findCardAtPosition, isOverlayActive, inCombat, selectedIndex]);
 
   // Handle card clicks via DOM events (canvas has pointer-events: none)
   useEffect(() => {
