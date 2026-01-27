@@ -11,11 +11,17 @@ Analyze the backlog and recommend the best issue to work on next.
 
 ## Workflow
 
-### 1. Fetch Open Issues
+### 1. Fetch Open Issues and Board Status
 
 ```bash
+# Get open issues
 gh issue list --state open --limit 100 --json number,title,labels,body
+
+# Get project board status to exclude "In Progress" items
+gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq '[.items[] | select(.status == "In Progress") | .content.number]'
 ```
+
+**Important:** Exclude issues that are already "In Progress" on the project board - another agent may be working on them.
 
 ### 2. Apply Recommendation Logic
 

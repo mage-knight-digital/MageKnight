@@ -58,9 +58,15 @@ EOF
 gh issue comment ISSUE_NUM --body "Implementation complete. PR: #PR_NUMBER"
 ```
 
-### 5. Update Project Board
+### 5. Project Board Status
 
-Move the issue to "In Review" status in the project board.
+The issue stays "In Progress" until the PR is merged. When merged, GitHub auto-closes the issue via `Closes #XX`, and the project board should move it to "Done" automatically.
+
+If you need to manually move to Done:
+```bash
+ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq -r '.items[] | select(.content.number == ISSUE_NUM) | .id')
+gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "98236657"
+```
 
 ### 6. Report to User
 

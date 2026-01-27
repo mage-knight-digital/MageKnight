@@ -28,11 +28,20 @@ gh issue list --label "P1-high" --state open --limit 1
 
 ### 2. Move to In Progress
 
-Update the project board status:
+Update the project board status to prevent other agents from grabbing the same issue:
+
 ```bash
-# Get project item ID and move to In Progress
-gh project item-list 1 --owner eshaffer321 --format json | jq '.items[] | select(.content.number == ISSUE_NUM)'
+# Get the item ID for this issue (use --limit 100 to get all items)
+ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq -r '.items[] | select(.content.number == ISSUE_NUM) | .id')
+
+# Move to "In Progress" status
+# Project ID: PVT_kwHOAYaRMc4BNjzC
+# Status field ID: PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U
+# "In Progress" option ID: 47fc9ee4
+gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "47fc9ee4"
 ```
+
+Replace `ISSUE_NUM` with the actual issue number.
 
 ### 3. Add Comment
 
