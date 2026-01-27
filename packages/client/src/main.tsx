@@ -4,6 +4,7 @@ import { App } from "./App";
 import { loadAtlas } from "./utils/cardAtlas";
 import { preloadAllSpriteSheets } from "./components/PixiCard/PixiCardCanvas";
 import "./styles/index.css";
+import "./styles/animations/tile-reveal.css";
 
 // DEBUG: Instrument requestAnimationFrame to catch slow frames
 const originalRAF = window.requestAnimationFrame;

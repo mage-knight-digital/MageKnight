@@ -15,6 +15,7 @@ import { AudioTab } from "./AudioTab";
 import { DisplayTab } from "./DisplayTab";
 import { EventLogTab } from "./EventLogTab";
 import { TABS, type TabId } from "./types";
+import "./DebugPanel.css";
 
 export function DebugPanel() {
   const { state, saveGame, loadGame, sendAction } = useGame();

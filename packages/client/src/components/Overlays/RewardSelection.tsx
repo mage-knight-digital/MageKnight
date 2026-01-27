@@ -16,6 +16,7 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import "./RewardSelection.css";
 
 // Format card ID for display (convert snake_case to Title Case)
 function formatCardName(cardId: string): string {

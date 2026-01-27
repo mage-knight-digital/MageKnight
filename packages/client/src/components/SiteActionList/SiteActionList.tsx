@@ -16,7 +16,7 @@ import { useEffect, useCallback } from "react";
 import type { SiteOptions } from "@mage-knight/shared";
 import "./SiteActionList.css";
 
-export type SiteAction = "enter" | "details" | "heal" | "recruit" | "buySpell" | "buyAA";
+export type SiteAction = "enter" | "details" | "heal" | "recruit" | "buySpell" | "buyAA" | "burn";
 
 export interface SiteActionListProps {
   /** Site options from validActions */
@@ -97,6 +97,16 @@ function buildActionItems(siteOptions: SiteOptions): ActionItem[] {
         className: "site-action-list__item--buy-aa",
       });
     }
+
+    if (opts.canBurnMonastery) {
+      items.push({
+        id: "burn",
+        label: "Burn Monastery",
+        icon: "\u{1F525}", // Fire emoji
+        shortcut: "B",
+        className: "site-action-list__item--burn",
+      });
+    }
   }
 
   // Always show Details option
@@ -161,6 +171,12 @@ export function SiteActionList({
           if (siteOptions.canInteract && siteOptions.interactOptions?.canBuyAdvancedActions) {
             event.preventDefault();
             onAction("buyAA");
+          }
+          break;
+        case "b":
+          if (siteOptions.canInteract && siteOptions.interactOptions?.canBurnMonastery) {
+            event.preventDefault();
+            onAction("burn");
           }
           break;
         case " ": // Space toggles off

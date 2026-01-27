@@ -266,4 +266,7 @@ export interface Player {
 
   // Healing points accumulated this turn (cleared on combat entry per rulebook line 929)
   readonly healingPoints: number;
+
+  // Cards that have been removed from the game (destroyed artifacts, etc.)
+  readonly removedCards: readonly CardId[];
 }

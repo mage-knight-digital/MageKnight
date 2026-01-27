@@ -26,6 +26,7 @@ export const EFFECT_CHOICE = "choice" as const;
 export const EFFECT_CONDITIONAL = "conditional" as const;
 export const EFFECT_SCALING = "scaling" as const;
 export const EFFECT_CHANGE_REPUTATION = "change_reputation" as const;
+export const EFFECT_GAIN_FAME = "gain_fame" as const;
 export const EFFECT_GAIN_CRYSTAL = "gain_crystal" as const;
 export const EFFECT_CONVERT_MANA_TO_CRYSTAL = "convert_mana_to_crystal" as const;
 // Internal: Final resolution for crystallize - consume token and gain crystal

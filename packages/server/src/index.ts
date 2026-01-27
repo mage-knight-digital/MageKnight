@@ -40,6 +40,7 @@ import {
   createUnitDecksAndOffer,
   createSpellDeckAndOffer,
   createAdvancedActionDeckAndOffer,
+  createArtifactDeck,
   serializeGameState,
   deserializeGameState,
   mineColorToBasicManaColor,
@@ -669,10 +670,17 @@ export class GameServer {
       rng: rngAfterAA,
     } = createAdvancedActionDeckAndOffer(rngAfterSpells);
 
+    // Initialize artifact deck
+    const {
+      artifactDeck,
+      rng: rngAfterArtifacts,
+    } = createArtifactDeck(rngAfterAA);
+
     // Draw Advanced Actions for any monasteries on initial tiles
     const monasteryCount = countMonasteries(initialTileHexes);
     let currentAADeck = advancedActionDeck;
     let monasteryAAs: readonly CardId[] = [];
+    const rngAfterMonasteries = rngAfterArtifacts;
 
     for (let i = 0; i < monasteryCount; i++) {
       const result = drawMonasteryAdvancedAction(
@@ -696,13 +704,14 @@ export class GameServer {
       source,
       enemyTokens: currentEnemyPiles, // Enemy piles after drawing for initial tiles
       ruinsTokens: currentRuinsPiles, // Ruins piles after drawing for initial tiles
-      rng: rngAfterAA, // Updated RNG state after all shuffles
+      rng: rngAfterMonasteries, // Updated RNG state after all shuffles
       decks: {
         ...baseState.decks,
         regularUnits: unitDecks.regularUnits,
         eliteUnits: unitDecks.eliteUnits,
         spells: spellDeck,
         advancedActions: currentAADeck,
+        artifacts: artifactDeck,
       },
       offers: {
         ...baseState.offers,
@@ -799,6 +808,7 @@ export class GameServer {
       pendingGladeWoundChoice: false,
       pendingDeepMineChoice: null,
       healingPoints: 0,
+      removedCards: [],
     };
 
     return { player, rng: newRng };

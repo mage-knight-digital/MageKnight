@@ -107,6 +107,7 @@ export const NOT_INHABITED = "NOT_INHABITED" as const;
 export const SITE_NOT_CONQUERED = "SITE_NOT_CONQUERED" as const;
 export const NOT_YOUR_KEEP = "NOT_YOUR_KEEP" as const;
 export const MONASTERY_BURNED = "MONASTERY_BURNED" as const;
+export const NOT_AT_MONASTERY = "NOT_AT_MONASTERY" as const;
 export const NO_HEALING_HERE = "NO_HEALING_HERE" as const;
 export const CANNOT_RECRUIT_HERE = "CANNOT_RECRUIT_HERE" as const;
 export const UNIT_TYPE_MISMATCH = "UNIT_TYPE_MISMATCH" as const;
@@ -259,6 +260,7 @@ export type ValidationErrorCode =
   | typeof SITE_NOT_CONQUERED
   | typeof NOT_YOUR_KEEP
   | typeof MONASTERY_BURNED
+  | typeof NOT_AT_MONASTERY
   | typeof NO_HEALING_HERE
   | typeof CANNOT_RECRUIT_HERE
   | typeof UNIT_TYPE_MISMATCH

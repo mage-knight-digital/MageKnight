@@ -37,6 +37,7 @@ import {
   CHOOSE_LEVEL_UP_REWARDS_ACTION,
   DEBUG_ADD_FAME_ACTION,
   DEBUG_TRIGGER_LEVEL_UP_ACTION,
+  BURN_MONASTERY_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -235,6 +236,13 @@ import {
   validateDevModeOnly,
   validateHasPendingLevelUps,
 } from "./debugValidators.js";
+
+// Burn monastery validators
+import {
+  validateAtMonastery,
+  validateMonasteryNotBurned,
+  validateNoCombatThisTurnForBurn,
+} from "./burnMonasteryValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -543,6 +551,17 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateDevModeOnly,
     validateIsPlayersTurn,
     validateHasPendingLevelUps,
+  ],
+  [BURN_MONASTERY_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateMustAnnounceEndOfRound,
+    validateHasNotActed, // Can only burn if haven't taken action
+    validateNoCombatThisTurnForBurn, // Can only have one combat per turn
+    validateAtMonastery,
+    validateMonasteryNotBurned,
   ],
 };
 

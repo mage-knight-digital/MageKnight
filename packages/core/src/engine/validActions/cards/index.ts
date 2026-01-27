@@ -9,6 +9,7 @@ import type { DeedCard } from "../../../types/cards.js";
 import { getBasicActionCard } from "../../../data/basicActions/index.js";
 import { getAdvancedActionCard } from "../../../data/advancedActions/index.js";
 import { getSpellCard } from "../../../data/spells.js";
+import { getArtifactCard } from "../../../data/artifacts.js";
 
 // Re-export combat playability
 export { getPlayableCardsForCombat } from "./combat.js";
@@ -62,7 +63,12 @@ export function getCard(cardId: string): DeedCard | null {
     return spell;
   }
 
-  // Card not found - might be artifact, etc.
-  // TODO: Add support for other card types
+  // Try artifact cards
+  const artifact = getArtifactCard(cardId as Parameters<typeof getArtifactCard>[0]);
+  if (artifact) {
+    return artifact;
+  }
+
+  // Card not found
   return null;
 }

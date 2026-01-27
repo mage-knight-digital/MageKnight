@@ -27,6 +27,14 @@ export type { CombatPhase };
 // Combat attack type (method) - reuses shared CombatType
 export type CombatAttackType = CombatType;
 
+// Combat context - identifies special combat scenarios
+export const COMBAT_CONTEXT_STANDARD = "standard" as const;
+export const COMBAT_CONTEXT_BURN_MONASTERY = "burn_monastery" as const;
+
+export type CombatContext =
+  | typeof COMBAT_CONTEXT_STANDARD
+  | typeof COMBAT_CONTEXT_BURN_MONASTERY;
+
 // Elemental damage values for pending damage assignment
 export interface PendingElementalDamage {
   readonly physical: number;
@@ -83,6 +91,7 @@ export interface CombatState {
   readonly discardEnemiesOnFailure: boolean; // true for dungeon/tomb (enemies discarded even on failed combat)
   readonly pendingDamage: PendingDamageMap; // Damage assigned to enemies before resolution
   readonly pendingBlock: PendingBlockMap; // Block assigned to enemies before resolution
+  readonly combatContext: CombatContext; // Identifies special combat scenarios (standard, burn_monastery)
 }
 
 // Options for special combat rules
@@ -92,6 +101,7 @@ export interface CombatStateOptions {
   readonly assaultOrigin?: HexCoord | null;
   readonly combatHexCoord?: HexCoord | null;
   readonly discardEnemiesOnFailure?: boolean;
+  readonly combatContext?: CombatContext;
 }
 
 // Input for creating a combat enemy - allows specifying if required for conquest
@@ -140,5 +150,6 @@ export function createCombatState(
     discardEnemiesOnFailure: options?.discardEnemiesOnFailure ?? false,
     pendingDamage: {},
     pendingBlock: {},
+    combatContext: options?.combatContext ?? COMBAT_CONTEXT_STANDARD,
   };
 }

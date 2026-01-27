@@ -25,6 +25,7 @@ import {
   MANA_GOLD,
   MANA_BLACK,
 } from "@mage-knight/shared";
+import "./ManaSourceOverlay.css";
 
 function getManaIconUrl(color: string): string {
   const colorMap: Record<string, string> = {

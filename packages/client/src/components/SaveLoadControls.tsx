@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useGame } from "../hooks/useGame";
+import "./SaveLoadControls.css";
 
 const SAVE_SLOT_COUNT = 3;
 const SAVE_KEY_PREFIX = "mageKnight_save_";

@@ -46,6 +46,8 @@ import {
   ENEMIES_DRAWN_FOR_SITE,
   SITE_CONQUERED,
   SHIELD_TOKEN_PLACED,
+  MONASTERY_BURN_STARTED,
+  MONASTERY_BURNED,
 } from "./adventure.js";
 import { REWARD_QUEUED, REWARD_SELECTED } from "./rewards.js";
 import {
@@ -79,5 +81,7 @@ export function isSiteEvent(event: { type: string }): boolean {
     GLADE_WOUND_SKIPPED,
     GLADE_MANA_GAINED,
     DEEP_MINE_CRYSTAL_GAINED,
+    MONASTERY_BURN_STARTED,
+    MONASTERY_BURNED,
   ].includes(event.type as typeof SITE_CONQUERED);
 }

@@ -82,13 +82,13 @@ export function grantSpellReward(
     const cardId = spellOffer[0];
     if (!cardId) continue;
 
-    // Add spell to player's hand
+    // Add spell to top of player's deed deck (drawn next round)
     const player = currentState.players.find((p) => p.id === playerId);
     if (!player) continue;
 
     const updatedPlayer: Player = {
       ...player,
-      hand: [...player.hand, cardId],
+      deck: [cardId, ...player.deck],
     };
 
     // Remove from offer
@@ -157,13 +157,13 @@ export function grantArtifactReward(
     const cardId = artifactDeck[0];
     if (!cardId) continue;
 
-    // Add artifact to player's hand
+    // Add artifact to top of player's deed deck (drawn next round)
     const player = currentState.players.find((p) => p.id === playerId);
     if (!player) continue;
 
     const updatedPlayer: Player = {
       ...player,
-      hand: [...player.hand, cardId],
+      deck: [cardId, ...player.deck],
     };
 
     currentState = {
@@ -287,7 +287,7 @@ export function grantAdvancedActionReward(
 
     const updatedPlayer: Player = {
       ...player,
-      hand: [...player.hand, cardId],
+      deck: [cardId, ...player.deck],
     };
 
     // Remove from offer and replenish from deck

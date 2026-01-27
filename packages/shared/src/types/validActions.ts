@@ -453,6 +453,8 @@ export interface InteractOptions {
   readonly canBuyAdvancedActions: boolean;
   /** Advanced action purchase cost */
   readonly advancedActionCost?: number;
+  /** Can burn this monastery */
+  readonly canBurnMonastery?: boolean;
 }
 
 // ============================================================================

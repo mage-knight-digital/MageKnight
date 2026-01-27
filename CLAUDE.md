@@ -19,6 +19,42 @@ MAIN_REPO="$(git worktree list --porcelain | head -1 | sed 's/worktree //')"
 ln -s "$MAIN_REPO/packages/client/public" packages/client/public
 ```
 
+## GitHub Project Management
+
+Issues are tracked in [GitHub Projects](https://github.com/users/eshaffer321/projects/1). Use the skills below to manage work.
+
+### Skills
+
+| Skill | Purpose | Example |
+|-------|---------|---------|
+| `/ticket` | Create new issue from investigation | `/ticket wounds don't shuffle properly` |
+| `/work` | Start working on an issue | `/work #32` or `/work` (picks next) |
+| `/done` | Complete work, create PR | `/done` |
+| `/board` | View project board status | `/board` |
+| `/next` | Get recommendation for next issue | `/next` or `/next quick` |
+
+### Labels
+
+**Priority:** `P0-critical`, `P1-high`, `P2-medium`, `P3-low`
+**Type:** `bug`, `feature`, `edge-case`, `tech-debt`, `docs`
+**Area:** `area:combat`, `area:cards`, `area:mana`, `area:turn`, `area:rest`, `area:movement`, `area:units`, `area:sites`, `area:ui`
+**Complexity:** `complexity:low`, `complexity:high`
+
+### Workflow
+
+1. **Find work**: `/next` recommends highest priority, or `/board` for overview
+2. **Start work**: `/work #XX` moves issue to In Progress, gathers context
+3. **Implement**: Follow issue acceptance criteria, update todos
+4. **Complete**: `/done` creates PR with `Closes #XX`, moves to In Review
+
+### Commit Messages
+
+Reference issues in commits: `feat: implement mandatory card play (#32)`
+
+PRs auto-close issues when merged via `Closes #XX` in PR body.
+
+---
+
 ## Build & Test Commands
 
 ```bash
@@ -258,13 +294,9 @@ When in doubt, fix the code to satisfy the linter rather than silencing the warn
 | Site properties | `core/src/data/siteProperties.ts` |
 | Client state filter | `server/src/index.ts` (`toClientState`) |
 | Mana source logic | `core/src/engine/mana/` |
+| Claude Code skills | `.claude/skills/` |
 
----
 
-## External Documentation
 
-| Library | LLM Reference |
-|---------|---------------|
-| PixiJS | https://pixijs.com/llms.txt |
+Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 
-When working with PixiJS, always consult the LLM reference above for API details and examples.

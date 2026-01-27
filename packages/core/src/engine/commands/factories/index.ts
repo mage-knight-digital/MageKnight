@@ -53,6 +53,7 @@ import {
   CHOOSE_LEVEL_UP_REWARDS_ACTION,
   DEBUG_ADD_FAME_ACTION,
   DEBUG_TRIGGER_LEVEL_UP_ACTION,
+  BURN_MONASTERY_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -104,6 +105,7 @@ export {
   createEnterSiteCommandFromAction,
   createResolveGladeWoundCommandFromAction,
   createResolveDeepMineCommandFromAction,
+  createBurnMonasteryCommandFromAction,
 } from "./sites.js";
 
 // Tactics factories
@@ -169,6 +171,7 @@ import {
   createEnterSiteCommandFromAction,
   createResolveGladeWoundCommandFromAction,
   createResolveDeepMineCommandFromAction,
+  createBurnMonasteryCommandFromAction,
 } from "./sites.js";
 
 import {
@@ -234,4 +237,5 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   // Debug actions
   [DEBUG_ADD_FAME_ACTION]: createDebugAddFameCommandFromAction,
   [DEBUG_TRIGGER_LEVEL_UP_ACTION]: createDebugTriggerLevelUpCommandFromAction,
+  [BURN_MONASTERY_ACTION]: createBurnMonasteryCommandFromAction,
 };

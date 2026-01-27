@@ -1,0 +1,33 @@
+/* ============================================
+   Choice Selection
+   ============================================ */
+
+.choice-selection__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.choice-selection__options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 300px;
+}
+
+.choice-selection__option {
+  background: #0f0f23;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  color: #eee;
+}
+
+.choice-selection__option:hover {
+  border-color: #4fc3f7;
+  background: #1a1a3e;
+}

@@ -184,6 +184,7 @@ import type {
   CardDrawnEvent,
   CardDiscardedEvent,
   CardGainedEvent,
+  CardDestroyedEvent,
 } from "./cards.js";
 
 import type {
@@ -251,6 +252,8 @@ import type {
   GladeWoundSkippedEvent,
   GladeManaGainedEvent,
   DeepMineCrystalGainedEvent,
+  MonasteryBurnStartedEvent,
+  MonasteryBurnedEvent,
 } from "./sites.js";
 
 import type { InvalidActionEvent } from "./validation.js";
@@ -338,6 +341,7 @@ export type GameEvent =
   | CardDrawnEvent
   | CardDiscardedEvent
   | CardGainedEvent
+  | CardDestroyedEvent
   // Mana
   | ManaDieTakenEvent
   | ManaDieReturnedEvent
@@ -401,7 +405,10 @@ export type GameEvent =
   | GladeWoundSkippedEvent
   | GladeManaGainedEvent
   // Deep Mine
-  | DeepMineCrystalGainedEvent;
+  | DeepMineCrystalGainedEvent
+  // Monastery burning
+  | MonasteryBurnStartedEvent
+  | MonasteryBurnedEvent;
 
 /**
  * Type of all game event type constants.
