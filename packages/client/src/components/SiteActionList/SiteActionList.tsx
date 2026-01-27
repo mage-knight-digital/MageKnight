@@ -16,7 +16,7 @@ import { useEffect, useCallback } from "react";
 import type { SiteOptions } from "@mage-knight/shared";
 import "./SiteActionList.css";
 
-export type SiteAction = "enter" | "details" | "heal" | "recruit" | "buySpell" | "buyAA" | "burn";
+export type SiteAction = "enter" | "details" | "heal" | "recruit" | "buySpell" | "buyAA" | "burn" | "plunder";
 
 export interface SiteActionListProps {
   /** Site options from validActions */
@@ -107,6 +107,16 @@ function buildActionItems(siteOptions: SiteOptions): ActionItem[] {
         className: "site-action-list__item--burn",
       });
     }
+
+    if (opts.canPlunderVillage) {
+      items.push({
+        id: "plunder",
+        label: "Plunder Village",
+        icon: "\u{1F4B0}", // Money bag emoji
+        shortcut: "P",
+        className: "site-action-list__item--plunder",
+      });
+    }
   }
 
   // Always show Details option
@@ -177,6 +187,12 @@ export function SiteActionList({
           if (siteOptions.canInteract && siteOptions.interactOptions?.canBurnMonastery) {
             event.preventDefault();
             onAction("burn");
+          }
+          break;
+        case "p":
+          if (siteOptions.canInteract && siteOptions.interactOptions?.canPlunderVillage) {
+            event.preventDefault();
+            onAction("plunder");
           }
           break;
         case " ": // Space toggles off

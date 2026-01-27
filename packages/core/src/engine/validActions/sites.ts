@@ -296,6 +296,13 @@ function getInteractOptions(
     !player.hasTakenActionThisTurn &&
     !player.hasCombattedThisTurn;
 
+  // Check if can plunder village (before-turn action - must be before any action or movement)
+  const canPlunderVillage =
+    site.type === SiteType.Village &&
+    !player.hasPlunderedThisTurn &&
+    !player.hasTakenActionThisTurn &&
+    !player.hasMovedThisTurn;
+
   const result: InteractOptions = {
     canHeal: healCost !== undefined && !site.isBurned,
     canRecruit,
@@ -316,6 +323,9 @@ function getInteractOptions(
   }
   if (canBurnMonastery) {
     (result as { canBurnMonastery?: boolean }).canBurnMonastery = canBurnMonastery;
+  }
+  if (canPlunderVillage) {
+    (result as { canPlunderVillage?: boolean }).canPlunderVillage = canPlunderVillage;
   }
 
   return result;

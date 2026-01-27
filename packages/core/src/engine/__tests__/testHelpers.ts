@@ -139,6 +139,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     remainingHeroSkills: [],
     pendingRewards: [],
     hasCombattedThisTurn: false,
+    hasPlunderedThisTurn: false,
     manaUsedThisTurn: [],
     pendingGladeWoundChoice: false,
     pendingDeepMineChoice: null,

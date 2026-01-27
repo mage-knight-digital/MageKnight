@@ -10,6 +10,7 @@ export const WRONG_PHASE = "WRONG_PHASE" as const;
 export const IN_COMBAT = "IN_COMBAT" as const;
 export const PLAYER_NOT_FOUND = "PLAYER_NOT_FOUND" as const;
 export const ALREADY_ACTED = "ALREADY_ACTED" as const;
+export const ALREADY_MOVED = "ALREADY_MOVED" as const;
 
 export const NOT_ON_MAP = "NOT_ON_MAP" as const;
 // NOTE: named `*_CODE` to avoid confusion with the shared `INVALID_ACTION` GameEvent type.
@@ -108,6 +109,8 @@ export const SITE_NOT_CONQUERED = "SITE_NOT_CONQUERED" as const;
 export const NOT_YOUR_KEEP = "NOT_YOUR_KEEP" as const;
 export const MONASTERY_BURNED = "MONASTERY_BURNED" as const;
 export const NOT_AT_MONASTERY = "NOT_AT_MONASTERY" as const;
+export const NOT_AT_VILLAGE = "NOT_AT_VILLAGE" as const;
+export const ALREADY_PLUNDERED = "ALREADY_PLUNDERED" as const;
 export const NO_HEALING_HERE = "NO_HEALING_HERE" as const;
 export const CANNOT_RECRUIT_HERE = "CANNOT_RECRUIT_HERE" as const;
 export const UNIT_TYPE_MISMATCH = "UNIT_TYPE_MISMATCH" as const;
@@ -183,6 +186,7 @@ export type ValidationErrorCode =
   | typeof IN_COMBAT
   | typeof PLAYER_NOT_FOUND
   | typeof ALREADY_ACTED
+  | typeof ALREADY_MOVED
   | typeof NOT_ON_MAP
   | typeof INVALID_ACTION_CODE
   | typeof NOT_ADJACENT
@@ -264,6 +268,8 @@ export type ValidationErrorCode =
   | typeof NOT_YOUR_KEEP
   | typeof MONASTERY_BURNED
   | typeof NOT_AT_MONASTERY
+  | typeof NOT_AT_VILLAGE
+  | typeof ALREADY_PLUNDERED
   | typeof NO_HEALING_HERE
   | typeof CANNOT_RECRUIT_HERE
   | typeof UNIT_TYPE_MISMATCH

@@ -26,7 +26,8 @@ export function createResetPlayer(
     hasMovedThisTurn: false,
     hasTakenActionThisTurn: false,
     hasCombattedThisTurn: false,
-    playedCardFromHandThisTurn: false,
+playedCardFromHandThisTurn: false,
+    hasPlunderedThisTurn: false,
     // Mana resets
     pureMana: [],
     usedManaFromSource: false,
