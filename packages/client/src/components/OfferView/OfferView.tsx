@@ -8,6 +8,7 @@
  * and to avoid DOM/Pixi coordination issues.
  */
 
+import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { PixiOfferView } from "./PixiOfferView";
 
 // Offer pane types (exported for external use)
@@ -19,6 +20,9 @@ export interface OfferViewProps {
 }
 
 export function OfferView({ isVisible, onClose }: OfferViewProps) {
+  // Register as overlay when visible to disable hex tooltips
+  useRegisterOverlay(isVisible);
+
   // Delegate entirely to the Pixi implementation
   return <PixiOfferView isVisible={isVisible} onClose={onClose} />;
 }
