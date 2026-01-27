@@ -151,6 +151,12 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
     setManaSourceComplete(true);
   }, []));
 
+  // Reset selection state when tactics change (new round)
+  useEffect(() => {
+    selectionInProgressRef.current = false;
+    setSelectedTactic(null);
+  }, [availableTactics]);
+
   // Load atlas on mount
   useEffect(() => {
     loadAtlas().then(() => setAtlasLoaded(true));
