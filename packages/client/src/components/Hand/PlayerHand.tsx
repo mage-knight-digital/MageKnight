@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { PixiFloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./PixiFloatingHand";
-import { FloatingUnitCarousel } from "./FloatingUnitCarousel";
+import { PixiUnitCarousel } from "./PixiUnitCarousel";
 import { PixiTacticCarousel } from "./PixiTacticCarousel";
 import { type CardId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
@@ -227,9 +227,17 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         isActive={carouselPane === "cards"}
       />
 
+      {/* PixiJS Unit Carousel - renders to overlay layer, visibility controlled by isActive */}
+      <PixiUnitCarousel
+        units={player.units}
+        viewMode={handView === "offer" ? prevViewModeRef.current : handView}
+        commandTokens={player.commandTokens}
+        isActive={carouselPane === "units"}
+      />
+
       {/* Carousel track - slides horizontally between tactics, cards, and units */}
-      {/* PixiJS components render independently; this track handles DOM-based panes (units) */}
-      {/* Hidden when in offer view - children keep their current viewMode to avoid transform jank */}
+      {/* All panes now render via PixiJS overlay; track is kept for structure but empty */}
+      {/* Hidden when in offer view */}
       <div className={`carousel-track carousel-track--${carouselPane} ${handView === "offer" ? "carousel-track--hidden" : ""}`}>
         {/* Tactics pane (leftmost position) - rendered via PixiJS overlay */}
         <div className="carousel-track__pane carousel-track__pane--tactics">
@@ -241,13 +249,9 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
           {/* PixiFloatingHand renders above */}
         </div>
 
-        {/* Units pane (rightmost position) */}
+        {/* Units pane (rightmost position) - rendered via PixiJS overlay */}
         <div className="carousel-track__pane carousel-track__pane--units">
-          <FloatingUnitCarousel
-            units={player.units}
-            viewMode={handView === "offer" ? prevViewModeRef.current : handView}
-            commandTokens={player.commandTokens}
-          />
+          {/* PixiUnitCarousel renders above */}
         </div>
       </div>
 
