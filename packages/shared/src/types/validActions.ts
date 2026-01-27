@@ -487,6 +487,8 @@ export interface InteractOptions {
   readonly advancedActionCost?: number;
   /** Can burn this monastery */
   readonly canBurnMonastery?: boolean;
+  /** Can plunder this village */
+  readonly canPlunderVillage?: boolean;
 }
 
 // ============================================================================

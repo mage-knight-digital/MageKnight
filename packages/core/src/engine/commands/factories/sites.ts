@@ -21,12 +21,14 @@ import {
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
   BURN_MONASTERY_ACTION,
+  PLUNDER_VILLAGE_ACTION,
 } from "@mage-knight/shared";
 import { createInteractCommand } from "../interactCommand.js";
 import { createEnterSiteCommand } from "../enterSiteCommand.js";
 import { createResolveGladeWoundCommand } from "../resolveGladeWoundCommand.js";
 import { createResolveDeepMineChoiceCommand } from "../resolveDeepMineChoiceCommand.js";
 import { createBurnMonasteryCommand } from "../burnMonasteryCommand.js";
+import { createPlunderVillageCommand } from "../plunderVillageCommand.js";
 
 /**
  * Helper to get glade wound choice from action.
@@ -136,4 +138,17 @@ export const createBurnMonasteryCommandFromAction: CommandFactory = (
 ) => {
   if (action.type !== BURN_MONASTERY_ACTION) return null;
   return createBurnMonasteryCommand({ playerId });
+};
+
+/**
+ * Plunder village command factory.
+ * Creates a command to plunder a village (lose reputation, draw cards).
+ */
+export const createPlunderVillageCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== PLUNDER_VILLAGE_ACTION) return null;
+  return createPlunderVillageCommand({ playerId });
 };

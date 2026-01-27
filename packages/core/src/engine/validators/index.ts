@@ -38,6 +38,7 @@ import {
   DEBUG_ADD_FAME_ACTION,
   DEBUG_TRIGGER_LEVEL_UP_ACTION,
   BURN_MONASTERY_ACTION,
+  PLUNDER_VILLAGE_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -244,6 +245,13 @@ import {
   validateMonasteryNotBurned,
   validateNoCombatThisTurnForBurn,
 } from "./burnMonasteryValidators.js";
+
+// Plunder village validators
+import {
+  validateAtVillage,
+  validateNotAlreadyPlundered,
+  validateBeforeTurnForPlunder,
+} from "./plunderVillageValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -564,6 +572,16 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoCombatThisTurnForBurn, // Can only have one combat per turn
     validateAtMonastery,
     validateMonasteryNotBurned,
+  ],
+  [PLUNDER_VILLAGE_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateMustAnnounceEndOfRound,
+    validateBeforeTurnForPlunder, // Must plunder before taking any action or moving
+    validateAtVillage,
+    validateNotAlreadyPlundered,
   ],
 };
 

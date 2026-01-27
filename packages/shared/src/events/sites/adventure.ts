@@ -414,3 +414,69 @@ export function isMonasteryBurnedEvent(event: {
 }): event is MonasteryBurnedEvent {
   return event.type === MONASTERY_BURNED;
 }
+
+// ============================================================================
+// VILLAGE_PLUNDERED
+// ============================================================================
+
+/**
+ * Event type constant for plundering a village.
+ * @see VillagePlunderedEvent
+ */
+export const VILLAGE_PLUNDERED = "VILLAGE_PLUNDERED" as const;
+
+/**
+ * Emitted when a player plunders a village.
+ *
+ * Plundering a village is a "before turn" action that costs reputation
+ * but provides cards.
+ *
+ * @remarks
+ * - Player loses 1 reputation
+ * - Player draws 2 cards
+ * - Can only plunder once per turn
+ * - Can be done before turn starts, even at start of round
+ *
+ * @example
+ * ```typescript
+ * if (event.type === VILLAGE_PLUNDERED) {
+ *   showPlunderAnimation(event.hexCoord);
+ *   showReputationLoss(event.playerId, 1);
+ *   showCardDraw(event.playerId, event.cardsDrawn);
+ * }
+ * ```
+ */
+export interface VillagePlunderedEvent {
+  readonly type: typeof VILLAGE_PLUNDERED;
+  /** ID of the player who plundered the village */
+  readonly playerId: string;
+  /** Location of the village */
+  readonly hexCoord: HexCoord;
+  /** Number of cards drawn (normally 2) */
+  readonly cardsDrawn: number;
+}
+
+/**
+ * Creates a VillagePlunderedEvent.
+ */
+export function createVillagePlunderedEvent(
+  playerId: string,
+  hexCoord: HexCoord,
+  cardsDrawn: number
+): VillagePlunderedEvent {
+  return {
+    type: VILLAGE_PLUNDERED,
+    playerId,
+    hexCoord,
+    cardsDrawn,
+  };
+}
+
+/**
+ * Type guard for VillagePlunderedEvent.
+ */
+export function isVillagePlunderedEvent(event: {
+  type: string;
+}): event is VillagePlunderedEvent {
+  return event.type === VILLAGE_PLUNDERED;
+}

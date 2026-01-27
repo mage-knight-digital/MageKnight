@@ -78,12 +78,14 @@ export const REPUTATION_REASON_ASSAULT = "assault" as const;
 export const REPUTATION_REASON_BURN_MONASTERY = "burn_monastery" as const;
 export const REPUTATION_REASON_DEFEAT_RAMPAGING = "defeat_rampaging" as const;
 export const REPUTATION_REASON_INTERACTION = "interaction" as const;
+export const REPUTATION_REASON_PLUNDER_VILLAGE = "plunder_village" as const;
 
 export type ReputationChangeReason =
   | typeof REPUTATION_REASON_ASSAULT
   | typeof REPUTATION_REASON_BURN_MONASTERY
   | typeof REPUTATION_REASON_DEFEAT_RAMPAGING
-  | typeof REPUTATION_REASON_INTERACTION;
+  | typeof REPUTATION_REASON_INTERACTION
+  | typeof REPUTATION_REASON_PLUNDER_VILLAGE;
 
 // === Combat exit reasons ===
 export const COMBAT_EXIT_REASON_UNDO = "undo" as const;

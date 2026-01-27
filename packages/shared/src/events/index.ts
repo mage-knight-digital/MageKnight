@@ -254,6 +254,7 @@ import type {
   DeepMineCrystalGainedEvent,
   MonasteryBurnStartedEvent,
   MonasteryBurnedEvent,
+  VillagePlunderedEvent,
 } from "./sites.js";
 
 import type { InvalidActionEvent } from "./validation.js";
@@ -408,7 +409,9 @@ export type GameEvent =
   | DeepMineCrystalGainedEvent
   // Monastery burning
   | MonasteryBurnStartedEvent
-  | MonasteryBurnedEvent;
+  | MonasteryBurnedEvent
+  // Village plundering
+  | VillagePlunderedEvent;
 
 /**
  * Type of all game event type constants.

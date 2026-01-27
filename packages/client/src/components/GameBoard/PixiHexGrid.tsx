@@ -20,7 +20,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Application, Container } from "pixi.js";
 import type { HexCoord } from "@mage-knight/shared";
-import { hexKey, ENTER_SITE_ACTION, BURN_MONASTERY_ACTION } from "@mage-knight/shared";
+import { hexKey, ENTER_SITE_ACTION, BURN_MONASTERY_ACTION, PLUNDER_VILLAGE_ACTION } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro } from "../../contexts/GameIntroContext";
@@ -204,6 +204,9 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
         break;
       case "burn":
         sendAction({ type: BURN_MONASTERY_ACTION });
+        break;
+      case "plunder":
+        sendAction({ type: PLUNDER_VILLAGE_ACTION });
         break;
     }
     handleCloseSiteActionList();

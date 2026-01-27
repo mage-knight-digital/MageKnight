@@ -48,6 +48,12 @@ export interface BurnMonasteryAction {
   readonly type: typeof BURN_MONASTERY_ACTION;
 }
 
+// Plunder village action
+export const PLUNDER_VILLAGE_ACTION = "PLUNDER_VILLAGE" as const;
+export interface PlunderVillageAction {
+  readonly type: typeof PLUNDER_VILLAGE_ACTION;
+}
+
 // Turn structure actions
 export const END_TURN_ACTION = "END_TURN" as const;
 export interface EndTurnAction {
@@ -444,6 +450,7 @@ export type PlayerAction =
   // Adventure sites
   | EnterSiteAction
   | BurnMonasteryAction
+  | PlunderVillageAction
   // Turn structure
   | EndTurnAction
   | RestAction

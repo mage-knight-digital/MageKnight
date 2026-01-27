@@ -47,6 +47,9 @@ export const RESOLVE_DEEP_MINE_COMMAND = "RESOLVE_DEEP_MINE" as const;
 // Burn monastery command
 export const BURN_MONASTERY_COMMAND = "BURN_MONASTERY" as const;
 
+// Plunder village command
+export const PLUNDER_VILLAGE_COMMAND = "PLUNDER_VILLAGE" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;
