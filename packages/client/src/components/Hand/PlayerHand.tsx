@@ -1,8 +1,9 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { PixiFloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./PixiFloatingHand";
-import { PixiUnitCarousel } from "./PixiUnitCarousel";
+import { PixiUnitCarousel, type UnitClickInfo } from "./PixiUnitCarousel";
 import { PixiTacticCarousel } from "./PixiTacticCarousel";
-import { type CardId } from "@mage-knight/shared";
+import { UnitAbilityMenu } from "./UnitAbilityMenu";
+import { type CardId, type UnitId, type ActivatableUnit } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useCardInteraction } from "../CardInteraction";
@@ -11,7 +12,8 @@ import { useRegisterOverlay } from "../../contexts/OverlayContext";
 // Menu state types
 type MenuState =
   | { type: "none" }
-  | { type: "card-action"; cardIndex: number; sourceRect: DOMRect };
+  | { type: "card-action"; cardIndex: number; sourceRect: DOMRect }
+  | { type: "unit-action"; unitIndex: number; unitInstanceId: string; unitId: UnitId; activatableInfo: ActivatableUnit; sourceRect: DOMRect };
 
 // Hand view modes (Inscryption style)
 // offer: looking up at offer tray (above board)
@@ -42,6 +44,9 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   // Register focus mode as an overlay to suppress hex tooltips
   useRegisterOverlay(handView === "focus");
+
+  // Register unit ability menu as an overlay
+  useRegisterOverlay(menuState.type === "unit-action");
 
   // Track whether we need tactic selection (for auto-navigation)
   const needsTacticSelection = !!(
@@ -90,7 +95,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
     onOfferViewChange?.(handView === "offer");
   }, [handView, onOfferViewChange]);
 
-  // Sync local menuState with CardInteraction context state
+  // Sync local card menuState with CardInteraction context state
   // Clear menuState when:
   // - context returns to idle (action completed)
   // - context transitions to completing/effect-choice (card has been played, no longer in hand)
@@ -100,7 +105,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
       cardInteractionState.type === "completing" ||
       cardInteractionState.type === "effect-choice";
 
-    if (shouldClearMenu && menuState.type !== "none") {
+    if (shouldClearMenu && menuState.type === "card-action") {
       setMenuState({ type: "none" });
     }
   }, [cardInteractionState.type, menuState.type]);
@@ -171,7 +176,29 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   );
 
   // Get selected card info from menu state
-  const selectedIndex = menuState.type !== "none" ? menuState.cardIndex : null;
+  const selectedCardIndex = menuState.type === "card-action" ? menuState.cardIndex : null;
+
+  // Get selected unit info from menu state
+  const selectedUnitIndex = menuState.type === "unit-action" ? menuState.unitIndex : null;
+
+  // Get activatable units from validActions
+  const activatableUnits = useMemo(() => {
+    return state?.validActions.units?.activatable ?? [];
+  }, [state?.validActions.units?.activatable]);
+
+  // Close unit menu when activatable units change (unit was activated and spent)
+  useEffect(() => {
+    if (menuState.type === "unit-action") {
+      // Check if the selected unit is still activatable
+      const stillActivatable = activatableUnits.find(
+        au => au.unitInstanceId === menuState.unitInstanceId &&
+              au.abilities.some(a => a.canActivate)
+      );
+      if (!stillActivatable) {
+        setMenuState({ type: "none" });
+      }
+    }
+  }, [activatableUnits, menuState]);
 
   const handleCardClick = useCallback((info: CardClickInfo) => {
     const { index, rect } = info;
@@ -185,11 +212,11 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
       return;
     }
 
-    if (menuState.type !== "none" && menuState.cardIndex === index) {
+    if (menuState.type === "card-action" && menuState.cardIndex === index) {
       // Clicking same card again deselects
       setMenuState({ type: "none" });
       cardInteractionDispatch({ type: "CLOSE_MENU" });
-    } else {
+    } else if (menuState.type !== "card-action" || menuState.cardIndex !== index) {
       // Show card action menu - dispatch to new unified system
       setMenuState({ type: "card-action", cardIndex: index, sourceRect: rect });
       cardInteractionDispatch({
@@ -201,6 +228,41 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
       });
     }
   }, [handArray, playableCardMap, menuState, cardInteractionDispatch]);
+
+  // Handle unit click - show ability selection menu
+  const handleUnitClick = useCallback((info: UnitClickInfo) => {
+    const { unitIndex, unitInstanceId, rect } = info;
+    const unit = player?.units[unitIndex];
+    if (!unit) return;
+
+    // Find activatable info for this unit
+    const activatableInfo = activatableUnits.find(au => au.unitInstanceId === unitInstanceId);
+    if (!activatableInfo) return;
+
+    // Check if unit has any activatable abilities
+    const hasActivatable = activatableInfo.abilities.some(a => a.canActivate);
+    if (!hasActivatable) return;
+
+    if (menuState.type === "unit-action" && menuState.unitInstanceId === unitInstanceId) {
+      // Clicking same unit again closes menu
+      setMenuState({ type: "none" });
+    } else {
+      // Show unit ability menu
+      setMenuState({
+        type: "unit-action",
+        unitIndex,
+        unitInstanceId,
+        unitId: unit.unitId,
+        activatableInfo,
+        sourceRect: rect,
+      });
+    }
+  }, [player?.units, activatableUnits, menuState]);
+
+  // Close unit menu callback
+  const handleCloseUnitMenu = useCallback(() => {
+    setMenuState({ type: "none" });
+  }, []);
 
   // Early return after all hooks
   if (!player || !Array.isArray(player.hand) || !state) {
@@ -219,7 +281,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
       <PixiFloatingHand
         hand={handArray}
         playableCards={playableCardMap}
-        selectedIndex={selectedIndex}
+        selectedIndex={selectedCardIndex}
         onCardClick={handleCardClick}
         deckCount={player.deckCount}
         discardCount={player.discardCount}
@@ -233,7 +295,21 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         viewMode={handView === "offer" ? prevViewModeRef.current : handView}
         commandTokens={player.commandTokens}
         isActive={carouselPane === "units"}
+        activatableUnits={activatableUnits}
+        onUnitClick={handleUnitClick}
+        selectedIndex={selectedUnitIndex}
       />
+
+      {/* Unit Ability Menu - shown when a unit with activatable abilities is clicked */}
+      {menuState.type === "unit-action" && (
+        <UnitAbilityMenu
+          unitInstanceId={menuState.unitInstanceId}
+          unitId={menuState.unitId}
+          activatableInfo={menuState.activatableInfo}
+          sourceRect={menuState.sourceRect}
+          onClose={handleCloseUnitMenu}
+        />
+      )}
 
       {/* Carousel track - slides horizontally between tactics, cards, and units */}
       {/* All panes now render via PixiJS overlay; track is kept for structure but empty */}
