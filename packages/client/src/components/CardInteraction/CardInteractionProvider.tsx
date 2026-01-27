@@ -1,8 +1,11 @@
 /**
- * CardInteractionContext
+ * CardInteractionProvider
  *
- * Provides state management for unified card interaction flow.
+ * Provider component for card interaction state machine.
  * Uses useReducer for predictable state transitions following the state machine.
+ *
+ * This file is separate from CardInteractionContext.ts to allow HMR updates
+ * to this file without changing the context identity.
  */
 
 /* eslint-disable no-restricted-syntax */
@@ -10,24 +13,14 @@
 // expecting constants from @mage-knight/shared. However, these are LOCAL reducer
 // action types, not shared protocol types. They're defined in ./types.ts.
 
-import { createContext, useReducer, type ReactNode, type Dispatch } from "react";
+import { useReducer, type ReactNode } from "react";
 import {
   type CardInteractionState,
   type CardInteractionAction,
   INITIAL_STATE,
 } from "./types";
+import { CardInteractionContext } from "./CardInteractionContext";
 import { MANA_BLACK, type ManaColor } from "@mage-knight/shared";
-
-// ============================================================================
-// Context Definition
-// ============================================================================
-
-interface CardInteractionContextValue {
-  readonly state: CardInteractionState;
-  readonly dispatch: Dispatch<CardInteractionAction>;
-}
-
-export const CardInteractionContext = createContext<CardInteractionContextValue | null>(null);
 
 // ============================================================================
 // Reducer

@@ -13,7 +13,8 @@ export type {
 export { isActiveState, hasSourceRect, INITIAL_STATE } from "./types";
 
 // Context and Provider
-export { CardInteractionContext, CardInteractionProvider } from "./CardInteractionContext";
+export { CardInteractionContext, type CardInteractionContextValue } from "./CardInteractionContext";
+export { CardInteractionProvider } from "./CardInteractionProvider";
 
 // Hooks
 export { useCardInteraction, useCardInteractionOptional } from "./useCardInteraction";
