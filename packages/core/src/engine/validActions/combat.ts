@@ -557,9 +557,13 @@ function computeBlockPhaseOptions(
   );
 
   // Compute enemy block states
+  // Filter out hidden summoners - must block their summoned enemy instead
+  // Filter out 0-attack enemies - nothing to block
   const enemyBlockStates = combat.enemies
     .filter((enemy) => !enemy.isDefeated)
+    .filter((enemy) => !enemy.isSummonerHidden)
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
+    .filter((enemy) => getEffectiveEnemyAttack(state, enemy.instanceId, enemy.definition.attack) > 0)
     .map((enemy) => computeEnemyBlockState(enemy, combat, state));
 
   // Generate assignable blocks
@@ -691,6 +695,7 @@ function computeAttackPhaseOptions(
 /**
  * Get block options for block phase.
  * Filters out enemies that don't attack (due to Chill/Whirlwind).
+ * Filters out hidden summoners (must block their summoned enemy instead).
  * Uses effective attack values (after modifiers).
  */
 function getBlockOptions(
@@ -699,8 +704,19 @@ function getBlockOptions(
 ): readonly BlockOption[] {
   return enemies
     .filter((enemy) => !enemy.isDefeated)
+    // Filter out hidden summoners - must block their summoned enemy instead
+    .filter((enemy) => !enemy.isSummonerHidden)
     // Filter out enemies that don't attack this combat (Chill, Whirlwind)
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
+    // Filter out enemies with 0 effective attack (nothing to block)
+    .filter((enemy) => {
+      const effectiveAttack = getEffectiveEnemyAttack(
+        state,
+        enemy.instanceId,
+        enemy.definition.attack
+      );
+      return effectiveAttack > 0;
+    })
     .map((enemy) => {
       const isSwift = enemy.definition.abilities.includes(ABILITY_SWIFT);
       const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
@@ -779,6 +795,7 @@ function computeAvailableUnitTargets(
 /**
  * Get damage assignment options for assign damage phase.
  * Filters out enemies that don't attack (due to Chill/Whirlwind).
+ * Filters out hidden summoners (damage comes from their summoned enemy instead).
  * Uses effective attack values (after modifiers).
  * Includes unit targets for damage assignment.
  */
@@ -795,8 +812,19 @@ function getDamageAssignmentOptions(
 
   return enemies
     .filter((enemy) => !enemy.isDefeated && !enemy.isBlocked && !enemy.damageAssigned)
+    // Filter out hidden summoners - damage comes from their summoned enemy instead
+    .filter((enemy) => !enemy.isSummonerHidden)
     // Filter out enemies that don't attack this combat (Chill, Whirlwind)
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
+    // Filter out enemies with 0 effective attack (no damage to assign)
+    .filter((enemy) => {
+      const effectiveAttack = getEffectiveEnemyAttack(
+        state,
+        enemy.instanceId,
+        enemy.definition.attack
+      );
+      return effectiveAttack > 0;
+    })
     .map((enemy) => {
       // Use effective attack (after modifiers)
       const rawAttack = getEffectiveEnemyAttack(
@@ -834,17 +862,21 @@ function getDamageAssignmentOptions(
  * Check if the assign damage phase can be ended.
  * Can only end if all unblocked, attacking enemies have had damage assigned.
  * Enemies that don't attack (due to Chill/Whirlwind) don't need damage assigned.
+ * Hidden summoners don't need damage assigned (their summoned enemy deals damage).
+ * Enemies with 0 effective attack don't need damage assigned (no damage to take).
  */
 function canEndAssignDamagePhase(
   state: GameState,
   enemies: readonly CombatEnemy[]
 ): boolean {
-  // All unblocked, non-defeated, attacking enemies must have damage assigned
+  // All unblocked, non-defeated, non-hidden-summoner, attacking, non-zero-attack enemies must have damage assigned
   const unblockedAttacking = enemies.filter(
     (e) =>
       !e.isDefeated &&
       !e.isBlocked &&
-      doesEnemyAttackThisCombat(state, e.instanceId)
+      !e.isSummonerHidden &&
+      doesEnemyAttackThisCombat(state, e.instanceId) &&
+      getEffectiveEnemyAttack(state, e.instanceId, e.definition.attack) > 0
   );
   return unblockedAttacking.every((e) => e.damageAssigned);
 }

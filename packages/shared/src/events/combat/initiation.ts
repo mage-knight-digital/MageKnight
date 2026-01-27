@@ -143,3 +143,148 @@ export function isCombatStartedEvent(event: {
 }): event is CombatStartedEvent {
   return event.type === COMBAT_STARTED;
 }
+
+// ============================================================================
+// ENEMY_SUMMONED
+// ============================================================================
+
+/**
+ * Event type constant for enemy summon.
+ * @see EnemySummonedEvent
+ */
+export const ENEMY_SUMMONED = "ENEMY_SUMMONED" as const;
+
+/**
+ * Emitted when an enemy with the Summon ability draws a brown enemy token.
+ *
+ * The summoned enemy replaces the summoner for Block and Assign Damage phases.
+ *
+ * @remarks
+ * - Occurs at start of Block phase for each enemy with Summon ability
+ * - The summoner is hidden during Block and Assign Damage phases
+ * - Summoned enemy grants no fame when blocked/killed
+ * - Original summoner returns at start of Attack phase
+ *
+ * @example
+ * ```typescript
+ * if (event.type === ENEMY_SUMMONED) {
+ *   addSummonedEnemyToUI(event.summonedEnemy);
+ *   hideEnemy(event.summonerInstanceId);
+ * }
+ * ```
+ */
+export interface EnemySummonedEvent {
+  readonly type: typeof ENEMY_SUMMONED;
+  /** Instance ID of the summoner enemy */
+  readonly summonerInstanceId: string;
+  /** Name of the summoner enemy */
+  readonly summonerName: string;
+  /** Instance ID of the summoned enemy */
+  readonly summonedInstanceId: string;
+  /** Name of the summoned enemy */
+  readonly summonedName: string;
+  /** Attack value of the summoned enemy */
+  readonly summonedAttack: number;
+  /** Armor value of the summoned enemy */
+  readonly summonedArmor: number;
+}
+
+/**
+ * Creates an EnemySummonedEvent.
+ */
+export function createEnemySummonedEvent(
+  summonerInstanceId: string,
+  summonerName: string,
+  summonedInstanceId: string,
+  summonedName: string,
+  summonedAttack: number,
+  summonedArmor: number
+): EnemySummonedEvent {
+  return {
+    type: ENEMY_SUMMONED,
+    summonerInstanceId,
+    summonerName,
+    summonedInstanceId,
+    summonedName,
+    summonedAttack,
+    summonedArmor,
+  };
+}
+
+/**
+ * Type guard for EnemySummonedEvent.
+ */
+export function isEnemySummonedEvent(event: {
+  type: string;
+}): event is EnemySummonedEvent {
+  return event.type === ENEMY_SUMMONED;
+}
+
+// ============================================================================
+// SUMMONED_ENEMY_DISCARDED
+// ============================================================================
+
+/**
+ * Event type constant for summoned enemy discard.
+ * @see SummonedEnemyDiscardedEvent
+ */
+export const SUMMONED_ENEMY_DISCARDED = "SUMMONED_ENEMY_DISCARDED" as const;
+
+/**
+ * Emitted when a summoned enemy is discarded at the start of Attack phase.
+ *
+ * The summoned enemy is returned to the brown discard pile and grants no fame.
+ * The original summoner returns and can be attacked normally.
+ *
+ * @remarks
+ * - Occurs at start of Attack phase for each summoned enemy
+ * - Summoned enemy goes to brown discard pile (not removed from game)
+ * - No fame is granted for discarding the summoned enemy
+ * - Original summoner becomes targetable again
+ *
+ * @example
+ * ```typescript
+ * if (event.type === SUMMONED_ENEMY_DISCARDED) {
+ *   removeSummonedEnemyFromUI(event.summonedInstanceId);
+ *   showEnemy(event.summonerInstanceId);
+ * }
+ * ```
+ */
+export interface SummonedEnemyDiscardedEvent {
+  readonly type: typeof SUMMONED_ENEMY_DISCARDED;
+  /** Instance ID of the summoned enemy being discarded */
+  readonly summonedInstanceId: string;
+  /** Name of the summoned enemy */
+  readonly summonedName: string;
+  /** Instance ID of the summoner that returns to combat */
+  readonly summonerInstanceId: string;
+  /** Name of the summoner enemy */
+  readonly summonerName: string;
+}
+
+/**
+ * Creates a SummonedEnemyDiscardedEvent.
+ */
+export function createSummonedEnemyDiscardedEvent(
+  summonedInstanceId: string,
+  summonedName: string,
+  summonerInstanceId: string,
+  summonerName: string
+): SummonedEnemyDiscardedEvent {
+  return {
+    type: SUMMONED_ENEMY_DISCARDED,
+    summonedInstanceId,
+    summonedName,
+    summonerInstanceId,
+    summonerName,
+  };
+}
+
+/**
+ * Type guard for SummonedEnemyDiscardedEvent.
+ */
+export function isSummonedEnemyDiscardedEvent(event: {
+  type: string;
+}): event is SummonedEnemyDiscardedEvent {
+  return event.type === SUMMONED_ENEMY_DISCARDED;
+}

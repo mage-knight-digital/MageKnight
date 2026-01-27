@@ -239,7 +239,9 @@ export function getEffectiveEnemyAttack(
     .map((m) => m.effect as EnemyStatModifier);
 
   let attack = baseAttack;
-  let minAllowed = 1;
+  // Default minimum is 0 - enemies can have 0 attack (e.g., Summoners)
+  // Modifiers can set a higher minimum if needed
+  let minAllowed = 0;
 
   for (const mod of modifiers) {
     attack += mod.amount;

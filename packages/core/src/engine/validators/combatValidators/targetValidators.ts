@@ -17,9 +17,11 @@ import {
   ENEMY_NOT_FOUND,
   ENEMY_ALREADY_BLOCKED,
   ENEMY_ALREADY_DEFEATED,
+  SUMMONER_HIDDEN,
 } from "../validationCodes.js";
 
 // Target enemy must exist and not be defeated (for block)
+// Also excludes hidden summoners (summoners that have summoned an enemy)
 export function validateBlockTargetEnemy(
   state: GameState,
   _playerId: string,
@@ -43,10 +45,19 @@ export function validateBlockTargetEnemy(
     return invalid(ENEMY_ALREADY_BLOCKED, "Target enemy is already blocked");
   }
 
+  // Cannot target hidden summoners - must block the summoned enemy instead
+  if (enemy.isSummonerHidden) {
+    return invalid(
+      SUMMONER_HIDDEN,
+      "Cannot target summoner while their summoned enemy is active"
+    );
+  }
+
   return valid();
 }
 
 // Target enemy must exist and not be blocked/defeated (for assign damage)
+// Also excludes hidden summoners (summoners that have summoned an enemy)
 export function validateAssignDamageTargetEnemy(
   state: GameState,
   _playerId: string,
@@ -68,6 +79,14 @@ export function validateAssignDamageTargetEnemy(
 
   if (enemy.isBlocked) {
     return invalid(ENEMY_ALREADY_BLOCKED, "Enemy is blocked, no damage to assign");
+  }
+
+  // Cannot assign damage from hidden summoners - damage comes from summoned enemy instead
+  if (enemy.isSummonerHidden) {
+    return invalid(
+      SUMMONER_HIDDEN,
+      "Summoner is hidden while their summoned enemy is active"
+    );
   }
 
   return valid();

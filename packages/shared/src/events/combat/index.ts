@@ -43,7 +43,7 @@ export * from "./attacks.js";
 export * from "./resolution.js";
 
 // Import constants for the isCombatEvent guard
-import { COMBAT_TRIGGERED, COMBAT_STARTED } from "./initiation.js";
+import { COMBAT_TRIGGERED, COMBAT_STARTED, ENEMY_SUMMONED, SUMMONED_ENEMY_DISCARDED } from "./initiation.js";
 import { COMBAT_PHASE_CHANGED } from "./phases.js";
 import { ENEMY_BLOCKED, BLOCK_FAILED, BLOCK_ASSIGNED, BLOCK_UNASSIGNED } from "./blocking.js";
 import { ENEMY_DEFEATED, ATTACK_FAILED, ATTACK_ASSIGNED, ATTACK_UNASSIGNED } from "./attacks.js";
@@ -78,5 +78,7 @@ export function isCombatEvent(event: { type: string }): boolean {
     PARALYZE_HAND_DISCARDED,
     COMBAT_TRIGGERED,
     PLAYER_WITHDREW,
+    ENEMY_SUMMONED,
+    SUMMONED_ENEMY_DISCARDED,
   ].includes(event.type as typeof COMBAT_STARTED);
 }

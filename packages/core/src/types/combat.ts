@@ -73,6 +73,8 @@ export interface CombatEnemy {
   readonly isDefeated: boolean;
   readonly damageAssigned: boolean; // Track if damage was processed in Assign Damage phase
   readonly isRequiredForConquest: boolean; // True for site defenders, false for provoked rampaging enemies
+  readonly summonedByInstanceId?: string; // For summoned enemies: links to the summoner's instanceId
+  readonly isSummonerHidden?: boolean; // For summoners: true during Block/Assign Damage phases when hidden by summoned enemy
 }
 
 // Combat state
