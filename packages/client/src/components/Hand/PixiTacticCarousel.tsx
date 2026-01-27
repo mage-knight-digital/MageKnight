@@ -36,11 +36,11 @@ import { playSound } from "../../utils/audioManager";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import { TACTIC_VIEW_MODE_OFFSETS, VIEW_MODE_TRANSITION_MS } from "../../utils/carouselViewModes";
 
 // Animation timing constants
 const HOVER_LIFT_DURATION_MS = CARD_FAN_HOVER.durationSec * 1000; // ~265ms synced to audio
 const SELECTION_DELAY_MS = 800; // Delay before sending action after selection animation
-const VIEW_MODE_TRANSITION_MS = 300; // Duration for view mode transitions
 
 // Deal animation constants
 const DEAL_STAGGER_MS = 110; // Stagger between each card's deal animation
@@ -54,12 +54,8 @@ const GLOW_COLORS = {
   night: 0x6495ed, // Cornflower blue
 } as const;
 
-// View mode position offsets
-const VIEW_MODE_OFFSETS = {
-  board: { yOffset: 0.30, scale: 1, visible: false },
-  ready: { yOffset: 0.05, scale: 1, visible: true },
-  focus: { yOffset: -0.35, scale: 2.2, visible: true },
-} as const;
+// Use shared view mode offsets for tactics (different from hand/units)
+const VIEW_MODE_OFFSETS = TACTIC_VIEW_MODE_OFFSETS;
 
 interface PixiTacticCarouselProps {
   viewMode: CardFanViewMode;

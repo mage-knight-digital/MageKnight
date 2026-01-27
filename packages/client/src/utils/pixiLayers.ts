@@ -11,6 +11,7 @@ import type { Container } from "pixi.js";
  *   10  PHASE_RAIL           Combat phase indicator
  *   50  SCREEN_EFFECTS       Flash/shake effects
  *   60  TACTIC_CAROUSEL      Tactic card display
+ *   90  UNITS                Unit carousel display
  *  100  HAND                 Player's card hand
  *  120  ATTACK_POOL          Draggable attack chips
  *  120  BLOCK_POOL           Draggable block chips
@@ -38,6 +39,7 @@ export const PIXI_Z_INDEX = {
   TACTIC_CAROUSEL: 60,
 
   // Interactive layers (100-499)
+  UNITS: 90,
   HAND: 100,
   ATTACK_POOL: 120,
   BLOCK_POOL: 120,
