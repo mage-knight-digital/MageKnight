@@ -358,6 +358,8 @@ export type CardEffect =
 export interface DeedCard {
   readonly id: CardId;
   readonly name: string;
+  /** Alternate name for powered effect (spells only, e.g., "Flame Wall" → "Flame Wave") */
+  readonly poweredName?: string;
   readonly cardType: DeedCardType;
 
   // Mana colors that can power this card's powered effect
@@ -379,4 +381,8 @@ export interface DeedCard {
 
   // If true, card is destroyed after playing its powered effect (artifacts only)
   readonly destroyOnPowered?: boolean;
+
+  // If true, card affects other players and can be removed in "friendly game" mode
+  // Spells: Mana Meltdown, Mana Claim, Mind Read, Energy Flow (#109-112)
+  readonly interactive?: boolean;
 }

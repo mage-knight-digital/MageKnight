@@ -128,6 +128,7 @@ function choice(options: readonly CardEffect[]): CardEffect {
 const FIREBALL: DeedCard = {
   id: CARD_FIREBALL,
   name: "Fireball",
+  poweredName: "Firestorm",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
@@ -153,6 +154,7 @@ const FIREBALL: DeedCard = {
 const FLAME_WALL: DeedCard = {
   id: CARD_FLAME_WALL,
   name: "Flame Wall",
+  poweredName: "Flame Wave",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
@@ -169,6 +171,7 @@ const FLAME_WALL: DeedCard = {
 const SNOWSTORM: DeedCard = {
   id: CARD_SNOWSTORM,
   name: "Snowstorm",
+  poweredName: "Blizzard",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_BLUE],
@@ -194,6 +197,7 @@ const SNOWSTORM: DeedCard = {
 const RESTORATION: DeedCard = {
   id: CARD_RESTORATION,
   name: "Restoration",
+  poweredName: "Rebirth",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_HEALING],
   poweredBy: [MANA_BLACK, MANA_GREEN],
@@ -213,6 +217,7 @@ const RESTORATION: DeedCard = {
 const EXPOSE: DeedCard = {
   id: CARD_EXPOSE,
   name: "Expose",
+  poweredName: "Mass Expose",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_WHITE],
@@ -237,6 +242,7 @@ const EXPOSE: DeedCard = {
 const TREMOR: DeedCard = {
   id: CARD_TREMOR,
   name: "Tremor",
+  poweredName: "Earthquake",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
@@ -321,6 +327,7 @@ const TREMOR: DeedCard = {
 const CHILL: DeedCard = {
   id: CARD_CHILL,
   name: "Chill",
+  poweredName: "Lethal Chill",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_BLUE],
@@ -370,6 +377,7 @@ const CHILL: DeedCard = {
 const WHIRLWIND: DeedCard = {
   id: CARD_WHIRLWIND,
   name: "Whirlwind",
+  poweredName: "Tornado",
   cardType: DEED_CARD_TYPE_SPELL,
   categories: [CARD_CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_WHITE],
