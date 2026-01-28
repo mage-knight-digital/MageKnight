@@ -218,7 +218,12 @@ export class BackgroundAtmosphere {
   /** Detach from ticker */
   detach(ticker: Ticker): void {
     if (this.tickerCallback) {
-      ticker.remove(this.tickerCallback);
+      try {
+        // Guard against corrupted ticker state during HMR
+        ticker.remove(this.tickerCallback);
+      } catch {
+        // Ticker may be in an invalid state during HMR - ignore cleanup errors
+      }
       this.tickerCallback = null;
     }
   }

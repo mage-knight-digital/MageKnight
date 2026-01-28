@@ -136,7 +136,11 @@ class ExploreHoverEffect {
         this.isFadingOut = false;
         this.particles = [];
         if (this.ticker && this.tickerCallback) {
-          this.ticker.remove(this.tickerCallback);
+          try {
+            this.ticker.remove(this.tickerCallback);
+          } catch {
+            // Ticker may be in invalid state during HMR
+          }
           this.tickerCallback = null;
           this.ticker = null;
         }
@@ -270,7 +274,11 @@ class ExploreHoverEffect {
     this.isFadingOut = false;
     this.particles = [];
     if (this.ticker && this.tickerCallback) {
-      this.ticker.remove(this.tickerCallback);
+      try {
+        this.ticker.remove(this.tickerCallback);
+      } catch {
+        // Ticker may be in invalid state during HMR
+      }
       this.tickerCallback = null;
       this.ticker = null;
     }

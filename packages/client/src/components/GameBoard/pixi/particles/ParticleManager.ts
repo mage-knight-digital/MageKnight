@@ -39,7 +39,12 @@ export class ParticleManager {
 
   detach(): void {
     if (this.ticker && this.tickerCallback) {
-      this.ticker.remove(this.tickerCallback);
+      try {
+        // Guard against corrupted ticker state during HMR
+        this.ticker.remove(this.tickerCallback);
+      } catch {
+        // Ticker may be in an invalid state during HMR - ignore cleanup errors
+      }
     }
     this.ticker = null;
     this.tickerCallback = null;

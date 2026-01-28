@@ -178,7 +178,12 @@ export function PixiPowerLine() {
     app.ticker.add(animate);
 
     return () => {
-      app.ticker.remove(animate);
+      try {
+        // Guard against corrupted ticker state during HMR
+        app.ticker.remove(animate);
+      } catch {
+        // Ticker may be in invalid state during HMR
+      }
     };
   }, [app, overlayLayer, dragState, uniqueId]);
 
