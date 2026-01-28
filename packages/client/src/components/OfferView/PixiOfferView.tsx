@@ -41,6 +41,8 @@ type OfferPane = "units" | "spells" | "advancedActions";
 interface PixiOfferViewProps {
   isVisible: boolean;
   onClose: () => void;
+  /** Optional initial tab to show when opening. Defaults to "units". */
+  initialTab?: OfferPane;
 }
 
 interface CardData {
@@ -105,7 +107,7 @@ function getHoverRotation(cardId: string, index: number): number {
 // Component
 // ============================================
 
-export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
+export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: PixiOfferViewProps) {
   const uniqueId = useId();
   const { app, overlayLayer } = usePixiApp();
   const { state, sendAction } = useGame();
@@ -529,7 +531,7 @@ export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
 
       const tabBg = new Graphics();
       tabBg.roundRect(0, 0, tabWidth, 32, 4);
-      tabBg.fill({ color: tab.pane === "units" ? COLORS.TAB_ACTIVE : COLORS.TAB_BG });
+      tabBg.fill({ color: tab.pane === initialTab ? COLORS.TAB_ACTIVE : COLORS.TAB_BG });
       tabContainer.addChild(tabBg);
 
       const tabText = new Text({
@@ -620,9 +622,9 @@ export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
     hintText.position.set(trayWidth / 2, trayHeight - 20);
     trayContainer.addChild(hintText);
 
-    // Build initial cards
-    currentPaneRef.current = "units";
-    buildCards(cardsContainer, "units", animManager);
+    // Build initial cards with the specified initial tab
+    currentPaneRef.current = initialTab;
+    buildCards(cardsContainer, initialTab, animManager);
 
     // Capture refs for cleanup
     const tabContainers = tabContainersRef.current;
@@ -652,7 +654,7 @@ export function PixiOfferView({ isVisible, onClose }: PixiOfferViewProps) {
         rootContainerRef.current = null;
       }
     };
-  }, [app, overlayLayer, isVisible, state, player, uniqueId, screenWidth, screenHeight, cardWidth, cardHeight, trayWidth, trayPadding, buildCards, switchPane]);
+  }, [app, overlayLayer, isVisible, state, player, uniqueId, screenWidth, screenHeight, cardWidth, cardHeight, trayWidth, trayPadding, buildCards, switchPane, initialTab]);
 
   // Keyboard handling
   useEffect(() => {

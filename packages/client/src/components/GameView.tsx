@@ -21,7 +21,7 @@ import { ManaSearchReroll } from "./Overlays/ManaSearchReroll";
 import { GladeWoundDecision } from "./Overlays/GladeWoundDecision";
 import { LevelUpRewardSelection } from "./Overlays/LevelUpRewardSelection";
 import { CombatOverlay, PixiCombatOverlay } from "./Combat";
-import { OfferView } from "./OfferView";
+import { OfferView, type OfferPane } from "./OfferView";
 
 export function GameView() {
   const { state } = useGame();
@@ -30,6 +30,7 @@ export function GameView() {
   const { isInCinematic } = useCinematic();
   const { isOverlayActive } = useOverlay();
   const [isOfferViewVisible, setIsOfferViewVisible] = useState(false);
+  const [offerViewInitialTab, setOfferViewInitialTab] = useState<OfferPane>("units");
 
   // Show combat overlay when in combat
   // Note: We check state.combat existence, not validActions.combat
@@ -52,6 +53,13 @@ export function GameView() {
 
   // Handle navigating to unit offer from SitePanel
   const handleNavigateToUnitOffer = useCallback(() => {
+    setOfferViewInitialTab("units");
+    setIsOfferViewVisible(true);
+  }, []);
+
+  // Handle navigating to spell offer from site actions
+  const handleNavigateToSpellOffer = useCallback(() => {
+    setOfferViewInitialTab("spells");
     setIsOfferViewVisible(true);
   }, []);
 
@@ -99,11 +107,14 @@ export function GameView() {
       <TopBar />
 
       {/* Offer View - Inscryption-style offer display */}
-      <OfferView isVisible={isOfferViewVisible} onClose={handleOfferViewClose} />
+      <OfferView isVisible={isOfferViewVisible} onClose={handleOfferViewClose} initialTab={offerViewInitialTab} />
 
       <main className="app__main">
         <div className="app__board">
-          <PixiHexGrid onNavigateToUnitOffer={handleNavigateToUnitOffer} />
+          <PixiHexGrid
+            onNavigateToUnitOffer={handleNavigateToUnitOffer}
+            onNavigateToSpellOffer={handleNavigateToSpellOffer}
+          />
           <ManaSourceOverlay />
         </div>
       </main>

@@ -17,12 +17,14 @@ export type OfferPane = "units" | "spells" | "advancedActions";
 export interface OfferViewProps {
   isVisible: boolean;
   onClose: () => void;
+  /** Optional initial tab to show when opening. Defaults to "units". */
+  initialTab?: OfferPane;
 }
 
-export function OfferView({ isVisible, onClose }: OfferViewProps) {
+export function OfferView({ isVisible, onClose, initialTab }: OfferViewProps) {
   // Register as overlay when visible to disable hex tooltips
   useRegisterOverlay(isVisible);
 
   // Delegate entirely to the Pixi implementation
-  return <PixiOfferView isVisible={isVisible} onClose={onClose} />;
+  return <PixiOfferView isVisible={isVisible} onClose={onClose} initialTab={initialTab} />;
 }
