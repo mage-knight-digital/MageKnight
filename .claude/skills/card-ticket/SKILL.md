@@ -149,7 +149,43 @@ EOF
 - `complexity:medium` - New effect type or modifier needed
 - `complexity:high` - Requires new system (e.g., armor reduction system)
 
-### 8. Report Back
+### 8. Add to Parent Epic
+
+After creating the issue, add it as a sub-issue to the appropriate epic:
+
+| Card Type | Parent Epic |
+|-----------|-------------|
+| Basic Action | #103 - Epic: All Basic Action Cards |
+| Advanced Action | #90 - Epic: All Advanced Action Cards |
+| Spell | #91 - Epic: All Spell Cards |
+| Artifact | #92 - Epic: All Artifact Cards |
+
+Use the GitHub MCP tool `sub_issue_write` with method `add` to link the new issue.
+
+### 9. Mark Blockers (if applicable)
+
+If the card depends on unimplemented systems (e.g., discard-as-cost, armor reduction), mark the blocking relationship using the GitHub API:
+
+```bash
+# Get the blocking issue's ID (not issue number)
+BLOCKING_ID=$(gh api repos/eshaffer321/MageKnight/issues/<blocker_number> --jq '.id')
+
+# Add the blocked-by relationship (use -F for integer, not -f for string)
+gh api repos/eshaffer321/MageKnight/issues/<new_issue_number>/dependencies/blocked_by \
+  -X POST \
+  -F issue_id="$BLOCKING_ID"
+```
+
+**Common blockers:**
+- #108 - Discard-as-Cost System (for Improvisation, Savage Harvesting, etc.)
+- #109 - Movement trigger system
+
+### 10. Close if Complete
+
+If the card is fully implemented (all gaps show ✅), close the issue immediately:
+- Use `issue_write` with `state: "closed"` and `state_reason: "completed"`
+
+### 11. Report Back
 
 ```
 Created #XX: Card: Ice Shield - missing armor reduction on powered effect
