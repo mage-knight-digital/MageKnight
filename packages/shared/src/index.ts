@@ -92,7 +92,9 @@ export type {
   EnterSiteAction,
   // Turn structure
   EndTurnAction,
-  RestAction,
+  RestAction, // @deprecated - use DeclareRestAction + CompleteRestAction
+  DeclareRestAction,
+  CompleteRestAction,
   InteractAction,
   AnnounceEndOfRoundAction,
   // Card playing

@@ -14,6 +14,10 @@ export const PLAY_CARD_SIDEWAYS_COMMAND = "PLAY_CARD_SIDEWAYS" as const;
 export const RESOLVE_CHOICE_COMMAND = "RESOLVE_CHOICE" as const;
 export const REST_COMMAND = "REST" as const;
 
+// Two-phase rest commands (new state-based resting)
+export const DECLARE_REST_COMMAND = "DECLARE_REST" as const;
+export const COMPLETE_REST_COMMAND = "COMPLETE_REST" as const;
+
 // Round lifecycle commands
 export const ANNOUNCE_END_OF_ROUND_COMMAND = "ANNOUNCE_END_OF_ROUND" as const;
 export const END_ROUND_COMMAND = "END_ROUND" as const;

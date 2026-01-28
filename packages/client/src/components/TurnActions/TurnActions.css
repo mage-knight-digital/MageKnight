@@ -162,3 +162,37 @@
   background: linear-gradient(135deg, #9b59b6, #a569bd);
   transform: translateX(-2px);
 }
+
+.turn-actions__btn--rest {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  color: #fff;
+}
+
+.turn-actions__btn--rest:hover {
+  background: linear-gradient(135deg, #2ecc71, #58d68d);
+  transform: translateX(-2px);
+}
+
+.turn-actions__status {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.turn-actions__status--resting {
+  background: rgba(39, 174, 96, 0.2);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.4);
+  animation: pulse-resting 2s infinite;
+}
+
+@keyframes pulse-resting {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}

@@ -26,6 +26,8 @@ import {
   PLAY_CARD_SIDEWAYS_ACTION,
   RESOLVE_CHOICE_ACTION,
   REST_ACTION,
+  DECLARE_REST_ACTION,
+  COMPLETE_REST_ACTION,
   ENTER_COMBAT_ACTION,
   CHALLENGE_RAMPAGING_ACTION,
   END_COMBAT_PHASE_ACTION,
@@ -97,6 +99,8 @@ export {
 export {
   createEndTurnCommandFromAction,
   createRestCommandFromAction,
+  createDeclareRestCommandFromAction,
+  createCompleteRestCommandFromAction,
   createAnnounceEndOfRoundCommandFromAction,
 } from "./turn.js";
 
@@ -165,6 +169,8 @@ import {
 import {
   createEndTurnCommandFromAction,
   createRestCommandFromAction,
+  createDeclareRestCommandFromAction,
+  createCompleteRestCommandFromAction,
   createAnnounceEndOfRoundCommandFromAction,
 } from "./turn.js";
 
@@ -212,6 +218,8 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [PLAY_CARD_SIDEWAYS_ACTION]: createPlayCardSidewaysCommandFromAction,
   [RESOLVE_CHOICE_ACTION]: createResolveChoiceCommandFromAction,
   [REST_ACTION]: createRestCommandFromAction,
+  [DECLARE_REST_ACTION]: createDeclareRestCommandFromAction,
+  [COMPLETE_REST_ACTION]: createCompleteRestCommandFromAction,
   [ENTER_COMBAT_ACTION]: createEnterCombatCommandFromAction,
   [CHALLENGE_RAMPAGING_ACTION]: createChallengeRampagingCommandFromAction,
   [END_COMBAT_PHASE_ACTION]: createEndCombatPhaseCommandFromAction,

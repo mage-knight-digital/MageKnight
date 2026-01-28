@@ -36,7 +36,13 @@ import {
   TACTIC_DECISION_RESOLVED,
   SOURCE_DICE_REROLLED,
 } from "./activation.js";
-import { DECKS_RESHUFFLED, PLAYER_RESTED, REST_UNDONE } from "./rest.js";
+import {
+  DECKS_RESHUFFLED,
+  PLAYER_RESTED,
+  REST_UNDONE,
+  REST_DECLARED,
+  REST_DECLARE_UNDONE,
+} from "./rest.js";
 
 /**
  * Check if an event is any tactics-related event.
@@ -52,5 +58,7 @@ export function isTacticsEvent(event: { type: string }): boolean {
     DECKS_RESHUFFLED,
     PLAYER_RESTED,
     REST_UNDONE,
+    REST_DECLARED,
+    REST_DECLARE_UNDONE,
   ].includes(event.type as typeof TACTIC_SELECTED);
 }

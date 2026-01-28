@@ -268,6 +268,10 @@ export interface Player {
   // Magical Glade wound discard choice pending (when wounds exist in both hand and discard)
   readonly pendingGladeWoundChoice: boolean;
 
+  // Resting state: true when player has declared rest but not yet completed it
+  // While resting, movement/combat/interaction are blocked but cards can still be played
+  readonly isResting: boolean;
+
   // Deep Mine crystal color choice pending (when ending turn on a deep mine with multiple colors)
   readonly pendingDeepMineChoice: readonly import("./map.js").MineColor[] | null;
 

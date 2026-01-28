@@ -3,6 +3,7 @@ import {
   END_TURN_ACTION,
   UNDO_ACTION,
   ACTIVATE_TACTIC_ACTION,
+  DECLARE_REST_ACTION,
   TACTIC_THE_RIGHT_MOMENT,
   TACTIC_LONG_NIGHT,
   TACTIC_MIDNIGHT_MEDITATION,
@@ -72,6 +73,10 @@ export function TurnActions() {
   const canActivateLongNight = canActivate?.longNight === true;
   const canActivateMidnightMeditation = canActivate?.midnightMeditation === true;
 
+  // Check for rest options
+  const canDeclareRest = state?.validActions.turn?.canDeclareRest ?? false;
+  const isResting = state?.validActions.turn?.isResting ?? false;
+
   // Ctrl+Z / Cmd+Z keyboard shortcut for undo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -113,6 +118,10 @@ export function TurnActions() {
       type: ACTIVATE_TACTIC_ACTION,
       tacticId: TACTIC_MIDNIGHT_MEDITATION,
     });
+  };
+
+  const handleDeclareRest = () => {
+    sendAction({ type: DECLARE_REST_ACTION });
   };
 
   // Build seal class names based on intro animation state
@@ -177,6 +186,28 @@ export function TurnActions() {
             >
               Meditation
             </button>
+          )}
+
+          {/* Rest button */}
+          {canDeclareRest && (
+            <button
+              className="turn-actions__btn turn-actions__btn--rest"
+              onClick={handleDeclareRest}
+              type="button"
+              title="Declare rest - discard cards to cycle your deck"
+            >
+              Rest
+            </button>
+          )}
+
+          {/* Resting indicator */}
+          {isResting && (
+            <span
+              className="turn-actions__status turn-actions__status--resting"
+              title="Resting - select cards to discard, then end turn"
+            >
+              Resting...
+            </span>
           )}
 
           {/* Undo button */}

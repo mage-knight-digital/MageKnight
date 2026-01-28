@@ -516,8 +516,15 @@ export interface TurnOptions {
   readonly canEndTurn: boolean;
   readonly canAnnounceEndOfRound: boolean;
   readonly canUndo: boolean;
+  /** @deprecated Use canDeclareRest instead */
   readonly canRest: boolean;
   readonly restTypes: readonly RestType[] | undefined;
+  /** Can declare intent to rest (enters resting state) */
+  readonly canDeclareRest: boolean;
+  /** Can complete rest with card discards (when already in resting state) */
+  readonly canCompleteRest: boolean;
+  /** Whether player is currently in resting state */
+  readonly isResting: boolean;
 }
 
 // ============================================================================
