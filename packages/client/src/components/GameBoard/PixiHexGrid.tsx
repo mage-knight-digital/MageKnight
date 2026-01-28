@@ -59,12 +59,14 @@ import {
 export interface PixiHexGridProps {
   /** Callback when user wants to navigate to unit offer panel */
   onNavigateToUnitOffer?: () => void;
+  /** Callback when user wants to navigate to spell offer panel */
+  onNavigateToSpellOffer?: () => void;
 }
 
 /**
  * PixiJS Hex Grid Component
  */
-export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
+export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: PixiHexGridProps = {}) {
   // Refs for PixiJS objects
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
@@ -191,16 +193,14 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
         console.log("Heal action - not yet implemented");
         break;
       case "recruit":
-        // TODO: Open offers view to units tab
-        console.log("Recruit action - open offers view");
+        onNavigateToUnitOffer?.();
         break;
       case "buySpell":
-        // TODO: Open offers view to spells tab
-        console.log("Buy spell action - open offers view");
+        onNavigateToSpellOffer?.();
         break;
       case "buyAA":
-        // TODO: Open offers view to AA tab
-        console.log("Buy AA action - open offers view");
+        // Monastery AAs are shown in the units pane alongside regular units
+        onNavigateToUnitOffer?.();
         break;
       case "burn":
         sendAction({ type: BURN_MONASTERY_ACTION });
@@ -210,7 +210,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer }: PixiHexGridProps = {}) {
         break;
     }
     handleCloseSiteActionList();
-  }, [sendAction, player?.position, handleOpenSitePanel, handleCloseSiteActionList]);
+  }, [sendAction, player?.position, handleOpenSitePanel, handleCloseSiteActionList, onNavigateToUnitOffer, onNavigateToSpellOffer]);
 
   // Calculate screen position for hero (for action list)
   const getHeroScreenPosition = useCallback((): { x: number; y: number } | null => {
