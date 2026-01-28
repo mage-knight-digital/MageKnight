@@ -151,6 +151,8 @@ import type {
   DecksReshuffledEvent,
   PlayerRestedEvent,
   RestUndoneEvent,
+  RestDeclaredEvent,
+  RestDeclareUndoneEvent,
 } from "./tactics.js";
 
 import type {
@@ -315,6 +317,8 @@ export type GameEvent =
   | DecksReshuffledEvent
   | PlayerRestedEvent
   | RestUndoneEvent
+  | RestDeclaredEvent
+  | RestDeclareUndoneEvent
   // Movement
   | PlayerMovedEvent
   | TileRevealedEvent

@@ -188,3 +188,100 @@ export function createRestUndoneEvent(playerId: string): RestUndoneEvent {
     playerId,
   };
 }
+
+// ============================================================================
+// REST_DECLARED
+// ============================================================================
+
+/**
+ * Event type constant for rest declaration.
+ * @see RestDeclaredEvent
+ */
+export const REST_DECLARED = "REST_DECLARED" as const;
+
+/**
+ * Emitted when a player declares they are resting.
+ *
+ * Per FAQ p.30: "When you Rest, you don't declare which kind of Rest you're doing
+ * (Standard Rest or Slow Recovery): you merely announce that you're Resting."
+ *
+ * While resting:
+ * - Movement is blocked
+ * - Combat initiation is blocked
+ * - Interaction is blocked
+ * - Card play is still allowed (healing, special effects, influence for AAs)
+ *
+ * @remarks
+ * - Player enters isResting state
+ * - Can still play cards before completing rest
+ * - Must complete rest with COMPLETE_REST action before ending turn
+ * - Triggers: DECLARE_REST_ACTION
+ */
+export interface RestDeclaredEvent {
+  readonly type: typeof REST_DECLARED;
+  /** ID of the player who declared rest */
+  readonly playerId: string;
+}
+
+/**
+ * Creates a RestDeclaredEvent.
+ *
+ * @param playerId - ID of the player
+ * @returns A new RestDeclaredEvent
+ */
+export function createRestDeclaredEvent(playerId: string): RestDeclaredEvent {
+  return {
+    type: REST_DECLARED,
+    playerId,
+  };
+}
+
+/**
+ * Type guard for RestDeclaredEvent.
+ */
+export function isRestDeclaredEvent(event: {
+  type: string;
+}): event is RestDeclaredEvent {
+  return event.type === REST_DECLARED;
+}
+
+// ============================================================================
+// REST_DECLARE_UNDONE
+// ============================================================================
+
+/**
+ * Event type constant for rest declaration undo.
+ * @see RestDeclareUndoneEvent
+ */
+export const REST_DECLARE_UNDONE = "REST_DECLARE_UNDONE" as const;
+
+/**
+ * Emitted when a rest declaration is undone.
+ *
+ * Player exits resting state and can take regular actions again.
+ *
+ * @remarks
+ * - Restores isResting to false
+ * - Player can now move, fight, interact again
+ * - Triggers: UNDO_ACTION after DECLARE_REST_ACTION
+ */
+export interface RestDeclareUndoneEvent {
+  readonly type: typeof REST_DECLARE_UNDONE;
+  /** ID of the player whose rest declaration was undone */
+  readonly playerId: string;
+}
+
+/**
+ * Creates a RestDeclareUndoneEvent.
+ *
+ * @param playerId - ID of the player
+ * @returns A new RestDeclareUndoneEvent
+ */
+export function createRestDeclareUndoneEvent(
+  playerId: string
+): RestDeclareUndoneEvent {
+  return {
+    type: REST_DECLARE_UNDONE,
+    playerId,
+  };
+}

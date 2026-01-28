@@ -34,12 +34,18 @@ function isWoundCard(cardId: string): boolean {
  * Get available turn options for a player.
  */
 export function getTurnOptions(state: GameState, player: Player): TurnOptions {
+  const canDeclareRest = checkCanDeclareRest(state, player);
+  const canCompleteRest = checkCanCompleteRest(state, player);
+
   return {
     canEndTurn: checkCanEndTurn(state, player),
     canAnnounceEndOfRound: checkCanAnnounceEndOfRound(state, player),
     canUndo: canUndo(state.commandStack),
-    canRest: checkCanRest(state, player),
+    canRest: canDeclareRest, // Legacy field - maps to canDeclareRest
     restTypes: getAvailableRestTypes(player),
+    canDeclareRest,
+    canCompleteRest,
+    isResting: player.isResting,
   };
 }
 
@@ -87,12 +93,20 @@ function checkCanAnnounceEndOfRound(state: GameState, player: Player): boolean {
 }
 
 /**
- * Check if player can rest at all.
+ * Check if player can declare rest (enter resting state).
  * Requirements:
- * - Has cards in hand to discard
+ * - Not already resting
  * - Not in combat
+ * - Has cards in hand
+ * - Hasn't taken an action yet this turn
+ * - Hasn't moved this turn (rest replaces entire turn, not just action phase)
  */
-function checkCanRest(state: GameState, player: Player): boolean {
+function checkCanDeclareRest(state: GameState, player: Player): boolean {
+  // Already resting
+  if (player.isResting) {
+    return false;
+  }
+
   // Can't rest in combat
   if (state.combat !== null) {
     return false;
@@ -103,6 +117,34 @@ function checkCanRest(state: GameState, player: Player): boolean {
     return false;
   }
 
+  // Can't declare rest if already taken an action
+  if (player.hasTakenActionThisTurn) {
+    return false;
+  }
+
+  // Can't rest after moving - rest replaces entire turn (no movement phase)
+  if (player.hasMovedThisTurn) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Check if player can complete rest (discard cards to finish resting).
+ * Requirements:
+ * - Currently in resting state
+ * - Has cards in hand to discard
+ */
+function checkCanCompleteRest(_state: GameState, player: Player): boolean {
+  // Must be resting to complete
+  if (!player.isResting) {
+    return false;
+  }
+
+  // Need cards to discard (or can complete with 0 if all wounds were healed)
+  // Actually, per the rules, you can complete rest even if you played all non-wounds
+  // and healed all wounds during rest - FAQ Q2 A2
   return true;
 }
 

@@ -225,6 +225,7 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
     hasTakenActionThisTurn: player.hasTakenActionThisTurn,
     usedManaFromSource: player.usedManaFromSource,
     playedCardFromHandThisTurn: player.playedCardFromHandThisTurn,
+    isResting: player.isResting,
 
     knockedOut: player.knockedOut,
     selectedTacticId: player.selectedTactic,
@@ -812,6 +813,7 @@ playedCardFromHandThisTurn: false,
       pendingDeepMineChoice: null,
       healingPoints: 0,
       removedCards: [],
+      isResting: false,
     };
 
     return { player, rng: newRng };

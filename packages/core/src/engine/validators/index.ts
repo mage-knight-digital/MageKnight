@@ -14,6 +14,8 @@ import {
   UNDO_ACTION,
   RESOLVE_CHOICE_ACTION,
   REST_ACTION,
+  DECLARE_REST_ACTION,
+  COMPLETE_REST_ACTION,
   ENTER_COMBAT_ACTION,
   CHALLENGE_RAMPAGING_ACTION,
   END_COMBAT_PHASE_ACTION,
@@ -111,6 +113,16 @@ import {
   validateRestCardsInHand,
   validateStandardRest,
   validateSlowRecovery,
+  // Two-phase rest validators
+  validateNotAlreadyResting,
+  validateNotMovedForRest,
+  validateIsResting,
+  validateCompleteRestDiscard,
+  validateNotRestingForMovement,
+  validateNotRestingForCombat,
+  validateNotRestingForInteraction,
+  validateNotRestingForEnterSite,
+  validateRestCompleted,
 } from "./restValidators.js";
 
 // Combat validators
@@ -288,6 +300,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoChoicePending, // Must resolve pending choice first
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotRestingForMovement, // Cannot move while resting (FAQ S3)
     validateHasNotActed, // Must move BEFORE taking action
     validatePlayerOnMap,
     validateTargetAdjacent,
@@ -309,6 +322,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingRewards, // Must select rewards before ending turn
     validateNoPendingLevelUpRewards, // Must select level up rewards before ending turn
+    validateRestCompleted, // Must complete rest if resting
     validateMinimumTurnRequirement, // Must play or discard at least one card from hand
   ],
   [EXPLORE_ACTION]: [
@@ -318,6 +332,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoChoicePending, // Must resolve pending choice first
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotRestingForMovement, // Cannot explore while resting (movement action)
     validateHasNotActed,
     validatePlayerOnMapForExplore,
     validateOnEdgeHex,
@@ -360,6 +375,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateHasPendingChoice,
     validateChoiceIndex,
   ],
+  // Legacy REST_ACTION - kept for backward compatibility
   [REST_ACTION]: [
     validateIsPlayersTurn,
     validateRoundPhase,
@@ -372,6 +388,26 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateStandardRest, // Checks standard rest rules (exactly one non-wound)
     validateSlowRecovery, // Checks slow recovery rules (all wounds in hand)
   ],
+  // NEW: Two-phase rest (per FAQ p.30)
+  [DECLARE_REST_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateNoPendingLevelUpRewards,
+    validateMustAnnounceEndOfRound,
+    validateHasNotActed, // Can only declare rest if haven't taken action
+    validateNotMovedForRest, // Can't rest after moving - rest replaces entire turn
+    validateNotAlreadyResting, // Can't declare rest twice
+  ],
+  [COMPLETE_REST_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateIsResting, // Must have declared rest first
+    validateCompleteRestDiscard, // Validates discard based on hand state
+  ],
   // Combat actions
   [ENTER_COMBAT_ACTION]: [
     validateIsPlayersTurn,
@@ -379,6 +415,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoChoicePending,
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotRestingForCombat, // Cannot enter combat while resting (FAQ S3)
     validateNotAlreadyInCombat,
     validateOneCombatPerTurn, // Can only have one combat per turn
   ],
@@ -387,6 +424,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateRoundPhase,
     validateNoChoicePending,
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotRestingForCombat, // Cannot challenge while resting (FAQ S3)
     validateChallengePlayerOnMap,
     validateChallengeNotInCombat, // Can't challenge while in combat
     validateNoCombatThisTurn, // One combat per turn rule
@@ -468,6 +506,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoChoicePending,
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotRestingForInteraction, // Cannot interact with sites while resting (FAQ S5)
     validateHasNotActed,
     validateAtInhabitedSite,
     validateSiteAccessible,
@@ -500,6 +539,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNotInCombat,
     validateNoChoicePending,
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotRestingForEnterSite, // Cannot enter sites while resting
     validateHasNotActed, // Must not have taken action this turn
     validateAtAdventureSite,
     validateSiteNotConquered,

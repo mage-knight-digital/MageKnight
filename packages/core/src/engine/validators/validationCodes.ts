@@ -51,6 +51,17 @@ export const SLOW_RECOVERY_INVALID = "SLOW_RECOVERY_INVALID" as const;
 export const SLOW_RECOVERY_ONE_WOUND = "SLOW_RECOVERY_ONE_WOUND" as const;
 export const SLOW_RECOVERY_MUST_BE_WOUND = "SLOW_RECOVERY_MUST_BE_WOUND" as const;
 
+// Two-phase rest validation codes (new state-based resting)
+export const CANNOT_MOVE_WHILE_RESTING = "CANNOT_MOVE_WHILE_RESTING" as const;
+export const CANNOT_FIGHT_WHILE_RESTING = "CANNOT_FIGHT_WHILE_RESTING" as const;
+export const CANNOT_INTERACT_WHILE_RESTING = "CANNOT_INTERACT_WHILE_RESTING" as const;
+export const CANNOT_ENTER_SITE_WHILE_RESTING = "CANNOT_ENTER_SITE_WHILE_RESTING" as const;
+export const MUST_COMPLETE_REST = "MUST_COMPLETE_REST" as const;
+export const ALREADY_RESTING = "ALREADY_RESTING" as const;
+export const NOT_RESTING = "NOT_RESTING" as const;
+export const SLOW_RECOVERY_NO_DISCARD_ALLOWED = "SLOW_RECOVERY_NO_DISCARD_ALLOWED" as const;
+export const CANNOT_REST_AFTER_MOVING = "CANNOT_REST_AFTER_MOVING" as const;
+
 // Mana validation codes
 export const DIE_ALREADY_USED = "DIE_ALREADY_USED" as const;
 export const DIE_NOT_FOUND = "DIE_NOT_FOUND" as const;
@@ -215,6 +226,16 @@ export type ValidationErrorCode =
   | typeof SLOW_RECOVERY_INVALID
   | typeof SLOW_RECOVERY_ONE_WOUND
   | typeof SLOW_RECOVERY_MUST_BE_WOUND
+  // Two-phase rest validation (new state-based resting)
+  | typeof CANNOT_MOVE_WHILE_RESTING
+  | typeof CANNOT_FIGHT_WHILE_RESTING
+  | typeof CANNOT_INTERACT_WHILE_RESTING
+  | typeof CANNOT_ENTER_SITE_WHILE_RESTING
+  | typeof MUST_COMPLETE_REST
+  | typeof ALREADY_RESTING
+  | typeof NOT_RESTING
+  | typeof SLOW_RECOVERY_NO_DISCARD_ALLOWED
+  | typeof CANNOT_REST_AFTER_MOVING
   // Mana validation
   | typeof DIE_ALREADY_USED
   | typeof DIE_NOT_FOUND

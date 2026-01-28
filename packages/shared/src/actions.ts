@@ -60,6 +60,10 @@ export interface EndTurnAction {
   readonly type: typeof END_TURN_ACTION;
 }
 
+/**
+ * @deprecated Use DECLARE_REST_ACTION and COMPLETE_REST_ACTION instead.
+ * Kept for backward compatibility with existing tests.
+ */
 export const REST_ACTION = "REST" as const;
 
 // Rest type constants
@@ -68,9 +72,39 @@ export const REST_TYPE_SLOW_RECOVERY = "slow_recovery" as const;
 
 export type RestType = typeof REST_TYPE_STANDARD | typeof REST_TYPE_SLOW_RECOVERY;
 
+/**
+ * @deprecated Use DeclareRestAction and CompleteRestAction instead.
+ * Kept for backward compatibility with existing tests.
+ */
 export interface RestAction {
   readonly type: typeof REST_ACTION;
   readonly restType: RestType;
+  readonly discardCardIds: readonly CardId[];
+  readonly announceEndOfRound?: boolean; // Signal to other players
+}
+
+// New two-phase rest actions (per rulebook FAQ p.30)
+// Resting is a STATE where player can still play cards before completing
+
+export const DECLARE_REST_ACTION = "DECLARE_REST" as const;
+/**
+ * Declares intent to rest. Enters isResting state.
+ * While resting: movement, combat initiation, and interaction are blocked.
+ * Card play is still allowed (healing, special effects, influence for AAs).
+ */
+export interface DeclareRestAction {
+  readonly type: typeof DECLARE_REST_ACTION;
+}
+
+export const COMPLETE_REST_ACTION = "COMPLETE_REST" as const;
+/**
+ * Completes the rest by discarding cards.
+ * Rest type is determined automatically based on hand at completion:
+ * - Standard Rest: exactly 1 non-wound + any wounds (if hand has non-wounds)
+ * - Slow Recovery: exactly 1 wound (if hand has only wounds OR all wounds healed)
+ */
+export interface CompleteRestAction {
+  readonly type: typeof COMPLETE_REST_ACTION;
   readonly discardCardIds: readonly CardId[];
   readonly announceEndOfRound?: boolean; // Signal to other players
 }
@@ -453,7 +487,9 @@ export type PlayerAction =
   | PlunderVillageAction
   // Turn structure
   | EndTurnAction
-  | RestAction
+  | RestAction // @deprecated - use DeclareRestAction + CompleteRestAction
+  | DeclareRestAction
+  | CompleteRestAction
   | InteractAction
   | AnnounceEndOfRoundAction
   // Card playing

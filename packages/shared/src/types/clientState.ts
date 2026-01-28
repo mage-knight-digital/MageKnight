@@ -130,6 +130,7 @@ export interface ClientPlayer {
   readonly hasTakenActionThisTurn: boolean;
   readonly usedManaFromSource: boolean;
   readonly playedCardFromHandThisTurn: boolean; // Minimum turn requirement tracking
+  readonly isResting: boolean; // True when player has declared rest but not completed it
 
   // Round state
   readonly knockedOut: boolean;

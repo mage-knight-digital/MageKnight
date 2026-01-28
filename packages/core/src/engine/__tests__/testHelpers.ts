@@ -145,6 +145,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingDeepMineChoice: null,
     healingPoints: 0,
     removedCards: [],
+    isResting: false,
     ...rest,
   };
 }
