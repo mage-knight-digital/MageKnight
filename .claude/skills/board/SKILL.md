@@ -60,7 +60,23 @@ Present the board status in a clear format:
 ...
 ```
 
-### 5. Highlight Key Info
+### 5. Show Epic Progress
+
+List any issues with the `epic` label separately, showing sub-issue progress:
+
+```bash
+# Get epics
+gh issue list --label "epic" --state open --json number,title
+```
+
+Display as:
+```
+## Epics
+- #91 Epic: All Spell Cards (8/36 sub-issues)
+- #XX Epic: All Advanced Actions (0/24 sub-issues)
+```
+
+### 6. Highlight Key Info
 
 Call out:
 - Any P0-critical issues (these need immediate attention)

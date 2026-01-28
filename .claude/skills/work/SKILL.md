@@ -26,7 +26,19 @@ gh issue list --label "P0-critical" --state open --limit 1
 gh issue list --label "P1-high" --state open --limit 1
 ```
 
-### 2. Move to In Progress
+### 2. Check for Epic Label
+
+If the issue has the `epic` label, **do not start work on it directly**. Instead:
+- Inform the user this is an epic (parent issue)
+- List its sub-issues if any exist
+- Recommend picking a sub-issue to work on instead
+
+```bash
+# Check if issue has epic label
+gh issue view ISSUE_NUM --json labels --jq '.labels[].name' | grep -q "^epic$"
+```
+
+### 3. Move to In Progress
 
 Update the project board status to prevent other agents from grabbing the same issue:
 
@@ -43,24 +55,24 @@ gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field
 
 Replace `ISSUE_NUM` with the actual issue number.
 
-### 3. Add Comment
+### 4. Add Comment
 
 ```bash
 gh issue comment ISSUE_NUM --body "Starting work on this issue."
 ```
 
-### 4. Gather Context
+### 5. Gather Context
 
 - Read the issue body thoroughly
 - If issue references a markdown spec in `docs/tickets/`, read that file
 - Identify affected files from the issue description
 - Read relevant source files to understand current implementation
 
-### 5. Create Implementation Plan
+### 6. Create Implementation Plan
 
 Use the TodoWrite tool to create a task list based on the issue's acceptance criteria.
 
-### 6. Begin Implementation
+### 7. Begin Implementation
 
 Start working through the task list, implementing the changes.
 

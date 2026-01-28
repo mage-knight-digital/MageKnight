@@ -41,6 +41,7 @@ Issues are tracked in [GitHub Projects](https://github.com/users/eshaffer321/pro
 **Area:** `area:combat`, `area:cards`, `area:mana`, `area:turn`, `area:rest`, `area:movement`, `area:units`, `area:sites`, `area:ui`
 **Complexity:** `complexity:low`, `complexity:medium`, `complexity:high`
 **Status:** `needs-refinement` (stub tickets needing details)
+**Scope:** `epic` (parent issue tracking a large feature via sub-issues)
 
 ### Workflow
 

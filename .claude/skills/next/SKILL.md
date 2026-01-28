@@ -21,7 +21,9 @@ gh issue list --state open --limit 100 --json number,title,labels,body
 gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq '[.items[] | select(.status == "In Progress") | .content.number]'
 ```
 
-**Important:** Exclude issues that are already "In Progress" on the project board - another agent may be working on them.
+**Important:**
+- Exclude issues that are already "In Progress" on the project board - another agent may be working on them.
+- Exclude issues with the `epic` label - these are parent issues tracked via sub-issues, not worked on directly.
 
 ### 2. Apply Recommendation Logic
 
