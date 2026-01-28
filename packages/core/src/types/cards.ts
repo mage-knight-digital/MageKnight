@@ -368,7 +368,12 @@ export interface DeedCard {
   readonly poweredBy: readonly ManaColor[];
 
   // Card categories (symbols shown in top-left corner of card art)
+  // For spells, this is the category for the basic effect
   readonly categories: readonly CardCategory[];
+
+  // Category for powered effect (spells only, if different from basic)
+  // If not set, powered effect uses the same categories as basic
+  readonly poweredCategories?: readonly CardCategory[];
 
   // Basic effect (play without mana)
   readonly basicEffect: CardEffect;
