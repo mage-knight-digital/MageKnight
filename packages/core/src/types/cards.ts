@@ -52,13 +52,15 @@ export const CARD_CATEGORY_COMBAT = "combat" as const; // crossed swords symbol
 export const CARD_CATEGORY_INFLUENCE = "influence" as const; // head symbol
 export const CARD_CATEGORY_HEALING = "healing" as const; // hand symbol
 export const CARD_CATEGORY_SPECIAL = "special" as const; // compass/star symbol
+export const CARD_CATEGORY_ACTION = "action" as const; // A symbol (counts as turn action)
 
 export type CardCategory =
   | typeof CARD_CATEGORY_MOVEMENT
   | typeof CARD_CATEGORY_COMBAT
   | typeof CARD_CATEGORY_INFLUENCE
   | typeof CARD_CATEGORY_HEALING
-  | typeof CARD_CATEGORY_SPECIAL;
+  | typeof CARD_CATEGORY_SPECIAL
+  | typeof CARD_CATEGORY_ACTION;
 
 export type DeedCardType =
   | typeof DEED_CARD_TYPE_BASIC_ACTION
