@@ -18,3 +18,4 @@ export const ENEMY_ABILITY_POISON = "poison" as const;
 export const ENEMY_ABILITY_PARALYZE = "paralyze" as const;
 export const ENEMY_ABILITY_SUMMON = "summon" as const;
 export const ENEMY_ABILITY_RESISTANCE = "resistance" as const;
+export const ENEMY_ABILITY_ASSASSINATION = "assassination" as const;
