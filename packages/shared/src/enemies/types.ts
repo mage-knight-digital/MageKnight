@@ -58,6 +58,25 @@ export type EnemyColor =
   | typeof ENEMY_COLOR_WHITE;
 
 // =============================================================================
+// ENEMY FACTIONS
+// =============================================================================
+
+/**
+ * Elementalist faction - enemies associated with the Elementalist expansion
+ */
+export const FACTION_ELEMENTALIST = "elementalist" as const;
+
+/**
+ * Dark Crusaders faction - enemies associated with the Dark Crusaders expansion
+ */
+export const FACTION_DARK_CRUSADERS = "dark_crusaders" as const;
+
+/**
+ * Enemy faction type - optional grouping for expansion-specific enemies
+ */
+export type Faction = typeof FACTION_ELEMENTALIST | typeof FACTION_DARK_CRUSADERS;
+
+// =============================================================================
 // ENEMY RESISTANCES
 // =============================================================================
 
@@ -87,6 +106,7 @@ export interface EnemyDefinition {
   readonly fame: number;
   readonly resistances: EnemyResistances;
   readonly abilities: readonly EnemyAbilityType[];
+  readonly faction?: Faction;
 }
 
 // =============================================================================

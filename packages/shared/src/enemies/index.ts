@@ -41,6 +41,7 @@ export type {
   EnemyDefinition,
   EnemyColor,
   EnemyId,
+  Faction,
 } from "./types.js";
 
 export {
@@ -50,6 +51,8 @@ export {
   ENEMY_COLOR_VIOLET,
   ENEMY_COLOR_RED,
   ENEMY_COLOR_WHITE,
+  FACTION_ELEMENTALIST,
+  FACTION_DARK_CRUSADERS,
 } from "./types.js";
 
 // =============================================================================
