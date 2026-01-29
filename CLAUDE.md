@@ -28,7 +28,7 @@ Issues are tracked in [GitHub Projects](https://github.com/users/eshaffer321/pro
 | Skill | Purpose | Example |
 |-------|---------|---------|
 | `/ticket` | Create new issue from investigation | `/ticket wounds don't shuffle properly` |
-| `/card-ticket` | Quick ticket for card issues | `/card-ticket Fireball - boost damage wrong` |
+| `/link` | Link issues as sub-issues or blockers | `/link #45 to #103` or `/link #45 blocked by #108` |
 | `/work` | Start working on an issue | `/work #32` or `/work` (picks next) |
 | `/done` | Complete work, create PR | `/done` |
 | `/board` | View project board status | `/board` |
