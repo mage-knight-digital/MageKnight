@@ -169,6 +169,7 @@ export function allowsMultipleHeroes(siteType: SiteType): boolean {
 export const HEALING_COSTS: Partial<Record<SiteType, number>> = {
   [SiteType.Village]: 3, // 3 influence = 1 healing
   [SiteType.Monastery]: 2, // 2 influence = 1 healing (cheaper)
+  [SiteType.RefugeeCamp]: 3, // 3 influence = 1 healing (same as Village)
 };
 
 /**

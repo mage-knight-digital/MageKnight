@@ -19,6 +19,7 @@ import {
   RECRUIT_SITE_MAGE_TOWER,
   RECRUIT_SITE_MONASTERY,
   RECRUIT_SITE_CITY,
+  RECRUIT_SITE_CAMP,
 } from "@mage-knight/shared";
 import {
   NO_COMMAND_SLOTS,
@@ -32,6 +33,7 @@ import {
 import { getPlayerSite } from "../../helpers/siteHelpers.js";
 import { SITE_PROPERTIES } from "../../../data/siteProperties.js";
 import { SiteType } from "../../../types/map.js";
+import { getRefugeeCampCostModifier } from "../../validActions/units/recruitment.js";
 
 /**
  * Map site types to recruit site constants
@@ -48,6 +50,8 @@ function siteTypeToRecruitSite(siteType: SiteType): RecruitSite | null {
       return RECRUIT_SITE_MONASTERY;
     case SiteType.City:
       return RECRUIT_SITE_CITY;
+    case SiteType.RefugeeCamp:
+      return RECRUIT_SITE_CAMP;
     default:
       return null;
   }
@@ -77,20 +81,29 @@ export function validateCommandSlots(
 }
 
 /**
- * Check influence cost is met
+ * Check influence cost is met.
+ * At Refugee Camp, the tiered cost modifier is added to the base cost.
  */
 export function validateInfluenceCost(
-  _state: GameState,
-  _playerId: string,
+  state: GameState,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== RECRUIT_UNIT_ACTION) return valid();
 
   const unitDef = getUnit(action.unitId);
-  if (action.influenceSpent < unitDef.influence) {
+  let requiredCost = unitDef.influence;
+
+  // Add Refugee Camp tiered cost modifier if applicable
+  const site = getPlayerSite(state, playerId);
+  if (site?.type === SiteType.RefugeeCamp) {
+    requiredCost += getRefugeeCampCostModifier(unitDef);
+  }
+
+  if (action.influenceSpent < requiredCost) {
     return invalid(
       INSUFFICIENT_INFLUENCE,
-      `Unit costs ${unitDef.influence} influence, only ${action.influenceSpent} provided`
+      `Unit costs ${requiredCost} influence, only ${action.influenceSpent} provided`
     );
   }
 
@@ -143,6 +156,11 @@ export function validateUnitTypeMatchesSite(
 
   // White cities allow all unit types
   if (site.type === SiteType.City && site.cityColor === "white") {
+    return valid();
+  }
+
+  // Refugee Camp allows all unit types (with tiered costs, handled elsewhere)
+  if (site.type === SiteType.RefugeeCamp) {
     return valid();
   }
 

@@ -19,10 +19,12 @@ import {
   RECRUIT_SITE_MAGE_TOWER,
   RECRUIT_SITE_MONASTERY,
   RECRUIT_SITE_CITY,
+  RECRUIT_SITE_CAMP,
   MIN_REPUTATION,
   MAX_REPUTATION,
   type RecruitSite,
   type UnitId,
+  type UnitDefinition,
 } from "@mage-knight/shared";
 import { SiteType } from "../../../types/map.js";
 
@@ -60,6 +62,7 @@ export function getReputationCostModifier(reputation: number): number {
 /**
  * Map site type to recruit site constant.
  * Returns null if the site type doesn't support recruitment.
+ * Note: RefugeeCamp returns "camp" - it can recruit any unit but with tiered costs.
  */
 export function siteTypeToRecruitSite(siteType: SiteType): RecruitSite | null {
   switch (siteType) {
@@ -73,6 +76,8 @@ export function siteTypeToRecruitSite(siteType: SiteType): RecruitSite | null {
       return RECRUIT_SITE_MONASTERY;
     case SiteType.City:
       return RECRUIT_SITE_CITY;
+    case SiteType.RefugeeCamp:
+      return RECRUIT_SITE_CAMP;
     default:
       return null;
   }
@@ -82,6 +87,7 @@ export function siteTypeToRecruitSite(siteType: SiteType): RecruitSite | null {
  * Check if a site is accessible for recruitment.
  *
  * Villages are always accessible.
+ * Refugee Camps are always accessible (like Villages).
  * Keeps/Mage Towers must be conquered by the player.
  * Cities must be conquered (any player).
  * Monasteries must not be burned and must be conquered if fortified.
@@ -95,7 +101,8 @@ export function isSiteAccessibleForRecruitment(
 ): boolean {
   switch (siteType) {
     case SiteType.Village:
-      // Villages are always accessible
+    case SiteType.RefugeeCamp:
+      // Villages and Refugee Camps are always accessible
       return true;
 
     case SiteType.Keep:
@@ -123,6 +130,41 @@ export function isSiteAccessibleForRecruitment(
  */
 export function getUsedCommandTokens(player: Player): number {
   return player.units.length;
+}
+
+/**
+ * Calculate the tiered recruitment cost modifier for a unit at a Refugee Camp.
+ *
+ * Per rulebook:
+ * - Village-recruitable units: +0 (normal cost)
+ * - Keep/MageTower/Monastery-recruitable units (not Village): +1
+ * - City-only units: +3
+ *
+ * For units recruitable at multiple sites, use the cheapest applicable cost (lowest tier).
+ */
+export function getRefugeeCampCostModifier(unit: UnitDefinition): number {
+  // Check sites in order of cost tier (cheapest first)
+  // Tier 0: Village = +0
+  if (unit.recruitSites.includes(RECRUIT_SITE_VILLAGE)) {
+    return 0;
+  }
+
+  // Tier 1: Keep, Mage Tower, or Monastery = +1
+  if (
+    unit.recruitSites.includes(RECRUIT_SITE_KEEP) ||
+    unit.recruitSites.includes(RECRUIT_SITE_MAGE_TOWER) ||
+    unit.recruitSites.includes(RECRUIT_SITE_MONASTERY)
+  ) {
+    return 1;
+  }
+
+  // Tier 2: City-only = +3
+  if (unit.recruitSites.includes(RECRUIT_SITE_CITY)) {
+    return 3;
+  }
+
+  // Fallback (shouldn't happen for valid units)
+  return 0;
 }
 
 /**
@@ -178,19 +220,31 @@ export function getUnitOptions(
 
   // Build list of recruitable units from the offer
   const recruitable: RecruitableUnit[] = [];
+  const isRefugeeCamp = hex.site.type === SiteType.RefugeeCamp;
 
   for (const unitId of state.offers.units) {
     const unit = UNITS[unitId as UnitId];
     if (!unit) continue;
 
-    // Check if unit can be recruited at this site type
-    if (!unit.recruitSites.includes(recruitSite)) {
+    // At Refugee Camp, all units can be recruited with tiered costs
+    // At other sites, only units with matching recruitSites can be recruited
+    if (!isRefugeeCamp && !unit.recruitSites.includes(recruitSite)) {
       continue;
     }
 
-    // Calculate cost with reputation modifier (minimum 0)
+    // Calculate base cost
     const baseCost = unit.influence;
-    const adjustedCost = Math.max(0, baseCost + reputationModifier);
+
+    // Add Refugee Camp tiered cost modifier if applicable
+    const refugeeCampModifier = isRefugeeCamp
+      ? getRefugeeCampCostModifier(unit)
+      : 0;
+
+    // Calculate final cost with reputation modifier (minimum 0)
+    const adjustedCost = Math.max(
+      0,
+      baseCost + refugeeCampModifier + reputationModifier
+    );
 
     // Check if player can afford it
     const canAfford =
