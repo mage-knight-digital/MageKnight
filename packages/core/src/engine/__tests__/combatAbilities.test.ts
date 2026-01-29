@@ -19,13 +19,16 @@ import {
   ENEMY_MEDUSA,
   ENEMY_FREEZERS,
   ENEMY_DIGGERS,
+  ENEMY_SORCERERS,
   CARD_WOUND,
   CARD_MARCH,
   CARD_RAGE,
   CARD_STAMINA,
   ELEMENT_PHYSICAL,
   ABILITY_PARALYZE,
+  ABILITY_ASSASSINATION,
   DAMAGE_TARGET_UNIT,
+  DAMAGE_TARGET_HERO,
   UNIT_DESTROY_REASON_PARALYZE,
   UNIT_PEASANTS,
   UNIT_FORESTERS,
@@ -442,6 +445,221 @@ describe("Combat Abilities", () => {
           })
         );
       });
+    });
+  });
+
+  describe("Assassination ability", () => {
+    it("should prevent assigning damage to units from enemy with Assassination", () => {
+      const player = createTestPlayer({
+        hand: [],
+        deck: [CARD_MARCH],
+        handLimit: 5,
+        armor: 2,
+        units: [
+          {
+            unitId: UNIT_PEASANTS,
+            instanceId: "unit_0",
+            ready: true,
+            wounded: false,
+            usedResistanceThisCombat: false,
+          },
+        ],
+      });
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Sorcerers (attack 6, assassination, poison, arcane immunity)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_SORCERERS],
+      }).state;
+
+      // Skip to Assign Damage phase (don't block)
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Try to assign damage to unit - should fail due to Assassination
+      const result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+        assignments: [
+          { target: DAMAGE_TARGET_UNIT, unitInstanceId: "unit_0", amount: 6 },
+        ],
+      });
+
+      // Should be an invalid action
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: expect.stringContaining("Assassination"),
+        })
+      );
+
+      // Unit should still be there (damage not assigned)
+      expect(result.state.players[0].units).toHaveLength(1);
+    });
+
+    it("should allow assigning damage to hero from enemy with Assassination", () => {
+      const player = createTestPlayer({
+        hand: [],
+        deck: [CARD_MARCH],
+        handLimit: 5,
+        armor: 2,
+        units: [
+          {
+            unitId: UNIT_PEASANTS,
+            instanceId: "unit_0",
+            ready: true,
+            wounded: false,
+            usedResistanceThisCombat: false,
+          },
+        ],
+      });
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Sorcerers (attack 6, assassination)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_SORCERERS],
+      }).state;
+
+      // Skip to Assign Damage phase (don't block)
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Assign damage to hero - should work
+      const result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+        assignments: [{ target: DAMAGE_TARGET_HERO, amount: 6 }],
+      });
+
+      // Should NOT be an invalid action
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+
+      // Hero should have wounds (6 damage / 2 armor = 3 wounds)
+      const heroWounds = result.state.players[0].hand.filter(
+        (c) => c === CARD_WOUND
+      ).length;
+      expect(heroWounds).toBe(3);
+    });
+
+    it("should allow assigning damage to units if Assassination is nullified", () => {
+      const player = createTestPlayer({
+        hand: [],
+        deck: [CARD_MARCH],
+        handLimit: 5,
+        armor: 2,
+        units: [
+          {
+            unitId: UNIT_PEASANTS,
+            instanceId: "unit_0",
+            ready: true,
+            wounded: false,
+            usedResistanceThisCombat: false,
+          },
+        ],
+      });
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Sorcerers (attack 6, assassination)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_SORCERERS],
+      }).state;
+
+      // Add ability nullifier for Assassination on this enemy
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, id: "test_skill" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: "enemy_0" },
+        effect: { type: EFFECT_ABILITY_NULLIFIER, ability: ABILITY_ASSASSINATION },
+        createdByPlayerId: "player1",
+        createdAtRound: state.round,
+      });
+
+      // Skip to Assign Damage phase (don't block)
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Assign damage to unit - should work now (Assassination is nullified)
+      const result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+        assignments: [
+          { target: DAMAGE_TARGET_UNIT, unitInstanceId: "unit_0", amount: 6 },
+        ],
+      });
+
+      // Should NOT be an invalid action
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+
+      // Unit should be destroyed (by Poison, which is still active on Sorcerers)
+      // Or wounded if poison is also nullified - but poison is NOT nullified
+      // Sorcerers have both Assassination and Poison
+      expect(result.state.players[0].units).toHaveLength(0);
+    });
+
+    it("should allow default assignment (hero) when no assignments specified", () => {
+      const player = createTestPlayer({
+        hand: [],
+        deck: [CARD_MARCH],
+        handLimit: 5,
+        armor: 2,
+      });
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Sorcerers (attack 6, assassination)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_SORCERERS],
+      }).state;
+
+      // Skip to Assign Damage phase (don't block)
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Assign damage with no assignments (default to hero)
+      const result = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+      });
+
+      // Should NOT be an invalid action
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+
+      // Hero should have wounds
+      const heroWounds = result.state.players[0].hand.filter(
+        (c) => c === CARD_WOUND
+      ).length;
+      expect(heroWounds).toBe(3);
     });
   });
 

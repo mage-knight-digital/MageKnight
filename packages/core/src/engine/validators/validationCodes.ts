@@ -100,6 +100,8 @@ export const INSUFFICIENT_BLOCK = "INSUFFICIENT_BLOCK" as const;
 export const NOTHING_TO_UNASSIGN_BLOCK = "NOTHING_TO_UNASSIGN_BLOCK" as const;
 // Summon ability validation codes
 export const SUMMONER_HIDDEN = "SUMMONER_HIDDEN" as const;
+// Assassination ability validation codes
+export const ASSASSINATION_REQUIRES_HERO_TARGET = "ASSASSINATION_REQUIRES_HERO_TARGET" as const;
 
 // Unit validation codes
 export const NO_COMMAND_SLOTS = "NO_COMMAND_SLOTS" as const;
@@ -272,6 +274,7 @@ export type ValidationErrorCode =
   | typeof INSUFFICIENT_BLOCK
   | typeof NOTHING_TO_UNASSIGN_BLOCK
   | typeof SUMMONER_HIDDEN
+  | typeof ASSASSINATION_REQUIRES_HERO_TARGET
   // Unit validation
   | typeof NO_COMMAND_SLOTS
   | typeof INSUFFICIENT_INFLUENCE

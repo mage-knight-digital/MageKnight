@@ -201,6 +201,31 @@ Site conquest queues rewards to `player.pendingRewards`. Player must select befo
 
 ## Key Gotchas
 
+### ⚠️ ValidActions Must Match Validators (CRITICAL)
+
+**When implementing any game mechanic that restricts player options, you MUST update BOTH:**
+1. **Validators** (`core/src/engine/validators/`) — prevent invalid actions server-side
+2. **ValidActions** (`core/src/engine/validActions/`) — filter options shown to client
+
+This applies to:
+- Enemy abilities (Assassination, Brutal, Swift, Fortified, etc.)
+- Card effects that restrict targeting
+- Combat phase restrictions
+- Unit/site-specific rules
+- Any new effect, spell, artifact, skill, or unit that changes what actions are legal
+
+**Why both?** Validators are the safety net (reject invalid actions). ValidActions provides good UX (don't show options that would fail). If you only add a validator, the UI will show buttons that produce errors when clicked.
+
+**Checklist for new restrictions:**
+- [ ] Add validator in appropriate `validators/` subdirectory
+- [ ] Register validator in `validators/index.ts`
+- [ ] Update relevant `validActions/*.ts` to filter options
+- [ ] Add tests for BOTH validator rejection AND validActions filtering
+
+**Example:** Assassination ability prevents assigning damage to units. Required changes:
+- `validators/combatValidators/targetValidators.ts` — reject unit assignments
+- `validActions/combat.ts` — filter `availableUnits` to empty for Assassination enemies
+
 ### Monorepo Build Order
 Core/server consume shared via built outputs. When adding exports to shared:
 ```bash

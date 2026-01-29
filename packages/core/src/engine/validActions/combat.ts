@@ -33,6 +33,7 @@ import {
   ATTACK_ELEMENT_COLD_FIRE,
   ABILITY_SWIFT,
   ABILITY_BRUTAL,
+  ABILITY_ASSASSINATION,
   getUnit,
 } from "@mage-knight/shared";
 import type { CombatEnemy, CombatState } from "../../types/combat.js";
@@ -48,6 +49,7 @@ import {
 import {
   getEffectiveEnemyAttack,
   doesEnemyAttackThisCombat,
+  isAbilityNullified,
 } from "../modifiers.js";
 import type { Resistances } from "../combat/elementalCalc.js";
 import { isAttackResisted, calculateTotalBlock } from "../combat/elementalCalc.js";
@@ -841,10 +843,19 @@ function getDamageAssignmentOptions(
       // Get attack element
       const attackElement = enemy.definition.attackElement;
 
-      // Compute available unit targets
-      const availableUnits = currentPlayer
-        ? computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed)
-        : [];
+      // Check for Assassination ability - units cannot be targeted
+      const hasAssassination = enemy.definition.abilities.includes(ABILITY_ASSASSINATION);
+      const assassinationActive =
+        hasAssassination &&
+        currentPlayer &&
+        !isAbilityNullified(state, currentPlayer.id, enemy.instanceId, ABILITY_ASSASSINATION);
+
+      // Compute available unit targets (empty if Assassination is active)
+      const availableUnits = assassinationActive
+        ? []
+        : currentPlayer
+          ? computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed)
+          : [];
 
       return {
         enemyInstanceId: enemy.instanceId,

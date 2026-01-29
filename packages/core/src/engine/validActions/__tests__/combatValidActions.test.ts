@@ -18,6 +18,7 @@ import {
   ENEMY_FIRE_MAGES,
   ENEMY_DIGGERS,
   ENEMY_IRONCLADS,
+  ENEMY_SORCERERS,
   ATTACK_TYPE_MELEE,
   ATTACK_TYPE_RANGED,
   ATTACK_TYPE_SIEGE,
@@ -28,6 +29,7 @@ import {
   UNIT_GUARDIAN_GOLEMS,
   UNIT_FIRE_GOLEMS,
   ELEMENT_PHYSICAL,
+  ABILITY_ASSASSINATION,
 } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../../types/unit.js";
 import {
@@ -38,6 +40,13 @@ import {
 } from "../../../types/combat.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { AccumulatedAttack } from "../../../types/player.js";
+import {
+  EFFECT_ABILITY_NULLIFIER,
+  DURATION_COMBAT,
+  SCOPE_ONE_ENEMY,
+  SOURCE_SKILL,
+} from "../../../types/modifierConstants.js";
+import { addModifier } from "../../modifiers.js";
 
 /**
  * Helper to set up accumulated attack values in the player's combatAccumulator.
@@ -786,6 +795,45 @@ describe("getCombatOptions", () => {
         expect(golem?.unitName).toBe("Guardian Golems");
         expect(golem?.armor).toBe(3);
         expect(golem?.isResistantToAttack).toBe(true); // Has physical resistance
+      });
+
+      it("should return empty availableUnits for enemy with Assassination ability", () => {
+        // Sorcerers have Assassination ability
+        let state = setupAssignDamagePhase([ENEMY_SORCERERS]);
+        state = withPlayerUnits(state, "player1", [
+          createPlayerUnit(UNIT_PEASANTS, "peasant_1"),
+        ]);
+
+        const options = getCombatOptions(state);
+
+        // Unit targets should be empty due to Assassination
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        expect(availableUnits).toHaveLength(0);
+      });
+
+      it("should return unit targets if Assassination is nullified", () => {
+        // Sorcerers have Assassination ability
+        let state = setupAssignDamagePhase([ENEMY_SORCERERS]);
+        state = withPlayerUnits(state, "player1", [
+          createPlayerUnit(UNIT_PEASANTS, "peasant_1"),
+        ]);
+
+        // Add modifier to nullify Assassination ability using the proper modifier system
+        state = addModifier(state, {
+          source: { type: SOURCE_SKILL, id: "test_skill" },
+          duration: DURATION_COMBAT,
+          scope: { type: SCOPE_ONE_ENEMY, enemyId: "enemy_0" },
+          effect: { type: EFFECT_ABILITY_NULLIFIER, ability: ABILITY_ASSASSINATION },
+          createdByPlayerId: "player1",
+          createdAtRound: state.round,
+        });
+
+        const options = getCombatOptions(state);
+
+        // Unit targets should be available since Assassination is nullified
+        const availableUnits = options?.damageAssignments?.[0].availableUnits ?? [];
+        expect(availableUnits).toHaveLength(1);
+        expect(availableUnits[0].unitInstanceId).toBe("peasant_1");
       });
     });
 

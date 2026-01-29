@@ -12,13 +12,17 @@ import {
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
+  ABILITY_ASSASSINATION,
+  DAMAGE_TARGET_UNIT,
 } from "@mage-knight/shared";
 import {
   ENEMY_NOT_FOUND,
   ENEMY_ALREADY_BLOCKED,
   ENEMY_ALREADY_DEFEATED,
   SUMMONER_HIDDEN,
+  ASSASSINATION_REQUIRES_HERO_TARGET,
 } from "../validationCodes.js";
+import { isAbilityNullified } from "../../modifiers.js";
 
 // Target enemy must exist and not be defeated (for block)
 // Also excludes hidden summoners (summoners that have summoned an enemy)
@@ -113,6 +117,50 @@ export function validateAttackTargets(
         `Target enemy is already defeated: ${enemy.definition.name}`
       );
     }
+  }
+
+  return valid();
+}
+
+// Assassination ability: damage must be assigned to hero, not units
+export function validateAssassinationTarget(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ASSIGN_DAMAGE_ACTION) return valid();
+
+  const enemy = state.combat?.enemies.find(
+    (e) => e.instanceId === action.enemyInstanceId
+  );
+
+  if (!enemy) {
+    // Enemy validation is handled by validateAssignDamageTargetEnemy
+    return valid();
+  }
+
+  // Check if enemy has Assassination ability
+  const hasAssassination = enemy.definition.abilities.includes(ABILITY_ASSASSINATION);
+  if (!hasAssassination) {
+    return valid();
+  }
+
+  // Check if ability is nullified
+  if (isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_ASSASSINATION)) {
+    return valid();
+  }
+
+  // Check if any damage is being assigned to units
+  const assignments = action.assignments ?? [];
+  const hasUnitTarget = assignments.some(
+    (assignment) => assignment.target === DAMAGE_TARGET_UNIT
+  );
+
+  if (hasUnitTarget) {
+    return invalid(
+      ASSASSINATION_REQUIRES_HERO_TARGET,
+      `${enemy.definition.name} has Assassination: damage must be assigned to hero, not units`
+    );
   }
 
   return valid();
