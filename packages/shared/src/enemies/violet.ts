@@ -15,6 +15,7 @@
  * - Ice Golems - Ice attack, ice and physical resistance, paralyze
  * - Fire Golems - Fire attack, fire and physical resistance, brutal
  * - Sorcerers - Physical attack, assassination, poison, arcane immunity
+ * - Magic Familiars - Multiple physical attacks (3, 3), unfortified, brutal
  */
 
 import {
