@@ -2,7 +2,7 @@
  * Violet Enemy Definitions - Mage Tower Defenders
  *
  * Violet enemies defend mage towers. They are magical enemies
- * with elemental attacks and resistances. Fame ranges from 5-6.
+ * with elemental attacks and resistances. Fame ranges from 4-6.
  * Ice Mages have ice resistance, Fire Mages have fire resistance.
  *
  * @module enemies/violet
@@ -12,6 +12,7 @@
  * - Illusionists - Physical resistance, illusion magic
  * - Ice Mages - Ice attack, ice resistance
  * - Fire Mages - Fire attack, fire resistance
+ * - Ice Golems - Ice attack, ice and physical resistance, paralyze
  * - Sorcerers - Physical attack, assassination, poison, arcane immunity
  */
 
@@ -26,6 +27,7 @@ import {
   ABILITY_SUMMON,
   ABILITY_ASSASSINATION,
   ABILITY_ARCANE_IMMUNITY,
+  ABILITY_PARALYZE,
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
@@ -37,6 +39,7 @@ export const ENEMY_MONKS = "monks" as const;
 export const ENEMY_ILLUSIONISTS = "illusionists" as const;
 export const ENEMY_ICE_MAGES = "ice_mages" as const;
 export const ENEMY_FIRE_MAGES = "fire_mages" as const;
+export const ENEMY_ICE_GOLEMS = "ice_golems" as const;
 export const ENEMY_SORCERERS = "sorcerers" as const;
 
 /**
@@ -47,6 +50,7 @@ export type VioletEnemyId =
   | typeof ENEMY_ILLUSIONISTS
   | typeof ENEMY_ICE_MAGES
   | typeof ENEMY_FIRE_MAGES
+  | typeof ENEMY_ICE_GOLEMS
   | typeof ENEMY_SORCERERS;
 
 // =============================================================================
@@ -98,6 +102,17 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     resistances: [RESIST_FIRE],
     abilities: [],
   },
+  [ENEMY_ICE_GOLEMS]: {
+    id: ENEMY_ICE_GOLEMS,
+    name: "Ice Golems",
+    color: ENEMY_COLOR_VIOLET,
+    attack: 2,
+    attackElement: ELEMENT_ICE,
+    armor: 4,
+    fame: 5,
+    resistances: [RESIST_ICE, RESIST_PHYSICAL],
+    abilities: [ABILITY_PARALYZE],
+  },
   [ENEMY_SORCERERS]: {
     id: ENEMY_SORCERERS,
     name: "Sorcerers",
@@ -119,3 +134,8 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
  * @deprecated Use ENEMY_FIRE_MAGES directly
  */
 export const ENEMY_FIRE_MAGE = ENEMY_FIRE_MAGES;
+
+/**
+ * @deprecated Use ENEMY_ICE_GOLEMS directly
+ */
+export const ENEMY_ICE_GOLEM = ENEMY_ICE_GOLEMS;

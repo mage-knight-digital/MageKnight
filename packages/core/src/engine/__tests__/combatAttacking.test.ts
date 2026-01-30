@@ -318,7 +318,7 @@ describe("Combat Attacking", () => {
     it("should halve Physical attack against Physical resistance", () => {
       let state = createTestGameState();
 
-      // Enter combat with Ice Golem (Physical resistance, Ice attack 4, armor 5)
+      // Enter combat with Ice Golem (Physical resistance, Ice attack 2, armor 4)
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
         enemyIds: [ENEMY_ICE_GOLEM],
@@ -329,7 +329,7 @@ describe("Combat Attacking", () => {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
       state = withBlockSources(state, "player1", [
-        { element: ELEMENT_FIRE, value: 4 },
+        { element: ELEMENT_FIRE, value: 2 },
       ]);
       state = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
@@ -346,12 +346,12 @@ describe("Combat Attacking", () => {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
 
-      // Attack with Physical 8 vs armor 5 with Physical resistance
-      // Effective attack: 8 / 2 = 4, which is < 5, so attack fails
+      // Attack with Physical 6 vs armor 4 with Physical resistance
+      // Effective attack: 6 / 2 = 3, which is < 4, so attack fails
       const result = engine.processAction(state, "player1", {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
-        attacks: [{ element: ELEMENT_PHYSICAL, value: 8 }],
+        attacks: [{ element: ELEMENT_PHYSICAL, value: 6 }],
         attackType: COMBAT_TYPE_MELEE,
       });
 
