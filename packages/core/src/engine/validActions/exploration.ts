@@ -23,6 +23,9 @@ import {
   getExpansionDirections,
 } from "../explore/index.js";
 import { canExploreFromPosition } from "../explore/adjacency.js";
+import { isCoastlineSlot } from "../explore/tileGrid.js";
+import { peekNextTileType } from "../../data/tileDeckSetup.js";
+import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
 
 /** Exploration costs 2 move points from a safe space */
 const EXPLORE_COST = 2;
@@ -151,6 +154,20 @@ export function getValidExploreOptions(
           targetCoord: targetSlotCoord,
           fromTileCoord: tileCenter,
         });
+      }
+    }
+  }
+
+  // Filter out coastline slots if next tile is core (wedge maps only)
+  // Per rulebook: "Core (brown) tiles cannot be added to the coastline"
+  if (mapShape === MAP_SHAPE_WEDGE && state.map.tileSlots && Object.keys(state.map.tileSlots).length > 0) {
+    const nextTileType = peekNextTileType(state.map.tileDeck);
+    if (nextTileType === TILE_TYPE_CORE) {
+      // Filter out coastline slots
+      for (const [key, direction] of validTargets) {
+        if (isCoastlineSlot(direction.targetCoord, state.map.tileSlots)) {
+          validTargets.delete(key);
+        }
       }
     }
   }

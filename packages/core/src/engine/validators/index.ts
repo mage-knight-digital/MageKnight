@@ -73,6 +73,7 @@ import {
   validateSlotNotFilled,
   validateExploreMoveCost,
   validateTilesAvailable,
+  validateCoreNotOnCoastline,
 } from "./exploreValidators.js";
 
 // Play card validators
@@ -341,6 +342,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateTilesAvailable,
     validateExploreDirection, // Uses getValidExploreOptions which checks all tiles and adjacency
     validateWedgeDirection, // Wedge maps only allow NE/E directions
+    validateCoreNotOnCoastline, // Wedge maps: core tiles cannot be on coastline
     validateSlotNotFilled, // Now handled by validateExploreDirection
   ],
   [PLAY_CARD_ACTION]: [
