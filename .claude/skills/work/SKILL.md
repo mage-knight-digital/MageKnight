@@ -2,7 +2,7 @@
 name: work
 description: "Start working on a GitHub issue. Use when user says 'work on #123', 'start issue 42', or 'pick up the next task'."
 user-invocable: true
-argument-hint: "[#issue-number or 'next']"
+argument-hint: "[#issue-number or 'next'] [--worktree]"
 ---
 
 # Start Working on Issue
@@ -38,6 +38,16 @@ If the issue has the `epic` label, **do not start work on it directly**. Instead
 gh issue view ISSUE_NUM --json labels --jq '.labels[].name' | grep -q "^epic$"
 ```
 
+### 2.5. Check Not Already In Progress
+
+Verify the issue isn't already being worked on:
+```bash
+# Get current project item status
+ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq -r '.items[] | select(.content.number == ISSUE_NUM) | .id')
+```
+
+If already "In Progress", warn the user and confirm they want to continue.
+
 ### 3. Move to In Progress
 
 Update the project board status to prevent other agents from grabbing the same issue:
@@ -61,18 +71,46 @@ Replace `ISSUE_NUM` with the actual issue number.
 gh issue comment ISSUE_NUM --body "Starting work on this issue."
 ```
 
-### 5. Gather Context
+### 5. Create Branch (and optionally Worktree)
+
+**Standard mode** (default):
+```bash
+# Create feature branch from main
+BRANCH_NAME="issue-${ISSUE_NUM}-$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g' | cut -c1-30)"
+git checkout -b "$BRANCH_NAME"
+```
+
+**Worktree mode** (if `--worktree` flag or called from /implement):
+```bash
+# Generate branch name
+BRANCH_NAME="issue-${ISSUE_NUM}-$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g' | cut -c1-30)"
+
+# Create worktree in dedicated directory
+WORKTREE_DIR="$HOME/.claude-worktrees/mage-knight"
+mkdir -p "$WORKTREE_DIR"
+WORKTREE_PATH="${WORKTREE_DIR}/${BRANCH_NAME}"
+git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME"
+
+echo "Created worktree at: $WORKTREE_PATH"
+echo "To work in worktree: cd $WORKTREE_PATH"
+echo "Add to Claude context: /add-dir ~/.claude-worktrees/mage-knight/"
+```
+
+Report the branch name and worktree path (if applicable) to the user.
+
+### 6. Gather Context
 
 - Read the issue body thoroughly
 - If issue references a markdown spec in `docs/tickets/`, read that file
 - Identify affected files from the issue description
 - Read relevant source files to understand current implementation
+- **Extract acceptance criteria** from the issue body (checkboxes, numbered lists, or AC section)
 
-### 6. Create Implementation Plan
+### 7. Create Implementation Plan
 
 Use the TodoWrite tool to create a task list based on the issue's acceptance criteria.
 
-### 7. Begin Implementation
+### 8. Begin Implementation
 
 Start working through the task list, implementing the changes.
 

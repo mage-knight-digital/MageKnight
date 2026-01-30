@@ -29,7 +29,57 @@ Determine which issue we're completing:
 - Check current branch name for issue number
 - Ask user if unclear
 
-### 3. Create Pull Request
+### 3. Rebase and Resolve Conflicts
+
+Before creating the PR, ensure the branch is up-to-date with main:
+
+```bash
+# Fetch latest main
+git fetch origin main
+
+# Rebase onto main
+git rebase origin/main
+```
+
+**If conflicts occur:**
+
+1. Identify conflicting files: `git status`
+2. For each conflicting file:
+   - Read the file to understand both versions
+   - Resolve conflicts keeping the intent of both changes
+   - Prefer the incoming main changes for unrelated code
+   - Keep our changes for the feature being implemented
+3. After resolving: `git add <resolved-files> && git rebase --continue`
+4. If conflicts are too complex (touching same logic), flag for user review
+
+**After successful rebase:**
+
+```bash
+# Re-run tests to catch integration issues
+pnpm build && pnpm lint && pnpm test
+```
+
+If tests fail after rebase, fix the integration issues before proceeding.
+
+### 4. Update Issue - Check AC Boxes
+
+Before creating the PR, update the issue body to check off completed acceptance criteria:
+
+```bash
+# Get current issue body
+BODY=$(gh issue view $ISSUE_NUM --json body -q '.body')
+
+# For each acceptance criterion that was implemented:
+# - Find the checkbox line: "- [ ] <criterion>"
+# - Replace with: "- [x] <criterion>"
+
+# Update the issue with checked boxes
+gh issue edit $ISSUE_NUM --body "$UPDATED_BODY"
+```
+
+This ensures the issue accurately reflects what was accomplished.
+
+### 5. Create Pull Request
 
 ```bash
 gh pr create \
@@ -52,13 +102,13 @@ EOF
 
 **Important**: Include `Closes #XX` in the PR body to auto-close the issue when merged.
 
-### 4. Add Completion Comment
+### 6. Add Completion Comment
 
 ```bash
 gh issue comment ISSUE_NUM --body "Implementation complete. PR: #PR_NUMBER"
 ```
 
-### 5. Project Board Status
+### 7. Project Board Status
 
 The issue stays "In Progress" until the PR is merged. When merged, GitHub auto-closes the issue via `Closes #XX`, and the project board should move it to "Done" automatically.
 
@@ -68,7 +118,7 @@ ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 100 |
 gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "98236657"
 ```
 
-### 6. Report to User
+### 8. Report to User
 
 Provide:
 - PR URL
