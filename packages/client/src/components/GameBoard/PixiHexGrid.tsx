@@ -23,6 +23,7 @@ import type { HexCoord } from "@mage-knight/shared";
 import { hexKey, ENTER_SITE_ACTION, BURN_MONASTERY_ACTION, PLUNDER_VILLAGE_ACTION } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useIsMyTurn } from "../../hooks/useIsMyTurn";
 import { useGameIntro } from "../../contexts/GameIntroContext";
 import { useAnimationDispatcher } from "../../contexts/AnimationDispatcherContext";
 import { useCinematic } from "../../contexts/CinematicContext";
@@ -102,6 +103,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
   // Game state hooks
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const isMyTurn = useIsMyTurn();
   const { startIntro, isIntroComplete } = useGameIntro();
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
   const { playCinematic, isInCinematic } = useCinematic();
@@ -179,6 +181,9 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
 
   // Handler for site action list actions
   const handleSiteAction = useCallback((action: SiteAction) => {
+    // Block interaction if not player's turn
+    if (!isMyTurn) return;
+
     switch (action) {
       case "enter":
         sendAction({ type: ENTER_SITE_ACTION });
@@ -210,7 +215,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
         break;
     }
     handleCloseSiteActionList();
-  }, [sendAction, player?.position, handleOpenSitePanel, handleCloseSiteActionList, onNavigateToUnitOffer, onNavigateToSpellOffer]);
+  }, [isMyTurn, sendAction, player?.position, handleOpenSitePanel, handleCloseSiteActionList, onNavigateToUnitOffer, onNavigateToSpellOffer]);
 
   // Calculate screen position for hero (for action list)
   const getHeroScreenPosition = useCallback((): { x: number; y: number } | null => {
@@ -243,8 +248,8 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
       return;
     }
 
-    // Space - toggle site action list
-    if (event.code === "Space" && state?.validActions.sites) {
+    // Space - toggle site action list (only if it's my turn)
+    if (event.code === "Space" && isMyTurn && state?.validActions.sites) {
       event.preventDefault();
       if (showSiteActionList) {
         handleCloseSiteActionList();
@@ -262,6 +267,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     // Pass other keys to camera control
     handleKeyDown(event);
   }, [
+    isMyTurn,
     state?.validActions.sites,
     showSiteActionList,
     isOverlayActive,
@@ -332,6 +338,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     challengeTargetHexes,
     playerPosition: player?.position ?? null,
     sendAction,
+    isMyTurn,
   });
 
   // Hide world and background when in combat (so hand overlay shows through transparent canvas)

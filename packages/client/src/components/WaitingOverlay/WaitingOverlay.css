@@ -1,0 +1,33 @@
+/* Waiting Overlay - shown when not player's turn */
+.waiting-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000; /* Above most UI, but below critical overlays */
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* Allow viewing game state */
+  animation: waiting-overlay-fade-in 0.3s ease;
+}
+
+.waiting-overlay__message {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  padding: 2rem 3rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+@keyframes waiting-overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

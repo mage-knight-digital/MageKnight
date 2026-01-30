@@ -6,6 +6,7 @@ import { UnitAbilityMenu } from "./UnitAbilityMenu";
 import { type CardId, type UnitId, type ActivatableUnit } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useIsMyTurn } from "../../hooks/useIsMyTurn";
 import { useCardInteraction } from "../CardInteraction";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
 
@@ -35,6 +36,7 @@ export interface PlayerHandProps {
 export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   const { state } = useGame();
   const player = useMyPlayer();
+  const isMyTurn = useIsMyTurn();
   const { state: cardInteractionState, dispatch: cardInteractionDispatch } = useCardInteraction();
   const [menuState, setMenuState] = useState<MenuState>({ type: "none" });
   const [handView, setHandView] = useState<HandView>("ready");
@@ -201,6 +203,9 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   }, [activatableUnits, menuState]);
 
   const handleCardClick = useCallback((info: CardClickInfo) => {
+    // Block interaction if not player's turn
+    if (!isMyTurn) return;
+
     const { index, rect } = info;
     const cardId = handArray[index];
     if (!cardId) return;
@@ -227,10 +232,13 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         sourceRect: rect,
       });
     }
-  }, [handArray, playableCardMap, menuState, cardInteractionDispatch]);
+  }, [isMyTurn, handArray, playableCardMap, menuState, cardInteractionDispatch]);
 
   // Handle unit click - show ability selection menu
   const handleUnitClick = useCallback((info: UnitClickInfo) => {
+    // Block interaction if not player's turn
+    if (!isMyTurn) return;
+
     const { unitIndex, unitInstanceId, rect } = info;
     const unit = player?.units[unitIndex];
     if (!unit) return;
@@ -257,7 +265,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         sourceRect: rect,
       });
     }
-  }, [player?.units, activatableUnits, menuState]);
+  }, [isMyTurn, player?.units, activatableUnits, menuState]);
 
   // Close unit menu callback
   const handleCloseUnitMenu = useCallback(() => {
