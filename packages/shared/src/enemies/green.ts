@@ -15,10 +15,15 @@
  * - Wolf Riders - Swift cavalry
  * - Ironclads - Physically resistant brutes
  * - Orc Summoners - Summon brown dungeon enemies
+ * - Centaur Outriders - Swift Elementalist cavalry
  */
 
 import { ELEMENT_PHYSICAL } from "../elements.js";
-import { ENEMY_COLOR_GREEN, type EnemyDefinition } from "./types.js";
+import {
+  ENEMY_COLOR_GREEN,
+  FACTION_ELEMENTALIST,
+  type EnemyDefinition,
+} from "./types.js";
 import {
   ABILITY_FORTIFIED,
   ABILITY_POISON,
@@ -38,6 +43,7 @@ export const ENEMY_CURSED_HAGS = "cursed_hags" as const;
 export const ENEMY_WOLF_RIDERS = "wolf_riders" as const;
 export const ENEMY_IRONCLADS = "ironclads" as const;
 export const ENEMY_ORC_SUMMONERS = "orc_summoners" as const;
+export const ENEMY_CENTAUR_OUTRIDERS = "centaur_outriders" as const;
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -48,7 +54,8 @@ export type GreenEnemyId =
   | typeof ENEMY_CURSED_HAGS
   | typeof ENEMY_WOLF_RIDERS
   | typeof ENEMY_IRONCLADS
-  | typeof ENEMY_ORC_SUMMONERS;
+  | typeof ENEMY_ORC_SUMMONERS
+  | typeof ENEMY_CENTAUR_OUTRIDERS;
 
 // =============================================================================
 // GREEN ENEMY DEFINITIONS
@@ -120,6 +127,18 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     fame: 4,
     resistances: [],
     abilities: [ABILITY_SUMMON], // Summons brown enemy
+  },
+  [ENEMY_CENTAUR_OUTRIDERS]: {
+    id: ENEMY_CENTAUR_OUTRIDERS,
+    name: "Centaur Outriders",
+    color: ENEMY_COLOR_GREEN,
+    attack: 3,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 5,
+    fame: 2,
+    resistances: [],
+    abilities: [ABILITY_SWIFT],
+    faction: FACTION_ELEMENTALIST,
   },
 };
 
