@@ -19,7 +19,7 @@ import {
   ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
 import type { CombatEnemy, PendingElementalDamage } from "../../../types/combat.js";
-import { createEmptyPendingDamage } from "../../../types/combat.js";
+import { createEmptyPendingDamage, getCombatEnemyBaseAttack, getCombatEnemyAttackElement } from "../../../types/combat.js";
 import { getFinalBlockValue } from "../../combat/elementalCalc.js";
 import { isAbilityNullified } from "../../modifiers.js";
 
@@ -84,7 +84,8 @@ function getEffectiveEnemyAttackForBlocking(
   state: GameState,
   playerId: string
 ): number {
-  let attackValue = enemy.definition.attack;
+  // Use level-based attack for faction leaders
+  let attackValue = getCombatEnemyBaseAttack(enemy);
 
   // Swift: doubles attack value for blocking purposes
   if (isSwiftActive(state, playerId, enemy)) {
@@ -130,9 +131,10 @@ export function createDeclareBlockCommand(
       const blockSources = pendingBlockToBlockSources(pendingBlock);
 
       // Calculate final block value including elemental efficiency and combat modifiers
+      // Use level-based attack element for faction leaders
       const effectiveBlockValue = getFinalBlockValue(
         blockSources,
-        enemy.definition.attackElement,
+        getCombatEnemyAttackElement(enemy),
         state,
         params.playerId
       );

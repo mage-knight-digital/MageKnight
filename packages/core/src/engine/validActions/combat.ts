@@ -37,7 +37,7 @@ import {
   getUnit,
 } from "@mage-knight/shared";
 import type { CombatEnemy, CombatState } from "../../types/combat.js";
-import { createEmptyPendingDamage } from "../../types/combat.js";
+import { createEmptyPendingDamage, getCombatEnemyBaseArmor, getCombatEnemyBaseAttack, getCombatEnemyAttackElement } from "../../types/combat.js";
 import type { GameState } from "../../state/GameState.js";
 import type { AccumulatedAttack, Player } from "../../types/player.js";
 import {
@@ -194,7 +194,8 @@ function computeEnemyAttackState(
     effectiveDamage.coldFire;
 
   // Check if enemy can be defeated with current pending
-  const armor = enemy.definition.armor;
+  // Use level-based armor for faction leaders
+  const armor = getCombatEnemyBaseArmor(enemy);
   const canDefeat = totalEffectiveDamage >= armor;
 
   // Determine if enemy requires siege (fortified site during ranged/siege phase)
@@ -376,10 +377,11 @@ function computeEnemyBlockState(
   const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
 
   // Use effective attack (after modifiers)
+  // Use level-based attack for faction leaders
   const effectiveAttack = getEffectiveEnemyAttack(
     state,
     enemy.instanceId,
-    enemy.definition.attack
+    getCombatEnemyBaseAttack(enemy)
   );
 
   // Swift enemies require 2x block
@@ -409,9 +411,11 @@ function computeEnemyBlockState(
     blockSources.push({ element: "cold_fire" as Element, value: rawPending.coldFire });
   }
 
+  // Use level-based attack element for faction leaders
+  const attackElement = getCombatEnemyAttackElement(enemy);
   const effectiveBlock = calculateTotalBlock(
     blockSources,
-    enemy.definition.attackElement
+    attackElement
   );
 
   // Can block if effective block >= required
@@ -421,7 +425,7 @@ function computeEnemyBlockState(
     enemyInstanceId: enemy.instanceId,
     enemyName: enemy.definition.name,
     enemyAttack: effectiveAttack,
-    attackElement: enemy.definition.attackElement,
+    attackElement,
     requiredBlock,
     isSwift,
     isBrutal,
@@ -565,7 +569,7 @@ function computeBlockPhaseOptions(
     .filter((enemy) => !enemy.isDefeated)
     .filter((enemy) => !enemy.isSummonerHidden)
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
-    .filter((enemy) => getEffectiveEnemyAttack(state, enemy.instanceId, enemy.definition.attack) > 0)
+    .filter((enemy) => getEffectiveEnemyAttack(state, enemy.instanceId, getCombatEnemyBaseAttack(enemy)) > 0)
     .map((enemy) => computeEnemyBlockState(enemy, combat, state));
 
   // Generate assignable blocks
@@ -712,10 +716,11 @@ function getBlockOptions(
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
     // Filter out enemies with 0 effective attack (nothing to block)
     .filter((enemy) => {
+      // Use level-based attack for faction leaders
       const effectiveAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
-        enemy.definition.attack
+        getCombatEnemyBaseAttack(enemy)
       );
       return effectiveAttack > 0;
     })
@@ -724,10 +729,11 @@ function getBlockOptions(
       const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
 
       // Use effective attack (after modifiers)
+      // Use level-based attack for faction leaders
       const effectiveAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
-        enemy.definition.attack
+        getCombatEnemyBaseAttack(enemy)
       );
 
       // Swift enemies require 2x block
@@ -821,27 +827,29 @@ function getDamageAssignmentOptions(
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
     // Filter out enemies with 0 effective attack (no damage to assign)
     .filter((enemy) => {
+      // Use level-based attack for faction leaders
       const effectiveAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
-        enemy.definition.attack
+        getCombatEnemyBaseAttack(enemy)
       );
       return effectiveAttack > 0;
     })
     .map((enemy) => {
       // Use effective attack (after modifiers)
+      // Use level-based attack for faction leaders
       const rawAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
-        enemy.definition.attack
+        getCombatEnemyBaseAttack(enemy)
       );
 
       // Check for Brutal ability
       const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
       const totalDamage = isBrutal ? rawAttack * 2 : rawAttack;
 
-      // Get attack element
-      const attackElement = enemy.definition.attackElement;
+      // Get attack element (use level-based for faction leaders)
+      const attackElement = getCombatEnemyAttackElement(enemy);
 
       // Check for Assassination ability - units cannot be targeted
       const hasAssassination = enemy.definition.abilities.includes(ABILITY_ASSASSINATION);

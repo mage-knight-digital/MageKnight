@@ -4,8 +4,8 @@
  * Phase 1: Single enemy, no abilities, hero only, physical damage
  */
 
-import type { EnemyId, EnemyDefinition, HexCoord } from "@mage-knight/shared";
-import { getEnemy } from "@mage-knight/shared";
+import type { EnemyId, EnemyDefinition, HexCoord, FactionLeaderDefinition, FactionLeaderLevelStats, Element } from "@mage-knight/shared";
+import { getEnemy, isFactionLeaderDefinition, getFactionLeaderLevelStats } from "@mage-knight/shared";
 import type { CombatType } from "@mage-knight/shared";
 import type { CombatPhase } from "@mage-knight/shared";
 import {
@@ -68,13 +68,100 @@ export function createEmptyPendingDamage(): PendingElementalDamage {
 export interface CombatEnemy {
   readonly instanceId: string; // Unique ID for this combat instance
   readonly enemyId: EnemyId;
-  readonly definition: EnemyDefinition;
+  readonly definition: EnemyDefinition | FactionLeaderDefinition;
   readonly isBlocked: boolean;
   readonly isDefeated: boolean;
   readonly damageAssigned: boolean; // Track if damage was processed in Assign Damage phase
   readonly isRequiredForConquest: boolean; // True for site defenders, false for provoked rampaging enemies
   readonly summonedByInstanceId?: string; // For summoned enemies: links to the summoner's instanceId
   readonly isSummonerHidden?: boolean; // For summoners: true during Block/Assign Damage phases when hidden by summoned enemy
+  readonly currentLevel?: number; // For faction leaders: current level (1-4), determines stats
+}
+
+// =============================================================================
+// FACTION LEADER HELPERS
+// =============================================================================
+
+/**
+ * Check if a combat enemy is a faction leader.
+ */
+export function isCombatFactionLeader(enemy: CombatEnemy): boolean {
+  return isFactionLeaderDefinition(enemy.definition);
+}
+
+/**
+ * Get the current stats for a faction leader in combat.
+ * Returns null if the enemy is not a faction leader.
+ *
+ * @param enemy - The combat enemy to get stats for
+ * @returns The level-based stats, or null if not a faction leader
+ */
+export function getCombatFactionLeaderStats(
+  enemy: CombatEnemy
+): FactionLeaderLevelStats | null {
+  if (!isFactionLeaderDefinition(enemy.definition)) {
+    return null;
+  }
+  const level = enemy.currentLevel ?? 1;
+  return getFactionLeaderLevelStats(enemy.definition, level);
+}
+
+/**
+ * Get the effective armor for a combat enemy.
+ * For faction leaders, uses level-based armor.
+ * For regular enemies, uses the base armor from definition.
+ *
+ * @param enemy - The combat enemy
+ * @returns The base armor value (before modifiers)
+ */
+export function getCombatEnemyBaseArmor(enemy: CombatEnemy): number {
+  const stats = getCombatFactionLeaderStats(enemy);
+  if (stats) {
+    return stats.armor;
+  }
+  return enemy.definition.armor;
+}
+
+/**
+ * Get the effective attack value for a combat enemy.
+ * For faction leaders, uses level-based attack (first attack if multiple).
+ * For regular enemies, uses the base attack from definition.
+ *
+ * @param enemy - The combat enemy
+ * @returns The base attack value (before modifiers)
+ */
+export function getCombatEnemyBaseAttack(enemy: CombatEnemy): number {
+  const stats = getCombatFactionLeaderStats(enemy);
+  if (stats && stats.attacks.length > 0) {
+    // For now, use the first attack value
+    // TODO: Support multiple attacks per turn when combat phase is refactored
+    const firstAttack = stats.attacks[0];
+    if (firstAttack) {
+      return firstAttack.value;
+    }
+  }
+  return enemy.definition.attack;
+}
+
+/**
+ * Get the effective attack element for a combat enemy.
+ * For faction leaders, uses level-based attack element (first attack if multiple).
+ * For regular enemies, uses the base attack element from definition.
+ *
+ * @param enemy - The combat enemy
+ * @returns The attack element
+ */
+export function getCombatEnemyAttackElement(enemy: CombatEnemy): Element {
+  const stats = getCombatFactionLeaderStats(enemy);
+  if (stats && stats.attacks.length > 0) {
+    // For now, use the first attack's element
+    // TODO: Support multiple attacks per turn when combat phase is refactored
+    const firstAttack = stats.attacks[0];
+    if (firstAttack) {
+      return firstAttack.element;
+    }
+  }
+  return enemy.definition.attackElement;
 }
 
 // Combat state
@@ -110,6 +197,7 @@ export interface CombatStateOptions {
 export interface CombatEnemyInput {
   readonly enemyId: EnemyId;
   readonly isRequiredForConquest?: boolean; // Default true (site defenders)
+  readonly level?: number; // For faction leaders: initial level (1-4)
 }
 
 // Create initial combat state
@@ -125,16 +213,28 @@ export function createCombatState(
       const enemyId = typeof input === "string" ? input : input.enemyId;
       const isRequiredForConquest =
         typeof input === "string" ? true : (input.isRequiredForConquest ?? true);
+      const level = typeof input === "string" ? undefined : input.level;
 
-      return {
+      const definition = getEnemy(enemyId);
+      const combatEnemy: CombatEnemy = {
         instanceId: `enemy_${index}`,
         enemyId,
-        definition: getEnemy(enemyId),
+        definition,
         isBlocked: false,
         isDefeated: false,
         damageAssigned: false,
         isRequiredForConquest,
       };
+
+      // Set level for faction leaders
+      if (isFactionLeaderDefinition(definition)) {
+        return {
+          ...combatEnemy,
+          currentLevel: level ?? 1, // Default to level 1 if not specified
+        };
+      }
+
+      return combatEnemy;
     });
 
   return {

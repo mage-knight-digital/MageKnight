@@ -120,6 +120,7 @@ import type { BrownEnemyId } from "./brown.js";
 import type { VioletEnemyId } from "./violet.js";
 import type { WhiteEnemyId } from "./white.js";
 import type { RedEnemyId } from "./red.js";
+import type { FactionLeaderId } from "./factionLeaders.js";
 
 /**
  * Union of all enemy IDs across all factions
@@ -130,4 +131,5 @@ export type EnemyId =
   | BrownEnemyId
   | VioletEnemyId
   | WhiteEnemyId
-  | RedEnemyId;
+  | RedEnemyId
+  | FactionLeaderId;

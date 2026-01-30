@@ -71,6 +71,7 @@ export {
   ABILITY_SUMMON,
   ABILITY_CUMBERSOME,
   ABILITY_ASSASSINATION,
+  ABILITY_ARCANE_IMMUNITY,
   ABILITY_DESCRIPTIONS,
 } from "./abilities.js";
 
@@ -178,6 +179,24 @@ export {
   RED_ENEMIES,
 } from "./red.js";
 
+// Faction Leaders (Shades of Tezla expansion)
+export type {
+  FactionLeaderId,
+  FactionLeaderDefinition,
+  FactionLeaderLevelStats,
+  FactionLeaderAttack,
+} from "./factionLeaders.js";
+export {
+  ENEMY_ELEMENTALIST_LEADER,
+  ENEMY_DARK_CRUSADER_LEADER,
+  FACTION_LEADERS,
+  getFactionLeader,
+  getFactionLeaderLevelStats,
+  getAllFactionLeaderIds,
+  isFactionLeaderId,
+  isFactionLeaderDefinition,
+} from "./factionLeaders.js";
+
 // =============================================================================
 // AGGREGATE ENEMIES RECORD
 // =============================================================================
@@ -189,9 +208,11 @@ import { BROWN_ENEMIES } from "./brown.js";
 import { VIOLET_ENEMIES } from "./violet.js";
 import { WHITE_ENEMIES } from "./white.js";
 import { RED_ENEMIES } from "./red.js";
+import { FACTION_LEADERS } from "./factionLeaders.js";
 
 /**
- * Complete record of all enemy definitions indexed by EnemyId
+ * Complete record of all enemy definitions indexed by EnemyId.
+ * Includes regular enemies and faction leaders (Shades of Tezla expansion).
  */
 export const ENEMIES: Record<EnemyId, EnemyDefinition> = {
   ...GREEN_ENEMIES,
@@ -200,6 +221,7 @@ export const ENEMIES: Record<EnemyId, EnemyDefinition> = {
   ...VIOLET_ENEMIES,
   ...WHITE_ENEMIES,
   ...RED_ENEMIES,
+  ...FACTION_LEADERS,
 };
 
 // =============================================================================

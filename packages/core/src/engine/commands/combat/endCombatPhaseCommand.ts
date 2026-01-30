@@ -33,6 +33,7 @@ import {
   COMBAT_PHASE_ASSIGN_DAMAGE,
   COMBAT_PHASE_ATTACK,
   COMBAT_CONTEXT_BURN_MONASTERY,
+  getCombatEnemyBaseArmor,
   type CombatPhase,
   type CombatEnemy,
   type CombatState,
@@ -142,8 +143,8 @@ function resolvePendingDamage(
     const resistances = getEnemyResistances(enemy);
     const effectiveDamage = calculateEffectiveDamage(pending, resistances);
 
-    // Check if enemy is defeated
-    if (effectiveDamage >= enemy.definition.armor) {
+    // Check if enemy is defeated (use level-based armor for faction leaders)
+    if (effectiveDamage >= getCombatEnemyBaseArmor(enemy)) {
       const fame = enemy.definition.fame;
       fameGained += fame;
       events.push(createEnemyDefeatedEvent(enemy.instanceId, enemy.definition.name, fame));

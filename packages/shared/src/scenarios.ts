@@ -93,6 +93,58 @@ export type FameSource =
   | typeof FAME_SOURCE_ENEMY_DEFEATED
   | typeof FAME_SOURCE_SITE_CONQUERED;
 
+// === Faction Leader Configuration ===
+import type { FactionLeaderId } from "./enemies/factionLeaders.js";
+import { getFactionLeader } from "./enemies/factionLeaders.js";
+import type { EnemyId, Faction } from "./enemies/types.js";
+
+/**
+ * Configuration for a faction leader in a scenario.
+ * Faction leaders are powerful boss enemies from the Shades of Tezla expansion.
+ */
+export interface FactionLeaderConfig {
+  /** ID of the faction leader (Elementalist or Dark Crusader) */
+  readonly leaderId: FactionLeaderId;
+
+  /** Initial level (1-4) - determines starting Armor and Attack values */
+  readonly initialLevel: number;
+
+  /**
+   * Enemy tokens that accompany the faction leader.
+   * These should be from the same faction as the leader.
+   * Per rulebook: "Use only the faction tokens for the matching faction"
+   */
+  readonly accompaniedBy: readonly EnemyId[];
+}
+
+/**
+ * Validate that faction leader config has valid accompanying enemies.
+ * Accompanying enemies should match the leader's faction.
+ */
+export function validateFactionLeaderConfig(
+  config: FactionLeaderConfig,
+  factions: Record<EnemyId, Faction | undefined>
+): boolean {
+  // Get leader's faction from the definition (not string matching)
+  const leaderDef = getFactionLeader(config.leaderId);
+  const leaderFaction = leaderDef.faction;
+
+  // Check all accompanying enemies are from the same faction
+  for (const enemyId of config.accompaniedBy) {
+    const enemyFaction = factions[enemyId];
+    if (enemyFaction && enemyFaction !== leaderFaction) {
+      return false;
+    }
+  }
+
+  // Validate level is in range
+  if (config.initialLevel < 1 || config.initialLevel > 4) {
+    return false;
+  }
+
+  return true;
+}
+
 // === Scenario Configuration ===
 export interface ScenarioConfig {
   readonly id: ScenarioId;
@@ -135,4 +187,11 @@ export interface ScenarioConfig {
 
   // Scoring
   readonly scoringRules: readonly ScoringRule[];
+
+  // Faction Leaders (Shades of Tezla expansion)
+  /**
+   * Optional faction leader configuration for Shades of Tezla scenarios.
+   * When present, the scenario includes a faction leader boss enemy.
+   */
+  readonly factionLeaderConfig?: FactionLeaderConfig;
 }

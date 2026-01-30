@@ -27,11 +27,14 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { CardId } from "@mage-knight/shared";
+import { ABILITY_ARCANE_IMMUNITY } from "@mage-knight/shared";
 import type {
   SelectCombatEnemyEffect,
   ResolveCombatEnemyTargetEffect,
+  CombatEnemyTargetTemplate,
 } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
+import type { CombatEnemy } from "../../types/combat.js";
 import { EFFECT_RESOLVE_COMBAT_ENEMY_TARGET } from "../../types/effectTypes.js";
 import { addModifier } from "../modifiers.js";
 import {
@@ -39,6 +42,39 @@ import {
   SCOPE_ONE_ENEMY,
   SOURCE_CARD,
 } from "../modifierConstants.js";
+
+// ============================================================================
+// ARCANE IMMUNITY HELPERS
+// ============================================================================
+
+/**
+ * Check if an enemy has Arcane Immunity ability.
+ */
+function hasArcaneImmunity(enemy: CombatEnemy): boolean {
+  return enemy.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY);
+}
+
+/**
+ * Check if a combat enemy target template contains restricted effects.
+ * Arcane Immunity blocks non-Attack/Block effects, which includes:
+ * - Modifiers that change enemy stats (armor/attack reduction)
+ * - Modifiers that prevent enemy from attacking
+ * - Direct defeat effects
+ *
+ * Attack and Block effects target the player's values, not the enemy,
+ * so they are allowed.
+ */
+function templateHasRestrictedEffects(template: CombatEnemyTargetTemplate): boolean {
+  // Modifiers to enemy stats are restricted
+  if (template.modifiers && template.modifiers.length > 0) {
+    return true;
+  }
+  // Direct defeat is restricted
+  if (template.defeat) {
+    return true;
+  }
+  return false;
+}
 
 // ============================================================================
 // SELECT COMBAT ENEMY (Entry Point)
@@ -76,12 +112,38 @@ export function resolveSelectCombatEnemy(
     };
   }
 
+  // Check if this effect has restricted components (modifiers/defeat)
+  const hasRestrictedEffects = templateHasRestrictedEffects(effect.template);
+
   // Get eligible enemies
-  const eligibleEnemies = state.combat.enemies.filter(
-    (e) => effect.includeDefeated || !e.isDefeated
-  );
+  const eligibleEnemies = state.combat.enemies.filter((e) => {
+    // Filter by defeated status
+    if (!effect.includeDefeated && e.isDefeated) {
+      return false;
+    }
+
+    // Filter out Arcane Immune enemies if effect has restricted components
+    // Per rulebook: "The enemy is not affected by any non-Attack/non-Block effects"
+    if (hasRestrictedEffects && hasArcaneImmunity(e)) {
+      return false;
+    }
+
+    return true;
+  });
 
   if (eligibleEnemies.length === 0) {
+    // Check if all enemies are immune
+    const allEnemiesImmune = state.combat.enemies.every(
+      (e) => e.isDefeated || (hasRestrictedEffects && hasArcaneImmunity(e))
+    );
+
+    if (allEnemiesImmune && hasRestrictedEffects) {
+      return {
+        state,
+        description: "All enemies are immune to this effect (Arcane Immunity)",
+      };
+    }
+
     return {
       state,
       description: "No valid enemy targets",
@@ -165,6 +227,15 @@ export function resolveCombatEnemyTarget(
     return {
       state,
       description: "Enemy not found at index",
+    };
+  }
+
+  // Check Arcane Immunity - safety net in case enemy was selected manually
+  // Per rulebook: "The enemy is not affected by any non-Attack/non-Block effects"
+  if (hasArcaneImmunity(enemy) && templateHasRestrictedEffects(effect.template)) {
+    return {
+      state,
+      description: `${effect.enemyName} is immune to this effect (Arcane Immunity)`,
     };
   }
 

@@ -11,6 +11,7 @@ import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { PlayerUnit } from "../../../types/unit.js";
 import type { CombatEnemy } from "../../../types/combat.js";
+import { getCombatEnemyBaseAttack, getCombatEnemyAttackElement } from "../../../types/combat.js";
 import type { CardId, GameEvent, DamageAssignment, EnemyAbilityType } from "@mage-knight/shared";
 import {
   DAMAGE_ASSIGNED,
@@ -91,7 +92,8 @@ function getEffectiveDamage(
   state: GameState,
   playerId: string
 ): number {
-  let damage = enemy.definition.attack;
+  // Use level-based attack for faction leaders
+  let damage = getCombatEnemyBaseAttack(enemy);
 
   // Brutal doubles the damage
   if (isBrutalActive(state, playerId, enemy)) {
@@ -264,8 +266,9 @@ export function createAssignDamageCommand(
       }
 
       // Get effective damage (Brutal doubles damage)
+      // Use level-based attack for faction leaders
       const totalDamage = getEffectiveDamage(enemy, state, params.playerId);
-      const attackElement = enemy.definition.attackElement;
+      const attackElement = getCombatEnemyAttackElement(enemy);
       const isPoisoned = isPoisonActive(state, params.playerId, enemy);
       const isParalyzed = isParalyzeActive(state, params.playerId, enemy);
       const events: GameEvent[] = [];
