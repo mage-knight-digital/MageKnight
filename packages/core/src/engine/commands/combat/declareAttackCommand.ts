@@ -9,6 +9,8 @@ import {
   ENEMY_DEFEATED,
   ATTACK_FAILED,
   getLevelsCrossed,
+  createReputationChangedEvent,
+  REPUTATION_REASON_DEFEAT_ENEMY,
 } from "@mage-knight/shared";
 import {
   getFinalAttackValue,
@@ -94,6 +96,7 @@ export function createDeclareAttackCommand(
       // Attack succeeded — defeat all targets
       const events: GameEvent[] = [];
       let fameGained = 0;
+      let reputationPenalty = 0;
 
       const updatedEnemies = state.combat.enemies.map((e) => {
         if (
@@ -101,6 +104,10 @@ export function createDeclareAttackCommand(
           !e.isDefeated
         ) {
           fameGained += e.definition.fame;
+          // Track reputation penalty if enemy has one (e.g., Heroes)
+          if (e.definition.reputationPenalty) {
+            reputationPenalty += e.definition.reputationPenalty;
+          }
           events.push({
             type: ENEMY_DEFEATED,
             enemyInstanceId: e.instanceId,
@@ -126,11 +133,32 @@ export function createDeclareAttackCommand(
       const newFame = player.fame + fameGained;
       const levelsCrossed = getLevelsCrossed(oldFame, newFame);
 
+      // Calculate new reputation (clamped to -7 minimum)
+      const MIN_REPUTATION = -7;
+      const oldReputation = player.reputation;
+      const newReputation =
+        reputationPenalty > 0
+          ? Math.max(MIN_REPUTATION, oldReputation - reputationPenalty)
+          : oldReputation;
+
+      // Emit reputation change event if reputation actually changed
+      if (reputationPenalty > 0 && newReputation !== oldReputation) {
+        events.push(
+          createReputationChangedEvent(
+            params.playerId,
+            -reputationPenalty, // delta is negative (reputation lost)
+            newReputation,
+            REPUTATION_REASON_DEFEAT_ENEMY
+          )
+        );
+      }
+
       const updatedPlayers = state.players.map((p, i) =>
         i === playerIndex
           ? {
               ...p,
               fame: newFame,
+              reputation: newReputation,
               pendingLevelUps: [...p.pendingLevelUps, ...levelsCrossed],
             }
           : p
