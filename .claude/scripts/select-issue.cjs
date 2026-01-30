@@ -422,6 +422,18 @@ function claimIssue(issueNumber) {
   });
   writeCache("pending-claims", pendingClaims);
 
+  // Get app token for the background worker
+  const tokenScript = path.join(__dirname, "github-app-token.cjs");
+  let appToken = "";
+  try {
+    appToken = execSync(`node "${tokenScript}"`, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+  } catch {
+    // Will try without token
+  }
+
   // Spawn background process to update GitHub (fire-and-forget with retries)
   const workerScript = `
     const { execSync } = require("child_process");
@@ -436,8 +448,15 @@ function claimIssue(issueNumber) {
     const STATUS_FIELD_ID = "${STATUS_FIELD_ID}";
     const IN_PROGRESS_OPTION_ID = "${IN_PROGRESS_OPTION_ID}";
     const issueNumber = ${issueNumber};
+    const APP_TOKEN = "${appToken}";
     const MAX_RETRIES = 5;
     const INITIAL_DELAY = 2000; // 2 seconds
+
+    // Set up environment with app token
+    const env = { ...process.env };
+    if (APP_TOKEN) {
+      env.GH_TOKEN = APP_TOKEN;
+    }
 
     function sleep(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
@@ -468,7 +487,7 @@ function claimIssue(issueNumber) {
           try {
             execSync(
               \`gh project item-add \${PROJECT_NUMBER} --owner \${OWNER} --url "https://github.com/\${OWNER}/\${REPO}/issues/\${issueNumber}" 2>/dev/null\`,
-              { encoding: "utf-8", stdio: "pipe" }
+              { encoding: "utf-8", stdio: "pipe", env }
             );
           } catch {
             // Already in project, that's fine
@@ -477,7 +496,7 @@ function claimIssue(issueNumber) {
           // Get current board state
           const boardJson = execSync(
             \`gh project item-list \${PROJECT_NUMBER} --owner \${OWNER} --format json --limit 500\`,
-            { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
+            { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024, env }
           );
           const boardData = JSON.parse(boardJson);
           const item = boardData.items?.find(i => i.content?.number === issueNumber);
@@ -495,7 +514,7 @@ function claimIssue(issueNumber) {
           // Claim it
           execSync(
             \`gh project item-edit --project-id "\${PROJECT_ID}" --id "\${item.id}" --field-id "\${STATUS_FIELD_ID}" --single-select-option-id "\${IN_PROGRESS_OPTION_ID}"\`,
-            { encoding: "utf-8", stdio: "pipe" }
+            { encoding: "utf-8", stdio: "pipe", env }
           );
 
           // Success - remove from pending
