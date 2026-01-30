@@ -151,17 +151,64 @@ Launch the **scope-assessor** agent (Haiku) with:
 
 **If result is NEEDS_REFINEMENT:**
 
+⚠️ **STOP IMPLEMENTATION** - This issue is too large. Follow the refinement path:
+
 1. Launch 2 parallel **code-explorer** agents to deeply understand the scope
-2. Launch **code-architect** agent to propose how to split
-3. Present proposed sub-issues to user for approval
-4. If approved:
-   - Create sub-issues using /ticket skill logic
-   - Link them to parent using /link skill logic
-   - Add `epic` label to parent issue
-   - Update parent issue body to reflect it's now a parent
-   - Move parent back to Backlog
-   - EXIT with report: "Issue refined into X sub-issues for future implementation"
-5. If user declines split, proceed anyway with caution
+2. Launch **code-architect** agent to propose how to split the issue
+3. **Automatically create sub-issues** (no user approval needed):
+
+```bash
+# For each proposed sub-issue:
+gh issue create \
+  --title "Sub-issue title" \
+  --body "## Overview\n\n<description>\n\n## Acceptance Criteria\n\n- [ ] AC1\n- [ ] AC2" \
+  --label "P2-medium" \
+  --label "feature"
+```
+
+4. **Link sub-issues to parent**:
+
+```bash
+# Get the sub-issue ID (not number) for linking
+SUB_ISSUE_ID=$(gh api graphql -f query='{ repository(owner: "eshaffer321", name: "MageKnight") { issue(number: SUB_NUM) { id } } }' --jq '.data.repository.issue.id')
+
+# Add as sub-issue
+gh api graphql -f query='mutation { addSubIssue(input: {issueId: "PARENT_ID", subIssueId: "'$SUB_ISSUE_ID'"}) { issue { id } } }'
+```
+
+5. **Mark parent as epic and move to backlog**:
+
+```bash
+# Add epic label
+gh issue edit $ISSUE_NUM --add-label "epic"
+
+# Update parent body to note it's now a parent
+gh issue edit $ISSUE_NUM --body "$(echo -e "## This issue has been refined into sub-issues\n\nSee linked sub-issues below.\n\n---\n\n$ORIGINAL_BODY")"
+
+# Move back to Backlog on project board
+ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
+gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "f75ad846"
+```
+
+6. **EXIT with report:**
+
+```markdown
+## Issue Refined
+
+**Original Issue:** #XX - <Title>
+**Status:** Moved back to Backlog, marked as epic
+
+### Sub-issues Created
+- #YY - <sub-issue 1 title>
+- #ZZ - <sub-issue 2 title>
+
+The original issue was too large for a single implementation pass.
+Sub-issues have been created and linked. Run `/implement auto` again to pick up one of the sub-issues.
+```
+
+**DO NOT continue to Phase 4 if NEEDS_REFINEMENT.** The workflow ends here.
+
+---
 
 **If result is PROCEED or PROCEED_WITH_CAUTION:**
 Continue to Phase 4.
