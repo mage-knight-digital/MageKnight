@@ -393,7 +393,7 @@ export class GameServer {
    * @param scenarioId - Optional scenario to play. Defaults to First Reconnaissance.
    */
   initializeGame(
-    playerIds: string[],
+    playerIds: readonly string[],
     heroIds?: readonly HeroId[],
     scenarioId: ScenarioId = SCENARIO_FIRST_RECONNAISSANCE
   ): void {
@@ -490,7 +490,7 @@ export class GameServer {
    * @param scenarioId - Scenario to play
    */
   private createGameWithPlayers(
-    playerIds: string[],
+    playerIds: readonly string[],
     heroIds?: readonly HeroId[],
     scenarioId: ScenarioId = SCENARIO_FIRST_RECONNAISSANCE
   ): GameState {
