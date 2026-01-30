@@ -12,6 +12,7 @@ import type { RngState } from "../utils/rng.js";
 import { shuffleWithRng } from "../utils/rng.js";
 import { TileId } from "../types/map.js";
 import { TILE_DEFINITIONS } from "./tiles/index.js";
+import type { TileType } from "./tiles/types.js";
 
 /**
  * Get all base game countryside tile IDs (no expansion content)
@@ -160,4 +161,34 @@ export function getTotalTilesRemaining(deck: TileDeck): number {
 export function isCityTile(tileId: TileId): boolean {
   const definition = TILE_DEFINITIONS[tileId];
   return definition?.hasCity ?? false;
+}
+
+/**
+ * Peek at the next tile type without drawing from the deck.
+ *
+ * Per rulebook: countryside tiles are drawn first, then core tiles.
+ * This function allows checking what type of tile would be drawn next
+ * without modifying the deck state.
+ *
+ * @param deck - Current tile deck state
+ * @returns The type of the next tile to be drawn, or null if deck is empty
+ */
+export function peekNextTileType(deck: TileDeck): TileType | null {
+  // Countryside is drawn first
+  if (deck.countryside.length > 0) {
+    const tileId = deck.countryside[0];
+    if (!tileId) return null;
+    const definition = TILE_DEFINITIONS[tileId];
+    return definition?.type ?? null;
+  }
+
+  // Then core tiles
+  if (deck.core.length > 0) {
+    const tileId = deck.core[0];
+    if (!tileId) return null;
+    const definition = TILE_DEFINITIONS[tileId];
+    return definition?.type ?? null;
+  }
+
+  return null;
 }

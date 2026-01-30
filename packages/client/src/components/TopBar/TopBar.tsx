@@ -4,6 +4,7 @@ import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro, UI_REVEAL_TIMING } from "../../contexts/GameIntroContext";
 import { HotkeyHelp } from "./HotkeyHelp";
+import { PlayerListPanel } from "../PlayerList";
 import "./TopBar.css";
 
 export function TopBar() {
@@ -147,12 +148,14 @@ export function TopBar() {
         )}
       </div>
 
-      {/* Right section: Round/Time/Help */}
+      {/* Right section: Round/Players/Time/Help */}
       <div className="top-bar__section top-bar__section--right">
         <div className="top-bar__round" title="Current Round">
           <span className="top-bar__round-label">Round</span>
           <span className="top-bar__round-value">{state.round}</span>
         </div>
+
+        <PlayerListPanel />
 
         <div
           className={`top-bar__time ${isNight ? "top-bar__time--night" : "top-bar__time--day"}`}

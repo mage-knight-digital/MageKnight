@@ -15,7 +15,7 @@
  */
 
 import type { HexCoord, MapShape, HexDirection } from "@mage-knight/shared";
-import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN, hexKey, TILE_PLACEMENT_OFFSETS, HEX_DIRECTIONS } from "@mage-knight/shared";
+import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN, MAP_SHAPE_CONFIGS, hexKey, TILE_PLACEMENT_OFFSETS, HEX_DIRECTIONS } from "@mage-knight/shared";
 import type { TileSlot } from "../../types/map.js";
 
 // Re-export TILE_PLACEMENT_OFFSETS from shared for backwards compatibility
@@ -44,16 +44,8 @@ export function getDirectionFromOffset(
  * Get the directions that expand the map for a given map shape.
  */
 export function getExpansionDirections(mapShape: MapShape): HexDirection[] {
-  switch (mapShape) {
-    case MAP_SHAPE_WEDGE:
-      // Wedge expands via NE and E only (rightward triangle)
-      return ["NE", "E"];
-    case MAP_SHAPE_OPEN:
-      // Open map allows all directions
-      return ["NE", "E", "SE", "SW", "W", "NW"];
-    default:
-      return ["NE", "E", "SE", "SW", "W", "NW"];
-  }
+  const config = MAP_SHAPE_CONFIGS[mapShape];
+  return [...config.expansionDirections];
 }
 
 /**
@@ -258,4 +250,63 @@ export function getExplorableSlotsFromTile(
   }
 
   return explorableSlots;
+}
+
+/**
+ * Check if a tile slot is a coastline slot in a wedge map.
+ *
+ * Coastline slots are the leftmost and rightmost positions in each row.
+ * In wedge maps, core (brown) tiles cannot be placed on coastline slots.
+ *
+ * Row 0 (single slot at origin): Not considered coastline (no restriction applies)
+ * Row N (N >= 1): First and last slots (by q coordinate) are coastline
+ *
+ * @param targetCoord - Coordinates of the slot to check
+ * @param allSlots - Record or Map of all tile slots in the wedge (keyed by hexKey)
+ * @returns true if slot is on the coastline (left or right edge of its row)
+ */
+export function isCoastlineSlot(
+  targetCoord: HexCoord,
+  allSlots: Record<string, TileSlot> | Map<string, TileSlot>
+): boolean {
+  const targetKey = hexKey(targetCoord);
+
+  // Convert to iterable values based on input type
+  const slotsIterable =
+    allSlots instanceof Map ? allSlots.values() : Object.values(allSlots);
+
+  // Find the target slot to get its row
+  let targetSlot: TileSlot | undefined;
+  const slotsArray: TileSlot[] = [];
+
+  for (const slot of slotsIterable) {
+    slotsArray.push(slot);
+    if (hexKey(slot.coord) === targetKey) {
+      targetSlot = slot;
+    }
+  }
+
+  if (!targetSlot) {
+    return false; // Slot not found, fail-safe
+  }
+
+  // Row 0 has no coastline concept (single starting slot)
+  if (targetSlot.row === 0) {
+    return false;
+  }
+
+  // Get all slots in the same row
+  const rowSlots = slotsArray.filter((s) => s.row === targetSlot.row);
+
+  if (rowSlots.length <= 1) {
+    return false; // Single slot in row, not coastline
+  }
+
+  // Find min and max q coordinates in this row
+  const qValues = rowSlots.map((s) => s.coord.q);
+  const minQ = Math.min(...qValues);
+  const maxQ = Math.max(...qValues);
+
+  // Slot is coastline if it's at min or max q
+  return targetCoord.q === minQ || targetCoord.q === maxQ;
 }

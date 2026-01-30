@@ -1,0 +1,95 @@
+/* ============================================
+   Player Entry - Individual Player Display
+   ============================================ */
+
+.player-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(10, 10, 25, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+/* Active player - golden glow */
+.player-entry--active {
+  border: 2px solid #f1c40f;
+  box-shadow: 0 0 12px rgba(241, 196, 15, 0.6);
+  background: rgba(241, 196, 15, 0.1);
+}
+
+/* Waiting player - dimmed */
+.player-entry--waiting {
+  opacity: 0.6;
+}
+
+.player-entry--waiting:hover {
+  opacity: 0.8;
+}
+
+/* Hero name */
+.player-entry__hero {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  text-transform: capitalize;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Stats */
+.player-entry__stat {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.player-entry__icon {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.player-entry__value {
+  font-size: 0.65rem;
+  color: #ddd;
+  font-weight: 500;
+}
+
+/* Stat colors (match TopBar) */
+.player-entry__stat--level .player-entry__icon {
+  color: #9b59b6;
+}
+
+.player-entry__stat--fame .player-entry__icon {
+  color: #f1c40f;
+}
+
+.player-entry__stat--armor .player-entry__icon {
+  color: #95a5a6;
+}
+
+.player-entry__stat--move .player-entry__icon {
+  color: #4fc3f7;
+}
+
+.player-entry__stat--influence .player-entry__icon {
+  color: #e91e63;
+}
+
+/* YOU badge */
+.player-entry__badge {
+  font-size: 0.55rem;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(241, 196, 15, 0.2);
+  color: #f1c40f;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-left: 0.25rem;
+}

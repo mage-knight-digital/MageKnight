@@ -4,6 +4,8 @@
  * Scenarios define the rules, map shape, and win conditions for a game.
  */
 
+import type { HexDirection } from "./hex.js";
+
 // === Tactic Removal Modes ===
 // Defines what happens to tactics at end of each day/night
 export const TACTIC_REMOVAL_NONE = "none" as const; // Tactics collected and re-displayed each round
@@ -37,8 +39,60 @@ export type ScenarioId =
 // === Map Shape Types ===
 export const MAP_SHAPE_WEDGE = "wedge" as const;
 export const MAP_SHAPE_OPEN = "open" as const;
+export const MAP_SHAPE_OPEN_3 = "open_3" as const;
+export const MAP_SHAPE_OPEN_4 = "open_4" as const;
+export const MAP_SHAPE_OPEN_5 = "open_5" as const;
 
-export type MapShape = typeof MAP_SHAPE_WEDGE | typeof MAP_SHAPE_OPEN;
+export type MapShape =
+  | typeof MAP_SHAPE_WEDGE
+  | typeof MAP_SHAPE_OPEN
+  | typeof MAP_SHAPE_OPEN_3
+  | typeof MAP_SHAPE_OPEN_4
+  | typeof MAP_SHAPE_OPEN_5;
+
+// === Map Shape Configuration ===
+/**
+ * Configuration for map shape initialization and expansion.
+ * Defines starting tile, initial tile placement positions, and valid expansion directions.
+ */
+export interface MapShapeConfig {
+  /** The starting tile to place at origin (0,0) */
+  readonly startingTile: "starting_a" | "starting_b";
+
+  /** Positions where initial countryside tiles are placed adjacent to starting tile */
+  readonly initialTilePositions: readonly HexDirection[];
+
+  /** Valid directions for tile exploration/expansion */
+  readonly expansionDirections: readonly HexDirection[];
+}
+
+export const MAP_SHAPE_CONFIGS: Record<MapShape, MapShapeConfig> = {
+  [MAP_SHAPE_WEDGE]: {
+    startingTile: "starting_a",
+    initialTilePositions: ["NE", "E"],
+    expansionDirections: ["NE", "E"],
+  },
+  [MAP_SHAPE_OPEN]: {
+    startingTile: "starting_a",
+    initialTilePositions: ["NE", "E"],
+    expansionDirections: ["NE", "E", "SE", "SW", "W", "NW"],
+  },
+  [MAP_SHAPE_OPEN_3]: {
+    startingTile: "starting_b",
+    initialTilePositions: ["NE", "E", "SE"],
+    expansionDirections: ["NE", "E", "SE", "SW", "W", "NW"],
+  },
+  [MAP_SHAPE_OPEN_4]: {
+    startingTile: "starting_b",
+    initialTilePositions: ["NE", "E", "SE", "SW"],
+    expansionDirections: ["NE", "E", "SE", "SW", "W", "NW"],
+  },
+  [MAP_SHAPE_OPEN_5]: {
+    startingTile: "starting_b",
+    initialTilePositions: ["NE", "E", "SE", "SW", "W"],
+    expansionDirections: ["NE", "E", "SE", "SW", "W", "NW"],
+  },
+};
 
 // === Expansion IDs ===
 export const EXPANSION_LOST_LEGION = "lost_legion" as const;
