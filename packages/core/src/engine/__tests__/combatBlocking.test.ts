@@ -21,7 +21,7 @@ import {
   ENEMY_ORC,
   ENEMY_WOLF_RIDERS,
   ENEMY_FIRE_MAGE,
-  ENEMY_FREEZERS,
+  ENEMY_ALTEM_MAGES,
   COMBAT_TYPE_RANGED,
   ELEMENT_PHYSICAL,
   ELEMENT_ICE,
@@ -369,10 +369,10 @@ describe("Combat Blocking", () => {
     it("should only allow Cold Fire block against Cold Fire attack", () => {
       let state = createTestGameState();
 
-      // Enter combat with Freezers (Cold Fire attack 3, armor 4)
+      // Enter combat with Altem Mages (Cold Fire attack 6, armor 6)
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_FREEZERS],
+        enemyIds: [ENEMY_ALTEM_MAGES],
       }).state;
 
       // Advance to Block phase
@@ -380,10 +380,10 @@ describe("Combat Blocking", () => {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
 
-      // Block with Physical 6 vs Cold Fire Attack 3
-      // Physical is inefficient against Cold Fire: 6 / 2 = 3, which is >= 3, so block succeeds
+      // Block with Physical 12 vs Cold Fire Attack 6
+      // Physical is inefficient against Cold Fire: 12 / 2 = 6, which is >= 6, so block succeeds
       state = withBlockSources(state, "player1", [
-        { element: ELEMENT_PHYSICAL, value: 6 },
+        { element: ELEMENT_PHYSICAL, value: 12 },
       ]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
@@ -396,10 +396,10 @@ describe("Combat Blocking", () => {
     it("should block Cold Fire with Cold Fire efficiently", () => {
       let state = createTestGameState();
 
-      // Enter combat with Freezers (Cold Fire attack 3, armor 4)
+      // Enter combat with Altem Mages (Cold Fire attack 6, armor 6)
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_FREEZERS],
+        enemyIds: [ENEMY_ALTEM_MAGES],
       }).state;
 
       // Advance to Block phase
@@ -407,9 +407,9 @@ describe("Combat Blocking", () => {
         type: END_COMBAT_PHASE_ACTION,
       }).state;
 
-      // Block with Cold Fire 3 vs Cold Fire Attack 3 (efficient)
+      // Block with Cold Fire 6 vs Cold Fire Attack 6 (efficient)
       state = withBlockSources(state, "player1", [
-        { element: ELEMENT_COLD_FIRE, value: 3 },
+        { element: ELEMENT_COLD_FIRE, value: 6 },
       ]);
       const result = engine.processAction(state, "player1", {
         type: DECLARE_BLOCK_ACTION,
