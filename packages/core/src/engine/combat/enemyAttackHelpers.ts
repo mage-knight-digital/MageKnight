@@ -100,7 +100,13 @@ export function isEnemyFullyBlocked(enemy: CombatEnemy): boolean {
   // Multi-attack path: check if all attacks are blocked
   if (enemy.attacksBlocked) {
     const attackCount = getEnemyAttackCount(enemy);
-    return enemy.attacksBlocked.every((blocked, i) => i >= attackCount || blocked);
+    // Only check attacks up to the count (defensive: ignore extra array elements)
+    for (let i = 0; i < attackCount; i++) {
+      if (!enemy.attacksBlocked[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   return false;
