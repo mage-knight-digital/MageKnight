@@ -21,11 +21,21 @@ import {
   ENEMY_ALREADY_DEFEATED,
   SUMMONER_HIDDEN,
   ASSASSINATION_REQUIRES_HERO_TARGET,
+  INVALID_ATTACK_INDEX,
+  ATTACK_ALREADY_BLOCKED,
+  ATTACK_DAMAGE_ALREADY_ASSIGNED,
 } from "../validationCodes.js";
 import { isAbilityNullified } from "../../modifiers.js";
+import {
+  getEnemyAttackCount,
+  isAttackBlocked,
+  isAttackDamageAssigned,
+  isEnemyFullyBlocked,
+} from "../../combat/enemyAttackHelpers.js";
 
 // Target enemy must exist and not be defeated (for block)
 // Also excludes hidden summoners (summoners that have summoned an enemy)
+// For multi-attack enemies, validates the specific attack being blocked
 export function validateBlockTargetEnemy(
   state: GameState,
   _playerId: string,
@@ -45,10 +55,6 @@ export function validateBlockTargetEnemy(
     return invalid(ENEMY_ALREADY_DEFEATED, "Target enemy is already defeated");
   }
 
-  if (enemy.isBlocked) {
-    return invalid(ENEMY_ALREADY_BLOCKED, "Target enemy is already blocked");
-  }
-
   // Cannot target hidden summoners - must block the summoned enemy instead
   if (enemy.isSummonerHidden) {
     return invalid(
@@ -57,11 +63,40 @@ export function validateBlockTargetEnemy(
     );
   }
 
+  // Get attack index (default to 0 for single-attack enemies)
+  const attackIndex = action.attackIndex ?? 0;
+  const attackCount = getEnemyAttackCount(enemy);
+
+  // Validate attack index is in range
+  if (attackIndex < 0 || attackIndex >= attackCount) {
+    return invalid(
+      INVALID_ATTACK_INDEX,
+      `Invalid attack index ${attackIndex}: enemy has ${attackCount} attack(s)`
+    );
+  }
+
+  // Check if this specific attack is already blocked
+  if (isAttackBlocked(enemy, attackIndex)) {
+    if (attackCount > 1) {
+      return invalid(
+        ATTACK_ALREADY_BLOCKED,
+        `Attack ${attackIndex + 1} of ${enemy.definition.name} is already blocked`
+      );
+    }
+    return invalid(ENEMY_ALREADY_BLOCKED, "Target enemy is already blocked");
+  }
+
+  // If all attacks are blocked, the enemy is fully blocked
+  if (isEnemyFullyBlocked(enemy)) {
+    return invalid(ENEMY_ALREADY_BLOCKED, "All attacks on this enemy are already blocked");
+  }
+
   return valid();
 }
 
 // Target enemy must exist and not be blocked/defeated (for assign damage)
 // Also excludes hidden summoners (summoners that have summoned an enemy)
+// For multi-attack enemies, validates the specific attack's damage assignment
 export function validateAssignDamageTargetEnemy(
   state: GameState,
   _playerId: string,
@@ -81,15 +116,48 @@ export function validateAssignDamageTargetEnemy(
     return invalid(ENEMY_ALREADY_DEFEATED, "Target enemy is already defeated");
   }
 
-  if (enemy.isBlocked) {
-    return invalid(ENEMY_ALREADY_BLOCKED, "Enemy is blocked, no damage to assign");
-  }
-
   // Cannot assign damage from hidden summoners - damage comes from summoned enemy instead
   if (enemy.isSummonerHidden) {
     return invalid(
       SUMMONER_HIDDEN,
       "Summoner is hidden while their summoned enemy is active"
+    );
+  }
+
+  // Get attack index (default to 0 for single-attack enemies)
+  const attackIndex = action.attackIndex ?? 0;
+  const attackCount = getEnemyAttackCount(enemy);
+
+  // Validate attack index is in range
+  if (attackIndex < 0 || attackIndex >= attackCount) {
+    return invalid(
+      INVALID_ATTACK_INDEX,
+      `Invalid attack index ${attackIndex}: enemy has ${attackCount} attack(s)`
+    );
+  }
+
+  // Check if this specific attack is blocked (no damage to assign)
+  if (isAttackBlocked(enemy, attackIndex)) {
+    if (attackCount > 1) {
+      return invalid(
+        ATTACK_ALREADY_BLOCKED,
+        `Attack ${attackIndex + 1} of ${enemy.definition.name} is blocked, no damage to assign`
+      );
+    }
+    return invalid(ENEMY_ALREADY_BLOCKED, "Enemy is blocked, no damage to assign");
+  }
+
+  // Check if damage is already assigned for this attack
+  if (isAttackDamageAssigned(enemy, attackIndex)) {
+    if (attackCount > 1) {
+      return invalid(
+        ATTACK_DAMAGE_ALREADY_ASSIGNED,
+        `Damage for attack ${attackIndex + 1} of ${enemy.definition.name} is already assigned`
+      );
+    }
+    return invalid(
+      ATTACK_DAMAGE_ALREADY_ASSIGNED,
+      "Damage for this enemy is already assigned"
     );
   }
 

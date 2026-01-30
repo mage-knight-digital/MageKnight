@@ -209,8 +209,15 @@ export interface CombatOptions {
 
 export interface BlockOption {
   readonly enemyInstanceId: string;
+  /**
+   * For multi-attack enemies, which attack this option is for (0-indexed).
+   * Undefined for single-attack enemies (backwards compatible).
+   */
+  readonly attackIndex?: number;
   readonly enemyName: string;
   readonly enemyAttack: number;
+  /** Element of this attack (for block efficiency calculation) */
+  readonly attackElement?: Element;
   readonly requiredBlock: number; // Pre-calculated (2x for Swift)
   readonly isSwift: boolean;
   readonly isBrutal: boolean;
@@ -241,8 +248,13 @@ export interface UnitDamageTarget {
 
 export interface DamageAssignmentOption {
   readonly enemyInstanceId: string;
+  /**
+   * For multi-attack enemies, which attack's damage needs to be assigned (0-indexed).
+   * Undefined for single-attack enemies (backwards compatible).
+   */
+  readonly attackIndex?: number;
   readonly enemyName: string;
-  /** Enemy's attack element (physical, fire, ice, cold_fire) */
+  /** Attack's element (physical, fire, ice, cold_fire) */
   readonly attackElement: Element;
   /** Whether enemy has Brutal ability (doubles damage) */
   readonly isBrutal: boolean;

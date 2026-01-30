@@ -42,6 +42,7 @@ export type {
   EnemyColor,
   EnemyId,
   Faction,
+  EnemyAttack,
 } from "./types.js";
 
 export {

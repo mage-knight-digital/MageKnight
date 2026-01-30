@@ -95,6 +95,7 @@ export const createEndCombatPhaseCommandFromAction: CommandFactory = (
 /**
  * Declare block command factory.
  * Creates a command to declare a block against an enemy attack.
+ * For multi-attack enemies, attackIndex specifies which attack to block.
  */
 export const createDeclareBlockCommandFromAction: CommandFactory = (
   _state,
@@ -102,11 +103,18 @@ export const createDeclareBlockCommandFromAction: CommandFactory = (
   action
 ) => {
   if (action.type !== DECLARE_BLOCK_ACTION) return null;
-  return createDeclareBlockCommand({
+
+  const baseParams = {
     playerId,
     targetEnemyInstanceId: action.targetEnemyInstanceId,
     // blocks now read from player.combatAccumulator.blockSources by the command
-  });
+  };
+
+  // Only include attackIndex if explicitly provided
+  if (action.attackIndex !== undefined) {
+    return createDeclareBlockCommand({ ...baseParams, attackIndex: action.attackIndex });
+  }
+  return createDeclareBlockCommand(baseParams);
 };
 
 /**
@@ -130,6 +138,7 @@ export const createDeclareAttackCommandFromAction: CommandFactory = (
 /**
  * Assign damage command factory.
  * Creates a command to assign unblocked damage to player/units.
+ * For multi-attack enemies, attackIndex specifies which attack's damage to assign.
  */
 export const createAssignDamageCommandFromAction: CommandFactory = (
   _state,
@@ -138,19 +147,25 @@ export const createAssignDamageCommandFromAction: CommandFactory = (
 ) => {
   if (action.type !== ASSIGN_DAMAGE_ACTION) return null;
 
+  const baseParams = {
+    playerId,
+    enemyInstanceId: action.enemyInstanceId,
+  };
+
+  // Build params with optional attackIndex
+  const paramsWithAttackIndex = action.attackIndex !== undefined
+    ? { ...baseParams, attackIndex: action.attackIndex }
+    : baseParams;
+
   // Only include assignments if provided
   if (action.assignments) {
     return createAssignDamageCommand({
-      playerId,
-      enemyInstanceId: action.enemyInstanceId,
+      ...paramsWithAttackIndex,
       assignments: action.assignments,
     });
   }
 
-  return createAssignDamageCommand({
-    playerId,
-    enemyInstanceId: action.enemyInstanceId,
-  });
+  return createAssignDamageCommand(paramsWithAttackIndex);
 };
 
 /**

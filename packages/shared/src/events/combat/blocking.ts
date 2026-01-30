@@ -20,11 +20,13 @@ export const ENEMY_BLOCKED = "ENEMY_BLOCKED" as const;
  * Emitted when an enemy's attack is successfully blocked.
  *
  * A blocked enemy deals no damage to the player this combat.
+ * For multi-attack enemies, each attack must be blocked separately.
  *
  * @remarks
  * - Block value must meet or exceed enemy's attack
  * - Some enemies require specific block types (ice, fire)
  * - Blocked enemies still need to be defeated
+ * - Multi-attack enemies: blocking one attack doesn't block others
  *
  * @example
  * ```typescript
@@ -38,6 +40,11 @@ export interface EnemyBlockedEvent {
   readonly type: typeof ENEMY_BLOCKED;
   /** Instance ID of the blocked enemy */
   readonly enemyInstanceId: string;
+  /**
+   * For multi-attack enemies, which attack was blocked (0-indexed).
+   * Undefined for single-attack enemies (backwards compatible).
+   */
+  readonly attackIndex?: number;
   /** Total block value applied */
   readonly blockValue: number;
 }
@@ -70,11 +77,13 @@ export const BLOCK_FAILED = "BLOCK_FAILED" as const;
  * Emitted when a block attempt is insufficient.
  *
  * The enemy will deal its full damage during ASSIGN_DAMAGE phase.
+ * For multi-attack enemies, other attacks may still be blocked.
  *
  * @remarks
  * - Block value was less than required
  * - Player still takes full damage (partial blocks don't reduce damage)
  * - Consider using block more efficiently
+ * - Multi-attack enemies: a failed block on one attack doesn't affect others
  *
  * @example
  * ```typescript
@@ -88,6 +97,11 @@ export interface BlockFailedEvent {
   readonly type: typeof BLOCK_FAILED;
   /** Instance ID of the unblocked enemy */
   readonly enemyInstanceId: string;
+  /**
+   * For multi-attack enemies, which attack failed to be blocked (0-indexed).
+   * Undefined for single-attack enemies (backwards compatible).
+   */
+  readonly attackIndex?: number;
   /** Block value that was attempted */
   readonly blockValue: number;
   /** Block value that was needed */
