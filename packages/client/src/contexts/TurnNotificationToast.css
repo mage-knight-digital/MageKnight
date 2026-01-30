@@ -1,0 +1,63 @@
+/**
+ * Turn Notification Toast styles
+ *
+ * Positioned at top center, non-blocking, dismissible on click
+ */
+
+.turn-notification-toast {
+  position: fixed;
+  top: 5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+
+  font-family: "IM Fell English SC", serif;
+  font-size: 1.25rem;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+
+  cursor: pointer;
+  user-select: none;
+
+  /* Subtle animation */
+  animation: toast-slide-in 0.3s ease-out;
+}
+
+.turn-notification-toast--turn-change {
+  background: linear-gradient(135deg, #2d1f12 0%, #1a1209 100%);
+  border: 2px solid #8b7355;
+  color: #e8dcc4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.turn-notification-toast--round-end {
+  background: linear-gradient(135deg, #1f2d12 0%, #0d1a09 100%);
+  border: 2px solid #558b55;
+  color: #c4e8c4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.turn-notification-toast:hover {
+  opacity: 0.9;
+}
+
+.turn-notification-toast__message {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}

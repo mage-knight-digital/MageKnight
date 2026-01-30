@@ -200,7 +200,7 @@ export function ManaSourceOverlay() {
     .join(" ");
 
   return (
-    <div className={overlayClassNames}>
+    <div className={overlayClassNames} data-testid="mana-source-overlay">
       <div className="mana-source-overlay__label">Source</div>
       <div className="mana-source-overlay__dice">
         {state.source.dice.map((die) => {
@@ -248,6 +248,7 @@ export function ManaSourceOverlay() {
             <div
               key={die.id}
               className={classNames}
+              data-testid="mana-die"
               style={
                 isRolling ? { animationDelay: `${staggerDelay}ms` } : undefined
               }

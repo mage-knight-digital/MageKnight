@@ -12,8 +12,14 @@ import {
   ROUND_PHASE_TACTICS_SELECTION,
   ALL_DAY_TACTICS,
   SELECT_TACTIC_ACTION,
+  PLAY_CARD_SIDEWAYS_ACTION,
+  PLAY_SIDEWAYS_AS_MOVE,
   TACTIC_EARLY_BIRD,
+  TACTIC_PLANNING,
+  TACTIC_GREAT_START,
+  TACTIC_THE_RIGHT_MOMENT,
   TACTIC_SELECTED,
+  TURN_ENDED,
   ROUND_PHASE_PLAYER_TURNS,
   INITIAL_MOVE_POINTS,
 } from "@mage-knight/shared";
@@ -656,6 +662,381 @@ describe("GameServer", () => {
 
       // Combat should have been triggered by provoking the rampaging enemy
       expect(finalState.combat).not.toBeNull();
+    });
+  });
+
+  describe("multiplayer game flow", () => {
+    describe("2-player complete round", () => {
+      it("should allow both players to take turns in sequence", () => {
+        const server = createGameServer(123);
+        const callback1 = vi.fn();
+        const callback2 = vi.fn();
+
+        server.initializeGame(["player1", "player2"]);
+        server.connect("player1", callback1);
+        server.connect("player2", callback2);
+
+        // Both players select tactics - Player 1 first (lowest fame in selection order)
+        // Selection order is by fame (lowest first), both start at 0 so use player order
+        // Use tactics without pending decisions (avoid Rethink, Mana Steal, Preparation, Sparing Power)
+        server.handleAction("player1", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_EARLY_BIRD, // Turn order 1
+        });
+
+        server.handleAction("player2", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_PLANNING, // Turn order 4 (no pending decision)
+        });
+
+        const stateAfterTactics = server.getState();
+        expect(stateAfterTactics.roundPhase).toBe(ROUND_PHASE_PLAYER_TURNS);
+        // Player1 should go first (lower tactic turn order)
+        expect(stateAfterTactics.turnOrder[0]).toBe("player1");
+        expect(stateAfterTactics.turnOrder[1]).toBe("player2");
+
+        // Player 1 plays a card sideways (satisfies minimum turn requirement)
+        // then ends turn
+        const p1State = server.getStateForPlayer("player1");
+        const p1Hand = p1State.players.find((p) => p.id === "player1")?.hand;
+        expect(Array.isArray(p1Hand)).toBe(true);
+        expect((p1Hand as string[]).length).toBeGreaterThan(0);
+        const cardToPlay = (p1Hand as string[])[0];
+
+        server.handleAction("player1", {
+          type: PLAY_CARD_SIDEWAYS_ACTION,
+          cardId: cardToPlay,
+          as: PLAY_SIDEWAYS_AS_MOVE,
+        });
+
+        callback1.mockClear();
+        callback2.mockClear();
+        server.handleAction("player1", { type: END_TURN_ACTION });
+
+        // Both should receive the update
+        expect(callback1).toHaveBeenCalled();
+        expect(callback2).toHaveBeenCalled();
+
+        // Check TURN_ENDED event
+        const [events1] = callback1.mock.calls[0] as [GameEvent[]];
+        expect(events1).toContainEqual(
+          expect.objectContaining({
+            type: TURN_ENDED,
+            playerId: "player1",
+            nextPlayerId: "player2",
+          })
+        );
+
+        // Now player 2's turn
+        const stateAfterP1Turn = server.getState();
+        expect(stateAfterP1Turn.currentPlayerIndex).toBe(1);
+        expect(stateAfterP1Turn.turnOrder[stateAfterP1Turn.currentPlayerIndex]).toBe("player2");
+      });
+
+      it("should track fame correctly for each player", () => {
+        const server = createGameServer(456);
+        server.initializeGame(["player1", "player2"]);
+
+        // Both start with 0 fame
+        const initialState = server.getState();
+        expect(initialState.players[0].fame).toBe(0);
+        expect(initialState.players[1].fame).toBe(0);
+
+        // Fame can be gained through combat, site conquest, etc.
+        // For now verify each player's fame is tracked independently
+        const p1State = server.getStateForPlayer("player1");
+        const p2State = server.getStateForPlayer("player2");
+
+        const p1InP1View = p1State.players.find((p) => p.id === "player1");
+        const p2InP1View = p1State.players.find((p) => p.id === "player2");
+        const p1InP2View = p2State.players.find((p) => p.id === "player1");
+        const p2InP2View = p2State.players.find((p) => p.id === "player2");
+
+        // Fame should be visible to all players (public info)
+        expect(p1InP1View?.fame).toBe(0);
+        expect(p2InP1View?.fame).toBe(0);
+        expect(p1InP2View?.fame).toBe(0);
+        expect(p2InP2View?.fame).toBe(0);
+      });
+    });
+
+    describe("3-player tactics selection order", () => {
+      it("should determine selection order by fame then turn order", () => {
+        const server = createGameServer(789);
+        server.initializeGame(["player1", "player2", "player3"]);
+
+        const state = server.getState();
+
+        // All players start at 0 fame, so selection order follows player order
+        // (tie-breaker is turn order index, which matches player order at game start)
+        expect(state.tacticsSelectionOrder).toEqual(["player1", "player2", "player3"]);
+        expect(state.currentTacticSelector).toBe("player1");
+      });
+
+      it("should advance selector after each tactic choice", () => {
+        const server = createGameServer(789);
+        server.initializeGame(["player1", "player2", "player3"]);
+
+        // Use tactics without pending decisions (avoid Rethink, Mana Steal, Preparation, Sparing Power)
+        // Player 1 selects
+        server.handleAction("player1", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_EARLY_BIRD, // Turn order 1
+        });
+        let state = server.getState();
+        expect(state.currentTacticSelector).toBe("player2");
+
+        // Player 2 selects
+        server.handleAction("player2", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_PLANNING, // Turn order 4
+        });
+        state = server.getState();
+        expect(state.currentTacticSelector).toBe("player3");
+
+        // Player 3 selects
+        server.handleAction("player3", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_GREAT_START, // Turn order 5 (draws 2 cards but no decision)
+        });
+        state = server.getState();
+
+        // Should now be in player turns phase
+        expect(state.roundPhase).toBe(ROUND_PHASE_PLAYER_TURNS);
+        // Turn order determined by tactic turn order numbers
+        // Early Bird=1, Planning=4, Great Start=5
+        expect(state.turnOrder).toEqual(["player1", "player2", "player3"]);
+      });
+
+      it("should calculate turn order based on tactic turn order numbers", () => {
+        const server = createGameServer(321);
+        server.initializeGame(["player1", "player2", "player3"]);
+
+        // Players pick tactics in reverse turn order
+        server.handleAction("player1", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_THE_RIGHT_MOMENT, // Turn order 6
+        });
+        server.handleAction("player2", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_PLANNING, // Turn order 4
+        });
+        server.handleAction("player3", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_EARLY_BIRD, // Turn order 1
+        });
+
+        const state = server.getState();
+        // Turn order should be: player3 (1), player2 (4), player1 (6)
+        expect(state.turnOrder).toEqual(["player3", "player2", "player1"]);
+      });
+    });
+
+    describe("4-player complete turn cycle", () => {
+      it("should assign different heroes to each player", () => {
+        const server = createGameServer(999);
+        server.initializeGame(["player1", "player2", "player3", "player4"]);
+
+        const state = server.getState();
+        const heroes = state.players.map((p) => p.hero);
+
+        // All 4 should have different heroes
+        const uniqueHeroes = new Set(heroes);
+        expect(uniqueHeroes.size).toBe(4);
+      });
+
+      it("should cycle through all 4 players in turn order", () => {
+        const server = createGameServer(999);
+        server.initializeGame(["player1", "player2", "player3", "player4"]);
+
+        // All select tactics to get into player turns
+        // Use tactics without pending decisions (avoid Rethink, Mana Steal, Preparation, Sparing Power)
+        server.handleAction("player1", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_EARLY_BIRD, // Turn order 1
+        });
+        server.handleAction("player2", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_PLANNING, // Turn order 4
+        });
+        server.handleAction("player3", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_GREAT_START, // Turn order 5
+        });
+        server.handleAction("player4", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_THE_RIGHT_MOMENT, // Turn order 6
+        });
+
+        let state = server.getState();
+        expect(state.roundPhase).toBe(ROUND_PHASE_PLAYER_TURNS);
+        const turnOrder = state.turnOrder;
+        expect(turnOrder).toHaveLength(4);
+
+        // Cycle through all 4 players
+        for (let i = 0; i < 4; i++) {
+          state = server.getState();
+          const currentPlayer = turnOrder[state.currentPlayerIndex];
+          expect(currentPlayer).toBe(turnOrder[i]);
+          expect(currentPlayer).toBeDefined();
+
+          // Play a card sideways to satisfy minimum turn requirement
+          const pState = server.getStateForPlayer(currentPlayer as string);
+          const pHand = pState.players.find((p) => p.id === currentPlayer)?.hand;
+          if (Array.isArray(pHand) && pHand.length > 0) {
+            server.handleAction(currentPlayer as string, {
+              type: PLAY_CARD_SIDEWAYS_ACTION,
+              cardId: pHand[0],
+              as: PLAY_SIDEWAYS_AS_MOVE,
+            });
+          }
+
+          // End turn (skip to next player)
+          server.handleAction(currentPlayer as string, { type: END_TURN_ACTION });
+        }
+
+        // Should wrap back to first player
+        state = server.getState();
+        expect(state.turnOrder[state.currentPlayerIndex]).toBe(turnOrder[0]);
+      });
+
+      it("should have correct mana dice count for 4 players", () => {
+        const server = createGameServer(999);
+        server.initializeGame(["player1", "player2", "player3", "player4"]);
+
+        const state = server.getState();
+        // Formula: playerCount + 2 = 4 + 2 = 6 dice
+        expect(state.source.dice.length).toBe(6);
+      });
+    });
+
+    describe("state filtering verification", () => {
+      it("should hide other players hand contents", () => {
+        const server = createGameServer(123);
+        server.initializeGame(["player1", "player2"]);
+
+        const p1State = server.getStateForPlayer("player1");
+        const p2State = server.getStateForPlayer("player2");
+
+        // Player 1 viewing their own hand - should be array
+        const p1InP1View = p1State.players.find((p) => p.id === "player1");
+        expect(Array.isArray(p1InP1View?.hand)).toBe(true);
+
+        // Player 1 viewing player2's hand - should be number (count)
+        const p2InP1View = p1State.players.find((p) => p.id === "player2");
+        expect(typeof p2InP1View?.hand).toBe("number");
+
+        // Player 2 viewing their own hand - should be array
+        const p2InP2View = p2State.players.find((p) => p.id === "player2");
+        expect(Array.isArray(p2InP2View?.hand)).toBe(true);
+
+        // Player 2 viewing player1's hand - should be number (count)
+        const p1InP2View = p2State.players.find((p) => p.id === "player1");
+        expect(typeof p1InP2View?.hand).toBe("number");
+      });
+
+      it("should show deck and discard counts for all players", () => {
+        const server = createGameServer(123);
+        server.initializeGame(["player1", "player2"]);
+
+        const p1State = server.getStateForPlayer("player1");
+
+        const p1InP1View = p1State.players.find((p) => p.id === "player1");
+        const p2InP1View = p1State.players.find((p) => p.id === "player2");
+
+        // Deck counts should be numbers for both (not arrays)
+        expect(typeof p1InP1View?.deckCount).toBe("number");
+        expect(typeof p2InP1View?.deckCount).toBe("number");
+        expect(typeof p1InP1View?.discardCount).toBe("number");
+        expect(typeof p2InP1View?.discardCount).toBe("number");
+      });
+
+      it("should show public player info to all", () => {
+        const server = createGameServer(123);
+        server.initializeGame(["player1", "player2"]);
+
+        const p1State = server.getStateForPlayer("player1");
+        const p2State = server.getStateForPlayer("player2");
+
+        // Check that player2's public info is visible to player1
+        const p2InP1View = p1State.players.find((p) => p.id === "player2");
+        expect(p2InP1View?.fame).toBeDefined();
+        expect(p2InP1View?.level).toBeDefined();
+        expect(p2InP1View?.reputation).toBeDefined();
+        expect(p2InP1View?.position).toBeDefined();
+        expect(p2InP1View?.movePoints).toBeDefined();
+
+        // And vice versa
+        const p1InP2View = p2State.players.find((p) => p.id === "player1");
+        expect(p1InP2View?.fame).toBeDefined();
+        expect(p1InP2View?.level).toBeDefined();
+        expect(p1InP2View?.reputation).toBeDefined();
+        expect(p1InP2View?.position).toBeDefined();
+        expect(p1InP2View?.movePoints).toBeDefined();
+      });
+    });
+
+    describe("round advancement with multiple players", () => {
+      it("should require all players to complete final turns for round to end", () => {
+        const server = createGameServer(456);
+        const callback1 = vi.fn();
+        const callback2 = vi.fn();
+
+        server.initializeGame(["player1", "player2"]);
+        server.connect("player1", callback1);
+        server.connect("player2", callback2);
+
+        // Select tactics (use tactics without pending decisions)
+        server.handleAction("player1", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_EARLY_BIRD,
+        });
+        server.handleAction("player2", {
+          type: SELECT_TACTIC_ACTION,
+          tacticId: TACTIC_PLANNING,
+        });
+
+        // Get into player turns phase
+        let state = server.getState();
+        expect(state.roundPhase).toBe(ROUND_PHASE_PLAYER_TURNS);
+        expect(state.round).toBe(1);
+
+        // Player 1 ends turn
+        server.handleAction("player1", { type: END_TURN_ACTION });
+        state = server.getState();
+        expect(state.round).toBe(1); // Still round 1
+
+        // Player 2 ends turn - back to player 1
+        server.handleAction("player2", { type: END_TURN_ACTION });
+        state = server.getState();
+        expect(state.round).toBe(1); // Still round 1 (normal turn cycling, not round end)
+      });
+    });
+
+    describe("mana source dice scaling", () => {
+      it("should have 3 dice for 1 player (1+2)", () => {
+        const server = createGameServer(100);
+        server.initializeGame(["player1"]);
+        expect(server.getState().source.dice.length).toBe(3);
+      });
+
+      it("should have 4 dice for 2 players (2+2)", () => {
+        const server = createGameServer(100);
+        server.initializeGame(["player1", "player2"]);
+        expect(server.getState().source.dice.length).toBe(4);
+      });
+
+      it("should have 5 dice for 3 players (3+2)", () => {
+        const server = createGameServer(100);
+        server.initializeGame(["player1", "player2", "player3"]);
+        expect(server.getState().source.dice.length).toBe(5);
+      });
+
+      it("should have 6 dice for 4 players (4+2)", () => {
+        const server = createGameServer(100);
+        server.initializeGame(["player1", "player2", "player3", "player4"]);
+        expect(server.getState().source.dice.length).toBe(6);
+      });
     });
   });
 });

@@ -7,6 +7,7 @@ import { CinematicProvider } from "./contexts/CinematicContext";
 import { OverlayProvider } from "./contexts/OverlayContext";
 import { DebugDisplayProvider } from "./contexts/DebugDisplayContext";
 import { PixiAppProvider } from "./contexts/PixiAppContext";
+import { TurnNotificationProvider } from "./contexts/TurnNotificationContext";
 import { GameView } from "./components/GameView";
 import { DebugPanel } from "./components/DebugPanel";
 
@@ -32,24 +33,26 @@ const GAME_SEED = getGameSeed();
 export function App() {
   return (
     <GameProvider seed={GAME_SEED}>
-      <AnimationDispatcherProvider>
-        <GameIntroProvider>
-          <CinematicProvider>
-            <OverlayProvider>
-              <DebugDisplayProvider>
-                <PixiAppProvider>
-                  <CardMenuPositionProvider>
-                    <CardInteractionProvider>
-                      <GameView />
-                      <DebugPanel />
-                    </CardInteractionProvider>
-                  </CardMenuPositionProvider>
-                </PixiAppProvider>
-              </DebugDisplayProvider>
-            </OverlayProvider>
-          </CinematicProvider>
-        </GameIntroProvider>
-      </AnimationDispatcherProvider>
+      <TurnNotificationProvider>
+        <AnimationDispatcherProvider>
+          <GameIntroProvider>
+            <CinematicProvider>
+              <OverlayProvider>
+                <DebugDisplayProvider>
+                  <PixiAppProvider>
+                    <CardMenuPositionProvider>
+                      <CardInteractionProvider>
+                        <GameView />
+                        <DebugPanel />
+                      </CardInteractionProvider>
+                    </CardMenuPositionProvider>
+                  </PixiAppProvider>
+                </DebugDisplayProvider>
+              </OverlayProvider>
+            </CinematicProvider>
+          </GameIntroProvider>
+        </AnimationDispatcherProvider>
+      </TurnNotificationProvider>
     </GameProvider>
   );
 }
