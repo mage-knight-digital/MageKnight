@@ -26,6 +26,8 @@ import {
   getEnemy,
   createEnemySummonedEvent,
   createSummonedEnemyDiscardedEvent,
+  createReputationChangedEvent,
+  REPUTATION_REASON_DEFEAT_ENEMY,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -115,6 +117,8 @@ interface ResolvePendingDamageResult {
   enemies: readonly CombatEnemy[];
   /** Total fame gained from defeating enemies */
   fameGained: number;
+  /** Total reputation penalty from defeating enemies with reputationPenalty */
+  reputationPenalty: number;
   /** Events for defeated enemies */
   events: readonly GameEvent[];
 }
@@ -129,6 +133,7 @@ function resolvePendingDamage(
 ): ResolvePendingDamageResult {
   const events: GameEvent[] = [];
   let fameGained = 0;
+  let reputationPenalty = 0;
 
   const updatedEnemies = combat.enemies.map((enemy) => {
     // Skip already defeated enemies
@@ -148,6 +153,11 @@ function resolvePendingDamage(
       fameGained += fame;
       events.push(createEnemyDefeatedEvent(enemy.instanceId, enemy.definition.name, fame));
 
+      // Track reputation penalty if enemy has one (e.g., Heroes)
+      if (enemy.definition.reputationPenalty) {
+        reputationPenalty += enemy.definition.reputationPenalty;
+      }
+
       return {
         ...enemy,
         isDefeated: true,
@@ -160,6 +170,7 @@ function resolvePendingDamage(
   return {
     enemies: updatedEnemies,
     fameGained,
+    reputationPenalty,
     events,
   };
 }
@@ -295,6 +306,76 @@ function applyFameToPlayer(
   return {
     ...state,
     players: updatedPlayers,
+  };
+}
+
+/** Minimum reputation value (floor) */
+const MIN_REPUTATION = -7;
+
+/**
+ * Result of applying reputation penalty to a player.
+ */
+interface ApplyReputationPenaltyResult {
+  /** Updated game state */
+  state: GameState;
+  /** Events for reputation change */
+  events: readonly GameEvent[];
+}
+
+/**
+ * Apply reputation penalty from defeated enemies to a player.
+ * The penalty is subtracted from reputation (clamped to -7 minimum).
+ */
+function applyReputationPenalty(
+  state: GameState,
+  playerId: string,
+  penalty: number
+): ApplyReputationPenaltyResult {
+  if (penalty <= 0) {
+    return { state, events: [] };
+  }
+
+  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  if (playerIndex === -1) {
+    return { state, events: [] };
+  }
+
+  const player = state.players[playerIndex];
+  if (!player) {
+    return { state, events: [] };
+  }
+
+  const oldReputation = player.reputation;
+  const newReputation = Math.max(MIN_REPUTATION, oldReputation - penalty);
+
+  // Don't emit event if reputation didn't actually change
+  if (newReputation === oldReputation) {
+    return { state, events: [] };
+  }
+
+  const updatedPlayer: Player = {
+    ...player,
+    reputation: newReputation,
+  };
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = updatedPlayer;
+
+  const events: GameEvent[] = [
+    createReputationChangedEvent(
+      playerId,
+      -penalty, // delta is negative (reputation lost)
+      newReputation,
+      REPUTATION_REASON_DEFEAT_ENEMY
+    ),
+  ];
+
+  return {
+    state: {
+      ...state,
+      players: updatedPlayers,
+    },
+    events,
   };
 }
 
@@ -607,6 +688,16 @@ export function createEndCombatPhaseCommand(
           damageResult.fameGained
         );
 
+        // Apply reputation penalty from defeated enemies (e.g., Heroes)
+        const reputationResult = applyReputationPenalty(
+          stateAfterResolution,
+          params.playerId,
+          damageResult.reputationPenalty
+        );
+        stateAfterResolution = reputationResult.state;
+        // Store reputation events to add after combat ended event
+        const reputationEvents = reputationResult.events;
+
         // Use resolved combat state for victory calculation
         // Combat exists because we just created it above
         if (!stateAfterResolution.combat) {
@@ -785,7 +876,7 @@ export function createEndCombatPhaseCommand(
 
         return {
           state: newState,
-          events,
+          events: [...events, ...reputationEvents],
         };
       }
 
@@ -830,6 +921,15 @@ export function createEndCombatPhaseCommand(
           params.playerId,
           damageResult.fameGained
         );
+
+        // Apply reputation penalty from defeated enemies (e.g., Heroes)
+        const reputationResult = applyReputationPenalty(
+          updatedState,
+          params.playerId,
+          damageResult.reputationPenalty
+        );
+        updatedState = reputationResult.state;
+        phaseEvents.push(...reputationResult.events);
 
         // Resolve summon abilities - draw brown enemies for summoners
         const summonResult = resolveSummons(

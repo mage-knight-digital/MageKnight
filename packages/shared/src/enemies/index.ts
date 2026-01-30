@@ -124,6 +124,7 @@ export {
   ENEMY_GUARDSMEN,
   ENEMY_SWORDSMEN,
   ENEMY_GOLEMS,
+  ENEMY_HEROES,
   GRAY_ENEMIES,
   ENEMY_WOLF, // Test alias
 } from "./gray.js";

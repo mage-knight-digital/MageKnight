@@ -27,6 +27,7 @@ export const ENEMY_CROSSBOWMEN = "crossbowmen" as const;
 export const ENEMY_GUARDSMEN = "guardsmen" as const;
 export const ENEMY_SWORDSMEN = "swordsmen" as const;
 export const ENEMY_GOLEMS = "golems" as const;
+export const ENEMY_HEROES = "heroes" as const;
 
 /**
  * Union type of all gray (Keep garrison) enemy IDs
@@ -35,7 +36,8 @@ export type GrayEnemyId =
   | typeof ENEMY_CROSSBOWMEN
   | typeof ENEMY_GUARDSMEN
   | typeof ENEMY_SWORDSMEN
-  | typeof ENEMY_GOLEMS;
+  | typeof ENEMY_GOLEMS
+  | typeof ENEMY_HEROES;
 
 // =============================================================================
 // GRAY ENEMY DEFINITIONS
@@ -85,6 +87,22 @@ export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
     fame: 4,
     resistances: [RESIST_PHYSICAL],
     abilities: [],
+  },
+  [ENEMY_HEROES]: {
+    id: ENEMY_HEROES,
+    name: "Heroes",
+    color: ENEMY_COLOR_GRAY,
+    attack: 5,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 4,
+    fame: 5,
+    resistances: [],
+    abilities: [ABILITY_FORTIFIED],
+    attacks: [
+      { damage: 5, element: ELEMENT_PHYSICAL },
+      { damage: 3, element: ELEMENT_PHYSICAL },
+    ],
+    reputationPenalty: 1,
   },
 };
 
