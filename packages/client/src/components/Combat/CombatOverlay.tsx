@@ -174,8 +174,8 @@ function AccumulatorDisplay() {
     const showSeparateRangedSiege = isRangedSiege && (hasFortifiedEnemy || (totalRanged > 0 && totalSiege > 0));
 
     // Check if any enemies have resistances that would halve some of our attack
-    const hasFireResistantEnemy = state.combat.enemies.some(e => e.resistances.fire && !e.isDefeated);
-    const hasIceResistantEnemy = state.combat.enemies.some(e => e.resistances.ice && !e.isDefeated);
+    const hasFireResistantEnemy = state.combat.enemies.some(e => e.resistances.includes("fire") && !e.isDefeated);
+    const hasIceResistantEnemy = state.combat.enemies.some(e => e.resistances.includes("ice") && !e.isDefeated);
 
     // Calculate elemental breakdown for display
     const elements: ElementBreakdown = {

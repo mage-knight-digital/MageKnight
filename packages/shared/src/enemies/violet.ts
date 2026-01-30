@@ -27,12 +27,7 @@ import {
   ABILITY_ASSASSINATION,
   ABILITY_ARCANE_IMMUNITY,
 } from "./abilities.js";
-import {
-  NO_RESISTANCES,
-  PHYSICAL_RESISTANCE,
-  FIRE_RESISTANCE,
-  ICE_RESISTANCE,
-} from "./resistances.js";
+import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
 // =============================================================================
 // VIOLET ENEMY ID CONSTANTS
@@ -67,7 +62,7 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 4,
     fame: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_POISON],
   },
   [ENEMY_ILLUSIONISTS]: {
@@ -78,7 +73,7 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 3,
     fame: 4,
-    resistances: PHYSICAL_RESISTANCE,
+    resistances: [RESIST_PHYSICAL],
     abilities: [ABILITY_SUMMON], // Summons brown enemy
   },
   [ENEMY_ICE_MAGES]: {
@@ -89,7 +84,7 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_ICE,
     armor: 6,
     fame: 5,
-    resistances: ICE_RESISTANCE,
+    resistances: [RESIST_ICE],
     abilities: [],
   },
   [ENEMY_FIRE_MAGES]: {
@@ -100,7 +95,7 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_FIRE,
     armor: 5,
     fame: 5,
-    resistances: FIRE_RESISTANCE,
+    resistances: [RESIST_FIRE],
     abilities: [],
   },
   [ENEMY_SORCERERS]: {
@@ -111,7 +106,7 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 6,
     fame: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_ASSASSINATION, ABILITY_POISON, ABILITY_ARCANE_IMMUNITY],
   },
 };

@@ -28,11 +28,7 @@ import {
   ABILITY_PARALYZE,
   ABILITY_FORTIFIED,
 } from "./abilities.js";
-import {
-  NO_RESISTANCES,
-  PHYSICAL_RESISTANCE,
-  FIRE_ICE_RESISTANCE,
-} from "./resistances.js";
+import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
 // =============================================================================
 // WHITE ENEMY ID CONSTANTS
@@ -69,7 +65,7 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 5,
     fame: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [],
   },
   [ENEMY_SHOCKTROOPS]: {
@@ -80,7 +76,7 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 5,
     fame: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_SWIFT, ABILITY_BRUTAL],
   },
   [ENEMY_ICE_GOLEMS]: {
@@ -91,7 +87,7 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_ICE,
     armor: 5,
     fame: 5,
-    resistances: PHYSICAL_RESISTANCE,
+    resistances: [RESIST_PHYSICAL],
     abilities: [ABILITY_PARALYZE],
   },
   [ENEMY_FREEZERS]: {
@@ -102,7 +98,7 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_COLD_FIRE,
     armor: 4,
     fame: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_PARALYZE],
   },
   [ENEMY_ALTEM_GUARDSMEN]: {
@@ -113,7 +109,7 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 6,
     fame: 6,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_FORTIFIED],
   },
   [ENEMY_ALTEM_MAGES]: {
@@ -124,7 +120,7 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_COLD_FIRE,
     armor: 6,
     fame: 8,
-    resistances: FIRE_ICE_RESISTANCE,
+    resistances: [RESIST_FIRE, RESIST_ICE],
     abilities: [ABILITY_BRUTAL],
   },
 };

@@ -24,6 +24,9 @@ import {
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
+  RESIST_PHYSICAL,
+  RESIST_FIRE,
+  RESIST_ICE,
 } from "@mage-knight/shared";
 import { createTestGameState, createTestPlayer } from "../../__tests__/testHelpers.js";
 import type { ActiveModifier } from "../../../types/modifiers.js";
@@ -172,7 +175,7 @@ describe("Block Efficiency", () => {
 describe("Attack Resistances", () => {
   describe("isAttackResisted", () => {
     it("should resist Physical with Physical resistance", () => {
-      const resistances: Resistances = { physical: true, fire: false, ice: false };
+      const resistances: Resistances = [RESIST_PHYSICAL];
       expect(isAttackResisted(ELEMENT_PHYSICAL, resistances)).toBe(true);
     });
 
@@ -181,42 +184,24 @@ describe("Attack Resistances", () => {
     });
 
     it("should resist Fire with Fire resistance", () => {
-      const resistances: Resistances = { physical: false, fire: true, ice: false };
+      const resistances: Resistances = [RESIST_FIRE];
       expect(isAttackResisted(ELEMENT_FIRE, resistances)).toBe(true);
     });
 
     it("should resist Ice with Ice resistance", () => {
-      const resistances: Resistances = { physical: false, fire: false, ice: true };
+      const resistances: Resistances = [RESIST_ICE];
       expect(isAttackResisted(ELEMENT_ICE, resistances)).toBe(true);
     });
 
     it("should resist Cold Fire only with BOTH Fire AND Ice resistance", () => {
       // Only Fire resistance - not enough
-      expect(
-        isAttackResisted(ELEMENT_COLD_FIRE, {
-          physical: false,
-          fire: true,
-          ice: false,
-        })
-      ).toBe(false);
+      expect(isAttackResisted(ELEMENT_COLD_FIRE, [RESIST_FIRE])).toBe(false);
 
       // Only Ice resistance - not enough
-      expect(
-        isAttackResisted(ELEMENT_COLD_FIRE, {
-          physical: false,
-          fire: false,
-          ice: true,
-        })
-      ).toBe(false);
+      expect(isAttackResisted(ELEMENT_COLD_FIRE, [RESIST_ICE])).toBe(false);
 
       // Both Fire and Ice resistance - resisted
-      expect(
-        isAttackResisted(ELEMENT_COLD_FIRE, {
-          physical: false,
-          fire: true,
-          ice: true,
-        })
-      ).toBe(true);
+      expect(isAttackResisted(ELEMENT_COLD_FIRE, [RESIST_FIRE, RESIST_ICE])).toBe(true);
     });
   });
 
@@ -228,13 +213,13 @@ describe("Attack Resistances", () => {
 
     it("should halve resisted attacks", () => {
       const attacks = [{ element: ELEMENT_FIRE, value: 6 }];
-      const resistances: Resistances = { physical: false, fire: true, ice: false };
+      const resistances: Resistances = [RESIST_FIRE];
       expect(calculateEffectiveAttack(attacks, resistances)).toBe(3);
     });
 
     it("should round down halved attacks", () => {
       const attacks = [{ element: ELEMENT_FIRE, value: 5 }];
-      const resistances: Resistances = { physical: false, fire: true, ice: false };
+      const resistances: Resistances = [RESIST_FIRE];
       expect(calculateEffectiveAttack(attacks, resistances)).toBe(2);
     });
 
@@ -244,7 +229,7 @@ describe("Attack Resistances", () => {
         { element: ELEMENT_PHYSICAL, value: 4 },
         { element: ELEMENT_FIRE, value: 6 },
       ];
-      const resistances: Resistances = { physical: true, fire: false, ice: false };
+      const resistances: Resistances = [RESIST_PHYSICAL];
       expect(calculateEffectiveAttack(attacks, resistances)).toBe(8);
     });
 
@@ -254,14 +239,14 @@ describe("Attack Resistances", () => {
         { element: ELEMENT_PHYSICAL, value: 4 },
         { element: ELEMENT_FIRE, value: 4 },
       ];
-      const resistances: Resistances = { physical: true, fire: true, ice: false };
+      const resistances: Resistances = [RESIST_PHYSICAL, RESIST_FIRE];
       expect(calculateEffectiveAttack(attacks, resistances)).toBe(4);
     });
 
     it("should handle Cold Fire against dual resistance", () => {
       // Cold Fire 10 vs Fire+Ice resistance = 10/2 = 5
       const attacks = [{ element: ELEMENT_COLD_FIRE, value: 10 }];
-      const resistances: Resistances = { physical: false, fire: true, ice: true };
+      const resistances: Resistances = [RESIST_FIRE, RESIST_ICE];
       expect(calculateEffectiveAttack(attacks, resistances)).toBe(5);
     });
 
@@ -269,22 +254,10 @@ describe("Attack Resistances", () => {
       const attacks = [{ element: ELEMENT_COLD_FIRE, value: 10 }];
 
       // Fire resistance only
-      expect(
-        calculateEffectiveAttack(attacks, {
-          physical: false,
-          fire: true,
-          ice: false,
-        })
-      ).toBe(10);
+      expect(calculateEffectiveAttack(attacks, [RESIST_FIRE])).toBe(10);
 
       // Ice resistance only
-      expect(
-        calculateEffectiveAttack(attacks, {
-          physical: false,
-          fire: false,
-          ice: true,
-        })
-      ).toBe(10);
+      expect(calculateEffectiveAttack(attacks, [RESIST_ICE])).toBe(10);
     });
   });
 
@@ -294,39 +267,25 @@ describe("Attack Resistances", () => {
     });
 
     it("should return resistances from single enemy", () => {
-      const enemies = [
-        { resistances: { physical: true, fire: false, ice: false } },
-      ];
-      expect(combineResistances(enemies)).toEqual({
-        physical: true,
-        fire: false,
-        ice: false,
-      });
+      const enemies = [{ resistances: [RESIST_PHYSICAL] as Resistances }];
+      expect(combineResistances(enemies)).toEqual([RESIST_PHYSICAL]);
     });
 
     it("should combine resistances from multiple enemies with OR logic", () => {
       const enemies = [
-        { resistances: { physical: true, fire: false, ice: false } },
-        { resistances: { physical: false, fire: true, ice: false } },
-        { resistances: { physical: false, fire: false, ice: true } },
+        { resistances: [RESIST_PHYSICAL] as Resistances },
+        { resistances: [RESIST_FIRE] as Resistances },
+        { resistances: [RESIST_ICE] as Resistances },
       ];
-      expect(combineResistances(enemies)).toEqual({
-        physical: true,
-        fire: true,
-        ice: true,
-      });
+      expect(combineResistances(enemies)).toEqual([RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE]);
     });
 
     it("should handle overlapping resistances", () => {
       const enemies = [
-        { resistances: { physical: true, fire: true, ice: false } },
-        { resistances: { physical: true, fire: false, ice: true } },
+        { resistances: [RESIST_PHYSICAL, RESIST_FIRE] as Resistances },
+        { resistances: [RESIST_PHYSICAL, RESIST_ICE] as Resistances },
       ];
-      expect(combineResistances(enemies)).toEqual({
-        physical: true,
-        fire: true,
-        ice: true,
-      });
+      expect(combineResistances(enemies)).toEqual([RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE]);
     });
   });
 });
@@ -532,7 +491,7 @@ describe("Combat Value Modifiers", () => {
 
       // 6 Fire attack against Fire resistance = 3, plus 3 bonus = 6
       const attacks = [{ element: ELEMENT_FIRE, value: 6 }];
-      const resistances: Resistances = { physical: false, fire: true, ice: false };
+      const resistances: Resistances = [RESIST_FIRE];
       const result = getFinalAttackValue(attacks, resistances, state, "player1", COMBAT_TYPE_MELEE);
 
       expect(result).toBe(6);

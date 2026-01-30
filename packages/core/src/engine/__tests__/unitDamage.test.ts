@@ -92,7 +92,7 @@ describe("Unit Damage Absorption", () => {
             attackElement: ELEMENT_PHYSICAL,
             armor: 3,
             fame: 2,
-            resistances: { physical: false, fire: false, ice: false },
+            resistances: [],
             abilities: [],
           },
           isBlocked: false,

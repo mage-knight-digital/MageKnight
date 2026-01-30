@@ -213,9 +213,9 @@ function computeEnemyAttackState(
     totalEffectiveDamage,
     canDefeat,
     resistances: {
-      physical: resistances.physical,
-      fire: resistances.fire,
-      ice: resistances.ice,
+      physical: resistances.includes("physical"),
+      fire: resistances.includes("fire"),
+      ice: resistances.includes("ice"),
     },
   };
 }

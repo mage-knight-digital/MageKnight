@@ -10,6 +10,7 @@
 
 import type { Element } from "../elements.js";
 import type { EnemyAbilityType } from "./abilities.js";
+import type { ResistanceType } from "./resistances.js";
 
 // =============================================================================
 // ENEMY COLOR CONSTANTS
@@ -81,13 +82,23 @@ export type Faction = typeof FACTION_ELEMENTALIST | typeof FACTION_DARK_CRUSADER
 // =============================================================================
 
 /**
- * Enemy elemental resistances - determines which attack elements are ineffective
+ * Enemy elemental resistances - array of resistance types
+ *
+ * Uses an array of individual resistance constants instead of a boolean object.
+ * This avoids the combinatorial explosion of having separate constants for
+ * every possible combination (2^n constants for n resistance types).
+ *
+ * @example
+ * // No resistances
+ * resistances: []
+ *
+ * // Physical resistance only
+ * resistances: [RESIST_PHYSICAL]
+ *
+ * // Physical, Fire, and Ice resistance
+ * resistances: [RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE]
  */
-export interface EnemyResistances {
-  readonly physical: boolean;
-  readonly fire: boolean;
-  readonly ice: boolean;
-}
+export type EnemyResistances = readonly ResistanceType[];
 
 // =============================================================================
 // ENEMY DEFINITION

@@ -79,13 +79,9 @@ export {
 // =============================================================================
 
 export {
-  NO_RESISTANCES,
-  PHYSICAL_RESISTANCE,
-  FIRE_RESISTANCE,
-  ICE_RESISTANCE,
-  FIRE_ICE_RESISTANCE,
-  PHYSICAL_FIRE_RESISTANCE,
-  PHYSICAL_ICE_RESISTANCE,
+  RESIST_PHYSICAL,
+  RESIST_FIRE,
+  RESIST_ICE,
   RESISTANCE_DESCRIPTIONS,
 } from "./resistances.js";
 export type { ResistanceType, ResistanceDescription } from "./resistances.js";

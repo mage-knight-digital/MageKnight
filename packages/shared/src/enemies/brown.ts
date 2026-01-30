@@ -24,7 +24,7 @@ import {
   ABILITY_FORTIFIED,
   ABILITY_SWIFT,
 } from "./abilities.js";
-import { NO_RESISTANCES, PHYSICAL_RESISTANCE } from "./resistances.js";
+import { RESIST_PHYSICAL } from "./resistances.js";
 
 // =============================================================================
 // BROWN ENEMY ID CONSTANTS
@@ -61,7 +61,7 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 5,
     fame: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_BRUTAL],
   },
   [ENEMY_GARGOYLE]: {
@@ -72,7 +72,7 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 4,
     fame: 4,
-    resistances: PHYSICAL_RESISTANCE,
+    resistances: [RESIST_PHYSICAL],
     abilities: [],
   },
   [ENEMY_MEDUSA]: {
@@ -83,7 +83,7 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 4,
     fame: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_PARALYZE],
   },
   [ENEMY_CRYPT_WORM]: {
@@ -94,7 +94,7 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 6,
     fame: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_FORTIFIED],
   },
   [ENEMY_WEREWOLF]: {
@@ -105,7 +105,7 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 5,
     fame: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_SWIFT],
   },
   [ENEMY_SHADOW]: {
@@ -116,7 +116,7 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_COLD_FIRE,
     armor: 4,
     fame: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [], // Elusive, arcane immunity not modeled yet
   },
 };
