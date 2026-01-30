@@ -76,13 +76,10 @@ interface EnemyDetailPanelProps {
 
 export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
   const elementInfo = ELEMENT_INFO[enemy.attackElement] ?? DEFAULT_ELEMENT_INFO;
-  const hasResistances = enemy.resistances.physical || enemy.resistances.fire || enemy.resistances.ice;
+  const hasResistances = enemy.resistances.length > 0;
 
-  // Get list of active resistances
-  const activeResistances: ResistanceType[] = [];
-  if (enemy.resistances.physical) activeResistances.push("physical");
-  if (enemy.resistances.fire) activeResistances.push("fire");
-  if (enemy.resistances.ice) activeResistances.push("ice");
+  // Get list of active resistances (resistances is already an array)
+  const activeResistances: ResistanceType[] = [...enemy.resistances];
 
   // Handle ESC key to close
   useEffect(() => {

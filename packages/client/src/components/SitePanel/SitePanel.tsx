@@ -106,9 +106,9 @@ function collectUniqueTraits(enemies: readonly ClientHexEnemy[]): {
     for (const ability of definition.abilities) {
       abilities.add(ability);
     }
-    if (definition.resistances.physical) resistances.add("physical");
-    if (definition.resistances.fire) resistances.add("fire");
-    if (definition.resistances.ice) resistances.add("ice");
+    for (const resistance of definition.resistances) {
+      resistances.add(resistance);
+    }
     // Track non-physical attack elements for reference section
     if (definition.attackElement && definition.attackElement !== "physical") {
       attackElements.add(definition.attackElement);
@@ -151,7 +151,7 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
         }
 
         const tokenBackPath = TOKEN_BACK_PATHS[definition.color];
-        const hasResistances = definition.resistances.physical || definition.resistances.fire || definition.resistances.ice;
+        const hasResistances = definition.resistances.length > 0;
         const hasSummon = definition.abilities.includes("summon");
 
         return (
@@ -198,17 +198,17 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
             {hasResistances && (
               <div className="site-panel__enemy-resistances">
                 <span className="site-panel__enemy-resist-label">Resists:</span>
-                {definition.resistances.physical && (
+                {definition.resistances.includes("physical") && (
                   <span className="site-panel__enemy-resist">
                     <GameIcon type="physical_resist" size={14} /> Physical
                   </span>
                 )}
-                {definition.resistances.fire && (
+                {definition.resistances.includes("fire") && (
                   <span className="site-panel__enemy-resist site-panel__enemy-resist--fire">
                     <GameIcon type="fire_resist" size={14} /> Fire
                   </span>
                 )}
-                {definition.resistances.ice && (
+                {definition.resistances.includes("ice") && (
                   <span className="site-panel__enemy-resist site-panel__enemy-resist--ice">
                     <GameIcon type="ice_resist" size={14} /> Ice
                   </span>

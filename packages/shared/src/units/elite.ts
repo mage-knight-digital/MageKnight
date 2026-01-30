@@ -10,7 +10,7 @@ import {
   ELEMENT_FIRE,
   ELEMENT_ICE,
 } from "../elements.js";
-import { NO_RESISTANCES } from "../enemies/index.js";
+import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "../enemies/index.js";
 import type { UnitDefinition } from "./types.js";
 import {
   UNIT_TYPE_ELITE,
@@ -71,7 +71,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 3,
     influence: 9,
     armor: 4,
-    resistances: { physical: false, fire: true, ice: false },
+    resistances: [RESIST_FIRE],
     recruitSites: [RECRUIT_SITE_MAGE_TOWER, RECRUIT_SITE_MONASTERY],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 4, element: ELEMENT_FIRE },
@@ -86,7 +86,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 3,
     influence: 9,
     armor: 4,
-    resistances: { physical: false, fire: false, ice: true },
+    resistances: [RESIST_ICE],
     recruitSites: [RECRUIT_SITE_MAGE_TOWER, RECRUIT_SITE_MONASTERY],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 4, element: ELEMENT_ICE },
@@ -101,7 +101,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 3,
     influence: 8,
     armor: 4,
-    resistances: { physical: true, fire: true, ice: false },
+    resistances: [RESIST_PHYSICAL, RESIST_FIRE],
     recruitSites: [RECRUIT_SITE_KEEP, RECRUIT_SITE_MAGE_TOWER],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_FIRE },
@@ -116,7 +116,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 3,
     influence: 8,
     armor: 4,
-    resistances: { physical: true, fire: false, ice: true },
+    resistances: [RESIST_PHYSICAL, RESIST_ICE],
     recruitSites: [RECRUIT_SITE_KEEP, RECRUIT_SITE_MAGE_TOWER],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_ICE },
@@ -132,7 +132,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 3,
     influence: 9,
     armor: 4,
-    resistances: { physical: false, fire: true, ice: true },
+    resistances: [RESIST_FIRE, RESIST_ICE],
     recruitSites: [RECRUIT_SITE_MAGE_TOWER, RECRUIT_SITE_MONASTERY],
     abilities: [], // Special: provides two mana tokens
     copies: 2,
@@ -144,7 +144,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 3,
     influence: 9,
     armor: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_KEEP, RECRUIT_SITE_CITY],
     abilities: [
       { type: UNIT_ABILITY_SIEGE_ATTACK, value: 4, element: ELEMENT_PHYSICAL },
@@ -158,7 +158,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 3,
     influence: 8,
     armor: 6,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_KEEP, RECRUIT_SITE_CITY],
     abilities: [
       { type: UNIT_ABILITY_RANGED_ATTACK, value: 3, element: ELEMENT_PHYSICAL },
@@ -173,7 +173,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 3,
     influence: 8,
     armor: 6,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_KEEP, RECRUIT_SITE_CITY],
     abilities: [
       { type: UNIT_ABILITY_RANGED_ATTACK, value: 3, element: ELEMENT_ICE },
@@ -189,7 +189,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 3,
     influence: 9,
     armor: 5, // Varies by card
-    resistances: NO_RESISTANCES, // Varies by card
+    resistances: [], // Varies by card
     recruitSites: [RECRUIT_SITE_VILLAGE, RECRUIT_SITE_KEEP, RECRUIT_SITE_CITY],
     abilities: [], // Varies by card
     copies: 4,
@@ -205,7 +205,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 4,
     influence: 12,
     armor: 5,
-    resistances: { physical: false, fire: true, ice: true },
+    resistances: [RESIST_FIRE, RESIST_ICE],
     recruitSites: [RECRUIT_SITE_KEEP, RECRUIT_SITE_CITY],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 5, element: ELEMENT_FIRE },
@@ -220,7 +220,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 4,
     influence: 11,
     armor: 7,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_CITY],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 5, element: ELEMENT_PHYSICAL },
@@ -235,7 +235,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     level: 4,
     influence: 13,
     armor: 3,
-    resistances: { physical: true, fire: true, ice: true },
+    resistances: [RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE],
     recruitSites: [RECRUIT_SITE_CITY],
     abilities: [], // Special: copy any unit ability
     copies: 2,

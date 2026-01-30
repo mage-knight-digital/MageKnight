@@ -1,90 +1,43 @@
 /**
  * Enemy Resistance Constants
  *
- * Pre-defined resistance configurations for common enemy types.
- * These constants reduce boilerplate when defining enemies with
- * standard resistance patterns.
+ * Defines individual resistance type constants and array-based resistance
+ * configurations for enemies. This approach avoids the combinatorial explosion
+ * of having a separate constant for every possible resistance combination.
  *
  * @module enemies/resistances
  */
 
-import type { EnemyResistances } from "./types.js";
-
 // =============================================================================
-// RESISTANCE CONSTANTS
+// RESISTANCE TYPE CONSTANTS
 // =============================================================================
 
 /**
- * No elemental resistances - vulnerable to all attack types
+ * Physical resistance - halves physical attacks
  */
-export const NO_RESISTANCES: EnemyResistances = {
-  physical: false,
-  fire: false,
-  ice: false,
-};
+export const RESIST_PHYSICAL = "physical" as const;
 
 /**
- * Physical resistance only - common for golems and armored enemies
+ * Fire resistance - halves fire attacks
  */
-export const PHYSICAL_RESISTANCE: EnemyResistances = {
-  physical: true,
-  fire: false,
-  ice: false,
-};
+export const RESIST_FIRE = "fire" as const;
 
 /**
- * Fire resistance only - common for fire-based enemies
+ * Ice resistance - halves ice attacks
  */
-export const FIRE_RESISTANCE: EnemyResistances = {
-  physical: false,
-  fire: true,
-  ice: false,
-};
+export const RESIST_ICE = "ice" as const;
 
 /**
- * Ice resistance only - common for ice-based enemies
+ * Resistance type - individual resistance constants
  */
-export const ICE_RESISTANCE: EnemyResistances = {
-  physical: false,
-  fire: false,
-  ice: true,
-};
-
-/**
- * Fire and ice resistance - common for powerful magical enemies
- */
-export const FIRE_ICE_RESISTANCE: EnemyResistances = {
-  physical: false,
-  fire: true,
-  ice: true,
-};
-
-/**
- * Physical and fire resistance - common for fire dragons
- */
-export const PHYSICAL_FIRE_RESISTANCE: EnemyResistances = {
-  physical: true,
-  fire: true,
-  ice: false,
-};
-
-/**
- * Physical and ice resistance - common for ice dragons
- */
-export const PHYSICAL_ICE_RESISTANCE: EnemyResistances = {
-  physical: true,
-  fire: false,
-  ice: true,
-};
+export type ResistanceType =
+  | typeof RESIST_PHYSICAL
+  | typeof RESIST_FIRE
+  | typeof RESIST_ICE;
 
 // =============================================================================
 // RESISTANCE DESCRIPTIONS (Rulebook text)
 // =============================================================================
-
-/**
- * Resistance type for description lookup
- */
-export type ResistanceType = "physical" | "fire" | "ice";
 
 /**
  * Resistance description for UI display

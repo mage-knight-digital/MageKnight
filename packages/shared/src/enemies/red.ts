@@ -28,12 +28,7 @@ import {
   ABILITY_PARALYZE,
   ABILITY_BRUTAL,
 } from "./abilities.js";
-import {
-  NO_RESISTANCES,
-  FIRE_ICE_RESISTANCE,
-  PHYSICAL_FIRE_RESISTANCE,
-  PHYSICAL_ICE_RESISTANCE,
-} from "./resistances.js";
+import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
 // =============================================================================
 // RED ENEMY ID CONSTANTS
@@ -66,7 +61,7 @@ export const RED_ENEMIES: Record<RedEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 9,
     fame: 7,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_SWIFT, ABILITY_POISON],
   },
   [ENEMY_FIRE_DRAGON]: {
@@ -77,7 +72,7 @@ export const RED_ENEMIES: Record<RedEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_FIRE,
     armor: 7,
     fame: 8,
-    resistances: PHYSICAL_FIRE_RESISTANCE,
+    resistances: [RESIST_PHYSICAL, RESIST_FIRE],
     abilities: [],
   },
   [ENEMY_ICE_DRAGON]: {
@@ -88,7 +83,7 @@ export const RED_ENEMIES: Record<RedEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_ICE,
     armor: 7,
     fame: 8,
-    resistances: PHYSICAL_ICE_RESISTANCE,
+    resistances: [RESIST_PHYSICAL, RESIST_ICE],
     abilities: [ABILITY_PARALYZE],
   },
   [ENEMY_HIGH_DRAGON]: {
@@ -99,7 +94,7 @@ export const RED_ENEMIES: Record<RedEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_COLD_FIRE,
     armor: 9,
     fame: 9,
-    resistances: FIRE_ICE_RESISTANCE,
+    resistances: [RESIST_FIRE, RESIST_ICE],
     abilities: [ABILITY_BRUTAL],
   },
 };

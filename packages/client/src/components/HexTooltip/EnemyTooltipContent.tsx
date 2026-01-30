@@ -103,10 +103,7 @@ export function EnemyTooltipContent({
           );
         }
 
-        const hasResistances =
-          definition.resistances.physical ||
-          definition.resistances.fire ||
-          definition.resistances.ice;
+        const hasResistances = definition.resistances.length > 0;
         const tokenBackPath = TOKEN_BACK_PATHS[definition.color];
         const hasSummon = definition.abilities.includes("summon");
 
@@ -178,15 +175,15 @@ export function EnemyTooltipContent({
             {hasResistances && (
               <div className="enemy-tooltip__resistances">
                 <span className="enemy-tooltip__resistance-label">Resists:</span>
-                {definition.resistances.physical && (
+                {definition.resistances.includes("physical") && (
                   <span className="enemy-tooltip__resistance">Physical</span>
                 )}
-                {definition.resistances.fire && (
+                {definition.resistances.includes("fire") && (
                   <span className="enemy-tooltip__resistance enemy-tooltip__resistance--fire">
                     Fire
                   </span>
                 )}
-                {definition.resistances.ice && (
+                {definition.resistances.includes("ice") && (
                   <span className="enemy-tooltip__resistance enemy-tooltip__resistance--ice">
                     Ice
                   </span>

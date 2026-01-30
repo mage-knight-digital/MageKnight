@@ -17,7 +17,7 @@
 import { ELEMENT_PHYSICAL } from "../elements.js";
 import { ENEMY_COLOR_GRAY, type EnemyDefinition } from "./types.js";
 import { ABILITY_FORTIFIED, ABILITY_SWIFT } from "./abilities.js";
-import { NO_RESISTANCES, PHYSICAL_RESISTANCE } from "./resistances.js";
+import { RESIST_PHYSICAL } from "./resistances.js";
 
 // =============================================================================
 // GRAY ENEMY ID CONSTANTS
@@ -50,7 +50,7 @@ export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 4,
     fame: 3,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_SWIFT],
   },
   [ENEMY_GUARDSMEN]: {
@@ -61,7 +61,7 @@ export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 7,
     fame: 3,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_FORTIFIED],
   },
   [ENEMY_SWORDSMEN]: {
@@ -72,7 +72,7 @@ export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 5,
     fame: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [],
   },
   [ENEMY_GOLEMS]: {
@@ -83,7 +83,7 @@ export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 5,
     fame: 4,
-    resistances: PHYSICAL_RESISTANCE,
+    resistances: [RESIST_PHYSICAL],
     abilities: [],
   },
 };

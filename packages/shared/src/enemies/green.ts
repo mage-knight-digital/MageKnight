@@ -26,7 +26,7 @@ import {
   ABILITY_BRUTAL,
   ABILITY_SUMMON,
 } from "./abilities.js";
-import { NO_RESISTANCES, PHYSICAL_RESISTANCE } from "./resistances.js";
+import { RESIST_PHYSICAL } from "./resistances.js";
 
 // =============================================================================
 // GREEN ENEMY ID CONSTANTS
@@ -63,7 +63,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 3,
     fame: 2,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_FORTIFIED],
   },
   [ENEMY_PROWLERS]: {
@@ -74,7 +74,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 3,
     fame: 2,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [],
   },
   [ENEMY_CURSED_HAGS]: {
@@ -85,7 +85,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 5,
     fame: 3,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_POISON],
   },
   [ENEMY_WOLF_RIDERS]: {
@@ -96,7 +96,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 4,
     fame: 3,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_SWIFT],
   },
   [ENEMY_IRONCLADS]: {
@@ -107,7 +107,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 3,
     fame: 4,
-    resistances: PHYSICAL_RESISTANCE,
+    resistances: [RESIST_PHYSICAL],
     abilities: [ABILITY_BRUTAL],
   },
   [ENEMY_ORC_SUMMONERS]: {
@@ -118,7 +118,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     attackElement: ELEMENT_PHYSICAL,
     armor: 4,
     fame: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     abilities: [ABILITY_SUMMON], // Summons brown enemy
   },
 };

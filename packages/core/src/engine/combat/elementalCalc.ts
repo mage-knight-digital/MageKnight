@@ -5,7 +5,7 @@
  * Also provides final value calculations that incorporate combat modifiers.
  */
 
-import type { Element, AttackSource, BlockSource, CombatType } from "@mage-knight/shared";
+import type { Element, AttackSource, BlockSource, CombatType, ResistanceType } from "@mage-knight/shared";
 import {
   ELEMENT_PHYSICAL,
   ELEMENT_FIRE,
@@ -13,6 +13,9 @@ import {
   ELEMENT_COLD_FIRE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
+  RESIST_PHYSICAL,
+  RESIST_FIRE,
+  RESIST_ICE,
 } from "@mage-knight/shared";
 import type { GameState } from "../../state/GameState.js";
 import { getEffectiveCombatBonus } from "../modifiers.js";
@@ -24,19 +27,15 @@ import {
 } from "../modifierConstants.js";
 
 /**
- * Resistances interface for enemies
+ * Resistances type - an array of individual resistance types.
+ * This replaces the previous object-based Resistances interface.
  */
-export interface Resistances {
-  readonly physical: boolean;
-  readonly fire: boolean;
-  readonly ice: boolean;
-}
+export type Resistances = readonly ResistanceType[];
 
-export const NO_RESISTANCES: Resistances = {
-  physical: false,
-  fire: false,
-  ice: false,
-};
+/**
+ * Empty resistances array - use when there are no resistances.
+ */
+export const NO_RESISTANCES: Resistances = [] as const;
 
 /**
  * Determine if a block element is efficient against an attack element.
@@ -111,16 +110,16 @@ export function isAttackResisted(
 ): boolean {
   switch (attackElement) {
     case ELEMENT_PHYSICAL:
-      return resistances.physical;
+      return resistances.includes(RESIST_PHYSICAL);
 
     case ELEMENT_FIRE:
-      return resistances.fire;
+      return resistances.includes(RESIST_FIRE);
 
     case ELEMENT_ICE:
-      return resistances.ice;
+      return resistances.includes(RESIST_ICE);
 
     case ELEMENT_COLD_FIRE:
-      return resistances.fire && resistances.ice;
+      return resistances.includes(RESIST_FIRE) && resistances.includes(RESIST_ICE);
 
     default:
       return false;
@@ -156,11 +155,19 @@ export function calculateEffectiveAttack(
 export function combineResistances(
   enemies: readonly { resistances: Resistances }[]
 ): Resistances {
-  return {
-    physical: enemies.some((e) => e.resistances.physical),
-    fire: enemies.some((e) => e.resistances.fire),
-    ice: enemies.some((e) => e.resistances.ice),
-  };
+  const combined: ResistanceType[] = [];
+
+  if (enemies.some((e) => e.resistances.includes(RESIST_PHYSICAL))) {
+    combined.push(RESIST_PHYSICAL);
+  }
+  if (enemies.some((e) => e.resistances.includes(RESIST_FIRE))) {
+    combined.push(RESIST_FIRE);
+  }
+  if (enemies.some((e) => e.resistances.includes(RESIST_ICE))) {
+    combined.push(RESIST_ICE);
+  }
+
+  return combined;
 }
 
 // === Final value calculations with modifiers ===

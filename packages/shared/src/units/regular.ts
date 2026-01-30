@@ -10,7 +10,7 @@ import {
   ELEMENT_FIRE,
   ELEMENT_ICE,
 } from "../elements.js";
-import { NO_RESISTANCES } from "../enemies/index.js";
+import { RESIST_PHYSICAL } from "../enemies/index.js";
 import type { UnitDefinition } from "./types.js";
 import {
   UNIT_TYPE_REGULAR,
@@ -81,7 +81,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 1,
     influence: 4,
     armor: 3,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_VILLAGE],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 2, element: ELEMENT_PHYSICAL },
@@ -98,7 +98,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 1,
     influence: 5,
     armor: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_VILLAGE],
     abilities: [
       { type: UNIT_ABILITY_BLOCK, value: 3, element: ELEMENT_PHYSICAL },
@@ -113,7 +113,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 1,
     influence: 3,
     armor: 2,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_VILLAGE, RECRUIT_SITE_MONASTERY],
     abilities: [{ type: UNIT_ABILITY_HEAL, value: 2 }],
     copies: 2,
@@ -125,7 +125,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 1,
     influence: 4,
     armor: 2,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [
       RECRUIT_SITE_VILLAGE,
       RECRUIT_SITE_KEEP,
@@ -146,7 +146,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 1,
     influence: 5,
     armor: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_VILLAGE, RECRUIT_SITE_KEEP],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_PHYSICAL },
@@ -164,7 +164,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 6,
     armor: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_VILLAGE, RECRUIT_SITE_KEEP],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_PHYSICAL },
@@ -179,7 +179,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 5,
     armor: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_VILLAGE, RECRUIT_SITE_KEEP],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 2, element: ELEMENT_PHYSICAL },
@@ -194,7 +194,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 6,
     armor: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_KEEP],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_PHYSICAL },
@@ -209,7 +209,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 7,
     armor: 3,
-    resistances: { physical: true, fire: false, ice: false },
+    resistances: [RESIST_PHYSICAL],
     recruitSites: [RECRUIT_SITE_MAGE_TOWER, RECRUIT_SITE_KEEP],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 2, element: ELEMENT_PHYSICAL },
@@ -224,7 +224,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 7,
     armor: 2,
-    resistances: { physical: true, fire: false, ice: false },
+    resistances: [RESIST_PHYSICAL],
     recruitSites: [RECRUIT_SITE_MAGE_TOWER, RECRUIT_SITE_MONASTERY],
     abilities: [
       { type: UNIT_ABILITY_INFLUENCE, value: 4 },
@@ -239,7 +239,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 6,
     armor: 3,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_KEEP],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_PHYSICAL },
@@ -255,7 +255,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 7,
     armor: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_MONASTERY],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 4, element: ELEMENT_FIRE },
@@ -270,7 +270,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 7,
     armor: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_MONASTERY],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 4, element: ELEMENT_ICE },
@@ -285,7 +285,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 7,
     armor: 4,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_MONASTERY],
     abilities: [
       { type: UNIT_ABILITY_ATTACK, value: 4, element: ELEMENT_PHYSICAL },
@@ -300,7 +300,7 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     level: 2,
     influence: 6,
     armor: 5,
-    resistances: NO_RESISTANCES,
+    resistances: [],
     recruitSites: [RECRUIT_SITE_MONASTERY, RECRUIT_SITE_MAGE_TOWER],
     abilities: [], // Special: provides bonus mana
     copies: 2,

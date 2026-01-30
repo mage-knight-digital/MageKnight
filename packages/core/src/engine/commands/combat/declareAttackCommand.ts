@@ -49,11 +49,7 @@ export function createDeclareAttackCommand(
       const totalArmor = targets.reduce((sum, e) => {
         // Count resistances for Resistance Break modifier
         const resistances = e.definition.resistances;
-        const resistanceCount = resistances
-          ? (resistances.physical ? 1 : 0) +
-            (resistances.fire ? 1 : 0) +
-            (resistances.ice ? 1 : 0)
-          : 0;
+        const resistanceCount = resistances ? resistances.length : 0;
 
         return sum + getEffectiveEnemyArmor(
           state,
