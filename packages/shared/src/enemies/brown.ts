@@ -16,6 +16,7 @@
  * - Shadow - ColdFire attack, elusive
  * - Fire Elemental - Fire attack, fire resistance, Elementalist faction
  * - Mummy - Ice+physical resistance, poison
+ * - Hydra - Multiple attacks (2, 2, 2), ice resistance
  */
 
 import { ELEMENT_PHYSICAL, ELEMENT_COLD_FIRE, ELEMENT_FIRE } from "../elements.js";
@@ -41,6 +42,7 @@ export const ENEMY_WEREWOLF = "werewolf" as const;
 export const ENEMY_SHADOW = "shadow" as const;
 export const ENEMY_FIRE_ELEMENTAL = "fire_elemental" as const;
 export const ENEMY_MUMMY = "mummy" as const;
+export const ENEMY_HYDRA = "hydra" as const;
 
 /**
  * Union type of all brown (Dungeon monster) enemy IDs
@@ -53,7 +55,8 @@ export type BrownEnemyId =
   | typeof ENEMY_WEREWOLF
   | typeof ENEMY_SHADOW
   | typeof ENEMY_FIRE_ELEMENTAL
-  | typeof ENEMY_MUMMY;
+  | typeof ENEMY_MUMMY
+  | typeof ENEMY_HYDRA;
 
 // =============================================================================
 // BROWN ENEMY DEFINITIONS
@@ -148,5 +151,21 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     fame: 4,
     resistances: [RESIST_ICE, RESIST_PHYSICAL],
     abilities: [ABILITY_POISON],
+  },
+  [ENEMY_HYDRA]: {
+    id: ENEMY_HYDRA,
+    name: "Hydra",
+    color: ENEMY_COLOR_BROWN,
+    attack: 2,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 6,
+    fame: 5,
+    resistances: [RESIST_ICE],
+    abilities: [],
+    attacks: [
+      { damage: 2, element: ELEMENT_PHYSICAL },
+      { damage: 2, element: ELEMENT_PHYSICAL },
+      { damage: 2, element: ELEMENT_PHYSICAL },
+    ],
   },
 };

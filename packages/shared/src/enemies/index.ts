@@ -141,6 +141,7 @@ export {
   ENEMY_SHADOW,
   ENEMY_FIRE_ELEMENTAL,
   ENEMY_MUMMY,
+  ENEMY_HYDRA,
   BROWN_ENEMIES,
 } from "./brown.js";
 
