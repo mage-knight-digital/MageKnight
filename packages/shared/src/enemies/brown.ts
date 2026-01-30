@@ -15,6 +15,7 @@
  * - Werewolf - Swift predator
  * - Shadow - ColdFire attack, elusive
  * - Fire Elemental - Fire attack, fire resistance, Elementalist faction
+ * - Mummy - Ice+physical resistance, poison
  */
 
 import { ELEMENT_PHYSICAL, ELEMENT_COLD_FIRE, ELEMENT_FIRE } from "../elements.js";
@@ -24,8 +25,9 @@ import {
   ABILITY_PARALYZE,
   ABILITY_FORTIFIED,
   ABILITY_SWIFT,
+  ABILITY_POISON,
 } from "./abilities.js";
-import { RESIST_PHYSICAL, RESIST_FIRE } from "./resistances.js";
+import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
 // =============================================================================
 // BROWN ENEMY ID CONSTANTS
@@ -38,6 +40,7 @@ export const ENEMY_CRYPT_WORM = "crypt_worm" as const;
 export const ENEMY_WEREWOLF = "werewolf" as const;
 export const ENEMY_SHADOW = "shadow" as const;
 export const ENEMY_FIRE_ELEMENTAL = "fire_elemental" as const;
+export const ENEMY_MUMMY = "mummy" as const;
 
 /**
  * Union type of all brown (Dungeon monster) enemy IDs
@@ -49,7 +52,8 @@ export type BrownEnemyId =
   | typeof ENEMY_CRYPT_WORM
   | typeof ENEMY_WEREWOLF
   | typeof ENEMY_SHADOW
-  | typeof ENEMY_FIRE_ELEMENTAL;
+  | typeof ENEMY_FIRE_ELEMENTAL
+  | typeof ENEMY_MUMMY;
 
 // =============================================================================
 // BROWN ENEMY DEFINITIONS
@@ -133,5 +137,16 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     resistances: [RESIST_FIRE],
     abilities: [],
     faction: FACTION_ELEMENTALIST,
+  },
+  [ENEMY_MUMMY]: {
+    id: ENEMY_MUMMY,
+    name: "Mummy",
+    color: ENEMY_COLOR_BROWN,
+    attack: 4,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 5,
+    fame: 4,
+    resistances: [RESIST_ICE, RESIST_PHYSICAL],
+    abilities: [ABILITY_POISON],
   },
 };
