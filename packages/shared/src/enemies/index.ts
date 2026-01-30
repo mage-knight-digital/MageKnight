@@ -137,6 +137,7 @@ export {
   ENEMY_CRYPT_WORM,
   ENEMY_WEREWOLF,
   ENEMY_SHADOW,
+  ENEMY_FIRE_ELEMENTAL,
   BROWN_ENEMIES,
 } from "./brown.js";
 

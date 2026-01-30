@@ -14,17 +14,18 @@
  * - Crypt Worm - Fortified, underground
  * - Werewolf - Swift predator
  * - Shadow - ColdFire attack, elusive
+ * - Fire Elemental - Fire attack, fire resistance, Elementalist faction
  */
 
-import { ELEMENT_PHYSICAL, ELEMENT_COLD_FIRE } from "../elements.js";
-import { ENEMY_COLOR_BROWN, type EnemyDefinition } from "./types.js";
+import { ELEMENT_PHYSICAL, ELEMENT_COLD_FIRE, ELEMENT_FIRE } from "../elements.js";
+import { ENEMY_COLOR_BROWN, FACTION_ELEMENTALIST, type EnemyDefinition } from "./types.js";
 import {
   ABILITY_BRUTAL,
   ABILITY_PARALYZE,
   ABILITY_FORTIFIED,
   ABILITY_SWIFT,
 } from "./abilities.js";
-import { RESIST_PHYSICAL } from "./resistances.js";
+import { RESIST_PHYSICAL, RESIST_FIRE } from "./resistances.js";
 
 // =============================================================================
 // BROWN ENEMY ID CONSTANTS
@@ -36,6 +37,7 @@ export const ENEMY_MEDUSA = "medusa" as const;
 export const ENEMY_CRYPT_WORM = "crypt_worm" as const;
 export const ENEMY_WEREWOLF = "werewolf" as const;
 export const ENEMY_SHADOW = "shadow" as const;
+export const ENEMY_FIRE_ELEMENTAL = "fire_elemental" as const;
 
 /**
  * Union type of all brown (Dungeon monster) enemy IDs
@@ -46,7 +48,8 @@ export type BrownEnemyId =
   | typeof ENEMY_MEDUSA
   | typeof ENEMY_CRYPT_WORM
   | typeof ENEMY_WEREWOLF
-  | typeof ENEMY_SHADOW;
+  | typeof ENEMY_SHADOW
+  | typeof ENEMY_FIRE_ELEMENTAL;
 
 // =============================================================================
 // BROWN ENEMY DEFINITIONS
@@ -118,5 +121,17 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     fame: 4,
     resistances: [],
     abilities: [], // Elusive, arcane immunity not modeled yet
+  },
+  [ENEMY_FIRE_ELEMENTAL]: {
+    id: ENEMY_FIRE_ELEMENTAL,
+    name: "Fire Elemental",
+    color: ENEMY_COLOR_BROWN,
+    attack: 7,
+    attackElement: ELEMENT_FIRE,
+    armor: 6,
+    fame: 4,
+    resistances: [RESIST_FIRE],
+    abilities: [],
+    faction: FACTION_ELEMENTALIST,
   },
 };
