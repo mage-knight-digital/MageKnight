@@ -21,6 +21,7 @@ import type { EnemyId, EnemyAbilityType, EnemyResistances, Element, EnemyColor }
 import type { CombatPhase } from "../combatPhases.js";
 import type { SiteReward } from "../siteRewards.js";
 import type { RuinsTokenId } from "../ruinsTokens.js";
+import type { HeroId } from "../hero.js";
 
 // Pending level up reward - drawn skills for even level reward selection
 export interface ClientPendingLevelUpReward {
@@ -95,7 +96,7 @@ export interface ClientCombatAccumulator {
 // Client-visible player state
 export interface ClientPlayer {
   readonly id: string;
-  readonly heroId: string;
+  readonly heroId: HeroId;
   readonly position: HexCoord | null;
 
   // Progression

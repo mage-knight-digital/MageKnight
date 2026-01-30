@@ -261,3 +261,9 @@ export * from "./ruinsTokens.js";
 
 // Scoring system types and constants
 export * from "./scoring/index.js";
+
+// Hero types
+export * from "./hero.js";
+
+// Game configuration
+export * from "./gameConfig.js";

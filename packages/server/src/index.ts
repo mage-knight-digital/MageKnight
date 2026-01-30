@@ -47,8 +47,8 @@ import {
   countMonasteries,
   drawMonasteryAdvancedAction,
 } from "@mage-knight/core";
-import type { HexCoord, CardId } from "@mage-knight/shared";
-import { TILE_PLACEMENT_OFFSETS, MAP_SHAPE_CONFIGS } from "@mage-knight/shared";
+import type { HexCoord, CardId, HeroId, ScenarioId } from "@mage-knight/shared";
+import { TILE_PLACEMENT_OFFSETS, MAP_SHAPE_CONFIGS, SCENARIO_FIRST_RECONNAISSANCE } from "@mage-knight/shared";
 import {
   LocalConnection,
   type GameConnection,
@@ -387,16 +387,24 @@ export class GameServer {
 
   /**
    * Initialize game with players.
+   * @param playerIds - Array of player IDs (e.g., ["player1", "player2"])
+   * @param heroIds - Optional array of hero IDs corresponding to each player.
+   *                  If not provided, heroes are assigned in default order (Arythea, Tovak, Goldyx, Norowas).
+   * @param scenarioId - Optional scenario to play. Defaults to First Reconnaissance.
    */
-  initializeGame(playerIds: string[]): void {
-    this.state = this.createGameWithPlayers(playerIds);
+  initializeGame(
+    playerIds: string[],
+    heroIds?: readonly HeroId[],
+    scenarioId: ScenarioId = SCENARIO_FIRST_RECONNAISSANCE
+  ): void {
+    this.state = this.createGameWithPlayers(playerIds, heroIds, scenarioId);
 
     // Broadcast initial state to all connected players
     this.broadcastState([
       {
         type: GAME_STARTED,
         playerCount: playerIds.length,
-        scenario: "conquest", // placeholder
+        scenario: scenarioId,
       },
     ]);
   }
@@ -477,9 +485,16 @@ export class GameServer {
    * Create initial game state with players.
    * Places starting tile + 2 initial countryside tiles and positions all players on the portal hex.
    * Uses seeded RNG for reproducible initial deck shuffles.
+   * @param playerIds - Array of player IDs
+   * @param heroIds - Optional array of hero IDs for each player. Falls back to default order.
+   * @param scenarioId - Scenario to play
    */
-  private createGameWithPlayers(playerIds: string[]): GameState {
-    const baseState = createInitialGameState(this.seed);
+  private createGameWithPlayers(
+    playerIds: string[],
+    heroIds?: readonly HeroId[],
+    scenarioId: ScenarioId = SCENARIO_FIRST_RECONNAISSANCE
+  ): GameState {
+    const baseState = createInitialGameState(this.seed, scenarioId);
 
     // Initialize tile deck based on scenario configuration
     const { tileDeck: initialDeck, rng: rngAfterDeck } = createTileDeck(
@@ -631,8 +646,9 @@ export class GameServer {
 
     for (let index = 0; index < playerIds.length; index++) {
       const id = playerIds[index];
+      const heroId = heroIds?.[index];
       if (id !== undefined) {
-        const { player, rng } = this.createPlayer(id, index, startPosition, currentRng);
+        const { player, rng } = this.createPlayer(id, index, heroId, startPosition, currentRng);
         players.push(player);
         currentRng = rng;
       }
@@ -740,21 +756,31 @@ export class GameServer {
    * Create a player with default values.
    * Shuffles the hero's starting deck using seeded RNG and draws an initial hand.
    * Returns both the player and the updated RNG state.
+   * @param id - Player ID
+   * @param index - Player index (0-based)
+   * @param heroId - Optional hero ID. If not provided, falls back to default order.
+   * @param position - Starting position on the map
+   * @param rng - Current RNG state
    */
   private createPlayer(
     id: string,
     index: number,
+    heroId: HeroId | undefined,
     position: { q: number; r: number },
     rng: RngState
   ): { player: Player; rng: RngState } {
-    const heroes: readonly Hero[] = [
+    // Default hero assignment (fallback for legacy/test code)
+    const defaultHeroes: readonly Hero[] = [
       Hero.Arythea,
       Hero.Tovak,
       Hero.Goldyx,
       Hero.Norowas,
     ];
-    const heroIndex = index % heroes.length;
-    const hero = heroes[heroIndex] ?? Hero.Arythea;
+
+    // Use provided heroId, or fall back to default by index
+    const hero = heroId
+      ? (heroId as Hero) // HeroId strings match Hero enum values
+      : (defaultHeroes[index % defaultHeroes.length] ?? Hero.Arythea);
     const heroDefinition = HEROES[hero];
 
     // Create and shuffle starting deck with seeded RNG
