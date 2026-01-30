@@ -24,13 +24,22 @@ import "./TurnNotificationToast.css";
 /** Duration in ms before toast auto-dismisses */
 const TOAST_DURATION = 3000;
 
+/** Notification type for turn changes */
+export const NOTIFICATION_TURN_CHANGE = "turn-change" as const;
+/** Notification type for round endings */
+export const NOTIFICATION_ROUND_END = "round-end" as const;
+
+export type NotificationType =
+  | typeof NOTIFICATION_TURN_CHANGE
+  | typeof NOTIFICATION_ROUND_END;
+
 interface TurnNotification {
   /** Unique ID for the notification */
   id: number;
   /** Message to display */
   message: string;
   /** Type affects styling */
-  type: "turn-change" | "round-end";
+  type: NotificationType;
 }
 
 interface TurnNotificationContextValue {
@@ -106,7 +115,7 @@ export function TurnNotificationProvider({ children }: { children: ReactNode }) 
         const newNotification: TurnNotification = {
           id: ++notificationId,
           message,
-          type: "turn-change",
+          type: NOTIFICATION_TURN_CHANGE,
         };
         setNotification(newNotification);
 
