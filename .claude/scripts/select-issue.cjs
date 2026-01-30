@@ -29,14 +29,15 @@ const CACHE_DIR = path.join(
   "mage-knight"
 );
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
-const OWNER = "eshaffer321";
+const OWNER = "mage-knight-digital";
 const REPO = "MageKnight";
-const PROJECT_NUMBER = 1;
+const PROJECT_NUMBER = 2;
 
-// Project board field IDs (from existing implement.md)
-const PROJECT_ID = "PVT_kwHOAYaRMc4BNjzC";
-const STATUS_FIELD_ID = "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U";
+// Project board field IDs (org-level project)
+const PROJECT_ID = "PVT_kwDOD2L9IM4BN1Jh";
+const STATUS_FIELD_ID = "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg";
 const IN_PROGRESS_OPTION_ID = "47fc9ee4";
+const BACKLOG_OPTION_ID = "f75ad846"; // "Todo" in new project
 
 // === Cache Functions ===
 
@@ -90,12 +91,47 @@ function getCachedData(name) {
 
 // === GitHub API Functions ===
 
-function runGh(args, allowFailure = false) {
+// Get GitHub App token (cached, higher rate limits)
+// Note: App tokens work for repo-level resources (issues) but NOT user-level projects
+function getAppToken() {
+  const tokenScript = path.join(__dirname, "github-app-token.cjs");
+  if (!fs.existsSync(tokenScript)) {
+    return null; // Fall back to default gh auth
+  }
+
+  try {
+    const token = execSync(`node "${tokenScript}"`, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    return token;
+  } catch {
+    return null; // Fall back to default gh auth
+  }
+}
+
+// Cache the token for this process
+let cachedAppToken = null;
+
+function runGh(args, allowFailure = false, useAppToken = true) {
+  // Get app token on first call
+  if (cachedAppToken === null) {
+    cachedAppToken = getAppToken() || false;
+  }
+
+  const env = { ...process.env };
+  // Use app token for repo-level APIs (issues, graphql for blockers)
+  // Don't use for project board (user-level, requires PAT)
+  if (cachedAppToken && useAppToken) {
+    env.GH_TOKEN = cachedAppToken;
+  }
+
   try {
     const result = execSync(`gh ${args}`, {
       encoding: "utf-8",
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large responses
       stdio: ["pipe", "pipe", "pipe"],
+      env,
     });
     return { success: true, data: result.trim() };
   } catch (error) {
@@ -123,9 +159,11 @@ function fetchIssues() {
 }
 
 function fetchBoard() {
+  // Project board is user-level, requires PAT (not app token)
   const result = runGh(
     `project item-list ${PROJECT_NUMBER} --owner ${OWNER} --format json --limit 500`,
-    true
+    true,
+    false // Don't use app token for user-level projects
   );
   if (!result.success) {
     return null; // Signal to use cache

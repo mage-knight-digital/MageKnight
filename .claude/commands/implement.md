@@ -91,7 +91,7 @@ The issue should already be marked "In Progress" from Phase 1.1. Now verify:
 
 ```bash
 # Double-check we still own this issue
-CURRENT_STATUS=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .status")
+CURRENT_STATUS=$(gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .status")
 if [ "$CURRENT_STATUS" != "In Progress" ]; then
   echo "ERROR: Lost claim on issue #${ISSUE_NUM}. Aborting."
   exit 1
@@ -111,8 +111,8 @@ If found, unclaim and pick another:
 node .claude/scripts/select-issue.cjs --unclaim $ISSUE_NUM
 
 # Move back to Backlog on GitHub
-ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
-gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "f75ad846"
+ITEM_ID=$(gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
+gh project item-edit --project-id "PVT_kwDOD2L9IM4BN1Jh" --id "$ITEM_ID" --field-id "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg" --single-select-option-id "f75ad846"
 
 # Select next issue (will skip the one we just unclaimed)
 SELECTED_ISSUE=$(node .claude/scripts/select-issue.cjs)
@@ -198,7 +198,7 @@ Link sub-issues to parent:
 
 ```bash
 # Get the sub-issue ID (not number) for linking
-SUB_ISSUE_ID=$(gh api graphql -f query='{ repository(owner: "eshaffer321", name: "MageKnight") { issue(number: SUB_NUM) { id } } }' --jq '.data.repository.issue.id')
+SUB_ISSUE_ID=$(gh api graphql -f query='{ repository(owner: "mage-knight-digital", name: "MageKnight") { issue(number: SUB_NUM) { id } } }' --jq '.data.repository.issue.id')
 
 # Add as sub-issue
 gh api graphql -f query='mutation { addSubIssue(input: {issueId: "PARENT_ID", subIssueId: "'$SUB_ISSUE_ID'"}) { issue { id } } }'
@@ -217,8 +217,8 @@ gh issue edit $ISSUE_NUM --body "$(echo -e "## This issue has been refined into 
 node .claude/scripts/select-issue.cjs --unclaim $ISSUE_NUM
 
 # Move back to Backlog on project board
-ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
-gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "f75ad846"
+ITEM_ID=$(gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
+gh project item-edit --project-id "PVT_kwDOD2L9IM4BN1Jh" --id "$ITEM_ID" --field-id "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg" --single-select-option-id "f75ad846"
 ```
 
 EXIT with report:
@@ -250,8 +250,8 @@ Move issue back to backlog and STOP:
 node .claude/scripts/select-issue.cjs --unclaim $ISSUE_NUM
 
 # Move back to Backlog on GitHub
-ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
-gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "f75ad846"
+ITEM_ID=$(gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
+gh project item-edit --project-id "PVT_kwDOD2L9IM4BN1Jh" --id "$ITEM_ID" --field-id "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg" --single-select-option-id "f75ad846"
 
 # Add needs-refinement label
 gh issue edit $ISSUE_NUM --add-label "needs-refinement"
