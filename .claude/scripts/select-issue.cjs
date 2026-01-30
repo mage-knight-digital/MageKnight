@@ -264,9 +264,52 @@ function hasLabel(labels, labelName) {
   return labels.some((l) => l.name === labelName);
 }
 
+function parseBodyBlockers(body) {
+  // Parse "Blocked By: #123" or "**Blocked By:** #123" patterns from issue body
+  // Returns array of issue numbers mentioned as blockers
+  if (!body) return [];
+
+  const blockers = [];
+
+  // Find all "Blocked By" sections and extract issue numbers after them
+  // This handles: "Blocked By: #123", "**Blocked By:** #119", etc.
+  const pattern = /Blocked\s*By[^#\n]*#(\d+)/gi;
+  const matches = body.matchAll(pattern);
+
+  for (const match of matches) {
+    const num = parseInt(match[1], 10);
+    if (!isNaN(num)) {
+      blockers.push(num);
+    }
+  }
+
+  // Also check for multiple blockers on same line: "Blocked By: #123, #456"
+  const multiPattern = /Blocked\s*By[^\n]*/gi;
+  const lines = body.matchAll(multiPattern);
+  for (const line of lines) {
+    const issueRefs = line[0].match(/#(\d+)/g) || [];
+    for (const ref of issueRefs) {
+      const num = parseInt(ref.slice(1), 10);
+      if (!isNaN(num) && !blockers.includes(num)) {
+        blockers.push(num);
+      }
+    }
+  }
+
+  return blockers;
+}
+
+function getOpenIssueNumbers(issues) {
+  // Build a set of open issue numbers for quick lookup
+  return new Set(issues.map((i) => i.number));
+}
+
 function selectBestIssue(issues, board, blockers) {
   // Load exclusion list (issues rejected in this session)
   const excluded = getCachedData("excluded") || [];
+
+  // Build set of open issue numbers for body-based blocker checks
+  const openIssues = getOpenIssueNumbers(issues);
 
   // Filter candidates
   const candidates = issues.filter((issue) => {
@@ -291,9 +334,16 @@ function selectBestIssue(issues, board, blockers) {
       return false;
     }
 
-    // Not blocked by open issues
+    // Not blocked by open issues (GitHub API relationship)
     const issueBlockers = blockers[issue.number] || [];
     if (issueBlockers.length > 0) {
+      return false;
+    }
+
+    // Not blocked by open issues (body text mentions)
+    const bodyBlockers = parseBodyBlockers(issue.body);
+    const openBodyBlockers = bodyBlockers.filter((num) => openIssues.has(num));
+    if (openBodyBlockers.length > 0) {
       return false;
     }
 
