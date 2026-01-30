@@ -251,10 +251,30 @@ function fetchBoard() {
   return statusMap;
 }
 
+function fetchBlockerREST(issueNumber) {
+  // Fallback: fetch blockers via REST API (one call per issue)
+  const result = runGh(
+    `api repos/${OWNER}/${REPO}/issues/${issueNumber}/dependencies/blocked_by --jq '.[].number'`,
+    true,
+    true // Use app token
+  );
+  if (!result.success) {
+    return null; // Signal failure
+  }
+  // Parse space/newline separated numbers
+  const nums = result.data
+    .split(/\s+/)
+    .filter((s) => s.length > 0)
+    .map((s) => parseInt(s, 10))
+    .filter((n) => !isNaN(n));
+  return nums;
+}
+
 function fetchBlockers(issueNumbers) {
   // Fetch blockers for multiple issues in batches to reduce API calls
   const blockers = {};
   let hadRateLimit = false;
+  const failedIssues = [];
 
   // Build a single GraphQL query for all issues
   // (GitHub limits query complexity, so we batch in groups of 20)
@@ -277,10 +297,8 @@ function fetchBlockers(issueNumbers) {
       if (result.isRateLimit) {
         hadRateLimit = true;
       }
-      // Mark batch as not blocked (graceful degradation)
-      for (const num of batch) {
-        blockers[num] = [];
-      }
+      // Track failed issues for REST fallback
+      failedIssues.push(...batch);
       continue;
     }
 
@@ -298,9 +316,23 @@ function fetchBlockers(issueNumbers) {
         }
       }
     } catch {
-      // Parse error, mark as not blocked
-      for (const num of batch) {
-        blockers[num] = [];
+      // Parse error, track for REST fallback
+      failedIssues.push(...batch);
+    }
+  }
+
+  // REST API fallback for failed issues (slower but more reliable)
+  if (failedIssues.length > 0) {
+    console.error(
+      `GraphQL failed for ${failedIssues.length} issues, trying REST API fallback...`
+    );
+    for (const num of failedIssues) {
+      const restBlockers = fetchBlockerREST(num);
+      if (restBlockers !== null) {
+        blockers[num] = restBlockers;
+      } else {
+        // Both GraphQL and REST failed - return null to use cache
+        return null;
       }
     }
   }
