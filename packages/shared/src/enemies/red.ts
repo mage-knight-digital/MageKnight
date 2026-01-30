@@ -9,7 +9,7 @@
  * @module enemies/red
  *
  * @remarks Enemies in this module:
- * - Swamp Dragon - Swift, poison, high armor
+ * - Swamp Dragon - Swift, paralyze, high armor
  * - Fire Dragon - Fire attack, physical + fire resistance
  * - Ice Dragon - Ice attack, physical + ice resistance, paralyze
  * - High Dragon - ColdFire attack, fire + ice resistance, brutal
@@ -24,7 +24,6 @@ import {
 import { ENEMY_COLOR_RED, type EnemyDefinition } from "./types.js";
 import {
   ABILITY_SWIFT,
-  ABILITY_POISON,
   ABILITY_PARALYZE,
   ABILITY_BRUTAL,
 } from "./abilities.js";
@@ -62,7 +61,7 @@ export const RED_ENEMIES: Record<RedEnemyId, EnemyDefinition> = {
     armor: 9,
     fame: 7,
     resistances: [],
-    abilities: [ABILITY_SWIFT, ABILITY_POISON],
+    abilities: [ABILITY_SWIFT, ABILITY_PARALYZE],
   },
   [ENEMY_FIRE_DRAGON]: {
     id: ENEMY_FIRE_DRAGON,
