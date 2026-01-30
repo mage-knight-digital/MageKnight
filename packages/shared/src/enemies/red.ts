@@ -13,6 +13,7 @@
  * - Fire Dragon - Fire attack, physical + fire resistance
  * - Ice Dragon - Ice attack, physical + ice resistance, paralyze
  * - High Dragon - ColdFire attack, fire + ice resistance, brutal
+ * - Death Dragon - Assassination, paralyze, Dark Crusaders faction
  */
 
 import {
@@ -21,11 +22,16 @@ import {
   ELEMENT_ICE,
   ELEMENT_COLD_FIRE,
 } from "../elements.js";
-import { ENEMY_COLOR_RED, type EnemyDefinition } from "./types.js";
+import {
+  ENEMY_COLOR_RED,
+  FACTION_DARK_CRUSADERS,
+  type EnemyDefinition,
+} from "./types.js";
 import {
   ABILITY_SWIFT,
   ABILITY_PARALYZE,
   ABILITY_BRUTAL,
+  ABILITY_ASSASSINATION,
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
@@ -37,6 +43,7 @@ export const ENEMY_SWAMP_DRAGON = "swamp_dragon" as const;
 export const ENEMY_FIRE_DRAGON = "fire_dragon" as const;
 export const ENEMY_ICE_DRAGON = "ice_dragon" as const;
 export const ENEMY_HIGH_DRAGON = "high_dragon" as const;
+export const ENEMY_DEATH_DRAGON = "death_dragon" as const;
 
 /**
  * Union type of all red (Draconum) enemy IDs
@@ -45,7 +52,8 @@ export type RedEnemyId =
   | typeof ENEMY_SWAMP_DRAGON
   | typeof ENEMY_FIRE_DRAGON
   | typeof ENEMY_ICE_DRAGON
-  | typeof ENEMY_HIGH_DRAGON;
+  | typeof ENEMY_HIGH_DRAGON
+  | typeof ENEMY_DEATH_DRAGON;
 
 // =============================================================================
 // RED ENEMY DEFINITIONS
@@ -95,5 +103,17 @@ export const RED_ENEMIES: Record<RedEnemyId, EnemyDefinition> = {
     fame: 9,
     resistances: [RESIST_FIRE, RESIST_ICE],
     abilities: [ABILITY_BRUTAL],
+  },
+  [ENEMY_DEATH_DRAGON]: {
+    id: ENEMY_DEATH_DRAGON,
+    name: "Death Dragon",
+    color: ENEMY_COLOR_RED,
+    attack: 7,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 9,
+    fame: 6,
+    resistances: [],
+    abilities: [ABILITY_ASSASSINATION, ABILITY_PARALYZE],
+    faction: FACTION_DARK_CRUSADERS,
   },
 };
