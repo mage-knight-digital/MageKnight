@@ -1,0 +1,57 @@
+/* ============================================
+   Player List Panel - Multiplayer Turn Order
+   ============================================ */
+
+/* Intro animation: slide in from right */
+@keyframes player-list-slide {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.player-list-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-left: 1rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  will-change: transform, opacity;
+}
+
+.player-list-panel--intro-reveal {
+  animation: player-list-slide 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Turn indicator */
+.player-list-panel__indicator {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #f1c40f;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+/* Player entries container */
+.player-list-panel__entries {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Responsive: stack vertically on narrow screens */
+@media (max-width: 900px) {
+  .player-list-panel__entries {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
