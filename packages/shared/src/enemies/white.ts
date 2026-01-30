@@ -1,19 +1,5 @@
 /**
  * White Enemy Definitions - City Garrison
- *
- * White enemies defend cities and are among the strongest non-dragon
- * enemies. Fame ranges from 4-8. They include elite golems with
- * elemental attacks and the powerful Altem forces.
- *
- * @module enemies/white
- *
- * @remarks Enemies in this module:
- * - Thugs - Basic city guards
- * - Shocktroops - Swift and brutal elite soldiers
- * - Ice Golems - Ice attack, physical resistance, paralyze
- * - Freezers - ColdFire attack, paralyze
- * - Altem Guardsmen - Elite fortified guards
- * - Altem Mages - Powerful mages with ColdFire attack
  */
 
 import {
@@ -30,10 +16,6 @@ import {
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
-// =============================================================================
-// WHITE ENEMY ID CONSTANTS
-// =============================================================================
-
 export const ENEMY_THUGS = "thugs" as const;
 export const ENEMY_SHOCKTROOPS = "shocktroops" as const;
 export const ENEMY_ICE_GOLEMS = "ice_golems" as const;
@@ -41,9 +23,6 @@ export const ENEMY_FREEZERS = "freezers" as const;
 export const ENEMY_ALTEM_GUARDSMEN = "altem_guardsmen" as const;
 export const ENEMY_ALTEM_MAGES = "altem_mages" as const;
 
-/**
- * Union type of all white (City garrison) enemy IDs
- */
 export type WhiteEnemyId =
   | typeof ENEMY_THUGS
   | typeof ENEMY_SHOCKTROOPS
@@ -51,10 +30,6 @@ export type WhiteEnemyId =
   | typeof ENEMY_FREEZERS
   | typeof ENEMY_ALTEM_GUARDSMEN
   | typeof ENEMY_ALTEM_MAGES;
-
-// =============================================================================
-// WHITE ENEMY DEFINITIONS
-// =============================================================================
 
 export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
   [ENEMY_THUGS]: {
@@ -95,11 +70,11 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     name: "Freezers",
     color: ENEMY_COLOR_WHITE,
     attack: 3,
-    attackElement: ELEMENT_COLD_FIRE,
-    armor: 4,
-    fame: 4,
-    resistances: [],
-    abilities: [ABILITY_PARALYZE],
+    attackElement: ELEMENT_ICE,
+    armor: 7,
+    fame: 7,
+    resistances: [RESIST_FIRE],
+    abilities: [ABILITY_PARALYZE, ABILITY_SWIFT],
   },
   [ENEMY_ALTEM_GUARDSMEN]: {
     id: ENEMY_ALTEM_GUARDSMEN,
@@ -125,11 +100,5 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
   },
 };
 
-// =============================================================================
-// TEST ALIASES (backward-compatible for tests)
-// =============================================================================
-
-/**
- * @deprecated Use ENEMY_ICE_GOLEMS directly
- */
+/** @deprecated Use ENEMY_ICE_GOLEMS directly */
 export const ENEMY_ICE_GOLEM = ENEMY_ICE_GOLEMS;
