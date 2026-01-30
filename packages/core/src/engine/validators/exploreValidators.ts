@@ -15,12 +15,17 @@ import {
   NO_TILES_AVAILABLE,
   PLAYER_NOT_FOUND,
   INVALID_WEDGE_DIRECTION,
+  CORE_TILE_ON_COASTLINE,
 } from "./validationCodes.js";
 import {
   isEdgeHex,
   getExpansionDirections,
+  TILE_PLACEMENT_OFFSETS,
 } from "../explore/index.js";
+import { isCoastlineSlot } from "../explore/tileGrid.js";
 import { getValidExploreOptions } from "../validActions/exploration.js";
+import { peekNextTileType } from "../../data/tileDeckSetup.js";
+import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
 
 /**
  * Extract explore direction from action (type guard helper)
@@ -199,6 +204,85 @@ export function validateTilesAvailable(
     state.map.tileDeck.core.length === 0
   ) {
     return invalid(NO_TILES_AVAILABLE, "No tiles remaining to explore");
+  }
+
+  return valid();
+}
+
+/**
+ * For wedge maps, core tiles cannot be placed on coastline slots.
+ *
+ * Per rulebook: "Core (brown) tiles cannot be added to the coastline.
+ * (i.e. to the leftmost and rightmost lane of tiles)."
+ *
+ * This validator:
+ * 1. Only applies to wedge maps with initialized tile slots
+ * 2. Checks if the next tile to be drawn is a core tile
+ * 3. Checks if the target slot is a coastline slot
+ * 4. Rejects the placement if both conditions are true
+ */
+export function validateCoreNotOnCoastline(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  const mapShape = state.scenarioConfig.mapShape;
+
+  // Only apply to wedge maps
+  if (mapShape !== MAP_SHAPE_WEDGE) {
+    return valid();
+  }
+
+  // Skip validation if tile slots haven't been initialized
+  // (allows tests with manually constructed states to work)
+  if (!state.map.tileSlots || Object.keys(state.map.tileSlots).length === 0) {
+    return valid();
+  }
+
+  // Check the next tile type - if not core, no restriction applies
+  const nextTileType = peekNextTileType(state.map.tileDeck);
+  if (nextTileType !== TILE_TYPE_CORE) {
+    return valid();
+  }
+
+  // Extract direction and fromTileCoord from action
+  const direction = getExploreDirection(action);
+  if (!direction) {
+    return invalid(NOT_ON_MAP, "Invalid explore action");
+  }
+
+  // Get the source tile coordinate from action
+  // The action should have fromTileCoord to specify which tile we're exploring from
+  let fromTileCoord: { q: number; r: number } | undefined;
+  if (action.type === EXPLORE_ACTION && "fromTileCoord" in action) {
+    fromTileCoord = action.fromTileCoord as { q: number; r: number };
+  }
+
+  // If no fromTileCoord, try to compute target from tiles in state
+  // This handles cases where action doesn't include fromTileCoord
+  if (!fromTileCoord) {
+    // Use the first tile as default (simplified - usually starting tile)
+    if (state.map.tiles.length > 0 && state.map.tiles[0]) {
+      fromTileCoord = state.map.tiles[0].centerCoord;
+    } else {
+      // No tiles placed yet, can't determine target
+      return valid();
+    }
+  }
+
+  // Calculate target slot coordinates
+  const offset = TILE_PLACEMENT_OFFSETS[direction];
+  const targetCoord = {
+    q: fromTileCoord.q + offset.q,
+    r: fromTileCoord.r + offset.r,
+  };
+
+  // Check if target is a coastline slot
+  if (isCoastlineSlot(targetCoord, state.map.tileSlots)) {
+    return invalid(
+      CORE_TILE_ON_COASTLINE,
+      "Core tiles cannot be placed on coastline (leftmost/rightmost slots)"
+    );
   }
 
   return valid();

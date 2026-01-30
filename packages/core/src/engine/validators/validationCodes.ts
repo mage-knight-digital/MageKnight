@@ -26,6 +26,7 @@ export const INVALID_DIRECTION = "INVALID_DIRECTION" as const;
 export const NO_TILES_AVAILABLE = "NO_TILES_AVAILABLE" as const;
 export const SLOT_ALREADY_FILLED = "SLOT_ALREADY_FILLED" as const;
 export const INVALID_WEDGE_DIRECTION = "INVALID_WEDGE_DIRECTION" as const;
+export const CORE_TILE_ON_COASTLINE = "CORE_TILE_ON_COASTLINE" as const;
 
 // Card play validation codes
 export const CARD_NOT_IN_HAND = "CARD_NOT_IN_HAND" as const;
@@ -213,6 +214,7 @@ export type ValidationErrorCode =
   | typeof NO_TILES_AVAILABLE
   | typeof SLOT_ALREADY_FILLED
   | typeof INVALID_WEDGE_DIRECTION
+  | typeof CORE_TILE_ON_COASTLINE
   | typeof CARD_NOT_IN_HAND
   | typeof CARD_NOT_FOUND
   | typeof CANNOT_PLAY_WOUND

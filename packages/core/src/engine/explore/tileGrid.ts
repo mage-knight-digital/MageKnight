@@ -259,3 +259,62 @@ export function getExplorableSlotsFromTile(
 
   return explorableSlots;
 }
+
+/**
+ * Check if a tile slot is a coastline slot in a wedge map.
+ *
+ * Coastline slots are the leftmost and rightmost positions in each row.
+ * In wedge maps, core (brown) tiles cannot be placed on coastline slots.
+ *
+ * Row 0 (single slot at origin): Not considered coastline (no restriction applies)
+ * Row N (N >= 1): First and last slots (by q coordinate) are coastline
+ *
+ * @param targetCoord - Coordinates of the slot to check
+ * @param allSlots - Record or Map of all tile slots in the wedge (keyed by hexKey)
+ * @returns true if slot is on the coastline (left or right edge of its row)
+ */
+export function isCoastlineSlot(
+  targetCoord: HexCoord,
+  allSlots: Record<string, TileSlot> | Map<string, TileSlot>
+): boolean {
+  const targetKey = hexKey(targetCoord);
+
+  // Convert to iterable values based on input type
+  const slotsIterable =
+    allSlots instanceof Map ? allSlots.values() : Object.values(allSlots);
+
+  // Find the target slot to get its row
+  let targetSlot: TileSlot | undefined;
+  const slotsArray: TileSlot[] = [];
+
+  for (const slot of slotsIterable) {
+    slotsArray.push(slot);
+    if (hexKey(slot.coord) === targetKey) {
+      targetSlot = slot;
+    }
+  }
+
+  if (!targetSlot) {
+    return false; // Slot not found, fail-safe
+  }
+
+  // Row 0 has no coastline concept (single starting slot)
+  if (targetSlot.row === 0) {
+    return false;
+  }
+
+  // Get all slots in the same row
+  const rowSlots = slotsArray.filter((s) => s.row === targetSlot.row);
+
+  if (rowSlots.length <= 1) {
+    return false; // Single slot in row, not coastline
+  }
+
+  // Find min and max q coordinates in this row
+  const qValues = rowSlots.map((s) => s.coord.q);
+  const minQ = Math.min(...qValues);
+  const maxQ = Math.max(...qValues);
+
+  // Slot is coastline if it's at min or max q
+  return targetCoord.q === minQ || targetCoord.q === maxQ;
+}
