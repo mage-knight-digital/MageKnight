@@ -151,11 +151,22 @@ Launch the **scope-assessor** agent (Haiku) with:
 
 **If result is NEEDS_REFINEMENT:**
 
-⚠️ **STOP IMPLEMENTATION** - This issue is too large. Follow the refinement path:
+⚠️ **PAUSE** - This issue may be too large. Attempt to refine it:
+
+### Step 1: Investigate how to split
 
 1. Launch 2 parallel **code-explorer** agents to deeply understand the scope
 2. Launch **code-architect** agent to propose how to split the issue
-3. **Automatically create sub-issues** (no user approval needed):
+
+The architect should return:
+- A list of proposed sub-issues with clear titles and acceptance criteria
+- A confidence level: HIGH (clear split) or LOW (uncertain/needs user input)
+
+### Step 2: Decide based on confidence
+
+**If architect proposes a HIGH confidence split (2-4 clear sub-issues):**
+
+Automatically create the sub-issues:
 
 ```bash
 # For each proposed sub-issue:
@@ -166,7 +177,7 @@ gh issue create \
   --label "feature"
 ```
 
-4. **Link sub-issues to parent**:
+Link sub-issues to parent:
 
 ```bash
 # Get the sub-issue ID (not number) for linking
@@ -176,7 +187,7 @@ SUB_ISSUE_ID=$(gh api graphql -f query='{ repository(owner: "eshaffer321", name:
 gh api graphql -f query='mutation { addSubIssue(input: {issueId: "PARENT_ID", subIssueId: "'$SUB_ISSUE_ID'"}) { issue { id } } }'
 ```
 
-5. **Mark parent as epic and move to backlog**:
+Mark parent as epic and move to backlog:
 
 ```bash
 # Add epic label
@@ -190,7 +201,7 @@ ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 |
 gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "f75ad846"
 ```
 
-6. **EXIT with report:**
+EXIT with report:
 
 ```markdown
 ## Issue Refined
@@ -206,7 +217,48 @@ The original issue was too large for a single implementation pass.
 Sub-issues have been created and linked. Run `/implement auto` again to pick up one of the sub-issues.
 ```
 
-**DO NOT continue to Phase 4 if NEEDS_REFINEMENT.** The workflow ends here.
+**DO NOT continue to Phase 4.** The workflow ends here after successful refinement.
+
+---
+
+**If architect returns LOW confidence (unclear how to split, ambiguous requirements, needs domain knowledge):**
+
+Move issue back to backlog and STOP:
+
+```bash
+# Move back to Backlog
+ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
+gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "f75ad846"
+
+# Add needs-refinement label
+gh issue edit $ISSUE_NUM --add-label "needs-refinement"
+
+# Comment with findings
+gh issue comment $ISSUE_NUM --body "Automated implementation attempted but issue needs manual refinement. See details below."
+```
+
+EXIT and ask user for help:
+
+```markdown
+## Issue Needs Manual Refinement
+
+**Issue:** #XX - <Title>
+**Status:** Moved back to Backlog, labeled `needs-refinement`
+
+### What We Found
+<Summary of exploration findings>
+
+### Why We Couldn't Auto-Split
+<Explanation: ambiguous requirements, multiple valid approaches, needs domain decision, etc.>
+
+### Questions for User
+1. <Specific question about how to split or clarify>
+2. <Another question if applicable>
+
+Please refine the issue manually or answer the questions above, then run `/implement` again.
+```
+
+**DO NOT continue to Phase 4.** The workflow ends here - user input is needed.
 
 ---
 
