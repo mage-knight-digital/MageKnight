@@ -15,7 +15,7 @@
  */
 
 import type { HexCoord, MapShape, HexDirection } from "@mage-knight/shared";
-import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN, hexKey, TILE_PLACEMENT_OFFSETS, HEX_DIRECTIONS } from "@mage-knight/shared";
+import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN, MAP_SHAPE_CONFIGS, hexKey, TILE_PLACEMENT_OFFSETS, HEX_DIRECTIONS } from "@mage-knight/shared";
 import type { TileSlot } from "../../types/map.js";
 
 // Re-export TILE_PLACEMENT_OFFSETS from shared for backwards compatibility
@@ -44,16 +44,8 @@ export function getDirectionFromOffset(
  * Get the directions that expand the map for a given map shape.
  */
 export function getExpansionDirections(mapShape: MapShape): HexDirection[] {
-  switch (mapShape) {
-    case MAP_SHAPE_WEDGE:
-      // Wedge expands via NE and E only (rightward triangle)
-      return ["NE", "E"];
-    case MAP_SHAPE_OPEN:
-      // Open map allows all directions
-      return ["NE", "E", "SE", "SW", "W", "NW"];
-    default:
-      return ["NE", "E", "SE", "SW", "W", "NW"];
-  }
+  const config = MAP_SHAPE_CONFIGS[mapShape];
+  return [...config.expansionDirections];
 }
 
 /**

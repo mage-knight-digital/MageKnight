@@ -8,7 +8,15 @@ import {
   isSlotAdjacentToFilled,
   getValidExploreDirectionsForShape,
 } from "../explore/tileGrid.js";
-import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN, hexKey } from "@mage-knight/shared";
+import {
+  MAP_SHAPE_WEDGE,
+  MAP_SHAPE_OPEN,
+  MAP_SHAPE_OPEN_3,
+  MAP_SHAPE_OPEN_4,
+  MAP_SHAPE_OPEN_5,
+  MAP_SHAPE_CONFIGS,
+  hexKey,
+} from "@mage-knight/shared";
 
 describe("tileGrid", () => {
   describe("generateWedgeSlots", () => {
@@ -137,6 +145,69 @@ describe("tileGrid", () => {
       expect(dirs).toContain("W");
       expect(dirs).toContain("NW");
       expect(dirs).toHaveLength(6);
+    });
+
+    it("should return all 6 directions for OPEN_3 shape", () => {
+      const dirs = getExpansionDirections(MAP_SHAPE_OPEN_3);
+      expect(dirs).toHaveLength(6);
+    });
+
+    it("should return all 6 directions for OPEN_4 shape", () => {
+      const dirs = getExpansionDirections(MAP_SHAPE_OPEN_4);
+      expect(dirs).toHaveLength(6);
+    });
+
+    it("should return all 6 directions for OPEN_5 shape", () => {
+      const dirs = getExpansionDirections(MAP_SHAPE_OPEN_5);
+      expect(dirs).toHaveLength(6);
+    });
+  });
+
+  describe("MAP_SHAPE_CONFIGS", () => {
+    it("should have config for all map shapes", () => {
+      expect(MAP_SHAPE_CONFIGS[MAP_SHAPE_WEDGE]).toBeDefined();
+      expect(MAP_SHAPE_CONFIGS[MAP_SHAPE_OPEN]).toBeDefined();
+      expect(MAP_SHAPE_CONFIGS[MAP_SHAPE_OPEN_3]).toBeDefined();
+      expect(MAP_SHAPE_CONFIGS[MAP_SHAPE_OPEN_4]).toBeDefined();
+      expect(MAP_SHAPE_CONFIGS[MAP_SHAPE_OPEN_5]).toBeDefined();
+    });
+
+    it("should have WEDGE config matching original hardcoded values (regression)", () => {
+      const config = MAP_SHAPE_CONFIGS[MAP_SHAPE_WEDGE];
+      expect(config.startingTile).toBe("starting_a");
+      expect(config.initialTilePositions).toEqual(["NE", "E"]);
+      expect(config.expansionDirections).toEqual(["NE", "E"]);
+    });
+
+    it("should have OPEN_3 config with 3 initial tiles", () => {
+      const config = MAP_SHAPE_CONFIGS[MAP_SHAPE_OPEN_3];
+      expect(config.startingTile).toBe("starting_b");
+      expect(config.initialTilePositions).toHaveLength(3);
+    });
+
+    it("should have OPEN_4 config with 4 initial tiles", () => {
+      const config = MAP_SHAPE_CONFIGS[MAP_SHAPE_OPEN_4];
+      expect(config.startingTile).toBe("starting_b");
+      expect(config.initialTilePositions).toHaveLength(4);
+    });
+
+    it("should have OPEN_5 config with 5 initial tiles", () => {
+      const config = MAP_SHAPE_CONFIGS[MAP_SHAPE_OPEN_5];
+      expect(config.startingTile).toBe("starting_b");
+      expect(config.initialTilePositions).toHaveLength(5);
+    });
+
+    it("should only have valid HexDirections in all configs", () => {
+      const validDirections = ["NE", "E", "SE", "SW", "W", "NW"];
+
+      for (const config of Object.values(MAP_SHAPE_CONFIGS)) {
+        for (const dir of config.initialTilePositions) {
+          expect(validDirections).toContain(dir);
+        }
+        for (const dir of config.expansionDirections) {
+          expect(validDirections).toContain(dir);
+        }
+      }
     });
   });
 
