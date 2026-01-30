@@ -2,7 +2,7 @@
  * White Enemy Definitions - City Garrison
  *
  * White enemies defend cities and are among the strongest non-dragon
- * enemies. Fame ranges from 4-8. They include the powerful Altem forces.
+ * enemies. Fame ranges from 4-9. They include the powerful Altem forces.
  *
  * @module enemies/white
  *
@@ -12,6 +12,7 @@
  * - Freezers - ColdFire attack, paralyze
  * - Altem Guardsmen - Elite fortified guards
  * - Altem Mages - Powerful mages with ColdFire attack
+ * - Delphana Masters - Elite assassins with ColdFire attack
  */
 
 import { ELEMENT_PHYSICAL, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "../elements.js";
@@ -21,6 +22,7 @@ import {
   ABILITY_BRUTAL,
   ABILITY_PARALYZE,
   ABILITY_FORTIFIED,
+  ABILITY_ASSASSINATION,
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
@@ -29,13 +31,15 @@ export const ENEMY_SHOCKTROOPS = "shocktroops" as const;
 export const ENEMY_FREEZERS = "freezers" as const;
 export const ENEMY_ALTEM_GUARDSMEN = "altem_guardsmen" as const;
 export const ENEMY_ALTEM_MAGES = "altem_mages" as const;
+export const ENEMY_DELPHANA_MASTERS = "delphana_masters" as const;
 
 export type WhiteEnemyId =
   | typeof ENEMY_THUGS
   | typeof ENEMY_SHOCKTROOPS
   | typeof ENEMY_FREEZERS
   | typeof ENEMY_ALTEM_GUARDSMEN
-  | typeof ENEMY_ALTEM_MAGES;
+  | typeof ENEMY_ALTEM_MAGES
+  | typeof ENEMY_DELPHANA_MASTERS;
 
 export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
   [ENEMY_THUGS]: {
@@ -92,5 +96,16 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     fame: 8,
     resistances: [RESIST_FIRE, RESIST_ICE],
     abilities: [ABILITY_BRUTAL],
+  },
+  [ENEMY_DELPHANA_MASTERS]: {
+    id: ENEMY_DELPHANA_MASTERS,
+    name: "Delphana Masters",
+    color: ENEMY_COLOR_WHITE,
+    attack: 5,
+    attackElement: ELEMENT_COLD_FIRE,
+    armor: 8,
+    fame: 9,
+    resistances: [RESIST_FIRE, RESIST_ICE],
+    abilities: [ABILITY_ASSASSINATION, ABILITY_PARALYZE],
   },
 };
