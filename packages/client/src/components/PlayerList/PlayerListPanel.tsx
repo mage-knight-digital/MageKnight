@@ -64,12 +64,12 @@ export function PlayerListPanel() {
   return (
     <div className={className}>
       {/* Turn indicator */}
-      <div className="player-list-panel__indicator">
+      <div className="player-list-panel__indicator" role="status" aria-live="polite">
         {isMyTurn ? "YOUR TURN" : `Waiting for ${currentPlayer?.heroId ?? "player"}...`}
       </div>
 
       {/* Player entries in turn order */}
-      <div className="player-list-panel__entries">
+      <div className="player-list-panel__entries" role="list" aria-label="Players in turn order">
         {playerList.map(player => (
           <PlayerEntry
             key={player.id}

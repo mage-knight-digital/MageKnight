@@ -16,7 +16,12 @@ export function PlayerEntry({ player, isActive, isLocalPlayer }: PlayerEntryProp
   ].filter(Boolean).join(" ");
 
   return (
-    <div className={className} title={`${player.heroId} - ${isActive ? "Active Turn" : "Waiting"}`}>
+    <div
+      className={className}
+      title={`${player.heroId} - ${isActive ? "Active Turn" : "Waiting"}`}
+      role="listitem"
+      aria-current={isActive ? "true" : undefined}
+    >
       {/* Hero name */}
       <span className="player-entry__hero">{player.heroId}</span>
 
