@@ -145,9 +145,11 @@ export {
   ENEMY_ILLUSIONISTS,
   ENEMY_ICE_MAGES,
   ENEMY_FIRE_MAGES,
+  ENEMY_ICE_GOLEMS,
   ENEMY_SORCERERS,
   VIOLET_ENEMIES,
   ENEMY_FIRE_MAGE, // Test alias
+  ENEMY_ICE_GOLEM, // Test alias
 } from "./violet.js";
 
 // White (City garrison)
@@ -155,12 +157,10 @@ export type { WhiteEnemyId } from "./white.js";
 export {
   ENEMY_THUGS,
   ENEMY_SHOCKTROOPS,
-  ENEMY_ICE_GOLEMS,
   ENEMY_FREEZERS,
   ENEMY_ALTEM_GUARDSMEN,
   ENEMY_ALTEM_MAGES,
   WHITE_ENEMIES,
-  ENEMY_ICE_GOLEM, // Test alias
 } from "./white.js";
 
 // Red (Draconum)

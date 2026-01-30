@@ -1,12 +1,20 @@
 /**
  * White Enemy Definitions - City Garrison
+ *
+ * White enemies defend cities and are among the strongest non-dragon
+ * enemies. Fame ranges from 4-8. They include the powerful Altem forces.
+ *
+ * @module enemies/white
+ *
+ * @remarks Enemies in this module:
+ * - Thugs - Basic city guards
+ * - Shocktroops - Swift and brutal elite soldiers
+ * - Freezers - ColdFire attack, paralyze
+ * - Altem Guardsmen - Elite fortified guards
+ * - Altem Mages - Powerful mages with ColdFire attack
  */
 
-import {
-  ELEMENT_PHYSICAL,
-  ELEMENT_ICE,
-  ELEMENT_COLD_FIRE,
-} from "../elements.js";
+import { ELEMENT_PHYSICAL, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "../elements.js";
 import { ENEMY_COLOR_WHITE, type EnemyDefinition } from "./types.js";
 import {
   ABILITY_SWIFT,
@@ -18,7 +26,6 @@ import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
 export const ENEMY_THUGS = "thugs" as const;
 export const ENEMY_SHOCKTROOPS = "shocktroops" as const;
-export const ENEMY_ICE_GOLEMS = "ice_golems" as const;
 export const ENEMY_FREEZERS = "freezers" as const;
 export const ENEMY_ALTEM_GUARDSMEN = "altem_guardsmen" as const;
 export const ENEMY_ALTEM_MAGES = "altem_mages" as const;
@@ -26,7 +33,6 @@ export const ENEMY_ALTEM_MAGES = "altem_mages" as const;
 export type WhiteEnemyId =
   | typeof ENEMY_THUGS
   | typeof ENEMY_SHOCKTROOPS
-  | typeof ENEMY_ICE_GOLEMS
   | typeof ENEMY_FREEZERS
   | typeof ENEMY_ALTEM_GUARDSMEN
   | typeof ENEMY_ALTEM_MAGES;
@@ -53,17 +59,6 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     fame: 5,
     resistances: [],
     abilities: [ABILITY_SWIFT, ABILITY_BRUTAL],
-  },
-  [ENEMY_ICE_GOLEMS]: {
-    id: ENEMY_ICE_GOLEMS,
-    name: "Ice Golems",
-    color: ENEMY_COLOR_WHITE,
-    attack: 4,
-    attackElement: ELEMENT_ICE,
-    armor: 5,
-    fame: 5,
-    resistances: [RESIST_PHYSICAL],
-    abilities: [ABILITY_PARALYZE],
   },
   [ENEMY_FREEZERS]: {
     id: ENEMY_FREEZERS,
@@ -99,6 +94,3 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     abilities: [ABILITY_BRUTAL],
   },
 };
-
-/** @deprecated Use ENEMY_ICE_GOLEMS directly */
-export const ENEMY_ICE_GOLEM = ENEMY_ICE_GOLEMS;
