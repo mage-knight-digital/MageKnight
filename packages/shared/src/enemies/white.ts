@@ -34,6 +34,7 @@ import {
   NO_RESISTANCES,
   PHYSICAL_RESISTANCE,
   FIRE_ICE_RESISTANCE,
+  PHYSICAL_FIRE_ICE_RESISTANCE,
 } from "./resistances.js";
 
 // =============================================================================
@@ -124,11 +125,11 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     id: ENEMY_ALTEM_GUARDSMEN,
     name: "Altem Guardsmen",
     color: ENEMY_COLOR_WHITE,
-    attack: 6,
+    attack: 5,
     attackElement: ELEMENT_PHYSICAL,
-    armor: 6,
-    fame: 6,
-    resistances: NO_RESISTANCES,
+    armor: 7,
+    fame: 8,
+    resistances: PHYSICAL_FIRE_ICE_RESISTANCE,
     abilities: [ABILITY_FORTIFIED],
   },
   [ENEMY_ALTEM_MAGES]: {

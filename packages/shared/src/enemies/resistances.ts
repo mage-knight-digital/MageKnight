@@ -77,6 +77,15 @@ export const PHYSICAL_ICE_RESISTANCE: EnemyResistances = {
   ice: true,
 };
 
+/**
+ * Physical, fire, and ice resistance - common for elite Altem forces
+ */
+export const PHYSICAL_FIRE_ICE_RESISTANCE: EnemyResistances = {
+  physical: true,
+  fire: true,
+  ice: true,
+};
+
 // =============================================================================
 // RESISTANCE DESCRIPTIONS (Rulebook text)
 // =============================================================================
