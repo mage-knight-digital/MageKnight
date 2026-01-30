@@ -64,7 +64,6 @@ export const ENEMIES: { label: string; enemies: { id: EnemyId; name: string }[] 
       { id: "thugs" as EnemyId, name: "Thugs" },
       { id: "shocktroops" as EnemyId, name: "Shocktroops" },
       { id: "ice_golems" as EnemyId, name: "Ice Golems" },
-      { id: "fire_golems" as EnemyId, name: "Fire Golems" },
       { id: "freezers" as EnemyId, name: "Freezers" },
       { id: "altem_guardsmen" as EnemyId, name: "Altem Guardsmen" },
       { id: "altem_mages" as EnemyId, name: "Altem Mages" },
