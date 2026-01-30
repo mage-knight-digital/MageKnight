@@ -17,6 +17,7 @@
  * - Fire Elemental - Fire attack, fire resistance, Elementalist faction
  * - Mummy - Ice+physical resistance, poison
  * - Hydra - Multiple attacks (2, 2, 2), ice resistance
+ * - Manticore - Swift, assassination, poison, fire resistance
  */
 
 import { ELEMENT_PHYSICAL, ELEMENT_COLD_FIRE, ELEMENT_FIRE } from "../elements.js";
@@ -27,6 +28,7 @@ import {
   ABILITY_FORTIFIED,
   ABILITY_SWIFT,
   ABILITY_POISON,
+  ABILITY_ASSASSINATION,
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
@@ -43,6 +45,7 @@ export const ENEMY_SHADOW = "shadow" as const;
 export const ENEMY_FIRE_ELEMENTAL = "fire_elemental" as const;
 export const ENEMY_MUMMY = "mummy" as const;
 export const ENEMY_HYDRA = "hydra" as const;
+export const ENEMY_MANTICORE = "manticore" as const;
 
 /**
  * Union type of all brown (Dungeon monster) enemy IDs
@@ -56,7 +59,8 @@ export type BrownEnemyId =
   | typeof ENEMY_SHADOW
   | typeof ENEMY_FIRE_ELEMENTAL
   | typeof ENEMY_MUMMY
-  | typeof ENEMY_HYDRA;
+  | typeof ENEMY_HYDRA
+  | typeof ENEMY_MANTICORE;
 
 // =============================================================================
 // BROWN ENEMY DEFINITIONS
@@ -167,5 +171,16 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
       { damage: 2, element: ELEMENT_PHYSICAL },
       { damage: 2, element: ELEMENT_PHYSICAL },
     ],
+  },
+  [ENEMY_MANTICORE]: {
+    id: ENEMY_MANTICORE,
+    name: "Manticore",
+    color: ENEMY_COLOR_BROWN,
+    attack: 4,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 6,
+    fame: 5,
+    resistances: [RESIST_FIRE],
+    abilities: [ABILITY_SWIFT, ABILITY_ASSASSINATION, ABILITY_POISON],
   },
 };
