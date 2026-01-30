@@ -9,6 +9,7 @@ import { CinematicProvider } from "./contexts/CinematicContext";
 import { OverlayProvider } from "./contexts/OverlayContext";
 import { DebugDisplayProvider } from "./contexts/DebugDisplayContext";
 import { PixiAppProvider } from "./contexts/PixiAppContext";
+import { TurnNotificationProvider } from "./contexts/TurnNotificationContext";
 import { GameView } from "./components/GameView";
 import { DebugPanel } from "./components/DebugPanel";
 import { SetupScreen } from "./components/Setup";
@@ -44,24 +45,26 @@ export function App() {
   // Once setup is complete, render the game
   return (
     <GameProvider seed={GAME_SEED} config={gameConfig}>
-      <AnimationDispatcherProvider>
-        <GameIntroProvider>
-          <CinematicProvider>
-            <OverlayProvider>
-              <DebugDisplayProvider>
-                <PixiAppProvider>
-                  <CardMenuPositionProvider>
-                    <CardInteractionProvider>
-                      <GameView />
-                      <DebugPanel />
-                    </CardInteractionProvider>
-                  </CardMenuPositionProvider>
-                </PixiAppProvider>
-              </DebugDisplayProvider>
-            </OverlayProvider>
-          </CinematicProvider>
-        </GameIntroProvider>
-      </AnimationDispatcherProvider>
+      <TurnNotificationProvider>
+        <AnimationDispatcherProvider>
+          <GameIntroProvider>
+            <CinematicProvider>
+              <OverlayProvider>
+                <DebugDisplayProvider>
+                  <PixiAppProvider>
+                    <CardMenuPositionProvider>
+                      <CardInteractionProvider>
+                        <GameView />
+                        <DebugPanel />
+                      </CardInteractionProvider>
+                    </CardMenuPositionProvider>
+                  </PixiAppProvider>
+                </DebugDisplayProvider>
+              </OverlayProvider>
+            </CinematicProvider>
+          </GameIntroProvider>
+        </AnimationDispatcherProvider>
+      </TurnNotificationProvider>
     </GameProvider>
   );
 }
