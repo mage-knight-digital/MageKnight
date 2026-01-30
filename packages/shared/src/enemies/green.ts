@@ -16,9 +16,10 @@
  * - Ironclads - Physically resistant brutes
  * - Orc Summoners - Summon brown dungeon enemies
  * - Centaur Outriders - Swift Elementalist cavalry
+ * - Elven Protectors - Multiple fire/ice attacks with dual elemental resistance
  */
 
-import { ELEMENT_PHYSICAL } from "../elements.js";
+import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_PHYSICAL } from "../elements.js";
 import {
   ENEMY_COLOR_GREEN,
   FACTION_ELEMENTALIST,
@@ -31,7 +32,7 @@ import {
   ABILITY_BRUTAL,
   ABILITY_SUMMON,
 } from "./abilities.js";
-import { RESIST_PHYSICAL } from "./resistances.js";
+import { RESIST_FIRE, RESIST_ICE, RESIST_PHYSICAL } from "./resistances.js";
 
 // =============================================================================
 // GREEN ENEMY ID CONSTANTS
@@ -44,6 +45,7 @@ export const ENEMY_WOLF_RIDERS = "wolf_riders" as const;
 export const ENEMY_IRONCLADS = "ironclads" as const;
 export const ENEMY_ORC_SUMMONERS = "orc_summoners" as const;
 export const ENEMY_CENTAUR_OUTRIDERS = "centaur_outriders" as const;
+export const ENEMY_ELVEN_PROTECTORS = "elven_protectors" as const;
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -55,7 +57,8 @@ export type GreenEnemyId =
   | typeof ENEMY_WOLF_RIDERS
   | typeof ENEMY_IRONCLADS
   | typeof ENEMY_ORC_SUMMONERS
-  | typeof ENEMY_CENTAUR_OUTRIDERS;
+  | typeof ENEMY_CENTAUR_OUTRIDERS
+  | typeof ENEMY_ELVEN_PROTECTORS;
 
 // =============================================================================
 // GREEN ENEMY DEFINITIONS
@@ -139,6 +142,22 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     resistances: [],
     abilities: [ABILITY_SWIFT],
     faction: FACTION_ELEMENTALIST,
+  },
+  [ENEMY_ELVEN_PROTECTORS]: {
+    id: ENEMY_ELVEN_PROTECTORS,
+    name: "Elven Protectors",
+    color: ENEMY_COLOR_GREEN,
+    attack: 0, // Uses attacks array for multiple attacks
+    attackElement: ELEMENT_PHYSICAL, // Fallback, uses attacks array
+    armor: 4,
+    fame: 3,
+    resistances: [RESIST_FIRE, RESIST_ICE],
+    abilities: [],
+    faction: FACTION_ELEMENTALIST,
+    attacks: [
+      { damage: 3, element: ELEMENT_FIRE },
+      { damage: 3, element: ELEMENT_ICE },
+    ],
   },
 };
 
