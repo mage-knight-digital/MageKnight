@@ -258,3 +258,6 @@ export * from "./siteRewards.js";
 
 // Ruins tokens (Ancient Ruins yellow tokens)
 export * from "./ruinsTokens.js";
+
+// Scoring system types and constants
+export * from "./scoring/index.js";
