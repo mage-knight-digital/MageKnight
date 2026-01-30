@@ -227,8 +227,16 @@ function hasLabel(labels, labelName) {
 }
 
 function selectBestIssue(issues, board, blockers) {
+  // Load exclusion list (issues rejected in this session)
+  const excluded = getCachedData("excluded") || [];
+
   // Filter candidates
   const candidates = issues.filter((issue) => {
+    // Not in exclusion list
+    if (excluded.includes(issue.number)) {
+      return false;
+    }
+
     // Not in progress
     const boardInfo = board[issue.number];
     if (boardInfo && boardInfo.status === "In Progress") {
@@ -237,6 +245,11 @@ function selectBestIssue(issues, board, blockers) {
 
     // Not an epic
     if (hasLabel(issue.labels, "epic")) {
+      return false;
+    }
+
+    // Not needs-refinement (not ready for implementation)
+    if (hasLabel(issue.labels, "needs-refinement")) {
       return false;
     }
 
@@ -512,6 +525,30 @@ function getIssueDetails(issueNumber) {
   console.log(JSON.stringify(issue, null, 2));
 }
 
+function unclaimIssue(issueNumber) {
+  // Update local cache to mark issue as NOT in progress
+  const board = getCachedData("board") || {};
+  if (board[issueNumber]) {
+    board[issueNumber].status = "Backlog";
+    writeCache("board", board);
+  }
+
+  // Add to exclusion list so it won't be re-selected this session
+  const excluded = getCachedData("excluded") || [];
+  if (!excluded.includes(issueNumber)) {
+    excluded.push(issueNumber);
+    writeCache("excluded", excluded);
+  }
+
+  console.log(`Unclaimed #${issueNumber} - will not be re-selected`);
+}
+
+function clearExcluded() {
+  // Clear the exclusion list (for new session)
+  writeCache("excluded", []);
+  console.log("Cleared exclusion list");
+}
+
 // === CLI Interface ===
 
 function main() {
@@ -521,15 +558,34 @@ function main() {
   const forceRefresh = args.includes("--refresh");
   const claimIndex = args.indexOf("--claim");
   const detailsIndex = args.indexOf("--details");
+  const unclaimIndex = args.indexOf("--unclaim");
+  const clearExcludedFlag = args.includes("--clear-excluded");
 
   // Handle --claim
   if (claimIndex !== -1) {
     const issueNum = parseInt(args[claimIndex + 1], 10);
     if (isNaN(issueNum)) {
-      console.error("Usage: select-issue.js --claim <issue-number>");
+      console.error("Usage: select-issue.cjs --claim <issue-number>");
       process.exit(1);
     }
     claimIssue(issueNum);
+    return;
+  }
+
+  // Handle --unclaim (move back to backlog, add to exclusion list)
+  if (unclaimIndex !== -1) {
+    const issueNum = parseInt(args[unclaimIndex + 1], 10);
+    if (isNaN(issueNum)) {
+      console.error("Usage: select-issue.cjs --unclaim <issue-number>");
+      process.exit(1);
+    }
+    unclaimIssue(issueNum);
+    return;
+  }
+
+  // Handle --clear-excluded (reset exclusion list for new session)
+  if (clearExcludedFlag) {
+    clearExcluded();
     return;
   }
 
@@ -537,7 +593,7 @@ function main() {
   if (detailsIndex !== -1) {
     const issueNum = parseInt(args[detailsIndex + 1], 10);
     if (isNaN(issueNum)) {
-      console.error("Usage: select-issue.js --details <issue-number>");
+      console.error("Usage: select-issue.cjs --details <issue-number>");
       process.exit(1);
     }
     getIssueDetails(issueNum);

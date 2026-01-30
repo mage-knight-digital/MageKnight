@@ -98,10 +98,27 @@ if [ "$CURRENT_STATUS" != "In Progress" ]; then
 fi
 ```
 
-### 2.2 Check for Epic Label
+### 2.2 Check for Unimplementable Labels
 
-If issue has `epic` label, STOP - epics are parent issues, not implementable directly.
-(Move issue back to Backlog before stopping)
+If issue has any of these labels, it cannot be implemented directly:
+- `epic` - parent issues tracking sub-issues
+- `needs-refinement` - requires manual clarification first
+
+If found, unclaim and pick another:
+
+```bash
+# Unclaim this issue (updates local cache, adds to exclusion list)
+node .claude/scripts/select-issue.cjs --unclaim $ISSUE_NUM
+
+# Move back to Backlog on GitHub
+ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
+gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "f75ad846"
+
+# Select next issue (will skip the one we just unclaimed)
+SELECTED_ISSUE=$(node .claude/scripts/select-issue.cjs)
+node .claude/scripts/select-issue.cjs --claim $SELECTED_ISSUE
+# Go back to Phase 1.2 with new issue
+```
 
 ### 2.4 Create Branch and Worktree
 
@@ -196,6 +213,9 @@ gh issue edit $ISSUE_NUM --add-label "epic"
 # Update parent body to note it's now a parent
 gh issue edit $ISSUE_NUM --body "$(echo -e "## This issue has been refined into sub-issues\n\nSee linked sub-issues below.\n\n---\n\n$ORIGINAL_BODY")"
 
+# Unclaim in local cache (prevents re-selection)
+node .claude/scripts/select-issue.cjs --unclaim $ISSUE_NUM
+
 # Move back to Backlog on project board
 ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
 gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "f75ad846"
@@ -226,7 +246,10 @@ Sub-issues have been created and linked. Run `/implement auto` again to pick up 
 Move issue back to backlog and STOP:
 
 ```bash
-# Move back to Backlog
+# Unclaim in local cache (prevents re-selection)
+node .claude/scripts/select-issue.cjs --unclaim $ISSUE_NUM
+
+# Move back to Backlog on GitHub
 ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
 gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "f75ad846"
 
