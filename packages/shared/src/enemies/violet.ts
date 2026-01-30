@@ -13,6 +13,7 @@
  * - Ice Mages - Ice attack, ice resistance
  * - Fire Mages - Fire attack, fire resistance
  * - Ice Golems - Ice attack, ice and physical resistance, paralyze
+ * - Fire Golems - Fire attack, fire and physical resistance, brutal
  * - Sorcerers - Physical attack, assassination, poison, arcane immunity
  */
 
@@ -28,6 +29,7 @@ import {
   ABILITY_ASSASSINATION,
   ABILITY_ARCANE_IMMUNITY,
   ABILITY_PARALYZE,
+  ABILITY_BRUTAL,
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
@@ -40,6 +42,7 @@ export const ENEMY_ILLUSIONISTS = "illusionists" as const;
 export const ENEMY_ICE_MAGES = "ice_mages" as const;
 export const ENEMY_FIRE_MAGES = "fire_mages" as const;
 export const ENEMY_ICE_GOLEMS = "ice_golems" as const;
+export const ENEMY_FIRE_GOLEM = "fire_golem" as const;
 export const ENEMY_SORCERERS = "sorcerers" as const;
 
 /**
@@ -51,6 +54,7 @@ export type VioletEnemyId =
   | typeof ENEMY_ICE_MAGES
   | typeof ENEMY_FIRE_MAGES
   | typeof ENEMY_ICE_GOLEMS
+  | typeof ENEMY_FIRE_GOLEM
   | typeof ENEMY_SORCERERS;
 
 // =============================================================================
@@ -112,6 +116,17 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     fame: 5,
     resistances: [RESIST_ICE, RESIST_PHYSICAL],
     abilities: [ABILITY_PARALYZE],
+  },
+  [ENEMY_FIRE_GOLEM]: {
+    id: ENEMY_FIRE_GOLEM,
+    name: "Fire Golem",
+    color: ENEMY_COLOR_VIOLET,
+    attack: 3,
+    attackElement: ELEMENT_FIRE,
+    armor: 4,
+    fame: 5,
+    resistances: [RESIST_FIRE, RESIST_PHYSICAL],
+    abilities: [ABILITY_BRUTAL],
   },
   [ENEMY_SORCERERS]: {
     id: ENEMY_SORCERERS,
