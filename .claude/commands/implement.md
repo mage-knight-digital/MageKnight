@@ -66,11 +66,21 @@ Use `$SELECTED_ISSUE` as the issue number to implement.
 
 **DO NOT ASK FOR CONFIRMATION.** Just pick the top issue and proceed.
 
-If the claim fails (issue was taken by another agent), the script exits with error. In that case, force refresh and retry:
+If the claim fails (issue was taken by another agent - "already claimed on GitHub"), the script exits with error. The claim now verifies against the remote GitHub board before accepting, so conflicts are caught immediately.
+
+In case of failure, retry with a fresh selection (up to 3 attempts):
 
 ```bash
-SELECTED_ISSUE=$(node .claude/scripts/select-issue.cjs --refresh)
-node .claude/scripts/select-issue.cjs --claim $SELECTED_ISSUE
+# Retry loop if claim fails
+for attempt in 1 2 3; do
+  SELECTED_ISSUE=$(node .claude/scripts/select-issue.cjs --refresh)
+  if node .claude/scripts/select-issue.cjs --claim $SELECTED_ISSUE 2>/dev/null; then
+    echo "Claimed issue #$SELECTED_ISSUE"
+    break
+  fi
+  echo "Claim failed for #$SELECTED_ISSUE, retrying..."
+  sleep 1
+done
 ```
 
 ### 1.2 Get Issue Details
@@ -138,11 +148,14 @@ node .claude/scripts/select-issue.cjs --claim $SELECTED_ISSUE
 # Generate branch name from issue
 BRANCH_NAME="issue-${ISSUE_NUM}-$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g' | cut -c1-30)"
 
-# Create worktree in dedicated directory
+# Fetch latest main to ensure we branch from current remote state
+git fetch origin main
+
+# Create worktree in dedicated directory, branching from origin/main
 WORKTREE_DIR="$HOME/.claude-worktrees/mage-knight"
 mkdir -p "$WORKTREE_DIR"
 WORKTREE_PATH="${WORKTREE_DIR}/${BRANCH_NAME}"
-git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME"
+git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" origin/main
 
 # Report worktree location
 echo "Created worktree at: $WORKTREE_PATH"
@@ -413,7 +426,8 @@ git add -A
 git commit -m "feat: <description> (#$ISSUE_NUM)"
 git push -u origin $BRANCH_NAME
 
-gh pr create \
+# Create PR and capture the URL
+PR_URL=$(gh pr create \
   --title "<Brief description>" \
   --body "$(cat <<'EOF'
 ## Summary
@@ -430,8 +444,12 @@ All criteria from issue #ISSUE_NUM have been addressed.
 
 Closes #ISSUE_NUM
 EOF
-)"
+)")
+
+echo "PR created: $PR_URL"
 ```
+
+**IMPORTANT:** Store `$PR_URL` - you will need it for the final report.
 
 ### 7.5 Comment on Issue
 
@@ -483,13 +501,13 @@ If still issues after 2 iterations, flag for user review.
 
 ## Phase 11: Final Report
 
-Provide comprehensive summary:
+Provide comprehensive summary. **ALWAYS include the full PR URL at the end.**
 
 ```markdown
 ## Implementation Complete
 
 **Issue:** #XX - <Title>
-**PR:** #YY
+**PR:** <PR_URL>
 **Worktree:** ~/.claude-worktrees/mage-knight/<branch>
 
 ### Changes Made
@@ -513,8 +531,14 @@ Provide comprehensive summary:
 2. <Expected behavior>
 3. <Edge case to check>
 
+---
+
+**🔗 PR Link:** <PR_URL>
+
 **Status:** Ready for manual test or merge
 ```
+
+**CRITICAL:** The PR link MUST be included in the final output. Use the `$PR_URL` captured in Phase 7.4.
 
 ---
 

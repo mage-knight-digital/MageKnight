@@ -334,6 +334,7 @@ function loadOrFetchData(forceRefresh) {
   let usedStaleCache = false;
 
   // Try to fetch issues, fall back to any cached data if rate limited
+  // Issues change rarely, so caching is fine
   if (!forceRefresh && isCacheValid("issues")) {
     issues = getCachedData("issues");
   } else {
@@ -352,25 +353,21 @@ function loadOrFetchData(forceRefresh) {
     }
   }
 
-  // Try to fetch board, fall back to any cached data if rate limited
-  if (!forceRefresh && isCacheValid("board")) {
+  // ALWAYS fetch fresh board data for parallel agent coordination
+  // Board status is critical - another agent may have claimed an issue
+  // With GitHub App (10k+ reqs/hour), we have plenty of headroom
+  board = fetchBoard();
+  if (board === null) {
+    // API failed, try stale cache as fallback only
     board = getCachedData("board");
-  } else {
-    board = fetchBoard();
-    if (board === null) {
-      // API failed, try stale cache
-      board = getCachedData("board");
-      if (!board) {
-        // No cache at all - use empty board (all issues selectable)
-        board = {};
-        console.error("Note: No board cache, treating all issues as available");
-      } else if (!usedStaleCache) {
-        usedStaleCache = true;
-        console.error("Note: Using stale cache due to API rate limit");
-      }
+    if (!board) {
+      board = {};
+      console.error("Warning: Could not fetch board, treating all issues as available");
     } else {
-      writeCache("board", board);
+      console.error("Warning: Using cached board data (API unavailable)");
     }
+  } else {
+    writeCache("board", board);
   }
 
   // Fetch blockers for all candidate issues
@@ -395,13 +392,40 @@ function loadOrFetchData(forceRefresh) {
   return { issues, board, blockers };
 }
 
+function verifyNotClaimedRemotely(issueNumber) {
+  // Final verification that issue isn't already "In Progress" on GitHub
+  // This catches the small race window between selection and claim
+  // (Selection already fetches fresh board, but this is a safety check)
+  const board = fetchBoard();
+
+  if (board === null) {
+    // Can't verify - proceed with caution (selection already got fresh data)
+    console.error("Warning: Could not verify remote status, proceeding");
+    return { verified: true, warning: true };
+  }
+
+  const boardInfo = board[issueNumber];
+  if (boardInfo && boardInfo.status === "In Progress") {
+    return { verified: false, reason: "already claimed on GitHub" };
+  }
+
+  return { verified: true };
+}
+
 function claimIssue(issueNumber) {
-  // Update local cache IMMEDIATELY to mark issue as In Progress
-  // This prevents parallel agents from selecting the same issue
+  // First check local cache (fast path)
   const board = getCachedData("board") || {};
 
   if (board[issueNumber]?.status === "In Progress") {
-    console.error(`Issue #${issueNumber} is already claimed`);
+    console.error(`Issue #${issueNumber} is already claimed (local cache)`);
+    process.exit(1);
+  }
+
+  // CRITICAL: Verify against remote GitHub before claiming
+  // This catches race conditions where cache is stale
+  const verification = verifyNotClaimedRemotely(issueNumber);
+  if (!verification.verified) {
+    console.error(`Issue #${issueNumber} is ${verification.reason}`);
     process.exit(1);
   }
 
