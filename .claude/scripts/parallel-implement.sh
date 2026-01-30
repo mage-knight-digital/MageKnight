@@ -93,11 +93,17 @@ fi
 mkdir -p "$WORKTREE_BASE"
 mkdir -p "$LOG_DIR"
 
-# Check if Claude is available
-if ! command -v claude &> /dev/null; then
-  error "Claude CLI not found. Please install it first."
+# Find Claude CLI (check common locations since aliases don't work in scripts)
+CLAUDE_BIN=""
+if [ -x "$HOME/.claude/local/claude" ]; then
+  CLAUDE_BIN="$HOME/.claude/local/claude"
+elif command -v claude &> /dev/null; then
+  CLAUDE_BIN="claude"
+else
+  error "Claude CLI not found. Checked: ~/.claude/local/claude and PATH"
   exit 1
 fi
+log "Using Claude at: $CLAUDE_BIN"
 
 log "Starting $COUNT parallel implementation agents..."
 
@@ -171,7 +177,7 @@ for ISSUE in "${ISSUES[@]}"; do
   log "Launching agent for issue #$ISSUE..."
   (
     cd "$WORKTREE_PATH"
-    claude --dangerously-skip-permissions -p "/implement #$ISSUE" 2>&1
+    "$CLAUDE_BIN" --dangerously-skip-permissions -p "/implement #$ISSUE" 2>&1
   ) > "$LOGFILE" 2>&1 &
 
   AGENT_PID=$!
