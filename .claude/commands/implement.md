@@ -85,12 +85,21 @@ Extract and store:
 
 ## Phase 2: Setup (/work logic)
 
+### 2.0 Set Up App Token
+
+**IMPORTANT:** All `gh` commands in this workflow should use the GitHub App token for higher rate limits.
+
+```bash
+# Get app token and export for all subsequent gh commands
+export GH_TOKEN=$(node .claude/scripts/github-app-token.cjs)
+```
+
 ### 2.1 Verify Issue Details
 
 The issue should already be marked "In Progress" from Phase 1.1. Now verify:
 
 ```bash
-# Double-check we still own this issue
+# Double-check we still own this issue (uses GH_TOKEN from 2.0)
 CURRENT_STATUS=$(gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .status")
 if [ "$CURRENT_STATUS" != "In Progress" ]; then
   echo "ERROR: Lost claim on issue #${ISSUE_NUM}. Aborting."
