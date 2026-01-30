@@ -13,6 +13,11 @@ allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Task, TodoWrite
 3. **DO NOT ask the user for confirmation** at any step
 4. **DO NOT present options** and wait for user input
 5. **Just execute each phase and proceed to the next automatically**
+6. **USE APP TOKEN FOR ALL GH COMMANDS** - Prefix every `gh` command with:
+   ```bash
+   GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) gh ...
+   ```
+   This uses the GitHub App token which has 10x higher rate limits than the user PAT.
 
 This is a FULLY AUTONOMOUS workflow. Run the bash commands, get results, move on.
 
