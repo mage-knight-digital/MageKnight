@@ -16,6 +16,7 @@ interface UseHexInteractionParams {
   challengeTargetHexes: readonly HexCoord[];
   playerPosition: HexCoord | null;
   sendAction: (action: PlayerAction) => void;
+  isMyTurn: boolean;
 }
 
 interface UseHexInteractionReturn {
@@ -30,6 +31,7 @@ export function useHexInteraction({
   challengeTargetHexes,
   playerPosition,
   sendAction,
+  isMyTurn,
 }: UseHexInteractionParams): UseHexInteractionReturn {
   // Movement highlight getter
   const getMoveHighlight = useCallback(
@@ -70,6 +72,8 @@ export function useHexInteraction({
   // Handle hex click for movement or challenge
   const handleHexClick = useCallback(
     (coord: HexCoord) => {
+      // Block interaction if not player's turn
+      if (!isMyTurn) return;
       if (!playerPosition) return;
 
       // Check for challenge action first
@@ -102,19 +106,22 @@ export function useHexInteraction({
         }
       }
     },
-    [playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, sendAction]
+    [isMyTurn, playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, sendAction]
   );
 
   // Handle explore click
   const handleExploreClick = useCallback(
     (target: ExploreTarget) => {
+      // Block interaction if not player's turn
+      if (!isMyTurn) return;
+
       sendAction({
         type: EXPLORE_ACTION,
         direction: target.direction,
         fromTileCoord: target.fromTileCoord,
       });
     },
-    [sendAction]
+    [isMyTurn, sendAction]
   );
 
   return {

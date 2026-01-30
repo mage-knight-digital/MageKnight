@@ -10,6 +10,7 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useIsMyTurn } from "../../hooks/useIsMyTurn";
 import {
   useGameIntro,
   UI_REVEAL_TIMING,
@@ -21,7 +22,7 @@ export function TurnActions() {
   const player = useMyPlayer();
   const { isIntroComplete } = useGameIntro();
 
-  const isMyTurn = state?.currentPlayerId === player?.id;
+  const isMyTurn = useIsMyTurn();
   // Must check player exists AND has a tactic (not null/undefined)
   const hasTactic = player != null && player.selectedTacticId != null;
 

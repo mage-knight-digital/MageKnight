@@ -9,6 +9,7 @@ import { useMemo, useCallback } from "react";
 import { ENTER_SITE_ACTION, END_TURN_ACTION } from "@mage-knight/shared";
 import type { SiteOptions } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
+import { useIsMyTurn } from "../../hooks/useIsMyTurn";
 import { PixiPieMenu, type PixiPieMenuItem } from "../CardActionMenu";
 
 interface HexContextMenuProps {
@@ -51,6 +52,7 @@ export function HexContextMenu({
   onClose,
 }: HexContextMenuProps) {
   const { state, sendAction } = useGame();
+  const isMyTurn = useIsMyTurn();
 
   // Build menu items from site options
   const menuItems = useMemo<PixiPieMenuItem[]>(() => {
@@ -200,6 +202,11 @@ export function HexContextMenu({
     },
     [sendAction, onClose]
   );
+
+  // Don't show context menu if not player's turn
+  if (!isMyTurn) {
+    return null;
+  }
 
   // Don't render if no actionable items (only "stay")
   if (menuItems.length <= 1) {

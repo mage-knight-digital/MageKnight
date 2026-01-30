@@ -5,6 +5,7 @@ import { useGameIntro } from "../contexts/GameIntroContext";
 import { useCinematic } from "../contexts/CinematicContext";
 import { useOverlay, useRegisterOverlay } from "../contexts/OverlayContext";
 import { UnifiedCardMenu } from "./CardInteraction";
+import { WaitingOverlay } from "./WaitingOverlay";
 import { PixiHexGrid } from "./GameBoard/PixiHexGrid";
 import { ManaSourceOverlay } from "./GameBoard/ManaSourceOverlay";
 import { TopBar } from "./TopBar";
@@ -82,6 +83,9 @@ export function GameView() {
 
   return (
     <div className={appClassName}>
+      {/* Waiting overlay - shown when not player's turn */}
+      <WaitingOverlay />
+
       {/* Overlays */}
       <UnifiedCardMenu />
       <ChoiceSelection />
