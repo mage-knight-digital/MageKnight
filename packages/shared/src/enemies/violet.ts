@@ -15,6 +15,7 @@
  * - Ice Golems - Ice attack, ice and physical resistance, paralyze
  * - Fire Golems - Fire attack, fire and physical resistance, brutal
  * - Sorcerers - Physical attack, assassination, poison, arcane immunity
+ * - Magic Familiars - Multiple physical attacks (3, 3), unfortified, brutal
  */
 
 import {
@@ -30,6 +31,7 @@ import {
   ABILITY_ARCANE_IMMUNITY,
   ABILITY_PARALYZE,
   ABILITY_BRUTAL,
+  ABILITY_UNFORTIFIED,
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
@@ -44,6 +46,7 @@ export const ENEMY_FIRE_MAGES = "fire_mages" as const;
 export const ENEMY_ICE_GOLEMS = "ice_golems" as const;
 export const ENEMY_FIRE_GOLEM = "fire_golem" as const;
 export const ENEMY_SORCERERS = "sorcerers" as const;
+export const ENEMY_MAGIC_FAMILIARS = "magic_familiars" as const;
 
 /**
  * Union type of all violet (Mage Tower) enemy IDs
@@ -55,7 +58,8 @@ export type VioletEnemyId =
   | typeof ENEMY_FIRE_MAGES
   | typeof ENEMY_ICE_GOLEMS
   | typeof ENEMY_FIRE_GOLEM
-  | typeof ENEMY_SORCERERS;
+  | typeof ENEMY_SORCERERS
+  | typeof ENEMY_MAGIC_FAMILIARS;
 
 // =============================================================================
 // VIOLET ENEMY DEFINITIONS
@@ -138,6 +142,21 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     fame: 5,
     resistances: [],
     abilities: [ABILITY_ASSASSINATION, ABILITY_POISON, ABILITY_ARCANE_IMMUNITY],
+  },
+  [ENEMY_MAGIC_FAMILIARS]: {
+    id: ENEMY_MAGIC_FAMILIARS,
+    name: "Magic Familiars",
+    color: ENEMY_COLOR_VIOLET,
+    attack: 3, // Legacy field (first attack value)
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 7,
+    fame: 5,
+    resistances: [],
+    abilities: [ABILITY_UNFORTIFIED, ABILITY_BRUTAL],
+    attacks: [
+      { damage: 3, element: ELEMENT_PHYSICAL },
+      { damage: 3, element: ELEMENT_PHYSICAL },
+    ],
   },
 };
 
