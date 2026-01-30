@@ -4,6 +4,11 @@
  * Handles damage assignment to hero and/or units.
  * Units can absorb damage based on their armor value.
  * Resistant units can absorb damage without being wounded if damage <= armor.
+ *
+ * Multi-attack support:
+ * - For multi-attack enemies, attackIndex specifies which attack's damage to assign
+ * - Each attack's damage is handled separately
+ * - Enemy is only marked as "fully assigned" when all unblocked attacks have damage assigned
  */
 
 import type { Command, CommandResult } from "../../commands.js";
@@ -31,6 +36,13 @@ import {
 } from "@mage-knight/shared";
 import { isAttackResisted } from "../../combat/elementalCalc.js";
 import { isAbilityNullified } from "../../modifiers.js";
+import {
+  getEnemyAttack,
+  getEnemyAttacks,
+  getEnemyAttackCount,
+  isAttackBlocked,
+  isAttackDamageAssigned,
+} from "../../combat/enemyAttackHelpers.js";
 
 export const ASSIGN_DAMAGE_COMMAND = "ASSIGN_DAMAGE" as const;
 
@@ -83,15 +95,29 @@ function isParalyzeActive(
 }
 
 /**
- * Get effective damage from an enemy attack
+ * Get effective damage from a specific attack
  * Brutal: doubles the damage
+ *
+ * @param enemy - Combat enemy instance
+ * @param attackIndex - Which attack's damage to calculate (0-indexed)
+ * @param state - Game state
+ * @param playerId - Player receiving damage
  */
 function getEffectiveDamage(
   enemy: CombatEnemy,
+  attackIndex: number,
   state: GameState,
   playerId: string
 ): number {
-  let damage = enemy.definition.attack;
+  const attacks = getEnemyAttacks(enemy);
+  const attack = attacks[attackIndex];
+  if (!attack) {
+    throw new Error(
+      `Attack index ${attackIndex} out of range (enemy has ${attacks.length} attacks)`
+    );
+  }
+
+  let damage = attack.damage;
 
   // Brutal doubles the damage
   if (isBrutalActive(state, playerId, enemy)) {
@@ -104,6 +130,11 @@ function getEffectiveDamage(
 export interface AssignDamageCommandParams {
   readonly playerId: string;
   readonly enemyInstanceId: string;
+  /**
+   * For multi-attack enemies, specifies which attack's damage to assign (0-indexed).
+   * Defaults to 0 for single-attack enemies or when not specified.
+   */
+  readonly attackIndex?: number;
   readonly assignments?: readonly DamageAssignment[];
 }
 
@@ -251,8 +282,29 @@ export function createAssignDamageCommand(
         throw new Error(`Enemy not found: ${params.enemyInstanceId}`);
       }
 
-      if (enemy.isBlocked || enemy.isDefeated) {
-        throw new Error("Enemy is blocked or defeated");
+      // Get the attack index (default to 0 for single-attack enemies)
+      const attackIndex = params.attackIndex ?? 0;
+      const attackCount = getEnemyAttackCount(enemy);
+
+      // Validate attack index
+      if (attackIndex < 0 || attackIndex >= attackCount) {
+        throw new Error(
+          `Attack index ${attackIndex} out of range (enemy has ${attackCount} attacks)`
+        );
+      }
+
+      // Check if this specific attack is blocked
+      if (isAttackBlocked(enemy, attackIndex)) {
+        throw new Error(`Attack ${attackIndex} is blocked - no damage to assign`);
+      }
+
+      // Check if this specific attack already has damage assigned
+      if (isAttackDamageAssigned(enemy, attackIndex)) {
+        throw new Error(`Attack ${attackIndex} already has damage assigned`);
+      }
+
+      if (enemy.isDefeated) {
+        throw new Error("Enemy is defeated");
       }
 
       const playerIndex = state.players.findIndex(
@@ -263,9 +315,12 @@ export function createAssignDamageCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
+      // Get the attack being resolved
+      const attackBeingResolved = getEnemyAttack(enemy, attackIndex);
+
       // Get effective damage (Brutal doubles damage)
-      const totalDamage = getEffectiveDamage(enemy, state, params.playerId);
-      const attackElement = enemy.definition.attackElement;
+      const totalDamage = getEffectiveDamage(enemy, attackIndex, state, params.playerId);
+      const attackElement = attackBeingResolved.element;
       const isPoisoned = isPoisonActive(state, params.playerId, enemy);
       const isParalyzed = isParalyzeActive(state, params.playerId, enemy);
       const events: GameEvent[] = [];
@@ -388,11 +443,12 @@ export function createAssignDamageCommand(
         };
       }
 
-      // Emit the main damage assigned event
+      // Emit the main damage assigned event (include attackIndex)
       // woundsTaken reflects wounds to hand (poison adds equal wounds to discard)
       events.unshift({
         type: DAMAGE_ASSIGNED,
         enemyInstanceId: params.enemyInstanceId,
+        attackIndex,
         damage: totalDamage,
         woundsTaken: heroWounds,
       });
@@ -401,12 +457,37 @@ export function createAssignDamageCommand(
         i === playerIndex ? updatedPlayer : p
       );
 
-      // Mark enemy as having damage assigned
-      const updatedEnemies = state.combat.enemies.map((e) =>
-        e.instanceId === params.enemyInstanceId
-          ? { ...e, damageAssigned: true }
-          : e
-      );
+      // Mark attack as having damage assigned (update per-attack state for multi-attack enemies)
+      const updatedEnemies = state.combat.enemies.map((e) => {
+        if (e.instanceId !== params.enemyInstanceId) return e;
+
+        // For multi-attack enemies, update the attacksDamageAssigned array
+        if (attackCount > 1) {
+          // Initialize attacksDamageAssigned if not present
+          const currentAttacksDamageAssigned = e.attacksDamageAssigned ?? new Array(attackCount).fill(false);
+          const newAttacksDamageAssigned = [...currentAttacksDamageAssigned];
+          newAttacksDamageAssigned[attackIndex] = true;
+
+          // Check if ALL unblocked attacks now have damage assigned
+          // We need to check all attacks: blocked attacks don't need damage assigned
+          let allUnblockedAssigned = true;
+          for (let i = 0; i < attackCount; i++) {
+            if (!isAttackBlocked(e, i) && !newAttacksDamageAssigned[i]) {
+              allUnblockedAssigned = false;
+              break;
+            }
+          }
+
+          return {
+            ...e,
+            attacksDamageAssigned: newAttacksDamageAssigned,
+            damageAssigned: allUnblockedAssigned, // Legacy flag: true only when all unblocked attacks assigned
+          };
+        }
+
+        // For single-attack enemies, just set damageAssigned
+        return { ...e, damageAssigned: true };
+      });
 
       // Only wounds to HAND count for knockout tracking
       // Poison wounds to discard are extra punishment but don't count toward knockout threshold

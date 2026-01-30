@@ -27,11 +27,13 @@ export const DAMAGE_ASSIGNED = "DAMAGE_ASSIGNED" as const;
  * Emitted when enemy damage is assigned to the player.
  *
  * Unblocked enemies deal damage during ASSIGN_DAMAGE phase.
+ * For multi-attack enemies, each attack's damage is assigned separately.
  *
  * @remarks
  * - damage is the raw enemy attack value
  * - woundsTaken is how many wound cards are added
  * - Wounds can be assigned to units instead of hero
+ * - Multi-attack enemies: each unblocked attack generates a separate event
  *
  * @example
  * ```typescript
@@ -45,6 +47,11 @@ export interface DamageAssignedEvent {
   readonly type: typeof DAMAGE_ASSIGNED;
   /** Instance ID of the attacking enemy */
   readonly enemyInstanceId: string;
+  /**
+   * For multi-attack enemies, which attack dealt the damage (0-indexed).
+   * Undefined for single-attack enemies (backwards compatible).
+   */
+  readonly attackIndex?: number;
   /** Raw damage dealt */
   readonly damage: number;
   /** Number of wound cards taken */

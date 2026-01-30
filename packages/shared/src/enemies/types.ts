@@ -101,6 +101,26 @@ export type Faction = typeof FACTION_ELEMENTALIST | typeof FACTION_DARK_CRUSADER
 export type EnemyResistances = readonly ResistanceType[];
 
 // =============================================================================
+// ENEMY ATTACK
+// =============================================================================
+
+/**
+ * Single attack instance for enemies with multiple attacks.
+ * Each attack is handled separately during block and damage phases.
+ *
+ * Per the rulebook:
+ * - Attacks are handled separately, one by one, in any order
+ * - Cannot group attacks into single block - each needs its own block value
+ * - "Successfully blocked" means ALL attacks are blocked (for Disease, Counterattack, Elusive)
+ */
+export interface EnemyAttack {
+  /** Raw damage value of this attack */
+  readonly damage: number;
+  /** Elemental type of this attack */
+  readonly element: Element;
+}
+
+// =============================================================================
 // ENEMY DEFINITION
 // =============================================================================
 
@@ -111,13 +131,21 @@ export interface EnemyDefinition {
   readonly id: EnemyId;
   readonly name: string;
   readonly color: EnemyColor;
+  /** Legacy attack value - used when attacks array is absent */
   readonly attack: number;
+  /** Legacy attack element - used when attacks array is absent */
   readonly attackElement: Element;
   readonly armor: number;
   readonly fame: number;
   readonly resistances: EnemyResistances;
   readonly abilities: readonly EnemyAbilityType[];
   readonly faction?: Faction;
+  /**
+   * Multiple attacks for enemies that attack more than once.
+   * When present, this overrides the single attack/attackElement fields.
+   * Each attack is handled separately during block and damage phases.
+   */
+  readonly attacks?: readonly EnemyAttack[];
 }
 
 // =============================================================================

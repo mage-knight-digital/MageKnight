@@ -4,6 +4,11 @@
  * Updated for incremental block allocation:
  * - Reads from state.combat.pendingBlock[enemyInstanceId] instead of accumulator
  * - Players assign block incrementally before committing via DECLARE_BLOCK
+ *
+ * Multi-attack support:
+ * - For multi-attack enemies, attackIndex specifies which attack to block
+ * - Each attack must be blocked separately with sufficient block value
+ * - Enemy is only considered "fully blocked" when all attacks are blocked
  */
 
 import type { Command, CommandResult } from "../../commands.js";
@@ -22,12 +27,23 @@ import type { CombatEnemy, PendingElementalDamage } from "../../../types/combat.
 import { createEmptyPendingDamage } from "../../../types/combat.js";
 import { getFinalBlockValue } from "../../combat/elementalCalc.js";
 import { isAbilityNullified } from "../../modifiers.js";
+import {
+  getEnemyAttack,
+  getEnemyAttacks,
+  getEnemyAttackCount,
+  isAttackBlocked,
+} from "../../combat/enemyAttackHelpers.js";
 
 export const DECLARE_BLOCK_COMMAND = "DECLARE_BLOCK" as const;
 
 export interface DeclareBlockCommandParams {
   readonly playerId: string;
   readonly targetEnemyInstanceId: string;
+  /**
+   * For multi-attack enemies, specifies which attack to block (0-indexed).
+   * Defaults to 0 for single-attack enemies or when not specified.
+   */
+  readonly attackIndex?: number;
 }
 
 /**
@@ -78,13 +94,27 @@ function isSwiftActive(
  * Swift: doubles the attack value (player must assign double block)
  *
  * Note: Swift does NOT affect attack timing or phases - only block requirements
+ *
+ * @param enemy - Combat enemy instance
+ * @param attackIndex - Which attack to get the value for (0-indexed)
+ * @param state - Game state
+ * @param playerId - Player attempting to block
  */
 function getEffectiveEnemyAttackForBlocking(
   enemy: CombatEnemy,
+  attackIndex: number,
   state: GameState,
   playerId: string
 ): number {
-  let attackValue = enemy.definition.attack;
+  const attacks = getEnemyAttacks(enemy);
+  const attack = attacks[attackIndex];
+  if (!attack) {
+    throw new Error(
+      `Attack index ${attackIndex} out of range (enemy has ${attacks.length} attacks)`
+    );
+  }
+
+  let attackValue = attack.damage;
 
   // Swift: doubles attack value for blocking purposes
   if (isSwiftActive(state, playerId, enemy)) {
@@ -121,6 +151,25 @@ export function createDeclareBlockCommand(
         throw new Error(`Enemy not found: ${params.targetEnemyInstanceId}`);
       }
 
+      // Get the attack index (default to 0 for single-attack enemies)
+      const attackIndex = params.attackIndex ?? 0;
+      const attackCount = getEnemyAttackCount(enemy);
+
+      // Validate attack index
+      if (attackIndex < 0 || attackIndex >= attackCount) {
+        throw new Error(
+          `Attack index ${attackIndex} out of range (enemy has ${attackCount} attacks)`
+        );
+      }
+
+      // Check if this specific attack is already blocked
+      if (isAttackBlocked(enemy, attackIndex)) {
+        throw new Error(`Attack ${attackIndex} is already blocked`);
+      }
+
+      // Get the attack being blocked
+      const attackBeingBlocked = getEnemyAttack(enemy, attackIndex);
+
       // Read from pendingBlock (incremental allocation system)
       const pendingBlock =
         state.combat.pendingBlock[params.targetEnemyInstanceId] ??
@@ -130,9 +179,10 @@ export function createDeclareBlockCommand(
       const blockSources = pendingBlockToBlockSources(pendingBlock);
 
       // Calculate final block value including elemental efficiency and combat modifiers
+      // Use the attack's element for block efficiency calculation
       const effectiveBlockValue = getFinalBlockValue(
         blockSources,
-        enemy.definition.attackElement,
+        attackBeingBlocked.element,
         state,
         params.playerId
       );
@@ -140,6 +190,7 @@ export function createDeclareBlockCommand(
       // Get effective attack for blocking (Swift doubles the requirement)
       const requiredBlock = getEffectiveEnemyAttackForBlocking(
         enemy,
+        attackIndex,
         state,
         params.playerId
       );
@@ -194,6 +245,7 @@ export function createDeclareBlockCommand(
             {
               type: BLOCK_FAILED,
               enemyInstanceId: params.targetEnemyInstanceId,
+              attackIndex,
               blockValue: effectiveBlockValue,
               requiredBlock,
             },
@@ -201,12 +253,30 @@ export function createDeclareBlockCommand(
         };
       }
 
-      // Block succeeded — mark enemy as blocked
-      const updatedEnemies = state.combat.enemies.map((e) =>
-        e.instanceId === params.targetEnemyInstanceId
-          ? { ...e, isBlocked: true }
-          : e
-      );
+      // Block succeeded — update per-attack blocked state
+      const updatedEnemies = state.combat.enemies.map((e) => {
+        if (e.instanceId !== params.targetEnemyInstanceId) return e;
+
+        // For multi-attack enemies, update the attacksBlocked array
+        if (attackCount > 1) {
+          // Initialize attacksBlocked if not present
+          const currentAttacksBlocked = e.attacksBlocked ?? new Array(attackCount).fill(false);
+          const newAttacksBlocked = [...currentAttacksBlocked];
+          newAttacksBlocked[attackIndex] = true;
+
+          // Check if ALL attacks are now blocked
+          const allBlocked = newAttacksBlocked.every((blocked) => blocked);
+
+          return {
+            ...e,
+            attacksBlocked: newAttacksBlocked,
+            isBlocked: allBlocked, // Legacy flag: true only when ALL attacks blocked
+          };
+        }
+
+        // For single-attack enemies, just set isBlocked
+        return { ...e, isBlocked: true };
+      });
 
       const updatedCombat = {
         ...state.combat,
@@ -220,6 +290,7 @@ export function createDeclareBlockCommand(
           {
             type: ENEMY_BLOCKED,
             enemyInstanceId: params.targetEnemyInstanceId,
+            attackIndex,
             blockValue: effectiveBlockValue,
           },
         ],

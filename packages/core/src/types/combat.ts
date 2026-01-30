@@ -69,12 +69,36 @@ export interface CombatEnemy {
   readonly instanceId: string; // Unique ID for this combat instance
   readonly enemyId: EnemyId;
   readonly definition: EnemyDefinition;
+  /**
+   * Legacy blocked flag - true when ALL attacks are blocked.
+   * For single-attack enemies, equivalent to attacksBlocked[0].
+   * For multi-attack enemies, only true when ALL attacks are blocked.
+   */
   readonly isBlocked: boolean;
   readonly isDefeated: boolean;
-  readonly damageAssigned: boolean; // Track if damage was processed in Assign Damage phase
+  /**
+   * Legacy damage assigned flag - true when ALL attacks have damage assigned.
+   * For single-attack enemies, equivalent to attacksDamageAssigned[0].
+   * For multi-attack enemies, only true when ALL unblocked attacks have damage assigned.
+   */
+  readonly damageAssigned: boolean;
   readonly isRequiredForConquest: boolean; // True for site defenders, false for provoked rampaging enemies
   readonly summonedByInstanceId?: string; // For summoned enemies: links to the summoner's instanceId
   readonly isSummonerHidden?: boolean; // For summoners: true during Block/Assign Damage phases when hidden by summoned enemy
+  /**
+   * Per-attack blocked state for multi-attack enemies.
+   * Array length matches the number of attacks the enemy has.
+   * attacksBlocked[i] = true means attack i has been successfully blocked.
+   * Only present for enemies with multiple attacks.
+   */
+  readonly attacksBlocked?: readonly boolean[];
+  /**
+   * Per-attack damage assigned state for multi-attack enemies.
+   * Array length matches the number of attacks the enemy has.
+   * attacksDamageAssigned[i] = true means attack i has had its damage assigned.
+   * Only present for enemies with multiple attacks.
+   */
+  readonly attacksDamageAssigned?: readonly boolean[];
 }
 
 // Combat state

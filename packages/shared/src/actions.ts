@@ -395,11 +395,16 @@ export interface BlockSource {
   readonly value: number;
 }
 
-// Declare a block against one enemy
+// Declare a block against one enemy (or one attack for multi-attack enemies)
 // Note: blocks are now read from server-side combatAccumulator.blockSources
 export interface DeclareBlockAction {
   readonly type: typeof DECLARE_BLOCK_ACTION;
   readonly targetEnemyInstanceId: string;
+  /**
+   * For multi-attack enemies, specifies which attack to block (0-indexed).
+   * Defaults to 0 for single-attack enemies or when not specified.
+   */
+  readonly attackIndex?: number;
 }
 
 // Attack source with elemental type
@@ -435,10 +440,15 @@ export interface DamageAssignment {
   readonly amount: number;
 }
 
-// Assign damage from unblocked enemy to hero/units
+// Assign damage from unblocked enemy (or one attack for multi-attack enemies) to hero/units
 export interface AssignDamageAction {
   readonly type: typeof ASSIGN_DAMAGE_ACTION;
   readonly enemyInstanceId: string;
+  /**
+   * For multi-attack enemies, specifies which attack's damage to assign (0-indexed).
+   * Defaults to 0 for single-attack enemies or when not specified.
+   */
+  readonly attackIndex?: number;
   readonly assignments?: readonly DamageAssignment[]; // If not provided, all damage goes to hero
 }
 

@@ -54,6 +54,14 @@ import {
 import type { Resistances } from "../combat/elementalCalc.js";
 import { isAttackResisted, calculateTotalBlock } from "../combat/elementalCalc.js";
 import type { ElementalAttackValues } from "../../types/player.js";
+import {
+  getEnemyAttack,
+  getEnemyAttacks,
+  getEnemyAttackCount,
+  isAttackBlocked,
+  isAttackDamageAssigned,
+  isEnemyFullyDamageAssigned,
+} from "../combat/enemyAttackHelpers.js";
 
 // ============================================================================
 // Available Attack Pool Computation
@@ -699,50 +707,72 @@ function computeAttackPhaseOptions(
  * Filters out enemies that don't attack (due to Chill/Whirlwind).
  * Filters out hidden summoners (must block their summoned enemy instead).
  * Uses effective attack values (after modifiers).
+ *
+ * For multi-attack enemies, returns separate BlockOption for each unblocked attack.
  */
 function getBlockOptions(
   state: GameState,
   enemies: readonly CombatEnemy[]
 ): readonly BlockOption[] {
-  return enemies
-    .filter((enemy) => !enemy.isDefeated)
+  const options: BlockOption[] = [];
+
+  for (const enemy of enemies) {
+    // Filter out defeated enemies
+    if (enemy.isDefeated) continue;
+
     // Filter out hidden summoners - must block their summoned enemy instead
-    .filter((enemy) => !enemy.isSummonerHidden)
+    if (enemy.isSummonerHidden) continue;
+
     // Filter out enemies that don't attack this combat (Chill, Whirlwind)
-    .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
-    // Filter out enemies with 0 effective attack (nothing to block)
-    .filter((enemy) => {
-      const effectiveAttack = getEffectiveEnemyAttack(
-        state,
-        enemy.instanceId,
-        enemy.definition.attack
-      );
-      return effectiveAttack > 0;
-    })
-    .map((enemy) => {
-      const isSwift = enemy.definition.abilities.includes(ABILITY_SWIFT);
-      const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
+    if (!doesEnemyAttackThisCombat(state, enemy.instanceId)) continue;
+
+    const isSwift = enemy.definition.abilities.includes(ABILITY_SWIFT);
+    const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
+    const attacks = getEnemyAttacks(enemy);
+    const attackCount = attacks.length;
+
+    // Generate a BlockOption for each unblocked attack
+    for (let attackIndex = 0; attackIndex < attackCount; attackIndex++) {
+      // Skip already blocked attacks
+      if (isAttackBlocked(enemy, attackIndex)) continue;
+
+      const attack = getEnemyAttack(enemy, attackIndex);
 
       // Use effective attack (after modifiers)
       const effectiveAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
-        enemy.definition.attack
+        attack.damage
       );
+
+      // Filter out attacks with 0 effective attack (nothing to block)
+      if (effectiveAttack <= 0) continue;
 
       // Swift enemies require 2x block
       const requiredBlock = isSwift ? effectiveAttack * 2 : effectiveAttack;
 
-      return {
+      // Build the base option
+      const baseOption = {
         enemyInstanceId: enemy.instanceId,
         enemyName: enemy.definition.name,
         enemyAttack: effectiveAttack,
+        attackElement: attack.element,
         requiredBlock,
         isSwift,
         isBrutal,
-        isBlocked: enemy.isBlocked,
+        isBlocked: false, // We only include unblocked attacks
       };
-    });
+
+      // Only include attackIndex for multi-attack enemies
+      if (attackCount > 1) {
+        options.push({ ...baseOption, attackIndex });
+      } else {
+        options.push(baseOption);
+      }
+    }
+  }
+
+  return options;
 }
 
 // ============================================================================
@@ -801,6 +831,9 @@ function computeAvailableUnitTargets(
  * Filters out hidden summoners (damage comes from their summoned enemy instead).
  * Uses effective attack values (after modifiers).
  * Includes unit targets for damage assignment.
+ *
+ * For multi-attack enemies, returns separate DamageAssignmentOption for each unblocked,
+ * unassigned attack.
  */
 function getDamageAssignmentOptions(
   state: GameState,
@@ -813,42 +846,53 @@ function getDamageAssignmentOptions(
   const currentPlayerId = state.turnOrder[state.currentPlayerIndex];
   const currentPlayer = state.players.find((p) => p.id === currentPlayerId);
 
-  return enemies
-    .filter((enemy) => !enemy.isDefeated && !enemy.isBlocked && !enemy.damageAssigned)
+  const options: DamageAssignmentOption[] = [];
+
+  for (const enemy of enemies) {
+    // Filter out defeated enemies
+    if (enemy.isDefeated) continue;
+
     // Filter out hidden summoners - damage comes from their summoned enemy instead
-    .filter((enemy) => !enemy.isSummonerHidden)
+    if (enemy.isSummonerHidden) continue;
+
     // Filter out enemies that don't attack this combat (Chill, Whirlwind)
-    .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
-    // Filter out enemies with 0 effective attack (no damage to assign)
-    .filter((enemy) => {
-      const effectiveAttack = getEffectiveEnemyAttack(
-        state,
-        enemy.instanceId,
-        enemy.definition.attack
-      );
-      return effectiveAttack > 0;
-    })
-    .map((enemy) => {
+    if (!doesEnemyAttackThisCombat(state, enemy.instanceId)) continue;
+
+    // Check for Brutal ability (applies to all attacks)
+    const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
+
+    // Check for Assassination ability - units cannot be targeted
+    const hasAssassination = enemy.definition.abilities.includes(ABILITY_ASSASSINATION);
+    const assassinationActive =
+      hasAssassination &&
+      currentPlayer &&
+      !isAbilityNullified(state, currentPlayer.id, enemy.instanceId, ABILITY_ASSASSINATION);
+
+    const attacks = getEnemyAttacks(enemy);
+    const attackCount = attacks.length;
+
+    // Generate a DamageAssignmentOption for each unblocked, unassigned attack
+    for (let attackIndex = 0; attackIndex < attackCount; attackIndex++) {
+      // Skip blocked attacks - they don't deal damage
+      if (isAttackBlocked(enemy, attackIndex)) continue;
+
+      // Skip attacks that already have damage assigned
+      if (isAttackDamageAssigned(enemy, attackIndex)) continue;
+
+      const attack = getEnemyAttack(enemy, attackIndex);
+
       // Use effective attack (after modifiers)
       const rawAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
-        enemy.definition.attack
+        attack.damage
       );
 
-      // Check for Brutal ability
-      const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
+      // Filter out attacks with 0 effective attack (no damage to assign)
+      if (rawAttack <= 0) continue;
+
       const totalDamage = isBrutal ? rawAttack * 2 : rawAttack;
-
-      // Get attack element
-      const attackElement = enemy.definition.attackElement;
-
-      // Check for Assassination ability - units cannot be targeted
-      const hasAssassination = enemy.definition.abilities.includes(ABILITY_ASSASSINATION);
-      const assassinationActive =
-        hasAssassination &&
-        currentPlayer &&
-        !isAbilityNullified(state, currentPlayer.id, enemy.instanceId, ABILITY_ASSASSINATION);
+      const attackElement = attack.element;
 
       // Compute available unit targets (empty if Assassination is active)
       const availableUnits = assassinationActive
@@ -857,7 +901,8 @@ function getDamageAssignmentOptions(
           ? computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed)
           : [];
 
-      return {
+      // Build the base option
+      const baseOption = {
         enemyInstanceId: enemy.instanceId,
         enemyName: enemy.definition.name,
         attackElement,
@@ -867,12 +912,23 @@ function getDamageAssignmentOptions(
         unassignedDamage: totalDamage, // Deprecated but kept for backwards compatibility
         availableUnits,
       };
-    });
+
+      // Only include attackIndex for multi-attack enemies
+      if (attackCount > 1) {
+        options.push({ ...baseOption, attackIndex });
+      } else {
+        options.push(baseOption);
+      }
+    }
+  }
+
+  return options;
 }
 
 /**
  * Check if the assign damage phase can be ended.
  * Can only end if all unblocked, attacking enemies have had damage assigned.
+ * For multi-attack enemies, ALL unblocked attacks must have damage assigned.
  * Enemies that don't attack (due to Chill/Whirlwind) don't need damage assigned.
  * Hidden summoners don't need damage assigned (their summoned enemy deals damage).
  * Enemies with 0 effective attack don't need damage assigned (no damage to take).
@@ -881,14 +937,38 @@ function canEndAssignDamagePhase(
   state: GameState,
   enemies: readonly CombatEnemy[]
 ): boolean {
-  // All unblocked, non-defeated, non-hidden-summoner, attacking, non-zero-attack enemies must have damage assigned
-  const unblockedAttacking = enemies.filter(
-    (e) =>
-      !e.isDefeated &&
-      !e.isBlocked &&
-      !e.isSummonerHidden &&
-      doesEnemyAttackThisCombat(state, e.instanceId) &&
-      getEffectiveEnemyAttack(state, e.instanceId, e.definition.attack) > 0
-  );
-  return unblockedAttacking.every((e) => e.damageAssigned);
+  // Check each enemy
+  for (const enemy of enemies) {
+    // Skip defeated enemies
+    if (enemy.isDefeated) continue;
+
+    // Skip hidden summoners - their summoned enemy deals damage
+    if (enemy.isSummonerHidden) continue;
+
+    // Skip enemies that don't attack this combat (Chill, Whirlwind)
+    if (!doesEnemyAttackThisCombat(state, enemy.instanceId)) continue;
+
+    // For multi-attack enemies, use the helper to check if all unblocked attacks have damage assigned
+    if (!isEnemyFullyDamageAssigned(enemy)) {
+      // Check if there are any unblocked attacks with non-zero damage
+      const attackCount = getEnemyAttackCount(enemy);
+      for (let i = 0; i < attackCount; i++) {
+        if (isAttackBlocked(enemy, i)) continue;
+        if (isAttackDamageAssigned(enemy, i)) continue;
+
+        // This attack is unblocked and unassigned - check if it has damage
+        const attack = getEnemyAttack(enemy, i);
+        const effectiveAttack = getEffectiveEnemyAttack(
+          state,
+          enemy.instanceId,
+          attack.damage
+        );
+        if (effectiveAttack > 0) {
+          return false; // Can't end phase - this attack needs damage assigned
+        }
+      }
+    }
+  }
+
+  return true;
 }
