@@ -48,7 +48,7 @@ import {
   drawMonasteryAdvancedAction,
 } from "@mage-knight/core";
 import type { HexCoord, CardId } from "@mage-knight/shared";
-import { TILE_PLACEMENT_OFFSETS } from "@mage-knight/shared";
+import { TILE_PLACEMENT_OFFSETS, MAP_SHAPE_CONFIGS } from "@mage-knight/shared";
 import {
   LocalConnection,
   type GameConnection,
@@ -509,15 +509,21 @@ export class GameServer {
       totalTiles
     );
 
+    // Get map shape configuration
+    const mapShapeConfig = MAP_SHAPE_CONFIGS[baseState.scenarioConfig.mapShape];
+
     // Convert to Record and mark starting position as filled
     const tileSlots: Record<string, TileSlot> = {};
     for (const [key, slot] of slotsMap) {
       tileSlots[key] = slot;
     }
 
-    // Place starting tile at origin
+    // Place starting tile at origin (tile type from map shape config)
     const tileOrigin: HexCoord = { q: 0, r: 0 };
-    const startingTileHexes = placeTile(TileId.StartingTileA, tileOrigin);
+    const startingTileId = mapShapeConfig.startingTile === "starting_a"
+      ? TileId.StartingTileA
+      : TileId.StartingTileB;
+    const startingTileHexes = placeTile(startingTileId, tileOrigin);
 
     // Mark starting slot as filled
     const originKey = hexKey(tileOrigin);
@@ -535,20 +541,17 @@ export class GameServer {
     // Track tile placements
     const tiles: TilePlacement[] = [
       {
-        tileId: TileId.StartingTileA,
+        tileId: startingTileId,
         centerCoord: tileOrigin,
         revealed: true,
       },
     ];
 
-    // Place 2 initial countryside tiles adjacent to the starting tile
-    // Per rulebook: Starting tile A has land edges at NE, E, NW
-    // Tiles connect with 3 adjacent hex pairs (not overlapping)
-    // Offsets match TILE_PLACEMENT_OFFSETS in explore/index.ts
-    const initialTilePositions: HexCoord[] = [
-      TILE_PLACEMENT_OFFSETS.NE, // NE direction: tiles touch along 3 edges
-      TILE_PLACEMENT_OFFSETS.E,  // E direction: tiles touch along 3 edges
-    ];
+    // Place initial countryside tiles adjacent to the starting tile
+    // Number and positions determined by map shape configuration
+    const initialTilePositions: HexCoord[] = mapShapeConfig.initialTilePositions.map(
+      (dir) => TILE_PLACEMENT_OFFSETS[dir]
+    );
 
     // Track all hexes from initial tiles to count monasteries later
     const initialTileHexes: HexState[] = [];
