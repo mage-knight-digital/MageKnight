@@ -48,6 +48,17 @@ export interface BurnMonasteryAction {
   readonly type: typeof BURN_MONASTERY_ACTION;
 }
 
+// Liberate location action (Shades of Tezla scenarios)
+export const TRIGGER_LIBERATION_COMBAT_ACTION = "TRIGGER_LIBERATION_COMBAT" as const;
+/**
+ * Trigger combat to liberate a location that has guarding enemies.
+ * In Shades of Tezla scenarios, some sites (Magical Glade, Graveyard) start
+ * with pre-placed guarding enemies that must be defeated to unlock the site's effects.
+ */
+export interface TriggerLiberationCombatAction {
+  readonly type: typeof TRIGGER_LIBERATION_COMBAT_ACTION;
+}
+
 // Plunder village action
 export const PLUNDER_VILLAGE_ACTION = "PLUNDER_VILLAGE" as const;
 export interface PlunderVillageAction {
@@ -485,6 +496,7 @@ export type PlayerAction =
   | EnterSiteAction
   | BurnMonasteryAction
   | PlunderVillageAction
+  | TriggerLiberationCombatAction
   // Turn structure
   | EndTurnAction
   | RestAction // @deprecated - use DeclareRestAction + CompleteRestAction

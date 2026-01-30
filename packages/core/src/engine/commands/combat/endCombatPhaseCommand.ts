@@ -715,6 +715,7 @@ export function createEndCombatPhaseCommand(
               events.push(...rewardEvents);
             }
             // Handle liberation victory (Shades of Tezla scenarios)
+            // Note: Liberation combat always uses player.position (not remote combat)
             else if (
               victory &&
               resolvedCombat.combatContext === COMBAT_CONTEXT_LIBERATE_LOCATION &&
@@ -722,6 +723,7 @@ export function createEndCombatPhaseCommand(
               !hex.site.isLiberated &&
               player?.position
             ) {
+              // player.position is guaranteed non-null by the condition above
               const liberateCommand = createLiberateSiteCommand({
                 playerId: params.playerId,
                 hexCoord: player.position,

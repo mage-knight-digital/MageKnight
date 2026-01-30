@@ -4,9 +4,18 @@
  * This command is irreversible and is used in Shades of Tezla scenarios when
  * a player defeats all guarding enemies at a location that requires liberation.
  *
+ * IMPORTANT: Liberation is different from Conquest:
+ * - Conquest: Player "owns" the site (e.g., Keeps, Mage Towers, Cities)
+ *   - Uses `isConquered` and `owner` fields
+ *   - Grants ongoing benefits to owner (interaction, portal network)
+ * - Liberation: Player "unlocks" the site's effects for everyone
+ *   - Uses `isLiberated` and `liberatedBy` fields
+ *   - Site effects (e.g., Magical Glade mana/healing) become available to all players
+ *   - The `liberatedBy` field tracks who liberated it (for scoring/fame), not ownership
+ *
  * Liberation:
  * - Marks the site as liberated with liberatedBy field
- * - Adds shield token to the hex
+ * - Adds shield token to the hex (for scoring)
  * - Grants +1 reputation
  * - Queues site-specific liberation reward (artifact for Magical Glade, spell for Graveyard)
  * - Emits SITE_LIBERATED event
@@ -122,7 +131,7 @@ export function createLiberateSiteCommand(
         type: SHIELD_TOKEN_PLACED,
         playerId: params.playerId,
         hexCoord: params.hexCoord,
-        totalShields: 1,
+        totalShields: updatedShieldTokens.length,
       });
 
       // Site liberated event

@@ -4,11 +4,18 @@
  * In Shades of Tezla scenarios, some locations have guarding enemies that must
  * be defeated before the location's effects become available.
  *
+ * GUARDING ENEMIES:
+ * Unlike normal site combat where enemies are drawn from token piles when entering,
+ * guarding enemies for liberation sites are pre-placed during scenario setup.
+ * The scenario configuration places specific enemies (or draws random ones at setup)
+ * onto hex.enemies for sites with requiresLiberation=true. This command uses those
+ * existing enemies rather than drawing new ones.
+ *
  * This command:
- * - Initiates combat against the guarding enemies on the hex
+ * - Initiates combat against the guarding enemies on the hex (hex.enemies)
  * - Sets combatContext to LIBERATE_LOCATION for special handling on victory
  * - Marks hasTakenActionThisTurn = true
- * - Does NOT draw new enemies (uses existing guarding enemies)
+ * - Does NOT draw new enemies (uses existing guarding enemies from scenario setup)
  *
  * On victory (handled by endCombatPhaseCommand):
  * - Site is marked as liberated
