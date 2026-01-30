@@ -191,6 +191,12 @@ export const INVALID_LEVEL_UP_LEVEL = "INVALID_LEVEL_UP_LEVEL" as const;
 export const SKILL_NOT_AVAILABLE = "SKILL_NOT_AVAILABLE" as const;
 export const SKILL_ALREADY_OWNED = "SKILL_ALREADY_OWNED" as const;
 
+// Liberation validation codes (Shades of Tezla)
+export const SITE_NOT_LIBERATABLE = "SITE_NOT_LIBERATABLE" as const;
+export const SITE_ALREADY_LIBERATED = "SITE_ALREADY_LIBERATED" as const;
+export const SITE_DOES_NOT_REQUIRE_LIBERATION = "SITE_DOES_NOT_REQUIRE_LIBERATION" as const;
+export const NO_GUARDING_ENEMIES = "NO_GUARDING_ENEMIES" as const;
+
 // Debug validation codes
 export const DEV_MODE_REQUIRED = "DEV_MODE_REQUIRED" as const;
 export const NO_PENDING_LEVEL_UPS = "NO_PENDING_LEVEL_UPS" as const;
@@ -348,6 +354,11 @@ export type ValidationErrorCode =
   | typeof INVALID_LEVEL_UP_LEVEL
   | typeof SKILL_NOT_AVAILABLE
   | typeof SKILL_ALREADY_OWNED
+  // Liberation validation (Shades of Tezla)
+  | typeof SITE_NOT_LIBERATABLE
+  | typeof SITE_ALREADY_LIBERATED
+  | typeof SITE_DOES_NOT_REQUIRE_LIBERATION
+  | typeof NO_GUARDING_ENEMIES
   // Debug validation
   | typeof DEV_MODE_REQUIRED
   | typeof NO_PENDING_LEVEL_UPS;

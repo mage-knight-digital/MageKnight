@@ -30,10 +30,12 @@ export type CombatAttackType = CombatType;
 // Combat context - identifies special combat scenarios
 export const COMBAT_CONTEXT_STANDARD = "standard" as const;
 export const COMBAT_CONTEXT_BURN_MONASTERY = "burn_monastery" as const;
+export const COMBAT_CONTEXT_LIBERATE_LOCATION = "liberate_location" as const;
 
 export type CombatContext =
   | typeof COMBAT_CONTEXT_STANDARD
-  | typeof COMBAT_CONTEXT_BURN_MONASTERY;
+  | typeof COMBAT_CONTEXT_BURN_MONASTERY
+  | typeof COMBAT_CONTEXT_LIBERATE_LOCATION;
 
 // Elemental damage values for pending damage assignment
 export interface PendingElementalDamage {

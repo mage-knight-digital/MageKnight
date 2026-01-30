@@ -153,6 +153,9 @@ export function setupNextPlayer(
 
 /**
  * Check if player is on a Magical Glade and should receive mana at turn start.
+ *
+ * Note: If the glade requires liberation (Shades of Tezla scenarios),
+ * mana is blocked until the glade is liberated.
  */
 function checkMagicalGladeMana(
   state: GameState,
@@ -167,6 +170,11 @@ function checkMagicalGladeMana(
 
   const hex = state.map.hexes[hexKey(player.position)];
   if (hex?.site?.type !== SiteType.MagicalGlade) {
+    return { manaToken: null, event: null };
+  }
+
+  // If glade requires liberation and isn't liberated, block mana
+  if (hex.site.requiresLiberation && !hex.site.isLiberated) {
     return { manaToken: null, event: null };
   }
 

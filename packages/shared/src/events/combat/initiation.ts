@@ -12,6 +12,7 @@ import {
   COMBAT_TRIGGER_PROVOKE_RAMPAGING,
   COMBAT_TRIGGER_VOLUNTARY_EXPLORE,
   COMBAT_TRIGGER_CHALLENGE,
+  COMBAT_TRIGGER_LIBERATE_LOCATION,
 } from "../../valueConstants.js";
 
 // ============================================================================
@@ -55,7 +56,8 @@ export interface CombatTriggeredEvent {
     | typeof COMBAT_TRIGGER_FORTIFIED_ASSAULT
     | typeof COMBAT_TRIGGER_PROVOKE_RAMPAGING
     | typeof COMBAT_TRIGGER_VOLUNTARY_EXPLORE
-    | typeof COMBAT_TRIGGER_CHALLENGE;
+    | typeof COMBAT_TRIGGER_CHALLENGE
+    | typeof COMBAT_TRIGGER_LIBERATE_LOCATION;
   /** Location where combat occurs */
   readonly hexCoord: HexCoord;
   /** IDs of enemy tokens involved */

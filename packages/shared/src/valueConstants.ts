@@ -66,12 +66,14 @@ export const COMBAT_TRIGGER_FORTIFIED_ASSAULT = "fortified_assault" as const;
 export const COMBAT_TRIGGER_PROVOKE_RAMPAGING = "provoke_rampaging" as const;
 export const COMBAT_TRIGGER_VOLUNTARY_EXPLORE = "voluntary_explore" as const;
 export const COMBAT_TRIGGER_CHALLENGE = "challenge" as const;
+export const COMBAT_TRIGGER_LIBERATE_LOCATION = "liberate_location" as const;
 
 export type CombatTriggerType =
   | typeof COMBAT_TRIGGER_FORTIFIED_ASSAULT
   | typeof COMBAT_TRIGGER_PROVOKE_RAMPAGING
   | typeof COMBAT_TRIGGER_VOLUNTARY_EXPLORE
-  | typeof COMBAT_TRIGGER_CHALLENGE;
+  | typeof COMBAT_TRIGGER_CHALLENGE
+  | typeof COMBAT_TRIGGER_LIBERATE_LOCATION;
 
 // === Reputation change reasons ===
 export const REPUTATION_REASON_ASSAULT = "assault" as const;
@@ -79,13 +81,15 @@ export const REPUTATION_REASON_BURN_MONASTERY = "burn_monastery" as const;
 export const REPUTATION_REASON_DEFEAT_RAMPAGING = "defeat_rampaging" as const;
 export const REPUTATION_REASON_INTERACTION = "interaction" as const;
 export const REPUTATION_REASON_PLUNDER_VILLAGE = "plunder_village" as const;
+export const REPUTATION_REASON_LIBERATE_LOCATION = "liberate_location" as const;
 
 export type ReputationChangeReason =
   | typeof REPUTATION_REASON_ASSAULT
   | typeof REPUTATION_REASON_BURN_MONASTERY
   | typeof REPUTATION_REASON_DEFEAT_RAMPAGING
   | typeof REPUTATION_REASON_INTERACTION
-  | typeof REPUTATION_REASON_PLUNDER_VILLAGE;
+  | typeof REPUTATION_REASON_PLUNDER_VILLAGE
+  | typeof REPUTATION_REASON_LIBERATE_LOCATION;
 
 // === Combat exit reasons ===
 export const COMBAT_EXIT_REASON_UNDO = "undo" as const;

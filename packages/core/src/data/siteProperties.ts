@@ -253,3 +253,65 @@ export const MAZE_LABYRINTH_ENEMY_COUNTS = {
   /** Long path - most enemies, artifact reward (+ advanced action for Labyrinth) */
   LONG: 6,
 } as const;
+
+// =============================================================================
+// LIBERATION PROPERTIES (Shades of Tezla)
+// =============================================================================
+
+/**
+ * Sites that can be liberated in Shades of Tezla scenarios.
+ * These sites can have guarding enemies placed at setup.
+ *
+ * Per Life and Death scenario:
+ * - Magical Glade: rewards artifact + 1 reputation
+ * - Graveyard: rewards spell + 1 reputation
+ * - Hidden Valley: treated as Magical Glade for liberation
+ * - Necropolis: treated as Graveyard for liberation
+ */
+export const LIBERATABLE_SITES: readonly SiteType[] = [
+  SiteType.MagicalGlade,
+  // Future expansion sites:
+  // SiteType.Graveyard,
+  // SiteType.HiddenValley,
+  // SiteType.Necropolis,
+] as const;
+
+/**
+ * Check if a site type can be liberated.
+ */
+export function canBeLiberated(siteType: SiteType): boolean {
+  return LIBERATABLE_SITES.includes(siteType);
+}
+
+/**
+ * Reputation gained when liberating a location.
+ * Per rules: "+1 Reputation" for all liberation types.
+ */
+export const LIBERATION_REPUTATION_REWARD = 1;
+
+/**
+ * Rewards granted when a location is liberated (Shades of Tezla).
+ * All liberations also grant +1 Reputation (handled separately).
+ *
+ * Per Life and Death scenario rules:
+ * - Magical Glade: 1 artifact
+ * - Graveyard: 1 spell
+ */
+export const LIBERATION_REWARDS: Partial<Record<SiteType, SiteReward>> = {
+  // Magical Glade: 1 artifact + 1 Rep
+  [SiteType.MagicalGlade]: artifactReward(1),
+
+  // Future expansion:
+  // [SiteType.Graveyard]: spellReward(1),
+  // [SiteType.HiddenValley]: artifactReward(1), // Treated as Magical Glade
+  // [SiteType.Necropolis]: spellReward(1), // Treated as Graveyard
+};
+
+/**
+ * Get the liberation reward for a site type.
+ * Returns null if the site cannot be liberated.
+ * Note: All liberations also grant +1 Reputation (handled separately).
+ */
+export function getLiberationReward(siteType: SiteType): SiteReward | null {
+  return LIBERATION_REWARDS[siteType] ?? null;
+}

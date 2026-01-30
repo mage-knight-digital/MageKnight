@@ -166,6 +166,10 @@ export interface Site {
   readonly owner: string | null; // player ID who conquered it
   readonly isConquered: boolean;
   readonly isBurned: boolean; // only relevant for monasteries
+  // Liberation fields (Shades of Tezla scenarios)
+  readonly requiresLiberation?: boolean; // scenario sets this when placing the site
+  readonly isLiberated?: boolean; // tracks if guarding enemies are defeated
+  readonly liberatedBy?: string; // player ID who liberated (for shield token)
   // Subtypes for specific sites
   readonly cityColor?: CityColor;
   readonly mineColor?: MineColor; // Single color for regular mines

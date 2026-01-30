@@ -480,3 +480,70 @@ export function isVillagePlunderedEvent(event: {
 }): event is VillagePlunderedEvent {
   return event.type === VILLAGE_PLUNDERED;
 }
+
+// ============================================================================
+// SITE_LIBERATED
+// ============================================================================
+
+/**
+ * Event type constant for site liberation.
+ * @see SiteLiberatedEvent
+ */
+export const SITE_LIBERATED = "SITE_LIBERATED" as const;
+
+/**
+ * Emitted when a player liberates a location in Shades of Tezla scenarios.
+ *
+ * Liberation is a scenario-specific mechanic where guarding enemies must
+ * be defeated to unlock the location's effects.
+ *
+ * @remarks
+ * - Follows successful combat against guarding enemies
+ * - Triggers liberation reward (artifact or spell + reputation)
+ * - Site is marked with player's shield token
+ * - Location effects now available (Magical Glade mana, etc.)
+ * - Different from conquest - liberation unlocks effects, conquest claims ownership
+ * - Creates undo checkpoint
+ *
+ * @example
+ * ```typescript
+ * if (event.type === SITE_LIBERATED) {
+ *   markSiteAsLiberated(event.hexCoord, event.playerId);
+ *   queueLiberationRewards(event.siteType);
+ * }
+ * ```
+ */
+export interface SiteLiberatedEvent {
+  readonly type: typeof SITE_LIBERATED;
+  /** ID of the liberating player */
+  readonly playerId: string;
+  /** Type of site liberated */
+  readonly siteType: string;
+  /** Location of the site */
+  readonly hexCoord: HexCoord;
+}
+
+/**
+ * Creates a SiteLiberatedEvent.
+ */
+export function createSiteLiberatedEvent(
+  playerId: string,
+  siteType: string,
+  hexCoord: HexCoord
+): SiteLiberatedEvent {
+  return {
+    type: SITE_LIBERATED,
+    playerId,
+    siteType,
+    hexCoord,
+  };
+}
+
+/**
+ * Type guard for SiteLiberatedEvent.
+ */
+export function isSiteLiberatedEvent(event: {
+  type: string;
+}): event is SiteLiberatedEvent {
+  return event.type === SITE_LIBERATED;
+}

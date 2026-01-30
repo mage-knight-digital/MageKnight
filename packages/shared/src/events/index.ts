@@ -259,6 +259,7 @@ import type {
   MonasteryBurnStartedEvent,
   MonasteryBurnedEvent,
   VillagePlunderedEvent,
+  SiteLiberatedEvent,
 } from "./sites.js";
 
 import type { InvalidActionEvent } from "./validation.js";
@@ -419,7 +420,9 @@ export type GameEvent =
   | MonasteryBurnStartedEvent
   | MonasteryBurnedEvent
   // Village plundering
-  | VillagePlunderedEvent;
+  | VillagePlunderedEvent
+  // Liberation (Shades of Tezla)
+  | SiteLiberatedEvent;
 
 /**
  * Type of all game event type constants.

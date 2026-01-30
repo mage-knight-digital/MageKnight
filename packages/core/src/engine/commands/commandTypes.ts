@@ -54,6 +54,10 @@ export const BURN_MONASTERY_COMMAND = "BURN_MONASTERY" as const;
 // Plunder village command
 export const PLUNDER_VILLAGE_COMMAND = "PLUNDER_VILLAGE" as const;
 
+// Liberation commands (Shades of Tezla)
+export const LIBERATE_SITE_COMMAND = "LIBERATE_SITE" as const;
+export const TRIGGER_LIBERATION_COMBAT_COMMAND = "TRIGGER_LIBERATION_COMBAT" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;

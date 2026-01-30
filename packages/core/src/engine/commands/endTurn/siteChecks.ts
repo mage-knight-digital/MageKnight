@@ -24,6 +24,9 @@ const MAX_CRYSTALS_PER_COLOR = 3;
  * Check if player is on a Magical Glade and has wounds to discard.
  * If so, sets pendingGladeWoundChoice on the player.
  *
+ * Note: If the glade requires liberation (Shades of Tezla scenarios),
+ * the wound discard is blocked until the glade is liberated.
+ *
  * @returns SiteCheckResult with pendingChoice=true if waiting for player choice
  */
 export function checkMagicalGladeWound(
@@ -38,6 +41,11 @@ export function checkMagicalGladeWound(
 
   const hex = state.map.hexes[hexKey(player.position)];
   if (hex?.site?.type !== SiteType.MagicalGlade) {
+    return { pendingChoice: false, player, events: [] };
+  }
+
+  // If glade requires liberation and isn't liberated, block effect
+  if (hex.site.requiresLiberation && !hex.site.isLiberated) {
     return { pendingChoice: false, player, events: [] };
   }
 

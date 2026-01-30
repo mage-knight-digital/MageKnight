@@ -33,6 +33,7 @@ import {
   COMBAT_PHASE_ASSIGN_DAMAGE,
   COMBAT_PHASE_ATTACK,
   COMBAT_CONTEXT_BURN_MONASTERY,
+  COMBAT_CONTEXT_LIBERATE_LOCATION,
   type CombatPhase,
   type CombatEnemy,
   type CombatState,
@@ -45,6 +46,7 @@ import {
 } from "../../../types/player.js";
 import type { HexState, Site } from "../../../types/map.js";
 import { createConquerSiteCommand } from "../conquerSiteCommand.js";
+import { createLiberateSiteCommand } from "../liberateSiteCommand.js";
 import { queueSiteReward } from "../../helpers/rewards/index.js";
 import { isAttackResisted, type Resistances } from "../../combat/elementalCalc.js";
 import {
@@ -712,9 +714,25 @@ export function createEndCombatPhaseCommand(
               newState = rewardState;
               events.push(...rewardEvents);
             }
+            // Handle liberation victory (Shades of Tezla scenarios)
+            else if (
+              victory &&
+              resolvedCombat.combatContext === COMBAT_CONTEXT_LIBERATE_LOCATION &&
+              hex.site?.requiresLiberation &&
+              !hex.site.isLiberated &&
+              player?.position
+            ) {
+              const liberateCommand = createLiberateSiteCommand({
+                playerId: params.playerId,
+                hexCoord: player.position,
+              });
+              const liberateResult = liberateCommand.execute(newState);
+              newState = liberateResult.state;
+              events.push(...liberateResult.events);
+            }
             // Trigger conquest if at an unconquered site (only on victory)
             // Note: conquest only happens at player's position, not at remote combat locations
-            // Skip for burn monastery (already handled above)
+            // Skip for burn monastery and liberation (already handled above)
             else if (victory && hex.site && !hex.site.isConquered && player?.position) {
               const playerHexKey = hexKey(player.position);
               // Only trigger conquest if combat was at player's position (not remote rampaging challenge)

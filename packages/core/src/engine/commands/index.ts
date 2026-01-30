@@ -217,3 +217,16 @@ export {
   type BurnMonasteryCommandParams,
   BURN_MONASTERY_COMMAND,
 } from "./burnMonasteryCommand.js";
+
+// Liberation commands (Shades of Tezla)
+export {
+  createLiberateSiteCommand,
+  type LiberateSiteCommandParams,
+  LIBERATE_SITE_COMMAND,
+} from "./liberateSiteCommand.js";
+
+export {
+  createTriggerLiberationCombatCommand,
+  type TriggerLiberationCombatCommandParams,
+  TRIGGER_LIBERATION_COMBAT_COMMAND,
+} from "./triggerLiberationCombatCommand.js";
