@@ -39,6 +39,75 @@ const STATUS_FIELD_ID = "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg";
 const IN_PROGRESS_OPTION_ID = "47fc9ee4";
 const BACKLOG_OPTION_ID = "f75ad846"; // "Todo" in new project
 
+// Lock configuration
+const LOCK_FILE = path.join(CACHE_DIR, "selection.lock");
+const LOCK_TIMEOUT = 30 * 1000; // 30 seconds - lock expires if process dies
+
+// === File Lock Functions ===
+
+function sleepSync(ms) {
+  execSync(`sleep ${ms / 1000}`, { stdio: "ignore" });
+}
+
+function acquireLock(maxWait = 10000) {
+  ensureCacheDir();
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWait) {
+    // Check for stale lock
+    if (fs.existsSync(LOCK_FILE)) {
+      try {
+        const lockData = JSON.parse(fs.readFileSync(LOCK_FILE, "utf-8"));
+        if (Date.now() - lockData.timestamp > LOCK_TIMEOUT) {
+          // Lock is stale, remove it
+          fs.unlinkSync(LOCK_FILE);
+        } else {
+          // Lock is held, wait and retry
+          sleepSync(100 + Math.random() * 200);
+          continue;
+        }
+      } catch {
+        // Corrupted lock file, remove it
+        try {
+          fs.unlinkSync(LOCK_FILE);
+        } catch {
+          // Ignore
+        }
+      }
+    }
+
+    // Try to acquire lock atomically
+    try {
+      const fd = fs.openSync(
+        LOCK_FILE,
+        fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY
+      );
+      const lockData = { timestamp: Date.now(), pid: process.pid };
+      fs.writeSync(fd, JSON.stringify(lockData));
+      fs.closeSync(fd);
+      return true;
+    } catch (err) {
+      if (err.code === "EEXIST") {
+        // Another process got the lock, retry
+        sleepSync(100 + Math.random() * 200);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  console.error("Failed to acquire lock after", maxWait, "ms");
+  return false;
+}
+
+function releaseLock() {
+  try {
+    fs.unlinkSync(LOCK_FILE);
+  } catch {
+    // Lock already released or doesn't exist
+  }
+}
+
 // === Cache Functions ===
 
 function ensureCacheDir() {
@@ -692,14 +761,22 @@ function main() {
   const unclaimIndex = args.indexOf("--unclaim");
   const clearExcludedFlag = args.includes("--clear-excluded");
 
-  // Handle --claim
+  // Handle --claim (requires lock)
   if (claimIndex !== -1) {
     const issueNum = parseInt(args[claimIndex + 1], 10);
     if (isNaN(issueNum)) {
       console.error("Usage: select-issue.cjs --claim <issue-number>");
       process.exit(1);
     }
-    claimIssue(issueNum);
+    if (!acquireLock()) {
+      console.error("Could not acquire lock - another selection in progress");
+      process.exit(1);
+    }
+    try {
+      claimIssue(issueNum);
+    } finally {
+      releaseLock();
+    }
     return;
   }
 
@@ -731,17 +808,25 @@ function main() {
     return;
   }
 
-  // Default: select best issue
-  const { issues, board, blockers } = loadOrFetchData(forceRefresh);
-  const selected = selectBestIssue(issues, board, blockers);
-
-  if (!selected) {
-    console.error("No eligible issues found");
+  // Default: select best issue (requires lock)
+  if (!acquireLock()) {
+    console.error("Could not acquire lock - another selection in progress");
     process.exit(1);
   }
+  try {
+    const { issues, board, blockers } = loadOrFetchData(forceRefresh);
+    const selected = selectBestIssue(issues, board, blockers);
 
-  // Output just the issue number
-  console.log(selected.number);
+    if (!selected) {
+      console.error("No eligible issues found");
+      process.exit(1);
+    }
+
+    // Output just the issue number
+    console.log(selected.number);
+  } finally {
+    releaseLock();
+  }
 }
 
 main();
