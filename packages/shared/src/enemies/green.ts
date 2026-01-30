@@ -16,6 +16,7 @@
  * - Ironclads - Physically resistant brutes
  * - Orc Summoners - Summon brown dungeon enemies
  * - Centaur Outriders - Swift Elementalist cavalry
+ * - Orc Skirmishers - Multiple attacks (1, 1)
  */
 
 import { ELEMENT_PHYSICAL } from "../elements.js";
@@ -44,6 +45,7 @@ export const ENEMY_WOLF_RIDERS = "wolf_riders" as const;
 export const ENEMY_IRONCLADS = "ironclads" as const;
 export const ENEMY_ORC_SUMMONERS = "orc_summoners" as const;
 export const ENEMY_CENTAUR_OUTRIDERS = "centaur_outriders" as const;
+export const ENEMY_ORC_SKIRMISHERS = "orc_skirmishers" as const;
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -55,7 +57,8 @@ export type GreenEnemyId =
   | typeof ENEMY_WOLF_RIDERS
   | typeof ENEMY_IRONCLADS
   | typeof ENEMY_ORC_SUMMONERS
-  | typeof ENEMY_CENTAUR_OUTRIDERS;
+  | typeof ENEMY_CENTAUR_OUTRIDERS
+  | typeof ENEMY_ORC_SKIRMISHERS;
 
 // =============================================================================
 // GREEN ENEMY DEFINITIONS
@@ -139,6 +142,21 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     resistances: [],
     abilities: [ABILITY_SWIFT],
     faction: FACTION_ELEMENTALIST,
+  },
+  [ENEMY_ORC_SKIRMISHERS]: {
+    id: ENEMY_ORC_SKIRMISHERS,
+    name: "Orc Skirmishers",
+    color: ENEMY_COLOR_GREEN,
+    attack: 0, // Multiple attacks - use attacks array
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 4,
+    fame: 2,
+    resistances: [],
+    abilities: [],
+    attacks: [
+      { damage: 1, element: ELEMENT_PHYSICAL },
+      { damage: 1, element: ELEMENT_PHYSICAL },
+    ],
   },
 };
 
