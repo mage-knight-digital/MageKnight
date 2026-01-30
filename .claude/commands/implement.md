@@ -13,11 +13,13 @@ allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Task, TodoWrite
 3. **DO NOT ask the user for confirmation** at any step
 4. **DO NOT present options** and wait for user input
 5. **Just execute each phase and proceed to the next automatically**
-6. **USE APP TOKEN FOR ALL GH COMMANDS** - Prefix every `gh` command with:
+6. **USE APP TOKEN FOR ALL GH COMMANDS** - Get the token FIRST, then use it:
    ```bash
-   GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) gh ...
+   APP_TOKEN=$(node .claude/scripts/github-app-token.cjs)
+   GH_TOKEN=$APP_TOKEN gh ...
    ```
    This uses the GitHub App token which has 10x higher rate limits than the user PAT.
+   ⚠️ **WRONG:** `GH_TOKEN=$(node ...) gh ...` - token isn't available to subshell!
 
 This is a FULLY AUTONOMOUS workflow. Run the bash commands, get results, move on.
 
@@ -106,17 +108,18 @@ The issue should already be marked "In Progress" from Phase 1.1. Now verify:
 
 ```bash
 # Double-check we still own this issue (uses app token for rate limits)
-GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) \
-CURRENT_STATUS=$(gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .status")
+APP_TOKEN=$(node .claude/scripts/github-app-token.cjs)
+CURRENT_STATUS=$(GH_TOKEN=$APP_TOKEN gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .status")
 if [ "$CURRENT_STATUS" != "In Progress" ]; then
   echo "ERROR: Lost claim on issue #${ISSUE_NUM}. Aborting."
   exit 1
 fi
 ```
 
-**NOTE:** For ALL `gh project` or `gh api` commands in this workflow, prefix with:
+**NOTE:** For ALL `gh project` or `gh api` commands in this workflow, get the token FIRST, then use it:
 ```bash
-GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) gh ...
+APP_TOKEN=$(node .claude/scripts/github-app-token.cjs)
+GH_TOKEN=$APP_TOKEN gh ...
 ```
 This uses the GitHub App token which has higher rate limits than the user PAT.
 
@@ -133,8 +136,9 @@ If found, unclaim and pick another:
 node .claude/scripts/select-issue.cjs --unclaim $ISSUE_NUM
 
 # Move back to Backlog on GitHub
-GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) ITEM_ID=$(gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
-GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) gh project item-edit --project-id "PVT_kwDOD2L9IM4BN1Jh" --id "$ITEM_ID" --field-id "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg" --single-select-option-id "f75ad846"
+APP_TOKEN=$(node .claude/scripts/github-app-token.cjs)
+ITEM_ID=$(GH_TOKEN=$APP_TOKEN gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
+GH_TOKEN=$APP_TOKEN gh project item-edit --project-id "PVT_kwDOD2L9IM4BN1Jh" --id "$ITEM_ID" --field-id "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg" --single-select-option-id "f75ad846"
 
 # Select next issue (will skip the one we just unclaimed)
 SELECTED_ISSUE=$(node .claude/scripts/select-issue.cjs)
@@ -242,8 +246,9 @@ gh issue edit $ISSUE_NUM --body "$(echo -e "## This issue has been refined into 
 node .claude/scripts/select-issue.cjs --unclaim $ISSUE_NUM
 
 # Move back to Backlog on project board
-GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) ITEM_ID=$(gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
-GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) gh project item-edit --project-id "PVT_kwDOD2L9IM4BN1Jh" --id "$ITEM_ID" --field-id "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg" --single-select-option-id "f75ad846"
+APP_TOKEN=$(node .claude/scripts/github-app-token.cjs)
+ITEM_ID=$(GH_TOKEN=$APP_TOKEN gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
+GH_TOKEN=$APP_TOKEN gh project item-edit --project-id "PVT_kwDOD2L9IM4BN1Jh" --id "$ITEM_ID" --field-id "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg" --single-select-option-id "f75ad846"
 ```
 
 EXIT with report:
@@ -275,8 +280,9 @@ Move issue back to backlog and STOP:
 node .claude/scripts/select-issue.cjs --unclaim $ISSUE_NUM
 
 # Move back to Backlog on GitHub
-GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) ITEM_ID=$(gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
-GH_TOKEN=$(node .claude/scripts/github-app-token.cjs) gh project item-edit --project-id "PVT_kwDOD2L9IM4BN1Jh" --id "$ITEM_ID" --field-id "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg" --single-select-option-id "f75ad846"
+APP_TOKEN=$(node .claude/scripts/github-app-token.cjs)
+ITEM_ID=$(GH_TOKEN=$APP_TOKEN gh project item-list 2 --owner mage-knight-digital --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
+GH_TOKEN=$APP_TOKEN gh project item-edit --project-id "PVT_kwDOD2L9IM4BN1Jh" --id "$ITEM_ID" --field-id "PVTSSF_lADOD2L9IM4BN1Jhzg8tixg" --single-select-option-id "f75ad846"
 
 # Add needs-refinement label
 gh issue edit $ISSUE_NUM --add-label "needs-refinement"
