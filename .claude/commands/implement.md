@@ -25,9 +25,20 @@ Fetch that specific issue directly using `gh issue view`.
 
 **If argument is 'auto' or empty (e.g., `/implement auto` or `/implement`):**
 
-⚠️ **DO NOT use Skill(next) or /next** - just run these bash commands directly:
+⚠️ **DO NOT use Skill(next) or /next** - use the selection script directly.
 
-Autonomously select the highest priority issue by running these bash commands yourself:
+Use the `select-issue.cjs` script which:
+- Caches GitHub data locally (5 min TTL) to reduce API calls
+- Updates cache immediately on claim for parallel agent coordination
+- Implements selection algorithm: Priority → Bug/Feature → Age (older issues first)
+
+Selection criteria:
+1. Not already "In Progress" in the project board
+2. Not labeled `epic` (epics are parent issues)
+3. **Not blocked** - uses GitHub's native `blockedBy` relationship
+4. Highest priority available (P0 > P1 > P2 > P3)
+5. Prefer `bug` fixes over `feature` when same priority
+6. Older issues first (lower issue number = added earlier = core content)
 
 ### Race Condition Prevention
 
@@ -36,81 +47,26 @@ When multiple agents start simultaneously, add a random delay (0-3 seconds) to s
 sleep $((RANDOM % 4))
 ```
 
-Selection criteria:
-1. Not already "In Progress" in the project board
-2. Not labeled `epic` (epics are parent issues)
-3. **Not blocked** - use GitHub's native `blockedBy` relationship via GraphQL API
-4. Highest priority available (P0 > P1 > P2 > P3)
-5. Prefer `complexity:low` or `complexity:medium` over `complexity:high`
-6. Prefer `bug` fixes over `feature` when same priority
+### Select and Claim Issue
 
 ```bash
-# Step 1: Get issues currently in progress
-IN_PROGRESS=$(gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq '[.items[] | select(.status == "In Progress") | .content.number]')
+# Select the best issue (uses cache, fast)
+SELECTED_ISSUE=$(node .claude/scripts/select-issue.cjs)
 
-# Step 2: Get candidate issues (not in progress, not epics), sorted by priority
-CANDIDATES=$(gh issue list --state open --limit 100 --json number,labels | jq -r --argjson skip "$IN_PROGRESS" '
-  [.[] | select(
-    (.number | IN($skip[]) | not) and
-    (.labels | map(.name) | any(. == "epic") | not)
-  )] |
-  sort_by(
-    (if .labels | map(.name) | any(. == "P0-critical") then 0
-     elif .labels | map(.name) | any(. == "P1-high") then 1
-     elif .labels | map(.name) | any(. == "P2-medium") then 2
-     else 3 end),
-    (if .labels | map(.name) | any(. == "complexity:low") then 0
-     elif .labels | map(.name) | any(. == "complexity:medium") then 1
-     else 2 end),
-    (if .labels | map(.name) | any(. == "bug") then 0 else 1 end)
-  ) | .[].number' | head -20)
-
-# Step 3: For each candidate, check if blocked using GitHub's native blockedBy API
-for ISSUE_NUM in $CANDIDATES; do
-  OPEN_BLOCKERS=$(gh api graphql -f query="{ repository(owner: \"eshaffer321\", name: \"MageKnight\") { issue(number: $ISSUE_NUM) { blockedBy(first: 5) { nodes { state } } } } }" --jq '[.data.repository.issue.blockedBy.nodes[] | select(.state == "OPEN")] | length')
-
-  if [ "$OPEN_BLOCKERS" = "0" ] || [ -z "$OPEN_BLOCKERS" ]; then
-    # Not blocked by any open issues - use this one!
-    SELECTED_ISSUE=$ISSUE_NUM
-    break
-  fi
-done
+# Immediately claim it (updates local cache + GitHub)
+node .claude/scripts/select-issue.cjs --claim $SELECTED_ISSUE
 ```
 
 Use `$SELECTED_ISSUE` as the issue number to implement.
 
 **DO NOT ASK FOR CONFIRMATION.** Just pick the top issue and proceed.
 
-### 1.1 IMMEDIATELY Claim the Issue (Race Condition Prevention)
-
-⚠️ **CRITICAL**: Claim the issue IMMEDIATELY after selection, BEFORE doing anything else.
-This prevents other agents from grabbing the same issue.
+If the claim fails (issue was taken by another agent), the script exits with error. In that case, force refresh and retry:
 
 ```bash
-ISSUE_NUM=$SELECTED_ISSUE
-
-# Step 1: Ensure issue is in project (add if not)
-gh project item-add 1 --owner eshaffer321 --url "https://github.com/eshaffer321/MageKnight/issues/${ISSUE_NUM}" 2>/dev/null || true
-
-# Step 2: Get item ID (may need to query with higher limit)
-ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .id")
-
-# Step 3: Check if already claimed by another agent
-CURRENT_STATUS=$(gh project item-list 1 --owner eshaffer321 --format json --limit 500 | jq -r ".items[] | select(.content.number == ${ISSUE_NUM}) | .status")
-
-if [ "$CURRENT_STATUS" = "In Progress" ]; then
-  echo "ERROR: Issue #${ISSUE_NUM} was just claimed by another agent. Restarting selection..."
-  # Go back and pick a different issue (remove this one from candidates)
-  exit 1
-fi
-
-# Step 4: CLAIM IT NOW - Mark as In Progress immediately
-gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "47fc9ee4"
-
-echo "✅ Successfully claimed issue #${ISSUE_NUM}"
+SELECTED_ISSUE=$(node .claude/scripts/select-issue.cjs --refresh)
+node .claude/scripts/select-issue.cjs --claim $SELECTED_ISSUE
 ```
-
-If the claim fails (issue was taken), restart Phase 1 to select a different issue.
 
 ### 1.2 Get Issue Details
 

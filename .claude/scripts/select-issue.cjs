@@ -1,0 +1,560 @@
+#!/usr/bin/env node
+
+/**
+ * Issue Selection Script for MageKnight
+ *
+ * Selects the highest priority issue based on:
+ * 1. Priority (P0 > P1 > P2 > P3/unlabeled)
+ * 2. Type (bugs before features at same priority)
+ * 3. Age (lower issue number = older = first)
+ *
+ * Caches GitHub data locally with 5-minute TTL.
+ * Updates cache immediately on claim for parallel agent coordination.
+ *
+ * Usage:
+ *   node select-issue.js           # Select best issue
+ *   node select-issue.js --refresh # Force cache refresh
+ *   node select-issue.js --claim N # Mark issue N as claimed (updates local cache)
+ *   node select-issue.js --details N # Get issue details from cache
+ */
+
+const fs = require("fs");
+const path = require("path");
+const { execSync, spawn } = require("child_process");
+
+// === Configuration ===
+const CACHE_DIR = path.join(
+  process.env.HOME,
+  ".claude-cache",
+  "mage-knight"
+);
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+const OWNER = "eshaffer321";
+const REPO = "MageKnight";
+const PROJECT_NUMBER = 1;
+
+// Project board field IDs (from existing implement.md)
+const PROJECT_ID = "PVT_kwHOAYaRMc4BNjzC";
+const STATUS_FIELD_ID = "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U";
+const IN_PROGRESS_OPTION_ID = "47fc9ee4";
+
+// === Cache Functions ===
+
+function ensureCacheDir() {
+  if (!fs.existsSync(CACHE_DIR)) {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+  }
+}
+
+function getCachePath(name) {
+  return path.join(CACHE_DIR, `${name}.json`);
+}
+
+function readCache(name) {
+  const cachePath = getCachePath(name);
+  if (!fs.existsSync(cachePath)) {
+    return null;
+  }
+  try {
+    const content = fs.readFileSync(cachePath, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    // Cache corrupted, delete it
+    fs.unlinkSync(cachePath);
+    return null;
+  }
+}
+
+function writeCache(name, data) {
+  ensureCacheDir();
+  const cachePath = getCachePath(name);
+  const cacheData = {
+    timestamp: Date.now(),
+    data,
+  };
+  fs.writeFileSync(cachePath, JSON.stringify(cacheData, null, 2));
+}
+
+function isCacheValid(name) {
+  const cache = readCache(name);
+  if (!cache || !cache.timestamp) {
+    return false;
+  }
+  return Date.now() - cache.timestamp < CACHE_TTL;
+}
+
+function getCachedData(name) {
+  const cache = readCache(name);
+  return cache ? cache.data : null;
+}
+
+// === GitHub API Functions ===
+
+function runGh(args, allowFailure = false) {
+  try {
+    const result = execSync(`gh ${args}`, {
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large responses
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return { success: true, data: result.trim() };
+  } catch (error) {
+    const errorMsg = error.stderr?.toString() || error.message;
+    const isRateLimit = errorMsg.includes("rate limit") || errorMsg.includes("403");
+
+    if (allowFailure) {
+      return { success: false, error: errorMsg, isRateLimit };
+    }
+
+    console.error(`Error running gh ${args}:`, errorMsg);
+    process.exit(1);
+  }
+}
+
+function fetchIssues() {
+  const result = runGh(
+    `issue list --repo ${OWNER}/${REPO} --state open --limit 200 --json number,title,labels,body`,
+    true
+  );
+  if (!result.success) {
+    return null; // Signal to use cache
+  }
+  return JSON.parse(result.data);
+}
+
+function fetchBoard() {
+  const result = runGh(
+    `project item-list ${PROJECT_NUMBER} --owner ${OWNER} --format json --limit 500`,
+    true
+  );
+  if (!result.success) {
+    return null; // Signal to use cache
+  }
+  const data = JSON.parse(result.data);
+  // Return a map of issue number -> status
+  const statusMap = {};
+  for (const item of data.items || []) {
+    if (item.content && item.content.number) {
+      statusMap[item.content.number] = {
+        status: item.status,
+        itemId: item.id,
+      };
+    }
+  }
+  return statusMap;
+}
+
+function fetchBlockers(issueNumbers) {
+  // Fetch blockers for multiple issues in batches to reduce API calls
+  const blockers = {};
+  let hadRateLimit = false;
+
+  // Build a single GraphQL query for all issues
+  // (GitHub limits query complexity, so we batch in groups of 20)
+  const batchSize = 20;
+
+  for (let i = 0; i < issueNumbers.length; i += batchSize) {
+    const batch = issueNumbers.slice(i, i + batchSize);
+    const query = batch
+      .map(
+        (num, idx) =>
+          `issue${idx}: issue(number: ${num}) { number blockedBy(first: 10) { nodes { state number } } }`
+      )
+      .join(" ");
+
+    const graphqlQuery = `{ repository(owner: "${OWNER}", name: "${REPO}") { ${query} } }`;
+
+    const result = runGh(`api graphql -f query='${graphqlQuery}'`, true);
+
+    if (!result.success) {
+      if (result.isRateLimit) {
+        hadRateLimit = true;
+      }
+      // Mark batch as not blocked (graceful degradation)
+      for (const num of batch) {
+        blockers[num] = [];
+      }
+      continue;
+    }
+
+    try {
+      const data = JSON.parse(result.data);
+      const repo = data.data?.repository || {};
+
+      for (const key of Object.keys(repo)) {
+        const issue = repo[key];
+        if (issue && issue.number) {
+          const openBlockers = (issue.blockedBy?.nodes || [])
+            .filter((b) => b.state === "OPEN")
+            .map((b) => b.number);
+          blockers[issue.number] = openBlockers;
+        }
+      }
+    } catch {
+      // Parse error, mark as not blocked
+      for (const num of batch) {
+        blockers[num] = [];
+      }
+    }
+  }
+
+  // Return null to signal we should use cache if rate limited
+  if (hadRateLimit && Object.keys(blockers).length === 0) {
+    return null;
+  }
+
+  return blockers;
+}
+
+// === Selection Logic ===
+
+function getPriorityScore(labels) {
+  const labelNames = labels.map((l) => l.name);
+  if (labelNames.includes("P0-critical")) return 0;
+  if (labelNames.includes("P1-high")) return 1;
+  if (labelNames.includes("P2-medium")) return 2;
+  return 3; // P3-low or unlabeled
+}
+
+function getTypeScore(labels) {
+  const labelNames = labels.map((l) => l.name);
+  if (labelNames.includes("bug")) return 0;
+  return 1; // feature or other
+}
+
+function hasLabel(labels, labelName) {
+  return labels.some((l) => l.name === labelName);
+}
+
+function selectBestIssue(issues, board, blockers) {
+  // Filter candidates
+  const candidates = issues.filter((issue) => {
+    // Not in progress
+    const boardInfo = board[issue.number];
+    if (boardInfo && boardInfo.status === "In Progress") {
+      return false;
+    }
+
+    // Not an epic
+    if (hasLabel(issue.labels, "epic")) {
+      return false;
+    }
+
+    // Not blocked by open issues
+    const issueBlockers = blockers[issue.number] || [];
+    if (issueBlockers.length > 0) {
+      return false;
+    }
+
+    return true;
+  });
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  // Sort by: priority → type (bug first) → age (lower number = older = first)
+  candidates.sort((a, b) => {
+    // Priority (lower is higher priority)
+    const priorityA = getPriorityScore(a.labels);
+    const priorityB = getPriorityScore(b.labels);
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+
+    // Type (bugs before features)
+    const typeA = getTypeScore(a.labels);
+    const typeB = getTypeScore(b.labels);
+    if (typeA !== typeB) {
+      return typeA - typeB;
+    }
+
+    // Age (lower issue number = older = first)
+    return a.number - b.number;
+  });
+
+  return candidates[0];
+}
+
+// === Cache Management ===
+
+function loadOrFetchData(forceRefresh) {
+  let issues, board, blockers;
+  let usedStaleCache = false;
+
+  // Try to fetch issues, fall back to any cached data if rate limited
+  if (!forceRefresh && isCacheValid("issues")) {
+    issues = getCachedData("issues");
+  } else {
+    issues = fetchIssues();
+    if (issues === null) {
+      // API failed, try stale cache
+      issues = getCachedData("issues");
+      if (!issues) {
+        console.error("No cached issues available and API failed");
+        process.exit(1);
+      }
+      usedStaleCache = true;
+      console.error("Note: Using stale cache due to API rate limit");
+    } else {
+      writeCache("issues", issues);
+    }
+  }
+
+  // Try to fetch board, fall back to any cached data if rate limited
+  if (!forceRefresh && isCacheValid("board")) {
+    board = getCachedData("board");
+  } else {
+    board = fetchBoard();
+    if (board === null) {
+      // API failed, try stale cache
+      board = getCachedData("board");
+      if (!board) {
+        // No cache at all - use empty board (all issues selectable)
+        board = {};
+        console.error("Note: No board cache, treating all issues as available");
+      } else if (!usedStaleCache) {
+        usedStaleCache = true;
+        console.error("Note: Using stale cache due to API rate limit");
+      }
+    } else {
+      writeCache("board", board);
+    }
+  }
+
+  // Fetch blockers for all candidate issues
+  const issueNumbers = issues.map((i) => i.number);
+
+  if (!forceRefresh && isCacheValid("blockers")) {
+    blockers = getCachedData("blockers");
+  } else {
+    blockers = fetchBlockers(issueNumbers);
+    if (blockers === null) {
+      // API failed, try stale cache
+      blockers = getCachedData("blockers");
+      if (!blockers) {
+        // No cache - assume nothing is blocked
+        blockers = {};
+      }
+    } else {
+      writeCache("blockers", blockers);
+    }
+  }
+
+  return { issues, board, blockers };
+}
+
+function claimIssue(issueNumber) {
+  // Update local cache IMMEDIATELY to mark issue as In Progress
+  // This prevents parallel agents from selecting the same issue
+  const board = getCachedData("board") || {};
+
+  if (board[issueNumber]?.status === "In Progress") {
+    console.error(`Issue #${issueNumber} is already claimed`);
+    process.exit(1);
+  }
+
+  // Update cache with claimed status (instant local coordination)
+  board[issueNumber] = {
+    ...board[issueNumber],
+    status: "In Progress",
+  };
+  writeCache("board", board);
+
+  // Write pending claim to a file for the background worker
+  const pendingClaimsPath = getCachePath("pending-claims");
+  const pendingClaims = readCache("pending-claims")?.data || [];
+  pendingClaims.push({
+    issueNumber,
+    timestamp: Date.now(),
+    retries: 0,
+  });
+  writeCache("pending-claims", pendingClaims);
+
+  // Spawn background process to update GitHub (fire-and-forget with retries)
+  const workerScript = `
+    const { execSync } = require("child_process");
+    const fs = require("fs");
+    const path = require("path");
+
+    const CACHE_DIR = "${CACHE_DIR}";
+    const OWNER = "${OWNER}";
+    const REPO = "${REPO}";
+    const PROJECT_NUMBER = ${PROJECT_NUMBER};
+    const PROJECT_ID = "${PROJECT_ID}";
+    const STATUS_FIELD_ID = "${STATUS_FIELD_ID}";
+    const IN_PROGRESS_OPTION_ID = "${IN_PROGRESS_OPTION_ID}";
+    const issueNumber = ${issueNumber};
+    const MAX_RETRIES = 5;
+    const INITIAL_DELAY = 2000; // 2 seconds
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function updatePendingClaim(issueNum, update) {
+      const pendingPath = path.join(CACHE_DIR, "pending-claims.json");
+      try {
+        const data = JSON.parse(fs.readFileSync(pendingPath, "utf-8"));
+        const idx = data.data.findIndex(c => c.issueNumber === issueNum);
+        if (idx !== -1) {
+          if (update === null) {
+            data.data.splice(idx, 1);
+          } else {
+            Object.assign(data.data[idx], update);
+          }
+          fs.writeFileSync(pendingPath, JSON.stringify(data, null, 2));
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+
+    async function claimOnGitHub() {
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          // Add to project if not already there
+          try {
+            execSync(
+              \`gh project item-add \${PROJECT_NUMBER} --owner \${OWNER} --url "https://github.com/\${OWNER}/\${REPO}/issues/\${issueNumber}" 2>/dev/null\`,
+              { encoding: "utf-8", stdio: "pipe" }
+            );
+          } catch {
+            // Already in project, that's fine
+          }
+
+          // Get current board state
+          const boardJson = execSync(
+            \`gh project item-list \${PROJECT_NUMBER} --owner \${OWNER} --format json --limit 500\`,
+            { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
+          );
+          const boardData = JSON.parse(boardJson);
+          const item = boardData.items?.find(i => i.content?.number === issueNumber);
+
+          if (!item) {
+            throw new Error(\`Issue #\${issueNumber} not found in project\`);
+          }
+
+          // Already claimed? We're done
+          if (item.status === "In Progress") {
+            updatePendingClaim(issueNumber, null);
+            process.exit(0);
+          }
+
+          // Claim it
+          execSync(
+            \`gh project item-edit --project-id "\${PROJECT_ID}" --id "\${item.id}" --field-id "\${STATUS_FIELD_ID}" --single-select-option-id "\${IN_PROGRESS_OPTION_ID}"\`,
+            { encoding: "utf-8", stdio: "pipe" }
+          );
+
+          // Success - remove from pending
+          updatePendingClaim(issueNumber, null);
+          process.exit(0);
+
+        } catch (error) {
+          const isRateLimit = error.message?.includes("rate limit") ||
+                              error.message?.includes("403") ||
+                              error.message?.includes("secondary rate");
+
+          if (isRateLimit && attempt < MAX_RETRIES - 1) {
+            const delay = INITIAL_DELAY * Math.pow(2, attempt);
+            updatePendingClaim(issueNumber, { retries: attempt + 1, lastError: "rate_limit" });
+            await sleep(delay);
+          } else if (attempt < MAX_RETRIES - 1) {
+            const delay = INITIAL_DELAY * Math.pow(2, attempt);
+            updatePendingClaim(issueNumber, { retries: attempt + 1, lastError: error.message });
+            await sleep(delay);
+          } else {
+            // Final failure - log but don't crash
+            updatePendingClaim(issueNumber, { failed: true, lastError: error.message });
+            fs.appendFileSync(
+              path.join(CACHE_DIR, "claim-errors.log"),
+              \`[\${new Date().toISOString()}] Failed to claim #\${issueNumber} after \${MAX_RETRIES} attempts: \${error.message}\\n\`
+            );
+            process.exit(1);
+          }
+        }
+      }
+    }
+
+    claimOnGitHub();
+  `;
+
+  // Spawn detached background process
+  const child = spawn("node", ["-e", workerScript], {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+
+  // Output issue number immediately (don't wait for GitHub)
+  console.log(issueNumber);
+}
+
+function getIssueDetails(issueNumber) {
+  const issues = getCachedData("issues") || [];
+  const issue = issues.find((i) => i.number === issueNumber);
+
+  if (!issue) {
+    // Not in cache, fetch directly
+    const result = runGh(
+      `issue view ${issueNumber} --repo ${OWNER}/${REPO} --json number,title,labels,body,state`,
+      true
+    );
+    if (!result.success) {
+      console.error(`Failed to fetch issue #${issueNumber}: ${result.error}`);
+      process.exit(1);
+    }
+    console.log(result.data);
+    return;
+  }
+
+  console.log(JSON.stringify(issue, null, 2));
+}
+
+// === CLI Interface ===
+
+function main() {
+  const args = process.argv.slice(2);
+
+  // Parse flags
+  const forceRefresh = args.includes("--refresh");
+  const claimIndex = args.indexOf("--claim");
+  const detailsIndex = args.indexOf("--details");
+
+  // Handle --claim
+  if (claimIndex !== -1) {
+    const issueNum = parseInt(args[claimIndex + 1], 10);
+    if (isNaN(issueNum)) {
+      console.error("Usage: select-issue.js --claim <issue-number>");
+      process.exit(1);
+    }
+    claimIssue(issueNum);
+    return;
+  }
+
+  // Handle --details
+  if (detailsIndex !== -1) {
+    const issueNum = parseInt(args[detailsIndex + 1], 10);
+    if (isNaN(issueNum)) {
+      console.error("Usage: select-issue.js --details <issue-number>");
+      process.exit(1);
+    }
+    getIssueDetails(issueNum);
+    return;
+  }
+
+  // Default: select best issue
+  const { issues, board, blockers } = loadOrFetchData(forceRefresh);
+  const selected = selectBestIssue(issues, board, blockers);
+
+  if (!selected) {
+    console.error("No eligible issues found");
+    process.exit(1);
+  }
+
+  // Output just the issue number
+  console.log(selected.number);
+}
+
+main();
