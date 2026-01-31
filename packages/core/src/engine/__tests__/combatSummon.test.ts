@@ -22,6 +22,9 @@ import {
   DECLARE_ATTACK_ACTION,
   ENEMY_ORC_SUMMONERS,
   ENEMY_ILLUSIONISTS,
+  ENEMY_SHROUDED_NECROMANCERS,
+  ENEMY_DIGGERS,
+  ENEMY_CENTAUR_OUTRIDERS,
   ENEMY_GARGOYLE,
   ENEMY_SUMMONED,
   SUMMONED_ENEMY_DISCARDED,
@@ -49,6 +52,62 @@ function createTokenPilesWithBrownPool(
   return {
     drawPiles: {
       green: [],
+      red: [],
+      brown: brownTokens,
+      violet: [],
+      gray: [],
+      white: [],
+    },
+    discardPiles: {
+      green: [],
+      red: [],
+      brown: [],
+      violet: [],
+      gray: [],
+      white: [],
+    },
+  };
+}
+
+/**
+ * Create enemy token piles with specific green tokens for testing green summons
+ */
+function createTokenPilesWithGreenPool(
+  greenTokenIds: readonly string[]
+): EnemyTokenPiles {
+  const greenTokens = greenTokenIds as readonly import("../../types/enemy.js").EnemyTokenId[];
+  return {
+    drawPiles: {
+      green: greenTokens,
+      red: [],
+      brown: [],
+      violet: [],
+      gray: [],
+      white: [],
+    },
+    discardPiles: {
+      green: [],
+      red: [],
+      brown: [],
+      violet: [],
+      gray: [],
+      white: [],
+    },
+  };
+}
+
+/**
+ * Create enemy token piles with both green and brown tokens
+ */
+function createTokenPilesWithGreenAndBrownPools(
+  greenTokenIds: readonly string[],
+  brownTokenIds: readonly string[]
+): EnemyTokenPiles {
+  const greenTokens = greenTokenIds as readonly import("../../types/enemy.js").EnemyTokenId[];
+  const brownTokens = brownTokenIds as readonly import("../../types/enemy.js").EnemyTokenId[];
+  return {
+    drawPiles: {
+      green: greenTokens,
       red: [],
       brown: brownTokens,
       violet: [],
@@ -663,6 +722,358 @@ describe("Combat Summon Ability", () => {
 
       // Player should have gained 4 fame
       expect(result.state.players[0].fame).toBe(4);
+    });
+  });
+
+  describe("Shrouded Necromancers - green summon", () => {
+    it("should draw a green enemy when transitioning to Block phase", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+      });
+      let state = createTestGameState({
+        players: [player],
+        enemyTokens: createTokenPilesWithGreenPool(["diggers_0"]),
+      });
+
+      // Enter combat with Shrouded Necromancers (attack 0, armor 5)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_SHROUDED_NECROMANCERS],
+      }).state;
+
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_RANGED_SIEGE);
+      expect(state.combat?.enemies).toHaveLength(1);
+      expect(state.combat?.enemies[0].enemyId).toBe(ENEMY_SHROUDED_NECROMANCERS);
+
+      // End Ranged/Siege phase -> Block phase (summon happens here)
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      expect(result.state.combat?.phase).toBe(COMBAT_PHASE_BLOCK);
+
+      // Should have ENEMY_SUMMONED event
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_SUMMONED,
+          summonerName: "Shrouded Necromancers",
+          summonedName: "Diggers",
+        })
+      );
+
+      // Should now have 2 enemies: hidden summoner + summoned green enemy
+      expect(result.state.combat?.enemies).toHaveLength(2);
+
+      // Shrouded Necromancers should be hidden
+      const summoner = result.state.combat?.enemies.find(
+        (e) => e.enemyId === ENEMY_SHROUDED_NECROMANCERS
+      );
+      expect(summoner?.isSummonerHidden).toBe(true);
+
+      // Diggers should be summoned (linked to summoner)
+      const summoned = result.state.combat?.enemies.find(
+        (e) => e.enemyId === ENEMY_DIGGERS
+      );
+      expect(summoned?.summonedByInstanceId).toBe(summoner?.instanceId);
+
+      // Green draw pile should be reduced
+      expect(result.state.enemyTokens.drawPiles.green).not.toContain("diggers_0");
+    });
+
+    it("should not summon when green pool is empty", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+      });
+      let state = createTestGameState({
+        players: [player],
+        // Empty green pool
+        enemyTokens: createTokenPilesWithGreenPool([]),
+      });
+
+      // Enter combat with Shrouded Necromancers
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_SHROUDED_NECROMANCERS],
+      }).state;
+
+      // End Ranged/Siege -> Block (summon would happen, but pool is empty)
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should NOT have ENEMY_SUMMONED event
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_SUMMONED,
+        })
+      );
+
+      // Should still only have 1 enemy (the summoner)
+      expect(result.state.combat?.enemies).toHaveLength(1);
+
+      // Summoner should NOT be hidden (no summoned enemy to replace it)
+      expect(result.state.combat?.enemies[0].isSummonerHidden).toBeUndefined();
+    });
+
+    it("should discard summoned green enemy at start of Attack phase", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+      });
+      let state = createTestGameState({
+        players: [player],
+        enemyTokens: createTokenPilesWithGreenPool(["diggers_0"]),
+      });
+
+      // Enter combat with Shrouded Necromancers
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_SHROUDED_NECROMANCERS],
+      }).state;
+
+      // End Ranged/Siege phase -> Block phase (summon)
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      expect(state.combat?.enemies).toHaveLength(2);
+
+      // End Block phase -> Assign Damage phase
+      state = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      }).state;
+
+      // Get the summoned enemy's instance ID for damage assignment
+      const summonedEnemy = state.combat?.enemies.find(
+        (e) => e.summonedByInstanceId !== undefined
+      );
+      if (!summonedEnemy) throw new Error("Summoned enemy not found");
+
+      // Assign damage from summoned enemy (Diggers has attack 3)
+      state = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: summonedEnemy.instanceId,
+      }).state;
+
+      // End Assign Damage phase -> Attack phase (discard summon)
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      expect(result.state.combat?.phase).toBe(COMBAT_PHASE_ATTACK);
+
+      // Should have SUMMONED_ENEMY_DISCARDED event
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: SUMMONED_ENEMY_DISCARDED,
+          summonedName: "Diggers",
+          summonerName: "Shrouded Necromancers",
+        })
+      );
+
+      // Should only have the original summoner, not the summoned enemy
+      expect(result.state.combat?.enemies).toHaveLength(1);
+      expect(result.state.combat?.enemies[0].enemyId).toBe(ENEMY_SHROUDED_NECROMANCERS);
+      expect(result.state.combat?.enemies[0].isSummonerHidden).toBe(false);
+
+      // Diggers token should be in green discard
+      expect(
+        result.state.enemyTokens.discardPiles.green
+      ).toContain("diggers_0");
+    });
+
+    it("should have Fortified ability (only Siege attacks in ranged phase)", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+        combatAccumulator: {
+          attack: {
+            normal: 0,
+            ranged: 5, // Have ranged attack
+            siege: 0,
+            normalElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+            rangedElements: { physical: 5, fire: 0, ice: 0, coldFire: 0 },
+            siegeElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+          },
+          assignedAttack: {
+            normal: 0,
+            ranged: 0,
+            siege: 0,
+            normalElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+            rangedElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+            siegeElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+          },
+          block: 0,
+          blockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+          blockSources: [],
+        },
+      });
+      let state = createTestGameState({
+        players: [player],
+        enemyTokens: createTokenPilesWithGreenPool(["diggers_0"]),
+      });
+
+      // Enter combat with Shrouded Necromancers
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_SHROUDED_NECROMANCERS],
+      }).state;
+
+      // In Ranged/Siege phase, Fortified enemies can only be attacked with Siege
+      const validActions = getValidActions(state, "player1");
+      const rangedAttacks = validActions.combat?.attacks?.filter(
+        (a) => a.attackType === "ranged"
+      ) ?? [];
+
+      const enemyInstanceId = state.combat?.enemies[0]?.instanceId ?? "";
+
+      // Should NOT be able to use regular ranged attacks on Fortified enemy
+      // Either there are no ranged attacks, or none target this enemy
+      const canTargetWithRanged = rangedAttacks.some((a) =>
+        a.targets.includes(enemyInstanceId)
+      );
+      expect(canTargetWithRanged).toBe(false);
+    });
+  });
+
+  describe("Faction priority drawing", () => {
+    it("should prefer Dark Crusaders faction token when summoner is Dark Crusaders", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+      });
+
+      // Put a non-faction token first, Dark Crusaders faction token second
+      // Currently no green enemies have Dark Crusaders faction,
+      // so this test validates the mechanism works even when no match is found
+      let state = createTestGameState({
+        players: [player],
+        // Centaur Outriders is Elementalist faction, Diggers has no faction
+        enemyTokens: createTokenPilesWithGreenPool([
+          "centaur_outriders_0", // Elementalist faction
+          "diggers_0", // No faction
+        ]),
+      });
+
+      // Enter combat with Shrouded Necromancers (Dark Crusaders faction)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_SHROUDED_NECROMANCERS],
+      }).state;
+
+      // End Ranged/Siege phase -> Block phase (summon happens)
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should summon something (first available since no Dark Crusaders match)
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_SUMMONED,
+          summonerName: "Shrouded Necromancers",
+        })
+      );
+
+      // When there's no faction match, should draw from top (first token)
+      const summoned = result.state.combat?.enemies.find(
+        (e) => e.summonedByInstanceId !== undefined
+      );
+      expect(summoned?.enemyId).toBe(ENEMY_CENTAUR_OUTRIDERS);
+    });
+
+    it("should not affect brown summon when summoner has no faction", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+      });
+
+      let state = createTestGameState({
+        players: [player],
+        // Orc Summoners have no faction - should draw brown normally
+        enemyTokens: createTokenPilesWithGreenAndBrownPools(
+          ["diggers_0"],
+          ["gargoyle_0"]
+        ),
+      });
+
+      // Enter combat with Orc Summoner (no faction)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_ORC_SUMMONERS],
+      }).state;
+
+      // End Ranged/Siege phase -> Block phase (summon happens)
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should summon from brown pool
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_SUMMONED,
+          summonerName: "Orc Summoners",
+          summonedName: "Gargoyle",
+        })
+      );
+    });
+  });
+
+  describe("Mixed summoner types", () => {
+    it("should handle both brown and green summoners in same combat", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+      });
+
+      let state = createTestGameState({
+        players: [player],
+        enemyTokens: createTokenPilesWithGreenAndBrownPools(
+          ["diggers_0"],
+          ["gargoyle_0"]
+        ),
+      });
+
+      // Enter combat with both Orc Summoner (brown) and Shrouded Necromancers (green)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_ORC_SUMMONERS, ENEMY_SHROUDED_NECROMANCERS],
+      }).state;
+
+      expect(state.combat?.enemies).toHaveLength(2);
+
+      // End Ranged/Siege phase -> Block phase (both summon)
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should have 2 ENEMY_SUMMONED events
+      const summonEvents = result.events.filter(
+        (e) => e.type === ENEMY_SUMMONED
+      );
+      expect(summonEvents).toHaveLength(2);
+
+      // Should have 4 enemies total
+      expect(result.state.combat?.enemies).toHaveLength(4);
+
+      // One should be from green pool (Diggers)
+      const diggersSummoned = result.state.combat?.enemies.find(
+        (e) => e.enemyId === ENEMY_DIGGERS
+      );
+      expect(diggersSummoned).toBeDefined();
+
+      // One should be from brown pool (Gargoyle)
+      const gargoyleSummoned = result.state.combat?.enemies.find(
+        (e) => e.enemyId === ENEMY_GARGOYLE
+      );
+      expect(gargoyleSummoned).toBeDefined();
+
+      // Green pool should be emptied
+      expect(result.state.enemyTokens.drawPiles.green).not.toContain("diggers_0");
+
+      // Brown pool should be emptied
+      expect(result.state.enemyTokens.drawPiles.brown).not.toContain("gargoyle_0");
     });
   });
 });

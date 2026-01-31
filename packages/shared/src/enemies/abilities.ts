@@ -43,6 +43,12 @@ export const ABILITY_PARALYZE = "paralyze" as const;
 export const ABILITY_SUMMON = "summon" as const;
 
 /**
+ * Summon Green Attack - draws a green enemy at block phase start
+ * Used by Shrouded Necromancers (Dark Crusaders faction)
+ */
+export const ABILITY_SUMMON_GREEN = "summon_green" as const;
+
+/**
  * Cumbersome - can spend Move points to reduce attack
  */
 export const ABILITY_CUMBERSOME = "cumbersome" as const;
@@ -113,6 +119,7 @@ export type EnemyAbilityType =
   | typeof ABILITY_POISON
   | typeof ABILITY_PARALYZE
   | typeof ABILITY_SUMMON
+  | typeof ABILITY_SUMMON_GREEN
   | typeof ABILITY_CUMBERSOME
   | typeof ABILITY_VAMPIRIC
   | typeof ABILITY_COLD_FIRE_ATTACK
@@ -182,6 +189,12 @@ export const ABILITY_DESCRIPTIONS: Record<EnemyAbilityType, AbilityDescription> 
     name: "Summon Attack",
     shortDesc: "summons brown enemy",
     fullDesc: "At the start of the Block phase, draw a random Brown token for this enemy. It replaces the enemy in the Block and Assign Damage phases, then it is discarded.",
+    icon: "summon",
+  },
+  [ABILITY_SUMMON_GREEN]: {
+    name: "Summon Green Attack",
+    shortDesc: "summons green enemy",
+    fullDesc: "At the start of the Block phase, draw a random Green token for this enemy. It replaces the enemy in the Block and Assign Damage phases, then it is discarded. Prefers tokens from the same faction.",
     icon: "summon",
   },
   [ABILITY_CUMBERSOME]: {

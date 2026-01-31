@@ -22,7 +22,9 @@ import {
   createShieldTokenPlacedEvent,
   artifactReward,
   ABILITY_SUMMON,
+  ABILITY_SUMMON_GREEN,
   ENEMY_COLOR_BROWN,
+  ENEMY_COLOR_GREEN,
   getEnemy,
   createEnemySummonedEvent,
   createSummonedEnemyDiscardedEvent,
@@ -50,7 +52,7 @@ import { createConquerSiteCommand } from "../conquerSiteCommand.js";
 import { queueSiteReward } from "../../helpers/rewards/index.js";
 import { isAttackResisted, type Resistances } from "../../combat/elementalCalc.js";
 import {
-  drawEnemy,
+  drawEnemyWithFactionPriority,
   getEnemyIdFromToken,
   discardEnemy,
 } from "../../helpers/enemyHelpers.js";
@@ -384,10 +386,18 @@ function applyReputationPenalty(
 // ============================================================================
 
 /**
- * Check if an enemy has the Summon ability and it's not nullified
+ * Get the summon ability type for an enemy (null if no summon ability)
  */
-function hasSummonAbility(enemy: CombatEnemy): boolean {
-  return enemy.definition.abilities.includes(ABILITY_SUMMON);
+function getSummonAbilityType(
+  enemy: CombatEnemy
+): typeof ABILITY_SUMMON | typeof ABILITY_SUMMON_GREEN | null {
+  if (enemy.definition.abilities.includes(ABILITY_SUMMON_GREEN)) {
+    return ABILITY_SUMMON_GREEN;
+  }
+  if (enemy.definition.abilities.includes(ABILITY_SUMMON)) {
+    return ABILITY_SUMMON;
+  }
+  return null;
 }
 
 /**
@@ -398,8 +408,9 @@ function isSummonActive(
   playerId: string,
   enemy: CombatEnemy
 ): boolean {
-  if (!hasSummonAbility(enemy)) return false;
-  return !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_SUMMON);
+  const summonType = getSummonAbilityType(enemy);
+  if (!summonType) return false;
+  return !isAbilityNullified(state, playerId, enemy.instanceId, summonType);
 }
 
 /**
@@ -417,11 +428,12 @@ interface ResolveSummonsResult {
 /**
  * Resolve all summon abilities at the start of Block phase.
  * For each enemy with Summon ability:
- * - Draw a brown enemy token
+ * - Draw an enemy token (brown for ABILITY_SUMMON, green for ABILITY_SUMMON_GREEN)
  * - Add the summoned enemy to combat (linked to summoner)
  * - Mark the summoner as hidden during Block/Assign Damage phases
  *
- * If brown token pool is empty, summoner attacks normally (no summoned enemy).
+ * If the token pool is empty, summoner attacks normally (no summoned enemy).
+ * Faction-priority drawing is used when the summoner has a faction.
  */
 function resolveSummons(
   state: GameState,
@@ -441,15 +453,21 @@ function resolveSummons(
   let summonedCounter = 0;
 
   for (const summoner of summoners) {
-    // Draw a brown enemy token
-    const drawResult = drawEnemy(
+    // Determine which color pool to draw from based on summon ability type
+    const summonType = getSummonAbilityType(summoner);
+    const summonColor =
+      summonType === ABILITY_SUMMON_GREEN ? ENEMY_COLOR_GREEN : ENEMY_COLOR_BROWN;
+
+    // Draw an enemy token with faction priority if summoner has a faction
+    const drawResult = drawEnemyWithFactionPriority(
       currentState.enemyTokens,
-      ENEMY_COLOR_BROWN,
+      summonColor,
+      summoner.definition.faction,
       currentState.rng
     );
 
     if (drawResult.tokenId === null) {
-      // Brown pool is empty - summoner attacks normally
+      // Token pool is empty - summoner attacks normally
       // Don't hide the summoner, don't create a summoned enemy
       continue;
     }
