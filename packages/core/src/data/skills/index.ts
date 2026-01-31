@@ -13,7 +13,7 @@
  */
 
 import type { SkillId } from "@mage-knight/shared";
-import type { Category } from "../../types/cards.js";
+import type { Category, CardEffect } from "../../types/cards.js";
 import {
   CATEGORY_MOVEMENT,
   CATEGORY_COMBAT,
@@ -21,6 +21,7 @@ import {
   CATEGORY_HEALING,
   CATEGORY_SPECIAL,
 } from "../../types/cards.js";
+import { ifNightOrUnderground, influence } from "../effectHelpers.js";
 
 // ============================================================================
 // Hero ID type (to avoid circular dependency with hero.ts)
@@ -66,9 +67,10 @@ export interface SkillDefinition {
   readonly description: string;
   /** How often the skill can be used */
   readonly usageType: SkillUsageType;
+  /** The card effect to execute when the skill is activated (optional for not-yet-implemented skills) */
+  readonly effect?: CardEffect;
   /** Categories for this skill (movement, combat, influence, healing, special) */
   readonly categories: readonly Category[];
-  // Note: effect implementation will be added when skills are fully implemented
 }
 
 // ============================================================================
@@ -199,6 +201,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Influence 2 (Day) or Influence 3 (Night)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    effect: ifNightOrUnderground(influence(3), influence(2)),
     categories: [CATEGORY_INFLUENCE],
   },
   [SKILL_ARYTHEA_DARK_FIRE_MAGIC]: {
