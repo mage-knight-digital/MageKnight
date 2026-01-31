@@ -19,6 +19,7 @@ export const CONDITION_MANA_USED_THIS_TURN = "mana_used_this_turn" as const;
 export const CONDITION_HAS_WOUNDS_IN_HAND = "has_wounds_in_hand" as const;
 export const CONDITION_NO_UNIT_RECRUITED_THIS_TURN = "no_unit_recruited_this_turn" as const;
 export const CONDITION_LOWEST_FAME = "lowest_fame" as const;
+export const CONDITION_IS_NIGHT_OR_UNDERGROUND = "is_night_or_underground" as const;
 
 // === Condition Interfaces ===
 
@@ -74,6 +75,14 @@ export interface LowestFameCondition {
   readonly type: typeof CONDITION_LOWEST_FAME;
 }
 
+/**
+ * Condition that checks if it's night OR if player is in underground combat (dungeon/tomb).
+ * Dungeons and Tombs count as "night" for this condition per FAQ ruling S1.
+ */
+export interface IsNightOrUndergroundCondition {
+  readonly type: typeof CONDITION_IS_NIGHT_OR_UNDERGROUND;
+}
+
 // === Union Type ===
 
 export type EffectCondition =
@@ -86,4 +95,5 @@ export type EffectCondition =
   | ManaUsedThisTurnCondition
   | HasWoundsInHandCondition
   | NoUnitRecruitedThisTurnCondition
-  | LowestFameCondition;
+  | LowestFameCondition
+  | IsNightOrUndergroundCondition;
