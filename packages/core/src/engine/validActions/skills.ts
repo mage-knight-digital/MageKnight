@@ -7,6 +7,7 @@
  * - Skill usage type (only activatable skills, not passive/interactive)
  * - Combat skills (CATEGORY_COMBAT) only available during combat
  * - Block skills only available during block phase
+ * - Skill-specific requirements (e.g., not in combat, has wound in hand)
  */
 
 import type { GameState } from "../../state/GameState.js";
@@ -18,9 +19,11 @@ import {
   SKILL_USAGE_ONCE_PER_ROUND,
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
+  SKILL_TOVAK_I_FEEL_NO_PAIN,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
+import { CARD_WOUND } from "@mage-knight/shared";
 
 /**
  * Skills that have effect implementations and can be activated.
@@ -29,7 +32,35 @@ import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 const IMPLEMENTED_SKILLS = new Set([
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
+  SKILL_TOVAK_I_FEEL_NO_PAIN,
 ]);
+
+/**
+ * Check skill-specific requirements beyond cooldowns.
+ * Returns true if the skill can be activated, false otherwise.
+ */
+function canActivateSkill(
+  state: GameState,
+  player: Player,
+  skillId: string
+): boolean {
+  switch (skillId) {
+    case SKILL_TOVAK_I_FEEL_NO_PAIN:
+      // Cannot use during combat
+      if (state.combat !== null) {
+        return false;
+      }
+      // Must have a wound in hand
+      if (!player.hand.some((c) => c === CARD_WOUND)) {
+        return false;
+      }
+      return true;
+
+    default:
+      // No special requirements
+      return true;
+  }
+}
 
 /**
  * Get skill activation options for a player.
@@ -76,6 +107,11 @@ export function getSkillOptions(
       }
     } else {
       // Passive and interactive skills are not directly activatable via USE_SKILL
+      continue;
+    }
+
+    // Check skill-specific requirements
+    if (!canActivateSkill(state, player, skillId)) {
       continue;
     }
 

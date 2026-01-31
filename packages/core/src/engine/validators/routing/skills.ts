@@ -19,6 +19,7 @@ import {
   validateSkillCooldown,
   validateCombatSkillInCombat,
   validateBlockSkillInBlockPhase,
+  validateSkillRequirements,
 } from "../skillValidators.js";
 
 export const skillValidatorRegistry: ValidatorRegistry = {
@@ -30,5 +31,6 @@ export const skillValidatorRegistry: ValidatorRegistry = {
     validateSkillCooldown,
     validateCombatSkillInCombat,
     validateBlockSkillInBlockPhase,
+    validateSkillRequirements,
   ],
 };

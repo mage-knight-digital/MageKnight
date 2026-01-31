@@ -8,7 +8,6 @@ import type { SkillId } from "@mage-knight/shared";
 import {
   CATEGORY_MOVEMENT,
   CATEGORY_COMBAT,
-  CATEGORY_HEALING,
   CATEGORY_SPECIAL,
 } from "../../types/cards.js";
 import {
@@ -84,7 +83,7 @@ export const TOVAK_SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "Except in combat: Discard 1 Wound from hand, draw a card",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
-    categories: [CATEGORY_HEALING],
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_TOVAK_I_DONT_GIVE_A_DAMN]: {
     id: SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
