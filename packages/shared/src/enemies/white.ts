@@ -24,6 +24,7 @@ import {
   ABILITY_PARALYZE,
   ABILITY_FORTIFIED,
   ABILITY_ASSASSINATION,
+  ABILITY_POISON,
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
@@ -104,12 +105,12 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     id: ENEMY_ALTEM_MAGES,
     name: "Altem Mages",
     color: ENEMY_COLOR_WHITE,
-    attack: 6,
+    attack: 4,
     attackElement: ELEMENT_COLD_FIRE,
-    armor: 6,
+    armor: 8,
     fame: 8,
-    resistances: [RESIST_FIRE, RESIST_ICE],
-    abilities: [ABILITY_BRUTAL],
+    resistances: [RESIST_PHYSICAL],
+    abilities: [ABILITY_BRUTAL, ABILITY_POISON],
   },
   [ENEMY_DELPHANA_MASTERS]: {
     id: ENEMY_DELPHANA_MASTERS,
