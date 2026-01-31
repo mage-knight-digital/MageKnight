@@ -54,6 +54,11 @@ export const BURN_MONASTERY_COMMAND = "BURN_MONASTERY" as const;
 // Plunder village command
 export const PLUNDER_VILLAGE_COMMAND = "PLUNDER_VILLAGE" as const;
 
+// Cooperative assault commands
+export const PROPOSE_COOPERATIVE_ASSAULT_COMMAND = "PROPOSE_COOPERATIVE_ASSAULT" as const;
+export const RESPOND_TO_COOPERATIVE_PROPOSAL_COMMAND = "RESPOND_TO_COOPERATIVE_PROPOSAL" as const;
+export const CANCEL_COOPERATIVE_PROPOSAL_COMMAND = "CANCEL_COOPERATIVE_PROPOSAL" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;

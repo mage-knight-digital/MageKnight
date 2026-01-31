@@ -57,6 +57,9 @@ import {
   DEBUG_TRIGGER_LEVEL_UP_ACTION,
   BURN_MONASTERY_ACTION,
   PLUNDER_VILLAGE_ACTION,
+  PROPOSE_COOPERATIVE_ASSAULT_ACTION,
+  RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION,
+  CANCEL_COOPERATIVE_PROPOSAL_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -136,6 +139,13 @@ export {
   createDebugTriggerLevelUpCommandFromAction,
 } from "./debug.js";
 
+// Cooperative assault factories
+export {
+  createProposeCooperativeAssaultCommandFromAction,
+  createRespondToProposalCommandFromAction,
+  createCancelProposalCommandFromAction,
+} from "./cooperativeAssault.js";
+
 // Import all factories for the registry
 import {
   createMoveCommandFromAction,
@@ -202,6 +212,12 @@ import {
   createDebugTriggerLevelUpCommandFromAction,
 } from "./debug.js";
 
+import {
+  createProposeCooperativeAssaultCommandFromAction,
+  createRespondToProposalCommandFromAction,
+  createCancelProposalCommandFromAction,
+} from "./cooperativeAssault.js";
+
 import type { CommandFactory } from "./types.js";
 
 /**
@@ -250,4 +266,8 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [DEBUG_TRIGGER_LEVEL_UP_ACTION]: createDebugTriggerLevelUpCommandFromAction,
   [BURN_MONASTERY_ACTION]: createBurnMonasteryCommandFromAction,
   [PLUNDER_VILLAGE_ACTION]: createPlunderVillageCommandFromAction,
+  // Cooperative assault actions
+  [PROPOSE_COOPERATIVE_ASSAULT_ACTION]: createProposeCooperativeAssaultCommandFromAction,
+  [RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION]: createRespondToProposalCommandFromAction,
+  [CANCEL_COOPERATIVE_PROPOSAL_ACTION]: createCancelProposalCommandFromAction,
 };

@@ -123,6 +123,34 @@ export interface AnnounceEndOfRoundAction {
   readonly type: typeof ANNOUNCE_END_OF_ROUND_ACTION;
 }
 
+// Cooperative assault actions
+import type { CityColor, EnemyDistribution } from "./cooperativeAssault.js";
+
+export const PROPOSE_COOPERATIVE_ASSAULT_ACTION = "PROPOSE_COOPERATIVE_ASSAULT" as const;
+export interface ProposeCooperativeAssaultAction {
+  readonly type: typeof PROPOSE_COOPERATIVE_ASSAULT_ACTION;
+  readonly targetCity: CityColor;
+  readonly invitedPlayerIds: readonly string[];
+  readonly distribution: readonly EnemyDistribution[];
+}
+
+export const RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION = "RESPOND_TO_COOPERATIVE_PROPOSAL" as const;
+export const COOPERATIVE_RESPONSE_ACCEPT = "accept" as const;
+export const COOPERATIVE_RESPONSE_DECLINE = "decline" as const;
+export type CooperativeResponse =
+  | typeof COOPERATIVE_RESPONSE_ACCEPT
+  | typeof COOPERATIVE_RESPONSE_DECLINE;
+
+export interface RespondToCooperativeProposalAction {
+  readonly type: typeof RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION;
+  readonly response: CooperativeResponse;
+}
+
+export const CANCEL_COOPERATIVE_PROPOSAL_ACTION = "CANCEL_COOPERATIVE_PROPOSAL" as const;
+export interface CancelCooperativeProposalAction {
+  readonly type: typeof CANCEL_COOPERATIVE_PROPOSAL_ACTION;
+}
+
 // Card playing actions
 export const PLAY_CARD_ACTION = "PLAY_CARD" as const;
 
@@ -550,6 +578,10 @@ export type PlayerAction =
   | UnassignBlockAction
   // Debug actions (dev-only)
   | DebugAddFameAction
-  | DebugTriggerLevelUpAction;
+  | DebugTriggerLevelUpAction
+  // Cooperative assault
+  | ProposeCooperativeAssaultAction
+  | RespondToCooperativeProposalAction
+  | CancelCooperativeProposalAction;
 
 export type PlayerActionType = PlayerAction["type"];

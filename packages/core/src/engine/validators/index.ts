@@ -41,6 +41,9 @@ import {
   DEBUG_TRIGGER_LEVEL_UP_ACTION,
   BURN_MONASTERY_ACTION,
   PLUNDER_VILLAGE_ACTION,
+  PROPOSE_COOPERATIVE_ASSAULT_ACTION,
+  RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION,
+  CANCEL_COOPERATIVE_PROPOSAL_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -266,6 +269,26 @@ import {
   validateNotAlreadyPlundered,
   validateBeforeTurnForPlunder,
 } from "./plunderVillageValidators.js";
+
+// Cooperative assault validators
+import {
+  validateInitiatorAdjacentToCity,
+  validateEndOfRoundNotAnnounced,
+  validateScenarioNotFulfilled,
+  validateInitiatorNotActed,
+  validateInitiatorTokenNotFlipped,
+  validateNoOtherPlayerOnSpace,
+  validateAtLeastOneInvitee,
+  validateInviteesAdjacentToCity,
+  validateInviteesTokensNotFlipped,
+  validateInviteesHaveCards,
+  validateEnemyDistribution,
+  validateProposalExists,
+  validatePlayerIsInvitee,
+  validatePlayerNotResponded,
+  validateProposalExistsForCancel,
+  validatePlayerIsInitiator,
+} from "./cooperativeAssaultValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -626,6 +649,34 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateBeforeTurnForPlunder, // Must plunder before taking any action or moving
     validateAtVillage,
     validateNotAlreadyPlundered,
+  ],
+  [PROPOSE_COOPERATIVE_ASSAULT_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateInitiatorAdjacentToCity,
+    validateEndOfRoundNotAnnounced,
+    validateScenarioNotFulfilled,
+    validateInitiatorNotActed,
+    validateInitiatorTokenNotFlipped,
+    validateNoOtherPlayerOnSpace,
+    validateAtLeastOneInvitee,
+    validateInviteesAdjacentToCity,
+    validateInviteesTokensNotFlipped,
+    validateInviteesHaveCards,
+    validateEnemyDistribution,
+  ],
+  [RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION]: [
+    // Note: Any player can respond regardless of whose turn it is
+    validateProposalExists,
+    validatePlayerIsInvitee,
+    validatePlayerNotResponded,
+  ],
+  [CANCEL_COOPERATIVE_PROPOSAL_ACTION]: [
+    // Note: Initiator can cancel regardless of whose turn it is
+    validateProposalExistsForCancel,
+    validatePlayerIsInitiator,
   ],
 };
 

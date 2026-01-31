@@ -844,6 +844,7 @@ playedCardFromHandThisTurn: false,
       healingPoints: 0,
       removedCards: [],
       isResting: false,
+      roundOrderTokenFlipped: false,
     };
 
     return { player, rng: newRng };

@@ -146,6 +146,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     healingPoints: 0,
     removedCards: [],
     isResting: false,
+    roundOrderTokenFlipped: false,
     ...rest,
   };
 }
