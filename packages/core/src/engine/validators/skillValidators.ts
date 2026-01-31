@@ -32,13 +32,14 @@ import {
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 import { CARD_WOUND } from "@mage-knight/shared";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Validates that the player has learned the skill they're trying to use.
  */
 export const validateSkillLearned: Validator = (state, playerId, action) => {
   const useSkillAction = action as UseSkillAction;
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
 
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
@@ -59,7 +60,7 @@ export const validateSkillLearned: Validator = (state, playerId, action) => {
  */
 export const validateSkillCooldown: Validator = (state, playerId, action) => {
   const useSkillAction = action as UseSkillAction;
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
 
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
@@ -151,7 +152,7 @@ export const validateSkillRequirements: Validator = (
   action
 ) => {
   const useSkillAction = action as UseSkillAction;
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
 
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");

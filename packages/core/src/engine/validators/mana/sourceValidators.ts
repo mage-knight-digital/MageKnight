@@ -31,6 +31,7 @@ import {
   POWERED_WITHOUT_MANA,
   PLAYER_NOT_FOUND,
 } from "../validationCodes.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Validate that mana source is available and valid
@@ -61,7 +62,7 @@ export function validateManaAvailable(
     return valid(); // Shouldn't happen, but satisfy TypeScript
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }

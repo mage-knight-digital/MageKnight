@@ -14,6 +14,7 @@ import {
   CHOICE_PENDING,
   TACTIC_DECISION_PENDING,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Validates that the player has a pending choice to resolve.
@@ -23,7 +24,7 @@ export function validateHasPendingChoice(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
@@ -47,7 +48,7 @@ export function validateChoiceIndex(
     return invalid(INVALID_CHOICE_INDEX, "Invalid resolve choice action");
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.pendingChoice) {
     return invalid(NO_PENDING_CHOICE, "No choice pending");
   }
@@ -74,7 +75,7 @@ export function validateNoChoicePending(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (player?.pendingChoice) {
     return invalid(CHOICE_PENDING, "Must resolve pending choice first");
   }
@@ -90,7 +91,7 @@ export function validateNoTacticDecisionPending(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (player?.pendingTacticDecision) {
     return invalid(TACTIC_DECISION_PENDING, "Must resolve pending tactic decision first");
   }

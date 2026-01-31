@@ -31,6 +31,7 @@ import { getCard } from "../../validActions/cards/index.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { getAvailableManaSourcesForColor } from "../../validActions/mana.js";
 import type { Player } from "../../../types/player.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Helper to get card id from play card action.
@@ -135,7 +136,7 @@ export const createPlayCardCommandFromAction: CommandFactory = (
   const details = getPlayCardDetails(action);
   if (!details) return null;
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return null;
 
   const handIndex = player.hand.indexOf(cardId);
@@ -207,7 +208,7 @@ export const createPlayCardSidewaysCommandFromAction: CommandFactory = (
   const sidewaysChoice = getSidewaysChoice(action);
   if (!sidewaysChoice) return null;
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return null;
 
   const handIndex = player.hand.indexOf(cardId);
@@ -234,7 +235,7 @@ export const createResolveChoiceCommandFromAction: CommandFactory = (
   const choiceIndex = getChoiceIndexFromAction(action);
   if (choiceIndex === null) return null;
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.pendingChoice) return null;
 
   return createResolveChoiceCommand({

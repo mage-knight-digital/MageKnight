@@ -18,6 +18,7 @@ import {
   LEVEL_UP_REWARDS_PENDING,
 } from "./validationCodes.js";
 import { CHOOSE_LEVEL_UP_REWARDS_ACTION, type SkillId, type CardId } from "@mage-knight/shared";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Validates that the player has pending level up rewards.
@@ -28,7 +29,7 @@ export const validateHasPendingLevelUpRewards: Validator = (
   playerId,
   _action
 ) => {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return valid(); // Let other validators catch this
   }
@@ -55,7 +56,7 @@ export const validateLevelInPendingRewards: Validator = (
     return valid();
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return valid();
   }
@@ -82,7 +83,7 @@ export const validateSkillAvailable: Validator = (state, playerId, action) => {
     return valid();
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return valid();
   }
@@ -126,7 +127,7 @@ export const validateSkillNotAlreadyOwned: Validator = (
     return valid();
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return valid();
   }
@@ -172,7 +173,7 @@ export const validateNoPendingLevelUpRewards: Validator = (
   playerId,
   _action
 ) => {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return valid();
   }

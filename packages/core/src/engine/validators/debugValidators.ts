@@ -8,6 +8,7 @@ import type { Validator } from "./types.js";
 import { valid, invalid } from "./types.js";
 import { DEV_MODE_REQUIRED, NO_PENDING_LEVEL_UPS } from "./validationCodes.js";
 import type { GameState } from "../../state/GameState.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 // Type declaration for Node.js-like process global
 declare const process: { env?: { NODE_ENV?: string } } | undefined;
@@ -50,7 +51,7 @@ export const validateHasPendingLevelUps: Validator = (
   playerId: string,
   _action
 ) => {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return valid(); // Let turn validators handle this
   }

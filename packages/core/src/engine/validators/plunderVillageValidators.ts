@@ -11,6 +11,7 @@ import { PLUNDER_VILLAGE_ACTION, hexKey } from "@mage-knight/shared";
 import { valid, invalid } from "./types.js";
 import { NOT_AT_VILLAGE, ALREADY_PLUNDERED, ALREADY_ACTED, ALREADY_MOVED } from "./validationCodes.js";
 import { SiteType } from "../../types/map.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Must be at a village site
@@ -22,7 +23,7 @@ export function validateAtVillage(
 ): ValidationResult {
   if (action.type !== PLUNDER_VILLAGE_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.position) {
     return invalid(NOT_AT_VILLAGE, "You are not at a village");
   }
@@ -45,7 +46,7 @@ export function validateBeforeTurnForPlunder(
 ): ValidationResult {
   if (action.type !== PLUNDER_VILLAGE_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return valid();
 
   if (player.hasTakenActionThisTurn) {
@@ -69,7 +70,7 @@ export function validateNotAlreadyPlundered(
 ): ValidationResult {
   if (action.type !== PLUNDER_VILLAGE_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return valid();
 
   if (player.hasPlunderedThisTurn) {

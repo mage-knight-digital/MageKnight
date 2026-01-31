@@ -22,6 +22,7 @@ import {
 } from "@mage-knight/shared";
 import { SiteType } from "../../../types/map.js";
 import type { NextPlayerResult, NextPlayerSetupResult } from "./types.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Determine what happens after the current player's turn ends.
@@ -53,7 +54,7 @@ export function determineNextPlayer(
   }
 
   // Check for extra turn (The Right Moment tactic)
-  const currentPlayer = state.players.find((p) => p.id === playerId);
+  const currentPlayer = getPlayerById(state, playerId);
   const hasExtraTurnPending = currentPlayer?.tacticState?.extraTurnPending === true;
 
   let nextPlayerId: string | null = null;

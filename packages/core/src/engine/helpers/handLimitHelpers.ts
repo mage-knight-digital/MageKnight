@@ -8,6 +8,7 @@
 import type { GameState } from "../../state/GameState.js";
 import { SiteType } from "../../types/map.js";
 import { STARTING_HAND_LIMIT, hexKey, getAllNeighbors, TACTIC_PLANNING } from "@mage-knight/shared";
+import { getPlayerById } from "./playerHelpers.js";
 
 const PLANNING_MIN_HAND_SIZE_BEFORE_DRAW_FOR_BONUS = 2;
 const PLANNING_HAND_LIMIT_BONUS = 1;
@@ -31,7 +32,7 @@ export function countOwnedKeeps(state: GameState, playerId: string): number {
  * Check if player is on or adjacent to any keep they own.
  */
 export function isNearOwnedKeep(state: GameState, playerId: string): boolean {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.position) return false;
 
   // Check current hex
@@ -63,7 +64,7 @@ export function getEffectiveHandLimit(
   state: GameState,
   playerId: string
 ): number {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return STARTING_HAND_LIMIT; // Fallback
 
   let handLimit = player.handLimit;
@@ -95,7 +96,7 @@ export function getEndTurnDrawLimit(
   let limit = getEffectiveHandLimit(state, playerId);
 
   // Planning tactic: +1 if hand size >= 2 before drawing
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (
     player?.selectedTactic === TACTIC_PLANNING &&
     currentHandSize >= PLANNING_MIN_HAND_SIZE_BEFORE_DRAW_FOR_BONUS

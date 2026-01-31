@@ -29,6 +29,7 @@ import { createResolveGladeWoundCommand } from "../resolveGladeWoundCommand.js";
 import { createResolveDeepMineChoiceCommand } from "../resolveDeepMineChoiceCommand.js";
 import { createBurnMonasteryCommand } from "../burnMonasteryCommand.js";
 import { createPlunderVillageCommand } from "../plunderVillageCommand.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Helper to get glade wound choice from action.
@@ -65,7 +66,7 @@ export const createInteractCommandFromAction: CommandFactory = (
 ) => {
   if (action.type !== INTERACT_ACTION) return null;
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return null;
 
   // For now, influence must be calculated from player's influencePoints

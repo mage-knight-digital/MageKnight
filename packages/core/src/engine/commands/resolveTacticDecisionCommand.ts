@@ -36,6 +36,7 @@ import {
 import { RESOLVE_TACTIC_DECISION_COMMAND } from "./commandTypes.js";
 import { shuffleWithRng } from "../../utils/rng.js";
 import { getTacticCard } from "../../data/tactics.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 export { RESOLVE_TACTIC_DECISION_COMMAND };
 
@@ -52,7 +53,7 @@ function validateResolution(
   playerId: string,
   decision: ResolveTacticDecisionPayload
 ): string | null {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return "Player not found";
   }
@@ -183,7 +184,7 @@ export function createResolveTacticDecisionCommand(
       }
 
       // Find the player
-      const player = state.players.find((p) => p.id === playerId);
+      const player = getPlayerById(state, playerId);
       if (!player) {
         return { state, events };
       }

@@ -20,6 +20,7 @@ import { EFFECT_MANA_DRAW_SET_COLOR, EFFECT_RESOLVE_BOOST_TARGET } from "../../t
 import { getCard } from "../validActions/cards/index.js";
 import { addBonusToEffect } from "./cardBoostEffects.js";
 import { reverseEffect } from "./reverse.js";
+import { getPlayerIndexById } from "../helpers/playerHelpers.js";
 
 // === Undo Context Types (Discriminated Union) ===
 
@@ -146,7 +147,7 @@ export function applyUndoContext(
       );
 
       // Remove the mana tokens that were gained
-      const playerIndex = state.players.findIndex((p) => p.id === playerId);
+      const playerIndex = getPlayerIndexById(state, playerId);
       if (playerIndex === -1) {
         return { ...state, source: { ...state.source, dice: updatedDice } };
       }
@@ -189,7 +190,7 @@ export function applyUndoContext(
 
     case EFFECT_RESOLVE_BOOST_TARGET: {
       // 1. Reverse the boosted effect (removes move points, attack, etc.)
-      const playerIndex = state.players.findIndex((p) => p.id === playerId);
+      const playerIndex = getPlayerIndexById(state, playerId);
       if (playerIndex === -1) {
         return state;
       }

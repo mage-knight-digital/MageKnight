@@ -29,6 +29,7 @@ import {
   applyIFeelNoPainEffect,
   removeIFeelNoPainEffect,
 } from "./skills/index.js";
+import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 
 export { USE_SKILL_COMMAND };
 
@@ -149,11 +150,7 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
         throw new Error(`Skill not found: ${skillId}`);
       }
 
-      const playerIndex = state.players.findIndex((p) => p.id === playerId);
-      if (playerIndex === -1) {
-        throw new Error(`Player not found: ${playerId}`);
-      }
-
+      const playerIndex = getPlayerIndexByIdOrThrow(state, playerId);
       const player = state.players[playerIndex];
       if (!player) {
         throw new Error(`Player not found at index: ${playerIndex}`);
@@ -192,11 +189,7 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
         throw new Error(`Skill not found: ${skillId}`);
       }
 
-      const playerIndex = state.players.findIndex((p) => p.id === playerId);
-      if (playerIndex === -1) {
-        throw new Error(`Player not found: ${playerId}`);
-      }
-
+      const playerIndex = getPlayerIndexByIdOrThrow(state, playerId);
       const player = state.players[playerIndex];
       if (!player) {
         throw new Error(`Player not found at index: ${playerIndex}`);

@@ -9,6 +9,7 @@ import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { GameEvent } from "@mage-knight/shared";
 import { getLevelsCrossed, createFameGainedEvent } from "@mage-knight/shared";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 export const DEBUG_ADD_FAME_COMMAND = "DEBUG_ADD_FAME" as const;
 
@@ -32,7 +33,7 @@ export function createDebugAddFameCommand(
     isReversible: true, // Can undo this
 
     execute(state: GameState): CommandResult {
-      const player = state.players.find((p) => p.id === playerId);
+      const player = getPlayerById(state, playerId);
       if (!player) {
         return { state, events: [] };
       }
@@ -74,7 +75,7 @@ export function createDebugAddFameCommand(
         return { state, events: [] };
       }
 
-      const player = state.players.find((p) => p.id === playerId);
+      const player = getPlayerById(state, playerId);
       if (!player) {
         return { state, events: [] };
       }

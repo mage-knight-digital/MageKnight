@@ -45,6 +45,7 @@ import {
   SLOW_RECOVERY_NO_DISCARD_ALLOWED,
   CANNOT_REST_AFTER_MOVING,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Helper to check if a card is a wound
@@ -86,7 +87,7 @@ export function validateRestCardsInHand(
 ): ValidationResult {
   if (action.type !== REST_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   for (const cardId of action.discardCardIds) {
@@ -138,7 +139,7 @@ export function validateSlowRecovery(
   if (action.type !== REST_ACTION) return valid();
   if (action.restType !== REST_TYPE_SLOW_RECOVERY) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   // Hand must contain ONLY wounds
@@ -184,7 +185,7 @@ export function validateNotAlreadyResting(
 ): ValidationResult {
   if (action.type !== DECLARE_REST_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.isResting) {
@@ -206,7 +207,7 @@ export function validateNotMovedForRest(
 ): ValidationResult {
   if (action.type !== DECLARE_REST_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.hasMovedThisTurn) {
@@ -229,7 +230,7 @@ export function validateIsResting(
 ): ValidationResult {
   if (action.type !== COMPLETE_REST_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (!player.isResting) {
@@ -253,7 +254,7 @@ export function validateCompleteRestDiscard(
 ): ValidationResult {
   if (action.type !== COMPLETE_REST_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   // Check if all cards in discard selection are in hand
@@ -324,7 +325,7 @@ export function validateNotRestingForMovement(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.isResting) {
@@ -342,7 +343,7 @@ export function validateNotRestingForCombat(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.isResting) {
@@ -361,7 +362,7 @@ export function validateNotRestingForInteraction(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.isResting) {
@@ -379,7 +380,7 @@ export function validateNotRestingForEnterSite(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.isResting) {
@@ -397,7 +398,7 @@ export function validateRestCompleted(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.isResting) {

@@ -24,6 +24,7 @@ import {
   TARGET_NOT_RAMPAGING,
   HEX_NOT_FOUND,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Type guard to extract target hex from action.
@@ -60,7 +61,7 @@ export function validateChallengePlayerOnMap(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
@@ -92,7 +93,7 @@ export function validateNoCombatThisTurn(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
@@ -110,7 +111,7 @@ export function validateAdjacentToTarget(
   playerId: string,
   action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   const target = getChallengeTarget(action);
 
   if (!player?.position || !target) {

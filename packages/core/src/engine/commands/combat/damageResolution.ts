@@ -26,6 +26,7 @@ import {
   createEmptyElementalValues,
 } from "../../../types/player.js";
 import { isAttackResisted, type Resistances } from "../../combat/elementalCalc.js";
+import { getPlayerIndexById } from "../../helpers/playerHelpers.js";
 
 /**
  * Get enemy resistances from their definition.
@@ -163,7 +164,7 @@ export function clearPendingAndAssigned(
     : null;
 
   // Clear player's assigned attack
-  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  const playerIndex = getPlayerIndexById(state, playerId);
   if (playerIndex === -1) {
     return { ...state, combat: updatedCombat };
   }
@@ -207,7 +208,7 @@ export function clearPendingBlock(state: GameState, playerId: string): GameState
     : null;
 
   // Clear player's assigned block tracking
-  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  const playerIndex = getPlayerIndexById(state, playerId);
   if (playerIndex === -1) {
     return { ...state, combat: updatedCombat };
   }
@@ -251,7 +252,7 @@ export function applyFameToPlayer(
     return state;
   }
 
-  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  const playerIndex = getPlayerIndexById(state, playerId);
   if (playerIndex === -1) {
     return state;
   }
@@ -307,7 +308,7 @@ export function applyReputationChange(
     return { state, events: [] };
   }
 
-  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  const playerIndex = getPlayerIndexById(state, playerId);
   if (playerIndex === -1) {
     return { state, events: [] };
   }

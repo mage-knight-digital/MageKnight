@@ -280,6 +280,9 @@ import { handlePayMana } from "./manaPaymentEffects.js";
 // Terrain-based effects
 import { resolveTerrainBasedBlock } from "./terrainEffects.js";
 
+// Player helpers
+import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
+
 // ============================================================================
 // MAIN EFFECT RESOLVER
 // ============================================================================
@@ -313,11 +316,7 @@ export function resolveEffect(
   effect: CardEffect,
   sourceCardId?: string
 ): EffectResolutionResult {
-  const playerIndex = state.players.findIndex((p) => p.id === playerId);
-  if (playerIndex === -1) {
-    throw new Error(`Player not found: ${playerId}`);
-  }
-
+  const playerIndex = getPlayerIndexByIdOrThrow(state, playerId);
   const player = state.players[playerIndex];
   if (!player) {
     throw new Error(`Player not found at index: ${playerIndex}`);

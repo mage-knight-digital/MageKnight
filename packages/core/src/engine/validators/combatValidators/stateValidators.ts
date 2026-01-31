@@ -20,6 +20,7 @@ import {
   NOT_IN_COMBAT,
   ALREADY_COMBATTED,
 } from "../validationCodes.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 // Must not already be in combat
 export function validateNotAlreadyInCombat(
@@ -68,7 +69,7 @@ export function validateOneCombatPerTurn(
 ): ValidationResult {
   if (action.type !== ENTER_COMBAT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return valid();
 
   if (player.hasCombattedThisTurn) {

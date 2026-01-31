@@ -20,6 +20,7 @@ import {
   CARD_NOT_IN_OFFER,
   PENDING_REWARDS_NOT_RESOLVED,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Player must have pending rewards to select one.
@@ -31,7 +32,7 @@ export function validateHasPendingRewards(
 ): ValidationResult {
   if (action.type !== SELECT_REWARD_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.pendingRewards.length === 0) {
@@ -51,7 +52,7 @@ export function validateRewardIndex(
 ): ValidationResult {
   if (action.type !== SELECT_REWARD_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   const { rewardIndex } = action;
@@ -75,7 +76,7 @@ export function validateCardInOffer(
 ): ValidationResult {
   if (action.type !== SELECT_REWARD_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   const { cardId, rewardIndex } = action;
@@ -133,7 +134,7 @@ export function validateNoPendingRewards(
 ): ValidationResult {
   if (action.type !== END_TURN_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.pendingRewards.length > 0) {

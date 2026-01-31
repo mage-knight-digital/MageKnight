@@ -12,6 +12,7 @@ import {
   DEEP_MINE_CHOICE_REQUIRED,
   DEEP_MINE_INVALID_COLOR,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Validate that the player has a pending deep mine choice
@@ -21,7 +22,7 @@ export const validateHasPendingDeepMineChoice: Validator = (
   playerId: string,
   _action: PlayerAction
 ): ValidationResult => {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid("PLAYER_NOT_FOUND", "Player not found");
   }
@@ -45,7 +46,7 @@ export const validateDeepMineColorChoice: Validator = (
     return valid();
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid("PLAYER_NOT_FOUND", "Player not found");
   }

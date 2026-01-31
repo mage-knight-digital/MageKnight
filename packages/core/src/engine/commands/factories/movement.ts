@@ -25,6 +25,7 @@ import { SITE_PROPERTIES } from "../../../data/siteProperties.js";
 import { createMoveCommand } from "../moveCommand.js";
 import { createExploreCommand } from "../exploreCommand.js";
 import { getEffectiveTerrainCost } from "../../modifiers.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Helper to get move target from action.
@@ -82,7 +83,7 @@ export const createMoveCommandFromAction: CommandFactory = (
   playerId,
   action
 ) => {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   const target = getMoveTarget(action);
 
   if (!player?.position || !target) return null;
@@ -123,7 +124,7 @@ export const createExploreCommandFromAction: CommandFactory = (
   const { direction, fromTileCoord } = action;
   if (!direction || !fromTileCoord) return null;
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.position) return null;
 
   // Draw a tile (SIMPLE: take first from countryside, then core)

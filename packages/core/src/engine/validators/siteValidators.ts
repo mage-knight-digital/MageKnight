@@ -18,6 +18,7 @@ import {
 import { getPlayerSite } from "../helpers/siteHelpers.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { SiteType } from "../../types/map.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Must be at an adventure site
@@ -84,7 +85,7 @@ export function validateSiteHasEnemiesOrDraws(
 ): ValidationResult {
   if (action.type !== ENTER_SITE_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.position) return valid();
 
   const hex = state.map.hexes[hexKey(player.position)];

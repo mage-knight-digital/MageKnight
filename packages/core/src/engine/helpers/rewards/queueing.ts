@@ -17,6 +17,7 @@ import {
   REWARD_QUEUED,
 } from "@mage-knight/shared";
 import { grantFameReward, grantCrystalRollReward, grantArtifactReward } from "./handlers.js";
+import { getPlayerById } from "../playerHelpers.js";
 
 /**
  * Queue a site reward for the player to select at end of turn.
@@ -63,7 +64,7 @@ export function queueSiteReward(
   }
 
   // Queue rewards that require player choice
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return { state, events: [] };
   }

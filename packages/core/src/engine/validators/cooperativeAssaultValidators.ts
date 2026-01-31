@@ -50,6 +50,7 @@ import {
   MUST_INVITE_AT_LEAST_ONE,
   INITIATOR_TOKEN_FLIPPED,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Helper to find hexes adjacent to a city of a specific color.
@@ -89,7 +90,7 @@ function isAdjacentToCity(
  * Check if a player has at least one non-wound card in hand.
  */
 function hasNonWoundCard(state: GameState, playerId: string): boolean {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return false;
 
   return player.hand.some((cardId) => cardId !== CARD_WOUND);
@@ -110,7 +111,7 @@ export function validateInitiatorAdjacentToCity(
   if (action.type !== PROPOSE_COOPERATIVE_ASSAULT_ACTION) return valid();
 
   const proposeAction = action as ProposeCooperativeAssaultAction;
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
   if (!player.position) return invalid(PLAYER_NOT_FOUND, "Player is not on the map");
 
@@ -177,7 +178,7 @@ export function validateInitiatorNotActed(
 ): ValidationResult {
   if (action.type !== PROPOSE_COOPERATIVE_ASSAULT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.hasTakenActionThisTurn) {
@@ -200,7 +201,7 @@ export function validateInitiatorTokenNotFlipped(
 ): ValidationResult {
   if (action.type !== PROPOSE_COOPERATIVE_ASSAULT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.roundOrderTokenFlipped) {
@@ -223,7 +224,7 @@ export function validateNoOtherPlayerOnSpace(
 ): ValidationResult {
   if (action.type !== PROPOSE_COOPERATIVE_ASSAULT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
   if (!player.position) return invalid(PLAYER_NOT_FOUND, "Player is not on the map");
 
