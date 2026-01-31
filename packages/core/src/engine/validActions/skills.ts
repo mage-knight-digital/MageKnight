@@ -6,6 +6,7 @@
  * - Skill cooldowns (once per turn, once per round)
  * - Skill usage type (only activatable skills, not passive/interactive)
  * - Combat skills (CATEGORY_COMBAT) only available during combat
+ * - Block skills only available during block phase
  */
 
 import type { GameState } from "../../state/GameState.js";
@@ -19,6 +20,7 @@ import {
   SKILL_TOVAK_SHIELD_MASTERY,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
+import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 
 /**
  * Skills that have effect implementations and can be activated.
@@ -51,6 +53,14 @@ export function getSkillOptions(
     // Combat skills (CATEGORY_COMBAT) are only available during combat
     if (skill.categories.includes(CATEGORY_COMBAT) && !inCombat) {
       continue;
+    }
+
+    // Block skills are only available during block phase
+    const blockSkills = [SKILL_TOVAK_SHIELD_MASTERY];
+    if (blockSkills.includes(skillId)) {
+      if (!state.combat || state.combat.phase !== COMBAT_PHASE_BLOCK) {
+        continue;
+      }
     }
 
     // Check if skill can be activated based on usage type

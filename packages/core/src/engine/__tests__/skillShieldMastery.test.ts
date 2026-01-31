@@ -22,7 +22,7 @@ import { SKILL_TOVAK_SHIELD_MASTERY } from "../../data/skills/index.js";
 import { getValidActions } from "../validActions/index.js";
 import type { CombatState } from "../../types/combat.js";
 import type { EnemyTokenId } from "../../types/enemy.js";
-import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
+import { COMBAT_PHASE_BLOCK, COMBAT_PHASE_ATTACK } from "../../types/combat.js";
 import { ELEMENT_FIRE, ELEMENT_ICE } from "@mage-knight/shared";
 
 function createTestCombat(phase: CombatState["phase"] = COMBAT_PHASE_BLOCK): CombatState {
@@ -48,6 +48,10 @@ function createTestCombat(phase: CombatState["phase"] = COMBAT_PHASE_BLOCK): Com
     woundsThisCombat: 0,
     fameGained: 0,
     pendingBlock: {},
+    pendingDamage: {},
+    allDamageBlockedThisPhase: false,
+    discardEnemiesOnFailure: false,
+    combatContext: "standard",
   };
 }
 
@@ -198,6 +202,34 @@ describe("Shield Mastery skill", () => {
         })
       );
     });
+
+    it("should reject if not in block phase", () => {
+      const player = createTestPlayer({
+        hero: Hero.Tovak,
+        skills: [SKILL_TOVAK_SHIELD_MASTERY],
+        skillCooldowns: {
+          usedThisRound: [],
+          usedThisTurn: [],
+          usedThisCombat: [],
+          activeUntilNextTurn: [],
+        },
+      });
+      const state = createTestGameState({
+        players: [player],
+        combat: createTestCombat(COMBAT_PHASE_ATTACK), // Wrong phase
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_TOVAK_SHIELD_MASTERY,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+    });
   });
 
   describe("pending choice", () => {
@@ -241,14 +273,7 @@ describe("Shield Mastery skill", () => {
           usedThisCombat: [],
           activeUntilNextTurn: [],
         },
-        combatAccumulator: {
-          block: 0,
-          blockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-          blockSources: [],
-          attack: 0,
-          attackElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-          attackSources: [],
-        },
+        // combatAccumulator uses defaults (all zeros) from testHelpers
       });
       const state = createTestGameState({
         players: [player],
@@ -289,14 +314,7 @@ describe("Shield Mastery skill", () => {
           usedThisCombat: [],
           activeUntilNextTurn: [],
         },
-        combatAccumulator: {
-          block: 0,
-          blockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-          blockSources: [],
-          attack: 0,
-          attackElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-          attackSources: [],
-        },
+        // combatAccumulator uses defaults (all zeros) from testHelpers
       });
       const state = createTestGameState({
         players: [player],
@@ -334,14 +352,7 @@ describe("Shield Mastery skill", () => {
           usedThisCombat: [],
           activeUntilNextTurn: [],
         },
-        combatAccumulator: {
-          block: 0,
-          blockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-          blockSources: [],
-          attack: 0,
-          attackElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
-          attackSources: [],
-        },
+        // combatAccumulator uses defaults (all zeros) from testHelpers
       });
       const state = createTestGameState({
         players: [player],
@@ -479,6 +490,34 @@ describe("Shield Mastery skill", () => {
       const state = createTestGameState({
         players: [player],
         combat: createTestCombat(),
+      });
+
+      const validActions = getValidActions(state, "player1");
+
+      // Either skills is undefined or Shield Mastery is not in the list
+      if (validActions.skills) {
+        expect(validActions.skills.activatable).not.toContainEqual(
+          expect.objectContaining({
+            skillId: SKILL_TOVAK_SHIELD_MASTERY,
+          })
+        );
+      }
+    });
+
+    it("should not show skill in valid actions when not in block phase", () => {
+      const player = createTestPlayer({
+        hero: Hero.Tovak,
+        skills: [SKILL_TOVAK_SHIELD_MASTERY],
+        skillCooldowns: {
+          usedThisRound: [],
+          usedThisTurn: [],
+          usedThisCombat: [],
+          activeUntilNextTurn: [],
+        },
+      });
+      const state = createTestGameState({
+        players: [player],
+        combat: createTestCombat(COMBAT_PHASE_ATTACK), // Wrong phase
       });
 
       const validActions = getValidActions(state, "player1");

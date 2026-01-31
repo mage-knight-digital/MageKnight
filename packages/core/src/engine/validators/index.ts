@@ -296,6 +296,7 @@ import {
   validateSkillLearned,
   validateSkillCooldown,
   validateCombatSkillInCombat,
+  validateBlockSkillInBlockPhase,
 } from "./skillValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
@@ -693,6 +694,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateSkillLearned,
     validateSkillCooldown,
     validateCombatSkillInCombat,
+    validateBlockSkillInBlockPhase,
   ],
 };
 

@@ -5,6 +5,7 @@
  * - Skill is learned
  * - Skill is not on cooldown
  * - Combat skills are only usable in combat
+ * - Block skills are only usable during block phase
  */
 
 import type { Validator } from "./types.js";
@@ -16,13 +17,16 @@ import {
   SKILL_NOT_FOUND,
   SKILL_ON_COOLDOWN,
   NOT_IN_COMBAT,
+  WRONG_COMBAT_PHASE,
 } from "./validationCodes.js";
 import {
   SKILLS,
   SKILL_USAGE_ONCE_PER_TURN,
   SKILL_USAGE_ONCE_PER_ROUND,
+  SKILL_TOVAK_SHIELD_MASTERY,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
+import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 
 /**
  * Validates that the player has learned the skill they're trying to use.
@@ -102,6 +106,29 @@ export const validateCombatSkillInCombat: Validator = (state, _playerId, action)
       return invalid(
         NOT_IN_COMBAT,
         `${skill.name} can only be used during combat`
+      );
+    }
+  }
+
+  return valid();
+};
+
+/**
+ * Validates that block skills are only used during the block phase.
+ * Shield Mastery provides block, so it can only be used in block phase.
+ */
+export const validateBlockSkillInBlockPhase: Validator = (state, _playerId, action) => {
+  const useSkillAction = action as UseSkillAction;
+
+  // Skills that provide block can only be used during block phase
+  const blockSkills = [SKILL_TOVAK_SHIELD_MASTERY];
+
+  if (blockSkills.includes(useSkillAction.skillId)) {
+    if (!state.combat || state.combat.phase !== COMBAT_PHASE_BLOCK) {
+      const skill = SKILLS[useSkillAction.skillId];
+      return invalid(
+        WRONG_COMBAT_PHASE,
+        `${skill?.name ?? useSkillAction.skillId} can only be used during the block phase`
       );
     }
   }
