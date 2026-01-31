@@ -17,6 +17,7 @@
  * - Orc Summoners - Summon brown dungeon enemies
  * - Centaur Outriders - Swift Elementalist cavalry
  * - Orc Skirmishers - Multiple attacks (1, 1)
+ * - Orc War Beasts - Brutal beasts with fire/ice resistance
  */
 
 import { ELEMENT_PHYSICAL } from "../elements.js";
@@ -31,8 +32,9 @@ import {
   ABILITY_SWIFT,
   ABILITY_BRUTAL,
   ABILITY_SUMMON,
+  ABILITY_UNFORTIFIED,
 } from "./abilities.js";
-import { RESIST_PHYSICAL } from "./resistances.js";
+import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
 // =============================================================================
 // GREEN ENEMY ID CONSTANTS
@@ -46,6 +48,7 @@ export const ENEMY_IRONCLADS = "ironclads" as const;
 export const ENEMY_ORC_SUMMONERS = "orc_summoners" as const;
 export const ENEMY_CENTAUR_OUTRIDERS = "centaur_outriders" as const;
 export const ENEMY_ORC_SKIRMISHERS = "orc_skirmishers" as const;
+export const ENEMY_ORC_WAR_BEASTS = "orc_war_beasts" as const;
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -58,7 +61,8 @@ export type GreenEnemyId =
   | typeof ENEMY_IRONCLADS
   | typeof ENEMY_ORC_SUMMONERS
   | typeof ENEMY_CENTAUR_OUTRIDERS
-  | typeof ENEMY_ORC_SKIRMISHERS;
+  | typeof ENEMY_ORC_SKIRMISHERS
+  | typeof ENEMY_ORC_WAR_BEASTS;
 
 // =============================================================================
 // GREEN ENEMY DEFINITIONS
@@ -157,6 +161,17 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
       { damage: 1, element: ELEMENT_PHYSICAL },
       { damage: 1, element: ELEMENT_PHYSICAL },
     ],
+  },
+  [ENEMY_ORC_WAR_BEASTS]: {
+    id: ENEMY_ORC_WAR_BEASTS,
+    name: "Orc War Beasts",
+    color: ENEMY_COLOR_GREEN,
+    attack: 3,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 5,
+    fame: 3,
+    resistances: [RESIST_FIRE, RESIST_ICE],
+    abilities: [ABILITY_UNFORTIFIED, ABILITY_BRUTAL],
   },
 };
 
