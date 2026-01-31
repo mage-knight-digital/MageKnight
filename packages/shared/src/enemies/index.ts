@@ -160,12 +160,13 @@ export {
   ENEMY_ICE_MAGES,
   ENEMY_FIRE_MAGES,
   ENEMY_ICE_GOLEMS,
-  ENEMY_FIRE_GOLEM,
+  ENEMY_FIRE_GOLEMS,
   ENEMY_SORCERERS,
   ENEMY_MAGIC_FAMILIARS,
   VIOLET_ENEMIES,
   ENEMY_FIRE_MAGE, // Test alias
   ENEMY_ICE_GOLEM, // Test alias
+  ENEMY_FIRE_GOLEM, // Test alias
 } from "./violet.js";
 
 // White (City garrison)

@@ -44,7 +44,7 @@ export const ENEMY_ILLUSIONISTS = "illusionists" as const;
 export const ENEMY_ICE_MAGES = "ice_mages" as const;
 export const ENEMY_FIRE_MAGES = "fire_mages" as const;
 export const ENEMY_ICE_GOLEMS = "ice_golems" as const;
-export const ENEMY_FIRE_GOLEM = "fire_golem" as const;
+export const ENEMY_FIRE_GOLEMS = "fire_golems" as const;
 export const ENEMY_SORCERERS = "sorcerers" as const;
 export const ENEMY_MAGIC_FAMILIARS = "magic_familiars" as const;
 
@@ -57,7 +57,7 @@ export type VioletEnemyId =
   | typeof ENEMY_ICE_MAGES
   | typeof ENEMY_FIRE_MAGES
   | typeof ENEMY_ICE_GOLEMS
-  | typeof ENEMY_FIRE_GOLEM
+  | typeof ENEMY_FIRE_GOLEMS
   | typeof ENEMY_SORCERERS
   | typeof ENEMY_MAGIC_FAMILIARS;
 
@@ -121,9 +121,9 @@ export const VIOLET_ENEMIES: Record<VioletEnemyId, EnemyDefinition> = {
     resistances: [RESIST_ICE, RESIST_PHYSICAL],
     abilities: [ABILITY_PARALYZE],
   },
-  [ENEMY_FIRE_GOLEM]: {
-    id: ENEMY_FIRE_GOLEM,
-    name: "Fire Golem",
+  [ENEMY_FIRE_GOLEMS]: {
+    id: ENEMY_FIRE_GOLEMS,
+    name: "Fire Golems",
     color: ENEMY_COLOR_VIOLET,
     attack: 3,
     attackElement: ELEMENT_FIRE,
@@ -173,3 +173,8 @@ export const ENEMY_FIRE_MAGE = ENEMY_FIRE_MAGES;
  * @deprecated Use ENEMY_ICE_GOLEMS directly
  */
 export const ENEMY_ICE_GOLEM = ENEMY_ICE_GOLEMS;
+
+/**
+ * @deprecated Use ENEMY_FIRE_GOLEMS directly
+ */
+export const ENEMY_FIRE_GOLEM = ENEMY_FIRE_GOLEMS;
