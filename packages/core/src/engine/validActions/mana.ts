@@ -15,7 +15,7 @@ import {
   MANA_GOLD,
 } from "@mage-knight/shared";
 import { isRuleActive } from "../modifiers.js";
-import { RULE_EXTRA_SOURCE_DIE } from "../../types/modifierConstants.js";
+import { RULE_EXTRA_SOURCE_DIE, RULE_SOURCE_BLOCKED } from "../../types/modifierConstants.js";
 
 /**
  * Get available mana options for a player.
@@ -44,8 +44,10 @@ export function getManaOptions(
   // Check if player can use the mana source:
   // - If they haven't used it yet this turn, OR
   // - If they have used it once but have the "extra source die" rule active (Mana Draw)
+  // - AND source is not blocked (e.g., by "Who Needs Magic?" skill for +3 bonus)
   const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
-  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+  const isSourceBlocked = isRuleActive(state, player.id, RULE_SOURCE_BLOCKED);
+  const canUseSource = !isSourceBlocked && (!player.usedManaFromSource || hasExtraSourceDie);
 
   if (canUseSource) {
     for (const die of state.source.dice) {
@@ -130,8 +132,10 @@ export function canPayForMana(
 
   // Check mana source dice
   // Player can use source if they haven't used it yet, OR if they have the extra source die rule
+  // AND source is not blocked (e.g., by "Who Needs Magic?" skill for +3 bonus)
   const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
-  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+  const isSourceBlocked = isRuleActive(state, player.id, RULE_SOURCE_BLOCKED);
+  const canUseSource = !isSourceBlocked && (!player.usedManaFromSource || hasExtraSourceDie);
 
   if (canUseSource) {
     for (const die of state.source.dice) {
@@ -250,8 +254,10 @@ function countManaSourcesForColor(
   }
 
   // Check source dice (only count if player can use source)
+  // AND source is not blocked (e.g., by "Who Needs Magic?" skill for +3 bonus)
   const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
-  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+  const isSourceBlocked = isRuleActive(state, player.id, RULE_SOURCE_BLOCKED);
+  const canUseSource = !isSourceBlocked && (!player.usedManaFromSource || hasExtraSourceDie);
 
   if (canUseSource) {
     for (const die of state.source.dice) {
@@ -322,8 +328,10 @@ export function getAvailableManaSourcesForColor(
   }
 
   // Check source dice
+  // AND source is not blocked (e.g., by "Who Needs Magic?" skill for +3 bonus)
   const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
-  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+  const isSourceBlocked = isRuleActive(state, player.id, RULE_SOURCE_BLOCKED);
+  const canUseSource = !isSourceBlocked && (!player.usedManaFromSource || hasExtraSourceDie);
 
   if (canUseSource) {
     for (const die of state.source.dice) {

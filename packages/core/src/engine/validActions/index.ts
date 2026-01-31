@@ -38,6 +38,7 @@ import { getTacticsOptions, getTacticEffectsOptions, getPendingTacticDecision } 
 import { getGladeWoundOptions, getDeepMineOptions } from "./pending.js";
 import { getChallengeOptions } from "./challenge.js";
 import { getCooperativeAssaultOptions } from "./cooperativeAssault.js";
+import { getSkillOptions } from "./skills.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -92,6 +93,7 @@ export function getValidActions(
       deepMine: undefined,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
+      skills: undefined,
     };
   }
 
@@ -121,6 +123,7 @@ export function getValidActions(
         deepMine: undefined,
         levelUpRewards: undefined,
         cooperativeAssault: undefined,
+        skills: undefined,
       };
     }
 
@@ -143,6 +146,7 @@ export function getValidActions(
       deepMine: undefined,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
+      skills: undefined,
     };
   }
 
@@ -177,6 +181,7 @@ export function getValidActions(
       deepMine: undefined,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
+      skills: undefined,
     };
   }
 
@@ -211,6 +216,7 @@ export function getValidActions(
       deepMine: deepMineOptions,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
+      skills: undefined,
     };
   }
 
@@ -251,6 +257,7 @@ export function getValidActions(
           availableAAs: state.offers.advancedActions.cards,
         },
         cooperativeAssault: undefined,
+        skills: undefined,
       };
     }
   }
@@ -286,6 +293,7 @@ export function getValidActions(
       deepMine: undefined,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
+      skills: undefined,
     };
   }
 
@@ -324,6 +332,7 @@ export function getValidActions(
         deepMine: undefined,
         levelUpRewards: undefined,
         cooperativeAssault: undefined,
+        skills: getSkillOptions(state, player),
       };
     }
   }
@@ -351,5 +360,6 @@ export function getValidActions(
     deepMine: undefined,
     levelUpRewards: undefined,
     cooperativeAssault: getCooperativeAssaultOptions(state, player),
+    skills: getSkillOptions(state, player),
   };
 }
