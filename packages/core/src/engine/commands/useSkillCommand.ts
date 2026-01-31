@@ -19,12 +19,15 @@ import {
   SKILL_USAGE_ONCE_PER_ROUND,
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
+  SKILL_TOVAK_I_FEEL_NO_PAIN,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
   removeWhoNeedsMagicEffect,
   applyShieldMasteryEffect,
   removeShieldMasteryEffect,
+  applyIFeelNoPainEffect,
+  removeIFeelNoPainEffect,
 } from "./skills/index.js";
 
 export { USE_SKILL_COMMAND };
@@ -50,6 +53,9 @@ function applySkillEffect(
     case SKILL_TOVAK_SHIELD_MASTERY:
       return applyShieldMasteryEffect(state, playerId);
 
+    case SKILL_TOVAK_I_FEEL_NO_PAIN:
+      return applyIFeelNoPainEffect(state, playerId);
+
     default:
       // Skill has no implemented effect yet
       return state;
@@ -71,6 +77,9 @@ function removeSkillEffect(
 
     case SKILL_TOVAK_SHIELD_MASTERY:
       return removeShieldMasteryEffect(state, playerId);
+
+    case SKILL_TOVAK_I_FEEL_NO_PAIN:
+      return removeIFeelNoPainEffect(state, playerId);
 
     default:
       return state;

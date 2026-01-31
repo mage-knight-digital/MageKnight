@@ -6,6 +6,7 @@
  * - Skill is not on cooldown
  * - Combat skills are only usable in combat
  * - Block skills are only usable during block phase
+ * - Skill-specific requirements are met
  */
 
 import type { Validator } from "./types.js";
@@ -18,15 +19,19 @@ import {
   SKILL_ON_COOLDOWN,
   NOT_IN_COMBAT,
   WRONG_COMBAT_PHASE,
+  SKILL_REQUIRES_NOT_IN_COMBAT,
+  SKILL_REQUIRES_WOUND_IN_HAND,
 } from "./validationCodes.js";
 import {
   SKILLS,
   SKILL_USAGE_ONCE_PER_TURN,
   SKILL_USAGE_ONCE_PER_ROUND,
   SKILL_TOVAK_SHIELD_MASTERY,
+  SKILL_TOVAK_I_FEEL_NO_PAIN,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
+import { CARD_WOUND } from "@mage-knight/shared";
 
 /**
  * Validates that the player has learned the skill they're trying to use.
@@ -129,6 +134,42 @@ export const validateBlockSkillInBlockPhase: Validator = (state, _playerId, acti
       return invalid(
         WRONG_COMBAT_PHASE,
         `${skill?.name ?? useSkillAction.skillId} can only be used during the block phase`
+      );
+    }
+  }
+
+  return valid();
+};
+
+/**
+ * Validates skill-specific requirements.
+ * Some skills have additional conditions beyond cooldowns.
+ */
+export const validateSkillRequirements: Validator = (
+  state,
+  playerId,
+  action
+) => {
+  const useSkillAction = action as UseSkillAction;
+  const player = state.players.find((p) => p.id === playerId);
+
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
+  // I Feel No Pain: requires not in combat and wound in hand
+  if (useSkillAction.skillId === SKILL_TOVAK_I_FEEL_NO_PAIN) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "I Feel No Pain cannot be used during combat"
+      );
+    }
+
+    if (!player.hand.some((c) => c === CARD_WOUND)) {
+      return invalid(
+        SKILL_REQUIRES_WOUND_IN_HAND,
+        "I Feel No Pain requires a Wound in hand"
       );
     }
   }

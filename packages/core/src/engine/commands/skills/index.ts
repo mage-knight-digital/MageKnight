@@ -14,3 +14,8 @@ export {
   applyShieldMasteryEffect,
   removeShieldMasteryEffect,
 } from "./shieldMasteryEffect.js";
+
+export {
+  applyIFeelNoPainEffect,
+  removeIFeelNoPainEffect,
+} from "./iFeelNoPainEffect.js";

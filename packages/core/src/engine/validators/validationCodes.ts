@@ -220,6 +220,8 @@ export const INITIATOR_TOKEN_FLIPPED = "INITIATOR_TOKEN_FLIPPED" as const;
 export const SKILL_NOT_LEARNED = "SKILL_NOT_LEARNED" as const;
 export const SKILL_NOT_FOUND = "SKILL_NOT_FOUND" as const;
 export const SKILL_ON_COOLDOWN = "SKILL_ON_COOLDOWN" as const;
+export const SKILL_REQUIRES_NOT_IN_COMBAT = "SKILL_REQUIRES_NOT_IN_COMBAT" as const;
+export const SKILL_REQUIRES_WOUND_IN_HAND = "SKILL_REQUIRES_WOUND_IN_HAND" as const;
 
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
@@ -399,4 +401,6 @@ export type ValidationErrorCode =
   // Skill usage validation
   | typeof SKILL_NOT_LEARNED
   | typeof SKILL_NOT_FOUND
-  | typeof SKILL_ON_COOLDOWN;
+  | typeof SKILL_ON_COOLDOWN
+  | typeof SKILL_REQUIRES_NOT_IN_COMBAT
+  | typeof SKILL_REQUIRES_WOUND_IN_HAND;
