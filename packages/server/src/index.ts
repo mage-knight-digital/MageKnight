@@ -163,7 +163,7 @@ export function toClientState(
       monasteryAdvancedActions: state.offers.monasteryAdvancedActions ?? [],
     },
 
-    combat: toClientCombatState(state.combat),
+    combat: toClientCombatState(state.combat, forPlayerId),
 
     // Only show deck counts, not contents
     deckCounts: {
@@ -335,15 +335,31 @@ function toClientRuinsToken(token: RuinsToken): ClientRuinsToken {
 /**
  * Convert core CombatState to ClientCombatState.
  * Extracts enemy details from definitions for client display.
+ *
+ * For cooperative assaults, filters enemies to show only those assigned to the
+ * requesting player. Each player can only see/target their assigned enemies.
+ *
+ * @param combat - The full combat state
+ * @param forPlayerId - The player requesting the state (used for enemy filtering)
  */
 function toClientCombatState(
-  combat: CombatState | null
+  combat: CombatState | null,
+  forPlayerId: string
 ): ClientCombatState | null {
   if (!combat) return null;
 
+  // Filter enemies for cooperative assaults
+  // If no enemy assignments exist (standard combat), show all enemies
+  const visibleEnemies = combat.enemyAssignments
+    ? combat.enemies.filter((enemy) => {
+        const assignedEnemies = combat.enemyAssignments?.[forPlayerId];
+        return assignedEnemies?.includes(enemy.instanceId) ?? false;
+      })
+    : combat.enemies;
+
   return {
     phase: combat.phase,
-    enemies: combat.enemies.map(
+    enemies: visibleEnemies.map(
       (enemy): ClientCombatEnemy => ({
         instanceId: enemy.instanceId,
         enemyId: enemy.enemyId,

@@ -67,3 +67,13 @@ export {
   getElementalValue,
   addToElementalValues,
 } from "./elementalValueHelpers.js";
+
+// Cooperative assault helpers
+export {
+  validateDistributionCounts,
+  distributeEnemies,
+  createInstanceAssignments,
+  getAssignedEnemyInstanceIds,
+  isEnemyAssignedToPlayer,
+} from "./cooperativeAssaultHelpers.js";
+export type { DistributeEnemiesResult } from "./cooperativeAssaultHelpers.js";

@@ -85,15 +85,41 @@ export function getModifiersForPlayer(
 
 /**
  * Get all modifiers targeting a specific enemy.
+ *
+ * For cooperative assaults with enemy assignments, SCOPE_ALL_ENEMIES modifiers
+ * only apply to enemies assigned to the player who created the modifier.
+ * This ensures "affect all enemies" effects are scoped to each player's portion.
  */
 export function getModifiersForEnemy(
   state: GameState,
   enemyId: string
 ): ActiveModifier[] {
+  const combat = state.combat;
+  const enemyAssignments = combat?.enemyAssignments;
+
   return state.activeModifiers.filter((m) => {
-    if (m.scope.type === SCOPE_ONE_ENEMY && m.scope.enemyId === enemyId)
+    // SCOPE_ONE_ENEMY: always applies if enemyId matches
+    if (m.scope.type === SCOPE_ONE_ENEMY && m.scope.enemyId === enemyId) {
       return true;
-    if (m.scope.type === SCOPE_ALL_ENEMIES) return true;
+    }
+
+    // SCOPE_ALL_ENEMIES: needs special handling for cooperative assaults
+    if (m.scope.type === SCOPE_ALL_ENEMIES) {
+      // Standard combat (no assignments): applies to all enemies
+      if (!enemyAssignments) {
+        return true;
+      }
+
+      // Cooperative assault: only applies to enemies assigned to the modifier's creator
+      const creatorId = m.createdByPlayerId;
+      if (!creatorId) {
+        return true; // Fallback: if no creator tracked, apply to all
+      }
+
+      const assignedEnemies = enemyAssignments[creatorId];
+      return assignedEnemies?.includes(enemyId) ?? false;
+    }
+
     return false;
   });
 }

@@ -30,10 +30,21 @@ export type CombatAttackType = CombatType;
 // Combat context - identifies special combat scenarios
 export const COMBAT_CONTEXT_STANDARD = "standard" as const;
 export const COMBAT_CONTEXT_BURN_MONASTERY = "burn_monastery" as const;
+export const COMBAT_CONTEXT_COOPERATIVE_ASSAULT = "cooperative_assault" as const;
 
 export type CombatContext =
   | typeof COMBAT_CONTEXT_STANDARD
-  | typeof COMBAT_CONTEXT_BURN_MONASTERY;
+  | typeof COMBAT_CONTEXT_BURN_MONASTERY
+  | typeof COMBAT_CONTEXT_COOPERATIVE_ASSAULT;
+
+/**
+ * Map of player IDs to the enemy instance IDs assigned to them.
+ * Used in cooperative city assaults where enemies are distributed among players.
+ * Each player can only see/target their assigned enemies.
+ */
+export type EnemyAssignments = {
+  readonly [playerId: string]: readonly string[];
+};
 
 // Elemental damage values for pending damage assignment
 export interface PendingElementalDamage {
@@ -118,6 +129,12 @@ export interface CombatState {
   readonly pendingDamage: PendingDamageMap; // Damage assigned to enemies before resolution
   readonly pendingBlock: PendingBlockMap; // Block assigned to enemies before resolution
   readonly combatContext: CombatContext; // Identifies special combat scenarios (standard, burn_monastery)
+  /**
+   * For cooperative city assaults: maps player IDs to their assigned enemy instance IDs.
+   * When present, each player can only see/target enemies assigned to them.
+   * Undefined for standard single-player combat.
+   */
+  readonly enemyAssignments?: EnemyAssignments;
 }
 
 // Options for special combat rules
@@ -128,6 +145,8 @@ export interface CombatStateOptions {
   readonly combatHexCoord?: HexCoord | null;
   readonly discardEnemiesOnFailure?: boolean;
   readonly combatContext?: CombatContext;
+  /** For cooperative assaults: maps player IDs to enemy instance IDs */
+  readonly enemyAssignments?: EnemyAssignments;
 }
 
 // Input for creating a combat enemy - allows specifying if required for conquest
@@ -161,7 +180,7 @@ export function createCombatState(
       };
     });
 
-  return {
+  const baseState = {
     phase: COMBAT_PHASE_RANGED_SIEGE,
     enemies,
     woundsThisCombat: 0,
@@ -178,4 +197,14 @@ export function createCombatState(
     pendingBlock: {},
     combatContext: options?.combatContext ?? COMBAT_CONTEXT_STANDARD,
   };
+
+  // Only include enemyAssignments if provided (avoids exactOptionalPropertyTypes issues)
+  if (options?.enemyAssignments) {
+    return {
+      ...baseState,
+      enemyAssignments: options.enemyAssignments,
+    };
+  }
+
+  return baseState;
 }
