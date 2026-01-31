@@ -741,6 +741,7 @@ describe("Mana Draw Undo", () => {
       manaDrawDieIds: [],
       pendingChoice: {
         cardId: CARD_MARCH, // Doesn't matter which card for this test
+        skillId: null,
         options: setColorOptions,
       },
     });
@@ -819,6 +820,7 @@ describe("Mana Draw Undo", () => {
       manaDrawDieIds: [],
       pendingChoice: {
         cardId: CARD_MARCH,
+        skillId: null,
         options: setColorOptions,
       },
     });

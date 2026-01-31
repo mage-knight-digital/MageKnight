@@ -18,10 +18,13 @@ import {
   SKILL_USAGE_ONCE_PER_TURN,
   SKILL_USAGE_ONCE_PER_ROUND,
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
+  SKILL_TOVAK_SHIELD_MASTERY,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
   removeWhoNeedsMagicEffect,
+  applyShieldMasteryEffect,
+  removeShieldMasteryEffect,
 } from "./skills/index.js";
 
 export { USE_SKILL_COMMAND };
@@ -44,6 +47,9 @@ function applySkillEffect(
     case SKILL_TOVAK_WHO_NEEDS_MAGIC:
       return applyWhoNeedsMagicEffect(state, playerId);
 
+    case SKILL_TOVAK_SHIELD_MASTERY:
+      return applyShieldMasteryEffect(state, playerId);
+
     default:
       // Skill has no implemented effect yet
       return state;
@@ -62,6 +68,9 @@ function removeSkillEffect(
   switch (skillId) {
     case SKILL_TOVAK_WHO_NEEDS_MAGIC:
       return removeWhoNeedsMagicEffect(state, playerId);
+
+    case SKILL_TOVAK_SHIELD_MASTERY:
+      return removeShieldMasteryEffect(state, playerId);
 
     default:
       return state;

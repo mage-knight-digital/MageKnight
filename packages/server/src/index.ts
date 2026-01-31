@@ -285,6 +285,7 @@ function toClientPendingChoice(
 ): ClientPendingChoice {
   return {
     cardId: choice.cardId,
+    skillId: choice.skillId,
     options: choice.options.map((effect) => ({
       type: effect.type,
       description: describeEffect(effect),

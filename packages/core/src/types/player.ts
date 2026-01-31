@@ -147,9 +147,11 @@ export function getTotalBlock(accumulator: CombatAccumulator): number {
   return accumulator.block;
 }
 
-// Pending choice - when a card requires player selection
+// Pending choice - when a card or skill requires player selection
 export interface PendingChoice {
-  readonly cardId: CardId;
+  // Source of the choice - either a card or a skill (exactly one should be set)
+  readonly cardId: CardId | null;
+  readonly skillId: SkillId | null;
   readonly options: readonly CardEffect[];
 }
 
