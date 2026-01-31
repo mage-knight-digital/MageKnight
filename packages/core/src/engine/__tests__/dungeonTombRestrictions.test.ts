@@ -31,7 +31,7 @@ import type { EnemyId } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
 import type { Site, HexState } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
-import { createEnemyTokenPiles, resetTokenCounter } from "../helpers/enemyHelpers.js";
+import { createEnemyTokenPiles, resetTokenCounter } from "../helpers/enemy/index.js";
 import { createRng } from "../../utils/rng.js";
 import { createCombatState } from "../../types/combat.js";
 import type { Player } from "../../types/player.js";

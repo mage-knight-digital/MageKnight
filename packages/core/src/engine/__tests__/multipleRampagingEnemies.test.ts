@@ -25,7 +25,7 @@ import {
 } from "@mage-knight/shared";
 import { RampagingEnemyType } from "../../types/map.js";
 import type { HexState } from "../../types/map.js";
-import { resetTokenCounter, createEnemyTokenId } from "../helpers/enemyHelpers.js";
+import { resetTokenCounter, createEnemyTokenId } from "../helpers/enemy/index.js";
 import { ENEMY_DIGGERS, ENEMY_WEREWOLF } from "@mage-knight/shared";
 import { getValidMoveTargets } from "../validActions/movement.js";
 

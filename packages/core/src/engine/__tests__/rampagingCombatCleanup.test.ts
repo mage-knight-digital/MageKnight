@@ -35,7 +35,7 @@ import type { HexState } from "../../types/map.js";
 import {
   resetTokenCounter,
   createEnemyTokenId,
-} from "../helpers/enemyHelpers.js";
+} from "../helpers/enemy/index.js";
 
 describe("Rampaging Combat Cleanup", () => {
   let engine: MageKnightEngine;

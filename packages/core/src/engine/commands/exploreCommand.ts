@@ -26,7 +26,7 @@ import type { Player } from "../../types/player.js";
 import { placeTile, TILE_DEFINITIONS } from "../../data/tiles/index.js";
 import { calculateTilePlacement } from "../explore/index.js";
 import { EXPLORE_COMMAND } from "./commandTypes.js";
-import { drawEnemiesForHex } from "../helpers/enemyHelpers.js";
+import { drawEnemiesForHex } from "../helpers/enemy/index.js";
 import {
   countMonasteries,
   drawMonasteryAdvancedAction,

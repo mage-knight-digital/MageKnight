@@ -25,7 +25,7 @@ import {
 import { SiteType } from "../../types/map.js";
 import type { Site } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
-import { resetTokenCounter, createEnemyTokenPiles } from "../helpers/enemyHelpers.js";
+import { resetTokenCounter, createEnemyTokenPiles } from "../helpers/enemy/index.js";
 import { createRng } from "../../utils/rng.js";
 import { COMBAT_CONTEXT_BURN_MONASTERY } from "../../types/combat.js";
 
