@@ -11,6 +11,8 @@ import {
   getLevelsCrossed,
   createReputationChangedEvent,
   REPUTATION_REASON_DEFEAT_ENEMY,
+  MIN_REPUTATION,
+  MAX_REPUTATION,
 } from "@mage-knight/shared";
 import {
   getFinalAttackValue,
@@ -97,6 +99,7 @@ export function createDeclareAttackCommand(
       const events: GameEvent[] = [];
       let fameGained = 0;
       let reputationPenalty = 0;
+      let reputationBonus = 0;
 
       const updatedEnemies = state.combat.enemies.map((e) => {
         if (
@@ -104,9 +107,12 @@ export function createDeclareAttackCommand(
           !e.isDefeated
         ) {
           fameGained += e.definition.fame;
-          // Track reputation penalty if enemy has one (e.g., Heroes)
+          // Track reputation changes from defeated enemies
           if (e.definition.reputationPenalty) {
             reputationPenalty += e.definition.reputationPenalty;
+          }
+          if (e.definition.reputationBonus) {
+            reputationBonus += e.definition.reputationBonus;
           }
           events.push({
             type: ENEMY_DEFEATED,
@@ -133,20 +139,23 @@ export function createDeclareAttackCommand(
       const newFame = player.fame + fameGained;
       const levelsCrossed = getLevelsCrossed(oldFame, newFame);
 
-      // Calculate new reputation (clamped to -7 minimum)
-      const MIN_REPUTATION = -7;
+      // Calculate new reputation (clamped to MIN_REPUTATION and MAX_REPUTATION)
       const oldReputation = player.reputation;
+      const netReputationChange = reputationBonus - reputationPenalty;
       const newReputation =
-        reputationPenalty > 0
-          ? Math.max(MIN_REPUTATION, oldReputation - reputationPenalty)
+        netReputationChange !== 0
+          ? Math.max(
+              MIN_REPUTATION,
+              Math.min(MAX_REPUTATION, oldReputation + netReputationChange)
+            )
           : oldReputation;
 
       // Emit reputation change event if reputation actually changed
-      if (reputationPenalty > 0 && newReputation !== oldReputation) {
+      if (netReputationChange !== 0 && newReputation !== oldReputation) {
         events.push(
           createReputationChangedEvent(
             params.playerId,
-            -reputationPenalty, // delta is negative (reputation lost)
+            newReputation - oldReputation, // actual delta (may differ from net due to clamping)
             newReputation,
             REPUTATION_REASON_DEFEAT_ENEMY
           )
