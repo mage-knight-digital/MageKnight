@@ -16,6 +16,8 @@ import {
   CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
+  CONDITION_NO_UNIT_RECRUITED_THIS_TURN,
+  CONDITION_LOWEST_FAME,
 } from "../../types/conditions.js";
 import { CARD_WOUND, hexKey } from "@mage-knight/shared";
 
@@ -72,6 +74,16 @@ export function evaluateCondition(
 
     case CONDITION_HAS_WOUNDS_IN_HAND:
       return player.hand.some((c) => c === CARD_WOUND);
+
+    case CONDITION_NO_UNIT_RECRUITED_THIS_TURN:
+      return !player.hasRecruitedUnitThisTurn;
+
+    case CONDITION_LOWEST_FAME: {
+      // Check if this player has the lowest (or tied for lowest) fame
+      const playerFame = player.fame;
+      const minFame = Math.min(...state.players.map((p) => p.fame));
+      return playerFame <= minFame;
+    }
 
     default:
       // Exhaustive check - TypeScript ensures all cases are handled

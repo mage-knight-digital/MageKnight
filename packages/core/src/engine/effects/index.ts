@@ -136,6 +136,30 @@ export {
   getSpentUnitsAtOrBelowLevel,
 } from "./unitEffects.js";
 
+// Heal unit effects
+export {
+  handleHealUnit,
+  getWoundedUnitsAtOrBelowLevel,
+  applyHealUnit,
+} from "./healUnitEffects.js";
+
+// Discard effects
+export {
+  handleDiscardCard,
+  getDiscardableCards,
+  applyDiscardCard,
+} from "./discardEffects.js";
+
+// Map effects
+export { handleRevealTiles } from "./mapEffects.js";
+
+// Mana payment effects
+export {
+  handlePayMana,
+  getPayableManaColors,
+  applyPayMana,
+} from "./manaPaymentEffects.js";
+
 // Effect reversal (for undo)
 export { reverseEffect } from "./reverse.js";
 
@@ -176,6 +200,10 @@ import {
   EFFECT_TAKE_WOUND,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
+  EFFECT_HEAL_UNIT,
+  EFFECT_DISCARD_CARD,
+  EFFECT_REVEAL_TILES,
+  EFFECT_PAY_MANA,
   MANA_ANY,
 } from "../../types/effectTypes.js";
 
@@ -232,6 +260,18 @@ import {
 
 // Unit effects
 import { handleReadyUnit } from "./unitEffects.js";
+
+// Heal unit effects
+import { handleHealUnit } from "./healUnitEffects.js";
+
+// Discard effects
+import { handleDiscardCard } from "./discardEffects.js";
+
+// Map effects
+import { handleRevealTiles } from "./mapEffects.js";
+
+// Mana payment effects
+import { handlePayMana } from "./manaPaymentEffects.js";
 
 // ============================================================================
 // MAIN EFFECT RESOLVER
@@ -423,6 +463,22 @@ export function resolveEffect(
 
     case EFFECT_RESOLVE_COMBAT_ENEMY_TARGET:
       return resolveCombatEnemyTarget(state, playerId, effect, sourceCardId);
+
+    // ========================================================================
+    // SKILL-RELATED EFFECTS
+    // ========================================================================
+
+    case EFFECT_HEAL_UNIT:
+      return handleHealUnit(state, playerIndex, player, effect);
+
+    case EFFECT_DISCARD_CARD:
+      return handleDiscardCard(state, playerIndex, player, effect);
+
+    case EFFECT_REVEAL_TILES:
+      return handleRevealTiles(state, player, effect);
+
+    case EFFECT_PAY_MANA:
+      return handlePayMana(state, playerIndex, player, effect);
 
     // ========================================================================
     // UNKNOWN EFFECT TYPE

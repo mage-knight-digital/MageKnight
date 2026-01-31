@@ -51,6 +51,15 @@ export interface SkillCooldowns {
   readonly activeUntilNextTurn: readonly SkillId[];
 }
 
+/**
+ * Tracks the flip state of skills that can be flipped.
+ * Similar to tactics, some skills have a front and back side.
+ * Skills listed here are currently on their flipped (back) side.
+ */
+export interface SkillFlipState {
+  readonly flippedSkills: readonly SkillId[];
+}
+
 export interface Crystals {
   readonly red: number;
   readonly blue: number;
@@ -208,6 +217,7 @@ export interface Player {
   // Skills
   readonly skills: readonly SkillId[];
   readonly skillCooldowns: SkillCooldowns;
+  readonly skillFlipState: SkillFlipState;
 
   // Crystals (max 3 each)
   readonly crystals: Crystals;
@@ -261,6 +271,9 @@ export interface Player {
 
   // Plunder tracking (only one plunder per turn allowed)
   readonly hasPlunderedThisTurn: boolean;
+
+  // Unit recruitment tracking (for "On Her Own" skill condition)
+  readonly hasRecruitedUnitThisTurn: boolean;
 
   // Mana usage tracking (for conditional effects)
   readonly manaUsedThisTurn: readonly ManaColor[];

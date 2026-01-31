@@ -75,3 +75,13 @@ export const EFFECT_TAKE_WOUND = "take_wound" as const;
 export const EFFECT_SELECT_COMBAT_ENEMY = "select_combat_enemy" as const;
 // Internal: resolve effect after enemy selection
 export const EFFECT_RESOLVE_COMBAT_ENEMY_TARGET = "resolve_combat_enemy_target" as const;
+
+// === Skill-Related Effect Types ===
+// Heal a unit (remove wound from unit)
+export const EFFECT_HEAL_UNIT = "heal_unit" as const;
+// Discard a card from hand (with filter options)
+export const EFFECT_DISCARD_CARD = "discard_card" as const;
+// Reveal tiles on the map (e.g., reveal garrisons)
+export const EFFECT_REVEAL_TILES = "reveal_tiles" as const;
+// Pay mana as a cost (for skill activations)
+export const EFFECT_PAY_MANA = "pay_mana" as const;

@@ -16,8 +16,8 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
-  CARD_CATEGORY_SPECIAL,
+  CATEGORY_COMBAT,
+  CATEGORY_SPECIAL,
   DEED_CARD_TYPE_ADVANCED_ACTION,
 } from "../../types/cards.js";
 import {
@@ -53,7 +53,7 @@ export const BOLT_CARDS = {
     name: "Fire Bolt",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_SPECIAL, CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_SPECIAL, CATEGORY_COMBAT],
     // Basic: Gain a red crystal to your Inventory
     // Powered: Ranged Fire Attack 3
     basicEffect: gainCrystal(MANA_RED),
@@ -66,7 +66,7 @@ export const BOLT_CARDS = {
     name: "Ice Bolt",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_SPECIAL, CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_SPECIAL, CATEGORY_COMBAT],
     // Basic: Gain a blue crystal to your Inventory
     // Powered: Ranged Ice Attack 3
     basicEffect: gainCrystal(MANA_BLUE),
@@ -79,7 +79,7 @@ export const BOLT_CARDS = {
     name: "Swift Bolt",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_SPECIAL, CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_SPECIAL, CATEGORY_COMBAT],
     // Basic: Gain a white crystal to your Inventory
     // Powered: Ranged Attack 4
     basicEffect: gainCrystal(MANA_WHITE),
@@ -92,7 +92,7 @@ export const BOLT_CARDS = {
     name: "Crushing Bolt",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_SPECIAL, CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_SPECIAL, CATEGORY_COMBAT],
     // Basic: Gain a green crystal to your Inventory
     // Powered: Siege Attack 3
     basicEffect: gainCrystal(MANA_GREEN),

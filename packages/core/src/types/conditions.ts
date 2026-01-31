@@ -17,6 +17,8 @@ export const CONDITION_BLOCKED_SUCCESSFULLY = "blocked_successfully" as const;
 export const CONDITION_ENEMY_DEFEATED_THIS_COMBAT = "enemy_defeated_this_combat" as const;
 export const CONDITION_MANA_USED_THIS_TURN = "mana_used_this_turn" as const;
 export const CONDITION_HAS_WOUNDS_IN_HAND = "has_wounds_in_hand" as const;
+export const CONDITION_NO_UNIT_RECRUITED_THIS_TURN = "no_unit_recruited_this_turn" as const;
+export const CONDITION_LOWEST_FAME = "lowest_fame" as const;
 
 // === Condition Interfaces ===
 
@@ -56,6 +58,22 @@ export interface HasWoundsInHandCondition {
   readonly type: typeof CONDITION_HAS_WOUNDS_IN_HAND;
 }
 
+/**
+ * True if no unit was recruited this turn.
+ * Used by skills like "Resistance" that only work if no unit was recruited.
+ */
+export interface NoUnitRecruitedThisTurnCondition {
+  readonly type: typeof CONDITION_NO_UNIT_RECRUITED_THIS_TURN;
+}
+
+/**
+ * True if the player has the lowest (or tied for lowest) fame among all players.
+ * Used by skills in multiplayer for catch-up mechanics.
+ */
+export interface LowestFameCondition {
+  readonly type: typeof CONDITION_LOWEST_FAME;
+}
+
 // === Union Type ===
 
 export type EffectCondition =
@@ -66,4 +84,6 @@ export type EffectCondition =
   | BlockedSuccessfullyCondition
   | EnemyDefeatedThisCombatCondition
   | ManaUsedThisTurnCondition
-  | HasWoundsInHandCondition;
+  | HasWoundsInHandCondition
+  | NoUnitRecruitedThisTurnCondition
+  | LowestFameCondition;

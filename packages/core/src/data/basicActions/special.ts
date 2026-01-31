@@ -4,7 +4,7 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_SPECIAL,
+  CATEGORY_SPECIAL,
   DEED_CARD_TYPE_BASIC_ACTION,
   DEED_CARD_TYPE_WOUND,
 } from "../../types/cards.js";
@@ -47,7 +47,7 @@ export const GOLDYX_CRYSTAL_JOY: DeedCard = {
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   // Can be powered by any basic mana color
   poweredBy: [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE],
-  categories: [CARD_CATEGORY_SPECIAL],
+  categories: [CATEGORY_SPECIAL],
   // Basic: Pay mana, gain crystal. At end of turn, may discard non-Wound to return to hand
   // Powered: (same as basic)
   // Note: Crystal manipulation not modeled - placeholder

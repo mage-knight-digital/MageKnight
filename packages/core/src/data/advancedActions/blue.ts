@@ -21,10 +21,10 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
-  CARD_CATEGORY_SPECIAL,
-  CARD_CATEGORY_MOVEMENT,
-  CARD_CATEGORY_INFLUENCE,
+  CATEGORY_COMBAT,
+  CATEGORY_SPECIAL,
+  CATEGORY_MOVEMENT,
+  CATEGORY_INFLUENCE,
   DEED_CARD_TYPE_ADVANCED_ACTION,
 } from "../../types/cards.js";
 import {
@@ -63,7 +63,7 @@ export const BLUE_ADVANCED_ACTIONS = {
     name: "Ice Shield",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Ice Block 3
     // Powered: Ice Block 3. Reduce the Armor of one enemy blocked this way by 3. Armor cannot be reduced below 1.
     // TODO: Implement armor reduction on block
@@ -77,7 +77,7 @@ export const BLUE_ADVANCED_ACTIONS = {
     name: "Frost Bridge",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_MOVEMENT],
+    categories: [CATEGORY_MOVEMENT],
     // Basic: Move 2. The Move cost of swamps is reduced to 1 this turn.
     // Powered: Move 4. You are able to travel through lakes, and the Move cost of lakes and swamps is reduced to 1 this turn.
     // TODO: Implement terrain cost modifier
@@ -91,7 +91,7 @@ export const BLUE_ADVANCED_ACTIONS = {
     name: "Pure Magic",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_INFLUENCE, CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_MOVEMENT, CATEGORY_INFLUENCE, CATEGORY_COMBAT],
     // Basic: When you play this, pay a mana. If you paid green, Move 4. If you paid white, Influence 4. If you paid blue, Block 4. If you paid red, Attack 4.
     // Powered: When you play this, pay a mana. If you paid green, Move 7. If you paid white, Influence 7. If you paid blue, Block 7. If you paid red, Attack 7.
     // TODO: Implement mana-color-dependent effect
@@ -105,7 +105,7 @@ export const BLUE_ADVANCED_ACTIONS = {
     name: "Steady Tempo",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_MOVEMENT],
+    categories: [CATEGORY_MOVEMENT],
     // Basic: Move 2. At the end of your turn, instead of putting this card in your discard pile, you may place it on the bottom of your Deed deck as long as it is not empty.
     // Powered: Move 4. At the end of your turn, instead of putting this card in your discard pile, you may place it on top of your Deed deck.
     // TODO: Implement deck placement modifier
@@ -119,7 +119,7 @@ export const BLUE_ADVANCED_ACTIONS = {
     name: "Crystal Mastery",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: Gain a crystal to your Inventory of the same color as a crystal you already own.
     // Powered: At the end of the turn, any crystals you have spent this turn are returned to your Inventory.
     // TODO: Implement crystal duplication and crystal return mechanic
@@ -133,7 +133,7 @@ export const BLUE_ADVANCED_ACTIONS = {
     name: "Magic Talent",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: Discard a card of any color. You may play one Spell card of the same color in the Spells offer this turn as if it were in your hand. That card remains in the Spells offer.
     // Powered: When you play this, pay a mana of any color. Gain a Spell card of that color from the Spells Offer and put it in your discard pile.
     // TODO: Implement spell offer interaction
@@ -147,7 +147,7 @@ export const BLUE_ADVANCED_ACTIONS = {
     name: "Shield Bash",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Block 3. Counts twice against an attack with Swiftness.
     // Powered: Block 5. Counts twice against an attack with Swiftness. Blocked enemy gets Armor -1 for each point of block higher than needed (to a minimum of 1).
     // TODO: Implement swiftness counter and armor reduction
@@ -161,7 +161,7 @@ export const BLUE_ADVANCED_ACTIONS = {
     name: "Temporal Portal",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: Play as your action for this turn. You may move to an adjacent revealed safe space (without provoking rampaging monsters). Whether you move or not, your Hand limit is higher by 1 the next time you draw cards.
     // Powered: As above, except you can either move two spaces to a revealed safe space instead of one, or get your Hand limit increased by 2 instead of 1.
     // TODO: Implement teleport and hand limit modifier
@@ -175,7 +175,7 @@ export const BLUE_ADVANCED_ACTIONS = {
     name: "Spell Forge",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: Gain one crystal to your Inventory of the same color as one of the Spell cards in the Spells offer.
     // Powered: Gain two crystals to your Inventory of the same colors as two different Spell cards in the Spells offer.
     // TODO: Implement spell offer interaction for crystal gain

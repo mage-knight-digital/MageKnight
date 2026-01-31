@@ -22,11 +22,11 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
-  CARD_CATEGORY_SPECIAL,
-  CARD_CATEGORY_MOVEMENT,
-  CARD_CATEGORY_INFLUENCE,
-  CARD_CATEGORY_HEALING,
+  CATEGORY_COMBAT,
+  CATEGORY_SPECIAL,
+  CATEGORY_MOVEMENT,
+  CATEGORY_INFLUENCE,
+  CATEGORY_HEALING,
   DEED_CARD_TYPE_ADVANCED_ACTION,
 } from "../../types/cards.js";
 import {
@@ -68,7 +68,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "Refreshing Walk",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_HEALING],
+    categories: [CATEGORY_MOVEMENT, CATEGORY_HEALING],
     // Basic: Move 2 and Heal 1. If played during combat, Move 2 only.
     // Powered: Move 4 and Heal 2. If played during combat, Move 4 only.
     // TODO: Implement combat context check
@@ -82,7 +82,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "Path Finding",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_MOVEMENT],
+    categories: [CATEGORY_MOVEMENT],
     // Basic: Move 2. The Move cost of all terrains is reduced by 1, to a minimum of 2, this turn.
     // Powered: Move 4. The Move cost of all terrains is reduced to 2 this turn.
     // TODO: Implement terrain cost modifier
@@ -96,7 +96,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "Regeneration",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_HEALING],
+    categories: [CATEGORY_HEALING],
     // Basic: Heal 1. Ready a Level I or II Unit you control.
     // Powered: Heal 2. Ready a Level I, II or III Unit you control.
     // TODO: Implement unit readying
@@ -110,7 +110,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "In Need",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_INFLUENCE],
+    categories: [CATEGORY_INFLUENCE],
     // Basic: Influence 3. Get an additional Influence 1 for each Wound card in your hand and on Units you control.
     // Powered: Influence 5. Get an additional Influence 2 for each Wound card in your hand and on Units you control.
     // TODO: Implement wound-count scaling
@@ -124,7 +124,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "Ambush",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_MOVEMENT],
+    categories: [CATEGORY_MOVEMENT],
     // Basic: Move 2. Add +1 to your first Attack card of any type or +2 to your first Block card of any type, whichever you play first this turn.
     // Powered: Move 4. Add +2 to your first Attack card of any type or +4 to your first Block card of any type, whichever you play first this turn.
     // TODO: Implement first-card bonus modifier
@@ -138,7 +138,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "Training",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: Throw away an Action card from your hand, then take a card of the same color from the Advanced Actions offer and put it into your discard pile.
     // Powered: Throw away an Action card from your hand, then take a card of the same color from the Advanced Actions offer and put it into your hand.
     // TODO: Implement throw-away and card acquisition
@@ -152,7 +152,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "Stout Resolve",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_INFLUENCE, CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_MOVEMENT, CATEGORY_INFLUENCE, CATEGORY_COMBAT],
     // Basic: Move 2, Influence 2, Attack 2 or Block 2. You may discard a Wound to increase the effect by 1.
     // Powered: Move 3, Influence 3, Attack 3 or Block 3. You may discard any number of cards, including one Wound, to increase the effect by 2 for each.
     // TODO: Implement wound-discard bonus
@@ -166,7 +166,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "Force of Nature",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Chosen Unit gains Physical resistance this combat.
     // Powered: Siege Attack 3 or Block 6
     // TODO: Implement unit resistance modifier
@@ -180,7 +180,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "Mountain Lore",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN],
-    categories: [CARD_CATEGORY_MOVEMENT],
+    categories: [CATEGORY_MOVEMENT],
     // Basic: Move 3. If you end your turn in hills, your Hand limit is higher by 1 the next time you draw cards.
     // Powered: Move 5. You can enter mountains at a Move cost of 5 and they are considered a safe space for you at the end of this turn. If you end your turn in mountains/hills, your Hand limit is higher by 2/1 the next time you draw cards.
     // TODO: Implement terrain-based hand limit modifier
@@ -194,7 +194,7 @@ export const GREEN_ADVANCED_ACTIONS = {
     name: "Power of Crystals",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN, MANA_BLUE], // Dual-color: can be powered by green OR blue
-    categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_HEALING, CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_MOVEMENT, CATEGORY_HEALING, CATEGORY_SPECIAL],
     // Basic: Gain a crystal to your Inventory of a basic color you do not already own.
     // Powered: Move 4, or Heal 2, or draw two cards. For each set of four different color crystals in your Inventory: Move 2, or Heal 1, or draw a card.
     // TODO: Implement crystal-set scaling and card draw

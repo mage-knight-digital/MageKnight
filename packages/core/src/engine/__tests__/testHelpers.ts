@@ -115,6 +115,9 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
       usedThisCombat: [],
       activeUntilNextTurn: [],
     },
+    skillFlipState: {
+      flippedSkills: [],
+    },
     crystals: { red: 0, blue: 0, green: 0, white: 0 },
     selectedTactic: null,
     tacticFlipped: false,
@@ -140,6 +143,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingRewards: [],
     hasCombattedThisTurn: false,
     hasPlunderedThisTurn: false,
+    hasRecruitedUnitThisTurn: false,
     manaUsedThisTurn: [],
     pendingGladeWoundChoice: false,
     pendingDeepMineChoice: null,
