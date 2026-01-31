@@ -8,7 +8,7 @@
 
 import type { DeedCard } from "../types/cards.js";
 import {
-  CARD_CATEGORY_INFLUENCE,
+  CATEGORY_INFLUENCE,
   DEED_CARD_TYPE_ARTIFACT,
 } from "../types/cards.js";
 import { EFFECT_COMPOUND } from "../types/effectTypes.js";
@@ -27,7 +27,7 @@ const ENDLESS_BAG_OF_GOLD: DeedCard = {
   id: CARD_ENDLESS_BAG_OF_GOLD,
   name: "Endless Bag of Gold",
   cardType: DEED_CARD_TYPE_ARTIFACT,
-  categories: [CARD_CATEGORY_INFLUENCE],
+  categories: [CATEGORY_INFLUENCE],
   poweredBy: [MANA_BLACK],
   basicEffect: {
     type: EFFECT_COMPOUND,

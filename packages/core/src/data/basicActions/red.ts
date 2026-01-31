@@ -4,9 +4,9 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
-  CARD_CATEGORY_INFLUENCE,
-  CARD_CATEGORY_MOVEMENT,
+  CATEGORY_COMBAT,
+  CATEGORY_INFLUENCE,
+  CATEGORY_MOVEMENT,
   DEED_CARD_TYPE_BASIC_ACTION,
 } from "../../types/cards.js";
 import { COMBAT_TYPE_MELEE, COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE } from "../../types/effectTypes.js";
@@ -39,7 +39,7 @@ export const RAGE: DeedCard = {
   name: "Rage",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_RED],
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   // Basic: Attack or Block 2 | Powered: Attack 4
   basicEffect: choice(attack(2), block(2)),
   poweredEffect: attack(4),
@@ -51,7 +51,7 @@ export const THREATEN: DeedCard = {
   name: "Threaten",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_RED],
-  categories: [CARD_CATEGORY_INFLUENCE],
+  categories: [CATEGORY_INFLUENCE],
   // Basic: Influence 2 | Powered: Influence 5, Reputation -1
   basicEffect: influence(2),
   poweredEffect: compound(influence(5), changeReputation(-1)),
@@ -63,7 +63,7 @@ export const IMPROVISATION: DeedCard = {
   name: "Improvisation",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_RED],
-  categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_COMBAT, CARD_CATEGORY_INFLUENCE],
+  categories: [CATEGORY_MOVEMENT, CATEGORY_COMBAT, CATEGORY_INFLUENCE],
   // Basic: Discard a card → Move 3, Influence 3, Attack 3, or Block 3
   // Powered: Discard a card → Move 5, Influence 5, Attack 5, or Block 5
   // Note: Discard cost not modeled
@@ -82,7 +82,7 @@ export const ARYTHEA_BATTLE_VERSATILITY: DeedCard = {
   name: "Battle Versatility",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_RED],
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   // Basic: Attack 2, Block 2, or Ranged Attack 1
   // Powered: Attack 4, Block 4, Fire Attack 3, Fire Block 3, Ranged Attack 3, or Siege Attack 2
   basicEffect: choice(attack(2), block(2), attack(1, COMBAT_TYPE_RANGED)),
@@ -105,7 +105,7 @@ export const TOVAK_INSTINCT: DeedCard = {
   name: "Instinct",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_RED],
-  categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_INFLUENCE, CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_MOVEMENT, CATEGORY_INFLUENCE, CATEGORY_COMBAT],
   // Basic: Move 2, Influence 2, Attack 2, or Block 2 (no discard required!)
   // Powered: Move 4, Influence 4, Attack 4, or Block 4
   basicEffect: choice(move(2), influence(2), attack(2), block(2)),
@@ -121,7 +121,7 @@ export const KRANG_RUTHLESS_COERCION: DeedCard = {
   name: "Ruthless Coercion",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_RED],
-  categories: [CARD_CATEGORY_INFLUENCE],
+  categories: [CATEGORY_INFLUENCE],
   // Basic: Influence 2. May get -2 discount to recruit one Unit; if recruited, Reputation -1
   // Powered: Influence 6, Reputation -1. May ready Level I and II Units for 2 Influence/level
   // Note: Recruitment/ready mechanics not modeled

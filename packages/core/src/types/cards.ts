@@ -33,6 +33,10 @@ import {
   EFFECT_TAKE_WOUND,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
+  EFFECT_HEAL_UNIT,
+  EFFECT_DISCARD_CARD,
+  EFFECT_REVEAL_TILES,
+  EFFECT_PAY_MANA,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -46,21 +50,39 @@ export const DEED_CARD_TYPE_SPELL = "spell" as const;
 export const DEED_CARD_TYPE_ARTIFACT = "artifact" as const;
 export const DEED_CARD_TYPE_WOUND = "wound" as const;
 
-// === Card Categories (symbols in top-left corner of card art) ===
-export const CARD_CATEGORY_MOVEMENT = "movement" as const; // foot symbol
-export const CARD_CATEGORY_COMBAT = "combat" as const; // crossed swords symbol
-export const CARD_CATEGORY_INFLUENCE = "influence" as const; // head symbol
-export const CARD_CATEGORY_HEALING = "healing" as const; // hand symbol
-export const CARD_CATEGORY_SPECIAL = "special" as const; // compass/star symbol
-export const CARD_CATEGORY_ACTION = "action" as const; // A symbol (counts as turn action)
+// === Categories (symbols in top-left corner of card/skill art) ===
+// These constants are shared between cards and skills.
+export const CATEGORY_MOVEMENT = "movement" as const; // foot symbol
+export const CATEGORY_COMBAT = "combat" as const; // crossed swords symbol
+export const CATEGORY_INFLUENCE = "influence" as const; // head symbol
+export const CATEGORY_HEALING = "healing" as const; // hand symbol
+export const CATEGORY_SPECIAL = "special" as const; // compass/star symbol
+export const CATEGORY_ACTION = "action" as const; // A symbol (counts as turn action)
 
-export type CardCategory =
-  | typeof CARD_CATEGORY_MOVEMENT
-  | typeof CARD_CATEGORY_COMBAT
-  | typeof CARD_CATEGORY_INFLUENCE
-  | typeof CARD_CATEGORY_HEALING
-  | typeof CARD_CATEGORY_SPECIAL
-  | typeof CARD_CATEGORY_ACTION;
+export type Category =
+  | typeof CATEGORY_MOVEMENT
+  | typeof CATEGORY_COMBAT
+  | typeof CATEGORY_INFLUENCE
+  | typeof CATEGORY_HEALING
+  | typeof CATEGORY_SPECIAL
+  | typeof CATEGORY_ACTION;
+
+// Legacy aliases for backwards compatibility during migration
+// TODO: Remove these after all card definitions are updated
+/** @deprecated Use CATEGORY_MOVEMENT instead */
+export const CARD_CATEGORY_MOVEMENT = CATEGORY_MOVEMENT;
+/** @deprecated Use CATEGORY_COMBAT instead */
+export const CARD_CATEGORY_COMBAT = CATEGORY_COMBAT;
+/** @deprecated Use CATEGORY_INFLUENCE instead */
+export const CARD_CATEGORY_INFLUENCE = CATEGORY_INFLUENCE;
+/** @deprecated Use CATEGORY_HEALING instead */
+export const CARD_CATEGORY_HEALING = CATEGORY_HEALING;
+/** @deprecated Use CATEGORY_SPECIAL instead */
+export const CARD_CATEGORY_SPECIAL = CATEGORY_SPECIAL;
+/** @deprecated Use CATEGORY_ACTION instead */
+export const CARD_CATEGORY_ACTION = CATEGORY_ACTION;
+/** @deprecated Use Category instead */
+export type CardCategory = Category;
 
 export type DeedCardType =
   | typeof DEED_CARD_TYPE_BASIC_ACTION
@@ -326,6 +348,56 @@ export interface ResolveCombatEnemyTargetEffect {
   readonly template: CombatEnemyTargetTemplate;
 }
 
+// === Skill-Related Effect Types ===
+
+/**
+ * Heal a unit - remove a wound from a unit.
+ * Used by skills like First Aid and Healing.
+ * If maxLevel is specified, only units up to that level can be healed.
+ */
+export interface HealUnitEffect {
+  readonly type: typeof EFFECT_HEAL_UNIT;
+  readonly maxLevel?: 1 | 2 | 3 | 4;
+}
+
+/**
+ * Discard a card from hand.
+ * Used by skills that require discarding as a cost or for an effect.
+ * - filter: what type of cards can be discarded
+ * - amount: how many cards to discard
+ * - onSuccess: optional effect to resolve after discarding
+ */
+export interface DiscardCardEffect {
+  readonly type: typeof EFFECT_DISCARD_CARD;
+  readonly filter: "wound" | "non-wound" | "any";
+  readonly amount: number;
+  readonly onSuccess?: CardEffect;
+}
+
+/**
+ * Reveal tiles on the map.
+ * Used by skills like Scouting and Intelligence.
+ * - distance: how far from the player's position to reveal
+ * - tileType: optional filter for what types of tiles/information to reveal
+ */
+export interface RevealTilesEffect {
+  readonly type: typeof EFFECT_REVEAL_TILES;
+  readonly distance: number;
+  readonly tileType?: "garrison" | "enemy" | "all";
+}
+
+/**
+ * Pay mana as a cost for an effect.
+ * Used by skills that require mana payment to activate.
+ * - colors: which mana colors are acceptable (player chooses one)
+ * - amount: how many mana tokens to pay
+ */
+export interface PayManaCostEffect {
+  readonly type: typeof EFFECT_PAY_MANA;
+  readonly colors: readonly ManaColor[];
+  readonly amount: number;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -353,7 +425,11 @@ export type CardEffect =
   | ConditionalEffect
   | ScalingEffect
   | SelectCombatEnemyEffect
-  | ResolveCombatEnemyTargetEffect;
+  | ResolveCombatEnemyTargetEffect
+  | HealUnitEffect
+  | DiscardCardEffect
+  | RevealTilesEffect
+  | PayManaCostEffect;
 
 // === Card Definition ===
 

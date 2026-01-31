@@ -13,6 +13,14 @@
  */
 
 import type { SkillId } from "@mage-knight/shared";
+import type { Category } from "../../types/cards.js";
+import {
+  CATEGORY_MOVEMENT,
+  CATEGORY_COMBAT,
+  CATEGORY_INFLUENCE,
+  CATEGORY_HEALING,
+  CATEGORY_SPECIAL,
+} from "../../types/cards.js";
 
 // ============================================================================
 // Hero ID type (to avoid circular dependency with hero.ts)
@@ -58,6 +66,8 @@ export interface SkillDefinition {
   readonly description: string;
   /** How often the skill can be used */
   readonly usageType: SkillUsageType;
+  /** Categories for this skill (movement, combat, influence, healing, special) */
+  readonly categories: readonly Category[];
   // Note: effect implementation will be added when skills are fully implemented
 }
 
@@ -165,6 +175,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Move 1 (Day) or Move 2 (Night)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_MOVEMENT],
   },
   [SKILL_ARYTHEA_BURNING_POWER]: {
     id: SKILL_ARYTHEA_BURNING_POWER,
@@ -172,6 +183,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Siege Attack 1 or Fire Siege Attack 1",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_ARYTHEA_HOT_SWORDSMANSHIP]: {
     id: SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
@@ -179,6 +191,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Attack 2 or Fire Attack 2",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_ARYTHEA_DARK_NEGOTIATION]: {
     id: SKILL_ARYTHEA_DARK_NEGOTIATION,
@@ -186,6 +199,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Influence 2 (Day) or Influence 3 (Night)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_INFLUENCE],
   },
   [SKILL_ARYTHEA_DARK_FIRE_MAGIC]: {
     id: SKILL_ARYTHEA_DARK_FIRE_MAGIC,
@@ -193,6 +207,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Flip to gain 1 red crystal and 1 red or black mana token",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_ARYTHEA_POWER_OF_PAIN]: {
     id: SKILL_ARYTHEA_POWER_OF_PAIN,
@@ -200,6 +215,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Play 1 Wound sideways as non-Wound card: +2 instead of +1",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_ARYTHEA_INVOCATION]: {
     id: SKILL_ARYTHEA_INVOCATION,
@@ -207,6 +223,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Discard Wound: gain red/black mana. Discard non-Wound: gain white/green mana",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_ARYTHEA_POLARIZATION]: {
     id: SKILL_ARYTHEA_POLARIZATION,
@@ -214,6 +231,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Use 1 mana as opposite color. Day: black → any. Night: gold → black",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_ARYTHEA_MOTIVATION]: {
     id: SKILL_ARYTHEA_MOTIVATION,
@@ -221,6 +239,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 red mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_ARYTHEA_HEALING_RITUAL]: {
     id: SKILL_ARYTHEA_HEALING_RITUAL,
@@ -228,6 +247,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Flip (except combat): Discard up to 2 Wounds, one goes to closest hero",
     usageType: SKILL_USAGE_INTERACTIVE,
+    categories: [CATEGORY_HEALING],
   },
 
   // === Tovak Skills ===
@@ -237,6 +257,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "Move 2 (Day) or Move 1 (Night)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_MOVEMENT],
   },
   [SKILL_TOVAK_NIGHT_SHARPSHOOTING]: {
     id: SKILL_TOVAK_NIGHT_SHARPSHOOTING,
@@ -244,6 +265,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "Ranged Attack 1 (Day) or Ranged Attack 2 (Night)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_TOVAK_COLD_SWORDSMANSHIP]: {
     id: SKILL_TOVAK_COLD_SWORDSMANSHIP,
@@ -251,6 +273,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "Attack 2 or Ice Attack 2",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_TOVAK_SHIELD_MASTERY]: {
     id: SKILL_TOVAK_SHIELD_MASTERY,
@@ -258,6 +281,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "Block 3, or Fire Block 2, or Ice Block 2",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_TOVAK_RESISTANCE_BREAK]: {
     id: SKILL_TOVAK_RESISTANCE_BREAK,
@@ -265,6 +289,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "Target enemy: Armor -1 for each resistance it has (min 1)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_TOVAK_I_FEEL_NO_PAIN]: {
     id: SKILL_TOVAK_I_FEEL_NO_PAIN,
@@ -272,6 +297,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "Except in combat: Discard 1 Wound from hand, draw a card",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_HEALING],
   },
   [SKILL_TOVAK_I_DONT_GIVE_A_DAMN]: {
     id: SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
@@ -279,6 +305,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "One sideways card gives +2 instead of +1. AA/Spell/Artifact gives +3",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_TOVAK_WHO_NEEDS_MAGIC]: {
     id: SKILL_TOVAK_WHO_NEEDS_MAGIC,
@@ -286,6 +313,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "One sideways card gives +2 instead of +1. No die used: +3 instead",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_TOVAK_MOTIVATION]: {
     id: SKILL_TOVAK_MOTIVATION,
@@ -293,6 +321,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 blue mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_TOVAK_MANA_EXPLOIT]: {
     id: SKILL_TOVAK_MANA_EXPLOIT,
@@ -300,6 +329,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "Gain non-gold mana token. Others take Wounds using other colors",
     usageType: SKILL_USAGE_INTERACTIVE,
+    categories: [CATEGORY_SPECIAL],
   },
 
   // === Goldyx Skills ===
@@ -309,6 +339,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "Siege Attack 1 or Ice Siege Attack 1",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_GOLDYX_POTION_MAKING]: {
     id: SKILL_GOLDYX_POTION_MAKING,
@@ -316,6 +347,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "Flip for Heal 2 (except in combat)",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_HEALING],
   },
   [SKILL_GOLDYX_WHITE_CRYSTAL_CRAFT]: {
     id: SKILL_GOLDYX_WHITE_CRYSTAL_CRAFT,
@@ -323,6 +355,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "Flip to gain 1 blue crystal and 1 white mana token",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_GOLDYX_GREEN_CRYSTAL_CRAFT]: {
     id: SKILL_GOLDYX_GREEN_CRYSTAL_CRAFT,
@@ -330,6 +363,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "Flip to gain 1 blue crystal and 1 green mana token",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_GOLDYX_RED_CRYSTAL_CRAFT]: {
     id: SKILL_GOLDYX_RED_CRYSTAL_CRAFT,
@@ -337,6 +371,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "Flip to gain 1 blue crystal and 1 red mana token",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_GOLDYX_GLITTERING_FORTUNE]: {
     id: SKILL_GOLDYX_GLITTERING_FORTUNE,
@@ -344,6 +379,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "During interaction: Influence 1 per different color crystal",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_INFLUENCE],
   },
   [SKILL_GOLDYX_FLIGHT]: {
     id: SKILL_GOLDYX_FLIGHT,
@@ -351,6 +387,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "Flip to move to adjacent space free, or 2 spaces for 2 Move",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_MOVEMENT],
   },
   [SKILL_GOLDYX_UNIVERSAL_POWER]: {
     id: SKILL_GOLDYX_UNIVERSAL_POWER,
@@ -358,6 +395,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "Add 1 mana to sideways card: +3 instead of +1. Same color: +4",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_GOLDYX_MOTIVATION]: {
     id: SKILL_GOLDYX_MOTIVATION,
@@ -365,6 +403,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 green mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_GOLDYX_SOURCE_FREEZE]: {
     id: SKILL_GOLDYX_SOURCE_FREEZE,
@@ -372,6 +411,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "Place in Source. Others can't use standard die. Gain crystal on next turn",
     usageType: SKILL_USAGE_INTERACTIVE,
+    categories: [CATEGORY_SPECIAL],
   },
 
   // === Norowas Skills ===
@@ -381,6 +421,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "Move 1 for each Ready and Unwounded Unit (max Move 3)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_MOVEMENT],
   },
   [SKILL_NOROWAS_DAY_SHARPSHOOTING]: {
     id: SKILL_NOROWAS_DAY_SHARPSHOOTING,
@@ -388,6 +429,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "Ranged Attack 2 (Day) or Ranged Attack 1 (Night)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_NOROWAS_INSPIRATION]: {
     id: SKILL_NOROWAS_INSPIRATION,
@@ -395,6 +437,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "Flip to Ready or Heal a Unit (except in combat)",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_HEALING],
   },
   [SKILL_NOROWAS_BRIGHT_NEGOTIATION]: {
     id: SKILL_NOROWAS_BRIGHT_NEGOTIATION,
@@ -402,6 +445,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "Influence 3 (Day) or Influence 2 (Night)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_INFLUENCE],
   },
   [SKILL_NOROWAS_LEAVES_IN_THE_WIND]: {
     id: SKILL_NOROWAS_LEAVES_IN_THE_WIND,
@@ -409,6 +453,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "Flip to gain 1 green crystal and 1 white mana token",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_NOROWAS_WHISPERS_IN_THE_TREETOPS]: {
     id: SKILL_NOROWAS_WHISPERS_IN_THE_TREETOPS,
@@ -416,6 +461,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "Flip to gain 1 white crystal and 1 green mana token",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_NOROWAS_LEADERSHIP]: {
     id: SKILL_NOROWAS_LEADERSHIP,
@@ -423,6 +469,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "When activating Unit: +3 Block, +2 Attack, or +1 Ranged Attack",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_NOROWAS_BONDS_OF_LOYALTY]: {
     id: SKILL_NOROWAS_BONDS_OF_LOYALTY,
@@ -430,6 +477,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "Acts as Command token. Unit costs -5 Influence. Cannot be disbanded",
     usageType: SKILL_USAGE_PASSIVE,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_NOROWAS_MOTIVATION]: {
     id: SKILL_NOROWAS_MOTIVATION,
@@ -437,6 +485,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 white mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_NOROWAS_PRAYER_OF_WEATHER]: {
     id: SKILL_NOROWAS_PRAYER_OF_WEATHER,
@@ -444,6 +493,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "Until your next turn: your terrain costs -2, others' costs +1",
     usageType: SKILL_USAGE_INTERACTIVE,
+    categories: [CATEGORY_MOVEMENT],
   },
 
   // === Wolfhawk Skills ===
@@ -453,6 +503,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "Flip for Heal 1 and 1 blue crystal (except combat)",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_HEALING, CATEGORY_SPECIAL],
   },
   [SKILL_WOLFHAWK_REFRESHING_BREEZE]: {
     id: SKILL_WOLFHAWK_REFRESHING_BREEZE,
@@ -460,6 +511,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "Flip for Heal 1 and 1 white crystal (except combat)",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_HEALING, CATEGORY_SPECIAL],
   },
   [SKILL_WOLFHAWK_HAWK_EYES]: {
     id: SKILL_WOLFHAWK_HAWK_EYES,
@@ -467,6 +519,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "Move 1. Night: exploring -1. Day: reveal garrisons at distance 2",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_MOVEMENT, CATEGORY_SPECIAL],
   },
   [SKILL_WOLFHAWK_ON_HER_OWN]: {
     id: SKILL_WOLFHAWK_ON_HER_OWN,
@@ -474,6 +527,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "Influence 1. Influence 3 if no Unit recruited this turn",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_INFLUENCE],
   },
   [SKILL_WOLFHAWK_DEADLY_AIM]: {
     id: SKILL_WOLFHAWK_DEADLY_AIM,
@@ -481,6 +535,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "Ranged/Siege: +1 to Attack. Attack phase: +2 to Attack",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_WOLFHAWK_KNOW_YOUR_PREY]: {
     id: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
@@ -488,6 +543,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "Flip to ignore one enemy ability or remove attack element",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_WOLFHAWK_TAUNT]: {
     id: SKILL_WOLFHAWK_TAUNT,
@@ -495,6 +551,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "Block phase: Enemy attack -1, OR +2 attack but armor -2",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_WOLFHAWK_DUELING]: {
     id: SKILL_WOLFHAWK_DUELING,
@@ -502,6 +559,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "Block 1 and Attack 1 vs same enemy. +1 Fame without Units",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_WOLFHAWK_MOTIVATION]: {
     id: SKILL_WOLFHAWK_MOTIVATION,
@@ -509,6 +567,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 Fame",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_WOLFHAWK_WOLFS_HOWL]: {
     id: SKILL_WOLFHAWK_WOLFS_HOWL,
@@ -516,6 +575,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "Sideways card +4. +1 per Command token without Unit. Others' Units -1",
     usageType: SKILL_USAGE_INTERACTIVE,
+    categories: [CATEGORY_SPECIAL],
   },
 
   // === Krang Skills ===
@@ -525,6 +585,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "Move 1 and may add +1 to a Block",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_MOVEMENT, CATEGORY_COMBAT],
   },
   [SKILL_KRANG_BATTLE_HARDENED]: {
     id: SKILL_KRANG_BATTLE_HARDENED,
@@ -532,6 +593,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "Ignore 2 physical damage or 1 non-physical damage",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_KRANG_BATTLE_FRENZY]: {
     id: SKILL_KRANG_BATTLE_FRENZY,
@@ -539,6 +601,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "Attack 2. Flip for Attack 4. Flip back when resting",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_KRANG_SHAMANIC_RITUAL]: {
     id: SKILL_KRANG_SHAMANIC_RITUAL,
@@ -546,6 +609,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "Flip to gain mana of any color. May flip back as action",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_KRANG_REGENERATE]: {
     id: SKILL_KRANG_REGENERATE,
@@ -553,6 +617,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "Pay mana, discard Wound. Red mana or lowest Fame: draw card",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_HEALING],
   },
   [SKILL_KRANG_ARCANE_DISGUISE]: {
     id: SKILL_KRANG_ARCANE_DISGUISE,
@@ -560,6 +625,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "Influence 2, or flip to ignore reputation. Green mana to flip back",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_INFLUENCE],
   },
   [SKILL_KRANG_PUPPET_MASTER]: {
     id: SKILL_KRANG_PUPPET_MASTER,
@@ -567,6 +633,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "Keep defeated enemy token. Discard for half Attack or half Block",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_KRANG_MASTER_OF_CHAOS]: {
     id: SKILL_KRANG_MASTER_OF_CHAOS,
@@ -574,6 +641,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "Rotate shield for: Block 3, Move 1, Ranged 1, Influence 2, Attack 2",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_KRANG_CURSE]: {
     id: SKILL_KRANG_CURSE,
@@ -581,6 +649,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "Enemy Attack -1 or Armor -1 (min 1). Not vs fortified in Ranged",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_KRANG_MANA_SUPPRESSION]: {
     id: SKILL_KRANG_MANA_SUPPRESSION,
@@ -588,6 +657,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "krang",
     description: "First mana each turn costs extra. Gain crystal from tokens",
     usageType: SKILL_USAGE_INTERACTIVE,
+    categories: [CATEGORY_SPECIAL],
   },
 
   // === Braevalar Skills ===
@@ -597,6 +667,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Ignore 2 Fire/Ice damage or 1 other damage",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_BRAEVALAR_FERAL_ALLIES]: {
     id: SKILL_BRAEVALAR_FERAL_ALLIES,
@@ -604,6 +675,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Exploring -1 Move. Attack 1 or reduce enemy attack by 1",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_MOVEMENT, CATEGORY_COMBAT],
   },
   [SKILL_BRAEVALAR_THUNDERSTORM]: {
     id: SKILL_BRAEVALAR_THUNDERSTORM,
@@ -611,6 +683,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Flip to gain 1 green/blue mana and 1 green/white mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_BRAEVALAR_LIGHTNING_STORM]: {
     id: SKILL_BRAEVALAR_LIGHTNING_STORM,
@@ -618,6 +691,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Flip to gain 1 blue/green mana and 1 blue/red mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_BRAEVALAR_BEGUILE]: {
     id: SKILL_BRAEVALAR_BEGUILE,
@@ -625,6 +699,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Influence 3. Fortified: 2. Magical Glade: 4",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_INFLUENCE],
   },
   [SKILL_BRAEVALAR_FORKED_LIGHTNING]: {
     id: SKILL_BRAEVALAR_FORKED_LIGHTNING,
@@ -632,6 +707,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Ranged Cold Fire Attack 1 against up to 3 enemies",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_COMBAT],
   },
   [SKILL_BRAEVALAR_SHAPESHIFT]: {
     id: SKILL_BRAEVALAR_SHAPESHIFT,
@@ -639,6 +715,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Basic Action with Move/Attack/Block becomes another type",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_SPECIAL],
   },
   [SKILL_BRAEVALAR_SECRET_WAYS]: {
     id: SKILL_BRAEVALAR_SECRET_WAYS,
@@ -646,6 +723,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Move 1. Mountains 5 Move. Blue mana: lakes 2 Move",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_MOVEMENT],
   },
   [SKILL_BRAEVALAR_REGENERATE]: {
     id: SKILL_BRAEVALAR_REGENERATE,
@@ -653,6 +731,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Pay mana, discard Wound. Red mana or lowest Fame: draw card",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    categories: [CATEGORY_HEALING],
   },
   [SKILL_BRAEVALAR_NATURES_VENGEANCE]: {
     id: SKILL_BRAEVALAR_NATURES_VENGEANCE,
@@ -660,6 +739,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "braevalar",
     description: "Reduce enemy attack by 1, gains Cumbersome. Others' enemies +1 attack",
     usageType: SKILL_USAGE_INTERACTIVE,
+    categories: [CATEGORY_COMBAT],
   },
 } as Record<SkillId, SkillDefinition>;
 

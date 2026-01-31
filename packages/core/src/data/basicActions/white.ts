@@ -4,10 +4,10 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_MOVEMENT,
-  CARD_CATEGORY_COMBAT,
-  CARD_CATEGORY_INFLUENCE,
-  CARD_CATEGORY_SPECIAL,
+  CATEGORY_MOVEMENT,
+  CATEGORY_COMBAT,
+  CATEGORY_INFLUENCE,
+  CATEGORY_SPECIAL,
   DEED_CARD_TYPE_BASIC_ACTION,
 } from "../../types/cards.js";
 import { COMBAT_TYPE_RANGED } from "../../types/effectTypes.js";
@@ -36,7 +36,7 @@ export const SWIFTNESS: DeedCard = {
   name: "Swiftness",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_WHITE],
-  categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_MOVEMENT, CATEGORY_COMBAT],
   // Basic: Move 2 | Powered: Ranged Attack 3
   basicEffect: move(2),
   poweredEffect: attack(3, COMBAT_TYPE_RANGED),
@@ -48,7 +48,7 @@ export const PROMISE: DeedCard = {
   name: "Promise",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_WHITE],
-  categories: [CARD_CATEGORY_INFLUENCE],
+  categories: [CATEGORY_INFLUENCE],
   // Basic: Influence 2 | Powered: Influence 4
   basicEffect: influence(2),
   poweredEffect: influence(4),
@@ -60,7 +60,7 @@ export const MANA_DRAW: DeedCard = {
   name: "Mana Draw",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_WHITE],
-  categories: [CARD_CATEGORY_SPECIAL],
+  categories: [CATEGORY_SPECIAL],
   // Basic: Use 1 additional mana die from Source this turn
   basicEffect: grantExtraSourceDie(),
   // Powered: Take a die, set to any basic color, gain 2 mana tokens of that color
@@ -79,7 +79,7 @@ export const ARYTHEA_MANA_PULL: DeedCard = {
   name: "Mana Pull",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_WHITE],
-  categories: [CARD_CATEGORY_SPECIAL],
+  categories: [CATEGORY_SPECIAL],
   // Basic: Use 1 additional die from Source; if black, use as any color
   basicEffect: grantExtraSourceDieWithBlackAsAnyColor(),
   // Powered: Take 2 dice, set each to any non-gold color, gain 1 mana token of each
@@ -96,7 +96,7 @@ export const NOROWAS_NOBLE_MANNERS: DeedCard = {
   name: "Noble Manners",
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_WHITE],
-  categories: [CARD_CATEGORY_INFLUENCE],
+  categories: [CATEGORY_INFLUENCE],
   // Basic: Influence 2. If used during interaction: Fame +1 at end of turn
   // Powered: Influence 4. If used during interaction: Fame +1 and Reputation +1
   // Note: Fame/Rep bonuses not modeled
