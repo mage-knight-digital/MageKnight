@@ -109,6 +109,7 @@ export function createResolveChoiceCommand(
                 type: CHOICE_RESOLVED,
                 playerId: params.playerId,
                 cardId: player.pendingChoice.cardId,
+                skillId: player.pendingChoice.skillId,
                 chosenIndex: params.choiceIndex,
                 effect: effectResult.description,
               },
@@ -130,6 +131,7 @@ export function createResolveChoiceCommand(
                 type: CHOICE_RESOLVED,
                 playerId: params.playerId,
                 cardId: player.pendingChoice.cardId,
+                skillId: player.pendingChoice.skillId,
                 chosenIndex: params.choiceIndex,
                 effect: "No available options",
               },
@@ -155,6 +157,7 @@ export function createResolveChoiceCommand(
                 type: CHOICE_RESOLVED,
                 playerId: params.playerId,
                 cardId: player.pendingChoice.cardId,
+                skillId: player.pendingChoice.skillId,
                 chosenIndex: params.choiceIndex,
                 effect: autoResolveResult.description,
               },
@@ -175,6 +178,7 @@ export function createResolveChoiceCommand(
           ...updatedPlayer,
           pendingChoice: {
             cardId: player.pendingChoice.cardId, // Keep original card ID for context
+            skillId: player.pendingChoice.skillId, // Keep original skill ID for context
             options: resolvableOptions,
           },
         };
@@ -189,6 +193,7 @@ export function createResolveChoiceCommand(
               type: CHOICE_RESOLVED,
               playerId: params.playerId,
               cardId: player.pendingChoice.cardId,
+              skillId: player.pendingChoice.skillId,
               chosenIndex: params.choiceIndex,
               effect: effectResult.description,
             },
@@ -196,6 +201,7 @@ export function createResolveChoiceCommand(
               type: CHOICE_REQUIRED,
               playerId: params.playerId,
               cardId: player.pendingChoice.cardId,
+              skillId: player.pendingChoice.skillId,
               options: resolvableOptions.map((opt) => describeEffect(opt)),
             },
           ],
@@ -209,6 +215,7 @@ export function createResolveChoiceCommand(
             type: CHOICE_RESOLVED,
             playerId: params.playerId,
             cardId: player.pendingChoice.cardId,
+            skillId: player.pendingChoice.skillId,
             chosenIndex: params.choiceIndex,
             effect: effectResult.description,
           },
@@ -262,6 +269,7 @@ export function createResolveChoiceCommand(
             type: CHOICE_REQUIRED,
             playerId: params.playerId,
             cardId: params.previousPendingChoice.cardId,
+            skillId: params.previousPendingChoice.skillId,
             options: params.previousPendingChoice.options.map((opt) =>
               describeEffect(opt)
             ),

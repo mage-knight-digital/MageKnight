@@ -57,8 +57,14 @@ export function describeEffect(effect: CardEffect): string {
       return `${attackType} ${effect.amount}`;
     }
 
-    case EFFECT_GAIN_BLOCK:
+    case EFFECT_GAIN_BLOCK: {
+      if (effect.element) {
+        // Capitalize element name: "fire" -> "Fire"
+        const elementName = effect.element.charAt(0).toUpperCase() + effect.element.slice(1);
+        return `${elementName} Block ${effect.amount}`;
+      }
       return `Block ${effect.amount}`;
+    }
 
     case EFFECT_GAIN_HEALING:
       return `Healing ${effect.amount}`;

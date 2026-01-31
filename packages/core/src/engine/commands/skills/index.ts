@@ -9,3 +9,8 @@ export {
   applyWhoNeedsMagicEffect,
   removeWhoNeedsMagicEffect,
 } from "./whoNeedsMagicEffect.js";
+
+export {
+  applyShieldMasteryEffect,
+  removeShieldMasteryEffect,
+} from "./shieldMasteryEffect.js";

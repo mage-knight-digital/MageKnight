@@ -280,6 +280,7 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           ...updatedPlayer,
           pendingChoice: {
             cardId: params.cardId,
+            skillId: null,
             options: resolvableOptions,
           },
         };
@@ -303,6 +304,7 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
               type: CHOICE_REQUIRED,
               playerId: params.playerId,
               cardId: params.cardId,
+              skillId: null,
               options: resolvableOptions.map((opt) => describeEffect(opt)),
             },
           ],
