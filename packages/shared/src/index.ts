@@ -134,7 +134,15 @@ export type {
   AssignDamageAction,
   DamageAssignment,
   DamageTarget,
+  // Cooperative assault
+  ProposeCooperativeAssaultAction,
+  RespondToCooperativeProposalAction,
+  CancelCooperativeProposalAction,
+  CooperativeResponse,
 } from "./actions.js";
+
+// Cooperative assault types
+export * from "./cooperativeAssault.js";
 
 // Connection
 export type {
@@ -226,6 +234,9 @@ export type {
   DeepMineOptions,
   // Level up rewards options
   LevelUpRewardsOptions,
+  // Cooperative assault options
+  CooperativeAssaultOptions,
+  EligibleInvitee,
 } from "./types/validActions.js";
 
 // Shared value constants (sub-unions)

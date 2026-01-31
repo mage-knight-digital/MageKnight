@@ -123,6 +123,9 @@ export * from "./sites.js";
 // Validation events
 export * from "./validation.js";
 
+// Cooperative assault events
+export * from "./cooperativeAssault.js";
+
 // ============================================================================
 // IMPORT FOR UNION TYPE
 // ============================================================================
@@ -262,6 +265,14 @@ import type {
 } from "./sites.js";
 
 import type { InvalidActionEvent } from "./validation.js";
+
+import type {
+  CooperativeAssaultProposedEvent,
+  CooperativeAssaultResponseEvent,
+  CooperativeAssaultAgreedEvent,
+  CooperativeAssaultRejectedEvent,
+  CooperativeAssaultCancelledEvent,
+} from "./cooperativeAssault.js";
 
 // ============================================================================
 // GAME EVENT UNION TYPE
@@ -419,7 +430,13 @@ export type GameEvent =
   | MonasteryBurnStartedEvent
   | MonasteryBurnedEvent
   // Village plundering
-  | VillagePlunderedEvent;
+  | VillagePlunderedEvent
+  // Cooperative assault
+  | CooperativeAssaultProposedEvent
+  | CooperativeAssaultResponseEvent
+  | CooperativeAssaultAgreedEvent
+  | CooperativeAssaultRejectedEvent
+  | CooperativeAssaultCancelledEvent;
 
 /**
  * Type of all game event type constants.

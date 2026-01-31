@@ -2,7 +2,7 @@
  * Game state types and management
  */
 
-import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig, RoundPhase, TacticId, FinalScoreResult } from "@mage-knight/shared";
+import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig, RoundPhase, TacticId, CooperativeAssaultProposal, FinalScoreResult } from "@mage-knight/shared";
 import { GAME_PHASE_SETUP, TIME_OF_DAY_DAY, SCENARIO_FIRST_RECONNAISSANCE, ROUND_PHASE_PLAYER_TURNS } from "@mage-knight/shared";
 import { getScenario } from "../data/scenarios/index.js";
 import type { Player } from "../types/player.js";
@@ -107,6 +107,9 @@ export interface GameState {
   readonly gameEnded: boolean;
   readonly winningPlayerId: string | null; // For competitive scenarios
 
+  // Cooperative assault
+  readonly pendingCooperativeAssault: CooperativeAssaultProposal | null;
+
   // Final scoring results (populated when game ends)
   readonly finalScoreResult: FinalScoreResult | null;
 }
@@ -152,6 +155,7 @@ export function createInitialGameState(
     finalTurnsRemaining: null,
     gameEnded: false,
     winningPlayerId: null,
+    pendingCooperativeAssault: null,
     finalScoreResult: null,
   };
 }

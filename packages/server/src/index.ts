@@ -848,6 +848,7 @@ export class GameServer {
       healingPoints: 0,
       removedCards: [],
       isResting: false,
+      roundOrderTokenFlipped: false,
     };
 
     return { player, rng: newRng };

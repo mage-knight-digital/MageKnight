@@ -302,6 +302,8 @@ export function createEndRoundCommand(): Command {
           tacticState: {},
           pendingTacticDecision: null,
           beforeTurnTacticPending: false,
+          // Reset cooperative assault state for new round
+          roundOrderTokenFlipped: false,
         };
 
         updatedPlayers.push(updatedPlayer);
@@ -402,6 +404,8 @@ export function createEndRoundCommand(): Command {
           // Reset round-end tracking
           endOfRoundAnnouncedBy: null,
           playersWithFinalTurn: [],
+          // Clear any pending cooperative assault proposal
+          pendingCooperativeAssault: null,
           // Initialize tactics selection phase
           roundPhase: ROUND_PHASE_TACTICS_SELECTION,
           availableTactics,

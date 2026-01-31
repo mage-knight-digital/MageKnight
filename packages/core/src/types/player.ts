@@ -293,4 +293,8 @@ export interface Player {
 
   // Cards that have been removed from the game (destroyed artifacts, etc.)
   readonly removedCards: readonly CardId[];
+
+  // Round Order token flipped (from cooperative assault or PvP this round)
+  // Flipped tokens mean the player cannot participate in another cooperative assault this round
+  readonly roundOrderTokenFlipped: boolean;
 }
