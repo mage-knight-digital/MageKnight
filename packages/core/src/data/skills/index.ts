@@ -13,6 +13,9 @@
  */
 
 import type { SkillId } from "@mage-knight/shared";
+import type { CardEffect, CardCategory } from "../../types/cards.js";
+import { CARD_CATEGORY_COMBAT } from "../../types/cards.js";
+import { attack, fireAttack, choice } from "../effectHelpers.js";
 
 // ============================================================================
 // Hero ID type (to avoid circular dependency with hero.ts)
@@ -58,7 +61,10 @@ export interface SkillDefinition {
   readonly description: string;
   /** How often the skill can be used */
   readonly usageType: SkillUsageType;
-  // Note: effect implementation will be added when skills are fully implemented
+  /** The effect to resolve when the skill is used (optional - not all skills are implemented yet) */
+  readonly effect?: CardEffect;
+  /** Skill categories for grouping (e.g., Combat skills can only be used during combat attack phase) */
+  readonly categories?: readonly CardCategory[];
 }
 
 // ============================================================================
@@ -179,6 +185,8 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Attack 2 or Fire Attack 2",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    effect: choice([attack(2), fireAttack(2)]),
+    categories: [CARD_CATEGORY_COMBAT],
   },
   [SKILL_ARYTHEA_DARK_NEGOTIATION]: {
     id: SKILL_ARYTHEA_DARK_NEGOTIATION,
