@@ -16,6 +16,7 @@ import {
   CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
+  CONDITION_HAS_LOWEST_FAME_OR_SOLO,
 } from "../../types/conditions.js";
 import { CARD_WOUND, hexKey } from "@mage-knight/shared";
 
@@ -72,6 +73,20 @@ export function evaluateCondition(
 
     case CONDITION_HAS_WOUNDS_IN_HAND:
       return player.hand.some((c) => c === CARD_WOUND);
+
+    case CONDITION_HAS_LOWEST_FAME_OR_SOLO: {
+      // Solo game - always qualifies (FAQ S1)
+      if (state.players.length === 1) {
+        return true;
+      }
+
+      // Must be strictly lowest fame (not tied)
+      const otherPlayersFame = state.players
+        .filter((p) => p.id !== playerId)
+        .map((p) => p.fame);
+
+      return otherPlayersFame.every((fame) => player.fame < fame);
+    }
 
     default:
       // Exhaustive check - TypeScript ensures all cases are handled

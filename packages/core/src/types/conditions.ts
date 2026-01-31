@@ -17,6 +17,7 @@ export const CONDITION_BLOCKED_SUCCESSFULLY = "blocked_successfully" as const;
 export const CONDITION_ENEMY_DEFEATED_THIS_COMBAT = "enemy_defeated_this_combat" as const;
 export const CONDITION_MANA_USED_THIS_TURN = "mana_used_this_turn" as const;
 export const CONDITION_HAS_WOUNDS_IN_HAND = "has_wounds_in_hand" as const;
+export const CONDITION_HAS_LOWEST_FAME_OR_SOLO = "has_lowest_fame_or_solo" as const;
 
 // === Condition Interfaces ===
 
@@ -56,6 +57,10 @@ export interface HasWoundsInHandCondition {
   readonly type: typeof CONDITION_HAS_WOUNDS_IN_HAND;
 }
 
+export interface HasLowestFameOrSoloCondition {
+  readonly type: typeof CONDITION_HAS_LOWEST_FAME_OR_SOLO;
+}
+
 // === Union Type ===
 
 export type EffectCondition =
@@ -66,4 +71,5 @@ export type EffectCondition =
   | BlockedSuccessfullyCondition
   | EnemyDefeatedThisCombatCondition
   | ManaUsedThisTurnCondition
-  | HasWoundsInHandCondition;
+  | HasWoundsInHandCondition
+  | HasLowestFameOrSoloCondition;

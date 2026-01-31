@@ -12,7 +12,18 @@
  * @module data/skills
  */
 
-import type { SkillId } from "@mage-knight/shared";
+import type { SkillId, ManaColor } from "@mage-knight/shared";
+import { MANA_BLUE, MANA_GREEN, MANA_RED, MANA_WHITE } from "@mage-knight/shared";
+import type { CardEffect, CardCategory } from "../../types/cards.js";
+import {
+  EFFECT_COMPOUND,
+  EFFECT_DRAW_CARDS,
+  EFFECT_CONDITIONAL,
+  EFFECT_GAIN_MANA,
+  EFFECT_GAIN_FAME,
+} from "../../types/effectTypes.js";
+import { CARD_CATEGORY_SPECIAL } from "../../types/cards.js";
+import { CONDITION_HAS_LOWEST_FAME_OR_SOLO } from "../../types/conditions.js";
 
 // ============================================================================
 // Hero ID type (to avoid circular dependency with hero.ts)
@@ -58,7 +69,14 @@ export interface SkillDefinition {
   readonly description: string;
   /** How often the skill can be used */
   readonly usageType: SkillUsageType;
-  // Note: effect implementation will be added when skills are fully implemented
+  /** Effect to execute when skill is activated (undefined for passive skills) */
+  readonly effect?: CardEffect;
+  /** Whether the skill can be used during combat (default: false) */
+  readonly canUseInCombat?: boolean;
+  /** Whether the skill can be used on other players' turns (default: false) */
+  readonly canUseOutOfTurn?: boolean;
+  /** Card category for UI display (special, combat, etc.) */
+  readonly category?: CardCategory;
 }
 
 // ============================================================================
@@ -150,6 +168,35 @@ export const SKILL_BRAEVALAR_REGENERATE = "braevalar_regenerate" as SkillId;
 export const SKILL_BRAEVALAR_NATURES_VENGEANCE = "braevalar_natures_vengeance" as SkillId;
 
 // ============================================================================
+// Effect Helpers
+// ============================================================================
+
+/**
+ * Creates a Motivation skill effect.
+ * Draws 2 cards, and if player has lowest fame (or in solo), gains bonus.
+ *
+ * @param bonusColor - Mana color to gain if lowest fame (undefined for Wolfhawk who gains fame instead)
+ */
+function createMotivationEffect(bonusColor?: ManaColor): CardEffect {
+  const conditionalBonus: CardEffect = bonusColor
+    ? {
+        type: EFFECT_CONDITIONAL,
+        condition: { type: CONDITION_HAS_LOWEST_FAME_OR_SOLO },
+        thenEffect: { type: EFFECT_GAIN_MANA, color: bonusColor },
+      }
+    : {
+        type: EFFECT_CONDITIONAL,
+        condition: { type: CONDITION_HAS_LOWEST_FAME_OR_SOLO },
+        thenEffect: { type: EFFECT_GAIN_FAME, amount: 1 },
+      };
+
+  return {
+    type: EFFECT_COMPOUND,
+    effects: [{ type: EFFECT_DRAW_CARDS, amount: 2 }, conditionalBonus],
+  };
+}
+
+// ============================================================================
 // Skill Definitions
 // ============================================================================
 
@@ -221,6 +268,10 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 red mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    effect: createMotivationEffect(MANA_RED),
+    canUseInCombat: true,
+    canUseOutOfTurn: true,
+    category: CARD_CATEGORY_SPECIAL,
   },
   [SKILL_ARYTHEA_HEALING_RITUAL]: {
     id: SKILL_ARYTHEA_HEALING_RITUAL,
@@ -293,6 +344,10 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 blue mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    effect: createMotivationEffect(MANA_BLUE),
+    canUseInCombat: true,
+    canUseOutOfTurn: true,
+    category: CARD_CATEGORY_SPECIAL,
   },
   [SKILL_TOVAK_MANA_EXPLOIT]: {
     id: SKILL_TOVAK_MANA_EXPLOIT,
@@ -365,6 +420,10 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "goldyx",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 green mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    effect: createMotivationEffect(MANA_GREEN),
+    canUseInCombat: true,
+    canUseOutOfTurn: true,
+    category: CARD_CATEGORY_SPECIAL,
   },
   [SKILL_GOLDYX_SOURCE_FREEZE]: {
     id: SKILL_GOLDYX_SOURCE_FREEZE,
@@ -437,6 +496,10 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "norowas",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 white mana",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    effect: createMotivationEffect(MANA_WHITE),
+    canUseInCombat: true,
+    canUseOutOfTurn: true,
+    category: CARD_CATEGORY_SPECIAL,
   },
   [SKILL_NOROWAS_PRAYER_OF_WEATHER]: {
     id: SKILL_NOROWAS_PRAYER_OF_WEATHER,
@@ -509,6 +572,10 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "wolfhawk",
     description: "On any player's turn: flip to draw 2 cards. If lowest Fame: +1 Fame",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
+    effect: createMotivationEffect(undefined), // Wolfhawk gets +1 Fame instead of mana
+    canUseInCombat: true,
+    canUseOutOfTurn: true,
+    category: CARD_CATEGORY_SPECIAL,
   },
   [SKILL_WOLFHAWK_WOLFS_HOWL]: {
     id: SKILL_WOLFHAWK_WOLFS_HOWL,

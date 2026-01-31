@@ -200,6 +200,17 @@ export const SKILL_ALREADY_OWNED = "SKILL_ALREADY_OWNED" as const;
 export const DEV_MODE_REQUIRED = "DEV_MODE_REQUIRED" as const;
 export const NO_PENDING_LEVEL_UPS = "NO_PENDING_LEVEL_UPS" as const;
 
+// Skill usage validation codes
+export const SKILL_NOT_FOUND = "SKILL_NOT_FOUND" as const;
+export const SKILL_NOT_OWNED = "SKILL_NOT_OWNED" as const;
+export const SKILL_HAS_NO_EFFECT = "SKILL_HAS_NO_EFFECT" as const;
+export const SKILL_ALREADY_USED_THIS_ROUND = "SKILL_ALREADY_USED_THIS_ROUND" as const;
+export const SKILL_ALREADY_USED_THIS_TURN = "SKILL_ALREADY_USED_THIS_TURN" as const;
+export const SKILL_LOCKED_UNTIL_NEXT_TURN = "SKILL_LOCKED_UNTIL_NEXT_TURN" as const;
+export const SKILL_NOT_USABLE_IN_COMBAT = "SKILL_NOT_USABLE_IN_COMBAT" as const;
+export const SKILL_NOT_USABLE_OUT_OF_TURN = "SKILL_NOT_USABLE_OUT_OF_TURN" as const;
+export const SKILL_NOT_USABLE_DURING_TACTICS = "SKILL_NOT_USABLE_DURING_TACTICS" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -359,4 +370,14 @@ export type ValidationErrorCode =
   | typeof SKILL_ALREADY_OWNED
   // Debug validation
   | typeof DEV_MODE_REQUIRED
-  | typeof NO_PENDING_LEVEL_UPS;
+  | typeof NO_PENDING_LEVEL_UPS
+  // Skill usage validation
+  | typeof SKILL_NOT_FOUND
+  | typeof SKILL_NOT_OWNED
+  | typeof SKILL_HAS_NO_EFFECT
+  | typeof SKILL_ALREADY_USED_THIS_ROUND
+  | typeof SKILL_ALREADY_USED_THIS_TURN
+  | typeof SKILL_LOCKED_UNTIL_NEXT_TURN
+  | typeof SKILL_NOT_USABLE_IN_COMBAT
+  | typeof SKILL_NOT_USABLE_OUT_OF_TURN
+  | typeof SKILL_NOT_USABLE_DURING_TACTICS;

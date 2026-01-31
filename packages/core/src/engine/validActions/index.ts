@@ -37,6 +37,7 @@ import { getSiteOptions } from "./sites.js";
 import { getTacticsOptions, getTacticEffectsOptions, getPendingTacticDecision } from "./tactics.js";
 import { getGladeWoundOptions, getDeepMineOptions } from "./pending.js";
 import { getChallengeOptions } from "./challenge.js";
+import { getSkillOptions, getOutOfTurnSkillOptions } from "./skills.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -59,6 +60,9 @@ export { getCombatOptions } from "./combat.js";
 export { getChallengeOptions } from "./challenge.js";
 export { getUnitOptions, getUnitOptionsForCombat, getActivatableUnits, getFullUnitOptions } from "./units/index.js";
 
+// Re-export skill options
+export { getSkillOptions, getOutOfTurnSkillOptions } from "./skills.js";
+
 /**
  * Compute all valid actions for a player.
  *
@@ -72,6 +76,36 @@ export function getValidActions(
   const canActResult = checkCanAct(state, playerId);
 
   if (!canActResult.canAct) {
+    // Check if player has out-of-turn skills available (like Motivation)
+    const player = state.players.find((p) => p.id === playerId);
+    const outOfTurnSkills = player
+      ? getOutOfTurnSkillOptions(state, player, isInCombat(state))
+      : undefined;
+
+    // If player has out-of-turn skills, they can act (but only to use those skills)
+    if (outOfTurnSkills) {
+      return {
+        canAct: true,
+        reason: undefined,
+        move: undefined,
+        explore: undefined,
+        playCard: undefined,
+        combat: undefined,
+        units: undefined,
+        sites: undefined,
+        mana: undefined,
+        turn: undefined,
+        tactics: undefined,
+        enterCombat: undefined,
+        challenge: undefined,
+        tacticEffects: undefined,
+        gladeWound: undefined,
+        deepMine: undefined,
+        levelUpRewards: undefined,
+        skills: outOfTurnSkills,
+      };
+    }
+
     return {
       canAct: false,
       reason: canActResult.reason,
@@ -90,6 +124,7 @@ export function getValidActions(
       gladeWound: undefined,
       deepMine: undefined,
       levelUpRewards: undefined,
+      skills: undefined,
     };
   }
 
@@ -118,6 +153,7 @@ export function getValidActions(
         gladeWound: undefined,
         deepMine: undefined,
         levelUpRewards: undefined,
+        skills: undefined,
       };
     }
 
@@ -139,6 +175,7 @@ export function getValidActions(
       gladeWound: undefined,
       deepMine: undefined,
       levelUpRewards: undefined,
+      skills: undefined, // No skills during tactics selection
     };
   }
 
@@ -172,6 +209,7 @@ export function getValidActions(
       gladeWound: gladeWoundOptions,
       deepMine: undefined,
       levelUpRewards: undefined,
+      skills: undefined,
     };
   }
 
@@ -205,6 +243,7 @@ export function getValidActions(
       gladeWound: undefined,
       deepMine: deepMineOptions,
       levelUpRewards: undefined,
+      skills: undefined,
     };
   }
 
@@ -244,6 +283,7 @@ export function getValidActions(
           commonPoolSkills: state.offers.commonSkills,
           availableAAs: state.offers.advancedActions.cards,
         },
+        skills: undefined,
       };
     }
   }
@@ -278,6 +318,7 @@ export function getValidActions(
       gladeWound: undefined,
       deepMine: undefined,
       levelUpRewards: undefined,
+      skills: undefined,
     };
   }
 
@@ -288,6 +329,7 @@ export function getValidActions(
       const playCardOptions = getPlayableCardsForCombat(state, player, state.combat);
       const manaOptions = getManaOptions(state, player);
       const unitOptions = getUnitOptionsForCombat(state, player, state.combat);
+      const skillOptions = getSkillOptions(state, player, true);
       return {
         canAct: true,
         reason: undefined,
@@ -315,6 +357,7 @@ export function getValidActions(
         gladeWound: undefined,
         deepMine: undefined,
         levelUpRewards: undefined,
+        skills: skillOptions,
       };
     }
   }
@@ -322,6 +365,7 @@ export function getValidActions(
   // Normal turn - compute all options
   const playCardOptions = getPlayableCardsForNormalTurn(state, player);
   const manaOptions = getManaOptions(state, player);
+  const skillOptions = getSkillOptions(state, player, false);
 
   return {
     canAct: true,
@@ -341,5 +385,6 @@ export function getValidActions(
     gladeWound: undefined,
     deepMine: undefined,
     levelUpRewards: undefined,
+    skills: skillOptions,
   };
 }

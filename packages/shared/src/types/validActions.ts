@@ -78,6 +78,9 @@ export interface ValidActions {
 
   /** Level up reward options (when pending level up rewards exist) */
   readonly levelUpRewards: LevelUpRewardsOptions | undefined;
+
+  /** Skill usage options */
+  readonly skills: SkillOptions | undefined;
 }
 
 // ============================================================================
@@ -682,4 +685,29 @@ export interface LevelUpRewardsOptions {
   readonly commonPoolSkills: readonly SkillId[];
   /** Available advanced action cards in the offer */
   readonly availableAAs: readonly CardId[];
+}
+
+// ============================================================================
+// Skills
+// ============================================================================
+
+/**
+ * Options for using skills.
+ * Only present when there are usable skills available.
+ */
+export interface SkillOptions {
+  /** Skills that can be used right now */
+  readonly usableSkills: readonly UsableSkill[];
+}
+
+/**
+ * Information about a skill that can be used.
+ */
+export interface UsableSkill {
+  /** The skill ID */
+  readonly skillId: SkillId;
+  /** Human-readable name */
+  readonly name: string;
+  /** Description of what the skill does */
+  readonly description: string;
 }

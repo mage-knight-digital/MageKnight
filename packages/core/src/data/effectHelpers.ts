@@ -60,6 +60,7 @@ import {
   CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
+  CONDITION_HAS_LOWEST_FAME_OR_SOLO,
 } from "../types/conditions.js";
 
 // === Basic Effect Helpers ===
@@ -325,6 +326,23 @@ export function ifHasWoundsInHand(
 ): ConditionalEffect {
   return conditional(
     { type: CONDITION_HAS_WOUNDS_IN_HAND },
+    thenEffect,
+    elseEffect
+  );
+}
+
+/**
+ * Effect that applies only when the player has the lowest fame (or in solo game).
+ * Used by Motivation skills.
+ * Note: "Lowest" means strictly lower than all other players (ties don't count).
+ * In solo games, the player always qualifies (FAQ S1).
+ */
+export function ifLowestFameOrSolo(
+  thenEffect: CardEffect,
+  elseEffect?: CardEffect
+): ConditionalEffect {
+  return conditional(
+    { type: CONDITION_HAS_LOWEST_FAME_OR_SOLO },
     thenEffect,
     elseEffect
   );

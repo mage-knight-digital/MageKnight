@@ -226,6 +226,9 @@ export type {
   DeepMineOptions,
   // Level up rewards options
   LevelUpRewardsOptions,
+  // Skill options
+  SkillOptions,
+  UsableSkill,
 } from "./types/validActions.js";
 
 // Shared value constants (sub-unions)

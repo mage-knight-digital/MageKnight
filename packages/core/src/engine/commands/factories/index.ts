@@ -57,6 +57,7 @@ import {
   DEBUG_TRIGGER_LEVEL_UP_ACTION,
   BURN_MONASTERY_ACTION,
   PLUNDER_VILLAGE_ACTION,
+  USE_SKILL_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -136,6 +137,9 @@ export {
   createDebugTriggerLevelUpCommandFromAction,
 } from "./debug.js";
 
+// Skill factories
+export { createUseSkillCommandFromAction } from "./skills.js";
+
 // Import all factories for the registry
 import {
   createMoveCommandFromAction,
@@ -202,6 +206,8 @@ import {
   createDebugTriggerLevelUpCommandFromAction,
 } from "./debug.js";
 
+import { createUseSkillCommandFromAction } from "./skills.js";
+
 import type { CommandFactory } from "./types.js";
 
 /**
@@ -250,4 +256,6 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [DEBUG_TRIGGER_LEVEL_UP_ACTION]: createDebugTriggerLevelUpCommandFromAction,
   [BURN_MONASTERY_ACTION]: createBurnMonasteryCommandFromAction,
   [PLUNDER_VILLAGE_ACTION]: createPlunderVillageCommandFromAction,
+  // Skill actions
+  [USE_SKILL_ACTION]: createUseSkillCommandFromAction,
 };

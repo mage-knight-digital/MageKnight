@@ -48,5 +48,18 @@ export function createResetPlayer(
       manaStealUsedThisTurn: false,
       manaSearchUsedThisTurn: false,
     },
+    // Skill cooldown resets
+    // - usedThisTurn: cleared so once-per-turn skills can be used next turn
+    // - activeUntilNextTurn: only clear skills NOT used this turn (lockout expired)
+    //   Skills used THIS turn stay locked until end of NEXT turn
+    skillCooldowns: {
+      ...player.skillCooldowns,
+      usedThisTurn: [],
+      // Only clear skills from activeUntilNextTurn that were NOT used this turn
+      // Skills used this turn have their lockout persist until next turn ends
+      activeUntilNextTurn: player.skillCooldowns.activeUntilNextTurn.filter(
+        (skillId) => player.skillCooldowns.usedThisTurn.includes(skillId)
+      ),
+    },
   };
 }

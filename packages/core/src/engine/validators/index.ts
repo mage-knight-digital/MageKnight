@@ -41,6 +41,7 @@ import {
   DEBUG_TRIGGER_LEVEL_UP_ACTION,
   BURN_MONASTERY_ACTION,
   PLUNDER_VILLAGE_ACTION,
+  USE_SKILL_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -266,6 +267,17 @@ import {
   validateNotAlreadyPlundered,
   validateBeforeTurnForPlunder,
 } from "./plunderVillageValidators.js";
+
+// Skill validators
+import {
+  validateSkillExists,
+  validateSkillOwned,
+  validateSkillHasEffect,
+  validateSkillCooldown,
+  validateSkillCombatRestriction,
+  validateSkillTurnRestriction,
+  validateSkillNotDuringTactics,
+} from "./skillValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -626,6 +638,21 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateBeforeTurnForPlunder, // Must plunder before taking any action or moving
     validateAtVillage,
     validateNotAlreadyPlundered,
+  ],
+  [USE_SKILL_ACTION]: [
+    // Note: validateIsPlayersTurn is intentionally NOT included here
+    // because skills with canUseOutOfTurn=true (like Motivation) can be used on any player's turn.
+    // The turn check is handled by validateSkillTurnRestriction which considers the skill's properties.
+    validateRoundPhase,
+    validateSkillNotDuringTactics, // Cannot use before tactic cards drawn (FAQ S6)
+    validateNoChoicePending, // Must resolve pending choice first
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
+    validateSkillExists,
+    validateSkillOwned,
+    validateSkillHasEffect,
+    validateSkillCooldown,
+    validateSkillTurnRestriction, // Checks turn ownership based on skill properties
+    validateSkillCombatRestriction,
   ],
 };
 
