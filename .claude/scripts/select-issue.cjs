@@ -322,17 +322,24 @@ function fetchBlockers(issueNumbers) {
   }
 
   // REST API fallback for failed issues (slower but more reliable)
+  // Limit to 10 issues max to avoid hanging when rate limited
   if (failedIssues.length > 0) {
-    console.error(
-      `GraphQL failed for ${failedIssues.length} issues, trying REST API fallback...`
-    );
-    for (const num of failedIssues) {
-      const restBlockers = fetchBlockerREST(num);
-      if (restBlockers !== null) {
-        blockers[num] = restBlockers;
-      } else {
-        // Both GraphQL and REST failed - return null to use cache
-        return null;
+    const MAX_REST_FALLBACK = 10;
+    if (failedIssues.length > MAX_REST_FALLBACK) {
+      console.error(
+        `GraphQL failed for ${failedIssues.length} issues, too many for REST fallback - proceeding without blocker info`
+      );
+      // Don't block selection, just proceed without blocker info for these issues
+    } else {
+      console.error(
+        `GraphQL failed for ${failedIssues.length} issues, trying REST API fallback...`
+      );
+      for (const num of failedIssues) {
+        const restBlockers = fetchBlockerREST(num);
+        if (restBlockers !== null) {
+          blockers[num] = restBlockers;
+        }
+        // If REST fails, just continue without blocker info for this issue
       }
     }
   }
