@@ -10,6 +10,7 @@ import {
   CATEGORY_COMBAT,
   CATEGORY_SPECIAL,
 } from "../../types/cards.js";
+import { ifDay, move } from "../effectHelpers.js";
 import {
   type SkillDefinition,
   SKILL_USAGE_ONCE_PER_TURN,
@@ -43,6 +44,7 @@ export const TOVAK_SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "tovak",
     description: "Move 2 (Day) or Move 1 (Night)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    effect: ifDay(move(2), move(1)),
     categories: [CATEGORY_MOVEMENT],
   },
   [SKILL_TOVAK_NIGHT_SHARPSHOOTING]: {
