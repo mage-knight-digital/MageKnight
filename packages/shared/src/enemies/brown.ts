@@ -18,9 +18,10 @@
  * - Mummy - Ice+physical resistance, poison
  * - Hydra - Multiple attacks (2, 2, 2), ice resistance
  * - Manticore - Swift, assassination, poison, fire resistance
+ * - Water Elemental - Ice attack, ice resistance, Elementalist faction
  */
 
-import { ELEMENT_PHYSICAL, ELEMENT_COLD_FIRE, ELEMENT_FIRE } from "../elements.js";
+import { ELEMENT_PHYSICAL, ELEMENT_COLD_FIRE, ELEMENT_FIRE, ELEMENT_ICE } from "../elements.js";
 import { ENEMY_COLOR_BROWN, FACTION_ELEMENTALIST, type EnemyDefinition } from "./types.js";
 import {
   ABILITY_BRUTAL,
@@ -46,6 +47,7 @@ export const ENEMY_FIRE_ELEMENTAL = "fire_elemental" as const;
 export const ENEMY_MUMMY = "mummy" as const;
 export const ENEMY_HYDRA = "hydra" as const;
 export const ENEMY_MANTICORE = "manticore" as const;
+export const ENEMY_WATER_ELEMENTAL = "water_elemental" as const;
 
 /**
  * Union type of all brown (Dungeon monster) enemy IDs
@@ -60,7 +62,8 @@ export type BrownEnemyId =
   | typeof ENEMY_FIRE_ELEMENTAL
   | typeof ENEMY_MUMMY
   | typeof ENEMY_HYDRA
-  | typeof ENEMY_MANTICORE;
+  | typeof ENEMY_MANTICORE
+  | typeof ENEMY_WATER_ELEMENTAL;
 
 // =============================================================================
 // BROWN ENEMY DEFINITIONS
@@ -182,5 +185,17 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
     fame: 5,
     resistances: [RESIST_FIRE],
     abilities: [ABILITY_SWIFT, ABILITY_ASSASSINATION, ABILITY_POISON],
+  },
+  [ENEMY_WATER_ELEMENTAL]: {
+    id: ENEMY_WATER_ELEMENTAL,
+    name: "Water Elemental",
+    color: ENEMY_COLOR_BROWN,
+    attack: 6,
+    attackElement: ELEMENT_ICE,
+    armor: 7,
+    fame: 4,
+    resistances: [RESIST_ICE],
+    abilities: [],
+    faction: FACTION_ELEMENTALIST,
   },
 };
