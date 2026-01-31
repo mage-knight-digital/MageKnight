@@ -3,6 +3,13 @@
  */
 
 export {
+  getPlayerByIdOrThrow,
+  getPlayerIndexByIdOrThrow,
+  getPlayerById,
+  getPlayerIndexById,
+} from "./playerHelpers.js";
+
+export {
   getPlayerSite,
   isPlayerAtSiteType,
 } from "./siteHelpers.js";

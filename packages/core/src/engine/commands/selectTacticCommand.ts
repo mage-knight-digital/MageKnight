@@ -35,6 +35,7 @@ import {
 import { getTacticCard } from "../../data/tactics.js";
 import { SELECT_TACTIC_COMMAND } from "./commandTypes.js";
 import { randomElement, type RngState } from "../../utils/rng.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 export { SELECT_TACTIC_COMMAND };
 
@@ -62,7 +63,7 @@ function validateSelection(
   }
 
   // Must not have a pending tactic decision to resolve
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (player?.pendingTacticDecision) {
     return "Must resolve pending tactic decision first";
   }
@@ -130,7 +131,7 @@ export function createSelectTacticCommand(
       const tacticCard = getTacticCard(tacticId);
 
       // Find the player for on-pick effect processing
-      const player = state.players.find(p => p.id === playerId);
+      const player = getPlayerById(state, playerId);
       if (!player) {
         events.push({
           type: INVALID_ACTION,

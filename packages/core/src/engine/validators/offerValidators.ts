@@ -36,6 +36,7 @@ import {
   SPELL_PURCHASE_COST,
   MONASTERY_AA_PURCHASE_COST,
 } from "../../data/siteProperties.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 // === Spell Purchase Validators ===
 
@@ -99,7 +100,7 @@ export function validateHasInfluenceForSpell(
 ): ValidationResult {
   if (action.type !== BUY_SPELL_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
@@ -203,7 +204,7 @@ export function validateHasInfluenceForMonasteryAA(
     return valid();
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
@@ -235,7 +236,7 @@ export function validateInLevelUpContext(
   }
 
   // Regular AAs require a pending level-up reward that offers AA selection
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }

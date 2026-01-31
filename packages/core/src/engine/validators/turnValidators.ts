@@ -15,6 +15,7 @@ import {
   PLAYER_NOT_FOUND,
   WRONG_PHASE,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 // Check it's this player's turn
 export function validateIsPlayersTurn(
@@ -62,7 +63,7 @@ export function validateHasNotActed(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
@@ -80,7 +81,7 @@ export function validateMinimumTurnRequirement(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }

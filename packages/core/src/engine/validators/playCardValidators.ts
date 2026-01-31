@@ -16,6 +16,7 @@ import {
   PLAYER_NOT_FOUND,
   INVALID_ACTION_CODE,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 function getCardId(action: PlayerAction): CardId | null {
   if (action.type === PLAY_CARD_ACTION && "cardId" in action) {
@@ -35,7 +36,7 @@ export function validateCardInHand(
     return invalid(INVALID_ACTION_CODE, "Invalid play card action");
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }

@@ -31,6 +31,7 @@ import { createCompleteRestCommand } from "../completeRestCommand.js";
 import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js";
 import { getBasicActionCard } from "../../../data/basicActions/index.js";
 import { DEED_CARD_TYPE_WOUND } from "../../../types/cards.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Helper to check if a card is a wound
@@ -67,7 +68,7 @@ export const createRestCommandFromAction: CommandFactory = (
 ) => {
   if (action.type !== REST_ACTION) return null;
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return null;
 
   return createRestCommand({
@@ -119,7 +120,7 @@ export const createCompleteRestCommandFromAction: CommandFactory = (
 ) => {
   if (action.type !== COMPLETE_REST_ACTION) return null;
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return null;
 
   // Determine rest type based on current hand state

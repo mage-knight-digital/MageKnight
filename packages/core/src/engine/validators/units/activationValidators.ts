@@ -46,6 +46,7 @@ import {
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ATTACK,
 } from "../../../types/combat.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Check unit exists and belongs to player
@@ -57,7 +58,7 @@ export function validateUnitExists(
 ): ValidationResult {
   if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
@@ -78,7 +79,7 @@ export function validateUnitCanActivate(
 ): ValidationResult {
   if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
@@ -111,7 +112,7 @@ export function validateUnitCanReceiveDamage(
   // If no assignments provided, all damage goes to hero (no unit validation needed)
   if (!action.assignments) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   for (const assignment of action.assignments) {
@@ -155,7 +156,7 @@ export function validateAbilityIndex(
 ): ValidationResult {
   if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
@@ -193,7 +194,7 @@ export function validateAbilityMatchesPhase(
   // (non-combat abilities like Move/Influence can be used outside combat)
   if (!state.combat) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
@@ -270,7 +271,7 @@ export function validateSiegeRequirement(
   if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
   if (!state.combat) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return valid();
 
   const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
@@ -308,7 +309,7 @@ export function validateCombatRequiredForAbility(
 ): ValidationResult {
   if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);

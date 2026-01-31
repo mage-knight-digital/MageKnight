@@ -5,6 +5,7 @@
 import type { GameState } from "../../state/GameState.js";
 import type { Site, SiteType } from "../../types/map.js";
 import { hexKey } from "@mage-knight/shared";
+import { getPlayerById } from "./playerHelpers.js";
 
 /**
  * Get the site at the player's current position
@@ -14,7 +15,7 @@ export function getPlayerSite(
   state: GameState,
   playerId: string
 ): Site | null {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.position) return null;
 
   const hexKeyStr = hexKey(player.position);

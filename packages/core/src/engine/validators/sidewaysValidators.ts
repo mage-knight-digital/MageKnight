@@ -40,6 +40,7 @@ import {
   INVALID_ACTION_CODE,
   SIDEWAYS_CHOICE_REQUIRED,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 function getCardIdForSideways(action: PlayerAction): CardId | null {
   if (action.type === PLAY_CARD_SIDEWAYS_ACTION && "cardId" in action) {
@@ -59,7 +60,7 @@ export function validateSidewaysCardInHand(
     return invalid(INVALID_ACTION_CODE, "Invalid sideways play action");
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }

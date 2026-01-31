@@ -14,6 +14,7 @@ import {
 import type { UnitFilter } from "../../types/scaling.js";
 import type { PlayerUnit } from "../../types/unit.js";
 import { CARD_WOUND, UNIT_STATE_READY, UNIT_STATE_SPENT } from "@mage-knight/shared";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Evaluates a scaling factor and returns the count to multiply by.
@@ -28,7 +29,7 @@ export function evaluateScalingFactor(
   playerId: string,
   factor: ScalingFactor
 ): number {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return 0;
 
   switch (factor.type) {

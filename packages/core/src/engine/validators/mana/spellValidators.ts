@@ -20,6 +20,7 @@ import {
   SPELL_REQUIRES_TWO_MANA,
   SPELL_BASIC_REQUIRES_MANA,
 } from "../validationCodes.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Validate that spells provide both mana sources (black + color) when powered.
@@ -90,7 +91,7 @@ export function validateSpellManaRequirement(
   }
 
   // Now validate each mana source is available
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
@@ -131,7 +132,7 @@ export function validateSpellBasicManaRequirement(
   // Only spells require mana for basic effect
   if (card.cardType !== DEED_CARD_TYPE_SPELL) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }

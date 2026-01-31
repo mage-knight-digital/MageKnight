@@ -21,6 +21,7 @@ import {
   FORTIFIED_NEEDS_SIEGE,
   NO_SIEGE_ATTACK_ACCUMULATED,
 } from "../validationCodes.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Calculate fortification level for an enemy.
@@ -103,7 +104,7 @@ export function validateHasSiegeAttack(
   if (action.attackType !== COMBAT_TYPE_SIEGE) return valid();
 
   // Find the player
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return valid();
 
   // Calculate total siege attack (base + elemental)

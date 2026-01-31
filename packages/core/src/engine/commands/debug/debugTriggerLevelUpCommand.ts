@@ -10,6 +10,7 @@
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import { processLevelUps } from "../endTurn/levelUp.js";
+import { getPlayerIndexById } from "../../helpers/playerHelpers.js";
 
 export const DEBUG_TRIGGER_LEVEL_UP_COMMAND = "DEBUG_TRIGGER_LEVEL_UP" as const;
 
@@ -28,10 +29,12 @@ export function createDebugTriggerLevelUpCommand(
     isReversible: false, // Uses RNG for skill drawing
 
     execute(state: GameState): CommandResult {
-      const playerIndex = state.players.findIndex((p) => p.id === playerId);
+      const playerIndex = getPlayerIndexById(state, playerId);
+      if (playerIndex === -1) {
+        return { state, events: [] };
+      }
       const player = state.players[playerIndex];
-
-      if (playerIndex === -1 || !player) {
+      if (!player) {
         return { state, events: [] };
       }
 

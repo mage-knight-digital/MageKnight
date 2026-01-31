@@ -26,6 +26,7 @@ import { isCoastlineSlot } from "../explore/tileGrid.js";
 import { getValidExploreOptions } from "../validActions/exploration.js";
 import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Extract explore direction from action (type guard helper)
@@ -45,7 +46,7 @@ export function validatePlayerOnMapForExplore(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.position) {
     return invalid(NOT_ON_MAP, "Player is not on the map");
   }
@@ -61,7 +62,7 @@ export function validateOnEdgeHex(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.position) {
     return invalid(NOT_ON_MAP, "Player is not on the map");
   }
@@ -82,7 +83,7 @@ export function validateExploreDirection(
   playerId: string,
   action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   const direction = getExploreDirection(action);
 
   if (!player?.position || !direction) {
@@ -170,7 +171,7 @@ export function validateExploreMoveCost(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }

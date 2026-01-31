@@ -29,6 +29,7 @@ import {
   getReputationCostModifier,
   siteTypeToRecruitSite,
 } from "../../validActions/units/recruitment.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Check player has enough command slots to recruit
@@ -40,7 +41,7 @@ export function validateCommandSlots(
 ): ValidationResult {
   if (action.type !== RECRUIT_UNIT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.units.length >= player.commandTokens) {
@@ -65,7 +66,7 @@ export function validateInfluenceCost(
 ): ValidationResult {
   if (action.type !== RECRUIT_UNIT_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   const unitDef = getUnit(action.unitId);

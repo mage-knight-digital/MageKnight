@@ -34,6 +34,7 @@ import {
   INVALID_ASSIGNMENT_AMOUNT,
   FORTIFIED_NEEDS_SIEGE,
 } from "../validationCodes.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Get the available amount for a specific attack type and element.
@@ -200,7 +201,7 @@ export function validateHasAvailableAttack(
 ): ValidationResult {
   if (action.type !== ASSIGN_ATTACK_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return valid();
 
   const available = getAvailableAttack(

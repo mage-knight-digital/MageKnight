@@ -17,6 +17,7 @@ import {
   GLADE_WOUND_NO_WOUNDS_IN_HAND,
   GLADE_WOUND_NO_WOUNDS_IN_DISCARD,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Validate that the player has a pending glade wound choice
@@ -26,7 +27,7 @@ export const validateHasPendingGladeChoice: Validator = (
   playerId: string,
   _action: PlayerAction
 ): ValidationResult => {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid("PLAYER_NOT_FOUND", "Player not found");
   }
@@ -50,7 +51,7 @@ export const validateGladeWoundChoice: Validator = (
     return valid();
   }
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid("PLAYER_NOT_FOUND", "Player not found");
   }

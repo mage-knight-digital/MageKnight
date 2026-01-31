@@ -32,6 +32,7 @@ import {
   MANA_WHITE,
 } from "@mage-knight/shared";
 import { getCard } from "../validActions/cards/index.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
@@ -94,7 +95,7 @@ export function isEffectResolvable(
   playerId: string,
   effect: CardEffect
 ): boolean {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return false;
 
   switch (effect.type) {

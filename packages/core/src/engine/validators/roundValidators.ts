@@ -13,6 +13,7 @@ import {
   ALREADY_ANNOUNCED,
   MUST_ANNOUNCE_END_OF_ROUND,
 } from "./validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Player must have empty deck to announce end of round.
@@ -26,7 +27,7 @@ export function validateDeckEmpty(
 ): ValidationResult {
   if (action.type !== ANNOUNCE_END_OF_ROUND_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   if (player.deck.length > 0) {
@@ -75,7 +76,7 @@ export function validateMustAnnounceEndOfRound(
   // Skip if round end already announced
   if (state.endOfRoundAnnouncedBy !== null) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   // If deck AND hand are both empty, must announce

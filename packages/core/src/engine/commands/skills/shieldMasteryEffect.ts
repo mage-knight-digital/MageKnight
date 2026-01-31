@@ -21,6 +21,7 @@ import {
   fireBlock,
   iceBlock,
 } from "../../../data/effectHelpers.js";
+import { getPlayerIndexByIdOrThrow } from "../../helpers/playerHelpers.js";
 
 /**
  * Apply the Shield Mastery skill effect.
@@ -36,11 +37,7 @@ export function applyShieldMasteryEffect(
   state: GameState,
   playerId: string
 ): GameState {
-  const playerIndex = state.players.findIndex((p) => p.id === playerId);
-  if (playerIndex === -1) {
-    throw new Error(`Player not found: ${playerId}`);
-  }
-
+  const playerIndex = getPlayerIndexByIdOrThrow(state, playerId);
   const player = state.players[playerIndex];
   if (!player) {
     throw new Error(`Player not found at index: ${playerIndex}`);
@@ -77,11 +74,7 @@ export function removeShieldMasteryEffect(
   state: GameState,
   playerId: string
 ): GameState {
-  const playerIndex = state.players.findIndex((p) => p.id === playerId);
-  if (playerIndex === -1) {
-    throw new Error(`Player not found: ${playerId}`);
-  }
-
+  const playerIndex = getPlayerIndexByIdOrThrow(state, playerId);
   const player = state.players[playerIndex];
   if (!player) {
     throw new Error(`Player not found at index: ${playerIndex}`);

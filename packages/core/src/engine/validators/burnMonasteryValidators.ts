@@ -11,6 +11,7 @@ import { BURN_MONASTERY_ACTION, hexKey } from "@mage-knight/shared";
 import { valid, invalid } from "./types.js";
 import { NOT_AT_MONASTERY, MONASTERY_BURNED, ALREADY_COMBATTED } from "./validationCodes.js";
 import { SiteType } from "../../types/map.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Must be at a monastery site
@@ -22,7 +23,7 @@ export function validateAtMonastery(
 ): ValidationResult {
   if (action.type !== BURN_MONASTERY_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.position) {
     return invalid(NOT_AT_MONASTERY, "You are not at a monastery");
   }
@@ -45,7 +46,7 @@ export function validateMonasteryNotBurned(
 ): ValidationResult {
   if (action.type !== BURN_MONASTERY_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player?.position) return valid(); // Handled by validateAtMonastery
 
   const hex = state.map.hexes[hexKey(player.position)];
@@ -68,7 +69,7 @@ export function validateNoCombatThisTurnForBurn(
 ): ValidationResult {
   if (action.type !== BURN_MONASTERY_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return valid();
 
   if (player.hasCombattedThisTurn) {

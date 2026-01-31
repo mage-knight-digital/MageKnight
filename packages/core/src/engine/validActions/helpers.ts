@@ -16,6 +16,7 @@ import {
   WRONG_PHASE,
   PLAYER_NOT_FOUND,
 } from "../validators/validationCodes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Check if a player can act in the current game state.
@@ -26,7 +27,7 @@ export function checkCanAct(
   playerId: string
 ): { canAct: true; player: Player } | { canAct: false; reason: string } {
   // Find the player
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return { canAct: false, reason: PLAYER_NOT_FOUND };
   }

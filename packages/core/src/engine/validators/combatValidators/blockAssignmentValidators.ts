@@ -28,6 +28,7 @@ import {
   NOTHING_TO_UNASSIGN_BLOCK,
   INVALID_ASSIGNMENT_AMOUNT,
 } from "../validationCodes.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
  * Get the available amount for a specific element of block.
@@ -162,7 +163,7 @@ export function validateHasAvailableBlock(
 ): ValidationResult {
   if (action.type !== ASSIGN_BLOCK_ACTION) return valid();
 
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return valid();
 
   const available = getAvailableBlock(

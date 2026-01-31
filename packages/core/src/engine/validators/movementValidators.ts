@@ -20,6 +20,7 @@ import {
   CANNOT_ENTER_CITY,
 } from "./validationCodes.js";
 import { SiteType } from "../../types/map.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 // Helper to get target from action (type guard)
 function getMoveTarget(action: PlayerAction): HexCoord | null {
@@ -50,7 +51,7 @@ export function validatePlayerOnMap(
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
@@ -66,7 +67,7 @@ export function validateTargetAdjacent(
   playerId: string,
   action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   const target = getMoveTarget(action);
 
   if (!player?.position || !target) {
@@ -128,7 +129,7 @@ export function validateEnoughMovePoints(
   playerId: string,
   action: PlayerAction
 ): ValidationResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   const target = getMoveTarget(action);
 
   if (!player || !target) {

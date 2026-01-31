@@ -22,6 +22,7 @@ import {
 } from "@mage-knight/shared";
 import { rerollDie } from "../mana/manaSource.js";
 import { REROLL_SOURCE_DICE_COMMAND } from "./commandTypes.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 export { REROLL_SOURCE_DICE_COMMAND };
 
@@ -38,7 +39,7 @@ function validateReroll(
   playerId: string,
   dieIds: readonly string[]
 ): string | null {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return "Player not found";
   }
@@ -124,7 +125,7 @@ export function createRerollSourceDiceCommand(
       }
 
       // Find the player
-      const player = state.players.find((p) => p.id === playerId);
+      const player = getPlayerById(state, playerId);
       if (!player) {
         return { state, events };
       }

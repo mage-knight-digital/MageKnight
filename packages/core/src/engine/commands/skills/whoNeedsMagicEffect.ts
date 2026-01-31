@@ -22,6 +22,7 @@ import {
   SIDEWAYS_CONDITION_NO_MANA_USED,
   SOURCE_SKILL,
 } from "../../modifierConstants.js";
+import { getPlayerByIdOrThrow } from "../../helpers/playerHelpers.js";
 
 /**
  * Apply the Who Needs Magic? skill effect.
@@ -38,10 +39,7 @@ export function applyWhoNeedsMagicEffect(
   state: GameState,
   playerId: string
 ): GameState {
-  const player = state.players.find((p) => p.id === playerId);
-  if (!player) {
-    throw new Error(`Player not found: ${playerId}`);
-  }
+  const player = getPlayerByIdOrThrow(state, playerId);
 
   // Add +2 modifier (unconditional - always applies as baseline)
   state = addModifier(state, {

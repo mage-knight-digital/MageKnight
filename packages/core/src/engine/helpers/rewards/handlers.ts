@@ -25,6 +25,7 @@ import {
   MANA_BLACK,
   BasicManaColor,
 } from "@mage-knight/shared";
+import { getPlayerById } from "../playerHelpers.js";
 
 /**
  * Grant a site reward to a player.
@@ -83,7 +84,7 @@ export function grantSpellReward(
     if (!cardId) continue;
 
     // Add spell to top of player's deed deck (drawn next round)
-    const player = currentState.players.find((p) => p.id === playerId);
+    const player = getPlayerById(currentState, playerId);
     if (!player) continue;
 
     const updatedPlayer: Player = {
@@ -158,7 +159,7 @@ export function grantArtifactReward(
     if (!cardId) continue;
 
     // Add artifact to top of player's deed deck (drawn next round)
-    const player = currentState.players.find((p) => p.id === playerId);
+    const player = getPlayerById(currentState, playerId);
     if (!player) continue;
 
     const updatedPlayer: Player = {
@@ -200,7 +201,7 @@ export function grantCrystalRollReward(
   const events: GameEvent[] = [];
   let currentRng = state.rng;
 
-  const player = currentState.players.find((p) => p.id === playerId);
+  const player = getPlayerById(currentState, playerId);
   if (!player) {
     return { state, events: [] };
   }
@@ -282,7 +283,7 @@ export function grantAdvancedActionReward(
     const cardId = aaOffer[0];
     if (!cardId) continue;
 
-    const player = currentState.players.find((p) => p.id === playerId);
+    const player = getPlayerById(currentState, playerId);
     if (!player) continue;
 
     const updatedPlayer: Player = {
@@ -337,7 +338,7 @@ export function grantFameReward(
   playerId: string,
   amount: number
 ): RewardResult {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) {
     return { state, events: [] };
   }

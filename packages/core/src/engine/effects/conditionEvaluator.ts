@@ -21,6 +21,7 @@ import {
   CONDITION_IS_NIGHT_OR_UNDERGROUND,
 } from "../../types/conditions.js";
 import { CARD_WOUND, hexKey, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 
 /**
  * Evaluates a condition against the current game state for a specific player.
@@ -35,7 +36,7 @@ export function evaluateCondition(
   playerId: string,
   condition: EffectCondition
 ): boolean {
-  const player = state.players.find((p) => p.id === playerId);
+  const player = getPlayerById(state, playerId);
   if (!player) return false;
 
   switch (condition.type) {
