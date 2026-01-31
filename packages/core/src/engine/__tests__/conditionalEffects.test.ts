@@ -15,6 +15,7 @@ import {
   CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
+  CONDITION_IS_NIGHT_OR_UNDERGROUND,
 } from "../../types/conditions.js";
 import {
   COMBAT_PHASE_ATTACK,
@@ -45,6 +46,7 @@ import {
   ifEnemyDefeated,
   ifManaUsed,
   ifHasWoundsInHand,
+  ifNightOrUnderground,
 } from "../../data/effectHelpers.js";
 import { ENEMY_PROWLERS } from "@mage-knight/shared";
 
@@ -303,6 +305,50 @@ describe("Conditional Effects", () => {
         expect(evaluateCondition(state, "unknown_player", condition)).toBe(false);
       });
     });
+
+    describe("IS_NIGHT_OR_UNDERGROUND condition", () => {
+      it("should return true when it is night", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
+        const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return false during day with no combat", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat: null });
+        const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true during day in dungeon/tomb combat (nightManaRules)", () => {
+        const combat = {
+          ...createCombatState([ENEMY_PROWLERS]),
+          nightManaRules: true, // Dungeon/tomb combat
+        };
+        const state = createTestGameState({
+          timeOfDay: TIME_OF_DAY_DAY,
+          combat,
+        });
+        const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return false during day in normal combat (not dungeon/tomb)", () => {
+        const combat = {
+          ...createCombatState([ENEMY_PROWLERS]),
+          nightManaRules: false, // Normal combat
+        };
+        const state = createTestGameState({
+          timeOfDay: TIME_OF_DAY_DAY,
+          combat,
+        });
+        const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+    });
   });
 
   describe("resolveEffect with conditional", () => {
@@ -506,6 +552,66 @@ describe("Conditional Effects", () => {
       if (effect.condition.type === CONDITION_TIME_OF_DAY) {
         expect(effect.condition.time).toBe(TIME_OF_DAY_DAY);
       }
+    });
+
+    it("ifNightOrUnderground creates correct conditional", () => {
+      const effect = ifNightOrUnderground(move(4), move(2));
+      expect(effect.type).toBe("conditional");
+      expect(effect.condition.type).toBe(CONDITION_IS_NIGHT_OR_UNDERGROUND);
+      expect(effect.thenEffect).toEqual(move(4));
+      expect(effect.elseEffect).toEqual(move(2));
+    });
+  });
+
+  describe("ifNightOrUnderground effect resolution", () => {
+    it("should apply thenEffect at night", () => {
+      const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
+      const effect = ifNightOrUnderground(move(2), move(1));
+
+      const result = resolveEffect(state, "player1", effect, "dark-paths");
+
+      expect(result.state.players[0]?.movePoints).toBe(6); // 4 base + 2 (night)
+    });
+
+    it("should apply elseEffect during day", () => {
+      const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat: null });
+      const effect = ifNightOrUnderground(move(2), move(1));
+
+      const result = resolveEffect(state, "player1", effect, "dark-paths");
+
+      expect(result.state.players[0]?.movePoints).toBe(5); // 4 base + 1 (day)
+    });
+
+    it("should apply thenEffect during day in dungeon combat", () => {
+      const combat = {
+        ...createCombatState([ENEMY_PROWLERS]),
+        nightManaRules: true, // Dungeon/tomb
+      };
+      const state = createTestGameState({
+        timeOfDay: TIME_OF_DAY_DAY,
+        combat,
+      });
+      const effect = ifNightOrUnderground(move(2), move(1));
+
+      const result = resolveEffect(state, "player1", effect, "dark-paths");
+
+      expect(result.state.players[0]?.movePoints).toBe(6); // 4 base + 2 (dungeon = night)
+    });
+
+    it("should apply elseEffect during day in normal combat", () => {
+      const combat = {
+        ...createCombatState([ENEMY_PROWLERS]),
+        nightManaRules: false, // Normal site
+      };
+      const state = createTestGameState({
+        timeOfDay: TIME_OF_DAY_DAY,
+        combat,
+      });
+      const effect = ifNightOrUnderground(move(2), move(1));
+
+      const result = resolveEffect(state, "player1", effect, "dark-paths");
+
+      expect(result.state.players[0]?.movePoints).toBe(5); // 4 base + 1 (day)
     });
   });
 });

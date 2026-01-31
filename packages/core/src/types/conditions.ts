@@ -17,6 +17,7 @@ export const CONDITION_BLOCKED_SUCCESSFULLY = "blocked_successfully" as const;
 export const CONDITION_ENEMY_DEFEATED_THIS_COMBAT = "enemy_defeated_this_combat" as const;
 export const CONDITION_MANA_USED_THIS_TURN = "mana_used_this_turn" as const;
 export const CONDITION_HAS_WOUNDS_IN_HAND = "has_wounds_in_hand" as const;
+export const CONDITION_IS_NIGHT_OR_UNDERGROUND = "is_night_or_underground" as const;
 
 // === Condition Interfaces ===
 
@@ -56,6 +57,14 @@ export interface HasWoundsInHandCondition {
   readonly type: typeof CONDITION_HAS_WOUNDS_IN_HAND;
 }
 
+/**
+ * True if it's night time OR in dungeon/tomb combat (which uses night mana rules).
+ * Used by skills like Dark Paths, Night Sharpshooting that are better at night/underground.
+ */
+export interface IsNightOrUndergroundCondition {
+  readonly type: typeof CONDITION_IS_NIGHT_OR_UNDERGROUND;
+}
+
 // === Union Type ===
 
 export type EffectCondition =
@@ -66,4 +75,5 @@ export type EffectCondition =
   | BlockedSuccessfullyCondition
   | EnemyDefeatedThisCombatCondition
   | ManaUsedThisTurnCondition
-  | HasWoundsInHandCondition;
+  | HasWoundsInHandCondition
+  | IsNightOrUndergroundCondition;

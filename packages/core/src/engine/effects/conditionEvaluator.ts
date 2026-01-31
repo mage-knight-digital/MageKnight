@@ -16,8 +16,9 @@ import {
   CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
+  CONDITION_IS_NIGHT_OR_UNDERGROUND,
 } from "../../types/conditions.js";
-import { CARD_WOUND, hexKey } from "@mage-knight/shared";
+import { CARD_WOUND, hexKey, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
 
 /**
  * Evaluates a condition against the current game state for a specific player.
@@ -72,6 +73,12 @@ export function evaluateCondition(
 
     case CONDITION_HAS_WOUNDS_IN_HAND:
       return player.hand.some((c) => c === CARD_WOUND);
+
+    case CONDITION_IS_NIGHT_OR_UNDERGROUND:
+      // True if night time OR in dungeon/tomb combat (which uses night mana rules)
+      if (state.timeOfDay === TIME_OF_DAY_NIGHT) return true;
+      if (state.combat?.nightManaRules) return true;
+      return false;
 
     default:
       // Exhaustive check - TypeScript ensures all cases are handled

@@ -13,6 +13,9 @@
  */
 
 import type { SkillId } from "@mage-knight/shared";
+import type { CardCategory, CardEffect } from "../../types/cards.js";
+import { CARD_CATEGORY_MOVEMENT } from "../../types/cards.js";
+import { move, ifNightOrUnderground } from "../effectHelpers.js";
 
 // ============================================================================
 // Hero ID type (to avoid circular dependency with hero.ts)
@@ -58,7 +61,10 @@ export interface SkillDefinition {
   readonly description: string;
   /** How often the skill can be used */
   readonly usageType: SkillUsageType;
-  // Note: effect implementation will be added when skills are fully implemented
+  /** The effect granted when this skill is activated (optional until all skills are implemented) */
+  readonly effect?: CardEffect;
+  /** Categories for UI display (e.g., Movement, Combat). Same as card categories. */
+  readonly categories?: readonly CardCategory[];
 }
 
 // ============================================================================
@@ -165,6 +171,8 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Move 1 (Day) or Move 2 (Night)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    effect: ifNightOrUnderground(move(2), move(1)),
+    categories: [CARD_CATEGORY_MOVEMENT],
   },
   [SKILL_ARYTHEA_BURNING_POWER]: {
     id: SKILL_ARYTHEA_BURNING_POWER,
