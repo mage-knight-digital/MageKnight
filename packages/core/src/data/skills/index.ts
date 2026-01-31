@@ -13,6 +13,9 @@
  */
 
 import type { SkillId } from "@mage-knight/shared";
+import type { CardCategory, CardEffect } from "../../types/cards.js";
+import { CARD_CATEGORY_COMBAT } from "../../types/cards.js";
+import { choice, siegeAttack, fireSiegeAttack } from "../effectHelpers.js";
 
 // ============================================================================
 // Hero ID type (to avoid circular dependency with hero.ts)
@@ -58,7 +61,10 @@ export interface SkillDefinition {
   readonly description: string;
   /** How often the skill can be used */
   readonly usageType: SkillUsageType;
-  // Note: effect implementation will be added when skills are fully implemented
+  /** The effect when this skill is activated (optional until all skills are implemented) */
+  readonly effect?: CardEffect;
+  /** Categories this skill belongs to (e.g., combat, movement) */
+  readonly categories?: readonly CardCategory[];
 }
 
 // ============================================================================
@@ -172,6 +178,8 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     heroId: "arythea",
     description: "Siege Attack 1 or Fire Siege Attack 1",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
+    effect: choice([siegeAttack(1), fireSiegeAttack(1)]),
+    categories: [CARD_CATEGORY_COMBAT],
   },
   [SKILL_ARYTHEA_HOT_SWORDSMANSHIP]: {
     id: SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
