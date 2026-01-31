@@ -34,6 +34,7 @@ import {
   ABILITY_SWIFT,
   ABILITY_BRUTAL,
   ABILITY_SUMMON,
+  ABILITY_SUMMON_GREEN,
   ABILITY_UNFORTIFIED,
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
@@ -52,6 +53,7 @@ export const ENEMY_CENTAUR_OUTRIDERS = "centaur_outriders" as const;
 export const ENEMY_ORC_SKIRMISHERS = "orc_skirmishers" as const;
 export const ENEMY_ORC_WAR_BEASTS = "orc_war_beasts" as const;
 export const ENEMY_SKELETAL_WARRIORS = "skeletal_warriors" as const;
+export const ENEMY_SHROUDED_NECROMANCERS = "shrouded_necromancers" as const;
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -66,7 +68,8 @@ export type GreenEnemyId =
   | typeof ENEMY_CENTAUR_OUTRIDERS
   | typeof ENEMY_ORC_SKIRMISHERS
   | typeof ENEMY_ORC_WAR_BEASTS
-  | typeof ENEMY_SKELETAL_WARRIORS;
+  | typeof ENEMY_SKELETAL_WARRIORS
+  | typeof ENEMY_SHROUDED_NECROMANCERS;
 
 // =============================================================================
 // GREEN ENEMY DEFINITIONS
@@ -187,6 +190,18 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     fame: 1,
     resistances: [RESIST_FIRE],
     abilities: [],
+    faction: FACTION_DARK_CRUSADERS,
+  },
+  [ENEMY_SHROUDED_NECROMANCERS]: {
+    id: ENEMY_SHROUDED_NECROMANCERS,
+    name: "Shrouded Necromancers",
+    color: ENEMY_COLOR_GREEN,
+    attack: 0, // Summoners don't attack directly
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 5,
+    fame: 3,
+    resistances: [],
+    abilities: [ABILITY_FORTIFIED, ABILITY_SUMMON_GREEN], // Summons green enemy
     faction: FACTION_DARK_CRUSADERS,
   },
 };
