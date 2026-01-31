@@ -30,6 +30,8 @@ import {
   createSummonedEnemyDiscardedEvent,
   createReputationChangedEvent,
   REPUTATION_REASON_DEFEAT_ENEMY,
+  MIN_REPUTATION,
+  MAX_REPUTATION,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -121,6 +123,8 @@ interface ResolvePendingDamageResult {
   fameGained: number;
   /** Total reputation penalty from defeating enemies with reputationPenalty */
   reputationPenalty: number;
+  /** Total reputation bonus from defeating enemies with reputationBonus */
+  reputationBonus: number;
   /** Events for defeated enemies */
   events: readonly GameEvent[];
 }
@@ -136,6 +140,7 @@ function resolvePendingDamage(
   const events: GameEvent[] = [];
   let fameGained = 0;
   let reputationPenalty = 0;
+  let reputationBonus = 0;
 
   const updatedEnemies = combat.enemies.map((enemy) => {
     // Skip already defeated enemies
@@ -155,9 +160,12 @@ function resolvePendingDamage(
       fameGained += fame;
       events.push(createEnemyDefeatedEvent(enemy.instanceId, enemy.definition.name, fame));
 
-      // Track reputation penalty if enemy has one (e.g., Heroes)
+      // Track reputation changes from defeated enemies
       if (enemy.definition.reputationPenalty) {
         reputationPenalty += enemy.definition.reputationPenalty;
+      }
+      if (enemy.definition.reputationBonus) {
+        reputationBonus += enemy.definition.reputationBonus;
       }
 
       return {
@@ -173,6 +181,7 @@ function resolvePendingDamage(
     enemies: updatedEnemies,
     fameGained,
     reputationPenalty,
+    reputationBonus,
     events,
   };
 }
@@ -311,13 +320,10 @@ function applyFameToPlayer(
   };
 }
 
-/** Minimum reputation value (floor) */
-const MIN_REPUTATION = -7;
-
 /**
- * Result of applying reputation penalty to a player.
+ * Result of applying reputation change to a player.
  */
-interface ApplyReputationPenaltyResult {
+interface ApplyReputationChangeResult {
   /** Updated game state */
   state: GameState;
   /** Events for reputation change */
@@ -325,15 +331,18 @@ interface ApplyReputationPenaltyResult {
 }
 
 /**
- * Apply reputation penalty from defeated enemies to a player.
- * The penalty is subtracted from reputation (clamped to -7 minimum).
+ * Apply reputation change from defeated enemies to a player.
+ * Handles both bonuses (positive change) and penalties (negative change).
+ * Reputation is clamped to -7 minimum and +7 maximum.
  */
-function applyReputationPenalty(
+function applyReputationChange(
   state: GameState,
   playerId: string,
+  bonus: number,
   penalty: number
-): ApplyReputationPenaltyResult {
-  if (penalty <= 0) {
+): ApplyReputationChangeResult {
+  const netChange = bonus - penalty;
+  if (netChange === 0) {
     return { state, events: [] };
   }
 
@@ -348,9 +357,12 @@ function applyReputationPenalty(
   }
 
   const oldReputation = player.reputation;
-  const newReputation = Math.max(MIN_REPUTATION, oldReputation - penalty);
+  const newReputation = Math.max(
+    MIN_REPUTATION,
+    Math.min(MAX_REPUTATION, oldReputation + netChange)
+  );
 
-  // Don't emit event if reputation didn't actually change
+  // Don't emit event if reputation didn't actually change (hit floor/ceiling)
   if (newReputation === oldReputation) {
     return { state, events: [] };
   }
@@ -366,7 +378,7 @@ function applyReputationPenalty(
   const events: GameEvent[] = [
     createReputationChangedEvent(
       playerId,
-      -penalty, // delta is negative (reputation lost)
+      newReputation - oldReputation, // actual delta (may differ from netChange due to clamping)
       newReputation,
       REPUTATION_REASON_DEFEAT_ENEMY
     ),
@@ -706,10 +718,11 @@ export function createEndCombatPhaseCommand(
           damageResult.fameGained
         );
 
-        // Apply reputation penalty from defeated enemies (e.g., Heroes)
-        const reputationResult = applyReputationPenalty(
+        // Apply reputation change from defeated enemies (e.g., Heroes penalty, Thugs bonus)
+        const reputationResult = applyReputationChange(
           stateAfterResolution,
           params.playerId,
+          damageResult.reputationBonus,
           damageResult.reputationPenalty
         );
         stateAfterResolution = reputationResult.state;
@@ -940,10 +953,11 @@ export function createEndCombatPhaseCommand(
           damageResult.fameGained
         );
 
-        // Apply reputation penalty from defeated enemies (e.g., Heroes)
-        const reputationResult = applyReputationPenalty(
+        // Apply reputation change from defeated enemies (e.g., Heroes penalty, Thugs bonus)
+        const reputationResult = applyReputationChange(
           updatedState,
           params.playerId,
+          damageResult.reputationBonus,
           damageResult.reputationPenalty
         );
         updatedState = reputationResult.state;
