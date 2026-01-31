@@ -41,7 +41,7 @@ import {
 } from "@mage-knight/shared";
 import { RampagingEnemyType } from "../../types/map.js";
 import type { HexState } from "../../types/map.js";
-import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemyHelpers.js";
+import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemy/index.js";
 
 describe("Fortified Assault", () => {
   let engine: MageKnightEngine;

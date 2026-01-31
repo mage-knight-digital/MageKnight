@@ -27,7 +27,7 @@ import type { Player } from "../../types/player.js";
 import { MOVE_COMMAND } from "./commandTypes.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { createCombatState, type CombatEnemyInput } from "../../types/combat.js";
-import { getEnemyIdFromToken } from "../helpers/enemyHelpers.js";
+import { getEnemyIdFromToken } from "../helpers/enemy/index.js";
 import { SiteType, type HexState, type HexEnemy } from "../../types/map.js";
 
 export { MOVE_COMMAND };

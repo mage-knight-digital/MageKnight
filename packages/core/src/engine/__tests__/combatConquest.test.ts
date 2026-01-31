@@ -25,7 +25,7 @@ import {
   hexKey,
   ENEMY_GUARDSMEN,
 } from "@mage-knight/shared";
-import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemyHelpers.js";
+import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemy/index.js";
 
 describe("Combat Conquest Integration", () => {
   let engine: MageKnightEngine;

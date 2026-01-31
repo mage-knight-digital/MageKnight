@@ -57,7 +57,7 @@ import {
   drawEnemyWithFactionPriority,
   getEnemyIdFromToken,
   discardEnemy,
-} from "../../helpers/enemyHelpers.js";
+} from "../../helpers/enemy/index.js";
 import { isAbilityNullified } from "../../modifiers.js";
 
 export const END_COMBAT_PHASE_COMMAND = "END_COMBAT_PHASE" as const;

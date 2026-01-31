@@ -28,7 +28,7 @@ import {
   COMBAT_TYPE_SIEGE,
   ENEMY_GUARDSMEN,
 } from "@mage-knight/shared";
-import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemyHelpers.js";
+import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemy/index.js";
 
 describe("Combat Restrictions", () => {
   let engine: MageKnightEngine;

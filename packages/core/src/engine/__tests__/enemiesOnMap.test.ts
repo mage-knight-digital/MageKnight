@@ -19,7 +19,7 @@ import {
   getRampagingEnemyColor,
   drawEnemiesForHex,
   resetTokenCounter,
-} from "../helpers/enemyHelpers.js";
+} from "../helpers/enemy/index.js";
 import { createRng } from "../../utils/rng.js";
 import {
   ENEMY_COLOR_GREEN,

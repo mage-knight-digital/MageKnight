@@ -50,7 +50,7 @@ import {
 } from "@mage-knight/shared";
 import { RampagingEnemyType, SiteType } from "../../types/map.js";
 import type { HexState } from "../../types/map.js";
-import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemyHelpers.js";
+import { createEnemyTokenId, resetTokenCounter } from "../helpers/enemy/index.js";
 
 describe("Combat Position Validation", () => {
   let engine: MageKnightEngine;
