@@ -29,6 +29,8 @@ import {
   effectHasCrystal,
   effectHasCardBoost,
 } from "./effectDetection/index.js";
+import { isRuleActive, getEffectiveSidewaysValue } from "../../modifiers.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../modifierConstants.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -52,12 +54,43 @@ export function getPlayableCardsForNormalTurn(
 ): PlayCardOptions {
   const cards: PlayableCard[] = [];
 
+  // Check if wounds can be played sideways (e.g., Power of Pain skill)
+  const woundsPlayableSideways = isRuleActive(state, player.id, RULE_WOUNDS_PLAYABLE_SIDEWAYS);
+
   for (const cardId of player.hand) {
     const card = getCard(cardId);
     if (!card) continue;
 
-    // Wounds cannot be played
-    if (card.cardType === DEED_CARD_TYPE_WOUND) continue;
+    // Handle wound cards specially
+    if (card.cardType === DEED_CARD_TYPE_WOUND) {
+      // Wounds can only be played sideways, and only if a skill enables it
+      if (woundsPlayableSideways) {
+        // Get the effective sideways value for wounds (e.g., +2 for Power of Pain)
+        const woundSidewaysValue = getEffectiveSidewaysValue(
+          state,
+          player.id,
+          true, // isWound
+          player.usedManaFromSource,
+          undefined
+        );
+
+        const playableCard: PlayableCard = {
+          cardId,
+          name: card.name,
+          canPlayBasic: false,
+          canPlayPowered: false,
+          canPlaySideways: true,
+          basicEffectDescription: "Cannot play wound for effect",
+          poweredEffectDescription: "Cannot play wound for effect",
+          sidewaysOptions: [
+            { as: PLAY_SIDEWAYS_AS_MOVE, value: woundSidewaysValue },
+            { as: PLAY_SIDEWAYS_AS_INFLUENCE, value: woundSidewaysValue },
+          ],
+        };
+        cards.push(playableCard);
+      }
+      continue;
+    }
 
     const playability = getCardPlayabilityForNormalTurn(state, player.id, card);
 

@@ -16,6 +16,7 @@ import {
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
   ELEMENT_PHYSICAL,
+  CARD_WOUND,
   createCardPlayUndoneEvent,
 } from "@mage-knight/shared";
 import { getEffectiveSidewaysValue } from "../modifiers.js";
@@ -195,11 +196,15 @@ export function createPlayCardSidewaysCommand(
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
 
+      // Check if the card being played is a wound
+      const isWound = params.cardId === CARD_WOUND;
+
       // Calculate effective sideways value (usually 1, can be modified)
+      // For wounds with Power of Pain, this will return 2
       appliedValue = getEffectiveSidewaysValue(
         state,
         params.playerId,
-        false, // not a wound
+        isWound,
         player.usedManaFromSource,
         undefined // manaColorMatchesCard not applicable for sideways
       );

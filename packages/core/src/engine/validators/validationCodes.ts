@@ -196,6 +196,11 @@ export const INVALID_LEVEL_UP_LEVEL = "INVALID_LEVEL_UP_LEVEL" as const;
 export const SKILL_NOT_AVAILABLE = "SKILL_NOT_AVAILABLE" as const;
 export const SKILL_ALREADY_OWNED = "SKILL_ALREADY_OWNED" as const;
 
+// Skill usage validation codes
+export const SKILL_NOT_OWNED = "SKILL_NOT_OWNED" as const;
+export const SKILL_ON_COOLDOWN = "SKILL_ON_COOLDOWN" as const;
+export const SKILL_PRECONDITION_FAILED = "SKILL_PRECONDITION_FAILED" as const;
+
 // Debug validation codes
 export const DEV_MODE_REQUIRED = "DEV_MODE_REQUIRED" as const;
 export const NO_PENDING_LEVEL_UPS = "NO_PENDING_LEVEL_UPS" as const;
@@ -373,6 +378,10 @@ export type ValidationErrorCode =
   | typeof INVALID_LEVEL_UP_LEVEL
   | typeof SKILL_NOT_AVAILABLE
   | typeof SKILL_ALREADY_OWNED
+  // Skill usage validation
+  | typeof SKILL_NOT_OWNED
+  | typeof SKILL_ON_COOLDOWN
+  | typeof SKILL_PRECONDITION_FAILED
   // Debug validation
   | typeof DEV_MODE_REQUIRED
   | typeof NO_PENDING_LEVEL_UPS

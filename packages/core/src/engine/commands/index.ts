@@ -217,3 +217,6 @@ export {
   type BurnMonasteryCommandParams,
   BURN_MONASTERY_COMMAND,
 } from "./burnMonasteryCommand.js";
+
+// Skill commands
+export * from "./skills/index.js";

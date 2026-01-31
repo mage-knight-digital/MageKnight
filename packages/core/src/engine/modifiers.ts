@@ -160,8 +160,11 @@ export function getEffectiveSidewaysValue(
   let bestValue = baseValue;
 
   for (const mod of modifiers) {
-    // Check if this modifier applies
+    // Check if this modifier applies based on card type
+    // forWounds=true modifiers only apply to wounds
+    // forWounds=false modifiers only apply to non-wounds
     if (isWound && !mod.forWounds) continue;
+    if (!isWound && mod.forWounds) continue;
 
     if (mod.condition === SIDEWAYS_CONDITION_NO_MANA_USED && manaUsedThisTurn)
       continue;

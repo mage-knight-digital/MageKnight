@@ -40,6 +40,8 @@ import {
   INVALID_ACTION_CODE,
   SIDEWAYS_CHOICE_REQUIRED,
 } from "./validationCodes.js";
+import { isRuleActive } from "../modifiers.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../modifierConstants.js";
 
 function getCardIdForSideways(action: PlayerAction): CardId | null {
   if (action.type === PLAY_CARD_SIDEWAYS_ACTION && "cardId" in action) {
@@ -71,13 +73,13 @@ export function validateSidewaysCardInHand(
   return valid();
 }
 
-// Cannot play wound cards sideways
+// Cannot play wound cards sideways (unless a skill enables it)
 // Any non-Wound card can be played sideways - this includes Basic Actions,
 // Advanced Actions, Spells, Artifacts, etc. When new card types are added,
 // they will automatically be valid for sideways play (unless they are wounds).
 export function validateSidewaysNotWound(
-  _state: GameState,
-  _playerId: string,
+  state: GameState,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   const cardId = getCardIdForSideways(action);
@@ -85,24 +87,33 @@ export function validateSidewaysNotWound(
     return invalid(INVALID_ACTION_CODE, "Invalid sideways play action");
   }
 
+  // Check if it's a wound card
+  let isWound = false;
+
   // Check against the wound card ID directly
   if (cardId === CARD_WOUND) {
-    return invalid(
-      CANNOT_PLAY_WOUND,
-      "Wound cards cannot be played sideways"
-    );
+    isWound = true;
   }
 
   // For cards in the basic action registry, also check by card type
   // This handles cases where wound cards might have different IDs
-  if (cardId in BASIC_ACTION_CARDS) {
+  if (!isWound && cardId in BASIC_ACTION_CARDS) {
     const card = getBasicActionCard(cardId as BasicActionCardId);
     if (card.cardType === DEED_CARD_TYPE_WOUND) {
-      return invalid(
-        CANNOT_PLAY_WOUND,
-        "Wound cards cannot be played sideways"
-      );
+      isWound = true;
     }
+  }
+
+  // If it's a wound, check if the rule override is active (e.g., Power of Pain)
+  if (isWound) {
+    if (isRuleActive(state, playerId, RULE_WOUNDS_PLAYABLE_SIDEWAYS)) {
+      // Rule override allows wounds to be played sideways
+      return valid();
+    }
+    return invalid(
+      CANNOT_PLAY_WOUND,
+      "Wound cards cannot be played sideways"
+    );
   }
 
   // All other cards (Basic Actions, Advanced Actions, Spells, Artifacts, etc.)
