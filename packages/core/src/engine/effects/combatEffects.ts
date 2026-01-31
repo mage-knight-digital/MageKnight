@@ -26,18 +26,20 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { CardId } from "@mage-knight/shared";
+import type { CardId, SkillId } from "@mage-knight/shared";
 import type {
   SelectCombatEnemyEffect,
   ResolveCombatEnemyTargetEffect,
 } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import { EFFECT_RESOLVE_COMBAT_ENEMY_TARGET } from "../../types/effectTypes.js";
+import { ABILITY_ARCANE_IMMUNITY } from "@mage-knight/shared";
 import { addModifier } from "../modifiers.js";
 import {
   DURATION_COMBAT,
   SCOPE_ONE_ENEMY,
   SOURCE_CARD,
+  SOURCE_SKILL,
 } from "../modifierConstants.js";
 
 // ============================================================================
@@ -77,9 +79,20 @@ export function resolveSelectCombatEnemy(
   }
 
   // Get eligible enemies
-  const eligibleEnemies = state.combat.enemies.filter(
-    (e) => effect.includeDefeated || !e.isDefeated
-  );
+  const eligibleEnemies = state.combat.enemies.filter((e) => {
+    // Filter by defeated status
+    if (!effect.includeDefeated && e.isDefeated) {
+      return false;
+    }
+    // Filter by Arcane Immunity if requested
+    if (
+      effect.excludeArcaneImmune &&
+      e.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY)
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   if (eligibleEnemies.length === 0) {
     return {
@@ -95,6 +108,8 @@ export function resolveSelectCombatEnemy(
       enemyInstanceId: enemy.instanceId,
       enemyName: enemy.definition.name,
       template: effect.template,
+      // Pass through skill ID if this is a skill-originated effect
+      ...(effect.sourceSkillId ? { sourceSkillId: effect.sourceSkillId } : {}),
     })
   );
 
@@ -174,12 +189,21 @@ export function resolveCombatEnemyTarget(
   // Apply modifiers from template
   if (effect.template.modifiers) {
     for (const mod of effect.template.modifiers) {
+      // Determine modifier source - use skill source if skillId provided, otherwise card
+      const modifierSource = effect.sourceSkillId
+        ? {
+            type: SOURCE_SKILL as typeof SOURCE_SKILL,
+            skillId: effect.sourceSkillId as SkillId,
+            playerId,
+          }
+        : {
+            type: SOURCE_CARD as typeof SOURCE_CARD,
+            cardId: (sourceCardId ?? "unknown") as CardId,
+            playerId,
+          };
+
       currentState = addModifier(currentState, {
-        source: {
-          type: SOURCE_CARD,
-          cardId: (sourceCardId ?? "unknown") as CardId,
-          playerId,
-        },
+        source: modifierSource,
         duration: mod.duration ?? DURATION_COMBAT,
         scope: { type: SCOPE_ONE_ENEMY, enemyId: effect.enemyInstanceId },
         effect: mod.modifier,

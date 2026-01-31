@@ -334,6 +334,10 @@ export interface SelectCombatEnemyEffect {
   readonly includeDefeated?: boolean;
   /** If set, effect can only be used in this combat phase (e.g., Tornado = attack only) */
   readonly requiredPhase?: CombatPhase;
+  /** If true, exclude enemies with Arcane Immunity (default: false) */
+  readonly excludeArcaneImmune?: boolean;
+  /** Optional skill ID if this effect originated from a skill (passed to resolution) */
+  readonly sourceSkillId?: string;
 }
 
 /**
@@ -346,6 +350,8 @@ export interface ResolveCombatEnemyTargetEffect {
   /** Stored for UI display without needing state lookup */
   readonly enemyName: string;
   readonly template: CombatEnemyTargetTemplate;
+  /** Optional skill ID if this effect originated from a skill (uses SOURCE_SKILL) */
+  readonly sourceSkillId?: string;
 }
 
 // === Skill-Related Effect Types ===

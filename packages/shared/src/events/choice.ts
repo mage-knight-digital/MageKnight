@@ -24,7 +24,7 @@
  * ```
  */
 
-import type { CardId } from "../ids.js";
+import type { CardId, SkillId } from "../ids.js";
 
 // ============================================================================
 // CHOICE_REQUIRED
@@ -59,8 +59,8 @@ export interface ChoiceRequiredEvent {
   readonly type: typeof CHOICE_REQUIRED;
   /** ID of the player who must choose */
   readonly playerId: string;
-  /** ID of the card that triggered the choice */
-  readonly cardId: CardId;
+  /** ID of the card or skill that triggered the choice */
+  readonly cardId: CardId | SkillId;
   /** Human-readable option descriptions */
   readonly options: readonly string[];
 }
@@ -69,13 +69,13 @@ export interface ChoiceRequiredEvent {
  * Creates a ChoiceRequiredEvent.
  *
  * @param playerId - ID of the player
- * @param cardId - ID of the triggering card
+ * @param cardId - ID of the triggering card or skill
  * @param options - Array of option descriptions
  * @returns A new ChoiceRequiredEvent
  */
 export function createChoiceRequiredEvent(
   playerId: string,
-  cardId: CardId,
+  cardId: CardId | SkillId,
   options: readonly string[]
 ): ChoiceRequiredEvent {
   return {
@@ -120,8 +120,8 @@ export interface ChoiceResolvedEvent {
   readonly type: typeof CHOICE_RESOLVED;
   /** ID of the player who made the choice */
   readonly playerId: string;
-  /** ID of the card the choice was for */
-  readonly cardId: CardId;
+  /** ID of the card or skill the choice was for */
+  readonly cardId: CardId | SkillId;
   /** Index of the chosen option (0-indexed) */
   readonly chosenIndex: number;
   /** Human-readable description of what happened */
@@ -132,14 +132,14 @@ export interface ChoiceResolvedEvent {
  * Creates a ChoiceResolvedEvent.
  *
  * @param playerId - ID of the player
- * @param cardId - ID of the card
+ * @param cardId - ID of the card or skill
  * @param chosenIndex - Index of selected option
  * @param effect - Description of result
  * @returns A new ChoiceResolvedEvent
  */
 export function createChoiceResolvedEvent(
   playerId: string,
-  cardId: CardId,
+  cardId: CardId | SkillId,
   chosenIndex: number,
   effect: string
 ): ChoiceResolvedEvent {

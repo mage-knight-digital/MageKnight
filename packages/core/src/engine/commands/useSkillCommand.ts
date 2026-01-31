@@ -11,7 +11,11 @@ import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player, SkillCooldowns } from "../../types/player.js";
 import type { SkillId } from "@mage-knight/shared";
-import { createSkillUsedEvent } from "@mage-knight/shared";
+import type { GameEvent } from "@mage-knight/shared";
+import {
+  CHOICE_REQUIRED,
+  createSkillUsedEvent,
+} from "@mage-knight/shared";
 import { USE_SKILL_COMMAND } from "./commandTypes.js";
 import {
   SKILLS,
@@ -23,6 +27,8 @@ import {
   applyWhoNeedsMagicEffect,
   removeWhoNeedsMagicEffect,
 } from "./skills/index.js";
+import { resolveEffect, describeEffect, isEffectResolvable } from "../effects/index.js";
+import { SOURCE_SKILL } from "../modifierConstants.js";
 
 export { USE_SKILL_COMMAND };
 
@@ -63,8 +69,24 @@ function removeSkillEffect(
     case SKILL_TOVAK_WHO_NEEDS_MAGIC:
       return removeWhoNeedsMagicEffect(state, playerId);
 
-    default:
+    default: {
+      // For skills with effects, remove any modifiers created by this skill
+      const skill = SKILLS[skillId];
+      if (skill?.effect) {
+        return {
+          ...state,
+          activeModifiers: state.activeModifiers.filter(
+            (m) =>
+              !(
+                m.source.type === SOURCE_SKILL &&
+                m.source.skillId === skillId &&
+                m.source.playerId === playerId
+              )
+          ),
+        };
+      }
       return state;
+    }
   }
 }
 
@@ -159,7 +181,81 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
 
       let updatedState: GameState = { ...state, players };
 
-      // Apply skill effect
+      // If skill has an effect definition, resolve it through the effect system
+      if (skill.effect) {
+        const effectResult = resolveEffect(updatedState, playerId, skill.effect);
+
+        // Handle effects that require player choice
+        if (effectResult.requiresChoice && effectResult.dynamicChoiceOptions) {
+          const choiceOptions = effectResult.dynamicChoiceOptions;
+
+          // Filter to resolvable options
+          const resolvableOptions = choiceOptions.filter((opt) =>
+            isEffectResolvable(effectResult.state, playerId, opt)
+          );
+
+          // If no options resolvable, skill has no valid targets
+          if (resolvableOptions.length === 0) {
+            return {
+              state: effectResult.state,
+              events: [createSkillUsedEvent(playerId, skillId)],
+            };
+          }
+
+          // If only one option, auto-resolve it
+          if (resolvableOptions.length === 1) {
+            const singleOption = resolvableOptions[0];
+            if (!singleOption) {
+              throw new Error("Expected single resolvable option");
+            }
+            const autoResolveResult = resolveEffect(
+              effectResult.state,
+              playerId,
+              singleOption
+            );
+            return {
+              state: autoResolveResult.state,
+              events: [createSkillUsedEvent(playerId, skillId)],
+            };
+          }
+
+          // Multiple options - set up pending choice
+          // PendingChoice.cardId accepts CardId | SkillId
+          const playerWithChoice: Player = {
+            ...updatedPlayer,
+            skillCooldowns: updatedCooldowns,
+            pendingChoice: {
+              cardId: skillId,
+              options: resolvableOptions,
+            },
+          };
+
+          const playersWithChoice = [...effectResult.state.players];
+          playersWithChoice[playerIndex] = playerWithChoice;
+
+          const events: GameEvent[] = [
+            createSkillUsedEvent(playerId, skillId),
+            {
+              type: CHOICE_REQUIRED,
+              playerId,
+              cardId: skillId,
+              options: resolvableOptions.map((opt) => describeEffect(opt)),
+            },
+          ];
+
+          return {
+            state: { ...effectResult.state, players: playersWithChoice },
+            events,
+          };
+        }
+
+        return {
+          state: effectResult.state,
+          events: [createSkillUsedEvent(playerId, skillId)],
+        };
+      }
+
+      // Apply skill effect via custom handlers (for skills without effect field)
       updatedState = applySkillEffect(updatedState, playerId, skillId);
 
       return {
@@ -191,10 +287,13 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
         skill.usageType
       );
 
-      // Update player with restored cooldowns
+      // Update player with restored cooldowns and clear pending choice if it was from this skill
       const updatedPlayer: Player = {
         ...player,
         skillCooldowns: updatedCooldowns,
+        // Clear pending choice if it originated from this skill
+        pendingChoice:
+          player.pendingChoice?.cardId === skillId ? null : player.pendingChoice,
       };
 
       const players = [...state.players];

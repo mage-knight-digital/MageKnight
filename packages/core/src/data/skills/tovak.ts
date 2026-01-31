@@ -11,6 +11,12 @@ import {
   CATEGORY_HEALING,
   CATEGORY_SPECIAL,
 } from "../../types/cards.js";
+import { EFFECT_SELECT_COMBAT_ENEMY } from "../../types/effectTypes.js";
+import {
+  DURATION_COMBAT,
+  EFFECT_ENEMY_STAT,
+  ENEMY_STAT_ARMOR,
+} from "../../engine/modifierConstants.js";
 import {
   type SkillDefinition,
   SKILL_USAGE_ONCE_PER_TURN,
@@ -77,6 +83,26 @@ export const TOVAK_SKILLS: Record<SkillId, SkillDefinition> = {
     description: "Target enemy: Armor -1 for each resistance it has (min 1)",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
     categories: [CATEGORY_COMBAT],
+    effect: {
+      type: EFFECT_SELECT_COMBAT_ENEMY,
+      excludeArcaneImmune: true,
+      sourceSkillId: SKILL_TOVAK_RESISTANCE_BREAK,
+      template: {
+        modifiers: [
+          {
+            modifier: {
+              type: EFFECT_ENEMY_STAT,
+              stat: ENEMY_STAT_ARMOR,
+              amount: -1,
+              minimum: 1,
+              perResistance: true,
+            },
+            duration: DURATION_COMBAT,
+            description: "Armor -1 per resistance",
+          },
+        ],
+      },
+    },
   },
   [SKILL_TOVAK_I_FEEL_NO_PAIN]: {
     id: SKILL_TOVAK_I_FEEL_NO_PAIN,
