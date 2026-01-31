@@ -59,6 +59,9 @@ export const PROPOSE_COOPERATIVE_ASSAULT_COMMAND = "PROPOSE_COOPERATIVE_ASSAULT"
 export const RESPOND_TO_COOPERATIVE_PROPOSAL_COMMAND = "RESPOND_TO_COOPERATIVE_PROPOSAL" as const;
 export const CANCEL_COOPERATIVE_PROPOSAL_COMMAND = "CANCEL_COOPERATIVE_PROPOSAL" as const;
 
+// Skill usage command
+export const USE_SKILL_COMMAND = "USE_SKILL" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;

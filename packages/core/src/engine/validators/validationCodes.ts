@@ -216,6 +216,11 @@ export const CITY_NOT_FOUND = "CITY_NOT_FOUND" as const;
 export const MUST_INVITE_AT_LEAST_ONE = "MUST_INVITE_AT_LEAST_ONE" as const;
 export const INITIATOR_TOKEN_FLIPPED = "INITIATOR_TOKEN_FLIPPED" as const;
 
+// Skill usage validation codes
+export const SKILL_NOT_LEARNED = "SKILL_NOT_LEARNED" as const;
+export const SKILL_NOT_FOUND = "SKILL_NOT_FOUND" as const;
+export const SKILL_ON_COOLDOWN = "SKILL_ON_COOLDOWN" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -390,4 +395,8 @@ export type ValidationErrorCode =
   | typeof NOT_PROPOSAL_INITIATOR
   | typeof CITY_NOT_FOUND
   | typeof MUST_INVITE_AT_LEAST_ONE
-  | typeof INITIATOR_TOKEN_FLIPPED;
+  | typeof INITIATOR_TOKEN_FLIPPED
+  // Skill usage validation
+  | typeof SKILL_NOT_LEARNED
+  | typeof SKILL_NOT_FOUND
+  | typeof SKILL_ON_COOLDOWN;

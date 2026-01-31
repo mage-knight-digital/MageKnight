@@ -1,0 +1,11 @@
+/**
+ * Skill effect handlers
+ *
+ * Each skill that requires an effect implementation has a handler here.
+ * Handlers are called by the useSkillCommand when a skill is activated.
+ */
+
+export {
+  applyWhoNeedsMagicEffect,
+  removeWhoNeedsMagicEffect,
+} from "./whoNeedsMagicEffect.js";

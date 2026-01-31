@@ -81,6 +81,9 @@ export interface ValidActions {
 
   /** Cooperative assault options (propose, respond, or cancel) */
   readonly cooperativeAssault: CooperativeAssaultOptions | undefined;
+
+  /** Skill activation options (when player has activatable skills) */
+  readonly skills: SkillOptions | undefined;
 }
 
 // ============================================================================
@@ -729,4 +732,29 @@ export interface CooperativeAssaultOptions {
     /** Enemy count assigned to this player in the proposal */
     readonly assignedEnemyCount: number;
   };
+}
+
+// ============================================================================
+// Skills
+// ============================================================================
+
+/**
+ * Options for activating skills.
+ * Only shows skills that can currently be activated (not on cooldown).
+ */
+export interface SkillOptions {
+  /** Skills that can be activated this turn */
+  readonly activatable: readonly ActivatableSkill[];
+}
+
+/**
+ * A skill that can be activated.
+ */
+export interface ActivatableSkill {
+  /** Skill ID */
+  readonly skillId: SkillId;
+  /** Display name */
+  readonly name: string;
+  /** Short description of the skill's effect */
+  readonly description: string;
 }
