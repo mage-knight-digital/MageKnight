@@ -9,3 +9,8 @@ export {
   applyWhoNeedsMagicEffect,
   removeWhoNeedsMagicEffect,
 } from "./whoNeedsMagicEffect.js";
+
+export {
+  applyIDontGiveADamnEffect,
+  removeIDontGiveADamnEffect,
+} from "./iDontGiveADamnEffect.js";

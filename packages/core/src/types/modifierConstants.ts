@@ -56,6 +56,8 @@ export const EFFECT_ABILITY_NULLIFIER = "ability_nullifier" as const;
 export const SIDEWAYS_CONDITION_NO_MANA_USED = "no_mana_used" as const;
 export const SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR =
   "with_mana_matching_color" as const;
+export const SIDEWAYS_CONDITION_ADVANCED_CARD_TYPE =
+  "advanced_card_type" as const;
 
 // === CombatValueModifier["valueType"] ===
 export const COMBAT_VALUE_ATTACK = "attack" as const;

@@ -47,6 +47,7 @@ import {
   SCOPE_ONE_UNIT,
   SCOPE_OTHER_PLAYERS,
   SCOPE_SELF,
+  SIDEWAYS_CONDITION_ADVANCED_CARD_TYPE,
   SIDEWAYS_CONDITION_NO_MANA_USED,
   SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR,
   SOURCE_CARD,
@@ -101,7 +102,8 @@ export interface SidewaysValueModifier {
   readonly forWounds: boolean; // Power of Pain allows wounds
   readonly condition?:
     | typeof SIDEWAYS_CONDITION_NO_MANA_USED
-    | typeof SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR;
+    | typeof SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR
+    | typeof SIDEWAYS_CONDITION_ADVANCED_CARD_TYPE;
 }
 
 // Combat value modifier (e.g., "+2 Attack")

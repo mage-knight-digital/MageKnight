@@ -20,6 +20,7 @@ import {
 } from "@mage-knight/shared";
 import { getEffectiveSidewaysValue } from "../modifiers.js";
 import { PLAY_CARD_SIDEWAYS_COMMAND } from "./commandTypes.js";
+import { getCard } from "../validActions/cards/index.js";
 
 export { PLAY_CARD_SIDEWAYS_COMMAND };
 
@@ -195,13 +196,18 @@ export function createPlayCardSidewaysCommand(
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
 
+      // Look up card to get its type for skill bonuses
+      const card = getCard(params.cardId);
+      const cardType = card?.cardType;
+
       // Calculate effective sideways value (usually 1, can be modified)
       appliedValue = getEffectiveSidewaysValue(
         state,
         params.playerId,
         false, // not a wound
         player.usedManaFromSource,
-        undefined // manaColorMatchesCard not applicable for sideways
+        undefined, // manaColorMatchesCard not applicable for sideways
+        cardType // pass card type for I Don't Give a Damn skill
       );
 
       // Remove card from hand, add to play area

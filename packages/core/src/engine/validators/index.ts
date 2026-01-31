@@ -293,8 +293,9 @@ import {
 
 // Skill validators
 import {
-  validateSkillLearned,
+  validateSkillConflict,
   validateSkillCooldown,
+  validateSkillLearned,
 } from "./skillValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
@@ -691,6 +692,7 @@ const validatorRegistry: Record<string, Validator[]> = {
     validateNoChoicePending,
     validateSkillLearned,
     validateSkillCooldown,
+    validateSkillConflict,
   ],
 };
 

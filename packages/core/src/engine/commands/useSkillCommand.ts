@@ -17,10 +17,13 @@ import {
   SKILLS,
   SKILL_USAGE_ONCE_PER_TURN,
   SKILL_USAGE_ONCE_PER_ROUND,
+  SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
 } from "../../data/skills/index.js";
 import {
+  applyIDontGiveADamnEffect,
   applyWhoNeedsMagicEffect,
+  removeIDontGiveADamnEffect,
   removeWhoNeedsMagicEffect,
 } from "./skills/index.js";
 
@@ -41,6 +44,9 @@ function applySkillEffect(
   skillId: SkillId
 ): GameState {
   switch (skillId) {
+    case SKILL_TOVAK_I_DONT_GIVE_A_DAMN:
+      return applyIDontGiveADamnEffect(state, playerId);
+
     case SKILL_TOVAK_WHO_NEEDS_MAGIC:
       return applyWhoNeedsMagicEffect(state, playerId);
 
@@ -60,6 +66,9 @@ function removeSkillEffect(
   skillId: SkillId
 ): GameState {
   switch (skillId) {
+    case SKILL_TOVAK_I_DONT_GIVE_A_DAMN:
+      return removeIDontGiveADamnEffect(state, playerId);
+
     case SKILL_TOVAK_WHO_NEEDS_MAGIC:
       return removeWhoNeedsMagicEffect(state, playerId);
 

@@ -43,10 +43,17 @@ import {
   SCOPE_ONE_ENEMY,
   SCOPE_OTHER_PLAYERS,
   SCOPE_SELF,
-  TERRAIN_ALL,
+  SIDEWAYS_CONDITION_ADVANCED_CARD_TYPE,
   SIDEWAYS_CONDITION_NO_MANA_USED,
   SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR,
+  TERRAIN_ALL,
 } from "./modifierConstants.js";
+import {
+  DEED_CARD_TYPE_ADVANCED_ACTION,
+  DEED_CARD_TYPE_ARTIFACT,
+  DEED_CARD_TYPE_SPELL,
+  type DeedCardType,
+} from "../types/cards.js";
 
 // === Query helpers ===
 
@@ -168,14 +175,35 @@ export function getEffectiveTerrainCost(
 }
 
 /**
+ * Check if a card type is considered "advanced" for sideways value bonuses.
+ * Advanced Actions, Spells, and Artifacts get +3 from I Don't Give a Damn.
+ * Basic Actions (including hero-specific cards) get +2.
+ */
+function isAdvancedCardType(cardType: DeedCardType | undefined): boolean {
+  return (
+    cardType === DEED_CARD_TYPE_ADVANCED_ACTION ||
+    cardType === DEED_CARD_TYPE_SPELL ||
+    cardType === DEED_CARD_TYPE_ARTIFACT
+  );
+}
+
+/**
  * Get effective sideways card value for a player.
+ *
+ * @param state - Current game state
+ * @param playerId - Player playing the card sideways
+ * @param isWound - Whether the card is a wound
+ * @param manaUsedThisTurn - Whether the player has used mana from Source this turn
+ * @param manaColorMatchesCard - Whether mana color matches the card (for Universal Power)
+ * @param cardType - The type of card being played (for I Don't Give a Damn)
  */
 export function getEffectiveSidewaysValue(
   state: GameState,
   playerId: string,
   isWound: boolean,
   manaUsedThisTurn: boolean,
-  manaColorMatchesCard?: boolean
+  manaColorMatchesCard?: boolean,
+  cardType?: DeedCardType
 ): number {
   const baseValue = 1;
 
@@ -195,6 +223,13 @@ export function getEffectiveSidewaysValue(
     if (
       mod.condition === SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR &&
       !manaColorMatchesCard
+    )
+      continue;
+
+    // Check for advanced card type condition (I Don't Give a Damn skill)
+    if (
+      mod.condition === SIDEWAYS_CONDITION_ADVANCED_CARD_TYPE &&
+      !isAdvancedCardType(cardType)
     )
       continue;
 
