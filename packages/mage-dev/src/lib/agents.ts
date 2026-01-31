@@ -344,7 +344,10 @@ export function selectAndClaimIssue(): { success: boolean; issueNumber?: number;
   }
 }
 
-export function launchAgentsInBackground(count: number): { success: boolean; error?: string } {
+export function launchAgentsInBackground(
+  count: number,
+  issueNumbers?: number[]
+): { success: boolean; error?: string } {
   const parallelScript = path.join(SCRIPTS_DIR, "parallel-implement.sh");
 
   if (!fs.existsSync(parallelScript)) {
@@ -355,19 +358,26 @@ export function launchAgentsInBackground(count: number): { success: boolean; err
     ensureLogDir();
 
     // Create pending markers so UI shows agents immediately
+    const actualCount = issueNumbers?.length ?? count;
     const timestamp = Date.now();
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < actualCount; i++) {
       const pendingFile = path.join(LOG_DIR, `pending-${timestamp}-${i}.marker`);
       fs.writeFileSync(pendingFile, JSON.stringify({
         timestamp,
         index: i,
-        count,
+        count: actualCount,
         status: "initializing"
       }));
     }
 
+    // Build args: count first, then optional issue numbers
+    const args = [parallelScript, String(actualCount)];
+    if (issueNumbers && issueNumbers.length > 0) {
+      args.push(...issueNumbers.map(String));
+    }
+
     // Spawn the parallel script in background
-    const child = spawn("bash", [parallelScript, String(count)], {
+    const child = spawn("bash", args, {
       cwd: REPO_ROOT,
       detached: true,
       stdio: "ignore",

@@ -29,7 +29,8 @@ type Mode =
   | { type: "new-worktree" }
   | { type: "creating"; branch: string; output: string[] }
   | { type: "confirm-kill-agent"; agent: Agent }
-  | { type: "view-log"; agent: Agent; lines: string[] };
+  | { type: "view-log"; agent: Agent; lines: string[] }
+  | { type: "launch-agent" };
 
 export function App() {
   const { exit } = useApp();
@@ -197,13 +198,31 @@ export function App() {
   // Agent handlers
   const selectedAgent = agents[agentSelectedIndex];
 
-  const handleLaunchAgents = (count: number) => {
-    const result = launchAgentsInBackground(count);
+  const handleLaunchAgents = (count: number, issueNumbers?: number[]) => {
+    const result = launchAgentsInBackground(count, issueNumbers);
     if (result.success) {
-      showMessage(`Launching ${count} agent(s) in background...`, "cyan");
+      if (issueNumbers && issueNumbers.length > 0) {
+        showMessage(`Launching agent for #${issueNumbers.join(", #")}...`, "cyan");
+      } else {
+        showMessage(`Launching ${count} agent(s) in background...`, "cyan");
+      }
     } else {
       showMessage(`Failed: ${result.error}`, "red");
     }
+  };
+
+  const handleLaunchSpecificAgent = (input: string) => {
+    const trimmed = input.trim().replace(/^#/, "");
+    const issueNumber = trimmed ? parseInt(trimmed, 10) : undefined;
+
+    if (trimmed && isNaN(issueNumber as number)) {
+      showMessage("Invalid issue number", "red");
+      setMode({ type: "normal" });
+      return;
+    }
+
+    handleLaunchAgents(1, issueNumber ? [issueNumber] : undefined);
+    setMode({ type: "normal" });
   };
 
   const handleViewLog = () => {
@@ -302,7 +321,7 @@ export function App() {
         }
         // Agent actions
         else if (input === "l") {
-          handleLaunchAgents(1);
+          setMode({ type: "launch-agent" });
         } else if (input === "L") {
           handleLaunchAgents(3);
         } else if (input === "v" || input === "V") {
@@ -416,6 +435,16 @@ export function App() {
               <ConfirmPrompt
                 message={`Kill agent for #${mode.agent.issueNumber}?`}
                 onConfirm={handleKillAgent}
+                onCancel={() => setMode({ type: "normal" })}
+              />
+            </Box>
+          )}
+
+          {mode.type === "launch-agent" && (
+            <Box marginTop={1}>
+              <TextInput
+                label="Issue # (blank for auto)"
+                onSubmit={handleLaunchSpecificAgent}
                 onCancel={() => setMode({ type: "normal" })}
               />
             </Box>

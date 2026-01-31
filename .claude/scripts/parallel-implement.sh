@@ -20,6 +20,8 @@ LOG_DIR="$HOME/.claude-cache/mage-knight/agent-logs"
 
 # Default number of parallel agents
 COUNT=${1:-3}
+shift 2>/dev/null || true  # Remove count from args
+SPECIFIC_ISSUES=("$@")     # Remaining args are specific issue numbers
 
 # Colors for output
 RED='\033[0;31m'
@@ -110,22 +112,35 @@ log "Starting $COUNT parallel implementation agents..."
 # Select and claim issues
 ISSUES=()
 for i in $(seq 1 $COUNT); do
-  log "Selecting issue $i of $COUNT..."
+  # Check if we have a specific issue for this slot
+  IDX=$((i - 1))
+  if [ $IDX -lt ${#SPECIFIC_ISSUES[@]} ] && [ -n "${SPECIFIC_ISSUES[$IDX]}" ]; then
+    ISSUE="${SPECIFIC_ISSUES[$IDX]}"
+    log "Using specified issue #$ISSUE..."
 
-  # Add random delay to reduce race conditions
-  sleep $((RANDOM % 3))
+    # Still claim it to update the board status
+    node "$SCRIPT_DIR/select-issue.cjs" --claim "$ISSUE" >/dev/null 2>&1 || {
+      error "Failed to claim issue #$ISSUE"
+      continue
+    }
+  else
+    log "Selecting issue $i of $COUNT..."
 
-  # Select and claim
-  ISSUE=$(node "$SCRIPT_DIR/select-issue.cjs" --refresh 2>/dev/null) || {
-    error "Failed to select issue $i"
-    continue
-  }
+    # Add random delay to reduce race conditions
+    sleep $((RANDOM % 3))
 
-  # Claim it
-  node "$SCRIPT_DIR/select-issue.cjs" --claim "$ISSUE" >/dev/null 2>&1 || {
-    error "Failed to claim issue #$ISSUE"
-    continue
-  }
+    # Select and claim
+    ISSUE=$(node "$SCRIPT_DIR/select-issue.cjs" --refresh 2>/dev/null) || {
+      error "Failed to select issue $i"
+      continue
+    }
+
+    # Claim it
+    node "$SCRIPT_DIR/select-issue.cjs" --claim "$ISSUE" >/dev/null 2>&1 || {
+      error "Failed to claim issue #$ISSUE"
+      continue
+    }
+  fi
 
   ISSUES+=("$ISSUE")
   success "Claimed issue #$ISSUE"
