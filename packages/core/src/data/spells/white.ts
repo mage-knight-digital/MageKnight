@@ -6,7 +6,7 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
+  CATEGORY_COMBAT,
   DEED_CARD_TYPE_SPELL,
 } from "../../types/cards.js";
 import {
@@ -40,7 +40,7 @@ const EXPOSE: DeedCard = {
   name: "Expose",
   poweredName: "Mass Expose",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_WHITE],
   basicEffect: {
     type: EFFECT_GAIN_ATTACK,
@@ -65,7 +65,7 @@ const WHIRLWIND: DeedCard = {
   name: "Whirlwind",
   poweredName: "Tornado",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_WHITE],
   basicEffect: {
     type: EFFECT_SELECT_COMBAT_ENEMY,

@@ -6,7 +6,7 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
+  CATEGORY_COMBAT,
   DEED_CARD_TYPE_SPELL,
 } from "../../types/cards.js";
 import {
@@ -48,7 +48,7 @@ const FIREBALL: DeedCard = {
   name: "Fireball",
   poweredName: "Firestorm",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
   basicEffect: fireRangedAttack(5),
   poweredEffect: {
@@ -71,7 +71,7 @@ const FLAME_WALL: DeedCard = {
   name: "Flame Wall",
   poweredName: "Flame Wave",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
   basicEffect: choice([fireAttack(5), fireBlock(7)]),
   poweredEffect: choice([fireAttack(5), fireBlock(7)]), // TODO: Add scaling
@@ -88,7 +88,7 @@ const TREMOR: DeedCard = {
   name: "Tremor",
   poweredName: "Earthquake",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
   basicEffect: {
     type: EFFECT_CHOICE,

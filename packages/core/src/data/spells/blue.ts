@@ -6,7 +6,7 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
+  CATEGORY_COMBAT,
   DEED_CARD_TYPE_SPELL,
 } from "../../types/cards.js";
 import {
@@ -39,7 +39,7 @@ const SNOWSTORM: DeedCard = {
   name: "Snowstorm",
   poweredName: "Blizzard",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_BLUE],
   basicEffect: iceRangedAttack(5),
   poweredEffect: {
@@ -61,7 +61,7 @@ const CHILL: DeedCard = {
   name: "Chill",
   poweredName: "Lethal Chill",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_BLUE],
   basicEffect: {
     type: EFFECT_SELECT_COMBAT_ENEMY,

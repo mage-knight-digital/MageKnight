@@ -6,7 +6,7 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_HEALING,
+  CATEGORY_HEALING,
   DEED_CARD_TYPE_SPELL,
 } from "../../types/cards.js";
 import { MANA_GREEN, MANA_BLACK, CARD_RESTORATION } from "@mage-knight/shared";
@@ -26,7 +26,7 @@ const RESTORATION: DeedCard = {
   name: "Restoration",
   poweredName: "Rebirth",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_HEALING],
+  categories: [CATEGORY_HEALING],
   poweredBy: [MANA_BLACK, MANA_GREEN],
   basicEffect: heal(3),
   poweredEffect: heal(5), // TODO: Add forest conditional and unit ready
