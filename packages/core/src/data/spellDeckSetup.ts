@@ -8,7 +8,7 @@
 import type { CardId } from "@mage-knight/shared";
 import type { RngState } from "../utils/rng.js";
 import { shuffleWithRng } from "../utils/rng.js";
-import { getAllSpellCardIds } from "./spells.js";
+import { getAllSpellCardIds } from "./spells/index.js";
 import type { CardOffer } from "../types/offers.js";
 import type { CardOfferRefreshResult } from "./advancedActionDeckSetup.js";
 

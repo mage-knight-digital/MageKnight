@@ -8,7 +8,7 @@
 import type { DeedCard } from "../../../types/cards.js";
 import { getBasicActionCard } from "../../../data/basicActions/index.js";
 import { getAdvancedActionCard } from "../../../data/advancedActions/index.js";
-import { getSpellCard } from "../../../data/spells.js";
+import { getSpellCard } from "../../../data/spells/index.js";
 import { getArtifactCard } from "../../../data/artifacts.js";
 
 // Re-export combat playability
