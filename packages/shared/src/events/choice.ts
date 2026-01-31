@@ -24,7 +24,7 @@
  * ```
  */
 
-import type { CardId } from "../ids.js";
+import type { CardId, SkillId } from "../ids.js";
 
 // ============================================================================
 // CHOICE_REQUIRED
@@ -59,8 +59,10 @@ export interface ChoiceRequiredEvent {
   readonly type: typeof CHOICE_REQUIRED;
   /** ID of the player who must choose */
   readonly playerId: string;
-  /** ID of the card that triggered the choice */
-  readonly cardId: CardId;
+  /** ID of the card that triggered the choice (if from a card) */
+  readonly cardId?: CardId;
+  /** ID of the skill that triggered the choice (if from a skill) */
+  readonly skillId?: SkillId;
   /** Human-readable option descriptions */
   readonly options: readonly string[];
 }
@@ -69,21 +71,27 @@ export interface ChoiceRequiredEvent {
  * Creates a ChoiceRequiredEvent.
  *
  * @param playerId - ID of the player
- * @param cardId - ID of the triggering card
  * @param options - Array of option descriptions
+ * @param source - Object specifying cardId or skillId
  * @returns A new ChoiceRequiredEvent
  */
 export function createChoiceRequiredEvent(
   playerId: string,
-  cardId: CardId,
-  options: readonly string[]
+  options: readonly string[],
+  source?: { cardId?: CardId; skillId?: SkillId }
 ): ChoiceRequiredEvent {
-  return {
+  const event: ChoiceRequiredEvent = {
     type: CHOICE_REQUIRED,
     playerId,
-    cardId,
     options,
   };
+  if (source?.cardId) {
+    return { ...event, cardId: source.cardId };
+  }
+  if (source?.skillId) {
+    return { ...event, skillId: source.skillId };
+  }
+  return event;
 }
 
 // ============================================================================
@@ -120,8 +128,10 @@ export interface ChoiceResolvedEvent {
   readonly type: typeof CHOICE_RESOLVED;
   /** ID of the player who made the choice */
   readonly playerId: string;
-  /** ID of the card the choice was for */
-  readonly cardId: CardId;
+  /** ID of the card the choice was for (if from a card) */
+  readonly cardId?: CardId;
+  /** ID of the skill the choice was for (if from a skill) */
+  readonly skillId?: SkillId;
   /** Index of the chosen option (0-indexed) */
   readonly chosenIndex: number;
   /** Human-readable description of what happened */
@@ -132,24 +142,30 @@ export interface ChoiceResolvedEvent {
  * Creates a ChoiceResolvedEvent.
  *
  * @param playerId - ID of the player
- * @param cardId - ID of the card
  * @param chosenIndex - Index of selected option
  * @param effect - Description of result
+ * @param source - Object specifying cardId or skillId
  * @returns A new ChoiceResolvedEvent
  */
 export function createChoiceResolvedEvent(
   playerId: string,
-  cardId: CardId,
   chosenIndex: number,
-  effect: string
+  effect: string,
+  source?: { cardId?: CardId; skillId?: SkillId }
 ): ChoiceResolvedEvent {
-  return {
+  const event: ChoiceResolvedEvent = {
     type: CHOICE_RESOLVED,
     playerId,
-    cardId,
     chosenIndex,
     effect,
   };
+  if (source?.cardId) {
+    return { ...event, cardId: source.cardId };
+  }
+  if (source?.skillId) {
+    return { ...event, skillId: source.skillId };
+  }
+  return event;
 }
 
 // ============================================================================

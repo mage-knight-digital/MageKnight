@@ -237,6 +237,9 @@ export type {
   // Cooperative assault options
   CooperativeAssaultOptions,
   EligibleInvitee,
+  // Skill effects
+  SkillEffectsOptions,
+  ActivatableSkill,
 } from "./types/validActions.js";
 
 // Shared value constants (sub-unions)

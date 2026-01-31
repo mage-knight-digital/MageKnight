@@ -31,9 +31,15 @@ export interface ClientPendingLevelUpReward {
   readonly drawnSkills: readonly SkillId[];
 }
 
-// Pending choice - when a card requires player selection
+// Pending choice - when a card or skill requires player selection
 export interface ClientPendingChoice {
-  readonly cardId: CardId;
+  /** ID of the card that triggered the choice (if from a card) */
+  readonly cardId?: CardId;
+  /** ID of the skill that triggered the choice (if from a skill) */
+  readonly skillId?: SkillId;
+  /** Description of the choice (if any) */
+  readonly description?: string;
+  /** Available options */
   readonly options: readonly {
     readonly type: string;
     readonly description: string;

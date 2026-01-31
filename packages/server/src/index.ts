@@ -283,13 +283,23 @@ function toClientPlayer(player: Player, forPlayerId: string): ClientPlayer {
 function toClientPendingChoice(
   choice: NonNullable<Player["pendingChoice"]>
 ): ClientPendingChoice {
-  return {
-    cardId: choice.cardId,
+  const base: ClientPendingChoice = {
     options: choice.options.map((effect) => ({
       type: effect.type,
       description: describeEffect(effect),
     })),
   };
+  if (choice.cardId) {
+    return { ...base, cardId: choice.cardId };
+  }
+  if (choice.sourceSkillId) {
+    const withSkill = { ...base, skillId: choice.sourceSkillId };
+    if (choice.description) {
+      return { ...withSkill, description: choice.description };
+    }
+    return withSkill;
+  }
+  return base;
 }
 
 /**

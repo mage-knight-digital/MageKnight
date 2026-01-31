@@ -13,7 +13,7 @@
  */
 
 import type { SkillId } from "@mage-knight/shared";
-import type { Category } from "../../types/cards.js";
+import type { Category, CardEffect } from "../../types/cards.js";
 import {
   CATEGORY_MOVEMENT,
   CATEGORY_COMBAT,
@@ -21,6 +21,13 @@ import {
   CATEGORY_HEALING,
   CATEGORY_SPECIAL,
 } from "../../types/cards.js";
+import {
+  EFFECT_COMPOUND,
+  EFFECT_GAIN_CRYSTAL,
+  EFFECT_CHOICE,
+  EFFECT_GAIN_MANA,
+} from "../../types/effectTypes.js";
+import { MANA_RED, MANA_BLACK } from "@mage-knight/shared";
 
 // ============================================================================
 // Hero ID type (to avoid circular dependency with hero.ts)
@@ -68,7 +75,8 @@ export interface SkillDefinition {
   readonly usageType: SkillUsageType;
   /** Categories for this skill (movement, combat, influence, healing, special) */
   readonly categories: readonly Category[];
-  // Note: effect implementation will be added when skills are fully implemented
+  /** Card-like effect to execute when skill is activated (for active skills) */
+  readonly effect?: CardEffect;
 }
 
 // ============================================================================
@@ -208,6 +216,19 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     description: "Flip to gain 1 red crystal and 1 red or black mana token",
     usageType: SKILL_USAGE_ONCE_PER_ROUND,
     categories: [CATEGORY_SPECIAL],
+    effect: {
+      type: EFFECT_COMPOUND,
+      effects: [
+        { type: EFFECT_GAIN_CRYSTAL, color: MANA_RED },
+        {
+          type: EFFECT_CHOICE,
+          options: [
+            { type: EFFECT_GAIN_MANA, color: MANA_RED },
+            { type: EFFECT_GAIN_MANA, color: MANA_BLACK },
+          ],
+        },
+      ],
+    },
   },
   [SKILL_ARYTHEA_POWER_OF_PAIN]: {
     id: SKILL_ARYTHEA_POWER_OF_PAIN,

@@ -6,6 +6,7 @@ import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player, PendingChoice } from "../../types/player.js";
 import type { CardEffect, ChoiceEffect } from "../../types/cards.js";
+import type { ChoiceResolvedEvent, ChoiceRequiredEvent } from "@mage-knight/shared";
 import {
   CHOICE_REQUIRED,
   CHOICE_RESOLVED,
@@ -18,6 +19,69 @@ import {
   applyUndoContext,
   type EffectUndoContext,
 } from "../effects/effectUndoContext.js";
+
+/**
+ * Helper to create a ChoiceResolvedEvent with proper optional properties
+ */
+function makeChoiceResolvedEvent(
+  playerId: string,
+  chosenIndex: number,
+  effect: string,
+  pendingChoice: PendingChoice
+): ChoiceResolvedEvent {
+  const base: ChoiceResolvedEvent = {
+    type: CHOICE_RESOLVED,
+    playerId,
+    chosenIndex,
+    effect,
+  };
+  if (pendingChoice.cardId) {
+    return { ...base, cardId: pendingChoice.cardId };
+  }
+  if (pendingChoice.sourceSkillId) {
+    return { ...base, skillId: pendingChoice.sourceSkillId };
+  }
+  return base;
+}
+
+/**
+ * Helper to create a ChoiceRequiredEvent with proper optional properties
+ */
+function makeChoiceRequiredEvent(
+  playerId: string,
+  options: readonly string[],
+  pendingChoice: PendingChoice
+): ChoiceRequiredEvent {
+  const base: ChoiceRequiredEvent = {
+    type: CHOICE_REQUIRED,
+    playerId,
+    options,
+  };
+  if (pendingChoice.cardId) {
+    return { ...base, cardId: pendingChoice.cardId };
+  }
+  if (pendingChoice.sourceSkillId) {
+    return { ...base, skillId: pendingChoice.sourceSkillId };
+  }
+  return base;
+}
+
+/**
+ * Helper to create a new PendingChoice with proper optional properties
+ */
+function makePendingChoice(
+  options: readonly CardEffect[],
+  previousChoice: PendingChoice
+): PendingChoice {
+  const base: PendingChoice = { options };
+  if (previousChoice.cardId) {
+    return { ...base, cardId: previousChoice.cardId };
+  }
+  if (previousChoice.sourceSkillId) {
+    return { ...base, sourceSkillId: previousChoice.sourceSkillId };
+  }
+  return base;
+}
 
 export { RESOLVE_CHOICE_COMMAND };
 
@@ -105,13 +169,12 @@ export function createResolveChoiceCommand(
           return {
             state: effectResult.state,
             events: [
-              {
-                type: CHOICE_RESOLVED,
-                playerId: params.playerId,
-                cardId: player.pendingChoice.cardId,
-                chosenIndex: params.choiceIndex,
-                effect: effectResult.description,
-              },
+              makeChoiceResolvedEvent(
+                params.playerId,
+                params.choiceIndex,
+                effectResult.description,
+                player.pendingChoice
+              ),
             ],
           };
         }
@@ -126,13 +189,12 @@ export function createResolveChoiceCommand(
           return {
             state: effectResult.state,
             events: [
-              {
-                type: CHOICE_RESOLVED,
-                playerId: params.playerId,
-                cardId: player.pendingChoice.cardId,
-                chosenIndex: params.choiceIndex,
-                effect: "No available options",
-              },
+              makeChoiceResolvedEvent(
+                params.playerId,
+                params.choiceIndex,
+                "No available options",
+                player.pendingChoice
+              ),
             ],
           };
         }
@@ -151,13 +213,12 @@ export function createResolveChoiceCommand(
           return {
             state: autoResolveResult.state,
             events: [
-              {
-                type: CHOICE_RESOLVED,
-                playerId: params.playerId,
-                cardId: player.pendingChoice.cardId,
-                chosenIndex: params.choiceIndex,
-                effect: autoResolveResult.description,
-              },
+              makeChoiceResolvedEvent(
+                params.playerId,
+                params.choiceIndex,
+                autoResolveResult.description,
+                player.pendingChoice
+              ),
             ],
           };
         }
@@ -171,12 +232,10 @@ export function createResolveChoiceCommand(
           throw new Error("Player not found after effect resolution");
         }
 
+        const newPendingChoice = makePendingChoice(resolvableOptions, player.pendingChoice);
         const playerWithNewChoice: Player = {
           ...updatedPlayer,
-          pendingChoice: {
-            cardId: player.pendingChoice.cardId, // Keep original card ID for context
-            options: resolvableOptions,
-          },
+          pendingChoice: newPendingChoice,
         };
 
         const playersWithNewChoice = [...effectResult.state.players];
@@ -185,19 +244,17 @@ export function createResolveChoiceCommand(
         return {
           state: { ...effectResult.state, players: playersWithNewChoice },
           events: [
-            {
-              type: CHOICE_RESOLVED,
-              playerId: params.playerId,
-              cardId: player.pendingChoice.cardId,
-              chosenIndex: params.choiceIndex,
-              effect: effectResult.description,
-            },
-            {
-              type: CHOICE_REQUIRED,
-              playerId: params.playerId,
-              cardId: player.pendingChoice.cardId,
-              options: resolvableOptions.map((opt) => describeEffect(opt)),
-            },
+            makeChoiceResolvedEvent(
+              params.playerId,
+              params.choiceIndex,
+              effectResult.description,
+              player.pendingChoice
+            ),
+            makeChoiceRequiredEvent(
+              params.playerId,
+              resolvableOptions.map((opt) => describeEffect(opt)),
+              newPendingChoice
+            ),
           ],
         };
       }
@@ -205,13 +262,12 @@ export function createResolveChoiceCommand(
       return {
         state: effectResult.state,
         events: [
-          {
-            type: CHOICE_RESOLVED,
-            playerId: params.playerId,
-            cardId: player.pendingChoice.cardId,
-            chosenIndex: params.choiceIndex,
-            effect: effectResult.description,
-          },
+          makeChoiceResolvedEvent(
+            params.playerId,
+            params.choiceIndex,
+            effectResult.description,
+            player.pendingChoice
+          ),
         ],
       };
     },
@@ -257,15 +313,11 @@ export function createResolveChoiceCommand(
       return {
         state: { ...currentState, players },
         events: [
-          {
-            // Re-emit choice required event
-            type: CHOICE_REQUIRED,
-            playerId: params.playerId,
-            cardId: params.previousPendingChoice.cardId,
-            options: params.previousPendingChoice.options.map((opt) =>
-              describeEffect(opt)
-            ),
-          },
+          makeChoiceRequiredEvent(
+            params.playerId,
+            params.previousPendingChoice.options.map((opt) => describeEffect(opt)),
+            params.previousPendingChoice
+          ),
         ],
       };
     },

@@ -30,6 +30,9 @@ export const ACTIVATE_TACTIC_COMMAND = "ACTIVATE_TACTIC" as const;
 export const RESOLVE_TACTIC_DECISION_COMMAND = "RESOLVE_TACTIC_DECISION" as const;
 export const REROLL_SOURCE_DICE_COMMAND = "REROLL_SOURCE_DICE" as const;
 
+// Skill activation command
+export const USE_SKILL_COMMAND = "USE_SKILL" as const;
+
 // Conquest commands
 export const CONQUER_SITE_COMMAND = "CONQUER_SITE" as const;
 

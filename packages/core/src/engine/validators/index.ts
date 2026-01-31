@@ -44,6 +44,7 @@ import {
   PROPOSE_COOPERATIVE_ASSAULT_ACTION,
   RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION,
   CANCEL_COOPERATIVE_PROPOSAL_ACTION,
+  USE_SKILL_ACTION,
 } from "@mage-knight/shared";
 import { valid } from "./types.js";
 
@@ -289,6 +290,15 @@ import {
   validateProposalExistsForCancel,
   validatePlayerIsInitiator,
 } from "./cooperativeAssaultValidators.js";
+
+// Skill validators
+import {
+  validateSkillOwned,
+  validateSkillExists,
+  validateSkillNotPassive,
+  validateSkillHasEffect,
+  validateSkillNotOnCooldown,
+} from "./skillValidators.js";
 
 // TODO: RULES LIMITATION - Immediate Choice Resolution
 // =====================================================
@@ -677,6 +687,17 @@ const validatorRegistry: Record<string, Validator[]> = {
     // Note: Initiator can cancel regardless of whose turn it is
     validateProposalExistsForCancel,
     validatePlayerIsInitiator,
+  ],
+  [USE_SKILL_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNoChoicePending,
+    validateMustAnnounceEndOfRound,
+    validateSkillExists,
+    validateSkillOwned,
+    validateSkillNotPassive,
+    validateSkillHasEffect,
+    validateSkillNotOnCooldown,
   ],
 };
 

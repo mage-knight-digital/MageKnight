@@ -14,6 +14,7 @@
  * | Sites | `sites.ts` | Interact, EnterSite, ResolveGladeWound, ResolveDeepMine |
  * | Tactics | `tactics.ts` | SelectTactic, ActivateTactic, ResolveTacticDecision, RerollSourceDice |
  * | Offers | `offers.ts` | BuySpell, LearnAdvancedAction, SelectReward |
+ * | Skills | `skills.ts` | UseSkill |
  *
  * @module commands/factories
  */
@@ -60,6 +61,7 @@ import {
   PROPOSE_COOPERATIVE_ASSAULT_ACTION,
   RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION,
   CANCEL_COOPERATIVE_PROPOSAL_ACTION,
+  USE_SKILL_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -146,6 +148,9 @@ export {
   createCancelProposalCommandFromAction,
 } from "./cooperativeAssault.js";
 
+// Skill factories
+export { createUseSkillCommandFromAction } from "./skills.js";
+
 // Import all factories for the registry
 import {
   createMoveCommandFromAction,
@@ -218,6 +223,8 @@ import {
   createCancelProposalCommandFromAction,
 } from "./cooperativeAssault.js";
 
+import { createUseSkillCommandFromAction } from "./skills.js";
+
 import type { CommandFactory } from "./types.js";
 
 /**
@@ -270,4 +277,6 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [PROPOSE_COOPERATIVE_ASSAULT_ACTION]: createProposeCooperativeAssaultCommandFromAction,
   [RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION]: createRespondToProposalCommandFromAction,
   [CANCEL_COOPERATIVE_PROPOSAL_ACTION]: createCancelProposalCommandFromAction,
+  // Skill actions
+  [USE_SKILL_ACTION]: createUseSkillCommandFromAction,
 };

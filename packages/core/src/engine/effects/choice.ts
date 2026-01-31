@@ -74,7 +74,7 @@ import type { EffectResolutionResult } from "./types.js";
 export function resolveChoiceEffect(
   state: GameState,
   _playerId: string,
-  _effect: ChoiceEffectType
+  effect: ChoiceEffectType
 ): EffectResolutionResult {
   // Choice effects pause resolution until player selects an option.
   // The command layer will:
@@ -86,5 +86,6 @@ export function resolveChoiceEffect(
     state,
     description: "Choice required",
     requiresChoice: true,
+    dynamicChoiceOptions: effect.options,
   };
 }
