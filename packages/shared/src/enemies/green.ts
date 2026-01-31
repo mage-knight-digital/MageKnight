@@ -18,11 +18,13 @@
  * - Centaur Outriders - Swift Elementalist cavalry
  * - Orc Skirmishers - Multiple attacks (1, 1)
  * - Orc War Beasts - Brutal beasts with fire/ice resistance
+ * - Skeletal Warriors - Fire-resistant Dark Crusaders
  */
 
 import { ELEMENT_PHYSICAL } from "../elements.js";
 import {
   ENEMY_COLOR_GREEN,
+  FACTION_DARK_CRUSADERS,
   FACTION_ELEMENTALIST,
   type EnemyDefinition,
 } from "./types.js";
@@ -49,6 +51,7 @@ export const ENEMY_ORC_SUMMONERS = "orc_summoners" as const;
 export const ENEMY_CENTAUR_OUTRIDERS = "centaur_outriders" as const;
 export const ENEMY_ORC_SKIRMISHERS = "orc_skirmishers" as const;
 export const ENEMY_ORC_WAR_BEASTS = "orc_war_beasts" as const;
+export const ENEMY_SKELETAL_WARRIORS = "skeletal_warriors" as const;
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -62,7 +65,8 @@ export type GreenEnemyId =
   | typeof ENEMY_ORC_SUMMONERS
   | typeof ENEMY_CENTAUR_OUTRIDERS
   | typeof ENEMY_ORC_SKIRMISHERS
-  | typeof ENEMY_ORC_WAR_BEASTS;
+  | typeof ENEMY_ORC_WAR_BEASTS
+  | typeof ENEMY_SKELETAL_WARRIORS;
 
 // =============================================================================
 // GREEN ENEMY DEFINITIONS
@@ -172,6 +176,18 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     fame: 3,
     resistances: [RESIST_FIRE, RESIST_ICE],
     abilities: [ABILITY_UNFORTIFIED, ABILITY_BRUTAL],
+  },
+  [ENEMY_SKELETAL_WARRIORS]: {
+    id: ENEMY_SKELETAL_WARRIORS,
+    name: "Skeletal Warriors",
+    color: ENEMY_COLOR_GREEN,
+    attack: 3,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 4,
+    fame: 1,
+    resistances: [RESIST_FIRE],
+    abilities: [],
+    faction: FACTION_DARK_CRUSADERS,
   },
 };
 
