@@ -132,7 +132,7 @@ export {
 export {
   createEndRoundCommand,
   END_ROUND_COMMAND,
-} from "./endRoundCommand.js";
+} from "./endRound/index.js";
 
 // Conquest commands
 export {
