@@ -584,14 +584,20 @@ describe("Enter adventure site", () => {
       allEvents.push(...result.events);
 
       // Phase 3: Assign Damage - must process damage from unblocked enemy
-      const enemyInstanceId = state.combat?.enemies[0]?.instanceId;
+      // For multi-attack enemies, each attack needs damage assigned separately
+      const enemy = state.combat?.enemies[0];
+      const enemyInstanceId = enemy?.instanceId;
       if (enemyInstanceId) {
-        result = eng.processAction(state, "player1", {
-          type: ASSIGN_DAMAGE_ACTION,
-          enemyInstanceId,
-        });
-        state = result.state;
-        allEvents.push(...result.events);
+        const numAttacks = enemy?.definition?.attacks?.length ?? 1;
+        for (let attackIndex = 0; attackIndex < numAttacks; attackIndex++) {
+          result = eng.processAction(state, "player1", {
+            type: ASSIGN_DAMAGE_ACTION,
+            enemyInstanceId,
+            attackIndex,
+          });
+          state = result.state;
+          allEvents.push(...result.events);
+        }
       }
 
       // Phase 3 continued: Assign Damage -> Attack
