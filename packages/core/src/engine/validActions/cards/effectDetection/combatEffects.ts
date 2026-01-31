@@ -8,6 +8,7 @@ import type { CardEffect } from "../../../../types/cards.js";
 import {
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
+  EFFECT_TERRAIN_BASED_BLOCK,
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
@@ -50,6 +51,7 @@ export function effectHasRangedOrSiege(effect: CardEffect): boolean {
 export function effectHasBlock(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_BLOCK:
+    case EFFECT_TERRAIN_BASED_BLOCK:
       return true;
 
     case EFFECT_CHOICE:

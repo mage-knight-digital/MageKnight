@@ -66,6 +66,11 @@ export type CardColor =
 // Used when an effect can produce any color of mana
 export const MANA_ANY = "any" as const;
 
+// === Terrain-Based Effects ===
+// Block with value based on terrain's unmodified movement cost
+// Element varies by time of day: Fire (day) / Ice (night or underground)
+export const EFFECT_TERRAIN_BASED_BLOCK = "terrain_based_block" as const;
+
 // === Cost Effects ===
 // Take a wound (add wound card to hand)
 export const EFFECT_TAKE_WOUND = "take_wound" as const;
