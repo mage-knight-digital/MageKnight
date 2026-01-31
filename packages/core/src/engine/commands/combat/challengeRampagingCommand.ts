@@ -21,7 +21,7 @@ import {
 } from "@mage-knight/shared";
 import type { Player } from "../../../types/player.js";
 import { CHALLENGE_RAMPAGING_COMMAND } from "../commandTypes.js";
-import { getEnemyIdFromToken } from "../../helpers/enemyHelpers.js";
+import { getEnemyIdFromToken } from "../../helpers/enemy/index.js";
 import { createEnterCombatCommand } from "./enterCombatCommand.js";
 
 export { CHALLENGE_RAMPAGING_COMMAND };

@@ -21,7 +21,7 @@ import {
   drawEnemyWithFactionPriority,
   getEnemyIdFromToken,
   discardEnemy,
-} from "../../helpers/enemyHelpers.js";
+} from "../../helpers/enemy/index.js";
 import { isAbilityNullified } from "../../modifiers.js";
 
 /**

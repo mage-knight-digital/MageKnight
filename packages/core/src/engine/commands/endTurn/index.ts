@@ -20,7 +20,7 @@ import { TURN_ENDED, GAME_ENDED } from "@mage-knight/shared";
 import { expireModifiers } from "../../modifiers.js";
 import { EXPIRATION_TURN_END } from "../../modifierConstants.js";
 import { END_TURN_COMMAND } from "../commandTypes.js";
-import { createEndRoundCommand } from "../endRoundCommand.js";
+import { createEndRoundCommand } from "../endRound/index.js";
 import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js";
 
 import type { EndTurnCommandParams } from "./types.js";

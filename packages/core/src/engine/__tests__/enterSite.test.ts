@@ -32,7 +32,7 @@ import {
 import { SiteType } from "../../types/map.js";
 import type { Site, HexState, HexEnemy } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
-import { createEnemyTokenId, resetTokenCounter, createEnemyTokenPiles } from "../helpers/enemyHelpers.js";
+import { createEnemyTokenId, resetTokenCounter, createEnemyTokenPiles } from "../helpers/enemy/index.js";
 import { createHexEnemy } from "./testHelpers.js";
 import { createRng } from "../../utils/rng.js";
 

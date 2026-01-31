@@ -26,7 +26,7 @@ import {
   COMBAT_TRIGGER_VOLUNTARY_EXPLORE,
 } from "@mage-knight/shared";
 import { createCombatTriggeredEvent } from "@mage-knight/shared";
-import { getAdventureSiteEnemies, drawEnemy, getEnemyIdFromToken } from "../helpers/enemyHelpers.js";
+import { getAdventureSiteEnemies, drawEnemy, getEnemyIdFromToken } from "../helpers/enemy/index.js";
 import type { HexState, HexEnemy } from "../../types/map.js";
 import { SiteType } from "../../types/map.js";
 import { createCombatState } from "../../types/combat.js";

@@ -24,20 +24,22 @@ export {
   createEnemyTokenPiles,
   // Draw/discard
   drawEnemy,
+  drawEnemyWithFactionPriority,
   discardEnemy,
-  // Site/rampaging mappings
+  // Site/rampaging mappings and visibility
   getSiteDefenders,
   getAdventureSiteEnemies,
   getRampagingEnemyColor,
+  isSiteEnemyRevealed,
   // Composite helper
   drawEnemiesForHex,
-} from "./enemyHelpers.js";
+} from "./enemy/index.js";
 
 export type {
   DrawEnemyResult,
   SiteDefenderConfig,
   DrawEnemiesForHexResult,
-} from "./enemyHelpers.js";
+} from "./enemy/index.js";
 
 export { grantSiteReward, queueSiteReward } from "./rewards/index.js";
 export type { RewardResult } from "./rewards/index.js";

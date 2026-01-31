@@ -26,7 +26,7 @@ import {
   createReputationChangedEvent,
 } from "@mage-knight/shared";
 import { createCombatState, COMBAT_CONTEXT_BURN_MONASTERY } from "../../types/combat.js";
-import { drawEnemy, getEnemyIdFromToken } from "../helpers/enemyHelpers.js";
+import { drawEnemy, getEnemyIdFromToken } from "../helpers/enemy/index.js";
 import type { Player } from "../../types/player.js";
 import { BURN_MONASTERY_COMMAND } from "./commandTypes.js";
 

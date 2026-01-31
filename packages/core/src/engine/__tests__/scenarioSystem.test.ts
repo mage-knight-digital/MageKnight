@@ -13,7 +13,7 @@ import { describe, it, expect } from "vitest";
 import { createInitialGameState, type GameState } from "../../state/GameState.js";
 import { createExploreCommand } from "../commands/exploreCommand.js";
 import { createEndTurnCommand } from "../commands/endTurn/index.js";
-import { createEndRoundCommand } from "../commands/endRoundCommand.js";
+import { createEndRoundCommand } from "../commands/endRound/index.js";
 import { validateAction } from "../validators/index.js";
 import { TileId, SiteType } from "../../types/map.js";
 import type { Player } from "../../types/player.js";

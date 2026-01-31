@@ -16,7 +16,7 @@ import {
   PLAYER_KNOCKED_OUT,
   ENEMY_GUARDSMEN,
 } from "@mage-knight/shared";
-import { resetTokenCounter } from "../helpers/enemyHelpers.js";
+import { resetTokenCounter } from "../helpers/enemy/index.js";
 
 describe("Knockout", () => {
   let engine: MageKnightEngine;
