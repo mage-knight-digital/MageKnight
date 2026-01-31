@@ -37,6 +37,7 @@ import {
   EFFECT_DISCARD_CARD,
   EFFECT_REVEAL_TILES,
   EFFECT_PAY_MANA,
+  EFFECT_TERRAIN_BASED_BLOCK,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -398,6 +399,20 @@ export interface PayManaCostEffect {
   readonly amount: number;
 }
 
+/**
+ * Terrain-based block effect.
+ * Block value equals the unmodified movement cost of the hex the player is on.
+ * Element varies by time of day:
+ * - Day: Fire Block
+ * - Night or Underground (Dungeon/Tomb): Ice Block
+ *
+ * Used by Braevalar's "One with the Land" card.
+ * Per FAQ S1: Dungeons and Tombs count as "night" for this effect.
+ */
+export interface TerrainBasedBlockEffect {
+  readonly type: typeof EFFECT_TERRAIN_BASED_BLOCK;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -429,7 +444,8 @@ export type CardEffect =
   | HealUnitEffect
   | DiscardCardEffect
   | RevealTilesEffect
-  | PayManaCostEffect;
+  | PayManaCostEffect
+  | TerrainBasedBlockEffect;
 
 // === Card Definition ===
 

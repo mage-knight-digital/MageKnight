@@ -13,7 +13,7 @@ import {
 } from "@mage-knight/shared";
 import {
   move, heal, attack, attackWithElement, block, blockWithElement, choice,
-  gainCrystal, convertManaToCrystal,
+  gainCrystal, convertManaToCrystal, terrainBasedBlock,
 } from "./helpers.js";
 
 // === Shared Blue Cards ===
@@ -68,7 +68,7 @@ export const BRAEVALAR_ONE_WITH_THE_LAND: DeedCard = {
   id: CARD_BRAEVALAR_ONE_WITH_THE_LAND, name: "One with the Land", cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_BLUE], categories: [CATEGORY_MOVEMENT, CATEGORY_HEALING, CATEGORY_COMBAT],
   basicEffect: choice(move(2), heal(1), block(2)),
-  poweredEffect: choice(move(4), heal(2), block(4)), sidewaysValue: 1,
+  poweredEffect: choice(move(4), heal(2), terrainBasedBlock()), sidewaysValue: 1,
 };
 
 /** All blue-powered basic action cards */

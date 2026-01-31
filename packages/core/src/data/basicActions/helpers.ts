@@ -5,7 +5,8 @@ import {
   EFFECT_GAIN_HEALING, EFFECT_GAIN_MANA, EFFECT_DRAW_CARDS, EFFECT_APPLY_MODIFIER,
   EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_CHANGE_REPUTATION, EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL, EFFECT_CARD_BOOST, EFFECT_READY_UNIT,
-  EFFECT_MANA_DRAW_POWERED, COMBAT_TYPE_MELEE, COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE,
+  EFFECT_MANA_DRAW_POWERED, EFFECT_TERRAIN_BASED_BLOCK,
+  COMBAT_TYPE_MELEE, COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
 import { MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE, type BasicManaColor } from "@mage-knight/shared";
 import {
@@ -118,4 +119,14 @@ export function grantExtraSourceDieWithBlackAsAnyColor(): CardEffect {
       },
     ],
   };
+}
+
+/**
+ * Terrain-based block effect.
+ * Block value equals the unmodified movement cost of the hex the player is on.
+ * Element: Fire during day, Ice at night or in dungeon/tomb (per FAQ S1).
+ * Used by Braevalar's "One with the Land" card.
+ */
+export function terrainBasedBlock(): CardEffect {
+  return { type: EFFECT_TERRAIN_BASED_BLOCK };
 }

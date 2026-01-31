@@ -160,6 +160,9 @@ export {
   applyPayMana,
 } from "./manaPaymentEffects.js";
 
+// Terrain-based effects
+export { resolveTerrainBasedBlock } from "./terrainEffects.js";
+
 // Effect reversal (for undo)
 export { reverseEffect } from "./reverse.js";
 
@@ -204,6 +207,7 @@ import {
   EFFECT_DISCARD_CARD,
   EFFECT_REVEAL_TILES,
   EFFECT_PAY_MANA,
+  EFFECT_TERRAIN_BASED_BLOCK,
   MANA_ANY,
 } from "../../types/effectTypes.js";
 
@@ -272,6 +276,9 @@ import { handleRevealTiles } from "./mapEffects.js";
 
 // Mana payment effects
 import { handlePayMana } from "./manaPaymentEffects.js";
+
+// Terrain-based effects
+import { resolveTerrainBasedBlock } from "./terrainEffects.js";
 
 // ============================================================================
 // MAIN EFFECT RESOLVER
@@ -479,6 +486,13 @@ export function resolveEffect(
 
     case EFFECT_PAY_MANA:
       return handlePayMana(state, playerIndex, player, effect);
+
+    // ========================================================================
+    // TERRAIN-BASED EFFECTS
+    // ========================================================================
+
+    case EFFECT_TERRAIN_BASED_BLOCK:
+      return resolveTerrainBasedBlock(state, playerIndex, player, effect);
 
     // ========================================================================
     // UNKNOWN EFFECT TYPE
