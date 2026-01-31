@@ -36,8 +36,9 @@ import {
   ABILITY_ASSASSINATION,
   getUnit,
 } from "@mage-knight/shared";
-import type { CombatEnemy, CombatState } from "../../types/combat.js";
+import type { CombatEnemy, CombatState, EnemyAssignments } from "../../types/combat.js";
 import { createEmptyPendingDamage } from "../../types/combat.js";
+import { isEnemyAssignedToPlayer } from "../helpers/cooperativeAssaultHelpers.js";
 import type { GameState } from "../../state/GameState.js";
 import type { AccumulatedAttack, Player } from "../../types/player.js";
 import {
@@ -602,8 +603,33 @@ function computeBlockPhaseOptions(
 // ============================================================================
 
 /**
+ * Filter enemies to only those assigned to a specific player.
+ * For cooperative assaults, each player can only see/target their assigned enemies.
+ * Returns all enemies if no assignments exist (standard single-player combat).
+ *
+ * @param enemies - All enemies in combat
+ * @param enemyAssignments - Map of player IDs to assigned enemy instance IDs
+ * @param playerId - The player to filter for
+ */
+function filterEnemiesByAssignment(
+  enemies: readonly CombatEnemy[],
+  enemyAssignments: EnemyAssignments | undefined,
+  playerId: string
+): readonly CombatEnemy[] {
+  if (!enemyAssignments) {
+    return enemies; // No assignments = standard combat, all enemies visible
+  }
+  return enemies.filter((enemy) =>
+    isEnemyAssignedToPlayer(enemyAssignments, playerId, enemy.instanceId)
+  );
+}
+
+/**
  * Get combat options for the current player.
  * Returns null if not in combat.
+ *
+ * For cooperative assaults, filters enemies to only those assigned to the current player.
+ * Each player can only see/target their assigned enemies.
  *
  * @param state - Full game state, needed to query modifiers for effective enemy stats
  */
@@ -611,29 +637,42 @@ export function getCombatOptions(state: GameState): CombatOptions | null {
   const combat = state.combat;
   if (!combat) return null;
 
-  const { phase, enemies } = combat;
+  const { phase } = combat;
 
   // Get current player for accumulator access
   const currentPlayerId = state.turnOrder[state.currentPlayerIndex];
   const currentPlayer = state.players.find((p) => p.id === currentPlayerId);
 
+  // Filter enemies for cooperative assaults - player can only target their assigned enemies
+  const visibleEnemies = filterEnemiesByAssignment(
+    combat.enemies,
+    combat.enemyAssignments,
+    currentPlayerId ?? ""
+  );
+
+  // Create a filtered combat state for phase computations
+  const filteredCombat: CombatState = {
+    ...combat,
+    enemies: visibleEnemies,
+  };
+
   // Compute phase-specific options
   switch (phase) {
     case COMBAT_PHASE_RANGED_SIEGE:
-      return computeAttackPhaseOptions(state, combat, currentPlayer, true);
+      return computeAttackPhaseOptions(state, filteredCombat, currentPlayer, true);
 
     case COMBAT_PHASE_BLOCK:
-      return computeBlockPhaseOptions(state, combat, currentPlayer);
+      return computeBlockPhaseOptions(state, filteredCombat, currentPlayer);
 
     case COMBAT_PHASE_ASSIGN_DAMAGE:
       return {
         phase,
-        canEndPhase: canEndAssignDamagePhase(state, enemies),
-        damageAssignments: getDamageAssignmentOptions(state, enemies),
+        canEndPhase: canEndAssignDamagePhase(state, visibleEnemies),
+        damageAssignments: getDamageAssignmentOptions(state, visibleEnemies),
       };
 
     case COMBAT_PHASE_ATTACK:
-      return computeAttackPhaseOptions(state, combat, currentPlayer, false);
+      return computeAttackPhaseOptions(state, filteredCombat, currentPlayer, false);
 
     default:
       return {
