@@ -16,11 +16,15 @@
  * - Ironclads - Physically resistant brutes
  * - Orc Summoners - Summon brown dungeon enemies
  * - Centaur Outriders - Swift Elementalist cavalry
+ * - Orc Skirmishers - Multiple attacks (1, 1)
+ * - Orc War Beasts - Brutal beasts with fire/ice resistance
+ * - Skeletal Warriors - Fire-resistant Dark Crusaders
  */
 
 import { ELEMENT_PHYSICAL } from "../elements.js";
 import {
   ENEMY_COLOR_GREEN,
+  FACTION_DARK_CRUSADERS,
   FACTION_ELEMENTALIST,
   type EnemyDefinition,
 } from "./types.js";
@@ -30,8 +34,10 @@ import {
   ABILITY_SWIFT,
   ABILITY_BRUTAL,
   ABILITY_SUMMON,
+  ABILITY_SUMMON_GREEN,
+  ABILITY_UNFORTIFIED,
 } from "./abilities.js";
-import { RESIST_PHYSICAL } from "./resistances.js";
+import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
 // =============================================================================
 // GREEN ENEMY ID CONSTANTS
@@ -44,6 +50,10 @@ export const ENEMY_WOLF_RIDERS = "wolf_riders" as const;
 export const ENEMY_IRONCLADS = "ironclads" as const;
 export const ENEMY_ORC_SUMMONERS = "orc_summoners" as const;
 export const ENEMY_CENTAUR_OUTRIDERS = "centaur_outriders" as const;
+export const ENEMY_ORC_SKIRMISHERS = "orc_skirmishers" as const;
+export const ENEMY_ORC_WAR_BEASTS = "orc_war_beasts" as const;
+export const ENEMY_SKELETAL_WARRIORS = "skeletal_warriors" as const;
+export const ENEMY_SHROUDED_NECROMANCERS = "shrouded_necromancers" as const;
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -55,7 +65,11 @@ export type GreenEnemyId =
   | typeof ENEMY_WOLF_RIDERS
   | typeof ENEMY_IRONCLADS
   | typeof ENEMY_ORC_SUMMONERS
-  | typeof ENEMY_CENTAUR_OUTRIDERS;
+  | typeof ENEMY_CENTAUR_OUTRIDERS
+  | typeof ENEMY_ORC_SKIRMISHERS
+  | typeof ENEMY_ORC_WAR_BEASTS
+  | typeof ENEMY_SKELETAL_WARRIORS
+  | typeof ENEMY_SHROUDED_NECROMANCERS;
 
 // =============================================================================
 // GREEN ENEMY DEFINITIONS
@@ -139,6 +153,56 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
     resistances: [],
     abilities: [ABILITY_SWIFT],
     faction: FACTION_ELEMENTALIST,
+  },
+  [ENEMY_ORC_SKIRMISHERS]: {
+    id: ENEMY_ORC_SKIRMISHERS,
+    name: "Orc Skirmishers",
+    color: ENEMY_COLOR_GREEN,
+    attack: 0, // Multiple attacks - use attacks array
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 4,
+    fame: 2,
+    resistances: [],
+    abilities: [],
+    attacks: [
+      { damage: 1, element: ELEMENT_PHYSICAL },
+      { damage: 1, element: ELEMENT_PHYSICAL },
+    ],
+  },
+  [ENEMY_ORC_WAR_BEASTS]: {
+    id: ENEMY_ORC_WAR_BEASTS,
+    name: "Orc War Beasts",
+    color: ENEMY_COLOR_GREEN,
+    attack: 3,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 5,
+    fame: 3,
+    resistances: [RESIST_FIRE, RESIST_ICE],
+    abilities: [ABILITY_UNFORTIFIED, ABILITY_BRUTAL],
+  },
+  [ENEMY_SKELETAL_WARRIORS]: {
+    id: ENEMY_SKELETAL_WARRIORS,
+    name: "Skeletal Warriors",
+    color: ENEMY_COLOR_GREEN,
+    attack: 3,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 4,
+    fame: 1,
+    resistances: [RESIST_FIRE],
+    abilities: [],
+    faction: FACTION_DARK_CRUSADERS,
+  },
+  [ENEMY_SHROUDED_NECROMANCERS]: {
+    id: ENEMY_SHROUDED_NECROMANCERS,
+    name: "Shrouded Necromancers",
+    color: ENEMY_COLOR_GREEN,
+    attack: 0, // Summoners don't attack directly
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 5,
+    fame: 3,
+    resistances: [],
+    abilities: [ABILITY_FORTIFIED, ABILITY_SUMMON_GREEN], // Summons green enemy
+    faction: FACTION_DARK_CRUSADERS,
   },
 };
 

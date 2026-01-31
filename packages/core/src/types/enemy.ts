@@ -10,6 +10,7 @@ import {
   ENEMY_ABILITY_POISON,
   ENEMY_ABILITY_RESISTANCE,
   ENEMY_ABILITY_SUMMON,
+  ENEMY_ABILITY_SUMMON_GREEN,
   ENEMY_ABILITY_SWIFT,
   ENEMY_COLOR_BROWN,
   ENEMY_COLOR_GRAY,
@@ -54,6 +55,7 @@ export type EnemyAbility =
   | { readonly type: typeof ENEMY_ABILITY_PARALYZE }
   | { readonly type: typeof ENEMY_ABILITY_ASSASSINATION }
   | { readonly type: typeof ENEMY_ABILITY_SUMMON; readonly pool: EnemyColor }
+  | { readonly type: typeof ENEMY_ABILITY_SUMMON_GREEN; readonly pool: EnemyColor }
   | {
       readonly type: typeof ENEMY_ABILITY_RESISTANCE;
       readonly element: ResistanceElement;

@@ -1,8 +1,8 @@
 /** Blue-powered basic action cards (powered by blue mana) */
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT, CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_SPECIAL,
-  CARD_CATEGORY_HEALING, DEED_CARD_TYPE_BASIC_ACTION,
+  CATEGORY_COMBAT, CATEGORY_MOVEMENT, CATEGORY_SPECIAL,
+  CATEGORY_HEALING, DEED_CARD_TYPE_BASIC_ACTION,
 } from "../../types/cards.js";
 import { COMBAT_TYPE_MELEE, COMBAT_TYPE_RANGED } from "../../types/effectTypes.js";
 import { ELEMENT_ICE } from "../../types/modifierConstants.js";
@@ -20,19 +20,19 @@ import {
 
 export const DETERMINATION: DeedCard = {
   id: CARD_DETERMINATION, name: "Determination", cardType: DEED_CARD_TYPE_BASIC_ACTION,
-  poweredBy: [MANA_BLUE], categories: [CARD_CATEGORY_COMBAT],
+  poweredBy: [MANA_BLUE], categories: [CATEGORY_COMBAT],
   basicEffect: choice(attack(2), block(2)), poweredEffect: block(5), sidewaysValue: 1,
 };
 
 export const STAMINA: DeedCard = {
   id: CARD_STAMINA, name: "Stamina", cardType: DEED_CARD_TYPE_BASIC_ACTION,
-  poweredBy: [MANA_BLUE], categories: [CARD_CATEGORY_MOVEMENT],
+  poweredBy: [MANA_BLUE], categories: [CATEGORY_MOVEMENT],
   basicEffect: move(2), poweredEffect: move(4), sidewaysValue: 1,
 };
 
 export const CRYSTALLIZE: DeedCard = {
   id: CARD_CRYSTALLIZE, name: "Crystallize", cardType: DEED_CARD_TYPE_BASIC_ACTION,
-  poweredBy: [MANA_BLUE], categories: [CARD_CATEGORY_SPECIAL],
+  poweredBy: [MANA_BLUE], categories: [CATEGORY_SPECIAL],
   basicEffect: convertManaToCrystal(),
   poweredEffect: choice(gainCrystal(MANA_RED), gainCrystal(MANA_BLUE), gainCrystal(MANA_GREEN), gainCrystal(MANA_WHITE)),
   sidewaysValue: 1,
@@ -43,7 +43,7 @@ export const CRYSTALLIZE: DeedCard = {
 /** Tovak's Cold Toughness (replaces Determination) */
 export const TOVAK_COLD_TOUGHNESS: DeedCard = {
   id: CARD_TOVAK_COLD_TOUGHNESS, name: "Cold Toughness", cardType: DEED_CARD_TYPE_BASIC_ACTION,
-  poweredBy: [MANA_BLUE], categories: [CARD_CATEGORY_COMBAT],
+  poweredBy: [MANA_BLUE], categories: [CATEGORY_COMBAT],
   basicEffect: choice(attackWithElement(2, COMBAT_TYPE_MELEE, ELEMENT_ICE), blockWithElement(3, ELEMENT_ICE)),
   poweredEffect: blockWithElement(5, ELEMENT_ICE), sidewaysValue: 1,
 };
@@ -51,7 +51,7 @@ export const TOVAK_COLD_TOUGHNESS: DeedCard = {
 /** Wolfhawk's Swift Reflexes (replaces Swiftness) */
 export const WOLFHAWK_SWIFT_REFLEXES: DeedCard = {
   id: CARD_WOLFHAWK_SWIFT_REFLEXES, name: "Swift Reflexes", cardType: DEED_CARD_TYPE_BASIC_ACTION,
-  poweredBy: [MANA_BLUE], categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_COMBAT],
+  poweredBy: [MANA_BLUE], categories: [CATEGORY_MOVEMENT, CATEGORY_COMBAT],
   basicEffect: choice(move(2), attack(1, COMBAT_TYPE_RANGED)),
   poweredEffect: choice(move(4), attack(3, COMBAT_TYPE_RANGED)), sidewaysValue: 1,
 };
@@ -59,14 +59,14 @@ export const WOLFHAWK_SWIFT_REFLEXES: DeedCard = {
 /** Wolfhawk's Tirelessness (replaces Stamina) */
 export const WOLFHAWK_TIRELESSNESS: DeedCard = {
   id: CARD_WOLFHAWK_TIRELESSNESS, name: "Tirelessness", cardType: DEED_CARD_TYPE_BASIC_ACTION,
-  poweredBy: [MANA_BLUE], categories: [CARD_CATEGORY_MOVEMENT],
+  poweredBy: [MANA_BLUE], categories: [CATEGORY_MOVEMENT],
   basicEffect: move(2), poweredEffect: move(4), sidewaysValue: 1,
 };
 
 /** Braevalar's One with the Land (replaces Stamina) */
 export const BRAEVALAR_ONE_WITH_THE_LAND: DeedCard = {
   id: CARD_BRAEVALAR_ONE_WITH_THE_LAND, name: "One with the Land", cardType: DEED_CARD_TYPE_BASIC_ACTION,
-  poweredBy: [MANA_BLUE], categories: [CARD_CATEGORY_MOVEMENT, CARD_CATEGORY_HEALING, CARD_CATEGORY_COMBAT],
+  poweredBy: [MANA_BLUE], categories: [CATEGORY_MOVEMENT, CATEGORY_HEALING, CATEGORY_COMBAT],
   basicEffect: choice(move(2), heal(1), block(2)),
   poweredEffect: choice(move(4), heal(2), block(4)), sidewaysValue: 1,
 };

@@ -22,9 +22,9 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
-  CARD_CATEGORY_SPECIAL,
-  CARD_CATEGORY_INFLUENCE,
+  CATEGORY_COMBAT,
+  CATEGORY_SPECIAL,
+  CATEGORY_INFLUENCE,
   DEED_CARD_TYPE_ADVANCED_ACTION,
 } from "../../types/cards.js";
 import {
@@ -66,7 +66,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Blood Rage",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Attack 2. You can take a Wound to increase this to Attack 5.
     // Powered: Attack 4. You can take a Wound to increase this to Attack 9.
     // TODO: Implement wound-for-bonus mechanic
@@ -80,7 +80,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Intimidate",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_INFLUENCE, CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_INFLUENCE, CATEGORY_COMBAT],
     // Basic: Influence 4 or Attack 3. Reputation -1.
     // Powered: Influence 8 or Attack 7. Reputation -2.
     basicEffect: compound(choice(influence(4), attack(3)), changeReputation(-1)),
@@ -93,7 +93,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Blood Ritual",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: Take a Wound. Gain a red crystal to your Inventory and a mana token of any color (including non-basic).
     // Powered: Take a Wound. Gain three mana tokens of any colors (including non-basic). You may pay one mana of a basic color to gain a crystal of that color to your Inventory.
     // TODO: Implement wound-taking and mana token generation
@@ -107,7 +107,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Into the Heat",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Play this card at the start of combat. All of your Units get their Attack and Block values increased by 2 this combat. You cannot assign damage to your Units this turn.
     // Powered: Play this card at the start of combat. All of your Units get their Attack and Block values increased by 3 this combat. You cannot assign damage to your Units this turn.
     // TODO: Implement unit buff modifier and damage assignment restriction
@@ -121,7 +121,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Decompose",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: When you play this card, throw away an Action card from hand. Gain two crystals to your Inventory that are the same color as the thrown away card.
     // Powered: When you play this card, throw away an Action card from hand. Gain a crystal to your Inventory of each basic color that does not match the color of the thrown away card.
     // TODO: Implement throw-away mechanic and crystal generation based on discarded card
@@ -135,7 +135,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Maximal Effect",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: When you play this, throw away another Action card from your hand. Use the basic effect of that card three times.
     // Powered: When you play this, throw away another Action card from your hand. Use the stronger effect of that card two times (for free).
     // TODO: Implement throw-away mechanic and effect multiplication
@@ -149,7 +149,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Counterattack",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Attack 2. Get an additional Attack 2 for each enemy blocked this turn.
     // Powered: Attack 4. Get an additional Attack 3 for each enemy blocked this turn.
     // TODO: Implement scaling based on blocked enemies
@@ -163,7 +163,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Ritual Attack",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Throw away another Action card. Depending on its color, you get: Attack 5 for red, Ice Attack 3 for blue, Ranged Attack 3 for white, Siege Attack 2 for green.
     // Powered: Throw away another Action card. Depending on its color, you get: Fire Attack 6 for red, Cold Fire Attack 4 for blue, Ranged Fire Attack 4 for white, Siege Fire Attack 3 for green.
     // TODO: Implement throw-away mechanic with color-dependent attack
@@ -177,7 +177,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Blood of Ancients",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: Gain a Wound. Pay one mana of any color. Gain a card of that color from the Advanced Actions offer and put it into your hand.
     // Powered: Gain a Wound to your hand or discard pile. Use the stronger effect of any card from the Advanced Actions offer without paying its mana cost. The card remains in the offer.
     // TODO: Implement wound-taking, mana payment, and advanced action acquisition
@@ -191,7 +191,7 @@ export const RED_ADVANCED_ACTIONS = {
     name: "Explosive Bolt",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_RED, MANA_WHITE], // Dual-color: can be powered by red OR white
-    categories: [CARD_CATEGORY_SPECIAL, CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_SPECIAL, CATEGORY_COMBAT],
     // Basic: Take a Wound. Gain a white and a red crystal to your Inventory.
     // Powered: Ranged Attack 3. For each enemy defeated by this attack, another enemy gets Armor -1 (to a minimum of 1).
     // TODO: Implement wound-taking, dual crystal gain, and armor reduction on defeat

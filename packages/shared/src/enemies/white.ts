@@ -10,12 +10,13 @@
  * - Thugs - Basic city guards
  * - Shocktroops - Swift and brutal elite soldiers
  * - Freezers - ColdFire attack, paralyze
+ * - Gunners - Fire attack, brutal
  * - Altem Guardsmen - Elite fortified guards
  * - Altem Mages - Powerful mages with ColdFire attack
  * - Delphana Masters - Elite assassins with ColdFire attack
  */
 
-import { ELEMENT_PHYSICAL, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "../elements.js";
+import { ELEMENT_PHYSICAL, ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "../elements.js";
 import { ENEMY_COLOR_WHITE, type EnemyDefinition } from "./types.js";
 import {
   ABILITY_SWIFT,
@@ -29,6 +30,7 @@ import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 export const ENEMY_THUGS = "thugs" as const;
 export const ENEMY_SHOCKTROOPS = "shocktroops" as const;
 export const ENEMY_FREEZERS = "freezers" as const;
+export const ENEMY_GUNNERS = "gunners" as const;
 export const ENEMY_ALTEM_GUARDSMEN = "altem_guardsmen" as const;
 export const ENEMY_ALTEM_MAGES = "altem_mages" as const;
 export const ENEMY_DELPHANA_MASTERS = "delphana_masters" as const;
@@ -37,6 +39,7 @@ export type WhiteEnemyId =
   | typeof ENEMY_THUGS
   | typeof ENEMY_SHOCKTROOPS
   | typeof ENEMY_FREEZERS
+  | typeof ENEMY_GUNNERS
   | typeof ENEMY_ALTEM_GUARDSMEN
   | typeof ENEMY_ALTEM_MAGES
   | typeof ENEMY_DELPHANA_MASTERS;
@@ -74,6 +77,17 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
     fame: 7,
     resistances: [RESIST_FIRE],
     abilities: [ABILITY_PARALYZE, ABILITY_SWIFT],
+  },
+  [ENEMY_GUNNERS]: {
+    id: ENEMY_GUNNERS,
+    name: "Gunners",
+    color: ENEMY_COLOR_WHITE,
+    attack: 6,
+    attackElement: ELEMENT_FIRE,
+    armor: 6,
+    fame: 7,
+    resistances: [RESIST_ICE],
+    abilities: [ABILITY_BRUTAL],
   },
   [ENEMY_ALTEM_GUARDSMEN]: {
     id: ENEMY_ALTEM_GUARDSMEN,

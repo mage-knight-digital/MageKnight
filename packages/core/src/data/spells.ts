@@ -11,8 +11,8 @@
 
 import type { DeedCard, CardEffect } from "../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
-  CARD_CATEGORY_HEALING,
+  CATEGORY_COMBAT,
+  CATEGORY_HEALING,
   DEED_CARD_TYPE_SPELL,
 } from "../types/cards.js";
 import {
@@ -130,7 +130,7 @@ const FIREBALL: DeedCard = {
   name: "Fireball",
   poweredName: "Firestorm",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
   basicEffect: fireRangedAttack(5),
   poweredEffect: {
@@ -156,7 +156,7 @@ const FLAME_WALL: DeedCard = {
   name: "Flame Wall",
   poweredName: "Flame Wave",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
   basicEffect: choice([fireAttack(5), fireBlock(7)]),
   poweredEffect: choice([fireAttack(5), fireBlock(7)]), // TODO: Add scaling
@@ -173,7 +173,7 @@ const SNOWSTORM: DeedCard = {
   name: "Snowstorm",
   poweredName: "Blizzard",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_BLUE],
   basicEffect: iceRangedAttack(5),
   poweredEffect: {
@@ -199,7 +199,7 @@ const RESTORATION: DeedCard = {
   name: "Restoration",
   poweredName: "Rebirth",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_HEALING],
+  categories: [CATEGORY_HEALING],
   poweredBy: [MANA_BLACK, MANA_GREEN],
   basicEffect: heal(3),
   poweredEffect: heal(5), // TODO: Add forest conditional and unit ready
@@ -219,7 +219,7 @@ const EXPOSE: DeedCard = {
   name: "Expose",
   poweredName: "Mass Expose",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_WHITE],
   basicEffect: {
     type: EFFECT_GAIN_ATTACK,
@@ -244,7 +244,7 @@ const TREMOR: DeedCard = {
   name: "Tremor",
   poweredName: "Earthquake",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_RED],
   basicEffect: {
     type: EFFECT_CHOICE,
@@ -329,7 +329,7 @@ const CHILL: DeedCard = {
   name: "Chill",
   poweredName: "Lethal Chill",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_BLUE],
   basicEffect: {
     type: EFFECT_SELECT_COMBAT_ENEMY,
@@ -379,7 +379,7 @@ const WHIRLWIND: DeedCard = {
   name: "Whirlwind",
   poweredName: "Tornado",
   cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CARD_CATEGORY_COMBAT],
+  categories: [CATEGORY_COMBAT],
   poweredBy: [MANA_BLACK, MANA_WHITE],
   basicEffect: {
     type: EFFECT_SELECT_COMBAT_ENEMY,

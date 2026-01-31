@@ -41,6 +41,7 @@ export function createRecruitUnitCommand(
   let previousOffer: readonly UnitId[] = [];
   let previousInfluence = 0;
   let previousHasTakenAction = false;
+  let previousHasRecruitedUnit = false;
 
   return {
     type: RECRUIT_UNIT_COMMAND,
@@ -64,6 +65,7 @@ export function createRecruitUnitCommand(
       previousOffer = state.offers.units;
       previousInfluence = player.influencePoints;
       previousHasTakenAction = player.hasTakenActionThisTurn;
+      previousHasRecruitedUnit = player.hasRecruitedUnitThisTurn;
 
       // Create new unit instance
       const newUnit = createPlayerUnit(params.unitId, instanceId);
@@ -76,6 +78,7 @@ export function createRecruitUnitCommand(
         units: [...player.units, newUnit],
         influencePoints: player.influencePoints - params.influenceSpent,
         hasTakenActionThisTurn: true,
+        hasRecruitedUnitThisTurn: true,
       };
 
       const players = state.players.map((p, i) =>
@@ -129,6 +132,7 @@ export function createRecruitUnitCommand(
         units: updatedUnits,
         influencePoints: previousInfluence,
         hasTakenActionThisTurn: previousHasTakenAction,
+        hasRecruitedUnitThisTurn: previousHasRecruitedUnit,
       };
 
       const players = state.players.map((p, i) =>

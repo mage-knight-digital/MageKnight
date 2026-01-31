@@ -22,10 +22,16 @@ import {
   createShieldTokenPlacedEvent,
   artifactReward,
   ABILITY_SUMMON,
+  ABILITY_SUMMON_GREEN,
   ENEMY_COLOR_BROWN,
+  ENEMY_COLOR_GREEN,
   getEnemy,
   createEnemySummonedEvent,
   createSummonedEnemyDiscardedEvent,
+  createReputationChangedEvent,
+  REPUTATION_REASON_DEFEAT_ENEMY,
+  MIN_REPUTATION,
+  MAX_REPUTATION,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -48,7 +54,7 @@ import { createConquerSiteCommand } from "../conquerSiteCommand.js";
 import { queueSiteReward } from "../../helpers/rewards/index.js";
 import { isAttackResisted, type Resistances } from "../../combat/elementalCalc.js";
 import {
-  drawEnemy,
+  drawEnemyWithFactionPriority,
   getEnemyIdFromToken,
   discardEnemy,
 } from "../../helpers/enemyHelpers.js";
@@ -115,6 +121,10 @@ interface ResolvePendingDamageResult {
   enemies: readonly CombatEnemy[];
   /** Total fame gained from defeating enemies */
   fameGained: number;
+  /** Total reputation penalty from defeating enemies with reputationPenalty */
+  reputationPenalty: number;
+  /** Total reputation bonus from defeating enemies with reputationBonus */
+  reputationBonus: number;
   /** Events for defeated enemies */
   events: readonly GameEvent[];
 }
@@ -129,6 +139,8 @@ function resolvePendingDamage(
 ): ResolvePendingDamageResult {
   const events: GameEvent[] = [];
   let fameGained = 0;
+  let reputationPenalty = 0;
+  let reputationBonus = 0;
 
   const updatedEnemies = combat.enemies.map((enemy) => {
     // Skip already defeated enemies
@@ -148,6 +160,14 @@ function resolvePendingDamage(
       fameGained += fame;
       events.push(createEnemyDefeatedEvent(enemy.instanceId, enemy.definition.name, fame));
 
+      // Track reputation changes from defeated enemies
+      if (enemy.definition.reputationPenalty) {
+        reputationPenalty += enemy.definition.reputationPenalty;
+      }
+      if (enemy.definition.reputationBonus) {
+        reputationBonus += enemy.definition.reputationBonus;
+      }
+
       return {
         ...enemy,
         isDefeated: true,
@@ -160,6 +180,8 @@ function resolvePendingDamage(
   return {
     enemies: updatedEnemies,
     fameGained,
+    reputationPenalty,
+    reputationBonus,
     events,
   };
 }
@@ -298,15 +320,96 @@ function applyFameToPlayer(
   };
 }
 
+/**
+ * Result of applying reputation change to a player.
+ */
+interface ApplyReputationChangeResult {
+  /** Updated game state */
+  state: GameState;
+  /** Events for reputation change */
+  events: readonly GameEvent[];
+}
+
+/**
+ * Apply reputation change from defeated enemies to a player.
+ * Handles both bonuses (positive change) and penalties (negative change).
+ * Reputation is clamped to -7 minimum and +7 maximum.
+ */
+function applyReputationChange(
+  state: GameState,
+  playerId: string,
+  bonus: number,
+  penalty: number
+): ApplyReputationChangeResult {
+  const netChange = bonus - penalty;
+  if (netChange === 0) {
+    return { state, events: [] };
+  }
+
+  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  if (playerIndex === -1) {
+    return { state, events: [] };
+  }
+
+  const player = state.players[playerIndex];
+  if (!player) {
+    return { state, events: [] };
+  }
+
+  const oldReputation = player.reputation;
+  const newReputation = Math.max(
+    MIN_REPUTATION,
+    Math.min(MAX_REPUTATION, oldReputation + netChange)
+  );
+
+  // Don't emit event if reputation didn't actually change (hit floor/ceiling)
+  if (newReputation === oldReputation) {
+    return { state, events: [] };
+  }
+
+  const updatedPlayer: Player = {
+    ...player,
+    reputation: newReputation,
+  };
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = updatedPlayer;
+
+  const events: GameEvent[] = [
+    createReputationChangedEvent(
+      playerId,
+      newReputation - oldReputation, // actual delta (may differ from netChange due to clamping)
+      newReputation,
+      REPUTATION_REASON_DEFEAT_ENEMY
+    ),
+  ];
+
+  return {
+    state: {
+      ...state,
+      players: updatedPlayers,
+    },
+    events,
+  };
+}
+
 // ============================================================================
 // Summon Ability Resolution
 // ============================================================================
 
 /**
- * Check if an enemy has the Summon ability and it's not nullified
+ * Get the summon ability type for an enemy (null if no summon ability)
  */
-function hasSummonAbility(enemy: CombatEnemy): boolean {
-  return enemy.definition.abilities.includes(ABILITY_SUMMON);
+function getSummonAbilityType(
+  enemy: CombatEnemy
+): typeof ABILITY_SUMMON | typeof ABILITY_SUMMON_GREEN | null {
+  if (enemy.definition.abilities.includes(ABILITY_SUMMON_GREEN)) {
+    return ABILITY_SUMMON_GREEN;
+  }
+  if (enemy.definition.abilities.includes(ABILITY_SUMMON)) {
+    return ABILITY_SUMMON;
+  }
+  return null;
 }
 
 /**
@@ -317,8 +420,9 @@ function isSummonActive(
   playerId: string,
   enemy: CombatEnemy
 ): boolean {
-  if (!hasSummonAbility(enemy)) return false;
-  return !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_SUMMON);
+  const summonType = getSummonAbilityType(enemy);
+  if (!summonType) return false;
+  return !isAbilityNullified(state, playerId, enemy.instanceId, summonType);
 }
 
 /**
@@ -336,11 +440,12 @@ interface ResolveSummonsResult {
 /**
  * Resolve all summon abilities at the start of Block phase.
  * For each enemy with Summon ability:
- * - Draw a brown enemy token
+ * - Draw an enemy token (brown for ABILITY_SUMMON, green for ABILITY_SUMMON_GREEN)
  * - Add the summoned enemy to combat (linked to summoner)
  * - Mark the summoner as hidden during Block/Assign Damage phases
  *
- * If brown token pool is empty, summoner attacks normally (no summoned enemy).
+ * If the token pool is empty, summoner attacks normally (no summoned enemy).
+ * Faction-priority drawing is used when the summoner has a faction.
  */
 function resolveSummons(
   state: GameState,
@@ -360,15 +465,21 @@ function resolveSummons(
   let summonedCounter = 0;
 
   for (const summoner of summoners) {
-    // Draw a brown enemy token
-    const drawResult = drawEnemy(
+    // Determine which color pool to draw from based on summon ability type
+    const summonType = getSummonAbilityType(summoner);
+    const summonColor =
+      summonType === ABILITY_SUMMON_GREEN ? ENEMY_COLOR_GREEN : ENEMY_COLOR_BROWN;
+
+    // Draw an enemy token with faction priority if summoner has a faction
+    const drawResult = drawEnemyWithFactionPriority(
       currentState.enemyTokens,
-      ENEMY_COLOR_BROWN,
+      summonColor,
+      summoner.definition.faction,
       currentState.rng
     );
 
     if (drawResult.tokenId === null) {
-      // Brown pool is empty - summoner attacks normally
+      // Token pool is empty - summoner attacks normally
       // Don't hide the summoner, don't create a summoned enemy
       continue;
     }
@@ -607,6 +718,17 @@ export function createEndCombatPhaseCommand(
           damageResult.fameGained
         );
 
+        // Apply reputation change from defeated enemies (e.g., Heroes penalty, Thugs bonus)
+        const reputationResult = applyReputationChange(
+          stateAfterResolution,
+          params.playerId,
+          damageResult.reputationBonus,
+          damageResult.reputationPenalty
+        );
+        stateAfterResolution = reputationResult.state;
+        // Store reputation events to add after combat ended event
+        const reputationEvents = reputationResult.events;
+
         // Use resolved combat state for victory calculation
         // Combat exists because we just created it above
         if (!stateAfterResolution.combat) {
@@ -785,7 +907,7 @@ export function createEndCombatPhaseCommand(
 
         return {
           state: newState,
-          events,
+          events: [...events, ...reputationEvents],
         };
       }
 
@@ -830,6 +952,16 @@ export function createEndCombatPhaseCommand(
           params.playerId,
           damageResult.fameGained
         );
+
+        // Apply reputation change from defeated enemies (e.g., Heroes penalty, Thugs bonus)
+        const reputationResult = applyReputationChange(
+          updatedState,
+          params.playerId,
+          damageResult.reputationBonus,
+          damageResult.reputationPenalty
+        );
+        updatedState = reputationResult.state;
+        phaseEvents.push(...reputationResult.events);
 
         // Resolve summon abilities - draw brown enemies for summoners
         const summonResult = resolveSummons(

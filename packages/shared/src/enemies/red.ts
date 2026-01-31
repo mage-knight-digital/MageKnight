@@ -14,6 +14,8 @@
  * - Ice Dragon - Ice attack, physical + ice resistance, paralyze
  * - High Dragon - ColdFire attack, fire + ice resistance, brutal
  * - Death Dragon - Assassination, paralyze, Dark Crusaders faction
+ * - Lava Dragon - Fire attack, fire resistance, fortified, brutal
+ * - Savage Dragon - Physical resistance, brutal, Elementalist faction
  */
 
 import {
@@ -25,6 +27,7 @@ import {
 import {
   ENEMY_COLOR_RED,
   FACTION_DARK_CRUSADERS,
+  FACTION_ELEMENTALIST,
   type EnemyDefinition,
 } from "./types.js";
 import {
@@ -32,6 +35,7 @@ import {
   ABILITY_PARALYZE,
   ABILITY_BRUTAL,
   ABILITY_ASSASSINATION,
+  ABILITY_FORTIFIED,
 } from "./abilities.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "./resistances.js";
 
@@ -44,6 +48,8 @@ export const ENEMY_FIRE_DRAGON = "fire_dragon" as const;
 export const ENEMY_ICE_DRAGON = "ice_dragon" as const;
 export const ENEMY_HIGH_DRAGON = "high_dragon" as const;
 export const ENEMY_DEATH_DRAGON = "death_dragon" as const;
+export const ENEMY_LAVA_DRAGON = "lava_dragon" as const;
+export const ENEMY_SAVAGE_DRAGON = "savage_dragon" as const;
 
 /**
  * Union type of all red (Draconum) enemy IDs
@@ -53,7 +59,9 @@ export type RedEnemyId =
   | typeof ENEMY_FIRE_DRAGON
   | typeof ENEMY_ICE_DRAGON
   | typeof ENEMY_HIGH_DRAGON
-  | typeof ENEMY_DEATH_DRAGON;
+  | typeof ENEMY_DEATH_DRAGON
+  | typeof ENEMY_LAVA_DRAGON
+  | typeof ENEMY_SAVAGE_DRAGON;
 
 // =============================================================================
 // RED ENEMY DEFINITIONS
@@ -115,5 +123,28 @@ export const RED_ENEMIES: Record<RedEnemyId, EnemyDefinition> = {
     resistances: [],
     abilities: [ABILITY_ASSASSINATION, ABILITY_PARALYZE],
     faction: FACTION_DARK_CRUSADERS,
+  },
+  [ENEMY_LAVA_DRAGON]: {
+    id: ENEMY_LAVA_DRAGON,
+    name: "Lava Dragon",
+    color: ENEMY_COLOR_RED,
+    attack: 6,
+    attackElement: ELEMENT_FIRE,
+    armor: 8,
+    fame: 8,
+    resistances: [RESIST_FIRE],
+    abilities: [ABILITY_FORTIFIED, ABILITY_BRUTAL],
+  },
+  [ENEMY_SAVAGE_DRAGON]: {
+    id: ENEMY_SAVAGE_DRAGON,
+    name: "Savage Dragon",
+    color: ENEMY_COLOR_RED,
+    attack: 5,
+    attackElement: ELEMENT_PHYSICAL,
+    armor: 7,
+    fame: 6,
+    resistances: [RESIST_PHYSICAL],
+    abilities: [ABILITY_BRUTAL],
+    faction: FACTION_ELEMENTALIST,
   },
 };

@@ -813,6 +813,9 @@ export class GameServer {
         usedThisCombat: [],
         activeUntilNextTurn: [],
       },
+      skillFlipState: {
+        flippedSkills: [],
+      },
       crystals: { red: 0, blue: 0, green: 0, white: 0 },
       selectedTactic: null,
       tacticFlipped: false,
@@ -830,8 +833,9 @@ export class GameServer {
       hasMovedThisTurn: false,
       hasTakenActionThisTurn: false,
       hasCombattedThisTurn: false,
-playedCardFromHandThisTurn: false,
+      playedCardFromHandThisTurn: false,
       hasPlunderedThisTurn: false,
+      hasRecruitedUnitThisTurn: false,
       manaUsedThisTurn: [],
       combatAccumulator: createEmptyCombatAccumulator(),
       pendingChoice: null,
@@ -844,6 +848,7 @@ playedCardFromHandThisTurn: false,
       healingPoints: 0,
       removedCards: [],
       isResting: false,
+      roundOrderTokenFlipped: false,
     };
 
     return { player, rng: newRng };

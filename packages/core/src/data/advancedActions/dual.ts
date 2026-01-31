@@ -13,8 +13,8 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
-  CARD_CATEGORY_SPECIAL,
+  CATEGORY_COMBAT,
+  CATEGORY_SPECIAL,
   DEED_CARD_TYPE_ADVANCED_ACTION,
 } from "../../types/cards.js";
 import {
@@ -45,7 +45,7 @@ export const DUAL_ADVANCED_ACTIONS = {
     name: "Rush of Adrenaline",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_GREEN, MANA_RED], // Can be powered by green OR red
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: For each of the first three Wounds you take to your hand this turn, draw a card.
     // Powered: After taking the first Wound to your hand this turn, throw it away and draw a card. For each of the next three Wounds you take, draw a card.
     // TODO: Implement wound-triggered card draw
@@ -59,7 +59,7 @@ export const DUAL_ADVANCED_ACTIONS = {
     name: "Chilling Stare",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_BLUE, MANA_WHITE], // Can be powered by blue OR white
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Influence 3, or a chosen enemy attack loses all attack abilities (but not its color).
     // Powered: Influence 5, or a chosen enemy does not attack this turn.
     // TODO: Implement enemy attack cancellation

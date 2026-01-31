@@ -146,6 +146,18 @@ export interface EnemyDefinition {
    * Each attack is handled separately during block and damage phases.
    */
   readonly attacks?: readonly EnemyAttack[];
+  /**
+   * Optional reputation penalty applied when this enemy is defeated.
+   * Positive number (e.g., 1 means lose 1 reputation).
+   * Used for enemies like Heroes who cause reputation loss when killed.
+   */
+  readonly reputationPenalty?: number;
+  /**
+   * Optional reputation bonus granted when this enemy is defeated.
+   * Positive number (e.g., 1 means gain 1 reputation).
+   * Used for enemies like Thugs who grant reputation when defeated.
+   */
+  readonly reputationBonus?: number;
 }
 
 // =============================================================================

@@ -200,6 +200,27 @@ export const SKILL_ALREADY_OWNED = "SKILL_ALREADY_OWNED" as const;
 export const DEV_MODE_REQUIRED = "DEV_MODE_REQUIRED" as const;
 export const NO_PENDING_LEVEL_UPS = "NO_PENDING_LEVEL_UPS" as const;
 
+// Cooperative assault validation codes
+export const NOT_ADJACENT_TO_CITY = "NOT_ADJACENT_TO_CITY" as const;
+export const SCENARIO_END_FULFILLED = "SCENARIO_END_FULFILLED" as const;
+export const OTHER_HERO_ON_SPACE = "OTHER_HERO_ON_SPACE" as const;
+export const INVITEE_NOT_ADJACENT = "INVITEE_NOT_ADJACENT" as const;
+export const INVITEE_TOKEN_FLIPPED = "INVITEE_TOKEN_FLIPPED" as const;
+export const INVITEE_NO_CARDS = "INVITEE_NO_CARDS" as const;
+export const INVALID_ENEMY_DISTRIBUTION = "INVALID_ENEMY_DISTRIBUTION" as const;
+export const NO_PENDING_PROPOSAL = "NO_PENDING_PROPOSAL" as const;
+export const NOT_AN_INVITEE = "NOT_AN_INVITEE" as const;
+export const ALREADY_RESPONDED = "ALREADY_RESPONDED" as const;
+export const NOT_PROPOSAL_INITIATOR = "NOT_PROPOSAL_INITIATOR" as const;
+export const CITY_NOT_FOUND = "CITY_NOT_FOUND" as const;
+export const MUST_INVITE_AT_LEAST_ONE = "MUST_INVITE_AT_LEAST_ONE" as const;
+export const INITIATOR_TOKEN_FLIPPED = "INITIATOR_TOKEN_FLIPPED" as const;
+
+// Skill usage validation codes
+export const SKILL_NOT_LEARNED = "SKILL_NOT_LEARNED" as const;
+export const SKILL_NOT_FOUND = "SKILL_NOT_FOUND" as const;
+export const SKILL_ON_COOLDOWN = "SKILL_ON_COOLDOWN" as const;
+
 export type ValidationErrorCode =
   | typeof NOT_YOUR_TURN
   | typeof WRONG_PHASE
@@ -359,4 +380,23 @@ export type ValidationErrorCode =
   | typeof SKILL_ALREADY_OWNED
   // Debug validation
   | typeof DEV_MODE_REQUIRED
-  | typeof NO_PENDING_LEVEL_UPS;
+  | typeof NO_PENDING_LEVEL_UPS
+  // Cooperative assault validation
+  | typeof NOT_ADJACENT_TO_CITY
+  | typeof SCENARIO_END_FULFILLED
+  | typeof OTHER_HERO_ON_SPACE
+  | typeof INVITEE_NOT_ADJACENT
+  | typeof INVITEE_TOKEN_FLIPPED
+  | typeof INVITEE_NO_CARDS
+  | typeof INVALID_ENEMY_DISTRIBUTION
+  | typeof NO_PENDING_PROPOSAL
+  | typeof NOT_AN_INVITEE
+  | typeof ALREADY_RESPONDED
+  | typeof NOT_PROPOSAL_INITIATOR
+  | typeof CITY_NOT_FOUND
+  | typeof MUST_INVITE_AT_LEAST_ONE
+  | typeof INITIATOR_TOKEN_FLIPPED
+  // Skill usage validation
+  | typeof SKILL_NOT_LEARNED
+  | typeof SKILL_NOT_FOUND
+  | typeof SKILL_ON_COOLDOWN;

@@ -78,6 +78,12 @@ export interface ValidActions {
 
   /** Level up reward options (when pending level up rewards exist) */
   readonly levelUpRewards: LevelUpRewardsOptions | undefined;
+
+  /** Cooperative assault options (propose, respond, or cancel) */
+  readonly cooperativeAssault: CooperativeAssaultOptions | undefined;
+
+  /** Skill activation options (when player has activatable skills) */
+  readonly skills: SkillOptions | undefined;
 }
 
 // ============================================================================
@@ -682,4 +688,73 @@ export interface LevelUpRewardsOptions {
   readonly commonPoolSkills: readonly SkillId[];
   /** Available advanced action cards in the offer */
   readonly availableAAs: readonly CardId[];
+}
+
+// ============================================================================
+// Cooperative Assault
+// ============================================================================
+
+import type { CityColor, EnemyDistribution } from "../cooperativeAssault.js";
+
+/**
+ * Eligible invitee for cooperative assault.
+ */
+export interface EligibleInvitee {
+  readonly playerId: string;
+  readonly playerName: string;
+}
+
+/**
+ * Cooperative assault options for the current player.
+ * Present when the player can propose, respond to, or cancel a cooperative assault.
+ */
+export interface CooperativeAssaultOptions {
+  /** Cities that can be targeted (adjacent and not conquered) */
+  readonly targetableCities: readonly CityColor[];
+
+  /** Eligible players to invite for each targetable city */
+  readonly eligibleInvitees: Partial<Record<CityColor, readonly EligibleInvitee[]>>;
+
+  /** Number of enemies in garrison for each targetable city */
+  readonly garrisonSizes: Partial<Record<CityColor, number>>;
+
+  /** Can cancel current proposal (only if initiator) */
+  readonly canCancelProposal: boolean;
+
+  /** Can respond to current proposal (only if invitee who hasn't responded) */
+  readonly canRespondToProposal: boolean;
+
+  /** Pending proposal details (if any) */
+  readonly pendingProposal?: {
+    readonly initiatorId: string;
+    readonly targetCity: CityColor;
+    readonly distribution: readonly EnemyDistribution[];
+    /** Enemy count assigned to this player in the proposal */
+    readonly assignedEnemyCount: number;
+  };
+}
+
+// ============================================================================
+// Skills
+// ============================================================================
+
+/**
+ * Options for activating skills.
+ * Only shows skills that can currently be activated (not on cooldown).
+ */
+export interface SkillOptions {
+  /** Skills that can be activated this turn */
+  readonly activatable: readonly ActivatableSkill[];
+}
+
+/**
+ * A skill that can be activated.
+ */
+export interface ActivatableSkill {
+  /** Skill ID */
+  readonly skillId: SkillId;
+  /** Display name */
+  readonly name: string;
+  /** Short description of the skill's effect */
+  readonly description: string;
 }

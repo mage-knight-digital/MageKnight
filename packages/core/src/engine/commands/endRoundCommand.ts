@@ -50,6 +50,7 @@ import { CORE_TILE_ID_PREFIX, SYSTEM_PLAYER_ID } from "../engineConstants.js";
 import { revealRuinsToken } from "../helpers/ruinsTokenHelpers.js";
 import { countUnburnedMonasteries } from "../helpers/monasteryHelpers.js";
 import type { HexState } from "../../types/map.js";
+import { calculateFinalScores, createDefaultScoringConfig } from "../scoring/index.js";
 
 /**
  * Check if any core tile has been revealed on the map.
@@ -79,17 +80,21 @@ export function createEndRoundCommand(): Command {
       // Check if we're in final turns (scenario end was triggered)
       // Rulebook: "If the Round ends during this [final turns], the game ends immediately."
       if (state.scenarioEndTriggered && state.finalTurnsRemaining !== null && state.finalTurnsRemaining > 0) {
-        // Calculate final scores (simplified - just fame for now)
-        const finalScores = state.players.map((p) => ({
-          playerId: p.id,
-          score: p.fame,
+        // Calculate final scores using the full scoring system
+        const isSolo = state.players.length === 1;
+        const scoringConfig = createDefaultScoringConfig(isSolo);
+        const finalScoreResult = calculateFinalScores(state, scoringConfig);
+
+        // Convert to simple format for event
+        const finalScores = finalScoreResult.playerResults.map((r) => ({
+          playerId: r.playerId,
+          score: r.totalScore,
         }));
 
-        // Sort by score descending
-        finalScores.sort((a, b) => b.score - a.score);
-
-        // Determine winner (highest score)
-        const winningPlayerId = finalScores[0]?.playerId ?? null;
+        // Determine winner (highest score, or null if tied)
+        const winningPlayerId = finalScoreResult.isTied
+          ? null
+          : finalScoreResult.rankings[0] ?? null;
 
         events.push({
           type: ROUND_ENDED,
@@ -108,6 +113,7 @@ export function createEndRoundCommand(): Command {
             finalTurnsRemaining: 0,
             gameEnded: true,
             winningPlayerId,
+            finalScoreResult,
           },
           events,
         };
@@ -296,6 +302,8 @@ export function createEndRoundCommand(): Command {
           tacticState: {},
           pendingTacticDecision: null,
           beforeTurnTacticPending: false,
+          // Reset cooperative assault state for new round
+          roundOrderTokenFlipped: false,
         };
 
         updatedPlayers.push(updatedPlayer);
@@ -396,6 +404,8 @@ export function createEndRoundCommand(): Command {
           // Reset round-end tracking
           endOfRoundAnnouncedBy: null,
           playersWithFinalTurn: [],
+          // Clear any pending cooperative assault proposal
+          pendingCooperativeAssault: null,
           // Initialize tactics selection phase
           roundPhase: ROUND_PHASE_TACTICS_SELECTION,
           availableTactics,

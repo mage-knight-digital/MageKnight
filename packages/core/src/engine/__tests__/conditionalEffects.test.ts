@@ -15,6 +15,7 @@ import {
   CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
+  CONDITION_IS_NIGHT_OR_UNDERGROUND,
 } from "../../types/conditions.js";
 import {
   COMBAT_PHASE_ATTACK,
@@ -36,8 +37,10 @@ import {
   move,
   attack,
   compound,
+  influence,
   ifNight,
   ifDay,
+  ifNightOrUnderground,
   ifInPhase,
   ifOnTerrain,
   ifInCombat,
@@ -295,6 +298,55 @@ describe("Conditional Effects", () => {
       });
     });
 
+    describe("IS_NIGHT_OR_UNDERGROUND condition", () => {
+      it("should return true during night", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
+        const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return false during day (outdoors)", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat: null });
+        const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true in dungeon combat during day (nightManaRules)", () => {
+        const combat = {
+          ...createCombatState([ENEMY_PROWLERS]),
+          nightManaRules: true, // Dungeon/Tomb combat
+        };
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
+        const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return true in dungeon combat during night", () => {
+        const combat = {
+          ...createCombatState([ENEMY_PROWLERS]),
+          nightManaRules: true,
+        };
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT, combat });
+        const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return false in normal combat during day", () => {
+        const combat = {
+          ...createCombatState([ENEMY_PROWLERS]),
+          nightManaRules: false, // Normal outdoor combat
+        };
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
+        const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+    });
+
     describe("unknown player", () => {
       it("should return false for unknown player", () => {
         const state = createTestGameState();
@@ -466,6 +518,52 @@ describe("Conditional Effects", () => {
 
       expect(result.state.players[0]?.movePoints).toBe(5); // 4 base + 1 (blue not used)
     });
+
+    describe("ifNightOrUnderground (Dark Negotiation pattern)", () => {
+      it("should grant Influence 3 at night", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
+        const effect = ifNightOrUnderground(influence(3), influence(2));
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.influencePoints).toBe(3);
+      });
+
+      it("should grant Influence 2 during day (outdoors)", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat: null });
+        const effect = ifNightOrUnderground(influence(3), influence(2));
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.influencePoints).toBe(2);
+      });
+
+      it("should grant Influence 3 in dungeon combat during day", () => {
+        const combat = {
+          ...createCombatState([ENEMY_PROWLERS]),
+          nightManaRules: true, // Dungeon/Tomb
+        };
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
+        const effect = ifNightOrUnderground(influence(3), influence(2));
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.influencePoints).toBe(3);
+      });
+
+      it("should grant Influence 2 in normal outdoor combat during day", () => {
+        const combat = {
+          ...createCombatState([ENEMY_PROWLERS]),
+          nightManaRules: false, // Normal outdoor combat
+        };
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
+        const effect = ifNightOrUnderground(influence(3), influence(2));
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.influencePoints).toBe(2);
+      });
+    });
   });
 
   describe("effect helpers", () => {
@@ -506,6 +604,20 @@ describe("Conditional Effects", () => {
       if (effect.condition.type === CONDITION_TIME_OF_DAY) {
         expect(effect.condition.time).toBe(TIME_OF_DAY_DAY);
       }
+    });
+
+    it("ifNightOrUnderground creates correct conditional", () => {
+      const effect = ifNightOrUnderground(influence(3), influence(2));
+      expect(effect.type).toBe("conditional");
+      expect(effect.condition.type).toBe(CONDITION_IS_NIGHT_OR_UNDERGROUND);
+      expect(effect.thenEffect).toEqual(influence(3));
+      expect(effect.elseEffect).toEqual(influence(2));
+    });
+
+    it("influence helper creates correct effect", () => {
+      const effect = influence(5);
+      expect(effect.type).toBe("gain_influence");
+      expect(effect.amount).toBe(5);
     });
   });
 });

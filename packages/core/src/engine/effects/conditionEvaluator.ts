@@ -16,8 +16,11 @@ import {
   CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
+  CONDITION_NO_UNIT_RECRUITED_THIS_TURN,
+  CONDITION_LOWEST_FAME,
+  CONDITION_IS_NIGHT_OR_UNDERGROUND,
 } from "../../types/conditions.js";
-import { CARD_WOUND, hexKey } from "@mage-knight/shared";
+import { CARD_WOUND, hexKey, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
 
 /**
  * Evaluates a condition against the current game state for a specific player.
@@ -72,6 +75,21 @@ export function evaluateCondition(
 
     case CONDITION_HAS_WOUNDS_IN_HAND:
       return player.hand.some((c) => c === CARD_WOUND);
+
+    case CONDITION_NO_UNIT_RECRUITED_THIS_TURN:
+      return !player.hasRecruitedUnitThisTurn;
+
+    case CONDITION_LOWEST_FAME: {
+      // Check if this player has the lowest (or tied for lowest) fame
+      const playerFame = player.fame;
+      const minFame = Math.min(...state.players.map((p) => p.fame));
+      return playerFame <= minFame;
+    }
+
+    case CONDITION_IS_NIGHT_OR_UNDERGROUND:
+      // True if it's night OR in dungeon/tomb combat (nightManaRules applies)
+      // Per FAQ S1: Dungeons and Tombs count as "night" for this condition
+      return state.timeOfDay === TIME_OF_DAY_NIGHT || (state.combat?.nightManaRules ?? false);
 
     default:
       // Exhaustive check - TypeScript ensures all cases are handled

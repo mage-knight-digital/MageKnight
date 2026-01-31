@@ -60,6 +60,7 @@ import {
   CONDITION_ENEMY_DEFEATED_THIS_COMBAT,
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
+  CONDITION_IS_NIGHT_OR_UNDERGROUND,
 } from "../types/conditions.js";
 
 // === Basic Effect Helpers ===
@@ -223,6 +224,21 @@ export function ifDay(
 ): ConditionalEffect {
   return conditional(
     { type: CONDITION_TIME_OF_DAY, time: TIME_OF_DAY_DAY },
+    thenEffect,
+    elseEffect
+  );
+}
+
+/**
+ * Effect that applies at night OR when in dungeon/tomb combat.
+ * Per FAQ S1: Dungeons and Tombs count as "night" for skills like Dark Negotiation.
+ */
+export function ifNightOrUnderground(
+  thenEffect: CardEffect,
+  elseEffect?: CardEffect
+): ConditionalEffect {
+  return conditional(
+    { type: CONDITION_IS_NIGHT_OR_UNDERGROUND },
     thenEffect,
     elseEffect
   );

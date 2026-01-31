@@ -21,10 +21,10 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import {
-  CARD_CATEGORY_COMBAT,
-  CARD_CATEGORY_SPECIAL,
-  CARD_CATEGORY_MOVEMENT,
-  CARD_CATEGORY_INFLUENCE,
+  CATEGORY_COMBAT,
+  CATEGORY_SPECIAL,
+  CATEGORY_MOVEMENT,
+  CATEGORY_INFLUENCE,
   DEED_CARD_TYPE_ADVANCED_ACTION,
 } from "../../types/cards.js";
 import {
@@ -62,7 +62,7 @@ export const WHITE_ADVANCED_ACTIONS = {
     name: "Agility",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Move 2. During combat this turn, you may spend Move points to get Attack 1 for each.
     // Powered: Move 4. During combat this turn you may spend any amount of Move points: 1 to get Attack 1 and/or 2 to get Ranged Attack 1.
     // TODO: Implement move-to-attack conversion modifier
@@ -76,7 +76,7 @@ export const WHITE_ADVANCED_ACTIONS = {
     name: "Song of Wind",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_MOVEMENT],
+    categories: [CATEGORY_MOVEMENT],
     // Basic: Move 2. The Move cost of plains, deserts, and wastelands is reduced by 1, to a minimum of 0 this turn.
     // Powered: Move 2. The Move cost of plains, deserts, and wastelands is reduced by 2, to a minimum of 0. You may pay a blue mana to be able to travel through lakes for Move cost 0 this turn.
     // TODO: Implement terrain cost modifier with optional blue mana lake travel
@@ -90,7 +90,7 @@ export const WHITE_ADVANCED_ACTIONS = {
     name: "Heroic Tale",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_INFLUENCE],
+    categories: [CATEGORY_INFLUENCE],
     // Basic: Influence 3. Reputation +1 for each Unit you recruit this turn.
     // Powered: Influence 6. Fame +1 and Reputation +1 for each Unit you recruit this turn.
     // TODO: Implement recruitment bonus modifier
@@ -104,7 +104,7 @@ export const WHITE_ADVANCED_ACTIONS = {
     name: "Diplomacy",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_INFLUENCE, CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_INFLUENCE, CATEGORY_COMBAT],
     // Basic: Influence 2. You may use Influence as Block this turn.
     // Powered: Influence 4. Choose Ice or Fire. You may use Influence as Block of the chosen element this turn.
     // TODO: Implement influence-as-block modifier
@@ -118,7 +118,7 @@ export const WHITE_ADVANCED_ACTIONS = {
     name: "Mana Storm",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_SPECIAL],
     // Basic: Choose a mana die in the Source that is showing a basic color. Gain a crystal of that color to your Inventory, then immediately reroll that die and return it to the Source.
     // Powered: Reroll all dice in the Source. You can use three extra dice from the Source, and you can use dice showing black or gold as mana of any basic color, regardless of the Round.
     // TODO: Implement source manipulation
@@ -132,7 +132,7 @@ export const WHITE_ADVANCED_ACTIONS = {
     name: "Learning",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_INFLUENCE, CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_INFLUENCE, CATEGORY_SPECIAL],
     // Basic: Influence 2. Once during this turn, you may pay Influence 6 to gain an Advanced Action card from the Advanced Actions offer to your discard pile.
     // Powered: Influence 4. Once during this turn, you may pay Influence 9 to gain an Advanced Action card from the Advanced Actions offer to your hand.
     // TODO: Implement advanced action purchase at discount
@@ -146,7 +146,7 @@ export const WHITE_ADVANCED_ACTIONS = {
     name: "Chivalry",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Attack 3, or Attack 2 and Reputation +1 for each enemy defeated by this attack.
     // Powered: Attack 6, or Attack 4 and Reputation +1 and Fame +1 for each enemy defeated by this attack.
     // TODO: Implement reputation/fame on defeat
@@ -160,7 +160,7 @@ export const WHITE_ADVANCED_ACTIONS = {
     name: "Peaceful Moment",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_INFLUENCE, CARD_CATEGORY_SPECIAL],
+    categories: [CATEGORY_INFLUENCE, CATEGORY_SPECIAL],
     // Basic: Influence 3. You may play this as your action for the turn: if you do, you may get Heal 1 for each 2 Influence you spend.
     // Powered: Influence 6. You may play this as your action for the turn: if you do, you may get Heal 1 for each 2 Influence you spend and/or refresh a Unit by paying 2 Influence per level of the Unit.
     // TODO: Implement influence-to-heal conversion and unit refresh
@@ -174,7 +174,7 @@ export const WHITE_ADVANCED_ACTIONS = {
     name: "Dodge and Weave",
     cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
     poweredBy: [MANA_WHITE],
-    categories: [CARD_CATEGORY_COMBAT],
+    categories: [CATEGORY_COMBAT],
     // Basic: Reduce one enemy attack by 2. Gain Attack 1 in the Attack phase if you did not add any Wounds to your hand in the previous combat phases.
     // Powered: Reduce one enemy attack by 4 or two attacks of one or two enemies by 2. Gain Attack 2 in the Attack phase if you did not add any Wounds to your hand in the previous combat phases.
     // TODO: Implement damage reduction and conditional attack bonus
