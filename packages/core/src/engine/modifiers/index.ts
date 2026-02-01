@@ -11,6 +11,8 @@ export {
   getModifiersForPlayer,
   getModifiersForEnemy,
   hasArcaneImmunity,
+  getEndlessManaColors,
+  hasEndlessMana,
 } from "./queries.js";
 
 // Combat effective values

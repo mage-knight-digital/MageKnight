@@ -14,10 +14,11 @@ import {
   MANA_SOURCE_DIE,
   MANA_SOURCE_CRYSTAL,
   MANA_SOURCE_TOKEN,
+  MANA_SOURCE_ENDLESS,
   MANA_GOLD,
   MANA_BLACK,
 } from "@mage-knight/shared";
-import { isRuleActive } from "../../modifiers/index.js";
+import { isRuleActive, hasEndlessMana } from "../../modifiers/index.js";
 import { RULE_EXTRA_SOURCE_DIE, RULE_BLACK_AS_ANY_COLOR } from "../../../types/modifierConstants.js";
 import {
   DIE_ALREADY_USED,
@@ -158,6 +159,14 @@ export function validateManaAvailable(
       return valid();
     }
 
+    case MANA_SOURCE_ENDLESS: {
+      // Endless mana from Ring artifacts - verify player has endless supply of this color
+      if (!hasEndlessMana(state, playerId, color)) {
+        return invalid(INVALID_MANA_SOURCE, `You don't have endless ${color} mana`);
+      }
+      return valid();
+    }
+
     default:
       return invalid(INVALID_MANA_SOURCE, "Invalid mana source type");
   }
@@ -247,6 +256,14 @@ export function validateSingleManaSource(
       const hasToken = player.pureMana.some((t) => t.color === color);
       if (!hasToken) {
         return invalid(NO_MANA_TOKEN, `You have no ${color} mana token`);
+      }
+      return valid();
+    }
+
+    case MANA_SOURCE_ENDLESS: {
+      // Endless mana from Ring artifacts - verify player has endless supply of this color
+      if (!hasEndlessMana(state, playerId, color)) {
+        return invalid(INVALID_MANA_SOURCE, `You don't have endless ${color} mana`);
       }
       return valid();
     }

@@ -92,4 +92,7 @@ export const EFFECT_ENEMY_SKIP_ATTACK = "enemy_skip_attack" as const;
 // Enemy loses all resistances this combat (used by Expose)
 export const EFFECT_REMOVE_RESISTANCES = "remove_resistances" as const;
 
+// === EndlessManaModifier ===
+// Provides endless supply of specific mana colors for a turn (used by Ring artifacts)
+export const EFFECT_ENDLESS_MANA = "endless_mana" as const;
 

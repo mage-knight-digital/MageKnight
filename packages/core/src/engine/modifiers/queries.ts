@@ -6,9 +6,11 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { ActiveModifier } from "../../types/modifiers.js";
+import type { ActiveModifier, EndlessManaModifier } from "../../types/modifiers.js";
+import type { ManaColor } from "@mage-knight/shared";
 import { ABILITY_ARCANE_IMMUNITY } from "@mage-knight/shared";
 import {
+  EFFECT_ENDLESS_MANA,
   SCOPE_ALL_ENEMIES,
   SCOPE_ALL_PLAYERS,
   SCOPE_ONE_ENEMY,
@@ -102,4 +104,42 @@ export function hasArcaneImmunity(state: GameState, enemyId: string): boolean {
   const enemy = state.combat?.enemies.find((e) => e.instanceId === enemyId);
   if (!enemy) return false;
   return enemy.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY);
+}
+
+/**
+ * Get all mana colors with endless supply for a player.
+ * Returns a Set of colors that the player has access to without consuming resources.
+ * Multiple endless mana modifiers stack (union of all colors).
+ *
+ * Note: Even with endless supply, black mana restrictions (day/night rules) still apply.
+ */
+export function getEndlessManaColors(
+  state: GameState,
+  playerId: string
+): ReadonlySet<ManaColor> {
+  const colors = new Set<ManaColor>();
+
+  const modifiers = getModifiersForPlayer(state, playerId).filter(
+    (m) => m.effect.type === EFFECT_ENDLESS_MANA
+  );
+
+  for (const modifier of modifiers) {
+    const effect = modifier.effect as EndlessManaModifier;
+    for (const color of effect.colors) {
+      colors.add(color);
+    }
+  }
+
+  return colors;
+}
+
+/**
+ * Check if a player has endless supply of a specific mana color.
+ */
+export function hasEndlessMana(
+  state: GameState,
+  playerId: string,
+  color: ManaColor
+): boolean {
+  return getEndlessManaColors(state, playerId).has(color);
 }

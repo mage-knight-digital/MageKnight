@@ -552,6 +552,7 @@ export class GameServer {
       hasPlunderedThisTurn: false,
       hasRecruitedUnitThisTurn: false,
       manaUsedThisTurn: [],
+      spellColorsCastThisTurn: [],
       combatAccumulator: createEmptyCombatAccumulator(),
       pendingChoice: null,
       pendingLevelUps: [],

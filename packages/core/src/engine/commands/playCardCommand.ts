@@ -9,7 +9,8 @@
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { CardId, BasicActionCardId, ManaSourceInfo } from "@mage-knight/shared";
+import type { CardId, BasicActionCardId, ManaSourceInfo, ManaColor } from "@mage-knight/shared";
+import { MANA_BLACK } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
   createCardPlayUndoneEvent,
@@ -19,8 +20,9 @@ import { resolveEffect, reverseEffect } from "../effects/index.js";
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
 import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { getCard } from "../validActions/cards/index.js";
+import { getSpellCard } from "../../data/spells/index.js";
 import { PLAY_CARD_COMMAND } from "./commandTypes.js";
-import type { CardEffect } from "../../types/cards.js";
+import type { CardEffect, DeedCard } from "../../types/cards.js";
 
 import { consumeMultipleMana, restoreMana } from "./helpers/manaConsumptionHelpers.js";
 import {
@@ -52,6 +54,8 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
   let appliedEffect: CardEffect | null = null;
   // Store mana sources consumed for undo
   let consumedManaSources: readonly ManaSourceInfo[] = [];
+  // Store spell color tracked for undo (null if no new color was tracked)
+  let trackedSpellColor: ManaColor | null = null;
 
   return {
     type: PLAY_CARD_COMMAND,
@@ -85,6 +89,15 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
       // Move card from hand to play area
       let updatedPlayer = moveCardToPlayArea(player, params.cardId, params.handIndex);
+
+      // Track spell color for Ring artifacts fame bonus
+      if (isPowered) {
+        const spellColor = getSpellColor(card);
+        if (spellColor && !updatedPlayer.spellColorsCastThisTurn.includes(spellColor)) {
+          trackedSpellColor = spellColor;
+          updatedPlayer = trackSpellColor(updatedPlayer, spellColor);
+        }
+      }
 
       // Track source updates
       let updatedSource = state.source;
@@ -206,6 +219,16 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         updatedSource = manaResult.source;
       }
 
+      // Restore spell color tracking if we tracked a new color
+      if (trackedSpellColor) {
+        updatedPlayer = {
+          ...updatedPlayer,
+          spellColorsCastThisTurn: updatedPlayer.spellColorsCastThisTurn.filter(
+            (c) => c !== trackedSpellColor
+          ),
+        };
+      }
+
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
 
@@ -299,5 +322,42 @@ function createCardPlayedResult(
         effect: effectDescription,
       },
     ],
+  };
+}
+
+/**
+ * Get the spell color from a spell card (the non-black mana color).
+ * Returns null if the card is not a spell or has no color.
+ */
+function getSpellColor(card: DeedCard): ManaColor | null {
+  // Check if this is a spell card
+  const spell = getSpellCard(card.id);
+  if (!spell) {
+    return null;
+  }
+
+  // Find the non-black color from poweredBy
+  // Spells are powered by [MANA_BLACK, colorMana]
+  for (const color of card.poweredBy) {
+    if (color !== MANA_BLACK) {
+      return color;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Track the spell color for fame bonus calculation (Ring artifacts).
+ * Only tracks if the color is not already tracked this turn.
+ */
+function trackSpellColor(player: Player, color: ManaColor): Player {
+  if (player.spellColorsCastThisTurn.includes(color)) {
+    return player;
+  }
+
+  return {
+    ...player,
+    spellColorsCastThisTurn: [...player.spellColorsCastThisTurn, color],
   };
 }

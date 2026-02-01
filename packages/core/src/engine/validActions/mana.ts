@@ -13,8 +13,9 @@ import {
   MANA_GREEN,
   MANA_WHITE,
   MANA_GOLD,
+  MANA_SOURCE_ENDLESS,
 } from "@mage-knight/shared";
-import { isRuleActive } from "../modifiers/index.js";
+import { isRuleActive, hasEndlessMana } from "../modifiers/index.js";
 import { RULE_EXTRA_SOURCE_DIE, RULE_SOURCE_BLOCKED } from "../../types/modifierConstants.js";
 
 /**
@@ -102,6 +103,12 @@ export function canPayForMana(
   player: Player,
   requiredColor: ManaColor
 ): boolean {
+  // Check for endless mana supply first (from Ring artifacts)
+  // Note: Black mana day/night restrictions are checked separately in validators
+  if (hasEndlessMana(state, player.id, requiredColor)) {
+    return true;
+  }
+
   // Check Mana Steal stored die (doesn't count against source usage)
   const storedDie = player.tacticState.storedManaDie;
   if (storedDie && !player.tacticState.manaStealUsedThisTurn) {
@@ -194,6 +201,10 @@ function getCrystalCount(player: Player, color: ManaColor): number {
  *
  * This is a simplified check - it counts available mana sources and ensures
  * there are at least 2 that match the required colors.
+ *
+ * With endless mana: If a color has endless supply, it counts as infinite sources
+ * for that color. However, the same endless source can only pay for one color
+ * if both colors are the same and both have endless supply.
  */
 export function canPayForTwoMana(
   state: GameState,
@@ -201,6 +212,25 @@ export function canPayForTwoMana(
   color1: ManaColor,
   color2: ManaColor
 ): boolean {
+  const hasEndless1 = hasEndlessMana(state, player.id, color1);
+  const hasEndless2 = hasEndlessMana(state, player.id, color2);
+
+  // If both colors have endless supply, always can pay
+  // (endless supply can satisfy any number of that color)
+  if (hasEndless1 && hasEndless2) {
+    return true;
+  }
+
+  // If one has endless supply, just check the other has at least 1 source
+  if (hasEndless1) {
+    const sources2 = countManaSourcesForColor(state, player, color2);
+    return sources2 >= 1;
+  }
+  if (hasEndless2) {
+    const sources1 = countManaSourcesForColor(state, player, color1);
+    return sources1 >= 1;
+  }
+
   // Count how many sources can pay for each color
   const sources1 = countManaSourcesForColor(state, player, color1);
   const sources2 = countManaSourcesForColor(state, player, color2);
@@ -287,6 +317,15 @@ export function getAvailableManaSourcesForColor(
   requiredColor: ManaColor
 ): import("@mage-knight/shared").ManaSourceInfo[] {
   const sources: import("@mage-knight/shared").ManaSourceInfo[] = [];
+
+  // Check for endless mana supply first (from Ring artifacts)
+  // This is the preferred source since it doesn't consume resources
+  if (hasEndlessMana(state, player.id, requiredColor)) {
+    sources.push({
+      type: MANA_SOURCE_ENDLESS,
+      color: requiredColor,
+    });
+  }
 
   // Check Mana Steal stored die
   const storedDie = player.tacticState.storedManaDie;
