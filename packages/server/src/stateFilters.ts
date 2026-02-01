@@ -23,6 +23,7 @@ import type {
   ClientPlayerUnit,
   ClientManaToken,
   ClientPendingChoice,
+  ClientPendingDiscard,
   ClientCombatState,
   ClientCombatEnemy,
   ClientHexEnemy,
@@ -227,6 +228,26 @@ export function toClientPlayer(player: Player, forPlayerId: string): ClientPlaye
 
     // Pending level ups (levels crossed, processed at end of turn)
     pendingLevelUps: player.pendingLevelUps,
+
+    // Pending discard cost (filters out thenEffect which is internal state)
+    pendingDiscard: player.pendingDiscard
+      ? toClientPendingDiscard(player.pendingDiscard)
+      : null,
+  };
+}
+
+/**
+ * Convert a PendingDiscard to ClientPendingDiscard.
+ * Filters out the thenEffect (internal implementation detail).
+ */
+export function toClientPendingDiscard(
+  pendingDiscard: NonNullable<Player["pendingDiscard"]>
+): ClientPendingDiscard {
+  return {
+    sourceCardId: pendingDiscard.sourceCardId,
+    count: pendingDiscard.count,
+    optional: pendingDiscard.optional,
+    filterWounds: pendingDiscard.filterWounds,
   };
 }
 

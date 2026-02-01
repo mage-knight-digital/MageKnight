@@ -5,7 +5,7 @@ import {
   EFFECT_GAIN_HEALING, EFFECT_GAIN_MANA, EFFECT_DRAW_CARDS, EFFECT_APPLY_MODIFIER,
   EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_CHANGE_REPUTATION, EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL, EFFECT_CARD_BOOST, EFFECT_READY_UNIT,
-  EFFECT_MANA_DRAW_POWERED, EFFECT_TERRAIN_BASED_BLOCK,
+  EFFECT_MANA_DRAW_POWERED, EFFECT_TERRAIN_BASED_BLOCK, EFFECT_DISCARD_COST,
   COMBAT_TYPE_MELEE, COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
 import { MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE, type BasicManaColor } from "@mage-knight/shared";
@@ -129,4 +129,29 @@ export function grantExtraSourceDieWithBlackAsAnyColor(): CardEffect {
  */
 export function terrainBasedBlock(): CardEffect {
   return { type: EFFECT_TERRAIN_BASED_BLOCK };
+}
+
+/**
+ * Discard as cost effect.
+ * Requires discarding card(s) from hand before resolving the thenEffect.
+ * Used by Improvisation, which requires discarding a card to gain Move/Attack/etc.
+ *
+ * @param count - Number of cards to discard (usually 1)
+ * @param thenEffect - Effect to resolve after discarding
+ * @param optional - If true, player can skip discarding (and skip the effect)
+ * @param filterWounds - If true (default), wounds cannot be discarded
+ */
+export function discardCost(
+  count: number,
+  thenEffect: CardEffect,
+  optional: boolean = false,
+  filterWounds: boolean = true
+): CardEffect {
+  return {
+    type: EFFECT_DISCARD_COST,
+    count,
+    optional,
+    thenEffect,
+    filterWounds,
+  };
 }

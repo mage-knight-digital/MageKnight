@@ -179,6 +179,12 @@ export const GLADE_WOUND_NO_WOUNDS_IN_DISCARD = "GLADE_WOUND_NO_WOUNDS_IN_DISCAR
 export const DEEP_MINE_CHOICE_REQUIRED = "DEEP_MINE_CHOICE_REQUIRED" as const;
 export const DEEP_MINE_INVALID_COLOR = "DEEP_MINE_INVALID_COLOR" as const;
 
+// Discard as cost validation codes
+export const DISCARD_COST_REQUIRED = "DISCARD_COST_REQUIRED" as const;
+export const DISCARD_COST_INVALID_COUNT = "DISCARD_COST_INVALID_COUNT" as const;
+export const DISCARD_COST_CARD_NOT_ELIGIBLE = "DISCARD_COST_CARD_NOT_ELIGIBLE" as const;
+export const DISCARD_COST_CANNOT_SKIP = "DISCARD_COST_CANNOT_SKIP" as const;
+
 // Spell purchase validation codes
 export const SPELL_NOT_IN_OFFER = "SPELL_NOT_IN_OFFER" as const;
 export const NOT_AT_SPELL_SITE = "NOT_AT_SPELL_SITE" as const;
@@ -368,6 +374,11 @@ export type ValidationErrorCode =
   // Deep Mine validation
   | typeof DEEP_MINE_CHOICE_REQUIRED
   | typeof DEEP_MINE_INVALID_COLOR
+  // Discard as cost validation
+  | typeof DISCARD_COST_REQUIRED
+  | typeof DISCARD_COST_INVALID_COUNT
+  | typeof DISCARD_COST_CARD_NOT_ELIGIBLE
+  | typeof DISCARD_COST_CANNOT_SKIP
   // Spell purchase validation
   | typeof SPELL_NOT_IN_OFFER
   | typeof NOT_AT_SPELL_SITE

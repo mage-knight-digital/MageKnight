@@ -41,6 +41,17 @@ export interface ClientPendingChoice {
   }[];
 }
 
+/**
+ * Pending discard as cost (e.g., Improvisation requires discarding before gaining benefit).
+ * Client-visible version omits thenEffect (internal state).
+ */
+export interface ClientPendingDiscard {
+  readonly sourceCardId: CardId;
+  readonly count: number;
+  readonly optional: boolean;
+  readonly filterWounds: boolean;
+}
+
 // Crystals (same as core, but defined here for independence)
 export interface ClientCrystals {
   readonly red: number;
@@ -151,6 +162,9 @@ export interface ClientPlayer {
 
   // Magical Glade wound discard choice pending
   readonly pendingGladeWoundChoice: boolean;
+
+  // Discard as cost pending (e.g., Improvisation)
+  readonly pendingDiscard: ClientPendingDiscard | null;
 
   // Deep Mine crystal color choice pending (available colors to choose from)
   readonly pendingDeepMineChoice: readonly BasicManaColor[] | null;

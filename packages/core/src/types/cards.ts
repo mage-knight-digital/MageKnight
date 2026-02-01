@@ -38,6 +38,7 @@ import {
   EFFECT_REVEAL_TILES,
   EFFECT_PAY_MANA,
   EFFECT_TERRAIN_BASED_BLOCK,
+  EFFECT_DISCARD_COST,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -413,6 +414,29 @@ export interface TerrainBasedBlockEffect {
   readonly type: typeof EFFECT_TERRAIN_BASED_BLOCK;
 }
 
+/**
+ * Discard from hand as a cost, then execute a follow-up effect.
+ * Used by cards like Improvisation that require discarding before gaining benefit.
+ *
+ * Resolution:
+ * 1. Create pendingDiscard state with selectable cards
+ * 2. Player selects card(s) to discard via RESOLVE_DISCARD action
+ * 3. Discard happens, then thenEffect resolves
+ *
+ * Undo from card selection undoes the entire card play.
+ */
+export interface DiscardCostEffect {
+  readonly type: typeof EFFECT_DISCARD_COST;
+  /** How many cards must be discarded (usually 1) */
+  readonly count: number;
+  /** If true, discarding is optional (player can skip) */
+  readonly optional: boolean;
+  /** Effect to resolve after discarding succeeds */
+  readonly thenEffect: CardEffect;
+  /** If true, wounds cannot be discarded (default: true per standard rules) */
+  readonly filterWounds?: boolean;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -445,7 +469,8 @@ export type CardEffect =
   | DiscardCardEffect
   | RevealTilesEffect
   | PayManaCostEffect
-  | TerrainBasedBlockEffect;
+  | TerrainBasedBlockEffect
+  | DiscardCostEffect;
 
 // === Card Definition ===
 

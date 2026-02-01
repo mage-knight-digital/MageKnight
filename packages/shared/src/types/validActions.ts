@@ -76,6 +76,9 @@ export interface ValidActions {
   /** Deep Mine crystal choice options (at end of turn) */
   readonly deepMine: DeepMineOptions | undefined;
 
+  /** Discard as cost options (when pendingDiscard is active) */
+  readonly discardCost: DiscardCostOptions | undefined;
+
   /** Level up reward options (when pending level up rewards exist) */
   readonly levelUpRewards: LevelUpRewardsOptions | undefined;
 
@@ -664,6 +667,25 @@ export interface GladeWoundOptions {
 export interface DeepMineOptions {
   /** Available crystal colors to choose from */
   readonly availableColors: readonly BasicManaColor[];
+}
+
+// ============================================================================
+// Discard as Cost
+// ============================================================================
+
+/**
+ * Options for discard as cost resolution (e.g., Improvisation).
+ * Only present when player has a pending discard cost.
+ */
+export interface DiscardCostOptions {
+  /** Source card that triggered the discard */
+  readonly sourceCardId: CardId;
+  /** Cards available to discard (filtered based on rules, e.g., no wounds) */
+  readonly availableCardIds: readonly CardId[];
+  /** How many cards must be selected */
+  readonly count: number;
+  /** If true, player can skip discarding */
+  readonly optional: boolean;
 }
 
 // ============================================================================

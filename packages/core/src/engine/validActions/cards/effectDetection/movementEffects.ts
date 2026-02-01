@@ -12,6 +12,7 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
+  EFFECT_DISCARD_COST,
 } from "../../../../types/effectTypes.js";
 
 /**
@@ -34,6 +35,9 @@ export function effectHasMove(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasMove(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effectHasMove(effect.thenEffect);
 
     default:
       return false;
@@ -60,6 +64,9 @@ export function effectHasInfluence(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasInfluence(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effectHasInfluence(effect.thenEffect);
 
     default:
       return false;

@@ -155,6 +155,24 @@ export interface PendingChoice {
   readonly options: readonly CardEffect[];
 }
 
+/**
+ * Pending discard cost resolution.
+ * Set when a card effect requires discarding cards as a cost (e.g., Improvisation).
+ * Contains source card and count needed for UI display and validation.
+ */
+export interface PendingDiscard {
+  /** Source card that triggered the discard requirement */
+  readonly sourceCardId: CardId;
+  /** How many cards must be discarded */
+  readonly count: number;
+  /** If true, discarding is optional (can skip) */
+  readonly optional: boolean;
+  /** Effect to resolve after discarding */
+  readonly thenEffect: CardEffect;
+  /** If true, wounds cannot be selected (default: true) */
+  readonly filterWounds: boolean;
+}
+
 // === Tactic-specific state types ===
 
 // Tactic-specific persistent state (survives across turns within a round)
@@ -282,6 +300,9 @@ export interface Player {
 
   // Magical Glade wound discard choice pending (when wounds exist in both hand and discard)
   readonly pendingGladeWoundChoice: boolean;
+
+  // Discard as cost pending (e.g., Improvisation requires discarding a card before gaining benefit)
+  readonly pendingDiscard: PendingDiscard | null;
 
   // Resting state: true when player has declared rest but not yet completed it
   // While resting, movement/combat/interaction are blocked but cards can still be played

@@ -25,6 +25,7 @@ import {
   PLAY_CARD_ACTION,
   PLAY_CARD_SIDEWAYS_ACTION,
   RESOLVE_CHOICE_ACTION,
+  RESOLVE_DISCARD_ACTION,
   REST_ACTION,
   DECLARE_REST_ACTION,
   COMPLETE_REST_ACTION,
@@ -77,6 +78,7 @@ export {
   createPlayCardCommandFromAction,
   createPlayCardSidewaysCommandFromAction,
   createResolveChoiceCommandFromAction,
+  createResolveDiscardCommandFromAction,
 } from "./cards.js";
 
 // Combat factories
@@ -160,6 +162,7 @@ import {
   createPlayCardCommandFromAction,
   createPlayCardSidewaysCommandFromAction,
   createResolveChoiceCommandFromAction,
+  createResolveDiscardCommandFromAction,
 } from "./cards.js";
 
 import {
@@ -239,6 +242,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [PLAY_CARD_ACTION]: createPlayCardCommandFromAction,
   [PLAY_CARD_SIDEWAYS_ACTION]: createPlayCardSidewaysCommandFromAction,
   [RESOLVE_CHOICE_ACTION]: createResolveChoiceCommandFromAction,
+  [RESOLVE_DISCARD_ACTION]: createResolveDiscardCommandFromAction,
   [REST_ACTION]: createRestCommandFromAction,
   [DECLARE_REST_ACTION]: createDeclareRestCommandFromAction,
   [COMPLETE_REST_ACTION]: createCompleteRestCommandFromAction,

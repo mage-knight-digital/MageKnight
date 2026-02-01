@@ -48,6 +48,9 @@ export const RESOLVE_GLADE_WOUND_COMMAND = "RESOLVE_GLADE_WOUND" as const;
 // Deep Mine command
 export const RESOLVE_DEEP_MINE_COMMAND = "RESOLVE_DEEP_MINE" as const;
 
+// Discard as cost command
+export const RESOLVE_DISCARD_COMMAND = "RESOLVE_DISCARD" as const;
+
 // Burn monastery command
 export const BURN_MONASTERY_COMMAND = "BURN_MONASTERY" as const;
 

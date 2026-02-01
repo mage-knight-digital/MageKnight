@@ -4,14 +4,16 @@
  * Handles special pending states that require player resolution:
  * - Glade wound discard choices
  * - Deep mine crystal color choices
+ * - Discard as cost choices
  */
 
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { GladeWoundOptions, DeepMineOptions, BasicManaColor } from "@mage-knight/shared";
+import type { GladeWoundOptions, DeepMineOptions, BasicManaColor, DiscardCostOptions } from "@mage-knight/shared";
 import { mineColorToBasicManaColor } from "../../types/map.js";
 import { CARD_WOUND, hexKey } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
+import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
 
 /**
  * Get Magical Glade wound discard options for the player.
@@ -67,5 +69,31 @@ export function getDeepMineOptions(
 
   return {
     availableColors,
+  };
+}
+
+/**
+ * Get discard cost options for the player.
+ * Returns options if player has a pending discard cost to resolve.
+ */
+export function getDiscardCostOptions(
+  _state: GameState,
+  player: Player
+): DiscardCostOptions | undefined {
+  // Check if player has a pending discard cost
+  if (!player.pendingDiscard) {
+    return undefined;
+  }
+
+  const { sourceCardId, count, optional, filterWounds } = player.pendingDiscard;
+
+  // Get eligible cards from hand
+  const availableCardIds = getCardsEligibleForDiscardCost(player.hand, filterWounds);
+
+  return {
+    sourceCardId,
+    availableCardIds,
+    count,
+    optional,
   };
 }

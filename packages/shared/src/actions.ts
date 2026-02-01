@@ -351,6 +351,14 @@ export interface ResolveDeepMineAction {
   readonly color: BasicManaColor; // The chosen crystal color
 }
 
+// Discard as cost action (e.g., Improvisation requires discarding before gaining benefit)
+export const RESOLVE_DISCARD_ACTION = "RESOLVE_DISCARD" as const;
+export interface ResolveDiscardAction {
+  readonly type: typeof RESOLVE_DISCARD_ACTION;
+  /** Card IDs to discard (length must match pendingDiscard.count, or empty to skip if optional) */
+  readonly cardIds: readonly CardId[];
+}
+
 // Combat action constants
 export const ENTER_COMBAT_ACTION = "ENTER_COMBAT" as const;
 export const CHALLENGE_RAMPAGING_ACTION = "CHALLENGE_RAMPAGING" as const;
@@ -567,6 +575,8 @@ export type PlayerAction =
   | ResolveGladeWoundAction
   // Deep Mine
   | ResolveDeepMineAction
+  // Discard as cost
+  | ResolveDiscardAction
   // Combat
   | EnterCombatAction
   | ChallengeRampagingAction

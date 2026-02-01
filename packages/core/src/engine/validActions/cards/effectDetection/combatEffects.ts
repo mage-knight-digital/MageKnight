@@ -13,6 +13,7 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
+  EFFECT_DISCARD_COST,
 } from "../../../../types/effectTypes.js";
 import {
   COMBAT_TYPE_RANGED,
@@ -39,6 +40,9 @@ export function effectHasRangedOrSiege(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasRangedOrSiege(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effectHasRangedOrSiege(effect.thenEffect);
 
     default:
       return false;
@@ -67,6 +71,9 @@ export function effectHasBlock(effect: CardEffect): boolean {
     case EFFECT_SCALING:
       return effectHasBlock(effect.baseEffect);
 
+    case EFFECT_DISCARD_COST:
+      return effectHasBlock(effect.thenEffect);
+
     default:
       return false;
   }
@@ -92,6 +99,9 @@ export function effectHasAttack(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasAttack(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effectHasAttack(effect.thenEffect);
 
     default:
       return false;
