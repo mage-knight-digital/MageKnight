@@ -40,3 +40,5 @@ export const UNIT_ABILITY_BRUTAL = "brutal" as const satisfies UnitAbilityType;
 export const UNIT_ABILITY_POISON = "poison" as const satisfies UnitAbilityType;
 export const UNIT_ABILITY_PARALYZE =
   "paralyze" as const satisfies UnitAbilityType;
+export const UNIT_ABILITY_EFFECT =
+  "effect" as const satisfies UnitAbilityType;

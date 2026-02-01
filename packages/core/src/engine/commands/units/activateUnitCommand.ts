@@ -4,6 +4,11 @@
  * Activates a unit's ability in combat, marking it as spent.
  * Unit abilities contribute to combat (attack/block values) and
  * must match the current combat phase.
+ *
+ * For effect-based abilities (type="effect"), the command looks up the
+ * effect definition from the unit ability effects registry and resolves it
+ * using the standard card effect system. This supports complex abilities
+ * like Sorcerers' fortification/resistance stripping + ranged attack combos.
  */
 
 import type { Command, CommandResult } from "../../commands.js";
@@ -11,10 +16,12 @@ import type { GameState } from "../../../state/GameState.js";
 import type { GameEvent, ManaSourceInfo, CardId } from "@mage-knight/shared";
 import {
   UNIT_ACTIVATED,
+  CHOICE_REQUIRED,
   getUnit,
   UNIT_STATE_SPENT,
   UNIT_STATE_READY,
   ELEMENT_PHYSICAL,
+  UNIT_ABILITY_EFFECT,
 } from "@mage-knight/shared";
 import {
   addAbilityToAccumulator,
@@ -26,6 +33,9 @@ import {
   consumeManaForAbility,
   restoreManaForAbility,
 } from "./helpers/manaConsumptionHelpers.js";
+import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
+import { resolveEffect, isEffectResolvable, describeEffect } from "../../effects/index.js";
+import type { Player } from "../../../types/player.js";
 
 export const ACTIVATE_UNIT_COMMAND = "ACTIVATE_UNIT" as const;
 
@@ -54,6 +64,9 @@ export function createActivateUnitCommand(
 
   // Store count of terrain modifiers added for undo
   let terrainModifiersAdded = 0;
+
+  // Store whether this was an effect-based ability (for undo)
+  let wasEffectBasedAbility = false;
 
   return {
     type: ACTIVATE_UNIT_COMMAND,
@@ -91,9 +104,6 @@ export function createActivateUnitCommand(
         throw new Error(`Invalid ability index: ${params.abilityIndex}`);
       }
 
-      // Get the ability value (default to 0 for abilities without values)
-      const abilityValue = ability.value ?? 0;
-
       // Track source updates (for die usage)
       let updatedSource = state.source;
 
@@ -110,7 +120,7 @@ export function createActivateUnitCommand(
         updatedSource = manaResult.source;
       }
 
-      // Store previous state for undo of non-combat abilities
+      // Store previous state for undo
       previousMovePoints = player.movePoints;
       previousInfluencePoints = player.influencePoints;
       previousHand = player.hand;
@@ -122,6 +132,136 @@ export function createActivateUnitCommand(
         ...unit,
         state: UNIT_STATE_SPENT,
       };
+
+      // ============================================================
+      // EFFECT-BASED ABILITY HANDLING
+      // ============================================================
+      if (ability.type === UNIT_ABILITY_EFFECT && ability.effectId) {
+        wasEffectBasedAbility = true;
+
+        // Look up the effect from the registry
+        const effect = getUnitAbilityEffect(ability.effectId);
+        if (!effect) {
+          throw new Error(`Effect not found for effectId: ${ability.effectId}`);
+        }
+
+        // Build intermediate state with unit marked as spent
+        const playerWithSpentUnit: Player = {
+          ...player,
+          units: updatedUnits,
+        };
+        const players = [...state.players];
+        players[playerIndex] = playerWithSpentUnit;
+
+        const intermediateState: GameState = {
+          ...state,
+          players,
+          source: updatedSource,
+        };
+
+        // Resolve the effect
+        const effectResult = resolveEffect(
+          intermediateState,
+          params.playerId,
+          effect,
+          undefined // No source card for unit abilities
+        );
+
+        // Build events list
+        const events: GameEvent[] = [
+          {
+            type: UNIT_ACTIVATED,
+            playerId: params.playerId,
+            unitInstanceId: params.unitInstanceId,
+            abilityUsed: ability.type,
+            abilityValue: 0, // Effect-based abilities don't have simple values
+            element: ability.element ?? ELEMENT_PHYSICAL,
+          },
+        ];
+
+        // Check if the effect requires a choice (e.g., enemy selection)
+        if (effectResult.requiresChoice && effectResult.dynamicChoiceOptions) {
+          // Filter to resolvable options
+          const resolvableOptions = effectResult.dynamicChoiceOptions.filter((opt) =>
+            isEffectResolvable(effectResult.state, params.playerId, opt)
+          );
+
+          // If no options resolvable, just return the current state
+          if (resolvableOptions.length === 0) {
+            return {
+              state: effectResult.state,
+              events,
+            };
+          }
+
+          // If only one option, auto-resolve it
+          if (resolvableOptions.length === 1) {
+            const singleOption = resolvableOptions[0];
+            if (!singleOption) {
+              throw new Error("Expected single resolvable option");
+            }
+            const autoResolveResult = resolveEffect(
+              effectResult.state,
+              params.playerId,
+              singleOption,
+              undefined
+            );
+            return {
+              state: autoResolveResult.state,
+              events,
+            };
+          }
+
+          // Multiple options - set up pending choice
+          const updatedPlayerIdx = effectResult.state.players.findIndex(
+            (p) => p.id === params.playerId
+          );
+          const updatedPlayer = effectResult.state.players[updatedPlayerIdx];
+          if (!updatedPlayer) {
+            throw new Error("Player not found after effect resolution");
+          }
+
+          const playerWithChoice: Player = {
+            ...updatedPlayer,
+            pendingChoice: {
+              cardId: null,
+              skillId: null,
+              unitInstanceId: params.unitInstanceId,
+              options: resolvableOptions,
+            },
+          };
+
+          const playersWithChoice = [...effectResult.state.players];
+          playersWithChoice[updatedPlayerIdx] = playerWithChoice;
+
+          // Add CHOICE_REQUIRED event
+          events.push({
+            type: CHOICE_REQUIRED,
+            playerId: params.playerId,
+            cardId: null,
+            skillId: null,
+            options: resolvableOptions.map((opt) => describeEffect(opt)),
+          });
+
+          return {
+            state: { ...effectResult.state, players: playersWithChoice },
+            events,
+          };
+        }
+
+        // Effect resolved completely - return updated state
+        return {
+          state: effectResult.state,
+          events,
+        };
+      }
+
+      // ============================================================
+      // STANDARD (VALUE-BASED) ABILITY HANDLING
+      // ============================================================
+
+      // Get the ability value (default to 0 for abilities without values)
+      const abilityValue = ability.value ?? 0;
 
       // Update combat accumulator (for combat abilities)
       const updatedAccumulator = addAbilityToAccumulator(
@@ -234,6 +374,31 @@ export function createActivateUnitCommand(
         state: UNIT_STATE_READY,
       };
 
+      // For effect-based abilities, we need to:
+      // 1. Restore unit state and mana (done above)
+      // 2. Clear any pending choice that was set
+      // 3. The effect resolution itself is handled by resolveChoiceCommand undo
+      if (wasEffectBasedAbility) {
+        const updatedPlayer: Player = {
+          ...player,
+          units: updatedUnits,
+          pendingChoice: null, // Clear any pending choice from this activation
+        };
+
+        const players = [...state.players];
+        players[playerIndex] = updatedPlayer;
+
+        return {
+          state: {
+            ...state,
+            players,
+            source: updatedSource,
+          },
+          events: [],
+        };
+      }
+
+      // Standard ability undo
       // Remove ability from combat accumulator
       const updatedAccumulator = ability
         ? removeAbilityFromAccumulator(

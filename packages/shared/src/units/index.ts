@@ -66,6 +66,7 @@ export {
   UNIT_ABILITY_BRUTAL,
   UNIT_ABILITY_POISON,
   UNIT_ABILITY_PARALYZE,
+  UNIT_ABILITY_EFFECT,
 } from "./constants.js";
 
 // =============================================================================

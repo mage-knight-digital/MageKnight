@@ -67,8 +67,8 @@ function registerAllEffects(resolver: EffectHandler): void {
   // Card boost effects (CardBoost, ResolveBoostTarget)
   registerCardBoostEffects(resolver);
 
-  // Combat enemy targeting effects
-  registerCombatEffects();
+  // Combat enemy targeting effects (pass resolver for bundled effect support)
+  registerCombatEffects(resolver);
 
   // Mana draw effects (ManaDrawPowered, ManaDrawPickDie, ManaDrawSetColor)
   registerManaDrawEffects();

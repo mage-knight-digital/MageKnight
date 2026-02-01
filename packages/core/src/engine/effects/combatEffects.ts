@@ -244,20 +244,47 @@ export function resolveCombatEnemyTarget(
 // ============================================================================
 
 /**
+ * Type for effect resolver function passed during registration.
+ */
+type EffectResolver = (
+  state: GameState,
+  playerId: string,
+  effect: import("../../types/cards.js").CardEffect,
+  sourceCardId?: string
+) => EffectResolutionResult;
+
+/**
  * Register all combat enemy targeting effect handlers with the effect registry.
  * Called during effect system initialization.
+ *
+ * @param resolver - Optional resolver function for bundled effects (required for bundledEffect support)
  */
-export function registerCombatEffects(): void {
+export function registerCombatEffects(resolver?: EffectResolver): void {
   registerEffect(EFFECT_SELECT_COMBAT_ENEMY, (state, _playerId, effect) => {
     return resolveSelectCombatEnemy(state, effect as SelectCombatEnemyEffect);
   });
 
   registerEffect(EFFECT_RESOLVE_COMBAT_ENEMY_TARGET, (state, playerId, effect, sourceCardId) => {
-    return resolveCombatEnemyTarget(
-      state,
-      playerId,
-      effect as ResolveCombatEnemyTargetEffect,
-      sourceCardId
-    );
+    const typedEffect = effect as ResolveCombatEnemyTargetEffect;
+
+    // First resolve the base target (modifiers/defeat)
+    const baseResult = resolveCombatEnemyTarget(state, playerId, typedEffect, sourceCardId);
+
+    // If there's a bundled effect and we have a resolver, resolve it too
+    // Bundled effects (like ranged attack) are NOT blocked by Arcane Immunity
+    if (typedEffect.template.bundledEffect && resolver) {
+      const bundledResult = resolver(
+        baseResult.state,
+        playerId,
+        typedEffect.template.bundledEffect,
+        sourceCardId
+      );
+      return {
+        state: bundledResult.state,
+        description: [baseResult.description, bundledResult.description].filter(Boolean).join("; "),
+      };
+    }
+
+    return baseResult;
   });
 }
