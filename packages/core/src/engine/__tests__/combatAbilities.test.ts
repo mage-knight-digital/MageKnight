@@ -20,6 +20,7 @@ import {
   ENEMY_FREEZERS,
   ENEMY_DIGGERS,
   ENEMY_SORCERERS,
+  ENEMY_DELPHANA_MASTERS,
   CARD_WOUND,
   CARD_MARCH,
   CARD_RAGE,
@@ -573,10 +574,11 @@ describe("Combat Abilities", () => {
       });
       let state = createTestGameState({ players: [player] });
 
-      // Enter combat with Sorcerers (attack 6, assassination)
+      // Enter combat with Delphana Masters (attack 5, assassination, paralyze)
+      // Note: Can't use Sorcerers because they have Arcane Immunity which blocks ability nullification
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
-        enemyIds: [ENEMY_SORCERERS],
+        enemyIds: [ENEMY_DELPHANA_MASTERS],
       }).state;
 
       // Add ability nullifier for Assassination on this enemy
@@ -602,7 +604,7 @@ describe("Combat Abilities", () => {
         type: ASSIGN_DAMAGE_ACTION,
         enemyInstanceId: "enemy_0",
         assignments: [
-          { target: DAMAGE_TARGET_UNIT, unitInstanceId: "unit_0", amount: 6 },
+          { target: DAMAGE_TARGET_UNIT, unitInstanceId: "unit_0", amount: 5 },
         ],
       });
 
@@ -613,9 +615,8 @@ describe("Combat Abilities", () => {
         })
       );
 
-      // Unit should be destroyed (by Poison, which is still active on Sorcerers)
-      // Or wounded if poison is also nullified - but poison is NOT nullified
-      // Sorcerers have both Assassination and Poison
+      // Unit should be destroyed (by Paralyze, which is still active on Delphana Masters)
+      // Delphana Masters have both Assassination and Paralyze
       expect(result.state.players[0].units).toHaveLength(0);
     });
 

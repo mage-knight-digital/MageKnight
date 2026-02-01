@@ -280,7 +280,7 @@ export function validateAssignAttackTypeForPhase(
 // In Ranged/Siege phase, fortified enemies can only receive siege attacks
 export function validateAssignAttackFortification(
   state: GameState,
-  _playerId: string,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== ASSIGN_ATTACK_ACTION) return valid();
@@ -291,8 +291,9 @@ export function validateAssignAttackFortification(
   const enemy = state.combat.enemies.find((e) => e.instanceId === action.enemyInstanceId);
   if (!enemy) return valid();
 
+  // Pass state and playerId to check for fortification-removing modifiers (Expose spell)
   const isAtFortifiedSite = state.combat.isAtFortifiedSite;
-  const fortificationLevel = getFortificationLevel(enemy, isAtFortifiedSite);
+  const fortificationLevel = getFortificationLevel(enemy, isAtFortifiedSite, state, playerId);
 
   if (fortificationLevel > 0 && action.attackType !== ATTACK_TYPE_SIEGE) {
     return invalid(

@@ -19,6 +19,7 @@ import {
   ENEMY_DIGGERS,
   ENEMY_IRONCLADS,
   ENEMY_SORCERERS,
+  ENEMY_DELPHANA_MASTERS,
   ATTACK_TYPE_MELEE,
   ATTACK_TYPE_RANGED,
   ATTACK_TYPE_SIEGE,
@@ -812,8 +813,9 @@ describe("getCombatOptions", () => {
       });
 
       it("should return unit targets if Assassination is nullified", () => {
-        // Sorcerers have Assassination ability
-        let state = setupAssignDamagePhase([ENEMY_SORCERERS]);
+        // Use Delphana Masters which have Assassination but NOT Arcane Immunity
+        // (Sorcerers have Arcane Immunity which blocks ability nullification)
+        let state = setupAssignDamagePhase([ENEMY_DELPHANA_MASTERS]);
         state = withPlayerUnits(state, "player1", [
           createPlayerUnit(UNIT_PEASANTS, "peasant_1"),
         ]);

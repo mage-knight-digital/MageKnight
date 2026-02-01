@@ -17,7 +17,7 @@ import type {
 } from "../types/modifiers.js";
 import type { EnemyAbility } from "../types/enemy.js";
 import type { Terrain } from "@mage-knight/shared";
-import { DEFAULT_MOVEMENT_COSTS, TIME_OF_DAY_DAY } from "@mage-knight/shared";
+import { DEFAULT_MOVEMENT_COSTS, TIME_OF_DAY_DAY, ABILITY_ARCANE_IMMUNITY } from "@mage-knight/shared";
 import {
   ABILITY_ANY,
   DURATION_COMBAT,
@@ -28,6 +28,7 @@ import {
   EFFECT_COMBAT_VALUE,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
+  EFFECT_REMOVE_RESISTANCES,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
   EFFECT_TERRAIN_COST,
@@ -89,6 +90,10 @@ export function getModifiersForPlayer(
  * For cooperative assaults with enemy assignments, SCOPE_ALL_ENEMIES modifiers
  * only apply to enemies assigned to the player who created the modifier.
  * This ensures "affect all enemies" effects are scoped to each player's portion.
+ *
+ * Note: This function returns ALL modifiers targeting the enemy, including those
+ * that should be blocked by Arcane Immunity. Use `getEffectiveModifiersForEnemy`
+ * if you need Arcane Immunity filtering.
  */
 export function getModifiersForEnemy(
   state: GameState,
@@ -122,6 +127,16 @@ export function getModifiersForEnemy(
 
     return false;
   });
+}
+
+/**
+ * Check if an enemy has Arcane Immunity.
+ * Returns false if not in combat or enemy not found.
+ */
+export function hasArcaneImmunity(state: GameState, enemyId: string): boolean {
+  const enemy = state.combat?.enemies.find((e) => e.instanceId === enemyId);
+  if (!enemy) return false;
+  return enemy.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY);
 }
 
 // === Effective value calculations ===
@@ -308,7 +323,9 @@ export function getEffectiveCombatBonus(
 
 /**
  * Check if an enemy ability is nullified by active modifiers.
- * Used to check if abilities like Swift, Brutal, etc. should be ignored.
+ * Used to check if abilities like Swift, Brutal, Fortified, etc. should be ignored.
+ *
+ * Note: Arcane Immunity blocks ability nullification effects (non-Attack/Block effect).
  */
 export function isAbilityNullified(
   state: GameState,
@@ -316,6 +333,11 @@ export function isAbilityNullified(
   enemyId: string,
   abilityType: EnemyAbility["type"]
 ): boolean {
+  // Arcane Immunity blocks ability nullification effects
+  if (hasArcaneImmunity(state, enemyId)) {
+    return false;
+  }
+
   const modifiers = getModifiersForPlayer(state, playerId)
     .filter((m) => m.effect.type === EFFECT_ABILITY_NULLIFIER)
     .map((m) => ({
@@ -343,13 +365,38 @@ export function isAbilityNullified(
  * Check if an enemy attacks this combat.
  * Returns false if the enemy has the EFFECT_ENEMY_SKIP_ATTACK modifier.
  * Used by Chill, Whirlwind spells to prevent enemies from dealing damage.
+ *
+ * Note: Arcane Immunity blocks this effect (non-Attack/Block effect).
  */
 export function doesEnemyAttackThisCombat(
   state: GameState,
   enemyId: string
 ): boolean {
+  // Arcane Immunity blocks skip-attack effects
+  if (hasArcaneImmunity(state, enemyId)) {
+    return true;
+  }
   const modifiers = getModifiersForEnemy(state, enemyId);
   return !modifiers.some((m) => m.effect.type === EFFECT_ENEMY_SKIP_ATTACK);
+}
+
+/**
+ * Check if an enemy's resistances have been removed by active modifiers.
+ * Returns true if any EFFECT_REMOVE_RESISTANCES modifier targets this enemy.
+ * Used by Expose spell to remove enemy resistances.
+ *
+ * Note: Arcane Immunity blocks this effect (non-Attack/Block effect).
+ */
+export function areResistancesRemoved(
+  state: GameState,
+  enemyId: string
+): boolean {
+  // Arcane Immunity blocks resistance removal effects
+  if (hasArcaneImmunity(state, enemyId)) {
+    return false;
+  }
+  const modifiers = getModifiersForEnemy(state, enemyId);
+  return modifiers.some((m) => m.effect.type === EFFECT_REMOVE_RESISTANCES);
 }
 
 // === Modifier lifecycle ===

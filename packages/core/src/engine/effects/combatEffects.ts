@@ -27,6 +27,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { CardId } from "@mage-knight/shared";
+import { ABILITY_ARCANE_IMMUNITY } from "@mage-knight/shared";
 import type {
   SelectCombatEnemyEffect,
   ResolveCombatEnemyTargetEffect,
@@ -168,26 +169,36 @@ export function resolveCombatEnemyTarget(
     };
   }
 
+  // Check for Arcane Immunity - if enemy has it, modifiers cannot be applied
+  // Note: Arcane Immunity blocks non-Attack/non-Block effects, but the Ranged Attack
+  // portion of Expose can still target them. Only the modifier effects are blocked.
+  const hasArcaneImmunity = enemy.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY);
+
   let currentState = state;
   const descriptions: string[] = [];
 
-  // Apply modifiers from template
+  // Apply modifiers from template (blocked by Arcane Immunity)
   if (effect.template.modifiers) {
-    for (const mod of effect.template.modifiers) {
-      currentState = addModifier(currentState, {
-        source: {
-          type: SOURCE_CARD,
-          cardId: (sourceCardId ?? "unknown") as CardId,
-          playerId,
-        },
-        duration: mod.duration ?? DURATION_COMBAT,
-        scope: { type: SCOPE_ONE_ENEMY, enemyId: effect.enemyInstanceId },
-        effect: mod.modifier,
-        createdAtRound: currentState.round,
-        createdByPlayerId: playerId,
-      });
-      if (mod.description) {
-        descriptions.push(mod.description);
+    if (hasArcaneImmunity) {
+      // Arcane Immunity blocks non-Attack/Block effects
+      descriptions.push(`${effect.enemyName} has Arcane Immunity (modifiers blocked)`);
+    } else {
+      for (const mod of effect.template.modifiers) {
+        currentState = addModifier(currentState, {
+          source: {
+            type: SOURCE_CARD,
+            cardId: (sourceCardId ?? "unknown") as CardId,
+            playerId,
+          },
+          duration: mod.duration ?? DURATION_COMBAT,
+          scope: { type: SCOPE_ONE_ENEMY, enemyId: effect.enemyInstanceId },
+          effect: mod.modifier,
+          createdAtRound: currentState.round,
+          createdByPlayerId: playerId,
+        });
+        if (mod.description) {
+          descriptions.push(mod.description);
+        }
       }
     }
   }
