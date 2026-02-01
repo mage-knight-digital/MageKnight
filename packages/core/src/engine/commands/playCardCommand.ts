@@ -8,26 +8,26 @@
 
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
-import type { Player, Crystals } from "../../types/player.js";
-import type { SourceDieId } from "../../types/mana.js";
-import type { CardId, BasicActionCardId, ManaSourceInfo, BasicManaColor } from "@mage-knight/shared";
+import type { Player } from "../../types/player.js";
+import type { CardId, BasicActionCardId, ManaSourceInfo } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
-  CARD_DESTROYED,
-  CHOICE_REQUIRED,
   createCardPlayUndoneEvent,
-  MANA_SOURCE_DIE,
-  MANA_SOURCE_CRYSTAL,
-  MANA_SOURCE_TOKEN,
 } from "@mage-knight/shared";
 import type { GameEvent } from "@mage-knight/shared";
-import { resolveEffect, reverseEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
+import { resolveEffect, reverseEffect } from "../effects/index.js";
 import { EFFECT_CHOICE } from "../../types/effectTypes.js";
-import type { ChoiceEffect } from "../../types/cards.js";
 import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { getCard } from "../validActions/cards/index.js";
 import { PLAY_CARD_COMMAND } from "./commandTypes.js";
 import type { CardEffect } from "../../types/cards.js";
+
+import { consumeMultipleMana, restoreMana } from "./helpers/manaConsumptionHelpers.js";
+import {
+  getChoiceOptions,
+  handleChoiceEffect,
+} from "./playCard/choiceHandling.js";
+import { handleArtifactDestruction } from "./playCard/artifactDestruction.js";
 
 export { PLAY_CARD_COMMAND };
 
@@ -50,8 +50,8 @@ export interface PlayCardCommandParams {
 export function createPlayCardCommand(params: PlayCardCommandParams): Command {
   // Store the effect that was applied so we can reverse it on undo
   let appliedEffect: CardEffect | null = null;
-  // Store mana consumption info for undo
-  let consumedMana: ManaSourceInfo | null = null;
+  // Store mana sources consumed for undo
+  let consumedManaSources: readonly ManaSourceInfo[] = [];
 
   return {
     type: PLAY_CARD_COMMAND,
@@ -71,248 +71,77 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
 
-      // Get card definition - try getCard first (handles both basic and advanced), fall back to basic
+      // Get card definition
       const card = getCard(params.cardId) ?? getBasicActionCard(params.cardId as BasicActionCardId);
 
       // Determine if powered and which effect to use
-      // Powered requires manaSource (single) for action cards OR manaSources (array) for spells
-      const hasManaSource = params.manaSource !== undefined || (params.manaSources !== undefined && params.manaSources.length > 0);
-      const isPowered: boolean = params.powered === true && hasManaSource;
+      const manaSources = getManaSources(params);
+      const isPowered = params.powered === true && manaSources.length > 0;
       const effectToApply = isPowered ? card.poweredEffect : card.basicEffect;
 
-      // Store the effect for undo
+      // Store for undo
       appliedEffect = effectToApply;
+      consumedManaSources = manaSources;
 
-      // Remove card from hand, add to play area
-      const newHand = player.hand.filter((_, i) => i !== params.handIndex);
-      const newPlayArea = [...player.playArea, params.cardId];
+      // Move card from hand to play area
+      let updatedPlayer = moveCardToPlayArea(player, params.cardId, params.handIndex);
 
-      let updatedPlayer: Player = {
-        ...player,
-        hand: newHand,
-        playArea: newPlayArea,
-        // Mark that a card was played from hand this turn (for minimum turn requirement)
-        playedCardFromHandThisTurn: true,
-      };
-
-      // Track source updates (for die usage)
+      // Track source updates
       let updatedSource = state.source;
 
       // Handle mana consumption if powered
-      // For spells, consume all sources in manaSources array
-      // For action cards, consume single manaSource
-      const sourcesToConsume: ManaSourceInfo[] = params.manaSources
-        ? [...params.manaSources]
-        : params.manaSource
-          ? [params.manaSource]
-          : [];
-
-      for (const manaSource of sourcesToConsume) {
-        consumedMana = manaSource; // Track last one for undo (simplified)
-        const { type: sourceType, color } = manaSource;
-
-        // Track mana usage for conditional effects (e.g., "if you used red mana this turn")
-        updatedPlayer = {
-          ...updatedPlayer,
-          manaUsedThisTurn: [...updatedPlayer.manaUsedThisTurn, color],
-        };
-
-        switch (sourceType) {
-          case MANA_SOURCE_DIE: {
-            // Mark player as having used die this turn, accumulate to the list
-            // Die stays in source (will be rerolled at end of turn by end turn command)
-            const dieId = manaSource.dieId as SourceDieId;
-            if (!dieId) {
-              throw new Error("Die ID required when using mana from source");
-            }
-
-            // Check if this is the Mana Steal stored die
-            const storedDie = updatedPlayer.tacticState.storedManaDie;
-            if (storedDie && storedDie.dieId === dieId) {
-              // Using the stolen Mana Steal die - mark it as used this turn
-              // It will be returned to source at end of turn
-              updatedPlayer = {
-                ...updatedPlayer,
-                tacticState: {
-                  ...updatedPlayer.tacticState,
-                  manaStealUsedThisTurn: true,
-                },
-              };
-              // Don't mark usedManaFromSource - stolen die is independent
-              break;
-            }
-
-            // Only add if not already in the list (avoid duplicates)
-            const alreadyUsed = updatedPlayer.usedDieIds.includes(dieId);
-            updatedPlayer = {
-              ...updatedPlayer,
-              usedManaFromSource: true,
-              usedDieIds: alreadyUsed
-                ? updatedPlayer.usedDieIds
-                : [...updatedPlayer.usedDieIds, dieId],
-            };
-            // Mark the die as taken in the source
-            const updatedDice = state.source.dice.map((die) =>
-              die.id === dieId
-                ? { ...die, takenByPlayerId: params.playerId }
-                : die
-            );
-            updatedSource = { dice: updatedDice };
-            break;
-          }
-
-          case MANA_SOURCE_CRYSTAL: {
-            // Remove crystal from inventory (validators ensured it's a basic color)
-            const basicColor = color as BasicManaColor;
-            const newCrystals: Crystals = {
-              ...updatedPlayer.crystals,
-              [basicColor]: updatedPlayer.crystals[basicColor] - 1,
-            };
-            updatedPlayer = { ...updatedPlayer, crystals: newCrystals };
-            break;
-          }
-
-          case MANA_SOURCE_TOKEN: {
-            // Remove mana token from play area
-            const tokenIndex = updatedPlayer.pureMana.findIndex(
-              (t) => t.color === color
-            );
-            if (tokenIndex !== -1) {
-              const newPureMana = [...updatedPlayer.pureMana];
-              newPureMana.splice(tokenIndex, 1);
-              updatedPlayer = { ...updatedPlayer, pureMana: newPureMana };
-            }
-            break;
-          }
-        }
+      if (manaSources.length > 0) {
+        const manaResult = consumeMultipleMana(
+          updatedPlayer,
+          updatedSource,
+          manaSources,
+          params.playerId
+        );
+        updatedPlayer = manaResult.player;
+        updatedSource = manaResult.source;
       }
 
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
-
       const newState: GameState = { ...state, players, source: updatedSource };
 
       // Resolve the effect
-      const effectResult = resolveEffect(
-        newState,
-        params.playerId,
-        effectToApply
-      );
+      const effectResult = resolveEffect(newState, params.playerId, effectToApply);
 
+      // Check if this is a choice effect
       if (effectResult.requiresChoice) {
-        // Determine the choice options - either dynamic (from card boost) or static (from choice effect)
-        let choiceOptions: readonly CardEffect[];
+        const choiceOptions = getChoiceOptions(effectResult, effectToApply);
 
-        if (effectResult.dynamicChoiceOptions) {
-          // Dynamic choices from effects like EFFECT_CARD_BOOST
-          choiceOptions = effectResult.dynamicChoiceOptions;
-        } else if (effectToApply.type === EFFECT_CHOICE) {
-          // Static choice effect
-          const choiceEffect = effectToApply as ChoiceEffect;
-          choiceOptions = choiceEffect.options;
-        } else {
-          // Unknown choice type - return as-is
-          return {
-            state: effectResult.state,
-            events: [
-              {
-                type: CARD_PLAYED,
-                playerId: params.playerId,
-                cardId: params.cardId,
-                powered: isPowered,
-                sideways: false,
-                effect: effectResult.description,
-              },
-            ],
-          };
-        }
-
-        // Filter options to only include resolvable ones
-        const resolvableOptions = choiceOptions.filter((opt) =>
-          isEffectResolvable(newState, params.playerId, opt)
-        );
-
-        // If no options are resolvable, skip the choice entirely
-        if (resolvableOptions.length === 0) {
-          return {
-            state: effectResult.state,
-            events: [
-              {
-                type: CARD_PLAYED,
-                playerId: params.playerId,
-                cardId: params.cardId,
-                powered: isPowered,
-                sideways: false,
-                effect: "No available options",
-              },
-            ],
-          };
-        }
-
-        // If only one option is resolvable, auto-resolve it
-        if (resolvableOptions.length === 1) {
-          const singleOption = resolvableOptions[0];
-          if (!singleOption) {
-            throw new Error("Expected single resolvable option");
-          }
-          const autoResolveResult = resolveEffect(
+        if (choiceOptions) {
+          const choiceResult = handleChoiceEffect(
             newState,
             params.playerId,
-            singleOption
+            playerIndex,
+            params.cardId,
+            isPowered,
+            effectResult,
+            choiceOptions
           );
-          return {
-            state: autoResolveResult.state,
-            events: [
-              {
-                type: CARD_PLAYED,
-                playerId: params.playerId,
-                cardId: params.cardId,
-                powered: isPowered,
-                sideways: false,
-                effect: autoResolveResult.description,
-              },
-            ],
-          };
+
+          // Track resolved effect for undo if auto-resolved
+          if (choiceResult.resolvedEffect) {
+            appliedEffect = choiceResult.resolvedEffect;
+          }
+
+          return choiceResult;
         }
 
-        // Multiple options available - present choice to player
-        const playerWithChoice: Player = {
-          ...updatedPlayer,
-          pendingChoice: {
-            cardId: params.cardId,
-            skillId: null,
-            options: resolvableOptions,
-          },
-        };
-
-        // Update state with pending choice
-        const playersWithChoice = [...effectResult.state.players];
-        playersWithChoice[playerIndex] = playerWithChoice;
-
-        return {
-          state: { ...effectResult.state, players: playersWithChoice },
-          events: [
-            {
-              type: CARD_PLAYED,
-              playerId: params.playerId,
-              cardId: params.cardId,
-              powered: isPowered,
-              sideways: false,
-              effect: "Choice required",
-            },
-            {
-              type: CHOICE_REQUIRED,
-              playerId: params.playerId,
-              cardId: params.cardId,
-              skillId: null,
-              options: resolvableOptions.map((opt) => describeEffect(opt)),
-            },
-          ],
-        };
+        // Unknown choice type - return as-is
+        return createCardPlayedResult(
+          effectResult.state,
+          params.playerId,
+          params.cardId,
+          isPowered,
+          effectResult.description
+        );
       }
 
-      // If resolveEffect internally chained to a different effect (e.g., auto-resolved),
-      // update appliedEffect so undo knows what actually resolved
+      // Track resolved effect if chained internally
       if (effectResult.resolvedEffect) {
         appliedEffect = effectResult.resolvedEffect;
       }
@@ -331,34 +160,16 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       ];
 
       if (isPowered && card.destroyOnPowered) {
-        const currentPlayerIndex = finalState.players.findIndex(
-          (p) => p.id === params.playerId
+        const destructionResult = handleArtifactDestruction(
+          finalState,
+          params.playerId,
+          params.cardId
         );
-        const currentPlayer = finalState.players[currentPlayerIndex];
-        if (currentPlayer) {
-          // Remove from play area, add to removedCards
-          const newPlayArea = currentPlayer.playArea.filter(c => c !== params.cardId);
-          const updatedPlayerWithRemoval: Player = {
-            ...currentPlayer,
-            playArea: newPlayArea,
-            removedCards: [...currentPlayer.removedCards, params.cardId],
-          };
-          const players = [...finalState.players];
-          players[currentPlayerIndex] = updatedPlayerWithRemoval;
-          finalState = { ...finalState, players };
-
-          events.push({
-            type: CARD_DESTROYED,
-            playerId: params.playerId,
-            cardId: params.cardId,
-          });
-        }
+        finalState = destructionResult.state;
+        events.push(...destructionResult.events);
       }
 
-      return {
-        state: finalState,
-        events,
-      };
+      return { state: finalState, events };
     },
 
     undo(state: GameState): CommandResult {
@@ -374,90 +185,25 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
 
-      // Remove card from play area
-      const cardIndexInPlayArea = player.playArea.indexOf(params.cardId);
-      const newPlayArea = player.playArea.filter(
-        (_, i) => i !== cardIndexInPlayArea
+      // Move card from play area back to hand
+      let updatedPlayer = moveCardBackToHand(
+        player,
+        params.cardId,
+        params.handIndex,
+        params.previousPlayedCardFromHand
       );
-
-      // Add card back to hand at original position
-      const newHand = [...player.hand];
-      newHand.splice(params.handIndex, 0, params.cardId);
-
-      let updatedPlayer: Player = {
-        ...player,
-        hand: newHand,
-        playArea: newPlayArea,
-        pendingChoice: null, // Clear any pending choice
-        // Restore minimum turn requirement state
-        playedCardFromHandThisTurn: params.previousPlayedCardFromHand,
-      };
 
       // Reverse the effect if we stored one (only if it wasn't a choice effect)
       if (appliedEffect && appliedEffect.type !== EFFECT_CHOICE) {
         updatedPlayer = reverseEffect(updatedPlayer, appliedEffect);
       }
 
-      // Track source updates for undo
+      // Restore mana if consumed
       let updatedSource = state.source;
-
-      // Restore mana if it was consumed
-      if (consumedMana) {
-        const { type: sourceType, color } = consumedMana;
-
-        // Remove the mana color from tracking (reverse of tracking addition)
-        const manaIndex = updatedPlayer.manaUsedThisTurn.indexOf(color);
-        if (manaIndex !== -1) {
-          const newManaUsed = [...updatedPlayer.manaUsedThisTurn];
-          newManaUsed.splice(manaIndex, 1);
-          updatedPlayer = { ...updatedPlayer, manaUsedThisTurn: newManaUsed };
-        }
-
-        switch (sourceType) {
-          case MANA_SOURCE_DIE: {
-            // Remove this die from usedDieIds and clear takenByPlayerId
-            const dieId = consumedMana.dieId as SourceDieId;
-            if (dieId) {
-              const newUsedDieIds = updatedPlayer.usedDieIds.filter(
-                (id) => id !== dieId
-              );
-              updatedPlayer = {
-                ...updatedPlayer,
-                usedManaFromSource: newUsedDieIds.length > 0,
-                usedDieIds: newUsedDieIds,
-              };
-              // Clear the takenByPlayerId on the die
-              const updatedDice = state.source.dice.map((die) =>
-                die.id === dieId ? { ...die, takenByPlayerId: null } : die
-              );
-              updatedSource = { dice: updatedDice };
-            }
-            break;
-          }
-
-          case MANA_SOURCE_CRYSTAL: {
-            // Restore crystal to inventory
-            const basicColor = color as BasicManaColor;
-            const newCrystals: Crystals = {
-              ...updatedPlayer.crystals,
-              [basicColor]: updatedPlayer.crystals[basicColor] + 1,
-            };
-            updatedPlayer = { ...updatedPlayer, crystals: newCrystals };
-            break;
-          }
-
-          case MANA_SOURCE_TOKEN: {
-            // Restore mana token to play area
-            // We need to get the source from the original player state
-            // For simplicity, we create a new token with a generic source
-            const newPureMana = [
-              ...updatedPlayer.pureMana,
-              { color, source: "die" as const }, // Default source for restored tokens
-            ];
-            updatedPlayer = { ...updatedPlayer, pureMana: newPureMana };
-            break;
-          }
-        }
+      for (const manaSource of consumedManaSources) {
+        const manaResult = restoreMana(updatedPlayer, updatedSource, manaSource);
+        updatedPlayer = manaResult.player;
+        updatedSource = manaResult.source;
       }
 
       const players = [...state.players];
@@ -468,5 +214,90 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         events: [createCardPlayUndoneEvent(params.playerId, params.cardId)],
       };
     },
+  };
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Get the list of mana sources to consume for this card play.
+ */
+function getManaSources(params: PlayCardCommandParams): readonly ManaSourceInfo[] {
+  if (params.manaSources && params.manaSources.length > 0) {
+    return params.manaSources;
+  }
+  if (params.manaSource) {
+    return [params.manaSource];
+  }
+  return [];
+}
+
+/**
+ * Move a card from hand to play area.
+ */
+function moveCardToPlayArea(
+  player: Player,
+  cardId: CardId,
+  handIndex: number
+): Player {
+  const newHand = player.hand.filter((_, i) => i !== handIndex);
+  const newPlayArea = [...player.playArea, cardId];
+
+  return {
+    ...player,
+    hand: newHand,
+    playArea: newPlayArea,
+    playedCardFromHandThisTurn: true,
+  };
+}
+
+/**
+ * Move a card from play area back to hand (for undo).
+ */
+function moveCardBackToHand(
+  player: Player,
+  cardId: CardId,
+  handIndex: number,
+  previousPlayedCardFromHand: boolean
+): Player {
+  const cardIndexInPlayArea = player.playArea.indexOf(cardId);
+  const newPlayArea = player.playArea.filter((_, i) => i !== cardIndexInPlayArea);
+
+  const newHand = [...player.hand];
+  newHand.splice(handIndex, 0, cardId);
+
+  return {
+    ...player,
+    hand: newHand,
+    playArea: newPlayArea,
+    pendingChoice: null,
+    playedCardFromHandThisTurn: previousPlayedCardFromHand,
+  };
+}
+
+/**
+ * Create a simple card played result.
+ */
+function createCardPlayedResult(
+  state: GameState,
+  playerId: string,
+  cardId: CardId,
+  isPowered: boolean,
+  effectDescription: string
+): CommandResult {
+  return {
+    state,
+    events: [
+      {
+        type: CARD_PLAYED,
+        playerId,
+        cardId,
+        powered: isPowered,
+        sideways: false,
+        effect: effectDescription,
+      },
+    ],
   };
 }
