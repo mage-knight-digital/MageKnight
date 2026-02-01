@@ -12,18 +12,21 @@ import type { DeedCard } from "../../types/cards.js";
 import type { BasicActionCardId } from "@mage-knight/shared";
 
 // Re-export all color modules
-export * from "./red.js";
-export * from "./blue.js";
-export * from "./green.js";
-export * from "./white.js";
-export * from "./special.js";
+export * from "./red/index.js";
+export * from "./blue/index.js";
+export * from "./green/index.js";
+export * from "./white/index.js";
+export * from "./special/index.js";
+
+// Re-export helpers for card implementations
+export * from "./helpers.js";
 
 // Import color records for aggregation
-import { RED_BASIC_ACTIONS } from "./red.js";
-import { BLUE_BASIC_ACTIONS } from "./blue.js";
-import { GREEN_BASIC_ACTIONS } from "./green.js";
-import { WHITE_BASIC_ACTIONS } from "./white.js";
-import { SPECIAL_BASIC_ACTIONS } from "./special.js";
+import { RED_BASIC_ACTIONS } from "./red/index.js";
+import { BLUE_BASIC_ACTIONS } from "./blue/index.js";
+import { GREEN_BASIC_ACTIONS } from "./green/index.js";
+import { WHITE_BASIC_ACTIONS } from "./white/index.js";
+import { SPECIAL_BASIC_ACTIONS } from "./special/index.js";
 
 /**
  * All basic action cards aggregated from color modules
