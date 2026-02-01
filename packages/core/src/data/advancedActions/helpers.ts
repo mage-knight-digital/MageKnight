@@ -33,6 +33,7 @@ import {
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
   EFFECT_CHANGE_REPUTATION,
+  EFFECT_TAKE_WOUND,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -190,6 +191,16 @@ export function compound(...effects: CardEffect[]): CardEffect {
  */
 export function changeReputation(amount: number): CardEffect {
   return { type: EFFECT_CHANGE_REPUTATION, amount };
+}
+
+/**
+ * Creates a take wound effect.
+ *
+ * @param amount - The number of wounds to take (usually 1)
+ * @returns A TakeWoundEffect
+ */
+export function takeWound(amount: number): CardEffect {
+  return { type: EFFECT_TAKE_WOUND, amount };
 }
 
 // Re-export element constants for convenience

@@ -26,6 +26,7 @@ import {
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_TERRAIN_BASED_BLOCK,
+  EFFECT_TAKE_WOUND,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -150,6 +151,11 @@ export function describeEffect(effect: CardEffect): string {
 
     case EFFECT_TERRAIN_BASED_BLOCK:
       return "Block (terrain cost, Fire/Ice)";
+
+    case EFFECT_TAKE_WOUND:
+      return effect.amount === 1
+        ? "Take 1 wound"
+        : `Take ${effect.amount} wounds`;
 
     default:
       return "Unknown effect";
