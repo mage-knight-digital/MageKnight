@@ -4,13 +4,11 @@
  * Each constant is a branded CardId compatible value.
  */
 
-import type { CardId } from "./ids.js";
+// Import the cardId helper for local use
+import { cardId } from "./cardIds/helpers.js";
 
-// === Helper to create CardId constants ===
-// This ensures type safety while allowing the value to be used as a CardId
-function cardId<T extends string>(id: T): T & CardId {
-  return id as T & CardId;
-}
+// Re-export advanced action card IDs from modular structure
+export * from "./cardIds/advancedActions/index.js";
 
 // === Shared Basic Action Card IDs (14 cards in every starting deck) ===
 
@@ -59,63 +57,6 @@ export const CARD_BRAEVALAR_ONE_WITH_THE_LAND = cardId("braevalar_one_with_the_l
 
 // === Wound Card ===
 export const CARD_WOUND = cardId("wound");
-
-// === Advanced Action Card IDs ===
-// Bolt cards (gain crystal basic / ranged attack powered)
-export const CARD_FIRE_BOLT = cardId("fire_bolt");
-export const CARD_ICE_BOLT = cardId("ice_bolt");
-export const CARD_SWIFT_BOLT = cardId("swift_bolt");
-export const CARD_CRUSHING_BOLT = cardId("crushing_bolt");
-
-// Red advanced actions
-export const CARD_BLOOD_RAGE = cardId("blood_rage");
-export const CARD_INTIMIDATE = cardId("intimidate");
-export const CARD_BLOOD_RITUAL = cardId("blood_ritual");
-export const CARD_INTO_THE_HEAT = cardId("into_the_heat");
-export const CARD_DECOMPOSE = cardId("decompose");
-export const CARD_MAXIMAL_EFFECT = cardId("maximal_effect");
-export const CARD_COUNTERATTACK = cardId("counterattack");
-export const CARD_RITUAL_ATTACK = cardId("ritual_attack");
-export const CARD_BLOOD_OF_ANCIENTS = cardId("blood_of_ancients");
-export const CARD_EXPLOSIVE_BOLT = cardId("explosive_bolt");
-
-// Blue advanced actions
-export const CARD_ICE_SHIELD = cardId("ice_shield");
-export const CARD_FROST_BRIDGE = cardId("frost_bridge");
-export const CARD_PURE_MAGIC = cardId("pure_magic");
-export const CARD_STEADY_TEMPO = cardId("steady_tempo");
-export const CARD_CRYSTAL_MASTERY = cardId("crystal_mastery");
-export const CARD_MAGIC_TALENT = cardId("magic_talent");
-export const CARD_SHIELD_BASH = cardId("shield_bash");
-export const CARD_TEMPORAL_PORTAL = cardId("temporal_portal");
-export const CARD_SPELL_FORGE = cardId("spell_forge");
-
-// White advanced actions
-export const CARD_AGILITY = cardId("agility");
-export const CARD_SONG_OF_WIND = cardId("song_of_wind");
-export const CARD_HEROIC_TALE = cardId("heroic_tale");
-export const CARD_DIPLOMACY = cardId("diplomacy");
-export const CARD_MANA_STORM = cardId("mana_storm");
-export const CARD_LEARNING = cardId("learning");
-export const CARD_CHIVALRY = cardId("chivalry");
-export const CARD_PEACEFUL_MOMENT = cardId("peaceful_moment");
-export const CARD_DODGE_AND_WEAVE = cardId("dodge_and_weave");
-
-// Green advanced actions
-export const CARD_REFRESHING_WALK = cardId("refreshing_walk");
-export const CARD_PATH_FINDING = cardId("path_finding");
-export const CARD_REGENERATION = cardId("regeneration");
-export const CARD_IN_NEED = cardId("in_need");
-export const CARD_AMBUSH = cardId("ambush");
-export const CARD_TRAINING = cardId("training");
-export const CARD_STOUT_RESOLVE = cardId("stout_resolve");
-export const CARD_FORCE_OF_NATURE = cardId("force_of_nature");
-export const CARD_MOUNTAIN_LORE = cardId("mountain_lore");
-export const CARD_POWER_OF_CRYSTALS = cardId("power_of_crystals");
-
-// Dual-color advanced actions
-export const CARD_RUSH_OF_ADRENALINE = cardId("rush_of_adrenaline"); // green+red
-export const CARD_CHILLING_STARE = cardId("chilling_stare"); // blue+white
 
 // === Artifact Card IDs ===
 
@@ -207,58 +148,6 @@ export type BasicActionCardId =
   | SharedBasicActionCardId
   | HeroSpecificCardId
   | typeof CARD_WOUND;
-
-export type AdvancedActionCardId =
-  // Bolt cards
-  | typeof CARD_FIRE_BOLT
-  | typeof CARD_ICE_BOLT
-  | typeof CARD_SWIFT_BOLT
-  | typeof CARD_CRUSHING_BOLT
-  // Red advanced actions
-  | typeof CARD_BLOOD_RAGE
-  | typeof CARD_INTIMIDATE
-  | typeof CARD_BLOOD_RITUAL
-  | typeof CARD_INTO_THE_HEAT
-  | typeof CARD_DECOMPOSE
-  | typeof CARD_MAXIMAL_EFFECT
-  | typeof CARD_COUNTERATTACK
-  | typeof CARD_RITUAL_ATTACK
-  | typeof CARD_BLOOD_OF_ANCIENTS
-  | typeof CARD_EXPLOSIVE_BOLT
-  // Blue advanced actions
-  | typeof CARD_ICE_SHIELD
-  | typeof CARD_FROST_BRIDGE
-  | typeof CARD_PURE_MAGIC
-  | typeof CARD_STEADY_TEMPO
-  | typeof CARD_CRYSTAL_MASTERY
-  | typeof CARD_MAGIC_TALENT
-  | typeof CARD_SHIELD_BASH
-  | typeof CARD_TEMPORAL_PORTAL
-  | typeof CARD_SPELL_FORGE
-  // White advanced actions
-  | typeof CARD_AGILITY
-  | typeof CARD_SONG_OF_WIND
-  | typeof CARD_HEROIC_TALE
-  | typeof CARD_DIPLOMACY
-  | typeof CARD_MANA_STORM
-  | typeof CARD_LEARNING
-  | typeof CARD_CHIVALRY
-  | typeof CARD_PEACEFUL_MOMENT
-  | typeof CARD_DODGE_AND_WEAVE
-  // Green advanced actions
-  | typeof CARD_REFRESHING_WALK
-  | typeof CARD_PATH_FINDING
-  | typeof CARD_REGENERATION
-  | typeof CARD_IN_NEED
-  | typeof CARD_AMBUSH
-  | typeof CARD_TRAINING
-  | typeof CARD_STOUT_RESOLVE
-  | typeof CARD_FORCE_OF_NATURE
-  | typeof CARD_MOUNTAIN_LORE
-  | typeof CARD_POWER_OF_CRYSTALS
-  // Dual-color advanced actions
-  | typeof CARD_RUSH_OF_ADRENALINE
-  | typeof CARD_CHILLING_STARE;
 
 export type SpellCardId =
   // Red spells

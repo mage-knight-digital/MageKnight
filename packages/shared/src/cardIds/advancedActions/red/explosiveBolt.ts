@@ -1,0 +1,3 @@
+import { cardId } from "../../helpers.js";
+
+export const CARD_EXPLOSIVE_BOLT = cardId("explosive_bolt");
