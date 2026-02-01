@@ -17,6 +17,9 @@ import {
   TIME_OF_DAY_NIGHT,
   ELEMENT_FIRE,
   ELEMENT_ICE,
+  TERRAIN_LAKE,
+  TERRAIN_MOUNTAIN,
+  TERRAIN_OCEAN,
 } from "@mage-knight/shared";
 import { EFFECT_GAIN_BLOCK } from "../../types/effectTypes.js";
 
@@ -47,9 +50,9 @@ function getUnmodifiedTerrainCost(state: GameState, player: Player): number {
   // (Player shouldn't normally be on these, but handle gracefully)
   if (costs.day === Infinity) {
     // Lake = 2 (with boat), Mountain = 5, Ocean = 2
-    if (terrain === "lake") return 2;
-    if (terrain === "mountain") return 5;
-    if (terrain === "ocean") return 2;
+    if (terrain === TERRAIN_LAKE) return 2;
+    if (terrain === TERRAIN_MOUNTAIN) return 5;
+    if (terrain === TERRAIN_OCEAN) return 2;
     return 2; // Generic fallback
   }
 

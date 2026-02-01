@@ -281,3 +281,6 @@ export * from "./hero.js";
 
 // Game configuration
 export * from "./gameConfig.js";
+
+// Map constants (city colors, mine colors, discard filters, reveal types)
+export * from "./mapConstants.js";
