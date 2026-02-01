@@ -11,7 +11,12 @@ import type { HexState, HexEnemy } from "../../types/map.js";
 import type { RevealTilesEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import type { HexCoord } from "@mage-knight/shared";
-import { hexKey } from "@mage-knight/shared";
+import {
+  hexKey,
+  REVEAL_TILE_TYPE_ENEMY,
+  REVEAL_TILE_TYPE_GARRISON,
+  REVEAL_TILE_TYPE_ALL,
+} from "@mage-knight/shared";
 
 /**
  * Calculate the distance between two hexes using axial coordinates.
@@ -69,7 +74,7 @@ export function handleRevealTiles(
   const nearbyHexes = getHexesWithinDistance(state, player.position, effect.distance);
 
   // Determine what to reveal based on tileType
-  const tileType = effect.tileType ?? "all";
+  const tileType = effect.tileType ?? REVEAL_TILE_TYPE_ALL;
   let revealedCount = 0;
   const updatedHexes = { ...state.map.hexes };
 
@@ -78,7 +83,7 @@ export function handleRevealTiles(
     let hexUpdated = false;
 
     // Reveal enemies (garrisons)
-    if ((tileType === "enemy" || tileType === "garrison" || tileType === "all") &&
+    if ((tileType === REVEAL_TILE_TYPE_ENEMY || tileType === REVEAL_TILE_TYPE_GARRISON || tileType === REVEAL_TILE_TYPE_ALL) &&
         hasUnrevealedEnemies(hex)) {
       const revealedEnemies: HexEnemy[] = hex.enemies.map((e) => ({
         ...e,

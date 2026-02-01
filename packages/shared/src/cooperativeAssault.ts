@@ -5,17 +5,10 @@
  * This module defines the proposal and agreement system.
  */
 
-// City colors for targeting (matches core's CityColor)
-export const CITY_COLOR_RED = "red" as const;
-export const CITY_COLOR_BLUE = "blue" as const;
-export const CITY_COLOR_GREEN = "green" as const;
-export const CITY_COLOR_WHITE = "white" as const;
-
-export type CityColor =
-  | typeof CITY_COLOR_RED
-  | typeof CITY_COLOR_BLUE
-  | typeof CITY_COLOR_GREEN
-  | typeof CITY_COLOR_WHITE;
+// Import CityColor for local use and re-export for backwards compatibility
+// (canonical definition is in mapConstants)
+import type { CityColor } from "./mapConstants.js";
+export type { CityColor } from "./mapConstants.js";
 
 /**
  * Enemy distribution assignment for a cooperative assault.

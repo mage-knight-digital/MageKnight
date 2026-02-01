@@ -2,7 +2,7 @@
  * Card definitions for Mage Knight
  */
 
-import type { CardId, ManaColor, BasicManaColor, Element } from "@mage-knight/shared";
+import type { CardId, ManaColor, BasicManaColor, Element, DiscardFilter, RevealTileType } from "@mage-knight/shared";
 import type { ModifierEffect, ModifierDuration, ModifierScope } from "./modifiers.js";
 import type { CombatPhase } from "./combat.js";
 import type { SourceDieId } from "./mana.js";
@@ -370,7 +370,7 @@ export interface HealUnitEffect {
  */
 export interface DiscardCardEffect {
   readonly type: typeof EFFECT_DISCARD_CARD;
-  readonly filter: "wound" | "non-wound" | "any";
+  readonly filter: DiscardFilter;
   readonly amount: number;
   readonly onSuccess?: CardEffect;
 }
@@ -384,7 +384,7 @@ export interface DiscardCardEffect {
 export interface RevealTilesEffect {
   readonly type: typeof EFFECT_REVEAL_TILES;
   readonly distance: number;
-  readonly tileType?: "garrison" | "enemy" | "all";
+  readonly tileType?: RevealTileType;
 }
 
 /**

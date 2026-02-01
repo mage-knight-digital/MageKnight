@@ -9,8 +9,13 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { DiscardCardEffect, CardEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
-import type { CardId } from "@mage-knight/shared";
-import { CARD_WOUND } from "@mage-knight/shared";
+import type { CardId, DiscardFilter } from "@mage-knight/shared";
+import {
+  CARD_WOUND,
+  DISCARD_FILTER_WOUND,
+  DISCARD_FILTER_NON_WOUND,
+  DISCARD_FILTER_ANY,
+} from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
 
 /**
@@ -18,14 +23,14 @@ import { updatePlayer } from "./atomicEffects.js";
  */
 export function getDiscardableCards(
   hand: readonly CardId[],
-  filter: "wound" | "non-wound" | "any"
+  filter: DiscardFilter
 ): CardId[] {
   switch (filter) {
-    case "wound":
+    case DISCARD_FILTER_WOUND:
       return hand.filter((cardId) => cardId === CARD_WOUND);
-    case "non-wound":
+    case DISCARD_FILTER_NON_WOUND:
       return hand.filter((cardId) => cardId !== CARD_WOUND);
-    case "any":
+    case DISCARD_FILTER_ANY:
       return [...hand];
   }
 }
@@ -45,9 +50,9 @@ export function handleDiscardCard(
   // Check if there are enough cards to discard
   if (eligibleCards.length < effect.amount) {
     const filterDesc =
-      effect.filter === "wound"
+      effect.filter === DISCARD_FILTER_WOUND
         ? "wound cards"
-        : effect.filter === "non-wound"
+        : effect.filter === DISCARD_FILTER_NON_WOUND
           ? "non-wound cards"
           : "cards";
     return {
@@ -120,7 +125,7 @@ export function applyDiscardCard(
     return {
       state: updatedState,
       description: `${description}. Follow-up effect pending.`,
-      resolvedEffect: { type: "discard_card", filter: "any", amount: cardIds.length } as DiscardCardEffect,
+      resolvedEffect: { type: "discard_card", filter: DISCARD_FILTER_ANY, amount: cardIds.length } as DiscardCardEffect,
     };
   }
 
