@@ -1004,4 +1004,165 @@ describe("Unit Combat Abilities", () => {
       expect(result.state.players[0].manaUsedThisTurn).toContain(MANA_RED);
     });
   });
+
+  describe("Undo", () => {
+    it("should undo move ability and restore move points", () => {
+      // Foresters have Move 2 (ability index 1)
+      const unit = createPlayerUnit(UNIT_FORESTERS, "foresters_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        movePoints: 0,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        combat: null,
+      });
+
+      // Activate Foresters Move ability
+      const afterActivate = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "foresters_1",
+        abilityIndex: 1, // Move 2
+      });
+
+      // Verify move points were added
+      expect(afterActivate.state.players[0].movePoints).toBe(2);
+      expect(afterActivate.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      // Undo the activation
+      const afterUndo = engine.processAction(afterActivate.state, "player1", {
+        type: "UNDO",
+      });
+
+      // Move points should be restored to 0
+      expect(afterUndo.state.players[0].movePoints).toBe(0);
+      // Unit should be ready again
+      expect(afterUndo.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+    });
+
+    it("should undo influence ability and restore influence points", () => {
+      // Peasants have Influence 2 (ability index 2)
+      const unit = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        influencePoints: 5,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        combat: null,
+      });
+
+      // Activate Peasants Influence ability
+      const afterActivate = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "peasants_1",
+        abilityIndex: 2, // Influence 2
+      });
+
+      // Verify influence points were added
+      expect(afterActivate.state.players[0].influencePoints).toBe(7);
+      expect(afterActivate.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      // Undo the activation
+      const afterUndo = engine.processAction(afterActivate.state, "player1", {
+        type: "UNDO",
+      });
+
+      // Influence points should be restored to 5
+      expect(afterUndo.state.players[0].influencePoints).toBe(5);
+      // Unit should be ready again
+      expect(afterUndo.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+    });
+
+    it("should undo heal ability and restore wounds to hand", () => {
+      // Herbalist has Heal 2 (ability index 0)
+      const unit = createPlayerUnit(UNIT_HERBALIST, "herbalist_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        hand: [CARD_WOUND, CARD_WOUND, CARD_WOUND], // 3 wounds
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        combat: null,
+        woundPileCount: 10,
+      });
+
+      // Activate Herbalist Heal ability
+      const afterActivate = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "herbalist_1",
+        abilityIndex: 0, // Heal 2
+      });
+
+      // Verify wounds were removed (Heal 2 = remove 2 wounds)
+      const woundsAfterHeal = afterActivate.state.players[0].hand.filter(
+        (c) => c === CARD_WOUND
+      ).length;
+      expect(woundsAfterHeal).toBe(1);
+      expect(afterActivate.state.woundPileCount).toBe(12); // 10 + 2 returned
+      expect(afterActivate.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      // Undo the activation
+      const afterUndo = engine.processAction(afterActivate.state, "player1", {
+        type: "UNDO",
+      });
+
+      // Wounds should be restored to hand
+      const woundsAfterUndo = afterUndo.state.players[0].hand.filter(
+        (c) => c === CARD_WOUND
+      ).length;
+      expect(woundsAfterUndo).toBe(3);
+      // Wound pile should be restored
+      expect(afterUndo.state.woundPileCount).toBe(10);
+      // Unit should be ready again
+      expect(afterUndo.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+    });
+
+    it("should undo terrain modifiers when Foresters Move is undone", () => {
+      // Foresters have Move 2 with terrain modifiers
+      const unit = createPlayerUnit(UNIT_FORESTERS, "foresters_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        combat: null,
+      });
+
+      // Verify no modifiers before activation
+      expect(state.activeModifiers.length).toBe(0);
+
+      // Activate Foresters Move ability
+      const afterActivate = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "foresters_1",
+        abilityIndex: 1, // Move 2 with terrain modifiers
+      });
+
+      // Verify terrain cost modifiers were added
+      expect(afterActivate.state.activeModifiers.length).toBe(3);
+
+      // Undo the activation
+      const afterUndo = engine.processAction(afterActivate.state, "player1", {
+        type: "UNDO",
+      });
+
+      // Terrain modifiers should be removed
+      expect(afterUndo.state.activeModifiers.length).toBe(0);
+      // Unit should be ready again
+      expect(afterUndo.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+    });
+  });
 });

@@ -8,7 +8,7 @@
 
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
-import type { GameEvent, ManaSourceInfo } from "@mage-knight/shared";
+import type { GameEvent, ManaSourceInfo, CardId } from "@mage-knight/shared";
 import {
   UNIT_ACTIVATED,
   getUnit,
@@ -45,6 +45,15 @@ export function createActivateUnitCommand(
 ): Command {
   // Store mana consumption info for undo
   let consumedManaSource: ManaSourceInfo | null = null;
+
+  // Store previous state for undo of non-combat abilities
+  let previousMovePoints: number | null = null;
+  let previousInfluencePoints: number | null = null;
+  let previousHand: readonly CardId[] | null = null;
+  let previousWoundPileCount: number | null = null;
+
+  // Store count of terrain modifiers added for undo
+  let terrainModifiersAdded = 0;
 
   return {
     type: ACTIVATE_UNIT_COMMAND,
@@ -101,6 +110,12 @@ export function createActivateUnitCommand(
         updatedSource = manaResult.source;
       }
 
+      // Store previous state for undo of non-combat abilities
+      previousMovePoints = player.movePoints;
+      previousInfluencePoints = player.influencePoints;
+      previousHand = player.hand;
+      previousWoundPileCount = state.woundPileCount;
+
       // Mark unit as spent
       const updatedUnits = [...player.units];
       updatedUnits[unitIndex] = {
@@ -143,6 +158,7 @@ export function createActivateUnitCommand(
 
       // Apply terrain modifiers if the ability has them (e.g., Foresters)
       if (ability.terrainModifiers && ability.terrainModifiers.length > 0) {
+        terrainModifiersAdded = ability.terrainModifiers.length;
         updatedState = applyTerrainModifiers(
           updatedState,
           params.playerId,
@@ -228,17 +244,39 @@ export function createActivateUnitCommand(
           )
         : player.combatAccumulator;
 
+      // Restore non-combat ability effects
       const updatedPlayer = {
         ...player,
         units: updatedUnits,
         combatAccumulator: updatedAccumulator,
+        movePoints: previousMovePoints ?? player.movePoints,
+        influencePoints: previousInfluencePoints ?? player.influencePoints,
+        hand: previousHand ?? player.hand,
       };
 
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
 
+      // Restore wound pile count
+      const restoredWoundPileCount =
+        previousWoundPileCount !== null
+          ? previousWoundPileCount
+          : state.woundPileCount;
+
+      // Remove terrain modifiers that were added
+      const restoredModifiers =
+        terrainModifiersAdded > 0
+          ? state.activeModifiers.slice(0, -terrainModifiersAdded)
+          : state.activeModifiers;
+
       return {
-        state: { ...state, players, source: updatedSource },
+        state: {
+          ...state,
+          players,
+          source: updatedSource,
+          woundPileCount: restoredWoundPileCount,
+          activeModifiers: restoredModifiers,
+        },
         events: [],
       };
     },
