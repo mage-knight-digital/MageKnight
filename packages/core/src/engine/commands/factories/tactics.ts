@@ -23,7 +23,7 @@ import {
 } from "@mage-knight/shared";
 import { createSelectTacticCommand } from "../selectTacticCommand.js";
 import { createActivateTacticCommand } from "../activateTacticCommand.js";
-import { createResolveTacticDecisionCommand } from "../resolveTacticDecisionCommand.js";
+import { createResolveTacticDecisionCommand } from "../tactics/index.js";
 import { createRerollSourceDiceCommand } from "../rerollSourceDiceCommand.js";
 
 /**
