@@ -352,7 +352,7 @@ export function App() {
           } else if (selectedAgent) {
             showMessage("Agent has no worktree path", "yellow");
           }
-        } else if (input === "K" && selectedAgent?.status === "running") {
+        } else if (input === "K" && selectedAgent && selectedAgent.status !== "initializing") {
           setMode({ type: "confirm-kill-agent", agent: selectedAgent });
         } else if (input === "c" || input === "C") {
           handleCleanup();

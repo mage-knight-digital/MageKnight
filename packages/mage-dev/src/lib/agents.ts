@@ -444,7 +444,8 @@ export function cleanupCompletedAgents(): number {
   let cleaned = 0;
 
   for (const agent of agents) {
-    if (agent.status === "completed" || agent.status === "stopped") {
+    // Clean up any non-running agent (completed, stopped, or failed)
+    if (agent.status !== "running" && agent.status !== "initializing") {
       const pidFile = path.join(LOG_DIR, `agent-${agent.issueNumber}.pid`);
       if (fs.existsSync(pidFile)) {
         fs.unlinkSync(pidFile);
