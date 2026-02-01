@@ -8,37 +8,24 @@
 
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
-import type { GameEvent, UnitAbilityType, Element, UnitTerrainModifier, ManaSourceInfo, BasicManaColor } from "@mage-knight/shared";
+import type { GameEvent, ManaSourceInfo } from "@mage-knight/shared";
 import {
   UNIT_ACTIVATED,
   getUnit,
   UNIT_STATE_SPENT,
   UNIT_STATE_READY,
-  UNIT_ABILITY_ATTACK,
-  UNIT_ABILITY_BLOCK,
-  UNIT_ABILITY_RANGED_ATTACK,
-  UNIT_ABILITY_SIEGE_ATTACK,
-  UNIT_ABILITY_HEAL,
-  UNIT_ABILITY_MOVE,
-  UNIT_ABILITY_INFLUENCE,
   ELEMENT_PHYSICAL,
-  ELEMENT_FIRE,
-  ELEMENT_ICE,
-  ELEMENT_COLD_FIRE,
-  CARD_WOUND,
-  MANA_SOURCE_DIE,
-  MANA_SOURCE_CRYSTAL,
-  MANA_SOURCE_TOKEN,
 } from "@mage-knight/shared";
-import type { CombatAccumulator, ElementalAttackValues, Player, Crystals } from "../../../types/player.js";
-import type { SourceDieId, ManaSource } from "../../../types/mana.js";
-import { addModifier } from "../../modifiers.js";
 import {
-  DURATION_TURN,
-  EFFECT_TERRAIN_COST,
-  SCOPE_SELF,
-  SOURCE_UNIT,
-} from "../../../types/modifierConstants.js";
+  addAbilityToAccumulator,
+  removeAbilityFromAccumulator,
+} from "./helpers/combatAccumulatorHelpers.js";
+import { applyNonCombatAbility } from "./helpers/nonCombatAbilityHelpers.js";
+import { applyTerrainModifiers } from "./helpers/terrainModifierHelpers.js";
+import {
+  consumeManaForAbility,
+  restoreManaForAbility,
+} from "./helpers/manaConsumptionHelpers.js";
 
 export const ACTIVATE_UNIT_COMMAND = "ACTIVATE_UNIT" as const;
 
@@ -51,294 +38,6 @@ export interface ActivateUnitCommandParams {
    * Required when the ability has a manaCost defined.
    */
   readonly manaSource?: ManaSourceInfo;
-}
-
-/**
- * Get the element key for the ElementalAttackValues interface
- */
-function getElementKey(element: Element | undefined): keyof ElementalAttackValues {
-  switch (element) {
-    case ELEMENT_FIRE:
-      return "fire";
-    case ELEMENT_ICE:
-      return "ice";
-    case ELEMENT_COLD_FIRE:
-      return "coldFire";
-    case ELEMENT_PHYSICAL:
-    default:
-      return "physical";
-  }
-}
-
-/**
- * Add value to elemental attack values
- */
-function addToElementalValues(
-  values: ElementalAttackValues,
-  elementKey: keyof ElementalAttackValues,
-  amount: number
-): ElementalAttackValues {
-  return {
-    ...values,
-    [elementKey]: values[elementKey] + amount,
-  };
-}
-
-/**
- * Subtract value from elemental attack values (for undo)
- */
-function subtractFromElementalValues(
-  values: ElementalAttackValues,
-  elementKey: keyof ElementalAttackValues,
-  amount: number
-): ElementalAttackValues {
-  return {
-    ...values,
-    [elementKey]: Math.max(0, values[elementKey] - amount),
-  };
-}
-
-/**
- * Add unit ability value to combat accumulator
- */
-function addAbilityToAccumulator(
-  accumulator: CombatAccumulator,
-  abilityType: UnitAbilityType,
-  value: number,
-  element: Element | undefined
-): CombatAccumulator {
-  const elementKey = getElementKey(element);
-
-  switch (abilityType) {
-    case UNIT_ABILITY_ATTACK:
-      return {
-        ...accumulator,
-        attack: {
-          ...accumulator.attack,
-          normal: accumulator.attack.normal + value,
-          normalElements: addToElementalValues(
-            accumulator.attack.normalElements,
-            elementKey,
-            value
-          ),
-        },
-      };
-
-    case UNIT_ABILITY_BLOCK:
-      return {
-        ...accumulator,
-        block: accumulator.block + value,
-        blockElements: addToElementalValues(
-          accumulator.blockElements,
-          elementKey,
-          value
-        ),
-      };
-
-    case UNIT_ABILITY_RANGED_ATTACK:
-      return {
-        ...accumulator,
-        attack: {
-          ...accumulator.attack,
-          ranged: accumulator.attack.ranged + value,
-          rangedElements: addToElementalValues(
-            accumulator.attack.rangedElements,
-            elementKey,
-            value
-          ),
-        },
-      };
-
-    case UNIT_ABILITY_SIEGE_ATTACK:
-      return {
-        ...accumulator,
-        attack: {
-          ...accumulator.attack,
-          siege: accumulator.attack.siege + value,
-          siegeElements: addToElementalValues(
-            accumulator.attack.siegeElements,
-            elementKey,
-            value
-          ),
-        },
-      };
-
-    default:
-      // Non-combat abilities (move, influence, heal, etc.) don't affect accumulator
-      return accumulator;
-  }
-}
-
-/**
- * Apply non-combat ability effects (move, influence, heal)
- * Returns updated player and state changes
- */
-interface NonCombatAbilityResult {
-  readonly player: Player;
-  readonly woundPileCountDelta: number;
-}
-
-function applyNonCombatAbility(
-  player: Player,
-  abilityType: UnitAbilityType,
-  value: number
-): NonCombatAbilityResult {
-  switch (abilityType) {
-    case UNIT_ABILITY_HEAL: {
-      // Count wounds in hand
-      const woundsInHand = player.hand.filter((c) => c === CARD_WOUND).length;
-      const woundsToHeal = Math.min(value, woundsInHand);
-
-      if (woundsToHeal === 0) {
-        return { player, woundPileCountDelta: 0 };
-      }
-
-      // Remove wound cards from hand
-      const newHand = [...player.hand];
-      for (let i = 0; i < woundsToHeal; i++) {
-        const woundIndex = newHand.indexOf(CARD_WOUND);
-        if (woundIndex !== -1) {
-          newHand.splice(woundIndex, 1);
-        }
-      }
-
-      return {
-        player: { ...player, hand: newHand },
-        woundPileCountDelta: woundsToHeal, // Return healed wounds to pile
-      };
-    }
-
-    case UNIT_ABILITY_MOVE: {
-      // Add move points
-      return {
-        player: {
-          ...player,
-          movePoints: player.movePoints + value,
-        },
-        woundPileCountDelta: 0,
-      };
-    }
-
-    case UNIT_ABILITY_INFLUENCE: {
-      // Add influence points
-      return {
-        player: {
-          ...player,
-          influencePoints: player.influencePoints + value,
-        },
-        woundPileCountDelta: 0,
-      };
-    }
-
-    default:
-      // Combat abilities handled elsewhere
-      return { player, woundPileCountDelta: 0 };
-  }
-}
-
-/**
- * Apply terrain cost modifiers from a unit ability.
- * Returns the updated state with modifiers added.
- */
-function applyTerrainModifiers(
-  state: GameState,
-  playerId: string,
-  unitIndex: number,
-  terrainModifiers: readonly UnitTerrainModifier[]
-): GameState {
-  let currentState = state;
-
-  for (const terrainMod of terrainModifiers) {
-    currentState = addModifier(currentState, {
-      source: {
-        type: SOURCE_UNIT,
-        unitIndex,
-        playerId,
-      },
-      duration: DURATION_TURN,
-      scope: { type: SCOPE_SELF },
-      effect: {
-        type: EFFECT_TERRAIN_COST,
-        terrain: terrainMod.terrain,
-        amount: terrainMod.amount,
-        minimum: terrainMod.minimum,
-      },
-      createdAtRound: state.round,
-      createdByPlayerId: playerId,
-    });
-  }
-
-  return currentState;
-}
-
-/**
- * Remove unit ability value from combat accumulator (for undo)
- */
-function removeAbilityFromAccumulator(
-  accumulator: CombatAccumulator,
-  abilityType: UnitAbilityType,
-  value: number,
-  element: Element | undefined
-): CombatAccumulator {
-  const elementKey = getElementKey(element);
-
-  switch (abilityType) {
-    case UNIT_ABILITY_ATTACK:
-      return {
-        ...accumulator,
-        attack: {
-          ...accumulator.attack,
-          normal: Math.max(0, accumulator.attack.normal - value),
-          normalElements: subtractFromElementalValues(
-            accumulator.attack.normalElements,
-            elementKey,
-            value
-          ),
-        },
-      };
-
-    case UNIT_ABILITY_BLOCK:
-      return {
-        ...accumulator,
-        block: Math.max(0, accumulator.block - value),
-        blockElements: subtractFromElementalValues(
-          accumulator.blockElements,
-          elementKey,
-          value
-        ),
-      };
-
-    case UNIT_ABILITY_RANGED_ATTACK:
-      return {
-        ...accumulator,
-        attack: {
-          ...accumulator.attack,
-          ranged: Math.max(0, accumulator.attack.ranged - value),
-          rangedElements: subtractFromElementalValues(
-            accumulator.attack.rangedElements,
-            elementKey,
-            value
-          ),
-        },
-      };
-
-    case UNIT_ABILITY_SIEGE_ATTACK:
-      return {
-        ...accumulator,
-        attack: {
-          ...accumulator.attack,
-          siege: Math.max(0, accumulator.attack.siege - value),
-          siegeElements: subtractFromElementalValues(
-            accumulator.attack.siegeElements,
-            elementKey,
-            value
-          ),
-        },
-      };
-
-    default:
-      return accumulator;
-  }
 }
 
 export function createActivateUnitCommand(
@@ -387,80 +86,19 @@ export function createActivateUnitCommand(
       const abilityValue = ability.value ?? 0;
 
       // Track source updates (for die usage)
-      let updatedSource: ManaSource = state.source;
+      let updatedSource = state.source;
 
       // Handle mana consumption if ability has mana cost
       if (ability.manaCost && params.manaSource) {
         consumedManaSource = params.manaSource;
-        const { type: sourceType, color } = params.manaSource;
-
-        // Track mana usage for conditional effects
-        player = {
-          ...player,
-          manaUsedThisTurn: [...player.manaUsedThisTurn, color],
-        };
-
-        switch (sourceType) {
-          case MANA_SOURCE_DIE: {
-            const dieId = params.manaSource.dieId as SourceDieId;
-            if (!dieId) {
-              throw new Error("Die ID required when using mana from source");
-            }
-
-            // Check if this is the Mana Steal stored die
-            const storedDie = player.tacticState.storedManaDie;
-            if (storedDie && storedDie.dieId === dieId) {
-              // Using the stolen Mana Steal die
-              player = {
-                ...player,
-                tacticState: {
-                  ...player.tacticState,
-                  manaStealUsedThisTurn: true,
-                },
-              };
-            } else {
-              // Using a normal source die
-              const alreadyUsed = player.usedDieIds.includes(dieId);
-              player = {
-                ...player,
-                usedManaFromSource: true,
-                usedDieIds: alreadyUsed
-                  ? player.usedDieIds
-                  : [...player.usedDieIds, dieId],
-              };
-              // Mark the die as taken in the source
-              const updatedDice = state.source.dice.map((die) =>
-                die.id === dieId
-                  ? { ...die, takenByPlayerId: params.playerId }
-                  : die
-              );
-              updatedSource = { dice: updatedDice };
-            }
-            break;
-          }
-
-          case MANA_SOURCE_CRYSTAL: {
-            const basicColor = color as BasicManaColor;
-            const newCrystals: Crystals = {
-              ...player.crystals,
-              [basicColor]: player.crystals[basicColor] - 1,
-            };
-            player = { ...player, crystals: newCrystals };
-            break;
-          }
-
-          case MANA_SOURCE_TOKEN: {
-            const tokenIndex = player.pureMana.findIndex(
-              (t) => t.color === color
-            );
-            if (tokenIndex !== -1) {
-              const newPureMana = [...player.pureMana];
-              newPureMana.splice(tokenIndex, 1);
-              player = { ...player, pureMana: newPureMana };
-            }
-            break;
-          }
-        }
+        const manaResult = consumeManaForAbility(
+          player,
+          state.source,
+          params.manaSource,
+          params.playerId
+        );
+        player = manaResult.player;
+        updatedSource = manaResult.source;
       }
 
       // Mark unit as spent
@@ -497,7 +135,11 @@ export function createActivateUnitCommand(
           : state.woundPileCount + nonCombatResult.woundPileCountDelta;
 
       // Build intermediate state with player and wound updates
-      let updatedState: GameState = { ...state, players, woundPileCount: newWoundPileCount };
+      let updatedState: GameState = {
+        ...state,
+        players,
+        woundPileCount: newWoundPileCount,
+      };
 
       // Apply terrain modifiers if the ability has them (e.g., Foresters)
       if (ability.terrainModifiers && ability.terrainModifiers.length > 0) {
@@ -556,76 +198,17 @@ export function createActivateUnitCommand(
       const abilityValue = ability?.value ?? 0;
 
       // Track source updates (for die restoration)
-      let updatedSource: ManaSource = state.source;
+      let updatedSource = state.source;
 
       // Restore mana if it was consumed
       if (consumedManaSource) {
-        const { type: sourceType, color } = consumedManaSource;
-
-        // Remove the mana color from manaUsedThisTurn
-        const colorIndex = player.manaUsedThisTurn.lastIndexOf(color);
-        if (colorIndex !== -1) {
-          const newManaUsed = [...player.manaUsedThisTurn];
-          newManaUsed.splice(colorIndex, 1);
-          player = { ...player, manaUsedThisTurn: newManaUsed };
-        }
-
-        switch (sourceType) {
-          case MANA_SOURCE_DIE: {
-            const dieId = consumedManaSource.dieId as SourceDieId;
-
-            // Check if this was the Mana Steal stored die
-            const storedDie = player.tacticState.storedManaDie;
-            if (storedDie && storedDie.dieId === dieId) {
-              // Restore Mana Steal die usage
-              player = {
-                ...player,
-                tacticState: {
-                  ...player.tacticState,
-                  manaStealUsedThisTurn: false,
-                },
-              };
-            } else {
-              // Restore normal source die
-              // Remove from usedDieIds
-              const newUsedDieIds = player.usedDieIds.filter((id) => id !== dieId);
-              player = {
-                ...player,
-                usedManaFromSource: newUsedDieIds.length > 0,
-                usedDieIds: newUsedDieIds,
-              };
-              // Unmark the die as taken
-              const updatedDice = state.source.dice.map((die) =>
-                die.id === dieId ? { ...die, takenByPlayerId: null } : die
-              );
-              updatedSource = { dice: updatedDice };
-            }
-            break;
-          }
-
-          case MANA_SOURCE_CRYSTAL: {
-            const basicColor = color as BasicManaColor;
-            const newCrystals: Crystals = {
-              ...player.crystals,
-              [basicColor]: player.crystals[basicColor] + 1,
-            };
-            player = { ...player, crystals: newCrystals };
-            break;
-          }
-
-          case MANA_SOURCE_TOKEN: {
-            // Restore the mana token
-            const restoredToken = {
-              color,
-              source: "card" as const, // Simplified - actual source unknown
-            };
-            player = {
-              ...player,
-              pureMana: [...player.pureMana, restoredToken],
-            };
-            break;
-          }
-        }
+        const manaResult = restoreManaForAbility(
+          player,
+          state.source,
+          consumedManaSource
+        );
+        player = manaResult.player;
+        updatedSource = manaResult.source;
       }
 
       // Restore unit to ready
