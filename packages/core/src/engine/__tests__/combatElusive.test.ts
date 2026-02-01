@@ -28,8 +28,10 @@ import {
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   ABILITY_ELUSIVE,
+  ABILITY_ARCANE_IMMUNITY,
   ATTACK_SOURCE_ACCUMULATOR,
 } from "@mage-knight/shared";
+import type { GameState } from "../../state/GameState.js";
 import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_COMBAT,
@@ -46,6 +48,32 @@ import {
 } from "../../types/combat.js";
 import { getBaseArmorForPhase } from "../modifiers/combat.js";
 import { getValidActions } from "../validActions/index.js";
+
+/**
+ * Helper to remove Arcane Immunity from an enemy in combat.
+ * Used to test Elusive behavior in isolation (Shadow has both abilities).
+ */
+function removeArcaneImmunity(state: GameState, enemyIndex = 0): GameState {
+  if (!state.combat) return state;
+  const enemy = state.combat.enemies[enemyIndex];
+  if (!enemy) return state;
+
+  const modifiedDefinition = {
+    ...enemy.definition,
+    abilities: enemy.definition.abilities.filter(
+      (a) => a !== ABILITY_ARCANE_IMMUNITY
+    ),
+  };
+
+  const updatedEnemies = state.combat.enemies.map((e, i) =>
+    i === enemyIndex ? { ...e, definition: modifiedDefinition } : e
+  );
+
+  return {
+    ...state,
+    combat: { ...state.combat, enemies: updatedEnemies },
+  };
+}
 
 describe("Combat Elusive Ability", () => {
   let engine: MageKnightEngine;
@@ -430,6 +458,10 @@ describe("Combat Elusive Ability", () => {
         enemyIds: [ENEMY_SHADOW],
       }).state;
 
+      // Remove Arcane Immunity to test armor modifiers in isolation
+      // (Shadow has both Elusive and Arcane Immunity; we want to test Elusive+modifiers)
+      state = removeArcaneImmunity(state);
+
       // Add armor reduction modifier (-2 armor, like Tremor spell)
       state = addModifier(state, {
         source: { type: SOURCE_SKILL, id: "test_skill" },
@@ -489,6 +521,9 @@ describe("Combat Elusive Ability", () => {
         type: ENTER_COMBAT_ACTION,
         enemyIds: [ENEMY_SHADOW],
       }).state;
+
+      // Remove Arcane Immunity to test armor modifiers in isolation
+      state = removeArcaneImmunity(state);
 
       // Add armor reduction modifier (-2 armor)
       state = addModifier(state, {
@@ -576,6 +611,10 @@ describe("Combat Elusive Ability", () => {
         type: ENTER_COMBAT_ACTION,
         enemyIds: [ENEMY_SHADOW],
       }).state;
+
+      // Remove Arcane Immunity to test Elusive nullification in isolation
+      // (Arcane Immunity would block the ability nullifier)
+      state = removeArcaneImmunity(state);
 
       // Add ability nullifier for Elusive
       state = addModifier(state, {
@@ -698,6 +737,9 @@ describe("Combat Elusive Ability", () => {
         type: ENTER_COMBAT_ACTION,
         enemyIds: [ENEMY_SHADOW],
       }).state;
+
+      // Remove Arcane Immunity to test Elusive nullification in isolation
+      state = removeArcaneImmunity(state);
 
       // Add Elusive nullifier
       state = addModifier(state, {
