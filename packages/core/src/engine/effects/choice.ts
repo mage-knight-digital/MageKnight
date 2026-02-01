@@ -23,6 +23,8 @@
 import type { GameState } from "../../state/GameState.js";
 import type { ChoiceEffect as ChoiceEffectType } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
+import { registerEffect } from "./effectRegistry.js";
+import { EFFECT_CHOICE } from "../../types/effectTypes.js";
 
 // ============================================================================
 // CHOICE EFFECT
@@ -87,4 +89,18 @@ export function resolveChoiceEffect(
     description: "Choice required",
     requiresChoice: true,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all choice effect handlers with the effect registry.
+ * Called during effect system initialization.
+ */
+export function registerChoiceEffects(): void {
+  registerEffect(EFFECT_CHOICE, (state, playerId, effect) => {
+    return resolveChoiceEffect(state, playerId, effect as ChoiceEffectType);
+  });
 }

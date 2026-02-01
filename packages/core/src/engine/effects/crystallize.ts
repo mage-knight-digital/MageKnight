@@ -30,8 +30,10 @@ import type {
 } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import type { EffectResolver } from "./compound.js";
-import { EFFECT_CRYSTALLIZE_COLOR } from "../../types/effectTypes.js";
+import { EFFECT_CRYSTALLIZE_COLOR, EFFECT_CONVERT_MANA_TO_CRYSTAL } from "../../types/effectTypes.js";
 import { updatePlayer } from "./atomicEffects.js";
+import { registerEffect } from "./effectRegistry.js";
+import { getPlayerContext } from "./effectHelpers.js";
 
 // ============================================================================
 // CONVERT MANA TO CRYSTAL (Entry Point)
@@ -170,4 +172,33 @@ export function resolveCrystallizeColor(
     state: updatePlayer(state, playerIndex, updatedPlayer),
     description: `Converted ${effect.color} mana to ${effect.color} crystal`,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all crystallize effect handlers with the effect registry.
+ * Called during effect system initialization.
+ *
+ * @param resolver - The main resolveEffect function for recursive resolution
+ */
+export function registerCrystallizeEffects(resolver: EffectResolver): void {
+  registerEffect(EFFECT_CONVERT_MANA_TO_CRYSTAL, (state, playerId, effect, sourceCardId) => {
+    const { player } = getPlayerContext(state, playerId);
+    return resolveConvertManaToCrystal(
+      state,
+      playerId,
+      player,
+      effect as ConvertManaToCrystalEffect,
+      sourceCardId,
+      resolver
+    );
+  });
+
+  registerEffect(EFFECT_CRYSTALLIZE_COLOR, (state, playerId, effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return resolveCrystallizeColor(state, playerIndex, player, effect as CrystallizeColorEffect);
+  });
 }

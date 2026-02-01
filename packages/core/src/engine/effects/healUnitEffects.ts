@@ -12,6 +12,9 @@ import type { HealUnitEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import { UNITS } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
+import { registerEffect } from "./effectRegistry.js";
+import { getPlayerContext } from "./effectHelpers.js";
+import { EFFECT_HEAL_UNIT } from "../../types/effectTypes.js";
 
 /**
  * Get wounded units that are at or below a given level.
@@ -122,4 +125,19 @@ export function applyHealUnit(
     state: updatePlayer(state, playerIndex, updatedPlayer),
     description: `Healed ${unitName}`,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all heal unit effect handlers with the effect registry.
+ * Called during effect system initialization.
+ */
+export function registerHealUnitEffects(): void {
+  registerEffect(EFFECT_HEAL_UNIT, (state, playerId, effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return handleHealUnit(state, playerIndex, player, effect as HealUnitEffect);
+  });
 }

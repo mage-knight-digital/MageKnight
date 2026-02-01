@@ -33,7 +33,8 @@ import type {
   ResolveCombatEnemyTargetEffect,
 } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
-import { EFFECT_RESOLVE_COMBAT_ENEMY_TARGET } from "../../types/effectTypes.js";
+import { EFFECT_SELECT_COMBAT_ENEMY, EFFECT_RESOLVE_COMBAT_ENEMY_TARGET } from "../../types/effectTypes.js";
+import { registerEffect } from "./effectRegistry.js";
 import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_COMBAT,
@@ -232,4 +233,27 @@ export function resolveCombatEnemyTarget(
     state: currentState,
     description: descriptions.join("; ") || `Targeted ${effect.enemyName}`,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all combat enemy targeting effect handlers with the effect registry.
+ * Called during effect system initialization.
+ */
+export function registerCombatEffects(): void {
+  registerEffect(EFFECT_SELECT_COMBAT_ENEMY, (state, _playerId, effect) => {
+    return resolveSelectCombatEnemy(state, effect as SelectCombatEnemyEffect);
+  });
+
+  registerEffect(EFFECT_RESOLVE_COMBAT_ENEMY_TARGET, (state, playerId, effect, sourceCardId) => {
+    return resolveCombatEnemyTarget(
+      state,
+      playerId,
+      effect as ResolveCombatEnemyTargetEffect,
+      sourceCardId
+    );
+  });
 }

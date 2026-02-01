@@ -17,6 +17,9 @@ import {
   REVEAL_TILE_TYPE_GARRISON,
   REVEAL_TILE_TYPE_ALL,
 } from "@mage-knight/shared";
+import { registerEffect } from "./effectRegistry.js";
+import { getPlayerContext } from "./effectHelpers.js";
+import { EFFECT_REVEAL_TILES } from "../../types/effectTypes.js";
 
 /**
  * Calculate the distance between two hexes using axial coordinates.
@@ -122,4 +125,19 @@ export function handleRevealTiles(
     state: { ...state, map: updatedMap },
     description: `Revealed ${revealedCount} enemy token(s)`,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all map effect handlers with the effect registry.
+ * Called during effect system initialization.
+ */
+export function registerMapEffects(): void {
+  registerEffect(EFFECT_REVEAL_TILES, (state, playerId, effect) => {
+    const { player } = getPlayerContext(state, playerId);
+    return handleRevealTiles(state, player, effect as RevealTilesEffect);
+  });
 }

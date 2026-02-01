@@ -21,7 +21,9 @@ import {
   TERRAIN_MOUNTAIN,
   TERRAIN_OCEAN,
 } from "@mage-knight/shared";
-import { EFFECT_GAIN_BLOCK } from "../../types/effectTypes.js";
+import { EFFECT_GAIN_BLOCK, EFFECT_TERRAIN_BASED_BLOCK } from "../../types/effectTypes.js";
+import { registerEffect } from "./effectRegistry.js";
+import { getPlayerContext } from "./effectHelpers.js";
 
 /**
  * Get the unmodified movement cost for the terrain at the player's position.
@@ -107,4 +109,19 @@ export function resolveTerrainBasedBlock(
     ...result,
     description: `Gained ${blockAmount} ${element} Block (terrain cost)`,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all terrain-based effect handlers with the effect registry.
+ * Called during effect system initialization.
+ */
+export function registerTerrainEffects(): void {
+  registerEffect(EFFECT_TERRAIN_BASED_BLOCK, (state, playerId, effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return resolveTerrainBasedBlock(state, playerIndex, player, effect as TerrainBasedBlockEffect);
+  });
 }
