@@ -14,10 +14,10 @@
 
 import type { DeedCard } from "../../types/cards.js";
 import type { CardId } from "@mage-knight/shared";
-import { RED_SPELLS } from "./red.js";
-import { BLUE_SPELLS } from "./blue.js";
-import { GREEN_SPELLS } from "./green.js";
-import { WHITE_SPELLS } from "./white.js";
+import { RED_SPELLS } from "./red/index.js";
+import { BLUE_SPELLS } from "./blue/index.js";
+import { GREEN_SPELLS } from "./green/index.js";
+import { WHITE_SPELLS } from "./white/index.js";
 
 export const SPELL_CARDS: Record<CardId, DeedCard> = {
   ...RED_SPELLS,
