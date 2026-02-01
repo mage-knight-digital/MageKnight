@@ -145,6 +145,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     hasPlunderedThisTurn: false,
     hasRecruitedUnitThisTurn: false,
     manaUsedThisTurn: [],
+    spellColorsCastThisTurn: [],
     pendingGladeWoundChoice: false,
     pendingDeepMineChoice: null,
     healingPoints: 0,

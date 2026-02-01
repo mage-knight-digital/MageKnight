@@ -10,6 +10,7 @@ import {
   MANA_SOURCE_DIE,
   MANA_SOURCE_CRYSTAL,
   MANA_SOURCE_TOKEN,
+  MANA_SOURCE_ENDLESS,
 } from "@mage-knight/shared";
 import type { Player, Crystals } from "../../../types/player.js";
 import type { SourceDieId, ManaSource } from "../../../types/mana.js";
@@ -98,6 +99,12 @@ export function consumeMana(
         newPureMana.splice(tokenIndex, 1);
         updatedPlayer = { ...updatedPlayer, pureMana: newPureMana };
       }
+      break;
+    }
+
+    case MANA_SOURCE_ENDLESS: {
+      // Endless mana supply from Ring artifacts - no actual consumption needed.
+      // Mana usage is already tracked above in manaUsedThisTurn.
       break;
     }
   }
@@ -202,6 +209,12 @@ export function restoreMana(
         ...updatedPlayer,
         pureMana: [...updatedPlayer.pureMana, restoredToken],
       };
+      break;
+    }
+
+    case MANA_SOURCE_ENDLESS: {
+      // Endless mana supply - nothing to restore, it's infinite.
+      // Mana usage tracking is already restored above.
       break;
     }
   }

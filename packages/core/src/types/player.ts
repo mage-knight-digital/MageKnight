@@ -280,6 +280,10 @@ export interface Player {
   // Mana usage tracking (for conditional effects)
   readonly manaUsedThisTurn: readonly ManaColor[];
 
+  // Spell color tracking (for Ring artifacts fame bonus)
+  // Tracks unique basic mana colors of spells cast this turn (not black)
+  readonly spellColorsCastThisTurn: readonly ManaColor[];
+
   // Magical Glade wound discard choice pending (when wounds exist in both hand and discard)
   readonly pendingGladeWoundChoice: boolean;
 

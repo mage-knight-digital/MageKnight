@@ -36,6 +36,7 @@ export function createResetPlayer(
     usedDieIds: [],
     manaDrawDieIds: [],
     manaUsedThisTurn: [],
+    spellColorsCastThisTurn: [],
     // Card flow updates
     playArea: cardFlow.playArea,
     hand: cardFlow.hand,

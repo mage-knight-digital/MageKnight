@@ -5,7 +5,7 @@
  * This system tracks active modifiers and allows calculations to query effective values.
  */
 
-import type { SkillId, CardId, Terrain } from "@mage-knight/shared";
+import type { SkillId, CardId, Terrain, ManaColor } from "@mage-knight/shared";
 import type { EnemyAbility } from "./enemy.js";
 import {
   ABILITY_ANY,
@@ -20,6 +20,7 @@ import {
   DURATION_UNTIL_NEXT_TURN,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_COMBAT_VALUE,
+  EFFECT_ENDLESS_MANA,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
   EFFECT_REMOVE_RESISTANCES,
@@ -163,6 +164,14 @@ export interface EnemyRemoveResistancesModifier {
   readonly type: typeof EFFECT_REMOVE_RESISTANCES;
 }
 
+// Endless mana supply modifier (e.g., "endless supply of red and black mana this turn")
+// Used by Ring artifacts
+// Note: Black mana restrictions (day/night) still apply even with endless supply
+export interface EndlessManaModifier {
+  readonly type: typeof EFFECT_ENDLESS_MANA;
+  readonly colors: readonly ManaColor[];
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -172,7 +181,8 @@ export type ModifierEffect =
   | RuleOverrideModifier
   | AbilityNullifierModifier
   | EnemySkipAttackModifier
-  | EnemyRemoveResistancesModifier;
+  | EnemyRemoveResistancesModifier
+  | EndlessManaModifier;
 
 // === Active Modifier (live in game state) ===
 
