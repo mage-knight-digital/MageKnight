@@ -8,7 +8,7 @@
 
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
-import type { GameEvent, UnitAbilityType, Element } from "@mage-knight/shared";
+import type { GameEvent, UnitAbilityType, Element, UnitTerrainModifier } from "@mage-knight/shared";
 import {
   UNIT_ACTIVATED,
   getUnit,
@@ -28,6 +28,13 @@ import {
   CARD_WOUND,
 } from "@mage-knight/shared";
 import type { CombatAccumulator, ElementalAttackValues, Player } from "../../../types/player.js";
+import { addModifier } from "../../modifiers.js";
+import {
+  DURATION_TURN,
+  EFFECT_TERRAIN_COST,
+  SCOPE_SELF,
+  SOURCE_UNIT,
+} from "../../../types/modifierConstants.js";
 
 export const ACTIVATE_UNIT_COMMAND = "ACTIVATE_UNIT" as const;
 
@@ -221,6 +228,41 @@ function applyNonCombatAbility(
 }
 
 /**
+ * Apply terrain cost modifiers from a unit ability.
+ * Returns the updated state with modifiers added.
+ */
+function applyTerrainModifiers(
+  state: GameState,
+  playerId: string,
+  unitIndex: number,
+  terrainModifiers: readonly UnitTerrainModifier[]
+): GameState {
+  let currentState = state;
+
+  for (const terrainMod of terrainModifiers) {
+    currentState = addModifier(currentState, {
+      source: {
+        type: SOURCE_UNIT,
+        unitIndex,
+        playerId,
+      },
+      duration: DURATION_TURN,
+      scope: { type: SCOPE_SELF },
+      effect: {
+        type: EFFECT_TERRAIN_COST,
+        terrain: terrainMod.terrain,
+        amount: terrainMod.amount,
+        minimum: terrainMod.minimum,
+      },
+      createdAtRound: state.round,
+      createdByPlayerId: playerId,
+    });
+  }
+
+  return currentState;
+}
+
+/**
  * Remove unit ability value from combat accumulator (for undo)
  */
 function removeAbilityFromAccumulator(
@@ -365,6 +407,19 @@ export function createActivateUnitCommand(
           ? null
           : state.woundPileCount + nonCombatResult.woundPileCountDelta;
 
+      // Build intermediate state with player and wound updates
+      let updatedState: GameState = { ...state, players, woundPileCount: newWoundPileCount };
+
+      // Apply terrain modifiers if the ability has them (e.g., Foresters)
+      if (ability.terrainModifiers && ability.terrainModifiers.length > 0) {
+        updatedState = applyTerrainModifiers(
+          updatedState,
+          params.playerId,
+          unitIndex,
+          ability.terrainModifiers
+        );
+      }
+
       const events: GameEvent[] = [
         {
           type: UNIT_ACTIVATED,
@@ -377,7 +432,7 @@ export function createActivateUnitCommand(
       ];
 
       return {
-        state: { ...state, players, woundPileCount: newWoundPileCount },
+        state: updatedState,
         events,
       };
     },

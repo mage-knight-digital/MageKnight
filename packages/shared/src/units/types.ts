@@ -4,6 +4,7 @@
 
 import { type Element } from "../elements.js";
 import { type EnemyResistances } from "../enemies/index.js";
+import { type Terrain } from "../terrain.js";
 import { type UnitId } from "./ids.js";
 
 // =============================================================================
@@ -52,12 +53,27 @@ export type UnitResistances = EnemyResistances;
 // =============================================================================
 
 /**
+ * Terrain cost modifier applied when a unit ability is activated.
+ * For example, Foresters reduce forest/hills/swamp cost by 1 when their Move is used.
+ */
+export interface UnitTerrainModifier {
+  readonly terrain: Terrain;
+  readonly amount: number; // Negative = reduction
+  readonly minimum: number; // Cost cannot go below this
+}
+
+/**
  * A unit's ability (attack, block, etc.)
  */
 export interface UnitAbility {
   readonly type: UnitAbilityType;
   readonly value?: number;
   readonly element?: Element;
+  /**
+   * Optional terrain cost modifiers applied when this ability is activated.
+   * Modifiers last until the end of the current turn.
+   */
+  readonly terrainModifiers?: readonly UnitTerrainModifier[];
 }
 
 /**
