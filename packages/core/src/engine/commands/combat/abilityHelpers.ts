@@ -15,6 +15,7 @@ import {
 } from "@mage-knight/shared";
 import { isAbilityNullified } from "../../modifiers/index.js";
 import { getEnemyAttacks } from "../../combat/enemyAttackHelpers.js";
+import { getCumbersomeReducedAttack } from "../../combat/cumbersomeHelpers.js";
 
 /**
  * Check if an enemy has a specific ability.
@@ -74,7 +75,10 @@ export function isParalyzeActive(
 
 /**
  * Get effective damage from a specific attack.
- * Brutal: doubles the damage.
+ *
+ * Order of operations (CRITICAL):
+ * 1. Apply Cumbersome reduction (move points spent)
+ * 2. Apply Brutal doubling (if active)
  *
  * @param enemy - Combat enemy instance
  * @param attackIndex - Which attack's damage to calculate (0-indexed)
@@ -97,7 +101,10 @@ export function getEffectiveDamage(
 
   let damage = attack.damage;
 
-  // Brutal doubles the damage
+  // FIRST: Apply Cumbersome reduction (BEFORE Brutal)
+  damage = getCumbersomeReducedAttack(state, playerId, enemy, damage);
+
+  // SECOND: Brutal doubles the damage
   if (isBrutalActive(state, playerId, enemy)) {
     damage *= 2;
   }

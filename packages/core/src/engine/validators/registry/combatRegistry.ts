@@ -21,6 +21,7 @@ import {
   UNASSIGN_ATTACK_ACTION,
   ASSIGN_BLOCK_ACTION,
   UNASSIGN_BLOCK_ACTION,
+  SPEND_MOVE_ON_CUMBERSOME_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -73,6 +74,11 @@ import {
   validateUnassignBlockTargetEnemy,
   validateHasAvailableBlock,
   validateHasAssignedBlockToUnassign,
+  // Cumbersome ability validators
+  validateSpendCumbersomeInCombat,
+  validateSpendCumbersomePhase,
+  validateCumbersomeEnemy,
+  validateHasMovePointsForCumbersome,
 } from "../combatValidators/index.js";
 
 // Challenge rampaging validators
@@ -169,5 +175,13 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateAssignBlockPhase,
     validateUnassignBlockTargetEnemy,
     validateHasAssignedBlockToUnassign,
+  ],
+  // Cumbersome ability action
+  [SPEND_MOVE_ON_CUMBERSOME_ACTION]: [
+    validateIsPlayersTurn,
+    validateSpendCumbersomeInCombat,
+    validateSpendCumbersomePhase,
+    validateCumbersomeEnemy,
+    validateHasMovePointsForCumbersome,
   ],
 };

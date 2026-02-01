@@ -33,6 +33,7 @@ import {
   getEnemyAttackCount,
   isAttackBlocked,
 } from "../../combat/enemyAttackHelpers.js";
+import { getCumbersomeReducedAttack } from "../../combat/cumbersomeHelpers.js";
 
 export const DECLARE_BLOCK_COMMAND = "DECLARE_BLOCK" as const;
 
@@ -91,7 +92,10 @@ function isSwiftActive(
 
 /**
  * Get effective enemy attack value for blocking purposes
- * Swift: doubles the attack value (player must assign double block)
+ *
+ * Order of operations (CRITICAL):
+ * 1. Apply Cumbersome reduction (move points spent)
+ * 2. Apply Swift doubling (if active)
  *
  * Note: Swift does NOT affect attack timing or phases - only block requirements
  *
@@ -116,7 +120,10 @@ function getEffectiveEnemyAttackForBlocking(
 
   let attackValue = attack.damage;
 
-  // Swift: doubles attack value for blocking purposes
+  // FIRST: Apply Cumbersome reduction (BEFORE Swift)
+  attackValue = getCumbersomeReducedAttack(state, playerId, enemy, attackValue);
+
+  // SECOND: Swift doubles attack value for blocking purposes
   if (isSwiftActive(state, playerId, enemy)) {
     attackValue *= 2;
   }

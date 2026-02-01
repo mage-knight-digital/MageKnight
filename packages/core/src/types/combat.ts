@@ -135,6 +135,21 @@ export interface CombatState {
    * Undefined for standard single-player combat.
    */
   readonly enemyAssignments?: EnemyAssignments;
+  /**
+   * Move points spent on Cumbersome enemies to reduce their attack values.
+   * Maps enemy instance ID to the number of move points spent.
+   * Each move point reduces attack by 1 for the rest of the turn.
+   * Reduction applies BEFORE Swift doubling and persists through Assign Damage phase.
+   */
+  readonly cumbersomeReductions: CumbersomeReductionMap;
+}
+
+/**
+ * Map of enemy instance IDs to move points spent on them via Cumbersome ability.
+ * Each move point reduces the enemy's attack by 1.
+ */
+export type CumbersomeReductionMap = {
+  readonly [enemyInstanceId: string]: number;
 }
 
 // Options for special combat rules
@@ -196,6 +211,7 @@ export function createCombatState(
     pendingDamage: {},
     pendingBlock: {},
     combatContext: options?.combatContext ?? COMBAT_CONTEXT_STANDARD,
+    cumbersomeReductions: {},
   };
 
   // Only include enemyAssignments if provided (avoids exactOptionalPropertyTypes issues)

@@ -62,3 +62,11 @@ export {
   validateHasAvailableBlock,
   validateHasAssignedBlockToUnassign,
 } from "./blockAssignmentValidators.js";
+
+// Cumbersome ability validators
+export {
+  validateSpendCumbersomeInCombat,
+  validateSpendCumbersomePhase,
+  validateCumbersomeEnemy,
+  validateHasMovePointsForCumbersome,
+} from "./cumbersomeValidators.js";

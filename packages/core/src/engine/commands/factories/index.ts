@@ -61,6 +61,7 @@ import {
   RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION,
   CANCEL_COOPERATIVE_PROPOSAL_ACTION,
   USE_SKILL_ACTION,
+  SPEND_MOVE_ON_CUMBERSOME_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -91,6 +92,7 @@ export {
   createUnassignAttackCommandFromAction,
   createAssignBlockCommandFromAction,
   createUnassignBlockCommandFromAction,
+  createSpendMoveOnCumbersomeCommandFromAction,
 } from "./combat.js";
 
 // Unit factories
@@ -173,6 +175,7 @@ import {
   createUnassignAttackCommandFromAction,
   createAssignBlockCommandFromAction,
   createUnassignBlockCommandFromAction,
+  createSpendMoveOnCumbersomeCommandFromAction,
 } from "./combat.js";
 
 import {
@@ -278,4 +281,6 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [CANCEL_COOPERATIVE_PROPOSAL_ACTION]: createCancelProposalCommandFromAction,
   // Skill actions
   [USE_SKILL_ACTION]: createUseSkillCommandFromAction,
+  // Cumbersome ability actions
+  [SPEND_MOVE_ON_CUMBERSOME_ACTION]: createSpendMoveOnCumbersomeCommandFromAction,
 };
