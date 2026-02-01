@@ -5,6 +5,7 @@
  */
 
 import type { HexDirection } from "./hex.js";
+import type { ScenarioScoringConfig } from "./scoring/index.js";
 
 // === Tactic Removal Modes ===
 // Defines what happens to tactics at end of each day/night
@@ -189,4 +190,7 @@ export interface ScenarioConfig {
 
   // Scoring
   readonly scoringRules: readonly ScoringRule[];
+
+  /** Optional scoring configuration. If not provided, uses basic fame only. */
+  readonly scoringConfig?: ScenarioScoringConfig;
 }

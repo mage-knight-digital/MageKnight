@@ -6,6 +6,8 @@
  * @module events/lifecycle/game
  */
 
+import type { FinalScoreResult } from "../../scoring/index.js";
+
 // ============================================================================
 // GAME_STARTED
 // ============================================================================
@@ -112,6 +114,8 @@ export interface GameEndedEvent {
     readonly playerId: string;
     readonly score: number;
   }[];
+  /** Full scoring breakdown for detailed display (optional for backwards compatibility) */
+  readonly fullScoreResult?: FinalScoreResult;
 }
 
 /**
@@ -119,17 +123,25 @@ export interface GameEndedEvent {
  *
  * @param winningPlayerId - ID of winner, or null for tie
  * @param finalScores - Array of player IDs and their scores
+ * @param fullScoreResult - Optional full scoring breakdown
  * @returns A new GameEndedEvent
  */
 export function createGameEndedEvent(
   winningPlayerId: string | null,
-  finalScores: readonly { readonly playerId: string; readonly score: number }[]
+  finalScores: readonly { readonly playerId: string; readonly score: number }[],
+  fullScoreResult?: FinalScoreResult
 ): GameEndedEvent {
-  return {
+  const event: GameEndedEvent = {
     type: GAME_ENDED,
     winningPlayerId,
     finalScores,
   };
+
+  if (fullScoreResult !== undefined) {
+    return { ...event, fullScoreResult };
+  }
+
+  return event;
 }
 
 /**
