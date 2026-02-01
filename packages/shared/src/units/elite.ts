@@ -10,6 +10,7 @@ import {
   ELEMENT_FIRE,
   ELEMENT_ICE,
 } from "../elements.js";
+import { MANA_RED, MANA_BLUE } from "../ids.js";
 import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "../enemies/index.js";
 import type { UnitDefinition } from "./types.js";
 import {
@@ -104,8 +105,12 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     resistances: [RESIST_PHYSICAL, RESIST_FIRE],
     recruitSites: [RECRUIT_SITE_KEEP, RECRUIT_SITE_MAGE_TOWER],
     abilities: [
+      // Base abilities (free)
       { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_FIRE },
       { type: UNIT_ABILITY_BLOCK, value: 3, element: ELEMENT_FIRE },
+      // Powered abilities (require red mana)
+      { type: UNIT_ABILITY_ATTACK, value: 5, element: ELEMENT_FIRE, manaCost: MANA_RED },
+      { type: UNIT_ABILITY_BLOCK, value: 5, element: ELEMENT_FIRE, manaCost: MANA_RED },
     ],
     copies: 2,
   },
@@ -119,8 +124,13 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
     resistances: [RESIST_PHYSICAL, RESIST_ICE],
     recruitSites: [RECRUIT_SITE_KEEP, RECRUIT_SITE_MAGE_TOWER],
     abilities: [
+      // Base abilities (free)
       { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_ICE },
       { type: UNIT_ABILITY_BLOCK, value: 3, element: ELEMENT_ICE },
+      // Powered abilities (require blue mana)
+      { type: UNIT_ABILITY_ATTACK, value: 5, element: ELEMENT_ICE, manaCost: MANA_BLUE },
+      { type: UNIT_ABILITY_BLOCK, value: 5, element: ELEMENT_ICE, manaCost: MANA_BLUE },
+      // Passive
       { type: UNIT_ABILITY_PARALYZE },
     ],
     copies: 2,

@@ -40,7 +40,12 @@ import {
   SIEGE_REQUIRED,
   NOT_IN_COMBAT,
   UNITS_NOT_ALLOWED,
+  UNIT_ABILITY_REQUIRES_MANA,
+  UNIT_ABILITY_MANA_UNAVAILABLE,
 } from "../validationCodes.js";
+import { validateSingleManaSource } from "../mana/sourceValidators.js";
+import { canPayForMana } from "../../validActions/mana.js";
+import type { ManaColor } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
@@ -359,4 +364,53 @@ export function validateUnitsAllowedInCombat(
   }
 
   return valid();
+}
+
+/**
+ * Validate mana is available and provided for abilities with mana costs.
+ *
+ * If an ability has a manaCost defined, the player must:
+ * 1. Have access to mana of the required color
+ * 2. Provide a valid mana source in the action
+ */
+export function validateUnitAbilityManaCost(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
+
+  const player = getPlayerById(state, playerId);
+  if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
+
+  const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
+  if (!unit) return valid(); // Other validator handles unit not found
+
+  const unitDef = getUnit(unit.unitId);
+  const ability = unitDef.abilities[action.abilityIndex];
+  if (!ability) return valid(); // Other validator handles invalid index
+
+  // If ability has no mana cost, it's free - no validation needed
+  if (!ability.manaCost) return valid();
+
+  const requiredColor: ManaColor = ability.manaCost;
+
+  // Check that mana source is provided
+  if (!action.manaSource) {
+    return invalid(
+      UNIT_ABILITY_REQUIRES_MANA,
+      `This ability requires ${requiredColor} mana`
+    );
+  }
+
+  // Check player can pay for this mana color (has access to the mana)
+  if (!canPayForMana(state, player, requiredColor)) {
+    return invalid(
+      UNIT_ABILITY_MANA_UNAVAILABLE,
+      `No ${requiredColor} mana available`
+    );
+  }
+
+  // Validate the specific mana source is valid (reuse existing validator)
+  return validateSingleManaSource(state, player, action.manaSource, playerId);
 }

@@ -121,6 +121,8 @@ export const WRONG_PHASE_FOR_ABILITY = "WRONG_PHASE_FOR_ABILITY" as const;
 export const NON_COMBAT_ABILITY = "NON_COMBAT_ABILITY" as const;
 export const PASSIVE_ABILITY = "PASSIVE_ABILITY" as const;
 export const SIEGE_REQUIRED = "SIEGE_REQUIRED" as const;
+export const UNIT_ABILITY_REQUIRES_MANA = "UNIT_ABILITY_REQUIRES_MANA" as const;
+export const UNIT_ABILITY_MANA_UNAVAILABLE = "UNIT_ABILITY_MANA_UNAVAILABLE" as const;
 
 // Site interaction validation codes
 export const NO_SITE = "NO_SITE" as const;
@@ -320,6 +322,8 @@ export type ValidationErrorCode =
   | typeof NON_COMBAT_ABILITY
   | typeof PASSIVE_ABILITY
   | typeof SIEGE_REQUIRED
+  | typeof UNIT_ABILITY_REQUIRES_MANA
+  | typeof UNIT_ABILITY_MANA_UNAVAILABLE
   // Site interaction validation
   | typeof NO_SITE
   | typeof NOT_INHABITED
