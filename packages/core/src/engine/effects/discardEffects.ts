@@ -7,7 +7,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { DiscardCardEffect, CardEffect } from "../../types/cards.js";
+import type { DiscardCardEffect, DiscardCostEffect, CardEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import type { CardId, DiscardFilter } from "@mage-knight/shared";
 import {
@@ -19,7 +19,7 @@ import {
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
-import { EFFECT_DISCARD_CARD } from "../../types/effectTypes.js";
+import { EFFECT_DISCARD_CARD, EFFECT_DISCARD_COST } from "../../types/effectTypes.js";
 
 /**
  * Get cards in hand that match the filter criteria.
@@ -139,6 +139,77 @@ export function applyDiscardCard(
 }
 
 // ============================================================================
+// DISCARD AS COST
+// ============================================================================
+
+/**
+ * Get cards in hand that can be discarded for a cost effect.
+ * Filters out wounds if filterWounds is true.
+ */
+export function getCardsEligibleForDiscardCost(
+  hand: readonly CardId[],
+  filterWounds: boolean
+): CardId[] {
+  if (!filterWounds) {
+    return [...hand];
+  }
+  return hand.filter((cardId) => cardId !== CARD_WOUND);
+}
+
+/**
+ * Handle the EFFECT_DISCARD_COST effect.
+ *
+ * Creates a pendingDiscard state on the player, blocking other actions
+ * until the player resolves it via RESOLVE_DISCARD action.
+ *
+ * This effect follows the pending state pattern used by:
+ * - pendingGladeWoundChoice
+ * - pendingChoice
+ * - pendingTacticDecision
+ */
+export function handleDiscardCostEffect(
+  state: GameState,
+  playerIndex: number,
+  player: Player,
+  effect: DiscardCostEffect,
+  sourceCardId: CardId | null
+): EffectResolutionResult {
+  if (!sourceCardId) {
+    throw new Error("DiscardCostEffect requires sourceCardId");
+  }
+
+  const filterWounds = effect.filterWounds ?? true;
+  const eligibleCards = getCardsEligibleForDiscardCost(player.hand, filterWounds);
+
+  // Check if player has enough cards to discard
+  if (eligibleCards.length < effect.count && !effect.optional) {
+    throw new Error(
+      `Not enough cards to discard for cost. Required: ${effect.count}, Available: ${eligibleCards.length}`
+    );
+  }
+
+  // Create pending discard state
+  const updatedPlayer: Player = {
+    ...player,
+    pendingDiscard: {
+      sourceCardId,
+      count: effect.count,
+      optional: effect.optional,
+      thenEffect: effect.thenEffect,
+      filterWounds,
+    },
+  };
+
+  const updatedState = updatePlayer(state, playerIndex, updatedPlayer);
+
+  return {
+    state: updatedState,
+    description: `${sourceCardId} requires discarding ${effect.count} card(s)`,
+    requiresChoice: true, // Blocks further resolution
+  };
+}
+
+// ============================================================================
 // EFFECT REGISTRATION
 // ============================================================================
 
@@ -150,5 +221,16 @@ export function registerDiscardEffects(): void {
   registerEffect(EFFECT_DISCARD_CARD, (state, playerId, effect) => {
     const { playerIndex, player } = getPlayerContext(state, playerId);
     return handleDiscardCard(state, playerIndex, player, effect as DiscardCardEffect);
+  });
+
+  registerEffect(EFFECT_DISCARD_COST, (state, playerId, effect, sourceCardId) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return handleDiscardCostEffect(
+      state,
+      playerIndex,
+      player,
+      effect as DiscardCostEffect,
+      (sourceCardId as CardId | undefined) ?? null
+    );
   });
 }

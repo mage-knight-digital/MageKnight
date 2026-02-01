@@ -90,3 +90,7 @@ export const EFFECT_DISCARD_CARD = "discard_card" as const;
 export const EFFECT_REVEAL_TILES = "reveal_tiles" as const;
 // Pay mana as a cost (for skill activations)
 export const EFFECT_PAY_MANA = "pay_mana" as const;
+
+// === Discard as Cost Effect ===
+// Discard cards from hand as a cost, then resolve a follow-up effect (e.g., Improvisation)
+export const EFFECT_DISCARD_COST = "discard_cost" as const;

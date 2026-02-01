@@ -16,6 +16,7 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
+  EFFECT_DISCARD_COST,
 } from "../../../../types/effectTypes.js";
 
 /**
@@ -38,6 +39,9 @@ export function effectHasManaDrawPowered(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasManaDrawPowered(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effectHasManaDrawPowered(effect.thenEffect);
 
     default:
       return false;
@@ -66,6 +70,9 @@ export function effectHasCrystal(effect: CardEffect): boolean {
     case EFFECT_SCALING:
       return effectHasCrystal(effect.baseEffect);
 
+    case EFFECT_DISCARD_COST:
+      return effectHasCrystal(effect.thenEffect);
+
     default:
       return false;
   }
@@ -92,6 +99,9 @@ export function effectHasCardBoost(effect: CardEffect): boolean {
     case EFFECT_SCALING:
       return effectHasCardBoost(effect.baseEffect);
 
+    case EFFECT_DISCARD_COST:
+      return effectHasCardBoost(effect.thenEffect);
+
     default:
       return false;
   }
@@ -117,6 +127,9 @@ export function effectHasEnemyTargeting(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasEnemyTargeting(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effectHasEnemyTargeting(effect.thenEffect);
 
     default:
       return false;

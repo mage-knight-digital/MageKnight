@@ -14,6 +14,7 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
+  EFFECT_DISCARD_COST,
 } from "../../../../types/effectTypes.js";
 
 /**
@@ -36,6 +37,9 @@ export function effectHasHeal(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasHeal(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effectHasHeal(effect.thenEffect);
 
     default:
       return false;
@@ -63,6 +67,9 @@ export function effectHasDraw(effect: CardEffect): boolean {
     case EFFECT_SCALING:
       return effectHasDraw(effect.baseEffect);
 
+    case EFFECT_DISCARD_COST:
+      return effectHasDraw(effect.thenEffect);
+
     default:
       return false;
   }
@@ -89,6 +96,9 @@ export function effectHasModifier(effect: CardEffect): boolean {
     case EFFECT_SCALING:
       return effectHasModifier(effect.baseEffect);
 
+    case EFFECT_DISCARD_COST:
+      return effectHasModifier(effect.thenEffect);
+
     default:
       return false;
   }
@@ -114,6 +124,9 @@ export function effectHasManaGain(effect: CardEffect): boolean {
 
     case EFFECT_SCALING:
       return effectHasManaGain(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effectHasManaGain(effect.thenEffect);
 
     default:
       return false;

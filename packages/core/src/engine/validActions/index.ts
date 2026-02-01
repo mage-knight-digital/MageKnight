@@ -35,7 +35,7 @@ import { getManaOptions } from "./mana.js";
 import { getUnitOptionsForCombat, getFullUnitOptions } from "./units/index.js";
 import { getSiteOptions } from "./sites.js";
 import { getTacticsOptions, getTacticEffectsOptions, getPendingTacticDecision } from "./tactics.js";
-import { getGladeWoundOptions, getDeepMineOptions } from "./pending.js";
+import { getGladeWoundOptions, getDeepMineOptions, getDiscardCostOptions } from "./pending.js";
 import { getChallengeOptions } from "./challenge.js";
 import { getCooperativeAssaultOptions } from "./cooperativeAssault.js";
 import { getSkillOptions } from "./skills.js";
@@ -91,6 +91,7 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: undefined,
+      discardCost: undefined,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
       skills: undefined,
@@ -121,6 +122,7 @@ export function getValidActions(
         tacticEffects: { pendingDecision },
         gladeWound: undefined,
         deepMine: undefined,
+        discardCost: undefined,
         levelUpRewards: undefined,
         cooperativeAssault: undefined,
         skills: undefined,
@@ -144,6 +146,7 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: undefined,
+      discardCost: undefined,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
       skills: undefined,
@@ -179,6 +182,7 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: gladeWoundOptions,
       deepMine: undefined,
+      discardCost: undefined,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
       skills: undefined,
@@ -214,6 +218,43 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: deepMineOptions,
+      discardCost: undefined,
+      levelUpRewards: undefined,
+      cooperativeAssault: undefined,
+      skills: undefined,
+    };
+  }
+
+  // Handle pending discard cost - must resolve before other actions
+  if (player.pendingDiscard) {
+    const discardCostOptions = getDiscardCostOptions(state, player);
+    return {
+      canAct: true,
+      reason: undefined,
+      move: undefined,
+      explore: undefined,
+      playCard: undefined,
+      combat: undefined,
+      units: undefined,
+      sites: undefined,
+      mana: undefined,
+      turn: {
+        canEndTurn: false,
+        canAnnounceEndOfRound: false,
+        canUndo: getTurnOptions(state, player).canUndo, // Can undo card play that caused this
+        canRest: false,
+        restTypes: undefined,
+        canDeclareRest: false,
+        canCompleteRest: false,
+        isResting: false,
+      },
+      tactics: undefined,
+      enterCombat: undefined,
+      challenge: undefined,
+      tacticEffects: undefined,
+      gladeWound: undefined,
+      deepMine: undefined,
+      discardCost: discardCostOptions,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
       skills: undefined,
@@ -250,6 +291,7 @@ export function getValidActions(
         tacticEffects: undefined,
         gladeWound: undefined,
         deepMine: undefined,
+        discardCost: undefined,
         levelUpRewards: {
           level: firstPending.level,
           drawnSkills: firstPending.drawnSkills,
@@ -291,6 +333,7 @@ export function getValidActions(
       tacticEffects: undefined,
       gladeWound: undefined,
       deepMine: undefined,
+      discardCost: undefined,
       levelUpRewards: undefined,
       cooperativeAssault: undefined,
       skills: undefined,
@@ -330,6 +373,7 @@ export function getValidActions(
         tacticEffects: undefined,
         gladeWound: undefined,
         deepMine: undefined,
+        discardCost: undefined,
         levelUpRewards: undefined,
         cooperativeAssault: undefined,
         skills: getSkillOptions(state, player),
@@ -358,6 +402,7 @@ export function getValidActions(
     tacticEffects: getTacticEffectsOptions(state, player),
     gladeWound: undefined,
     deepMine: undefined,
+    discardCost: undefined,
     levelUpRewards: undefined,
     cooperativeAssault: getCooperativeAssaultOptions(state, player),
     skills: getSkillOptions(state, player),

@@ -1,6 +1,6 @@
 /**
  * Choice/resolution action validator registry
- * Handles RESOLVE_CHOICE_ACTION, SELECT_REWARD_ACTION, RESOLVE_GLADE_WOUND_ACTION, RESOLVE_DEEP_MINE_ACTION
+ * Handles RESOLVE_CHOICE_ACTION, SELECT_REWARD_ACTION, RESOLVE_GLADE_WOUND_ACTION, RESOLVE_DEEP_MINE_ACTION, RESOLVE_DISCARD_ACTION
  */
 
 import type { Validator } from "../types.js";
@@ -9,6 +9,7 @@ import {
   SELECT_REWARD_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
+  RESOLVE_DISCARD_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -43,6 +44,12 @@ import {
   validateDeepMineColorChoice,
 } from "../deepMineValidators.js";
 
+// Discard cost validators
+import {
+  validateHasPendingDiscard,
+  validateDiscardSelection,
+} from "../discardValidators.js";
+
 export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_CHOICE_ACTION]: [
     validateIsPlayersTurn,
@@ -66,5 +73,10 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingDeepMineChoice,
     validateDeepMineColorChoice,
+  ],
+  [RESOLVE_DISCARD_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingDiscard,
+    validateDiscardSelection,
   ],
 };

@@ -10,6 +10,7 @@
  * - createPlayCardCommandFromAction - Play a card from hand
  * - createPlayCardSidewaysCommandFromAction - Play a card sideways for move/influence/attack/block
  * - createResolveChoiceCommandFromAction - Resolve a pending choice from a card effect
+ * - createResolveDiscardCommandFromAction - Resolve a pending discard cost
  */
 
 import type { CommandFactory } from "./types.js";
@@ -19,6 +20,7 @@ import {
   PLAY_CARD_ACTION,
   PLAY_CARD_SIDEWAYS_ACTION,
   RESOLVE_CHOICE_ACTION,
+  RESOLVE_DISCARD_ACTION,
   MANA_BLACK,
 } from "@mage-knight/shared";
 import { createPlayCardCommand } from "../playCardCommand.js";
@@ -27,6 +29,7 @@ import {
   type SidewaysAs,
 } from "../playCardSidewaysCommand.js";
 import { createResolveChoiceCommand } from "../resolveChoiceCommand.js";
+import { createResolveDiscardCommand } from "../resolveDiscardCommand.js";
 import { getCard } from "../../validActions/cards/index.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { getAvailableManaSourcesForColor } from "../../validActions/mana.js";
@@ -242,5 +245,25 @@ export const createResolveChoiceCommandFromAction: CommandFactory = (
     playerId,
     choiceIndex,
     previousPendingChoice: player.pendingChoice,
+  });
+};
+
+/**
+ * Resolve discard command factory.
+ * Creates a command to resolve a pending discard cost from a card effect.
+ */
+export const createResolveDiscardCommandFromAction: CommandFactory = (
+  state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_DISCARD_ACTION) return null;
+
+  const player = getPlayerById(state, playerId);
+  if (!player?.pendingDiscard) return null;
+
+  return createResolveDiscardCommand({
+    playerId,
+    cardIds: action.cardIds,
   });
 };

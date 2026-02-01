@@ -560,6 +560,7 @@ export class GameServer {
       pendingRewards: [],
       pendingGladeWoundChoice: false,
       pendingDeepMineChoice: null,
+      pendingDiscard: null,
       healingPoints: 0,
       removedCards: [],
       isResting: false,

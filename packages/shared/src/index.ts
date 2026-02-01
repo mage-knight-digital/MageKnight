@@ -176,6 +176,7 @@ export type {
   ClientCombatState,
   ClientCombatEnemy,
   ClientPendingChoice,
+  ClientPendingDiscard,
   ClientPendingLevelUpReward,
 } from "./types/clientState.js";
 
@@ -232,6 +233,8 @@ export type {
   GladeWoundOptions,
   // Deep mine options
   DeepMineOptions,
+  // Discard cost options
+  DiscardCostOptions,
   // Level up rewards options
   LevelUpRewardsOptions,
   // Cooperative assault options
