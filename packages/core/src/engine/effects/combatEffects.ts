@@ -204,29 +204,33 @@ export function resolveCombatEnemyTarget(
     }
   }
 
-  // Handle defeat
+  // Handle defeat (blocked by Arcane Immunity - instant kill is a magic effect targeting the enemy)
   if (effect.template.defeat && currentState.combat) {
-    // Mark enemy defeated, award fame
-    const updatedEnemies = currentState.combat.enemies.map((e, i) =>
-      i === enemyIndex ? { ...e, isDefeated: true } : e
-    );
+    if (hasArcaneImmunity) {
+      descriptions.push(`${effect.enemyName} has Arcane Immunity (defeat blocked)`);
+    } else {
+      // Mark enemy defeated, award fame
+      const updatedEnemies = currentState.combat.enemies.map((e, i) =>
+        i === enemyIndex ? { ...e, isDefeated: true } : e
+      );
 
-    const fameValue = enemy.definition.fame;
-    const currentPlayer = currentState.players.find((p) => p.id === playerId);
-    const newFame = currentPlayer ? currentPlayer.fame + fameValue : fameValue;
+      const fameValue = enemy.definition.fame;
+      const currentPlayer = currentState.players.find((p) => p.id === playerId);
+      const newFame = currentPlayer ? currentPlayer.fame + fameValue : fameValue;
 
-    currentState = {
-      ...currentState,
-      combat: {
-        ...currentState.combat,
-        enemies: updatedEnemies,
-        fameGained: currentState.combat.fameGained + fameValue,
-      },
-      players: currentState.players.map((p) =>
-        p.id === playerId ? { ...p, fame: newFame } : p
-      ),
-    };
-    descriptions.push(`Defeated ${effect.enemyName} (+${fameValue} fame)`);
+      currentState = {
+        ...currentState,
+        combat: {
+          ...currentState.combat,
+          enemies: updatedEnemies,
+          fameGained: currentState.combat.fameGained + fameValue,
+        },
+        players: currentState.players.map((p) =>
+          p.id === playerId ? { ...p, fame: newFame } : p
+        ),
+      };
+      descriptions.push(`Defeated ${effect.enemyName} (+${fameValue} fame)`);
+    }
   }
 
   return {

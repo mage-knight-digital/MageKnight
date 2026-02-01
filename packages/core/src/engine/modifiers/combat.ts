@@ -41,6 +41,8 @@ import { isEnemyFullyBlocked } from "../combat/enemyAttackHelpers.js";
 /**
  * Get effective enemy armor after modifiers.
  * @param resistanceCount - number of resistances the enemy has (for Resistance Break)
+ *
+ * Note: Arcane Immunity blocks armor modification effects (non-Attack/Block effect).
  */
 export function getEffectiveEnemyArmor(
   state: GameState,
@@ -48,6 +50,11 @@ export function getEffectiveEnemyArmor(
   baseArmor: number,
   resistanceCount: number
 ): number {
+  // Arcane Immunity blocks armor reduction effects
+  if (hasArcaneImmunity(state, enemyId)) {
+    return baseArmor;
+  }
+
   const modifiers = getModifiersForEnemy(state, enemyId)
     .filter(
       (m) => m.effect.type === EFFECT_ENEMY_STAT && m.effect.stat === ENEMY_STAT_ARMOR
@@ -72,12 +79,19 @@ export function getEffectiveEnemyArmor(
 
 /**
  * Get effective enemy attack after modifiers.
+ *
+ * Note: Arcane Immunity blocks attack modification effects (non-Attack/Block effect).
  */
 export function getEffectiveEnemyAttack(
   state: GameState,
   enemyId: string,
   baseAttack: number
 ): number {
+  // Arcane Immunity blocks attack modification effects
+  if (hasArcaneImmunity(state, enemyId)) {
+    return baseAttack;
+  }
+
   const modifiers = getModifiersForEnemy(state, enemyId)
     .filter(
       (m) =>
