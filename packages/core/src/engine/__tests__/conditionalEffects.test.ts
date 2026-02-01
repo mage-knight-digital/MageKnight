@@ -519,6 +519,40 @@ describe("Conditional Effects", () => {
       expect(result.state.players[0]?.movePoints).toBe(5); // 4 base + 1 (blue not used)
     });
 
+    describe("ifDay (Double Time pattern)", () => {
+      it("should grant Move 2 during day", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY });
+        const effect = ifDay(move(2), move(1));
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.movePoints).toBe(6); // 4 base + 2 day bonus
+      });
+
+      it("should grant Move 1 at night", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
+        const effect = ifDay(move(2), move(1));
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.movePoints).toBe(5); // 4 base + 1 night bonus
+      });
+
+      it("movement points are standalone (usable independently)", () => {
+        // Standalone means the effect adds directly to movePoints,
+        // not requiring combination with other movement effects
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY });
+        const effect = ifDay(move(2), move(1));
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        // Verify movement points were added directly
+        expect(result.state.players[0]?.movePoints).toBe(6);
+        // The description confirms the gain was applied
+        expect(result.description).toContain("Gained 2 Move");
+      });
+    });
+
     describe("ifNightOrUnderground (Dark Negotiation pattern)", () => {
       it("should grant Influence 3 at night", () => {
         const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
