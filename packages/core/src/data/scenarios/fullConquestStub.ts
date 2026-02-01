@@ -8,7 +8,7 @@
 import {
   SCENARIO_FULL_CONQUEST,
   END_TRIGGER_CITY_CONQUERED,
-  MAP_SHAPE_WEDGE,
+  MAP_SHAPE_OPEN_5,
   SCORING_CATEGORY_ACHIEVEMENTS,
   EXPANSION_LOST_LEGION,
   EXPANSION_KRANG,
@@ -24,11 +24,11 @@ export const FULL_CONQUEST_STUB: ScenarioConfig = {
   description:
     "Standard scenario. Conquer the city to win. This scenario is not yet implemented.",
 
-  // Map setup
+  // Map setup - Open 5 for standard 4-player game
   countrysideTileCount: 8,
   coreTileCount: 4,
   cityTileCount: 1,
-  mapShape: MAP_SHAPE_WEDGE,
+  mapShape: MAP_SHAPE_OPEN_5,
 
   // Round limits
   dayRounds: 3,

@@ -29,9 +29,20 @@ import {
   GAME_PHASE_ROUND,
   hexKey,
   type CardId,
+  MAP_SHAPE_WEDGE,
+  MAP_SHAPE_OPEN_3,
+  MAP_SHAPE_OPEN_4,
+  MAP_SHAPE_OPEN_5,
 } from "@mage-knight/shared";
 import { CANNOT_ENTER_CITY } from "../validators/validationCodes.js";
 import { FIRST_RECONNAISSANCE } from "../../data/scenarios/firstReconnaissance.js";
+import {
+  FIRST_RECONNAISSANCE_2P,
+  FIRST_RECONNAISSANCE_3P,
+  FIRST_RECONNAISSANCE_4P,
+  getRecommendedMapShape,
+} from "../../data/scenarios/index.js";
+import { FULL_CONQUEST_STUB } from "../../data/scenarios/fullConquestStub.js";
 import { TILE_DEFINITIONS } from "../../data/tiles/index.js";
 import { CITY_COLOR_GREEN } from "../../types/mapConstants.js";
 
@@ -454,6 +465,77 @@ describe("Scenario System", () => {
 
       expect(TILE_DEFINITIONS[TileId.Countryside1].hasCity).toBe(false);
       expect(TILE_DEFINITIONS[TileId.Core1].hasCity).toBe(false);
+    });
+  });
+
+  describe("Open map shape scenarios", () => {
+    describe("Full Conquest with Open 5", () => {
+      it("should use MAP_SHAPE_OPEN_5 for Full Conquest", () => {
+        expect(FULL_CONQUEST_STUB.mapShape).toBe(MAP_SHAPE_OPEN_5);
+      });
+
+      it("should have appropriate tile counts for open map", () => {
+        expect(FULL_CONQUEST_STUB.countrysideTileCount).toBe(8);
+        expect(FULL_CONQUEST_STUB.coreTileCount).toBe(4);
+        expect(FULL_CONQUEST_STUB.cityTileCount).toBe(1);
+      });
+    });
+
+    describe("First Reconnaissance multiplayer variants", () => {
+      it("should use MAP_SHAPE_OPEN_3 for 2 players", () => {
+        expect(FIRST_RECONNAISSANCE_2P.mapShape).toBe(MAP_SHAPE_OPEN_3);
+        expect(FIRST_RECONNAISSANCE_2P.minPlayers).toBe(2);
+        expect(FIRST_RECONNAISSANCE_2P.maxPlayers).toBe(2);
+      });
+
+      it("should use MAP_SHAPE_OPEN_4 for 3 players", () => {
+        expect(FIRST_RECONNAISSANCE_3P.mapShape).toBe(MAP_SHAPE_OPEN_4);
+        expect(FIRST_RECONNAISSANCE_3P.minPlayers).toBe(3);
+        expect(FIRST_RECONNAISSANCE_3P.maxPlayers).toBe(3);
+      });
+
+      it("should use MAP_SHAPE_OPEN_5 for 4 players", () => {
+        expect(FIRST_RECONNAISSANCE_4P.mapShape).toBe(MAP_SHAPE_OPEN_5);
+        expect(FIRST_RECONNAISSANCE_4P.minPlayers).toBe(4);
+        expect(FIRST_RECONNAISSANCE_4P.maxPlayers).toBe(4);
+      });
+
+      it("should have valid scenario config fields for all variants", () => {
+        const variants = [FIRST_RECONNAISSANCE_2P, FIRST_RECONNAISSANCE_3P, FIRST_RECONNAISSANCE_4P];
+
+        for (const variant of variants) {
+          expect(variant.id).toBe(SCENARIO_FIRST_RECONNAISSANCE);
+          expect(variant.countrysideTileCount).toBeGreaterThan(0);
+          expect(variant.coreTileCount).toBeGreaterThan(0);
+          expect(variant.cityTileCount).toBeGreaterThan(0);
+          expect(variant.endTrigger.type).toBe(END_TRIGGER_CITY_REVEALED);
+          expect(variant.famePerTileExplored).toBe(1);
+          expect(variant.citiesCanBeEntered).toBe(false);
+        }
+      });
+    });
+
+    describe("getRecommendedMapShape", () => {
+      it("should recommend wedge for solo play", () => {
+        expect(getRecommendedMapShape(1)).toBe(MAP_SHAPE_WEDGE);
+      });
+
+      it("should recommend Open 3 for 2 players", () => {
+        expect(getRecommendedMapShape(2)).toBe(MAP_SHAPE_OPEN_3);
+      });
+
+      it("should recommend Open 4 for 3 players", () => {
+        expect(getRecommendedMapShape(3)).toBe(MAP_SHAPE_OPEN_4);
+      });
+
+      it("should recommend Open 5 for 4 players", () => {
+        expect(getRecommendedMapShape(4)).toBe(MAP_SHAPE_OPEN_5);
+      });
+
+      it("should default to Open 5 for larger player counts", () => {
+        expect(getRecommendedMapShape(5)).toBe(MAP_SHAPE_OPEN_5);
+        expect(getRecommendedMapShape(6)).toBe(MAP_SHAPE_OPEN_5);
+      });
     });
   });
 });
