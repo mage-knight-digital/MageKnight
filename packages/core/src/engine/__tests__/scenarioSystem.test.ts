@@ -537,5 +537,27 @@ describe("Scenario System", () => {
         expect(getRecommendedMapShape(6)).toBe(MAP_SHAPE_OPEN_5);
       });
     });
+
+    describe("Open map scenario initialization", () => {
+      it("should create valid game state with Full Conquest (Open 5)", () => {
+        const state = createInitialGameState(12345, SCENARIO_FULL_CONQUEST);
+
+        expect(state.scenarioConfig.mapShape).toBe(MAP_SHAPE_OPEN_5);
+        expect(state.scenarioId).toBe(SCENARIO_FULL_CONQUEST);
+      });
+
+      it("should be able to use multiplayer variants directly", () => {
+        // Multiplayer variants can be used by directly referencing the config
+        // rather than through the scenario registry
+        expect(FIRST_RECONNAISSANCE_2P.mapShape).toBe(MAP_SHAPE_OPEN_3);
+        expect(FIRST_RECONNAISSANCE_3P.mapShape).toBe(MAP_SHAPE_OPEN_4);
+        expect(FIRST_RECONNAISSANCE_4P.mapShape).toBe(MAP_SHAPE_OPEN_5);
+
+        // All have valid ScenarioConfig structure
+        expect(FIRST_RECONNAISSANCE_2P.countrysideTileCount).toBe(6);
+        expect(FIRST_RECONNAISSANCE_3P.countrysideTileCount).toBe(8);
+        expect(FIRST_RECONNAISSANCE_4P.countrysideTileCount).toBe(10);
+      });
+    });
   });
 });
