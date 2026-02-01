@@ -36,7 +36,7 @@ import {
   validatePlayerNotResponded,
   validateProposalExistsForCancel,
   validatePlayerIsInitiator,
-} from "../cooperativeAssaultValidators.js";
+} from "../cooperativeAssaultValidators/index.js";
 
 export const cooperativeValidatorRegistry: ValidatorRegistry = {
   [PROPOSE_COOPERATIVE_ASSAULT_ACTION]: [

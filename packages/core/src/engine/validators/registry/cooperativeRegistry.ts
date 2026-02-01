@@ -38,7 +38,7 @@ import {
   validatePlayerNotResponded,
   validateProposalExistsForCancel,
   validatePlayerIsInitiator,
-} from "../cooperativeAssaultValidators.js";
+} from "../cooperativeAssaultValidators/index.js";
 
 export const cooperativeRegistry: Record<string, Validator[]> = {
   [PROPOSE_COOPERATIVE_ASSAULT_ACTION]: [
