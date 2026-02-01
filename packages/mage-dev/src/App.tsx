@@ -43,6 +43,7 @@ export function App() {
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   const [message, setMessage] = useState<string | undefined>();
   const [messageColor, setMessageColor] = useState<string | undefined>("yellow");
+  const [deletingWorktrees, setDeletingWorktrees] = useState<Set<string>>(new Set());
 
   // Clear screen when mode changes to avoid rendering artifacts
   const clearScreen = useCallback(() => {
@@ -141,14 +142,28 @@ export function App() {
 
   const handleConfirmDelete = () => {
     if (mode.type !== "confirm-delete") return;
-    const result = deleteWorktree(mode.worktree.name);
-    if (result.success) {
-      showMessage(`Deleted ${mode.worktree.name}`, "green");
-    } else {
-      showMessage(`Failed: ${result.error}`, "red");
-    }
+    const worktreeName = mode.worktree.name;
+
+    // Mark as deleting and return to normal mode immediately
+    setDeletingWorktrees((prev) => new Set(prev).add(worktreeName));
     setMode({ type: "normal" });
-    refresh();
+    showMessage(`Deleting ${worktreeName}...`, "yellow");
+
+    // Fire-and-forget deletion
+    deleteWorktree(worktreeName).then((result) => {
+      setDeletingWorktrees((prev) => {
+        const next = new Set(prev);
+        next.delete(worktreeName);
+        return next;
+      });
+
+      if (result.success) {
+        showMessage(`Deleted ${worktreeName}`, "green");
+      } else {
+        showMessage(`Failed to delete ${worktreeName}: ${result.error}`, "red");
+      }
+      refresh();
+    });
   };
 
   const handleCreateWorktree = async (branch: string) => {
@@ -301,6 +316,8 @@ export function App() {
           if (selectedWorktree) {
             if (selectedWorktree.isMain) {
               showMessage("Cannot delete main repo", "red");
+            } else if (deletingWorktrees.has(selectedWorktree.name)) {
+              showMessage("Already deleting...", "yellow");
             } else {
               setMode({ type: "confirm-delete", worktree: selectedWorktree });
             }
@@ -329,7 +346,7 @@ export function App() {
         } else if (input === "o" || input === "O") {
           // Open/attach to agent session
           if (selectedAgent && selectedAgent.worktreePath) {
-            const cmd = `cd ${selectedAgent.worktreePath} && claude --continue`;
+            const cmd = `cd ${selectedAgent.worktreePath} && claude --dangerously-skip-permissions --continue`;
             copyToClipboard(cmd);
             showMessage(`Copied command - paste in new terminal to continue session`, "green");
           } else if (selectedAgent) {
@@ -400,7 +417,7 @@ export function App() {
 
       {activeTab === "worktrees" && (
         <>
-          <WorktreeList worktrees={worktrees} selectedIndex={selectedIndex} />
+          <WorktreeList worktrees={worktrees} selectedIndex={selectedIndex} deletingWorktrees={deletingWorktrees} />
 
           {mode.type === "confirm-delete" && (
             <Box marginTop={1}>

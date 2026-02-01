@@ -212,45 +212,54 @@ export function createWorktree(
   });
 }
 
-export function deleteWorktree(name: string): { success: boolean; error?: string } {
-  if (name === "main") {
-    return { success: false, error: "Cannot delete main repo" };
-  }
-
-  const worktreePath = getWorktreePath(name);
-  if (!existsSync(worktreePath)) {
-    return { success: false, error: "Worktree not found" };
-  }
-
-  const branchName = getBranchName(worktreePath);
-
-  // Kill dev server if running
-  killDevServer(name);
-
-  try {
-    // Remove worktree
-    execSync(`git worktree remove "${worktreePath}" --force`, {
-      cwd: REPO_ROOT,
-      stdio: "pipe",
-    });
-
-    // Delete branch
-    try {
-      execSync(`git branch -D "${branchName}"`, {
-        cwd: REPO_ROOT,
-        stdio: "pipe",
-      });
-    } catch {
-      // Branch may already be deleted, ignore
+export function deleteWorktree(
+  name: string
+): Promise<{ success: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    if (name === "main") {
+      resolve({ success: false, error: "Cannot delete main repo" });
+      return;
     }
 
-    return { success: true };
-  } catch (e) {
-    return {
-      success: false,
-      error: e instanceof Error ? e.message : "Unknown error",
-    };
-  }
+    const worktreePath = getWorktreePath(name);
+    if (!existsSync(worktreePath)) {
+      resolve({ success: false, error: "Worktree not found" });
+      return;
+    }
+
+    const branchName = getBranchName(worktreePath);
+
+    // Kill dev server if running
+    killDevServer(name);
+
+    // Remove worktree asynchronously
+    const removeChild = spawn(
+      "git",
+      ["worktree", "remove", worktreePath, "--force"],
+      {
+        cwd: REPO_ROOT,
+        stdio: ["ignore", "pipe", "pipe"],
+      }
+    );
+
+    removeChild.on("close", (code) => {
+      if (code !== 0) {
+        resolve({ success: false, error: "Failed to remove worktree" });
+        return;
+      }
+
+      // Delete branch asynchronously
+      const branchChild = spawn("git", ["branch", "-D", branchName], {
+        cwd: REPO_ROOT,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+      branchChild.on("close", () => {
+        // Branch deletion can fail if already deleted, we don't care
+        resolve({ success: true });
+      });
+    });
+  });
 }
 
 export function startDevServer(
