@@ -1,7 +1,7 @@
 /**
- * Cooperative assault validators
+ * Propose cooperative assault validators
  *
- * Validates the proposal and agreement system for cooperative city assaults.
+ * Validates the proposal action for cooperative city assaults.
  * Per the rules, players can propose a cooperative assault on a city when:
  * - They are adjacent to the city
  * - End of round has not been announced
@@ -15,22 +15,15 @@
  * - Has at least one non-wound card in hand
  */
 
-import type { GameState } from "../../state/GameState.js";
+import type { GameState } from "../../../state/GameState.js";
 import type {
   PlayerAction,
   ProposeCooperativeAssaultAction,
 } from "@mage-knight/shared";
-import type { ValidationResult } from "./types.js";
-import { valid, invalid } from "./types.js";
-import {
-  PROPOSE_COOPERATIVE_ASSAULT_ACTION,
-  RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION,
-  CANCEL_COOPERATIVE_PROPOSAL_ACTION,
-  CARD_WOUND,
-  getAllNeighbors,
-} from "@mage-knight/shared";
-import { SiteType } from "../../types/map.js";
-import type { CityColor as CoreCityColor } from "../../types/map.js";
+import type { ValidationResult } from "../types.js";
+import { valid, invalid } from "../types.js";
+import { PROPOSE_COOPERATIVE_ASSAULT_ACTION } from "@mage-knight/shared";
+import type { CityColor as CoreCityColor } from "../../../types/map.js";
 import {
   PLAYER_NOT_FOUND,
   ALREADY_ANNOUNCED,
@@ -42,62 +35,15 @@ import {
   INVITEE_TOKEN_FLIPPED,
   INVITEE_NO_CARDS,
   INVALID_ENEMY_DISTRIBUTION,
-  NO_PENDING_PROPOSAL,
-  NOT_AN_INVITEE,
-  ALREADY_RESPONDED,
-  NOT_PROPOSAL_INITIATOR,
   CITY_NOT_FOUND,
   MUST_INVITE_AT_LEAST_ONE,
   INITIATOR_TOKEN_FLIPPED,
-} from "./validationCodes.js";
-import { getPlayerById } from "../helpers/playerHelpers.js";
-
-/**
- * Helper to find hexes adjacent to a city of a specific color.
- * Returns the city hex coordinate if found.
- */
-function findCityHex(
-  state: GameState,
-  cityColor: CoreCityColor
-): { q: number; r: number } | null {
-  for (const [, hex] of Object.entries(state.map.hexes)) {
-    if (
-      hex.site?.type === SiteType.City &&
-      hex.site.cityColor === cityColor
-    ) {
-      return hex.coord;
-    }
-  }
-  return null;
-}
-
-/**
- * Check if a player position is adjacent to a city of the given color.
- */
-function isAdjacentToCity(
-  state: GameState,
-  playerPosition: { q: number; r: number },
-  cityColor: CoreCityColor
-): boolean {
-  const cityHex = findCityHex(state, cityColor);
-  if (!cityHex) return false;
-
-  const neighbors = getAllNeighbors(playerPosition);
-  return neighbors.some((n) => n.q === cityHex.q && n.r === cityHex.r);
-}
-
-/**
- * Check if a player has at least one non-wound card in hand.
- */
-function hasNonWoundCard(state: GameState, playerId: string): boolean {
-  const player = getPlayerById(state, playerId);
-  if (!player) return false;
-
-  return player.hand.some((cardId) => cardId !== CARD_WOUND);
-}
+} from "../validationCodes.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
+import { isAdjacentToCity, hasNonWoundCard } from "./helpers.js";
 
 // ============================================================================
-// Propose Cooperative Assault Validators
+// Initiator State Validators
 // ============================================================================
 
 /**
@@ -113,55 +59,15 @@ export function validateInitiatorAdjacentToCity(
   const proposeAction = action as ProposeCooperativeAssaultAction;
   const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
-  if (!player.position) return invalid(PLAYER_NOT_FOUND, "Player is not on the map");
+  if (!player.position)
+    return invalid(PLAYER_NOT_FOUND, "Player is not on the map");
 
-  // Convert the shared CityColor to core CityColor
   const cityColor = proposeAction.targetCity as CoreCityColor;
 
   if (!isAdjacentToCity(state, player.position, cityColor)) {
     return invalid(
       NOT_ADJACENT_TO_CITY,
       "You must be adjacent to the city to propose a cooperative assault"
-    );
-  }
-
-  return valid();
-}
-
-/**
- * End of round must not have been announced.
- */
-export function validateEndOfRoundNotAnnounced(
-  state: GameState,
-  _playerId: string,
-  action: PlayerAction
-): ValidationResult {
-  if (action.type !== PROPOSE_COOPERATIVE_ASSAULT_ACTION) return valid();
-
-  if (state.endOfRoundAnnouncedBy !== null) {
-    return invalid(
-      ALREADY_ANNOUNCED,
-      "Cannot propose cooperative assault after end of round has been announced"
-    );
-  }
-
-  return valid();
-}
-
-/**
- * Scenario end condition must not be fulfilled.
- */
-export function validateScenarioNotFulfilled(
-  state: GameState,
-  _playerId: string,
-  action: PlayerAction
-): ValidationResult {
-  if (action.type !== PROPOSE_COOPERATIVE_ASSAULT_ACTION) return valid();
-
-  if (state.scenarioEndTriggered) {
-    return invalid(
-      SCENARIO_END_FULFILLED,
-      "Cannot propose cooperative assault after scenario end condition is fulfilled"
     );
   }
 
@@ -226,9 +132,9 @@ export function validateNoOtherPlayerOnSpace(
 
   const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
-  if (!player.position) return invalid(PLAYER_NOT_FOUND, "Player is not on the map");
+  if (!player.position)
+    return invalid(PLAYER_NOT_FOUND, "Player is not on the map");
 
-  // Capture position for use in closure (TypeScript narrowing)
   const playerPosition = player.position;
 
   const otherPlayersOnSpace = state.players.filter(
@@ -249,27 +155,53 @@ export function validateNoOtherPlayerOnSpace(
   return valid();
 }
 
+// ============================================================================
+// Game State Validators
+// ============================================================================
+
 /**
- * Must invite at least one player.
+ * End of round must not have been announced.
  */
-export function validateAtLeastOneInvitee(
+export function validateEndOfRoundNotAnnounced(
   state: GameState,
   _playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== PROPOSE_COOPERATIVE_ASSAULT_ACTION) return valid();
 
-  const proposeAction = action as ProposeCooperativeAssaultAction;
-
-  if (proposeAction.invitedPlayerIds.length === 0) {
+  if (state.endOfRoundAnnouncedBy !== null) {
     return invalid(
-      MUST_INVITE_AT_LEAST_ONE,
-      "Must invite at least one player to a cooperative assault"
+      ALREADY_ANNOUNCED,
+      "Cannot propose cooperative assault after end of round has been announced"
     );
   }
 
   return valid();
 }
+
+/**
+ * Scenario end condition must not be fulfilled.
+ */
+export function validateScenarioNotFulfilled(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== PROPOSE_COOPERATIVE_ASSAULT_ACTION) return valid();
+
+  if (state.scenarioEndTriggered) {
+    return invalid(
+      SCENARIO_END_FULFILLED,
+      "Cannot propose cooperative assault after scenario end condition is fulfilled"
+    );
+  }
+
+  return valid();
+}
+
+// ============================================================================
+// Invitee Validators
+// ============================================================================
 
 /**
  * All invitees must be adjacent to the target city.
@@ -290,7 +222,10 @@ export function validateInviteesAdjacentToCity(
       return invalid(PLAYER_NOT_FOUND, `Invited player ${inviteeId} not found`);
     }
     if (!invitee.position) {
-      return invalid(INVITEE_NOT_ADJACENT, `Player ${inviteeId} is not on the map`);
+      return invalid(
+        INVITEE_NOT_ADJACENT,
+        `Player ${inviteeId} is not on the map`
+      );
     }
 
     if (!isAdjacentToCity(state, invitee.position, cityColor)) {
@@ -357,6 +292,32 @@ export function validateInviteesHaveCards(
   return valid();
 }
 
+// ============================================================================
+// Distribution Validators
+// ============================================================================
+
+/**
+ * Must invite at least one player.
+ */
+export function validateAtLeastOneInvitee(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== PROPOSE_COOPERATIVE_ASSAULT_ACTION) return valid();
+
+  const proposeAction = action as ProposeCooperativeAssaultAction;
+
+  if (proposeAction.invitedPlayerIds.length === 0) {
+    return invalid(
+      MUST_INVITE_AT_LEAST_ONE,
+      "Must invite at least one player to a cooperative assault"
+    );
+  }
+
+  return valid();
+}
+
 /**
  * Enemy distribution must be valid (correct number of enemies, valid assignments).
  */
@@ -370,7 +331,6 @@ export function validateEnemyDistribution(
   const proposeAction = action as ProposeCooperativeAssaultAction;
   const cityColor = proposeAction.targetCity as CoreCityColor;
 
-  // Get the city state to check garrison size
   const cityState = state.cities[cityColor];
   if (!cityState) {
     return invalid(CITY_NOT_FOUND, "Target city not found");
@@ -379,10 +339,8 @@ export function validateEnemyDistribution(
   const garrisonSize = cityState.garrison.length;
   const distribution = proposeAction.distribution;
 
-  // All assigned players must be either the initiator or an invitee
   const validPlayerIds = new Set([playerId, ...proposeAction.invitedPlayerIds]);
 
-  // Total assigned enemies must equal garrison size
   let totalAssigned = 0;
   for (const entry of distribution) {
     if (!validPlayerIds.has(entry.playerId)) {
@@ -406,120 +364,6 @@ export function validateEnemyDistribution(
     return invalid(
       INVALID_ENEMY_DISTRIBUTION,
       `Distribution must assign all ${garrisonSize} enemies (got ${totalAssigned})`
-    );
-  }
-
-  return valid();
-}
-
-// ============================================================================
-// Respond to Cooperative Proposal Validators
-// ============================================================================
-
-/**
- * There must be a pending cooperative assault proposal.
- */
-export function validateProposalExists(
-  state: GameState,
-  _playerId: string,
-  action: PlayerAction
-): ValidationResult {
-  if (action.type !== RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION) return valid();
-
-  if (!state.pendingCooperativeAssault) {
-    return invalid(
-      NO_PENDING_PROPOSAL,
-      "There is no pending cooperative assault proposal"
-    );
-  }
-
-  return valid();
-}
-
-/**
- * The responding player must be an invitee.
- */
-export function validatePlayerIsInvitee(
-  state: GameState,
-  playerId: string,
-  action: PlayerAction
-): ValidationResult {
-  if (action.type !== RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION) return valid();
-
-  const proposal = state.pendingCooperativeAssault;
-  if (!proposal) return valid(); // Handled by validateProposalExists
-
-  if (!proposal.invitedPlayerIds.includes(playerId)) {
-    return invalid(NOT_AN_INVITEE, "You are not invited to this proposal");
-  }
-
-  return valid();
-}
-
-/**
- * The responding player must not have already responded.
- */
-export function validatePlayerNotResponded(
-  state: GameState,
-  playerId: string,
-  action: PlayerAction
-): ValidationResult {
-  if (action.type !== RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION) return valid();
-
-  const proposal = state.pendingCooperativeAssault;
-  if (!proposal) return valid(); // Handled by validateProposalExists
-
-  if (proposal.acceptedPlayerIds.includes(playerId)) {
-    return invalid(
-      ALREADY_RESPONDED,
-      "You have already responded to this proposal"
-    );
-  }
-
-  return valid();
-}
-
-// ============================================================================
-// Cancel Cooperative Proposal Validators
-// ============================================================================
-
-/**
- * There must be a pending proposal to cancel.
- */
-export function validateProposalExistsForCancel(
-  state: GameState,
-  _playerId: string,
-  action: PlayerAction
-): ValidationResult {
-  if (action.type !== CANCEL_COOPERATIVE_PROPOSAL_ACTION) return valid();
-
-  if (!state.pendingCooperativeAssault) {
-    return invalid(
-      NO_PENDING_PROPOSAL,
-      "There is no pending cooperative assault proposal to cancel"
-    );
-  }
-
-  return valid();
-}
-
-/**
- * The cancelling player must be the initiator.
- */
-export function validatePlayerIsInitiator(
-  state: GameState,
-  playerId: string,
-  action: PlayerAction
-): ValidationResult {
-  if (action.type !== CANCEL_COOPERATIVE_PROPOSAL_ACTION) return valid();
-
-  const proposal = state.pendingCooperativeAssault;
-  if (!proposal) return valid(); // Handled by validateProposalExistsForCancel
-
-  if (proposal.initiatorId !== playerId) {
-    return invalid(
-      NOT_PROPOSAL_INITIATOR,
-      "Only the initiator can cancel the proposal"
     );
   }
 
