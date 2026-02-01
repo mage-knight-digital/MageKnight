@@ -17,6 +17,9 @@ import {
   DISCARD_FILTER_ANY,
 } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
+import { registerEffect } from "./effectRegistry.js";
+import { getPlayerContext } from "./effectHelpers.js";
+import { EFFECT_DISCARD_CARD } from "../../types/effectTypes.js";
 
 /**
  * Get cards in hand that match the filter criteria.
@@ -133,4 +136,19 @@ export function applyDiscardCard(
     state: updatedState,
     description,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all discard effect handlers with the effect registry.
+ * Called during effect system initialization.
+ */
+export function registerDiscardEffects(): void {
+  registerEffect(EFFECT_DISCARD_CARD, (state, playerId, effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return handleDiscardCard(state, playerIndex, player, effect as DiscardCardEffect);
+  });
 }

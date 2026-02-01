@@ -12,6 +12,9 @@ import type { ReadyUnitEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import { UNITS, UNIT_STATE_READY, UNIT_STATE_SPENT } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
+import { registerEffect } from "./effectRegistry.js";
+import { getPlayerContext } from "./effectHelpers.js";
+import { EFFECT_READY_UNIT } from "../../types/effectTypes.js";
 
 /**
  * Get spent units that are at or below a given level.
@@ -125,4 +128,19 @@ export function applyReadyUnit(
     state: updatePlayer(state, playerIndex, updatedPlayer),
     description: `Readied ${unitName}`,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all unit effect handlers with the effect registry.
+ * Called during effect system initialization.
+ */
+export function registerUnitEffects(): void {
+  registerEffect(EFFECT_READY_UNIT, (state, playerId, effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return handleReadyUnit(state, playerIndex, player, effect as ReadyUnitEffect);
+  });
 }

@@ -42,6 +42,12 @@ import type {
 import type { EffectResolutionResult } from "./types.js";
 import { evaluateCondition } from "./conditionEvaluator.js";
 import { evaluateScalingFactor } from "./scalingEvaluator.js";
+import { registerEffect } from "./effectRegistry.js";
+import {
+  EFFECT_COMPOUND,
+  EFFECT_CONDITIONAL,
+  EFFECT_SCALING,
+} from "../../types/effectTypes.js";
 
 // ============================================================================
 // RESOLVER TYPE
@@ -258,4 +264,46 @@ export function resolveScalingEffect(
     description: `${result.description} (scaled by ${scalingCount})`,
     containsScaling: true,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all compound effect handlers with the effect registry.
+ * Called during effect system initialization.
+ *
+ * @param resolver - The main resolveEffect function for recursive resolution
+ */
+export function registerCompoundEffects(resolver: EffectResolver): void {
+  registerEffect(EFFECT_COMPOUND, (state, playerId, effect, sourceCardId) => {
+    return resolveCompoundEffectList(
+      state,
+      playerId,
+      (effect as CompoundEffectType).effects,
+      sourceCardId,
+      resolver
+    );
+  });
+
+  registerEffect(EFFECT_CONDITIONAL, (state, playerId, effect, sourceCardId) => {
+    return resolveConditionalEffect(
+      state,
+      playerId,
+      effect as ConditionalEffectType,
+      sourceCardId,
+      resolver
+    );
+  });
+
+  registerEffect(EFFECT_SCALING, (state, playerId, effect, sourceCardId) => {
+    return resolveScalingEffect(
+      state,
+      playerId,
+      effect as ScalingEffectType,
+      sourceCardId,
+      resolver
+    );
+  });
 }

@@ -111,6 +111,7 @@ export {
   applyModifierEffect,
   MIN_REPUTATION,
   MAX_REPUTATION,
+  registerAtomicEffects,
 } from "./atomicEffects.js";
 
 // Compound effect resolution
@@ -119,22 +120,25 @@ export {
   resolveCompoundEffectList,
   resolveConditionalEffect,
   resolveScalingEffect,
+  registerCompoundEffects,
   type EffectResolver,
 } from "./compound.js";
 
 // Choice effect resolution
-export { resolveChoiceEffect } from "./choice.js";
+export { resolveChoiceEffect, registerChoiceEffects } from "./choice.js";
 
 // Crystallize effects
 export {
   resolveConvertManaToCrystal,
   resolveCrystallizeColor,
+  registerCrystallizeEffects,
 } from "./crystallize.js";
 
 // Card boost effects
 export {
   resolveCardBoostEffect,
   resolveBoostTargetEffect,
+  registerCardBoostEffects,
 } from "./cardBoostResolvers.js";
 export { addBonusToEffect } from "./cardBoostEffects.js";
 
@@ -142,6 +146,7 @@ export { addBonusToEffect } from "./cardBoostEffects.js";
 export {
   resolveSelectCombatEnemy,
   resolveCombatEnemyTarget,
+  registerCombatEffects,
 } from "./combatEffects.js";
 
 // Mana draw effects
@@ -149,12 +154,14 @@ export {
   handleManaDrawPowered,
   handleManaDrawPickDie,
   applyManaDrawSetColor,
+  registerManaDrawEffects,
 } from "./manaDrawEffects.js";
 
 // Unit effects
 export {
   handleReadyUnit,
   getSpentUnitsAtOrBelowLevel,
+  registerUnitEffects,
 } from "./unitEffects.js";
 
 // Heal unit effects
@@ -162,6 +169,7 @@ export {
   handleHealUnit,
   getWoundedUnitsAtOrBelowLevel,
   applyHealUnit,
+  registerHealUnitEffects,
 } from "./healUnitEffects.js";
 
 // Discard effects
@@ -169,20 +177,25 @@ export {
   handleDiscardCard,
   getDiscardableCards,
   applyDiscardCard,
+  registerDiscardEffects,
 } from "./discardEffects.js";
 
 // Map effects
-export { handleRevealTiles } from "./mapEffects.js";
+export { handleRevealTiles, registerMapEffects } from "./mapEffects.js";
 
 // Mana payment effects
 export {
   handlePayMana,
   getPayableManaColors,
   applyPayMana,
+  registerManaPaymentEffects,
 } from "./manaPaymentEffects.js";
 
 // Terrain-based effects
-export { resolveTerrainBasedBlock } from "./terrainEffects.js";
+export { resolveTerrainBasedBlock, registerTerrainEffects } from "./terrainEffects.js";
+
+// Effect helpers
+export { getPlayerContext } from "./effectHelpers.js";
 
 // Effect reversal (for undo)
 export { reverseEffect } from "./reverse.js";

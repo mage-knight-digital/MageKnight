@@ -27,8 +27,10 @@ import type { BasicManaColor } from "@mage-knight/shared";
 import type { ManaDrawPoweredEffect, ManaDrawPickDieEffect, ManaDrawSetColorEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import { MANA_TOKEN_SOURCE_CARD, MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from "@mage-knight/shared";
-import { EFFECT_MANA_DRAW_PICK_DIE, EFFECT_MANA_DRAW_SET_COLOR } from "../../types/effectTypes.js";
+import { EFFECT_MANA_DRAW_POWERED, EFFECT_MANA_DRAW_PICK_DIE, EFFECT_MANA_DRAW_SET_COLOR } from "../../types/effectTypes.js";
 import { updatePlayer } from "./atomicEffects.js";
+import { registerEffect } from "./effectRegistry.js";
+import { getPlayerContext } from "./effectHelpers.js";
 
 /**
  * Entry point for Mana Draw/Mana Pull powered effect.
@@ -279,4 +281,27 @@ function chainToNextDieSelection(
     requiresChoice: true,
     dynamicChoiceOptions: dieOptions,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all mana draw effect handlers with the effect registry.
+ * Called during effect system initialization.
+ */
+export function registerManaDrawEffects(): void {
+  registerEffect(EFFECT_MANA_DRAW_POWERED, (state, _playerId, effect) => {
+    return handleManaDrawPowered(state, effect as ManaDrawPoweredEffect);
+  });
+
+  registerEffect(EFFECT_MANA_DRAW_PICK_DIE, (state, _playerId, effect) => {
+    return handleManaDrawPickDie(state, effect as ManaDrawPickDieEffect);
+  });
+
+  registerEffect(EFFECT_MANA_DRAW_SET_COLOR, (state, playerId, effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return applyManaDrawSetColor(state, playerIndex, player, effect as ManaDrawSetColorEffect);
+  });
 }

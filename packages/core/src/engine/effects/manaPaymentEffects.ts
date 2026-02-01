@@ -11,6 +11,9 @@ import type { PayManaCostEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import type { ManaColor } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
+import { registerEffect } from "./effectRegistry.js";
+import { getPlayerContext } from "./effectHelpers.js";
+import { EFFECT_PAY_MANA } from "../../types/effectTypes.js";
 
 /**
  * Get available mana tokens that match the allowed colors.
@@ -120,4 +123,19 @@ export function applyPayMana(
     state: updatePlayer(state, playerIndex, updatedPlayer),
     description: `Paid ${amount} ${color} mana`,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all mana payment effect handlers with the effect registry.
+ * Called during effect system initialization.
+ */
+export function registerManaPaymentEffects(): void {
+  registerEffect(EFFECT_PAY_MANA, (state, playerId, effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return handlePayMana(state, playerIndex, player, effect as PayManaCostEffect);
+  });
 }

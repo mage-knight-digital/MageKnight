@@ -41,6 +41,9 @@ import {
   generateBoostChoiceOptions,
   addBonusToEffect,
 } from "./cardBoostEffects.js";
+import { registerEffect } from "./effectRegistry.js";
+import { getPlayerContext } from "./effectHelpers.js";
+import { EFFECT_CARD_BOOST, EFFECT_RESOLVE_BOOST_TARGET } from "../../types/effectTypes.js";
 
 // ============================================================================
 // CARD BOOST (Entry Point)
@@ -156,4 +159,33 @@ export function resolveBoostTargetEffect(
     ...result,
     description: `Boosted ${targetCard.name}: ${result.description}`,
   };
+}
+
+// ============================================================================
+// EFFECT REGISTRATION
+// ============================================================================
+
+/**
+ * Register all card boost effect handlers with the effect registry.
+ * Called during effect system initialization.
+ *
+ * @param resolver - The main resolveEffect function for recursive resolution
+ */
+export function registerCardBoostEffects(resolver: EffectResolver): void {
+  registerEffect(EFFECT_CARD_BOOST, (state, playerId, effect) => {
+    const { player } = getPlayerContext(state, playerId);
+    return resolveCardBoostEffect(state, player, effect as CardBoostEffect);
+  });
+
+  registerEffect(EFFECT_RESOLVE_BOOST_TARGET, (state, playerId, effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return resolveBoostTargetEffect(
+      state,
+      playerId,
+      playerIndex,
+      player,
+      effect as ResolveBoostTargetEffect,
+      resolver
+    );
+  });
 }
