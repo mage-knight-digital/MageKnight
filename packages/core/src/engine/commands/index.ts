@@ -174,7 +174,9 @@ export {
   createResolveTacticDecisionCommand,
   type ResolveTacticDecisionCommandArgs,
   RESOLVE_TACTIC_DECISION_COMMAND,
-} from "./resolveTacticDecisionCommand.js";
+  // Also export shared helpers for use by selectTacticCommand
+  calculateTurnOrder,
+} from "./tactics/index.js";
 
 // Mana Search reroll command
 export {

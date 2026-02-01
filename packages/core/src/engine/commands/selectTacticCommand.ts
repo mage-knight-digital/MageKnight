@@ -36,6 +36,7 @@ import { getTacticCard } from "../../data/tactics.js";
 import { SELECT_TACTIC_COMMAND } from "./commandTypes.js";
 import { randomElement, type RngState } from "../../utils/rng.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { calculateTurnOrder } from "./tactics/helpers.js";
 
 export { SELECT_TACTIC_COMMAND };
 
@@ -80,27 +81,6 @@ function validateSelection(
   }
 
   return null;
-}
-
-/**
- * Calculate turn order based on selected tactics
- * Lower turn order number goes first
- */
-function calculateTurnOrder(players: readonly Player[]): string[] {
-  // Sort players by their tactic's turn order number
-  const playersWithTactics: Array<{ playerId: string; turnOrder: number }> = [];
-
-  for (const player of players) {
-    if (player.selectedTactic !== null) {
-      playersWithTactics.push({
-        playerId: player.id,
-        turnOrder: getTacticCard(player.selectedTactic).turnOrder,
-      });
-    }
-  }
-
-  playersWithTactics.sort((a, b) => a.turnOrder - b.turnOrder);
-  return playersWithTactics.map((p) => p.playerId);
 }
 
 export function createSelectTacticCommand(
