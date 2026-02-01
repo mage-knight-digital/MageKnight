@@ -36,8 +36,13 @@ import {
   ACHIEVEMENT_MODE_COMPETITIVE,
   ACHIEVEMENT_MODE_SOLO,
   BASE_SCORE_INDIVIDUAL_FAME,
+  BASE_SCORE_LOWEST_FAME,
+  BASE_SCORE_VICTORY_POINTS,
+  BASE_SCORE_NONE,
 } from "@mage-knight/shared";
+import type { ModuleScoreResult } from "@mage-knight/shared";
 import { ACHIEVEMENT_CALCULATORS } from "./achievementCalculators.js";
+import { calculateModuleScores } from "./modules/index.js";
 
 /**
  * Configuration for an achievement category's title logic.
@@ -275,7 +280,98 @@ export function calculateAchievementResults(
 }
 
 /**
+ * Calculate base score for each player based on the scoring mode.
+ *
+ * @param players - All players in the game
+ * @param mode - The base score calculation mode
+ * @returns Map of player ID to base score
+ */
+function calculateBaseScores(
+  players: readonly Player[],
+  mode: ScenarioScoringConfig["baseScoreMode"]
+): Map<string, number> {
+  switch (mode) {
+    case BASE_SCORE_INDIVIDUAL_FAME:
+      // Each player uses their own Fame
+      return new Map(players.map((p) => [p.id, p.fame]));
+
+    case BASE_SCORE_LOWEST_FAME: {
+      // Co-op: All players use the lowest Fame among all players
+      const lowestFame =
+        players.length > 0 ? Math.min(...players.map((p) => p.fame)) : 0;
+      return new Map(players.map((p) => [p.id, lowestFame]));
+    }
+
+    case BASE_SCORE_VICTORY_POINTS:
+      // Alternative scoring system - not Fame-based
+      // Return 0 for now; future scenarios may define victory points differently
+      return new Map(players.map((p) => [p.id, 0]));
+
+    case BASE_SCORE_NONE:
+      // No base score - scoring comes only from achievements/modules
+      return new Map(players.map((p) => [p.id, 0]));
+
+    default: {
+      // Exhaustive check - TypeScript will error if new mode added without handling
+      const _exhaustive: never = mode;
+      throw new Error(`Unknown base score mode: ${String(_exhaustive)}`);
+    }
+  }
+}
+
+/**
+ * Group module results by module, then extract per-player results.
+ *
+ * The module dispatcher returns a flat array of results where each module
+ * contributes one result per player (in player order). This function
+ * reorganizes the results so we can easily get all module results for a
+ * specific player.
+ *
+ * @param allModuleResults - Flat array from calculateModuleScores
+ * @param moduleCount - Number of modules configured
+ * @param playerCount - Number of players
+ * @returns Array indexed by player, containing their module results
+ */
+function groupModuleResultsByPlayer(
+  allModuleResults: readonly ModuleScoreResult[],
+  moduleCount: number,
+  playerCount: number
+): ModuleScoreResult[][] {
+  // Each module returns playerCount results, in player order
+  // So allModuleResults has length = moduleCount * playerCount
+  // Results are laid out as:
+  //   [module0_player0, module0_player1, ..., module1_player0, module1_player1, ...]
+
+  // Initialize per-player arrays
+  const resultsByPlayer: ModuleScoreResult[][] = Array.from(
+    { length: playerCount },
+    () => []
+  );
+
+  for (let moduleIdx = 0; moduleIdx < moduleCount; moduleIdx++) {
+    const moduleStartOffset = moduleIdx * playerCount;
+    for (let playerIdx = 0; playerIdx < playerCount; playerIdx++) {
+      const result = allModuleResults[moduleStartOffset + playerIdx];
+      if (result) {
+        resultsByPlayer[playerIdx]?.push(result);
+      }
+    }
+  }
+
+  return resultsByPlayer;
+}
+
+/**
  * Calculate complete final scores for all players.
+ *
+ * This is the main scoring orchestration function that combines:
+ * 1. Base scores (based on baseScoreMode: individual_fame, lowest_fame, etc.)
+ * 2. Achievement scores (if enabled)
+ * 3. Module scores (city conquest, time efficiency, etc.)
+ *
+ * @param state - Current game state
+ * @param scoringConfig - Scenario-specific scoring configuration
+ * @returns Complete final score results including rankings and tie detection
  */
 export function calculateFinalScores(
   state: GameState,
@@ -284,7 +380,10 @@ export function calculateFinalScores(
   const players = state.players;
   const playerResults: PlayerScoreResult[] = [];
 
-  // Calculate achievement results if enabled
+  // Step 1: Calculate base scores for all players based on mode
+  const baseScorePerPlayer = calculateBaseScores(players, scoringConfig.baseScoreMode);
+
+  // Step 2: Calculate achievement results if enabled
   let achievementResults: Map<string, AchievementScoreResult> | null = null;
   if (scoringConfig.achievements.enabled) {
     achievementResults = calculateAchievementResults(
@@ -294,24 +393,37 @@ export function calculateFinalScores(
     );
   }
 
-  // Build player results
-  for (const player of players) {
-    // Base score (Fame)
-    let baseScore = 0;
-    if (scoringConfig.baseScoreMode === BASE_SCORE_INDIVIDUAL_FAME) {
-      baseScore = player.fame;
-    }
-    // TODO: Handle other base score modes (lowest_fame, victory_points, none)
+  // Step 3: Calculate module scores if any modules enabled
+  const allModuleResults =
+    scoringConfig.modules.length > 0
+      ? calculateModuleScores(state, scoringConfig.modules)
+      : [];
+
+  // Group module results by player for easy lookup
+  const moduleResultsByPlayer = groupModuleResultsByPlayer(
+    allModuleResults,
+    scoringConfig.modules.length,
+    players.length
+  );
+
+  // Step 4: Build player results
+  for (let playerIndex = 0; playerIndex < players.length; playerIndex++) {
+    const player = players[playerIndex];
+    if (!player) continue;
+
+    // Base score
+    const baseScore = baseScorePerPlayer.get(player.id) ?? 0;
 
     // Achievement points
     const achievements = achievementResults?.get(player.id);
     const achievementPoints = achievements?.totalAchievementPoints ?? 0;
 
-    // Module points (to be implemented for other scoring modules)
-    const moduleResults: PlayerScoreResult["moduleResults"] = [];
+    // Module results and points for this player
+    const moduleResults = moduleResultsByPlayer[playerIndex] ?? [];
+    const modulePoints = moduleResults.reduce((sum, r) => sum + r.points, 0);
 
     // Total score
-    const totalScore = baseScore + achievementPoints;
+    const totalScore = baseScore + achievementPoints + modulePoints;
 
     const playerResult: PlayerScoreResult = {
       playerId: player.id,
@@ -320,7 +432,7 @@ export function calculateFinalScores(
       totalScore,
     };
 
-    // Only add achievements if they were calculated
+    // Add achievements if they were calculated
     if (achievements) {
       playerResults.push({
         ...playerResult,
@@ -331,13 +443,13 @@ export function calculateFinalScores(
     }
   }
 
-  // Sort by total score descending to determine rankings
+  // Step 5: Sort by total score descending to determine rankings
   const sortedResults = [...playerResults].sort(
     (a, b) => b.totalScore - a.totalScore
   );
   const rankings = sortedResults.map((r) => r.playerId);
 
-  // Check for tie
+  // Step 6: Check for tie (first and second place have same score)
   const firstResult = sortedResults[0];
   const secondResult = sortedResults[1];
   const isTied =
