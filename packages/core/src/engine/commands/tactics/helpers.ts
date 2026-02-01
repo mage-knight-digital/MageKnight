@@ -10,7 +10,7 @@ import {
   ROUND_PHASE_PLAYER_TURNS,
   TACTIC_SPARING_POWER,
 } from "@mage-knight/shared";
-import { getTacticCard } from "../../../data/tactics.js";
+import { getTacticCard } from "../../../data/tactics/index.js";
 
 /**
  * Calculate turn order based on selected tactics

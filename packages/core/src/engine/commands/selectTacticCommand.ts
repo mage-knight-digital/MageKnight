@@ -32,7 +32,7 @@ import {
   TACTIC_PREPARATION,
   BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
-import { getTacticCard } from "../../data/tactics.js";
+import { getTacticCard } from "../../data/tactics/index.js";
 import { SELECT_TACTIC_COMMAND } from "./commandTypes.js";
 import { randomElement, type RngState } from "../../utils/rng.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";

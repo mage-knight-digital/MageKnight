@@ -26,7 +26,7 @@ import { createTacticsSelectionState } from "./testHelpers.js";
 import { createRng } from "../../utils/rng.js";
 import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "../commands/tactics/index.js";
-import { getTacticCard } from "../../data/tactics.js";
+import { getTacticCard } from "../../data/tactics/index.js";
 import { getTurnOptions } from "../validActions/turn.js";
 import { getValidActions } from "../validActions/index.js";
 import { validateNoTacticDecisionPending } from "../validators/choiceValidators.js";
