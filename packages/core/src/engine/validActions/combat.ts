@@ -51,7 +51,9 @@ import {
   getEffectiveEnemyAttack,
   doesEnemyAttackThisCombat,
   isAbilityNullified,
+  areResistancesRemoved,
 } from "../modifiers.js";
+import { ABILITY_FORTIFIED } from "@mage-knight/shared";
 import type { Resistances } from "../combat/elementalCalc.js";
 import { isAttackResisted, calculateTotalBlock } from "../combat/elementalCalc.js";
 import type { ElementalAttackValues } from "../../types/player.js";
@@ -116,9 +118,13 @@ function computeAvailableAttack(
 
 /**
  * Get enemy resistances as Resistances type.
- * Enemy definitions already have a resistances field.
+ * Returns empty array if resistances have been removed by a modifier (Expose spell).
  */
-function getEnemyResistances(enemy: CombatEnemy): Resistances {
+function getEnemyResistances(state: GameState, enemy: CombatEnemy): Resistances {
+  // Check if resistances have been removed by a modifier (Expose spell)
+  if (areResistancesRemoved(state, enemy.instanceId)) {
+    return [];
+  }
   return enemy.definition.resistances;
 }
 
@@ -177,11 +183,13 @@ function calculateEffectiveDamage(
  * Compute the attack state for a single enemy during RANGED_SIEGE or ATTACK phase.
  */
 function computeEnemyAttackState(
+  state: GameState,
   enemy: CombatEnemy,
   combat: CombatState,
-  isRangedSiegePhase: boolean
+  isRangedSiegePhase: boolean,
+  playerId: string
 ): EnemyAttackState {
-  const resistances = getEnemyResistances(enemy);
+  const resistances = getEnemyResistances(state, enemy);
 
   // Get pending damage for this enemy (or empty if none assigned yet)
   const rawPending = combat.pendingDamage[enemy.instanceId] ?? createEmptyPendingDamage();
@@ -206,8 +214,16 @@ function computeEnemyAttackState(
   const armor = enemy.definition.armor;
   const canDefeat = totalEffectiveDamage >= armor;
 
-  // Determine if enemy requires siege (fortified site during ranged/siege phase)
-  const isFortified = combat.isAtFortifiedSite;
+  // Determine if enemy is fortified - check both site fortification and enemy ability
+  // Consider fortification removal by modifiers (Expose spell)
+  const hasAbilityFortified =
+    enemy.definition.abilities.includes(ABILITY_FORTIFIED) &&
+    !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_FORTIFIED);
+  const hasSiteFortification =
+    combat.isAtFortifiedSite &&
+    enemy.isRequiredForConquest &&
+    !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_FORTIFIED);
+  const isFortified = hasAbilityFortified || hasSiteFortification;
   const requiresSiege = isRangedSiegePhase && isFortified;
 
   return {
@@ -709,9 +725,9 @@ function computeAttackPhaseOptions(
     isRangedSiegePhase
   );
 
-  // Compute enemy states
+  // Compute enemy states (pass state and playerId for modifier checks)
   const enemyStates = combat.enemies.map((enemy) =>
-    computeEnemyAttackState(enemy, combat, isRangedSiegePhase)
+    computeEnemyAttackState(state, enemy, combat, isRangedSiegePhase, player.id)
   );
 
   // Generate assignable attacks

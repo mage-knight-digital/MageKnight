@@ -19,7 +19,7 @@ import {
   combineResistances,
   type Resistances,
 } from "../../combat/elementalCalc.js";
-import { getEffectiveEnemyArmor } from "../../modifiers.js";
+import { getEffectiveEnemyArmor, areResistancesRemoved } from "../../modifiers.js";
 
 export const DECLARE_ATTACK_COMMAND = "DECLARE_ATTACK" as const;
 
@@ -63,10 +63,13 @@ export function createDeclareAttackCommand(
         );
       }, 0);
 
-      // Get combined resistances of all targets
+      // Get combined resistances of all targets (accounting for resistance removal modifiers)
       const targetResistances = combineResistances(
         targets.map((e) => ({
-          resistances: e.definition.resistances as Resistances,
+          // Check if resistances have been removed by a modifier (Expose spell)
+          resistances: areResistancesRemoved(state, e.instanceId)
+            ? []
+            : (e.definition.resistances as Resistances),
         }))
       );
 

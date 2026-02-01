@@ -88,4 +88,8 @@ export const ABILITY_ANY = "any" as const;
 // Enemy does not attack this combat (used by Chill, Whirlwind)
 export const EFFECT_ENEMY_SKIP_ATTACK = "enemy_skip_attack" as const;
 
+// === EnemyRemoveResistancesModifier ===
+// Enemy loses all resistances this combat (used by Expose)
+export const EFFECT_REMOVE_RESISTANCES = "remove_resistances" as const;
+
 

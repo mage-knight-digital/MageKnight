@@ -22,6 +22,7 @@ import {
   EFFECT_COMBAT_VALUE,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
+  EFFECT_REMOVE_RESISTANCES,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
   EFFECT_TERRAIN_COST,
@@ -156,6 +157,12 @@ export interface EnemySkipAttackModifier {
   readonly type: typeof EFFECT_ENEMY_SKIP_ATTACK;
 }
 
+// Enemy remove resistances modifier (e.g., "enemy loses all resistances")
+// Used by Expose spell
+export interface EnemyRemoveResistancesModifier {
+  readonly type: typeof EFFECT_REMOVE_RESISTANCES;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -164,7 +171,8 @@ export type ModifierEffect =
   | EnemyStatModifier
   | RuleOverrideModifier
   | AbilityNullifierModifier
-  | EnemySkipAttackModifier;
+  | EnemySkipAttackModifier
+  | EnemyRemoveResistancesModifier;
 
 // === Active Modifier (live in game state) ===
 
