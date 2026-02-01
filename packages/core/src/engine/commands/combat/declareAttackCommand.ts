@@ -19,7 +19,7 @@ import {
   combineResistances,
   type Resistances,
 } from "../../combat/elementalCalc.js";
-import { getEffectiveEnemyArmor, areResistancesRemoved } from "../../modifiers.js";
+import { getEffectiveEnemyArmor, areResistancesRemoved } from "../../modifiers/index.js";
 
 export const DECLARE_ATTACK_COMMAND = "DECLARE_ATTACK" as const;
 

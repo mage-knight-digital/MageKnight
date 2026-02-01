@@ -53,7 +53,7 @@ import {
   COMBAT_PHASE_ATTACK,
   COMBAT_PHASE_ASSIGN_DAMAGE,
 } from "../../types/combat.js";
-import { getEffectiveTerrainCost } from "../modifiers.js";
+import { getEffectiveTerrainCost } from "../modifiers/index.js";
 
 describe("Unit Combat Abilities", () => {
   let engine: ReturnType<typeof createEngine>;

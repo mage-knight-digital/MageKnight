@@ -28,7 +28,7 @@ import {
   ELEMENT_COLD_FIRE,
   ABILITY_SWIFT,
 } from "@mage-knight/shared";
-import { addModifier } from "../modifiers.js";
+import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_COMBAT,
   SCOPE_ONE_ENEMY,

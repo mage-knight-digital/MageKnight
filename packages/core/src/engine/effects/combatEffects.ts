@@ -34,7 +34,7 @@ import type {
 } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import { EFFECT_RESOLVE_COMBAT_ENEMY_TARGET } from "../../types/effectTypes.js";
-import { addModifier } from "../modifiers.js";
+import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_COMBAT,
   SCOPE_ONE_ENEMY,

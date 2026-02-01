@@ -17,7 +17,7 @@ import type { EffectResolutionResult } from "./types.js";
 import { CARD_WOUND, MANA_TOKEN_SOURCE_CARD, MIN_REPUTATION, MAX_REPUTATION, getLevelsCrossed } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE, ELEMENT_PHYSICAL } from "@mage-knight/shared";
 import { COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE } from "../../types/effectTypes.js";
-import { addModifier } from "../modifiers.js";
+import { addModifier } from "../modifiers/index.js";
 import { SOURCE_CARD, SCOPE_SELF } from "../modifierConstants.js";
 
 // === Shared helpers ===

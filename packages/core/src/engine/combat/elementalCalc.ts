@@ -18,7 +18,7 @@ import {
   RESIST_ICE,
 } from "@mage-knight/shared";
 import type { GameState } from "../../state/GameState.js";
-import { getEffectiveCombatBonus } from "../modifiers.js";
+import { getEffectiveCombatBonus } from "../modifiers/index.js";
 import {
   COMBAT_VALUE_ATTACK,
   COMBAT_VALUE_BLOCK,

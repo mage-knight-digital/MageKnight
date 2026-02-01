@@ -11,7 +11,7 @@
  */
 
 import type { GameState } from "../../../state/GameState.js";
-import { addModifier } from "../../modifiers.js";
+import { addModifier } from "../../modifiers/index.js";
 import { SKILL_TOVAK_WHO_NEEDS_MAGIC } from "../../../data/skills/index.js";
 import {
   DURATION_TURN,

@@ -21,7 +21,7 @@ import {
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ASSIGN_DAMAGE,
 } from "../../../types/combat.js";
-import { doesEnemyAttackThisCombat, getEffectiveEnemyAttack } from "../../modifiers.js";
+import { doesEnemyAttackThisCombat, getEffectiveEnemyAttack } from "../../modifiers/index.js";
 import {
   WRONG_COMBAT_PHASE,
   INVALID_ATTACK_TYPE,

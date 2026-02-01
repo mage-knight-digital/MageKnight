@@ -16,7 +16,7 @@ import {
 } from "@mage-knight/shared";
 import type { CombatEnemy } from "../../types/combat.js";
 import type { GameState } from "../../state/GameState.js";
-import { areResistancesRemoved } from "../modifiers.js";
+import { areResistancesRemoved } from "../modifiers/index.js";
 import type { Resistances } from "../combat/elementalCalc.js";
 import { isAttackResisted } from "../combat/elementalCalc.js";
 

@@ -21,7 +21,7 @@ import {
   getEffectiveEnemyAttack,
   doesEnemyAttackThisCombat,
   isAbilityNullified,
-} from "../modifiers.js";
+} from "../modifiers/index.js";
 import { isAttackResisted } from "../combat/elementalCalc.js";
 import {
   getEnemyAttack,

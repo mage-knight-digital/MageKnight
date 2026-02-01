@@ -47,7 +47,7 @@ import {
   SCOPE_ONE_ENEMY,
   SOURCE_SKILL,
 } from "../../../types/modifierConstants.js";
-import { addModifier } from "../../modifiers.js";
+import { addModifier } from "../../modifiers/index.js";
 
 /**
  * Helper to set up accumulated attack values in the player's combatAccumulator.

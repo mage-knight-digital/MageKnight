@@ -35,7 +35,7 @@ import {
   getUnit,
 } from "@mage-knight/shared";
 import { isAttackResisted } from "../../combat/elementalCalc.js";
-import { isAbilityNullified } from "../../modifiers.js";
+import { isAbilityNullified } from "../../modifiers/index.js";
 import {
   getEnemyAttack,
   getEnemyAttacks,

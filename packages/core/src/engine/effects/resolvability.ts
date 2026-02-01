@@ -62,7 +62,7 @@ import {
   EFFECT_RULE_OVERRIDE,
   RULE_EXTRA_SOURCE_DIE,
 } from "../modifierConstants.js";
-import { isRuleActive } from "../modifiers.js";
+import { isRuleActive } from "../modifiers/index.js";
 import { getSpentUnitsAtOrBelowLevel } from "./unitEffects.js";
 
 // ============================================================================

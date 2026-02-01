@@ -7,7 +7,7 @@
 
 import type { UnitTerrainModifier } from "@mage-knight/shared";
 import type { GameState } from "../../../../state/GameState.js";
-import { addModifier } from "../../../modifiers.js";
+import { addModifier } from "../../../modifiers/index.js";
 import {
   DURATION_TURN,
   EFFECT_TERRAIN_COST,

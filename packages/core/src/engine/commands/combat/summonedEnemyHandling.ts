@@ -22,7 +22,7 @@ import {
   getEnemyIdFromToken,
   discardEnemy,
 } from "../../helpers/enemy/index.js";
-import { isAbilityNullified } from "../../modifiers.js";
+import { isAbilityNullified } from "../../modifiers/index.js";
 
 /**
  * Get the summon ability type for an enemy (null if no summon ability)

@@ -41,7 +41,7 @@ export type {
 } from "./validators/types.js";
 
 // Modifier system
-export type { ExpirationTrigger } from "./modifiers.js";
+export type { ExpirationTrigger } from "./modifiers/index.js";
 export {
   // Query helpers
   getModifiersOfType,
@@ -57,7 +57,7 @@ export {
   addModifier,
   removeModifier,
   expireModifiers,
-} from "./modifiers.js";
+} from "./modifiers/index.js";
 
 // Mana source management
 export {

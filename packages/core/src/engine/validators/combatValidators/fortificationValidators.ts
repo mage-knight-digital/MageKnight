@@ -22,7 +22,7 @@ import {
   NO_SIEGE_ATTACK_ACCUMULATED,
 } from "../validationCodes.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
-import { isAbilityNullified } from "../../modifiers.js";
+import { isAbilityNullified } from "../../modifiers/index.js";
 
 /**
  * Calculate fortification level for an enemy.

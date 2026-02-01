@@ -18,7 +18,7 @@ import {
   ELEMENT_PHYSICAL,
   createCardPlayUndoneEvent,
 } from "@mage-knight/shared";
-import { getEffectiveSidewaysValue } from "../modifiers.js";
+import { getEffectiveSidewaysValue } from "../modifiers/index.js";
 import { PLAY_CARD_SIDEWAYS_COMMAND } from "./commandTypes.js";
 
 export { PLAY_CARD_SIDEWAYS_COMMAND };

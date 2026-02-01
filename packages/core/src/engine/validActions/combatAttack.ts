@@ -33,7 +33,7 @@ import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
-import { isAbilityNullified } from "../modifiers.js";
+import { isAbilityNullified } from "../modifiers/index.js";
 import {
   getEnemyResistances,
   calculateEffectiveDamage,

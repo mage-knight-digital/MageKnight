@@ -7,7 +7,7 @@ import type { PlayerAction, HexCoord } from "@mage-knight/shared";
 import { MOVE_ACTION } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
-import { getEffectiveTerrainCost } from "../modifiers.js";
+import { getEffectiveTerrainCost } from "../modifiers/index.js";
 import {
   HEX_NOT_FOUND,
   IMPASSABLE,
