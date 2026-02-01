@@ -9,6 +9,15 @@
  * - Choose one from: drawn pair OR common pool
  * - Rejected skill(s) go to common pool
  *
+ * ## Adding New Skills
+ *
+ * To add a new skill, only modify the hero's file (e.g., arythea.ts):
+ * 1. Add the skill ID constant
+ * 2. Add the skill definition to HERO_SKILLS record
+ * 3. Add the ID to HERO_SKILL_IDS array
+ *
+ * No changes needed to this index file - wildcard exports handle it automatically.
+ *
  * @module data/skills
  */
 
@@ -29,106 +38,19 @@ export {
 } from "./types.js";
 
 // ============================================================================
-// Re-export all Skill ID Constants
+// Re-export all Skill ID Constants (via wildcard exports)
+//
+// Using `export *` means adding a new skill to a hero file automatically
+// makes it available here - no need to update this file.
 // ============================================================================
 
-// Arythea Skills
-export {
-  SKILL_ARYTHEA_DARK_PATHS,
-  SKILL_ARYTHEA_BURNING_POWER,
-  SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
-  SKILL_ARYTHEA_DARK_NEGOTIATION,
-  SKILL_ARYTHEA_DARK_FIRE_MAGIC,
-  SKILL_ARYTHEA_POWER_OF_PAIN,
-  SKILL_ARYTHEA_INVOCATION,
-  SKILL_ARYTHEA_POLARIZATION,
-  SKILL_ARYTHEA_MOTIVATION,
-  SKILL_ARYTHEA_HEALING_RITUAL,
-} from "./arythea.js";
-
-// Tovak Skills
-export {
-  SKILL_TOVAK_DOUBLE_TIME,
-  SKILL_TOVAK_NIGHT_SHARPSHOOTING,
-  SKILL_TOVAK_COLD_SWORDSMANSHIP,
-  SKILL_TOVAK_SHIELD_MASTERY,
-  SKILL_TOVAK_RESISTANCE_BREAK,
-  SKILL_TOVAK_I_FEEL_NO_PAIN,
-  SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
-  SKILL_TOVAK_WHO_NEEDS_MAGIC,
-  SKILL_TOVAK_MOTIVATION,
-  SKILL_TOVAK_MANA_EXPLOIT,
-} from "./tovak.js";
-
-// Goldyx Skills
-export {
-  SKILL_GOLDYX_FREEZING_POWER,
-  SKILL_GOLDYX_POTION_MAKING,
-  SKILL_GOLDYX_WHITE_CRYSTAL_CRAFT,
-  SKILL_GOLDYX_GREEN_CRYSTAL_CRAFT,
-  SKILL_GOLDYX_RED_CRYSTAL_CRAFT,
-  SKILL_GOLDYX_GLITTERING_FORTUNE,
-  SKILL_GOLDYX_FLIGHT,
-  SKILL_GOLDYX_UNIVERSAL_POWER,
-  SKILL_GOLDYX_MOTIVATION,
-  SKILL_GOLDYX_SOURCE_FREEZE,
-} from "./goldyx.js";
-
-// Norowas Skills
-export {
-  SKILL_NOROWAS_FORWARD_MARCH,
-  SKILL_NOROWAS_DAY_SHARPSHOOTING,
-  SKILL_NOROWAS_INSPIRATION,
-  SKILL_NOROWAS_BRIGHT_NEGOTIATION,
-  SKILL_NOROWAS_LEAVES_IN_THE_WIND,
-  SKILL_NOROWAS_WHISPERS_IN_THE_TREETOPS,
-  SKILL_NOROWAS_LEADERSHIP,
-  SKILL_NOROWAS_BONDS_OF_LOYALTY,
-  SKILL_NOROWAS_MOTIVATION,
-  SKILL_NOROWAS_PRAYER_OF_WEATHER,
-} from "./norowas.js";
-
-// Wolfhawk Skills
-export {
-  SKILL_WOLFHAWK_REFRESHING_BATH,
-  SKILL_WOLFHAWK_REFRESHING_BREEZE,
-  SKILL_WOLFHAWK_HAWK_EYES,
-  SKILL_WOLFHAWK_ON_HER_OWN,
-  SKILL_WOLFHAWK_DEADLY_AIM,
-  SKILL_WOLFHAWK_KNOW_YOUR_PREY,
-  SKILL_WOLFHAWK_TAUNT,
-  SKILL_WOLFHAWK_DUELING,
-  SKILL_WOLFHAWK_MOTIVATION,
-  SKILL_WOLFHAWK_WOLFS_HOWL,
-} from "./wolfhawk.js";
-
-// Krang Skills
-export {
-  SKILL_KRANG_SPIRIT_GUIDES,
-  SKILL_KRANG_BATTLE_HARDENED,
-  SKILL_KRANG_BATTLE_FRENZY,
-  SKILL_KRANG_SHAMANIC_RITUAL,
-  SKILL_KRANG_REGENERATE,
-  SKILL_KRANG_ARCANE_DISGUISE,
-  SKILL_KRANG_PUPPET_MASTER,
-  SKILL_KRANG_MASTER_OF_CHAOS,
-  SKILL_KRANG_CURSE,
-  SKILL_KRANG_MANA_SUPPRESSION,
-} from "./krang.js";
-
-// Braevalar Skills
-export {
-  SKILL_BRAEVALAR_ELEMENTAL_RESISTANCE,
-  SKILL_BRAEVALAR_FERAL_ALLIES,
-  SKILL_BRAEVALAR_THUNDERSTORM,
-  SKILL_BRAEVALAR_LIGHTNING_STORM,
-  SKILL_BRAEVALAR_BEGUILE,
-  SKILL_BRAEVALAR_FORKED_LIGHTNING,
-  SKILL_BRAEVALAR_SHAPESHIFT,
-  SKILL_BRAEVALAR_SECRET_WAYS,
-  SKILL_BRAEVALAR_REGENERATE,
-  SKILL_BRAEVALAR_NATURES_VENGEANCE,
-} from "./braevalar.js";
+export * from "./arythea.js";
+export * from "./tovak.js";
+export * from "./goldyx.js";
+export * from "./norowas.js";
+export * from "./wolfhawk.js";
+export * from "./krang.js";
+export * from "./braevalar.js";
 
 // ============================================================================
 // Import hero skill modules for combining
