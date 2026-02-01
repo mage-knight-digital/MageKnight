@@ -1,40 +1,4 @@
 /**
- * White spell card definitions
- *
- * White spells are powered by BLACK + WHITE mana.
- */
-
-import type { DeedCard } from "../../types/cards.js";
-import {
-  CATEGORY_COMBAT,
-  DEED_CARD_TYPE_SPELL,
-} from "../../types/cards.js";
-import {
-  EFFECT_COMPOUND,
-  EFFECT_GAIN_ATTACK,
-  EFFECT_SELECT_COMBAT_ENEMY,
-  EFFECT_CHOICE,
-  EFFECT_APPLY_MODIFIER,
-  COMBAT_TYPE_RANGED,
-} from "../../types/effectTypes.js";
-import {
-  MANA_WHITE,
-  MANA_BLACK,
-  CARD_EXPOSE,
-  CARD_WHIRLWIND,
-  ABILITY_FORTIFIED,
-} from "@mage-knight/shared";
-import type { CardId } from "@mage-knight/shared";
-import {
-  DURATION_COMBAT,
-  EFFECT_ABILITY_NULLIFIER,
-  EFFECT_ENEMY_SKIP_ATTACK,
-  EFFECT_REMOVE_RESISTANCES,
-  SCOPE_ALL_ENEMIES,
-} from "../../types/modifierConstants.js";
-import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
-
-/**
  * Expose / Mass Expose (White Spell #19)
  *
  * Basic (Expose): Target enemy loses all fortifications and resistances. Ranged Attack 2.
@@ -47,7 +11,34 @@ import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
  *
  * Note: Arcane Immunity blocks the modifier effects (but ranged attack still works).
  */
-const EXPOSE: DeedCard = {
+
+import type { DeedCard } from "../../../types/cards.js";
+import {
+  CATEGORY_COMBAT,
+  DEED_CARD_TYPE_SPELL,
+} from "../../../types/cards.js";
+import {
+  EFFECT_COMPOUND,
+  EFFECT_GAIN_ATTACK,
+  EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_CHOICE,
+  EFFECT_APPLY_MODIFIER,
+  COMBAT_TYPE_RANGED,
+} from "../../../types/effectTypes.js";
+import {
+  MANA_WHITE,
+  MANA_BLACK,
+  CARD_EXPOSE,
+  ABILITY_FORTIFIED,
+} from "@mage-knight/shared";
+import {
+  DURATION_COMBAT,
+  EFFECT_ABILITY_NULLIFIER,
+  EFFECT_REMOVE_RESISTANCES,
+  SCOPE_ALL_ENEMIES,
+} from "../../../types/modifierConstants.js";
+
+export const EXPOSE: DeedCard = {
   id: CARD_EXPOSE,
   name: "Expose",
   poweredName: "Mass Expose",
@@ -115,41 +106,4 @@ const EXPOSE: DeedCard = {
     ],
   },
   sidewaysValue: 1,
-};
-
-/**
- * Whirlwind / Tornado (White Spell #22)
- * Basic: Target enemy does not attack.
- * Powered (Tornado): Defeat target enemy. Can only be played in Attack phase.
- */
-const WHIRLWIND: DeedCard = {
-  id: CARD_WHIRLWIND,
-  name: "Whirlwind",
-  poweredName: "Tornado",
-  cardType: DEED_CARD_TYPE_SPELL,
-  categories: [CATEGORY_COMBAT],
-  poweredBy: [MANA_BLACK, MANA_WHITE],
-  basicEffect: {
-    type: EFFECT_SELECT_COMBAT_ENEMY,
-    template: {
-      modifiers: [
-        {
-          modifier: { type: EFFECT_ENEMY_SKIP_ATTACK },
-          duration: DURATION_COMBAT,
-          description: "Target enemy does not attack",
-        },
-      ],
-    },
-  },
-  poweredEffect: {
-    type: EFFECT_SELECT_COMBAT_ENEMY,
-    template: { defeat: true },
-    requiredPhase: COMBAT_PHASE_ATTACK,
-  },
-  sidewaysValue: 1,
-};
-
-export const WHITE_SPELLS: Record<CardId, DeedCard> = {
-  [CARD_WHIRLWIND]: WHIRLWIND,
-  [CARD_EXPOSE]: EXPOSE,
 };
