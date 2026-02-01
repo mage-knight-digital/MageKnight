@@ -23,6 +23,7 @@ import {
   TACTIC_DECISION_MIDNIGHT_MEDITATION,
 } from "@mage-knight/shared";
 import { createTacticsSelectionState } from "./testHelpers.js";
+import { createRng } from "../../utils/rng.js";
 import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "../commands/tactics/index.js";
 import { getTacticCard } from "../../data/tactics.js";
@@ -466,6 +467,7 @@ describe("Tactics Selection", () => {
 
       const stateWithRethinkPending = {
         ...baseState,
+        rng: createRng(12345), // Use deterministic seed for reproducible shuffles
         players: baseState.players.map((p) =>
           p.id === "player1"
             ? {
