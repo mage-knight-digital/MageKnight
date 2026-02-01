@@ -13,7 +13,13 @@
  *
  * | Module | Effects |
  * |--------|---------|
- * | `atomicEffects.ts` | GainMove, GainInfluence, GainAttack, GainBlock, GainHealing, etc. |
+ * | `atomicEffects.ts` | Re-exports from focused atomic modules (see below) |
+ * | `atomicCombatEffects.ts` | GainAttack, GainBlock |
+ * | `atomicResourceEffects.ts` | GainMove, GainInfluence, GainMana, GainCrystal |
+ * | `atomicProgressionEffects.ts` | GainFame, ChangeReputation |
+ * | `atomicCardEffects.ts` | DrawCards, GainHealing, TakeWound |
+ * | `atomicModifierEffects.ts` | ApplyModifier |
+ * | `atomicHelpers.ts` | Shared utilities (updatePlayer, updateElementalValue) |
  * | `compound.ts` | Compound, Conditional, Scaling |
  * | `choice.ts` | Choice |
  * | `crystallize.ts` | ConvertManaToCrystal, CrystallizeColor |
@@ -89,6 +95,8 @@ export * from "./resolvability.js";
 // Atomic effects (gain move, attack, etc.)
 export {
   updatePlayer,
+  updateElementalValue,
+  elementToPropertyKey,
   applyGainMove,
   applyGainInfluence,
   applyGainMana,
