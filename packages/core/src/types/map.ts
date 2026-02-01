@@ -197,6 +197,8 @@ export interface TileSlot {
   readonly coord: HexCoord;
   /** Row in the grid (0 = starting tile, 1 = first expansion, etc.) */
   readonly row: number;
+  /** Column relative to center (0 = center, negative = left, positive = right) */
+  readonly column: number;
   /** Whether this slot has a tile placed in it */
   readonly filled: boolean;
 }

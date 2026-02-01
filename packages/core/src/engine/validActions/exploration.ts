@@ -16,14 +16,14 @@ import type { Player } from "../../types/player.js";
 import type { TileId } from "../../types/map.js";
 import type { ExploreOptions, ExploreDirection } from "@mage-knight/shared";
 import type { HexDirection, HexCoord } from "@mage-knight/shared";
-import { MAP_SHAPE_WEDGE, hexKey } from "@mage-knight/shared";
+import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN_3, MAP_SHAPE_OPEN_4, MAP_SHAPE_OPEN_5, hexKey } from "@mage-knight/shared";
 import {
   isEdgeHex,
   TILE_PLACEMENT_OFFSETS,
   getExpansionDirections,
 } from "../explore/index.js";
 import { canExploreFromPosition } from "../explore/adjacency.js";
-import { isCoastlineSlot } from "../explore/tileGrid.js";
+import { isCoastlineSlot, getColumnRangeForShape } from "../explore/tileGrid.js";
 import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
 
@@ -107,14 +107,20 @@ export function getValidExploreOptions(
       if (validTargets.has(targetKey)) continue;
 
       // Check if slot is already filled
-      // For wedge maps with tileSlots: use slot.filled status
+      // For maps with tileSlots (wedge, open 3/4/5): use slot.filled status
       // For all other cases: check if there's already a tile at that position
-      if (mapShape === MAP_SHAPE_WEDGE && state.map.tileSlots && Object.keys(state.map.tileSlots).length > 0) {
+      const hasTileSlots = state.map.tileSlots && Object.keys(state.map.tileSlots).length > 0;
+      const isSlotBasedMap = mapShape === MAP_SHAPE_WEDGE ||
+        mapShape === MAP_SHAPE_OPEN_3 ||
+        mapShape === MAP_SHAPE_OPEN_4 ||
+        mapShape === MAP_SHAPE_OPEN_5;
+
+      if (isSlotBasedMap && hasTileSlots) {
         const slot = state.map.tileSlots[targetKey];
-        if (!slot) continue; // Slot doesn't exist in wedge
+        if (!slot) continue; // Slot doesn't exist in grid (outside column limits)
         if (slot.filled) continue; // Slot already filled
       } else {
-        // For open maps OR wedge maps without tileSlots: check tiles array
+        // For generic open maps OR maps without tileSlots: check tiles array
         const existingTile = state.map.tiles.find(
           (t) => t.centerCoord.q === targetSlotCoord.q && t.centerCoord.r === targetSlotCoord.r
         );
@@ -129,25 +135,23 @@ export function getValidExploreOptions(
       // Add valid target with the actual target coordinates AND the tile we're exploring from
       // This is critical because the same target can be reached from different tiles
       // with different directions
-      if (mapShape === MAP_SHAPE_WEDGE) {
-        if (!state.map.tileSlots || Object.keys(state.map.tileSlots).length === 0) {
-          // No tile slots initialized (test state) - allow direction
+      if (isSlotBasedMap && hasTileSlots) {
+        const slot = state.map.tileSlots[targetKey];
+        if (slot) {
           validTargets.set(targetKey, {
             direction: dir as HexDirection,
+            slotIndex: slot.row,
             targetCoord: targetSlotCoord,
             fromTileCoord: tileCenter,
           });
-        } else {
-          const slot = state.map.tileSlots[targetKey];
-          if (slot) {
-            validTargets.set(targetKey, {
-              direction: dir as HexDirection,
-              slotIndex: slot.row,
-              targetCoord: targetSlotCoord,
-              fromTileCoord: tileCenter,
-            });
-          }
         }
+      } else if (isSlotBasedMap && !hasTileSlots) {
+        // No tile slots initialized (test state) - allow direction
+        validTargets.set(targetKey, {
+          direction: dir as HexDirection,
+          targetCoord: targetSlotCoord,
+          fromTileCoord: tileCenter,
+        });
       } else {
         validTargets.set(targetKey, {
           direction: dir as HexDirection,
@@ -166,6 +170,27 @@ export function getValidExploreOptions(
       // Filter out coastline slots
       for (const [key, direction] of validTargets) {
         if (isCoastlineSlot(direction.targetCoord, state.map.tileSlots)) {
+          validTargets.delete(key);
+        }
+      }
+    }
+  }
+
+  // Filter out slots outside column limits (Open 3/4/5 maps)
+  const isOpenWithLimits = mapShape === MAP_SHAPE_OPEN_3 ||
+    mapShape === MAP_SHAPE_OPEN_4 ||
+    mapShape === MAP_SHAPE_OPEN_5;
+
+  if (isOpenWithLimits && state.map.tileSlots && Object.keys(state.map.tileSlots).length > 0) {
+    const columnRange = getColumnRangeForShape(mapShape);
+    if (columnRange) {
+      for (const [key, direction] of validTargets) {
+        const slot = state.map.tileSlots[hexKey(direction.targetCoord)];
+        if (!slot) {
+          // Slot doesn't exist in grid - outside column limits
+          validTargets.delete(key);
+        } else if (slot.column < columnRange.minColumn || slot.column > columnRange.maxColumn) {
+          // Slot is outside column range
           validTargets.delete(key);
         }
       }

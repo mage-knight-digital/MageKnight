@@ -4,7 +4,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerAction, HexDirection } from "@mage-knight/shared";
-import { EXPLORE_ACTION, MAP_SHAPE_WEDGE } from "@mage-knight/shared";
+import { EXPLORE_ACTION, MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN_3, MAP_SHAPE_OPEN_4, MAP_SHAPE_OPEN_5, hexKey } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import {
@@ -16,13 +16,14 @@ import {
   PLAYER_NOT_FOUND,
   INVALID_WEDGE_DIRECTION,
   CORE_TILE_ON_COASTLINE,
+  COLUMN_LIMIT_EXCEEDED,
 } from "./validationCodes.js";
 import {
   isEdgeHex,
   getExpansionDirections,
   TILE_PLACEMENT_OFFSETS,
 } from "../explore/index.js";
-import { isCoastlineSlot } from "../explore/tileGrid.js";
+import { isCoastlineSlot, getColumnRangeForShape } from "../explore/tileGrid.js";
 import { getValidExploreOptions } from "../validActions/exploration.js";
 import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
@@ -284,6 +285,97 @@ export function validateCoreNotOnCoastline(
       CORE_TILE_ON_COASTLINE,
       "Core tiles cannot be placed on coastline (leftmost/rightmost slots)"
     );
+  }
+
+  return valid();
+}
+
+/**
+ * For Open maps with column limits (Open 3, 4, 5), validate that the
+ * target slot is within the allowed column range.
+ *
+ * Column ranges:
+ * - Open 3: columns -1 to +1 (symmetric)
+ * - Open 4: columns -1 to +2 (asymmetric, leans right)
+ * - Open 5: columns -2 to +2 (symmetric)
+ */
+export function validateColumnLimit(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  const mapShape = state.scenarioConfig.mapShape;
+
+  // Only apply to Open 3, 4, 5 maps
+  if (
+    mapShape !== MAP_SHAPE_OPEN_3 &&
+    mapShape !== MAP_SHAPE_OPEN_4 &&
+    mapShape !== MAP_SHAPE_OPEN_5
+  ) {
+    return valid();
+  }
+
+  // Skip if tile slots haven't been initialized
+  if (!state.map.tileSlots || Object.keys(state.map.tileSlots).length === 0) {
+    return valid();
+  }
+
+  const direction = getExploreDirection(action);
+  if (!direction) {
+    return invalid(NOT_ON_MAP, "Invalid explore action");
+  }
+
+  // Get the source tile coordinate from action
+  let fromTileCoord: { q: number; r: number } | undefined;
+  if (action.type === EXPLORE_ACTION && "fromTileCoord" in action) {
+    fromTileCoord = action.fromTileCoord as { q: number; r: number };
+  }
+
+  if (!fromTileCoord) {
+    // Use the first tile as default
+    if (state.map.tiles.length > 0 && state.map.tiles[0]) {
+      fromTileCoord = state.map.tiles[0].centerCoord;
+    } else {
+      return valid();
+    }
+  }
+
+  // Calculate target slot coordinates
+  const offset = TILE_PLACEMENT_OFFSETS[direction];
+  const targetCoord = {
+    q: fromTileCoord.q + offset.q,
+    r: fromTileCoord.r + offset.r,
+  };
+
+  // Get the target slot to check its column
+  const targetKey = hexKey(targetCoord);
+  const targetSlot = state.map.tileSlots[targetKey];
+
+  if (!targetSlot) {
+    // Slot doesn't exist in the pre-generated grid, which means
+    // it's outside the valid area for this map shape
+    const columnRange = getColumnRangeForShape(mapShape);
+    if (columnRange) {
+      return invalid(
+        COLUMN_LIMIT_EXCEEDED,
+        `Cannot explore beyond column limit (${columnRange.minColumn} to ${columnRange.maxColumn})`
+      );
+    }
+    return valid();
+  }
+
+  // Check if the slot's column is within the allowed range
+  const columnRange = getColumnRangeForShape(mapShape);
+  if (columnRange) {
+    if (
+      targetSlot.column < columnRange.minColumn ||
+      targetSlot.column > columnRange.maxColumn
+    ) {
+      return invalid(
+        COLUMN_LIMIT_EXCEEDED,
+        `Cannot explore beyond column limit (${columnRange.minColumn} to ${columnRange.maxColumn})`
+      );
+    }
   }
 
   return valid();
