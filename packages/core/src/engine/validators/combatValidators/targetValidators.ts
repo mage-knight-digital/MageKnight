@@ -25,7 +25,7 @@ import {
   ATTACK_ALREADY_BLOCKED,
   ATTACK_DAMAGE_ALREADY_ASSIGNED,
 } from "../validationCodes.js";
-import { isAbilityNullified } from "../../modifiers.js";
+import { isAbilityNullified } from "../../modifiers/index.js";
 import {
   getEnemyAttackCount,
   isAttackBlocked,

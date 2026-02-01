@@ -32,7 +32,7 @@ import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 import {
   getEffectiveEnemyAttack,
   doesEnemyAttackThisCombat,
-} from "../modifiers.js";
+} from "../modifiers/index.js";
 import { calculateTotalBlock } from "../combat/elementalCalc.js";
 import {
   getEnemyAttack,

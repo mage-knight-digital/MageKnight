@@ -34,7 +34,7 @@ import {
   UNIT_PEASANTS,
   UNIT_FORESTERS,
 } from "@mage-knight/shared";
-import { addModifier } from "../modifiers.js";
+import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_COMBAT,
   SCOPE_ONE_ENEMY,

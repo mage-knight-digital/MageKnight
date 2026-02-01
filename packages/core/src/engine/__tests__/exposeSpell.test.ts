@@ -16,7 +16,7 @@ import {
   isAbilityNullified,
   areResistancesRemoved,
   hasArcaneImmunity,
-} from "../modifiers.js";
+} from "../modifiers/index.js";
 import { getFortificationLevel } from "../validators/combatValidators/fortificationValidators.js";
 import {
   ENEMY_GUARDSMEN,

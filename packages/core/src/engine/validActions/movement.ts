@@ -9,7 +9,7 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { MoveOptions, MoveTarget, ReachableHex, HexCoord } from "@mage-knight/shared";
 import { HEX_DIRECTIONS, hexKey, getNeighbor, getAllNeighbors, TIME_OF_DAY_DAY } from "@mage-knight/shared";
-import { getEffectiveTerrainCost } from "../modifiers.js";
+import { getEffectiveTerrainCost } from "../modifiers/index.js";
 import { SiteType, type HexState } from "../../types/map.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { FEATURE_FLAGS } from "../../config/featureFlags.js";

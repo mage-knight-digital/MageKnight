@@ -24,7 +24,7 @@ import {
 import { SITE_PROPERTIES } from "../../../data/siteProperties.js";
 import { createMoveCommand } from "../moveCommand.js";
 import { createExploreCommand } from "../exploreCommand.js";
-import { getEffectiveTerrainCost } from "../../modifiers.js";
+import { getEffectiveTerrainCost } from "../../modifiers/index.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**

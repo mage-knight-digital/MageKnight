@@ -26,7 +26,7 @@ import {
 import type { CombatEnemy, PendingElementalDamage } from "../../../types/combat.js";
 import { createEmptyPendingDamage } from "../../../types/combat.js";
 import { getFinalBlockValue } from "../../combat/elementalCalc.js";
-import { isAbilityNullified } from "../../modifiers.js";
+import { isAbilityNullified } from "../../modifiers/index.js";
 import {
   getEnemyAttack,
   getEnemyAttacks,

@@ -17,7 +17,7 @@ import {
   MANA_GOLD,
   MANA_BLACK,
 } from "@mage-knight/shared";
-import { isRuleActive } from "../../modifiers.js";
+import { isRuleActive } from "../../modifiers/index.js";
 import { RULE_EXTRA_SOURCE_DIE, RULE_BLACK_AS_ANY_COLOR } from "../../../types/modifierConstants.js";
 import {
   DIE_ALREADY_USED,
