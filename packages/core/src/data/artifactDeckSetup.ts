@@ -8,7 +8,7 @@
 import type { CardId } from "@mage-knight/shared";
 import type { RngState } from "../utils/rng.js";
 import { shuffleWithRng } from "../utils/rng.js";
-import { getAllArtifactCardIds } from "./artifacts.js";
+import { getAllArtifactCardIds } from "./artifacts/index.js";
 
 /**
  * Result of artifact deck initialization

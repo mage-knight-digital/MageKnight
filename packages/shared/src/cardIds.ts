@@ -118,7 +118,41 @@ export const CARD_RUSH_OF_ADRENALINE = cardId("rush_of_adrenaline"); // green+re
 export const CARD_CHILLING_STARE = cardId("chilling_stare"); // blue+white
 
 // === Artifact Card IDs ===
+
+// Banners
+export const CARD_BANNER_OF_GLORY = cardId("banner_of_glory");
+export const CARD_BANNER_OF_FEAR = cardId("banner_of_fear");
+export const CARD_BANNER_OF_PROTECTION = cardId("banner_of_protection");
+export const CARD_BANNER_OF_COURAGE = cardId("banner_of_courage");
+export const CARD_BANNER_OF_COMMAND = cardId("banner_of_command");
+export const CARD_BANNER_OF_FORTITUDE = cardId("banner_of_fortitude");
+
+// Rings
+export const CARD_RUBY_RING = cardId("ruby_ring");
+export const CARD_SAPPHIRE_RING = cardId("sapphire_ring");
+export const CARD_DIAMOND_RING = cardId("diamond_ring");
+export const CARD_EMERALD_RING = cardId("emerald_ring");
+
+// Weapons
+export const CARD_SWORD_OF_JUSTICE = cardId("sword_of_justice");
+export const CARD_HORN_OF_WRATH = cardId("horn_of_wrath");
+export const CARD_BOW_OF_STARSDAWN = cardId("bow_of_starsdawn");
+export const CARD_SOUL_HARVESTER = cardId("soul_harvester");
+export const CARD_SHIELD_OF_THE_FALLEN_KINGS = cardId("shield_of_the_fallen_kings");
+
+// Amulets
+export const CARD_AMULET_OF_THE_SUN = cardId("amulet_of_the_sun");
+export const CARD_AMULET_OF_DARKNESS = cardId("amulet_of_darkness");
+
+// Other Artifacts
 export const CARD_ENDLESS_BAG_OF_GOLD = cardId("endless_bag_of_gold");
+export const CARD_ENDLESS_GEM_POUCH = cardId("endless_gem_pouch");
+export const CARD_GOLDEN_GRAIL = cardId("golden_grail");
+export const CARD_BOOK_OF_WISDOM = cardId("book_of_wisdom");
+export const CARD_DRUIDIC_STAFF = cardId("druidic_staff");
+export const CARD_CIRCLET_OF_PROFICIENCY = cardId("circlet_of_proficiency");
+export const CARD_TOME_OF_ALL_SPELLS = cardId("tome_of_all_spells");
+export const CARD_MYSTERIOUS_BOX = cardId("mysterious_box");
 
 // === Spell Card IDs ===
 // Red spells
@@ -240,4 +274,34 @@ export type SpellCardId =
   // White spells
   | typeof CARD_EXPOSE;
 
-export type ArtifactCardId = typeof CARD_ENDLESS_BAG_OF_GOLD;
+export type ArtifactCardId =
+  // Banners
+  | typeof CARD_BANNER_OF_GLORY
+  | typeof CARD_BANNER_OF_FEAR
+  | typeof CARD_BANNER_OF_PROTECTION
+  | typeof CARD_BANNER_OF_COURAGE
+  | typeof CARD_BANNER_OF_COMMAND
+  | typeof CARD_BANNER_OF_FORTITUDE
+  // Rings
+  | typeof CARD_RUBY_RING
+  | typeof CARD_SAPPHIRE_RING
+  | typeof CARD_DIAMOND_RING
+  | typeof CARD_EMERALD_RING
+  // Weapons
+  | typeof CARD_SWORD_OF_JUSTICE
+  | typeof CARD_HORN_OF_WRATH
+  | typeof CARD_BOW_OF_STARSDAWN
+  | typeof CARD_SOUL_HARVESTER
+  | typeof CARD_SHIELD_OF_THE_FALLEN_KINGS
+  // Amulets
+  | typeof CARD_AMULET_OF_THE_SUN
+  | typeof CARD_AMULET_OF_DARKNESS
+  // Other Artifacts
+  | typeof CARD_ENDLESS_BAG_OF_GOLD
+  | typeof CARD_ENDLESS_GEM_POUCH
+  | typeof CARD_GOLDEN_GRAIL
+  | typeof CARD_BOOK_OF_WISDOM
+  | typeof CARD_DRUIDIC_STAFF
+  | typeof CARD_CIRCLET_OF_PROFICIENCY
+  | typeof CARD_TOME_OF_ALL_SPELLS
+  | typeof CARD_MYSTERIOUS_BOX;
