@@ -2,11 +2,15 @@ import { describe, it, expect } from "vitest";
 import {
   generateWedgeSlots,
   generateTileSlots,
+  generateOpenSlots,
   TILE_PLACEMENT_OFFSETS,
   getExpansionDirections,
   getDirectionFromOffset,
   isSlotAdjacentToFilled,
   getValidExploreDirectionsForShape,
+  getColumnRangeForShape,
+  getMaxColumnsForShape,
+  isColumnValid,
 } from "../explore/tileGrid.js";
 import {
   MAP_SHAPE_WEDGE,
@@ -379,6 +383,249 @@ describe("tileGrid", () => {
         TILE_PLACEMENT_OFFSETS["NE"].r
       );
       expect(countAdjacentPairs(tile1, tileNE)).toBe(3);
+    });
+  });
+
+  describe("TileSlot column field", () => {
+    it("should have column 0 for origin slot in wedge", () => {
+      const slots = generateWedgeSlots(2);
+      const originSlot = slots.get(hexKey({ q: 0, r: 0 }));
+
+      expect(originSlot).toBeDefined();
+      expect(originSlot?.column).toBe(0);
+    });
+
+    it("should assign correct columns to wedge row 1 slots", () => {
+      const slots = generateWedgeSlots(2);
+
+      // NE direction from origin (stays same column = 0)
+      const neSlot = slots.get(hexKey(TILE_PLACEMENT_OFFSETS["NE"]));
+      expect(neSlot?.column).toBe(0);
+
+      // E direction from origin (column + 1 = 1)
+      const eSlot = slots.get(hexKey(TILE_PLACEMENT_OFFSETS["E"]));
+      expect(eSlot?.column).toBe(1);
+    });
+
+    it("should assign correct columns to wedge row 2 slots", () => {
+      const slots = generateWedgeSlots(3);
+
+      // Find row 2 slots and check their columns
+      const row2Slots = [...slots.values()].filter((s) => s.row === 2);
+      const columns = row2Slots.map((s) => s.column).sort((a, b) => a - b);
+
+      // Row 2 should have columns 0, 1, 2
+      expect(columns).toEqual([0, 1, 2]);
+    });
+  });
+
+  describe("generateOpenSlots", () => {
+    it("should create origin slot with column 0", () => {
+      const slots = generateOpenSlots(12, 3, false);
+      const originSlot = slots.get(hexKey({ q: 0, r: 0 }));
+
+      expect(originSlot).toBeDefined();
+      expect(originSlot?.row).toBe(0);
+      expect(originSlot?.column).toBe(0);
+      expect(originSlot?.filled).toBe(false);
+    });
+
+    it("should return empty map for maxColumns 0 (generic OPEN)", () => {
+      const slots = generateOpenSlots(12, 0, false);
+
+      // Only the origin slot
+      expect(slots.size).toBe(1);
+    });
+
+    it("should generate slots with E/SE directions having positive column", () => {
+      const slots = generateOpenSlots(20, 5, false);
+
+      // Check that E direction leads to column +1
+      const eSlot = slots.get(hexKey(TILE_PLACEMENT_OFFSETS["E"]));
+      if (eSlot) {
+        expect(eSlot.column).toBe(1);
+      }
+
+      // Check that SE direction leads to column +1
+      const seSlot = slots.get(hexKey(TILE_PLACEMENT_OFFSETS["SE"]));
+      if (seSlot) {
+        expect(seSlot.column).toBe(1);
+      }
+    });
+
+    it("should generate slots with W/NW directions having negative column", () => {
+      const slots = generateOpenSlots(20, 5, false);
+
+      // Check that W direction leads to column -1
+      const wSlot = slots.get(hexKey(TILE_PLACEMENT_OFFSETS["W"]));
+      if (wSlot) {
+        expect(wSlot.column).toBe(-1);
+      }
+
+      // Check that NW direction leads to column -1
+      const nwSlot = slots.get(hexKey(TILE_PLACEMENT_OFFSETS["NW"]));
+      if (nwSlot) {
+        expect(nwSlot.column).toBe(-1);
+      }
+    });
+
+    it("should enforce column limits for symmetric Open 5 (-2 to +2)", () => {
+      const slots = generateOpenSlots(50, 5, false);
+
+      // All slots should have columns within -2 to +2
+      for (const slot of slots.values()) {
+        expect(slot.column).toBeGreaterThanOrEqual(-2);
+        expect(slot.column).toBeLessThanOrEqual(2);
+      }
+    });
+
+    it("should enforce column limits for symmetric Open 3 (-1 to +1)", () => {
+      const slots = generateOpenSlots(30, 3, false);
+
+      // All slots should have columns within -1 to +1
+      for (const slot of slots.values()) {
+        expect(slot.column).toBeGreaterThanOrEqual(-1);
+        expect(slot.column).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it("should enforce asymmetric column limits for Open 4 (-1 to +2)", () => {
+      const slots = generateOpenSlots(40, 4, true);
+
+      // All slots should have columns within -1 to +2 (asymmetric, leans right)
+      for (const slot of slots.values()) {
+        expect(slot.column).toBeGreaterThanOrEqual(-1);
+        expect(slot.column).toBeLessThanOrEqual(2);
+      }
+    });
+  });
+
+  describe("generateTileSlots for Open shapes", () => {
+    it("should generate slots for MAP_SHAPE_OPEN_3", () => {
+      const slots = generateTileSlots(MAP_SHAPE_OPEN_3, 12);
+
+      // Should have generated slots
+      expect(slots.size).toBeGreaterThan(1);
+
+      // All slots should be within column range -1 to +1
+      for (const slot of slots.values()) {
+        expect(slot.column).toBeGreaterThanOrEqual(-1);
+        expect(slot.column).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it("should generate slots for MAP_SHAPE_OPEN_4 with asymmetric columns", () => {
+      const slots = generateTileSlots(MAP_SHAPE_OPEN_4, 12);
+
+      expect(slots.size).toBeGreaterThan(1);
+
+      // All slots should be within asymmetric column range -1 to +2
+      for (const slot of slots.values()) {
+        expect(slot.column).toBeGreaterThanOrEqual(-1);
+        expect(slot.column).toBeLessThanOrEqual(2);
+      }
+    });
+
+    it("should generate slots for MAP_SHAPE_OPEN_5", () => {
+      const slots = generateTileSlots(MAP_SHAPE_OPEN_5, 12);
+
+      expect(slots.size).toBeGreaterThan(1);
+
+      // All slots should be within column range -2 to +2
+      for (const slot of slots.values()) {
+        expect(slot.column).toBeGreaterThanOrEqual(-2);
+        expect(slot.column).toBeLessThanOrEqual(2);
+      }
+    });
+  });
+
+  describe("getColumnRangeForShape", () => {
+    it("should return null for wedge (no column limits)", () => {
+      expect(getColumnRangeForShape(MAP_SHAPE_WEDGE)).toBeNull();
+    });
+
+    it("should return null for generic open (no column limits)", () => {
+      expect(getColumnRangeForShape(MAP_SHAPE_OPEN)).toBeNull();
+    });
+
+    it("should return symmetric range for Open 3", () => {
+      const range = getColumnRangeForShape(MAP_SHAPE_OPEN_3);
+      expect(range).toEqual({ minColumn: -1, maxColumn: 1 });
+    });
+
+    it("should return asymmetric range for Open 4", () => {
+      const range = getColumnRangeForShape(MAP_SHAPE_OPEN_4);
+      expect(range).toEqual({ minColumn: -1, maxColumn: 2 });
+    });
+
+    it("should return symmetric range for Open 5", () => {
+      const range = getColumnRangeForShape(MAP_SHAPE_OPEN_5);
+      expect(range).toEqual({ minColumn: -2, maxColumn: 2 });
+    });
+  });
+
+  describe("getMaxColumnsForShape", () => {
+    it("should return 0 for wedge (no column limits)", () => {
+      const result = getMaxColumnsForShape(MAP_SHAPE_WEDGE);
+      expect(result.maxColumns).toBe(0);
+      expect(result.asymmetric).toBe(false);
+    });
+
+    it("should return 3 columns for Open 3", () => {
+      const result = getMaxColumnsForShape(MAP_SHAPE_OPEN_3);
+      expect(result.maxColumns).toBe(3);
+      expect(result.asymmetric).toBe(false);
+    });
+
+    it("should return 4 columns with asymmetric for Open 4", () => {
+      const result = getMaxColumnsForShape(MAP_SHAPE_OPEN_4);
+      expect(result.maxColumns).toBe(4);
+      expect(result.asymmetric).toBe(true);
+    });
+
+    it("should return 5 columns for Open 5", () => {
+      const result = getMaxColumnsForShape(MAP_SHAPE_OPEN_5);
+      expect(result.maxColumns).toBe(5);
+      expect(result.asymmetric).toBe(false);
+    });
+  });
+
+  describe("isColumnValid", () => {
+    it("should always return true for wedge (no limits)", () => {
+      expect(isColumnValid(-10, MAP_SHAPE_WEDGE)).toBe(true);
+      expect(isColumnValid(10, MAP_SHAPE_WEDGE)).toBe(true);
+    });
+
+    it("should always return true for generic open (no limits)", () => {
+      expect(isColumnValid(-10, MAP_SHAPE_OPEN)).toBe(true);
+      expect(isColumnValid(10, MAP_SHAPE_OPEN)).toBe(true);
+    });
+
+    it("should validate columns for Open 3 (-1 to +1)", () => {
+      expect(isColumnValid(-1, MAP_SHAPE_OPEN_3)).toBe(true);
+      expect(isColumnValid(0, MAP_SHAPE_OPEN_3)).toBe(true);
+      expect(isColumnValid(1, MAP_SHAPE_OPEN_3)).toBe(true);
+      expect(isColumnValid(-2, MAP_SHAPE_OPEN_3)).toBe(false);
+      expect(isColumnValid(2, MAP_SHAPE_OPEN_3)).toBe(false);
+    });
+
+    it("should validate columns for Open 4 (-1 to +2)", () => {
+      expect(isColumnValid(-1, MAP_SHAPE_OPEN_4)).toBe(true);
+      expect(isColumnValid(0, MAP_SHAPE_OPEN_4)).toBe(true);
+      expect(isColumnValid(1, MAP_SHAPE_OPEN_4)).toBe(true);
+      expect(isColumnValid(2, MAP_SHAPE_OPEN_4)).toBe(true);
+      expect(isColumnValid(-2, MAP_SHAPE_OPEN_4)).toBe(false);
+      expect(isColumnValid(3, MAP_SHAPE_OPEN_4)).toBe(false);
+    });
+
+    it("should validate columns for Open 5 (-2 to +2)", () => {
+      expect(isColumnValid(-2, MAP_SHAPE_OPEN_5)).toBe(true);
+      expect(isColumnValid(-1, MAP_SHAPE_OPEN_5)).toBe(true);
+      expect(isColumnValid(0, MAP_SHAPE_OPEN_5)).toBe(true);
+      expect(isColumnValid(1, MAP_SHAPE_OPEN_5)).toBe(true);
+      expect(isColumnValid(2, MAP_SHAPE_OPEN_5)).toBe(true);
+      expect(isColumnValid(-3, MAP_SHAPE_OPEN_5)).toBe(false);
+      expect(isColumnValid(3, MAP_SHAPE_OPEN_5)).toBe(false);
     });
   });
 });

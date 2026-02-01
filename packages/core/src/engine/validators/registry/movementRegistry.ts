@@ -35,6 +35,7 @@ import {
   validateExploreMoveCost,
   validateTilesAvailable,
   validateCoreNotOnCoastline,
+  validateColumnLimit,
 } from "../exploreValidators.js";
 
 // Choice validators
@@ -83,6 +84,7 @@ export const movementRegistry: Record<string, Validator[]> = {
     validateExploreDirection, // Uses getValidExploreOptions which checks all tiles and adjacency
     validateWedgeDirection, // Wedge maps only allow NE/E directions
     validateCoreNotOnCoastline, // Wedge maps: core tiles cannot be on coastline
+    validateColumnLimit, // Open 3/4/5 maps: enforce column limits
     validateSlotNotFilled, // Now handled by validateExploreDirection
   ],
 };
