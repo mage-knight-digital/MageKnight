@@ -24,11 +24,15 @@
  * | `reverse.ts` | reverseEffect (for undo) |
  * | `resolvability.ts` | isEffectResolvable |
  *
+ * ## Effect Registry
+ *
+ * Effects are registered in `effectRegistrations.ts` using a Map-based dispatch
+ * system. This allows new effects to be added without modifying this central file.
+ *
  * ## Main Entry Point
  *
  * The `resolveEffect` function is the main dispatcher that routes each
- * effect type to its appropriate handler. It handles the full CardEffect
- * discriminated union.
+ * effect type to its appropriate handler via the registry.
  *
  * ## Usage Examples
  *
@@ -69,6 +73,15 @@
 
 // Types
 export * from "./types.js";
+
+// Effect registry
+export {
+  registerEffect,
+  getEffectHandler,
+  hasEffectHandler,
+  type EffectHandler,
+  type EffectType,
+} from "./effectRegistry.js";
 
 // Resolvability checks
 export * from "./resolvability.js";
@@ -176,123 +189,18 @@ export { describeEffect } from "./describeEffect.js";
 import type { GameState } from "../../state/GameState.js";
 import type { CardEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
-import {
-  EFFECT_GAIN_MOVE,
-  EFFECT_GAIN_INFLUENCE,
-  EFFECT_GAIN_ATTACK,
-  EFFECT_GAIN_BLOCK,
-  EFFECT_GAIN_HEALING,
-  EFFECT_GAIN_MANA,
-  EFFECT_DRAW_CARDS,
-  EFFECT_APPLY_MODIFIER,
-  EFFECT_COMPOUND,
-  EFFECT_CHOICE,
-  EFFECT_CONDITIONAL,
-  EFFECT_SCALING,
-  EFFECT_CHANGE_REPUTATION,
-  EFFECT_GAIN_FAME,
-  EFFECT_GAIN_CRYSTAL,
-  EFFECT_CONVERT_MANA_TO_CRYSTAL,
-  EFFECT_CRYSTALLIZE_COLOR,
-  EFFECT_CARD_BOOST,
-  EFFECT_RESOLVE_BOOST_TARGET,
-  EFFECT_READY_UNIT,
-  EFFECT_MANA_DRAW_POWERED,
-  EFFECT_MANA_DRAW_PICK_DIE,
-  EFFECT_MANA_DRAW_SET_COLOR,
-  EFFECT_TAKE_WOUND,
-  EFFECT_SELECT_COMBAT_ENEMY,
-  EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
-  EFFECT_HEAL_UNIT,
-  EFFECT_DISCARD_CARD,
-  EFFECT_REVEAL_TILES,
-  EFFECT_PAY_MANA,
-  EFFECT_TERRAIN_BASED_BLOCK,
-  MANA_ANY,
-} from "../../types/effectTypes.js";
-
-// Atomic effects
-import {
-  applyGainMove,
-  applyGainInfluence,
-  applyGainMana,
-  applyGainAttack,
-  applyGainBlock,
-  applyGainHealing,
-  applyDrawCards,
-  applyChangeReputation,
-  applyGainFame,
-  applyGainCrystal,
-  applyTakeWound,
-  applyModifierEffect,
-} from "./atomicEffects.js";
-
-// Compound effects
-import {
-  resolveCompoundEffectList,
-  resolveConditionalEffect,
-  resolveScalingEffect,
-} from "./compound.js";
-
-// Choice effects
-import { resolveChoiceEffect } from "./choice.js";
-
-// Crystallize effects
-import {
-  resolveConvertManaToCrystal,
-  resolveCrystallizeColor,
-} from "./crystallize.js";
-
-// Card boost effects
-import {
-  resolveCardBoostEffect,
-  resolveBoostTargetEffect,
-} from "./cardBoostResolvers.js";
-
-// Combat effects
-import {
-  resolveSelectCombatEnemy,
-  resolveCombatEnemyTarget,
-} from "./combatEffects.js";
-
-// Mana draw effects
-import {
-  handleManaDrawPowered,
-  handleManaDrawPickDie,
-  applyManaDrawSetColor,
-} from "./manaDrawEffects.js";
-
-// Unit effects
-import { handleReadyUnit } from "./unitEffects.js";
-
-// Heal unit effects
-import { handleHealUnit } from "./healUnitEffects.js";
-
-// Discard effects
-import { handleDiscardCard } from "./discardEffects.js";
-
-// Map effects
-import { handleRevealTiles } from "./mapEffects.js";
-
-// Mana payment effects
-import { handlePayMana } from "./manaPaymentEffects.js";
-
-// Terrain-based effects
-import { resolveTerrainBasedBlock } from "./terrainEffects.js";
-
-// Player helpers
-import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
+import { getEffectHandler } from "./effectRegistry.js";
+import { initializeRegistry } from "./effectRegistrations.js";
 
 // ============================================================================
 // MAIN EFFECT RESOLVER
 // ============================================================================
 
 /**
- * Resolves a card effect by dispatching to the appropriate category handler.
+ * Resolves a card effect by dispatching to the appropriate handler from the registry.
  *
- * This is the main entry point for effect resolution. It handles the full
- * CardEffect discriminated union by routing each effect type to its
- * specialized resolver.
+ * This is the main entry point for effect resolution. It uses the effect registry
+ * to look up the appropriate handler for each effect type.
  *
  * @param state - Current game state
  * @param playerId - ID of the player resolving the effect
@@ -316,192 +224,24 @@ export function resolveEffect(
   effect: CardEffect,
   sourceCardId?: string
 ): EffectResolutionResult {
-  const playerIndex = getPlayerIndexByIdOrThrow(state, playerId);
-  const player = state.players[playerIndex];
-  if (!player) {
-    throw new Error(`Player not found at index: ${playerIndex}`);
+  // Look up the handler from the registry
+  const handler = getEffectHandler(effect.type);
+
+  if (handler) {
+    return handler(state, playerId, effect, sourceCardId);
   }
 
-  switch (effect.type) {
-    // ========================================================================
-    // ATOMIC EFFECTS (gain move, attack, etc.)
-    // ========================================================================
-
-    case EFFECT_GAIN_MOVE:
-      return applyGainMove(state, playerIndex, player, effect.amount);
-
-    case EFFECT_GAIN_INFLUENCE:
-      return applyGainInfluence(state, playerIndex, player, effect.amount);
-
-    case EFFECT_GAIN_ATTACK:
-      return applyGainAttack(state, playerIndex, player, effect);
-
-    case EFFECT_GAIN_BLOCK:
-      return applyGainBlock(state, playerIndex, player, effect);
-
-    case EFFECT_GAIN_HEALING:
-      return applyGainHealing(state, playerIndex, player, effect.amount);
-
-    case EFFECT_TAKE_WOUND:
-      return applyTakeWound(state, playerIndex, player, effect.amount);
-
-    case EFFECT_DRAW_CARDS:
-      return applyDrawCards(state, playerIndex, player, effect.amount);
-
-    case EFFECT_GAIN_MANA: {
-      if (effect.color === MANA_ANY) {
-        // MANA_ANY should be resolved via player choice, not passed directly
-        return {
-          state,
-          description: "Mana color choice required",
-          requiresChoice: true,
-        };
-      }
-      return applyGainMana(state, playerIndex, player, effect.color);
-    }
-
-    case EFFECT_CHANGE_REPUTATION:
-      return applyChangeReputation(state, playerIndex, player, effect.amount);
-
-    case EFFECT_GAIN_FAME:
-      return applyGainFame(state, playerIndex, player, effect.amount);
-
-    case EFFECT_GAIN_CRYSTAL:
-      return applyGainCrystal(state, playerIndex, player, effect.color);
-
-    case EFFECT_APPLY_MODIFIER:
-      return applyModifierEffect(state, playerId, effect, sourceCardId);
-
-    // ========================================================================
-    // CRYSTALLIZE EFFECTS
-    // ========================================================================
-
-    case EFFECT_CONVERT_MANA_TO_CRYSTAL:
-      return resolveConvertManaToCrystal(
-        state,
-        playerId,
-        player,
-        effect,
-        sourceCardId,
-        resolveEffect
-      );
-
-    case EFFECT_CRYSTALLIZE_COLOR:
-      return resolveCrystallizeColor(state, playerIndex, player, effect);
-
-    // ========================================================================
-    // COMPOUND EFFECTS (compound, conditional, scaling)
-    // ========================================================================
-
-    case EFFECT_COMPOUND:
-      return resolveCompoundEffectList(
-        state,
-        playerId,
-        effect.effects,
-        sourceCardId,
-        resolveEffect
-      );
-
-    case EFFECT_CHOICE:
-      return resolveChoiceEffect(state, playerId, effect);
-
-    case EFFECT_CONDITIONAL:
-      return resolveConditionalEffect(
-        state,
-        playerId,
-        effect,
-        sourceCardId,
-        resolveEffect
-      );
-
-    case EFFECT_SCALING:
-      return resolveScalingEffect(
-        state,
-        playerId,
-        effect,
-        sourceCardId,
-        resolveEffect
-      );
-
-    // ========================================================================
-    // CARD BOOST EFFECTS
-    // ========================================================================
-
-    case EFFECT_CARD_BOOST:
-      return resolveCardBoostEffect(state, player, effect);
-
-    case EFFECT_RESOLVE_BOOST_TARGET:
-      return resolveBoostTargetEffect(
-        state,
-        playerId,
-        playerIndex,
-        player,
-        effect,
-        resolveEffect
-      );
-
-    // ========================================================================
-    // UNIT EFFECTS
-    // ========================================================================
-
-    case EFFECT_READY_UNIT:
-      return handleReadyUnit(state, playerIndex, player, effect);
-
-    // ========================================================================
-    // MANA DRAW EFFECTS
-    // ========================================================================
-
-    case EFFECT_MANA_DRAW_POWERED:
-      return handleManaDrawPowered(state, effect);
-
-    case EFFECT_MANA_DRAW_PICK_DIE:
-      return handleManaDrawPickDie(state, effect);
-
-    case EFFECT_MANA_DRAW_SET_COLOR:
-      return applyManaDrawSetColor(state, playerIndex, player, effect);
-
-    // ========================================================================
-    // COMBAT ENEMY TARGETING EFFECTS
-    // ========================================================================
-
-    case EFFECT_SELECT_COMBAT_ENEMY:
-      return resolveSelectCombatEnemy(state, effect);
-
-    case EFFECT_RESOLVE_COMBAT_ENEMY_TARGET:
-      return resolveCombatEnemyTarget(state, playerId, effect, sourceCardId);
-
-    // ========================================================================
-    // SKILL-RELATED EFFECTS
-    // ========================================================================
-
-    case EFFECT_HEAL_UNIT:
-      return handleHealUnit(state, playerIndex, player, effect);
-
-    case EFFECT_DISCARD_CARD:
-      return handleDiscardCard(state, playerIndex, player, effect);
-
-    case EFFECT_REVEAL_TILES:
-      return handleRevealTiles(state, player, effect);
-
-    case EFFECT_PAY_MANA:
-      return handlePayMana(state, playerIndex, player, effect);
-
-    // ========================================================================
-    // TERRAIN-BASED EFFECTS
-    // ========================================================================
-
-    case EFFECT_TERRAIN_BASED_BLOCK:
-      return resolveTerrainBasedBlock(state, playerIndex, player, effect);
-
-    // ========================================================================
-    // UNKNOWN EFFECT TYPE
-    // ========================================================================
-
-    default:
-      // Unknown effect type — log and continue
-      return {
-        state,
-        description: "Unhandled effect type",
-      };
-  }
+  // Unknown effect type — log and continue
+  return {
+    state,
+    description: `Unhandled effect type: ${effect.type}`,
+  };
 }
+
+// ============================================================================
+// INITIALIZE REGISTRY
+// ============================================================================
+
+// Initialize the registry with the resolveEffect function.
+// This breaks the circular dependency between index.ts and effectRegistrations.ts.
+initializeRegistry(resolveEffect);
