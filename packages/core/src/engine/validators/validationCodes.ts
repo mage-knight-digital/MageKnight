@@ -107,6 +107,9 @@ export const ASSASSINATION_REQUIRES_HERO_TARGET = "ASSASSINATION_REQUIRES_HERO_T
 export const INVALID_ATTACK_INDEX = "INVALID_ATTACK_INDEX" as const;
 export const ATTACK_ALREADY_BLOCKED = "ATTACK_ALREADY_BLOCKED" as const;
 export const ATTACK_DAMAGE_ALREADY_ASSIGNED = "ATTACK_DAMAGE_ALREADY_ASSIGNED" as const;
+// Cumbersome ability validation codes
+export const CUMBERSOME_NOT_ACTIVE = "CUMBERSOME_NOT_ACTIVE" as const;
+export const CUMBERSOME_INVALID_AMOUNT = "CUMBERSOME_INVALID_AMOUNT" as const;
 
 // Unit validation codes
 export const NO_COMMAND_SLOTS = "NO_COMMAND_SLOTS" as const;
@@ -309,6 +312,8 @@ export type ValidationErrorCode =
   | typeof INVALID_ATTACK_INDEX
   | typeof ATTACK_ALREADY_BLOCKED
   | typeof ATTACK_DAMAGE_ALREADY_ASSIGNED
+  | typeof CUMBERSOME_NOT_ACTIVE
+  | typeof CUMBERSOME_INVALID_AMOUNT
   // Unit validation
   | typeof NO_COMMAND_SLOTS
   | typeof INSUFFICIENT_INFLUENCE

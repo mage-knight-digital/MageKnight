@@ -171,6 +171,7 @@ import type {
   BlockFailedEvent,
   BlockAssignedEvent,
   BlockUnassignedEvent,
+  MoveSpentOnCumbersomeEvent,
   EnemyDefeatedEvent,
   AttackFailedEvent,
   AttackAssignedEvent,
@@ -343,6 +344,7 @@ export type GameEvent =
   | BlockFailedEvent
   | BlockAssignedEvent
   | BlockUnassignedEvent
+  | MoveSpentOnCumbersomeEvent
   | EnemyDefeatedEvent
   | AttackFailedEvent
   | AttackAssignedEvent

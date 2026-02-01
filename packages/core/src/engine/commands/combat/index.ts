@@ -61,3 +61,9 @@ export {
   CHALLENGE_RAMPAGING_COMMAND,
   type ChallengeRampagingCommandParams,
 } from "./challengeRampagingCommand.js";
+
+export {
+  createSpendMoveOnCumbersomeCommand,
+  SPEND_MOVE_ON_CUMBERSOME_COMMAND,
+  type SpendMoveOnCumbersomeCommandParams,
+} from "./spendMoveOnCumbersomeCommand.js";

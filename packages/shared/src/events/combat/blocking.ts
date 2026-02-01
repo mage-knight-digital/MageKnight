@@ -203,3 +203,67 @@ export interface BlockUnassignedEvent {
 export function isBlockUnassignedEvent(event: { type: string }): event is BlockUnassignedEvent {
   return event.type === BLOCK_UNASSIGNED;
 }
+
+// ============================================================================
+// MOVE_SPENT_ON_CUMBERSOME (Cumbersome ability)
+// ============================================================================
+
+/**
+ * Event type constant for spending move on Cumbersome enemy.
+ * @see MoveSpentOnCumbersomeEvent
+ */
+export const MOVE_SPENT_ON_CUMBERSOME = "MOVE_SPENT_ON_CUMBERSOME" as const;
+
+/**
+ * Emitted when move points are spent to reduce a Cumbersome enemy's attack.
+ *
+ * Each move point spent reduces the enemy's attack by 1 for the rest of
+ * the turn. An attack reduced to 0 is considered successfully blocked.
+ *
+ * @remarks
+ * - Only valid during BLOCK phase
+ * - Target enemy must have Cumbersome ability
+ * - Reduction applies BEFORE Swift doubling
+ * - Reduction persists through Assign Damage phase
+ *
+ * @example
+ * ```typescript
+ * if (event.type === MOVE_SPENT_ON_CUMBERSOME) {
+ *   updateEnemyAttackDisplay(event.enemyInstanceId, event.totalReduction);
+ * }
+ * ```
+ */
+export interface MoveSpentOnCumbersomeEvent {
+  readonly type: typeof MOVE_SPENT_ON_CUMBERSOME;
+  /** Instance ID of the enemy with Cumbersome ability */
+  readonly enemyInstanceId: string;
+  /** Move points spent in this action */
+  readonly movePointsSpent: number;
+  /** Total reduction applied to this enemy (cumulative) */
+  readonly totalReduction: number;
+}
+
+/**
+ * Creates a MoveSpentOnCumbersomeEvent.
+ */
+export function createMoveSpentOnCumbersomeEvent(
+  enemyInstanceId: string,
+  movePointsSpent: number,
+  totalReduction: number
+): MoveSpentOnCumbersomeEvent {
+  return {
+    type: MOVE_SPENT_ON_CUMBERSOME,
+    enemyInstanceId,
+    movePointsSpent,
+    totalReduction,
+  };
+}
+
+/**
+ * Type guard for MoveSpentOnCumbersomeEvent.
+ */
+export function isMoveSpentOnCumbersomeEvent(
+  event: { type: string }
+): event is MoveSpentOnCumbersomeEvent {
+  return event.type === MOVE_SPENT_ON_CUMBERSOME;
+}

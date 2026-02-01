@@ -240,6 +240,8 @@ export type {
   // Skill options
   SkillOptions,
   ActivatableSkill,
+  // Cumbersome ability options
+  CumbersomeOption,
 } from "./types/validActions.js";
 
 // Shared value constants (sub-unions)

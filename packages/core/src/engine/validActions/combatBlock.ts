@@ -14,6 +14,7 @@ import type {
   UnassignBlockOption,
   ElementalDamageValues,
   AttackElement,
+  CumbersomeOption,
 } from "@mage-knight/shared";
 import type { Element } from "@mage-knight/shared";
 import {
@@ -39,6 +40,10 @@ import {
   getEnemyAttacks,
   isAttackBlocked,
 } from "../combat/enemyAttackHelpers.js";
+import {
+  isCumbersomeActive,
+  getCumbersomeReduction,
+} from "../combat/cumbersomeHelpers.js";
 
 // ============================================================================
 // Block Allocation Computation
@@ -230,6 +235,53 @@ export function generateUnassignableBlocks(
 }
 
 /**
+ * Compute Cumbersome options for enemies with the Cumbersome ability.
+ * Returns options showing how many move points can be spent on each enemy.
+ */
+export function computeCumbersomeOptions(
+  state: GameState,
+  combat: CombatState,
+  playerId: string,
+  playerMovePoints: number
+): readonly CumbersomeOption[] {
+  const options: CumbersomeOption[] = [];
+
+  for (const enemy of combat.enemies) {
+    // Skip defeated enemies
+    if (enemy.isDefeated) continue;
+
+    // Skip enemies without active Cumbersome ability
+    if (!isCumbersomeActive(state, playerId, enemy)) continue;
+
+    // Skip enemies that don't attack this combat
+    if (!doesEnemyAttackThisCombat(state, enemy.instanceId)) continue;
+
+    const baseAttack = enemy.definition.attack;
+    const currentReduction = getCumbersomeReduction(state, enemy.instanceId);
+
+    // Can't reduce below 0
+    const reducedAttack = Math.max(0, baseAttack - currentReduction);
+
+    // Maximum additional reduction is min of player's move points and remaining attack
+    const maxAdditionalReduction = Math.min(playerMovePoints, reducedAttack);
+
+    // Only include if there's attack left to reduce and player has move points
+    if (maxAdditionalReduction > 0) {
+      options.push({
+        enemyInstanceId: enemy.instanceId,
+        enemyName: enemy.definition.name,
+        baseAttack,
+        currentReduction,
+        reducedAttack,
+        maxAdditionalReduction,
+      });
+    }
+  }
+
+  return options;
+}
+
+/**
  * Compute options for BLOCK phase.
  * Uses the incremental block assignment system.
  */
@@ -274,7 +326,16 @@ export function computeBlockPhaseOptions(
   // Generate unassignable blocks
   const unassignableBlocks = generateUnassignableBlocks(enemyBlockStates, combat);
 
-  return {
+  // Compute Cumbersome options (move points that can be spent to reduce enemy attack)
+  const cumbersomeOptions = computeCumbersomeOptions(
+    state,
+    combat,
+    player.id,
+    player.movePoints
+  );
+
+  // Build the combat options
+  const options: CombatOptions = {
     phase: COMBAT_PHASE_BLOCK,
     canEndPhase: true, // Can skip blocking (take damage instead)
     blocks: getBlockOptions(state, combat.enemies),
@@ -283,6 +344,17 @@ export function computeBlockPhaseOptions(
     assignableBlocks,
     unassignableBlocks,
   };
+
+  // Only include cumbersome fields if there are options
+  if (cumbersomeOptions.length > 0) {
+    return {
+      ...options,
+      cumbersomeOptions,
+      availableMovePoints: player.movePoints,
+    };
+  }
+
+  return options;
 }
 
 // ============================================================================

@@ -371,6 +371,9 @@ export const UNASSIGN_ATTACK_ACTION = "UNASSIGN_ATTACK" as const;
 export const ASSIGN_BLOCK_ACTION = "ASSIGN_BLOCK" as const;
 export const UNASSIGN_BLOCK_ACTION = "UNASSIGN_BLOCK" as const;
 
+// Cumbersome ability - spend move points to reduce enemy attack
+export const SPEND_MOVE_ON_CUMBERSOME_ACTION = "SPEND_MOVE_ON_CUMBERSOME" as const;
+
 // Debug actions (dev-only)
 export const DEBUG_ADD_FAME_ACTION = "DEBUG_ADD_FAME" as const;
 export interface DebugAddFameAction {
@@ -519,6 +522,13 @@ export interface UnassignBlockAction {
   readonly amount: number;
 }
 
+// Spend move points to reduce Cumbersome enemy attack (for Cumbersome ability)
+export interface SpendMoveOnCumbersomeAction {
+  readonly type: typeof SPEND_MOVE_ON_CUMBERSOME_ACTION;
+  readonly enemyInstanceId: string;
+  readonly movePointsToSpend: number;
+}
+
 export type PlayerAction =
   // Movement
   | MoveAction
@@ -580,6 +590,8 @@ export type PlayerAction =
   // Incremental block assignment
   | AssignBlockAction
   | UnassignBlockAction
+  // Cumbersome ability
+  | SpendMoveOnCumbersomeAction
   // Debug actions (dev-only)
   | DebugAddFameAction
   | DebugTriggerLevelUpAction

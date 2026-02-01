@@ -30,6 +30,7 @@ import {
   UNASSIGN_ATTACK_ACTION,
   ASSIGN_BLOCK_ACTION,
   UNASSIGN_BLOCK_ACTION,
+  SPEND_MOVE_ON_CUMBERSOME_ACTION,
 } from "@mage-knight/shared";
 import {
   createEnterCombatCommand,
@@ -42,6 +43,7 @@ import {
   createUnassignAttackCommand,
   createAssignBlockCommand,
   createUnassignBlockCommand,
+  createSpendMoveOnCumbersomeCommand,
 } from "../combat/index.js";
 
 /**
@@ -247,5 +249,24 @@ export const createUnassignBlockCommandFromAction: CommandFactory = (
     enemyInstanceId: action.enemyInstanceId,
     element: action.element,
     amount: action.amount,
+  });
+};
+
+/**
+ * Spend move on cumbersome command factory.
+ * Creates a command to spend move points to reduce a Cumbersome enemy's attack.
+ *
+ * Part of the Cumbersome ability system.
+ */
+export const createSpendMoveOnCumbersomeCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== SPEND_MOVE_ON_CUMBERSOME_ACTION) return null;
+  return createSpendMoveOnCumbersomeCommand({
+    playerId,
+    enemyInstanceId: action.enemyInstanceId,
+    movePointsToSpend: action.movePointsToSpend,
   });
 };

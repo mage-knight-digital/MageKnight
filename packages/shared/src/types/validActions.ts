@@ -211,6 +211,14 @@ export interface CombatOptions {
 
   /** Valid block unassignment actions */
   readonly unassignableBlocks?: readonly UnassignBlockOption[];
+
+  // ---- Cumbersome options (BLOCK phase) ----
+
+  /** Cumbersome enemies that can have move points spent on them */
+  readonly cumbersomeOptions?: readonly CumbersomeOption[];
+
+  /** Available move points for Cumbersome reduction */
+  readonly availableMovePoints?: number;
 }
 
 export interface BlockOption {
@@ -394,6 +402,29 @@ export interface UnassignBlockOption {
   readonly enemyInstanceId: string;
   readonly element: AttackElement;
   readonly amount: number;
+}
+
+// ============================================================================
+// Cumbersome Ability (BLOCK phase)
+// ============================================================================
+
+/**
+ * Information about a Cumbersome enemy that can have move points spent on it.
+ * Present during BLOCK phase when there are Cumbersome enemies.
+ */
+export interface CumbersomeOption {
+  /** Instance ID of the enemy with Cumbersome ability */
+  readonly enemyInstanceId: string;
+  /** Enemy display name */
+  readonly enemyName: string;
+  /** Base attack value (before any reductions) */
+  readonly baseAttack: number;
+  /** Move points already spent on this enemy */
+  readonly currentReduction: number;
+  /** Current attack value after reduction (baseAttack - currentReduction) */
+  readonly reducedAttack: number;
+  /** Maximum additional move points that can be spent (min of playerMovePoints, reducedAttack) */
+  readonly maxAdditionalReduction: number;
 }
 
 // ============================================================================
