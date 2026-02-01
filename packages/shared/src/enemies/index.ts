@@ -106,7 +106,7 @@ export type { Element } from "../elements.js";
 // =============================================================================
 
 // Green (Marauding Orcs)
-export type { GreenEnemyId } from "./green.js";
+export type { GreenEnemyId } from "./green/index.js";
 export {
   ENEMY_DIGGERS,
   ENEMY_PROWLERS,
@@ -121,10 +121,10 @@ export {
   ENEMY_SHROUDED_NECROMANCERS,
   GREEN_ENEMIES,
   ENEMY_ORC, // Test alias
-} from "./green.js";
+} from "./green/index.js";
 
 // Gray (Keep garrison)
-export type { GrayEnemyId } from "./gray.js";
+export type { GrayEnemyId } from "./gray/index.js";
 export {
   ENEMY_CROSSBOWMEN,
   ENEMY_GUARDSMEN,
@@ -134,10 +134,10 @@ export {
   ENEMY_THUGS_GRAY,
   GRAY_ENEMIES,
   ENEMY_WOLF, // Test alias
-} from "./gray.js";
+} from "./gray/index.js";
 
 // Brown (Dungeon monsters)
-export type { BrownEnemyId } from "./brown.js";
+export type { BrownEnemyId } from "./brown/index.js";
 export {
   ENEMY_MINOTAUR,
   ENEMY_GARGOYLE,
@@ -151,10 +151,10 @@ export {
   ENEMY_MANTICORE,
   ENEMY_WATER_ELEMENTAL,
   BROWN_ENEMIES,
-} from "./brown.js";
+} from "./brown/index.js";
 
 // Violet (Mage Tower)
-export type { VioletEnemyId } from "./violet.js";
+export type { VioletEnemyId } from "./violet/index.js";
 export {
   ENEMY_MONKS,
   ENEMY_ILLUSIONISTS,
@@ -168,10 +168,10 @@ export {
   ENEMY_FIRE_MAGE, // Test alias
   ENEMY_ICE_GOLEM, // Test alias
   ENEMY_FIRE_GOLEM, // Test alias
-} from "./violet.js";
+} from "./violet/index.js";
 
 // White (City garrison)
-export type { WhiteEnemyId } from "./white.js";
+export type { WhiteEnemyId } from "./white/index.js";
 export {
   ENEMY_THUGS,
   ENEMY_SHOCKTROOPS,
@@ -181,10 +181,10 @@ export {
   ENEMY_ALTEM_MAGES,
   ENEMY_DELPHANA_MASTERS,
   WHITE_ENEMIES,
-} from "./white.js";
+} from "./white/index.js";
 
 // Red (Draconum)
-export type { RedEnemyId } from "./red.js";
+export type { RedEnemyId } from "./red/index.js";
 export {
   ENEMY_SWAMP_DRAGON,
   ENEMY_FIRE_DRAGON,
@@ -194,19 +194,19 @@ export {
   ENEMY_LAVA_DRAGON,
   ENEMY_SAVAGE_DRAGON,
   RED_ENEMIES,
-} from "./red.js";
+} from "./red/index.js";
 
 // =============================================================================
 // AGGREGATE ENEMIES RECORD
 // =============================================================================
 
 import type { EnemyId, EnemyDefinition, EnemyColor } from "./types.js";
-import { GREEN_ENEMIES } from "./green.js";
-import { GRAY_ENEMIES } from "./gray.js";
-import { BROWN_ENEMIES } from "./brown.js";
-import { VIOLET_ENEMIES } from "./violet.js";
-import { WHITE_ENEMIES } from "./white.js";
-import { RED_ENEMIES } from "./red.js";
+import { GREEN_ENEMIES } from "./green/index.js";
+import { GRAY_ENEMIES } from "./gray/index.js";
+import { BROWN_ENEMIES } from "./brown/index.js";
+import { VIOLET_ENEMIES } from "./violet/index.js";
+import { WHITE_ENEMIES } from "./white/index.js";
+import { RED_ENEMIES } from "./red/index.js";
 
 /**
  * Complete record of all enemy definitions indexed by EnemyId

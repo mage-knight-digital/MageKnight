@@ -165,12 +165,12 @@ export interface EnemyDefinition {
 // =============================================================================
 
 // Import enemy IDs from faction modules
-import type { GreenEnemyId } from "./green.js";
-import type { GrayEnemyId } from "./gray.js";
-import type { BrownEnemyId } from "./brown.js";
-import type { VioletEnemyId } from "./violet.js";
-import type { WhiteEnemyId } from "./white.js";
-import type { RedEnemyId } from "./red.js";
+import type { GreenEnemyId } from "./green/index.js";
+import type { GrayEnemyId } from "./gray/index.js";
+import type { BrownEnemyId } from "./brown/index.js";
+import type { VioletEnemyId } from "./violet/index.js";
+import type { WhiteEnemyId } from "./white/index.js";
+import type { RedEnemyId } from "./red/index.js";
 
 /**
  * Union of all enemy IDs across all factions
