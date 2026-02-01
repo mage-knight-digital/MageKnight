@@ -74,9 +74,8 @@ export function TurnActions() {
   const canActivateLongNight = canActivate?.longNight === true;
   const canActivateMidnightMeditation = canActivate?.midnightMeditation === true;
 
-  // Check for rest options
+  // Check for rest options (resting state is handled by RestCompletionOverlay)
   const canDeclareRest = state?.validActions.turn?.canDeclareRest ?? false;
-  const isResting = state?.validActions.turn?.isResting ?? false;
 
   // Ctrl+Z / Cmd+Z keyboard shortcut for undo
   useEffect(() => {
@@ -199,16 +198,6 @@ export function TurnActions() {
             >
               Rest
             </button>
-          )}
-
-          {/* Resting indicator */}
-          {isResting && (
-            <span
-              className="turn-actions__status turn-actions__status--resting"
-              title="Resting - select cards to discard, then end turn"
-            >
-              Resting...
-            </span>
           )}
 
           {/* Undo button */}
