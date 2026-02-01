@@ -321,6 +321,12 @@ export interface CombatEnemyTargetTemplate {
   }[];
   /** If true, defeat the enemy immediately (for powered versions like Tornado) */
   readonly defeat?: boolean;
+  /**
+   * Optional bundled effect to resolve AFTER applying modifiers/defeat.
+   * Used by Sorcerers' abilities to grant ranged attack after stripping fortification/resistances.
+   * Note: The bundled effect is NOT blocked by Arcane Immunity - it always resolves.
+   */
+  readonly bundledEffect?: CardEffect;
 }
 
 /**

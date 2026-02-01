@@ -130,6 +130,7 @@ export function handleChoiceEffect(
     pendingChoice: {
       cardId,
       skillId: null,
+      unitInstanceId: null,
       options: resolvableOptions,
     },
   };

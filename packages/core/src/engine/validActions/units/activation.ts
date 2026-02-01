@@ -27,6 +27,7 @@ import {
   UNIT_ABILITY_BRUTAL,
   UNIT_ABILITY_POISON,
   UNIT_ABILITY_PARALYZE,
+  UNIT_ABILITY_EFFECT,
   CARD_WOUND,
   type UnitAbilityType,
   type ManaColor,
@@ -38,6 +39,8 @@ import {
   COMBAT_PHASE_ATTACK,
 } from "../../../types/combat.js";
 import { getUnitOptions } from "./recruitment.js";
+import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
+import { isEffectResolvable } from "../../effects/index.js";
 
 /**
  * Passive abilities that cannot be manually activated.
@@ -52,12 +55,15 @@ const PASSIVE_ABILITIES: readonly UnitAbilityType[] = [
 
 /**
  * Combat abilities that require being in combat.
+ * Note: UNIT_ABILITY_EFFECT is treated as combat (since Sorcerers' effects target enemies)
+ * but checked separately via effect resolvability.
  */
 const COMBAT_ABILITIES: readonly UnitAbilityType[] = [
   UNIT_ABILITY_ATTACK,
   UNIT_ABILITY_BLOCK,
   UNIT_ABILITY_RANGED_ATTACK,
   UNIT_ABILITY_SIEGE_ATTACK,
+  UNIT_ABILITY_EFFECT,
 ];
 
 /**
@@ -106,6 +112,9 @@ function isAbilityValidForPhase(
   switch (abilityType) {
     case UNIT_ABILITY_RANGED_ATTACK:
     case UNIT_ABILITY_SIEGE_ATTACK:
+    case UNIT_ABILITY_EFFECT:
+      // Effect-based abilities (like Sorcerers) include ranged attacks, so they
+      // follow ranged attack phase rules
       if (phase !== COMBAT_PHASE_RANGED_SIEGE && phase !== COMBAT_PHASE_ATTACK) {
         return { valid: false, reason: "Only usable in Ranged & Siege or Attack phase" };
       }
@@ -261,6 +270,13 @@ export function getActivatableUnits(
               canActivate = false;
               reason = "Cannot use influence in combat";
             }
+          } else if (ability.type === UNIT_ABILITY_EFFECT && ability.effectId) {
+            // Check if the effect is resolvable (e.g., has valid targets)
+            const effect = getUnitAbilityEffect(ability.effectId);
+            if (effect && !isEffectResolvable(state, player.id, effect)) {
+              canActivate = false;
+              reason = "Effect cannot be resolved (no valid targets)";
+            }
           }
           // Check mana cost availability (if ability has mana cost)
           if (canActivate && ability.manaCost) {
@@ -273,9 +289,15 @@ export function getActivatableUnits(
       }
 
       // Build the activatable ability with optional mana cost
+      // For effect-based abilities, use displayName if available
+      const abilityName =
+        ability.type === UNIT_ABILITY_EFFECT && ability.displayName
+          ? ability.displayName
+          : formatAbilityType(ability.type);
+
       const activatableAbility: ActivatableAbility = {
         index: i,
-        name: formatAbilityType(ability.type),
+        name: abilityName,
         canActivate,
       };
 

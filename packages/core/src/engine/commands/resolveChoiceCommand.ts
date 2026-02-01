@@ -179,6 +179,7 @@ export function createResolveChoiceCommand(
           pendingChoice: {
             cardId: player.pendingChoice.cardId, // Keep original card ID for context
             skillId: player.pendingChoice.skillId, // Keep original skill ID for context
+            unitInstanceId: player.pendingChoice.unitInstanceId, // Keep original unit ID for context
             options: resolvableOptions,
           },
         };

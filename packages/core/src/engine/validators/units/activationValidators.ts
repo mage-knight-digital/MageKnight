@@ -21,6 +21,7 @@ import {
   UNIT_ABILITY_BLOCK,
   UNIT_ABILITY_RANGED_ATTACK,
   UNIT_ABILITY_SIEGE_ATTACK,
+  UNIT_ABILITY_EFFECT,
   UNIT_ABILITY_SWIFT,
   UNIT_ABILITY_BRUTAL,
   UNIT_ABILITY_POISON,
@@ -214,7 +215,9 @@ export function validateAbilityMatchesPhase(
   switch (ability.type) {
     case UNIT_ABILITY_RANGED_ATTACK:
     case UNIT_ABILITY_SIEGE_ATTACK:
+    case UNIT_ABILITY_EFFECT:
       // Valid in Ranged & Siege phase or Attack phase
+      // Effect-based abilities (like Sorcerers) include ranged attacks so follow ranged rules
       if (phase !== COMBAT_PHASE_RANGED_SIEGE && phase !== COMBAT_PHASE_ATTACK) {
         return invalid(
           WRONG_PHASE_FOR_ABILITY,
@@ -325,11 +328,13 @@ export function validateCombatRequiredForAbility(
   if (!ability) return valid(); // Other validator handles
 
   // Combat abilities require being in combat
+  // Note: UNIT_ABILITY_EFFECT is treated as combat (Sorcerers' effects target enemies)
   const combatAbilities: readonly string[] = [
     UNIT_ABILITY_ATTACK,
     UNIT_ABILITY_BLOCK,
     UNIT_ABILITY_RANGED_ATTACK,
     UNIT_ABILITY_SIEGE_ATTACK,
+    UNIT_ABILITY_EFFECT,
   ];
 
   if (combatAbilities.includes(ability.type) && !state.combat) {

@@ -42,7 +42,8 @@ export type UnitAbilityType =
   | "swift"
   | "brutal"
   | "poison"
-  | "paralyze";
+  | "paralyze"
+  | "effect";
 
 /**
  * Re-use EnemyResistances interface for consistency
@@ -80,6 +81,17 @@ export interface UnitAbility {
    * If undefined, the ability is free to use.
    */
   readonly manaCost?: ManaColor;
+  /**
+   * For effect-based abilities (type="effect"), this ID references the effect
+   * definition in core's unit ability effects registry. The effect will be
+   * resolved using the standard card effect system.
+   */
+  readonly effectId?: string;
+  /**
+   * Display name for the ability (used for effect-based abilities).
+   * Simple abilities derive their name from the type field.
+   */
+  readonly displayName?: string;
 }
 
 /**

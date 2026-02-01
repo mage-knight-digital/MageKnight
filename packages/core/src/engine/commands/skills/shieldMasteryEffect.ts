@@ -49,6 +49,7 @@ export function applyShieldMasteryEffect(
     pendingChoice: {
       cardId: null,
       skillId: SKILL_TOVAK_SHIELD_MASTERY,
+      unitInstanceId: null,
       options: [
         block(3),      // Physical Block 3
         fireBlock(2),  // Fire Block 2 (efficient vs ice attacks)
