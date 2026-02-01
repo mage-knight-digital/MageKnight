@@ -19,7 +19,7 @@ import {
   combineResistances,
   type Resistances,
 } from "../../combat/elementalCalc.js";
-import { getEffectiveEnemyArmor, areResistancesRemoved } from "../../modifiers/index.js";
+import { getEffectiveEnemyArmor, areResistancesRemoved, getBaseArmorForPhase } from "../../modifiers/index.js";
 
 export const DECLARE_ATTACK_COMMAND = "DECLARE_ATTACK" as const;
 
@@ -39,26 +39,38 @@ export function createDeclareAttackCommand(
     isReversible: false,
 
     execute(state: GameState): CommandResult {
-      if (!state.combat) {
+      const combat = state.combat;
+      if (!combat) {
         throw new Error("Not in combat");
       }
 
+      const combatPhase = combat.phase;
+
       // Get target enemies
-      const targets = state.combat.enemies.filter(
+      const targets = combat.enemies.filter(
         (e) =>
           params.targetEnemyInstanceIds.includes(e.instanceId) && !e.isDefeated
       );
 
       // Calculate total effective armor of targets (including modifiers like Tremor)
+      // Uses phase-aware base armor for Elusive enemies
       const totalArmor = targets.reduce((sum, e) => {
         // Count resistances for Resistance Break modifier
         const resistances = e.definition.resistances;
         const resistanceCount = resistances ? resistances.length : 0;
 
+        // Get base armor considering Elusive ability and combat phase
+        const baseArmor = getBaseArmorForPhase(
+          e,
+          combatPhase,
+          state,
+          params.playerId
+        );
+
         return sum + getEffectiveEnemyArmor(
           state,
           e.instanceId,
-          e.definition.armor,
+          baseArmor,
           resistanceCount
         );
       }, 0);

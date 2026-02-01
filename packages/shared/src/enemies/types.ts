@@ -158,6 +158,17 @@ export interface EnemyDefinition {
    * Used for enemies like Thugs who grant reputation when defeated.
    */
   readonly reputationBonus?: number;
+  /**
+   * Elusive armor value (the higher value) for enemies with the Elusive ability.
+   * When present, this enemy uses dual armor values:
+   * - Ranged/Siege phase: always uses armorElusive (higher value)
+   * - Attack phase: uses armor (lower value) if ALL attacks were blocked,
+   *   otherwise uses armorElusive (higher value)
+   *
+   * Per rulebook: "Any Armor modifications apply simultaneously to both values"
+   * - modifiers are applied after selecting which base armor to use
+   */
+  readonly armorElusive?: number;
 }
 
 // =============================================================================

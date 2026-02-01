@@ -33,7 +33,7 @@ import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
-import { isAbilityNullified } from "../modifiers/index.js";
+import { isAbilityNullified, getBaseArmorForPhase, getEffectiveEnemyArmor } from "../modifiers/index.js";
 import {
   getEnemyResistances,
   calculateEffectiveDamage,
@@ -120,8 +120,11 @@ export function computeEnemyAttackState(
     effectiveDamage.ice +
     effectiveDamage.coldFire;
 
-  // Check if enemy can be defeated with current pending
-  const armor = enemy.definition.armor;
+  // Calculate armor using phase-aware logic for Elusive enemies
+  // Then apply modifiers (Tremor, Vampiric, etc.)
+  const baseArmor = getBaseArmorForPhase(enemy, combat.phase, state, playerId);
+  const resistanceCount = enemy.definition.resistances.length;
+  const armor = getEffectiveEnemyArmor(state, enemy.instanceId, baseArmor, resistanceCount);
   const canDefeat = totalEffectiveDamage >= armor;
 
   // Determine if enemy is fortified - check both site fortification and enemy ability

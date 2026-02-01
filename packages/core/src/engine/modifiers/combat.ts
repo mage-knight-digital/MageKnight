@@ -12,6 +12,13 @@ import type {
   AbilityNullifierModifier,
 } from "../../types/modifiers.js";
 import type { EnemyAbility } from "../../types/enemy.js";
+import type { CombatEnemy, CombatPhase } from "../../types/combat.js";
+import {
+  COMBAT_PHASE_RANGED_SIEGE,
+  COMBAT_PHASE_ATTACK,
+} from "../../types/combat.js";
+import { ABILITY_ELUSIVE } from "@mage-knight/shared";
+import { ENEMY_ABILITY_ELUSIVE } from "../../types/enemyConstants.js";
 import {
   ABILITY_ANY,
   EFFECT_ABILITY_NULLIFIER,
@@ -29,6 +36,7 @@ import {
   getModifiersForEnemy,
   hasArcaneImmunity,
 } from "./queries.js";
+import { isEnemyFullyBlocked } from "../combat/enemyAttackHelpers.js";
 
 /**
  * Get effective enemy armor after modifiers.
@@ -195,4 +203,61 @@ export function areResistancesRemoved(
   }
   const modifiers = getModifiersForEnemy(state, enemyId);
   return modifiers.some((m) => m.effect.type === EFFECT_REMOVE_RESISTANCES);
+}
+
+/**
+ * Get the base armor for an enemy, considering Elusive ability and combat phase.
+ *
+ * Elusive ability rules:
+ * - RANGED_SIEGE phase: always uses armorElusive (higher value)
+ * - ATTACK phase: uses armor (lower value) if ALL attacks were blocked,
+ *   otherwise uses armorElusive (higher value)
+ * - Other phases (BLOCK, ASSIGN_DAMAGE): uses armorElusive (higher value)
+ *
+ * Per rulebook: "If you do not block it (let it deal damage or prevent it from
+ * attacking), it keeps using the higher value for the rest of the combat."
+ *
+ * @param enemy - Combat enemy instance
+ * @param phase - Current combat phase
+ * @param state - Game state (for ability nullification check)
+ * @param playerId - Player ID (for ability nullification check)
+ * @returns Base armor value to use (before modifiers)
+ */
+export function getBaseArmorForPhase(
+  enemy: CombatEnemy,
+  phase: CombatPhase,
+  state: GameState,
+  playerId: string
+): number {
+  const definition = enemy.definition;
+
+  // If no elusive armor defined, or enemy doesn't have Elusive ability, use base armor
+  if (
+    definition.armorElusive === undefined ||
+    !definition.abilities.includes(ABILITY_ELUSIVE)
+  ) {
+    return definition.armor;
+  }
+
+  // Check if Elusive is nullified (Elusive is defensive, doesn't affect attacks/blocks directly)
+  // Note: Arcane Immunity blocks ability nullification, but Elusive itself isn't
+  // blocked by Arcane Immunity (it's not a "non-Attack/Block effect targeting enemy")
+  if (isAbilityNullified(state, playerId, enemy.instanceId, ENEMY_ABILITY_ELUSIVE)) {
+    return definition.armor;
+  }
+
+  // RANGED_SIEGE phase: always use elusive (higher) armor
+  if (phase === COMBAT_PHASE_RANGED_SIEGE) {
+    return definition.armorElusive;
+  }
+
+  // ATTACK phase: use base (lower) armor only if ALL attacks were blocked
+  if (phase === COMBAT_PHASE_ATTACK) {
+    const fullyBlocked = isEnemyFullyBlocked(enemy);
+    return fullyBlocked ? definition.armor : definition.armorElusive;
+  }
+
+  // BLOCK and ASSIGN_DAMAGE phases: use elusive (higher) armor
+  // This ensures UI shows the elusive armor during these phases
+  return definition.armorElusive;
 }

@@ -6,6 +6,7 @@ import {
   ENEMY_ABILITY_ASSASSINATION,
   ENEMY_ABILITY_BRUTAL,
   ENEMY_ABILITY_CUMBERSOME,
+  ENEMY_ABILITY_ELUSIVE,
   ENEMY_ABILITY_FORTIFIED,
   ENEMY_ABILITY_PARALYZE,
   ENEMY_ABILITY_POISON,
@@ -56,6 +57,7 @@ export type EnemyAbility =
   | { readonly type: typeof ENEMY_ABILITY_PARALYZE }
   | { readonly type: typeof ENEMY_ABILITY_ASSASSINATION }
   | { readonly type: typeof ENEMY_ABILITY_CUMBERSOME }
+  | { readonly type: typeof ENEMY_ABILITY_ELUSIVE }
   | { readonly type: typeof ENEMY_ABILITY_SUMMON; readonly pool: EnemyColor }
   | { readonly type: typeof ENEMY_ABILITY_SUMMON_GREEN; readonly pool: EnemyColor }
   | {

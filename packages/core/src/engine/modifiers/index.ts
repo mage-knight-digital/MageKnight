@@ -21,6 +21,7 @@ export {
   isAbilityNullified,
   doesEnemyAttackThisCombat,
   areResistancesRemoved,
+  getBaseArmorForPhase,
 } from "./combat.js";
 
 // Terrain effective values
