@@ -1,17 +1,39 @@
 /**
  * Map-related constants (distinct domains even if values overlap).
+ *
+ * Re-exported from @mage-knight/shared for core package convenience.
  */
 
-// City color (faction/identity)
-export const CITY_COLOR_RED = "red" as const;
-export const CITY_COLOR_BLUE = "blue" as const;
-export const CITY_COLOR_GREEN = "green" as const;
-export const CITY_COLOR_WHITE = "white" as const;
+// City colors
+export {
+  CITY_COLOR_RED,
+  CITY_COLOR_BLUE,
+  CITY_COLOR_GREEN,
+  CITY_COLOR_WHITE,
+  type CityColor,
+} from "@mage-knight/shared";
 
-// Mine color (resource-adjacent; yields basic mana crystals)
-export const MINE_COLOR_RED = "red" as const;
-export const MINE_COLOR_BLUE = "blue" as const;
-export const MINE_COLOR_GREEN = "green" as const;
-export const MINE_COLOR_WHITE = "white" as const;
+// Mine colors
+export {
+  MINE_COLOR_RED,
+  MINE_COLOR_BLUE,
+  MINE_COLOR_GREEN,
+  MINE_COLOR_WHITE,
+  type MineColor,
+} from "@mage-knight/shared";
 
+// Discard filter types
+export {
+  DISCARD_FILTER_WOUND,
+  DISCARD_FILTER_NON_WOUND,
+  DISCARD_FILTER_ANY,
+  type DiscardFilter,
+} from "@mage-knight/shared";
 
+// Reveal tile types
+export {
+  REVEAL_TILE_TYPE_ENEMY,
+  REVEAL_TILE_TYPE_GARRISON,
+  REVEAL_TILE_TYPE_ALL,
+  type RevealTileType,
+} from "@mage-knight/shared";

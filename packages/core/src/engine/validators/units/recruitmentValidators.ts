@@ -11,7 +11,7 @@ import type { GameState } from "../../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
 import type { ValidationResult } from "../types.js";
 import { valid, invalid } from "../types.js";
-import { RECRUIT_UNIT_ACTION, getUnit } from "@mage-knight/shared";
+import { RECRUIT_UNIT_ACTION, getUnit, CITY_COLOR_WHITE } from "@mage-knight/shared";
 import {
   NO_COMMAND_SLOTS,
   INSUFFICIENT_INFLUENCE,
@@ -137,7 +137,7 @@ export function validateUnitTypeMatchesSite(
   const unitDef = getUnit(action.unitId);
 
   // White cities allow all unit types
-  if (site.type === SiteType.City && site.cityColor === "white") {
+  if (site.type === SiteType.City && site.cityColor === CITY_COLOR_WHITE) {
     return valid();
   }
 
