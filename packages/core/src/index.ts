@@ -92,7 +92,7 @@ export type { ArtifactDeckSetupResult } from "./data/artifactDeckSetup.js";
 export { createArtifactDeck } from "./data/artifactDeckSetup.js";
 
 // Artifact cards
-export { getArtifactCard, getAllArtifactCardIds } from "./data/artifacts.js";
+export { getArtifactCard, getAllArtifactCardIds } from "./data/artifacts/index.js";
 
 // Site properties
 export type { SiteProperties } from "./data/siteProperties.js";
