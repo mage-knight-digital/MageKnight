@@ -38,8 +38,10 @@ export function checkGameEnd(
   const events: GameEvent[] = [];
 
   // Calculate final scores using the full scoring system
+  // Use scenario's scoringConfig if provided, otherwise fall back to default
   const isSolo = state.players.length === 1;
-  const scoringConfig = createDefaultScoringConfig(isSolo);
+  const scoringConfig =
+    state.scenarioConfig.scoringConfig ?? createDefaultScoringConfig(isSolo);
   const finalScoreResult = calculateFinalScores(state, scoringConfig);
 
   // Convert to simple format for event
@@ -62,6 +64,7 @@ export function checkGameEnd(
     type: GAME_ENDED,
     winningPlayerId,
     finalScores,
+    fullScoreResult: finalScoreResult,
   });
 
   return {

@@ -15,7 +15,11 @@ import {
   EXPANSION_SHADES_OF_TEZLA,
   TACTIC_REMOVAL_ALL_USED,
   DUMMY_TACTIC_AFTER_HUMANS,
+  BASE_SCORE_INDIVIDUAL_FAME,
+  ACHIEVEMENT_MODE_COMPETITIVE,
+  SCORING_MODULE_CITY_CONQUEST,
   type ScenarioConfig,
+  type CityConquestModule,
 } from "@mage-knight/shared";
 
 export const FULL_CONQUEST_STUB: ScenarioConfig = {
@@ -67,4 +71,24 @@ export const FULL_CONQUEST_STUB: ScenarioConfig = {
       category: SCORING_CATEGORY_ACHIEVEMENTS,
     },
   ],
+
+  // Scoring configuration (new system)
+  // Competitive scenario with city conquest module
+  scoringConfig: {
+    baseScoreMode: BASE_SCORE_INDIVIDUAL_FAME,
+    achievements: {
+      enabled: true,
+      mode: ACHIEVEMENT_MODE_COMPETITIVE,
+    },
+    modules: [
+      {
+        type: SCORING_MODULE_CITY_CONQUEST,
+        leaderPoints: 7,
+        participantPoints: 4,
+        titleName: "Greatest City Conqueror",
+        titleBonus: 5,
+        titleTiedBonus: 2,
+      } satisfies CityConquestModule,
+    ],
+  },
 };

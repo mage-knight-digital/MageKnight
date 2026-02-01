@@ -25,6 +25,8 @@ import {
   SCORING_CATEGORY_ACHIEVEMENTS,
   TACTIC_REMOVAL_ALL_USED,
   DUMMY_TACTIC_AFTER_HUMANS,
+  BASE_SCORE_INDIVIDUAL_FAME,
+  ACHIEVEMENT_MODE_SOLO,
   type ScenarioConfig,
 } from "@mage-knight/shared";
 
@@ -89,4 +91,15 @@ export const FIRST_RECONNAISSANCE: ScenarioConfig = {
       category: SCORING_CATEGORY_COMBAT,
     },
   ],
+
+  // Scoring configuration (new system)
+  // Solo intro scenario - achievements enabled but no titles (solo mode)
+  scoringConfig: {
+    baseScoreMode: BASE_SCORE_INDIVIDUAL_FAME,
+    achievements: {
+      enabled: true,
+      mode: ACHIEVEMENT_MODE_SOLO,
+    },
+    modules: [],
+  },
 };
