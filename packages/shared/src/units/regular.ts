@@ -102,7 +102,15 @@ export const REGULAR_UNITS: Record<RegularUnitId, UnitDefinition> = {
     recruitSites: [RECRUIT_SITE_VILLAGE],
     abilities: [
       { type: UNIT_ABILITY_BLOCK, value: 3, element: ELEMENT_PHYSICAL },
-      { type: UNIT_ABILITY_RANGED_ATTACK, value: 2, element: ELEMENT_PHYSICAL },
+      {
+        type: UNIT_ABILITY_MOVE,
+        value: 2,
+        terrainModifiers: [
+          { terrain: "forest", amount: -1, minimum: 0 },
+          { terrain: "hills", amount: -1, minimum: 0 },
+          { terrain: "swamp", amount: -1, minimum: 0 },
+        ],
+      },
     ],
     copies: 2,
   },

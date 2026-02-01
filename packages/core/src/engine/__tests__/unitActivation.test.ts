@@ -21,6 +21,7 @@ import {
   UNIT_CATAPULTS,
   UNIT_SHOCKTROOPS,
   UNIT_HERBALIST,
+  UNIT_UTEM_CROSSBOWMEN,
   CARD_WOUND,
   UNIT_STATE_READY,
   UNIT_STATE_SPENT,
@@ -28,8 +29,13 @@ import {
   UNIT_ACTIVATED,
   UNIT_ABILITY_ATTACK,
   UNIT_ABILITY_HEAL,
+  UNIT_ABILITY_MOVE,
   ASSIGN_DAMAGE_ACTION,
   DAMAGE_TARGET_UNIT,
+  TERRAIN_FOREST,
+  TERRAIN_HILLS,
+  TERRAIN_SWAMP,
+  TERRAIN_PLAINS,
 } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../types/unit.js";
 import { resetUnitInstanceCounter } from "../commands/units/index.js";
@@ -39,6 +45,7 @@ import {
   COMBAT_PHASE_ATTACK,
   COMBAT_PHASE_ASSIGN_DAMAGE,
 } from "../../types/combat.js";
+import { getEffectiveTerrainCost } from "../modifiers.js";
 
 describe("Unit Combat Abilities", () => {
   let engine: ReturnType<typeof createEngine>;
@@ -112,8 +119,8 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should allow ranged attack in ranged & siege phase", () => {
-      // Foresters have Ranged Attack 2 (ability index 1)
-      const unit = createPlayerUnit(UNIT_FORESTERS, "foresters_1");
+      // Utem Crossbowmen have Ranged Attack 3 (ability index 1)
+      const unit = createPlayerUnit(UNIT_UTEM_CROSSBOWMEN, "crossbow_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
@@ -126,18 +133,18 @@ describe("Unit Combat Abilities", () => {
 
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
-        unitInstanceId: "foresters_1",
-        abilityIndex: 1, // Ranged Attack 2
+        unitInstanceId: "crossbow_1",
+        abilityIndex: 1, // Ranged Attack 3
       });
 
       // Verify success - ranged attack added
-      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(2);
+      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(3);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
     });
 
     it("should allow ranged attack in attack phase", () => {
-      // Foresters have Ranged Attack 2 (ability index 1)
-      const unit = createPlayerUnit(UNIT_FORESTERS, "foresters_1");
+      // Utem Crossbowmen have Ranged Attack 3 (ability index 1)
+      const unit = createPlayerUnit(UNIT_UTEM_CROSSBOWMEN, "crossbow_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
@@ -150,12 +157,12 @@ describe("Unit Combat Abilities", () => {
 
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
-        unitInstanceId: "foresters_1",
-        abilityIndex: 1, // Ranged Attack 2
+        unitInstanceId: "crossbow_1",
+        abilityIndex: 1, // Ranged Attack 3
       });
 
       // Verify success - ranged works in attack phase too
-      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(2);
+      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(3);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
     });
 
@@ -269,8 +276,8 @@ describe("Unit Combat Abilities", () => {
 
   describe("Siege requirements", () => {
     it("should reject ranged attack at fortified site in ranged phase", () => {
-      // Foresters have Ranged Attack 2 (ability index 1)
-      const unit = createPlayerUnit(UNIT_FORESTERS, "foresters_1");
+      // Utem Crossbowmen have Ranged Attack 3 (ability index 1)
+      const unit = createPlayerUnit(UNIT_UTEM_CROSSBOWMEN, "crossbow_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
@@ -283,8 +290,8 @@ describe("Unit Combat Abilities", () => {
 
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
-        unitInstanceId: "foresters_1",
-        abilityIndex: 1, // Ranged Attack 2
+        unitInstanceId: "crossbow_1",
+        abilityIndex: 1, // Ranged Attack 3
       });
 
       // Unit should still be ready (action rejected)
@@ -599,6 +606,170 @@ describe("Unit Combat Abilities", () => {
         expect(invalidEvent.reason).toContain("passive");
         expect(invalidEvent.reason).toContain("automatically");
       }
+    });
+  });
+
+  describe("Terrain modifiers from unit abilities", () => {
+    it("should activate Foresters Move ability and add move points", () => {
+      // Foresters have Move 2 (ability index 1) with terrain modifiers
+      const unit = createPlayerUnit(UNIT_FORESTERS, "foresters_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        movePoints: 0,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        combat: null,
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "foresters_1",
+        abilityIndex: 1, // Move 2
+      });
+
+      // Verify move points were added
+      expect(result.state.players[0].movePoints).toBe(2);
+
+      // Verify unit is now spent
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      // Check event was emitted
+      const activateEvent = result.events.find(
+        (e) => e.type === UNIT_ACTIVATED
+      );
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_MOVE);
+        expect(activateEvent.abilityValue).toBe(2);
+      }
+    });
+
+    it("should apply terrain cost modifiers when Foresters Move ability is activated", () => {
+      // Foresters have Move 2 with terrain modifiers for forest/hills/swamp
+      const unit = createPlayerUnit(UNIT_FORESTERS, "foresters_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        combat: null,
+      });
+
+      // Verify no modifiers before activation
+      expect(state.activeModifiers.length).toBe(0);
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "foresters_1",
+        abilityIndex: 1, // Move 2 with terrain modifiers
+      });
+
+      // Verify terrain cost modifiers were added (forest, hills, swamp)
+      expect(result.state.activeModifiers.length).toBe(3);
+
+      // Check each modifier
+      const modifiers = result.state.activeModifiers;
+
+      const forestMod = modifiers.find(
+        (m) => m.effect.type === "terrain_cost" && m.effect.terrain === TERRAIN_FOREST
+      );
+      expect(forestMod).toBeDefined();
+      if (forestMod && forestMod.effect.type === "terrain_cost") {
+        expect(forestMod.effect.amount).toBe(-1);
+        expect(forestMod.effect.minimum).toBe(0);
+      }
+
+      const hillsMod = modifiers.find(
+        (m) => m.effect.type === "terrain_cost" && m.effect.terrain === TERRAIN_HILLS
+      );
+      expect(hillsMod).toBeDefined();
+      if (hillsMod && hillsMod.effect.type === "terrain_cost") {
+        expect(hillsMod.effect.amount).toBe(-1);
+        expect(hillsMod.effect.minimum).toBe(0);
+      }
+
+      const swampMod = modifiers.find(
+        (m) => m.effect.type === "terrain_cost" && m.effect.terrain === TERRAIN_SWAMP
+      );
+      expect(swampMod).toBeDefined();
+      if (swampMod && swampMod.effect.type === "terrain_cost") {
+        expect(swampMod.effect.amount).toBe(-1);
+        expect(swampMod.effect.minimum).toBe(0);
+      }
+    });
+
+    it("should reduce effective terrain cost when Foresters modifiers are active", () => {
+      const unit = createPlayerUnit(UNIT_FORESTERS, "foresters_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        combat: null,
+      });
+
+      // Check costs before activation
+      const forestCostBefore = getEffectiveTerrainCost(state, TERRAIN_FOREST, "player1");
+      const hillsCostBefore = getEffectiveTerrainCost(state, TERRAIN_HILLS, "player1");
+      const swampCostBefore = getEffectiveTerrainCost(state, TERRAIN_SWAMP, "player1");
+      const plainsCostBefore = getEffectiveTerrainCost(state, TERRAIN_PLAINS, "player1");
+
+      // Activate Foresters Move
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "foresters_1",
+        abilityIndex: 1,
+      });
+
+      // Check costs after activation
+      const forestCostAfter = getEffectiveTerrainCost(result.state, TERRAIN_FOREST, "player1");
+      const hillsCostAfter = getEffectiveTerrainCost(result.state, TERRAIN_HILLS, "player1");
+      const swampCostAfter = getEffectiveTerrainCost(result.state, TERRAIN_SWAMP, "player1");
+      const plainsCostAfter = getEffectiveTerrainCost(result.state, TERRAIN_PLAINS, "player1");
+
+      // Forest, hills, swamp should be reduced by 1
+      expect(forestCostAfter).toBe(forestCostBefore - 1);
+      expect(hillsCostAfter).toBe(hillsCostBefore - 1);
+      expect(swampCostAfter).toBe(swampCostBefore - 1);
+
+      // Plains should be unchanged
+      expect(plainsCostAfter).toBe(plainsCostBefore);
+    });
+
+    it("should not apply terrain modifiers from Block ability (only from Move)", () => {
+      // Foresters have Block 3 (ability index 0) - should NOT add terrain modifiers
+      const unit = createPlayerUnit(UNIT_FORESTERS, "foresters_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "foresters_1",
+        abilityIndex: 0, // Block 3 (no terrain modifiers)
+      });
+
+      // No terrain modifiers should be added
+      expect(result.state.activeModifiers.length).toBe(0);
+
+      // Block should still work
+      expect(result.state.players[0].combatAccumulator.block).toBe(3);
     });
   });
 });

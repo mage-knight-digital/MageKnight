@@ -38,6 +38,7 @@ export type {
   UnitAbilityType,
   UnitResistances,
   UnitAbility,
+  UnitTerrainModifier,
   UnitDefinition,
 } from "./types.js";
 
