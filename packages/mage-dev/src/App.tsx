@@ -20,6 +20,7 @@ import {
   killAgent,
   cleanupCompletedAgents,
   launchAgentsInBackground,
+  openAgentPr,
   type Agent,
 } from "./lib/agents.js";
 
@@ -354,6 +355,16 @@ export function App() {
           }
         } else if (input === "K" && selectedAgent && selectedAgent.status !== "initializing") {
           setMode({ type: "confirm-kill-agent", agent: selectedAgent });
+        } else if (input === "p" || input === "P") {
+          // Open PR in browser
+          if (selectedAgent) {
+            const result = openAgentPr(selectedAgent);
+            if (result.success) {
+              showMessage(`Opened PR`, "green");
+            } else {
+              showMessage(result.error ?? "No PR found", "yellow");
+            }
+          }
         } else if (input === "c" || input === "C") {
           handleCleanup();
         }

@@ -81,7 +81,8 @@ export function AgentFooter() {
           <Text color="white">l</Text> launch{"  "}
           <Text color="white">L</Text> launch 3{"  "}
           <Text color="white">v</Text> log{"  "}
-          <Text color="white">o</Text> open{"  "}
+          <Text color="white">o</Text> attach{"  "}
+          <Text color="white">p</Text> PR{"  "}
           <Text color="white">K</Text> kill{"  "}
           <Text color="white">c</Text> cleanup{"  "}
           <Text color="white">Tab</Text> worktrees{"  "}

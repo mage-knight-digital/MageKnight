@@ -439,6 +439,49 @@ export function killAgent(issueNumber: number): { success: boolean; error?: stri
   }
 }
 
+export function getAgentPrUrl(agent: Agent): string | null {
+  if (!agent.worktreeName) return null;
+
+  try {
+    // Query GitHub for PR with this branch as head
+    const result = execSync(
+      `gh pr list --head "${agent.worktreeName}" --json url --limit 1`,
+      {
+        cwd: REPO_ROOT,
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+        timeout: 10000,
+      }
+    );
+
+    const prs = JSON.parse(result.trim());
+    if (Array.isArray(prs) && prs.length > 0 && prs[0]?.url) {
+      return prs[0].url as string;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function openAgentPr(agent: Agent): { success: boolean; error?: string; url?: string } {
+  const url = getAgentPrUrl(agent);
+
+  if (!url) {
+    return { success: false, error: "No PR found for this agent" };
+  }
+
+  try {
+    const { platform } = process;
+    const command =
+      platform === "darwin" ? "open" : platform === "win32" ? "start" : "xdg-open";
+    execSync(`${command} "${url}"`, { stdio: "pipe" });
+    return { success: true, url };
+  } catch {
+    return { success: false, error: "Failed to open browser" };
+  }
+}
+
 export function cleanupCompletedAgents(): number {
   const agents = getAgents();
   let cleaned = 0;
