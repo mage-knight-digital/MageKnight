@@ -110,8 +110,12 @@ export {
 // RE-EXPORT UNIT DEFINITION RECORDS
 // =============================================================================
 
-export { REGULAR_UNITS } from "./regular.js";
-export { ELITE_UNITS } from "./elite.js";
+export { REGULAR_UNITS } from "./regular/index.js";
+export { ELITE_UNITS } from "./elite/index.js";
+
+// Re-export individual unit definitions for direct access
+export * from "./regular/index.js";
+export * from "./elite/index.js";
 
 // =============================================================================
 // AGGREGATE UNITS RECORD
@@ -120,8 +124,8 @@ export { ELITE_UNITS } from "./elite.js";
 import type { UnitId } from "./ids.js";
 import type { UnitType, RecruitSite, UnitDefinition } from "./types.js";
 import { UNIT_TYPE_REGULAR, UNIT_TYPE_ELITE } from "./constants.js";
-import { REGULAR_UNITS } from "./regular.js";
-import { ELITE_UNITS } from "./elite.js";
+import { REGULAR_UNITS } from "./regular/index.js";
+import { ELITE_UNITS } from "./elite/index.js";
 
 /**
  * Complete record of all unit definitions indexed by UnitId
