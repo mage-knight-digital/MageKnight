@@ -13,12 +13,11 @@
  * | Module | Description |
  * |--------|-------------|
  * | `helpers.ts` | Effect factory functions |
- * | `bolts.ts` | Crystal gain / elemental ranged attacks |
- * | `red.ts` | Aggressive combat, wound-for-power mechanics |
- * | `blue.ts` | Defensive, mana manipulation, terrain |
- * | `white.ts` | Versatile, speed, reputation-positive |
- * | `green.ts` | Healing, movement efficiency, nature |
- * | `dual.ts` | Multi-color powering flexibility |
+ * | `red/` | Aggressive combat, wound-for-power mechanics (includes Fire Bolt) |
+ * | `blue/` | Defensive, mana manipulation, terrain (includes Ice Bolt) |
+ * | `white/` | Versatile, speed, reputation-positive (includes Swift Bolt) |
+ * | `green/` | Healing, movement efficiency, nature (includes Crushing Bolt) |
+ * | `dual/` | Multi-color powering flexibility |
  *
  * ## Usage
  *
@@ -39,20 +38,18 @@
 export * from "./helpers.js";
 
 // Import all card category records
-import { BOLT_CARDS } from "./bolts.js";
-import { RED_ADVANCED_ACTIONS } from "./red.js";
-import { BLUE_ADVANCED_ACTIONS } from "./blue.js";
-import { WHITE_ADVANCED_ACTIONS } from "./white.js";
-import { GREEN_ADVANCED_ACTIONS } from "./green.js";
-import { DUAL_ADVANCED_ACTIONS } from "./dual.js";
+import { RED_ADVANCED_ACTIONS } from "./red/index.js";
+import { BLUE_ADVANCED_ACTIONS } from "./blue/index.js";
+import { WHITE_ADVANCED_ACTIONS } from "./white/index.js";
+import { GREEN_ADVANCED_ACTIONS } from "./green/index.js";
+import { DUAL_ADVANCED_ACTIONS } from "./dual/index.js";
 
 // Re-export individual card records for direct access
-export { BOLT_CARDS } from "./bolts.js";
-export { RED_ADVANCED_ACTIONS } from "./red.js";
-export { BLUE_ADVANCED_ACTIONS } from "./blue.js";
-export { WHITE_ADVANCED_ACTIONS } from "./white.js";
-export { GREEN_ADVANCED_ACTIONS } from "./green.js";
-export { DUAL_ADVANCED_ACTIONS } from "./dual.js";
+export { RED_ADVANCED_ACTIONS } from "./red/index.js";
+export { BLUE_ADVANCED_ACTIONS } from "./blue/index.js";
+export { WHITE_ADVANCED_ACTIONS } from "./white/index.js";
+export { GREEN_ADVANCED_ACTIONS } from "./green/index.js";
+export { DUAL_ADVANCED_ACTIONS } from "./dual/index.js";
 
 // Import types
 import type { DeedCard } from "../../types/cards.js";
@@ -65,7 +62,6 @@ import type { AdvancedActionCardId } from "@mage-knight/shared";
  * a single source of truth for all advanced action cards in the game.
  */
 export const ADVANCED_ACTION_CARDS = {
-  ...BOLT_CARDS,
   ...RED_ADVANCED_ACTIONS,
   ...BLUE_ADVANCED_ACTIONS,
   ...WHITE_ADVANCED_ACTIONS,
