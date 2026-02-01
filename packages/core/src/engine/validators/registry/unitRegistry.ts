@@ -28,6 +28,7 @@ import {
   validateSiegeRequirement,
   validateCombatRequiredForAbility,
   validateUnitsAllowedInCombat,
+  validateUnitAbilityManaCost,
 } from "../units/index.js";
 
 export const unitRegistry: Record<string, Validator[]> = {
@@ -53,5 +54,6 @@ export const unitRegistry: Record<string, Validator[]> = {
     validateUnitsAllowedInCombat, // Dungeon/Tomb: units cannot be used
     validateAbilityMatchesPhase, // Ability type must match combat phase
     validateSiegeRequirement, // Ranged can't hit fortified in ranged phase
+    validateUnitAbilityManaCost, // Validate mana source if ability has mana cost
   ],
 };

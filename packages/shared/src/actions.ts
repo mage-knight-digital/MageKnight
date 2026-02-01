@@ -208,7 +208,11 @@ export interface ActivateUnitAction {
   readonly type: typeof ACTIVATE_UNIT_ACTION;
   readonly unitInstanceId: string;
   readonly abilityIndex: number;
-  readonly manaPaid?: ManaColor;
+  /**
+   * Mana source used to pay for abilities with manaCost.
+   * Required when the ability has a manaCost defined.
+   */
+  readonly manaSource?: ManaSourceInfo;
 }
 
 // Skill usage

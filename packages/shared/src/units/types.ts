@@ -6,6 +6,7 @@ import { type Element } from "../elements.js";
 import { type EnemyResistances } from "../enemies/index.js";
 import { type Terrain } from "../terrain.js";
 import { type UnitId } from "./ids.js";
+import { type ManaColor } from "../ids.js";
 
 // =============================================================================
 // TYPE ALIASES
@@ -74,6 +75,11 @@ export interface UnitAbility {
    * Modifiers last until the end of the current turn.
    */
   readonly terrainModifiers?: readonly UnitTerrainModifier[];
+  /**
+   * Mana cost to activate this ability.
+   * If undefined, the ability is free to use.
+   */
+  readonly manaCost?: ManaColor;
 }
 
 /**

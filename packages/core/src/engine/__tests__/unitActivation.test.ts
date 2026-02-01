@@ -22,6 +22,8 @@ import {
   UNIT_SHOCKTROOPS,
   UNIT_HERBALIST,
   UNIT_UTEM_CROSSBOWMEN,
+  UNIT_FIRE_GOLEMS,
+  UNIT_ICE_GOLEMS,
   CARD_WOUND,
   UNIT_STATE_READY,
   UNIT_STATE_SPENT,
@@ -36,9 +38,15 @@ import {
   TERRAIN_HILLS,
   TERRAIN_SWAMP,
   TERRAIN_PLAINS,
+  MANA_SOURCE_TOKEN,
+  MANA_SOURCE_CRYSTAL,
+  MANA_SOURCE_DIE,
+  MANA_RED,
+  MANA_BLUE,
 } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../types/unit.js";
 import { resetUnitInstanceCounter } from "../commands/units/index.js";
+import { sourceDieId } from "../../types/mana.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
@@ -770,6 +778,230 @@ describe("Unit Combat Abilities", () => {
 
       // Block should still work
       expect(result.state.players[0].combatAccumulator.block).toBe(3);
+    });
+  });
+
+  describe("Mana-powered abilities", () => {
+    it("should allow free ability without mana source", () => {
+      // Fire Golems have Attack 3 Fire (free) at index 0
+      const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "fire_golem_1",
+        abilityIndex: 0, // Attack 3 Fire (free)
+      });
+
+      // Should succeed
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(3);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+    });
+
+    it("should reject powered ability without mana source", () => {
+      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_RED, source: "card" }], // Has mana available
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "fire_golem_1",
+        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        // No manaSource provided
+      });
+
+      // Should fail - mana source required
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+      if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+        expect(invalidEvent.reason).toContain("red mana");
+      }
+    });
+
+    it("should allow powered ability with mana token", () => {
+      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_RED, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "fire_golem_1",
+        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+      });
+
+      // Should succeed
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(5);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      // Mana token should be consumed
+      expect(result.state.players[0].pureMana.length).toBe(0);
+    });
+
+    it("should allow powered ability with mana crystal", () => {
+      // Ice Golems have Attack 5 Ice (requires blue mana) at index 2
+      const unit = createPlayerUnit(UNIT_ICE_GOLEMS, "ice_golem_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        crystals: { red: 0, blue: 1, green: 0, white: 0 },
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "ice_golem_1",
+        abilityIndex: 2, // Attack 5 Ice (requires blue mana)
+        manaSource: { type: MANA_SOURCE_CRYSTAL, color: MANA_BLUE },
+      });
+
+      // Should succeed
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(5);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      // Crystal should be consumed
+      expect(result.state.players[0].crystals.blue).toBe(0);
+    });
+
+    it("should allow powered ability with mana die", () => {
+      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const dieId = sourceDieId("die_0");
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+        source: {
+          dice: [{ id: dieId, color: MANA_RED, isDepleted: false, takenByPlayerId: null }],
+        },
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "fire_golem_1",
+        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        manaSource: { type: MANA_SOURCE_DIE, color: MANA_RED, dieId: "die_0" },
+      });
+
+      // Should succeed
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(5);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      // Die should be in used list
+      expect(result.state.players[0].usedDieIds).toContain("die_0");
+    });
+
+    it("should reject powered ability with wrong mana color", () => {
+      // Fire Golems need red mana, but we provide blue
+      const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_BLUE, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "fire_golem_1",
+        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_BLUE },
+      });
+
+      // Should fail - wrong color
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+    });
+
+    it("should reject powered ability when no mana available", () => {
+      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [], // No mana tokens
+        crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No crystals
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+        source: { dice: [] }, // No dice
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "fire_golem_1",
+        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+      });
+
+      // Should fail - no mana available
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+    });
+
+    it("should track mana used this turn for powered abilities", () => {
+      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_RED, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "fire_golem_1",
+        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+      });
+
+      // Should track mana used
+      expect(result.state.players[0].manaUsedThisTurn).toContain(MANA_RED);
     });
   });
 });

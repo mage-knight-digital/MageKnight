@@ -22,4 +22,5 @@ export {
   validateSiegeRequirement,
   validateCombatRequiredForAbility,
   validateUnitsAllowedInCombat,
+  validateUnitAbilityManaCost,
 } from "./activationValidators.js";

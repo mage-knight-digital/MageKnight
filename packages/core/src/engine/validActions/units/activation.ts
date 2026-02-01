@@ -29,7 +29,9 @@ import {
   UNIT_ABILITY_PARALYZE,
   CARD_WOUND,
   type UnitAbilityType,
+  type ManaColor,
 } from "@mage-knight/shared";
+import { canPayForMana } from "../mana.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
@@ -260,14 +262,27 @@ export function getActivatableUnits(
               reason = "Cannot use influence in combat";
             }
           }
+          // Check mana cost availability (if ability has mana cost)
+          if (canActivate && ability.manaCost) {
+            if (!canPayForMana(state, player, ability.manaCost)) {
+              canActivate = false;
+              reason = `Requires ${ability.manaCost} mana (unavailable)`;
+            }
+          }
         }
       }
 
+      // Build the activatable ability with optional mana cost
       const activatableAbility: ActivatableAbility = {
         index: i,
         name: formatAbilityType(ability.type),
         canActivate,
       };
+
+      // Add mana cost if present
+      if (ability.manaCost) {
+        (activatableAbility as { manaCost?: ManaColor }).manaCost = ability.manaCost;
+      }
 
       // Only add reason if can't activate
       if (!canActivate && reason) {

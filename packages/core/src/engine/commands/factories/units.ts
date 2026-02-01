@@ -49,5 +49,6 @@ export const createActivateUnitCommandFromAction: CommandFactory = (
     playerId,
     unitInstanceId: action.unitInstanceId,
     abilityIndex: action.abilityIndex,
+    ...(action.manaSource && { manaSource: action.manaSource }),
   });
 };

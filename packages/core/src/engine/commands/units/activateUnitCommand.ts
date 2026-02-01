@@ -8,7 +8,7 @@
 
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
-import type { GameEvent, UnitAbilityType, Element, UnitTerrainModifier } from "@mage-knight/shared";
+import type { GameEvent, UnitAbilityType, Element, UnitTerrainModifier, ManaSourceInfo, BasicManaColor } from "@mage-knight/shared";
 import {
   UNIT_ACTIVATED,
   getUnit,
@@ -26,8 +26,12 @@ import {
   ELEMENT_ICE,
   ELEMENT_COLD_FIRE,
   CARD_WOUND,
+  MANA_SOURCE_DIE,
+  MANA_SOURCE_CRYSTAL,
+  MANA_SOURCE_TOKEN,
 } from "@mage-knight/shared";
-import type { CombatAccumulator, ElementalAttackValues, Player } from "../../../types/player.js";
+import type { CombatAccumulator, ElementalAttackValues, Player, Crystals } from "../../../types/player.js";
+import type { SourceDieId, ManaSource } from "../../../types/mana.js";
 import { addModifier } from "../../modifiers.js";
 import {
   DURATION_TURN,
@@ -42,6 +46,11 @@ export interface ActivateUnitCommandParams {
   readonly playerId: string;
   readonly unitInstanceId: string;
   readonly abilityIndex: number;
+  /**
+   * Mana source used to pay for abilities with manaCost.
+   * Required when the ability has a manaCost defined.
+   */
+  readonly manaSource?: ManaSourceInfo;
 }
 
 /**
@@ -335,6 +344,9 @@ function removeAbilityFromAccumulator(
 export function createActivateUnitCommand(
   params: ActivateUnitCommandParams
 ): Command {
+  // Store mana consumption info for undo
+  let consumedManaSource: ManaSourceInfo | null = null;
+
   return {
     type: ACTIVATE_UNIT_COMMAND,
     playerId: params.playerId,
@@ -348,7 +360,7 @@ export function createActivateUnitCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
-      const player = state.players[playerIndex];
+      let player = state.players[playerIndex];
       if (!player) {
         throw new Error(`Player not found: ${params.playerId}`);
       }
@@ -373,6 +385,83 @@ export function createActivateUnitCommand(
 
       // Get the ability value (default to 0 for abilities without values)
       const abilityValue = ability.value ?? 0;
+
+      // Track source updates (for die usage)
+      let updatedSource: ManaSource = state.source;
+
+      // Handle mana consumption if ability has mana cost
+      if (ability.manaCost && params.manaSource) {
+        consumedManaSource = params.manaSource;
+        const { type: sourceType, color } = params.manaSource;
+
+        // Track mana usage for conditional effects
+        player = {
+          ...player,
+          manaUsedThisTurn: [...player.manaUsedThisTurn, color],
+        };
+
+        switch (sourceType) {
+          case MANA_SOURCE_DIE: {
+            const dieId = params.manaSource.dieId as SourceDieId;
+            if (!dieId) {
+              throw new Error("Die ID required when using mana from source");
+            }
+
+            // Check if this is the Mana Steal stored die
+            const storedDie = player.tacticState.storedManaDie;
+            if (storedDie && storedDie.dieId === dieId) {
+              // Using the stolen Mana Steal die
+              player = {
+                ...player,
+                tacticState: {
+                  ...player.tacticState,
+                  manaStealUsedThisTurn: true,
+                },
+              };
+            } else {
+              // Using a normal source die
+              const alreadyUsed = player.usedDieIds.includes(dieId);
+              player = {
+                ...player,
+                usedManaFromSource: true,
+                usedDieIds: alreadyUsed
+                  ? player.usedDieIds
+                  : [...player.usedDieIds, dieId],
+              };
+              // Mark the die as taken in the source
+              const updatedDice = state.source.dice.map((die) =>
+                die.id === dieId
+                  ? { ...die, takenByPlayerId: params.playerId }
+                  : die
+              );
+              updatedSource = { dice: updatedDice };
+            }
+            break;
+          }
+
+          case MANA_SOURCE_CRYSTAL: {
+            const basicColor = color as BasicManaColor;
+            const newCrystals: Crystals = {
+              ...player.crystals,
+              [basicColor]: player.crystals[basicColor] - 1,
+            };
+            player = { ...player, crystals: newCrystals };
+            break;
+          }
+
+          case MANA_SOURCE_TOKEN: {
+            const tokenIndex = player.pureMana.findIndex(
+              (t) => t.color === color
+            );
+            if (tokenIndex !== -1) {
+              const newPureMana = [...player.pureMana];
+              newPureMana.splice(tokenIndex, 1);
+              player = { ...player, pureMana: newPureMana };
+            }
+            break;
+          }
+        }
+      }
 
       // Mark unit as spent
       const updatedUnits = [...player.units];
@@ -432,7 +521,7 @@ export function createActivateUnitCommand(
       ];
 
       return {
-        state: updatedState,
+        state: { ...updatedState, source: updatedSource },
         events,
       };
     },
@@ -445,7 +534,7 @@ export function createActivateUnitCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
-      const player = state.players[playerIndex];
+      let player = state.players[playerIndex];
       if (!player) {
         throw new Error(`Player not found: ${params.playerId}`);
       }
@@ -465,6 +554,79 @@ export function createActivateUnitCommand(
       const unitDef = getUnit(unit.unitId);
       const ability = unitDef.abilities[params.abilityIndex];
       const abilityValue = ability?.value ?? 0;
+
+      // Track source updates (for die restoration)
+      let updatedSource: ManaSource = state.source;
+
+      // Restore mana if it was consumed
+      if (consumedManaSource) {
+        const { type: sourceType, color } = consumedManaSource;
+
+        // Remove the mana color from manaUsedThisTurn
+        const colorIndex = player.manaUsedThisTurn.lastIndexOf(color);
+        if (colorIndex !== -1) {
+          const newManaUsed = [...player.manaUsedThisTurn];
+          newManaUsed.splice(colorIndex, 1);
+          player = { ...player, manaUsedThisTurn: newManaUsed };
+        }
+
+        switch (sourceType) {
+          case MANA_SOURCE_DIE: {
+            const dieId = consumedManaSource.dieId as SourceDieId;
+
+            // Check if this was the Mana Steal stored die
+            const storedDie = player.tacticState.storedManaDie;
+            if (storedDie && storedDie.dieId === dieId) {
+              // Restore Mana Steal die usage
+              player = {
+                ...player,
+                tacticState: {
+                  ...player.tacticState,
+                  manaStealUsedThisTurn: false,
+                },
+              };
+            } else {
+              // Restore normal source die
+              // Remove from usedDieIds
+              const newUsedDieIds = player.usedDieIds.filter((id) => id !== dieId);
+              player = {
+                ...player,
+                usedManaFromSource: newUsedDieIds.length > 0,
+                usedDieIds: newUsedDieIds,
+              };
+              // Unmark the die as taken
+              const updatedDice = state.source.dice.map((die) =>
+                die.id === dieId ? { ...die, takenByPlayerId: null } : die
+              );
+              updatedSource = { dice: updatedDice };
+            }
+            break;
+          }
+
+          case MANA_SOURCE_CRYSTAL: {
+            const basicColor = color as BasicManaColor;
+            const newCrystals: Crystals = {
+              ...player.crystals,
+              [basicColor]: player.crystals[basicColor] + 1,
+            };
+            player = { ...player, crystals: newCrystals };
+            break;
+          }
+
+          case MANA_SOURCE_TOKEN: {
+            // Restore the mana token
+            const restoredToken = {
+              color,
+              source: "card" as const, // Simplified - actual source unknown
+            };
+            player = {
+              ...player,
+              pureMana: [...player.pureMana, restoredToken],
+            };
+            break;
+          }
+        }
+      }
 
       // Restore unit to ready
       const updatedUnits = [...player.units];
@@ -493,7 +655,7 @@ export function createActivateUnitCommand(
       players[playerIndex] = updatedPlayer;
 
       return {
-        state: { ...state, players },
+        state: { ...state, players, source: updatedSource },
         events: [],
       };
     },
