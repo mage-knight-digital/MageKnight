@@ -202,6 +202,12 @@ export {
   registerSwordOfJusticeEffects,
 } from "./swordOfJusticeEffects.js";
 
+// Polarize mana effects (Arythea's Polarization skill)
+export {
+  resolvePolarizeMana,
+  registerPolarizeEffects,
+} from "./polarizeEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 
