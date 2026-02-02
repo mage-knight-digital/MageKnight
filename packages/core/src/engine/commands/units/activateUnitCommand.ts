@@ -35,6 +35,8 @@ import {
 } from "./helpers/manaConsumptionHelpers.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
 import { resolveEffect, isEffectResolvable, describeEffect } from "../../effects/index.js";
+import { EFFECT_CHOICE } from "../../../types/effectTypes.js";
+import type { ChoiceEffect, CardEffect } from "../../../types/cards.js";
 import type { Player } from "../../../types/player.js";
 
 export const ACTIVATE_UNIT_COMMAND = "ACTIVATE_UNIT" as const;
@@ -179,10 +181,22 @@ export function createActivateUnitCommand(
           },
         ];
 
-        // Check if the effect requires a choice (e.g., enemy selection)
-        if (effectResult.requiresChoice && effectResult.dynamicChoiceOptions) {
+        // Check if the effect requires a choice (e.g., enemy selection or static choice)
+        // Get choice options - either dynamic (from effect resolution) or static (from EFFECT_CHOICE)
+        let choiceOptions: readonly CardEffect[] | null = null;
+        if (effectResult.requiresChoice) {
+          if (effectResult.dynamicChoiceOptions) {
+            // Dynamic choices from effects like EFFECT_SELECT_COMBAT_ENEMY
+            choiceOptions = effectResult.dynamicChoiceOptions;
+          } else if (effect.type === EFFECT_CHOICE) {
+            // Static choice effect (e.g., Ice Mages "Ice Attack OR Ice Block")
+            choiceOptions = (effect as ChoiceEffect).options;
+          }
+        }
+
+        if (choiceOptions) {
           // Filter to resolvable options
-          const resolvableOptions = effectResult.dynamicChoiceOptions.filter((opt) =>
+          const resolvableOptions = choiceOptions.filter((opt) =>
             isEffectResolvable(effectResult.state, params.playerId, opt)
           );
 

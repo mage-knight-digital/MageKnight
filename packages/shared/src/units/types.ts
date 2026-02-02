@@ -107,6 +107,12 @@ export interface UnitAbility {
    * Simple abilities derive their name from the type field.
    */
   readonly displayName?: string;
+  /**
+   * For effect-based abilities (type="effect"), indicates whether combat is required.
+   * If true (default for effect abilities), ability can only be used during combat.
+   * If false, ability can be used outside combat (like resource generation).
+   */
+  readonly requiresCombat?: boolean;
 }
 
 /**
