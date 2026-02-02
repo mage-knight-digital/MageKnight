@@ -42,6 +42,7 @@ import {
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_FAME,
   EFFECT_GAIN_CRYSTAL,
+  EFFECT_GAIN_MANA,
   EFFECT_CRYSTALLIZE_COLOR,
   EFFECT_DRAW_CARDS,
   EFFECT_TAKE_WOUND,
@@ -156,6 +157,21 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
           [effect.color]: Math.max(0, player.crystals[effect.color] - 1),
         },
       };
+
+    case EFFECT_GAIN_MANA: {
+      // Reverse mana token gain by removing a matching token from pureMana
+      const tokenIndex = player.pureMana.findIndex((t) => t.color === effect.color);
+      if (tokenIndex === -1) {
+        // Token not found - can't reverse (might have been spent)
+        return player;
+      }
+      const newPureMana = [...player.pureMana];
+      newPureMana.splice(tokenIndex, 1);
+      return {
+        ...player,
+        pureMana: newPureMana,
+      };
+    }
 
     case EFFECT_CRYSTALLIZE_COLOR:
       // Reverse crystallize: remove the crystal and restore the mana token

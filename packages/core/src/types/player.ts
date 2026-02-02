@@ -154,6 +154,12 @@ export interface PendingChoice {
   readonly skillId: SkillId | null;
   readonly unitInstanceId: string | null; // For unit effect-based abilities (e.g., Sorcerers)
   readonly options: readonly CardEffect[];
+  /**
+   * Remaining effects to resolve after this choice is resolved.
+   * Used when a compound effect is interrupted by a choice - the remaining
+   * sub-effects are stored here so they can continue after the choice is resolved.
+   */
+  readonly remainingEffects?: readonly CardEffect[];
 }
 
 /**
