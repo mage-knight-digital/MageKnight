@@ -16,12 +16,14 @@ import type { CombatState, EnemyAssignments } from "../../types/combat.js";
 import type { CombatEnemy } from "../../types/combat.js";
 import { isEnemyAssignedToPlayer } from "../helpers/cooperativeAssaultHelpers.js";
 import type { GameState } from "../../state/GameState.js";
+import type { Player } from "../../types/player.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ASSIGN_DAMAGE,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
+import { HEROES_ASSAULT_INFLUENCE_COST } from "../commands/combat/payHeroesAssaultInfluenceCommand.js";
 
 // Import from domain-specific modules
 import { computeAttackPhaseOptions } from "./combatAttack.js";
@@ -33,6 +35,51 @@ export * from "./combatHelpers.js";
 export * from "./combatAttack.js";
 export * from "./combatBlock.js";
 export * from "./combatDamage.js";
+
+// ============================================================================
+// Heroes Assault Influence Options
+// ============================================================================
+
+/**
+ * Computes Heroes assault influence options for CombatOptions.
+ *
+ * Heroes units cannot use abilities during fortified site assaults unless
+ * 2 Influence is paid once per combat. This function determines:
+ * - Whether the payment option is applicable (fortified site assault)
+ * - Whether payment has already been made
+ * - Whether the player can afford to pay
+ *
+ * @returns Object with Heroes assault influence fields to merge into CombatOptions
+ */
+function getHeroesAssaultInfluenceOptions(
+  combat: CombatState,
+  player: Player | undefined
+): Pick<
+  CombatOptions,
+  | "canPayHeroesAssaultInfluence"
+  | "heroesAssaultInfluenceCost"
+  | "heroesAssaultInfluencePaid"
+> {
+  // Only applicable for fortified site assaults (not defense or dungeons)
+  const isApplicable =
+    combat.isAtFortifiedSite && combat.assaultOrigin !== null;
+
+  if (!isApplicable) {
+    // Not a fortified site assault - don't include these fields
+    return {};
+  }
+
+  const alreadyPaid = combat.paidHeroesAssaultInfluence;
+  const canAfford =
+    player !== undefined &&
+    player.influencePoints >= HEROES_ASSAULT_INFLUENCE_COST;
+
+  return {
+    canPayHeroesAssaultInfluence: !alreadyPaid && canAfford,
+    heroesAssaultInfluenceCost: HEROES_ASSAULT_INFLUENCE_COST,
+    heroesAssaultInfluencePaid: alreadyPaid,
+  };
+}
 
 // ============================================================================
 // Enemy Assignment Filtering (for Cooperative Assaults)
@@ -96,30 +143,47 @@ export function getCombatOptions(state: GameState): CombatOptions | null {
     enemies: visibleEnemies,
   };
 
+  // Get Heroes assault influence options (applicable to all phases during fortified assaults)
+  const heroesAssaultOptions = getHeroesAssaultInfluenceOptions(
+    combat,
+    currentPlayer
+  );
+
   // Compute phase-specific options
+  let baseOptions: CombatOptions;
   switch (phase) {
     case COMBAT_PHASE_RANGED_SIEGE:
-      return computeAttackPhaseOptions(state, filteredCombat, currentPlayer, true);
+      baseOptions = computeAttackPhaseOptions(state, filteredCombat, currentPlayer, true);
+      break;
 
     case COMBAT_PHASE_BLOCK:
-      return computeBlockPhaseOptions(state, filteredCombat, currentPlayer);
+      baseOptions = computeBlockPhaseOptions(state, filteredCombat, currentPlayer);
+      break;
 
     case COMBAT_PHASE_ASSIGN_DAMAGE:
-      return {
+      baseOptions = {
         phase,
         canEndPhase: canEndAssignDamagePhase(state, visibleEnemies),
         damageAssignments: getDamageAssignmentOptions(state, visibleEnemies),
       };
+      break;
 
     case COMBAT_PHASE_ATTACK:
-      return computeAttackPhaseOptions(state, filteredCombat, currentPlayer, false);
+      baseOptions = computeAttackPhaseOptions(state, filteredCombat, currentPlayer, false);
+      break;
 
     default:
-      return {
+      baseOptions = {
         phase,
         canEndPhase: true,
       };
   }
+
+  // Merge Heroes assault options if applicable
+  return {
+    ...baseOptions,
+    ...heroesAssaultOptions,
+  };
 }
 
 // NOTE: getAttackOptions was removed. Phase 3 will add computation for

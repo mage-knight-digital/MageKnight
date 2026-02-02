@@ -551,6 +551,7 @@ export class GameServer {
       playedCardFromHandThisTurn: false,
       hasPlunderedThisTurn: false,
       hasRecruitedUnitThisTurn: false,
+      unitsRecruitedThisInteraction: [],
       manaUsedThisTurn: [],
       spellColorsCastThisTurn: [],
       spellsCastByColorThisTurn: {},

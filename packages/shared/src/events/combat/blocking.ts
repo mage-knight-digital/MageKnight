@@ -267,3 +267,65 @@ export function isMoveSpentOnCumbersomeEvent(
 ): event is MoveSpentOnCumbersomeEvent {
   return event.type === MOVE_SPENT_ON_CUMBERSOME;
 }
+
+// ============================================================================
+// HEROES_ASSAULT_INFLUENCE_PAID (Heroes special rule)
+// ============================================================================
+
+/**
+ * Event type constant for Heroes assault influence payment.
+ * @see HeroesAssaultInfluencePaidEvent
+ */
+export const HEROES_ASSAULT_INFLUENCE_PAID = "HEROES_ASSAULT_INFLUENCE_PAID" as const;
+
+/**
+ * Emitted when 2 Influence is paid to enable Heroes unit abilities
+ * during a fortified site assault.
+ *
+ * Per rulebook: Heroes cannot use abilities in fortified assaults
+ * unless 2 Influence is paid once per combat.
+ *
+ * @remarks
+ * - Only valid during fortified site assaults
+ * - Payment enables all Heroes units for remaining combat
+ * - One-time payment per combat
+ * - Damage assignment to Heroes is allowed without payment
+ *
+ * @example
+ * ```typescript
+ * if (event.type === HEROES_ASSAULT_INFLUENCE_PAID) {
+ *   enableHeroesAbilities();
+ *   updateInfluenceDisplay(event.influenceSpent);
+ * }
+ * ```
+ */
+export interface HeroesAssaultInfluencePaidEvent {
+  readonly type: typeof HEROES_ASSAULT_INFLUENCE_PAID;
+  /** Player who paid the influence */
+  readonly playerId: string;
+  /** Amount of influence spent (always 2) */
+  readonly influenceSpent: number;
+}
+
+/**
+ * Creates a HeroesAssaultInfluencePaidEvent.
+ */
+export function createHeroesAssaultInfluencePaidEvent(
+  playerId: string,
+  influenceSpent: number
+): HeroesAssaultInfluencePaidEvent {
+  return {
+    type: HEROES_ASSAULT_INFLUENCE_PAID,
+    playerId,
+    influenceSpent,
+  };
+}
+
+/**
+ * Type guard for HeroesAssaultInfluencePaidEvent.
+ */
+export function isHeroesAssaultInfluencePaidEvent(
+  event: { type: string }
+): event is HeroesAssaultInfluencePaidEvent {
+  return event.type === HEROES_ASSAULT_INFLUENCE_PAID;
+}

@@ -159,6 +159,8 @@ export function createMoveCommand(params: MoveCommandParams): Command {
         position: params.to,
         movePoints: player.movePoints - params.terrainCost,
         hasMovedThisTurn: true,
+        // Clear interaction tracking when moving - new site = new interaction
+        unitsRecruitedThisInteraction: [],
       };
 
       let updatedState: GameState = state;

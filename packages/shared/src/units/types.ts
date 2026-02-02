@@ -18,6 +18,21 @@ import { type ManaColor } from "../ids.js";
 export type UnitType = "regular" | "elite";
 
 /**
+ * Source of unit recruitment - determines which special rules apply.
+ * - "normal": Standard recruitment at a site (all special rules apply)
+ * - "artifact": Recruited via Banner of Command artifact (bypasses special rules)
+ * - "spell": Recruited via Call to Glory spell (bypasses special rules)
+ */
+export const RECRUITMENT_SOURCE_NORMAL = "normal" as const;
+export const RECRUITMENT_SOURCE_ARTIFACT = "artifact" as const;
+export const RECRUITMENT_SOURCE_SPELL = "spell" as const;
+
+export type RecruitmentSource =
+  | typeof RECRUITMENT_SOURCE_NORMAL
+  | typeof RECRUITMENT_SOURCE_ARTIFACT
+  | typeof RECRUITMENT_SOURCE_SPELL;
+
+/**
  * Recruitment site where units can be hired
  */
 export type RecruitSite =

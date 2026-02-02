@@ -144,6 +144,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     hasCombattedThisTurn: false,
     hasPlunderedThisTurn: false,
     hasRecruitedUnitThisTurn: false,
+    unitsRecruitedThisInteraction: [],
     manaUsedThisTurn: [],
     spellColorsCastThisTurn: [],
     spellsCastByColorThisTurn: {},
@@ -329,12 +330,15 @@ export function createTacticsSelectionState(
   };
 }
 
+import { COMBAT_CONTEXT_STANDARD } from "../../types/combat.js";
+
 /**
  * Create a combat state for unit tests with a default enemy
  */
 export function createUnitCombatState(
   phase: CombatPhase,
-  isAtFortifiedSite = false
+  isAtFortifiedSite = false,
+  assaultOrigin: { q: number; r: number } | null = null
 ): CombatState {
   return {
     enemies: [
@@ -365,11 +369,14 @@ export function createUnitCombatState(
     isAtFortifiedSite,
     unitsAllowed: true,
     nightManaRules: false,
-    assaultOrigin: null,
+    assaultOrigin,
     combatHexCoord: null,
     allDamageBlockedThisPhase: false,
     discardEnemiesOnFailure: false,
     pendingDamage: {},
     pendingBlock: {},
+    combatContext: COMBAT_CONTEXT_STANDARD,
+    cumbersomeReductions: {},
+    paidHeroesAssaultInfluence: false,
   };
 }

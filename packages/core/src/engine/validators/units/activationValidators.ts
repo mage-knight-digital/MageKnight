@@ -26,6 +26,7 @@ import {
   UNIT_ABILITY_BRUTAL,
   UNIT_ABILITY_POISON,
   UNIT_ABILITY_PARALYZE,
+  UNIT_HEROES,
 } from "@mage-knight/shared";
 import {
   PLAYER_NOT_FOUND,
@@ -43,6 +44,7 @@ import {
   UNITS_NOT_ALLOWED,
   UNIT_ABILITY_REQUIRES_MANA,
   UNIT_ABILITY_MANA_UNAVAILABLE,
+  HEROES_ASSAULT_INFLUENCE_NOT_PAID,
 } from "../validationCodes.js";
 import { validateSingleManaSource } from "../mana/sourceValidators.js";
 import { canPayForMana } from "../../validActions/mana.js";
@@ -418,4 +420,53 @@ export function validateUnitAbilityManaCost(
 
   // Validate the specific mana source is valid (reuse existing validator)
   return validateSingleManaSource(state, player, action.manaSource, playerId);
+}
+
+/**
+ * Validate Heroes units can be activated during fortified site assaults.
+ *
+ * Per rulebook: Heroes cannot use their abilities during fortified site assaults
+ * unless the player pays 2 Influence. The 2 Influence must be paid once per combat
+ * (tracked in CombatState.paidHeroesAssaultInfluence).
+ *
+ * This restriction only applies to:
+ * - Fortified site assaults (isAtFortifiedSite && assaultOrigin !== null)
+ * - Heroes unit type specifically
+ *
+ * NOTE: Damage assignment to Heroes is still allowed even without paying
+ * (per rulebook clarification) - this validator only blocks ability activation.
+ */
+export function validateHeroesAssaultRestriction(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ACTIVATE_UNIT_ACTION) return valid();
+  if (!state.combat) return valid();
+
+  // Only applies to fortified site assaults
+  if (!state.combat.isAtFortifiedSite || state.combat.assaultOrigin === null) {
+    return valid();
+  }
+
+  const player = getPlayerById(state, playerId);
+  if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
+
+  const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
+  if (!unit) return valid(); // Other validator handles
+
+  // Only applies to Heroes unit type
+  if (unit.unitId !== UNIT_HEROES) {
+    return valid();
+  }
+
+  // Check if 2 Influence has been paid this combat
+  if (!state.combat.paidHeroesAssaultInfluence) {
+    return invalid(
+      HEROES_ASSAULT_INFLUENCE_NOT_PAID,
+      "Heroes cannot use abilities in fortified site assaults without paying 2 Influence"
+    );
+  }
+
+  return valid();
 }

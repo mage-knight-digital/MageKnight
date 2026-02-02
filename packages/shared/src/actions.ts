@@ -4,7 +4,7 @@
 
 import type { HexCoord, HexDirection } from "./hex.js";
 import type { CardId, SkillId, BasicManaColor, ManaColor } from "./ids.js";
-import type { UnitId } from "./units/index.js";
+import type { UnitId, RecruitmentSource } from "./units/index.js";
 import type { ManaSourceType, SparingPowerChoice } from "./valueConstants.js";
 import type { EnemyId } from "./enemies/index.js";
 import type { CombatType } from "./combatTypes.js";
@@ -228,12 +228,29 @@ export interface RecruitUnitAction {
   readonly type: typeof RECRUIT_UNIT_ACTION;
   readonly unitId: UnitId;
   readonly influenceSpent: number; // Must meet unit's cost
+  /**
+   * Source of recruitment - determines which special rules apply.
+   * Defaults to "normal" if not specified (standard recruitment at a site).
+   * "artifact" or "spell" bypass Heroes/Thugs special rules.
+   */
+  readonly source?: RecruitmentSource;
 }
 
 export const DISBAND_UNIT_ACTION = "DISBAND_UNIT" as const;
 export interface DisbandUnitAction {
   readonly type: typeof DISBAND_UNIT_ACTION;
   readonly unitInstanceId: string;
+}
+
+// Heroes special rule: pay influence for assault abilities
+export const PAY_HEROES_ASSAULT_INFLUENCE_ACTION = "PAY_HEROES_ASSAULT_INFLUENCE" as const;
+/**
+ * Pay 2 influence to allow Heroes units to use abilities during
+ * fortified site assaults. Per rulebook, Heroes refuse to participate
+ * in assaults on Keeps, Mage Towers, and Cities without this payment.
+ */
+export interface PayHeroesAssaultInfluenceAction {
+  readonly type: typeof PAY_HEROES_ASSAULT_INFLUENCE_ACTION;
 }
 
 export const BUY_SPELL_ACTION = "BUY_SPELL" as const;
@@ -573,6 +590,7 @@ export type PlayerAction =
   // Interactions
   | RecruitUnitAction
   | DisbandUnitAction
+  | PayHeroesAssaultInfluenceAction
   | BuySpellAction
   | LearnAdvancedActionAction
   | BuyHealingAction

@@ -226,6 +226,17 @@ export interface CombatOptions {
 
   /** Available move points for Cumbersome reduction */
   readonly availableMovePoints?: number;
+
+  // ---- Heroes assault influence payment (fortified site assaults) ----
+
+  /** Whether player can pay 2 Influence to allow Heroes to use abilities */
+  readonly canPayHeroesAssaultInfluence?: boolean;
+
+  /** Cost to enable Heroes abilities (always 2) */
+  readonly heroesAssaultInfluenceCost?: number;
+
+  /** Whether Heroes assault influence has already been paid this combat */
+  readonly heroesAssaultInfluencePaid?: boolean;
 }
 
 export interface BlockOption {

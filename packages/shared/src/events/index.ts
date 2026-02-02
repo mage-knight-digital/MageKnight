@@ -172,6 +172,7 @@ import type {
   BlockAssignedEvent,
   BlockUnassignedEvent,
   MoveSpentOnCumbersomeEvent,
+  HeroesAssaultInfluencePaidEvent,
   EnemyDefeatedEvent,
   AttackFailedEvent,
   AttackAssignedEvent,
@@ -345,6 +346,7 @@ export type GameEvent =
   | BlockAssignedEvent
   | BlockUnassignedEvent
   | MoveSpentOnCumbersomeEvent
+  | HeroesAssaultInfluencePaidEvent
   | EnemyDefeatedEvent
   | AttackFailedEvent
   | AttackAssignedEvent
