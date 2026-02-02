@@ -40,10 +40,12 @@ import {
 } from "./queries.js";
 import { isEnemyFullyBlocked } from "../combat/enemyAttackHelpers.js";
 import { getTotalDefendBonus } from "../combat/defendHelpers.js";
+import { getFortificationLevel } from "../validators/combatValidators/index.js";
 
 /**
  * Get effective enemy armor after modifiers.
  * @param resistanceCount - number of resistances the enemy has (for Resistance Break)
+ * @param playerId - player ID for checking fortification modifiers (Earthquake spell)
  *
  * Note: Arcane Immunity blocks armor modification effects (non-Attack/Block effect).
  */
@@ -51,7 +53,8 @@ export function getEffectiveEnemyArmor(
   state: GameState,
   enemyId: string,
   baseArmor: number,
-  resistanceCount: number
+  resistanceCount: number,
+  playerId: string
 ): number {
   // Get Defend bonus (from another enemy's Defend ability)
   // Defend bonus is NOT blocked by Arcane Immunity because it's FROM another enemy,
@@ -76,6 +79,21 @@ export function getEffectiveEnemyArmor(
     if (mod.perResistance) {
       // Resistance Break: -1 per resistance
       armor += mod.amount * resistanceCount;
+    } else if (mod.fortifiedAmount !== undefined) {
+      // Earthquake: use fortifiedAmount if target is fortified, otherwise base amount
+      const enemy = state.combat?.enemies.find((e) => e.instanceId === enemyId);
+      if (enemy && state.combat) {
+        const fortLevel = getFortificationLevel(
+          enemy,
+          state.combat.isAtFortifiedSite,
+          state,
+          playerId
+        );
+        armor += fortLevel > 0 ? mod.fortifiedAmount : mod.amount;
+      } else {
+        // Fallback to base amount if enemy not found
+        armor += mod.amount;
+      }
     } else {
       armor += mod.amount;
     }

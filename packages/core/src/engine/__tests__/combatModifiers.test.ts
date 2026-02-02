@@ -13,6 +13,7 @@ import {
   DECLARE_ATTACK_ACTION,
   PLAY_CARD_ACTION,
   ENEMY_DIGGERS,
+  ENEMY_ORC_SKIRMISHERS,
   COMBAT_TYPE_MELEE,
   ELEMENT_PHYSICAL,
   CARD_WHIRLWIND,
@@ -24,6 +25,7 @@ import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_COMBAT,
   SCOPE_ONE_ENEMY,
+  SCOPE_ALL_ENEMIES,
   SOURCE_SKILL,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
@@ -234,6 +236,257 @@ describe("Combat Modifiers", () => {
 
       // combat.fameGained should also track this (this is the bug fix)
       expect(result.state.combat?.fameGained).toBe(2);
+    });
+  });
+
+  describe("Earthquake fortification-conditional armor reduction", () => {
+    it("should use fortifiedAmount when enemy has ABILITY_FORTIFIED", () => {
+      const player = createTestPlayer();
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Diggers (Attack 3, Armor 3, has ABILITY_FORTIFIED)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DIGGERS],
+      }).state;
+
+      const enemyInstanceId = state.combat?.enemies[0].instanceId ?? "";
+      expect(enemyInstanceId).not.toBe("");
+
+      // Apply Earthquake modifier: amount -3, fortifiedAmount -6, minimum 1
+      // Diggers have ABILITY_FORTIFIED, so should use -6
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId: "test_earthquake" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: enemyInstanceId },
+        effect: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -3, // Not fortified
+          fortifiedAmount: -6, // Fortified
+          minimum: 1,
+        },
+        createdAtRound: state.round,
+        createdByPlayerId: "player1",
+      });
+
+      // Add skip attack so we can get to attack phase
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId: "test_skill" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: enemyInstanceId },
+        effect: { type: EFFECT_ENEMY_SKIP_ATTACK },
+        createdAtRound: state.round,
+        createdByPlayerId: "player1",
+      });
+
+      // Skip to attack phase
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state; // ranged/siege
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state; // block
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state; // assign
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_ATTACK);
+
+      // Diggers base armor is 3, with -6 from Earthquake = -3, minimum 1
+      // So effective armor should be 1
+      // Attack with 1 damage should defeat
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: [enemyInstanceId],
+        attacks: [{ element: ELEMENT_PHYSICAL, value: 1 }],
+        attackType: COMBAT_TYPE_MELEE,
+      });
+
+      expect(result.state.combat?.enemies[0].isDefeated).toBe(true);
+    });
+
+    it("should use base amount when enemy does NOT have ABILITY_FORTIFIED", () => {
+      const player = createTestPlayer();
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Orc Skirmishers (Attack 3, Armor 3, NO abilities)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_ORC_SKIRMISHERS],
+      }).state;
+
+      const enemyInstanceId = state.combat?.enemies[0].instanceId ?? "";
+      expect(enemyInstanceId).not.toBe("");
+
+      // Apply Earthquake modifier: amount -3, fortifiedAmount -6, minimum 1
+      // Orc Skirmishers have NO fortified ability, so should use -3
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId: "test_earthquake" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: enemyInstanceId },
+        effect: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -3, // Not fortified
+          fortifiedAmount: -6, // Fortified
+          minimum: 1,
+        },
+        createdAtRound: state.round,
+        createdByPlayerId: "player1",
+      });
+
+      // Add skip attack so we can get to attack phase
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId: "test_skill" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: enemyInstanceId },
+        effect: { type: EFFECT_ENEMY_SKIP_ATTACK },
+        createdAtRound: state.round,
+        createdByPlayerId: "player1",
+      });
+
+      // Skip to attack phase
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state; // ranged/siege
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state; // block
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state; // assign
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_ATTACK);
+
+      // Orc Skirmishers base armor is 3, with -3 from Earthquake (not fortified) = 0, minimum 1
+      // So effective armor should be 1
+      // Attack with 1 damage should defeat
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: [enemyInstanceId],
+        attacks: [{ element: ELEMENT_PHYSICAL, value: 1 }],
+        attackType: COMBAT_TYPE_MELEE,
+      });
+
+      expect(result.state.combat?.enemies[0].isDefeated).toBe(true);
+    });
+
+    it("should apply fortifiedAmount per enemy with mixed fortification in SCOPE_ALL_ENEMIES", () => {
+      const player = createTestPlayer();
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with both Diggers (armor 3, fortified) and Orc Skirmishers (armor 4, not fortified)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DIGGERS, ENEMY_ORC_SKIRMISHERS],
+      }).state;
+
+      const diggersInstanceId = state.combat?.enemies[0].instanceId ?? "";
+      const orcInstanceId = state.combat?.enemies[1].instanceId ?? "";
+
+      // Apply Earthquake "all enemies" modifier: amount -2, fortifiedAmount -4, minimum 1
+      // Diggers (fortified, armor 3) should get -4 → -1 → min 1 = 1
+      // Orc Skirmishers (not fortified, armor 4) should get -2 → 2
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId: "test_earthquake" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ALL_ENEMIES },
+        effect: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -2, // Not fortified
+          fortifiedAmount: -4, // Fortified
+          minimum: 1,
+        },
+        createdAtRound: state.round,
+        createdByPlayerId: "player1",
+      });
+
+      // Add skip attack for both enemies
+      for (const enemyId of [diggersInstanceId, orcInstanceId]) {
+        state = addModifier(state, {
+          source: { type: SOURCE_SKILL, skillId: "test_skill" },
+          duration: DURATION_COMBAT,
+          scope: { type: SCOPE_ONE_ENEMY, enemyId },
+          effect: { type: EFFECT_ENEMY_SKIP_ATTACK },
+          createdAtRound: state.round,
+          createdByPlayerId: "player1",
+        });
+      }
+
+      // Skip to attack phase
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state;
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state;
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state;
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_ATTACK);
+
+      // Diggers: base armor 3, -4 (fortified) = -1, minimum 1 → effective armor 1
+      // Attack with 1 damage should defeat
+      const resultDiggers = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: [diggersInstanceId],
+        attacks: [{ element: ELEMENT_PHYSICAL, value: 1 }],
+        attackType: COMBAT_TYPE_MELEE,
+      });
+      expect(resultDiggers.state.combat?.enemies[0].isDefeated).toBe(true);
+
+      // Continue with updated state
+      state = resultDiggers.state;
+
+      // Orc Skirmishers: base armor 4, -2 (not fortified) = 2
+      // Attack with 2 damage should defeat
+      const resultOrc = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: [orcInstanceId],
+        attacks: [{ element: ELEMENT_PHYSICAL, value: 2 }],
+        attackType: COMBAT_TYPE_MELEE,
+      });
+      expect(resultOrc.state.combat?.enemies[1].isDefeated).toBe(true);
+    });
+
+    it("should treat doubly fortified (site + ability) the same as singly fortified", () => {
+      const player = createTestPlayer();
+      let state = createTestGameState({ players: [player] });
+
+      // Enter combat with Diggers at a fortified site
+      // Diggers have ABILITY_FORTIFIED, so they're doubly fortified at a fortified site
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DIGGERS],
+        isAtFortifiedSite: true, // At a fortified site (Keep/Tower/City)
+      }).state;
+
+      const enemyInstanceId = state.combat?.enemies[0].instanceId ?? "";
+
+      // Apply Earthquake modifier
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId: "test_earthquake" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: enemyInstanceId },
+        effect: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -3,
+          fortifiedAmount: -6, // Should still be -6 even though doubly fortified
+          minimum: 1,
+        },
+        createdAtRound: state.round,
+        createdByPlayerId: "player1",
+      });
+
+      // Add skip attack
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId: "test_skill" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: enemyInstanceId },
+        effect: { type: EFFECT_ENEMY_SKIP_ATTACK },
+        createdAtRound: state.round,
+        createdByPlayerId: "player1",
+      });
+
+      // Skip to attack phase
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state;
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state;
+      state = engine.processAction(state, "player1", { type: END_COMBAT_PHASE_ACTION }).state;
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_ATTACK);
+
+      // Doubly fortified still uses fortifiedAmount (-6), same as singly fortified
+      // Base armor 3, -6 = -3, minimum 1 → effective armor 1
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: [enemyInstanceId],
+        attacks: [{ element: ELEMENT_PHYSICAL, value: 1 }],
+        attackType: COMBAT_TYPE_MELEE,
+      });
+
+      expect(result.state.combat?.enemies[0].isDefeated).toBe(true);
     });
   });
 });
