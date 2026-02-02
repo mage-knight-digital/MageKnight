@@ -20,6 +20,7 @@ import {
   type Resistances,
 } from "../../combat/elementalCalc.js";
 import { getEffectiveEnemyArmor, areResistancesRemoved, getBaseArmorForPhase } from "../../modifiers/index.js";
+import { autoAssignDefend } from "../../combat/defendHelpers.js";
 
 export const DECLARE_ATTACK_COMMAND = "DECLARE_ATTACK" as const;
 
@@ -39,7 +40,7 @@ export function createDeclareAttackCommand(
     isReversible: false,
 
     execute(state: GameState): CommandResult {
-      const combat = state.combat;
+      let combat = state.combat;
       if (!combat) {
         throw new Error("Not in combat");
       }
@@ -52,8 +53,45 @@ export function createDeclareAttackCommand(
           params.targetEnemyInstanceIds.includes(e.instanceId) && !e.isDefeated
       );
 
+      // Apply Defend abilities: when attacking enemies, available Defend enemies
+      // automatically defend the targets, adding their Defend value to target's armor
+      const defendAssignments = autoAssignDefend(
+        state,
+        params.playerId,
+        params.targetEnemyInstanceIds
+      );
+
+      // Update combat state with Defend assignments if any
+      if (defendAssignments.length > 0) {
+        let updatedUsedDefend = { ...combat.usedDefend };
+        let updatedDefendBonuses = { ...combat.defendBonuses };
+
+        for (const assignment of defendAssignments) {
+          updatedUsedDefend = {
+            ...updatedUsedDefend,
+            [assignment.defenderId]: assignment.targetId,
+          };
+          updatedDefendBonuses = {
+            ...updatedDefendBonuses,
+            [assignment.targetId]: assignment.value,
+          };
+        }
+
+        // Update state with new Defend tracking
+        combat = {
+          ...combat,
+          usedDefend: updatedUsedDefend,
+          defendBonuses: updatedDefendBonuses,
+        };
+        state = {
+          ...state,
+          combat,
+        };
+      }
+
       // Calculate total effective armor of targets (including modifiers like Tremor)
       // Uses phase-aware base armor for Elusive enemies
+      // Note: getEffectiveEnemyArmor now includes Defend bonuses automatically
       const totalArmor = targets.reduce((sum, e) => {
         // Count resistances for Resistance Break modifier
         const resistances = e.definition.resistances;
@@ -116,7 +154,7 @@ export function createDeclareAttackCommand(
       let reputationPenalty = 0;
       let reputationBonus = 0;
 
-      const updatedEnemies = state.combat.enemies.map((e) => {
+      const updatedEnemies = combat.enemies.map((e) => {
         if (
           params.targetEnemyInstanceIds.includes(e.instanceId) &&
           !e.isDefeated
@@ -189,9 +227,9 @@ export function createDeclareAttackCommand(
       );
 
       const updatedCombat = {
-        ...state.combat,
+        ...combat,
         enemies: updatedEnemies,
-        fameGained: state.combat.fameGained + fameGained,
+        fameGained: combat.fameGained + fameGained,
       };
 
       return {

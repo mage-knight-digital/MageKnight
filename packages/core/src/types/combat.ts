@@ -142,6 +142,18 @@ export interface CombatState {
    * Reduction applies BEFORE Swift doubling and persists through Assign Damage phase.
    */
   readonly cumbersomeReductions: CumbersomeReductionMap;
+  /**
+   * Tracks which Defend enemies have used their ability this combat.
+   * Maps defender enemy instance ID → target enemy instance ID being defended.
+   * Each Defend enemy can only use ability once per combat.
+   */
+  readonly usedDefend: DefendUsageMap;
+  /**
+   * Defend bonuses applied to enemies being attacked.
+   * Maps target enemy instance ID → total Defend bonus armor.
+   * Persists even after defender dies.
+   */
+  readonly defendBonuses: DefendBonusMap;
 }
 
 /**
@@ -151,6 +163,25 @@ export interface CombatState {
 export type CumbersomeReductionMap = {
   readonly [enemyInstanceId: string]: number;
 }
+
+/**
+ * Map of defender enemy instance IDs to target enemy instance IDs.
+ * Tracks which Defend enemies have used their ability and on which target.
+ * Each Defend enemy can only use ability once per combat.
+ * Key: defender's instance ID, Value: target's instance ID being defended.
+ */
+export type DefendUsageMap = {
+  readonly [defenderInstanceId: string]: string;
+};
+
+/**
+ * Map of target enemy instance IDs to their total Defend bonus armor.
+ * Persists even after the defending enemy is defeated.
+ * Key: target's instance ID, Value: Defend bonus armor value.
+ */
+export type DefendBonusMap = {
+  readonly [targetInstanceId: string]: number;
+};
 
 // Options for special combat rules
 export interface CombatStateOptions {
@@ -212,6 +243,8 @@ export function createCombatState(
     pendingBlock: {},
     combatContext: options?.combatContext ?? COMBAT_CONTEXT_STANDARD,
     cumbersomeReductions: {},
+    usedDefend: {},
+    defendBonuses: {},
   };
 
   // Only include enemyAssignments if provided (avoids exactOptionalPropertyTypes issues)
