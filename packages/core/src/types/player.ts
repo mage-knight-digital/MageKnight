@@ -309,6 +309,12 @@ export interface Player {
   // Unit recruitment tracking (for "On Her Own" skill condition)
   readonly hasRecruitedUnitThisTurn: boolean;
 
+  // Heroes special rule: track units recruited during current site interaction.
+  // Cleared when player moves away from a site. Used for:
+  // - Double reputation modifier (applies once per interaction when recruiting Heroes)
+  // - Heroes/Thugs exclusion (cannot recruit both in same interaction)
+  readonly unitsRecruitedThisInteraction: readonly import("@mage-knight/shared").UnitId[];
+
   // Mana usage tracking (for conditional effects)
   readonly manaUsedThisTurn: readonly ManaColor[];
 

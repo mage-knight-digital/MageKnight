@@ -70,3 +70,11 @@ export {
   validateCumbersomeEnemy,
   validateHasMovePointsForCumbersome,
 } from "./cumbersomeValidators.js";
+
+// Heroes assault validators
+export {
+  validateHeroesPaymentInCombat,
+  validateHeroesAssaultApplicable,
+  validateHeroesInfluenceNotAlreadyPaid,
+  validateHeroesInfluenceAvailable,
+} from "./heroesAssaultValidators.js";

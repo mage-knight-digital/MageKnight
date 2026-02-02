@@ -31,6 +31,7 @@ import {
   ASSIGN_BLOCK_ACTION,
   UNASSIGN_BLOCK_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
+  PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
 } from "@mage-knight/shared";
 import {
   createEnterCombatCommand,
@@ -44,6 +45,7 @@ import {
   createAssignBlockCommand,
   createUnassignBlockCommand,
   createSpendMoveOnCumbersomeCommand,
+  createPayHeroesAssaultInfluenceCommand,
 } from "../combat/index.js";
 
 /**
@@ -268,5 +270,23 @@ export const createSpendMoveOnCumbersomeCommandFromAction: CommandFactory = (
     playerId,
     enemyInstanceId: action.enemyInstanceId,
     movePointsToSpend: action.movePointsToSpend,
+  });
+};
+
+/**
+ * Pay Heroes assault influence command factory.
+ * Creates a command to pay 2 Influence to enable Heroes unit abilities
+ * during a fortified site assault.
+ *
+ * Part of the Heroes special rules system.
+ */
+export const createPayHeroesAssaultInfluenceCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== PAY_HEROES_ASSAULT_INFLUENCE_ACTION) return null;
+  return createPayHeroesAssaultInfluenceCommand({
+    playerId,
   });
 };

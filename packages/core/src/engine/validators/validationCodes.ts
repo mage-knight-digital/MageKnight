@@ -127,6 +127,11 @@ export const PASSIVE_ABILITY = "PASSIVE_ABILITY" as const;
 export const SIEGE_REQUIRED = "SIEGE_REQUIRED" as const;
 export const UNIT_ABILITY_REQUIRES_MANA = "UNIT_ABILITY_REQUIRES_MANA" as const;
 export const UNIT_ABILITY_MANA_UNAVAILABLE = "UNIT_ABILITY_MANA_UNAVAILABLE" as const;
+// Heroes unit special rules
+export const HEROES_THUGS_EXCLUSION = "HEROES_THUGS_EXCLUSION" as const;
+export const HEROES_ASSAULT_INFLUENCE_NOT_PAID = "HEROES_ASSAULT_INFLUENCE_NOT_PAID" as const;
+export const HEROES_ASSAULT_INFLUENCE_ALREADY_PAID = "HEROES_ASSAULT_INFLUENCE_ALREADY_PAID" as const;
+export const HEROES_ASSAULT_NOT_APPLICABLE = "HEROES_ASSAULT_NOT_APPLICABLE" as const;
 
 // Site interaction validation codes
 export const NO_SITE = "NO_SITE" as const;
@@ -342,6 +347,11 @@ export type ValidationErrorCode =
   | typeof SIEGE_REQUIRED
   | typeof UNIT_ABILITY_REQUIRES_MANA
   | typeof UNIT_ABILITY_MANA_UNAVAILABLE
+  // Heroes unit special rules
+  | typeof HEROES_THUGS_EXCLUSION
+  | typeof HEROES_ASSAULT_INFLUENCE_NOT_PAID
+  | typeof HEROES_ASSAULT_INFLUENCE_ALREADY_PAID
+  | typeof HEROES_ASSAULT_NOT_APPLICABLE
   // Site interaction validation
   | typeof NO_SITE
   | typeof NOT_INHABITED

@@ -154,6 +154,12 @@ export interface CombatState {
    * Persists even after defender dies.
    */
   readonly defendBonuses: DefendBonusMap;
+  /**
+   * Heroes special rule: tracks whether 2 influence has been paid this combat
+   * to allow Heroes units to use abilities during fortified site assaults.
+   * Reset when combat ends. Only applies when isAtFortifiedSite && assaultOrigin !== null.
+   */
+  readonly paidHeroesAssaultInfluence: boolean;
 }
 
 /**
@@ -245,6 +251,7 @@ export function createCombatState(
     cumbersomeReductions: {},
     usedDefend: {},
     defendBonuses: {},
+    paidHeroesAssaultInfluence: false,
   };
 
   // Only include enemyAssignments if provided (avoids exactOptionalPropertyTypes issues)

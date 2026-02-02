@@ -22,6 +22,8 @@ import {
   RECRUIT_SITE_CAMP,
   MIN_REPUTATION,
   MAX_REPUTATION,
+  UNIT_HEROES,
+  UNIT_THUGS,
   type RecruitSite,
   type UnitId,
   type UnitDefinition,
@@ -36,27 +38,52 @@ import { SiteType } from "../../../types/map.js";
  * -7: +5 | -6: +3 | -5: +3 | -4: +2 | -3: +2 | -2: +1 | -1: +1
  *  0: 0
  * +1: -1 | +2: -1 | +3: -2 | +4: -2 | +5: -3 | +6: -3 | +7: -5
+ *
+ * For Heroes units, the modifier is DOUBLED (per rulebook).
+ * The doubled modifier is only applied once per interaction (first Hero recruited).
+ *
+ * @param reputation - The player's current reputation value
+ * @param unitId - Optional unit ID to check for Heroes special rule
+ * @param hasRecruitedHeroThisInteraction - Whether a Hero has already been recruited
+ *        at this site during the current interaction (for doubled reputation tracking)
  */
-export function getReputationCostModifier(reputation: number): number {
+export function getReputationCostModifier(
+  reputation: number,
+  unitId?: UnitId,
+  hasRecruitedHeroThisInteraction?: boolean
+): number {
   // Clamp to valid range
   const rep = Math.max(MIN_REPUTATION, Math.min(MAX_REPUTATION, reputation));
 
-  if (rep === 0) return 0;
-  if (rep === MIN_REPUTATION) return 5;
-  if (rep === MAX_REPUTATION) return -5;
-
-  // Symmetric pattern: ±1-2 = ±1, ±3-4 = ±2, ±5-6 = ±3
-  const absRep = Math.abs(rep);
-  let modifier: number;
-  if (absRep <= 2) {
-    modifier = 1;
-  } else if (absRep <= 4) {
-    modifier = 2;
+  let baseModifier: number;
+  if (rep === 0) {
+    baseModifier = 0;
+  } else if (rep === MIN_REPUTATION) {
+    baseModifier = 5;
+  } else if (rep === MAX_REPUTATION) {
+    baseModifier = -5;
   } else {
-    modifier = 3;
+    // Symmetric pattern: ±1-2 = ±1, ±3-4 = ±2, ±5-6 = ±3
+    const absRep = Math.abs(rep);
+    let modifier: number;
+    if (absRep <= 2) {
+      modifier = 1;
+    } else if (absRep <= 4) {
+      modifier = 2;
+    } else {
+      modifier = 3;
+    }
+    baseModifier = rep < 0 ? modifier : -modifier;
   }
 
-  return rep < 0 ? modifier : -modifier;
+  // Heroes special rule: reputation modifier is doubled
+  // Per rulebook, this applies once per interaction (FAQ clarification)
+  // The doubled modifier only applies to the first Hero recruited at a site
+  if (unitId === UNIT_HEROES && !hasRecruitedHeroThisInteraction) {
+    return baseModifier * 2;
+  }
+
+  return baseModifier;
 }
 
 /**
@@ -133,6 +160,41 @@ export function getUsedCommandTokens(player: Player): number {
 }
 
 /**
+ * Check if recruiting a unit would violate Heroes/Thugs exclusion rule.
+ *
+ * Per rulebook: Cannot recruit Heroes and Thugs during the same interaction
+ * (same site visit). If Heroes were already recruited, Thugs are blocked and vice versa.
+ *
+ * @param unitId - The unit being considered for recruitment
+ * @param unitsRecruitedThisInteraction - Units already recruited at this site
+ * @returns true if recruitment would violate the exclusion rule
+ */
+export function violatesHeroesThugsExclusion(
+  unitId: UnitId,
+  unitsRecruitedThisInteraction: readonly UnitId[]
+): boolean {
+  // Check if recruiting Heroes when Thugs were already recruited
+  if (unitId === UNIT_HEROES) {
+    return unitsRecruitedThisInteraction.includes(UNIT_THUGS);
+  }
+  // Check if recruiting Thugs when Heroes were already recruited
+  if (unitId === UNIT_THUGS) {
+    return unitsRecruitedThisInteraction.includes(UNIT_HEROES);
+  }
+  return false;
+}
+
+/**
+ * Check if a Hero has already been recruited during the current interaction.
+ * Used for tracking the doubled reputation modifier (applies once per interaction).
+ */
+export function hasRecruitedHeroThisInteraction(
+  unitsRecruitedThisInteraction: readonly UnitId[]
+): boolean {
+  return unitsRecruitedThisInteraction.includes(UNIT_HEROES);
+}
+
+/**
  * Calculate the tiered recruitment cost modifier for a unit at a Refugee Camp.
  *
  * Per rulebook:
@@ -173,7 +235,8 @@ export function getRefugeeCampCostModifier(unit: UnitDefinition): number {
  * Returns recruitable units from the offer that match:
  * - Current site type
  * - Site ownership requirements
- * - Cost calculation with reputation modifier
+ * - Cost calculation with reputation modifier (doubled for Heroes)
+ * - Heroes/Thugs exclusion (cannot recruit both in same interaction)
  * - Command token availability
  */
 export function getUnitOptions(
@@ -211,12 +274,14 @@ export function getUnitOptions(
     return undefined;
   }
 
-  // Calculate reputation modifier
-  const reputationModifier = getReputationCostModifier(player.reputation);
-
   // Check command token availability
   const usedTokens = getUsedCommandTokens(player);
   const hasCommandTokens = usedTokens < player.commandTokens;
+
+  // Track if Hero has been recruited this interaction (for doubled reputation)
+  const heroAlreadyRecruited = hasRecruitedHeroThisInteraction(
+    player.unitsRecruitedThisInteraction
+  );
 
   // Build list of recruitable units from the offer
   const recruitable: RecruitableUnit[] = [];
@@ -232,6 +297,16 @@ export function getUnitOptions(
       continue;
     }
 
+    // Check Heroes/Thugs exclusion rule
+    if (
+      violatesHeroesThugsExclusion(
+        unit.id,
+        player.unitsRecruitedThisInteraction
+      )
+    ) {
+      continue;
+    }
+
     // Calculate base cost
     const baseCost = unit.influence;
 
@@ -239,6 +314,13 @@ export function getUnitOptions(
     const refugeeCampModifier = isRefugeeCamp
       ? getRefugeeCampCostModifier(unit)
       : 0;
+
+    // Calculate reputation modifier (doubled for Heroes, but only for first Hero)
+    const reputationModifier = getReputationCostModifier(
+      player.reputation,
+      unit.id,
+      heroAlreadyRecruited
+    );
 
     // Calculate final cost with reputation modifier (minimum 0)
     const adjustedCost = Math.max(

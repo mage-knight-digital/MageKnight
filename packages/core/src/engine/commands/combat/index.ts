@@ -67,3 +67,10 @@ export {
   SPEND_MOVE_ON_CUMBERSOME_COMMAND,
   type SpendMoveOnCumbersomeCommandParams,
 } from "./spendMoveOnCumbersomeCommand.js";
+
+export {
+  createPayHeroesAssaultInfluenceCommand,
+  PAY_HEROES_ASSAULT_INFLUENCE_COMMAND,
+  HEROES_ASSAULT_INFLUENCE_COST,
+  type PayHeroesAssaultInfluenceCommandParams,
+} from "./payHeroesAssaultInfluenceCommand.js";

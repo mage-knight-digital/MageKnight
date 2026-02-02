@@ -22,6 +22,7 @@ import {
   ASSIGN_BLOCK_ACTION,
   UNASSIGN_BLOCK_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
+  PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -79,6 +80,11 @@ import {
   validateSpendCumbersomePhase,
   validateCumbersomeEnemy,
   validateHasMovePointsForCumbersome,
+  // Heroes assault validators
+  validateHeroesPaymentInCombat,
+  validateHeroesAssaultApplicable,
+  validateHeroesInfluenceNotAlreadyPaid,
+  validateHeroesInfluenceAvailable,
 } from "../combatValidators/index.js";
 
 // Challenge rampaging validators
@@ -183,5 +189,13 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateSpendCumbersomePhase,
     validateCumbersomeEnemy,
     validateHasMovePointsForCumbersome,
+  ],
+  // Heroes assault influence payment action
+  [PAY_HEROES_ASSAULT_INFLUENCE_ACTION]: [
+    validateIsPlayersTurn,
+    validateHeroesPaymentInCombat,
+    validateHeroesAssaultApplicable,
+    validateHeroesInfluenceNotAlreadyPaid,
+    validateHeroesInfluenceAvailable,
   ],
 };

@@ -64,6 +64,7 @@ import {
   CANCEL_COOPERATIVE_PROPOSAL_ACTION,
   USE_SKILL_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
+  PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -97,6 +98,7 @@ export {
   createAssignBlockCommandFromAction,
   createUnassignBlockCommandFromAction,
   createSpendMoveOnCumbersomeCommandFromAction,
+  createPayHeroesAssaultInfluenceCommandFromAction,
 } from "./combat.js";
 
 // Unit factories
@@ -182,6 +184,7 @@ import {
   createAssignBlockCommandFromAction,
   createUnassignBlockCommandFromAction,
   createSpendMoveOnCumbersomeCommandFromAction,
+  createPayHeroesAssaultInfluenceCommandFromAction,
 } from "./combat.js";
 
 import {
@@ -291,4 +294,6 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [USE_SKILL_ACTION]: createUseSkillCommandFromAction,
   // Cumbersome ability actions
   [SPEND_MOVE_ON_CUMBERSOME_ACTION]: createSpendMoveOnCumbersomeCommandFromAction,
+  // Heroes assault influence payment action
+  [PAY_HEROES_ASSAULT_INFLUENCE_ACTION]: createPayHeroesAssaultInfluenceCommandFromAction,
 };

@@ -42,6 +42,7 @@ export function createRecruitUnitCommand(
   let previousInfluence = 0;
   let previousHasTakenAction = false;
   let previousHasRecruitedUnit = false;
+  let previousUnitsRecruitedThisInteraction: readonly UnitId[] = [];
 
   return {
     type: RECRUIT_UNIT_COMMAND,
@@ -66,6 +67,7 @@ export function createRecruitUnitCommand(
       previousInfluence = player.influencePoints;
       previousHasTakenAction = player.hasTakenActionThisTurn;
       previousHasRecruitedUnit = player.hasRecruitedUnitThisTurn;
+      previousUnitsRecruitedThisInteraction = player.unitsRecruitedThisInteraction;
 
       // Create new unit instance
       const newUnit = createPlayerUnit(params.unitId, instanceId);
@@ -73,12 +75,17 @@ export function createRecruitUnitCommand(
       // Update player: add unit, deduct influence, mark action taken
       // Note: Recruiting counts as an interaction (action), so player can't move afterward.
       // Multiple recruits in one turn are still allowed per rulebook rules.
+      // Track the unit in unitsRecruitedThisInteraction for Heroes/Thugs exclusion check
       const updatedPlayer = {
         ...player,
         units: [...player.units, newUnit],
         influencePoints: player.influencePoints - params.influenceSpent,
         hasTakenActionThisTurn: true,
         hasRecruitedUnitThisTurn: true,
+        unitsRecruitedThisInteraction: [
+          ...player.unitsRecruitedThisInteraction,
+          params.unitId,
+        ],
       };
 
       const players = state.players.map((p, i) =>
@@ -133,6 +140,7 @@ export function createRecruitUnitCommand(
         influencePoints: previousInfluence,
         hasTakenActionThisTurn: previousHasTakenAction,
         hasRecruitedUnitThisTurn: previousHasRecruitedUnit,
+        unitsRecruitedThisInteraction: previousUnitsRecruitedThisInteraction,
       };
 
       const players = state.players.map((p, i) =>

@@ -40,6 +40,13 @@ export type {
   UnitAbility,
   UnitTerrainModifier,
   UnitDefinition,
+  RecruitmentSource,
+} from "./types.js";
+
+export {
+  RECRUITMENT_SOURCE_NORMAL,
+  RECRUITMENT_SOURCE_ARTIFACT,
+  RECRUITMENT_SOURCE_SPELL,
 } from "./types.js";
 
 // =============================================================================

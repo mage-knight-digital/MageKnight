@@ -29,6 +29,7 @@ export function createResetPlayer(
     playedCardFromHandThisTurn: false,
     hasPlunderedThisTurn: false,
     hasRecruitedUnitThisTurn: false,
+    unitsRecruitedThisInteraction: [], // Reset interaction tracking at turn end
     isResting: false, // Reset resting state at turn start
     // Mana resets
     pureMana: [],

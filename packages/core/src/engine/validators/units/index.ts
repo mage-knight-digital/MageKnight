@@ -11,6 +11,7 @@ export {
   validateInfluenceCost,
   validateAtRecruitmentSite,
   validateUnitTypeMatchesSite,
+  validateHeroesThugsExclusion,
 } from "./recruitmentValidators.js";
 
 export {
@@ -23,4 +24,5 @@ export {
   validateCombatRequiredForAbility,
   validateUnitsAllowedInCombat,
   validateUnitAbilityManaCost,
+  validateHeroesAssaultRestriction,
 } from "./activationValidators.js";

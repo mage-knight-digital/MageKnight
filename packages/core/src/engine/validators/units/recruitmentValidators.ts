@@ -20,6 +20,7 @@ import {
   CANNOT_RECRUIT_HERE,
   SITE_NOT_CONQUERED,
   UNIT_TYPE_MISMATCH,
+  HEROES_THUGS_EXCLUSION,
 } from "../validationCodes.js";
 import { getPlayerSite } from "../../helpers/siteHelpers.js";
 import { SITE_PROPERTIES } from "../../../data/siteProperties.js";
@@ -28,6 +29,8 @@ import {
   getRefugeeCampCostModifier,
   getReputationCostModifier,
   siteTypeToRecruitSite,
+  violatesHeroesThugsExclusion,
+  hasRecruitedHeroThisInteraction,
 } from "../../validActions/units/recruitment.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
@@ -58,6 +61,7 @@ export function validateCommandSlots(
  * Check influence cost is met.
  * At Refugee Camp, the tiered cost modifier is added to the base cost.
  * Reputation modifier also affects the final cost.
+ * Heroes get a doubled reputation modifier (once per interaction).
  */
 export function validateInfluenceCost(
   state: GameState,
@@ -79,7 +83,15 @@ export function validateInfluenceCost(
   }
 
   // Add reputation modifier (positive rep = cheaper, negative = more expensive)
-  const reputationModifier = getReputationCostModifier(player.reputation);
+  // Heroes get doubled modifier (once per interaction)
+  const heroAlreadyRecruited = hasRecruitedHeroThisInteraction(
+    player.unitsRecruitedThisInteraction
+  );
+  const reputationModifier = getReputationCostModifier(
+    player.reputation,
+    action.unitId,
+    heroAlreadyRecruited
+  );
   requiredCost = Math.max(0, requiredCost + reputationModifier);
 
   if (action.influenceSpent < requiredCost) {
@@ -157,6 +169,35 @@ export function validateUnitTypeMatchesSite(
     return invalid(
       UNIT_TYPE_MISMATCH,
       `${unitDef.name} cannot be recruited at this site`
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate Heroes/Thugs exclusion rule.
+ * Cannot recruit Heroes and Thugs during the same interaction (site visit).
+ */
+export function validateHeroesThugsExclusion(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== RECRUIT_UNIT_ACTION) return valid();
+
+  const player = getPlayerById(state, playerId);
+  if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
+
+  if (
+    violatesHeroesThugsExclusion(
+      action.unitId,
+      player.unitsRecruitedThisInteraction
+    )
+  ) {
+    return invalid(
+      HEROES_THUGS_EXCLUSION,
+      "Cannot recruit Heroes and Thugs during the same interaction"
     );
   }
 

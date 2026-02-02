@@ -23,12 +23,14 @@ import {
   validateUnitCanActivate,
   validateAtRecruitmentSite,
   validateUnitTypeMatchesSite,
+  validateHeroesThugsExclusion,
   validateAbilityIndex,
   validateAbilityMatchesPhase,
   validateSiegeRequirement,
   validateCombatRequiredForAbility,
   validateUnitsAllowedInCombat,
   validateUnitAbilityManaCost,
+  validateHeroesAssaultRestriction,
 } from "../units/index.js";
 
 export const unitRegistry: Record<string, Validator[]> = {
@@ -41,6 +43,7 @@ export const unitRegistry: Record<string, Validator[]> = {
     validateInfluenceCost,
     validateAtRecruitmentSite,
     validateUnitTypeMatchesSite,
+    validateHeroesThugsExclusion, // Heroes/Thugs cannot be recruited in same interaction
   ],
   [ACTIVATE_UNIT_ACTION]: [
     validateIsPlayersTurn,
@@ -52,6 +55,7 @@ export const unitRegistry: Record<string, Validator[]> = {
     validateAbilityIndex,
     validateCombatRequiredForAbility, // Combat abilities require being in combat
     validateUnitsAllowedInCombat, // Dungeon/Tomb: units cannot be used
+    validateHeroesAssaultRestriction, // Heroes need 2 Influence paid in fortified assaults
     validateAbilityMatchesPhase, // Ability type must match combat phase
     validateSiegeRequirement, // Ranged can't hit fortified in ranged phase
     validateUnitAbilityManaCost, // Validate mana source if ability has mana cost
