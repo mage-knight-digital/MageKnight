@@ -39,6 +39,7 @@ import {
   EFFECT_PAY_MANA,
   EFFECT_TERRAIN_BASED_BLOCK,
   EFFECT_DISCARD_COST,
+  EFFECT_GRANT_WOUND_IMMUNITY,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -443,6 +444,15 @@ export interface DiscardCostEffect {
   readonly filterWounds?: boolean;
 }
 
+/**
+ * Grant wound immunity to the hero for this turn.
+ * Hero ignores the first wound from enemies (including Poison/Paralyze effects).
+ * Used by Veil of Mist (powered) spell.
+ */
+export interface GrantWoundImmunityEffect {
+  readonly type: typeof EFFECT_GRANT_WOUND_IMMUNITY;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -476,7 +486,8 @@ export type CardEffect =
   | RevealTilesEffect
   | PayManaCostEffect
   | TerrainBasedBlockEffect
-  | DiscardCostEffect;
+  | DiscardCostEffect
+  | GrantWoundImmunityEffect;
 
 // === Card Definition ===
 

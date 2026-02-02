@@ -8,6 +8,7 @@
  * - Paralyze effects (unit destroyed immediately)
  */
 
+import type { GameState } from "../../../state/GameState.js";
 import type { PlayerUnit } from "../../../types/unit.js";
 import type { GameEvent, Element } from "@mage-knight/shared";
 import {
@@ -19,6 +20,7 @@ import {
   UNIT_DESTROY_REASON_PARALYZE,
 } from "@mage-knight/shared";
 import { isAttackResisted } from "../../combat/elementalCalc.js";
+import { getEffectiveUnitResistances } from "../../modifiers/index.js";
 
 /**
  * Result of processing damage to a unit.
@@ -43,8 +45,11 @@ export interface UnitDamageResult {
  *
  * Paralyze: If a unit would be wounded by a paralyze attack, it is immediately
  * destroyed (similar to poison, but the unit still absorbs its armor value).
+ *
+ * @param state - Game state (for checking modifier-granted resistances)
  */
 export function processUnitDamage(
+  state: GameState,
   unit: PlayerUnit,
   damageAmount: number,
   attackElement: Element,
@@ -56,7 +61,9 @@ export function processUnitDamage(
   const events: GameEvent[] = [];
 
   // Check if unit has resistance to this attack element
-  const isResistant = isAttackResisted(attackElement, unitDef.resistances);
+  // Uses effective resistances which includes modifier-granted resistances (e.g., Veil of Mist)
+  const effectiveResistances = getEffectiveUnitResistances(state, playerId, unit);
+  const isResistant = isAttackResisted(attackElement, effectiveResistances);
 
   let damageRemaining = damageAmount;
   let unitWounded = unit.wounded;

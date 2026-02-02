@@ -54,6 +54,17 @@ export function applyHeroWounds(
     };
   }
 
+  // Veil of Mist: hero ignores first wound from enemies this turn
+  // When active, ignore all wounds from THIS damage assignment and clear the immunity
+  // This also ignores Poison/Paralyze effects since the wound is fully ignored
+  if (player.woundImmunityActive) {
+    return {
+      player: { ...player, woundImmunityActive: false },
+      events: [],
+      woundsToHand: 0,
+    };
+  }
+
   const events: GameEvent[] = [];
 
   // Poison (hero): wounds go to hand AND matching wounds go to discard

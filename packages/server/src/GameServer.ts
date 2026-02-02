@@ -563,6 +563,7 @@ export class GameServer {
       pendingDeepMineChoice: null,
       pendingDiscard: null,
       healingPoints: 0,
+      woundImmunityActive: false,
       removedCards: [],
       isResting: false,
       roundOrderTokenFlipped: false,

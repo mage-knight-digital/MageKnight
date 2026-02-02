@@ -167,6 +167,7 @@ export const TARGET_NOT_RAMPAGING = "TARGET_NOT_RAMPAGING" as const;
 
 // Scenario validation codes
 export const CANNOT_ENTER_CITY = "CANNOT_ENTER_CITY" as const;
+export const TERRAIN_PROHIBITED = "TERRAIN_PROHIBITED" as const;
 
 // Reward selection validation codes
 export const NO_PENDING_REWARDS = "NO_PENDING_REWARDS" as const;
@@ -369,6 +370,7 @@ export type ValidationErrorCode =
   | typeof TARGET_NOT_RAMPAGING
   // Scenario validation
   | typeof CANNOT_ENTER_CITY
+  | typeof TERRAIN_PROHIBITED
   // Reward selection validation
   | typeof NO_PENDING_REWARDS
   | typeof INVALID_REWARD_INDEX

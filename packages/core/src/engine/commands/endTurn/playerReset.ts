@@ -50,5 +50,7 @@ export function createResetPlayer(
       manaStealUsedThisTurn: false,
       manaSearchUsedThisTurn: false,
     },
+    // Spell effect resets
+    woundImmunityActive: false,
   };
 }

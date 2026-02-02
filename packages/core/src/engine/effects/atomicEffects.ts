@@ -108,6 +108,7 @@ import {
   EFFECT_GAIN_FAME,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_TAKE_WOUND,
+  EFFECT_GRANT_WOUND_IMMUNITY,
   MANA_ANY,
 } from "../../types/effectTypes.js";
 import { applyGainMove, applyGainInfluence, applyGainMana, applyGainCrystal } from "./atomicResourceEffects.js";
@@ -187,5 +188,20 @@ export function registerAtomicEffects(): void {
 
   registerEffect(EFFECT_APPLY_MODIFIER, (state, playerId, effect, sourceCardId) => {
     return applyModifierEffect(state, playerId, effect as ApplyModifierEffect, sourceCardId);
+  });
+
+  // Grant wound immunity - hero ignores first wound from enemies this turn
+  registerEffect(EFFECT_GRANT_WOUND_IMMUNITY, (state, playerId, _effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return {
+      state: {
+        ...state,
+        players: state.players.map((p, i) =>
+          i === playerIndex ? { ...player, woundImmunityActive: true } : p
+        ),
+      },
+      events: [],
+      description: "Hero ignores first wound this turn",
+    };
   });
 }
