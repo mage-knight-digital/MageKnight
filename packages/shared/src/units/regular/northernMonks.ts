@@ -1,8 +1,13 @@
 /**
  * Northern Monks unit definition
+ *
+ * Rulebook abilities:
+ * - Ability 1: Attack OR Block 3 (physical, free)
+ * - Ability 2: Ice Attack OR Ice Block 4 (blue mana)
  */
 
-import { ELEMENT_ICE } from "../../elements.js";
+import { ELEMENT_ICE, ELEMENT_PHYSICAL } from "../../elements.js";
+import { MANA_BLUE } from "../../ids.js";
 import type { UnitDefinition } from "../types.js";
 import {
   UNIT_TYPE_REGULAR,
@@ -22,8 +27,12 @@ export const NORTHERN_MONKS: UnitDefinition = {
   resistances: [],
   recruitSites: [RECRUIT_SITE_MONASTERY],
   abilities: [
-    { type: UNIT_ABILITY_ATTACK, value: 4, element: ELEMENT_ICE },
-    { type: UNIT_ABILITY_BLOCK, value: 3, element: ELEMENT_ICE },
+    // Ability 1: Attack 3 OR Block 3 (physical, free)
+    { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_PHYSICAL },
+    { type: UNIT_ABILITY_BLOCK, value: 3, element: ELEMENT_PHYSICAL },
+    // Ability 2: Ice Attack 4 OR Ice Block 4 (blue mana)
+    { type: UNIT_ABILITY_ATTACK, value: 4, element: ELEMENT_ICE, manaCost: MANA_BLUE },
+    { type: UNIT_ABILITY_BLOCK, value: 4, element: ELEMENT_ICE, manaCost: MANA_BLUE },
   ],
   copies: 1,
 };
