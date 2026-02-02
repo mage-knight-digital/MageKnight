@@ -16,7 +16,8 @@ import {
 } from "@mage-knight/shared";
 import type { CombatEnemy } from "../../types/combat.js";
 import type { GameState } from "../../state/GameState.js";
-import { areResistancesRemoved } from "../modifiers/index.js";
+import { areResistancesRemoved, isPhysicalResistanceRemoved } from "../modifiers/index.js";
+import { RESIST_PHYSICAL } from "@mage-knight/shared";
 import type { Resistances } from "../combat/elementalCalc.js";
 import { isAttackResisted } from "../combat/elementalCalc.js";
 
@@ -26,13 +27,21 @@ import { isAttackResisted } from "../combat/elementalCalc.js";
 
 /**
  * Get enemy resistances as Resistances type.
- * Returns empty array if resistances have been removed by a modifier (Expose spell).
+ * Returns empty array if all resistances have been removed by a modifier (Expose spell).
+ * Returns resistances minus physical if physical resistance specifically removed (Sword of Justice powered).
  */
 export function getEnemyResistances(state: GameState, enemy: CombatEnemy): Resistances {
-  // Check if resistances have been removed by a modifier (Expose spell)
+  // Check if ALL resistances have been removed by a modifier (Expose spell)
   if (areResistancesRemoved(state, enemy.instanceId)) {
     return [];
   }
+
+  // Check if PHYSICAL resistance specifically has been removed (Sword of Justice powered)
+  if (isPhysicalResistanceRemoved(state, enemy.instanceId)) {
+    // Filter out physical resistance, keep others
+    return enemy.definition.resistances.filter((r) => r !== RESIST_PHYSICAL);
+  }
+
   return enemy.definition.resistances;
 }
 

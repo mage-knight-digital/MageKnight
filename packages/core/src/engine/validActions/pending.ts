@@ -5,15 +5,23 @@
  * - Glade wound discard choices
  * - Deep mine crystal color choices
  * - Discard as cost choices
+ * - Discard for attack choices (Sword of Justice)
  */
 
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { GladeWoundOptions, DeepMineOptions, BasicManaColor, DiscardCostOptions } from "@mage-knight/shared";
+import type {
+  GladeWoundOptions,
+  DeepMineOptions,
+  BasicManaColor,
+  DiscardCostOptions,
+  DiscardForAttackOptions,
+} from "@mage-knight/shared";
 import { mineColorToBasicManaColor } from "../../types/map.js";
 import { CARD_WOUND, hexKey } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
 import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
+import { getCardsEligibleForDiscardForAttack } from "../effects/swordOfJusticeEffects.js";
 
 /**
  * Get Magical Glade wound discard options for the player.
@@ -95,5 +103,31 @@ export function getDiscardCostOptions(
     availableCardIds,
     count,
     optional,
+  };
+}
+
+/**
+ * Get discard for attack options for the player.
+ * Returns options if player has a pending discard-for-attack state (Sword of Justice).
+ */
+export function getDiscardForAttackOptions(
+  _state: GameState,
+  player: Player
+): DiscardForAttackOptions | undefined {
+  // Check if player has a pending discard-for-attack
+  if (!player.pendingDiscardForAttack) {
+    return undefined;
+  }
+
+  const { sourceCardId, attackPerCard, combatType } = player.pendingDiscardForAttack;
+
+  // Get eligible cards from hand (non-wound cards)
+  const availableCardIds = getCardsEligibleForDiscardForAttack(player.hand);
+
+  return {
+    sourceCardId,
+    availableCardIds,
+    attackPerCard,
+    combatType,
   };
 }

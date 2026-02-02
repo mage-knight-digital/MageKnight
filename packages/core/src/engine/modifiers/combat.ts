@@ -23,8 +23,10 @@ import {
   ABILITY_ANY,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_COMBAT_VALUE,
+  EFFECT_DOUBLE_PHYSICAL_ATTACKS,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
+  EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
   ENEMY_STAT_ARMOR,
   ENEMY_STAT_ATTACK,
@@ -217,6 +219,40 @@ export function areResistancesRemoved(
   }
   const modifiers = getModifiersForEnemy(state, enemyId);
   return modifiers.some((m) => m.effect.type === EFFECT_REMOVE_RESISTANCES);
+}
+
+/**
+ * Check if an enemy's physical resistance has been specifically removed.
+ * Returns true if any EFFECT_REMOVE_PHYSICAL_RESISTANCE modifier targets this enemy.
+ * Used by Sword of Justice powered effect.
+ *
+ * Note: Arcane Immunity blocks this effect (non-Attack/Block effect).
+ */
+export function isPhysicalResistanceRemoved(
+  state: GameState,
+  enemyId: string
+): boolean {
+  // Arcane Immunity blocks resistance removal effects
+  if (hasArcaneImmunity(state, enemyId)) {
+    return false;
+  }
+  const modifiers = getModifiersForEnemy(state, enemyId);
+  return modifiers.some((m) => m.effect.type === EFFECT_REMOVE_PHYSICAL_RESISTANCE);
+}
+
+/**
+ * Check if physical attacks should be doubled for a player.
+ * Returns true if EFFECT_DOUBLE_PHYSICAL_ATTACKS modifier is active.
+ * Used by Sword of Justice powered effect - applies during Attack Phase only.
+ *
+ * Note: This is a player buff, not targeting enemies, so Arcane Immunity does not block it.
+ */
+export function isPhysicalAttackDoubled(
+  state: GameState,
+  playerId: string
+): boolean {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  return modifiers.some((m) => m.effect.type === EFFECT_DOUBLE_PHYSICAL_ATTACKS);
 }
 
 /**

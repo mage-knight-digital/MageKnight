@@ -23,6 +23,8 @@ export {
   isAbilityNullified,
   doesEnemyAttackThisCombat,
   areResistancesRemoved,
+  isPhysicalResistanceRemoved,
+  isPhysicalAttackDoubled,
   getBaseArmorForPhase,
 } from "./combat.js";
 

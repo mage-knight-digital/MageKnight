@@ -136,7 +136,7 @@ export function handleRangedSiegeToBlock(
 ): { state: GameState; combat: CombatState; events: GameEvent[] } {
   const events: GameEvent[] = [];
 
-  const damageResult = resolvePendingDamage(combat, playerId);
+  const damageResult = resolvePendingDamage(combat, playerId, state);
   events.push(...damageResult.events);
 
   let updatedCombat: CombatState = {
@@ -165,6 +165,22 @@ export function handleRangedSiegeToBlock(
   );
   updatedState = rewardsResult.state;
   events.push(...rewardsResult.events);
+
+  // Update player's enemiesDefeatedThisTurn counter (for Sword of Justice fame bonus)
+  if (damageResult.enemiesDefeatedCount > 0) {
+    const playerIndex = updatedState.players.findIndex((p) => p.id === playerId);
+    if (playerIndex !== -1) {
+      const player = updatedState.players[playerIndex];
+      if (player) {
+        const updatedPlayers = [...updatedState.players];
+        updatedPlayers[playerIndex] = {
+          ...player,
+          enemiesDefeatedThisTurn: player.enemiesDefeatedThisTurn + damageResult.enemiesDefeatedCount,
+        };
+        updatedState = { ...updatedState, players: updatedPlayers };
+      }
+    }
+  }
 
   // Resolve summon abilities - draw brown enemies for summoners
   const summonResult = resolveSummons(

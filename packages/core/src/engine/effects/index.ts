@@ -194,6 +194,14 @@ export {
 // Terrain-based effects
 export { resolveTerrainBasedBlock, registerTerrainEffects } from "./terrainEffects.js";
 
+// Sword of Justice effects
+export {
+  handleDiscardForAttack,
+  handleFamePerEnemyDefeated,
+  getCardsEligibleForDiscardForAttack,
+  registerSwordOfJusticeEffects,
+} from "./swordOfJusticeEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

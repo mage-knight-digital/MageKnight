@@ -39,6 +39,8 @@ import {
   EFFECT_PAY_MANA,
   EFFECT_TERRAIN_BASED_BLOCK,
   EFFECT_DISCARD_COST,
+  EFFECT_DISCARD_FOR_ATTACK,
+  EFFECT_FAME_PER_ENEMY_DEFEATED,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -443,6 +445,45 @@ export interface DiscardCostEffect {
   readonly filterWounds?: boolean;
 }
 
+/**
+ * Discard any number of non-wound cards to gain attack.
+ * Used by Sword of Justice basic effect.
+ *
+ * Resolution:
+ * 1. Create pendingDiscardForAttack state
+ * 2. Player selects 0 or more non-wound cards
+ * 3. Cards discarded, attack = attackPerCard × cards discarded
+ * 4. Attack added to combat accumulator
+ *
+ * Per FAQ Q4/A4: All attack points must combine into single attack.
+ * This is implicit - all attack goes into the shared accumulator pool.
+ */
+export interface DiscardForAttackEffect {
+  readonly type: typeof EFFECT_DISCARD_FOR_ATTACK;
+  /** Attack gained per card discarded */
+  readonly attackPerCard: number;
+  /** Combat type for the attack (usually melee) */
+  readonly combatType: CombatType;
+}
+
+/**
+ * Award fame based on enemies defeated this turn.
+ * Used by Sword of Justice.
+ *
+ * Tracks enemies defeated through the turn and awards fame at resolution.
+ * Summoned enemies (e.g., from Summoner ability) don't count.
+ *
+ * This effect creates a modifier that tracks enemies defeated.
+ * Fame is awarded when effect resolves (typically at end of combat/turn).
+ */
+export interface FamePerEnemyDefeatedEffect {
+  readonly type: typeof EFFECT_FAME_PER_ENEMY_DEFEATED;
+  /** Fame gained per qualifying enemy */
+  readonly famePerEnemy: number;
+  /** If true, exclude summoned enemies from count */
+  readonly excludeSummoned: boolean;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -476,7 +517,9 @@ export type CardEffect =
   | RevealTilesEffect
   | PayManaCostEffect
   | TerrainBasedBlockEffect
-  | DiscardCostEffect;
+  | DiscardCostEffect
+  | DiscardForAttackEffect
+  | FamePerEnemyDefeatedEffect;
 
 // === Card Definition ===
 
