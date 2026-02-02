@@ -157,6 +157,7 @@ export {
   ENEMY_HYDRA,
   ENEMY_MANTICORE,
   ENEMY_WATER_ELEMENTAL,
+  ENEMY_VAMPIRE,
   BROWN_ENEMIES,
 } from "./brown/index.js";
 
