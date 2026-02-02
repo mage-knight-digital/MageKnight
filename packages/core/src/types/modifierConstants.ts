@@ -96,3 +96,13 @@ export const EFFECT_REMOVE_RESISTANCES = "remove_resistances" as const;
 // Provides endless supply of specific mana colors for a turn (used by Ring artifacts)
 export const EFFECT_ENDLESS_MANA = "endless_mana" as const;
 
+// === DoublePhysicalAttacksModifier ===
+// Doubles physical attack damage (Sword of Justice powered)
+// Only applies during Attack Phase, applied after all other bonuses
+export const EFFECT_DOUBLE_PHYSICAL_ATTACKS = "double_physical_attacks" as const;
+
+// === RemovePhysicalResistanceModifier ===
+// Removes physical resistance from enemies (Sword of Justice powered)
+// Does not affect Arcane Immune enemies
+export const EFFECT_REMOVE_PHYSICAL_RESISTANCE = "remove_physical_resistance" as const;
+

@@ -235,6 +235,8 @@ export type {
   DeepMineOptions,
   // Discard cost options
   DiscardCostOptions,
+  // Discard for attack options (Sword of Justice)
+  DiscardForAttackOptions,
   // Level up rewards options
   LevelUpRewardsOptions,
   // Cooperative assault options

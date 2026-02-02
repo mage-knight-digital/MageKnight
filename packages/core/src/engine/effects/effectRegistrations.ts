@@ -27,6 +27,7 @@ import { registerDiscardEffects } from "./discardEffects.js";
 import { registerMapEffects } from "./mapEffects.js";
 import { registerManaPaymentEffects } from "./manaPaymentEffects.js";
 import { registerTerrainEffects } from "./terrainEffects.js";
+import { registerSwordOfJusticeEffects } from "./swordOfJusticeEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -90,4 +91,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Terrain-based effects
   registerTerrainEffects();
+
+  // Sword of Justice effects (DiscardForAttack, FamePerEnemyDefeated)
+  registerSwordOfJusticeEffects();
 }

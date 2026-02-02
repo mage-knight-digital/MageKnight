@@ -70,6 +70,8 @@ export function computeAvailableAttack(
     };
   } else {
     // Attack phase: only melee attack available
+    // Note: Physical attack doubling (Sword of Justice) is applied at assignment time,
+    // not here. Each point assigned deals double damage to enemies.
     return {
       ranged: 0, // Not available in attack phase
       siege: 0,

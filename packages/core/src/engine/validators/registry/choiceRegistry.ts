@@ -1,6 +1,6 @@
 /**
  * Choice/resolution action validator registry
- * Handles RESOLVE_CHOICE_ACTION, SELECT_REWARD_ACTION, RESOLVE_GLADE_WOUND_ACTION, RESOLVE_DEEP_MINE_ACTION, RESOLVE_DISCARD_ACTION
+ * Handles RESOLVE_CHOICE_ACTION, SELECT_REWARD_ACTION, RESOLVE_GLADE_WOUND_ACTION, RESOLVE_DEEP_MINE_ACTION, RESOLVE_DISCARD_ACTION, RESOLVE_DISCARD_FOR_ATTACK_ACTION
  */
 
 import type { Validator } from "../types.js";
@@ -10,6 +10,7 @@ import {
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
   RESOLVE_DISCARD_ACTION,
+  RESOLVE_DISCARD_FOR_ATTACK_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -50,6 +51,12 @@ import {
   validateDiscardSelection,
 } from "../discardValidators.js";
 
+// Discard for attack validators (Sword of Justice)
+import {
+  validateHasPendingDiscardForAttack,
+  validateDiscardForAttackSelection,
+} from "../discardForAttackValidators.js";
+
 export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_CHOICE_ACTION]: [
     validateIsPlayersTurn,
@@ -78,5 +85,10 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingDiscard,
     validateDiscardSelection,
+  ],
+  [RESOLVE_DISCARD_FOR_ATTACK_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingDiscardForAttack,
+    validateDiscardForAttackSelection,
   ],
 };

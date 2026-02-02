@@ -21,6 +21,7 @@ import {
   PLAY_CARD_SIDEWAYS_ACTION,
   RESOLVE_CHOICE_ACTION,
   RESOLVE_DISCARD_ACTION,
+  RESOLVE_DISCARD_FOR_ATTACK_ACTION,
   MANA_BLACK,
 } from "@mage-knight/shared";
 import { createPlayCardCommand } from "../playCardCommand.js";
@@ -30,6 +31,7 @@ import {
 } from "../playCardSidewaysCommand.js";
 import { createResolveChoiceCommand } from "../resolveChoiceCommand.js";
 import { createResolveDiscardCommand } from "../resolveDiscardCommand.js";
+import { createResolveDiscardForAttackCommand } from "../resolveDiscardForAttackCommand.js";
 import { getCard } from "../../validActions/cards/index.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { getAvailableManaSourcesForColor } from "../../validActions/mana.js";
@@ -263,6 +265,26 @@ export const createResolveDiscardCommandFromAction: CommandFactory = (
   if (!player?.pendingDiscard) return null;
 
   return createResolveDiscardCommand({
+    playerId,
+    cardIds: action.cardIds,
+  });
+};
+
+/**
+ * Resolve discard-for-attack command factory.
+ * Creates a command to resolve a pending discard-for-attack (Sword of Justice).
+ */
+export const createResolveDiscardForAttackCommandFromAction: CommandFactory = (
+  state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_DISCARD_FOR_ATTACK_ACTION) return null;
+
+  const player = getPlayerById(state, playerId);
+  if (!player?.pendingDiscardForAttack) return null;
+
+  return createResolveDiscardForAttackCommand({
     playerId,
     cardIds: action.cardIds,
   });

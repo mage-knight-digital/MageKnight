@@ -359,6 +359,14 @@ export interface ResolveDiscardAction {
   readonly cardIds: readonly CardId[];
 }
 
+// Discard for attack action (Sword of Justice basic effect)
+export const RESOLVE_DISCARD_FOR_ATTACK_ACTION = "RESOLVE_DISCARD_FOR_ATTACK" as const;
+export interface ResolveDiscardForAttackAction {
+  readonly type: typeof RESOLVE_DISCARD_FOR_ATTACK_ACTION;
+  /** Card IDs to discard (0 or more non-wound cards) */
+  readonly cardIds: readonly CardId[];
+}
+
 // Combat action constants
 export const ENTER_COMBAT_ACTION = "ENTER_COMBAT" as const;
 export const CHALLENGE_RAMPAGING_ACTION = "CHALLENGE_RAMPAGING" as const;
@@ -587,6 +595,8 @@ export type PlayerAction =
   | ResolveDeepMineAction
   // Discard as cost
   | ResolveDiscardAction
+  // Discard for attack (Sword of Justice)
+  | ResolveDiscardForAttackAction
   // Combat
   | EnterCombatAction
   | ChallengeRampagingAction

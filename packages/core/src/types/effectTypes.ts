@@ -94,3 +94,11 @@ export const EFFECT_PAY_MANA = "pay_mana" as const;
 // === Discard as Cost Effect ===
 // Discard cards from hand as a cost, then resolve a follow-up effect (e.g., Improvisation)
 export const EFFECT_DISCARD_COST = "discard_cost" as const;
+
+// === Discard for Attack Effect ===
+// Discard any number of non-wound cards, gain attack per card (Sword of Justice basic)
+export const EFFECT_DISCARD_FOR_ATTACK = "discard_for_attack" as const;
+
+// === Fame per Enemy Defeated This Turn Effect ===
+// Track and award fame based on enemies defeated (Sword of Justice)
+export const EFFECT_FAME_PER_ENEMY_DEFEATED = "fame_per_enemy_defeated" as const;

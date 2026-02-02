@@ -81,7 +81,7 @@ export function handleCombatEnd(
   }
 
   // Resolve pending damage from ATTACK phase before ending combat
-  const damageResult = resolvePendingDamage(state.combat, playerId);
+  const damageResult = resolvePendingDamage(state.combat, playerId, state);
 
   // Update combat state with defeated enemies and fame
   const combatAfterResolution: CombatState = {
@@ -106,6 +106,22 @@ export function handleCombatEnd(
   stateAfterResolution = rewardsResult.state;
   // Store reputation events to add after combat ended event
   const reputationEvents = rewardsResult.events;
+
+  // Update player's enemiesDefeatedThisTurn counter (for Sword of Justice fame bonus)
+  if (damageResult.enemiesDefeatedCount > 0) {
+    const playerIndex = stateAfterResolution.players.findIndex((p) => p.id === playerId);
+    if (playerIndex !== -1) {
+      const player = stateAfterResolution.players[playerIndex];
+      if (player) {
+        const updatedPlayers = [...stateAfterResolution.players];
+        updatedPlayers[playerIndex] = {
+          ...player,
+          enemiesDefeatedThisTurn: player.enemiesDefeatedThisTurn + damageResult.enemiesDefeatedCount,
+        };
+        stateAfterResolution = { ...stateAfterResolution, players: updatedPlayers };
+      }
+    }
+  }
 
   // Use resolved combat state for victory calculation
   // Combat exists because we just created it above

@@ -20,6 +20,7 @@ import type {
   CombatState,
   PendingElementalDamage,
 } from "../../../types/combat.js";
+import { getEnemyResistances as getEnemyResistancesWithModifiers } from "../../validActions/combatHelpers.js";
 import type { Player, CombatAccumulator } from "../../../types/player.js";
 import {
   createEmptyAccumulatedAttack,
@@ -29,10 +30,17 @@ import { isAttackResisted, type Resistances } from "../../combat/elementalCalc.j
 import { getPlayerIndexById } from "../../helpers/playerHelpers.js";
 
 /**
- * Get enemy resistances from their definition.
+ * Get enemy resistances accounting for active modifiers.
+ * Falls back to definition resistances if no state available.
  */
-function getEnemyResistances(enemy: CombatEnemy): Resistances {
-  return enemy.definition.resistances;
+function getEnemyResistancesWithState(
+  enemy: CombatEnemy,
+  state: GameState | null
+): Resistances {
+  if (!state) {
+    return enemy.definition.resistances;
+  }
+  return getEnemyResistancesWithModifiers(state, enemy);
 }
 
 /**
@@ -87,6 +95,8 @@ export interface ResolvePendingDamageResult {
   reputationPenalty: number;
   /** Total reputation bonus from defeating enemies with reputationBonus */
   reputationBonus: number;
+  /** Number of non-summoned enemies defeated (for tracking purposes) */
+  enemiesDefeatedCount: number;
   /** Events for defeated enemies */
   events: readonly GameEvent[];
 }
@@ -94,15 +104,21 @@ export interface ResolvePendingDamageResult {
 /**
  * Resolve all pending damage against enemies.
  * Returns updated enemy list with defeated enemies marked.
+ *
+ * @param combat - Current combat state
+ * @param _playerId - Player ID (unused, kept for API compatibility)
+ * @param state - Optional game state for modifier-aware resistance checking
  */
 export function resolvePendingDamage(
   combat: CombatState,
-  _playerId: string
+  _playerId: string,
+  state: GameState | null = null
 ): ResolvePendingDamageResult {
   const events: GameEvent[] = [];
   let fameGained = 0;
   let reputationPenalty = 0;
   let reputationBonus = 0;
+  let enemiesDefeatedCount = 0;
 
   const updatedEnemies = combat.enemies.map((enemy) => {
     // Skip already defeated enemies
@@ -112,8 +128,8 @@ export function resolvePendingDamage(
     const pending = combat.pendingDamage[enemy.instanceId];
     if (!pending) return enemy;
 
-    // Calculate effective damage
-    const resistances = getEnemyResistances(enemy);
+    // Calculate effective damage (using modifier-aware resistances if state available)
+    const resistances = getEnemyResistancesWithState(enemy, state);
     const effectiveDamage = calculateEffectiveDamage(pending, resistances);
 
     // Check if enemy is defeated
@@ -130,6 +146,11 @@ export function resolvePendingDamage(
         reputationBonus += enemy.definition.reputationBonus;
       }
 
+      // Track defeated count (for Sword of Justice fame bonus)
+      // Note: Summoned enemies would need to be tracked separately if we want to exclude them
+      // For now, we count all defeated enemies
+      enemiesDefeatedCount++;
+
       return {
         ...enemy,
         isDefeated: true,
@@ -141,6 +162,7 @@ export function resolvePendingDamage(
 
   return {
     enemies: updatedEnemies,
+    enemiesDefeatedCount,
     fameGained,
     reputationPenalty,
     reputationBonus,
