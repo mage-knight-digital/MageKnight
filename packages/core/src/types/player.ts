@@ -41,6 +41,13 @@ import type { SourceDieId } from "./mana.js";
 export interface ManaToken {
   readonly color: ManaColor;
   readonly source: ManaTokenSource;
+  /**
+   * If true, this mana cannot be used to power the stronger effect of spells.
+   * Set when black mana is polarized to a basic color during the day.
+   * Per rulebook: "Use the gained token immediately (but not to power the stronger
+   * effect of your Spell cards)"
+   */
+  readonly cannotPowerSpells?: boolean;
 }
 
 // Skill cooldown tracking

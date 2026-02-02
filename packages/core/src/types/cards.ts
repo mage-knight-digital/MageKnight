@@ -42,6 +42,7 @@ import {
   EFFECT_GRANT_WOUND_IMMUNITY,
   EFFECT_DISCARD_FOR_ATTACK,
   EFFECT_FAME_PER_ENEMY_DEFEATED,
+  EFFECT_POLARIZE_MANA,
   MANA_ANY,
   type CombatType,
 } from "./effectTypes.js";
@@ -494,6 +495,40 @@ export interface FamePerEnemyDefeatedEffect {
   readonly excludeSummoned: boolean;
 }
 
+/**
+ * Polarize mana - convert one mana source to its opposite color.
+ * Used by Arythea's Polarization skill.
+ *
+ * This effect atomically:
+ * 1. Removes the source mana (token, crystal, or die color change)
+ * 2. Adds a converted mana token
+ *
+ * The sourceType determines what is being converted:
+ * - "token": Remove token from pureMana by index
+ * - "crystal": Decrement crystal count for source color
+ * - "die": Change die color in the source (die stays in pool)
+ *
+ * Conversion rules by time of day:
+ * - Basic colors always convert to opposite: Red↔Blue, Green↔White
+ * - Day: Black → any basic color (cannot power spells)
+ * - Night: Gold → Black (can power spells)
+ */
+export interface PolarizeManaEffect {
+  readonly type: typeof EFFECT_POLARIZE_MANA;
+  /** Type of mana source being converted */
+  readonly sourceType: "token" | "crystal" | "die";
+  /** Color of the source mana */
+  readonly sourceColor: ManaColor;
+  /** Color to convert to */
+  readonly targetColor: ManaColor;
+  /** Index in pureMana array (for tokens) */
+  readonly tokenIndex?: number;
+  /** Die ID (for source dice) */
+  readonly dieId?: string;
+  /** If true, converted mana cannot power spell stronger effects */
+  readonly cannotPowerSpells: boolean;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -530,7 +565,8 @@ export type CardEffect =
   | DiscardCostEffect
   | GrantWoundImmunityEffect
   | DiscardForAttackEffect
-  | FamePerEnemyDefeatedEffect;
+  | FamePerEnemyDefeatedEffect
+  | PolarizeManaEffect;
 
 // === Card Definition ===
 

@@ -10,7 +10,7 @@ import type { GameState } from "../../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
 import type { ValidationResult } from "../types.js";
 import { valid, invalid } from "../types.js";
-import { PLAY_CARD_ACTION, MANA_BLACK } from "@mage-knight/shared";
+import { PLAY_CARD_ACTION, MANA_BLACK, MANA_SOURCE_TOKEN } from "@mage-knight/shared";
 import { getCard } from "../../validActions/cards/index.js";
 import { getAvailableManaSourcesForColor } from "../../validActions/mana.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
@@ -19,6 +19,7 @@ import {
   PLAYER_NOT_FOUND,
   SPELL_REQUIRES_TWO_MANA,
   SPELL_BASIC_REQUIRES_MANA,
+  MANA_CANNOT_POWER_SPELLS,
 } from "../validationCodes.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
@@ -100,6 +101,18 @@ export function validateSpellManaRequirement(
     const result = validateSingleManaSource(state, player, source, playerId);
     if (!result.valid) {
       return result;
+    }
+
+    // Check if token has cannotPowerSpells flag (from Polarization black→basic at day)
+    // These tokens cannot be used to power the stronger effect of spells
+    if (source.type === MANA_SOURCE_TOKEN) {
+      const token = player.pureMana.find((t) => t.color === source.color);
+      if (token?.cannotPowerSpells) {
+        return invalid(
+          MANA_CANNOT_POWER_SPELLS,
+          `This ${source.color} mana cannot be used to power spells (converted from black during day)`
+        );
+      }
     }
   }
 

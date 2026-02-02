@@ -28,6 +28,7 @@ import {
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
+  SKILL_ARYTHEA_POLARIZATION,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -36,6 +37,8 @@ import {
   removeShieldMasteryEffect,
   applyIFeelNoPainEffect,
   removeIFeelNoPainEffect,
+  applyPolarizationEffect,
+  removePolarizationEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import {
@@ -76,6 +79,9 @@ function applyCustomSkillEffect(
     case SKILL_TOVAK_I_FEEL_NO_PAIN:
       return applyIFeelNoPainEffect(state, playerId);
 
+    case SKILL_ARYTHEA_POLARIZATION:
+      return applyPolarizationEffect(state, playerId);
+
     default:
       // Skill has no custom handler - will use generic effect resolution
       return state;
@@ -103,6 +109,9 @@ function removeCustomSkillEffect(
     case SKILL_TOVAK_I_FEEL_NO_PAIN:
       return removeIFeelNoPainEffect(state, playerId);
 
+    case SKILL_ARYTHEA_POLARIZATION:
+      return removePolarizationEffect(state, playerId);
+
     default:
       return state;
   }
@@ -116,6 +125,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_TOVAK_WHO_NEEDS_MAGIC,
     SKILL_TOVAK_SHIELD_MASTERY,
     SKILL_TOVAK_I_FEEL_NO_PAIN,
+    SKILL_ARYTHEA_POLARIZATION,
   ].includes(skillId);
 }
 

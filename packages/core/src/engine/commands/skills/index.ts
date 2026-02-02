@@ -19,3 +19,9 @@ export {
   applyIFeelNoPainEffect,
   removeIFeelNoPainEffect,
 } from "./iFeelNoPainEffect.js";
+
+export {
+  applyPolarizationEffect,
+  removePolarizationEffect,
+  canActivatePolarization,
+} from "./polarizationEffect.js";

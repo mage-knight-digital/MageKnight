@@ -20,11 +20,13 @@ import {
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
+  SKILL_ARYTHEA_POLARIZATION,
   SKILL_BRAEVALAR_THUNDERSTORM,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 import { CARD_WOUND } from "@mage-knight/shared";
+import { canActivatePolarization } from "../commands/skills/polarizationEffect.js";
 
 /**
  * Skills that have effect implementations and can be activated.
@@ -34,6 +36,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
+  SKILL_ARYTHEA_POLARIZATION,
   SKILL_BRAEVALAR_THUNDERSTORM,
 ]);
 
@@ -57,6 +60,10 @@ function canActivateSkill(
         return false;
       }
       return true;
+
+    case SKILL_ARYTHEA_POLARIZATION:
+      // Must have at least one convertible mana source
+      return canActivatePolarization(state, player);
 
     default:
       // No special requirements
