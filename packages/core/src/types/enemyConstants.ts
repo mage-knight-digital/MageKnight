@@ -23,3 +23,4 @@ export const ENEMY_ABILITY_ASSASSINATION = "assassination" as const;
 export const ENEMY_ABILITY_CUMBERSOME = "cumbersome" as const;
 export const ENEMY_ABILITY_ELUSIVE = "elusive" as const;
 export const ENEMY_ABILITY_DEFEND = "defend" as const;
+export const ENEMY_ABILITY_VAMPIRIC = "vampiric" as const;

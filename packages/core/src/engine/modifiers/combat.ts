@@ -40,6 +40,7 @@ import {
 } from "./queries.js";
 import { isEnemyFullyBlocked } from "../combat/enemyAttackHelpers.js";
 import { getTotalDefendBonus } from "../combat/defendHelpers.js";
+import { getVampiricArmorBonus } from "../combat/vampiricHelpers.js";
 import { getFortificationLevel } from "../validators/combatValidators/index.js";
 
 /**
@@ -61,9 +62,14 @@ export function getEffectiveEnemyArmor(
   // not an effect targeting this enemy
   const defendBonus = getTotalDefendBonus(state, enemyId);
 
-  // Arcane Immunity blocks armor reduction effects (but not Defend bonus)
+  // Get Vampiric bonus (from wounds this enemy has caused)
+  // Vampiric is NOT blocked by Arcane Immunity because it's a self-buff
+  // based on past actions, not an external effect
+  const vampiricBonus = getVampiricArmorBonus(state, enemyId);
+
+  // Arcane Immunity blocks armor reduction effects (but not Defend/Vampiric bonus)
   if (hasArcaneImmunity(state, enemyId)) {
-    return baseArmor + defendBonus;
+    return baseArmor + defendBonus + vampiricBonus;
   }
 
   const modifiers = getModifiersForEnemy(state, enemyId)
@@ -102,6 +108,9 @@ export function getEffectiveEnemyArmor(
 
   // Apply Defend bonus AFTER modifiers (it's an external bonus, not a modifier)
   armor += defendBonus;
+
+  // Apply Vampiric bonus AFTER modifiers (it's a self-buff, not a modifier)
+  armor += vampiricBonus;
 
   return Math.max(minAllowed, armor);
 }

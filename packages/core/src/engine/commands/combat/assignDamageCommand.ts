@@ -19,6 +19,8 @@ import {
   DAMAGE_ASSIGNED,
   DAMAGE_TARGET_HERO,
   DAMAGE_TARGET_UNIT,
+  UNIT_WOUNDED,
+  UNIT_DESTROYED,
 } from "@mage-knight/shared";
 import {
   getEnemyAttack,
@@ -33,6 +35,10 @@ import {
 } from "./abilityHelpers.js";
 import { processUnitDamage } from "./unitDamageProcessing.js";
 import { applyHeroWounds } from "./heroDamageProcessing.js";
+import {
+  isVampiricActive,
+  getVampiricArmorBonus,
+} from "../../combat/vampiricHelpers.js";
 
 export const ASSIGN_DAMAGE_COMMAND = "ASSIGN_DAMAGE" as const;
 
@@ -183,10 +189,36 @@ export function createAssignDamageCommand(
       // Only wounds to HAND count for knockout tracking
       const combatWoundsThisCombat = state.combat.woundsThisCombat + heroWounds;
 
+      // Track Vampiric armor bonus: count total wounds dealt (hero + units)
+      // Only count wounds that actually happened, not poison extra wounds to discard
+      let updatedVampiricArmorBonus = state.combat.vampiricArmorBonus;
+
+      if (isVampiricActive(state, params.playerId, enemy)) {
+        // Count wounds from all sources:
+        // - heroWounds: wounds to hero's hand
+        // - Unit wounds: each UNIT_WOUNDED or UNIT_DESTROYED event = 1 wound
+        const unitWoundCount = events.filter(
+          (e) => e.type === UNIT_WOUNDED || e.type === UNIT_DESTROYED
+        ).length;
+
+        const totalWoundsDealt = heroWounds + unitWoundCount;
+
+        if (totalWoundsDealt > 0) {
+          const currentBonus = getVampiricArmorBonus(state, params.enemyInstanceId);
+          const newBonus = currentBonus + totalWoundsDealt;
+
+          updatedVampiricArmorBonus = {
+            ...state.combat.vampiricArmorBonus,
+            [params.enemyInstanceId]: newBonus,
+          };
+        }
+      }
+
       const updatedCombat = {
         ...state.combat,
         enemies: updatedEnemies,
         woundsThisCombat: combatWoundsThisCombat,
+        vampiricArmorBonus: updatedVampiricArmorBonus,
       };
 
       return {
