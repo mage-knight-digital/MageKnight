@@ -606,9 +606,11 @@ describe("Conditional Effects", () => {
         const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
 
         const effect = daySharpshooting.effect;
-        expect(effect).toBeDefined();
+        if (!effect) {
+          throw new Error("Day Sharpshooting effect is missing");
+        }
 
-        const result = resolveEffect(state, "player1", effect!, "test-skill");
+        const result = resolveEffect(state, "player1", effect, "test-skill");
 
         expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(2);
       });
@@ -618,9 +620,11 @@ describe("Conditional Effects", () => {
         const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT, combat });
 
         const effect = daySharpshooting.effect;
-        expect(effect).toBeDefined();
+        if (!effect) {
+          throw new Error("Day Sharpshooting effect is missing");
+        }
 
-        const result = resolveEffect(state, "player1", effect!, "test-skill");
+        const result = resolveEffect(state, "player1", effect, "test-skill");
 
         expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(1);
       });
@@ -632,9 +636,11 @@ describe("Conditional Effects", () => {
         const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
 
         const effect = daySharpshooting.effect;
-        expect(effect).toBeDefined();
+        if (!effect) {
+          throw new Error("Day Sharpshooting effect is missing");
+        }
 
-        const result = resolveEffect(state, "player1", effect!, "test-skill");
+        const result = resolveEffect(state, "player1", effect, "test-skill");
 
         expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(1);
       });
@@ -647,9 +653,11 @@ describe("Conditional Effects", () => {
         const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
 
         const effect = daySharpshooting.effect;
-        expect(effect).toBeDefined();
+        if (!effect) {
+          throw new Error("Day Sharpshooting effect is missing");
+        }
 
-        const result = resolveEffect(state, "player1", effect!, "test-skill");
+        const result = resolveEffect(state, "player1", effect, "test-skill");
 
         expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(0);
       });
