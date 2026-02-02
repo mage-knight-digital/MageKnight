@@ -99,3 +99,11 @@ export const EFFECT_DISCARD_COST = "discard_cost" as const;
 // Hero ignores the first wound from enemies this turn (including wound effects)
 // Used by Veil of Mist spell
 export const EFFECT_GRANT_WOUND_IMMUNITY = "grant_wound_immunity" as const;
+
+// === Discard for Attack Effect ===
+// Discard any number of non-wound cards, gain attack per card (Sword of Justice basic)
+export const EFFECT_DISCARD_FOR_ATTACK = "discard_for_attack" as const;
+
+// === Fame per Enemy Defeated This Turn Effect ===
+// Track and award fame based on enemies defeated (Sword of Justice)
+export const EFFECT_FAME_PER_ENEMY_DEFEATED = "fame_per_enemy_defeated" as const;

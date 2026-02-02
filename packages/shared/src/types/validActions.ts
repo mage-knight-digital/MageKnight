@@ -10,6 +10,7 @@ import type { CardId, ManaColor, BasicManaColor, SkillId } from "../ids.js";
 import type { TacticId } from "../tactics.js";
 import type { RestType, AttackType, AttackElement } from "../actions.js";
 import type { CombatPhase } from "../combatPhases.js";
+import type { CombatType } from "../combatTypes.js";
 import type { Element } from "../elements.js";
 import type {
   PLAY_SIDEWAYS_AS_ATTACK,
@@ -78,6 +79,9 @@ export interface ValidActions {
 
   /** Discard as cost options (when pendingDiscard is active) */
   readonly discardCost: DiscardCostOptions | undefined;
+
+  /** Discard for attack options (when pendingDiscardForAttack is active - Sword of Justice) */
+  readonly discardForAttack: DiscardForAttackOptions | undefined;
 
   /** Level up reward options (when pending level up rewards exist) */
   readonly levelUpRewards: LevelUpRewardsOptions | undefined;
@@ -717,6 +721,26 @@ export interface DiscardCostOptions {
   readonly count: number;
   /** If true, player can skip discarding */
   readonly optional: boolean;
+}
+
+// ============================================================================
+// Discard for Attack (Sword of Justice)
+// ============================================================================
+
+/**
+ * Options for discard for attack resolution (Sword of Justice basic effect).
+ * Only present when player has a pending discard for attack state.
+ * Unlike DiscardCostOptions, the player can discard 0 or more cards.
+ */
+export interface DiscardForAttackOptions {
+  /** Source card that triggered the discard-for-attack */
+  readonly sourceCardId: CardId;
+  /** Cards available to discard (non-wound cards in hand) */
+  readonly availableCardIds: readonly CardId[];
+  /** Attack gained per card discarded */
+  readonly attackPerCard: number;
+  /** Combat type for the attack (e.g., melee) */
+  readonly combatType: CombatType;
 }
 
 // ============================================================================

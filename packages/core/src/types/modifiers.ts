@@ -20,11 +20,13 @@ import {
   DURATION_UNTIL_NEXT_TURN,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_COMBAT_VALUE,
+  EFFECT_DOUBLE_PHYSICAL_ATTACKS,
   EFFECT_ENDLESS_MANA,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_GRANT_RESISTANCES,
   EFFECT_TERRAIN_PROHIBITION,
   EFFECT_ENEMY_STAT,
+  EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
@@ -194,6 +196,21 @@ export interface GrantResistancesModifier {
   readonly resistances: readonly ResistanceType[];
 }
 
+// Double physical attacks modifier (Sword of Justice powered)
+// Doubles the physical attack contribution during Attack Phase only
+// Applied LAST after all other bonuses
+export interface DoublePhysicalAttacksModifier {
+  readonly type: typeof EFFECT_DOUBLE_PHYSICAL_ATTACKS;
+}
+
+// Remove physical resistance from enemies (Sword of Justice powered)
+// Unlike EFFECT_REMOVE_RESISTANCES which removes ALL resistances,
+// this only removes physical resistance.
+// Does not affect Arcane Immune enemies.
+export interface RemovePhysicalResistanceModifier {
+  readonly type: typeof EFFECT_REMOVE_PHYSICAL_RESISTANCE;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -206,7 +223,9 @@ export type ModifierEffect =
   | EnemyRemoveResistancesModifier
   | EndlessManaModifier
   | TerrainProhibitionModifier
-  | GrantResistancesModifier;
+  | GrantResistancesModifier
+  | DoublePhysicalAttacksModifier
+  | RemovePhysicalResistanceModifier;
 
 // === Active Modifier (live in game state) ===
 

@@ -29,6 +29,8 @@ import {
   getElementalValue,
   addToElementalValues,
 } from "../../helpers/elementalValueHelpers.js";
+import { isPhysicalAttackDoubled } from "../../modifiers/index.js";
+import { COMBAT_PHASE_ATTACK } from "../../../types/combat.js";
 
 export const ASSIGN_ATTACK_COMMAND = "ASSIGN_ATTACK" as const;
 
@@ -218,10 +220,22 @@ export function createAssignAttackCommand(params: AssignAttackCommandParams): Co
           : p
       );
 
+      // Calculate actual damage amount (may be doubled for physical attacks in Attack phase)
+      let damageAmount = params.amount;
+      if (
+        params.element === ATTACK_ELEMENT_PHYSICAL &&
+        params.attackType === ATTACK_TYPE_MELEE &&
+        state.combat.phase === COMBAT_PHASE_ATTACK &&
+        isPhysicalAttackDoubled(state, params.playerId)
+      ) {
+        // Sword of Justice powered effect: double physical damage
+        damageAmount = params.amount * 2;
+      }
+
       // Update combat pending damage
       const currentPending =
         state.combat.pendingDamage[params.enemyInstanceId] ?? createEmptyPendingDamage();
-      const newPending = addToPendingDamage(currentPending, params.element, params.amount);
+      const newPending = addToPendingDamage(currentPending, params.element, damageAmount);
 
       const updatedCombat = {
         ...state.combat,

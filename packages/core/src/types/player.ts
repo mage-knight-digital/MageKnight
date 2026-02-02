@@ -174,6 +174,19 @@ export interface PendingDiscard {
   readonly filterWounds: boolean;
 }
 
+/**
+ * Pending discard-for-attack resolution (Sword of Justice basic effect).
+ * Player can discard 0 or more non-wound cards to gain attack.
+ */
+export interface PendingDiscardForAttack {
+  /** Source card that triggered the discard requirement */
+  readonly sourceCardId: CardId;
+  /** Attack gained per card discarded */
+  readonly attackPerCard: number;
+  /** Combat type for the gained attack (usually melee) */
+  readonly combatType: import("@mage-knight/shared").CombatType;
+}
+
 // === Tactic-specific state types ===
 
 // Tactic-specific persistent state (survives across turns within a round)
@@ -308,6 +321,13 @@ export interface Player {
 
   // Discard as cost pending (e.g., Improvisation requires discarding a card before gaining benefit)
   readonly pendingDiscard: PendingDiscard | null;
+
+  // Discard for attack pending (Sword of Justice basic effect)
+  readonly pendingDiscardForAttack: PendingDiscardForAttack | null;
+
+  // Enemies defeated this turn (for fame bonuses like Sword of Justice)
+  // Excludes summoned enemies. Reset at end of turn.
+  readonly enemiesDefeatedThisTurn: number;
 
   // Resting state: true when player has declared rest but not yet completed it
   // While resting, movement/combat/interaction are blocked but cards can still be played

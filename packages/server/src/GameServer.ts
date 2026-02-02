@@ -562,6 +562,8 @@ export class GameServer {
       pendingGladeWoundChoice: false,
       pendingDeepMineChoice: null,
       pendingDiscard: null,
+      pendingDiscardForAttack: null,
+      enemiesDefeatedThisTurn: 0,
       healingPoints: 0,
       woundImmunityActive: false,
       removedCards: [],

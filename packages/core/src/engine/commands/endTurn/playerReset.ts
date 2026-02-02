@@ -44,6 +44,7 @@ export function createResetPlayer(
     discard: cardFlow.discard,
     // Combat reset
     combatAccumulator: createEmptyCombatAccumulator(),
+    enemiesDefeatedThisTurn: 0, // Reset for Sword of Justice fame tracking
     // Tactic state reset (preserve round-persistent state like storedManaDie)
     tacticState: {
       ...player.tacticState,
