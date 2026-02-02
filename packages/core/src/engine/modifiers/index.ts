@@ -29,7 +29,14 @@ export {
 } from "./combat.js";
 
 // Terrain effective values
-export { getEffectiveTerrainCost } from "./terrain.js";
+export {
+  getEffectiveTerrainCost,
+  getProhibitedTerrains,
+  isTerrainProhibited,
+} from "./terrain.js";
+
+// Unit effective values
+export { getEffectiveUnitResistances } from "./units.js";
 
 // Card values
 export { getEffectiveSidewaysValue, isRuleActive } from "./cardValues.js";

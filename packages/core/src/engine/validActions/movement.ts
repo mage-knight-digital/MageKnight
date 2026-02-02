@@ -9,7 +9,7 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { MoveOptions, MoveTarget, ReachableHex, HexCoord } from "@mage-knight/shared";
 import { HEX_DIRECTIONS, hexKey, getNeighbor, getAllNeighbors, TIME_OF_DAY_DAY } from "@mage-knight/shared";
-import { getEffectiveTerrainCost } from "../modifiers/index.js";
+import { getEffectiveTerrainCost, isTerrainProhibited } from "../modifiers/index.js";
 import { SiteType, type HexState } from "../../types/map.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { FEATURE_FLAGS } from "../../config/featureFlags.js";
@@ -49,6 +49,9 @@ export function getValidMoveTargets(
 
     // Skip if hex doesn't exist
     if (!hex) continue;
+
+    // Skip terrain prohibited by active modifiers (e.g., Mist Form: hills/mountains)
+    if (isTerrainProhibited(state, player.id, hex.terrain)) continue;
 
     // Get terrain cost (may be modified by skills/cards)
     const cost = getEffectiveTerrainCost(state, hex.terrain, player.id);
@@ -242,6 +245,9 @@ function getHexEntryCost(
   playerId: string
 ): number {
   if (!hex) return Infinity;
+
+  // Check terrain prohibition first (e.g., Mist Form: hills/mountains)
+  if (isTerrainProhibited(state, playerId, hex.terrain)) return Infinity;
 
   // Get terrain cost (may be modified by skills/cards)
   const cost = getEffectiveTerrainCost(state, hex.terrain, playerId);

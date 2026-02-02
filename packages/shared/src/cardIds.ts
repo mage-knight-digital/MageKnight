@@ -104,6 +104,7 @@ export const CARD_TREMOR = cardId("tremor"); // #11 - Target/All Armor reduction
 // Blue spells
 export const CARD_SNOWSTORM = cardId("snowstorm"); // #15 - Ice Ranged Attack 5 / Siege Ice Attack 8
 export const CARD_CHILL = cardId("chill"); // #13 - Target doesn't attack / defeat
+export const CARD_MIST_FORM = cardId("mist_form"); // #14 - Move with all terrains cost 2 / Unit resistances + wound immunity
 
 // Green spells
 export const CARD_RESTORATION = cardId("restoration"); // #05 - Heal 3 (5 in forest)
@@ -157,6 +158,7 @@ export type SpellCardId =
   // Blue spells
   | typeof CARD_SNOWSTORM
   | typeof CARD_CHILL
+  | typeof CARD_MIST_FORM
   // Green spells
   | typeof CARD_RESTORATION
   | typeof CARD_WHIRLWIND

@@ -39,6 +39,7 @@ import {
   EFFECT_PAY_MANA,
   EFFECT_TERRAIN_BASED_BLOCK,
   EFFECT_DISCARD_COST,
+  EFFECT_GRANT_WOUND_IMMUNITY,
   EFFECT_DISCARD_FOR_ATTACK,
   EFFECT_FAME_PER_ENEMY_DEFEATED,
   MANA_ANY,
@@ -446,6 +447,15 @@ export interface DiscardCostEffect {
 }
 
 /**
+ * Grant wound immunity to the hero for this turn.
+ * Hero ignores the first wound from enemies (including Poison/Paralyze effects).
+ * Used by Veil of Mist (powered) spell.
+ */
+export interface GrantWoundImmunityEffect {
+  readonly type: typeof EFFECT_GRANT_WOUND_IMMUNITY;
+}
+
+/**
  * Discard any number of non-wound cards to gain attack.
  * Used by Sword of Justice basic effect.
  *
@@ -518,6 +528,7 @@ export type CardEffect =
   | PayManaCostEffect
   | TerrainBasedBlockEffect
   | DiscardCostEffect
+  | GrantWoundImmunityEffect
   | DiscardForAttackEffect
   | FamePerEnemyDefeatedEffect;
 

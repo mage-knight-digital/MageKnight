@@ -7,7 +7,7 @@ import type { PlayerAction, HexCoord } from "@mage-knight/shared";
 import { MOVE_ACTION } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
-import { getEffectiveTerrainCost } from "../modifiers/index.js";
+import { getEffectiveTerrainCost, isTerrainProhibited } from "../modifiers/index.js";
 import {
   HEX_NOT_FOUND,
   IMPASSABLE,
@@ -18,6 +18,7 @@ import {
   PLAYER_NOT_FOUND,
   RAMPAGING_ENEMY_BLOCKS,
   CANNOT_ENTER_CITY,
+  TERRAIN_PROHIBITED,
 } from "./validationCodes.js";
 import { SiteType } from "../../types/map.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
@@ -219,6 +220,39 @@ export function validateCityEntryAllowed(
         "In this scenario, you can reveal the city but cannot enter it"
       );
     }
+  }
+
+  return valid();
+}
+
+/**
+ * Validate that the target terrain is not prohibited for this player.
+ *
+ * Mist Form spell prohibits entering hills and mountains for the rest of the turn.
+ * This is separate from terrain cost - even if a modifier would make the terrain
+ * passable by cost, the prohibition still applies.
+ */
+export function validateNoTerrainProhibition(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  const target = getMoveTarget(action);
+  if (!target) {
+    return invalid(INVALID_ACTION_CODE, "Invalid move action");
+  }
+
+  const hexKey = `${target.q},${target.r}`;
+  const hex = state.map.hexes[hexKey];
+  if (!hex) {
+    return invalid(HEX_NOT_FOUND, "Target hex does not exist");
+  }
+
+  if (isTerrainProhibited(state, playerId, hex.terrain)) {
+    return invalid(
+      TERRAIN_PROHIBITED,
+      `Cannot enter ${hex.terrain} terrain (prohibited by card effect)`
+    );
   }
 
   return valid();

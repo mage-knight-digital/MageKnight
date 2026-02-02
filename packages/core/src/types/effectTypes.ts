@@ -95,6 +95,11 @@ export const EFFECT_PAY_MANA = "pay_mana" as const;
 // Discard cards from hand as a cost, then resolve a follow-up effect (e.g., Improvisation)
 export const EFFECT_DISCARD_COST = "discard_cost" as const;
 
+// === Grant Wound Immunity Effect ===
+// Hero ignores the first wound from enemies this turn (including wound effects)
+// Used by Veil of Mist spell
+export const EFFECT_GRANT_WOUND_IMMUNITY = "grant_wound_immunity" as const;
+
 // === Discard for Attack Effect ===
 // Discard any number of non-wound cards, gain attack per card (Sword of Justice basic)
 export const EFFECT_DISCARD_FOR_ATTACK = "discard_for_attack" as const;

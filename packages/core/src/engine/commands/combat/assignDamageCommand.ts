@@ -127,6 +127,7 @@ export function createAssignDamageCommand(
       for (const assignment of assignments) {
         if (assignment.target === DAMAGE_TARGET_UNIT) {
           const result = processUnitAssignment(
+            state,
             updatedPlayer,
             assignment,
             attackElement,
@@ -214,6 +215,7 @@ interface UnitAssignmentResult {
  * Process a damage assignment to a unit.
  */
 function processUnitAssignment(
+  state: GameState,
   player: Player,
   assignment: DamageAssignment,
   attackElement: import("@mage-knight/shared").Element,
@@ -238,6 +240,7 @@ function processUnitAssignment(
   }
 
   const result = processUnitDamage(
+    state,
     unit,
     assignment.amount,
     attackElement,

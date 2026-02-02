@@ -23,6 +23,7 @@ import {
   validateEnoughMovePoints,
   validateNotBlockedByRampaging,
   validateCityEntryAllowed,
+  validateNoTerrainProhibition,
 } from "../movementValidators.js";
 
 // Explore validators
@@ -64,6 +65,7 @@ export const movementRegistry: Record<string, Validator[]> = {
     validateTargetAdjacent,
     validateTargetHexExists,
     validateTerrainPassable,
+    validateNoTerrainProhibition, // Mist Form: can't enter prohibited terrains
     validateNotBlockedByRampaging, // Can't enter hex with rampaging enemies
     validateCityEntryAllowed, // Scenario rules for city entry
     validateEnoughMovePoints,

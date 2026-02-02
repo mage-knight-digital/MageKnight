@@ -339,6 +339,11 @@ export interface Player {
   // Healing points accumulated this turn (cleared on combat entry per rulebook line 929)
   readonly healingPoints: number;
 
+  // Wound immunity active (Veil of Mist spell)
+  // When true, the hero ignores the first wound from enemies this turn (including Poison/Paralyze effects)
+  // Reset at end of turn; cleared when first wound is ignored
+  readonly woundImmunityActive: boolean;
+
   // Cards that have been removed from the game (destroyed artifacts, etc.)
   readonly removedCards: readonly CardId[];
 

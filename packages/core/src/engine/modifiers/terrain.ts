@@ -6,12 +6,16 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
-import type { TerrainCostModifier } from "../../types/modifiers.js";
+import type {
+  TerrainCostModifier,
+  TerrainProhibitionModifier,
+} from "../../types/modifiers.js";
 import type { Terrain } from "@mage-knight/shared";
 import { DEFAULT_MOVEMENT_COSTS, TIME_OF_DAY_DAY } from "@mage-knight/shared";
 import {
   EFFECT_RULE_OVERRIDE,
   EFFECT_TERRAIN_COST,
+  EFFECT_TERRAIN_PROHIBITION,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
   TERRAIN_ALL,
 } from "../modifierConstants.js";
@@ -50,10 +54,60 @@ export function getEffectiveTerrainCost(
     .filter((e) => e.terrain === terrain || e.terrain === TERRAIN_ALL);
 
   let minAllowed = 0;
-  for (const mod of terrainModifiers) {
+
+  // Check for replaceCost modifiers first (e.g., Mist Form sets all terrain to 2)
+  // If any replaceCost modifier applies, use the lowest replacement cost
+  const replaceModifiers = terrainModifiers.filter(
+    (mod): mod is TerrainCostModifier & { replaceCost: number } => mod.replaceCost !== undefined
+  );
+  if (replaceModifiers.length > 0) {
+    // Use the lowest replacement cost (in case multiple sources)
+    cost = Math.min(...replaceModifiers.map((mod) => mod.replaceCost));
+    for (const mod of replaceModifiers) {
+      minAllowed = Math.max(minAllowed, mod.minimum);
+    }
+  }
+
+  // Apply additive modifiers (always stack with replaceCost if present)
+  // Example: Mist Form sets cost to 2, then a unit ability reduces by -1 = final cost 1
+  const additiveModifiers = terrainModifiers.filter((mod) => mod.replaceCost === undefined);
+  for (const mod of additiveModifiers) {
     cost += mod.amount;
     minAllowed = Math.max(minAllowed, mod.minimum);
   }
 
   return Math.max(minAllowed, cost);
+}
+
+/**
+ * Get terrains prohibited for a player by active modifiers.
+ * Used by Mist Form spell which prohibits entering hills and mountains.
+ */
+export function getProhibitedTerrains(
+  state: GameState,
+  playerId: string
+): readonly Terrain[] {
+  const prohibitionModifiers = getModifiersForPlayer(state, playerId)
+    .filter((m) => m.effect.type === EFFECT_TERRAIN_PROHIBITION)
+    .map((m) => m.effect as TerrainProhibitionModifier);
+
+  const prohibited = new Set<Terrain>();
+  for (const mod of prohibitionModifiers) {
+    for (const terrain of mod.prohibitedTerrains) {
+      prohibited.add(terrain);
+    }
+  }
+
+  return Array.from(prohibited);
+}
+
+/**
+ * Check if a specific terrain is prohibited for a player.
+ */
+export function isTerrainProhibited(
+  state: GameState,
+  playerId: string,
+  terrain: Terrain
+): boolean {
+  return getProhibitedTerrains(state, playerId).includes(terrain);
 }

@@ -5,7 +5,7 @@
  * This system tracks active modifiers and allows calculations to query effective values.
  */
 
-import type { SkillId, CardId, Terrain, ManaColor } from "@mage-knight/shared";
+import type { SkillId, CardId, Terrain, ManaColor, ResistanceType } from "@mage-knight/shared";
 import type { EnemyAbility } from "./enemy.js";
 import {
   ABILITY_ANY,
@@ -23,6 +23,8 @@ import {
   EFFECT_DOUBLE_PHYSICAL_ATTACKS,
   EFFECT_ENDLESS_MANA,
   EFFECT_ENEMY_SKIP_ATTACK,
+  EFFECT_GRANT_RESISTANCES,
+  EFFECT_TERRAIN_PROHIBITION,
   EFFECT_ENEMY_STAT,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
@@ -94,8 +96,14 @@ export type ModifierSource =
 export interface TerrainCostModifier {
   readonly type: typeof EFFECT_TERRAIN_COST;
   readonly terrain: Terrain | typeof TERRAIN_ALL;
-  readonly amount: number; // negative = reduction
+  readonly amount: number; // negative = reduction (ignored if replaceCost is set)
   readonly minimum: number; // usually 0 or 2
+  /**
+   * If set, replaces the base cost entirely instead of modifying it.
+   * Used by Mist Form spell which sets all terrain costs to exactly 2.
+   * When replaceCost is set, amount is ignored and minimum is applied after.
+   */
+  readonly replaceCost?: number;
 }
 
 // Sideways card value modifier (e.g., "+2 instead of +1")
@@ -174,6 +182,20 @@ export interface EndlessManaModifier {
   readonly colors: readonly ManaColor[];
 }
 
+// Terrain prohibition modifier (e.g., "cannot enter hills or mountains")
+// Used by Mist Form spell - makes specific terrains impassable for duration
+export interface TerrainProhibitionModifier {
+  readonly type: typeof EFFECT_TERRAIN_PROHIBITION;
+  readonly prohibitedTerrains: readonly Terrain[];
+}
+
+// Grant resistances modifier (e.g., "all units gain all resistances")
+// Used by Veil of Mist spell - grants resistances to units for duration
+export interface GrantResistancesModifier {
+  readonly type: typeof EFFECT_GRANT_RESISTANCES;
+  readonly resistances: readonly ResistanceType[];
+}
+
 // Double physical attacks modifier (Sword of Justice powered)
 // Doubles the physical attack contribution during Attack Phase only
 // Applied LAST after all other bonuses
@@ -200,6 +222,8 @@ export type ModifierEffect =
   | EnemySkipAttackModifier
   | EnemyRemoveResistancesModifier
   | EndlessManaModifier
+  | TerrainProhibitionModifier
+  | GrantResistancesModifier
   | DoublePhysicalAttacksModifier
   | RemovePhysicalResistanceModifier;
 

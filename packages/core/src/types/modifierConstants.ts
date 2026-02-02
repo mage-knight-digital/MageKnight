@@ -96,6 +96,14 @@ export const EFFECT_REMOVE_RESISTANCES = "remove_resistances" as const;
 // Provides endless supply of specific mana colors for a turn (used by Ring artifacts)
 export const EFFECT_ENDLESS_MANA = "endless_mana" as const;
 
+// === TerrainProhibitionModifier ===
+// Prohibits entering specific terrains (e.g., Mist Form: cannot enter hills/mountains)
+export const EFFECT_TERRAIN_PROHIBITION = "terrain_prohibition" as const;
+
+// === GrantResistancesModifier ===
+// Grants resistances to units (e.g., Veil of Mist: all units gain all resistances)
+export const EFFECT_GRANT_RESISTANCES = "grant_resistances" as const;
+
 // === DoublePhysicalAttacksModifier ===
 // Doubles physical attack damage (Sword of Justice powered)
 // Only applies during Attack Phase, applied after all other bonuses

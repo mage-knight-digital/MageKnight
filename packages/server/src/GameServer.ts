@@ -565,6 +565,7 @@ export class GameServer {
       pendingDiscardForAttack: null,
       enemiesDefeatedThisTurn: 0,
       healingPoints: 0,
+      woundImmunityActive: false,
       removedCards: [],
       isResting: false,
       roundOrderTokenFlipped: false,
