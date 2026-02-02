@@ -316,6 +316,11 @@ export interface Player {
   // Tracks unique basic mana colors of spells cast this turn (not black)
   readonly spellColorsCastThisTurn: readonly ManaColor[];
 
+  // Spell count tracking by color (for Ring artifacts fame bonus)
+  // Tracks count of spells cast per color this turn (e.g., { red: 2, white: 1 })
+  // Used by Ring artifacts: "Fame +1 for each [color] spell cast this turn"
+  readonly spellsCastByColorThisTurn: Readonly<Partial<Record<ManaColor, number>>>;
+
   // Magical Glade wound discard choice pending (when wounds exist in both hand and discard)
   readonly pendingGladeWoundChoice: boolean;
 

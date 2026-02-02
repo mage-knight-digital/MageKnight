@@ -553,6 +553,7 @@ export class GameServer {
       hasRecruitedUnitThisTurn: false,
       manaUsedThisTurn: [],
       spellColorsCastThisTurn: [],
+      spellsCastByColorThisTurn: {},
       combatAccumulator: createEmptyCombatAccumulator(),
       pendingChoice: null,
       pendingLevelUps: [],

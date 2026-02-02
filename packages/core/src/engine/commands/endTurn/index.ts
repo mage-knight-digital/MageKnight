@@ -30,6 +30,7 @@ import { createResetPlayer } from "./playerReset.js";
 import { processDiceReturn } from "./diceManagement.js";
 import { determineNextPlayer, setupNextPlayer } from "./turnAdvancement.js";
 import { processLevelUps } from "./levelUp.js";
+import { calculateRingFameBonus } from "./ringFameBonus.js";
 
 export { END_TURN_COMMAND };
 export type { EndTurnCommandParams };
@@ -102,12 +103,17 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const playerWithCrystal = mineCheck.player;
       const crystalEvents = mineCheck.events;
 
+      // Calculate Ring artifacts fame bonus before reset clears spell tracking
+      // This grants fame for each spell of the ring's color cast this turn
+      const ringFameResult = calculateRingFameBonus(state, playerWithCrystal);
+      const playerWithRingFame = ringFameResult.player;
+
       // Process card flow (play area to discard, draw cards)
       const playAreaCount = getPlayAreaCardCount(currentPlayer);
       const cardFlow = processCardFlow(state, currentPlayer);
 
       // Reset player state
-      const resetPlayer = createResetPlayer(playerWithCrystal, cardFlow);
+      const resetPlayer = createResetPlayer(playerWithRingFame, cardFlow);
 
       // Update players array
       const updatedPlayers: Player[] = [...state.players];
