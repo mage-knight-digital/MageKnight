@@ -217,14 +217,26 @@ export function validateAbilityMatchesPhase(
   switch (ability.type) {
     case UNIT_ABILITY_RANGED_ATTACK:
     case UNIT_ABILITY_SIEGE_ATTACK:
-    case UNIT_ABILITY_EFFECT:
       // Valid in Ranged & Siege phase or Attack phase
-      // Effect-based abilities (like Sorcerers) include ranged attacks so follow ranged rules
       if (phase !== COMBAT_PHASE_RANGED_SIEGE && phase !== COMBAT_PHASE_ATTACK) {
         return invalid(
           WRONG_PHASE_FOR_ABILITY,
           "Ranged/Siege abilities can only be used in Ranged & Siege or Attack phase"
         );
+      }
+      break;
+
+    case UNIT_ABILITY_EFFECT:
+      // Effect-based abilities check the requiresCombat flag
+      // If requiresCombat is false, any phase is valid (non-combat effect like mana generation)
+      // If requiresCombat is true (default), follow ranged rules (most effect abilities target enemies)
+      if (ability.requiresCombat !== false) {
+        if (phase !== COMBAT_PHASE_RANGED_SIEGE && phase !== COMBAT_PHASE_ATTACK) {
+          return invalid(
+            WRONG_PHASE_FOR_ABILITY,
+            "Ranged/Siege abilities can only be used in Ranged & Siege or Attack phase"
+          );
+        }
       }
       break;
 
@@ -311,6 +323,7 @@ export function validateSiegeRequirement(
  *
  * Combat abilities (attack, block, ranged, siege) require active combat.
  * Non-combat abilities (move, influence, heal) can be used outside combat.
+ * Effect-based abilities check their requiresCombat flag (defaults to true).
  */
 export function validateCombatRequiredForAbility(
   state: GameState,
@@ -330,14 +343,25 @@ export function validateCombatRequiredForAbility(
   if (!ability) return valid(); // Other validator handles
 
   // Combat abilities require being in combat
-  // Note: UNIT_ABILITY_EFFECT is treated as combat (Sorcerers' effects target enemies)
   const combatAbilities: readonly string[] = [
     UNIT_ABILITY_ATTACK,
     UNIT_ABILITY_BLOCK,
     UNIT_ABILITY_RANGED_ATTACK,
     UNIT_ABILITY_SIEGE_ATTACK,
-    UNIT_ABILITY_EFFECT,
   ];
+
+  // Effect-based abilities check the requiresCombat flag (defaults to true)
+  if (ability.type === UNIT_ABILITY_EFFECT) {
+    // Default to requiring combat if not specified (backward compatible)
+    const requiresCombat = ability.requiresCombat !== false;
+    if (requiresCombat && !state.combat) {
+      return invalid(
+        NOT_IN_COMBAT,
+        "Combat abilities can only be used during combat"
+      );
+    }
+    return valid();
+  }
 
   if (combatAbilities.includes(ability.type) && !state.combat) {
     return invalid(

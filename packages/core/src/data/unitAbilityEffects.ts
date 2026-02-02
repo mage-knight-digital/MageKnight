@@ -10,17 +10,25 @@
  * @module data/unitAbilityEffects
  */
 
-import { ABILITY_FORTIFIED } from "@mage-knight/shared";
+import { ABILITY_FORTIFIED, MANA_BLUE } from "@mage-knight/shared";
 import type { CardEffect } from "../types/cards.js";
 import {
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_GAIN_ATTACK,
+  EFFECT_GAIN_BLOCK,
+  EFFECT_GAIN_MANA,
+  EFFECT_GAIN_CRYSTAL,
+  EFFECT_CHOICE,
+  EFFECT_COMPOUND,
+  COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
+  COMBAT_TYPE_SIEGE,
 } from "../types/effectTypes.js";
 import {
   DURATION_COMBAT,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_REMOVE_RESISTANCES,
+  ELEMENT_ICE,
 } from "../types/modifierConstants.js";
 
 // =============================================================================
@@ -32,6 +40,24 @@ import {
  * Strip fortification from one enemy + Ranged Attack 3
  */
 export const SORCERERS_STRIP_FORTIFICATION = "sorcerers_strip_fortification" as const;
+
+/**
+ * Ice Mages: Basic ability (free)
+ * Ice Attack 4 OR Ice Block 4
+ */
+export const ICE_MAGES_ATTACK_OR_BLOCK = "ice_mages_attack_or_block" as const;
+
+/**
+ * Ice Mages: Blue mana ability
+ * Siege Ice Attack 4
+ */
+export const ICE_MAGES_SIEGE_ATTACK = "ice_mages_siege_attack" as const;
+
+/**
+ * Ice Mages: Free ability
+ * Gain blue mana token + blue crystal
+ */
+export const ICE_MAGES_GAIN_MANA_CRYSTAL = "ice_mages_gain_mana_crystal" as const;
 
 /**
  * Sorcerers: Green mana ability
@@ -103,6 +129,50 @@ const SORCERERS_STRIP_RESISTANCES_EFFECT: CardEffect = {
   },
 };
 
+/**
+ * Ice Mages' basic ability: Ice Attack 4 OR Ice Block 4.
+ * Player chooses between gaining 4 Ice Attack (melee) or 4 Ice Block.
+ */
+const ICE_MAGES_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 4,
+      combatType: COMBAT_TYPE_MELEE,
+      element: ELEMENT_ICE,
+    },
+    {
+      type: EFFECT_GAIN_BLOCK,
+      amount: 4,
+      element: ELEMENT_ICE,
+    },
+  ],
+};
+
+/**
+ * Ice Mages' Blue mana ability: Siege Ice Attack 4.
+ * Requires blue mana. Grants a siege attack with ice element.
+ */
+const ICE_MAGES_SIEGE_ATTACK_EFFECT: CardEffect = {
+  type: EFFECT_GAIN_ATTACK,
+  amount: 4,
+  combatType: COMBAT_TYPE_SIEGE,
+  element: ELEMENT_ICE,
+};
+
+/**
+ * Ice Mages' resource generation ability.
+ * Grants 1 blue mana token + 1 blue crystal.
+ */
+const ICE_MAGES_GAIN_MANA_CRYSTAL_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    { type: EFFECT_GAIN_MANA, color: MANA_BLUE },
+    { type: EFFECT_GAIN_CRYSTAL, color: MANA_BLUE },
+  ],
+};
+
 // =============================================================================
 // REGISTRY
 // =============================================================================
@@ -114,6 +184,9 @@ const SORCERERS_STRIP_RESISTANCES_EFFECT: CardEffect = {
 export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [SORCERERS_STRIP_FORTIFICATION]: SORCERERS_STRIP_FORTIFICATION_EFFECT,
   [SORCERERS_STRIP_RESISTANCES]: SORCERERS_STRIP_RESISTANCES_EFFECT,
+  [ICE_MAGES_ATTACK_OR_BLOCK]: ICE_MAGES_ATTACK_OR_BLOCK_EFFECT,
+  [ICE_MAGES_SIEGE_ATTACK]: ICE_MAGES_SIEGE_ATTACK_EFFECT,
+  [ICE_MAGES_GAIN_MANA_CRYSTAL]: ICE_MAGES_GAIN_MANA_CRYSTAL_EFFECT,
 };
 
 /**
