@@ -9,6 +9,7 @@
 import type { EnemyDefinition } from "../types.js";
 
 // Re-export individual enemies
+export { ENEMY_BLOOD_DEMON, BLOOD_DEMON } from "./blood-demon.js";
 export { ENEMY_MINOTAUR, MINOTAUR } from "./minotaur.js";
 export { ENEMY_GARGOYLE, GARGOYLE } from "./gargoyle.js";
 export { ENEMY_MEDUSA, MEDUSA } from "./medusa.js";
@@ -22,6 +23,7 @@ export { ENEMY_MANTICORE, MANTICORE } from "./manticore.js";
 export { ENEMY_WATER_ELEMENTAL, WATER_ELEMENTAL } from "./water-elemental.js";
 
 // Import for aggregation
+import { ENEMY_BLOOD_DEMON, BLOOD_DEMON } from "./blood-demon.js";
 import { ENEMY_MINOTAUR, MINOTAUR } from "./minotaur.js";
 import { ENEMY_GARGOYLE, GARGOYLE } from "./gargoyle.js";
 import { ENEMY_MEDUSA, MEDUSA } from "./medusa.js";
@@ -38,6 +40,7 @@ import { ENEMY_WATER_ELEMENTAL, WATER_ELEMENTAL } from "./water-elemental.js";
  * Union type of all brown (Dungeon monster) enemy IDs
  */
 export type BrownEnemyId =
+  | typeof ENEMY_BLOOD_DEMON
   | typeof ENEMY_MINOTAUR
   | typeof ENEMY_GARGOYLE
   | typeof ENEMY_MEDUSA
@@ -52,6 +55,7 @@ export type BrownEnemyId =
 
 /** All brown (Dungeon monster) enemies */
 export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
+  [ENEMY_BLOOD_DEMON]: BLOOD_DEMON,
   [ENEMY_MINOTAUR]: MINOTAUR,
   [ENEMY_GARGOYLE]: GARGOYLE,
   [ENEMY_MEDUSA]: MEDUSA,
