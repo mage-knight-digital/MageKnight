@@ -12,7 +12,8 @@ import {
 } from "@mage-knight/shared";
 import { resolveEffect, reverseEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
 import { RESOLVE_CHOICE_COMMAND } from "./commandTypes.js";
-import { EFFECT_CHOICE } from "../../types/effectTypes.js";
+import { EFFECT_CHOICE, EFFECT_COMPOUND } from "../../types/effectTypes.js";
+import type { CompoundEffect, ChoiceEffect as ChoiceEffectType } from "../../types/cards.js";
 import {
   captureUndoContext,
   applyUndoContext,
@@ -25,6 +26,32 @@ export interface ResolveChoiceCommandParams {
   readonly playerId: string;
   readonly choiceIndex: number;
   readonly previousPendingChoice: PendingChoice; // For undo
+}
+
+/**
+ * Extract choice options and remaining effects from a list of effects.
+ * Used when continuing compound effect resolution.
+ */
+function extractChoiceFromEffects(
+  effects: readonly CardEffect[]
+): { options: readonly CardEffect[]; remainingEffects?: readonly CardEffect[] } | null {
+  for (let i = 0; i < effects.length; i++) {
+    const effect = effects[i];
+    if (effect && effect.type === EFFECT_CHOICE) {
+      const choiceEffect = effect as ChoiceEffectType;
+      const remainingEffects = effects.slice(i + 1);
+      if (remainingEffects.length > 0) {
+        return {
+          options: choiceEffect.options,
+          remainingEffects,
+        };
+      }
+      return {
+        options: choiceEffect.options,
+      };
+    }
+  }
+  return null;
 }
 
 /**
@@ -204,6 +231,165 @@ export function createResolveChoiceCommand(
               cardId: player.pendingChoice.cardId,
               skillId: player.pendingChoice.skillId,
               options: resolvableOptions.map((opt) => describeEffect(opt)),
+            },
+          ],
+        };
+      }
+
+      // Check if there are remaining effects to continue resolving
+      const remainingEffects = player.pendingChoice.remainingEffects;
+      if (remainingEffects && remainingEffects.length > 0) {
+        // Continue resolving the remaining effects from the compound
+        const compoundEffect: CompoundEffect = {
+          type: EFFECT_COMPOUND,
+          effects: remainingEffects,
+        };
+
+        const remainingResult = resolveEffect(
+          effectResult.state,
+          params.playerId,
+          compoundEffect
+        );
+
+        // Check if the remaining effects require a choice
+        if (remainingResult.requiresChoice) {
+          const choiceInfo = extractChoiceFromEffects(remainingEffects);
+
+          if (choiceInfo) {
+            // Filter to resolvable options
+            const resolvableOptions = choiceInfo.options.filter((opt) =>
+              isEffectResolvable(remainingResult.state, params.playerId, opt)
+            );
+
+            // If no options resolvable, just return the current state
+            if (resolvableOptions.length === 0) {
+              return {
+                state: remainingResult.state,
+                events: [
+                  {
+                    type: CHOICE_RESOLVED,
+                    playerId: params.playerId,
+                    cardId: player.pendingChoice.cardId,
+                    skillId: player.pendingChoice.skillId,
+                    chosenIndex: params.choiceIndex,
+                    effect: effectResult.description,
+                  },
+                ],
+              };
+            }
+
+            // If only one option, auto-resolve it
+            if (resolvableOptions.length === 1) {
+              const singleOption = resolvableOptions[0];
+              if (!singleOption) {
+                throw new Error("Expected single resolvable option");
+              }
+              const autoResolveResult = resolveEffect(
+                remainingResult.state,
+                params.playerId,
+                singleOption
+              );
+
+              // Check if there are more remaining effects after this choice
+              if (choiceInfo.remainingEffects && choiceInfo.remainingEffects.length > 0) {
+                const nextCompound: CompoundEffect = {
+                  type: EFFECT_COMPOUND,
+                  effects: choiceInfo.remainingEffects,
+                };
+                const nextResult = resolveEffect(
+                  autoResolveResult.state,
+                  params.playerId,
+                  nextCompound
+                );
+                return {
+                  state: nextResult.state,
+                  events: [
+                    {
+                      type: CHOICE_RESOLVED,
+                      playerId: params.playerId,
+                      cardId: player.pendingChoice.cardId,
+                      skillId: player.pendingChoice.skillId,
+                      chosenIndex: params.choiceIndex,
+                      effect: effectResult.description,
+                    },
+                  ],
+                };
+              }
+
+              return {
+                state: autoResolveResult.state,
+                events: [
+                  {
+                    type: CHOICE_RESOLVED,
+                    playerId: params.playerId,
+                    cardId: player.pendingChoice.cardId,
+                    skillId: player.pendingChoice.skillId,
+                    chosenIndex: params.choiceIndex,
+                    effect: effectResult.description,
+                  },
+                ],
+              };
+            }
+
+            // Multiple options - set up new pending choice
+            const updatedPlayerIdx = remainingResult.state.players.findIndex(
+              (p) => p.id === params.playerId
+            );
+            const updatedPlayer = remainingResult.state.players[updatedPlayerIdx];
+            if (!updatedPlayer) {
+              throw new Error("Player not found after effect resolution");
+            }
+
+            const newPendingChoice: PendingChoice = {
+              cardId: player.pendingChoice.cardId,
+              skillId: player.pendingChoice.skillId,
+              unitInstanceId: player.pendingChoice.unitInstanceId,
+              options: resolvableOptions,
+              ...(choiceInfo.remainingEffects && { remainingEffects: choiceInfo.remainingEffects }),
+            };
+
+            const playerWithNewChoice: Player = {
+              ...updatedPlayer,
+              pendingChoice: newPendingChoice,
+            };
+
+            const playersWithNewChoice = [...remainingResult.state.players];
+            playersWithNewChoice[updatedPlayerIdx] = playerWithNewChoice;
+
+            return {
+              state: { ...remainingResult.state, players: playersWithNewChoice },
+              events: [
+                {
+                  type: CHOICE_RESOLVED,
+                  playerId: params.playerId,
+                  cardId: player.pendingChoice.cardId,
+                  skillId: player.pendingChoice.skillId,
+                  chosenIndex: params.choiceIndex,
+                  effect: effectResult.description,
+                },
+                {
+                  type: CHOICE_REQUIRED,
+                  playerId: params.playerId,
+                  cardId: player.pendingChoice.cardId,
+                  skillId: player.pendingChoice.skillId,
+                  options: resolvableOptions.map((opt) => describeEffect(opt)),
+                },
+              ],
+            };
+          }
+        }
+
+        // Remaining effects completed without another choice
+        return {
+          state: remainingResult.state,
+          events: [
+            {
+              type: CHOICE_RESOLVED,
+              playerId: params.playerId,
+              cardId: player.pendingChoice.cardId,
+              skillId: player.pendingChoice.skillId,
+              chosenIndex: params.choiceIndex,
+              effect: effectResult.description,
             },
           ],
         };
