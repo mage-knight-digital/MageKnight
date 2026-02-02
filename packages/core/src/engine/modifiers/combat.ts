@@ -37,6 +37,7 @@ import {
   hasArcaneImmunity,
 } from "./queries.js";
 import { isEnemyFullyBlocked } from "../combat/enemyAttackHelpers.js";
+import { getTotalDefendBonus } from "../combat/defendHelpers.js";
 
 /**
  * Get effective enemy armor after modifiers.
@@ -50,9 +51,14 @@ export function getEffectiveEnemyArmor(
   baseArmor: number,
   resistanceCount: number
 ): number {
-  // Arcane Immunity blocks armor reduction effects
+  // Get Defend bonus (from another enemy's Defend ability)
+  // Defend bonus is NOT blocked by Arcane Immunity because it's FROM another enemy,
+  // not an effect targeting this enemy
+  const defendBonus = getTotalDefendBonus(state, enemyId);
+
+  // Arcane Immunity blocks armor reduction effects (but not Defend bonus)
   if (hasArcaneImmunity(state, enemyId)) {
-    return baseArmor;
+    return baseArmor + defendBonus;
   }
 
   const modifiers = getModifiersForEnemy(state, enemyId)
@@ -73,6 +79,9 @@ export function getEffectiveEnemyArmor(
     }
     minAllowed = Math.max(minAllowed, mod.minimum);
   }
+
+  // Apply Defend bonus AFTER modifiers (it's an external bonus, not a modifier)
+  armor += defendBonus;
 
   return Math.max(minAllowed, armor);
 }

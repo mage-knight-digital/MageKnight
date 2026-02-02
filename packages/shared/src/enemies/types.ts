@@ -169,6 +169,18 @@ export interface EnemyDefinition {
    * - modifiers are applied after selecting which base armor to use
    */
   readonly armorElusive?: number;
+  /**
+   * Defend value for enemies with the Defend ability.
+   * When this enemy uses its Defend ability, it adds this value
+   * to another enemy's (or itself's) armor for the rest of combat.
+   *
+   * Rules:
+   * - Only one Defend bonus can be applied to each target enemy
+   * - Each Defend enemy can only use its ability once per combat
+   * - Defend bonus persists even if the defending enemy is defeated
+   * - Defend triggers when Attack points are assigned to a target
+   */
+  readonly defend?: number;
 }
 
 // =============================================================================
