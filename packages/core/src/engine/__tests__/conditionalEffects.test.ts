@@ -50,6 +50,7 @@ import {
   ifHasWoundsInHand,
 } from "../../data/effectHelpers.js";
 import { ENEMY_PROWLERS } from "@mage-knight/shared";
+import { daySharpshooting } from "../../data/skills/norowas/daySharpshooting.js";
 
 describe("Conditional Effects", () => {
   describe("evaluateCondition", () => {
@@ -596,6 +597,69 @@ describe("Conditional Effects", () => {
         const result = resolveEffect(state, "player1", effect, "test-skill");
 
         expect(result.state.players[0]?.influencePoints).toBe(2);
+      });
+    });
+
+    describe("Day Sharpshooting (Norowas)", () => {
+      it("should grant Ranged Attack 2 during day on the surface", () => {
+        const combat = createCombatState([ENEMY_PROWLERS]);
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
+
+        const effect = daySharpshooting.effect;
+        if (!effect) {
+          throw new Error("Day Sharpshooting effect is missing");
+        }
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(2);
+      });
+
+      it("should grant Ranged Attack 1 at night on the surface", () => {
+        const combat = createCombatState([ENEMY_PROWLERS]);
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT, combat });
+
+        const effect = daySharpshooting.effect;
+        if (!effect) {
+          throw new Error("Day Sharpshooting effect is missing");
+        }
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(1);
+      });
+
+      it("should grant Ranged Attack 1 in a dungeon during day", () => {
+        const combat = createCombatState([ENEMY_PROWLERS], false, {
+          nightManaRules: true,
+        });
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
+
+        const effect = daySharpshooting.effect;
+        if (!effect) {
+          throw new Error("Day Sharpshooting effect is missing");
+        }
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(1);
+      });
+
+      it("should only apply during ranged/siege phase", () => {
+        const combat = {
+          ...createCombatState([ENEMY_PROWLERS]),
+          phase: COMBAT_PHASE_BLOCK,
+        };
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
+
+        const effect = daySharpshooting.effect;
+        if (!effect) {
+          throw new Error("Day Sharpshooting effect is missing");
+        }
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(0);
       });
     });
   });

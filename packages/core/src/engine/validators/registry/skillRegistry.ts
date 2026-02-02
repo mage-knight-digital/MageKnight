@@ -18,6 +18,7 @@ import {
   validateSkillCooldown,
   validateCombatSkillInCombat,
   validateBlockSkillInBlockPhase,
+  validateRangedSkillInRangedPhase,
   validateSkillRequirements,
 } from "../skillValidators.js";
 
@@ -30,6 +31,7 @@ export const skillRegistry: Record<string, Validator[]> = {
     validateSkillCooldown,
     validateCombatSkillInCombat,
     validateBlockSkillInBlockPhase,
+    validateRangedSkillInRangedPhase,
     validateSkillRequirements,
   ],
 };
