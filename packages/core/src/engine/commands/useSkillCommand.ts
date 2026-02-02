@@ -20,6 +20,7 @@ import {
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
+  SKILL_GOLDYX_WHITE_CRYSTAL_CRAFT,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -28,6 +29,8 @@ import {
   removeShieldMasteryEffect,
   applyIFeelNoPainEffect,
   removeIFeelNoPainEffect,
+  applyWhiteCrystalCraftEffect,
+  removeWhiteCrystalCraftEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 
@@ -57,6 +60,9 @@ function applySkillEffect(
     case SKILL_TOVAK_I_FEEL_NO_PAIN:
       return applyIFeelNoPainEffect(state, playerId);
 
+    case SKILL_GOLDYX_WHITE_CRYSTAL_CRAFT:
+      return applyWhiteCrystalCraftEffect(state, playerId);
+
     default:
       // Skill has no implemented effect yet
       return state;
@@ -81,6 +87,9 @@ function removeSkillEffect(
 
     case SKILL_TOVAK_I_FEEL_NO_PAIN:
       return removeIFeelNoPainEffect(state, playerId);
+
+    case SKILL_GOLDYX_WHITE_CRYSTAL_CRAFT:
+      return removeWhiteCrystalCraftEffect(state, playerId);
 
     default:
       return state;
