@@ -15,6 +15,7 @@ import {
   ENEMY_ABILITY_SUMMON,
   ENEMY_ABILITY_SUMMON_GREEN,
   ENEMY_ABILITY_SWIFT,
+  ENEMY_ABILITY_VAMPIRIC,
   ENEMY_COLOR_BROWN,
   ENEMY_COLOR_GRAY,
   ENEMY_COLOR_GREEN,
@@ -60,6 +61,7 @@ export type EnemyAbility =
   | { readonly type: typeof ENEMY_ABILITY_CUMBERSOME }
   | { readonly type: typeof ENEMY_ABILITY_DEFEND }
   | { readonly type: typeof ENEMY_ABILITY_ELUSIVE }
+  | { readonly type: typeof ENEMY_ABILITY_VAMPIRIC }
   | { readonly type: typeof ENEMY_ABILITY_SUMMON; readonly pool: EnemyColor }
   | { readonly type: typeof ENEMY_ABILITY_SUMMON_GREEN; readonly pool: EnemyColor }
   | {

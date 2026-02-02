@@ -160,6 +160,13 @@ export interface CombatState {
    * Reset when combat ends. Only applies when isAtFortifiedSite && assaultOrigin !== null.
    */
   readonly paidHeroesAssaultInfluence: boolean;
+  /**
+   * Vampiric armor bonuses for enemies that have dealt wounds.
+   * Maps enemy instance ID → total armor bonus from wounds dealt.
+   * Bonus increases by 1 for each wound dealt to hero hand or unit.
+   * Persists through combat, resets when combat ends.
+   */
+  readonly vampiricArmorBonus: VampiricArmorBonusMap;
 }
 
 /**
@@ -187,6 +194,15 @@ export type DefendUsageMap = {
  */
 export type DefendBonusMap = {
   readonly [targetInstanceId: string]: number;
+};
+
+/**
+ * Map of enemy instance IDs to their Vampiric armor bonus.
+ * Each wound dealt to hero hand or unit increases bonus by 1.
+ * Persists through combat, resets when combat ends (combat = null).
+ */
+export type VampiricArmorBonusMap = {
+  readonly [enemyInstanceId: string]: number;
 };
 
 // Options for special combat rules
@@ -252,6 +268,7 @@ export function createCombatState(
     usedDefend: {},
     defendBonuses: {},
     paidHeroesAssaultInfluence: false,
+    vampiricArmorBonus: {},
   };
 
   // Only include enemyAssignments if provided (avoids exactOptionalPropertyTypes issues)
