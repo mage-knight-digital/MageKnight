@@ -19,6 +19,7 @@ export { ENEMY_ORC_SKIRMISHERS, ORC_SKIRMISHERS } from "./orc-skirmishers.js";
 export { ENEMY_ORC_WAR_BEASTS, ORC_WAR_BEASTS } from "./orc-war-beasts.js";
 export { ENEMY_SKELETAL_WARRIORS, SKELETAL_WARRIORS } from "./skeletal-warriors.js";
 export { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-necromancers.js";
+export { ENEMY_ELEMENTAL_PRIESTS, ELEMENTAL_PRIESTS } from "./elemental-priests.js";
 
 // Import for aggregation
 import { ENEMY_DIGGERS, DIGGERS } from "./diggers.js";
@@ -32,6 +33,7 @@ import { ENEMY_ORC_SKIRMISHERS, ORC_SKIRMISHERS } from "./orc-skirmishers.js";
 import { ENEMY_ORC_WAR_BEASTS, ORC_WAR_BEASTS } from "./orc-war-beasts.js";
 import { ENEMY_SKELETAL_WARRIORS, SKELETAL_WARRIORS } from "./skeletal-warriors.js";
 import { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-necromancers.js";
+import { ENEMY_ELEMENTAL_PRIESTS, ELEMENTAL_PRIESTS } from "./elemental-priests.js";
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -47,7 +49,8 @@ export type GreenEnemyId =
   | typeof ENEMY_ORC_SKIRMISHERS
   | typeof ENEMY_ORC_WAR_BEASTS
   | typeof ENEMY_SKELETAL_WARRIORS
-  | typeof ENEMY_SHROUDED_NECROMANCERS;
+  | typeof ENEMY_SHROUDED_NECROMANCERS
+  | typeof ENEMY_ELEMENTAL_PRIESTS;
 
 /** All green (Marauding Orc) enemies */
 export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
@@ -62,6 +65,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
   [ENEMY_ORC_WAR_BEASTS]: ORC_WAR_BEASTS,
   [ENEMY_SKELETAL_WARRIORS]: SKELETAL_WARRIORS,
   [ENEMY_SHROUDED_NECROMANCERS]: SHROUDED_NECROMANCERS,
+  [ENEMY_ELEMENTAL_PRIESTS]: ELEMENTAL_PRIESTS,
 };
 
 // =============================================================================
