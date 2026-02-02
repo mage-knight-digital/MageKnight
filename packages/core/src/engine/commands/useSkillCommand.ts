@@ -125,6 +125,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_TOVAK_WHO_NEEDS_MAGIC,
     SKILL_TOVAK_SHIELD_MASTERY,
     SKILL_TOVAK_I_FEEL_NO_PAIN,
+    SKILL_ARYTHEA_POLARIZATION,
   ].includes(skillId);
 }
 
