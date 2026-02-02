@@ -151,7 +151,6 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingGladeWoundChoice: false,
     pendingDiscard: null,
     pendingDeepMineChoice: null,
-    pendingDiscard: null,
     pendingDiscardForAttack: null,
     enemiesDefeatedThisTurn: 0,
     healingPoints: 0,

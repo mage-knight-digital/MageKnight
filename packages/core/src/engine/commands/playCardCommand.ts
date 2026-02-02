@@ -120,8 +120,8 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       players[playerIndex] = updatedPlayer;
       const newState: GameState = { ...state, players, source: updatedSource };
 
-      // Resolve the effect
-      const effectResult = resolveEffect(newState, params.playerId, effectToApply);
+      // Resolve the effect (pass cardId for effects that need to know their source)
+      const effectResult = resolveEffect(newState, params.playerId, effectToApply, params.cardId);
 
       // Check if this is a choice effect
       if (effectResult.requiresChoice) {

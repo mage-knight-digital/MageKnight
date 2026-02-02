@@ -17,6 +17,7 @@ import {
   CARD_PROMISE,
   CARD_THREATEN,
   CARD_SWIFTNESS,
+  CARD_IMPROVISATION,
 } from "@mage-knight/shared";
 
 describe("PLAY_CARD action", () => {
@@ -242,6 +243,35 @@ describe("PLAY_CARD action", () => {
         CARD_MARCH,
         CARD_PROMISE,
       ]);
+    });
+  });
+
+  describe("discard cost effects", () => {
+    it("should create pendingDiscard state when playing Improvisation", () => {
+      // Player has Improvisation + another card to discard
+      const player = createTestPlayer({
+        hand: [CARD_IMPROVISATION, CARD_MARCH],
+        movePoints: 0,
+      });
+      const state = createTestGameState({ players: [player] });
+
+      // Playing Improvisation should create a pendingDiscard state,
+      // not throw "DiscardCostEffect requires sourceCardId"
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_IMPROVISATION,
+        powered: false,
+      });
+
+      // Should have pendingDiscard set with the source card
+      const updatedPlayer = result.state.players[0];
+      expect(updatedPlayer.pendingDiscard).toBeDefined();
+      expect(updatedPlayer.pendingDiscard?.sourceCardId).toBe(CARD_IMPROVISATION);
+      expect(updatedPlayer.pendingDiscard?.count).toBe(1);
+
+      // Card should be in play area
+      expect(updatedPlayer.playArea).toContain(CARD_IMPROVISATION);
+      expect(updatedPlayer.hand).not.toContain(CARD_IMPROVISATION);
     });
   });
 
