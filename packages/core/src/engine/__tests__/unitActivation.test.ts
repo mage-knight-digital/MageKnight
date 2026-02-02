@@ -24,12 +24,14 @@ import {
   UNIT_UTEM_CROSSBOWMEN,
   UNIT_FIRE_GOLEMS,
   UNIT_ICE_GOLEMS,
+  UNIT_NORTHERN_MONKS,
   CARD_WOUND,
   UNIT_STATE_READY,
   UNIT_STATE_SPENT,
   ACTIVATE_UNIT_ACTION,
   UNIT_ACTIVATED,
   UNIT_ABILITY_ATTACK,
+  UNIT_ABILITY_BLOCK,
   UNIT_ABILITY_HEAL,
   UNIT_ABILITY_MOVE,
   ASSIGN_DAMAGE_ACTION,
@@ -1002,6 +1004,201 @@ describe("Unit Combat Abilities", () => {
 
       // Should track mana used
       expect(result.state.players[0].manaUsedThisTurn).toContain(MANA_RED);
+    });
+  });
+
+  describe("Northern Monks abilities", () => {
+    it("should activate free physical Attack 3 (ability index 0)", () => {
+      // Northern Monks have Attack 3 (physical, free) at index 0
+      const unit = createPlayerUnit(UNIT_NORTHERN_MONKS, "northern_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "northern_monks_1",
+        abilityIndex: 0, // Attack 3 (physical, free)
+      });
+
+      // Should succeed without mana
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(3);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      // Check event
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_ATTACK);
+        expect(activateEvent.abilityValue).toBe(3);
+      }
+    });
+
+    it("should activate free physical Block 3 (ability index 1)", () => {
+      // Northern Monks have Block 3 (physical, free) at index 1
+      const unit = createPlayerUnit(UNIT_NORTHERN_MONKS, "northern_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "northern_monks_1",
+        abilityIndex: 1, // Block 3 (physical, free)
+      });
+
+      // Should succeed without mana
+      expect(result.state.players[0].combatAccumulator.block).toBe(3);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      // Check event
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_BLOCK);
+        expect(activateEvent.abilityValue).toBe(3);
+      }
+    });
+
+    it("should activate Ice Attack 4 with blue mana (ability index 2)", () => {
+      // Northern Monks have Ice Attack 4 (requires blue mana) at index 2
+      const unit = createPlayerUnit(UNIT_NORTHERN_MONKS, "northern_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_BLUE, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "northern_monks_1",
+        abilityIndex: 2, // Ice Attack 4 (requires blue mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_BLUE },
+      });
+
+      // Should succeed with blue mana
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(4);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      // Blue mana should be consumed
+      expect(result.state.players[0].pureMana.length).toBe(0);
+
+      // Check event
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_ATTACK);
+        expect(activateEvent.abilityValue).toBe(4);
+      }
+    });
+
+    it("should activate Ice Block 4 with blue mana (ability index 3)", () => {
+      // Northern Monks have Ice Block 4 (requires blue mana) at index 3
+      const unit = createPlayerUnit(UNIT_NORTHERN_MONKS, "northern_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_BLUE, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "northern_monks_1",
+        abilityIndex: 3, // Ice Block 4 (requires blue mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_BLUE },
+      });
+
+      // Should succeed with blue mana
+      expect(result.state.players[0].combatAccumulator.block).toBe(4);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      // Blue mana should be consumed
+      expect(result.state.players[0].pureMana.length).toBe(0);
+
+      // Check event
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_BLOCK);
+        expect(activateEvent.abilityValue).toBe(4);
+      }
+    });
+
+    it("should reject Ice Attack 4 without blue mana", () => {
+      // Northern Monks have Ice Attack 4 (requires blue mana) at index 2
+      const unit = createPlayerUnit(UNIT_NORTHERN_MONKS, "northern_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [], // No mana available
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "northern_monks_1",
+        abilityIndex: 2, // Ice Attack 4 (requires blue mana)
+        // No manaSource provided
+      });
+
+      // Should fail - mana required
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+      if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+        expect(invalidEvent.reason).toContain("blue mana");
+      }
+    });
+
+    it("should reject Ice Block 4 with wrong mana color (red)", () => {
+      // Northern Monks need blue mana, but we provide red
+      const unit = createPlayerUnit(UNIT_NORTHERN_MONKS, "northern_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_RED, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "northern_monks_1",
+        abilityIndex: 3, // Ice Block 4 (requires blue mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+      });
+
+      // Should fail - wrong mana color
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
     });
   });
 
