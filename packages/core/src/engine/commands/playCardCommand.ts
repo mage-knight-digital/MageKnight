@@ -91,9 +91,11 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       let updatedPlayer = moveCardToPlayArea(player, params.cardId, params.handIndex);
 
       // Track spell color for Ring artifacts fame bonus
+      // This tracks EVERY spell cast (not just unique colors) for count-based fame bonuses
       if (isPowered) {
         const spellColor = getSpellColor(card);
-        if (spellColor && !updatedPlayer.spellColorsCastThisTurn.includes(spellColor)) {
+        if (spellColor) {
+          // Store the color for undo purposes
           trackedSpellColor = spellColor;
           updatedPlayer = trackSpellColor(updatedPlayer, spellColor);
         }
@@ -221,11 +223,31 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
       // Restore spell color tracking if we tracked a new color
       if (trackedSpellColor) {
+        // Decrement the count for this color
+        const currentCount = updatedPlayer.spellsCastByColorThisTurn[trackedSpellColor] ?? 0;
+        const newCount = currentCount - 1;
+
+        // Build new counts object, omitting the color if count is 0
+        const spellsCastByColorThisTurn: Partial<Record<ManaColor, number>> = {};
+        for (const [color, count] of Object.entries(updatedPlayer.spellsCastByColorThisTurn)) {
+          if (color === trackedSpellColor) {
+            if (newCount > 0) {
+              spellsCastByColorThisTurn[color as ManaColor] = newCount;
+            }
+          } else {
+            spellsCastByColorThisTurn[color as ManaColor] = count;
+          }
+        }
+
+        // Only remove from unique colors if count is now 0
+        const spellColorsCastThisTurn = newCount <= 0
+          ? updatedPlayer.spellColorsCastThisTurn.filter((c) => c !== trackedSpellColor)
+          : updatedPlayer.spellColorsCastThisTurn;
+
         updatedPlayer = {
           ...updatedPlayer,
-          spellColorsCastThisTurn: updatedPlayer.spellColorsCastThisTurn.filter(
-            (c) => c !== trackedSpellColor
-          ),
+          spellColorsCastThisTurn,
+          spellsCastByColorThisTurn,
         };
       }
 
@@ -349,15 +371,24 @@ function getSpellColor(card: DeedCard): ManaColor | null {
 
 /**
  * Track the spell color for fame bonus calculation (Ring artifacts).
- * Only tracks if the color is not already tracked this turn.
+ * Updates both the unique color tracking and the count per color.
  */
 function trackSpellColor(player: Player, color: ManaColor): Player {
-  if (player.spellColorsCastThisTurn.includes(color)) {
-    return player;
-  }
+  // Track unique colors (legacy, kept for compatibility)
+  const spellColorsCastThisTurn = player.spellColorsCastThisTurn.includes(color)
+    ? player.spellColorsCastThisTurn
+    : [...player.spellColorsCastThisTurn, color];
+
+  // Track count per color (for Ring artifacts: "Fame +1 per [color] spell cast")
+  const currentCount = player.spellsCastByColorThisTurn[color] ?? 0;
+  const spellsCastByColorThisTurn = {
+    ...player.spellsCastByColorThisTurn,
+    [color]: currentCount + 1,
+  };
 
   return {
     ...player,
-    spellColorsCastThisTurn: [...player.spellColorsCastThisTurn, color],
+    spellColorsCastThisTurn,
+    spellsCastByColorThisTurn,
   };
 }
