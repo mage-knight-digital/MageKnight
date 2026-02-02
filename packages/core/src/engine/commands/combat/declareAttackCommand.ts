@@ -109,7 +109,8 @@ export function createDeclareAttackCommand(
           state,
           e.instanceId,
           baseArmor,
-          resistanceCount
+          resistanceCount,
+          params.playerId
         );
       }, 0);
 

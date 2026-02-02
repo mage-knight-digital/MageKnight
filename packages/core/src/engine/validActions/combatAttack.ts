@@ -126,7 +126,7 @@ export function computeEnemyAttackState(
   // Then apply modifiers (Tremor, Vampiric, etc.)
   const baseArmor = getBaseArmorForPhase(enemy, combat.phase, state, playerId);
   const resistanceCount = enemy.definition.resistances.length;
-  const armor = getEffectiveEnemyArmor(state, enemy.instanceId, baseArmor, resistanceCount);
+  const armor = getEffectiveEnemyArmor(state, enemy.instanceId, baseArmor, resistanceCount, playerId);
   const canDefeat = totalEffectiveDamage >= armor;
 
   // Determine if enemy is fortified - check both site fortification and enemy ability

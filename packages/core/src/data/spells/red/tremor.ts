@@ -1,7 +1,13 @@
 /**
  * Tremor / Earthquake (Red Spell #11)
- * Basic: Target enemy gets Armor -3, OR all enemies get Armor -2.
- * Powered: Target enemy gets Armor -4, OR all enemies get Armor -3.
+ * Basic: Target enemy gets Armor -3, OR all enemies get Armor -2. Armor cannot be reduced below 1.
+ * Powered: Target enemy gets Armor -3 (or -6 if fortified), OR all enemies get Armor -2 (or -4 if fortified).
+ *          Armor cannot be reduced below 1.
+ *
+ * Rules Notes:
+ * - "Fortified" means the enemy either has the Fortified ability OR is a site defender at a fortified site.
+ * - Doubly fortified (site + ability) still gets the same reduction as singly fortified.
+ * - Arcane Immune enemies are unaffected by both Tremor and Earthquake.
  */
 
 import type { DeedCard } from "../../../types/cards.js";
@@ -74,11 +80,12 @@ export const TREMOR: DeedCard = {
               modifier: {
                 type: EFFECT_ENEMY_STAT,
                 stat: ENEMY_STAT_ARMOR,
-                amount: -4,
+                amount: -3,
+                fortifiedAmount: -6,
                 minimum: 1,
               },
               duration: DURATION_COMBAT,
-              description: "Target enemy gets Armor -4",
+              description: "Target enemy gets Armor -3 (or -6 if fortified)",
             },
           ],
         },
@@ -90,10 +97,11 @@ export const TREMOR: DeedCard = {
         modifier: {
           type: EFFECT_ENEMY_STAT,
           stat: ENEMY_STAT_ARMOR,
-          amount: -3,
+          amount: -2,
+          fortifiedAmount: -4,
           minimum: 1,
         },
-        description: "All enemies get Armor -3",
+        description: "All enemies get Armor -2 (or -4 if fortified)",
       },
     ],
   },

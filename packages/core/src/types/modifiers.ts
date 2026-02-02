@@ -139,6 +139,7 @@ export interface EnemyStatModifier {
   readonly amount: number;
   readonly minimum: number; // usually 1
   readonly perResistance?: boolean; // Resistance Break: -1 per resistance
+  readonly fortifiedAmount?: number; // Earthquake: alternative amount if target is fortified
 }
 
 // Rule override modifier (e.g., "ignore fortification")
