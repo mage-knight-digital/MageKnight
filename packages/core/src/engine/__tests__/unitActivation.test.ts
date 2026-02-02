@@ -25,6 +25,7 @@ import {
   UNIT_FIRE_GOLEMS,
   UNIT_ICE_GOLEMS,
   UNIT_NORTHERN_MONKS,
+  UNIT_GUARDIAN_GOLEMS,
   CARD_WOUND,
   UNIT_STATE_READY,
   UNIT_STATE_SPENT,
@@ -1199,6 +1200,290 @@ describe("Unit Combat Abilities", () => {
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
       const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
       expect(invalidEvent).toBeDefined();
+    });
+  });
+
+  describe("Guardian Golems abilities", () => {
+    it("should activate free physical Attack 2 (ability index 0)", () => {
+      // Guardian Golems have Attack 2 (physical, free) at index 0
+      const unit = createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "guardian_golems_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "guardian_golems_1",
+        abilityIndex: 0, // Attack 2 (physical, free)
+      });
+
+      // Should succeed without mana
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(2);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      // Check event
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_ATTACK);
+        expect(activateEvent.abilityValue).toBe(2);
+      }
+    });
+
+    it("should activate free physical Block 2 (ability index 1)", () => {
+      // Guardian Golems have Block 2 (physical, free) at index 1
+      const unit = createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "guardian_golems_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "guardian_golems_1",
+        abilityIndex: 1, // Block 2 (physical, free)
+      });
+
+      // Should succeed without mana
+      expect(result.state.players[0].combatAccumulator.block).toBe(2);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      // Check event
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_BLOCK);
+        expect(activateEvent.abilityValue).toBe(2);
+      }
+    });
+
+    it("should activate Fire Block 4 with red mana (ability index 2)", () => {
+      // Guardian Golems have Fire Block 4 (requires red mana) at index 2
+      const unit = createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "guardian_golems_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_RED, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "guardian_golems_1",
+        abilityIndex: 2, // Fire Block 4 (requires red mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+      });
+
+      // Should succeed with red mana
+      expect(result.state.players[0].combatAccumulator.block).toBe(4);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      // Red mana should be consumed
+      expect(result.state.players[0].pureMana.length).toBe(0);
+
+      // Check event
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_BLOCK);
+        expect(activateEvent.abilityValue).toBe(4);
+      }
+    });
+
+    it("should activate Ice Block 4 with blue mana (ability index 3)", () => {
+      // Guardian Golems have Ice Block 4 (requires blue mana) at index 3
+      const unit = createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "guardian_golems_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_BLUE, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "guardian_golems_1",
+        abilityIndex: 3, // Ice Block 4 (requires blue mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_BLUE },
+      });
+
+      // Should succeed with blue mana
+      expect(result.state.players[0].combatAccumulator.block).toBe(4);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      // Blue mana should be consumed
+      expect(result.state.players[0].pureMana.length).toBe(0);
+
+      // Check event
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_BLOCK);
+        expect(activateEvent.abilityValue).toBe(4);
+      }
+    });
+
+    it("should reject Fire Block 4 without red mana", () => {
+      // Guardian Golems have Fire Block 4 (requires red mana) at index 2
+      const unit = createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "guardian_golems_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [], // No mana available
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "guardian_golems_1",
+        abilityIndex: 2, // Fire Block 4 (requires red mana)
+        // No manaSource provided
+      });
+
+      // Should fail - mana required
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+      if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+        expect(invalidEvent.reason).toContain("red mana");
+      }
+    });
+
+    it("should reject Ice Block 4 without blue mana", () => {
+      // Guardian Golems have Ice Block 4 (requires blue mana) at index 3
+      const unit = createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "guardian_golems_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [], // No mana available
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "guardian_golems_1",
+        abilityIndex: 3, // Ice Block 4 (requires blue mana)
+        // No manaSource provided
+      });
+
+      // Should fail - mana required
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+      if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+        expect(invalidEvent.reason).toContain("blue mana");
+      }
+    });
+
+    it("should reject Fire Block 4 with wrong mana color (blue)", () => {
+      // Guardian Golems need red mana for Fire Block, but we provide blue
+      const unit = createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "guardian_golems_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_BLUE, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "guardian_golems_1",
+        abilityIndex: 2, // Fire Block 4 (requires red mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_BLUE },
+      });
+
+      // Should fail - wrong mana color
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+    });
+
+    it("should allow Fire Block 4 with red mana from crystal", () => {
+      // Guardian Golems have Fire Block 4 (requires red mana) at index 2
+      const unit = createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "guardian_golems_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        crystals: { red: 1, blue: 0, green: 0, white: 0 },
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "guardian_golems_1",
+        abilityIndex: 2, // Fire Block 4 (requires red mana)
+        manaSource: { type: MANA_SOURCE_CRYSTAL, color: MANA_RED },
+      });
+
+      // Should succeed
+      expect(result.state.players[0].combatAccumulator.block).toBe(4);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      // Crystal should be consumed
+      expect(result.state.players[0].crystals.red).toBe(0);
+    });
+
+    it("should allow Ice Block 4 with blue mana from die", () => {
+      // Guardian Golems have Ice Block 4 (requires blue mana) at index 3
+      const unit = createPlayerUnit(UNIT_GUARDIAN_GOLEMS, "guardian_golems_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const dieId = sourceDieId("die_0");
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+        source: {
+          dice: [{ id: dieId, color: MANA_BLUE, isDepleted: false, takenByPlayerId: null }],
+        },
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "guardian_golems_1",
+        abilityIndex: 3, // Ice Block 4 (requires blue mana)
+        manaSource: { type: MANA_SOURCE_DIE, color: MANA_BLUE, dieId: "die_0" },
+      });
+
+      // Should succeed
+      expect(result.state.players[0].combatAccumulator.block).toBe(4);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      // Die should be in used list
+      expect(result.state.players[0].usedDieIds).toContain("die_0");
     });
   });
 

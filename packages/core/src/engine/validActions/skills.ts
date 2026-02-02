@@ -21,6 +21,7 @@ import {
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_ARYTHEA_POLARIZATION,
+  SKILL_BRAEVALAR_THUNDERSTORM,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
@@ -36,6 +37,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_ARYTHEA_POLARIZATION,
+  SKILL_BRAEVALAR_THUNDERSTORM,
 ]);
 
 /**
