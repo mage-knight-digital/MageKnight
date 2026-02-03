@@ -22,9 +22,10 @@ import {
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_ARYTHEA_POLARIZATION,
   SKILL_BRAEVALAR_THUNDERSTORM,
+  SKILL_NOROWAS_DAY_SHARPSHOOTING,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
-import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
+import { COMBAT_PHASE_BLOCK, COMBAT_PHASE_RANGED_SIEGE } from "../../types/combat.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { canActivatePolarization } from "../commands/skills/polarizationEffect.js";
 
@@ -38,6 +39,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_ARYTHEA_POLARIZATION,
   SKILL_BRAEVALAR_THUNDERSTORM,
+  SKILL_NOROWAS_DAY_SHARPSHOOTING,
 ]);
 
 /**
@@ -99,6 +101,14 @@ export function getSkillOptions(
     const blockSkills = [SKILL_TOVAK_SHIELD_MASTERY];
     if (blockSkills.includes(skillId)) {
       if (!state.combat || state.combat.phase !== COMBAT_PHASE_BLOCK) {
+        continue;
+      }
+    }
+
+    // Ranged-only skills are only available during ranged/siege phase
+    const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING];
+    if (rangedSkills.includes(skillId)) {
+      if (!state.combat || state.combat.phase !== COMBAT_PHASE_RANGED_SIEGE) {
         continue;
       }
     }
