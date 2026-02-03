@@ -38,7 +38,8 @@ export function getModifiersForPlayer(
   state: GameState,
   playerId: string
 ): ActiveModifier[] {
-  const active = state.activeModifiers.filter((m) => {
+  const activeModifiers = state.activeModifiers ?? [];
+  const active = activeModifiers.filter((m) => {
     const scope = m.scope;
     if (scope.type === SCOPE_SELF) {
       return m.createdByPlayerId === playerId;
@@ -53,7 +54,8 @@ export function getModifiersForPlayer(
     return m.createdByPlayerId === playerId;
   });
 
-  const player = state.players.find((p) => p.id === playerId);
+  const players = state.players ?? [];
+  const player = players.find((p) => p.id === playerId);
   if (!player) {
     return active;
   }
