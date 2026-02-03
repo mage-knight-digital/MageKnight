@@ -156,9 +156,94 @@ export function getAgents(): Agent[] {
     });
   }
 
-  // Find pending markers and add as initializing agents
+  // Find status files from agents being set up
+  const statusFiles = fs.readdirSync(LOG_DIR).filter((f) => f.endsWith(".status"));
+  const STATUS_TIMEOUT = 5 * 60 * 1000; // 5 minutes - should be plenty for setup
+
+  const stepLabels: Record<string, string> = {
+    selecting: "Selecting issue...",
+    claiming: "Claiming issue...",
+    fetching_title: "Fetching issue title...",
+    creating_worktree: "Creating git worktree...",
+    installing_deps: "Running pnpm install...",
+    launching: "Starting Claude agent...",
+    failed: "Setup failed",
+  };
+
+  for (const statusFile of statusFiles) {
+    const statusPath = path.join(LOG_DIR, statusFile);
+    try {
+      const content = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
+      const age = Date.now() - content.timestamp;
+
+      // Remove stale status files
+      if (age > STATUS_TIMEOUT) {
+        fs.unlinkSync(statusPath);
+        continue;
+      }
+
+      // Skip if we already have this agent via PID file
+      if (realIssueNumbers.has(content.issue)) {
+        fs.unlinkSync(statusPath);
+        continue;
+      }
+
+      const elapsedSec = Math.floor(age / 1000);
+      const stepLabel = stepLabels[content.step] || content.detail || "Initializing...";
+      const title = issueTitles.get(content.issue);
+
+      agents.push({
+        issueNumber: content.issue,
+        ...(title && { issueTitle: title }),
+        worktreePath: "",
+        worktreeName: `issue-${content.issue}`,
+        pid: null,
+        status: content.step === "failed" ? "failed" : "initializing",
+        logFile: null,
+        startTime: new Date(content.timestamp),
+        lastLogLine: `${stepLabel} (${elapsedSec}s)`,
+      });
+    } catch {
+      // Invalid status file, remove it
+      fs.unlinkSync(statusPath);
+    }
+  }
+
+  // Check for setup status files (issue selection/claiming phase)
+  const setupFiles = fs.readdirSync(LOG_DIR).filter((f) => f.startsWith("setup-") && f.endsWith(".status"));
+
+  for (const setupFile of setupFiles) {
+    const setupPath = path.join(LOG_DIR, setupFile);
+    try {
+      const content = JSON.parse(fs.readFileSync(setupPath, "utf-8"));
+      const age = Date.now() - content.timestamp;
+
+      if (age > STATUS_TIMEOUT) {
+        fs.unlinkSync(setupPath);
+        continue;
+      }
+
+      const elapsedSec = Math.floor(age / 1000);
+      const stepLabel = stepLabels[content.step] || content.detail || "Initializing...";
+
+      agents.push({
+        issueNumber: 0,
+        worktreePath: "",
+        worktreeName: `Agent ${content.slot}`,
+        pid: null,
+        status: "initializing",
+        logFile: null,
+        startTime: new Date(content.timestamp),
+        lastLogLine: `${stepLabel} (${elapsedSec}s)`,
+      });
+    } catch {
+      fs.unlinkSync(setupPath);
+    }
+  }
+
+  // Also check for legacy pending markers (backwards compatibility)
   const pendingFiles = fs.readdirSync(LOG_DIR).filter((f) => f.endsWith(".marker"));
-  const PENDING_TIMEOUT = 90 * 1000; // 90 seconds - enough for worktree creation + pnpm install
+  const PENDING_TIMEOUT = 3 * 60 * 1000;
 
   for (const pendingFile of pendingFiles) {
     const pendingPath = path.join(LOG_DIR, pendingFile);
@@ -166,26 +251,23 @@ export function getAgents(): Agent[] {
       const content = JSON.parse(fs.readFileSync(pendingPath, "utf-8"));
       const age = Date.now() - content.timestamp;
 
-      // Remove stale pending markers
       if (age > PENDING_TIMEOUT) {
         fs.unlinkSync(pendingPath);
         continue;
       }
 
-      // Show as initializing agent
       const elapsedSec = Math.floor(age / 1000);
       agents.push({
-        issueNumber: 0, // Unknown yet
+        issueNumber: 0,
         worktreePath: "",
         worktreeName: `Initializing (${content.index + 1}/${content.count})`,
         pid: null,
         status: "initializing",
         logFile: null,
         startTime: new Date(content.timestamp),
-        lastLogLine: `Setting up worktree... (${elapsedSec}s)`,
+        lastLogLine: `Setting up... (${elapsedSec}s)`,
       });
     } catch {
-      // Invalid marker, remove it
       fs.unlinkSync(pendingPath);
     }
   }
@@ -357,26 +439,15 @@ export function launchAgentsInBackground(
   try {
     ensureLogDir();
 
-    // Create pending markers so UI shows agents immediately
-    const actualCount = issueNumbers?.length ?? count;
-    const timestamp = Date.now();
-    for (let i = 0; i < actualCount; i++) {
-      const pendingFile = path.join(LOG_DIR, `pending-${timestamp}-${i}.marker`);
-      fs.writeFileSync(pendingFile, JSON.stringify({
-        timestamp,
-        index: i,
-        count: actualCount,
-        status: "initializing"
-      }));
-    }
-
     // Build args: count first, then optional issue numbers
+    const actualCount = issueNumbers?.length ?? count;
     const args = [parallelScript, String(actualCount)];
     if (issueNumbers && issueNumbers.length > 0) {
       args.push(...issueNumbers.map(String));
     }
 
     // Spawn the parallel script in background
+    // Script writes its own status files as it progresses
     const child = spawn("bash", args, {
       cwd: REPO_ROOT,
       detached: true,

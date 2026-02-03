@@ -109,42 +109,74 @@ log "Using Claude at: $CLAUDE_BIN"
 
 log "Starting $COUNT parallel implementation agents..."
 
-# Select and claim issues
+# Helper to write status for agents that don't have an issue number yet
+write_setup_status() {
+  local slot=$1
+  local step=$2
+  local detail=$3
+  echo "{\"issue\":0,\"slot\":$slot,\"step\":\"$step\",\"detail\":\"$detail\",\"timestamp\":$(date +%s)000}" > "$LOG_DIR/setup-${slot}.status"
+}
+
+cleanup_setup_status() {
+  local slot=$1
+  rm -f "$LOG_DIR/setup-${slot}.status"
+}
+
+# Select and claim issues (or use provided ones directly)
 ISSUES=()
-for i in $(seq 1 $COUNT); do
-  # Check if we have a specific issue for this slot
-  IDX=$((i - 1))
-  if [ $IDX -lt ${#SPECIFIC_ISSUES[@]} ] && [ -n "${SPECIFIC_ISSUES[$IDX]}" ]; then
-    ISSUE="${SPECIFIC_ISSUES[$IDX]}"
-    log "Using specified issue #$ISSUE..."
 
-    # Still claim it to update the board status
-    node "$SCRIPT_DIR/select-issue.cjs" --claim "$ISSUE" >/dev/null 2>&1 || {
-      error "Failed to claim issue #$ISSUE"
-      continue
-    }
-  else
-    log "Selecting issue $i of $COUNT..."
+# Fast path: if all issues are explicitly provided, skip selection/claiming entirely
+if [ ${#SPECIFIC_ISSUES[@]} -ge $COUNT ]; then
+  log "Using provided issues directly (skipping selection/claiming)..."
+  for i in $(seq 1 $COUNT); do
+    IDX=$((i - 1))
+    ISSUES+=("${SPECIFIC_ISSUES[$IDX]}")
+  done
+  log "Issues: ${ISSUES[*]}"
+else
+  # Slow path: need to select/claim some or all issues
+  for i in $(seq 1 $COUNT); do
+    IDX=$((i - 1))
+    if [ $IDX -lt ${#SPECIFIC_ISSUES[@]} ] && [ -n "${SPECIFIC_ISSUES[$IDX]}" ]; then
+      ISSUE="${SPECIFIC_ISSUES[$IDX]}"
+      write_setup_status $i "claiming" "Claiming issue #$ISSUE..."
+      log "Using specified issue #$ISSUE..."
 
-    # Add random delay to reduce race conditions
-    sleep $((RANDOM % 3))
+      # Still claim it to update the board status
+      node "$SCRIPT_DIR/select-issue.cjs" --claim "$ISSUE" >/dev/null 2>&1 || {
+        error "Failed to claim issue #$ISSUE"
+        cleanup_setup_status $i
+        continue
+      }
+    else
+      write_setup_status $i "selecting" "Selecting issue $i of $COUNT..."
+      log "Selecting issue $i of $COUNT..."
 
-    # Select and claim
-    ISSUE=$(node "$SCRIPT_DIR/select-issue.cjs" --refresh 2>/dev/null) || {
-      error "Failed to select issue $i"
-      continue
-    }
+      # Add random delay to reduce race conditions
+      sleep $((RANDOM % 3))
 
-    # Claim it
-    node "$SCRIPT_DIR/select-issue.cjs" --claim "$ISSUE" >/dev/null 2>&1 || {
-      error "Failed to claim issue #$ISSUE"
-      continue
-    }
-  fi
+      # Select and claim
+      ISSUE=$(node "$SCRIPT_DIR/select-issue.cjs" --refresh 2>/dev/null) || {
+        error "Failed to select issue $i"
+        cleanup_setup_status $i
+        continue
+      }
 
-  ISSUES+=("$ISSUE")
-  success "Claimed issue #$ISSUE"
-done
+      write_setup_status $i "claiming" "Claiming issue #$ISSUE..."
+
+      # Claim it
+      node "$SCRIPT_DIR/select-issue.cjs" --claim "$ISSUE" >/dev/null 2>&1 || {
+        error "Failed to claim issue #$ISSUE"
+        cleanup_setup_status $i
+        continue
+      }
+    fi
+
+    cleanup_setup_status $i
+    ISSUES+=("$ISSUE")
+    success "Claimed issue #$ISSUE"
+  done
+fi
 
 if [ ${#ISSUES[@]} -eq 0 ]; then
   error "No issues could be claimed"
@@ -157,32 +189,65 @@ log "Claimed ${#ISSUES[@]} issues: ${ISSUES[*]}"
 cd "$REPO_ROOT"
 PIDS=()
 
+AGENT_INDEX=0
 for ISSUE in "${ISSUES[@]}"; do
-  # Get issue title for branch name
-  APP_TOKEN=$(node "$SCRIPT_DIR/github-app-token.cjs")
-  TITLE=$(GH_TOKEN=$APP_TOKEN gh issue view "$ISSUE" --json title -q '.title' 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g' | cut -c1-30)
-  BRANCH_NAME="issue-${ISSUE}-${TITLE}"
+  # Update status marker for this agent
+  MARKER_FILE="$LOG_DIR/agent-${ISSUE}.status"
+  update_status() {
+    echo "{\"issue\":$ISSUE,\"step\":\"$1\",\"detail\":\"$2\",\"timestamp\":$(date +%s)000}" > "$MARKER_FILE"
+  }
+  # Get issue title for branch name (skip API call if we have cached data or use simple name)
+  TITLE=""
+  CACHED_ISSUES="$HOME/.claude-cache/mage-knight/issues.json"
+  if [ -f "$CACHED_ISSUES" ]; then
+    # Try to get title from cache (populated by select-issue.cjs)
+    TITLE=$(jq -r ".[] | select(.number == $ISSUE) | .title" "$CACHED_ISSUES" 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g' | cut -c1-30)
+  fi
+
+  if [ -z "$TITLE" ]; then
+    # Fall back to API call only if no cache
+    update_status "fetching_title" "Getting issue title..."
+    APP_TOKEN=$(node "$SCRIPT_DIR/github-app-token.cjs" 2>/dev/null) || true
+    if [ -n "$APP_TOKEN" ]; then
+      TITLE=$(GH_TOKEN=$APP_TOKEN gh issue view "$ISSUE" --json title -q '.title' 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g' | cut -c1-30)
+    fi
+  fi
+
+  # Use simple branch name if we couldn't get title
+  if [ -n "$TITLE" ]; then
+    BRANCH_NAME="issue-${ISSUE}-${TITLE}"
+  else
+    BRANCH_NAME="issue-${ISSUE}"
+  fi
   WORKTREE_PATH="$WORKTREE_BASE/$BRANCH_NAME"
 
   # Check if worktree already exists
   if [ -d "$WORKTREE_PATH" ]; then
     log "Worktree already exists for #$ISSUE, reusing..."
   else
+    update_status "creating_worktree" "Creating git worktree..."
+
     # Fetch latest main and create worktree
     git fetch origin main 2>/dev/null
     git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" origin/main 2>/dev/null || {
       error "Failed to create worktree for #$ISSUE"
+      update_status "failed" "Failed to create worktree"
       node "$SCRIPT_DIR/select-issue.cjs" --unclaim "$ISSUE" 2>/dev/null
       continue
     }
   fi
 
+  update_status "installing_deps" "Running pnpm install..."
+
   # Install dependencies in worktree
   log "Installing dependencies for #$ISSUE..."
   (cd "$WORKTREE_PATH" && pnpm install --silent 2>/dev/null) || {
     error "Failed to install dependencies for #$ISSUE"
+    update_status "failed" "pnpm install failed"
     continue
   }
+
+  update_status "launching" "Starting Claude agent..."
 
   # Log file for this agent
   LOGFILE="$LOG_DIR/agent-${ISSUE}-$(date +%Y%m%d-%H%M%S).log"
@@ -199,7 +264,11 @@ for ISSUE in "${ISSUES[@]}"; do
   echo "$AGENT_PID" > "$PIDFILE"
   PIDS+=("$AGENT_PID")
 
+  # Remove status marker now that agent is running (PID file takes over)
+  rm -f "$MARKER_FILE"
+
   success "Agent for #$ISSUE started (PID: $AGENT_PID, log: $LOGFILE)"
+  AGENT_INDEX=$((AGENT_INDEX + 1))
 done
 
 echo ""
