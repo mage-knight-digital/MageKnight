@@ -457,6 +457,42 @@ describe("Spell Purchase and Advanced Action Learning", () => {
         const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
         expect(invalidEvent).toBeDefined();
       });
+
+      it("should reject buying spell after already taking action this turn (e.g., after combat)", () => {
+        const mageTowerSite: Site = {
+          type: SiteType.MageTower,
+          owner: "player1",
+          isConquered: true,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          mageTowerSite,
+          { spells: [CARD_FIREBALL] },
+          {
+            influencePoints: 7,
+            hasTakenActionThisTurn: true, // Already fought combat this turn
+          }
+        );
+
+        const result = engine.processAction(state, "player1", {
+          type: BUY_SPELL_ACTION,
+          cardId: CARD_FIREBALL,
+        });
+
+        // Should not buy the spell
+        expect(result.state.players[0].discard).not.toContain(CARD_FIREBALL);
+
+        // Influence should not be consumed
+        expect(result.state.players[0].influencePoints).toBe(7);
+
+        // Check for invalid action
+        const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+        expect(invalidEvent).toBeDefined();
+        if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+          expect(invalidEvent.reason).toContain("action");
+        }
+      });
     });
   });
 

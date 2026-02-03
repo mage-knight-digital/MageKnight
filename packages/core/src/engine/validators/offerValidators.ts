@@ -29,6 +29,7 @@ import {
   SITE_NOT_CONQUERED,
   MONASTERY_BURNED,
   PLAYER_NOT_FOUND,
+  ALREADY_ACTED,
 } from "./validationCodes.js";
 import { getPlayerSite } from "../helpers/siteHelpers.js";
 import { SiteType } from "../../types/map.js";
@@ -109,6 +110,33 @@ export function validateHasInfluenceForSpell(
     return invalid(
       INSUFFICIENT_INFLUENCE_FOR_SPELL,
       `You need ${SPELL_PURCHASE_COST} influence to buy a spell (have ${player.influencePoints})`
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate player has not already taken their main action this turn.
+ * Buying spells is an interaction that requires the player's action for the turn.
+ * Cannot be done after combat, entering a site, or other major actions.
+ */
+export function validateNotAlreadyActedForSpell(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== BUY_SPELL_ACTION) return valid();
+
+  const player = getPlayerById(state, playerId);
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
+  if (player.hasTakenActionThisTurn) {
+    return invalid(
+      ALREADY_ACTED,
+      "Cannot buy spells after taking another action this turn"
     );
   }
 
