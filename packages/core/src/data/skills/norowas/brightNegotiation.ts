@@ -5,6 +5,7 @@
 
 import type { SkillId } from "@mage-knight/shared";
 import { CATEGORY_INFLUENCE } from "../../../types/cards.js";
+import { ifNightOrUnderground, influence } from "../../effectHelpers.js";
 import { type SkillDefinition, SKILL_USAGE_ONCE_PER_TURN } from "../types.js";
 
 export const SKILL_NOROWAS_BRIGHT_NEGOTIATION = "norowas_bright_negotiation" as SkillId;
@@ -15,5 +16,6 @@ export const brightNegotiation: SkillDefinition = {
   heroId: "norowas",
   description: "Influence 3 (Day) or Influence 2 (Night)",
   usageType: SKILL_USAGE_ONCE_PER_TURN,
+  effect: ifNightOrUnderground(influence(2), influence(3)),
   categories: [CATEGORY_INFLUENCE],
 };

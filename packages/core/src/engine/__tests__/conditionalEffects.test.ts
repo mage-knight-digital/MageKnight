@@ -51,6 +51,7 @@ import {
 } from "../../data/effectHelpers.js";
 import { ENEMY_PROWLERS } from "@mage-knight/shared";
 import { daySharpshooting } from "../../data/skills/norowas/daySharpshooting.js";
+import { brightNegotiation } from "../../data/skills/norowas/brightNegotiation.js";
 
 describe("Conditional Effects", () => {
   describe("evaluateCondition", () => {
@@ -660,6 +661,50 @@ describe("Conditional Effects", () => {
         const result = resolveEffect(state, "player1", effect, "test-skill");
 
         expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(0);
+      });
+    });
+
+    describe("Bright Negotiation (Norowas)", () => {
+      it("should grant Influence 3 during day on the surface", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat: null });
+
+        const effect = brightNegotiation.effect;
+        if (!effect) {
+          throw new Error("Bright Negotiation effect is missing");
+        }
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.influencePoints).toBe(3);
+      });
+
+      it("should grant Influence 2 at night on the surface", () => {
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT, combat: null });
+
+        const effect = brightNegotiation.effect;
+        if (!effect) {
+          throw new Error("Bright Negotiation effect is missing");
+        }
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.influencePoints).toBe(2);
+      });
+
+      it("should grant Influence 2 in a dungeon during day", () => {
+        const combat = createCombatState([ENEMY_PROWLERS], false, {
+          nightManaRules: true,
+        });
+        const state = createTestGameState({ timeOfDay: TIME_OF_DAY_DAY, combat });
+
+        const effect = brightNegotiation.effect;
+        if (!effect) {
+          throw new Error("Bright Negotiation effect is missing");
+        }
+
+        const result = resolveEffect(state, "player1", effect, "test-skill");
+
+        expect(result.state.players[0]?.influencePoints).toBe(2);
       });
     });
   });
