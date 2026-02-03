@@ -5,10 +5,10 @@
   "type": "module",
   "workspaces": ["packages/*"],
   "scripts": {
-    "build": "bun run --filter '*' build",
-    "test": "(cd packages/core && bun test) && (cd packages/shared && bun test) && (cd packages/server && bun test)",
-    "test:coverage": "(cd packages/core && bun test --coverage --coverage-reporter=lcov) && (cd packages/shared && bun test --coverage --coverage-reporter=lcov) && (cd packages/server && bun test --coverage --coverage-reporter=lcov)",
-    "lint": "bun run --filter '*' lint",
+    "build": "bun run --parallel --filter '*' build",
+    "test": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test",
+    "test:coverage": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test:coverage",
+    "lint": "bun run --parallel --filter '*' lint",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist bun.lockb",
     "dev:client": "bun run --filter @mage-knight/client dev",
     "mage-dev": "bun packages/mage-dev/dist/cli.js"
