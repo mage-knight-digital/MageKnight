@@ -16,7 +16,6 @@ import {
   ATTACK_TYPE_MELEE,
   ATTACK_TYPE_RANGED,
   ATTACK_TYPE_SIEGE,
-  COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
   ELEMENT_COLD_FIRE,
@@ -155,16 +154,19 @@ export function unassignAttackFromFameTrackers(
 
     const newAssignedByEnemy = { ...tracker.assignedByEnemy };
     const remainingAssigned = assigned - toRemove;
-    if (remainingAssigned > 0) {
-      newAssignedByEnemy[params.enemyInstanceId] = remainingAssigned;
-    } else {
-      delete newAssignedByEnemy[params.enemyInstanceId];
-    }
+    const trimmedAssignedByEnemy =
+      remainingAssigned > 0
+        ? { ...newAssignedByEnemy, [params.enemyInstanceId]: remainingAssigned }
+        : (() => {
+            const { [params.enemyInstanceId]: _removed, ...rest } = newAssignedByEnemy;
+            void _removed;
+            return rest;
+          })();
 
     updated[i] = {
       ...tracker,
       remaining: tracker.remaining + toRemove,
-      assignedByEnemy: newAssignedByEnemy,
+      assignedByEnemy: trimmedAssignedByEnemy,
     };
   }
 
