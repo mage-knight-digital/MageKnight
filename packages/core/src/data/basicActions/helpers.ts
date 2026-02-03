@@ -83,8 +83,8 @@ export function trackAttackDefeatFame(
     amount,
     combatType,
     fame,
-    element,
-    sourceCardId,
+    ...(typeof element === "undefined" ? {} : { element }),
+    ...(typeof sourceCardId === "undefined" ? {} : { sourceCardId }),
   };
 }
 

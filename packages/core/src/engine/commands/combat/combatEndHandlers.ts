@@ -15,7 +15,7 @@ import {
   createMonasteryBurnedEvent,
   createShieldTokenPlacedEvent,
   artifactReward,
-  ENEMY_DEFEATED,
+  isEnemyDefeatedEvent,
 } from "@mage-knight/shared";
 import {
   COMBAT_CONTEXT_BURN_MONASTERY,
@@ -64,9 +64,7 @@ export function applyDefeatedEnemyRewards(
   events.push(...reputationResult.events);
 
   const defeatedEnemyIds = damageResult.events
-    .filter((event): event is { readonly type: typeof ENEMY_DEFEATED; readonly enemyInstanceId: string } =>
-      event.type === ENEMY_DEFEATED
-    )
+    .filter(isEnemyDefeatedEvent)
     .map((event) => event.enemyInstanceId);
 
   const playerIndex = updatedState.players.findIndex((p) => p.id === playerId);
