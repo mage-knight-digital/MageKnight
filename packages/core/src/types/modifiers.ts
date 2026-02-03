@@ -31,6 +31,7 @@ import {
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
   EFFECT_TERRAIN_COST,
+  EFFECT_TERRAIN_SAFE,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -104,6 +105,12 @@ export interface TerrainCostModifier {
    * When replaceCost is set, amount is ignored and minimum is applied after.
    */
   readonly replaceCost?: number;
+}
+
+// Terrain safe modifier (e.g., "mountains are safe spaces for you")
+export interface TerrainSafeModifier {
+  readonly type: typeof EFFECT_TERRAIN_SAFE;
+  readonly terrain: Terrain | typeof TERRAIN_ALL;
 }
 
 // Sideways card value modifier (e.g., "+2 instead of +1")
@@ -215,6 +222,7 @@ export interface RemovePhysicalResistanceModifier {
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
+  | TerrainSafeModifier
   | SidewaysValueModifier
   | CombatValueModifier
   | EnemyStatModifier

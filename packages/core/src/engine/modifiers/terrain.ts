@@ -8,6 +8,7 @@
 import type { GameState } from "../../state/GameState.js";
 import type {
   TerrainCostModifier,
+  TerrainSafeModifier,
   TerrainProhibitionModifier,
 } from "../../types/modifiers.js";
 import type { Terrain } from "@mage-knight/shared";
@@ -15,6 +16,7 @@ import { DEFAULT_MOVEMENT_COSTS, TIME_OF_DAY_DAY } from "@mage-knight/shared";
 import {
   EFFECT_RULE_OVERRIDE,
   EFFECT_TERRAIN_COST,
+  EFFECT_TERRAIN_SAFE,
   EFFECT_TERRAIN_PROHIBITION,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
   TERRAIN_ALL,
@@ -77,6 +79,29 @@ export function getEffectiveTerrainCost(
   }
 
   return Math.max(minAllowed, cost);
+}
+
+/**
+ * Check if a terrain is considered a safe space for a player.
+ *
+ * Note: This is terrain-only safety (ignores enemies/sites). It treats
+ * terrains that are normally impassable (Infinity cost) as unsafe unless
+ * an explicit terrain safe modifier applies.
+ */
+export function isTerrainSafe(
+  state: GameState,
+  playerId: string,
+  terrain: Terrain
+): boolean {
+  const baseCosts = DEFAULT_MOVEMENT_COSTS[terrain];
+  const baseSafe = Boolean(baseCosts) && baseCosts.day !== Infinity && baseCosts.night !== Infinity;
+
+  const safeModifiers = getModifiersForPlayer(state, playerId)
+    .filter((m) => m.effect.type === EFFECT_TERRAIN_SAFE)
+    .map((m) => m.effect as TerrainSafeModifier)
+    .filter((e) => e.terrain === terrain || e.terrain === TERRAIN_ALL);
+
+  return baseSafe || safeModifiers.length > 0;
 }
 
 /**

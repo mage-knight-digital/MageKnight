@@ -9,13 +9,16 @@ import type { GameState } from "../../state/GameState.js";
 import type { ActiveModifier, EndlessManaModifier } from "../../types/modifiers.js";
 import type { ManaColor } from "@mage-knight/shared";
 import { ABILITY_ARCANE_IMMUNITY } from "@mage-knight/shared";
+import { SKILLS } from "../../data/skills/index.js";
 import {
+  DURATION_PERMANENT,
   EFFECT_ENDLESS_MANA,
   SCOPE_ALL_ENEMIES,
   SCOPE_ALL_PLAYERS,
   SCOPE_ONE_ENEMY,
   SCOPE_OTHER_PLAYERS,
   SCOPE_SELF,
+  SOURCE_SKILL,
 } from "../modifierConstants.js";
 
 /**
@@ -35,7 +38,8 @@ export function getModifiersForPlayer(
   state: GameState,
   playerId: string
 ): ActiveModifier[] {
-  return state.activeModifiers.filter((m) => {
+  const activeModifiers = state.activeModifiers ?? [];
+  const active = activeModifiers.filter((m) => {
     const scope = m.scope;
     if (scope.type === SCOPE_SELF) {
       return m.createdByPlayerId === playerId;
@@ -49,6 +53,31 @@ export function getModifiersForPlayer(
     // For enemy/unit scopes, check if this player owns the context
     return m.createdByPlayerId === playerId;
   });
+
+  const players = state.players ?? [];
+  const player = players.find((p) => p.id === playerId);
+  if (!player) {
+    return active;
+  }
+
+  const passive = player.skills.flatMap((skillId) => {
+    const skill = SKILLS[skillId];
+    if (!skill?.passiveModifiers || skill.passiveModifiers.length === 0) {
+      return [];
+    }
+
+    return skill.passiveModifiers.map((effect, index) => ({
+      id: `skill_${skillId}_${index}_${playerId}`,
+      source: { type: SOURCE_SKILL, skillId, playerId },
+      duration: DURATION_PERMANENT,
+      scope: { type: SCOPE_SELF },
+      effect,
+      createdAtRound: state.round,
+      createdByPlayerId: playerId,
+    }));
+  });
+
+  return [...active, ...passive];
 }
 
 /**

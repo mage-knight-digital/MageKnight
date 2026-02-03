@@ -15,6 +15,7 @@ import {
   EFFECT_GAIN_MANA,
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
+  EFFECT_NOOP,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   EFFECT_CONDITIONAL,
@@ -137,6 +138,10 @@ export interface GainManaEffect {
 export interface DrawCardsEffect {
   readonly type: typeof EFFECT_DRAW_CARDS;
   readonly amount: number;
+}
+
+export interface NoopEffect {
+  readonly type: typeof EFFECT_NOOP;
 }
 
 export interface ChangeReputationEffect {
@@ -538,6 +543,7 @@ export type CardEffect =
   | GainHealingEffect
   | GainManaEffect
   | DrawCardsEffect
+  | NoopEffect
   | ChangeReputationEffect
   | GainFameEffect
   | GainCrystalEffect

@@ -42,6 +42,7 @@ import {
   EFFECT_GAIN_MANA,
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
+  EFFECT_NOOP,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   EFFECT_CONDITIONAL,
@@ -57,6 +58,7 @@ import {
   EFFECT_TAKE_WOUND,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
+  EFFECT_PAY_MANA,
 } from "../../types/effectTypes.js";
 import {
   EFFECT_RULE_OVERRIDE,
@@ -113,6 +115,16 @@ export function isEffectResolvable(
     }
 
     case EFFECT_COMPOUND:
+      // If a compound includes mana payments, they must be payable
+      if (effect.effects.some((e) => e.type === EFFECT_PAY_MANA)) {
+        const payable = effect.effects
+          .filter((e) => e.type === EFFECT_PAY_MANA)
+          .every((e) => isEffectResolvable(state, playerId, e));
+        if (!payable) {
+          return false;
+        }
+      }
+
       // Compound is resolvable if at least one sub-effect is resolvable
       return effect.effects.some((e) => isEffectResolvable(state, playerId, e));
 
@@ -158,6 +170,23 @@ export function isEffectResolvable(
       }
       return true;
     }
+
+    case EFFECT_PAY_MANA: {
+      const required = effect.amount;
+      if (required <= 0) {
+        return false;
+      }
+      const counts = new Map(effect.colors.map((color) => [color, 0]));
+      for (const token of player.pureMana) {
+        if (counts.has(token.color)) {
+          counts.set(token.color, (counts.get(token.color) ?? 0) + 1);
+        }
+      }
+      return Array.from(counts.values()).some((count) => count >= required);
+    }
+
+    case EFFECT_NOOP:
+      return true;
 
     case EFFECT_CONVERT_MANA_TO_CRYSTAL:
       // Can convert mana to crystal if player can obtain basic color mana.

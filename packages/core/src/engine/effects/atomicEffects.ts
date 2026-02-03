@@ -104,6 +104,7 @@ import {
   EFFECT_GAIN_MANA,
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
+  EFFECT_NOOP,
   EFFECT_CHANGE_REPUTATION,
   EFFECT_GAIN_FAME,
   EFFECT_GAIN_CRYSTAL,
@@ -155,6 +156,13 @@ export function registerAtomicEffects(): void {
   registerEffect(EFFECT_DRAW_CARDS, (state, playerId, effect) => {
     const { playerIndex, player } = getPlayerContext(state, playerId);
     return applyDrawCards(state, playerIndex, player, (effect as DrawCardsEffect).amount);
+  });
+
+  registerEffect(EFFECT_NOOP, (state) => {
+    return {
+      state,
+      description: "No additional effect",
+    };
   });
 
   registerEffect(EFFECT_GAIN_MANA, (state, playerId, effect) => {
