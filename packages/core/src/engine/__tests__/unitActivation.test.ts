@@ -317,7 +317,7 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should allow siege attack at fortified site in ranged phase", () => {
-      // Catapults have Siege Attack 4 (ability index 0)
+      // Catapults have Siege Attack 3 (ability index 0)
       const unit = createPlayerUnit(UNIT_CATAPULTS, "catapult_1");
       const player = createTestPlayer({
         units: [unit],
@@ -332,12 +332,91 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "catapult_1",
-        abilityIndex: 0, // Siege Attack 4
+        abilityIndex: 0, // Siege Attack 3
       });
 
       // Verify success
-      expect(result.state.players[0].combatAccumulator.attack.siege).toBe(4);
+      expect(result.state.players[0].combatAccumulator.attack.siege).toBe(3);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+    });
+  });
+
+  describe("Catapults abilities", () => {
+    it("should apply Siege Attack 3 (free)", () => {
+      const unit = createPlayerUnit(UNIT_CATAPULTS, "catapult_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "catapult_1",
+        abilityIndex: 0,
+      });
+
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      expect(result.state.players[0].combatAccumulator.attack.siege).toBe(3);
+      expect(
+        result.state.players[0].combatAccumulator.attack.siegeElements.physical
+      ).toBe(3);
+    });
+
+    it("should apply Siege Fire Attack 5 with red mana", () => {
+      const unit = createPlayerUnit(UNIT_CATAPULTS, "catapult_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_RED, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "catapult_1",
+        abilityIndex: 1,
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+      });
+
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      expect(result.state.players[0].combatAccumulator.attack.siege).toBe(5);
+      expect(result.state.players[0].combatAccumulator.attack.siegeElements.fire).toBe(5);
+      expect(result.state.players[0].pureMana.length).toBe(0);
+    });
+
+    it("should apply Siege Ice Attack 5 with blue mana", () => {
+      const unit = createPlayerUnit(UNIT_CATAPULTS, "catapult_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_BLUE, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "catapult_1",
+        abilityIndex: 2,
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_BLUE },
+      });
+
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      expect(result.state.players[0].combatAccumulator.attack.siege).toBe(5);
+      expect(result.state.players[0].combatAccumulator.attack.siegeElements.ice).toBe(5);
+      expect(result.state.players[0].pureMana.length).toBe(0);
     });
   });
 
