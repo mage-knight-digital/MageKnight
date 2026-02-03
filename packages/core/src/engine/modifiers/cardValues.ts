@@ -9,10 +9,12 @@ import type { GameState } from "../../state/GameState.js";
 import type {
   SidewaysValueModifier,
   RuleOverrideModifier,
+  MovementCardBonusModifier,
 } from "../../types/modifiers.js";
 import {
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
+  EFFECT_MOVEMENT_CARD_BONUS,
   SIDEWAYS_CONDITION_NO_MANA_USED,
   SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR,
 } from "../modifierConstants.js";
@@ -66,4 +68,63 @@ export function isRuleActive(
   return getModifiersForPlayer(state, playerId).some(
     (m) => m.effect.type === EFFECT_RULE_OVERRIDE && m.effect.rule === rule
   );
+}
+
+/**
+ * Consume active movement card bonus modifiers for a player.
+ * Returns the total bonus and updated state (modifiers decremented/removed).
+ */
+export function consumeMovementCardBonus(
+  state: GameState,
+  playerId: string,
+  eligibleModifierIds?: ReadonlySet<string>
+): { state: GameState; bonus: number } {
+  const applicableModifiers = getModifiersForPlayer(state, playerId)
+    .filter((m) => m.effect.type === EFFECT_MOVEMENT_CARD_BONUS)
+    .filter((m) => (eligibleModifierIds ? eligibleModifierIds.has(m.id) : true));
+
+  if (applicableModifiers.length === 0) {
+    return { state, bonus: 0 };
+  }
+
+  let bonus = 0;
+  for (const modifier of applicableModifiers) {
+    const effect = modifier.effect as MovementCardBonusModifier;
+    if (effect.remaining !== undefined && effect.remaining <= 0) {
+      continue;
+    }
+    bonus += effect.amount;
+  }
+
+  if (bonus === 0) {
+    return { state, bonus: 0 };
+  }
+
+  const applicableIds = new Set(applicableModifiers.map((m) => m.id));
+  const updatedActiveModifiers = state.activeModifiers.flatMap((modifier) => {
+    if (!applicableIds.has(modifier.id)) {
+      return [modifier];
+    }
+
+    const effect = modifier.effect as MovementCardBonusModifier;
+    if (effect.remaining === undefined) {
+      return [modifier];
+    }
+
+    if (effect.remaining <= 1) {
+      return [];
+    }
+
+    return [
+      {
+        ...modifier,
+        effect: { ...effect, remaining: effect.remaining - 1 },
+      },
+    ];
+  });
+
+  return {
+    state: { ...state, activeModifiers: updatedActiveModifiers },
+    bonus,
+  };
 }

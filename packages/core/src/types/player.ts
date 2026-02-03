@@ -162,6 +162,11 @@ export interface PendingChoice {
   readonly unitInstanceId: string | null; // For unit effect-based abilities (e.g., Sorcerers)
   readonly options: readonly CardEffect[];
   /**
+   * Tracks whether a movement card bonus (Tirelessness) was already applied
+   * during this card's resolution to avoid double-applying across choices.
+   */
+  readonly movementBonusApplied?: boolean;
+  /**
    * Remaining effects to resolve after this choice is resolved.
    * Used when a compound effect is interrupted by a choice - the remaining
    * sub-effects are stored here so they can continue after the choice is resolved.

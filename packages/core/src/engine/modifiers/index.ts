@@ -40,7 +40,7 @@ export {
 export { getEffectiveUnitResistances } from "./units.js";
 
 // Card values
-export { getEffectiveSidewaysValue, isRuleActive } from "./cardValues.js";
+export { getEffectiveSidewaysValue, isRuleActive, consumeMovementCardBonus } from "./cardValues.js";
 
 // Lifecycle
 export {

@@ -6,6 +6,7 @@ import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player, PendingChoice } from "../../types/player.js";
 import type { CardEffect, ChoiceEffect } from "../../types/cards.js";
+import type { ActiveModifier } from "../../types/modifiers.js";
 import {
   CHOICE_REQUIRED,
   CHOICE_RESOLVED,
@@ -19,6 +20,8 @@ import {
   applyUndoContext,
   type EffectUndoContext,
 } from "../effects/effectUndoContext.js";
+import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/index.js";
+import { EFFECT_MOVEMENT_CARD_BONUS } from "../modifierConstants.js";
 
 export { RESOLVE_CHOICE_COMMAND };
 
@@ -65,6 +68,9 @@ export function createResolveChoiceCommand(
 ): Command {
   // Closure to store undo context for effects that need special handling
   let effectUndoContext: EffectUndoContext | null = null;
+  // Store movement bonus application for undo
+  let movementBonusAppliedAmount = 0;
+  let movementBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
 
   return {
     type: RESOLVE_CHOICE_COMMAND,
@@ -88,10 +94,79 @@ export function createResolveChoiceCommand(
         throw new Error("No pending choice to resolve");
       }
 
+      const movePointsBefore = player.movePoints;
+      const movementBonusAlreadyApplied = player.pendingChoice.movementBonusApplied === true;
+      const sourceCardId = player.pendingChoice.cardId;
+      const movementBonusModifierIdsBefore = new Set(
+        getModifiersForPlayer(state, params.playerId)
+          .filter((m) => m.effect.type === EFFECT_MOVEMENT_CARD_BONUS)
+          .map((m) => m.id)
+      );
+
       const chosenEffect = player.pendingChoice.options[params.choiceIndex];
       if (!chosenEffect) {
         throw new Error(`Invalid choice index: ${params.choiceIndex}`);
       }
+
+      const finalizeResult = (result: CommandResult): CommandResult => {
+        let finalState = result.state;
+        let bonusAppliedThisStep = 0;
+
+        if (sourceCardId && !movementBonusAlreadyApplied) {
+          const playerAfter = finalState.players[playerIndex];
+          const movePointsAfter = playerAfter?.movePoints ?? movePointsBefore;
+          if (movePointsAfter > movePointsBefore) {
+            if (movementBonusModifierIdsBefore.size === 0) {
+              // No movement bonus modifiers were active before this choice resolution.
+            } else {
+              const modifiersSnapshot = finalState.activeModifiers;
+              const bonusResult = consumeMovementCardBonus(
+                finalState,
+                params.playerId,
+                movementBonusModifierIdsBefore
+              );
+              if (bonusResult.bonus > 0 && playerAfter) {
+                movementBonusAppliedAmount = bonusResult.bonus;
+                movementBonusModifiersSnapshot = modifiersSnapshot;
+                bonusAppliedThisStep = bonusResult.bonus;
+
+                const updatedPlayerWithBonus: Player = {
+                  ...playerAfter,
+                  movePoints: playerAfter.movePoints + bonusResult.bonus,
+                };
+
+                const updatedPlayers = [...bonusResult.state.players];
+                updatedPlayers[playerIndex] = updatedPlayerWithBonus;
+                finalState = { ...bonusResult.state, players: updatedPlayers };
+              } else {
+                finalState = bonusResult.state;
+              }
+            }
+          }
+        }
+
+        const movementBonusApplied = movementBonusAlreadyApplied || bonusAppliedThisStep > 0;
+        const updatedPlayerIndex = finalState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        const updatedPlayer = finalState.players[updatedPlayerIndex];
+        if (sourceCardId && updatedPlayer?.pendingChoice) {
+          if (updatedPlayer.pendingChoice.movementBonusApplied !== movementBonusApplied) {
+            const updatedPendingChoice: PendingChoice = {
+              ...updatedPlayer.pendingChoice,
+              movementBonusApplied,
+            };
+            const updatedPlayers = [...finalState.players];
+            updatedPlayers[updatedPlayerIndex] = {
+              ...updatedPlayer,
+              pendingChoice: updatedPendingChoice,
+            };
+            finalState = { ...finalState, players: updatedPlayers };
+          }
+        }
+
+        return { ...result, state: finalState };
+      };
 
       // Capture undo context BEFORE applying the effect
       // This stores state we'll need to restore during undo
@@ -129,7 +204,7 @@ export function createResolveChoiceCommand(
           newChoiceOptions = choiceEffect.options;
         } else {
           // Shouldn't happen, but handle gracefully
-          return {
+          return finalizeResult({
             state: effectResult.state,
             events: [
               {
@@ -141,7 +216,7 @@ export function createResolveChoiceCommand(
                 effect: effectResult.description,
               },
             ],
-          };
+          });
         }
 
         // Filter to resolvable options
@@ -151,7 +226,7 @@ export function createResolveChoiceCommand(
 
         // If no options resolvable, just return the current state
         if (resolvableOptions.length === 0) {
-          return {
+          return finalizeResult({
             state: effectResult.state,
             events: [
               {
@@ -163,7 +238,7 @@ export function createResolveChoiceCommand(
                 effect: "No available options",
               },
             ],
-          };
+          });
         }
 
         // If only one option, auto-resolve it
@@ -177,7 +252,7 @@ export function createResolveChoiceCommand(
             params.playerId,
             singleOption
           );
-          return {
+          return finalizeResult({
             state: autoResolveResult.state,
             events: [
               {
@@ -189,7 +264,7 @@ export function createResolveChoiceCommand(
                 effect: autoResolveResult.description,
               },
             ],
-          };
+          });
         }
 
         // Multiple options - set up new pending choice (choice chaining)
@@ -214,7 +289,7 @@ export function createResolveChoiceCommand(
         const playersWithNewChoice = [...effectResult.state.players];
         playersWithNewChoice[updatedPlayerIdx] = playerWithNewChoice;
 
-        return {
+        return finalizeResult({
           state: { ...effectResult.state, players: playersWithNewChoice },
           events: [
             {
@@ -233,7 +308,7 @@ export function createResolveChoiceCommand(
               options: resolvableOptions.map((opt) => describeEffect(opt)),
             },
           ],
-        };
+        });
       }
 
       // Check if there are remaining effects to continue resolving
@@ -263,7 +338,7 @@ export function createResolveChoiceCommand(
 
             // If no options resolvable, just return the current state
             if (resolvableOptions.length === 0) {
-              return {
+              return finalizeResult({
                 state: remainingResult.state,
                 events: [
                   {
@@ -275,7 +350,7 @@ export function createResolveChoiceCommand(
                     effect: effectResult.description,
                   },
                 ],
-              };
+              });
             }
 
             // If only one option, auto-resolve it
@@ -301,7 +376,7 @@ export function createResolveChoiceCommand(
                   params.playerId,
                   nextCompound
                 );
-                return {
+                return finalizeResult({
                   state: nextResult.state,
                   events: [
                     {
@@ -313,10 +388,10 @@ export function createResolveChoiceCommand(
                       effect: effectResult.description,
                     },
                   ],
-                };
+                });
               }
 
-              return {
+              return finalizeResult({
                 state: autoResolveResult.state,
                 events: [
                   {
@@ -328,7 +403,7 @@ export function createResolveChoiceCommand(
                     effect: effectResult.description,
                   },
                 ],
-              };
+              });
             }
 
             // Multiple options - set up new pending choice
@@ -356,7 +431,7 @@ export function createResolveChoiceCommand(
             const playersWithNewChoice = [...remainingResult.state.players];
             playersWithNewChoice[updatedPlayerIdx] = playerWithNewChoice;
 
-            return {
+            return finalizeResult({
               state: { ...remainingResult.state, players: playersWithNewChoice },
               events: [
                 {
@@ -375,12 +450,12 @@ export function createResolveChoiceCommand(
                   options: resolvableOptions.map((opt) => describeEffect(opt)),
                 },
               ],
-            };
+            });
           }
         }
 
         // Remaining effects completed without another choice
-        return {
+        return finalizeResult({
           state: remainingResult.state,
           events: [
             {
@@ -392,10 +467,10 @@ export function createResolveChoiceCommand(
               effect: effectResult.description,
             },
           ],
-        };
+        });
       }
 
-      return {
+      return finalizeResult({
         state: effectResult.state,
         events: [
           {
@@ -407,7 +482,7 @@ export function createResolveChoiceCommand(
             effect: effectResult.description,
           },
         ],
-      };
+      });
     },
 
     undo(state: GameState): CommandResult {
@@ -444,12 +519,22 @@ export function createResolveChoiceCommand(
       if (chosenEffect && !effectUndoContext) {
         updatedPlayer = reverseEffect(updatedPlayer, chosenEffect);
       }
+      if (movementBonusAppliedAmount > 0) {
+        updatedPlayer = {
+          ...updatedPlayer,
+          movePoints: updatedPlayer.movePoints - movementBonusAppliedAmount,
+        };
+      }
 
       const players = [...currentState.players];
       players[playerIndex] = updatedPlayer;
+      const stateWithModifiers =
+        movementBonusAppliedAmount > 0 && movementBonusModifiersSnapshot
+          ? { ...currentState, activeModifiers: movementBonusModifiersSnapshot }
+          : currentState;
 
       return {
-        state: { ...currentState, players },
+        state: { ...stateWithModifiers, players },
         events: [
           {
             // Re-emit choice required event
