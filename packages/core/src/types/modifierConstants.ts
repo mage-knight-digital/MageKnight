@@ -46,6 +46,7 @@ export const TERRAIN_ALL = "all" as const;
 
 // === ModifierEffect["type"] ===
 export const EFFECT_TERRAIN_COST = "terrain_cost" as const;
+export const EFFECT_TERRAIN_SAFE = "terrain_safe" as const;
 export const EFFECT_SIDEWAYS_VALUE = "sideways_value" as const;
 export const EFFECT_COMBAT_VALUE = "combat_value" as const;
 export const EFFECT_ENEMY_STAT = "enemy_stat" as const;
@@ -113,4 +114,3 @@ export const EFFECT_DOUBLE_PHYSICAL_ATTACKS = "double_physical_attacks" as const
 // Removes physical resistance from enemies (Sword of Justice powered)
 // Does not affect Arcane Immune enemies
 export const EFFECT_REMOVE_PHYSICAL_RESISTANCE = "remove_physical_resistance" as const;
-

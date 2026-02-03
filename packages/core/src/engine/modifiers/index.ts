@@ -31,6 +31,7 @@ export {
 // Terrain effective values
 export {
   getEffectiveTerrainCost,
+  isTerrainSafe,
   getProhibitedTerrains,
   isTerrainProhibited,
 } from "./terrain.js";

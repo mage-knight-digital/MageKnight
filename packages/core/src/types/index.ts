@@ -213,6 +213,7 @@ export type {
   ModifierScope,
   ModifierSource,
   TerrainCostModifier,
+  TerrainSafeModifier,
   SidewaysValueModifier,
   CombatValueModifier,
   EnemyStatModifier,

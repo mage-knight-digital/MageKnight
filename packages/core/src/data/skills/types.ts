@@ -8,6 +8,7 @@
 
 import type { SkillId } from "@mage-knight/shared";
 import type { Category, CardEffect } from "../../types/cards.js";
+import type { ModifierEffect } from "../../types/modifiers.js";
 
 // ============================================================================
 // Hero ID type (to avoid circular dependency with hero.ts)
@@ -55,6 +56,8 @@ export interface SkillDefinition {
   readonly usageType: SkillUsageType;
   /** The card effect to execute when the skill is activated (optional for not-yet-implemented skills) */
   readonly effect?: CardEffect;
+  /** Passive modifiers applied while the skill is owned */
+  readonly passiveModifiers?: readonly ModifierEffect[];
   /** Categories for this skill (movement, combat, influence, healing, special) */
   readonly categories: readonly Category[];
 }

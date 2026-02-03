@@ -21,6 +21,7 @@ export const EFFECT_GAIN_HEALING = "gain_healing" as const;
 export const EFFECT_GAIN_MANA = "gain_mana" as const;
 export const EFFECT_DRAW_CARDS = "draw_cards" as const;
 export const EFFECT_APPLY_MODIFIER = "apply_modifier" as const;
+export const EFFECT_NOOP = "noop" as const;
 export const EFFECT_COMPOUND = "compound" as const;
 export const EFFECT_CHOICE = "choice" as const;
 export const EFFECT_CONDITIONAL = "conditional" as const;

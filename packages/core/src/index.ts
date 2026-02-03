@@ -144,6 +144,7 @@ export {
   getModifiersForEnemy,
   // Effective value calculations
   getEffectiveTerrainCost,
+  isTerrainSafe,
   getEffectiveSidewaysValue,
   isRuleActive,
   getEffectiveEnemyArmor,

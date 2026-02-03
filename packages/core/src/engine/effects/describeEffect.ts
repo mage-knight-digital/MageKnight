@@ -12,6 +12,7 @@ import {
   EFFECT_GAIN_MANA,
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
+  EFFECT_NOOP,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   EFFECT_CARD_BOOST,
@@ -23,6 +24,7 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_PAY_MANA,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_TERRAIN_BASED_BLOCK,
@@ -78,6 +80,9 @@ export function describeEffect(effect: CardEffect): string {
         ? "Draw 1 card"
         : `Draw ${effect.amount} cards`;
 
+    case EFFECT_NOOP:
+      return "No additional effect";
+
     case EFFECT_APPLY_MODIFIER:
       return effect.description ?? "Apply modifier";
 
@@ -128,6 +133,13 @@ export function describeEffect(effect: CardEffect): string {
 
     case EFFECT_MANA_DRAW_SET_COLOR:
       return `Set die to ${effect.color}, gain 2 ${effect.color} mana`;
+
+    case EFFECT_PAY_MANA: {
+      const colorLabel = effect.colors.length === 1
+        ? effect.colors[0]
+        : effect.colors.join("/");
+      return `Pay ${effect.amount} ${colorLabel} mana`;
+    }
 
     case EFFECT_SELECT_COMBAT_ENEMY:
       if (effect.template.defeat) {

@@ -44,6 +44,7 @@ import {
   EFFECT_GAIN_CRYSTAL,
   EFFECT_GAIN_MANA,
   EFFECT_CRYSTALLIZE_COLOR,
+  EFFECT_PAY_MANA,
   EFFECT_DRAW_CARDS,
   EFFECT_TAKE_WOUND,
   EFFECT_SELECT_COMBAT_ENEMY,
@@ -51,7 +52,7 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
-import { getLevelsCrossed } from "@mage-knight/shared";
+import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION, elementToPropertyKey } from "./atomicEffects.js";
 
 // ============================================================================
@@ -173,6 +174,24 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
       };
     }
 
+    case EFFECT_PAY_MANA: {
+      if (effect.colors.length !== 1 || effect.amount <= 0) {
+        return player;
+      }
+      const color = effect.colors[0];
+      if (!color) {
+        return player;
+      }
+      const restoredTokens = Array.from({ length: effect.amount }, () => ({
+        color,
+        source: MANA_TOKEN_SOURCE_CARD,
+      }));
+      return {
+        ...player,
+        pureMana: [...player.pureMana, ...restoredTokens],
+      };
+    }
+
     case EFFECT_CRYSTALLIZE_COLOR:
       // Reverse crystallize: remove the crystal and restore the mana token
       return {
@@ -181,7 +200,10 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
           ...player.crystals,
           [effect.color]: Math.max(0, player.crystals[effect.color] - 1),
         },
-        pureMana: [...player.pureMana, { color: effect.color, source: "card" as const }],
+        pureMana: [
+          ...player.pureMana,
+          { color: effect.color, source: MANA_TOKEN_SOURCE_CARD },
+        ],
       };
 
     case EFFECT_COMPOUND: {
