@@ -44,5 +44,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Test
-        run: pnpm test
+      - name: Test with Coverage
+        run: pnpm test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: packages/core/coverage/lcov.info,packages/server/coverage/lcov.info,packages/shared/coverage/lcov.info
+          fail_ci_if_error: false
+          verbose: true

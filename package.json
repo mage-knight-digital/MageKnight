@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "test:coverage": "pnpm -r test -- --coverage",
     "lint": "pnpm -r lint",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
     "dev:client": "pnpm --filter @mage-knight/client dev",
@@ -13,6 +14,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@vitest/coverage-v8": "^2.1.8",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",

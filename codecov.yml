@@ -1,0 +1,15 @@
+coverage:
+  status:
+    project:
+      default:
+        # Don't fail CI, just report
+        informational: true
+    patch:
+      default:
+        # Don't fail CI, just report
+        informational: true
+
+comment:
+  layout: "condensed_header,diff,flags,components"
+  behavior: default
+  require_changes: true

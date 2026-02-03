@@ -17,6 +17,7 @@ docs/sprites/
 # Test artifacts
 test-results/
 playwright-report/
+coverage/
 
 # Game assets (potentially copyrighted, symlinked in worktrees)
 packages/client/public

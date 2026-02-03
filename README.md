@@ -1,5 +1,8 @@
 # Mage Knight
 
+[![CI](https://github.com/eshaffer321/MageKnight/actions/workflows/ci.yml/badge.svg)](https://github.com/eshaffer321/MageKnight/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/eshaffer321/MageKnight/graph/badge.svg)](https://codecov.io/gh/eshaffer321/MageKnight)
+
 A digital implementation of the Mage Knight board game.
 
 ## Structure
