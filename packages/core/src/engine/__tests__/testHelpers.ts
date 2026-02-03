@@ -152,6 +152,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingDiscard: null,
     pendingDeepMineChoice: null,
     pendingDiscardForAttack: null,
+    pendingAttackDefeatFame: [],
     enemiesDefeatedThisTurn: 0,
     healingPoints: 0,
     removedCards: [],

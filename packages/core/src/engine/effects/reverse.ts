@@ -49,11 +49,13 @@ import {
   EFFECT_TAKE_WOUND,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
+  EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
 import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION, elementToPropertyKey } from "./atomicEffects.js";
+import { toAttackElement, toAttackType } from "../combat/attackFameTracking.js";
 
 // ============================================================================
 // REVERSE EFFECT
@@ -249,6 +251,36 @@ export function reverseEffect(player: Player, effect: CardEffect): Player {
       // The modifier removal would need to happen at GameState level, not player level.
       // For now, these effects should be considered non-reversible in practice.
       return player;
+
+    case EFFECT_TRACK_ATTACK_DEFEAT_FAME: {
+      const attackType = toAttackType(effect.combatType);
+      const element = toAttackElement(effect.element);
+      const sourceCardId = effect.sourceCardId ?? null;
+
+      let removeIndex = -1;
+      for (let i = player.pendingAttackDefeatFame.length - 1; i >= 0; i--) {
+        const tracker = player.pendingAttackDefeatFame[i];
+        if (!tracker) continue;
+        if (tracker.attackType !== attackType || tracker.element !== element) {
+          continue;
+        }
+        if (tracker.amount !== effect.amount || tracker.fame !== effect.fame) {
+          continue;
+        }
+        if (sourceCardId && tracker.sourceCardId !== sourceCardId) {
+          continue;
+        }
+        removeIndex = i;
+        break;
+      }
+
+      if (removeIndex === -1) {
+        return player;
+      }
+
+      const newTrackers = player.pendingAttackDefeatFame.filter((_, i) => i !== removeIndex);
+      return { ...player, pendingAttackDefeatFame: newTrackers };
+    }
 
     default:
       return player;

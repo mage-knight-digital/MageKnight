@@ -15,6 +15,7 @@ import {
   createMonasteryBurnedEvent,
   createShieldTokenPlacedEvent,
   artifactReward,
+  ENEMY_DEFEATED,
 } from "@mage-knight/shared";
 import {
   COMBAT_CONTEXT_BURN_MONASTERY,
@@ -32,6 +33,7 @@ import {
   applyReputationChange,
   type ResolvePendingDamageResult,
 } from "./damageResolution.js";
+import { resolveAttackDefeatFameTrackers } from "../../combat/attackFameTracking.js";
 
 // ============================================================================
 // Helper Functions
@@ -60,6 +62,36 @@ export function applyDefeatedEnemyRewards(
   );
   updatedState = reputationResult.state;
   events.push(...reputationResult.events);
+
+  const defeatedEnemyIds = damageResult.events
+    .filter((event): event is { readonly type: typeof ENEMY_DEFEATED; readonly enemyInstanceId: string } =>
+      event.type === ENEMY_DEFEATED
+    )
+    .map((event) => event.enemyInstanceId);
+
+  const playerIndex = updatedState.players.findIndex((p) => p.id === playerId);
+  if (playerIndex !== -1) {
+    const player = updatedState.players[playerIndex];
+    if (player) {
+      const fameResult = resolveAttackDefeatFameTrackers(
+        player.pendingAttackDefeatFame,
+        defeatedEnemyIds
+      );
+
+      if (fameResult.updatedTrackers !== player.pendingAttackDefeatFame) {
+        const updatedPlayers = [...updatedState.players];
+        updatedPlayers[playerIndex] = {
+          ...player,
+          pendingAttackDefeatFame: fameResult.updatedTrackers,
+        };
+        updatedState = { ...updatedState, players: updatedPlayers };
+      }
+
+      if (fameResult.fameToGain > 0) {
+        updatedState = applyFameToPlayer(updatedState, playerId, fameResult.fameToGain);
+      }
+    }
+  }
 
   return { state: updatedState, events };
 }

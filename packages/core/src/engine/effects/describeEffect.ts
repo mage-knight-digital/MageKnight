@@ -29,6 +29,7 @@ import {
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_TERRAIN_BASED_BLOCK,
   EFFECT_TAKE_WOUND,
+  EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -168,6 +169,16 @@ export function describeEffect(effect: CardEffect): string {
       return effect.amount === 1
         ? "Take 1 wound"
         : `Take ${effect.amount} wounds`;
+
+    case EFFECT_TRACK_ATTACK_DEFEAT_FAME: {
+      const attackType =
+        effect.combatType === COMBAT_TYPE_RANGED
+          ? "Ranged Attack"
+          : effect.combatType === COMBAT_TYPE_SIEGE
+            ? "Siege Attack"
+            : "Attack";
+      return `Fame +${effect.fame} if this ${attackType} defeats an enemy`;
+    }
 
     default:
       return "Unknown effect";

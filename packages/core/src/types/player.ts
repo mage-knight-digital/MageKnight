@@ -200,6 +200,27 @@ export interface PendingDiscardForAttack {
   readonly combatType: import("@mage-knight/shared").CombatType;
 }
 
+/**
+ * Track an attack that grants fame if it defeats at least one enemy.
+ * Used by Axe Throw powered effect.
+ */
+export interface AttackDefeatFameTracker {
+  /** Source card that created the tracker (if any) */
+  readonly sourceCardId: CardId | null;
+  /** Attack type being tracked (melee/ranged/siege) */
+  readonly attackType: import("@mage-knight/shared").AttackType;
+  /** Element type for the tracked attack (physical/fire/ice/coldFire) */
+  readonly element: import("@mage-knight/shared").AttackElement;
+  /** Total attack amount tracked for this effect */
+  readonly amount: number;
+  /** Remaining unassigned attack amount */
+  readonly remaining: number;
+  /** Amount assigned per enemy instance ID */
+  readonly assignedByEnemy: Readonly<Record<string, number>>;
+  /** Fame to grant if any tracked enemy is defeated */
+  readonly fame: number;
+}
+
 // === Tactic-specific state types ===
 
 // Tactic-specific persistent state (survives across turns within a round)
@@ -348,6 +369,9 @@ export interface Player {
 
   // Discard for attack pending (Sword of Justice basic effect)
   readonly pendingDiscardForAttack: PendingDiscardForAttack | null;
+
+  // Attack-based fame tracking (e.g., Axe Throw powered effect)
+  readonly pendingAttackDefeatFame: readonly AttackDefeatFameTracker[];
 
   // Enemies defeated this turn (for fame bonuses like Sword of Justice)
   // Excludes summoned enemies. Reset at end of turn.

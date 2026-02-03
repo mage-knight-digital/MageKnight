@@ -22,6 +22,7 @@ export const CARD_PROMISE = cardId("promise");
 export const CARD_THREATEN = cardId("threaten");
 export const CARD_CRYSTALLIZE = cardId("crystallize");
 export const CARD_MANA_DRAW = cardId("mana_draw");
+export const CARD_AXE_THROW = cardId("axe_throw");
 export const CARD_CONCENTRATION = cardId("concentration");
 export const CARD_IMPROVISATION = cardId("improvisation");
 
@@ -126,6 +127,7 @@ export type SharedBasicActionCardId =
   | typeof CARD_THREATEN
   | typeof CARD_CRYSTALLIZE
   | typeof CARD_MANA_DRAW
+  | typeof CARD_AXE_THROW
   | typeof CARD_CONCENTRATION
   | typeof CARD_IMPROVISATION;
 

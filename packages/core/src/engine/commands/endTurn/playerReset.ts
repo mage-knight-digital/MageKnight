@@ -47,6 +47,7 @@ export function createResetPlayer(
     // Combat reset
     combatAccumulator: createEmptyCombatAccumulator(),
     enemiesDefeatedThisTurn: 0, // Reset for Sword of Justice fame tracking
+    pendingAttackDefeatFame: [], // Reset attack-based fame trackers
     // Tactic state reset (preserve round-persistent state like storedManaDie)
     tacticState: {
       ...player.tacticState,
