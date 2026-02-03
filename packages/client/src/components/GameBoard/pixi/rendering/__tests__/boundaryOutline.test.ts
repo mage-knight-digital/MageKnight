@@ -44,7 +44,8 @@ describe("Boundary outline edge mapping", () => {
     for (let i = 0; i < 6; i++) {
       const edge = DIRECTION_TO_EDGE_VERTICES[i];
       expect(edge).toBeDefined();
-      const [v1, v2] = edge!;
+      if (!edge) continue;
+      const [v1, v2] = edge;
       // The vertices should be adjacent (differ by 1, wrapping at 6)
       const diff = (v2 - v1 + 6) % 6;
       expect(diff === 1 || diff === 5).toBe(true);
