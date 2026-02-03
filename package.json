@@ -3,25 +3,20 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "workspaces": ["packages/*"],
   "scripts": {
-    "build": "pnpm -r build",
-    "test": "pnpm -r test",
-    "test:coverage": "pnpm -r test -- --coverage",
-    "lint": "pnpm -r lint",
-    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
-    "dev:client": "pnpm --filter @mage-knight/client dev",
-    "mage-dev": "node packages/mage-dev/dist/cli.js"
+    "build": "bun run --filter '*' build",
+    "test": "(cd packages/core && bun test) && (cd packages/shared && bun test) && (cd packages/server && bun test)",
+    "test:coverage": "(cd packages/core && bun test --coverage --coverage-reporter=lcov) && (cd packages/shared && bun test --coverage --coverage-reporter=lcov) && (cd packages/server && bun test --coverage --coverage-reporter=lcov)",
+    "lint": "bun run --filter '*' lint",
+    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist bun.lockb",
+    "dev:client": "bun run --filter @mage-knight/client dev",
+    "mage-dev": "bun packages/mage-dev/dist/cli.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@vitest/coverage-v8": "^2.1.8",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.54.0",
-    "vitest": "^2.1.9"
-  },
-  "packageManager": "pnpm@9.15.1",
-  "engines": {
-    "node": ">=20"
+    "typescript-eslint": "^8.54.0"
   }
 }

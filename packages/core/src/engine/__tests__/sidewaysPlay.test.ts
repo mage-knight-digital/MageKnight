@@ -25,7 +25,7 @@ import {
   DURATION_TURN,
   EFFECT_SIDEWAYS_VALUE,
   SCOPE_SELF,
-  SOURCE_TYPE_SKILL,
+  SOURCE_SKILL,
 } from "../modifierConstants.js";
 import type { SkillId } from "@mage-knight/shared";
 
@@ -338,7 +338,7 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
       const modifier: ActiveModifier = {
         id: "test-mod",
         source: {
-          type: SOURCE_TYPE_SKILL,
+          type: SOURCE_SKILL,
           skillId: "test_skill" as SkillId,
           playerId: "player1",
         },
@@ -384,7 +384,7 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
       const modifier: ActiveModifier = {
         id: "test-mod",
         source: {
-          type: SOURCE_TYPE_SKILL,
+          type: SOURCE_SKILL,
           skillId: "test_skill" as SkillId,
           playerId: "player1",
         },

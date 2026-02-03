@@ -61,20 +61,20 @@ PRs auto-close issues when merged via `Closes #XX` in PR body.
 ## Build & Test Commands
 
 ```bash
-pnpm install          # Install dependencies
-pnpm build            # Build all packages
-pnpm test             # Run all tests
-pnpm lint             # Lint all packages
+bun install           # Install dependencies
+bun run build         # Build all packages
+bun run test          # Run all tests
+bun run lint          # Lint all packages
 
 # Package-specific (run from package directory)
-pnpm test:watch       # Watch mode for tests (core, shared)
-pnpm build:esm        # Build ESM only
-pnpm build:cjs        # Build CJS only
+bun run test:watch    # Watch mode for tests (core, shared)
+bun run build:esm     # Build ESM only
+bun run build:cjs     # Build CJS only
 ```
 
 ## Architecture
 
-This is a pnpm monorepo implementing the Mage Knight board game with a client/server architecture.
+This is a Bun monorepo implementing the Mage Knight board game with a client/server architecture.
 
 ### Package Dependency Graph
 
@@ -229,14 +229,14 @@ This applies to:
 ### Monorepo Build Order
 Core/server consume shared via built outputs. When adding exports to shared:
 ```bash
-pnpm -C packages/shared build  # Rebuild shared first
-pnpm build                      # Then full build
+cd packages/shared && bun run build  # Rebuild shared first
+bun run build                         # Then full build
 ```
 
 ### Client Running Stale Code
 After changes to core/shared, kill dev server and rebuild:
 ```bash
-pkill -f vite; pnpm build
+pkill -f vite; bun run build
 ```
 
 ### Effect Resolution Creates Pending State
@@ -282,7 +282,7 @@ Use constants in comparisons, object literals, switches. Never raw strings.
 
 **Always run before pushing:**
 ```bash
-pnpm build && pnpm lint && pnpm test
+bun run build && bun run lint && bun run test
 ```
 
 Catches cross-package type mismatches that IDE won't see until full build.

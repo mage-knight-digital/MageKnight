@@ -23,8 +23,8 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
-import { CONDITION_TIME_IS_DAY } from "../../types/conditions.js";
-import { ELEMENT_FIRE, ELEMENT_ICE } from "@mage-knight/shared";
+import { CONDITION_TIME_OF_DAY } from "../../types/conditions.js";
+import { ELEMENT_FIRE, ELEMENT_ICE, TIME_OF_DAY_DAY } from "@mage-knight/shared";
 
 describe("addBonusToEffect", () => {
   describe("simple effects", () => {
@@ -190,7 +190,7 @@ describe("addBonusToEffect", () => {
     it("should add bonus to both branches of conditional effect", () => {
       const effect: ConditionalEffect = {
         type: EFFECT_CONDITIONAL,
-        condition: { type: CONDITION_TIME_IS_DAY },
+        condition: { type: CONDITION_TIME_OF_DAY, time: TIME_OF_DAY_DAY },
         thenEffect: { type: EFFECT_GAIN_ATTACK, amount: 4, combatType: COMBAT_TYPE_MELEE },
         elseEffect: { type: EFFECT_GAIN_BLOCK, amount: 3 },
       };
@@ -204,7 +204,7 @@ describe("addBonusToEffect", () => {
     it("should handle conditional without else branch", () => {
       const effect: ConditionalEffect = {
         type: EFFECT_CONDITIONAL,
-        condition: { type: CONDITION_TIME_IS_DAY },
+        condition: { type: CONDITION_TIME_OF_DAY, time: TIME_OF_DAY_DAY },
         thenEffect: { type: EFFECT_GAIN_MOVE, amount: 2 },
       };
       const boosted = addBonusToEffect(effect, 2) as ConditionalEffect;

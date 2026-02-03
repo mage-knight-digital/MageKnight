@@ -29,7 +29,6 @@ import {
   COMBAT_TYPE_RANGED,
   ABILITY_ELUSIVE,
   ABILITY_ARCANE_IMMUNITY,
-  ATTACK_SOURCE_ACCUMULATOR,
 } from "@mage-knight/shared";
 import type { GameState } from "../../state/GameState.js";
 import { addModifier } from "../modifiers/index.js";
@@ -123,7 +122,7 @@ describe("Combat Elusive Ability", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackType: COMBAT_TYPE_RANGED,
-        attacks: [{ source: ATTACK_SOURCE_ACCUMULATOR, value: 8, element: ELEMENT_PHYSICAL }],
+        attacks: [{ value: 8, element: ELEMENT_PHYSICAL }],
       });
 
       // Should defeat the enemy (8 damage >= 8 elusive armor)
@@ -173,7 +172,7 @@ describe("Combat Elusive Ability", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackType: COMBAT_TYPE_RANGED,
-        attacks: [{ source: ATTACK_SOURCE_ACCUMULATOR, value: 7, element: ELEMENT_PHYSICAL }],
+        attacks: [{ value: 7, element: ELEMENT_PHYSICAL }],
       });
 
       // Should fail (7 damage < 8 elusive armor)
@@ -256,7 +255,7 @@ describe("Combat Elusive Ability", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackType: COMBAT_TYPE_MELEE,
-        attacks: [{ source: ATTACK_SOURCE_ACCUMULATOR, value: 4, element: ELEMENT_PHYSICAL }],
+        attacks: [{ value: 4, element: ELEMENT_PHYSICAL }],
       });
 
       // Should defeat the enemy (4 damage >= 4 base armor)
@@ -334,7 +333,7 @@ describe("Combat Elusive Ability", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackType: COMBAT_TYPE_MELEE,
-        attacks: [{ source: ATTACK_SOURCE_ACCUMULATOR, value: 8, element: ELEMENT_PHYSICAL }],
+        attacks: [{ value: 8, element: ELEMENT_PHYSICAL }],
       });
 
       // Should defeat the enemy (8 damage >= 8 elusive armor)
@@ -410,7 +409,7 @@ describe("Combat Elusive Ability", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackType: COMBAT_TYPE_MELEE,
-        attacks: [{ source: ATTACK_SOURCE_ACCUMULATOR, value: 4, element: ELEMENT_PHYSICAL }],
+        attacks: [{ value: 4, element: ELEMENT_PHYSICAL }],
       });
 
       // Should fail (4 damage < 8 elusive armor)
@@ -477,7 +476,7 @@ describe("Combat Elusive Ability", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackType: COMBAT_TYPE_RANGED,
-        attacks: [{ source: ATTACK_SOURCE_ACCUMULATOR, value: 6, element: ELEMENT_PHYSICAL }],
+        attacks: [{ value: 6, element: ELEMENT_PHYSICAL }],
       });
 
       // Should defeat the enemy (6 damage >= 6 modified elusive armor)
@@ -565,7 +564,7 @@ describe("Combat Elusive Ability", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackType: COMBAT_TYPE_MELEE,
-        attacks: [{ source: ATTACK_SOURCE_ACCUMULATOR, value: 2, element: ELEMENT_PHYSICAL }],
+        attacks: [{ value: 2, element: ELEMENT_PHYSICAL }],
       });
 
       // Should defeat the enemy (2 damage >= 2 modified base armor)
@@ -631,7 +630,7 @@ describe("Combat Elusive Ability", () => {
         type: DECLARE_ATTACK_ACTION,
         targetEnemyInstanceIds: ["enemy_0"],
         attackType: COMBAT_TYPE_RANGED,
-        attacks: [{ source: ATTACK_SOURCE_ACCUMULATOR, value: 4, element: ELEMENT_PHYSICAL }],
+        attacks: [{ value: 4, element: ELEMENT_PHYSICAL }],
       });
 
       // Should defeat the enemy (4 damage >= 4 base armor, Elusive nullified)

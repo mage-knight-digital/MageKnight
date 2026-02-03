@@ -19,13 +19,12 @@ packages/
 
 ### Prerequisites
 
-- Node.js >= 20
-- pnpm >= 9
+- [Bun](https://bun.sh/) >= 1.0
 
 ### Setup
 
 ```bash
-pnpm install
+bun install
 git config core.hooksPath .githooks
 ```
 
@@ -34,9 +33,9 @@ The hooks configuration enables automatic asset symlinking when using git worktr
 ### Scripts
 
 ```bash
-pnpm build   # Build all packages
-pnpm test    # Run tests
-pnpm lint    # Run linter
+bun run build   # Build all packages
+bun run test    # Run tests
+bun run lint    # Run linter
 ```
 
 ## Packages
