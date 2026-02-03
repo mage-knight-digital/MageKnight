@@ -2,7 +2,7 @@
  * Tests for boundary outline computation
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { HEX_DIRECTIONS, hexKey, getNeighbor, type HexCoord, type HexDirection } from "@mage-knight/shared";
 
 /**
@@ -43,10 +43,8 @@ describe("Boundary outline edge mapping", () => {
     // Each direction should use consecutive vertices (mod 6)
     for (let i = 0; i < 6; i++) {
       const edge = DIRECTION_TO_EDGE_VERTICES[i];
-      if (edge === undefined) {
-        expect.fail(`Expected edge at index ${i} to be defined`);
-      }
-      const [v1, v2] = edge;
+      expect(edge).toBeDefined();
+      const [v1, v2] = edge!;
       // The vertices should be adjacent (differ by 1, wrapping at 6)
       const diff = (v2 - v1 + 6) % 6;
       expect(diff === 1 || diff === 5).toBe(true);

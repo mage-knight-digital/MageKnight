@@ -7,7 +7,7 @@
  * provoking path when a non-provoking path exists.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { findPath } from "../pathfinding";
 import type { ReachableHex, MoveTarget, HexCoord } from "@mage-knight/shared";
 import { getAllNeighbors } from "@mage-knight/shared";
