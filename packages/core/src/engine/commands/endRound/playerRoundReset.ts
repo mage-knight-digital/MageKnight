@@ -74,6 +74,7 @@ export function processPlayerRoundReset(
       influencePoints: 0,
       pureMana: [],
       combatAccumulator: createEmptyCombatAccumulator(),
+      pendingAttackDefeatFame: [],
       // Reset skill cooldowns for new round
       skillCooldowns: {
         ...player.skillCooldowns,

@@ -21,9 +21,10 @@ import {
   ATTACK_ELEMENT_ICE,
   ATTACK_ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
-import type { AccumulatedAttack, ElementalAttackValues } from "../../../types/player.js";
+import type { AccumulatedAttack, ElementalAttackValues, AttackDefeatFameTracker } from "../../../types/player.js";
 import type { PendingElementalDamage } from "../../../types/combat.js";
 import { createEmptyPendingDamage } from "../../../types/combat.js";
+import { unassignAttackFromFameTrackers } from "../../combat/attackFameTracking.js";
 
 export const UNASSIGN_ATTACK_COMMAND = "UNASSIGN_ATTACK" as const;
 
@@ -134,6 +135,7 @@ export function createUnassignAttackCommand(params: UnassignAttackCommandParams)
   // Store state needed for undo
   let previousPendingDamage: PendingElementalDamage | undefined;
   let previousAssignedAttack: AccumulatedAttack | undefined;
+  let previousAttackFameTrackers: readonly AttackDefeatFameTracker[] | undefined;
 
   return {
     type: UNASSIGN_ATTACK_COMMAND,
@@ -173,6 +175,7 @@ export function createUnassignAttackCommand(params: UnassignAttackCommandParams)
       // Store state for undo
       previousPendingDamage = currentPending;
       previousAssignedAttack = player.combatAccumulator.assignedAttack;
+      previousAttackFameTrackers = player.pendingAttackDefeatFame;
 
       // Update player's assigned attack (subtract since we're unassigning)
       const newAssignedAttack = subtractFromAccumulatedAttack(
@@ -182,6 +185,13 @@ export function createUnassignAttackCommand(params: UnassignAttackCommandParams)
         params.amount
       );
 
+      const updatedTrackers = unassignAttackFromFameTrackers(player.pendingAttackDefeatFame, {
+        enemyInstanceId: params.enemyInstanceId,
+        attackType: params.attackType,
+        element: params.element,
+        amount: params.amount,
+      });
+
       const updatedPlayers = state.players.map((p, i) =>
         i === playerIndex
           ? {
@@ -190,6 +200,7 @@ export function createUnassignAttackCommand(params: UnassignAttackCommandParams)
                 ...p.combatAccumulator,
                 assignedAttack: newAssignedAttack,
               },
+              pendingAttackDefeatFame: updatedTrackers,
             }
           : p
       );
@@ -257,6 +268,12 @@ export function createUnassignAttackCommand(params: UnassignAttackCommandParams)
       // Capture for TypeScript (narrows the type after the check)
       const restoredAssignedAttack = previousAssignedAttack;
 
+      if (!previousAttackFameTrackers) {
+        throw new Error("Cannot undo: no previous tracker state stored");
+      }
+
+      const restoredTrackers = previousAttackFameTrackers;
+
       const updatedPlayers = state.players.map((p, i) =>
         i === playerIndex
           ? {
@@ -265,6 +282,7 @@ export function createUnassignAttackCommand(params: UnassignAttackCommandParams)
                 ...p.combatAccumulator,
                 assignedAttack: restoredAssignedAttack,
               },
+              pendingAttackDefeatFame: restoredTrackers,
             }
           : p
       );

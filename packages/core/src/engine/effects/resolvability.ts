@@ -59,6 +59,7 @@ import {
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_PAY_MANA,
+  EFFECT_TRACK_ATTACK_DEFEAT_FAME,
 } from "../../types/effectTypes.js";
 import {
   EFFECT_RULE_OVERRIDE,
@@ -147,6 +148,7 @@ export function isEffectResolvable(
     case EFFECT_GAIN_BLOCK:
     case EFFECT_GAIN_MANA:
     case EFFECT_TAKE_WOUND:
+    case EFFECT_TRACK_ATTACK_DEFEAT_FAME:
       return true;
 
     case EFFECT_APPLY_MODIFIER: {

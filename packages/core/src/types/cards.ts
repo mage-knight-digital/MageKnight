@@ -43,6 +43,7 @@ import {
   EFFECT_GRANT_WOUND_IMMUNITY,
   EFFECT_DISCARD_FOR_ATTACK,
   EFFECT_FAME_PER_ENEMY_DEFEATED,
+  EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_POLARIZE_MANA,
   MANA_ANY,
   type CombatType,
@@ -501,6 +502,29 @@ export interface FamePerEnemyDefeatedEffect {
 }
 
 /**
+ * Track a specific attack and grant fame if it defeats at least one enemy.
+ * Used by Axe Throw (powered).
+ *
+ * Resolution:
+ * 1. Register the attack amount/type/element for tracking
+ * 2. When pending damage resolves, award fame if any tracked enemy was defeated
+ * 3. Tracker is removed after resolution
+ */
+export interface TrackAttackDefeatFameEffect {
+  readonly type: typeof EFFECT_TRACK_ATTACK_DEFEAT_FAME;
+  /** Attack amount to track for this effect */
+  readonly amount: number;
+  /** Combat type of the tracked attack */
+  readonly combatType: CombatType;
+  /** Optional element (defaults to physical) */
+  readonly element?: Element;
+  /** Fame to grant if at least one enemy is defeated by this attack */
+  readonly fame: number;
+  /** Optional source card ID for disambiguation */
+  readonly sourceCardId?: CardId;
+}
+
+/**
  * Polarize mana - convert one mana source to its opposite color.
  * Used by Arythea's Polarization skill.
  *
@@ -572,6 +596,7 @@ export type CardEffect =
   | GrantWoundImmunityEffect
   | DiscardForAttackEffect
   | FamePerEnemyDefeatedEffect
+  | TrackAttackDefeatFameEffect
   | PolarizeManaEffect;
 
 // === Card Definition ===

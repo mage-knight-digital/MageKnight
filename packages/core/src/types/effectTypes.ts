@@ -109,6 +109,10 @@ export const EFFECT_DISCARD_FOR_ATTACK = "discard_for_attack" as const;
 // Track and award fame based on enemies defeated (Sword of Justice)
 export const EFFECT_FAME_PER_ENEMY_DEFEATED = "fame_per_enemy_defeated" as const;
 
+// === Fame on Enemy Defeat by Specific Attack ===
+// Track a specific attack and grant fame if it defeats at least one enemy
+export const EFFECT_TRACK_ATTACK_DEFEAT_FAME = "track_attack_defeat_fame" as const;
+
 // === Polarization Effect ===
 // Mana conversion for Arythea's Polarization skill
 // Removes source mana and adds converted token in one atomic operation

@@ -6,6 +6,7 @@ import {
   CARD_SWIFTNESS,
   CARD_PROMISE,
   CARD_MANA_DRAW,
+  CARD_AXE_THROW,
   CARD_ARYTHEA_MANA_PULL,
   CARD_NOROWAS_NOBLE_MANNERS,
 } from "@mage-knight/shared";
@@ -14,6 +15,7 @@ import {
 export { SWIFTNESS } from "./swiftness.js";
 export { PROMISE } from "./promise.js";
 export { MANA_DRAW } from "./mana-draw.js";
+export { AXE_THROW } from "./axe-throw.js";
 export { ARYTHEA_MANA_PULL } from "./arythea-mana-pull.js";
 export { NOROWAS_NOBLE_MANNERS } from "./norowas-noble-manners.js";
 
@@ -21,6 +23,7 @@ export { NOROWAS_NOBLE_MANNERS } from "./norowas-noble-manners.js";
 import { SWIFTNESS } from "./swiftness.js";
 import { PROMISE } from "./promise.js";
 import { MANA_DRAW } from "./mana-draw.js";
+import { AXE_THROW } from "./axe-throw.js";
 import { ARYTHEA_MANA_PULL } from "./arythea-mana-pull.js";
 import { NOROWAS_NOBLE_MANNERS } from "./norowas-noble-manners.js";
 
@@ -29,6 +32,7 @@ export const WHITE_BASIC_ACTIONS = {
   [CARD_SWIFTNESS]: SWIFTNESS,
   [CARD_PROMISE]: PROMISE,
   [CARD_MANA_DRAW]: MANA_DRAW,
+  [CARD_AXE_THROW]: AXE_THROW,
   [CARD_ARYTHEA_MANA_PULL]: ARYTHEA_MANA_PULL,
   [CARD_NOROWAS_NOBLE_MANNERS]: NOROWAS_NOBLE_MANNERS,
 } as const;

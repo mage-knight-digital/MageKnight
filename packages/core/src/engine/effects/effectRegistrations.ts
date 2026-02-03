@@ -28,6 +28,7 @@ import { registerMapEffects } from "./mapEffects.js";
 import { registerManaPaymentEffects } from "./manaPaymentEffects.js";
 import { registerTerrainEffects } from "./terrainEffects.js";
 import { registerSwordOfJusticeEffects } from "./swordOfJusticeEffects.js";
+import { registerAttackFameEffects } from "./attackFameEffects.js";
 import { registerPolarizeEffects } from "./polarizeEffects.js";
 
 // ============================================================================
@@ -95,6 +96,9 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Sword of Justice effects (DiscardForAttack, FamePerEnemyDefeated)
   registerSwordOfJusticeEffects();
+
+  // Attack-based fame tracking effects (Axe Throw)
+  registerAttackFameEffects();
 
   // Polarize mana effects (Arythea's Polarization skill)
   registerPolarizeEffects();
