@@ -9,6 +9,7 @@ import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { CardId, BlockSource } from "@mage-knight/shared";
+import type { ActiveModifier } from "../../types/modifiers.js";
 import {
   CARD_PLAYED,
   PLAY_SIDEWAYS_AS_MOVE,
@@ -18,7 +19,12 @@ import {
   ELEMENT_PHYSICAL,
   createCardPlayUndoneEvent,
 } from "@mage-knight/shared";
-import { getEffectiveSidewaysValue } from "../modifiers/index.js";
+import {
+  getEffectiveSidewaysValue,
+  consumeMovementCardBonus,
+  getModifiersForPlayer,
+} from "../modifiers/index.js";
+import { EFFECT_MOVEMENT_CARD_BONUS } from "../modifierConstants.js";
 import { PLAY_CARD_SIDEWAYS_COMMAND } from "./commandTypes.js";
 
 export { PLAY_CARD_SIDEWAYS_COMMAND };
@@ -176,6 +182,9 @@ export function createPlayCardSidewaysCommand(
 ): Command {
   // Store the effective value at execute time for undo
   let appliedValue: number = 1;
+  // Store movement bonus application for undo
+  let movementBonusAppliedAmount = 0;
+  let movementBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
 
   return {
     type: PLAY_CARD_SIDEWAYS_COMMAND,
@@ -204,6 +213,30 @@ export function createPlayCardSidewaysCommand(
         undefined // manaColorMatchesCard not applicable for sideways
       );
 
+      const movementBonusModifierIdsBefore = new Set(
+        getModifiersForPlayer(state, params.playerId)
+          .filter((m) => m.effect.type === EFFECT_MOVEMENT_CARD_BONUS)
+          .map((m) => m.id)
+      );
+
+      let currentState = state;
+      if (params.as === PLAY_SIDEWAYS_AS_MOVE) {
+        if (movementBonusModifierIdsBefore.size > 0) {
+          const modifiersSnapshot = state.activeModifiers;
+          const bonusResult = consumeMovementCardBonus(
+            state,
+            params.playerId,
+            movementBonusModifierIdsBefore
+          );
+          if (bonusResult.bonus > 0) {
+            movementBonusAppliedAmount = bonusResult.bonus;
+            movementBonusModifiersSnapshot = modifiersSnapshot;
+            appliedValue += bonusResult.bonus;
+            currentState = bonusResult.state;
+          }
+        }
+      }
+
       // Remove card from hand, add to play area
       const newHand = player.hand.filter((_, i) => i !== params.handIndex);
       const newPlayArea = [...player.playArea, params.cardId];
@@ -219,11 +252,11 @@ export function createPlayCardSidewaysCommand(
       // Apply the sideways effect
       updatedPlayer = applySidewaysEffect(updatedPlayer, params.as, appliedValue);
 
-      const players = [...state.players];
+      const players = [...currentState.players];
       players[playerIndex] = updatedPlayer;
 
       return {
-        state: { ...state, players },
+        state: { ...currentState, players },
         events: [
           {
             type: CARD_PLAYED,
@@ -273,9 +306,13 @@ export function createPlayCardSidewaysCommand(
 
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
+      const stateWithModifiers =
+        movementBonusAppliedAmount > 0 && movementBonusModifiersSnapshot
+          ? { ...state, activeModifiers: movementBonusModifiersSnapshot }
+          : state;
 
       return {
-        state: { ...state, players },
+        state: { ...stateWithModifiers, players },
         events: [createCardPlayUndoneEvent(params.playerId, params.cardId)],
       };
     },

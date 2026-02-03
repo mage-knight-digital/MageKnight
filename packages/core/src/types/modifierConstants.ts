@@ -48,6 +48,7 @@ export const TERRAIN_ALL = "all" as const;
 export const EFFECT_TERRAIN_COST = "terrain_cost" as const;
 export const EFFECT_TERRAIN_SAFE = "terrain_safe" as const;
 export const EFFECT_SIDEWAYS_VALUE = "sideways_value" as const;
+export const EFFECT_MOVEMENT_CARD_BONUS = "movement_card_bonus" as const;
 export const EFFECT_COMBAT_VALUE = "combat_value" as const;
 export const EFFECT_ENEMY_STAT = "enemy_stat" as const;
 export const EFFECT_RULE_OVERRIDE = "rule_override" as const;

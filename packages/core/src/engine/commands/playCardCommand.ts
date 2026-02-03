@@ -23,6 +23,7 @@ import { getCard } from "../validActions/cards/index.js";
 import { getSpellCard } from "../../data/spells/index.js";
 import { PLAY_CARD_COMMAND } from "./commandTypes.js";
 import type { CardEffect, DeedCard } from "../../types/cards.js";
+import type { ActiveModifier } from "../../types/modifiers.js";
 
 import { consumeMultipleMana, restoreMana } from "./helpers/manaConsumptionHelpers.js";
 import {
@@ -30,6 +31,8 @@ import {
   handleChoiceEffect,
 } from "./playCard/choiceHandling.js";
 import { handleArtifactDestruction } from "./playCard/artifactDestruction.js";
+import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/index.js";
+import { EFFECT_MOVEMENT_CARD_BONUS } from "../modifierConstants.js";
 
 export { PLAY_CARD_COMMAND };
 
@@ -56,6 +59,9 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
   let consumedManaSources: readonly ManaSourceInfo[] = [];
   // Store spell color tracked for undo (null if no new color was tracked)
   let trackedSpellColor: ManaColor | null = null;
+  // Store movement bonus application for undo
+  let movementBonusAppliedAmount = 0;
+  let movementBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
 
   return {
     type: PLAY_CARD_COMMAND,
@@ -119,9 +125,80 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
       const newState: GameState = { ...state, players, source: updatedSource };
+      const movePointsBefore = newState.players[playerIndex]?.movePoints ?? 0;
+      const movementBonusModifierIdsBefore = new Set(
+        getModifiersForPlayer(newState, params.playerId)
+          .filter((m) => m.effect.type === EFFECT_MOVEMENT_CARD_BONUS)
+          .map((m) => m.id)
+      );
 
       // Resolve the effect (pass cardId for effects that need to know their source)
       const effectResult = resolveEffect(newState, params.playerId, effectToApply, params.cardId);
+
+      const applyMovementBonusIfGained = (stateToUpdate: GameState): GameState => {
+        const playerAfter = stateToUpdate.players[playerIndex];
+        if (!playerAfter) {
+          return stateToUpdate;
+        }
+
+        if (playerAfter.movePoints <= movePointsBefore) {
+          return stateToUpdate;
+        }
+
+        if (movementBonusModifierIdsBefore.size === 0) {
+          return stateToUpdate;
+        }
+
+        const modifiersSnapshot = stateToUpdate.activeModifiers;
+        const bonusResult = consumeMovementCardBonus(
+          stateToUpdate,
+          params.playerId,
+          movementBonusModifierIdsBefore
+        );
+        if (bonusResult.bonus <= 0) {
+          return stateToUpdate;
+        }
+
+        movementBonusAppliedAmount = bonusResult.bonus;
+        movementBonusModifiersSnapshot = modifiersSnapshot;
+
+        const updatedPlayerWithBonus: Player = {
+          ...playerAfter,
+          movePoints: playerAfter.movePoints + bonusResult.bonus,
+        };
+
+        const updatedPlayers = [...bonusResult.state.players];
+        updatedPlayers[playerIndex] = updatedPlayerWithBonus;
+
+        return { ...bonusResult.state, players: updatedPlayers };
+      };
+
+      const updatePendingChoiceMovementBonus = (
+        stateToUpdate: GameState,
+        movementBonusApplied: boolean
+      ): GameState => {
+        const currentPlayer = stateToUpdate.players[playerIndex];
+        if (!currentPlayer?.pendingChoice) {
+          return stateToUpdate;
+        }
+
+        if (currentPlayer.pendingChoice.movementBonusApplied === movementBonusApplied) {
+          return stateToUpdate;
+        }
+
+        const updatedPlayerWithChoice: Player = {
+          ...currentPlayer,
+          pendingChoice: {
+            ...currentPlayer.pendingChoice,
+            movementBonusApplied,
+          },
+        };
+
+        const updatedPlayers = [...stateToUpdate.players];
+        updatedPlayers[playerIndex] = updatedPlayerWithChoice;
+
+        return { ...stateToUpdate, players: updatedPlayers };
+      };
 
       // Check if this is a choice effect
       if (effectResult.requiresChoice) {
@@ -143,12 +220,23 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
             appliedEffect = choiceResult.resolvedEffect;
           }
 
-          return choiceResult;
+          let updatedState = applyMovementBonusIfGained(choiceResult.state);
+          updatedState = updatePendingChoiceMovementBonus(
+            updatedState,
+            movementBonusAppliedAmount > 0
+          );
+
+          return { ...choiceResult, state: updatedState };
         }
 
         // Unknown choice type - return as-is
+        let updatedState = applyMovementBonusIfGained(effectResult.state);
+        updatedState = updatePendingChoiceMovementBonus(
+          updatedState,
+          movementBonusAppliedAmount > 0
+        );
         return createCardPlayedResult(
-          effectResult.state,
+          updatedState,
           params.playerId,
           params.cardId,
           isPowered,
@@ -162,7 +250,7 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       }
 
       // Handle artifact destruction if this was a powered play of a destroyOnPowered card
-      let finalState = effectResult.state;
+      let finalState = applyMovementBonusIfGained(effectResult.state);
       const events: GameEvent[] = [
         {
           type: CARD_PLAYED,
@@ -212,6 +300,12 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       if (appliedEffect && appliedEffect.type !== EFFECT_CHOICE) {
         updatedPlayer = reverseEffect(updatedPlayer, appliedEffect);
       }
+      if (movementBonusAppliedAmount > 0) {
+        updatedPlayer = {
+          ...updatedPlayer,
+          movePoints: updatedPlayer.movePoints - movementBonusAppliedAmount,
+        };
+      }
 
       // Restore mana if consumed
       let updatedSource = state.source;
@@ -253,9 +347,13 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
+      const stateWithModifiers =
+        movementBonusAppliedAmount > 0 && movementBonusModifiersSnapshot
+          ? { ...state, activeModifiers: movementBonusModifiersSnapshot }
+          : state;
 
       return {
-        state: { ...state, players, source: updatedSource },
+        state: { ...stateWithModifiers, players, source: updatedSource },
         events: [createCardPlayUndoneEvent(params.playerId, params.cardId)],
       };
     },

@@ -28,6 +28,7 @@ import {
   EFFECT_ENEMY_STAT,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
+  EFFECT_MOVEMENT_CARD_BONUS,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
   EFFECT_TERRAIN_COST,
@@ -121,6 +122,14 @@ export interface SidewaysValueModifier {
   readonly condition?:
     | typeof SIDEWAYS_CONDITION_NO_MANA_USED
     | typeof SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR;
+}
+
+// Movement card bonus modifier (e.g., "next movement card gets +1")
+export interface MovementCardBonusModifier {
+  readonly type: typeof EFFECT_MOVEMENT_CARD_BONUS;
+  readonly amount: number;
+  /** If set, decrements each time a movement card bonus is applied */
+  readonly remaining?: number;
 }
 
 // Combat value modifier (e.g., "+2 Attack")
@@ -224,6 +233,7 @@ export type ModifierEffect =
   | TerrainCostModifier
   | TerrainSafeModifier
   | SidewaysValueModifier
+  | MovementCardBonusModifier
   | CombatValueModifier
   | EnemyStatModifier
   | RuleOverrideModifier
