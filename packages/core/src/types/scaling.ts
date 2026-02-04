@@ -7,14 +7,13 @@
 // === Scaling Factor Type Constants ===
 export const SCALING_PER_ENEMY = "per_enemy" as const;
 export const SCALING_PER_WOUND_IN_HAND = "per_wound_in_hand" as const;
+export const SCALING_PER_WOUND_THIS_COMBAT = "per_wound_this_combat" as const;
 export const SCALING_PER_UNIT = "per_unit" as const;
 export const SCALING_PER_CRYSTAL_COLOR = "per_crystal_color" as const;
 export const SCALING_PER_EMPTY_COMMAND_TOKEN = "per_empty_command_token" as const;
 
 // Note: SCALING_PER_WOUND_PLAYED was removed because wounds cannot be "played"
-// as cards in Mage Knight - they are dead cards. If a future card needs
-// wound-based scaling (like "per wound taken this combat"), it should be
-// added as a new scaling factor type.
+// as cards in Mage Knight - they are dead cards.
 
 // === Scaling Factor Interfaces ===
 
@@ -24,6 +23,10 @@ export interface ScalingPerEnemyFactor {
 
 export interface ScalingPerWoundInHandFactor {
   readonly type: typeof SCALING_PER_WOUND_IN_HAND;
+}
+
+export interface ScalingPerWoundThisCombatFactor {
+  readonly type: typeof SCALING_PER_WOUND_THIS_COMBAT;
 }
 
 export interface ScalingPerUnitFactor {
@@ -65,6 +68,7 @@ export interface UnitFilter {
 export type ScalingFactor =
   | ScalingPerEnemyFactor
   | ScalingPerWoundInHandFactor
+  | ScalingPerWoundThisCombatFactor
   | ScalingPerUnitFactor
   | ScalingPerCrystalColorFactor
   | ScalingPerEmptyCommandTokenFactor;

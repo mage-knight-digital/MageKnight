@@ -7,6 +7,7 @@ import type { ScalingFactor } from "../../types/scaling.js";
 import {
   SCALING_PER_ENEMY,
   SCALING_PER_WOUND_IN_HAND,
+  SCALING_PER_WOUND_THIS_COMBAT,
   SCALING_PER_UNIT,
   SCALING_PER_CRYSTAL_COLOR,
   SCALING_PER_EMPTY_COMMAND_TOKEN,
@@ -42,6 +43,11 @@ export function evaluateScalingFactor(
     case SCALING_PER_WOUND_IN_HAND: {
       // Count wounds in player's hand
       return player.hand.filter((c) => c === CARD_WOUND).length;
+    }
+
+    case SCALING_PER_WOUND_THIS_COMBAT: {
+      if (!state.combat) return 0;
+      return state.combat.woundsThisCombat;
     }
 
     case SCALING_PER_UNIT: {
