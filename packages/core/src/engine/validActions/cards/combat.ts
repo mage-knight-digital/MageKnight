@@ -20,7 +20,7 @@ import {
 } from "../../../types/combat.js";
 import { DEED_CARD_TYPE_WOUND, DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { describeEffect } from "../../effects/describeEffect.js";
-import { isEffectResolvable } from "../../effects/index.js";
+import { filterHealingEffectsForCombat, isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
 import {
@@ -29,12 +29,24 @@ import {
   effectHasAttack,
   effectIsUtility,
 } from "./effectDetection/index.js";
+import {
+  getEffectCategories,
+  hasHealingCategory,
+  isHealingOnlyCategories,
+  type CardEffectKind,
+} from "../../helpers/cardCategoryHelpers.js";
+import type { CardEffect } from "../../../types/cards.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
   canPlayPowered: boolean;
   canPlaySideways: boolean;
   sidewaysOptions: SidewaysOption[];
+}
+
+interface CombatEffectContext {
+  readonly effect: CardEffect | null;
+  readonly allowAnyPhase: boolean;
 }
 
 /**
@@ -54,11 +66,17 @@ export function getPlayableCardsForCombat(
     // Wounds cannot be played
     if (card.cardType === DEED_CARD_TYPE_WOUND) continue;
 
-    const playability = getCardPlayabilityForPhase(card, combat.phase);
+    const basicContext = getCombatEffectContext(card, "basic");
+    const poweredContext = getCombatEffectContext(card, "powered");
+    const playability = getCardPlayabilityForPhase(card, combat.phase, basicContext, poweredContext);
 
     // Check resolvability - effect must actually be able to do something
-    const basicIsResolvable = isEffectResolvable(state, player.id, card.basicEffect);
-    const poweredIsResolvable = isEffectResolvable(state, player.id, card.poweredEffect);
+    const basicIsResolvable = basicContext.effect
+      ? isEffectResolvable(state, player.id, basicContext.effect)
+      : false;
+    const poweredIsResolvable = poweredContext.effect
+      ? isEffectResolvable(state, player.id, poweredContext.effect)
+      : false;
 
     // For spells, basic effect also requires mana (the spell's color)
     // Get the spell's color from poweredBy (excluding black)
@@ -83,8 +101,8 @@ export function getPlayableCardsForCombat(
         canPlayBasic: canActuallyPlayBasic,
         canPlayPowered: canActuallyPlayPowered,
         canPlaySideways: playability.canPlaySideways,
-        basicEffectDescription: describeEffect(card.basicEffect),
-        poweredEffectDescription: describeEffect(card.poweredEffect),
+        basicEffectDescription: describeEffect(basicContext.effect ?? card.basicEffect),
+        poweredEffectDescription: describeEffect(poweredContext.effect ?? card.poweredEffect),
       };
 
       // Only add optional properties when they have values
@@ -110,14 +128,31 @@ export function getPlayableCardsForCombat(
  */
 function getCardPlayabilityForPhase(
   card: DeedCard,
-  phase: CombatPhase
+  phase: CombatPhase,
+  basicContext: CombatEffectContext,
+  poweredContext: CombatEffectContext
 ): CardPlayability {
+  const basicEffect = basicContext.effect;
+  const poweredEffect = poweredContext.effect;
+
+  const basicUtility =
+    basicEffect !== null &&
+    (effectHasRangedOrSiege(basicEffect) ||
+      effectIsUtility(basicEffect) ||
+      basicContext.allowAnyPhase);
+
+  const poweredUtility =
+    poweredEffect !== null &&
+    (effectHasRangedOrSiege(poweredEffect) ||
+      effectIsUtility(poweredEffect) ||
+      poweredContext.allowAnyPhase);
+
   switch (phase) {
     case COMBAT_PHASE_RANGED_SIEGE:
       return {
         // Ranged/siege phase: can play for ranged/siege attack OR utility effects
-        canPlayBasic: effectHasRangedOrSiege(card.basicEffect) || effectIsUtility(card.basicEffect),
-        canPlayPowered: effectHasRangedOrSiege(card.poweredEffect) || effectIsUtility(card.poweredEffect),
+        canPlayBasic: basicUtility,
+        canPlayPowered: poweredUtility,
         canPlaySideways: false, // Can't play sideways for ranged/siege
         sidewaysOptions: [],
       };
@@ -125,8 +160,12 @@ function getCardPlayabilityForPhase(
     case COMBAT_PHASE_BLOCK:
       return {
         // Block phase: can play for block OR utility effects
-        canPlayBasic: effectHasBlock(card.basicEffect) || effectIsUtility(card.basicEffect),
-        canPlayPowered: effectHasBlock(card.poweredEffect) || effectIsUtility(card.poweredEffect),
+        canPlayBasic:
+          basicEffect !== null &&
+          (effectHasBlock(basicEffect) || effectIsUtility(basicEffect) || basicContext.allowAnyPhase),
+        canPlayPowered:
+          poweredEffect !== null &&
+          (effectHasBlock(poweredEffect) || effectIsUtility(poweredEffect) || poweredContext.allowAnyPhase),
         canPlaySideways: card.sidewaysValue > 0,
         sidewaysOptions: card.sidewaysValue > 0
           ? [{ as: PLAY_SIDEWAYS_AS_BLOCK, value: card.sidewaysValue }]
@@ -136,8 +175,12 @@ function getCardPlayabilityForPhase(
     case COMBAT_PHASE_ATTACK:
       return {
         // Attack phase: can play for attack OR utility effects
-        canPlayBasic: effectHasAttack(card.basicEffect) || effectIsUtility(card.basicEffect),
-        canPlayPowered: effectHasAttack(card.poweredEffect) || effectIsUtility(card.poweredEffect),
+        canPlayBasic:
+          basicEffect !== null &&
+          (effectHasAttack(basicEffect) || effectIsUtility(basicEffect) || basicContext.allowAnyPhase),
+        canPlayPowered:
+          poweredEffect !== null &&
+          (effectHasAttack(poweredEffect) || effectIsUtility(poweredEffect) || poweredContext.allowAnyPhase),
         canPlaySideways: card.sidewaysValue > 0,
         sidewaysOptions: card.sidewaysValue > 0
           ? [{ as: PLAY_SIDEWAYS_AS_ATTACK, value: card.sidewaysValue }]
@@ -153,4 +196,27 @@ function getCardPlayabilityForPhase(
         sidewaysOptions: [],
       };
   }
+}
+
+function getCombatEffectContext(
+  card: DeedCard,
+  effectKind: CardEffectKind
+): CombatEffectContext {
+  const categories = getEffectCategories(card, effectKind);
+  const isHealingOnly = isHealingOnlyCategories(categories);
+  const hasHealing = hasHealingCategory(categories);
+  const allowAnyPhase = hasHealing && !isHealingOnly;
+
+  const baseEffect = effectKind === "basic" ? card.basicEffect : card.poweredEffect;
+
+  if (!hasHealing) {
+    return { effect: baseEffect, allowAnyPhase: false };
+  }
+
+  if (isHealingOnly) {
+    return { effect: null, allowAnyPhase: false };
+  }
+
+  const filteredEffect = filterHealingEffectsForCombat(baseEffect);
+  return { effect: filteredEffect, allowAnyPhase };
 }

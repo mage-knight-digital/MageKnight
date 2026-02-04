@@ -33,6 +33,7 @@ export const COLUMN_LIMIT_EXCEEDED = "COLUMN_LIMIT_EXCEEDED" as const;
 export const CARD_NOT_IN_HAND = "CARD_NOT_IN_HAND" as const;
 export const CARD_NOT_FOUND = "CARD_NOT_FOUND" as const;
 export const CANNOT_PLAY_WOUND = "CANNOT_PLAY_WOUND" as const;
+export const CANNOT_PLAY_HEALING_IN_COMBAT = "CANNOT_PLAY_HEALING_IN_COMBAT" as const;
 export const CHOICE_REQUIRED_CODE = "CHOICE_REQUIRED" as const;
 
 // Choice resolution validation codes
@@ -269,6 +270,7 @@ export type ValidationErrorCode =
   | typeof CARD_NOT_IN_HAND
   | typeof CARD_NOT_FOUND
   | typeof CANNOT_PLAY_WOUND
+  | typeof CANNOT_PLAY_HEALING_IN_COMBAT
   | typeof CHOICE_REQUIRED_CODE
   | typeof NO_PENDING_CHOICE
   | typeof INVALID_CHOICE_INDEX

@@ -92,6 +92,9 @@ export {
 // Resolvability checks
 export * from "./resolvability.js";
 
+// Healing filters (combat)
+export { filterHealingEffectsForCombat } from "./healingFilter.js";
+
 // Atomic effects (gain move, attack, etc.)
 export {
   updatePlayer,

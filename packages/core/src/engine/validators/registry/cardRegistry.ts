@@ -14,6 +14,7 @@ import {
   validateCardInHand,
   validateCardExists,
   validateNotWound,
+  validateNoHealingCardInCombat,
 } from "../playCardValidators.js";
 
 // Mana validators
@@ -53,6 +54,7 @@ export const cardRegistry: Record<string, Validator[]> = {
     validateCardInHand,
     validateCardExists,
     validateNotWound,
+    validateNoHealingCardInCombat,
     // Mana validators - spell checks first, then dungeon/tomb rules, then time check, then availability, then color match
     validateSpellBasicManaRequirement, // Spells require mana even for basic effect
     validateSpellManaRequirement, // Spells require two mana sources for powered (black + color)

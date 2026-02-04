@@ -13,10 +13,16 @@ import {
   CARD_NOT_IN_HAND,
   CARD_NOT_FOUND,
   CANNOT_PLAY_WOUND,
+  CANNOT_PLAY_HEALING_IN_COMBAT,
   PLAYER_NOT_FOUND,
   INVALID_ACTION_CODE,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import {
+  getEffectCategories,
+  isHealingOnlyCategories,
+  type CardEffectKind,
+} from "../helpers/cardCategoryHelpers.js";
 
 function getCardId(action: PlayerAction): CardId | null {
   if (action.type === PLAY_CARD_ACTION && "cardId" in action) {
@@ -90,6 +96,42 @@ export function validateNotWound(
     return invalid(
       CANNOT_PLAY_WOUND,
       "Wound cards cannot be played for their effect"
+    );
+  }
+
+  return valid();
+}
+
+// Healing-only cards cannot be played during combat (rulebook restriction).
+export function validateNoHealingCardInCombat(
+  state: GameState,
+  _playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== PLAY_CARD_ACTION) {
+    return valid();
+  }
+
+  if (!state.combat) {
+    return valid();
+  }
+
+  if (!("cardId" in action)) {
+    return invalid(INVALID_ACTION_CODE, "Invalid play card action");
+  }
+
+  const card = getCard(action.cardId);
+  if (!card) {
+    return valid();
+  }
+
+  const effectKind: CardEffectKind = action.powered ? "powered" : "basic";
+  const categories = getEffectCategories(card, effectKind);
+
+  if (isHealingOnlyCategories(categories)) {
+    return invalid(
+      CANNOT_PLAY_HEALING_IN_COMBAT,
+      "Healing cards cannot be played during combat"
     );
   }
 
