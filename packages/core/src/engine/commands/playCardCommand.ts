@@ -16,8 +16,8 @@ import {
   createCardPlayUndoneEvent,
 } from "@mage-knight/shared";
 import type { GameEvent } from "@mage-knight/shared";
-import { resolveEffect, reverseEffect } from "../effects/index.js";
-import { EFFECT_CHOICE } from "../../types/effectTypes.js";
+import { filterHealingEffectsForCombat, resolveEffect, reverseEffect } from "../effects/index.js";
+import { EFFECT_CHOICE, EFFECT_NOOP } from "../../types/effectTypes.js";
 import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { getCard } from "../validActions/cards/index.js";
 import { getSpellCard } from "../../data/spells/index.js";
@@ -33,6 +33,12 @@ import {
 import { handleArtifactDestruction } from "./playCard/artifactDestruction.js";
 import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/index.js";
 import { EFFECT_MOVEMENT_CARD_BONUS } from "../modifierConstants.js";
+import {
+  getEffectCategories,
+  hasHealingCategory,
+  isHealingOnlyCategories,
+  type CardEffectKind,
+} from "../helpers/cardCategoryHelpers.js";
 
 export { PLAY_CARD_COMMAND };
 
@@ -87,7 +93,13 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       // Determine if powered and which effect to use
       const manaSources = getManaSources(params);
       const isPowered = params.powered === true && manaSources.length > 0;
-      const effectToApply = isPowered ? card.poweredEffect : card.basicEffect;
+      const effectType: CardEffectKind = isPowered ? "powered" : "basic";
+      const effectToApply = getCombatFilteredEffect(
+        card,
+        effectType,
+        isPowered ? card.poweredEffect : card.basicEffect,
+        state.combat !== null
+      );
 
       // Store for undo
       appliedEffect = effectToApply;
@@ -363,6 +375,28 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+function getCombatFilteredEffect(
+  card: DeedCard,
+  effectKind: CardEffectKind,
+  baseEffect: CardEffect,
+  inCombat: boolean
+): CardEffect {
+  if (!inCombat) {
+    return baseEffect;
+  }
+
+  const categories = getEffectCategories(card, effectKind);
+  if (!hasHealingCategory(categories)) {
+    return baseEffect;
+  }
+
+  if (isHealingOnlyCategories(categories)) {
+    return { type: EFFECT_NOOP };
+  }
+
+  return filterHealingEffectsForCombat(baseEffect) ?? { type: EFFECT_NOOP };
+}
 
 /**
  * Get the list of mana sources to consume for this card play.

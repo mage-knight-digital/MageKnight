@@ -617,9 +617,10 @@ export interface DeedCard {
   // For spells, this is the category for the basic effect
   readonly categories: readonly CardCategory[];
 
-  // Category for powered effect (spells only, if different from basic)
-  // If not set, powered effect uses the same categories as basic
-  readonly poweredCategories?: readonly CardCategory[];
+  // Optional per-effect category overrides
+  // Use when basic/powered effects differ (e.g., healing vs combat)
+  readonly basicEffectCategories?: readonly CardCategory[];
+  readonly poweredEffectCategories?: readonly CardCategory[];
 
   // Basic effect (play without mana)
   readonly basicEffect: CardEffect;
