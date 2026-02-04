@@ -8,10 +8,11 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import type { ClientCombatEnemy, EnemyAbilityType } from "@mage-knight/shared";
-import { ABILITY_DESCRIPTIONS, RESISTANCE_DESCRIPTIONS } from "@mage-knight/shared";
+import type { ClientCombatEnemy, EnemyAbilityType, Element } from "@mage-knight/shared";
+import { ABILITY_DESCRIPTIONS, RESISTANCE_DESCRIPTIONS, ENEMIES } from "@mage-knight/shared";
 import type { ResistanceType } from "@mage-knight/shared";
 import { GameIcon, type GameIconType } from "../Icons";
+import { getEnemyAttackElements, getEnemyAttacks, groupEnemyAttacks } from "../../utils/enemyAttacks";
 import "./EnemyDetailPanel.css";
 
 // Icon paths for abilities (fallback for abilities without GameIcon support)
@@ -69,14 +70,27 @@ const DEFAULT_ELEMENT_INFO: ElementInfoEntry = {
   blockTip: "Any Block type is fully efficient.",
 };
 
+function getAttackIconType(element: Element): GameIconType {
+  return element === "physical" ? "attack" : (element as GameIconType);
+}
+
 interface EnemyDetailPanelProps {
   enemy: ClientCombatEnemy;
   onClose: () => void;
 }
 
 export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
-  const elementInfo = ELEMENT_INFO[enemy.attackElement] ?? DEFAULT_ELEMENT_INFO;
+  const definition = ENEMIES[enemy.enemyId as keyof typeof ENEMIES];
+  const attackSource = definition ?? enemy;
+  const attacks = getEnemyAttacks(attackSource);
+  const attackGroups = groupEnemyAttacks(attacks);
+  const attackElements = getEnemyAttackElements(attackSource);
+  const nonPhysicalElements = attackElements.filter((element) => element !== "physical");
   const hasResistances = enemy.resistances.length > 0;
+  const hasElementalAttacks = nonPhysicalElements.length > 0;
+  const hasMultipleAttacks = attacks.length > 1;
+  const primaryElement = attacks[0]?.element ?? enemy.attackElement;
+  const primaryElementInfo = ELEMENT_INFO[primaryElement] ?? DEFAULT_ELEMENT_INFO;
 
   // Get list of active resistances (resistances is already an array)
   const activeResistances: ResistanceType[] = [...enemy.resistances];
@@ -115,17 +129,37 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
 
         {/* Stats */}
         <div className="enemy-detail-stats">
-          <div className="enemy-detail-stat">
-            <GameIcon
-              type={enemy.attackElement === "physical" ? "attack" : enemy.attackElement as GameIconType}
-              className="enemy-detail-stat-icon"
-            />
-            <div className="enemy-detail-stat-content">
-              <span className="enemy-detail-stat-value" style={{ color: elementInfo.color }}>
-                {enemy.attack}
-              </span>
+          <div className="enemy-detail-stat enemy-detail-stat--attacks">
+            <div className="enemy-detail-stat-content enemy-detail-stat-content--attacks">
+              <div className="enemy-detail-attack-groups">
+                {attackGroups.map((group, groupIndex) => {
+                  const elementInfo = ELEMENT_INFO[group.element] ?? DEFAULT_ELEMENT_INFO;
+                  return (
+                    <span
+                      key={`${group.element}-${group.damage}-${groupIndex}`}
+                      className="enemy-detail-attack-group"
+                    >
+                      <GameIcon
+                        type={getAttackIconType(group.element)}
+                        className="enemy-detail-stat-icon"
+                      />
+                      <span className="enemy-detail-stat-value" style={{ color: elementInfo.color }}>
+                        {group.damage}
+                        {group.count > 1 ? `×${group.count}` : ""}
+                      </span>
+                      {groupIndex < attackGroups.length - 1 && (
+                        <span className="enemy-detail-attack-separator">+</span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
               <span className="enemy-detail-stat-label">
-                {enemy.attackElement !== "physical" ? elementInfo.name : "Attack"}
+                {hasMultipleAttacks
+                  ? "Attacks"
+                  : primaryElement !== "physical"
+                    ? primaryElementInfo.name
+                    : "Attack"}
               </span>
             </div>
           </div>
@@ -146,15 +180,24 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
         </div>
 
         {/* Attack Element Info */}
-        {enemy.attackElement !== "physical" && (
+        {nonPhysicalElements.length > 0 && (
           <div className="enemy-detail-section">
-            <div className="enemy-detail-section-header">
-              <span className="enemy-detail-element-badge" style={{ background: elementInfo.color }}>
-                {elementInfo.name}
-              </span>
-              <span className="enemy-detail-section-title">Attack</span>
-            </div>
-            <p className="enemy-detail-rule">{elementInfo.blockTip}</p>
+            <h3 className="enemy-detail-section-title">
+              {nonPhysicalElements.length > 1 ? "Attack Elements" : "Attack"}
+            </h3>
+            {nonPhysicalElements.map((element) => {
+              const elementInfo = ELEMENT_INFO[element] ?? DEFAULT_ELEMENT_INFO;
+              return (
+                <div key={element} className="enemy-detail-element-entry">
+                  <div className="enemy-detail-section-header">
+                    <span className="enemy-detail-element-badge" style={{ background: elementInfo.color }}>
+                      {elementInfo.name}
+                    </span>
+                  </div>
+                  <p className="enemy-detail-rule">{elementInfo.blockTip}</p>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -217,7 +260,7 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
         )}
 
         {/* No special traits */}
-        {enemy.abilities.length === 0 && !hasResistances && enemy.attackElement === "physical" && (
+        {enemy.abilities.length === 0 && !hasResistances && !hasElementalAttacks && (
           <div className="enemy-detail-section">
             <p className="enemy-detail-note">
               This enemy has no special abilities or resistances. Standard attacks and blocks are fully effective.

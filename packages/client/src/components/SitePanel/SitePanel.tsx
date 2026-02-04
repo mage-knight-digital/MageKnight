@@ -28,6 +28,7 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { SiteIcon, GameIcon, type SiteIconType, type GameIconType } from "../Icons";
+import { getEnemyAttackElements, getEnemyAttacks, groupEnemyAttacks } from "../../utils/enemyAttacks";
 import "./SitePanel.css";
 
 // =============================================================================
@@ -83,6 +84,10 @@ function getEnemyIdFromToken(tokenId: string): string {
   return parts.join("_");
 }
 
+function getAttackIconType(element: Element): GameIconType {
+  return element === "physical" ? "attack" : (element as GameIconType);
+}
+
 interface EnemyDetailsProps {
   enemies: readonly ClientHexEnemy[];
 }
@@ -91,11 +96,11 @@ interface EnemyDetailsProps {
 function collectUniqueTraits(enemies: readonly ClientHexEnemy[]): {
   abilities: Set<string>;
   resistances: Set<string>;
-  attackElements: Set<string>;
+  attackElements: Set<Element>;
 } {
   const abilities = new Set<string>();
   const resistances = new Set<string>();
-  const attackElements = new Set<string>();
+  const attackElements = new Set<Element>();
 
   for (const enemy of enemies) {
     if (!enemy.isRevealed || !enemy.tokenId) continue;
@@ -109,9 +114,11 @@ function collectUniqueTraits(enemies: readonly ClientHexEnemy[]): {
     for (const resistance of definition.resistances) {
       resistances.add(resistance);
     }
-    // Track non-physical attack elements for reference section
-    if (definition.attackElement && definition.attackElement !== "physical") {
-      attackElements.add(definition.attackElement);
+    const elements = getEnemyAttackElements(definition);
+    for (const element of elements) {
+      if (element !== "physical") {
+        attackElements.add(element);
+      }
     }
   }
 
@@ -153,6 +160,8 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
         const tokenBackPath = TOKEN_BACK_PATHS[definition.color];
         const hasResistances = definition.resistances.length > 0;
         const hasSummon = definition.abilities.includes("summon");
+        const attacks = getEnemyAttacks(definition);
+        const attackGroups = groupEnemyAttacks(attacks);
 
         return (
           <div key={idx} className="site-panel__enemy">
@@ -165,8 +174,33 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
 
             <div className="site-panel__enemy-stats">
               <span className="site-panel__enemy-stat">
-                <GameIcon type={definition.attackElement === "physical" ? "attack" : definition.attackElement as GameIconType} size={18} />
-                <span>{hasSummon ? "?" : definition.attack}</span>
+                {hasSummon ? (
+                  <>
+                    <GameIcon
+                      type={getAttackIconType(definition.attackElement)}
+                      size={18}
+                    />
+                    <span>?</span>
+                  </>
+                ) : (
+                  <span className="site-panel__attack-groups">
+                    {attackGroups.map((group, groupIndex) => (
+                      <span key={`${group.element}-${group.damage}-${groupIndex}`} className="site-panel__attack-group">
+                        <GameIcon
+                          type={getAttackIconType(group.element)}
+                          size={18}
+                        />
+                        <span>
+                          {group.damage}
+                          {group.count > 1 ? `×${group.count}` : ""}
+                        </span>
+                        {groupIndex < attackGroups.length - 1 && (
+                          <span className="site-panel__attack-separator">+</span>
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </span>
               <span className="site-panel__enemy-stat">
                 <GameIcon type="armor" size={18} />
@@ -259,7 +293,7 @@ function EnemyDetails({ enemies }: EnemyDetailsProps) {
           })}
 
           {Array.from(uniqueAttackElements).map((element) => {
-            const desc = ATTACK_ELEMENT_DESCRIPTIONS[element as Element];
+            const desc = ATTACK_ELEMENT_DESCRIPTIONS[element];
             if (!desc) return null;
             const iconType = desc.icon as GameIconType;
             return (

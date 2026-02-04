@@ -11,9 +11,10 @@
  * - Rampaging indicator if applicable
  */
 
-import type { ClientHexEnemy, EnemyAbilityType } from "@mage-knight/shared";
+import type { ClientHexEnemy, EnemyAbilityType, Element } from "@mage-knight/shared";
 import { ENEMIES, ABILITY_DESCRIPTIONS } from "@mage-knight/shared";
 import { GameIcon, type GameIconType } from "../Icons";
+import { getEnemyAttacks, groupEnemyAttacks } from "../../utils/enemyAttacks";
 
 export interface EnemyTooltipContentProps {
   enemies: readonly ClientHexEnemy[];
@@ -36,6 +37,10 @@ const TOKEN_BACK_PATHS: Record<string, string> = {
   red: "/assets/enemies/backs/red.png",
   white: "/assets/enemies/backs/white.png",
 };
+
+function getAttackIconType(element: Element): GameIconType {
+  return element === "physical" ? "attack" : (element as GameIconType);
+}
 
 function getEnemyIdFromToken(tokenId: string): string {
   // Token ID format: "enemyId_instanceNumber" e.g., "swamp_dragon_0"
@@ -106,6 +111,8 @@ export function EnemyTooltipContent({
         const hasResistances = definition.resistances.length > 0;
         const tokenBackPath = TOKEN_BACK_PATHS[definition.color];
         const hasSummon = definition.abilities.includes("summon");
+        const attacks = getEnemyAttacks(definition);
+        const attackGroups = groupEnemyAttacks(attacks);
 
         return (
           <div
@@ -129,10 +136,39 @@ export function EnemyTooltipContent({
 
             <div className="enemy-tooltip__enemy-stats">
               <span className="enemy-tooltip__stat">
-                <span className="enemy-tooltip__stat-icon">
-                  <GameIcon type={definition.attackElement === "physical" ? "attack" : definition.attackElement as GameIconType} size={20} title="Attack" />
-                </span>
-                <span className="enemy-tooltip__stat-value">{hasSummon ? "?" : definition.attack}</span>
+                {hasSummon ? (
+                  <>
+                    <span className="enemy-tooltip__stat-icon">
+                      <GameIcon
+                        type={getAttackIconType(definition.attackElement)}
+                        size={20}
+                        title="Attack"
+                      />
+                    </span>
+                    <span className="enemy-tooltip__stat-value">?</span>
+                  </>
+                ) : (
+                  <span className="enemy-tooltip__attack-groups">
+                    {attackGroups.map((group, groupIndex) => (
+                      <span key={`${group.element}-${group.damage}-${groupIndex}`} className="enemy-tooltip__attack-group">
+                        <span className="enemy-tooltip__stat-icon">
+                          <GameIcon
+                            type={getAttackIconType(group.element)}
+                            size={20}
+                            title="Attack"
+                          />
+                        </span>
+                        <span className="enemy-tooltip__stat-value">
+                          {group.damage}
+                          {group.count > 1 ? `×${group.count}` : ""}
+                        </span>
+                        {groupIndex < attackGroups.length - 1 && (
+                          <span className="enemy-tooltip__attack-separator">+</span>
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </span>
               <span className="enemy-tooltip__stat">
                 <span className="enemy-tooltip__stat-icon">
