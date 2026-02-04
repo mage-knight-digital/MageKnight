@@ -22,8 +22,11 @@ jobs:
       - name: Cache Bun dependencies
         uses: actions/cache@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            packages/*/node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: |
             bun-${{ runner.os }}-
 
@@ -31,7 +34,9 @@ jobs:
         run: bun install
 
       - name: Build
-        run: bun run build
+        run: |
+          echo "🚀 Building with Bun + Bunup + tsgo..."
+          time bun run build
 
       - name: Lint
         run: bun run lint

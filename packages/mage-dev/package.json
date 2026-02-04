@@ -7,7 +7,8 @@
     "mage-dev": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "bun run ./build.ts",
+    "build:legacy": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "lint": "eslint ."
