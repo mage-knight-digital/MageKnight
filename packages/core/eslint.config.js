@@ -1,16 +1,14 @@
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
+import oxlint from "eslint-plugin-oxlint";
 
 export default tseslint.config(
   eslint.configs.recommended,
-  ...tseslint.configs.strict,
+  // Use recommended (non-type-aware) since oxlint handles type checking
+  ...tseslint.configs.recommended,
+  // Disable rules already covered by oxlint
+  oxlint.configs["flat/recommended"],
   {
-    languageOptions: {
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",

@@ -39,7 +39,11 @@ jobs:
           time bun run build
 
       - name: Lint
-        run: bun run lint
+        run: |
+          echo "🔍 Running oxlint (fast)..."
+          time bun run lint:fast
+          echo "🔍 Running ESLint (custom rules)..."
+          time bun run --parallel --filter '*' lint
 
       - name: Test with Coverage
         run: bun run test:coverage

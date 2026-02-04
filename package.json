@@ -8,7 +8,8 @@
     "build": "bun run --parallel --filter '*' build",
     "test": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test",
     "test:coverage": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test:coverage",
-    "lint": "bun run --parallel --filter '*' lint",
+    "lint": "oxlint packages/*/src && bun run --parallel --filter '*' lint",
+    "lint:fast": "oxlint packages/*/src",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist bun.lockb",
     "dev:client": "bun run --filter @mage-knight/client dev",
     "mage-dev": "bun packages/mage-dev/dist/cli.js"
@@ -18,6 +19,8 @@
     "bun-plugin-isolated-decl": "^0.2.9",
     "bunup": "^0.16.22",
     "eslint": "^9.39.2",
+    "eslint-plugin-oxlint": "^1.43.0",
+    "oxlint": "^1.43.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0"
   }
