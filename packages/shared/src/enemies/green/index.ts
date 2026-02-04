@@ -22,6 +22,7 @@ export { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-n
 export { ENEMY_CORRUPTED_PRIESTS, CORRUPTED_PRIESTS } from "./corrupted-priests.js";
 export { ENEMY_ELEMENTAL_PRIESTS, ELEMENTAL_PRIESTS } from "./elemental-priests.js";
 export { ENEMY_CLOUD_GRIFFONS, CLOUD_GRIFFONS } from "./cloud-griffons.js";
+export { ENEMY_CRYSTAL_SPRITES, CRYSTAL_SPRITES } from "./crystal-sprites.js";
 
 // Import for aggregation
 import { ENEMY_DIGGERS, DIGGERS } from "./diggers.js";
@@ -38,6 +39,7 @@ import { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-n
 import { ENEMY_CORRUPTED_PRIESTS, CORRUPTED_PRIESTS } from "./corrupted-priests.js";
 import { ENEMY_ELEMENTAL_PRIESTS, ELEMENTAL_PRIESTS } from "./elemental-priests.js";
 import { ENEMY_CLOUD_GRIFFONS, CLOUD_GRIFFONS } from "./cloud-griffons.js";
+import { ENEMY_CRYSTAL_SPRITES, CRYSTAL_SPRITES } from "./crystal-sprites.js";
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -56,7 +58,8 @@ export type GreenEnemyId =
   | typeof ENEMY_SHROUDED_NECROMANCERS
   | typeof ENEMY_CORRUPTED_PRIESTS
   | typeof ENEMY_ELEMENTAL_PRIESTS
-  | typeof ENEMY_CLOUD_GRIFFONS;
+  | typeof ENEMY_CLOUD_GRIFFONS
+  | typeof ENEMY_CRYSTAL_SPRITES;
 
 /** All green (Marauding Orc) enemies */
 export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
@@ -74,6 +77,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
   [ENEMY_CORRUPTED_PRIESTS]: CORRUPTED_PRIESTS,
   [ENEMY_ELEMENTAL_PRIESTS]: ELEMENTAL_PRIESTS,
   [ENEMY_CLOUD_GRIFFONS]: CLOUD_GRIFFONS,
+  [ENEMY_CRYSTAL_SPRITES]: CRYSTAL_SPRITES,
 };
 
 // =============================================================================

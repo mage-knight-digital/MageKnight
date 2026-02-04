@@ -128,6 +128,7 @@ export {
   ENEMY_CORRUPTED_PRIESTS,
   ENEMY_ELEMENTAL_PRIESTS,
   GREEN_ENEMIES,
+  ENEMY_CRYSTAL_SPRITES,
   ENEMY_ORC, // Test alias
 } from "./green/index.js";
 
