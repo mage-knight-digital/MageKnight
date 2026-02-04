@@ -21,6 +21,7 @@ export { ENEMY_SKELETAL_WARRIORS, SKELETAL_WARRIORS } from "./skeletal-warriors.
 export { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-necromancers.js";
 export { ENEMY_CORRUPTED_PRIESTS, CORRUPTED_PRIESTS } from "./corrupted-priests.js";
 export { ENEMY_ELEMENTAL_PRIESTS, ELEMENTAL_PRIESTS } from "./elemental-priests.js";
+export { ENEMY_ELVEN_PROTECTORS, ELVEN_PROTECTORS } from "./elven-protectors.js";
 export { ENEMY_CLOUD_GRIFFONS, CLOUD_GRIFFONS } from "./cloud-griffons.js";
 export { ENEMY_CRYSTAL_SPRITES, CRYSTAL_SPRITES } from "./crystal-sprites.js";
 
@@ -38,6 +39,7 @@ import { ENEMY_SKELETAL_WARRIORS, SKELETAL_WARRIORS } from "./skeletal-warriors.
 import { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-necromancers.js";
 import { ENEMY_CORRUPTED_PRIESTS, CORRUPTED_PRIESTS } from "./corrupted-priests.js";
 import { ENEMY_ELEMENTAL_PRIESTS, ELEMENTAL_PRIESTS } from "./elemental-priests.js";
+import { ENEMY_ELVEN_PROTECTORS, ELVEN_PROTECTORS } from "./elven-protectors.js";
 import { ENEMY_CLOUD_GRIFFONS, CLOUD_GRIFFONS } from "./cloud-griffons.js";
 import { ENEMY_CRYSTAL_SPRITES, CRYSTAL_SPRITES } from "./crystal-sprites.js";
 
@@ -58,6 +60,7 @@ export type GreenEnemyId =
   | typeof ENEMY_SHROUDED_NECROMANCERS
   | typeof ENEMY_CORRUPTED_PRIESTS
   | typeof ENEMY_ELEMENTAL_PRIESTS
+  | typeof ENEMY_ELVEN_PROTECTORS
   | typeof ENEMY_CLOUD_GRIFFONS
   | typeof ENEMY_CRYSTAL_SPRITES;
 
@@ -76,6 +79,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
   [ENEMY_SHROUDED_NECROMANCERS]: SHROUDED_NECROMANCERS,
   [ENEMY_CORRUPTED_PRIESTS]: CORRUPTED_PRIESTS,
   [ENEMY_ELEMENTAL_PRIESTS]: ELEMENTAL_PRIESTS,
+  [ENEMY_ELVEN_PROTECTORS]: ELVEN_PROTECTORS,
   [ENEMY_CLOUD_GRIFFONS]: CLOUD_GRIFFONS,
   [ENEMY_CRYSTAL_SPRITES]: CRYSTAL_SPRITES,
 };
