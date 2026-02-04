@@ -14,6 +14,8 @@ import {
   MANA_BLACK,
   TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
+import { isRuleActive } from "../../modifiers/index.js";
+import { RULE_BLACK_AS_ANY_COLOR } from "../../modifierConstants.js";
 import { getCard } from "../../validActions/cards/index.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import {
@@ -164,7 +166,7 @@ export function validateManaDungeonTombRules(
  */
 export function validateManaTimeOfDayWithDungeonOverride(
   state: GameState,
-  _playerId: string,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== PLAY_CARD_ACTION) return valid();
@@ -180,9 +182,10 @@ export function validateManaTimeOfDayWithDungeonOverride(
     return valid();
   }
 
+  const blackAsAnyColor = isRuleActive(state, playerId, RULE_BLACK_AS_ANY_COLOR);
   const rules = getManaTimeRules(state);
   for (const source of manaSources) {
-    if (source.color === MANA_BLACK && !rules.blackAllowed) {
+    if (source.color === MANA_BLACK && !rules.blackAllowed && !blackAsAnyColor) {
       return invalid(BLACK_MANA_DAY, "Black mana cannot be used during the day");
     }
     if (source.color === MANA_GOLD && !rules.goldAllowed) {
