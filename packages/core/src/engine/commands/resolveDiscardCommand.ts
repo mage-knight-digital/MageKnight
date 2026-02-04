@@ -22,6 +22,7 @@ import type { Player } from "../../types/player.js";
 import { RESOLVE_DISCARD_COMMAND } from "./commandTypes.js";
 import { resolveEffect } from "../effects/index.js";
 import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
+import { getActionCardColor } from "../helpers/cardColor.js";
 
 export { RESOLVE_DISCARD_COMMAND };
 
@@ -107,7 +108,8 @@ export function createResolveDiscardCommand(
       // Validate all cards are eligible
       const eligibleCards = getCardsEligibleForDiscardCost(
         player.hand,
-        pendingDiscard.filterWounds
+        pendingDiscard.filterWounds,
+        pendingDiscard.colorMatters ?? false
       );
       for (const cardId of params.cardIds) {
         if (!eligibleCards.includes(cardId)) {
@@ -151,10 +153,30 @@ export function createResolveDiscardCommand(
       };
 
       // Now resolve the thenEffect since the cost was paid
+      let thenEffect = pendingDiscard.thenEffect;
+      if (pendingDiscard.colorMatters) {
+        if (params.cardIds.length !== 1) {
+          throw new Error("DiscardCostEffect with colorMatters requires exactly one discarded card");
+        }
+        const discardedCardId = params.cardIds[0];
+        if (!discardedCardId) {
+          throw new Error("Expected a discarded card ID");
+        }
+        const color = getActionCardColor(discardedCardId);
+        if (!color) {
+          throw new Error(`Discarded card ${discardedCardId} is not a valid action card color`);
+        }
+        const colorEffect = pendingDiscard.thenEffectByColor?.[color];
+        if (!colorEffect) {
+          throw new Error(`No color-matched effect defined for ${color}`);
+        }
+        thenEffect = colorEffect;
+      }
+
       const effectResult = resolveEffect(
         newState,
         params.playerId,
-        pendingDiscard.thenEffect,
+        thenEffect,
         pendingDiscard.sourceCardId
       );
 

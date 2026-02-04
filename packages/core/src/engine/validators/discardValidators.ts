@@ -60,7 +60,7 @@ export const validateDiscardSelection: Validator = (
     return valid(); // Let the other validator handle this
   }
 
-  const { count, optional, filterWounds } = player.pendingDiscard;
+  const { count, optional, filterWounds, colorMatters } = player.pendingDiscard;
   const cardIds = action.cardIds;
 
   // If skipping (empty cardIds), must be optional
@@ -83,7 +83,11 @@ export const validateDiscardSelection: Validator = (
   }
 
   // Check all cards are eligible
-  const eligibleCards = getCardsEligibleForDiscardCost(player.hand, filterWounds);
+  const eligibleCards = getCardsEligibleForDiscardCost(
+    player.hand,
+    filterWounds,
+    colorMatters ?? false
+  );
   for (const cardId of cardIds) {
     if (!eligibleCards.includes(cardId)) {
       return invalid(

@@ -47,6 +47,7 @@ import {
   EFFECT_POLARIZE_MANA,
   MANA_ANY,
   type CombatType,
+  type BasicCardColor,
 } from "./effectTypes.js";
 import type { EffectCondition } from "./conditions.js";
 import type { ScalingFactor } from "./scaling.js";
@@ -449,6 +450,10 @@ export interface DiscardCostEffect {
   readonly optional: boolean;
   /** Effect to resolve after discarding succeeds */
   readonly thenEffect: CardEffect;
+  /** If true, the discarded card color determines which effect resolves */
+  readonly colorMatters?: boolean;
+  /** Per-color effects when colorMatters is true */
+  readonly thenEffectByColor?: Partial<Record<BasicCardColor, CardEffect>>;
   /** If true, wounds cannot be discarded (default: true per standard rules) */
   readonly filterWounds?: boolean;
 }
