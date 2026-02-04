@@ -4,7 +4,8 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, type MageKnightEngine } from "../MageKnightEngine.js";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer, createUnitCombatState } from "./testHelpers.js";
+import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
 import {
   PLAY_CARD_ACTION,
   CARD_PLAYED,
@@ -40,7 +41,6 @@ describe("PLAY_CARD action", () => {
         cardId: CARD_MARCH,
         powered: false,
       });
-
       const updatedPlayer = result.state.players[0];
       expect(updatedPlayer.hand).not.toContain(CARD_MARCH);
       expect(updatedPlayer.hand).toContain(CARD_RAGE);
@@ -59,7 +59,6 @@ describe("PLAY_CARD action", () => {
         cardId: CARD_MARCH,
         powered: false,
       });
-
       expect(result.state.players[0].movePoints).toBe(2);
       expect(result.events).toContainEqual(
         expect.objectContaining({
@@ -118,7 +117,10 @@ describe("PLAY_CARD action", () => {
           block: 0,
         },
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const result = engine.processAction(state, "player1", {
         type: PLAY_CARD_ACTION,
@@ -127,7 +129,7 @@ describe("PLAY_CARD action", () => {
       });
 
       // Rage basic effect is Attack or Block 2 — choice required
-      // For Phase 1, this should indicate choice is needed
+      // In combat, this should indicate a choice is needed
       expect(result.events[0]).toMatchObject({
         type: CARD_PLAYED,
       });

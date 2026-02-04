@@ -4,7 +4,8 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, MageKnightEngine } from "../MageKnightEngine.js";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer, createUnitCombatState } from "./testHelpers.js";
+import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
 import type { ManaSource, SourceDie } from "../../types/mana.js";
 import {
   PLAY_CARD_ACTION,
@@ -597,7 +598,10 @@ describe("Mana powering", () => {
         hand: [CARD_RAGE], // Red card
         crystals: { red: 1, blue: 0, green: 0, white: 0 },
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const action: PlayCardAction = {
         type: PLAY_CARD_ACTION,
@@ -736,6 +740,7 @@ describe("Mana powering", () => {
       const state = createTestGameState({
         players: [player],
         timeOfDay: TIME_OF_DAY_NIGHT,
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
       });
 
       // Try to power with just one mana source - should fail for spells
@@ -770,6 +775,7 @@ describe("Mana powering", () => {
       const state = createTestGameState({
         players: [player],
         timeOfDay: TIME_OF_DAY_NIGHT,
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
       });
 
       // Try to play basic effect without mana - should fail for spells

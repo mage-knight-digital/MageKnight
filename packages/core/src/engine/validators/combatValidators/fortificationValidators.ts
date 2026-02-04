@@ -11,10 +11,7 @@ import { valid, invalid } from "../types.js";
 import {
   DECLARE_ATTACK_ACTION,
   COMBAT_TYPE_SIEGE,
-  ABILITY_FORTIFIED,
-  ABILITY_UNFORTIFIED,
 } from "@mage-knight/shared";
-import type { CombatEnemy } from "../../../types/combat.js";
 import { COMBAT_PHASE_RANGED_SIEGE } from "../../../types/combat.js";
 import { getTotalElementalValue } from "../../../types/player.js";
 import {
@@ -22,7 +19,7 @@ import {
   NO_SIEGE_ATTACK_ACCUMULATED,
 } from "../validationCodes.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
-import { isAbilityNullified } from "../../modifiers/index.js";
+import { getFortificationLevel } from "../../rules/combatTargeting.js";
 
 /**
  * Calculate fortification level for an enemy.
@@ -38,40 +35,10 @@ import { isAbilityNullified } from "../../modifiers/index.js";
  *
  * @param enemy - The combat enemy to check
  * @param isAtFortifiedSite - Whether the combat is at a fortified site
- * @param state - Optional game state for checking ability nullifier modifiers
- * @param playerId - Optional player ID for checking ability nullifier modifiers
+ * @param state - Game state for checking ability nullifier modifiers
+ * @param playerId - Player ID for checking ability nullifier modifiers
  */
-export function getFortificationLevel(
-  enemy: CombatEnemy,
-  isAtFortifiedSite: boolean,
-  state?: GameState,
-  playerId?: string
-): number {
-  // Check if ABILITY_FORTIFIED is nullified by a modifier (e.g., Expose spell)
-  const isFortifiedNullified =
-    state && playerId
-      ? isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_FORTIFIED)
-      : false;
-
-  const hasAbilityFortified =
-    enemy.definition.abilities.includes(ABILITY_FORTIFIED) && !isFortifiedNullified;
-  const hasUnfortified = enemy.definition.abilities.includes(ABILITY_UNFORTIFIED);
-
-  // Site fortification only applies to site defenders (isRequiredForConquest: true)
-  // Provoked rampaging enemies do NOT get site fortification per rulebook
-  const isSiteDefender = enemy.isRequiredForConquest;
-
-  // ABILITY_UNFORTIFIED negates site fortification
-  // The ABILITY_NULLIFIER for FORTIFIED also negates site fortification per Expose spell rules
-  const effectiveSiteFortification =
-    isAtFortifiedSite && isSiteDefender && !hasUnfortified && !isFortifiedNullified;
-
-  let level = 0;
-  if (effectiveSiteFortification) level += 1;
-  if (hasAbilityFortified) level += 1;
-
-  return level;
-}
+export { getFortificationLevel };
 
 // Fortified enemies can only be attacked with Siege in Ranged/Siege phase
 export function validateFortification(

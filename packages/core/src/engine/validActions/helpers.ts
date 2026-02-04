@@ -109,6 +109,20 @@ export function isPlayerTurnsPhase(state: GameState): boolean {
 }
 
 /**
+ * Check if the player must announce end of round (deck + hand empty, not announced).
+ */
+export function mustAnnounceEndOfRound(
+  state: GameState,
+  player: Player
+): boolean {
+  return (
+    state.endOfRoundAnnouncedBy === null &&
+    player.deck.length === 0 &&
+    player.hand.length === 0
+  );
+}
+
+/**
  * Build the reason string for why a player can't act.
  */
 export function getCannotActReason(

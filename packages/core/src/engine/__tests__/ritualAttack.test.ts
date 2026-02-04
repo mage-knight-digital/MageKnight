@@ -4,7 +4,8 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, type MageKnightEngine } from "../MageKnightEngine.js";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer, createUnitCombatState } from "./testHelpers.js";
+import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
 import { getValidActions } from "../validActions/index.js";
 import {
   PLAY_CARD_ACTION,
@@ -64,7 +65,10 @@ describe("Ritual Attack", () => {
       const player = createTestPlayer({
         hand: [CARD_RITUAL_ATTACK, testCase.discard],
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const playResult = engine.processAction(state, "player1", {
         type: PLAY_CARD_ACTION,
@@ -121,7 +125,10 @@ describe("Ritual Attack", () => {
         hand: [CARD_RITUAL_ATTACK, testCase.discard],
         pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_CARD }],
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const playResult = engine.processAction(state, "player1", {
         type: PLAY_CARD_ACTION,
@@ -146,7 +153,10 @@ describe("Ritual Attack", () => {
     const player = createTestPlayer({
       hand: [CARD_RITUAL_ATTACK, CARD_RAGE, CARD_FIREBALL],
     });
-    const state = createTestGameState({ players: [player] });
+    const state = createTestGameState({
+      players: [player],
+      combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+    });
 
     const playResult = engine.processAction(state, "player1", {
       type: PLAY_CARD_ACTION,
@@ -163,7 +173,10 @@ describe("Ritual Attack", () => {
     const player = createTestPlayer({
       hand: [CARD_RITUAL_ATTACK, CARD_RAGE, CARD_FIREBALL],
     });
-    const state = createTestGameState({ players: [player] });
+    const state = createTestGameState({
+      players: [player],
+      combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+    });
 
     const playResult = engine.processAction(state, "player1", {
       type: PLAY_CARD_ACTION,

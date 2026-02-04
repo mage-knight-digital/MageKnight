@@ -7,7 +7,14 @@ import type { PlayerAction, HexCoord } from "@mage-knight/shared";
 import { MOVE_ACTION } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
-import { getEffectiveTerrainCost, isTerrainProhibited } from "../modifiers/index.js";
+import {
+  evaluateMoveEntry,
+  getHexAtCoord,
+  MOVE_ENTRY_BLOCK_CITY,
+  MOVE_ENTRY_BLOCK_IMPASSABLE,
+  MOVE_ENTRY_BLOCK_RAMPAGING,
+  MOVE_ENTRY_BLOCK_TERRAIN_PROHIBITED,
+} from "../rules/movement.js";
 import {
   HEX_NOT_FOUND,
   IMPASSABLE,
@@ -20,7 +27,6 @@ import {
   CANNOT_ENTER_CITY,
   TERRAIN_PROHIBITED,
 } from "./validationCodes.js";
-import { SiteType } from "../../types/map.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 
 // Helper to get target from action (type guard)
@@ -92,8 +98,7 @@ export function validateTargetHexExists(
     return invalid(INVALID_ACTION_CODE, "Invalid move action");
   }
 
-  const hexKey = `${target.q},${target.r}`;
-  const hex = state.map.hexes[hexKey];
+  const hex = getHexAtCoord(state, target);
   if (!hex) {
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
@@ -111,14 +116,13 @@ export function validateTerrainPassable(
     return invalid(INVALID_ACTION_CODE, "Invalid move action");
   }
 
-  const hexKey = `${target.q},${target.r}`;
-  const hex = state.map.hexes[hexKey];
+  const hex = getHexAtCoord(state, target);
   if (!hex) {
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  const cost = getEffectiveTerrainCost(state, hex.terrain, playerId);
-  if (cost === Infinity) {
+  const { reason } = evaluateMoveEntry(state, playerId, hex);
+  if (reason === MOVE_ENTRY_BLOCK_IMPASSABLE) {
     return invalid(IMPASSABLE, "Target terrain is impassable");
   }
   return valid();
@@ -137,13 +141,16 @@ export function validateEnoughMovePoints(
     return invalid(INVALID_ACTION_CODE, "Invalid move action");
   }
 
-  const hexKey = `${target.q},${target.r}`;
-  const hex = state.map.hexes[hexKey];
+  const hex = getHexAtCoord(state, target);
   if (!hex) {
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  const cost = getEffectiveTerrainCost(state, hex.terrain, playerId);
+  const { cost, reason } = evaluateMoveEntry(state, playerId, hex);
+  if (reason !== null) {
+    return valid();
+  }
+
   if (player.movePoints < cost) {
     return invalid(
       NOT_ENOUGH_MOVE_POINTS,
@@ -162,7 +169,7 @@ export function validateEnoughMovePoints(
  */
 export function validateNotBlockedByRampaging(
   state: GameState,
-  _playerId: string,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   const target = getMoveTarget(action);
@@ -170,16 +177,13 @@ export function validateNotBlockedByRampaging(
     return invalid(INVALID_ACTION_CODE, "Invalid move action");
   }
 
-  const hexKey = `${target.q},${target.r}`;
-  const hex = state.map.hexes[hexKey];
+  const hex = getHexAtCoord(state, target);
   if (!hex) {
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  // Check if hex has rampaging enemies that haven't been defeated
-  // Rampaging enemies are indicated by rampagingEnemies array AND
-  // actual enemy tokens in the enemies array
-  if (hex.rampagingEnemies.length > 0 && hex.enemies.length > 0) {
+  const { reason } = evaluateMoveEntry(state, playerId, hex);
+  if (reason === MOVE_ENTRY_BLOCK_RAMPAGING) {
     return invalid(
       RAMPAGING_ENEMY_BLOCKS,
       "Cannot enter hex with rampaging enemies"
@@ -197,7 +201,7 @@ export function validateNotBlockedByRampaging(
  */
 export function validateCityEntryAllowed(
   state: GameState,
-  _playerId: string,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   const target = getMoveTarget(action);
@@ -205,21 +209,17 @@ export function validateCityEntryAllowed(
     return invalid(INVALID_ACTION_CODE, "Invalid move action");
   }
 
-  const hexKey = `${target.q},${target.r}`;
-  const hex = state.map.hexes[hexKey];
+  const hex = getHexAtCoord(state, target);
   if (!hex) {
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  // Check if hex has a city site
-  if (hex.site?.type === SiteType.City) {
-    // Check scenario rules for city entry
-    if (!state.scenarioConfig.citiesCanBeEntered) {
-      return invalid(
-        CANNOT_ENTER_CITY,
-        "In this scenario, you can reveal the city but cannot enter it"
-      );
-    }
+  const { reason } = evaluateMoveEntry(state, playerId, hex);
+  if (reason === MOVE_ENTRY_BLOCK_CITY) {
+    return invalid(
+      CANNOT_ENTER_CITY,
+      "In this scenario, you can reveal the city but cannot enter it"
+    );
   }
 
   return valid();
@@ -242,13 +242,13 @@ export function validateNoTerrainProhibition(
     return invalid(INVALID_ACTION_CODE, "Invalid move action");
   }
 
-  const hexKey = `${target.q},${target.r}`;
-  const hex = state.map.hexes[hexKey];
+  const hex = getHexAtCoord(state, target);
   if (!hex) {
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  if (isTerrainProhibited(state, playerId, hex.terrain)) {
+  const { reason } = evaluateMoveEntry(state, playerId, hex);
+  if (reason === MOVE_ENTRY_BLOCK_TERRAIN_PROHIBITED) {
     return invalid(
       TERRAIN_PROHIBITED,
       `Cannot enter ${hex.terrain} terrain (prohibited by card effect)`

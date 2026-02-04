@@ -41,6 +41,7 @@ import {
 import { getUnitOptions } from "./recruitment.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
 import { isEffectResolvable } from "../../effects/index.js";
+import { mustAnnounceEndOfRound } from "../helpers.js";
 
 /**
  * Passive abilities that cannot be manually activated.
@@ -200,6 +201,11 @@ export function getActivatableUnits(
   combat: CombatState | null
 ): ActivatableUnit[] {
   const activatable: ActivatableUnit[] = [];
+
+  // Must announce end of round before taking other actions
+  if (mustAnnounceEndOfRound(state, player)) {
+    return activatable;
+  }
 
   // Check dungeon/tomb restriction
   const unitsAllowed = combat === null || combat.unitsAllowed;

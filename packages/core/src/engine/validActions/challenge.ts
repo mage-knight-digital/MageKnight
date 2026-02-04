@@ -9,7 +9,7 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { ChallengeOptions, HexCoord } from "@mage-knight/shared";
 import { getAllNeighbors, hexKey } from "@mage-knight/shared";
-import { isInCombat } from "./helpers.js";
+import { isInCombat, mustAnnounceEndOfRound } from "./helpers.js";
 
 /**
  * Get challenge options for a player.
@@ -27,6 +27,16 @@ export function getChallengeOptions(
 ): ChallengeOptions | undefined {
   // Must be on the map
   if (!player.position) {
+    return undefined;
+  }
+
+  // Must announce end of round before taking other actions
+  if (mustAnnounceEndOfRound(state, player)) {
+    return undefined;
+  }
+
+  // Can't challenge while resting
+  if (player.isResting) {
     return undefined;
   }
 

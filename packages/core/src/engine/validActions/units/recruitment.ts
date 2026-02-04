@@ -29,6 +29,7 @@ import {
   type UnitDefinition,
 } from "@mage-knight/shared";
 import { SiteType } from "../../../types/map.js";
+import { mustAnnounceEndOfRound } from "../helpers.js";
 
 /**
  * Reputation cost modifier based on player's reputation track position.
@@ -245,6 +246,11 @@ export function getUnitOptions(
 ): UnitOptions | undefined {
   // Player must be on the map
   if (!player.position) {
+    return undefined;
+  }
+
+  // Must announce end of round before taking other actions
+  if (mustAnnounceEndOfRound(state, player)) {
     return undefined;
   }
 

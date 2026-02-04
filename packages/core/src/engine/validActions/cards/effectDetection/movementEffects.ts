@@ -37,7 +37,11 @@ export function effectHasMove(effect: CardEffect): boolean {
       return effectHasMove(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasMove(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasMove(next)
+          )
+        : effectHasMove(effect.thenEffect);
 
     default:
       return false;
@@ -66,7 +70,11 @@ export function effectHasInfluence(effect: CardEffect): boolean {
       return effectHasInfluence(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasInfluence(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasInfluence(next)
+          )
+        : effectHasInfluence(effect.thenEffect);
 
     default:
       return false;

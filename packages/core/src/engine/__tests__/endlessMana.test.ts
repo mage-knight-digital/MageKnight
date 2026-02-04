@@ -19,6 +19,7 @@ import {
   MANA_BLUE,
   MANA_BLACK,
   MANA_GREEN,
+  TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 import { createTestPlayer } from "./testHelpers.js";
 import { addModifier } from "../modifiers/lifecycle.js";
@@ -57,6 +58,7 @@ describe("Endless Mana Supply System", () => {
     it("should apply endless mana modifier for a turn", () => {
       const player = createTestPlayer({ id: "player1" });
       let state = createMinimalState([player]);
+      state = { ...state, timeOfDay: TIME_OF_DAY_NIGHT };
 
       const endlessManaEffect: EndlessManaModifier = {
         type: EFFECT_ENDLESS_MANA,
@@ -79,6 +81,7 @@ describe("Endless Mana Supply System", () => {
     it("should query endless mana colors correctly", () => {
       const player = createTestPlayer({ id: "player1" });
       let state = createMinimalState([player]);
+      state = { ...state, timeOfDay: TIME_OF_DAY_NIGHT };
 
       const endlessManaEffect: EndlessManaModifier = {
         type: EFFECT_ENDLESS_MANA,
@@ -103,6 +106,7 @@ describe("Endless Mana Supply System", () => {
     it("should check hasEndlessMana for specific colors", () => {
       const player = createTestPlayer({ id: "player1" });
       let state = createMinimalState([player]);
+      state = { ...state, timeOfDay: TIME_OF_DAY_NIGHT };
 
       const endlessManaEffect: EndlessManaModifier = {
         type: EFFECT_ENDLESS_MANA,
@@ -130,6 +134,7 @@ describe("Endless Mana Supply System", () => {
         crystals: { red: 0, blue: 0, green: 0, white: 0 }, // No crystals
       });
       let state = createMinimalState([player]);
+      state = { ...state, timeOfDay: TIME_OF_DAY_NIGHT };
 
       // Without endless mana, can't pay
       expect(canPayForMana(state, player, MANA_RED)).toBe(false);
@@ -193,6 +198,7 @@ describe("Endless Mana Supply System", () => {
         crystals: { red: 0, blue: 0, green: 0, white: 0 },
       });
       let state = createMinimalState([player]);
+      state = { ...state, timeOfDay: TIME_OF_DAY_NIGHT };
 
       // Without endless mana, can't pay for spell (black + color)
       expect(canPayForTwoMana(state, player, MANA_BLACK, MANA_BLUE)).toBe(false);
@@ -224,6 +230,7 @@ describe("Endless Mana Supply System", () => {
         crystals: { red: 0, blue: 0, green: 0, white: 0 },
       });
       let state = createMinimalState([player]);
+      state = { ...state, timeOfDay: TIME_OF_DAY_NIGHT };
 
       // Add endless mana for just black
       const endlessManaEffect: EndlessManaModifier = {

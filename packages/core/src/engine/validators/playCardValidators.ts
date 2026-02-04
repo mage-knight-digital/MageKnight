@@ -8,7 +8,6 @@ import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import { PLAY_CARD_ACTION } from "@mage-knight/shared";
 import { getCard } from "../validActions/cards/index.js";
-import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import {
   CARD_NOT_IN_HAND,
   CARD_NOT_FOUND,
@@ -16,13 +15,20 @@ import {
   CANNOT_PLAY_HEALING_IN_COMBAT,
   PLAYER_NOT_FOUND,
   INVALID_ACTION_CODE,
+  CARD_NOT_PLAYABLE,
+  CARD_NOT_PLAYABLE_IN_PHASE,
+  CARD_EFFECT_NOT_RESOLVABLE,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
+import { isEffectResolvable } from "../effects/index.js";
 import {
-  getEffectCategories,
-  isHealingOnlyCategories,
-  type CardEffectKind,
-} from "../helpers/cardCategoryHelpers.js";
+  getCombatEffectContext,
+  isCombatEffectAllowed,
+  isHealingOnlyInCombat,
+  isNormalEffectAllowed,
+  isWoundCardId,
+} from "../rules/cardPlay.js";
 
 function getCardId(action: PlayerAction): CardId | null {
   if (action.type === PLAY_CARD_ACTION && "cardId" in action) {
@@ -92,7 +98,7 @@ export function validateNotWound(
     return valid();
   }
 
-  if (card.cardType === DEED_CARD_TYPE_WOUND) {
+  if (isWoundCardId(cardId, card)) {
     return invalid(
       CANNOT_PLAY_WOUND,
       "Wound cards cannot be played for their effect"
@@ -126,12 +132,67 @@ export function validateNoHealingCardInCombat(
   }
 
   const effectKind: CardEffectKind = action.powered ? "powered" : "basic";
-  const categories = getEffectCategories(card, effectKind);
-
-  if (isHealingOnlyCategories(categories)) {
+  if (isHealingOnlyInCombat(card, effectKind)) {
     return invalid(
       CANNOT_PLAY_HEALING_IN_COMBAT,
       "Healing cards cannot be played during combat"
+    );
+  }
+
+  return valid();
+}
+
+// Validate that the card's effect is playable in the current context (combat phase or normal turn)
+export function validateCardPlayableInContext(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== PLAY_CARD_ACTION) {
+    return valid();
+  }
+
+  const card = getCard(action.cardId);
+  if (!card) {
+    return valid();
+  }
+
+  const effectKind: CardEffectKind = action.powered ? "powered" : "basic";
+
+  if (state.combat) {
+    const context = getCombatEffectContext(card, effectKind);
+    const phase = state.combat.phase;
+
+    if (!isCombatEffectAllowed(context.effect, phase, context.allowAnyPhase)) {
+      return invalid(
+        CARD_NOT_PLAYABLE_IN_PHASE,
+        `Card cannot be played in ${phase} phase`
+      );
+    }
+
+    if (context.effect && !isEffectResolvable(state, playerId, context.effect)) {
+      return invalid(
+        CARD_EFFECT_NOT_RESOLVABLE,
+        "Card effect cannot be resolved right now"
+      );
+    }
+
+    return valid();
+  }
+
+  const effect = effectKind === "basic" ? card.basicEffect : card.poweredEffect;
+
+  if (!isNormalEffectAllowed(effect, effectKind)) {
+    return invalid(
+      CARD_NOT_PLAYABLE,
+      "Card cannot be played outside combat"
+    );
+  }
+
+  if (!isEffectResolvable(state, playerId, effect)) {
+    return invalid(
+      CARD_EFFECT_NOT_RESOLVABLE,
+      "Card effect cannot be resolved right now"
     );
   }
 

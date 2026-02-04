@@ -12,7 +12,6 @@ import {
   DECLARE_BLOCK_ACTION,
   DECLARE_ATTACK_ACTION,
   ASSIGN_DAMAGE_ACTION,
-  ABILITY_ASSASSINATION,
   DAMAGE_TARGET_UNIT,
 } from "@mage-knight/shared";
 import {
@@ -25,7 +24,7 @@ import {
   ATTACK_ALREADY_BLOCKED,
   ATTACK_DAMAGE_ALREADY_ASSIGNED,
 } from "../validationCodes.js";
-import { isAbilityNullified } from "../../modifiers/index.js";
+import { isAssassinationActive } from "../../rules/combatTargeting.js";
 import {
   getEnemyAttackCount,
   isAttackBlocked,
@@ -207,14 +206,7 @@ export function validateAssassinationTarget(
     return valid();
   }
 
-  // Check if enemy has Assassination ability
-  const hasAssassination = enemy.definition.abilities.includes(ABILITY_ASSASSINATION);
-  if (!hasAssassination) {
-    return valid();
-  }
-
-  // Check if ability is nullified
-  if (isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_ASSASSINATION)) {
+  if (!isAssassinationActive(state, playerId, enemy)) {
     return valid();
   }
 

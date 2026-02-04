@@ -23,7 +23,6 @@ import {
   ATTACK_ELEMENT_FIRE,
   ATTACK_ELEMENT_ICE,
   ATTACK_ELEMENT_COLD_FIRE,
-  ABILITY_FORTIFIED,
 } from "@mage-knight/shared";
 import type { CombatEnemy, CombatState } from "../../types/combat.js";
 import { createEmptyPendingDamage } from "../../types/combat.js";
@@ -33,7 +32,8 @@ import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
-import { isAbilityNullified, getBaseArmorForPhase, getEffectiveEnemyArmor } from "../modifiers/index.js";
+import { getBaseArmorForPhase, getEffectiveEnemyArmor } from "../modifiers/index.js";
+import { getFortificationLevel } from "../rules/combatTargeting.js";
 import {
   getEnemyResistances,
   calculateEffectiveDamage,
@@ -129,16 +129,13 @@ export function computeEnemyAttackState(
   const armor = getEffectiveEnemyArmor(state, enemy.instanceId, baseArmor, resistanceCount, playerId);
   const canDefeat = totalEffectiveDamage >= armor;
 
-  // Determine if enemy is fortified - check both site fortification and enemy ability
-  // Consider fortification removal by modifiers (Expose spell)
-  const hasAbilityFortified =
-    enemy.definition.abilities.includes(ABILITY_FORTIFIED) &&
-    !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_FORTIFIED);
-  const hasSiteFortification =
-    combat.isAtFortifiedSite &&
-    enemy.isRequiredForConquest &&
-    !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_FORTIFIED);
-  const isFortified = hasAbilityFortified || hasSiteFortification;
+  const fortificationLevel = getFortificationLevel(
+    enemy,
+    combat.isAtFortifiedSite,
+    state,
+    playerId
+  );
+  const isFortified = fortificationLevel > 0;
   const requiresSiege = isRangedSiegePhase && isFortified;
 
   return {

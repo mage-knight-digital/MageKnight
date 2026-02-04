@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, type MageKnightEngine } from "../MageKnightEngine.js";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer, createUnitCombatState } from "./testHelpers.js";
 import {
   PLAY_CARD_SIDEWAYS_ACTION,
   PLAY_SIDEWAYS_AS_MOVE,
@@ -20,6 +20,7 @@ import {
   CARD_WOUND,
   CARD_PROMISE,
 } from "@mage-knight/shared";
+import { COMBAT_PHASE_BLOCK, COMBAT_PHASE_RANGED_SIEGE } from "../../types/combat.js";
 import type { ActiveModifier } from "../../types/modifiers.js";
 import {
   DURATION_TURN,
@@ -179,6 +180,52 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
         expect.objectContaining({
           type: INVALID_ACTION,
           reason: "Card is not in your hand",
+        })
+      );
+    });
+
+    it("should reject sideways move during combat block phase", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+      });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_SIDEWAYS_ACTION,
+        cardId: CARD_MARCH,
+        as: PLAY_SIDEWAYS_AS_MOVE,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: expect.stringContaining("Invalid sideways choice"),
+        })
+      );
+    });
+
+    it("should reject sideways play during ranged/siege phase", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+      });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_SIDEWAYS_ACTION,
+        cardId: CARD_MARCH,
+        as: PLAY_SIDEWAYS_AS_ATTACK,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: expect.stringContaining("Sideways play is not allowed in this phase"),
         })
       );
     });

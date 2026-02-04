@@ -42,7 +42,11 @@ export function effectHasRangedOrSiege(effect: CardEffect): boolean {
       return effectHasRangedOrSiege(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasRangedOrSiege(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasRangedOrSiege(next)
+          )
+        : effectHasRangedOrSiege(effect.thenEffect);
 
     default:
       return false;
@@ -72,7 +76,11 @@ export function effectHasBlock(effect: CardEffect): boolean {
       return effectHasBlock(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasBlock(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasBlock(next)
+          )
+        : effectHasBlock(effect.thenEffect);
 
     default:
       return false;
@@ -101,7 +109,11 @@ export function effectHasAttack(effect: CardEffect): boolean {
       return effectHasAttack(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasAttack(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasAttack(next)
+          )
+        : effectHasAttack(effect.thenEffect);
 
     default:
       return false;

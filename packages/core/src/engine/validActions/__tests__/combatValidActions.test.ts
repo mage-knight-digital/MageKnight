@@ -17,6 +17,7 @@ import {
   ENEMY_PROWLERS,
   ENEMY_FIRE_MAGES,
   ENEMY_DIGGERS,
+  ENEMY_ORC_WAR_BEASTS,
   ENEMY_IRONCLADS,
   ENEMY_SORCERERS,
   ENEMY_DELPHANA_MASTERS,
@@ -31,6 +32,7 @@ import {
   UNIT_FIRE_GOLEMS,
   ELEMENT_PHYSICAL,
   ABILITY_ASSASSINATION,
+  ABILITY_FORTIFIED,
 } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../../types/unit.js";
 import {
@@ -353,6 +355,37 @@ describe("getCombatOptions", () => {
       const options = getCombatOptions(state);
 
       expect(options?.enemies?.[0].isFortified).toBe(true);
+      expect(options?.enemies?.[0].requiresSiege).toBe(false);
+    });
+
+    it("should not mark unfortified enemies as fortified at fortified site", () => {
+      const state = setupCombatState(
+        [ENEMY_ORC_WAR_BEASTS],
+        COMBAT_PHASE_RANGED_SIEGE,
+        true
+      );
+
+      const options = getCombatOptions(state);
+
+      expect(options?.enemies?.[0].isFortified).toBe(false);
+      expect(options?.enemies?.[0].requiresSiege).toBe(false);
+    });
+
+    it("should clear fortification when fortified ability is nullified", () => {
+      let state = setupCombatState([ENEMY_DIGGERS], COMBAT_PHASE_RANGED_SIEGE, true);
+
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, id: "test_skill" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: "enemy_0" },
+        effect: { type: EFFECT_ABILITY_NULLIFIER, ability: ABILITY_FORTIFIED },
+        createdByPlayerId: "player1",
+        createdAtRound: state.round,
+      });
+
+      const options = getCombatOptions(state);
+
+      expect(options?.enemies?.[0].isFortified).toBe(false);
       expect(options?.enemies?.[0].requiresSiege).toBe(false);
     });
   });

@@ -20,6 +20,7 @@ import {
   MANA_SOURCE_TOKEN,
   MANA_BLACK,
   MANA_WHITE,
+  TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 import { addModifier } from "../modifiers/index.js";
 import {
@@ -181,7 +182,7 @@ describe("Combat Modifiers", () => {
   describe("Fame tracking from spell defeats", () => {
     it("should track fame gained in combat.fameGained when spell defeats enemy", () => {
       // Set up combat with Diggers (2 fame)
-      let state = createTestGameState();
+      let state = createTestGameState({ timeOfDay: TIME_OF_DAY_NIGHT });
       state = engine.processAction(state, "player1", {
         type: ENTER_COMBAT_ACTION,
         enemyIds: [ENEMY_DIGGERS],
@@ -213,6 +214,7 @@ describe("Combat Modifiers", () => {
           ? {
               ...state.combat,
               pendingTargetEnemy: "enemy_0",
+              phase: COMBAT_PHASE_ATTACK,
             }
           : null,
       };

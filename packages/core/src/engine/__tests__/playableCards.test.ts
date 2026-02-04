@@ -582,7 +582,11 @@ describe("getPlayableCardsForCombat", () => {
       });
       // Need enemy for Whirlwind to target - combat must be in state for isEffectResolvable
       const combat = createTestCombat(COMBAT_PHASE_ATTACK, true); // Powered requires attack phase
-      const state = createTestGameState({ players: [player], combat });
+      const state = createTestGameState({
+        players: [player],
+        combat,
+        timeOfDay: TIME_OF_DAY_NIGHT,
+      });
 
       const result = getPlayableCardsForCombat(state, player, combat);
 

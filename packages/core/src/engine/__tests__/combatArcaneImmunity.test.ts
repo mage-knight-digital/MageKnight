@@ -32,6 +32,7 @@ import {
   MANA_SOURCE_TOKEN,
   MANA_BLACK,
   MANA_WHITE,
+  TIME_OF_DAY_NIGHT,
   ABILITY_ARCANE_IMMUNITY,
   getEnemy,
 } from "@mage-knight/shared";
@@ -46,6 +47,7 @@ import {
   SOURCE_SKILL,
   EFFECT_ENEMY_SKIP_ATTACK,
 } from "../../types/modifierConstants.js";
+import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
 
 describe("Arcane Immunity", () => {
   let engine: MageKnightEngine;
@@ -80,7 +82,10 @@ describe("Arcane Immunity", () => {
           { color: MANA_WHITE, source: "die" as const },
         ],
       });
-      let state = createTestGameState({ players: [player] });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+      });
 
       // Enter combat with Sorcerers (has Arcane Immunity)
       state = engine.processAction(state, "player1", {
@@ -111,6 +116,7 @@ describe("Arcane Immunity", () => {
           ? {
               ...state.combat,
               pendingTargetEnemy: "enemy_0",
+              phase: COMBAT_PHASE_ATTACK,
             }
           : null,
       };
@@ -141,7 +147,10 @@ describe("Arcane Immunity", () => {
           { color: MANA_WHITE, source: "die" as const },
         ],
       });
-      let state = createTestGameState({ players: [player] });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+      });
 
       // Enter combat with Diggers (no Arcane Immunity)
       state = engine.processAction(state, "player1", {
@@ -172,6 +181,7 @@ describe("Arcane Immunity", () => {
           ? {
               ...state.combat,
               pendingTargetEnemy: "enemy_0",
+              phase: COMBAT_PHASE_ATTACK,
             }
           : null,
       };

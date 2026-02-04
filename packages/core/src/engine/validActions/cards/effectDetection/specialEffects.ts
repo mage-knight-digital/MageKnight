@@ -41,7 +41,11 @@ export function effectHasManaDrawPowered(effect: CardEffect): boolean {
       return effectHasManaDrawPowered(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasManaDrawPowered(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasManaDrawPowered(next)
+          )
+        : effectHasManaDrawPowered(effect.thenEffect);
 
     default:
       return false;
@@ -71,7 +75,11 @@ export function effectHasCrystal(effect: CardEffect): boolean {
       return effectHasCrystal(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasCrystal(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasCrystal(next)
+          )
+        : effectHasCrystal(effect.thenEffect);
 
     default:
       return false;
@@ -100,7 +108,11 @@ export function effectHasCardBoost(effect: CardEffect): boolean {
       return effectHasCardBoost(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasCardBoost(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasCardBoost(next)
+          )
+        : effectHasCardBoost(effect.thenEffect);
 
     default:
       return false;
@@ -129,7 +141,11 @@ export function effectHasEnemyTargeting(effect: CardEffect): boolean {
       return effectHasEnemyTargeting(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasEnemyTargeting(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasEnemyTargeting(next)
+          )
+        : effectHasEnemyTargeting(effect.thenEffect);
 
     default:
       return false;

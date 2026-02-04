@@ -25,7 +25,7 @@ import {
   ENEMIES,
   ENEMY_COLOR_BROWN,
   UNIT_PEASANTS,
-  CARD_STAMINA,
+  CARD_RAGE,
 } from "@mage-knight/shared";
 import type { EnemyId } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
@@ -33,7 +33,7 @@ import type { Site, HexState } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
 import { createEnemyTokenPiles, resetTokenCounter } from "../helpers/enemy/index.js";
 import { createRng } from "../../utils/rng.js";
-import { createCombatState } from "../../types/combat.js";
+import { COMBAT_PHASE_ATTACK, createCombatState } from "../../types/combat.js";
 import type { Player } from "../../types/player.js";
 import type { PlayerUnit } from "../../types/unit.js";
 
@@ -223,20 +223,26 @@ describe("Dungeon/Tomb combat restrictions", () => {
       const player = state.players[0];
       if (!player) throw new Error("Player not found");
 
-      // Add a card to hand
+      // Add a combat card to hand (must be playable in combat)
       const updatedPlayer: Player = {
         ...player,
-        hand: [CARD_STAMINA],
+        hand: [CARD_RAGE],
       };
 
       const stateWithCard: GameState = {
         ...state,
         players: [updatedPlayer],
+        combat: state.combat
+          ? {
+              ...state.combat,
+              phase: COMBAT_PHASE_ATTACK,
+            }
+          : null,
       };
 
       const result = engine.processAction(stateWithCard, "player1", {
         type: PLAY_CARD_ACTION,
-        cardId: CARD_STAMINA,
+        cardId: CARD_RAGE,
         powered: true,
         manaSource: {
           type: MANA_SOURCE_TOKEN,
@@ -262,21 +268,27 @@ describe("Dungeon/Tomb combat restrictions", () => {
       const player = state.players[0];
       if (!player) throw new Error("Player not found");
 
-      // Add a card to hand (note: black can't power action cards normally,
+      // Add a combat card to hand (note: black can't power action cards normally,
       // but should NOT be rejected by time-of-day check)
       const updatedPlayer: Player = {
         ...player,
-        hand: [CARD_STAMINA],
+        hand: [CARD_RAGE],
       };
 
       const stateWithCard: GameState = {
         ...state,
         players: [updatedPlayer],
+        combat: state.combat
+          ? {
+              ...state.combat,
+              phase: COMBAT_PHASE_ATTACK,
+            }
+          : null,
       };
 
       const result = engine.processAction(stateWithCard, "player1", {
         type: PLAY_CARD_ACTION,
-        cardId: CARD_STAMINA,
+        cardId: CARD_RAGE,
         powered: true,
         manaSource: {
           type: MANA_SOURCE_TOKEN,
@@ -308,20 +320,26 @@ describe("Dungeon/Tomb combat restrictions", () => {
       const player = state.players[0];
       if (!player) throw new Error("Player not found");
 
-      // Add a green card to hand (gold matches green during day)
+      // Add a combat card to hand (gold matches any color during day)
       const updatedPlayer: Player = {
         ...player,
-        hand: [CARD_STAMINA], // Stamina is green
+        hand: [CARD_RAGE], // Rage is red
       };
 
       const stateWithCard: GameState = {
         ...state,
         players: [updatedPlayer],
+        combat: state.combat
+          ? {
+              ...state.combat,
+              phase: COMBAT_PHASE_ATTACK,
+            }
+          : null,
       };
 
       const result = engine.processAction(stateWithCard, "player1", {
         type: PLAY_CARD_ACTION,
-        cardId: CARD_STAMINA,
+        cardId: CARD_RAGE,
         powered: true,
         manaSource: {
           type: MANA_SOURCE_TOKEN,

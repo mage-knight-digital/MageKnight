@@ -17,6 +17,7 @@ import { canUndo } from "../commandStack.js";
 import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import type { BasicActionCardId } from "@mage-knight/shared";
+import { mustAnnounceEndOfRound } from "./helpers.js";
 
 /**
  * Check if a card is a wound
@@ -34,8 +35,9 @@ function isWoundCard(cardId: string): boolean {
  * Get available turn options for a player.
  */
 export function getTurnOptions(state: GameState, player: Player): TurnOptions {
+  const mustAnnounce = mustAnnounceEndOfRound(state, player);
   const canDeclareRest = checkCanDeclareRest(state, player);
-  const canCompleteRest = checkCanCompleteRest(state, player);
+  const canCompleteRest = checkCanCompleteRest(state, player) && !mustAnnounce;
 
   return {
     canEndTurn: checkCanEndTurn(state, player),
@@ -66,6 +68,26 @@ function checkCanEndTurn(_state: GameState, player: Player): boolean {
 
   // Can't end turn with pending glade wound choice
   if (player.pendingGladeWoundChoice) {
+    return false;
+  }
+
+  // Can't end turn while resting
+  if (player.isResting) {
+    return false;
+  }
+
+  // Can't end turn with pending level up rewards
+  if (player.pendingLevelUpRewards.length > 0) {
+    return false;
+  }
+
+  // Can't end turn with pending site rewards
+  if (player.pendingRewards.length > 0) {
+    return false;
+  }
+
+  // Must play or discard at least one card from hand if any are held
+  if (player.hand.length > 0 && !player.playedCardFromHandThisTurn) {
     return false;
   }
 
