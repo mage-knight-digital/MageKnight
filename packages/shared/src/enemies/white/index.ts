@@ -12,6 +12,7 @@ export { ENEMY_THUGS, THUGS } from "./thugs.js";
 export { ENEMY_SHOCKTROOPS, SHOCKTROOPS } from "./shocktroops.js";
 export { ENEMY_FREEZERS, FREEZERS } from "./freezers.js";
 export { ENEMY_GUNNERS, GUNNERS } from "./gunners.js";
+export { ENEMY_FIRE_CATAPULT, FIRE_CATAPULT } from "./fire-catapult.js";
 export { ENEMY_ALTEM_GUARDSMEN, ALTEM_GUARDSMEN } from "./altem-guardsmen.js";
 export { ENEMY_ALTEM_MAGES, ALTEM_MAGES } from "./altem-mages.js";
 export { ENEMY_DELPHANA_MASTERS, DELPHANA_MASTERS } from "./delphana-masters.js";
@@ -21,6 +22,7 @@ import { ENEMY_THUGS, THUGS } from "./thugs.js";
 import { ENEMY_SHOCKTROOPS, SHOCKTROOPS } from "./shocktroops.js";
 import { ENEMY_FREEZERS, FREEZERS } from "./freezers.js";
 import { ENEMY_GUNNERS, GUNNERS } from "./gunners.js";
+import { ENEMY_FIRE_CATAPULT, FIRE_CATAPULT } from "./fire-catapult.js";
 import { ENEMY_ALTEM_GUARDSMEN, ALTEM_GUARDSMEN } from "./altem-guardsmen.js";
 import { ENEMY_ALTEM_MAGES, ALTEM_MAGES } from "./altem-mages.js";
 import { ENEMY_DELPHANA_MASTERS, DELPHANA_MASTERS } from "./delphana-masters.js";
@@ -33,6 +35,7 @@ export type WhiteEnemyId =
   | typeof ENEMY_SHOCKTROOPS
   | typeof ENEMY_FREEZERS
   | typeof ENEMY_GUNNERS
+  | typeof ENEMY_FIRE_CATAPULT
   | typeof ENEMY_ALTEM_GUARDSMEN
   | typeof ENEMY_ALTEM_MAGES
   | typeof ENEMY_DELPHANA_MASTERS;
@@ -43,6 +46,7 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
   [ENEMY_SHOCKTROOPS]: SHOCKTROOPS,
   [ENEMY_FREEZERS]: FREEZERS,
   [ENEMY_GUNNERS]: GUNNERS,
+  [ENEMY_FIRE_CATAPULT]: FIRE_CATAPULT,
   [ENEMY_ALTEM_GUARDSMEN]: ALTEM_GUARDSMEN,
   [ENEMY_ALTEM_MAGES]: ALTEM_MAGES,
   [ENEMY_DELPHANA_MASTERS]: DELPHANA_MASTERS,
