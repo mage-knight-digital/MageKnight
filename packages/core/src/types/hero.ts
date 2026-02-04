@@ -31,6 +31,7 @@ import {
   CARD_WOLFHAWK_TIRELESSNESS,
   CARD_KRANG_SAVAGE_HARVESTING,
   CARD_KRANG_RUTHLESS_COERCION,
+  CARD_KRANG_BATTLE_RAGE,
   CARD_BRAEVALAR_DRUIDIC_PATHS,
   CARD_BRAEVALAR_ONE_WITH_THE_LAND,
 } from "@mage-knight/shared";
@@ -182,6 +183,7 @@ export const HEROES: Record<Hero, HeroDefinition> = {
     startingCards: buildStartingDeck([
       { replace: CARD_MARCH, with: CARD_KRANG_SAVAGE_HARVESTING },
       { replace: CARD_THREATEN, with: CARD_KRANG_RUTHLESS_COERCION },
+      { replace: CARD_RAGE, with: CARD_KRANG_BATTLE_RAGE },
     ]),
     skills: HERO_SKILLS[Hero.Krang],
     crystalColors: [BASIC_MANA_RED, BASIC_MANA_GREEN, BASIC_MANA_WHITE],

@@ -51,6 +51,7 @@ export const CARD_WOLFHAWK_TIRELESSNESS = cardId("wolfhawk_tirelessness");
 // Krang (Lost Legion expansion)
 export const CARD_KRANG_SAVAGE_HARVESTING = cardId("krang_savage_harvesting");
 export const CARD_KRANG_RUTHLESS_COERCION = cardId("krang_ruthless_coercion");
+export const CARD_KRANG_BATTLE_RAGE = cardId("krang_battle_rage");
 
 // Braevalar (Shades of Tezla expansion)
 export const CARD_BRAEVALAR_DRUIDIC_PATHS = cardId("braevalar_druidic_paths");
@@ -144,6 +145,7 @@ export type HeroSpecificCardId =
   | typeof CARD_WOLFHAWK_TIRELESSNESS
   | typeof CARD_KRANG_SAVAGE_HARVESTING
   | typeof CARD_KRANG_RUTHLESS_COERCION
+  | typeof CARD_KRANG_BATTLE_RAGE
   | typeof CARD_BRAEVALAR_DRUIDIC_PATHS
   | typeof CARD_BRAEVALAR_ONE_WITH_THE_LAND;
 

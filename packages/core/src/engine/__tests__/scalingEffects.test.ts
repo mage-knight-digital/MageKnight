@@ -9,6 +9,7 @@ import { resolveEffect } from "../effects/index.js";
 import {
   SCALING_PER_ENEMY,
   SCALING_PER_WOUND_IN_HAND,
+  SCALING_PER_WOUND_THIS_COMBAT,
   SCALING_PER_UNIT,
 } from "../../types/scaling.js";
 import { createCombatState } from "../../types/combat.js";
@@ -94,6 +95,21 @@ describe("Scaling Effects", () => {
         });
         const state = createTestGameState({ players: [player] });
         const count = evaluateScalingFactor(state, "player1", { type: SCALING_PER_WOUND_IN_HAND });
+        expect(count).toBe(3);
+      });
+    });
+
+    describe("SCALING_PER_WOUND_THIS_COMBAT", () => {
+      it("should return 0 when not in combat", () => {
+        const state = createTestGameState({ combat: null });
+        const count = evaluateScalingFactor(state, "player1", { type: SCALING_PER_WOUND_THIS_COMBAT });
+        expect(count).toBe(0);
+      });
+
+      it("should return wounds taken this combat", () => {
+        const combat = { ...createCombatState([ENEMY_PROWLERS]), woundsThisCombat: 3 };
+        const state = createTestGameState({ combat });
+        const count = evaluateScalingFactor(state, "player1", { type: SCALING_PER_WOUND_THIS_COMBAT });
         expect(count).toBe(3);
       });
     });
