@@ -17,14 +17,17 @@ import {
   ATTACK_TYPE_SIEGE,
   ATTACK_TYPE_MELEE,
   ATTACK_ELEMENT_PHYSICAL,
-  ATTACK_ELEMENT_FIRE,
-  ATTACK_ELEMENT_ICE,
-  ATTACK_ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
-import type { AccumulatedAttack, ElementalAttackValues, AttackDefeatFameTracker } from "../../../types/player.js";
+import type { AccumulatedAttack, AttackDefeatFameTracker } from "../../../types/player.js";
 import type { PendingElementalDamage } from "../../../types/combat.js";
 import { createEmptyPendingDamage } from "../../../types/combat.js";
 import { unassignAttackFromFameTrackers } from "../../combat/attackFameTracking.js";
+import {
+  getPendingElementalValue,
+  subtractFromElementalValues,
+  subtractFromPendingElemental,
+  isPendingElementalEmpty,
+} from "../../helpers/elementalValueHelpers.js";
 
 export const UNASSIGN_ATTACK_COMMAND = "UNASSIGN_ATTACK" as const;
 
@@ -34,27 +37,6 @@ export interface UnassignAttackCommandParams {
   readonly attackType: AttackType;
   readonly element: AttackElement;
   readonly amount: number;
-}
-
-/**
- * Get the currently assigned amount for a specific attack type and element to a specific enemy.
- */
-function getAssignedToEnemy(
-  pending: PendingElementalDamage | undefined,
-  element: AttackElement
-): number {
-  if (!pending) return 0;
-
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return pending.fire;
-    case ATTACK_ELEMENT_ICE:
-      return pending.ice;
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return pending.coldFire;
-    default:
-      return pending.physical;
-  }
 }
 
 /**
@@ -94,43 +76,6 @@ function subtractFromAccumulatedAttack(
   }
 }
 
-function subtractFromElementalValues(
-  values: ElementalAttackValues,
-  element: AttackElement,
-  amount: number
-): ElementalAttackValues {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return { ...values, fire: values.fire - amount };
-    case ATTACK_ELEMENT_ICE:
-      return { ...values, ice: values.ice - amount };
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return { ...values, coldFire: values.coldFire - amount };
-    default:
-      return { ...values, physical: values.physical - amount };
-  }
-}
-
-/**
- * Subtract damage from pending elemental damage for an enemy.
- */
-function subtractFromPendingDamage(
-  pending: PendingElementalDamage,
-  element: AttackElement,
-  amount: number
-): PendingElementalDamage {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return { ...pending, fire: pending.fire - amount };
-    case ATTACK_ELEMENT_ICE:
-      return { ...pending, ice: pending.ice - amount };
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return { ...pending, coldFire: pending.coldFire - amount };
-    default:
-      return { ...pending, physical: pending.physical - amount };
-  }
-}
-
 export function createUnassignAttackCommand(params: UnassignAttackCommandParams): Command {
   // Store state needed for undo
   let previousPendingDamage: PendingElementalDamage | undefined;
@@ -165,7 +110,7 @@ export function createUnassignAttackCommand(params: UnassignAttackCommandParams)
         state.combat.pendingDamage[params.enemyInstanceId] ?? createEmptyPendingDamage();
 
       // Validate that there's enough assigned to unassign
-      const currentlyAssigned = getAssignedToEnemy(currentPending, params.element);
+      const currentlyAssigned = getPendingElementalValue(currentPending, params.element);
       if (params.amount > currentlyAssigned) {
         throw new Error(
           `Cannot unassign ${params.amount} ${params.element}: only ${currentlyAssigned} assigned to this enemy`
@@ -206,14 +151,10 @@ export function createUnassignAttackCommand(params: UnassignAttackCommandParams)
       );
 
       // Update combat pending damage
-      const newPending = subtractFromPendingDamage(currentPending, params.element, params.amount);
+      const newPending = subtractFromPendingElemental(currentPending, params.element, params.amount);
 
       // Check if all pending damage is now zero - if so, remove the entry
-      const isEmpty =
-        newPending.physical === 0 &&
-        newPending.fire === 0 &&
-        newPending.ice === 0 &&
-        newPending.coldFire === 0;
+      const isEmpty = isPendingElementalEmpty(newPending);
 
       // Build the new pending damage object
       let updatedPendingDamage: typeof state.combat.pendingDamage;

@@ -15,14 +15,11 @@ import {
   ATTACK_TYPE_SIEGE,
   ATTACK_TYPE_MELEE,
   ATTACK_ELEMENT_PHYSICAL,
-  ATTACK_ELEMENT_FIRE,
-  ATTACK_ELEMENT_ICE,
-  ATTACK_ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
-import { createEmptyPendingDamage, COMBAT_PHASE_RANGED_SIEGE } from "../../../types/combat.js";
+import { COMBAT_PHASE_RANGED_SIEGE } from "../../../types/combat.js";
 import type { AccumulatedAttack } from "../../../types/player.js";
 import { getFortificationLevel } from "./fortificationValidators.js";
-import { getElementalValue } from "../../helpers/elementalValueHelpers.js";
+import { getElementalValue, getPendingElementalValue } from "../../helpers/elementalValueHelpers.js";
 import {
   NOT_IN_COMBAT,
   WRONG_COMBAT_PHASE,
@@ -83,28 +80,6 @@ function getAvailableAttack(
   }
 
   return accumulated - alreadyAssigned;
-}
-
-/**
- * Get the currently assigned amount for a specific element to a specific enemy.
- */
-function getAssignedToEnemy(
-  state: GameState,
-  enemyInstanceId: string,
-  element: AttackElement
-): number {
-  const pending = state.combat?.pendingDamage[enemyInstanceId] ?? createEmptyPendingDamage();
-
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return pending.fire;
-    case ATTACK_ELEMENT_ICE:
-      return pending.ice;
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return pending.coldFire;
-    default:
-      return pending.physical;
-  }
 }
 
 // Assign/Unassign attack must be in combat
@@ -237,11 +212,8 @@ export function validateHasAssignedToUnassign(
     return invalid(INVALID_ASSIGNMENT_AMOUNT, "Unassignment amount must be positive");
   }
 
-  const currentlyAssigned = getAssignedToEnemy(
-    state,
-    action.enemyInstanceId,
-    action.element
-  );
+  const pending = state.combat?.pendingDamage[action.enemyInstanceId];
+  const currentlyAssigned = getPendingElementalValue(pending, action.element);
 
   if (action.amount > currentlyAssigned) {
     return invalid(

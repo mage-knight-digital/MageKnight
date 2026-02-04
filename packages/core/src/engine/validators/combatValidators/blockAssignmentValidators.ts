@@ -8,16 +8,10 @@ import type { GameState } from "../../../state/GameState.js";
 import type { PlayerAction, AttackElement } from "@mage-knight/shared";
 import type { ValidationResult } from "../types.js";
 import { valid, invalid } from "../types.js";
-import {
-  ASSIGN_BLOCK_ACTION,
-  UNASSIGN_BLOCK_ACTION,
-  ATTACK_ELEMENT_FIRE,
-  ATTACK_ELEMENT_ICE,
-  ATTACK_ELEMENT_COLD_FIRE,
-} from "@mage-knight/shared";
+import { ASSIGN_BLOCK_ACTION, UNASSIGN_BLOCK_ACTION } from "@mage-knight/shared";
 import { COMBAT_PHASE_BLOCK } from "../../../types/combat.js";
 import type { ElementalAttackValues } from "../../../types/player.js";
-import { getElementalValue } from "../../helpers/elementalValueHelpers.js";
+import { getElementalValue, getPendingElementalValue } from "../../helpers/elementalValueHelpers.js";
 import {
   NOT_IN_COMBAT,
   WRONG_COMBAT_PHASE,
@@ -43,29 +37,6 @@ function getAvailableBlock(
   const alreadyAssigned = getElementalValue(assignedBlockElements, element);
 
   return accumulated - alreadyAssigned;
-}
-
-/**
- * Get the currently assigned block amount for a specific element to a specific enemy.
- */
-function getAssignedBlockToEnemy(
-  state: GameState,
-  enemyInstanceId: string,
-  element: AttackElement
-): number {
-  const pending = state.combat?.pendingBlock[enemyInstanceId];
-  if (!pending) return 0;
-
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return pending.fire;
-    case ATTACK_ELEMENT_ICE:
-      return pending.ice;
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return pending.coldFire;
-    default:
-      return pending.physical;
-  }
 }
 
 // Assign/Unassign block must be in combat
@@ -198,11 +169,8 @@ export function validateHasAssignedBlockToUnassign(
     return invalid(INVALID_ASSIGNMENT_AMOUNT, "Unassignment amount must be positive");
   }
 
-  const currentlyAssigned = getAssignedBlockToEnemy(
-    state,
-    action.enemyInstanceId,
-    action.element
-  );
+  const pending = state.combat?.pendingBlock[action.enemyInstanceId];
+  const currentlyAssigned = getPendingElementalValue(pending, action.element);
 
   if (action.amount > currentlyAssigned) {
     return invalid(

@@ -18,9 +18,6 @@ import {
   ATTACK_TYPE_SIEGE,
   ATTACK_TYPE_MELEE,
   ATTACK_ELEMENT_PHYSICAL,
-  ATTACK_ELEMENT_FIRE,
-  ATTACK_ELEMENT_ICE,
-  ATTACK_ELEMENT_COLD_FIRE,
 } from "@mage-knight/shared";
 import type { AccumulatedAttack, AttackDefeatFameTracker } from "../../../types/player.js";
 import type { PendingElementalDamage } from "../../../types/combat.js";
@@ -28,6 +25,8 @@ import { createEmptyPendingDamage } from "../../../types/combat.js";
 import {
   getElementalValue,
   addToElementalValues,
+  addToPendingElemental,
+  isPendingElementalEmpty,
 } from "../../helpers/elementalValueHelpers.js";
 import { isPhysicalAttackDoubled } from "../../modifiers/index.js";
 import { COMBAT_PHASE_ATTACK } from "../../../types/combat.js";
@@ -130,26 +129,6 @@ function addToAccumulatedAttack(
   }
 }
 
-/**
- * Add damage to pending elemental damage for an enemy.
- */
-function addToPendingDamage(
-  pending: PendingElementalDamage,
-  element: AttackElement,
-  amount: number
-): PendingElementalDamage {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return { ...pending, fire: pending.fire + amount };
-    case ATTACK_ELEMENT_ICE:
-      return { ...pending, ice: pending.ice + amount };
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return { ...pending, coldFire: pending.coldFire + amount };
-    default:
-      return { ...pending, physical: pending.physical + amount };
-  }
-}
-
 export function createAssignAttackCommand(params: AssignAttackCommandParams): Command {
   // Store state needed for undo
   let previousPendingDamage: PendingElementalDamage | undefined;
@@ -246,7 +225,7 @@ export function createAssignAttackCommand(params: AssignAttackCommandParams): Co
       // Update combat pending damage
       const currentPending =
         state.combat.pendingDamage[params.enemyInstanceId] ?? createEmptyPendingDamage();
-      const newPending = addToPendingDamage(currentPending, params.element, damageAmount);
+      const newPending = addToPendingElemental(currentPending, params.element, damageAmount);
 
       const updatedCombat = {
         ...state.combat,
@@ -314,11 +293,7 @@ export function createAssignAttackCommand(params: AssignAttackCommandParams): Co
         throw new Error("Cannot undo: no previous pending damage stored");
       }
 
-      const wasEmpty =
-        previousPendingDamage.physical === 0 &&
-        previousPendingDamage.fire === 0 &&
-        previousPendingDamage.ice === 0 &&
-        previousPendingDamage.coldFire === 0;
+      const wasEmpty = isPendingElementalEmpty(previousPendingDamage);
 
       // Build the new pending damage object
       let updatedPendingDamage: typeof state.combat.pendingDamage;

@@ -12,18 +12,16 @@
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { AttackElement } from "@mage-knight/shared";
-import {
-  BLOCK_ASSIGNED,
-  ATTACK_ELEMENT_FIRE,
-  ATTACK_ELEMENT_ICE,
-  ATTACK_ELEMENT_COLD_FIRE,
-} from "@mage-knight/shared";
+import { BLOCK_ASSIGNED } from "@mage-knight/shared";
 import type { ElementalAttackValues } from "../../../types/player.js";
 import type { PendingElementalDamage } from "../../../types/combat.js";
 import { createEmptyPendingDamage } from "../../../types/combat.js";
 import {
   getElementalValue,
   addToElementalValues,
+  addToPendingElemental,
+  isPendingElementalEmpty,
+  sumPendingElementalForElement,
 } from "../../helpers/elementalValueHelpers.js";
 import { isSwiftActive } from "../../combat/swiftHelpers.js";
 
@@ -48,55 +46,6 @@ function getAvailableBlock(
   const accumulated = getElementalValue(blockElements, element);
   const alreadyAssigned = getElementalValue(assignedBlockElements, element);
   return accumulated - alreadyAssigned;
-}
-
-/**
- * Get the total swift-doubled block assigned across all enemies for a specific element.
- */
-function getAssignedSwiftForElement(
-  pendingSwiftBlock: Record<string, PendingElementalDamage>,
-  element: AttackElement
-): number {
-  let total = 0;
-
-  for (const pending of Object.values(pendingSwiftBlock)) {
-    switch (element) {
-      case ATTACK_ELEMENT_FIRE:
-        total += pending.fire;
-        break;
-      case ATTACK_ELEMENT_ICE:
-        total += pending.ice;
-        break;
-      case ATTACK_ELEMENT_COLD_FIRE:
-        total += pending.coldFire;
-        break;
-      default:
-        total += pending.physical;
-        break;
-    }
-  }
-
-  return total;
-}
-
-/**
- * Add block to pending block for an enemy.
- */
-function addToPendingBlock(
-  pending: PendingElementalDamage,
-  element: AttackElement,
-  amount: number
-): PendingElementalDamage {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return { ...pending, fire: pending.fire + amount };
-    case ATTACK_ELEMENT_ICE:
-      return { ...pending, ice: pending.ice + amount };
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return { ...pending, coldFire: pending.coldFire + amount };
-    default:
-      return { ...pending, physical: pending.physical + amount };
-  }
 }
 
 export function createAssignBlockCommand(params: AssignBlockCommandParams): Command {
@@ -162,7 +111,7 @@ export function createAssignBlockCommand(params: AssignBlockCommandParams): Comm
       const emptyBlockElements = { physical: 0, fire: 0, ice: 0, coldFire: 0 };
       const swiftBlockElements =
         player.combatAccumulator.swiftBlockElements ?? emptyBlockElements;
-      const assignedSwift = getAssignedSwiftForElement(
+      const assignedSwift = sumPendingElementalForElement(
         state.combat.pendingSwiftBlock,
         params.element
       );
@@ -202,13 +151,13 @@ export function createAssignBlockCommand(params: AssignBlockCommandParams): Comm
       // Update combat pending block
       const currentPending =
         state.combat.pendingBlock[params.enemyInstanceId] ?? createEmptyPendingDamage();
-      const newPending = addToPendingBlock(currentPending, params.element, params.amount);
+      const newPending = addToPendingElemental(currentPending, params.element, params.amount);
 
       const currentSwiftPending =
         state.combat.pendingSwiftBlock[params.enemyInstanceId] ?? createEmptyPendingDamage();
       const newSwiftPending =
         swiftAmount > 0
-          ? addToPendingBlock(currentSwiftPending, params.element, swiftAmount)
+          ? addToPendingElemental(currentSwiftPending, params.element, swiftAmount)
           : currentSwiftPending;
 
       const updatedCombat = {
@@ -278,11 +227,7 @@ export function createAssignBlockCommand(params: AssignBlockCommandParams): Comm
         throw new Error("Cannot undo: no previous pending swift block stored");
       }
 
-      const wasEmpty =
-        previousPendingBlock.physical === 0 &&
-        previousPendingBlock.fire === 0 &&
-        previousPendingBlock.ice === 0 &&
-        previousPendingBlock.coldFire === 0;
+      const wasEmpty = isPendingElementalEmpty(previousPendingBlock);
 
       // Build the new pending block object
       let updatedPendingBlock: typeof state.combat.pendingBlock;
@@ -302,13 +247,7 @@ export function createAssignBlockCommand(params: AssignBlockCommandParams): Comm
         ...state.combat,
         pendingBlock: updatedPendingBlock,
         pendingSwiftBlock: (() => {
-          const wasSwiftEmpty =
-            previousPendingSwiftBlock.physical === 0 &&
-            previousPendingSwiftBlock.fire === 0 &&
-            previousPendingSwiftBlock.ice === 0 &&
-            previousPendingSwiftBlock.coldFire === 0;
-
-          if (wasSwiftEmpty) {
+          if (isPendingElementalEmpty(previousPendingSwiftBlock)) {
             const { [params.enemyInstanceId]: _removed, ...rest } =
               state.combat.pendingSwiftBlock;
             void _removed;

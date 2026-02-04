@@ -11,16 +11,17 @@
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { AttackElement } from "@mage-knight/shared";
-import {
-  BLOCK_UNASSIGNED,
-  ATTACK_ELEMENT_FIRE,
-  ATTACK_ELEMENT_ICE,
-  ATTACK_ELEMENT_COLD_FIRE,
-} from "@mage-knight/shared";
+import { BLOCK_UNASSIGNED } from "@mage-knight/shared";
 import type { ElementalAttackValues } from "../../../types/player.js";
 import type { PendingElementalDamage } from "../../../types/combat.js";
 import { createEmptyPendingDamage } from "../../../types/combat.js";
 import { isSwiftActive } from "../../combat/swiftHelpers.js";
+import {
+  getPendingElementalValue,
+  subtractFromElementalValues,
+  subtractFromPendingElemental,
+  isPendingElementalEmpty,
+} from "../../helpers/elementalValueHelpers.js";
 
 export const UNASSIGN_BLOCK_COMMAND = "UNASSIGN_BLOCK" as const;
 
@@ -29,67 +30,6 @@ export interface UnassignBlockCommandParams {
   readonly enemyInstanceId: string;
   readonly element: AttackElement;
   readonly amount: number;
-}
-
-/**
- * Get the currently assigned amount for a specific block element to a specific enemy.
- */
-function getAssignedToEnemy(
-  pending: PendingElementalDamage | undefined,
-  element: AttackElement
-): number {
-  if (!pending) return 0;
-
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return pending.fire;
-    case ATTACK_ELEMENT_ICE:
-      return pending.ice;
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return pending.coldFire;
-    default:
-      return pending.physical;
-  }
-}
-
-/**
- * Subtract from elemental values.
- */
-function subtractFromElementalValues(
-  values: ElementalAttackValues,
-  element: AttackElement,
-  amount: number
-): ElementalAttackValues {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return { ...values, fire: values.fire - amount };
-    case ATTACK_ELEMENT_ICE:
-      return { ...values, ice: values.ice - amount };
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return { ...values, coldFire: values.coldFire - amount };
-    default:
-      return { ...values, physical: values.physical - amount };
-  }
-}
-
-/**
- * Subtract block from pending block for an enemy.
- */
-function subtractFromPendingBlock(
-  pending: PendingElementalDamage,
-  element: AttackElement,
-  amount: number
-): PendingElementalDamage {
-  switch (element) {
-    case ATTACK_ELEMENT_FIRE:
-      return { ...pending, fire: pending.fire - amount };
-    case ATTACK_ELEMENT_ICE:
-      return { ...pending, ice: pending.ice - amount };
-    case ATTACK_ELEMENT_COLD_FIRE:
-      return { ...pending, coldFire: pending.coldFire - amount };
-    default:
-      return { ...pending, physical: pending.physical - amount };
-  }
 }
 
 export function createUnassignBlockCommand(params: UnassignBlockCommandParams): Command {
@@ -130,7 +70,7 @@ export function createUnassignBlockCommand(params: UnassignBlockCommandParams): 
         createEmptyPendingDamage();
 
       // Validate that there's enough assigned to unassign
-      const currentlyAssigned = getAssignedToEnemy(currentPending, params.element);
+      const currentlyAssigned = getPendingElementalValue(currentPending, params.element);
       if (params.amount > currentlyAssigned) {
         throw new Error(
           `Cannot unassign ${params.amount} ${params.element}: only ${currentlyAssigned} assigned to this enemy`
@@ -143,7 +83,7 @@ export function createUnassignBlockCommand(params: UnassignBlockCommandParams): 
       previousAssignedBlock = player.combatAccumulator.assignedBlock;
       previousAssignedBlockElements = player.combatAccumulator.assignedBlockElements;
 
-      const swiftAssigned = getAssignedToEnemy(currentSwiftPending, params.element);
+      const swiftAssigned = getPendingElementalValue(currentSwiftPending, params.element);
       const normalAssigned = Math.max(0, currentlyAssigned - swiftAssigned);
       const swiftActive = isSwiftActive(state, params.playerId, enemy);
 
@@ -177,18 +117,14 @@ export function createUnassignBlockCommand(params: UnassignBlockCommandParams): 
       );
 
       // Update combat pending block
-      const newPending = subtractFromPendingBlock(currentPending, params.element, params.amount);
+      const newPending = subtractFromPendingElemental(currentPending, params.element, params.amount);
       const newSwiftPending =
         swiftToRemove > 0
-          ? subtractFromPendingBlock(currentSwiftPending, params.element, swiftToRemove)
+          ? subtractFromPendingElemental(currentSwiftPending, params.element, swiftToRemove)
           : currentSwiftPending;
 
       // Check if all pending block is now zero - if so, remove the entry
-      const isEmpty =
-        newPending.physical === 0 &&
-        newPending.fire === 0 &&
-        newPending.ice === 0 &&
-        newPending.coldFire === 0;
+      const isEmpty = isPendingElementalEmpty(newPending);
 
       // Build the new pending block object
       let updatedPendingBlock: typeof state.combat.pendingBlock;
@@ -204,11 +140,7 @@ export function createUnassignBlockCommand(params: UnassignBlockCommandParams): 
         };
       }
 
-      const isSwiftEmpty =
-        newSwiftPending.physical === 0 &&
-        newSwiftPending.fire === 0 &&
-        newSwiftPending.ice === 0 &&
-        newSwiftPending.coldFire === 0;
+      const isSwiftEmpty = isPendingElementalEmpty(newSwiftPending);
       let updatedPendingSwiftBlock: typeof state.combat.pendingSwiftBlock;
       if (isSwiftEmpty) {
         const { [params.enemyInstanceId]: _removed, ...rest } =
