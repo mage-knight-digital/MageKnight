@@ -686,7 +686,7 @@ describe("End Phase Damage Resolution", () => {
       expect(playerAfter?.combatAccumulator.assignedAttack.ranged).toBe(0);
     });
 
-    it("should preserve accumulated attack after resolution", () => {
+    it("should clear ranged/siege attack after resolution but preserve melee", () => {
       let state = createTestGameState();
 
       state = engine.processAction(state, "player1", {
@@ -694,7 +694,7 @@ describe("End Phase Damage Resolution", () => {
         enemyIds: [ENEMY_PROWLERS],
       }).state;
 
-      state = withAccumulatedAttack(state, "player1", { ranged: 5, normal: 3 });
+      state = withAccumulatedAttack(state, "player1", { ranged: 5, siege: 4, normal: 3 });
 
       // Assign some ranged attack
       state = engine.processAction(state, "player1", {
@@ -710,9 +710,10 @@ describe("End Phase Damage Resolution", () => {
         type: END_COMBAT_PHASE_ACTION,
       });
 
-      // Accumulated attack should be preserved (for attack phase)
+      // Ranged/siege attack should be cleared; melee remains for attack phase
       const player = result.state.players.find((p) => p.id === "player1");
-      expect(player?.combatAccumulator.attack.ranged).toBe(5);
+      expect(player?.combatAccumulator.attack.ranged).toBe(0);
+      expect(player?.combatAccumulator.attack.siege).toBe(0);
       expect(player?.combatAccumulator.attack.normal).toBe(3);
     });
   });

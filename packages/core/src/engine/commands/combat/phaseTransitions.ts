@@ -17,6 +17,7 @@ import {
   type CombatPhase,
   type CombatState,
 } from "../../../types/combat.js";
+import { createEmptyElementalValues } from "../../../types/player.js";
 
 import {
   resolvePendingDamage,
@@ -166,6 +167,9 @@ export function handleRangedSiegeToBlock(
   updatedState = rewardsResult.state;
   events.push(...rewardsResult.events);
 
+  // Ranged/Siege attack points do not carry over into the Attack phase
+  updatedState = clearRangedSiegeAttack(updatedState, playerId);
+
   // Update player's enemiesDefeatedThisTurn counter (for Sword of Justice fame bonus)
   if (damageResult.enemiesDefeatedCount > 0) {
     const playerIndex = updatedState.players.findIndex((p) => p.id === playerId);
@@ -193,6 +197,35 @@ export function handleRangedSiegeToBlock(
   events.push(...summonResult.events);
 
   return { state: updatedState, combat: updatedCombat, events };
+}
+
+function clearRangedSiegeAttack(state: GameState, playerId: string): GameState {
+  const playerIndex = state.players.findIndex((p) => p.id === playerId);
+  if (playerIndex === -1) {
+    return state;
+  }
+
+  const player = state.players[playerIndex];
+  if (!player) {
+    return state;
+  }
+
+  const updatedPlayers = [...state.players];
+  updatedPlayers[playerIndex] = {
+    ...player,
+    combatAccumulator: {
+      ...player.combatAccumulator,
+      attack: {
+        ...player.combatAccumulator.attack,
+        ranged: 0,
+        siege: 0,
+        rangedElements: createEmptyElementalValues(),
+        siegeElements: createEmptyElementalValues(),
+      },
+    },
+  };
+
+  return { ...state, players: updatedPlayers };
 }
 
 /**
