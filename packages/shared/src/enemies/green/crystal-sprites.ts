@@ -9,7 +9,7 @@ export const CRYSTAL_SPRITES: EnemyDefinition = {
   id: ENEMY_CRYSTAL_SPRITES,
   name: "Crystal Sprites",
   color: ENEMY_COLOR_GREEN,
-  attack: 1,
+  attack: 1, // Legacy field (first attack value)
   attackElement: ELEMENT_ICE,
   armor: 1,
   armorElusive: 2,
@@ -18,4 +18,8 @@ export const CRYSTAL_SPRITES: EnemyDefinition = {
   abilities: [ABILITY_ELUSIVE, ABILITY_DEFEND],
   faction: FACTION_ELEMENTALIST,
   defend: 1,
+  attacks: [
+    { damage: 1, element: ELEMENT_ICE },
+    { damage: 1, element: ELEMENT_ICE },
+  ],
 };
