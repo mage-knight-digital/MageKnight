@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react"],
+  "jsPlugins": ["./oxlint-plugin.js"],
+  "rules": {
+    "no-unused-vars": "off",
+    "typescript/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_"
+      }
+    ],
+    "unicorn/no-new-array": "off",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "mage-knight/no-magic-event-types": "error",
+    "mage-knight/no-magic-command-types": "error",
+    "mage-knight/no-magic-validation-codes": "error",
+    "mage-knight/no-magic-mana-any": "error",
+    "mage-knight/no-magic-discriminator-comparison": "error",
+    "mage-knight/no-magic-action-comparison": "error",
+    "mage-knight/no-hardcoded-starting-values": "error",
+    "mage-knight/no-double-cast": "error",
+    "mage-knight/no-magic-checkpoint-reason": "error",
+    "mage-knight/no-magic-test-assertions": "error",
+    "mage-knight/no-magic-tile-types": "error",
+    "mage-knight/no-hardcoded-sentinel-literals": "error",
+    "mage-knight/no-hardcoded-hand-limit": "error",
+    "mage-knight/no-magic-modifier-discriminators": "error"
+  },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/*.config.*"
+  ]
+}

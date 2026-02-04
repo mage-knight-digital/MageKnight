@@ -40,10 +40,8 @@ jobs:
 
       - name: Lint
         run: |
-          echo "🔍 Running oxlint (fast)..."
-          time bun run lint:fast
-          echo "🔍 Running ESLint (custom rules)..."
-          time bun run --parallel --filter '*' lint
+          echo "🔍 Running oxlint (with custom JS plugin)..."
+          time bun run lint
 
       - name: Test with Coverage
         run: bun run test:coverage

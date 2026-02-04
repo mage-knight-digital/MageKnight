@@ -14,6 +14,7 @@ import { valid, invalid } from "./types.js";
 import {
   DISCARD_FOR_ATTACK_REQUIRED,
   DISCARD_FOR_ATTACK_CARD_NOT_ELIGIBLE,
+  PLAYER_NOT_FOUND,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import { getCardsEligibleForDiscardForAttack } from "../effects/swordOfJusticeEffects.js";
@@ -28,7 +29,7 @@ export const validateHasPendingDiscardForAttack: Validator = (
 ): ValidationResult => {
   const player = getPlayerById(state, playerId);
   if (!player) {
-    return invalid("PLAYER_NOT_FOUND", "Player not found");
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
   if (!player.pendingDiscardForAttack) {
@@ -55,7 +56,7 @@ export const validateDiscardForAttackSelection: Validator = (
 
   const player = getPlayerById(state, playerId);
   if (!player) {
-    return invalid("PLAYER_NOT_FOUND", "Player not found");
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
   if (!player.pendingDiscardForAttack) {

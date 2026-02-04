@@ -87,11 +87,14 @@ export function App() {
   }, [message]);
 
   // Auto-refresh log view (tail mode)
+  // Extract to variable for exhaustive-deps compliance
+  const viewLogIssueNumber = mode.type === "view-log" ? mode.agent.issueNumber : null;
+
   useEffect(() => {
-    if (mode.type !== "view-log") return;
+    if (mode.type !== "view-log" || viewLogIssueNumber === null) return;
 
     const interval = setInterval(() => {
-      const lines = getAgentLog(mode.agent.issueNumber, 30);
+      const lines = getAgentLog(viewLogIssueNumber, 30);
       setMode((prev) => {
         if (prev.type !== "view-log") return prev;
         return { ...prev, lines };
@@ -99,7 +102,7 @@ export function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [mode.type, mode.type === "view-log" ? mode.agent.issueNumber : 0]);
+  }, [mode.type, viewLogIssueNumber]);
 
   const showMessage = (msg: string, color = "yellow") => {
     setMessage(msg);

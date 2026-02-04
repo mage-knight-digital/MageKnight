@@ -15,6 +15,7 @@ import {
   DISCARD_COST_INVALID_COUNT,
   DISCARD_COST_CARD_NOT_ELIGIBLE,
   DISCARD_COST_CANNOT_SKIP,
+  PLAYER_NOT_FOUND,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
@@ -29,7 +30,7 @@ export const validateHasPendingDiscard: Validator = (
 ): ValidationResult => {
   const player = getPlayerById(state, playerId);
   if (!player) {
-    return invalid("PLAYER_NOT_FOUND", "Player not found");
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
   if (!player.pendingDiscard) {
@@ -53,7 +54,7 @@ export const validateDiscardSelection: Validator = (
 
   const player = getPlayerById(state, playerId);
   if (!player) {
-    return invalid("PLAYER_NOT_FOUND", "Player not found");
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
   if (!player.pendingDiscard) {

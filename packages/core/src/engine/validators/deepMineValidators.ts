@@ -11,6 +11,7 @@ import { valid, invalid } from "./types.js";
 import {
   DEEP_MINE_CHOICE_REQUIRED,
   DEEP_MINE_INVALID_COLOR,
+  PLAYER_NOT_FOUND,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 
@@ -24,7 +25,7 @@ export const validateHasPendingDeepMineChoice: Validator = (
 ): ValidationResult => {
   const player = getPlayerById(state, playerId);
   if (!player) {
-    return invalid("PLAYER_NOT_FOUND", "Player not found");
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
   if (!player.pendingDeepMineChoice) {
@@ -48,7 +49,7 @@ export const validateDeepMineColorChoice: Validator = (
 
   const player = getPlayerById(state, playerId);
   if (!player) {
-    return invalid("PLAYER_NOT_FOUND", "Player not found");
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
   if (!player.pendingDeepMineChoice) {

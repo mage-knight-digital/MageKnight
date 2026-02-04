@@ -99,6 +99,21 @@ export type CardInteractionState =
   | CardInteractionCompleting;
 
 // ============================================================================
+// Action Type Constants
+// ============================================================================
+
+export const CARD_INTERACTION_OPEN_MENU = "OPEN_MENU" as const;
+export const CARD_INTERACTION_CLOSE_MENU = "CLOSE_MENU" as const;
+export const CARD_INTERACTION_SELECT_BASIC = "SELECT_BASIC" as const;
+export const CARD_INTERACTION_SELECT_POWERED = "SELECT_POWERED" as const;
+export const CARD_INTERACTION_SELECT_SIDEWAYS = "SELECT_SIDEWAYS" as const;
+export const CARD_INTERACTION_SELECT_MANA_SOURCE = "SELECT_MANA_SOURCE" as const;
+export const CARD_INTERACTION_BACK_TO_ACTION_SELECT = "BACK_TO_ACTION_SELECT" as const;
+export const CARD_INTERACTION_SELECT_CHOICE = "SELECT_CHOICE" as const;
+export const CARD_INTERACTION_ENGINE_CHOICE_REQUIRED = "ENGINE_CHOICE_REQUIRED" as const;
+export const CARD_INTERACTION_ACTION_COMPLETED = "ACTION_COMPLETED" as const;
+
+// ============================================================================
 // Action Types
 // ============================================================================
 
@@ -106,7 +121,7 @@ export type CardInteractionState =
  * Open the card action menu for a card.
  */
 interface OpenMenuAction {
-  readonly type: "OPEN_MENU";
+  readonly type: typeof CARD_INTERACTION_OPEN_MENU;
   readonly cardId: CardId;
   readonly cardIndex: number;
   readonly playability: PlayableCard;
@@ -117,14 +132,14 @@ interface OpenMenuAction {
  * Close the menu and return to idle.
  */
 interface CloseMenuAction {
-  readonly type: "CLOSE_MENU";
+  readonly type: typeof CARD_INTERACTION_CLOSE_MENU;
 }
 
 /**
  * User selected to play the card's basic effect.
  */
 interface SelectBasicAction {
-  readonly type: "SELECT_BASIC";
+  readonly type: typeof CARD_INTERACTION_SELECT_BASIC;
 }
 
 /**
@@ -132,7 +147,7 @@ interface SelectBasicAction {
  * May transition to mana-select or directly to completing.
  */
 interface SelectPoweredAction {
-  readonly type: "SELECT_POWERED";
+  readonly type: typeof CARD_INTERACTION_SELECT_POWERED;
   /** Available mana sources for powered effect */
   readonly availableSources: readonly ManaSourceInfo[];
   /** For spells: available black mana sources */
@@ -143,7 +158,7 @@ interface SelectPoweredAction {
  * User selected to play the card sideways.
  */
 interface SelectSidewaysAction {
-  readonly type: "SELECT_SIDEWAYS";
+  readonly type: typeof CARD_INTERACTION_SELECT_SIDEWAYS;
   readonly as: SidewaysAs;
 }
 
@@ -154,7 +169,7 @@ interface SelectSidewaysAction {
  * For spells in "color" step: completes the action.
  */
 interface SelectManaSourceAction {
-  readonly type: "SELECT_MANA_SOURCE";
+  readonly type: typeof CARD_INTERACTION_SELECT_MANA_SOURCE;
   readonly source: ManaSourceInfo;
 }
 
@@ -164,14 +179,14 @@ interface SelectManaSourceAction {
  * For spells in "black" step or action cards: goes back to action-select.
  */
 interface BackToActionSelectAction {
-  readonly type: "BACK_TO_ACTION_SELECT";
+  readonly type: typeof CARD_INTERACTION_BACK_TO_ACTION_SELECT;
 }
 
 /**
  * User selected a choice in the effect choice state.
  */
 interface SelectChoiceAction {
-  readonly type: "SELECT_CHOICE";
+  readonly type: typeof CARD_INTERACTION_SELECT_CHOICE;
   readonly choiceIndex: number;
 }
 
@@ -180,7 +195,7 @@ interface SelectChoiceAction {
  * Transitions completing → effect-choice.
  */
 interface EngineChoiceRequiredAction {
-  readonly type: "ENGINE_CHOICE_REQUIRED";
+  readonly type: typeof CARD_INTERACTION_ENGINE_CHOICE_REQUIRED;
   readonly pendingChoice: ClientPendingChoice;
 }
 
@@ -189,7 +204,7 @@ interface EngineChoiceRequiredAction {
  * Transitions to idle.
  */
 interface ActionCompletedAction {
-  readonly type: "ACTION_COMPLETED";
+  readonly type: typeof CARD_INTERACTION_ACTION_COMPLETED;
 }
 
 /**

@@ -8,16 +8,21 @@
  * to this file without changing the context identity.
  */
 
-/* eslint-disable no-restricted-syntax */
-// Disabled: The no-restricted-syntax rule flags string literals in switch cases,
-// expecting constants from @mage-knight/shared. However, these are LOCAL reducer
-// action types, not shared protocol types. They're defined in ./types.ts.
-
 import { useReducer, type ReactNode } from "react";
 import {
   type CardInteractionState,
   type CardInteractionAction,
   INITIAL_STATE,
+  CARD_INTERACTION_OPEN_MENU,
+  CARD_INTERACTION_CLOSE_MENU,
+  CARD_INTERACTION_SELECT_BASIC,
+  CARD_INTERACTION_SELECT_POWERED,
+  CARD_INTERACTION_SELECT_SIDEWAYS,
+  CARD_INTERACTION_SELECT_MANA_SOURCE,
+  CARD_INTERACTION_BACK_TO_ACTION_SELECT,
+  CARD_INTERACTION_SELECT_CHOICE,
+  CARD_INTERACTION_ENGINE_CHOICE_REQUIRED,
+  CARD_INTERACTION_ACTION_COMPLETED,
 } from "./types";
 import { CardInteractionContext } from "./CardInteractionContext";
 import { MANA_BLACK, type ManaColor } from "@mage-knight/shared";
@@ -31,7 +36,7 @@ function cardInteractionReducer(
   action: CardInteractionAction
 ): CardInteractionState {
   switch (action.type) {
-    case "OPEN_MENU": {
+    case CARD_INTERACTION_OPEN_MENU: {
       return {
         type: "action-select",
         cardId: action.cardId,
@@ -41,11 +46,11 @@ function cardInteractionReducer(
       };
     }
 
-    case "CLOSE_MENU": {
+    case CARD_INTERACTION_CLOSE_MENU: {
       return INITIAL_STATE;
     }
 
-    case "SELECT_BASIC": {
+    case CARD_INTERACTION_SELECT_BASIC: {
       if (state.type !== "action-select") {
         console.warn("[CardInteraction] SELECT_BASIC in wrong state:", state.type);
         return state;
@@ -59,7 +64,7 @@ function cardInteractionReducer(
       };
     }
 
-    case "SELECT_POWERED": {
+    case CARD_INTERACTION_SELECT_POWERED: {
       if (state.type !== "action-select") {
         console.warn("[CardInteraction] SELECT_POWERED in wrong state:", state.type);
         return state;
@@ -117,7 +122,7 @@ function cardInteractionReducer(
       };
     }
 
-    case "SELECT_SIDEWAYS": {
+    case CARD_INTERACTION_SELECT_SIDEWAYS: {
       if (state.type !== "action-select") {
         console.warn("[CardInteraction] SELECT_SIDEWAYS in wrong state:", state.type);
         return state;
@@ -131,7 +136,7 @@ function cardInteractionReducer(
       };
     }
 
-    case "SELECT_MANA_SOURCE": {
+    case CARD_INTERACTION_SELECT_MANA_SOURCE: {
       if (state.type !== "mana-select") {
         console.warn("[CardInteraction] SELECT_MANA_SOURCE in wrong state:", state.type);
         return state;
@@ -165,7 +170,7 @@ function cardInteractionReducer(
       };
     }
 
-    case "BACK_TO_ACTION_SELECT": {
+    case CARD_INTERACTION_BACK_TO_ACTION_SELECT: {
       if (state.type !== "mana-select") {
         console.warn("[CardInteraction] BACK_TO_ACTION_SELECT in wrong state:", state.type);
         return state;
@@ -195,7 +200,7 @@ function cardInteractionReducer(
       };
     }
 
-    case "SELECT_CHOICE": {
+    case CARD_INTERACTION_SELECT_CHOICE: {
       if (state.type !== "effect-choice") {
         console.warn("[CardInteraction] SELECT_CHOICE in wrong state:", state.type);
         return state;
@@ -209,7 +214,7 @@ function cardInteractionReducer(
       };
     }
 
-    case "ENGINE_CHOICE_REQUIRED": {
+    case CARD_INTERACTION_ENGINE_CHOICE_REQUIRED: {
       if (state.type !== "completing") {
         console.warn("[CardInteraction] ENGINE_CHOICE_REQUIRED in wrong state:", state.type);
         return state;
@@ -224,7 +229,7 @@ function cardInteractionReducer(
       };
     }
 
-    case "ACTION_COMPLETED": {
+    case CARD_INTERACTION_ACTION_COMPLETED: {
       return INITIAL_STATE;
     }
 
