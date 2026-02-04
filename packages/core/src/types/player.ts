@@ -34,6 +34,7 @@ export interface PendingLevelUpReward {
 }
 import type { Hero } from "./hero.js";
 import type { CardEffect } from "./cards.js";
+import type { BasicCardColor } from "./effectTypes.js";
 import type { PlayerUnit } from "./unit.js";
 import type { SourceDieId } from "./mana.js";
 
@@ -190,6 +191,10 @@ export interface PendingDiscard {
   readonly optional: boolean;
   /** Effect to resolve after discarding */
   readonly thenEffect: CardEffect;
+  /** If true, discarded card color determines which effect resolves */
+  readonly colorMatters?: boolean;
+  /** Per-color effects when colorMatters is true */
+  readonly thenEffectByColor?: Partial<Record<BasicCardColor, CardEffect>>;
   /** If true, wounds cannot be selected (default: true) */
   readonly filterWounds: boolean;
 }

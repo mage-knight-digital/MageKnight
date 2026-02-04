@@ -20,6 +20,7 @@ import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
 import { EFFECT_DISCARD_CARD, EFFECT_DISCARD_COST } from "../../types/effectTypes.js";
+import { getActionCardColor } from "../helpers/cardColor.js";
 
 /**
  * Get cards in hand that match the filter criteria.
@@ -148,12 +149,18 @@ export function applyDiscardCard(
  */
 export function getCardsEligibleForDiscardCost(
   hand: readonly CardId[],
-  filterWounds: boolean
+  filterWounds: boolean,
+  colorMatters: boolean = false
 ): CardId[] {
-  if (!filterWounds) {
-    return [...hand];
+  const baseCards = filterWounds
+    ? hand.filter((cardId) => cardId !== CARD_WOUND)
+    : [...hand];
+
+  if (!colorMatters) {
+    return baseCards;
   }
-  return hand.filter((cardId) => cardId !== CARD_WOUND);
+
+  return baseCards.filter((cardId) => getActionCardColor(cardId) !== null);
 }
 
 /**
@@ -179,7 +186,22 @@ export function handleDiscardCostEffect(
   }
 
   const filterWounds = effect.filterWounds ?? true;
-  const eligibleCards = getCardsEligibleForDiscardCost(player.hand, filterWounds);
+  const colorMatters = effect.colorMatters ?? false;
+
+  if (colorMatters) {
+    if (!effect.thenEffectByColor) {
+      throw new Error("DiscardCostEffect with colorMatters requires thenEffectByColor");
+    }
+    if (effect.count !== 1) {
+      throw new Error("DiscardCostEffect with colorMatters requires count = 1");
+    }
+  }
+
+  const eligibleCards = getCardsEligibleForDiscardCost(
+    player.hand,
+    filterWounds,
+    colorMatters
+  );
 
   // Check if player has enough cards to discard
   if (eligibleCards.length < effect.count && !effect.optional) {
@@ -196,7 +218,9 @@ export function handleDiscardCostEffect(
       count: effect.count,
       optional: effect.optional,
       thenEffect: effect.thenEffect,
+      colorMatters,
       filterWounds,
+      ...(effect.thenEffectByColor ? { thenEffectByColor: effect.thenEffectByColor } : {}),
     },
   };
 

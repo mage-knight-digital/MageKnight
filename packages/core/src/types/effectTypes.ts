@@ -63,6 +63,8 @@ export type CardColor =
   | typeof CARD_COLOR_WHITE
   | typeof CARD_COLOR_WOUND;
 
+export type BasicCardColor = Exclude<CardColor, typeof CARD_COLOR_WOUND>;
+
 // === Mana "Any" Constant ===
 // Used when an effect can produce any color of mana
 export const MANA_ANY = "any" as const;

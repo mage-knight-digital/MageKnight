@@ -93,10 +93,14 @@ export function getDiscardCostOptions(
     return undefined;
   }
 
-  const { sourceCardId, count, optional, filterWounds } = player.pendingDiscard;
+  const { sourceCardId, count, optional, filterWounds, colorMatters } = player.pendingDiscard;
 
   // Get eligible cards from hand
-  const availableCardIds = getCardsEligibleForDiscardCost(player.hand, filterWounds);
+  const availableCardIds = getCardsEligibleForDiscardCost(
+    player.hand,
+    filterWounds,
+    colorMatters ?? false
+  );
 
   return {
     sourceCardId,

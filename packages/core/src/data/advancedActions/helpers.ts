@@ -37,9 +37,12 @@ import {
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
+  type CombatType,
 } from "../../types/effectTypes.js";
+import type { BasicManaColor, Element } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE } from "../../types/modifierConstants.js";
-import type { BasicManaColor } from "@mage-knight/shared";
+
+export { discardCost, discardCostByColor } from "../basicActions/helpers.js";
 
 /**
  * Creates a crystal gain effect for the specified color.
@@ -70,9 +73,10 @@ export function attack(amount: number): CardEffect {
  */
 export function attackWithElement(
   amount: number,
-  element: typeof ELEMENT_FIRE | typeof ELEMENT_ICE
+  element: Element,
+  combatType: CombatType = COMBAT_TYPE_MELEE
 ): CardEffect {
-  return { type: EFFECT_GAIN_ATTACK, amount, combatType: COMBAT_TYPE_MELEE, element };
+  return { type: EFFECT_GAIN_ATTACK, amount, combatType, element };
 }
 
 /**
@@ -204,4 +208,4 @@ export function takeWound(amount: number): CardEffect {
 }
 
 // Re-export element constants for convenience
-export { ELEMENT_FIRE, ELEMENT_ICE } from "../../types/modifierConstants.js";
+export { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "../../types/modifierConstants.js";
