@@ -26,10 +26,12 @@ import {
   SKILLS,
   SKILL_USAGE_ONCE_PER_TURN,
   SKILL_USAGE_ONCE_PER_ROUND,
+  SKILL_USAGE_INTERACTIVE,
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
   SKILL_ARYTHEA_BURNING_POWER,
+  SKILL_ARYTHEA_RITUAL_OF_PAIN,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -39,6 +41,8 @@ import {
 } from "../../types/combat.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN]);
 
 /**
  * Validates that the player has learned the skill they're trying to use.
@@ -87,7 +91,11 @@ export const validateSkillCooldown: Validator = (state, playerId, action) => {
         `${skill.name} has already been used this turn`
       );
     }
-  } else if (skill.usageType === SKILL_USAGE_ONCE_PER_ROUND) {
+  } else if (
+    skill.usageType === SKILL_USAGE_ONCE_PER_ROUND ||
+    (skill.usageType === SKILL_USAGE_INTERACTIVE &&
+      INTERACTIVE_ONCE_PER_ROUND.has(useSkillAction.skillId))
+  ) {
     if (player.skillCooldowns.usedThisRound.includes(useSkillAction.skillId)) {
       return invalid(
         SKILL_ON_COOLDOWN,
@@ -203,6 +211,15 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_WOUND_IN_HAND,
         "I Feel No Pain requires a Wound in hand"
+      );
+    }
+  }
+
+  if (useSkillAction.skillId === SKILL_ARYTHEA_RITUAL_OF_PAIN) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "Ritual of Pain cannot be used during combat"
       );
     }
   }

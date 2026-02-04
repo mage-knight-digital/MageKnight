@@ -10,6 +10,10 @@ import type { CombatState, CombatPhase } from "../../../types/combat.js";
 import type { DeedCard } from "../../../types/cards.js";
 import type { PlayCardOptions, PlayableCard, ManaColor, SidewaysOption } from "@mage-knight/shared";
 import {
+  PLAY_SIDEWAYS_AS_ATTACK,
+  PLAY_SIDEWAYS_AS_BLOCK,
+} from "@mage-knight/shared";
+import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ATTACK,
@@ -19,9 +23,10 @@ import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
-import { isCombatEffectAllowed } from "../../rules/cardPlay.js";
+import { isCombatEffectAllowed, getCombatEffectContext, type CombatEffectContext } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
-import { getCombatEffectContext } from "../../rules/cardPlay.js";
+import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../modifierConstants.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -43,8 +48,47 @@ export function getPlayableCardsForCombat(
     const card = getCard(cardId);
     if (!card) continue;
 
-    // Wounds cannot be played
-    if (card.cardType === DEED_CARD_TYPE_WOUND) continue;
+    // Wounds are only playable sideways when a rule override allows it
+    if (card.cardType === DEED_CARD_TYPE_WOUND) {
+      if (!isRuleActive(state, player.id, RULE_WOUNDS_PLAYABLE_SIDEWAYS)) {
+        continue;
+      }
+
+      const sidewaysValue = getEffectiveSidewaysValue(
+        state,
+        player.id,
+        true,
+        player.usedManaFromSource
+      );
+
+      if (sidewaysValue <= 0) {
+        continue;
+      }
+
+      let sidewaysOptions: SidewaysOption[] = [];
+      if (combat.phase === COMBAT_PHASE_BLOCK) {
+        sidewaysOptions = [{ as: PLAY_SIDEWAYS_AS_BLOCK, value: sidewaysValue }];
+      } else if (combat.phase === COMBAT_PHASE_ATTACK) {
+        sidewaysOptions = [{ as: PLAY_SIDEWAYS_AS_ATTACK, value: sidewaysValue }];
+      }
+
+      if (sidewaysOptions.length === 0) {
+        continue;
+      }
+
+      cards.push({
+        cardId,
+        name: card.name,
+        canPlayBasic: false,
+        canPlayPowered: false,
+        canPlaySideways: true,
+        basicEffectDescription: describeEffect(card.basicEffect),
+        poweredEffectDescription: describeEffect(card.poweredEffect),
+        sidewaysOptions,
+      });
+
+      continue;
+    }
 
     const basicContext = getCombatEffectContext(card, "basic");
     const poweredContext = getCombatEffectContext(card, "powered");
@@ -128,8 +172,8 @@ function getCardPlayabilityForPhase(
 
   const sidewaysOptions: SidewaysOption[] = [
     ...getSidewaysOptionsForValue(card.sidewaysValue, {
-    inCombat: true,
-    phase,
+      inCombat: true,
+      phase,
     }),
   ];
 

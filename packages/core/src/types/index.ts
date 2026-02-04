@@ -140,11 +140,13 @@ export type {
   ScalingFactor,
   ScalingPerEnemyFactor,
   ScalingPerWoundInHandFactor,
+  ScalingPerWoundThisCombatFactor,
   ScalingPerUnitFactor,
 } from "./scaling.js";
 export {
   SCALING_PER_ENEMY,
   SCALING_PER_WOUND_IN_HAND,
+  SCALING_PER_WOUND_THIS_COMBAT,
   SCALING_PER_UNIT,
 } from "./scaling.js";
 
@@ -177,6 +179,7 @@ export {
   CARD_WOLFHAWK_TIRELESSNESS,
   CARD_KRANG_SAVAGE_HARVESTING,
   CARD_KRANG_RUTHLESS_COERCION,
+  CARD_KRANG_BATTLE_RAGE,
   CARD_BRAEVALAR_DRUIDIC_PATHS,
   CARD_BRAEVALAR_ONE_WITH_THE_LAND,
   // Wound

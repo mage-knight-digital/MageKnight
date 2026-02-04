@@ -30,6 +30,7 @@ import { registerTerrainEffects } from "./terrainEffects.js";
 import { registerSwordOfJusticeEffects } from "./swordOfJusticeEffects.js";
 import { registerAttackFameEffects } from "./attackFameEffects.js";
 import { registerPolarizeEffects } from "./polarizeEffects.js";
+import { registerRitualOfPainEffects } from "./ritualOfPainEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -102,4 +103,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Polarize mana effects (Arythea's Polarization skill)
   registerPolarizeEffects();
+
+  // Ritual of Pain effects (Arythea)
+  registerRitualOfPainEffects();
 }

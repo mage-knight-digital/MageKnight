@@ -24,6 +24,8 @@ import type { PlayerAction, CardId } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import { PLAY_CARD_SIDEWAYS_ACTION } from "@mage-knight/shared";
+import { isRuleActive } from "../modifiers/index.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../modifierConstants.js";
 import {
   CARD_NOT_IN_HAND,
   CANNOT_PLAY_WOUND,
@@ -70,8 +72,8 @@ export function validateSidewaysCardInHand(
 // Advanced Actions, Spells, Artifacts, etc. When new card types are added,
 // they will automatically be valid for sideways play (unless they are wounds).
 export function validateSidewaysNotWound(
-  _state: GameState,
-  _playerId: string,
+  state: GameState,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   const cardId = getCardIdForSideways(action);
@@ -80,6 +82,9 @@ export function validateSidewaysNotWound(
   }
 
   if (isWoundCardId(cardId, null)) {
+    if (isRuleActive(state, playerId, RULE_WOUNDS_PLAYABLE_SIDEWAYS)) {
+      return valid();
+    }
     return invalid(
       CANNOT_PLAY_WOUND,
       "Wound cards cannot be played sideways"

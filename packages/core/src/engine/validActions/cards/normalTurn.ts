@@ -9,11 +9,17 @@ import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { DeedCard } from "../../../types/cards.js";
 import type { PlayCardOptions, PlayableCard, ManaColor, SidewaysOption } from "@mage-knight/shared";
+import {
+  PLAY_SIDEWAYS_AS_MOVE,
+  PLAY_SIDEWAYS_AS_INFLUENCE,
+} from "@mage-knight/shared";
 import { DEED_CARD_TYPE_WOUND, DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
+import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../modifierConstants.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { isNormalEffectAllowed } from "../../rules/cardPlay.js";
 
@@ -43,8 +49,39 @@ export function getPlayableCardsForNormalTurn(
     const card = getCard(cardId);
     if (!card) continue;
 
-    // Wounds cannot be played
-    if (card.cardType === DEED_CARD_TYPE_WOUND) continue;
+    // Wounds are only playable sideways when a rule override allows it
+    if (card.cardType === DEED_CARD_TYPE_WOUND) {
+      if (!isRuleActive(state, player.id, RULE_WOUNDS_PLAYABLE_SIDEWAYS)) {
+        continue;
+      }
+
+      const sidewaysValue = getEffectiveSidewaysValue(
+        state,
+        player.id,
+        true,
+        player.usedManaFromSource
+      );
+
+      if (sidewaysValue <= 0) {
+        continue;
+      }
+
+      cards.push({
+        cardId,
+        name: card.name,
+        canPlayBasic: false,
+        canPlayPowered: false,
+        canPlaySideways: true,
+        basicEffectDescription: describeEffect(card.basicEffect),
+        poweredEffectDescription: describeEffect(card.poweredEffect),
+        sidewaysOptions: [
+          { as: PLAY_SIDEWAYS_AS_MOVE, value: sidewaysValue },
+          { as: PLAY_SIDEWAYS_AS_INFLUENCE, value: sidewaysValue },
+        ],
+      });
+
+      continue;
+    }
 
     const playability = getCardPlayabilityForNormalTurn(state, player.id, card);
 

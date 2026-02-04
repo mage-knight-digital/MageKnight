@@ -15,10 +15,19 @@ import {
   MANA_SOURCE_DIE,
   MANA_RED,
   MANA_BLUE,
+  MANA_GREEN,
+  MANA_WHITE,
   MANA_BLACK,
   MANA_GOLD,
   CARD_RAGE,
+  MANA_TOKEN_SOURCE_CARD,
 } from "@mage-knight/shared";
+import {
+  canPayForMana,
+  canPayForTwoMana,
+  getAvailableManaSourcesForColor,
+  getManaOptions,
+} from "../validActions/mana.js";
 import {
   RULE_BLACK_AS_ANY_COLOR,
   RULE_EXTRA_SOURCE_DIE,
@@ -266,6 +275,92 @@ describe("RULE_BLACK_AS_ANY_COLOR (Mana Pull basic effect)", () => {
 
       const result = validateManaAvailable(state, "player1", action);
       expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("valid actions with RULE_BLACK_AS_ANY_COLOR", () => {
+    it("should treat a black die as any color for mana availability", () => {
+      const player = createTestPlayer({ id: "player1" });
+      let state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_BLACK, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      state = addModifier(state, createBlackAsAnyColorModifier("player1"));
+
+      const updatedPlayer = state.players[0];
+      expect(canPayForMana(state, updatedPlayer, MANA_RED)).toBe(true);
+      expect(canPayForMana(state, updatedPlayer, MANA_BLUE)).toBe(true);
+      expect(canPayForMana(state, updatedPlayer, MANA_GREEN)).toBe(true);
+      expect(canPayForMana(state, updatedPlayer, MANA_WHITE)).toBe(true);
+      expect(canPayForMana(state, updatedPlayer, MANA_GOLD)).toBe(true);
+    });
+
+    it("should expose black die as any color in mana options", () => {
+      const player = createTestPlayer({ id: "player1" });
+      let state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_BLACK, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      state = addModifier(state, createBlackAsAnyColorModifier("player1"));
+
+      const manaOptions = getManaOptions(state, state.players[0]);
+      const colorsForDie = manaOptions.availableDice
+        .filter((die) => die.dieId === "die_0")
+        .map((die) => die.color);
+
+      expect(colorsForDie).toEqual(expect.arrayContaining([
+        MANA_BLACK,
+        MANA_RED,
+        MANA_BLUE,
+        MANA_GREEN,
+        MANA_WHITE,
+        MANA_GOLD,
+      ]));
+    });
+
+    it("should require distinct sources for spell mana (black + color)", () => {
+      const player = createTestPlayer({ id: "player1" });
+      let state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_BLACK, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      state = addModifier(state, createBlackAsAnyColorModifier("player1"));
+
+      const updatedPlayer = state.players[0];
+      expect(canPayForTwoMana(state, updatedPlayer, MANA_BLACK, MANA_RED)).toBe(false);
+
+      // Add a separate red mana token so black + red are distinct
+      const playerWithToken = {
+        ...updatedPlayer,
+        pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_CARD }],
+      };
+      const stateWithToken = { ...state, players: [playerWithToken] };
+
+      expect(canPayForTwoMana(stateWithToken, playerWithToken, MANA_BLACK, MANA_RED)).toBe(true);
+    });
+
+    it("should offer black die as a source for specific colors", () => {
+      const player = createTestPlayer({ id: "player1" });
+      let state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_BLACK, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      state = addModifier(state, createBlackAsAnyColorModifier("player1"));
+
+      const sources = getAvailableManaSourcesForColor(state, state.players[0], MANA_RED);
+      expect(sources.some((s) => s.type === MANA_SOURCE_DIE && s.dieId === "die_0" && s.color === MANA_RED)).toBe(true);
     });
   });
 });

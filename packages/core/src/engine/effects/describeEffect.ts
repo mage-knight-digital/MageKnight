@@ -29,7 +29,9 @@ import {
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_TERRAIN_BASED_BLOCK,
   EFFECT_TAKE_WOUND,
+  EFFECT_DISCARD_WOUNDS,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
+  EFFECT_PLACE_SKILL_IN_CENTER,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -169,6 +171,14 @@ export function describeEffect(effect: CardEffect): string {
       return effect.amount === 1
         ? "Take 1 wound"
         : `Take ${effect.amount} wounds`;
+
+    case EFFECT_DISCARD_WOUNDS:
+      return effect.count === 1
+        ? "Discard 1 Wound"
+        : `Discard ${effect.count} Wounds`;
+
+    case EFFECT_PLACE_SKILL_IN_CENTER:
+      return "Place skill in center";
 
     case EFFECT_TRACK_ATTACK_DEFEAT_FAME: {
       const attackType =

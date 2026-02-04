@@ -29,6 +29,8 @@ import {
 } from "@mage-knight/shared";
 import { END_ROUND_COMMAND } from "../commandTypes.js";
 import { SYSTEM_PLAYER_ID } from "../../engineConstants.js";
+import { expireModifiers } from "../../modifiers/index.js";
+import { EXPIRATION_ROUND_END } from "../../modifierConstants.js";
 
 import { checkGameEnd } from "./gameEnd.js";
 import { processTimeTransition } from "./timeTransition.js";
@@ -107,8 +109,7 @@ export function createEndRoundCommand(): Command {
         timeTransition.newTime
       );
 
-      return {
-        state: {
+      const updatedState: GameState = {
           ...state,
           round: newRound,
           timeOfDay: timeTransition.newTime,
@@ -144,7 +145,14 @@ export function createEndRoundCommand(): Command {
           // Keep current turn order until tactics phase ends
           // (will be recalculated based on selected tactics)
           currentPlayerIndex: 0,
-        },
+      };
+
+      const stateAfterExpiration = expireModifiers(updatedState, {
+        type: EXPIRATION_ROUND_END,
+      });
+
+      return {
+        state: stateAfterExpiration,
         events,
       };
     },

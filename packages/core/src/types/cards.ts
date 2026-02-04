@@ -2,7 +2,15 @@
  * Card definitions for Mage Knight
  */
 
-import type { CardId, ManaColor, BasicManaColor, Element, DiscardFilter, RevealTileType } from "@mage-knight/shared";
+import type {
+  CardId,
+  SkillId,
+  ManaColor,
+  BasicManaColor,
+  Element,
+  DiscardFilter,
+  RevealTileType,
+} from "@mage-knight/shared";
 import type { ModifierEffect, ModifierDuration, ModifierScope } from "./modifiers.js";
 import type { CombatPhase } from "./combat.js";
 import type { SourceDieId } from "./mana.js";
@@ -36,9 +44,11 @@ import {
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_HEAL_UNIT,
   EFFECT_DISCARD_CARD,
+  EFFECT_DISCARD_WOUNDS,
   EFFECT_REVEAL_TILES,
   EFFECT_PAY_MANA,
   EFFECT_TERRAIN_BASED_BLOCK,
+  EFFECT_PLACE_SKILL_IN_CENTER,
   EFFECT_DISCARD_COST,
   EFFECT_GRANT_WOUND_IMMUNITY,
   EFFECT_DISCARD_FOR_ATTACK,
@@ -394,6 +404,15 @@ export interface DiscardCardEffect {
 }
 
 /**
+ * Discard wound cards from hand (return them to the wound pile).
+ * Used by skills that throw away wounds without healing effects.
+ */
+export interface DiscardWoundsEffect {
+  readonly type: typeof EFFECT_DISCARD_WOUNDS;
+  readonly count: number;
+}
+
+/**
  * Reveal tiles on the map.
  * Used by skills like Scouting and Intelligence.
  * - distance: how far from the player's position to reveal
@@ -415,6 +434,14 @@ export interface PayManaCostEffect {
   readonly type: typeof EFFECT_PAY_MANA;
   readonly colors: readonly ManaColor[];
   readonly amount: number;
+}
+
+/**
+ * Place an interactive skill token in the center, making it available to other players.
+ */
+export interface PlaceSkillInCenterEffect {
+  readonly type: typeof EFFECT_PLACE_SKILL_IN_CENTER;
+  readonly skillId: SkillId;
 }
 
 /**
@@ -594,9 +621,11 @@ export type CardEffect =
   | ResolveCombatEnemyTargetEffect
   | HealUnitEffect
   | DiscardCardEffect
+  | DiscardWoundsEffect
   | RevealTilesEffect
   | PayManaCostEffect
   | TerrainBasedBlockEffect
+  | PlaceSkillInCenterEffect
   | DiscardCostEffect
   | GrantWoundImmunityEffect
   | DiscardForAttackEffect
