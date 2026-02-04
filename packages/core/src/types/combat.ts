@@ -65,6 +65,12 @@ export type PendingBlockMap = {
   readonly [enemyInstanceId: string]: PendingElementalDamage;
 };
 
+// Pending swift-doubled block assigned to enemies (before resolution)
+// Tracks the portion of block that counts twice against Swift.
+export type PendingSwiftBlockMap = {
+  readonly [enemyInstanceId: string]: PendingElementalDamage;
+};
+
 // Helper to create empty pending elemental damage
 export function createEmptyPendingDamage(): PendingElementalDamage {
   return {
@@ -128,6 +134,7 @@ export interface CombatState {
   readonly discardEnemiesOnFailure: boolean; // true for dungeon/tomb (enemies discarded even on failed combat)
   readonly pendingDamage: PendingDamageMap; // Damage assigned to enemies before resolution
   readonly pendingBlock: PendingBlockMap; // Block assigned to enemies before resolution
+  readonly pendingSwiftBlock: PendingSwiftBlockMap; // Swift-doubled block assigned to enemies
   readonly combatContext: CombatContext; // Identifies special combat scenarios (standard, burn_monastery)
   /**
    * For cooperative city assaults: maps player IDs to their assigned enemy instance IDs.
@@ -263,6 +270,7 @@ export function createCombatState(
     discardEnemiesOnFailure: options?.discardEnemiesOnFailure ?? false,
     pendingDamage: {},
     pendingBlock: {},
+    pendingSwiftBlock: {},
     combatContext: options?.combatContext ?? COMBAT_CONTEXT_STANDARD,
     cumbersomeReductions: {},
     usedDefend: {},

@@ -25,7 +25,7 @@ import {
   ABILITY_SWIFT,
   ABILITY_BRUTAL,
 } from "@mage-knight/shared";
-import type { CombatEnemy, CombatState } from "../../types/combat.js";
+import type { CombatEnemy, CombatState, PendingElementalDamage } from "../../types/combat.js";
 import { createEmptyPendingDamage } from "../../types/combat.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player, ElementalAttackValues } from "../../types/player.js";
@@ -40,6 +40,7 @@ import {
   getEnemyAttacks,
   isAttackBlocked,
 } from "../combat/enemyAttackHelpers.js";
+import { isSwiftActive } from "../combat/swiftHelpers.js";
 import {
   isCumbersomeActive,
   getCumbersomeReduction,
@@ -66,14 +67,50 @@ export function computeAvailableBlock(
 }
 
 /**
+ * Convert PendingElementalDamage to block sources for efficiency calculations.
+ */
+function pendingBlockToBlockSources(
+  pending: PendingElementalDamage
+): { element: Element; value: number }[] {
+  const sources: { element: Element; value: number }[] = [];
+
+  if (pending.physical > 0) {
+    sources.push({ element: "physical" as Element, value: pending.physical });
+  }
+  if (pending.fire > 0) {
+    sources.push({ element: "fire" as Element, value: pending.fire });
+  }
+  if (pending.ice > 0) {
+    sources.push({ element: "ice" as Element, value: pending.ice });
+  }
+  if (pending.coldFire > 0) {
+    sources.push({ element: "cold_fire" as Element, value: pending.coldFire });
+  }
+
+  return sources;
+}
+
+/**
+ * Append swift-double block sources (duplicates) for block values that count twice.
+ */
+function appendSwiftDoubleSources(
+  sources: { element: Element; value: number }[],
+  pendingSwift: PendingElementalDamage
+): { element: Element; value: number }[] {
+  const extra = pendingBlockToBlockSources(pendingSwift);
+  return extra.length > 0 ? [...sources, ...extra] : sources;
+}
+
+/**
  * Compute the block state for a single enemy during BLOCK phase.
  */
 export function computeEnemyBlockState(
   enemy: CombatEnemy,
   combat: CombatState,
-  state: GameState
+  state: GameState,
+  playerId: string
 ): EnemyBlockState {
-  const isSwift = enemy.definition.abilities.includes(ABILITY_SWIFT);
+  const swiftActive = isSwiftActive(state, playerId, enemy);
   const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
 
   // Use effective attack (after modifiers)
@@ -84,10 +121,12 @@ export function computeEnemyBlockState(
   );
 
   // Swift enemies require 2x block
-  const requiredBlock = isSwift ? effectiveAttack * 2 : effectiveAttack;
+  const requiredBlock = swiftActive ? effectiveAttack * 2 : effectiveAttack;
 
   // Get pending block for this enemy
   const rawPending = combat.pendingBlock[enemy.instanceId] ?? createEmptyPendingDamage();
+  const rawSwiftPending =
+    combat.pendingSwiftBlock[enemy.instanceId] ?? createEmptyPendingDamage();
   const pendingBlock: ElementalDamageValues = {
     physical: rawPending.physical,
     fire: rawPending.fire,
@@ -96,24 +135,12 @@ export function computeEnemyBlockState(
   };
 
   // Calculate effective block value after elemental efficiency
-  const blockSources: { element: Element; value: number }[] = [];
-  if (rawPending.physical > 0) {
-    blockSources.push({ element: "physical" as Element, value: rawPending.physical });
-  }
-  if (rawPending.fire > 0) {
-    blockSources.push({ element: "fire" as Element, value: rawPending.fire });
-  }
-  if (rawPending.ice > 0) {
-    blockSources.push({ element: "ice" as Element, value: rawPending.ice });
-  }
-  if (rawPending.coldFire > 0) {
-    blockSources.push({ element: "cold_fire" as Element, value: rawPending.coldFire });
-  }
+  const baseBlockSources = pendingBlockToBlockSources(rawPending);
+  const blockSources = swiftActive
+    ? appendSwiftDoubleSources(baseBlockSources, rawSwiftPending)
+    : baseBlockSources;
 
-  const effectiveBlock = calculateTotalBlock(
-    blockSources,
-    enemy.definition.attackElement
-  );
+  const effectiveBlock = calculateTotalBlock(blockSources, enemy.definition.attackElement);
 
   // Can block if effective block >= required
   const canBlock = effectiveBlock >= requiredBlock;
@@ -124,7 +151,7 @@ export function computeEnemyBlockState(
     enemyAttack: effectiveAttack,
     attackElement: enemy.definition.attackElement,
     requiredBlock,
-    isSwift,
+    isSwift: swiftActive,
     isBrutal,
     isBlocked: enemy.isBlocked,
     isDefeated: enemy.isDefeated,
@@ -314,7 +341,7 @@ export function computeBlockPhaseOptions(
     .filter((enemy) => !enemy.isSummonerHidden)
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
     .filter((enemy) => getEffectiveEnemyAttack(state, enemy.instanceId, enemy.definition.attack) > 0)
-    .map((enemy) => computeEnemyBlockState(enemy, combat, state));
+    .map((enemy) => computeEnemyBlockState(enemy, combat, state, player.id));
 
   // Generate assignable blocks
   const assignableBlocks = generateAssignableBlocks(

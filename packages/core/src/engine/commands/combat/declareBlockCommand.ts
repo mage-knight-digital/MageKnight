@@ -13,11 +13,10 @@
 
 import type { Command, CommandResult } from "../../commands.js";
 import type { GameState } from "../../../state/GameState.js";
-import type { EnemyAbilityType, BlockSource, Element } from "@mage-knight/shared";
+import type { BlockSource, Element } from "@mage-knight/shared";
 import {
   ENEMY_BLOCKED,
   BLOCK_FAILED,
-  ABILITY_SWIFT,
   ELEMENT_PHYSICAL,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -26,7 +25,6 @@ import {
 import type { CombatEnemy, PendingElementalDamage } from "../../../types/combat.js";
 import { createEmptyPendingDamage } from "../../../types/combat.js";
 import { getFinalBlockValue } from "../../combat/elementalCalc.js";
-import { isAbilityNullified } from "../../modifiers/index.js";
 import {
   getEnemyAttack,
   getEnemyAttacks,
@@ -34,6 +32,7 @@ import {
   isAttackBlocked,
 } from "../../combat/enemyAttackHelpers.js";
 import { getCumbersomeReducedAttack } from "../../combat/cumbersomeHelpers.js";
+import { isSwiftActive } from "../../combat/swiftHelpers.js";
 
 export const DECLARE_BLOCK_COMMAND = "DECLARE_BLOCK" as const;
 
@@ -71,23 +70,14 @@ function pendingBlockToBlockSources(pending: PendingElementalDamage): BlockSourc
 }
 
 /**
- * Check if an enemy has a specific ability
+ * Append swift-double block sources (duplicates) for block values that count twice.
  */
-function hasAbility(enemy: CombatEnemy, abilityType: EnemyAbilityType): boolean {
-  return enemy.definition.abilities.includes(abilityType);
-}
-
-/**
- * Check if enemy's Swift ability is active (not nullified)
- * Swift: doubles the attack value for blocking purposes
- */
-function isSwiftActive(
-  state: GameState,
-  playerId: string,
-  enemy: CombatEnemy
-): boolean {
-  if (!hasAbility(enemy, ABILITY_SWIFT)) return false;
-  return !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_SWIFT);
+function appendSwiftDoubleSources(
+  sources: BlockSource[],
+  pendingSwift: PendingElementalDamage
+): BlockSource[] {
+  const extra = pendingBlockToBlockSources(pendingSwift);
+  return extra.length > 0 ? [...sources, ...extra] : sources;
 }
 
 /**
@@ -182,8 +172,16 @@ export function createDeclareBlockCommand(
         state.combat.pendingBlock[params.targetEnemyInstanceId] ??
         createEmptyPendingDamage();
 
+      const pendingSwiftBlock =
+        state.combat.pendingSwiftBlock[params.targetEnemyInstanceId] ??
+        createEmptyPendingDamage();
+
       // Convert pendingBlock to BlockSource[] format for calculation
-      const blockSources = pendingBlockToBlockSources(pendingBlock);
+      const baseBlockSources = pendingBlockToBlockSources(pendingBlock);
+      const swiftActive = isSwiftActive(state, params.playerId, enemy);
+      const blockSources = swiftActive
+        ? appendSwiftDoubleSources(baseBlockSources, pendingSwiftBlock)
+        : baseBlockSources;
 
       // Calculate final block value including elemental efficiency and combat modifiers
       // Use the attack's element for block efficiency calculation
@@ -206,9 +204,15 @@ export function createDeclareBlockCommand(
       const isSuccessful = effectiveBlockValue >= requiredBlock;
 
       // Clear the pendingBlock for this enemy (new system)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [params.targetEnemyInstanceId]: _removed, ...remainingPendingBlock } =
         state.combat.pendingBlock;
+      void _removed;
+      // Clear pendingSwiftBlock for this enemy
+      const {
+        [params.targetEnemyInstanceId]: _removedSwift,
+        ...remainingPendingSwiftBlock
+      } = state.combat.pendingSwiftBlock;
+      void _removedSwift;
 
       // Update player's accumulator - reduce assigned block tracking
       const emptyBlockElements = { physical: 0, fire: 0, ice: 0, coldFire: 0 };
@@ -244,6 +248,7 @@ export function createDeclareBlockCommand(
         const updatedCombat = {
           ...state.combat,
           pendingBlock: remainingPendingBlock,
+          pendingSwiftBlock: remainingPendingSwiftBlock,
         };
 
         return {
@@ -289,6 +294,7 @@ export function createDeclareBlockCommand(
         ...state.combat,
         enemies: updatedEnemies,
         pendingBlock: remainingPendingBlock,
+        pendingSwiftBlock: remainingPendingSwiftBlock,
       };
 
       return {

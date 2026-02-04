@@ -41,6 +41,7 @@ import { resetUnitInstanceCounter } from "../commands/units/index.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_ATTACK,
+  COMBAT_CONTEXT_STANDARD,
   type CombatState,
   type CombatEnemy,
 } from "../../types/combat.js";
@@ -73,6 +74,13 @@ function createSorcerersCombatState(
     discardEnemiesOnFailure: false,
     pendingDamage: {},
     pendingBlock: {},
+    pendingSwiftBlock: {},
+    combatContext: COMBAT_CONTEXT_STANDARD,
+    cumbersomeReductions: {},
+    usedDefend: {},
+    defendBonuses: {},
+    paidHeroesAssaultInfluence: false,
+    vampiricArmorBonus: {},
   };
 }
 

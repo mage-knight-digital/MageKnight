@@ -24,7 +24,7 @@ import {
   TERRAIN_LAKE,
 } from "@mage-knight/shared";
 import type { TerrainBasedBlockEffect } from "../../types/cards.js";
-import type { CombatState } from "../../types/combat.js";
+import { COMBAT_CONTEXT_STANDARD, type CombatState } from "../../types/combat.js";
 
 const terrainBasedBlockEffect: TerrainBasedBlockEffect = {
   type: EFFECT_TERRAIN_BASED_BLOCK,
@@ -219,6 +219,13 @@ describe("Terrain-Based Block Effect", () => {
         discardEnemiesOnFailure: false,
         pendingDamage: {},
         pendingBlock: {},
+        pendingSwiftBlock: {},
+        combatContext: COMBAT_CONTEXT_STANDARD,
+        cumbersomeReductions: {},
+        usedDefend: {},
+        defendBonuses: {},
+        paidHeroesAssaultInfluence: false,
+        vampiricArmorBonus: {},
       };
 
       const state = createTestGameState({

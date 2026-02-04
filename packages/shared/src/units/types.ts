@@ -87,6 +87,11 @@ export interface UnitAbility {
   readonly value?: number;
   readonly element?: Element;
   /**
+   * If true, this Block ability counts twice when blocking an enemy with Swift.
+   * Only applies to Block abilities.
+   */
+  readonly countsTwiceAgainstSwift?: boolean;
+  /**
    * Optional terrain cost modifiers applied when this ability is activated.
    * Modifiers last until the end of the current turn.
    */

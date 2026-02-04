@@ -282,7 +282,8 @@ export function createActivateUnitCommand(
         player.combatAccumulator,
         ability.type,
         abilityValue,
-        ability.element
+        ability.element,
+        ability.countsTwiceAgainstSwift
       );
 
       // Apply non-combat ability effects (heal, move, influence)
@@ -419,7 +420,8 @@ export function createActivateUnitCommand(
             player.combatAccumulator,
             ability.type,
             abilityValue,
-            ability.element
+            ability.element,
+            ability.countsTwiceAgainstSwift
           )
         : player.combatAccumulator;
 

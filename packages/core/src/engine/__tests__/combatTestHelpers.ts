@@ -9,6 +9,7 @@ import { hexKey, TERRAIN_PLAINS, TERRAIN_FOREST } from "@mage-knight/shared";
 import type { GameState } from "../../state/GameState.js";
 import type { Site, HexState, HexEnemy } from "../../types/map.js";
 import { SiteType, TileId } from "../../types/map.js";
+import { createEmptyPendingDamage } from "../../types/combat.js";
 import { createTestGameState } from "./testHelpers.js";
 
 /**
@@ -74,6 +75,10 @@ export function withBlockSources(
       pendingBlock: {
         ...combat.pendingBlock,
         [enemyInstanceId]: blockByElement,
+      },
+      pendingSwiftBlock: {
+        ...combat.pendingSwiftBlock,
+        [enemyInstanceId]: createEmptyPendingDamage(),
       },
     },
   };

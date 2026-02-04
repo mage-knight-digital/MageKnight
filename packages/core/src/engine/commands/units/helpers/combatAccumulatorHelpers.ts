@@ -26,7 +26,8 @@ export function addAbilityToAccumulator(
   accumulator: CombatAccumulator,
   abilityType: UnitAbilityType,
   value: number,
-  element: Element | undefined
+  element: Element | undefined,
+  countsTwiceAgainstSwift?: boolean
 ): CombatAccumulator {
   const elementKey = getElementKey(element);
 
@@ -54,6 +55,9 @@ export function addAbilityToAccumulator(
           elementKey,
           value
         ),
+        swiftBlockElements: countsTwiceAgainstSwift
+          ? addToElementalValues(accumulator.swiftBlockElements, elementKey, value)
+          : accumulator.swiftBlockElements,
       };
 
     case UNIT_ABILITY_RANGED_ATTACK:
@@ -97,7 +101,8 @@ export function removeAbilityFromAccumulator(
   accumulator: CombatAccumulator,
   abilityType: UnitAbilityType,
   value: number,
-  element: Element | undefined
+  element: Element | undefined,
+  countsTwiceAgainstSwift?: boolean
 ): CombatAccumulator {
   const elementKey = getElementKey(element);
 
@@ -125,6 +130,13 @@ export function removeAbilityFromAccumulator(
           elementKey,
           value
         ),
+        swiftBlockElements: countsTwiceAgainstSwift
+          ? subtractFromElementalValues(
+              accumulator.swiftBlockElements,
+              elementKey,
+              value
+            )
+          : accumulator.swiftBlockElements,
       };
 
     case UNIT_ABILITY_RANGED_ATTACK:
