@@ -242,6 +242,25 @@
   color: #f0e6d2;
 }
 
+.enemy-tooltip__attack-groups {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(0.2rem, 0.5vw, 0.4rem);
+  flex-wrap: wrap;
+}
+
+.enemy-tooltip__attack-group {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(0.15rem, 0.4vw, 0.3rem);
+}
+
+.enemy-tooltip__attack-separator {
+  font-weight: 700;
+  color: rgba(240, 230, 210, 0.8);
+  margin: 0 clamp(0.1rem, 0.3vw, 0.2rem);
+}
+
 /* Rampaging badge - inline with enemy name */
 .enemy-tooltip__rampaging-badge {
   font-size: clamp(0.6rem, 1vw, 0.9rem);

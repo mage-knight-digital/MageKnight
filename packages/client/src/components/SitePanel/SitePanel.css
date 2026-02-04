@@ -343,6 +343,25 @@
   height: clamp(18px, 2.5vw, 24px) !important;
 }
 
+.site-panel__attack-groups {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(6px, 1vw, 10px);
+  flex-wrap: wrap;
+}
+
+.site-panel__attack-group {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(4px, 0.6vw, 6px);
+}
+
+.site-panel__attack-separator {
+  font-weight: 700;
+  color: rgba(240, 230, 210, 0.8);
+  margin: 0 clamp(2px, 0.4vw, 4px);
+}
+
 /* Inline traits (abilities shown as tags) */
 .site-panel__enemy-traits {
   display: flex;
