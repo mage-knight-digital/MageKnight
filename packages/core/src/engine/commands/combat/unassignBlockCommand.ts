@@ -20,6 +20,7 @@ import {
 import type { ElementalAttackValues } from "../../../types/player.js";
 import type { PendingElementalDamage } from "../../../types/combat.js";
 import { createEmptyPendingDamage } from "../../../types/combat.js";
+import { isSwiftActive } from "../../combat/swiftHelpers.js";
 
 export const UNASSIGN_BLOCK_COMMAND = "UNASSIGN_BLOCK" as const;
 
@@ -94,6 +95,7 @@ function subtractFromPendingBlock(
 export function createUnassignBlockCommand(params: UnassignBlockCommandParams): Command {
   // Store state needed for undo
   let previousPendingBlock: PendingElementalDamage | undefined;
+  let previousPendingSwiftBlock: PendingElementalDamage | undefined;
   let previousAssignedBlock: number | undefined;
   let previousAssignedBlockElements: ElementalAttackValues | undefined;
 
@@ -123,6 +125,9 @@ export function createUnassignBlockCommand(params: UnassignBlockCommandParams): 
       // Get current pending block for this enemy
       const currentPending =
         state.combat.pendingBlock[params.enemyInstanceId] ?? createEmptyPendingDamage();
+      const currentSwiftPending =
+        state.combat.pendingSwiftBlock[params.enemyInstanceId] ??
+        createEmptyPendingDamage();
 
       // Validate that there's enough assigned to unassign
       const currentlyAssigned = getAssignedToEnemy(currentPending, params.element);
@@ -134,8 +139,22 @@ export function createUnassignBlockCommand(params: UnassignBlockCommandParams): 
 
       // Store state for undo
       previousPendingBlock = currentPending;
+      previousPendingSwiftBlock = currentSwiftPending;
       previousAssignedBlock = player.combatAccumulator.assignedBlock;
       previousAssignedBlockElements = player.combatAccumulator.assignedBlockElements;
+
+      const swiftAssigned = getAssignedToEnemy(currentSwiftPending, params.element);
+      const normalAssigned = Math.max(0, currentlyAssigned - swiftAssigned);
+      const swiftActive = isSwiftActive(state, params.playerId, enemy);
+
+      let swiftToRemove = 0;
+      if (swiftActive) {
+        const normalToRemove = Math.min(params.amount, normalAssigned);
+        const remaining = params.amount - normalToRemove;
+        swiftToRemove = Math.min(remaining, swiftAssigned);
+      } else {
+        swiftToRemove = Math.min(params.amount, swiftAssigned);
+      }
 
       // Update player's assigned block (subtract since we're unassigning)
       const newAssignedBlockElements = subtractFromElementalValues(
@@ -159,6 +178,10 @@ export function createUnassignBlockCommand(params: UnassignBlockCommandParams): 
 
       // Update combat pending block
       const newPending = subtractFromPendingBlock(currentPending, params.element, params.amount);
+      const newSwiftPending =
+        swiftToRemove > 0
+          ? subtractFromPendingBlock(currentSwiftPending, params.element, swiftToRemove)
+          : currentSwiftPending;
 
       // Check if all pending block is now zero - if so, remove the entry
       const isEmpty =
@@ -181,9 +204,28 @@ export function createUnassignBlockCommand(params: UnassignBlockCommandParams): 
         };
       }
 
+      const isSwiftEmpty =
+        newSwiftPending.physical === 0 &&
+        newSwiftPending.fire === 0 &&
+        newSwiftPending.ice === 0 &&
+        newSwiftPending.coldFire === 0;
+      let updatedPendingSwiftBlock: typeof state.combat.pendingSwiftBlock;
+      if (isSwiftEmpty) {
+        const { [params.enemyInstanceId]: _removed, ...rest } =
+          state.combat.pendingSwiftBlock;
+        void _removed;
+        updatedPendingSwiftBlock = rest;
+      } else {
+        updatedPendingSwiftBlock = {
+          ...state.combat.pendingSwiftBlock,
+          [params.enemyInstanceId]: newSwiftPending,
+        };
+      }
+
       const updatedCombat = {
         ...state.combat,
         pendingBlock: updatedPendingBlock,
+        pendingSwiftBlock: updatedPendingSwiftBlock,
       };
 
       return {
@@ -237,12 +279,19 @@ export function createUnassignBlockCommand(params: UnassignBlockCommandParams): 
       if (!previousPendingBlock) {
         throw new Error("Cannot undo: no previous pending block stored");
       }
+      if (!previousPendingSwiftBlock) {
+        throw new Error("Cannot undo: no previous pending swift block stored");
+      }
 
       const updatedCombat = {
         ...state.combat,
         pendingBlock: {
           ...state.combat.pendingBlock,
           [params.enemyInstanceId]: previousPendingBlock,
+        },
+        pendingSwiftBlock: {
+          ...state.combat.pendingSwiftBlock,
+          [params.enemyInstanceId]: previousPendingSwiftBlock,
         },
       };
 

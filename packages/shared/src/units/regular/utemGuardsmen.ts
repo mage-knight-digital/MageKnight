@@ -24,7 +24,12 @@ export const UTEM_GUARDSMEN: UnitDefinition = {
   recruitSites: [RECRUIT_SITE_VILLAGE, RECRUIT_SITE_KEEP],
   abilities: [
     { type: UNIT_ABILITY_ATTACK, value: 2, element: ELEMENT_PHYSICAL },
-    { type: UNIT_ABILITY_BLOCK, value: 4, element: ELEMENT_PHYSICAL },
+    {
+      type: UNIT_ABILITY_BLOCK,
+      value: 4,
+      element: ELEMENT_PHYSICAL,
+      countsTwiceAgainstSwift: true,
+    },
   ],
   copies: 2,
 };

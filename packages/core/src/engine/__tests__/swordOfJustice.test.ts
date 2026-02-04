@@ -47,6 +47,7 @@ function createCombatState(enemies: CombatEnemy[]): Partial<GameState> {
       isAtFortifiedSite: false,
       pendingDamage: {},
       pendingBlock: {},
+      pendingSwiftBlock: {},
       fameGained: 0,
       unitsAllowed: true,
       enemyAssignments: undefined,

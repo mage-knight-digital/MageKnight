@@ -48,6 +48,7 @@ function createTestCombat(phase: CombatState["phase"] = COMBAT_PHASE_BLOCK): Com
     woundsThisCombat: 0,
     fameGained: 0,
     pendingBlock: {},
+    pendingSwiftBlock: {},
     pendingDamage: {},
     allDamageBlockedThisPhase: false,
     discardEnemiesOnFailure: false,

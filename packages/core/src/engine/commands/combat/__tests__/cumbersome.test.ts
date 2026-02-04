@@ -94,6 +94,7 @@ function setupCumbersomeCombat(
       fortificationLevel: 0,
       pendingDamage: {},
       pendingBlock: {},
+      pendingSwiftBlock: {},
       cumbersomeReductions: {},
     },
   };
@@ -244,6 +245,7 @@ describe("Cumbersome Ability", () => {
           fortificationLevel: 0,
           pendingDamage: {},
           pendingBlock: {},
+          pendingSwiftBlock: {},
           cumbersomeReductions: {},
         },
       };
@@ -345,6 +347,7 @@ describe("Cumbersome Ability", () => {
                     coldFire: 0,
                   },
                 },
+                pendingSwiftBlock: {},
               }
             : null,
         },
@@ -406,6 +409,7 @@ describe("Cumbersome Ability", () => {
                     coldFire: 0,
                   },
                 },
+                pendingSwiftBlock: {},
               }
             : null,
         },
@@ -498,6 +502,7 @@ describe("Cumbersome Ability", () => {
                     coldFire: 0,
                   },
                 },
+                pendingSwiftBlock: {},
               }
             : null,
         },

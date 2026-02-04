@@ -81,7 +81,10 @@ const defaultCombatAccumulator = {
   },
   block: 0,
   blockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
+  swiftBlockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
   blockSources: [] as const,
+  assignedBlock: 0,
+  assignedBlockElements: { physical: 0, fire: 0, ice: 0, coldFire: 0 },
 };
 
 /**
@@ -375,8 +378,12 @@ export function createUnitCombatState(
     discardEnemiesOnFailure: false,
     pendingDamage: {},
     pendingBlock: {},
+    pendingSwiftBlock: {},
     combatContext: COMBAT_CONTEXT_STANDARD,
     cumbersomeReductions: {},
+    usedDefend: {},
+    defendBonuses: {},
     paidHeroesAssaultInfluence: false,
+    vampiricArmorBonus: {},
   };
 }

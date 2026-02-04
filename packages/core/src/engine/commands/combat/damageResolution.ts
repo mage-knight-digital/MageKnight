@@ -226,6 +226,7 @@ export function clearPendingBlock(state: GameState, playerId: string): GameState
     ? {
         ...state.combat,
         pendingBlock: {},
+        pendingSwiftBlock: {},
       }
     : null;
 

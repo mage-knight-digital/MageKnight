@@ -99,6 +99,7 @@ export interface CombatAccumulator {
   readonly assignedAttack: AccumulatedAttack; // Attack that has been assigned to enemies (pending resolution)
   readonly block: number;
   readonly blockElements: ElementalAttackValues;
+  readonly swiftBlockElements: ElementalAttackValues;
   readonly blockSources: readonly BlockSource[];
   readonly assignedBlock: number; // Block that has been assigned to enemies (pending resolution)
   readonly assignedBlockElements: ElementalAttackValues; // Breakdown of assigned block by element
@@ -133,6 +134,7 @@ export function createEmptyCombatAccumulator(): CombatAccumulator {
     assignedAttack: createEmptyAccumulatedAttack(),
     block: 0,
     blockElements: createEmptyElementalValues(),
+    swiftBlockElements: createEmptyElementalValues(),
     blockSources: [],
     assignedBlock: 0,
     assignedBlockElements: createEmptyElementalValues(),

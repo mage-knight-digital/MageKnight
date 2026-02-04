@@ -115,6 +115,7 @@ function createMultiAttackCombatState(
     discardEnemiesOnFailure: false,
     pendingDamage: {},
     pendingBlock: {},
+    pendingSwiftBlock: {},
     combatContext: "standard",
   };
 }
