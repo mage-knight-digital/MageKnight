@@ -17,10 +17,12 @@ import {
   SKILLS,
   SKILL_USAGE_ONCE_PER_TURN,
   SKILL_USAGE_ONCE_PER_ROUND,
+  SKILL_USAGE_INTERACTIVE,
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_ARYTHEA_POLARIZATION,
+  SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_BRAEVALAR_THUNDERSTORM,
   SKILL_BRAEVALAR_SECRET_WAYS,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
@@ -44,11 +46,14 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_ARYTHEA_POLARIZATION,
+  SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_BRAEVALAR_THUNDERSTORM,
   SKILL_BRAEVALAR_SECRET_WAYS,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
   SKILL_ARYTHEA_BURNING_POWER,
 ]);
+
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN]);
 
 /**
  * Check skill-specific requirements beyond cooldowns.
@@ -74,6 +79,10 @@ function canActivateSkill(
     case SKILL_ARYTHEA_POLARIZATION:
       // Must have at least one convertible mana source
       return canActivatePolarization(state, player);
+
+    case SKILL_ARYTHEA_RITUAL_OF_PAIN:
+      // Cannot use during combat
+      return state.combat === null;
 
     default:
       // No special requirements
@@ -131,7 +140,11 @@ export function getSkillOptions(
       if (player.skillCooldowns.usedThisTurn.includes(skillId)) {
         continue;
       }
-    } else if (skill.usageType === SKILL_USAGE_ONCE_PER_ROUND) {
+    } else if (
+      skill.usageType === SKILL_USAGE_ONCE_PER_ROUND ||
+      (skill.usageType === SKILL_USAGE_INTERACTIVE &&
+        INTERACTIVE_ONCE_PER_ROUND.has(skillId))
+    ) {
       // Check round cooldown
       if (player.skillCooldowns.usedThisRound.includes(skillId)) {
         continue;
