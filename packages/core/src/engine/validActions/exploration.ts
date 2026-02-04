@@ -26,6 +26,7 @@ import { canExploreFromPosition } from "../explore/adjacency.js";
 import { isCoastlineSlot, getColumnRangeForShape } from "../explore/tileGrid.js";
 import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
+import { mustAnnounceEndOfRound } from "./helpers.js";
 
 /** Exploration costs 2 move points from a safe space */
 const EXPLORE_COST = 2;
@@ -50,6 +51,16 @@ export function getValidExploreOptions(
 ): ExploreOptions | undefined {
   // Must be on the map
   if (!player.position) {
+    return undefined;
+  }
+
+  // Must announce end of round before taking other actions
+  if (mustAnnounceEndOfRound(state, player)) {
+    return undefined;
+  }
+
+  // Can't explore while resting
+  if (player.isResting) {
     return undefined;
   }
 

@@ -39,7 +39,11 @@ export function effectHasHeal(effect: CardEffect): boolean {
       return effectHasHeal(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasHeal(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasHeal(next)
+          )
+        : effectHasHeal(effect.thenEffect);
 
     default:
       return false;
@@ -68,7 +72,11 @@ export function effectHasDraw(effect: CardEffect): boolean {
       return effectHasDraw(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasDraw(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasDraw(next)
+          )
+        : effectHasDraw(effect.thenEffect);
 
     default:
       return false;
@@ -97,7 +105,11 @@ export function effectHasModifier(effect: CardEffect): boolean {
       return effectHasModifier(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasModifier(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasModifier(next)
+          )
+        : effectHasModifier(effect.thenEffect);
 
     default:
       return false;
@@ -126,7 +138,11 @@ export function effectHasManaGain(effect: CardEffect): boolean {
       return effectHasManaGain(effect.baseEffect);
 
     case EFFECT_DISCARD_COST:
-      return effectHasManaGain(effect.thenEffect);
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasManaGain(next)
+          )
+        : effectHasManaGain(effect.thenEffect);
 
     default:
       return false;

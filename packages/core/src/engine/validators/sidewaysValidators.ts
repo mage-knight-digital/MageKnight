@@ -5,34 +5,25 @@
  * This applies to Basic Actions, Advanced Actions, Spells, Artifacts, etc.
  */
 
-// TODO: RULES - Phase restrictions for sideways play
+// RULES: Sideways restrictions (partial)
 // =================================================
 // Per rulebook L652: "Cards cannot be played sideways to contribute to Ranged or Siege Attacks."
 // Per rulebook L694: Sideways Block is always physical, never elemental.
 // Per rulebook L779: Sideways Attack is always physical Attack 1.
 // Per rulebook L1020 (PvP): Adding sideways to an attack makes the whole attack count as physical.
 //
-// These restrictions require combat phase tracking, which isn't implemented yet.
-// When combat is added:
-// 1. Block sideways Attack during Ranged/Siege phase
-// 2. Track sideways attacks as explicitly physical for resistance calculations
-// 3. Implement attack "contamination" where sideways makes elemental attacks also physical
+// Implemented here:
+// - Phase restrictions: no sideways in Ranged/Siege; Block-only in Block phase; Attack-only in Attack phase.
+//
+// TODO:
+// - Implement attack "contamination" where adding sideways makes combined attacks physical.
 // =================================================
 
 import type { GameState } from "../../state/GameState.js";
-import type { PlayerAction, CardId, BasicActionCardId } from "@mage-knight/shared";
+import type { PlayerAction, CardId } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
-import {
-  PLAY_CARD_SIDEWAYS_ACTION,
-  PLAY_SIDEWAYS_AS_MOVE,
-  PLAY_SIDEWAYS_AS_INFLUENCE,
-  PLAY_SIDEWAYS_AS_ATTACK,
-  PLAY_SIDEWAYS_AS_BLOCK,
-  CARD_WOUND,
-} from "@mage-knight/shared";
-import { BASIC_ACTION_CARDS, getBasicActionCard } from "../../data/basicActions/index.js";
-import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
+import { PLAY_CARD_SIDEWAYS_ACTION } from "@mage-knight/shared";
 import {
   CARD_NOT_IN_HAND,
   CANNOT_PLAY_WOUND,
@@ -41,6 +32,8 @@ import {
   SIDEWAYS_CHOICE_REQUIRED,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { getAllowedSidewaysChoices, getSidewaysContext } from "../rules/sideways.js";
+import { isWoundCardId } from "../rules/cardPlay.js";
 
 function getCardIdForSideways(action: PlayerAction): CardId | null {
   if (action.type === PLAY_CARD_SIDEWAYS_ACTION && "cardId" in action) {
@@ -86,24 +79,11 @@ export function validateSidewaysNotWound(
     return invalid(INVALID_ACTION_CODE, "Invalid sideways play action");
   }
 
-  // Check against the wound card ID directly
-  if (cardId === CARD_WOUND) {
+  if (isWoundCardId(cardId, null)) {
     return invalid(
       CANNOT_PLAY_WOUND,
       "Wound cards cannot be played sideways"
     );
-  }
-
-  // For cards in the basic action registry, also check by card type
-  // This handles cases where wound cards might have different IDs
-  if (cardId in BASIC_ACTION_CARDS) {
-    const card = getBasicActionCard(cardId as BasicActionCardId);
-    if (card.cardType === DEED_CARD_TYPE_WOUND) {
-      return invalid(
-        CANNOT_PLAY_WOUND,
-        "Wound cards cannot be played sideways"
-      );
-    }
   }
 
   // All other cards (Basic Actions, Advanced Actions, Spells, Artifacts, etc.)
@@ -113,12 +93,20 @@ export function validateSidewaysNotWound(
 
 // Must specify what to gain from sideways play
 export function validateSidewaysChoice(
-  _state: GameState,
+  state: GameState,
   _playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== PLAY_CARD_SIDEWAYS_ACTION) {
     return valid();
+  }
+
+  const allowedChoices = getAllowedSidewaysChoices(getSidewaysContext(state));
+  if (allowedChoices.length === 0) {
+    return invalid(
+      SIDEWAYS_CHOICE_REQUIRED,
+      "Sideways play is not allowed in this phase"
+    );
   }
 
   if (!("as" in action) || !action.as) {
@@ -128,14 +116,7 @@ export function validateSidewaysChoice(
     );
   }
 
-  const validChoices = [
-    PLAY_SIDEWAYS_AS_MOVE,
-    PLAY_SIDEWAYS_AS_INFLUENCE,
-    PLAY_SIDEWAYS_AS_ATTACK,
-    PLAY_SIDEWAYS_AS_BLOCK,
-  ];
-
-  if (!validChoices.includes(action.as)) {
+  if (!allowedChoices.includes(action.as)) {
     return invalid(SIDEWAYS_CHOICE_REQUIRED, "Invalid sideways choice");
   }
 

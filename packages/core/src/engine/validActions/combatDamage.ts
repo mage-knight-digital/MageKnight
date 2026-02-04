@@ -11,7 +11,6 @@ import type {
 import type { Element } from "@mage-knight/shared";
 import {
   ABILITY_BRUTAL,
-  ABILITY_ASSASSINATION,
   getUnit,
 } from "@mage-knight/shared";
 import type { CombatEnemy } from "../../types/combat.js";
@@ -20,9 +19,9 @@ import type { Player } from "../../types/player.js";
 import {
   getEffectiveEnemyAttack,
   doesEnemyAttackThisCombat,
-  isAbilityNullified,
 } from "../modifiers/index.js";
 import { isAttackResisted } from "../combat/elementalCalc.js";
+import { isAssassinationActive } from "../rules/combatTargeting.js";
 import {
   getEnemyAttack,
   getEnemyAttacks,
@@ -122,12 +121,9 @@ export function getDamageAssignmentOptions(
     // Check for Brutal ability (applies to all attacks)
     const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
 
-    // Check for Assassination ability - units cannot be targeted
-    const hasAssassination = enemy.definition.abilities.includes(ABILITY_ASSASSINATION);
-    const assassinationActive =
-      hasAssassination &&
-      currentPlayer &&
-      !isAbilityNullified(state, currentPlayer.id, enemy.instanceId, ABILITY_ASSASSINATION);
+    const assassinationActive = currentPlayer
+      ? isAssassinationActive(state, currentPlayer.id, enemy)
+      : false;
 
     const attacks = getEnemyAttacks(enemy);
     const attackCount = attacks.length;

@@ -9,10 +9,11 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { MoveOptions, MoveTarget, ReachableHex, HexCoord } from "@mage-knight/shared";
 import { HEX_DIRECTIONS, hexKey, getNeighbor, getAllNeighbors, TIME_OF_DAY_DAY } from "@mage-knight/shared";
-import { getEffectiveTerrainCost, isTerrainProhibited } from "../modifiers/index.js";
+import { evaluateMoveEntry } from "../rules/movement.js";
 import { SiteType, type HexState } from "../../types/map.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { FEATURE_FLAGS } from "../../config/featureFlags.js";
+import { mustAnnounceEndOfRound } from "./helpers.js";
 
 /**
  * Get valid move targets for a player.
@@ -34,6 +35,16 @@ export function getValidMoveTargets(
     return undefined;
   }
 
+  // Must announce end of round before taking other actions
+  if (mustAnnounceEndOfRound(state, player)) {
+    return undefined;
+  }
+
+  // Can't move while resting
+  if (player.isResting) {
+    return undefined;
+  }
+
   // Can't move after taking an action
   if (player.hasTakenActionThisTurn) {
     return undefined;
@@ -50,14 +61,8 @@ export function getValidMoveTargets(
     // Skip if hex doesn't exist
     if (!hex) continue;
 
-    // Skip terrain prohibited by active modifiers (e.g., Mist Form: hills/mountains)
-    if (isTerrainProhibited(state, player.id, hex.terrain)) continue;
-
-    // Get terrain cost (may be modified by skills/cards)
-    const cost = getEffectiveTerrainCost(state, hex.terrain, player.id);
-
-    // Skip impassable terrain
-    if (cost === Infinity) continue;
+    const { cost, reason } = evaluateMoveEntry(state, player.id, hex);
+    if (reason !== null) continue;
 
     // Skip if not enough move points
     if (player.movePoints < cost) continue;
@@ -244,30 +249,8 @@ function getHexEntryCost(
   state: GameState,
   playerId: string
 ): number {
-  if (!hex) return Infinity;
-
-  // Check terrain prohibition first (e.g., Mist Form: hills/mountains)
-  if (isTerrainProhibited(state, playerId, hex.terrain)) return Infinity;
-
-  // Get terrain cost (may be modified by skills/cards)
-  const cost = getEffectiveTerrainCost(state, hex.terrain, playerId);
-
-  // Impassable terrain
-  if (cost === Infinity) return Infinity;
-
-  // Blocked by rampaging enemies (can't enter at all)
-  if (hex.rampagingEnemies.length > 0 && hex.enemies.length > 0) {
-    return Infinity;
-  }
-
-  // Cities may be restricted by scenario
-  if (hex.site?.type === SiteType.City) {
-    if (!state.scenarioConfig.citiesCanBeEntered) {
-      return Infinity;
-    }
-  }
-
-  return cost;
+  const { cost, reason } = evaluateMoveEntry(state, playerId, hex);
+  return reason === null ? cost : Infinity;
 }
 
 /**

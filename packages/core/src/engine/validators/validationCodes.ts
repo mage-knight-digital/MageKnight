@@ -34,6 +34,9 @@ export const CARD_NOT_IN_HAND = "CARD_NOT_IN_HAND" as const;
 export const CARD_NOT_FOUND = "CARD_NOT_FOUND" as const;
 export const CANNOT_PLAY_WOUND = "CANNOT_PLAY_WOUND" as const;
 export const CANNOT_PLAY_HEALING_IN_COMBAT = "CANNOT_PLAY_HEALING_IN_COMBAT" as const;
+export const CARD_NOT_PLAYABLE = "CARD_NOT_PLAYABLE" as const;
+export const CARD_NOT_PLAYABLE_IN_PHASE = "CARD_NOT_PLAYABLE_IN_PHASE" as const;
+export const CARD_EFFECT_NOT_RESOLVABLE = "CARD_EFFECT_NOT_RESOLVABLE" as const;
 export const CHOICE_REQUIRED_CODE = "CHOICE_REQUIRED" as const;
 
 // Choice resolution validation codes
@@ -271,6 +274,9 @@ export type ValidationErrorCode =
   | typeof CARD_NOT_FOUND
   | typeof CANNOT_PLAY_WOUND
   | typeof CANNOT_PLAY_HEALING_IN_COMBAT
+  | typeof CARD_NOT_PLAYABLE
+  | typeof CARD_NOT_PLAYABLE_IN_PHASE
+  | typeof CARD_EFFECT_NOT_RESOLVABLE
   | typeof CHOICE_REQUIRED_CODE
   | typeof NO_PENDING_CHOICE
   | typeof INVALID_CHOICE_INDEX

@@ -4,7 +4,8 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, type MageKnightEngine } from "../MageKnightEngine.js";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer, createUnitCombatState } from "./testHelpers.js";
+import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
 import {
   PLAY_CARD_ACTION,
   RESOLVE_CHOICE_ACTION,
@@ -12,8 +13,8 @@ import {
   CHOICE_RESOLVED,
   INVALID_ACTION,
   UNDO_ACTION,
-  MOVE_ACTION,
   CARD_RAGE,
+  CARD_DETERMINATION,
 } from "@mage-knight/shared";
 
 describe("Choice resolution", () => {
@@ -28,7 +29,10 @@ describe("Choice resolution", () => {
       const player = createTestPlayer({
         hand: [CARD_RAGE],
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const result = engine.processAction(state, "player1", {
         type: PLAY_CARD_ACTION,
@@ -57,7 +61,10 @@ describe("Choice resolution", () => {
           block: 0,
         },
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       // Play Rage
       const afterPlay = engine.processAction(state, "player1", {
@@ -95,7 +102,10 @@ describe("Choice resolution", () => {
           block: 0,
         },
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const afterPlay = engine.processAction(state, "player1", {
         type: PLAY_CARD_ACTION,
@@ -121,12 +131,14 @@ describe("Choice resolution", () => {
   });
 
   describe("blocking other actions while choice is pending", () => {
-    it("should block move action while choice is pending", () => {
+    it("should block other card plays while choice is pending", () => {
       const player = createTestPlayer({
-        hand: [CARD_RAGE],
-        movePoints: 4,
+        hand: [CARD_RAGE, CARD_DETERMINATION],
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const afterPlay = engine.processAction(state, "player1", {
         type: PLAY_CARD_ACTION,
@@ -134,10 +146,11 @@ describe("Choice resolution", () => {
         powered: false,
       });
 
-      // Try to move — should fail
+      // Try to play another card — should fail
       const moveResult = engine.processAction(afterPlay.state, "player1", {
-        type: MOVE_ACTION,
-        target: { q: 1, r: 0 },
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_DETERMINATION,
+        powered: false,
       });
 
       expect(moveResult.events).toContainEqual(
@@ -154,7 +167,10 @@ describe("Choice resolution", () => {
       const player = createTestPlayer({
         hand: [CARD_RAGE],
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const afterPlay = engine.processAction(state, "player1", {
         type: PLAY_CARD_ACTION,
@@ -180,7 +196,10 @@ describe("Choice resolution", () => {
       const player = createTestPlayer({
         hand: [CARD_RAGE],
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       // Try to resolve choice without playing a card first
       const result = engine.processAction(state, "player1", {
@@ -206,7 +225,10 @@ describe("Choice resolution", () => {
           block: 0,
         },
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const afterPlay = engine.processAction(state, "player1", {
         type: PLAY_CARD_ACTION,
@@ -247,7 +269,10 @@ describe("Choice resolution", () => {
       const player = createTestPlayer({
         hand: [CARD_RAGE],
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       const afterPlay = engine.processAction(state, "player1", {
         type: PLAY_CARD_ACTION,

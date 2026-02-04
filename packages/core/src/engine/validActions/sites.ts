@@ -17,6 +17,7 @@ import {
   SPELL_PURCHASE_COST,
   MONASTERY_AA_PURCHASE_COST,
 } from "../../data/siteProperties.js";
+import { mustAnnounceEndOfRound } from "./helpers.js";
 
 // =============================================================================
 // MAIN FUNCTION
@@ -39,7 +40,10 @@ export function getSiteOptions(
   const props = SITE_PROPERTIES[site.type];
 
   // Determine if can enter (adventure sites)
-  const canEnter = canEnterSite(state, player, site, hex);
+  const canEnter =
+    !player.isResting &&
+    !mustAnnounceEndOfRound(state, player) &&
+    canEnterSite(state, player, site, hex);
 
   // Build enter description
   const enterDescription = canEnter
@@ -58,7 +62,10 @@ export function getSiteOptions(
     : undefined;
 
   // Interaction options (inhabited sites)
-  const canInteract = canInteractWithSite(site, props);
+  const canInteract =
+    !player.isResting &&
+    !mustAnnounceEndOfRound(state, player) &&
+    canInteractWithSite(site, props);
   const interactOptions = canInteract
     ? getInteractOptions(state, player, site)
     : undefined;

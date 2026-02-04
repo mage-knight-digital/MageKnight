@@ -53,7 +53,7 @@ export function findPayableManaColor(
     if (!spellColor) return undefined;
 
     // Check if player can pay for both black AND the spell color
-    if (canPayForTwoMana(state, player, MANA_BLACK, spellColor)) {
+    if (canPayForTwoMana(state, player, MANA_BLACK, spellColor, { forSpellPowered: true })) {
       return spellColor; // Return the spell color (black is implicit)
     }
     return undefined;

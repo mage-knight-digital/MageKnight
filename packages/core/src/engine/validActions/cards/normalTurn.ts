@@ -9,26 +9,13 @@ import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { DeedCard } from "../../../types/cards.js";
 import type { PlayCardOptions, PlayableCard, ManaColor, SidewaysOption } from "@mage-knight/shared";
-import {
-  PLAY_SIDEWAYS_AS_MOVE,
-  PLAY_SIDEWAYS_AS_INFLUENCE,
-} from "@mage-knight/shared";
 import { DEED_CARD_TYPE_WOUND, DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
-import {
-  effectHasMove,
-  effectHasInfluence,
-  effectHasHeal,
-  effectHasDraw,
-  effectHasManaGain,
-  effectHasModifier,
-  effectHasManaDrawPowered,
-  effectHasCrystal,
-  effectHasCardBoost,
-} from "./effectDetection/index.js";
+import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
+import { isNormalEffectAllowed } from "../../rules/cardPlay.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -44,7 +31,7 @@ interface CardPlayability {
  * - Move points
  * - Influence points
  * - Healing
- * - Sideways: +1 Move or +1 Influence
+ * - Sideways: +1 Move/Influence/Attack/Block (engine allows all sideways choices outside combat)
  */
 export function getPlayableCardsForNormalTurn(
   state: GameState,
@@ -115,43 +102,27 @@ function getCardPlayabilityForNormalTurn(
   playerId: string,
   card: DeedCard
 ): CardPlayability {
-  // Check if basic effect has a useful effect type AND is resolvable
-  const basicHasUsefulEffect =
-    effectHasMove(card.basicEffect) ||
-    effectHasInfluence(card.basicEffect) ||
-    effectHasHeal(card.basicEffect) ||
-    effectHasDraw(card.basicEffect) ||
-    effectHasManaGain(card.basicEffect) ||
-    effectHasModifier(card.basicEffect) ||
-    effectHasCrystal(card.basicEffect);
+  const basicHasUsefulEffect = isNormalEffectAllowed(card.basicEffect, "basic");
 
   const basicIsResolvable = isEffectResolvable(state, playerId, card.basicEffect);
 
   // Check if powered effect has a useful effect type AND is resolvable
-  const poweredHasUsefulEffect =
-    effectHasMove(card.poweredEffect) ||
-    effectHasInfluence(card.poweredEffect) ||
-    effectHasHeal(card.poweredEffect) ||
-    effectHasDraw(card.poweredEffect) ||
-    effectHasManaGain(card.poweredEffect) ||
-    effectHasModifier(card.poweredEffect) ||
-    effectHasManaDrawPowered(card.poweredEffect) ||
-    effectHasCrystal(card.poweredEffect) ||
-    effectHasCardBoost(card.poweredEffect);
+  const poweredHasUsefulEffect = isNormalEffectAllowed(
+    card.poweredEffect,
+    "powered"
+  );
 
   const poweredIsResolvable = isEffectResolvable(state, playerId, card.poweredEffect);
 
   // Sideways options for normal turn: move or influence (always available)
-  const sidewaysOptions: SidewaysOption[] = [];
-  if (card.sidewaysValue > 0) {
-    sidewaysOptions.push({ as: PLAY_SIDEWAYS_AS_MOVE, value: card.sidewaysValue });
-    sidewaysOptions.push({ as: PLAY_SIDEWAYS_AS_INFLUENCE, value: card.sidewaysValue });
-  }
+  const sidewaysOptions: SidewaysOption[] = [
+    ...getSidewaysOptionsForValue(card.sidewaysValue, { inCombat: false }),
+  ];
 
   return {
     canPlayBasic: basicHasUsefulEffect && basicIsResolvable,
     canPlayPowered: poweredHasUsefulEffect && poweredIsResolvable,
-    canPlaySideways: card.sidewaysValue > 0,
+    canPlaySideways: sidewaysOptions.length > 0,
     sidewaysOptions,
   };
 }

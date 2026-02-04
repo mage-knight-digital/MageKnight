@@ -18,6 +18,7 @@ import {
   ENEMY_DEFEATED,
   ENEMY_DIGGERS,
   ENEMY_PROWLERS,
+  ENEMY_ORC_WAR_BEASTS,
   ENEMIES,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
@@ -152,6 +153,30 @@ describe("Combat Fortification", () => {
       });
 
       expect(result.state.combat?.enemies[0].isDefeated).toBe(true);
+    });
+
+    it("should allow ranged attack at fortified site for unfortified enemy", () => {
+      let state = createTestGameState();
+
+      // Enter combat at fortified site with Orc War Beasts (has ABILITY_UNFORTIFIED)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_ORC_WAR_BEASTS],
+        isAtFortifiedSite: true,
+      }).state;
+
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+        attacks: [{ element: ELEMENT_PHYSICAL, value: 3 }],
+        attackType: COMBAT_TYPE_RANGED,
+      });
+
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
     });
 
     it("should track isAtFortifiedSite in combat state", () => {
