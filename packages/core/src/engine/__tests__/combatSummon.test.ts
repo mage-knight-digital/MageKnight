@@ -23,6 +23,7 @@ import {
   ENEMY_ORC_SUMMONERS,
   ENEMY_ILLUSIONISTS,
   ENEMY_SHROUDED_NECROMANCERS,
+  ENEMY_DRAGON_SUMMONER,
   ENEMY_DIGGERS,
   ENEMY_CENTAUR_OUTRIDERS,
   ENEMY_GARGOYLE,
@@ -1074,6 +1075,142 @@ describe("Combat Summon Ability", () => {
 
       // Brown pool should be emptied
       expect(result.state.enemyTokens.drawPiles.brown).not.toContain("gargoyle_0");
+    });
+  });
+
+  describe("Dragon Summoner double summon", () => {
+    /**
+     * Dragon Summoner has two Summon attacks (per-attack ability), so it should
+     * draw TWO brown enemy tokens at the start of Block phase.
+     *
+     * Per FAQ: "DRAGON SUMMONERS draws two MONSTER tokens and uses the attack
+     * of each MONSTER token once; it doesn't draw one MONSTER token and use
+     * its attack twice."
+     */
+    it("should draw two brown enemies when Dragon Summoner enters Block phase", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+      });
+      let state = createTestGameState({
+        players: [player],
+        enemyTokens: createTokenPilesWithBrownPool(["gargoyle_0", "minotaur_1"]),
+      });
+
+      // Enter combat with Dragon Summoner
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DRAGON_SUMMONER],
+      }).state;
+
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_RANGED_SIEGE);
+      expect(state.combat?.enemies).toHaveLength(1);
+      expect(state.combat?.enemies[0].enemyId).toBe(ENEMY_DRAGON_SUMMONER);
+
+      // End Ranged/Siege phase -> Block phase (double summon happens here)
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should have 2 ENEMY_SUMMONED events (one for each summon attack)
+      const summonEvents = result.events.filter(
+        (e) => e.type === ENEMY_SUMMONED
+      );
+      expect(summonEvents).toHaveLength(2);
+
+      // Should have 3 enemies total: Dragon Summoner + 2 summoned
+      expect(result.state.combat?.enemies).toHaveLength(3);
+
+      // Dragon Summoner should be hidden
+      const dragonSummoner = result.state.combat?.enemies.find(
+        (e) => e.enemyId === ENEMY_DRAGON_SUMMONER
+      );
+      expect(dragonSummoner?.isSummonerHidden).toBe(true);
+
+      // Both summoned enemies should be from brown pool
+      const summonedEnemies = result.state.combat?.enemies.filter(
+        (e) => e.summonedByInstanceId !== undefined
+      );
+      expect(summonedEnemies).toHaveLength(2);
+
+      // Brown pool should be emptied (both tokens drawn)
+      expect(result.state.enemyTokens.drawPiles.brown).toHaveLength(0);
+    });
+
+    it("should only summon as many enemies as available in brown pool", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+      });
+      let state = createTestGameState({
+        players: [player],
+        // Only 1 brown token available
+        enemyTokens: createTokenPilesWithBrownPool(["gargoyle_0"]),
+      });
+
+      // Enter combat with Dragon Summoner
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DRAGON_SUMMONER],
+      }).state;
+
+      // End Ranged/Siege phase -> Block phase
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should only have 1 ENEMY_SUMMONED event (pool ran out after first)
+      const summonEvents = result.events.filter(
+        (e) => e.type === ENEMY_SUMMONED
+      );
+      expect(summonEvents).toHaveLength(1);
+
+      // Should have 2 enemies total: Dragon Summoner + 1 summoned
+      expect(result.state.combat?.enemies).toHaveLength(2);
+
+      // Dragon Summoner should still be hidden (at least one summon succeeded)
+      const dragonSummoner = result.state.combat?.enemies.find(
+        (e) => e.enemyId === ENEMY_DRAGON_SUMMONER
+      );
+      expect(dragonSummoner?.isSummonerHidden).toBe(true);
+    });
+
+    it("should not hide Dragon Summoner if brown pool is empty", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        armor: 2,
+      });
+      let state = createTestGameState({
+        players: [player],
+        // Empty brown pool
+        enemyTokens: createTokenPilesWithBrownPool([]),
+      });
+
+      // Enter combat with Dragon Summoner
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DRAGON_SUMMONER],
+      }).state;
+
+      // End Ranged/Siege phase -> Block phase
+      const result = engine.processAction(state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      // Should have 0 ENEMY_SUMMONED events
+      const summonEvents = result.events.filter(
+        (e) => e.type === ENEMY_SUMMONED
+      );
+      expect(summonEvents).toHaveLength(0);
+
+      // Should only have Dragon Summoner (no summoned enemies)
+      expect(result.state.combat?.enemies).toHaveLength(1);
+
+      // Dragon Summoner should NOT be hidden (no summons succeeded)
+      const dragonSummoner = result.state.combat?.enemies.find(
+        (e) => e.enemyId === ENEMY_DRAGON_SUMMONER
+      );
+      expect(dragonSummoner?.isSummonerHidden).toBeFalsy();
     });
   });
 });

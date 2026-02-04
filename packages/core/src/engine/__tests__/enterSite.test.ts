@@ -583,16 +583,21 @@ describe("Enter adventure site", () => {
       state = result.state;
       allEvents.push(...result.events);
 
-      // Phase 3: Assign Damage - must process damage from unblocked enemy
+      // Phase 3: Assign Damage - must process damage from unblocked enemies
       // For multi-attack enemies, each attack needs damage assigned separately
-      const enemy = state.combat?.enemies[0];
-      const enemyInstanceId = enemy?.instanceId;
-      if (enemyInstanceId) {
-        const numAttacks = enemy?.definition?.attacks?.length ?? 1;
+      // For summoners, we need to handle the summoned enemies (summoner is hidden)
+      const enemies = state.combat?.enemies ?? [];
+      for (const enemy of enemies) {
+        // Skip hidden summoners (their summoned enemies replace them)
+        if (enemy.isSummonerHidden) continue;
+        // Skip already defeated enemies
+        if (enemy.isDefeated) continue;
+
+        const numAttacks = enemy.definition?.attacks?.length ?? 1;
         for (let attackIndex = 0; attackIndex < numAttacks; attackIndex++) {
           result = eng.processAction(state, "player1", {
             type: ASSIGN_DAMAGE_ACTION,
-            enemyInstanceId,
+            enemyInstanceId: enemy.instanceId,
             attackIndex,
           });
           state = result.state;

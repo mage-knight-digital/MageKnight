@@ -25,18 +25,68 @@ import {
 import { isAbilityNullified } from "../../modifiers/index.js";
 
 /**
- * Get the summon ability type for an enemy (null if no summon ability)
+ * Get the summon ability type for an enemy (null if no summon ability).
+ * Checks both enemy-level abilities and per-attack abilities.
  */
 function getSummonAbilityType(
   enemy: CombatEnemy
 ): typeof ABILITY_SUMMON | typeof ABILITY_SUMMON_GREEN | null {
+  // Check enemy-level abilities first
   if (enemy.definition.abilities.includes(ABILITY_SUMMON_GREEN)) {
     return ABILITY_SUMMON_GREEN;
   }
   if (enemy.definition.abilities.includes(ABILITY_SUMMON)) {
     return ABILITY_SUMMON;
   }
+
+  // Check per-attack abilities (for enemies like Dragon Summoner)
+  const attacks = enemy.definition.attacks;
+  if (attacks) {
+    for (const attack of attacks) {
+      if (attack.ability === ABILITY_SUMMON_GREEN) {
+        return ABILITY_SUMMON_GREEN;
+      }
+      if (attack.ability === ABILITY_SUMMON) {
+        return ABILITY_SUMMON;
+      }
+    }
+  }
+
   return null;
+}
+
+/**
+ * Count how many summons an enemy should perform.
+ * - Legacy enemies with ABILITY_SUMMON in abilities array: 1 summon
+ * - Enemies with per-attack summon abilities: count of attacks with summon ability
+ *
+ * Per FAQ: Dragon Summoner "draws two MONSTER tokens and uses the attack
+ * of each MONSTER token once" - each attack with Summon ability triggers
+ * a separate summon.
+ */
+function getSummonCount(enemy: CombatEnemy): number {
+  const attacks = enemy.definition.attacks;
+
+  // Check for per-attack summon abilities first (e.g., Dragon Summoner)
+  if (attacks && attacks.length > 0) {
+    const summonAttackCount = attacks.filter(
+      (attack) => attack.ability === ABILITY_SUMMON || attack.ability === ABILITY_SUMMON_GREEN
+    ).length;
+
+    if (summonAttackCount > 0) {
+      return summonAttackCount;
+    }
+  }
+
+  // Legacy path: enemy-level ability summons once
+  if (
+    enemy.definition.abilities.includes(ABILITY_SUMMON) ||
+    enemy.definition.abilities.includes(ABILITY_SUMMON_GREEN)
+  ) {
+    return 1;
+  }
+
+  return 0;
 }
 
 /**
@@ -97,76 +147,86 @@ export function resolveSummons(
     const summonColor =
       summonType === ABILITY_SUMMON_GREEN ? ENEMY_COLOR_GREEN : ENEMY_COLOR_BROWN;
 
-    // Draw an enemy token with faction priority if summoner has a faction
-    const drawResult = drawEnemyWithFactionPriority(
-      currentState.enemyTokens,
-      summonColor,
-      summoner.definition.faction,
-      currentState.rng
-    );
+    // Get the number of summons this enemy should perform
+    // (e.g., Dragon Summoner summons 2 enemies - one per Summon attack)
+    const summonCount = getSummonCount(summoner);
+    let successfulSummons = 0;
 
-    if (drawResult.tokenId === null) {
-      // Token pool is empty - summoner attacks normally
-      // Don't hide the summoner, don't create a summoned enemy
-      continue;
-    }
+    for (let i = 0; i < summonCount; i++) {
+      // Draw an enemy token with faction priority if summoner has a faction
+      const drawResult = drawEnemyWithFactionPriority(
+        currentState.enemyTokens,
+        summonColor,
+        summoner.definition.faction,
+        currentState.rng
+      );
 
-    // Update state with new token piles and RNG
-    currentState = {
-      ...currentState,
-      enemyTokens: drawResult.piles,
-      rng: drawResult.rng,
-    };
+      if (drawResult.tokenId === null) {
+        // Token pool is empty - can't summon more
+        // If no summons succeeded, summoner attacks normally
+        break;
+      }
 
-    // Get the enemy definition for the drawn token
-    const drawnEnemyId = getEnemyIdFromToken(drawResult.tokenId);
-    const drawnEnemyDef = getEnemy(drawnEnemyId);
-
-    // Create the summoned enemy instance
-    const summonedInstanceId = `summoned_${summonedCounter++}_${drawResult.tokenId}`;
-    const summonedEnemy: CombatEnemy = {
-      instanceId: summonedInstanceId,
-      enemyId: drawnEnemyId,
-      definition: drawnEnemyDef,
-      isBlocked: false,
-      isDefeated: false,
-      damageAssigned: false,
-      isRequiredForConquest: false, // Summoned enemies don't count for conquest
-      summonedByInstanceId: summoner.instanceId,
-    };
-
-    newEnemies.push(summonedEnemy);
-
-    // Mark the summoner as hidden
-    const summonerIndex = updatedEnemies.findIndex(
-      (e) => e.instanceId === summoner.instanceId
-    );
-    const existingEnemy = updatedEnemies[summonerIndex];
-    if (summonerIndex !== -1 && existingEnemy) {
-      const hiddenSummoner: CombatEnemy = {
-        instanceId: existingEnemy.instanceId,
-        enemyId: existingEnemy.enemyId,
-        definition: existingEnemy.definition,
-        isBlocked: existingEnemy.isBlocked,
-        isDefeated: existingEnemy.isDefeated,
-        damageAssigned: existingEnemy.damageAssigned,
-        isRequiredForConquest: existingEnemy.isRequiredForConquest,
-        isSummonerHidden: true,
+      // Update state with new token piles and RNG
+      currentState = {
+        ...currentState,
+        enemyTokens: drawResult.piles,
+        rng: drawResult.rng,
       };
-      updatedEnemies[summonerIndex] = hiddenSummoner;
+
+      // Get the enemy definition for the drawn token
+      const drawnEnemyId = getEnemyIdFromToken(drawResult.tokenId);
+      const drawnEnemyDef = getEnemy(drawnEnemyId);
+
+      // Create the summoned enemy instance
+      const summonedInstanceId = `summoned_${summonedCounter++}_${drawResult.tokenId}`;
+      const summonedEnemy: CombatEnemy = {
+        instanceId: summonedInstanceId,
+        enemyId: drawnEnemyId,
+        definition: drawnEnemyDef,
+        isBlocked: false,
+        isDefeated: false,
+        damageAssigned: false,
+        isRequiredForConquest: false, // Summoned enemies don't count for conquest
+        summonedByInstanceId: summoner.instanceId,
+      };
+
+      newEnemies.push(summonedEnemy);
+      successfulSummons++;
+
+      // Emit summon event
+      events.push(
+        createEnemySummonedEvent(
+          summoner.instanceId,
+          summoner.definition.name,
+          summonedInstanceId,
+          drawnEnemyDef.name,
+          drawnEnemyDef.attack,
+          drawnEnemyDef.armor
+        )
+      );
     }
 
-    // Emit summon event
-    events.push(
-      createEnemySummonedEvent(
-        summoner.instanceId,
-        summoner.definition.name,
-        summonedInstanceId,
-        drawnEnemyDef.name,
-        drawnEnemyDef.attack,
-        drawnEnemyDef.armor
-      )
-    );
+    // Mark the summoner as hidden only if at least one summon succeeded
+    if (successfulSummons > 0) {
+      const summonerIndex = updatedEnemies.findIndex(
+        (e) => e.instanceId === summoner.instanceId
+      );
+      const existingEnemy = updatedEnemies[summonerIndex];
+      if (summonerIndex !== -1 && existingEnemy) {
+        const hiddenSummoner: CombatEnemy = {
+          instanceId: existingEnemy.instanceId,
+          enemyId: existingEnemy.enemyId,
+          definition: existingEnemy.definition,
+          isBlocked: existingEnemy.isBlocked,
+          isDefeated: existingEnemy.isDefeated,
+          damageAssigned: existingEnemy.damageAssigned,
+          isRequiredForConquest: existingEnemy.isRequiredForConquest,
+          isSummonerHidden: true,
+        };
+        updatedEnemies[summonerIndex] = hiddenSummoner;
+      }
+    }
   }
 
   // Add all summoned enemies to the combat

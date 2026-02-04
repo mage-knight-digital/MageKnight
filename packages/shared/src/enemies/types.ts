@@ -118,6 +118,12 @@ export interface EnemyAttack {
   readonly damage: number;
   /** Elemental type of this attack */
   readonly element: Element;
+  /**
+   * Optional ability for this specific attack.
+   * Used for enemies like Dragon Summoner where each attack has ABILITY_SUMMON,
+   * resulting in multiple summons (one per attack with the ability).
+   */
+  readonly ability?: EnemyAbilityType;
 }
 
 // =============================================================================
