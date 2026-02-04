@@ -19,6 +19,7 @@ export { ENEMY_ORC_SKIRMISHERS, ORC_SKIRMISHERS } from "./orc-skirmishers.js";
 export { ENEMY_ORC_WAR_BEASTS, ORC_WAR_BEASTS } from "./orc-war-beasts.js";
 export { ENEMY_SKELETAL_WARRIORS, SKELETAL_WARRIORS } from "./skeletal-warriors.js";
 export { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-necromancers.js";
+export { ENEMY_CORRUPTED_PRIESTS, CORRUPTED_PRIESTS } from "./corrupted-priests.js";
 export { ENEMY_ELEMENTAL_PRIESTS, ELEMENTAL_PRIESTS } from "./elemental-priests.js";
 export { ENEMY_CLOUD_GRIFFONS, CLOUD_GRIFFONS } from "./cloud-griffons.js";
 
@@ -34,6 +35,7 @@ import { ENEMY_ORC_SKIRMISHERS, ORC_SKIRMISHERS } from "./orc-skirmishers.js";
 import { ENEMY_ORC_WAR_BEASTS, ORC_WAR_BEASTS } from "./orc-war-beasts.js";
 import { ENEMY_SKELETAL_WARRIORS, SKELETAL_WARRIORS } from "./skeletal-warriors.js";
 import { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-necromancers.js";
+import { ENEMY_CORRUPTED_PRIESTS, CORRUPTED_PRIESTS } from "./corrupted-priests.js";
 import { ENEMY_ELEMENTAL_PRIESTS, ELEMENTAL_PRIESTS } from "./elemental-priests.js";
 import { ENEMY_CLOUD_GRIFFONS, CLOUD_GRIFFONS } from "./cloud-griffons.js";
 
@@ -52,6 +54,7 @@ export type GreenEnemyId =
   | typeof ENEMY_ORC_WAR_BEASTS
   | typeof ENEMY_SKELETAL_WARRIORS
   | typeof ENEMY_SHROUDED_NECROMANCERS
+  | typeof ENEMY_CORRUPTED_PRIESTS
   | typeof ENEMY_ELEMENTAL_PRIESTS
   | typeof ENEMY_CLOUD_GRIFFONS;
 
@@ -68,6 +71,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
   [ENEMY_ORC_WAR_BEASTS]: ORC_WAR_BEASTS,
   [ENEMY_SKELETAL_WARRIORS]: SKELETAL_WARRIORS,
   [ENEMY_SHROUDED_NECROMANCERS]: SHROUDED_NECROMANCERS,
+  [ENEMY_CORRUPTED_PRIESTS]: CORRUPTED_PRIESTS,
   [ENEMY_ELEMENTAL_PRIESTS]: ELEMENTAL_PRIESTS,
   [ENEMY_CLOUD_GRIFFONS]: CLOUD_GRIFFONS,
 };
