@@ -25,10 +25,12 @@ import {
   SKILLS,
   SKILL_USAGE_ONCE_PER_TURN,
   SKILL_USAGE_ONCE_PER_ROUND,
+  SKILL_USAGE_INTERACTIVE,
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_ARYTHEA_POLARIZATION,
+  SKILL_ARYTHEA_RITUAL_OF_PAIN,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -49,6 +51,8 @@ import {
 } from "../effects/index.js";
 import type { CardEffect, ChoiceEffect, CompoundEffect } from "../../types/cards.js";
 import { EFFECT_CHOICE, EFFECT_COMPOUND } from "../../types/effectTypes.js";
+
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN]);
 
 export { USE_SKILL_COMMAND };
 
@@ -143,7 +147,11 @@ function addToCooldowns(
       usedThisTurn: [...cooldowns.usedThisTurn, skillId],
     };
   }
-  if (usageType === SKILL_USAGE_ONCE_PER_ROUND) {
+  if (
+    usageType === SKILL_USAGE_ONCE_PER_ROUND ||
+    (usageType === SKILL_USAGE_INTERACTIVE &&
+      INTERACTIVE_ONCE_PER_ROUND.has(skillId))
+  ) {
     return {
       ...cooldowns,
       usedThisRound: [...cooldowns.usedThisRound, skillId],
@@ -166,7 +174,11 @@ function removeFromCooldowns(
       usedThisTurn: cooldowns.usedThisTurn.filter((id) => id !== skillId),
     };
   }
-  if (usageType === SKILL_USAGE_ONCE_PER_ROUND) {
+  if (
+    usageType === SKILL_USAGE_ONCE_PER_ROUND ||
+    (usageType === SKILL_USAGE_INTERACTIVE &&
+      INTERACTIVE_ONCE_PER_ROUND.has(skillId))
+  ) {
     return {
       ...cooldowns,
       usedThisRound: cooldowns.usedThisRound.filter((id) => id !== skillId),

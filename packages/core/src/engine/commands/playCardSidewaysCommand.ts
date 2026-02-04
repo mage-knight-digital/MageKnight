@@ -17,6 +17,7 @@ import {
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
   ELEMENT_PHYSICAL,
+  CARD_WOUND,
   createCardPlayUndoneEvent,
 } from "@mage-knight/shared";
 import {
@@ -24,8 +25,9 @@ import {
   consumeMovementCardBonus,
   getModifiersForPlayer,
 } from "../modifiers/index.js";
-import { EFFECT_MOVEMENT_CARD_BONUS } from "../modifierConstants.js";
+import { EFFECT_MOVEMENT_CARD_BONUS, SOURCE_SKILL } from "../modifierConstants.js";
 import { PLAY_CARD_SIDEWAYS_COMMAND } from "./commandTypes.js";
+import { SKILL_ARYTHEA_RITUAL_OF_PAIN } from "../../data/skills/index.js";
 
 export { PLAY_CARD_SIDEWAYS_COMMAND };
 
@@ -185,6 +187,8 @@ export function createPlayCardSidewaysCommand(
   // Store movement bonus application for undo
   let movementBonusAppliedAmount = 0;
   let movementBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
+  // Store ritual modifiers for undo when a wound is played sideways via Ritual of Pain
+  let ritualModifiersSnapshot: readonly ActiveModifier[] | null = null;
 
   return {
     type: PLAY_CARD_SIDEWAYS_COMMAND,
@@ -204,11 +208,13 @@ export function createPlayCardSidewaysCommand(
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
 
+      const isWound = params.cardId === CARD_WOUND;
+
       // Calculate effective sideways value (usually 1, can be modified)
       appliedValue = getEffectiveSidewaysValue(
         state,
         params.playerId,
-        false, // not a wound
+        isWound,
         player.usedManaFromSource,
         undefined // manaColorMatchesCard not applicable for sideways
       );
@@ -251,6 +257,28 @@ export function createPlayCardSidewaysCommand(
 
       // Apply the sideways effect
       updatedPlayer = applySidewaysEffect(updatedPlayer, params.as, appliedValue);
+
+      // If a Ritual of Pain wound was played sideways, return the skill to its owner
+      if (isWound) {
+        const ritualAppliesToPlayer = getModifiersForPlayer(currentState, params.playerId).some(
+          (modifier) =>
+            modifier.source.type === SOURCE_SKILL &&
+            modifier.source.skillId === SKILL_ARYTHEA_RITUAL_OF_PAIN
+        );
+        if (ritualAppliesToPlayer) {
+          ritualModifiersSnapshot = currentState.activeModifiers;
+          currentState = {
+            ...currentState,
+            activeModifiers: currentState.activeModifiers.filter(
+              (modifier) =>
+                !(
+                  modifier.source.type === SOURCE_SKILL &&
+                  modifier.source.skillId === SKILL_ARYTHEA_RITUAL_OF_PAIN
+                )
+            ),
+          };
+        }
+      }
 
       const players = [...currentState.players];
       players[playerIndex] = updatedPlayer;
@@ -306,10 +334,12 @@ export function createPlayCardSidewaysCommand(
 
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
-      const stateWithModifiers =
-        movementBonusAppliedAmount > 0 && movementBonusModifiersSnapshot
-          ? { ...state, activeModifiers: movementBonusModifiersSnapshot }
-          : state;
+      let stateWithModifiers = state;
+      if (movementBonusAppliedAmount > 0 && movementBonusModifiersSnapshot) {
+        stateWithModifiers = { ...state, activeModifiers: movementBonusModifiersSnapshot };
+      } else if (ritualModifiersSnapshot) {
+        stateWithModifiers = { ...state, activeModifiers: ritualModifiersSnapshot };
+      }
 
       return {
         state: { ...stateWithModifiers, players },

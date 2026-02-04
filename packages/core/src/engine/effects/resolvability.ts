@@ -56,10 +56,12 @@ import {
   EFFECT_MANA_DRAW_SET_COLOR,
   EFFECT_CRYSTALLIZE_COLOR,
   EFFECT_TAKE_WOUND,
+  EFFECT_DISCARD_WOUNDS,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_PAY_MANA,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
+  EFFECT_PLACE_SKILL_IN_CENTER,
 } from "../../types/effectTypes.js";
 import {
   EFFECT_RULE_OVERRIDE,
@@ -149,6 +151,15 @@ export function isEffectResolvable(
     case EFFECT_GAIN_MANA:
     case EFFECT_TAKE_WOUND:
     case EFFECT_TRACK_ATTACK_DEFEAT_FAME:
+      return true;
+
+    case EFFECT_DISCARD_WOUNDS: {
+      if (effect.count <= 0) return true;
+      const woundCount = player.hand.filter((c) => c === CARD_WOUND).length;
+      return woundCount >= effect.count;
+    }
+
+    case EFFECT_PLACE_SKILL_IN_CENTER:
       return true;
 
     case EFFECT_APPLY_MODIFIER: {

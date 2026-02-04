@@ -89,10 +89,14 @@ export const EFFECT_RESOLVE_COMBAT_ENEMY_TARGET = "resolve_combat_enemy_target" 
 export const EFFECT_HEAL_UNIT = "heal_unit" as const;
 // Discard a card from hand (with filter options)
 export const EFFECT_DISCARD_CARD = "discard_card" as const;
+// Discard wound cards from hand (return to wound pile)
+export const EFFECT_DISCARD_WOUNDS = "discard_wounds" as const;
 // Reveal tiles on the map (e.g., reveal garrisons)
 export const EFFECT_REVEAL_TILES = "reveal_tiles" as const;
 // Pay mana as a cost (for skill activations)
 export const EFFECT_PAY_MANA = "pay_mana" as const;
+// Place an interactive skill token in the center for other players to use
+export const EFFECT_PLACE_SKILL_IN_CENTER = "place_skill_in_center" as const;
 
 // === Discard as Cost Effect ===
 // Discard cards from hand as a cost, then resolve a follow-up effect (e.g., Improvisation)

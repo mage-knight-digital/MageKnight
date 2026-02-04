@@ -23,7 +23,7 @@ export * from "./powerOfPain.js";
 export * from "./invocation.js";
 export * from "./polarization.js";
 export * from "./motivation.js";
-export * from "./healingRitual.js";
+export * from "./ritualOfPain.js";
 
 // Import definitions for aggregation
 import { SKILL_ARYTHEA_DARK_PATHS, darkPaths } from "./darkPaths.js";
@@ -35,7 +35,7 @@ import { SKILL_ARYTHEA_POWER_OF_PAIN, powerOfPain } from "./powerOfPain.js";
 import { SKILL_ARYTHEA_INVOCATION, invocation } from "./invocation.js";
 import { SKILL_ARYTHEA_POLARIZATION, polarization } from "./polarization.js";
 import { SKILL_ARYTHEA_MOTIVATION, arytheaMotivation } from "./motivation.js";
-import { SKILL_ARYTHEA_HEALING_RITUAL, healingRitual } from "./healingRitual.js";
+import { SKILL_ARYTHEA_RITUAL_OF_PAIN, ritualOfPain } from "./ritualOfPain.js";
 
 /**
  * All Arythea skill definitions keyed by skill ID.
@@ -50,7 +50,7 @@ export const ARYTHEA_SKILLS: Record<SkillId, SkillDefinition> = {
   [SKILL_ARYTHEA_INVOCATION]: invocation,
   [SKILL_ARYTHEA_POLARIZATION]: polarization,
   [SKILL_ARYTHEA_MOTIVATION]: arytheaMotivation,
-  [SKILL_ARYTHEA_HEALING_RITUAL]: healingRitual,
+  [SKILL_ARYTHEA_RITUAL_OF_PAIN]: ritualOfPain,
 };
 
 /**
@@ -66,5 +66,5 @@ export const ARYTHEA_SKILL_IDS = [
   SKILL_ARYTHEA_INVOCATION,
   SKILL_ARYTHEA_POLARIZATION,
   SKILL_ARYTHEA_MOTIVATION,
-  SKILL_ARYTHEA_HEALING_RITUAL,
+  SKILL_ARYTHEA_RITUAL_OF_PAIN,
 ] as const;
