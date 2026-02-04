@@ -165,7 +165,7 @@ export function getAgents(): Agent[] {
     claiming: "Claiming issue...",
     fetching_title: "Fetching issue title...",
     creating_worktree: "Creating git worktree...",
-    installing_deps: "Running pnpm install...",
+    installing_deps: "Running bun install...",
     launching: "Starting Claude agent...",
     failed: "Setup failed",
   };

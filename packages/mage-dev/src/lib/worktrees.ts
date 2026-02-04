@@ -157,10 +157,10 @@ export function createWorktree(
         cwd: REPO_ROOT,
         stdio: "pipe",
       });
-      onOutput("Worktree created, running pnpm install...");
+      onOutput("Worktree created, running bun install...");
 
-      // Run pnpm install && pnpm build
-      const child = spawn("pnpm", ["install"], {
+      // Run bun install && bun build
+      const child = spawn("bun", ["install"], {
         cwd: worktreePath,
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -175,13 +175,13 @@ export function createWorktree(
 
       child.on("close", (code) => {
         if (code !== 0) {
-          resolve({ success: false, error: "pnpm install failed" });
+          resolve({ success: false, error: "bun install failed" });
           return;
         }
 
-        onOutput("Running pnpm build...");
+        onOutput("Running bun build...");
 
-        const buildChild = spawn("pnpm", ["build"], {
+        const buildChild = spawn("bun", ["run", "build"], {
           cwd: worktreePath,
           stdio: ["ignore", "pipe", "pipe"],
         });
@@ -196,7 +196,7 @@ export function createWorktree(
 
         buildChild.on("close", (buildCode) => {
           if (buildCode !== 0) {
-            resolve({ success: false, error: "pnpm build failed" });
+            resolve({ success: false, error: "bun build failed" });
             return;
           }
           onOutput("Done!");
@@ -276,7 +276,7 @@ export function startDevServer(
 
   try {
     // Start in background
-    const child = spawn("pnpm", ["run", "dev:client"], {
+    const child = spawn("bun", ["run", "dev:client"], {
       cwd: path,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],

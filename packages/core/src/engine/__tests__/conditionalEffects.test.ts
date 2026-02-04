@@ -646,7 +646,7 @@ describe("Conditional Effects", () => {
         expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(1);
       });
 
-      it("should only apply during ranged/siege phase", () => {
+      it("should grant Ranged Attack even outside ranged/siege phase", () => {
         const combat = {
           ...createCombatState([ENEMY_PROWLERS]),
           phase: COMBAT_PHASE_BLOCK,
@@ -660,7 +660,7 @@ describe("Conditional Effects", () => {
 
         const result = resolveEffect(state, "player1", effect, "test-skill");
 
-        expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(0);
+        expect(result.state.players[0]?.combatAccumulator.attack.ranged).toBe(2);
       });
     });
 

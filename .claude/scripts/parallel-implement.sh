@@ -237,13 +237,13 @@ for ISSUE in "${ISSUES[@]}"; do
     }
   fi
 
-  update_status "installing_deps" "Running pnpm install..."
+  update_status "installing_deps" "Running bun install..."
 
   # Install dependencies in worktree
   log "Installing dependencies for #$ISSUE..."
-  (cd "$WORKTREE_PATH" && pnpm install --silent 2>/dev/null) || {
+  (cd "$WORKTREE_PATH" && bun install --silent 2>/dev/null) || {
     error "Failed to install dependencies for #$ISSUE"
-    update_status "failed" "pnpm install failed"
+    update_status "failed" "bun install failed"
     continue
   }
 
