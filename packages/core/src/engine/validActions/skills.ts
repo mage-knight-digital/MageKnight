@@ -24,9 +24,14 @@ import {
   SKILL_BRAEVALAR_THUNDERSTORM,
   SKILL_BRAEVALAR_SECRET_WAYS,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
+  SKILL_ARYTHEA_BURNING_POWER,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
-import { COMBAT_PHASE_BLOCK, COMBAT_PHASE_RANGED_SIEGE } from "../../types/combat.js";
+import {
+  COMBAT_PHASE_ATTACK,
+  COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_RANGED_SIEGE,
+} from "../../types/combat.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { canActivatePolarization } from "../commands/skills/polarizationEffect.js";
 
@@ -42,6 +47,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_BRAEVALAR_THUNDERSTORM,
   SKILL_BRAEVALAR_SECRET_WAYS,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
+  SKILL_ARYTHEA_BURNING_POWER,
 ]);
 
 /**
@@ -107,10 +113,14 @@ export function getSkillOptions(
       }
     }
 
-    // Ranged-only skills are only available during ranged/siege phase
-    const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING];
+    // Ranged/siege attack skills are only available during ranged/siege or attack phase
+    const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER];
     if (rangedSkills.includes(skillId)) {
-      if (!state.combat || state.combat.phase !== COMBAT_PHASE_RANGED_SIEGE) {
+      if (
+        !state.combat ||
+        (state.combat.phase !== COMBAT_PHASE_RANGED_SIEGE &&
+          state.combat.phase !== COMBAT_PHASE_ATTACK)
+      ) {
         continue;
       }
     }

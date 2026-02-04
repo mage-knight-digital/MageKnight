@@ -29,9 +29,14 @@ import {
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
+  SKILL_ARYTHEA_BURNING_POWER,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
-import { COMBAT_PHASE_BLOCK, COMBAT_PHASE_RANGED_SIEGE } from "../../types/combat.js";
+import {
+  COMBAT_PHASE_ATTACK,
+  COMBAT_PHASE_BLOCK,
+  COMBAT_PHASE_RANGED_SIEGE,
+} from "../../types/combat.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 
@@ -144,20 +149,24 @@ export const validateBlockSkillInBlockPhase: Validator = (state, _playerId, acti
 };
 
 /**
- * Validates that ranged-only skills are only used during the ranged/siege phase.
+ * Validates that ranged/siege attack skills are only used during ranged/siege or attack phase.
  */
 export const validateRangedSkillInRangedPhase: Validator = (state, _playerId, action) => {
   const useSkillAction = action as UseSkillAction;
 
-  // Skills that provide ranged-only effects can only be used in ranged/siege phase
-  const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING];
+  // Skills that provide ranged/siege attacks can only be used in ranged/siege or attack phase
+  const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER];
 
   if (rangedSkills.includes(useSkillAction.skillId)) {
-    if (!state.combat || state.combat.phase !== COMBAT_PHASE_RANGED_SIEGE) {
+    if (
+      !state.combat ||
+      (state.combat.phase !== COMBAT_PHASE_RANGED_SIEGE &&
+        state.combat.phase !== COMBAT_PHASE_ATTACK)
+    ) {
       const skill = SKILLS[useSkillAction.skillId];
       return invalid(
         WRONG_COMBAT_PHASE,
-        `${skill?.name ?? useSkillAction.skillId} can only be used during the ranged/siege phase`
+        `${skill?.name ?? useSkillAction.skillId} can only be used during the ranged/siege or attack phase`
       );
     }
   }
