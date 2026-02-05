@@ -11,7 +11,7 @@
  *
  * ## Adding New Skills
  *
- * To add a new skill, only modify the hero's file (e.g., arythea.ts):
+ * To add a new skill, only modify the hero's file (e.g., arythea/index.ts):
  * 1. Add the skill ID constant
  * 2. Add the skill definition to HERO_SKILLS record
  * 3. Add the ID to HERO_SKILL_IDS array
@@ -44,25 +44,25 @@ export {
 // makes it available here - no need to update this file.
 // ============================================================================
 
-export * from "./arythea.js";
-export * from "./tovak.js";
-export * from "./goldyx.js";
-export * from "./norowas.js";
-export * from "./wolfhawk.js";
-export * from "./krang.js";
-export * from "./braevalar.js";
+export * from "./arythea/index.js";
+export * from "./tovak/index.js";
+export * from "./goldyx/index.js";
+export * from "./norowas/index.js";
+export * from "./wolfhawk/index.js";
+export * from "./krang/index.js";
+export * from "./braevalar/index.js";
 
 // ============================================================================
 // Import hero skill modules for combining
 // ============================================================================
 
-import { ARYTHEA_SKILLS, ARYTHEA_SKILL_IDS } from "./arythea.js";
-import { TOVAK_SKILLS, TOVAK_SKILL_IDS } from "./tovak.js";
-import { GOLDYX_SKILLS, GOLDYX_SKILL_IDS } from "./goldyx.js";
-import { NOROWAS_SKILLS, NOROWAS_SKILL_IDS } from "./norowas.js";
-import { WOLFHAWK_SKILLS, WOLFHAWK_SKILL_IDS } from "./wolfhawk.js";
-import { KRANG_SKILLS, KRANG_SKILL_IDS } from "./krang.js";
-import { BRAEVALAR_SKILLS, BRAEVALAR_SKILL_IDS } from "./braevalar.js";
+import { ARYTHEA_SKILLS, ARYTHEA_SKILL_IDS } from "./arythea/index.js";
+import { TOVAK_SKILLS, TOVAK_SKILL_IDS } from "./tovak/index.js";
+import { GOLDYX_SKILLS, GOLDYX_SKILL_IDS } from "./goldyx/index.js";
+import { NOROWAS_SKILLS, NOROWAS_SKILL_IDS } from "./norowas/index.js";
+import { WOLFHAWK_SKILLS, WOLFHAWK_SKILL_IDS } from "./wolfhawk/index.js";
+import { KRANG_SKILLS, KRANG_SKILL_IDS } from "./krang/index.js";
+import { BRAEVALAR_SKILLS, BRAEVALAR_SKILL_IDS } from "./braevalar/index.js";
 
 import type { HeroId, SkillDefinition } from "./types.js";
 
