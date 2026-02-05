@@ -6,8 +6,9 @@
  */
 
 import type { Player } from "../../types/player.js";
+import type { GameState } from "../../state/GameState.js";
+import type { RecruitDiscountModifier } from "../../types/modifiers.js";
 import {
-  UNITS,
   RECRUIT_SITE_VILLAGE,
   RECRUIT_SITE_KEEP,
   RECRUIT_SITE_MAGE_TOWER,
@@ -23,6 +24,8 @@ import {
   type UnitDefinition,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
+import { EFFECT_RECRUIT_DISCOUNT } from "../../types/modifierConstants.js";
+import { getModifiersForPlayer } from "../modifiers/queries.js";
 
 /**
  * Reputation cost modifier based on player's reputation track position.
@@ -221,4 +224,32 @@ export function getRefugeeCampCostModifier(unit: UnitDefinition): number {
  */
 export function getUsedCommandTokens(player: Player): number {
   return player.units.length;
+}
+
+/**
+ * Get the active recruit discount for a player, if any.
+ * Returns the first recruit discount modifier found, or null if none.
+ *
+ * Used by recruitment validators and validActions to apply discount.
+ */
+export function getActiveRecruitDiscount(
+  state: GameState,
+  playerId: string,
+): RecruitDiscountModifier | null {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  const discountMod = modifiers.find((m) => m.effect.type === EFFECT_RECRUIT_DISCOUNT);
+  if (!discountMod) return null;
+  return discountMod.effect as RecruitDiscountModifier;
+}
+
+/**
+ * Get the active recruit discount modifier ID, for removing it after use.
+ */
+export function getActiveRecruitDiscountModifierId(
+  state: GameState,
+  playerId: string,
+): string | null {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  const discountMod = modifiers.find((m) => m.effect.type === EFFECT_RECRUIT_DISCOUNT);
+  return discountMod?.id ?? null;
 }

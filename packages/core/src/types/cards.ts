@@ -57,6 +57,9 @@ import {
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_POLARIZE_MANA,
   EFFECT_DISCARD_FOR_CRYSTAL,
+  EFFECT_APPLY_RECRUIT_DISCOUNT,
+  EFFECT_READY_UNITS_FOR_INFLUENCE,
+  EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -622,6 +625,49 @@ export interface DiscardForCrystalEffect {
   readonly optional: boolean;
 }
 
+/**
+ * Recruit discount effect - grants a turn-scoped modifier that discounts
+ * the cost of recruiting one unit. If the discounted unit is recruited,
+ * reputation changes.
+ * Used by Ruthless Coercion basic effect.
+ */
+export interface RecruitDiscountEffect {
+  readonly type: typeof EFFECT_APPLY_RECRUIT_DISCOUNT;
+  readonly discount: number; // Amount of influence discount (e.g., 2)
+  readonly reputationChange: number; // Rep change if discount used (e.g., -1)
+}
+
+/**
+ * Ready units for influence effect - allows readying L1/L2 spent units
+ * by paying influence per level of unit.
+ * Used by Ruthless Coercion powered effect.
+ *
+ * Resolution:
+ * 1. Find eligible spent units at level 1-2
+ * 2. Present choices: one per eligible unit + "Done" option
+ * 3. On selection: deduct influence, ready unit, re-present remaining choices
+ * 4. On "Done": complete resolution
+ */
+export interface ReadyUnitsForInfluenceEffect {
+  readonly type: typeof EFFECT_READY_UNITS_FOR_INFLUENCE;
+  readonly maxLevel: 1 | 2 | 3 | 4;
+  readonly costPerLevel: number; // Influence cost per unit level (e.g., 2)
+}
+
+/**
+ * Internal effect generated as a choice option for influence-paid readying.
+ * Deducts influence and readies the specific unit, then chains back
+ * to present remaining eligible units.
+ */
+export interface ResolveReadyUnitForInfluenceEffect {
+  readonly type: typeof EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE;
+  readonly unitInstanceId: string;
+  readonly unitName: string;
+  readonly influenceCost: number; // Total influence to deduct
+  readonly maxLevel: 1 | 2 | 3 | 4;
+  readonly costPerLevel: number;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -665,7 +711,10 @@ export type CardEffect =
   | FamePerEnemyDefeatedEffect
   | TrackAttackDefeatFameEffect
   | PolarizeManaEffect
-  | DiscardForCrystalEffect;
+  | DiscardForCrystalEffect
+  | RecruitDiscountEffect
+  | ReadyUnitsForInfluenceEffect
+  | ResolveReadyUnitForInfluenceEffect;
 
 // === Card Definition ===
 

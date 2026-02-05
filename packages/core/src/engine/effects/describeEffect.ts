@@ -36,10 +36,18 @@ import {
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_PLACE_SKILL_IN_CENTER,
   EFFECT_DISCARD_FOR_CRYSTAL,
+  EFFECT_APPLY_RECRUIT_DISCOUNT,
+  EFFECT_READY_UNITS_FOR_INFLUENCE,
+  EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
-import type { DiscardForCrystalEffect } from "../../types/cards.js";
+import type {
+  DiscardForCrystalEffect,
+  RecruitDiscountEffect,
+  ReadyUnitsForInfluenceEffect,
+  ResolveReadyUnitForInfluenceEffect,
+} from "../../types/cards.js";
 import type {
   GainMoveEffect,
   GainInfluenceEffect,
@@ -269,6 +277,22 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     return e.optional
       ? "Optionally discard a card to gain a crystal"
       : "Discard a card to gain a crystal";
+  },
+
+  [EFFECT_APPLY_RECRUIT_DISCOUNT]: (effect) => {
+    const e = effect as RecruitDiscountEffect;
+    return `Recruit discount of ${e.discount} (Reputation ${e.reputationChange} if used)`;
+  },
+
+  [EFFECT_READY_UNITS_FOR_INFLUENCE]: (effect) => {
+    const e = effect as ReadyUnitsForInfluenceEffect;
+    const levels = Array.from({ length: e.maxLevel }, (_, i) => toRomanNumeral(i + 1)).join("/");
+    return `Ready Level ${levels} Units for ${e.costPerLevel} Influence per level`;
+  },
+
+  [EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE]: (effect) => {
+    const e = effect as ResolveReadyUnitForInfluenceEffect;
+    return `Ready ${e.unitName} (${e.influenceCost} Influence)`;
   },
 };
 

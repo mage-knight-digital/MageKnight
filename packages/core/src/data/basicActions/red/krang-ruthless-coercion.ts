@@ -1,10 +1,16 @@
 import type { DeedCard } from "../../../types/cards.js";
-import { CATEGORY_INFLUENCE, DEED_CARD_TYPE_BASIC_ACTION } from "../../../types/cards.js";
+import { CATEGORY_INFLUENCE, CATEGORY_HEALING, DEED_CARD_TYPE_BASIC_ACTION } from "../../../types/cards.js";
 import { MANA_RED, CARD_KRANG_RUTHLESS_COERCION } from "@mage-knight/shared";
-import { influence } from "../helpers.js";
+import { influence, compound, changeReputation, recruitDiscount, readyUnitsForInfluence } from "../helpers.js";
 
 /**
  * Krang's Ruthless Coercion (replaces Threaten)
+ *
+ * Basic: Influence 2. You may get a discount of 2 towards the cost of
+ *   recruiting one Unit. If you recruit that unit this turn, Reputation -1.
+ *
+ * Powered (Red): Influence 6. Reputation -1. You may ready Level I and II
+ *   Units you control by paying 2 Influence per level of Unit.
  */
 export const KRANG_RUTHLESS_COERCION: DeedCard = {
   id: CARD_KRANG_RUTHLESS_COERCION,
@@ -12,10 +18,15 @@ export const KRANG_RUTHLESS_COERCION: DeedCard = {
   cardType: DEED_CARD_TYPE_BASIC_ACTION,
   poweredBy: [MANA_RED],
   categories: [CATEGORY_INFLUENCE],
-  // Basic: Influence 2. May get -2 discount to recruit one Unit; if recruited, Reputation -1
-  // Powered: Influence 6, Reputation -1. May ready Level I and II Units for 2 Influence/level
-  // Note: Recruitment/ready mechanics not modeled
-  basicEffect: influence(2),
-  poweredEffect: influence(6),
+  poweredEffectCategories: [CATEGORY_INFLUENCE, CATEGORY_HEALING],
+  basicEffect: compound(
+    influence(2),
+    recruitDiscount(2, -1),
+  ),
+  poweredEffect: compound(
+    influence(6),
+    changeReputation(-1),
+    readyUnitsForInfluence(2, 2),
+  ),
   sidewaysValue: 1,
 };

@@ -23,6 +23,7 @@ import {
   violatesHeroesThugsExclusion,
   getReputationCostModifier,
   getRefugeeCampCostModifier,
+  getActiveRecruitDiscount,
 } from "../../rules/unitRecruitment.js";
 
 
@@ -85,6 +86,9 @@ export function getUnitOptions(
     player.unitsRecruitedThisInteraction
   );
 
+  // Check for active recruit discount (Ruthless Coercion)
+  const discountMod = getActiveRecruitDiscount(state, player.id);
+
   // Build list of recruitable units from the offer
   const recruitable: RecruitableUnit[] = [];
   const isRefugeeCamp = hex.site.type === SiteType.RefugeeCamp;
@@ -124,10 +128,13 @@ export function getUnitOptions(
       heroAlreadyRecruited
     );
 
-    // Calculate final cost with reputation modifier (minimum 0)
+    // Apply recruit discount if available (Ruthless Coercion)
+    const recruitDiscountAmount = discountMod ? discountMod.discount : 0;
+
+    // Calculate final cost with reputation modifier and discount (minimum 0)
     const adjustedCost = Math.max(
       0,
-      baseCost + refugeeCampModifier + reputationModifier
+      baseCost + refugeeCampModifier + reputationModifier - recruitDiscountAmount
     );
 
     // Check if player can afford it

@@ -33,6 +33,7 @@ import {
   MANA_GREEN,
   MANA_WHITE,
   UNIT_STATE_SPENT,
+  UNITS,
 } from "@mage-knight/shared";
 import { getCard } from "../helpers/cardLookup.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
@@ -67,6 +68,9 @@ import {
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_PLACE_SKILL_IN_CENTER,
   EFFECT_DISCARD_FOR_CRYSTAL,
+  EFFECT_APPLY_RECRUIT_DISCOUNT,
+  EFFECT_READY_UNITS_FOR_INFLUENCE,
+  EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -83,6 +87,10 @@ import type {
   SelectCombatEnemyEffect,
   ResolveCombatEnemyTargetEffect,
 } from "../../types/effectTypes.js";
+import type {
+  ReadyUnitsForInfluenceEffect,
+  ResolveReadyUnitForInfluenceEffect,
+} from "../../types/cards.js";
 import {
   EFFECT_RULE_OVERRIDE,
   RULE_EXTRA_SOURCE_DIE,
@@ -310,6 +318,29 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
     if (!enemy) return false;
     if (e.template.defeat) return true;
     return !enemy.isDefeated;
+  },
+
+  // Recruit discount is always resolvable (adds a modifier)
+  [EFFECT_APPLY_RECRUIT_DISCOUNT]: () => true,
+
+  [EFFECT_READY_UNITS_FOR_INFLUENCE]: (state, player, effect) => {
+    const e = effect as ReadyUnitsForInfluenceEffect;
+    // Resolvable if player has spent units at or below maxLevel with enough influence
+    return player.units.some((unit) => {
+      if (unit.state !== UNIT_STATE_SPENT) return false;
+      const unitDef = UNITS[unit.unitId];
+      if (!unitDef || unitDef.level > e.maxLevel) return false;
+      const cost = unitDef.level * e.costPerLevel;
+      return player.influencePoints >= cost;
+    });
+  },
+
+  [EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE]: (state, player, effect) => {
+    const e = effect as ResolveReadyUnitForInfluenceEffect;
+    // Resolvable if the unit exists, is spent, and player has enough influence
+    const unit = player.units.find((u) => u.instanceId === e.unitInstanceId);
+    if (!unit || unit.state !== UNIT_STATE_SPENT) return false;
+    return player.influencePoints >= e.influenceCost;
   },
 };
 

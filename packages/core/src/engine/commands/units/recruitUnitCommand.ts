@@ -9,10 +9,16 @@
 
 import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
+import type { ActiveModifier } from "../../../types/modifiers.js";
 import type { UnitId, GameEvent } from "@mage-knight/shared";
 import { UNIT_RECRUITED } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../../types/unit.js";
 import { removeUnitFromOffer } from "../../../data/unitDeckSetup.js";
+import {
+  getActiveRecruitDiscount,
+  getActiveRecruitDiscountModifierId,
+} from "../../rules/unitRecruitment.js";
+import { applyChangeReputation } from "../../effects/atomicEffects.js";
 
 export const RECRUIT_UNIT_COMMAND = "RECRUIT_UNIT" as const;
 
@@ -43,6 +49,8 @@ export function createRecruitUnitCommand(
   let previousHasTakenAction = false;
   let previousHasRecruitedUnit = false;
   let previousUnitsRecruitedThisInteraction: readonly UnitId[] = [];
+  let previousActiveModifiers: readonly ActiveModifier[] = [];
+  let previousReputation = 0;
 
   return {
     type: RECRUIT_UNIT_COMMAND,
@@ -68,6 +76,8 @@ export function createRecruitUnitCommand(
       previousHasTakenAction = player.hasTakenActionThisTurn;
       previousHasRecruitedUnit = player.hasRecruitedUnitThisTurn;
       previousUnitsRecruitedThisInteraction = player.unitsRecruitedThisInteraction;
+      previousActiveModifiers = state.activeModifiers;
+      previousReputation = player.reputation;
 
       // Create new unit instance
       const newUnit = createPlayerUnit(params.unitId, instanceId);
@@ -99,6 +109,39 @@ export function createRecruitUnitCommand(
         units: updatedOffer,
       };
 
+      let updatedState: GameState = { ...state, players, offers: updatedOffers };
+
+      // Check for active recruit discount (Ruthless Coercion)
+      // If a discount was active, consume it and apply the reputation change
+      const discountMod = getActiveRecruitDiscount(state, params.playerId);
+      if (discountMod) {
+        const modifierId = getActiveRecruitDiscountModifierId(state, params.playerId);
+        if (modifierId) {
+          // Remove the discount modifier (consumed)
+          updatedState = {
+            ...updatedState,
+            activeModifiers: updatedState.activeModifiers.filter(
+              (m) => m.id !== modifierId
+            ),
+          };
+
+          // Apply reputation change
+          const repPlayerIndex = updatedState.players.findIndex(
+            (p) => p.id === params.playerId
+          );
+          const repPlayer = updatedState.players[repPlayerIndex];
+          if (repPlayer) {
+            const repResult = applyChangeReputation(
+              updatedState,
+              repPlayerIndex,
+              repPlayer,
+              discountMod.reputationChange,
+            );
+            updatedState = repResult.state;
+          }
+        }
+      }
+
       const events: GameEvent[] = [
         {
           type: UNIT_RECRUITED,
@@ -110,7 +153,7 @@ export function createRecruitUnitCommand(
       ];
 
       return {
-        state: { ...state, players, offers: updatedOffers },
+        state: updatedState,
         events,
       };
     },
@@ -141,20 +184,26 @@ export function createRecruitUnitCommand(
         hasTakenActionThisTurn: previousHasTakenAction,
         hasRecruitedUnitThisTurn: previousHasRecruitedUnit,
         unitsRecruitedThisInteraction: previousUnitsRecruitedThisInteraction,
+        reputation: previousReputation,
       };
 
       const players = state.players.map((p, i) =>
         i === playerIndex ? updatedPlayer : p
       );
 
-      // Restore previous offer
+      // Restore previous offer and modifiers
       const updatedOffers = {
         ...state.offers,
         units: previousOffer,
       };
 
       return {
-        state: { ...state, players, offers: updatedOffers },
+        state: {
+          ...state,
+          players,
+          offers: updatedOffers,
+          activeModifiers: previousActiveModifiers,
+        },
         events: [],
       };
     },
