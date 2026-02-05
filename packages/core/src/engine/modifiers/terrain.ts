@@ -11,7 +11,7 @@ import type {
   TerrainSafeModifier,
   TerrainProhibitionModifier,
 } from "../../types/modifiers.js";
-import type { Terrain } from "@mage-knight/shared";
+import type { Terrain, HexCoord } from "@mage-knight/shared";
 import { DEFAULT_MOVEMENT_COSTS, TIME_OF_DAY_DAY } from "@mage-knight/shared";
 import {
   EFFECT_RULE_OVERRIDE,
@@ -25,11 +25,16 @@ import { getModifiersForPlayer } from "./queries.js";
 
 /**
  * Get effective terrain cost for a player entering a hex.
+ * @param state - The current game state
+ * @param terrain - The terrain type
+ * @param playerId - The player ID
+ * @param coord - The hex coordinate (optional, used for coordinate-specific modifiers)
  */
 export function getEffectiveTerrainCost(
   state: GameState,
   terrain: Terrain,
-  playerId: string
+  playerId: string,
+  coord?: HexCoord
 ): number {
   // Base cost from time of day
   const baseCosts = DEFAULT_MOVEMENT_COSTS[terrain];
@@ -50,10 +55,26 @@ export function getEffectiveTerrainCost(
   }
 
   // Apply terrain cost modifiers
-  const terrainModifiers = getModifiersForPlayer(state, playerId)
+  let terrainModifiers = getModifiersForPlayer(state, playerId)
     .filter((m) => m.effect.type === EFFECT_TERRAIN_COST)
     .map((m) => m.effect as TerrainCostModifier)
     .filter((e) => e.terrain === terrain || e.terrain === TERRAIN_ALL);
+
+  // Filter by coordinate if provided
+  if (coord) {
+    terrainModifiers = terrainModifiers.filter((e) => {
+      // Include modifiers without specificCoordinate (terrain-wide modifiers)
+      if (!e.specificCoordinate) return true;
+      // Include coordinate-specific modifiers that match the given coordinate
+      return (
+        e.specificCoordinate.q === coord.q &&
+        e.specificCoordinate.r === coord.r
+      );
+    });
+  } else {
+    // If no coordinate provided, exclude coordinate-specific modifiers
+    terrainModifiers = terrainModifiers.filter((e) => !e.specificCoordinate);
+  }
 
   let minAllowed = 0;
 

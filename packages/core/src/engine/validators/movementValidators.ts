@@ -121,7 +121,7 @@ export function validateTerrainPassable(
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  const { reason } = evaluateMoveEntry(state, playerId, hex);
+  const { reason } = evaluateMoveEntry(state, playerId, hex, target);
   if (reason === MOVE_ENTRY_BLOCK_IMPASSABLE) {
     return invalid(IMPASSABLE, "Target terrain is impassable");
   }
@@ -146,7 +146,7 @@ export function validateEnoughMovePoints(
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  const { cost, reason } = evaluateMoveEntry(state, playerId, hex);
+  const { cost, reason } = evaluateMoveEntry(state, playerId, hex, target);
   if (reason !== null) {
     return valid();
   }
@@ -182,7 +182,7 @@ export function validateNotBlockedByRampaging(
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  const { reason } = evaluateMoveEntry(state, playerId, hex);
+  const { reason } = evaluateMoveEntry(state, playerId, hex, target);
   if (reason === MOVE_ENTRY_BLOCK_RAMPAGING) {
     return invalid(
       RAMPAGING_ENEMY_BLOCKS,
@@ -214,7 +214,7 @@ export function validateCityEntryAllowed(
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  const { reason } = evaluateMoveEntry(state, playerId, hex);
+  const { reason } = evaluateMoveEntry(state, playerId, hex, target);
   if (reason === MOVE_ENTRY_BLOCK_CITY) {
     return invalid(
       CANNOT_ENTER_CITY,
@@ -247,7 +247,7 @@ export function validateNoTerrainProhibition(
     return invalid(HEX_NOT_FOUND, "Target hex does not exist");
   }
 
-  const { reason } = evaluateMoveEntry(state, playerId, hex);
+  const { reason } = evaluateMoveEntry(state, playerId, hex, target);
   if (reason === MOVE_ENTRY_BLOCK_TERRAIN_PROHIBITED) {
     return invalid(
       TERRAIN_PROHIBITED,

@@ -5,7 +5,7 @@
  * This system tracks active modifiers and allows calculations to query effective values.
  */
 
-import type { SkillId, CardId, Terrain, ManaColor, ResistanceType } from "@mage-knight/shared";
+import type { SkillId, CardId, Terrain, ManaColor, ResistanceType, HexCoord } from "@mage-knight/shared";
 import type { EnemyAbility } from "./enemy.js";
 import {
   ABILITY_ANY,
@@ -106,6 +106,11 @@ export interface TerrainCostModifier {
    * When replaceCost is set, amount is ignored and minimum is applied after.
    */
   readonly replaceCost?: number;
+  /**
+   * If set, modifier only applies to this specific coordinate.
+   * Used by Druidic Paths to reduce cost of a specific hex rather than all hexes of a terrain type.
+   */
+  readonly specificCoordinate?: HexCoord;
 }
 
 // Terrain safe modifier (e.g., "mountains are safe spaces for you")

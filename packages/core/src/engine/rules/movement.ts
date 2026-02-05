@@ -44,7 +44,8 @@ export function getHexAtCoord(
 export function evaluateMoveEntry(
   state: GameState,
   playerId: string,
-  hex: HexState | undefined
+  hex: HexState | undefined,
+  coord?: HexCoord
 ): MoveEntryEvaluation {
   if (!hex) {
     return { cost: Infinity, reason: MOVE_ENTRY_BLOCK_HEX_MISSING };
@@ -55,7 +56,7 @@ export function evaluateMoveEntry(
     return { cost: Infinity, reason: MOVE_ENTRY_BLOCK_TERRAIN_PROHIBITED };
   }
 
-  const cost = getEffectiveTerrainCost(state, hex.terrain, playerId);
+  const cost = getEffectiveTerrainCost(state, hex.terrain, playerId, coord);
   if (cost === Infinity) {
     return { cost: Infinity, reason: MOVE_ENTRY_BLOCK_IMPASSABLE };
   }

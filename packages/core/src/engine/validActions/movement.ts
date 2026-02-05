@@ -61,7 +61,7 @@ export function getValidMoveTargets(
     // Skip if hex doesn't exist
     if (!hex) continue;
 
-    const { cost, reason } = evaluateMoveEntry(state, player.id, hex);
+    const { cost, reason } = evaluateMoveEntry(state, player.id, hex, adjacent);
     if (reason !== null) continue;
 
     // Skip if not enough move points
@@ -247,9 +247,10 @@ function wouldProvokeRampaging(
 function getHexEntryCost(
   hex: HexState | undefined,
   state: GameState,
-  playerId: string
+  playerId: string,
+  coord?: HexCoord
 ): number {
-  const { cost, reason } = evaluateMoveEntry(state, playerId, hex);
+  const { cost, reason } = evaluateMoveEntry(state, playerId, hex, coord);
   return reason === null ? cost : Infinity;
 }
 
@@ -291,7 +292,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
     const neighborKey = hexKey(neighbor);
     const hex = state.map.hexes[neighborKey];
 
-    const cost = getHexEntryCost(hex, state, player.id);
+    const cost = getHexEntryCost(hex, state, player.id, neighbor);
     if (cost <= movePoints && cost !== Infinity) {
       // Check if moving from start to this neighbor would provoke rampaging enemies
       const wouldProvoke = wouldProvokeRampaging(player.position, neighbor, state.map.hexes);
@@ -370,7 +371,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
       if (existingNeighborVisit && !existingNeighborVisit.isTerminal) continue;
 
       const hex = state.map.hexes[neighborKey];
-      const edgeCost = getHexEntryCost(hex, state, player.id);
+      const edgeCost = getHexEntryCost(hex, state, player.id, neighbor);
 
       if (edgeCost === Infinity) continue;
 
