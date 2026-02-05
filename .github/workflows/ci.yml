@@ -13,8 +13,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  build:
-    name: Build & Lint
+  ci:
+    name: Build, Lint & Test
     runs-on: ubuntu-latest
 
     steps:
@@ -45,36 +45,6 @@ jobs:
 
       - name: Lint
         run: bun run lint
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-            packages/*/node_modules
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            bun-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build
-        run: bun run build
 
       - name: Create output directories
         run: mkdir -p test-results coverage/core coverage/shared coverage/server
