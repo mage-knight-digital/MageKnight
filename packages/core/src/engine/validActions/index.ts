@@ -47,6 +47,10 @@ import {
 import { getChallengeOptions } from "./challenge.js";
 import { getCooperativeAssaultOptions } from "./cooperativeAssault.js";
 import { getSkillOptions } from "./skills.js";
+import {
+  getHexCostReductionValidActions,
+  getTerrainCostReductionValidActions,
+} from "./terrainCostReduction.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -172,6 +176,30 @@ export function getValidActions(
       mode: "pending_choice",
       turn: { canUndo: getTurnOptions(state, player).canUndo },
     };
+  }
+  if (player.pendingTerrainCostReduction) {
+    if (player.pendingTerrainCostReduction.mode === "hex") {
+      const hexCostReduction = getHexCostReductionValidActions(state, player);
+      if (hexCostReduction) {
+        return {
+          mode: "pending_hex_cost_reduction",
+          turn: { canUndo: getTurnOptions(state, player).canUndo },
+          hexCostReduction,
+        };
+      }
+    } else {
+      const terrainCostReduction = getTerrainCostReductionValidActions(
+        state,
+        player
+      );
+      if (terrainCostReduction) {
+        return {
+          mode: "pending_terrain_cost_reduction",
+          turn: { canUndo: getTurnOptions(state, player).canUndo },
+          terrainCostReduction,
+        };
+      }
+    }
   }
 
   // === Combat ===
