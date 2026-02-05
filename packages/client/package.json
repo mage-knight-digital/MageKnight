@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:bun": "bun run ./dev.ts",
+    "dev": "bun run ./dev.ts",
+    "dev:vite": "vite",
     "build": "bun run ./build.ts",
     "build:vite": "vite build",
     "typecheck": "tsc -b",
