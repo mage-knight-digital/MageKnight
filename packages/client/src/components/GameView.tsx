@@ -20,6 +20,7 @@ import { PreparationDecision } from "./Overlays/PreparationDecision";
 import { SparingPowerDecision } from "./Overlays/SparingPowerDecision";
 import { ManaSearchReroll } from "./Overlays/ManaSearchReroll";
 import { GladeWoundDecision } from "./Overlays/GladeWoundDecision";
+import { CrystalJoyReclaimDecision } from "./Overlays/CrystalJoyReclaimDecision";
 import { RestCompletionOverlay } from "./Overlays/RestCompletionOverlay";
 import { DiscardCostOverlay } from "./Overlays/DiscardCostOverlay";
 import { LevelUpRewardSelection } from "./Overlays/LevelUpRewardSelection";
@@ -103,6 +104,7 @@ export function GameView() {
       <SparingPowerDecision />
       <ManaSearchReroll />
       <GladeWoundDecision />
+      <CrystalJoyReclaimDecision />
       <RestCompletionOverlay />
       <DiscardCostOverlay />
       {inCombat && (
