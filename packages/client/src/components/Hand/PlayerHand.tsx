@@ -54,7 +54,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   const needsTacticSelection = !!(
     player &&
     player.selectedTacticId === null &&
-    state?.validActions.tactics
+    state?.validActions?.mode === "tactics_selection"
   );
 
   // Track previous tactic selection state to detect when selection completes
@@ -166,8 +166,12 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   // Get playable cards from validActions - memoized to avoid hook dependency issues
   const playableCardMap = useMemo(() => {
-    if (!state) return new Map();
-    const playableCards = state.validActions.playCard?.cards ?? [];
+    if (!state?.validActions) return new Map();
+    const va = state.validActions;
+    const playableCards =
+      (va.mode === "combat" || va.mode === "normal_turn")
+        ? (va.playCard?.cards ?? [])
+        : [];
     return new Map(playableCards.map(c => [c.cardId, c]));
   }, [state]);
 
@@ -185,8 +189,11 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   // Get activatable units from validActions
   const activatableUnits = useMemo(() => {
-    return state?.validActions.units?.activatable ?? [];
-  }, [state?.validActions.units?.activatable]);
+    const va = state?.validActions;
+    if (!va || (va.mode !== "combat" && va.mode !== "normal_turn"))
+      return [];
+    return va.units?.activatable ?? [];
+  }, [state?.validActions]);
 
   // Close unit menu when activatable units change (unit was activated and spent)
   useEffect(() => {

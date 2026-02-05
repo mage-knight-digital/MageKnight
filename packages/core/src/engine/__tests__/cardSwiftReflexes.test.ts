@@ -429,7 +429,9 @@ describe("Swift Reflexes", () => {
       // In block phase with 0-attack enemy, the enemy should be filtered from block targets
       // We can check that enemyBlockStates doesn't include this enemy
       expect(
-        validActions.combat?.blockPhase?.enemyBlockStates?.length ?? 0
+        validActions.mode === "combat"
+          ? (validActions.combat.enemyBlockStates?.length ?? 0)
+          : 0
       ).toBe(0);
     });
   });

@@ -143,8 +143,11 @@ export function HexContextMenu({
       }
     }
 
-    // End Turn option (if valid and has passive effect)
-    const canEndTurn = state?.validActions.turn?.canEndTurn ?? false;
+    // End Turn option (if valid and has passive effect; only in normal_turn)
+    const canEndTurn =
+      state?.validActions?.mode === "normal_turn"
+        ? (state.validActions.turn.canEndTurn ?? false)
+        : false;
     if (canEndTurn && siteOptions.endOfTurnEffect) {
       const endColors = getActionColors("end-turn");
       items.push({
@@ -166,7 +169,7 @@ export function HexContextMenu({
     });
 
     return items;
-  }, [siteOptions, state?.validActions.turn?.canEndTurn]);
+  }, [siteOptions, state?.validActions]);
 
   const handleSelect = useCallback(
     (id: string) => {

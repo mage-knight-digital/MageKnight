@@ -10,7 +10,10 @@ export function GladeWoundDecision() {
   const { state, sendAction } = useGame();
 
   // Check if we have a pending glade wound decision
-  const gladeWoundOptions = state?.validActions.gladeWound;
+  const gladeWoundOptions =
+    state?.validActions?.mode === "pending_glade_wound"
+      ? state.validActions.gladeWound
+      : undefined;
   if (!gladeWoundOptions) {
     return null;
   }

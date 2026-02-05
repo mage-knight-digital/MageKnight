@@ -443,17 +443,10 @@ describe("Tactics Selection", () => {
       // Get valid actions
       const validActions = getValidActions(stateAfterSelect, "player1");
 
-      // Should have pending decision
-      expect(validActions.tacticEffects?.pendingDecision).toBeDefined();
-      expect(validActions.tacticEffects?.pendingDecision?.type).toBe(TACTIC_RETHINK);
-
-      // Should NOT have tactics selection available
-      expect(validActions.tactics).toBeUndefined();
-
-      // Should NOT have other actions available
-      expect(validActions.move).toBeUndefined();
-      expect(validActions.playCard).toBeUndefined();
-      expect(validActions.turn).toBeUndefined();
+      // Should be pending_tactic_decision state with Rethink
+      expect(validActions.mode).toBe("pending_tactic_decision");
+      expect(validActions.tacticDecision).toBeDefined();
+      expect(validActions.tacticDecision?.type).toBe(TACTIC_RETHINK);
     });
 
     it("Rethink resolution shuffles discard into deck and draws from combined pool", () => {

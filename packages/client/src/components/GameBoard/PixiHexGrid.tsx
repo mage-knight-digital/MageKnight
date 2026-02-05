@@ -17,7 +17,7 @@
  * Phase 5: Particle effects and polish ✓
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Application, Container } from "pixi.js";
 import type { HexCoord } from "@mage-knight/shared";
 import { hexKey, ENTER_SITE_ACTION, BURN_MONASTERY_ACTION, PLUNDER_VILLAGE_ACTION } from "@mage-knight/shared";
@@ -240,6 +240,15 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     };
   }, [player?.position]);
 
+  // Site options only available during normal_turn
+  const siteOptions = useMemo(
+    () =>
+      state?.validActions?.mode === "normal_turn"
+        ? state.validActions.sites ?? null
+        : null,
+    [state?.validActions]
+  );
+
   // Enhanced keyboard handler that intercepts Space for site actions
   const handleGameKeyDown = useCallback((event: KeyboardEvent) => {
     // Don't handle if overlays are active or site panel is open
@@ -248,8 +257,8 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
       return;
     }
 
-    // Space - toggle site action list (only if it's my turn)
-    if (event.code === "Space" && isMyTurn && state?.validActions.sites) {
+    // Space - toggle site action list (only if it's my turn and we have site options)
+    if (event.code === "Space" && isMyTurn && siteOptions) {
       event.preventDefault();
       if (showSiteActionList) {
         handleCloseSiteActionList();
@@ -268,7 +277,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     handleKeyDown(event);
   }, [
     isMyTurn,
-    state?.validActions.sites,
+    siteOptions,
     showSiteActionList,
     isOverlayActive,
     isSitePanelOpen,
@@ -519,7 +528,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
         siteOptions={
           sitePanelHex && player?.position &&
           sitePanelHex.q === player.position.q && sitePanelHex.r === player.position.r
-            ? state?.validActions.sites ?? null
+            ? siteOptions
             : null
         }
         hex={sitePanelHex ? state?.map.hexes[hexKey(sitePanelHex)] ?? null : null}
@@ -530,9 +539,9 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
       />
 
       {/* Site Action List - compact action menu on Space key */}
-      {showSiteActionList && actionListPosition && state?.validActions.sites && (
+      {showSiteActionList && actionListPosition && siteOptions && (
         <SiteActionList
-          siteOptions={state.validActions.sites}
+          siteOptions={siteOptions}
           position={actionListPosition}
           onAction={handleSiteAction}
           onClose={handleCloseSiteActionList}

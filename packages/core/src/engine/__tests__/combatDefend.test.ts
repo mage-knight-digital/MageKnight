@@ -559,16 +559,17 @@ describe("Combat Defend Ability", () => {
       // In attack phase, enemies should show their armor values
       // The Defend bonus won't be pre-applied in validActions because it only
       // triggers on attack declaration. ValidActions shows base effective armor.
-      expect(validActions.combat?.enemies).toBeDefined();
+      expect(validActions.mode).toBe("combat");
+      expect(validActions.combat.enemies).toBeDefined();
 
       // Basic enemy should show armor 4 (base)
-      const basicEnemy = validActions.combat?.enemies?.find(
+      const basicEnemy = validActions.combat.enemies?.find(
         (e) => e.enemyInstanceId === "enemy_0"
       );
       expect(basicEnemy?.armor).toBe(4);
 
       // Defend enemy should show armor 4 (base)
-      const defendEnemy = validActions.combat?.enemies?.find(
+      const defendEnemy = validActions.combat.enemies?.find(
         (e) => e.enemyInstanceId === "enemy_1"
       );
       expect(defendEnemy?.armor).toBe(4);

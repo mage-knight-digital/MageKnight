@@ -19,7 +19,10 @@ export function PreparationDecision() {
   const player = useMyPlayer();
 
   // Check if we have a pending Preparation decision
-  const pendingDecision = state?.validActions.tacticEffects?.pendingDecision;
+  const pendingDecision =
+    state?.validActions?.mode === "pending_tactic_decision"
+      ? state.validActions.tacticDecision
+      : undefined;
   if (
     !pendingDecision ||
     pendingDecision.type !== TACTIC_DECISION_PREPARATION ||

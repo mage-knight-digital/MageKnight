@@ -29,31 +29,32 @@ export function useGameBoardSelectors({
   hoveredHex,
   playerPosition,
 }: UseGameBoardSelectorsParams): UseGameBoardSelectorsReturn {
-  // Memoized valid move targets
-  const validMoveTargets = useMemo<readonly MoveTarget[]>(
-    () => state?.validActions.move?.targets ?? [],
-    [state?.validActions.move?.targets]
-  );
+  // Memoized valid move targets (only in normal_turn)
+  const validMoveTargets = useMemo<readonly MoveTarget[]>(() => {
+    const va = state?.validActions;
+    return va?.mode === "normal_turn" ? (va.move?.targets ?? []) : [];
+  }, [state?.validActions]);
 
-  const reachableHexes = useMemo<readonly ReachableHex[]>(
-    () => state?.validActions.move?.reachable ?? [],
-    [state?.validActions.move?.reachable]
-  );
+  const reachableHexes = useMemo<readonly ReachableHex[]>(() => {
+    const va = state?.validActions;
+    return va?.mode === "normal_turn" ? (va.move?.reachable ?? []) : [];
+  }, [state?.validActions]);
 
-  // Challenge target hexes (rampaging enemies that can be challenged from adjacent hex)
-  const challengeTargetHexes = useMemo<readonly HexCoord[]>(
-    () => state?.validActions.challenge?.targetHexes ?? [],
-    [state?.validActions.challenge?.targetHexes]
-  );
+  // Challenge target hexes (only in normal_turn)
+  const challengeTargetHexes = useMemo<readonly HexCoord[]>(() => {
+    const va = state?.validActions;
+    return va?.mode === "normal_turn" ? (va.challenge?.targetHexes ?? []) : [];
+  }, [state?.validActions]);
 
   const exploreTargets = useMemo<ExploreTarget[]>(() => {
-    if (!state?.validActions.explore) return [];
-    return state.validActions.explore.directions.map((dir) => ({
+    const va = state?.validActions;
+    if (va?.mode !== "normal_turn" || !va.explore) return [];
+    return va.explore.directions.map((dir) => ({
       coord: dir.targetCoord,
       direction: dir.direction,
       fromTileCoord: dir.fromTileCoord,
     }));
-  }, [state?.validActions.explore]);
+  }, [state?.validActions]);
 
   // Path preview computation
   const pathPreview = useMemo<HexCoord[]>(() => {

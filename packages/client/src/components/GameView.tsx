@@ -71,7 +71,10 @@ export function GameView() {
 
   // Check if we're in tactic selection mode
   // Only dim the world after intro completes - don't dim during the theatrical reveal
-  const isTacticSelectionActive = player && player.selectedTacticId === null && !!state.validActions.tactics;
+  const isTacticSelectionActive =
+    player &&
+    player.selectedTacticId === null &&
+    state.validActions.mode === "tactics_selection";
   const shouldDimForTactics = isTacticSelectionActive && isIntroComplete;
 
   const appClassName = [
@@ -105,7 +108,11 @@ export function GameView() {
           <PixiCombatOverlay combat={state.combat} />
           <CombatOverlay
             combat={state.combat}
-            combatOptions={state.validActions.combat}
+            combatOptions={
+              state.validActions.mode === "combat"
+                ? state.validActions.combat
+                : undefined
+            }
           />
         </>
       )}

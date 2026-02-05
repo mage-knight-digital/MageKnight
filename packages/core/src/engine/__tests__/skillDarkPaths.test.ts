@@ -14,6 +14,7 @@ import {
   TIME_OF_DAY_DAY,
   TIME_OF_DAY_NIGHT,
   ENEMY_PROWLERS,
+  getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_ARYTHEA_DARK_PATHS } from "../../data/skills/index.js";
@@ -192,8 +193,9 @@ describe("Dark Paths skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_ARYTHEA_DARK_PATHS,
         })
@@ -218,8 +220,9 @@ describe("Dark Paths skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_ARYTHEA_DARK_PATHS,
         })
@@ -244,8 +247,9 @@ describe("Dark Paths skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_ARYTHEA_DARK_PATHS,
           })

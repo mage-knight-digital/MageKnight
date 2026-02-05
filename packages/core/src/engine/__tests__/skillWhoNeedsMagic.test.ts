@@ -21,6 +21,7 @@ import {
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_TOVAK_WHO_NEEDS_MAGIC } from "../../data/skills/index.js";
+import { getSkillsFromValidActions } from "@mage-knight/shared";
 import { getValidActions } from "../validActions/index.js";
 import { getManaOptions } from "../validActions/mana.js";
 import { RULE_SOURCE_BLOCKED } from "../../types/modifierConstants.js";
@@ -358,9 +359,10 @@ describe("Who Needs Magic? skill", () => {
       const state = createTestGameState({ players: [player] });
 
       const validActions = getValidActions(state, "player1");
+      const skills = getSkillsFromValidActions(validActions);
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_TOVAK_WHO_NEEDS_MAGIC,
         })
@@ -381,10 +383,11 @@ describe("Who Needs Magic? skill", () => {
       const state = createTestGameState({ players: [player] });
 
       const validActions = getValidActions(state, "player1");
+      const skills = getSkillsFromValidActions(validActions);
 
       // Either skills is undefined or the skill is not in the list
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_TOVAK_WHO_NEEDS_MAGIC,
           })
@@ -408,7 +411,7 @@ describe("Who Needs Magic? skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Skills should be undefined since no skills are available
-      expect(validActions.skills).toBeUndefined();
+      expect(getSkillsFromValidActions(validActions)).toBeUndefined();
     });
   });
 

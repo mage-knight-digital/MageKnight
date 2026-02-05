@@ -33,6 +33,7 @@ import {
   MANA_BLUE,
   MANA_WHITE,
   MANA_TOKEN_SOURCE_CARD,
+  getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_BRAEVALAR_THUNDERSTORM } from "../../data/skills/index.js";
@@ -425,9 +426,10 @@ describe("Thunderstorm skill", () => {
       const state = createTestGameState({ players: [player] });
 
       const validActions = getValidActions(state, "player1");
+      const skills = getSkillsFromValidActions(validActions);
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_BRAEVALAR_THUNDERSTORM,
         })
@@ -449,10 +451,11 @@ describe("Thunderstorm skill", () => {
       const state = createTestGameState({ players: [player] });
 
       const validActions = getValidActions(state, "player1");
+      const skills = getSkillsFromValidActions(validActions);
 
       // Either skills is undefined or the skill is not in the list
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_BRAEVALAR_THUNDERSTORM,
           })
@@ -477,7 +480,7 @@ describe("Thunderstorm skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Skills should be undefined since no skills are available
-      expect(validActions.skills).toBeUndefined();
+      expect(getSkillsFromValidActions(validActions)).toBeUndefined();
     });
   });
 

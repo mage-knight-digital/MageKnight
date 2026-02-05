@@ -140,7 +140,11 @@ export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: Pixi
     if (!state || !player) return [];
 
     if (pane === "units") {
-      const recruitableUnits = state.validActions?.units?.recruitable ?? [];
+      const va = state.validActions;
+      const recruitableUnits =
+        va?.mode === "combat" || va?.mode === "normal_turn"
+          ? (va.units?.recruitable ?? [])
+          : [];
       const recruitableMap = new Map(recruitableUnits.map((r) => [r.unitId, r]));
 
       const unitCards = state.offers.units.map((unitId) => {

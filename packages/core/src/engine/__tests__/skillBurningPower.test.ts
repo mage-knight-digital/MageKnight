@@ -16,6 +16,7 @@ import {
   CHOICE_RESOLVED,
   ENEMY_PROWLERS,
   ELEMENT_FIRE,
+  getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_ARYTHEA_BURNING_POWER } from "../../data/skills/index.js";
@@ -236,8 +237,9 @@ describe("Burning Power skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_ARYTHEA_BURNING_POWER,
         })
@@ -263,8 +265,9 @@ describe("Burning Power skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_ARYTHEA_BURNING_POWER,
         })
@@ -290,8 +293,9 @@ describe("Burning Power skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_ARYTHEA_BURNING_POWER,
           })

@@ -21,7 +21,10 @@ export function MidnightMeditationDecision() {
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
   // Check if we have a pending Midnight Meditation decision
-  const pendingDecision = state?.validActions.tacticEffects?.pendingDecision;
+  const pendingDecision =
+    state?.validActions?.mode === "pending_tactic_decision"
+      ? state.validActions.tacticDecision
+      : undefined;
   if (
     !pendingDecision ||
     pendingDecision.type !== TACTIC_DECISION_MIDNIGHT_MEDITATION ||

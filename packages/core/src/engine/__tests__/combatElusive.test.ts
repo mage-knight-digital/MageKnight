@@ -772,7 +772,8 @@ describe("Combat Elusive Ability", () => {
 
       // Get valid actions - should show elusive armor
       const validActions = getValidActions(state, "player1");
-      const enemyState = validActions.combat?.enemies?.[0];
+      const enemyState =
+        validActions.mode === "combat" ? validActions.combat.enemies?.[0] : undefined;
 
       expect(enemyState?.armor).toBe(8); // Shows elusive armor
     });
@@ -814,7 +815,8 @@ describe("Combat Elusive Ability", () => {
 
       // Get valid actions - should show base armor since blocked
       const validActions = getValidActions(state, "player1");
-      const enemyState = validActions.combat?.enemies?.[0];
+      const enemyState =
+        validActions.mode === "combat" ? validActions.combat.enemies?.[0] : undefined;
 
       expect(enemyState?.armor).toBe(4); // Shows base armor (blocked)
     });

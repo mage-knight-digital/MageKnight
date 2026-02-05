@@ -253,7 +253,10 @@ describe("Ritual of Pain skill", () => {
     };
 
     const validActions = getValidActions(otherTurnState, "player2");
-    const woundCard = validActions.playCard?.cards.find((card) => card.cardId === CARD_WOUND);
+    const woundCard =
+      (validActions.mode === "combat" || validActions.mode === "normal_turn")
+        ? validActions.playCard?.cards.find((card) => card.cardId === CARD_WOUND)
+        : undefined;
     expect(woundCard?.canPlaySideways).toBe(true);
     expect(woundCard?.sidewaysOptions?.[0]?.value).toBe(3);
   });
