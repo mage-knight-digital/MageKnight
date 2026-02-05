@@ -9,6 +9,8 @@ import {
   EFFECT_NOOP,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_DISCARD_FOR_CRYSTAL,
+  EFFECT_APPLY_RECRUIT_DISCOUNT,
+  EFFECT_READY_UNITS_FOR_INFLUENCE,
   COMBAT_TYPE_MELEE, COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
 import type { BasicCardColor } from "../../types/effectTypes.js";
@@ -210,4 +212,27 @@ export function discardCostByColor(
  */
 export function discardForCrystal(optional: boolean = true): CardEffect {
   return { type: EFFECT_DISCARD_FOR_CRYSTAL, optional };
+}
+
+/**
+ * Recruit discount effect - grants a turn-scoped modifier that discounts
+ * one unit recruitment by the given amount. If the discounted unit is
+ * recruited, reputation changes.
+ *
+ * @param discount - Amount of influence discount
+ * @param reputationChange - Rep change if discount is used (e.g., -1)
+ */
+export function recruitDiscount(discount: number, reputationChange: number): CardEffect {
+  return { type: EFFECT_APPLY_RECRUIT_DISCOUNT, discount, reputationChange };
+}
+
+/**
+ * Ready units for influence - allows spending influence to ready
+ * spent units up to a max level.
+ *
+ * @param maxLevel - Maximum unit level eligible (1-4)
+ * @param costPerLevel - Influence cost per level of unit (e.g., 2)
+ */
+export function readyUnitsForInfluence(maxLevel: 1 | 2 | 3 | 4, costPerLevel: number): CardEffect {
+  return { type: EFFECT_READY_UNITS_FOR_INFLUENCE, maxLevel, costPerLevel };
 }

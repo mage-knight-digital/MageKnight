@@ -130,3 +130,15 @@ export const EFFECT_POLARIZE_MANA = "polarize_mana" as const;
 // Discard a card to gain a crystal of matching color (action cards) or chosen color (artifacts)
 // Used by Krang's Savage Harvesting card
 export const EFFECT_DISCARD_FOR_CRYSTAL = "discard_for_crystal" as const;
+
+// === Recruit Discount Effect ===
+// Grants a turn-scoped recruit discount modifier. If the discount is used, reputation changes.
+// Used by Ruthless Coercion basic effect.
+export const EFFECT_APPLY_RECRUIT_DISCOUNT = "apply_recruit_discount" as const;
+
+// === Ready Units for Influence Effect ===
+// Entry point for readying L1/L2 units by paying influence per level.
+// Used by Ruthless Coercion powered effect.
+export const EFFECT_READY_UNITS_FOR_INFLUENCE = "ready_units_for_influence" as const;
+// Internal: resolve effect after unit selection for influence-paid readying
+export const EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE = "resolve_ready_unit_for_influence" as const;

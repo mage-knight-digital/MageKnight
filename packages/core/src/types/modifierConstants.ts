@@ -120,3 +120,9 @@ export const EFFECT_REMOVE_PHYSICAL_RESISTANCE = "remove_physical_resistance" as
 // Grants +1 ice block per ability/attack color/resistance on blocked enemy (Tovak)
 // Arcane Immunity on the enemy negates the bonus entirely
 export const EFFECT_COLD_TOUGHNESS_BLOCK = "cold_toughness_block" as const;
+
+// === RecruitDiscountModifier ===
+// Grants a discount toward recruiting one unit this turn
+// If the discount is used (unit recruited at reduced cost), reputation changes
+// Used by Ruthless Coercion basic effect
+export const EFFECT_RECRUIT_DISCOUNT = "recruit_discount" as const;

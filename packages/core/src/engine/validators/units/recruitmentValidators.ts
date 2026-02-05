@@ -31,6 +31,7 @@ import {
   siteTypeToRecruitSite,
   violatesHeroesThugsExclusion,
   hasRecruitedHeroThisInteraction,
+  getActiveRecruitDiscount,
 } from "../../rules/unitRecruitment.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
@@ -93,6 +94,12 @@ export function validateInfluenceCost(
     heroAlreadyRecruited
   );
   requiredCost = Math.max(0, requiredCost + reputationModifier);
+
+  // Apply recruit discount if available (Ruthless Coercion)
+  const discountMod = getActiveRecruitDiscount(state, playerId);
+  if (discountMod) {
+    requiredCost = Math.max(0, requiredCost - discountMod.discount);
+  }
 
   if (action.influenceSpent < requiredCost) {
     return invalid(

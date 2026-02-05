@@ -32,6 +32,7 @@ import { registerAttackFameEffects } from "./attackFameEffects.js";
 import { registerPolarizeEffects } from "./polarizeEffects.js";
 import { registerRitualOfPainEffects } from "./ritualOfPainEffects.js";
 import { registerDiscardForCrystalEffects } from "./discardForCrystalEffects.js";
+import { registerRuthlessCoercionEffects } from "./ruthlessCoercionEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -110,4 +111,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Discard-for-crystal effects (Savage Harvesting)
   registerDiscardForCrystalEffects();
+
+  // Ruthless Coercion effects (recruit discount, ready for influence)
+  registerRuthlessCoercionEffects();
 }

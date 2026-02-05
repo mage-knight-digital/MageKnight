@@ -26,6 +26,7 @@ import {
   EFFECT_GRANT_RESISTANCES,
   EFFECT_TERRAIN_PROHIBITION,
   EFFECT_ENEMY_STAT,
+  EFFECT_RECRUIT_DISCOUNT,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_COLD_TOUGHNESS_BLOCK,
@@ -241,6 +242,16 @@ export interface ColdToughnessBlockModifier {
   readonly type: typeof EFFECT_COLD_TOUGHNESS_BLOCK;
 }
 
+// Recruit discount modifier (Ruthless Coercion basic effect)
+// Grants a discount toward recruiting one unit this turn.
+// If the discounted unit is actually recruited, reputation changes.
+// The modifier is consumed (removed) when the discount is applied.
+export interface RecruitDiscountModifier {
+  readonly type: typeof EFFECT_RECRUIT_DISCOUNT;
+  readonly discount: number; // Amount of influence discount (e.g., 2)
+  readonly reputationChange: number; // Rep change if discount used (e.g., -1)
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -258,7 +269,8 @@ export type ModifierEffect =
   | GrantResistancesModifier
   | DoublePhysicalAttacksModifier
   | RemovePhysicalResistanceModifier
-  | ColdToughnessBlockModifier;
+  | ColdToughnessBlockModifier
+  | RecruitDiscountModifier;
 
 // === Active Modifier (live in game state) ===
 
