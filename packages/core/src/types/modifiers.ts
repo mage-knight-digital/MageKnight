@@ -32,6 +32,7 @@ import {
   EFFECT_COLD_TOUGHNESS_BLOCK,
   EFFECT_MOVEMENT_CARD_BONUS,
   EFFECT_RULE_OVERRIDE,
+  EFFECT_SCOUT_FAME_BONUS,
   EFFECT_SIDEWAYS_VALUE,
   EFFECT_TERRAIN_COST,
   EFFECT_TERRAIN_SAFE,
@@ -43,6 +44,7 @@ import {
   ENEMY_STAT_ATTACK,
   RULE_BLACK_AS_ANY_COLOR,
   RULE_BLACK_AS_GOLD,
+  RULE_EXTENDED_EXPLORE,
   RULE_EXTRA_SOURCE_DIE,
   RULE_GOLD_AS_BLACK,
   RULE_IGNORE_FORTIFICATION,
@@ -177,7 +179,8 @@ export interface RuleOverrideModifier {
     | typeof RULE_BLACK_AS_ANY_COLOR
     | typeof RULE_TERRAIN_DAY_NIGHT_SWAP
     | typeof RULE_SOURCE_BLOCKED
-    | typeof RULE_EXTRA_SOURCE_DIE;
+    | typeof RULE_EXTRA_SOURCE_DIE
+    | typeof RULE_EXTENDED_EXPLORE;
 }
 
 // Ability nullifier (e.g., "ignore Swift on one enemy")
@@ -252,6 +255,15 @@ export interface RecruitDiscountModifier {
   readonly reputationChange: number; // Rep change if discount used (e.g., -1)
 }
 
+// Scout fame bonus modifier (Scouts unit ability)
+// Tracks enemies revealed by the Scout peek ability.
+// When any of these enemies are defeated, grants +1 fame per enemy.
+export interface ScoutFameBonusModifier {
+  readonly type: typeof EFFECT_SCOUT_FAME_BONUS;
+  readonly revealedEnemyIds: readonly string[];
+  readonly fame: number; // Fame per revealed enemy defeated (typically 1)
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -270,7 +282,8 @@ export type ModifierEffect =
   | DoublePhysicalAttacksModifier
   | RemovePhysicalResistanceModifier
   | ColdToughnessBlockModifier
-  | RecruitDiscountModifier;
+  | RecruitDiscountModifier
+  | ScoutFameBonusModifier;
 
 // === Active Modifier (live in game state) ===
 

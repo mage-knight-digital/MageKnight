@@ -142,3 +142,9 @@ export const EFFECT_APPLY_RECRUIT_DISCOUNT = "apply_recruit_discount" as const;
 export const EFFECT_READY_UNITS_FOR_INFLUENCE = "ready_units_for_influence" as const;
 // Internal: resolve effect after unit selection for influence-paid readying
 export const EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE = "resolve_ready_unit_for_influence" as const;
+
+// === Scout Peek Effect ===
+// Reveals face-down enemy tokens within a distance from the player.
+// Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.
+// Used by Scouts unit ability.
+export const EFFECT_SCOUT_PEEK = "scout_peek" as const;
