@@ -76,6 +76,9 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Create output directories
+        run: mkdir -p test-results coverage/core coverage/shared coverage/server
+
       - name: Test core
         if: always()
         run: |
@@ -105,20 +108,31 @@ jobs:
           path: test-results/*.xml
           reporter: java-junit
 
-      - name: Coverage Summary
-        uses: irongut/CodeCoverageSummary@v1.3.0
+      - name: Generate Coverage Report
         if: always()
-        with:
-          filename: coverage/*/lcov.info
-          badge: true
-          format: markdown
-          output: both
+        run: |
+          echo "## Coverage Report" > coverage-report.md
+          echo "" >> coverage-report.md
+          for pkg in core shared server; do
+            if [ -f "coverage/$pkg/lcov.info" ]; then
+              # Parse lcov to extract line coverage
+              LINES_FOUND=$(grep -c "^DA:" "coverage/$pkg/lcov.info" 2>/dev/null || echo "0")
+              LINES_HIT=$(grep "^DA:" "coverage/$pkg/lcov.info" 2>/dev/null | grep -v ",0$" | wc -l | tr -d ' ')
+              if [ "$LINES_FOUND" -gt 0 ]; then
+                PCT=$((LINES_HIT * 100 / LINES_FOUND))
+                echo "| **$pkg** | $LINES_HIT / $LINES_FOUND lines | ${PCT}% |" >> coverage-report.md
+              fi
+            fi
+          done
+          # Wrap in table
+          sed -i '2i | Package | Lines | Coverage |\n| --- | --- | --- |' coverage-report.md
+          cat coverage-report.md
 
       - name: Add Coverage to PR
         uses: marocchino/sticky-pull-request-comment@v2
         if: github.event_name == 'pull_request'
         with:
-          path: code-coverage-results.md
+          path: coverage-report.md
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
