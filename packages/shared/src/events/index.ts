@@ -126,6 +126,9 @@ export * from "./validation.js";
 // Cooperative assault events
 export * from "./cooperativeAssault.js";
 
+// Banner events
+export * from "./banners.js";
+
 // ============================================================================
 // IMPORT FOR UNION TYPE
 // ============================================================================
@@ -275,6 +278,12 @@ import type {
   CooperativeAssaultRejectedEvent,
   CooperativeAssaultCancelledEvent,
 } from "./cooperativeAssault.js";
+
+import type {
+  BannerAssignedEvent,
+  BannerDetachedEvent,
+  BannersResetEvent,
+} from "./banners.js";
 
 // ============================================================================
 // GAME EVENT UNION TYPE
@@ -440,7 +449,11 @@ export type GameEvent =
   | CooperativeAssaultResponseEvent
   | CooperativeAssaultAgreedEvent
   | CooperativeAssaultRejectedEvent
-  | CooperativeAssaultCancelledEvent;
+  | CooperativeAssaultCancelledEvent
+  // Banner events
+  | BannerAssignedEvent
+  | BannerDetachedEvent
+  | BannersResetEvent;
 
 /**
  * Type of all game event type constants.

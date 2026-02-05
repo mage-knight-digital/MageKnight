@@ -242,6 +242,14 @@ export interface DisbandUnitAction {
   readonly unitInstanceId: string;
 }
 
+// Banner assignment actions
+export const ASSIGN_BANNER_ACTION = "ASSIGN_BANNER" as const;
+export interface AssignBannerAction {
+  readonly type: typeof ASSIGN_BANNER_ACTION;
+  readonly bannerCardId: CardId;
+  readonly targetUnitInstanceId: string;
+}
+
 // Heroes special rule: pay influence for assault abilities
 export const PAY_HEROES_ASSAULT_INFLUENCE_ACTION = "PAY_HEROES_ASSAULT_INFLUENCE" as const;
 /**
@@ -626,6 +634,7 @@ export type PlayerAction =
   // Interactions
   | RecruitUnitAction
   | DisbandUnitAction
+  | AssignBannerAction
   | PayHeroesAssaultInfluenceAction
   | BuySpellAction
   | LearnAdvancedActionAction

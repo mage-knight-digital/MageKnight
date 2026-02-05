@@ -260,6 +260,12 @@ export const TERRAIN_COST_REDUCTION_REQUIRED = "TERRAIN_COST_REDUCTION_REQUIRED"
 export const TERRAIN_COST_REDUCTION_INVALID_COORDINATE = "TERRAIN_COST_REDUCTION_INVALID_COORDINATE" as const;
 export const TERRAIN_COST_REDUCTION_INVALID_TERRAIN = "TERRAIN_COST_REDUCTION_INVALID_TERRAIN" as const;
 
+// Banner validation codes
+export const BANNER_NOT_IN_HAND = "BANNER_NOT_IN_HAND" as const;
+export const BANNER_NOT_A_BANNER = "BANNER_NOT_A_BANNER" as const;
+export const BANNER_TARGET_UNIT_NOT_FOUND = "BANNER_TARGET_UNIT_NOT_FOUND" as const;
+export const BANNER_NO_UNITS = "BANNER_NO_UNITS" as const;
+
 // Skill usage validation codes
 export const SKILL_NOT_LEARNED = "SKILL_NOT_LEARNED" as const;
 export const SKILL_NOT_FOUND = "SKILL_NOT_FOUND" as const;
@@ -480,6 +486,11 @@ export type ValidationErrorCode =
   | typeof TERRAIN_COST_REDUCTION_REQUIRED
   | typeof TERRAIN_COST_REDUCTION_INVALID_COORDINATE
   | typeof TERRAIN_COST_REDUCTION_INVALID_TERRAIN
+  // Banner validation
+  | typeof BANNER_NOT_IN_HAND
+  | typeof BANNER_NOT_A_BANNER
+  | typeof BANNER_TARGET_UNIT_NOT_FOUND
+  | typeof BANNER_NO_UNITS
   // Skill usage validation
   | typeof SKILL_NOT_LEARNED
   | typeof SKILL_NOT_FOUND

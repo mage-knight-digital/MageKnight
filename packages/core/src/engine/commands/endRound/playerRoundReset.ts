@@ -19,6 +19,7 @@ import type { RngState } from "../../../utils/rng.js";
 import { shuffleWithRng } from "../../../utils/rng.js";
 import { readyAllUnits } from "../../../types/unit.js";
 import { getEffectiveHandLimit } from "../../helpers/handLimitHelpers.js";
+import { BANNERS_RESET } from "@mage-knight/shared";
 import type { PlayerRoundResetResult } from "./types.js";
 
 /**
@@ -89,6 +90,11 @@ export function processPlayerRoundReset(
       beforeTurnTacticPending: false,
       // Reset cooperative assault state for new round
       roundOrderTokenFlipped: false,
+      // Reset banner usage for new round (banners stay attached)
+      attachedBanners: player.attachedBanners.map((b) => ({
+        ...b,
+        isUsedThisRound: false,
+      })),
     };
 
     updatedPlayers.push(updatedPlayer);
@@ -104,6 +110,14 @@ export function processPlayerRoundReset(
         type: UNITS_READIED,
         playerId: player.id,
         unitCount: player.units.length,
+      });
+    }
+
+    if (player.attachedBanners.length > 0) {
+      events.push({
+        type: BANNERS_RESET,
+        playerId: player.id,
+        bannerCount: player.attachedBanners.length,
       });
     }
   }

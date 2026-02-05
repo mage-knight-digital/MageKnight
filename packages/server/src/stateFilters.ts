@@ -154,13 +154,25 @@ export function toClientPlayer(player: Player, forPlayerId: string): ClientPlaye
     playArea: player.playArea,
 
     units: player.units.map(
-      (unit): ClientPlayerUnit => ({
-        instanceId: unit.instanceId,
-        unitId: unit.unitId,
-        state: unit.state,
-        wounded: unit.wounded,
-      })
+      (unit): ClientPlayerUnit => {
+        const attachment = player.attachedBanners.find(
+          (b) => b.unitInstanceId === unit.instanceId
+        );
+        return {
+          instanceId: unit.instanceId,
+          unitId: unit.unitId,
+          state: unit.state,
+          wounded: unit.wounded,
+          ...(attachment && { attachedBannerId: attachment.bannerId }),
+        };
+      }
     ),
+
+    attachedBanners: player.attachedBanners.map((b) => ({
+      bannerId: b.bannerId,
+      unitInstanceId: b.unitInstanceId,
+      isUsedThisRound: b.isUsedThisRound,
+    })),
 
     skills: player.skills,
     crystals: player.crystals,

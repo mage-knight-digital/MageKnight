@@ -67,6 +67,7 @@ import {
   CANCEL_COOPERATIVE_PROPOSAL_ACTION,
   USE_SKILL_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
+  ASSIGN_BANNER_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
   RESOLVE_HEX_COST_REDUCTION_ACTION,
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
@@ -172,6 +173,9 @@ export {
   createResolveTerrainCostReductionCommandFromAction,
 } from "./terrainCostReduction.js";
 
+// Banner factories
+export { createAssignBannerCommandFromAction } from "./banners.js";
+
 // Import all factories for the registry
 import {
   createMoveCommandFromAction,
@@ -258,6 +262,8 @@ import {
   createResolveTerrainCostReductionCommandFromAction,
 } from "./terrainCostReduction.js";
 
+import { createAssignBannerCommandFromAction } from "./banners.js";
+
 import type { CommandFactory } from "./types.js";
 
 /**
@@ -324,4 +330,6 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   // Terrain cost reduction actions (Druidic Paths)
   [RESOLVE_HEX_COST_REDUCTION_ACTION]: createResolveHexCostReductionCommandFromAction,
   [RESOLVE_TERRAIN_COST_REDUCTION_ACTION]: createResolveTerrainCostReductionCommandFromAction,
+  // Banner actions
+  [ASSIGN_BANNER_ACTION]: createAssignBannerCommandFromAction,
 };

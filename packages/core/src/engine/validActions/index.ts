@@ -51,6 +51,7 @@ import {
   getHexCostReductionValidActions,
   getTerrainCostReductionValidActions,
 } from "./terrainCostReduction.js";
+import { getBannerOptions } from "./banners.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -239,5 +240,6 @@ export function getValidActions(
     tacticEffects: getTacticEffectsOptions(state, player),
     cooperativeAssault: getCooperativeAssaultOptions(state, player),
     skills: getSkillOptions(state, player),
+    banners: getBannerOptions(state, player),
   };
 }

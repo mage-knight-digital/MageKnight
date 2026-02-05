@@ -23,6 +23,7 @@ import { hostileRegistry } from "./hostileRegistry.js";
 import { cooperativeRegistry } from "./cooperativeRegistry.js";
 import { skillRegistry } from "./skillRegistry.js";
 import { debugRegistry } from "./debugRegistry.js";
+import { bannerRegistry } from "./bannerRegistry.js";
 
 /**
  * Combined validator registry - maps action types to their validator arrays.
@@ -77,4 +78,7 @@ export const validatorRegistry: Record<string, Validator[]> = {
 
   // Debug actions (DEBUG_ADD_FAME, DEBUG_TRIGGER_LEVEL_UP)
   ...debugRegistry,
+
+  // Banner actions (ASSIGN_BANNER)
+  ...bannerRegistry,
 };
