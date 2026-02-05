@@ -230,6 +230,23 @@ export interface PendingDiscardForCrystal {
 }
 
 /**
+ * Pending terrain cost reduction choice (Druidic Paths and similar effects).
+ * Player must choose a hex coordinate or terrain type to apply cost reduction.
+ */
+export interface PendingTerrainCostReduction {
+  /** Whether to pick a hex coordinate or terrain type */
+  readonly mode: "hex" | "terrain";
+  /** Available hex coordinates (for "hex" mode) */
+  readonly availableCoordinates: readonly HexCoord[];
+  /** Available terrain types (for "terrain" mode) */
+  readonly availableTerrains: readonly string[];
+  /** Cost reduction amount (negative, e.g., -1) */
+  readonly reduction: number;
+  /** Minimum cost after reduction */
+  readonly minimumCost: number;
+}
+
+/**
  * Track an attack that grants fame if it defeats at least one enemy.
  * Used by Axe Throw powered effect.
  */
@@ -421,6 +438,10 @@ export interface Player {
   readonly pendingCrystalJoyReclaim:
     | { readonly version: "basic" | "powered" }
     | undefined;
+
+  // Terrain cost reduction pending (Druidic Paths and similar effects)
+  // When set, the player must choose a hex coordinate or terrain type for cost reduction
+  readonly pendingTerrainCostReduction: PendingTerrainCostReduction | null;
 
   // Healing points accumulated this turn (cleared on combat entry per rulebook line 929)
   readonly healingPoints: number;

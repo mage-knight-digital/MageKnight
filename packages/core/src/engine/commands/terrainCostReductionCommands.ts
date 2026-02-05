@@ -5,54 +5,99 @@
  * its movement cost reduced for the turn.
  */
 
-import type { GameState } from "../../types/gameState.js";
-import type { Command } from "../../types/command.js";
-import type {
-  ResolveHexCostReductionAction,
-  ResolveTerrainCostReductionAction,
-} from "@mage-knight/shared";
+import type { GameState } from "../../state/GameState.js";
+import type { Command, CommandResult } from "./types.js";
+import type { HexCoord, Terrain } from "@mage-knight/shared";
 import { addModifier } from "../modifiers/index.js";
-import { DURATION_TURN, SOURCE_CARD } from "../../types/modifierConstants.js";
+import {
+  DURATION_TURN,
+  EFFECT_TERRAIN_COST,
+  SOURCE_CARD,
+  SCOPE_SELF,
+  TERRAIN_ALL,
+} from "../../types/modifierConstants.js";
 import { CARD_BRAEVALAR_DRUIDIC_PATHS } from "@mage-knight/shared";
+
+export const RESOLVE_HEX_COST_REDUCTION_COMMAND =
+  "RESOLVE_HEX_COST_REDUCTION" as const;
+export const RESOLVE_TERRAIN_COST_REDUCTION_COMMAND =
+  "RESOLVE_TERRAIN_COST_REDUCTION" as const;
+
+export interface ResolveHexCostReductionCommandParams {
+  readonly playerId: string;
+  readonly coordinate: HexCoord;
+}
+
+export interface ResolveTerrainCostReductionCommandParams {
+  readonly playerId: string;
+  readonly terrain: string;
+}
 
 /**
  * Command: Resolve hex coordinate selection for cost reduction.
  * Applies a modifier that reduces the terrain cost for the specified coordinate.
  */
-export function resolveHexCostReductionCommand(
-  action: ResolveHexCostReductionAction
+export function createResolveHexCostReductionCommand(
+  params: ResolveHexCostReductionCommandParams
 ): Command {
   return {
-    execute: (state: GameState): GameState => {
-      const player = state.players.find((p) => p.id === action.playerId);
-      if (!player) return state;
+    type: RESOLVE_HEX_COST_REDUCTION_COMMAND,
+    playerId: params.playerId,
+    isReversible: false,
+
+    execute(state: GameState): CommandResult {
+      const playerIndex = state.players.findIndex(
+        (p) => p.id === params.playerId
+      );
+      if (playerIndex === -1) {
+        throw new Error("Player not found");
+      }
+
+      const player = state.players[playerIndex];
+      if (!player) {
+        throw new Error("Player not found at index");
+      }
+
+      // Clear pending state
+      const updatedPlayer = {
+        ...player,
+        pendingTerrainCostReduction: null,
+      };
+
+      let newState: GameState = {
+        ...state,
+        players: state.players.map((p, i) =>
+          i === playerIndex ? updatedPlayer : p
+        ),
+      };
 
       // Apply terrain cost modifier for specific coordinate
-      // The modifier will have specificCoordinate set, which getEffectiveTerrainCost checks
-      let newState = addModifier(state, {
-        type: "terrain_cost",
-        source: { type: SOURCE_CARD, cardId: CARD_BRAEVALAR_DRUIDIC_PATHS, playerId: action.playerId },
+      newState = addModifier(newState, {
+        type: EFFECT_TERRAIN_COST,
+        source: {
+          type: SOURCE_CARD,
+          cardId: CARD_BRAEVALAR_DRUIDIC_PATHS,
+          playerId: params.playerId,
+        },
         duration: DURATION_TURN,
-        scope: { type: "self" },
+        scope: { type: SCOPE_SELF },
         effect: {
-          type: "terrain_cost",
-          terrain: "all", // Applies to any terrain at this specific coordinate
-          amount: -1, // -1 cost reduction
-          minimum: 2, // Minimum cost of 2
-          specificCoordinate: action.coordinate, // Key: specific coordinate modifier
+          type: EFFECT_TERRAIN_COST,
+          terrain: TERRAIN_ALL,
+          amount: -1,
+          minimum: 2,
+          specificCoordinate: params.coordinate,
         },
         createdAtRound: state.round,
-        createdByPlayerId: action.playerId,
-      } as any);
+        createdByPlayerId: params.playerId,
+      });
 
-      return newState;
+      return { state: newState, events: [] };
     },
-    undo: (state: GameState): GameState => {
-      // Modifiers from non-reversible actions like RESOLVE_HEX_COST_REDUCTION are not undone
-      // Only the command that led to the pending state can be undone (e.g., playing the card)
-      return state;
+
+    undo(state: GameState): CommandResult {
+      return { state, events: [] };
     },
-    isReversible: false,
   };
 }
 
@@ -60,35 +105,65 @@ export function resolveHexCostReductionCommand(
  * Command: Resolve terrain type selection for cost reduction.
  * Applies a modifier that reduces the terrain cost for the specified terrain type.
  */
-export function resolveTerrainCostReductionCommand(
-  action: ResolveTerrainCostReductionAction
+export function createResolveTerrainCostReductionCommand(
+  params: ResolveTerrainCostReductionCommandParams
 ): Command {
   return {
-    execute: (state: GameState): GameState => {
-      const player = state.players.find((p) => p.id === action.playerId);
-      if (!player) return state;
+    type: RESOLVE_TERRAIN_COST_REDUCTION_COMMAND,
+    playerId: params.playerId,
+    isReversible: false,
+
+    execute(state: GameState): CommandResult {
+      const playerIndex = state.players.findIndex(
+        (p) => p.id === params.playerId
+      );
+      if (playerIndex === -1) {
+        throw new Error("Player not found");
+      }
+
+      const player = state.players[playerIndex];
+      if (!player) {
+        throw new Error("Player not found at index");
+      }
+
+      // Clear pending state
+      const updatedPlayer = {
+        ...player,
+        pendingTerrainCostReduction: null,
+      };
+
+      let newState: GameState = {
+        ...state,
+        players: state.players.map((p, i) =>
+          i === playerIndex ? updatedPlayer : p
+        ),
+      };
 
       // Apply terrain cost modifier for specific terrain type
-      let newState = addModifier(state, {
-        type: "terrain_cost",
-        source: { type: SOURCE_CARD, cardId: CARD_BRAEVALAR_DRUIDIC_PATHS, playerId: action.playerId },
+      newState = addModifier(newState, {
+        type: EFFECT_TERRAIN_COST,
+        source: {
+          type: SOURCE_CARD,
+          cardId: CARD_BRAEVALAR_DRUIDIC_PATHS,
+          playerId: params.playerId,
+        },
         duration: DURATION_TURN,
-        scope: { type: "self" },
+        scope: { type: SCOPE_SELF },
         effect: {
-          type: "terrain_cost",
-          terrain: action.terrain, // Applies to all hexes of this terrain type
-          amount: -1, // -1 cost reduction
-          minimum: 2, // Minimum cost of 2
+          type: EFFECT_TERRAIN_COST,
+          terrain: params.terrain as Terrain,
+          amount: -1,
+          minimum: 2,
         },
         createdAtRound: state.round,
-        createdByPlayerId: action.playerId,
-      } as any);
+        createdByPlayerId: params.playerId,
+      });
 
-      return newState;
+      return { state: newState, events: [] };
     },
-    undo: (state: GameState): GameState => {
-      return state;
+
+    undo(state: GameState): CommandResult {
+      return { state, events: [] };
     },
-    isReversible: false,
   };
 }

@@ -255,6 +255,11 @@ export const CITY_NOT_FOUND = "CITY_NOT_FOUND" as const;
 export const MUST_INVITE_AT_LEAST_ONE = "MUST_INVITE_AT_LEAST_ONE" as const;
 export const INITIATOR_TOKEN_FLIPPED = "INITIATOR_TOKEN_FLIPPED" as const;
 
+// Terrain cost reduction validation codes (Druidic Paths)
+export const TERRAIN_COST_REDUCTION_REQUIRED = "TERRAIN_COST_REDUCTION_REQUIRED" as const;
+export const TERRAIN_COST_REDUCTION_INVALID_COORDINATE = "TERRAIN_COST_REDUCTION_INVALID_COORDINATE" as const;
+export const TERRAIN_COST_REDUCTION_INVALID_TERRAIN = "TERRAIN_COST_REDUCTION_INVALID_TERRAIN" as const;
+
 // Skill usage validation codes
 export const SKILL_NOT_LEARNED = "SKILL_NOT_LEARNED" as const;
 export const SKILL_NOT_FOUND = "SKILL_NOT_FOUND" as const;
@@ -471,6 +476,10 @@ export type ValidationErrorCode =
   | typeof CITY_NOT_FOUND
   | typeof MUST_INVITE_AT_LEAST_ONE
   | typeof INITIATOR_TOKEN_FLIPPED
+  // Terrain cost reduction validation (Druidic Paths)
+  | typeof TERRAIN_COST_REDUCTION_REQUIRED
+  | typeof TERRAIN_COST_REDUCTION_INVALID_COORDINATE
+  | typeof TERRAIN_COST_REDUCTION_INVALID_TERRAIN
   // Skill usage validation
   | typeof SKILL_NOT_LEARNED
   | typeof SKILL_NOT_FOUND
