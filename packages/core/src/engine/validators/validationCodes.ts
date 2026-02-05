@@ -109,6 +109,8 @@ export const NOTHING_TO_UNASSIGN_BLOCK = "NOTHING_TO_UNASSIGN_BLOCK" as const;
 export const SUMMONER_HIDDEN = "SUMMONER_HIDDEN" as const;
 // Assassination ability validation codes
 export const ASSASSINATION_REQUIRES_HERO_TARGET = "ASSASSINATION_REQUIRES_HERO_TARGET" as const;
+// Damage redirect (Taunt) validation codes
+export const DAMAGE_REDIRECT_REQUIRES_UNIT_TARGET = "DAMAGE_REDIRECT_REQUIRES_UNIT_TARGET" as const;
 // Multi-attack validation codes
 export const INVALID_ATTACK_INDEX = "INVALID_ATTACK_INDEX" as const;
 export const ATTACK_ALREADY_BLOCKED = "ATTACK_ALREADY_BLOCKED" as const;
@@ -369,6 +371,7 @@ export type ValidationErrorCode =
   | typeof NOTHING_TO_UNASSIGN_BLOCK
   | typeof SUMMONER_HIDDEN
   | typeof ASSASSINATION_REQUIRES_HERO_TARGET
+  | typeof DAMAGE_REDIRECT_REQUIRES_UNIT_TARGET
   | typeof INVALID_ATTACK_INDEX
   | typeof ATTACK_ALREADY_BLOCKED
   | typeof ATTACK_DAMAGE_ALREADY_ASSIGNED

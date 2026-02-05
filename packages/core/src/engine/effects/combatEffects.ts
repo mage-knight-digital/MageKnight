@@ -258,6 +258,23 @@ export function resolveCombatEnemyTarget(
     }
   }
 
+  // Handle damage redirect (Shocktroops' Taunt)
+  // NOT blocked by Arcane Immunity - it's a defensive ability on the player's side
+  if (effect.template.setDamageRedirectFromUnit && currentState.combat) {
+    const unitInstanceId = effect.template.setDamageRedirectFromUnit;
+    currentState = {
+      ...currentState,
+      combat: {
+        ...currentState.combat,
+        damageRedirects: {
+          ...currentState.combat.damageRedirects,
+          [effect.enemyInstanceId]: unitInstanceId,
+        },
+      },
+    };
+    descriptions.push(`Damage from ${effect.enemyName} redirected to unit`);
+  }
+
   return {
     state: currentState,
     description: descriptions.join("; ") || `Targeted ${effect.enemyName}`,

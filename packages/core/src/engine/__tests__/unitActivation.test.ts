@@ -19,7 +19,8 @@ import {
   UNIT_THUGS,
   UNIT_FORESTERS,
   UNIT_CATAPULTS,
-  UNIT_SHOCKTROOPS,
+  UNIT_SAVAGE_MONKS,
+  UNIT_AMOTEP_FREEZERS,
   UNIT_HERBALIST,
   UNIT_UTEM_CROSSBOWMEN,
   UNIT_FIRE_GOLEMS,
@@ -27,7 +28,6 @@ import {
   UNIT_NORTHERN_MONKS,
   UNIT_RED_CAPE_MONKS,
   UNIT_GUARDIAN_GOLEMS,
-  UNIT_SAVAGE_MONKS,
   CARD_WOUND,
   UNIT_STATE_READY,
   UNIT_STATE_SPENT,
@@ -642,9 +642,9 @@ describe("Unit Combat Abilities", () => {
   });
 
   describe("Passive abilities", () => {
-    it("should return clear error for passive abilities like swift", () => {
-      // Shocktroops have Swift at index 1 (passive)
-      const unit = createPlayerUnit(UNIT_SHOCKTROOPS, "shocktroops_1");
+    it("should return clear error for passive abilities like paralyze (Amotep Freezers)", () => {
+      // Amotep Freezers have Paralyze at index 2 (passive)
+      const unit = createPlayerUnit(UNIT_AMOTEP_FREEZERS, "freezers_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
@@ -657,8 +657,8 @@ describe("Unit Combat Abilities", () => {
 
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
-        unitInstanceId: "shocktroops_1",
-        abilityIndex: 1, // Swift (passive)
+        unitInstanceId: "freezers_1",
+        abilityIndex: 2, // Paralyze (passive)
       });
 
       // Unit should still be ready (action rejected)
@@ -673,9 +673,9 @@ describe("Unit Combat Abilities", () => {
       }
     });
 
-    it("should return clear error for passive abilities like brutal", () => {
-      // Shocktroops have Brutal at index 2 (passive)
-      const unit = createPlayerUnit(UNIT_SHOCKTROOPS, "shocktroops_1");
+    it("should return clear error for passive abilities like paralyze", () => {
+      // Ice Golems have Paralyze at index 4 (passive)
+      const unit = createPlayerUnit(UNIT_ICE_GOLEMS, "ice_golems_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
@@ -688,8 +688,8 @@ describe("Unit Combat Abilities", () => {
 
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
-        unitInstanceId: "shocktroops_1",
-        abilityIndex: 2, // Brutal (passive)
+        unitInstanceId: "ice_golems_1",
+        abilityIndex: 4, // Paralyze (passive)
       });
 
       // Unit should still be ready (action rejected)

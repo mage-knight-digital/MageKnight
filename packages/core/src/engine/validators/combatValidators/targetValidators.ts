@@ -23,8 +23,9 @@ import {
   INVALID_ATTACK_INDEX,
   ATTACK_ALREADY_BLOCKED,
   ATTACK_DAMAGE_ALREADY_ASSIGNED,
+  DAMAGE_REDIRECT_REQUIRES_UNIT_TARGET,
 } from "../validationCodes.js";
-import { isAssassinationActive } from "../../rules/combatTargeting.js";
+import { isAssassinationActive, getDamageRedirectUnit } from "../../rules/combatTargeting.js";
 import {
   getEnemyAttackCount,
   isAttackBlocked,
@@ -221,6 +222,40 @@ export function validateAssassinationTarget(
       ASSASSINATION_REQUIRES_HERO_TARGET,
       `${enemy.definition.name} has Assassination: damage must be assigned to hero, not units`
     );
+  }
+
+  return valid();
+}
+
+// Damage redirect (Taunt): damage must be assigned to the redirect unit, not hero or other units
+export function validateDamageRedirectTarget(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ASSIGN_DAMAGE_ACTION) return valid();
+
+  const redirectUnitId = getDamageRedirectUnit(state, playerId, action.enemyInstanceId);
+  if (!redirectUnitId) {
+    return valid(); // No active redirect for this enemy
+  }
+
+  const assignments = action.assignments ?? [];
+
+  // All damage must go to the redirect unit (no hero damage, no other units)
+  for (const assignment of assignments) {
+    if (assignment.target === DAMAGE_TARGET_HERO) {
+      return invalid(
+        DAMAGE_REDIRECT_REQUIRES_UNIT_TARGET,
+        "Damage must be assigned to the taunting unit first"
+      );
+    }
+    if (assignment.target === DAMAGE_TARGET_UNIT && assignment.unitInstanceId !== redirectUnitId) {
+      return invalid(
+        DAMAGE_REDIRECT_REQUIRES_UNIT_TARGET,
+        "Damage must be assigned to the taunting unit first"
+      );
+    }
   }
 
   return valid();

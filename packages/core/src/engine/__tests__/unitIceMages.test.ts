@@ -65,6 +65,7 @@ function createIceMagesCombatState(
     defendBonuses: {},
     paidHeroesAssaultInfluence: false,
     vampiricArmorBonus: {},
+    damageRedirects: {},
   };
 }
 

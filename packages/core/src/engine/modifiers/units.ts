@@ -7,10 +7,10 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerUnit } from "../../types/unit.js";
-import type { GrantResistancesModifier } from "../../types/modifiers.js";
+import type { GrantResistancesModifier, UnitAttackBonusModifier } from "../../types/modifiers.js";
 import type { ResistanceType } from "@mage-knight/shared";
 import { getUnit } from "@mage-knight/shared";
-import { EFFECT_GRANT_RESISTANCES, SCOPE_ALL_UNITS } from "../../types/modifierConstants.js";
+import { EFFECT_GRANT_RESISTANCES, EFFECT_UNIT_ATTACK_BONUS, SCOPE_ALL_UNITS } from "../../types/modifierConstants.js";
 import { getModifiersForPlayer } from "./queries.js";
 
 /**
@@ -52,4 +52,32 @@ export function getEffectiveUnitResistances(
   }
 
   return Array.from(combined);
+}
+
+/**
+ * Get the total unit attack bonus from active modifiers.
+ * Returns the sum of all EFFECT_UNIT_ATTACK_BONUS modifiers
+ * scoped to ALL_UNITS (or ONE_UNIT matching the given unit).
+ *
+ * Used by Shocktroops' Coordinated Fire ability which grants
+ * +1 to all unit attacks per activation.
+ */
+export function getUnitAttackBonus(
+  state: GameState,
+  playerId: string,
+): number {
+  const modifiers = getModifiersForPlayer(state, playerId)
+    .filter((m) => {
+      if (m.effect.type !== EFFECT_UNIT_ATTACK_BONUS) return false;
+      // Only ALL_UNITS scope is currently used for this modifier
+      return m.scope.type === SCOPE_ALL_UNITS;
+    })
+    .map((m) => m.effect as UnitAttackBonusModifier);
+
+  let bonus = 0;
+  for (const mod of modifiers) {
+    bonus += mod.amount;
+  }
+
+  return bonus;
 }

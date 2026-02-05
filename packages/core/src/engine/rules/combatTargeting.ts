@@ -63,6 +63,10 @@ export function getFortificationLevel(
 /**
  * Check if an enemy's Assassination ability is active.
  * Active when the enemy has Assassination and it isn't nullified.
+ *
+ * Note: Assassination is overridden by damage redirect (Taunt).
+ * When a redirect is active AND the redirect unit is available,
+ * Assassination does not force hero-only targeting.
  */
 export function isAssassinationActive(
   state: GameState,
@@ -73,10 +77,54 @@ export function isAssassinationActive(
     return false;
   }
 
-  return !isAbilityNullified(
-    state,
-    playerId,
-    enemy.instanceId,
-    ABILITY_ASSASSINATION
-  );
+  if (isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_ASSASSINATION)) {
+    return false;
+  }
+
+  // Damage redirect overrides Assassination
+  if (isDamageRedirectActive(state, playerId, enemy.instanceId)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Get the damage redirect target unit instance ID for an enemy, if active.
+ * Returns the unit instance ID if a redirect is set AND the unit is available
+ * (not wounded/destroyed). Returns undefined if no active redirect.
+ *
+ * Used by Shocktroops' Taunt ability.
+ */
+export function getDamageRedirectUnit(
+  state: GameState,
+  playerId: string,
+  enemyInstanceId: string
+): string | undefined {
+  if (!state.combat) return undefined;
+
+  const unitInstanceId = state.combat.damageRedirects?.[enemyInstanceId];
+  if (!unitInstanceId) return undefined;
+
+  // Check if the unit is still available (not wounded/destroyed)
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return undefined;
+
+  const unit = player.units.find(u => u.instanceId === unitInstanceId);
+  if (!unit) return undefined; // Unit was destroyed (removed from units array)
+  if (unit.wounded) return undefined; // Wounded units can't absorb damage
+
+  return unitInstanceId;
+}
+
+/**
+ * Check if a damage redirect is active for an enemy.
+ * Active when the combat state has a redirect AND the target unit is available.
+ */
+export function isDamageRedirectActive(
+  state: GameState,
+  playerId: string,
+  enemyInstanceId: string
+): boolean {
+  return getDamageRedirectUnit(state, playerId, enemyInstanceId) !== undefined;
 }

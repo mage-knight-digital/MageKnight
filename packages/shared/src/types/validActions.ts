@@ -274,6 +274,8 @@ export interface DamageAssignmentOption {
   readonly unassignedDamage: number;
   /** Units available to absorb damage (empty if units not allowed in combat) */
   readonly availableUnits: readonly UnitDamageTarget[];
+  /** When true, damage MUST go to the redirect unit (Taunt). Hero cannot be targeted. */
+  readonly damageRedirectOnly?: boolean;
 }
 
 // ============================================================================

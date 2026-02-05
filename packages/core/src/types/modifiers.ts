@@ -37,6 +37,7 @@ import {
   EFFECT_SIDEWAYS_VALUE,
   EFFECT_TERRAIN_COST,
   EFFECT_TERRAIN_SAFE,
+  EFFECT_UNIT_ATTACK_BONUS,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -279,6 +280,14 @@ export interface ScoutFameBonusModifier {
   readonly fame: number; // Fame per revealed enemy defeated (typically 1)
 }
 
+// Unit attack bonus modifier (Shocktroops Coordinated Fire)
+// Grants +N to all attacks (melee, ranged, siege) for targeted units.
+// Typically scoped to SCOPE_OTHER_UNITS to exclude the activating unit.
+export interface UnitAttackBonusModifier {
+  readonly type: typeof EFFECT_UNIT_ATTACK_BONUS;
+  readonly amount: number; // +1 per Shocktroops activation
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -299,7 +308,8 @@ export type ModifierEffect =
   | ColdToughnessBlockModifier
   | RecruitDiscountModifier
   | MoveToAttackConversionModifier
-  | ScoutFameBonusModifier;
+  | ScoutFameBonusModifier
+  | UnitAttackBonusModifier;
 
 // === Active Modifier (live in game state) ===
 

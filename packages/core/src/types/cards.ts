@@ -375,6 +375,15 @@ export interface CombatEnemyTargetTemplate {
    * Note: The bundled effect is NOT blocked by Arcane Immunity - it always resolves.
    */
   readonly bundledEffect?: CardEffect;
+  /**
+   * If set, establishes a damage redirect from this enemy to the specified unit.
+   * The unit instance ID is injected at resolution time by the activation command.
+   * Damage from this enemy must be assigned to the specified unit first,
+   * overriding Assassination. NOT blocked by Arcane Immunity (it's a defensive
+   * ability on the player's side, not a magical effect targeting the enemy).
+   * Used by Shocktroops' Taunt ability.
+   */
+  readonly setDamageRedirectFromUnit?: string;
 }
 
 /**
