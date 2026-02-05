@@ -8,7 +8,7 @@ import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import { INTERACT_ACTION } from "@mage-knight/shared";
 import { getPlayerSite } from "../helpers/siteHelpers.js";
-import { SITE_PROPERTIES, getHealingCost } from "../../data/siteProperties.js";
+import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { SiteType } from "../../types/map.js";
 import {
   NO_SITE,

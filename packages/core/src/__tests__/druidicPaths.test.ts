@@ -12,8 +12,7 @@
  */
 
 import { describe, it, expect } from "bun:test";
-import type { GameState } from "../types/gameState.js";
-import { CARD_BRAEVALAR_DRUIDIC_PATHS, TERRAIN_FOREST, TERRAIN_PLAINS } from "@mage-knight/shared";
+import { CARD_BRAEVALAR_DRUIDIC_PATHS } from "@mage-knight/shared";
 import { BRAEVALAR_DRUIDIC_PATHS } from "../data/basicActions/green/braevalar-druidic-paths.js";
 
 describe("Druidic Paths card", () => {

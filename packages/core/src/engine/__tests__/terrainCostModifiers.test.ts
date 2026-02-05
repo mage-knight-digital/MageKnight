@@ -10,24 +10,16 @@
  */
 
 import { describe, it, expect } from "bun:test";
-import type { GameState } from "../../state/GameState.js";
 import {
   createTestGameState,
-  createTestPlayer,
-  createTestHex,
 } from "./testHelpers.js";
 import {
   getEffectiveTerrainCost,
 } from "../modifiers/terrain.js";
 import { addModifier } from "../modifiers/index.js";
 import {
-  hexKey,
   TERRAIN_PLAINS,
   TERRAIN_FOREST,
-  TERRAIN_HILLS,
-  TERRAIN_MOUNTAIN,
-  TERRAIN_LAKE,
-  TERRAIN_DESERT,
 } from "@mage-knight/shared";
 import {
   DURATION_TURN,

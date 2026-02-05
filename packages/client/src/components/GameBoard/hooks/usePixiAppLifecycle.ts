@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Application, Container, type FederatedPointerEvent } from "pixi.js";
 import "@pixi/layout"; // Side-effect import to register layout system with PixiJS
 import type { MutableRefObject, RefObject } from "react";
