@@ -145,3 +145,71 @@ export function createDeepMineCrystalGainedEvent(
     color,
   };
 }
+
+// ============================================================================
+// CRYSTAL JOY EVENTS
+// ============================================================================
+
+/**
+ * Event type constant for card reclaimed (Crystal Joy).
+ * @see CardReclaimedEvent
+ */
+export const CARD_RECLAIMED = "CARD_RECLAIMED" as const;
+
+/**
+ * Emitted when a card is reclaimed (Crystal Joy end-of-turn reclaim).
+ *
+ * Crystal Joy allows discarding a card to return Joy to hand at end of turn.
+ */
+export interface CardReclaimedEvent {
+  readonly type: typeof CARD_RECLAIMED;
+  /** ID of the player */
+  readonly playerId: string;
+  /** Card that was reclaimed (should be Crystal Joy) */
+  readonly cardId: string;
+  /** Source of the reclaim (should be 'crystal_joy') */
+  readonly source: string;
+}
+
+/**
+ * Creates a CardReclaimedEvent.
+ */
+export function createCardReclaimedEvent(
+  playerId: string,
+  cardId: string,
+  source: string
+): CardReclaimedEvent {
+  return {
+    type: CARD_RECLAIMED,
+    playerId,
+    cardId,
+    source,
+  };
+}
+
+/**
+ * Event type constant for skipping crystal joy reclaim.
+ * @see CrystalJoyReclaimSkippedEvent
+ */
+export const CRYSTAL_JOY_RECLAIM_SKIPPED = "CRYSTAL_JOY_RECLAIM_SKIPPED" as const;
+
+/**
+ * Emitted when a player skips reclaiming Crystal Joy.
+ */
+export interface CrystalJoyReclaimSkippedEvent {
+  readonly type: typeof CRYSTAL_JOY_RECLAIM_SKIPPED;
+  /** ID of the player who skipped */
+  readonly playerId: string;
+}
+
+/**
+ * Creates a CrystalJoyReclaimSkippedEvent.
+ */
+export function createCrystalJoyReclaimSkippedEvent(
+  playerId: string
+): CrystalJoyReclaimSkippedEvent {
+  return {
+    type: CRYSTAL_JOY_RECLAIM_SKIPPED,
+    playerId,
+  };
+}

@@ -14,6 +14,7 @@ import { MANA_BLACK } from "@mage-knight/shared";
 import {
   CARD_PLAYED,
   createCardPlayUndoneEvent,
+  CARD_GOLDYX_CRYSTAL_JOY,
 } from "@mage-knight/shared";
 import type { GameEvent } from "@mage-knight/shared";
 import { resolveEffect, reverseEffect } from "../effects/index.js";
@@ -278,6 +279,22 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         events.push(...destructionResult.events);
       }
 
+      // Set Crystal Joy reclaim pending flag after card is played
+      if (params.cardId === CARD_GOLDYX_CRYSTAL_JOY) {
+        const playerIdx = finalState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        if (playerIdx !== -1) {
+          const updatedPlayer: Player = {
+            ...finalState.players[playerIdx],
+            pendingCrystalJoyReclaim: { version: isPowered ? "powered" : "basic" },
+          };
+          const updatedPlayers = [...finalState.players];
+          updatedPlayers[playerIdx] = updatedPlayer;
+          finalState = { ...finalState, players: updatedPlayers };
+        }
+      }
+
       return { state: finalState, events };
     },
 
@@ -301,6 +318,14 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         params.handIndex,
         params.previousPlayedCardFromHand
       );
+
+      // Clear Crystal Joy reclaim pending flag on undo
+      if (params.cardId === CARD_GOLDYX_CRYSTAL_JOY) {
+        updatedPlayer = {
+          ...updatedPlayer,
+          pendingCrystalJoyReclaim: undefined,
+        };
+      }
 
       // Reverse the effect if we stored one (only if it wasn't a choice effect)
       if (appliedEffect && appliedEffect.type !== EFFECT_CHOICE) {
