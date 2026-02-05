@@ -8,6 +8,8 @@ import {
   CRYSTAL_JOY_RECLAIM_REQUIRED,
   CRYSTAL_JOY_CARD_NOT_IN_DISCARD,
   CRYSTAL_JOY_CARD_NOT_ELIGIBLE,
+  PLAYER_NOT_FOUND,
+  CARD_NOT_FOUND,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import { getCard } from "../validActions/cards/index.js";
@@ -20,11 +22,11 @@ import type { ResolveCrystalJoyReclaimAction } from "@mage-knight/shared";
 export const validateHasPendingCrystalJoyReclaim: Validator = (
   state,
   playerId,
-  action
+  _action
 ) => {
   const player = getPlayerById(state, playerId);
   if (!player) {
-    return invalid("PLAYER_NOT_FOUND", "Player not found");
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
   if (!player.pendingCrystalJoyReclaim) {
@@ -48,7 +50,7 @@ export const validateCrystalJoyReclaimCard: Validator = (
   const action = actionInput as ResolveCrystalJoyReclaimAction;
   const player = getPlayerById(state, playerId);
   if (!player) {
-    return invalid("PLAYER_NOT_FOUND", "Player not found");
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
   // If no cardId provided, player is skipping - always valid
@@ -74,7 +76,7 @@ export const validateCrystalJoyReclaimCard: Validator = (
 
   const card = getCard(action.cardId);
   if (!card) {
-    return invalid("CARD_NOT_FOUND", `Card not found: ${action.cardId}`);
+    return invalid(CARD_NOT_FOUND, `Card not found: ${action.cardId}`);
   }
 
   if (
