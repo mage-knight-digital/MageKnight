@@ -21,7 +21,7 @@ import {
   SCOPE_SELF,
   SIDEWAYS_CONDITION_NO_MANA_USED,
   SOURCE_SKILL,
-} from "../../modifierConstants.js";
+} from "../../../types/modifierConstants.js";
 import { getPlayerByIdOrThrow } from "../../helpers/playerHelpers.js";
 
 /**

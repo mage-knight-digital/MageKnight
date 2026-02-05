@@ -5,7 +5,7 @@
  * This command is irreversible (reward selection cannot be undone).
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { GameEvent, CardId } from "@mage-knight/shared";
 import {

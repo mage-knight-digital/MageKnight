@@ -12,7 +12,7 @@
  * This is an irreversible action (RNG used to draw enemy).
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { GameEvent } from "@mage-knight/shared";
 import {

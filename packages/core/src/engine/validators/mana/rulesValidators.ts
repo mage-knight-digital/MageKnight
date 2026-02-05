@@ -15,7 +15,7 @@ import {
   TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
 import { isRuleActive } from "../../modifiers/index.js";
-import { RULE_BLACK_AS_ANY_COLOR } from "../../modifierConstants.js";
+import { RULE_BLACK_AS_ANY_COLOR } from "../../../types/modifierConstants.js";
 import { getCard } from "../../validActions/cards/index.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import {

@@ -27,7 +27,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
-import type { Command } from "../commands.js";
+import type { Command } from "./types.js";
 import { commandFactoryRegistry } from "./factories/index.js";
 
 // Re-export CommandFactory type
@@ -61,7 +61,8 @@ export function createCommandForAction(
 // ============================================================================
 
 // Core command types
-export * from "../commands.js";
+export * from "./types.js";
+export * from "./stack.js";
 
 // Move command
 export { createMoveCommand, type MoveCommandParams } from "./moveCommand.js";

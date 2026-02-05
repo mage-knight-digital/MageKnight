@@ -10,7 +10,7 @@
  * - Slow Recovery: When hand is ALL wounds, discard exactly one wound
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { CardId, BasicActionCardId, GameEvent, RestType } from "@mage-knight/shared";

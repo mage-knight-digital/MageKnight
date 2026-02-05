@@ -7,7 +7,7 @@
  * - For cities: adds shields to city state and determines leader
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { GameEvent, HexCoord } from "@mage-knight/shared";
 import { SITE_CONQUERED, SHIELD_TOKEN_PLACED, hexKey } from "@mage-knight/shared";

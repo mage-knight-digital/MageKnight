@@ -11,7 +11,7 @@
  * choice effects, and other effect types.
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player, SkillCooldowns } from "../../types/player.js";
 import type { SkillId } from "@mage-knight/shared";

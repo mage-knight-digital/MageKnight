@@ -39,7 +39,7 @@ import {
   EFFECT_COMBAT_VALUE,
   SCOPE_SELF,
   SOURCE_SKILL,
-} from "../../modifierConstants.js";
+} from "../../../types/modifierConstants.js";
 
 describe("Block Efficiency", () => {
   describe("isBlockEfficient", () => {

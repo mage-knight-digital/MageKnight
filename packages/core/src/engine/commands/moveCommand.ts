@@ -7,7 +7,7 @@
  *    to another hex also adjacent triggers combat and ends movement
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { HexCoord, GameEvent } from "@mage-knight/shared";
 import {

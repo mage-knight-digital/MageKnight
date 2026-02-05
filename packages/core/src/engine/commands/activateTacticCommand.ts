@@ -7,7 +7,7 @@
  * - Midnight Meditation (Night 4): Shuffle cards into deck, draw same amount
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { GameEvent, TacticId, CardId } from "@mage-knight/shared";

@@ -8,7 +8,7 @@
  * Also resolves pending damage when transitioning out of RANGED_SIEGE or ATTACK phases.
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 
 import { getNextPhase, handlePhaseTransition } from "./phaseTransitions.js";

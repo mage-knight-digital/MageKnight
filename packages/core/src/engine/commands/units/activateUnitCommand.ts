@@ -11,7 +11,7 @@
  * like Sorcerers' fortification/resistance stripping + ranged attack combos.
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { GameEvent, ManaSourceInfo, CardId } from "@mage-knight/shared";
 import {

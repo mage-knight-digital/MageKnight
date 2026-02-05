@@ -5,7 +5,7 @@
  * (tile revealed, enemy drawn, die rolled). Commands know how to execute and undo.
  */
 
-import type { GameState } from "../state/GameState.js";
+import type { GameState } from "../../state/GameState.js";
 import type { GameEvent } from "@mage-knight/shared";
 
 export const CHECKPOINT_REASON_TILE_REVEALED = "tile_revealed" as const;

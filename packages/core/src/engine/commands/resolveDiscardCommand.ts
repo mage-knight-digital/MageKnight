@@ -14,7 +14,7 @@
  * This command is reversible since it's part of normal card play flow.
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { GameEvent, CardId } from "@mage-knight/shared";
 import { createCardDiscardedEvent } from "@mage-knight/shared";

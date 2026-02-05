@@ -29,7 +29,7 @@ import {
   EFFECT_TERRAIN_COST,
   SCOPE_SELF,
   SOURCE_SKILL,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 import { createEmptyCombatAccumulator } from "../../types/player.js";
 
 describe("END_TURN action", () => {

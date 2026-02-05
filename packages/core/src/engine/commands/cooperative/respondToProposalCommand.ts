@@ -6,7 +6,7 @@
  * the assault if all invitees have accepted.
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { CooperativeAssaultProposal, CooperativeResponse, GameEvent } from "@mage-knight/shared";
 import {

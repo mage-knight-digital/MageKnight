@@ -11,7 +11,7 @@
  * - Replenishes the offer from the deck (regular offer only)
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { CardId, GameEvent, SiteReward } from "@mage-knight/shared";
 import {

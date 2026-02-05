@@ -12,13 +12,13 @@
  * @module commands/endTurn
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { GameEvent } from "@mage-knight/shared";
 import { TURN_ENDED, GAME_ENDED } from "@mage-knight/shared";
 import { expireModifiers } from "../../modifiers/index.js";
-import { EXPIRATION_TURN_END } from "../../modifierConstants.js";
+import { EXPIRATION_TURN_END } from "../../../types/modifierConstants.js";
 import { END_TURN_COMMAND } from "../commandTypes.js";
 import { createEndRoundCommand } from "../endRound/index.js";
 import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js";

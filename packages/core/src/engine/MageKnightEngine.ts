@@ -18,7 +18,7 @@ import {
 import { UNDO_ACTION } from "@mage-knight/shared";
 import { validateAction } from "./validators/index.js";
 import { createCommandForAction } from "./commands/index.js";
-import { pushCommand, popCommand, canUndo } from "./commandStack.js";
+import { pushCommand, popCommand, canUndo } from "./commands/stack.js";
 
 // Result of processing an action
 export interface ActionResult {

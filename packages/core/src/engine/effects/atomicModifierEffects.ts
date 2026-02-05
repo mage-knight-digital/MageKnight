@@ -10,7 +10,7 @@ import type { CardId } from "@mage-knight/shared";
 import type { ApplyModifierEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import { addModifier } from "../modifiers/index.js";
-import { SOURCE_CARD, SCOPE_SELF } from "../modifierConstants.js";
+import { SOURCE_CARD, SCOPE_SELF } from "../../types/modifierConstants.js";
 
 // ============================================================================
 // EFFECT HANDLERS

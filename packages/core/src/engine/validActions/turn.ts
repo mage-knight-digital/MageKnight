@@ -13,7 +13,7 @@ import type { Player } from "../../types/player.js";
 import type { TurnOptions } from "@mage-knight/shared";
 import { REST_TYPE_STANDARD, REST_TYPE_SLOW_RECOVERY } from "@mage-knight/shared";
 import type { RestType } from "@mage-knight/shared";
-import { canUndo } from "../commandStack.js";
+import { canUndo } from "../commands/stack.js";
 import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import type { BasicActionCardId } from "@mage-knight/shared";

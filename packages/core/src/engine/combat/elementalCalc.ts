@@ -24,7 +24,7 @@ import {
   COMBAT_VALUE_BLOCK,
   COMBAT_VALUE_RANGED,
   COMBAT_VALUE_SIEGE,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 
 /**
  * Resistances type - an array of individual resistance types.

@@ -25,7 +25,7 @@ import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import { PLAY_CARD_SIDEWAYS_ACTION } from "@mage-knight/shared";
 import { isRuleActive } from "../modifiers/index.js";
-import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../modifierConstants.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../types/modifierConstants.js";
 import {
   CARD_NOT_IN_HAND,
   CANNOT_PLAY_WOUND,

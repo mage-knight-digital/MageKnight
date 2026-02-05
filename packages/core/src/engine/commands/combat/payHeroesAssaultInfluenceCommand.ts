@@ -11,7 +11,7 @@
  * @module engine/commands/combat/payHeroesAssaultInfluenceCommand
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import { HEROES_ASSAULT_INFLUENCE_PAID } from "@mage-knight/shared";
 

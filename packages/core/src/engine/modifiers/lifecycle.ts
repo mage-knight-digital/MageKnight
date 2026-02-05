@@ -16,7 +16,7 @@ import {
   EXPIRATION_ROUND_END,
   EXPIRATION_TURN_END,
   EXPIRATION_TURN_START,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 
 /**
  * Add a modifier to game state (returns new state).

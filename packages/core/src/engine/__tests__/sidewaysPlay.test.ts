@@ -27,7 +27,7 @@ import {
   EFFECT_SIDEWAYS_VALUE,
   SCOPE_SELF,
   SOURCE_SKILL,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 import type { SkillId } from "@mage-knight/shared";
 
 describe("PLAY_CARD_SIDEWAYS action", () => {

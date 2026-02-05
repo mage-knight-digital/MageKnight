@@ -13,7 +13,7 @@
  * The player must complete the rest with COMPLETE_REST action before ending turn.
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { GameEvent } from "@mage-knight/shared";

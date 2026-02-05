@@ -14,15 +14,15 @@ export type { ActionResult } from "./MageKnightEngine.js";
 
 // Commands
 export { createCommandForAction } from "./commands/index.js";
-export type { Command, CommandResult, UndoCheckpoint } from "./commands.js";
-export type { CommandStackState } from "./commandStack.js";
+export type { Command, CommandResult, UndoCheckpoint } from "./commands/types.js";
+export type { CommandStackState } from "./commands/stack.js";
 export {
   createEmptyCommandStack,
   pushCommand,
   popCommand,
   canUndo,
   clearCommandStack,
-} from "./commandStack.js";
+} from "./commands/stack.js";
 
 // Command implementations
 export {

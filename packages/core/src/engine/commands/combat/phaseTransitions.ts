@@ -5,7 +5,7 @@
  * RANGED_SIEGE -> BLOCK -> ASSIGN_DAMAGE -> ATTACK
  */
 
-import type { CommandResult } from "../../commands.js";
+import type { CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { GameEvent } from "@mage-knight/shared";
 import { COMBAT_PHASE_CHANGED } from "@mage-knight/shared";

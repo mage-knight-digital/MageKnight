@@ -9,7 +9,7 @@
  * - Triggers scenario end when city tile is revealed (for First Reconnaissance)
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { HexCoord, HexDirection, GameEvent } from "@mage-knight/shared";
 import {

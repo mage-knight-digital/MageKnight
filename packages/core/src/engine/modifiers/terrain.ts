@@ -20,7 +20,7 @@ import {
   EFFECT_TERRAIN_PROHIBITION,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
   TERRAIN_ALL,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 import { getModifiersForPlayer } from "./queries.js";
 
 /**

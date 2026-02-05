@@ -10,7 +10,7 @@ import type { PlayerUnit } from "../../types/unit.js";
 import type { GrantResistancesModifier } from "../../types/modifiers.js";
 import type { ResistanceType } from "@mage-knight/shared";
 import { getUnit } from "@mage-knight/shared";
-import { EFFECT_GRANT_RESISTANCES, SCOPE_ALL_UNITS } from "../modifierConstants.js";
+import { EFFECT_GRANT_RESISTANCES, SCOPE_ALL_UNITS } from "../../types/modifierConstants.js";
 import { getModifiersForPlayer } from "./queries.js";
 
 /**

@@ -29,7 +29,7 @@ import {
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
   SOURCE_SKILL,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 
 function buildSkillCooldowns() {
   return {
