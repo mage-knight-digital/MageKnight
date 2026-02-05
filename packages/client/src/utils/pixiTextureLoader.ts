@@ -408,3 +408,15 @@ export function getTextureCacheSize(): number {
 export function isTextureCached(cacheKey: string): boolean {
   return textureCache.has(cacheKey);
 }
+
+// ============================================================================
+// HMR Support
+// ============================================================================
+
+// Accept self-updates to prevent full page reloads
+if (import.meta.hot) {
+  import.meta.hot.accept();
+
+  // Debug log for HMR acceptance
+  console.log("[HMR] pixiTextureLoader module accepted update");
+}
