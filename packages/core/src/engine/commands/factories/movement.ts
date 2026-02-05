@@ -91,7 +91,7 @@ export const createMoveCommandFromAction: CommandFactory = (
   const hex = state.map.hexes[hexKey(target)];
   if (!hex) return null;
 
-  const terrainCost = getEffectiveTerrainCost(state, hex.terrain, playerId);
+  const terrainCost = getEffectiveTerrainCost(state, hex.terrain, playerId, target);
 
   // Check if this move would reveal hidden enemies
   const wouldRevealEnemies = checkWouldRevealEnemies(
