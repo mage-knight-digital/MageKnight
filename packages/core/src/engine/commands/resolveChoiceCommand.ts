@@ -2,7 +2,7 @@
  * Resolve choice command - resolves a pending choice effect
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player, PendingChoice } from "../../types/player.js";
 import type { CompoundEffect } from "../../types/cards.js";
@@ -20,7 +20,7 @@ import {
   type EffectUndoContext,
 } from "../effects/effectUndoContext.js";
 import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/index.js";
-import { EFFECT_MOVEMENT_CARD_BONUS } from "../modifierConstants.js";
+import { EFFECT_MOVEMENT_CARD_BONUS } from "../../types/modifierConstants.js";
 import {
   applyChoiceOutcome,
   buildChoiceRequiredEvent,

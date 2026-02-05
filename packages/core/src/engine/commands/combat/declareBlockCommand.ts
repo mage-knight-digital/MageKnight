@@ -11,7 +11,7 @@
  * - Enemy is only considered "fully blocked" when all attacks are blocked
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { BlockSource, Element } from "@mage-knight/shared";
 import {

@@ -19,7 +19,7 @@ import {
   SCOPE_OTHER_PLAYERS,
   SCOPE_SELF,
   SOURCE_SKILL,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 
 /**
  * Get all active modifiers of a specific effect type.

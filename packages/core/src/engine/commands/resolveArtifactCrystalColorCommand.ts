@@ -13,7 +13,7 @@
  * This command is reversible since it's part of normal card play flow.
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { BasicManaColor } from "@mage-knight/shared";
 import type { Player, PendingDiscardForCrystal, Crystals } from "../../types/player.js";

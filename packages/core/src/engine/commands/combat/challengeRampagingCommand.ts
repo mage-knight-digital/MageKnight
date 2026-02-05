@@ -11,7 +11,7 @@
  * - Only one combat per turn is allowed
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { HexCoord, GameEvent } from "@mage-knight/shared";
 import {

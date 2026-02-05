@@ -2,7 +2,7 @@
  * Declare attack command
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { CombatType, GameEvent, AttackSource } from "@mage-knight/shared";
 import {

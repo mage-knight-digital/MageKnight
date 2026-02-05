@@ -28,7 +28,7 @@ import type { CombatState } from "../types/combat.js";
 import {
   type CommandStackState,
   createEmptyCommandStack,
-} from "../engine/commandStack.js";
+} from "../engine/commands/stack.js";
 import { type RngState, createRng } from "../utils/rng.js";
 import {
   INITIAL_CURRENT_PLAYER_INDEX,
@@ -46,7 +46,7 @@ export type { RuinsTokenPiles } from "../engine/helpers/ruinsTokenHelpers.js";
 export type { GameDecks } from "../types/decks.js";
 export type { CityState } from "../types/city.js";
 export type { ActiveModifier } from "../types/modifiers.js";
-export type { CommandStackState } from "../engine/commandStack.js";
+export type { CommandStackState } from "../engine/commands/stack.js";
 export type { RngState } from "../utils/rng.js";
 
 export interface GameState {

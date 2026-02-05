@@ -23,7 +23,7 @@ import { Hero } from "../../types/hero.js";
 import { SKILL_TOVAK_WHO_NEEDS_MAGIC } from "../../data/skills/index.js";
 import { getValidActions } from "../validActions/index.js";
 import { getManaOptions } from "../validActions/mana.js";
-import { RULE_SOURCE_BLOCKED } from "../modifierConstants.js";
+import { RULE_SOURCE_BLOCKED } from "../../types/modifierConstants.js";
 import { isRuleActive } from "../modifiers/index.js";
 import { sourceDieId } from "../../types/mana.js";
 import { MANA_RED, MANA_BLUE } from "@mage-knight/shared";

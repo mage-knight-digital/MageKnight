@@ -26,7 +26,7 @@ import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
 import { isCombatEffectAllowed, getCombatEffectContext, type CombatEffectContext } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
-import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../modifierConstants.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../../types/modifierConstants.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;

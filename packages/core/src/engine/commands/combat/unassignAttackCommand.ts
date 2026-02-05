@@ -8,7 +8,7 @@
  * This command is REVERSIBLE - supports undo functionality.
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { AttackType, AttackElement } from "@mage-knight/shared";
 import {

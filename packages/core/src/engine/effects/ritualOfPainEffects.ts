@@ -29,7 +29,7 @@ import {
   RULE_WOUNDS_PLAYABLE_SIDEWAYS,
   SCOPE_OTHER_PLAYERS,
   SOURCE_SKILL,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 
 // ============================================================================
 // DISCARD WOUNDS EFFECT

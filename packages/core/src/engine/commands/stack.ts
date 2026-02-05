@@ -5,20 +5,20 @@
  * When a turn ends, the command stack should be cleared.
  */
 
-import type { Command, UndoCheckpoint } from "./commands.js";
+import type { Command, UndoCheckpoint } from "./types.js";
 import {
   DRAW_CARD_COMMAND,
   DRAW_ENEMY_COMMAND,
   EXPLORE_COMMAND,
   REVEAL_TILE_COMMAND,
   ROLL_DIE_COMMAND,
-} from "./commands/commandTypes.js";
+} from "./commandTypes.js";
 import {
   CHECKPOINT_REASON_CARD_DRAWN,
   CHECKPOINT_REASON_DIE_ROLLED,
   CHECKPOINT_REASON_ENEMY_DRAWN,
   CHECKPOINT_REASON_TILE_REVEALED,
-} from "./commands.js";
+} from "./types.js";
 
 export interface CommandStackState {
   readonly commands: readonly Command[];

@@ -6,7 +6,7 @@
  */
 
 import type { GameState } from "../state/GameState.js";
-import { createEmptyCommandStack } from "../engine/commandStack.js";
+import { createEmptyCommandStack } from "../engine/commands/stack.js";
 
 /**
  * Serialize GameState to a JSON string.

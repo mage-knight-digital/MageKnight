@@ -5,7 +5,7 @@
  * The value can be modified by skills/effects.
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { CardId, BlockSource } from "@mage-knight/shared";
@@ -25,7 +25,7 @@ import {
   consumeMovementCardBonus,
   getModifiersForPlayer,
 } from "../modifiers/index.js";
-import { EFFECT_MOVEMENT_CARD_BONUS, SOURCE_SKILL } from "../modifierConstants.js";
+import { EFFECT_MOVEMENT_CARD_BONUS, SOURCE_SKILL } from "../../types/modifierConstants.js";
 import { PLAY_CARD_SIDEWAYS_COMMAND } from "./commandTypes.js";
 import { SKILL_ARYTHEA_RITUAL_OF_PAIN } from "../../data/skills/index.js";
 

@@ -2,7 +2,7 @@
  * Reveal tile command - irreversible action that sets an undo checkpoint
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { HexCoord } from "@mage-knight/shared";
 import { createTileRevealedEvent } from "@mage-knight/shared";

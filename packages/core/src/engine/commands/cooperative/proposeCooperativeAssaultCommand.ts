@@ -6,7 +6,7 @@
  * The proposal includes enemy distribution among participants.
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { CityColor, EnemyDistribution, CooperativeAssaultProposal } from "@mage-knight/shared";
 import { createCooperativeAssaultProposedEvent } from "@mage-knight/shared";

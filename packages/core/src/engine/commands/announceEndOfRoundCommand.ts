@@ -5,7 +5,7 @@
  * All other players get one final turn, then the round ends.
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import { END_OF_ROUND_ANNOUNCED } from "@mage-knight/shared";

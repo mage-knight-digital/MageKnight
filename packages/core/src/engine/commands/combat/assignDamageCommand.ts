@@ -11,7 +11,7 @@
  * - Enemy is only marked as "fully assigned" when all unblocked attacks have damage assigned
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { GameEvent, DamageAssignment } from "@mage-knight/shared";

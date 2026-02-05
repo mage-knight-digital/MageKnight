@@ -13,7 +13,7 @@
  * @module commands/chooseLevelUpRewardsCommand
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { GameEvent, CardId, SkillId } from "@mage-knight/shared";

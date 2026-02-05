@@ -14,7 +14,7 @@
  * This action is reversible (no RNG involved).
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { GameEvent, CardId } from "@mage-knight/shared";
 import {

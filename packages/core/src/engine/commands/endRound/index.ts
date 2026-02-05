@@ -19,7 +19,7 @@
  * @module commands/endRound
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { GameEvent } from "@mage-knight/shared";
 import {
@@ -28,9 +28,8 @@ import {
   ROUND_PHASE_TACTICS_SELECTION,
 } from "@mage-knight/shared";
 import { END_ROUND_COMMAND } from "../commandTypes.js";
-import { SYSTEM_PLAYER_ID } from "../../engineConstants.js";
 import { expireModifiers } from "../../modifiers/index.js";
-import { EXPIRATION_ROUND_END } from "../../modifierConstants.js";
+import { EXPIRATION_ROUND_END } from "../../../types/modifierConstants.js";
 
 import { checkGameEnd } from "./gameEnd.js";
 import { processTimeTransition } from "./timeTransition.js";
@@ -44,7 +43,7 @@ export { END_ROUND_COMMAND };
 export function createEndRoundCommand(): Command {
   return {
     type: END_ROUND_COMMAND,
-    playerId: SYSTEM_PLAYER_ID, // This is a system-triggered command
+    playerId: "system", // This is a system-triggered command
     isReversible: false, // Cannot undo round transitions
 
     execute(state: GameState): CommandResult {

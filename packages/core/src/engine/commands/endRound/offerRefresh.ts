@@ -23,7 +23,6 @@ import type { RngState } from "../../../utils/rng.js";
 import { refreshUnitOffer } from "../../../data/unitDeckSetup.js";
 import { refreshAdvancedActionOffer } from "../../../data/advancedActionDeckSetup.js";
 import { refreshSpellOffer } from "../../../data/spellDeckSetup.js";
-import { CORE_TILE_ID_PREFIX } from "../../engineConstants.js";
 import { countUnburnedMonasteries } from "../../helpers/monasteryHelpers.js";
 import type { OfferRefreshResult } from "./types.js";
 
@@ -33,7 +32,7 @@ import type { OfferRefreshResult } from "./types.js";
  */
 function hasCoreTileRevealed(state: GameState): boolean {
   for (const tile of state.map.tiles) {
-    if (tile.revealed && tile.tileId.startsWith(CORE_TILE_ID_PREFIX)) {
+    if (tile.revealed && tile.tileId.startsWith("core_")) {
       return true;
     }
   }

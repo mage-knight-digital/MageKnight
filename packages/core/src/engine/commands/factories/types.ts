@@ -9,7 +9,7 @@
 
 import type { GameState } from "../../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
-import type { Command } from "../../commands.js";
+import type { Command } from "../types.js";
 
 /**
  * Factory function type for creating Commands from PlayerActions.

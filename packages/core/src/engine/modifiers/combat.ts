@@ -32,7 +32,7 @@ import {
   ENEMY_STAT_ATTACK,
   SCOPE_ALL_ENEMIES,
   SCOPE_ONE_ENEMY,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 import {
   getModifiersForPlayer,
   getModifiersForEnemy,

@@ -6,7 +6,7 @@
  * - Powered: uses card's poweredEffect, consumes mana from source
  */
 
-import type { Command, CommandResult } from "../commands.js";
+import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { CardId, BasicActionCardId, ManaSourceInfo, ManaColor } from "@mage-knight/shared";
@@ -32,7 +32,7 @@ import {
 } from "./playCard/choiceHandling.js";
 import { handleArtifactDestruction } from "./playCard/artifactDestruction.js";
 import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/index.js";
-import { EFFECT_MOVEMENT_CARD_BONUS } from "../modifierConstants.js";
+import { EFFECT_MOVEMENT_CARD_BONUS } from "../../types/modifierConstants.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
 import { getCombatFilteredEffect } from "../rules/cardPlay.js";
 

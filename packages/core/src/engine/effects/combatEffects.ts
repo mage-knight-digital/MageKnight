@@ -40,7 +40,7 @@ import {
   DURATION_COMBAT,
   SCOPE_ONE_ENEMY,
   SOURCE_CARD,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 
 // ============================================================================
 // SELECT COMBAT ENEMY (Entry Point)

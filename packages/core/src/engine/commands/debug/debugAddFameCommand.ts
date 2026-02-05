@@ -5,7 +5,7 @@
  * This is a debug-only command that goes through the proper command pipeline.
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { GameEvent } from "@mage-knight/shared";
 import { getLevelsCrossed, createFameGainedEvent } from "@mage-knight/shared";

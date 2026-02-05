@@ -17,7 +17,7 @@ import {
   EFFECT_MOVEMENT_CARD_BONUS,
   SIDEWAYS_CONDITION_NO_MANA_USED,
   SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 import { getModifiersForPlayer } from "./queries.js";
 
 /**

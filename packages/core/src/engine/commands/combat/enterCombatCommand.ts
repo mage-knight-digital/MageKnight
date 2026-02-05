@@ -2,7 +2,7 @@
  * Enter combat command
  */
 
-import type { Command, CommandResult } from "../../commands.js";
+import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { EnemyId, HexCoord } from "@mage-knight/shared";
 import { COMBAT_EXIT_REASON_UNDO, COMBAT_STARTED, createCombatExitedEvent } from "@mage-knight/shared";

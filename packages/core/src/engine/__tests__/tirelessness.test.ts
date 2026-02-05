@@ -23,7 +23,7 @@ import {
   EFFECT_MOVEMENT_CARD_BONUS,
   SCOPE_SELF,
   SOURCE_CARD,
-} from "../modifierConstants.js";
+} from "../../types/modifierConstants.js";
 
 describe("Tirelessness", () => {
   let engine: MageKnightEngine;
