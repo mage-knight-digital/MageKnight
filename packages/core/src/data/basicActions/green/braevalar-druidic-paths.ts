@@ -5,6 +5,9 @@ import { move } from "../helpers.js";
 
 /**
  * Braevalar's Druidic Paths (replaces March)
+ *
+ * Basic: Move 2. The move cost of one space is reduced by 1 this turn, to a minimum of 2.
+ * Powered: Move 4. The move cost of one type of terrain is reduced by 1 this turn, to a minimum of 2.
  */
 export const BRAEVALAR_DRUIDIC_PATHS: DeedCard = {
   id: CARD_BRAEVALAR_DRUIDIC_PATHS,

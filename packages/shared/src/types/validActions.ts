@@ -765,6 +765,40 @@ export interface LevelUpRewardsOptions {
 }
 
 // ============================================================================
+// Terrain Cost Reduction
+// ============================================================================
+
+export interface HexCostReductionOptions {
+  /** Available hexes where cost reduction can be applied */
+  readonly availableCoordinates: readonly HexCoord[];
+  /** Cost reduction amount (e.g., -1) */
+  readonly reduction: number;
+  /** Minimum cost after reduction (e.g., 2) */
+  readonly minimumCost: number;
+}
+
+export interface TerrainCostReductionOptions {
+  /** Available terrain types for cost reduction */
+  readonly availableTerrains: readonly string[];
+  /** Cost reduction amount (e.g., -1) */
+  readonly reduction: number;
+  /** Minimum cost after reduction (e.g., 2) */
+  readonly minimumCost: number;
+}
+
+export interface PendingHexCostReductionState {
+  readonly mode: "pending_hex_cost_reduction";
+  readonly turn: BlockingTurnOptions;
+  readonly hexCostReduction: HexCostReductionOptions;
+}
+
+export interface PendingTerrainCostReductionState {
+  readonly mode: "pending_terrain_cost_reduction";
+  readonly turn: BlockingTurnOptions;
+  readonly terrainCostReduction: TerrainCostReductionOptions;
+}
+
+// ============================================================================
 // Cooperative Assault
 // ============================================================================
 
@@ -940,6 +974,8 @@ export type ValidActions =
   | PendingArtifactCrystalColorState
   | PendingLevelUpState
   | PendingChoiceState
+  | PendingHexCostReductionState
+  | PendingTerrainCostReductionState
   | CombatState
   | NormalTurnState;
 

@@ -327,6 +327,19 @@ export interface ResolveChoiceAction {
   readonly choiceIndex: number; // Which option to choose (0, 1, etc.)
 }
 
+// Terrain cost reduction actions (for Druidic Paths and similar effects)
+export const RESOLVE_HEX_COST_REDUCTION_ACTION = "RESOLVE_HEX_COST_REDUCTION" as const;
+export interface ResolveHexCostReductionAction {
+  readonly type: typeof RESOLVE_HEX_COST_REDUCTION_ACTION;
+  readonly coordinate: HexCoord;
+}
+
+export const RESOLVE_TERRAIN_COST_REDUCTION_ACTION = "RESOLVE_TERRAIN_COST_REDUCTION" as const;
+export interface ResolveTerrainCostReductionAction {
+  readonly type: typeof RESOLVE_TERRAIN_COST_REDUCTION_ACTION;
+  readonly terrain: string; // Terrain type identifier
+}
+
 // Level up rewards choice action
 export const CHOOSE_LEVEL_UP_REWARDS_ACTION = "CHOOSE_LEVEL_UP_REWARDS" as const;
 export interface ChooseLevelUpRewardsAction {
@@ -619,6 +632,9 @@ export type PlayerAction =
   | UndoAction
   // Choice resolution
   | ResolveChoiceAction
+  // Terrain cost reduction (Druidic Paths, etc.)
+  | ResolveHexCostReductionAction
+  | ResolveTerrainCostReductionAction
   // Level up
   | ChooseLevelUpRewardsAction
   // Site rewards
