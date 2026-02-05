@@ -271,6 +271,8 @@ export type {
   ActivatableSkill,
   // Cumbersome ability options
   CumbersomeOption,
+  // Move-to-attack conversion options (Agility card)
+  MoveToAttackConversionOption,
 } from "./types/validActions.js";
 export {
   canAct,

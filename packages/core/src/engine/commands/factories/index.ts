@@ -68,6 +68,7 @@ import {
   USE_SKILL_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
+  CONVERT_MOVE_TO_ATTACK_ACTION,
   RESOLVE_HEX_COST_REDUCTION_ACTION,
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
 } from "@mage-knight/shared";
@@ -106,6 +107,7 @@ export {
   createUnassignBlockCommandFromAction,
   createSpendMoveOnCumbersomeCommandFromAction,
   createPayHeroesAssaultInfluenceCommandFromAction,
+  createConvertMoveToAttackCommandFromAction,
 } from "./combat.js";
 
 // Unit factories
@@ -201,6 +203,7 @@ import {
   createUnassignBlockCommandFromAction,
   createSpendMoveOnCumbersomeCommandFromAction,
   createPayHeroesAssaultInfluenceCommandFromAction,
+  createConvertMoveToAttackCommandFromAction,
 } from "./combat.js";
 
 import {
@@ -321,6 +324,8 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [SPEND_MOVE_ON_CUMBERSOME_ACTION]: createSpendMoveOnCumbersomeCommandFromAction,
   // Heroes assault influence payment action
   [PAY_HEROES_ASSAULT_INFLUENCE_ACTION]: createPayHeroesAssaultInfluenceCommandFromAction,
+  // Move-to-attack conversion (Agility card)
+  [CONVERT_MOVE_TO_ATTACK_ACTION]: createConvertMoveToAttackCommandFromAction,
   // Terrain cost reduction actions (Druidic Paths)
   [RESOLVE_HEX_COST_REDUCTION_ACTION]: createResolveHexCostReductionCommandFromAction,
   [RESOLVE_TERRAIN_COST_REDUCTION_ACTION]: createResolveTerrainCostReductionCommandFromAction,

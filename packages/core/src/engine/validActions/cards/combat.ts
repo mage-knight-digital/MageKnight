@@ -26,7 +26,7 @@ import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
 import { isCombatEffectAllowed, getCombatEffectContext, type CombatEffectContext } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
-import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../../types/modifierConstants.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT } from "../../../types/modifierConstants.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -43,6 +43,7 @@ export function getPlayableCardsForCombat(
   combat: CombatState
 ): PlayCardOptions {
   const cards: PlayableCard[] = [];
+  const moveCardsAllowed = isRuleActive(state, player.id, RULE_MOVE_CARDS_IN_COMBAT);
 
   for (const cardId of player.hand) {
     const card = getCard(cardId);
@@ -92,7 +93,7 @@ export function getPlayableCardsForCombat(
 
     const basicContext = getCombatEffectContext(card, "basic");
     const poweredContext = getCombatEffectContext(card, "powered");
-    const playability = getCardPlayabilityForPhase(card, combat.phase, basicContext, poweredContext);
+    const playability = getCardPlayabilityForPhase(card, combat.phase, basicContext, poweredContext, moveCardsAllowed);
 
     // Check resolvability - effect must actually be able to do something
     const basicIsResolvable = basicContext.effect
@@ -154,7 +155,8 @@ function getCardPlayabilityForPhase(
   card: DeedCard,
   phase: CombatPhase,
   basicContext: CombatEffectContext,
-  poweredContext: CombatEffectContext
+  poweredContext: CombatEffectContext,
+  moveCardsAllowed: boolean = false
 ): CardPlayability {
   const basicEffect = basicContext.effect;
   const poweredEffect = poweredContext.effect;
@@ -162,12 +164,14 @@ function getCardPlayabilityForPhase(
   const basicAllowed = isCombatEffectAllowed(
     basicEffect,
     phase,
-    basicContext.allowAnyPhase
+    basicContext.allowAnyPhase,
+    moveCardsAllowed
   );
   const poweredAllowed = isCombatEffectAllowed(
     poweredEffect,
     phase,
-    poweredContext.allowAnyPhase
+    poweredContext.allowAnyPhase,
+    moveCardsAllowed
   );
 
   const sidewaysOptions: SidewaysOption[] = [

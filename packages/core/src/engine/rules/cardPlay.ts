@@ -111,7 +111,8 @@ export function getCombatFilteredEffect(
 export function isCombatEffectAllowed(
   effect: CardEffect | null,
   phase: CombatPhase,
-  allowAnyPhase: boolean
+  allowAnyPhase: boolean,
+  moveCardsAllowed: boolean = false
 ): boolean {
   if (!effect) {
     return false;
@@ -121,13 +122,17 @@ export function isCombatEffectAllowed(
     return true;
   }
 
+  // When Agility (or similar) is active, movement effects are allowed
+  // during ranged/siege, block, and attack phases
+  const moveAllowed = moveCardsAllowed && effectHasMove(effect);
+
   switch (phase) {
     case COMBAT_PHASE_RANGED_SIEGE:
-      return effectHasRangedOrSiege(effect) || effectIsUtility(effect);
+      return effectHasRangedOrSiege(effect) || effectIsUtility(effect) || moveAllowed;
     case COMBAT_PHASE_BLOCK:
-      return effectHasBlock(effect) || effectIsUtility(effect);
+      return effectHasBlock(effect) || effectIsUtility(effect) || moveAllowed;
     case COMBAT_PHASE_ATTACK:
-      return effectHasAttack(effect) || effectIsUtility(effect);
+      return effectHasAttack(effect) || effectIsUtility(effect) || moveAllowed;
     default:
       return false;
   }

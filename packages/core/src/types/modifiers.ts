@@ -31,6 +31,7 @@ import {
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_COLD_TOUGHNESS_BLOCK,
   EFFECT_MOVEMENT_CARD_BONUS,
+  EFFECT_MOVE_TO_ATTACK_CONVERSION,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
   EFFECT_TERRAIN_COST,
@@ -47,6 +48,7 @@ import {
   RULE_GOLD_AS_BLACK,
   RULE_IGNORE_FORTIFICATION,
   RULE_IGNORE_RAMPAGING_PROVOKE,
+  RULE_MOVE_CARDS_IN_COMBAT,
   RULE_SOURCE_BLOCKED,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
   RULE_WOUNDS_PLAYABLE_SIDEWAYS,
@@ -177,7 +179,8 @@ export interface RuleOverrideModifier {
     | typeof RULE_BLACK_AS_ANY_COLOR
     | typeof RULE_TERRAIN_DAY_NIGHT_SWAP
     | typeof RULE_SOURCE_BLOCKED
-    | typeof RULE_EXTRA_SOURCE_DIE;
+    | typeof RULE_EXTRA_SOURCE_DIE
+    | typeof RULE_MOVE_CARDS_IN_COMBAT;
 }
 
 // Ability nullifier (e.g., "ignore Swift on one enemy")
@@ -252,6 +255,18 @@ export interface RecruitDiscountModifier {
   readonly reputationChange: number; // Rep change if discount used (e.g., -1)
 }
 
+// Move-to-attack conversion modifier (Agility card)
+// Allows converting accumulated move points to attack during combat.
+// Basic Agility: 1 move = 1 melee attack
+// Powered Agility: 1 move = 1 melee attack OR 2 move = 1 ranged attack
+export interface MoveToAttackConversionModifier {
+  readonly type: typeof EFFECT_MOVE_TO_ATTACK_CONVERSION;
+  /** Move points required per attack point */
+  readonly costPerPoint: number;
+  /** Type of attack gained from conversion */
+  readonly attackType: typeof COMBAT_VALUE_ATTACK | typeof COMBAT_VALUE_RANGED;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -270,7 +285,8 @@ export type ModifierEffect =
   | DoublePhysicalAttacksModifier
   | RemovePhysicalResistanceModifier
   | ColdToughnessBlockModifier
-  | RecruitDiscountModifier;
+  | RecruitDiscountModifier
+  | MoveToAttackConversionModifier;
 
 // === Active Modifier (live in game state) ===
 

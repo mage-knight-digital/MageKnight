@@ -29,6 +29,8 @@ import {
   isNormalEffectAllowed,
   isWoundCardId,
 } from "../rules/cardPlay.js";
+import { isRuleActive } from "../modifiers/index.js";
+import { RULE_MOVE_CARDS_IN_COMBAT } from "../../types/modifierConstants.js";
 
 function getCardId(action: PlayerAction): CardId | null {
   if (action.type === PLAY_CARD_ACTION && "cardId" in action) {
@@ -162,8 +164,9 @@ export function validateCardPlayableInContext(
   if (state.combat) {
     const context = getCombatEffectContext(card, effectKind);
     const phase = state.combat.phase;
+    const moveCardsAllowed = isRuleActive(state, playerId, RULE_MOVE_CARDS_IN_COMBAT);
 
-    if (!isCombatEffectAllowed(context.effect, phase, context.allowAnyPhase)) {
+    if (!isCombatEffectAllowed(context.effect, phase, context.allowAnyPhase, moveCardsAllowed)) {
       return invalid(
         CARD_NOT_PLAYABLE_IN_PHASE,
         `Card cannot be played in ${phase} phase`

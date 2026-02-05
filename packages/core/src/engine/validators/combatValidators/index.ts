@@ -78,3 +78,12 @@ export {
   validateHeroesInfluenceNotAlreadyPaid,
   validateHeroesInfluenceAvailable,
 } from "./heroesAssaultValidators.js";
+
+// Move-to-attack conversion validators (Agility card)
+export {
+  validateConversionInCombat,
+  validateConversionPhase,
+  validateConversionModifierActive,
+  validateConversionAmount,
+  validateConversionMovePoints,
+} from "./conversionValidators.js";
