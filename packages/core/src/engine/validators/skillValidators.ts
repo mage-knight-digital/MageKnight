@@ -32,6 +32,7 @@ import {
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
   SKILL_ARYTHEA_BURNING_POWER,
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
+  SKILL_GOLDYX_FREEZING_POWER,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -164,7 +165,7 @@ export const validateRangedSkillInRangedPhase: Validator = (state, _playerId, ac
   const useSkillAction = action as UseSkillAction;
 
   // Skills that provide ranged/siege attacks can only be used in ranged/siege or attack phase
-  const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER];
+  const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER, SKILL_GOLDYX_FREEZING_POWER];
 
   if (rangedSkills.includes(useSkillAction.skillId)) {
     if (
