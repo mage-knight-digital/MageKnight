@@ -31,6 +31,7 @@ import {
   SKILL_BRAEVALAR_THUNDERSTORM,
   SKILL_BRAEVALAR_SECRET_WAYS,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
+  SKILL_TOVAK_NIGHT_SHARPSHOOTING,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -60,6 +61,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_BRAEVALAR_THUNDERSTORM,
   SKILL_BRAEVALAR_SECRET_WAYS,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
+  SKILL_TOVAK_NIGHT_SHARPSHOOTING,
 ]);
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN]);
@@ -132,7 +134,7 @@ export function getSkillOptions(
     }
 
     // Ranged/siege attack skills are only available during ranged/siege or attack phase
-    const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER, SKILL_GOLDYX_FREEZING_POWER];
+    const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_TOVAK_NIGHT_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER, SKILL_GOLDYX_FREEZING_POWER];
     if (rangedSkills.includes(skillId)) {
       if (
         !state.combat ||

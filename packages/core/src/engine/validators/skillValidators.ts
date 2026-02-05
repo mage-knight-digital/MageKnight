@@ -30,6 +30,7 @@ import {
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
+  SKILL_TOVAK_NIGHT_SHARPSHOOTING,
   SKILL_ARYTHEA_BURNING_POWER,
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_GOLDYX_FREEZING_POWER,
@@ -165,7 +166,7 @@ export const validateRangedSkillInRangedPhase: Validator = (state, _playerId, ac
   const useSkillAction = action as UseSkillAction;
 
   // Skills that provide ranged/siege attacks can only be used in ranged/siege or attack phase
-  const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER, SKILL_GOLDYX_FREEZING_POWER];
+  const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_TOVAK_NIGHT_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER, SKILL_GOLDYX_FREEZING_POWER];
 
   if (rangedSkills.includes(useSkillAction.skillId)) {
     if (
