@@ -19,6 +19,7 @@ export { ENEMY_LAVA_DRAGON, LAVA_DRAGON } from "./lava-dragon.js";
 export { ENEMY_SAVAGE_DRAGON, SAVAGE_DRAGON } from "./savage-dragon.js";
 export { ENEMY_DRAGON_SUMMONER, DRAGON_SUMMONER } from "./dragon-summoner.js";
 export { ENEMY_LIGHTNING_DRAGON, LIGHTNING_DRAGON } from "./lightning-dragon.js";
+export { ENEMY_STORM_DRAGON, STORM_DRAGON } from "./storm-dragon.js";
 
 // Import for aggregation
 import { ENEMY_SWAMP_DRAGON, SWAMP_DRAGON } from "./swamp-dragon.js";
@@ -30,6 +31,7 @@ import { ENEMY_LAVA_DRAGON, LAVA_DRAGON } from "./lava-dragon.js";
 import { ENEMY_SAVAGE_DRAGON, SAVAGE_DRAGON } from "./savage-dragon.js";
 import { ENEMY_DRAGON_SUMMONER, DRAGON_SUMMONER } from "./dragon-summoner.js";
 import { ENEMY_LIGHTNING_DRAGON, LIGHTNING_DRAGON } from "./lightning-dragon.js";
+import { ENEMY_STORM_DRAGON, STORM_DRAGON } from "./storm-dragon.js";
 
 /**
  * Union type of all red (Draconum) enemy IDs
@@ -43,7 +45,8 @@ export type RedEnemyId =
   | typeof ENEMY_LAVA_DRAGON
   | typeof ENEMY_SAVAGE_DRAGON
   | typeof ENEMY_DRAGON_SUMMONER
-  | typeof ENEMY_LIGHTNING_DRAGON;
+  | typeof ENEMY_LIGHTNING_DRAGON
+  | typeof ENEMY_STORM_DRAGON;
 
 /** All red (Draconum) enemies */
 export const RED_ENEMIES: Record<RedEnemyId, EnemyDefinition> = {
@@ -56,4 +59,5 @@ export const RED_ENEMIES: Record<RedEnemyId, EnemyDefinition> = {
   [ENEMY_SAVAGE_DRAGON]: SAVAGE_DRAGON,
   [ENEMY_DRAGON_SUMMONER]: DRAGON_SUMMONER,
   [ENEMY_LIGHTNING_DRAGON]: LIGHTNING_DRAGON,
+  [ENEMY_STORM_DRAGON]: STORM_DRAGON,
 };
