@@ -312,19 +312,27 @@ export function killDevServer(name: string): boolean {
   try {
     const pid = parseInt(readFileSync(pidFile, "utf-8").trim(), 10);
 
-    // Kill the process and its children
+    // Kill the entire process group (negative PID kills all children)
+    // This ensures Bun and its child processes (including Vite HMR) are terminated
     try {
-      process.kill(pid, "SIGTERM");
+      process.kill(-pid, "SIGTERM");
     } catch {
-      // Process may already be dead
+      // Fallback: try killing the process directly
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        // Process may already be dead
+      }
     }
 
-    // Also try to kill child processes
-    try {
-      execSync(`pkill -P ${pid}`, { stdio: "pipe" });
-    } catch {
-      // Ignore
-    }
+    // Wait a moment for graceful shutdown, then force kill any remaining child processes
+    setTimeout(() => {
+      try {
+        execSync(`pkill -9 -P ${pid}`, { stdio: "pipe" });
+      } catch {
+        // Ignore errors
+      }
+    }, 500);
 
     rmSync(pidFile, { force: true });
     return true;
