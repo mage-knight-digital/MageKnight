@@ -110,6 +110,12 @@ export const SCOUTS_SCOUT_PEEK = "scouts_scout_peek" as const;
  */
 export const SCOUTS_EXTENDED_MOVE = "scouts_extended_move" as const;
 
+/**
+ * Utem Crossbowmen: Basic ability (free)
+ * Attack 3 OR Block 3
+ */
+export const UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK = "utem_crossbowmen_attack_or_block" as const;
+
 // =============================================================================
 // EFFECT DEFINITIONS
 // =============================================================================
@@ -303,6 +309,25 @@ const SCOUTS_EXTENDED_MOVE_EFFECT: CardEffect = {
   ],
 };
 
+/**
+ * Utem Crossbowmen's basic ability: Attack 3 OR Block 3.
+ * Player chooses between gaining 3 Attack (melee, physical) or 3 Block (physical).
+ */
+const UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 3,
+      combatType: COMBAT_TYPE_MELEE,
+    },
+    {
+      type: EFFECT_GAIN_BLOCK,
+      amount: 3,
+    },
+  ],
+};
+
 // =============================================================================
 // REGISTRY
 // =============================================================================
@@ -323,6 +348,7 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [ILLUSIONISTS_GAIN_WHITE_CRYSTAL]: ILLUSIONISTS_GAIN_WHITE_CRYSTAL_EFFECT,
   [SCOUTS_SCOUT_PEEK]: SCOUTS_SCOUT_PEEK_EFFECT,
   [SCOUTS_EXTENDED_MOVE]: SCOUTS_EXTENDED_MOVE_EFFECT,
+  [UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK]: UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK_EFFECT,
 };
 
 /**

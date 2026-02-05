@@ -134,7 +134,7 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should allow ranged attack in ranged & siege phase", () => {
-      // Utem Crossbowmen have Ranged Attack 3 (ability index 1)
+      // Utem Crossbowmen have Ranged Attack 2 (ability index 1)
       const unit = createPlayerUnit(UNIT_UTEM_CROSSBOWMEN, "crossbow_1");
       const player = createTestPlayer({
         units: [unit],
@@ -149,16 +149,16 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "crossbow_1",
-        abilityIndex: 1, // Ranged Attack 3
+        abilityIndex: 1, // Ranged Attack 2
       });
 
       // Verify success - ranged attack added
-      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(3);
+      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(2);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
     });
 
     it("should allow ranged attack in attack phase", () => {
-      // Utem Crossbowmen have Ranged Attack 3 (ability index 1)
+      // Utem Crossbowmen have Ranged Attack 2 (ability index 1)
       const unit = createPlayerUnit(UNIT_UTEM_CROSSBOWMEN, "crossbow_1");
       const player = createTestPlayer({
         units: [unit],
@@ -173,11 +173,11 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "crossbow_1",
-        abilityIndex: 1, // Ranged Attack 3
+        abilityIndex: 1, // Ranged Attack 2
       });
 
       // Verify success - ranged works in attack phase too
-      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(3);
+      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(2);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
     });
 
