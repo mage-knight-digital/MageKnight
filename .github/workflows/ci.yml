@@ -111,21 +111,22 @@ jobs:
       - name: Generate Coverage Report
         if: always()
         run: |
-          echo "## Coverage Report" > coverage-report.md
-          echo "" >> coverage-report.md
-          for pkg in core shared server; do
-            if [ -f "coverage/$pkg/lcov.info" ]; then
-              # Parse lcov to extract line coverage
-              LINES_FOUND=$(grep -c "^DA:" "coverage/$pkg/lcov.info" 2>/dev/null || echo "0")
-              LINES_HIT=$(grep "^DA:" "coverage/$pkg/lcov.info" 2>/dev/null | grep -v ",0$" | wc -l | tr -d ' ')
-              if [ "$LINES_FOUND" -gt 0 ]; then
-                PCT=$((LINES_HIT * 100 / LINES_FOUND))
-                echo "| **$pkg** | $LINES_HIT / $LINES_FOUND lines | ${PCT}% |" >> coverage-report.md
+          {
+            echo "## Coverage Report"
+            echo ""
+            echo "| Package | Lines | Coverage |"
+            echo "| --- | --- | --- |"
+            for pkg in core shared server; do
+              if [ -f "coverage/$pkg/lcov.info" ]; then
+                LINES_FOUND=$(grep -c "^DA:" "coverage/$pkg/lcov.info" 2>/dev/null || echo "0")
+                LINES_HIT=$(grep "^DA:" "coverage/$pkg/lcov.info" 2>/dev/null | grep -v ",0$" | wc -l | tr -d ' ')
+                if [ "$LINES_FOUND" -gt 0 ]; then
+                  PCT=$((LINES_HIT * 100 / LINES_FOUND))
+                  echo "| **$pkg** | $LINES_HIT / $LINES_FOUND | ${PCT}% |"
+                fi
               fi
-            fi
-          done
-          # Wrap in table
-          sed -i '2i | Package | Lines | Coverage |\n| --- | --- | --- |' coverage-report.md
+            done
+          } > coverage-report.md
           cat coverage-report.md
 
       - name: Add Coverage to PR
