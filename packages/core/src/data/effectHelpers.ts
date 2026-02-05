@@ -18,6 +18,7 @@ import type {
   ChoiceEffect,
   ScalingEffect,
   ScalableBaseEffect,
+  ChangeReputationEffect,
 } from "../types/cards.js";
 import type { EffectCondition } from "../types/conditions.js";
 import type { ScalingFactor } from "../types/scaling.js";
@@ -46,6 +47,7 @@ import {
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   EFFECT_SCALING,
+  EFFECT_CHANGE_REPUTATION,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -61,6 +63,7 @@ import {
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
   CONDITION_IS_NIGHT_OR_UNDERGROUND,
+  CONDITION_IN_INTERACTION,
 } from "../types/conditions.js";
 
 // === Basic Effect Helpers ===
@@ -87,6 +90,10 @@ export function heal(amount: number): GainHealingEffect {
 
 export function fame(amount: number): GainFameEffect {
   return { type: EFFECT_GAIN_FAME, amount };
+}
+
+export function changeReputation(amount: number): ChangeReputationEffect {
+  return { type: EFFECT_CHANGE_REPUTATION, amount };
 }
 
 export function compound(effects: CardEffect[]): CompoundEffect {
@@ -341,6 +348,21 @@ export function ifHasWoundsInHand(
 ): ConditionalEffect {
   return conditional(
     { type: CONDITION_HAS_WOUNDS_IN_HAND },
+    thenEffect,
+    elseEffect
+  );
+}
+
+/**
+ * Effect that applies only when at an inhabited site during interaction.
+ * Covers unit recruitment and healing purchases at villages, monasteries, etc.
+ */
+export function ifInInteraction(
+  thenEffect: CardEffect,
+  elseEffect?: CardEffect
+): ConditionalEffect {
+  return conditional(
+    { type: CONDITION_IN_INTERACTION },
     thenEffect,
     elseEffect
   );

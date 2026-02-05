@@ -19,9 +19,12 @@ import {
   CONDITION_NO_UNIT_RECRUITED_THIS_TURN,
   CONDITION_LOWEST_FAME,
   CONDITION_IS_NIGHT_OR_UNDERGROUND,
+  CONDITION_IN_INTERACTION,
 } from "../../types/conditions.js";
 import { CARD_WOUND, hexKey, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { SITE_PROPERTIES } from "../../data/siteProperties.js";
+import { SiteType } from "../../types/index.js";
 
 /**
  * Evaluates a condition against the current game state for a specific player.
@@ -91,6 +94,31 @@ export function evaluateCondition(
       // True if it's night OR in dungeon/tomb combat (nightManaRules applies)
       // Per FAQ S1: Dungeons and Tombs count as "night" for this condition
       return state.timeOfDay === TIME_OF_DAY_NIGHT || (state.combat?.nightManaRules ?? false);
+
+    case CONDITION_IN_INTERACTION: {
+      // True if player is at an inhabited site where they can interact with locals
+      if (!player.position) return false;
+      const hex = state.map.hexes[hexKey(player.position)];
+      if (!hex?.site) return false;
+
+      const siteProps = SITE_PROPERTIES[hex.site.type];
+      if (!siteProps.inhabited) return false;
+
+      // Check accessibility: fortified sites must be conquered
+      if (siteProps.fortified && !hex.site.isConquered) return false;
+
+      // Keeps require ownership, not just conquest
+      if (hex.site.type === SiteType.Keep && hex.site.owner !== playerId) {
+        return false;
+      }
+
+      // Burned monasteries cannot be interacted with
+      if (hex.site.type === SiteType.Monastery && hex.site.isBurned) {
+        return false;
+      }
+
+      return true;
+    }
 
     default:
       // Exhaustive check - TypeScript ensures all cases are handled
