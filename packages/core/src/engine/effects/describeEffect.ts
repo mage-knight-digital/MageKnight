@@ -1,5 +1,7 @@
 /**
  * Human-readable effect descriptions for UI display
+ *
+ * Uses a map-based dispatch pattern for extensibility and maintainability.
  */
 
 import type { CardEffect } from "../../types/cards.js";
@@ -35,7 +37,228 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
+import type {
+  GainMoveEffect,
+  GainInfluenceEffect,
+  GainAttackEffect,
+  GainBlockEffect,
+  GainHealingEffect,
+  GainManaEffect,
+  DrawCardsEffect,
+  ApplyModifierEffect,
+  CompoundEffect,
+  ChoiceEffect,
+  CardBoostEffect,
+  ResolveBoostTargetEffect,
+  GainCrystalEffect,
+  ChangeReputationEffect,
+  ReadyUnitEffect,
+  ManaDrawPickDieEffect,
+  ManaDrawSetColorEffect,
+  PayManaEffect,
+  SelectCombatEnemyEffect,
+  ResolveCombatEnemyTargetEffect,
+  TakeWoundEffect,
+  DiscardWoundsEffect,
+  TrackAttackDefeatFameEffect,
+} from "../../types/effectTypes.js";
 import { getCard } from "../validActions/cards/index.js";
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+/**
+ * Handler function for generating effect descriptions.
+ * Each handler receives the effect and returns a human-readable string.
+ */
+type DescriptionHandler<T extends CardEffect = CardEffect> = (effect: T) => string;
+
+/**
+ * Effect type discriminator string
+ */
+type EffectType = CardEffect["type"];
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Convert a number to Roman numeral (1-4 range)
+ */
+function toRomanNumeral(n: number): string {
+  const numerals: Record<number, string> = {
+    1: "I",
+    2: "II",
+    3: "III",
+    4: "IV",
+  };
+  return numerals[n] ?? String(n);
+}
+
+/**
+ * Format attack type based on combat type
+ */
+function formatAttackType(combatType?: string): string {
+  if (combatType === COMBAT_TYPE_RANGED) return "Ranged Attack";
+  if (combatType === COMBAT_TYPE_SIEGE) return "Siege Attack";
+  return "Attack";
+}
+
+// ============================================================================
+// DESCRIPTION HANDLERS
+// ============================================================================
+
+/**
+ * Description handlers registry.
+ * Maps effect types to their description generator functions.
+ */
+const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
+  [EFFECT_GAIN_MOVE]: (effect) => {
+    const e = effect as GainMoveEffect;
+    return `Move ${e.amount}`;
+  },
+
+  [EFFECT_GAIN_INFLUENCE]: (effect) => {
+    const e = effect as GainInfluenceEffect;
+    return `Influence ${e.amount}`;
+  },
+
+  [EFFECT_GAIN_ATTACK]: (effect) => {
+    const e = effect as GainAttackEffect;
+    return `${formatAttackType(e.combatType)} ${e.amount}`;
+  },
+
+  [EFFECT_GAIN_BLOCK]: (effect) => {
+    const e = effect as GainBlockEffect;
+    if (e.element) {
+      const elementName = e.element.charAt(0).toUpperCase() + e.element.slice(1);
+      return `${elementName} Block ${e.amount}`;
+    }
+    return `Block ${e.amount}`;
+  },
+
+  [EFFECT_GAIN_HEALING]: (effect) => {
+    const e = effect as GainHealingEffect;
+    return `Healing ${e.amount}`;
+  },
+
+  [EFFECT_GAIN_MANA]: (effect) => {
+    const e = effect as GainManaEffect;
+    return `Gain ${e.color} mana`;
+  },
+
+  [EFFECT_DRAW_CARDS]: (effect) => {
+    const e = effect as DrawCardsEffect;
+    return e.amount === 1 ? "Draw 1 card" : `Draw ${e.amount} cards`;
+  },
+
+  [EFFECT_NOOP]: () => "No additional effect",
+
+  [EFFECT_APPLY_MODIFIER]: (effect) => {
+    const e = effect as ApplyModifierEffect;
+    return e.description ?? "Apply modifier";
+  },
+
+  [EFFECT_COMPOUND]: (effect) => {
+    const e = effect as CompoundEffect;
+    return e.effects.map(describeEffect).join(", ");
+  },
+
+  [EFFECT_CHOICE]: (effect) => {
+    const e = effect as ChoiceEffect;
+    return e.options.map(describeEffect).join(" OR ");
+  },
+
+  [EFFECT_CARD_BOOST]: (effect) => {
+    const e = effect as CardBoostEffect;
+    return `Boost another Action card (+${e.bonus})`;
+  },
+
+  [EFFECT_RESOLVE_BOOST_TARGET]: (effect) => {
+    const e = effect as ResolveBoostTargetEffect;
+    const targetCard = getCard(e.targetCardId);
+    const cardName = targetCard?.name ?? e.targetCardId;
+    return `Boost ${cardName} (+${e.bonus})`;
+  },
+
+  [EFFECT_GAIN_CRYSTAL]: (effect) => {
+    const e = effect as GainCrystalEffect;
+    return `Gain ${e.color} crystal`;
+  },
+
+  [EFFECT_CONVERT_MANA_TO_CRYSTAL]: () => "Convert mana to crystal",
+
+  [EFFECT_CHANGE_REPUTATION]: (effect) => {
+    const e = effect as ChangeReputationEffect;
+    return e.amount >= 0 ? `Reputation +${e.amount}` : `Reputation ${e.amount}`;
+  },
+
+  [EFFECT_READY_UNIT]: (effect) => {
+    const e = effect as ReadyUnitEffect;
+    const levels = Array.from({ length: e.maxLevel }, (_, i) => toRomanNumeral(i + 1)).join("/");
+    return `Ready a Level ${levels} Unit`;
+  },
+
+  [EFFECT_MANA_DRAW_POWERED]: () => "Take a die, set its color, gain 2 mana",
+
+  [EFFECT_MANA_DRAW_PICK_DIE]: (effect) => {
+    const e = effect as ManaDrawPickDieEffect;
+    return `Take ${e.dieColor} die`;
+  },
+
+  [EFFECT_MANA_DRAW_SET_COLOR]: (effect) => {
+    const e = effect as ManaDrawSetColorEffect;
+    return `Set die to ${e.color}, gain 2 ${e.color} mana`;
+  },
+
+  [EFFECT_PAY_MANA]: (effect) => {
+    const e = effect as PayManaEffect;
+    const colorLabel = e.colors.length === 1 ? e.colors[0] : e.colors.join("/");
+    return `Pay ${e.amount} ${colorLabel} mana`;
+  },
+
+  [EFFECT_SELECT_COMBAT_ENEMY]: (effect) => {
+    const e = effect as SelectCombatEnemyEffect;
+    return e.template.defeat ? "Defeat target enemy" : "Target an enemy";
+  },
+
+  [EFFECT_RESOLVE_COMBAT_ENEMY_TARGET]: (effect) => {
+    const e = effect as ResolveCombatEnemyTargetEffect;
+    if (e.template.defeat) {
+      return `Defeat ${e.enemyName}`;
+    }
+    const modDescriptions = e.template.modifiers
+      ?.map((m) => m.description)
+      .filter((desc): desc is string => Boolean(desc))
+      .map((desc) => desc.replace(/[Tt]arget enemy/g, e.enemyName))
+      .join(", ");
+    return modDescriptions || `Target ${e.enemyName}`;
+  },
+
+  [EFFECT_TERRAIN_BASED_BLOCK]: () => "Block (terrain cost, Fire/Ice)",
+
+  [EFFECT_TAKE_WOUND]: (effect) => {
+    const e = effect as TakeWoundEffect;
+    return e.amount === 1 ? "Take 1 wound" : `Take ${e.amount} wounds`;
+  },
+
+  [EFFECT_DISCARD_WOUNDS]: (effect) => {
+    const e = effect as DiscardWoundsEffect;
+    return e.count === 1 ? "Discard 1 Wound" : `Discard ${e.count} Wounds`;
+  },
+
+  [EFFECT_PLACE_SKILL_IN_CENTER]: () => "Place skill in center",
+
+  [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (effect) => {
+    const e = effect as TrackAttackDefeatFameEffect;
+    return `Fame +${e.fame} if this ${formatAttackType(e.combatType)} defeats an enemy`;
+  },
+};
+
+// ============================================================================
+// MAIN FUNCTION
+// ============================================================================
 
 /**
  * Convert a card effect to a human-readable description.
@@ -46,169 +269,9 @@ import { getCard } from "../validActions/cards/index.js";
  * - General effect logging
  */
 export function describeEffect(effect: CardEffect): string {
-  switch (effect.type) {
-    case EFFECT_GAIN_MOVE:
-      return `Move ${effect.amount}`;
-
-    case EFFECT_GAIN_INFLUENCE:
-      return `Influence ${effect.amount}`;
-
-    case EFFECT_GAIN_ATTACK: {
-      const attackType =
-        effect.combatType === COMBAT_TYPE_RANGED
-          ? "Ranged Attack"
-          : effect.combatType === COMBAT_TYPE_SIEGE
-            ? "Siege Attack"
-            : "Attack";
-      return `${attackType} ${effect.amount}`;
-    }
-
-    case EFFECT_GAIN_BLOCK: {
-      if (effect.element) {
-        // Capitalize element name: "fire" -> "Fire"
-        const elementName = effect.element.charAt(0).toUpperCase() + effect.element.slice(1);
-        return `${elementName} Block ${effect.amount}`;
-      }
-      return `Block ${effect.amount}`;
-    }
-
-    case EFFECT_GAIN_HEALING:
-      return `Healing ${effect.amount}`;
-
-    case EFFECT_GAIN_MANA:
-      return `Gain ${effect.color} mana`;
-
-    case EFFECT_DRAW_CARDS:
-      return effect.amount === 1
-        ? "Draw 1 card"
-        : `Draw ${effect.amount} cards`;
-
-    case EFFECT_NOOP:
-      return "No additional effect";
-
-    case EFFECT_APPLY_MODIFIER:
-      return effect.description ?? "Apply modifier";
-
-    case EFFECT_COMPOUND: {
-      const descriptions = effect.effects.map(describeEffect);
-      return descriptions.join(", ");
-    }
-
-    case EFFECT_CHOICE: {
-      const optionDescriptions = effect.options.map(describeEffect);
-      return optionDescriptions.join(" OR ");
-    }
-
-    case EFFECT_CARD_BOOST:
-      return `Boost another Action card (+${effect.bonus})`;
-
-    case EFFECT_RESOLVE_BOOST_TARGET: {
-      const targetCard = getCard(effect.targetCardId);
-      const cardName = targetCard?.name ?? effect.targetCardId;
-      return `Boost ${cardName} (+${effect.bonus})`;
-    }
-
-    case EFFECT_GAIN_CRYSTAL:
-      return `Gain ${effect.color} crystal`;
-
-    case EFFECT_CONVERT_MANA_TO_CRYSTAL:
-      return "Convert mana to crystal";
-
-    case EFFECT_CHANGE_REPUTATION: {
-      if (effect.amount >= 0) {
-        return `Reputation +${effect.amount}`;
-      }
-      return `Reputation ${effect.amount}`;
-    }
-
-    case EFFECT_READY_UNIT: {
-      const levels = Array.from({ length: effect.maxLevel }, (_, i) =>
-        toRomanNumeral(i + 1)
-      ).join("/");
-      return `Ready a Level ${levels} Unit`;
-    }
-
-    case EFFECT_MANA_DRAW_POWERED:
-      return "Take a die, set its color, gain 2 mana";
-
-    case EFFECT_MANA_DRAW_PICK_DIE:
-      return `Take ${effect.dieColor} die`;
-
-    case EFFECT_MANA_DRAW_SET_COLOR:
-      return `Set die to ${effect.color}, gain 2 ${effect.color} mana`;
-
-    case EFFECT_PAY_MANA: {
-      const colorLabel = effect.colors.length === 1
-        ? effect.colors[0]
-        : effect.colors.join("/");
-      return `Pay ${effect.amount} ${colorLabel} mana`;
-    }
-
-    case EFFECT_SELECT_COMBAT_ENEMY:
-      if (effect.template.defeat) {
-        return "Defeat target enemy";
-      }
-      return "Target an enemy";
-
-    case EFFECT_RESOLVE_COMBAT_ENEMY_TARGET: {
-      // Show the enemy name in the choice description
-      if (effect.template.defeat) {
-        return `Defeat ${effect.enemyName}`;
-      }
-      // Build description from modifiers, replacing "target enemy" with actual name
-      const modDescriptions = effect.template.modifiers
-        ?.map((m) => m.description)
-        .filter((desc): desc is string => Boolean(desc))
-        .map((desc) => desc.replace(/[Tt]arget enemy/g, effect.enemyName))
-        .join(", ");
-      return modDescriptions || `Target ${effect.enemyName}`;
-    }
-
-    case EFFECT_TERRAIN_BASED_BLOCK:
-      return "Block (terrain cost, Fire/Ice)";
-
-    case EFFECT_TAKE_WOUND:
-      return effect.amount === 1
-        ? "Take 1 wound"
-        : `Take ${effect.amount} wounds`;
-
-    case EFFECT_DISCARD_WOUNDS:
-      return effect.count === 1
-        ? "Discard 1 Wound"
-        : `Discard ${effect.count} Wounds`;
-
-    case EFFECT_PLACE_SKILL_IN_CENTER:
-      return "Place skill in center";
-
-    case EFFECT_TRACK_ATTACK_DEFEAT_FAME: {
-      const attackType =
-        effect.combatType === COMBAT_TYPE_RANGED
-          ? "Ranged Attack"
-          : effect.combatType === COMBAT_TYPE_SIEGE
-            ? "Siege Attack"
-            : "Attack";
-      return `Fame +${effect.fame} if this ${attackType} defeats an enemy`;
-    }
-
-    default:
-      return "Unknown effect";
+  const handler = descriptionHandlers[effect.type];
+  if (handler) {
+    return handler(effect);
   }
-}
-
-/**
- * Convert a number to Roman numeral (1-4 range)
- */
-function toRomanNumeral(n: number): string {
-  switch (n) {
-    case 1:
-      return "I";
-    case 2:
-      return "II";
-    case 3:
-      return "III";
-    case 4:
-      return "IV";
-    default:
-      return String(n);
-  }
+  return "Unknown effect";
 }
