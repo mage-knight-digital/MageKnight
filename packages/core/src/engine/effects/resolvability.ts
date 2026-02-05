@@ -66,6 +66,7 @@ import {
   EFFECT_PAY_MANA,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_PLACE_SKILL_IN_CENTER,
+  EFFECT_DISCARD_FOR_CRYSTAL,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -181,6 +182,12 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   [EFFECT_MANA_DRAW_PICK_DIE]: () => true,
   [EFFECT_MANA_DRAW_SET_COLOR]: () => true,
   [EFFECT_CRYSTALLIZE_COLOR]: () => true,
+
+  [EFFECT_DISCARD_FOR_CRYSTAL]: (state, player) => {
+    // Discard for crystal is resolvable if optional (can always skip) or if player has non-wound cards
+    const hasNonWoundCards = player.hand.some((c) => c !== CARD_WOUND);
+    return hasNonWoundCards;
+  },
 
   [EFFECT_DISCARD_WOUNDS]: (state, player, effect) => {
     const e = effect as DiscardWoundsEffect;

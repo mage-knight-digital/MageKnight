@@ -56,6 +56,7 @@ import {
   EFFECT_FAME_PER_ENEMY_DEFEATED,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_POLARIZE_MANA,
+  EFFECT_DISCARD_FOR_CRYSTAL,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -602,6 +603,25 @@ export interface PolarizeManaEffect {
   readonly cannotPowerSpells: boolean;
 }
 
+/**
+ * Discard a card to gain a crystal of matching color.
+ * Used by Krang's Savage Harvesting card.
+ *
+ * Resolution:
+ * - Action cards: Crystal color matches the card's frame color
+ * - Artifacts: Player chooses which crystal color to gain
+ * - Wounds cannot be discarded (filtered out)
+ *
+ * Creates pendingDiscardForCrystal state. Player selects card via
+ * RESOLVE_DISCARD_FOR_CRYSTAL action. For artifacts, an additional
+ * RESOLVE_ARTIFACT_CRYSTAL_COLOR action is needed to select the color.
+ */
+export interface DiscardForCrystalEffect {
+  readonly type: typeof EFFECT_DISCARD_FOR_CRYSTAL;
+  /** If true, player can skip discarding (no crystal gained) */
+  readonly optional: boolean;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -644,7 +664,8 @@ export type CardEffect =
   | DiscardForAttackEffect
   | FamePerEnemyDefeatedEffect
   | TrackAttackDefeatFameEffect
-  | PolarizeManaEffect;
+  | PolarizeManaEffect
+  | DiscardForCrystalEffect;
 
 // === Card Definition ===
 

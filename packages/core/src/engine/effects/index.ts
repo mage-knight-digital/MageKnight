@@ -211,6 +211,13 @@ export {
   registerPolarizeEffects,
 } from "./polarizeEffects.js";
 
+// Discard-for-crystal effects (Savage Harvesting)
+export {
+  handleDiscardForCrystalEffect,
+  getCardsEligibleForDiscardForCrystal,
+  registerDiscardForCrystalEffects,
+} from "./discardForCrystalEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

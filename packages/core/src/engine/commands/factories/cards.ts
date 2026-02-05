@@ -22,6 +22,8 @@ import {
   RESOLVE_CHOICE_ACTION,
   RESOLVE_DISCARD_ACTION,
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
+  RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
+  RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION,
   MANA_BLACK,
 } from "@mage-knight/shared";
 import { createPlayCardCommand } from "../playCardCommand.js";
@@ -32,6 +34,8 @@ import {
 import { createResolveChoiceCommand } from "../resolveChoiceCommand.js";
 import { createResolveDiscardCommand } from "../resolveDiscardCommand.js";
 import { createResolveDiscardForAttackCommand } from "../resolveDiscardForAttackCommand.js";
+import { createResolveDiscardForCrystalCommand } from "../resolveDiscardForCrystalCommand.js";
+import { createResolveArtifactCrystalColorCommand } from "../resolveArtifactCrystalColorCommand.js";
 import { getCard } from "../../validActions/cards/index.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { getAvailableManaSourcesForColor } from "../../validActions/mana.js";
@@ -287,5 +291,45 @@ export const createResolveDiscardForAttackCommandFromAction: CommandFactory = (
   return createResolveDiscardForAttackCommand({
     playerId,
     cardIds: action.cardIds,
+  });
+};
+
+/**
+ * Resolve discard-for-crystal command factory.
+ * Creates a command to resolve a pending discard-for-crystal (Savage Harvesting).
+ */
+export const createResolveDiscardForCrystalCommandFromAction: CommandFactory = (
+  state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_DISCARD_FOR_CRYSTAL_ACTION) return null;
+
+  const player = getPlayerById(state, playerId);
+  if (!player?.pendingDiscardForCrystal) return null;
+
+  return createResolveDiscardForCrystalCommand({
+    playerId,
+    cardId: action.cardId,
+  });
+};
+
+/**
+ * Resolve artifact crystal color command factory.
+ * Creates a command to resolve crystal color selection after discarding an artifact.
+ */
+export const createResolveArtifactCrystalColorCommandFromAction: CommandFactory = (
+  state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION) return null;
+
+  const player = getPlayerById(state, playerId);
+  if (!player?.pendingDiscardForCrystal?.awaitingColorChoice) return null;
+
+  return createResolveArtifactCrystalColorCommand({
+    playerId,
+    color: action.color,
   });
 };

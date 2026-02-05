@@ -35,9 +35,11 @@ import {
   EFFECT_DISCARD_WOUNDS,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_PLACE_SKILL_IN_CENTER,
+  EFFECT_DISCARD_FOR_CRYSTAL,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
+import type { DiscardForCrystalEffect } from "../../types/cards.js";
 import type {
   GainMoveEffect,
   GainInfluenceEffect,
@@ -260,6 +262,13 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (effect) => {
     const e = effect as TrackAttackDefeatFameEffect;
     return `Fame +${e.fame} if this ${formatAttackType(e.combatType)} defeats an enemy`;
+  },
+
+  [EFFECT_DISCARD_FOR_CRYSTAL]: (effect) => {
+    const e = effect as DiscardForCrystalEffect;
+    return e.optional
+      ? "Optionally discard a card to gain a crystal"
+      : "Discard a card to gain a crystal";
   },
 };
 
