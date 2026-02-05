@@ -248,7 +248,12 @@ export function getActivatableUnits(
       }
       // Check phase restrictions for combat abilities
       else {
-        const phaseCheck = isAbilityValidForPhase(ability.type, combat);
+        // Effect-based abilities with requiresCombat: false skip combat phase checks
+        const skipPhaseCheck =
+          ability.type === UNIT_ABILITY_EFFECT && ability.requiresCombat === false;
+        const phaseCheck = skipPhaseCheck
+          ? { valid: true }
+          : isAbilityValidForPhase(ability.type, combat);
         if (!phaseCheck.valid) {
           canActivate = false;
           reason = phaseCheck.reason;
