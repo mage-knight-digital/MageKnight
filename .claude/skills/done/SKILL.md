@@ -15,9 +15,9 @@ Wrap up implementation, create a pull request, and update tracking.
 
 Before proceeding, ensure:
 - All acceptance criteria from the issue are met
-- Tests pass: `pnpm test`
-- Build succeeds: `pnpm build`
-- Lint passes: `pnpm lint`
+- Tests pass: `bun run test`
+- Build succeeds: `bun run build`
+- Lint passes: `bun run lint`
 
 If any checks fail, fix them first before completing.
 
@@ -56,7 +56,7 @@ git rebase origin/main
 
 ```bash
 # Re-run tests to catch integration issues
-pnpm build && pnpm lint && pnpm test
+bun run build && bun run lint && bun run test
 ```
 
 If tests fail after rebase, fix the integration issues before proceeding.
@@ -141,7 +141,7 @@ Include issue reference: `feat: implement mandatory card play (#32)`
 User: "looks good, wrap it up"
 
 Response:
-1. Run `pnpm build && pnpm lint && pnpm test`
+1. Run `bun run build && bun run lint && bun run test`
 2. If passing, create commit with proper message
 3. Push branch
 4. Create PR with "Closes #32"
