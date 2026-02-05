@@ -6,7 +6,7 @@
 
 import { useCallback } from "react";
 import type { HexCoord, MoveTarget, ReachableHex, PlayerAction } from "@mage-knight/shared";
-import { MOVE_ACTION, EXPLORE_ACTION, CHALLENGE_RAMPAGING_ACTION } from "@mage-knight/shared";
+import { MOVE_ACTION, EXPLORE_ACTION, CHALLENGE_RAMPAGING_ACTION, RESOLVE_HEX_COST_REDUCTION_ACTION } from "@mage-knight/shared";
 import type { MoveHighlight, ExploreTarget } from "../pixi/rendering";
 import { findPath } from "../pixi/pathfinding";
 
@@ -14,6 +14,7 @@ interface UseHexInteractionParams {
   validMoveTargets: readonly MoveTarget[];
   reachableHexes: readonly ReachableHex[];
   challengeTargetHexes: readonly HexCoord[];
+  hexCostReductionTargets: readonly HexCoord[];
   playerPosition: HexCoord | null;
   sendAction: (action: PlayerAction) => void;
   isMyTurn: boolean;
@@ -29,6 +30,7 @@ export function useHexInteraction({
   validMoveTargets,
   reachableHexes,
   challengeTargetHexes,
+  hexCostReductionTargets,
   playerPosition,
   sendAction,
   isMyTurn,
@@ -36,6 +38,14 @@ export function useHexInteraction({
   // Movement highlight getter
   const getMoveHighlight = useCallback(
     (coord: HexCoord): MoveHighlight => {
+      // Check hex cost reduction targets first (takes precedence when in that mode)
+      const isCostReductionTarget = hexCostReductionTargets.some(
+        (t) => t.q === coord.q && t.r === coord.r
+      );
+      if (isCostReductionTarget) {
+        return { type: "cost_reduction" };
+      }
+
       // Check challenge targets first (takes precedence over movement)
       const isChallengeTarget = challengeTargetHexes.some(
         (t) => t.q === coord.q && t.r === coord.r
@@ -66,7 +76,7 @@ export function useHexInteraction({
 
       return { type: "none" };
     },
-    [validMoveTargets, reachableHexes, challengeTargetHexes]
+    [validMoveTargets, reachableHexes, challengeTargetHexes, hexCostReductionTargets]
   );
 
   // Handle hex click for movement or challenge
@@ -74,6 +84,16 @@ export function useHexInteraction({
     (coord: HexCoord) => {
       // Block interaction if not player's turn
       if (!isMyTurn) return;
+
+      // Check for hex cost reduction first
+      const isCostReductionTarget = hexCostReductionTargets.some(
+        (t) => t.q === coord.q && t.r === coord.r
+      );
+      if (isCostReductionTarget) {
+        sendAction({ type: RESOLVE_HEX_COST_REDUCTION_ACTION, coordinate: coord });
+        return;
+      }
+
       if (!playerPosition) return;
 
       // Check for challenge action first
@@ -106,7 +126,7 @@ export function useHexInteraction({
         }
       }
     },
-    [isMyTurn, playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, sendAction]
+    [isMyTurn, playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, hexCostReductionTargets, sendAction]
   );
 
   // Handle explore click

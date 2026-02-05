@@ -19,17 +19,58 @@ import {
   MANA_BLACK,
   MANA_SOURCE_TOKEN,
   CHOICE_REQUIRED,
+  ENEMIES,
+  ENEMY_FIRE_CATAPULT,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ATTACK,
+  COMBAT_CONTEXT_STANDARD,
 } from "../../types/combat.js";
+import type { CombatState, CombatPhase } from "../../types/combat.js";
 
 function getPlayableCard(state: ReturnType<typeof createTestGameState>, cardId: string) {
   const validActions = getValidActions(state, "player1");
   if (validActions.mode !== "combat" && validActions.mode !== "normal_turn") return undefined;
   return validActions.playCard?.cards.find((card) => card.cardId === cardId);
+}
+
+function createCumbersomeCombatState(phase: CombatPhase): CombatState {
+  const def = ENEMIES[ENEMY_FIRE_CATAPULT];
+  return {
+    enemies: [
+      {
+        instanceId: "enemy_1",
+        enemyId: ENEMY_FIRE_CATAPULT,
+        definition: def,
+        isBlocked: false,
+        isDefeated: false,
+        damageAssigned: false,
+        isRequiredForConquest: true,
+      },
+    ],
+    phase,
+    woundsThisCombat: 0,
+    attacksThisPhase: 0,
+    fameGained: 0,
+    isAtFortifiedSite: false,
+    unitsAllowed: true,
+    nightManaRules: false,
+    assaultOrigin: null,
+    combatHexCoord: null,
+    allDamageBlockedThisPhase: false,
+    discardEnemiesOnFailure: false,
+    pendingDamage: {},
+    pendingBlock: {},
+    pendingSwiftBlock: {},
+    combatContext: COMBAT_CONTEXT_STANDARD,
+    cumbersomeReductions: {},
+    usedDefend: {},
+    defendBonuses: {},
+    paidHeroesAssaultInfluence: false,
+    vampiricArmorBonus: {},
+  };
 }
 
 describe("Healing cards during combat", () => {
@@ -100,7 +141,7 @@ describe("Healing cards during combat", () => {
 });
 
 describe("Mixed-category healing cards during combat", () => {
-  it("plays Refreshing Walk for movement only (healing filtered out)", () => {
+  it("Refreshing Walk not playable during combat without Cumbersome enemies", () => {
     const player = createTestPlayer({
       hand: [CARD_REFRESHING_WALK, CARD_WOUND],
       movePoints: 0,
@@ -108,6 +149,21 @@ describe("Mixed-category healing cards during combat", () => {
     const state = createTestGameState({
       players: [player],
       combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+    });
+
+    const playableCard = getPlayableCard(state, CARD_REFRESHING_WALK);
+    // Move-only effect in combat without Cumbersome enemies should not be playable
+    expect(playableCard?.canPlayBasic).toBeFalsy();
+  });
+
+  it("Refreshing Walk playable during combat with Cumbersome enemies (move only)", () => {
+    const player = createTestPlayer({
+      hand: [CARD_REFRESHING_WALK, CARD_WOUND],
+      movePoints: 0,
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat: createCumbersomeCombatState(COMBAT_PHASE_BLOCK),
     });
 
     const playableCard = getPlayableCard(state, CARD_REFRESHING_WALK);
@@ -124,11 +180,12 @@ describe("Mixed-category healing cards during combat", () => {
     const result = command.execute(state);
     const updatedPlayer = result.state.players.find((p) => p.id === "player1");
 
+    // In combat: move only, no healing
     expect(updatedPlayer?.movePoints).toBe(2);
     expect(updatedPlayer?.hand).toContain(CARD_WOUND);
   });
 
-  it("removes heal option from Power of Crystals powered choice in combat", () => {
+  it("Power of Crystals powered not playable in combat without Cumbersome enemies", () => {
     const player = createTestPlayer({
       hand: [CARD_POWER_OF_CRYSTALS, CARD_WOUND],
       pureMana: [{ color: MANA_GREEN, source: MANA_SOURCE_TOKEN }],
@@ -137,6 +194,22 @@ describe("Mixed-category healing cards during combat", () => {
     const state = createTestGameState({
       players: [player],
       combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+    });
+
+    const playableCard = getPlayableCard(state, CARD_POWER_OF_CRYSTALS);
+    // After healing filtered, powered effect is move-only → excluded without Cumbersome
+    expect(playableCard?.canPlayPowered).toBe(false);
+  });
+
+  it("removes heal option from Power of Crystals powered choice in combat with Cumbersome", () => {
+    const player = createTestPlayer({
+      hand: [CARD_POWER_OF_CRYSTALS, CARD_WOUND],
+      pureMana: [{ color: MANA_GREEN, source: MANA_SOURCE_TOKEN }],
+      movePoints: 0,
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat: createCumbersomeCombatState(COMBAT_PHASE_BLOCK),
     });
 
     const playableCard = getPlayableCard(state, CARD_POWER_OF_CRYSTALS);
@@ -155,6 +228,113 @@ describe("Mixed-category healing cards during combat", () => {
     const updatedPlayer = result.state.players.find((p) => p.id === "player1");
 
     expect(result.events.some((event) => event.type === CHOICE_REQUIRED)).toBe(false);
+    expect(updatedPlayer?.movePoints).toBe(4);
+    expect(updatedPlayer?.hand).toContain(CARD_WOUND);
+  });
+});
+
+describe("Refreshing Walk combat context", () => {
+  it("provides Move 2 + Heal 1 outside combat (basic)", () => {
+    const player = createTestPlayer({
+      hand: [CARD_REFRESHING_WALK, CARD_WOUND],
+      movePoints: 0,
+    });
+    const state = createTestGameState({
+      players: [player],
+    });
+
+    const command = createPlayCardCommand({
+      playerId: "player1",
+      cardId: CARD_REFRESHING_WALK,
+      handIndex: 0,
+      powered: false,
+      previousPlayedCardFromHand: false,
+    });
+
+    const result = command.execute(state);
+    const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+
+    // Outside combat: Move 2 + Heal 1 (wound removed from hand)
+    expect(updatedPlayer?.movePoints).toBe(2);
+    expect(updatedPlayer?.hand).not.toContain(CARD_WOUND);
+  });
+
+  it("provides Move 4 + Heal 2 outside combat (powered)", () => {
+    const player = createTestPlayer({
+      hand: [CARD_REFRESHING_WALK, CARD_WOUND, CARD_WOUND],
+      movePoints: 0,
+      pureMana: [{ color: MANA_GREEN, source: MANA_SOURCE_TOKEN }],
+    });
+    const state = createTestGameState({
+      players: [player],
+    });
+
+    const command = createPlayCardCommand({
+      playerId: "player1",
+      cardId: CARD_REFRESHING_WALK,
+      handIndex: 0,
+      powered: true,
+      manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_GREEN },
+      previousPlayedCardFromHand: false,
+    });
+
+    const result = command.execute(state);
+    const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+
+    // Outside combat: Move 4 + Heal 2
+    expect(updatedPlayer?.movePoints).toBe(4);
+  });
+
+  it("provides Move 2 only during combat (basic, with Cumbersome)", () => {
+    const player = createTestPlayer({
+      hand: [CARD_REFRESHING_WALK, CARD_WOUND],
+      movePoints: 0,
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat: createCumbersomeCombatState(COMBAT_PHASE_BLOCK),
+    });
+
+    const command = createPlayCardCommand({
+      playerId: "player1",
+      cardId: CARD_REFRESHING_WALK,
+      handIndex: 0,
+      powered: false,
+      previousPlayedCardFromHand: false,
+    });
+
+    const result = command.execute(state);
+    const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+
+    // In combat: Move 2 only, wound stays in hand (no healing)
+    expect(updatedPlayer?.movePoints).toBe(2);
+    expect(updatedPlayer?.hand).toContain(CARD_WOUND);
+  });
+
+  it("provides Move 4 only during combat (powered, with Cumbersome)", () => {
+    const player = createTestPlayer({
+      hand: [CARD_REFRESHING_WALK, CARD_WOUND],
+      movePoints: 0,
+      pureMana: [{ color: MANA_GREEN, source: MANA_SOURCE_TOKEN }],
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat: createCumbersomeCombatState(COMBAT_PHASE_BLOCK),
+    });
+
+    const command = createPlayCardCommand({
+      playerId: "player1",
+      cardId: CARD_REFRESHING_WALK,
+      handIndex: 0,
+      powered: true,
+      manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_GREEN },
+      previousPlayedCardFromHand: false,
+    });
+
+    const result = command.execute(state);
+    const updatedPlayer = result.state.players.find((p) => p.id === "player1");
+
+    // In combat: Move 4 only, wound stays in hand (no healing)
     expect(updatedPlayer?.movePoints).toBe(4);
     expect(updatedPlayer?.hand).toContain(CARD_WOUND);
   });

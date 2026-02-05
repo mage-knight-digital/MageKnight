@@ -52,6 +52,24 @@ export function areHexesAdjacent(a: HexCoord, b: HexCoord): boolean {
 }
 
 /**
+ * Calculate the distance between two hexes using axial coordinates.
+ * Uses the cube distance formula for hex grids.
+ */
+function hexDistance(a: HexCoord, b: HexCoord): number {
+  const dq = Math.abs(a.q - b.q);
+  const dr = Math.abs(a.r - b.r);
+  const ds = Math.abs(-a.q - a.r - (-b.q - b.r));
+  return (dq + dr + ds) / 2;
+}
+
+/**
+ * Check if two hexes are within the given distance of each other.
+ */
+export function areHexesWithinDistance(a: HexCoord, b: HexCoord, maxDistance: number): boolean {
+  return hexDistance(a, b) <= maxDistance;
+}
+
+/**
  * Check if a player position can explore in a given direction from their current tile.
  *
  * The player must be on a hex that is directly adjacent to at least one hex
@@ -60,12 +78,14 @@ export function areHexesAdjacent(a: HexCoord, b: HexCoord): boolean {
  * @param playerPos - The player's current hex position
  * @param currentTileCenter - The center of the tile the player is on
  * @param direction - The direction to explore (E, NE, etc.)
+ * @param maxDistance - Maximum hex distance for explore eligibility (default 1 = adjacent)
  * @returns true if the player can explore in that direction from their position
  */
 export function canExploreFromPosition(
   playerPos: HexCoord,
   currentTileCenter: HexCoord,
-  direction: HexDirection
+  direction: HexDirection,
+  maxDistance: number = 1
 ): boolean {
   const offset = TILE_PLACEMENT_OFFSETS[direction];
 
@@ -78,10 +98,16 @@ export function canExploreFromPosition(
   // Get all hexes that would be part of the new tile
   const newTileHexes = getTileHexes(newTileCenter);
 
-  // Check if the player is adjacent to ANY of the new tile's hexes
+  // Check if the player is within maxDistance of ANY of the new tile's hexes
   for (const newHex of newTileHexes) {
-    if (areHexesAdjacent(playerPos, newHex)) {
-      return true;
+    if (maxDistance === 1) {
+      if (areHexesAdjacent(playerPos, newHex)) {
+        return true;
+      }
+    } else {
+      if (areHexesWithinDistance(playerPos, newHex, maxDistance)) {
+        return true;
+      }
     }
   }
 

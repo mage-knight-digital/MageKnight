@@ -19,6 +19,7 @@ interface UseGameBoardSelectorsReturn {
   validMoveTargets: readonly MoveTarget[];
   reachableHexes: readonly ReachableHex[];
   challengeTargetHexes: readonly HexCoord[];
+  hexCostReductionTargets: readonly HexCoord[];
   exploreTargets: ExploreTarget[];
   pathPreview: HexCoord[];
   isPathTerminal: boolean;
@@ -44,6 +45,12 @@ export function useGameBoardSelectors({
   const challengeTargetHexes = useMemo<readonly HexCoord[]>(() => {
     const va = state?.validActions;
     return va?.mode === "normal_turn" ? (va.challenge?.targetHexes ?? []) : [];
+  }, [state?.validActions]);
+
+  // Hex cost reduction targets (only in pending_hex_cost_reduction)
+  const hexCostReductionTargets = useMemo<readonly HexCoord[]>(() => {
+    const va = state?.validActions;
+    return va?.mode === "pending_hex_cost_reduction" ? va.hexCostReduction.availableCoordinates : [];
   }, [state?.validActions]);
 
   const exploreTargets = useMemo<ExploreTarget[]>(() => {
@@ -89,6 +96,7 @@ export function useGameBoardSelectors({
     validMoveTargets,
     reachableHexes,
     challengeTargetHexes,
+    hexCostReductionTargets,
     exploreTargets,
     pathPreview,
     isPathTerminal,

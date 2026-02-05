@@ -82,6 +82,7 @@ export const RULE_TERRAIN_DAY_NIGHT_SWAP = "terrain_day_night_swap" as const;
 export const RULE_SOURCE_BLOCKED = "source_blocked" as const;
 export const RULE_EXTRA_SOURCE_DIE = "extra_source_die" as const;
 export const RULE_BLACK_AS_ANY_COLOR = "black_as_any_color" as const;
+export const RULE_EXTENDED_EXPLORE = "extended_explore" as const;
 
 // === AbilityNullifierModifier ===
 export const ABILITY_ANY = "any" as const;
@@ -135,3 +136,8 @@ export const EFFECT_MOVE_TO_ATTACK_CONVERSION = "move_to_attack_conversion" as c
 // === RuleOverrideModifier["rule"] additions ===
 // Allows playing movement cards during combat for their move value
 export const RULE_MOVE_CARDS_IN_COMBAT = "move_cards_in_combat" as const;
+
+// === ScoutFameBonusModifier ===
+// Grants +1 fame when defeating an enemy that was revealed by Scout ability this turn
+// Tracks which enemies were revealed via Scout peek
+export const EFFECT_SCOUT_FAME_BONUS = "scout_fame_bonus" as const;

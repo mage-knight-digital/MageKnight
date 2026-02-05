@@ -34,6 +34,7 @@ import {
   type ResolvePendingDamageResult,
 } from "./damageResolution.js";
 import { resolveAttackDefeatFameTrackers } from "../../combat/attackFameTracking.js";
+import { resolveScoutFameBonus } from "../../combat/scoutFameTracking.js";
 
 // ============================================================================
 // Helper Functions
@@ -89,6 +90,18 @@ export function applyDefeatedEnemyRewards(
         updatedState = applyFameToPlayer(updatedState, playerId, fameResult.fameToGain);
       }
     }
+  }
+
+  // Resolve Scout fame bonus (from Scout peek ability).
+  // Scout peek tracks enemyIds (definition IDs like "guardsmen") not instanceIds
+  // (like "enemy_0"), so we extract enemyId from defeated combat enemies.
+  const defeatedEnemyDefinitionIds = damageResult.enemies
+    .filter((e) => e.isDefeated)
+    .map((e) => e.enemyId as string);
+  const scoutFameResult = resolveScoutFameBonus(updatedState, playerId, defeatedEnemyDefinitionIds);
+  if (scoutFameResult.fameToGain > 0) {
+    updatedState = scoutFameResult.state;
+    updatedState = applyFameToPlayer(updatedState, playerId, scoutFameResult.fameToGain);
   }
 
   return { state: updatedState, events };

@@ -100,6 +100,11 @@ export function resolveSelectCombatEnemy(
       if (e.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY)) return false;
     }
 
+    // Filter out enemies with a specific resistance type
+    if (effect.excludeResistance) {
+      if (e.definition.resistances.includes(effect.excludeResistance)) return false;
+    }
+
     return true;
   });
 

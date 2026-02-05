@@ -27,6 +27,7 @@ import {
   UNIT_NORTHERN_MONKS,
   UNIT_RED_CAPE_MONKS,
   UNIT_GUARDIAN_GOLEMS,
+  UNIT_SAVAGE_MONKS,
   CARD_WOUND,
   UNIT_STATE_READY,
   UNIT_STATE_SPENT,
@@ -34,6 +35,7 @@ import {
   UNIT_ACTIVATED,
   UNIT_ABILITY_ATTACK,
   UNIT_ABILITY_BLOCK,
+  UNIT_ABILITY_SIEGE_ATTACK,
   UNIT_ABILITY_HEAL,
   UNIT_ABILITY_MOVE,
   ASSIGN_DAMAGE_ACTION,
@@ -132,7 +134,7 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should allow ranged attack in ranged & siege phase", () => {
-      // Utem Crossbowmen have Ranged Attack 3 (ability index 1)
+      // Utem Crossbowmen have Ranged Attack 2 (ability index 1)
       const unit = createPlayerUnit(UNIT_UTEM_CROSSBOWMEN, "crossbow_1");
       const player = createTestPlayer({
         units: [unit],
@@ -147,16 +149,16 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "crossbow_1",
-        abilityIndex: 1, // Ranged Attack 3
+        abilityIndex: 1, // Ranged Attack 2
       });
 
       // Verify success - ranged attack added
-      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(3);
+      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(2);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
     });
 
     it("should allow ranged attack in attack phase", () => {
-      // Utem Crossbowmen have Ranged Attack 3 (ability index 1)
+      // Utem Crossbowmen have Ranged Attack 2 (ability index 1)
       const unit = createPlayerUnit(UNIT_UTEM_CROSSBOWMEN, "crossbow_1");
       const player = createTestPlayer({
         units: [unit],
@@ -171,11 +173,11 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "crossbow_1",
-        abilityIndex: 1, // Ranged Attack 3
+        abilityIndex: 1, // Ranged Attack 2
       });
 
       // Verify success - ranged works in attack phase too
-      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(3);
+      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(2);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
     });
 
@@ -1925,6 +1927,153 @@ describe("Unit Combat Abilities", () => {
       expect(afterUndo.state.activeModifiers.length).toBe(0);
       // Unit should be ready again
       expect(afterUndo.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+    });
+  });
+
+  describe("Savage Monks abilities", () => {
+    it("should activate free physical Attack 3 (ability index 0)", () => {
+      const unit = createPlayerUnit(UNIT_SAVAGE_MONKS, "savage_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "savage_monks_1",
+        abilityIndex: 0, // Attack 3 (physical, free)
+      });
+
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(3);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_ATTACK);
+        expect(activateEvent.abilityValue).toBe(3);
+      }
+    });
+
+    it("should activate free physical Block 3 (ability index 1)", () => {
+      const unit = createPlayerUnit(UNIT_SAVAGE_MONKS, "savage_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "savage_monks_1",
+        abilityIndex: 1, // Block 3 (physical, free)
+      });
+
+      expect(result.state.players[0].combatAccumulator.block).toBe(3);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_BLOCK);
+        expect(activateEvent.abilityValue).toBe(3);
+      }
+    });
+
+    it("should activate Siege Attack 4 with green mana (ability index 2)", () => {
+      const unit = createPlayerUnit(UNIT_SAVAGE_MONKS, "savage_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_GREEN, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "savage_monks_1",
+        abilityIndex: 2, // Siege Attack 4 (requires green mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_GREEN },
+      });
+
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      expect(result.state.players[0].combatAccumulator.attack.siege).toBe(4);
+      expect(
+        result.state.players[0].combatAccumulator.attack.siegeElements.physical
+      ).toBe(4);
+      expect(result.state.players[0].pureMana.length).toBe(0);
+
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_SIEGE_ATTACK);
+        expect(activateEvent.abilityValue).toBe(4);
+      }
+    });
+
+    it("should reject Siege Attack 4 without green mana", () => {
+      const unit = createPlayerUnit(UNIT_SAVAGE_MONKS, "savage_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "savage_monks_1",
+        abilityIndex: 2, // Siege Attack 4 (requires green mana)
+      });
+
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+      if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+        expect(invalidEvent.reason).toContain("green mana");
+      }
+    });
+
+    it("should reject Siege Attack 4 with wrong mana color (red)", () => {
+      const unit = createPlayerUnit(UNIT_SAVAGE_MONKS, "savage_monks_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_RED, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "savage_monks_1",
+        abilityIndex: 2, // Siege Attack 4 (requires green mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+      });
+
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
     });
   });
 });

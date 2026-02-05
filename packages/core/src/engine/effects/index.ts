@@ -218,6 +218,14 @@ export {
   registerDiscardForCrystalEffects,
 } from "./discardForCrystalEffects.js";
 
+// Energy Flow effects
+export {
+  handleEnergyFlow,
+  resolveEnergyFlowTarget,
+  applyEnergyFlowToUnit,
+  registerEnergyFlowEffects,
+} from "./energyFlowEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

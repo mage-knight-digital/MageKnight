@@ -20,8 +20,11 @@ import { PreparationDecision } from "./Overlays/PreparationDecision";
 import { SparingPowerDecision } from "./Overlays/SparingPowerDecision";
 import { ManaSearchReroll } from "./Overlays/ManaSearchReroll";
 import { GladeWoundDecision } from "./Overlays/GladeWoundDecision";
+import { CrystalJoyReclaimDecision } from "./Overlays/CrystalJoyReclaimDecision";
 import { RestCompletionOverlay } from "./Overlays/RestCompletionOverlay";
 import { DiscardCostOverlay } from "./Overlays/DiscardCostOverlay";
+import { HexCostReductionOverlay } from "./Overlays/HexCostReductionOverlay";
+import { TerrainCostReductionOverlay } from "./Overlays/TerrainCostReductionOverlay";
 import { LevelUpRewardSelection } from "./Overlays/LevelUpRewardSelection";
 import { CombatOverlay, PixiCombatOverlay } from "./Combat";
 import { OfferView, type OfferPane } from "./OfferView";
@@ -103,8 +106,11 @@ export function GameView() {
       <SparingPowerDecision />
       <ManaSearchReroll />
       <GladeWoundDecision />
+      <CrystalJoyReclaimDecision />
       <RestCompletionOverlay />
       <DiscardCostOverlay />
+      <HexCostReductionOverlay />
+      <TerrainCostReductionOverlay />
       {inCombat && (
         <>
           <PixiCombatOverlay combat={state.combat} />

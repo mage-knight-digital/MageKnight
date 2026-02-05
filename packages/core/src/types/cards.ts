@@ -10,6 +10,7 @@ import type {
   Element,
   DiscardFilter,
   RevealTileType,
+  ResistanceType,
 } from "@mage-knight/shared";
 import type { ModifierEffect, ModifierDuration, ModifierScope } from "./modifiers.js";
 import type { CombatPhase } from "./combat.js";
@@ -60,6 +61,9 @@ import {
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
+  EFFECT_SCOUT_PEEK,
+  EFFECT_ENERGY_FLOW,
+  EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -383,6 +387,8 @@ export interface SelectCombatEnemyEffect {
   readonly excludeFortified?: boolean;
   /** If true, exclude enemies with Arcane Immunity from targeting */
   readonly excludeArcaneImmune?: boolean;
+  /** If set, exclude enemies with this resistance type from targeting */
+  readonly excludeResistance?: ResistanceType;
 }
 
 /**
@@ -672,6 +678,46 @@ export interface ResolveReadyUnitForInfluenceEffect {
   readonly costPerLevel: number;
 }
 
+/**
+ * Scout peek effect (Scouts unit ability).
+ * Reveals face-down enemy tokens within a distance from the player.
+ * Also creates a ScoutFameBonus modifier tracking which enemies were newly revealed,
+ * granting bonus fame when those enemies are defeated this turn.
+ */
+export interface ScoutPeekEffect {
+  readonly type: typeof EFFECT_SCOUT_PEEK;
+  /** How far from the player to reveal (in hex distance) */
+  readonly distance: number;
+  /** Fame bonus per revealed enemy defeated this turn */
+  readonly fame: number;
+}
+
+/**
+ * Energy Flow / Energy Steal spell effect.
+ * Ready a unit, optionally heal it, then optionally spend one unit
+ * of a given max level in each other player's unit area.
+ *
+ * In single-player, the "spend opponent units" part is a no-op.
+ */
+export interface EnergyFlowEffect {
+  readonly type: typeof EFFECT_ENERGY_FLOW;
+  /** Max unit level for spending opponent units */
+  readonly spendMaxLevel: 1 | 2 | 3 | 4;
+  /** Whether to heal the readied unit (powered effect only) */
+  readonly healReadiedUnit: boolean;
+}
+
+/**
+ * Internal effect generated as a choice option for Energy Flow unit selection.
+ * Readies the selected unit (and heals if powered).
+ */
+export interface ResolveEnergyFlowTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_ENERGY_FLOW_TARGET;
+  readonly unitInstanceId: string;
+  readonly unitName: string;
+  readonly healReadiedUnit: boolean;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -718,7 +764,10 @@ export type CardEffect =
   | DiscardForCrystalEffect
   | RecruitDiscountEffect
   | ReadyUnitsForInfluenceEffect
-  | ResolveReadyUnitForInfluenceEffect;
+  | ResolveReadyUnitForInfluenceEffect
+  | ScoutPeekEffect
+  | EnergyFlowEffect
+  | ResolveEnergyFlowTargetEffect;
 
 // === Card Definition ===
 

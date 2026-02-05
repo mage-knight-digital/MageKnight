@@ -23,7 +23,7 @@ import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
-import { isCombatEffectAllowed, getCombatEffectContext, type CombatEffectContext } from "../../rules/cardPlay.js";
+import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, type CombatEffectContext } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT } from "../../../types/modifierConstants.js";
@@ -93,14 +93,30 @@ export function getPlayableCardsForCombat(
 
     const basicContext = getCombatEffectContext(card, "basic");
     const poweredContext = getCombatEffectContext(card, "powered");
-    const playability = getCardPlayabilityForPhase(card, combat.phase, basicContext, poweredContext, moveCardsAllowed);
+
+    // Exclude move-only effects when move isn't useful in combat
+    // (but not when moveCardsAllowed, since Agility makes move useful for conversion)
+    const basicExcluded = !moveCardsAllowed && basicContext.effect
+      ? shouldExcludeMoveOnlyEffect(basicContext.effect, state, player.id, combat)
+      : false;
+    const poweredExcluded = !moveCardsAllowed && poweredContext.effect
+      ? shouldExcludeMoveOnlyEffect(poweredContext.effect, state, player.id, combat)
+      : false;
+    const adjustedBasicContext: CombatEffectContext = basicExcluded
+      ? { effect: null, allowAnyPhase: false }
+      : basicContext;
+    const adjustedPoweredContext: CombatEffectContext = poweredExcluded
+      ? { effect: null, allowAnyPhase: false }
+      : poweredContext;
+
+    const playability = getCardPlayabilityForPhase(card, combat.phase, adjustedBasicContext, adjustedPoweredContext, moveCardsAllowed);
 
     // Check resolvability - effect must actually be able to do something
-    const basicIsResolvable = basicContext.effect
-      ? isEffectResolvable(state, player.id, basicContext.effect)
+    const basicIsResolvable = adjustedBasicContext.effect
+      ? isEffectResolvable(state, player.id, adjustedBasicContext.effect)
       : false;
-    const poweredIsResolvable = poweredContext.effect
-      ? isEffectResolvable(state, player.id, poweredContext.effect)
+    const poweredIsResolvable = adjustedPoweredContext.effect
+      ? isEffectResolvable(state, player.id, adjustedPoweredContext.effect)
       : false;
 
     // For spells, basic effect also requires mana (the spell's color)

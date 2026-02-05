@@ -140,5 +140,18 @@ export const EFFECT_APPLY_RECRUIT_DISCOUNT = "apply_recruit_discount" as const;
 // Entry point for readying L1/L2 units by paying influence per level.
 // Used by Ruthless Coercion powered effect.
 export const EFFECT_READY_UNITS_FOR_INFLUENCE = "ready_units_for_influence" as const;
+
+// === Energy Flow Effects ===
+// Ready a unit, then optionally spend opponent units (Energy Flow / Energy Steal spell).
+// Entry point that handles ready → heal (if powered) → spend opponent units sequence.
+export const EFFECT_ENERGY_FLOW = "energy_flow" as const;
+// Internal: resolve effect after unit selection for Energy Flow
+export const EFFECT_RESOLVE_ENERGY_FLOW_TARGET = "resolve_energy_flow_target" as const;
 // Internal: resolve effect after unit selection for influence-paid readying
 export const EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE = "resolve_ready_unit_for_influence" as const;
+
+// === Scout Peek Effect ===
+// Reveals face-down enemy tokens within a distance from the player.
+// Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.
+// Used by Scouts unit ability.
+export const EFFECT_SCOUT_PEEK = "scout_peek" as const;
