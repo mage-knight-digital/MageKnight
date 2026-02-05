@@ -27,6 +27,7 @@ export { ENEMY_ELVEN_PROTECTORS, ELVEN_PROTECTORS } from "./elven-protectors.js"
 export { ENEMY_CLOUD_GRIFFONS, CLOUD_GRIFFONS } from "./cloud-griffons.js";
 export { ENEMY_CRYSTAL_SPRITES, CRYSTAL_SPRITES } from "./crystal-sprites.js";
 export { ENEMY_ORC_TRACKER, ORC_TRACKER } from "./orc-tracker.js";
+export { ENEMY_ZOMBIE_HORDE, ZOMBIE_HORDE } from "./zombie-horde.js";
 
 // Import for aggregation
 import { ENEMY_DIGGERS, DIGGERS } from "./diggers.js";
@@ -48,6 +49,7 @@ import { ENEMY_ELVEN_PROTECTORS, ELVEN_PROTECTORS } from "./elven-protectors.js"
 import { ENEMY_CLOUD_GRIFFONS, CLOUD_GRIFFONS } from "./cloud-griffons.js";
 import { ENEMY_CRYSTAL_SPRITES, CRYSTAL_SPRITES } from "./crystal-sprites.js";
 import { ENEMY_ORC_TRACKER, ORC_TRACKER } from "./orc-tracker.js";
+import { ENEMY_ZOMBIE_HORDE, ZOMBIE_HORDE } from "./zombie-horde.js";
 
 /**
  * Union type of all green (Marauding Orc) enemy IDs
@@ -71,7 +73,8 @@ export type GreenEnemyId =
   | typeof ENEMY_ELVEN_PROTECTORS
   | typeof ENEMY_CLOUD_GRIFFONS
   | typeof ENEMY_CRYSTAL_SPRITES
-  | typeof ENEMY_ORC_TRACKER;
+  | typeof ENEMY_ORC_TRACKER
+  | typeof ENEMY_ZOMBIE_HORDE;
 
 /** All green (Marauding Orc) enemies */
 export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
@@ -94,6 +97,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
   [ENEMY_CLOUD_GRIFFONS]: CLOUD_GRIFFONS,
   [ENEMY_CRYSTAL_SPRITES]: CRYSTAL_SPRITES,
   [ENEMY_ORC_TRACKER]: ORC_TRACKER,
+  [ENEMY_ZOMBIE_HORDE]: ZOMBIE_HORDE,
 };
 
 // =============================================================================

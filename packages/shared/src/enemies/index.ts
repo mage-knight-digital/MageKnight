@@ -133,6 +133,7 @@ export {
   ENEMY_ELVEN_PROTECTORS,
   GREEN_ENEMIES,
   ENEMY_CRYSTAL_SPRITES,
+  ENEMY_ZOMBIE_HORDE,
   ENEMY_ORC, // Test alias
 } from "./green/index.js";
 
