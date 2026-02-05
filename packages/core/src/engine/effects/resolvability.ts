@@ -53,6 +53,7 @@ import {
   EFFECT_CARD_BOOST,
   EFFECT_RESOLVE_BOOST_TARGET,
   EFFECT_READY_UNIT,
+  EFFECT_RESOLVE_READY_UNIT_TARGET,
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
@@ -75,6 +76,7 @@ import type {
   PayManaEffect,
   DiscardWoundsEffect,
   ReadyUnitEffect,
+  ResolveReadyUnitTargetEffect,
   ManaDrawPoweredEffect,
   SelectCombatEnemyEffect,
   ResolveCombatEnemyTargetEffect,
@@ -255,6 +257,13 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
     // Ready unit is only resolvable if player has spent units at or below maxLevel
     const eligibleUnits = getSpentUnitsAtOrBelowLevel(player.units, e.maxLevel);
     return eligibleUnits.length > 0;
+  },
+
+  [EFFECT_RESOLVE_READY_UNIT_TARGET]: (state, player, effect) => {
+    const e = effect as ResolveReadyUnitTargetEffect;
+    // The target unit just needs to exist and be spent
+    const unit = player.units.find((u) => u.instanceId === e.unitInstanceId);
+    return unit !== undefined && unit.state === "spent";
   },
 
   [EFFECT_MANA_DRAW_POWERED]: (state, player, effect) => {

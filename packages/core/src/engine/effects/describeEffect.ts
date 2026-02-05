@@ -23,6 +23,7 @@ import {
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CHANGE_REPUTATION,
   EFFECT_READY_UNIT,
+  EFFECT_RESOLVE_READY_UNIT_TARGET,
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
@@ -53,6 +54,7 @@ import type {
   GainCrystalEffect,
   ChangeReputationEffect,
   ReadyUnitEffect,
+  ResolveReadyUnitTargetEffect,
   ManaDrawPickDieEffect,
   ManaDrawSetColorEffect,
   PayManaEffect,
@@ -198,6 +200,11 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const e = effect as ReadyUnitEffect;
     const levels = Array.from({ length: e.maxLevel }, (_, i) => toRomanNumeral(i + 1)).join("/");
     return `Ready a Level ${levels} Unit`;
+  },
+
+  [EFFECT_RESOLVE_READY_UNIT_TARGET]: (effect) => {
+    const e = effect as ResolveReadyUnitTargetEffect;
+    return `Ready ${e.unitName}`;
   },
 
   [EFFECT_MANA_DRAW_POWERED]: () => "Take a die, set its color, gain 2 mana",

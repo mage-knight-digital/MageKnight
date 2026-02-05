@@ -36,6 +36,7 @@ import {
   EFFECT_CARD_BOOST,
   EFFECT_RESOLVE_BOOST_TARGET,
   EFFECT_READY_UNIT,
+  EFFECT_RESOLVE_READY_UNIT_TARGET,
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
@@ -224,6 +225,17 @@ export interface ResolveBoostTargetEffect {
 export interface ReadyUnitEffect {
   readonly type: typeof EFFECT_READY_UNIT;
   readonly maxLevel: 1 | 2 | 3 | 4;
+}
+
+/**
+ * Internal effect generated as a choice option after unit selection.
+ * Applies the ready effect to the specific unit.
+ */
+export interface ResolveReadyUnitTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_READY_UNIT_TARGET;
+  readonly unitInstanceId: string;
+  /** Stored for UI display without needing state lookup */
+  readonly unitName: string;
 }
 
 /**
@@ -608,6 +620,7 @@ export type CardEffect =
   | CardBoostEffect
   | ResolveBoostTargetEffect
   | ReadyUnitEffect
+  | ResolveReadyUnitTargetEffect
   | ManaDrawPoweredEffect
   | ManaDrawPickDieEffect
   | ManaDrawSetColorEffect

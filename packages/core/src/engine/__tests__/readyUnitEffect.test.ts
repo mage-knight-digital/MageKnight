@@ -9,8 +9,8 @@
 
 import { describe, it, expect } from "vitest";
 import { resolveEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
-import type { ReadyUnitEffect } from "../../types/cards.js";
-import { EFFECT_READY_UNIT } from "../../types/effectTypes.js";
+import type { ReadyUnitEffect, ResolveReadyUnitTargetEffect } from "../../types/cards.js";
+import { EFFECT_READY_UNIT, EFFECT_RESOLVE_READY_UNIT_TARGET } from "../../types/effectTypes.js";
 import { UNIT_STATE_READY, UNIT_STATE_SPENT, UNITS, type UnitId } from "@mage-knight/shared";
 import { createInitialGameState } from "../../state/GameState.js";
 import type { GameState } from "../../state/GameState.js";
@@ -193,7 +193,29 @@ describe("EFFECT_READY_UNIT", () => {
       const result = resolveEffect(state, state.players[0].id, effect);
 
       expect(result.requiresChoice).toBe(true);
-      expect(result.description).toContain("Choose");
+      expect(result.description).toContain("Select");
+    });
+
+    it("should provide dynamicChoiceOptions when multiple units are available", () => {
+      const unitId = getUnitIdOfLevel(1);
+      const state = createTestStateWithUnits([
+        createUnit(unitId, "unit-1", UNIT_STATE_SPENT, false),
+        createUnit(unitId, "unit-2", UNIT_STATE_SPENT, true),
+      ]);
+      const effect: ReadyUnitEffect = { type: EFFECT_READY_UNIT, maxLevel: 4 };
+
+      const result = resolveEffect(state, state.players[0].id, effect);
+
+      expect(result.requiresChoice).toBe(true);
+      expect(result.dynamicChoiceOptions).toBeDefined();
+      expect(result.dynamicChoiceOptions).toHaveLength(2);
+
+      // Each option should be a RESOLVE_READY_UNIT_TARGET effect
+      const options = result.dynamicChoiceOptions as ResolveReadyUnitTargetEffect[];
+      expect(options[0].type).toBe(EFFECT_RESOLVE_READY_UNIT_TARGET);
+      expect(options[0].unitInstanceId).toBe("unit-1");
+      expect(options[1].type).toBe(EFFECT_RESOLVE_READY_UNIT_TARGET);
+      expect(options[1].unitInstanceId).toBe("unit-2");
     });
 
     it("should return no-op when no eligible units exist", () => {
@@ -242,6 +264,108 @@ describe("EFFECT_READY_UNIT", () => {
     it("should describe maxLevel 4 as Level I/II/III/IV", () => {
       const effect: ReadyUnitEffect = { type: EFFECT_READY_UNIT, maxLevel: 4 };
       expect(describeEffect(effect)).toBe("Ready a Level I/II/III/IV Unit");
+    });
+  });
+});
+
+describe("EFFECT_RESOLVE_READY_UNIT_TARGET", () => {
+  describe("resolveEffect", () => {
+    it("should ready the specified unit", () => {
+      const unitId = getUnitIdOfLevel(1);
+      const unitName = UNITS[unitId].name;
+      const state = createTestStateWithUnits([
+        createUnit(unitId, "unit-1", UNIT_STATE_SPENT, false),
+        createUnit(unitId, "unit-2", UNIT_STATE_SPENT, false),
+      ]);
+      const effect: ResolveReadyUnitTargetEffect = {
+        type: EFFECT_RESOLVE_READY_UNIT_TARGET,
+        unitInstanceId: "unit-2",
+        unitName,
+      };
+
+      const result = resolveEffect(state, state.players[0].id, effect);
+
+      // Only unit-2 should be readied
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      expect(result.state.players[0].units[1].state).toBe(UNIT_STATE_READY);
+      expect(result.description).toContain("Readied");
+      expect(result.description).toContain(unitName);
+    });
+
+    it("should not change wounded status when readying", () => {
+      const unitId = getUnitIdOfLevel(1);
+      const unitName = UNITS[unitId].name;
+      const state = createTestStateWithUnits([
+        createUnit(unitId, "unit-1", UNIT_STATE_SPENT, true), // wounded
+      ]);
+      const effect: ResolveReadyUnitTargetEffect = {
+        type: EFFECT_RESOLVE_READY_UNIT_TARGET,
+        unitInstanceId: "unit-1",
+        unitName,
+      };
+
+      const result = resolveEffect(state, state.players[0].id, effect);
+
+      const updatedUnit = result.state.players[0].units[0];
+      expect(updatedUnit.state).toBe(UNIT_STATE_READY);
+      expect(updatedUnit.wounded).toBe(true); // Should still be wounded
+    });
+  });
+
+  describe("isEffectResolvable", () => {
+    it("should return true for a spent unit", () => {
+      const unitId = getUnitIdOfLevel(1);
+      const unitName = UNITS[unitId].name;
+      const state = createTestStateWithUnits([
+        createUnit(unitId, "unit-1", UNIT_STATE_SPENT, false),
+      ]);
+      const effect: ResolveReadyUnitTargetEffect = {
+        type: EFFECT_RESOLVE_READY_UNIT_TARGET,
+        unitInstanceId: "unit-1",
+        unitName,
+      };
+
+      expect(isEffectResolvable(state, state.players[0].id, effect)).toBe(true);
+    });
+
+    it("should return false for an already-ready unit", () => {
+      const unitId = getUnitIdOfLevel(1);
+      const unitName = UNITS[unitId].name;
+      const state = createTestStateWithUnits([
+        createUnit(unitId, "unit-1", UNIT_STATE_READY, false),
+      ]);
+      const effect: ResolveReadyUnitTargetEffect = {
+        type: EFFECT_RESOLVE_READY_UNIT_TARGET,
+        unitInstanceId: "unit-1",
+        unitName,
+      };
+
+      expect(isEffectResolvable(state, state.players[0].id, effect)).toBe(false);
+    });
+
+    it("should return false for a non-existent unit", () => {
+      const unitId = getUnitIdOfLevel(1);
+      const state = createTestStateWithUnits([
+        createUnit(unitId, "unit-1", UNIT_STATE_SPENT, false),
+      ]);
+      const effect: ResolveReadyUnitTargetEffect = {
+        type: EFFECT_RESOLVE_READY_UNIT_TARGET,
+        unitInstanceId: "unit-does-not-exist",
+        unitName: "Unknown",
+      };
+
+      expect(isEffectResolvable(state, state.players[0].id, effect)).toBe(false);
+    });
+  });
+
+  describe("describeEffect", () => {
+    it("should describe the target unit name", () => {
+      const effect: ResolveReadyUnitTargetEffect = {
+        type: EFFECT_RESOLVE_READY_UNIT_TARGET,
+        unitInstanceId: "unit-1",
+        unitName: "Peasants",
+      };
+      expect(describeEffect(effect)).toBe("Ready Peasants");
     });
   });
 });
