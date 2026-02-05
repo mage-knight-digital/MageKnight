@@ -17,6 +17,7 @@ export { ENEMY_ORC_SUMMONERS, ORC_SUMMONERS } from "./orc-summoners.js";
 export { ENEMY_CENTAUR_OUTRIDERS, CENTAUR_OUTRIDERS } from "./centaur-outriders.js";
 export { ENEMY_ORC_SKIRMISHERS, ORC_SKIRMISHERS } from "./orc-skirmishers.js";
 export { ENEMY_ORC_WAR_BEASTS, ORC_WAR_BEASTS } from "./orc-war-beasts.js";
+export { ENEMY_ORC_STONETHROWERS, ORC_STONETHROWERS } from "./orc-stonethrowers.js";
 export { ENEMY_SKELETAL_WARRIORS, SKELETAL_WARRIORS } from "./skeletal-warriors.js";
 export { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-necromancers.js";
 export { ENEMY_CORRUPTED_PRIESTS, CORRUPTED_PRIESTS } from "./corrupted-priests.js";
@@ -36,6 +37,7 @@ import { ENEMY_ORC_SUMMONERS, ORC_SUMMONERS } from "./orc-summoners.js";
 import { ENEMY_CENTAUR_OUTRIDERS, CENTAUR_OUTRIDERS } from "./centaur-outriders.js";
 import { ENEMY_ORC_SKIRMISHERS, ORC_SKIRMISHERS } from "./orc-skirmishers.js";
 import { ENEMY_ORC_WAR_BEASTS, ORC_WAR_BEASTS } from "./orc-war-beasts.js";
+import { ENEMY_ORC_STONETHROWERS, ORC_STONETHROWERS } from "./orc-stonethrowers.js";
 import { ENEMY_SKELETAL_WARRIORS, SKELETAL_WARRIORS } from "./skeletal-warriors.js";
 import { ENEMY_SHROUDED_NECROMANCERS, SHROUDED_NECROMANCERS } from "./shrouded-necromancers.js";
 import { ENEMY_CORRUPTED_PRIESTS, CORRUPTED_PRIESTS } from "./corrupted-priests.js";
@@ -58,6 +60,7 @@ export type GreenEnemyId =
   | typeof ENEMY_CENTAUR_OUTRIDERS
   | typeof ENEMY_ORC_SKIRMISHERS
   | typeof ENEMY_ORC_WAR_BEASTS
+  | typeof ENEMY_ORC_STONETHROWERS
   | typeof ENEMY_SKELETAL_WARRIORS
   | typeof ENEMY_SHROUDED_NECROMANCERS
   | typeof ENEMY_CORRUPTED_PRIESTS
@@ -78,6 +81,7 @@ export const GREEN_ENEMIES: Record<GreenEnemyId, EnemyDefinition> = {
   [ENEMY_CENTAUR_OUTRIDERS]: CENTAUR_OUTRIDERS,
   [ENEMY_ORC_SKIRMISHERS]: ORC_SKIRMISHERS,
   [ENEMY_ORC_WAR_BEASTS]: ORC_WAR_BEASTS,
+  [ENEMY_ORC_STONETHROWERS]: ORC_STONETHROWERS,
   [ENEMY_SKELETAL_WARRIORS]: SKELETAL_WARRIORS,
   [ENEMY_SHROUDED_NECROMANCERS]: SHROUDED_NECROMANCERS,
   [ENEMY_CORRUPTED_PRIESTS]: CORRUPTED_PRIESTS,
