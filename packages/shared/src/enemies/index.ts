@@ -145,6 +145,7 @@ export {
   ENEMY_GOLEMS,
   ENEMY_HEROES,
   ENEMY_THUGS_GRAY,
+  ENEMY_SHOCKTROOPS_GRAY,
   GRAY_ENEMIES,
   ENEMY_WOLF, // Test alias
 } from "./gray/index.js";
