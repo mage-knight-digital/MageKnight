@@ -51,6 +51,10 @@ export const RESOLVE_DEEP_MINE_COMMAND = "RESOLVE_DEEP_MINE" as const;
 // Discard as cost command
 export const RESOLVE_DISCARD_COMMAND = "RESOLVE_DISCARD" as const;
 
+// Discard for crystal commands (Savage Harvesting)
+export const RESOLVE_DISCARD_FOR_CRYSTAL_COMMAND = "RESOLVE_DISCARD_FOR_CRYSTAL" as const;
+export const RESOLVE_ARTIFACT_CRYSTAL_COLOR_COMMAND = "RESOLVE_ARTIFACT_CRYSTAL_COLOR" as const;
+
 // Burn monastery command
 export const BURN_MONASTERY_COMMAND = "BURN_MONASTERY" as const;
 

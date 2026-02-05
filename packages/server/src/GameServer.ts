@@ -565,6 +565,7 @@ export class GameServer {
       pendingDeepMineChoice: null,
       pendingDiscard: null,
       pendingDiscardForAttack: null,
+      pendingDiscardForCrystal: null,
       pendingAttackDefeatFame: [],
       enemiesDefeatedThisTurn: 0,
       healingPoints: 0,

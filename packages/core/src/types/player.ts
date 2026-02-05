@@ -213,6 +213,23 @@ export interface PendingDiscardForAttack {
 }
 
 /**
+ * Pending discard-for-crystal resolution (Savage Harvesting).
+ * Player discards a card to gain a crystal.
+ * - Action cards: crystal matches card color automatically
+ * - Artifacts: requires second step to choose crystal color
+ */
+export interface PendingDiscardForCrystal {
+  /** Source card that triggered the discard (Savage Harvesting) */
+  readonly sourceCardId: CardId;
+  /** If true, player can skip without discarding */
+  readonly optional: boolean;
+  /** Card that was discarded (null if still selecting) */
+  readonly discardedCardId: CardId | null;
+  /** If true, waiting for player to choose crystal color (artifact was discarded) */
+  readonly awaitingColorChoice: boolean;
+}
+
+/**
  * Track an attack that grants fame if it defeats at least one enemy.
  * Used by Axe Throw powered effect.
  */
@@ -381,6 +398,9 @@ export interface Player {
 
   // Discard for attack pending (Sword of Justice basic effect)
   readonly pendingDiscardForAttack: PendingDiscardForAttack | null;
+
+  // Discard for crystal pending (Savage Harvesting)
+  readonly pendingDiscardForCrystal: PendingDiscardForCrystal | null;
 
   // Attack-based fame tracking (e.g., Axe Throw powered effect)
   readonly pendingAttackDefeatFame: readonly AttackDefeatFameTracker[];

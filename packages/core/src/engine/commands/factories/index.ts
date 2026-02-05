@@ -27,6 +27,8 @@ import {
   RESOLVE_CHOICE_ACTION,
   RESOLVE_DISCARD_ACTION,
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
+  RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
+  RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION,
   REST_ACTION,
   DECLARE_REST_ACTION,
   COMPLETE_REST_ACTION,
@@ -83,6 +85,8 @@ export {
   createResolveChoiceCommandFromAction,
   createResolveDiscardCommandFromAction,
   createResolveDiscardForAttackCommandFromAction,
+  createResolveDiscardForCrystalCommandFromAction,
+  createResolveArtifactCrystalColorCommandFromAction,
 } from "./cards.js";
 
 // Combat factories
@@ -170,6 +174,8 @@ import {
   createResolveChoiceCommandFromAction,
   createResolveDiscardCommandFromAction,
   createResolveDiscardForAttackCommandFromAction,
+  createResolveDiscardForCrystalCommandFromAction,
+  createResolveArtifactCrystalColorCommandFromAction,
 } from "./cards.js";
 
 import {
@@ -253,6 +259,8 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_CHOICE_ACTION]: createResolveChoiceCommandFromAction,
   [RESOLVE_DISCARD_ACTION]: createResolveDiscardCommandFromAction,
   [RESOLVE_DISCARD_FOR_ATTACK_ACTION]: createResolveDiscardForAttackCommandFromAction,
+  [RESOLVE_DISCARD_FOR_CRYSTAL_ACTION]: createResolveDiscardForCrystalCommandFromAction,
+  [RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION]: createResolveArtifactCrystalColorCommandFromAction,
   [REST_ACTION]: createRestCommandFromAction,
   [DECLARE_REST_ACTION]: createDeclareRestCommandFromAction,
   [COMPLETE_REST_ACTION]: createCompleteRestCommandFromAction,

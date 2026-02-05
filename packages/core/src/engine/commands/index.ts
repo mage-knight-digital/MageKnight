@@ -219,3 +219,16 @@ export {
   type BurnMonasteryCommandParams,
   BURN_MONASTERY_COMMAND,
 } from "./burnMonasteryCommand.js";
+
+// Discard for crystal commands (Savage Harvesting)
+export {
+  createResolveDiscardForCrystalCommand,
+  type ResolveDiscardForCrystalCommandParams,
+  RESOLVE_DISCARD_FOR_CRYSTAL_COMMAND,
+} from "./resolveDiscardForCrystalCommand.js";
+
+export {
+  createResolveArtifactCrystalColorCommand,
+  type ResolveArtifactCrystalColorCommandParams,
+  RESOLVE_ARTIFACT_CRYSTAL_COLOR_COMMAND,
+} from "./resolveArtifactCrystalColorCommand.js";

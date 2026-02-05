@@ -123,3 +123,8 @@ export const EFFECT_TRACK_ATTACK_DEFEAT_FAME = "track_attack_defeat_fame" as con
 // Mana conversion for Arythea's Polarization skill
 // Removes source mana and adds converted token in one atomic operation
 export const EFFECT_POLARIZE_MANA = "polarize_mana" as const;
+
+// === Discard for Crystal Effect ===
+// Discard a card to gain a crystal of matching color (action cards) or chosen color (artifacts)
+// Used by Krang's Savage Harvesting card
+export const EFFECT_DISCARD_FOR_CRYSTAL = "discard_for_crystal" as const;

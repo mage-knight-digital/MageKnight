@@ -31,6 +31,7 @@ import { registerSwordOfJusticeEffects } from "./swordOfJusticeEffects.js";
 import { registerAttackFameEffects } from "./attackFameEffects.js";
 import { registerPolarizeEffects } from "./polarizeEffects.js";
 import { registerRitualOfPainEffects } from "./ritualOfPainEffects.js";
+import { registerDiscardForCrystalEffects } from "./discardForCrystalEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -106,4 +107,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Ritual of Pain effects (Arythea)
   registerRitualOfPainEffects();
+
+  // Discard-for-crystal effects (Savage Harvesting)
+  registerDiscardForCrystalEffects();
 }

@@ -237,6 +237,9 @@ export type {
   DiscardCostOptions,
   // Discard for attack options (Sword of Justice)
   DiscardForAttackOptions,
+  // Discard for crystal options (Savage Harvesting)
+  DiscardForCrystalOptions,
+  ArtifactCrystalColorOptions,
   // Level up rewards options
   LevelUpRewardsOptions,
   // Cooperative assault options

@@ -16,12 +16,15 @@ import type {
   BasicManaColor,
   DiscardCostOptions,
   DiscardForAttackOptions,
+  DiscardForCrystalOptions,
+  ArtifactCrystalColorOptions,
 } from "@mage-knight/shared";
 import { mineColorToBasicManaColor } from "../../types/map.js";
-import { CARD_WOUND, hexKey } from "@mage-knight/shared";
+import { CARD_WOUND, hexKey, MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
 import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
 import { getCardsEligibleForDiscardForAttack } from "../effects/swordOfJusticeEffects.js";
+import { getCardsEligibleForDiscardForCrystal } from "../effects/discardForCrystalEffects.js";
 
 /**
  * Get Magical Glade wound discard options for the player.
@@ -133,5 +136,48 @@ export function getDiscardForAttackOptions(
     availableCardIds,
     attackPerCard,
     combatType,
+  };
+}
+
+/**
+ * Get discard for crystal options for the player.
+ * Returns options if player has a pending discard-for-crystal state (Savage Harvesting).
+ */
+export function getDiscardForCrystalOptions(
+  _state: GameState,
+  player: Player
+): DiscardForCrystalOptions | undefined {
+  // Check if player has a pending discard-for-crystal (not awaiting color choice)
+  if (!player.pendingDiscardForCrystal || player.pendingDiscardForCrystal.awaitingColorChoice) {
+    return undefined;
+  }
+
+  const { sourceCardId, optional } = player.pendingDiscardForCrystal;
+
+  // Get eligible cards from hand (non-wound cards)
+  const availableCardIds = getCardsEligibleForDiscardForCrystal(player.hand);
+
+  return {
+    sourceCardId,
+    availableCardIds,
+    optional,
+  };
+}
+
+/**
+ * Get artifact crystal color options for the player.
+ * Returns options if player has a pending artifact color choice (Savage Harvesting).
+ */
+export function getArtifactCrystalColorOptions(
+  _state: GameState,
+  player: Player
+): ArtifactCrystalColorOptions | undefined {
+  // Check if player is awaiting color choice after artifact discard
+  if (!player.pendingDiscardForCrystal?.awaitingColorChoice) {
+    return undefined;
+  }
+
+  return {
+    availableColors: [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE],
   };
 }

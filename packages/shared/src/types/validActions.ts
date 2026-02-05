@@ -83,6 +83,12 @@ export interface ValidActions {
   /** Discard for attack options (when pendingDiscardForAttack is active - Sword of Justice) */
   readonly discardForAttack: DiscardForAttackOptions | undefined;
 
+  /** Discard for crystal options (when pendingDiscardForCrystal is active - Savage Harvesting) */
+  readonly discardForCrystal: DiscardForCrystalOptions | undefined;
+
+  /** Artifact crystal color choice (when awaitingColorChoice after artifact discard) */
+  readonly artifactCrystalColor: ArtifactCrystalColorOptions | undefined;
+
   /** Level up reward options (when pending level up rewards exist) */
   readonly levelUpRewards: LevelUpRewardsOptions | undefined;
 
@@ -752,6 +758,33 @@ export interface DiscardForAttackOptions {
   readonly attackPerCard: number;
   /** Combat type for the attack (e.g., melee) */
   readonly combatType: CombatType;
+}
+
+// ============================================================================
+// Discard for Crystal (Savage Harvesting)
+// ============================================================================
+
+/**
+ * Options for discard for crystal resolution (Savage Harvesting card effect).
+ * Only present when player has a pending discard-for-crystal state.
+ * Player can discard one non-wound card to gain a crystal.
+ */
+export interface DiscardForCrystalOptions {
+  /** Source card that triggered the discard-for-crystal */
+  readonly sourceCardId: CardId;
+  /** Cards available to discard (non-wound cards in hand) */
+  readonly availableCardIds: readonly CardId[];
+  /** Whether the discard is optional (can skip) */
+  readonly optional: boolean;
+}
+
+/**
+ * Options for artifact crystal color selection (second step of Savage Harvesting).
+ * Only present when an artifact was discarded and player must choose a crystal color.
+ */
+export interface ArtifactCrystalColorOptions {
+  /** Available crystal colors to choose from */
+  readonly availableColors: readonly BasicManaColor[];
 }
 
 // ============================================================================

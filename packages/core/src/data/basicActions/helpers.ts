@@ -8,6 +8,7 @@ import {
   EFFECT_MANA_DRAW_POWERED, EFFECT_TERRAIN_BASED_BLOCK, EFFECT_DISCARD_COST,
   EFFECT_NOOP,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
+  EFFECT_DISCARD_FOR_CRYSTAL,
   COMBAT_TYPE_MELEE, COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
 import type { BasicCardColor } from "../../types/effectTypes.js";
@@ -198,4 +199,15 @@ export function discardCostByColor(
     thenEffectByColor,
     filterWounds,
   };
+}
+
+/**
+ * Discard-for-crystal effect (Savage Harvesting).
+ * Allows discarding a non-wound card to gain a crystal matching the card's color.
+ * For artifacts, the player chooses the crystal color.
+ *
+ * @param optional - If true, the player can skip the discard
+ */
+export function discardForCrystal(optional: boolean = true): CardEffect {
+  return { type: EFFECT_DISCARD_FOR_CRYSTAL, optional };
 }

@@ -384,6 +384,22 @@ export interface ResolveDiscardForAttackAction {
   readonly cardIds: readonly CardId[];
 }
 
+// Discard for crystal action (Savage Harvesting)
+export const RESOLVE_DISCARD_FOR_CRYSTAL_ACTION = "RESOLVE_DISCARD_FOR_CRYSTAL" as const;
+export interface ResolveDiscardForCrystalAction {
+  readonly type: typeof RESOLVE_DISCARD_FOR_CRYSTAL_ACTION;
+  /** Card ID to discard, or null to skip (if optional) */
+  readonly cardId: CardId | null;
+}
+
+// Artifact crystal color choice action (Savage Harvesting - second step for artifacts)
+export const RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION = "RESOLVE_ARTIFACT_CRYSTAL_COLOR" as const;
+export interface ResolveArtifactCrystalColorAction {
+  readonly type: typeof RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION;
+  /** Crystal color to gain */
+  readonly color: BasicManaColor;
+}
+
 // Combat action constants
 export const ENTER_COMBAT_ACTION = "ENTER_COMBAT" as const;
 export const CHALLENGE_RAMPAGING_ACTION = "CHALLENGE_RAMPAGING" as const;
@@ -615,6 +631,10 @@ export type PlayerAction =
   | ResolveDiscardAction
   // Discard for attack (Sword of Justice)
   | ResolveDiscardForAttackAction
+  // Discard for crystal (Savage Harvesting)
+  | ResolveDiscardForCrystalAction
+  // Artifact crystal color choice (Savage Harvesting - for artifacts)
+  | ResolveArtifactCrystalColorAction
   // Combat
   | EnterCombatAction
   | ChallengeRampagingAction
