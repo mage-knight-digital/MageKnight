@@ -145,6 +145,7 @@ export {
   ENEMY_GOLEMS,
   ENEMY_HEROES,
   ENEMY_THUGS_GRAY,
+  ENEMY_SHOCKTROOPS_GRAY,
   GRAY_ENEMIES,
   ENEMY_WOLF, // Test alias
 } from "./gray/index.js";
@@ -165,6 +166,7 @@ export {
   ENEMY_MANTICORE,
   ENEMY_WATER_ELEMENTAL,
   ENEMY_VAMPIRE,
+  ENEMY_PAIN_WRAITH,
   BROWN_ENEMIES,
 } from "./brown/index.js";
 
@@ -214,6 +216,7 @@ export {
   ENEMY_DRAGON_SUMMONER,
   ENEMY_LIGHTNING_DRAGON,
   ENEMY_VAMPIRE_DRAGON,
+  ENEMY_STORM_DRAGON,
   RED_ENEMIES,
 } from "./red/index.js";
 
