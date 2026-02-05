@@ -72,6 +72,9 @@ export const CANCEL_COOPERATIVE_PROPOSAL_COMMAND = "CANCEL_COOPERATIVE_PROPOSAL"
 // Skill usage command
 export const USE_SKILL_COMMAND = "USE_SKILL" as const;
 
+// Banner commands
+export const ASSIGN_BANNER_COMMAND = "ASSIGN_BANNER" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;

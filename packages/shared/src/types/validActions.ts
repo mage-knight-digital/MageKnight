@@ -884,6 +884,21 @@ export interface CooperativeAssaultOptions {
 }
 
 // ============================================================================
+// Banners
+// ============================================================================
+
+/** A banner that can be assigned from hand */
+export interface AssignableBanner {
+  readonly bannerCardId: CardId;
+  readonly targetUnits: readonly string[];
+}
+
+/** Banner assignment options for the current player */
+export interface BannerOptions {
+  readonly assignable: readonly AssignableBanner[];
+}
+
+// ============================================================================
 // Skills
 // ============================================================================
 
@@ -1003,6 +1018,7 @@ export interface NormalTurnState
   readonly challenge: ChallengeOptions | undefined;
   readonly tacticEffects: TacticEffectsOptions | undefined;
   readonly cooperativeAssault: CooperativeAssaultOptions | undefined;
+  readonly banners: BannerOptions | undefined;
 }
 
 /**

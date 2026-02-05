@@ -66,6 +66,14 @@ export interface ClientPlayerUnit {
   readonly unitId: UnitId;
   readonly state: UnitState;
   readonly wounded: boolean;
+  readonly attachedBannerId?: CardId;
+}
+
+// Client-visible banner attachment
+export interface ClientBannerAttachment {
+  readonly bannerId: CardId;
+  readonly unitInstanceId: string;
+  readonly isUsedThisRound: boolean;
 }
 
 // Mana token in play area
@@ -129,6 +137,9 @@ export interface ClientPlayer {
 
   // Units (public)
   readonly units: readonly ClientPlayerUnit[];
+
+  // Banner artifacts attached to units (public)
+  readonly attachedBanners: readonly ClientBannerAttachment[];
 
   // Crystals (public)
   readonly crystals: ClientCrystals;

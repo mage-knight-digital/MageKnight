@@ -87,6 +87,7 @@ export const CATEGORY_INFLUENCE = "influence" as const; // head symbol
 export const CATEGORY_HEALING = "healing" as const; // hand symbol
 export const CATEGORY_SPECIAL = "special" as const; // compass/star symbol
 export const CATEGORY_ACTION = "action" as const; // A symbol (counts as turn action)
+export const CATEGORY_BANNER = "banner" as const; // banner/flag symbol (attachable to units)
 
 export type Category =
   | typeof CATEGORY_MOVEMENT
@@ -94,7 +95,8 @@ export type Category =
   | typeof CATEGORY_INFLUENCE
   | typeof CATEGORY_HEALING
   | typeof CATEGORY_SPECIAL
-  | typeof CATEGORY_ACTION;
+  | typeof CATEGORY_ACTION
+  | typeof CATEGORY_BANNER;
 
 // Legacy aliases for backwards compatibility during migration
 // TODO: Remove these after all card definitions are updated
@@ -110,6 +112,8 @@ export const CARD_CATEGORY_HEALING = CATEGORY_HEALING;
 export const CARD_CATEGORY_SPECIAL = CATEGORY_SPECIAL;
 /** @deprecated Use CATEGORY_ACTION instead */
 export const CARD_CATEGORY_ACTION = CATEGORY_ACTION;
+/** @deprecated Use CATEGORY_BANNER instead */
+export const CARD_CATEGORY_BANNER = CATEGORY_BANNER;
 /** @deprecated Use Category instead */
 export type CardCategory = Category;
 

@@ -35,6 +35,8 @@ import {
 } from "./abilityHelpers.js";
 import { processUnitDamage } from "./unitDamageProcessing.js";
 import { applyHeroWounds } from "./heroDamageProcessing.js";
+import { detachBannerFromUnit } from "../banners/bannerDetachment.js";
+import { BANNER_DETACH_REASON_UNIT_DESTROYED } from "@mage-knight/shared";
 import {
   isVampiricActive,
   getVampiricArmorBonus,
@@ -282,12 +284,23 @@ function processUnitAssignment(
   );
 
   let updatedPlayer: Player;
+  const allEvents: GameEvent[] = [...result.events];
   if (result.destroyed) {
+    const destroyedUnit = player.units[unitIndex]!;
+    // Detach any banner from the destroyed unit
+    const bannerResult = detachBannerFromUnit(
+      player,
+      destroyedUnit.instanceId,
+      BANNER_DETACH_REASON_UNIT_DESTROYED
+    );
     // Remove destroyed unit
     updatedPlayer = {
       ...player,
       units: player.units.filter((_, i) => i !== unitIndex),
+      discard: bannerResult.updatedDiscard,
+      attachedBanners: bannerResult.updatedAttachedBanners,
     };
+    allEvents.push(...bannerResult.events);
   } else {
     // Update unit state
     const updatedUnits = [...player.units];
@@ -304,7 +317,7 @@ function processUnitAssignment(
   return {
     player: updatedPlayer,
     heroWounds,
-    events: result.events,
+    events: allEvents,
   };
 }
 

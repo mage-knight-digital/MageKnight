@@ -303,6 +303,16 @@ export function createEmptyTacticState(): TacticState {
   return {};
 }
 
+/**
+ * Tracks a banner artifact attached to a unit.
+ * Banners provide persistent basic effects while attached.
+ */
+export interface BannerAttachment {
+  readonly bannerId: CardId;
+  readonly unitInstanceId: string;
+  readonly isUsedThisRound: boolean;
+}
+
 export interface Player {
   readonly id: string;
   readonly hero: Hero; // which hero they're playing
@@ -327,6 +337,9 @@ export interface Player {
 
   // Units
   readonly units: readonly PlayerUnit[];
+
+  // Banner artifacts attached to units
+  readonly attachedBanners: readonly BannerAttachment[];
 
   // Skills
   readonly skills: readonly SkillId[];

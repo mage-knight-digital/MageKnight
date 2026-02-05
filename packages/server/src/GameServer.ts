@@ -521,6 +521,7 @@ export class GameServer {
       deck: remainingDeck,
       discard: [],
       units: [],
+      attachedBanners: [],
       skills: [],
       skillCooldowns: {
         usedThisRound: [],
