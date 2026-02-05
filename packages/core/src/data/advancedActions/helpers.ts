@@ -22,7 +22,7 @@
  * ```
  */
 
-import type { CardEffect } from "../../types/cards.js";
+import type { CardEffect, ConditionalEffect } from "../../types/cards.js";
 import {
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
@@ -32,6 +32,7 @@ import {
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
+  EFFECT_CONDITIONAL,
   EFFECT_CHANGE_REPUTATION,
   EFFECT_TAKE_WOUND,
   COMBAT_TYPE_MELEE,
@@ -41,6 +42,7 @@ import {
 } from "../../types/effectTypes.js";
 import type { BasicManaColor, Element } from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE } from "../../types/modifierConstants.js";
+import { CONDITION_IN_COMBAT } from "../../types/conditions.js";
 
 export { discardCost, discardCostByColor } from "../basicActions/helpers.js";
 
@@ -205,6 +207,29 @@ export function changeReputation(amount: number): CardEffect {
  */
 export function takeWound(amount: number): CardEffect {
   return { type: EFFECT_TAKE_WOUND, amount };
+}
+
+/**
+ * Creates a conditional effect that branches on whether the player is in combat.
+ *
+ * @param thenEffect - Effect when in combat
+ * @param elseEffect - Effect when not in combat
+ * @returns A ConditionalEffect with an in-combat condition
+ */
+export function ifInCombat(
+  thenEffect: CardEffect,
+  elseEffect?: CardEffect
+): ConditionalEffect {
+  const base = {
+    type: EFFECT_CONDITIONAL,
+    condition: { type: CONDITION_IN_COMBAT },
+    thenEffect,
+  } as const;
+
+  if (elseEffect !== undefined) {
+    return { ...base, elseEffect };
+  }
+  return base;
 }
 
 // Re-export element constants for convenience

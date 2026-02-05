@@ -17,6 +17,7 @@ export {
 // Movement effects
 export {
   effectHasMove,
+  effectIsMoveOnly,
   effectHasInfluence,
 } from "./movementEffects.js";
 

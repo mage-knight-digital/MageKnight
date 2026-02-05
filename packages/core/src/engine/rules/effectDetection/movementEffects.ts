@@ -8,6 +8,7 @@ import type { CardEffect } from "../../../types/cards.js";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
+  EFFECT_NOOP,
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
@@ -42,6 +43,33 @@ export function effectHasMove(effect: CardEffect): boolean {
             effectHasMove(next)
           )
         : effectHasMove(effect.thenEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect provides ONLY move points (no other combat-relevant effects).
+ * Used to determine if a card's combat-filtered effect needs move to be useful.
+ */
+export function effectIsMoveOnly(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_MOVE:
+      return true;
+
+    case EFFECT_NOOP:
+      return true;
+
+    case EFFECT_COMPOUND:
+      return effect.effects.every(eff => effectIsMoveOnly(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectIsMoveOnly(effect.thenEffect) &&
+        (!effect.elseEffect || effectIsMoveOnly(effect.elseEffect));
+
+    case EFFECT_CHOICE:
+      return effect.options.every(opt => effectIsMoveOnly(opt));
 
     default:
       return false;
