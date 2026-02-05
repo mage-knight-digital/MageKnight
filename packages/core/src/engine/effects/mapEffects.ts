@@ -13,6 +13,7 @@ import type { EffectResolutionResult } from "./types.js";
 import type { HexCoord } from "@mage-knight/shared";
 import {
   hexKey,
+  UNIT_SCOUTS,
   REVEAL_TILE_TYPE_ENEMY,
   REVEAL_TILE_TYPE_GARRISON,
   REVEAL_TILE_TYPE_ALL,
@@ -22,6 +23,7 @@ import { getPlayerContext } from "./effectHelpers.js";
 import { EFFECT_REVEAL_TILES, EFFECT_SCOUT_PEEK } from "../../types/effectTypes.js";
 import { addModifier } from "../modifiers/index.js";
 import { DURATION_TURN, EFFECT_SCOUT_FAME_BONUS, SCOPE_SELF, SOURCE_UNIT } from "../../types/modifierConstants.js";
+import { getEnemyIdFromToken } from "../helpers/enemy/tokenId.js";
 
 /**
  * Calculate the distance between two hexes using axial coordinates.
@@ -150,8 +152,12 @@ export function handleScoutPeek(
 
   const nearbyHexes = getHexesWithinDistance(state, player.position, effect.distance);
 
-  // Find and reveal unrevealed enemies, tracking their IDs
+  // Find and reveal unrevealed enemies, tracking their enemy definition IDs.
+  // We track enemyId (from getEnemyIdFromToken) rather than tokenId because
+  // combat enemies use instanceId (enemy_0, enemy_1) which doesn't match tokenId.
+  // Using enemyId lets us match defeated combat enemies by their definition ID.
   const revealedEnemyIds: string[] = [];
+  let revealedCount = 0;
   const updatedHexes = { ...state.map.hexes };
 
   for (const hex of nearbyHexes) {
@@ -160,7 +166,8 @@ export function handleScoutPeek(
     const key = hexKey(hex.coord);
     const revealedEnemies: HexEnemy[] = hex.enemies.map((e) => {
       if (!e.isRevealed) {
-        revealedEnemyIds.push(e.tokenId);
+        revealedEnemyIds.push(getEnemyIdFromToken(e.tokenId));
+        revealedCount++;
         return { ...e, isRevealed: true };
       }
       return e;
@@ -168,7 +175,7 @@ export function handleScoutPeek(
     updatedHexes[key] = { ...hex, enemies: revealedEnemies };
   }
 
-  if (revealedEnemyIds.length === 0) {
+  if (revealedCount === 0) {
     return {
       state,
       description: "No hidden tokens nearby to scout",
@@ -183,12 +190,12 @@ export function handleScoutPeek(
   // Find unit index for modifier source
   const playerIndex = updatedState.players.findIndex((p) => p.id === player.id);
   const unitIndex = playerIndex >= 0
-    ? updatedState.players[playerIndex]!.units.findIndex((u) => u.unitId === "scouts")
-    : 0;
+    ? updatedState.players[playerIndex]!.units.findIndex((u) => u.unitId === UNIT_SCOUTS)
+    : -1;
 
   // Add ScoutFameBonus modifier to track revealed enemies
   updatedState = addModifier(updatedState, {
-    source: { type: SOURCE_UNIT, unitIndex, playerId: player.id },
+    source: { type: SOURCE_UNIT, unitIndex: Math.max(unitIndex, 0), playerId: player.id },
     duration: DURATION_TURN,
     scope: { type: SCOPE_SELF },
     effect: {
@@ -202,7 +209,7 @@ export function handleScoutPeek(
 
   return {
     state: updatedState,
-    description: `Scouted ${revealedEnemyIds.length} enemy token(s)`,
+    description: `Scouted ${revealedCount} enemy token(s)`,
   };
 }
 

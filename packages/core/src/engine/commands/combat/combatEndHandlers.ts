@@ -92,8 +92,13 @@ export function applyDefeatedEnemyRewards(
     }
   }
 
-  // Resolve Scout fame bonus (from Scout peek ability)
-  const scoutFameResult = resolveScoutFameBonus(updatedState, playerId, defeatedEnemyIds);
+  // Resolve Scout fame bonus (from Scout peek ability).
+  // Scout peek tracks enemyIds (definition IDs like "guardsmen") not instanceIds
+  // (like "enemy_0"), so we extract enemyId from defeated combat enemies.
+  const defeatedEnemyDefinitionIds = damageResult.enemies
+    .filter((e) => e.isDefeated)
+    .map((e) => e.enemyId as string);
+  const scoutFameResult = resolveScoutFameBonus(updatedState, playerId, defeatedEnemyDefinitionIds);
   if (scoutFameResult.fameToGain > 0) {
     updatedState = scoutFameResult.state;
     updatedState = applyFameToPlayer(updatedState, playerId, scoutFameResult.fameToGain);

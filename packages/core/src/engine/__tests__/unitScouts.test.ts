@@ -236,13 +236,14 @@ describe("Scouts Unit", () => {
       });
 
       // Create map with unrevealed enemies within 3 hexes
+      // Token IDs use "enemyId_counter" format (e.g., "guardsmen_1")
       const hexes: Record<string, HexState> = {
         [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS), // Player here
         [hexKey({ q: 1, r: 0 })]: createHexWithEnemies(1, 0, [
-          { tokenId: "token_1", color: "green", isRevealed: false },
+          { tokenId: "guardsmen_1", color: "green", isRevealed: false },
         ]),
         [hexKey({ q: 2, r: 0 })]: createHexWithEnemies(2, 0, [
-          { tokenId: "token_2", color: "red", isRevealed: false },
+          { tokenId: "golems_1", color: "red", isRevealed: false },
         ]),
       };
 
@@ -283,7 +284,7 @@ describe("Scouts Unit", () => {
         [hexKey({ q: 2, r: 0 })]: createTestHex(2, 0, TERRAIN_PLAINS),
         [hexKey({ q: 3, r: 0 })]: createTestHex(3, 0, TERRAIN_PLAINS),
         [hexKey({ q: 4, r: 0 })]: createHexWithEnemies(4, 0, [
-          { tokenId: "token_far", color: "green", isRevealed: false },
+          { tokenId: "guardsmen_99", color: "green", isRevealed: false },
         ]),
       };
 
@@ -314,7 +315,7 @@ describe("Scouts Unit", () => {
       const hexes: Record<string, HexState> = {
         [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS),
         [hexKey({ q: 1, r: 0 })]: createHexWithEnemies(1, 0, [
-          { tokenId: "token_1", color: "green", isRevealed: true }, // Already revealed
+          { tokenId: "guardsmen_1", color: "green", isRevealed: true }, // Already revealed
         ]),
       };
 
@@ -344,7 +345,7 @@ describe("Scouts Unit", () => {
       const hexes: Record<string, HexState> = {
         [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS),
         [hexKey({ q: 1, r: 0 })]: createHexWithEnemies(1, 0, [
-          { tokenId: "token_1", color: "green", isRevealed: false },
+          { tokenId: "guardsmen_1", color: "green", isRevealed: false },
         ]),
       };
 
@@ -360,13 +361,14 @@ describe("Scouts Unit", () => {
         abilityIndex: 1, // Scout peek
       });
 
-      // Should have a ScoutFameBonus modifier
+      // Should have a ScoutFameBonus modifier tracking the enemyId (not tokenId)
       const scoutModifier = result.state.activeModifiers.find(
         (m) => m.effect.type === EFFECT_SCOUT_FAME_BONUS
       );
       expect(scoutModifier).toBeDefined();
       if (scoutModifier?.effect.type === EFFECT_SCOUT_FAME_BONUS) {
-        expect(scoutModifier.effect.revealedEnemyIds).toContain("token_1");
+        // getEnemyIdFromToken("guardsmen_1") -> "guardsmen"
+        expect(scoutModifier.effect.revealedEnemyIds).toContain("guardsmen");
         expect(scoutModifier.effect.fame).toBe(1);
       }
     });
@@ -396,7 +398,9 @@ describe("Scouts Unit", () => {
 
   describe("Scout Fame Bonus Tracking", () => {
     it("should grant +1 fame when a scouted enemy is defeated", () => {
-      // Simulate having a ScoutFameBonus modifier with revealed enemies
+      // Simulate having a ScoutFameBonus modifier with revealed enemies.
+      // The modifier tracks enemyId (definition ID like "guardsmen"),
+      // and combat end passes defeated CombatEnemy.enemyId values.
       const baseState = createTestGameState();
 
       const stateWithModifier: typeof baseState = {
@@ -409,7 +413,7 @@ describe("Scouts Unit", () => {
             scope: { type: "self" as const },
             effect: {
               type: EFFECT_SCOUT_FAME_BONUS,
-              revealedEnemyIds: ["enemy_abc"],
+              revealedEnemyIds: [ENEMY_GUARDSMEN],
               fame: 1,
             },
             createdAtRound: 1,
@@ -421,7 +425,7 @@ describe("Scouts Unit", () => {
       const result = resolveScoutFameBonus(
         stateWithModifier,
         "player1",
-        ["enemy_abc"]
+        [ENEMY_GUARDSMEN] // Defeated enemy's definition ID
       );
 
       expect(result.fameToGain).toBe(1);
@@ -445,7 +449,7 @@ describe("Scouts Unit", () => {
             scope: { type: "self" as const },
             effect: {
               type: EFFECT_SCOUT_FAME_BONUS,
-              revealedEnemyIds: ["enemy_abc"],
+              revealedEnemyIds: [ENEMY_GUARDSMEN],
               fame: 1,
             },
             createdAtRound: 1,
@@ -454,11 +458,11 @@ describe("Scouts Unit", () => {
         ],
       };
 
-      // Defeat a different enemy (not in the revealed list)
+      // Defeat a different enemy type (not in the revealed list)
       const result = resolveScoutFameBonus(
         stateWithModifier,
         "player1",
-        ["enemy_xyz"]
+        ["golems"] // Different enemy type
       );
 
       expect(result.fameToGain).toBe(0);
@@ -482,7 +486,7 @@ describe("Scouts Unit", () => {
             scope: { type: "self" as const },
             effect: {
               type: EFFECT_SCOUT_FAME_BONUS,
-              revealedEnemyIds: ["enemy_a", "enemy_b", "enemy_c"],
+              revealedEnemyIds: [ENEMY_GUARDSMEN, "golems", "diggers"],
               fame: 1,
             },
             createdAtRound: 1,
@@ -491,11 +495,11 @@ describe("Scouts Unit", () => {
         ],
       };
 
-      // Defeat 2 of the 3 scouted enemies
+      // Defeat 2 of the 3 scouted enemy types
       const result = resolveScoutFameBonus(
         stateWithModifier,
         "player1",
-        ["enemy_a", "enemy_c"]
+        [ENEMY_GUARDSMEN, "diggers"]
       );
 
       expect(result.fameToGain).toBe(2);
