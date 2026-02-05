@@ -18,6 +18,7 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { GameEvent, CardId, SkillId } from "@mage-knight/shared";
 import { SKILL_GAINED, ADVANCED_ACTION_GAINED } from "@mage-knight/shared";
+import { getEndTurnDrawLimit } from "../helpers/handLimitHelpers.js";
 
 export const CHOOSE_LEVEL_UP_REWARDS_COMMAND = "CHOOSE_LEVEL_UP_REWARDS" as const;
 
@@ -109,11 +110,27 @@ export function createChooseLevelUpRewardsCommand(
       }
 
       // Update player: add skill, add AA to top of deck, remove pending reward
+      const currentDeck = player.deck ?? [];
+      let deckWithAA = [advancedActionId, ...currentDeck];
+      let handAfterDraw = [...player.hand];
+
+      // Draw cards up to hand limit now that AA is on the deck
+      const effectiveLimit = getEndTurnDrawLimit(state, player.id, handAfterDraw.length);
+      const cardsToDraw = Math.max(0, effectiveLimit - handAfterDraw.length);
+
+      for (let i = 0; i < cardsToDraw && deckWithAA.length > 0; i++) {
+        const drawnCard = deckWithAA.shift();
+        if (drawnCard) {
+          handAfterDraw.push(drawnCard);
+        }
+      }
+
       const updatedPlayer: Player = {
         ...player,
         skills: [...player.skills, skillChoice.skillId],
-        // AA goes to top of deck (will be drawn next round)
-        deck: [advancedActionId, ...player.deck],
+        // AA goes to top of deck, then draw up to hand limit
+        deck: deckWithAA,
+        hand: handAfterDraw,
         pendingLevelUpRewards: player.pendingLevelUpRewards.filter(
           (r) => r.level !== params.level
         ),

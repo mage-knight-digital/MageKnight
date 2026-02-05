@@ -126,12 +126,34 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const ringFameResult = calculateRingFameBonus(state, playerWithCrystal);
       const playerWithRingFame = ringFameResult.player;
 
+      // Process pending level-ups BEFORE card flow so we know if we should draw
+      const playerForLevelUpCheck = playerWithRingFame;
+      const levelUpResult = playerForLevelUpCheck.pendingLevelUps.length > 0
+        ? processLevelUps(playerForLevelUpCheck, state.rng)
+        : { player: playerForLevelUpCheck, events: [], rng: state.rng };
+
+      const playerAfterLevelUp = levelUpResult.player;
+      const hasPendingEvenLevelReward = playerAfterLevelUp.pendingLevelUpRewards.length > 0;
+
       // Process card flow (play area to discard, draw cards)
+      // Skip drawing if player has pending level-up rewards - they'll draw after selecting
       const playAreaCount = getPlayAreaCardCount(currentPlayer);
-      const cardFlow = processCardFlow(state, currentPlayer);
+      let cardFlow: ReturnType<typeof processCardFlow>;
+      if (hasPendingEvenLevelReward) {
+        // Just move play area to discard, don't draw yet
+        cardFlow = {
+          cardsDrawn: 0,
+          hand: currentPlayer.hand,
+          deck: currentPlayer.deck,
+          playArea: [],
+          discard: [...currentPlayer.discard, ...currentPlayer.playArea],
+        };
+      } else {
+        cardFlow = processCardFlow(state, currentPlayer);
+      }
 
       // Reset player state
-      const resetPlayer = createResetPlayer(playerWithRingFame, cardFlow);
+      const resetPlayer = createResetPlayer(playerAfterLevelUp, cardFlow);
 
       // Update players array
       const updatedPlayers: Player[] = [...state.players];
@@ -194,28 +216,14 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
           cardsDrawn: cardFlow.cardsDrawn,
         },
         ...(gladeManaEvent ? [gladeManaEvent] : []),
+        ...levelUpResult.events,
       ];
 
-      // Process pending level ups
-      const playerForLevelUp = newState.players.find(
-        (p) => p.id === params.playerId
-      );
-      if (playerForLevelUp && playerForLevelUp.pendingLevelUps.length > 0) {
-        const levelUpResult = processLevelUps(playerForLevelUp, newState.rng);
-
-        const playerIdx = newState.players.findIndex(
-          (p) => p.id === params.playerId
-        );
-        const playersWithLevelUp: Player[] = [...newState.players];
-        playersWithLevelUp[playerIdx] = levelUpResult.player;
-        newState = {
-          ...newState,
-          players: playersWithLevelUp,
-          rng: levelUpResult.rng,
-        };
-
-        events.push(...levelUpResult.events);
-      }
+      // Update state with level-up result (already processed above)
+      newState = {
+        ...newState,
+        rng: levelUpResult.rng,
+      };
 
       // Trigger game end if scenario final turns complete
       if (nextPlayerResult.shouldTriggerGameEnd) {

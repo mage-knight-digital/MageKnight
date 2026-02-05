@@ -169,8 +169,8 @@ describe("Spell Purchase and Advanced Action Learning", () => {
           cardId: CARD_FIREBALL,
         });
 
-        // Spell should be in discard
-        expect(result.state.players[0].discard).toContain(CARD_FIREBALL);
+        // Spell should be on top of deed deck (per game rules: "put on top of their Deed deck")
+        expect(result.state.players[0].deck[0]).toBe(CARD_FIREBALL);
 
         // Influence should be consumed
         expect(result.state.players[0].influencePoints).toBe(0);
@@ -211,8 +211,8 @@ describe("Spell Purchase and Advanced Action Learning", () => {
           cardId: CARD_FIREBALL,
         });
 
-        // Spell should be in discard
-        expect(result.state.players[0].discard).toContain(CARD_FIREBALL);
+        // Spell should be on top of deed deck
+        expect(result.state.players[0].deck[0]).toBe(CARD_FIREBALL);
 
         // Influence should be consumed (10 - 7 = 3)
         expect(result.state.players[0].influencePoints).toBe(3);
@@ -275,7 +275,7 @@ describe("Spell Purchase and Advanced Action Learning", () => {
         });
 
         // Should not buy the spell
-        expect(result.state.players[0].discard).not.toContain(CARD_FIREBALL);
+        expect(result.state.players[0].deck).not.toContain(CARD_FIREBALL);
 
         // Check for invalid action
         const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
@@ -481,7 +481,7 @@ describe("Spell Purchase and Advanced Action Learning", () => {
         });
 
         // Should not buy the spell
-        expect(result.state.players[0].discard).not.toContain(CARD_FIREBALL);
+        expect(result.state.players[0].deck).not.toContain(CARD_FIREBALL);
 
         // Influence should not be consumed
         expect(result.state.players[0].influencePoints).toBe(7);
@@ -520,8 +520,8 @@ describe("Spell Purchase and Advanced Action Learning", () => {
           fromMonastery: true,
         });
 
-        // Advanced action should be in discard
-        expect(result.state.players[0].discard).toContain(CARD_BLOOD_RAGE);
+        // Advanced action should be on top of deed deck (per game rules: "put on top of their Deed deck")
+        expect(result.state.players[0].deck[0]).toBe(CARD_BLOOD_RAGE);
 
         // Influence should be consumed
         expect(result.state.players[0].influencePoints).toBe(0);
@@ -694,8 +694,8 @@ describe("Spell Purchase and Advanced Action Learning", () => {
           fromMonastery: false,
         });
 
-        // Advanced action should be in discard
-        expect(result.state.players[0].discard).toContain(CARD_FIRE_BOLT);
+        // Advanced action should be on top of deed deck
+        expect(result.state.players[0].deck[0]).toBe(CARD_FIRE_BOLT);
 
         // Pending reward should be consumed
         expect(result.state.players[0].pendingRewards).toHaveLength(0);
