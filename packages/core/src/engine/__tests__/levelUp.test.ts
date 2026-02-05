@@ -506,10 +506,10 @@ describe("Choose level up rewards", () => {
     const result = command.execute(state);
 
     const updatedPlayer = result.state.players.find((p) => p.id === "player1");
-    // AA should be at top of deck (first position)
-    expect(updatedPlayer?.deck[0]).toBe(CARD_BLOOD_RAGE);
-    // Existing card should still be there
-    expect(updatedPlayer?.deck).toContain("existing_card" as CardId);
+    // AA should be drawn into hand after selection (async flow: place on deck, then draw up to limit)
+    expect(updatedPlayer?.hand).toContain(CARD_BLOOD_RAGE);
+    // Existing card from deck should still be in hand or deck
+    expect(updatedPlayer?.hand.concat(updatedPlayer?.deck ?? [])).toContain("existing_card" as CardId);
   });
 
   it("should remove selected AA from offer", () => {
@@ -826,5 +826,77 @@ describe("Choose level up rewards", () => {
     expect(result.state.offers.advancedActions.cards.length).toBe(2);
     // Deck should be empty now
     expect(result.state.decks.advancedActions.length).toBe(0);
+  });
+
+  describe("Integration: Level-up AA during end-of-turn", () => {
+    it("should place level-up AA on top of deck after end-turn and selection", () => {
+      // Create player who will level up to level 2 at end of turn
+      const player = createTestPlayer({
+        id: "player1",
+        level: 1,
+        pendingLevelUps: [2], // Will level up to 2
+        deck: ["existing_card" as CardId],
+        remainingHeroSkills: [
+          SKILL_ARYTHEA_DARK_PATHS,
+          SKILL_ARYTHEA_BURNING_POWER,
+          SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
+        ],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        turnOrder: ["player1"],
+        offers: {
+          units: [],
+          advancedActions: { cards: [CARD_BLOOD_RAGE, CARD_INTIMIDATE] },
+          spells: { cards: [] },
+          commonSkills: [],
+          monasteryAdvancedActions: [],
+        },
+      });
+
+      // Step 1: Execute end-turn (triggers level-up processing)
+      const endTurnCommand = createEndTurnCommand({ playerId: "player1" });
+      const endTurnResult = endTurnCommand.execute(state);
+
+      // Verify player is now level 2
+      const leveledUpPlayer = endTurnResult.state.players[0];
+      expect(leveledUpPlayer.level).toBe(2);
+
+      // Verify pending level-up rewards are created
+      expect(leveledUpPlayer.pendingLevelUpRewards).toHaveLength(1);
+      expect(leveledUpPlayer.pendingLevelUpRewards[0]?.level).toBe(2);
+
+      // Step 2: Player selects level-up reward (AA choice)
+      const drawnSkills = leveledUpPlayer.pendingLevelUpRewards[0]?.drawnSkills ?? [];
+      if (drawnSkills.length === 0) {
+        throw new Error("No drawn skills in pending reward");
+      }
+
+      const chooseRewardCommand = createChooseLevelUpRewardsCommand({
+        playerId: "player1",
+        level: 2,
+        skillChoice: {
+          fromCommonPool: false,
+          skillId: drawnSkills[0]!,
+        },
+        advancedActionId: CARD_BLOOD_RAGE,
+      });
+
+      const chooseRewardResult = chooseRewardCommand.execute(endTurnResult.state);
+
+      // Verify AA is in hand after selection and draw (async flow: placed on deck, then drawn up to hand limit)
+      const finalPlayer = chooseRewardResult.state.players[0];
+      expect(finalPlayer.hand).toContain(CARD_BLOOD_RAGE);
+
+      // Verify pending rewards are cleared
+      expect(finalPlayer.pendingLevelUpRewards).toHaveLength(0);
+
+      // Verify ADVANCED_ACTION_GAINED event
+      const aaGainedEvent = chooseRewardResult.events.find(
+        (e) => e.type === ADVANCED_ACTION_GAINED
+      );
+      expect(aaGainedEvent).toBeDefined();
+    });
   });
 });

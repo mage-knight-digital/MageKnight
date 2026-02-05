@@ -7,7 +7,7 @@
  *
  * Both cases:
  * - Removes the AA from the offer
- * - Adds the AA to the player's discard pile
+ * - Adds the AA to the top of the player's deed deck
  * - Replenishes the offer from the deck (regular offer only)
  */
 
@@ -112,7 +112,7 @@ export function createLearnAdvancedActionCommand(
   // Store previous state for undo
   let previousOffers: GameState["offers"] | null = null;
   let previousDecks: GameState["decks"] | null = null;
-  let previousDiscard: readonly CardId[] = [];
+  let previousDeck: readonly CardId[] = [];
   let previousInfluencePoints = 0;
   let previousPendingRewards: readonly SiteReward[] = [];
   let previousHasTakenAction = false;
@@ -138,15 +138,15 @@ export function createLearnAdvancedActionCommand(
       // Store previous state for undo
       previousOffers = state.offers;
       previousDecks = state.decks;
-      previousDiscard = player.discard;
+      previousDeck = player.deck;
       previousInfluencePoints = player.influencePoints;
       previousPendingRewards = player.pendingRewards;
       previousHasTakenAction = player.hasTakenActionThisTurn;
 
-      // Base update: add AA to discard pile
+      // Base update: add AA to top of deed deck (per game rules)
       let updatedPlayer = {
         ...player,
-        discard: [...player.discard, params.cardId],
+        deck: [params.cardId, ...player.deck],
         hasTakenActionThisTurn: true,
       };
 
@@ -234,7 +234,7 @@ export function createLearnAdvancedActionCommand(
       // Restore player state
       const updatedPlayer = {
         ...player,
-        discard: previousDiscard,
+        deck: previousDeck,
         influencePoints: previousInfluencePoints,
         pendingRewards: previousPendingRewards,
         hasTakenActionThisTurn: previousHasTakenAction,

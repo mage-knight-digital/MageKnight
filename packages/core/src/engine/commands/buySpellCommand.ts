@@ -4,7 +4,7 @@
  * Handles purchasing a spell from the spell offer at a conquered Mage Tower:
  * - Costs 7 influence points
  * - Removes the spell from the offer
- * - Adds the spell to the player's discard pile
+ * - Adds the spell to the top of the player's deed deck
  * - Replenishes the offer from the spell deck
  */
 
@@ -73,7 +73,7 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
   // Store previous state for undo
   let previousOffers: GameState["offers"] | null = null;
   let previousDecks: GameState["decks"] | null = null;
-  let previousDiscard: readonly CardId[] = [];
+  let previousDeck: readonly CardId[] = [];
   let previousInfluencePoints = 0;
   let previousHasTakenAction = false;
 
@@ -98,15 +98,15 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
       // Store previous state for undo
       previousOffers = state.offers;
       previousDecks = state.decks;
-      previousDiscard = player.discard;
+      previousDeck = player.deck;
       previousInfluencePoints = player.influencePoints;
       previousHasTakenAction = player.hasTakenActionThisTurn;
 
-      // Consume influence and add spell to discard pile
+      // Consume influence and add spell to top of deed deck (per game rules)
       const updatedPlayer = {
         ...player,
         influencePoints: player.influencePoints - SPELL_PURCHASE_COST,
-        discard: [...player.discard, params.cardId],
+        deck: [params.cardId, ...player.deck],
         hasTakenActionThisTurn: true,
       };
 
@@ -169,7 +169,7 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
       // Restore player state
       const updatedPlayer = {
         ...player,
-        discard: previousDiscard,
+        deck: previousDeck,
         influencePoints: previousInfluencePoints,
         hasTakenActionThisTurn: previousHasTakenAction,
       };
