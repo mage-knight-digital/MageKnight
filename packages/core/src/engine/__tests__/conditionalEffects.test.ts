@@ -16,6 +16,7 @@ import {
   CONDITION_MANA_USED_THIS_TURN,
   CONDITION_HAS_WOUNDS_IN_HAND,
   CONDITION_IS_NIGHT_OR_UNDERGROUND,
+  CONDITION_IN_INTERACTION,
 } from "../../types/conditions.js";
 import {
   COMBAT_PHASE_ATTACK,
@@ -48,10 +49,14 @@ import {
   ifEnemyDefeated,
   ifManaUsed,
   ifHasWoundsInHand,
+  ifInInteraction,
+  fame,
 } from "../../data/effectHelpers.js";
 import { ENEMY_PROWLERS } from "@mage-knight/shared";
 import { daySharpshooting } from "../../data/skills/norowas/daySharpshooting.js";
 import { brightNegotiation } from "../../data/skills/norowas/brightNegotiation.js";
+import { SiteType } from "../../types/index.js";
+import type { Site } from "../../types/map.js";
 
 describe("Conditional Effects", () => {
   describe("evaluateCondition", () => {
@@ -346,6 +351,74 @@ describe("Conditional Effects", () => {
         const condition = { type: CONDITION_IS_NIGHT_OR_UNDERGROUND } as const;
 
         expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+    });
+
+    describe("IN_INTERACTION condition", () => {
+      it("should return false when player has no position", () => {
+        const state = createTestGameState();
+        const condition = { type: CONDITION_IN_INTERACTION } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return false when not at a site", () => {
+        const player = createTestPlayer({ position: { q: 0, r: 0 } });
+        const hex = createTestHex(0, 0, TERRAIN_FOREST, null);
+        const state = createTestGameState({
+          players: [player],
+          hexes: { [hexKey({ q: 0, r: 0 })]: hex },
+        });
+        const condition = { type: CONDITION_IN_INTERACTION } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+
+      it("should return true when at inhabited village", () => {
+        const player = createTestPlayer({ position: { q: 0, r: 0 } });
+        const villageSite: Site = {
+          type: SiteType.Village,
+          owner: null,
+          isConquered: false,
+          isBurned: false,
+        };
+        const hex = createTestHex(0, 0, TERRAIN_FOREST, villageSite);
+        const state = createTestGameState({
+          players: [player],
+          map: {
+            hexes: { [hexKey({ q: 0, r: 0 })]: hex },
+          } as any,
+        });
+        const condition = { type: CONDITION_IN_INTERACTION } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(true);
+      });
+
+      it("should return false when at non-inhabited site (MagicalGlade)", () => {
+        const player = createTestPlayer({ position: { q: 0, r: 0 } });
+        const glade: Site = {
+          type: SiteType.MagicalGlade,
+          owner: null,
+          isConquered: false,
+          isBurned: false,
+        };
+        const hex = createTestHex(0, 0, TERRAIN_FOREST, glade);
+        const state = createTestGameState({
+          players: [player],
+          hexes: { [hexKey({ q: 0, r: 0 })]: hex },
+        });
+        const condition = { type: CONDITION_IN_INTERACTION } as const;
+
+        expect(evaluateCondition(state, "player1", condition)).toBe(false);
+      });
+    });
+
+    describe("ifInInteraction helper", () => {
+      it("should create correct conditional effect structure", () => {
+        const effect = ifInInteraction(fame(1));
+        expect(effect.type).toBe("conditional");
+        expect(effect.condition.type).toBe(CONDITION_IN_INTERACTION);
+        expect(effect.thenEffect).toEqual(fame(1));
       });
     });
 

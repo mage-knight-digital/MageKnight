@@ -20,6 +20,7 @@ export const CONDITION_HAS_WOUNDS_IN_HAND = "has_wounds_in_hand" as const;
 export const CONDITION_NO_UNIT_RECRUITED_THIS_TURN = "no_unit_recruited_this_turn" as const;
 export const CONDITION_LOWEST_FAME = "lowest_fame" as const;
 export const CONDITION_IS_NIGHT_OR_UNDERGROUND = "is_night_or_underground" as const;
+export const CONDITION_IN_INTERACTION = "in_interaction" as const;
 
 // === Condition Interfaces ===
 
@@ -83,6 +84,14 @@ export interface IsNightOrUndergroundCondition {
   readonly type: typeof CONDITION_IS_NIGHT_OR_UNDERGROUND;
 }
 
+/**
+ * True if the player is at an inhabited site where they can interact with locals.
+ * Covers unit recruitment and healing purchases at villages, monasteries, etc.
+ */
+export interface InInteractionCondition {
+  readonly type: typeof CONDITION_IN_INTERACTION;
+}
+
 // === Union Type ===
 
 export type EffectCondition =
@@ -96,4 +105,5 @@ export type EffectCondition =
   | HasWoundsInHandCondition
   | NoUnitRecruitedThisTurnCondition
   | LowestFameCondition
-  | IsNightOrUndergroundCondition;
+  | IsNightOrUndergroundCondition
+  | InInteractionCondition;
