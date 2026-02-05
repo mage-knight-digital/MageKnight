@@ -11,10 +11,13 @@
  * - createEnterSiteCommandFromAction - Enter an adventure site
  * - createResolveGladeWoundCommandFromAction - Resolve Magical Glade wound choice
  * - createResolveDeepMineCommandFromAction - Resolve Deep Mine crystal color choice
+ * - createBurnMonasteryCommandFromAction - Burn a monastery (initiate combat)
+ * - createPlunderVillageCommandFromAction - Plunder a village (lose reputation, draw cards)
+ * - createResolveCrystalJoyReclaimCommandFromAction - Resolve Crystal Joy end-of-turn reclaim
  */
 
 import type { CommandFactory } from "./types.js";
-import type { PlayerAction, GladeWoundChoice, BasicManaColor } from "@mage-knight/shared";
+import type { PlayerAction, GladeWoundChoice, BasicManaColor, CardId } from "@mage-knight/shared";
 import {
   INTERACT_ACTION,
   ENTER_SITE_ACTION,
@@ -22,6 +25,7 @@ import {
   RESOLVE_DEEP_MINE_ACTION,
   BURN_MONASTERY_ACTION,
   PLUNDER_VILLAGE_ACTION,
+  RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
 } from "@mage-knight/shared";
 import { createInteractCommand } from "../interactCommand.js";
 import { createEnterSiteCommand } from "../enterSiteCommand.js";
@@ -29,6 +33,7 @@ import { createResolveGladeWoundCommand } from "../resolveGladeWoundCommand.js";
 import { createResolveDeepMineChoiceCommand } from "../resolveDeepMineChoiceCommand.js";
 import { createBurnMonasteryCommand } from "../burnMonasteryCommand.js";
 import { createPlunderVillageCommand } from "../plunderVillageCommand.js";
+import { createResolveCrystalJoyReclaimCommand } from "../resolveCrystalJoyReclaimCommand.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
@@ -152,4 +157,34 @@ export const createPlunderVillageCommandFromAction: CommandFactory = (
 ) => {
   if (action.type !== PLUNDER_VILLAGE_ACTION) return null;
   return createPlunderVillageCommand({ playerId });
+};
+
+/**
+ * Helper to get crystal joy reclaim card ID from action.
+ */
+function getCrystalJoyReclaimCardFromAction(
+  action: PlayerAction
+): CardId | undefined {
+  if (action.type === RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION && "cardId" in action) {
+    return action.cardId;
+  }
+  return undefined;
+}
+
+/**
+ * Resolve crystal joy reclaim command factory.
+ * Creates a command to resolve the Crystal Joy end-of-turn reclaim ability.
+ */
+export const createResolveCrystalJoyReclaimCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION) return null;
+
+  const cardId = getCrystalJoyReclaimCardFromAction(action);
+  return createResolveCrystalJoyReclaimCommand({
+    playerId,
+    cardId,
+  });
 };

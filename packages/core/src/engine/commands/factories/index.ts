@@ -11,7 +11,7 @@
  * | Combat | `combat.ts` | EnterCombat, EndCombatPhase, DeclareBlock, DeclareAttack, AssignDamage |
  * | Units | `units.ts` | RecruitUnit, ActivateUnit |
  * | Turn | `turn.ts` | EndTurn, Rest, AnnounceEndOfRound |
- * | Sites | `sites.ts` | Interact, EnterSite, ResolveGladeWound, ResolveDeepMine |
+ * | Sites | `sites.ts` | Interact, EnterSite, ResolveGladeWound, ResolveDeepMine, ResolveCrystalJoyReclaim |
  * | Tactics | `tactics.ts` | SelectTactic, ActivateTactic, ResolveTacticDecision, RerollSourceDice |
  * | Offers | `offers.ts` | BuySpell, LearnAdvancedAction, SelectReward |
  *
@@ -54,6 +54,7 @@ import {
   REROLL_SOURCE_DICE_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
+  RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
   CHOOSE_LEVEL_UP_REWARDS_ACTION,
@@ -128,6 +129,7 @@ export {
   createResolveDeepMineCommandFromAction,
   createBurnMonasteryCommandFromAction,
   createPlunderVillageCommandFromAction,
+  createResolveCrystalJoyReclaimCommandFromAction,
 } from "./sites.js";
 
 // Tactics factories
@@ -213,6 +215,7 @@ import {
   createResolveDeepMineCommandFromAction,
   createBurnMonasteryCommandFromAction,
   createPlunderVillageCommandFromAction,
+  createResolveCrystalJoyReclaimCommandFromAction,
 } from "./sites.js";
 
 import {
@@ -286,6 +289,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [REROLL_SOURCE_DICE_ACTION]: createRerollSourceDiceCommandFromAction,
   [RESOLVE_GLADE_WOUND_ACTION]: createResolveGladeWoundCommandFromAction,
   [RESOLVE_DEEP_MINE_ACTION]: createResolveDeepMineCommandFromAction,
+  [RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION]: createResolveCrystalJoyReclaimCommandFromAction,
   [BUY_SPELL_ACTION]: createBuySpellCommandFromAction,
   [LEARN_ADVANCED_ACTION_ACTION]: createLearnAdvancedActionCommandFromAction,
   [CHOOSE_LEVEL_UP_REWARDS_ACTION]: createChooseLevelUpRewardsCommandFromAction,
