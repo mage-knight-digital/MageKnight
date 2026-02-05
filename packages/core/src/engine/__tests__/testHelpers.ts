@@ -389,5 +389,6 @@ export function createUnitCombatState(
     paidHeroesAssaultInfluence: false,
     vampiricArmorBonus: {},
     paidThugsDamageInfluence: {},
+    damageRedirects: {},
   };
 }

@@ -86,6 +86,7 @@ function createIllusionistsCombatState(
     defendBonuses: {},
     paidHeroesAssaultInfluence: false,
     vampiricArmorBonus: {},
+    damageRedirects: {},
   };
 }
 

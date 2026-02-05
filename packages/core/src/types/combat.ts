@@ -182,6 +182,14 @@ export interface CombatState {
    * Payment is per-unit, per-combat. Resets when combat ends.
    */
   readonly paidThugsDamageInfluence: ThugsDamagePaymentMap;
+  /**
+   * Damage redirects from Shocktroops' Taunt ability.
+   * Maps enemy instance ID → unit instance ID that must receive damage first.
+   * When present, damage from that enemy MUST be assigned to the specified unit
+   * before any other target (including hero), overriding Assassination.
+   * If the unit is wounded/destroyed, the redirect becomes inactive.
+   */
+  readonly damageRedirects: DamageRedirectMap;
 }
 
 /**
@@ -227,6 +235,15 @@ export type VampiricArmorBonusMap = {
  */
 export type ThugsDamagePaymentMap = {
   readonly [unitInstanceId: string]: boolean;
+};
+
+/**
+ * Map of enemy instance IDs to the unit instance ID that must receive damage first.
+ * Set by Shocktroops' Taunt ability. Overrides Assassination.
+ * If the redirect target unit is wounded, the redirect is inactive.
+ */
+export type DamageRedirectMap = {
+  readonly [enemyInstanceId: string]: string;
 };
 
 // Options for special combat rules
@@ -295,6 +312,7 @@ export function createCombatState(
     paidHeroesAssaultInfluence: false,
     vampiricArmorBonus: {},
     paidThugsDamageInfluence: {},
+    damageRedirects: {},
   };
 
   // Only include enemyAssignments if provided (avoids exactOptionalPropertyTypes issues)

@@ -141,3 +141,17 @@ export const RULE_MOVE_CARDS_IN_COMBAT = "move_cards_in_combat" as const;
 // Grants +1 fame when defeating an enemy that was revealed by Scout ability this turn
 // Tracks which enemies were revealed via Scout peek
 export const EFFECT_SCOUT_FAME_BONUS = "scout_fame_bonus" as const;
+
+// === DamageRedirectModifier ===
+// Forces damage from a specific enemy to be assigned to a specific unit first.
+// Overrides Assassination ability. If the unit is wounded/destroyed before
+// damage assignment, the redirect is inactive and damage can go anywhere.
+// Used by Shocktroops' Taunt ability.
+export const EFFECT_DAMAGE_REDIRECT = "damage_redirect" as const;
+
+// === UnitAttackBonusModifier ===
+// Grants +N to all attacks (melee, ranged, siege) for units.
+// Scoped to SCOPE_OTHER_UNITS to exclude the unit that granted the bonus.
+// Used by Shocktroops' Coordinated Fire ability.
+export const EFFECT_UNIT_ATTACK_BONUS = "unit_attack_bonus" as const;
+

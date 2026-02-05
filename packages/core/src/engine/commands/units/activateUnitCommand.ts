@@ -21,7 +21,11 @@ import {
   UNIT_STATE_READY,
   ELEMENT_PHYSICAL,
   UNIT_ABILITY_EFFECT,
+  UNIT_ABILITY_ATTACK,
+  UNIT_ABILITY_RANGED_ATTACK,
+  UNIT_ABILITY_SIEGE_ATTACK,
 } from "@mage-knight/shared";
+import { getUnitAttackBonus } from "../../modifiers/index.js";
 import {
   addAbilityToAccumulator,
   removeAbilityFromAccumulator,
@@ -34,8 +38,8 @@ import {
 } from "./helpers/manaConsumptionHelpers.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
 import { resolveEffect, reverseEffect } from "../../effects/index.js";
-import { EFFECT_COMPOUND } from "../../../types/effectTypes.js";
-import type { CardEffect, CompoundEffect } from "../../../types/cards.js";
+import { EFFECT_COMPOUND, EFFECT_SELECT_COMBAT_ENEMY } from "../../../types/effectTypes.js";
+import type { CardEffect, CompoundEffect, SelectCombatEnemyEffect } from "../../../types/cards.js";
 import type { Player } from "../../../types/player.js";
 import {
   applyChoiceOutcome,
@@ -149,10 +153,14 @@ export function createActivateUnitCommand(
         wasEffectBasedAbility = true;
 
         // Look up the effect from the registry
-        const effect = getUnitAbilityEffect(ability.effectId);
+        let effect = getUnitAbilityEffect(ability.effectId);
         if (!effect) {
           throw new Error(`Effect not found for effectId: ${ability.effectId}`);
         }
+
+        // Replace __ACTIVATING_UNIT__ placeholder with actual unit instance ID
+        // Used by Shocktroops' Taunt to set damage redirect target
+        effect = replaceActivatingUnitPlaceholder(effect, params.unitInstanceId);
 
         // Build intermediate state with unit marked as spent
         const playerWithSpentUnit: Player = {
@@ -309,7 +317,16 @@ export function createActivateUnitCommand(
       // ============================================================
 
       // Get the ability value (default to 0 for abilities without values)
-      const abilityValue = ability.value ?? 0;
+      // Apply unit attack bonus from Coordinated Fire for attack abilities
+      let abilityValue = ability.value ?? 0;
+      const isAttackAbility =
+        ability.type === UNIT_ABILITY_ATTACK ||
+        ability.type === UNIT_ABILITY_RANGED_ATTACK ||
+        ability.type === UNIT_ABILITY_SIEGE_ATTACK;
+      if (isAttackAbility && abilityValue > 0) {
+        const attackBonus = getUnitAttackBonus(state, params.playerId);
+        abilityValue += attackBonus;
+      }
 
       // Update combat accumulator (for combat abilities)
       const updatedAccumulator = addAbilityToAccumulator(
@@ -503,4 +520,39 @@ export function createActivateUnitCommand(
       };
     },
   };
+}
+
+/**
+ * Replace __ACTIVATING_UNIT__ placeholder in effect definitions with actual unit instance ID.
+ * Used by Shocktroops' Taunt ability to set damage redirect target.
+ *
+ * Only replaces in SelectCombatEnemyEffect.template.setDamageRedirectFromUnit
+ * and CompoundEffect sub-effects (for compound abilities containing targeting).
+ */
+function replaceActivatingUnitPlaceholder(effect: CardEffect, unitInstanceId: string): CardEffect {
+  if (effect.type === EFFECT_SELECT_COMBAT_ENEMY) {
+    const selectEffect = effect as SelectCombatEnemyEffect;
+    if (selectEffect.template.setDamageRedirectFromUnit === "__ACTIVATING_UNIT__") {
+      return {
+        ...selectEffect,
+        template: {
+          ...selectEffect.template,
+          setDamageRedirectFromUnit: unitInstanceId,
+        },
+      };
+    }
+    return effect;
+  }
+
+  if (effect.type === EFFECT_COMPOUND) {
+    const compoundEffect = effect as CompoundEffect;
+    const replaced = compoundEffect.effects.map(e => replaceActivatingUnitPlaceholder(e, unitInstanceId));
+    // Only create a new object if something actually changed
+    if (replaced.some((e, i) => e !== compoundEffect.effects[i])) {
+      return { ...compoundEffect, effects: replaced };
+    }
+    return effect;
+  }
+
+  return effect;
 }

@@ -81,6 +81,7 @@ function createSorcerersCombatState(
     defendBonuses: {},
     paidHeroesAssaultInfluence: false,
     vampiricArmorBonus: {},
+    damageRedirects: {},
   };
 }
 

@@ -32,6 +32,7 @@ export {
   validateAssignDamageTargetEnemy,
   validateAttackTargets,
   validateAssassinationTarget,
+  validateDamageRedirectTarget,
 } from "./targetValidators.js";
 
 // Fortification validators

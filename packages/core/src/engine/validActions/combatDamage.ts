@@ -21,7 +21,7 @@ import {
   doesEnemyAttackThisCombat,
 } from "../modifiers/index.js";
 import { isAttackResisted } from "../combat/elementalCalc.js";
-import { isAssassinationActive } from "../rules/combatTargeting.js";
+import { isAssassinationActive, getDamageRedirectUnit } from "../rules/combatTargeting.js";
 import {
   getEnemyAttack,
   getEnemyAttacks,
@@ -145,6 +145,11 @@ export function getDamageAssignmentOptions(
       ? isAssassinationActive(state, currentPlayer.id, enemy)
       : false;
 
+    // Check for damage redirect (Taunt)
+    const redirectUnitId = currentPlayer
+      ? getDamageRedirectUnit(state, currentPlayer.id, enemy.instanceId)
+      : undefined;
+
     const attacks = getEnemyAttacks(enemy);
     const attackCount = attacks.length;
 
@@ -171,17 +176,22 @@ export function getDamageAssignmentOptions(
       const totalDamage = isBrutal ? rawAttack * 2 : rawAttack;
       const attackElement = attack.element;
 
-      // Compute available unit targets (empty if Assassination is active)
-      const availableUnits = assassinationActive
-        ? []
-        : currentPlayer
-          ? computeAvailableUnitTargets(
-              currentPlayer,
-              attackElement,
-              combat.unitsAllowed,
-              combat.paidThugsDamageInfluence
-            )
+      // Compute available unit targets
+      // - Assassination: no units allowed (hero only)
+      // - Damage redirect: only the redirect unit allowed
+      // - Normal: all available units
+      let availableUnits: readonly UnitDamageTarget[];
+      if (assassinationActive) {
+        availableUnits = [];
+      } else if (redirectUnitId && currentPlayer) {
+        // Only the redirect unit is a valid target
+        const allUnits = computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed, combat.paidThugsDamageInfluence);
+        availableUnits = allUnits.filter(u => u.unitInstanceId === redirectUnitId);
+      } else {
+        availableUnits = currentPlayer
+          ? computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed, combat.paidThugsDamageInfluence)
           : [];
+      }
 
       // Build the base option
       const baseOption = {
@@ -193,6 +203,7 @@ export function getDamageAssignmentOptions(
         totalDamage,
         unassignedDamage: totalDamage, // Deprecated but kept for backwards compatibility
         availableUnits,
+        ...(redirectUnitId ? { damageRedirectOnly: true as const } : {}),
       };
 
       // Only include attackIndex for multi-attack enemies

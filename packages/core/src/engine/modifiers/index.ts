@@ -37,7 +37,7 @@ export {
 } from "./terrain.js";
 
 // Unit effective values
-export { getEffectiveUnitResistances } from "./units.js";
+export { getEffectiveUnitResistances, getUnitAttackBonus } from "./units.js";
 
 // Card values
 export { getEffectiveSidewaysValue, isRuleActive, consumeMovementCardBonus } from "./cardValues.js";

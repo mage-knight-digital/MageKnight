@@ -10,7 +10,15 @@
  * @module data/unitAbilityEffects
  */
 
-import { ABILITY_FORTIFIED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from "@mage-knight/shared";
+import {
+  ABILITY_FORTIFIED,
+  MANA_BLUE,
+  MANA_GREEN,
+  MANA_WHITE,
+  SHOCKTROOPS_COORDINATED_FIRE,
+  SHOCKTROOPS_WEAKEN_ENEMY,
+  SHOCKTROOPS_TAUNT,
+} from "@mage-knight/shared";
 import type { CardEffect } from "../types/cards.js";
 import {
   EFFECT_SELECT_COMBAT_ENEMY,
@@ -35,10 +43,15 @@ import {
   DURATION_TURN,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_ENEMY_SKIP_ATTACK,
+  EFFECT_ENEMY_STAT,
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_RULE_OVERRIDE,
+  EFFECT_UNIT_ATTACK_BONUS,
   ELEMENT_ICE,
+  ENEMY_STAT_ARMOR,
+  ENEMY_STAT_ATTACK,
   RULE_EXTENDED_EXPLORE,
+  SCOPE_ALL_UNITS,
 } from "../types/modifierConstants.js";
 
 // =============================================================================
@@ -382,6 +395,111 @@ const THUGS_INFLUENCE_EFFECT: CardEffect = {
 };
 
 // =============================================================================
+// SHOCKTROOPS EFFECTS
+// =============================================================================
+
+/**
+ * Shocktroops' Ability 1: Coordinated Fire
+ * Ranged Attack 1 + all units get +1 to all their attacks this combat.
+ *
+ * The unit buff uses SCOPE_ALL_UNITS. Since the activating Shocktroops
+ * is already spent after activation, it naturally can't benefit from its
+ * own buff. Multiple Shocktroops stack correctly: second Shocktroops
+ * gets +1 from the first, all other units get +2.
+ */
+const SHOCKTROOPS_COORDINATED_FIRE_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 1,
+      combatType: COMBAT_TYPE_RANGED,
+    },
+    {
+      type: EFFECT_APPLY_MODIFIER,
+      modifier: {
+        type: EFFECT_UNIT_ATTACK_BONUS,
+        amount: 1,
+      },
+      duration: DURATION_COMBAT,
+      scope: { type: SCOPE_ALL_UNITS },
+      description: "All units get +1 to all attacks this combat",
+    },
+  ],
+};
+
+/**
+ * Shocktroops' Ability 2: Weaken Enemy
+ * Target one enemy: reduce its armor by 1 (minimum 1) and one attack by 1 (minimum 0).
+ *
+ * This ability targets a single enemy and applies two stat modifiers.
+ * Blocked by Arcane Immunity (modifiers won't apply to Arcane Immune enemies).
+ * Works in any combat phase (usable in ranged phase despite being defensive).
+ */
+const SHOCKTROOPS_WEAKEN_ENEMY_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  template: {
+    modifiers: [
+      {
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -1,
+          minimum: 1,
+        },
+        duration: DURATION_COMBAT,
+        description: "Reduce enemy armor by 1",
+      },
+      {
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ATTACK,
+          amount: -1,
+          minimum: 0,
+        },
+        duration: DURATION_COMBAT,
+        description: "Reduce enemy attack by 1",
+      },
+    ],
+  },
+};
+
+/**
+ * Shocktroops' Ability 3: Taunt + Reduce Attack
+ * Target one enemy: reduce one attack by 3 (minimum 0).
+ * Any damage from that enemy must be assigned to this unit first,
+ * even if the enemy has Assassination.
+ *
+ * The damage redirect is set via setDamageRedirectFromUnit on the template.
+ * The placeholder "__ACTIVATING_UNIT__" is replaced by the activation command
+ * with the actual unit instance ID at resolution time.
+ *
+ * The attack reduction IS blocked by Arcane Immunity, but the damage redirect
+ * is NOT (it's a defensive ability on the player's side).
+ *
+ * If the Shocktroops unit is wounded before damage assignment, the
+ * redirect is inactive (unit can't absorb damage).
+ */
+const SHOCKTROOPS_TAUNT_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  template: {
+    modifiers: [
+      {
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ATTACK,
+          amount: -3,
+          minimum: 0,
+        },
+        duration: DURATION_COMBAT,
+        description: "Reduce enemy attack by 3",
+      },
+    ],
+    setDamageRedirectFromUnit: "__ACTIVATING_UNIT__",
+  },
+};
+
+// =============================================================================
 // REGISTRY
 // =============================================================================
 
@@ -404,6 +522,9 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK]: UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK_EFFECT,
   [THUGS_ATTACK]: THUGS_ATTACK_EFFECT,
   [THUGS_INFLUENCE]: THUGS_INFLUENCE_EFFECT,
+  [SHOCKTROOPS_COORDINATED_FIRE]: SHOCKTROOPS_COORDINATED_FIRE_EFFECT,
+  [SHOCKTROOPS_WEAKEN_ENEMY]: SHOCKTROOPS_WEAKEN_ENEMY_EFFECT,
+  [SHOCKTROOPS_TAUNT]: SHOCKTROOPS_TAUNT_EFFECT,
 };
 
 /**

@@ -38,7 +38,12 @@ export { UTEM_GUARDSMEN } from "./utemGuardsmen.js";
 export { UTEM_SWORDSMEN } from "./utemSwordsmen.js";
 export { GUARDIAN_GOLEMS } from "./guardianGolems.js";
 export { ILLUSIONISTS } from "./illusionists.js";
-export { SHOCKTROOPS } from "./shocktroops.js";
+export {
+  SHOCKTROOPS,
+  SHOCKTROOPS_COORDINATED_FIRE,
+  SHOCKTROOPS_WEAKEN_ENEMY,
+  SHOCKTROOPS_TAUNT,
+} from "./shocktroops.js";
 export { RED_CAPE_MONKS } from "./redCapeMonks.js";
 export { NORTHERN_MONKS } from "./northernMonks.js";
 export { SAVAGE_MONKS } from "./savageMonks.js";
