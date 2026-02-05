@@ -47,11 +47,37 @@ import type { GameState } from "../../state/GameState.js";
  * (has at least one unrevealed adjacent hex)
  */
 export function isEdgeHex(state: GameState, coord: HexCoord): boolean {
-  for (const dir of HEX_DIRECTIONS) {
-    const adjacent = getNeighbor(coord, dir);
-    const key = hexKey(adjacent);
-    if (!state.map.hexes[key]) {
-      return true; // At least one adjacent hex is unrevealed
+  return isNearEdge(state, coord, 1);
+}
+
+/**
+ * Check if a hex is within the given distance of the edge of the revealed map.
+ * At distance 1, this is equivalent to isEdgeHex (adjacent to unrevealed hex).
+ * At distance 2, the hex can be one hex further from the map edge.
+ */
+export function isNearEdge(state: GameState, coord: HexCoord, maxDistance: number): boolean {
+  if (maxDistance <= 1) {
+    // Optimized path for standard adjacency check
+    for (const dir of HEX_DIRECTIONS) {
+      const adjacent = getNeighbor(coord, dir);
+      const key = hexKey(adjacent);
+      if (!state.map.hexes[key]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // For extended distance, check all hexes within maxDistance
+  // A hex is "near edge" if there exists an unrevealed hex within maxDistance
+  for (let dq = -maxDistance; dq <= maxDistance; dq++) {
+    for (let dr = Math.max(-maxDistance, -dq - maxDistance); dr <= Math.min(maxDistance, -dq + maxDistance); dr++) {
+      if (dq === 0 && dr === 0) continue;
+      const target: HexCoord = { q: coord.q + dq, r: coord.r + dr };
+      const key = hexKey(target);
+      if (!state.map.hexes[key]) {
+        return true;
+      }
     }
   }
   return false;
@@ -137,4 +163,5 @@ export {
   getGatewayHexesForDirection,
   getTileHexes,
   areHexesAdjacent,
+  areHexesWithinDistance,
 } from "./adjacency.js";

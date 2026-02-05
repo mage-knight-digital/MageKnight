@@ -60,6 +60,7 @@ import {
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
+  EFFECT_SCOUT_PEEK,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -672,6 +673,20 @@ export interface ResolveReadyUnitForInfluenceEffect {
   readonly costPerLevel: number;
 }
 
+/**
+ * Scout peek effect (Scouts unit ability).
+ * Reveals face-down enemy tokens within a distance from the player.
+ * Also creates a ScoutFameBonus modifier tracking which enemies were newly revealed,
+ * granting bonus fame when those enemies are defeated this turn.
+ */
+export interface ScoutPeekEffect {
+  readonly type: typeof EFFECT_SCOUT_PEEK;
+  /** How far from the player to reveal (in hex distance) */
+  readonly distance: number;
+  /** Fame bonus per revealed enemy defeated this turn */
+  readonly fame: number;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -718,7 +733,8 @@ export type CardEffect =
   | DiscardForCrystalEffect
   | RecruitDiscountEffect
   | ReadyUnitsForInfluenceEffect
-  | ResolveReadyUnitForInfluenceEffect;
+  | ResolveReadyUnitForInfluenceEffect
+  | ScoutPeekEffect;
 
 // === Card Definition ===
 

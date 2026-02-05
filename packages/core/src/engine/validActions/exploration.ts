@@ -19,6 +19,7 @@ import type { HexDirection, HexCoord } from "@mage-knight/shared";
 import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN_3, MAP_SHAPE_OPEN_4, MAP_SHAPE_OPEN_5, hexKey } from "@mage-knight/shared";
 import {
   isEdgeHex,
+  isNearEdge,
   TILE_PLACEMENT_OFFSETS,
   getExpansionDirections,
 } from "../explore/index.js";
@@ -27,6 +28,8 @@ import { isCoastlineSlot, getColumnRangeForShape } from "../explore/tileGrid.js"
 import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
 import { mustAnnounceEndOfRound } from "./helpers.js";
+import { isRuleActive } from "../modifiers/index.js";
+import { RULE_EXTENDED_EXPLORE } from "../../types/modifierConstants.js";
 
 /** Exploration costs 2 move points from a safe space */
 const EXPLORE_COST = 2;
@@ -82,8 +85,14 @@ export function getValidExploreOptions(
     return undefined;
   }
 
-  // Must be on an edge hex (has at least one unrevealed adjacent hex)
-  if (!isEdgeHex(state, player.position)) {
+  // Determine explore distance (1 = normal adjacency, 2 = extended via Scouts ability)
+  const extendedExplore = isRuleActive(state, player.id, RULE_EXTENDED_EXPLORE);
+  const exploreDistance = extendedExplore ? 2 : 1;
+
+  // Must be near the edge of the revealed map
+  // Standard: must be on an edge hex (adjacent to unrevealed hex)
+  // Extended: can be within 2 hexes of unrevealed hex
+  if (!isNearEdge(state, player.position, exploreDistance)) {
     return undefined;
   }
 
@@ -138,8 +147,9 @@ export function getValidExploreOptions(
         if (existingTile) continue; // Slot already filled
       }
 
-      // NOW check if player is adjacent to where this new tile would be placed
-      if (!canExploreFromPosition(player.position, tileCenter, dir)) {
+      // NOW check if player is close enough to where this new tile would be placed
+      // Standard: must be adjacent (distance 1). Extended: within distance 2.
+      if (!canExploreFromPosition(player.position, tileCenter, dir, exploreDistance)) {
         continue;
       }
 

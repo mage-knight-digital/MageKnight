@@ -17,20 +17,26 @@ import {
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
   EFFECT_GAIN_MANA,
+  EFFECT_GAIN_MOVE,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
   EFFECT_READY_UNIT,
+  EFFECT_APPLY_MODIFIER,
+  EFFECT_SCOUT_PEEK,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../types/effectTypes.js";
 import {
   DURATION_COMBAT,
+  DURATION_TURN,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_REMOVE_RESISTANCES,
+  EFFECT_RULE_OVERRIDE,
   ELEMENT_ICE,
+  RULE_EXTENDED_EXPLORE,
 } from "../types/modifierConstants.js";
 
 // =============================================================================
@@ -90,6 +96,19 @@ export const ILLUSIONISTS_CANCEL_ATTACK = "illusionists_cancel_attack" as const;
  * Gain a white crystal
  */
 export const ILLUSIONISTS_GAIN_WHITE_CRYSTAL = "illusionists_gain_white_crystal" as const;
+
+/**
+ * Scouts: Scout peek ability (free, non-combat)
+ * Reveal face-down enemy tokens within 3 spaces.
+ * +1 Fame if any revealed enemy is defeated this turn.
+ */
+export const SCOUTS_SCOUT_PEEK = "scouts_scout_peek" as const;
+
+/**
+ * Scouts: Extended move ability (free, non-combat)
+ * Move 2 + allow exploring tiles at distance 2 instead of 1 this turn.
+ */
+export const SCOUTS_EXTENDED_MOVE = "scouts_extended_move" as const;
 
 // =============================================================================
 // EFFECT DEFINITIONS
@@ -252,6 +271,38 @@ const ILLUSIONISTS_GAIN_WHITE_CRYSTAL_EFFECT: CardEffect = {
   color: MANA_WHITE,
 };
 
+/**
+ * Scouts' Scout peek ability.
+ * Reveals face-down enemy tokens within 3 hexes of the player.
+ * Creates a ScoutFameBonus modifier that grants +1 fame per revealed enemy
+ * defeated this turn.
+ */
+const SCOUTS_SCOUT_PEEK_EFFECT: CardEffect = {
+  type: EFFECT_SCOUT_PEEK,
+  distance: 3,
+  fame: 1,
+};
+
+/**
+ * Scouts' extended move ability.
+ * Grants Move 2 and applies a modifier allowing exploration at distance 2.
+ */
+const SCOUTS_EXTENDED_MOVE_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    { type: EFFECT_GAIN_MOVE, amount: 2 },
+    {
+      type: EFFECT_APPLY_MODIFIER,
+      modifier: {
+        type: EFFECT_RULE_OVERRIDE,
+        rule: RULE_EXTENDED_EXPLORE,
+      },
+      duration: DURATION_TURN,
+      description: "May explore tiles at distance 2",
+    },
+  ],
+};
+
 // =============================================================================
 // REGISTRY
 // =============================================================================
@@ -270,6 +321,8 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [HERBALIST_GAIN_MANA]: HERBALIST_GAIN_MANA_EFFECT,
   [ILLUSIONISTS_CANCEL_ATTACK]: ILLUSIONISTS_CANCEL_ATTACK_EFFECT,
   [ILLUSIONISTS_GAIN_WHITE_CRYSTAL]: ILLUSIONISTS_GAIN_WHITE_CRYSTAL_EFFECT,
+  [SCOUTS_SCOUT_PEEK]: SCOUTS_SCOUT_PEEK_EFFECT,
+  [SCOUTS_EXTENDED_MOVE]: SCOUTS_EXTENDED_MOVE_EFFECT,
 };
 
 /**
