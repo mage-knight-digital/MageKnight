@@ -124,5 +124,6 @@ jobs:
         uses: codecov/codecov-action@v5
         if: always()
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage/core/lcov.info,coverage/shared/lcov.info,coverage/server/lcov.info
           fail_ci_if_error: false
