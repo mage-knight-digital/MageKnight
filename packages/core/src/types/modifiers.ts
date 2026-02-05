@@ -28,6 +28,7 @@ import {
   EFFECT_ENEMY_STAT,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
+  EFFECT_COLD_TOUGHNESS_BLOCK,
   EFFECT_MOVEMENT_CARD_BONUS,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
@@ -233,6 +234,13 @@ export interface RemovePhysicalResistanceModifier {
   readonly type: typeof EFFECT_REMOVE_PHYSICAL_RESISTANCE;
 }
 
+// Cold Toughness scaling block modifier (Tovak)
+// Grants +1 ice block per ability/attack color/resistance on blocked enemy.
+// Arcane Immunity on the enemy negates the bonus entirely.
+export interface ColdToughnessBlockModifier {
+  readonly type: typeof EFFECT_COLD_TOUGHNESS_BLOCK;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -249,7 +257,8 @@ export type ModifierEffect =
   | TerrainProhibitionModifier
   | GrantResistancesModifier
   | DoublePhysicalAttacksModifier
-  | RemovePhysicalResistanceModifier;
+  | RemovePhysicalResistanceModifier
+  | ColdToughnessBlockModifier;
 
 // === Active Modifier (live in game state) ===
 

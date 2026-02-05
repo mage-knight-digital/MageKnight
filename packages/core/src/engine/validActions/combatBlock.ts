@@ -45,6 +45,7 @@ import {
   isCumbersomeActive,
   getCumbersomeReduction,
 } from "../combat/cumbersomeHelpers.js";
+import { getColdToughnessBlockBonus } from "../combat/coldToughnessHelpers.js";
 
 // ============================================================================
 // Block Allocation Computation
@@ -136,9 +137,16 @@ export function computeEnemyBlockState(
 
   // Calculate effective block value after elemental efficiency
   const baseBlockSources = pendingBlockToBlockSources(rawPending);
-  const blockSources = swiftActive
-    ? appendSwiftDoubleSources(baseBlockSources, rawSwiftPending)
+
+  // Add Cold Toughness per-enemy bonus as an ice block source (before efficiency calc)
+  const coldToughnessBonus = getColdToughnessBlockBonus(state, playerId, enemy);
+  const sourcesWithBonus = coldToughnessBonus > 0
+    ? [...baseBlockSources, { element: "ice" as Element, value: coldToughnessBonus }]
     : baseBlockSources;
+
+  const blockSources = swiftActive
+    ? appendSwiftDoubleSources(sourcesWithBonus, rawSwiftPending)
+    : sourcesWithBonus;
 
   const effectiveBlock = calculateTotalBlock(blockSources, enemy.definition.attackElement);
 
