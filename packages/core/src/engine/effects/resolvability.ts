@@ -322,6 +322,10 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
       if (e.excludeArcaneImmune) {
         if (enemy.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY)) return false;
       }
+      // Filter out enemies with a specific resistance type
+      if (e.excludeResistance) {
+        if (enemy.definition.resistances.includes(e.excludeResistance)) return false;
+      }
       return true;
     });
     return eligibleEnemies.length > 0;
