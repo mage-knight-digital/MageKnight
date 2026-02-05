@@ -194,6 +194,7 @@ export type {
   PendingDiscardForAttackState,
   PendingDiscardForCrystalState,
   PendingArtifactCrystalColorState,
+  PendingCrystalJoyState,
   PendingLevelUpState,
   PendingChoiceState,
   CombatState,
