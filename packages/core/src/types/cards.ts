@@ -61,6 +61,8 @@ import {
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
+  EFFECT_CURE,
+  EFFECT_DISEASE,
   EFFECT_SCOUT_PEEK,
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
@@ -764,6 +766,30 @@ export interface SelectTerrainForCostReductionEffect {
   readonly minimumCost: number;
 }
 
+/**
+ * Cure spell basic effect.
+ * 1. Heal `amount` wounds from hand
+ * 2. Draw a card for each wound healed from hand this turn (including the heal just done)
+ * 3. Ready each unit healed this turn
+ *
+ * Also establishes a turn-scoped modifier so future healing triggers additional
+ * card draws and unit readying.
+ */
+export interface CureEffect {
+  readonly type: typeof EFFECT_CURE;
+  readonly amount: number;
+}
+
+/**
+ * Disease spell powered effect.
+ * All enemies that have ALL their attacks blocked during the Block phase
+ * get their armor reduced to 1 for the rest of combat.
+ * Must be played during Block phase.
+ */
+export interface DiseaseEffect {
+  readonly type: typeof EFFECT_DISEASE;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -816,7 +842,9 @@ export type CardEffect =
   | EnergyFlowEffect
   | ResolveEnergyFlowTargetEffect
   | SelectHexForCostReductionEffect
-  | SelectTerrainForCostReductionEffect;
+  | SelectTerrainForCostReductionEffect
+  | CureEffect
+  | DiseaseEffect;
 
 // === Card Definition ===
 

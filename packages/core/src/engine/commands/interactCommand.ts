@@ -97,7 +97,12 @@ export function createInteractCommand(params: InteractCommandParams): Command {
           }
         }
 
-        updatedPlayer = { ...updatedPlayer, hand: newHand };
+        updatedPlayer = {
+          ...updatedPlayer,
+          hand: newHand,
+          // Track wounds healed from hand this turn (for Cure spell)
+          woundsHealedFromHandThisTurn: updatedPlayer.woundsHealedFromHandThisTurn + woundsHealed,
+        };
 
         events.push({
           type: HEALING_PURCHASED,

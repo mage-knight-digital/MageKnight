@@ -115,6 +115,7 @@ export const CARD_ENERGY_FLOW = cardId("energy_flow"); // #12 - Ready unit + spe
 
 // White spells
 export const CARD_EXPOSE = cardId("expose"); // #19 - Lose fortification/resistances
+export const CARD_CURE = cardId("cure"); // #17 - Heal 2 + draw/ready / Armor reduction to 1
 
 // === Card ID Type Unions ===
 
@@ -169,7 +170,8 @@ export type SpellCardId =
   | typeof CARD_WHIRLWIND
   | typeof CARD_ENERGY_FLOW
   // White spells
-  | typeof CARD_EXPOSE;
+  | typeof CARD_EXPOSE
+  | typeof CARD_CURE;
 
 export type ArtifactCardId =
   // Banners

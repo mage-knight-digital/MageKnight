@@ -10,11 +10,12 @@ import type { Player } from "../../types/player.js";
 import type { PlayerUnit } from "../../types/unit.js";
 import type { HealUnitEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
-import { UNITS } from "@mage-knight/shared";
+import { UNITS, UNIT_STATE_READY } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
 import { EFFECT_HEAL_UNIT } from "../../types/effectTypes.js";
+import { isCureActive } from "./cureHelpers.js";
 
 /**
  * Get wounded units that are at or below a given level.
@@ -106,24 +107,37 @@ export function applyHealUnit(
     };
   }
 
-  // Heal the unit: remove wound
+  // Heal the unit: remove wound (and ready if Cure is active)
+  const shouldReady = isCureActive(state, player.id) && unit.state !== UNIT_STATE_READY;
   const updatedUnits = [...player.units];
   updatedUnits[unitIndex] = {
     ...unit,
     wounded: false,
+    ...(shouldReady ? { state: UNIT_STATE_READY as const } : {}),
   };
+
+  // Track unit as healed this turn (for Cure spell), avoid duplicates
+  const alreadyTracked = player.unitsHealedThisTurn.includes(unitInstanceId);
+  const updatedUnitsHealed = alreadyTracked
+    ? player.unitsHealedThisTurn
+    : [...player.unitsHealedThisTurn, unitInstanceId];
 
   const updatedPlayer: Player = {
     ...player,
     units: updatedUnits,
+    unitsHealedThisTurn: updatedUnitsHealed,
   };
 
   const unitDef = UNITS[unit.unitId];
   const unitName = unitDef?.name ?? unit.unitId;
 
+  const description = shouldReady
+    ? `Healed and readied ${unitName} (Cure)`
+    : `Healed ${unitName}`;
+
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),
-    description: `Healed ${unitName}`,
+    description,
   };
 }
 

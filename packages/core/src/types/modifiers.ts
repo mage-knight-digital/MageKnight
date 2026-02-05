@@ -38,6 +38,8 @@ import {
   EFFECT_TERRAIN_COST,
   EFFECT_TERRAIN_SAFE,
   EFFECT_UNIT_ATTACK_BONUS,
+  EFFECT_DISEASE_ARMOR,
+  EFFECT_CURE_ACTIVE,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -288,6 +290,21 @@ export interface UnitAttackBonusModifier {
   readonly amount: number; // +1 per Shocktroops activation
 }
 
+// Disease armor modifier (Disease powered effect)
+// Sets enemy armor to a fixed value. Applied to fully-blocked enemies.
+// Unlike EnemyStatModifier which adds/subtracts, this sets the armor absolutely.
+export interface DiseaseArmorModifier {
+  readonly type: typeof EFFECT_DISEASE_ARMOR;
+  readonly setTo: number; // Armor is set to this value (typically 1)
+}
+
+// Cure active modifier (Cure basic effect)
+// When active, future healing from hand also draws cards,
+// and future unit healing also readies the healed unit.
+export interface CureActiveModifier {
+  readonly type: typeof EFFECT_CURE_ACTIVE;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -309,7 +326,9 @@ export type ModifierEffect =
   | RecruitDiscountModifier
   | MoveToAttackConversionModifier
   | ScoutFameBonusModifier
-  | UnitAttackBonusModifier;
+  | UnitAttackBonusModifier
+  | DiseaseArmorModifier
+  | CureActiveModifier;
 
 // === Active Modifier (live in game state) ===
 

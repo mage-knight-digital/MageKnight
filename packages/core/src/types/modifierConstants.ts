@@ -155,3 +155,14 @@ export const EFFECT_DAMAGE_REDIRECT = "damage_redirect" as const;
 // Used by Shocktroops' Coordinated Fire ability.
 export const EFFECT_UNIT_ATTACK_BONUS = "unit_attack_bonus" as const;
 
+// === DiseaseArmorModifier ===
+// Sets enemy armor to a fixed value (Disease powered effect).
+// Applied to fully-blocked enemies during block phase.
+export const EFFECT_DISEASE_ARMOR = "disease_armor" as const;
+
+// === CureActiveModifier ===
+// Marks that Cure spell is active this turn.
+// When active, future healing from hand also draws cards,
+// and future unit healing also readies the unit.
+export const EFFECT_CURE_ACTIVE = "cure_active" as const;
+
