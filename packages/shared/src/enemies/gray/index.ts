@@ -14,6 +14,7 @@ export { ENEMY_SWORDSMEN, SWORDSMEN } from "./swordsmen.js";
 export { ENEMY_GOLEMS, GOLEMS } from "./golems.js";
 export { ENEMY_HEROES, HEROES } from "./heroes.js";
 export { ENEMY_THUGS_GRAY, THUGS_GRAY } from "./thugs-gray.js";
+export { ENEMY_SHOCKTROOPS_GRAY, SHOCKTROOPS_GRAY } from "./shocktroops.js";
 
 // Import for aggregation
 import { ENEMY_CROSSBOWMEN, CROSSBOWMEN } from "./crossbowmen.js";
@@ -22,6 +23,7 @@ import { ENEMY_SWORDSMEN, SWORDSMEN } from "./swordsmen.js";
 import { ENEMY_GOLEMS, GOLEMS } from "./golems.js";
 import { ENEMY_HEROES, HEROES } from "./heroes.js";
 import { ENEMY_THUGS_GRAY, THUGS_GRAY } from "./thugs-gray.js";
+import { ENEMY_SHOCKTROOPS_GRAY, SHOCKTROOPS_GRAY } from "./shocktroops.js";
 
 /**
  * Union type of all gray (Keep garrison) enemy IDs
@@ -32,7 +34,8 @@ export type GrayEnemyId =
   | typeof ENEMY_SWORDSMEN
   | typeof ENEMY_GOLEMS
   | typeof ENEMY_HEROES
-  | typeof ENEMY_THUGS_GRAY;
+  | typeof ENEMY_THUGS_GRAY
+  | typeof ENEMY_SHOCKTROOPS_GRAY;
 
 /** All gray (Keep garrison) enemies */
 export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
@@ -42,6 +45,7 @@ export const GRAY_ENEMIES: Record<GrayEnemyId, EnemyDefinition> = {
   [ENEMY_GOLEMS]: GOLEMS,
   [ENEMY_HEROES]: HEROES,
   [ENEMY_THUGS_GRAY]: THUGS_GRAY,
+  [ENEMY_SHOCKTROOPS_GRAY]: SHOCKTROOPS_GRAY,
 };
 
 // =============================================================================
