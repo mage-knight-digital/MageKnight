@@ -257,6 +257,9 @@ export type {
   ArtifactCrystalColorOptions,
   // Level up rewards options
   LevelUpRewardsOptions,
+  // Terrain cost reduction options
+  HexCostReductionOptions,
+  TerrainCostReductionOptions,
   // Cooperative assault options
   CooperativeAssaultOptions,
   EligibleInvitee,
