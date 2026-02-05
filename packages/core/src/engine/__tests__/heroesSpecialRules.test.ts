@@ -42,7 +42,7 @@ import {
   getReputationCostModifier,
   violatesHeroesThugsExclusion,
   hasRecruitedHeroThisInteraction,
-} from "../validActions/units/recruitment.js";
+} from "../rules/unitRecruitment.js";
 import { validateHeroesAssaultRestriction } from "../validators/units/activationValidators.js";
 import type { CombatState } from "../../types/combat.js";
 import { getCombatOptions } from "../validActions/combat.js";

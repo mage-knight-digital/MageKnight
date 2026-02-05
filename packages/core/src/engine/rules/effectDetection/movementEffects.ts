@@ -1,0 +1,82 @@
+/**
+ * Movement effect detection functions.
+ *
+ * Functions to detect move and influence effects in cards.
+ */
+
+import type { CardEffect } from "../../../types/cards.js";
+import {
+  EFFECT_GAIN_MOVE,
+  EFFECT_GAIN_INFLUENCE,
+  EFFECT_CHOICE,
+  EFFECT_COMPOUND,
+  EFFECT_CONDITIONAL,
+  EFFECT_SCALING,
+  EFFECT_DISCARD_COST,
+} from "../../../types/effectTypes.js";
+
+/**
+ * Check if an effect provides move points.
+ */
+export function effectHasMove(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_MOVE:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasMove(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasMove(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasMove(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasMove(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasMove(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasMove(next)
+          )
+        : effectHasMove(effect.thenEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect provides influence points.
+ */
+export function effectHasInfluence(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_INFLUENCE:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasInfluence(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasInfluence(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasInfluence(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasInfluence(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasInfluence(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasInfluence(next)
+          )
+        : effectHasInfluence(effect.thenEffect);
+
+    default:
+      return false;
+  }
+}

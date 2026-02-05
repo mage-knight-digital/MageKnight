@@ -35,10 +35,10 @@ import { getHealingCost } from "../../data/siteProperties.js";
 import { resetUnitInstanceCounter } from "../commands/units/index.js";
 import {
   getRefugeeCampCostModifier,
-  getUnitOptions,
   isSiteAccessibleForRecruitment,
   siteTypeToRecruitSite,
-} from "../validActions/units/recruitment.js";
+} from "../rules/unitRecruitment.js";
+import { getUnitOptions } from "../validActions/units/recruitment.js";
 import { UNITS, RECRUIT_SITE_CAMP } from "@mage-knight/shared";
 
 /**

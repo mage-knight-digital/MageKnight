@@ -18,6 +18,11 @@ import {
   MONASTERY_BURNED,
   NO_HEALING_HERE,
 } from "./validationCodes.js";
+import {
+  canInteractWithSite,
+  isSiteAccessibleForInteraction,
+  canHealAtSite,
+} from "../rules/siteInteraction.js";
 
 /**
  * Must be at an inhabited site to interact
@@ -35,8 +40,7 @@ export function validateAtInhabitedSite(
     return invalid(NO_SITE, "You are not at a site");
   }
 
-  const props = SITE_PROPERTIES[site.type];
-  if (!props.inhabited) {
+  if (!canInteractWithSite(site)) {
     return invalid(NOT_INHABITED, "This site does not allow interaction");
   }
 
@@ -57,27 +61,26 @@ export function validateSiteAccessible(
   const site = getPlayerSite(state, playerId);
   if (!site) return valid(); // Other validator handles this
 
-  const props = SITE_PROPERTIES[site.type];
+  if (!isSiteAccessibleForInteraction(site, playerId)) {
+    // Determine specific error message
+    const props = SITE_PROPERTIES[site.type];
+    if (props.fortified && !site.isConquered) {
+      return invalid(
+        SITE_NOT_CONQUERED,
+        "You must conquer this site before interacting"
+      );
+    }
 
-  // Fortified sites require conquest
-  if (props.fortified && !site.isConquered) {
-    return invalid(
-      SITE_NOT_CONQUERED,
-      "You must conquer this site before interacting"
-    );
-  }
+    if (site.type === SiteType.Keep && site.owner !== playerId) {
+      return invalid(
+        NOT_YOUR_KEEP,
+        "You can only interact with keeps you own"
+      );
+    }
 
-  // Keeps specifically require ownership (not just conquest)
-  if (site.type === SiteType.Keep && site.owner !== playerId) {
-    return invalid(
-      NOT_YOUR_KEEP,
-      "You can only interact with keeps you own"
-    );
-  }
-
-  // Burned monasteries can't be interacted with
-  if (site.type === SiteType.Monastery && site.isBurned) {
-    return invalid(MONASTERY_BURNED, "This monastery has been burned");
+    if (site.type === SiteType.Monastery && site.isBurned) {
+      return invalid(MONASTERY_BURNED, "This monastery has been burned");
+    }
   }
 
   return valid();
@@ -97,8 +100,7 @@ export function validateHealingPurchase(
   const site = getPlayerSite(state, playerId);
   if (!site) return valid(); // Other validator handles this
 
-  const healingCost = getHealingCost(site.type);
-  if (healingCost === null) {
+  if (!canHealAtSite(site.type, site.isBurned)) {
     return invalid(NO_HEALING_HERE, "This site does not offer healing");
   }
 

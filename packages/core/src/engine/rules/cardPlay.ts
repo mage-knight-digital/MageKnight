@@ -37,7 +37,7 @@ import {
   effectHasCrystal,
   effectHasCardBoost,
   effectIsUtility,
-} from "../validActions/cards/effectDetection/index.js";
+} from "./effectDetection/index.js";
 
 export interface CombatEffectContext {
   readonly effect: CardEffect | null;

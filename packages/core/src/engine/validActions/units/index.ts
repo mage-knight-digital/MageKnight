@@ -11,8 +11,9 @@ export {
   siteTypeToRecruitSite,
   isSiteAccessibleForRecruitment,
   getUsedCommandTokens,
-  getUnitOptions,
-} from "./recruitment.js";
+} from "../../rules/unitRecruitment.js";
+
+export { getUnitOptions } from "./recruitment.js";
 
 export {
   getActivatableUnits,

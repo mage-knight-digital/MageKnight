@@ -24,9 +24,6 @@ import {
   DECLARE_REST_ACTION,
   COMPLETE_REST_ACTION,
 } from "@mage-knight/shared";
-import { getBasicActionCard } from "../../data/basicActions/index.js";
-import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
-import type { BasicActionCardId } from "@mage-knight/shared";
 import {
   REST_NO_DISCARD,
   CARD_NOT_IN_HAND,
@@ -46,19 +43,7 @@ import {
   CANNOT_REST_AFTER_MOVING,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
-
-/**
- * Helper to check if a card is a wound
- */
-function isWoundCard(cardId: string): boolean {
-  try {
-    const card = getBasicActionCard(cardId as BasicActionCardId);
-    return card.cardType === DEED_CARD_TYPE_WOUND;
-  } catch {
-    // If card not found in basic actions, assume it's not a wound
-    return false;
-  }
-}
+import { isWoundCard } from "../rules/turnStructure.js";
 
 /**
  * Must discard at least one card to rest
