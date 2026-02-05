@@ -28,6 +28,7 @@
 import type { GameState } from "../../state/GameState.js";
 import type { CardId } from "@mage-knight/shared";
 import { ABILITY_ARCANE_IMMUNITY } from "@mage-knight/shared";
+import { getFortificationLevel } from "../rules/combatTargeting.js";
 import type {
   SelectCombatEnemyEffect,
   ResolveCombatEnemyTargetEffect,
@@ -68,7 +69,8 @@ import {
  */
 export function resolveSelectCombatEnemy(
   state: GameState,
-  effect: SelectCombatEnemyEffect
+  effect: SelectCombatEnemyEffect,
+  playerId?: string
 ): EffectResolutionResult {
   // Entry effect for selecting an enemy in combat
   if (!state.combat) {
@@ -79,9 +81,27 @@ export function resolveSelectCombatEnemy(
   }
 
   // Get eligible enemies
-  const eligibleEnemies = state.combat.enemies.filter(
-    (e) => effect.includeDefeated || !e.isDefeated
-  );
+  const eligibleEnemies = state.combat.enemies.filter((e) => {
+    if (!effect.includeDefeated && e.isDefeated) return false;
+
+    // Filter out fortified enemies if requested (checks effective fortification after modifiers)
+    if (effect.excludeFortified && playerId) {
+      const fortLevel = getFortificationLevel(
+        e,
+        state.combat!.isAtFortifiedSite,
+        state,
+        playerId
+      );
+      if (fortLevel > 0) return false;
+    }
+
+    // Filter out Arcane Immune enemies if requested
+    if (effect.excludeArcaneImmune) {
+      if (e.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY)) return false;
+    }
+
+    return true;
+  });
 
   if (eligibleEnemies.length === 0) {
     return {
@@ -260,8 +280,8 @@ type EffectResolver = (
  * @param resolver - Optional resolver function for bundled effects (required for bundledEffect support)
  */
 export function registerCombatEffects(resolver?: EffectResolver): void {
-  registerEffect(EFFECT_SELECT_COMBAT_ENEMY, (state, _playerId, effect) => {
-    return resolveSelectCombatEnemy(state, effect as SelectCombatEnemyEffect);
+  registerEffect(EFFECT_SELECT_COMBAT_ENEMY, (state, playerId, effect) => {
+    return resolveSelectCombatEnemy(state, effect as SelectCombatEnemyEffect, playerId);
   });
 
   registerEffect(EFFECT_RESOLVE_COMBAT_ENEMY_TARGET, (state, playerId, effect, sourceCardId) => {

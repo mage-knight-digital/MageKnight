@@ -10,7 +10,7 @@
  * @module data/unitAbilityEffects
  */
 
-import { ABILITY_FORTIFIED, MANA_BLUE, MANA_GREEN } from "@mage-knight/shared";
+import { ABILITY_FORTIFIED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from "@mage-knight/shared";
 import type { CardEffect } from "../types/cards.js";
 import {
   EFFECT_SELECT_COMBAT_ENEMY,
@@ -28,6 +28,7 @@ import {
 import {
   DURATION_COMBAT,
   EFFECT_ABILITY_NULLIFIER,
+  EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_REMOVE_RESISTANCES,
   ELEMENT_ICE,
 } from "../types/modifierConstants.js";
@@ -77,6 +78,18 @@ export const HERBALIST_READY_UNIT = "herbalist_ready_unit" as const;
  * Gain a green mana token
  */
 export const HERBALIST_GAIN_MANA = "herbalist_gain_mana" as const;
+
+/**
+ * Illusionists: White mana ability
+ * Target unfortified, non-arcane-immune enemy does not attack this combat
+ */
+export const ILLUSIONISTS_CANCEL_ATTACK = "illusionists_cancel_attack" as const;
+
+/**
+ * Illusionists: Free ability
+ * Gain a white crystal
+ */
+export const ILLUSIONISTS_GAIN_WHITE_CRYSTAL = "illusionists_gain_white_crystal" as const;
 
 // =============================================================================
 // EFFECT DEFINITIONS
@@ -204,6 +217,41 @@ const HERBALIST_GAIN_MANA_EFFECT: CardEffect = {
   color: MANA_GREEN,
 };
 
+/**
+ * Illusionists' Cancel Attack ability effect.
+ * Targets an unfortified, non-arcane-immune enemy and cancels all their attacks.
+ * Uses EFFECT_ENEMY_SKIP_ATTACK modifier (same as Whirlwind spell).
+ *
+ * Key restrictions:
+ * - excludeFortified: Only unfortified enemies can be targeted
+ * - excludeArcaneImmune: Arcane Immunity blocks this magical effect
+ * - Can combo with Demolish (remove fortification first, then target)
+ * - Works against Multi-Attack enemies (cancels ALL attacks)
+ */
+const ILLUSIONISTS_CANCEL_ATTACK_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  excludeFortified: true,
+  excludeArcaneImmune: true,
+  template: {
+    modifiers: [
+      {
+        modifier: { type: EFFECT_ENEMY_SKIP_ATTACK },
+        duration: DURATION_COMBAT,
+        description: "Target enemy does not attack",
+      },
+    ],
+  },
+};
+
+/**
+ * Illusionists' Gain White Crystal ability effect.
+ * Grants one white crystal to the player's inventory.
+ */
+const ILLUSIONISTS_GAIN_WHITE_CRYSTAL_EFFECT: CardEffect = {
+  type: EFFECT_GAIN_CRYSTAL,
+  color: MANA_WHITE,
+};
+
 // =============================================================================
 // REGISTRY
 // =============================================================================
@@ -220,6 +268,8 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [ICE_MAGES_GAIN_MANA_CRYSTAL]: ICE_MAGES_GAIN_MANA_CRYSTAL_EFFECT,
   [HERBALIST_READY_UNIT]: HERBALIST_READY_UNIT_EFFECT,
   [HERBALIST_GAIN_MANA]: HERBALIST_GAIN_MANA_EFFECT,
+  [ILLUSIONISTS_CANCEL_ATTACK]: ILLUSIONISTS_CANCEL_ATTACK_EFFECT,
+  [ILLUSIONISTS_GAIN_WHITE_CRYSTAL]: ILLUSIONISTS_GAIN_WHITE_CRYSTAL_EFFECT,
 };
 
 /**

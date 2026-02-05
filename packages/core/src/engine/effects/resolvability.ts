@@ -27,6 +27,7 @@ import type { Player } from "../../types/player.js";
 import type { CardEffect } from "../../types/cards.js";
 import { DEED_CARD_TYPE_BASIC_ACTION, DEED_CARD_TYPE_ADVANCED_ACTION } from "../../types/cards.js";
 import {
+  ABILITY_ARCANE_IMMUNITY,
   CARD_WOUND,
   MANA_RED,
   MANA_BLUE,
@@ -34,6 +35,7 @@ import {
   MANA_WHITE,
   UNIT_STATE_SPENT,
 } from "@mage-knight/shared";
+import { getFortificationLevel } from "../rules/combatTargeting.js";
 import { getCard } from "../helpers/cardLookup.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import {
@@ -292,9 +294,25 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
     if (e.requiredPhase && state.combat.phase !== e.requiredPhase) {
       return false;
     }
-    const eligibleEnemies = state.combat.enemies.filter(
-      (enemy) => e.includeDefeated || !enemy.isDefeated
-    );
+    const combat = state.combat;
+    const eligibleEnemies = combat.enemies.filter((enemy) => {
+      if (!e.includeDefeated && enemy.isDefeated) return false;
+      // Filter out fortified enemies if the effect requires unfortified targets
+      if (e.excludeFortified) {
+        const fortLevel = getFortificationLevel(
+          enemy,
+          combat.isAtFortifiedSite,
+          state,
+          player.id
+        );
+        if (fortLevel > 0) return false;
+      }
+      // Filter out Arcane Immune enemies if the effect is blocked by it
+      if (e.excludeArcaneImmune) {
+        if (enemy.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY)) return false;
+      }
+      return true;
+    });
     return eligibleEnemies.length > 0;
   },
 
