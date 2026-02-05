@@ -23,11 +23,13 @@ import {
   isHealingOnlyCategories,
   type CardEffectKind,
 } from "../helpers/cardCategoryHelpers.js";
+import type { CombatState } from "../../types/combat.js";
 import {
   effectHasRangedOrSiege,
   effectHasBlock,
   effectHasAttack,
   effectHasMove,
+  effectIsMoveOnly,
   effectHasInfluence,
   effectHasHeal,
   effectHasDraw,
@@ -38,6 +40,8 @@ import {
   effectHasCardBoost,
   effectIsUtility,
 } from "./effectDetection/index.js";
+import { isCumbersomeActive } from "../combat/cumbersomeHelpers.js";
+import type { GameState } from "../../state/GameState.js";
 
 export interface CombatEffectContext {
   readonly effect: CardEffect | null;
@@ -155,4 +159,39 @@ export function isNormalEffectAllowed(
     effectHasManaDrawPowered(effect) ||
     effectHasCardBoost(effect)
   );
+}
+
+/**
+ * Check if move points are useful in the current combat context.
+ *
+ * Move points during combat are useful when:
+ * - Facing Cumbersome enemies (move reduces their attack)
+ * - Agility modifier is active (move converts to attack) [future]
+ */
+export function isMoveUsefulInCombat(
+  state: GameState,
+  playerId: string,
+  combat: CombatState
+): boolean {
+  // Cumbersome enemies: move points reduce their attack during Block phase
+  const hasCumbersomeEnemy = combat.enemies.some(enemy =>
+    !enemy.isDefeated && isCumbersomeActive(state, playerId, enemy)
+  );
+  if (hasCumbersomeEnemy) return true;
+
+  return false;
+}
+
+/**
+ * Check if a combat-filtered effect should be excluded because it's move-only
+ * and move isn't useful in the current combat context.
+ */
+export function shouldExcludeMoveOnlyEffect(
+  effect: CardEffect,
+  state: GameState,
+  playerId: string,
+  combat: CombatState
+): boolean {
+  if (!effectIsMoveOnly(effect)) return false;
+  return !isMoveUsefulInCombat(state, playerId, combat);
 }
