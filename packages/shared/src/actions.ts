@@ -261,6 +261,18 @@ export interface PayHeroesAssaultInfluenceAction {
   readonly type: typeof PAY_HEROES_ASSAULT_INFLUENCE_ACTION;
 }
 
+// Thugs special rule: pay influence to assign damage to Thugs unit
+export const PAY_THUGS_DAMAGE_INFLUENCE_ACTION = "PAY_THUGS_DAMAGE_INFLUENCE" as const;
+/**
+ * Pay 2 influence to allow combat damage to be assigned to a specific Thugs unit.
+ * Per rulebook: Thugs are not willing to take damage unless you pay 2 Influence.
+ * Payment is per-unit, per-combat.
+ */
+export interface PayThugsDamageInfluenceAction {
+  readonly type: typeof PAY_THUGS_DAMAGE_INFLUENCE_ACTION;
+  readonly unitInstanceId: string;
+}
+
 export const BUY_SPELL_ACTION = "BUY_SPELL" as const;
 /**
  * Buy a spell from the spell offer at a conquered Mage Tower.
@@ -651,6 +663,7 @@ export type PlayerAction =
   | DisbandUnitAction
   | AssignBannerAction
   | PayHeroesAssaultInfluenceAction
+  | PayThugsDamageInfluenceAction
   | BuySpellAction
   | LearnAdvancedActionAction
   | BuyHealingAction

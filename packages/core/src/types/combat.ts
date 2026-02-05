@@ -174,6 +174,14 @@ export interface CombatState {
    * Persists through combat, resets when combat ends.
    */
   readonly vampiricArmorBonus: VampiricArmorBonusMap;
+  /**
+   * Thugs special rule: tracks which Thugs unit instances have had their
+   * damage assignment influence cost paid this combat.
+   * Maps unit instance ID → true.
+   * Per rulebook: must pay 2 Influence before damage can be assigned to Thugs.
+   * Payment is per-unit, per-combat. Resets when combat ends.
+   */
+  readonly paidThugsDamageInfluence: ThugsDamagePaymentMap;
 }
 
 /**
@@ -210,6 +218,15 @@ export type DefendBonusMap = {
  */
 export type VampiricArmorBonusMap = {
   readonly [enemyInstanceId: string]: number;
+};
+
+/**
+ * Map of Thugs unit instance IDs that have had damage assignment influence paid.
+ * Per rulebook: must pay 2 Influence to assign damage to Thugs units.
+ * Key: unit instance ID, Value: true if paid.
+ */
+export type ThugsDamagePaymentMap = {
+  readonly [unitInstanceId: string]: boolean;
 };
 
 // Options for special combat rules
@@ -277,6 +294,7 @@ export function createCombatState(
     defendBonuses: {},
     paidHeroesAssaultInfluence: false,
     vampiricArmorBonus: {},
+    paidThugsDamageInfluence: {},
   };
 
   // Only include enemyAssignments if provided (avoids exactOptionalPropertyTypes issues)

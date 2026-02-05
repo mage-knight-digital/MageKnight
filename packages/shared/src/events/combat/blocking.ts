@@ -329,3 +329,29 @@ export function isHeroesAssaultInfluencePaidEvent(
 ): event is HeroesAssaultInfluencePaidEvent {
   return event.type === HEROES_ASSAULT_INFLUENCE_PAID;
 }
+
+// ============================================================================
+// THUGS_DAMAGE_INFLUENCE_PAID
+// ============================================================================
+
+/**
+ * Event type constant for Thugs damage influence payment.
+ * @see ThugsDamageInfluencePaidEvent
+ */
+export const THUGS_DAMAGE_INFLUENCE_PAID = "THUGS_DAMAGE_INFLUENCE_PAID" as const;
+
+/**
+ * Emitted when influence is paid to allow damage assignment to a Thugs unit.
+ *
+ * Per rulebook: Thugs are not willing to take damage unless you pay
+ * 2 Influence during combat. Payment is per-unit, per-combat.
+ */
+export interface ThugsDamageInfluencePaidEvent {
+  readonly type: typeof THUGS_DAMAGE_INFLUENCE_PAID;
+  /** Player who paid the influence */
+  readonly playerId: string;
+  /** Instance ID of the Thugs unit */
+  readonly unitInstanceId: string;
+  /** Amount of influence spent (always 2) */
+  readonly influenceSpent: number;
+}

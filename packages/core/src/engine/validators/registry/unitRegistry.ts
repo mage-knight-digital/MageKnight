@@ -17,6 +17,7 @@ import { validateMustAnnounceEndOfRound } from "../roundValidators.js";
 
 // Unit validators
 import {
+  validateReputationNotX,
   validateCommandSlots,
   validateInfluenceCost,
   validateUnitExists,
@@ -39,6 +40,7 @@ export const unitRegistry: Record<string, Validator[]> = {
     validateRoundPhase,
     validateNoChoicePending,
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateReputationNotX, // At "X" reputation, inhabitants refuse to interact
     validateCommandSlots,
     validateInfluenceCost,
     validateAtRecruitmentSite,

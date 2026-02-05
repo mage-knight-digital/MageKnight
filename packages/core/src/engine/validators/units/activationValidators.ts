@@ -45,6 +45,7 @@ import {
   UNIT_ABILITY_REQUIRES_MANA,
   UNIT_ABILITY_MANA_UNAVAILABLE,
   HEROES_ASSAULT_INFLUENCE_NOT_PAID,
+  THUGS_DAMAGE_INFLUENCE_NOT_PAID,
 } from "../validationCodes.js";
 import { validateSingleManaSource } from "../mana/sourceValidators.js";
 import { canPayForMana } from "../../validActions/mana.js";
@@ -148,6 +149,18 @@ export function validateUnitCanReceiveDamage(
         UNIT_USED_RESISTANCE,
         "Cannot assign damage to a unit that already absorbed damage this combat"
       );
+    }
+
+    // Check Thugs damage influence payment
+    const unitDef = getUnit(unit.unitId);
+    if ((unitDef.damageInfluenceCost ?? 0) > 0) {
+      const paid = state.combat?.paidThugsDamageInfluence[unit.instanceId];
+      if (!paid) {
+        return invalid(
+          THUGS_DAMAGE_INFLUENCE_NOT_PAID,
+          "Must pay 2 Influence before assigning damage to Thugs"
+        );
+      }
     }
   }
 

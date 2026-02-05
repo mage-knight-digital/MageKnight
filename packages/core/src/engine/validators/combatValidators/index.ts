@@ -87,3 +87,11 @@ export {
   validateConversionAmount,
   validateConversionMovePoints,
 } from "./conversionValidators.js";
+
+// Thugs damage influence validators
+export {
+  validateThugsDamagePaymentInCombat,
+  validateThugsDamageUnitIsThugs,
+  validateThugsDamageInfluenceNotAlreadyPaid,
+  validateThugsDamageInfluenceAvailable,
+} from "./thugsDamageValidators.js";

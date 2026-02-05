@@ -80,3 +80,10 @@ export {
   CONVERT_MOVE_TO_ATTACK_COMMAND,
   type ConvertMoveToAttackCommandParams,
 } from "./convertMoveToAttackCommand.js";
+
+export {
+  createPayThugsDamageInfluenceCommand,
+  PAY_THUGS_DAMAGE_INFLUENCE_COMMAND,
+  THUGS_DAMAGE_INFLUENCE_COST,
+  type PayThugsDamageInfluenceCommandParams,
+} from "./payThugsDamageInfluenceCommand.js";

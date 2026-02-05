@@ -33,6 +33,7 @@ import {
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
   CONVERT_MOVE_TO_ATTACK_ACTION,
+  PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
 } from "@mage-knight/shared";
 import {
   createEnterCombatCommand,
@@ -48,6 +49,7 @@ import {
   createSpendMoveOnCumbersomeCommand,
   createPayHeroesAssaultInfluenceCommand,
   createConvertMoveToAttackCommand,
+  createPayThugsDamageInfluenceCommand,
 } from "../combat/index.js";
 
 /**
@@ -309,5 +311,24 @@ export const createConvertMoveToAttackCommandFromAction: CommandFactory = (
     playerId,
     movePointsToSpend: action.movePointsToSpend,
     conversionType: action.conversionType,
+  });
+};
+
+/**
+ * Pay Thugs damage influence command factory.
+ * Creates a command to pay 2 Influence to enable damage assignment
+ * to a specific Thugs unit during combat.
+ *
+ * Part of the Thugs special rules system.
+ */
+export const createPayThugsDamageInfluenceCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== PAY_THUGS_DAMAGE_INFLUENCE_ACTION) return null;
+  return createPayThugsDamageInfluenceCommand({
+    playerId,
+    unitInstanceId: action.unitInstanceId,
   });
 };

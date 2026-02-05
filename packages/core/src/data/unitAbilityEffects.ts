@@ -16,9 +16,11 @@ import {
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
+  EFFECT_GAIN_INFLUENCE,
   EFFECT_GAIN_MANA,
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_CRYSTAL,
+  EFFECT_CHANGE_REPUTATION,
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
   EFFECT_READY_UNIT,
@@ -115,6 +117,18 @@ export const SCOUTS_EXTENDED_MOVE = "scouts_extended_move" as const;
  * Attack 3 OR Block 3
  */
 export const UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK = "utem_crossbowmen_attack_or_block" as const;
+
+/**
+ * Thugs: Free ability (combat only)
+ * Attack 3 (Physical) + Reputation -1 (immediate)
+ */
+export const THUGS_ATTACK = "thugs_attack" as const;
+
+/**
+ * Thugs: Free ability (non-combat)
+ * Influence 4 + Reputation -1 (immediate)
+ */
+export const THUGS_INFLUENCE = "thugs_influence" as const;
 
 // =============================================================================
 // EFFECT DEFINITIONS
@@ -328,6 +342,45 @@ const UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
   ],
 };
 
+/**
+ * Thugs' Attack ability effect.
+ * Compound: Attack 3 Physical (melee) + Reputation -1 (immediate).
+ * Per FAQ: reputation change is immediate, not at end of turn.
+ */
+const THUGS_ATTACK_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 3,
+      combatType: COMBAT_TYPE_MELEE,
+    },
+    {
+      type: EFFECT_CHANGE_REPUTATION,
+      amount: -1,
+    },
+  ],
+};
+
+/**
+ * Thugs' Influence ability effect.
+ * Compound: Influence 4 + Reputation -1 (immediate).
+ * Per FAQ: reputation change is immediate, not at end of turn.
+ */
+const THUGS_INFLUENCE_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    {
+      type: EFFECT_GAIN_INFLUENCE,
+      amount: 4,
+    },
+    {
+      type: EFFECT_CHANGE_REPUTATION,
+      amount: -1,
+    },
+  ],
+};
+
 // =============================================================================
 // REGISTRY
 // =============================================================================
@@ -349,6 +402,8 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [SCOUTS_SCOUT_PEEK]: SCOUTS_SCOUT_PEEK_EFFECT,
   [SCOUTS_EXTENDED_MOVE]: SCOUTS_EXTENDED_MOVE_EFFECT,
   [UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK]: UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK_EFFECT,
+  [THUGS_ATTACK]: THUGS_ATTACK_EFFECT,
+  [THUGS_INFLUENCE]: THUGS_INFLUENCE_EFFECT,
 };
 
 /**

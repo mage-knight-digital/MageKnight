@@ -134,4 +134,16 @@ export interface UnitDefinition {
   readonly recruitSites: readonly RecruitSite[];
   readonly abilities: readonly UnitAbility[];
   readonly copies: number; // How many copies in deck
+  /**
+   * If true, reputation modifier is reversed when recruiting this unit.
+   * Negative reputation makes it cheaper, positive makes it more expensive.
+   * Used by Thugs per rulebook.
+   */
+  readonly reversedReputation?: boolean;
+  /**
+   * Influence cost required to assign combat damage to this unit.
+   * If set, player must pay this amount before damage can be assigned.
+   * Used by Thugs (cost = 2) per rulebook.
+   */
+  readonly damageInfluenceCost?: number;
 }
