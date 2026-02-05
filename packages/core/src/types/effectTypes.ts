@@ -150,6 +150,11 @@ export const EFFECT_RESOLVE_ENERGY_FLOW_TARGET = "resolve_energy_flow_target" as
 // Internal: resolve effect after unit selection for influence-paid readying
 export const EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE = "resolve_ready_unit_for_influence" as const;
 
+// === Ready All Units Effect ===
+// Ready all units controlled by the player (regardless of level or wound status).
+// Used by Banner of Courage powered effect.
+export const EFFECT_READY_ALL_UNITS = "ready_all_units" as const;
+
 // === Scout Peek Effect ===
 // Reveals face-down enemy tokens within a distance from the player.
 // Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.

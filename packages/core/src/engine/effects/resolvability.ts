@@ -75,6 +75,7 @@ import {
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
+  EFFECT_READY_ALL_UNITS,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -377,6 +378,11 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
     const e = effect as ResolveEnergyFlowTargetEffect;
     const unit = player.units.find((u) => u.instanceId === e.unitInstanceId);
     return unit !== undefined && unit.state === UNIT_STATE_SPENT;
+  },
+
+  [EFFECT_READY_ALL_UNITS]: (state, player) => {
+    // Resolvable if player has at least one spent unit
+    return player.units.some((u) => u.state === UNIT_STATE_SPENT);
   },
 };
 

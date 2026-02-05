@@ -163,6 +163,7 @@ export {
 // Unit effects
 export {
   handleReadyUnit,
+  handleReadyAllUnits,
   getSpentUnitsAtOrBelowLevel,
   registerUnitEffects,
 } from "./unitEffects.js";

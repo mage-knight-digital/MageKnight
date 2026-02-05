@@ -41,6 +41,7 @@ import {
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
+  EFFECT_READY_ALL_UNITS,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -308,6 +309,8 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const e = effect as ResolveEnergyFlowTargetEffect;
     return e.healReadiedUnit ? `Ready and heal ${e.unitName}` : `Ready ${e.unitName}`;
   },
+
+  [EFFECT_READY_ALL_UNITS]: () => "Ready all Units",
 };
 
 // ============================================================================

@@ -52,6 +52,7 @@ import {
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
+  EFFECT_READY_ALL_UNITS,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -278,6 +279,12 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
     // Enemy targeting effects modify combat state and modifiers, not player state directly.
     // The modifier removal would need to happen at GameState level, not player level.
     // For now, these effects should be considered non-reversible in practice.
+    return player;
+  },
+
+  [EFFECT_READY_ALL_UNITS]: (player) => {
+    // Cannot reliably reverse — we don't track which units were originally spent.
+    // Commands containing this effect should be non-reversible.
     return player;
   },
 

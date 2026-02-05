@@ -64,6 +64,7 @@ import {
   EFFECT_SCOUT_PEEK,
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
+  EFFECT_READY_ALL_UNITS,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -679,6 +680,16 @@ export interface ResolveReadyUnitForInfluenceEffect {
 }
 
 /**
+ * Ready all units controlled by the player.
+ * Unlike ReadyUnitEffect, this readies ALL spent units regardless of level.
+ * Wounded units are also readied (wound status unchanged).
+ * Used by Banner of Courage powered effect.
+ */
+export interface ReadyAllUnitsEffect {
+  readonly type: typeof EFFECT_READY_ALL_UNITS;
+}
+
+/**
  * Scout peek effect (Scouts unit ability).
  * Reveals face-down enemy tokens within a distance from the player.
  * Also creates a ScoutFameBonus modifier tracking which enemies were newly revealed,
@@ -765,6 +776,7 @@ export type CardEffect =
   | RecruitDiscountEffect
   | ReadyUnitsForInfluenceEffect
   | ResolveReadyUnitForInfluenceEffect
+  | ReadyAllUnitsEffect
   | ScoutPeekEffect
   | EnergyFlowEffect
   | ResolveEnergyFlowTargetEffect;
