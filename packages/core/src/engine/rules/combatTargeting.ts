@@ -12,7 +12,8 @@ import {
   ABILITY_FORTIFIED,
   ABILITY_UNFORTIFIED,
 } from "@mage-knight/shared";
-import { isAbilityNullified } from "../modifiers/index.js";
+import { isAbilityNullified, isRuleActive } from "../modifiers/index.js";
+import { RULE_IGNORE_FORTIFICATION } from "../../types/modifierConstants.js";
 
 /**
  * Calculate fortification level for an enemy.
@@ -48,10 +49,13 @@ export function getFortificationLevel(
   // Provoked rampaging enemies do NOT get site fortification per rulebook
   const isSiteDefender = enemy.isRequiredForConquest;
 
+  // RULE_IGNORE_FORTIFICATION negates site fortification (Underground Attack)
+  const ignoresFortification = isRuleActive(state, playerId, RULE_IGNORE_FORTIFICATION);
+
   // ABILITY_UNFORTIFIED negates site fortification
   // ABILITY_NULLIFIER for FORTIFIED also negates site fortification per Expose rules
   const effectiveSiteFortification =
-    isAtFortifiedSite && isSiteDefender && !hasUnfortified && !isFortifiedNullified;
+    isAtFortifiedSite && isSiteDefender && !hasUnfortified && !isFortifiedNullified && !ignoresFortification;
 
   let level = 0;
   if (effectiveSiteFortification) level += 1;
