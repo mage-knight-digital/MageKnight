@@ -1,8 +1,13 @@
 /**
  * Red Cape Monks unit definition
+ *
+ * Rulebook abilities:
+ * - Ability 1: Attack OR Block 3 (physical, free)
+ * - Ability 2: Fire Attack OR Fire Block 4 (red mana)
  */
 
-import { ELEMENT_FIRE } from "../../elements.js";
+import { ELEMENT_FIRE, ELEMENT_PHYSICAL } from "../../elements.js";
+import { MANA_RED } from "../../ids.js";
 import type { UnitDefinition } from "../types.js";
 import {
   UNIT_TYPE_REGULAR,
@@ -22,8 +27,12 @@ export const RED_CAPE_MONKS: UnitDefinition = {
   resistances: [],
   recruitSites: [RECRUIT_SITE_MONASTERY],
   abilities: [
-    { type: UNIT_ABILITY_ATTACK, value: 4, element: ELEMENT_FIRE },
-    { type: UNIT_ABILITY_BLOCK, value: 3, element: ELEMENT_FIRE },
+    // Ability 1: Attack 3 OR Block 3 (physical, free)
+    { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_PHYSICAL },
+    { type: UNIT_ABILITY_BLOCK, value: 3, element: ELEMENT_PHYSICAL },
+    // Ability 2: Fire Attack 4 OR Fire Block 4 (red mana)
+    { type: UNIT_ABILITY_ATTACK, value: 4, element: ELEMENT_FIRE, manaCost: MANA_RED },
+    { type: UNIT_ABILITY_BLOCK, value: 4, element: ELEMENT_FIRE, manaCost: MANA_RED },
   ],
   copies: 1,
 };

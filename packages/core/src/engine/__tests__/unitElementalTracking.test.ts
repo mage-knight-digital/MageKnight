@@ -23,6 +23,8 @@ import {
   UNIT_ACTIVATED,
   UNIT_ABILITY_ATTACK,
   UNIT_ABILITY_BLOCK,
+  MANA_RED,
+  MANA_SOURCE_TOKEN,
 } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../types/unit.js";
 import { resetUnitInstanceCounter } from "../commands/units/index.js";
@@ -41,11 +43,12 @@ describe("Unit Elemental Attack Tracking", () => {
   });
 
   it("should track fire attack separately from physical", () => {
-    // Red Cape Monks have Fire Attack 4 at index 0
+    // Red Cape Monks have Fire Attack 4 at index 2 (requires red mana)
     const unit = createPlayerUnit(UNIT_RED_CAPE_MONKS, "monks_1");
     const player = createTestPlayer({
       units: [unit],
       commandTokens: 1,
+      pureMana: [{ color: MANA_RED, source: "card" }],
     });
 
     const state = createTestGameState({
@@ -56,7 +59,8 @@ describe("Unit Elemental Attack Tracking", () => {
     const result = engine.processAction(state, "player1", {
       type: ACTIVATE_UNIT_ACTION,
       unitInstanceId: "monks_1",
-      abilityIndex: 0, // Fire Attack 4
+      abilityIndex: 2, // Fire Attack 4 (requires red mana)
+      manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
     });
 
     // Verify fire element tracked separately
@@ -83,11 +87,12 @@ describe("Unit Elemental Attack Tracking", () => {
   });
 
   it("should track fire block separately from physical", () => {
-    // Red Cape Monks have Fire Block 3 at index 1
+    // Red Cape Monks have Fire Block 4 at index 3 (requires red mana)
     const unit = createPlayerUnit(UNIT_RED_CAPE_MONKS, "monks_1");
     const player = createTestPlayer({
       units: [unit],
       commandTokens: 1,
+      pureMana: [{ color: MANA_RED, source: "card" }],
     });
 
     const state = createTestGameState({
@@ -98,18 +103,19 @@ describe("Unit Elemental Attack Tracking", () => {
     const result = engine.processAction(state, "player1", {
       type: ACTIVATE_UNIT_ACTION,
       unitInstanceId: "monks_1",
-      abilityIndex: 1, // Fire Block 3
+      abilityIndex: 3, // Fire Block 4 (requires red mana)
+      manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
     });
 
     // Verify fire element tracked separately
     expect(result.state.players[0].combatAccumulator.blockElements.fire).toBe(
-      3
+      4
     );
     expect(
       result.state.players[0].combatAccumulator.blockElements.physical
     ).toBe(0);
     // Total block should include fire
-    expect(result.state.players[0].combatAccumulator.block).toBe(3);
+    expect(result.state.players[0].combatAccumulator.block).toBe(4);
 
     // Verify unit is now spent
     expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
@@ -119,7 +125,7 @@ describe("Unit Elemental Attack Tracking", () => {
     expect(activateEvent).toBeDefined();
     if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
       expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_BLOCK);
-      expect(activateEvent.abilityValue).toBe(3);
+      expect(activateEvent.abilityValue).toBe(4);
       expect(activateEvent.element).toBe(ELEMENT_FIRE);
     }
   });
@@ -191,12 +197,13 @@ describe("Unit Elemental Attack Tracking", () => {
   });
 
   it("should accumulate multiple elemental attacks", () => {
-    // Red Cape Monks: Fire Attack 4, Thugs: Physical Attack 3
+    // Red Cape Monks: Fire Attack 4 (index 2, red mana), Thugs: Physical Attack 3
     const monks = createPlayerUnit(UNIT_RED_CAPE_MONKS, "monks_1");
     const thugs = createPlayerUnit(UNIT_THUGS, "thugs_1");
     const player = createTestPlayer({
       units: [monks, thugs],
       commandTokens: 2,
+      pureMana: [{ color: MANA_RED, source: "card" }],
     });
 
     let state = createTestGameState({
@@ -204,11 +211,12 @@ describe("Unit Elemental Attack Tracking", () => {
       combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
     });
 
-    // Activate monks (Fire Attack 4)
+    // Activate monks (Fire Attack 4 with red mana)
     let result = engine.processAction(state, "player1", {
       type: ACTIVATE_UNIT_ACTION,
       unitInstanceId: "monks_1",
-      abilityIndex: 0,
+      abilityIndex: 2, // Fire Attack 4 (requires red mana)
+      manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
     });
     state = result.state;
 
