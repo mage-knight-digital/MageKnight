@@ -4,6 +4,8 @@
  * Functions to determine if an effect can produce a meaningful result
  * given the current game state. Used to filter out no-op choice options.
  *
+ * Uses a map-based dispatch pattern for extensibility and maintainability.
+ *
  * @module effects/resolvability
  *
  * @remarks Resolvability Overview
@@ -63,6 +65,20 @@ import {
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_PLACE_SKILL_IN_CENTER,
 } from "../../types/effectTypes.js";
+import type {
+  DrawCardsEffect,
+  GainHealingEffect,
+  CompoundEffect,
+  ChoiceEffect,
+  ScalingEffect,
+  ApplyModifierEffect,
+  PayManaEffect,
+  DiscardWoundsEffect,
+  ReadyUnitEffect,
+  ManaDrawPoweredEffect,
+  SelectCombatEnemyEffect,
+  ResolveCombatEnemyTargetEffect,
+} from "../../types/effectTypes.js";
 import {
   EFFECT_RULE_OVERRIDE,
   RULE_EXTRA_SOURCE_DIE,
@@ -71,7 +87,217 @@ import { isRuleActive } from "../modifiers/index.js";
 import { getSpentUnitsAtOrBelowLevel } from "./unitEffects.js";
 
 // ============================================================================
-// IS EFFECT RESOLVABLE
+// TYPES
+// ============================================================================
+
+/**
+ * Handler function for checking effect resolvability.
+ * Each handler receives the state, player, and effect, returns whether it's resolvable.
+ */
+type ResolvabilityHandler<T extends CardEffect = CardEffect> = (
+  state: GameState,
+  player: Player,
+  effect: T
+) => boolean;
+
+/**
+ * Effect type discriminator string
+ */
+type EffectType = CardEffect["type"];
+
+// ============================================================================
+// RESOLVABILITY HANDLERS
+// ============================================================================
+
+/**
+ * Resolvability handlers registry.
+ * Maps effect types to their resolvability check functions.
+ */
+const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> = {
+  [EFFECT_DRAW_CARDS]: (state, player, effect) => {
+    const e = effect as DrawCardsEffect;
+    // Can only draw if there are cards in deck
+    void e; // effect not needed for this check
+    return player.deck.length > 0;
+  },
+
+  [EFFECT_GAIN_HEALING]: (state, player, effect) => {
+    const e = effect as GainHealingEffect;
+    void e; // effect not needed for this check
+    // Healing is only useful if there are wounds to heal:
+    // - Wound cards in hand
+    // - Wounded units
+    const hasWoundsInHand = player.hand.some((c) => c === CARD_WOUND);
+    const hasWoundedUnits = player.units.some((u) => u.wounded);
+    return hasWoundsInHand || hasWoundedUnits;
+  },
+
+  [EFFECT_COMPOUND]: (state, player, effect) => {
+    const e = effect as CompoundEffect;
+    // If a compound includes mana payments, they must be payable
+    if (e.effects.some((sub) => sub.type === EFFECT_PAY_MANA)) {
+      const payable = e.effects
+        .filter((sub) => sub.type === EFFECT_PAY_MANA)
+        .every((sub) => isEffectResolvable(state, player.id, sub));
+      if (!payable) {
+        return false;
+      }
+    }
+    // Compound is resolvable if at least one sub-effect is resolvable
+    return e.effects.some((sub) => isEffectResolvable(state, player.id, sub));
+  },
+
+  [EFFECT_CHOICE]: (state, player, effect) => {
+    const e = effect as ChoiceEffect;
+    // Choice is resolvable if at least one option is resolvable
+    return e.options.some((opt) => isEffectResolvable(state, player.id, opt));
+  },
+
+  [EFFECT_CONDITIONAL]: () => {
+    // Conditional is always resolvable (the condition determines which branch)
+    return true;
+  },
+
+  [EFFECT_SCALING]: (state, player, effect) => {
+    const e = effect as ScalingEffect;
+    // Scaling wraps a base effect, check that
+    return isEffectResolvable(state, player.id, e.baseEffect);
+  },
+
+  // These effects are always resolvable
+  [EFFECT_GAIN_MOVE]: () => true,
+  [EFFECT_GAIN_INFLUENCE]: () => true,
+  [EFFECT_GAIN_ATTACK]: () => true,
+  [EFFECT_GAIN_BLOCK]: () => true,
+  [EFFECT_GAIN_MANA]: () => true,
+  [EFFECT_TAKE_WOUND]: () => true,
+  [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: () => true,
+  [EFFECT_NOOP]: () => true,
+  [EFFECT_PLACE_SKILL_IN_CENTER]: () => true,
+  [EFFECT_RESOLVE_BOOST_TARGET]: () => true,
+  [EFFECT_MANA_DRAW_PICK_DIE]: () => true,
+  [EFFECT_MANA_DRAW_SET_COLOR]: () => true,
+  [EFFECT_CRYSTALLIZE_COLOR]: () => true,
+
+  [EFFECT_DISCARD_WOUNDS]: (state, player, effect) => {
+    const e = effect as DiscardWoundsEffect;
+    if (e.count <= 0) return true;
+    const woundCount = player.hand.filter((c) => c === CARD_WOUND).length;
+    return woundCount >= e.count;
+  },
+
+  [EFFECT_APPLY_MODIFIER]: (state, player, effect) => {
+    const e = effect as ApplyModifierEffect;
+    // Most modifiers are always resolvable, but some have conditions
+    if (
+      e.modifier.type === EFFECT_RULE_OVERRIDE &&
+      e.modifier.rule === RULE_EXTRA_SOURCE_DIE
+    ) {
+      // "Extra source die" is only useful if there are dice available
+      // that the player couldn't otherwise access:
+      // - If already used source: need at least 1 die available
+      // - If haven't used source: need at least 2 dice (so the "extra" matters)
+      const availableDice = state.source.dice.filter(
+        (d) => d.takenByPlayerId === null && !d.isDepleted
+      );
+      if (player.usedManaFromSource) {
+        return availableDice.length > 0;
+      } else {
+        return availableDice.length >= 2;
+      }
+    }
+    return true;
+  },
+
+  [EFFECT_PAY_MANA]: (state, player, effect) => {
+    const e = effect as PayManaEffect;
+    const required = e.amount;
+    if (required <= 0) {
+      return false;
+    }
+    const counts = new Map(e.colors.map((color) => [color, 0]));
+    for (const token of player.pureMana) {
+      if (counts.has(token.color)) {
+        counts.set(token.color, (counts.get(token.color) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.values()).some((count) => count >= required);
+  },
+
+  [EFFECT_CONVERT_MANA_TO_CRYSTAL]: (state, player) => {
+    // Can convert mana to crystal if player can obtain basic color mana.
+    // Note: Black mana CAN'T become a crystal directly (no black crystals exist),
+    // but it can be used as wild when paying for powered effects.
+    // For Crystallize, we need actual basic color mana sources:
+    // 1. Basic color mana tokens (red/blue/green/white)
+    // 2. Gold mana tokens (wild, can become any basic color)
+    // 3. Available basic color or gold dice from source (if not used yet)
+    // 4. Crystals can be converted to tokens then to new crystals
+    return canObtainBasicColorMana(state, player);
+  },
+
+  [EFFECT_CARD_BOOST]: (state, player) => {
+    // Card boost is resolvable only if player has eligible Action cards in hand
+    // (Basic or Advanced Action cards, not wounds/spells/artifacts)
+    return player.hand.some((cardId) => {
+      if (cardId === CARD_WOUND) return false;
+      const card = getCard(cardId);
+      return (
+        card &&
+        (card.cardType === DEED_CARD_TYPE_BASIC_ACTION ||
+          card.cardType === DEED_CARD_TYPE_ADVANCED_ACTION)
+      );
+    });
+  },
+
+  [EFFECT_READY_UNIT]: (state, player, effect) => {
+    const e = effect as ReadyUnitEffect;
+    // Ready unit is only resolvable if player has spent units at or below maxLevel
+    const eligibleUnits = getSpentUnitsAtOrBelowLevel(player.units, e.maxLevel);
+    return eligibleUnits.length > 0;
+  },
+
+  [EFFECT_MANA_DRAW_POWERED]: (state, player, effect) => {
+    const e = effect as ManaDrawPoweredEffect;
+    void e; // effect not needed for this check
+    // Mana Draw powered is only resolvable if there are available dice in the source
+    const availableDice = state.source.dice.filter(
+      (d) => d.takenByPlayerId === null
+    );
+    return availableDice.length > 0;
+  },
+
+  [EFFECT_SELECT_COMBAT_ENEMY]: (state, player, effect) => {
+    const e = effect as SelectCombatEnemyEffect;
+    // Only resolvable during combat with at least one eligible enemy
+    if (!state.combat) return false;
+    // Check phase restriction (e.g., Tornado can only be used in Attack phase)
+    if (e.requiredPhase && state.combat.phase !== e.requiredPhase) {
+      return false;
+    }
+    const eligibleEnemies = state.combat.enemies.filter(
+      (enemy) => e.includeDefeated || !enemy.isDefeated
+    );
+    return eligibleEnemies.length > 0;
+  },
+
+  [EFFECT_RESOLVE_COMBAT_ENEMY_TARGET]: (state, player, effect) => {
+    const e = effect as ResolveCombatEnemyTargetEffect;
+    // Only resolvable if in combat and the enemy exists
+    if (!state.combat) return false;
+    const enemy = state.combat.enemies.find(
+      (en) => en.instanceId === e.enemyInstanceId
+    );
+    // For defeat template, enemy just needs to exist
+    // For modifier template, enemy shouldn't be defeated yet
+    if (!enemy) return false;
+    if (e.template.defeat) return true;
+    return !enemy.isDefeated;
+  },
+};
+
+// ============================================================================
+// MAIN FUNCTION
 // ============================================================================
 
 /**
@@ -103,182 +329,12 @@ export function isEffectResolvable(
   const player = getPlayerById(state, playerId);
   if (!player) return false;
 
-  switch (effect.type) {
-    case EFFECT_DRAW_CARDS:
-      // Can only draw if there are cards in deck
-      return player.deck.length > 0;
-
-    case EFFECT_GAIN_HEALING: {
-      // Healing is only useful if there are wounds to heal:
-      // - Wound cards in hand
-      // - Wounded units
-      const hasWoundsInHand = player.hand.some((c) => c === CARD_WOUND);
-      const hasWoundedUnits = player.units.some((u) => u.wounded);
-      return hasWoundsInHand || hasWoundedUnits;
-    }
-
-    case EFFECT_COMPOUND:
-      // If a compound includes mana payments, they must be payable
-      if (effect.effects.some((e) => e.type === EFFECT_PAY_MANA)) {
-        const payable = effect.effects
-          .filter((e) => e.type === EFFECT_PAY_MANA)
-          .every((e) => isEffectResolvable(state, playerId, e));
-        if (!payable) {
-          return false;
-        }
-      }
-
-      // Compound is resolvable if at least one sub-effect is resolvable
-      return effect.effects.some((e) => isEffectResolvable(state, playerId, e));
-
-    case EFFECT_CHOICE:
-      // Choice is resolvable if at least one option is resolvable
-      return effect.options.some((e) => isEffectResolvable(state, playerId, e));
-
-    case EFFECT_CONDITIONAL:
-      // Conditional is always resolvable (the condition determines which branch)
-      return true;
-
-    case EFFECT_SCALING:
-      // Scaling wraps a base effect, check that
-      return isEffectResolvable(state, playerId, effect.baseEffect);
-
-    // These effects are always resolvable
-    case EFFECT_GAIN_MOVE:
-    case EFFECT_GAIN_INFLUENCE:
-    case EFFECT_GAIN_ATTACK:
-    case EFFECT_GAIN_BLOCK:
-    case EFFECT_GAIN_MANA:
-    case EFFECT_TAKE_WOUND:
-    case EFFECT_TRACK_ATTACK_DEFEAT_FAME:
-      return true;
-
-    case EFFECT_DISCARD_WOUNDS: {
-      if (effect.count <= 0) return true;
-      const woundCount = player.hand.filter((c) => c === CARD_WOUND).length;
-      return woundCount >= effect.count;
-    }
-
-    case EFFECT_PLACE_SKILL_IN_CENTER:
-      return true;
-
-    case EFFECT_APPLY_MODIFIER: {
-      // Most modifiers are always resolvable, but some have conditions
-      if (
-        effect.modifier.type === EFFECT_RULE_OVERRIDE &&
-        effect.modifier.rule === RULE_EXTRA_SOURCE_DIE
-      ) {
-        // "Extra source die" is only useful if there are dice available
-        // that the player couldn't otherwise access:
-        // - If already used source: need at least 1 die available
-        // - If haven't used source: need at least 2 dice (so the "extra" matters)
-        const availableDice = state.source.dice.filter(
-          (d) => d.takenByPlayerId === null && !d.isDepleted
-        );
-        if (player.usedManaFromSource) {
-          return availableDice.length > 0;
-        } else {
-          return availableDice.length >= 2;
-        }
-      }
-      return true;
-    }
-
-    case EFFECT_PAY_MANA: {
-      const required = effect.amount;
-      if (required <= 0) {
-        return false;
-      }
-      const counts = new Map(effect.colors.map((color) => [color, 0]));
-      for (const token of player.pureMana) {
-        if (counts.has(token.color)) {
-          counts.set(token.color, (counts.get(token.color) ?? 0) + 1);
-        }
-      }
-      return Array.from(counts.values()).some((count) => count >= required);
-    }
-
-    case EFFECT_NOOP:
-      return true;
-
-    case EFFECT_CONVERT_MANA_TO_CRYSTAL:
-      // Can convert mana to crystal if player can obtain basic color mana.
-      // Note: Black mana CAN'T become a crystal directly (no black crystals exist),
-      // but it can be used as wild when paying for powered effects.
-      // For Crystallize, we need actual basic color mana sources:
-      // 1. Basic color mana tokens (red/blue/green/white)
-      // 2. Gold mana tokens (wild, can become any basic color)
-      // 3. Available basic color or gold dice from source (if not used yet)
-      // 4. Crystals can be converted to tokens then to new crystals
-      return canObtainBasicColorMana(state, player);
-
-    case EFFECT_CARD_BOOST:
-      // Card boost is resolvable only if player has eligible Action cards in hand
-      // (Basic or Advanced Action cards, not wounds/spells/artifacts)
-      return player.hand.some((cardId) => {
-        if (cardId === CARD_WOUND) return false;
-        const card = getCard(cardId);
-        return (
-          card &&
-          (card.cardType === DEED_CARD_TYPE_BASIC_ACTION ||
-            card.cardType === DEED_CARD_TYPE_ADVANCED_ACTION)
-        );
-      });
-
-    case EFFECT_RESOLVE_BOOST_TARGET:
-      // Internal effect, always resolvable if it's being called
-      return true;
-
-    case EFFECT_READY_UNIT: {
-      // Ready unit is only resolvable if player has spent units at or below maxLevel
-      const eligibleUnits = getSpentUnitsAtOrBelowLevel(player.units, effect.maxLevel);
-      return eligibleUnits.length > 0;
-    }
-
-    case EFFECT_MANA_DRAW_POWERED: {
-      // Mana Draw powered is only resolvable if there are available dice in the source
-      const availableDice = state.source.dice.filter(
-        (d) => d.takenByPlayerId === null
-      );
-      return availableDice.length > 0;
-    }
-
-    case EFFECT_MANA_DRAW_PICK_DIE:
-    case EFFECT_MANA_DRAW_SET_COLOR:
-    case EFFECT_CRYSTALLIZE_COLOR:
-      // Internal effects, always resolvable if being called
-      return true;
-
-    case EFFECT_SELECT_COMBAT_ENEMY: {
-      // Only resolvable during combat with at least one eligible enemy
-      if (!state.combat) return false;
-      // Check phase restriction (e.g., Tornado can only be used in Attack phase)
-      if (effect.requiredPhase && state.combat.phase !== effect.requiredPhase) {
-        return false;
-      }
-      const eligibleEnemies = state.combat.enemies.filter(
-        (e) => effect.includeDefeated || !e.isDefeated
-      );
-      return eligibleEnemies.length > 0;
-    }
-
-    case EFFECT_RESOLVE_COMBAT_ENEMY_TARGET: {
-      // Only resolvable if in combat and the enemy exists
-      if (!state.combat) return false;
-      const enemy = state.combat.enemies.find(
-        (e) => e.instanceId === effect.enemyInstanceId
-      );
-      // For defeat template, enemy just needs to exist
-      // For modifier template, enemy shouldn't be defeated yet
-      if (!enemy) return false;
-      if (effect.template.defeat) return true;
-      return !enemy.isDefeated;
-    }
-
-    default:
-      // Unknown effect types are considered resolvable (fail-safe)
-      return true;
+  const handler = resolvabilityHandlers[effect.type];
+  if (handler) {
+    return handler(state, player, effect);
   }
+  // Unknown effect types are considered resolvable (fail-safe)
+  return true;
 }
 
 // ============================================================================
