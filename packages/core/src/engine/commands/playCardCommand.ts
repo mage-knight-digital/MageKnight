@@ -213,7 +213,6 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
         if (choiceOptions) {
           const choiceResult = handleChoiceEffect(
-            newState,
             params.playerId,
             playerIndex,
             params.cardId,

@@ -6,27 +6,21 @@
  */
 
 import type { GameState } from "../../../state/GameState.js";
-import type { Player } from "../../../types/player.js";
 import type { CardId } from "@mage-knight/shared";
 import type { GameEvent } from "@mage-knight/shared";
-import {
-  CARD_PLAYED,
-  CHOICE_REQUIRED,
-} from "@mage-knight/shared";
-import { EFFECT_CHOICE } from "../../../types/effectTypes.js";
-import type { CardEffect, ChoiceEffect } from "../../../types/cards.js";
-import { resolveEffect, isEffectResolvable, describeEffect } from "../../effects/index.js";
+import { CARD_PLAYED } from "@mage-knight/shared";
+import { EFFECT_COMPOUND } from "../../../types/effectTypes.js";
+import type { CardEffect, CompoundEffect } from "../../../types/cards.js";
+import { resolveEffect } from "../../effects/index.js";
 import type { EffectResolutionResult } from "../../effects/index.js";
-
-/**
- * Result of handling a choice effect
- */
-export interface ChoiceHandlingResult {
-  readonly state: GameState;
-  readonly events: GameEvent[];
-  /** The effect that was actually resolved (for undo tracking) */
-  readonly resolvedEffect?: CardEffect;
-}
+import {
+  applyChoiceOutcome,
+  buildChoiceRequiredEvent,
+  getChoiceOptionsFromEffect,
+  type ChoiceHandlingResult,
+  type ChoiceOptionsResult,
+  type PendingChoiceSource,
+} from "../choice/choiceResolution.js";
 
 /**
  * Determine the choice options from an effect resolution result.
@@ -35,30 +29,8 @@ export interface ChoiceHandlingResult {
 export function getChoiceOptions(
   effectResult: EffectResolutionResult,
   effectToApply: CardEffect
-): readonly CardEffect[] | null {
-  if (effectResult.dynamicChoiceOptions) {
-    // Dynamic choices from effects like EFFECT_CARD_BOOST
-    return effectResult.dynamicChoiceOptions;
-  }
-
-  if (effectToApply.type === EFFECT_CHOICE) {
-    // Static choice effect
-    const choiceEffect = effectToApply as ChoiceEffect;
-    return choiceEffect.options;
-  }
-
-  return null;
-}
-
-/**
- * Filter choice options to only those that are currently resolvable.
- */
-export function filterResolvableOptions(
-  state: GameState,
-  playerId: string,
-  options: readonly CardEffect[]
-): readonly CardEffect[] {
-  return options.filter((opt) => isEffectResolvable(state, playerId, opt));
+): ChoiceOptionsResult | null {
+  return getChoiceOptionsFromEffect(effectResult, effectToApply);
 }
 
 /**
@@ -85,71 +57,111 @@ function createCardPlayedEvent(
  * or presenting the choice to the player.
  */
 export function handleChoiceEffect(
-  state: GameState,
   playerId: string,
   playerIndex: number,
   cardId: CardId,
   isPowered: boolean,
   effectResult: EffectResolutionResult,
-  choiceOptions: readonly CardEffect[]
+  choiceInfo: ChoiceOptionsResult
 ): ChoiceHandlingResult {
-  // Filter options to only include resolvable ones
-  const resolvableOptions = filterResolvableOptions(state, playerId, choiceOptions);
+  const source: PendingChoiceSource = {
+    cardId,
+    skillId: null,
+    unitInstanceId: null,
+  };
 
-  // If no options are resolvable, skip the choice entirely
-  if (resolvableOptions.length === 0) {
-    return {
-      state: effectResult.state,
-      events: [createCardPlayedEvent(playerId, cardId, isPowered, "No available options")],
-    };
-  }
-
-  // If only one option is resolvable, auto-resolve it
-  if (resolvableOptions.length === 1) {
-    const singleOption = resolvableOptions[0];
-    if (!singleOption) {
-      throw new Error("Expected single resolvable option");
+  const resolveRemainingEffects = (
+    currentState: GameState,
+    remainingEffects: readonly CardEffect[] | undefined,
+    description: string
+  ): ChoiceHandlingResult => {
+    if (!remainingEffects || remainingEffects.length === 0) {
+      return {
+        state: currentState,
+        events: [createCardPlayedEvent(playerId, cardId, isPowered, description)],
+      };
     }
 
-    const autoResolveResult = resolveEffect(state, playerId, singleOption);
-    return {
-      state: autoResolveResult.state,
-      events: [createCardPlayedEvent(playerId, cardId, isPowered, autoResolveResult.description)],
-      resolvedEffect: singleOption,
+    const compoundEffect: CompoundEffect = {
+      type: EFFECT_COMPOUND,
+      effects: remainingEffects,
     };
-  }
+    const compoundResult = resolveEffect(currentState, playerId, compoundEffect);
 
-  // Multiple options available - present choice to player
-  const player = effectResult.state.players[playerIndex];
-  if (!player) {
-    throw new Error(`Player not found at index: ${playerIndex}`);
-  }
+    if (compoundResult.requiresChoice) {
+      const nextChoiceInfo = getChoiceOptionsFromEffect(
+        compoundResult,
+        compoundEffect
+      );
+      if (nextChoiceInfo) {
+        return applyChoiceOutcome({
+          state: compoundResult.state,
+          playerId,
+          playerIndex,
+          options: nextChoiceInfo.options,
+          source,
+          remainingEffects: nextChoiceInfo.remainingEffects,
+          resolveEffect: (state, id, effect) => resolveEffect(state, id, effect),
+          handlers: {
+            onNoOptions: (state) =>
+              resolveRemainingEffects(
+                state,
+                nextChoiceInfo.remainingEffects,
+                description
+              ),
+            onAutoResolved: (autoResult) =>
+              resolveRemainingEffects(
+                autoResult.state,
+                nextChoiceInfo.remainingEffects,
+                description
+              ),
+            onPendingChoice: (stateWithChoice, options) => ({
+              state: stateWithChoice,
+              events: [
+                createCardPlayedEvent(
+                  playerId,
+                  cardId,
+                  isPowered,
+                  "Choice required"
+                ),
+                buildChoiceRequiredEvent(playerId, source, options),
+              ],
+            }),
+          },
+        });
+      }
+    }
 
-  const playerWithChoice: Player = {
-    ...player,
-    pendingChoice: {
-      cardId,
-      skillId: null,
-      unitInstanceId: null,
-      options: resolvableOptions,
+    return {
+      state: compoundResult.state,
+      events: [createCardPlayedEvent(playerId, cardId, isPowered, description)],
+    };
+  };
+
+  return applyChoiceOutcome({
+    state: effectResult.state,
+    playerId,
+    playerIndex,
+    options: choiceInfo.options,
+    source,
+    remainingEffects: choiceInfo.remainingEffects,
+    resolveEffect: (state, id, effect) => resolveEffect(state, id, effect),
+    handlers: {
+      onNoOptions: (state) =>
+        resolveRemainingEffects(state, choiceInfo.remainingEffects, "No available options"),
+      onAutoResolved: (autoResult) =>
+        resolveRemainingEffects(
+          autoResult.state,
+          choiceInfo.remainingEffects,
+          autoResult.description
+        ),
+      onPendingChoice: (stateWithChoice, options) => ({
+        state: stateWithChoice,
+        events: [
+          createCardPlayedEvent(playerId, cardId, isPowered, "Choice required"),
+          buildChoiceRequiredEvent(playerId, source, options),
+        ],
+      }),
     },
-  };
-
-  // Update state with pending choice
-  const playersWithChoice = [...effectResult.state.players];
-  playersWithChoice[playerIndex] = playerWithChoice;
-
-  return {
-    state: { ...effectResult.state, players: playersWithChoice },
-    events: [
-      createCardPlayedEvent(playerId, cardId, isPowered, "Choice required"),
-      {
-        type: CHOICE_REQUIRED,
-        playerId,
-        cardId,
-        skillId: null,
-        options: resolvableOptions.map((opt) => describeEffect(opt)),
-      },
-    ],
-  };
+  });
 }

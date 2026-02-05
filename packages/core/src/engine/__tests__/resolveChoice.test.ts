@@ -15,6 +15,14 @@ import {
   UNDO_ACTION,
   CARD_RAGE,
   CARD_DETERMINATION,
+  CARD_EXPOSE,
+  MANA_BLACK,
+  MANA_WHITE,
+  MANA_SOURCE_TOKEN,
+  MANA_TOKEN_SOURCE_CARD,
+  ABILITY_FORTIFIED,
+  ELEMENT_FIRE,
+  TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 
 describe("Choice resolution", () => {
@@ -291,6 +299,93 @@ describe("Choice resolution", () => {
       expect(afterUndo.state.players[0].hand).toContain(CARD_RAGE);
       expect(afterUndo.state.players[0].playArea).not.toContain(CARD_RAGE);
       expect(afterUndo.state.players[0].pendingChoice).toBeNull();
+    });
+  });
+
+  describe("compound choice continuation", () => {
+    it("should continue remaining effects after powered Expose choice", () => {
+      const player = createTestPlayer({
+        hand: [CARD_EXPOSE],
+        pureMana: [
+          { color: MANA_BLACK, source: MANA_TOKEN_SOURCE_CARD },
+          { color: MANA_WHITE, source: MANA_TOKEN_SOURCE_CARD },
+        ],
+      });
+      const baseCombat = createUnitCombatState(COMBAT_PHASE_ATTACK);
+      const fortifiedEnemy = {
+        ...baseCombat.enemies[0],
+        definition: {
+          ...baseCombat.enemies[0].definition,
+          abilities: [ABILITY_FORTIFIED],
+          resistances: [ELEMENT_FIRE],
+        },
+      };
+      const state = createTestGameState({
+        players: [player],
+        combat: {
+          ...baseCombat,
+          enemies: [fortifiedEnemy],
+        },
+        timeOfDay: TIME_OF_DAY_NIGHT,
+      });
+
+      const afterPlay = engine.processAction(state, "player1", {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_EXPOSE,
+        powered: true,
+        manaSources: [
+          { type: MANA_SOURCE_TOKEN, color: MANA_BLACK },
+          { type: MANA_SOURCE_TOKEN, color: MANA_WHITE },
+        ],
+      });
+
+      expect(afterPlay.state.players[0].pendingChoice).not.toBeNull();
+      expect(afterPlay.state.players[0].combatAccumulator.attack.ranged).toBe(0);
+
+      const afterChoice = engine.processAction(afterPlay.state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: 0,
+      });
+
+      expect(afterChoice.state.players[0].pendingChoice).toBeNull();
+      expect(afterChoice.state.players[0].combatAccumulator.attack.ranged).toBe(3);
+    });
+
+    it("should keep pending choice for dynamic options and apply remaining effects", () => {
+      const player = createTestPlayer({
+        hand: [CARD_EXPOSE],
+        pureMana: [{ color: MANA_WHITE, source: MANA_TOKEN_SOURCE_CARD }],
+      });
+      const baseCombat = createUnitCombatState(COMBAT_PHASE_ATTACK);
+      const combat = {
+        ...baseCombat,
+        enemies: [
+          ...baseCombat.enemies,
+          { ...baseCombat.enemies[0], instanceId: "enemy_2" },
+        ],
+      };
+      const state = createTestGameState({
+        players: [player],
+        combat,
+      });
+
+      const afterPlay = engine.processAction(state, "player1", {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_EXPOSE,
+        powered: false,
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_WHITE },
+      });
+
+      expect(afterPlay.state.players[0].pendingChoice).not.toBeNull();
+      expect(afterPlay.state.players[0].pendingChoice?.options).toHaveLength(2);
+
+      const afterChoice = engine.processAction(afterPlay.state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: 0,
+      });
+
+      expect(afterChoice.state.players[0].pendingChoice).toBeNull();
+      expect(afterChoice.state.players[0].combatAccumulator.attack.ranged).toBe(2);
     });
   });
 });
