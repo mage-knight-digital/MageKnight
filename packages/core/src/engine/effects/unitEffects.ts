@@ -30,7 +30,7 @@ import { UNITS, UNIT_STATE_READY, UNIT_STATE_SPENT } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
-import { EFFECT_READY_UNIT, EFFECT_RESOLVE_READY_UNIT_TARGET } from "../../types/effectTypes.js";
+import { EFFECT_READY_UNIT, EFFECT_RESOLVE_READY_UNIT_TARGET, EFFECT_READY_ALL_UNITS } from "../../types/effectTypes.js";
 
 // ============================================================================
 // SELECT READY UNIT (Entry Point)
@@ -188,6 +188,49 @@ export function applyReadyUnit(
 }
 
 // ============================================================================
+// READY ALL UNITS
+// ============================================================================
+
+/**
+ * Handle the EFFECT_READY_ALL_UNITS effect.
+ * Readies ALL spent units controlled by the player, regardless of level.
+ * Wounded units are also readied (wound status unchanged).
+ *
+ * Used by Banner of Courage powered effect.
+ */
+export function handleReadyAllUnits(
+  state: GameState,
+  playerIndex: number,
+  player: Player
+): EffectResolutionResult {
+  const spentUnits = player.units.filter((u) => u.state === UNIT_STATE_SPENT);
+
+  if (spentUnits.length === 0) {
+    return {
+      state,
+      description: "No spent units to ready",
+    };
+  }
+
+  const updatedUnits = player.units.map((unit) => {
+    if (unit.state === UNIT_STATE_SPENT) {
+      return { ...unit, state: UNIT_STATE_READY as typeof UNIT_STATE_READY };
+    }
+    return unit;
+  });
+
+  const updatedPlayer: Player = {
+    ...player,
+    units: updatedUnits,
+  };
+
+  return {
+    state: updatePlayer(state, playerIndex, updatedPlayer),
+    description: `Readied all units (${spentUnits.length})`,
+  };
+}
+
+// ============================================================================
 // EFFECT REGISTRATION
 // ============================================================================
 
@@ -203,5 +246,10 @@ export function registerUnitEffects(): void {
 
   registerEffect(EFFECT_RESOLVE_READY_UNIT_TARGET, (state, playerId, effect) => {
     return resolveReadyUnitTarget(state, playerId, effect as ResolveReadyUnitTargetEffect);
+  });
+
+  registerEffect(EFFECT_READY_ALL_UNITS, (state, playerId) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return handleReadyAllUnits(state, playerIndex, player);
   });
 }
