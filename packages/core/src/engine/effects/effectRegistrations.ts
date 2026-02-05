@@ -35,6 +35,7 @@ import { registerDiscardForCrystalEffects } from "./discardForCrystalEffects.js"
 import { registerRuthlessCoercionEffects } from "./ruthlessCoercionEffects.js";
 import { registerEnergyFlowEffects } from "./energyFlowEffects.js";
 import { registerCureEffects } from "./cureEffects.js";
+import { registerInvocationEffects } from "./invocationEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -122,4 +123,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Cure / Disease effects (white spell)
   registerCureEffects();
+
+  // Invocation effects (Arythea's Invocation skill)
+  registerInvocationEffects();
 }

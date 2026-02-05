@@ -30,3 +30,9 @@ export {
   applyPowerOfPainEffect,
   removePowerOfPainEffect,
 } from "./powerOfPainEffect.js";
+
+export {
+  applyInvocationEffect,
+  removeInvocationEffect,
+  canActivateInvocation,
+} from "./invocationEffect.js";
