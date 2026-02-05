@@ -10,7 +10,7 @@
  * @module data/unitAbilityEffects
  */
 
-import { ABILITY_FORTIFIED, MANA_BLUE } from "@mage-knight/shared";
+import { ABILITY_FORTIFIED, MANA_BLUE, MANA_GREEN } from "@mage-knight/shared";
 import type { CardEffect } from "../types/cards.js";
 import {
   EFFECT_SELECT_COMBAT_ENEMY,
@@ -20,6 +20,7 @@ import {
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
+  EFFECT_READY_UNIT,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -64,6 +65,18 @@ export const ICE_MAGES_GAIN_MANA_CRYSTAL = "ice_mages_gain_mana_crystal" as cons
  * Strip resistances from one enemy + Ranged Attack 3
  */
 export const SORCERERS_STRIP_RESISTANCES = "sorcerers_strip_resistances" as const;
+
+/**
+ * Herbalist: Free ability
+ * Ready a level 1 or 2 unit
+ */
+export const HERBALIST_READY_UNIT = "herbalist_ready_unit" as const;
+
+/**
+ * Herbalist: Free ability
+ * Gain a green mana token
+ */
+export const HERBALIST_GAIN_MANA = "herbalist_gain_mana" as const;
 
 // =============================================================================
 // EFFECT DEFINITIONS
@@ -173,6 +186,24 @@ const ICE_MAGES_GAIN_MANA_CRYSTAL_EFFECT: CardEffect = {
   ],
 };
 
+/**
+ * Herbalist's ready unit ability.
+ * Ready a spent unit of level 1 or 2.
+ */
+const HERBALIST_READY_UNIT_EFFECT: CardEffect = {
+  type: EFFECT_READY_UNIT,
+  maxLevel: 2,
+};
+
+/**
+ * Herbalist's mana generation ability.
+ * Grants 1 green mana token.
+ */
+const HERBALIST_GAIN_MANA_EFFECT: CardEffect = {
+  type: EFFECT_GAIN_MANA,
+  color: MANA_GREEN,
+};
+
 // =============================================================================
 // REGISTRY
 // =============================================================================
@@ -187,6 +218,8 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [ICE_MAGES_ATTACK_OR_BLOCK]: ICE_MAGES_ATTACK_OR_BLOCK_EFFECT,
   [ICE_MAGES_SIEGE_ATTACK]: ICE_MAGES_SIEGE_ATTACK_EFFECT,
   [ICE_MAGES_GAIN_MANA_CRYSTAL]: ICE_MAGES_GAIN_MANA_CRYSTAL_EFFECT,
+  [HERBALIST_READY_UNIT]: HERBALIST_READY_UNIT_EFFECT,
+  [HERBALIST_GAIN_MANA]: HERBALIST_GAIN_MANA_EFFECT,
 };
 
 /**

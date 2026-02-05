@@ -47,6 +47,7 @@ import {
   MANA_SOURCE_DIE,
   MANA_RED,
   MANA_BLUE,
+  MANA_GREEN,
 } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../types/unit.js";
 import { resetUnitInstanceCounter } from "../commands/units/index.js";
@@ -179,12 +180,13 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should activate heal ability and remove wounds from hand", () => {
-      // Herbalist has Heal 2 (ability index 0)
+      // Herbalist has Heal 2 (ability index 0, requires green mana)
       const unit = createPlayerUnit(UNIT_HERBALIST, "herbalist_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
         hand: [CARD_WOUND, CARD_WOUND, CARD_WOUND], // 3 wounds
+        pureMana: [{ color: MANA_GREEN, source: "card" }],
       });
 
       // Heal ability should work outside of combat
@@ -198,6 +200,7 @@ describe("Unit Combat Abilities", () => {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "herbalist_1",
         abilityIndex: 0, // Heal 2
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_GREEN },
       });
 
       // Verify wounds were removed from hand (Heal 2 = remove 2 wounds)
@@ -1838,12 +1841,13 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should undo heal ability and restore wounds to hand", () => {
-      // Herbalist has Heal 2 (ability index 0)
+      // Herbalist has Heal 2 (ability index 0, requires green mana)
       const unit = createPlayerUnit(UNIT_HERBALIST, "herbalist_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
         hand: [CARD_WOUND, CARD_WOUND, CARD_WOUND], // 3 wounds
+        pureMana: [{ color: MANA_GREEN, source: "card" }],
       });
 
       const state = createTestGameState({
@@ -1858,6 +1862,7 @@ describe("Unit Combat Abilities", () => {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "herbalist_1",
         abilityIndex: 0, // Heal 2
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_GREEN },
       });
 
       // Verify wounds were removed (Heal 2 = remove 2 wounds)
