@@ -39,6 +39,8 @@ import {
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
+  EFFECT_ENERGY_FLOW,
+  EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -47,6 +49,8 @@ import type {
   RecruitDiscountEffect,
   ReadyUnitsForInfluenceEffect,
   ResolveReadyUnitForInfluenceEffect,
+  EnergyFlowEffect,
+  ResolveEnergyFlowTargetEffect,
 } from "../../types/cards.js";
 import type {
   GainMoveEffect,
@@ -293,6 +297,16 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE]: (effect) => {
     const e = effect as ResolveReadyUnitForInfluenceEffect;
     return `Ready ${e.unitName} (${e.influenceCost} Influence)`;
+  },
+
+  [EFFECT_ENERGY_FLOW]: (effect) => {
+    const e = effect as EnergyFlowEffect;
+    return e.healReadiedUnit ? "Ready and heal a Unit" : "Ready a Unit";
+  },
+
+  [EFFECT_RESOLVE_ENERGY_FLOW_TARGET]: (effect) => {
+    const e = effect as ResolveEnergyFlowTargetEffect;
+    return e.healReadiedUnit ? `Ready and heal ${e.unitName}` : `Ready ${e.unitName}`;
   },
 };
 

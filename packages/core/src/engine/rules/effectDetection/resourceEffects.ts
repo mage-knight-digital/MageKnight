@@ -7,6 +7,8 @@
 import type { CardEffect } from "../../../types/cards.js";
 import {
   EFFECT_GAIN_HEALING,
+  EFFECT_HEAL_UNIT,
+  EFFECT_ENERGY_FLOW,
   EFFECT_GAIN_MANA,
   EFFECT_DRAW_CARDS,
   EFFECT_APPLY_MODIFIER,
@@ -23,6 +25,8 @@ import {
 export function effectHasHeal(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_HEALING:
+    case EFFECT_HEAL_UNIT:
+    case EFFECT_ENERGY_FLOW:
       return true;
 
     case EFFECT_CHOICE:

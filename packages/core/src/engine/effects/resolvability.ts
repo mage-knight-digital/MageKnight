@@ -73,6 +73,8 @@ import {
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
+  EFFECT_ENERGY_FLOW,
+  EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -92,6 +94,7 @@ import type {
 import type {
   ReadyUnitsForInfluenceEffect,
   ResolveReadyUnitForInfluenceEffect,
+  ResolveEnergyFlowTargetEffect,
 } from "../../types/cards.js";
 import {
   EFFECT_RULE_OVERRIDE,
@@ -359,6 +362,17 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
     const unit = player.units.find((u) => u.instanceId === e.unitInstanceId);
     if (!unit || unit.state !== UNIT_STATE_SPENT) return false;
     return player.influencePoints >= e.influenceCost;
+  },
+
+  [EFFECT_ENERGY_FLOW]: (state, player) => {
+    // Resolvable if player has any spent units (ready any level)
+    return player.units.some((unit) => unit.state === UNIT_STATE_SPENT);
+  },
+
+  [EFFECT_RESOLVE_ENERGY_FLOW_TARGET]: (state, player, effect) => {
+    const e = effect as ResolveEnergyFlowTargetEffect;
+    const unit = player.units.find((u) => u.instanceId === e.unitInstanceId);
+    return unit !== undefined && unit.state === UNIT_STATE_SPENT;
   },
 };
 
