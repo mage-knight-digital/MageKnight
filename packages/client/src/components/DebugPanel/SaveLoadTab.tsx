@@ -134,6 +134,22 @@ export function SaveLoadTab({ state, saveGame, loadGame, sendAction: _sendAction
       <section className="debug-panel__section">
         <h4>Server State</h4>
         <div className="debug-panel__row">
+          <button
+            type="button"
+            onClick={() => {
+              const json = saveGame();
+              if (!json) return;
+              try {
+                const serverState = JSON.parse(json);
+                console.log("=== SERVER STATE (full GameState) ===", serverState);
+              } catch {
+                console.error("Failed to parse server state");
+              }
+            }}
+            title="Log full server GameState to console"
+          >
+            Log to Console
+          </button>
           <button type="button" onClick={handleExportState} title="Download server state (for save/load)">
             Export to File
           </button>
