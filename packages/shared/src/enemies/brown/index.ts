@@ -24,6 +24,7 @@ export { ENEMY_HYDRA, HYDRA } from "./hydra.js";
 export { ENEMY_MANTICORE, MANTICORE } from "./manticore.js";
 export { ENEMY_WATER_ELEMENTAL, WATER_ELEMENTAL } from "./water-elemental.js";
 export { ENEMY_VAMPIRE, VAMPIRE } from "./vampire.js";
+export { ENEMY_PAIN_WRAITH, PAIN_WRAITH } from "./pain-wraith.js";
 
 // Import for aggregation
 import { ENEMY_AIR_ELEMENTAL, AIR_ELEMENTAL } from "./air-elemental.js";
@@ -41,6 +42,7 @@ import { ENEMY_HYDRA, HYDRA } from "./hydra.js";
 import { ENEMY_MANTICORE, MANTICORE } from "./manticore.js";
 import { ENEMY_WATER_ELEMENTAL, WATER_ELEMENTAL } from "./water-elemental.js";
 import { ENEMY_VAMPIRE, VAMPIRE } from "./vampire.js";
+import { ENEMY_PAIN_WRAITH, PAIN_WRAITH } from "./pain-wraith.js";
 
 /**
  * Union type of all brown (Dungeon monster) enemy IDs
@@ -60,7 +62,8 @@ export type BrownEnemyId =
   | typeof ENEMY_HYDRA
   | typeof ENEMY_MANTICORE
   | typeof ENEMY_WATER_ELEMENTAL
-  | typeof ENEMY_VAMPIRE;
+  | typeof ENEMY_VAMPIRE
+  | typeof ENEMY_PAIN_WRAITH;
 
 /** All brown (Dungeon monster) enemies */
 export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
@@ -79,4 +82,5 @@ export const BROWN_ENEMIES: Record<BrownEnemyId, EnemyDefinition> = {
   [ENEMY_MANTICORE]: MANTICORE,
   [ENEMY_WATER_ELEMENTAL]: WATER_ELEMENTAL,
   [ENEMY_VAMPIRE]: VAMPIRE,
+  [ENEMY_PAIN_WRAITH]: PAIN_WRAITH,
 };
