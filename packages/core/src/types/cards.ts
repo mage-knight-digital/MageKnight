@@ -10,6 +10,7 @@ import type {
   Element,
   DiscardFilter,
   RevealTileType,
+  ResistanceType,
 } from "@mage-knight/shared";
 import type { ModifierEffect, ModifierDuration, ModifierScope } from "./modifiers.js";
 import type { CombatPhase } from "./combat.js";
@@ -386,6 +387,8 @@ export interface SelectCombatEnemyEffect {
   readonly excludeFortified?: boolean;
   /** If true, exclude enemies with Arcane Immunity from targeting */
   readonly excludeArcaneImmune?: boolean;
+  /** If set, exclude enemies with this resistance type from targeting */
+  readonly excludeResistance?: ResistanceType;
 }
 
 /**
