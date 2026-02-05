@@ -14,6 +14,8 @@ import { SiteType, type HexState } from "../../types/map.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { FEATURE_FLAGS } from "../../config/featureFlags.js";
 import { mustAnnounceEndOfRound } from "./helpers.js";
+import { isRuleActive } from "../modifiers/index.js";
+import { RULE_IGNORE_RAMPAGING_PROVOKE } from "../../types/modifierConstants.js";
 
 /**
  * Get valid move targets for a player.
@@ -67,18 +69,18 @@ export function getValidMoveTargets(
     // Skip if not enough move points
     if (player.movePoints < cost) continue;
 
-    // Skip if blocked by rampaging enemies
-    if (hex.rampagingEnemies.length > 0 && hex.enemies.length > 0) continue;
-
     // Skip cities if scenario doesn't allow entry
     if (hex.site?.type === SiteType.City) {
       if (!state.scenarioConfig.citiesCanBeEntered) continue;
     }
 
+    // Check rampaging ignore rule for provocation
+    const ignoresRampaging = isRuleActive(state, player.id, RULE_IGNORE_RAMPAGING_PROVOKE);
+
     // Check if this move would be terminal (trigger combat)
     const isTerminal =
       isTerminalHex(hex, player.id, state) ||
-      wouldProvokeRampaging(player.position, adjacent, state.map.hexes);
+      (!ignoresRampaging && wouldProvokeRampaging(player.position, adjacent, state.map.hexes));
 
     // Check if this move would reveal enemies at adjacent fortified sites (Day only)
     const isDay = state.timeOfDay === TIME_OF_DAY_DAY;
@@ -283,6 +285,9 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
   // Check if it's Day (for enemy reveal detection)
   const isDay = state.timeOfDay === TIME_OF_DAY_DAY;
 
+  // Check rampaging ignore rule
+  const ignoresRampaging = isRuleActive(state, player.id, RULE_IGNORE_RAMPAGING_PROVOKE);
+
   // Start from player position (cost 0, not terminal, don't include in results)
   visited.set(startKey, { totalCost: 0, isTerminal: false, wouldRevealEnemies: false, cameFromKey: null });
 
@@ -295,7 +300,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
     const cost = getHexEntryCost(hex, state, player.id, neighbor);
     if (cost <= movePoints && cost !== Infinity) {
       // Check if moving from start to this neighbor would provoke rampaging enemies
-      const wouldProvoke = wouldProvokeRampaging(player.position, neighbor, state.map.hexes);
+      const wouldProvoke = !ignoresRampaging && wouldProvokeRampaging(player.position, neighbor, state.map.hexes);
       const terminal = (hex ? isTerminalHex(hex, player.id, state) : false) || wouldProvoke;
       const wouldReveal = wouldMoveRevealEnemies(
         player.position,
@@ -336,7 +341,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
     }
 
     // Check for rampaging provocation from the hex we came from
-    if (current.cameFromKey && current.cameFromKey !== startKey) {
+    if (!ignoresRampaging && current.cameFromKey && current.cameFromKey !== startKey) {
       // If the path would provoke rampaging, this becomes terminal
       // (parse coord from key)
       const parts = current.cameFromKey.split(",");
@@ -381,7 +386,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
       if (newTotalCost > movePoints) continue;
 
       // Check if moving here would provoke rampaging
-      const wouldProvoke = wouldProvokeRampaging(current.coord, neighbor, state.map.hexes);
+      const wouldProvoke = !ignoresRampaging && wouldProvokeRampaging(current.coord, neighbor, state.map.hexes);
       const terminal = (hex ? isTerminalHex(hex, player.id, state) : false) || wouldProvoke;
 
       // Check if moving here would reveal enemies at adjacent fortified sites

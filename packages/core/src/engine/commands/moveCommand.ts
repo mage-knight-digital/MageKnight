@@ -29,6 +29,8 @@ import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { createCombatState, type CombatEnemyInput } from "../../types/combat.js";
 import { getEnemyIdFromToken } from "../helpers/enemy/index.js";
 import { SiteType, type HexState, type HexEnemy } from "../../types/map.js";
+import { isRuleActive } from "../modifiers/index.js";
+import { RULE_IGNORE_RAMPAGING_PROVOKE } from "../../types/modifierConstants.js";
 
 export { MOVE_COMMAND };
 
@@ -229,11 +231,15 @@ export function createMoveCommand(params: MoveCommandParams): Command {
       // Check for provoking rampaging enemies (skirting around them)
       // Per rulebook: An assault can provoke rampaging enemies. You must fight both
       // the defenders and these rampaging enemies at once.
-      const provokedEnemies = findProvokedRampagingEnemies(
-        params.from,
-        params.to,
-        state.map.hexes
-      );
+      // Underground Travel bypasses rampaging provocation entirely.
+      const ignoresRampaging = isRuleActive(state, params.playerId, RULE_IGNORE_RAMPAGING_PROVOKE);
+      const provokedEnemies = ignoresRampaging
+        ? []
+        : findProvokedRampagingEnemies(
+          params.from,
+          params.to,
+          state.map.hexes
+        );
 
       const firstProvoked = provokedEnemies[0];
       if (firstProvoked) {

@@ -9,7 +9,8 @@ import type { GameState } from "../../state/GameState.js";
 import type { HexCoord } from "@mage-knight/shared";
 import { hexKey } from "@mage-knight/shared";
 import { SiteType, type HexState } from "../../types/map.js";
-import { getEffectiveTerrainCost, isTerrainProhibited } from "../modifiers/index.js";
+import { getEffectiveTerrainCost, isTerrainProhibited, isRuleActive } from "../modifiers/index.js";
+import { RULE_IGNORE_RAMPAGING_PROVOKE } from "../../types/modifierConstants.js";
 
 export const MOVE_ENTRY_BLOCK_HEX_MISSING = "MOVE_ENTRY_BLOCK_HEX_MISSING" as const;
 export const MOVE_ENTRY_BLOCK_TERRAIN_PROHIBITED =
@@ -62,7 +63,9 @@ export function evaluateMoveEntry(
   }
 
   if (hex.rampagingEnemies.length > 0 && hex.enemies.length > 0) {
-    return { cost: Infinity, reason: MOVE_ENTRY_BLOCK_RAMPAGING };
+    if (!isRuleActive(state, playerId, RULE_IGNORE_RAMPAGING_PROVOKE)) {
+      return { cost: Infinity, reason: MOVE_ENTRY_BLOCK_RAMPAGING };
+    }
   }
 
   if (hex.site?.type === SiteType.City && !state.scenarioConfig.citiesCanBeEntered) {

@@ -112,6 +112,7 @@ export const CARD_MIST_FORM = cardId("mist_form"); // #14 - Move with all terrai
 export const CARD_RESTORATION = cardId("restoration"); // #05 - Heal 3 (5 in forest)
 export const CARD_WHIRLWIND = cardId("whirlwind"); // #07 - Target doesn't attack / defeat
 export const CARD_ENERGY_FLOW = cardId("energy_flow"); // #12 - Ready unit + spend opponent units
+export const CARD_UNDERGROUND_TRAVEL = cardId("underground_travel"); // #04 - Move 3 no swamp/lake / Assault ignore fortification
 
 // White spells
 export const CARD_EXPOSE = cardId("expose"); // #19 - Lose fortification/resistances
@@ -169,6 +170,7 @@ export type SpellCardId =
   | typeof CARD_RESTORATION
   | typeof CARD_WHIRLWIND
   | typeof CARD_ENERGY_FLOW
+  | typeof CARD_UNDERGROUND_TRAVEL
   // White spells
   | typeof CARD_EXPOSE
   | typeof CARD_CURE;
