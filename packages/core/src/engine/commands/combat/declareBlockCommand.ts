@@ -33,6 +33,7 @@ import {
 } from "../../combat/enemyAttackHelpers.js";
 import { getCumbersomeReducedAttack } from "../../combat/cumbersomeHelpers.js";
 import { isSwiftActive } from "../../combat/swiftHelpers.js";
+import { getColdToughnessBlockBonus } from "../../combat/coldToughnessHelpers.js";
 
 export const DECLARE_BLOCK_COMMAND = "DECLARE_BLOCK" as const;
 
@@ -178,10 +179,17 @@ export function createDeclareBlockCommand(
 
       // Convert pendingBlock to BlockSource[] format for calculation
       const baseBlockSources = pendingBlockToBlockSources(pendingBlock);
+
+      // Add Cold Toughness per-enemy bonus as an ice block source (before efficiency calc)
+      const coldToughnessBonus = getColdToughnessBlockBonus(state, params.playerId, enemy);
+      const sourcesWithBonus = coldToughnessBonus > 0
+        ? [...baseBlockSources, { element: ELEMENT_ICE as Element, value: coldToughnessBonus }]
+        : baseBlockSources;
+
       const swiftActive = isSwiftActive(state, params.playerId, enemy);
       const blockSources = swiftActive
-        ? appendSwiftDoubleSources(baseBlockSources, pendingSwiftBlock)
-        : baseBlockSources;
+        ? appendSwiftDoubleSources(sourcesWithBonus, pendingSwiftBlock)
+        : sourcesWithBonus;
 
       // Calculate final block value including elemental efficiency and combat modifiers
       // Use the attack's element for block efficiency calculation
