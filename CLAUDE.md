@@ -201,30 +201,29 @@ Site conquest queues rewards to `player.pendingRewards`. Player must select befo
 
 ## Key Gotchas
 
-### ⚠️ ValidActions Must Match Validators (CRITICAL)
+### ⚠️ Shared Rule Helpers Keep Validators & ValidActions Aligned
 
-**When implementing any game mechanic that restricts player options, you MUST update BOTH:**
-1. **Validators** (`core/src/engine/validators/`) — prevent invalid actions server-side
-2. **ValidActions** (`core/src/engine/validActions/`) — filter options shown to client
+When implementing game mechanics that restrict player options, define the rule logic **once** in `core/src/engine/rules/`, then import it into both validators and validActions. This prevents misalignment.
 
-This applies to:
-- Enemy abilities (Assassination, Brutal, Swift, Fortified, etc.)
-- Card effects that restrict targeting
-- Combat phase restrictions
-- Unit/site-specific rules
-- Any new effect, spell, artifact, skill, or unit that changes what actions are legal
+**Rule modules by domain:**
+- `rules/cardPlay.ts` — card restrictions, wound cards, effect contexts
+- `rules/combatTargeting.ts` — combat targeting eligibility
+- `rules/mana.ts` — mana color availability (time of day, dungeons)
+- `rules/movement.ts` — movement restrictions
+- `rules/sideways.ts` — sideways play restrictions
 
-**Why both?** Validators are the safety net (reject invalid actions). ValidActions provides good UX (don't show options that would fail). If you only add a validator, the UI will show buttons that produce errors when clicked.
+**Workflow for new restrictions:**
+1. Create rule helper in appropriate `rules/*.ts` file (or extend existing)
+2. Import rule into validators that enforce the restriction
+3. Import same rule into validActions that filter options
+4. Add tests for rule logic, then for validators/validActions that use it
 
-**Checklist for new restrictions:**
-- [ ] Add validator in appropriate `validators/` subdirectory
-- [ ] Register validator in `validators/index.ts`
-- [ ] Update relevant `validActions/*.ts` to filter options
-- [ ] Add tests for BOTH validator rejection AND validActions filtering
+**Example:** Assassination ability prevents assigning damage to units.
+- `rules/combatTargeting.ts` — `function canTargetUnit(enemy) → boolean` checking assassination
+- `validators/combatValidators/targetValidators.ts` — imports and uses `canTargetUnit()`
+- `validActions/combat.ts` — imports same `canTargetUnit()` to filter `availableUnits`
 
-**Example:** Assassination ability prevents assigning damage to units. Required changes:
-- `validators/combatValidators/targetValidators.ts` — reject unit assignments
-- `validActions/combat.ts` — filter `availableUnits` to empty for Assassination enemies
+This ensures validators and validActions stay aligned through shared code, not manual duplication.
 
 ### Monorepo Build Order
 Core/server consume shared via built outputs. When adding exports to shared:
