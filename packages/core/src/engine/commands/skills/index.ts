@@ -25,3 +25,8 @@ export {
   removePolarizationEffect,
   canActivatePolarization,
 } from "./polarizationEffect.js";
+
+export {
+  applyPowerOfPainEffect,
+  removePowerOfPainEffect,
+} from "./powerOfPainEffect.js";

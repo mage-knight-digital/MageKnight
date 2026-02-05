@@ -27,7 +27,10 @@ import {
 } from "../modifiers/index.js";
 import { EFFECT_MOVEMENT_CARD_BONUS, SOURCE_SKILL } from "../../types/modifierConstants.js";
 import { PLAY_CARD_SIDEWAYS_COMMAND } from "./commandTypes.js";
-import { SKILL_ARYTHEA_RITUAL_OF_PAIN } from "../../data/skills/index.js";
+import {
+  SKILL_ARYTHEA_RITUAL_OF_PAIN,
+  SKILL_ARYTHEA_POWER_OF_PAIN,
+} from "../../data/skills/index.js";
 
 export { PLAY_CARD_SIDEWAYS_COMMAND };
 
@@ -189,6 +192,8 @@ export function createPlayCardSidewaysCommand(
   let movementBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
   // Store ritual modifiers for undo when a wound is played sideways via Ritual of Pain
   let ritualModifiersSnapshot: readonly ActiveModifier[] | null = null;
+  // Store Power of Pain modifiers for undo when a wound is played sideways
+  let powerOfPainModifiersSnapshot: readonly ActiveModifier[] | null = null;
 
   return {
     type: PLAY_CARD_SIDEWAYS_COMMAND,
@@ -278,6 +283,27 @@ export function createPlayCardSidewaysCommand(
             ),
           };
         }
+
+        // If Power of Pain wound was played sideways, consume the modifiers (one wound per activation)
+        const powerOfPainAppliesToPlayer = getModifiersForPlayer(currentState, params.playerId).some(
+          (modifier) =>
+            modifier.source.type === SOURCE_SKILL &&
+            modifier.source.skillId === SKILL_ARYTHEA_POWER_OF_PAIN
+        );
+        if (powerOfPainAppliesToPlayer) {
+          powerOfPainModifiersSnapshot = currentState.activeModifiers;
+          currentState = {
+            ...currentState,
+            activeModifiers: currentState.activeModifiers.filter(
+              (modifier) =>
+                !(
+                  modifier.source.type === SOURCE_SKILL &&
+                  modifier.source.skillId === SKILL_ARYTHEA_POWER_OF_PAIN &&
+                  modifier.source.playerId === params.playerId
+                )
+            ),
+          };
+        }
       }
 
       const players = [...currentState.players];
@@ -339,6 +365,8 @@ export function createPlayCardSidewaysCommand(
         stateWithModifiers = { ...state, activeModifiers: movementBonusModifiersSnapshot };
       } else if (ritualModifiersSnapshot) {
         stateWithModifiers = { ...state, activeModifiers: ritualModifiersSnapshot };
+      } else if (powerOfPainModifiersSnapshot) {
+        stateWithModifiers = { ...state, activeModifiers: powerOfPainModifiersSnapshot };
       }
 
       return {
