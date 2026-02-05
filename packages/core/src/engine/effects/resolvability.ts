@@ -33,7 +33,7 @@ import {
   MANA_GREEN,
   MANA_WHITE,
 } from "@mage-knight/shared";
-import { getCard } from "../validActions/cards/index.js";
+import { getCard } from "../helpers/cardLookup.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import {
   EFFECT_GAIN_MOVE,

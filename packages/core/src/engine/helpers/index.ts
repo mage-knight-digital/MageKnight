@@ -2,6 +2,8 @@
  * Helper functions for game engine operations
  */
 
+export { getCard } from "./cardLookup.js";
+
 export {
   getPlayerByIdOrThrow,
   getPlayerIndexByIdOrThrow,

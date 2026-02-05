@@ -62,7 +62,7 @@ import type {
   DiscardWoundsEffect,
   TrackAttackDefeatFameEffect,
 } from "../../types/effectTypes.js";
-import { getCard } from "../validActions/cards/index.js";
+import { getCard } from "../helpers/cardLookup.js";
 
 // ============================================================================
 // TYPES
