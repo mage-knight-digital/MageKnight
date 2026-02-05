@@ -32,6 +32,7 @@ import {
   MANA_BLUE,
   MANA_GREEN,
   MANA_WHITE,
+  UNIT_STATE_SPENT,
 } from "@mage-knight/shared";
 import { getCard } from "../validActions/cards/index.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
@@ -263,7 +264,7 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
     const e = effect as ResolveReadyUnitTargetEffect;
     // The target unit just needs to exist and be spent
     const unit = player.units.find((u) => u.instanceId === e.unitInstanceId);
-    return unit !== undefined && unit.state === "spent";
+    return unit !== undefined && unit.state === UNIT_STATE_SPENT;
   },
 
   [EFFECT_MANA_DRAW_POWERED]: (state, player, effect) => {
