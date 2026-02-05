@@ -41,6 +41,7 @@ import {
 } from "../../types/combat.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN]);
 
@@ -175,6 +176,31 @@ export const validateRangedSkillInRangedPhase: Validator = (state, _playerId, ac
       return invalid(
         WRONG_COMBAT_PHASE,
         `${skill?.name ?? useSkillAction.skillId} can only be used during the ranged/siege or attack phase`
+      );
+    }
+  }
+
+  return valid();
+};
+
+/**
+ * Validates that melee attack skills are only used during the attack phase.
+ * These skills differ from ranged/siege attacks which can be used during ranged/siege phase as well.
+ * Uses shared rule from rules/skillPhasing.ts to stay aligned with ValidActions.
+ */
+export const validateMeleeAttackSkillInAttackPhase: Validator = (
+  state,
+  _playerId,
+  action
+) => {
+  const useSkillAction = action as UseSkillAction;
+
+  if (isMeleeAttackSkill(useSkillAction.skillId)) {
+    if (!canUseMeleeAttackSkill(state)) {
+      const skill = SKILLS[useSkillAction.skillId];
+      return invalid(
+        WRONG_COMBAT_PHASE,
+        `${skill?.name ?? useSkillAction.skillId} can only be used during the attack phase`
       );
     }
   }
