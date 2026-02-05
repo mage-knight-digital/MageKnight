@@ -35,6 +35,8 @@ export const EFFECT_CRYSTALLIZE_COLOR = "crystallize_color" as const;
 export const EFFECT_CARD_BOOST = "card_boost" as const;
 export const EFFECT_RESOLVE_BOOST_TARGET = "resolve_boost_target" as const;
 export const EFFECT_READY_UNIT = "ready_unit" as const;
+// Internal: resolve effect after unit selection for readying
+export const EFFECT_RESOLVE_READY_UNIT_TARGET = "resolve_ready_unit_target" as const;
 
 // === Mana Draw Powered Effect ===
 // Entry point for the powered effect

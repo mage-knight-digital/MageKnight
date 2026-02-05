@@ -22,6 +22,7 @@ import {
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_READY_UNIT,
   EFFECT_SELECT_COMBAT_ENEMY,
 } from "../../../types/effectTypes.js";
 import { describeEffect, isEffectResolvable } from "../../effects/index.js";
@@ -64,6 +65,7 @@ const DYNAMIC_CHOICE_EFFECTS = new Set<string>([
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_READY_UNIT,
   EFFECT_SELECT_COMBAT_ENEMY,
 ]);
 
