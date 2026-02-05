@@ -16,6 +16,7 @@ export { ENEMY_FIRE_CATAPULT, FIRE_CATAPULT } from "./fire-catapult.js";
 export { ENEMY_ALTEM_GUARDSMEN, ALTEM_GUARDSMEN } from "./altem-guardsmen.js";
 export { ENEMY_ALTEM_MAGES, ALTEM_MAGES } from "./altem-mages.js";
 export { ENEMY_DELPHANA_MASTERS, DELPHANA_MASTERS } from "./delphana-masters.js";
+export { ENEMY_GRIM_LEGIONNARIES, GRIM_LEGIONNARIES } from "./grim-legionnaries.js";
 
 // Import for aggregation
 import { ENEMY_THUGS, THUGS } from "./thugs.js";
@@ -26,6 +27,7 @@ import { ENEMY_FIRE_CATAPULT, FIRE_CATAPULT } from "./fire-catapult.js";
 import { ENEMY_ALTEM_GUARDSMEN, ALTEM_GUARDSMEN } from "./altem-guardsmen.js";
 import { ENEMY_ALTEM_MAGES, ALTEM_MAGES } from "./altem-mages.js";
 import { ENEMY_DELPHANA_MASTERS, DELPHANA_MASTERS } from "./delphana-masters.js";
+import { ENEMY_GRIM_LEGIONNARIES, GRIM_LEGIONNARIES } from "./grim-legionnaries.js";
 
 /**
  * Union type of all white (City garrison) enemy IDs
@@ -38,7 +40,8 @@ export type WhiteEnemyId =
   | typeof ENEMY_FIRE_CATAPULT
   | typeof ENEMY_ALTEM_GUARDSMEN
   | typeof ENEMY_ALTEM_MAGES
-  | typeof ENEMY_DELPHANA_MASTERS;
+  | typeof ENEMY_DELPHANA_MASTERS
+  | typeof ENEMY_GRIM_LEGIONNARIES;
 
 /** All white (City garrison) enemies */
 export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
@@ -50,4 +53,5 @@ export const WHITE_ENEMIES: Record<WhiteEnemyId, EnemyDefinition> = {
   [ENEMY_ALTEM_GUARDSMEN]: ALTEM_GUARDSMEN,
   [ENEMY_ALTEM_MAGES]: ALTEM_MAGES,
   [ENEMY_DELPHANA_MASTERS]: DELPHANA_MASTERS,
+  [ENEMY_GRIM_LEGIONNARIES]: GRIM_LEGIONNARIES,
 };
