@@ -443,6 +443,21 @@ export const UNASSIGN_BLOCK_ACTION = "UNASSIGN_BLOCK" as const;
 // Cumbersome ability - spend move points to reduce enemy attack
 export const SPEND_MOVE_ON_CUMBERSOME_ACTION = "SPEND_MOVE_ON_CUMBERSOME" as const;
 
+// Agility - convert move points to attack during combat
+export const CONVERT_MOVE_TO_ATTACK_ACTION = "CONVERT_MOVE_TO_ATTACK" as const;
+
+export const CONVERSION_TYPE_MELEE = "melee" as const;
+export const CONVERSION_TYPE_RANGED = "ranged" as const;
+export type MoveToAttackConversionType =
+  | typeof CONVERSION_TYPE_MELEE
+  | typeof CONVERSION_TYPE_RANGED;
+
+export interface ConvertMoveToAttackAction {
+  readonly type: typeof CONVERT_MOVE_TO_ATTACK_ACTION;
+  readonly movePointsToSpend: number;
+  readonly conversionType: MoveToAttackConversionType;
+}
+
 // Debug actions (dev-only)
 export const DEBUG_ADD_FAME_ACTION = "DEBUG_ADD_FAME" as const;
 export interface DebugAddFameAction {
@@ -675,6 +690,8 @@ export type PlayerAction =
   | UnassignBlockAction
   // Cumbersome ability
   | SpendMoveOnCumbersomeAction
+  // Move-to-attack conversion (Agility)
+  | ConvertMoveToAttackAction
   // Debug actions (dev-only)
   | DebugAddFameAction
   | DebugTriggerLevelUpAction

@@ -186,6 +186,14 @@ export interface CombatOptions {
   /** Available move points for Cumbersome reduction */
   readonly availableMovePoints?: number;
 
+  // ---- Move-to-attack conversion (Agility card) ----
+
+  /** Move-to-attack conversion options during RANGED_SIEGE and ATTACK phases */
+  readonly moveToAttackConversions?: readonly MoveToAttackConversionOption[];
+
+  /** Available move points for conversion */
+  readonly availableMovePointsForConversion?: number;
+
   // ---- Heroes assault influence payment (fortified site assaults) ----
 
   /** Whether player can pay 2 Influence to allow Heroes to use abilities */
@@ -402,6 +410,23 @@ export interface CumbersomeOption {
   readonly reducedAttack: number;
   /** Maximum additional move points that can be spent (min of playerMovePoints, reducedAttack) */
   readonly maxAdditionalReduction: number;
+}
+
+// ============================================================================
+// Move-to-Attack Conversion (Agility card, RANGED_SIEGE/ATTACK phases)
+// ============================================================================
+
+/**
+ * Information about an available move-to-attack conversion option.
+ * Present during RANGED_SIEGE and ATTACK phases when a conversion modifier is active.
+ */
+export interface MoveToAttackConversionOption {
+  /** Type of attack gained from conversion */
+  readonly attackType: "melee" | "ranged";
+  /** Move points required per 1 attack point */
+  readonly costPerPoint: number;
+  /** Maximum attack points that can be gained (floor(availableMove / cost)) */
+  readonly maxAttackGainable: number;
 }
 
 // ============================================================================

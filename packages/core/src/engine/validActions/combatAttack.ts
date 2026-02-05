@@ -14,6 +14,7 @@ import type {
   ElementalDamageValues,
   AttackType,
   AttackElement,
+  MoveToAttackConversionOption,
 } from "@mage-knight/shared";
 import {
   ATTACK_TYPE_RANGED,
@@ -32,12 +33,14 @@ import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
-import { getBaseArmorForPhase, getEffectiveEnemyArmor } from "../modifiers/index.js";
+import { getBaseArmorForPhase, getEffectiveEnemyArmor, getModifiersForPlayer } from "../modifiers/index.js";
 import { getFortificationLevel } from "../rules/combatTargeting.js";
 import {
   getEnemyResistances,
   calculateEffectiveDamage,
 } from "./combatHelpers.js";
+import { EFFECT_MOVE_TO_ATTACK_CONVERSION, COMBAT_VALUE_RANGED } from "../../types/modifierConstants.js";
+import type { MoveToAttackConversionModifier } from "../../types/modifiers.js";
 
 // ============================================================================
 // Available Attack Pool Computation
@@ -282,6 +285,52 @@ export function generateUnassignableAttacks(
 }
 
 // ============================================================================
+// Move-to-Attack Conversion Options
+// ============================================================================
+
+/**
+ * Compute available move-to-attack conversion options for the current phase.
+ * Returns conversion options filtered to what's relevant for the current phase:
+ * - RANGED_SIEGE phase: only ranged conversions
+ * - ATTACK phase: only melee conversions
+ */
+function computeConversionOptions(
+  state: GameState,
+  player: Player,
+  isRangedSiegePhase: boolean
+): {
+  conversions: readonly MoveToAttackConversionOption[];
+  availableMovePoints: number;
+} {
+  const modifiers = getModifiersForPlayer(state, player.id);
+  const conversions: MoveToAttackConversionOption[] = [];
+
+  for (const mod of modifiers) {
+    if (mod.effect.type !== EFFECT_MOVE_TO_ATTACK_CONVERSION) continue;
+    const effect = mod.effect as MoveToAttackConversionModifier;
+
+    const isRangedConversion = effect.attackType === COMBAT_VALUE_RANGED;
+
+    // Only show ranged conversions in ranged/siege phase, melee in attack phase
+    if (isRangedSiegePhase && !isRangedConversion) continue;
+    if (!isRangedSiegePhase && isRangedConversion) continue;
+
+    const maxAttack = Math.floor(player.movePoints / effect.costPerPoint);
+
+    conversions.push({
+      attackType: isRangedConversion ? "ranged" : "melee",
+      costPerPoint: effect.costPerPoint,
+      maxAttackGainable: maxAttack,
+    });
+  }
+
+  return {
+    conversions,
+    availableMovePoints: player.movePoints,
+  };
+}
+
+// ============================================================================
 // Attack Phase Options Computation
 // ============================================================================
 
@@ -331,7 +380,15 @@ export function computeAttackPhaseOptions(
     isRangedSiegePhase
   );
 
-  return {
+  // Compute move-to-attack conversion options (Agility card)
+  const { conversions, availableMovePoints } = computeConversionOptions(
+    state,
+    player,
+    isRangedSiegePhase
+  );
+
+  // Build base options
+  const options: CombatOptions = {
     phase,
     canEndPhase: true, // Can always skip ranged/siege or attack phase
     availableAttack,
@@ -339,4 +396,15 @@ export function computeAttackPhaseOptions(
     assignableAttacks,
     unassignableAttacks,
   };
+
+  // Only include conversion fields if conversions are available
+  if (conversions.length > 0) {
+    return {
+      ...options,
+      moveToAttackConversions: conversions,
+      availableMovePointsForConversion: availableMovePoints,
+    };
+  }
+
+  return options;
 }

@@ -128,6 +128,15 @@ export const EFFECT_COLD_TOUGHNESS_BLOCK = "cold_toughness_block" as const;
 // Used by Ruthless Coercion basic effect
 export const EFFECT_RECRUIT_DISCOUNT = "recruit_discount" as const;
 
+// === MoveToAttackConversionModifier ===
+// Allows converting move points to attack during combat (Agility card)
+// Basic: 1 move = 1 melee attack, Powered: also 2 move = 1 ranged attack
+export const EFFECT_MOVE_TO_ATTACK_CONVERSION = "move_to_attack_conversion" as const;
+
+// === RuleOverrideModifier["rule"] additions ===
+// Allows playing movement cards during combat for their move value
+export const RULE_MOVE_CARDS_IN_COMBAT = "move_cards_in_combat" as const;
+
 // === ScoutFameBonusModifier ===
 // Grants +1 fame when defeating an enemy that was revealed by Scout ability this turn
 // Tracks which enemies were revealed via Scout peek

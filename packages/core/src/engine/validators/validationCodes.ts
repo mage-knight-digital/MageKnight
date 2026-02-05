@@ -116,6 +116,9 @@ export const ATTACK_DAMAGE_ALREADY_ASSIGNED = "ATTACK_DAMAGE_ALREADY_ASSIGNED" a
 // Cumbersome ability validation codes
 export const CUMBERSOME_NOT_ACTIVE = "CUMBERSOME_NOT_ACTIVE" as const;
 export const CUMBERSOME_INVALID_AMOUNT = "CUMBERSOME_INVALID_AMOUNT" as const;
+// Move-to-attack conversion validation codes (Agility card)
+export const NO_CONVERSION_MODIFIER = "NO_CONVERSION_MODIFIER" as const;
+export const CONVERSION_INVALID_AMOUNT = "CONVERSION_INVALID_AMOUNT" as const;
 
 // Unit validation codes
 export const NO_COMMAND_SLOTS = "NO_COMMAND_SLOTS" as const;
@@ -359,6 +362,8 @@ export type ValidationErrorCode =
   | typeof ATTACK_DAMAGE_ALREADY_ASSIGNED
   | typeof CUMBERSOME_NOT_ACTIVE
   | typeof CUMBERSOME_INVALID_AMOUNT
+  | typeof NO_CONVERSION_MODIFIER
+  | typeof CONVERSION_INVALID_AMOUNT
   // Unit validation
   | typeof NO_COMMAND_SLOTS
   | typeof INSUFFICIENT_INFLUENCE

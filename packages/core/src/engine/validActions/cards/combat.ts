@@ -26,7 +26,7 @@ import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
 import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, type CombatEffectContext } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
-import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../../types/modifierConstants.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT } from "../../../types/modifierConstants.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -43,6 +43,7 @@ export function getPlayableCardsForCombat(
   combat: CombatState
 ): PlayCardOptions {
   const cards: PlayableCard[] = [];
+  const moveCardsAllowed = isRuleActive(state, player.id, RULE_MOVE_CARDS_IN_COMBAT);
 
   for (const cardId of player.hand) {
     const card = getCard(cardId);
@@ -94,10 +95,11 @@ export function getPlayableCardsForCombat(
     const poweredContext = getCombatEffectContext(card, "powered");
 
     // Exclude move-only effects when move isn't useful in combat
-    const basicExcluded = basicContext.effect
+    // (but not when moveCardsAllowed, since Agility makes move useful for conversion)
+    const basicExcluded = !moveCardsAllowed && basicContext.effect
       ? shouldExcludeMoveOnlyEffect(basicContext.effect, state, player.id, combat)
       : false;
-    const poweredExcluded = poweredContext.effect
+    const poweredExcluded = !moveCardsAllowed && poweredContext.effect
       ? shouldExcludeMoveOnlyEffect(poweredContext.effect, state, player.id, combat)
       : false;
     const adjustedBasicContext: CombatEffectContext = basicExcluded
@@ -107,7 +109,7 @@ export function getPlayableCardsForCombat(
       ? { effect: null, allowAnyPhase: false }
       : poweredContext;
 
-    const playability = getCardPlayabilityForPhase(card, combat.phase, adjustedBasicContext, adjustedPoweredContext);
+    const playability = getCardPlayabilityForPhase(card, combat.phase, adjustedBasicContext, adjustedPoweredContext, moveCardsAllowed);
 
     // Check resolvability - effect must actually be able to do something
     const basicIsResolvable = adjustedBasicContext.effect
@@ -169,7 +171,8 @@ function getCardPlayabilityForPhase(
   card: DeedCard,
   phase: CombatPhase,
   basicContext: CombatEffectContext,
-  poweredContext: CombatEffectContext
+  poweredContext: CombatEffectContext,
+  moveCardsAllowed: boolean = false
 ): CardPlayability {
   const basicEffect = basicContext.effect;
   const poweredEffect = poweredContext.effect;
@@ -177,12 +180,14 @@ function getCardPlayabilityForPhase(
   const basicAllowed = isCombatEffectAllowed(
     basicEffect,
     phase,
-    basicContext.allowAnyPhase
+    basicContext.allowAnyPhase,
+    moveCardsAllowed
   );
   const poweredAllowed = isCombatEffectAllowed(
     poweredEffect,
     phase,
-    poweredContext.allowAnyPhase
+    poweredContext.allowAnyPhase,
+    moveCardsAllowed
   );
 
   const sidewaysOptions: SidewaysOption[] = [

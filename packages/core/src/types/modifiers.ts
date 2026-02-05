@@ -31,6 +31,7 @@ import {
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_COLD_TOUGHNESS_BLOCK,
   EFFECT_MOVEMENT_CARD_BONUS,
+  EFFECT_MOVE_TO_ATTACK_CONVERSION,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SCOUT_FAME_BONUS,
   EFFECT_SIDEWAYS_VALUE,
@@ -49,6 +50,7 @@ import {
   RULE_GOLD_AS_BLACK,
   RULE_IGNORE_FORTIFICATION,
   RULE_IGNORE_RAMPAGING_PROVOKE,
+  RULE_MOVE_CARDS_IN_COMBAT,
   RULE_SOURCE_BLOCKED,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
   RULE_WOUNDS_PLAYABLE_SIDEWAYS,
@@ -180,6 +182,7 @@ export interface RuleOverrideModifier {
     | typeof RULE_TERRAIN_DAY_NIGHT_SWAP
     | typeof RULE_SOURCE_BLOCKED
     | typeof RULE_EXTRA_SOURCE_DIE
+    | typeof RULE_MOVE_CARDS_IN_COMBAT
     | typeof RULE_EXTENDED_EXPLORE;
 }
 
@@ -255,6 +258,18 @@ export interface RecruitDiscountModifier {
   readonly reputationChange: number; // Rep change if discount used (e.g., -1)
 }
 
+// Move-to-attack conversion modifier (Agility card)
+// Allows converting accumulated move points to attack during combat.
+// Basic Agility: 1 move = 1 melee attack
+// Powered Agility: 1 move = 1 melee attack OR 2 move = 1 ranged attack
+export interface MoveToAttackConversionModifier {
+  readonly type: typeof EFFECT_MOVE_TO_ATTACK_CONVERSION;
+  /** Move points required per attack point */
+  readonly costPerPoint: number;
+  /** Type of attack gained from conversion */
+  readonly attackType: typeof COMBAT_VALUE_ATTACK | typeof COMBAT_VALUE_RANGED;
+}
+
 // Scout fame bonus modifier (Scouts unit ability)
 // Tracks enemies revealed by the Scout peek ability.
 // When any of these enemies are defeated, grants +1 fame per enemy.
@@ -283,6 +298,7 @@ export type ModifierEffect =
   | RemovePhysicalResistanceModifier
   | ColdToughnessBlockModifier
   | RecruitDiscountModifier
+  | MoveToAttackConversionModifier
   | ScoutFameBonusModifier;
 
 // === Active Modifier (live in game state) ===

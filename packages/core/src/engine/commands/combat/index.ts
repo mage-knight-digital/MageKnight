@@ -74,3 +74,9 @@ export {
   HEROES_ASSAULT_INFLUENCE_COST,
   type PayHeroesAssaultInfluenceCommandParams,
 } from "./payHeroesAssaultInfluenceCommand.js";
+
+export {
+  createConvertMoveToAttackCommand,
+  CONVERT_MOVE_TO_ATTACK_COMMAND,
+  type ConvertMoveToAttackCommandParams,
+} from "./convertMoveToAttackCommand.js";

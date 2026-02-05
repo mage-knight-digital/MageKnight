@@ -258,3 +258,56 @@ export function isAttackUnassignedEvent(event: {
 }): event is AttackUnassignedEvent {
   return event.type === ATTACK_UNASSIGNED;
 }
+
+// ============================================================================
+// MOVE_CONVERTED_TO_ATTACK (Agility card)
+// ============================================================================
+
+/**
+ * Event type constant for move-to-attack conversion.
+ * @see MoveConvertedToAttackEvent
+ */
+export const MOVE_CONVERTED_TO_ATTACK = "MOVE_CONVERTED_TO_ATTACK" as const;
+
+/**
+ * Emitted when move points are converted to attack via Agility card.
+ *
+ * @remarks
+ * - Only valid when a move-to-attack conversion modifier is active
+ * - Available during RANGED_SIEGE (for ranged) and ATTACK (for melee) phases
+ * - Move points are consumed and attack is added to the combat accumulator
+ */
+export interface MoveConvertedToAttackEvent {
+  readonly type: typeof MOVE_CONVERTED_TO_ATTACK;
+  /** Move points spent */
+  readonly movePointsSpent: number;
+  /** Attack points gained */
+  readonly attackGained: number;
+  /** Type of attack gained */
+  readonly attackType: "melee" | "ranged";
+}
+
+/**
+ * Creates a MoveConvertedToAttackEvent.
+ */
+export function createMoveConvertedToAttackEvent(
+  movePointsSpent: number,
+  attackGained: number,
+  attackType: "melee" | "ranged"
+): MoveConvertedToAttackEvent {
+  return {
+    type: MOVE_CONVERTED_TO_ATTACK,
+    movePointsSpent,
+    attackGained,
+    attackType,
+  };
+}
+
+/**
+ * Type guard for MoveConvertedToAttackEvent.
+ */
+export function isMoveConvertedToAttackEvent(
+  event: { type: string }
+): event is MoveConvertedToAttackEvent {
+  return event.type === MOVE_CONVERTED_TO_ATTACK;
+}

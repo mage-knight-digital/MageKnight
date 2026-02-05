@@ -7,6 +7,7 @@
  * - ASSIGN_DAMAGE_ACTION
  * - ASSIGN_ATTACK_ACTION, UNASSIGN_ATTACK_ACTION
  * - ASSIGN_BLOCK_ACTION, UNASSIGN_BLOCK_ACTION
+ * - CONVERT_MOVE_TO_ATTACK_ACTION
  */
 
 import type { Validator } from "../types.js";
@@ -23,6 +24,7 @@ import {
   UNASSIGN_BLOCK_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
+  CONVERT_MOVE_TO_ATTACK_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -85,6 +87,12 @@ import {
   validateHeroesAssaultApplicable,
   validateHeroesInfluenceNotAlreadyPaid,
   validateHeroesInfluenceAvailable,
+  // Move-to-attack conversion validators (Agility card)
+  validateConversionInCombat,
+  validateConversionPhase,
+  validateConversionModifierActive,
+  validateConversionAmount,
+  validateConversionMovePoints,
 } from "../combatValidators/index.js";
 
 // Challenge rampaging validators
@@ -197,5 +205,14 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateHeroesAssaultApplicable,
     validateHeroesInfluenceNotAlreadyPaid,
     validateHeroesInfluenceAvailable,
+  ],
+  // Move-to-attack conversion action (Agility card)
+  [CONVERT_MOVE_TO_ATTACK_ACTION]: [
+    validateIsPlayersTurn,
+    validateConversionInCombat,
+    validateConversionPhase,
+    validateConversionModifierActive,
+    validateConversionAmount,
+    validateConversionMovePoints,
   ],
 };

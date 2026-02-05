@@ -32,6 +32,7 @@ import {
   UNASSIGN_BLOCK_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
+  CONVERT_MOVE_TO_ATTACK_ACTION,
 } from "@mage-knight/shared";
 import {
   createEnterCombatCommand,
@@ -46,6 +47,7 @@ import {
   createUnassignBlockCommand,
   createSpendMoveOnCumbersomeCommand,
   createPayHeroesAssaultInfluenceCommand,
+  createConvertMoveToAttackCommand,
 } from "../combat/index.js";
 
 /**
@@ -288,5 +290,24 @@ export const createPayHeroesAssaultInfluenceCommandFromAction: CommandFactory = 
   if (action.type !== PAY_HEROES_ASSAULT_INFLUENCE_ACTION) return null;
   return createPayHeroesAssaultInfluenceCommand({
     playerId,
+  });
+};
+
+/**
+ * Convert move to attack command factory.
+ * Creates a command to spend move points and gain attack via Agility card.
+ *
+ * Part of the Agility move-to-attack conversion system.
+ */
+export const createConvertMoveToAttackCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== CONVERT_MOVE_TO_ATTACK_ACTION) return null;
+  return createConvertMoveToAttackCommand({
+    playerId,
+    movePointsToSpend: action.movePointsToSpend,
+    conversionType: action.conversionType,
   });
 };

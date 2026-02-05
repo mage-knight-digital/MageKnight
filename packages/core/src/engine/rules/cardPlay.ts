@@ -42,6 +42,8 @@ import {
 } from "./effectDetection/index.js";
 import { isCumbersomeActive } from "../combat/cumbersomeHelpers.js";
 import type { GameState } from "../../state/GameState.js";
+import { isRuleActive } from "../modifiers/index.js";
+import { RULE_MOVE_CARDS_IN_COMBAT } from "../../types/modifierConstants.js";
 
 export interface CombatEffectContext {
   readonly effect: CardEffect | null;
@@ -115,7 +117,8 @@ export function getCombatFilteredEffect(
 export function isCombatEffectAllowed(
   effect: CardEffect | null,
   phase: CombatPhase,
-  allowAnyPhase: boolean
+  allowAnyPhase: boolean,
+  moveCardsAllowed: boolean = false
 ): boolean {
   if (!effect) {
     return false;
@@ -125,13 +128,17 @@ export function isCombatEffectAllowed(
     return true;
   }
 
+  // When Agility (or similar) is active, movement effects are allowed
+  // during ranged/siege, block, and attack phases
+  const moveAllowed = moveCardsAllowed && effectHasMove(effect);
+
   switch (phase) {
     case COMBAT_PHASE_RANGED_SIEGE:
-      return effectHasRangedOrSiege(effect) || effectIsUtility(effect);
+      return effectHasRangedOrSiege(effect) || effectIsUtility(effect) || moveAllowed;
     case COMBAT_PHASE_BLOCK:
-      return effectHasBlock(effect) || effectIsUtility(effect);
+      return effectHasBlock(effect) || effectIsUtility(effect) || moveAllowed;
     case COMBAT_PHASE_ATTACK:
-      return effectHasAttack(effect) || effectIsUtility(effect);
+      return effectHasAttack(effect) || effectIsUtility(effect) || moveAllowed;
     default:
       return false;
   }
@@ -166,7 +173,7 @@ export function isNormalEffectAllowed(
  *
  * Move points during combat are useful when:
  * - Facing Cumbersome enemies (move reduces their attack)
- * - Agility modifier is active (move converts to attack) [future]
+ * - Move-to-attack conversion is active (Agility card)
  */
 export function isMoveUsefulInCombat(
   state: GameState,
@@ -178,6 +185,9 @@ export function isMoveUsefulInCombat(
     !enemy.isDefeated && isCumbersomeActive(state, playerId, enemy)
   );
   if (hasCumbersomeEnemy) return true;
+
+  // Move-to-attack conversion (Agility card): move converts to attack
+  if (isRuleActive(state, playerId, RULE_MOVE_CARDS_IN_COMBAT)) return true;
 
   return false;
 }
