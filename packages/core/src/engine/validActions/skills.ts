@@ -24,10 +24,11 @@ import {
   SKILL_ARYTHEA_POLARIZATION,
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_ARYTHEA_DARK_PATHS,
+  SKILL_ARYTHEA_BURNING_POWER,
+  SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
   SKILL_BRAEVALAR_THUNDERSTORM,
   SKILL_BRAEVALAR_SECRET_WAYS,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
-  SKILL_ARYTHEA_BURNING_POWER,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -37,6 +38,7 @@ import {
 } from "../../types/combat.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { canActivatePolarization } from "../commands/skills/polarizationEffect.js";
+import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 
 /**
  * Skills that have effect implementations and can be activated.
@@ -49,10 +51,11 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_ARYTHEA_POLARIZATION,
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_ARYTHEA_DARK_PATHS,
+  SKILL_ARYTHEA_BURNING_POWER,
+  SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
   SKILL_BRAEVALAR_THUNDERSTORM,
   SKILL_BRAEVALAR_SECRET_WAYS,
   SKILL_NOROWAS_DAY_SHARPSHOOTING,
-  SKILL_ARYTHEA_BURNING_POWER,
 ]);
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN]);
@@ -132,6 +135,14 @@ export function getSkillOptions(
         (state.combat.phase !== COMBAT_PHASE_RANGED_SIEGE &&
           state.combat.phase !== COMBAT_PHASE_ATTACK)
       ) {
+        continue;
+      }
+    }
+
+    // Melee attack skills are only available during attack phase
+    // Uses shared rule from rules/skillPhasing.ts to stay aligned with validators
+    if (isMeleeAttackSkill(skillId)) {
+      if (!canUseMeleeAttackSkill(state)) {
         continue;
       }
     }
