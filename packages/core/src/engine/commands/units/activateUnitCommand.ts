@@ -16,7 +16,6 @@ import type { GameState } from "../../../state/GameState.js";
 import type { GameEvent, ManaSourceInfo, CardId } from "@mage-knight/shared";
 import {
   UNIT_ACTIVATED,
-  CHOICE_REQUIRED,
   getUnit,
   UNIT_STATE_SPENT,
   UNIT_STATE_READY,
@@ -34,10 +33,16 @@ import {
   restoreManaForAbility,
 } from "./helpers/manaConsumptionHelpers.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
-import { resolveEffect, isEffectResolvable, describeEffect } from "../../effects/index.js";
-import { EFFECT_CHOICE } from "../../../types/effectTypes.js";
-import type { ChoiceEffect, CardEffect } from "../../../types/cards.js";
+import { resolveEffect } from "../../effects/index.js";
+import { EFFECT_COMPOUND } from "../../../types/effectTypes.js";
+import type { CardEffect, CompoundEffect } from "../../../types/cards.js";
 import type { Player } from "../../../types/player.js";
+import {
+  applyChoiceOutcome,
+  buildChoiceRequiredEvent,
+  getChoiceOptionsFromEffect,
+  type PendingChoiceSource,
+} from "../choice/choiceResolution.js";
 
 export const ACTIVATE_UNIT_COMMAND = "ACTIVATE_UNIT" as const;
 
@@ -181,86 +186,112 @@ export function createActivateUnitCommand(
           },
         ];
 
-        // Check if the effect requires a choice (e.g., enemy selection or static choice)
-        // Get choice options - either dynamic (from effect resolution) or static (from EFFECT_CHOICE)
-        let choiceOptions: readonly CardEffect[] | null = null;
         if (effectResult.requiresChoice) {
-          if (effectResult.dynamicChoiceOptions) {
-            // Dynamic choices from effects like EFFECT_SELECT_COMBAT_ENEMY
-            choiceOptions = effectResult.dynamicChoiceOptions;
-          } else if (effect.type === EFFECT_CHOICE) {
-            // Static choice effect (e.g., Ice Mages "Ice Attack OR Ice Block")
-            choiceOptions = (effect as ChoiceEffect).options;
-          }
-        }
-
-        if (choiceOptions) {
-          // Filter to resolvable options
-          const resolvableOptions = choiceOptions.filter((opt) =>
-            isEffectResolvable(effectResult.state, params.playerId, opt)
-          );
-
-          // If no options resolvable, just return the current state
-          if (resolvableOptions.length === 0) {
-            return {
-              state: effectResult.state,
-              events,
-            };
-          }
-
-          // If only one option, auto-resolve it
-          if (resolvableOptions.length === 1) {
-            const singleOption = resolvableOptions[0];
-            if (!singleOption) {
-              throw new Error("Expected single resolvable option");
-            }
-            const autoResolveResult = resolveEffect(
-              effectResult.state,
-              params.playerId,
-              singleOption,
-              undefined
-            );
-            return {
-              state: autoResolveResult.state,
-              events,
-            };
-          }
-
-          // Multiple options - set up pending choice
-          const updatedPlayerIdx = effectResult.state.players.findIndex(
-            (p) => p.id === params.playerId
-          );
-          const updatedPlayer = effectResult.state.players[updatedPlayerIdx];
-          if (!updatedPlayer) {
-            throw new Error("Player not found after effect resolution");
-          }
-
-          const playerWithChoice: Player = {
-            ...updatedPlayer,
-            pendingChoice: {
+          const choiceInfo = getChoiceOptionsFromEffect(effectResult, effect);
+          if (choiceInfo) {
+            const source: PendingChoiceSource = {
               cardId: null,
               skillId: null,
               unitInstanceId: params.unitInstanceId,
-              options: resolvableOptions,
-            },
-          };
+            };
 
-          const playersWithChoice = [...effectResult.state.players];
-          playersWithChoice[updatedPlayerIdx] = playerWithChoice;
+            const resolveRemainingEffects = (
+              currentState: GameState,
+              remainingEffects: readonly CardEffect[] | undefined
+            ): CommandResult => {
+              if (!remainingEffects || remainingEffects.length === 0) {
+                return {
+                  state: currentState,
+                  events,
+                };
+              }
 
-          // Add CHOICE_REQUIRED event
-          events.push({
-            type: CHOICE_REQUIRED,
-            playerId: params.playerId,
-            cardId: null,
-            skillId: null,
-            options: resolvableOptions.map((opt) => describeEffect(opt)),
-          });
+              const compoundEffect: CompoundEffect = {
+                type: EFFECT_COMPOUND,
+                effects: remainingEffects,
+              };
+              const compoundResult = resolveEffect(
+                currentState,
+                params.playerId,
+                compoundEffect
+              );
 
-          return {
-            state: { ...effectResult.state, players: playersWithChoice },
-            events,
-          };
+              if (compoundResult.requiresChoice) {
+                const nextChoiceInfo = getChoiceOptionsFromEffect(
+                  compoundResult,
+                  compoundEffect
+                );
+
+                if (nextChoiceInfo) {
+                  return applyChoiceOutcome({
+                    state: compoundResult.state,
+                    playerId: params.playerId,
+                    playerIndex,
+                    options: nextChoiceInfo.options,
+                    source,
+                    remainingEffects: nextChoiceInfo.remainingEffects,
+                    resolveEffect: (state, id, effect) =>
+                      resolveEffect(state, id, effect),
+                    handlers: {
+                      onNoOptions: (state) =>
+                        resolveRemainingEffects(
+                          state,
+                          nextChoiceInfo.remainingEffects
+                        ),
+                      onAutoResolved: (autoResult) =>
+                        resolveRemainingEffects(
+                          autoResult.state,
+                          nextChoiceInfo.remainingEffects
+                        ),
+                      onPendingChoice: (stateWithChoice, options) => ({
+                        state: stateWithChoice,
+                        events: [
+                          ...events,
+                          buildChoiceRequiredEvent(
+                            params.playerId,
+                            source,
+                            options
+                          ),
+                        ],
+                      }),
+                    },
+                  });
+                }
+              }
+
+              return {
+                state: compoundResult.state,
+                events,
+              };
+            };
+
+            return applyChoiceOutcome({
+              state: effectResult.state,
+              playerId: params.playerId,
+              playerIndex,
+              options: choiceInfo.options,
+              source,
+              remainingEffects: choiceInfo.remainingEffects,
+              resolveEffect: (state, id, effect) =>
+                resolveEffect(state, id, effect),
+              handlers: {
+                onNoOptions: (state) =>
+                  resolveRemainingEffects(state, choiceInfo.remainingEffects),
+                onAutoResolved: (autoResult) =>
+                  resolveRemainingEffects(
+                    autoResult.state,
+                    choiceInfo.remainingEffects
+                  ),
+                onPendingChoice: (stateWithChoice, options) => ({
+                  state: stateWithChoice,
+                  events: [
+                    ...events,
+                    buildChoiceRequiredEvent(params.playerId, source, options),
+                  ],
+                }),
+              },
+            });
+          }
         }
 
         // Effect resolved completely - return updated state

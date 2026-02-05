@@ -5,16 +5,15 @@
 import type { Command, CommandResult } from "../commands.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player, PendingChoice } from "../../types/player.js";
-import type { CardEffect, ChoiceEffect } from "../../types/cards.js";
+import type { CompoundEffect } from "../../types/cards.js";
 import type { ActiveModifier } from "../../types/modifiers.js";
 import {
   CHOICE_REQUIRED,
   CHOICE_RESOLVED,
 } from "@mage-knight/shared";
-import { resolveEffect, reverseEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
+import { resolveEffect, reverseEffect, describeEffect } from "../effects/index.js";
 import { RESOLVE_CHOICE_COMMAND } from "./commandTypes.js";
-import { EFFECT_CHOICE, EFFECT_COMPOUND } from "../../types/effectTypes.js";
-import type { CompoundEffect, ChoiceEffect as ChoiceEffectType } from "../../types/cards.js";
+import { EFFECT_COMPOUND } from "../../types/effectTypes.js";
 import {
   captureUndoContext,
   applyUndoContext,
@@ -22,6 +21,12 @@ import {
 } from "../effects/effectUndoContext.js";
 import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/index.js";
 import { EFFECT_MOVEMENT_CARD_BONUS } from "../modifierConstants.js";
+import {
+  applyChoiceOutcome,
+  buildChoiceRequiredEvent,
+  getChoiceOptionsFromEffect,
+  type PendingChoiceSource,
+} from "./choice/choiceResolution.js";
 
 export { RESOLVE_CHOICE_COMMAND };
 
@@ -29,32 +34,6 @@ export interface ResolveChoiceCommandParams {
   readonly playerId: string;
   readonly choiceIndex: number;
   readonly previousPendingChoice: PendingChoice; // For undo
-}
-
-/**
- * Extract choice options and remaining effects from a list of effects.
- * Used when continuing compound effect resolution.
- */
-function extractChoiceFromEffects(
-  effects: readonly CardEffect[]
-): { options: readonly CardEffect[]; remainingEffects?: readonly CardEffect[] } | null {
-  for (let i = 0; i < effects.length; i++) {
-    const effect = effects[i];
-    if (effect && effect.type === EFFECT_CHOICE) {
-      const choiceEffect = effect as ChoiceEffectType;
-      const remainingEffects = effects.slice(i + 1);
-      if (remainingEffects.length > 0) {
-        return {
-          options: choiceEffect.options,
-          remainingEffects,
-        };
-      }
-      return {
-        options: choiceEffect.options,
-      };
-    }
-  }
-  return null;
 }
 
 /**
@@ -107,6 +86,21 @@ export function createResolveChoiceCommand(
       if (!chosenEffect) {
         throw new Error(`Invalid choice index: ${params.choiceIndex}`);
       }
+
+      const source: PendingChoiceSource = {
+        cardId: player.pendingChoice.cardId,
+        skillId: player.pendingChoice.skillId,
+        unitInstanceId: player.pendingChoice.unitInstanceId,
+      };
+
+      const buildChoiceResolvedEvent = (effect: string) => ({
+        type: CHOICE_RESOLVED,
+        playerId: params.playerId,
+        cardId: player.pendingChoice.cardId,
+        skillId: player.pendingChoice.skillId,
+        chosenIndex: params.choiceIndex,
+        effect,
+      });
 
       const finalizeResult = (result: CommandResult): CommandResult => {
         let finalState = result.state;
@@ -192,123 +186,42 @@ export function createResolveChoiceCommand(
 
       // Check if the resolved effect itself requires a choice (choice chaining)
       if (effectResult.requiresChoice) {
-        // Determine the new choice options
-        let newChoiceOptions: readonly CardEffect[];
-
-        if (effectResult.dynamicChoiceOptions) {
-          // Dynamic choices from effects like EFFECT_CARD_BOOST
-          newChoiceOptions = effectResult.dynamicChoiceOptions;
-        } else if (chosenEffect.type === EFFECT_CHOICE) {
-          // Nested static choice
-          const choiceEffect = chosenEffect as ChoiceEffect;
-          newChoiceOptions = choiceEffect.options;
-        } else {
-          // Shouldn't happen, but handle gracefully
+        const choiceInfo = getChoiceOptionsFromEffect(effectResult, chosenEffect);
+        if (!choiceInfo) {
           return finalizeResult({
             state: effectResult.state,
-            events: [
-              {
-                type: CHOICE_RESOLVED,
-                playerId: params.playerId,
-                cardId: player.pendingChoice.cardId,
-                skillId: player.pendingChoice.skillId,
-                chosenIndex: params.choiceIndex,
-                effect: effectResult.description,
-              },
-            ],
+            events: [buildChoiceResolvedEvent(effectResult.description)],
           });
         }
 
-        // Filter to resolvable options
-        const resolvableOptions = newChoiceOptions.filter((opt) =>
-          isEffectResolvable(effectResult.state, params.playerId, opt)
-        );
-
-        // If no options resolvable, just return the current state
-        if (resolvableOptions.length === 0) {
-          return finalizeResult({
-            state: effectResult.state,
-            events: [
-              {
-                type: CHOICE_RESOLVED,
-                playerId: params.playerId,
-                cardId: player.pendingChoice.cardId,
-                skillId: player.pendingChoice.skillId,
-                chosenIndex: params.choiceIndex,
-                effect: "No available options",
-              },
-            ],
-          });
-        }
-
-        // If only one option, auto-resolve it
-        if (resolvableOptions.length === 1) {
-          const singleOption = resolvableOptions[0];
-          if (!singleOption) {
-            throw new Error("Expected single resolvable option");
-          }
-          const autoResolveResult = resolveEffect(
-            effectResult.state,
-            params.playerId,
-            singleOption
-          );
-          return finalizeResult({
-            state: autoResolveResult.state,
-            events: [
-              {
-                type: CHOICE_RESOLVED,
-                playerId: params.playerId,
-                cardId: player.pendingChoice.cardId,
-                skillId: player.pendingChoice.skillId,
-                chosenIndex: params.choiceIndex,
-                effect: autoResolveResult.description,
-              },
-            ],
-          });
-        }
-
-        // Multiple options - set up new pending choice (choice chaining)
-        const updatedPlayerIdx = effectResult.state.players.findIndex(
-          (p) => p.id === params.playerId
-        );
-        const updatedPlayer = effectResult.state.players[updatedPlayerIdx];
-        if (!updatedPlayer) {
-          throw new Error("Player not found after effect resolution");
-        }
-
-        const playerWithNewChoice: Player = {
-          ...updatedPlayer,
-          pendingChoice: {
-            cardId: player.pendingChoice.cardId, // Keep original card ID for context
-            skillId: player.pendingChoice.skillId, // Keep original skill ID for context
-            unitInstanceId: player.pendingChoice.unitInstanceId, // Keep original unit ID for context
-            options: resolvableOptions,
+        const choiceResult = applyChoiceOutcome({
+          state: effectResult.state,
+          playerId: params.playerId,
+          playerIndex,
+          options: choiceInfo.options,
+          source,
+          remainingEffects: choiceInfo.remainingEffects,
+          resolveEffect: (state, id, effect) => resolveEffect(state, id, effect),
+          handlers: {
+            onNoOptions: (state) => ({
+              state,
+              events: [buildChoiceResolvedEvent("No available options")],
+            }),
+            onAutoResolved: (autoResult) => ({
+              state: autoResult.state,
+              events: [buildChoiceResolvedEvent(autoResult.description)],
+            }),
+            onPendingChoice: (stateWithChoice, options) => ({
+              state: stateWithChoice,
+              events: [
+                buildChoiceResolvedEvent(effectResult.description),
+                buildChoiceRequiredEvent(params.playerId, source, options),
+              ],
+            }),
           },
-        };
-
-        const playersWithNewChoice = [...effectResult.state.players];
-        playersWithNewChoice[updatedPlayerIdx] = playerWithNewChoice;
-
-        return finalizeResult({
-          state: { ...effectResult.state, players: playersWithNewChoice },
-          events: [
-            {
-              type: CHOICE_RESOLVED,
-              playerId: params.playerId,
-              cardId: player.pendingChoice.cardId,
-              skillId: player.pendingChoice.skillId,
-              chosenIndex: params.choiceIndex,
-              effect: effectResult.description,
-            },
-            {
-              type: CHOICE_REQUIRED,
-              playerId: params.playerId,
-              cardId: player.pendingChoice.cardId,
-              skillId: player.pendingChoice.skillId,
-              options: resolvableOptions.map((opt) => describeEffect(opt)),
-            },
-          ],
         });
+
+        return finalizeResult(choiceResult);
       }
 
       // Check if there are remaining effects to continue resolving
@@ -328,160 +241,74 @@ export function createResolveChoiceCommand(
 
         // Check if the remaining effects require a choice
         if (remainingResult.requiresChoice) {
-          const choiceInfo = extractChoiceFromEffects(remainingEffects);
+          const choiceInfo = getChoiceOptionsFromEffect(
+            remainingResult,
+            compoundEffect
+          );
 
           if (choiceInfo) {
-            // Filter to resolvable options
-            const resolvableOptions = choiceInfo.options.filter((opt) =>
-              isEffectResolvable(remainingResult.state, params.playerId, opt)
-            );
+            const choiceResult = applyChoiceOutcome({
+              state: remainingResult.state,
+              playerId: params.playerId,
+              playerIndex,
+              options: choiceInfo.options,
+              source,
+              remainingEffects: choiceInfo.remainingEffects,
+              resolveEffect: (state, id, effect) => resolveEffect(state, id, effect),
+              handlers: {
+                onNoOptions: (state) => ({
+                  state,
+                  events: [buildChoiceResolvedEvent(effectResult.description)],
+                }),
+                onAutoResolved: (autoResult) => {
+                  if (
+                    choiceInfo.remainingEffects &&
+                    choiceInfo.remainingEffects.length > 0
+                  ) {
+                    const nextCompound: CompoundEffect = {
+                      type: EFFECT_COMPOUND,
+                      effects: choiceInfo.remainingEffects,
+                    };
+                    const nextResult = resolveEffect(
+                      autoResult.state,
+                      params.playerId,
+                      nextCompound
+                    );
+                    return {
+                      state: nextResult.state,
+                      events: [buildChoiceResolvedEvent(effectResult.description)],
+                    };
+                  }
 
-            // If no options resolvable, just return the current state
-            if (resolvableOptions.length === 0) {
-              return finalizeResult({
-                state: remainingResult.state,
-                events: [
-                  {
-                    type: CHOICE_RESOLVED,
-                    playerId: params.playerId,
-                    cardId: player.pendingChoice.cardId,
-                    skillId: player.pendingChoice.skillId,
-                    chosenIndex: params.choiceIndex,
-                    effect: effectResult.description,
-                  },
-                ],
-              });
-            }
-
-            // If only one option, auto-resolve it
-            if (resolvableOptions.length === 1) {
-              const singleOption = resolvableOptions[0];
-              if (!singleOption) {
-                throw new Error("Expected single resolvable option");
-              }
-              const autoResolveResult = resolveEffect(
-                remainingResult.state,
-                params.playerId,
-                singleOption
-              );
-
-              // Check if there are more remaining effects after this choice
-              if (choiceInfo.remainingEffects && choiceInfo.remainingEffects.length > 0) {
-                const nextCompound: CompoundEffect = {
-                  type: EFFECT_COMPOUND,
-                  effects: choiceInfo.remainingEffects,
-                };
-                const nextResult = resolveEffect(
-                  autoResolveResult.state,
-                  params.playerId,
-                  nextCompound
-                );
-                return finalizeResult({
-                  state: nextResult.state,
+                  return {
+                    state: autoResult.state,
+                    events: [buildChoiceResolvedEvent(effectResult.description)],
+                  };
+                },
+                onPendingChoice: (stateWithChoice, options) => ({
+                  state: stateWithChoice,
                   events: [
-                    {
-                      type: CHOICE_RESOLVED,
-                      playerId: params.playerId,
-                      cardId: player.pendingChoice.cardId,
-                      skillId: player.pendingChoice.skillId,
-                      chosenIndex: params.choiceIndex,
-                      effect: effectResult.description,
-                    },
+                    buildChoiceResolvedEvent(effectResult.description),
+                    buildChoiceRequiredEvent(params.playerId, source, options),
                   ],
-                });
-              }
-
-              return finalizeResult({
-                state: autoResolveResult.state,
-                events: [
-                  {
-                    type: CHOICE_RESOLVED,
-                    playerId: params.playerId,
-                    cardId: player.pendingChoice.cardId,
-                    skillId: player.pendingChoice.skillId,
-                    chosenIndex: params.choiceIndex,
-                    effect: effectResult.description,
-                  },
-                ],
-              });
-            }
-
-            // Multiple options - set up new pending choice
-            const updatedPlayerIdx = remainingResult.state.players.findIndex(
-              (p) => p.id === params.playerId
-            );
-            const updatedPlayer = remainingResult.state.players[updatedPlayerIdx];
-            if (!updatedPlayer) {
-              throw new Error("Player not found after effect resolution");
-            }
-
-            const newPendingChoice: PendingChoice = {
-              cardId: player.pendingChoice.cardId,
-              skillId: player.pendingChoice.skillId,
-              unitInstanceId: player.pendingChoice.unitInstanceId,
-              options: resolvableOptions,
-              ...(choiceInfo.remainingEffects && { remainingEffects: choiceInfo.remainingEffects }),
-            };
-
-            const playerWithNewChoice: Player = {
-              ...updatedPlayer,
-              pendingChoice: newPendingChoice,
-            };
-
-            const playersWithNewChoice = [...remainingResult.state.players];
-            playersWithNewChoice[updatedPlayerIdx] = playerWithNewChoice;
-
-            return finalizeResult({
-              state: { ...remainingResult.state, players: playersWithNewChoice },
-              events: [
-                {
-                  type: CHOICE_RESOLVED,
-                  playerId: params.playerId,
-                  cardId: player.pendingChoice.cardId,
-                  skillId: player.pendingChoice.skillId,
-                  chosenIndex: params.choiceIndex,
-                  effect: effectResult.description,
-                },
-                {
-                  type: CHOICE_REQUIRED,
-                  playerId: params.playerId,
-                  cardId: player.pendingChoice.cardId,
-                  skillId: player.pendingChoice.skillId,
-                  options: resolvableOptions.map((opt) => describeEffect(opt)),
-                },
-              ],
+                }),
+              },
             });
+
+            return finalizeResult(choiceResult);
           }
         }
 
         // Remaining effects completed without another choice
         return finalizeResult({
           state: remainingResult.state,
-          events: [
-            {
-              type: CHOICE_RESOLVED,
-              playerId: params.playerId,
-              cardId: player.pendingChoice.cardId,
-              skillId: player.pendingChoice.skillId,
-              chosenIndex: params.choiceIndex,
-              effect: effectResult.description,
-            },
-          ],
+          events: [buildChoiceResolvedEvent(effectResult.description)],
         });
       }
 
       return finalizeResult({
         state: effectResult.state,
-        events: [
-          {
-            type: CHOICE_RESOLVED,
-            playerId: params.playerId,
-            cardId: player.pendingChoice.cardId,
-            skillId: player.pendingChoice.skillId,
-            chosenIndex: params.choiceIndex,
-            effect: effectResult.description,
-          },
-        ],
+        events: [buildChoiceResolvedEvent(effectResult.description)],
       });
     },
 

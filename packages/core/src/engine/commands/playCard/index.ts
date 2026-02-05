@@ -6,7 +6,6 @@
 
 export {
   getChoiceOptions,
-  filterResolvableOptions,
   handleChoiceEffect,
   type ChoiceHandlingResult,
 } from "./choiceHandling.js";
