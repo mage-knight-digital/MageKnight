@@ -342,7 +342,7 @@ describe("Motivation skill (Arythea)", () => {
   });
 
   describe("undo", () => {
-    it("should clear cooldown on undo", () => {
+    it("should not be undoable (draw cards is irreversible)", () => {
       const player = createTestPlayer({
         hero: Hero.Arythea,
         skills: [SKILL_ARYTHEA_MOTIVATION],
@@ -370,15 +370,62 @@ describe("Motivation skill (Arythea)", () => {
         afterSkill.state.players[0].skillCooldowns.usedThisRound
       ).toContain(SKILL_ARYTHEA_MOTIVATION);
 
-      // Undo
+      // Undo should fail (draw cards creates checkpoint)
       const afterUndo = engine.processAction(afterSkill.state, "player1", {
         type: UNDO_ACTION,
       });
 
-      // Cooldown should be cleared
+      // Skill should still be on cooldown — undo was blocked
       expect(
         afterUndo.state.players[0].skillCooldowns.usedThisRound
-      ).not.toContain(SKILL_ARYTHEA_MOTIVATION);
+      ).toContain(SKILL_ARYTHEA_MOTIVATION);
+
+      // Hand should still have drawn cards
+      expect(afterUndo.state.players[0].hand).toHaveLength(3);
+    });
+
+    it("should not allow infinite card draw via undo exploit", () => {
+      const player = createTestPlayer({
+        hero: Hero.Arythea,
+        skills: [SKILL_ARYTHEA_MOTIVATION],
+        skillCooldowns: {
+          usedThisRound: [],
+          usedThisTurn: [],
+          usedThisCombat: [],
+          activeUntilNextTurn: [],
+        },
+        hand: [CARD_MARCH],
+        deck: [CARD_STAMINA, CARD_RAGE, CARD_MARCH, CARD_STAMINA],
+        pureMana: [],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      // Use Motivation — draws 2 cards
+      const afterSkill = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_ARYTHEA_MOTIVATION,
+      });
+      expect(afterSkill.state.players[0].hand).toHaveLength(3);
+
+      // Attempt undo
+      const afterUndo = engine.processAction(afterSkill.state, "player1", {
+        type: UNDO_ACTION,
+      });
+
+      // Try to use Motivation again — should be rejected (still on cooldown)
+      const afterSecondUse = engine.processAction(afterUndo.state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_ARYTHEA_MOTIVATION,
+      });
+
+      expect(afterSecondUse.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+
+      // Hand should still be 3, not 5
+      expect(afterSecondUse.state.players[0].hand).toHaveLength(3);
     });
   });
 });

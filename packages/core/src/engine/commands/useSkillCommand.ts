@@ -52,7 +52,7 @@ import {
   reverseEffect,
 } from "../effects/index.js";
 import type { CardEffect } from "../../types/cards.js";
-import { EFFECT_CHOICE, EFFECT_COMPOUND } from "../../types/effectTypes.js";
+import { EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_DRAW_CARDS, EFFECT_TAKE_WOUND } from "../../types/effectTypes.js";
 import type { EffectResolutionResult } from "../effects/index.js";
 import {
   applyChoiceOutcome,
@@ -63,6 +63,22 @@ import {
 } from "./choice/choiceResolution.js";
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN]);
+
+/**
+ * Check if an effect (or any sub-effect in a compound) contains non-reversible
+ * effects like drawing cards or taking wounds. Commands with such effects must
+ * be marked isReversible: false to prevent undo exploits.
+ */
+function effectContainsIrreversible(effect: CardEffect): boolean {
+  if (effect.type === EFFECT_DRAW_CARDS || effect.type === EFFECT_TAKE_WOUND) {
+    return true;
+  }
+  if (effect.type === EFFECT_COMPOUND) {
+    const compound = effect as import("../../types/cards.js").CompoundEffect;
+    return compound.effects.some(effectContainsIrreversible);
+  }
+  return false;
+}
 
 export { USE_SKILL_COMMAND };
 
@@ -300,10 +316,15 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
   // Store the effect that was applied so we can reverse it on undo
   let appliedEffect: CardEffect | null = null;
 
+  // Check if the skill's effect contains non-reversible sub-effects (e.g., draw cards).
+  // If so, the command sets an undo checkpoint to prevent exploit via undo+reuse.
+  const skill = SKILLS[skillId];
+  const isReversible = !(skill?.effect && effectContainsIrreversible(skill.effect));
+
   return {
     type: USE_SKILL_COMMAND,
     playerId,
-    isReversible: true, // Skills can be undone within the same turn
+    isReversible,
 
     execute(state: GameState): CommandResult {
       const skill = SKILLS[skillId];
