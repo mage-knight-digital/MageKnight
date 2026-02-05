@@ -112,7 +112,7 @@ gh issue comment ISSUE_NUM --body "Implementation complete. PR: #PR_NUMBER"
 
 The issue stays "In Progress" until the PR is merged. When merged, GitHub auto-closes the issue via `Closes #XX`, and the project board should move it to "Done" automatically.
 
-If you need to manually move to Done:
+If you need to manually move to Done (GraphQL — may hit rate limits, skip if rate-limited since `Closes #XX` in the PR handles it on merge):
 ```bash
 ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq -r '.items[] | select(.content.number == ISSUE_NUM) | .id')
 gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "98236657"

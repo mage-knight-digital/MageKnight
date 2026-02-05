@@ -118,10 +118,14 @@ mutation {
 }"
 ```
 
+## Rate Limits
+
+All linking operations require GraphQL (no REST equivalent). If you get rate-limited, tell the user and suggest they try again in a few minutes, or link manually in the GitHub UI.
+
 ## Workflow
 
 1. **Parse input** - Extract issue numbers and relationship type
-2. **Get node IDs** - Fetch GraphQL node IDs for each issue
+2. **Get node IDs** - Fetch GraphQL node IDs for each issue (REST: `gh api repos/...`)
 3. **Create relationship** - Use appropriate GraphQL mutation
 4. **Report back** - Confirm the link was created
 

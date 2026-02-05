@@ -14,15 +14,17 @@ Analyze the backlog and recommend the best issue to work on next.
 ### 1. Fetch Open Issues and Board Status
 
 ```bash
-# Get open issues
+# Get open issues (REST — reliable)
 gh issue list --state open --limit 100 --json number,title,labels,body
 
-# Get project board status to exclude "In Progress" items
+# Get project board status to exclude "In Progress" items (GraphQL — may hit rate limits)
 gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq '[.items[] | select(.status == "In Progress") | .content.number]'
 ```
 
+If the `gh project` command is rate-limited, skip it and just recommend based on issue labels/priority. Note to the user that you couldn't check the board for in-progress items.
+
 **Important:**
-- Exclude issues that are already "In Progress" on the project board - another agent may be working on them.
+- Exclude issues that are already "In Progress" on the project board (if available) - another agent may be working on them.
 - Exclude issues with the `epic` label - these are parent issues tracked via sub-issues, not worked on directly.
 
 ### 2. Apply Recommendation Logic

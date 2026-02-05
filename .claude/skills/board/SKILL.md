@@ -8,14 +8,27 @@ user-invocable: true
 
 Display the current state of the MageKnight Development project board.
 
+## Rate Limits
+
+`gh project` commands use GraphQL and get rate-limited frequently. If you get a rate limit error, fall back to REST:
+
+```bash
+# REST fallback for project board data
+gh issue list --state open --limit 100 --json number,title,labels,state
+```
+
+You won't get project board status columns via REST, but you can still show issues grouped by priority/area/labels.
+
 ## Workflow
 
 ### 1. Fetch Project Data
 
 ```bash
-# List all items in the project
+# List all items in the project (uses GraphQL — may hit rate limits)
 gh project item-list 1 --owner eshaffer321 --format json
 ```
+
+If rate-limited, fall back to `gh issue list` (REST) and skip the board status columns.
 
 ### 2. Fetch Open Issues with Labels
 

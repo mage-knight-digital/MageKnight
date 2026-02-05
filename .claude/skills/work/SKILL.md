@@ -42,9 +42,11 @@ gh issue view ISSUE_NUM --json labels --jq '.labels[].name' | grep -q "^epic$"
 
 Verify the issue isn't already being worked on:
 ```bash
-# Get current project item status
+# Get current project item status (GraphQL — may hit rate limits)
 ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq -r '.items[] | select(.content.number == ISSUE_NUM) | .id')
 ```
+
+If rate-limited, skip this check and proceed.
 
 If already "In Progress", warn the user and confirm they want to continue.
 
@@ -53,7 +55,7 @@ If already "In Progress", warn the user and confirm they want to continue.
 Update the project board status to prevent other agents from grabbing the same issue:
 
 ```bash
-# Get the item ID for this issue (use --limit 100 to get all items)
+# Get the item ID for this issue (GraphQL — may hit rate limits)
 ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 100 | jq -r '.items[] | select(.content.number == ISSUE_NUM) | .id')
 
 # Move to "In Progress" status
@@ -62,6 +64,8 @@ ITEM_ID=$(gh project item-list 1 --owner eshaffer321 --format json --limit 100 |
 # "In Progress" option ID: 47fc9ee4
 gh project item-edit --project-id "PVT_kwHOAYaRMc4BNjzC" --id "$ITEM_ID" --field-id "PVTSSF_lAHOAYaRMc4BNjzCzg8hL6U" --single-select-option-id "47fc9ee4"
 ```
+
+If rate-limited on project board updates, skip and proceed — the PR with `Closes #XX` will handle status when merged.
 
 Replace `ISSUE_NUM` with the actual issue number.
 
