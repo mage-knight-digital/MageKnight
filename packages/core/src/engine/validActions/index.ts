@@ -42,6 +42,7 @@ import {
   getDiscardForAttackOptions,
   getDiscardForCrystalOptions,
   getArtifactCrystalColorOptions,
+  getCrystalJoyReclaimOptions,
 } from "./pending.js";
 import { getChallengeOptions } from "./challenge.js";
 import { getCooperativeAssaultOptions } from "./cooperativeAssault.js";
@@ -157,6 +158,13 @@ export function getValidActions(
         commonPoolSkills: state.offers.commonSkills,
         availableAAs: state.offers.advancedActions.cards,
       },
+    };
+  }
+  if (player.pendingCrystalJoyReclaim) {
+    return {
+      mode: "pending_crystal_joy_reclaim",
+      turn: { canUndo: false },
+      crystalJoyReclaim: getCrystalJoyReclaimOptions(state, player),
     };
   }
   if (hasPendingChoice(player)) {

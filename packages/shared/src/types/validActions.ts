@@ -741,6 +741,22 @@ export interface ArtifactCrystalColorOptions {
 }
 
 // ============================================================================
+// Crystal Joy Reclaim
+// ============================================================================
+
+/**
+ * Options for Crystal Joy reclaim at end of turn.
+ * Only present when player has a pending Crystal Joy reclaim choice.
+ * Player can optionally discard a card from discard pile to return Crystal Joy to hand.
+ */
+export interface CrystalJoyReclaimOptions {
+  /** Which version of Crystal Joy was played (determines card eligibility) */
+  readonly version: "basic" | "powered";
+  /** Cards in discard pile eligible to be discarded for the reclaim */
+  readonly eligibleCardIds: readonly CardId[];
+}
+
+// ============================================================================
 // Level Up Rewards
 // ============================================================================
 
@@ -922,6 +938,12 @@ export interface PendingArtifactCrystalColorState {
   readonly artifactCrystalColor: ArtifactCrystalColorOptions;
 }
 
+export interface PendingCrystalJoyState {
+  readonly mode: "pending_crystal_joy_reclaim";
+  readonly turn: BlockingTurnOptions;
+  readonly crystalJoyReclaim: CrystalJoyReclaimOptions;
+}
+
 export interface PendingLevelUpState {
   readonly mode: "pending_level_up";
   readonly turn: BlockingTurnOptions;
@@ -972,6 +994,7 @@ export type ValidActions =
   | PendingDiscardForAttackState
   | PendingDiscardForCrystalState
   | PendingArtifactCrystalColorState
+  | PendingCrystalJoyState
   | PendingLevelUpState
   | PendingChoiceState
   | PendingHexCostReductionState
