@@ -255,6 +255,8 @@ export type {
   // Discard for crystal options (Savage Harvesting)
   DiscardForCrystalOptions,
   ArtifactCrystalColorOptions,
+  // Crystal Joy reclaim options
+  CrystalJoyReclaimOptions,
   // Level up rewards options
   LevelUpRewardsOptions,
   // Terrain cost reduction options

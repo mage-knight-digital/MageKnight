@@ -6,6 +6,7 @@
  * - Deep mine crystal color choices
  * - Discard as cost choices
  * - Discard for attack choices (Sword of Justice)
+ * - Crystal Joy reclaim choices
  */
 
 import type { GameState } from "../../state/GameState.js";
@@ -18,6 +19,8 @@ import type {
   DiscardForAttackOptions,
   DiscardForCrystalOptions,
   ArtifactCrystalColorOptions,
+  CrystalJoyReclaimOptions,
+  CardId,
 } from "@mage-knight/shared";
 import { mineColorToBasicManaColor } from "../../types/map.js";
 import { CARD_WOUND, hexKey, MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from "@mage-knight/shared";
@@ -25,6 +28,8 @@ import { SiteType } from "../../types/map.js";
 import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
 import { getCardsEligibleForDiscardForAttack } from "../effects/swordOfJusticeEffects.js";
 import { getCardsEligibleForDiscardForCrystal } from "../effects/discardForCrystalEffects.js";
+import { getCard } from "../helpers/cardLookup.js";
+import { isCardEligibleForReclaim } from "../rules/crystalJoyReclaim.js";
 
 /**
  * Get Magical Glade wound discard options for the player.
@@ -189,29 +194,20 @@ export function getArtifactCrystalColorOptions(
 export function getCrystalJoyReclaimOptions(
   _state: GameState,
   player: Player
-): { version: string; eligibleCardIds: CardId[] } | undefined {
-  // Import here to avoid circular dependencies
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { isCardEligibleForReclaim } = require("../rules/crystalJoyReclaim.js") as {
-    isCardEligibleForReclaim: (card: any, version: string) => boolean;
-  };
-
-  // Check if player has pending reclaim
-  if (!player.pendingCrystalJoyReclaim) {
-    return undefined;
-  }
+): CrystalJoyReclaimOptions {
+  const { version } = player.pendingCrystalJoyReclaim!;
 
   const eligibleCardIds: CardId[] = [];
 
   for (const cardId of player.discard) {
     const card = getCard(cardId);
-    if (card && isCardEligibleForReclaim(card, player.pendingCrystalJoyReclaim.version)) {
+    if (card && isCardEligibleForReclaim(card, version)) {
       eligibleCardIds.push(cardId);
     }
   }
 
   return {
-    version: player.pendingCrystalJoyReclaim.version,
+    version,
     eligibleCardIds,
   };
 }
