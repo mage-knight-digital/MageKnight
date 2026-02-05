@@ -247,7 +247,10 @@ export function TacticCarouselPane({ viewMode }: TacticCarouselPaneProps) {
   }
 
   // Get available tactics from validActions
-  const tacticsOptions = state.validActions.tactics;
+  const tacticsOptions =
+    state.validActions?.mode === "tactics_selection"
+      ? state.validActions.tactics
+      : undefined;
   if (!tacticsOptions) {
     return (
       <div className={`tactic-carousel tactic-carousel--${viewMode} tactic-carousel--empty`}>

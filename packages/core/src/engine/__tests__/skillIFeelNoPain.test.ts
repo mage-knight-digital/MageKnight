@@ -22,6 +22,7 @@ import {
   CARD_MARCH,
   CARD_RAGE,
   CARD_WOUND,
+  getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_TOVAK_I_FEEL_NO_PAIN } from "../../data/skills/index.js";
@@ -226,8 +227,9 @@ describe("I Feel No Pain skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Either skills is undefined or the skill is not in the list
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_TOVAK_I_FEEL_NO_PAIN,
           })
@@ -282,8 +284,9 @@ describe("I Feel No Pain skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Either skills is undefined or the skill is not in the list
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_TOVAK_I_FEEL_NO_PAIN,
           })
@@ -529,8 +532,9 @@ describe("I Feel No Pain skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_TOVAK_I_FEEL_NO_PAIN,
         })
@@ -555,8 +559,9 @@ describe("I Feel No Pain skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Either skills is undefined or the skill is not in the list
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_TOVAK_I_FEEL_NO_PAIN,
           })
@@ -582,7 +587,7 @@ describe("I Feel No Pain skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Skills should be undefined since no skills are available
-      expect(validActions.skills).toBeUndefined();
+      expect(getSkillsFromValidActions(validActions)).toBeUndefined();
     });
   });
 });

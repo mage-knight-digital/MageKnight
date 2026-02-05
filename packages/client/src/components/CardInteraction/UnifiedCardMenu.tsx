@@ -114,7 +114,10 @@ export function UnifiedCardMenu() {
   const isInCombat = gameState?.combat !== null;
 
   // Can undo (for effect choice state)
-  const canUndo = gameState?.validActions.turn?.canUndo ?? false;
+  const canUndo =
+    gameState?.validActions && "turn" in gameState.validActions
+      ? gameState.validActions.turn.canUndo
+      : false;
 
   // Save position for ChoiceSelection fallback (during transition)
   useEffect(() => {

@@ -25,7 +25,10 @@ export function RestCompletionOverlay() {
   const player = useMyPlayer();
 
   // Check if we're in resting state
-  const isResting = state?.validActions.turn?.isResting ?? false;
+  const isResting =
+    state?.validActions?.mode === "normal_turn"
+      ? (state.validActions.turn.isResting ?? false)
+      : false;
   const isActive = isResting && !!player;
 
   // Register this overlay to disable background interactions when active

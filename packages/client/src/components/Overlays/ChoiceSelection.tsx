@@ -119,7 +119,10 @@ export function ChoiceSelection() {
   // Extract data before hooks (may be undefined if no pending choice)
   const pendingChoice = player?.pendingChoice;
   const sourceCardId = pendingChoice?.cardId;
-  const canUndo = state?.validActions.turn?.canUndo ?? false;
+  const canUndo =
+    state?.validActions && "turn" in state.validActions
+      ? state.validActions.turn.canUndo
+      : false;
   const isInCombat = state?.combat !== null;
 
   // Don't render if UnifiedCardMenu is handling the interaction

@@ -21,82 +21,35 @@ import type {
 } from "../valueConstants.js";
 
 // ============================================================================
-// Top-level ValidActions structure
+// ValidActions discriminated union (state machine)
 // ============================================================================
+//
+// Shared mixins and blocking turn options are defined after their constituent
+// types (TurnOptions, ManaOptions, etc.). State interfaces and union follow.
 
-/**
- * Complete valid actions for a player at a given game state.
- * Sent to clients in ClientGameState.validActions.
- */
-export interface ValidActions {
-  /** Can this player act right now? */
-  readonly canAct: boolean;
+/** Turn options available during pending/blocking states. Typically only undo is available. */
+export interface BlockingTurnOptions {
+  readonly canUndo: boolean;
+}
 
-  /** Why can't act (only populated if canAct=false) */
-  readonly reason: string | undefined;
+/** Mixin for states that allow mana operations. */
+export interface HasManaOptions {
+  readonly mana: ManaOptions;
+}
 
-  /** Movement options (undefined if no movement possible) */
-  readonly move: MoveOptions | undefined;
-
-  /** Exploration options (undefined if no exploration possible) */
-  readonly explore: ExploreOptions | undefined;
-
-  /** Card play options (undefined if no cards can be played) */
-  readonly playCard: PlayCardOptions | undefined;
-
-  /** Combat options (only present when in combat) */
-  readonly combat: CombatOptions | undefined;
-
-  /** Unit options (recruitment/activation) */
-  readonly units: UnitOptions | undefined;
-
-  /** Site interaction options */
-  readonly sites: SiteOptions | undefined;
-
-  /** Mana die/crystal options */
-  readonly mana: ManaOptions | undefined;
-
-  /** Turn structure options (end turn, rest, announce end of round) */
-  readonly turn: TurnOptions | undefined;
-
-  /** Tactic selection options (only during tactics phase) */
-  readonly tactics: TacticsOptions | undefined;
-
-  /** Combat entry options (not in combat yet) */
-  readonly enterCombat: EnterCombatOptions | undefined;
-
-  /** Challenge rampaging enemies from adjacent hex */
-  readonly challenge: ChallengeOptions | undefined;
-
-  /** Tactic effect options (during player turns) */
-  readonly tacticEffects: TacticEffectsOptions | undefined;
-
-  /** Magical Glade wound discard options (at end of turn) */
-  readonly gladeWound: GladeWoundOptions | undefined;
-
-  /** Deep Mine crystal choice options (at end of turn) */
-  readonly deepMine: DeepMineOptions | undefined;
-
-  /** Discard as cost options (when pendingDiscard is active) */
-  readonly discardCost: DiscardCostOptions | undefined;
-
-  /** Discard for attack options (when pendingDiscardForAttack is active - Sword of Justice) */
-  readonly discardForAttack: DiscardForAttackOptions | undefined;
-
-  /** Discard for crystal options (when pendingDiscardForCrystal is active - Savage Harvesting) */
-  readonly discardForCrystal: DiscardForCrystalOptions | undefined;
-
-  /** Artifact crystal color choice (when awaitingColorChoice after artifact discard) */
-  readonly artifactCrystalColor: ArtifactCrystalColorOptions | undefined;
-
-  /** Level up reward options (when pending level up rewards exist) */
-  readonly levelUpRewards: LevelUpRewardsOptions | undefined;
-
-  /** Cooperative assault options (propose, respond, or cancel) */
-  readonly cooperativeAssault: CooperativeAssaultOptions | undefined;
-
-  /** Skill activation options (when player has activatable skills) */
+/** Mixin for states that allow skill activation. */
+export interface HasSkillOptions {
   readonly skills: SkillOptions | undefined;
+}
+
+/** Mixin for states that allow card play. */
+export interface HasCardOptions {
+  readonly playCard: PlayCardOptions | undefined;
+}
+
+/** Mixin for states that allow unit operations. */
+export interface HasUnitOptions {
+  readonly units: UnitOptions | undefined;
 }
 
 // ============================================================================
@@ -878,4 +831,154 @@ export interface ActivatableSkill {
   readonly name: string;
   /** Short description of the skill's effect */
   readonly description: string;
+}
+
+// ============================================================================
+// ValidActions state interfaces (discriminated union)
+// ============================================================================
+
+export interface CannotActState {
+  readonly mode: "cannot_act";
+  readonly reason: string;
+}
+
+export interface TacticsSelectionState {
+  readonly mode: "tactics_selection";
+  readonly tactics: TacticsOptions;
+}
+
+export interface PendingTacticDecisionState {
+  readonly mode: "pending_tactic_decision";
+  readonly tacticDecision: PendingTacticDecisionInfo;
+}
+
+export interface PendingGladeWoundState {
+  readonly mode: "pending_glade_wound";
+  readonly turn: BlockingTurnOptions;
+  readonly gladeWound: GladeWoundOptions;
+}
+
+export interface PendingDeepMineState {
+  readonly mode: "pending_deep_mine";
+  readonly turn: BlockingTurnOptions;
+  readonly deepMine: DeepMineOptions;
+}
+
+export interface PendingDiscardCostState {
+  readonly mode: "pending_discard_cost";
+  readonly turn: BlockingTurnOptions;
+  readonly discardCost: DiscardCostOptions;
+}
+
+export interface PendingDiscardForAttackState {
+  readonly mode: "pending_discard_for_attack";
+  readonly turn: BlockingTurnOptions;
+  readonly discardForAttack: DiscardForAttackOptions;
+}
+
+export interface PendingDiscardForCrystalState {
+  readonly mode: "pending_discard_for_crystal";
+  readonly turn: BlockingTurnOptions;
+  readonly discardForCrystal: DiscardForCrystalOptions;
+}
+
+export interface PendingArtifactCrystalColorState {
+  readonly mode: "pending_artifact_crystal_color";
+  readonly turn: BlockingTurnOptions;
+  readonly artifactCrystalColor: ArtifactCrystalColorOptions;
+}
+
+export interface PendingLevelUpState {
+  readonly mode: "pending_level_up";
+  readonly turn: BlockingTurnOptions;
+  readonly levelUpRewards: LevelUpRewardsOptions;
+}
+
+export interface PendingChoiceState {
+  readonly mode: "pending_choice";
+  readonly turn: BlockingTurnOptions;
+}
+
+export interface CombatState
+  extends HasManaOptions,
+    HasSkillOptions,
+    HasCardOptions,
+    HasUnitOptions {
+  readonly mode: "combat";
+  readonly turn: BlockingTurnOptions;
+  readonly combat: CombatOptions;
+}
+
+export interface NormalTurnState
+  extends HasManaOptions,
+    HasSkillOptions,
+    HasCardOptions,
+    HasUnitOptions {
+  readonly mode: "normal_turn";
+  readonly turn: TurnOptions;
+  readonly move: MoveOptions | undefined;
+  readonly explore: ExploreOptions | undefined;
+  readonly sites: SiteOptions | undefined;
+  readonly challenge: ChallengeOptions | undefined;
+  readonly tacticEffects: TacticEffectsOptions | undefined;
+  readonly cooperativeAssault: CooperativeAssaultOptions | undefined;
+}
+
+/**
+ * ValidActions as a discriminated union.
+ * The `mode` field determines which shape is active.
+ */
+export type ValidActions =
+  | CannotActState
+  | TacticsSelectionState
+  | PendingTacticDecisionState
+  | PendingGladeWoundState
+  | PendingDeepMineState
+  | PendingDiscardCostState
+  | PendingDiscardForAttackState
+  | PendingDiscardForCrystalState
+  | PendingArtifactCrystalColorState
+  | PendingLevelUpState
+  | PendingChoiceState
+  | CombatState
+  | NormalTurnState;
+
+/** All possible mode values. */
+export type ValidActionsMode = ValidActions["mode"];
+
+// ============================================================================
+// Type guards
+// ============================================================================
+
+export function canAct(
+  state: ValidActions
+): state is Exclude<ValidActions, CannotActState> {
+  return state.mode !== "cannot_act";
+}
+
+export function isNormalTurn(state: ValidActions): state is NormalTurnState {
+  return state.mode === "normal_turn";
+}
+
+export function isCombat(state: ValidActions): state is CombatState {
+  return state.mode === "combat";
+}
+
+export function isPendingState(state: ValidActions): boolean {
+  return state.mode.startsWith("pending_");
+}
+
+export function isBlockingState(state: ValidActions): boolean {
+  return state.mode !== "normal_turn" && state.mode !== "cannot_act";
+}
+
+/**
+ * Get skills options when in combat or normal turn; undefined otherwise.
+ */
+export function getSkillsFromValidActions(
+  state: ValidActions
+): SkillOptions | undefined {
+  return state.mode === "combat" || state.mode === "normal_turn"
+    ? state.skills
+    : undefined;
 }

@@ -104,8 +104,10 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
 
   // Get available tactics from game state
   const availableTactics = useMemo(() => {
-    return state?.validActions.tactics?.availableTactics ?? [];
-  }, [state?.validActions.tactics?.availableTactics]);
+    return state?.validActions?.mode === "tactics_selection"
+      ? (state.validActions.tactics.availableTactics ?? [])
+      : [];
+  }, [state?.validActions]);
 
   const timeOfDay = state?.timeOfDay ?? "day";
 

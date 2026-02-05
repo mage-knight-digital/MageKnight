@@ -66,16 +66,20 @@ export function TurnActions() {
       setSealAnimState("visible");
     }
   }, [hasTactic, isIntroComplete]);
-  const canUndo = state?.validActions.turn?.canUndo ?? false;
+  const va = state?.validActions;
+  const canUndo =
+    va && "turn" in va ? va.turn.canUndo : false;
 
-  // Check for activatable tactics
-  const canActivate = state?.validActions.tacticEffects?.canActivate;
+  // Check for activatable tactics (only in normal_turn)
+  const canActivate =
+    va?.mode === "normal_turn" ? va.tacticEffects?.canActivate : undefined;
   const canActivateTheRightMoment = canActivate?.theRightMoment === true;
   const canActivateLongNight = canActivate?.longNight === true;
   const canActivateMidnightMeditation = canActivate?.midnightMeditation === true;
 
-  // Check for rest options (resting state is handled by RestCompletionOverlay)
-  const canDeclareRest = state?.validActions.turn?.canDeclareRest ?? false;
+  // Check for rest options (only in normal_turn; resting state is handled by RestCompletionOverlay)
+  const canDeclareRest =
+    va?.mode === "normal_turn" ? (va.turn.canDeclareRest ?? false) : false;
 
   // Ctrl+Z / Cmd+Z keyboard shortcut for undo
   useEffect(() => {

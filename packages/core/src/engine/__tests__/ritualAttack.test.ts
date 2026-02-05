@@ -165,8 +165,9 @@ describe("Ritual Attack", () => {
     });
 
     const validActions = getValidActions(playResult.state, "player1");
-    expect(validActions.discardCost?.availableCardIds).toContain(CARD_RAGE);
-    expect(validActions.discardCost?.availableCardIds).not.toContain(CARD_FIREBALL);
+    expect(validActions.mode).toBe("pending_discard_cost");
+    expect(validActions.discardCost.availableCardIds).toContain(CARD_RAGE);
+    expect(validActions.discardCost.availableCardIds).not.toContain(CARD_FIREBALL);
   });
 
   it("rejects discarding a non-action card", () => {

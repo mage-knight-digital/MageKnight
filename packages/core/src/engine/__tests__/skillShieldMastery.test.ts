@@ -16,6 +16,7 @@ import {
   UNDO_ACTION,
   RESOLVE_CHOICE_ACTION,
   CHOICE_RESOLVED,
+  getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_TOVAK_SHIELD_MASTERY } from "../../data/skills/index.js";
@@ -441,8 +442,9 @@ describe("Shield Mastery skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_TOVAK_SHIELD_MASTERY,
         })
@@ -468,8 +470,9 @@ describe("Shield Mastery skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Either skills is undefined or Shield Mastery is not in the list
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_TOVAK_SHIELD_MASTERY,
           })
@@ -496,8 +499,9 @@ describe("Shield Mastery skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Either skills is undefined or Shield Mastery is not in the list
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_TOVAK_SHIELD_MASTERY,
           })
@@ -524,8 +528,9 @@ describe("Shield Mastery skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Either skills is undefined or Shield Mastery is not in the list
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_TOVAK_SHIELD_MASTERY,
           })
@@ -552,7 +557,7 @@ describe("Shield Mastery skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Skills should be undefined since no skills are available
-      expect(validActions.skills).toBeUndefined();
+      expect(getSkillsFromValidActions(validActions)).toBeUndefined();
     });
   });
 });

@@ -28,6 +28,7 @@ import {
   TIME_OF_DAY_DAY,
   TIME_OF_DAY_NIGHT,
   MANA_TOKEN_SOURCE_CARD,
+  getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_ARYTHEA_POLARIZATION } from "../../data/skills/index.js";
@@ -445,8 +446,9 @@ describe("Polarization skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Skills should not include Polarization
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_ARYTHEA_POLARIZATION,
           })
@@ -581,8 +583,9 @@ describe("Polarization skill", () => {
       // Skill should not be activatable with only black during night
       const validActions = getValidActions(state, "player1");
 
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_ARYTHEA_POLARIZATION,
           })
@@ -688,8 +691,9 @@ describe("Polarization skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_ARYTHEA_POLARIZATION,
         })
@@ -718,8 +722,9 @@ describe("Polarization skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Either skills is undefined or Polarization is not in the list
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_ARYTHEA_POLARIZATION,
           })
@@ -746,8 +751,9 @@ describe("Polarization skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_ARYTHEA_POLARIZATION,
           })
@@ -775,7 +781,7 @@ describe("Polarization skill", () => {
       const validActions = getValidActions(state, "player1");
 
       // Skills should be undefined since no skills are available
-      expect(validActions.skills).toBeUndefined();
+      expect(getSkillsFromValidActions(validActions)).toBeUndefined();
     });
   });
 

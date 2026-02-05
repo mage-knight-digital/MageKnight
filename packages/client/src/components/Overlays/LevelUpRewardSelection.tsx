@@ -80,7 +80,10 @@ export function LevelUpRewardSelection() {
   const [selectedAA, setSelectedAA] = useState<CardId | null>(null);
 
   // Check if we have level up rewards to show
-  const levelUpRewards = state?.validActions.levelUpRewards;
+  const levelUpRewards =
+    state?.validActions?.mode === "pending_level_up"
+      ? state.validActions.levelUpRewards
+      : undefined;
 
   // Don't show if no pending level up rewards
   if (!player || !levelUpRewards) {

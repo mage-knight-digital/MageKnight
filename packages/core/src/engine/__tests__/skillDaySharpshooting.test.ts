@@ -12,6 +12,7 @@ import {
   USE_SKILL_ACTION,
   SKILL_USED,
   INVALID_ACTION,
+  getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_NOROWAS_DAY_SHARPSHOOTING } from "../../data/skills/index.js";
@@ -138,8 +139,9 @@ describe("Day Sharpshooting skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_NOROWAS_DAY_SHARPSHOOTING,
         })
@@ -165,8 +167,9 @@ describe("Day Sharpshooting skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      expect(validActions.skills).toBeDefined();
-      expect(validActions.skills?.activatable).toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      expect(skills).toBeDefined();
+      expect(skills?.activatable).toContainEqual(
         expect.objectContaining({
           skillId: SKILL_NOROWAS_DAY_SHARPSHOOTING,
         })
@@ -192,8 +195,9 @@ describe("Day Sharpshooting skill", () => {
 
       const validActions = getValidActions(state, "player1");
 
-      if (validActions.skills) {
-        expect(validActions.skills.activatable).not.toContainEqual(
+      const skills = getSkillsFromValidActions(validActions);
+      if (skills) {
+        expect(skills.activatable).not.toContainEqual(
           expect.objectContaining({
             skillId: SKILL_NOROWAS_DAY_SHARPSHOOTING,
           })

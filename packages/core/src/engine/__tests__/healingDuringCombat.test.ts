@@ -28,6 +28,7 @@ import {
 
 function getPlayableCard(state: ReturnType<typeof createTestGameState>, cardId: string) {
   const validActions = getValidActions(state, "player1");
+  if (validActions.mode !== "combat" && validActions.mode !== "normal_turn") return undefined;
   return validActions.playCard?.cards.find((card) => card.cardId === cardId);
 }
 

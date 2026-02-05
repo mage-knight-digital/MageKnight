@@ -183,6 +183,21 @@ export type {
 // Valid actions types
 export type {
   ValidActions,
+  ValidActionsMode,
+  BlockingTurnOptions,
+  CannotActState,
+  TacticsSelectionState,
+  PendingTacticDecisionState,
+  PendingGladeWoundState,
+  PendingDeepMineState,
+  PendingDiscardCostState,
+  PendingDiscardForAttackState,
+  PendingDiscardForCrystalState,
+  PendingArtifactCrystalColorState,
+  PendingLevelUpState,
+  PendingChoiceState,
+  CombatState,
+  NormalTurnState,
   MoveOptions,
   MoveTarget,
   ReachableHex,
@@ -250,6 +265,14 @@ export type {
   ActivatableSkill,
   // Cumbersome ability options
   CumbersomeOption,
+} from "./types/validActions.js";
+export {
+  canAct,
+  isNormalTurn,
+  isCombat,
+  isPendingState,
+  isBlockingState,
+  getSkillsFromValidActions,
 } from "./types/validActions.js";
 
 // Shared value constants (sub-unions)

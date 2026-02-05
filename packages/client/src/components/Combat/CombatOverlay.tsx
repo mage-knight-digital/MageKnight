@@ -323,7 +323,10 @@ function AccumulatorDisplay() {
 function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   const { phase, enemies } = combat;
   const { state, sendAction } = useGame();
-  const canUndo = state?.validActions.turn?.canUndo ?? false;
+  const canUndo =
+    state?.validActions && "turn" in state.validActions
+      ? state.validActions.turn.canUndo
+      : false;
 
   // Visual effect state - use a counter to force animation restart
   const [activeEffect, setActiveEffect] = useState<EffectType>(null);

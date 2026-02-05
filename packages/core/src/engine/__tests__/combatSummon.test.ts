@@ -342,7 +342,8 @@ describe("Combat Summon Ability", () => {
 
       // Valid actions should NOT include the hidden summoner in block options
       const validActions = getValidActions(state, "player1");
-      const blockOptions = validActions.combat?.blocks ?? [];
+      const blockOptions =
+        validActions.mode === "combat" ? (validActions.combat.blocks ?? []) : [];
 
       expect(blockOptions.map((b) => b.enemyInstanceId)).not.toContain(
         summoner?.instanceId
@@ -383,7 +384,10 @@ describe("Combat Summon Ability", () => {
 
       // Valid actions should NOT include the hidden summoner in damage assignments
       const validActions = getValidActions(state, "player1");
-      const damageOptions = validActions.combat?.damageAssignments ?? [];
+      const damageOptions =
+        validActions.mode === "combat"
+          ? (validActions.combat.damageAssignments ?? [])
+          : [];
 
       const summonerId = state.combat?.enemies.find(
         (e) => e.enemyId === ENEMY_ORC_SUMMONERS
@@ -471,7 +475,8 @@ describe("Combat Summon Ability", () => {
 
       // Should be able to attack the summoner
       const validActions = getValidActions(state, "player1");
-      const attackOptions = validActions.combat?.enemies ?? [];
+      const attackOptions =
+        validActions.mode === "combat" ? (validActions.combat.enemies ?? []) : [];
 
       expect(attackOptions.map((e) => e.enemyInstanceId)).toContain(
         state.combat?.enemies[0].instanceId
@@ -563,7 +568,8 @@ describe("Combat Summon Ability", () => {
       // (because it wasn't hidden since no summon occurred)
       // However, Orc Summoners have attack 0, so there's nothing to block
       const validActions = getValidActions(state, "player1");
-      const blockOptions = validActions.combat?.blocks ?? [];
+      const blockOptions =
+        validActions.mode === "combat" ? (validActions.combat.blocks ?? []) : [];
 
       // Orc Summoners have attack 0, so they won't appear as something to block
       // This is correct behavior - they don't attack
@@ -924,16 +930,19 @@ describe("Combat Summon Ability", () => {
 
       // In Ranged/Siege phase, Fortified enemies can only be attacked with Siege
       const validActions = getValidActions(state, "player1");
-      const rangedAttacks = validActions.combat?.attacks?.filter(
-        (a) => a.attackType === "ranged"
-      ) ?? [];
+      const rangedAttacks =
+        validActions.mode === "combat" && validActions.combat.assignableAttacks
+          ? validActions.combat.assignableAttacks.filter(
+              (a) => a.attackType === "ranged"
+            )
+          : [];
 
       const enemyInstanceId = state.combat?.enemies[0]?.instanceId ?? "";
 
       // Should NOT be able to use regular ranged attacks on Fortified enemy
       // Either there are no ranged attacks, or none target this enemy
-      const canTargetWithRanged = rangedAttacks.some((a) =>
-        a.targets.includes(enemyInstanceId)
+      const canTargetWithRanged = rangedAttacks.some(
+        (a) => a.enemyInstanceId === enemyInstanceId
       );
       expect(canTargetWithRanged).toBe(false);
     });

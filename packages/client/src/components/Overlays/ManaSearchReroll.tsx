@@ -36,8 +36,11 @@ export function ManaSearchReroll() {
   const [selectedDice, setSelectedDice] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Check if Mana Search reroll is available
-  const canRerollSourceDice = state?.validActions.tacticEffects?.canRerollSourceDice;
+  // Check if Mana Search reroll is available (only in normal_turn)
+  const canRerollSourceDice =
+    state?.validActions?.mode === "normal_turn"
+      ? state.validActions.tacticEffects?.canRerollSourceDice
+      : undefined;
   if (!canRerollSourceDice || !player || !state) {
     return null;
   }

@@ -58,8 +58,10 @@ export function getAvailableManaSources(
     }
   }
 
-  // 3. Check available dice from the source
-  const manaOptions = state.validActions.mana;
+  // 3. Check available dice from the source (only in combat or normal_turn)
+  const va = state.validActions;
+  const manaOptions =
+    va.mode === "combat" || va.mode === "normal_turn" ? va.mana : undefined;
   if (manaOptions) {
     // Matching color dice
     const matchingDice = manaOptions.availableDice.filter(
