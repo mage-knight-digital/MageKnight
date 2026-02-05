@@ -161,6 +161,8 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingAttackDefeatFame: [],
     enemiesDefeatedThisTurn: 0,
     healingPoints: 0,
+    woundsHealedFromHandThisTurn: 0,
+    unitsHealedThisTurn: [],
     removedCards: [],
     isResting: false,
     woundImmunityActive: false,

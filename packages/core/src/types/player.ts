@@ -459,6 +459,12 @@ export interface Player {
   // Healing points accumulated this turn (cleared on combat entry per rulebook line 929)
   readonly healingPoints: number;
 
+  // Cure spell tracking (reset at end of turn)
+  // Tracks wounds healed from hand this turn (for Cure's card draw bonus)
+  readonly woundsHealedFromHandThisTurn: number;
+  // Tracks unit instance IDs healed this turn (for Cure's ready bonus)
+  readonly unitsHealedThisTurn: readonly string[];
+
   // Wound immunity active (Veil of Mist spell)
   // When true, the hero ignores the first wound from enemies this turn (including Poison/Paralyze effects)
   // Reset at end of turn; cleared when first wound is ignored

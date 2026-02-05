@@ -34,6 +34,7 @@ import { registerRitualOfPainEffects } from "./ritualOfPainEffects.js";
 import { registerDiscardForCrystalEffects } from "./discardForCrystalEffects.js";
 import { registerRuthlessCoercionEffects } from "./ruthlessCoercionEffects.js";
 import { registerEnergyFlowEffects } from "./energyFlowEffects.js";
+import { registerCureEffects } from "./cureEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -118,4 +119,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Energy Flow effects (ready unit + spend opponent units)
   registerEnergyFlowEffects();
+
+  // Cure / Disease effects (white spell)
+  registerCureEffects();
 }

@@ -42,6 +42,8 @@ import {
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   EFFECT_READY_ALL_UNITS,
+  EFFECT_CURE,
+  EFFECT_DISEASE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -52,6 +54,7 @@ import type {
   ResolveReadyUnitForInfluenceEffect,
   EnergyFlowEffect,
   ResolveEnergyFlowTargetEffect,
+  CureEffect,
 } from "../../types/cards.js";
 import type {
   GainMoveEffect,
@@ -311,6 +314,13 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   },
 
   [EFFECT_READY_ALL_UNITS]: () => "Ready all Units",
+
+  [EFFECT_CURE]: (effect) => {
+    const e = effect as CureEffect;
+    return `Heal ${e.amount}, draw per wound healed, ready healed units`;
+  },
+
+  [EFFECT_DISEASE]: () => "Reduce fully-blocked enemies' armor to 1",
 };
 
 // ============================================================================

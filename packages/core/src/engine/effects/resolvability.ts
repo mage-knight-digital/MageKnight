@@ -78,6 +78,8 @@ import {
   EFFECT_READY_ALL_UNITS,
   EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
+  EFFECT_CURE,
+  EFFECT_DISEASE,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -389,6 +391,16 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   [EFFECT_READY_ALL_UNITS]: (state, player) => {
     // Resolvable if player has at least one spent unit
     return player.units.some((u) => u.state === UNIT_STATE_SPENT);
+  },
+
+  [EFFECT_CURE]: (state, player) => {
+    // Cure is resolvable if player has wounds in hand
+    return player.hand.some((c) => c === CARD_WOUND);
+  },
+
+  [EFFECT_DISEASE]: (state) => {
+    // Disease is resolvable only in combat
+    return state.combat !== null;
   },
 };
 

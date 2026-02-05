@@ -570,6 +570,8 @@ export class GameServer {
       pendingAttackDefeatFame: [],
       enemiesDefeatedThisTurn: 0,
       healingPoints: 0,
+      woundsHealedFromHandThisTurn: 0,
+      unitsHealedThisTurn: [],
       woundImmunityActive: false,
       removedCards: [],
       isResting: false,

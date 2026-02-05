@@ -161,6 +161,12 @@ export const EFFECT_SELECT_HEX_FOR_COST_REDUCTION = "select_hex_for_cost_reducti
 // Select a terrain type for cost reduction (Druidic Paths powered effect)
 export const EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION = "select_terrain_for_cost_reduction" as const;
 
+// === Cure Spell Effects ===
+// Basic Cure: Heal 2, draw a card per wound healed from hand this turn, ready healed units
+export const EFFECT_CURE = "cure" as const;
+// Powered Disease: Reduce armor to 1 for all fully-blocked enemies
+export const EFFECT_DISEASE = "disease" as const;
+
 // === Scout Peek Effect ===
 // Reveals face-down enemy tokens within a distance from the player.
 // Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.

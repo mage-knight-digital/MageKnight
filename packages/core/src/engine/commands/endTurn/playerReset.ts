@@ -56,5 +56,8 @@ export function createResetPlayer(
     },
     // Spell effect resets
     woundImmunityActive: false,
+    // Cure spell tracking resets
+    woundsHealedFromHandThisTurn: 0,
+    unitsHealedThisTurn: [],
   };
 }

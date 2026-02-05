@@ -13,6 +13,7 @@ import type { CardId } from "@mage-knight/shared";
 import type { EffectResolutionResult } from "./types.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicHelpers.js";
+import { isCureActive } from "./cureHelpers.js";
 
 // ============================================================================
 // EFFECT HANDLERS
@@ -92,25 +93,53 @@ export function applyGainHealing(
   const updatedPlayer: Player = {
     ...player,
     hand: newHand,
+    // Track wounds healed from hand this turn (for Cure spell)
+    woundsHealedFromHandThisTurn: player.woundsHealedFromHandThisTurn + woundsToHeal,
   };
 
   // Return wounds to the wound pile (unlimited => stay null)
   const newWoundPileCount =
     state.woundPileCount === null ? null : state.woundPileCount + woundsToHeal;
 
-  const updatedState = {
+  let updatedState: GameState = {
     ...updatePlayer(state, playerIndex, updatedPlayer),
     woundPileCount: newWoundPileCount,
   };
 
-  const description =
+  const descriptions: string[] = [
     woundsToHeal === 1
       ? "Healed 1 wound"
-      : `Healed ${woundsToHeal} wounds`;
+      : `Healed ${woundsToHeal} wounds`,
+  ];
+
+  // If Cure is active, draw a card for each wound just healed
+  if (isCureActive(state, player.id)) {
+    const currentPlayer = updatedState.players[playerIndex]!;
+    const availableInDeck = currentPlayer.deck.length;
+    const cardsToDraw = Math.min(woundsToHeal, availableInDeck);
+
+    if (cardsToDraw > 0) {
+      const drawnCards = currentPlayer.deck.slice(0, cardsToDraw);
+      const newDeck = currentPlayer.deck.slice(cardsToDraw);
+      const drawnHand = [...currentPlayer.hand, ...drawnCards];
+
+      updatedState = updatePlayer(updatedState, playerIndex, {
+        ...currentPlayer,
+        hand: drawnHand,
+        deck: newDeck,
+      });
+
+      descriptions.push(
+        cardsToDraw === 1
+          ? "Drew 1 card (Cure)"
+          : `Drew ${cardsToDraw} cards (Cure)`
+      );
+    }
+  }
 
   return {
     state: updatedState,
-    description,
+    description: descriptions.join(". "),
   };
 }
 

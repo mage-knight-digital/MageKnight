@@ -19,10 +19,12 @@ import {
 } from "../../types/combat.js";
 import { ABILITY_ELUSIVE } from "@mage-knight/shared";
 import { ENEMY_ABILITY_ELUSIVE } from "../../types/enemyConstants.js";
+import type { DiseaseArmorModifier } from "../../types/modifiers.js";
 import {
   ABILITY_ANY,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_COMBAT_VALUE,
+  EFFECT_DISEASE_ARMOR,
   EFFECT_DOUBLE_PHYSICAL_ATTACKS,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
@@ -104,6 +106,19 @@ export function getEffectiveEnemyArmor(
       armor += mod.amount;
     }
     minAllowed = Math.max(minAllowed, mod.minimum);
+  }
+
+  // Check for Disease armor modifier (sets armor to fixed value)
+  // Disease applies AFTER all other modifiers and bonuses per rules:
+  // "White City bonus applies first, THEN Disease reduces to 1"
+  const diseaseModifiers = getModifiersForEnemy(state, enemyId)
+    .filter((m) => m.effect.type === EFFECT_DISEASE_ARMOR)
+    .map((m) => m.effect as DiseaseArmorModifier);
+
+  if (diseaseModifiers.length > 0) {
+    // Disease overrides armor to setTo value (typically 1)
+    const diseaseValue = diseaseModifiers[0]!.setTo;
+    return diseaseValue;
   }
 
   // Apply Defend bonus AFTER modifiers (it's an external bonus, not a modifier)
