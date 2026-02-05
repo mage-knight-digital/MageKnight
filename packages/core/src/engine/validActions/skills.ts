@@ -24,6 +24,7 @@ import {
   SKILL_ARYTHEA_POLARIZATION,
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_ARYTHEA_POWER_OF_PAIN,
+  SKILL_ARYTHEA_INVOCATION,
   SKILL_ARYTHEA_DARK_PATHS,
   SKILL_ARYTHEA_BURNING_POWER,
   SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
@@ -42,6 +43,7 @@ import {
 } from "../../types/combat.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { canActivatePolarization } from "../commands/skills/polarizationEffect.js";
+import { canActivateInvocation } from "../commands/skills/invocationEffect.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 
 /**
@@ -55,6 +57,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_ARYTHEA_POLARIZATION,
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_ARYTHEA_POWER_OF_PAIN,
+  SKILL_ARYTHEA_INVOCATION,
   SKILL_ARYTHEA_DARK_PATHS,
   SKILL_ARYTHEA_BURNING_POWER,
   SKILL_ARYTHEA_HOT_SWORDSMANSHIP,
@@ -96,6 +99,10 @@ function canActivateSkill(
     case SKILL_ARYTHEA_RITUAL_OF_PAIN:
       // Cannot use during combat
       return state.combat === null;
+
+    case SKILL_ARYTHEA_INVOCATION:
+      // Must have at least one card in hand to discard
+      return canActivateInvocation(player);
 
     default:
       // No special requirements

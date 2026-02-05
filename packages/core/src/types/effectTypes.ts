@@ -167,6 +167,12 @@ export const EFFECT_CURE = "cure" as const;
 // Powered Disease: Reduce armor to 1 for all fully-blocked enemies
 export const EFFECT_DISEASE = "disease" as const;
 
+// === Invocation Effect ===
+// Atomic effect for Arythea's Invocation skill.
+// Discards a card from hand and gains a mana token in one atomic operation.
+// Wound cards → red or black mana. Non-wound cards → white or green mana.
+export const EFFECT_INVOCATION_RESOLVE = "invocation_resolve" as const;
+
 // === Scout Peek Effect ===
 // Reveals face-down enemy tokens within a distance from the player.
 // Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.

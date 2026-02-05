@@ -69,6 +69,7 @@ import {
   EFFECT_READY_ALL_UNITS,
   EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
+  EFFECT_INVOCATION_RESOLVE,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -781,6 +782,28 @@ export interface CureEffect {
 }
 
 /**
+ * Invocation resolve effect (Arythea's Invocation skill).
+ *
+ * Atomic operation: discard a card from hand and gain a mana token.
+ * - Wound cards are returned to the wound pile (not discard pile)
+ * - Non-wound cards go to the discard pile
+ * - Mana token is added with MANA_TOKEN_SOURCE_SKILL
+ *
+ * Each option in the pendingChoice encodes the full operation.
+ */
+export interface InvocationResolveEffect {
+  readonly type: typeof EFFECT_INVOCATION_RESOLVE;
+  /** The card to discard from hand */
+  readonly cardId: CardId;
+  /** Whether the discarded card is a wound */
+  readonly isWound: boolean;
+  /** The mana color to gain */
+  readonly manaColor: ManaColor;
+  /** Human-readable description for UI */
+  readonly description: string;
+}
+
+/**
  * Disease spell powered effect.
  * All enemies that have ALL their attacks blocked during the Block phase
  * get their armor reduced to 1 for the rest of combat.
@@ -844,7 +867,8 @@ export type CardEffect =
   | SelectHexForCostReductionEffect
   | SelectTerrainForCostReductionEffect
   | CureEffect
-  | DiseaseEffect;
+  | DiseaseEffect
+  | InvocationResolveEffect;
 
 // === Card Definition ===
 
