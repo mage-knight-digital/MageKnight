@@ -201,9 +201,17 @@ Site conquest queues rewards to `player.pendingRewards`. Player must select befo
 
 ## Key Gotchas
 
-### ⚠️ Shared Rule Helpers Keep Validators & ValidActions Aligned
+### Rule Architecture: Validators & ValidActions
 
-When implementing game mechanics that restrict player options, define the rule logic **once** in `core/src/engine/rules/`, then import it into both validators and validActions. This prevents misalignment.
+To keep validation logic and action availability in sync, we follow a clean pattern:
+
+**Rules** (`core/src/engine/rules/`) are the single source of truth containing pure functions that define game mechanics.
+
+**Validators** (`core/src/engine/validators/`) import rules and reject invalid actions.
+
+**ValidActions** (`core/src/engine/validActions/`) import the same rules to compute what options are available to the player.
+
+This ensures validators and validActions are always aligned through shared code, not manual duplication.
 
 **Rule modules by domain:**
 - `rules/cardPlay.ts` — card restrictions, wound cards, effect contexts
@@ -211,19 +219,37 @@ When implementing game mechanics that restrict player options, define the rule l
 - `rules/mana.ts` — mana color availability (time of day, dungeons)
 - `rules/movement.ts` — movement restrictions
 - `rules/sideways.ts` — sideways play restrictions
+- `rules/unitRecruitment.ts` — recruitment eligibility, cost calculations
+- `rules/siteInteraction.ts` — site accessibility, interaction eligibility
+- `rules/turnStructure.ts` — turn phases, rest mechanics
+- `rules/combatEnemyState.ts` — enemy targetability queries
+- `rules/effectDetection/` — effect type detection helpers
 
-**Workflow for new restrictions:**
-1. Create rule helper in appropriate `rules/*.ts` file (or extend existing)
-2. Import rule into validators that enforce the restriction
-3. Import same rule into validActions that filter options
-4. Add tests for rule logic, then for validators/validActions that use it
+**When adding new mechanics:**
 
-**Example:** Assassination ability prevents assigning damage to units.
-- `rules/combatTargeting.ts` — `function canTargetUnit(enemy) → boolean` checking assassination
-- `validators/combatValidators/targetValidators.ts` — imports and uses `canTargetUnit()`
-- `validActions/combat.ts` — imports same `canTargetUnit()` to filter `availableUnits`
+1. Define the rule logic in `core/src/engine/rules/` (or extend existing)
+   ```typescript
+   // rules/combatTargeting.ts
+   export function canAssignDamageToUnit(enemy, playerId): boolean { ... }
+   ```
 
-This ensures validators and validActions stay aligned through shared code, not manual duplication.
+2. Import rule into validators to reject violations
+   ```typescript
+   // validators/combatValidators/targetValidators.ts
+   if (!canAssignDamageToUnit(enemy, playerId)) {
+     return invalid(CANNOT_TARGET_UNIT, "...");
+   }
+   ```
+
+3. Import same rule into validActions to filter options
+   ```typescript
+   // validActions/combatDamage.ts
+   const targetableEnemies = enemies.filter(e => canAssignDamageToUnit(e, playerId));
+   ```
+
+4. Add tests for the rule logic and its usage in validators/validActions
+
+**Key principle:** Rules are pure functions with no side effects or state mutations. They're imported by validators and validActions, never the other way around.
 
 ### Monorepo Build Order
 Core/server consume shared via built outputs. When adding exports to shared:
@@ -318,6 +344,7 @@ When in doubt, fix the code to satisfy the linter rather than silencing the warn
 | End turn phases | `core/src/engine/commands/endTurn/` |
 | Validators | `core/src/engine/validators/` |
 | Valid actions | `core/src/engine/validActions/` |
+| Game rules (shared) | `core/src/engine/rules/` |
 | Site properties | `core/src/data/siteProperties.ts` |
 | Client state filter | `server/src/index.ts` (`toClientState`) |
 | Mana source logic | `core/src/engine/mana/` |
