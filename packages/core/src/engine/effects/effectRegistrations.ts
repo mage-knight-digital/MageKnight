@@ -33,6 +33,7 @@ import { registerPolarizeEffects } from "./polarizeEffects.js";
 import { registerRitualOfPainEffects } from "./ritualOfPainEffects.js";
 import { registerDiscardForCrystalEffects } from "./discardForCrystalEffects.js";
 import { registerRuthlessCoercionEffects } from "./ruthlessCoercionEffects.js";
+import { registerEnergyFlowEffects } from "./energyFlowEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -114,4 +115,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Ruthless Coercion effects (recruit discount, ready for influence)
   registerRuthlessCoercionEffects();
+
+  // Energy Flow effects (ready unit + spend opponent units)
+  registerEnergyFlowEffects();
 }

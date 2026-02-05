@@ -61,6 +61,8 @@ import {
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
   EFFECT_SCOUT_PEEK,
+  EFFECT_ENERGY_FLOW,
+  EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -687,6 +689,32 @@ export interface ScoutPeekEffect {
   readonly fame: number;
 }
 
+/**
+ * Energy Flow / Energy Steal spell effect.
+ * Ready a unit, optionally heal it, then optionally spend one unit
+ * of a given max level in each other player's unit area.
+ *
+ * In single-player, the "spend opponent units" part is a no-op.
+ */
+export interface EnergyFlowEffect {
+  readonly type: typeof EFFECT_ENERGY_FLOW;
+  /** Max unit level for spending opponent units */
+  readonly spendMaxLevel: 1 | 2 | 3 | 4;
+  /** Whether to heal the readied unit (powered effect only) */
+  readonly healReadiedUnit: boolean;
+}
+
+/**
+ * Internal effect generated as a choice option for Energy Flow unit selection.
+ * Readies the selected unit (and heals if powered).
+ */
+export interface ResolveEnergyFlowTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_ENERGY_FLOW_TARGET;
+  readonly unitInstanceId: string;
+  readonly unitName: string;
+  readonly healReadiedUnit: boolean;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -734,7 +762,9 @@ export type CardEffect =
   | RecruitDiscountEffect
   | ReadyUnitsForInfluenceEffect
   | ResolveReadyUnitForInfluenceEffect
-  | ScoutPeekEffect;
+  | ScoutPeekEffect
+  | EnergyFlowEffect
+  | ResolveEnergyFlowTargetEffect;
 
 // === Card Definition ===
 

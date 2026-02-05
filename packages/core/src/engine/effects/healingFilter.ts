@@ -8,6 +8,7 @@ import type { CardEffect } from "../../types/cards.js";
 import {
   EFFECT_GAIN_HEALING,
   EFFECT_HEAL_UNIT,
+  EFFECT_ENERGY_FLOW,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
   EFFECT_CONDITIONAL,
@@ -25,6 +26,7 @@ export function filterHealingEffectsForCombat(effect: CardEffect): CardEffect | 
   switch (effect.type) {
     case EFFECT_GAIN_HEALING:
     case EFFECT_HEAL_UNIT:
+    case EFFECT_ENERGY_FLOW:
       return null;
 
     case EFFECT_COMPOUND: {
