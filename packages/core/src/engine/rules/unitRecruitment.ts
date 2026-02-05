@@ -19,6 +19,7 @@ import {
   MAX_REPUTATION,
   UNIT_HEROES,
   UNIT_THUGS,
+  getUnit,
   type RecruitSite,
   type UnitId,
   type UnitDefinition,
@@ -39,8 +40,12 @@ import { getModifiersForPlayer } from "../modifiers/queries.js";
  * For Heroes units, the modifier is DOUBLED (per rulebook).
  * The doubled modifier is only applied once per interaction (first Hero recruited).
  *
+ * For Thugs (reversedReputation = true), the modifier is REVERSED:
+ * negative reputation makes them cheaper, positive makes them more expensive.
+ * The reversed modifier is fixed at interaction start per FAQ.
+ *
  * @param reputation - The player's current reputation value
- * @param unitId - Optional unit ID to check for Heroes special rule
+ * @param unitId - Optional unit ID to check for special rules
  * @param hasRecruitedHeroThisInteraction - Whether a Hero has already been recruited
  *        at this site during the current interaction (for doubled reputation tracking)
  */
@@ -71,6 +76,15 @@ export function getReputationCostModifier(
       modifier = 3;
     }
     baseModifier = rep < 0 ? modifier : -modifier;
+  }
+
+  // Thugs special rule: reputation modifier is REVERSED
+  // Per rulebook, low reputation = easier to recruit, high reputation = harder
+  if (unitId) {
+    const unitDef = getUnit(unitId);
+    if (unitDef.reversedReputation && baseModifier !== 0) {
+      baseModifier = -baseModifier;
+    }
   }
 
   // Heroes special rule: reputation modifier is doubled

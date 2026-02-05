@@ -12,7 +12,7 @@
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { UnitOptions, RecruitableUnit } from "@mage-knight/shared";
-import { UNITS, type UnitId } from "@mage-knight/shared";
+import { UNITS, MIN_REPUTATION, type UnitId } from "@mage-knight/shared";
 import { SiteType } from "../../../types/map.js";
 import { mustAnnounceEndOfRound } from "../helpers.js";
 import {
@@ -48,6 +48,11 @@ export function getUnitOptions(
 
   // Must announce end of round before taking other actions
   if (mustAnnounceEndOfRound(state, player)) {
+    return undefined;
+  }
+
+  // At "X" reputation (MIN_REPUTATION), inhabitants refuse to interact
+  if (player.reputation <= MIN_REPUTATION) {
     return undefined;
   }
 

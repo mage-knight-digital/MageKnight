@@ -13,7 +13,7 @@ import {
   createUnitCombatState,
 } from "./testHelpers.js";
 import {
-  UNIT_THUGS,
+  UNIT_PEASANTS,
   UNIT_RED_CAPE_MONKS,
   UNIT_FIRE_MAGES,
   ELEMENT_PHYSICAL,
@@ -161,8 +161,8 @@ describe("Unit Elemental Attack Tracking", () => {
   });
 
   it("should track physical attack as physical element", () => {
-    // Thugs have Physical Attack 3 at index 0
-    const unit = createPlayerUnit(UNIT_THUGS, "thugs_1");
+    // Peasants have Physical Attack 2 at index 0
+    const unit = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
     const player = createTestPlayer({
       units: [unit],
       commandTokens: 1,
@@ -175,18 +175,18 @@ describe("Unit Elemental Attack Tracking", () => {
 
     const result = engine.processAction(state, "player1", {
       type: ACTIVATE_UNIT_ACTION,
-      unitInstanceId: "thugs_1",
-      abilityIndex: 0, // Physical Attack 3
+      unitInstanceId: "peasants_1",
+      abilityIndex: 0, // Physical Attack 2
     });
 
     // Verify physical element tracked
     expect(
       result.state.players[0].combatAccumulator.attack.normalElements.physical
-    ).toBe(3);
+    ).toBe(2);
     expect(
       result.state.players[0].combatAccumulator.attack.normalElements.fire
     ).toBe(0);
-    expect(result.state.players[0].combatAccumulator.attack.normal).toBe(3);
+    expect(result.state.players[0].combatAccumulator.attack.normal).toBe(2);
 
     // Check event includes physical element
     const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
@@ -197,11 +197,11 @@ describe("Unit Elemental Attack Tracking", () => {
   });
 
   it("should accumulate multiple elemental attacks", () => {
-    // Red Cape Monks: Fire Attack 4 (index 2, red mana), Thugs: Physical Attack 3
+    // Red Cape Monks: Fire Attack 4 (index 2, red mana), Peasants: Physical Attack 2
     const monks = createPlayerUnit(UNIT_RED_CAPE_MONKS, "monks_1");
-    const thugs = createPlayerUnit(UNIT_THUGS, "thugs_1");
+    const peasants = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
     const player = createTestPlayer({
-      units: [monks, thugs],
+      units: [monks, peasants],
       commandTokens: 2,
       pureMana: [{ color: MANA_RED, source: "card" }],
     });
@@ -220,10 +220,10 @@ describe("Unit Elemental Attack Tracking", () => {
     });
     state = result.state;
 
-    // Activate thugs (Physical Attack 3)
+    // Activate peasants (Physical Attack 2)
     result = engine.processAction(state, "player1", {
       type: ACTIVATE_UNIT_ACTION,
-      unitInstanceId: "thugs_1",
+      unitInstanceId: "peasants_1",
       abilityIndex: 0,
     });
 
@@ -233,8 +233,8 @@ describe("Unit Elemental Attack Tracking", () => {
     ).toBe(4);
     expect(
       result.state.players[0].combatAccumulator.attack.normalElements.physical
-    ).toBe(3);
+    ).toBe(2);
     // Total should be combined
-    expect(result.state.players[0].combatAccumulator.attack.normal).toBe(7);
+    expect(result.state.players[0].combatAccumulator.attack.normal).toBe(6);
   });
 });

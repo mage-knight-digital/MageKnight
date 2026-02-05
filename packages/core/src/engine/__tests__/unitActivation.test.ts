@@ -72,8 +72,8 @@ describe("Unit Combat Abilities", () => {
 
   describe("Activation", () => {
     it("should activate unit and add attack to accumulator", () => {
-      // Thugs have Attack 3 (ability index 0)
-      const unit = createPlayerUnit(UNIT_THUGS, "thugs_1");
+      // Peasants have Attack 2 (ability index 0)
+      const unit = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
@@ -86,12 +86,12 @@ describe("Unit Combat Abilities", () => {
 
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
-        unitInstanceId: "thugs_1",
-        abilityIndex: 0, // Attack 3
+        unitInstanceId: "peasants_1",
+        abilityIndex: 0, // Attack 2
       });
 
-      // Verify accumulator.attack.normal increased by 3
-      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(3);
+      // Verify accumulator.attack.normal increased by 2
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(2);
 
       // Verify unit is now spent
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
@@ -103,7 +103,7 @@ describe("Unit Combat Abilities", () => {
       expect(activateEvent).toBeDefined();
       if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
         expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_ATTACK);
-        expect(activateEvent.abilityValue).toBe(3);
+        expect(activateEvent.abilityValue).toBe(2);
       }
     });
 
@@ -261,8 +261,8 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should reject attack ability in block phase", () => {
-      // Thugs have Attack 3 (ability index 0)
-      const unit = createPlayerUnit(UNIT_THUGS, "thugs_1");
+      // Peasants have Attack 2 (ability index 0)
+      const unit = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
@@ -275,8 +275,8 @@ describe("Unit Combat Abilities", () => {
 
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
-        unitInstanceId: "thugs_1",
-        abilityIndex: 0, // Attack 3
+        unitInstanceId: "peasants_1",
+        abilityIndex: 0, // Attack 2
       });
 
       // Unit should still be ready (action rejected)
@@ -512,11 +512,11 @@ describe("Unit Combat Abilities", () => {
 
   describe("Multiple units", () => {
     it("should allow multiple units to contribute in same phase", () => {
-      // Two units with Attack abilities
-      const thugs = createPlayerUnit(UNIT_THUGS, "thugs_1");
-      const peasants = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
+      // Two Peasants units with Attack 2 (ability index 0)
+      const peasants1 = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
+      const peasants2 = createPlayerUnit(UNIT_PEASANTS, "peasants_2");
       const player = createTestPlayer({
-        units: [thugs, peasants],
+        units: [peasants1, peasants2],
         commandTokens: 2,
       });
 
@@ -525,24 +525,24 @@ describe("Unit Combat Abilities", () => {
         combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
       });
 
-      // Activate first unit (Thugs Attack 3)
+      // Activate first unit (Peasants Attack 2)
       let result = engine.processAction(state, "player1", {
-        type: ACTIVATE_UNIT_ACTION,
-        unitInstanceId: "thugs_1",
-        abilityIndex: 0, // Attack 3
-      });
-      state = result.state;
-      expect(state.players[0].combatAccumulator.attack.normal).toBe(3);
-
-      // Activate second unit (Peasants Attack 2)
-      result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "peasants_1",
         abilityIndex: 0, // Attack 2
       });
+      state = result.state;
+      expect(state.players[0].combatAccumulator.attack.normal).toBe(2);
+
+      // Activate second unit (Peasants Attack 2)
+      result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "peasants_2",
+        abilityIndex: 0, // Attack 2
+      });
 
       // Verify both contribute to accumulator
-      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(5);
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(4);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
       expect(result.state.players[0].units[1].state).toBe(UNIT_STATE_SPENT);
     });

@@ -273,6 +273,8 @@ export type {
   CumbersomeOption,
   // Move-to-attack conversion options (Agility card)
   MoveToAttackConversionOption,
+  // Thugs damage influence payment options
+  ThugsDamagePaymentOption,
 } from "./types/validActions.js";
 export {
   canAct,

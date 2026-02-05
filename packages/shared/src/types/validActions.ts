@@ -204,6 +204,11 @@ export interface CombatOptions {
 
   /** Whether Heroes assault influence has already been paid this combat */
   readonly heroesAssaultInfluencePaid?: boolean;
+
+  // ---- Thugs damage influence payment ----
+
+  /** Thugs units that need influence payment before damage can be assigned */
+  readonly thugsDamagePaymentOptions?: readonly ThugsDamagePaymentOption[];
 }
 
 export interface BlockOption {
@@ -241,8 +246,12 @@ export interface UnitDamageTarget {
   readonly alreadyAssignedThisCombat: boolean;
   /** Whether unit is currently wounded */
   readonly isWounded: boolean;
-  /** Computed: true if unit can receive damage (!isWounded && !alreadyAssignedThisCombat) */
+  /** Computed: true if unit can receive damage (!isWounded && !alreadyAssignedThisCombat && influence paid if required) */
   readonly canBeAssigned: boolean;
+  /** Whether this unit requires influence payment before damage can be assigned (Thugs) */
+  readonly requiresInfluencePayment?: boolean;
+  /** Whether the influence payment has been made for this unit this combat */
+  readonly influencePaymentMade?: boolean;
 }
 
 export interface DamageAssignmentOption {
@@ -265,6 +274,27 @@ export interface DamageAssignmentOption {
   readonly unassignedDamage: number;
   /** Units available to absorb damage (empty if units not allowed in combat) */
   readonly availableUnits: readonly UnitDamageTarget[];
+}
+
+// ============================================================================
+// Thugs Damage Influence Payment
+// ============================================================================
+
+/**
+ * Information about a Thugs unit that requires influence payment
+ * before damage can be assigned to it.
+ */
+export interface ThugsDamagePaymentOption {
+  /** Unit instance ID */
+  readonly unitInstanceId: string;
+  /** Unit display name */
+  readonly unitName: string;
+  /** Influence cost to pay (always 2) */
+  readonly cost: number;
+  /** Whether the player can afford to pay */
+  readonly canAfford: boolean;
+  /** Whether payment has already been made this combat */
+  readonly alreadyPaid: boolean;
 }
 
 // ============================================================================

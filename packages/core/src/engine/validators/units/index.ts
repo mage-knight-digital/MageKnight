@@ -7,6 +7,7 @@
  */
 
 export {
+  validateReputationNotX,
   validateCommandSlots,
   validateInfluenceCost,
   validateAtRecruitmentSite,

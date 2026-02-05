@@ -107,7 +107,8 @@ describe("Heroes Special Rules", () => {
         const thugsModifier = getReputationCostModifier(3, UNIT_THUGS);
 
         expect(peasantsModifier).toBe(-2);
-        expect(thugsModifier).toBe(-2);
+        // Thugs have reversed reputation: +3 rep gives +2 modifier (more expensive)
+        expect(thugsModifier).toBe(2);
       });
 
       it("should double maximum reputation modifier (+7) for Heroes", () => {

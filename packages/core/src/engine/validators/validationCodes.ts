@@ -135,11 +135,17 @@ export const PASSIVE_ABILITY = "PASSIVE_ABILITY" as const;
 export const SIEGE_REQUIRED = "SIEGE_REQUIRED" as const;
 export const UNIT_ABILITY_REQUIRES_MANA = "UNIT_ABILITY_REQUIRES_MANA" as const;
 export const UNIT_ABILITY_MANA_UNAVAILABLE = "UNIT_ABILITY_MANA_UNAVAILABLE" as const;
+// Reputation recruitment restriction
+export const REPUTATION_TOO_LOW_TO_RECRUIT = "REPUTATION_TOO_LOW_TO_RECRUIT" as const;
 // Heroes unit special rules
 export const HEROES_THUGS_EXCLUSION = "HEROES_THUGS_EXCLUSION" as const;
 export const HEROES_ASSAULT_INFLUENCE_NOT_PAID = "HEROES_ASSAULT_INFLUENCE_NOT_PAID" as const;
 export const HEROES_ASSAULT_INFLUENCE_ALREADY_PAID = "HEROES_ASSAULT_INFLUENCE_ALREADY_PAID" as const;
 export const HEROES_ASSAULT_NOT_APPLICABLE = "HEROES_ASSAULT_NOT_APPLICABLE" as const;
+// Thugs unit special rules
+export const THUGS_DAMAGE_INFLUENCE_ALREADY_PAID = "THUGS_DAMAGE_INFLUENCE_ALREADY_PAID" as const;
+export const THUGS_DAMAGE_NOT_THUGS_UNIT = "THUGS_DAMAGE_NOT_THUGS_UNIT" as const;
+export const THUGS_DAMAGE_INFLUENCE_NOT_PAID = "THUGS_DAMAGE_INFLUENCE_NOT_PAID" as const;
 
 // Site interaction validation codes
 export const NO_SITE = "NO_SITE" as const;
@@ -385,11 +391,17 @@ export type ValidationErrorCode =
   | typeof SIEGE_REQUIRED
   | typeof UNIT_ABILITY_REQUIRES_MANA
   | typeof UNIT_ABILITY_MANA_UNAVAILABLE
+  // Reputation recruitment restriction
+  | typeof REPUTATION_TOO_LOW_TO_RECRUIT
   // Heroes unit special rules
   | typeof HEROES_THUGS_EXCLUSION
   | typeof HEROES_ASSAULT_INFLUENCE_NOT_PAID
   | typeof HEROES_ASSAULT_INFLUENCE_ALREADY_PAID
   | typeof HEROES_ASSAULT_NOT_APPLICABLE
+  // Thugs unit special rules
+  | typeof THUGS_DAMAGE_INFLUENCE_ALREADY_PAID
+  | typeof THUGS_DAMAGE_NOT_THUGS_UNIT
+  | typeof THUGS_DAMAGE_INFLUENCE_NOT_PAID
   // Site interaction validation
   | typeof NO_SITE
   | typeof NOT_INHABITED

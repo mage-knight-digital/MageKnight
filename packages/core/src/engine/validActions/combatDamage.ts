@@ -43,15 +43,18 @@ import {
  * - Units that already had damage assigned this combat cannot be assigned again
  *   (even if they weren't wounded due to resistance)
  * - Units not present in combat (dungeons/tombs/mazes) are excluded
+ * - Thugs units require 2 Influence payment before damage can be assigned
  *
  * @param player - Player whose units to check
  * @param attackElement - Element of the enemy's attack
  * @param unitsAllowed - Whether units are allowed in this combat
+ * @param paidThugsDamageInfluence - Map of unit instance IDs that have had Thugs influence paid
  */
 export function computeAvailableUnitTargets(
   player: Player,
   attackElement: Element,
-  unitsAllowed: boolean
+  unitsAllowed: boolean,
+  paidThugsDamageInfluence?: Readonly<Record<string, boolean>>
 ): readonly UnitDamageTarget[] {
   // If units are not allowed in this combat (dungeon/tomb), return empty array
   if (!unitsAllowed) {
@@ -65,10 +68,16 @@ export function computeAvailableUnitTargets(
     // Check if unit is resistant to this attack element
     const isResistantToAttack = isAttackResisted(attackElement, resistances);
 
-    // Unit can be assigned if not wounded AND hasn't been assigned this combat
-    const canBeAssigned = !unit.wounded && !unit.usedResistanceThisCombat;
+    // Check if this is a Thugs unit requiring influence payment
+    const requiresInfluencePayment = (unitDef.damageInfluenceCost ?? 0) > 0;
+    const influencePaymentMade = paidThugsDamageInfluence?.[unit.instanceId] ?? false;
 
-    return {
+    // Unit can be assigned if not wounded AND hasn't been assigned this combat
+    // AND if Thugs, influence must have been paid
+    const canBeAssigned = !unit.wounded && !unit.usedResistanceThisCombat
+      && (!requiresInfluencePayment || influencePaymentMade);
+
+    const base: UnitDamageTarget = {
       unitInstanceId: unit.instanceId,
       unitId: unit.unitId,
       unitName: unitDef.name,
@@ -78,6 +87,17 @@ export function computeAvailableUnitTargets(
       isWounded: unit.wounded,
       canBeAssigned,
     };
+
+    // Only include Thugs-specific fields when relevant
+    if (requiresInfluencePayment) {
+      return {
+        ...base,
+        requiresInfluencePayment: true,
+        influencePaymentMade,
+      };
+    }
+
+    return base;
   });
 }
 
@@ -155,7 +175,12 @@ export function getDamageAssignmentOptions(
       const availableUnits = assassinationActive
         ? []
         : currentPlayer
-          ? computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed)
+          ? computeAvailableUnitTargets(
+              currentPlayer,
+              attackElement,
+              combat.unitsAllowed,
+              combat.paidThugsDamageInfluence
+            )
           : [];
 
       // Build the base option

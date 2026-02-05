@@ -33,7 +33,7 @@ import {
   restoreManaForAbility,
 } from "./helpers/manaConsumptionHelpers.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
-import { resolveEffect } from "../../effects/index.js";
+import { resolveEffect, reverseEffect } from "../../effects/index.js";
 import { EFFECT_COMPOUND } from "../../../types/effectTypes.js";
 import type { CardEffect, CompoundEffect } from "../../../types/cards.js";
 import type { Player } from "../../../types/player.js";
@@ -74,6 +74,8 @@ export function createActivateUnitCommand(
 
   // Store whether this was an effect-based ability (for undo)
   let wasEffectBasedAbility = false;
+  // Store the resolved effect for undo (only set for immediate compound effects)
+  let resolvedEffect: CardEffect | null = null;
 
   return {
     type: ACTIVATE_UNIT_COMMAND,
@@ -294,7 +296,8 @@ export function createActivateUnitCommand(
           }
         }
 
-        // Effect resolved completely - return updated state
+        // Effect resolved completely - capture effect for undo
+        resolvedEffect = effect;
         return {
           state: effectResult.state,
           events,
@@ -423,13 +426,20 @@ export function createActivateUnitCommand(
       // For effect-based abilities, we need to:
       // 1. Restore unit state and mana (done above)
       // 2. Clear any pending choice that was set
-      // 3. The effect resolution itself is handled by resolveChoiceCommand undo
+      // 3. Reverse immediately-resolved effects (e.g., compound effects like
+      //    Thugs Attack 3 + Rep -1). Effects that created a pendingChoice
+      //    are handled by resolveChoiceCommand undo instead.
       if (wasEffectBasedAbility) {
-        const updatedPlayer: Player = {
+        let updatedPlayer: Player = {
           ...player,
           units: updatedUnits,
           pendingChoice: null, // Clear any pending choice from this activation
         };
+
+        // Reverse immediately-resolved effects (captured during execute)
+        if (resolvedEffect) {
+          updatedPlayer = reverseEffect(updatedPlayer, resolvedEffect);
+        }
 
         const players = [...state.players];
         players[playerIndex] = updatedPlayer;

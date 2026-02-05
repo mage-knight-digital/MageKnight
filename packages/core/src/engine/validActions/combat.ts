@@ -11,7 +11,8 @@
  * - combatDamage.ts - Damage assignment computation and ASSIGN_DAMAGE phase
  */
 
-import type { CombatOptions } from "@mage-knight/shared";
+import type { CombatOptions, ThugsDamagePaymentOption } from "@mage-knight/shared";
+import { getUnit } from "@mage-knight/shared";
 import type { CombatState, EnemyAssignments } from "../../types/combat.js";
 import type { CombatEnemy } from "../../types/combat.js";
 import { isEnemyAssignedToPlayer } from "../helpers/cooperativeAssaultHelpers.js";
@@ -24,6 +25,7 @@ import {
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
 import { HEROES_ASSAULT_INFLUENCE_COST } from "../commands/combat/payHeroesAssaultInfluenceCommand.js";
+import { THUGS_DAMAGE_INFLUENCE_COST } from "../commands/combat/payThugsDamageInfluenceCommand.js";
 
 // Import from domain-specific modules
 import { computeAttackPhaseOptions } from "./combatAttack.js";
@@ -79,6 +81,48 @@ function getHeroesAssaultInfluenceOptions(
     heroesAssaultInfluenceCost: HEROES_ASSAULT_INFLUENCE_COST,
     heroesAssaultInfluencePaid: alreadyPaid,
   };
+}
+
+// ============================================================================
+// Thugs Damage Influence Payment Options
+// ============================================================================
+
+/**
+ * Computes Thugs damage influence payment options for CombatOptions.
+ *
+ * Thugs units require 2 Influence payment before damage can be assigned to them.
+ * This function checks all player units for Thugs that need payment.
+ *
+ * @returns Array of payment options (empty if no Thugs units present)
+ */
+function getThugsDamagePaymentOptions(
+  combat: CombatState,
+  player: Player | undefined
+): readonly ThugsDamagePaymentOption[] {
+  if (!player || !combat.unitsAllowed) return [];
+
+  const options: ThugsDamagePaymentOption[] = [];
+
+  for (const unit of player.units) {
+    const unitDef = getUnit(unit.unitId);
+    if ((unitDef.damageInfluenceCost ?? 0) <= 0) continue;
+
+    // Skip wounded units (can't assign damage anyway)
+    if (unit.wounded) continue;
+
+    const alreadyPaid = combat.paidThugsDamageInfluence[unit.instanceId] ?? false;
+    const canAfford = player.influencePoints >= THUGS_DAMAGE_INFLUENCE_COST;
+
+    options.push({
+      unitInstanceId: unit.instanceId,
+      unitName: unitDef.name,
+      cost: THUGS_DAMAGE_INFLUENCE_COST,
+      canAfford: !alreadyPaid && canAfford,
+      alreadyPaid,
+    });
+  }
+
+  return options;
 }
 
 // ============================================================================
@@ -149,6 +193,9 @@ export function getCombatOptions(state: GameState): CombatOptions | null {
     currentPlayer
   );
 
+  // Get Thugs damage payment options (applicable during ASSIGN_DAMAGE phase)
+  const thugsDamageOptions = getThugsDamagePaymentOptions(combat, currentPlayer);
+
   // Compute phase-specific options
   let baseOptions: CombatOptions;
   switch (phase) {
@@ -179,10 +226,13 @@ export function getCombatOptions(state: GameState): CombatOptions | null {
       };
   }
 
-  // Merge Heroes assault options if applicable
+  // Merge Heroes assault options and Thugs damage options if applicable
   return {
     ...baseOptions,
     ...heroesAssaultOptions,
+    ...(thugsDamageOptions.length > 0
+      ? { thugsDamagePaymentOptions: thugsDamageOptions }
+      : {}),
   };
 }
 

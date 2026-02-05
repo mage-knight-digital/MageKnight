@@ -25,6 +25,7 @@ import {
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
   CONVERT_MOVE_TO_ATTACK_ACTION,
+  PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -93,6 +94,11 @@ import {
   validateConversionModifierActive,
   validateConversionAmount,
   validateConversionMovePoints,
+  // Thugs damage influence validators
+  validateThugsDamagePaymentInCombat,
+  validateThugsDamageUnitIsThugs,
+  validateThugsDamageInfluenceNotAlreadyPaid,
+  validateThugsDamageInfluenceAvailable,
 } from "../combatValidators/index.js";
 
 // Challenge rampaging validators
@@ -214,5 +220,13 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateConversionModifierActive,
     validateConversionAmount,
     validateConversionMovePoints,
+  ],
+  // Thugs damage influence payment action
+  [PAY_THUGS_DAMAGE_INFLUENCE_ACTION]: [
+    validateIsPlayersTurn,
+    validateThugsDamagePaymentInCombat,
+    validateThugsDamageUnitIsThugs,
+    validateThugsDamageInfluenceNotAlreadyPaid,
+    validateThugsDamageInfluenceAvailable,
   ],
 };

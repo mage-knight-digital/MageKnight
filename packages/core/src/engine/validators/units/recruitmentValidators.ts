@@ -11,7 +11,7 @@ import type { GameState } from "../../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
 import type { ValidationResult } from "../types.js";
 import { valid, invalid } from "../types.js";
-import { RECRUIT_UNIT_ACTION, getUnit, CITY_COLOR_WHITE } from "@mage-knight/shared";
+import { RECRUIT_UNIT_ACTION, getUnit, CITY_COLOR_WHITE, MIN_REPUTATION } from "@mage-knight/shared";
 import {
   NO_COMMAND_SLOTS,
   INSUFFICIENT_INFLUENCE,
@@ -21,6 +21,7 @@ import {
   SITE_NOT_CONQUERED,
   UNIT_TYPE_MISMATCH,
   HEROES_THUGS_EXCLUSION,
+  REPUTATION_TOO_LOW_TO_RECRUIT,
 } from "../validationCodes.js";
 import { getPlayerSite } from "../../helpers/siteHelpers.js";
 import { SITE_PROPERTIES } from "../../../data/siteProperties.js";
@@ -34,6 +35,30 @@ import {
   getActiveRecruitDiscount,
 } from "../../rules/unitRecruitment.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
+
+/**
+ * Check player reputation is not at "X" (MIN_REPUTATION = -7).
+ * At "X" reputation, inhabitants refuse to interact with the player entirely.
+ */
+export function validateReputationNotX(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== RECRUIT_UNIT_ACTION) return valid();
+
+  const player = getPlayerById(state, playerId);
+  if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
+
+  if (player.reputation <= MIN_REPUTATION) {
+    return invalid(
+      REPUTATION_TOO_LOW_TO_RECRUIT,
+      "At X reputation, inhabitants refuse to interact with you"
+    );
+  }
+
+  return valid();
+}
 
 /**
  * Check player has enough command slots to recruit
