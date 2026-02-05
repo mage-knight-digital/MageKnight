@@ -376,6 +376,10 @@ export interface SelectCombatEnemyEffect {
   readonly includeDefeated?: boolean;
   /** If set, effect can only be used in this combat phase (e.g., Tornado = attack only) */
   readonly requiredPhase?: CombatPhase;
+  /** If true, exclude enemies that are currently fortified (after modifiers) */
+  readonly excludeFortified?: boolean;
+  /** If true, exclude enemies with Arcane Immunity from targeting */
+  readonly excludeArcaneImmune?: boolean;
 }
 
 /**
