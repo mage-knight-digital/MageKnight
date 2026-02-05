@@ -25,17 +25,22 @@ import {
   UNIT_HEROES,
   UNIT_PEASANTS,
   INVALID_ACTION,
+  ACTIVATE_UNIT_ACTION,
   ASSIGN_DAMAGE_ACTION,
   DAMAGE_TARGET_UNIT,
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
   THUGS_DAMAGE_INFLUENCE_PAID,
   MIN_REPUTATION,
+  UNIT_STATE_READY,
+  UNIT_STATE_SPENT,
+  GAME_PHASE_ROUND,
 } from "@mage-knight/shared";
 import type { PlayerUnit } from "../../types/unit.js";
 import { createPlayerUnit } from "../../types/unit.js";
 import { resetUnitInstanceCounter } from "../commands/units/index.js";
 import {
   COMBAT_PHASE_ASSIGN_DAMAGE,
+  COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
 import type { CombatState } from "../../types/combat.js";
 import {
@@ -696,6 +701,147 @@ describe("Thugs Special Rules", () => {
 
       const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
       expect(invalidEvent).toBeDefined();
+    });
+  });
+
+  // =========================================================================
+  // Undo: Effect-based abilities must properly reverse state changes
+  // =========================================================================
+
+  describe("Undo: Effect-based ability reversal", () => {
+    it("should undo Thugs Attack and restore reputation", () => {
+      const unit = createThugsUnit("thugs_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        reputation: 0,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      // Activate Thugs Attack (Attack 3 + Rep -1)
+      const afterActivate = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "thugs_1",
+        abilityIndex: 1, // Attack 3 + Rep -1
+      });
+
+      // Verify effects applied
+      expect(afterActivate.state.players[0].reputation).toBe(-1);
+      expect(
+        afterActivate.state.players[0].combatAccumulator.attack.normal
+      ).toBe(3);
+      expect(afterActivate.state.players[0].units[0].state).toBe(
+        UNIT_STATE_SPENT
+      );
+
+      // Undo the activation
+      const afterUndo = engine.processAction(
+        afterActivate.state,
+        "player1",
+        { type: "UNDO" }
+      );
+
+      // Reputation should be restored
+      expect(afterUndo.state.players[0].reputation).toBe(0);
+      // Attack should be removed from accumulator
+      expect(
+        afterUndo.state.players[0].combatAccumulator.attack.normal
+      ).toBe(0);
+      // Unit should be ready again
+      expect(afterUndo.state.players[0].units[0].state).toBe(
+        UNIT_STATE_READY
+      );
+    });
+
+    it("should undo Thugs Influence and restore reputation", () => {
+      const unit = createThugsUnit("thugs_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        reputation: 3,
+        influencePoints: 5,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        combat: null,
+      });
+
+      // Activate Thugs Influence (Influence 4 + Rep -1)
+      const afterActivate = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "thugs_1",
+        abilityIndex: 2, // Influence 4 + Rep -1
+      });
+
+      // Verify effects applied
+      expect(afterActivate.state.players[0].reputation).toBe(2);
+      expect(afterActivate.state.players[0].influencePoints).toBe(9);
+      expect(afterActivate.state.players[0].units[0].state).toBe(
+        UNIT_STATE_SPENT
+      );
+
+      // Undo the activation
+      const afterUndo = engine.processAction(
+        afterActivate.state,
+        "player1",
+        { type: "UNDO" }
+      );
+
+      // Reputation should be restored
+      expect(afterUndo.state.players[0].reputation).toBe(3);
+      // Influence should be restored
+      expect(afterUndo.state.players[0].influencePoints).toBe(5);
+      // Unit should be ready again
+      expect(afterUndo.state.players[0].units[0].state).toBe(
+        UNIT_STATE_READY
+      );
+    });
+
+    it("should undo Pay Thugs Damage Influence and restore influence", () => {
+      const thugsUnit = createThugsUnit("thugs_1");
+      const player = createTestPlayer({
+        influencePoints: 5,
+        units: [thugsUnit],
+        commandTokens: 2,
+      });
+
+      const combatState = createThugsCombatState(COMBAT_PHASE_ASSIGN_DAMAGE);
+
+      const state = createTestGameState({
+        players: [player],
+        combat: combatState,
+      });
+
+      // Pay influence
+      const afterPay = engine.processAction(state, "player1", {
+        type: PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
+        unitInstanceId: "thugs_1",
+      });
+
+      expect(afterPay.state.players[0].influencePoints).toBe(3);
+      expect(
+        afterPay.state.combat!.paidThugsDamageInfluence["thugs_1"]
+      ).toBe(true);
+
+      // Undo the payment
+      const afterUndo = engine.processAction(
+        afterPay.state,
+        "player1",
+        { type: "UNDO" }
+      );
+
+      // Influence should be restored
+      expect(afterUndo.state.players[0].influencePoints).toBe(5);
+      // Payment should be removed
+      expect(
+        afterUndo.state.combat!.paidThugsDamageInfluence["thugs_1"]
+      ).toBeUndefined();
     });
   });
 });
