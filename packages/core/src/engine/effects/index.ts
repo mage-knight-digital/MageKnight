@@ -196,7 +196,12 @@ export {
 } from "./manaPaymentEffects.js";
 
 // Terrain-based effects
-export { resolveTerrainBasedBlock, registerTerrainEffects } from "./terrainEffects.js";
+export {
+  resolveTerrainBasedBlock,
+  resolveSelectHexForCostReduction,
+  resolveSelectTerrainForCostReduction,
+  registerTerrainEffects,
+} from "./terrainEffects.js";
 
 // Sword of Justice effects
 export {

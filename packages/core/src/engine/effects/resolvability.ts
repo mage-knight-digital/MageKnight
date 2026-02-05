@@ -76,6 +76,8 @@ import {
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   EFFECT_READY_ALL_UNITS,
+  EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
+  EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -348,6 +350,10 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Recruit discount is always resolvable (adds a modifier)
   [EFFECT_APPLY_RECRUIT_DISCOUNT]: () => true,
+
+  // Terrain cost reduction selection is always resolvable (sets pending state)
+  [EFFECT_SELECT_HEX_FOR_COST_REDUCTION]: () => true,
+  [EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION]: () => true,
 
   [EFFECT_READY_UNITS_FOR_INFLUENCE]: (state, player, effect) => {
     const e = effect as ReadyUnitsForInfluenceEffect;
