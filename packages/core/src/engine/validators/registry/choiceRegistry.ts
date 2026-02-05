@@ -9,6 +9,7 @@ import {
   SELECT_REWARD_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
+  RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
   RESOLVE_DISCARD_ACTION,
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
@@ -67,6 +68,12 @@ import {
   validateArtifactCrystalColorSelection,
 } from "../discardForCrystalValidators.js";
 
+// Crystal Joy validators
+import {
+  validateHasPendingCrystalJoyReclaim,
+  validateCrystalJoyReclaimCard,
+} from "../crystalJoyReclaimValidators.js";
+
 export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_CHOICE_ACTION]: [
     validateIsPlayersTurn,
@@ -110,5 +117,10 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingArtifactColorChoice,
     validateArtifactCrystalColorSelection,
+  ],
+  [RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingCrystalJoyReclaim,
+    validateCrystalJoyReclaimCard,
   ],
 };

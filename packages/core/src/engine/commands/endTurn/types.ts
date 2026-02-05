@@ -15,6 +15,8 @@ export interface EndTurnCommandParams {
   readonly skipGladeWoundCheck?: boolean;
   /** If true, skip the Deep Mine crystal check (used after resolving deep mine choice) */
   readonly skipDeepMineCheck?: boolean;
+  /** If true, skip the Crystal Joy reclaim check (used after resolving reclaim choice) */
+  readonly skipCrystalJoyReclaim?: boolean;
 }
 
 /**

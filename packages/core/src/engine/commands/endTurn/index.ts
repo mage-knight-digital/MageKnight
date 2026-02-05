@@ -24,7 +24,7 @@ import { createEndRoundCommand } from "../endRound/index.js";
 import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js";
 
 import type { EndTurnCommandParams } from "./types.js";
-import { checkMagicalGladeWound, processMineRewards } from "./siteChecks.js";
+import { checkMagicalGladeWound, processMineRewards, checkCrystalJoyReclaim } from "./siteChecks.js";
 import { processCardFlow, getPlayAreaCardCount } from "./cardFlow.js";
 import { createResetPlayer } from "./playerReset.js";
 import { processDiceReturn } from "./diceManagement.js";
@@ -102,6 +102,24 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
       const playerWithCrystal = mineCheck.player;
       const crystalEvents = mineCheck.events;
+
+      // Check for Crystal Joy reclaim choice (before step 3: discard down)
+      const joyReclaimCheck = checkCrystalJoyReclaim(
+        state,
+        playerWithCrystal,
+        params.skipCrystalJoyReclaim ?? false
+      );
+      if (joyReclaimCheck.pendingChoice) {
+        return {
+          state: {
+            ...state,
+            players: state.players.map((p) =>
+              p.id === params.playerId ? joyReclaimCheck.player : p
+            ),
+          },
+          events: [],
+        };
+      }
 
       // Calculate Ring artifacts fame bonus before reset clears spell tracking
       // This grants fame for each spell of the ring's color cast this turn

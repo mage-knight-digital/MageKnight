@@ -181,3 +181,37 @@ export function getArtifactCrystalColorOptions(
     availableColors: [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE],
   };
 }
+
+/**
+ * Get Crystal Joy reclaim options for the player.
+ * Returns eligible cards from discard pile if player has a pending reclaim choice.
+ */
+export function getCrystalJoyReclaimOptions(
+  _state: GameState,
+  player: Player
+): { version: string; eligibleCardIds: CardId[] } | undefined {
+  // Import here to avoid circular dependencies
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { isCardEligibleForReclaim } = require("../rules/crystalJoyReclaim.js") as {
+    isCardEligibleForReclaim: (card: any, version: string) => boolean;
+  };
+
+  // Check if player has pending reclaim
+  if (!player.pendingCrystalJoyReclaim) {
+    return undefined;
+  }
+
+  const eligibleCardIds: CardId[] = [];
+
+  for (const cardId of player.discard) {
+    const card = getCard(cardId);
+    if (card && isCardEligibleForReclaim(card, player.pendingCrystalJoyReclaim.version)) {
+      eligibleCardIds.push(cardId);
+    }
+  }
+
+  return {
+    version: player.pendingCrystalJoyReclaim.version,
+    eligibleCardIds,
+  };
+}

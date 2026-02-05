@@ -368,6 +368,13 @@ export interface ResolveDeepMineAction {
   readonly color: BasicManaColor; // The chosen crystal color
 }
 
+// Crystal Joy card reclaim action (end-of-turn choice to reclaim card to hand)
+export const RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION = "RESOLVE_CRYSTAL_JOY_RECLAIM" as const;
+export interface ResolveCrystalJoyReclaimAction {
+  readonly type: typeof RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION;
+  readonly cardId?: CardId; // Card to reclaim to hand, undefined = skip reclaim
+}
+
 // Discard as cost action (e.g., Improvisation requires discarding before gaining benefit)
 export const RESOLVE_DISCARD_ACTION = "RESOLVE_DISCARD" as const;
 export interface ResolveDiscardAction {
@@ -627,6 +634,8 @@ export type PlayerAction =
   | ResolveGladeWoundAction
   // Deep Mine
   | ResolveDeepMineAction
+  // Crystal Joy reclaim
+  | ResolveCrystalJoyReclaimAction
   // Discard as cost
   | ResolveDiscardAction
   // Discard for attack (Sword of Justice)

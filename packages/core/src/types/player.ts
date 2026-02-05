@@ -416,6 +416,12 @@ export interface Player {
   // Deep Mine crystal color choice pending (when ending turn on a deep mine with multiple colors)
   readonly pendingDeepMineChoice: readonly import("./map.js").MineColor[] | null;
 
+  // Crystal Joy reclaim pending (when Crystal Joy card is played this turn)
+  // Tracks which version was played to enforce correct card eligibility rules
+  readonly pendingCrystalJoyReclaim:
+    | { readonly version: "basic" | "powered" }
+    | undefined;
+
   // Healing points accumulated this turn (cleared on combat entry per rulebook line 929)
   readonly healingPoints: number;
 

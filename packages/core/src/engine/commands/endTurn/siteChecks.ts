@@ -173,3 +173,25 @@ function grantCrystal(
 
   return { pendingChoice: false, player: updatedPlayer, events: [event] };
 }
+
+/**
+ * Check if player has Crystal Joy card in play and set up reclaim choice.
+ * If so, sets pendingCrystalJoyReclaim on the player.
+ *
+ * Crystal Joy reclaim happens before step 3 (discard down) of end turn.
+ *
+ * @returns SiteCheckResult with pendingChoice=true if waiting for player choice
+ */
+export function checkCrystalJoyReclaim(
+  state: GameState,
+  player: Player,
+  skipCheck: boolean
+): SiteCheckResult {
+  // Skip if already has pending choice or check is disabled
+  if (!player.pendingCrystalJoyReclaim || skipCheck) {
+    return { pendingChoice: false, player, events: [] };
+  }
+
+  // Player has Crystal Joy reclaim pending - this needs player choice
+  return { pendingChoice: true, player, events: [] };
+}
