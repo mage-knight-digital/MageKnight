@@ -14,6 +14,8 @@ import {
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
   RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION,
+  RESOLVE_HEX_COST_REDUCTION_ACTION,
+  RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -74,6 +76,14 @@ import {
   validateCrystalJoyReclaimCard,
 } from "../crystalJoyReclaimValidators.js";
 
+// Terrain cost reduction validators (Druidic Paths)
+import {
+  validateHasPendingHexCostReduction,
+  validateHexCostReductionCoordinate,
+  validateHasPendingTerrainCostReduction,
+  validateTerrainCostReductionTerrain,
+} from "../terrainCostReductionValidators.js";
+
 export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_CHOICE_ACTION]: [
     validateIsPlayersTurn,
@@ -122,5 +132,15 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingCrystalJoyReclaim,
     validateCrystalJoyReclaimCard,
+  ],
+  [RESOLVE_HEX_COST_REDUCTION_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingHexCostReduction,
+    validateHexCostReductionCoordinate,
+  ],
+  [RESOLVE_TERRAIN_COST_REDUCTION_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingTerrainCostReduction,
+    validateTerrainCostReductionTerrain,
   ],
 };

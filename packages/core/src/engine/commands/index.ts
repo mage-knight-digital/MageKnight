@@ -221,6 +221,16 @@ export {
   BURN_MONASTERY_COMMAND,
 } from "./burnMonasteryCommand.js";
 
+// Terrain cost reduction commands (Druidic Paths)
+export {
+  createResolveHexCostReductionCommand,
+  createResolveTerrainCostReductionCommand,
+  type ResolveHexCostReductionCommandParams,
+  type ResolveTerrainCostReductionCommandParams,
+  RESOLVE_HEX_COST_REDUCTION_COMMAND,
+  RESOLVE_TERRAIN_COST_REDUCTION_COMMAND,
+} from "./terrainCostReductionCommands.js";
+
 // Discard for crystal commands (Savage Harvesting)
 export {
   createResolveDiscardForCrystalCommand,

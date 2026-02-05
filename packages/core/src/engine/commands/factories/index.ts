@@ -68,6 +68,8 @@ import {
   USE_SKILL_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
+  RESOLVE_HEX_COST_REDUCTION_ACTION,
+  RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -164,6 +166,12 @@ export {
 // Skill factories
 export { createUseSkillCommandFromAction } from "./skills.js";
 
+// Terrain cost reduction factories
+export {
+  createResolveHexCostReductionCommandFromAction,
+  createResolveTerrainCostReductionCommandFromAction,
+} from "./terrainCostReduction.js";
+
 // Import all factories for the registry
 import {
   createMoveCommandFromAction,
@@ -245,6 +253,11 @@ import {
 
 import { createUseSkillCommandFromAction } from "./skills.js";
 
+import {
+  createResolveHexCostReductionCommandFromAction,
+  createResolveTerrainCostReductionCommandFromAction,
+} from "./terrainCostReduction.js";
+
 import type { CommandFactory } from "./types.js";
 
 /**
@@ -308,4 +321,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [SPEND_MOVE_ON_CUMBERSOME_ACTION]: createSpendMoveOnCumbersomeCommandFromAction,
   // Heroes assault influence payment action
   [PAY_HEROES_ASSAULT_INFLUENCE_ACTION]: createPayHeroesAssaultInfluenceCommandFromAction,
+  // Terrain cost reduction actions (Druidic Paths)
+  [RESOLVE_HEX_COST_REDUCTION_ACTION]: createResolveHexCostReductionCommandFromAction,
+  [RESOLVE_TERRAIN_COST_REDUCTION_ACTION]: createResolveTerrainCostReductionCommandFromAction,
 };
