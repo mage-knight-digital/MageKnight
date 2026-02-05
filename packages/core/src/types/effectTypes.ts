@@ -155,6 +155,12 @@ export const EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE = "resolve_ready_unit_for_i
 // Used by Banner of Courage powered effect.
 export const EFFECT_READY_ALL_UNITS = "ready_all_units" as const;
 
+// === Terrain Cost Reduction Selection Effects ===
+// Select a hex coordinate for cost reduction (Druidic Paths basic effect)
+export const EFFECT_SELECT_HEX_FOR_COST_REDUCTION = "select_hex_for_cost_reduction" as const;
+// Select a terrain type for cost reduction (Druidic Paths powered effect)
+export const EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION = "select_terrain_for_cost_reduction" as const;
+
 // === Scout Peek Effect ===
 // Reveals face-down enemy tokens within a distance from the player.
 // Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.

@@ -11,6 +11,8 @@ import {
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
+  EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
+  EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   COMBAT_TYPE_MELEE, COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
 import type { BasicCardColor } from "../../types/effectTypes.js";
@@ -235,4 +237,14 @@ export function recruitDiscount(discount: number, reputationChange: number): Car
  */
 export function readyUnitsForInfluence(maxLevel: 1 | 2 | 3 | 4, costPerLevel: number): CardEffect {
   return { type: EFFECT_READY_UNITS_FOR_INFLUENCE, maxLevel, costPerLevel };
+}
+
+/** Select a hex for terrain cost reduction (Druidic Paths basic) */
+export function selectHexForCostReduction(reduction: number = -1, minimumCost: number = 2): CardEffect {
+  return { type: EFFECT_SELECT_HEX_FOR_COST_REDUCTION, reduction, minimumCost };
+}
+
+/** Select a terrain type for terrain cost reduction (Druidic Paths powered) */
+export function selectTerrainForCostReduction(reduction: number = -1, minimumCost: number = 2): CardEffect {
+  return { type: EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION, reduction, minimumCost };
 }

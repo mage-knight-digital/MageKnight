@@ -53,6 +53,8 @@ import {
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_READY_ALL_UNITS,
+  EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
+  EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -286,6 +288,14 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
     // Cannot reliably reverse — we don't track which units were originally spent.
     // Commands containing this effect should be non-reversible.
     return player;
+  },
+
+  // Terrain cost reduction selection sets pending state — clear it on reverse
+  [EFFECT_SELECT_HEX_FOR_COST_REDUCTION]: (player) => {
+    return { ...player, pendingTerrainCostReduction: null };
+  },
+  [EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION]: (player) => {
+    return { ...player, pendingTerrainCostReduction: null };
   },
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (player, effect) => {

@@ -65,6 +65,8 @@ import {
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   EFFECT_READY_ALL_UNITS,
+  EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
+  EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -733,6 +735,26 @@ export interface ResolveEnergyFlowTargetEffect {
   readonly healReadiedUnit: boolean;
 }
 
+/**
+ * Select a hex coordinate for terrain cost reduction (Druidic Paths basic).
+ * Sets pendingTerrainCostReduction in "hex" mode with all map hexes as options.
+ */
+export interface SelectHexForCostReductionEffect {
+  readonly type: typeof EFFECT_SELECT_HEX_FOR_COST_REDUCTION;
+  readonly reduction: number;
+  readonly minimumCost: number;
+}
+
+/**
+ * Select a terrain type for terrain cost reduction (Druidic Paths powered).
+ * Sets pendingTerrainCostReduction in "terrain" mode with all terrain types as options.
+ */
+export interface SelectTerrainForCostReductionEffect {
+  readonly type: typeof EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION;
+  readonly reduction: number;
+  readonly minimumCost: number;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -783,7 +805,9 @@ export type CardEffect =
   | ReadyAllUnitsEffect
   | ScoutPeekEffect
   | EnergyFlowEffect
-  | ResolveEnergyFlowTargetEffect;
+  | ResolveEnergyFlowTargetEffect
+  | SelectHexForCostReductionEffect
+  | SelectTerrainForCostReductionEffect;
 
 // === Card Definition ===
 
