@@ -31,7 +31,7 @@ import {
   siteTypeToRecruitSite,
   violatesHeroesThugsExclusion,
   hasRecruitedHeroThisInteraction,
-} from "../../validActions/units/recruitment.js";
+} from "../../rules/unitRecruitment.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**

@@ -12,12 +12,16 @@ import type { Player } from "../../types/player.js";
 import type { HexState, Site } from "../../types/map.js";
 import { SiteType, mineColorToBasicManaColor } from "../../types/map.js";
 import {
-  SITE_PROPERTIES,
   HEALING_COSTS,
   SPELL_PURCHASE_COST,
   MONASTERY_AA_PURCHASE_COST,
 } from "../../data/siteProperties.js";
 import { mustAnnounceEndOfRound } from "./helpers.js";
+import {
+  canInteractWithSite,
+  hasCombatRestrictions,
+  canEnterAdventureSite,
+} from "../rules/siteInteraction.js";
 
 // =============================================================================
 // MAIN FUNCTION
@@ -37,13 +41,13 @@ export function getSiteOptions(
   if (!hex?.site) return undefined;
 
   const site = hex.site;
-  const props = SITE_PROPERTIES[site.type];
 
   // Determine if can enter (adventure sites)
   const canEnter =
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
-    canEnterSite(state, player, site, hex);
+    canEnterAdventureSite(site) &&
+    !player.hasTakenActionThisTurn;
 
   // Build enter description
   const enterDescription = canEnter
@@ -65,7 +69,7 @@ export function getSiteOptions(
   const canInteract =
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
-    canInteractWithSite(site, props);
+    canInteractWithSite(site);
   const interactOptions = canInteract
     ? getInteractOptions(state, player, site)
     : undefined;
@@ -114,53 +118,7 @@ export function getSiteOptions(
 // HELPER FUNCTIONS
 // =============================================================================
 
-/**
- * Check if player can enter this site as an action.
- */
-function canEnterSite(
-  state: GameState,
-  player: Player,
-  site: Site,
-  _hex: HexState
-): boolean {
-  const props = SITE_PROPERTIES[site.type];
 
-  // Only adventure sites can be "entered"
-  if (!props.adventureSite) return false;
-
-  // Can't enter if already took action this turn
-  if (player.hasTakenActionThisTurn) return false;
-
-  // For conquered adventure sites, can re-enter for fame (dungeon/tomb only)
-  if (site.isConquered) {
-    return site.type === SiteType.Dungeon || site.type === SiteType.Tomb;
-  }
-
-  // Unconquered adventure site - can always enter
-  return true;
-}
-
-/**
- * Check if site has dungeon/tomb style combat restrictions.
- */
-function hasCombatRestrictions(siteType: SiteType): boolean {
-  return siteType === SiteType.Dungeon || siteType === SiteType.Tomb;
-}
-
-/**
- * Check if player can interact with this site (inhabited sites).
- */
-function canInteractWithSite(
-  site: Site,
-  props: (typeof SITE_PROPERTIES)[SiteType]
-): boolean {
-  if (!props.inhabited) return false;
-
-  // Fortified inhabited sites (Keep, Mage Tower, City) require conquest
-  if (props.fortified && !site.isConquered) return false;
-
-  return true;
-}
 
 /**
  * Get human-readable site name.

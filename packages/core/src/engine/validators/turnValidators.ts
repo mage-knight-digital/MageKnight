@@ -16,6 +16,7 @@ import {
   WRONG_PHASE,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { hasMetMinimumTurnRequirement } from "../rules/turnStructure.js";
 
 // Check it's this player's turn
 export function validateIsPlayersTurn(
@@ -86,19 +87,12 @@ export function validateMinimumTurnRequirement(
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
-  // If player has no cards in hand, requirement is waived
-  if (player.hand.length === 0) {
-    return valid();
+  if (!hasMetMinimumTurnRequirement(player)) {
+    return invalid(
+      MUST_PLAY_OR_DISCARD_CARD,
+      "You must play or discard at least one card from your hand before ending your turn"
+    );
   }
 
-  // If player already played or discarded a card from hand, requirement is satisfied
-  if (player.playedCardFromHandThisTurn) {
-    return valid();
-  }
-
-  // Player has cards in hand but hasn't played or discarded - cannot end turn
-  return invalid(
-    MUST_PLAY_OR_DISCARD_CARD,
-    "You must play or discard at least one card from your hand before ending your turn"
-  );
+  return valid();
 }
