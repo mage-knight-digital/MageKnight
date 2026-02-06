@@ -55,6 +55,7 @@ import {
   EFFECT_READY_ALL_UNITS,
   EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
+  EFFECT_WOUND_ACTIVATING_UNIT,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -72,6 +73,7 @@ import type {
   PayManaEffect,
   TrackAttackDefeatFameEffect,
 } from "../../types/effectTypes.js";
+import type { WoundActivatingUnitEffect } from "../../types/cards.js";
 import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION, elementToPropertyKey } from "./atomicEffects.js";
 import { toAttackElement, toAttackType } from "../combat/attackFameTracking.js";
@@ -296,6 +298,21 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
   },
   [EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION]: (player) => {
     return { ...player, pendingTerrainCostReduction: null };
+  },
+
+  [EFFECT_WOUND_ACTIVATING_UNIT]: (player, effect) => {
+    const e = effect as WoundActivatingUnitEffect;
+    // Reverse self-wound: find the unit and set wounded back to false
+    const unitIndex = player.units.findIndex(
+      (u) => u.instanceId === e.unitInstanceId
+    );
+    if (unitIndex === -1) {
+      return player;
+    }
+    const updatedUnits = [...player.units];
+    const unit = updatedUnits[unitIndex]!;
+    updatedUnits[unitIndex] = { ...unit, wounded: false };
+    return { ...player, units: updatedUnits };
   },
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (player, effect) => {

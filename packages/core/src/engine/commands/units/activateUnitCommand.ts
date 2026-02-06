@@ -38,8 +38,8 @@ import {
 } from "./helpers/manaConsumptionHelpers.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
 import { resolveEffect, reverseEffect } from "../../effects/index.js";
-import { EFFECT_COMPOUND, EFFECT_SELECT_COMBAT_ENEMY } from "../../../types/effectTypes.js";
-import type { CardEffect, CompoundEffect, SelectCombatEnemyEffect } from "../../../types/cards.js";
+import { EFFECT_COMPOUND, EFFECT_SELECT_COMBAT_ENEMY, EFFECT_CHOICE, EFFECT_WOUND_ACTIVATING_UNIT } from "../../../types/effectTypes.js";
+import type { CardEffect, CompoundEffect, SelectCombatEnemyEffect, ChoiceEffect, WoundActivatingUnitEffect } from "../../../types/cards.js";
 import type { Player } from "../../../types/player.js";
 import {
   applyChoiceOutcome,
@@ -524,10 +524,13 @@ export function createActivateUnitCommand(
 
 /**
  * Replace __ACTIVATING_UNIT__ placeholder in effect definitions with actual unit instance ID.
- * Used by Shocktroops' Taunt ability to set damage redirect target.
+ * Used by Shocktroops' Taunt ability to set damage redirect target and
+ * Utem Swordsmen's self-wound ability.
  *
- * Only replaces in SelectCombatEnemyEffect.template.setDamageRedirectFromUnit
- * and CompoundEffect sub-effects (for compound abilities containing targeting).
+ * Handles:
+ * - SelectCombatEnemyEffect.template.setDamageRedirectFromUnit
+ * - WoundActivatingUnitEffect.unitInstanceId
+ * - Recursion into CompoundEffect and ChoiceEffect sub-effects
  */
 function replaceActivatingUnitPlaceholder(effect: CardEffect, unitInstanceId: string): CardEffect {
   if (effect.type === EFFECT_SELECT_COMBAT_ENEMY) {
@@ -544,12 +547,31 @@ function replaceActivatingUnitPlaceholder(effect: CardEffect, unitInstanceId: st
     return effect;
   }
 
+  if (effect.type === EFFECT_WOUND_ACTIVATING_UNIT) {
+    const woundEffect = effect as WoundActivatingUnitEffect;
+    if (woundEffect.unitInstanceId === "__ACTIVATING_UNIT__") {
+      return {
+        ...woundEffect,
+        unitInstanceId,
+      };
+    }
+    return effect;
+  }
+
   if (effect.type === EFFECT_COMPOUND) {
     const compoundEffect = effect as CompoundEffect;
     const replaced = compoundEffect.effects.map(e => replaceActivatingUnitPlaceholder(e, unitInstanceId));
-    // Only create a new object if something actually changed
     if (replaced.some((e, i) => e !== compoundEffect.effects[i])) {
       return { ...compoundEffect, effects: replaced };
+    }
+    return effect;
+  }
+
+  if (effect.type === EFFECT_CHOICE) {
+    const choiceEffect = effect as ChoiceEffect;
+    const replaced = choiceEffect.options.map(e => replaceActivatingUnitPlaceholder(e, unitInstanceId));
+    if (replaced.some((e, i) => e !== choiceEffect.options[i])) {
+      return { ...choiceEffect, options: replaced };
     }
     return effect;
   }

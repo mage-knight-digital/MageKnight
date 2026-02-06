@@ -37,6 +37,7 @@ import { registerEnergyFlowEffects } from "./energyFlowEffects.js";
 import { registerCureEffects } from "./cureEffects.js";
 import { registerInvocationEffects } from "./invocationEffects.js";
 import { registerReadyUnitsBudgetEffects } from "./readyUnitsBudgetEffects.js";
+import { registerWoundActivatingUnitEffects } from "./woundActivatingUnitEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -130,4 +131,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Ready units budget effects (Restoration/Rebirth spell)
   registerReadyUnitsBudgetEffects();
+
+  // Wound activating unit effects (Utem Swordsmen self-wound)
+  registerWoundActivatingUnitEffects();
 }

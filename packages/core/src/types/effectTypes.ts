@@ -180,6 +180,13 @@ export const EFFECT_READY_UNITS_BUDGET = "ready_units_budget" as const;
 // Internal: resolve effect after unit selection for budget-based readying
 export const EFFECT_RESOLVE_READY_UNIT_BUDGET = "resolve_ready_unit_budget" as const;
 
+// === Wound Activating Unit Effect ===
+// Wounds the unit that activated this ability (sets unit.wounded = true).
+// Used by Utem Swordsmen's Attack/Block 6 ability.
+// This is a self-inflicted wound, NOT combat damage — does not trigger
+// Paralyze, Vampiric, or Poison enemy abilities.
+export const EFFECT_WOUND_ACTIVATING_UNIT = "wound_activating_unit" as const;
+
 // === Scout Peek Effect ===
 // Reveals face-down enemy tokens within a distance from the player.
 // Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.
