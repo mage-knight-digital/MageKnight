@@ -5,6 +5,7 @@
 import type {
   CardId,
   SkillId,
+  UnitId,
   ManaColor,
   BasicManaColor,
   Element,
@@ -80,6 +81,8 @@ import {
   EFFECT_ALTEM_MAGES_COLD_FIRE,
   EFFECT_PURE_MAGIC,
   EFFECT_APPLY_RECRUITMENT_BONUS,
+  EFFECT_FREE_RECRUIT,
+  EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -947,6 +950,28 @@ export interface PureMagicEffect {
   readonly value: number;
 }
 
+/**
+ * Free recruit effect entry point.
+ * Presents the units offer for the player to pick a unit for free.
+ * No location restrictions (works anywhere, even in combat).
+ * If at command limit, the player must disband a unit first (handled externally).
+ *
+ * Used by Banner of Command powered effect and Call to Glory spell.
+ */
+export interface FreeRecruitEffect {
+  readonly type: typeof EFFECT_FREE_RECRUIT;
+}
+
+/**
+ * Internal effect generated as a choice option for free recruitment unit selection.
+ * Recruits the selected unit for free (0 influence, artifact source).
+ */
+export interface ResolveFreeRecruitTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_FREE_RECRUIT_TARGET;
+  readonly unitId: UnitId;
+  readonly unitName: string;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1012,7 +1037,9 @@ export type CardEffect =
   | ResolveManaRadianceColorEffect
   | AltemMagesColdFireEffect
   | PureMagicEffect
-  | ApplyRecruitmentBonusEffect;
+  | ApplyRecruitmentBonusEffect
+  | FreeRecruitEffect
+  | ResolveFreeRecruitTargetEffect;
 
 // === Card Definition ===
 

@@ -42,6 +42,7 @@ import { registerManaMeltdownEffects } from "./manaMeltdownEffects.js";
 import { registerAltemMagesEffects } from "./altemMagesEffects.js";
 import { registerPureMagicEffects } from "./pureMagicEffects.js";
 import { registerHeroicTaleEffects } from "./heroicTaleEffects.js";
+import { registerFreeRecruitEffects } from "./freeRecruitEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -150,4 +151,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Heroic Tale effects (recruitment bonus modifier)
   registerHeroicTaleEffects();
+
+  // Free recruit effects (Banner of Command, Call to Glory)
+  registerFreeRecruitEffects();
 }
