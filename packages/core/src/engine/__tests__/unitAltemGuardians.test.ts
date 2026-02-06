@@ -24,7 +24,6 @@ import {
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_ATTACK,
-  COMBAT_PHASE_BLOCK,
   createCombatState,
 } from "../../types/combat.js";
 import { getEffectiveUnitResistances } from "../modifiers/index.js";

@@ -18,7 +18,6 @@ import type { ExploreOptions, ExploreDirection } from "@mage-knight/shared";
 import type { HexDirection, HexCoord } from "@mage-knight/shared";
 import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN_3, MAP_SHAPE_OPEN_4, MAP_SHAPE_OPEN_5, hexKey } from "@mage-knight/shared";
 import {
-  isEdgeHex,
   isNearEdge,
   TILE_PLACEMENT_OFFSETS,
   getExpansionDirections,
