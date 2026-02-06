@@ -71,6 +71,7 @@ import {
   EFFECT_PLACE_SKILL_IN_CENTER,
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
+  EFFECT_APPLY_RECRUITMENT_BONUS,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
   EFFECT_ENERGY_FLOW,
@@ -360,6 +361,9 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Recruit discount is always resolvable (adds a modifier)
   [EFFECT_APPLY_RECRUIT_DISCOUNT]: () => true,
+
+  // Recruitment bonus is always resolvable (adds a modifier)
+  [EFFECT_APPLY_RECRUITMENT_BONUS]: () => true,
 
   // Terrain cost reduction selection is always resolvable (sets pending state)
   [EFFECT_SELECT_HEX_FOR_COST_REDUCTION]: () => true,
