@@ -37,6 +37,7 @@ import {
   EFFECT_READY_UNIT,
   EFFECT_APPLY_MODIFIER,
   EFFECT_SCOUT_PEEK,
+  EFFECT_WOUND_ACTIVATING_UNIT,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -128,6 +129,18 @@ export const SCOUTS_SCOUT_PEEK = "scouts_scout_peek" as const;
  * Move 2 + allow exploring tiles at distance 2 instead of 1 this turn.
  */
 export const SCOUTS_EXTENDED_MOVE = "scouts_extended_move" as const;
+
+/**
+ * Utem Swordsmen: Basic ability (free)
+ * Attack 3 OR Block 3
+ */
+export const UTEM_SWORDSMEN_ATTACK_OR_BLOCK = "utem_swordsmen_attack_or_block" as const;
+
+/**
+ * Utem Swordsmen: Powered ability (free)
+ * Attack 6 OR Block 6 — this unit becomes wounded
+ */
+export const UTEM_SWORDSMEN_ATTACK_OR_BLOCK_WOUND = "utem_swordsmen_attack_or_block_wound" as const;
 
 /**
  * Utem Crossbowmen: Basic ability (free)
@@ -348,6 +361,66 @@ const SCOUTS_EXTENDED_MOVE_EFFECT: CardEffect = {
 };
 
 /**
+ * Utem Swordsmen's basic ability: Attack 3 OR Block 3.
+ * Player chooses between gaining 3 Attack (melee, physical) or 3 Block (physical).
+ */
+const UTEM_SWORDSMEN_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 3,
+      combatType: COMBAT_TYPE_MELEE,
+    },
+    {
+      type: EFFECT_GAIN_BLOCK,
+      amount: 3,
+    },
+  ],
+};
+
+/**
+ * Utem Swordsmen's powered ability: Attack 6 OR Block 6 — this unit becomes wounded.
+ * Player chooses between gaining 6 Attack (melee, physical) or 6 Block (physical).
+ * Both options wound the activating unit as a cost (self-inflicted, not combat damage).
+ *
+ * The __ACTIVATING_UNIT__ placeholder is replaced with the actual unit instance ID
+ * at activation time by the activate unit command.
+ */
+const UTEM_SWORDSMEN_ATTACK_OR_BLOCK_WOUND_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_COMPOUND,
+      effects: [
+        {
+          type: EFFECT_GAIN_ATTACK,
+          amount: 6,
+          combatType: COMBAT_TYPE_MELEE,
+        },
+        {
+          type: EFFECT_WOUND_ACTIVATING_UNIT,
+          unitInstanceId: "__ACTIVATING_UNIT__",
+        },
+      ],
+    },
+    {
+      type: EFFECT_COMPOUND,
+      effects: [
+        {
+          type: EFFECT_GAIN_BLOCK,
+          amount: 6,
+        },
+        {
+          type: EFFECT_WOUND_ACTIVATING_UNIT,
+          unitInstanceId: "__ACTIVATING_UNIT__",
+        },
+      ],
+    },
+  ],
+};
+
+/**
  * Utem Crossbowmen's basic ability: Attack 3 OR Block 3.
  * Player chooses between gaining 3 Attack (melee, physical) or 3 Block (physical).
  */
@@ -534,6 +607,8 @@ const ALTEM_GUARDIANS_GRANT_RESISTANCES_EFFECT: CardEffect = {
  * Used by activateUnitCommand to resolve effect-based unit abilities.
  */
 export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
+  [UTEM_SWORDSMEN_ATTACK_OR_BLOCK]: UTEM_SWORDSMEN_ATTACK_OR_BLOCK_EFFECT,
+  [UTEM_SWORDSMEN_ATTACK_OR_BLOCK_WOUND]: UTEM_SWORDSMEN_ATTACK_OR_BLOCK_WOUND_EFFECT,
   [SORCERERS_STRIP_FORTIFICATION]: SORCERERS_STRIP_FORTIFICATION_EFFECT,
   [SORCERERS_STRIP_RESISTANCES]: SORCERERS_STRIP_RESISTANCES_EFFECT,
   [ICE_MAGES_ATTACK_OR_BLOCK]: ICE_MAGES_ATTACK_OR_BLOCK_EFFECT,

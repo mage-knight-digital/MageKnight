@@ -237,6 +237,12 @@ export {
   registerReadyUnitsBudgetEffects,
 } from "./readyUnitsBudgetEffects.js";
 
+// Wound activating unit effects (Utem Swordsmen self-wound)
+export {
+  applyWoundActivatingUnit,
+  registerWoundActivatingUnitEffects,
+} from "./woundActivatingUnitEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

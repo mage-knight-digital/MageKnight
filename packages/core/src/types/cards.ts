@@ -72,6 +72,7 @@ import {
   EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   EFFECT_INVOCATION_RESOLVE,
+  EFFECT_WOUND_ACTIVATING_UNIT,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -842,6 +843,26 @@ export interface DiseaseEffect {
   readonly type: typeof EFFECT_DISEASE;
 }
 
+/**
+ * Wound the unit that activated this ability (self-wound).
+ * Sets the activating unit's wounded flag to true.
+ *
+ * This is NOT combat damage — it's a cost of using the ability:
+ * - Does NOT trigger Paralyze (enemy ability: instant-kill on wound)
+ * - Does NOT trigger Vampiric (enemy ability: armor increase on wound)
+ * - Does NOT trigger Poison (enemy ability: extra wounds)
+ * - DOES prevent future activation (wounded units can't activate)
+ *
+ * The unitInstanceId is injected at resolution time by the activation command
+ * using the __ACTIVATING_UNIT__ placeholder pattern.
+ *
+ * Used by Utem Swordsmen's Attack/Block 6 ability.
+ */
+export interface WoundActivatingUnitEffect {
+  readonly type: typeof EFFECT_WOUND_ACTIVATING_UNIT;
+  readonly unitInstanceId: string;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -899,7 +920,8 @@ export type CardEffect =
   | SelectTerrainForCostReductionEffect
   | CureEffect
   | DiseaseEffect
-  | InvocationResolveEffect;
+  | InvocationResolveEffect
+  | WoundActivatingUnitEffect;
 
 // === Card Definition ===
 
