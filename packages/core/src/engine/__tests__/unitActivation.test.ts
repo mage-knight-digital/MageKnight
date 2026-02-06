@@ -27,6 +27,7 @@ import {
   UNIT_ICE_GOLEMS,
   UNIT_NORTHERN_MONKS,
   UNIT_RED_CAPE_MONKS,
+  UNIT_AMOTEP_GUNNERS,
   UNIT_GUARDIAN_GOLEMS,
   CARD_WOUND,
   UNIT_STATE_READY,
@@ -36,6 +37,7 @@ import {
   UNIT_ABILITY_ATTACK,
   UNIT_ABILITY_BLOCK,
   UNIT_ABILITY_SIEGE_ATTACK,
+  UNIT_ABILITY_RANGED_ATTACK,
   UNIT_ABILITY_HEAL,
   UNIT_ABILITY_MOVE,
   ASSIGN_DAMAGE_ACTION,
@@ -1482,6 +1484,129 @@ describe("Unit Combat Abilities", () => {
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
       const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
       expect(invalidEvent).toBeDefined();
+    });
+  });
+
+  describe("Amotep Gunners abilities", () => {
+    it("should activate free physical Attack 5 (ability index 0)", () => {
+      // Amotep Gunners have Attack 5 (physical, free) at index 0
+      const unit = createPlayerUnit(UNIT_AMOTEP_GUNNERS, "amotep_gunners_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "amotep_gunners_1",
+        abilityIndex: 0, // Attack 5 (physical, free)
+      });
+
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(5);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_ATTACK);
+        expect(activateEvent.abilityValue).toBe(5);
+      }
+    });
+
+    it("should activate free physical Block 5 (ability index 1)", () => {
+      // Amotep Gunners have Block 5 (physical, free) at index 1
+      const unit = createPlayerUnit(UNIT_AMOTEP_GUNNERS, "amotep_gunners_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "amotep_gunners_1",
+        abilityIndex: 1, // Block 5 (physical, free)
+      });
+
+      expect(result.state.players[0].combatAccumulator.block).toBe(5);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_BLOCK);
+        expect(activateEvent.abilityValue).toBe(5);
+      }
+    });
+
+    it("should activate Ranged Fire Attack 6 with red mana (ability index 2)", () => {
+      // Amotep Gunners have Ranged Fire Attack 6 (requires red mana) at index 2
+      const unit = createPlayerUnit(UNIT_AMOTEP_GUNNERS, "amotep_gunners_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [{ color: MANA_RED, source: "card" }],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "amotep_gunners_1",
+        abilityIndex: 2, // Ranged Fire Attack 6 (requires red mana)
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+      });
+
+      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(6);
+      expect(result.state.players[0].combatAccumulator.attack.rangedElements.fire).toBe(6);
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
+      expect(result.state.players[0].pureMana.length).toBe(0);
+
+      const activateEvent = result.events.find((e) => e.type === UNIT_ACTIVATED);
+      expect(activateEvent).toBeDefined();
+      if (activateEvent && activateEvent.type === UNIT_ACTIVATED) {
+        expect(activateEvent.abilityUsed).toBe(UNIT_ABILITY_RANGED_ATTACK);
+        expect(activateEvent.abilityValue).toBe(6);
+      }
+    });
+
+    it("should reject Ranged Fire Attack 6 without red mana", () => {
+      const unit = createPlayerUnit(UNIT_AMOTEP_GUNNERS, "amotep_gunners_1");
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+        pureMana: [],
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "amotep_gunners_1",
+        abilityIndex: 2,
+      });
+
+      expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+      if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+        expect(invalidEvent.reason).toContain("red mana");
+      }
     });
   });
 
