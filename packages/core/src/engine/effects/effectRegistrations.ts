@@ -36,6 +36,7 @@ import { registerRuthlessCoercionEffects } from "./ruthlessCoercionEffects.js";
 import { registerEnergyFlowEffects } from "./energyFlowEffects.js";
 import { registerCureEffects } from "./cureEffects.js";
 import { registerInvocationEffects } from "./invocationEffects.js";
+import { registerReadyUnitsBudgetEffects } from "./readyUnitsBudgetEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -126,4 +127,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Invocation effects (Arythea's Invocation skill)
   registerInvocationEffects();
+
+  // Ready units budget effects (Restoration/Rebirth spell)
+  registerReadyUnitsBudgetEffects();
 }
