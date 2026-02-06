@@ -15,6 +15,9 @@ import {
   MANA_BLUE,
   MANA_GREEN,
   MANA_WHITE,
+  RESIST_FIRE,
+  RESIST_ICE,
+  RESIST_PHYSICAL,
   SHOCKTROOPS_COORDINATED_FIRE,
   SHOCKTROOPS_WEAKEN_ENEMY,
   SHOCKTROOPS_TAUNT,
@@ -44,6 +47,7 @@ import {
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
+  EFFECT_GRANT_RESISTANCES,
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_RULE_OVERRIDE,
   EFFECT_UNIT_ATTACK_BONUS,
@@ -142,6 +146,13 @@ export const THUGS_ATTACK = "thugs_attack" as const;
  * Influence 4 + Reputation -1 (immediate)
  */
 export const THUGS_INFLUENCE = "thugs_influence" as const;
+
+/**
+ * Altem Guardians: Green mana ability
+ * All units you control gain all resistances (Physical, Fire, Ice) this turn.
+ */
+export const ALTEM_GUARDIANS_GRANT_RESISTANCES =
+  "altem_guardians_grant_resistances" as const;
 
 // =============================================================================
 // EFFECT DEFINITIONS
@@ -499,6 +510,21 @@ const SHOCKTROOPS_TAUNT_EFFECT: CardEffect = {
   },
 };
 
+/**
+ * Altem Guardians: Green mana ability.
+ * All units you control gain Physical, Fire, and Ice resistance this turn.
+ */
+const ALTEM_GUARDIANS_GRANT_RESISTANCES_EFFECT: CardEffect = {
+  type: EFFECT_APPLY_MODIFIER,
+  modifier: {
+    type: EFFECT_GRANT_RESISTANCES,
+    resistances: [RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE],
+  },
+  duration: DURATION_TURN,
+  scope: { type: SCOPE_ALL_UNITS },
+  description: "All units gain all resistances this turn",
+};
+
 // =============================================================================
 // REGISTRY
 // =============================================================================
@@ -525,6 +551,7 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [SHOCKTROOPS_COORDINATED_FIRE]: SHOCKTROOPS_COORDINATED_FIRE_EFFECT,
   [SHOCKTROOPS_WEAKEN_ENEMY]: SHOCKTROOPS_WEAKEN_ENEMY_EFFECT,
   [SHOCKTROOPS_TAUNT]: SHOCKTROOPS_TAUNT_EFFECT,
+  [ALTEM_GUARDIANS_GRANT_RESISTANCES]: ALTEM_GUARDIANS_GRANT_RESISTANCES_EFFECT,
 };
 
 /**
