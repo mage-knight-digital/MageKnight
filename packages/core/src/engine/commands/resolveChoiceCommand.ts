@@ -11,9 +11,10 @@ import {
   CHOICE_REQUIRED,
   CHOICE_RESOLVED,
 } from "@mage-knight/shared";
+import type { ManaColor } from "@mage-knight/shared";
 import { resolveEffect, reverseEffect, describeEffect } from "../effects/index.js";
 import { RESOLVE_CHOICE_COMMAND } from "./commandTypes.js";
-import { EFFECT_COMPOUND } from "../../types/effectTypes.js";
+import { EFFECT_COMPOUND, EFFECT_GAIN_MANA } from "../../types/effectTypes.js";
 import {
   captureUndoContext,
   applyUndoContext,
@@ -27,6 +28,8 @@ import {
   getChoiceOptionsFromEffect,
   type PendingChoiceSource,
 } from "./choice/choiceResolution.js";
+import { SKILL_TOVAK_MANA_OVERLOAD } from "../../data/skills/index.js";
+import { placeManaOverloadInCenter } from "./skills/manaOverloadEffect.js";
 
 export { RESOLVE_CHOICE_COMMAND };
 
@@ -157,6 +160,19 @@ export function createResolveChoiceCommand(
             };
             finalState = { ...finalState, players: updatedPlayers };
           }
+        }
+
+        // Place Mana Overload skill in center after color choice is resolved
+        if (
+          player.pendingChoice.skillId === SKILL_TOVAK_MANA_OVERLOAD &&
+          chosenEffect.type === EFFECT_GAIN_MANA
+        ) {
+          const chosenColor = (chosenEffect as { color: ManaColor }).color;
+          finalState = placeManaOverloadInCenter(
+            finalState,
+            params.playerId,
+            chosenColor
+          );
         }
 
         return { ...result, state: finalState };
@@ -360,8 +376,14 @@ export function createResolveChoiceCommand(
           ? { ...currentState, activeModifiers: movementBonusModifiersSnapshot }
           : currentState;
 
+      // Clear Mana Overload center if this was a Mana Overload choice resolution
+      const undoState =
+        params.previousPendingChoice.skillId === SKILL_TOVAK_MANA_OVERLOAD
+          ? { ...stateWithModifiers, players, manaOverloadCenter: null }
+          : { ...stateWithModifiers, players };
+
       return {
-        state: { ...stateWithModifiers, players },
+        state: undoState,
         events: [
           {
             // Re-emit choice required event

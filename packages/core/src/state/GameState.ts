@@ -2,7 +2,7 @@
  * Game state types and management
  */
 
-import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig, RoundPhase, TacticId, CooperativeAssaultProposal, FinalScoreResult } from "@mage-knight/shared";
+import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig, RoundPhase, TacticId, CooperativeAssaultProposal, FinalScoreResult, ManaColor, SkillId } from "@mage-knight/shared";
 import { GAME_PHASE_SETUP, TIME_OF_DAY_DAY, SCENARIO_FIRST_RECONNAISSANCE, ROUND_PHASE_PLAYER_TURNS } from "@mage-knight/shared";
 import { getScenario } from "../data/scenarios/index.js";
 import type { Player } from "../types/player.js";
@@ -48,6 +48,20 @@ export type { CityState } from "../types/city.js";
 export type { ActiveModifier } from "../types/modifiers.js";
 export type { CommandStackState } from "../engine/commands/stack.js";
 export type { RngState } from "../utils/rng.js";
+
+/**
+ * Tracks Mana Overload skill when placed in center.
+ * When active, the first player to power a Deed card with the marked color
+ * that gives Move/Influence/Attack/Block gets +4 and the skill returns to owner.
+ */
+export interface ManaOverloadCenter {
+  /** The mana color marked on the skill token */
+  readonly markedColor: ManaColor;
+  /** Player ID who owns the skill (skill returns to them) */
+  readonly ownerId: string;
+  /** The skill ID (for returning to owner) */
+  readonly skillId: SkillId;
+}
 
 export interface GameState {
   readonly phase: GamePhase;
@@ -112,6 +126,10 @@ export interface GameState {
 
   // Final scoring results (populated when game ends)
   readonly finalScoreResult: FinalScoreResult | null;
+
+  // Mana Overload skill center state (Tovak interactive skill)
+  // When non-null, the skill is in the center with a color marker
+  readonly manaOverloadCenter: ManaOverloadCenter | null;
 }
 
 export function createInitialGameState(
@@ -157,5 +175,6 @@ export function createInitialGameState(
     winningPlayerId: null,
     pendingCooperativeAssault: null,
     finalScoreResult: null,
+    manaOverloadCenter: null,
   };
 }

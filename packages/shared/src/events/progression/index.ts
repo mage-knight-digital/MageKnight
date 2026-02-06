@@ -43,7 +43,7 @@ import {
   ADVANCED_ACTION_GAINED,
   COMMAND_SLOT_GAINED,
 } from "./levels.js";
-import { SKILL_GAINED, SKILL_USED } from "./skills.js";
+import { SKILL_GAINED, SKILL_USED, MANA_OVERLOAD_TRIGGERED } from "./skills.js";
 
 /**
  * Check if an event is any progression-related event.
@@ -59,5 +59,6 @@ export function isProgressionEvent(event: { type: string }): boolean {
     COMMAND_SLOT_GAINED,
     SKILL_USED,
     SKILL_GAINED,
+    MANA_OVERLOAD_TRIGGERED,
   ].includes(event.type as typeof FAME_GAINED);
 }
