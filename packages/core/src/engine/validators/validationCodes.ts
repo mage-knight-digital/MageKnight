@@ -97,6 +97,7 @@ export const INVALID_ATTACK_TYPE = "INVALID_ATTACK_TYPE" as const;
 export const DAMAGE_NOT_ASSIGNED = "DAMAGE_NOT_ASSIGNED" as const;
 export const FORTIFIED_NEEDS_SIEGE = "FORTIFIED_NEEDS_SIEGE" as const;
 export const NO_SIEGE_ATTACK_ACCUMULATED = "NO_SIEGE_ATTACK_ACCUMULATED" as const;
+export const RANGED_ATTACK_ALL_FORTIFIED = "RANGED_ATTACK_ALL_FORTIFIED" as const;
 export const ALREADY_COMBATTED = "ALREADY_COMBATTED" as const;
 // Incremental attack assignment validation codes
 export const INSUFFICIENT_ATTACK = "INSUFFICIENT_ATTACK" as const;
@@ -363,6 +364,7 @@ export type ValidationErrorCode =
   | typeof DAMAGE_NOT_ASSIGNED
   | typeof FORTIFIED_NEEDS_SIEGE
   | typeof NO_SIEGE_ATTACK_ACCUMULATED
+  | typeof RANGED_ATTACK_ALL_FORTIFIED
   | typeof ALREADY_COMBATTED
   | typeof INSUFFICIENT_ATTACK
   | typeof NOTHING_TO_UNASSIGN
