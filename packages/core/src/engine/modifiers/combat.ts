@@ -74,6 +74,10 @@ export function getEffectiveEnemyArmor(
     return baseArmor + defendBonus + vampiricBonus;
   }
 
+  // Get enemy resistances for excludeResistance filtering (Demolish spell)
+  const enemy = state.combat?.enemies.find((e) => e.instanceId === enemyId);
+  const enemyResistances = enemy?.definition.resistances ?? [];
+
   const modifiers = getModifiersForEnemy(state, enemyId)
     .filter(
       (m) => m.effect.type === EFFECT_ENEMY_STAT && m.effect.stat === ENEMY_STAT_ARMOR
@@ -84,6 +88,10 @@ export function getEffectiveEnemyArmor(
   let minAllowed = 1;
 
   for (const mod of modifiers) {
+    // Skip modifier if enemy has the excluded resistance (e.g., Fire Resistant vs Demolish)
+    if (mod.excludeResistance && enemyResistances.includes(mod.excludeResistance)) {
+      continue;
+    }
     if (mod.perResistance) {
       // Resistance Break: -1 per resistance
       armor += mod.amount * resistanceCount;

@@ -11,17 +11,20 @@ import {
   CARD_FLAME_WALL,
   CARD_TREMOR,
   CARD_MANA_MELTDOWN,
+  CARD_DEMOLISH,
 } from "@mage-knight/shared";
 import { FIREBALL } from "./fireball.js";
 import { FLAME_WALL } from "./flameWall.js";
 import { TREMOR } from "./tremor.js";
 import { MANA_MELTDOWN } from "./manaMeltdown.js";
+import { DEMOLISH } from "./demolish.js";
 
 export const RED_SPELLS: Record<CardId, DeedCard> = {
   [CARD_FIREBALL]: FIREBALL,
   [CARD_FLAME_WALL]: FLAME_WALL,
   [CARD_TREMOR]: TREMOR,
   [CARD_MANA_MELTDOWN]: MANA_MELTDOWN,
+  [CARD_DEMOLISH]: DEMOLISH,
 };
 
-export { FIREBALL, FLAME_WALL, TREMOR, MANA_MELTDOWN };
+export { FIREBALL, FLAME_WALL, TREMOR, MANA_MELTDOWN, DEMOLISH };
