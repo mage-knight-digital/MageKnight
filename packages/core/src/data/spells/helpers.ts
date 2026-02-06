@@ -76,3 +76,6 @@ export function heal(amount: number): CardEffect {
 export function choice(options: readonly CardEffect[]): CardEffect {
   return { type: EFFECT_CHOICE, options };
 }
+
+// Re-export scaling helpers from effectHelpers for spell definitions
+export { fireAttackPerEnemy, fireBlockPerEnemy } from "../effectHelpers.js";

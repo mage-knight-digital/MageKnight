@@ -17,15 +17,16 @@ import {
   RECRUIT_SITE_CAMP,
   MIN_REPUTATION,
   MAX_REPUTATION,
-  UNIT_HEROES,
   UNIT_THUGS,
   getUnit,
+  isHeroUnitId,
   type RecruitSite,
   type UnitId,
   type UnitDefinition,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
-import { EFFECT_RECRUIT_DISCOUNT } from "../../types/modifierConstants.js";
+import { EFFECT_RECRUIT_DISCOUNT, EFFECT_RECRUITMENT_BONUS } from "../../types/modifierConstants.js";
+import type { UnitRecruitmentBonusModifier } from "../../types/modifiers.js";
 import { getModifiersForPlayer } from "../modifiers/queries.js";
 
 /**
@@ -90,7 +91,7 @@ export function getReputationCostModifier(
   // Heroes special rule: reputation modifier is doubled
   // Per rulebook, this applies once per interaction (FAQ clarification)
   // The doubled modifier only applies to the first Hero recruited at a site
-  if (unitId === UNIT_HEROES && !hasRecruitedHeroThisInteraction) {
+  if (unitId && isHeroUnitId(unitId) && !hasRecruitedHeroThisInteraction) {
     return baseModifier * 2;
   }
 
@@ -176,13 +177,13 @@ export function violatesHeroesThugsExclusion(
   unitId: UnitId,
   unitsRecruitedThisInteraction: readonly UnitId[]
 ): boolean {
-  // Check if recruiting Heroes when Thugs were already recruited
-  if (unitId === UNIT_HEROES) {
+  // Check if recruiting a Hero when Thugs were already recruited
+  if (isHeroUnitId(unitId)) {
     return unitsRecruitedThisInteraction.includes(UNIT_THUGS);
   }
-  // Check if recruiting Thugs when Heroes were already recruited
+  // Check if recruiting Thugs when any Hero was already recruited
   if (unitId === UNIT_THUGS) {
-    return unitsRecruitedThisInteraction.includes(UNIT_HEROES);
+    return unitsRecruitedThisInteraction.some((id) => isHeroUnitId(id));
   }
   return false;
 }
@@ -194,7 +195,7 @@ export function violatesHeroesThugsExclusion(
 export function hasRecruitedHeroThisInteraction(
   unitsRecruitedThisInteraction: readonly UnitId[]
 ): boolean {
-  return unitsRecruitedThisInteraction.includes(UNIT_HEROES);
+  return unitsRecruitedThisInteraction.some((id) => isHeroUnitId(id));
 }
 
 /**
@@ -266,4 +267,30 @@ export function getActiveRecruitDiscountModifierId(
   const modifiers = getModifiersForPlayer(state, playerId);
   const discountMod = modifiers.find((m) => m.effect.type === EFFECT_RECRUIT_DISCOUNT);
   return discountMod?.id ?? null;
+}
+
+/**
+ * Get active recruitment bonus modifiers for a player.
+ * Returns the combined reputation and fame bonuses from all active modifiers.
+ * Unlike recruit discount, these modifiers are NOT consumed — they trigger on every recruitment.
+ *
+ * Used by Heroic Tale card.
+ */
+export function getActiveRecruitmentBonus(
+  state: GameState,
+  playerId: string,
+): { reputationPerRecruit: number; famePerRecruit: number } | null {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  const bonusMods = modifiers.filter((m) => m.effect.type === EFFECT_RECRUITMENT_BONUS);
+  if (bonusMods.length === 0) return null;
+
+  let totalReputation = 0;
+  let totalFame = 0;
+  for (const mod of bonusMods) {
+    const effect = mod.effect as UnitRecruitmentBonusModifier;
+    totalReputation += effect.reputationPerRecruit;
+    totalFame += effect.famePerRecruit;
+  }
+
+  return { reputationPerRecruit: totalReputation, famePerRecruit: totalFame };
 }

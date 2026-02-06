@@ -79,6 +79,7 @@ import {
   EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
   EFFECT_ALTEM_MAGES_COLD_FIRE,
   EFFECT_PURE_MAGIC,
+  EFFECT_APPLY_RECRUITMENT_BONUS,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -537,6 +538,9 @@ export interface DiscardCostEffect {
   readonly thenEffectByColor?: Partial<Record<BasicCardColor, CardEffect>>;
   /** If true, wounds cannot be discarded (default: true per standard rules) */
   readonly filterWounds?: boolean;
+  /** If true, cards with no action color (artifacts, spells) can be discarded for no effect.
+   *  Used by Druidic Staff where discarding an artifact gives nothing. */
+  readonly allowNoColor?: boolean;
 }
 
 /**
@@ -923,6 +927,18 @@ export interface AltemMagesColdFireEffect {
 }
 
 /**
+ * Apply a recruitment bonus modifier that triggers on each unit recruited this turn.
+ * Used by Heroic Tale:
+ * - Basic: Rep +1 per recruit
+ * - Powered: Rep +1 AND Fame +1 per recruit
+ */
+export interface ApplyRecruitmentBonusEffect {
+  readonly type: typeof EFFECT_APPLY_RECRUITMENT_BONUS;
+  readonly reputationPerRecruit: number;
+  readonly famePerRecruit: number;
+}
+
+/**
  * Pure Magic mana-payment-driven effect.
  * Player pays 1 basic mana token and the color determines the effect:
  * Green → Move, White → Influence, Blue → Block, Red → Attack.
@@ -998,7 +1014,8 @@ export type CardEffect =
   | ManaRadianceEffect
   | ResolveManaRadianceColorEffect
   | AltemMagesColdFireEffect
-  | PureMagicEffect;
+  | PureMagicEffect
+  | ApplyRecruitmentBonusEffect;
 
 // === Card Definition ===
 

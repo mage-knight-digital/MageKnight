@@ -19,6 +19,7 @@ import {
 import {
   RECRUIT_UNIT_ACTION,
   UNIT_HEROES,
+  UNIT_HERO_BLUE,
   UNIT_THUGS,
   UNIT_PEASANTS,
   INVALID_ACTION,
@@ -138,6 +139,11 @@ describe("Heroes Special Rules", () => {
 
         expect(firstHeroModifier).toBe(-4); // Doubled
         expect(secondHeroModifier).toBe(-2); // Not doubled (already recruited one)
+      });
+
+      it("should double modifier for Hero Blue same as Heroes", () => {
+        const heroBlueModifier = getReputationCostModifier(3, UNIT_HERO_BLUE);
+        expect(heroBlueModifier).toBe(-4); // Same doubled modifier as UNIT_HEROES
       });
     });
 
@@ -294,12 +300,25 @@ describe("Heroes Special Rules", () => {
         // Can recruit multiple Thugs if no Heroes
         expect(violatesHeroesThugsExclusion(UNIT_THUGS, [UNIT_THUGS])).toBe(false);
       });
+
+      it("should block Thugs if Hero Blue already recruited", () => {
+        expect(violatesHeroesThugsExclusion(UNIT_THUGS, [UNIT_HERO_BLUE])).toBe(true);
+      });
+
+      it("should block Hero Blue if Thugs already recruited", () => {
+        expect(violatesHeroesThugsExclusion(UNIT_HERO_BLUE, [UNIT_THUGS])).toBe(true);
+      });
     });
 
     describe("hasRecruitedHeroThisInteraction", () => {
       it("should return true if Heroes in recruited list", () => {
         expect(hasRecruitedHeroThisInteraction([UNIT_HEROES])).toBe(true);
         expect(hasRecruitedHeroThisInteraction([UNIT_PEASANTS, UNIT_HEROES])).toBe(true);
+      });
+
+      it("should return true if Hero Blue in recruited list", () => {
+        expect(hasRecruitedHeroThisInteraction([UNIT_HERO_BLUE])).toBe(true);
+        expect(hasRecruitedHeroThisInteraction([UNIT_PEASANTS, UNIT_HERO_BLUE])).toBe(true);
       });
 
       it("should return false if no Heroes in recruited list", () => {

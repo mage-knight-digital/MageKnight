@@ -17,8 +17,9 @@ import { removeUnitFromOffer } from "../../../data/unitDeckSetup.js";
 import {
   getActiveRecruitDiscount,
   getActiveRecruitDiscountModifierId,
+  getActiveRecruitmentBonus,
 } from "../../rules/unitRecruitment.js";
-import { applyChangeReputation } from "../../effects/atomicEffects.js";
+import { applyChangeReputation, applyGainFame } from "../../effects/atomicEffects.js";
 
 export const RECRUIT_UNIT_COMMAND = "RECRUIT_UNIT" as const;
 
@@ -51,6 +52,8 @@ export function createRecruitUnitCommand(
   let previousUnitsRecruitedThisInteraction: readonly UnitId[] = [];
   let previousActiveModifiers: readonly ActiveModifier[] = [];
   let previousReputation = 0;
+  let previousFame = 0;
+  let previousPendingLevelUps: readonly number[] = [];
 
   return {
     type: RECRUIT_UNIT_COMMAND,
@@ -78,6 +81,8 @@ export function createRecruitUnitCommand(
       previousUnitsRecruitedThisInteraction = player.unitsRecruitedThisInteraction;
       previousActiveModifiers = state.activeModifiers;
       previousReputation = player.reputation;
+      previousFame = player.fame;
+      previousPendingLevelUps = player.pendingLevelUps;
 
       // Create new unit instance
       const newUnit = createPlayerUnit(params.unitId, instanceId);
@@ -142,6 +147,42 @@ export function createRecruitUnitCommand(
         }
       }
 
+      // Check for active recruitment bonus (Heroic Tale)
+      // Unlike recruit discount, this is NOT consumed — it applies on every recruitment
+      const recruitmentBonus = getActiveRecruitmentBonus(state, params.playerId);
+      if (recruitmentBonus) {
+        const bonusPlayerIndex = updatedState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        const bonusPlayer = updatedState.players[bonusPlayerIndex];
+        if (bonusPlayer) {
+          // Apply reputation bonus
+          if (recruitmentBonus.reputationPerRecruit !== 0) {
+            const repResult = applyChangeReputation(
+              updatedState,
+              bonusPlayerIndex,
+              bonusPlayer,
+              recruitmentBonus.reputationPerRecruit,
+            );
+            updatedState = repResult.state;
+          }
+
+          // Apply fame bonus
+          if (recruitmentBonus.famePerRecruit > 0) {
+            const famePlayer = updatedState.players[bonusPlayerIndex];
+            if (famePlayer) {
+              const fameResult = applyGainFame(
+                updatedState,
+                bonusPlayerIndex,
+                famePlayer,
+                recruitmentBonus.famePerRecruit,
+              );
+              updatedState = fameResult.state;
+            }
+          }
+        }
+      }
+
       const events: GameEvent[] = [
         {
           type: UNIT_RECRUITED,
@@ -185,6 +226,8 @@ export function createRecruitUnitCommand(
         hasRecruitedUnitThisTurn: previousHasRecruitedUnit,
         unitsRecruitedThisInteraction: previousUnitsRecruitedThisInteraction,
         reputation: previousReputation,
+        fame: previousFame,
+        pendingLevelUps: previousPendingLevelUps,
       };
 
       const players = state.players.map((p, i) =>

@@ -262,6 +262,11 @@ export {
   registerPureMagicEffects,
 } from "./pureMagicEffects.js";
 
+// Heroic Tale effects (recruitment bonus modifier)
+export {
+  registerHeroicTaleEffects,
+} from "./heroicTaleEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

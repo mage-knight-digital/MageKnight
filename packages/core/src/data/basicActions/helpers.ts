@@ -206,6 +206,30 @@ export function discardCostByColor(
 }
 
 /**
+ * Discard as cost with color-dependent follow-up effect,
+ * but also allows discarding cards with no action color (artifacts, spells).
+ * Cards with no color are discarded but produce no effect.
+ * Used by Druidic Staff basic effect.
+ */
+export function discardCostByColorAllowNoColor(
+  count: number,
+  thenEffectByColor: Record<BasicCardColor, CardEffect>,
+  optional: boolean = false,
+  filterWounds: boolean = true
+): CardEffect {
+  return {
+    type: EFFECT_DISCARD_COST,
+    count,
+    optional,
+    thenEffect: { type: EFFECT_NOOP },
+    colorMatters: true,
+    thenEffectByColor,
+    filterWounds,
+    allowNoColor: true,
+  };
+}
+
+/**
  * Discard-for-crystal effect (Savage Harvesting).
  * Allows discarding a non-wound card to gain a crystal matching the card's color.
  * For artifacts, the player chooses the crystal color.

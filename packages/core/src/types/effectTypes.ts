@@ -216,3 +216,8 @@ export const EFFECT_ALTEM_MAGES_COLD_FIRE = "altem_mages_cold_fire" as const;
 // Blue/Red only available during combat (Block/Attack are combat actions).
 // Values differ between basic (4) and powered (7) modes.
 export const EFFECT_PURE_MAGIC = "pure_magic" as const;
+
+// === Recruitment Bonus Effect ===
+// Adds a turn-scoped modifier that grants reputation and/or fame per unit recruited.
+// Used by Heroic Tale (basic: Rep+1 per recruit, powered: Rep+1 + Fame+1 per recruit).
+export const EFFECT_APPLY_RECRUITMENT_BONUS = "apply_recruitment_bonus" as const;

@@ -51,6 +51,7 @@ import {
   EFFECT_MANA_RADIANCE,
   EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
   EFFECT_PURE_MAGIC,
+  EFFECT_APPLY_RECRUITMENT_BONUS,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -66,6 +67,7 @@ import type {
   CureEffect,
   ResolveManaMeltdownChoiceEffect,
   ResolveManaRadianceColorEffect,
+  ApplyRecruitmentBonusEffect,
 } from "../../types/cards.js";
 import type {
   GainMoveEffect,
@@ -360,6 +362,18 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_PURE_MAGIC]: (effect) => {
     const e = effect as import("../../types/cards.js").PureMagicEffect;
     return `Pay mana: Green=Move ${e.value}, White=Influence ${e.value}, Blue=Block ${e.value}, Red=Attack ${e.value}`;
+  },
+
+  [EFFECT_APPLY_RECRUITMENT_BONUS]: (effect) => {
+    const e = effect as ApplyRecruitmentBonusEffect;
+    const parts: string[] = [];
+    if (e.reputationPerRecruit !== 0) {
+      parts.push(`Reputation +${e.reputationPerRecruit}`);
+    }
+    if (e.famePerRecruit > 0) {
+      parts.push(`Fame +${e.famePerRecruit}`);
+    }
+    return `${parts.join(" and ")} per unit recruited this turn`;
   },
 };
 

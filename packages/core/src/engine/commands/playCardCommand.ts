@@ -266,6 +266,17 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
             }
           }
 
+          // Handle artifact destruction for choice-based powered effects
+          if (isPowered && card.destroyOnPowered) {
+            const destructionResult = handleArtifactDestruction(
+              updatedState,
+              params.playerId,
+              params.cardId
+            );
+            updatedState = destructionResult.state;
+            choiceEvents.push(...destructionResult.events);
+          }
+
           return { ...choiceResult, state: updatedState, events: choiceEvents };
         }
 

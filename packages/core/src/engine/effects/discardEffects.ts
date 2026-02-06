@@ -150,13 +150,20 @@ export function applyDiscardCard(
 export function getCardsEligibleForDiscardCost(
   hand: readonly CardId[],
   filterWounds: boolean,
-  colorMatters: boolean = false
+  colorMatters: boolean = false,
+  allowNoColor: boolean = false
 ): CardId[] {
   const baseCards = filterWounds
     ? hand.filter((cardId) => cardId !== CARD_WOUND)
     : [...hand];
 
   if (!colorMatters) {
+    return baseCards;
+  }
+
+  // When allowNoColor is true, non-action cards (artifacts, spells) are eligible
+  // but will resolve to no effect. Otherwise, only action cards with color are eligible.
+  if (allowNoColor) {
     return baseCards;
   }
 
@@ -187,6 +194,7 @@ export function handleDiscardCostEffect(
 
   const filterWounds = effect.filterWounds ?? true;
   const colorMatters = effect.colorMatters ?? false;
+  const allowNoColor = effect.allowNoColor ?? false;
 
   if (colorMatters) {
     if (!effect.thenEffectByColor) {
@@ -200,7 +208,8 @@ export function handleDiscardCostEffect(
   const eligibleCards = getCardsEligibleForDiscardCost(
     player.hand,
     filterWounds,
-    colorMatters
+    colorMatters,
+    allowNoColor
   );
 
   // Check if player has enough cards to discard
@@ -221,6 +230,7 @@ export function handleDiscardCostEffect(
       colorMatters,
       filterWounds,
       ...(effect.thenEffectByColor ? { thenEffectByColor: effect.thenEffectByColor } : {}),
+      ...(allowNoColor ? { allowNoColor } : {}),
     },
   };
 
