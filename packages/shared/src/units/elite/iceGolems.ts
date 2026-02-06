@@ -1,5 +1,9 @@
 /**
  * Ice Golems unit definition
+ *
+ * Rulebook:
+ * - Attack OR Block 3 (choice ability, free)
+ * - (Blue Mana) Ice Attack 6 - mana-powered attack
  */
 
 import { ELEMENT_ICE } from "../../elements.js";
@@ -11,10 +15,11 @@ import {
   RECRUIT_SITE_KEEP,
   RECRUIT_SITE_MAGE_TOWER,
   UNIT_ABILITY_ATTACK,
-  UNIT_ABILITY_BLOCK,
-  UNIT_ABILITY_PARALYZE,
+  UNIT_ABILITY_EFFECT,
 } from "../constants.js";
 import { UNIT_ICE_GOLEMS } from "../ids.js";
+
+const ICE_GOLEMS_ATTACK_OR_BLOCK = "ice_golems_attack_or_block";
 
 export const ICE_GOLEMS: UnitDefinition = {
   id: UNIT_ICE_GOLEMS,
@@ -26,14 +31,14 @@ export const ICE_GOLEMS: UnitDefinition = {
   resistances: [RESIST_PHYSICAL, RESIST_ICE],
   recruitSites: [RECRUIT_SITE_KEEP, RECRUIT_SITE_MAGE_TOWER],
   abilities: [
-    // Base abilities (free)
-    { type: UNIT_ABILITY_ATTACK, value: 3, element: ELEMENT_ICE },
-    { type: UNIT_ABILITY_BLOCK, value: 3, element: ELEMENT_ICE },
-    // Powered abilities (require blue mana)
-    { type: UNIT_ABILITY_ATTACK, value: 5, element: ELEMENT_ICE, manaCost: MANA_BLUE },
-    { type: UNIT_ABILITY_BLOCK, value: 5, element: ELEMENT_ICE, manaCost: MANA_BLUE },
-    // Passive
-    { type: UNIT_ABILITY_PARALYZE },
+    // Attack 3 OR Block 3 (Ice) - choice, no mana cost
+    {
+      type: UNIT_ABILITY_EFFECT,
+      effectId: ICE_GOLEMS_ATTACK_OR_BLOCK,
+      displayName: "Attack 3 OR Block 3",
+    },
+    // (Blue Mana) Ice Attack 6
+    { type: UNIT_ABILITY_ATTACK, value: 6, element: ELEMENT_ICE, manaCost: MANA_BLUE },
   ],
   copies: 2,
 };

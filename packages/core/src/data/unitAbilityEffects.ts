@@ -149,6 +149,12 @@ export const UTEM_SWORDSMEN_ATTACK_OR_BLOCK_WOUND = "utem_swordsmen_attack_or_bl
 export const UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK = "utem_crossbowmen_attack_or_block" as const;
 
 /**
+ * Ice Golems: Basic ability (free)
+ * Attack 3 OR Block 3 (Ice)
+ */
+export const ICE_GOLEMS_ATTACK_OR_BLOCK = "ice_golems_attack_or_block" as const;
+
+/**
  * Thugs: Free ability (combat only)
  * Attack 3 (Physical) + Reputation -1 (immediate)
  */
@@ -440,6 +446,27 @@ const UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
 };
 
 /**
+ * Ice Golems' basic ability: Attack 3 OR Block 3 (Ice).
+ * Player chooses between gaining 3 Ice Attack (melee) or 3 Ice Block.
+ */
+const ICE_GOLEMS_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 3,
+      combatType: COMBAT_TYPE_MELEE,
+      element: ELEMENT_ICE,
+    },
+    {
+      type: EFFECT_GAIN_BLOCK,
+      amount: 3,
+      element: ELEMENT_ICE,
+    },
+  ],
+};
+
+/**
  * Thugs' Attack ability effect.
  * Compound: Attack 3 Physical (melee) + Reputation -1 (immediate).
  * Per FAQ: reputation change is immediate, not at end of turn.
@@ -621,6 +648,7 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [SCOUTS_SCOUT_PEEK]: SCOUTS_SCOUT_PEEK_EFFECT,
   [SCOUTS_EXTENDED_MOVE]: SCOUTS_EXTENDED_MOVE_EFFECT,
   [UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK]: UTEM_CROSSBOWMEN_ATTACK_OR_BLOCK_EFFECT,
+  [ICE_GOLEMS_ATTACK_OR_BLOCK]: ICE_GOLEMS_ATTACK_OR_BLOCK_EFFECT,
   [THUGS_ATTACK]: THUGS_ATTACK_EFFECT,
   [THUGS_INFLUENCE]: THUGS_INFLUENCE_EFFECT,
   [SHOCKTROOPS_COORDINATED_FIRE]: SHOCKTROOPS_COORDINATED_FIRE_EFFECT,
