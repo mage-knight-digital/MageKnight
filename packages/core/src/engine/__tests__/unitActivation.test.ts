@@ -871,7 +871,7 @@ describe("Unit Combat Abilities", () => {
 
   describe("Mana-powered abilities", () => {
     it("should allow free ability without mana source", () => {
-      // Fire Golems have Attack 3 Fire (free) at index 0
+      // Fire Golems have Attack 3 physical (free) at index 0 - Attack OR Block choice
       const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
       const player = createTestPlayer({
         units: [unit],
@@ -886,7 +886,7 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "fire_golem_1",
-        abilityIndex: 0, // Attack 3 Fire (free)
+        abilityIndex: 0, // Attack 3 physical (free)
       });
 
       // Should succeed
@@ -895,7 +895,7 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should reject powered ability without mana source", () => {
-      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      // Fire Golems have Ranged Fire Attack 4 (requires red mana) at index 2
       const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
       const player = createTestPlayer({
         units: [unit],
@@ -911,7 +911,7 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "fire_golem_1",
-        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        abilityIndex: 2, // Ranged Fire Attack 4 (requires red mana)
         // No manaSource provided
       });
 
@@ -925,7 +925,7 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should allow powered ability with mana token", () => {
-      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      // Fire Golems have Ranged Fire Attack 4 (requires red mana) at index 2
       const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
       const player = createTestPlayer({
         units: [unit],
@@ -941,12 +941,13 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "fire_golem_1",
-        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        abilityIndex: 2, // Ranged Fire Attack 4 (requires red mana)
         manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
       });
 
-      // Should succeed
-      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(5);
+      // Should succeed - ranged fire attack adds to ranged pool
+      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(4);
+      expect(result.state.players[0].combatAccumulator.attack.rangedElements.fire).toBe(4);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
       // Mana token should be consumed
       expect(result.state.players[0].pureMana.length).toBe(0);
@@ -981,7 +982,7 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should allow powered ability with mana die", () => {
-      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      // Fire Golems have Ranged Fire Attack 4 (requires red mana) at index 2
       const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
       const player = createTestPlayer({
         units: [unit],
@@ -1000,19 +1001,20 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "fire_golem_1",
-        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        abilityIndex: 2, // Ranged Fire Attack 4 (requires red mana)
         manaSource: { type: MANA_SOURCE_DIE, color: MANA_RED, dieId: "die_0" },
       });
 
-      // Should succeed
-      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(5);
+      // Should succeed - ranged fire attack
+      expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(4);
+      expect(result.state.players[0].combatAccumulator.attack.rangedElements.fire).toBe(4);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
       // Die should be in used list
       expect(result.state.players[0].usedDieIds).toContain("die_0");
     });
 
     it("should reject powered ability with wrong mana color", () => {
-      // Fire Golems need red mana, but we provide blue
+      // Fire Golems Ranged Fire Attack 4 needs red mana, but we provide blue
       const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
       const player = createTestPlayer({
         units: [unit],
@@ -1028,7 +1030,7 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "fire_golem_1",
-        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        abilityIndex: 2, // Ranged Fire Attack 4 (requires red mana)
         manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_BLUE },
       });
 
@@ -1039,7 +1041,7 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should reject powered ability when no mana available", () => {
-      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      // Fire Golems have Ranged Fire Attack 4 (requires red mana) at index 2
       const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
       const player = createTestPlayer({
         units: [unit],
@@ -1057,7 +1059,7 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "fire_golem_1",
-        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        abilityIndex: 2, // Ranged Fire Attack 4 (requires red mana)
         manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
       });
 
@@ -1068,7 +1070,7 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should track mana used this turn for powered abilities", () => {
-      // Fire Golems have Attack 5 Fire (requires red mana) at index 2
+      // Fire Golems have Ranged Fire Attack 4 (requires red mana) at index 2
       const unit = createPlayerUnit(UNIT_FIRE_GOLEMS, "fire_golem_1");
       const player = createTestPlayer({
         units: [unit],
@@ -1084,7 +1086,7 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "fire_golem_1",
-        abilityIndex: 2, // Attack 5 Fire (requires red mana)
+        abilityIndex: 2, // Ranged Fire Attack 4 (requires red mana)
         manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
       });
 
