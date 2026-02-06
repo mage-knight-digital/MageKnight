@@ -14,6 +14,7 @@ import {
   ABILITY_FORTIFIED,
   MANA_BLUE,
   MANA_GREEN,
+  MANA_RED,
   MANA_WHITE,
   RESIST_FIRE,
   RESIST_ICE,
@@ -38,6 +39,7 @@ import {
   EFFECT_APPLY_MODIFIER,
   EFFECT_SCOUT_PEEK,
   EFFECT_WOUND_ACTIVATING_UNIT,
+  EFFECT_ALTEM_MAGES_COLD_FIRE,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -52,11 +54,14 @@ import {
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_RULE_OVERRIDE,
   EFFECT_UNIT_ATTACK_BONUS,
+  EFFECT_TRANSFORM_ATTACKS_COLD_FIRE,
+  EFFECT_ADD_SIEGE_TO_ATTACKS,
   ELEMENT_ICE,
   ENEMY_STAT_ARMOR,
   ENEMY_STAT_ATTACK,
   RULE_EXTENDED_EXPLORE,
   SCOPE_ALL_UNITS,
+  SCOPE_SELF,
 } from "../types/modifierConstants.js";
 
 // =============================================================================
@@ -172,6 +177,29 @@ export const THUGS_INFLUENCE = "thugs_influence" as const;
  */
 export const ALTEM_GUARDIANS_GRANT_RESISTANCES =
   "altem_guardians_grant_resistances" as const;
+
+/**
+ * Altem Mages: Ability 1 (free, non-combat)
+ * Gain 2 mana tokens of any colors (player chooses each independently).
+ */
+export const ALTEM_MAGES_GAIN_TWO_MANA =
+  "altem_mages_gain_two_mana" as const;
+
+/**
+ * Altem Mages: Ability 2 (free, combat)
+ * Cold Fire Attack 5 OR Cold Fire Block 5.
+ * Scaling: +blue = 7, +red = 7, +both = 9.
+ */
+export const ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK =
+  "altem_mages_cold_fire_attack_or_block" as const;
+
+/**
+ * Altem Mages: Ability 3 (black mana, combat)
+ * Choose: All attacks become Cold Fire this combat,
+ * OR all attacks gain Siege in addition to existing types.
+ */
+export const ALTEM_MAGES_ATTACK_MODIFIER =
+  "altem_mages_attack_modifier" as const;
 
 // =============================================================================
 // EFFECT DEFINITIONS
@@ -626,6 +654,82 @@ const ALTEM_GUARDIANS_GRANT_RESISTANCES_EFFECT: CardEffect = {
 };
 
 // =============================================================================
+// ALTEM MAGES EFFECTS
+// =============================================================================
+
+/**
+ * Altem Mages' Ability 1: Gain 2 mana tokens of any colors.
+ * Two sequential choices, each offering all four basic mana colors.
+ * Uses compound + choice pattern for independent selections.
+ */
+const ALTEM_MAGES_GAIN_TWO_MANA_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    {
+      type: EFFECT_CHOICE,
+      options: [
+        { type: EFFECT_GAIN_MANA, color: MANA_RED },
+        { type: EFFECT_GAIN_MANA, color: MANA_BLUE },
+        { type: EFFECT_GAIN_MANA, color: MANA_GREEN },
+        { type: EFFECT_GAIN_MANA, color: MANA_WHITE },
+      ],
+    },
+    {
+      type: EFFECT_CHOICE,
+      options: [
+        { type: EFFECT_GAIN_MANA, color: MANA_RED },
+        { type: EFFECT_GAIN_MANA, color: MANA_BLUE },
+        { type: EFFECT_GAIN_MANA, color: MANA_GREEN },
+        { type: EFFECT_GAIN_MANA, color: MANA_WHITE },
+      ],
+    },
+  ],
+};
+
+/**
+ * Altem Mages' Ability 2: Cold Fire Attack OR Block 5.
+ * Base value 5 with optional mana scaling:
+ * +blue OR +red = 7, +both = 9.
+ *
+ * Uses the EFFECT_ALTEM_MAGES_COLD_FIRE custom effect type
+ * which dynamically generates choices based on available mana.
+ */
+const ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_ALTEM_MAGES_COLD_FIRE,
+  baseValue: 5,
+  boostPerMana: 2,
+};
+
+/**
+ * Altem Mages' Ability 3: Attack modifier (costs black mana).
+ * Choose one:
+ * 1. All attacks become Cold Fire this combat
+ * 2. All attacks gain Siege in addition to existing types
+ *
+ * Uses SCOPE_SELF since it only affects the activating player's attacks.
+ * DURATION_COMBAT ensures it expires when combat ends.
+ */
+const ALTEM_MAGES_ATTACK_MODIFIER_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_APPLY_MODIFIER,
+      modifier: { type: EFFECT_TRANSFORM_ATTACKS_COLD_FIRE },
+      duration: DURATION_COMBAT,
+      scope: { type: SCOPE_SELF },
+      description: "All attacks become Cold Fire this combat",
+    },
+    {
+      type: EFFECT_APPLY_MODIFIER,
+      modifier: { type: EFFECT_ADD_SIEGE_TO_ATTACKS },
+      duration: DURATION_COMBAT,
+      scope: { type: SCOPE_SELF },
+      description: "All attacks gain Siege this combat",
+    },
+  ],
+};
+
+// =============================================================================
 // REGISTRY
 // =============================================================================
 
@@ -655,6 +759,9 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [SHOCKTROOPS_WEAKEN_ENEMY]: SHOCKTROOPS_WEAKEN_ENEMY_EFFECT,
   [SHOCKTROOPS_TAUNT]: SHOCKTROOPS_TAUNT_EFFECT,
   [ALTEM_GUARDIANS_GRANT_RESISTANCES]: ALTEM_GUARDIANS_GRANT_RESISTANCES_EFFECT,
+  [ALTEM_MAGES_GAIN_TWO_MANA]: ALTEM_MAGES_GAIN_TWO_MANA_EFFECT,
+  [ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK]: ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK_EFFECT,
+  [ALTEM_MAGES_ATTACK_MODIFIER]: ALTEM_MAGES_ATTACK_MODIFIER_EFFECT,
 };
 
 /**

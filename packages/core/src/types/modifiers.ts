@@ -40,6 +40,8 @@ import {
   EFFECT_UNIT_ATTACK_BONUS,
   EFFECT_DISEASE_ARMOR,
   EFFECT_CURE_ACTIVE,
+  EFFECT_TRANSFORM_ATTACKS_COLD_FIRE,
+  EFFECT_ADD_SIEGE_TO_ATTACKS,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -305,6 +307,20 @@ export interface CureActiveModifier {
   readonly type: typeof EFFECT_CURE_ACTIVE;
 }
 
+// Transform attacks to Cold Fire modifier (Altem Mages black mana ability option 1)
+// All attacks played by this player become Cold Fire element for the rest of combat.
+// Applied at accumulation time: new attacks are stored as Cold Fire regardless of original element.
+export interface TransformAttacksColdFireModifier {
+  readonly type: typeof EFFECT_TRANSFORM_ATTACKS_COLD_FIRE;
+}
+
+// Add Siege to attacks modifier (Altem Mages black mana ability option 2)
+// All attacks played by this player also count as Siege for the rest of combat.
+// Applied at accumulation time: melee/ranged attacks are duplicated into siege pool.
+export interface AddSiegeToAttacksModifier {
+  readonly type: typeof EFFECT_ADD_SIEGE_TO_ATTACKS;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -328,7 +344,9 @@ export type ModifierEffect =
   | ScoutFameBonusModifier
   | UnitAttackBonusModifier
   | DiseaseArmorModifier
-  | CureActiveModifier;
+  | CureActiveModifier
+  | TransformAttacksColdFireModifier
+  | AddSiegeToAttacksModifier;
 
 // === Active Modifier (live in game state) ===
 

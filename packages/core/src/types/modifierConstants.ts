@@ -166,3 +166,15 @@ export const EFFECT_DISEASE_ARMOR = "disease_armor" as const;
 // and future unit healing also readies the unit.
 export const EFFECT_CURE_ACTIVE = "cure_active" as const;
 
+// === TransformAttacksToColdFireModifier ===
+// All attacks played by this player become Cold Fire element this combat.
+// Applied by Altem Mages' black mana ability (option 1).
+// Only affects attacks played AFTER activation (transforms at accumulation time).
+export const EFFECT_TRANSFORM_ATTACKS_COLD_FIRE = "transform_attacks_cold_fire" as const;
+
+// === AddSiegeToAttacksModifier ===
+// All attacks played by this player also count as Siege this combat.
+// Applied by Altem Mages' black mana ability (option 2).
+// Only affects attacks played AFTER activation (adds siege copy at accumulation time).
+export const EFFECT_ADD_SIEGE_TO_ATTACKS = "add_siege_to_attacks" as const;
+
