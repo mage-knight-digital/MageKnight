@@ -59,6 +59,7 @@ import {
   EFFECT_ADD_SIEGE_TO_ATTACKS,
   ELEMENT_FIRE,
   ELEMENT_ICE,
+  ELEMENT_COLD_FIRE,
   ENEMY_STAT_ARMOR,
   ENEMY_STAT_ATTACK,
   RULE_EXTENDED_EXPLORE,
@@ -214,6 +215,21 @@ export const ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK =
  */
 export const ALTEM_MAGES_ATTACK_MODIFIER =
   "altem_mages_attack_modifier" as const;
+
+/**
+ * Hero (Blue/Ice): Attack OR Block 5 (choice, physical).
+ */
+export const HERO_BLUE_ATTACK_OR_BLOCK = "hero_blue_attack_or_block" as const;
+
+/**
+ * Hero (Blue/Ice): Influence 5 + Reputation +1 when used in interaction.
+ */
+export const HERO_BLUE_INFLUENCE_REP = "hero_blue_influence_rep" as const;
+
+/**
+ * Hero (Blue/Ice): (Blue Mana) Cold Fire Block 8.
+ */
+export const HERO_BLUE_COLD_FIRE_BLOCK = "hero_blue_cold_fire_block" as const;
 
 // =============================================================================
 // EFFECT DEFINITIONS
@@ -806,6 +822,50 @@ const ALTEM_MAGES_ATTACK_MODIFIER_EFFECT: CardEffect = {
 };
 
 // =============================================================================
+// HERO (BLUE/ICE) EFFECTS
+// =============================================================================
+
+/**
+ * Hero (Blue/Ice): Attack 5 OR Block 5 (choice, physical).
+ * Shared ability for all Heroes - player chooses one.
+ */
+const HERO_BLUE_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 5,
+      combatType: COMBAT_TYPE_MELEE,
+    },
+    {
+      type: EFFECT_GAIN_BLOCK,
+      amount: 5,
+    },
+  ],
+};
+
+/**
+ * Hero (Blue/Ice): Influence 5 + Reputation +1 when used in interaction.
+ * Per rulebook: Influence 5 grants +1 Reputation when used in interaction.
+ */
+const HERO_BLUE_INFLUENCE_REP_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    { type: EFFECT_GAIN_INFLUENCE, amount: 5 },
+    { type: EFFECT_CHANGE_REPUTATION, amount: 1 },
+  ],
+};
+
+/**
+ * Hero (Blue/Ice): (Blue Mana) Cold Fire Block 8.
+ */
+const HERO_BLUE_COLD_FIRE_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_GAIN_BLOCK,
+  amount: 8,
+  element: ELEMENT_COLD_FIRE,
+};
+
+// =============================================================================
 // REGISTRY
 // =============================================================================
 
@@ -841,6 +901,9 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK]: ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK_EFFECT,
   [ALTEM_MAGES_ATTACK_MODIFIER]: ALTEM_MAGES_ATTACK_MODIFIER_EFFECT,
   [AMOTEP_FREEZERS_FREEZE]: AMOTEP_FREEZERS_FREEZE_EFFECT,
+  [HERO_BLUE_ATTACK_OR_BLOCK]: HERO_BLUE_ATTACK_OR_BLOCK_EFFECT,
+  [HERO_BLUE_INFLUENCE_REP]: HERO_BLUE_INFLUENCE_REP_EFFECT,
+  [HERO_BLUE_COLD_FIRE_BLOCK]: HERO_BLUE_COLD_FIRE_BLOCK_EFFECT,
 };
 
 /**

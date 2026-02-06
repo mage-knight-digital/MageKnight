@@ -81,6 +81,7 @@ export {
 // =============================================================================
 
 export type { UnitId } from "./ids.js";
+export { HERO_UNIT_IDS, isHeroUnitId } from "./ids.js";
 
 // Regular unit IDs
 export {
@@ -109,6 +110,7 @@ export {
   UNIT_AMOTEP_GUNNERS,
   UNIT_AMOTEP_FREEZERS,
   UNIT_HEROES,
+  UNIT_HERO_BLUE,
   UNIT_ALTEM_MAGES,
   UNIT_ALTEM_GUARDIANS,
   UNIT_DELPHANA_MASTERS,

@@ -26,7 +26,7 @@ import {
   UNIT_ABILITY_BRUTAL,
   UNIT_ABILITY_POISON,
   UNIT_ABILITY_PARALYZE,
-  UNIT_HEROES,
+  isHeroUnitId,
 } from "@mage-knight/shared";
 import {
   PLAYER_NOT_FOUND,
@@ -48,6 +48,8 @@ import {
   THUGS_DAMAGE_INFLUENCE_NOT_PAID,
 } from "../validationCodes.js";
 import { validateSingleManaSource } from "../mana/sourceValidators.js";
+import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
+import { EFFECT_GAIN_BLOCK } from "../../../types/effectTypes.js";
 import { canPayForMana } from "../../validActions/mana.js";
 import type { ManaColor } from "@mage-knight/shared";
 import {
@@ -239,12 +241,26 @@ export function validateAbilityMatchesPhase(
       }
       break;
 
-    case UNIT_ABILITY_EFFECT:
+    case UNIT_ABILITY_EFFECT: {
       // Effect-based abilities check the requiresCombat flag
       // If requiresCombat is false, any phase is valid (non-combat effect like mana generation)
-      // If requiresCombat is true (default), follow ranged rules (most effect abilities target enemies)
+      // If requiresCombat is true (default), allow Ranged/Siege, Attack, or Block (for block-only effects)
       if (ability.requiresCombat !== false) {
-        if (phase !== COMBAT_PHASE_RANGED_SIEGE && phase !== COMBAT_PHASE_ATTACK) {
+        const effect = ability.effectId
+          ? getUnitAbilityEffect(ability.effectId)
+          : undefined;
+        const isBlockOnlyEffect = effect?.type === EFFECT_GAIN_BLOCK;
+        if (isBlockOnlyEffect) {
+          if (phase !== COMBAT_PHASE_BLOCK) {
+            return invalid(
+              WRONG_PHASE_FOR_ABILITY,
+              "Block abilities can only be used in Block phase"
+            );
+          }
+        } else if (
+          phase !== COMBAT_PHASE_RANGED_SIEGE &&
+          phase !== COMBAT_PHASE_ATTACK
+        ) {
           return invalid(
             WRONG_PHASE_FOR_ABILITY,
             "Ranged/Siege abilities can only be used in Ranged & Siege or Attack phase"
@@ -252,6 +268,7 @@ export function validateAbilityMatchesPhase(
         }
       }
       break;
+    }
 
     case UNIT_ABILITY_BLOCK:
       if (phase !== COMBAT_PHASE_BLOCK) {
@@ -492,8 +509,8 @@ export function validateHeroesAssaultRestriction(
   const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
   if (!unit) return valid(); // Other validator handles
 
-  // Only applies to Heroes unit type
-  if (unit.unitId !== UNIT_HEROES) {
+  // Only applies to Hero unit types (Heroes and Hero Blue, etc.)
+  if (!isHeroUnitId(unit.unitId)) {
     return valid();
   }
 
