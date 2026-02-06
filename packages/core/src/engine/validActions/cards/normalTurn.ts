@@ -83,7 +83,7 @@ export function getPlayableCardsForNormalTurn(
       continue;
     }
 
-    const playability = getCardPlayabilityForNormalTurn(state, player.id, card);
+    const playability = getCardPlayabilityForNormalTurn(state, player, card);
 
     // For spells, basic effect also requires mana (the spell's color)
     const spellBasicManaAvailable = card.cardType === DEED_CARD_TYPE_SPELL
@@ -136,12 +136,12 @@ export function getPlayableCardsForNormalTurn(
  */
 function getCardPlayabilityForNormalTurn(
   state: GameState,
-  playerId: string,
+  player: Player,
   card: DeedCard
 ): CardPlayability {
   const basicHasUsefulEffect = isNormalEffectAllowed(card.basicEffect, "basic");
 
-  const basicIsResolvable = isEffectResolvable(state, playerId, card.basicEffect);
+  const basicIsResolvable = isEffectResolvable(state, player.id, card.basicEffect);
 
   // Check if powered effect has a useful effect type AND is resolvable
   const poweredHasUsefulEffect = isNormalEffectAllowed(
@@ -149,11 +149,21 @@ function getCardPlayabilityForNormalTurn(
     "powered"
   );
 
-  const poweredIsResolvable = isEffectResolvable(state, playerId, card.poweredEffect);
+  const poweredIsResolvable = isEffectResolvable(state, player.id, card.poweredEffect);
+
+  // Calculate effective sideways value (accounts for skill modifiers like I Don't Give a Damn)
+  const effectiveSidewaysValue = getEffectiveSidewaysValue(
+    state,
+    player.id,
+    false,
+    player.usedManaFromSource,
+    undefined,
+    card.cardType
+  );
 
   // Sideways options for normal turn: move or influence (always available)
   const sidewaysOptions: SidewaysOption[] = [
-    ...getSidewaysOptionsForValue(card.sidewaysValue, { inCombat: false }),
+    ...getSidewaysOptionsForValue(effectiveSidewaysValue, { inCombat: false }),
   ];
 
   return {

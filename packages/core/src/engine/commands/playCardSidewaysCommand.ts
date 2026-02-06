@@ -31,6 +31,7 @@ import {
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_ARYTHEA_POWER_OF_PAIN,
 } from "../../data/skills/index.js";
+import { getCard } from "../helpers/cardLookup.js";
 
 export { PLAY_CARD_SIDEWAYS_COMMAND };
 
@@ -214,6 +215,7 @@ export function createPlayCardSidewaysCommand(
       }
 
       const isWound = params.cardId === CARD_WOUND;
+      const cardDef = getCard(params.cardId as string);
 
       // Calculate effective sideways value (usually 1, can be modified)
       appliedValue = getEffectiveSidewaysValue(
@@ -221,7 +223,8 @@ export function createPlayCardSidewaysCommand(
         params.playerId,
         isWound,
         player.usedManaFromSource,
-        undefined // manaColorMatchesCard not applicable for sideways
+        undefined, // manaColorMatchesCard not applicable for sideways
+        cardDef?.cardType
       );
 
       const movementBonusModifierIdsBefore = new Set(

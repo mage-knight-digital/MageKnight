@@ -109,7 +109,7 @@ export function getPlayableCardsForCombat(
       ? { effect: null, allowAnyPhase: false }
       : poweredContext;
 
-    const playability = getCardPlayabilityForPhase(card, combat.phase, adjustedBasicContext, adjustedPoweredContext, moveCardsAllowed);
+    const playability = getCardPlayabilityForPhase(state, player, card, combat.phase, adjustedBasicContext, adjustedPoweredContext, moveCardsAllowed);
 
     // Check resolvability - effect must actually be able to do something
     const basicIsResolvable = adjustedBasicContext.effect
@@ -168,6 +168,8 @@ export function getPlayableCardsForCombat(
  * Determine if a card can be played in a specific combat phase.
  */
 function getCardPlayabilityForPhase(
+  state: GameState,
+  player: Player,
   card: DeedCard,
   phase: CombatPhase,
   basicContext: CombatEffectContext,
@@ -190,8 +192,18 @@ function getCardPlayabilityForPhase(
     moveCardsAllowed
   );
 
+  // Calculate effective sideways value (accounts for skill modifiers)
+  const effectiveSidewaysValue = getEffectiveSidewaysValue(
+    state,
+    player.id,
+    false,
+    player.usedManaFromSource,
+    undefined,
+    card.cardType
+  );
+
   const sidewaysOptions: SidewaysOption[] = [
-    ...getSidewaysOptionsForValue(card.sidewaysValue, {
+    ...getSidewaysOptionsForValue(effectiveSidewaysValue, {
       inCombat: true,
       phase,
     }),

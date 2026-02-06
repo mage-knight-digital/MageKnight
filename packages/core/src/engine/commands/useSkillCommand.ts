@@ -27,6 +27,7 @@ import {
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_TOVAK_I_FEEL_NO_PAIN,
+  SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
   SKILL_ARYTHEA_POLARIZATION,
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_ARYTHEA_POWER_OF_PAIN,
@@ -45,6 +46,8 @@ import {
   removePowerOfPainEffect,
   applyInvocationEffect,
   removeInvocationEffect,
+  applyIDontGiveADamnEffect,
+  removeIDontGiveADamnEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import {
@@ -109,6 +112,9 @@ function applyCustomSkillEffect(
     case SKILL_TOVAK_I_FEEL_NO_PAIN:
       return applyIFeelNoPainEffect(state, playerId);
 
+    case SKILL_TOVAK_I_DONT_GIVE_A_DAMN:
+      return applyIDontGiveADamnEffect(state, playerId);
+
     case SKILL_ARYTHEA_POLARIZATION:
       return applyPolarizationEffect(state, playerId);
 
@@ -145,6 +151,9 @@ function removeCustomSkillEffect(
     case SKILL_TOVAK_I_FEEL_NO_PAIN:
       return removeIFeelNoPainEffect(state, playerId);
 
+    case SKILL_TOVAK_I_DONT_GIVE_A_DAMN:
+      return removeIDontGiveADamnEffect(state, playerId);
+
     case SKILL_ARYTHEA_POLARIZATION:
       return removePolarizationEffect(state, playerId);
 
@@ -167,6 +176,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_TOVAK_WHO_NEEDS_MAGIC,
     SKILL_TOVAK_SHIELD_MASTERY,
     SKILL_TOVAK_I_FEEL_NO_PAIN,
+    SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
     SKILL_ARYTHEA_POLARIZATION,
     SKILL_ARYTHEA_POWER_OF_PAIN,
     SKILL_ARYTHEA_INVOCATION,
