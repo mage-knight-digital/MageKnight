@@ -14,6 +14,7 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_DISCARD_COST,
+  EFFECT_PURE_MAGIC,
 } from "../../../types/effectTypes.js";
 import {
   COMBAT_TYPE_RANGED,
@@ -60,6 +61,7 @@ export function effectHasBlock(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_BLOCK:
     case EFFECT_TERRAIN_BASED_BLOCK:
+    case EFFECT_PURE_MAGIC: // Pure Magic can provide Block (via blue mana)
       return true;
 
     case EFFECT_CHOICE:
@@ -164,6 +166,7 @@ function effectHasSiegeAttack(effect: CardEffect): boolean {
 export function effectHasAttack(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_ATTACK:
+    case EFFECT_PURE_MAGIC: // Pure Magic can provide Attack (via red mana)
       return true;
 
     case EFFECT_CHOICE:

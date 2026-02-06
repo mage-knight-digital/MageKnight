@@ -78,6 +78,7 @@ import {
   EFFECT_MANA_RADIANCE,
   EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
   EFFECT_ALTEM_MAGES_COLD_FIRE,
+  EFFECT_PURE_MAGIC,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -921,6 +922,18 @@ export interface AltemMagesColdFireEffect {
   readonly boostPerMana: number;
 }
 
+/**
+ * Pure Magic mana-payment-driven effect.
+ * Player pays 1 basic mana token and the color determines the effect:
+ * Green → Move, White → Influence, Blue → Block, Red → Attack.
+ * Blue/Red are only available during combat.
+ * Value differs between basic and powered modes.
+ */
+export interface PureMagicEffect {
+  readonly type: typeof EFFECT_PURE_MAGIC;
+  readonly value: number;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -984,7 +997,8 @@ export type CardEffect =
   | ResolveManaMeltdownChoiceEffect
   | ManaRadianceEffect
   | ResolveManaRadianceColorEffect
-  | AltemMagesColdFireEffect;
+  | AltemMagesColdFireEffect
+  | PureMagicEffect;
 
 // === Card Definition ===
 

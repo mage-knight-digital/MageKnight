@@ -257,6 +257,11 @@ export {
   registerAltemMagesEffects,
 } from "./altemMagesEffects.js";
 
+// Pure Magic effects (mana-color-driven effect selection)
+export {
+  registerPureMagicEffects,
+} from "./pureMagicEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 
