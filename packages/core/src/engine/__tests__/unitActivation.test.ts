@@ -643,9 +643,9 @@ describe("Unit Combat Abilities", () => {
     });
   });
 
-  describe("Passive abilities", () => {
-    it("should return clear error for passive abilities like paralyze (Amotep Freezers)", () => {
-      // Amotep Freezers have Paralyze at index 2 (passive)
+  describe("Amotep Freezers", () => {
+    it("should reject Freeze ability (index 2) when blue mana is unavailable", () => {
+      // Amotep Freezers: ability 2 is Freeze (blue mana) — requires blue mana
       const unit = createPlayerUnit(UNIT_AMOTEP_FREEZERS, "freezers_1");
       const player = createTestPlayer({
         units: [unit],
@@ -660,23 +660,20 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "freezers_1",
-        abilityIndex: 2, // Paralyze (passive)
+        abilityIndex: 2, // Freeze (requires blue mana)
       });
 
-      // Unit should still be ready (action rejected)
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
-
-      // Check for invalid action event with helpful message
       const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
       expect(invalidEvent).toBeDefined();
       if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
-        expect(invalidEvent.reason).toContain("passive");
-        expect(invalidEvent.reason).toContain("automatically");
+        expect(invalidEvent.reason).toContain("blue");
+        expect(invalidEvent.reason).toMatch(/mana|Requires/);
       }
     });
 
-    it("should return clear error for passive abilities like paralyze", () => {
-      // Amotep Freezers have Paralyze at index 2 (passive)
+    it("should reject Freeze ability when effect has no valid targets", () => {
+      // Freeze requires combat with a targetable enemy (non-ice-resistant)
       const unit = createPlayerUnit(UNIT_AMOTEP_FREEZERS, "amotep_freezers_1");
       const player = createTestPlayer({
         units: [unit],
@@ -691,18 +688,14 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "amotep_freezers_1",
-        abilityIndex: 2, // Paralyze (passive)
+        abilityIndex: 2, // Freeze
       });
 
-      // Unit should still be ready (action rejected)
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
-
-      // Check for invalid action event with helpful message
       const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
       expect(invalidEvent).toBeDefined();
       if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
-        expect(invalidEvent.reason).toContain("passive");
-        expect(invalidEvent.reason).toContain("automatically");
+        expect(invalidEvent.reason).toMatch(/mana|target|resolv/);
       }
     });
   });

@@ -12,6 +12,7 @@
 
 import {
   ABILITY_FORTIFIED,
+  AMOTEP_FREEZERS_FREEZE,
   MANA_BLUE,
   MANA_GREEN,
   MANA_RED,
@@ -360,6 +361,35 @@ const ILLUSIONISTS_CANCEL_ATTACK_EFFECT: CardEffect = {
 const ILLUSIONISTS_GAIN_WHITE_CRYSTAL_EFFECT: CardEffect = {
   type: EFFECT_GAIN_CRYSTAL,
   color: MANA_WHITE,
+};
+
+/**
+ * Amotep Freezers' Freeze ability (blue mana).
+ * Target enemy does not attack this combat and gets Armor -3 (min 1).
+ * No effect on Ice Resistant enemies (excludeResistance: RESIST_ICE).
+ */
+const AMOTEP_FREEZERS_FREEZE_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  excludeResistance: RESIST_ICE,
+  template: {
+    modifiers: [
+      {
+        modifier: { type: EFFECT_ENEMY_SKIP_ATTACK },
+        duration: DURATION_COMBAT,
+        description: "Target enemy does not attack",
+      },
+      {
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -3,
+          minimum: 1,
+        },
+        duration: DURATION_COMBAT,
+        description: "Target enemy gets Armor -3",
+      },
+    ],
+  },
 };
 
 /**
@@ -762,6 +792,7 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [ALTEM_MAGES_GAIN_TWO_MANA]: ALTEM_MAGES_GAIN_TWO_MANA_EFFECT,
   [ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK]: ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK_EFFECT,
   [ALTEM_MAGES_ATTACK_MODIFIER]: ALTEM_MAGES_ATTACK_MODIFIER_EFFECT,
+  [AMOTEP_FREEZERS_FREEZE]: AMOTEP_FREEZERS_FREEZE_EFFECT,
 };
 
 /**
