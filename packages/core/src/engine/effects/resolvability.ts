@@ -82,6 +82,10 @@ import {
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   EFFECT_CURE,
   EFFECT_DISEASE,
+  EFFECT_MANA_MELTDOWN,
+  EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE,
+  EFFECT_MANA_RADIANCE,
+  EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -423,6 +427,18 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
     // Disease is resolvable only in combat
     return state.combat !== null;
   },
+
+  // Mana Meltdown is always resolvable (opponents get wounds if no crystals)
+  [EFFECT_MANA_MELTDOWN]: () => true,
+
+  // Mana Meltdown choice is always resolvable (it's a gain crystal action)
+  [EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE]: () => true,
+
+  // Mana Radiance is always resolvable (always 4 color choices)
+  [EFFECT_MANA_RADIANCE]: () => true,
+
+  // Mana Radiance color resolution is always resolvable
+  [EFFECT_RESOLVE_MANA_RADIANCE_COLOR]: () => true,
 };
 
 // ============================================================================

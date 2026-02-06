@@ -102,6 +102,7 @@ export const CARD_MYSTERIOUS_BOX = cardId("mysterious_box");
 export const CARD_FIREBALL = cardId("fireball"); // #09 - Fire Ranged Attack 5 / Siege Fire Attack 8
 export const CARD_FLAME_WALL = cardId("flame_wall"); // #10 - Fire Attack 5 or Fire Block 7
 export const CARD_TREMOR = cardId("tremor"); // #11 - Target/All Armor reduction
+export const CARD_MANA_MELTDOWN = cardId("mana_meltdown"); // #109 - Random crystal loss / Color wound + gain crystals
 
 // Blue spells
 export const CARD_SNOWSTORM = cardId("snowstorm"); // #15 - Ice Ranged Attack 5 / Siege Ice Attack 8
@@ -162,6 +163,7 @@ export type SpellCardId =
   | typeof CARD_FIREBALL
   | typeof CARD_FLAME_WALL
   | typeof CARD_TREMOR
+  | typeof CARD_MANA_MELTDOWN
   // Blue spells
   | typeof CARD_SNOWSTORM
   | typeof CARD_CHILL
