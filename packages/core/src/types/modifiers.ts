@@ -43,6 +43,7 @@ import {
   EFFECT_CURE_ACTIVE,
   EFFECT_TRANSFORM_ATTACKS_COLD_FIRE,
   EFFECT_ADD_SIEGE_TO_ATTACKS,
+  EFFECT_BURNING_SHIELD_ACTIVE,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -324,6 +325,18 @@ export interface AddSiegeToAttacksModifier {
   readonly type: typeof EFFECT_ADD_SIEGE_TO_ATTACKS;
 }
 
+// Burning Shield active modifier (Burning Shield / Exploding Shield spell)
+// Tracks that the spell is active during this combat's Block phase.
+// On first successful block, triggers a bonus based on mode:
+// - "attack": grants Fire Attack 4 in Attack phase
+// - "destroy": destroys the blocked enemy (respects Fire/Arcane resistances, no fame for summoned)
+export interface BurningShieldActiveModifier {
+  readonly type: typeof EFFECT_BURNING_SHIELD_ACTIVE;
+  readonly mode: "attack" | "destroy";
+  readonly blockValue: number; // The block value (4 for both basic and powered)
+  readonly attackValue: number; // Fire Attack value if mode is "attack" (4)
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -349,7 +362,8 @@ export type ModifierEffect =
   | DiseaseArmorModifier
   | CureActiveModifier
   | TransformAttacksColdFireModifier
-  | AddSiegeToAttacksModifier;
+  | AddSiegeToAttacksModifier
+  | BurningShieldActiveModifier;
 
 // === Active Modifier (live in game state) ===
 

@@ -13,7 +13,7 @@
 
 import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
-import type { BlockSource, Element } from "@mage-knight/shared";
+import type { BlockSource, Element, GameEvent } from "@mage-knight/shared";
 import {
   ENEMY_BLOCKED,
   BLOCK_FAILED,
@@ -34,6 +34,7 @@ import {
 import { getCumbersomeReducedAttack } from "../../combat/cumbersomeHelpers.js";
 import { isSwiftActive } from "../../combat/swiftHelpers.js";
 import { getColdToughnessBlockBonus } from "../../combat/coldToughnessHelpers.js";
+import { applyBurningShieldOnBlock } from "../../combat/burningShieldHelpers.js";
 
 export const DECLARE_BLOCK_COMMAND = "DECLARE_BLOCK" as const;
 
@@ -305,16 +306,36 @@ export function createDeclareBlockCommand(
         pendingSwiftBlock: remainingPendingSwiftBlock,
       };
 
+      let resultState: GameState = { ...state, players: updatedPlayers, combat: updatedCombat };
+      const resultEvents: GameEvent[] = [
+        {
+          type: ENEMY_BLOCKED,
+          enemyInstanceId: params.targetEnemyInstanceId,
+          attackIndex,
+          blockValue: effectiveBlockValue,
+        },
+      ];
+
+      // Check for Burning Shield / Exploding Shield on successful block
+      // Find the enemy in the updated state (may have updated isBlocked)
+      const updatedEnemy = updatedEnemies.find(
+        (e) => e.instanceId === params.targetEnemyInstanceId
+      );
+      if (updatedEnemy) {
+        const shieldResult = applyBurningShieldOnBlock(
+          resultState,
+          params.playerId,
+          updatedEnemy
+        );
+        if (shieldResult) {
+          resultState = shieldResult.state;
+          resultEvents.push(...shieldResult.events);
+        }
+      }
+
       return {
-        state: { ...state, players: updatedPlayers, combat: updatedCombat },
-        events: [
-          {
-            type: ENEMY_BLOCKED,
-            enemyInstanceId: params.targetEnemyInstanceId,
-            attackIndex,
-            blockValue: effectiveBlockValue,
-          },
-        ],
+        state: resultState,
+        events: resultEvents,
       };
     },
 
