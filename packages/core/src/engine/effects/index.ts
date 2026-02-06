@@ -232,6 +232,11 @@ export {
   registerEnergyFlowEffects,
 } from "./energyFlowEffects.js";
 
+// Ready units budget effects (Restoration/Rebirth spell)
+export {
+  registerReadyUnitsBudgetEffects,
+} from "./readyUnitsBudgetEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

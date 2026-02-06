@@ -61,6 +61,8 @@ import {
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
+  EFFECT_READY_UNITS_BUDGET,
+  EFFECT_RESOLVE_READY_UNIT_BUDGET,
   EFFECT_CURE,
   EFFECT_DISEASE,
   EFFECT_SCOUT_PEEK,
@@ -708,6 +710,33 @@ export interface ReadyAllUnitsEffect {
 }
 
 /**
+ * Ready units up to a total level budget (free, no influence cost).
+ * Used by Restoration/Rebirth powered spell effect.
+ *
+ * Resolution:
+ * 1. Find eligible spent units where level <= remaining budget
+ * 2. Present choices: one per eligible unit + "Done" option
+ * 3. On selection: ready unit, deduct level from budget, re-present remaining choices
+ * 4. On "Done": complete resolution
+ */
+export interface ReadyUnitsBudgetEffect {
+  readonly type: typeof EFFECT_READY_UNITS_BUDGET;
+  readonly totalLevels: number; // Budget of unit levels (e.g., 3 or 5)
+}
+
+/**
+ * Internal effect generated as a choice option for budget-based unit readying.
+ * Readies the selected unit and chains back with remaining budget.
+ */
+export interface ResolveReadyUnitBudgetEffect {
+  readonly type: typeof EFFECT_RESOLVE_READY_UNIT_BUDGET;
+  readonly unitInstanceId: string;
+  readonly unitName: string;
+  readonly unitLevel: number; // Level of the selected unit
+  readonly remainingBudget: number; // Budget remaining after readying this unit
+}
+
+/**
  * Scout peek effect (Scouts unit ability).
  * Reveals face-down enemy tokens within a distance from the player.
  * Also creates a ScoutFameBonus modifier tracking which enemies were newly revealed,
@@ -861,6 +890,8 @@ export type CardEffect =
   | ReadyUnitsForInfluenceEffect
   | ResolveReadyUnitForInfluenceEffect
   | ReadyAllUnitsEffect
+  | ReadyUnitsBudgetEffect
+  | ResolveReadyUnitBudgetEffect
   | ScoutPeekEffect
   | EnergyFlowEffect
   | ResolveEnergyFlowTargetEffect

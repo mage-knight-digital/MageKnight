@@ -173,6 +173,13 @@ export const EFFECT_DISEASE = "disease" as const;
 // Wound cards → red or black mana. Non-wound cards → white or green mana.
 export const EFFECT_INVOCATION_RESOLVE = "invocation_resolve" as const;
 
+// === Ready Units Budget Effect ===
+// Entry point for readying spent units up to a total level budget (no influence cost).
+// Used by Restoration/Rebirth powered spell effect.
+export const EFFECT_READY_UNITS_BUDGET = "ready_units_budget" as const;
+// Internal: resolve effect after unit selection for budget-based readying
+export const EFFECT_RESOLVE_READY_UNIT_BUDGET = "resolve_ready_unit_budget" as const;
+
 // === Scout Peek Effect ===
 // Reveals face-down enemy tokens within a distance from the player.
 // Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.

@@ -42,6 +42,8 @@ import {
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   EFFECT_READY_ALL_UNITS,
+  EFFECT_READY_UNITS_BUDGET,
+  EFFECT_RESOLVE_READY_UNIT_BUDGET,
   EFFECT_CURE,
   EFFECT_DISEASE,
   COMBAT_TYPE_RANGED,
@@ -52,6 +54,8 @@ import type {
   RecruitDiscountEffect,
   ReadyUnitsForInfluenceEffect,
   ResolveReadyUnitForInfluenceEffect,
+  ReadyUnitsBudgetEffect,
+  ResolveReadyUnitBudgetEffect,
   EnergyFlowEffect,
   ResolveEnergyFlowTargetEffect,
   CureEffect,
@@ -314,6 +318,16 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   },
 
   [EFFECT_READY_ALL_UNITS]: () => "Ready all Units",
+
+  [EFFECT_READY_UNITS_BUDGET]: (effect) => {
+    const e = effect as ReadyUnitsBudgetEffect;
+    return `Ready Units (up to ${e.totalLevels} levels)`;
+  },
+
+  [EFFECT_RESOLVE_READY_UNIT_BUDGET]: (effect) => {
+    const e = effect as ResolveReadyUnitBudgetEffect;
+    return `Ready ${e.unitName}`;
+  },
 
   [EFFECT_CURE]: (effect) => {
     const e = effect as CureEffect;

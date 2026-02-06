@@ -76,6 +76,8 @@ import {
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   EFFECT_READY_ALL_UNITS,
+  EFFECT_READY_UNITS_BUDGET,
+  EFFECT_RESOLVE_READY_UNIT_BUDGET,
   EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   EFFECT_CURE,
@@ -100,6 +102,8 @@ import type {
   ReadyUnitsForInfluenceEffect,
   ResolveReadyUnitForInfluenceEffect,
   ResolveEnergyFlowTargetEffect,
+  ReadyUnitsBudgetEffect,
+  ResolveReadyUnitBudgetEffect,
 } from "../../types/cards.js";
 import {
   EFFECT_RULE_OVERRIDE,
@@ -391,6 +395,23 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   [EFFECT_READY_ALL_UNITS]: (state, player) => {
     // Resolvable if player has at least one spent unit
     return player.units.some((u) => u.state === UNIT_STATE_SPENT);
+  },
+
+  [EFFECT_READY_UNITS_BUDGET]: (state, player, effect) => {
+    const e = effect as ReadyUnitsBudgetEffect;
+    // Resolvable if player has spent units with level <= totalLevels
+    return player.units.some((unit) => {
+      if (unit.state !== UNIT_STATE_SPENT) return false;
+      const unitDef = UNITS[unit.unitId];
+      return unitDef !== undefined && unitDef.level <= e.totalLevels;
+    });
+  },
+
+  [EFFECT_RESOLVE_READY_UNIT_BUDGET]: (state, player, effect) => {
+    const e = effect as ResolveReadyUnitBudgetEffect;
+    // Resolvable if the unit exists and is spent
+    const unit = player.units.find((u) => u.instanceId === e.unitInstanceId);
+    return unit !== undefined && unit.state === UNIT_STATE_SPENT;
   },
 
   [EFFECT_CURE]: (state, player) => {
