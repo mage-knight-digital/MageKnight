@@ -41,6 +41,7 @@ import { registerWoundActivatingUnitEffects } from "./woundActivatingUnitEffects
 import { registerManaMeltdownEffects } from "./manaMeltdownEffects.js";
 import { registerAltemMagesEffects } from "./altemMagesEffects.js";
 import { registerPureMagicEffects } from "./pureMagicEffects.js";
+import { registerHeroicTaleEffects } from "./heroicTaleEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -146,4 +147,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Pure Magic effects (mana-color-driven effect selection)
   registerPureMagicEffects();
+
+  // Heroic Tale effects (recruitment bonus modifier)
+  registerHeroicTaleEffects();
 }

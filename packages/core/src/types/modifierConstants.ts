@@ -178,6 +178,12 @@ export const EFFECT_TRANSFORM_ATTACKS_COLD_FIRE = "transform_attacks_cold_fire" 
 // Only affects attacks played AFTER activation (adds siege copy at accumulation time).
 export const EFFECT_ADD_SIEGE_TO_ATTACKS = "add_siege_to_attacks" as const;
 
+// === UnitRecruitmentBonusModifier ===
+// Grants reputation and/or fame bonuses each time a unit is recruited this turn.
+// Does NOT get consumed — applies to every recruitment for the rest of the turn.
+// Used by Heroic Tale card.
+export const EFFECT_RECRUITMENT_BONUS = "recruitment_bonus" as const;
+
 // === BurningShieldActiveModifier ===
 // Marks that Burning Shield/Exploding Shield spell is active this combat.
 // When a block is successfully declared against any enemy, triggers a bonus:

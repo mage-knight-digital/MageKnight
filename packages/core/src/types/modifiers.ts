@@ -28,6 +28,7 @@ import {
   EFFECT_TERRAIN_PROHIBITION,
   EFFECT_ENEMY_STAT,
   EFFECT_RECRUIT_DISCOUNT,
+  EFFECT_RECRUITMENT_BONUS,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_COLD_TOUGHNESS_BLOCK,
@@ -337,6 +338,15 @@ export interface BurningShieldActiveModifier {
   readonly attackValue: number; // Fire Attack value if mode is "attack" (4)
 }
 
+// Unit recruitment bonus modifier (Heroic Tale)
+// Grants reputation and/or fame each time a unit is recruited this turn.
+// Unlike RecruitDiscountModifier, this is NOT consumed — it triggers on every recruitment.
+export interface UnitRecruitmentBonusModifier {
+  readonly type: typeof EFFECT_RECRUITMENT_BONUS;
+  readonly reputationPerRecruit: number; // Reputation gained per recruitment (e.g., 1)
+  readonly famePerRecruit: number; // Fame gained per recruitment (e.g., 0 for basic, 1 for powered)
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -363,7 +373,8 @@ export type ModifierEffect =
   | CureActiveModifier
   | TransformAttacksColdFireModifier
   | AddSiegeToAttacksModifier
-  | BurningShieldActiveModifier;
+  | BurningShieldActiveModifier
+  | UnitRecruitmentBonusModifier;
 
 // === Active Modifier (live in game state) ===
 

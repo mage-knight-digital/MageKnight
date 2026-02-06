@@ -25,7 +25,8 @@ import {
   type UnitDefinition,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
-import { EFFECT_RECRUIT_DISCOUNT } from "../../types/modifierConstants.js";
+import { EFFECT_RECRUIT_DISCOUNT, EFFECT_RECRUITMENT_BONUS } from "../../types/modifierConstants.js";
+import type { UnitRecruitmentBonusModifier } from "../../types/modifiers.js";
 import { getModifiersForPlayer } from "../modifiers/queries.js";
 
 /**
@@ -266,4 +267,30 @@ export function getActiveRecruitDiscountModifierId(
   const modifiers = getModifiersForPlayer(state, playerId);
   const discountMod = modifiers.find((m) => m.effect.type === EFFECT_RECRUIT_DISCOUNT);
   return discountMod?.id ?? null;
+}
+
+/**
+ * Get active recruitment bonus modifiers for a player.
+ * Returns the combined reputation and fame bonuses from all active modifiers.
+ * Unlike recruit discount, these modifiers are NOT consumed — they trigger on every recruitment.
+ *
+ * Used by Heroic Tale card.
+ */
+export function getActiveRecruitmentBonus(
+  state: GameState,
+  playerId: string,
+): { reputationPerRecruit: number; famePerRecruit: number } | null {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  const bonusMods = modifiers.filter((m) => m.effect.type === EFFECT_RECRUITMENT_BONUS);
+  if (bonusMods.length === 0) return null;
+
+  let totalReputation = 0;
+  let totalFame = 0;
+  for (const mod of bonusMods) {
+    const effect = mod.effect as UnitRecruitmentBonusModifier;
+    totalReputation += effect.reputationPerRecruit;
+    totalFame += effect.famePerRecruit;
+  }
+
+  return { reputationPerRecruit: totalReputation, famePerRecruit: totalFame };
 }
