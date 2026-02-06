@@ -233,6 +233,18 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
             movementBonusAppliedAmount > 0
           );
 
+          // Handle artifact destruction for choice-based powered effects
+          if (isPowered && card.destroyOnPowered) {
+            const destructionResult = handleArtifactDestruction(
+              updatedState,
+              params.playerId,
+              params.cardId
+            );
+            updatedState = destructionResult.state;
+            const events = [...(choiceResult.events || []), ...destructionResult.events];
+            return { ...choiceResult, state: updatedState, events };
+          }
+
           return { ...choiceResult, state: updatedState };
         }
 

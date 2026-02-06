@@ -23,6 +23,11 @@ import { RESOLVE_DISCARD_COMMAND } from "./commandTypes.js";
 import { resolveEffect } from "../effects/index.js";
 import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
 import { getActionCardColor } from "../helpers/cardColor.js";
+import {
+  getChoiceOptionsFromEffect,
+  applyChoiceOutcome,
+  buildChoiceRequiredEvent,
+} from "./choice/choiceResolution.js";
 
 export { RESOLVE_DISCARD_COMMAND };
 
@@ -109,7 +114,8 @@ export function createResolveDiscardCommand(
       const eligibleCards = getCardsEligibleForDiscardCost(
         player.hand,
         pendingDiscard.filterWounds,
-        pendingDiscard.colorMatters ?? false
+        pendingDiscard.colorMatters ?? false,
+        pendingDiscard.allowNoColor ?? false
       );
       for (const cardId of params.cardIds) {
         if (!eligibleCards.includes(cardId)) {
@@ -164,6 +170,13 @@ export function createResolveDiscardCommand(
         }
         const color = getActionCardColor(discardedCardId);
         if (!color) {
+          if (pendingDiscard.allowNoColor) {
+            // Card has no action color (artifact/spell) — discard happens but no effect
+            return {
+              state: newState,
+              events,
+            };
+          }
           throw new Error(`Discarded card ${discardedCardId} is not a valid action card color`);
         }
         const colorEffect = pendingDiscard.thenEffectByColor?.[color];
@@ -181,6 +194,50 @@ export function createResolveDiscardCommand(
       );
 
       newState = effectResult.state;
+
+      // Handle case where thenEffect requires a choice (e.g., Druidic Staff blue effect)
+      if (effectResult.requiresChoice) {
+        const choiceInfo = getChoiceOptionsFromEffect(effectResult, thenEffect);
+        if (choiceInfo) {
+          const source = {
+            cardId: pendingDiscard.sourceCardId,
+            skillId: null,
+            unitInstanceId: null,
+          };
+
+          const choiceResult = applyChoiceOutcome({
+            state: newState,
+            playerId: params.playerId,
+            playerIndex,
+            options: choiceInfo.options,
+            source,
+            remainingEffects: choiceInfo.remainingEffects,
+            resolveEffect: (s, id, effect) => resolveEffect(s, id, effect),
+            handlers: {
+              onNoOptions: (s) => ({
+                state: s,
+                events,
+              }),
+              onAutoResolved: (autoResult) => ({
+                state: autoResult.state,
+                events,
+              }),
+              onPendingChoice: (stateWithChoice, options) => ({
+                state: stateWithChoice,
+                events: [
+                  ...events,
+                  buildChoiceRequiredEvent(params.playerId, source, options),
+                ],
+              }),
+            },
+          });
+
+          return {
+            state: choiceResult.state,
+            events: choiceResult.events,
+          };
+        }
+      }
 
       return {
         state: newState,
