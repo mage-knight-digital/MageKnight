@@ -14,7 +14,8 @@ import {
   UNIT_ABILITY_BLOCK,
   UNIT_ABILITY_EFFECT,
 } from "../constants.js";
-import { MANA_GREEN, UNIT_ALTEM_GUARDIANS } from "../ids.js";
+import { MANA_GREEN } from "../../ids.js";
+import { UNIT_ALTEM_GUARDIANS } from "../ids.js";
 
 const ALTEM_GUARDIANS_GRANT_RESISTANCES = "altem_guardians_grant_resistances";
 

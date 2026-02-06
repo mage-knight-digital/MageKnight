@@ -22,7 +22,11 @@ import {
   MANA_SOURCE_TOKEN,
   MANA_GREEN,
 } from "@mage-knight/shared";
-import { COMBAT_PHASE_BLOCK, createCombatState } from "../../types/combat.js";
+import {
+  COMBAT_PHASE_ATTACK,
+  COMBAT_PHASE_BLOCK,
+  createCombatState,
+} from "../../types/combat.js";
 import { getEffectiveUnitResistances } from "../modifiers/index.js";
 import { RESIST_FIRE, RESIST_ICE, RESIST_PHYSICAL } from "@mage-knight/shared";
 
@@ -91,10 +95,11 @@ describe("Altem Guardians", () => {
         pureMana: [{ color: MANA_GREEN, source: "card" }],
       });
 
+      // Effect abilities (Grant All Resistances) are valid in Ranged & Siege or Attack phase
       const baseCombat = createCombatState([ENEMY_WOLF_RIDERS]);
       const combat = {
         ...baseCombat,
-        phase: COMBAT_PHASE_BLOCK,
+        phase: COMBAT_PHASE_ATTACK,
       };
 
       let state = createTestGameState({
