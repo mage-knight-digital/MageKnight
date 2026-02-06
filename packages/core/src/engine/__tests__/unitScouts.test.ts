@@ -12,7 +12,6 @@ import { createEngine } from "../MageKnightEngine.js";
 import { createTestGameState, createTestPlayer, createTestHex } from "./testHelpers.js";
 import {
   UNIT_SCOUTS,
-  UNIT_STATE_READY,
   UNIT_STATE_SPENT,
   ACTIVATE_UNIT_ACTION,
   UNIT_ACTIVATED,
