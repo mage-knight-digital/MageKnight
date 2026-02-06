@@ -11,8 +11,10 @@ import type { Player, AccumulatedAttack } from "../../types/player.js";
 import type { Element, BlockSource, CombatType } from "@mage-knight/shared";
 import type { GainAttackEffect, GainBlockEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
-import { ELEMENT_PHYSICAL, COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE } from "@mage-knight/shared";
+import { ELEMENT_PHYSICAL, ELEMENT_COLD_FIRE, COMBAT_TYPE_RANGED, COMBAT_TYPE_SIEGE } from "@mage-knight/shared";
 import { updatePlayer, updateElementalValue } from "./atomicHelpers.js";
+import { getModifiersForPlayer } from "../modifiers/index.js";
+import { EFFECT_TRANSFORM_ATTACKS_COLD_FIRE, EFFECT_ADD_SIEGE_TO_ATTACKS } from "../../types/modifierConstants.js";
 
 // ============================================================================
 // ATTACK HELPERS
@@ -81,11 +83,31 @@ function updateAttackForType(
 // ============================================================================
 
 /**
+ * Check if a player has an active "Transform Attacks to Cold Fire" modifier.
+ */
+function hasTransformToColdFire(state: GameState, playerId: string): boolean {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  return modifiers.some((m) => m.effect.type === EFFECT_TRANSFORM_ATTACKS_COLD_FIRE);
+}
+
+/**
+ * Check if a player has an active "Add Siege to Attacks" modifier.
+ */
+function hasAddSiegeToAttacks(state: GameState, playerId: string): boolean {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  return modifiers.some((m) => m.effect.type === EFFECT_ADD_SIEGE_TO_ATTACKS);
+}
+
+/**
  * Apply a GainAttack effect to the combat accumulator.
  *
  * Supports all combinations of:
  * - Combat type: normal, ranged, siege
  * - Element: physical (default), fire, ice, cold_fire
+ *
+ * Also applies Altem Mages' attack modifiers:
+ * - Transform to Cold Fire: changes element to Cold Fire
+ * - Add Siege: duplicates the attack into the siege pool
  */
 export function applyGainAttack(
   state: GameState,
@@ -93,11 +115,29 @@ export function applyGainAttack(
   player: Player,
   effect: GainAttackEffect
 ): EffectResolutionResult {
-  const { amount, combatType, element } = effect;
-  const currentAttack = player.combatAccumulator.attack;
+  const { amount, combatType } = effect;
+  const playerId = player.id;
 
-  const updatedAttack = updateAttackForType(currentAttack, combatType, element, amount);
-  const attackTypeName = getAttackTypeName(combatType, element);
+  // Apply "Transform to Cold Fire" modifier: override element
+  const effectiveElement = hasTransformToColdFire(state, playerId)
+    ? ELEMENT_COLD_FIRE
+    : effect.element;
+
+  const currentAttack = player.combatAccumulator.attack;
+  let updatedAttack = updateAttackForType(currentAttack, combatType, effectiveElement, amount);
+
+  // Apply "Add Siege" modifier: also add attack to siege pool
+  // Only applies to non-siege attacks (melee and ranged)
+  if (hasAddSiegeToAttacks(state, playerId) && combatType !== COMBAT_TYPE_SIEGE) {
+    updatedAttack = updateAttackForType(
+      updatedAttack,
+      COMBAT_TYPE_SIEGE,
+      effectiveElement,
+      amount
+    );
+  }
+
+  const attackTypeName = getAttackTypeName(combatType, effectiveElement);
 
   const updatedPlayer: Player = {
     ...player,

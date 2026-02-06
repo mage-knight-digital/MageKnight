@@ -203,3 +203,9 @@ export const EFFECT_RESOLVE_MANA_RADIANCE_COLOR = "resolve_mana_radiance_color" 
 // Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.
 // Used by Scouts unit ability.
 export const EFFECT_SCOUT_PEEK = "scout_peek" as const;
+
+// === Altem Mages Cold Fire Attack/Block Effect ===
+// Dynamic choice: Cold Fire Attack OR Block 5, optionally boosted by paying
+// blue (+2), red (+2), or both (+4) mana tokens.
+// Generates choices based on available mana at resolution time.
+export const EFFECT_ALTEM_MAGES_COLD_FIRE = "altem_mages_cold_fire" as const;

@@ -39,6 +39,7 @@ import { registerInvocationEffects } from "./invocationEffects.js";
 import { registerReadyUnitsBudgetEffects } from "./readyUnitsBudgetEffects.js";
 import { registerWoundActivatingUnitEffects } from "./woundActivatingUnitEffects.js";
 import { registerManaMeltdownEffects } from "./manaMeltdownEffects.js";
+import { registerAltemMagesEffects } from "./altemMagesEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -138,4 +139,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Mana Meltdown / Mana Radiance effects (interactive red spell)
   registerManaMeltdownEffects();
+
+  // Altem Mages effects (Cold Fire Attack/Block with mana scaling)
+  registerAltemMagesEffects();
 }

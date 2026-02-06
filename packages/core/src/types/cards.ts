@@ -77,6 +77,7 @@ import {
   EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE,
   EFFECT_MANA_RADIANCE,
   EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
+  EFFECT_ALTEM_MAGES_COLD_FIRE,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -908,6 +909,18 @@ export interface WoundActivatingUnitEffect {
   readonly unitInstanceId: string;
 }
 
+/**
+ * Altem Mages Cold Fire Attack/Block effect.
+ * Base: Cold Fire Attack 5 OR Cold Fire Block 5.
+ * Scaling: pay blue mana = 7, pay red mana = 7, pay both = 9.
+ * Generates dynamic choices based on available mana tokens.
+ */
+export interface AltemMagesColdFireEffect {
+  readonly type: typeof EFFECT_ALTEM_MAGES_COLD_FIRE;
+  readonly baseValue: number;
+  readonly boostPerMana: number;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -970,7 +983,8 @@ export type CardEffect =
   | ManaMeltdownEffect
   | ResolveManaMeltdownChoiceEffect
   | ManaRadianceEffect
-  | ResolveManaRadianceColorEffect;
+  | ResolveManaRadianceColorEffect
+  | AltemMagesColdFireEffect;
 
 // === Card Definition ===
 

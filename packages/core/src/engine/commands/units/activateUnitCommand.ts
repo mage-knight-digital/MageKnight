@@ -25,7 +25,9 @@ import {
   UNIT_ABILITY_RANGED_ATTACK,
   UNIT_ABILITY_SIEGE_ATTACK,
 } from "@mage-knight/shared";
-import { getUnitAttackBonus } from "../../modifiers/index.js";
+import { getUnitAttackBonus, getModifiersForPlayer } from "../../modifiers/index.js";
+import { EFFECT_TRANSFORM_ATTACKS_COLD_FIRE, EFFECT_ADD_SIEGE_TO_ATTACKS } from "../../../types/modifierConstants.js";
+import { ELEMENT_COLD_FIRE } from "@mage-knight/shared";
 import {
   addAbilityToAccumulator,
   removeAbilityFromAccumulator,
@@ -328,14 +330,37 @@ export function createActivateUnitCommand(
         abilityValue += attackBonus;
       }
 
+      // Apply Altem Mages attack modifiers to unit ability element/type
+      let effectiveElement = ability.element;
+      const playerModifiers = getModifiersForPlayer(state, params.playerId);
+      const hasColdFireTransform = isAttackAbility &&
+        playerModifiers.some((m) => m.effect.type === EFFECT_TRANSFORM_ATTACKS_COLD_FIRE);
+      const hasAddSiege = isAttackAbility &&
+        playerModifiers.some((m) => m.effect.type === EFFECT_ADD_SIEGE_TO_ATTACKS);
+
+      if (hasColdFireTransform) {
+        effectiveElement = ELEMENT_COLD_FIRE;
+      }
+
       // Update combat accumulator (for combat abilities)
-      const updatedAccumulator = addAbilityToAccumulator(
+      let updatedAccumulator = addAbilityToAccumulator(
         player.combatAccumulator,
         ability.type,
         abilityValue,
-        ability.element,
+        effectiveElement,
         ability.countsTwiceAgainstSwift
       );
+
+      // Add Siege modifier: also add attack to siege pool for non-siege attacks
+      if (hasAddSiege && ability.type !== UNIT_ABILITY_SIEGE_ATTACK) {
+        updatedAccumulator = addAbilityToAccumulator(
+          updatedAccumulator,
+          UNIT_ABILITY_SIEGE_ATTACK,
+          abilityValue,
+          effectiveElement,
+          ability.countsTwiceAgainstSwift
+        );
+      }
 
       // Apply non-combat ability effects (heal, move, influence)
       const nonCombatResult = applyNonCombatAbility(

@@ -252,6 +252,11 @@ export {
   registerWoundActivatingUnitEffects,
 } from "./woundActivatingUnitEffects.js";
 
+// Altem Mages effects (Cold Fire Attack/Block with mana scaling)
+export {
+  registerAltemMagesEffects,
+} from "./altemMagesEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 
