@@ -23,7 +23,7 @@ import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
-import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, type CombatEffectContext } from "../../rules/cardPlay.js";
+import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, isRangedAttackUnusable, type CombatEffectContext } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT } from "../../../types/modifierConstants.js";
@@ -96,16 +96,25 @@ export function getPlayableCardsForCombat(
 
     // Exclude move-only effects when move isn't useful in combat
     // (but not when moveCardsAllowed, since Agility makes move useful for conversion)
-    const basicExcluded = !moveCardsAllowed && basicContext.effect
+    const basicMoveExcluded = !moveCardsAllowed && basicContext.effect
       ? shouldExcludeMoveOnlyEffect(basicContext.effect, state, player.id, combat)
       : false;
-    const poweredExcluded = !moveCardsAllowed && poweredContext.effect
+    const poweredMoveExcluded = !moveCardsAllowed && poweredContext.effect
       ? shouldExcludeMoveOnlyEffect(poweredContext.effect, state, player.id, combat)
       : false;
-    const adjustedBasicContext: CombatEffectContext = basicExcluded
+
+    // Exclude ranged-only effects when all enemies are fortified
+    const basicRangedExcluded = basicContext.effect
+      ? isRangedAttackUnusable(basicContext.effect, state, player.id, combat)
+      : false;
+    const poweredRangedExcluded = poweredContext.effect
+      ? isRangedAttackUnusable(poweredContext.effect, state, player.id, combat)
+      : false;
+
+    const adjustedBasicContext: CombatEffectContext = (basicMoveExcluded || basicRangedExcluded)
       ? { effect: null, allowAnyPhase: false }
       : basicContext;
-    const adjustedPoweredContext: CombatEffectContext = poweredExcluded
+    const adjustedPoweredContext: CombatEffectContext = (poweredMoveExcluded || poweredRangedExcluded)
       ? { effect: null, allowAnyPhase: false }
       : poweredContext;
 

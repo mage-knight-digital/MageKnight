@@ -88,6 +88,77 @@ export function effectHasBlock(effect: CardEffect): boolean {
 }
 
 /**
+ * Check if an effect's attack components are exclusively ranged (no siege, no melee).
+ * Returns true only for effects that provide ranged attack with no siege alternative.
+ * Used to determine if a card is unusable when all enemies are fortified.
+ */
+export function effectIsRangedOnlyAttack(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_ATTACK:
+      return effect.combatType === COMBAT_TYPE_RANGED;
+
+    case EFFECT_CHOICE:
+      // All options must be ranged-only (no siege escape hatch)
+      return effect.options.every(opt => effectIsRangedOnlyAttack(opt));
+
+    case EFFECT_COMPOUND:
+      // Has ranged attack AND no siege/melee attack anywhere
+      return effect.effects.some(eff => effectIsRangedOnlyAttack(eff)) &&
+        !effect.effects.some(eff => effectHasSiegeAttack(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectIsRangedOnlyAttack(effect.thenEffect) &&
+        (!effect.elseEffect || effectIsRangedOnlyAttack(effect.elseEffect));
+
+    case EFFECT_SCALING:
+      return effectIsRangedOnlyAttack(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).every((next) =>
+            effectIsRangedOnlyAttack(next)
+          )
+        : effectIsRangedOnlyAttack(effect.thenEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect provides siege attack anywhere in its tree.
+ */
+function effectHasSiegeAttack(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_ATTACK:
+      return effect.combatType === COMBAT_TYPE_SIEGE;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasSiegeAttack(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasSiegeAttack(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasSiegeAttack(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasSiegeAttack(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasSiegeAttack(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasSiegeAttack(next)
+          )
+        : effectHasSiegeAttack(effect.thenEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
  * Check if an effect provides any attack (melee, ranged, or siege).
  */
 export function effectHasAttack(effect: CardEffect): boolean {

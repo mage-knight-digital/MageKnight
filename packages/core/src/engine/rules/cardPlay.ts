@@ -26,6 +26,7 @@ import {
 import type { CombatState } from "../../types/combat.js";
 import {
   effectHasRangedOrSiege,
+  effectIsRangedOnlyAttack,
   effectHasBlock,
   effectHasAttack,
   effectHasMove,
@@ -44,6 +45,7 @@ import { isCumbersomeActive } from "../combat/cumbersomeHelpers.js";
 import type { GameState } from "../../state/GameState.js";
 import { isRuleActive } from "../modifiers/index.js";
 import { RULE_MOVE_CARDS_IN_COMBAT } from "../../types/modifierConstants.js";
+import { getFortificationLevel } from "./combatTargeting.js";
 
 export interface CombatEffectContext {
   readonly effect: CardEffect | null;
@@ -204,4 +206,26 @@ export function shouldExcludeMoveOnlyEffect(
 ): boolean {
   if (!effectIsMoveOnly(effect)) return false;
   return !isMoveUsefulInCombat(state, playerId, combat);
+}
+
+/**
+ * Check if a ranged-only attack effect is unusable because all living enemies are fortified.
+ * In Ranged/Siege phase, ranged attacks cannot target fortified enemies — only siege can.
+ * If ALL enemies are fortified, a ranged-only card has no valid targets and cannot be played.
+ */
+export function isRangedAttackUnusable(
+  effect: CardEffect,
+  state: GameState,
+  playerId: string,
+  combat: CombatState
+): boolean {
+  if (combat.phase !== COMBAT_PHASE_RANGED_SIEGE) return false;
+  if (!effectIsRangedOnlyAttack(effect)) return false;
+
+  const livingEnemies = combat.enemies.filter(e => !e.isDefeated);
+  if (livingEnemies.length === 0) return false;
+
+  return livingEnemies.every(enemy =>
+    getFortificationLevel(enemy, combat.isAtFortifiedSite, state, playerId) > 0
+  );
 }

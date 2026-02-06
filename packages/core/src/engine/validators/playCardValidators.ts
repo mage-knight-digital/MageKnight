@@ -18,6 +18,7 @@ import {
   CARD_NOT_PLAYABLE,
   CARD_NOT_PLAYABLE_IN_PHASE,
   CARD_EFFECT_NOT_RESOLVABLE,
+  RANGED_ATTACK_ALL_FORTIFIED,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
@@ -27,6 +28,7 @@ import {
   isCombatEffectAllowed,
   isHealingOnlyInCombat,
   isNormalEffectAllowed,
+  isRangedAttackUnusable,
   isWoundCardId,
 } from "../rules/cardPlay.js";
 import { isRuleActive } from "../modifiers/index.js";
@@ -170,6 +172,14 @@ export function validateCardPlayableInContext(
       return invalid(
         CARD_NOT_PLAYABLE_IN_PHASE,
         `Card cannot be played in ${phase} phase`
+      );
+    }
+
+    // Ranged-only attacks cannot be played when all enemies are fortified
+    if (context.effect && isRangedAttackUnusable(context.effect, state, playerId, state.combat)) {
+      return invalid(
+        RANGED_ATTACK_ALL_FORTIFIED,
+        "Ranged attacks cannot target fortified enemies"
       );
     }
 

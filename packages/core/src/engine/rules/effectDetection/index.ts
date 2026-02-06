@@ -10,6 +10,7 @@ import type { CardEffect } from "../../../types/cards.js";
 // Combat effects
 export {
   effectHasRangedOrSiege,
+  effectIsRangedOnlyAttack,
   effectHasBlock,
   effectHasAttack,
 } from "./combatEffects.js";
