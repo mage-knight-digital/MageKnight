@@ -23,7 +23,7 @@ export * from "./iFeelNoPain.js";
 export * from "./iDontGiveADamn.js";
 export * from "./whoNeedsMagic.js";
 export * from "./motivation.js";
-export * from "./manaExploit.js";
+export * from "./manaOverload.js";
 
 // Import definitions for aggregation
 import { SKILL_TOVAK_DOUBLE_TIME, doubleTime } from "./doubleTime.js";
@@ -35,7 +35,7 @@ import { SKILL_TOVAK_I_FEEL_NO_PAIN, iFeelNoPain } from "./iFeelNoPain.js";
 import { SKILL_TOVAK_I_DONT_GIVE_A_DAMN, iDontGiveADamn } from "./iDontGiveADamn.js";
 import { SKILL_TOVAK_WHO_NEEDS_MAGIC, whoNeedsMagic } from "./whoNeedsMagic.js";
 import { SKILL_TOVAK_MOTIVATION, tovakMotivation } from "./motivation.js";
-import { SKILL_TOVAK_MANA_EXPLOIT, manaExploit } from "./manaExploit.js";
+import { SKILL_TOVAK_MANA_OVERLOAD, manaOverload } from "./manaOverload.js";
 
 /**
  * All Tovak skill definitions keyed by skill ID.
@@ -50,7 +50,7 @@ export const TOVAK_SKILLS: Record<SkillId, SkillDefinition> = {
   [SKILL_TOVAK_I_DONT_GIVE_A_DAMN]: iDontGiveADamn,
   [SKILL_TOVAK_WHO_NEEDS_MAGIC]: whoNeedsMagic,
   [SKILL_TOVAK_MOTIVATION]: tovakMotivation,
-  [SKILL_TOVAK_MANA_EXPLOIT]: manaExploit,
+  [SKILL_TOVAK_MANA_OVERLOAD]: manaOverload,
 };
 
 /**
@@ -66,5 +66,5 @@ export const TOVAK_SKILL_IDS = [
   SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_TOVAK_MOTIVATION,
-  SKILL_TOVAK_MANA_EXPLOIT,
+  SKILL_TOVAK_MANA_OVERLOAD,
 ] as const;

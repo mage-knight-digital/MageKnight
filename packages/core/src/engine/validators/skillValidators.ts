@@ -34,6 +34,7 @@ import {
   SKILL_ARYTHEA_BURNING_POWER,
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_GOLDYX_FREEZING_POWER,
+  SKILL_TOVAK_MANA_OVERLOAD,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -45,7 +46,7 @@ import { CARD_WOUND } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 
-const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN]);
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD]);
 
 /**
  * Validates that the player has learned the skill they're trying to use.
