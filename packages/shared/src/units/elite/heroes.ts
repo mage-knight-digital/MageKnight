@@ -20,6 +20,6 @@ export const HEROES: UnitDefinition = {
   armor: 5, // Varies by card
   resistances: [], // Varies by card
   recruitSites: [RECRUIT_SITE_VILLAGE, RECRUIT_SITE_KEEP, RECRUIT_SITE_CITY],
-  abilities: [], // Varies by card
-  copies: 4,
+  abilities: [], // Varies by card (other Hero colors implemented in separate unit types)
+  copies: 3,
 };

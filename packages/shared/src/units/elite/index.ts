@@ -16,6 +16,7 @@ import {
   UNIT_AMOTEP_GUNNERS,
   UNIT_AMOTEP_FREEZERS,
   UNIT_HEROES,
+  UNIT_HERO_BLUE,
   UNIT_ALTEM_MAGES,
   UNIT_ALTEM_GUARDIANS,
   UNIT_DELPHANA_MASTERS,
@@ -34,6 +35,7 @@ export { CATAPULTS } from "./catapults.js";
 export { AMOTEP_GUNNERS } from "./amotepGunners.js";
 export { AMOTEP_FREEZERS, AMOTEP_FREEZERS_FREEZE } from "./amotepFreezers.js";
 export { HEROES } from "./heroes.js";
+export { HERO_BLUE } from "./heroBlue.js";
 export { ALTEM_MAGES } from "./altemMages.js";
 export { ALTEM_GUARDIANS } from "./altemGuardians.js";
 export { DELPHANA_MASTERS } from "./delphanaMasters.js";
@@ -51,6 +53,7 @@ import { CATAPULTS } from "./catapults.js";
 import { AMOTEP_GUNNERS } from "./amotepGunners.js";
 import { AMOTEP_FREEZERS } from "./amotepFreezers.js";
 import { HEROES } from "./heroes.js";
+import { HERO_BLUE } from "./heroBlue.js";
 import { ALTEM_MAGES } from "./altemMages.js";
 import { ALTEM_GUARDIANS } from "./altemGuardians.js";
 import { DELPHANA_MASTERS } from "./delphanaMasters.js";
@@ -69,6 +72,7 @@ type EliteUnitId =
   | typeof UNIT_AMOTEP_GUNNERS
   | typeof UNIT_AMOTEP_FREEZERS
   | typeof UNIT_HEROES
+  | typeof UNIT_HERO_BLUE
   | typeof UNIT_ALTEM_MAGES
   | typeof UNIT_ALTEM_GUARDIANS
   | typeof UNIT_DELPHANA_MASTERS;
@@ -87,6 +91,7 @@ export const ELITE_UNITS: Record<EliteUnitId, UnitDefinition> = {
   [UNIT_AMOTEP_GUNNERS]: AMOTEP_GUNNERS,
   [UNIT_AMOTEP_FREEZERS]: AMOTEP_FREEZERS,
   [UNIT_HEROES]: HEROES,
+  [UNIT_HERO_BLUE]: HERO_BLUE,
   [UNIT_ALTEM_MAGES]: ALTEM_MAGES,
   [UNIT_ALTEM_GUARDIANS]: ALTEM_GUARDIANS,
   [UNIT_DELPHANA_MASTERS]: DELPHANA_MASTERS,

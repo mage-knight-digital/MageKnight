@@ -17,9 +17,9 @@ import {
   RECRUIT_SITE_CAMP,
   MIN_REPUTATION,
   MAX_REPUTATION,
-  UNIT_HEROES,
   UNIT_THUGS,
   getUnit,
+  isHeroUnitId,
   type RecruitSite,
   type UnitId,
   type UnitDefinition,
@@ -90,7 +90,7 @@ export function getReputationCostModifier(
   // Heroes special rule: reputation modifier is doubled
   // Per rulebook, this applies once per interaction (FAQ clarification)
   // The doubled modifier only applies to the first Hero recruited at a site
-  if (unitId === UNIT_HEROES && !hasRecruitedHeroThisInteraction) {
+  if (unitId && isHeroUnitId(unitId) && !hasRecruitedHeroThisInteraction) {
     return baseModifier * 2;
   }
 
@@ -176,13 +176,13 @@ export function violatesHeroesThugsExclusion(
   unitId: UnitId,
   unitsRecruitedThisInteraction: readonly UnitId[]
 ): boolean {
-  // Check if recruiting Heroes when Thugs were already recruited
-  if (unitId === UNIT_HEROES) {
+  // Check if recruiting a Hero when Thugs were already recruited
+  if (isHeroUnitId(unitId)) {
     return unitsRecruitedThisInteraction.includes(UNIT_THUGS);
   }
-  // Check if recruiting Thugs when Heroes were already recruited
+  // Check if recruiting Thugs when any Hero was already recruited
   if (unitId === UNIT_THUGS) {
-    return unitsRecruitedThisInteraction.includes(UNIT_HEROES);
+    return unitsRecruitedThisInteraction.some((id) => isHeroUnitId(id));
   }
   return false;
 }
@@ -194,7 +194,7 @@ export function violatesHeroesThugsExclusion(
 export function hasRecruitedHeroThisInteraction(
   unitsRecruitedThisInteraction: readonly UnitId[]
 ): boolean {
-  return unitsRecruitedThisInteraction.includes(UNIT_HEROES);
+  return unitsRecruitedThisInteraction.some((id) => isHeroUnitId(id));
 }
 
 /**

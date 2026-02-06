@@ -40,6 +40,7 @@ import {
 } from "../../../types/combat.js";
 import { getUnitOptions } from "./recruitment.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
+import { EFFECT_GAIN_BLOCK } from "../../../types/effectTypes.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { mustAnnounceEndOfRound } from "../helpers.js";
 
@@ -93,10 +94,12 @@ function formatAbilityType(type: UnitAbilityType): string {
 
 /**
  * Check if an ability is usable in the current combat phase.
+ * For UNIT_ABILITY_EFFECT, pass the full ability so block-only effects can be allowed in Block phase.
  */
 function isAbilityValidForPhase(
   abilityType: UnitAbilityType,
-  combat: CombatState | null
+  combat: CombatState | null,
+  ability?: { type: UnitAbilityType; effectId?: string }
 ): { valid: boolean; reason?: string } {
   // Non-combat abilities don't require being in combat
   if (!COMBAT_ABILITIES.includes(abilityType)) {
@@ -113,13 +116,29 @@ function isAbilityValidForPhase(
   switch (abilityType) {
     case UNIT_ABILITY_RANGED_ATTACK:
     case UNIT_ABILITY_SIEGE_ATTACK:
-    case UNIT_ABILITY_EFFECT:
-      // Effect-based abilities (like Sorcerers) include ranged attacks, so they
-      // follow ranged attack phase rules
       if (phase !== COMBAT_PHASE_RANGED_SIEGE && phase !== COMBAT_PHASE_ATTACK) {
         return { valid: false, reason: "Only usable in Ranged & Siege or Attack phase" };
       }
       break;
+
+    case UNIT_ABILITY_EFFECT: {
+      // Block-only effects (e.g. Hero Blue Cold Fire Block 8) are valid in Block phase
+      const effect = ability?.effectId
+        ? getUnitAbilityEffect(ability.effectId)
+        : undefined;
+      const isBlockOnlyEffect = effect?.type === EFFECT_GAIN_BLOCK;
+      if (isBlockOnlyEffect) {
+        if (phase !== COMBAT_PHASE_BLOCK) {
+          return { valid: false, reason: "Only usable in Block phase" };
+        }
+      } else if (
+        phase !== COMBAT_PHASE_RANGED_SIEGE &&
+        phase !== COMBAT_PHASE_ATTACK
+      ) {
+        return { valid: false, reason: "Only usable in Ranged & Siege or Attack phase" };
+      }
+      break;
+    }
 
     case UNIT_ABILITY_BLOCK:
       if (phase !== COMBAT_PHASE_BLOCK) {
@@ -253,7 +272,7 @@ export function getActivatableUnits(
           ability.type === UNIT_ABILITY_EFFECT && ability.requiresCombat === false;
         const phaseCheck = skipPhaseCheck
           ? { valid: true }
-          : isAbilityValidForPhase(ability.type, combat);
+          : isAbilityValidForPhase(ability.type, combat, ability);
         if (!phaseCheck.valid) {
           canActivate = false;
           reason = phaseCheck.reason;
