@@ -16,6 +16,7 @@ import type { UnitFilter } from "../../types/scaling.js";
 import type { PlayerUnit } from "../../types/unit.js";
 import { CARD_WOUND, UNIT_STATE_READY, UNIT_STATE_SPENT } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { isEnemyAssignedToPlayer } from "../helpers/cooperativeAssaultHelpers.js";
 
 /**
  * Evaluates a scaling factor and returns the count to multiply by.
@@ -35,9 +36,13 @@ export function evaluateScalingFactor(
 
   switch (factor.type) {
     case SCALING_PER_ENEMY: {
-      // Count undefeated enemies in current combat
+      // Count undefeated, non-summoned enemies assigned to this player
       if (!state.combat) return 0;
-      return state.combat.enemies.filter((e) => !e.isDefeated).length;
+      return state.combat.enemies.filter((e) =>
+        !e.isDefeated &&
+        !e.summonedByInstanceId &&
+        isEnemyAssignedToPlayer(state.combat?.enemyAssignments, playerId, e.instanceId)
+      ).length;
     }
 
     case SCALING_PER_WOUND_IN_HAND: {

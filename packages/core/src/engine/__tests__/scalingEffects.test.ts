@@ -12,7 +12,8 @@ import {
   SCALING_PER_WOUND_THIS_COMBAT,
   SCALING_PER_UNIT,
 } from "../../types/scaling.js";
-import { createCombatState } from "../../types/combat.js";
+import { createCombatState, COMBAT_CONTEXT_COOPERATIVE_ASSAULT } from "../../types/combat.js";
+import type { CombatEnemy } from "../../types/combat.js";
 import { createPlayerUnit } from "../../types/unit.js";
 import {
   CARD_WOUND,
@@ -34,6 +35,7 @@ import {
   scalingAttack,
 } from "../../data/effectHelpers.js";
 import { FLAME_WAVE } from "../../data/testCards.js";
+import { FLAME_WALL } from "../../data/spells/red/flameWall.js";
 import { EFFECT_GAIN_ATTACK, EFFECT_GAIN_BLOCK, EFFECT_CHOICE } from "../../types/effectTypes.js";
 import type { ChoiceEffect, ScalingEffect } from "../../types/cards.js";
 
@@ -78,6 +80,53 @@ describe("Scaling Effects", () => {
         const state = createTestGameState({ combat });
         const count = evaluateScalingFactor(state, "player1", { type: SCALING_PER_ENEMY });
         expect(count).toBe(1);
+      });
+
+      it("should not count summoned enemies", () => {
+        const baseCombat = createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN]);
+        const summonedEnemy: CombatEnemy = {
+          instanceId: "enemy_2",
+          enemyId: ENEMY_PROWLERS,
+          definition: { id: ENEMY_PROWLERS, armor: 3, attack: 4, fame: 2, color: "green", resistances: [], abilities: [], attackElement: "physical" },
+          isBlocked: false,
+          isDefeated: false,
+          damageAssigned: false,
+          isRequiredForConquest: false,
+          summonedByInstanceId: "enemy_1", // Summoned by enemy_1
+        };
+        const combat = {
+          ...baseCombat,
+          enemies: [...baseCombat.enemies, summonedEnemy],
+        };
+        const state = createTestGameState({ combat });
+        const count = evaluateScalingFactor(state, "player1", { type: SCALING_PER_ENEMY });
+        // Should count only the 2 original enemies, not the summoned one
+        expect(count).toBe(2);
+      });
+
+      it("should only count enemies assigned to player in cooperative assault", () => {
+        const combat = createCombatState(
+          [ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN, ENEMY_PROWLERS],
+          false,
+          {
+            combatContext: COMBAT_CONTEXT_COOPERATIVE_ASSAULT,
+            enemyAssignments: {
+              player1: ["enemy_0", "enemy_2"],
+              player2: ["enemy_1"],
+            },
+          }
+        );
+        const state = createTestGameState({ combat });
+
+        // Player 1 has 2 enemies assigned
+        const count1 = evaluateScalingFactor(state, "player1", { type: SCALING_PER_ENEMY });
+        expect(count1).toBe(2);
+
+        // Player 2 has 1 enemy assigned
+        const player2 = createTestPlayer({ id: "player2" });
+        const state2 = createTestGameState({ combat, players: [createTestPlayer(), player2] });
+        const count2 = evaluateScalingFactor(state2, "player2", { type: SCALING_PER_ENEMY });
+        expect(count2).toBe(1);
       });
     });
 
@@ -500,6 +549,104 @@ describe("Scaling Effects", () => {
       const effect = scaling(baseEffect, { type: SCALING_PER_ENEMY }, 2, { minimum: 2, maximum: 10 });
       expect(effect.minimum).toBe(2);
       expect(effect.maximum).toBe(10);
+    });
+  });
+
+  describe("FLAME_WALL real card integration", () => {
+    it("should have non-scaling basic effect", () => {
+      const effect = FLAME_WALL.basicEffect;
+      expect(effect.type).toBe(EFFECT_CHOICE);
+      const choiceEffect = effect as ChoiceEffect;
+      expect(choiceEffect.options).toHaveLength(2);
+
+      // Fire Attack 5 (non-scaling)
+      const attackOption = choiceEffect.options[0];
+      expect(attackOption?.type).toBe(EFFECT_GAIN_ATTACK);
+
+      // Fire Block 7 (non-scaling)
+      const blockOption = choiceEffect.options[1];
+      expect(blockOption?.type).toBe(EFFECT_GAIN_BLOCK);
+    });
+
+    it("should have scaling powered effect with per-enemy factor", () => {
+      const effect = FLAME_WALL.poweredEffect;
+      expect(effect.type).toBe(EFFECT_CHOICE);
+      const choiceEffect = effect as ChoiceEffect;
+      expect(choiceEffect.options).toHaveLength(2);
+
+      const attackOption = choiceEffect.options[0] as ScalingEffect;
+      expect(attackOption.type).toBe("scaling");
+      expect(attackOption.scalingFactor.type).toBe(SCALING_PER_ENEMY);
+      expect(attackOption.baseEffect.amount).toBe(5);
+      expect(attackOption.amountPerUnit).toBe(2);
+
+      const blockOption = choiceEffect.options[1] as ScalingEffect;
+      expect(blockOption.type).toBe("scaling");
+      expect(blockOption.scalingFactor.type).toBe(SCALING_PER_ENEMY);
+      expect(blockOption.baseEffect.amount).toBe(7);
+      expect(blockOption.amountPerUnit).toBe(2);
+    });
+
+    it("should produce 11 fire attack with 3 enemies (5 + 2×3)", () => {
+      const combat = createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN, ENEMY_PROWLERS]);
+      const state = createTestGameState({ combat });
+
+      const poweredEffect = FLAME_WALL.poweredEffect as ChoiceEffect;
+      const attackOption = poweredEffect.options[0];
+      if (!attackOption) throw new Error("Attack option not found");
+
+      const result = resolveEffect(state, "player1", attackOption, "flame_wall");
+      expect(result.state.players[0]?.combatAccumulator.attack.normalElements.fire).toBe(11);
+    });
+
+    it("should produce 11 fire block with 2 enemies (7 + 2×2)", () => {
+      const combat = createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN]);
+      const state = createTestGameState({ combat });
+
+      const poweredEffect = FLAME_WALL.poweredEffect as ChoiceEffect;
+      const blockOption = poweredEffect.options[1];
+      if (!blockOption) throw new Error("Block option not found");
+
+      const result = resolveEffect(state, "player1", blockOption, "flame_wall");
+      expect(result.state.players[0]?.combatAccumulator.blockElements.fire).toBe(11);
+    });
+
+    it("should use base values with 0 enemies", () => {
+      const state = createTestGameState({ combat: null });
+
+      const poweredEffect = FLAME_WALL.poweredEffect as ChoiceEffect;
+      const attackOption = poweredEffect.options[0];
+      if (!attackOption) throw new Error("Attack option not found");
+
+      const result = resolveEffect(state, "player1", attackOption, "flame_wall");
+      expect(result.state.players[0]?.combatAccumulator.attack.normalElements.fire).toBe(5);
+    });
+
+    it("should not count summoned enemies toward scaling", () => {
+      const baseCombat = createCombatState([ENEMY_PROWLERS, ENEMY_ALTEM_GUARDSMEN]);
+      const summonedEnemy: CombatEnemy = {
+        instanceId: "enemy_2",
+        enemyId: ENEMY_PROWLERS,
+        definition: { id: ENEMY_PROWLERS, armor: 3, attack: 4, fame: 2, color: "green", resistances: [], abilities: [], attackElement: "physical" },
+        isBlocked: false,
+        isDefeated: false,
+        damageAssigned: false,
+        isRequiredForConquest: false,
+        summonedByInstanceId: "enemy_1",
+      };
+      const combat = {
+        ...baseCombat,
+        enemies: [...baseCombat.enemies, summonedEnemy],
+      };
+      const state = createTestGameState({ combat });
+
+      const poweredEffect = FLAME_WALL.poweredEffect as ChoiceEffect;
+      const attackOption = poweredEffect.options[0];
+      if (!attackOption) throw new Error("Attack option not found");
+
+      // 2 real enemies × 2 = 4, plus base 5 = 9 (not 11, since summoned excluded)
+      const result = resolveEffect(state, "player1", attackOption, "flame_wall");
+      expect(result.state.players[0]?.combatAccumulator.attack.normalElements.fire).toBe(9);
     });
   });
 });
