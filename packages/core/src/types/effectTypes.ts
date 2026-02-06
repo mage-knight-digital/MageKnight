@@ -221,3 +221,12 @@ export const EFFECT_PURE_MAGIC = "pure_magic" as const;
 // Adds a turn-scoped modifier that grants reputation and/or fame per unit recruited.
 // Used by Heroic Tale (basic: Rep+1 per recruit, powered: Rep+1 + Fame+1 per recruit).
 export const EFFECT_APPLY_RECRUITMENT_BONUS = "apply_recruitment_bonus" as const;
+
+// === Free Recruit Effect ===
+// Recruit any unit from the units offer for free (no influence cost).
+// No location restrictions (can be anywhere, even in combat).
+// If at command limit, must disband a unit first.
+// Used by Banner of Command powered effect and Call to Glory spell.
+export const EFFECT_FREE_RECRUIT = "free_recruit" as const;
+// Internal: resolve after unit selection for free recruitment
+export const EFFECT_RESOLVE_FREE_RECRUIT_TARGET = "resolve_free_recruit_target" as const;
