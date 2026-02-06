@@ -11,6 +11,7 @@ import type {
   RuleOverrideModifier,
   MovementCardBonusModifier,
 } from "../../types/modifiers.js";
+import type { DeedCardType } from "../../types/cards.js";
 import {
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
@@ -28,7 +29,8 @@ export function getEffectiveSidewaysValue(
   playerId: string,
   isWound: boolean,
   manaUsedThisTurn: boolean,
-  manaColorMatchesCard?: boolean
+  manaColorMatchesCard?: boolean,
+  cardType?: DeedCardType
 ): number {
   const baseValue = 1;
 
@@ -44,6 +46,11 @@ export function getEffectiveSidewaysValue(
     // forWounds=true: only applies to wound cards
     if (isWound && !mod.forWounds) continue;
     if (!isWound && mod.forWounds) continue;
+
+    // Check card type filter (e.g., AA/Spell/Artifact only)
+    if (mod.forCardTypes && cardType && !mod.forCardTypes.includes(cardType)) {
+      continue;
+    }
 
     if (mod.condition === SIDEWAYS_CONDITION_NO_MANA_USED && manaUsedThisTurn)
       continue;

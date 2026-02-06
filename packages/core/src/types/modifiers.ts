@@ -7,6 +7,7 @@
 
 import type { SkillId, CardId, Terrain, ManaColor, ResistanceType, HexCoord } from "@mage-knight/shared";
 import type { EnemyAbility } from "./enemy.js";
+import type { DeedCardType } from "./cards.js";
 import {
   ABILITY_ANY,
   COMBAT_VALUE_ATTACK,
@@ -138,6 +139,7 @@ export interface SidewaysValueModifier {
   readonly condition?:
     | typeof SIDEWAYS_CONDITION_NO_MANA_USED
     | typeof SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR;
+  readonly forCardTypes?: readonly DeedCardType[];
 }
 
 // Movement card bonus modifier (e.g., "next movement card gets +1")
