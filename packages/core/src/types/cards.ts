@@ -537,6 +537,9 @@ export interface DiscardCostEffect {
   readonly thenEffectByColor?: Partial<Record<BasicCardColor, CardEffect>>;
   /** If true, wounds cannot be discarded (default: true per standard rules) */
   readonly filterWounds?: boolean;
+  /** If true, cards with no action color (artifacts, spells) can be discarded for no effect.
+   *  Used by Druidic Staff where discarding an artifact gives nothing. */
+  readonly allowNoColor?: boolean;
 }
 
 /**
