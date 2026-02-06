@@ -38,6 +38,7 @@ import { registerCureEffects } from "./cureEffects.js";
 import { registerInvocationEffects } from "./invocationEffects.js";
 import { registerReadyUnitsBudgetEffects } from "./readyUnitsBudgetEffects.js";
 import { registerWoundActivatingUnitEffects } from "./woundActivatingUnitEffects.js";
+import { registerManaMeltdownEffects } from "./manaMeltdownEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -134,4 +135,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Wound activating unit effects (Utem Swordsmen self-wound)
   registerWoundActivatingUnitEffects();
+
+  // Mana Meltdown / Mana Radiance effects (interactive red spell)
+  registerManaMeltdownEffects();
 }

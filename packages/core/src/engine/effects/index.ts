@@ -232,6 +232,15 @@ export {
   registerEnergyFlowEffects,
 } from "./energyFlowEffects.js";
 
+// Mana Meltdown / Mana Radiance effects (interactive red spell)
+export {
+  handleManaMeltdown,
+  resolveManaMeltdownChoice,
+  handleManaRadiance,
+  resolveManaRadianceColor,
+  registerManaMeltdownEffects,
+} from "./manaMeltdownEffects.js";
+
 // Ready units budget effects (Restoration/Rebirth spell)
 export {
   registerReadyUnitsBudgetEffects,

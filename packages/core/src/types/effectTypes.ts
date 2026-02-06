@@ -187,6 +187,17 @@ export const EFFECT_RESOLVE_READY_UNIT_BUDGET = "resolve_ready_unit_budget" as c
 // Paralyze, Vampiric, or Poison enemy abilities.
 export const EFFECT_WOUND_ACTIVATING_UNIT = "wound_activating_unit" as const;
 
+// === Mana Meltdown / Mana Radiance Effects ===
+// Basic (Mana Meltdown): Each opponent randomly loses a crystal (or takes wound).
+// Caster may gain one lost crystal.
+export const EFFECT_MANA_MELTDOWN = "mana_meltdown" as const;
+// Internal: Caster chooses which stolen crystal to gain (or skip)
+export const EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE = "resolve_mana_meltdown_choice" as const;
+// Powered (Mana Radiance): Choose a basic color, all players wound per crystal, gain 2 crystals.
+export const EFFECT_MANA_RADIANCE = "mana_radiance" as const;
+// Internal: Resolve after color selection
+export const EFFECT_RESOLVE_MANA_RADIANCE_COLOR = "resolve_mana_radiance_color" as const;
+
 // === Scout Peek Effect ===
 // Reveals face-down enemy tokens within a distance from the player.
 // Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.

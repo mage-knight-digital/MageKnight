@@ -73,6 +73,10 @@ import {
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   EFFECT_INVOCATION_RESOLVE,
   EFFECT_WOUND_ACTIVATING_UNIT,
+  EFFECT_MANA_MELTDOWN,
+  EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE,
+  EFFECT_MANA_RADIANCE,
+  EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -738,6 +742,47 @@ export interface ResolveReadyUnitBudgetEffect {
 }
 
 /**
+ * Mana Meltdown basic effect (Red Spell #109).
+ * Each opponent randomly loses a crystal (or takes a wound if no crystals).
+ * Caster may gain one crystal from the lost pool.
+ * After end-of-round announced: does nothing.
+ */
+export interface ManaMeltdownEffect {
+  readonly type: typeof EFFECT_MANA_MELTDOWN;
+}
+
+/**
+ * Internal: Caster chooses which stolen crystal color to gain (or skip).
+ * Generated dynamically based on crystals lost by opponents.
+ */
+export interface ResolveManaMeltdownChoiceEffect {
+  readonly type: typeof EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE;
+  /** The crystal color to gain (one of the stolen colors) */
+  readonly color: BasicManaColor;
+}
+
+/**
+ * Mana Radiance powered effect (Red Spell #109).
+ * Choose a basic mana color. Each player (including caster) takes 1 wound
+ * per crystal of that color they own. Caster gains 2 crystals of chosen color.
+ * After end-of-round announced: only applies to caster (no wounds to others).
+ */
+export interface ManaRadianceEffect {
+  readonly type: typeof EFFECT_MANA_RADIANCE;
+}
+
+/**
+ * Internal: Resolve Mana Radiance after caster picks a basic mana color.
+ * Applies wounds to all players per crystal of chosen color, then grants
+ * 2 crystals of that color to the caster.
+ */
+export interface ResolveManaRadianceColorEffect {
+  readonly type: typeof EFFECT_RESOLVE_MANA_RADIANCE_COLOR;
+  /** The chosen basic mana color */
+  readonly color: BasicManaColor;
+}
+
+/**
  * Scout peek effect (Scouts unit ability).
  * Reveals face-down enemy tokens within a distance from the player.
  * Also creates a ScoutFameBonus modifier tracking which enemies were newly revealed,
@@ -921,7 +966,11 @@ export type CardEffect =
   | CureEffect
   | DiseaseEffect
   | InvocationResolveEffect
-  | WoundActivatingUnitEffect;
+  | WoundActivatingUnitEffect
+  | ManaMeltdownEffect
+  | ResolveManaMeltdownChoiceEffect
+  | ManaRadianceEffect
+  | ResolveManaRadianceColorEffect;
 
 // === Card Definition ===
 

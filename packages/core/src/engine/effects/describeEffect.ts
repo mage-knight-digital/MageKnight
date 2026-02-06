@@ -46,6 +46,10 @@ import {
   EFFECT_RESOLVE_READY_UNIT_BUDGET,
   EFFECT_CURE,
   EFFECT_DISEASE,
+  EFFECT_MANA_MELTDOWN,
+  EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE,
+  EFFECT_MANA_RADIANCE,
+  EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -59,6 +63,8 @@ import type {
   EnergyFlowEffect,
   ResolveEnergyFlowTargetEffect,
   CureEffect,
+  ResolveManaMeltdownChoiceEffect,
+  ResolveManaRadianceColorEffect,
 } from "../../types/cards.js";
 import type {
   GainMoveEffect,
@@ -335,6 +341,20 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   },
 
   [EFFECT_DISEASE]: () => "Reduce fully-blocked enemies' armor to 1",
+
+  [EFFECT_MANA_MELTDOWN]: () => "Each opponent loses a random crystal (or takes a wound)",
+
+  [EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE]: (effect) => {
+    const e = effect as ResolveManaMeltdownChoiceEffect;
+    return `Gain ${e.color} crystal`;
+  },
+
+  [EFFECT_MANA_RADIANCE]: () => "Choose a color: wounds per crystal, gain 2 crystals",
+
+  [EFFECT_RESOLVE_MANA_RADIANCE_COLOR]: (effect) => {
+    const e = effect as ResolveManaRadianceColorEffect;
+    return `All players: wound per ${e.color} crystal, gain 2 ${e.color} crystals`;
+  },
 };
 
 // ============================================================================
