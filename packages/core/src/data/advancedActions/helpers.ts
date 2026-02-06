@@ -30,17 +30,28 @@ import {
   EFFECT_GAIN_INFLUENCE,
   EFFECT_GAIN_HEALING,
   EFFECT_GAIN_CRYSTAL,
+  EFFECT_GAIN_MANA,
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
   EFFECT_CHANGE_REPUTATION,
   EFFECT_TAKE_WOUND,
+  EFFECT_NOOP,
+  EFFECT_CONVERT_MANA_TO_CRYSTAL,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
   type CombatType,
 } from "../../types/effectTypes.js";
 import type { BasicManaColor, Element } from "@mage-knight/shared";
+import {
+  MANA_RED,
+  MANA_BLUE,
+  MANA_GREEN,
+  MANA_WHITE,
+  MANA_GOLD,
+  MANA_BLACK,
+} from "@mage-knight/shared";
 import { ELEMENT_FIRE, ELEMENT_ICE } from "../../types/modifierConstants.js";
 import { CONDITION_IN_COMBAT } from "../../types/conditions.js";
 
@@ -230,6 +241,44 @@ export function ifInCombat(
     return { ...base, elseEffect };
   }
   return base;
+}
+
+/**
+ * Creates a choice effect for gaining a mana token of any color (including non-basic).
+ *
+ * @returns A ChoiceEffect with all 6 mana color options
+ */
+export function gainManaAnyColor(): CardEffect {
+  return {
+    type: EFFECT_CHOICE,
+    options: [
+      { type: EFFECT_GAIN_MANA, color: MANA_RED },
+      { type: EFFECT_GAIN_MANA, color: MANA_BLUE },
+      { type: EFFECT_GAIN_MANA, color: MANA_GREEN },
+      { type: EFFECT_GAIN_MANA, color: MANA_WHITE },
+      { type: EFFECT_GAIN_MANA, color: MANA_GOLD },
+      { type: EFFECT_GAIN_MANA, color: MANA_BLACK },
+    ],
+  };
+}
+
+/**
+ * Creates a noop effect (skip/done/no additional effect).
+ *
+ * @returns A NoopEffect
+ */
+export function noop(): CardEffect {
+  return { type: EFFECT_NOOP };
+}
+
+/**
+ * Creates a convert-mana-to-crystal effect.
+ * Player chooses a basic mana token to convert to a crystal of the same color.
+ *
+ * @returns A ConvertManaToCrystalEffect
+ */
+export function convertManaToCrystal(): CardEffect {
+  return { type: EFFECT_CONVERT_MANA_TO_CRYSTAL };
 }
 
 // Re-export element constants for convenience
