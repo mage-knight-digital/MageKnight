@@ -32,7 +32,7 @@ export { ICE_GOLEMS } from "./iceGolems.js";
 export { SORCERERS } from "./sorcerers.js";
 export { CATAPULTS } from "./catapults.js";
 export { AMOTEP_GUNNERS } from "./amotepGunners.js";
-export { AMOTEP_FREEZERS } from "./amotepFreezers.js";
+export { AMOTEP_FREEZERS, AMOTEP_FREEZERS_FREEZE } from "./amotepFreezers.js";
 export { HEROES } from "./heroes.js";
 export { ALTEM_MAGES } from "./altemMages.js";
 export { ALTEM_GUARDIANS } from "./altemGuardians.js";
