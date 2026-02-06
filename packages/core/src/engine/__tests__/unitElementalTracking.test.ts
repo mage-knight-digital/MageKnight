@@ -131,7 +131,7 @@ describe("Unit Elemental Attack Tracking", () => {
   });
 
   it("should track fire ranged attack in ranged phase", () => {
-    // Fire Mages have Fire Ranged Attack 4 at index 1
+    // Fire Mages have Ranged Fire Attack 3 at index 0
     const unit = createPlayerUnit(UNIT_FIRE_MAGES, "fire_mages_1");
     const player = createTestPlayer({
       units: [unit],
@@ -146,18 +146,18 @@ describe("Unit Elemental Attack Tracking", () => {
     const result = engine.processAction(state, "player1", {
       type: ACTIVATE_UNIT_ACTION,
       unitInstanceId: "fire_mages_1",
-      abilityIndex: 1, // Fire Ranged Attack 4
+      abilityIndex: 0, // Ranged Fire Attack 3
     });
 
     // Verify fire ranged tracked separately
     expect(
       result.state.players[0].combatAccumulator.attack.rangedElements.fire
-    ).toBe(4);
+    ).toBe(3);
     expect(
       result.state.players[0].combatAccumulator.attack.rangedElements.physical
     ).toBe(0);
     // Total ranged attack should include fire
-    expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(4);
+    expect(result.state.players[0].combatAccumulator.attack.ranged).toBe(3);
   });
 
   it("should track physical attack as physical element", () => {

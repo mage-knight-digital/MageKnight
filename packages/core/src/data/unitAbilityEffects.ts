@@ -57,6 +57,7 @@ import {
   EFFECT_UNIT_ATTACK_BONUS,
   EFFECT_TRANSFORM_ATTACKS_COLD_FIRE,
   EFFECT_ADD_SIEGE_TO_ATTACKS,
+  ELEMENT_FIRE,
   ELEMENT_ICE,
   ENEMY_STAT_ARMOR,
   ENEMY_STAT_ATTACK,
@@ -92,6 +93,18 @@ export const ICE_MAGES_SIEGE_ATTACK = "ice_mages_siege_attack" as const;
  * Gain blue mana token + blue crystal
  */
 export const ICE_MAGES_GAIN_MANA_CRYSTAL = "ice_mages_gain_mana_crystal" as const;
+
+/**
+ * Fire Mages: Red mana ability
+ * Fire Attack 6 OR Fire Block 6
+ */
+export const FIRE_MAGES_ATTACK_OR_BLOCK = "fire_mages_attack_or_block" as const;
+
+/**
+ * Fire Mages: Free ability
+ * Gain red mana token + red crystal
+ */
+export const FIRE_MAGES_GAIN_MANA_CRYSTAL = "fire_mages_gain_mana_crystal" as const;
 
 /**
  * Sorcerers: Green mana ability
@@ -307,6 +320,39 @@ const ICE_MAGES_GAIN_MANA_CRYSTAL_EFFECT: CardEffect = {
   effects: [
     { type: EFFECT_GAIN_MANA, color: MANA_BLUE },
     { type: EFFECT_GAIN_CRYSTAL, color: MANA_BLUE },
+  ],
+};
+
+/**
+ * Fire Mages' Red mana ability: Fire Attack 6 OR Fire Block 6.
+ * Player chooses between gaining 6 Fire Attack (melee) or 6 Fire Block.
+ */
+const FIRE_MAGES_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 6,
+      combatType: COMBAT_TYPE_MELEE,
+      element: ELEMENT_FIRE,
+    },
+    {
+      type: EFFECT_GAIN_BLOCK,
+      amount: 6,
+      element: ELEMENT_FIRE,
+    },
+  ],
+};
+
+/**
+ * Fire Mages' resource generation ability.
+ * Grants 1 red mana token + 1 red crystal.
+ */
+const FIRE_MAGES_GAIN_MANA_CRYSTAL_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    { type: EFFECT_GAIN_MANA, color: MANA_RED },
+    { type: EFFECT_GAIN_CRYSTAL, color: MANA_RED },
   ],
 };
 
@@ -775,6 +821,8 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [ICE_MAGES_ATTACK_OR_BLOCK]: ICE_MAGES_ATTACK_OR_BLOCK_EFFECT,
   [ICE_MAGES_SIEGE_ATTACK]: ICE_MAGES_SIEGE_ATTACK_EFFECT,
   [ICE_MAGES_GAIN_MANA_CRYSTAL]: ICE_MAGES_GAIN_MANA_CRYSTAL_EFFECT,
+  [FIRE_MAGES_ATTACK_OR_BLOCK]: FIRE_MAGES_ATTACK_OR_BLOCK_EFFECT,
+  [FIRE_MAGES_GAIN_MANA_CRYSTAL]: FIRE_MAGES_GAIN_MANA_CRYSTAL_EFFECT,
   [HERBALIST_READY_UNIT]: HERBALIST_READY_UNIT_EFFECT,
   [HERBALIST_GAIN_MANA]: HERBALIST_GAIN_MANA_EFFECT,
   [ILLUSIONISTS_CANCEL_ATTACK]: ILLUSIONISTS_CANCEL_ATTACK_EFFECT,
