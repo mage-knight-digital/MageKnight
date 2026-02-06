@@ -50,6 +50,7 @@ import {
   EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE,
   EFFECT_MANA_RADIANCE,
   EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
+  EFFECT_PURE_MAGIC,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -354,6 +355,11 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_RESOLVE_MANA_RADIANCE_COLOR]: (effect) => {
     const e = effect as ResolveManaRadianceColorEffect;
     return `All players: wound per ${e.color} crystal, gain 2 ${e.color} crystals`;
+  },
+
+  [EFFECT_PURE_MAGIC]: (effect) => {
+    const e = effect as import("../../types/cards.js").PureMagicEffect;
+    return `Pay mana: Green=Move ${e.value}, White=Influence ${e.value}, Blue=Block ${e.value}, Red=Attack ${e.value}`;
   },
 };
 

@@ -14,6 +14,7 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_DISCARD_COST,
+  EFFECT_PURE_MAGIC,
 } from "../../../types/effectTypes.js";
 
 /**
@@ -22,6 +23,7 @@ import {
 export function effectHasMove(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_MOVE:
+    case EFFECT_PURE_MAGIC: // Pure Magic can provide Move (via green mana)
       return true;
 
     case EFFECT_CHOICE:
@@ -82,6 +84,7 @@ export function effectIsMoveOnly(effect: CardEffect): boolean {
 export function effectHasInfluence(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_INFLUENCE:
+    case EFFECT_PURE_MAGIC: // Pure Magic can provide Influence (via white mana)
       return true;
 
     case EFFECT_CHOICE:

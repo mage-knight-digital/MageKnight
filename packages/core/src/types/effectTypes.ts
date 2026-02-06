@@ -209,3 +209,10 @@ export const EFFECT_SCOUT_PEEK = "scout_peek" as const;
 // blue (+2), red (+2), or both (+4) mana tokens.
 // Generates choices based on available mana at resolution time.
 export const EFFECT_ALTEM_MAGES_COLD_FIRE = "altem_mages_cold_fire" as const;
+
+// === Pure Magic Effect ===
+// Pay a basic mana token → effect determined by color paid:
+// Green → Move, White → Influence, Blue → Block, Red → Attack.
+// Blue/Red only available during combat (Block/Attack are combat actions).
+// Values differ between basic (4) and powered (7) modes.
+export const EFFECT_PURE_MAGIC = "pure_magic" as const;

@@ -40,6 +40,7 @@ import { registerReadyUnitsBudgetEffects } from "./readyUnitsBudgetEffects.js";
 import { registerWoundActivatingUnitEffects } from "./woundActivatingUnitEffects.js";
 import { registerManaMeltdownEffects } from "./manaMeltdownEffects.js";
 import { registerAltemMagesEffects } from "./altemMagesEffects.js";
+import { registerPureMagicEffects } from "./pureMagicEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -142,4 +143,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Altem Mages effects (Cold Fire Attack/Block with mana scaling)
   registerAltemMagesEffects();
+
+  // Pure Magic effects (mana-color-driven effect selection)
+  registerPureMagicEffects();
 }
