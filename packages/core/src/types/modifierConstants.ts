@@ -178,3 +178,11 @@ export const EFFECT_TRANSFORM_ATTACKS_COLD_FIRE = "transform_attacks_cold_fire" 
 // Only affects attacks played AFTER activation (adds siege copy at accumulation time).
 export const EFFECT_ADD_SIEGE_TO_ATTACKS = "add_siege_to_attacks" as const;
 
+// === BurningShieldActiveModifier ===
+// Marks that Burning Shield/Exploding Shield spell is active this combat.
+// When a block is successfully declared against any enemy, triggers a bonus:
+// - Basic (mode "attack"): grants Fire Attack 4 in Attack phase
+// - Powered (mode "destroy"): destroys the blocked enemy (respects Fire/Arcane resistances)
+// The modifier fires ONCE on the first successful block, then is consumed.
+export const EFFECT_BURNING_SHIELD_ACTIVE = "burning_shield_active" as const;
+
