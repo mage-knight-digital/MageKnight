@@ -674,8 +674,8 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should return clear error for passive abilities like paralyze", () => {
-      // Ice Golems have Paralyze at index 4 (passive)
-      const unit = createPlayerUnit(UNIT_ICE_GOLEMS, "ice_golems_1");
+      // Amotep Freezers have Paralyze at index 2 (passive)
+      const unit = createPlayerUnit(UNIT_AMOTEP_FREEZERS, "amotep_freezers_1");
       const player = createTestPlayer({
         units: [unit],
         commandTokens: 1,
@@ -688,8 +688,8 @@ describe("Unit Combat Abilities", () => {
 
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
-        unitInstanceId: "ice_golems_1",
-        abilityIndex: 4, // Paralyze (passive)
+        unitInstanceId: "amotep_freezers_1",
+        abilityIndex: 2, // Paralyze (passive)
       });
 
       // Unit should still be ready (action rejected)
@@ -953,7 +953,7 @@ describe("Unit Combat Abilities", () => {
     });
 
     it("should allow powered ability with mana crystal", () => {
-      // Ice Golems have Attack 5 Ice (requires blue mana) at index 2
+      // Ice Golems have Ice Attack 6 (requires blue mana) at index 1
       const unit = createPlayerUnit(UNIT_ICE_GOLEMS, "ice_golem_1");
       const player = createTestPlayer({
         units: [unit],
@@ -969,12 +969,12 @@ describe("Unit Combat Abilities", () => {
       const result = engine.processAction(state, "player1", {
         type: ACTIVATE_UNIT_ACTION,
         unitInstanceId: "ice_golem_1",
-        abilityIndex: 2, // Attack 5 Ice (requires blue mana)
+        abilityIndex: 1, // Ice Attack 6 (requires blue mana)
         manaSource: { type: MANA_SOURCE_CRYSTAL, color: MANA_BLUE },
       });
 
       // Should succeed
-      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(5);
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(6);
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_SPENT);
       // Crystal should be consumed
       expect(result.state.players[0].crystals.blue).toBe(0);
