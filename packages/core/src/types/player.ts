@@ -197,6 +197,8 @@ export interface PendingDiscard {
   readonly thenEffectByColor?: Partial<Record<BasicCardColor, CardEffect>>;
   /** If true, wounds cannot be selected (default: true) */
   readonly filterWounds: boolean;
+  /** If true, cards with no action color can be discarded (gives no effect). Used by Druidic Staff. */
+  readonly allowNoColor?: boolean;
 }
 
 /**

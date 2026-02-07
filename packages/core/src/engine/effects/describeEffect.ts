@@ -53,6 +53,8 @@ import {
   EFFECT_PURE_MAGIC,
   EFFECT_APPLY_RECRUITMENT_BONUS,
   EFFECT_APPLY_INTERACTION_BONUS,
+  EFFECT_FREE_RECRUIT,
+  EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -388,6 +390,13 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
       parts.push(`Reputation +${e.reputation}`);
     }
     return `${parts.join(" and ")} on next interaction this turn`;
+  },
+
+  [EFFECT_FREE_RECRUIT]: () => "Recruit any Unit for free",
+
+  [EFFECT_RESOLVE_FREE_RECRUIT_TARGET]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveFreeRecruitTargetEffect;
+    return `Recruit ${e.unitName} for free`;
   },
 };
 

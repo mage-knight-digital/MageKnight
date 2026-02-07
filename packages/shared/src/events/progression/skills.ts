@@ -116,3 +116,50 @@ export function createSkillUsedEvent(
     skillId,
   };
 }
+
+// ============================================================================
+// MANA_OVERLOAD_TRIGGERED
+// ============================================================================
+
+/**
+ * Event type constant for Mana Overload trigger.
+ * @see ManaOverloadTriggeredEvent
+ */
+export const MANA_OVERLOAD_TRIGGERED = "MANA_OVERLOAD_TRIGGERED" as const;
+
+/**
+ * Emitted when Mana Overload's center bonus is triggered.
+ *
+ * The triggering player powers a Deed card with the marked color
+ * that provides Move/Influence/Attack/Block, gaining +4.
+ * The skill returns to its owner face-down.
+ */
+export interface ManaOverloadTriggeredEvent {
+  readonly type: typeof MANA_OVERLOAD_TRIGGERED;
+  /** Player who triggered the bonus (may differ from owner) */
+  readonly playerId: string;
+  /** Player who owns the Mana Overload skill */
+  readonly ownerId: string;
+  /** The effect type that received the +4 bonus */
+  readonly bonusType: string;
+  /** The bonus amount applied */
+  readonly bonusAmount: number;
+}
+
+/**
+ * Creates a ManaOverloadTriggeredEvent.
+ */
+export function createManaOverloadTriggeredEvent(
+  playerId: string,
+  ownerId: string,
+  bonusType: string,
+  bonusAmount: number
+): ManaOverloadTriggeredEvent {
+  return {
+    type: MANA_OVERLOAD_TRIGGERED,
+    playerId,
+    ownerId,
+    bonusType,
+    bonusAmount,
+  };
+}

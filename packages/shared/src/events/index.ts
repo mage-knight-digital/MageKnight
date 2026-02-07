@@ -222,6 +222,7 @@ import type {
   CommandSlotGainedEvent,
   SkillUsedEvent,
   SkillGainedEvent,
+  ManaOverloadTriggeredEvent,
 } from "./progression.js";
 
 import type {
@@ -398,6 +399,7 @@ export type GameEvent =
   | CommandSlotGainedEvent
   | SkillUsedEvent
   | SkillGainedEvent
+  | ManaOverloadTriggeredEvent
   // Units
   | UnitRecruitedEvent
   | UnitDisbandedEvent

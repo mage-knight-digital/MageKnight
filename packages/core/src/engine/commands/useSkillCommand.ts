@@ -32,6 +32,7 @@ import {
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_ARYTHEA_POWER_OF_PAIN,
   SKILL_ARYTHEA_INVOCATION,
+  SKILL_TOVAK_MANA_OVERLOAD,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -48,6 +49,8 @@ import {
   removeInvocationEffect,
   applyIDontGiveADamnEffect,
   removeIDontGiveADamnEffect,
+  applyManaOverloadEffect,
+  removeManaOverloadEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import {
@@ -65,7 +68,7 @@ import {
   type PendingChoiceSource,
 } from "./choice/choiceResolution.js";
 
-const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN]);
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD]);
 
 /**
  * Check if an effect (or any sub-effect in a compound) contains non-reversible
@@ -124,6 +127,9 @@ function applyCustomSkillEffect(
     case SKILL_ARYTHEA_INVOCATION:
       return applyInvocationEffect(state, playerId);
 
+    case SKILL_TOVAK_MANA_OVERLOAD:
+      return applyManaOverloadEffect(state, playerId);
+
     default:
       // Skill has no custom handler - will use generic effect resolution
       return state;
@@ -163,6 +169,9 @@ function removeCustomSkillEffect(
     case SKILL_ARYTHEA_INVOCATION:
       return removeInvocationEffect(state, playerId);
 
+    case SKILL_TOVAK_MANA_OVERLOAD:
+      return removeManaOverloadEffect(state, playerId);
+
     default:
       return state;
   }
@@ -180,6 +189,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_ARYTHEA_POLARIZATION,
     SKILL_ARYTHEA_POWER_OF_PAIN,
     SKILL_ARYTHEA_INVOCATION,
+    SKILL_TOVAK_MANA_OVERLOAD,
   ].includes(skillId);
 }
 

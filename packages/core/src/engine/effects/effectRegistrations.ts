@@ -43,6 +43,7 @@ import { registerAltemMagesEffects } from "./altemMagesEffects.js";
 import { registerPureMagicEffects } from "./pureMagicEffects.js";
 import { registerHeroicTaleEffects } from "./heroicTaleEffects.js";
 import { registerNobleMannersBonusEffects } from "./nobleMannersBonusEffects.js";
+import { registerFreeRecruitEffects } from "./freeRecruitEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -154,4 +155,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Noble Manners effects (interaction bonus modifier)
   registerNobleMannersBonusEffects();
+
+  // Free recruit effects (Banner of Command, Call to Glory)
+  registerFreeRecruitEffects();
 }

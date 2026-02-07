@@ -32,6 +32,7 @@ import {
   handleChoiceEffect,
 } from "./playCard/choiceHandling.js";
 import { handleArtifactDestruction } from "./playCard/artifactDestruction.js";
+import { checkManaOverloadTrigger, applyManaOverloadTrigger } from "./playCard/manaOverloadTrigger.js";
 import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/index.js";
 import { EFFECT_MOVEMENT_CARD_BONUS } from "../../types/modifierConstants.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
@@ -68,6 +69,10 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
   // This correctly reverts any modifier-adding effects (Noble Manners, Heroic Tale,
   // Ruthless Coercion, Agility, etc.) without needing per-effect reverse logic.
   let preEffectModifiersSnapshot: readonly ActiveModifier[] | null = null;
+  // Store Mana Overload trigger info for undo
+  let manaOverloadTriggered = false;
+  let manaOverloadBonusType: string | null = null;
+  let manaOverloadPreviousCenter: GameState["manaOverloadCenter"] = null;
 
   return {
     type: PLAY_CARD_COMMAND,
@@ -238,7 +243,46 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
             movementBonusAppliedAmount > 0
           );
 
-          return { ...choiceResult, state: updatedState };
+          // Check Mana Overload trigger for choice cards too
+          const choiceEvents = [...(choiceResult.events ?? [])];
+          if (isPowered && updatedState.manaOverloadCenter) {
+            const triggerCheck = checkManaOverloadTrigger(
+              updatedState.manaOverloadCenter,
+              manaSources,
+              effectToApply
+            );
+            if (triggerCheck.triggers) {
+              manaOverloadTriggered = true;
+              manaOverloadBonusType = triggerCheck.bonusTypes[0] ?? null;
+              manaOverloadPreviousCenter = updatedState.manaOverloadCenter;
+              const playerIdx = updatedState.players.findIndex(
+                (p) => p.id === params.playerId
+              );
+              if (playerIdx !== -1) {
+                const triggerResult = applyManaOverloadTrigger(
+                  updatedState,
+                  params.playerId,
+                  playerIdx,
+                  triggerCheck.bonusTypes
+                );
+                updatedState = triggerResult.state;
+                choiceEvents.push(...triggerResult.events);
+              }
+            }
+          }
+
+          // Handle artifact destruction for choice-based powered effects
+          if (isPowered && card.destroyOnPowered) {
+            const destructionResult = handleArtifactDestruction(
+              updatedState,
+              params.playerId,
+              params.cardId
+            );
+            updatedState = destructionResult.state;
+            choiceEvents.push(...destructionResult.events);
+          }
+
+          return { ...choiceResult, state: updatedState, events: choiceEvents };
         }
 
         // Unknown choice type - return as-is
@@ -297,6 +341,33 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           const updatedPlayers = [...finalState.players];
           updatedPlayers[playerIdx] = updatedPlayer;
           finalState = { ...finalState, players: updatedPlayers };
+        }
+      }
+
+      // Check Mana Overload trigger (powered cards only)
+      if (isPowered && finalState.manaOverloadCenter) {
+        const triggerCheck = checkManaOverloadTrigger(
+          finalState.manaOverloadCenter,
+          manaSources,
+          effectToApply
+        );
+        if (triggerCheck.triggers) {
+          manaOverloadTriggered = true;
+          manaOverloadBonusType = triggerCheck.bonusTypes[0] ?? null;
+          manaOverloadPreviousCenter = finalState.manaOverloadCenter;
+          const playerIdx = finalState.players.findIndex(
+            (p) => p.id === params.playerId
+          );
+          if (playerIdx !== -1) {
+            const triggerResult = applyManaOverloadTrigger(
+              finalState,
+              params.playerId,
+              playerIdx,
+              triggerCheck.bonusTypes
+            );
+            finalState = triggerResult.state;
+            events.push(...triggerResult.events);
+          }
         }
       }
 
@@ -381,15 +452,91 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         };
       }
 
+      // Reverse Mana Overload trigger if it was applied
+      if (manaOverloadTriggered && manaOverloadBonusType) {
+        switch (manaOverloadBonusType) {
+          case "move":
+            updatedPlayer = {
+              ...updatedPlayer,
+              movePoints: updatedPlayer.movePoints - 4,
+            };
+            break;
+          case "influence":
+            updatedPlayer = {
+              ...updatedPlayer,
+              influencePoints: updatedPlayer.influencePoints - 4,
+            };
+            break;
+          case "attack":
+            updatedPlayer = {
+              ...updatedPlayer,
+              combatAccumulator: {
+                ...updatedPlayer.combatAccumulator,
+                attack: {
+                  ...updatedPlayer.combatAccumulator.attack,
+                  normal: updatedPlayer.combatAccumulator.attack.normal - 4,
+                  normalElements: {
+                    ...updatedPlayer.combatAccumulator.attack.normalElements,
+                    physical:
+                      updatedPlayer.combatAccumulator.attack.normalElements
+                        .physical - 4,
+                  },
+                },
+              },
+            };
+            break;
+          case "block":
+            updatedPlayer = {
+              ...updatedPlayer,
+              combatAccumulator: {
+                ...updatedPlayer.combatAccumulator,
+                block: updatedPlayer.combatAccumulator.block - 4,
+                blockElements: {
+                  ...updatedPlayer.combatAccumulator.blockElements,
+                  physical:
+                    updatedPlayer.combatAccumulator.blockElements.physical - 4,
+                },
+              },
+            };
+            break;
+        }
+      }
+
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
 
       // Always restore the pre-effect modifiers snapshot.
       // This correctly reverts ALL modifier-adding effects (Noble Manners, Heroic Tale,
       // Ruthless Coercion, Agility, movement bonuses, etc.) in one operation.
-      const stateWithModifiers = preEffectModifiersSnapshot
+      let stateWithModifiers = preEffectModifiersSnapshot
         ? { ...state, activeModifiers: preEffectModifiersSnapshot }
         : state;
+
+      // Restore Mana Overload center state and owner's flip state
+      if (manaOverloadTriggered && manaOverloadPreviousCenter) {
+        stateWithModifiers = {
+          ...stateWithModifiers,
+          manaOverloadCenter: manaOverloadPreviousCenter,
+        };
+        // Undo the flip on the owner
+        const ownerIdx = players.findIndex(
+          (p) => p.id === manaOverloadPreviousCenter?.ownerId
+        );
+        if (ownerIdx !== -1) {
+          const owner = players[ownerIdx];
+          if (owner) {
+            players[ownerIdx] = {
+              ...owner,
+              skillFlipState: {
+                ...owner.skillFlipState,
+                flippedSkills: owner.skillFlipState.flippedSkills.filter(
+                  (s) => s !== manaOverloadPreviousCenter?.skillId
+                ),
+              },
+            };
+          }
+        }
+      }
 
       return {
         state: { ...stateWithModifiers, players, source: updatedSource },

@@ -88,6 +88,8 @@ import {
   EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE,
   EFFECT_MANA_RADIANCE,
   EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
+  EFFECT_FREE_RECRUIT,
+  EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -447,6 +449,15 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Mana Radiance color resolution is always resolvable
   [EFFECT_RESOLVE_MANA_RADIANCE_COLOR]: () => true,
+
+  // Free recruit is resolvable if there are units in the offer and player has command slots
+  [EFFECT_FREE_RECRUIT]: (state, player) => {
+    if (state.offers.units.length === 0) return false;
+    return player.units.length < player.commandTokens;
+  },
+
+  // Free recruit target resolution is always resolvable (unit validated at resolution time)
+  [EFFECT_RESOLVE_FREE_RECRUIT_TARGET]: () => true,
 };
 
 // ============================================================================

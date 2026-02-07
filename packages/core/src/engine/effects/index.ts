@@ -272,6 +272,15 @@ export {
   registerNobleMannersBonusEffects,
 } from "./nobleMannersBonusEffects.js";
 
+// Free recruit effects (Banner of Command, Call to Glory)
+export {
+  handleFreeRecruit,
+  resolveFreeRecruitTarget,
+  applyFreeRecruit,
+  registerFreeRecruitEffects,
+  resetFreeRecruitInstanceCounter,
+} from "./freeRecruitEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 
