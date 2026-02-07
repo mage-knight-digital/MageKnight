@@ -43,7 +43,7 @@ import {
   MAGIC_FAMILIARS,
   TERRAIN_PLAINS,
 } from "@mage-knight/shared";
-import type { BasicManaColor } from "@mage-knight/shared";
+import type { BasicManaColor, PlayerAction } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../types/unit.js";
 import { resetUnitInstanceCounter } from "../commands/units/index.js";
 import {
@@ -55,6 +55,14 @@ import { getUnitAbilityEffect } from "../../data/unitAbilityEffects.js";
 import { getValidActions } from "../validActions/index.js";
 import { processPlayerRoundReset } from "../commands/endRound/playerRoundReset.js";
 import type { RngState } from "../../utils/rng.js";
+import {
+  validateHasPendingUnitMaintenance,
+  validateUnitMaintenanceChoice,
+} from "../validators/unitMaintenanceValidators.js";
+import { validateRecruitManaPayment } from "../validators/units/recruitmentValidators.js";
+import { createResolveUnitMaintenanceCommand } from "../commands/resolveUnitMaintenanceCommand.js";
+
+const UNDO_ACTION_TYPE = "UNDO" as const;
 
 describe("Magic Familiars Unit", () => {
   let engine: ReturnType<typeof createEngine>;
@@ -998,6 +1006,268 @@ describe("Magic Familiars Unit", () => {
         );
         expect(familiars).toBeDefined();
       }
+    });
+  });
+
+  // =========================================================================
+  // UNDO TESTS
+  // =========================================================================
+
+  describe("Undo", () => {
+    it("should undo attack ability activation with mana token bonus", () => {
+      const unit = createPlayerUnit(UNIT_MAGIC_FAMILIARS, "familiars_1", MANA_RED);
+      const player = createTestPlayer({
+        units: [unit],
+        commandTokens: 1,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      // Activate attack with red mana token (bonus 5)
+      const result = engine.processAction(state, "player1", {
+        type: ACTIVATE_UNIT_ACTION,
+        unitInstanceId: "familiars_1",
+        abilityIndex: 0,
+      });
+
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(5);
+
+      // Undo should remove the full 5 (effective value with bonus)
+      const undoResult = engine.processAction(result.state, "player1", {
+        type: UNDO_ACTION_TYPE,
+      });
+      expect(undoResult.state.players[0].combatAccumulator.attack.normal).toBe(0);
+      expect(undoResult.state.players[0].units[0].state).not.toBe(UNIT_STATE_SPENT);
+    });
+
+    it("should undo recruit with mana payment and restore mana token", () => {
+      const player = createTestPlayer({
+        position: { q: 0, r: 0 },
+        influencePoints: 10,
+        pureMana: [{ color: MANA_RED, source: "card" as never }],
+      });
+
+      const hexWithMageTower = createTestHex(0, 0, TERRAIN_PLAINS, {
+        type: SiteType.MageTower,
+        owner: "player1",
+        isConquered: true,
+        isBurned: false,
+      });
+
+      const state = createTestGameState({
+        players: [player],
+        offers: {
+          advancedActions: [],
+          spells: [],
+          units: [UNIT_MAGIC_FAMILIARS],
+          artifacts: [],
+        },
+        map: {
+          hexes: {
+            [hexKey({ q: 0, r: 0 })]: hexWithMageTower,
+          },
+          tiles: [],
+          tileDeck: { countryside: [], core: [] },
+        },
+      });
+
+      // Recruit with mana payment
+      const result = engine.processAction(state, "player1", {
+        type: RECRUIT_UNIT_ACTION,
+        unitId: UNIT_MAGIC_FAMILIARS,
+        influenceSpent: 6,
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED, index: 0 },
+        manaTokenColor: MANA_RED,
+      });
+
+      expect(result.state.players[0].units.length).toBe(1);
+      expect(result.state.players[0].pureMana.length).toBe(0);
+
+      // Undo should restore mana and remove unit
+      const undoResult = engine.processAction(result.state, "player1", {
+        type: UNDO_ACTION_TYPE,
+      });
+      expect(undoResult.state.players[0].units.length).toBe(0);
+      expect(undoResult.state.players[0].pureMana.length).toBe(1);
+      expect(undoResult.state.players[0].pureMana[0].color).toBe(MANA_RED);
+    });
+  });
+
+  // =========================================================================
+  // VALIDATOR DEFENSIVE BRANCHES
+  // =========================================================================
+
+  describe("Validator Defensive Branches", () => {
+    it("validateHasPendingUnitMaintenance returns PLAYER_NOT_FOUND for missing player", () => {
+      const state = createTestGameState({ players: [] });
+      const action: PlayerAction = {
+        type: RESOLVE_UNIT_MAINTENANCE_ACTION,
+        unitInstanceId: "familiars_1",
+        keepUnit: false,
+      };
+      const result = validateHasPendingUnitMaintenance(state, "nonexistent", action);
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error.code).toBe("PLAYER_NOT_FOUND");
+      }
+    });
+
+    it("validateUnitMaintenanceChoice returns valid for wrong action type", () => {
+      const state = createTestGameState({ players: [] });
+      const action = { type: ACTIVATE_UNIT_ACTION } as PlayerAction;
+      const result = validateUnitMaintenanceChoice(state, "player1", action);
+      expect(result.valid).toBe(true);
+    });
+
+    it("validateUnitMaintenanceChoice returns PLAYER_NOT_FOUND for missing player", () => {
+      const state = createTestGameState({ players: [] });
+      const action: PlayerAction = {
+        type: RESOLVE_UNIT_MAINTENANCE_ACTION,
+        unitInstanceId: "familiars_1",
+        keepUnit: false,
+      };
+      const result = validateUnitMaintenanceChoice(state, "nonexistent", action);
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error.code).toBe("PLAYER_NOT_FOUND");
+      }
+    });
+
+    it("validateUnitMaintenanceChoice returns valid when pendingUnitMaintenance is null", () => {
+      const player = createTestPlayer({ pendingUnitMaintenance: null });
+      const state = createTestGameState({ players: [player] });
+      const action: PlayerAction = {
+        type: RESOLVE_UNIT_MAINTENANCE_ACTION,
+        unitInstanceId: "familiars_1",
+        keepUnit: false,
+      };
+      const result = validateUnitMaintenanceChoice(state, "player1", action);
+      // Returns valid() — the null case is caught by validateHasPendingUnitMaintenance
+      expect(result.valid).toBe(true);
+    });
+
+    it("validateUnitMaintenanceChoice rejects unit not in maintenance list", () => {
+      const player = createTestPlayer({
+        pendingUnitMaintenance: [
+          { unitInstanceId: "familiars_1", unitId: UNIT_MAGIC_FAMILIARS },
+        ],
+      });
+      const state = createTestGameState({ players: [player] });
+      const action: PlayerAction = {
+        type: RESOLVE_UNIT_MAINTENANCE_ACTION,
+        unitInstanceId: "wrong_unit",
+        keepUnit: false,
+      };
+      const result = validateUnitMaintenanceChoice(state, "player1", action);
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error.code).toBe("UNIT_NOT_IN_MAINTENANCE");
+      }
+    });
+
+    it("validateUnitMaintenanceChoice rejects keeping without newManaTokenColor", () => {
+      const player = createTestPlayer({
+        crystals: { red: 1, blue: 0, green: 0, white: 0 },
+        pendingUnitMaintenance: [
+          { unitInstanceId: "familiars_1", unitId: UNIT_MAGIC_FAMILIARS },
+        ],
+      });
+      const state = createTestGameState({ players: [player] });
+      const action: PlayerAction = {
+        type: RESOLVE_UNIT_MAINTENANCE_ACTION,
+        unitInstanceId: "familiars_1",
+        keepUnit: true,
+        crystalColor: MANA_RED,
+        // No newManaTokenColor
+      };
+      const result = validateUnitMaintenanceChoice(state, "player1", action);
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error.code).toBe("MAINTENANCE_REQUIRES_TOKEN_COLOR");
+      }
+    });
+
+    it("validateRecruitManaPayment returns PLAYER_NOT_FOUND for missing player", () => {
+      const state = createTestGameState({ players: [] });
+      const action: PlayerAction = {
+        type: RECRUIT_UNIT_ACTION,
+        unitId: UNIT_MAGIC_FAMILIARS,
+        influenceSpent: 6,
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED, index: 0 },
+        manaTokenColor: MANA_RED,
+      };
+      const result = validateRecruitManaPayment(state, "nonexistent", action);
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error.code).toBe("PLAYER_NOT_FOUND");
+      }
+    });
+
+    it("validateRecruitManaPayment rejects when no mana available", () => {
+      const player = createTestPlayer({
+        pureMana: [], // No mana tokens
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+      });
+      const state = createTestGameState({
+        players: [player],
+        source: {
+          dice: [],
+          usedDice: [],
+          dummyDice: 0,
+        },
+      });
+      const action: PlayerAction = {
+        type: RECRUIT_UNIT_ACTION,
+        unitId: UNIT_MAGIC_FAMILIARS,
+        influenceSpent: 6,
+        manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED, index: 0 },
+        manaTokenColor: MANA_RED,
+      };
+      const result = validateRecruitManaPayment(state, "player1", action);
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error.code).toBe("RECRUIT_REQUIRES_MANA");
+      }
+    });
+  });
+
+  // =========================================================================
+  // COMMAND DEFENSIVE BRANCHES
+  // =========================================================================
+
+  describe("Command Defensive Branches", () => {
+    it("resolveUnitMaintenance undo throws error", () => {
+      const command = createResolveUnitMaintenanceCommand({
+        playerId: "player1",
+        unitInstanceId: "familiars_1",
+        keepUnit: false,
+      });
+
+      const state = createTestGameState({ players: [] });
+      expect(() => command.undo(state)).toThrow("Cannot undo RESOLVE_UNIT_MAINTENANCE");
+    });
+
+    it("resolveUnitMaintenance execute throws for missing crystal", () => {
+      const unit = createPlayerUnit(UNIT_MAGIC_FAMILIARS, "familiars_1", MANA_RED);
+      const player = createTestPlayer({
+        units: [unit],
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+      });
+
+      const state = createTestGameState({ players: [player] });
+
+      const command = createResolveUnitMaintenanceCommand({
+        playerId: "player1",
+        unitInstanceId: "familiars_1",
+        keepUnit: true,
+        crystalColor: MANA_RED,
+        newManaTokenColor: MANA_BLUE,
+      });
+
+      expect(() => command.execute(state)).toThrow("No red crystal available");
     });
   });
 });
