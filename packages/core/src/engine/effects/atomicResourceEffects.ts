@@ -99,9 +99,18 @@ export function applyGainCrystal(
   player: Player,
   color: BasicManaColor
 ): EffectResolutionResult {
+  const MAX_CRYSTALS_PER_COLOR = 3;
+  const current = player.crystals[color];
+  if (current >= MAX_CRYSTALS_PER_COLOR) {
+    return {
+      state,
+      description: `Already at max ${color} crystals`,
+    };
+  }
+
   const updatedCrystals = {
     ...player.crystals,
-    [color]: player.crystals[color] + 1,
+    [color]: current + 1,
   };
 
   const updatedPlayer: Player = {
