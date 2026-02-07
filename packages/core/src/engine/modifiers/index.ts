@@ -38,7 +38,14 @@ export {
 } from "./terrain.js";
 
 // Unit effective values
-export { getEffectiveUnitResistances, getUnitAttackBonus, getLeadershipBonusModifier } from "./units.js";
+export {
+  getEffectiveUnitResistances,
+  getUnitAttackBonus,
+  getUnitArmorBonus,
+  getUnitBlockBonus,
+  getBannerGloryFameTracker,
+  getLeadershipBonusModifier,
+} from "./units.js";
 
 // Card values
 export { getEffectiveSidewaysValue, isRuleActive, consumeMovementCardBonus } from "./cardValues.js";

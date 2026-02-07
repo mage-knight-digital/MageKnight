@@ -280,7 +280,8 @@ function processUnitAssignment(
     attackElement,
     playerId,
     isPoisoned,
-    isParalyzed
+    isParalyzed,
+    player
   );
 
   let updatedPlayer: Player;
