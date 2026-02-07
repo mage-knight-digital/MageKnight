@@ -11,6 +11,7 @@ import {
   SCALING_PER_UNIT,
   SCALING_PER_CRYSTAL_COLOR,
   SCALING_PER_EMPTY_COMMAND_TOKEN,
+  SCALING_PER_WOUND_TOTAL,
 } from "../../types/scaling.js";
 import type { UnitFilter } from "../../types/scaling.js";
 import type { PlayerUnit } from "../../types/unit.js";
@@ -76,6 +77,13 @@ export function evaluateScalingFactor(
       // Empty = commandTokens - current unit count
       const usedSlots = player.units.length;
       return Math.max(0, player.commandTokens - usedSlots);
+    }
+
+    case SCALING_PER_WOUND_TOTAL: {
+      // Count wounds in hand + wounded units
+      const woundsInHand = player.hand.filter((c) => c === CARD_WOUND).length;
+      const woundedUnits = player.units.filter((u) => u.wounded).length;
+      return woundsInHand + woundedUnits;
     }
 
     default: {

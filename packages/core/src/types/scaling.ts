@@ -11,6 +11,7 @@ export const SCALING_PER_WOUND_THIS_COMBAT = "per_wound_this_combat" as const;
 export const SCALING_PER_UNIT = "per_unit" as const;
 export const SCALING_PER_CRYSTAL_COLOR = "per_crystal_color" as const;
 export const SCALING_PER_EMPTY_COMMAND_TOKEN = "per_empty_command_token" as const;
+export const SCALING_PER_WOUND_TOTAL = "per_wound_total" as const;
 
 // Note: SCALING_PER_WOUND_PLAYED was removed because wounds cannot be "played"
 // as cards in Mage Knight - they are dead cards.
@@ -52,6 +53,14 @@ export interface ScalingPerEmptyCommandTokenFactor {
 }
 
 /**
+ * Scales by total wound count: wounds in hand + wounded units.
+ * For cards like "In Need" that scale by all wound sources.
+ */
+export interface ScalingPerWoundTotalFactor {
+  readonly type: typeof SCALING_PER_WOUND_TOTAL;
+}
+
+/**
  * Filter criteria for unit-based scaling.
  */
 export interface UnitFilter {
@@ -71,4 +80,5 @@ export type ScalingFactor =
   | ScalingPerWoundThisCombatFactor
   | ScalingPerUnitFactor
   | ScalingPerCrystalColorFactor
-  | ScalingPerEmptyCommandTokenFactor;
+  | ScalingPerEmptyCommandTokenFactor
+  | ScalingPerWoundTotalFactor;

@@ -27,6 +27,7 @@ import {
   SCALING_PER_ENEMY,
   SCALING_PER_WOUND_IN_HAND,
   SCALING_PER_UNIT,
+  SCALING_PER_WOUND_TOTAL,
 } from "../types/scaling.js";
 import type { CombatPhase } from "../types/combat.js";
 import type { Terrain, ManaColor, Element } from "@mage-knight/shared";
@@ -539,6 +540,16 @@ export function fireBlockPerEnemy(baseAmount: number, perEnemy: number): Scaling
  */
 export function iceBlockPerEnemy(baseAmount: number, perEnemy: number): ScalingEffect {
   return blockPerEnemy(baseAmount, perEnemy, ELEMENT_ICE);
+}
+
+/**
+ * Influence that scales per total wounds (hand + units)
+ */
+export function influencePerWoundTotal(
+  baseAmount: number,
+  perWound: number
+): ScalingEffect {
+  return scalingInfluence(baseAmount, { type: SCALING_PER_WOUND_TOTAL }, perWound);
 }
 
 // === Interaction Bonus Helper ===
