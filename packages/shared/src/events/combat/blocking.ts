@@ -355,3 +355,56 @@ export interface ThugsDamageInfluencePaidEvent {
   /** Amount of influence spent (always 2) */
   readonly influenceSpent: number;
 }
+
+// ============================================================================
+// INFLUENCE_CONVERTED_TO_BLOCK (Diplomacy card)
+// ============================================================================
+
+/**
+ * Event type constant for influence-to-block conversion.
+ * @see InfluenceConvertedToBlockEvent
+ */
+export const INFLUENCE_CONVERTED_TO_BLOCK = "INFLUENCE_CONVERTED_TO_BLOCK" as const;
+
+/**
+ * Emitted when influence points are converted to block via Diplomacy card.
+ *
+ * @remarks
+ * - Only valid when an influence-to-block conversion modifier is active
+ * - Available during BLOCK phase
+ * - Influence points are consumed and block is added to the combat accumulator
+ */
+export interface InfluenceConvertedToBlockEvent {
+  readonly type: typeof INFLUENCE_CONVERTED_TO_BLOCK;
+  /** Influence points spent */
+  readonly influencePointsSpent: number;
+  /** Block points gained */
+  readonly blockGained: number;
+  /** Element of the block gained */
+  readonly blockElement: "physical" | "fire" | "ice";
+}
+
+/**
+ * Creates an InfluenceConvertedToBlockEvent.
+ */
+export function createInfluenceConvertedToBlockEvent(
+  influencePointsSpent: number,
+  blockGained: number,
+  blockElement: "physical" | "fire" | "ice"
+): InfluenceConvertedToBlockEvent {
+  return {
+    type: INFLUENCE_CONVERTED_TO_BLOCK,
+    influencePointsSpent,
+    blockGained,
+    blockElement,
+  };
+}
+
+/**
+ * Type guard for InfluenceConvertedToBlockEvent.
+ */
+export function isInfluenceConvertedToBlockEvent(
+  event: { type: string }
+): event is InfluenceConvertedToBlockEvent {
+  return event.type === INFLUENCE_CONVERTED_TO_BLOCK;
+}

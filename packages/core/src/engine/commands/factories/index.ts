@@ -73,6 +73,7 @@ import {
   USE_BANNER_FEAR_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
   CONVERT_MOVE_TO_ATTACK_ACTION,
+  CONVERT_INFLUENCE_TO_BLOCK_ACTION,
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
   RESOLVE_HEX_COST_REDUCTION_ACTION,
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
@@ -114,6 +115,7 @@ export {
   createSpendMoveOnCumbersomeCommandFromAction,
   createPayHeroesAssaultInfluenceCommandFromAction,
   createConvertMoveToAttackCommandFromAction,
+  createConvertInfluenceToBlockCommandFromAction,
   createPayThugsDamageInfluenceCommandFromAction,
 } from "./combat.js";
 
@@ -222,6 +224,7 @@ import {
   createSpendMoveOnCumbersomeCommandFromAction,
   createPayHeroesAssaultInfluenceCommandFromAction,
   createConvertMoveToAttackCommandFromAction,
+  createConvertInfluenceToBlockCommandFromAction,
   createPayThugsDamageInfluenceCommandFromAction,
 } from "./combat.js";
 
@@ -357,6 +360,8 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [PAY_HEROES_ASSAULT_INFLUENCE_ACTION]: createPayHeroesAssaultInfluenceCommandFromAction,
   // Move-to-attack conversion (Agility card)
   [CONVERT_MOVE_TO_ATTACK_ACTION]: createConvertMoveToAttackCommandFromAction,
+  // Influence-to-block conversion (Diplomacy card)
+  [CONVERT_INFLUENCE_TO_BLOCK_ACTION]: createConvertInfluenceToBlockCommandFromAction,
   // Thugs damage influence payment action
   [PAY_THUGS_DAMAGE_INFLUENCE_ACTION]: createPayThugsDamageInfluenceCommandFromAction,
   // Terrain cost reduction actions (Druidic Paths)

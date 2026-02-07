@@ -262,3 +262,14 @@ export const EFFECT_UNIT_BLOCK_BONUS = "unit_block_bonus" as const;
 // Used by Banner of Glory powered effect.
 export const EFFECT_BANNER_GLORY_FAME_TRACKING = "banner_glory_fame_tracking" as const;
 
+// === InfluenceToBlockConversionModifier ===
+// Allows converting influence points to block during combat (Diplomacy card)
+// Basic: 1 influence = 1 physical block
+// Powered: 1 influence = 1 ice block OR 1 fire block (chosen at play time)
+export const EFFECT_INFLUENCE_TO_BLOCK_CONVERSION = "influence_to_block_conversion" as const;
+
+// === RuleOverrideModifier["rule"] additions ===
+// Allows playing influence cards during combat for their influence value
+// (which can then be converted to block via InfluenceToBlockConversion)
+export const RULE_INFLUENCE_CARDS_IN_COMBAT = "influence_cards_in_combat" as const;
+

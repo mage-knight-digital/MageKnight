@@ -194,6 +194,14 @@ export interface CombatOptions {
   /** Available move points for conversion */
   readonly availableMovePointsForConversion?: number;
 
+  // ---- Influence-to-block conversion (Diplomacy card, BLOCK phase) ----
+
+  /** Influence-to-block conversion option during BLOCK phase */
+  readonly influenceToBlockConversion?: InfluenceToBlockConversionOption;
+
+  /** Available influence points for conversion */
+  readonly availableInfluenceForConversion?: number;
+
   // ---- Heroes assault influence payment (fortified site assaults) ----
 
   /** Whether player can pay 2 Influence to allow Heroes to use abilities */
@@ -476,6 +484,23 @@ export interface MoveToAttackConversionOption {
   readonly costPerPoint: number;
   /** Maximum attack points that can be gained (floor(availableMove / cost)) */
   readonly maxAttackGainable: number;
+}
+
+// ============================================================================
+// Influence-to-Block Conversion (Diplomacy card, BLOCK phase)
+// ============================================================================
+
+/**
+ * Information about an available influence-to-block conversion option.
+ * Present during BLOCK phase when an influence-to-block conversion modifier is active.
+ */
+export interface InfluenceToBlockConversionOption {
+  /** Element of the block gained from conversion */
+  readonly blockElement: "physical" | "fire" | "ice";
+  /** Influence points required per 1 block point */
+  readonly costPerPoint: number;
+  /** Maximum block points that can be gained (floor(availableInfluence / cost)) */
+  readonly maxBlockGainable: number;
 }
 
 // ============================================================================

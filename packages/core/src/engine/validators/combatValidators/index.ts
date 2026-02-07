@@ -90,6 +90,15 @@ export {
   validateConversionMovePoints,
 } from "./conversionValidators.js";
 
+// Influence-to-block conversion validators (Diplomacy card)
+export {
+  validateInfluenceConversionInCombat,
+  validateInfluenceConversionPhase,
+  validateInfluenceConversionModifierActive,
+  validateInfluenceConversionAmount,
+  validateInfluenceConversionInfluencePoints,
+} from "./influenceConversionValidators.js";
+
 // Thugs damage influence validators
 export {
   validateThugsDamagePaymentInCombat,

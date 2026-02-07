@@ -532,6 +532,14 @@ export interface ConvertMoveToAttackAction {
   readonly conversionType: MoveToAttackConversionType;
 }
 
+// Diplomacy - convert influence points to block during combat
+export const CONVERT_INFLUENCE_TO_BLOCK_ACTION = "CONVERT_INFLUENCE_TO_BLOCK" as const;
+
+export interface ConvertInfluenceToBlockAction {
+  readonly type: typeof CONVERT_INFLUENCE_TO_BLOCK_ACTION;
+  readonly influencePointsToSpend: number;
+}
+
 // Debug actions (dev-only)
 export const DEBUG_ADD_FAME_ACTION = "DEBUG_ADD_FAME" as const;
 export interface DebugAddFameAction {
@@ -774,6 +782,8 @@ export type PlayerAction =
   | SpendMoveOnCumbersomeAction
   // Move-to-attack conversion (Agility)
   | ConvertMoveToAttackAction
+  // Influence-to-block conversion (Diplomacy)
+  | ConvertInfluenceToBlockAction
   // Debug actions (dev-only)
   | DebugAddFameAction
   | DebugTriggerLevelUpAction

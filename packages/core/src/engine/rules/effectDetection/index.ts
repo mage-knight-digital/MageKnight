@@ -20,6 +20,7 @@ export {
   effectHasMove,
   effectIsMoveOnly,
   effectHasInfluence,
+  effectIsInfluenceOnly,
 } from "./movementEffects.js";
 
 // Resource effects

@@ -36,6 +36,7 @@ import {
   EFFECT_COLD_TOUGHNESS_BLOCK,
   EFFECT_MOVEMENT_CARD_BONUS,
   EFFECT_MOVE_TO_ATTACK_CONVERSION,
+  EFFECT_INFLUENCE_TO_BLOCK_CONVERSION,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SCOUT_FAME_BONUS,
   EFFECT_SIDEWAYS_VALUE,
@@ -75,6 +76,7 @@ import {
   RULE_IGNORE_FORTIFICATION,
   RULE_IGNORE_RAMPAGING_PROVOKE,
   RULE_MOVE_CARDS_IN_COMBAT,
+  RULE_INFLUENCE_CARDS_IN_COMBAT,
   RULE_SOURCE_BLOCKED,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
   RULE_UNITS_CANNOT_ABSORB_DAMAGE,
@@ -210,6 +212,7 @@ export interface RuleOverrideModifier {
     | typeof RULE_SOURCE_BLOCKED
     | typeof RULE_EXTRA_SOURCE_DIE
     | typeof RULE_MOVE_CARDS_IN_COMBAT
+    | typeof RULE_INFLUENCE_CARDS_IN_COMBAT
     | typeof RULE_EXTENDED_EXPLORE
     | typeof RULE_UNITS_CANNOT_ABSORB_DAMAGE
     | typeof RULE_SPACE_BENDING_ADJACENCY
@@ -306,6 +309,18 @@ export interface MoveToAttackConversionModifier {
   readonly costPerPoint: number;
   /** Type of attack gained from conversion */
   readonly attackType: typeof COMBAT_VALUE_ATTACK | typeof COMBAT_VALUE_RANGED;
+}
+
+// Influence-to-block conversion modifier (Diplomacy card)
+// Allows converting accumulated influence points to block during combat.
+// Basic Diplomacy: 1 influence = 1 physical block
+// Powered Diplomacy: 1 influence = 1 ice or 1 fire block (chosen at play time)
+export interface InfluenceToBlockConversionModifier {
+  readonly type: typeof EFFECT_INFLUENCE_TO_BLOCK_CONVERSION;
+  /** Influence points required per block point */
+  readonly costPerPoint: number;
+  /** Element of the block gained (undefined = physical) */
+  readonly element?: typeof ELEMENT_FIRE | typeof ELEMENT_ICE;
 }
 
 // Scout fame bonus modifier (Scouts unit ability)
@@ -479,6 +494,7 @@ export type ModifierEffect =
   | ColdToughnessBlockModifier
   | RecruitDiscountModifier
   | MoveToAttackConversionModifier
+  | InfluenceToBlockConversionModifier
   | ScoutFameBonusModifier
   | UnitAttackBonusModifier
   | DiseaseArmorModifier
