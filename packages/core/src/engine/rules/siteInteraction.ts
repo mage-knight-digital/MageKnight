@@ -85,6 +85,18 @@ export function canBuyAdvancedActionsAtMonastery(site: Site): boolean {
 }
 
 /**
+ * Check if a player is at an inhabited site where they can interact.
+ * Combines inhabited check with accessibility check.
+ * Used by skill activation rules and condition evaluators.
+ */
+export function isPlayerAtInteractionSite(
+  site: Site,
+  playerId: string
+): boolean {
+  return canInteractWithSite(site) && isSiteAccessibleForInteraction(site, playerId);
+}
+
+/**
  * Validate site is accessible based on site type and state.
  *
  * Returns true if accessible, false otherwise. The caller determines the error message.

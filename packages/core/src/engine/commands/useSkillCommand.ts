@@ -57,8 +57,10 @@ import {
   resolveEffect,
   reverseEffect,
 } from "../effects/index.js";
+import { evaluateScalingFactor } from "../effects/scalingEvaluator.js";
 import type { CardEffect } from "../../types/cards.js";
-import { EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_DRAW_CARDS, EFFECT_TAKE_WOUND } from "../../types/effectTypes.js";
+import { EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_DRAW_CARDS, EFFECT_SCALING, EFFECT_TAKE_WOUND } from "../../types/effectTypes.js";
+import type { ScalingEffect as ScalingEffectType } from "../../types/cards.js";
 import type { EffectResolutionResult } from "../effects/index.js";
 import {
   applyChoiceOutcome,
@@ -389,7 +391,21 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
 
       // Check if skill has a generic effect defined
       if (skill.effect) {
-        appliedEffect = skill.effect;
+        // For scaling effects, store the resolved base effect (with calculated amount)
+        // so undo can reverse the exact amount that was granted
+        if (skill.effect.type === EFFECT_SCALING) {
+          const scalingEffect = skill.effect as ScalingEffectType;
+          const scalingCount = evaluateScalingFactor(updatedState, playerId, scalingEffect.scalingFactor);
+          let totalBonus = scalingCount * scalingEffect.amountPerUnit;
+          if (scalingEffect.minimum !== undefined) totalBonus = Math.max(scalingEffect.minimum, totalBonus);
+          if (scalingEffect.maximum !== undefined) totalBonus = Math.min(scalingEffect.maximum, totalBonus);
+          appliedEffect = {
+            ...scalingEffect.baseEffect,
+            amount: scalingEffect.baseEffect.amount + totalBonus,
+          };
+        } else {
+          appliedEffect = skill.effect;
+        }
 
         // Resolve the effect using the standard effect resolution system
         const effectResult = resolveEffect(updatedState, playerId, skill.effect);
