@@ -273,3 +273,16 @@ export const EFFECT_CALL_TO_ARMS = "call_to_arms" as const;
 export const EFFECT_RESOLVE_CALL_TO_ARMS_UNIT = "resolve_call_to_arms_unit" as const;
 // Internal: resolve after selecting which ability to use from the borrowed unit
 export const EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY = "resolve_call_to_arms_ability" as const;
+
+// === Mind Read / Mind Steal Effects ===
+// Basic (Mind Read): Choose color, gain crystal, force opponents to discard matching card.
+// Opponents with no matching cards reveal their hand.
+export const EFFECT_MIND_READ = "mind_read" as const;
+// Internal: Resolve after color selection for Mind Read
+export const EFFECT_RESOLVE_MIND_READ_COLOR = "resolve_mind_read_color" as const;
+// Powered (Mind Steal): Same as basic + optionally steal one discarded Action card.
+export const EFFECT_MIND_STEAL = "mind_steal" as const;
+// Internal: Resolve after color selection for Mind Steal
+export const EFFECT_RESOLVE_MIND_STEAL_COLOR = "resolve_mind_steal_color" as const;
+// Internal: Resolve after caster selects which Action card to steal (or skip)
+export const EFFECT_RESOLVE_MIND_STEAL_SELECTION = "resolve_mind_steal_selection" as const;
