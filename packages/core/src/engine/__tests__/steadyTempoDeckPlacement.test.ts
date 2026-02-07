@@ -11,16 +11,24 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, MageKnightEngine } from "../MageKnightEngine.js";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import type { ManaSource, SourceDie } from "../../types/mana.js";
 import {
   CARD_STEADY_TEMPO,
   CARD_MARCH,
   CARD_RAGE,
   END_TURN_ACTION,
+  PLAY_CARD_ACTION,
+  UNDO_ACTION,
   RESOLVE_STEADY_TEMPO_ACTION,
   INVALID_ACTION,
+  CARD_PLAYED,
+  CARD_PLAY_UNDONE,
   STEADY_TEMPO_PLACED,
   STEADY_TEMPO_PLACEMENT_SKIPPED,
   TURN_ENDED,
+  MANA_BLUE,
+  MANA_SOURCE_DIE,
+  TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
 import {
   validateHasPendingSteadyTempo,
@@ -28,6 +36,11 @@ import {
 } from "../validators/steadyTempoValidators.js";
 import { getSteadyTempoOptions } from "../validActions/pending.js";
 import { getValidActions } from "../validActions/index.js";
+import { createResolveSteadyTempoCommand } from "../commands/resolveSteadyTempoCommand.js";
+
+function createTestManaSource(dice: SourceDie[]): ManaSource {
+  return { dice };
+}
 
 // ============================================================================
 // 1. Validator Tests
@@ -77,6 +90,19 @@ describe("Steady Tempo validators", () => {
   });
 
   describe("validateSteadyTempoChoice", () => {
+    it("should reject when player not found", () => {
+      const state = createTestGameState();
+
+      const result = validateSteadyTempoChoice(state, "nonexistent", {
+        type: RESOLVE_STEADY_TEMPO_ACTION,
+        place: true,
+      });
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error.code).toBe("PLAYER_NOT_FOUND");
+      }
+    });
+
     it("should accept skip (place=false) always", () => {
       const player = createTestPlayer({
         deck: [],
@@ -840,5 +866,163 @@ describe("Steady Tempo edge cases", () => {
         })
       );
     });
+  });
+});
+
+// ============================================================================
+// 8. playCardCommand Integration Tests (coverage for flag-setting/clearing)
+// ============================================================================
+
+describe("playCardCommand sets Steady Tempo pending flag", () => {
+  let engine: MageKnightEngine;
+
+  beforeEach(() => {
+    engine = createEngine();
+  });
+
+  it("should set basic pending flag when Steady Tempo is played unpowered", () => {
+    const player = createTestPlayer({
+      hand: [CARD_STEADY_TEMPO, CARD_MARCH],
+      movePoints: 0,
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const result = engine.processAction(state, "player1", {
+      type: PLAY_CARD_ACTION,
+      cardId: CARD_STEADY_TEMPO,
+      powered: false,
+    });
+
+    expect(result.events).toContainEqual(
+      expect.objectContaining({ type: CARD_PLAYED, cardId: CARD_STEADY_TEMPO })
+    );
+    expect(result.state.players[0].pendingSteadyTempoDeckPlacement).toEqual({
+      version: "basic",
+    });
+    expect(result.state.players[0].movePoints).toBe(2);
+  });
+
+  it("should set powered pending flag when Steady Tempo is played with blue mana", () => {
+    const player = createTestPlayer({
+      hand: [CARD_STEADY_TEMPO, CARD_MARCH],
+      movePoints: 0,
+      usedManaFromSource: false,
+    });
+    const state = createTestGameState({
+      players: [player],
+      timeOfDay: TIME_OF_DAY_DAY,
+      source: createTestManaSource([
+        { id: "die_0", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+      ]),
+    });
+
+    const result = engine.processAction(state, "player1", {
+      type: PLAY_CARD_ACTION,
+      cardId: CARD_STEADY_TEMPO,
+      powered: true,
+      manaSource: {
+        type: MANA_SOURCE_DIE,
+        color: MANA_BLUE,
+        dieId: "die_0",
+      },
+    });
+
+    expect(result.events).toContainEqual(
+      expect.objectContaining({ type: CARD_PLAYED, cardId: CARD_STEADY_TEMPO })
+    );
+    expect(result.state.players[0].pendingSteadyTempoDeckPlacement).toEqual({
+      version: "powered",
+    });
+    expect(result.state.players[0].movePoints).toBe(4);
+  });
+
+  it("should clear pending flag when Steady Tempo play is undone", () => {
+    const player = createTestPlayer({
+      hand: [CARD_STEADY_TEMPO, CARD_MARCH],
+      movePoints: 0,
+    });
+    const state = createTestGameState({ players: [player] });
+
+    // Play Steady Tempo
+    const afterPlay = engine.processAction(state, "player1", {
+      type: PLAY_CARD_ACTION,
+      cardId: CARD_STEADY_TEMPO,
+      powered: false,
+    });
+    expect(afterPlay.state.players[0].pendingSteadyTempoDeckPlacement).toEqual({
+      version: "basic",
+    });
+
+    // Undo the play
+    const afterUndo = engine.processAction(afterPlay.state, "player1", {
+      type: UNDO_ACTION,
+    });
+
+    expect(afterUndo.events).toContainEqual(
+      expect.objectContaining({ type: CARD_PLAY_UNDONE })
+    );
+    expect(
+      afterUndo.state.players[0].pendingSteadyTempoDeckPlacement
+    ).toBeUndefined();
+    expect(afterUndo.state.players[0].movePoints).toBe(0);
+  });
+});
+
+// ============================================================================
+// 9. resolveSteadyTempoCommand Error Branch Tests
+// ============================================================================
+
+describe("resolveSteadyTempoCommand error branches", () => {
+  it("should throw when player not found", () => {
+    const state = createTestGameState({ players: [] });
+    const command = createResolveSteadyTempoCommand({
+      playerId: "nonexistent",
+      place: true,
+    });
+
+    expect(() => command.execute(state)).toThrow("Player not found");
+  });
+
+  it("should throw when no pending placement", () => {
+    const player = createTestPlayer({
+      pendingSteadyTempoDeckPlacement: undefined,
+    });
+    const state = createTestGameState({ players: [player] });
+    const command = createResolveSteadyTempoCommand({
+      playerId: "player1",
+      place: true,
+    });
+
+    expect(() => command.execute(state)).toThrow(
+      "No pending Steady Tempo deck placement"
+    );
+  });
+
+  it("should throw when Steady Tempo not in play area", () => {
+    const player = createTestPlayer({
+      playArea: [], // Card not in play area
+      pendingSteadyTempoDeckPlacement: { version: "basic" },
+    });
+    const state = createTestGameState({ players: [player] });
+    const command = createResolveSteadyTempoCommand({
+      playerId: "player1",
+      place: true,
+    });
+
+    expect(() => command.execute(state)).toThrow(
+      "Steady Tempo not found in play area"
+    );
+  });
+
+  it("should throw on undo", () => {
+    const state = createTestGameState();
+    const command = createResolveSteadyTempoCommand({
+      playerId: "player1",
+      place: true,
+    });
+
+    expect(() => command.undo(state)).toThrow(
+      "Cannot undo RESOLVE_STEADY_TEMPO"
+    );
   });
 });
