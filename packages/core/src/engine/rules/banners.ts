@@ -13,6 +13,9 @@ import {
   ABILITY_ARCANE_IMMUNITY,
   CARD_BANNER_OF_FEAR,
   CARD_BANNER_OF_GLORY,
+  CARD_BANNER_OF_PROTECTION,
+  ELEMENT_FIRE,
+  ELEMENT_ICE,
   getUnit,
   UNIT_ABILITY_ATTACK,
   UNIT_ABILITY_RANGED_ATTACK,
@@ -20,6 +23,7 @@ import {
   UNIT_ABILITY_BLOCK,
   UNIT_STATE_READY,
 } from "@mage-knight/shared";
+import type { ResistanceType } from "@mage-knight/shared";
 import { DEED_CARD_TYPE_ARTIFACT, CATEGORY_BANNER } from "../../types/cards.js";
 import type { CombatEnemy } from "../../types/combat.js";
 import { getEnemyAttackCount, isAttackCancelled } from "../combat/enemyAttackHelpers.js";
@@ -72,12 +76,12 @@ export function markBannerUsed(
 }
 
 // ============================================================================
-// Banner of Glory: Armor Bonus
+// Banner Armor Bonus (Glory + Protection)
 // ============================================================================
 
 /**
- * Get the effective armor for a unit, including Banner of Glory bonus.
- * Banner of Glory grants +1 armor while attached to a unit.
+ * Get the effective armor for a unit, including banner bonuses.
+ * Banner of Glory and Banner of Protection each grant +1 armor while attached.
  */
 export function getEffectiveUnitArmor(
   player: Player,
@@ -87,11 +91,30 @@ export function getEffectiveUnitArmor(
   let armor = unitDef.armor;
 
   const banner = getBannerForUnit(player, unit.instanceId);
-  if (banner && banner.bannerId === CARD_BANNER_OF_GLORY) {
+  if (banner && (banner.bannerId === CARD_BANNER_OF_GLORY || banner.bannerId === CARD_BANNER_OF_PROTECTION)) {
     armor += 1;
   }
 
   return armor;
+}
+
+// ============================================================================
+// Banner of Protection: Resistances
+// ============================================================================
+
+/**
+ * Get resistances granted by an attached banner.
+ * Banner of Protection grants Fire Resistance and Ice Resistance.
+ */
+export function getBannerResistances(
+  player: Player,
+  unitInstanceId: string
+): readonly ResistanceType[] {
+  const banner = getBannerForUnit(player, unitInstanceId);
+  if (banner && banner.bannerId === CARD_BANNER_OF_PROTECTION) {
+    return [ELEMENT_FIRE, ELEMENT_ICE];
+  }
+  return [];
 }
 
 // ============================================================================

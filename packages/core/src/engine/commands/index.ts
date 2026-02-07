@@ -200,6 +200,13 @@ export {
   RESOLVE_DEEP_MINE_COMMAND,
 } from "./resolveDeepMineChoiceCommand.js";
 
+// Banner of Protection wound removal command
+export {
+  createResolveBannerProtectionCommand,
+  type ResolveBannerProtectionCommandParams,
+  RESOLVE_BANNER_PROTECTION_COMMAND,
+} from "./resolveBannerProtectionCommand.js";
+
 // Buy spell command
 export {
   createBuySpellCommand,

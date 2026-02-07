@@ -30,12 +30,16 @@ import {
   SCOPE_ALL_UNITS,
 } from "../../types/modifierConstants.js";
 import { getModifiersForPlayer } from "./queries.js";
+import { getBannerResistances } from "../rules/banners.js";
 
 /**
- * Get effective resistances for a unit, including granted resistances from modifiers.
- * Combines base resistances from unit definition with any granted resistances.
+ * Get effective resistances for a unit, including granted resistances from modifiers
+ * and banner-granted resistances.
  *
- * Used by Veil of Mist spell which grants all units all resistances.
+ * Sources:
+ * - Base resistances from unit definition
+ * - Modifier-granted resistances (e.g., Veil of Mist: all units all resistances)
+ * - Banner of Protection: Fire Resistance + Ice Resistance
  */
 export function getEffectiveUnitResistances(
   state: GameState,
@@ -56,8 +60,12 @@ export function getEffectiveUnitResistances(
     })
     .map((m) => m.effect as GrantResistancesModifier);
 
-  // If no modifiers, return base resistances (avoid unnecessary allocation)
-  if (resistanceModifiers.length === 0) {
+  // Check banner-granted resistances (Banner of Protection)
+  const player = state.players.find((p) => p.id === playerId);
+  const bannerResistances = player ? getBannerResistances(player, unit.instanceId) : [];
+
+  // If no modifiers and no banner resistances, return base (avoid unnecessary allocation)
+  if (resistanceModifiers.length === 0 && bannerResistances.length === 0) {
     return baseResistances;
   }
 
@@ -67,6 +75,9 @@ export function getEffectiveUnitResistances(
     for (const resistance of mod.resistances) {
       combined.add(resistance);
     }
+  }
+  for (const resistance of bannerResistances) {
+    combined.add(resistance);
   }
 
   return Array.from(combined);

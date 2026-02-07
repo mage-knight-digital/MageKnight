@@ -24,7 +24,7 @@ import { createEndRoundCommand } from "../endRound/index.js";
 import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js";
 
 import type { EndTurnCommandParams } from "./types.js";
-import { checkMagicalGladeWound, processMineRewards, checkCrystalJoyReclaim, checkSteadyTempoDeckPlacement } from "./siteChecks.js";
+import { checkMagicalGladeWound, processMineRewards, checkCrystalJoyReclaim, checkSteadyTempoDeckPlacement, checkBannerProtectionWoundRemoval } from "./siteChecks.js";
 import { processCardFlow, processTimeBendingCardFlow, getPlayAreaCardCount } from "./cardFlow.js";
 import { createResetPlayer } from "./playerReset.js";
 import { processDiceReturn } from "./diceManagement.js";
@@ -136,6 +136,24 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
             ...state,
             players: state.players.map((p) =>
               p.id === params.playerId ? steadyTempoCheck.player : p
+            ),
+          },
+          events: [],
+        };
+      }
+
+      // Check for Banner of Protection wound removal (step 3c: before card flow)
+      const bannerProtectionCheck = checkBannerProtectionWoundRemoval(
+        state,
+        playerWithCrystal,
+        params.skipBannerProtection ?? false
+      );
+      if (bannerProtectionCheck.pendingChoice) {
+        return {
+          state: {
+            ...state,
+            players: state.players.map((p) =>
+              p.id === params.playerId ? bannerProtectionCheck.player : p
             ),
           },
           events: [],

@@ -228,6 +228,9 @@ export const CRYSTAL_JOY_CARD_NOT_ELIGIBLE = "CRYSTAL_JOY_CARD_NOT_ELIGIBLE" as 
 export const STEADY_TEMPO_PLACEMENT_REQUIRED = "STEADY_TEMPO_PLACEMENT_REQUIRED" as const;
 export const STEADY_TEMPO_CANNOT_PLACE_BASIC = "STEADY_TEMPO_CANNOT_PLACE_BASIC" as const;
 
+// Banner of Protection wound removal validation codes
+export const BANNER_PROTECTION_CHOICE_REQUIRED = "BANNER_PROTECTION_CHOICE_REQUIRED" as const;
+
 // Discard as cost validation codes
 export const DISCARD_COST_REQUIRED = "DISCARD_COST_REQUIRED" as const;
 export const DISCARD_COST_INVALID_COUNT = "DISCARD_COST_INVALID_COUNT" as const;
@@ -493,6 +496,8 @@ export type ValidationErrorCode =
   // Steady Tempo deck placement validation
   | typeof STEADY_TEMPO_PLACEMENT_REQUIRED
   | typeof STEADY_TEMPO_CANNOT_PLACE_BASIC
+  // Banner of Protection wound removal validation
+  | typeof BANNER_PROTECTION_CHOICE_REQUIRED
   // Discard as cost validation
   | typeof DISCARD_COST_REQUIRED
   | typeof DISCARD_COST_INVALID_COUNT

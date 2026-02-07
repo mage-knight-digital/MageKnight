@@ -161,6 +161,11 @@ export function applyTakeWound(
   const updatedPlayer: Player = {
     ...player,
     hand: [...player.hand, ...woundsToAdd],
+    // Track wounds received this turn for Banner of Protection
+    woundsReceivedThisTurn: {
+      hand: player.woundsReceivedThisTurn.hand + amount,
+      discard: player.woundsReceivedThisTurn.discard,
+    },
   };
 
   // Decrement wound pile (if tracked)

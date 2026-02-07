@@ -171,6 +171,9 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     roundOrderTokenFlipped: false,
     isTimeBentTurn: false,
     timeBendingSetAsideCards: [],
+    woundsReceivedThisTurn: { hand: 0, discard: 0 },
+    bannerOfProtectionActive: false,
+    pendingBannerProtectionChoice: false,
     ...rest,
   };
 }

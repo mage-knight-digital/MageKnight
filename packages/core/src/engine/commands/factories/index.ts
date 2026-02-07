@@ -56,6 +56,7 @@ import {
   RESOLVE_DEEP_MINE_ACTION,
   RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
   RESOLVE_STEADY_TEMPO_ACTION,
+  RESOLVE_BANNER_PROTECTION_ACTION,
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
   CHOOSE_LEVEL_UP_REWARDS_ACTION,
@@ -145,6 +146,7 @@ export {
   createPlunderVillageCommandFromAction,
   createResolveCrystalJoyReclaimCommandFromAction,
   createResolveSteadyTempoCommandFromAction,
+  createResolveBannerProtectionCommandFromAction,
 } from "./sites.js";
 
 // Tactics factories
@@ -251,6 +253,7 @@ import {
   createPlunderVillageCommandFromAction,
   createResolveCrystalJoyReclaimCommandFromAction,
   createResolveSteadyTempoCommandFromAction,
+  createResolveBannerProtectionCommandFromAction,
 } from "./sites.js";
 
 import {
@@ -339,6 +342,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_DEEP_MINE_ACTION]: createResolveDeepMineCommandFromAction,
   [RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION]: createResolveCrystalJoyReclaimCommandFromAction,
   [RESOLVE_STEADY_TEMPO_ACTION]: createResolveSteadyTempoCommandFromAction,
+  [RESOLVE_BANNER_PROTECTION_ACTION]: createResolveBannerProtectionCommandFromAction,
   [BUY_SPELL_ACTION]: createBuySpellCommandFromAction,
   [LEARN_ADVANCED_ACTION_ACTION]: createLearnAdvancedActionCommandFromAction,
   [CHOOSE_LEVEL_UP_REWARDS_ACTION]: createChooseLevelUpRewardsCommandFromAction,

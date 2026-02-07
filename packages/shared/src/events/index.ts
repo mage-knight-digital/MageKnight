@@ -271,6 +271,8 @@ import type {
   CrystalJoyReclaimSkippedEvent,
   SteadyTempoPlacedEvent,
   SteadyTempoPlacementSkippedEvent,
+  BannerProtectionWoundsRemovedEvent,
+  BannerProtectionSkippedEvent,
   MonasteryBurnStartedEvent,
   MonasteryBurnedEvent,
   VillagePlunderedEvent,
@@ -456,6 +458,9 @@ export type GameEvent =
   // Steady Tempo
   | SteadyTempoPlacedEvent
   | SteadyTempoPlacementSkippedEvent
+  // Banner of Protection
+  | BannerProtectionWoundsRemovedEvent
+  | BannerProtectionSkippedEvent
   // Monastery burning
   | MonasteryBurnStartedEvent
   | MonasteryBurnedEvent

@@ -218,3 +218,37 @@ export function checkSteadyTempoDeckPlacement(
   // Player has Steady Tempo placement pending - this needs player choice
   return { pendingChoice: true, player, events: [] };
 }
+
+/**
+ * Check if player has Banner of Protection active and received wounds this turn.
+ * If so, sets pendingBannerProtectionChoice on the player.
+ *
+ * Banner of Protection wound removal happens after Steady Tempo
+ * and before card flow (discard down).
+ *
+ * @returns SiteCheckResult with pendingChoice=true if waiting for player choice
+ */
+export function checkBannerProtectionWoundRemoval(
+  _state: GameState,
+  player: Player,
+  skipCheck: boolean
+): SiteCheckResult {
+  // Skip if not active or check is disabled
+  if (!player.bannerOfProtectionActive || skipCheck) {
+    return { pendingChoice: false, player, events: [] };
+  }
+
+  const { hand, discard } = player.woundsReceivedThisTurn;
+
+  // No wounds received — nothing to remove
+  if (hand === 0 && discard === 0) {
+    return { pendingChoice: false, player, events: [] };
+  }
+
+  // Player needs to choose whether to throw away received wounds
+  const updatedPlayer: Player = {
+    ...player,
+    pendingBannerProtectionChoice: true,
+  };
+  return { pendingChoice: true, player: updatedPlayer, events: [] };
+}

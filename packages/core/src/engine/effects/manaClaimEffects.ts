@@ -370,6 +370,11 @@ export function checkManaCurseWound(
     const updatedPlayer: Player = {
       ...player,
       hand: [...player.hand, woundCard],
+      // Track wound received this turn for Banner of Protection
+      woundsReceivedThisTurn: {
+        hand: player.woundsReceivedThisTurn.hand + 1,
+        discard: player.woundsReceivedThisTurn.discard,
+      },
     };
 
     const updatedPlayers = [...currentState.players];

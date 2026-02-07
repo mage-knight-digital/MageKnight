@@ -286,3 +286,8 @@ export const EFFECT_MIND_STEAL = "mind_steal" as const;
 export const EFFECT_RESOLVE_MIND_STEAL_COLOR = "resolve_mind_steal_color" as const;
 // Internal: Resolve after caster selects which Action card to steal (or skip)
 export const EFFECT_RESOLVE_MIND_STEAL_SELECTION = "resolve_mind_steal_selection" as const;
+
+// === Banner of Protection Activation Effect ===
+// Marks that Banner of Protection powered effect is active this turn.
+// At end of turn, player may throw away wounds received this turn.
+export const EFFECT_ACTIVATE_BANNER_PROTECTION = "activate_banner_protection" as const;

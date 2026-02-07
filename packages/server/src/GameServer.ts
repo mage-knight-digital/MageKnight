@@ -580,6 +580,9 @@ export class GameServer {
       roundOrderTokenFlipped: false,
       isTimeBentTurn: false,
       timeBendingSetAsideCards: [],
+      woundsReceivedThisTurn: { hand: 0, discard: 0 },
+      bannerOfProtectionActive: false,
+      pendingBannerProtectionChoice: false,
     };
 
     return { player, rng: newRng };

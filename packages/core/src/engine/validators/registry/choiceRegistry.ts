@@ -18,6 +18,7 @@ import {
   RESOLVE_HEX_COST_REDUCTION_ACTION,
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
   RESOLVE_UNIT_MAINTENANCE_ACTION,
+  RESOLVE_BANNER_PROTECTION_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -98,6 +99,11 @@ import {
   validateUnitMaintenanceChoice,
 } from "../unitMaintenanceValidators.js";
 
+// Banner of Protection validators
+import {
+  validateHasPendingBannerProtection,
+} from "../bannerProtectionValidators.js";
+
 export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_CHOICE_ACTION]: [
     validateIsPlayersTurn,
@@ -166,5 +172,9 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingUnitMaintenance,
     validateUnitMaintenanceChoice,
+  ],
+  [RESOLVE_BANNER_PROTECTION_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingBannerProtection,
   ],
 };

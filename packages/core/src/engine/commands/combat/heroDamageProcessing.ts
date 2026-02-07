@@ -113,11 +113,18 @@ export function applyHeroWounds(
     });
   }
 
+  // Track wounds received this turn for Banner of Protection
+  const newWoundsReceivedThisTurn = {
+    hand: player.woundsReceivedThisTurn.hand + heroWounds,
+    discard: player.woundsReceivedThisTurn.discard + woundsToDiscard.length,
+  };
+
   const updatedPlayer: Player = {
     ...player,
     hand: finalHand,
     discard: finalDiscard,
     knockedOut: isKnockedOut,
+    woundsReceivedThisTurn: newWoundsReceivedThisTurn,
   };
 
   return {

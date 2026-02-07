@@ -61,6 +61,10 @@ export function createResetPlayer(
     // Cure spell tracking resets
     woundsHealedFromHandThisTurn: 0,
     unitsHealedThisTurn: [],
+    // Banner of Protection resets
+    woundsReceivedThisTurn: { hand: 0, discard: 0 },
+    bannerOfProtectionActive: false,
+    pendingBannerProtectionChoice: false,
     // Skill cooldown reset for Time Bending: refresh once-per-turn skills
     // (usedThisTurn is cleared when isTimeBentTurn is being set up in turnAdvancement)
   };
