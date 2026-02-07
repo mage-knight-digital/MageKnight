@@ -1133,6 +1133,25 @@ const DELPHANA_MASTERS_STRIP_DEFENSES_EFFECT: CardEffect = {
 };
 
 // =============================================================================
+// MAGIC FAMILIARS EFFECTS
+// =============================================================================
+
+/**
+ * Magic Familiars: Move OR Influence choice.
+ * Base value 3, enhanced to 5 with white mana token (handled by activation command).
+ */
+export const MAGIC_FAMILIARS_MOVE_OR_INFLUENCE =
+  "magic_familiars_move_or_influence" as const;
+
+const MAGIC_FAMILIARS_MOVE_OR_INFLUENCE_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    { type: EFFECT_GAIN_MOVE, amount: 3 },
+    { type: EFFECT_GAIN_INFLUENCE, amount: 3 },
+  ],
+};
+
+// =============================================================================
 // REGISTRY
 // =============================================================================
 
@@ -1184,6 +1203,7 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [HERO_WHITE_ATTACK_OR_BLOCK]: HERO_WHITE_ATTACK_OR_BLOCK_EFFECT,
   [HERO_WHITE_INFLUENCE_REP]: HERO_WHITE_INFLUENCE_REP_EFFECT,
   [HERO_WHITE_RANGED_ATTACK]: HERO_WHITE_RANGED_ATTACK_EFFECT,
+  [MAGIC_FAMILIARS_MOVE_OR_INFLUENCE]: MAGIC_FAMILIARS_MOVE_OR_INFLUENCE_EFFECT,
 };
 
 /**

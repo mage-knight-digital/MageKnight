@@ -565,6 +565,7 @@ export class GameServer {
       pendingRewards: [],
       pendingGladeWoundChoice: false,
       pendingDeepMineChoice: null,
+      pendingUnitMaintenance: null,
       pendingDiscard: null,
       pendingDiscardForAttack: null,
       pendingDiscardForCrystal: null,

@@ -32,6 +32,7 @@ import {
   validateUnitsAllowedInCombat,
   validateUnitAbilityManaCost,
   validateHeroesAssaultRestriction,
+  validateRecruitManaPayment,
 } from "../units/index.js";
 
 export const unitRegistry: Record<string, Validator[]> = {
@@ -46,6 +47,7 @@ export const unitRegistry: Record<string, Validator[]> = {
     validateAtRecruitmentSite,
     validateUnitTypeMatchesSite,
     validateHeroesThugsExclusion, // Heroes/Thugs cannot be recruited in same interaction
+    validateRecruitManaPayment, // Magic Familiars require mana payment
   ],
   [ACTIVATE_UNIT_ACTION]: [
     validateIsPlayersTurn,

@@ -43,6 +43,7 @@ import {
   getDiscardForCrystalOptions,
   getArtifactCrystalColorOptions,
   getCrystalJoyReclaimOptions,
+  getUnitMaintenanceOptions,
 } from "./pending.js";
 import { getChallengeOptions } from "./challenge.js";
 import { getCooperativeAssaultOptions } from "./cooperativeAssault.js";
@@ -93,6 +94,17 @@ export function getValidActions(
   }
 
   const player = canActResult.player;
+
+  // === Unit Maintenance (before tactics selection) ===
+  if (player.pendingUnitMaintenance && player.pendingUnitMaintenance.length > 0) {
+    const unitMaintenance = getUnitMaintenanceOptions(player);
+    if (unitMaintenance) {
+      return {
+        mode: "pending_unit_maintenance",
+        unitMaintenance,
+      };
+    }
+  }
 
   // === Tactics Phase ===
   if (isTacticsPhase(state)) {

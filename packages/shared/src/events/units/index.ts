@@ -39,7 +39,7 @@ export * from "./activation.js";
 export * from "./health.js";
 
 // Import constants for the isUnitEvent guard
-import { UNIT_RECRUITED, UNIT_DISBANDED } from "./recruitment.js";
+import { UNIT_RECRUITED, UNIT_DISBANDED, UNIT_MAINTENANCE_PAID } from "./recruitment.js";
 import { UNIT_ACTIVATED } from "./activation.js";
 import {
   UNIT_WOUNDED,
@@ -62,5 +62,6 @@ export function isUnitEvent(event: { type: string }): boolean {
     UNIT_READIED,
     UNITS_READIED,
     UNIT_DESTROYED,
+    UNIT_MAINTENANCE_PAID,
   ].includes(event.type as typeof UNIT_RECRUITED);
 }

@@ -21,6 +21,8 @@ export const RECRUIT_SITE_MONASTERY =
   "monastery" as const satisfies RecruitSite;
 export const RECRUIT_SITE_CITY = "city" as const satisfies RecruitSite;
 export const RECRUIT_SITE_CAMP = "camp" as const satisfies RecruitSite;
+export const RECRUIT_SITE_MAGICAL_GLADE =
+  "magical_glade" as const satisfies RecruitSite;
 
 // =============================================================================
 // UNIT ABILITY CONSTANTS

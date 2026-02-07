@@ -4,7 +4,7 @@
  * Activation state is orthogonal to wounded status.
  */
 
-import type { UnitId, UnitState } from "@mage-knight/shared";
+import type { UnitId, UnitState, BasicManaColor } from "@mage-knight/shared";
 import { UNIT_STATE_READY } from "@mage-knight/shared";
 
 /**
@@ -26,18 +26,28 @@ export interface PlayerUnit {
    * Reset when combat ends or unit is readied.
    */
   readonly usedAbilityIndices?: readonly number[];
+  /**
+   * Mana token placed on the unit (Magic Familiars).
+   * Determines which ability bonus is active.
+   */
+  readonly manaToken?: BasicManaColor;
 }
 
 /**
  * Create a new unit instance with default (ready, unwounded) state.
  */
-export function createPlayerUnit(unitId: UnitId, instanceId: string): PlayerUnit {
+export function createPlayerUnit(
+  unitId: UnitId,
+  instanceId: string,
+  manaToken?: BasicManaColor
+): PlayerUnit {
   return {
     instanceId,
     unitId,
     state: UNIT_STATE_READY,
     wounded: false,
     usedResistanceThisCombat: false,
+    ...(manaToken && { manaToken }),
   };
 }
 

@@ -7,6 +7,7 @@
  */
 
 import type { UnitId } from "../../units/index.js";
+import type { BasicManaColor } from "../../ids.js";
 
 // ============================================================================
 // UNIT_RECRUITED
@@ -125,4 +126,26 @@ export function createUnitDisbandedEvent(
     playerId,
     unitInstanceId,
   };
+}
+
+// ============================================================================
+// UNIT_MAINTENANCE_PAID
+// ============================================================================
+
+/**
+ * Event type constant for unit maintenance crystal payment.
+ * @see UnitMaintenancePaidEvent
+ */
+export const UNIT_MAINTENANCE_PAID = "UNIT_MAINTENANCE_PAID" as const;
+
+/**
+ * Emitted when a player pays a crystal to maintain a Magic Familiars unit
+ * at the start of a round.
+ */
+export interface UnitMaintenancePaidEvent {
+  readonly type: typeof UNIT_MAINTENANCE_PAID;
+  readonly playerId: string;
+  readonly unitInstanceId: string;
+  readonly crystalColor: BasicManaColor;
+  readonly newManaTokenColor: BasicManaColor;
 }

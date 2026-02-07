@@ -18,6 +18,7 @@ import { DECKS_RESHUFFLED, UNITS_READIED } from "@mage-knight/shared";
 import type { RngState } from "../../../utils/rng.js";
 import { shuffleWithRng } from "../../../utils/rng.js";
 import { readyAllUnits } from "../../../types/unit.js";
+import { UNIT_MAGIC_FAMILIARS } from "@mage-knight/shared";
 import { getEffectiveHandLimit } from "../../helpers/handLimitHelpers.js";
 import { BANNERS_RESET } from "@mage-knight/shared";
 import type { PlayerRoundResetResult } from "./types.js";
@@ -58,6 +59,11 @@ export function processPlayerRoundReset(
     const newHand = shuffled.slice(0, effectiveLimit);
     const newDeck = shuffled.slice(effectiveLimit);
 
+    // Check for Magic Familiars requiring maintenance
+    const familiarsUnits = readiedUnits.filter(
+      (u) => u.unitId === UNIT_MAGIC_FAMILIARS
+    );
+
     const updatedPlayer: Player = {
       ...player,
       units: readiedUnits,
@@ -88,6 +94,13 @@ export function processPlayerRoundReset(
       tacticState: {},
       pendingTacticDecision: null,
       beforeTurnTacticPending: false,
+      // Set maintenance pending for Magic Familiars
+      pendingUnitMaintenance: familiarsUnits.length > 0
+        ? familiarsUnits.map((u) => ({
+            unitInstanceId: u.instanceId,
+            unitId: u.unitId,
+          }))
+        : null,
       // Reset cooperative assault state for new round
       roundOrderTokenFlipped: false,
       // Reset banner usage for new round (banners stay attached)

@@ -22,7 +22,11 @@ import {
   UNIT_TYPE_MISMATCH,
   HEROES_THUGS_EXCLUSION,
   REPUTATION_TOO_LOW_TO_RECRUIT,
+  RECRUIT_REQUIRES_MANA,
+  RECRUIT_REQUIRES_MANA_TOKEN_COLOR,
 } from "../validationCodes.js";
+import { validateSingleManaSource } from "../mana/sourceValidators.js";
+import { canPayForMana } from "../../validActions/mana.js";
 import { getPlayerSite } from "../../helpers/siteHelpers.js";
 import { SITE_PROPERTIES } from "../../../data/siteProperties.js";
 import { SiteType } from "../../../types/map.js";
@@ -33,6 +37,7 @@ import {
   violatesHeroesThugsExclusion,
   hasRecruitedHeroThisInteraction,
   getActiveRecruitDiscount,
+  isGladeRecruitment,
 } from "../../rules/unitRecruitment.js";
 import { getEffectiveCommandTokens, isBondsSlotEmpty, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
@@ -47,6 +52,10 @@ export function validateReputationNotX(
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== RECRUIT_UNIT_ACTION) return valid();
+
+  // Magical Glade recruitment ignores reputation entirely
+  const site = getPlayerSite(state, playerId);
+  if (site && isGladeRecruitment(site.type)) return valid();
 
   const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
@@ -112,15 +121,18 @@ export function validateInfluenceCost(
 
   // Add reputation modifier (positive rep = cheaper, negative = more expensive)
   // Heroes get doubled modifier (once per interaction)
-  const heroAlreadyRecruited = hasRecruitedHeroThisInteraction(
-    player.unitsRecruitedThisInteraction
-  );
-  const reputationModifier = getReputationCostModifier(
-    player.reputation,
-    action.unitId,
-    heroAlreadyRecruited
-  );
-  requiredCost = Math.max(0, requiredCost + reputationModifier);
+  // Magical Glade recruitment ignores reputation modifier
+  if (!site || !isGladeRecruitment(site.type)) {
+    const heroAlreadyRecruited = hasRecruitedHeroThisInteraction(
+      player.unitsRecruitedThisInteraction
+    );
+    const reputationModifier = getReputationCostModifier(
+      player.reputation,
+      action.unitId,
+      heroAlreadyRecruited
+    );
+    requiredCost = Math.max(0, requiredCost + reputationModifier);
+  }
 
   // Apply recruit discount if available (Ruthless Coercion)
   const discountMod = getActiveRecruitDiscount(state, playerId);
@@ -161,7 +173,8 @@ export function validateAtRecruitmentSite(
   }
 
   const props = SITE_PROPERTIES[site.type];
-  if (!props.inhabited) {
+  // Magical Glade allows recruitment despite not being inhabited
+  if (!props.inhabited && !isGladeRecruitment(site.type)) {
     return invalid(CANNOT_RECRUIT_HERE, "This site does not allow recruitment");
   }
 
@@ -242,4 +255,52 @@ export function validateHeroesThugsExclusion(
   }
 
   return valid();
+}
+
+/**
+ * Validate mana payment for Magic Familiars recruitment.
+ * Units with restrictedFromFreeRecruit require a mana payment and
+ * a basic color selection for the mana token.
+ */
+export function validateRecruitManaPayment(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== RECRUIT_UNIT_ACTION) return valid();
+
+  const unitDef = getUnit(action.unitId);
+
+  // Only Magic Familiars (restrictedFromFreeRecruit) require mana payment
+  if (!unitDef.restrictedFromFreeRecruit) return valid();
+
+  // Must provide a mana source
+  if (!action.manaSource) {
+    return invalid(
+      RECRUIT_REQUIRES_MANA,
+      "Recruiting Magic Familiars requires paying 1 basic mana"
+    );
+  }
+
+  // Must specify which basic color the token becomes
+  if (!action.manaTokenColor) {
+    return invalid(
+      RECRUIT_REQUIRES_MANA_TOKEN_COLOR,
+      "Must specify which basic color for the mana token"
+    );
+  }
+
+  const player = getPlayerById(state, playerId);
+  if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
+
+  // Check player can pay for the specified mana color
+  if (!canPayForMana(state, player, action.manaSource.color)) {
+    return invalid(
+      RECRUIT_REQUIRES_MANA,
+      "No mana available to pay for Magic Familiars recruitment"
+    );
+  }
+
+  // Validate the specific mana source
+  return validateSingleManaSource(state, player, action.manaSource, playerId);
 }

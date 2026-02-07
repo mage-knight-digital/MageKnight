@@ -20,6 +20,7 @@ import type {
   DiscardForCrystalOptions,
   ArtifactCrystalColorOptions,
   CrystalJoyReclaimOptions,
+  UnitMaintenanceOptions,
   CardId,
 } from "@mage-knight/shared";
 import { mineColorToBasicManaColor } from "../../types/map.js";
@@ -211,4 +212,31 @@ export function getCrystalJoyReclaimOptions(
     version,
     eligibleCardIds,
   };
+}
+
+/**
+ * Get unit maintenance options for the player.
+ * Returns options if player has Magic Familiars requiring round-start maintenance.
+ */
+export function getUnitMaintenanceOptions(
+  player: Player
+): UnitMaintenanceOptions | undefined {
+  if (!player.pendingUnitMaintenance || player.pendingUnitMaintenance.length === 0) {
+    return undefined;
+  }
+
+  const ALL_BASIC_COLORS: BasicManaColor[] = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE];
+
+  const units = player.pendingUnitMaintenance.map((m) => {
+    const availableCrystalColors = ALL_BASIC_COLORS.filter(
+      (color) => player.crystals[color] > 0
+    );
+    return {
+      unitInstanceId: m.unitInstanceId,
+      unitId: m.unitId,
+      availableCrystalColors,
+    };
+  });
+
+  return { units };
 }

@@ -798,6 +798,29 @@ export interface ArtifactCrystalColorOptions {
 }
 
 // ============================================================================
+// Unit Maintenance (Magic Familiars round-start)
+// ============================================================================
+
+/**
+ * Options for resolving unit maintenance at round start.
+ * Only present when player has Magic Familiars requiring maintenance.
+ * Player must pay a crystal to keep each unit or disband it.
+ */
+export interface UnitMaintenanceOptions {
+  /** Units requiring maintenance */
+  readonly units: readonly UnitMaintenanceEntry[];
+}
+
+export interface UnitMaintenanceEntry {
+  /** Instance ID of the unit needing maintenance */
+  readonly unitInstanceId: string;
+  /** Unit type ID (e.g., "magic_familiars") */
+  readonly unitId: string;
+  /** Crystal colors the player has available to pay */
+  readonly availableCrystalColors: readonly BasicManaColor[];
+}
+
+// ============================================================================
 // Crystal Joy Reclaim
 // ============================================================================
 
@@ -1022,6 +1045,11 @@ export interface PendingLevelUpState {
   readonly levelUpRewards: LevelUpRewardsOptions;
 }
 
+export interface PendingUnitMaintenanceState {
+  readonly mode: "pending_unit_maintenance";
+  readonly unitMaintenance: UnitMaintenanceOptions;
+}
+
 export interface PendingChoiceState {
   readonly mode: "pending_choice";
   readonly turn: BlockingTurnOptions;
@@ -1061,6 +1089,7 @@ export type ValidActions =
   | CannotActState
   | TacticsSelectionState
   | PendingTacticDecisionState
+  | PendingUnitMaintenanceState
   | PendingGladeWoundState
   | PendingDeepMineState
   | PendingDiscardCostState

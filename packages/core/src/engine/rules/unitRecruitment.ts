@@ -15,6 +15,7 @@ import {
   RECRUIT_SITE_MONASTERY,
   RECRUIT_SITE_CITY,
   RECRUIT_SITE_CAMP,
+  RECRUIT_SITE_MAGICAL_GLADE,
   MIN_REPUTATION,
   MAX_REPUTATION,
   UNIT_THUGS,
@@ -117,6 +118,8 @@ export function siteTypeToRecruitSite(siteType: SiteType): RecruitSite | null {
       return RECRUIT_SITE_CITY;
     case SiteType.RefugeeCamp:
       return RECRUIT_SITE_CAMP;
+    case SiteType.MagicalGlade:
+      return RECRUIT_SITE_MAGICAL_GLADE;
     default:
       return null;
   }
@@ -141,7 +144,8 @@ export function isSiteAccessibleForRecruitment(
   switch (siteType) {
     case SiteType.Village:
     case SiteType.RefugeeCamp:
-      // Villages and Refugee Camps are always accessible
+    case SiteType.MagicalGlade:
+      // Villages, Refugee Camps, and Magical Glades are always accessible
       return true;
 
     case SiteType.Keep:
@@ -231,6 +235,15 @@ export function getRefugeeCampCostModifier(unit: UnitDefinition): number {
 
   // Fallback (shouldn't happen for valid units)
   return 0;
+}
+
+/**
+ * Check if recruitment at a Magical Glade.
+ * Magical Glade recruitment counts as an action (not interaction),
+ * reputation has no impact on cost, and interaction-only effects don't trigger.
+ */
+export function isGladeRecruitment(siteType: SiteType): boolean {
+  return siteType === SiteType.MagicalGlade;
 }
 
 /**

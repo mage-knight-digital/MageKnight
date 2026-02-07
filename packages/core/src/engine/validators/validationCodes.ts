@@ -86,6 +86,17 @@ export const SPELL_REQUIRES_TWO_MANA = "SPELL_REQUIRES_TWO_MANA" as const;
 export const SPELL_BASIC_REQUIRES_MANA = "SPELL_BASIC_REQUIRES_MANA" as const;
 export const MANA_CANNOT_POWER_SPELLS = "MANA_CANNOT_POWER_SPELLS" as const;
 
+// Unit recruitment mana payment codes
+export const RECRUIT_REQUIRES_MANA = "RECRUIT_REQUIRES_MANA" as const;
+export const RECRUIT_REQUIRES_MANA_TOKEN_COLOR = "RECRUIT_REQUIRES_MANA_TOKEN_COLOR" as const;
+
+// Unit maintenance codes
+export const UNIT_MAINTENANCE_PENDING = "UNIT_MAINTENANCE_PENDING" as const;
+export const NO_MAINTENANCE_PENDING = "NO_MAINTENANCE_PENDING" as const;
+export const UNIT_NOT_IN_MAINTENANCE = "UNIT_NOT_IN_MAINTENANCE" as const;
+export const MAINTENANCE_REQUIRES_CRYSTAL = "MAINTENANCE_REQUIRES_CRYSTAL" as const;
+export const MAINTENANCE_REQUIRES_TOKEN_COLOR = "MAINTENANCE_REQUIRES_TOKEN_COLOR" as const;
+
 // Combat validation codes
 export const ALREADY_IN_COMBAT = "ALREADY_IN_COMBAT" as const;
 export const NOT_IN_COMBAT = "NOT_IN_COMBAT" as const;

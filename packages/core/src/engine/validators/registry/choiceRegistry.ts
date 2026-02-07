@@ -16,6 +16,7 @@ import {
   RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION,
   RESOLVE_HEX_COST_REDUCTION_ACTION,
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
+  RESOLVE_UNIT_MAINTENANCE_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -84,6 +85,12 @@ import {
   validateTerrainCostReductionTerrain,
 } from "../terrainCostReductionValidators.js";
 
+// Unit maintenance validators (Magic Familiars)
+import {
+  validateHasPendingUnitMaintenance,
+  validateUnitMaintenanceChoice,
+} from "../unitMaintenanceValidators.js";
+
 export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_CHOICE_ACTION]: [
     validateIsPlayersTurn,
@@ -142,5 +149,10 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingTerrainCostReduction,
     validateTerrainCostReductionTerrain,
+  ],
+  [RESOLVE_UNIT_MAINTENANCE_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingUnitMaintenance,
+    validateUnitMaintenanceChoice,
   ],
 };

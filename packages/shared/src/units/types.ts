@@ -6,7 +6,7 @@ import { type Element } from "../elements.js";
 import { type EnemyResistances } from "../enemies/index.js";
 import { type Terrain } from "../terrain.js";
 import { type UnitId } from "./ids.js";
-import { type ManaColor } from "../ids.js";
+import { type ManaColor, type BasicManaColor } from "../ids.js";
 
 // =============================================================================
 // TYPE ALIASES
@@ -41,7 +41,8 @@ export type RecruitSite =
   | "mage_tower"
   | "monastery"
   | "city"
-  | "camp";
+  | "camp"
+  | "magical_glade";
 
 /**
  * Type of ability a unit can have
@@ -118,6 +119,16 @@ export interface UnitAbility {
    * If false, ability can be used outside combat (like resource generation).
    */
   readonly requiresCombat?: boolean;
+  /**
+   * Enhanced value when the unit's mana token matches bonusManaColor.
+   * Used by Magic Familiars whose abilities get bonuses based on their mana token.
+   */
+  readonly bonusValue?: number;
+  /**
+   * The mana color that triggers the bonus value.
+   * If the unit's manaToken matches this color, bonusValue is used instead of value.
+   */
+  readonly bonusManaColor?: BasicManaColor;
 }
 
 /**
@@ -161,4 +172,10 @@ export interface UnitDefinition {
    * Used by Delphana Masters per rulebook.
    */
   readonly multiAbility?: boolean;
+  /**
+   * If true, this unit cannot be recruited via free recruit effects
+   * (Call to Glory, Banner of Command powered) or claimed as combat rewards.
+   * Used by Magic Familiars per rulebook.
+   */
+  readonly restrictedFromFreeRecruit?: boolean;
 }

@@ -12,11 +12,12 @@
  */
 
 import type { CommandFactory } from "./types.js";
-import { RECRUIT_UNIT_ACTION, ACTIVATE_UNIT_ACTION } from "@mage-knight/shared";
+import { RECRUIT_UNIT_ACTION, ACTIVATE_UNIT_ACTION, RESOLVE_UNIT_MAINTENANCE_ACTION } from "@mage-knight/shared";
 import {
   createRecruitUnitCommand,
   createActivateUnitCommand,
 } from "../units/index.js";
+import { createResolveUnitMaintenanceCommand } from "../resolveUnitMaintenanceCommand.js";
 
 /**
  * Recruit unit command factory.
@@ -32,6 +33,8 @@ export const createRecruitUnitCommandFromAction: CommandFactory = (
     playerId,
     unitId: action.unitId,
     influenceSpent: action.influenceSpent,
+    ...(action.manaSource && { manaSource: action.manaSource }),
+    ...(action.manaTokenColor && { manaTokenColor: action.manaTokenColor }),
   });
 };
 
@@ -50,5 +53,24 @@ export const createActivateUnitCommandFromAction: CommandFactory = (
     unitInstanceId: action.unitInstanceId,
     abilityIndex: action.abilityIndex,
     ...(action.manaSource && { manaSource: action.manaSource }),
+  });
+};
+
+/**
+ * Resolve unit maintenance command factory.
+ * Creates a command to resolve Magic Familiars round-start maintenance.
+ */
+export const createResolveUnitMaintenanceCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_UNIT_MAINTENANCE_ACTION) return null;
+  return createResolveUnitMaintenanceCommand({
+    playerId,
+    unitInstanceId: action.unitInstanceId,
+    keepUnit: action.keepUnit,
+    ...(action.crystalColor && { crystalColor: action.crystalColor }),
+    ...(action.newManaTokenColor && { newManaTokenColor: action.newManaTokenColor }),
   });
 };

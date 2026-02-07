@@ -14,7 +14,8 @@
 import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { ActiveModifier } from "../../../types/modifiers.js";
-import type { GameEvent, ManaSourceInfo, CardId } from "@mage-knight/shared";
+import type { GameEvent, ManaSourceInfo, CardId, UnitAbility } from "@mage-knight/shared";
+import type { PlayerUnit } from "../../../types/unit.js";
 import {
   UNIT_ACTIVATED,
   getUnit,
@@ -72,6 +73,46 @@ export interface ActivateUnitCommandParams {
    * Required when the ability has a manaCost defined.
    */
   readonly manaSource?: ManaSourceInfo;
+}
+
+/**
+ * Get the effective ability value considering the unit's mana token bonus.
+ * If the ability has a bonusManaColor that matches the unit's manaToken,
+ * use bonusValue instead of base value.
+ */
+function getEffectiveAbilityValue(ability: UnitAbility, unit: PlayerUnit): number {
+  const baseValue = ability.value ?? 0;
+  if (ability.bonusValue !== undefined && ability.bonusManaColor && unit.manaToken === ability.bonusManaColor) {
+    return ability.bonusValue;
+  }
+  return baseValue;
+}
+
+/**
+ * Apply mana token bonus to an effect-based ability's amounts.
+ * Adjusts gain_move/gain_influence amounts in choice effects for Magic Familiars.
+ */
+function applyManaTokenBonusToEffect(effect: CardEffect, ability: UnitAbility, unit: PlayerUnit): CardEffect {
+  if (ability.bonusValue === undefined || !ability.bonusManaColor || unit.manaToken !== ability.bonusManaColor) {
+    return effect;
+  }
+  const bonusAmount = ability.bonusValue;
+  // For choice effects, boost each option's amount
+  if (effect.type === EFFECT_CHOICE) {
+    const choiceEffect = effect as ChoiceEffect;
+    const boostedOptions = choiceEffect.options.map((option) => {
+      if ("amount" in option && typeof option.amount === "number") {
+        return { ...option, amount: bonusAmount };
+      }
+      return option;
+    });
+    return { ...choiceEffect, options: boostedOptions };
+  }
+  // For simple effects with amount, boost directly
+  if ("amount" in effect && typeof effect.amount === "number") {
+    return { ...effect, amount: bonusAmount };
+  }
+  return effect;
 }
 
 export function createActivateUnitCommand(
@@ -203,6 +244,9 @@ export function createActivateUnitCommand(
         // Replace __ACTIVATING_UNIT__ placeholder with actual unit instance ID
         // Used by Shocktroops' Taunt to set damage redirect target
         effect = replaceActivatingUnitPlaceholder(effect, params.unitInstanceId);
+
+        // Apply mana token bonus for Magic Familiars
+        effect = applyManaTokenBonusToEffect(effect, ability, unit);
 
         // Build intermediate state with unit marked as spent
         const playerWithSpentUnit: Player = {
@@ -359,9 +403,10 @@ export function createActivateUnitCommand(
       // ============================================================
 
       // Get the ability value (default to 0 for abilities without values)
+      // Apply mana token bonus (Magic Familiars) if applicable
       // Apply unit attack bonus from Coordinated Fire / Into the Heat for attack abilities
       // Apply unit block bonus from Into the Heat / Banner of Glory for block abilities
-      let abilityValue = ability.value ?? 0;
+      let abilityValue = getEffectiveAbilityValue(ability, unit);
       const isAttackAbility =
         ability.type === UNIT_ABILITY_ATTACK ||
         ability.type === UNIT_ABILITY_RANGED_ATTACK ||
@@ -565,7 +610,8 @@ export function createActivateUnitCommand(
 
       const unitDef = getUnit(unit.unitId);
       const ability = unitDef.abilities[params.abilityIndex];
-      const abilityValue = ability?.value ?? 0;
+      // Use effective value (with mana token bonus) for undo accumulator
+      const abilityValue = ability ? getEffectiveAbilityValue(ability, unit) : 0;
 
       // Track source updates (for die restoration)
       let updatedSource = state.source;

@@ -23,6 +23,7 @@ import {
   getReputationCostModifier,
   getRefugeeCampCostModifier,
   getActiveRecruitDiscount,
+  isGladeRecruitment,
 } from "../../rules/unitRecruitment.js";
 import { getEffectiveCommandTokens, isBondsSlotEmpty, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
 
@@ -51,15 +52,17 @@ export function getUnitOptions(
     return undefined;
   }
 
-  // At "X" reputation (MIN_REPUTATION), inhabitants refuse to interact
-  if (player.reputation <= MIN_REPUTATION) {
-    return undefined;
-  }
-
   // Get hex at player's position
   const hexKey = `${player.position.q},${player.position.r}`;
   const hex = state.map.hexes[hexKey];
   if (!hex || !hex.site) {
+    return undefined;
+  }
+
+  // At "X" reputation (MIN_REPUTATION), inhabitants refuse to interact
+  // (Magical Glade ignores reputation entirely)
+  const isGlade = isGladeRecruitment(hex.site.type);
+  if (player.reputation <= MIN_REPUTATION && !isGlade) {
     return undefined;
   }
 
@@ -127,11 +130,14 @@ export function getUnitOptions(
       : 0;
 
     // Calculate reputation modifier (doubled for Heroes, but only for first Hero)
-    const reputationModifier = getReputationCostModifier(
-      player.reputation,
-      unit.id,
-      heroAlreadyRecruited
-    );
+    // Magical Glade recruitment ignores reputation modifier
+    const reputationModifier = isGlade
+      ? 0
+      : getReputationCostModifier(
+          player.reputation,
+          unit.id,
+          heroAlreadyRecruited
+        );
 
     // Apply recruit discount if available (Ruthless Coercion)
     const recruitDiscountAmount = discountMod ? discountMod.discount : 0;

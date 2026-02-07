@@ -13,6 +13,7 @@ export {
   validateAtRecruitmentSite,
   validateUnitTypeMatchesSite,
   validateHeroesThugsExclusion,
+  validateRecruitManaPayment,
 } from "./recruitmentValidators.js";
 
 export {

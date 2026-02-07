@@ -462,6 +462,12 @@ export interface Player {
   // When set, the player must choose a hex coordinate or terrain type for cost reduction
   readonly pendingTerrainCostReduction: PendingTerrainCostReduction | null;
 
+  // Pending unit maintenance at round start (Magic Familiars: pay crystal or disband)
+  readonly pendingUnitMaintenance: readonly {
+    readonly unitInstanceId: string;
+    readonly unitId: import("@mage-knight/shared").UnitId;
+  }[] | null;
+
   // Healing points accumulated this turn (cleared on combat entry per rulebook line 929)
   readonly healingPoints: number;
 
