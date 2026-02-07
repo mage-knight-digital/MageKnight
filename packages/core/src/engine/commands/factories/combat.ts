@@ -33,6 +33,7 @@ import {
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
   CONVERT_MOVE_TO_ATTACK_ACTION,
+  CONVERT_INFLUENCE_TO_BLOCK_ACTION,
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
 } from "@mage-knight/shared";
 import {
@@ -49,6 +50,7 @@ import {
   createSpendMoveOnCumbersomeCommand,
   createPayHeroesAssaultInfluenceCommand,
   createConvertMoveToAttackCommand,
+  createConvertInfluenceToBlockCommand,
   createPayThugsDamageInfluenceCommand,
 } from "../combat/index.js";
 
@@ -330,5 +332,23 @@ export const createPayThugsDamageInfluenceCommandFromAction: CommandFactory = (
   return createPayThugsDamageInfluenceCommand({
     playerId,
     unitInstanceId: action.unitInstanceId,
+  });
+};
+
+/**
+ * Convert influence to block command factory.
+ * Creates a command to spend influence points and gain block via Diplomacy card.
+ *
+ * Part of the Diplomacy influence-to-block conversion system.
+ */
+export const createConvertInfluenceToBlockCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== CONVERT_INFLUENCE_TO_BLOCK_ACTION) return null;
+  return createConvertInfluenceToBlockCommand({
+    playerId,
+    influencePointsToSpend: action.influencePointsToSpend,
   });
 };

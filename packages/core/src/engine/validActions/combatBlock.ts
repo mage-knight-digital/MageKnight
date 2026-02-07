@@ -16,6 +16,7 @@ import type {
   AttackElement,
   CumbersomeOption,
   BannerFearOption,
+  InfluenceToBlockConversionOption,
 } from "@mage-knight/shared";
 import type { Element } from "@mage-knight/shared";
 import {
@@ -49,6 +50,9 @@ import {
 } from "../combat/cumbersomeHelpers.js";
 import { getColdToughnessBlockBonus } from "../combat/coldToughnessHelpers.js";
 import { canUseBannerFear, getCancellableAttacks } from "../rules/banners.js";
+import { getModifiersForPlayer } from "../modifiers/index.js";
+import type { InfluenceToBlockConversionModifier } from "../../types/modifiers.js";
+import { EFFECT_INFLUENCE_TO_BLOCK_CONVERSION } from "../../types/modifierConstants.js";
 
 // ============================================================================
 // Block Allocation Computation
@@ -344,6 +348,37 @@ export function computeBannerFearOptions(
   return options;
 }
 
+// ============================================================================
+// Influence-to-Block Conversion Options
+// ============================================================================
+
+/**
+ * Compute available influence-to-block conversion option for the block phase.
+ * Returns the conversion option if an influence-to-block modifier is active.
+ */
+function computeInfluenceToBlockOption(
+  state: GameState,
+  player: Player
+): InfluenceToBlockConversionOption | undefined {
+  const modifiers = getModifiersForPlayer(state, player.id);
+
+  for (const mod of modifiers) {
+    if (mod.effect.type !== EFFECT_INFLUENCE_TO_BLOCK_CONVERSION) continue;
+    const effect = mod.effect as InfluenceToBlockConversionModifier;
+
+    const blockElement = effect.element ?? "physical";
+    const maxBlock = Math.floor(player.influencePoints / effect.costPerPoint);
+
+    return {
+      blockElement: blockElement as "physical" | "fire" | "ice",
+      costPerPoint: effect.costPerPoint,
+      maxBlockGainable: maxBlock,
+    };
+  }
+
+  return undefined;
+}
+
 /**
  * Compute options for BLOCK phase.
  * Uses the incremental block assignment system.
@@ -411,16 +446,29 @@ export function computeBlockPhaseOptions(
     unassignableBlocks,
   };
 
-  // Only include optional fields if there are options
-  const withCumbersome = cumbersomeOptions.length > 0
-    ? { ...options, cumbersomeOptions, availableMovePoints: player.movePoints }
-    : options;
+  // Compute influence-to-block conversion options (Diplomacy card)
+  const influenceConversion = computeInfluenceToBlockOption(state, player);
 
-  if (bannerFearOpts.length > 0) {
-    return { ...withCumbersome, bannerFearOptions: bannerFearOpts };
+  // Only include optional fields if there are options
+  let result: CombatOptions = options;
+
+  if (cumbersomeOptions.length > 0) {
+    result = { ...result, cumbersomeOptions, availableMovePoints: player.movePoints };
   }
 
-  return withCumbersome;
+  if (bannerFearOpts.length > 0) {
+    result = { ...result, bannerFearOptions: bannerFearOpts };
+  }
+
+  if (influenceConversion && influenceConversion.maxBlockGainable > 0) {
+    result = {
+      ...result,
+      influenceToBlockConversion: influenceConversion,
+      availableInfluenceForConversion: player.influencePoints,
+    };
+  }
+
+  return result;
 }
 
 // ============================================================================

@@ -25,6 +25,7 @@ import {
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
   CONVERT_MOVE_TO_ATTACK_ACTION,
+  CONVERT_INFLUENCE_TO_BLOCK_ACTION,
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
 } from "@mage-knight/shared";
 
@@ -96,6 +97,12 @@ import {
   validateConversionModifierActive,
   validateConversionAmount,
   validateConversionMovePoints,
+  // Influence-to-block conversion validators (Diplomacy card)
+  validateInfluenceConversionInCombat,
+  validateInfluenceConversionPhase,
+  validateInfluenceConversionModifierActive,
+  validateInfluenceConversionAmount,
+  validateInfluenceConversionInfluencePoints,
   // Thugs damage influence validators
   validateThugsDamagePaymentInCombat,
   validateThugsDamageUnitIsThugs,
@@ -224,6 +231,15 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateConversionModifierActive,
     validateConversionAmount,
     validateConversionMovePoints,
+  ],
+  // Influence-to-block conversion action (Diplomacy card)
+  [CONVERT_INFLUENCE_TO_BLOCK_ACTION]: [
+    validateIsPlayersTurn,
+    validateInfluenceConversionInCombat,
+    validateInfluenceConversionPhase,
+    validateInfluenceConversionModifierActive,
+    validateInfluenceConversionAmount,
+    validateInfluenceConversionInfluencePoints,
   ],
   // Thugs damage influence payment action
   [PAY_THUGS_DAMAGE_INFLUENCE_ACTION]: [

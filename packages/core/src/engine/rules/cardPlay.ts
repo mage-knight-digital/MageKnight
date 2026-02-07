@@ -32,6 +32,7 @@ import {
   effectHasMove,
   effectIsMoveOnly,
   effectHasInfluence,
+  effectIsInfluenceOnly,
   effectHasHeal,
   effectHasDraw,
   effectHasModifier,
@@ -44,7 +45,7 @@ import {
 import { isCumbersomeActive } from "../combat/cumbersomeHelpers.js";
 import type { GameState } from "../../state/GameState.js";
 import { isRuleActive } from "../modifiers/index.js";
-import { RULE_MOVE_CARDS_IN_COMBAT } from "../../types/modifierConstants.js";
+import { RULE_MOVE_CARDS_IN_COMBAT, RULE_INFLUENCE_CARDS_IN_COMBAT } from "../../types/modifierConstants.js";
 import { getFortificationLevel } from "./combatTargeting.js";
 
 export interface CombatEffectContext {
@@ -120,7 +121,8 @@ export function isCombatEffectAllowed(
   effect: CardEffect | null,
   phase: CombatPhase,
   allowAnyPhase: boolean,
-  moveCardsAllowed: boolean = false
+  moveCardsAllowed: boolean = false,
+  influenceCardsAllowed: boolean = false
 ): boolean {
   if (!effect) {
     return false;
@@ -134,11 +136,15 @@ export function isCombatEffectAllowed(
   // during ranged/siege, block, and attack phases
   const moveAllowed = moveCardsAllowed && effectHasMove(effect);
 
+  // When Diplomacy (or similar) is active, influence effects are allowed
+  // during block phase (influence converts to block)
+  const influenceAllowed = influenceCardsAllowed && effectHasInfluence(effect);
+
   switch (phase) {
     case COMBAT_PHASE_RANGED_SIEGE:
       return effectHasRangedOrSiege(effect) || effectIsUtility(effect) || moveAllowed;
     case COMBAT_PHASE_BLOCK:
-      return effectHasBlock(effect) || effectIsUtility(effect) || moveAllowed;
+      return effectHasBlock(effect) || effectIsUtility(effect) || moveAllowed || influenceAllowed;
     case COMBAT_PHASE_ATTACK:
       return effectHasAttack(effect) || effectIsUtility(effect) || moveAllowed;
     default:
@@ -206,6 +212,32 @@ export function shouldExcludeMoveOnlyEffect(
 ): boolean {
   if (!effectIsMoveOnly(effect)) return false;
   return !isMoveUsefulInCombat(state, playerId, combat);
+}
+
+/**
+ * Check if influence points are useful in the current combat context.
+ *
+ * Influence points during combat are useful when:
+ * - Influence-to-block conversion is active (Diplomacy card)
+ */
+export function isInfluenceUsefulInCombat(
+  state: GameState,
+  playerId: string
+): boolean {
+  return isRuleActive(state, playerId, RULE_INFLUENCE_CARDS_IN_COMBAT);
+}
+
+/**
+ * Check if a combat-filtered effect should be excluded because it's influence-only
+ * and influence isn't useful in the current combat context.
+ */
+export function shouldExcludeInfluenceOnlyEffect(
+  effect: CardEffect,
+  state: GameState,
+  playerId: string
+): boolean {
+  if (!effectIsInfluenceOnly(effect)) return false;
+  return !isInfluenceUsefulInCombat(state, playerId);
 }
 
 /**

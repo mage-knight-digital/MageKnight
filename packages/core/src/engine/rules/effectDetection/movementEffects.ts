@@ -79,6 +79,33 @@ export function effectIsMoveOnly(effect: CardEffect): boolean {
 }
 
 /**
+ * Check if an effect provides ONLY influence points (no other combat-relevant effects).
+ * Used to determine if a card's combat-filtered effect needs influence to be useful.
+ */
+export function effectIsInfluenceOnly(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_GAIN_INFLUENCE:
+      return true;
+
+    case EFFECT_NOOP:
+      return true;
+
+    case EFFECT_COMPOUND:
+      return effect.effects.every(eff => effectIsInfluenceOnly(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectIsInfluenceOnly(effect.thenEffect) &&
+        (!effect.elseEffect || effectIsInfluenceOnly(effect.elseEffect));
+
+    case EFFECT_CHOICE:
+      return effect.options.every(opt => effectIsInfluenceOnly(opt));
+
+    default:
+      return false;
+  }
+}
+
+/**
  * Check if an effect provides influence points.
  */
 export function effectHasInfluence(effect: CardEffect): boolean {

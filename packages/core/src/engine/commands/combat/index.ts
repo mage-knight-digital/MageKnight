@@ -87,3 +87,9 @@ export {
   THUGS_DAMAGE_INFLUENCE_COST,
   type PayThugsDamageInfluenceCommandParams,
 } from "./payThugsDamageInfluenceCommand.js";
+
+export {
+  createConvertInfluenceToBlockCommand,
+  CONVERT_INFLUENCE_TO_BLOCK_COMMAND,
+  type ConvertInfluenceToBlockCommandParams,
+} from "./convertInfluenceToBlockCommand.js";

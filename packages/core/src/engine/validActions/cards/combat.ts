@@ -23,10 +23,10 @@ import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
-import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, isRangedAttackUnusable, isTimeBendingChainPrevented, type CombatEffectContext } from "../../rules/cardPlay.js";
+import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, shouldExcludeInfluenceOnlyEffect, isRangedAttackUnusable, isTimeBendingChainPrevented, type CombatEffectContext } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
-import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT } from "../../../types/modifierConstants.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT, RULE_INFLUENCE_CARDS_IN_COMBAT } from "../../../types/modifierConstants.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -44,6 +44,7 @@ export function getPlayableCardsForCombat(
 ): PlayCardOptions {
   const cards: PlayableCard[] = [];
   const moveCardsAllowed = isRuleActive(state, player.id, RULE_MOVE_CARDS_IN_COMBAT);
+  const influenceCardsAllowed = isRuleActive(state, player.id, RULE_INFLUENCE_CARDS_IN_COMBAT);
 
   for (const cardId of player.hand) {
     const card = getCard(cardId);
@@ -103,6 +104,15 @@ export function getPlayableCardsForCombat(
       ? shouldExcludeMoveOnlyEffect(poweredContext.effect, state, player.id, combat)
       : false;
 
+    // Exclude influence-only effects when influence isn't useful in combat
+    // (but not when influenceCardsAllowed, since Diplomacy makes influence useful for conversion)
+    const basicInfluenceExcluded = !influenceCardsAllowed && basicContext.effect
+      ? shouldExcludeInfluenceOnlyEffect(basicContext.effect, state, player.id)
+      : false;
+    const poweredInfluenceExcluded = !influenceCardsAllowed && poweredContext.effect
+      ? shouldExcludeInfluenceOnlyEffect(poweredContext.effect, state, player.id)
+      : false;
+
     // Exclude ranged-only effects when all enemies are fortified
     const basicRangedExcluded = basicContext.effect
       ? isRangedAttackUnusable(basicContext.effect, state, player.id, combat)
@@ -111,14 +121,14 @@ export function getPlayableCardsForCombat(
       ? isRangedAttackUnusable(poweredContext.effect, state, player.id, combat)
       : false;
 
-    const adjustedBasicContext: CombatEffectContext = (basicMoveExcluded || basicRangedExcluded)
+    const adjustedBasicContext: CombatEffectContext = (basicMoveExcluded || basicRangedExcluded || basicInfluenceExcluded)
       ? { effect: null, allowAnyPhase: false }
       : basicContext;
-    const adjustedPoweredContext: CombatEffectContext = (poweredMoveExcluded || poweredRangedExcluded)
+    const adjustedPoweredContext: CombatEffectContext = (poweredMoveExcluded || poweredRangedExcluded || poweredInfluenceExcluded)
       ? { effect: null, allowAnyPhase: false }
       : poweredContext;
 
-    const playability = getCardPlayabilityForPhase(state, player, card, combat.phase, adjustedBasicContext, adjustedPoweredContext, moveCardsAllowed);
+    const playability = getCardPlayabilityForPhase(state, player, card, combat.phase, adjustedBasicContext, adjustedPoweredContext, moveCardsAllowed, influenceCardsAllowed);
 
     // Check resolvability - effect must actually be able to do something
     const basicIsResolvable = adjustedBasicContext.effect
@@ -185,7 +195,8 @@ function getCardPlayabilityForPhase(
   phase: CombatPhase,
   basicContext: CombatEffectContext,
   poweredContext: CombatEffectContext,
-  moveCardsAllowed: boolean = false
+  moveCardsAllowed: boolean = false,
+  influenceCardsAllowed: boolean = false
 ): CardPlayability {
   const basicEffect = basicContext.effect;
   const poweredEffect = poweredContext.effect;
@@ -197,13 +208,15 @@ function getCardPlayabilityForPhase(
     basicEffect,
     phase,
     basicContext.allowAnyPhase,
-    moveCardsAllowed
+    moveCardsAllowed,
+    influenceCardsAllowed
   );
   const poweredAllowed = phaseRestrictionMet && isCombatEffectAllowed(
     poweredEffect,
     phase,
     poweredContext.allowAnyPhase,
-    moveCardsAllowed
+    moveCardsAllowed,
+    influenceCardsAllowed
   );
 
   // Calculate effective sideways value (accounts for skill modifiers)
