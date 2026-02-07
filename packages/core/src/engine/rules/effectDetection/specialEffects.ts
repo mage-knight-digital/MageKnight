@@ -12,6 +12,7 @@ import {
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
   EFFECT_CARD_BOOST,
   EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_WINGS_OF_NIGHT,
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
@@ -125,6 +126,7 @@ export function effectHasCardBoost(effect: CardEffect): boolean {
 export function effectHasEnemyTargeting(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_SELECT_COMBAT_ENEMY:
+    case EFFECT_WINGS_OF_NIGHT:
       return true;
 
     case EFFECT_CHOICE:

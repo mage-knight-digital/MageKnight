@@ -62,6 +62,8 @@ import {
   EFFECT_CALL_TO_ARMS,
   EFFECT_RESOLVE_CALL_TO_ARMS_UNIT,
   EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
+  EFFECT_WINGS_OF_NIGHT,
+  EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -337,6 +339,14 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
   [EFFECT_CALL_TO_ARMS]: (player) => player,
   [EFFECT_RESOLVE_CALL_TO_ARMS_UNIT]: (player) => player,
   [EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY]: (player) => player,
+
+  // Wings of Night just presents choices — no direct player state change
+  [EFFECT_WINGS_OF_NIGHT]: (player) => player,
+
+  // Resolve Wings of Night target modifies combat state (modifiers) and deducts move points.
+  // Move point deduction is player-level but modifier cleanup is GameState-level.
+  // Commands containing this should be non-reversible.
+  [EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET]: (player) => player,
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (player, effect) => {
     const e = effect as TrackAttackDefeatFameEffect;

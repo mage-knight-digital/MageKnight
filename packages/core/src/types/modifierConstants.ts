@@ -273,3 +273,7 @@ export const EFFECT_INFLUENCE_TO_BLOCK_CONVERSION = "influence_to_block_conversi
 // (which can then be converted to block via InfluenceToBlockConversion)
 export const RULE_INFLUENCE_CARDS_IN_COMBAT = "influence_cards_in_combat" as const;
 
+// === RuleOverrideModifier["rule"] - Flight ===
+// Prevents tile exploration (Wings of Wind flight)
+export const RULE_NO_EXPLORATION = "no_exploration" as const;
+

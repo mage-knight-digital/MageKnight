@@ -106,6 +106,8 @@ import {
   EFFECT_RESOLVE_MIND_STEAL_COLOR,
   EFFECT_RESOLVE_MIND_STEAL_SELECTION,
   EFFECT_ACTIVATE_BANNER_PROTECTION,
+  EFFECT_WINGS_OF_NIGHT,
+  EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1206,6 +1208,29 @@ export interface ActivateBannerProtectionEffect {
   readonly type: typeof EFFECT_ACTIVATE_BANNER_PROTECTION;
 }
 
+/**
+ * Wings of Night multi-target skip-attack effect entry point.
+ * First enemy targeted for free. Additional enemies cost 1, 2, 3... move points.
+ * All targeted enemies get SKIP_ATTACK modifier. Arcane Immune enemies excluded.
+ */
+export interface WingsOfNightEffect {
+  readonly type: typeof EFFECT_WINGS_OF_NIGHT;
+}
+
+/**
+ * Internal: resolve after selecting an enemy for Wings of Night.
+ * Applies skip-attack modifier, deducts move cost, chains for more targets.
+ */
+export interface ResolveWingsOfNightTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET;
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+  /** Move cost for this target (0 for first, 1 for second, etc.) */
+  readonly moveCost: number;
+  /** Number of enemies targeted so far (including this one) */
+  readonly targetCount: number;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1290,7 +1315,9 @@ export type CardEffect =
   | MindStealEffect
   | ResolveMindStealColorEffect
   | ResolveMindStealSelectionEffect
-  | ActivateBannerProtectionEffect;
+  | ActivateBannerProtectionEffect
+  | WingsOfNightEffect
+  | ResolveWingsOfNightTargetEffect;
 
 // === Card Definition ===
 
