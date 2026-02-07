@@ -100,6 +100,11 @@ import {
   EFFECT_RESOLVE_MANA_CLAIM_MODE,
   EFFECT_MANA_CURSE,
   EFFECT_MANA_BOLT,
+  EFFECT_MIND_READ,
+  EFFECT_RESOLVE_MIND_READ_COLOR,
+  EFFECT_MIND_STEAL,
+  EFFECT_RESOLVE_MIND_STEAL_COLOR,
+  EFFECT_RESOLVE_MIND_STEAL_SELECTION,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1145,6 +1150,52 @@ export interface ResolveCallToArmsAbilityEffect {
   readonly abilityDescription: string;
 }
 
+/**
+ * Mind Read effect entry point (White Spell basic effect).
+ * Choose a basic mana color. Gain crystal. Each opponent must discard
+ * a Spell or Action card of that color, or reveal hand to show they have none.
+ */
+export interface MindReadEffect {
+  readonly type: typeof EFFECT_MIND_READ;
+}
+
+/**
+ * Internal: Resolve after caster selects a color for Mind Read.
+ * Applies crystal gain and forced discard.
+ */
+export interface ResolveMindReadColorEffect {
+  readonly type: typeof EFFECT_RESOLVE_MIND_READ_COLOR;
+  readonly color: BasicManaColor;
+}
+
+/**
+ * Mind Steal effect entry point (White Spell powered effect).
+ * Same as Mind Read, plus caster may steal one discarded Action card.
+ */
+export interface MindStealEffect {
+  readonly type: typeof EFFECT_MIND_STEAL;
+}
+
+/**
+ * Internal: Resolve after caster selects a color for Mind Steal.
+ * Applies crystal gain, forced discard, then presents steal options.
+ */
+export interface ResolveMindStealColorEffect {
+  readonly type: typeof EFFECT_RESOLVE_MIND_STEAL_COLOR;
+  readonly color: BasicManaColor;
+}
+
+/**
+ * Internal: Resolve after caster selects an Action card to steal (or skip).
+ * Moves the selected card to the caster's hand permanently.
+ */
+export interface ResolveMindStealSelectionEffect {
+  readonly type: typeof EFFECT_RESOLVE_MIND_STEAL_SELECTION;
+  readonly cardId: CardId;
+  readonly cardName: string;
+  readonly fromPlayerId: string;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1223,7 +1274,12 @@ export type CardEffect =
   | ManaClaimEffect
   | ResolveManaClaimDieEffect
   | ResolveManaClaimModeEffect
-  | ManaCurseEffect;
+  | ManaCurseEffect
+  | MindReadEffect
+  | ResolveMindReadColorEffect
+  | MindStealEffect
+  | ResolveMindStealColorEffect
+  | ResolveMindStealSelectionEffect;
 
 // === Card Definition ===
 
