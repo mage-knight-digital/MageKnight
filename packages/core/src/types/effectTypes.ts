@@ -293,6 +293,15 @@ export const EFFECT_RESOLVE_MIND_STEAL_SELECTION = "resolve_mind_steal_selection
 // Powered: gain 1 crystal of each basic color NOT matching the thrown card's color.
 export const EFFECT_DECOMPOSE = "decompose" as const;
 
+// === Possess Effect (Charm/Possess White Spell Powered) ===
+// Select an enemy to possess. The enemy does not attack.
+// In the Attack phase, gain Attack equal to its attack value (including elements).
+// Special abilities are excluded. Can only target non-Arcane-Immune enemies.
+// Attack can only be used against OTHER enemies.
+export const EFFECT_POSSESS = "possess" as const;
+// Internal: Resolve after enemy selection - apply skip attack + grant attack
+export const EFFECT_RESOLVE_POSSESS_TARGET = "resolve_possess_target" as const;
+
 // === Banner of Protection Activation Effect ===
 // Marks that Banner of Protection powered effect is active this turn.
 // At end of turn, player may throw away wounds received this turn.

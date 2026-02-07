@@ -53,6 +53,7 @@ import { registerBannerProtectionEffects } from "./bannerProtectionEffects.js";
 import { registerWingsOfNightEffects } from "./wingsOfNightEffects.js";
 import { registerDecomposeEffects } from "./decomposeEffects.js";
 import { registerCrystalMasteryEffects } from "./crystalMasteryEffects.js";
+import { registerPossessEffects } from "./possessEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -194,4 +195,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Crystal Mastery effects (crystal duplication + spent crystal return)
   registerCrystalMasteryEffects();
+
+  // Possess effects (Charm/Possess white spell powered effect)
+  registerPossessEffects(resolver);
 }

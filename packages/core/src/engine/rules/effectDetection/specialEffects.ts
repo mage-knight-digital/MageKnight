@@ -13,6 +13,7 @@ import {
   EFFECT_CARD_BOOST,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_WINGS_OF_NIGHT,
+  EFFECT_POSSESS,
   EFFECT_CHOICE,
   EFFECT_COMPOUND,
   EFFECT_CONDITIONAL,
@@ -127,6 +128,7 @@ export function effectHasEnemyTargeting(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_SELECT_COMBAT_ENEMY:
     case EFFECT_WINGS_OF_NIGHT:
+    case EFFECT_POSSESS:
       return true;
 
     case EFFECT_CHOICE:

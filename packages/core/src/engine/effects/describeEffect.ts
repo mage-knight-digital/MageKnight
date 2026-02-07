@@ -75,6 +75,8 @@ import {
   EFFECT_RESOLVE_MIND_STEAL_SELECTION,
   EFFECT_WINGS_OF_NIGHT,
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
+  EFFECT_POSSESS,
+  EFFECT_RESOLVE_POSSESS_TARGET,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -510,6 +512,14 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const e = effect as import("../../types/cards.js").ResolveWingsOfNightTargetEffect;
     const costStr = e.moveCost > 0 ? ` (${e.moveCost} Move)` : "";
     return `${e.enemyName} does not attack${costStr}`;
+  },
+
+  [EFFECT_POSSESS]: () =>
+    "Select an enemy to possess (skip attack, gain its attack)",
+
+  [EFFECT_RESOLVE_POSSESS_TARGET]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolvePossessTargetEffect;
+    return `Possess ${e.enemyName}: skip attack, gain its attack value`;
   },
 };
 

@@ -111,6 +111,8 @@ import {
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
+  EFFECT_POSSESS,
+  EFFECT_RESOLVE_POSSESS_TARGET,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1221,6 +1223,28 @@ export interface ResolveMindStealSelectionEffect {
 }
 
 /**
+ * Possess effect entry point (Charm/Possess White Spell powered effect).
+ * Select an enemy to possess. The enemy does not attack this combat.
+ * In the Attack phase, gain Attack equal to its attack value (including elements).
+ * Special abilities are excluded (Brutal, Poisonous, Paralyze, etc.).
+ * Can only target non-Arcane-Immune enemies.
+ * Gained attack can only target OTHER enemies (not the possessed one).
+ */
+export interface PossessEffect {
+  readonly type: typeof EFFECT_POSSESS;
+}
+
+/**
+ * Internal: Resolve after enemy selection for Possess.
+ * Applies skip attack modifier and grants attack matching enemy's attack value.
+ */
+export interface ResolvePossessTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_POSSESS_TARGET;
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+}
+
+/**
  * Activate Banner of Protection powered effect.
  * Sets bannerOfProtectionActive flag; at end of turn, player may throw away
  * all wounds received this turn.
@@ -1360,7 +1384,9 @@ export type CardEffect =
   | WingsOfNightEffect
   | ResolveWingsOfNightTargetEffect
   | CrystalMasteryBasicEffect
-  | CrystalMasteryPoweredEffect;
+  | CrystalMasteryPoweredEffect
+  | PossessEffect
+  | ResolvePossessTargetEffect;
 
 // === Card Definition ===
 
