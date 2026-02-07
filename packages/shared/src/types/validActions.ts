@@ -837,6 +837,21 @@ export interface CrystalJoyReclaimOptions {
 }
 
 // ============================================================================
+// Steady Tempo Deck Placement
+// ============================================================================
+
+/**
+ * Options for Steady Tempo deck placement at end of turn.
+ * Only present when player has a pending Steady Tempo deck placement choice.
+ */
+export interface SteadyTempoOptions {
+  /** Where the card would be placed: "top" (powered) or "bottom" (basic) */
+  readonly position: "top" | "bottom";
+  /** Whether the player can place (basic requires non-empty deck) */
+  readonly canPlace: boolean;
+}
+
+// ============================================================================
 // Level Up Rewards
 // ============================================================================
 
@@ -1039,6 +1054,12 @@ export interface PendingCrystalJoyState {
   readonly crystalJoyReclaim: CrystalJoyReclaimOptions;
 }
 
+export interface PendingSteadyTempoState {
+  readonly mode: "pending_steady_tempo";
+  readonly turn: BlockingTurnOptions;
+  readonly steadyTempo: SteadyTempoOptions;
+}
+
 export interface PendingLevelUpState {
   readonly mode: "pending_level_up";
   readonly turn: BlockingTurnOptions;
@@ -1097,6 +1118,7 @@ export type ValidActions =
   | PendingDiscardForCrystalState
   | PendingArtifactCrystalColorState
   | PendingCrystalJoyState
+  | PendingSteadyTempoState
   | PendingLevelUpState
   | PendingChoiceState
   | PendingHexCostReductionState

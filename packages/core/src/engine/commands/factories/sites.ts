@@ -26,6 +26,7 @@ import {
   BURN_MONASTERY_ACTION,
   PLUNDER_VILLAGE_ACTION,
   RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
+  RESOLVE_STEADY_TEMPO_ACTION,
 } from "@mage-knight/shared";
 import { createInteractCommand } from "../interactCommand.js";
 import { createEnterSiteCommand } from "../enterSiteCommand.js";
@@ -34,6 +35,7 @@ import { createResolveDeepMineChoiceCommand } from "../resolveDeepMineChoiceComm
 import { createBurnMonasteryCommand } from "../burnMonasteryCommand.js";
 import { createPlunderVillageCommand } from "../plunderVillageCommand.js";
 import { createResolveCrystalJoyReclaimCommand } from "../resolveCrystalJoyReclaimCommand.js";
+import { createResolveSteadyTempoCommand } from "../resolveSteadyTempoCommand.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
@@ -186,5 +188,22 @@ export const createResolveCrystalJoyReclaimCommandFromAction: CommandFactory = (
   return createResolveCrystalJoyReclaimCommand({
     playerId,
     cardId,
+  });
+};
+
+/**
+ * Resolve steady tempo deck placement command factory.
+ * Creates a command to resolve the Steady Tempo end-of-turn deck placement.
+ */
+export const createResolveSteadyTempoCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_STEADY_TEMPO_ACTION) return null;
+
+  return createResolveSteadyTempoCommand({
+    playerId,
+    place: action.place,
   });
 };

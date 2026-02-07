@@ -213,3 +213,39 @@ export function createCrystalJoyReclaimSkippedEvent(
     playerId,
   };
 }
+
+// ============================================================================
+// STEADY TEMPO EVENTS
+// ============================================================================
+
+/**
+ * Event type constant for Steady Tempo deck placement.
+ * @see SteadyTempoPlacedEvent
+ */
+export const STEADY_TEMPO_PLACED = "STEADY_TEMPO_PLACED" as const;
+
+/**
+ * Emitted when Steady Tempo is placed back into the deed deck at end of turn.
+ */
+export interface SteadyTempoPlacedEvent {
+  readonly type: typeof STEADY_TEMPO_PLACED;
+  /** ID of the player */
+  readonly playerId: string;
+  /** Where the card was placed: "top" (powered) or "bottom" (basic) */
+  readonly position: "top" | "bottom";
+}
+
+/**
+ * Event type constant for skipping Steady Tempo placement.
+ * @see SteadyTempoPlacementSkippedEvent
+ */
+export const STEADY_TEMPO_PLACEMENT_SKIPPED = "STEADY_TEMPO_PLACEMENT_SKIPPED" as const;
+
+/**
+ * Emitted when a player skips placing Steady Tempo back into their deck.
+ */
+export interface SteadyTempoPlacementSkippedEvent {
+  readonly type: typeof STEADY_TEMPO_PLACEMENT_SKIPPED;
+  /** ID of the player who skipped */
+  readonly playerId: string;
+}

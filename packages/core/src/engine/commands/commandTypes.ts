@@ -54,6 +54,9 @@ export const RESOLVE_UNIT_MAINTENANCE_COMMAND = "RESOLVE_UNIT_MAINTENANCE" as co
 // Crystal Joy reclaim command
 export const RESOLVE_CRYSTAL_JOY_RECLAIM_COMMAND = "RESOLVE_CRYSTAL_JOY_RECLAIM" as const;
 
+// Steady Tempo deck placement command
+export const RESOLVE_STEADY_TEMPO_COMMAND = "RESOLVE_STEADY_TEMPO" as const;
+
 // Discard as cost command
 export const RESOLVE_DISCARD_COMMAND = "RESOLVE_DISCARD" as const;
 

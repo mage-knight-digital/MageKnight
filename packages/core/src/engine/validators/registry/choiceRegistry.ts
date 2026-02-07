@@ -10,6 +10,7 @@ import {
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
   RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
+  RESOLVE_STEADY_TEMPO_ACTION,
   RESOLVE_DISCARD_ACTION,
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
@@ -77,6 +78,12 @@ import {
   validateCrystalJoyReclaimCard,
 } from "../crystalJoyReclaimValidators.js";
 
+// Steady Tempo validators
+import {
+  validateHasPendingSteadyTempo,
+  validateSteadyTempoChoice,
+} from "../steadyTempoValidators.js";
+
 // Terrain cost reduction validators (Druidic Paths)
 import {
   validateHasPendingHexCostReduction,
@@ -139,6 +146,11 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingCrystalJoyReclaim,
     validateCrystalJoyReclaimCard,
+  ],
+  [RESOLVE_STEADY_TEMPO_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingSteadyTempo,
+    validateSteadyTempoChoice,
   ],
   [RESOLVE_HEX_COST_REDUCTION_ACTION]: [
     validateIsPlayersTurn,
