@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useRef, useId } from "react";
-import { Container, Sprite, Texture, BlurFilter } from "pixi.js";
+import { Container, Sprite, Texture, BlurFilter, Assets } from "pixi.js";
 import type { ClientCombatState } from "@mage-knight/shared";
 import { hexKey } from "@mage-knight/shared";
 import { usePixiApp } from "../../contexts/PixiAppContext";
@@ -205,46 +205,54 @@ export function PixiCombatOverlay({ combat }: PixiCombatOverlayProps) {
       easing: Easing.easeOutQuad,
     });
 
-    // Phase 2: Site backdrop sprite
+    // Phase 2: Site backdrop sprite (async - needs texture preload)
     if (siteSprite) {
-      const backdropSprite = Sprite.from(SITES_SHEET.src);
-      backdropSprite.label = "combat-backdrop";
-      backdropSprite.eventMode = "none";
-      backdropSprite.zIndex = 1; // Above gradient
+      const loadBackdrop = async () => {
+        if (isDestroyedRef.current) return;
+        const texture = await Assets.load(SITES_SHEET.src);
+        if (isDestroyedRef.current) return;
 
-      // Set up sprite sheet frame
-      backdropSprite.texture.frame.x = siteSprite.col * SITES_SHEET.spriteWidth;
-      backdropSprite.texture.frame.y = siteSprite.row * SITES_SHEET.spriteHeight;
-      backdropSprite.texture.frame.width = SITES_SHEET.spriteWidth;
-      backdropSprite.texture.frame.height = SITES_SHEET.spriteHeight;
-      backdropSprite.texture.updateUvs();
+        const backdropSprite = Sprite.from(texture);
+        backdropSprite.label = "combat-backdrop";
+        backdropSprite.eventMode = "none";
+        backdropSprite.zIndex = 1; // Above gradient
 
-      // Size: 70% of the smaller viewport dimension (matching CSS)
-      const size = Math.min(app.screen.width, app.screen.height) * 0.7;
-      backdropSprite.width = size;
-      backdropSprite.height = size;
+        // Set up sprite sheet frame
+        backdropSprite.texture.frame.x = siteSprite.col * SITES_SHEET.spriteWidth;
+        backdropSprite.texture.frame.y = siteSprite.row * SITES_SHEET.spriteHeight;
+        backdropSprite.texture.frame.width = SITES_SHEET.spriteWidth;
+        backdropSprite.texture.frame.height = SITES_SHEET.spriteHeight;
+        backdropSprite.texture.updateUvs();
 
-      // Center the sprite
-      backdropSprite.anchor.set(0.5);
-      backdropSprite.x = app.screen.width / 2;
-      backdropSprite.y = app.screen.height / 2;
+        // Size: 70% of the smaller viewport dimension (matching CSS)
+        const size = Math.min(app.screen.width, app.screen.height) * 0.7;
+        backdropSprite.width = size;
+        backdropSprite.height = size;
 
-      // Apply blur and transparency (matching CSS)
-      backdropSprite.filters = [new BlurFilter({ strength: 2 })];
-      backdropSprite.alpha = 0;
+        // Center the sprite
+        backdropSprite.anchor.set(0.5);
+        backdropSprite.x = app.screen.width / 2;
+        backdropSprite.y = app.screen.height / 2;
 
-      rootContainer.addChild(backdropSprite);
-      backdropSpriteRef.current = backdropSprite;
+        // Apply blur and transparency (matching CSS)
+        backdropSprite.filters = [new BlurFilter({ strength: 2 })];
+        backdropSprite.alpha = 0;
 
-      // Fade in the backdrop after a short delay
-      setTimeout(() => {
-        if (isDestroyedRef.current || !backdropSprite.parent) return;
-        animManager.animate("backdrop-fade-in", backdropSprite, {
-          endAlpha: 0.25, // Match CSS opacity
-          duration: 800,
-          easing: Easing.easeOutQuad,
-        });
-      }, 100);
+        rootContainer.addChild(backdropSprite);
+        rootContainer.sortChildren();
+        backdropSpriteRef.current = backdropSprite;
+
+        // Fade in the backdrop after a short delay
+        setTimeout(() => {
+          if (isDestroyedRef.current || !backdropSprite.parent) return;
+          animManager.animate("backdrop-fade-in", backdropSprite, {
+            endAlpha: 0.25, // Match CSS opacity
+            duration: 800,
+            easing: Easing.easeOutQuad,
+          });
+        }, 100);
+      };
+      loadBackdrop();
     }
 
     rootContainer.sortChildren();

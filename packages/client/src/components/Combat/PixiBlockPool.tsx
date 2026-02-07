@@ -40,9 +40,9 @@ const DRAG_THRESHOLD = 8; // pixels before drag starts
 // Block icon paths
 const BLOCK_ICONS: Record<AttackElement, string> = {
   physical: "/assets/icons/block.png",
-  fire: "/assets/icons/fire_block.png",
-  ice: "/assets/icons/ice_block.png",
-  coldFire: "/assets/icons/cold_fire_block.png",
+  fire: "/assets/icons/fire_attack.png",
+  ice: "/assets/icons/ice_attack.png",
+  coldFire: "/assets/icons/cold_fire_attack.png",
 };
 
 // All block elements in display order
