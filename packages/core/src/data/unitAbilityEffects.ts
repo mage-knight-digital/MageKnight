@@ -222,14 +222,29 @@ export const ALTEM_MAGES_ATTACK_MODIFIER =
 export const HERO_BLUE_ATTACK_OR_BLOCK = "hero_blue_attack_or_block" as const;
 
 /**
+ * Hero (Red/Fire): Attack OR Block 5 (choice, physical).
+ */
+export const HERO_RED_ATTACK_OR_BLOCK = "hero_red_attack_or_block" as const;
+
+/**
  * Hero (Blue/Ice): Influence 5 + Reputation +1 when used in interaction.
  */
 export const HERO_BLUE_INFLUENCE_REP = "hero_blue_influence_rep" as const;
 
 /**
+ * Hero (Red/Fire): Influence 5 + Reputation +1 when used in interaction.
+ */
+export const HERO_RED_INFLUENCE_REP = "hero_red_influence_rep" as const;
+
+/**
  * Hero (Blue/Ice): (Blue Mana) Cold Fire Block 8.
  */
 export const HERO_BLUE_COLD_FIRE_BLOCK = "hero_blue_cold_fire_block" as const;
+
+/**
+ * Hero (Red/Fire): (Red Mana) Cold Fire Attack 6.
+ */
+export const HERO_RED_COLD_FIRE_ATTACK = "hero_red_cold_fire_attack" as const;
 
 // =============================================================================
 // EFFECT DEFINITIONS
@@ -866,6 +881,51 @@ const HERO_BLUE_COLD_FIRE_BLOCK_EFFECT: CardEffect = {
 };
 
 // =============================================================================
+// HERO (RED/FIRE) EFFECTS
+// =============================================================================
+
+/**
+ * Hero (Red/Fire): Attack 5 OR Block 5 (choice, physical).
+ * Shared ability for all Heroes - player chooses one.
+ */
+const HERO_RED_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 5,
+      combatType: COMBAT_TYPE_MELEE,
+    },
+    {
+      type: EFFECT_GAIN_BLOCK,
+      amount: 5,
+    },
+  ],
+};
+
+/**
+ * Hero (Red/Fire): Influence 5 + Reputation +1 when used in interaction.
+ * Per rulebook: Influence 5 grants +1 Reputation when used in interaction.
+ */
+const HERO_RED_INFLUENCE_REP_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    { type: EFFECT_GAIN_INFLUENCE, amount: 5 },
+    { type: EFFECT_CHANGE_REPUTATION, amount: 1 },
+  ],
+};
+
+/**
+ * Hero (Red/Fire): (Red Mana) Cold Fire Attack 6.
+ */
+const HERO_RED_COLD_FIRE_ATTACK_EFFECT: CardEffect = {
+  type: EFFECT_GAIN_ATTACK,
+  amount: 6,
+  combatType: COMBAT_TYPE_MELEE,
+  element: ELEMENT_COLD_FIRE,
+};
+
+// =============================================================================
 // REGISTRY
 // =============================================================================
 
@@ -904,6 +964,9 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [HERO_BLUE_ATTACK_OR_BLOCK]: HERO_BLUE_ATTACK_OR_BLOCK_EFFECT,
   [HERO_BLUE_INFLUENCE_REP]: HERO_BLUE_INFLUENCE_REP_EFFECT,
   [HERO_BLUE_COLD_FIRE_BLOCK]: HERO_BLUE_COLD_FIRE_BLOCK_EFFECT,
+  [HERO_RED_ATTACK_OR_BLOCK]: HERO_RED_ATTACK_OR_BLOCK_EFFECT,
+  [HERO_RED_INFLUENCE_REP]: HERO_RED_INFLUENCE_REP_EFFECT,
+  [HERO_RED_COLD_FIRE_ATTACK]: HERO_RED_COLD_FIRE_ATTACK_EFFECT,
 };
 
 /**
