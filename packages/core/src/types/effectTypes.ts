@@ -227,6 +227,14 @@ export const EFFECT_APPLY_RECRUITMENT_BONUS = "apply_recruitment_bonus" as const
 // Used by Noble Manners (basic: Fame+1 on interact, powered: Fame+1 + Rep+1 on interact).
 export const EFFECT_APPLY_INTERACTION_BONUS = "apply_interaction_bonus" as const;
 
+// === Sacrifice (Offering powered) Effect ===
+// Two-stage color choice: first green/white (attack type), then red/blue (element).
+// Count crystal pairs of chosen colors. Each pair generates attack.
+// Convert all complete pairs to mana tokens.
+export const EFFECT_SACRIFICE = "sacrifice" as const;
+// Internal: Resolve after second color choice — calculate attack, convert crystals.
+export const EFFECT_RESOLVE_SACRIFICE = "resolve_sacrifice" as const;
+
 // === Free Recruit Effect ===
 // Recruit any unit from the units offer for free (no influence cost).
 // No location restrictions (can be anywhere, even in combat).

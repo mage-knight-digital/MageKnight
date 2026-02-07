@@ -57,6 +57,8 @@ import {
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   EFFECT_WOUND_ACTIVATING_UNIT,
   EFFECT_APPLY_INTERACTION_BONUS,
+  EFFECT_SACRIFICE,
+  EFFECT_RESOLVE_SACRIFICE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -319,6 +321,13 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
   // Interaction bonus adds a modifier — modifier cleanup handled by snapshot restore.
   // No player-level state to reverse.
   [EFFECT_APPLY_INTERACTION_BONUS]: (player) => player,
+
+  // Sacrifice just presents choices — no player state change
+  [EFFECT_SACRIFICE]: (player) => player,
+
+  // Resolve Sacrifice modifies crystals, pureMana, and combat accumulator.
+  // Too complex to reverse reliably — should be non-reversible.
+  [EFFECT_RESOLVE_SACRIFICE]: (player) => player,
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (player, effect) => {
     const e = effect as TrackAttackDefeatFameEffect;

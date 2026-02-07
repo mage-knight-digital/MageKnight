@@ -105,6 +105,7 @@ export const CARD_TREMOR = cardId("tremor"); // #11 - Target/All Armor reduction
 export const CARD_MANA_MELTDOWN = cardId("mana_meltdown"); // #109 - Random crystal loss / Color wound + gain crystals
 export const CARD_DEMOLISH = cardId("demolish"); // #12 - Ignore fortification + Armor -1 / Destroy enemy + Armor -1
 export const CARD_BURNING_SHIELD = cardId("burning_shield"); // #08 - Fire Block 4 + conditional Fire Attack 4 / Fire Block 4 + destroy blocked enemy
+export const CARD_OFFERING = cardId("offering"); // #46 - Gain red crystal + discard for crystals / Sacrifice crystal pairs for attacks
 
 // Blue spells
 export const CARD_SNOWSTORM = cardId("snowstorm"); // #15 - Ice Ranged Attack 5 / Siege Ice Attack 8
@@ -168,6 +169,7 @@ export type SpellCardId =
   | typeof CARD_MANA_MELTDOWN
   | typeof CARD_DEMOLISH
   | typeof CARD_BURNING_SHIELD
+  | typeof CARD_OFFERING
   // Blue spells
   | typeof CARD_SNOWSTORM
   | typeof CARD_CHILL

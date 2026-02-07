@@ -90,6 +90,8 @@ import {
   EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
   EFFECT_FREE_RECRUIT,
   EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
+  EFFECT_SACRIFICE,
+  EFFECT_RESOLVE_SACRIFICE,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -458,6 +460,18 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Free recruit target resolution is always resolvable (unit validated at resolution time)
   [EFFECT_RESOLVE_FREE_RECRUIT_TARGET]: () => true,
+
+  // Sacrifice is resolvable if player has at least one crystal pair of any combination
+  [EFFECT_SACRIFICE]: (state, player) => {
+    const { red, blue, green, white } = player.crystals;
+    // Need at least one complete pair: (green OR white) AND (red OR blue)
+    const hasAttackColor = green > 0 || white > 0;
+    const hasElementColor = red > 0 || blue > 0;
+    return hasAttackColor && hasElementColor;
+  },
+
+  // Resolve sacrifice is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_SACRIFICE]: () => true,
 };
 
 // ============================================================================
