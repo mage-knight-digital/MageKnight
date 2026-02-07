@@ -13,7 +13,18 @@
 
 import { useState } from "react";
 import type { EnemyId, CardId, BasicManaColor, ManaColor, UnitId } from "@mage-knight/shared";
-import { getEnemy, getUnit, UNIT_STATE_READY, DEBUG_ADD_FAME_ACTION, DEBUG_TRIGGER_LEVEL_UP_ACTION } from "@mage-knight/shared";
+import {
+  getEnemy,
+  getUnit,
+  UNIT_STATE_READY,
+  DEBUG_ADD_FAME_ACTION,
+  DEBUG_TRIGGER_LEVEL_UP_ACTION,
+  LEVEL_THRESHOLDS,
+  LEVEL_STATS,
+  ALL_SPELL_IDS,
+  ALL_ADVANCED_ACTION_IDS,
+  ALL_ARTIFACT_IDS,
+} from "@mage-knight/shared";
 import type { DebugTabProps } from "./types";
 import {
   ENEMIES,
@@ -21,8 +32,6 @@ import {
   MANA_COLORS,
   ALL_TOKEN_COLORS,
   UNITS,
-  LEVEL_THRESHOLDS,
-  LEVEL_STATS,
 } from "./debugPanelData";
 
 export function GameplayTab({ state, saveGame, loadGame, sendAction }: DebugTabProps) {
@@ -86,14 +95,31 @@ export function GameplayTab({ state, saveGame, loadGame, sendAction }: DebugTabP
     const player = gameState.players[0];
     if (!player) return;
 
-    const allSpells = [
-      "fireball",
-      "flame_wall",
-      "snowstorm",
-      "restoration",
-      "expose",
-    ];
-    player.hand.push(...allSpells);
+    player.hand.push(...ALL_SPELL_IDS);
+    loadGame(JSON.stringify(gameState));
+  };
+
+  const handleAddAllAdvancedActions = () => {
+    const json = saveGame();
+    if (!json) return;
+
+    const gameState = JSON.parse(json);
+    const player = gameState.players[0];
+    if (!player) return;
+
+    player.hand.push(...ALL_ADVANCED_ACTION_IDS);
+    loadGame(JSON.stringify(gameState));
+  };
+
+  const handleAddAllArtifacts = () => {
+    const json = saveGame();
+    if (!json) return;
+
+    const gameState = JSON.parse(json);
+    const player = gameState.players[0];
+    if (!player) return;
+
+    player.hand.push(...ALL_ARTIFACT_IDS);
     loadGame(JSON.stringify(gameState));
   };
 
@@ -386,6 +412,12 @@ export function GameplayTab({ state, saveGame, loadGame, sendAction }: DebugTabP
           />
           <button type="button" onClick={handleAddAllSpells} title="Add all spells to hand">
             +Spells
+          </button>
+          <button type="button" onClick={handleAddAllAdvancedActions} title="Add all advanced actions to hand">
+            +AAs
+          </button>
+          <button type="button" onClick={handleAddAllArtifacts} title="Add all artifacts to hand">
+            +Artifacts
           </button>
         </div>
         {cardSearch.length > 0 && (
