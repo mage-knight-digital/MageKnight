@@ -78,6 +78,9 @@ export const CANCEL_COOPERATIVE_PROPOSAL_COMMAND = "CANCEL_COOPERATIVE_PROPOSAL"
 // Skill usage command
 export const USE_SKILL_COMMAND = "USE_SKILL" as const;
 
+// Return interactive skill from center
+export const RETURN_INTERACTIVE_SKILL_COMMAND = "RETURN_INTERACTIVE_SKILL" as const;
+
 // Banner commands
 export const ASSIGN_BANNER_COMMAND = "ASSIGN_BANNER" as const;
 

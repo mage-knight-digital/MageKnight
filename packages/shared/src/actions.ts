@@ -222,6 +222,13 @@ export interface UseSkillAction {
   readonly skillId: SkillId;
 }
 
+// Return interactive skill from center (e.g., Prayer of Weather)
+export const RETURN_INTERACTIVE_SKILL_ACTION = "RETURN_INTERACTIVE_SKILL" as const;
+export interface ReturnInteractiveSkillAction {
+  readonly type: typeof RETURN_INTERACTIVE_SKILL_ACTION;
+  readonly skillId: SkillId;
+}
+
 // Interaction actions
 export const RECRUIT_UNIT_ACTION = "RECRUIT_UNIT" as const;
 export interface RecruitUnitAction {
@@ -705,6 +712,7 @@ export type PlayerAction =
   | ActivateUnitAction
   // Skill usage
   | UseSkillAction
+  | ReturnInteractiveSkillAction
   // Interactions
   | RecruitUnitAction
   | DisbandUnitAction

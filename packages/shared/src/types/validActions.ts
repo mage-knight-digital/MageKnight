@@ -1010,6 +1010,27 @@ export interface ActivatableSkill {
   readonly description: string;
 }
 
+/**
+ * Options for returning interactive skills from the center.
+ * Only shows skills placed in center by other players.
+ */
+export interface ReturnableSkillOptions {
+  /** Skills that can be returned from the center */
+  readonly returnable: readonly ReturnableSkill[];
+}
+
+/**
+ * An interactive skill in the center that can be returned.
+ */
+export interface ReturnableSkill {
+  /** Skill ID */
+  readonly skillId: SkillId;
+  /** Display name */
+  readonly name: string;
+  /** Description of the benefit gained by returning */
+  readonly returnBenefit: string;
+}
+
 // ============================================================================
 // ValidActions state interfaces (discriminated union)
 // ============================================================================
@@ -1117,6 +1138,7 @@ export interface NormalTurnState
   readonly tacticEffects: TacticEffectsOptions | undefined;
   readonly cooperativeAssault: CooperativeAssaultOptions | undefined;
   readonly banners: BannerOptions | undefined;
+  readonly returnableSkills: ReturnableSkillOptions | undefined;
 }
 
 /**

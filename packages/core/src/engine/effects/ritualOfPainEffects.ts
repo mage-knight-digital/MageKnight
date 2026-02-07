@@ -1,9 +1,9 @@
 /**
- * Ritual of Pain effect handlers
+ * Interactive skill effect handlers
  *
- * Handles skill-specific effects for Arythea's Ritual of Pain:
- * - Discard wound cards from hand (return to wound pile)
- * - Place the skill in the center for other players to use
+ * Handles effects for interactive skills that go to the center:
+ * - Discard wound cards from hand (return to wound pile) — Ritual of Pain
+ * - Place the skill in the center for other players to use — Ritual of Pain, Prayer of Weather
  */
 
 import type { GameState } from "../../state/GameState.js";
@@ -26,10 +26,13 @@ import {
   DURATION_ROUND,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
+  EFFECT_TERRAIN_COST,
   RULE_WOUNDS_PLAYABLE_SIDEWAYS,
   SCOPE_OTHER_PLAYERS,
   SOURCE_SKILL,
+  TERRAIN_ALL,
 } from "../../types/modifierConstants.js";
+import { SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/norowas/prayerOfWeather.js";
 
 // ============================================================================
 // DISCARD WOUNDS EFFECT
@@ -95,6 +98,7 @@ export function handleDiscardWounds(
 
 /**
  * Place an interactive skill token in the center for other players to use.
+ * Dispatches to skill-specific center modifiers based on skillId.
  */
 export function handlePlaceSkillInCenter(
   state: GameState,
@@ -118,23 +122,38 @@ export function handlePlaceSkillInCenter(
     activeModifiers: filteredModifiers,
   };
 
-  updatedState = addModifier(updatedState, {
-    source: { type: SOURCE_SKILL, skillId, playerId },
-    duration: DURATION_ROUND,
-    scope: { type: SCOPE_OTHER_PLAYERS },
-    effect: { type: EFFECT_RULE_OVERRIDE, rule: RULE_WOUNDS_PLAYABLE_SIDEWAYS },
-    createdAtRound: state.round,
-    createdByPlayerId: playerId,
-  });
+  if (skillId === SKILL_NOROWAS_PRAYER_OF_WEATHER) {
+    // Prayer of Weather: other players can return it for -1 terrain cost (min 1)
+    // We add a marker modifier so the system knows the skill is in center.
+    // The actual -1 terrain cost is applied when a player returns the skill.
+    updatedState = addModifier(updatedState, {
+      source: { type: SOURCE_SKILL, skillId, playerId },
+      duration: DURATION_ROUND,
+      scope: { type: SCOPE_OTHER_PLAYERS },
+      effect: { type: EFFECT_TERRAIN_COST, terrain: TERRAIN_ALL, amount: 0, minimum: 0 },
+      createdAtRound: state.round,
+      createdByPlayerId: playerId,
+    });
+  } else {
+    // Ritual of Pain: other players can return it to play a Wound sideways for +3
+    updatedState = addModifier(updatedState, {
+      source: { type: SOURCE_SKILL, skillId, playerId },
+      duration: DURATION_ROUND,
+      scope: { type: SCOPE_OTHER_PLAYERS },
+      effect: { type: EFFECT_RULE_OVERRIDE, rule: RULE_WOUNDS_PLAYABLE_SIDEWAYS },
+      createdAtRound: state.round,
+      createdByPlayerId: playerId,
+    });
 
-  updatedState = addModifier(updatedState, {
-    source: { type: SOURCE_SKILL, skillId, playerId },
-    duration: DURATION_ROUND,
-    scope: { type: SCOPE_OTHER_PLAYERS },
-    effect: { type: EFFECT_SIDEWAYS_VALUE, newValue: 3, forWounds: true },
-    createdAtRound: state.round,
-    createdByPlayerId: playerId,
-  });
+    updatedState = addModifier(updatedState, {
+      source: { type: SOURCE_SKILL, skillId, playerId },
+      duration: DURATION_ROUND,
+      scope: { type: SCOPE_OTHER_PLAYERS },
+      effect: { type: EFFECT_SIDEWAYS_VALUE, newValue: 3, forWounds: true },
+      createdAtRound: state.round,
+      createdByPlayerId: playerId,
+    });
+  }
 
   return {
     state: updatedState,
