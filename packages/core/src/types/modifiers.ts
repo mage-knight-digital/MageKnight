@@ -52,6 +52,7 @@ import {
   EFFECT_BURNING_SHIELD_ACTIVE,
   EFFECT_INTERACTION_BONUS,
   EFFECT_MANA_CLAIM_SUSTAINED,
+  EFFECT_DEFEAT_IF_BLOCKED,
   EFFECT_MANA_CURSE,
   EFFECT_UNIT_COMBAT_BONUS,
   EFFECT_LEADERSHIP_BONUS,
@@ -409,6 +410,13 @@ export interface ManaCurseModifier {
   readonly woundedPlayerIdsThisTurn: readonly string[];
 }
 
+// Defeat if blocked modifier (Delphana Masters red mana ability)
+// Enemy is defeated if fully blocked during Block phase.
+// For multi-attack enemies, ALL attacks must be blocked.
+export interface DefeatIfBlockedModifier {
+  readonly type: typeof EFFECT_DEFEAT_IF_BLOCKED;
+}
+
 // Leadership bonus modifier (Norowas' Leadership skill)
 // Grants a one-time bonus to the next unit activation.
 // The bonus type determines which ability it applies to (block, attack, or ranged).
@@ -478,6 +486,7 @@ export type ModifierEffect =
   | InteractionBonusModifier
   | ManaClaimSustainedModifier
   | ManaCurseModifier
+  | DefeatIfBlockedModifier
   | UnitCombatBonusModifier
   | LeadershipBonusModifier
   | UnitArmorBonusModifier

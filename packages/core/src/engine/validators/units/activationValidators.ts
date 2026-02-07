@@ -97,7 +97,16 @@ export function validateUnitCanActivate(
   const unit = player.units.find((u) => u.instanceId === action.unitInstanceId);
   if (!unit) return invalid(UNIT_NOT_FOUND, "Unit not found");
 
-  if (unit.state !== UNIT_STATE_READY) {
+  // Multi-ability units stay ready and track used abilities via usedAbilityIndices.
+  // Standard units must be in READY state.
+  const unitDef = getUnit(unit.unitId);
+  if (unitDef.multiAbility) {
+    // Check if this specific ability has already been used
+    const usedIndices = unit.usedAbilityIndices ?? [];
+    if (usedIndices.includes(action.abilityIndex)) {
+      return invalid(UNIT_NOT_READY, "This ability has already been used this turn");
+    }
+  } else if (unit.state !== UNIT_STATE_READY) {
     return invalid(UNIT_NOT_READY, "Unit is not ready");
   }
 

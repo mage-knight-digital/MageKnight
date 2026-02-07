@@ -13,6 +13,10 @@
 import {
   ABILITY_FORTIFIED,
   AMOTEP_FREEZERS_FREEZE,
+  DELPHANA_MASTERS_CANCEL_ATTACK,
+  DELPHANA_MASTERS_DESTROY_IF_BLOCKED,
+  DELPHANA_MASTERS_REDUCE_ARMOR,
+  DELPHANA_MASTERS_STRIP_DEFENSES,
   MANA_BLUE,
   MANA_GREEN,
   MANA_RED,
@@ -1044,6 +1048,91 @@ const HERO_WHITE_RANGED_ATTACK_EFFECT: CardEffect = {
 };
 
 // =============================================================================
+// DELPHANA MASTERS EFFECTS
+// =============================================================================
+
+/**
+ * Delphana Masters' Cancel Attack ability (blue mana).
+ * Target enemy does not attack this combat.
+ * Blocked by Arcane Immunity. No effect on Ice Resistant enemies (blue = ice theme).
+ */
+const DELPHANA_MASTERS_CANCEL_ATTACK_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  excludeArcaneImmune: true,
+  excludeResistance: RESIST_ICE,
+  template: {
+    modifiers: [
+      {
+        modifier: { type: EFFECT_ENEMY_SKIP_ATTACK },
+        duration: DURATION_COMBAT,
+        description: "Target enemy does not attack",
+      },
+    ],
+  },
+};
+
+/**
+ * Delphana Masters' Destroy if Blocked ability (red mana).
+ * Target enemy is destroyed if fully blocked (all attacks must be blocked for
+ * multi-attack enemies). Checked after block resolution.
+ * Blocked by Arcane Immunity. No effect on Fire Resistant enemies (red = fire theme).
+ */
+const DELPHANA_MASTERS_DESTROY_IF_BLOCKED_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  excludeArcaneImmune: true,
+  excludeResistance: RESIST_FIRE,
+  template: {
+    defeatIfBlocked: true,
+  },
+};
+
+/**
+ * Delphana Masters' Armor Reduction ability (green mana).
+ * Target enemy armor reduced by 5 (minimum 1).
+ * Blocked by Arcane Immunity.
+ */
+const DELPHANA_MASTERS_REDUCE_ARMOR_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  template: {
+    modifiers: [
+      {
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -5,
+          minimum: 1,
+        },
+        duration: DURATION_COMBAT,
+        description: "Target enemy armor reduced by 5 (minimum 1)",
+      },
+    ],
+  },
+};
+
+/**
+ * Delphana Masters' Strip Defenses ability (white mana).
+ * Remove target enemy's fortification and all resistances.
+ * Blocked by Arcane Immunity. Does NOT remove Arcane Immunity itself.
+ */
+const DELPHANA_MASTERS_STRIP_DEFENSES_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  template: {
+    modifiers: [
+      {
+        modifier: { type: EFFECT_ABILITY_NULLIFIER, ability: ABILITY_FORTIFIED },
+        duration: DURATION_COMBAT,
+        description: "Target enemy loses fortification",
+      },
+      {
+        modifier: { type: EFFECT_REMOVE_RESISTANCES },
+        duration: DURATION_COMBAT,
+        description: "Target enemy loses all resistances",
+      },
+    ],
+  },
+};
+
+// =============================================================================
 // REGISTRY
 // =============================================================================
 
@@ -1079,6 +1168,10 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK]: ALTEM_MAGES_COLD_FIRE_ATTACK_OR_BLOCK_EFFECT,
   [ALTEM_MAGES_ATTACK_MODIFIER]: ALTEM_MAGES_ATTACK_MODIFIER_EFFECT,
   [AMOTEP_FREEZERS_FREEZE]: AMOTEP_FREEZERS_FREEZE_EFFECT,
+  [DELPHANA_MASTERS_CANCEL_ATTACK]: DELPHANA_MASTERS_CANCEL_ATTACK_EFFECT,
+  [DELPHANA_MASTERS_DESTROY_IF_BLOCKED]: DELPHANA_MASTERS_DESTROY_IF_BLOCKED_EFFECT,
+  [DELPHANA_MASTERS_REDUCE_ARMOR]: DELPHANA_MASTERS_REDUCE_ARMOR_EFFECT,
+  [DELPHANA_MASTERS_STRIP_DEFENSES]: DELPHANA_MASTERS_STRIP_DEFENSES_EFFECT,
   [HERO_BLUE_ATTACK_OR_BLOCK]: HERO_BLUE_ATTACK_OR_BLOCK_EFFECT,
   [HERO_BLUE_INFLUENCE_REP]: HERO_BLUE_INFLUENCE_REP_EFFECT,
   [HERO_BLUE_COLD_FIRE_BLOCK]: HERO_BLUE_COLD_FIRE_BLOCK_EFFECT,

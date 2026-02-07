@@ -172,12 +172,21 @@ export function createActivateUnitCommand(
       previousFame = player.fame;
       previousActiveModifiers = curseUpdatedState.activeModifiers;
 
-      // Mark unit as spent
+      // Mark unit as spent (or track used ability for multi-ability units)
       const updatedUnits = [...player.units];
-      updatedUnits[unitIndex] = {
-        ...unit,
-        state: UNIT_STATE_SPENT,
-      };
+      if (unitDef.multiAbility) {
+        // Multi-ability units stay ready; track which ability index was used
+        const usedIndices = unit.usedAbilityIndices ?? [];
+        updatedUnits[unitIndex] = {
+          ...unit,
+          usedAbilityIndices: [...usedIndices, params.abilityIndex],
+        };
+      } else {
+        updatedUnits[unitIndex] = {
+          ...unit,
+          state: UNIT_STATE_SPENT,
+        };
+      }
 
       // ============================================================
       // EFFECT-BASED ABILITY HANDLING
@@ -572,12 +581,22 @@ export function createActivateUnitCommand(
         updatedSource = manaResult.source;
       }
 
-      // Restore unit to ready
+      // Restore unit state
       const updatedUnits = [...player.units];
-      updatedUnits[unitIndex] = {
-        ...unit,
-        state: UNIT_STATE_READY,
-      };
+      if (unitDef.multiAbility) {
+        // Remove the ability index from usedAbilityIndices
+        const usedIndices = unit.usedAbilityIndices ?? [];
+        const restored = usedIndices.filter((idx) => idx !== params.abilityIndex);
+        updatedUnits[unitIndex] = {
+          ...unit,
+          usedAbilityIndices: restored.length > 0 ? restored : undefined,
+        };
+      } else {
+        updatedUnits[unitIndex] = {
+          ...unit,
+          state: UNIT_STATE_READY,
+        };
+      }
 
       // For effect-based abilities, we need to:
       // 1. Restore unit state and mana (done above)

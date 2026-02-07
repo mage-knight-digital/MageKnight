@@ -215,6 +215,13 @@ export const EFFECT_MANA_CLAIM_SUSTAINED = "mana_claim_sustained" as const;
 // Max 1 wound per player per turn. Duration: round.
 export const EFFECT_MANA_CURSE = "mana_curse" as const;
 
+// === DefeatIfBlockedModifier ===
+// Enemy is defeated if fully blocked during Block phase.
+// For multi-attack enemies, ALL attacks must be blocked.
+// Blocked by Arcane Immunity (magical effect targeting enemy).
+// Used by Delphana Masters' red mana ability.
+export const EFFECT_DEFEAT_IF_BLOCKED = "defeat_if_blocked" as const;
+
 // === UnitCombatBonusModifier ===
 // Grants +N to all attacks AND +N to all blocks for units.
 // Only applies to units with base value > 0 for the respective ability.

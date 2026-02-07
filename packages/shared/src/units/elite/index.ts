@@ -44,7 +44,13 @@ export { HERO_GREEN } from "./heroGreen.js";
 export { HERO_WHITE } from "./heroWhite.js";
 export { ALTEM_MAGES } from "./altemMages.js";
 export { ALTEM_GUARDIANS } from "./altemGuardians.js";
-export { DELPHANA_MASTERS } from "./delphanaMasters.js";
+export {
+  DELPHANA_MASTERS,
+  DELPHANA_MASTERS_CANCEL_ATTACK,
+  DELPHANA_MASTERS_DESTROY_IF_BLOCKED,
+  DELPHANA_MASTERS_REDUCE_ARMOR,
+  DELPHANA_MASTERS_STRIP_DEFENSES,
+} from "./delphanaMasters.js";
 
 // =============================================================================
 // IMPORT FOR AGGREGATION

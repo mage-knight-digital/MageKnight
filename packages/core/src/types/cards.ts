@@ -416,6 +416,14 @@ export interface CombatEnemyTargetTemplate {
    * Used by Shocktroops' Taunt ability.
    */
   readonly setDamageRedirectFromUnit?: string;
+  /**
+   * If true, the targeted enemy will be defeated (destroyed) if fully blocked
+   * during the Block phase. Checked after block resolution.
+   * Blocked by Arcane Immunity (magical effect targeting the enemy).
+   * For multi-attack enemies, ALL attacks must be blocked.
+   * Used by Delphana Masters' red mana ability.
+   */
+  readonly defeatIfBlocked?: boolean;
 }
 
 /**

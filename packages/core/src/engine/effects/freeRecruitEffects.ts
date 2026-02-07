@@ -55,7 +55,11 @@ export function handleFreeRecruit(
   playerIndex: number,
   player: Player
 ): EffectResolutionResult {
-  const availableUnits = state.offers.units;
+  // Filter out interaction-only units (e.g. Delphana Masters) from free recruitment
+  const availableUnits = state.offers.units.filter((unitId) => {
+    const unitDef = UNITS[unitId];
+    return !unitDef?.interactionOnly;
+  });
 
   if (availableUnits.length === 0) {
     return {

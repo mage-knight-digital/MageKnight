@@ -25,6 +25,8 @@ import {
   clearPendingBlock,
 } from "./damageResolution.js";
 
+import { hasDefeatIfBlocked } from "../../modifiers/index.js";
+
 import {
   resolveSummons,
   discardSummonedEnemies,
@@ -238,7 +240,7 @@ export function handleBlockToAssignDamage(
   playerId: string
 ): { state: GameState; combat: CombatState } {
   // Clear uncommitted pending block
-  const updatedState = clearPendingBlock(
+  let updatedState = clearPendingBlock(
     { ...state, combat },
     playerId
   );
@@ -247,8 +249,42 @@ export function handleBlockToAssignDamage(
   }
   let updatedCombat = updatedState.combat;
 
+  // Resolve defeat-if-blocked: defeat blocked enemies that have the modifier
+  let defeatFame = 0;
+  const resolvedEnemies = updatedCombat.enemies.map((enemy) => {
+    if (
+      !enemy.isDefeated &&
+      enemy.isBlocked &&
+      hasDefeatIfBlocked(
+        { ...updatedState, combat: updatedCombat },
+        enemy.instanceId
+      )
+    ) {
+      defeatFame += enemy.definition.fame;
+      return { ...enemy, isDefeated: true };
+    }
+    return enemy;
+  });
+
+  if (defeatFame > 0) {
+    updatedCombat = {
+      ...updatedCombat,
+      enemies: resolvedEnemies,
+      fameGained: updatedCombat.fameGained + defeatFame,
+    };
+    const currentPlayer = updatedState.players.find((p) => p.id === playerId);
+    if (currentPlayer) {
+      updatedState = {
+        ...updatedState,
+        players: updatedState.players.map((p) =>
+          p.id === playerId ? { ...p, fame: p.fame + defeatFame } : p
+        ),
+      };
+    }
+  }
+
   // All damage is blocked if every undefeated enemy is blocked
-  const undefeatedEnemies = updatedCombat.enemies.filter(
+  const undefeatedEnemies = (defeatFame > 0 ? resolvedEnemies : updatedCombat.enemies).filter(
     (e) => !e.isDefeated
   );
   const allBlocked =

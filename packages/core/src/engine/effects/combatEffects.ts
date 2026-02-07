@@ -39,6 +39,7 @@ import { registerEffect } from "./effectRegistry.js";
 import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_COMBAT,
+  EFFECT_DEFEAT_IF_BLOCKED,
   SCOPE_ONE_ENEMY,
   SOURCE_CARD,
 } from "../../types/modifierConstants.js";
@@ -255,6 +256,29 @@ export function resolveCombatEnemyTarget(
         ),
       };
       descriptions.push(`Defeated ${effect.enemyName} (+${fameValue} fame)`);
+    }
+  }
+
+  // Handle defeatIfBlocked (Delphana Masters' red mana ability)
+  // Applies a modifier that marks the enemy for defeat if fully blocked.
+  // Blocked by Arcane Immunity (magical effect targeting enemy).
+  if (effect.template.defeatIfBlocked && currentState.combat) {
+    if (hasArcaneImmunity) {
+      descriptions.push(`${effect.enemyName} has Arcane Immunity (defeat-if-blocked blocked)`);
+    } else {
+      currentState = addModifier(currentState, {
+        source: {
+          type: SOURCE_CARD,
+          cardId: (sourceCardId ?? "unknown") as CardId,
+          playerId,
+        },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: effect.enemyInstanceId },
+        effect: { type: EFFECT_DEFEAT_IF_BLOCKED },
+        createdAtRound: currentState.round,
+        createdByPlayerId: playerId,
+      });
+      descriptions.push(`${effect.enemyName} will be destroyed if fully blocked`);
     }
   }
 

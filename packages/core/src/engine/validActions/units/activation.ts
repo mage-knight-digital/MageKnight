@@ -246,8 +246,14 @@ export function getActivatableUnits(
       let canActivate = true;
       let reason: string | undefined;
 
-      // Check if unit is ready
-      if (unit.state !== UNIT_STATE_READY) {
+      // Check if unit is ready (multi-ability units track individual abilities)
+      if (unitDef.multiAbility) {
+        const usedIndices = unit.usedAbilityIndices ?? [];
+        if (usedIndices.includes(i)) {
+          canActivate = false;
+          reason = "Ability already used this turn";
+        }
+      } else if (unit.state !== UNIT_STATE_READY) {
         canActivate = false;
         reason = "Unit is exhausted";
       }
