@@ -45,11 +45,16 @@ import {
   getUnblockedAttackIndices,
   getAttacksNeedingDamageAssignment,
 } from "../combat/enemyAttackHelpers.js";
-import { computeBannerFearOptions, getBlockOptions } from "../validActions/combatBlock.js";
+import {
+  computeBannerFearOptions,
+  computeBlockPhaseOptions,
+  getBlockOptions,
+} from "../validActions/combatBlock.js";
 import {
   resolveSelectCombatEnemy,
-  resolveCombatEnemyTarget,
 } from "../effects/combatEffects.js";
+import { resolveEffect } from "../effects/index.js";
+import { doesEnemyAttackThisCombat } from "../modifiers/index.js";
 import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 import type { CombatEnemy, CombatState } from "../../types/combat.js";
 import type { Player } from "../../types/player.js";
@@ -681,31 +686,6 @@ describe("Banner of Fear", () => {
       expect(secondNoop).toBeDefined();
     });
 
-    it("should handle loop-back in resolveCombatEnemyTarget for multi-target", () => {
-      const enemies = [
-        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
-        createCombatEnemy("enemy_2", ENEMY_DIGGERS),
-      ];
-      const combat = createBlockPhaseCombat(enemies);
-      const state = createTestGameState({ combat });
-
-      // Simulate resolving a target with remaining targets
-      const resolveEffect: ResolveCombatEnemyTargetEffect = {
-        type: EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
-        enemyInstanceId: "enemy_1",
-        enemyName: "Diggers",
-        template: multiTargetEffect.template,
-        multiTargetSource: multiTargetEffect,
-        remainingTargets: 1,
-        alreadyTargeted: [],
-      };
-
-      const result = resolveCombatEnemyTarget(state, "player1", resolveEffect);
-
-      // Should trigger the modifier application on enemy_1
-      expect(result.description).toBeTruthy();
-    });
-
     it("should return no eligible targets when all enemies are Arcane Immune", () => {
       const enemies = [
         createCombatEnemy("enemy_1", ENEMY_SORCERERS),
@@ -732,6 +712,116 @@ describe("Banner of Fear", () => {
       expect(result.dynamicChoiceOptions).toHaveLength(1);
       const option = result.dynamicChoiceOptions![0] as ResolveCombatEnemyTargetEffect;
       expect(option.enemyInstanceId).toBe("enemy_1");
+    });
+
+    // --- Tests via resolveEffect() to exercise the registered handler loop-back ---
+
+    it("should loop back for next target when resolving via effect registry", () => {
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_2", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_3", ENEMY_DIGGERS),
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+      const state = createTestGameState({ combat });
+
+      // Step 1: Initial selection creates choice with 3 enemy options
+      const step1 = resolveEffect(state, "player1", multiTargetEffect);
+      expect(step1.requiresChoice).toBe(true);
+      expect(step1.dynamicChoiceOptions).toHaveLength(3);
+
+      // Step 2: Resolve first choice (select enemy_1) via effect registry
+      // This should apply modifier AND loop back for second selection
+      const firstChoice = step1.dynamicChoiceOptions![0]!;
+      const step2 = resolveEffect(step1.state, "player1", firstChoice);
+
+      // Should loop back with another choice (2 remaining enemies + "done")
+      expect(step2.requiresChoice).toBe(true);
+      expect(step2.dynamicChoiceOptions).toHaveLength(3); // 2 enemies + done
+
+      // Verify enemy_1 got the skip-attack modifier
+      expect(doesEnemyAttackThisCombat(step2.state, "enemy_1")).toBe(false);
+
+      // Verify enemy_1 is excluded from next selection
+      const step2EnemyOptions = step2.dynamicChoiceOptions!.filter(
+        (o) => o.type === EFFECT_RESOLVE_COMBAT_ENEMY_TARGET
+      ) as ResolveCombatEnemyTargetEffect[];
+      expect(step2EnemyOptions.every((o) => o.enemyInstanceId !== "enemy_1")).toBe(true);
+
+      // Step 3: Resolve second choice (select enemy_2)
+      const secondEnemyChoice = step2.dynamicChoiceOptions!.find(
+        (o) => o.type === EFFECT_RESOLVE_COMBAT_ENEMY_TARGET
+      )!;
+      const step3 = resolveEffect(step2.state, "player1", secondEnemyChoice);
+
+      // Should loop back with another choice (1 remaining enemy + "done")
+      expect(step3.requiresChoice).toBe(true);
+      expect(step3.dynamicChoiceOptions).toHaveLength(2); // 1 enemy + done
+
+      // Verify enemy_2 also got the skip-attack modifier
+      expect(doesEnemyAttackThisCombat(step3.state, "enemy_2")).toBe(false);
+
+      // Step 4: Select "done" to stop early
+      const doneOption = step3.dynamicChoiceOptions!.find(
+        (o) => o.type === EFFECT_NOOP
+      )!;
+      const step4 = resolveEffect(step3.state, "player1", doneOption);
+
+      // No more choices needed — NOOP resolves cleanly
+      expect(step4.requiresChoice).toBeUndefined();
+    });
+
+    it("should stop loop-back when no eligible enemies remain", () => {
+      // Only 1 eligible enemy with maxTargets: 3
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_2", ENEMY_SORCERERS), // Arcane Immune
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+      const state = createTestGameState({ combat });
+
+      // Step 1: Initial selection — only enemy_1 eligible
+      const step1 = resolveEffect(state, "player1", multiTargetEffect);
+      expect(step1.requiresChoice).toBe(true);
+      expect(step1.dynamicChoiceOptions).toHaveLength(1);
+
+      // Step 2: Select enemy_1 — no more eligible enemies, no loop-back
+      const step2 = resolveEffect(step1.state, "player1", step1.dynamicChoiceOptions![0]!);
+
+      // Should NOT require another choice (loop-back finds no eligible targets)
+      expect(step2.requiresChoice).toBeUndefined();
+      // But the modifier was still applied
+      expect(doesEnemyAttackThisCombat(step2.state, "enemy_1")).toBe(false);
+    });
+
+    it("should select all 3 targets when maxTargets reached", () => {
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_2", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_3", ENEMY_DIGGERS),
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+      const state = createTestGameState({ combat });
+
+      // Walk through all 3 selections
+      const step1 = resolveEffect(state, "player1", multiTargetEffect);
+      const step2 = resolveEffect(step1.state, "player1", step1.dynamicChoiceOptions![0]!);
+      const step2Enemy = step2.dynamicChoiceOptions!.find(
+        (o) => o.type === EFFECT_RESOLVE_COMBAT_ENEMY_TARGET
+      )!;
+      const step3 = resolveEffect(step2.state, "player1", step2Enemy);
+      const step3Enemy = step3.dynamicChoiceOptions!.find(
+        (o) => o.type === EFFECT_RESOLVE_COMBAT_ENEMY_TARGET
+      )!;
+      const step4 = resolveEffect(step3.state, "player1", step3Enemy);
+
+      // After 3 selections (maxTargets reached), remainingTargets = 0, no loop-back
+      expect(step4.requiresChoice).toBeUndefined();
+
+      // All 3 enemies should have skip-attack modifier
+      expect(doesEnemyAttackThisCombat(step4.state, "enemy_1")).toBe(false);
+      expect(doesEnemyAttackThisCombat(step4.state, "enemy_2")).toBe(false);
+      expect(doesEnemyAttackThisCombat(step4.state, "enemy_3")).toBe(false);
     });
   });
 
@@ -874,6 +964,41 @@ describe("Banner of Fear", () => {
 
       const options = computeBannerFearOptions(combat, player);
       expect(options).toHaveLength(0);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // computeBlockPhaseOptions integration
+  // --------------------------------------------------------------------------
+  describe("computeBlockPhaseOptions with Banner of Fear", () => {
+    it("should include bannerFearOptions when player has usable Banner of Fear", () => {
+      const player = createPlayerWithBannerOfFear();
+      const enemies = [createCombatEnemy("enemy_1", ENEMY_DIGGERS)];
+      const combat = createBlockPhaseCombat(enemies);
+
+      const state = createTestGameState({
+        players: [player],
+        combat,
+      });
+
+      const options = computeBlockPhaseOptions(state, combat, player);
+      expect(options.bannerFearOptions).toBeDefined();
+      expect(options.bannerFearOptions).toHaveLength(1);
+      expect(options.bannerFearOptions![0]!.unitInstanceId).toBe(TEST_UNIT_1);
+    });
+
+    it("should not include bannerFearOptions when no cancellable enemies", () => {
+      const player = createPlayerWithBannerOfFear();
+      const enemies = [createCombatEnemy("enemy_1", ENEMY_SORCERERS)]; // Arcane Immune
+      const combat = createBlockPhaseCombat(enemies);
+
+      const state = createTestGameState({
+        players: [player],
+        combat,
+      });
+
+      const options = computeBlockPhaseOptions(state, combat, player);
+      expect(options.bannerFearOptions).toBeUndefined();
     });
   });
 });
