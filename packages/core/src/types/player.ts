@@ -340,6 +340,10 @@ export interface Player {
   // Units
   readonly units: readonly PlayerUnit[];
 
+  // Bonds of Loyalty: instance ID of the unit recruited under the Bonds command token.
+  // null means the slot is empty (no unit recruited or unit was destroyed).
+  readonly bondsOfLoyaltyUnitInstanceId: string | null;
+
   // Banner artifacts attached to units
   readonly attachedBanners: readonly BannerAttachment[];
 

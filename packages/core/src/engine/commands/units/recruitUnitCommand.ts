@@ -21,6 +21,7 @@ import {
   getActiveInteractionBonus,
   getActiveInteractionBonusModifierIds,
 } from "../../rules/unitRecruitment.js";
+import { isBondsSlotEmpty } from "../../rules/bondsOfLoyalty.js";
 import { applyChangeReputation, applyGainFame } from "../../effects/atomicEffects.js";
 
 export const RECRUIT_UNIT_COMMAND = "RECRUIT_UNIT" as const;
@@ -56,6 +57,7 @@ export function createRecruitUnitCommand(
   let previousReputation = 0;
   let previousFame = 0;
   let previousPendingLevelUps: readonly number[] = [];
+  let previousBondsUnitInstanceId: string | null = null;
 
   return {
     type: RECRUIT_UNIT_COMMAND,
@@ -85,9 +87,13 @@ export function createRecruitUnitCommand(
       previousReputation = player.reputation;
       previousFame = player.fame;
       previousPendingLevelUps = player.pendingLevelUps;
+      previousBondsUnitInstanceId = player.bondsOfLoyaltyUnitInstanceId;
 
       // Create new unit instance
       const newUnit = createPlayerUnit(params.unitId, instanceId);
+
+      // If the Bonds slot is empty, this unit fills it
+      const fillBondsSlot = isBondsSlotEmpty(player);
 
       // Update player: add unit, deduct influence, mark action taken
       // Note: Recruiting counts as an interaction (action), so player can't move afterward.
@@ -96,6 +102,7 @@ export function createRecruitUnitCommand(
       const updatedPlayer = {
         ...player,
         units: [...player.units, newUnit],
+        bondsOfLoyaltyUnitInstanceId: fillBondsSlot ? instanceId : player.bondsOfLoyaltyUnitInstanceId,
         influencePoints: player.influencePoints - params.influenceSpent,
         hasTakenActionThisTurn: true,
         hasRecruitedUnitThisTurn: true,
@@ -276,6 +283,7 @@ export function createRecruitUnitCommand(
         reputation: previousReputation,
         fame: previousFame,
         pendingLevelUps: previousPendingLevelUps,
+        bondsOfLoyaltyUnitInstanceId: previousBondsUnitInstanceId,
       };
 
       const players = state.players.map((p, i) =>

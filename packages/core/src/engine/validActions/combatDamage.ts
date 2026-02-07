@@ -16,6 +16,7 @@ import {
 import type { CombatEnemy } from "../../types/combat.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
+import { isBondsUnit } from "../rules/bondsOfLoyalty.js";
 import {
   getEffectiveEnemyAttack,
   doesEnemyAttackThisCombat,
@@ -56,9 +57,35 @@ export function computeAvailableUnitTargets(
   unitsAllowed: boolean,
   paidThugsDamageInfluence?: Readonly<Record<string, boolean>>
 ): readonly UnitDamageTarget[] {
-  // If units are not allowed in this combat (dungeon/tomb), return empty array
+  // If units are not allowed in this combat (dungeon/tomb), only Bonds unit can be targeted
   if (!unitsAllowed) {
-    return [];
+    const bondsUnits = player.units.filter((u) => isBondsUnit(player, u.instanceId));
+    if (bondsUnits.length === 0) return [];
+    return bondsUnits.map((unit) => {
+      const unitDef = getUnit(unit.unitId);
+      const resistances = unitDef.resistances;
+      const isResistantToAttack = isAttackResisted(attackElement, resistances);
+      const requiresInfluencePayment = (unitDef.damageInfluenceCost ?? 0) > 0;
+      const influencePaymentMade = paidThugsDamageInfluence?.[unit.instanceId] ?? false;
+      const canBeAssigned = !unit.wounded && !unit.usedResistanceThisCombat
+        && (!requiresInfluencePayment || influencePaymentMade);
+
+      const base: UnitDamageTarget = {
+        unitInstanceId: unit.instanceId,
+        unitId: unit.unitId,
+        unitName: unitDef.name,
+        armor: unitDef.armor,
+        isResistantToAttack,
+        alreadyAssignedThisCombat: unit.usedResistanceThisCombat,
+        isWounded: unit.wounded,
+        canBeAssigned,
+      };
+
+      if (requiresInfluencePayment) {
+        return { ...base, requiresInfluencePayment: true, influencePaymentMade };
+      }
+      return base;
+    });
   }
 
   return player.units.map((unit) => {

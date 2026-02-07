@@ -28,6 +28,10 @@ export interface GameOffers {
 
   // Advanced actions added to unit offer from monasteries (one per unburned monastery)
   readonly monasteryAdvancedActions: readonly CardId[];
+
+  // Bonus units added by Bonds of Loyalty skill (tracked for end-of-round removal)
+  // These units are removed at end of round if not recruited (not replaced)
+  readonly bondsOfLoyaltyBonusUnits: readonly UnitId[];
 }
 
 // Helper to create empty offers
@@ -38,5 +42,6 @@ export function createEmptyOffers(): GameOffers {
     spells: { cards: [] },
     commonSkills: [],
     monasteryAdvancedActions: [],
+    bondsOfLoyaltyBonusUnits: [],
   };
 }

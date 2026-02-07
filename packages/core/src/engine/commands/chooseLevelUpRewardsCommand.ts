@@ -19,6 +19,8 @@ import type { Player } from "../../types/player.js";
 import type { GameEvent, CardId, SkillId } from "@mage-knight/shared";
 import { SKILL_GAINED, ADVANCED_ACTION_GAINED } from "@mage-knight/shared";
 import { getEndTurnDrawLimit } from "../helpers/handLimitHelpers.js";
+import { SKILL_NOROWAS_BONDS_OF_LOYALTY } from "../../data/skills/norowas/bondsOfLoyalty.js";
+import { shuffleWithRng } from "../../utils/rng.js";
 
 export const CHOOSE_LEVEL_UP_REWARDS_COMMAND = "CHOOSE_LEVEL_UP_REWARDS" as const;
 
@@ -154,6 +156,26 @@ export function createChooseLevelUpRewardsCommand(
       const updatedPlayers = [...state.players];
       updatedPlayers[playerIndex] = updatedPlayer;
 
+      let updatedUnits = [...state.offers.units];
+      let updatedRegularUnitsDeck = [...(state.decks.regularUnits ?? [])];
+      let bondsOfLoyaltyBonusUnits = [...(state.offers.bondsOfLoyaltyBonusUnits ?? [])];
+      let updatedRng = state.rng;
+
+      // Bonds of Loyalty: add 2 random regular units to the Unit Offer
+      if (skillChoice.skillId === SKILL_NOROWAS_BONDS_OF_LOYALTY) {
+        const { result: shuffled, rng: rng2 } = shuffleWithRng(
+          updatedRegularUnitsDeck,
+          updatedRng
+        );
+        updatedRng = rng2;
+        const bonusCount = Math.min(2, shuffled.length);
+        const bonusUnits = shuffled.slice(0, bonusCount);
+        updatedRegularUnitsDeck = shuffled.slice(bonusCount);
+
+        updatedUnits = [...updatedUnits, ...bonusUnits];
+        bondsOfLoyaltyBonusUnits = [...bondsOfLoyaltyBonusUnits, ...bonusUnits];
+      }
+
       const newState: GameState = {
         ...state,
         players: updatedPlayers,
@@ -164,11 +186,15 @@ export function createChooseLevelUpRewardsCommand(
             ...state.offers.advancedActions,
             cards: updatedAACards,
           },
+          units: updatedUnits,
+          bondsOfLoyaltyBonusUnits,
         },
         decks: {
           ...state.decks,
           advancedActions: updatedAADeck,
+          regularUnits: updatedRegularUnitsDeck,
         },
+        rng: updatedRng,
       };
 
       // Emit events

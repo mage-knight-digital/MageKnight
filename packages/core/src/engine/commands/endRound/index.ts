@@ -123,6 +123,7 @@ export function createEndRoundCommand(): Command {
             advancedActions: offerRefresh.advancedActionOffer,
             spells: offerRefresh.spellOffer,
             monasteryAdvancedActions: offerRefresh.monasteryAdvancedActions,
+            bondsOfLoyaltyBonusUnits: [], // Clear Bonds bonus tracking at round end
           },
           // Updated map with revealed ruins tokens (at dawn)
           map: {

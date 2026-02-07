@@ -20,6 +20,7 @@ import { UNITS } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
+import { getEffectiveCommandTokens, isBondsSlotEmpty } from "../rules/bondsOfLoyalty.js";
 import {
   EFFECT_FREE_RECRUIT,
   EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
@@ -63,8 +64,8 @@ export function handleFreeRecruit(
     };
   }
 
-  // Check command limit: player must have a free command slot
-  if (player.units.length >= player.commandTokens) {
+  // Check command limit: player must have a free command slot (including Bonds)
+  if (player.units.length >= getEffectiveCommandTokens(player)) {
     return {
       state,
       description: "At command limit — must disband a unit first",
@@ -136,10 +137,14 @@ export function applyFreeRecruit(
   const instanceId = `free_unit_${++freeRecruitInstanceCounter}`;
   const newUnit = createPlayerUnit(unitId, instanceId);
 
+  // If the Bonds slot is empty, this unit fills it
+  const fillBondsSlot = isBondsSlotEmpty(player);
+
   // Update player: add unit, mark action taken and recruited
   const updatedPlayer: Player = {
     ...player,
     units: [...player.units, newUnit],
+    bondsOfLoyaltyUnitInstanceId: fillBondsSlot ? instanceId : player.bondsOfLoyaltyUnitInstanceId,
     hasTakenActionThisTurn: true,
     hasRecruitedUnitThisTurn: true,
     unitsRecruitedThisInteraction: [

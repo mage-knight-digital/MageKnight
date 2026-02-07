@@ -47,6 +47,7 @@ import {
   HEROES_ASSAULT_INFLUENCE_NOT_PAID,
   THUGS_DAMAGE_INFLUENCE_NOT_PAID,
 } from "../validationCodes.js";
+import { isBondsUnit } from "../../rules/bondsOfLoyalty.js";
 import { validateSingleManaSource } from "../mana/sourceValidators.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
 import { EFFECT_GAIN_BLOCK } from "../../../types/effectTypes.js";
@@ -418,6 +419,12 @@ export function validateUnitsAllowedInCombat(
   if (!state.combat) return valid();
 
   if (!state.combat.unitsAllowed) {
+    // Bonds of Loyalty unit can be used even when units normally aren't allowed
+    const player = getPlayerById(state, _playerId);
+    if (player && isBondsUnit(player, action.unitInstanceId)) {
+      return valid();
+    }
+
     return invalid(
       UNITS_NOT_ALLOWED,
       "Units cannot be used in this combat (dungeon/tomb)"

@@ -67,6 +67,7 @@ export interface ClientPlayerUnit {
   readonly state: UnitState;
   readonly wounded: boolean;
   readonly attachedBannerId?: CardId;
+  readonly isBondsUnit?: boolean;
 }
 
 // Client-visible banner attachment
