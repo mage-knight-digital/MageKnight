@@ -52,6 +52,7 @@ import {
   EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
   EFFECT_PURE_MAGIC,
   EFFECT_APPLY_RECRUITMENT_BONUS,
+  EFFECT_APPLY_INTERACTION_BONUS,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -68,6 +69,7 @@ import type {
   ResolveManaMeltdownChoiceEffect,
   ResolveManaRadianceColorEffect,
   ApplyRecruitmentBonusEffect,
+  ApplyInteractionBonusEffect,
 } from "../../types/cards.js";
 import type {
   GainMoveEffect,
@@ -374,6 +376,18 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
       parts.push(`Fame +${e.famePerRecruit}`);
     }
     return `${parts.join(" and ")} per unit recruited this turn`;
+  },
+
+  [EFFECT_APPLY_INTERACTION_BONUS]: (effect) => {
+    const e = effect as ApplyInteractionBonusEffect;
+    const parts: string[] = [];
+    if (e.fame > 0) {
+      parts.push(`Fame +${e.fame}`);
+    }
+    if (e.reputation > 0) {
+      parts.push(`Reputation +${e.reputation}`);
+    }
+    return `${parts.join(" and ")} on next interaction this turn`;
   },
 };
 

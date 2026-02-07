@@ -72,6 +72,7 @@ import {
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_APPLY_RECRUITMENT_BONUS,
+  EFFECT_APPLY_INTERACTION_BONUS,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
   EFFECT_ENERGY_FLOW,
@@ -364,6 +365,9 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Recruitment bonus is always resolvable (adds a modifier)
   [EFFECT_APPLY_RECRUITMENT_BONUS]: () => true,
+
+  // Interaction bonus is always resolvable (adds a modifier)
+  [EFFECT_APPLY_INTERACTION_BONUS]: () => true,
 
   // Terrain cost reduction selection is always resolvable (sets pending state)
   [EFFECT_SELECT_HEX_FOR_COST_REDUCTION]: () => true,

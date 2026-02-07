@@ -18,6 +18,11 @@ import {
 } from "@mage-knight/shared";
 import { getPlayerSite } from "../helpers/siteHelpers.js";
 import { getHealingCost } from "../../data/siteProperties.js";
+import {
+  getActiveInteractionBonus,
+  getActiveInteractionBonusModifierIds,
+} from "../rules/unitRecruitment.js";
+import { applyChangeReputation, applyGainFame } from "../effects/atomicEffects.js";
 
 export const INTERACT_COMMAND = "INTERACT" as const;
 
@@ -119,6 +124,52 @@ export function createInteractCommand(params: InteractCommandParams): Command {
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
 
+      let updatedState: GameState = { ...state, players };
+
+      // Check for active interaction bonus (Noble Manners)
+      // Consumed on first interaction — only triggers once
+      const interactionBonus = getActiveInteractionBonus(updatedState, params.playerId);
+      if (interactionBonus) {
+        const modifierIds = getActiveInteractionBonusModifierIds(updatedState, params.playerId);
+
+        // Remove the interaction bonus modifiers (consumed)
+        updatedState = {
+          ...updatedState,
+          activeModifiers: updatedState.activeModifiers.filter(
+            (m) => !modifierIds.includes(m.id)
+          ),
+        };
+
+        const ibPlayerIndex = updatedState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        const ibPlayer = updatedState.players[ibPlayerIndex];
+        if (ibPlayer) {
+          if (interactionBonus.fame > 0) {
+            const fameResult = applyGainFame(
+              updatedState,
+              ibPlayerIndex,
+              ibPlayer,
+              interactionBonus.fame,
+            );
+            updatedState = fameResult.state;
+          }
+
+          if (interactionBonus.reputation !== 0) {
+            const repPlayer = updatedState.players[ibPlayerIndex];
+            if (repPlayer) {
+              const repResult = applyChangeReputation(
+                updatedState,
+                ibPlayerIndex,
+                repPlayer,
+                interactionBonus.reputation,
+              );
+              updatedState = repResult.state;
+            }
+          }
+        }
+      }
+
       events.push({
         type: INTERACTION_COMPLETED,
         playerId: params.playerId,
@@ -126,7 +177,7 @@ export function createInteractCommand(params: InteractCommandParams): Command {
       });
 
       return {
-        state: { ...state, players },
+        state: updatedState,
         events,
       };
     },

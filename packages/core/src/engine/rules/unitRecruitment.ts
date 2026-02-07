@@ -25,8 +25,8 @@ import {
   type UnitDefinition,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
-import { EFFECT_RECRUIT_DISCOUNT, EFFECT_RECRUITMENT_BONUS } from "../../types/modifierConstants.js";
-import type { UnitRecruitmentBonusModifier } from "../../types/modifiers.js";
+import { EFFECT_RECRUIT_DISCOUNT, EFFECT_RECRUITMENT_BONUS, EFFECT_INTERACTION_BONUS } from "../../types/modifierConstants.js";
+import type { UnitRecruitmentBonusModifier, InteractionBonusModifier } from "../../types/modifiers.js";
 import { getModifiersForPlayer } from "../modifiers/queries.js";
 
 /**
@@ -293,4 +293,42 @@ export function getActiveRecruitmentBonus(
   }
 
   return { reputationPerRecruit: totalReputation, famePerRecruit: totalFame };
+}
+
+/**
+ * Get the active interaction bonus for a player, if any.
+ * Returns the combined fame and reputation from all active interaction bonus modifiers.
+ * Used by Noble Manners card — consumed on first interaction.
+ */
+export function getActiveInteractionBonus(
+  state: GameState,
+  playerId: string,
+): { fame: number; reputation: number } | null {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  const bonusMods = modifiers.filter((m) => m.effect.type === EFFECT_INTERACTION_BONUS);
+  if (bonusMods.length === 0) return null;
+
+  let totalFame = 0;
+  let totalReputation = 0;
+  for (const mod of bonusMods) {
+    const effect = mod.effect as InteractionBonusModifier;
+    totalFame += effect.fame;
+    totalReputation += effect.reputation;
+  }
+
+  return { fame: totalFame, reputation: totalReputation };
+}
+
+/**
+ * Get the IDs of all active interaction bonus modifiers for a player.
+ * Used to consume (remove) the modifiers after the first interaction.
+ */
+export function getActiveInteractionBonusModifierIds(
+  state: GameState,
+  playerId: string,
+): readonly string[] {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  return modifiers
+    .filter((m) => m.effect.type === EFFECT_INTERACTION_BONUS)
+    .map((m) => m.id);
 }

@@ -18,6 +18,8 @@ import {
   getActiveRecruitDiscount,
   getActiveRecruitDiscountModifierId,
   getActiveRecruitmentBonus,
+  getActiveInteractionBonus,
+  getActiveInteractionBonusModifierIds,
 } from "../../rules/unitRecruitment.js";
 import { applyChangeReputation, applyGainFame } from "../../effects/atomicEffects.js";
 
@@ -178,6 +180,52 @@ export function createRecruitUnitCommand(
                 recruitmentBonus.famePerRecruit,
               );
               updatedState = fameResult.state;
+            }
+          }
+        }
+      }
+
+      // Check for active interaction bonus (Noble Manners)
+      // Unlike recruitment bonus, this IS consumed — only triggers once
+      const interactionBonus = getActiveInteractionBonus(updatedState, params.playerId);
+      if (interactionBonus) {
+        const modifierIds = getActiveInteractionBonusModifierIds(updatedState, params.playerId);
+
+        // Remove the interaction bonus modifiers (consumed)
+        updatedState = {
+          ...updatedState,
+          activeModifiers: updatedState.activeModifiers.filter(
+            (m) => !modifierIds.includes(m.id)
+          ),
+        };
+
+        const ibPlayerIndex = updatedState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        const ibPlayer = updatedState.players[ibPlayerIndex];
+        if (ibPlayer) {
+          // Apply fame bonus
+          if (interactionBonus.fame > 0) {
+            const fameResult = applyGainFame(
+              updatedState,
+              ibPlayerIndex,
+              ibPlayer,
+              interactionBonus.fame,
+            );
+            updatedState = fameResult.state;
+          }
+
+          // Apply reputation bonus
+          if (interactionBonus.reputation !== 0) {
+            const repPlayer = updatedState.players[ibPlayerIndex];
+            if (repPlayer) {
+              const repResult = applyChangeReputation(
+                updatedState,
+                ibPlayerIndex,
+                repPlayer,
+                interactionBonus.reputation,
+              );
+              updatedState = repResult.state;
             }
           }
         }

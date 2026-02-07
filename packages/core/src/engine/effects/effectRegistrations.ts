@@ -42,6 +42,7 @@ import { registerManaMeltdownEffects } from "./manaMeltdownEffects.js";
 import { registerAltemMagesEffects } from "./altemMagesEffects.js";
 import { registerPureMagicEffects } from "./pureMagicEffects.js";
 import { registerHeroicTaleEffects } from "./heroicTaleEffects.js";
+import { registerNobleMannersBonusEffects } from "./nobleMannersBonusEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -150,4 +151,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Heroic Tale effects (recruitment bonus modifier)
   registerHeroicTaleEffects();
+
+  // Noble Manners effects (interaction bonus modifier)
+  registerNobleMannersBonusEffects();
 }

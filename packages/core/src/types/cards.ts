@@ -80,6 +80,7 @@ import {
   EFFECT_ALTEM_MAGES_COLD_FIRE,
   EFFECT_PURE_MAGIC,
   EFFECT_APPLY_RECRUITMENT_BONUS,
+  EFFECT_APPLY_INTERACTION_BONUS,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -936,6 +937,18 @@ export interface ApplyRecruitmentBonusEffect {
 }
 
 /**
+ * Apply an interaction bonus modifier that triggers on the first interaction this turn.
+ * Used by Noble Manners:
+ * - Basic: Fame +1 on first interaction
+ * - Powered: Fame +1 AND Rep +1 on first interaction
+ */
+export interface ApplyInteractionBonusEffect {
+  readonly type: typeof EFFECT_APPLY_INTERACTION_BONUS;
+  readonly fame: number;
+  readonly reputation: number;
+}
+
+/**
  * Pure Magic mana-payment-driven effect.
  * Player pays 1 basic mana token and the color determines the effect:
  * Green → Move, White → Influence, Blue → Block, Red → Attack.
@@ -1012,7 +1025,8 @@ export type CardEffect =
   | ResolveManaRadianceColorEffect
   | AltemMagesColdFireEffect
   | PureMagicEffect
-  | ApplyRecruitmentBonusEffect;
+  | ApplyRecruitmentBonusEffect
+  | ApplyInteractionBonusEffect;
 
 // === Card Definition ===
 

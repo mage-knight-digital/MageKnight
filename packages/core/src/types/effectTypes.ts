@@ -221,3 +221,8 @@ export const EFFECT_PURE_MAGIC = "pure_magic" as const;
 // Adds a turn-scoped modifier that grants reputation and/or fame per unit recruited.
 // Used by Heroic Tale (basic: Rep+1 per recruit, powered: Rep+1 + Fame+1 per recruit).
 export const EFFECT_APPLY_RECRUITMENT_BONUS = "apply_recruitment_bonus" as const;
+
+// === Interaction Bonus Effect ===
+// Adds a turn-scoped modifier that grants fame and/or reputation on the first interaction.
+// Used by Noble Manners (basic: Fame+1 on interact, powered: Fame+1 + Rep+1 on interact).
+export const EFFECT_APPLY_INTERACTION_BONUS = "apply_interaction_bonus" as const;

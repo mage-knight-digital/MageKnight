@@ -19,6 +19,7 @@ import type {
   ScalingEffect,
   ScalableBaseEffect,
   ChangeReputationEffect,
+  ApplyInteractionBonusEffect,
 } from "../types/cards.js";
 import type { EffectCondition } from "../types/conditions.js";
 import type { ScalingFactor } from "../types/scaling.js";
@@ -48,6 +49,7 @@ import {
   EFFECT_CHOICE,
   EFFECT_SCALING,
   EFFECT_CHANGE_REPUTATION,
+  EFFECT_APPLY_INTERACTION_BONUS,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -537,4 +539,14 @@ export function fireBlockPerEnemy(baseAmount: number, perEnemy: number): Scaling
  */
 export function iceBlockPerEnemy(baseAmount: number, perEnemy: number): ScalingEffect {
   return blockPerEnemy(baseAmount, perEnemy, ELEMENT_ICE);
+}
+
+// === Interaction Bonus Helper ===
+
+/**
+ * Create an interaction bonus effect (Noble Manners).
+ * Adds a modifier that grants fame/rep on the first interaction this turn.
+ */
+export function interactionBonus(fame: number, reputation: number): ApplyInteractionBonusEffect {
+  return { type: EFFECT_APPLY_INTERACTION_BONUS, fame, reputation };
 }

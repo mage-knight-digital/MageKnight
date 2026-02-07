@@ -267,6 +267,11 @@ export {
   registerHeroicTaleEffects,
 } from "./heroicTaleEffects.js";
 
+// Noble Manners effects (interaction bonus modifier)
+export {
+  registerNobleMannersBonusEffects,
+} from "./nobleMannersBonusEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

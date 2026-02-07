@@ -10,6 +10,7 @@
 
 import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
+import type { ActiveModifier } from "../../types/modifiers.js";
 import type { CardId, GameEvent } from "@mage-knight/shared";
 import {
   CARD_GAINED,
@@ -19,6 +20,11 @@ import {
   OFFER_REFRESHED,
 } from "@mage-knight/shared";
 import { SPELL_PURCHASE_COST } from "../../data/siteProperties.js";
+import {
+  getActiveInteractionBonus,
+  getActiveInteractionBonusModifierIds,
+} from "../rules/unitRecruitment.js";
+import { applyChangeReputation, applyGainFame } from "../effects/atomicEffects.js";
 
 export const BUY_SPELL_COMMAND = "BUY_SPELL" as const;
 
@@ -76,6 +82,10 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
   let previousDeck: readonly CardId[] = [];
   let previousInfluencePoints = 0;
   let previousHasTakenAction = false;
+  let previousFame = 0;
+  let previousReputation = 0;
+  let previousPendingLevelUps: readonly number[] = [];
+  let previousActiveModifiers: readonly ActiveModifier[] = [];
 
   return {
     type: BUY_SPELL_COMMAND,
@@ -101,6 +111,10 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
       previousDeck = player.deck;
       previousInfluencePoints = player.influencePoints;
       previousHasTakenAction = player.hasTakenActionThisTurn;
+      previousFame = player.fame;
+      previousReputation = player.reputation;
+      previousPendingLevelUps = player.pendingLevelUps;
+      previousActiveModifiers = state.activeModifiers;
 
       // Consume influence and add spell to top of deed deck (per game rules)
       const updatedPlayer = {
@@ -120,6 +134,52 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
         state.decks,
         params.cardId
       );
+
+      let updatedState: GameState = { ...state, players, offers, decks };
+
+      // Check for active interaction bonus (Noble Manners)
+      // Consumed on first interaction — only triggers once
+      const interactionBonus = getActiveInteractionBonus(updatedState, params.playerId);
+      if (interactionBonus) {
+        const modifierIds = getActiveInteractionBonusModifierIds(updatedState, params.playerId);
+
+        // Remove the interaction bonus modifiers (consumed)
+        updatedState = {
+          ...updatedState,
+          activeModifiers: updatedState.activeModifiers.filter(
+            (m) => !modifierIds.includes(m.id)
+          ),
+        };
+
+        const ibPlayerIndex = updatedState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        const ibPlayer = updatedState.players[ibPlayerIndex];
+        if (ibPlayer) {
+          if (interactionBonus.fame > 0) {
+            const fameResult = applyGainFame(
+              updatedState,
+              ibPlayerIndex,
+              ibPlayer,
+              interactionBonus.fame,
+            );
+            updatedState = fameResult.state;
+          }
+
+          if (interactionBonus.reputation !== 0) {
+            const repPlayer = updatedState.players[ibPlayerIndex];
+            if (repPlayer) {
+              const repResult = applyChangeReputation(
+                updatedState,
+                ibPlayerIndex,
+                repPlayer,
+                interactionBonus.reputation,
+              );
+              updatedState = repResult.state;
+            }
+          }
+        }
+      }
 
       const events: GameEvent[] = [
         {
@@ -143,12 +203,7 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
       }
 
       return {
-        state: {
-          ...state,
-          players,
-          offers,
-          decks,
-        },
+        state: updatedState,
         events,
       };
     },
@@ -172,6 +227,9 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
         deck: previousDeck,
         influencePoints: previousInfluencePoints,
         hasTakenActionThisTurn: previousHasTakenAction,
+        fame: previousFame,
+        reputation: previousReputation,
+        pendingLevelUps: previousPendingLevelUps,
       };
 
       const players = state.players.map((p, i) =>
@@ -184,6 +242,7 @@ export function createBuySpellCommand(params: BuySpellCommandParams): Command {
           players,
           offers: previousOffers ?? state.offers,
           decks: previousDecks ?? state.decks,
+          activeModifiers: previousActiveModifiers,
         },
         events: [],
       };

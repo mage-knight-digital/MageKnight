@@ -184,6 +184,13 @@ export const EFFECT_ADD_SIEGE_TO_ATTACKS = "add_siege_to_attacks" as const;
 // Used by Heroic Tale card.
 export const EFFECT_RECRUITMENT_BONUS = "recruitment_bonus" as const;
 
+// === InteractionBonusModifier ===
+// Grants fame and/or reputation when the player completes an interaction
+// (recruit unit, buy spell, heal at village/monastery).
+// Consumed on first interaction — only triggers once per card play.
+// Used by Noble Manners card.
+export const EFFECT_INTERACTION_BONUS = "interaction_bonus" as const;
+
 // === BurningShieldActiveModifier ===
 // Marks that Burning Shield/Exploding Shield spell is active this combat.
 // When a block is successfully declared against any enemy, triggers a bonus:
