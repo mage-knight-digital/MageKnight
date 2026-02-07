@@ -13,6 +13,12 @@ import type {
   RevealTileType,
   ResistanceType,
 } from "@mage-knight/shared";
+import {
+  MANA_RED,
+  MANA_BLUE,
+  MANA_GREEN,
+  MANA_WHITE,
+} from "@mage-knight/shared";
 import type { ModifierEffect, ModifierDuration, ModifierScope } from "./modifiers.js";
 import type { CombatPhase } from "./combat.js";
 import type { SourceDieId } from "./mana.js";
@@ -84,6 +90,8 @@ import {
   EFFECT_APPLY_INTERACTION_BONUS,
   EFFECT_FREE_RECRUIT,
   EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
+  EFFECT_SACRIFICE,
+  EFFECT_RESOLVE_SACRIFICE,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -988,6 +996,37 @@ export interface ResolveFreeRecruitTargetEffect {
   readonly unitName: string;
 }
 
+/**
+ * Sacrifice effect entry point (Offering powered effect).
+ *
+ * Two-stage color choice:
+ * 1. Choose green or white (determines attack type: siege vs ranged)
+ * 2. Choose red or blue (determines element: fire vs ice)
+ *
+ * Crystal pairs of the chosen colors determine attack value:
+ * - green+red pair → Siege Fire Attack 4 per pair
+ * - green+blue pair → Siege Ice Attack 4 per pair
+ * - white+red pair → Ranged Fire Attack 6 per pair
+ * - white+blue pair → Ranged Ice Attack 6 per pair
+ *
+ * All complete pairs are converted to mana tokens (immediately usable).
+ */
+export interface SacrificeEffect {
+  readonly type: typeof EFFECT_SACRIFICE;
+}
+
+/**
+ * Internal: Resolve after both color choices for Sacrifice.
+ * Calculates attack from crystal pairs and converts pairs to mana tokens.
+ */
+export interface ResolveSacrificeEffect {
+  readonly type: typeof EFFECT_RESOLVE_SACRIFICE;
+  /** First choice: green or white */
+  readonly attackColor: typeof MANA_GREEN | typeof MANA_WHITE;
+  /** Second choice: red or blue */
+  readonly elementColor: typeof MANA_RED | typeof MANA_BLUE;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1056,7 +1095,9 @@ export type CardEffect =
   | ApplyRecruitmentBonusEffect
   | ApplyInteractionBonusEffect
   | FreeRecruitEffect
-  | ResolveFreeRecruitTargetEffect;
+  | ResolveFreeRecruitTargetEffect
+  | SacrificeEffect
+  | ResolveSacrificeEffect;
 
 // === Card Definition ===
 

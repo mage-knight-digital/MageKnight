@@ -55,6 +55,8 @@ import {
   EFFECT_APPLY_INTERACTION_BONUS,
   EFFECT_FREE_RECRUIT,
   EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
+  EFFECT_SACRIFICE,
+  EFFECT_RESOLVE_SACRIFICE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -72,6 +74,7 @@ import type {
   ResolveManaRadianceColorEffect,
   ApplyRecruitmentBonusEffect,
   ApplyInteractionBonusEffect,
+  ResolveSacrificeEffect,
 } from "../../types/cards.js";
 import type {
   GainMoveEffect,
@@ -397,6 +400,16 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_RESOLVE_FREE_RECRUIT_TARGET]: (effect) => {
     const e = effect as import("../../types/cards.js").ResolveFreeRecruitTargetEffect;
     return `Recruit ${e.unitName} for free`;
+  },
+
+  [EFFECT_SACRIFICE]: () => "Choose crystal colors for Sacrifice attack",
+
+  [EFFECT_RESOLVE_SACRIFICE]: (effect) => {
+    const e = effect as ResolveSacrificeEffect;
+    const attackType = e.attackColor === "white" ? "Ranged" : "Siege";
+    const element = e.elementColor === "red" ? "Fire" : "Ice";
+    const perPair = e.attackColor === "white" ? 6 : 4;
+    return `${attackType} ${element} Attack ${perPair} per ${e.attackColor}/${e.elementColor} crystal pair`;
   },
 };
 

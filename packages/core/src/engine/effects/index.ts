@@ -281,6 +281,13 @@ export {
   resetFreeRecruitInstanceCounter,
 } from "./freeRecruitEffects.js";
 
+// Sacrifice effects (Offering powered spell)
+export {
+  handleSacrifice,
+  resolveSacrifice,
+  registerSacrificeEffects,
+} from "./sacrificeEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 
