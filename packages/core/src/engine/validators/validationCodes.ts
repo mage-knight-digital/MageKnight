@@ -318,6 +318,7 @@ export const SKILL_NOT_FOUND = "SKILL_NOT_FOUND" as const;
 export const SKILL_ON_COOLDOWN = "SKILL_ON_COOLDOWN" as const;
 export const SKILL_REQUIRES_NOT_IN_COMBAT = "SKILL_REQUIRES_NOT_IN_COMBAT" as const;
 export const SKILL_REQUIRES_WOUND_IN_HAND = "SKILL_REQUIRES_WOUND_IN_HAND" as const;
+export const SKILL_REQUIRES_INTERACTION = "SKILL_REQUIRES_INTERACTION" as const;
 export const SKILL_NOT_IN_CENTER = "SKILL_NOT_IN_CENTER" as const;
 export const CANNOT_RETURN_OWN_SKILL = "CANNOT_RETURN_OWN_SKILL" as const;
 
@@ -571,6 +572,7 @@ export type ValidationErrorCode =
   | typeof SKILL_ON_COOLDOWN
   | typeof SKILL_REQUIRES_NOT_IN_COMBAT
   | typeof SKILL_REQUIRES_WOUND_IN_HAND
+  | typeof SKILL_REQUIRES_INTERACTION
   // Time Bending chain prevention
   | typeof TIME_BENDING_CHAIN_PREVENTED
   | typeof SKILL_NOT_IN_CENTER

@@ -51,6 +51,7 @@ import {
   SKILL_TOVAK_RESISTANCE_BREAK,
   SKILL_TOVAK_MOTIVATION,
   SKILL_TOVAK_MANA_OVERLOAD,
+  SKILL_GOLDYX_GLITTERING_FORTUNE,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -62,6 +63,8 @@ import { CARD_WOUND } from "@mage-knight/shared";
 import { canActivatePolarization } from "../commands/skills/polarizationEffect.js";
 import { canActivateInvocation } from "../commands/skills/invocationEffect.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
+import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
+import { hexKey } from "@mage-knight/shared";
 
 /**
  * Skills that have effect implementations and can be activated.
@@ -101,6 +104,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
   SKILL_TOVAK_MOTIVATION,
   SKILL_TOVAK_MANA_OVERLOAD,
+  SKILL_GOLDYX_GLITTERING_FORTUNE,
 ]);
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
@@ -140,6 +144,14 @@ function canActivateSkill(
     case SKILL_ARYTHEA_INVOCATION:
       // Must have at least one card in hand to discard
       return canActivateInvocation(player);
+
+    case SKILL_GOLDYX_GLITTERING_FORTUNE: {
+      // Only usable during interaction at an inhabited site
+      if (!player.position) return false;
+      const hex = state.map.hexes[hexKey(player.position)];
+      if (!hex?.site) return false;
+      return isPlayerAtInteractionSite(hex.site, player.id);
+    }
 
     default:
       // No special requirements
