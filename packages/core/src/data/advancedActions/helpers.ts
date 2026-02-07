@@ -55,7 +55,7 @@ import {
 import { ELEMENT_FIRE, ELEMENT_ICE } from "../../types/modifierConstants.js";
 import { CONDITION_IN_COMBAT } from "../../types/conditions.js";
 
-export { discardCost, discardCostByColor } from "../basicActions/helpers.js";
+export { discardCost, discardCostByColor, readyUnit } from "../basicActions/helpers.js";
 
 /**
  * Creates a crystal gain effect for the specified color.
