@@ -42,6 +42,9 @@ import {
   EFFECT_TERRAIN_COST,
   EFFECT_TERRAIN_SAFE,
   EFFECT_UNIT_ATTACK_BONUS,
+  EFFECT_UNIT_ARMOR_BONUS,
+  EFFECT_UNIT_BLOCK_BONUS,
+  EFFECT_BANNER_GLORY_FAME_TRACKING,
   EFFECT_DISEASE_ARMOR,
   EFFECT_CURE_ACTIVE,
   EFFECT_TRANSFORM_ATTACKS_COLD_FIRE,
@@ -409,6 +412,27 @@ export interface LeadershipBonusModifier {
   readonly amount: number;
 }
 
+// Unit armor bonus modifier (Banner of Glory powered)
+// Grants +N armor to all units for the duration.
+export interface UnitArmorBonusModifier {
+  readonly type: typeof EFFECT_UNIT_ARMOR_BONUS;
+  readonly amount: number;
+}
+
+// Unit block bonus modifier (Banner of Glory powered)
+// Grants +N to all block values for units (tack-on, requires base block).
+export interface UnitBlockBonusModifier {
+  readonly type: typeof EFFECT_UNIT_BLOCK_BONUS;
+  readonly amount: number;
+}
+
+// Banner of Glory fame tracking modifier (Banner of Glory powered)
+// Tracks which units have attacked/blocked and awards fame +1 per unit.
+export interface BannerGloryFameTrackingModifier {
+  readonly type: typeof EFFECT_BANNER_GLORY_FAME_TRACKING;
+  readonly unitInstanceIdsAwarded: readonly string[];
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -441,7 +465,10 @@ export type ModifierEffect =
   | InteractionBonusModifier
   | ManaClaimSustainedModifier
   | ManaCurseModifier
-  | LeadershipBonusModifier;
+  | LeadershipBonusModifier
+  | UnitArmorBonusModifier
+  | UnitBlockBonusModifier
+  | BannerGloryFameTrackingModifier;
 
 // === Active Modifier (live in game state) ===
 

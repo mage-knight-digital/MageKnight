@@ -7,10 +7,26 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerUnit } from "../../types/unit.js";
-import type { ActiveModifier, GrantResistancesModifier, LeadershipBonusModifier, UnitAttackBonusModifier } from "../../types/modifiers.js";
+import type {
+  ActiveModifier,
+  GrantResistancesModifier,
+  LeadershipBonusModifier,
+  UnitAttackBonusModifier,
+  UnitArmorBonusModifier,
+  UnitBlockBonusModifier,
+  BannerGloryFameTrackingModifier,
+} from "../../types/modifiers.js";
 import type { ResistanceType } from "@mage-knight/shared";
 import { getUnit } from "@mage-knight/shared";
-import { EFFECT_GRANT_RESISTANCES, EFFECT_UNIT_ATTACK_BONUS, EFFECT_LEADERSHIP_BONUS, SCOPE_ALL_UNITS } from "../../types/modifierConstants.js";
+import {
+  EFFECT_GRANT_RESISTANCES,
+  EFFECT_UNIT_ATTACK_BONUS,
+  EFFECT_LEADERSHIP_BONUS,
+  EFFECT_UNIT_ARMOR_BONUS,
+  EFFECT_UNIT_BLOCK_BONUS,
+  EFFECT_BANNER_GLORY_FAME_TRACKING,
+  SCOPE_ALL_UNITS,
+} from "../../types/modifierConstants.js";
 import { getModifiersForPlayer } from "./queries.js";
 
 /**
@@ -106,4 +122,71 @@ export function getLeadershipBonusModifier(
     modifier: found.effect as LeadershipBonusModifier,
     activeModifier: found,
   };
+}
+
+/**
+ * Get the total unit armor bonus from active modifiers.
+ * Returns the sum of all EFFECT_UNIT_ARMOR_BONUS modifiers
+ * scoped to ALL_UNITS.
+ *
+ * Used by Banner of Glory powered effect which grants
+ * +1 armor to all units this turn.
+ */
+export function getUnitArmorBonus(
+  state: GameState,
+  playerId: string,
+): number {
+  const modifiers = getModifiersForPlayer(state, playerId)
+    .filter((m) => {
+      if (m.effect.type !== EFFECT_UNIT_ARMOR_BONUS) return false;
+      return m.scope.type === SCOPE_ALL_UNITS;
+    })
+    .map((m) => m.effect as UnitArmorBonusModifier);
+
+  let bonus = 0;
+  for (const mod of modifiers) {
+    bonus += mod.amount;
+  }
+
+  return bonus;
+}
+
+/**
+ * Get the total unit block bonus from active modifiers.
+ * Returns the sum of all EFFECT_UNIT_BLOCK_BONUS modifiers
+ * scoped to ALL_UNITS (tack-on: only applies if unit has base block).
+ *
+ * Used by Banner of Glory powered effect which grants
+ * +1 to unit blocks this turn.
+ */
+export function getUnitBlockBonus(
+  state: GameState,
+  playerId: string,
+): number {
+  const modifiers = getModifiersForPlayer(state, playerId)
+    .filter((m) => {
+      if (m.effect.type !== EFFECT_UNIT_BLOCK_BONUS) return false;
+      return m.scope.type === SCOPE_ALL_UNITS;
+    })
+    .map((m) => m.effect as UnitBlockBonusModifier);
+
+  let bonus = 0;
+  for (const mod of modifiers) {
+    bonus += mod.amount;
+  }
+
+  return bonus;
+}
+
+/**
+ * Get the Banner of Glory fame tracking modifier, if active.
+ */
+export function getBannerGloryFameTracker(
+  state: GameState,
+  playerId: string,
+): BannerGloryFameTrackingModifier | undefined {
+  const modifier = getModifiersForPlayer(state, playerId)
+    .find((m) => m.effect.type === EFFECT_BANNER_GLORY_FAME_TRACKING);
+
+  return modifier?.effect as BannerGloryFameTrackingModifier | undefined;
 }

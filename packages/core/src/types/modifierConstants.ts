@@ -227,3 +227,18 @@ export const LEADERSHIP_BONUS_BLOCK = "block" as const;
 export const LEADERSHIP_BONUS_ATTACK = "attack" as const;
 export const LEADERSHIP_BONUS_RANGED_ATTACK = "ranged_attack" as const;
 
+// === UnitArmorBonusModifier ===
+// Grants +N armor to all units for the duration.
+// Used by Banner of Glory powered effect.
+export const EFFECT_UNIT_ARMOR_BONUS = "unit_armor_bonus" as const;
+
+// === UnitBlockBonusModifier ===
+// Grants +N to all block values for units (tack-on, requires base block).
+// Used by Banner of Glory powered effect.
+export const EFFECT_UNIT_BLOCK_BONUS = "unit_block_bonus" as const;
+
+// === BannerOfGloryFameTracking ===
+// Tracks fame +1 per unit that attacks or blocks this turn.
+// Used by Banner of Glory powered effect.
+export const EFFECT_BANNER_GLORY_FAME_TRACKING = "banner_glory_fame_tracking" as const;
+

@@ -20,7 +20,9 @@ import {
   UNIT_DESTROY_REASON_PARALYZE,
 } from "@mage-knight/shared";
 import { isAttackResisted } from "../../combat/elementalCalc.js";
-import { getEffectiveUnitResistances } from "../../modifiers/index.js";
+import { getEffectiveUnitResistances, getUnitArmorBonus } from "../../modifiers/index.js";
+import { getEffectiveUnitArmor } from "../../rules/banners.js";
+import type { Player } from "../../../types/player.js";
 
 /**
  * Result of processing damage to a unit.
@@ -47,6 +49,7 @@ export interface UnitDamageResult {
  * destroyed (similar to poison, but the unit still absorbs its armor value).
  *
  * @param state - Game state (for checking modifier-granted resistances)
+ * @param player - Optional player for banner armor bonus calculation
  */
 export function processUnitDamage(
   state: GameState,
@@ -55,10 +58,16 @@ export function processUnitDamage(
   attackElement: Element,
   playerId: string,
   isPoisoned: boolean,
-  isParalyzed: boolean
+  isParalyzed: boolean,
+  player?: Player
 ): UnitDamageResult {
   const unitDef = getUnit(unit.unitId);
   const events: GameEvent[] = [];
+  // Banner of Glory attached: +1 armor to attached unit
+  // Banner of Glory powered modifier: +1 armor to all units this turn
+  const bannerArmor = player ? getEffectiveUnitArmor(player, unit) : unitDef.armor;
+  const modifierArmorBonus = getUnitArmorBonus(state, playerId);
+  const effectiveArmor = bannerArmor + modifierArmorBonus;
 
   // Check if unit has resistance to this attack element
   // Uses effective resistances which includes modifier-granted resistances (e.g., Veil of Mist)
@@ -77,7 +86,7 @@ export function processUnitDamage(
   if (isResistant && !unit.wounded && !unit.usedResistanceThisCombat) {
     // Resistant unit (not previously wounded, hasn't used resistance this combat):
     // First, reduce damage by armor
-    damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+    damageRemaining = Math.max(0, damageRemaining - effectiveArmor);
 
     if (damageRemaining > 0) {
       // Still damage remaining after first armor reduction: wound the unit
@@ -87,15 +96,15 @@ export function processUnitDamage(
       if (isParalyzed) {
         destroyed = true;
         destroyReason = UNIT_DESTROY_REASON_PARALYZE;
-        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+        damageRemaining = Math.max(0, damageRemaining - effectiveArmor);
         // Poison: if unit would be wounded, it gets 2 wounds = destroyed
       } else if (isPoisoned) {
         destroyed = true;
         destroyReason = UNIT_DESTROY_REASON_POISON;
-        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+        damageRemaining = Math.max(0, damageRemaining - effectiveArmor);
       } else {
         // Apply armor reduction again for wounded unit
-        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+        damageRemaining = Math.max(0, damageRemaining - effectiveArmor);
       }
     } else {
       // Absorbed without wound, mark resistance as used for this combat
@@ -107,7 +116,7 @@ export function processUnitDamage(
     if (unit.wounded) {
       destroyed = true;
       // Destroyed units don't absorb anything beyond what causes destruction
-      damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+      damageRemaining = Math.max(0, damageRemaining - effectiveArmor);
     } else {
       // First wound: apply armor and wound
       unitWounded = true;
@@ -116,14 +125,14 @@ export function processUnitDamage(
       if (isParalyzed) {
         destroyed = true;
         destroyReason = UNIT_DESTROY_REASON_PARALYZE;
-        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+        damageRemaining = Math.max(0, damageRemaining - effectiveArmor);
         // Poison: if unit would be wounded, it gets 2 wounds = destroyed
       } else if (isPoisoned) {
         destroyed = true;
         destroyReason = UNIT_DESTROY_REASON_POISON;
-        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+        damageRemaining = Math.max(0, damageRemaining - effectiveArmor);
       } else {
-        damageRemaining = Math.max(0, damageRemaining - unitDef.armor);
+        damageRemaining = Math.max(0, damageRemaining - effectiveArmor);
       }
     }
   }
