@@ -30,6 +30,7 @@ import {
   EFFECT_ENEMY_STAT,
   EFFECT_RECRUIT_DISCOUNT,
   EFFECT_RECRUITMENT_BONUS,
+  EFFECT_REMOVE_FIRE_RESISTANCE,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_COLD_TOUGHNESS_BLOCK,
@@ -255,6 +256,14 @@ export interface RemovePhysicalResistanceModifier {
   readonly type: typeof EFFECT_REMOVE_PHYSICAL_RESISTANCE;
 }
 
+// Remove fire resistance from enemies (Chill spell)
+// Unlike EFFECT_REMOVE_RESISTANCES which removes ALL resistances,
+// this only removes fire resistance.
+// Does not affect Arcane Immune enemies.
+export interface RemoveFireResistanceModifier {
+  readonly type: typeof EFFECT_REMOVE_FIRE_RESISTANCE;
+}
+
 // Cold Toughness scaling block modifier (Tovak)
 // Grants +1 ice block per ability/attack color/resistance on blocked enemy.
 // Arcane Immunity on the enemy negates the bonus entirely.
@@ -397,6 +406,7 @@ export type ModifierEffect =
   | GrantResistancesModifier
   | DoublePhysicalAttacksModifier
   | RemovePhysicalResistanceModifier
+  | RemoveFireResistanceModifier
   | ColdToughnessBlockModifier
   | RecruitDiscountModifier
   | MoveToAttackConversionModifier

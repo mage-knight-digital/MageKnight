@@ -28,6 +28,7 @@ import {
   EFFECT_DOUBLE_PHYSICAL_ATTACKS,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
+  EFFECT_REMOVE_FIRE_RESISTANCE,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
   ENEMY_STAT_ARMOR,
@@ -297,6 +298,25 @@ export function isPhysicalResistanceRemoved(
   }
   const modifiers = getModifiersForEnemy(state, enemyId);
   return modifiers.some((m) => m.effect.type === EFFECT_REMOVE_PHYSICAL_RESISTANCE);
+}
+
+/**
+ * Check if an enemy's fire resistance has been specifically removed.
+ * Returns true if any EFFECT_REMOVE_FIRE_RESISTANCE modifier targets this enemy.
+ * Used by Chill spell basic effect.
+ *
+ * Note: Arcane Immunity blocks this effect (non-Attack/Block effect).
+ */
+export function isFireResistanceRemoved(
+  state: GameState,
+  enemyId: string
+): boolean {
+  // Arcane Immunity blocks resistance removal effects
+  if (hasArcaneImmunity(state, enemyId)) {
+    return false;
+  }
+  const modifiers = getModifiersForEnemy(state, enemyId);
+  return modifiers.some((m) => m.effect.type === EFFECT_REMOVE_FIRE_RESISTANCE);
 }
 
 /**
