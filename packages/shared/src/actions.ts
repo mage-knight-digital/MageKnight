@@ -261,6 +261,22 @@ export interface AssignBannerAction {
   readonly targetUnitInstanceId: string;
 }
 
+// Banner of Fear: cancel one enemy attack during block phase
+export const USE_BANNER_FEAR_ACTION = "USE_BANNER_FEAR" as const;
+/**
+ * Spend a unit with Banner of Fear attached to cancel one enemy attack.
+ * Usable during block phase. Unit must be ready and unwounded.
+ * Cancels one attack (not block — Elusive armor still applies).
+ * Grants Fame +1. Does not work on Arcane Immune enemies.
+ */
+export interface UseBannerFearAction {
+  readonly type: typeof USE_BANNER_FEAR_ACTION;
+  readonly unitInstanceId: string;
+  readonly targetEnemyInstanceId: string;
+  /** For multi-attack enemies, which attack index to cancel (default: 0) */
+  readonly attackIndex?: number;
+}
+
 // Heroes special rule: pay influence for assault abilities
 export const PAY_HEROES_ASSAULT_INFLUENCE_ACTION = "PAY_HEROES_ASSAULT_INFLUENCE" as const;
 /**
@@ -693,6 +709,7 @@ export type PlayerAction =
   | RecruitUnitAction
   | DisbandUnitAction
   | AssignBannerAction
+  | UseBannerFearAction
   | PayHeroesAssaultInfluenceAction
   | PayThugsDamageInfluenceAction
   | BuySpellAction

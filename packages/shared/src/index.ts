@@ -281,6 +281,9 @@ export type {
   MoveToAttackConversionOption,
   // Thugs damage influence payment options
   ThugsDamagePaymentOption,
+  // Banner of Fear cancel attack options
+  BannerFearOption,
+  BannerFearTarget,
 } from "./types/validActions.js";
 export {
   canAct,

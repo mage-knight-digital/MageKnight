@@ -49,6 +49,21 @@ export interface BannerDetachedEvent {
 }
 
 // ============================================================================
+// BANNER_FEAR_CANCEL_ATTACK
+// ============================================================================
+
+export const BANNER_FEAR_CANCEL_ATTACK = "BANNER_FEAR_CANCEL_ATTACK" as const;
+
+export interface BannerFearCancelAttackEvent {
+  readonly type: typeof BANNER_FEAR_CANCEL_ATTACK;
+  readonly playerId: string;
+  readonly unitInstanceId: string;
+  readonly enemyInstanceId: string;
+  readonly attackIndex: number;
+  readonly fameGained: number;
+}
+
+// ============================================================================
 // BANNERS_RESET
 // ============================================================================
 

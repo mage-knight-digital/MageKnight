@@ -445,6 +445,12 @@ export interface SelectCombatEnemyEffect {
   readonly excludeArcaneImmune?: boolean;
   /** If set, exclude enemies with this resistance type from targeting */
   readonly excludeResistance?: ResistanceType;
+  /**
+   * Maximum number of enemies that can be targeted (default: 1).
+   * When > 1, after each selection the player can choose another target or stop.
+   * Used by Banner of Fear powered effect (up to 3 enemies).
+   */
+  readonly maxTargets?: number;
 }
 
 /**
@@ -457,6 +463,15 @@ export interface ResolveCombatEnemyTargetEffect {
   /** Stored for UI display without needing state lookup */
   readonly enemyName: string;
   readonly template: CombatEnemyTargetTemplate;
+  /**
+   * Multi-target tracking: original SelectCombatEnemyEffect for continuing selection.
+   * When present, after resolving this target, re-enter selection for remaining targets.
+   */
+  readonly multiTargetSource?: SelectCombatEnemyEffect;
+  /** How many more targets can be selected after this one (excluding this selection) */
+  readonly remainingTargets?: number;
+  /** Enemy instance IDs already targeted (to exclude from future selections) */
+  readonly alreadyTargeted?: readonly string[];
 }
 
 // === Skill-Related Effect Types ===
