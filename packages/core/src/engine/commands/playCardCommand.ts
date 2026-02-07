@@ -27,6 +27,7 @@ import type { CardEffect, DeedCard } from "../../types/cards.js";
 import type { ActiveModifier } from "../../types/modifiers.js";
 
 import { consumeMultipleMana, restoreMana } from "./helpers/manaConsumptionHelpers.js";
+import { checkManaCurseWound } from "../effects/manaClaimEffects.js";
 import {
   getChoiceOptions,
   handleChoiceEffect,
@@ -140,7 +141,14 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
-      const newState: GameState = { ...state, players, source: updatedSource };
+      let newState: GameState = { ...state, players, source: updatedSource };
+
+      // Check for Mana Curse wounds after mana consumption
+      if (manaSources.length > 0) {
+        for (const manaSource of manaSources) {
+          newState = checkManaCurseWound(newState, params.playerId, manaSource.color);
+        }
+      }
 
       // Snapshot modifiers BEFORE effect resolution for undo
       preEffectModifiersSnapshot = newState.activeModifiers;

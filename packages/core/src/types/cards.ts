@@ -95,6 +95,10 @@ import {
   EFFECT_CALL_TO_ARMS,
   EFFECT_RESOLVE_CALL_TO_ARMS_UNIT,
   EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
+  EFFECT_MANA_CLAIM,
+  EFFECT_RESOLVE_MANA_CLAIM_DIE,
+  EFFECT_RESOLVE_MANA_CLAIM_MODE,
+  EFFECT_MANA_CURSE,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -804,6 +808,49 @@ export interface ResolveManaRadianceColorEffect {
 }
 
 /**
+ * Mana Claim basic effect (Blue Spell #110).
+ * Take a basic color die from Source, keep until end of round.
+ * Choose: 3 tokens now OR 1 token per turn for remainder of round.
+ */
+export interface ManaClaimEffect {
+  readonly type: typeof EFFECT_MANA_CLAIM;
+}
+
+/**
+ * Internal: Player has selected which die to claim from the Source.
+ * Generates mode choice options (burst vs sustained).
+ */
+export interface ResolveManaClaimDieEffect {
+  readonly type: typeof EFFECT_RESOLVE_MANA_CLAIM_DIE;
+  readonly dieId: SourceDieId;
+  readonly dieColor: ManaColor;
+  /** Whether curse effect should be applied (powered mode) */
+  readonly withCurse: boolean;
+}
+
+/**
+ * Internal: Player has chosen burst or sustained mode for the claimed die.
+ * - burst: Gain 3 tokens of the claimed color immediately
+ * - sustained: Gain 1 token per turn for remainder of round (starting next turn)
+ */
+export interface ResolveManaClaimModeEffect {
+  readonly type: typeof EFFECT_RESOLVE_MANA_CLAIM_MODE;
+  readonly dieId: SourceDieId;
+  readonly color: BasicManaColor;
+  readonly mode: "burst" | "sustained";
+  readonly withCurse: boolean;
+}
+
+/**
+ * Mana Curse powered effect (Blue Spell #110).
+ * Same as Mana Claim basic, plus curse: until end of round, other players
+ * take a wound when using mana of the claimed color (max 1 per player per turn).
+ */
+export interface ManaCurseEffect {
+  readonly type: typeof EFFECT_MANA_CURSE;
+}
+
+/**
  * Scout peek effect (Scouts unit ability).
  * Reveals face-down enemy tokens within a distance from the player.
  * Also creates a ScoutFameBonus modifier tracking which enemies were newly revealed,
@@ -1135,7 +1182,11 @@ export type CardEffect =
   | ResolveSacrificeEffect
   | CallToArmsEffect
   | ResolveCallToArmsUnitEffect
-  | ResolveCallToArmsAbilityEffect;
+  | ResolveCallToArmsAbilityEffect
+  | ManaClaimEffect
+  | ResolveManaClaimDieEffect
+  | ResolveManaClaimModeEffect
+  | ManaCurseEffect;
 
 // === Card Definition ===
 

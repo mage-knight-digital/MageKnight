@@ -12,6 +12,8 @@ import type { RngState } from "../../../utils/rng.js";
 import type { SourceDieId } from "../../../types/mana.js";
 import { rerollDie } from "../../mana/manaSource.js";
 import type { DiceManagementResult } from "./types.js";
+import { EFFECT_MANA_CLAIM_SUSTAINED, EFFECT_MANA_CURSE } from "../../../types/modifierConstants.js";
+import type { ManaClaimSustainedModifier, ManaCurseModifier } from "../../../types/modifiers.js";
 
 /**
  * Process dice at end of turn:
@@ -66,11 +68,25 @@ export function processDiceReturn(
 
   // Clear any remaining dice taken by this player (safety net)
   // Exclude Mana Steal stored die - it persists until used or round ends
+  // Exclude Mana Claim dice - they persist until end of round
   const playerAfterUpdates = updatedPlayers.find((p) => p.id === player.id);
   const storedManaStealDieId = playerAfterUpdates?.tacticState.storedManaDie?.dieId;
 
+  // Collect Mana Claim die IDs from active modifiers
+  const manaClaimDieIds = new Set<SourceDieId>();
+  for (const mod of state.activeModifiers) {
+    if (mod.effect.type === EFFECT_MANA_CLAIM_SUSTAINED) {
+      manaClaimDieIds.add((mod.effect as ManaClaimSustainedModifier).claimedDieId);
+    }
+    if (mod.effect.type === EFFECT_MANA_CURSE) {
+      manaClaimDieIds.add((mod.effect as ManaCurseModifier).claimedDieId);
+    }
+  }
+
   const diceWithAllCleared = updatedSource.dice.map((die) =>
-    die.takenByPlayerId === player.id && die.id !== storedManaStealDieId
+    die.takenByPlayerId === player.id &&
+    die.id !== storedManaStealDieId &&
+    !manaClaimDieIds.has(die.id)
       ? { ...die, takenByPlayerId: null }
       : die
   );

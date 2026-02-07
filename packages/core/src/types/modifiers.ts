@@ -5,9 +5,10 @@
  * This system tracks active modifiers and allows calculations to query effective values.
  */
 
-import type { SkillId, CardId, Terrain, ManaColor, ResistanceType, HexCoord } from "@mage-knight/shared";
+import type { SkillId, CardId, Terrain, ManaColor, BasicManaColor, ResistanceType, HexCoord } from "@mage-knight/shared";
 import type { EnemyAbility } from "./enemy.js";
 import type { DeedCardType } from "./cards.js";
+import type { SourceDieId } from "./mana.js";
 import {
   ABILITY_ANY,
   COMBAT_VALUE_ATTACK,
@@ -46,6 +47,8 @@ import {
   EFFECT_ADD_SIEGE_TO_ATTACKS,
   EFFECT_BURNING_SHIELD_ACTIVE,
   EFFECT_INTERACTION_BONUS,
+  EFFECT_MANA_CLAIM_SUSTAINED,
+  EFFECT_MANA_CURSE,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -357,6 +360,26 @@ export interface InteractionBonusModifier {
   readonly reputation: number;
 }
 
+// Mana Claim sustained token modifier (Mana Claim sustained mode)
+// Grants 1 mana token of the claimed color at the start of each subsequent turn.
+// Duration: round. The claimed die ID is tracked so it can be returned at round end.
+export interface ManaClaimSustainedModifier {
+  readonly type: typeof EFFECT_MANA_CLAIM_SUSTAINED;
+  readonly color: BasicManaColor;
+  readonly claimedDieId: SourceDieId;
+}
+
+// Mana Curse modifier (Mana Curse powered effect)
+// When another player uses mana of the cursed color, they take a wound.
+// Max 1 wound per player per turn from this curse.
+// Tracks which players have already been wounded this turn.
+export interface ManaCurseModifier {
+  readonly type: typeof EFFECT_MANA_CURSE;
+  readonly color: BasicManaColor;
+  readonly claimedDieId: SourceDieId;
+  readonly woundedPlayerIdsThisTurn: readonly string[];
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -385,7 +408,9 @@ export type ModifierEffect =
   | AddSiegeToAttacksModifier
   | BurningShieldActiveModifier
   | UnitRecruitmentBonusModifier
-  | InteractionBonusModifier;
+  | InteractionBonusModifier
+  | ManaClaimSustainedModifier
+  | ManaCurseModifier;
 
 // === Active Modifier (live in game state) ===
 

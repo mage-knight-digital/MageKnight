@@ -23,6 +23,7 @@ import {
 import { SiteType } from "../../../types/map.js";
 import type { NextPlayerResult, NextPlayerSetupResult } from "./types.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
+import { grantManaClaimSustainedToken } from "../../effects/manaClaimEffects.js";
 
 /**
  * Determine what happens after the current player's turn ends.
@@ -103,7 +104,7 @@ export function setupNextPlayer(
         const gladeResult = checkMagicalGladeMana(state, player);
         gladeManaEvent = gladeResult.event;
 
-        players[playerIdx] = {
+        let updatedPlayer: Player = {
           ...player,
           movePoints: TURN_START_MOVE_POINTS,
           tacticState: {
@@ -115,6 +116,11 @@ export function setupNextPlayer(
             ? [...player.pureMana, gladeResult.manaToken]
             : player.pureMana,
         };
+
+        // Grant sustained Mana Claim token at turn start
+        updatedPlayer = grantManaClaimSustainedToken(state, updatedPlayer);
+
+        players[playerIdx] = updatedPlayer;
       }
     }
   } else {
@@ -130,7 +136,7 @@ export function setupNextPlayer(
         const gladeResult = checkMagicalGladeMana(state, nextPlayer);
         gladeManaEvent = gladeResult.event;
 
-        players[nextPlayerIdx] = {
+        let updatedNextPlayer: Player = {
           ...nextPlayer,
           movePoints: TURN_START_MOVE_POINTS,
           tacticState: {
@@ -145,6 +151,11 @@ export function setupNextPlayer(
             ? [...nextPlayer.pureMana, gladeResult.manaToken]
             : nextPlayer.pureMana,
         };
+
+        // Grant sustained Mana Claim token at turn start
+        updatedNextPlayer = grantManaClaimSustainedToken(state, updatedNextPlayer);
+
+        players[nextPlayerIdx] = updatedNextPlayer;
       }
     }
   }

@@ -29,6 +29,7 @@ import { processCardFlow, getPlayAreaCardCount } from "./cardFlow.js";
 import { createResetPlayer } from "./playerReset.js";
 import { processDiceReturn } from "./diceManagement.js";
 import { determineNextPlayer, setupNextPlayer } from "./turnAdvancement.js";
+import { resetManaCurseWoundTracking } from "../../effects/manaClaimEffects.js";
 import { processLevelUps } from "./levelUp.js";
 import { calculateRingFameBonus } from "./ringFameBonus.js";
 
@@ -203,6 +204,9 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         );
         newState = { ...newState, players: setupResult.players };
         gladeManaEvent = setupResult.gladeManaEvent;
+
+        // Reset Mana Curse per-turn wound tracking for the new turn
+        newState = resetManaCurseWoundTracking(newState);
       }
 
       // Build events

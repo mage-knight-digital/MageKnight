@@ -46,6 +46,7 @@ import { registerNobleMannersBonusEffects } from "./nobleMannersBonusEffects.js"
 import { registerFreeRecruitEffects } from "./freeRecruitEffects.js";
 import { registerSacrificeEffects } from "./sacrificeEffects.js";
 import { registerCallToArmsEffects } from "./callToArmsEffects.js";
+import { registerManaClaimEffects } from "./manaClaimEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -166,4 +167,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Call to Arms effects (borrow unit ability from offer)
   registerCallToArmsEffects(resolver);
+
+  // Mana Claim / Mana Curse effects (interactive blue spell)
+  registerManaClaimEffects();
 }
