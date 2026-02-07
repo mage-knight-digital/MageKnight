@@ -310,6 +310,11 @@ export {
   registerManaClaimEffects,
 } from "./manaClaimEffects.js";
 
+// Wings of Night effects (multi-target skip-attack with move cost)
+export {
+  registerWingsOfNightEffects,
+} from "./wingsOfNightEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

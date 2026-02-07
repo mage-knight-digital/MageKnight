@@ -126,6 +126,7 @@ export const CARD_EXPOSE = cardId("expose"); // #19 - Lose fortification/resista
 export const CARD_CURE = cardId("cure"); // #17 - Heal 2 + draw/ready / Armor reduction to 1
 export const CARD_CALL_TO_ARMS = cardId("call_to_arms"); // #XX - Borrow unit ability / Free recruit
 export const CARD_MIND_READ = cardId("mind_read"); // #111 - Crystal gain + forced discard / Steal action card
+export const CARD_WINGS_OF_WIND = cardId("wings_of_wind"); // #23 - Flight 1-5 / Multi-target skip attack
 
 // === Card ID Type Unions ===
 
@@ -191,7 +192,8 @@ export type SpellCardId =
   | typeof CARD_EXPOSE
   | typeof CARD_CURE
   | typeof CARD_CALL_TO_ARMS
-  | typeof CARD_MIND_READ;
+  | typeof CARD_MIND_READ
+  | typeof CARD_WINGS_OF_WIND;
 
 export type ArtifactCardId =
   // Banners
@@ -282,6 +284,7 @@ export const ALL_SPELL_IDS = [
   CARD_CURE,
   CARD_CALL_TO_ARMS,
   CARD_MIND_READ,
+  CARD_WINGS_OF_WIND,
 ] as const;
 
 export const ALL_ARTIFACT_IDS = [

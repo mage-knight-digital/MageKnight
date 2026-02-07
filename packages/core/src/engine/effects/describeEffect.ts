@@ -70,6 +70,8 @@ import {
   EFFECT_MIND_STEAL,
   EFFECT_RESOLVE_MIND_STEAL_COLOR,
   EFFECT_RESOLVE_MIND_STEAL_SELECTION,
+  EFFECT_WINGS_OF_NIGHT,
+  EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -481,6 +483,14 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_RESOLVE_MIND_STEAL_SELECTION]: (effect) => {
     const e = effect as import("../../types/cards.js").ResolveMindStealSelectionEffect;
     return `Steal ${e.cardName} from ${e.fromPlayerId}`;
+  },
+
+  [EFFECT_WINGS_OF_NIGHT]: () => "Target enemies to skip their attacks",
+
+  [EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveWingsOfNightTargetEffect;
+    const costStr = e.moveCost > 0 ? ` (${e.moveCost} Move)` : "";
+    return `${e.enemyName} does not attack${costStr}`;
   },
 };
 

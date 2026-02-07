@@ -291,3 +291,12 @@ export const EFFECT_RESOLVE_MIND_STEAL_SELECTION = "resolve_mind_steal_selection
 // Marks that Banner of Protection powered effect is active this turn.
 // At end of turn, player may throw away wounds received this turn.
 export const EFFECT_ACTIVATE_BANNER_PROTECTION = "activate_banner_protection" as const;
+
+// === Wings of Night Multi-Target Skip Attack Effect ===
+// Entry point for multi-target enemy skip-attack with scaling move cost.
+// First enemy free, second costs 1 move, third costs 2 move, etc.
+// Arcane Immune enemies cannot be targeted.
+export const EFFECT_WINGS_OF_NIGHT = "wings_of_night" as const;
+// Internal: resolve after selecting an enemy target for Wings of Night.
+// Applies skip-attack modifier, deducts move cost, chains for more targets.
+export const EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET = "resolve_wings_of_night_target" as const;

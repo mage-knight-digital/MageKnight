@@ -28,7 +28,7 @@ import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
 import { mustAnnounceEndOfRound } from "./helpers.js";
 import { isRuleActive } from "../modifiers/index.js";
-import { RULE_EXTENDED_EXPLORE, RULE_SPACE_BENDING_ADJACENCY } from "../../types/modifierConstants.js";
+import { RULE_EXTENDED_EXPLORE, RULE_SPACE_BENDING_ADJACENCY, RULE_NO_EXPLORATION } from "../../types/modifierConstants.js";
 
 /** Exploration costs 2 move points from a safe space */
 const EXPLORE_COST = 2;
@@ -68,6 +68,11 @@ export function getValidExploreOptions(
 
   // Can't explore after taking an action
   if (player.hasTakenActionThisTurn) {
+    return undefined;
+  }
+
+  // Can't explore during flight (Wings of Wind)
+  if (isRuleActive(state, player.id, RULE_NO_EXPLORATION)) {
     return undefined;
   }
 

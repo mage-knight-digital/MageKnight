@@ -101,6 +101,8 @@ import {
   EFFECT_MIND_STEAL,
   EFFECT_RESOLVE_MIND_STEAL_COLOR,
   EFFECT_RESOLVE_MIND_STEAL_SELECTION,
+  EFFECT_WINGS_OF_NIGHT,
+  EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -505,6 +507,17 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
       (token) => basicColors.includes(token.color as typeof MANA_RED) || token.color === "gold"
     );
   },
+
+  // Wings of Night is resolvable if in combat with at least one non-defeated, non-arcane-immune enemy
+  [EFFECT_WINGS_OF_NIGHT]: (state) => {
+    if (!state.combat) return false;
+    return state.combat.enemies.some(
+      (e) => !e.isDefeated && !e.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY)
+    );
+  },
+
+  // Resolve Wings of Night target is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET]: () => true,
 };
 
 // ============================================================================
