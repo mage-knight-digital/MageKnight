@@ -34,6 +34,7 @@ export const UNIT_AMOTEP_GUNNERS = "amotep_gunners" as const;
 export const UNIT_AMOTEP_FREEZERS = "amotep_freezers" as const;
 export const UNIT_HEROES = "heroes" as const;
 export const UNIT_HERO_BLUE = "hero_blue" as const;
+export const UNIT_HERO_RED = "hero_red" as const;
 export const UNIT_ALTEM_MAGES = "altem_mages" as const;
 export const UNIT_ALTEM_GUARDIANS = "altem_guardians" as const;
 export const UNIT_DELPHANA_MASTERS = "delphana_masters" as const;
@@ -69,6 +70,7 @@ export type UnitId =
   | typeof UNIT_AMOTEP_FREEZERS
   | typeof UNIT_HEROES
   | typeof UNIT_HERO_BLUE
+  | typeof UNIT_HERO_RED
   | typeof UNIT_ALTEM_MAGES
   | typeof UNIT_ALTEM_GUARDIANS
   | typeof UNIT_DELPHANA_MASTERS;
@@ -81,6 +83,7 @@ export type UnitId =
 export const HERO_UNIT_IDS: readonly UnitId[] = [
   UNIT_HEROES,
   UNIT_HERO_BLUE,
+  UNIT_HERO_RED,
 ] as const;
 
 /** Returns true if the unit ID is a Hero unit (for special rules). */
