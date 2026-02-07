@@ -20,6 +20,12 @@ export interface PlayerUnit {
   readonly state: UnitState;
   readonly wounded: boolean;
   readonly usedResistanceThisCombat: boolean;
+  /**
+   * For multi-ability units (e.g. Delphana Masters): tracks which ability indices
+   * have been used this combat. Each ability can only be used once.
+   * Reset when combat ends or unit is readied.
+   */
+  readonly usedAbilityIndices?: readonly number[];
 }
 
 /**
@@ -44,5 +50,6 @@ export function readyAllUnits(units: readonly PlayerUnit[]): readonly PlayerUnit
     ...unit,
     state: UNIT_STATE_READY,
     usedResistanceThisCombat: false,
+    usedAbilityIndices: undefined,
   }));
 }

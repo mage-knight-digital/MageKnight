@@ -48,6 +48,7 @@ import {
   EFFECT_BURNING_SHIELD_ACTIVE,
   EFFECT_INTERACTION_BONUS,
   EFFECT_MANA_CLAIM_SUSTAINED,
+  EFFECT_DEFEAT_IF_BLOCKED,
   EFFECT_MANA_CURSE,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
@@ -380,6 +381,13 @@ export interface ManaCurseModifier {
   readonly woundedPlayerIdsThisTurn: readonly string[];
 }
 
+// Defeat if blocked modifier (Delphana Masters red mana ability)
+// Enemy is defeated if fully blocked during Block phase.
+// For multi-attack enemies, ALL attacks must be blocked.
+export interface DefeatIfBlockedModifier {
+  readonly type: typeof EFFECT_DEFEAT_IF_BLOCKED;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -410,7 +418,8 @@ export type ModifierEffect =
   | UnitRecruitmentBonusModifier
   | InteractionBonusModifier
   | ManaClaimSustainedModifier
-  | ManaCurseModifier;
+  | ManaCurseModifier
+  | DefeatIfBlockedModifier;
 
 // === Active Modifier (live in game state) ===
 

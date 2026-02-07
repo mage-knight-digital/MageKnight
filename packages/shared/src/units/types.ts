@@ -146,4 +146,19 @@ export interface UnitDefinition {
    * Used by Thugs (cost = 2) per rulebook.
    */
   readonly damageInfluenceCost?: number;
+  /**
+   * If true, this unit can only be recruited through normal site interaction.
+   * Cannot be recruited via spells (Call to Glory), artifacts (Banner of Command),
+   * or any other free recruitment effects. Can still be recruited via Bonds of Loyalty
+   * (which uses normal recruitment pathway).
+   * Used by Delphana Masters per rulebook.
+   */
+  readonly interactionOnly?: boolean;
+  /**
+   * If true, this unit can use multiple different abilities per activation.
+   * Each ability can only be used once per turn.
+   * The unit is not marked spent until all abilities are used or player ends activation.
+   * Used by Delphana Masters per rulebook.
+   */
+  readonly multiAbility?: boolean;
 }

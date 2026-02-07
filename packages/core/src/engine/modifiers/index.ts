@@ -26,6 +26,7 @@ export {
   isPhysicalResistanceRemoved,
   isPhysicalAttackDoubled,
   getBaseArmorForPhase,
+  hasDefeatIfBlocked,
 } from "./combat.js";
 
 // Terrain effective values

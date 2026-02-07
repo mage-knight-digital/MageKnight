@@ -29,6 +29,7 @@ import {
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
+  EFFECT_DEFEAT_IF_BLOCKED,
   EFFECT_REMOVE_RESISTANCES,
   ENEMY_STAT_ARMOR,
   ENEMY_STAT_ATTACK,
@@ -287,6 +288,21 @@ export function areResistancesRemoved(
  *
  * Note: Arcane Immunity blocks this effect (non-Attack/Block effect).
  */
+/**
+ * Check if an enemy has the defeat-if-blocked modifier active.
+ * Returns true if EFFECT_DEFEAT_IF_BLOCKED modifier targets this enemy.
+ * Used by Delphana Masters' red mana ability.
+ *
+ * Note: Arcane Immunity blocks this at application time, so no check needed here.
+ */
+export function hasDefeatIfBlocked(
+  state: GameState,
+  enemyId: string
+): boolean {
+  const modifiers = getModifiersForEnemy(state, enemyId);
+  return modifiers.some((m) => m.effect.type === EFFECT_DEFEAT_IF_BLOCKED);
+}
+
 export function isPhysicalResistanceRemoved(
   state: GameState,
   enemyId: string
