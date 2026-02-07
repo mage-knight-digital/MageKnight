@@ -27,6 +27,7 @@ import {
   USE_BANNER_FEAR_ACTION,
   ENEMY_DIGGERS,
   ENEMY_SORCERERS,
+  ENEMY_MAGIC_FAMILIARS,
   UNIT_STATE_READY,
   UNIT_STATE_SPENT,
   ENEMIES,
@@ -38,11 +39,30 @@ import {
   canCancelEnemyAttack,
   getCancellableAttacks,
 } from "../rules/banners.js";
-import { isAttackCancelled } from "../combat/enemyAttackHelpers.js";
-import { computeBannerFearOptions } from "../validActions/combatBlock.js";
+import {
+  isAttackCancelled,
+  isEnemyFullyDamageAssigned,
+  getUnblockedAttackIndices,
+  getAttacksNeedingDamageAssignment,
+} from "../combat/enemyAttackHelpers.js";
+import { computeBannerFearOptions, getBlockOptions } from "../validActions/combatBlock.js";
+import {
+  resolveSelectCombatEnemy,
+  resolveCombatEnemyTarget,
+} from "../effects/combatEffects.js";
 import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 import type { CombatEnemy, CombatState } from "../../types/combat.js";
 import type { Player } from "../../types/player.js";
+import type { SelectCombatEnemyEffect, ResolveCombatEnemyTargetEffect } from "../../types/cards.js";
+import {
+  EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
+  EFFECT_NOOP,
+} from "../../types/effectTypes.js";
+import {
+  DURATION_COMBAT,
+  EFFECT_ENEMY_SKIP_ATTACK,
+} from "../../types/modifierConstants.js";
 
 // ============================================================================
 // Test Helpers
@@ -508,17 +528,352 @@ describe("Banner of Fear", () => {
   });
 
   // --------------------------------------------------------------------------
-  // Cancelled Attack Interaction with Damage Assignment
+  // Cancelled Attack Interactions with Damage Assignment & Block Options
   // --------------------------------------------------------------------------
   describe("Cancelled Attack Interactions", () => {
     it("cancelled attacks should not appear in block options", () => {
-      // This is tested indirectly through the getBlockOptions function
-      // which filters out cancelled attacks via isAttackCancelled
       const enemy = createCombatEnemy("enemy_1", ENEMY_DIGGERS, {
         attacksCancelled: [true],
       });
+      const state = createTestGameState({
+        combat: createBlockPhaseCombat([enemy]),
+      });
 
-      expect(isAttackCancelled(enemy, 0)).toBe(true);
+      const blockOpts = getBlockOptions(state, [enemy]);
+      expect(blockOpts).toHaveLength(0);
+    });
+
+    it("isEnemyFullyDamageAssigned should skip cancelled attacks", () => {
+      // Multi-attack enemy (Magic Familiars): 2 attacks
+      // First attack cancelled, second attack has damage assigned
+      const enemy = createCombatEnemy("enemy_1", ENEMY_MAGIC_FAMILIARS, {
+        attacksCancelled: [true, false],
+        attacksDamageAssigned: [false, true],
+      });
+
+      expect(isEnemyFullyDamageAssigned(enemy)).toBe(true);
+    });
+
+    it("isEnemyFullyDamageAssigned should return false when uncancelled attack lacks damage assignment", () => {
+      const enemy = createCombatEnemy("enemy_1", ENEMY_MAGIC_FAMILIARS, {
+        attacksCancelled: [true, false],
+        attacksDamageAssigned: [false, false],
+      });
+
+      expect(isEnemyFullyDamageAssigned(enemy)).toBe(false);
+    });
+
+    it("getUnblockedAttackIndices should exclude cancelled attacks", () => {
+      const enemy = createCombatEnemy("enemy_1", ENEMY_MAGIC_FAMILIARS, {
+        attacksCancelled: [true, false],
+      });
+
+      const indices = getUnblockedAttackIndices(enemy);
+      expect(indices).toEqual([1]); // Only attack index 1 (uncancelled)
+    });
+
+    it("getAttacksNeedingDamageAssignment should skip cancelled attacks", () => {
+      const enemy = createCombatEnemy("enemy_1", ENEMY_MAGIC_FAMILIARS, {
+        attacksCancelled: [true, false],
+      });
+
+      const attacks = getAttacksNeedingDamageAssignment(enemy);
+      expect(attacks).toEqual([1]); // Only attack index 1 needs damage
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Multi-target Enemy Selection (Powered Effect)
+  // --------------------------------------------------------------------------
+  describe("Powered Effect: Multi-target Selection", () => {
+    const multiTargetEffect: SelectCombatEnemyEffect = {
+      type: EFFECT_SELECT_COMBAT_ENEMY,
+      excludeArcaneImmune: true,
+      maxTargets: 3,
+      template: {
+        modifiers: [
+          {
+            modifier: { type: EFFECT_ENEMY_SKIP_ATTACK },
+            duration: DURATION_COMBAT,
+            description: "Target enemy does not attack",
+          },
+        ],
+      },
+    };
+
+    it("should generate choice options with multi-target tracking", () => {
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_2", ENEMY_DIGGERS),
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+      const state = createTestGameState({ combat });
+
+      const result = resolveSelectCombatEnemy(state, multiTargetEffect, "player1");
+
+      expect(result.requiresChoice).toBe(true);
+      expect(result.dynamicChoiceOptions).toHaveLength(2);
+      expect(result.description).toContain("0/3 selected");
+
+      // Each option should have multi-target tracking
+      const option = result.dynamicChoiceOptions![0] as ResolveCombatEnemyTargetEffect;
+      expect(option.multiTargetSource).toBeDefined();
+      expect(option.remainingTargets).toBe(2); // 3 max - 0 so far - 1 for current = 2
+      expect(option.alreadyTargeted).toEqual([]);
+    });
+
+    it("should filter already-targeted enemies on subsequent selections", () => {
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_2", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_3", ENEMY_DIGGERS),
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+      const state = createTestGameState({ combat });
+
+      // Simulate second selection: enemy_1 already targeted
+      const result = resolveSelectCombatEnemy(
+        state,
+        multiTargetEffect,
+        "player1",
+        ["enemy_1"]
+      );
+
+      expect(result.requiresChoice).toBe(true);
+      // 2 enemies + 1 "done" NOOP option
+      expect(result.dynamicChoiceOptions).toHaveLength(3);
+      expect(result.description).toContain("1/3 selected");
+
+      // Verify enemy_1 is not in the options
+      const enemyOptions = result.dynamicChoiceOptions!.filter(
+        (o) => o.type === EFFECT_RESOLVE_COMBAT_ENEMY_TARGET
+      ) as ResolveCombatEnemyTargetEffect[];
+      expect(enemyOptions.every((o) => o.enemyInstanceId !== "enemy_1")).toBe(true);
+
+      // Verify NOOP "done" option exists
+      const noopOption = result.dynamicChoiceOptions!.find(
+        (o) => o.type === EFFECT_NOOP
+      );
+      expect(noopOption).toBeDefined();
+    });
+
+    it("should add done option when at least one target already selected", () => {
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_2", ENEMY_DIGGERS),
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+      const state = createTestGameState({ combat });
+
+      // First selection: no "done" option
+      const first = resolveSelectCombatEnemy(state, multiTargetEffect, "player1");
+      const firstNoop = first.dynamicChoiceOptions!.find((o) => o.type === EFFECT_NOOP);
+      expect(firstNoop).toBeUndefined();
+
+      // Second selection (one already targeted): has "done" option
+      const second = resolveSelectCombatEnemy(
+        state,
+        multiTargetEffect,
+        "player1",
+        ["enemy_1"]
+      );
+      const secondNoop = second.dynamicChoiceOptions!.find((o) => o.type === EFFECT_NOOP);
+      expect(secondNoop).toBeDefined();
+    });
+
+    it("should handle loop-back in resolveCombatEnemyTarget for multi-target", () => {
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_2", ENEMY_DIGGERS),
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+      const state = createTestGameState({ combat });
+
+      // Simulate resolving a target with remaining targets
+      const resolveEffect: ResolveCombatEnemyTargetEffect = {
+        type: EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
+        enemyInstanceId: "enemy_1",
+        enemyName: "Diggers",
+        template: multiTargetEffect.template,
+        multiTargetSource: multiTargetEffect,
+        remainingTargets: 1,
+        alreadyTargeted: [],
+      };
+
+      const result = resolveCombatEnemyTarget(state, "player1", resolveEffect);
+
+      // Should trigger the modifier application on enemy_1
+      expect(result.description).toBeTruthy();
+    });
+
+    it("should return no eligible targets when all enemies are Arcane Immune", () => {
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_SORCERERS),
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+      const state = createTestGameState({ combat });
+
+      const result = resolveSelectCombatEnemy(state, multiTargetEffect, "player1");
+
+      expect(result.requiresChoice).toBeUndefined();
+      expect(result.description).toBe("No valid enemy targets");
+    });
+
+    it("should exclude Arcane Immune enemies from multi-target selection", () => {
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
+        createCombatEnemy("enemy_2", ENEMY_SORCERERS), // Arcane Immune
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+      const state = createTestGameState({ combat });
+
+      const result = resolveSelectCombatEnemy(state, multiTargetEffect, "player1");
+
+      expect(result.dynamicChoiceOptions).toHaveLength(1);
+      const option = result.dynamicChoiceOptions![0] as ResolveCombatEnemyTargetEffect;
+      expect(option.enemyInstanceId).toBe("enemy_1");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Validator Edge Cases
+  // --------------------------------------------------------------------------
+  describe("Validator Edge Cases", () => {
+    it("should reject when unit is spent (not ready)", () => {
+      const unit = createPeasantUnit(TEST_UNIT_1);
+      unit.state = UNIT_STATE_SPENT;
+      const player = createTestPlayer({
+        units: [unit],
+        attachedBanners: [
+          {
+            bannerId: CARD_BANNER_OF_FEAR,
+            unitInstanceId: TEST_UNIT_1,
+            isUsedThisRound: false,
+          },
+        ],
+      });
+      const enemies = [createCombatEnemy("enemy_1", ENEMY_DIGGERS)];
+      const combat = createBlockPhaseCombat(enemies);
+
+      const state = createTestGameState({
+        players: [player],
+        combat,
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: USE_BANNER_FEAR_ACTION,
+        unitInstanceId: TEST_UNIT_1,
+        targetEnemyInstanceId: "enemy_1",
+        attackIndex: 0,
+      });
+
+      expect(result.events.some((e) => e.type === "INVALID_ACTION")).toBe(true);
+    });
+
+    it("should reject invalid attack index", () => {
+      const player = createPlayerWithBannerOfFear();
+      const enemies = [createCombatEnemy("enemy_1", ENEMY_DIGGERS)];
+      const combat = createBlockPhaseCombat(enemies);
+
+      const state = createTestGameState({
+        players: [player],
+        combat,
+      });
+
+      // Diggers has only 1 attack (index 0), so index 1 is invalid
+      const result = engine.processAction(state, "player1", {
+        type: USE_BANNER_FEAR_ACTION,
+        unitInstanceId: TEST_UNIT_1,
+        targetEnemyInstanceId: "enemy_1",
+        attackIndex: 1,
+      });
+
+      expect(result.events.some((e) => e.type === "INVALID_ACTION")).toBe(true);
+    });
+
+    it("should reject when unit not found", () => {
+      const player = createPlayerWithBannerOfFear();
+      const enemies = [createCombatEnemy("enemy_1", ENEMY_DIGGERS)];
+      const combat = createBlockPhaseCombat(enemies);
+
+      const state = createTestGameState({
+        players: [player],
+        combat,
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: USE_BANNER_FEAR_ACTION,
+        unitInstanceId: "nonexistent_unit",
+        targetEnemyInstanceId: "enemy_1",
+        attackIndex: 0,
+      });
+
+      expect(result.events.some((e) => e.type === "INVALID_ACTION")).toBe(true);
+    });
+
+    it("should reject when enemy not found", () => {
+      const player = createPlayerWithBannerOfFear();
+      const enemies = [createCombatEnemy("enemy_1", ENEMY_DIGGERS)];
+      const combat = createBlockPhaseCombat(enemies);
+
+      const state = createTestGameState({
+        players: [player],
+        combat,
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: USE_BANNER_FEAR_ACTION,
+        unitInstanceId: TEST_UNIT_1,
+        targetEnemyInstanceId: "nonexistent_enemy",
+        attackIndex: 0,
+      });
+
+      expect(result.events.some((e) => e.type === "INVALID_ACTION")).toBe(true);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Undo: fameGained tracking
+  // --------------------------------------------------------------------------
+  describe("Undo: Combat fameGained Tracking", () => {
+    it("should restore combat fameGained on undo", () => {
+      const player = createPlayerWithBannerOfFear(TEST_UNIT_1, { fame: 0 });
+      const enemies = [createCombatEnemy("enemy_1", ENEMY_DIGGERS)];
+      const combat = createBlockPhaseCombat(enemies, { fameGained: 3 });
+
+      const state = createTestGameState({
+        players: [player],
+        combat,
+      });
+
+      const afterCancel = engine.processAction(state, "player1", {
+        type: USE_BANNER_FEAR_ACTION,
+        unitInstanceId: TEST_UNIT_1,
+        targetEnemyInstanceId: "enemy_1",
+        attackIndex: 0,
+      });
+
+      const afterUndo = engine.processAction(afterCancel.state, "player1", {
+        type: "UNDO" as const,
+      });
+
+      expect(afterUndo.state.combat!.fameGained).toBe(3);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Valid Actions: no cancellable targets
+  // --------------------------------------------------------------------------
+  describe("Valid Actions: No Cancellable Targets", () => {
+    it("should return empty options when all enemies are defeated", () => {
+      const player = createPlayerWithBannerOfFear();
+      const enemies = [
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS, { isDefeated: true }),
+      ];
+      const combat = createBlockPhaseCombat(enemies);
+
+      const options = computeBannerFearOptions(combat, player);
+      expect(options).toHaveLength(0);
     });
   });
 });
