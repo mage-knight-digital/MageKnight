@@ -1,7 +1,16 @@
 import type { DeedCard } from "../../../types/cards.js";
 import { CATEGORY_COMBAT, DEED_CARD_TYPE_ADVANCED_ACTION } from "../../../types/cards.js";
 import { MANA_RED, CARD_INTO_THE_HEAT } from "@mage-knight/shared";
-import { attack } from "../helpers.js";
+import { COMBAT_PHASE_RANGED_SIEGE } from "../../../types/combat.js";
+import { EFFECT_APPLY_MODIFIER } from "../../../types/effectTypes.js";
+import {
+  DURATION_COMBAT,
+  EFFECT_RULE_OVERRIDE,
+  EFFECT_UNIT_COMBAT_BONUS,
+  RULE_UNITS_CANNOT_ABSORB_DAMAGE,
+  SCOPE_ALL_UNITS,
+} from "../../../types/modifierConstants.js";
+import { compound } from "../helpers.js";
 
 export const INTO_THE_HEAT: DeedCard = {
   id: CARD_INTO_THE_HEAT,
@@ -9,10 +18,36 @@ export const INTO_THE_HEAT: DeedCard = {
   cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
   poweredBy: [MANA_RED],
   categories: [CATEGORY_COMBAT],
-  // Basic: Play this card at the start of combat. All of your Units get their Attack and Block values increased by 2 this combat. You cannot assign damage to your Units this turn.
-  // Powered: Play this card at the start of combat. All of your Units get their Attack and Block values increased by 3 this combat. You cannot assign damage to your Units this turn.
-  // TODO: Implement unit buff modifier and damage assignment restriction
-  basicEffect: attack(2),
-  poweredEffect: attack(3),
+  combatPhaseRestriction: [COMBAT_PHASE_RANGED_SIEGE],
+  basicEffect: compound(
+    {
+      type: EFFECT_APPLY_MODIFIER,
+      modifier: { type: EFFECT_UNIT_COMBAT_BONUS, attackBonus: 2, blockBonus: 2 },
+      duration: DURATION_COMBAT,
+      scope: { type: SCOPE_ALL_UNITS },
+      description: "All units get +2 Attack and +2 Block this combat",
+    },
+    {
+      type: EFFECT_APPLY_MODIFIER,
+      modifier: { type: EFFECT_RULE_OVERRIDE, rule: RULE_UNITS_CANNOT_ABSORB_DAMAGE },
+      duration: DURATION_COMBAT,
+      description: "Cannot assign damage to units this combat",
+    },
+  ),
+  poweredEffect: compound(
+    {
+      type: EFFECT_APPLY_MODIFIER,
+      modifier: { type: EFFECT_UNIT_COMBAT_BONUS, attackBonus: 3, blockBonus: 3 },
+      duration: DURATION_COMBAT,
+      scope: { type: SCOPE_ALL_UNITS },
+      description: "All units get +3 Attack and +3 Block this combat",
+    },
+    {
+      type: EFFECT_APPLY_MODIFIER,
+      modifier: { type: EFFECT_RULE_OVERRIDE, rule: RULE_UNITS_CANNOT_ABSORB_DAMAGE },
+      duration: DURATION_COMBAT,
+      description: "Cannot assign damage to units this combat",
+    },
+  ),
   sidewaysValue: 1,
 };

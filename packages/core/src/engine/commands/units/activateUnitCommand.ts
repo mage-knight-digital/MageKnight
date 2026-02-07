@@ -24,8 +24,9 @@ import {
   UNIT_ABILITY_ATTACK,
   UNIT_ABILITY_RANGED_ATTACK,
   UNIT_ABILITY_SIEGE_ATTACK,
+  UNIT_ABILITY_BLOCK,
 } from "@mage-knight/shared";
-import { getUnitAttackBonus, getModifiersForPlayer } from "../../modifiers/index.js";
+import { getUnitAttackBonus, getUnitBlockBonus, getModifiersForPlayer } from "../../modifiers/index.js";
 import { EFFECT_TRANSFORM_ATTACKS_COLD_FIRE, EFFECT_ADD_SIEGE_TO_ATTACKS } from "../../../types/modifierConstants.js";
 import { ELEMENT_COLD_FIRE } from "@mage-knight/shared";
 import {
@@ -335,15 +336,21 @@ export function createActivateUnitCommand(
       // ============================================================
 
       // Get the ability value (default to 0 for abilities without values)
-      // Apply unit attack bonus from Coordinated Fire for attack abilities
+      // Apply unit attack bonus from Coordinated Fire / Into the Heat for attack abilities
+      // Apply unit block bonus from Into the Heat for block abilities
       let abilityValue = ability.value ?? 0;
       const isAttackAbility =
         ability.type === UNIT_ABILITY_ATTACK ||
         ability.type === UNIT_ABILITY_RANGED_ATTACK ||
         ability.type === UNIT_ABILITY_SIEGE_ATTACK;
+      const isBlockAbility = ability.type === UNIT_ABILITY_BLOCK;
       if (isAttackAbility && abilityValue > 0) {
         const attackBonus = getUnitAttackBonus(state, params.playerId);
         abilityValue += attackBonus;
+      }
+      if (isBlockAbility && abilityValue > 0) {
+        const blockBonus = getUnitBlockBonus(state, params.playerId);
+        abilityValue += blockBonus;
       }
 
       // Apply Altem Mages attack modifiers to unit ability element/type

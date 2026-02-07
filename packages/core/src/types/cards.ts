@@ -1226,4 +1226,9 @@ export interface DeedCard {
   // If true, card affects other players and can be removed in "friendly game" mode
   // Spells: Mana Meltdown, Mana Claim, Mind Read, Energy Flow (#109-112)
   readonly interactive?: boolean;
+
+  // Restrict which combat phases this card can be played in.
+  // When set, the card is only playable during the specified phases.
+  // Used by Into the Heat which can only be played at start of combat (Ranged/Siege phase).
+  readonly combatPhaseRestriction?: readonly CombatPhase[];
 }

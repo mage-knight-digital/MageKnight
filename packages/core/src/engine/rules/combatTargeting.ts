@@ -13,7 +13,7 @@ import {
   ABILITY_UNFORTIFIED,
 } from "@mage-knight/shared";
 import { isAbilityNullified, isRuleActive } from "../modifiers/index.js";
-import { RULE_IGNORE_FORTIFICATION } from "../../types/modifierConstants.js";
+import { RULE_IGNORE_FORTIFICATION, RULE_UNITS_CANNOT_ABSORB_DAMAGE } from "../../types/modifierConstants.js";
 
 /**
  * Calculate fortification level for an enemy.
@@ -131,4 +131,19 @@ export function isDamageRedirectActive(
   enemyInstanceId: string
 ): boolean {
   return getDamageRedirectUnit(state, playerId, enemyInstanceId) !== undefined;
+}
+
+/**
+ * Check if the player's units cannot absorb damage this combat.
+ * Active when RULE_UNITS_CANNOT_ABSORB_DAMAGE modifier is present.
+ *
+ * Used by Into the Heat card — grants unit bonuses but prevents
+ * assigning damage to own units.
+ * Note: In PvP, opponents can still assign damage to your units.
+ */
+export function cannotAssignDamageToUnits(
+  state: GameState,
+  playerId: string
+): boolean {
+  return isRuleActive(state, playerId, RULE_UNITS_CANNOT_ABSORB_DAMAGE);
 }

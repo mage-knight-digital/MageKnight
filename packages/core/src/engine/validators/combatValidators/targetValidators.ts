@@ -24,8 +24,9 @@ import {
   ATTACK_ALREADY_BLOCKED,
   ATTACK_DAMAGE_ALREADY_ASSIGNED,
   DAMAGE_REDIRECT_REQUIRES_UNIT_TARGET,
+  UNITS_CANNOT_ABSORB_DAMAGE,
 } from "../validationCodes.js";
-import { isAssassinationActive, getDamageRedirectUnit } from "../../rules/combatTargeting.js";
+import { isAssassinationActive, getDamageRedirectUnit, cannotAssignDamageToUnits } from "../../rules/combatTargeting.js";
 import {
   getEnemyAttackCount,
   isAttackBlocked,
@@ -256,6 +257,34 @@ export function validateDamageRedirectTarget(
         "Damage must be assigned to the taunting unit first"
       );
     }
+  }
+
+  return valid();
+}
+
+// Into the Heat: units cannot absorb damage when rule is active
+export function validateUnitsCannotAbsorbDamage(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ASSIGN_DAMAGE_ACTION) return valid();
+
+  if (!cannotAssignDamageToUnits(state, playerId)) {
+    return valid();
+  }
+
+  // Check if any damage is being assigned to units
+  const assignments = action.assignments ?? [];
+  const hasUnitTarget = assignments.some(
+    (assignment) => assignment.target === DAMAGE_TARGET_UNIT
+  );
+
+  if (hasUnitTarget) {
+    return invalid(
+      UNITS_CANNOT_ABSORB_DAMAGE,
+      "Cannot assign damage to units this combat (Into the Heat)"
+    );
   }
 
   return valid();

@@ -49,6 +49,7 @@ import {
   EFFECT_INTERACTION_BONUS,
   EFFECT_MANA_CLAIM_SUSTAINED,
   EFFECT_MANA_CURSE,
+  EFFECT_UNIT_COMBAT_BONUS,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -65,6 +66,7 @@ import {
   RULE_MOVE_CARDS_IN_COMBAT,
   RULE_SOURCE_BLOCKED,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
+  RULE_UNITS_CANNOT_ABSORB_DAMAGE,
   RULE_WOUNDS_PLAYABLE_SIDEWAYS,
   SCOPE_ALL_ENEMIES,
   SCOPE_ALL_PLAYERS,
@@ -197,7 +199,8 @@ export interface RuleOverrideModifier {
     | typeof RULE_SOURCE_BLOCKED
     | typeof RULE_EXTRA_SOURCE_DIE
     | typeof RULE_MOVE_CARDS_IN_COMBAT
-    | typeof RULE_EXTENDED_EXPLORE;
+    | typeof RULE_EXTENDED_EXPLORE
+    | typeof RULE_UNITS_CANNOT_ABSORB_DAMAGE;
 }
 
 // Ability nullifier (e.g., "ignore Swift on one enemy")
@@ -369,6 +372,16 @@ export interface ManaClaimSustainedModifier {
   readonly claimedDieId: SourceDieId;
 }
 
+// Unit combat bonus modifier (Into the Heat card)
+// Grants +N to all attacks AND +N to all blocks for units.
+// Only applies to units whose base ability value > 0.
+// Scoped to ALL_UNITS. Duration: combat.
+export interface UnitCombatBonusModifier {
+  readonly type: typeof EFFECT_UNIT_COMBAT_BONUS;
+  readonly attackBonus: number;
+  readonly blockBonus: number;
+}
+
 // Mana Curse modifier (Mana Curse powered effect)
 // When another player uses mana of the cursed color, they take a wound.
 // Max 1 wound per player per turn from this curse.
@@ -410,7 +423,8 @@ export type ModifierEffect =
   | UnitRecruitmentBonusModifier
   | InteractionBonusModifier
   | ManaClaimSustainedModifier
-  | ManaCurseModifier;
+  | ManaCurseModifier
+  | UnitCombatBonusModifier;
 
 // === Active Modifier (live in game state) ===
 

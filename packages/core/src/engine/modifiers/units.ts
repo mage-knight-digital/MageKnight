@@ -7,10 +7,10 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerUnit } from "../../types/unit.js";
-import type { GrantResistancesModifier, UnitAttackBonusModifier } from "../../types/modifiers.js";
+import type { GrantResistancesModifier, UnitAttackBonusModifier, UnitCombatBonusModifier } from "../../types/modifiers.js";
 import type { ResistanceType } from "@mage-knight/shared";
 import { getUnit } from "@mage-knight/shared";
-import { EFFECT_GRANT_RESISTANCES, EFFECT_UNIT_ATTACK_BONUS, SCOPE_ALL_UNITS } from "../../types/modifierConstants.js";
+import { EFFECT_GRANT_RESISTANCES, EFFECT_UNIT_ATTACK_BONUS, EFFECT_UNIT_COMBAT_BONUS, SCOPE_ALL_UNITS } from "../../types/modifierConstants.js";
 import { getModifiersForPlayer } from "./queries.js";
 
 /**
@@ -66,17 +66,48 @@ export function getUnitAttackBonus(
   state: GameState,
   playerId: string,
 ): number {
+  const playerModifiers = getModifiersForPlayer(state, playerId);
+
+  let bonus = 0;
+
+  // Sum EFFECT_UNIT_ATTACK_BONUS modifiers (Coordinated Fire)
+  for (const m of playerModifiers) {
+    if (m.effect.type === EFFECT_UNIT_ATTACK_BONUS && m.scope.type === SCOPE_ALL_UNITS) {
+      bonus += (m.effect as UnitAttackBonusModifier).amount;
+    }
+  }
+
+  // Sum EFFECT_UNIT_COMBAT_BONUS attack bonuses (Into the Heat)
+  for (const m of playerModifiers) {
+    if (m.effect.type === EFFECT_UNIT_COMBAT_BONUS && m.scope.type === SCOPE_ALL_UNITS) {
+      bonus += (m.effect as UnitCombatBonusModifier).attackBonus;
+    }
+  }
+
+  return bonus;
+}
+
+/**
+ * Get the total unit block bonus from active modifiers.
+ * Returns the sum of all EFFECT_UNIT_COMBAT_BONUS block bonuses
+ * scoped to ALL_UNITS.
+ *
+ * Used by Into the Heat card which grants +2/+3 block to all units.
+ */
+export function getUnitBlockBonus(
+  state: GameState,
+  playerId: string,
+): number {
   const modifiers = getModifiersForPlayer(state, playerId)
     .filter((m) => {
-      if (m.effect.type !== EFFECT_UNIT_ATTACK_BONUS) return false;
-      // Only ALL_UNITS scope is currently used for this modifier
+      if (m.effect.type !== EFFECT_UNIT_COMBAT_BONUS) return false;
       return m.scope.type === SCOPE_ALL_UNITS;
     })
-    .map((m) => m.effect as UnitAttackBonusModifier);
+    .map((m) => m.effect as UnitCombatBonusModifier);
 
   let bonus = 0;
   for (const mod of modifiers) {
-    bonus += mod.amount;
+    bonus += mod.blockBonus;
   }
 
   return bonus;
