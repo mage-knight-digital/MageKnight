@@ -29,6 +29,7 @@ import {
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
+  EFFECT_GAIN_HEALING,
   EFFECT_GAIN_INFLUENCE,
   EFFECT_GAIN_MANA,
   EFFECT_GAIN_MOVE,
@@ -245,6 +246,21 @@ export const HERO_BLUE_COLD_FIRE_BLOCK = "hero_blue_cold_fire_block" as const;
  * Hero (Red/Fire): (Red Mana) Cold Fire Attack 6.
  */
 export const HERO_RED_COLD_FIRE_ATTACK = "hero_red_cold_fire_attack" as const;
+
+/**
+ * Hero (Green/Physical): Attack OR Block 5 (choice, physical).
+ */
+export const HERO_GREEN_ATTACK_OR_BLOCK = "hero_green_attack_or_block" as const;
+
+/**
+ * Hero (Green/Physical): Influence 5 + Reputation +1 when used in interaction.
+ */
+export const HERO_GREEN_INFLUENCE_REP = "hero_green_influence_rep" as const;
+
+/**
+ * Hero (Green/Physical): (Green Mana) Heal 4.
+ */
+export const HERO_GREEN_HEAL = "hero_green_heal" as const;
 
 // =============================================================================
 // EFFECT DEFINITIONS
@@ -926,6 +942,49 @@ const HERO_RED_COLD_FIRE_ATTACK_EFFECT: CardEffect = {
 };
 
 // =============================================================================
+// HERO (GREEN/PHYSICAL) EFFECTS
+// =============================================================================
+
+/**
+ * Hero (Green/Physical): Attack 5 OR Block 5 (choice, physical).
+ * Shared ability for all Heroes - player chooses one.
+ */
+const HERO_GREEN_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 5,
+      combatType: COMBAT_TYPE_MELEE,
+    },
+    {
+      type: EFFECT_GAIN_BLOCK,
+      amount: 5,
+    },
+  ],
+};
+
+/**
+ * Hero (Green/Physical): Influence 5 + Reputation +1 when used in interaction.
+ * Per rulebook: Influence 5 grants +1 Reputation when used in interaction.
+ */
+const HERO_GREEN_INFLUENCE_REP_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    { type: EFFECT_GAIN_INFLUENCE, amount: 5 },
+    { type: EFFECT_CHANGE_REPUTATION, amount: 1 },
+  ],
+};
+
+/**
+ * Hero (Green/Physical): (Green Mana) Heal 4.
+ */
+const HERO_GREEN_HEAL_EFFECT: CardEffect = {
+  type: EFFECT_GAIN_HEALING,
+  amount: 4,
+};
+
+// =============================================================================
 // REGISTRY
 // =============================================================================
 
@@ -967,6 +1026,9 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [HERO_RED_ATTACK_OR_BLOCK]: HERO_RED_ATTACK_OR_BLOCK_EFFECT,
   [HERO_RED_INFLUENCE_REP]: HERO_RED_INFLUENCE_REP_EFFECT,
   [HERO_RED_COLD_FIRE_ATTACK]: HERO_RED_COLD_FIRE_ATTACK_EFFECT,
+  [HERO_GREEN_ATTACK_OR_BLOCK]: HERO_GREEN_ATTACK_OR_BLOCK_EFFECT,
+  [HERO_GREEN_INFLUENCE_REP]: HERO_GREEN_INFLUENCE_REP_EFFECT,
+  [HERO_GREEN_HEAL]: HERO_GREEN_HEAL_EFFECT,
 };
 
 /**
