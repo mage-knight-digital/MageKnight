@@ -39,13 +39,14 @@ export function processPlayerRoundReset(
     // Ready all units (including wounded)
     const readiedUnits = readyAllUnits(player.units);
 
-    // Shuffle all cards (hand + discard + play area + deck) into deck
+    // Shuffle all cards (hand + discard + play area + deck + set-aside) into deck
     // Filter out removed cards (destroyed artifacts, etc.)
     const allCards: CardId[] = [
       ...player.hand,
       ...player.discard,
       ...player.playArea,
       ...player.deck,
+      ...player.timeBendingSetAsideCards,
     ].filter((cardId) => !player.removedCards.includes(cardId));
 
     const { result: shuffled, rng: rngAfterShuffle } = shuffleWithRng(
@@ -103,6 +104,9 @@ export function processPlayerRoundReset(
         : null,
       // Reset cooperative assault state for new round
       roundOrderTokenFlipped: false,
+      // Reset Time Bending state for new round
+      isTimeBentTurn: false,
+      timeBendingSetAsideCards: [],
       // Reset banner usage for new round (banners stay attached)
       attachedBanners: player.attachedBanners.map((b) => ({
         ...b,

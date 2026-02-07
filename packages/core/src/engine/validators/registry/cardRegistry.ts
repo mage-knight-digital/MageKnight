@@ -16,6 +16,7 @@ import {
   validateNotWound,
   validateNoHealingCardInCombat,
   validateCardPlayableInContext,
+  validateTimeBendingChain,
 } from "../playCardValidators.js";
 
 // Mana validators
@@ -57,6 +58,7 @@ export const cardRegistry: Record<string, Validator[]> = {
     validateNotWound,
     validateNoHealingCardInCombat,
     validateCardPlayableInContext,
+    validateTimeBendingChain, // Cannot play Space Bending powered during Time Bent turn
     // Mana validators - spell checks first, then dungeon/tomb rules, then time check, then availability, then color match
     validateSpellBasicManaRequirement, // Spells require mana even for basic effect
     validateSpellManaRequirement, // Spells require two mana sources for powered (black + color)

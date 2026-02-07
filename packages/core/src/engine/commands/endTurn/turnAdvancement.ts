@@ -31,7 +31,8 @@ import { grantManaClaimSustainedToken } from "../../effects/manaClaimEffects.js"
  */
 export function determineNextPlayer(
   state: GameState,
-  playerId: string
+  playerId: string,
+  isTimeBendingActive: boolean = false
 ): NextPlayerResult {
   let playersWithFinalTurn = [...state.playersWithFinalTurn];
   let shouldTriggerRoundEnd = false;
@@ -54,16 +55,19 @@ export function determineNextPlayer(
     }
   }
 
-  // Check for extra turn (The Right Moment tactic)
+  // Check for extra turn (The Right Moment tactic or Time Bending spell)
+  // Note: isTimeBendingActive is passed in because the modifier is already expired
+  // by the time this function is called (modifiers expire before turn advancement)
   const currentPlayer = getPlayerById(state, playerId);
   const hasExtraTurnPending = currentPlayer?.tacticState?.extraTurnPending === true;
+  const hasTimeBendingPending = isTimeBendingActive;
 
   let nextPlayerId: string | null = null;
   let currentPlayerIndex = state.currentPlayerIndex;
 
   if (shouldTriggerRoundEnd) {
     nextPlayerId = null;
-  } else if (hasExtraTurnPending) {
+  } else if (hasExtraTurnPending || hasTimeBendingPending) {
     nextPlayerId = playerId;
   } else {
     const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.turnOrder.length;
@@ -90,7 +94,8 @@ export function setupNextPlayer(
   state: GameState,
   nextPlayerId: string,
   isExtraTurn: boolean,
-  currentPlayerId: string
+  currentPlayerId: string,
+  isTimeBendingExtraTurn: boolean = false
 ): NextPlayerSetupResult {
   const players = [...state.players];
   let gladeManaEvent: GameEvent | null = null;
@@ -116,6 +121,20 @@ export function setupNextPlayer(
             ? [...player.pureMana, gladeResult.manaToken]
             : player.pureMana,
         };
+
+        // Time Bending extra turn: mark as time bent and refresh once-per-turn skills
+        if (isTimeBendingExtraTurn) {
+          updatedPlayer = {
+            ...updatedPlayer,
+            isTimeBentTurn: true,
+            // Refresh once-per-turn skill cooldowns (but NOT once-per-round)
+            skillCooldowns: {
+              ...updatedPlayer.skillCooldowns,
+              usedThisTurn: [],
+              usedThisCombat: [],
+            },
+          };
+        }
 
         // Grant sustained Mana Claim token at turn start
         updatedPlayer = grantManaClaimSustainedToken(state, updatedPlayer);

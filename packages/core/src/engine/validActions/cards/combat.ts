@@ -23,7 +23,7 @@ import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
-import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, isRangedAttackUnusable, type CombatEffectContext } from "../../rules/cardPlay.js";
+import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, isRangedAttackUnusable, isTimeBendingChainPrevented, type CombatEffectContext } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT } from "../../../types/modifierConstants.js";
@@ -139,7 +139,9 @@ export function getPlayableCardsForCombat(
     const canActuallyPlayBasic = playability.canPlayBasic && basicIsResolvable && spellBasicManaAvailable;
 
     // Check if the card has a powered effect for this phase AND player can pay for it AND it's resolvable
-    const payableManaColor = (playability.canPlayPowered && poweredIsResolvable)
+    // Also check Time Bending chain prevention (cannot play Space Bending powered during Time Bent turn)
+    const chainPrevented = isTimeBendingChainPrevented(cardId, true, player.isTimeBentTurn);
+    const payableManaColor = (playability.canPlayPowered && poweredIsResolvable && !chainPrevented)
       ? findPayableManaColor(state, player, card)
       : undefined;
     const canActuallyPlayPowered = payableManaColor !== undefined;

@@ -5,7 +5,7 @@
  */
 
 import type { CardId } from "@mage-knight/shared";
-import { CARD_WOUND } from "@mage-knight/shared";
+import { CARD_WOUND, CARD_SPACE_BENDING } from "@mage-knight/shared";
 import type { CardEffect, DeedCard } from "../../types/cards.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import { getBasicActionCard, BASIC_ACTION_CARDS } from "../../data/basicActions/index.js";
@@ -228,4 +228,16 @@ export function isRangedAttackUnusable(
   return livingEnemies.every(enemy =>
     getFortificationLevel(enemy, combat.isAtFortifiedSite, state, playerId) > 0
   );
+}
+
+/**
+ * Check if a card cannot be played powered due to Time Bending chain prevention.
+ * Space Bending cannot be played powered during a Time Bent turn (no infinite turns).
+ */
+export function isTimeBendingChainPrevented(
+  cardId: CardId,
+  powered: boolean,
+  isTimeBentTurn: boolean
+): boolean {
+  return powered && cardId === CARD_SPACE_BENDING && isTimeBentTurn;
 }

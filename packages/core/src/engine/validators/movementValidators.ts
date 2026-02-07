@@ -28,6 +28,9 @@ import {
   TERRAIN_PROHIBITED,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { isRuleActive } from "../modifiers/index.js";
+import { RULE_SPACE_BENDING_ADJACENCY } from "../../types/modifierConstants.js";
+import { areHexesWithinDistance } from "../explore/adjacency.js";
 
 // Helper to get target from action (type guard)
 function getMoveTarget(action: PlayerAction): HexCoord | null {
@@ -68,7 +71,7 @@ export function validatePlayerOnMap(
   return valid();
 }
 
-// Check target hex is adjacent to player
+// Check target hex is adjacent to player (or within distance 2 with Space Bending)
 export function validateTargetAdjacent(
   state: GameState,
   playerId: string,
@@ -81,10 +84,17 @@ export function validateTargetAdjacent(
     return invalid(INVALID_ACTION_CODE, "Invalid move action");
   }
 
-  if (!isAdjacent(player.position, target)) {
-    return invalid(NOT_ADJACENT, "Target hex is not adjacent");
+  if (isAdjacent(player.position, target)) {
+    return valid();
   }
-  return valid();
+
+  // Space Bending allows distance-2 movement
+  if (isRuleActive(state, playerId, RULE_SPACE_BENDING_ADJACENCY) &&
+      areHexesWithinDistance(player.position, target, 2)) {
+    return valid();
+  }
+
+  return invalid(NOT_ADJACENT, "Target hex is not adjacent");
 }
 
 // Check target hex exists

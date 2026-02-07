@@ -494,4 +494,11 @@ export interface Player {
   // Round Order token flipped (from cooperative assault or PvP this round)
   // Flipped tokens mean the player cannot participate in another cooperative assault this round
   readonly roundOrderTokenFlipped: boolean;
+
+  // Time Bending (Space Bending powered effect) state
+  // True during the extra turn granted by Time Bending
+  readonly isTimeBentTurn: boolean;
+  // Cards set aside by Time Bending for the rest of the round
+  // These are excluded from hand/deck/discard and returned at end of round
+  readonly timeBendingSetAsideCards: readonly CardId[];
 }

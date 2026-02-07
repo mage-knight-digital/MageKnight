@@ -21,7 +21,7 @@ import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
 import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../../types/modifierConstants.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
-import { isNormalEffectAllowed } from "../../rules/cardPlay.js";
+import { isNormalEffectAllowed, isTimeBendingChainPrevented } from "../../rules/cardPlay.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -92,7 +92,9 @@ export function getPlayableCardsForNormalTurn(
     const canActuallyPlayBasic = playability.canPlayBasic && spellBasicManaAvailable;
 
     // Check if the card has a powered effect AND player can pay for it
-    const payableManaColor = playability.canPlayPowered
+    // Also check Time Bending chain prevention (cannot play Space Bending powered during Time Bent turn)
+    const chainPrevented = isTimeBendingChainPrevented(cardId, true, player.isTimeBentTurn);
+    const payableManaColor = playability.canPlayPowered && !chainPrevented
       ? findPayableManaColor(state, player, card)
       : undefined;
     const canActuallyPlayPowered = payableManaColor !== undefined;
