@@ -19,6 +19,7 @@ import {
   CARD_NOT_PLAYABLE_IN_PHASE,
   CARD_EFFECT_NOT_RESOLVABLE,
   RANGED_ATTACK_ALL_FORTIFIED,
+  TIME_BENDING_CHAIN_PREVENTED,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
@@ -29,6 +30,7 @@ import {
   isHealingOnlyInCombat,
   isNormalEffectAllowed,
   isRangedAttackUnusable,
+  isTimeBendingChainPrevented,
   isWoundCardId,
 } from "../rules/cardPlay.js";
 import { isRuleActive } from "../modifiers/index.js";
@@ -214,6 +216,35 @@ export function validateCardPlayableInContext(
     return invalid(
       CARD_EFFECT_NOT_RESOLVABLE,
       "Card effect cannot be resolved right now"
+    );
+  }
+
+  return valid();
+}
+
+// Cannot play Space Bending powered during a Time Bent turn (chain prevention)
+export function validateTimeBendingChain(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== PLAY_CARD_ACTION) {
+    return valid();
+  }
+
+  if (!("cardId" in action) || !("powered" in action)) {
+    return valid();
+  }
+
+  const player = getPlayerById(state, playerId);
+  if (!player) {
+    return valid();
+  }
+
+  if (isTimeBendingChainPrevented(action.cardId, action.powered ?? false, player.isTimeBentTurn)) {
+    return invalid(
+      TIME_BENDING_CHAIN_PREVENTED,
+      "Cannot play Space Bending powered during a Time Bent turn"
     );
   }
 

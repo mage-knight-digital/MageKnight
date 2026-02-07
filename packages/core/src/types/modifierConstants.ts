@@ -83,6 +83,8 @@ export const RULE_SOURCE_BLOCKED = "source_blocked" as const;
 export const RULE_EXTRA_SOURCE_DIE = "extra_source_die" as const;
 export const RULE_BLACK_AS_ANY_COLOR = "black_as_any_color" as const;
 export const RULE_EXTENDED_EXPLORE = "extended_explore" as const;
+export const RULE_SPACE_BENDING_ADJACENCY = "space_bending_adjacency" as const;
+export const RULE_TIME_BENDING_ACTIVE = "time_bending_active" as const;
 
 // === AbilityNullifierModifier ===
 export const ABILITY_ANY = "any" as const;

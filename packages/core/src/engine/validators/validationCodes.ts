@@ -291,6 +291,9 @@ export const BANNER_NOT_A_BANNER = "BANNER_NOT_A_BANNER" as const;
 export const BANNER_TARGET_UNIT_NOT_FOUND = "BANNER_TARGET_UNIT_NOT_FOUND" as const;
 export const BANNER_NO_UNITS = "BANNER_NO_UNITS" as const;
 
+// Time Bending chain prevention validation codes
+export const TIME_BENDING_CHAIN_PREVENTED = "TIME_BENDING_CHAIN_PREVENTED" as const;
+
 // Skill usage validation codes
 export const SKILL_NOT_LEARNED = "SKILL_NOT_LEARNED" as const;
 export const SKILL_NOT_FOUND = "SKILL_NOT_FOUND" as const;
@@ -532,4 +535,6 @@ export type ValidationErrorCode =
   | typeof SKILL_NOT_FOUND
   | typeof SKILL_ON_COOLDOWN
   | typeof SKILL_REQUIRES_NOT_IN_COMBAT
-  | typeof SKILL_REQUIRES_WOUND_IN_HAND;
+  | typeof SKILL_REQUIRES_WOUND_IN_HAND
+  // Time Bending chain prevention
+  | typeof TIME_BENDING_CHAIN_PREVENTED;

@@ -9,6 +9,7 @@
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { CardId } from "@mage-knight/shared";
+import { CARD_SPACE_BENDING } from "@mage-knight/shared";
 import { getEndTurnDrawLimit } from "../../helpers/handLimitHelpers.js";
 import type { CardFlowResult } from "./types.js";
 
@@ -50,6 +51,38 @@ export function processCardFlow(
     discard: newDiscard,
     playArea: clearedPlayArea,
     cardsDrawn,
+  };
+}
+
+/**
+ * Process card flow for Time Bending (Space Bending powered effect):
+ * 1. Set aside the Space Bending card itself for the rest of the round
+ * 2. Return remaining play area cards to hand
+ * 3. Skip draw phase entirely
+ */
+export function processTimeBendingCardFlow(
+  _state: GameState,
+  player: Player
+): CardFlowResult {
+  // Separate Space Bending from other play area cards
+  const spaceBendingCards = player.playArea.filter(
+    (cardId) => cardId === CARD_SPACE_BENDING
+  );
+  const otherPlayAreaCards = player.playArea.filter(
+    (cardId) => cardId !== CARD_SPACE_BENDING
+  );
+
+  // Return other played cards to hand, skip draw
+  return {
+    hand: [...player.hand, ...otherPlayAreaCards],
+    deck: [...player.deck],
+    discard: [...player.discard],
+    playArea: [],
+    cardsDrawn: 0,
+    timeBendingSetAsideCards: [
+      ...player.timeBendingSetAsideCards,
+      ...spaceBendingCards,
+    ],
   };
 }
 

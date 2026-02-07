@@ -28,7 +28,7 @@ import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
 import { mustAnnounceEndOfRound } from "./helpers.js";
 import { isRuleActive } from "../modifiers/index.js";
-import { RULE_EXTENDED_EXPLORE } from "../../types/modifierConstants.js";
+import { RULE_EXTENDED_EXPLORE, RULE_SPACE_BENDING_ADJACENCY } from "../../types/modifierConstants.js";
 
 /** Exploration costs 2 move points from a safe space */
 const EXPLORE_COST = 2;
@@ -84,9 +84,10 @@ export function getValidExploreOptions(
     return undefined;
   }
 
-  // Determine explore distance (1 = normal adjacency, 2 = extended via Scouts ability)
+  // Determine explore distance (1 = normal adjacency, 2 = extended via Scouts ability or Space Bending)
   const extendedExplore = isRuleActive(state, player.id, RULE_EXTENDED_EXPLORE);
-  const exploreDistance = extendedExplore ? 2 : 1;
+  const spaceBending = isRuleActive(state, player.id, RULE_SPACE_BENDING_ADJACENCY);
+  const exploreDistance = (extendedExplore || spaceBending) ? 2 : 1;
 
   // Must be near the edge of the revealed map
   // Standard: must be on an edge hex (adjacent to unrevealed hex)

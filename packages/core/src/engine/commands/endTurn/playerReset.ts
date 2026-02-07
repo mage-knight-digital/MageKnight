@@ -44,6 +44,8 @@ export function createResetPlayer(
     hand: cardFlow.hand,
     deck: cardFlow.deck,
     discard: cardFlow.discard,
+    // Time Bending set-aside cards
+    timeBendingSetAsideCards: cardFlow.timeBendingSetAsideCards ?? player.timeBendingSetAsideCards,
     // Combat reset
     combatAccumulator: createEmptyCombatAccumulator(),
     enemiesDefeatedThisTurn: 0, // Reset for Sword of Justice fame tracking
@@ -59,5 +61,7 @@ export function createResetPlayer(
     // Cure spell tracking resets
     woundsHealedFromHandThisTurn: 0,
     unitsHealedThisTurn: [],
+    // Skill cooldown reset for Time Bending: refresh once-per-turn skills
+    // (usedThisTurn is cleared when isTimeBentTurn is being set up in turnAdvancement)
   };
 }

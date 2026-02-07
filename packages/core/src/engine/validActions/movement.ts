@@ -15,7 +15,29 @@ import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { FEATURE_FLAGS } from "../../config/featureFlags.js";
 import { mustAnnounceEndOfRound } from "./helpers.js";
 import { isRuleActive } from "../modifiers/index.js";
-import { RULE_IGNORE_RAMPAGING_PROVOKE } from "../../types/modifierConstants.js";
+import { RULE_IGNORE_RAMPAGING_PROVOKE, RULE_SPACE_BENDING_ADJACENCY } from "../../types/modifierConstants.js";
+
+/**
+ * Get all hex coordinates at exactly distance 2 from a center hex.
+ * These are the hexes reachable by two steps but not by one.
+ */
+function getHexesAtDistance2(center: HexCoord): HexCoord[] {
+  const distance1Keys = new Set(getAllNeighbors(center).map(hexKey));
+  const centerKey = hexKey(center);
+  const result: HexCoord[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const neighbor of getAllNeighbors(center)) {
+    for (const dir of HEX_DIRECTIONS) {
+      const candidate = getNeighbor(neighbor, dir);
+      const key = hexKey(candidate);
+      if (key === centerKey || distance1Keys.has(key) || seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      result.push(candidate);
+    }
+  }
+  return result;
+}
 
 /**
  * Get valid move targets for a player.
@@ -54,6 +76,11 @@ export function getValidMoveTargets(
 
   const targets: MoveTarget[] = [];
 
+  // Check rampaging ignore rule for provocation
+  const ignoresRampaging = isRuleActive(state, player.id, RULE_IGNORE_RAMPAGING_PROVOKE);
+  const hasSpaceBending = isRuleActive(state, player.id, RULE_SPACE_BENDING_ADJACENCY);
+  const isDay = state.timeOfDay === TIME_OF_DAY_DAY;
+
   // Check each adjacent hex
   for (const dir of HEX_DIRECTIONS) {
     const adjacent = getNeighbor(player.position, dir);
@@ -74,16 +101,12 @@ export function getValidMoveTargets(
       if (!state.scenarioConfig.citiesCanBeEntered) continue;
     }
 
-    // Check rampaging ignore rule for provocation
-    const ignoresRampaging = isRuleActive(state, player.id, RULE_IGNORE_RAMPAGING_PROVOKE);
-
     // Check if this move would be terminal (trigger combat)
     const isTerminal =
       isTerminalHex(hex, player.id, state) ||
       (!ignoresRampaging && wouldProvokeRampaging(player.position, adjacent, state.map.hexes));
 
     // Check if this move would reveal enemies at adjacent fortified sites (Day only)
-    const isDay = state.timeOfDay === TIME_OF_DAY_DAY;
     const wouldReveal = wouldMoveRevealEnemies(
       player.position,
       adjacent,
@@ -100,6 +123,53 @@ export function getValidMoveTargets(
       targets.push(wouldReveal
         ? { ...target, wouldRevealEnemies: true }
         : target);
+    }
+  }
+
+  // Space Bending: also check hexes at distance 2 (leap over intervening hexes)
+  if (hasSpaceBending) {
+    const distance2Hexes = getHexesAtDistance2(player.position);
+    const existingTargetKeys = new Set(targets.map((t) => hexKey(t.hex)));
+
+    for (const coord of distance2Hexes) {
+      const key = hexKey(coord);
+      // Skip if already a distance-1 target
+      if (existingTargetKeys.has(key)) continue;
+
+      const hex = state.map.hexes[key];
+      if (!hex) continue;
+
+      // Evaluate entry cost using destination terrain only (ignore intervening)
+      const { cost, reason } = evaluateMoveEntry(state, player.id, hex, coord);
+      if (reason !== null) continue;
+
+      if (player.movePoints < cost) continue;
+
+      if (hex.site?.type === SiteType.City) {
+        if (!state.scenarioConfig.citiesCanBeEntered) continue;
+      }
+
+      // Distance-2 moves with Space Bending: rampaging is ignored (spell grants it),
+      // but check for terminal due to fortified sites or enemies at destination
+      const isTerminal = isTerminalHex(hex, player.id, state);
+
+      const wouldReveal = wouldMoveRevealEnemies(
+        player.position,
+        coord,
+        state.map.hexes,
+        isDay
+      );
+
+      const target: MoveTarget = { hex: coord, cost };
+      if (isTerminal) {
+        targets.push(wouldReveal
+          ? { ...target, isTerminal: true, wouldRevealEnemies: true }
+          : { ...target, isTerminal: true });
+      } else {
+        targets.push(wouldReveal
+          ? { ...target, wouldRevealEnemies: true }
+          : target);
+      }
     }
   }
 
@@ -287,6 +357,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
 
   // Check rampaging ignore rule
   const ignoresRampaging = isRuleActive(state, player.id, RULE_IGNORE_RAMPAGING_PROVOKE);
+  const hasSpaceBending = isRuleActive(state, player.id, RULE_SPACE_BENDING_ADJACENCY);
 
   // Start from player position (cost 0, not terminal, don't include in results)
   visited.set(startKey, { totalCost: 0, isTerminal: false, wouldRevealEnemies: false, cameFromKey: null });
@@ -316,6 +387,28 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
         cameFromKey: startKey,
         wouldRevealEnemies: wouldReveal,
       });
+    }
+  }
+
+  // Space Bending: also seed distance-2 hexes from start position
+  if (hasSpaceBending) {
+    for (const coord of getHexesAtDistance2(player.position)) {
+      const key = hexKey(coord);
+      const hex = state.map.hexes[key];
+      const cost = getHexEntryCost(hex, state, player.id, coord);
+      if (cost <= movePoints && cost !== Infinity) {
+        // Distance-2 leaps don't provoke (Space Bending also grants ignore rampaging)
+        const terminal = hex ? isTerminalHex(hex, player.id, state) : false;
+        const wouldReveal = wouldMoveRevealEnemies(player.position, coord, state.map.hexes, isDay);
+        queue.push({
+          totalCost: cost,
+          key,
+          coord,
+          isTerminal: terminal,
+          cameFromKey: startKey,
+          wouldRevealEnemies: wouldReveal,
+        });
+      }
     }
   }
 
@@ -365,9 +458,15 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
       continue;
     }
 
-    // Expand to neighbors
-    for (const dir of HEX_DIRECTIONS) {
-      const neighbor = getNeighbor(current.coord, dir);
+    // Expand to neighbors (distance 1)
+    const neighborsToCheck: HexCoord[] = getAllNeighbors(current.coord);
+
+    // Space Bending: also expand to distance-2 hexes
+    if (hasSpaceBending) {
+      neighborsToCheck.push(...getHexesAtDistance2(current.coord));
+    }
+
+    for (const neighbor of neighborsToCheck) {
       const neighborKey = hexKey(neighbor);
 
       // Skip if already visited with a non-terminal path

@@ -25,13 +25,15 @@ import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js
 
 import type { EndTurnCommandParams } from "./types.js";
 import { checkMagicalGladeWound, processMineRewards, checkCrystalJoyReclaim } from "./siteChecks.js";
-import { processCardFlow, getPlayAreaCardCount } from "./cardFlow.js";
+import { processCardFlow, processTimeBendingCardFlow, getPlayAreaCardCount } from "./cardFlow.js";
 import { createResetPlayer } from "./playerReset.js";
 import { processDiceReturn } from "./diceManagement.js";
 import { determineNextPlayer, setupNextPlayer } from "./turnAdvancement.js";
 import { resetManaCurseWoundTracking } from "../../effects/manaClaimEffects.js";
 import { processLevelUps } from "./levelUp.js";
 import { calculateRingFameBonus } from "./ringFameBonus.js";
+import { isRuleActive } from "../../modifiers/index.js";
+import { RULE_TIME_BENDING_ACTIVE } from "../../../types/modifierConstants.js";
 
 export { END_TURN_COMMAND };
 export type { EndTurnCommandParams };
@@ -136,11 +138,18 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const playerAfterLevelUp = levelUpResult.player;
       const hasPendingEvenLevelReward = playerAfterLevelUp.pendingLevelUpRewards.length > 0;
 
+      // Check if Time Bending (Space Bending powered) is active
+      // Must check BEFORE modifiers are expired (they expire later)
+      const isTimeBendingActive = isRuleActive(state, params.playerId, RULE_TIME_BENDING_ACTIVE);
+
       // Process card flow (play area to discard, draw cards)
       // Skip drawing if player has pending level-up rewards - they'll draw after selecting
       const playAreaCount = getPlayAreaCardCount(currentPlayer);
       let cardFlow: ReturnType<typeof processCardFlow>;
-      if (hasPendingEvenLevelReward) {
+      if (isTimeBendingActive) {
+        // Time Bending: return played cards to hand, set aside Space Bending, skip draw
+        cardFlow = processTimeBendingCardFlow(state, currentPlayer);
+      } else if (hasPendingEvenLevelReward) {
         // Just move play area to discard, don't draw yet
         cardFlow = {
           cardsDrawn: 0,
@@ -175,7 +184,8 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       );
 
       // Determine next player and track final turns
-      const nextPlayerResult = determineNextPlayer(newState, params.playerId);
+      // Pass isTimeBendingActive since the modifier was already expired above
+      const nextPlayerResult = determineNextPlayer(newState, params.playerId, isTimeBendingActive);
 
       newState = {
         ...newState,
@@ -194,13 +204,15 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
           (p) => p.id === params.playerId
         );
         const isExtraTurn =
-          currentPlayerAfterReset?.tacticState?.extraTurnPending === true;
+          currentPlayerAfterReset?.tacticState?.extraTurnPending === true ||
+          isTimeBendingActive;
 
         const setupResult = setupNextPlayer(
           newState,
           nextPlayerResult.nextPlayerId,
           isExtraTurn,
-          params.playerId
+          params.playerId,
+          isTimeBendingActive
         );
         newState = { ...newState, players: setupResult.players };
         gladeManaEvent = setupResult.gladeManaEvent;

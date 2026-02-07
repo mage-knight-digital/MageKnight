@@ -40,6 +40,8 @@ export interface CardFlowResult {
   readonly discard: readonly CardId[];
   readonly playArea: readonly CardId[];
   readonly cardsDrawn: number;
+  /** Cards set aside by Time Bending (Space Bending powered effect) */
+  readonly timeBendingSetAsideCards?: readonly CardId[];
 }
 
 /**

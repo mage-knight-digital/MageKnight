@@ -578,6 +578,8 @@ export class GameServer {
       removedCards: [],
       isResting: false,
       roundOrderTokenFlipped: false,
+      isTimeBentTurn: false,
+      timeBendingSetAsideCards: [],
     };
 
     return { player, rng: newRng };
