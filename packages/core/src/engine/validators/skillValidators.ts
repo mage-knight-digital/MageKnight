@@ -35,6 +35,7 @@ import {
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
   SKILL_GOLDYX_FREEZING_POWER,
   SKILL_TOVAK_MANA_OVERLOAD,
+  SKILL_NOROWAS_INSPIRATION,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -249,6 +250,15 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_NOT_IN_COMBAT,
         "Ritual of Pain cannot be used during combat"
+      );
+    }
+  }
+
+  if (useSkillAction.skillId === SKILL_NOROWAS_INSPIRATION) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "Inspiration cannot be used during combat"
       );
     }
   }
