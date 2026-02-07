@@ -108,6 +108,7 @@ export type {
   ActivateUnitAction,
   // Skill usage
   UseSkillAction,
+  ReturnInteractiveSkillAction,
   // Interactions
   RecruitUnitAction,
   DisbandUnitAction,
@@ -275,6 +276,8 @@ export type {
   // Skill options
   SkillOptions,
   ActivatableSkill,
+  ReturnableSkillOptions,
+  ReturnableSkill,
   // Cumbersome ability options
   CumbersomeOption,
   // Move-to-attack conversion options (Agility card)

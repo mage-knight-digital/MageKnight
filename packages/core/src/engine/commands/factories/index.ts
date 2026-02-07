@@ -67,6 +67,7 @@ import {
   RESPOND_TO_COOPERATIVE_PROPOSAL_ACTION,
   CANCEL_COOPERATIVE_PROPOSAL_ACTION,
   USE_SKILL_ACTION,
+  RETURN_INTERACTIVE_SKILL_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   ASSIGN_BANNER_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
@@ -173,7 +174,10 @@ export {
 } from "./cooperativeAssault.js";
 
 // Skill factories
-export { createUseSkillCommandFromAction } from "./skills.js";
+export {
+  createUseSkillCommandFromAction,
+  createReturnInteractiveSkillCommandFromAction,
+} from "./skills.js";
 
 // Terrain cost reduction factories
 export {
@@ -267,7 +271,10 @@ import {
   createCancelProposalCommandFromAction,
 } from "./cooperativeAssault.js";
 
-import { createUseSkillCommandFromAction } from "./skills.js";
+import {
+  createUseSkillCommandFromAction,
+  createReturnInteractiveSkillCommandFromAction,
+} from "./skills.js";
 
 import {
   createResolveHexCostReductionCommandFromAction,
@@ -336,6 +343,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [CANCEL_COOPERATIVE_PROPOSAL_ACTION]: createCancelProposalCommandFromAction,
   // Skill actions
   [USE_SKILL_ACTION]: createUseSkillCommandFromAction,
+  [RETURN_INTERACTIVE_SKILL_ACTION]: createReturnInteractiveSkillCommandFromAction,
   // Cumbersome ability actions
   [SPEND_MOVE_ON_CUMBERSOME_ACTION]: createSpendMoveOnCumbersomeCommandFromAction,
   // Heroes assault influence payment action

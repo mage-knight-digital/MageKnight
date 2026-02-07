@@ -68,7 +68,9 @@ import {
   type PendingChoiceSource,
 } from "./choice/choiceResolution.js";
 
-const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD]);
+import { SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/index.js";
+
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
 
 /**
  * Check if an effect (or any sub-effect in a compound) contains non-reversible

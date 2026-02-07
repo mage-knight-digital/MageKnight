@@ -36,6 +36,7 @@ import {
   SKILL_GOLDYX_FREEZING_POWER,
   SKILL_TOVAK_MANA_OVERLOAD,
   SKILL_NOROWAS_INSPIRATION,
+  SKILL_NOROWAS_PRAYER_OF_WEATHER,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -47,7 +48,7 @@ import { CARD_WOUND } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 
-const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD]);
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
 
 /**
  * Validates that the player has learned the skill they're trying to use.
@@ -259,6 +260,15 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_NOT_IN_COMBAT,
         "Inspiration cannot be used during combat"
+      );
+    }
+  }
+
+  if (useSkillAction.skillId === SKILL_NOROWAS_PRAYER_OF_WEATHER) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "Prayer of Weather cannot be used during combat"
       );
     }
   }
