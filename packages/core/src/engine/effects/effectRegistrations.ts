@@ -47,6 +47,7 @@ import { registerFreeRecruitEffects } from "./freeRecruitEffects.js";
 import { registerSacrificeEffects } from "./sacrificeEffects.js";
 import { registerCallToArmsEffects } from "./callToArmsEffects.js";
 import { registerManaClaimEffects } from "./manaClaimEffects.js";
+import { registerManaBoltEffects } from "./manaBoltEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -170,4 +171,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Mana Claim / Mana Curse effects (interactive blue spell)
   registerManaClaimEffects();
+
+  // Mana Bolt effects (blue spell, mana-color-driven attack)
+  registerManaBoltEffects();
 }

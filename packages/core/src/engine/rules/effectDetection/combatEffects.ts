@@ -15,6 +15,7 @@ import {
   EFFECT_SCALING,
   EFFECT_DISCARD_COST,
   EFFECT_PURE_MAGIC,
+  EFFECT_MANA_BOLT,
 } from "../../../types/effectTypes.js";
 import {
   COMBAT_TYPE_RANGED,
@@ -30,6 +31,9 @@ export function effectHasRangedOrSiege(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_ATTACK:
       return effect.combatType === COMBAT_TYPE_RANGED || effect.combatType === COMBAT_TYPE_SIEGE;
+
+    case EFFECT_MANA_BOLT: // Mana Bolt can provide Ranged (white) or Siege (green)
+      return true;
 
     case EFFECT_CHOICE:
       return effect.options.some(opt => effectHasRangedOrSiege(opt));
@@ -173,6 +177,7 @@ export function effectHasAttack(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_ATTACK:
     case EFFECT_PURE_MAGIC: // Pure Magic can provide Attack (via red mana)
+    case EFFECT_MANA_BOLT: // Mana Bolt always provides Attack (all colors → attack)
       return true;
 
     case EFFECT_CHOICE:
