@@ -64,6 +64,7 @@ import {
   EFFECT_RESOLVE_MANA_CLAIM_DIE,
   EFFECT_RESOLVE_MANA_CLAIM_MODE,
   EFFECT_MANA_CURSE,
+  EFFECT_MANA_BOLT,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -378,6 +379,12 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_PURE_MAGIC]: (effect) => {
     const e = effect as import("../../types/cards.js").PureMagicEffect;
     return `Pay mana: Green=Move ${e.value}, White=Influence ${e.value}, Blue=Block ${e.value}, Red=Attack ${e.value}`;
+  },
+
+  [EFFECT_MANA_BOLT]: (effect) => {
+    const e = effect as import("../../types/cards.js").ManaBoltEffect;
+    const b = e.baseValue;
+    return `Pay mana: Blue=Ice Attack ${b}, Red=ColdFire Attack ${b - 1}, White=Ranged Ice Attack ${b - 2}, Green=Siege Ice Attack ${b - 3}`;
   },
 
   [EFFECT_APPLY_RECRUITMENT_BONUS]: (effect) => {

@@ -293,6 +293,11 @@ export {
   registerCallToArmsEffects,
 } from "./callToArmsEffects.js";
 
+// Mana Bolt effects (blue spell, mana-color-driven attack)
+export {
+  registerManaBoltEffects,
+} from "./manaBoltEffects.js";
+
 // Mana Claim / Mana Curse effects (interactive blue spell)
 export {
   handleManaClaim,

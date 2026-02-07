@@ -113,6 +113,7 @@ export const CARD_CHILL = cardId("chill"); // #13 - Target doesn't attack / defe
 export const CARD_MIST_FORM = cardId("mist_form"); // #14 - Move with all terrains cost 2 / Unit resistances + wound immunity
 export const CARD_MANA_CLAIM = cardId("mana_claim"); // #110 - Claim die from Source / Curse mana color
 export const CARD_SPACE_BENDING = cardId("space_bending"); // #16 - Distance-2 movement / Extra turn
+export const CARD_MANA_BOLT = cardId("mana_bolt"); // #203 - Pay mana: Blue→Ice, Red→ColdFire, White→Ranged Ice, Green→Siege Ice
 
 // Green spells
 export const CARD_RESTORATION = cardId("restoration"); // #05 - Heal 3 (5 in forest)
@@ -179,6 +180,7 @@ export type SpellCardId =
   | typeof CARD_MIST_FORM
   | typeof CARD_MANA_CLAIM
   | typeof CARD_SPACE_BENDING
+  | typeof CARD_MANA_BOLT
   // Green spells
   | typeof CARD_RESTORATION
   | typeof CARD_WHIRLWIND
@@ -269,6 +271,7 @@ export const ALL_SPELL_IDS = [
   CARD_MIST_FORM,
   CARD_MANA_CLAIM,
   CARD_SPACE_BENDING,
+  CARD_MANA_BOLT,
   CARD_RESTORATION,
   CARD_WHIRLWIND,
   CARD_ENERGY_FLOW,

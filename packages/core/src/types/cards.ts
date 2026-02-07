@@ -99,6 +99,7 @@ import {
   EFFECT_RESOLVE_MANA_CLAIM_DIE,
   EFFECT_RESOLVE_MANA_CLAIM_MODE,
   EFFECT_MANA_CURSE,
+  EFFECT_MANA_BOLT,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1048,6 +1049,18 @@ export interface PureMagicEffect {
 }
 
 /**
+ * Mana Bolt mana-payment-driven combat effect.
+ * Player pays 1 basic mana token and the color determines the attack:
+ * Blue → Melee Ice Attack (baseValue), Red → Melee Cold Fire Attack (baseValue - 1),
+ * White → Ranged Ice Attack (baseValue - 2), Green → Siege Ice Attack (baseValue - 3).
+ * Combat only. baseValue differs between basic (8) and powered (11) modes.
+ */
+export interface ManaBoltEffect {
+  readonly type: typeof EFFECT_MANA_BOLT;
+  readonly baseValue: number;
+}
+
+/**
  * Free recruit effect entry point.
  * Presents the units offer for the player to pick a unit for free.
  * No location restrictions (works anywhere, even in combat).
@@ -1197,6 +1210,7 @@ export type CardEffect =
   | ResolveManaRadianceColorEffect
   | AltemMagesColdFireEffect
   | PureMagicEffect
+  | ManaBoltEffect
   | ApplyRecruitmentBonusEffect
   | ApplyInteractionBonusEffect
   | FreeRecruitEffect

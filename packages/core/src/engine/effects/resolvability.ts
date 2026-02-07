@@ -95,6 +95,7 @@ import {
   EFFECT_CALL_TO_ARMS,
   EFFECT_RESOLVE_CALL_TO_ARMS_UNIT,
   EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
+  EFFECT_MANA_BOLT,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -484,6 +485,14 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   // Call to Arms unit/ability resolution steps are always resolvable
   [EFFECT_RESOLVE_CALL_TO_ARMS_UNIT]: () => true,
   [EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY]: () => true,
+
+  // Mana Bolt is resolvable if the player has any basic or gold mana tokens
+  [EFFECT_MANA_BOLT]: (state, player) => {
+    const basicColors = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE];
+    return player.pureMana.some(
+      (token) => basicColors.includes(token.color as typeof MANA_RED) || token.color === "gold"
+    );
+  },
 };
 
 // ============================================================================

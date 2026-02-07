@@ -228,6 +228,13 @@ export const EFFECT_ALTEM_MAGES_COLD_FIRE = "altem_mages_cold_fire" as const;
 // Values differ between basic (4) and powered (7) modes.
 export const EFFECT_PURE_MAGIC = "pure_magic" as const;
 
+// === Mana Bolt Effect ===
+// Pay a basic mana token → attack determined by color paid:
+// Blue → Melee Ice Attack, Red → Melee Cold Fire Attack,
+// White → Ranged Ice Attack, Green → Siege Ice Attack.
+// Combat only. Values differ between basic and powered modes.
+export const EFFECT_MANA_BOLT = "mana_bolt" as const;
+
 // === Recruitment Bonus Effect ===
 // Adds a turn-scoped modifier that grants reputation and/or fame per unit recruited.
 // Used by Heroic Tale (basic: Rep+1 per recruit, powered: Rep+1 + Fame+1 per recruit).
