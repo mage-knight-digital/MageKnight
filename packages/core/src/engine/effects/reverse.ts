@@ -59,6 +59,9 @@ import {
   EFFECT_APPLY_INTERACTION_BONUS,
   EFFECT_SACRIFICE,
   EFFECT_RESOLVE_SACRIFICE,
+  EFFECT_CALL_TO_ARMS,
+  EFFECT_RESOLVE_CALL_TO_ARMS_UNIT,
+  EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -328,6 +331,12 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
   // Resolve Sacrifice modifies crystals, pureMana, and combat accumulator.
   // Too complex to reverse reliably — should be non-reversible.
   [EFFECT_RESOLVE_SACRIFICE]: (player) => player,
+
+  // Call to Arms effects just present choices — no direct player state change.
+  // The actual state change is on the resolved sub-effect (GainAttack, GainBlock, etc.).
+  [EFFECT_CALL_TO_ARMS]: (player) => player,
+  [EFFECT_RESOLVE_CALL_TO_ARMS_UNIT]: (player) => player,
+  [EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY]: (player) => player,
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (player, effect) => {
     const e = effect as TrackAttackDefeatFameEffect;

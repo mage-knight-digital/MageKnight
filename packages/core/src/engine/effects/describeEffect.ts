@@ -57,6 +57,9 @@ import {
   EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
   EFFECT_SACRIFICE,
   EFFECT_RESOLVE_SACRIFICE,
+  EFFECT_CALL_TO_ARMS,
+  EFFECT_RESOLVE_CALL_TO_ARMS_UNIT,
+  EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -410,6 +413,18 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const element = e.elementColor === "red" ? "Fire" : "Ice";
     const perPair = e.attackColor === "white" ? 6 : 4;
     return `${attackType} ${element} Attack ${perPair} per ${e.attackColor}/${e.elementColor} crystal pair`;
+  },
+
+  [EFFECT_CALL_TO_ARMS]: () => "Borrow a Unit ability from the Offer",
+
+  [EFFECT_RESOLVE_CALL_TO_ARMS_UNIT]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveCallToArmsUnitEffect;
+    return `Select ability from ${e.unitName}`;
+  },
+
+  [EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveCallToArmsAbilityEffect;
+    return e.abilityDescription;
   },
 };
 

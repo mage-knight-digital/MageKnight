@@ -6,15 +6,17 @@
 
 import type { DeedCard } from "../../../types/cards.js";
 import type { CardId } from "@mage-knight/shared";
-import { CARD_WHIRLWIND, CARD_EXPOSE, CARD_CURE } from "@mage-knight/shared";
+import { CARD_WHIRLWIND, CARD_EXPOSE, CARD_CURE, CARD_CALL_TO_ARMS } from "@mage-knight/shared";
 import { WHIRLWIND } from "./whirlwind.js";
 import { EXPOSE } from "./expose.js";
 import { CURE } from "./cure.js";
+import { CALL_TO_ARMS } from "./callToArms.js";
 
 export const WHITE_SPELLS: Record<CardId, DeedCard> = {
   [CARD_WHIRLWIND]: WHIRLWIND,
   [CARD_EXPOSE]: EXPOSE,
   [CARD_CURE]: CURE,
+  [CARD_CALL_TO_ARMS]: CALL_TO_ARMS,
 };
 
-export { WHIRLWIND, EXPOSE, CURE };
+export { WHIRLWIND, EXPOSE, CURE, CALL_TO_ARMS };

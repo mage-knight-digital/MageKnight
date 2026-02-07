@@ -92,6 +92,9 @@ import {
   EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
   EFFECT_SACRIFICE,
   EFFECT_RESOLVE_SACRIFICE,
+  EFFECT_CALL_TO_ARMS,
+  EFFECT_RESOLVE_CALL_TO_ARMS_UNIT,
+  EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1027,6 +1030,38 @@ export interface ResolveSacrificeEffect {
   readonly elementColor: typeof MANA_RED | typeof MANA_BLUE;
 }
 
+/**
+ * Call to Arms effect entry point (White Spell basic effect).
+ * Borrow a unit's ability from the Units Offer for this turn.
+ * Presents eligible units from the offer (excludes Magic Familiars, Delphana Masters).
+ * No damage can be assigned to the borrowed unit.
+ */
+export interface CallToArmsEffect {
+  readonly type: typeof EFFECT_CALL_TO_ARMS;
+}
+
+/**
+ * Internal: After selecting a unit from the offer.
+ * Presents the selected unit's abilities as choices.
+ */
+export interface ResolveCallToArmsUnitEffect {
+  readonly type: typeof EFFECT_RESOLVE_CALL_TO_ARMS_UNIT;
+  readonly unitId: UnitId;
+  readonly unitName: string;
+}
+
+/**
+ * Internal: After selecting an ability from the borrowed unit.
+ * Resolves the ability effect (value-based or effect-based).
+ */
+export interface ResolveCallToArmsAbilityEffect {
+  readonly type: typeof EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY;
+  readonly unitId: UnitId;
+  readonly unitName: string;
+  readonly abilityIndex: number;
+  readonly abilityDescription: string;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1097,7 +1132,10 @@ export type CardEffect =
   | FreeRecruitEffect
   | ResolveFreeRecruitTargetEffect
   | SacrificeEffect
-  | ResolveSacrificeEffect;
+  | ResolveSacrificeEffect
+  | CallToArmsEffect
+  | ResolveCallToArmsUnitEffect
+  | ResolveCallToArmsAbilityEffect;
 
 // === Card Definition ===
 

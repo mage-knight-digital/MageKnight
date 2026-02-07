@@ -92,6 +92,9 @@ import {
   EFFECT_RESOLVE_FREE_RECRUIT_TARGET,
   EFFECT_SACRIFICE,
   EFFECT_RESOLVE_SACRIFICE,
+  EFFECT_CALL_TO_ARMS,
+  EFFECT_RESOLVE_CALL_TO_ARMS_UNIT,
+  EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -472,6 +475,15 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve sacrifice is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_SACRIFICE]: () => true,
+
+  // Call to Arms is resolvable if there are eligible units in the offer
+  [EFFECT_CALL_TO_ARMS]: (state) => {
+    return state.offers.units.length > 0;
+  },
+
+  // Call to Arms unit/ability resolution steps are always resolvable
+  [EFFECT_RESOLVE_CALL_TO_ARMS_UNIT]: () => true,
+  [EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY]: () => true,
 };
 
 // ============================================================================

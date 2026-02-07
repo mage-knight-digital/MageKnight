@@ -288,6 +288,11 @@ export {
   registerSacrificeEffects,
 } from "./sacrificeEffects.js";
 
+// Call to Arms effects (borrow unit ability from offer)
+export {
+  registerCallToArmsEffects,
+} from "./callToArmsEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 
