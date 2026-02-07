@@ -20,6 +20,7 @@ import type {
   DiscardForCrystalOptions,
   ArtifactCrystalColorOptions,
   CrystalJoyReclaimOptions,
+  SteadyTempoOptions,
   UnitMaintenanceOptions,
   CardId,
 } from "@mage-knight/shared";
@@ -211,6 +212,26 @@ export function getCrystalJoyReclaimOptions(
   return {
     version,
     eligibleCardIds,
+  };
+}
+
+/**
+ * Get Steady Tempo deck placement options for the player.
+ * Returns options if player has a pending Steady Tempo placement choice.
+ */
+export function getSteadyTempoOptions(
+  _state: GameState,
+  player: Player
+): SteadyTempoOptions {
+  const { version } = player.pendingSteadyTempoDeckPlacement!;
+  const position = version === "powered" ? "top" : "bottom";
+
+  // Basic version: cannot place on bottom of empty deck
+  const canPlace = version === "powered" || player.deck.length > 0;
+
+  return {
+    position,
+    canPlace,
   };
 }
 

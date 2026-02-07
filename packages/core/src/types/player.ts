@@ -458,6 +458,12 @@ export interface Player {
     | { readonly version: "basic" | "powered" }
     | undefined;
 
+  // Steady Tempo deck placement pending (when Steady Tempo is played this turn)
+  // Tracks version: basic = bottom of deck (requires non-empty deck), powered = top of deck
+  readonly pendingSteadyTempoDeckPlacement:
+    | { readonly version: "basic" | "powered" }
+    | undefined;
+
   // Terrain cost reduction pending (Druidic Paths and similar effects)
   // When set, the player must choose a hex coordinate or terrain type for cost reduction
   readonly pendingTerrainCostReduction: PendingTerrainCostReduction | null;

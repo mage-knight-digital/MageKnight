@@ -258,6 +258,9 @@ export type {
   ArtifactCrystalColorOptions,
   // Crystal Joy reclaim options
   CrystalJoyReclaimOptions,
+  // Steady Tempo deck placement options
+  SteadyTempoOptions,
+  PendingSteadyTempoState,
   // Unit maintenance options (Magic Familiars)
   UnitMaintenanceOptions,
   UnitMaintenanceEntry,

@@ -195,3 +195,26 @@ export function checkCrystalJoyReclaim(
   // Player has Crystal Joy reclaim pending - this needs player choice
   return { pendingChoice: true, player, events: [] };
 }
+
+/**
+ * Check if player has Steady Tempo deck placement pending.
+ * If so, the player needs to choose whether to place the card in their deck.
+ *
+ * Steady Tempo deck placement happens at step 3b of end turn,
+ * after Crystal Joy reclaim and before card flow (discard down).
+ *
+ * @returns SiteCheckResult with pendingChoice=true if waiting for player choice
+ */
+export function checkSteadyTempoDeckPlacement(
+  _state: GameState,
+  player: Player,
+  skipCheck: boolean
+): SiteCheckResult {
+  // Skip if no pending placement or check is disabled
+  if (!player.pendingSteadyTempoDeckPlacement || skipCheck) {
+    return { pendingChoice: false, player, events: [] };
+  }
+
+  // Player has Steady Tempo placement pending - this needs player choice
+  return { pendingChoice: true, player, events: [] };
+}

@@ -17,6 +17,8 @@ export interface EndTurnCommandParams {
   readonly skipDeepMineCheck?: boolean;
   /** If true, skip the Crystal Joy reclaim check (used after resolving reclaim choice) */
   readonly skipCrystalJoyReclaim?: boolean;
+  /** If true, skip the Steady Tempo deck placement check (used after resolving placement choice) */
+  readonly skipSteadyTempo?: boolean;
 }
 
 /**

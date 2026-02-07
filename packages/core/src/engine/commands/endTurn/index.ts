@@ -24,7 +24,7 @@ import { createEndRoundCommand } from "../endRound/index.js";
 import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js";
 
 import type { EndTurnCommandParams } from "./types.js";
-import { checkMagicalGladeWound, processMineRewards, checkCrystalJoyReclaim } from "./siteChecks.js";
+import { checkMagicalGladeWound, processMineRewards, checkCrystalJoyReclaim, checkSteadyTempoDeckPlacement } from "./siteChecks.js";
 import { processCardFlow, processTimeBendingCardFlow, getPlayAreaCardCount } from "./cardFlow.js";
 import { createResetPlayer } from "./playerReset.js";
 import { processDiceReturn } from "./diceManagement.js";
@@ -118,6 +118,24 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
             ...state,
             players: state.players.map((p) =>
               p.id === params.playerId ? joyReclaimCheck.player : p
+            ),
+          },
+          events: [],
+        };
+      }
+
+      // Check for Steady Tempo deck placement (step 3b: before card flow)
+      const steadyTempoCheck = checkSteadyTempoDeckPlacement(
+        state,
+        playerWithCrystal,
+        params.skipSteadyTempo ?? false
+      );
+      if (steadyTempoCheck.pendingChoice) {
+        return {
+          state: {
+            ...state,
+            players: state.players.map((p) =>
+              p.id === params.playerId ? steadyTempoCheck.player : p
             ),
           },
           events: [],
