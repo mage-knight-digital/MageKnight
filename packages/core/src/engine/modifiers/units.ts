@@ -12,6 +12,7 @@ import type {
   GrantResistancesModifier,
   LeadershipBonusModifier,
   UnitAttackBonusModifier,
+  UnitCombatBonusModifier,
   UnitArmorBonusModifier,
   UnitBlockBonusModifier,
   BannerGloryFameTrackingModifier,
@@ -21,6 +22,7 @@ import { getUnit } from "@mage-knight/shared";
 import {
   EFFECT_GRANT_RESISTANCES,
   EFFECT_UNIT_ATTACK_BONUS,
+  EFFECT_UNIT_COMBAT_BONUS,
   EFFECT_LEADERSHIP_BONUS,
   EFFECT_UNIT_ARMOR_BONUS,
   EFFECT_UNIT_BLOCK_BONUS,
@@ -82,17 +84,22 @@ export function getUnitAttackBonus(
   state: GameState,
   playerId: string,
 ): number {
-  const modifiers = getModifiersForPlayer(state, playerId)
-    .filter((m) => {
-      if (m.effect.type !== EFFECT_UNIT_ATTACK_BONUS) return false;
-      // Only ALL_UNITS scope is currently used for this modifier
-      return m.scope.type === SCOPE_ALL_UNITS;
-    })
-    .map((m) => m.effect as UnitAttackBonusModifier);
+  const playerModifiers = getModifiersForPlayer(state, playerId);
 
   let bonus = 0;
-  for (const mod of modifiers) {
-    bonus += mod.amount;
+
+  // Sum EFFECT_UNIT_ATTACK_BONUS modifiers (Coordinated Fire)
+  for (const m of playerModifiers) {
+    if (m.effect.type === EFFECT_UNIT_ATTACK_BONUS && m.scope.type === SCOPE_ALL_UNITS) {
+      bonus += (m.effect as UnitAttackBonusModifier).amount;
+    }
+  }
+
+  // Sum EFFECT_UNIT_COMBAT_BONUS attack bonuses (Into the Heat)
+  for (const m of playerModifiers) {
+    if (m.effect.type === EFFECT_UNIT_COMBAT_BONUS && m.scope.type === SCOPE_ALL_UNITS) {
+      bonus += (m.effect as UnitCombatBonusModifier).attackBonus;
+    }
   }
 
   return bonus;
@@ -153,26 +160,30 @@ export function getUnitArmorBonus(
 
 /**
  * Get the total unit block bonus from active modifiers.
- * Returns the sum of all EFFECT_UNIT_BLOCK_BONUS modifiers
- * scoped to ALL_UNITS (tack-on: only applies if unit has base block).
- *
- * Used by Banner of Glory powered effect which grants
- * +1 to unit blocks this turn.
+ * Returns the sum of EFFECT_UNIT_BLOCK_BONUS (Banner of Glory)
+ * and EFFECT_UNIT_COMBAT_BONUS block bonuses (Into the Heat)
+ * scoped to ALL_UNITS.
  */
 export function getUnitBlockBonus(
   state: GameState,
   playerId: string,
 ): number {
-  const modifiers = getModifiersForPlayer(state, playerId)
-    .filter((m) => {
-      if (m.effect.type !== EFFECT_UNIT_BLOCK_BONUS) return false;
-      return m.scope.type === SCOPE_ALL_UNITS;
-    })
-    .map((m) => m.effect as UnitBlockBonusModifier);
+  const playerModifiers = getModifiersForPlayer(state, playerId);
 
   let bonus = 0;
-  for (const mod of modifiers) {
-    bonus += mod.amount;
+
+  // Sum EFFECT_UNIT_BLOCK_BONUS modifiers (Banner of Glory)
+  for (const m of playerModifiers) {
+    if (m.effect.type === EFFECT_UNIT_BLOCK_BONUS && m.scope.type === SCOPE_ALL_UNITS) {
+      bonus += (m.effect as UnitBlockBonusModifier).amount;
+    }
+  }
+
+  // Sum EFFECT_UNIT_COMBAT_BONUS block bonuses (Into the Heat)
+  for (const m of playerModifiers) {
+    if (m.effect.type === EFFECT_UNIT_COMBAT_BONUS && m.scope.type === SCOPE_ALL_UNITS) {
+      bonus += (m.effect as UnitCombatBonusModifier).blockBonus;
+    }
   }
 
   return bonus;

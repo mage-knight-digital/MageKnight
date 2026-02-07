@@ -24,7 +24,7 @@ import {
   doesEnemyAttackThisCombat,
 } from "../modifiers/index.js";
 import { isAttackResisted } from "../combat/elementalCalc.js";
-import { isAssassinationActive, getDamageRedirectUnit } from "../rules/combatTargeting.js";
+import { isAssassinationActive, getDamageRedirectUnit, cannotAssignDamageToUnits } from "../rules/combatTargeting.js";
 import {
   getEnemyAttack,
   getEnemyAttacks,
@@ -208,12 +208,18 @@ export function getDamageAssignmentOptions(
       const totalDamage = isBrutal ? rawAttack * 2 : rawAttack;
       const attackElement = attack.element;
 
+      // Check if player's units cannot absorb damage (Into the Heat)
+      const unitsCannotAbsorb = currentPlayer
+        ? cannotAssignDamageToUnits(state, currentPlayer.id)
+        : false;
+
       // Compute available unit targets
+      // - Units cannot absorb damage (Into the Heat): no units allowed
       // - Assassination: no units allowed (hero only)
       // - Damage redirect: only the redirect unit allowed
       // - Normal: all available units
       let availableUnits: readonly UnitDamageTarget[];
-      if (assassinationActive) {
+      if (unitsCannotAbsorb || assassinationActive) {
         availableUnits = [];
       } else if (redirectUnitId && currentPlayer) {
         // Only the redirect unit is a valid target

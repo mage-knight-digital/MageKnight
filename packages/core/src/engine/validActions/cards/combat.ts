@@ -188,13 +188,16 @@ function getCardPlayabilityForPhase(
   const basicEffect = basicContext.effect;
   const poweredEffect = poweredContext.effect;
 
-  const basicAllowed = isCombatEffectAllowed(
+  // Check card-level combat phase restriction (e.g., Into the Heat: start of combat only)
+  const phaseRestrictionMet = !card.combatPhaseRestriction || card.combatPhaseRestriction.includes(phase);
+
+  const basicAllowed = phaseRestrictionMet && isCombatEffectAllowed(
     basicEffect,
     phase,
     basicContext.allowAnyPhase,
     moveCardsAllowed
   );
-  const poweredAllowed = isCombatEffectAllowed(
+  const poweredAllowed = phaseRestrictionMet && isCombatEffectAllowed(
     poweredEffect,
     phase,
     poweredContext.allowAnyPhase,

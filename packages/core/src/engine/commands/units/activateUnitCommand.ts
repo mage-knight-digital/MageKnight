@@ -350,8 +350,8 @@ export function createActivateUnitCommand(
       // ============================================================
 
       // Get the ability value (default to 0 for abilities without values)
-      // Apply unit attack bonus from Coordinated Fire for attack abilities
-      // Apply Banner of Glory tack-on bonus (+1 if unit has base attack/block)
+      // Apply unit attack bonus from Coordinated Fire / Into the Heat for attack abilities
+      // Apply unit block bonus from Into the Heat / Banner of Glory for block abilities
       let abilityValue = ability.value ?? 0;
       const isAttackAbility =
         ability.type === UNIT_ABILITY_ATTACK ||
@@ -401,7 +401,6 @@ export function createActivateUnitCommand(
           stateAfterLeadership = removeModifier(curseUpdatedState, activeModifier.id);
         }
       }
-
       // Apply Altem Mages attack modifiers to unit ability element/type
       let effectiveElement = ability.element;
       const playerModifiers = getModifiersForPlayer(state, params.playerId);

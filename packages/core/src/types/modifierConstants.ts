@@ -215,6 +215,17 @@ export const EFFECT_MANA_CLAIM_SUSTAINED = "mana_claim_sustained" as const;
 // Max 1 wound per player per turn. Duration: round.
 export const EFFECT_MANA_CURSE = "mana_curse" as const;
 
+// === UnitCombatBonusModifier ===
+// Grants +N to all attacks AND +N to all blocks for units.
+// Only applies to units with base value > 0 for the respective ability.
+// Used by Into the Heat card.
+export const EFFECT_UNIT_COMBAT_BONUS = "unit_combat_bonus" as const;
+
+// === RuleOverrideModifier["rule"] additions ===
+// Prevents assigning damage to own units this combat (Into the Heat)
+// Does NOT prevent opponents from assigning damage to your units (PvP)
+export const RULE_UNITS_CANNOT_ABSORB_DAMAGE = "units_cannot_absorb_damage" as const;
+
 // === LeadershipBonusModifier ===
 // Grants a one-time bonus to the next unit activation.
 // Stores which bonus type was chosen (block, attack, or ranged_attack)
