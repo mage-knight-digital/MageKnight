@@ -1,0 +1,106 @@
+/* Responsive deck/discard sizing - scales with viewport height */
+:root {
+  --hand-deck-height: clamp(100px, 15vh, 220px);
+  --hand-deck-width: calc(var(--hand-deck-height) * 0.714); /* Card aspect ratio */
+}
+
+/* Intro animation: Deck slides in from right edge with settle
+   Disney principles: Follow-through (overshoot and settle) */
+@keyframes deck-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+  /* Overshoot slightly */
+  70% {
+    opacity: 1;
+    transform: translateX(-8px);
+  }
+  /* Settle back */
+  85% {
+    transform: translateX(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.floating-hand__deck-discard {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  z-index: 60;
+  /* Only transform transition - opacity is expensive */
+  transition: transform 0.3s ease, visibility 0s;
+}
+
+/* Hide deck/discard in focus mode
+   Uses content-visibility:hidden to keep GPU textures cached */
+.floating-hand__deck-discard--hidden {
+  transform: translateY(100%);
+  pointer-events: none;
+  content-visibility: hidden;
+  contain: strict;
+  transition: transform 0.3s ease;
+}
+
+/* Hidden during intro - before ui-settle phase */
+.floating-hand__deck-discard--intro-hidden {
+  opacity: 0;
+  transform: translateX(120%);
+  pointer-events: none;
+}
+
+/* Animate in during ui-settle phase */
+.floating-hand__deck-discard--intro-reveal {
+  animation: deck-slide-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Deck and discard indicators */
+.floating-hand__deck,
+.floating-hand__discard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.floating-hand__deck-image {
+  width: var(--hand-deck-width);
+  height: var(--hand-deck-height);
+  border-radius: 4px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    2px 2px 0 rgba(0, 0, 0, 0.2),
+    4px 4px 0 rgba(0, 0, 0, 0.1);
+  object-fit: cover;
+}
+
+.floating-hand__deck-count,
+.floating-hand__discard-count {
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.floating-hand__discard-count {
+  color: #888;
+}
+
+.floating-hand__discard-pile {
+  width: var(--hand-deck-width);
+  height: var(--hand-deck-height);
+  border-radius: 4px;
+  background: linear-gradient(135deg, #2a2a3e 0%, #1a1a28 100%);
+  border: 2px dashed #444;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}

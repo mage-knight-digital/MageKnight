@@ -1,0 +1,70 @@
+/* ===== CAROUSEL TRACK ===== */
+/* Horizontal sliding track containing tactics, cards, and units panes */
+
+.carousel-track {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  /* Track is 300vw wide (three viewport widths side by side) */
+  width: 300vw;
+  height: 100vh;
+  pointer-events: none;
+  /* GPU acceleration - critical for this massive element */
+  will-change: transform;
+  /* Smooth sliding transition with slight overshoot for juicy feel */
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 50;
+  /* CSS containment - lets browser optimize layout/paint calculations */
+  contain: layout style;
+  /* Isolate from PixiJS canvas compositing */
+  isolation: isolate;
+}
+
+/* Tactics pane visible (track at default position) */
+.carousel-track--tactics {
+  transform: translateX(0);
+}
+
+/* Cards pane visible (track slid left by one viewport width) */
+.carousel-track--cards {
+  transform: translateX(-100vw);
+}
+
+/* Units pane visible (track slid left by two viewport widths) */
+.carousel-track--units {
+  transform: translateX(-200vw);
+}
+
+/* Hidden state when in offer view
+   Uses content-visibility:hidden to skip painting but KEEP GPU textures cached.
+   This makes showing the carousel again instant without re-decoding sprite sheets. */
+.carousel-track--hidden {
+  pointer-events: none;
+  content-visibility: hidden; /* Skip painting but KEEP GPU textures cached */
+  contain: strict; /* Required for content-visibility */
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Each pane takes up one viewport width */
+.carousel-track__pane {
+  position: absolute;
+  top: 0;
+  width: 100vw;
+  height: 100%;
+  pointer-events: none; /* Allow clicks to pass through to hex grid */
+}
+
+/* Tactics pane on the left */
+.carousel-track__pane--tactics {
+  left: 0;
+}
+
+/* Cards pane in the middle */
+.carousel-track__pane--cards {
+  left: 100vw;
+}
+
+/* Units pane on the right */
+.carousel-track__pane--units {
+  left: 200vw;
+}

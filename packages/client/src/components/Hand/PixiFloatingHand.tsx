@@ -895,6 +895,3 @@ export function PixiFloatingHand({
   // No DOM element needed - everything renders in PixiJS overlay layer
   return null;
 }
-
-// Re-export DeckDiscardIndicator from original for compatibility
-export { DeckDiscardIndicator } from "./FloatingHand";

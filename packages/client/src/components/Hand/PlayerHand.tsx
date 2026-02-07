@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { PixiFloatingHand, DeckDiscardIndicator, type CardClickInfo } from "./PixiFloatingHand";
+import { PixiFloatingHand, type CardClickInfo } from "./PixiFloatingHand";
+import { DeckDiscardIndicator } from "./DeckDiscardIndicator";
+import "./PlayerHand.css";
 import { PixiUnitCarousel, type UnitClickInfo } from "./PixiUnitCarousel";
 import { PixiTacticCarousel } from "./PixiTacticCarousel";
 import { UnitAbilityMenu } from "./UnitAbilityMenu";
