@@ -65,6 +65,11 @@ import {
   EFFECT_RESOLVE_MANA_CLAIM_MODE,
   EFFECT_MANA_CURSE,
   EFFECT_MANA_BOLT,
+  EFFECT_MIND_READ,
+  EFFECT_RESOLVE_MIND_READ_COLOR,
+  EFFECT_MIND_STEAL,
+  EFFECT_RESOLVE_MIND_STEAL_COLOR,
+  EFFECT_RESOLVE_MIND_STEAL_SELECTION,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -456,6 +461,27 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   },
 
   [EFFECT_MANA_CURSE]: () => "Claim a die and curse its color",
+
+  [EFFECT_MIND_READ]: () =>
+    "Choose a color: gain crystal, opponents discard matching card",
+
+  [EFFECT_RESOLVE_MIND_READ_COLOR]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveMindReadColorEffect;
+    return `Gain ${e.color} crystal, opponents discard ${e.color} card`;
+  },
+
+  [EFFECT_MIND_STEAL]: () =>
+    "Choose a color: gain crystal, opponents discard, steal an Action card",
+
+  [EFFECT_RESOLVE_MIND_STEAL_COLOR]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveMindStealColorEffect;
+    return `Gain ${e.color} crystal, opponents discard ${e.color} card, steal option`;
+  },
+
+  [EFFECT_RESOLVE_MIND_STEAL_SELECTION]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveMindStealSelectionEffect;
+    return `Steal ${e.cardName} from ${e.fromPlayerId}`;
+  },
 };
 
 // ============================================================================

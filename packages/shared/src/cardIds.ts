@@ -125,6 +125,7 @@ export const CARD_UNDERGROUND_TRAVEL = cardId("underground_travel"); // #04 - Mo
 export const CARD_EXPOSE = cardId("expose"); // #19 - Lose fortification/resistances
 export const CARD_CURE = cardId("cure"); // #17 - Heal 2 + draw/ready / Armor reduction to 1
 export const CARD_CALL_TO_ARMS = cardId("call_to_arms"); // #XX - Borrow unit ability / Free recruit
+export const CARD_MIND_READ = cardId("mind_read"); // #111 - Crystal gain + forced discard / Steal action card
 
 // === Card ID Type Unions ===
 
@@ -189,7 +190,8 @@ export type SpellCardId =
   // White spells
   | typeof CARD_EXPOSE
   | typeof CARD_CURE
-  | typeof CARD_CALL_TO_ARMS;
+  | typeof CARD_CALL_TO_ARMS
+  | typeof CARD_MIND_READ;
 
 export type ArtifactCardId =
   // Banners
@@ -279,6 +281,7 @@ export const ALL_SPELL_IDS = [
   CARD_EXPOSE,
   CARD_CURE,
   CARD_CALL_TO_ARMS,
+  CARD_MIND_READ,
 ] as const;
 
 export const ALL_ARTIFACT_IDS = [

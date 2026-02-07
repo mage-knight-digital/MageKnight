@@ -96,6 +96,11 @@ import {
   EFFECT_RESOLVE_CALL_TO_ARMS_UNIT,
   EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
   EFFECT_MANA_BOLT,
+  EFFECT_MIND_READ,
+  EFFECT_RESOLVE_MIND_READ_COLOR,
+  EFFECT_MIND_STEAL,
+  EFFECT_RESOLVE_MIND_STEAL_COLOR,
+  EFFECT_RESOLVE_MIND_STEAL_SELECTION,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -485,6 +490,13 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   // Call to Arms unit/ability resolution steps are always resolvable
   [EFFECT_RESOLVE_CALL_TO_ARMS_UNIT]: () => true,
   [EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY]: () => true,
+
+  // Mind Read / Mind Steal are always resolvable (crystal gain always works)
+  [EFFECT_MIND_READ]: () => true,
+  [EFFECT_RESOLVE_MIND_READ_COLOR]: () => true,
+  [EFFECT_MIND_STEAL]: () => true,
+  [EFFECT_RESOLVE_MIND_STEAL_COLOR]: () => true,
+  [EFFECT_RESOLVE_MIND_STEAL_SELECTION]: () => true,
 
   // Mana Bolt is resolvable if the player has any basic or gold mana tokens
   [EFFECT_MANA_BOLT]: (state, player) => {

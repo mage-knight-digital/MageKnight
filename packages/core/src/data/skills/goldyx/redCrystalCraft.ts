@@ -1,19 +1,29 @@
 /**
  * Red Crystal Craft - Goldyx Skill
  * @module data/skills/goldyx/redCrystalCraft
+ *
+ * Once a round: Flip this to gain one blue crystal to your inventory
+ * and one red mana token.
  */
 
 import type { SkillId } from "@mage-knight/shared";
+import { MANA_BLUE, MANA_RED } from "@mage-knight/shared";
 import { CATEGORY_SPECIAL } from "../../../types/cards.js";
+import { EFFECT_GAIN_CRYSTAL, EFFECT_GAIN_MANA } from "../../../types/effectTypes.js";
+import { compound } from "../../effectHelpers.js";
 import { type SkillDefinition, SKILL_USAGE_ONCE_PER_ROUND } from "../types.js";
 
 export const SKILL_GOLDYX_RED_CRYSTAL_CRAFT = "goldyx_red_crystal_craft" as SkillId;
 
 export const redCrystalCraft: SkillDefinition = {
   id: SKILL_GOLDYX_RED_CRYSTAL_CRAFT,
-    name: "Red Crystal Craft",
-    heroId: "goldyx",
-    description: "Flip to gain 1 blue crystal and 1 red mana token",
-    usageType: SKILL_USAGE_ONCE_PER_ROUND,
-    categories: [CATEGORY_SPECIAL],
+  name: "Red Crystal Craft",
+  heroId: "goldyx",
+  description: "Flip to gain 1 blue crystal and 1 red mana token",
+  usageType: SKILL_USAGE_ONCE_PER_ROUND,
+  categories: [CATEGORY_SPECIAL],
+  effect: compound([
+    { type: EFFECT_GAIN_CRYSTAL, color: MANA_BLUE },
+    { type: EFFECT_GAIN_MANA, color: MANA_RED },
+  ]),
 };

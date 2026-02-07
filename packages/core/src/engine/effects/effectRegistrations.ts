@@ -48,6 +48,7 @@ import { registerSacrificeEffects } from "./sacrificeEffects.js";
 import { registerCallToArmsEffects } from "./callToArmsEffects.js";
 import { registerManaClaimEffects } from "./manaClaimEffects.js";
 import { registerManaBoltEffects } from "./manaBoltEffects.js";
+import { registerMindReadEffects } from "./mindReadEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -174,4 +175,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Mana Bolt effects (blue spell, mana-color-driven attack)
   registerManaBoltEffects();
+
+  // Mind Read / Mind Steal effects (interactive white spell)
+  registerMindReadEffects();
 }
