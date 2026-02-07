@@ -20,6 +20,7 @@ import type { Container } from "pixi.js";
  * 1100  HAND_ACTIVE          Selected card (above pie menu)
  * 1150  POWER_LINE           Drag connection line
  * 1200  DRAG_PREVIEW         Dragged chip preview
+ * 2000  CARD_SELECTION_MODAL Card selection modal overlay
  * ─────────────────────────────────────────────────────
  *
  * RULES:
@@ -52,6 +53,9 @@ export const PIXI_Z_INDEX = {
   HAND_ACTIVE: 1100,
   POWER_LINE: 1150,
   DRAG_PREVIEW: 1200,
+
+  // Full-screen modal overlays (2000+)
+  CARD_SELECTION_MODAL: 2000,
 } as const;
 
 export type PixiZIndex = (typeof PIXI_Z_INDEX)[keyof typeof PIXI_Z_INDEX];
