@@ -117,6 +117,11 @@ export const EFFECT_DOUBLE_PHYSICAL_ATTACKS = "double_physical_attacks" as const
 // Does not affect Arcane Immune enemies
 export const EFFECT_REMOVE_PHYSICAL_RESISTANCE = "remove_physical_resistance" as const;
 
+// === RemoveFireResistanceModifier ===
+// Removes fire resistance from enemies (Chill spell)
+// Does not affect Arcane Immune enemies
+export const EFFECT_REMOVE_FIRE_RESISTANCE = "remove_fire_resistance" as const;
+
 // === ColdToughnessBlockModifier ===
 // Grants +1 ice block per ability/attack color/resistance on blocked enemy (Tovak)
 // Arcane Immunity on the enemy negates the bonus entirely
