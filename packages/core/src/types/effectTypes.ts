@@ -243,3 +243,15 @@ export const EFFECT_RESOLVE_SACRIFICE = "resolve_sacrifice" as const;
 export const EFFECT_FREE_RECRUIT = "free_recruit" as const;
 // Internal: resolve after unit selection for free recruitment
 export const EFFECT_RESOLVE_FREE_RECRUIT_TARGET = "resolve_free_recruit_target" as const;
+
+// === Call to Arms Effect ===
+// Borrow a unit ability from the Units Offer without recruiting.
+// Presents units from offer (excluding Magic Familiars, Delphana Masters).
+// Then presents abilities of the selected unit. Resolves chosen ability.
+// Cannot assign damage to the borrowed unit.
+// Used by Call to Arms spell basic effect.
+export const EFFECT_CALL_TO_ARMS = "call_to_arms" as const;
+// Internal: resolve after selecting which unit to borrow from
+export const EFFECT_RESOLVE_CALL_TO_ARMS_UNIT = "resolve_call_to_arms_unit" as const;
+// Internal: resolve after selecting which ability to use from the borrowed unit
+export const EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY = "resolve_call_to_arms_ability" as const;
