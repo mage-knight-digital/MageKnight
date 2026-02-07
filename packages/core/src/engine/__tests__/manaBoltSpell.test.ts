@@ -42,7 +42,8 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
-import { resolveEffect, isEffectResolvable } from "../effects/index.js";
+import { resolveEffect, isEffectResolvable, describeEffect } from "../effects/index.js";
+import { effectHasAttack, effectHasRangedOrSiege } from "../rules/effectDetection/combatEffects.js";
 import {
   createTestGameState,
   createTestPlayer,
@@ -398,6 +399,44 @@ describe("Mana Bolt / Mana Thunderbolt Spell", () => {
       // which is checked by validators. The effect handler also handles gracefully
       // by detecting combat state, but the primary restriction is category-based.
       expect(MANA_BOLT.categories).toContain(CATEGORY_COMBAT);
+    });
+  });
+
+  // ============================================================================
+  // EFFECT DETECTION TESTS
+  // ============================================================================
+
+  describe("Effect Detection", () => {
+    it("should be detected as having attack", () => {
+      expect(effectHasAttack(MANA_BOLT.basicEffect)).toBe(true);
+      expect(effectHasAttack(MANA_BOLT.poweredEffect)).toBe(true);
+    });
+
+    it("should be detected as having ranged or siege", () => {
+      expect(effectHasRangedOrSiege(MANA_BOLT.basicEffect)).toBe(true);
+      expect(effectHasRangedOrSiege(MANA_BOLT.poweredEffect)).toBe(true);
+    });
+  });
+
+  // ============================================================================
+  // EFFECT DESCRIPTION TESTS
+  // ============================================================================
+
+  describe("Effect Description", () => {
+    it("should describe basic effect with correct values", () => {
+      const desc = describeEffect(MANA_BOLT.basicEffect);
+      expect(desc).toContain("Ice Attack 8");
+      expect(desc).toContain("ColdFire Attack 7");
+      expect(desc).toContain("Ranged Ice Attack 6");
+      expect(desc).toContain("Siege Ice Attack 5");
+    });
+
+    it("should describe powered effect with correct values", () => {
+      const desc = describeEffect(MANA_BOLT.poweredEffect);
+      expect(desc).toContain("Ice Attack 11");
+      expect(desc).toContain("ColdFire Attack 10");
+      expect(desc).toContain("Ranged Ice Attack 9");
+      expect(desc).toContain("Siege Ice Attack 8");
     });
   });
 });
