@@ -501,4 +501,23 @@ export interface Player {
   // Cards set aside by Time Bending for the rest of the round
   // These are excluded from hand/deck/discard and returned at end of round
   readonly timeBendingSetAsideCards: readonly CardId[];
+
+  // Banner of Protection: wounds received this turn
+  // Tracks the count of wounds added to hand and discard this turn.
+  // Used at end of turn to allow removing received wounds.
+  // Does NOT include wounds drawn from deck or wounds on units.
+  // Reset at end of turn via playerReset.
+  readonly woundsReceivedThisTurn: {
+    readonly hand: number;
+    readonly discard: number;
+  };
+
+  // Banner of Protection: powered effect active this turn
+  // When true, at end of turn the player may throw away wounds received this turn.
+  readonly bannerOfProtectionActive: boolean;
+
+  // Banner of Protection: pending end-of-turn wound removal choice
+  // Set to true when end turn checks detect active banner + received wounds.
+  // Player must resolve this before turn can end.
+  readonly pendingBannerProtectionChoice: boolean;
 }

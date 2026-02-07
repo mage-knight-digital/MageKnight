@@ -27,6 +27,7 @@ import {
   PLUNDER_VILLAGE_ACTION,
   RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
   RESOLVE_STEADY_TEMPO_ACTION,
+  RESOLVE_BANNER_PROTECTION_ACTION,
 } from "@mage-knight/shared";
 import { createInteractCommand } from "../interactCommand.js";
 import { createEnterSiteCommand } from "../enterSiteCommand.js";
@@ -36,6 +37,7 @@ import { createBurnMonasteryCommand } from "../burnMonasteryCommand.js";
 import { createPlunderVillageCommand } from "../plunderVillageCommand.js";
 import { createResolveCrystalJoyReclaimCommand } from "../resolveCrystalJoyReclaimCommand.js";
 import { createResolveSteadyTempoCommand } from "../resolveSteadyTempoCommand.js";
+import { createResolveBannerProtectionCommand } from "../resolveBannerProtectionCommand.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
@@ -205,5 +207,22 @@ export const createResolveSteadyTempoCommandFromAction: CommandFactory = (
   return createResolveSteadyTempoCommand({
     playerId,
     place: action.place,
+  });
+};
+
+/**
+ * Resolve Banner of Protection wound removal command factory.
+ * Creates a command to resolve the Banner of Protection end-of-turn wound removal.
+ */
+export const createResolveBannerProtectionCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_BANNER_PROTECTION_ACTION) return null;
+
+  return createResolveBannerProtectionCommand({
+    playerId,
+    removeAll: action.removeAll,
   });
 };

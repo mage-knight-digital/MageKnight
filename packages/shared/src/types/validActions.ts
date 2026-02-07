@@ -1123,6 +1123,24 @@ export interface PendingSteadyTempoState {
   readonly steadyTempo: SteadyTempoOptions;
 }
 
+/**
+ * Options for Banner of Protection wound removal at end of turn.
+ * Present when player has activated Banner of Protection powered effect
+ * and received wounds this turn.
+ */
+export interface BannerProtectionOptions {
+  /** Number of wounds received into hand this turn */
+  readonly woundsInHand: number;
+  /** Number of wounds received into discard this turn */
+  readonly woundsInDiscard: number;
+}
+
+export interface PendingBannerProtectionState {
+  readonly mode: "pending_banner_protection";
+  readonly turn: BlockingTurnOptions;
+  readonly bannerProtection: BannerProtectionOptions;
+}
+
 export interface PendingLevelUpState {
   readonly mode: "pending_level_up";
   readonly turn: BlockingTurnOptions;
@@ -1183,6 +1201,7 @@ export type ValidActions =
   | PendingArtifactCrystalColorState
   | PendingCrystalJoyState
   | PendingSteadyTempoState
+  | PendingBannerProtectionState
   | PendingLevelUpState
   | PendingChoiceState
   | PendingHexCostReductionState

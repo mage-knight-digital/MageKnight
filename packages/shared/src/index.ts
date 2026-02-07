@@ -262,6 +262,9 @@ export type {
   // Steady Tempo deck placement options
   SteadyTempoOptions,
   PendingSteadyTempoState,
+  // Banner of Protection options
+  BannerProtectionOptions,
+  PendingBannerProtectionState,
   // Unit maintenance options (Magic Familiars)
   UnitMaintenanceOptions,
   UnitMaintenanceEntry,

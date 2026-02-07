@@ -49,6 +49,7 @@ import { registerCallToArmsEffects } from "./callToArmsEffects.js";
 import { registerManaClaimEffects } from "./manaClaimEffects.js";
 import { registerManaBoltEffects } from "./manaBoltEffects.js";
 import { registerMindReadEffects } from "./mindReadEffects.js";
+import { registerBannerProtectionEffects } from "./bannerProtectionEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -178,4 +179,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Mind Read / Mind Steal effects (interactive white spell)
   registerMindReadEffects();
+
+  // Banner of Protection effects (activate powered flag)
+  registerBannerProtectionEffects();
 }

@@ -457,9 +457,17 @@ export interface ResolveCrystalJoyReclaimAction {
 
 // Steady Tempo deck placement action (end-of-turn choice to place card in deck)
 export const RESOLVE_STEADY_TEMPO_ACTION = "RESOLVE_STEADY_TEMPO" as const;
+
+// Banner of Protection wound removal action (end-of-turn choice to throw away wounds)
+export const RESOLVE_BANNER_PROTECTION_ACTION = "RESOLVE_BANNER_PROTECTION" as const;
 export interface ResolveSteadyTempoAction {
   readonly type: typeof RESOLVE_STEADY_TEMPO_ACTION;
   readonly place: boolean; // true = place in deck, false = discard normally
+}
+
+export interface ResolveBannerProtectionAction {
+  readonly type: typeof RESOLVE_BANNER_PROTECTION_ACTION;
+  readonly removeAll: boolean; // true = throw away all received wounds, false = skip
 }
 
 // Discard as cost action (e.g., Improvisation requires discarding before gaining benefit)
@@ -757,6 +765,8 @@ export type PlayerAction =
   | ResolveCrystalJoyReclaimAction
   // Steady Tempo deck placement
   | ResolveSteadyTempoAction
+  // Banner of Protection wound removal
+  | ResolveBannerProtectionAction
   // Discard as cost
   | ResolveDiscardAction
   // Discard for attack (Sword of Justice)

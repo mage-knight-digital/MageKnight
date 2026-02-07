@@ -249,3 +249,41 @@ export interface SteadyTempoPlacementSkippedEvent {
   /** ID of the player who skipped */
   readonly playerId: string;
 }
+
+// ============================================================================
+// BANNER OF PROTECTION EVENTS
+// ============================================================================
+
+/**
+ * Event type constant for Banner of Protection wound removal.
+ * @see BannerProtectionWoundsRemovedEvent
+ */
+export const BANNER_PROTECTION_WOUNDS_REMOVED = "BANNER_PROTECTION_WOUNDS_REMOVED" as const;
+
+/**
+ * Emitted when wounds are thrown away via Banner of Protection at end of turn.
+ */
+export interface BannerProtectionWoundsRemovedEvent {
+  readonly type: typeof BANNER_PROTECTION_WOUNDS_REMOVED;
+  /** ID of the player */
+  readonly playerId: string;
+  /** Number of wounds removed from hand */
+  readonly fromHand: number;
+  /** Number of wounds removed from discard */
+  readonly fromDiscard: number;
+}
+
+/**
+ * Event type constant for skipping Banner of Protection wound removal.
+ * @see BannerProtectionSkippedEvent
+ */
+export const BANNER_PROTECTION_SKIPPED = "BANNER_PROTECTION_SKIPPED" as const;
+
+/**
+ * Emitted when a player skips Banner of Protection wound removal.
+ */
+export interface BannerProtectionSkippedEvent {
+  readonly type: typeof BANNER_PROTECTION_SKIPPED;
+  /** ID of the player who skipped */
+  readonly playerId: string;
+}

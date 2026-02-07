@@ -21,6 +21,7 @@ import type {
   ArtifactCrystalColorOptions,
   CrystalJoyReclaimOptions,
   SteadyTempoOptions,
+  BannerProtectionOptions,
   UnitMaintenanceOptions,
   CardId,
 } from "@mage-knight/shared";
@@ -232,6 +233,19 @@ export function getSteadyTempoOptions(
   return {
     position,
     canPlace,
+  };
+}
+
+/**
+ * Get Banner of Protection wound removal options for the player.
+ * Returns options showing how many wounds were received in hand and discard.
+ */
+export function getBannerProtectionOptions(
+  player: Player
+): BannerProtectionOptions {
+  return {
+    woundsInHand: player.woundsReceivedThisTurn.hand,
+    woundsInDiscard: player.woundsReceivedThisTurn.discard,
   };
 }
 

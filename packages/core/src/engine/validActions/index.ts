@@ -44,6 +44,7 @@ import {
   getArtifactCrystalColorOptions,
   getCrystalJoyReclaimOptions,
   getSteadyTempoOptions,
+  getBannerProtectionOptions,
   getUnitMaintenanceOptions,
 } from "./pending.js";
 import { getChallengeOptions } from "./challenge.js";
@@ -191,6 +192,13 @@ export function getValidActions(
       mode: "pending_steady_tempo",
       turn: { canUndo: false },
       steadyTempo: getSteadyTempoOptions(state, player),
+    };
+  }
+  if (player.pendingBannerProtectionChoice) {
+    return {
+      mode: "pending_banner_protection",
+      turn: { canUndo: false },
+      bannerProtection: getBannerProtectionOptions(player),
     };
   }
   if (hasPendingChoice(player)) {

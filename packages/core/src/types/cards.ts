@@ -105,6 +105,7 @@ import {
   EFFECT_MIND_STEAL,
   EFFECT_RESOLVE_MIND_STEAL_COLOR,
   EFFECT_RESOLVE_MIND_STEAL_SELECTION,
+  EFFECT_ACTIVATE_BANNER_PROTECTION,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1196,6 +1197,15 @@ export interface ResolveMindStealSelectionEffect {
   readonly fromPlayerId: string;
 }
 
+/**
+ * Activate Banner of Protection powered effect.
+ * Sets bannerOfProtectionActive flag; at end of turn, player may throw away
+ * all wounds received this turn.
+ */
+export interface ActivateBannerProtectionEffect {
+  readonly type: typeof EFFECT_ACTIVATE_BANNER_PROTECTION;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1279,7 +1289,8 @@ export type CardEffect =
   | ResolveMindReadColorEffect
   | MindStealEffect
   | ResolveMindStealColorEffect
-  | ResolveMindStealSelectionEffect;
+  | ResolveMindStealSelectionEffect
+  | ActivateBannerProtectionEffect;
 
 // === Card Definition ===
 

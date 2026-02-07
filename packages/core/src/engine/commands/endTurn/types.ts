@@ -19,6 +19,8 @@ export interface EndTurnCommandParams {
   readonly skipCrystalJoyReclaim?: boolean;
   /** If true, skip the Steady Tempo deck placement check (used after resolving placement choice) */
   readonly skipSteadyTempo?: boolean;
+  /** If true, skip the Banner of Protection wound removal check (used after resolving choice) */
+  readonly skipBannerProtection?: boolean;
 }
 
 /**

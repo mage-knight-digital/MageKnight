@@ -105,6 +105,11 @@ function addWounds(player: Player, amount: number, woundPileCount: number | null
   const updatedPlayer: Player = {
     ...player,
     hand: [...player.hand, ...woundsToAdd],
+    // Track wounds received this turn for Banner of Protection
+    woundsReceivedThisTurn: {
+      hand: player.woundsReceivedThisTurn.hand + amount,
+      discard: player.woundsReceivedThisTurn.discard,
+    },
   };
   const newWoundPileCount =
     woundPileCount === null ? null : Math.max(0, woundPileCount - amount);
