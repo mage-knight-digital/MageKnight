@@ -10,13 +10,13 @@
  * - Single and multi-select modes
  * - Skip button for optional selections
  * - Escape key triggers undo
- * - GPU-rendered card images via PixiJS
+ * - Card images via CSS sprite backgrounds (shared atlas, no second WebGL context)
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { CardId } from "@mage-knight/shared";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
-import { PixiCardCanvas, type CardRenderInfo } from "../PixiCard/PixiCardCanvas";
+import { getCardSpriteStyle } from "../../utils/cardAtlas";
 import "./CardSelectionOverlay.css";
 
 export interface CardSelectionOverlayProps {
@@ -62,7 +62,7 @@ export function CardSelectionOverlay({
   cardFilter,
   filterMessage,
 }: CardSelectionOverlayProps) {
-  const [selectedCards, setSelectedCards] = useState<Set<CardId>>(new Set());
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Register this overlay to disable background interactions
@@ -99,54 +99,55 @@ export function CardSelectionOverlay({
     return () => clearTimeout(timer);
   }, []);
 
-  // Handle card click
+  // Handle card click by index (supports duplicate CardIds in hand)
   const handleCardClick = useCallback(
-    (cardId: string) => {
-      const id = cardId as CardId;
+    (index: number) => {
+      const cardId = cards[index] as CardId;
 
       // Ignore clicks on non-selectable cards
-      if (!selectableCards.has(id)) return;
+      if (!selectableCards.has(cardId)) return;
 
-      setSelectedCards((prev) => {
+      setSelectedIndices((prev) => {
         const next = new Set(prev);
 
-        if (next.has(id)) {
+        if (next.has(index)) {
           // Deselect if already selected
-          next.delete(id);
+          next.delete(index);
         } else if (next.size < maxSelect) {
           // Select if under limit
-          next.add(id);
+          next.add(index);
         } else if (maxSelect === 1) {
           // Single select mode: replace selection
           next.clear();
-          next.add(id);
+          next.add(index);
         }
         // If at max and multi-select, ignore (must deselect first)
 
         return next;
       });
     },
-    [maxSelect, selectableCards]
+    [cards, maxSelect, selectableCards]
   );
 
-  // Handle confirm
+  // Handle confirm - convert selected indices back to CardIds
   const handleConfirm = useCallback(() => {
-    if (selectedCards.size >= minSelect) {
-      onSelect(Array.from(selectedCards));
+    if (selectedIndices.size >= minSelect) {
+      const selectedCardIds = Array.from(selectedIndices).map(
+        (i) => cards[i] as CardId
+      );
+      onSelect(selectedCardIds);
     }
-  }, [selectedCards, minSelect, onSelect]);
+  }, [selectedIndices, minSelect, onSelect, cards]);
 
   // Check if confirm should be enabled
-  const canConfirm = selectedCards.size >= minSelect && selectedCards.size <= maxSelect;
+  const canConfirm = selectedIndices.size >= minSelect && selectedIndices.size <= maxSelect;
 
-  // Calculate canvas dimensions based on card count
+  // Calculate grid dimensions based on card count
   const cardsPerRow = Math.max(1, Math.min(cards.length, 4));
   const rows = cards.length > 0 ? Math.ceil(cards.length / cardsPerRow) : 0;
-  const canvasWidth = cards.length > 0 ? cardsPerRow * (CARD_WIDTH + CARD_GAP) - CARD_GAP : 0;
-  const canvasHeight = rows > 0 ? rows * (CARD_HEIGHT + CARD_GAP) - CARD_GAP : 0;
 
-  // Build card render info with positions
-  const cardRenderInfo: CardRenderInfo[] = useMemo(() => {
+  // Build card positions
+  const cardPositions = useMemo(() => {
     return cards.map((cardId, index) => {
       const row = Math.floor(index / cardsPerRow);
       const col = index % cardsPerRow;
@@ -158,25 +159,26 @@ export function CardSelectionOverlay({
         ((cardsPerRow - cardsInThisRow) * (CARD_WIDTH + CARD_GAP)) / 2;
 
       return {
-        id: cardId,
+        cardId,
         x: rowOffset + col * (CARD_WIDTH + CARD_GAP),
         y: row * (CARD_HEIGHT + CARD_GAP),
-        width: CARD_WIDTH,
-        height: CARD_HEIGHT,
       };
     });
   }, [cards, cardsPerRow, rows]);
 
-  // Determine selection indicator display (handled via CSS overlay)
-  const isSelected = useCallback(
-    (cardId: CardId) => selectedCards.has(cardId),
-    [selectedCards]
+  // Determine selection indicator display
+  const isSelectedAt = useCallback(
+    (index: number) => selectedIndices.has(index),
+    [selectedIndices]
   );
 
   const isSelectable = useCallback(
     (cardId: CardId) => selectableCards.has(cardId),
     [selectableCards]
   );
+
+  const gridWidth = cards.length > 0 ? cardsPerRow * (CARD_WIDTH + CARD_GAP) - CARD_GAP : 0;
+  const gridHeight = rows > 0 ? rows * (CARD_HEIGHT + CARD_GAP) - CARD_GAP : 0;
 
   return (
     <div className="overlay card-selection-overlay" ref={containerRef}>
@@ -198,27 +200,28 @@ export function CardSelectionOverlay({
             </span>
           )}
           <span className="card-selection__count">
-            ({selectedCards.size} selected)
+            ({selectedIndices.size} selected)
           </span>
         </div>
 
         {cards.length > 0 ? (
-          <div className="card-selection__cards">
-            {/* Selection overlay layer on top of PixiJS canvas */}
-            <div
-              className="card-selection__overlay-layer"
-              style={{ width: canvasWidth, height: canvasHeight }}
-            >
-              {cardRenderInfo.map((card) => (
+          <div
+            className="card-selection__cards"
+            style={{ width: gridWidth, height: gridHeight }}
+          >
+            {cardPositions.map((card, index) => {
+              const spriteStyle = getCardSpriteStyle(card.cardId, CARD_HEIGHT);
+
+              return (
                 <div
-                  key={card.id}
+                  key={`${card.cardId}:${index}`}
                   className={[
-                    "card-selection__card-overlay",
-                    isSelected(card.id as CardId)
-                      ? "card-selection__card-overlay--selected"
+                    "card-selection__card",
+                    isSelectedAt(index)
+                      ? "card-selection__card--selected"
                       : "",
-                    !isSelectable(card.id as CardId)
-                      ? "card-selection__card-overlay--disabled"
+                    !isSelectable(card.cardId)
+                      ? "card-selection__card--disabled"
                       : "",
                   ]
                     .filter(Boolean)
@@ -226,36 +229,28 @@ export function CardSelectionOverlay({
                   style={{
                     left: card.x,
                     top: card.y,
-                    width: card.width,
-                    height: card.height,
+                    width: CARD_WIDTH,
+                    height: CARD_HEIGHT,
+                    ...(spriteStyle ?? {}),
                   }}
-                  onClick={() => handleCardClick(card.id)}
+                  onClick={() => handleCardClick(index)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      handleCardClick(card.id);
+                      handleCardClick(index);
                     }
                   }}
                   role="button"
-                  tabIndex={isSelectable(card.id as CardId) ? 0 : -1}
-                  aria-pressed={isSelected(card.id as CardId)}
-                  aria-disabled={!isSelectable(card.id as CardId)}
+                  tabIndex={isSelectable(card.cardId) ? 0 : -1}
+                  aria-pressed={isSelectedAt(index)}
+                  aria-disabled={!isSelectable(card.cardId)}
                 >
-                  {isSelected(card.id as CardId) && (
+                  {isSelectedAt(index) && (
                     <div className="card-selection__checkmark">✓</div>
                   )}
                 </div>
-              ))}
-            </div>
-
-            {/* PixiJS canvas for card rendering */}
-            <PixiCardCanvas
-              cards={cardRenderInfo}
-              width={canvasWidth}
-              height={canvasHeight}
-              backgroundColor={0x16213e}
-              className="card-selection__canvas"
-            />
+              );
+            })}
           </div>
         ) : (
           <p className="card-selection__empty">No cards available to select.</p>

@@ -9,10 +9,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Application, Sprite } from "pixi.js";
 import {
-  getCardTextureFromAtlas,
+  getCardTexture,
+  getPlaceholderTexture,
   preloadCardTextures as sharedPreloadCardTextures,
   preloadAllSpriteSheets as sharedPreloadAllSpriteSheets,
 } from "../../utils/pixiTextureLoader";
+import type { CardId } from "@mage-knight/shared";
 
 export interface CardRenderInfo {
   id: string; // CardId or UnitId
@@ -95,6 +97,8 @@ export function PixiCardCanvas({
     const app = appRef.current;
     if (!app || !isReady) return;
 
+    let cancelled = false;
+
     const updateSprites = async () => {
       const currentSprites = spritesRef.current;
       const newSpriteKeys = new Set(cards.map((c, i) => `${c.id}:${i}`));
@@ -118,11 +122,13 @@ export function PixiCardCanvas({
         let sprite = currentSprites.get(key);
 
         if (!sprite) {
-          // Create new sprite using shared texture loader
-          const texture = await getCardTextureFromAtlas(card.id);
-          if (!texture) continue;
+          // Load texture using the SpriteData-based loader (works with actual atlas format)
+          const texture = await getCardTexture(card.id as CardId);
 
-          sprite = new Sprite(texture);
+          // Check if effect was cleaned up during async texture load
+          if (cancelled) return;
+
+          sprite = new Sprite(texture ?? getPlaceholderTexture());
           sprite.eventMode = "static";
           sprite.cursor = "pointer";
           sprite.on("pointerdown", () => {
@@ -142,6 +148,10 @@ export function PixiCardCanvas({
     };
 
     updateSprites();
+
+    return () => {
+      cancelled = true;
+    };
   }, [cards, isReady, onCardClick]);
 
   return (

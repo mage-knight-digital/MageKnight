@@ -39,27 +39,12 @@
 
 .card-selection__cards {
   position: relative;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 1.5rem;
+  margin: 0 auto 1.5rem;
 }
 
-.card-selection__canvas {
-  border-radius: 8px;
-}
-
-/* Overlay layer for selection state - sits on top of PixiJS canvas */
-.card-selection__overlay-layer {
+/* Card with CSS sprite background image */
+.card-selection__card {
   position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.card-selection__card-overlay {
-  position: absolute;
-  pointer-events: auto;
   cursor: pointer;
   border: 3px solid transparent;
   border-radius: 8px;
@@ -67,28 +52,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  background-repeat: no-repeat;
 }
 
-.card-selection__card-overlay:hover:not(.card-selection__card-overlay--disabled) {
+.card-selection__card:hover:not(.card-selection__card--disabled) {
   border-color: rgba(243, 156, 18, 0.6);
   box-shadow: 0 0 12px rgba(243, 156, 18, 0.3);
 }
 
-.card-selection__card-overlay:focus {
+.card-selection__card:focus {
   outline: none;
   border-color: rgba(243, 156, 18, 0.8);
 }
 
-.card-selection__card-overlay--selected {
+.card-selection__card--selected {
   border-color: #2ecc71;
   box-shadow: 0 0 16px rgba(46, 204, 113, 0.5);
 }
 
-.card-selection__card-overlay--selected:hover {
+.card-selection__card--selected:hover {
   border-color: #2ecc71;
 }
 
-.card-selection__card-overlay--disabled {
+.card-selection__card--disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
