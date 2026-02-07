@@ -20,6 +20,8 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "@mage-knight/shared";
+import { effectHasEnemyTargeting } from "./specialEffects.js";
+import { effectHasModifier } from "./resourceEffects.js";
 
 /**
  * Check if an effect provides ranged or siege attack.
@@ -104,6 +106,10 @@ export function effectIsRangedOnlyAttack(effect: CardEffect): boolean {
       return effect.options.every(opt => effectIsRangedOnlyAttack(opt));
 
     case EFFECT_COMPOUND:
+      // Compounds with enemy targeting or modifiers (e.g., Expose removes
+      // fortification) aren't purely ranged attacks — the non-attack sub-effects
+      // provide independent value even against fortified enemies
+      if (effectHasEnemyTargeting(effect) || effectHasModifier(effect)) return false;
       // Has ranged attack AND no siege/melee attack anywhere
       return effect.effects.some(eff => effectIsRangedOnlyAttack(eff)) &&
         !effect.effects.some(eff => effectHasSiegeAttack(eff));

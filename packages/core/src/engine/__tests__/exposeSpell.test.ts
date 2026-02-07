@@ -9,7 +9,7 @@
  * - Fortification removal allows ranged attacks
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { GameState } from "../../state/GameState.js";
 import {
   addModifier,
@@ -23,8 +23,18 @@ import {
   ENEMY_GOLEMS,
   ENEMY_HEROES,
   ENEMY_SORCERERS,
+  ENEMY_DIGGERS,
   ABILITY_FORTIFIED,
   getEnemy,
+  CARD_EXPOSE,
+  ENTER_COMBAT_ACTION,
+  PLAY_CARD_ACTION,
+  INVALID_ACTION,
+  MANA_WHITE,
+  MANA_BLACK,
+  MANA_TOKEN_SOURCE_CARD,
+  MANA_SOURCE_TOKEN,
+  TIME_OF_DAY_NIGHT,
 } from "@mage-knight/shared";
 import {
   DURATION_COMBAT,
@@ -35,7 +45,16 @@ import {
   SOURCE_CARD,
 } from "../../types/modifierConstants.js";
 import type { CombatEnemy } from "../../types/combat.js";
+import { COMBAT_PHASE_RANGED_SIEGE } from "../../types/combat.js";
 import type { CardId } from "@mage-knight/shared";
+import type { ManaToken } from "../../types/player.js";
+import { createEngine, type MageKnightEngine } from "../MageKnightEngine.js";
+import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+
+/** Helper to create a mana token for tests */
+function manaToken(color: string): ManaToken {
+  return { color: color as ManaToken["color"], source: MANA_TOKEN_SOURCE_CARD };
+}
 
 // Helper to create a minimal combat state for modifier testing
 function createCombatState(enemies: CombatEnemy[]): Partial<GameState> {
@@ -381,6 +400,116 @@ describe("Expose / Mass Expose Spell", () => {
 
       // Golem (no Arcane Immunity) loses resistances
       expect(areResistancesRemoved(state, "enemy_1")).toBe(true);
+    });
+  });
+
+  describe("Playability against fortified enemies", () => {
+    let engine: MageKnightEngine;
+
+    beforeEach(() => {
+      engine = createEngine();
+    });
+
+    it("should be playable (basic) when all enemies are fortified", () => {
+      let state = createTestGameState({
+        players: [
+          createTestPlayer({
+            hand: [CARD_EXPOSE],
+            pureMana: [manaToken(MANA_WHITE)],
+          }),
+        ],
+      });
+
+      // Enter combat with Diggers (has ABILITY_FORTIFIED)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DIGGERS],
+      }).state;
+
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_RANGED_SIEGE);
+
+      // Play Expose basic - should succeed because Expose removes fortification
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_EXPOSE,
+        powered: false,
+      });
+
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+    });
+
+    it("should be playable (powered) when all enemies are fortified", () => {
+      let state = createTestGameState({
+        timeOfDay: TIME_OF_DAY_NIGHT,
+        players: [
+          createTestPlayer({
+            hand: [CARD_EXPOSE],
+            pureMana: [manaToken(MANA_BLACK), manaToken(MANA_WHITE)],
+          }),
+        ],
+      });
+
+      // Enter combat with Diggers (has ABILITY_FORTIFIED)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_DIGGERS],
+      }).state;
+
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_RANGED_SIEGE);
+
+      // Play Mass Expose (powered) - should succeed
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_EXPOSE,
+        powered: true,
+        manaSources: [
+          { type: MANA_SOURCE_TOKEN, color: MANA_BLACK },
+          { type: MANA_SOURCE_TOKEN, color: MANA_WHITE },
+        ],
+      });
+
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+    });
+
+    it("should be playable (basic) at a fortified site", () => {
+      let state = createTestGameState({
+        players: [
+          createTestPlayer({
+            hand: [CARD_EXPOSE],
+            pureMana: [manaToken(MANA_WHITE)],
+          }),
+        ],
+      });
+
+      // Enter combat at fortified site with Guardsmen (ABILITY_FORTIFIED + site)
+      state = engine.processAction(state, "player1", {
+        type: ENTER_COMBAT_ACTION,
+        enemyIds: [ENEMY_GUARDSMEN],
+        isAtFortifiedSite: true,
+      }).state;
+
+      expect(state.combat?.phase).toBe(COMBAT_PHASE_RANGED_SIEGE);
+
+      // Play Expose basic - should succeed
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_EXPOSE,
+        powered: false,
+      });
+
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
     });
   });
 });
