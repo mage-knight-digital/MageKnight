@@ -168,6 +168,14 @@ export function validateCardPlayableInContext(
     const phase = state.combat.phase;
     const moveCardsAllowed = isRuleActive(state, playerId, RULE_MOVE_CARDS_IN_COMBAT);
 
+    // Check card-level combat phase restriction (e.g., Into the Heat: start of combat only)
+    if (card.combatPhaseRestriction && !card.combatPhaseRestriction.includes(phase)) {
+      return invalid(
+        CARD_NOT_PLAYABLE_IN_PHASE,
+        `Card can only be played at the start of combat`
+      );
+    }
+
     if (!isCombatEffectAllowed(context.effect, phase, context.allowAnyPhase, moveCardsAllowed)) {
       return invalid(
         CARD_NOT_PLAYABLE_IN_PHASE,

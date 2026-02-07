@@ -17,12 +17,14 @@ import type { CombatEnemy } from "../../types/combat.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import { isBondsUnit } from "../rules/bondsOfLoyalty.js";
+import { getEffectiveUnitArmor } from "../rules/banners.js";
+import { getUnitArmorBonus } from "../modifiers/index.js";
 import {
   getEffectiveEnemyAttack,
   doesEnemyAttackThisCombat,
 } from "../modifiers/index.js";
 import { isAttackResisted } from "../combat/elementalCalc.js";
-import { isAssassinationActive, getDamageRedirectUnit } from "../rules/combatTargeting.js";
+import { isAssassinationActive, getDamageRedirectUnit, cannotAssignDamageToUnits } from "../rules/combatTargeting.js";
 import {
   getEnemyAttack,
   getEnemyAttacks,
@@ -55,8 +57,11 @@ export function computeAvailableUnitTargets(
   player: Player,
   attackElement: Element,
   unitsAllowed: boolean,
-  paidThugsDamageInfluence?: Readonly<Record<string, boolean>>
+  paidThugsDamageInfluence?: Readonly<Record<string, boolean>>,
+  state?: GameState,
+  playerId?: string
 ): readonly UnitDamageTarget[] {
+  const modifierArmorBonus = (state && playerId) ? getUnitArmorBonus(state, playerId) : 0;
   // If units are not allowed in this combat (dungeon/tomb), only Bonds unit can be targeted
   if (!unitsAllowed) {
     const bondsUnits = player.units.filter((u) => isBondsUnit(player, u.instanceId));
@@ -74,7 +79,7 @@ export function computeAvailableUnitTargets(
         unitInstanceId: unit.instanceId,
         unitId: unit.unitId,
         unitName: unitDef.name,
-        armor: unitDef.armor,
+        armor: getEffectiveUnitArmor(player, unit) + modifierArmorBonus,
         isResistantToAttack,
         alreadyAssignedThisCombat: unit.usedResistanceThisCombat,
         isWounded: unit.wounded,
@@ -108,7 +113,7 @@ export function computeAvailableUnitTargets(
       unitInstanceId: unit.instanceId,
       unitId: unit.unitId,
       unitName: unitDef.name,
-      armor: unitDef.armor,
+      armor: getEffectiveUnitArmor(player, unit) + modifierArmorBonus,
       isResistantToAttack,
       alreadyAssignedThisCombat: unit.usedResistanceThisCombat,
       isWounded: unit.wounded,
@@ -203,20 +208,26 @@ export function getDamageAssignmentOptions(
       const totalDamage = isBrutal ? rawAttack * 2 : rawAttack;
       const attackElement = attack.element;
 
+      // Check if player's units cannot absorb damage (Into the Heat)
+      const unitsCannotAbsorb = currentPlayer
+        ? cannotAssignDamageToUnits(state, currentPlayer.id)
+        : false;
+
       // Compute available unit targets
+      // - Units cannot absorb damage (Into the Heat): no units allowed
       // - Assassination: no units allowed (hero only)
       // - Damage redirect: only the redirect unit allowed
       // - Normal: all available units
       let availableUnits: readonly UnitDamageTarget[];
-      if (assassinationActive) {
+      if (unitsCannotAbsorb || assassinationActive) {
         availableUnits = [];
       } else if (redirectUnitId && currentPlayer) {
         // Only the redirect unit is a valid target
-        const allUnits = computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed, combat.paidThugsDamageInfluence);
+        const allUnits = computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed, combat.paidThugsDamageInfluence, state, currentPlayerId);
         availableUnits = allUnits.filter(u => u.unitInstanceId === redirectUnitId);
       } else {
         availableUnits = currentPlayer
-          ? computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed, combat.paidThugsDamageInfluence)
+          ? computeAvailableUnitTargets(currentPlayer, attackElement, combat.unitsAllowed, combat.paidThugsDamageInfluence, state, currentPlayerId)
           : [];
       }
 

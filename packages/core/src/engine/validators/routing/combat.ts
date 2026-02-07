@@ -52,6 +52,7 @@ import {
   validateHasSiegeAttack,
   validateOneCombatPerTurn,
   validateAssassinationTarget,
+  validateUnitsCannotAbsorbDamage,
   // Incremental attack assignment validators
   validateAssignAttackInCombat,
   validateAssignAttackPhase,
@@ -131,6 +132,7 @@ export const combatValidatorRegistry: ValidatorRegistry = {
     validateAssignDamagePhase,
     validateAssignDamageTargetEnemy,
     validateAssassinationTarget,
+    validateUnitsCannotAbsorbDamage,
     validateUnitCanReceiveDamage,
   ],
   // Incremental attack assignment actions
