@@ -32,9 +32,10 @@ import { getFortificationLevel } from "../rules/combatTargeting.js";
 import type {
   SelectCombatEnemyEffect,
   ResolveCombatEnemyTargetEffect,
+  CardEffect,
 } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
-import { EFFECT_SELECT_COMBAT_ENEMY, EFFECT_RESOLVE_COMBAT_ENEMY_TARGET } from "../../types/effectTypes.js";
+import { EFFECT_SELECT_COMBAT_ENEMY, EFFECT_RESOLVE_COMBAT_ENEMY_TARGET, EFFECT_NOOP } from "../../types/effectTypes.js";
 import { registerEffect } from "./effectRegistry.js";
 import { addModifier } from "../modifiers/index.js";
 import {
@@ -71,7 +72,8 @@ import {
 export function resolveSelectCombatEnemy(
   state: GameState,
   effect: SelectCombatEnemyEffect,
-  playerId?: string
+  playerId?: string,
+  alreadyTargeted?: readonly string[]
 ): EffectResolutionResult {
   // Entry effect for selecting an enemy in combat
   if (!state.combat) {
@@ -84,6 +86,9 @@ export function resolveSelectCombatEnemy(
   // Get eligible enemies
   const eligibleEnemies = state.combat.enemies.filter((e) => {
     if (!effect.includeDefeated && e.isDefeated) return false;
+
+    // Filter out already-targeted enemies (multi-target mode)
+    if (alreadyTargeted && alreadyTargeted.includes(e.instanceId)) return false;
 
     // Filter out fortified enemies if requested (checks effective fortification after modifiers)
     if (effect.excludeFortified && playerId) {
@@ -116,19 +121,36 @@ export function resolveSelectCombatEnemy(
     };
   }
 
+  const maxTargets = effect.maxTargets ?? 1;
+  const targetsSoFar = alreadyTargeted?.length ?? 0;
+  const remaining = maxTargets - targetsSoFar - 1; // -1 because current selection counts
+
   // Generate choice options - one per eligible enemy
-  const choiceOptions: ResolveCombatEnemyTargetEffect[] = eligibleEnemies.map(
+  const choiceOptions: CardEffect[] = eligibleEnemies.map(
     (enemy) => ({
       type: EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
       enemyInstanceId: enemy.instanceId,
       enemyName: enemy.definition.name,
       template: effect.template,
-    })
+      // Multi-target tracking
+      ...(maxTargets > 1 && {
+        multiTargetSource: effect,
+        remainingTargets: remaining,
+        alreadyTargeted: alreadyTargeted ?? [],
+      }),
+    } as ResolveCombatEnemyTargetEffect)
   );
+
+  // In multi-target mode with at least one target already selected, add "done" option
+  if (maxTargets > 1 && targetsSoFar > 0) {
+    choiceOptions.push({ type: EFFECT_NOOP } as CardEffect);
+  }
 
   return {
     state,
-    description: "Select an enemy to target",
+    description: maxTargets > 1
+      ? `Select an enemy to target (${targetsSoFar}/${maxTargets} selected)`
+      : "Select an enemy to target",
     requiresChoice: true,
     dynamicChoiceOptions: choiceOptions,
   };
@@ -348,6 +370,32 @@ export function registerCombatEffects(resolver?: EffectResolver): void {
       return {
         state: bundledResult.state,
         description: [baseResult.description, bundledResult.description].filter(Boolean).join("; "),
+      };
+    }
+
+    // Multi-target: if more targets can be selected, re-enter selection
+    if (typedEffect.multiTargetSource && typedEffect.remainingTargets !== undefined && typedEffect.remainingTargets > 0) {
+      const updatedAlreadyTargeted = [
+        ...(typedEffect.alreadyTargeted ?? []),
+        typedEffect.enemyInstanceId,
+      ];
+      const continuationResult = resolveSelectCombatEnemy(
+        baseResult.state,
+        typedEffect.multiTargetSource,
+        playerId,
+        updatedAlreadyTargeted
+      );
+
+      // If no more eligible targets, just return the base result
+      if (!continuationResult.requiresChoice) {
+        return baseResult;
+      }
+
+      return {
+        state: continuationResult.state,
+        description: baseResult.description,
+        requiresChoice: continuationResult.requiresChoice,
+        dynamicChoiceOptions: continuationResult.dynamicChoiceOptions,
       };
     }
 

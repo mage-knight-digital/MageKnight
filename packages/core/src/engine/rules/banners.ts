@@ -10,14 +10,19 @@ import type { Player, BannerAttachment } from "../../types/player.js";
 import type { PlayerUnit } from "../../types/unit.js";
 import type { CardId } from "@mage-knight/shared";
 import {
+  ABILITY_ARCANE_IMMUNITY,
+  CARD_BANNER_OF_FEAR,
   CARD_BANNER_OF_GLORY,
   getUnit,
   UNIT_ABILITY_ATTACK,
   UNIT_ABILITY_RANGED_ATTACK,
   UNIT_ABILITY_SIEGE_ATTACK,
   UNIT_ABILITY_BLOCK,
+  UNIT_STATE_READY,
 } from "@mage-knight/shared";
 import { DEED_CARD_TYPE_ARTIFACT, CATEGORY_BANNER } from "../../types/cards.js";
+import type { CombatEnemy } from "../../types/combat.js";
+import { getEnemyAttackCount, isAttackCancelled } from "../combat/enemyAttackHelpers.js";
 
 /**
  * Check if a card is a banner artifact (artifact with banner category).
@@ -161,4 +166,87 @@ export function shouldBannerGrantFame(
 ): boolean {
   const banner = getBannerForUnit(player, unitInstanceId);
   return banner !== undefined && banner.bannerId === CARD_BANNER_OF_GLORY;
+}
+
+// ============================================================================
+// Banner of Fear: Cancel Attack
+// ============================================================================
+
+/**
+ * Check if a unit has Banner of Fear attached.
+ */
+export function hasBannerOfFear(
+  player: Player,
+  unitInstanceId: string
+): boolean {
+  const banner = getBannerForUnit(player, unitInstanceId);
+  return banner !== undefined && banner.bannerId === CARD_BANNER_OF_FEAR;
+}
+
+/**
+ * Check if a unit can use Banner of Fear's cancel attack ability.
+ * Requirements:
+ * - Unit must have Banner of Fear attached
+ * - Unit must be ready (not spent)
+ * - Unit must not be wounded
+ *
+ * Note: Banner of Fear usage is tied to unit ready state, NOT isUsedThisRound.
+ * If unit is re-readied (e.g. via Song of Wind), Banner can be used again.
+ */
+export function canUseBannerFear(
+  player: Player,
+  unitInstanceId: string
+): boolean {
+  const banner = getBannerForUnit(player, unitInstanceId);
+  if (!banner || banner.bannerId !== CARD_BANNER_OF_FEAR) return false;
+
+  const unit = player.units.find((u) => u.instanceId === unitInstanceId);
+  if (!unit) return false;
+
+  // Must be ready and unwounded
+  return unit.state === UNIT_STATE_READY && !unit.wounded;
+}
+
+/**
+ * Check if an enemy's attack can be cancelled by Banner of Fear.
+ * Cannot cancel attacks from Arcane Immune enemies.
+ */
+export function canCancelEnemyAttack(
+  enemy: CombatEnemy,
+  attackIndex: number
+): boolean {
+  // Cannot target Arcane Immune enemies
+  if (enemy.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY)) return false;
+
+  // Cannot cancel already-cancelled attacks
+  if (isAttackCancelled(enemy, attackIndex)) return false;
+
+  // Attack index must be valid
+  const attackCount = getEnemyAttackCount(enemy);
+  if (attackIndex < 0 || attackIndex >= attackCount) return false;
+
+  return true;
+}
+
+/**
+ * Get all (enemy, attackIndex) pairs that can be targeted by Banner of Fear.
+ * Used by validActions to show available cancel targets during block phase.
+ */
+export function getCancellableAttacks(
+  enemies: readonly CombatEnemy[]
+): readonly { enemyInstanceId: string; attackIndex: number }[] {
+  const targets: { enemyInstanceId: string; attackIndex: number }[] = [];
+
+  for (const enemy of enemies) {
+    if (enemy.isDefeated) continue;
+
+    const attackCount = getEnemyAttackCount(enemy);
+    for (let i = 0; i < attackCount; i++) {
+      if (canCancelEnemyAttack(enemy, i)) {
+        targets.push({ enemyInstanceId: enemy.instanceId, attackIndex: i });
+      }
+    }
+  }
+
+  return targets;
 }

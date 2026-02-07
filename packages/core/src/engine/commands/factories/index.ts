@@ -68,6 +68,7 @@ import {
   USE_SKILL_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   ASSIGN_BANNER_ACTION,
+  USE_BANNER_FEAR_ACTION,
   PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
   CONVERT_MOVE_TO_ATTACK_ACTION,
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
@@ -180,7 +181,10 @@ export {
 } from "./terrainCostReduction.js";
 
 // Banner factories
-export { createAssignBannerCommandFromAction } from "./banners.js";
+export {
+  createAssignBannerCommandFromAction,
+  createUseBannerFearCommandFromAction,
+} from "./banners.js";
 
 // Import all factories for the registry
 import {
@@ -271,7 +275,10 @@ import {
   createResolveTerrainCostReductionCommandFromAction,
 } from "./terrainCostReduction.js";
 
-import { createAssignBannerCommandFromAction } from "./banners.js";
+import {
+  createAssignBannerCommandFromAction,
+  createUseBannerFearCommandFromAction,
+} from "./banners.js";
 
 import type { CommandFactory } from "./types.js";
 
@@ -345,6 +352,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_TERRAIN_COST_REDUCTION_ACTION]: createResolveTerrainCostReductionCommandFromAction,
   // Banner actions
   [ASSIGN_BANNER_ACTION]: createAssignBannerCommandFromAction,
+  [USE_BANNER_FEAR_ACTION]: createUseBannerFearCommandFromAction,
   // Unit maintenance actions (Magic Familiars round-start)
   [RESOLVE_UNIT_MAINTENANCE_ACTION]: createResolveUnitMaintenanceCommandFromAction,
 };

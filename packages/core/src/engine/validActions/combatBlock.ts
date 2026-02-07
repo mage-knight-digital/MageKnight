@@ -15,6 +15,7 @@ import type {
   ElementalDamageValues,
   AttackElement,
   CumbersomeOption,
+  BannerFearOption,
 } from "@mage-knight/shared";
 import type { Element } from "@mage-knight/shared";
 import {
@@ -39,6 +40,7 @@ import {
   getEnemyAttack,
   getEnemyAttacks,
   isAttackBlocked,
+  isAttackCancelled,
 } from "../combat/enemyAttackHelpers.js";
 import { isSwiftActive } from "../combat/swiftHelpers.js";
 import {
@@ -46,6 +48,7 @@ import {
   getCumbersomeReduction,
 } from "../combat/cumbersomeHelpers.js";
 import { getColdToughnessBlockBonus } from "../combat/coldToughnessHelpers.js";
+import { canUseBannerFear, getCancellableAttacks } from "../rules/banners.js";
 
 // ============================================================================
 // Block Allocation Computation
@@ -317,6 +320,31 @@ export function computeCumbersomeOptions(
 }
 
 /**
+ * Compute Banner of Fear cancel attack options.
+ * Returns options for each unit with Banner of Fear that can cancel an enemy attack.
+ */
+export function computeBannerFearOptions(
+  combat: CombatState,
+  player: Player
+): readonly BannerFearOption[] {
+  const options: BannerFearOption[] = [];
+
+  for (const unit of player.units) {
+    if (!canUseBannerFear(player, unit.instanceId)) continue;
+
+    const targets = getCancellableAttacks(combat.enemies);
+    if (targets.length === 0) continue;
+
+    options.push({
+      unitInstanceId: unit.instanceId,
+      targets,
+    });
+  }
+
+  return options;
+}
+
+/**
  * Compute options for BLOCK phase.
  * Uses the incremental block assignment system.
  */
@@ -369,6 +397,9 @@ export function computeBlockPhaseOptions(
     player.movePoints
   );
 
+  // Compute Banner of Fear cancel attack options
+  const bannerFearOpts = computeBannerFearOptions(combat, player);
+
   // Build the combat options
   const options: CombatOptions = {
     phase: COMBAT_PHASE_BLOCK,
@@ -380,16 +411,16 @@ export function computeBlockPhaseOptions(
     unassignableBlocks,
   };
 
-  // Only include cumbersome fields if there are options
-  if (cumbersomeOptions.length > 0) {
-    return {
-      ...options,
-      cumbersomeOptions,
-      availableMovePoints: player.movePoints,
-    };
+  // Only include optional fields if there are options
+  const withCumbersome = cumbersomeOptions.length > 0
+    ? { ...options, cumbersomeOptions, availableMovePoints: player.movePoints }
+    : options;
+
+  if (bannerFearOpts.length > 0) {
+    return { ...withCumbersome, bannerFearOptions: bannerFearOpts };
   }
 
-  return options;
+  return withCumbersome;
 }
 
 // ============================================================================
@@ -429,6 +460,8 @@ export function getBlockOptions(
     for (let attackIndex = 0; attackIndex < attackCount; attackIndex++) {
       // Skip already blocked attacks
       if (isAttackBlocked(enemy, attackIndex)) continue;
+      // Skip cancelled attacks (Banner of Fear)
+      if (isAttackCancelled(enemy, attackIndex)) continue;
 
       const attack = getEnemyAttack(enemy, attackIndex);
 

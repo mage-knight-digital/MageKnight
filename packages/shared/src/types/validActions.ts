@@ -209,6 +209,23 @@ export interface CombatOptions {
 
   /** Thugs units that need influence payment before damage can be assigned */
   readonly thugsDamagePaymentOptions?: readonly ThugsDamagePaymentOption[];
+
+  // ---- Banner of Fear cancel attack (BLOCK phase) ----
+
+  /** Banner of Fear cancel attack options during BLOCK phase */
+  readonly bannerFearOptions?: readonly BannerFearOption[];
+}
+
+/** A unit with Banner of Fear that can cancel an enemy attack */
+export interface BannerFearOption {
+  readonly unitInstanceId: string;
+  readonly targets: readonly BannerFearTarget[];
+}
+
+/** An enemy attack that can be cancelled by Banner of Fear */
+export interface BannerFearTarget {
+  readonly enemyInstanceId: string;
+  readonly attackIndex: number;
 }
 
 export interface BlockOption {

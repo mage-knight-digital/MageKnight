@@ -87,6 +87,26 @@ export function isAttackBlocked(
 }
 
 /**
+ * Check if a specific attack index has been cancelled.
+ * Cancelled attacks don't deal damage but do NOT count as blocked
+ * (important for Elusive armor — cancelled attacks use higher Elusive armor).
+ * Used by Banner of Fear's cancel attack ability.
+ *
+ * @param enemy - Combat enemy instance
+ * @param attackIndex - Index of the attack (0-based)
+ * @returns True if the attack is cancelled
+ */
+export function isAttackCancelled(
+  enemy: CombatEnemy,
+  attackIndex: number
+): boolean {
+  if (enemy.attacksCancelled) {
+    return enemy.attacksCancelled[attackIndex] ?? false;
+  }
+  return false;
+}
+
+/**
  * Check if all attacks for an enemy are blocked.
  * Returns true if ALL attacks are blocked.
  *
@@ -149,11 +169,13 @@ export function isEnemyFullyDamageAssigned(enemy: CombatEnemy): boolean {
   // If fully blocked, no damage assignment needed
   if (isEnemyFullyBlocked(enemy)) return true;
 
-  // Multi-attack path: check if all unblocked attacks have damage assigned
+  // Multi-attack path: check if all unblocked/uncancelled attacks have damage assigned
   const attackCount = getEnemyAttackCount(enemy);
   for (let i = 0; i < attackCount; i++) {
     // Skip blocked attacks - they don't need damage assigned
     if (isAttackBlocked(enemy, i)) continue;
+    // Skip cancelled attacks - they don't need damage assigned
+    if (isAttackCancelled(enemy, i)) continue;
 
     // Check if this unblocked attack has damage assigned
     if (!isAttackDamageAssigned(enemy, i)) {
@@ -185,7 +207,7 @@ export function getUnblockedAttackIndices(enemy: CombatEnemy): number[] {
   const unblockedIndices: number[] = [];
 
   for (let i = 0; i < attackCount; i++) {
-    if (!isAttackBlocked(enemy, i)) {
+    if (!isAttackBlocked(enemy, i) && !isAttackCancelled(enemy, i)) {
       unblockedIndices.push(i);
     }
   }
@@ -206,6 +228,8 @@ export function getAttacksNeedingDamageAssignment(enemy: CombatEnemy): number[] 
   for (let i = 0; i < attackCount; i++) {
     // Skip blocked attacks - they don't need damage assigned
     if (isAttackBlocked(enemy, i)) continue;
+    // Skip cancelled attacks - they don't need damage assigned
+    if (isAttackCancelled(enemy, i)) continue;
 
     // Include if not yet assigned
     if (!isAttackDamageAssigned(enemy, i)) {

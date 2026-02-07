@@ -1,10 +1,10 @@
 /**
  * Banner action validator registry
- * Handles ASSIGN_BANNER_ACTION
+ * Handles ASSIGN_BANNER_ACTION and USE_BANNER_FEAR_ACTION
  */
 
 import type { Validator } from "../types.js";
-import { ASSIGN_BANNER_ACTION } from "@mage-knight/shared";
+import { ASSIGN_BANNER_ACTION, USE_BANNER_FEAR_ACTION } from "@mage-knight/shared";
 
 // Turn validators
 import { validateIsPlayersTurn, validateRoundPhase } from "../turnValidators.js";
@@ -18,6 +18,9 @@ import {
   validateIsBannerArtifact,
   validateHasUnits,
   validateBannerTargetUnit,
+  validateBannerFearInCombatBlockPhase,
+  validateBannerFearUnit,
+  validateBannerFearEnemy,
 } from "../bannerValidators.js";
 
 export const bannerRegistry: Record<string, Validator[]> = {
@@ -29,5 +32,12 @@ export const bannerRegistry: Record<string, Validator[]> = {
     validateIsBannerArtifact,
     validateHasUnits,
     validateBannerTargetUnit,
+  ],
+  [USE_BANNER_FEAR_ACTION]: [
+    validateIsPlayersTurn,
+    validateNoChoicePending,
+    validateBannerFearInCombatBlockPhase,
+    validateBannerFearUnit,
+    validateBannerFearEnemy,
   ],
 };

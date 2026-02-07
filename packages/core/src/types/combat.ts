@@ -116,6 +116,14 @@ export interface CombatEnemy {
    * Only present for enemies with multiple attacks.
    */
   readonly attacksDamageAssigned?: readonly boolean[];
+  /**
+   * Per-attack cancelled state. Cancelled attacks do not deal damage
+   * but do NOT count as blocked (Elusive armor still applies).
+   * Used by Banner of Fear's cancel attack ability.
+   * Array length matches the number of attacks the enemy has.
+   * For single-attack enemies, a single-element array [true] means the attack is cancelled.
+   */
+  readonly attacksCancelled?: readonly boolean[];
 }
 
 // Combat state
