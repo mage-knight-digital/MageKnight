@@ -210,3 +210,15 @@ export const EFFECT_MANA_CLAIM_SUSTAINED = "mana_claim_sustained" as const;
 // Max 1 wound per player per turn. Duration: round.
 export const EFFECT_MANA_CURSE = "mana_curse" as const;
 
+// === LeadershipBonusModifier ===
+// Grants a one-time bonus to the next unit activation.
+// Stores which bonus type was chosen (block, attack, or ranged_attack)
+// and the bonus amount. Consumed (removed) when a matching unit ability is activated.
+// Used by Norowas' Leadership skill.
+export const EFFECT_LEADERSHIP_BONUS = "leadership_bonus" as const;
+
+// === LeadershipBonusModifier["bonusType"] ===
+export const LEADERSHIP_BONUS_BLOCK = "block" as const;
+export const LEADERSHIP_BONUS_ATTACK = "attack" as const;
+export const LEADERSHIP_BONUS_RANGED_ATTACK = "ranged_attack" as const;
+

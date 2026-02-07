@@ -49,6 +49,10 @@ import {
   EFFECT_INTERACTION_BONUS,
   EFFECT_MANA_CLAIM_SUSTAINED,
   EFFECT_MANA_CURSE,
+  EFFECT_LEADERSHIP_BONUS,
+  LEADERSHIP_BONUS_BLOCK,
+  LEADERSHIP_BONUS_ATTACK,
+  LEADERSHIP_BONUS_RANGED_ATTACK,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -380,6 +384,22 @@ export interface ManaCurseModifier {
   readonly woundedPlayerIdsThisTurn: readonly string[];
 }
 
+// Leadership bonus modifier (Norowas' Leadership skill)
+// Grants a one-time bonus to the next unit activation.
+// The bonus type determines which ability it applies to (block, attack, or ranged).
+// In Attack Phase, attack bonus applies to siege units too (FAQ S2).
+// Consumed (removed) when a matching unit ability is activated.
+export type LeadershipBonusType =
+  | typeof LEADERSHIP_BONUS_BLOCK
+  | typeof LEADERSHIP_BONUS_ATTACK
+  | typeof LEADERSHIP_BONUS_RANGED_ATTACK;
+
+export interface LeadershipBonusModifier {
+  readonly type: typeof EFFECT_LEADERSHIP_BONUS;
+  readonly bonusType: LeadershipBonusType;
+  readonly amount: number;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -410,7 +430,8 @@ export type ModifierEffect =
   | UnitRecruitmentBonusModifier
   | InteractionBonusModifier
   | ManaClaimSustainedModifier
-  | ManaCurseModifier;
+  | ManaCurseModifier
+  | LeadershipBonusModifier;
 
 // === Active Modifier (live in game state) ===
 

@@ -13,6 +13,7 @@
 
 import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
+import type { ActiveModifier } from "../../../types/modifiers.js";
 import type { GameEvent, ManaSourceInfo, CardId } from "@mage-knight/shared";
 import {
   UNIT_ACTIVATED,
@@ -22,11 +23,14 @@ import {
   ELEMENT_PHYSICAL,
   UNIT_ABILITY_EFFECT,
   UNIT_ABILITY_ATTACK,
+  UNIT_ABILITY_BLOCK,
   UNIT_ABILITY_RANGED_ATTACK,
   UNIT_ABILITY_SIEGE_ATTACK,
 } from "@mage-knight/shared";
-import { getUnitAttackBonus, getModifiersForPlayer } from "../../modifiers/index.js";
-import { EFFECT_TRANSFORM_ATTACKS_COLD_FIRE, EFFECT_ADD_SIEGE_TO_ATTACKS } from "../../../types/modifierConstants.js";
+import { getUnitAttackBonus, getModifiersForPlayer, getLeadershipBonusModifier } from "../../modifiers/index.js";
+import { removeModifier } from "../../modifiers/lifecycle.js";
+import { EFFECT_TRANSFORM_ATTACKS_COLD_FIRE, EFFECT_ADD_SIEGE_TO_ATTACKS, LEADERSHIP_BONUS_BLOCK, LEADERSHIP_BONUS_ATTACK, LEADERSHIP_BONUS_RANGED_ATTACK } from "../../../types/modifierConstants.js";
+import { COMBAT_PHASE_ATTACK } from "../../../types/combat.js";
 import { ELEMENT_COLD_FIRE } from "@mage-knight/shared";
 import {
   addAbilityToAccumulator,
@@ -83,6 +87,10 @@ export function createActivateUnitCommand(
   let wasEffectBasedAbility = false;
   // Store the resolved effect for undo (only set for immediate compound effects)
   let resolvedEffect: CardEffect | null = null;
+
+  // Store consumed Leadership modifier for undo (full modifier to restore)
+  let consumedLeadershipModifier: ActiveModifier | null = null;
+  let leadershipBonusApplied = 0;
 
   return {
     type: ACTIVATE_UNIT_COMMAND,
@@ -346,6 +354,39 @@ export function createActivateUnitCommand(
         abilityValue += attackBonus;
       }
 
+      // Apply Leadership bonus if active and matching ability type.
+      // Leadership is consumed (one unit per turn) after applying to a unit.
+      let stateAfterLeadership = curseUpdatedState;
+      const leadershipResult = getLeadershipBonusModifier(curseUpdatedState, params.playerId);
+      if (leadershipResult) {
+        const { modifier: leadershipMod, activeModifier } = leadershipResult;
+        let applies = false;
+        if (leadershipMod.bonusType === LEADERSHIP_BONUS_BLOCK && ability.type === UNIT_ABILITY_BLOCK) {
+          applies = true;
+        } else if (leadershipMod.bonusType === LEADERSHIP_BONUS_ATTACK) {
+          // Attack bonus applies to melee Attack abilities, and also to Siege/Ranged in Attack phase (FAQ S2)
+          if (ability.type === UNIT_ABILITY_ATTACK) {
+            applies = true;
+          } else if (
+            (ability.type === UNIT_ABILITY_SIEGE_ATTACK || ability.type === UNIT_ABILITY_RANGED_ATTACK) &&
+            curseUpdatedState.combat?.phase === COMBAT_PHASE_ATTACK
+          ) {
+            applies = true;
+          }
+        } else if (leadershipMod.bonusType === LEADERSHIP_BONUS_RANGED_ATTACK && ability.type === UNIT_ABILITY_RANGED_ATTACK) {
+          applies = true;
+        }
+
+        if (applies) {
+          abilityValue += leadershipMod.amount;
+          leadershipBonusApplied = leadershipMod.amount;
+
+          // Consume the modifier (one unit per turn, only when bonus applies)
+          consumedLeadershipModifier = activeModifier;
+          stateAfterLeadership = removeModifier(curseUpdatedState, activeModifier.id);
+        }
+      }
+
       // Apply Altem Mages attack modifiers to unit ability element/type
       let effectiveElement = ability.element;
       const playerModifiers = getModifiersForPlayer(state, params.playerId);
@@ -387,18 +428,18 @@ export function createActivateUnitCommand(
 
       const updatedPlayer = nonCombatResult.player;
 
-      const players = [...curseUpdatedState.players];
+      const players = [...stateAfterLeadership.players];
       players[playerIndex] = updatedPlayer;
 
       // Update wound pile if healing occurred
       const newWoundPileCount =
-        curseUpdatedState.woundPileCount === null
+        stateAfterLeadership.woundPileCount === null
           ? null
-          : curseUpdatedState.woundPileCount + nonCombatResult.woundPileCountDelta;
+          : stateAfterLeadership.woundPileCount + nonCombatResult.woundPileCountDelta;
 
       // Build intermediate state with player and wound updates
       let updatedState: GameState = {
-        ...curseUpdatedState,
+        ...stateAfterLeadership,
         players,
         woundPileCount: newWoundPileCount,
       };
@@ -513,12 +554,13 @@ export function createActivateUnitCommand(
       }
 
       // Standard ability undo
-      // Remove ability from combat accumulator
+      // Remove ability from combat accumulator (including Leadership bonus if applied)
+      const undoAbilityValue = abilityValue + leadershipBonusApplied;
       const updatedAccumulator = ability
         ? removeAbilityFromAccumulator(
             player.combatAccumulator,
             ability.type,
-            abilityValue,
+            undoAbilityValue,
             ability.element,
             ability.countsTwiceAgainstSwift
           )
@@ -543,11 +585,16 @@ export function createActivateUnitCommand(
           ? previousWoundPileCount
           : state.woundPileCount;
 
-      // Remove terrain modifiers that were added
-      const restoredModifiers =
+      // Remove terrain modifiers that were added and restore Leadership modifier if consumed
+      let restoredModifiers =
         terrainModifiersAdded > 0
           ? state.activeModifiers.slice(0, -terrainModifiersAdded)
           : state.activeModifiers;
+
+      // Restore consumed Leadership modifier
+      if (consumedLeadershipModifier) {
+        restoredModifiers = [...restoredModifiers, consumedLeadershipModifier];
+      }
 
       return {
         state: {

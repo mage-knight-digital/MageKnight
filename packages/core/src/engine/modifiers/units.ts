@@ -7,10 +7,10 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerUnit } from "../../types/unit.js";
-import type { GrantResistancesModifier, UnitAttackBonusModifier } from "../../types/modifiers.js";
+import type { ActiveModifier, GrantResistancesModifier, LeadershipBonusModifier, UnitAttackBonusModifier } from "../../types/modifiers.js";
 import type { ResistanceType } from "@mage-knight/shared";
 import { getUnit } from "@mage-knight/shared";
-import { EFFECT_GRANT_RESISTANCES, EFFECT_UNIT_ATTACK_BONUS, SCOPE_ALL_UNITS } from "../../types/modifierConstants.js";
+import { EFFECT_GRANT_RESISTANCES, EFFECT_UNIT_ATTACK_BONUS, EFFECT_LEADERSHIP_BONUS, SCOPE_ALL_UNITS } from "../../types/modifierConstants.js";
 import { getModifiersForPlayer } from "./queries.js";
 
 /**
@@ -80,4 +80,30 @@ export function getUnitAttackBonus(
   }
 
   return bonus;
+}
+
+/**
+ * Find an active Leadership bonus modifier for a player.
+ * Returns the modifier and its ActiveModifier wrapper if found.
+ *
+ * Used by activateUnitCommand to check if Leadership should apply
+ * and to consume (remove) the modifier after use.
+ */
+export function getLeadershipBonusModifier(
+  state: GameState,
+  playerId: string,
+): { modifier: LeadershipBonusModifier; activeModifier: ActiveModifier } | null {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  const found = modifiers.find(
+    (m) => m.effect.type === EFFECT_LEADERSHIP_BONUS
+  );
+
+  if (!found) {
+    return null;
+  }
+
+  return {
+    modifier: found.effect as LeadershipBonusModifier,
+    activeModifier: found,
+  };
 }
