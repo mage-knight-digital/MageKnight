@@ -37,6 +37,7 @@ import {
   SKILL_TOVAK_MANA_OVERLOAD,
   SKILL_NOROWAS_INSPIRATION,
   SKILL_NOROWAS_PRAYER_OF_WEATHER,
+  SKILL_GOLDYX_POTION_MAKING,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -269,6 +270,15 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_NOT_IN_COMBAT,
         "Prayer of Weather cannot be used during combat"
+      );
+    }
+  }
+
+  if (useSkillAction.skillId === SKILL_GOLDYX_POTION_MAKING) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "Potion Making cannot be used during combat"
       );
     }
   }
