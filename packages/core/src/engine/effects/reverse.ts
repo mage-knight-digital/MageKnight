@@ -56,6 +56,7 @@ import {
   EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   EFFECT_WOUND_ACTIVATING_UNIT,
+  EFFECT_APPLY_INTERACTION_BONUS,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -314,6 +315,10 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
     updatedUnits[unitIndex] = { ...unit, wounded: false };
     return { ...player, units: updatedUnits };
   },
+
+  // Interaction bonus adds a modifier — modifier cleanup handled by snapshot restore.
+  // No player-level state to reverse.
+  [EFFECT_APPLY_INTERACTION_BONUS]: (player) => player,
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (player, effect) => {
     const e = effect as TrackAttackDefeatFameEffect;

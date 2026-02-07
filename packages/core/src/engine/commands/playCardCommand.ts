@@ -65,7 +65,10 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
   let trackedSpellColor: ManaColor | null = null;
   // Store movement bonus application for undo
   let movementBonusAppliedAmount = 0;
-  let movementBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
+  // Snapshot of activeModifiers BEFORE effect resolution — always restored on undo.
+  // This correctly reverts any modifier-adding effects (Noble Manners, Heroic Tale,
+  // Ruthless Coercion, Agility, etc.) without needing per-effect reverse logic.
+  let preEffectModifiersSnapshot: readonly ActiveModifier[] | null = null;
   // Store Mana Overload trigger info for undo
   let manaOverloadTriggered = false;
   let manaOverloadBonusType: string | null = null;
@@ -138,6 +141,10 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
       const newState: GameState = { ...state, players, source: updatedSource };
+
+      // Snapshot modifiers BEFORE effect resolution for undo
+      preEffectModifiersSnapshot = newState.activeModifiers;
+
       const movePointsBefore = newState.players[playerIndex]?.movePoints ?? 0;
       const movementBonusModifierIdsBefore = new Set(
         getModifiersForPlayer(newState, params.playerId)
@@ -162,7 +169,6 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           return stateToUpdate;
         }
 
-        const modifiersSnapshot = stateToUpdate.activeModifiers;
         const bonusResult = consumeMovementCardBonus(
           stateToUpdate,
           params.playerId,
@@ -173,7 +179,6 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         }
 
         movementBonusAppliedAmount = bonusResult.bonus;
-        movementBonusModifiersSnapshot = modifiersSnapshot;
 
         const updatedPlayerWithBonus: Player = {
           ...playerAfter,
@@ -499,10 +504,13 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
-      let stateWithModifiers =
-        movementBonusAppliedAmount > 0 && movementBonusModifiersSnapshot
-          ? { ...state, activeModifiers: movementBonusModifiersSnapshot }
-          : state;
+
+      // Always restore the pre-effect modifiers snapshot.
+      // This correctly reverts ALL modifier-adding effects (Noble Manners, Heroic Tale,
+      // Ruthless Coercion, Agility, movement bonuses, etc.) in one operation.
+      let stateWithModifiers = preEffectModifiersSnapshot
+        ? { ...state, activeModifiers: preEffectModifiersSnapshot }
+        : state;
 
       // Restore Mana Overload center state and owner's flip state
       if (manaOverloadTriggered && manaOverloadPreviousCenter) {

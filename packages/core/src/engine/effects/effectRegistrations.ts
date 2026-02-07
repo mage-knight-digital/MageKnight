@@ -42,6 +42,7 @@ import { registerManaMeltdownEffects } from "./manaMeltdownEffects.js";
 import { registerAltemMagesEffects } from "./altemMagesEffects.js";
 import { registerPureMagicEffects } from "./pureMagicEffects.js";
 import { registerHeroicTaleEffects } from "./heroicTaleEffects.js";
+import { registerNobleMannersBonusEffects } from "./nobleMannersBonusEffects.js";
 import { registerFreeRecruitEffects } from "./freeRecruitEffects.js";
 
 // ============================================================================
@@ -151,6 +152,9 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Heroic Tale effects (recruitment bonus modifier)
   registerHeroicTaleEffects();
+
+  // Noble Manners effects (interaction bonus modifier)
+  registerNobleMannersBonusEffects();
 
   // Free recruit effects (Banner of Command, Call to Glory)
   registerFreeRecruitEffects();

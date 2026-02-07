@@ -45,6 +45,7 @@ import {
   EFFECT_TRANSFORM_ATTACKS_COLD_FIRE,
   EFFECT_ADD_SIEGE_TO_ATTACKS,
   EFFECT_BURNING_SHIELD_ACTIVE,
+  EFFECT_INTERACTION_BONUS,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -347,6 +348,15 @@ export interface UnitRecruitmentBonusModifier {
   readonly famePerRecruit: number; // Fame gained per recruitment (e.g., 0 for basic, 1 for powered)
 }
 
+// Interaction bonus modifier (Noble Manners)
+// Grants fame and/or reputation on the first interaction (recruit, heal, buy spell).
+// Consumed after first interaction — only triggers once per card play.
+export interface InteractionBonusModifier {
+  readonly type: typeof EFFECT_INTERACTION_BONUS;
+  readonly fame: number;
+  readonly reputation: number;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -374,7 +384,8 @@ export type ModifierEffect =
   | TransformAttacksColdFireModifier
   | AddSiegeToAttacksModifier
   | BurningShieldActiveModifier
-  | UnitRecruitmentBonusModifier;
+  | UnitRecruitmentBonusModifier
+  | InteractionBonusModifier;
 
 // === Active Modifier (live in game state) ===
 

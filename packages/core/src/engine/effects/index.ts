@@ -267,6 +267,11 @@ export {
   registerHeroicTaleEffects,
 } from "./heroicTaleEffects.js";
 
+// Noble Manners effects (interaction bonus modifier)
+export {
+  registerNobleMannersBonusEffects,
+} from "./nobleMannersBonusEffects.js";
+
 // Free recruit effects (Banner of Command, Call to Glory)
 export {
   handleFreeRecruit,
