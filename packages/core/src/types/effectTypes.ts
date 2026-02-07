@@ -198,6 +198,17 @@ export const EFFECT_MANA_RADIANCE = "mana_radiance" as const;
 // Internal: Resolve after color selection
 export const EFFECT_RESOLVE_MANA_RADIANCE_COLOR = "resolve_mana_radiance_color" as const;
 
+// === Mana Claim / Mana Curse Effects ===
+// Basic (Mana Claim): Take a basic color die from Source, keep until end of round.
+// Choose: 3 tokens now OR 1 token per turn for remainder of round.
+export const EFFECT_MANA_CLAIM = "mana_claim" as const;
+// Internal: Player has selected which die to claim
+export const EFFECT_RESOLVE_MANA_CLAIM_DIE = "resolve_mana_claim_die" as const;
+// Internal: Player has chosen burst (3 now) or sustained (1 per turn) mode
+export const EFFECT_RESOLVE_MANA_CLAIM_MODE = "resolve_mana_claim_mode" as const;
+// Powered (Mana Curse): Same as basic + curse effect on other players' mana usage.
+export const EFFECT_MANA_CURSE = "mana_curse" as const;
+
 // === Scout Peek Effect ===
 // Reveals face-down enemy tokens within a distance from the player.
 // Also creates a modifier tracking which enemies were revealed, granting +1 fame on defeat.

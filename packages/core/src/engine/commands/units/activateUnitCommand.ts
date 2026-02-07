@@ -40,6 +40,7 @@ import {
 } from "./helpers/manaConsumptionHelpers.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
 import { resolveEffect, reverseEffect } from "../../effects/index.js";
+import { checkManaCurseWound } from "../../effects/manaClaimEffects.js";
 import { EFFECT_COMPOUND, EFFECT_SELECT_COMBAT_ENEMY, EFFECT_CHOICE, EFFECT_WOUND_ACTIVATING_UNIT } from "../../../types/effectTypes.js";
 import type { CardEffect, CompoundEffect, SelectCombatEnemyEffect, ChoiceEffect, WoundActivatingUnitEffect } from "../../../types/cards.js";
 import type { Player } from "../../../types/player.js";
@@ -135,11 +136,26 @@ export function createActivateUnitCommand(
         updatedSource = manaResult.source;
       }
 
+      // Check for Mana Curse wounds after mana consumption
+      let curseUpdatedState = state;
+      if (ability.manaCost && params.manaSource) {
+        // Build a temporary state with the updated player and source to check curse
+        const tempPlayers = [...state.players];
+        tempPlayers[playerIndex] = player;
+        const tempState: GameState = { ...state, players: tempPlayers, source: updatedSource };
+        curseUpdatedState = checkManaCurseWound(tempState, params.playerId, params.manaSource.color);
+        // If curse added a wound, update our working player copy
+        const cursePlayer = curseUpdatedState.players[playerIndex];
+        if (cursePlayer) {
+          player = cursePlayer;
+        }
+      }
+
       // Store previous state for undo
       previousMovePoints = player.movePoints;
       previousInfluencePoints = player.influencePoints;
       previousHand = player.hand;
-      previousWoundPileCount = state.woundPileCount;
+      previousWoundPileCount = curseUpdatedState.woundPileCount;
 
       // Mark unit as spent
       const updatedUnits = [...player.units];
@@ -169,11 +185,11 @@ export function createActivateUnitCommand(
           ...player,
           units: updatedUnits,
         };
-        const players = [...state.players];
+        const players = [...curseUpdatedState.players];
         players[playerIndex] = playerWithSpentUnit;
 
         const intermediateState: GameState = {
-          ...state,
+          ...curseUpdatedState,
           players,
           source: updatedSource,
         };
@@ -371,18 +387,18 @@ export function createActivateUnitCommand(
 
       const updatedPlayer = nonCombatResult.player;
 
-      const players = [...state.players];
+      const players = [...curseUpdatedState.players];
       players[playerIndex] = updatedPlayer;
 
       // Update wound pile if healing occurred
       const newWoundPileCount =
-        state.woundPileCount === null
+        curseUpdatedState.woundPileCount === null
           ? null
-          : state.woundPileCount + nonCombatResult.woundPileCountDelta;
+          : curseUpdatedState.woundPileCount + nonCombatResult.woundPileCountDelta;
 
       // Build intermediate state with player and wound updates
       let updatedState: GameState = {
-        ...state,
+        ...curseUpdatedState,
         players,
         woundPileCount: newWoundPileCount,
       };

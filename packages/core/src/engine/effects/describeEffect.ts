@@ -60,6 +60,10 @@ import {
   EFFECT_CALL_TO_ARMS,
   EFFECT_RESOLVE_CALL_TO_ARMS_UNIT,
   EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
+  EFFECT_MANA_CLAIM,
+  EFFECT_RESOLVE_MANA_CLAIM_DIE,
+  EFFECT_RESOLVE_MANA_CLAIM_MODE,
+  EFFECT_MANA_CURSE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -78,6 +82,8 @@ import type {
   ApplyRecruitmentBonusEffect,
   ApplyInteractionBonusEffect,
   ResolveSacrificeEffect,
+  ResolveManaClaimDieEffect,
+  ResolveManaClaimModeEffect,
 } from "../../types/cards.js";
 import type {
   GainMoveEffect,
@@ -426,6 +432,23 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const e = effect as import("../../types/cards.js").ResolveCallToArmsAbilityEffect;
     return e.abilityDescription;
   },
+
+  [EFFECT_MANA_CLAIM]: () => "Claim a basic color die from the Source",
+
+  [EFFECT_RESOLVE_MANA_CLAIM_DIE]: (effect) => {
+    const e = effect as ResolveManaClaimDieEffect;
+    return `Claim ${e.dieColor} die`;
+  },
+
+  [EFFECT_RESOLVE_MANA_CLAIM_MODE]: (effect) => {
+    const e = effect as ResolveManaClaimModeEffect;
+    if (e.mode === "burst") {
+      return `Gain 3 ${e.color} mana now`;
+    }
+    return `Gain 1 ${e.color} mana each turn`;
+  },
+
+  [EFFECT_MANA_CURSE]: () => "Claim a die and curse its color",
 };
 
 // ============================================================================

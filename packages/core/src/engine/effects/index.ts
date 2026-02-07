@@ -293,6 +293,18 @@ export {
   registerCallToArmsEffects,
 } from "./callToArmsEffects.js";
 
+// Mana Claim / Mana Curse effects (interactive blue spell)
+export {
+  handleManaClaim,
+  resolveManaClaimDie,
+  resolveManaClaimMode,
+  handleManaCurse,
+  checkManaCurseWound,
+  grantManaClaimSustainedToken,
+  resetManaCurseWoundTracking,
+  registerManaClaimEffects,
+} from "./manaClaimEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

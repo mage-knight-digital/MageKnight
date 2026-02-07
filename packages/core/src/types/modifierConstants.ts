@@ -199,3 +199,14 @@ export const EFFECT_INTERACTION_BONUS = "interaction_bonus" as const;
 // The modifier fires ONCE on the first successful block, then is consumed.
 export const EFFECT_BURNING_SHIELD_ACTIVE = "burning_shield_active" as const;
 
+// === ManaClaimSustainedModifier ===
+// Grants 1 mana token of the claimed color at the start of each turn.
+// Duration: round (expires at end of round when die is returned).
+// Applied by Mana Claim sustained mode.
+export const EFFECT_MANA_CLAIM_SUSTAINED = "mana_claim_sustained" as const;
+
+// === ManaCurseModifier ===
+// When another player uses mana of the cursed color, they take a wound.
+// Max 1 wound per player per turn. Duration: round.
+export const EFFECT_MANA_CURSE = "mana_curse" as const;
+
