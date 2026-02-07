@@ -262,6 +262,21 @@ export const HERO_GREEN_INFLUENCE_REP = "hero_green_influence_rep" as const;
  */
 export const HERO_GREEN_HEAL = "hero_green_heal" as const;
 
+/**
+ * Hero (White): Attack OR Block 5 (choice, physical).
+ */
+export const HERO_WHITE_ATTACK_OR_BLOCK = "hero_white_attack_or_block" as const;
+
+/**
+ * Hero (White): Influence 5 + Reputation +1 when used in interaction.
+ */
+export const HERO_WHITE_INFLUENCE_REP = "hero_white_influence_rep" as const;
+
+/**
+ * Hero (White): (White Mana) Ranged Attack 7.
+ */
+export const HERO_WHITE_RANGED_ATTACK = "hero_white_ranged_attack" as const;
+
 // =============================================================================
 // EFFECT DEFINITIONS
 // =============================================================================
@@ -985,6 +1000,50 @@ const HERO_GREEN_HEAL_EFFECT: CardEffect = {
 };
 
 // =============================================================================
+// HERO (WHITE) EFFECTS
+// =============================================================================
+
+/**
+ * Hero (White): Attack 5 OR Block 5 (choice, physical).
+ * Shared ability for all Heroes - player chooses one.
+ */
+const HERO_WHITE_ATTACK_OR_BLOCK_EFFECT: CardEffect = {
+  type: EFFECT_CHOICE,
+  options: [
+    {
+      type: EFFECT_GAIN_ATTACK,
+      amount: 5,
+      combatType: COMBAT_TYPE_MELEE,
+    },
+    {
+      type: EFFECT_GAIN_BLOCK,
+      amount: 5,
+    },
+  ],
+};
+
+/**
+ * Hero (White): Influence 5 + Reputation +1 when used in interaction.
+ * Per rulebook: Influence 5 grants +1 Reputation when used in interaction.
+ */
+const HERO_WHITE_INFLUENCE_REP_EFFECT: CardEffect = {
+  type: EFFECT_COMPOUND,
+  effects: [
+    { type: EFFECT_GAIN_INFLUENCE, amount: 5 },
+    { type: EFFECT_CHANGE_REPUTATION, amount: 1 },
+  ],
+};
+
+/**
+ * Hero (White): (White Mana) Ranged Attack 7.
+ */
+const HERO_WHITE_RANGED_ATTACK_EFFECT: CardEffect = {
+  type: EFFECT_GAIN_ATTACK,
+  amount: 7,
+  combatType: COMBAT_TYPE_RANGED,
+};
+
+// =============================================================================
 // REGISTRY
 // =============================================================================
 
@@ -1029,6 +1088,9 @@ export const UNIT_ABILITY_EFFECTS: Record<string, CardEffect> = {
   [HERO_GREEN_ATTACK_OR_BLOCK]: HERO_GREEN_ATTACK_OR_BLOCK_EFFECT,
   [HERO_GREEN_INFLUENCE_REP]: HERO_GREEN_INFLUENCE_REP_EFFECT,
   [HERO_GREEN_HEAL]: HERO_GREEN_HEAL_EFFECT,
+  [HERO_WHITE_ATTACK_OR_BLOCK]: HERO_WHITE_ATTACK_OR_BLOCK_EFFECT,
+  [HERO_WHITE_INFLUENCE_REP]: HERO_WHITE_INFLUENCE_REP_EFFECT,
+  [HERO_WHITE_RANGED_ATTACK]: HERO_WHITE_RANGED_ATTACK_EFFECT,
 };
 
 /**
