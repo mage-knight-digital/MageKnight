@@ -15,6 +15,7 @@ import {
   CARD_PLAYED,
   createCardPlayUndoneEvent,
   CARD_GOLDYX_CRYSTAL_JOY,
+  CARD_STEADY_TEMPO,
 } from "@mage-knight/shared";
 import type { GameEvent } from "@mage-knight/shared";
 import { resolveEffect, reverseEffect } from "../effects/index.js";
@@ -352,6 +353,22 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         }
       }
 
+      // Set Steady Tempo deck placement pending flag after card is played
+      if (params.cardId === CARD_STEADY_TEMPO) {
+        const playerIdx = finalState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        if (playerIdx !== -1) {
+          const updatedPlayer: Player = {
+            ...finalState.players[playerIdx],
+            pendingSteadyTempoDeckPlacement: { version: isPowered ? "powered" : "basic" },
+          };
+          const updatedPlayers = [...finalState.players];
+          updatedPlayers[playerIdx] = updatedPlayer;
+          finalState = { ...finalState, players: updatedPlayers };
+        }
+      }
+
       // Check Mana Overload trigger (powered cards only)
       if (isPowered && finalState.manaOverloadCenter) {
         const triggerCheck = checkManaOverloadTrigger(
@@ -408,6 +425,14 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         updatedPlayer = {
           ...updatedPlayer,
           pendingCrystalJoyReclaim: undefined,
+        };
+      }
+
+      // Clear Steady Tempo deck placement pending flag on undo
+      if (params.cardId === CARD_STEADY_TEMPO) {
+        updatedPlayer = {
+          ...updatedPlayer,
+          pendingSteadyTempoDeckPlacement: undefined,
         };
       }
 

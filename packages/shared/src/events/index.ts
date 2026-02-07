@@ -267,6 +267,10 @@ import type {
   GladeWoundSkippedEvent,
   GladeManaGainedEvent,
   DeepMineCrystalGainedEvent,
+  CardReclaimedEvent,
+  CrystalJoyReclaimSkippedEvent,
+  SteadyTempoPlacedEvent,
+  SteadyTempoPlacementSkippedEvent,
   MonasteryBurnStartedEvent,
   MonasteryBurnedEvent,
   VillagePlunderedEvent,
@@ -445,6 +449,12 @@ export type GameEvent =
   | GladeManaGainedEvent
   // Deep Mine
   | DeepMineCrystalGainedEvent
+  // Crystal Joy
+  | CardReclaimedEvent
+  | CrystalJoyReclaimSkippedEvent
+  // Steady Tempo
+  | SteadyTempoPlacedEvent
+  | SteadyTempoPlacementSkippedEvent
   // Monastery burning
   | MonasteryBurnStartedEvent
   | MonasteryBurnedEvent

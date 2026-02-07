@@ -432,6 +432,13 @@ export interface ResolveCrystalJoyReclaimAction {
   readonly cardId?: CardId; // Card to reclaim to hand, undefined = skip reclaim
 }
 
+// Steady Tempo deck placement action (end-of-turn choice to place card in deck)
+export const RESOLVE_STEADY_TEMPO_ACTION = "RESOLVE_STEADY_TEMPO" as const;
+export interface ResolveSteadyTempoAction {
+  readonly type: typeof RESOLVE_STEADY_TEMPO_ACTION;
+  readonly place: boolean; // true = place in deck, false = discard normally
+}
+
 // Discard as cost action (e.g., Improvisation requires discarding before gaining benefit)
 export const RESOLVE_DISCARD_ACTION = "RESOLVE_DISCARD" as const;
 export interface ResolveDiscardAction {
@@ -715,6 +722,8 @@ export type PlayerAction =
   | ResolveDeepMineAction
   // Crystal Joy reclaim
   | ResolveCrystalJoyReclaimAction
+  // Steady Tempo deck placement
+  | ResolveSteadyTempoAction
   // Discard as cost
   | ResolveDiscardAction
   // Discard for attack (Sword of Justice)

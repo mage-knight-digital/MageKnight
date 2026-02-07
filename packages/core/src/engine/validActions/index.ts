@@ -43,6 +43,7 @@ import {
   getDiscardForCrystalOptions,
   getArtifactCrystalColorOptions,
   getCrystalJoyReclaimOptions,
+  getSteadyTempoOptions,
   getUnitMaintenanceOptions,
 } from "./pending.js";
 import { getChallengeOptions } from "./challenge.js";
@@ -182,6 +183,13 @@ export function getValidActions(
       mode: "pending_crystal_joy_reclaim",
       turn: { canUndo: false },
       crystalJoyReclaim: getCrystalJoyReclaimOptions(state, player),
+    };
+  }
+  if (player.pendingSteadyTempoDeckPlacement) {
+    return {
+      mode: "pending_steady_tempo",
+      turn: { canUndo: false },
+      steadyTempo: getSteadyTempoOptions(state, player),
     };
   }
   if (hasPendingChoice(player)) {
