@@ -30,6 +30,7 @@ import {
   EFFECT_ENEMY_STAT,
   EFFECT_RECRUIT_DISCOUNT,
   EFFECT_RECRUITMENT_BONUS,
+  EFFECT_REMOVE_FIRE_RESISTANCE,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_REMOVE_RESISTANCES,
   EFFECT_COLD_TOUGHNESS_BLOCK,
@@ -41,6 +42,9 @@ import {
   EFFECT_TERRAIN_COST,
   EFFECT_TERRAIN_SAFE,
   EFFECT_UNIT_ATTACK_BONUS,
+  EFFECT_UNIT_ARMOR_BONUS,
+  EFFECT_UNIT_BLOCK_BONUS,
+  EFFECT_BANNER_GLORY_FAME_TRACKING,
   EFFECT_DISEASE_ARMOR,
   EFFECT_CURE_ACTIVE,
   EFFECT_TRANSFORM_ATTACKS_COLD_FIRE,
@@ -50,6 +54,10 @@ import {
   EFFECT_MANA_CLAIM_SUSTAINED,
   EFFECT_MANA_CURSE,
   EFFECT_UNIT_COMBAT_BONUS,
+  EFFECT_LEADERSHIP_BONUS,
+  LEADERSHIP_BONUS_BLOCK,
+  LEADERSHIP_BONUS_ATTACK,
+  LEADERSHIP_BONUS_RANGED_ATTACK,
   ELEMENT_COLD_FIRE,
   ELEMENT_FIRE,
   ELEMENT_ICE,
@@ -258,6 +266,14 @@ export interface RemovePhysicalResistanceModifier {
   readonly type: typeof EFFECT_REMOVE_PHYSICAL_RESISTANCE;
 }
 
+// Remove fire resistance from enemies (Chill spell)
+// Unlike EFFECT_REMOVE_RESISTANCES which removes ALL resistances,
+// this only removes fire resistance.
+// Does not affect Arcane Immune enemies.
+export interface RemoveFireResistanceModifier {
+  readonly type: typeof EFFECT_REMOVE_FIRE_RESISTANCE;
+}
+
 // Cold Toughness scaling block modifier (Tovak)
 // Grants +1 ice block per ability/attack color/resistance on blocked enemy.
 // Arcane Immunity on the enemy negates the bonus entirely.
@@ -393,6 +409,43 @@ export interface ManaCurseModifier {
   readonly woundedPlayerIdsThisTurn: readonly string[];
 }
 
+// Leadership bonus modifier (Norowas' Leadership skill)
+// Grants a one-time bonus to the next unit activation.
+// The bonus type determines which ability it applies to (block, attack, or ranged).
+// In Attack Phase, attack bonus applies to siege units too (FAQ S2).
+// Consumed (removed) when a matching unit ability is activated.
+export type LeadershipBonusType =
+  | typeof LEADERSHIP_BONUS_BLOCK
+  | typeof LEADERSHIP_BONUS_ATTACK
+  | typeof LEADERSHIP_BONUS_RANGED_ATTACK;
+
+export interface LeadershipBonusModifier {
+  readonly type: typeof EFFECT_LEADERSHIP_BONUS;
+  readonly bonusType: LeadershipBonusType;
+  readonly amount: number;
+}
+
+// Unit armor bonus modifier (Banner of Glory powered)
+// Grants +N armor to all units for the duration.
+export interface UnitArmorBonusModifier {
+  readonly type: typeof EFFECT_UNIT_ARMOR_BONUS;
+  readonly amount: number;
+}
+
+// Unit block bonus modifier (Banner of Glory powered)
+// Grants +N to all block values for units (tack-on, requires base block).
+export interface UnitBlockBonusModifier {
+  readonly type: typeof EFFECT_UNIT_BLOCK_BONUS;
+  readonly amount: number;
+}
+
+// Banner of Glory fame tracking modifier (Banner of Glory powered)
+// Tracks which units have attacked/blocked and awards fame +1 per unit.
+export interface BannerGloryFameTrackingModifier {
+  readonly type: typeof EFFECT_BANNER_GLORY_FAME_TRACKING;
+  readonly unitInstanceIdsAwarded: readonly string[];
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -410,6 +463,7 @@ export type ModifierEffect =
   | GrantResistancesModifier
   | DoublePhysicalAttacksModifier
   | RemovePhysicalResistanceModifier
+  | RemoveFireResistanceModifier
   | ColdToughnessBlockModifier
   | RecruitDiscountModifier
   | MoveToAttackConversionModifier
@@ -424,7 +478,11 @@ export type ModifierEffect =
   | InteractionBonusModifier
   | ManaClaimSustainedModifier
   | ManaCurseModifier
-  | UnitCombatBonusModifier;
+  | UnitCombatBonusModifier
+  | LeadershipBonusModifier
+  | UnitArmorBonusModifier
+  | UnitBlockBonusModifier
+  | BannerGloryFameTrackingModifier;
 
 // === Active Modifier (live in game state) ===
 

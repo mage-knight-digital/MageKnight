@@ -3,7 +3,7 @@
  * Basic: Target enemy does not attack this combat. If it has Fire Resistance, it loses it.
  * Powered (Lethal Chill): Target enemy does not attack and gets Armor -4.
  *
- * Note: Fire Resistance removal not yet implemented.
+ * Ice Resistant and Arcane Immune enemies are completely immune to both effects.
  */
 
 import type { DeedCard } from "../../../types/cards.js";
@@ -12,11 +12,12 @@ import {
   DEED_CARD_TYPE_SPELL,
 } from "../../../types/cards.js";
 import { EFFECT_SELECT_COMBAT_ENEMY } from "../../../types/effectTypes.js";
-import { MANA_BLUE, MANA_BLACK, CARD_CHILL } from "@mage-knight/shared";
+import { MANA_BLUE, MANA_BLACK, CARD_CHILL, RESIST_ICE } from "@mage-knight/shared";
 import {
   DURATION_COMBAT,
   EFFECT_ENEMY_STAT,
   EFFECT_ENEMY_SKIP_ATTACK,
+  EFFECT_REMOVE_FIRE_RESISTANCE,
   ENEMY_STAT_ARMOR,
 } from "../../../types/modifierConstants.js";
 
@@ -29,6 +30,8 @@ export const CHILL: DeedCard = {
   poweredBy: [MANA_BLACK, MANA_BLUE],
   basicEffect: {
     type: EFFECT_SELECT_COMBAT_ENEMY,
+    excludeResistance: RESIST_ICE,
+    excludeArcaneImmune: true,
     template: {
       modifiers: [
         {
@@ -36,12 +39,18 @@ export const CHILL: DeedCard = {
           duration: DURATION_COMBAT,
           description: "Target enemy does not attack",
         },
-        // TODO: Add fire resistance removal
+        {
+          modifier: { type: EFFECT_REMOVE_FIRE_RESISTANCE },
+          duration: DURATION_COMBAT,
+          description: "Target enemy loses Fire Resistance",
+        },
       ],
     },
   },
   poweredEffect: {
     type: EFFECT_SELECT_COMBAT_ENEMY,
+    excludeResistance: RESIST_ICE,
+    excludeArcaneImmune: true,
     template: {
       modifiers: [
         {

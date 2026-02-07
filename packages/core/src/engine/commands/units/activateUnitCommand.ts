@@ -13,6 +13,7 @@
 
 import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
+import type { ActiveModifier } from "../../../types/modifiers.js";
 import type { GameEvent, ManaSourceInfo, CardId } from "@mage-knight/shared";
 import {
   UNIT_ACTIVATED,
@@ -22,12 +23,20 @@ import {
   ELEMENT_PHYSICAL,
   UNIT_ABILITY_EFFECT,
   UNIT_ABILITY_ATTACK,
+  UNIT_ABILITY_BLOCK,
   UNIT_ABILITY_RANGED_ATTACK,
   UNIT_ABILITY_SIEGE_ATTACK,
-  UNIT_ABILITY_BLOCK,
 } from "@mage-knight/shared";
-import { getUnitAttackBonus, getUnitBlockBonus, getModifiersForPlayer } from "../../modifiers/index.js";
-import { EFFECT_TRANSFORM_ATTACKS_COLD_FIRE, EFFECT_ADD_SIEGE_TO_ATTACKS } from "../../../types/modifierConstants.js";
+import { getUnitAttackBonus, getUnitBlockBonus, getBannerGloryFameTracker, getModifiersForPlayer, getLeadershipBonusModifier } from "../../modifiers/index.js";
+import { removeModifier } from "../../modifiers/lifecycle.js";
+import {
+  getBannerAttackTackOn,
+  getBannerBlockTackOn,
+  shouldBannerGrantFame,
+} from "../../rules/banners.js";
+import { EFFECT_BANNER_GLORY_FAME_TRACKING, EFFECT_TRANSFORM_ATTACKS_COLD_FIRE, EFFECT_ADD_SIEGE_TO_ATTACKS, LEADERSHIP_BONUS_BLOCK, LEADERSHIP_BONUS_ATTACK, LEADERSHIP_BONUS_RANGED_ATTACK } from "../../../types/modifierConstants.js";
+import type { BannerGloryFameTrackingModifier } from "../../../types/modifiers.js";
+import { COMBAT_PHASE_ATTACK } from "../../../types/combat.js";
 import { ELEMENT_COLD_FIRE } from "@mage-knight/shared";
 import {
   addAbilityToAccumulator,
@@ -76,14 +85,17 @@ export function createActivateUnitCommand(
   let previousInfluencePoints: number | null = null;
   let previousHand: readonly CardId[] | null = null;
   let previousWoundPileCount: number | null = null;
-
-  // Store count of terrain modifiers added for undo
-  let terrainModifiersAdded = 0;
+  let previousFame: number | null = null;
+  let previousActiveModifiers: GameState["activeModifiers"] | null = null;
 
   // Store whether this was an effect-based ability (for undo)
   let wasEffectBasedAbility = false;
   // Store the resolved effect for undo (only set for immediate compound effects)
   let resolvedEffect: CardEffect | null = null;
+
+  // Store consumed Leadership modifier for undo (full modifier to restore)
+  let consumedLeadershipModifier: ActiveModifier | null = null;
+  let leadershipBonusApplied = 0;
 
   return {
     type: ACTIVATE_UNIT_COMMAND,
@@ -157,6 +169,8 @@ export function createActivateUnitCommand(
       previousInfluencePoints = player.influencePoints;
       previousHand = player.hand;
       previousWoundPileCount = curseUpdatedState.woundPileCount;
+      previousFame = player.fame;
+      previousActiveModifiers = curseUpdatedState.activeModifiers;
 
       // Mark unit as spent
       const updatedUnits = [...player.units];
@@ -337,7 +351,7 @@ export function createActivateUnitCommand(
 
       // Get the ability value (default to 0 for abilities without values)
       // Apply unit attack bonus from Coordinated Fire / Into the Heat for attack abilities
-      // Apply unit block bonus from Into the Heat for block abilities
+      // Apply unit block bonus from Into the Heat / Banner of Glory for block abilities
       let abilityValue = ability.value ?? 0;
       const isAttackAbility =
         ability.type === UNIT_ABILITY_ATTACK ||
@@ -347,12 +361,46 @@ export function createActivateUnitCommand(
       if (isAttackAbility && abilityValue > 0) {
         const attackBonus = getUnitAttackBonus(state, params.playerId);
         abilityValue += attackBonus;
+        abilityValue += getBannerAttackTackOn(player, unit);
       }
       if (isBlockAbility && abilityValue > 0) {
         const blockBonus = getUnitBlockBonus(state, params.playerId);
         abilityValue += blockBonus;
+        abilityValue += getBannerBlockTackOn(player, unit);
       }
 
+      // Apply Leadership bonus if active and matching ability type.
+      // Leadership is consumed (one unit per turn) after applying to a unit.
+      let stateAfterLeadership = curseUpdatedState;
+      const leadershipResult = getLeadershipBonusModifier(curseUpdatedState, params.playerId);
+      if (leadershipResult) {
+        const { modifier: leadershipMod, activeModifier } = leadershipResult;
+        let applies = false;
+        if (leadershipMod.bonusType === LEADERSHIP_BONUS_BLOCK && ability.type === UNIT_ABILITY_BLOCK) {
+          applies = true;
+        } else if (leadershipMod.bonusType === LEADERSHIP_BONUS_ATTACK) {
+          // Attack bonus applies to melee Attack abilities, and also to Siege/Ranged in Attack phase (FAQ S2)
+          if (ability.type === UNIT_ABILITY_ATTACK) {
+            applies = true;
+          } else if (
+            (ability.type === UNIT_ABILITY_SIEGE_ATTACK || ability.type === UNIT_ABILITY_RANGED_ATTACK) &&
+            curseUpdatedState.combat?.phase === COMBAT_PHASE_ATTACK
+          ) {
+            applies = true;
+          }
+        } else if (leadershipMod.bonusType === LEADERSHIP_BONUS_RANGED_ATTACK && ability.type === UNIT_ABILITY_RANGED_ATTACK) {
+          applies = true;
+        }
+
+        if (applies) {
+          abilityValue += leadershipMod.amount;
+          leadershipBonusApplied = leadershipMod.amount;
+
+          // Consume the modifier (one unit per turn, only when bonus applies)
+          consumedLeadershipModifier = activeModifier;
+          stateAfterLeadership = removeModifier(curseUpdatedState, activeModifier.id);
+        }
+      }
       // Apply Altem Mages attack modifiers to unit ability element/type
       let effectiveElement = ability.element;
       const playerModifiers = getModifiersForPlayer(state, params.playerId);
@@ -394,31 +442,74 @@ export function createActivateUnitCommand(
 
       const updatedPlayer = nonCombatResult.player;
 
-      const players = [...curseUpdatedState.players];
+      const players = [...stateAfterLeadership.players];
       players[playerIndex] = updatedPlayer;
 
       // Update wound pile if healing occurred
       const newWoundPileCount =
-        curseUpdatedState.woundPileCount === null
+        stateAfterLeadership.woundPileCount === null
           ? null
-          : curseUpdatedState.woundPileCount + nonCombatResult.woundPileCountDelta;
+          : stateAfterLeadership.woundPileCount + nonCombatResult.woundPileCountDelta;
 
       // Build intermediate state with player and wound updates
       let updatedState: GameState = {
-        ...curseUpdatedState,
+        ...stateAfterLeadership,
         players,
         woundPileCount: newWoundPileCount,
       };
 
       // Apply terrain modifiers if the ability has them (e.g., Foresters)
       if (ability.terrainModifiers && ability.terrainModifiers.length > 0) {
-        terrainModifiersAdded = ability.terrainModifiers.length;
         updatedState = applyTerrainModifiers(
           updatedState,
           params.playerId,
           unitIndex,
           ability.terrainModifiers
         );
+      }
+
+      // Banner of Glory fame bonuses when unit attacks or blocks
+      if (isAttackAbility || isBlockAbility) {
+        let fameGain = 0;
+
+        // Attached banner: +1 fame when the attached unit attacks or blocks
+        if (shouldBannerGrantFame(player, params.unitInstanceId)) {
+          fameGain += 1;
+        }
+
+        // Powered modifier: +1 fame per unit that attacks or blocks this turn
+        // (each unit only counted once via tracking)
+        const fameTracker = getBannerGloryFameTracker(updatedState, params.playerId);
+        if (fameTracker && !fameTracker.unitInstanceIdsAwarded.includes(params.unitInstanceId)) {
+          fameGain += 1;
+          // Update the tracking modifier to record this unit
+          updatedState = {
+            ...updatedState,
+            activeModifiers: updatedState.activeModifiers.map((m) =>
+              m.effect.type === EFFECT_BANNER_GLORY_FAME_TRACKING && m.createdByPlayerId === params.playerId
+                ? {
+                    ...m,
+                    effect: {
+                      ...m.effect,
+                      unitInstanceIdsAwarded: [
+                        ...(m.effect as BannerGloryFameTrackingModifier).unitInstanceIdsAwarded,
+                        params.unitInstanceId,
+                      ],
+                    },
+                  }
+                : m
+            ),
+          };
+        }
+
+        if (fameGain > 0) {
+          updatedState = {
+            ...updatedState,
+            players: updatedState.players.map((p) =>
+              p.id === params.playerId ? { ...p, fame: p.fame + fameGain } : p
+            ),
+          };
+        }
       }
 
       const events: GameEvent[] = [
@@ -520,12 +611,13 @@ export function createActivateUnitCommand(
       }
 
       // Standard ability undo
-      // Remove ability from combat accumulator
+      // Remove ability from combat accumulator (including Leadership bonus if applied)
+      const undoAbilityValue = abilityValue + leadershipBonusApplied;
       const updatedAccumulator = ability
         ? removeAbilityFromAccumulator(
             player.combatAccumulator,
             ability.type,
-            abilityValue,
+            undoAbilityValue,
             ability.element,
             ability.countsTwiceAgainstSwift
           )
@@ -539,6 +631,7 @@ export function createActivateUnitCommand(
         movePoints: previousMovePoints ?? player.movePoints,
         influencePoints: previousInfluencePoints ?? player.influencePoints,
         hand: previousHand ?? player.hand,
+        fame: previousFame ?? player.fame,
       };
 
       const players = [...state.players];
@@ -550,11 +643,13 @@ export function createActivateUnitCommand(
           ? previousWoundPileCount
           : state.woundPileCount;
 
-      // Remove terrain modifiers that were added
-      const restoredModifiers =
-        terrainModifiersAdded > 0
-          ? state.activeModifiers.slice(0, -terrainModifiersAdded)
-          : state.activeModifiers;
+      // Restore active modifiers (reverts terrain modifiers, fame tracking changes, and Leadership consumption)
+      let restoredModifiers = previousActiveModifiers ?? state.activeModifiers;
+
+      // Restore consumed Leadership modifier
+      if (consumedLeadershipModifier) {
+        restoredModifiers = [...restoredModifiers, consumedLeadershipModifier];
+      }
 
       return {
         state: {

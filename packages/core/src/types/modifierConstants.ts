@@ -117,6 +117,11 @@ export const EFFECT_DOUBLE_PHYSICAL_ATTACKS = "double_physical_attacks" as const
 // Does not affect Arcane Immune enemies
 export const EFFECT_REMOVE_PHYSICAL_RESISTANCE = "remove_physical_resistance" as const;
 
+// === RemoveFireResistanceModifier ===
+// Removes fire resistance from enemies (Chill spell)
+// Does not affect Arcane Immune enemies
+export const EFFECT_REMOVE_FIRE_RESISTANCE = "remove_fire_resistance" as const;
+
 // === ColdToughnessBlockModifier ===
 // Grants +1 ice block per ability/attack color/resistance on blocked enemy (Tovak)
 // Arcane Immunity on the enemy negates the bonus entirely
@@ -220,4 +225,31 @@ export const EFFECT_UNIT_COMBAT_BONUS = "unit_combat_bonus" as const;
 // Prevents assigning damage to own units this combat (Into the Heat)
 // Does NOT prevent opponents from assigning damage to your units (PvP)
 export const RULE_UNITS_CANNOT_ABSORB_DAMAGE = "units_cannot_absorb_damage" as const;
+
+// === LeadershipBonusModifier ===
+// Grants a one-time bonus to the next unit activation.
+// Stores which bonus type was chosen (block, attack, or ranged_attack)
+// and the bonus amount. Consumed (removed) when a matching unit ability is activated.
+// Used by Norowas' Leadership skill.
+export const EFFECT_LEADERSHIP_BONUS = "leadership_bonus" as const;
+
+// === LeadershipBonusModifier["bonusType"] ===
+export const LEADERSHIP_BONUS_BLOCK = "block" as const;
+export const LEADERSHIP_BONUS_ATTACK = "attack" as const;
+export const LEADERSHIP_BONUS_RANGED_ATTACK = "ranged_attack" as const;
+
+// === UnitArmorBonusModifier ===
+// Grants +N armor to all units for the duration.
+// Used by Banner of Glory powered effect.
+export const EFFECT_UNIT_ARMOR_BONUS = "unit_armor_bonus" as const;
+
+// === UnitBlockBonusModifier ===
+// Grants +N to all block values for units (tack-on, requires base block).
+// Used by Banner of Glory powered effect.
+export const EFFECT_UNIT_BLOCK_BONUS = "unit_block_bonus" as const;
+
+// === BannerOfGloryFameTracking ===
+// Tracks fame +1 per unit that attacks or blocks this turn.
+// Used by Banner of Glory powered effect.
+export const EFFECT_BANNER_GLORY_FAME_TRACKING = "banner_glory_fame_tracking" as const;
 
