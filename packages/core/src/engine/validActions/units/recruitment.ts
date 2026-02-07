@@ -18,13 +18,13 @@ import { mustAnnounceEndOfRound } from "../helpers.js";
 import {
   siteTypeToRecruitSite,
   isSiteAccessibleForRecruitment,
-  getUsedCommandTokens,
   hasRecruitedHeroThisInteraction,
   violatesHeroesThugsExclusion,
   getReputationCostModifier,
   getRefugeeCampCostModifier,
   getActiveRecruitDiscount,
 } from "../../rules/unitRecruitment.js";
+import { getEffectiveCommandTokens, isBondsSlotEmpty, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
 
 
 /**
@@ -82,9 +82,9 @@ export function getUnitOptions(
     return undefined;
   }
 
-  // Check command token availability
-  const usedTokens = getUsedCommandTokens(player);
-  const hasCommandTokens = usedTokens < player.commandTokens;
+  // Check command token availability (including Bonds of Loyalty extra slot)
+  const effectiveTokens = getEffectiveCommandTokens(player);
+  const hasCommandTokens = player.units.length < effectiveTokens;
 
   // Track if Hero has been recruited this interaction (for doubled reputation)
   const heroAlreadyRecruited = hasRecruitedHeroThisInteraction(
@@ -136,10 +136,13 @@ export function getUnitOptions(
     // Apply recruit discount if available (Ruthless Coercion)
     const recruitDiscountAmount = discountMod ? discountMod.discount : 0;
 
+    // Apply Bonds of Loyalty discount if the Bonds slot is empty
+    const bondsDiscount = isBondsSlotEmpty(player) ? BONDS_INFLUENCE_DISCOUNT : 0;
+
     // Calculate final cost with reputation modifier and discount (minimum 0)
     const adjustedCost = Math.max(
       0,
-      baseCost + refugeeCampModifier + reputationModifier - recruitDiscountAmount
+      baseCost + refugeeCampModifier + reputationModifier - recruitDiscountAmount - bondsDiscount
     );
 
     // Check if player can afford it

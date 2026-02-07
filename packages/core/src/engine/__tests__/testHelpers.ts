@@ -111,6 +111,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     deck: [],
     discard: [],
     units: [],
+    bondsOfLoyaltyUnitInstanceId: null,
     attachedBanners: [],
     skills: [],
     skillCooldowns: {

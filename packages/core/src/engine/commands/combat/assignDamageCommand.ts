@@ -293,12 +293,18 @@ function processUnitAssignment(
       destroyedUnit.instanceId,
       BANNER_DETACH_REASON_UNIT_DESTROYED
     );
+    // Clear Bonds slot if the destroyed unit was the Bonds unit
+    const updatedBondsSlot =
+      player.bondsOfLoyaltyUnitInstanceId === destroyedUnit.instanceId
+        ? null
+        : player.bondsOfLoyaltyUnitInstanceId;
     // Remove destroyed unit
     updatedPlayer = {
       ...player,
       units: player.units.filter((_, i) => i !== unitIndex),
       discard: bannerResult.updatedDiscard,
       attachedBanners: bannerResult.updatedAttachedBanners,
+      bondsOfLoyaltyUnitInstanceId: updatedBondsSlot,
     };
     allEvents.push(...bannerResult.events);
   } else {

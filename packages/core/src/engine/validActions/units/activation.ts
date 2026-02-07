@@ -43,6 +43,7 @@ import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
 import { EFFECT_GAIN_BLOCK } from "../../../types/effectTypes.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { mustAnnounceEndOfRound } from "../helpers.js";
+import { isBondsUnit } from "../../rules/bondsOfLoyalty.js";
 
 /**
  * Passive abilities that cannot be manually activated.
@@ -255,8 +256,8 @@ export function getActivatableUnits(
         canActivate = false;
         reason = "Wounded units cannot be activated";
       }
-      // Check dungeon/tomb restriction for combat abilities
-      else if (!unitsAllowed && COMBAT_ABILITIES.includes(ability.type)) {
+      // Check dungeon/tomb restriction for combat abilities (Bonds unit is exempt)
+      else if (!unitsAllowed && COMBAT_ABILITIES.includes(ability.type) && !isBondsUnit(player, unit.instanceId)) {
         canActivate = false;
         reason = "Units cannot be used in this combat (dungeon/tomb)";
       }

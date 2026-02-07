@@ -34,6 +34,7 @@ import {
   hasRecruitedHeroThisInteraction,
   getActiveRecruitDiscount,
 } from "../../rules/unitRecruitment.js";
+import { getEffectiveCommandTokens, isBondsSlotEmpty, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
@@ -73,10 +74,11 @@ export function validateCommandSlots(
   const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
-  if (player.units.length >= player.commandTokens) {
+  const effectiveTokens = getEffectiveCommandTokens(player);
+  if (player.units.length >= effectiveTokens) {
     return invalid(
       NO_COMMAND_SLOTS,
-      `No command slots available (${player.units.length}/${player.commandTokens})`
+      `No command slots available (${player.units.length}/${effectiveTokens})`
     );
   }
 
@@ -124,6 +126,12 @@ export function validateInfluenceCost(
   const discountMod = getActiveRecruitDiscount(state, playerId);
   if (discountMod) {
     requiredCost = Math.max(0, requiredCost - discountMod.discount);
+  }
+
+  // Apply Bonds of Loyalty discount if the Bonds slot is empty
+  // (the next unit recruited fills the Bonds slot and gets -5 Influence)
+  if (isBondsSlotEmpty(player)) {
+    requiredCost = Math.max(0, requiredCost - BONDS_INFLUENCE_DISCOUNT);
   }
 
   if (action.influenceSpent < requiredCost) {

@@ -158,12 +158,14 @@ export function toClientPlayer(player: Player, forPlayerId: string): ClientPlaye
         const attachment = player.attachedBanners.find(
           (b) => b.unitInstanceId === unit.instanceId
         );
+        const bondsUnit = player.bondsOfLoyaltyUnitInstanceId === unit.instanceId;
         return {
           instanceId: unit.instanceId,
           unitId: unit.unitId,
           state: unit.state,
           wounded: unit.wounded,
           ...(attachment && { attachedBannerId: attachment.bannerId }),
+          ...(bondsUnit && { isBondsUnit: true }),
         };
       }
     ),

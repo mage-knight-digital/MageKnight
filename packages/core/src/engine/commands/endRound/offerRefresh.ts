@@ -51,13 +51,30 @@ export function processOfferRefresh(
   const playerCount = state.players.length;
 
   // 1. Refresh unit offer
+  // Remove Bonds of Loyalty bonus units from the offer before refresh.
+  // Per rulebook: these bonus units are removed at end of round if not recruited (not replaced).
+  const bondsBonus = state.offers.bondsOfLoyaltyBonusUnits ?? [];
+  let unitsToRefresh = state.offers.units;
+  if (bondsBonus.length > 0) {
+    // Remove each bonus unit from the offer (they don't go back to decks)
+    const remainingBonus = [...bondsBonus];
+    unitsToRefresh = unitsToRefresh.filter((unitId) => {
+      const idx = remainingBonus.indexOf(unitId);
+      if (idx !== -1) {
+        remainingBonus.splice(idx, 1);
+        return false; // Remove from offer
+      }
+      return true;
+    });
+  }
+
   const coreTileRevealed = hasCoreTileRevealed(state);
   const {
     decks: refreshedDecks,
     unitOffer: refreshedUnitOffer,
     rng: rngAfterUnitRefresh,
   } = refreshUnitOffer(
-    state.offers.units,
+    unitsToRefresh,
     state.decks,
     playerCount,
     coreTileRevealed,
