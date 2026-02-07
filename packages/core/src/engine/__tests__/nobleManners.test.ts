@@ -27,18 +27,30 @@ import {
 import type { InteractionBonusModifier } from "../../types/modifiers.js";
 import {
   UNITS,
+  CARD_WOUND,
+  hexKey,
+  GAME_PHASE_ROUND,
   type UnitId,
+  type CardId,
 } from "@mage-knight/shared";
 import type { GameState } from "../../state/GameState.js";
+import { SiteType } from "../../types/map.js";
+import type { Site } from "../../types/map.js";
 import {
   createRecruitUnitCommand,
   resetUnitInstanceCounter,
 } from "../commands/units/recruitUnitCommand.js";
+import { createInteractCommand } from "../commands/interactCommand.js";
+import { createBuySpellCommand } from "../commands/buySpellCommand.js";
 import {
   getActiveInteractionBonus,
   getActiveInteractionBonusModifierIds,
 } from "../rules/unitRecruitment.js";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import {
+  createTestGameState,
+  createTestPlayer,
+  createTestHex,
+} from "./testHelpers.js";
 
 // Get a level-1 unit ID for testing
 function getUnitIdOfLevel(level: number): UnitId {
@@ -475,5 +487,245 @@ describe("Noble Manners full card effect", () => {
 
     // Modifier consumed
     expect(getActiveInteractionBonus(currentState, playerId)).toBeNull();
+  });
+});
+
+// ============================================================================
+// INTEGRATION: INTERACTION BONUS + HEALING (INTERACT COMMAND)
+// ============================================================================
+
+describe("Noble Manners interaction bonus + healing", () => {
+  const basicBonusEffect: ApplyInteractionBonusEffect = {
+    type: EFFECT_APPLY_INTERACTION_BONUS,
+    fame: 1,
+    reputation: 0,
+  };
+
+  const poweredBonusEffect: ApplyInteractionBonusEffect = {
+    type: EFFECT_APPLY_INTERACTION_BONUS,
+    fame: 1,
+    reputation: 1,
+  };
+
+  function createHealingState(): GameState {
+    const villageSite: Site = {
+      type: SiteType.Village,
+      owner: null,
+      isConquered: false,
+      isBurned: false,
+    };
+
+    const player = createTestPlayer({
+      position: { q: 0, r: 0 },
+      influencePoints: 10,
+      hand: [CARD_WOUND, CARD_WOUND],
+    });
+
+    return createTestGameState({
+      players: [player],
+      phase: GAME_PHASE_ROUND,
+      map: {
+        hexes: {
+          [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, undefined, villageSite),
+        },
+        tiles: [],
+        tileDeck: { countryside: [], core: [] },
+      },
+    });
+  }
+
+  it("should grant +1 fame when healing after playing Noble Manners (basic)", () => {
+    const state = createHealingState();
+    const playerId = state.players[0].id;
+
+    // Apply the interaction bonus modifier
+    const bonusResult = resolveEffect(state, playerId, basicBonusEffect);
+    const stateWithBonus = bonusResult.state;
+    const initialFame = stateWithBonus.players[0].fame;
+
+    // Heal 1 wound at village (costs 3 influence)
+    const command = createInteractCommand({
+      playerId,
+      healing: 1,
+      influenceAvailable: 10,
+      previousHand: stateWithBonus.players[0].hand,
+    });
+    const result = command.execute(stateWithBonus);
+
+    // Fame should be +1
+    expect(result.state.players[0].fame).toBe(initialFame + 1);
+
+    // Modifier consumed
+    expect(getActiveInteractionBonus(result.state, playerId)).toBeNull();
+  });
+
+  it("should grant +1 fame and +1 reputation when healing after playing Noble Manners (powered)", () => {
+    const state = createHealingState();
+    const playerId = state.players[0].id;
+
+    // Apply the powered interaction bonus modifier
+    const bonusResult = resolveEffect(state, playerId, poweredBonusEffect);
+    const stateWithBonus = bonusResult.state;
+    const initialFame = stateWithBonus.players[0].fame;
+    const initialRep = stateWithBonus.players[0].reputation;
+
+    // Heal 1 wound
+    const command = createInteractCommand({
+      playerId,
+      healing: 1,
+      influenceAvailable: 10,
+      previousHand: stateWithBonus.players[0].hand,
+    });
+    const result = command.execute(stateWithBonus);
+
+    // Fame +1 and reputation +1
+    expect(result.state.players[0].fame).toBe(initialFame + 1);
+    expect(result.state.players[0].reputation).toBe(initialRep + 1);
+  });
+
+  it("should not grant bonus when healing without modifier", () => {
+    const state = createHealingState();
+    const playerId = state.players[0].id;
+    const initialFame = state.players[0].fame;
+
+    const command = createInteractCommand({
+      playerId,
+      healing: 1,
+      influenceAvailable: 10,
+      previousHand: state.players[0].hand,
+    });
+    const result = command.execute(state);
+
+    expect(result.state.players[0].fame).toBe(initialFame);
+  });
+});
+
+// ============================================================================
+// INTEGRATION: INTERACTION BONUS + BUY SPELL COMMAND
+// ============================================================================
+
+describe("Noble Manners interaction bonus + buy spell", () => {
+  const basicBonusEffect: ApplyInteractionBonusEffect = {
+    type: EFFECT_APPLY_INTERACTION_BONUS,
+    fame: 1,
+    reputation: 0,
+  };
+
+  const poweredBonusEffect: ApplyInteractionBonusEffect = {
+    type: EFFECT_APPLY_INTERACTION_BONUS,
+    fame: 1,
+    reputation: 1,
+  };
+
+  const TEST_SPELL = "burning_shield" as CardId;
+
+  function createSpellPurchaseState(): GameState {
+    const player = createTestPlayer({
+      influencePoints: 10,
+    });
+
+    const baseState = createTestGameState({ players: [player] });
+
+    return {
+      ...baseState,
+      offers: {
+        ...baseState.offers,
+        spells: { cards: [TEST_SPELL] },
+      },
+      decks: {
+        ...baseState.decks,
+        spells: [],
+      },
+    };
+  }
+
+  it("should grant +1 fame when buying a spell after playing Noble Manners (basic)", () => {
+    const state = createSpellPurchaseState();
+    const playerId = state.players[0].id;
+
+    // Apply the interaction bonus modifier
+    const bonusResult = resolveEffect(state, playerId, basicBonusEffect);
+    const stateWithBonus = bonusResult.state;
+    const initialFame = stateWithBonus.players[0].fame;
+
+    // Buy the spell
+    const command = createBuySpellCommand({
+      playerId,
+      cardId: TEST_SPELL,
+    });
+    const result = command.execute(stateWithBonus);
+
+    // Fame should be +1
+    expect(result.state.players[0].fame).toBe(initialFame + 1);
+
+    // Modifier consumed
+    expect(getActiveInteractionBonus(result.state, playerId)).toBeNull();
+  });
+
+  it("should grant +1 fame and +1 reputation when buying spell after playing Noble Manners (powered)", () => {
+    const state = createSpellPurchaseState();
+    const playerId = state.players[0].id;
+
+    // Apply the powered interaction bonus modifier
+    const bonusResult = resolveEffect(state, playerId, poweredBonusEffect);
+    const stateWithBonus = bonusResult.state;
+    const initialFame = stateWithBonus.players[0].fame;
+    const initialRep = stateWithBonus.players[0].reputation;
+
+    // Buy the spell
+    const command = createBuySpellCommand({
+      playerId,
+      cardId: TEST_SPELL,
+    });
+    const result = command.execute(stateWithBonus);
+
+    // Fame +1 and reputation +1
+    expect(result.state.players[0].fame).toBe(initialFame + 1);
+    expect(result.state.players[0].reputation).toBe(initialRep + 1);
+  });
+
+  it("should restore fame, reputation, and modifiers on undo of spell purchase", () => {
+    const state = createSpellPurchaseState();
+    const playerId = state.players[0].id;
+
+    // Apply the interaction bonus modifier
+    const bonusResult = resolveEffect(state, playerId, poweredBonusEffect);
+    const stateWithBonus = bonusResult.state;
+    const initialFame = stateWithBonus.players[0].fame;
+    const initialRep = stateWithBonus.players[0].reputation;
+
+    // Buy the spell
+    const command = createBuySpellCommand({
+      playerId,
+      cardId: TEST_SPELL,
+    });
+    const executed = command.execute(stateWithBonus);
+
+    // Verify bonus was applied
+    expect(executed.state.players[0].fame).toBe(initialFame + 1);
+    expect(executed.state.players[0].reputation).toBe(initialRep + 1);
+    expect(getActiveInteractionBonus(executed.state, playerId)).toBeNull();
+
+    // Undo
+    const undone = command.undo(executed.state);
+
+    // Fame, reputation, and modifier should be restored
+    expect(undone.state.players[0].fame).toBe(initialFame);
+    expect(undone.state.players[0].reputation).toBe(initialRep);
+    expect(getActiveInteractionBonus(undone.state, playerId)).not.toBeNull();
+  });
+
+  it("should not grant bonus when buying spell without modifier", () => {
+    const state = createSpellPurchaseState();
+    const playerId = state.players[0].id;
+    const initialFame = state.players[0].fame;
+
+    const command = createBuySpellCommand({
+      playerId,
+      cardId: TEST_SPELL,
+    });
+    const result = command.execute(state);
+
+    expect(result.state.players[0].fame).toBe(initialFame);
   });
 });
