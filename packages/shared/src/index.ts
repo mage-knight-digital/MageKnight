@@ -258,6 +258,9 @@ export type {
   ArtifactCrystalColorOptions,
   // Crystal Joy reclaim options
   CrystalJoyReclaimOptions,
+  // Unit maintenance options (Magic Familiars)
+  UnitMaintenanceOptions,
+  UnitMaintenanceEntry,
   // Level up rewards options
   LevelUpRewardsOptions,
   // Terrain cost reduction options

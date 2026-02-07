@@ -156,6 +156,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingGladeWoundChoice: false,
     pendingDiscard: null,
     pendingDeepMineChoice: null,
+    pendingUnitMaintenance: null,
     pendingDiscardForAttack: null,
     pendingDiscardForCrystal: null,
     pendingTerrainCostReduction: null,

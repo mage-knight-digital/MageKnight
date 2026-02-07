@@ -234,6 +234,7 @@ import type {
   UnitReadiedEvent,
   UnitsReadiedEvent,
   UnitDestroyedEvent,
+  UnitMaintenancePaidEvent,
 } from "./units.js";
 
 import type {
@@ -409,6 +410,7 @@ export type GameEvent =
   | UnitReadiedEvent
   | UnitsReadiedEvent
   | UnitDestroyedEvent
+  | UnitMaintenancePaidEvent
   // Offers
   | OfferRefreshedEvent
   | OfferCardTakenEvent

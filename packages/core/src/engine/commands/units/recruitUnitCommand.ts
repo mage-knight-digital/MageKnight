@@ -10,7 +10,7 @@
 import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { ActiveModifier } from "../../../types/modifiers.js";
-import type { UnitId, GameEvent } from "@mage-knight/shared";
+import type { UnitId, GameEvent, BasicManaColor, ManaSourceInfo } from "@mage-knight/shared";
 import { UNIT_RECRUITED } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../../types/unit.js";
 import { removeUnitFromOffer } from "../../../data/unitDeckSetup.js";
@@ -23,6 +23,10 @@ import {
 } from "../../rules/unitRecruitment.js";
 import { isBondsSlotEmpty } from "../../rules/bondsOfLoyalty.js";
 import { applyChangeReputation, applyGainFame } from "../../effects/atomicEffects.js";
+import {
+  consumeManaForAbility,
+  restoreManaForAbility,
+} from "./helpers/manaConsumptionHelpers.js";
 
 export const RECRUIT_UNIT_COMMAND = "RECRUIT_UNIT" as const;
 
@@ -30,6 +34,10 @@ export interface RecruitUnitCommandParams {
   readonly playerId: string;
   readonly unitId: UnitId;
   readonly influenceSpent: number;
+  /** Mana source for Magic Familiars mana payment */
+  readonly manaSource?: ManaSourceInfo;
+  /** Basic mana color for the token placed on Magic Familiars */
+  readonly manaTokenColor?: BasicManaColor;
 }
 
 let unitInstanceCounter = 0;
@@ -58,6 +66,8 @@ export function createRecruitUnitCommand(
   let previousFame = 0;
   let previousPendingLevelUps: readonly number[] = [];
   let previousBondsUnitInstanceId: string | null = null;
+  // Store mana source for undo (Magic Familiars mana payment)
+  let consumedManaSource: ManaSourceInfo | null = null;
 
   return {
     type: RECRUIT_UNIT_COMMAND,
@@ -72,7 +82,7 @@ export function createRecruitUnitCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
-      const player = state.players[playerIndex];
+      let player = state.players[playerIndex];
       if (!player) {
         throw new Error(`Player not found: ${params.playerId}`);
       }
@@ -89,8 +99,24 @@ export function createRecruitUnitCommand(
       previousPendingLevelUps = player.pendingLevelUps;
       previousBondsUnitInstanceId = player.bondsOfLoyaltyUnitInstanceId;
 
-      // Create new unit instance
-      const newUnit = createPlayerUnit(params.unitId, instanceId);
+      // Track source updates (for die usage)
+      let updatedSource = state.source;
+
+      // Handle mana payment for Magic Familiars
+      if (params.manaSource && params.manaTokenColor) {
+        consumedManaSource = params.manaSource;
+        const manaResult = consumeManaForAbility(
+          player,
+          state.source,
+          params.manaSource,
+          params.playerId
+        );
+        player = manaResult.player;
+        updatedSource = manaResult.source;
+      }
+
+      // Create new unit instance (with mana token for Magic Familiars)
+      const newUnit = createPlayerUnit(params.unitId, instanceId, params.manaTokenColor);
 
       // If the Bonds slot is empty, this unit fills it
       const fillBondsSlot = isBondsSlotEmpty(player);
@@ -123,7 +149,7 @@ export function createRecruitUnitCommand(
         units: updatedOffer,
       };
 
-      let updatedState: GameState = { ...state, players, offers: updatedOffers };
+      let updatedState: GameState = { ...state, players, offers: updatedOffers, source: updatedSource };
 
       // Check for active recruit discount (Ruthless Coercion)
       // If a discount was active, consume it and apply the reputation change
@@ -262,9 +288,23 @@ export function createRecruitUnitCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
-      const player = state.players[playerIndex];
+      let player = state.players[playerIndex];
       if (!player) {
         throw new Error(`Player not found: ${params.playerId}`);
+      }
+
+      // Track source updates for mana restoration
+      let updatedSource = state.source;
+
+      // Restore mana if it was consumed (Magic Familiars)
+      if (consumedManaSource) {
+        const manaResult = restoreManaForAbility(
+          player,
+          state.source,
+          consumedManaSource
+        );
+        player = manaResult.player;
+        updatedSource = manaResult.source;
       }
 
       // Remove the recruited unit (matching by instanceId for safety)
@@ -302,6 +342,7 @@ export function createRecruitUnitCommand(
           players,
           offers: updatedOffers,
           activeModifiers: previousActiveModifiers,
+          source: updatedSource,
         },
         events: [],
       };

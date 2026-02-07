@@ -166,6 +166,7 @@ export function toClientPlayer(player: Player, forPlayerId: string): ClientPlaye
           wounded: unit.wounded,
           ...(attachment && { attachedBannerId: attachment.bannerId }),
           ...(bondsUnit && { isBondsUnit: true }),
+          ...(unit.manaToken && { manaToken: unit.manaToken }),
         };
       }
     ),
@@ -225,6 +226,9 @@ export function toClientPlayer(player: Player, forPlayerId: string): ClientPlaye
     pendingDeepMineChoice: player.pendingDeepMineChoice
       ? player.pendingDeepMineChoice.map(mineColorToBasicManaColor)
       : null,
+
+    // Unit maintenance at round start (Magic Familiars)
+    pendingUnitMaintenance: player.pendingUnitMaintenance,
 
     // Healing points accumulated this turn
     healingPoints: player.healingPoints,

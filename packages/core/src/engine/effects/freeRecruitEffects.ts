@@ -55,10 +55,10 @@ export function handleFreeRecruit(
   playerIndex: number,
   player: Player
 ): EffectResolutionResult {
-  // Filter out interaction-only units (e.g. Delphana Masters) from free recruitment
+  // Filter out units that can't be free-recruited (Delphana Masters, Magic Familiars)
   const availableUnits = state.offers.units.filter((unitId) => {
     const unitDef = UNITS[unitId];
-    return !unitDef?.interactionOnly;
+    return unitDef && !unitDef.interactionOnly && !unitDef.restrictedFromFreeRecruit;
   });
 
   if (availableUnits.length === 0) {

@@ -234,6 +234,17 @@ export interface RecruitUnitAction {
    * "artifact" or "spell" bypass Heroes/Thugs special rules.
    */
   readonly source?: RecruitmentSource;
+  /**
+   * Mana source used to pay for Magic Familiars recruitment.
+   * Required when recruiting a unit with restrictedFromFreeRecruit.
+   */
+  readonly manaSource?: ManaSourceInfo;
+  /**
+   * The basic mana color to place as a token on the unit (Magic Familiars).
+   * Required when recruiting Magic Familiars. Gold mana can be used but
+   * this specifies which basic color the token becomes.
+   */
+  readonly manaTokenColor?: BasicManaColor;
 }
 
 export const DISBAND_UNIT_ACTION = "DISBAND_UNIT" as const;
@@ -392,6 +403,19 @@ export type GladeWoundChoice =
 export interface ResolveGladeWoundAction {
   readonly type: typeof RESOLVE_GLADE_WOUND_ACTION;
   readonly choice: GladeWoundChoice;
+}
+
+// Unit maintenance at round start (Magic Familiars: pay crystal or disband)
+export const RESOLVE_UNIT_MAINTENANCE_ACTION = "RESOLVE_UNIT_MAINTENANCE" as const;
+export interface ResolveUnitMaintenanceAction {
+  readonly type: typeof RESOLVE_UNIT_MAINTENANCE_ACTION;
+  readonly unitInstanceId: string;
+  /** true = pay crystal to keep unit, false = disband */
+  readonly keepUnit: boolean;
+  /** Crystal color to pay (required when keepUnit is true) */
+  readonly crystalColor?: BasicManaColor;
+  /** New mana token color to place on unit (required when keepUnit is true) */
+  readonly newManaTokenColor?: BasicManaColor;
 }
 
 // Deep Mine crystal color choice
@@ -685,6 +709,8 @@ export type PlayerAction =
   | SelectRewardAction
   // Magical Glade
   | ResolveGladeWoundAction
+  // Unit maintenance (Magic Familiars)
+  | ResolveUnitMaintenanceAction
   // Deep Mine
   | ResolveDeepMineAction
   // Crystal Joy reclaim

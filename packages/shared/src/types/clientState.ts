@@ -68,6 +68,8 @@ export interface ClientPlayerUnit {
   readonly wounded: boolean;
   readonly attachedBannerId?: CardId;
   readonly isBondsUnit?: boolean;
+  /** Mana token placed on unit (Magic Familiars) */
+  readonly manaToken?: BasicManaColor;
 }
 
 // Client-visible banner attachment
@@ -180,6 +182,12 @@ export interface ClientPlayer {
 
   // Deep Mine crystal color choice pending (available colors to choose from)
   readonly pendingDeepMineChoice: readonly BasicManaColor[] | null;
+
+  // Pending unit maintenance at round start (Magic Familiars: pay crystal or disband)
+  readonly pendingUnitMaintenance: readonly {
+    readonly unitInstanceId: string;
+    readonly unitId: UnitId;
+  }[] | null;
 
   // Healing points accumulated this turn (cleared on combat entry)
   readonly healingPoints: number;

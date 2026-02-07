@@ -73,6 +73,7 @@ import {
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
   RESOLVE_HEX_COST_REDUCTION_ACTION,
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
+  RESOLVE_UNIT_MAINTENANCE_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -117,6 +118,7 @@ export {
 export {
   createRecruitUnitCommandFromAction,
   createActivateUnitCommandFromAction,
+  createResolveUnitMaintenanceCommandFromAction,
 } from "./units.js";
 
 // Turn factories
@@ -216,6 +218,7 @@ import {
 import {
   createRecruitUnitCommandFromAction,
   createActivateUnitCommandFromAction,
+  createResolveUnitMaintenanceCommandFromAction,
 } from "./units.js";
 
 import {
@@ -342,4 +345,6 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_TERRAIN_COST_REDUCTION_ACTION]: createResolveTerrainCostReductionCommandFromAction,
   // Banner actions
   [ASSIGN_BANNER_ACTION]: createAssignBannerCommandFromAction,
+  // Unit maintenance actions (Magic Familiars round-start)
+  [RESOLVE_UNIT_MAINTENANCE_ACTION]: createResolveUnitMaintenanceCommandFromAction,
 };

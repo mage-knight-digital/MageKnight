@@ -48,6 +48,9 @@ export const RESOLVE_GLADE_WOUND_COMMAND = "RESOLVE_GLADE_WOUND" as const;
 // Deep Mine command
 export const RESOLVE_DEEP_MINE_COMMAND = "RESOLVE_DEEP_MINE" as const;
 
+// Unit maintenance command (Magic Familiars round-start)
+export const RESOLVE_UNIT_MAINTENANCE_COMMAND = "RESOLVE_UNIT_MAINTENANCE" as const;
+
 // Crystal Joy reclaim command
 export const RESOLVE_CRYSTAL_JOY_RECLAIM_COMMAND = "RESOLVE_CRYSTAL_JOY_RECLAIM" as const;
 
