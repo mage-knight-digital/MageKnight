@@ -23,6 +23,8 @@ import {
   getActiveInteractionBonusModifierIds,
 } from "../rules/unitRecruitment.js";
 import { applyChangeReputation, applyGainFame } from "../effects/atomicEffects.js";
+import { isGoldenGrailDrawOnHealActive } from "../effects/goldenGrailHelpers.js";
+import { applyDrawCards } from "../effects/atomicCardEffects.js";
 
 export const INTERACT_COMMAND = "INTERACT" as const;
 
@@ -125,6 +127,20 @@ export function createInteractCommand(params: InteractCommandParams): Command {
       players[playerIndex] = updatedPlayer;
 
       let updatedState: GameState = { ...state, players };
+
+      // Golden Grail draw-on-heal: draw a card each time a wound is healed from hand
+      if (params.healing > 0) {
+        const woundsActuallyHealed = updatedPlayer.woundsHealedFromHandThisTurn - player.woundsHealedFromHandThisTurn;
+        if (woundsActuallyHealed > 0 && isGoldenGrailDrawOnHealActive(state, params.playerId)) {
+          const drawResult = applyDrawCards(
+            updatedState,
+            playerIndex,
+            updatedState.players[playerIndex]!,
+            woundsActuallyHealed,
+          );
+          updatedState = drawResult.state;
+        }
+      }
 
       // Check for active interaction bonus (Noble Manners)
       // Consumed on first interaction — only triggers once
