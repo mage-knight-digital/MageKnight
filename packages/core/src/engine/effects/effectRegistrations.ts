@@ -59,6 +59,7 @@ import { registerManaStormEffects } from "./manaStormEffects.js";
 import { registerSourceOpeningEffects } from "./sourceOpeningEffects.js";
 import { registerHornOfWrathEffects } from "./hornOfWrathEffects.js";
 import { registerMaximalEffectEffects } from "./maximalEffectEffects.js";
+import { registerEndlessGemPouchEffects } from "./endlessGemPouchEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -218,4 +219,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Maximal Effect effects (throw away action card and multiply its effect)
   registerMaximalEffectEffects();
+
+  // Endless Gem Pouch effects (crystal rolling with gold choice and black fame)
+  registerEndlessGemPouchEffects();
 }

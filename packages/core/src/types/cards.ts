@@ -123,6 +123,8 @@ import {
   EFFECT_ROLL_DIE_FOR_WOUND,
   EFFECT_CHOOSE_BONUS_WITH_RISK,
   EFFECT_RESOLVE_BONUS_CHOICE,
+  EFFECT_ROLL_FOR_CRYSTALS,
+  EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1414,6 +1416,26 @@ export interface ResolveBonusChoiceEffect {
   readonly woundColors: readonly ManaColor[];
 }
 
+/**
+ * Roll mana dice and gain crystals based on results.
+ * Basic colors → crystal of that color, gold → player chooses, black → Fame +1.
+ * Used by Endless Gem Pouch basic effect.
+ */
+export interface RollForCrystalsEffect {
+  readonly type: typeof EFFECT_ROLL_FOR_CRYSTALS;
+  readonly diceCount: number;
+}
+
+/**
+ * Internal: resolve after player chooses a crystal color for a gold roll.
+ * Applies the remaining crystal gains and fame from the roll results.
+ */
+export interface ResolveCrystalRollChoiceEffect {
+  readonly type: typeof EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE;
+  readonly chosenColor: BasicManaColor;
+  readonly remainingResults: readonly ManaColor[];
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1515,7 +1537,9 @@ export type CardEffect =
   | ResolvePossessEnemyEffect
   | RollDieForWoundEffect
   | ChooseBonusWithRiskEffect
-  | ResolveBonusChoiceEffect;
+  | ResolveBonusChoiceEffect
+  | RollForCrystalsEffect
+  | ResolveCrystalRollChoiceEffect;
 
 // === Card Definition ===
 
