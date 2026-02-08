@@ -36,6 +36,7 @@ import {
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_PLACE_SKILL_IN_CENTER,
   EFFECT_DISCARD_FOR_CRYSTAL,
+  EFFECT_DECOMPOSE,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
@@ -77,6 +78,7 @@ import {
 } from "../../types/effectTypes.js";
 import type {
   DiscardForCrystalEffect,
+  DecomposeEffect,
   RecruitDiscountEffect,
   ReadyUnitsForInfluenceEffect,
   ResolveReadyUnitForInfluenceEffect,
@@ -322,6 +324,13 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     return e.optional
       ? "Optionally discard a card to gain a crystal"
       : "Discard a card to gain a crystal";
+  },
+
+  [EFFECT_DECOMPOSE]: (effect) => {
+    const e = effect as DecomposeEffect;
+    return e.mode === "basic"
+      ? "Throw away an action card to gain 2 crystals of matching color"
+      : "Throw away an action card to gain 1 crystal of each non-matching color";
   },
 
   [EFFECT_APPLY_RECRUIT_DISCOUNT]: (effect) => {

@@ -18,6 +18,7 @@ import type {
   DiscardCostOptions,
   DiscardForAttackOptions,
   DiscardForCrystalOptions,
+  DecomposeOptions,
   ArtifactCrystalColorOptions,
   CrystalJoyReclaimOptions,
   SteadyTempoOptions,
@@ -31,6 +32,7 @@ import { SiteType } from "../../types/map.js";
 import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
 import { getCardsEligibleForDiscardForAttack } from "../effects/swordOfJusticeEffects.js";
 import { getCardsEligibleForDiscardForCrystal } from "../effects/discardForCrystalEffects.js";
+import { getCardsEligibleForDecompose } from "../effects/decomposeEffects.js";
 import { getCard } from "../helpers/cardLookup.js";
 import { isCardEligibleForReclaim } from "../rules/crystalJoyReclaim.js";
 
@@ -188,6 +190,28 @@ export function getArtifactCrystalColorOptions(
 
   return {
     availableColors: [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE],
+  };
+}
+
+/**
+ * Get decompose options for the player.
+ * Returns options if player has a pending decompose state (Decompose card).
+ */
+export function getDecomposeOptions(
+  _state: GameState,
+  player: Player
+): DecomposeOptions | undefined {
+  if (!player.pendingDecompose) {
+    return undefined;
+  }
+
+  const { sourceCardId, mode } = player.pendingDecompose;
+  const availableCardIds = getCardsEligibleForDecompose(player.hand, sourceCardId);
+
+  return {
+    sourceCardId,
+    availableCardIds,
+    mode,
   };
 }
 

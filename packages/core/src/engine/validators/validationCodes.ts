@@ -248,6 +248,10 @@ export const DISCARD_FOR_CRYSTAL_CANNOT_SKIP = "DISCARD_FOR_CRYSTAL_CANNOT_SKIP"
 export const ARTIFACT_CRYSTAL_COLOR_REQUIRED = "ARTIFACT_CRYSTAL_COLOR_REQUIRED" as const;
 export const ARTIFACT_CRYSTAL_INVALID_COLOR = "ARTIFACT_CRYSTAL_INVALID_COLOR" as const;
 
+// Decompose validation codes
+export const DECOMPOSE_REQUIRED = "DECOMPOSE_REQUIRED" as const;
+export const DECOMPOSE_CARD_NOT_ELIGIBLE = "DECOMPOSE_CARD_NOT_ELIGIBLE" as const;
+
 // Spell purchase validation codes
 export const SPELL_NOT_IN_OFFER = "SPELL_NOT_IN_OFFER" as const;
 export const NOT_AT_SPELL_SITE = "NOT_AT_SPELL_SITE" as const;
@@ -513,6 +517,9 @@ export type ValidationErrorCode =
   | typeof DISCARD_FOR_CRYSTAL_CANNOT_SKIP
   | typeof ARTIFACT_CRYSTAL_COLOR_REQUIRED
   | typeof ARTIFACT_CRYSTAL_INVALID_COLOR
+  // Decompose validation
+  | typeof DECOMPOSE_REQUIRED
+  | typeof DECOMPOSE_CARD_NOT_ELIGIBLE
   // Spell purchase validation
   | typeof SPELL_NOT_IN_OFFER
   | typeof NOT_AT_SPELL_SITE

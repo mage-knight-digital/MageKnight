@@ -840,6 +840,24 @@ export interface ArtifactCrystalColorOptions {
 }
 
 // ============================================================================
+// Decompose (throw away action card for crystals)
+// ============================================================================
+
+/**
+ * Options for Decompose card resolution.
+ * Only present when player has a pending decompose state.
+ * Player must select an action card from hand to throw away.
+ */
+export interface DecomposeOptions {
+  /** Source card that triggered the decompose (Decompose card) */
+  readonly sourceCardId: CardId;
+  /** Action cards available to throw away (excludes Decompose itself and wounds) */
+  readonly availableCardIds: readonly CardId[];
+  /** Whether the effect is basic or powered */
+  readonly mode: "basic" | "powered";
+}
+
+// ============================================================================
 // Unit Maintenance (Magic Familiars round-start)
 // ============================================================================
 
@@ -1111,6 +1129,12 @@ export interface PendingArtifactCrystalColorState {
   readonly artifactCrystalColor: ArtifactCrystalColorOptions;
 }
 
+export interface PendingDecomposeState {
+  readonly mode: "pending_decompose";
+  readonly turn: BlockingTurnOptions;
+  readonly decompose: DecomposeOptions;
+}
+
 export interface PendingCrystalJoyState {
   readonly mode: "pending_crystal_joy_reclaim";
   readonly turn: BlockingTurnOptions;
@@ -1198,6 +1222,7 @@ export type ValidActions =
   | PendingDiscardCostState
   | PendingDiscardForAttackState
   | PendingDiscardForCrystalState
+  | PendingDecomposeState
   | PendingArtifactCrystalColorState
   | PendingCrystalJoyState
   | PendingSteadyTempoState

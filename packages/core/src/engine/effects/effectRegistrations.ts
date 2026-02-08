@@ -51,6 +51,7 @@ import { registerManaBoltEffects } from "./manaBoltEffects.js";
 import { registerMindReadEffects } from "./mindReadEffects.js";
 import { registerBannerProtectionEffects } from "./bannerProtectionEffects.js";
 import { registerWingsOfNightEffects } from "./wingsOfNightEffects.js";
+import { registerDecomposeEffects } from "./decomposeEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -186,4 +187,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Wings of Night effects (multi-target skip-attack with move cost)
   registerWingsOfNightEffects();
+
+  // Decompose effects (throw away action card for crystals)
+  registerDecomposeEffects();
 }

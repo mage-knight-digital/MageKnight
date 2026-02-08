@@ -103,6 +103,7 @@ import {
   EFFECT_RESOLVE_MIND_STEAL_SELECTION,
   EFFECT_WINGS_OF_NIGHT,
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
+  EFFECT_DECOMPOSE,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -132,6 +133,7 @@ import {
 } from "../../types/modifierConstants.js";
 import { isRuleActive } from "../modifiers/index.js";
 import { getSpentUnitsAtOrBelowLevel } from "./unitEffects.js";
+import { getActionCardColor } from "../helpers/cardColor.js";
 
 // ============================================================================
 // TYPES
@@ -230,6 +232,16 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
     // Discard for crystal is resolvable if optional (can always skip) or if player has non-wound cards
     const hasNonWoundCards = player.hand.some((c) => c !== CARD_WOUND);
     return hasNonWoundCards;
+  },
+
+  [EFFECT_DECOMPOSE]: (state, player, _effect) => {
+    // Decompose is resolvable if player has at least one action card in hand
+    // (excluding wounds and the decompose card itself - but we approximate here
+    // since sourceCardId may not be in hand yet when checking resolvability)
+    const hasActionCards = player.hand.some(
+      (c) => c !== CARD_WOUND && getActionCardColor(c) !== null
+    );
+    return hasActionCards;
   },
 
   [EFFECT_DISCARD_WOUNDS]: (state, player, effect) => {

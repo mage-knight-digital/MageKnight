@@ -287,6 +287,12 @@ export const EFFECT_RESOLVE_MIND_STEAL_COLOR = "resolve_mind_steal_color" as con
 // Internal: Resolve after caster selects which Action card to steal (or skip)
 export const EFFECT_RESOLVE_MIND_STEAL_SELECTION = "resolve_mind_steal_selection" as const;
 
+// === Decompose Effect ===
+// Throw away an action card from hand and gain crystals based on mode.
+// Basic: gain 2 crystals matching the thrown card's color.
+// Powered: gain 1 crystal of each basic color NOT matching the thrown card's color.
+export const EFFECT_DECOMPOSE = "decompose" as const;
+
 // === Banner of Protection Activation Effect ===
 // Marks that Banner of Protection powered effect is active this turn.
 // At end of turn, player may throw away wounds received this turn.

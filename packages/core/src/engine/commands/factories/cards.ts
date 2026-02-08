@@ -23,6 +23,7 @@ import {
   RESOLVE_DISCARD_ACTION,
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
+  RESOLVE_DECOMPOSE_ACTION,
   RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION,
   MANA_BLACK,
 } from "@mage-knight/shared";
@@ -36,6 +37,7 @@ import { createResolveDiscardCommand } from "../resolveDiscardCommand.js";
 import { createResolveDiscardForAttackCommand } from "../resolveDiscardForAttackCommand.js";
 import { createResolveDiscardForCrystalCommand } from "../resolveDiscardForCrystalCommand.js";
 import { createResolveArtifactCrystalColorCommand } from "../resolveArtifactCrystalColorCommand.js";
+import { createResolveDecomposeCommand } from "../resolveDecomposeCommand.js";
 import { getCard } from "../../validActions/cards/index.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { getAvailableManaSourcesForColor } from "../../validActions/mana.js";
@@ -331,5 +333,25 @@ export const createResolveArtifactCrystalColorCommandFromAction: CommandFactory 
   return createResolveArtifactCrystalColorCommand({
     playerId,
     color: action.color,
+  });
+};
+
+/**
+ * Resolve decompose command factory.
+ * Creates a command to resolve a pending decompose (throw away action card for crystals).
+ */
+export const createResolveDecomposeCommandFromAction: CommandFactory = (
+  state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_DECOMPOSE_ACTION) return null;
+
+  const player = getPlayerById(state, playerId);
+  if (!player?.pendingDecompose) return null;
+
+  return createResolveDecomposeCommand({
+    playerId,
+    cardId: action.cardId,
   });
 };
