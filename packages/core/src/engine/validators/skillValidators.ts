@@ -46,6 +46,7 @@ import {
   SKILL_GOLDYX_UNIVERSAL_POWER,
   SKILL_GOLDYX_SOURCE_OPENING,
   SKILL_WOLFHAWK_REFRESHING_BATH,
+  SKILL_BRAEVALAR_REGENERATE,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -354,6 +355,30 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_INTERACTION,
         "Glittering Fortune can only be used during interaction"
+      );
+    }
+  }
+
+  // Regenerate: requires wound in hand, not in combat, and mana source
+  if (useSkillAction.skillId === SKILL_BRAEVALAR_REGENERATE) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "Regenerate cannot be used during combat"
+      );
+    }
+
+    if (!player.hand.some((c) => c === CARD_WOUND)) {
+      return invalid(
+        SKILL_REQUIRES_WOUND_IN_HAND,
+        "Regenerate requires a Wound in hand"
+      );
+    }
+
+    if (!useSkillAction.manaSource) {
+      return invalid(
+        SKILL_REQUIRES_MANA,
+        "Regenerate requires a mana source to spend"
       );
     }
   }

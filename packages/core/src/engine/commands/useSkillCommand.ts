@@ -35,6 +35,7 @@ import {
   SKILL_TOVAK_MANA_OVERLOAD,
   SKILL_GOLDYX_UNIVERSAL_POWER,
   SKILL_BRAEVALAR_SHAPESHIFT,
+  SKILL_BRAEVALAR_REGENERATE,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -57,6 +58,8 @@ import {
   removeUniversalPowerEffect,
   applyShapeshiftEffect,
   removeShapeshiftEffect,
+  applyRegenerateEffect,
+  removeRegenerateEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import { restoreMana } from "./helpers/manaConsumptionHelpers.js";
@@ -152,6 +155,9 @@ function applyCustomSkillEffect(
     case SKILL_BRAEVALAR_SHAPESHIFT:
       return applyShapeshiftEffect(state, playerId);
 
+    case SKILL_BRAEVALAR_REGENERATE:
+      return applyRegenerateEffect(state, playerId, manaSource);
+
     default:
       // Skill has no custom handler - will use generic effect resolution
       return state;
@@ -200,6 +206,9 @@ function removeCustomSkillEffect(
     case SKILL_BRAEVALAR_SHAPESHIFT:
       return removeShapeshiftEffect(state, playerId);
 
+    case SKILL_BRAEVALAR_REGENERATE:
+      return removeRegenerateEffect(state, playerId);
+
     default:
       return state;
   }
@@ -220,6 +229,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_TOVAK_MANA_OVERLOAD,
     SKILL_GOLDYX_UNIVERSAL_POWER,
     SKILL_BRAEVALAR_SHAPESHIFT,
+    SKILL_BRAEVALAR_REGENERATE,
   ].includes(skillId);
 }
 
@@ -396,8 +406,12 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
 
   // Check if the skill's effect contains non-reversible sub-effects (e.g., draw cards).
   // If so, the command sets an undo checkpoint to prevent exploit via undo+reuse.
+  // Custom handlers that draw cards must also be marked non-reversible.
   const skill = SKILLS[skillId];
-  const isReversible = !(skill?.effect && effectContainsIrreversible(skill.effect));
+  const IRREVERSIBLE_CUSTOM_SKILLS = [SKILL_BRAEVALAR_REGENERATE];
+  const isReversible =
+    !IRREVERSIBLE_CUSTOM_SKILLS.includes(skillId) &&
+    !(skill?.effect && effectContainsIrreversible(skill.effect));
 
   return {
     type: USE_SKILL_COMMAND,
