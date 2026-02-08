@@ -33,6 +33,7 @@ import {
 } from "../../combat/enemyAttackHelpers.js";
 import { getCumbersomeReducedAttack } from "../../combat/cumbersomeHelpers.js";
 import { isSwiftActive } from "../../combat/swiftHelpers.js";
+import { getNaturesVengeanceAttackBonus } from "../../modifiers/combat.js";
 import { getColdToughnessBlockBonus } from "../../combat/coldToughnessHelpers.js";
 import { applyBurningShieldOnBlock } from "../../combat/burningShieldHelpers.js";
 
@@ -111,6 +112,10 @@ function getEffectiveEnemyAttackForBlocking(
   }
 
   let attackValue = attack.damage;
+
+  // Nature's Vengeance competitive penalty: +1 attack per attack during Block phase (S1)
+  // Applied BEFORE Cumbersome/Swift (per S1: penalty is to the attack strength)
+  attackValue += getNaturesVengeanceAttackBonus(state, playerId);
 
   // FIRST: Apply Cumbersome reduction (BEFORE Swift)
   attackValue = getCumbersomeReducedAttack(state, playerId, enemy, attackValue);

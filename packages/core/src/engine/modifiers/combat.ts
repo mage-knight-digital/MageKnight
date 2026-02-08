@@ -22,6 +22,9 @@ import {
 import { ABILITY_ELUSIVE } from "@mage-knight/shared";
 import { ENEMY_ABILITY_ELUSIVE } from "../../types/enemyConstants.js";
 import type { DiseaseArmorModifier } from "../../types/modifiers.js";
+import type {
+  NaturesVengeanceAttackBonusModifier,
+} from "../../types/modifiers.js";
 import {
   ABILITY_ANY,
   EFFECT_ABILITY_NULLIFIER,
@@ -31,6 +34,7 @@ import {
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
   EFFECT_HERO_DAMAGE_REDUCTION,
+  EFFECT_NATURES_VENGEANCE_ATTACK_BONUS,
   EFFECT_REMOVE_FIRE_RESISTANCE,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_DEFEAT_IF_BLOCKED,
@@ -433,6 +437,30 @@ export function getPossessAttackRestriction(
     }
   }
   return totalRestricted;
+}
+
+/**
+ * Get the Nature's Vengeance attack bonus for enemies during Block phase.
+ * When Nature's Vengeance token is in the center, other players' enemies
+ * get +1 attack during Block phase only (S1). Owner is exempt (S1).
+ * For multi-attack enemies, each attack gets +1 (S1).
+ *
+ * @param state - Game state
+ * @param playerId - Player facing the enemies
+ * @returns Attack bonus amount (typically 1, or 0 if not active)
+ */
+export function getNaturesVengeanceAttackBonus(
+  state: GameState,
+  playerId: string
+): number {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  let bonus = 0;
+  for (const mod of modifiers) {
+    if (mod.effect.type === EFFECT_NATURES_VENGEANCE_ATTACK_BONUS) {
+      bonus += (mod.effect as NaturesVengeanceAttackBonusModifier).amount;
+    }
+  }
+  return bonus;
 }
 
 /**

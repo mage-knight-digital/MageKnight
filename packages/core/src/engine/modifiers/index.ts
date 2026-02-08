@@ -30,6 +30,7 @@ export {
   hasDefeatIfBlocked,
   getPossessAttackRestriction,
   getHeroDamageReduction,
+  getNaturesVengeanceAttackBonus,
 } from "./combat.js";
 
 // Terrain effective values

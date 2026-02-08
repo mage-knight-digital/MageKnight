@@ -363,3 +363,14 @@ export const SHAPESHIFT_TARGET_MOVE = "move" as const;
 export const SHAPESHIFT_TARGET_ATTACK = "attack" as const;
 export const SHAPESHIFT_TARGET_BLOCK = "block" as const;
 
+// === GrantEnemyAbilityModifier ===
+// Grants an ability (e.g., Cumbersome) to an enemy for a duration.
+// Used by Nature's Vengeance skill.
+export const EFFECT_GRANT_ENEMY_ABILITY = "grant_enemy_ability" as const;
+
+// === NaturesVengeanceAttackBonusModifier ===
+// Grants +1 attack to all enemies during Block phase ONLY for other players.
+// Owner of Nature's Vengeance is exempt (S1).
+// Used when Nature's Vengeance token is in the center.
+export const EFFECT_NATURES_VENGEANCE_ATTACK_BONUS = "natures_vengeance_attack_bonus" as const;
+

@@ -5,7 +5,7 @@
  * This system tracks active modifiers and allows calculations to query effective values.
  */
 
-import type { SkillId, CardId, Terrain, ManaColor, BasicManaColor, ResistanceType, HexCoord, Element } from "@mage-knight/shared";
+import type { SkillId, CardId, Terrain, ManaColor, BasicManaColor, ResistanceType, HexCoord, Element, EnemyAbilityType } from "@mage-knight/shared";
 import type { EnemyAbility } from "./enemy.js";
 import type { DeedCardType } from "./cards.js";
 import type { SourceDieId } from "./mana.js";
@@ -66,6 +66,8 @@ import {
   EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL,
   EFFECT_LEARNING_DISCOUNT,
   EFFECT_SHAPESHIFT_ACTIVE,
+  EFFECT_GRANT_ENEMY_ABILITY,
+  EFFECT_NATURES_VENGEANCE_ATTACK_BONUS,
   EFFECT_BOW_PHASE_FAME_TRACKING,
   EFFECT_BOW_ATTACK_TRANSFORMATION,
   SHAPESHIFT_TARGET_MOVE,
@@ -610,6 +612,23 @@ export interface ShapeshiftActiveModifier {
   readonly element?: Element;
 }
 
+// Grant enemy ability modifier (Nature's Vengeance)
+// Grants an ability (e.g., Cumbersome) to a specific enemy for a duration.
+// Checked by ability detection functions alongside the enemy's native abilities.
+export interface GrantEnemyAbilityModifier {
+  readonly type: typeof EFFECT_GRANT_ENEMY_ABILITY;
+  readonly ability: EnemyAbilityType;
+}
+
+// Nature's Vengeance competitive attack bonus modifier
+// When Nature's Vengeance token is in the center, other players' enemies
+// get +1 attack during Block phase only (S1). Owner is exempt.
+// For multi-attack enemies, each attack gets +1.
+export interface NaturesVengeanceAttackBonusModifier {
+  readonly type: typeof EFFECT_NATURES_VENGEANCE_ATTACK_BONUS;
+  readonly amount: number; // +1 per the rules
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -657,6 +676,8 @@ export type ModifierEffect =
   | GoldenGrailDrawOnHealModifier
   | LearningDiscountModifier
   | ShapeshiftActiveModifier
+  | GrantEnemyAbilityModifier
+  | NaturesVengeanceAttackBonusModifier
   | BowPhaseFameTrackingModifier
   | BowAttackTransformationModifier;
 

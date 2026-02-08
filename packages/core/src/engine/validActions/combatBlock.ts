@@ -35,6 +35,7 @@ import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 import {
   getEffectiveEnemyAttack,
   doesEnemyAttackThisCombat,
+  getNaturesVengeanceAttackBonus,
 } from "../modifiers/index.js";
 import { calculateTotalBlock } from "../combat/elementalCalc.js";
 import {
@@ -122,11 +123,13 @@ export function computeEnemyBlockState(
   const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
 
   // Use effective attack (after modifiers)
+  // Nature's Vengeance competitive penalty: +1 attack during Block phase (S1)
+  const naturesVengeanceBonus = getNaturesVengeanceAttackBonus(state, playerId);
   const effectiveAttack = getEffectiveEnemyAttack(
     state,
     enemy.instanceId,
     enemy.definition.attack
-  );
+  ) + naturesVengeanceBonus;
 
   // Swift enemies require 2x block
   const requiredBlock = swiftActive ? effectiveAttack * 2 : effectiveAttack;
@@ -393,7 +396,7 @@ export function computeBlockPhaseOptions(
     return {
       phase: COMBAT_PHASE_BLOCK,
       canEndPhase: true,
-      blocks: getBlockOptions(state, combat.enemies),
+      blocks: getBlockOptions(state, combat.enemies, undefined),
     };
   }
 
@@ -411,7 +414,10 @@ export function computeBlockPhaseOptions(
     .filter((enemy) => !enemy.isDefeated)
     .filter((enemy) => !enemy.isSummonerHidden)
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
-    .filter((enemy) => getEffectiveEnemyAttack(state, enemy.instanceId, enemy.definition.attack) > 0)
+    .filter((enemy) => {
+      const naturesBonus = getNaturesVengeanceAttackBonus(state, player.id);
+      return getEffectiveEnemyAttack(state, enemy.instanceId, enemy.definition.attack) + naturesBonus > 0;
+    })
     .map((enemy) => computeEnemyBlockState(enemy, combat, state, player.id));
 
   // Generate assignable blocks
@@ -439,7 +445,7 @@ export function computeBlockPhaseOptions(
   const options: CombatOptions = {
     phase: COMBAT_PHASE_BLOCK,
     canEndPhase: true, // Can skip blocking (take damage instead)
-    blocks: getBlockOptions(state, combat.enemies),
+    blocks: getBlockOptions(state, combat.enemies, player.id),
     availableBlock,
     enemyBlockStates,
     assignableBlocks,
@@ -485,9 +491,15 @@ export function computeBlockPhaseOptions(
  */
 export function getBlockOptions(
   state: GameState,
-  enemies: readonly CombatEnemy[]
+  enemies: readonly CombatEnemy[],
+  playerId?: string
 ): readonly BlockOption[] {
   const options: BlockOption[] = [];
+
+  // Nature's Vengeance competitive penalty: +1 attack during Block phase (S1)
+  const naturesVengeanceBonus = playerId
+    ? getNaturesVengeanceAttackBonus(state, playerId)
+    : 0;
 
   for (const enemy of enemies) {
     // Filter out defeated enemies
@@ -513,12 +525,12 @@ export function getBlockOptions(
 
       const attack = getEnemyAttack(enemy, attackIndex);
 
-      // Use effective attack (after modifiers)
+      // Use effective attack (after modifiers) + Nature's Vengeance penalty
       const effectiveAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
         attack.damage
-      );
+      ) + naturesVengeanceBonus;
 
       // Filter out attacks with 0 effective attack (nothing to block)
       if (effectiveAttack <= 0) continue;
