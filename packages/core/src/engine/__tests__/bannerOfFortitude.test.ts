@@ -37,7 +37,8 @@ import {
 import type { CardId } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../types/unit.js";
 import { createAssignDamageCommand } from "../commands/combat/assignDamageCommand.js";
-import { resolveEffect } from "../effects/index.js";
+import { resolveEffect, isEffectResolvable } from "../effects/index.js";
+import { reverseEffect } from "../effects/reverse.js";
 import { EFFECT_HEAL_ALL_UNITS } from "../../types/effectTypes.js";
 import type { HealAllUnitsEffect } from "../../types/cards.js";
 import type { CombatEnemy } from "../../types/combat.js";
@@ -624,6 +625,44 @@ describe("Banner of Fortitude", () => {
       const updatedPlayer = result.state.players.find((p) => p.id === PLAYER_ID)!;
       expect(updatedPlayer.unitsHealedThisTurn).toContain(TEST_UNIT_1);
       expect(updatedPlayer.unitsHealedThisTurn).toContain(TEST_UNIT_2);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Effect System Integration
+  // --------------------------------------------------------------------------
+  describe("Effect System Integration", () => {
+    it("should report resolvable when player has wounded units", () => {
+      const unit1 = createPlayerUnit(UNIT_PEASANTS, TEST_UNIT_1);
+      const player = createTestPlayer({
+        units: [{ ...unit1, wounded: true }],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const effect: HealAllUnitsEffect = { type: EFFECT_HEAL_ALL_UNITS };
+      expect(isEffectResolvable(state, PLAYER_ID, effect)).toBe(true);
+    });
+
+    it("should report not resolvable when no units are wounded", () => {
+      const unit1 = createPlayerUnit(UNIT_PEASANTS, TEST_UNIT_1);
+      const player = createTestPlayer({
+        units: [{ ...unit1, wounded: false }],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const effect: HealAllUnitsEffect = { type: EFFECT_HEAL_ALL_UNITS };
+      expect(isEffectResolvable(state, PLAYER_ID, effect)).toBe(false);
+    });
+
+    it("should return player unchanged when reversing (non-reversible)", () => {
+      const unit1 = createPlayerUnit(UNIT_PEASANTS, TEST_UNIT_1);
+      const player = createTestPlayer({
+        units: [{ ...unit1, wounded: false }],
+      });
+
+      const effect: HealAllUnitsEffect = { type: EFFECT_HEAL_ALL_UNITS };
+      const result = reverseEffect(player, effect);
+      expect(result).toBe(player);
     });
   });
 
