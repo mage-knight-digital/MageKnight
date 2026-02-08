@@ -67,6 +67,8 @@ import {
   CONDITION_HAS_WOUNDS_IN_HAND,
   CONDITION_IS_NIGHT_OR_UNDERGROUND,
   CONDITION_IN_INTERACTION,
+  CONDITION_AT_FORTIFIED_SITE,
+  CONDITION_AT_MAGICAL_GLADE,
 } from "../types/conditions.js";
 
 // === Basic Effect Helpers ===
@@ -366,6 +368,34 @@ export function ifInInteraction(
 ): ConditionalEffect {
   return conditional(
     { type: CONDITION_IN_INTERACTION },
+    thenEffect,
+    elseEffect
+  );
+}
+
+/**
+ * Effect that applies when at a fortified site (Keep, Mage Tower, City)
+ */
+export function ifAtFortifiedSite(
+  thenEffect: CardEffect,
+  elseEffect?: CardEffect
+): ConditionalEffect {
+  return conditional(
+    { type: CONDITION_AT_FORTIFIED_SITE },
+    thenEffect,
+    elseEffect
+  );
+}
+
+/**
+ * Effect that applies when at a Magical Glade
+ */
+export function ifAtMagicalGlade(
+  thenEffect: CardEffect,
+  elseEffect?: CardEffect
+): ConditionalEffect {
+  return conditional(
+    { type: CONDITION_AT_MAGICAL_GLADE },
     thenEffect,
     elseEffect
   );

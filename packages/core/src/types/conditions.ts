@@ -21,6 +21,8 @@ export const CONDITION_NO_UNIT_RECRUITED_THIS_TURN = "no_unit_recruited_this_tur
 export const CONDITION_LOWEST_FAME = "lowest_fame" as const;
 export const CONDITION_IS_NIGHT_OR_UNDERGROUND = "is_night_or_underground" as const;
 export const CONDITION_IN_INTERACTION = "in_interaction" as const;
+export const CONDITION_AT_FORTIFIED_SITE = "at_fortified_site" as const;
+export const CONDITION_AT_MAGICAL_GLADE = "at_magical_glade" as const;
 
 // === Condition Interfaces ===
 
@@ -92,6 +94,21 @@ export interface InInteractionCondition {
   readonly type: typeof CONDITION_IN_INTERACTION;
 }
 
+/**
+ * True if the player is at a fortified site (Keep, Mage Tower, City).
+ * Checks the site's fortified property regardless of conquest status.
+ */
+export interface AtFortifiedSiteCondition {
+  readonly type: typeof CONDITION_AT_FORTIFIED_SITE;
+}
+
+/**
+ * True if the player is at a Magical Glade site.
+ */
+export interface AtMagicalGladeCondition {
+  readonly type: typeof CONDITION_AT_MAGICAL_GLADE;
+}
+
 // === Union Type ===
 
 export type EffectCondition =
@@ -106,4 +123,6 @@ export type EffectCondition =
   | NoUnitRecruitedThisTurnCondition
   | LowestFameCondition
   | IsNightOrUndergroundCondition
-  | InInteractionCondition;
+  | InInteractionCondition
+  | AtFortifiedSiteCondition
+  | AtMagicalGladeCondition;
