@@ -30,6 +30,7 @@ import {
   MONASTERY_BURNED,
   PLAYER_NOT_FOUND,
   ALREADY_ACTED,
+  NO_LEARNING_DISCOUNT_ACTIVE,
 } from "./validationCodes.js";
 import { getPlayerSite } from "../helpers/siteHelpers.js";
 import { SiteType } from "../../types/map.js";
@@ -38,6 +39,7 @@ import {
   MONASTERY_AA_PURCHASE_COST,
 } from "../../data/siteProperties.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { getActiveLearningDiscount } from "../rules/unitRecruitment.js";
 
 // === Spell Purchase Validators ===
 
@@ -180,6 +182,7 @@ export function validateAdvancedActionInOffer(
 /**
  * Validate player is at a valid site for learning advanced actions.
  * - Monastery AAs: Must be at a non-burned Monastery
+ * - Learning AAs: No site requirement (uses Learning card modifier)
  * - Regular AAs: No site requirement (gained through level-up)
  */
 export function validateAtAdvancedActionSite(
@@ -189,7 +192,7 @@ export function validateAtAdvancedActionSite(
 ): ValidationResult {
   if (action.type !== LEARN_ADVANCED_ACTION_ACTION) return valid();
 
-  // Regular AAs (from level-up) don't require being at a specific site
+  // Regular AAs (from level-up) and Learning card don't require being at a specific site
   if (!action.fromMonastery) {
     return valid();
   }
@@ -219,7 +222,10 @@ export function validateAtAdvancedActionSite(
 }
 
 /**
- * Validate player has enough influence for monastery AA purchase (costs 6 influence)
+ * Validate player has enough influence for AA purchase.
+ * - Monastery: costs 6 influence
+ * - Learning: costs from modifier (6 basic / 9 powered)
+ * - Level-up: no cost
  */
 export function validateHasInfluenceForMonasteryAA(
   state: GameState,
@@ -228,29 +234,45 @@ export function validateHasInfluenceForMonasteryAA(
 ): ValidationResult {
   if (action.type !== LEARN_ADVANCED_ACTION_ACTION) return valid();
 
-  // Only monastery AAs cost influence
-  if (!action.fromMonastery) {
-    return valid();
-  }
-
   const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
-  if (player.influencePoints < MONASTERY_AA_PURCHASE_COST) {
-    return invalid(
-      INSUFFICIENT_INFLUENCE_FOR_AA,
-      `You need ${MONASTERY_AA_PURCHASE_COST} influence to buy an advanced action (have ${player.influencePoints})`
-    );
+  if (action.fromMonastery) {
+    if (player.influencePoints < MONASTERY_AA_PURCHASE_COST) {
+      return invalid(
+        INSUFFICIENT_INFLUENCE_FOR_AA,
+        `You need ${MONASTERY_AA_PURCHASE_COST} influence to buy an advanced action (have ${player.influencePoints})`
+      );
+    }
+    return valid();
   }
 
+  if (action.fromLearning) {
+    const discount = getActiveLearningDiscount(state, playerId);
+    if (!discount) {
+      return invalid(
+        NO_LEARNING_DISCOUNT_ACTIVE,
+        "No Learning discount active"
+      );
+    }
+    if (player.influencePoints < discount.cost) {
+      return invalid(
+        INSUFFICIENT_INFLUENCE_FOR_AA,
+        `You need ${discount.cost} influence to buy an advanced action via Learning (have ${player.influencePoints})`
+      );
+    }
+    return valid();
+  }
+
+  // Level-up: no influence cost
   return valid();
 }
 
 /**
- * Validate that regular AA selection is part of a level-up reward.
- * Regular AAs from the offer can only be taken as level-up rewards, not purchased.
+ * Validate that regular AA selection is part of a level-up reward or Learning card.
+ * Regular AAs from the offer can only be taken as level-up rewards or via Learning card, not purchased directly.
  */
 export function validateInLevelUpContext(
   state: GameState,
@@ -261,6 +283,18 @@ export function validateInLevelUpContext(
 
   // Monastery AAs are purchased, not level-up rewards
   if (action.fromMonastery) {
+    return valid();
+  }
+
+  // Learning card path: requires active learning discount modifier
+  if (action.fromLearning) {
+    const discount = getActiveLearningDiscount(state, playerId);
+    if (!discount) {
+      return invalid(
+        NO_LEARNING_DISCOUNT_ACTIVE,
+        "No Learning discount active — play Learning card first"
+      );
+    }
     return valid();
   }
 

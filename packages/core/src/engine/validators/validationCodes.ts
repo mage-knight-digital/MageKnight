@@ -283,6 +283,7 @@ export const NOT_AT_AA_SITE = "NOT_AT_AA_SITE" as const;
 export const AA_NOT_IN_MONASTERY_OFFER = "AA_NOT_IN_MONASTERY_OFFER" as const;
 export const INSUFFICIENT_INFLUENCE_FOR_AA = "INSUFFICIENT_INFLUENCE_FOR_AA" as const;
 export const NOT_IN_LEVEL_UP_CONTEXT = "NOT_IN_LEVEL_UP_CONTEXT" as const;
+export const NO_LEARNING_DISCOUNT_ACTIVE = "NO_LEARNING_DISCOUNT_ACTIVE" as const;
 
 // Level up rewards validation codes
 export const LEVEL_UP_REWARDS_PENDING = "LEVEL_UP_REWARDS_PENDING" as const;
@@ -567,6 +568,7 @@ export type ValidationErrorCode =
   | typeof AA_NOT_IN_MONASTERY_OFFER
   | typeof INSUFFICIENT_INFLUENCE_FOR_AA
   | typeof NOT_IN_LEVEL_UP_CONTEXT
+  | typeof NO_LEARNING_DISCOUNT_ACTIVE
   // Level up rewards validation
   | typeof LEVEL_UP_REWARDS_PENDING
   | typeof NO_PENDING_LEVEL_UP_REWARDS

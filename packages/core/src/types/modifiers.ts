@@ -63,6 +63,7 @@ import {
   EFFECT_EXPLORE_COST_REDUCTION,
   EFFECT_GOLDEN_GRAIL_FAME_TRACKING,
   EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL,
+  EFFECT_LEARNING_DISCOUNT,
   LEADERSHIP_BONUS_BLOCK,
   LEADERSHIP_BONUS_ATTACK,
   LEADERSHIP_BONUS_RANGED_ATTACK,
@@ -547,6 +548,17 @@ export interface GoldenGrailDrawOnHealModifier {
   readonly type: typeof EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL;
 }
 
+// Learning discount modifier (Learning advanced action card)
+// Enables a one-time discounted AA purchase from the regular offer.
+// Basic: pay 6 influence, AA goes to discard pile.
+// Powered: pay 9 influence, AA goes to hand.
+// Consumed on first use. Does not require being at a site.
+export interface LearningDiscountModifier {
+  readonly type: typeof EFFECT_LEARNING_DISCOUNT;
+  readonly cost: number; // Influence cost (6 for basic, 9 for powered)
+  readonly destination: "hand" | "discard"; // Where the AA goes
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -591,7 +603,8 @@ export type ModifierEffect =
   | HeroDamageReductionModifier
   | ExploreCostReductionModifier
   | GoldenGrailFameTrackingModifier
-  | GoldenGrailDrawOnHealModifier;
+  | GoldenGrailDrawOnHealModifier
+  | LearningDiscountModifier;
 
 // === Active Modifier (live in game state) ===
 

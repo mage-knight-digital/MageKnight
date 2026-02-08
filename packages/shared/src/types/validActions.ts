@@ -1279,6 +1279,28 @@ export interface NormalTurnState
   readonly cooperativeAssault: CooperativeAssaultOptions | undefined;
   readonly banners: BannerOptions | undefined;
   readonly returnableSkills: ReturnableSkillOptions | undefined;
+  /** Learning card AA purchase option (available when Learning discount modifier active) */
+  readonly learningAAPurchase: LearningAAPurchaseOptions | undefined;
+}
+
+// ============================================================================
+// Learning Card AA Purchase
+// ============================================================================
+
+/**
+ * Options for purchasing an Advanced Action via Learning card's special ability.
+ * Present when the Learning discount modifier is active (once per turn).
+ * Not tied to any site — available anywhere on the map.
+ */
+export interface LearningAAPurchaseOptions {
+  /** Influence cost to purchase an AA (6 for basic, 9 for powered) */
+  readonly cost: number;
+  /** Whether the AA goes to hand (powered) or discard pile (basic) */
+  readonly destination: "hand" | "discard";
+  /** Whether the player can afford the purchase */
+  readonly canAfford: boolean;
+  /** Available AA cards in the offer */
+  readonly availableCards: readonly CardId[];
 }
 
 /**

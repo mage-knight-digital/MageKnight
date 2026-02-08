@@ -373,6 +373,11 @@ export const EFFECT_RESOLVE_MAGIC_TALENT_GAIN = "resolve_magic_talent_gain" as c
 // from the offer, then resolve the spell's basic effect.
 export const EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA = "resolve_magic_talent_spell_mana" as const;
 
+// === Learning Discount Effect ===
+// Adds a turn-scoped modifier enabling one discounted AA purchase from the regular offer.
+// Basic: pay 6 influence, AA to discard pile. Powered: pay 9 influence, AA to hand.
+export const EFFECT_APPLY_LEARNING_DISCOUNT = "apply_learning_discount" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.

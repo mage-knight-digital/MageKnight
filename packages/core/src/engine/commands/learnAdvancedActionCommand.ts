@@ -3,12 +3,16 @@
  *
  * Handles learning an advanced action:
  * - Monastery AA: Bought at non-burned Monastery for 6 influence
+ * - Learning AA: Bought via Learning card modifier (6/9 influence, to discard/hand)
  * - Regular AA: Gained as level-up reward (consumes pending reward)
  *
- * Both cases:
+ * All cases:
  * - Removes the AA from the offer
- * - Adds the AA to the top of the player's deed deck
  * - Replenishes the offer from the deck (regular offer only)
+ *
+ * Destination:
+ * - Monastery / Level-up: Top of deed deck
+ * - Learning: Discard pile (basic) or hand (powered)
  */
 
 import type { Command, CommandResult } from "./types.js";
@@ -22,6 +26,11 @@ import {
   SITE_REWARD_ADVANCED_ACTION,
 } from "@mage-knight/shared";
 import { MONASTERY_AA_PURCHASE_COST } from "../../data/siteProperties.js";
+import {
+  getActiveLearningDiscount,
+  getActiveLearningDiscountModifierId,
+} from "../rules/unitRecruitment.js";
+import { removeModifier } from "../modifiers/lifecycle.js";
 
 export const LEARN_ADVANCED_ACTION_COMMAND = "LEARN_ADVANCED_ACTION" as const;
 
@@ -29,6 +38,7 @@ export interface LearnAdvancedActionCommandParams {
   readonly playerId: string;
   readonly cardId: CardId;
   readonly fromMonastery: boolean;
+  readonly fromLearning?: boolean;
 }
 
 /**
@@ -113,9 +123,12 @@ export function createLearnAdvancedActionCommand(
   let previousOffers: GameState["offers"] | null = null;
   let previousDecks: GameState["decks"] | null = null;
   let previousDeck: readonly CardId[] = [];
+  let previousHand: readonly CardId[] = [];
+  let previousDiscard: readonly CardId[] = [];
   let previousInfluencePoints = 0;
   let previousPendingRewards: readonly SiteReward[] = [];
   let previousHasTakenAction = false;
+  let previousActiveModifiers: GameState["activeModifiers"] = [];
 
   return {
     type: LEARN_ADVANCED_ACTION_COMMAND,
@@ -139,47 +152,84 @@ export function createLearnAdvancedActionCommand(
       previousOffers = state.offers;
       previousDecks = state.decks;
       previousDeck = player.deck;
+      previousHand = player.hand;
+      previousDiscard = player.discard;
       previousInfluencePoints = player.influencePoints;
       previousPendingRewards = player.pendingRewards;
       previousHasTakenAction = player.hasTakenActionThisTurn;
+      previousActiveModifiers = state.activeModifiers;
 
-      // Base update: add AA to top of deed deck (per game rules)
-      let updatedPlayer = {
-        ...player,
-        deck: [params.cardId, ...player.deck],
-        hasTakenActionThisTurn: true,
-      };
+      let currentState = state;
 
-      if (params.fromMonastery) {
-        // Monastery AA: consume influence
-        updatedPlayer = {
-          ...updatedPlayer,
-          influencePoints: player.influencePoints - MONASTERY_AA_PURCHASE_COST,
-        };
+      // Determine destination for the card
+      let updatedPlayer;
+      if (params.fromLearning) {
+        // Learning card: card goes to hand or discard based on modifier
+        const discount = getActiveLearningDiscount(state, params.playerId);
+        if (!discount) {
+          throw new Error("No Learning discount modifier active");
+        }
+
+        if (discount.destination === "hand") {
+          updatedPlayer = {
+            ...player,
+            hand: [...player.hand, params.cardId],
+            influencePoints: player.influencePoints - discount.cost,
+            hasTakenActionThisTurn: true,
+          };
+        } else {
+          updatedPlayer = {
+            ...player,
+            discard: [...player.discard, params.cardId],
+            influencePoints: player.influencePoints - discount.cost,
+            hasTakenActionThisTurn: true,
+          };
+        }
+
+        // Consume the learning discount modifier
+        const modifierId = getActiveLearningDiscountModifierId(state, params.playerId);
+        if (modifierId) {
+          currentState = removeModifier(state, modifierId);
+        }
       } else {
-        // Level-up AA: consume pending reward
+        // Default: add AA to top of deed deck (monastery, level-up)
         updatedPlayer = {
-          ...updatedPlayer,
-          pendingRewards: consumeAAReward(player.pendingRewards),
+          ...player,
+          deck: [params.cardId, ...player.deck],
+          hasTakenActionThisTurn: true,
         };
+
+        if (params.fromMonastery) {
+          // Monastery AA: consume influence
+          updatedPlayer = {
+            ...updatedPlayer,
+            influencePoints: player.influencePoints - MONASTERY_AA_PURCHASE_COST,
+          };
+        } else {
+          // Level-up AA: consume pending reward
+          updatedPlayer = {
+            ...updatedPlayer,
+            pendingRewards: consumeAAReward(player.pendingRewards),
+          };
+        }
       }
 
-      const players = state.players.map((p, i) =>
+      const players = currentState.players.map((p, i) =>
         i === playerIndex ? updatedPlayer : p
       );
 
       let updatedOffers: GameState["offers"];
-      let updatedDecks: GameState["decks"] = state.decks;
+      let updatedDecks: GameState["decks"] = currentState.decks;
       let replenished = false;
 
       if (params.fromMonastery) {
         // Remove from monastery offer (no replenishment)
-        updatedOffers = removeAAFromMonastery(state.offers, params.cardId);
+        updatedOffers = removeAAFromMonastery(currentState.offers, params.cardId);
       } else {
-        // Remove from regular offer and replenish
+        // Remove from regular offer and replenish (both level-up and Learning)
         const result = removeAAAndReplenish(
-          state.offers,
-          state.decks,
+          currentState.offers,
+          currentState.decks,
           params.cardId
         );
         updatedOffers = result.offers;
@@ -209,7 +259,7 @@ export function createLearnAdvancedActionCommand(
 
       return {
         state: {
-          ...state,
+          ...currentState,
           players,
           offers: updatedOffers,
           decks: updatedDecks,
@@ -235,6 +285,8 @@ export function createLearnAdvancedActionCommand(
       const updatedPlayer = {
         ...player,
         deck: previousDeck,
+        hand: previousHand,
+        discard: previousDiscard,
         influencePoints: previousInfluencePoints,
         pendingRewards: previousPendingRewards,
         hasTakenActionThisTurn: previousHasTakenAction,
@@ -250,6 +302,7 @@ export function createLearnAdvancedActionCommand(
           players,
           offers: previousOffers ?? state.offers,
           decks: previousDecks ?? state.decks,
+          activeModifiers: previousActiveModifiers,
         },
         events: [],
       };
