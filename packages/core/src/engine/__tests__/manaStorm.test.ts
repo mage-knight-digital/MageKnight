@@ -30,21 +30,49 @@ import {
   TIME_OF_DAY_DAY,
   TIME_OF_DAY_NIGHT,
   CARD_MARCH,
+  CARD_MANA_STORM,
   PLAY_CARD_ACTION,
   MANA_SOURCE_DIE,
 } from "@mage-knight/shared";
-import { validateManaAvailable } from "../validators/mana/index.js";
-import { isRuleActive, countRuleActive } from "../modifiers/index.js";
+import { validateManaAvailable, validateSingleManaSource } from "../validators/mana/index.js";
+import { isRuleActive, countRuleActive, addModifier } from "../modifiers/index.js";
 import {
   RULE_EXTRA_SOURCE_DIE,
   RULE_BLACK_AS_ANY_COLOR,
   RULE_GOLD_AS_ANY_COLOR,
+  EFFECT_RULE_OVERRIDE,
+  DURATION_TURN,
+  SCOPE_SELF,
+  SOURCE_CARD,
 } from "../../types/modifierConstants.js";
+import type { ActiveModifier } from "../../types/modifiers.js";
 import { createRng } from "../../utils/rng.js";
-import { getManaOptions } from "../validActions/mana.js";
+import { getManaOptions, canPayForMana, canPayForTwoMana, getAvailableManaSourcesForColor } from "../validActions/mana.js";
 
 function createTestManaSource(dice: SourceDie[]): ManaSource {
   return { dice };
+}
+
+/**
+ * Helper to create Mana Storm modifiers directly (without going through reroll).
+ * Applies 3x RULE_EXTRA_SOURCE_DIE + RULE_BLACK_AS_ANY_COLOR + RULE_GOLD_AS_ANY_COLOR.
+ */
+function applyManaStormModifiers(state: import("../../state/GameState.js").GameState, playerId: string) {
+  const modifierBase: Omit<ActiveModifier, "id" | "effect"> = {
+    source: { type: SOURCE_CARD, cardId: CARD_MANA_STORM, playerId },
+    duration: DURATION_TURN,
+    scope: { type: SCOPE_SELF },
+    createdAtRound: state.round,
+    createdByPlayerId: playerId,
+  };
+
+  let s = state;
+  for (let i = 0; i < 3; i++) {
+    s = addModifier(s, { ...modifierBase, effect: { type: EFFECT_RULE_OVERRIDE, rule: RULE_EXTRA_SOURCE_DIE } });
+  }
+  s = addModifier(s, { ...modifierBase, effect: { type: EFFECT_RULE_OVERRIDE, rule: RULE_BLACK_AS_ANY_COLOR } });
+  s = addModifier(s, { ...modifierBase, effect: { type: EFFECT_RULE_OVERRIDE, rule: RULE_GOLD_AS_ANY_COLOR } });
+  return s;
 }
 
 describe("Mana Storm", () => {
@@ -646,6 +674,303 @@ describe("Mana Storm", () => {
       for (const die of result.state.source.dice) {
         expect(die.takenByPlayerId).toBeNull();
       }
+    });
+  });
+
+  // ============================================================================
+  // VALIDACTIONS: EXTRA DICE WITH usedManaFromSource GUARD
+  // ============================================================================
+
+  describe("ValidActions: Extra Dice with Modifiers (deterministic)", () => {
+    it("getManaOptions should show source dice when extra dice modifiers allow it", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        usedManaFromSource: true,
+        usedDieIds: ["die_0"],
+      });
+      let state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_RED, isDepleted: false, takenByPlayerId: null },
+          { id: "die_1", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Without modifiers: already used source, should have no source dice
+      const optionsBefore = getManaOptions(state, player);
+      const sourceDiceBefore = optionsBefore.availableDice.filter(
+        (d) => d.dieId === "die_0" || d.dieId === "die_1"
+      );
+      expect(sourceDiceBefore).toHaveLength(0);
+
+      // Apply Mana Storm modifiers (3 extra dice)
+      state = applyManaStormModifiers(state, "player1");
+
+      const optionsAfter = getManaOptions(state, player);
+      const sourceDiceAfter = optionsAfter.availableDice.filter(
+        (d) => d.dieId === "die_0" || d.dieId === "die_1"
+      );
+      expect(sourceDiceAfter.length).toBeGreaterThan(0);
+    });
+
+    it("getManaOptions should block source when max dice reached", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        usedManaFromSource: true,
+        usedDieIds: ["die_0", "die_1", "die_2", "die_3"],
+      });
+      let state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_4", color: MANA_RED, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Apply Mana Storm modifiers (3 extra dice → max 4)
+      state = applyManaStormModifiers(state, "player1");
+
+      // Already used 4 dice, max is 4 → no source dice available
+      const options = getManaOptions(state, player);
+      const sourceDice = options.availableDice.filter((d) => d.dieId === "die_4");
+      expect(sourceDice).toHaveLength(0);
+    });
+
+    it("canPayForMana should find source die when extra dice allow it", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        usedManaFromSource: true,
+        usedDieIds: ["die_0"],
+      });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_DAY,
+        source: createTestManaSource([
+          { id: "die_1", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Without modifiers: can't pay (already used source)
+      expect(canPayForMana(state, player, MANA_BLUE)).toBe(false);
+
+      // With Mana Storm modifiers
+      state = applyManaStormModifiers(state, "player1");
+      expect(canPayForMana(state, player, MANA_BLUE)).toBe(true);
+    });
+
+    it("canPayForMana should find gold die as basic color with gold-as-any modifier", () => {
+      const player = createTestPlayer({ id: "player1" });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT, // Gold normally depleted at night
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_GOLD, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Gold is depleted at night, can't use normally
+      expect(canPayForMana(state, player, MANA_RED)).toBe(false);
+
+      // With gold-as-any-color modifier, gold die can be used as red
+      state = applyManaStormModifiers(state, "player1");
+      expect(canPayForMana(state, player, MANA_RED)).toBe(true);
+    });
+
+    it("canPayForTwoMana should count source dice with extra dice modifiers", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        usedManaFromSource: true,
+        usedDieIds: ["die_0"],
+      });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_DAY,
+        source: createTestManaSource([
+          { id: "die_1", color: MANA_RED, isDepleted: false, takenByPlayerId: null },
+          { id: "die_2", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Without modifiers: can't use source (already used)
+      expect(canPayForTwoMana(state, player, MANA_RED, MANA_BLUE)).toBe(false);
+
+      // With Mana Storm modifiers
+      state = applyManaStormModifiers(state, "player1");
+      expect(canPayForTwoMana(state, player, MANA_RED, MANA_BLUE)).toBe(true);
+    });
+
+    it("getAvailableManaSourcesForColor should include source dice with extra dice modifiers", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        usedManaFromSource: true,
+        usedDieIds: ["die_0"],
+      });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_DAY,
+        source: createTestManaSource([
+          { id: "die_1", color: MANA_GREEN, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Without modifiers
+      const sourcesBefore = getAvailableManaSourcesForColor(state, player, MANA_GREEN);
+      expect(sourcesBefore.filter((s) => s.type === "die")).toHaveLength(0);
+
+      // With Mana Storm modifiers
+      state = applyManaStormModifiers(state, "player1");
+      const sourcesAfter = getAvailableManaSourcesForColor(state, player, MANA_GREEN);
+      expect(sourcesAfter.filter((s) => s.type === "die")).toHaveLength(1);
+    });
+
+    it("getAvailableManaSourcesForColor should include gold die as basic color with modifier", () => {
+      const player = createTestPlayer({ id: "player1" });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_DAY,
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_GOLD, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // With gold-as-any-color modifier
+      state = applyManaStormModifiers(state, "player1");
+      const sources = getAvailableManaSourcesForColor(state, player, MANA_WHITE);
+      const goldDieSources = sources.filter((s) => s.type === "die" && "dieId" in s && s.dieId === "die_0");
+      expect(goldDieSources.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ============================================================================
+  // VALIDATORS: GOLD-AS-ANY-COLOR (deterministic)
+  // ============================================================================
+
+  describe("Validators: Gold-as-any-color (deterministic)", () => {
+    it("validateManaAvailable should allow gold die as basic color with modifier", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        hand: [CARD_MARCH],
+      });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_DAY,
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_GOLD, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Without modifier: gold die can't be used as green (only as gold or wild during day)
+      // Actually gold IS wild during day, so let's test at night where it's depleted
+      state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_GOLD, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      const action = {
+        type: PLAY_CARD_ACTION as const,
+        cardId: CARD_MARCH,
+        powered: true,
+        manaSource: {
+          type: MANA_SOURCE_DIE as const,
+          dieId: "die_0",
+          color: MANA_GREEN,
+        },
+      };
+
+      // Without modifier at night: gold die can't be used as green
+      const resultBefore = validateManaAvailable(state, "player1", action);
+      expect(resultBefore.valid).toBe(false);
+
+      // With gold-as-any-color modifier
+      state = applyManaStormModifiers(state, "player1");
+      const resultAfter = validateManaAvailable(state, "player1", action);
+      expect(resultAfter.valid).toBe(true);
+    });
+
+    it("validateSingleManaSource should allow gold die as basic color with modifier", () => {
+      const player = createTestPlayer({ id: "player1" });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_GOLD, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      const manaSource = {
+        type: MANA_SOURCE_DIE as const,
+        dieId: "die_0",
+        color: MANA_RED,
+      };
+
+      // Without modifier: gold die can't produce red at night
+      const resultBefore = validateSingleManaSource(state, player, manaSource, "player1");
+      expect(resultBefore.valid).toBe(false);
+
+      // With gold-as-any-color modifier
+      state = applyManaStormModifiers(state, "player1");
+      const resultAfter = validateSingleManaSource(state, player, manaSource, "player1");
+      expect(resultAfter.valid).toBe(true);
+    });
+
+    it("validateSingleManaSource should enforce stacked extra dice limit", () => {
+      const player = createTestPlayer({
+        id: "player1",
+        usedManaFromSource: true,
+        usedDieIds: ["die_0"],
+      });
+      let state = createTestGameState({
+        players: [player],
+        source: createTestManaSource([
+          { id: "die_1", color: MANA_RED, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      const manaSource = {
+        type: MANA_SOURCE_DIE as const,
+        dieId: "die_1",
+        color: MANA_RED,
+      };
+
+      // Without modifier: already used source, should reject
+      const resultBefore = validateSingleManaSource(state, player, manaSource, "player1");
+      expect(resultBefore.valid).toBe(false);
+
+      // With 3 extra dice modifiers: max 4, used 1, should allow
+      state = applyManaStormModifiers(state, "player1");
+      const resultAfter = validateSingleManaSource(state, player, manaSource, "player1");
+      expect(resultAfter.valid).toBe(true);
+    });
+
+    it("getManaOptions should expand gold die to basic colors with modifier", () => {
+      const player = createTestPlayer({ id: "player1" });
+      let state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_DAY,
+        source: createTestManaSource([
+          { id: "die_0", color: MANA_GOLD, isDepleted: false, takenByPlayerId: null },
+        ]),
+      });
+
+      // Without modifier: gold die shows as gold only
+      const optionsBefore = getManaOptions(state, player);
+      const goldOptionsBefore = optionsBefore.availableDice.filter((d) => d.dieId === "die_0");
+      const colorsBefore = goldOptionsBefore.map((d) => d.color);
+      expect(colorsBefore).toContain(MANA_GOLD);
+      expect(colorsBefore).not.toContain(MANA_RED);
+
+      // With modifier: gold die expands to all basic colors
+      state = applyManaStormModifiers(state, "player1");
+      const optionsAfter = getManaOptions(state, player);
+      const goldOptionsAfter = optionsAfter.availableDice.filter((d) => d.dieId === "die_0");
+      const colorsAfter = goldOptionsAfter.map((d) => d.color);
+      expect(colorsAfter).toContain(MANA_GOLD);
+      expect(colorsAfter).toContain(MANA_RED);
+      expect(colorsAfter).toContain(MANA_BLUE);
+      expect(colorsAfter).toContain(MANA_GREEN);
+      expect(colorsAfter).toContain(MANA_WHITE);
     });
   });
 });
