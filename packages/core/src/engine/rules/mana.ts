@@ -12,6 +12,8 @@ import {
   MANA_GOLD,
   TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
+import { isRuleActive } from "../modifiers/index.js";
+import { RULE_ALLOW_GOLD_AT_NIGHT } from "../../types/modifierConstants.js";
 
 export interface ManaTimeRules {
   readonly blackAllowed: boolean;
@@ -31,17 +33,28 @@ export function getManaTimeRules(state: GameState): ManaTimeRules {
   return { blackAllowed: true, goldAllowed: false };
 }
 
-export function isManaColorAllowed(state: GameState, color: ManaColor): boolean {
+export function isManaColorAllowed(state: GameState, color: ManaColor, playerId?: string): boolean {
   const rules = getManaTimeRules(state);
   if (color === MANA_BLACK) {
     return rules.blackAllowed;
   }
   if (color === MANA_GOLD) {
-    return rules.goldAllowed;
+    if (rules.goldAllowed) return true;
+    // Amulet of the Sun: allow gold mana usage at night for this player
+    if (playerId && isRuleActive(state, playerId, RULE_ALLOW_GOLD_AT_NIGHT)) {
+      return true;
+    }
+    return false;
   }
   return true;
 }
 
-export function canUseGoldAsWild(state: GameState): boolean {
-  return getManaTimeRules(state).goldAllowed;
+export function canUseGoldAsWild(state: GameState, playerId?: string): boolean {
+  const goldAllowed = getManaTimeRules(state).goldAllowed;
+  if (goldAllowed) return true;
+  // Amulet of the Sun: allow gold mana as wild at night for this player
+  if (playerId && isRuleActive(state, playerId, RULE_ALLOW_GOLD_AT_NIGHT)) {
+    return true;
+  }
+  return false;
 }

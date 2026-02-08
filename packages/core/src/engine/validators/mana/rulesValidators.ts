@@ -25,7 +25,7 @@ import {
   GOLD_MANA_NIGHT,
   GOLD_MANA_NOT_ALLOWED,
 } from "../validationCodes.js";
-import { getManaTimeRules } from "../../rules/mana.js";
+import { isManaColorAllowed } from "../../rules/mana.js";
 
 function getManaSources(action: PlayerAction): ManaSourceInfo[] {
   if (action.type !== PLAY_CARD_ACTION) {
@@ -97,7 +97,7 @@ export function validateManaColorMatch(
  */
 export function validateManaTimeOfDay(
   state: GameState,
-  _playerId: string,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== PLAY_CARD_ACTION) return valid();
@@ -114,7 +114,7 @@ export function validateManaTimeOfDay(
     }
 
     // Gold mana cannot be used at night
-    if (manaColor === MANA_GOLD && state.timeOfDay !== TIME_OF_DAY_DAY) {
+    if (manaColor === MANA_GOLD && !isManaColorAllowed(state, MANA_GOLD, playerId)) {
       return invalid(GOLD_MANA_NIGHT, "Gold mana cannot be used at night");
     }
   }
@@ -183,12 +183,11 @@ export function validateManaTimeOfDayWithDungeonOverride(
   }
 
   const blackAsAnyColor = isRuleActive(state, playerId, RULE_BLACK_AS_ANY_COLOR);
-  const rules = getManaTimeRules(state);
   for (const source of manaSources) {
-    if (source.color === MANA_BLACK && !rules.blackAllowed && !blackAsAnyColor) {
+    if (source.color === MANA_BLACK && !isManaColorAllowed(state, MANA_BLACK) && !blackAsAnyColor) {
       return invalid(BLACK_MANA_DAY, "Black mana cannot be used during the day");
     }
-    if (source.color === MANA_GOLD && !rules.goldAllowed) {
+    if (source.color === MANA_GOLD && !isManaColorAllowed(state, MANA_GOLD, playerId)) {
       return invalid(GOLD_MANA_NIGHT, "Gold mana cannot be used at night");
     }
   }

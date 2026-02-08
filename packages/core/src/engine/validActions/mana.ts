@@ -39,7 +39,7 @@ export function getManaOptions(
 
   const addAvailableDie = (dieId: string, color: ManaColor) => {
     const colorAllowed =
-      isManaColorAllowed(state, color) || (color === MANA_BLACK && blackAsAnyColor);
+      isManaColorAllowed(state, color, player.id) || (color === MANA_BLACK && blackAsAnyColor);
     if (!colorAllowed) {
       return;
     }
@@ -139,7 +139,7 @@ export function canPayForMana(
   requiredColor: ManaColor
 ): boolean {
   const blackAsAnyColor = isRuleActive(state, player.id, RULE_BLACK_AS_ANY_COLOR);
-  if (!isManaColorAllowed(state, requiredColor) && !(requiredColor === MANA_BLACK && blackAsAnyColor)) {
+  if (!isManaColorAllowed(state, requiredColor, player.id) && !(requiredColor === MANA_BLACK && blackAsAnyColor)) {
     return false;
   }
 
@@ -165,7 +165,7 @@ export function canPayForMana(
       return true;
     }
     // Gold mana is wild (can be any basic color)
-    if (token.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state)) {
+    if (token.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state, player.id)) {
       return true;
     }
     // Note: Black mana is NOT wild - it can only power spells (match exact color MANA_BLACK)
@@ -206,7 +206,7 @@ export function canPayForMana(
           return true;
         }
         // Gold dice are wild (can substitute for basic colors) during the day
-        if (die.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state)) {
+        if (die.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state, player.id)) {
           return true;
         }
         // Mana Storm powered: gold dice can be used as any basic color
@@ -324,7 +324,7 @@ function countManaSourcesForColor(
   let count = 0;
   const forSpellPowered = options?.forSpellPowered ?? false;
   const blackAsAnyColor = isRuleActive(state, player.id, RULE_BLACK_AS_ANY_COLOR);
-  if (!isManaColorAllowed(state, requiredColor) && !(requiredColor === MANA_BLACK && blackAsAnyColor)) {
+  if (!isManaColorAllowed(state, requiredColor, player.id) && !(requiredColor === MANA_BLACK && blackAsAnyColor)) {
     return 0;
   }
 
@@ -347,7 +347,7 @@ function countManaSourcesForColor(
         continue;
       }
       count++;
-    } else if (token.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state)) {
+    } else if (token.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state, player.id)) {
       // Gold mana is wild for basic colors
       count++;
     }
@@ -381,7 +381,7 @@ function countManaSourcesForColor(
           count++;
         } else if (die.color === MANA_BLACK && requiredColor !== MANA_BLACK && blackAsAnyColor) {
           count++;
-        } else if (die.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state)) {
+        } else if (die.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state, player.id)) {
           // Gold dice are wild for basic colors
           count++;
         } else if (die.color === MANA_GOLD && isBasicMana(requiredColor) && goldAsAnyColor3) {
@@ -409,7 +409,7 @@ export function getAvailableManaSourcesForColor(
   const sources: import("@mage-knight/shared").ManaSourceInfo[] = [];
   const forSpellPowered = options?.forSpellPowered ?? false;
   const blackAsAnyColor = isRuleActive(state, player.id, RULE_BLACK_AS_ANY_COLOR);
-  if (!isManaColorAllowed(state, requiredColor) && !(requiredColor === MANA_BLACK && blackAsAnyColor)) {
+  if (!isManaColorAllowed(state, requiredColor, player.id) && !(requiredColor === MANA_BLACK && blackAsAnyColor)) {
     return [];
   }
 
@@ -428,7 +428,7 @@ export function getAvailableManaSourcesForColor(
     // Match exact color, or gold die for basic colors (gold is wild)
     // Note: Black dice are NOT wild - they only match exact MANA_BLACK
     if (storedDie.color === requiredColor ||
-        (storedDie.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state))) {
+        (storedDie.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state, player.id))) {
       sources.push({
         type: "die" as const,
         dieId: storedDie.dieId,
@@ -451,7 +451,7 @@ export function getAvailableManaSourcesForColor(
       continue;
     }
     if (token.color === requiredColor ||
-        (token.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state))) {
+        (token.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state, player.id))) {
       sources.push({
         type: "token" as const,
         color: token.color,
@@ -495,7 +495,7 @@ export function getAvailableManaSourcesForColor(
         // Match exact color, or gold die for basic colors (gold is wild), or black as any color,
         // or gold as any basic color (Mana Storm)
         if (die.color === requiredColor ||
-            (die.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state)) ||
+            (die.color === MANA_GOLD && isBasicMana(requiredColor) && canUseGoldAsWild(state, player.id)) ||
             canUseBlackAsAny ||
             canUseGoldAsAny) {
           const useAsColor = canUseBlackAsAny || canUseGoldAsAny ? requiredColor : die.color;
