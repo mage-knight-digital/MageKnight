@@ -25,6 +25,7 @@ import {
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
   RESOLVE_DECOMPOSE_ACTION,
   RESOLVE_MAXIMAL_EFFECT_ACTION,
+  RESOLVE_BOOK_OF_WISDOM_ACTION,
   RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION,
   MANA_BLACK,
 } from "@mage-knight/shared";
@@ -40,6 +41,7 @@ import { createResolveDiscardForCrystalCommand } from "../resolveDiscardForCryst
 import { createResolveArtifactCrystalColorCommand } from "../resolveArtifactCrystalColorCommand.js";
 import { createResolveDecomposeCommand } from "../resolveDecomposeCommand.js";
 import { createResolveMaximalEffectCommand } from "../resolveMaximalEffectCommand.js";
+import { createResolveBookOfWisdomCommand } from "../resolveBookOfWisdomCommand.js";
 import { getCard } from "../../validActions/cards/index.js";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { getAvailableManaSourcesForColor } from "../../validActions/mana.js";
@@ -373,6 +375,26 @@ export const createResolveMaximalEffectCommandFromAction: CommandFactory = (
   if (!player?.pendingMaximalEffect) return null;
 
   return createResolveMaximalEffectCommand({
+    playerId,
+    cardId: action.cardId,
+  });
+};
+
+/**
+ * Resolve Book of Wisdom command factory.
+ * Creates a command to resolve a pending Book of Wisdom (throw away action card, gain from offer).
+ */
+export const createResolveBookOfWisdomCommandFromAction: CommandFactory = (
+  state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_BOOK_OF_WISDOM_ACTION) return null;
+
+  const player = getPlayerById(state, playerId);
+  if (!player?.pendingBookOfWisdom) return null;
+
+  return createResolveBookOfWisdomCommand({
     playerId,
     cardId: action.cardId,
   });

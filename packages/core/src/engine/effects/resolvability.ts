@@ -106,6 +106,7 @@ import {
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   EFFECT_DECOMPOSE,
   EFFECT_MAXIMAL_EFFECT,
+  EFFECT_BOOK_OF_WISDOM,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
   EFFECT_POSSESS_ENEMY,
@@ -258,6 +259,15 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   [EFFECT_MAXIMAL_EFFECT]: (state, player, _effect) => {
     // Maximal Effect is resolvable if player has at least one action card in hand
     // (same eligibility as Decompose - action cards with a color)
+    const hasActionCards = player.hand.some(
+      (c) => c !== CARD_WOUND && getActionCardColor(c) !== null
+    );
+    return hasActionCards;
+  },
+
+  [EFFECT_BOOK_OF_WISDOM]: (state, player, _effect) => {
+    // Book of Wisdom is resolvable if player has at least one action card in hand
+    // (excluding wounds - the source card exclusion happens at resolution time)
     const hasActionCards = player.hand.some(
       (c) => c !== CARD_WOUND && getActionCardColor(c) !== null
     );

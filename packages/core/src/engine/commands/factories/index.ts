@@ -30,6 +30,7 @@ import {
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
   RESOLVE_DECOMPOSE_ACTION,
   RESOLVE_MAXIMAL_EFFECT_ACTION,
+  RESOLVE_BOOK_OF_WISDOM_ACTION,
   RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION,
   REST_ACTION,
   DECLARE_REST_ACTION,
@@ -105,6 +106,7 @@ export {
   createResolveDiscardForCrystalCommandFromAction,
   createResolveDecomposeCommandFromAction,
   createResolveMaximalEffectCommandFromAction,
+  createResolveBookOfWisdomCommandFromAction,
   createResolveArtifactCrystalColorCommandFromAction,
 } from "./cards.js";
 
@@ -221,6 +223,7 @@ import {
   createResolveDiscardForCrystalCommandFromAction,
   createResolveDecomposeCommandFromAction,
   createResolveMaximalEffectCommandFromAction,
+  createResolveBookOfWisdomCommandFromAction,
   createResolveArtifactCrystalColorCommandFromAction,
 } from "./cards.js";
 
@@ -331,6 +334,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_DISCARD_FOR_CRYSTAL_ACTION]: createResolveDiscardForCrystalCommandFromAction,
   [RESOLVE_DECOMPOSE_ACTION]: createResolveDecomposeCommandFromAction,
   [RESOLVE_MAXIMAL_EFFECT_ACTION]: createResolveMaximalEffectCommandFromAction,
+  [RESOLVE_BOOK_OF_WISDOM_ACTION]: createResolveBookOfWisdomCommandFromAction,
   [RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION]: createResolveArtifactCrystalColorCommandFromAction,
   [REST_ACTION]: createRestCommandFromAction,
   [DECLARE_REST_ACTION]: createDeclareRestCommandFromAction,

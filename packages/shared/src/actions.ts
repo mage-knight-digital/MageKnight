@@ -545,6 +545,14 @@ export interface ResolveMaximalEffectAction {
   readonly cardId: CardId;
 }
 
+// Book of Wisdom action (throw away action card / select from offer)
+export const RESOLVE_BOOK_OF_WISDOM_ACTION = "RESOLVE_BOOK_OF_WISDOM" as const;
+export interface ResolveBookOfWisdomAction {
+  readonly type: typeof RESOLVE_BOOK_OF_WISDOM_ACTION;
+  /** Card ID to throw away (phase 1) or card ID from offer to gain (phase 2) */
+  readonly cardId: CardId;
+}
+
 // Artifact crystal color choice action (Savage Harvesting - second step for artifacts)
 export const RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION = "RESOLVE_ARTIFACT_CRYSTAL_COLOR" as const;
 export interface ResolveArtifactCrystalColorAction {
@@ -833,6 +841,8 @@ export type PlayerAction =
   | ResolveDecomposeAction
   // Maximal Effect (throw away action card and multiply its effect)
   | ResolveMaximalEffectAction
+  // Book of Wisdom (throw away action card, gain from offer)
+  | ResolveBookOfWisdomAction
   // Artifact crystal color choice (Savage Harvesting - for artifacts)
   | ResolveArtifactCrystalColorAction
   // Combat

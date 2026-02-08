@@ -161,6 +161,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingDiscardForCrystal: null,
     pendingDecompose: null,
     pendingMaximalEffect: null,
+    pendingBookOfWisdom: null,
     pendingTerrainCostReduction: null,
     pendingAttackDefeatFame: [],
     enemiesDefeatedThisTurn: 0,

@@ -126,6 +126,7 @@ import {
   EFFECT_RESOLVE_BONUS_CHOICE,
   EFFECT_ROLL_FOR_CRYSTALS,
   EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE,
+  EFFECT_BOOK_OF_WISDOM,
   EFFECT_MAGIC_TALENT_BASIC,
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
   EFFECT_MAGIC_TALENT_POWERED,
@@ -1444,6 +1445,16 @@ export interface ResolveCrystalRollChoiceEffect {
 }
 
 /**
+ * Book of Wisdom: throw away an action card, then gain a card from offer matching color.
+ * Basic: gain AA from offer to hand.
+ * Powered: gain spell from offer to hand + crystal of that color.
+ */
+export interface BookOfWisdomEffect {
+  readonly type: typeof EFFECT_BOOK_OF_WISDOM;
+  readonly mode: "basic" | "powered";
+}
+
+/**
  * Magic Talent basic effect entry point.
  * Discard a card of any color from hand. Then play one Spell card of the
  * same color from the Spells Offer as if it were in your hand.
@@ -1621,6 +1632,7 @@ export type CardEffect =
   | ResolveBonusChoiceEffect
   | RollForCrystalsEffect
   | ResolveCrystalRollChoiceEffect
+  | BookOfWisdomEffect
   | MagicTalentBasicEffect
   | ResolveMagicTalentSpellEffect
   | MagicTalentPoweredEffect

@@ -20,6 +20,7 @@ import type {
   DiscardForCrystalOptions,
   DecomposeOptions,
   MaximalEffectOptions,
+  BookOfWisdomOptions,
   ArtifactCrystalColorOptions,
   CrystalJoyReclaimOptions,
   SteadyTempoOptions,
@@ -36,6 +37,7 @@ import { getCardsEligibleForDiscardForAttack } from "../effects/swordOfJusticeEf
 import { getCardsEligibleForDiscardForCrystal } from "../effects/discardForCrystalEffects.js";
 import { getCardsEligibleForDecompose } from "../effects/decomposeEffects.js";
 import { getCardsEligibleForMaximalEffect } from "../effects/maximalEffectEffects.js";
+import { getCardsEligibleForBookOfWisdom } from "../effects/bookOfWisdomEffects.js";
 import { getCard } from "../helpers/cardLookup.js";
 import { isCardEligibleForReclaim } from "../rules/crystalJoyReclaim.js";
 
@@ -324,6 +326,42 @@ export function getUnitMaintenanceOptions(
   });
 
   return { units };
+}
+
+/**
+ * Get Book of Wisdom options for the player.
+ * Returns options if player has a pending Book of Wisdom state.
+ */
+export function getBookOfWisdomOptions(
+  state: GameState,
+  player: Player
+): BookOfWisdomOptions | undefined {
+  if (!player.pendingBookOfWisdom) {
+    return undefined;
+  }
+
+  const { sourceCardId, mode, phase, availableOfferCards } = player.pendingBookOfWisdom;
+
+  if (phase === "select_card") {
+    // Phase 1: show eligible action cards from hand
+    const availableCardIds = getCardsEligibleForBookOfWisdom(player.hand, sourceCardId);
+    return {
+      sourceCardId,
+      mode,
+      phase,
+      availableCardIds,
+      availableOfferCards: [],
+    };
+  }
+
+  // Phase 2: show available offer cards
+  return {
+    sourceCardId,
+    mode,
+    phase,
+    availableCardIds: [],
+    availableOfferCards,
+  };
 }
 
 /**

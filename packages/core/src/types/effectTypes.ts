@@ -356,6 +356,12 @@ export const EFFECT_ROLL_FOR_CRYSTALS = "roll_for_crystals" as const;
 // Internal: resolve after player chooses crystal color for a gold roll.
 export const EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE = "resolve_crystal_roll_choice" as const;
 
+// === Book of Wisdom Effect ===
+// Throw away an action card from hand, then gain a card from an offer matching the thrown card's color.
+// Basic: gain Advanced Action from AA offer to hand.
+// Powered: gain Spell from Spell offer to hand + crystal of that color.
+export const EFFECT_BOOK_OF_WISDOM = "book_of_wisdom" as const;
+
 // === Magic Talent Effects ===
 // Basic: Discard a card of any color. Play one Spell of the same color
 // from the Spells Offer as if it were in your hand. Spell stays in offer.
