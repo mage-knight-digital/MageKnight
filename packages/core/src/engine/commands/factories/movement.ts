@@ -24,8 +24,9 @@ import {
 import { SITE_PROPERTIES } from "../../../data/siteProperties.js";
 import { createMoveCommand } from "../moveCommand.js";
 import { createExploreCommand } from "../exploreCommand.js";
-import { getEffectiveTerrainCost } from "../../modifiers/index.js";
+import { getEffectiveTerrainCost, isRuleActive } from "../../modifiers/index.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
+import { RULE_GARRISON_REVEAL_DISTANCE_2 } from "../../../types/modifierConstants.js";
 
 /**
  * Helper to get move target from action.
@@ -38,24 +39,50 @@ function getMoveTarget(action: PlayerAction): HexCoord | null {
 }
 
 /**
+ * Get all hex coordinates within a given distance from the center (excluding center).
+ */
+function getHexCoordsWithinDistance(center: HexCoord, maxDistance: number): HexCoord[] {
+  const coords: HexCoord[] = [];
+  for (let dq = -maxDistance; dq <= maxDistance; dq++) {
+    for (let dr = Math.max(-maxDistance, -dq - maxDistance); dr <= Math.min(maxDistance, -dq + maxDistance); dr++) {
+      if (dq === 0 && dr === 0) continue;
+      coords.push({ q: center.q + dq, r: center.r + dr });
+    }
+  }
+  return coords;
+}
+
+/**
  * Check if moving from one hex to another would reveal unrevealed enemies.
- * Only applies during Day, when moving adjacent to fortified sites.
+ * Only applies during Day, when moving within reveal range of fortified sites.
+ * Hawk Eyes extends reveal range to distance 2.
  */
 function checkWouldRevealEnemies(
   state: GameState,
+  playerId: string,
   from: HexCoord,
   to: HexCoord
 ): boolean {
   // Only reveal during Day
   if (state.timeOfDay !== TIME_OF_DAY_DAY) return false;
 
-  const fromNeighbors = new Set(getAllNeighbors(from).map(hexKey));
-  const toNeighbors = getAllNeighbors(to);
+  const revealDistance = isRuleActive(state, playerId, RULE_GARRISON_REVEAL_DISTANCE_2) ? 2 : 1;
 
-  for (const neighbor of toNeighbors) {
+  const toNearby = revealDistance === 1
+    ? getAllNeighbors(to)
+    : getHexCoordsWithinDistance(to, revealDistance);
+
+  const fromNearbyKeys = new Set(
+    (revealDistance === 1
+      ? getAllNeighbors(from)
+      : getHexCoordsWithinDistance(from, revealDistance)
+    ).map(hexKey)
+  );
+
+  for (const neighbor of toNearby) {
     const key = hexKey(neighbor);
-    // Skip hexes already adjacent to 'from' position
-    if (fromNeighbors.has(key)) continue;
+    // Skip hexes already within range of 'from' position
+    if (fromNearbyKeys.has(key)) continue;
 
     const hex = state.map.hexes[key];
     if (!hex?.site) continue;
@@ -96,6 +123,7 @@ export const createMoveCommandFromAction: CommandFactory = (
   // Check if this move would reveal hidden enemies
   const wouldRevealEnemies = checkWouldRevealEnemies(
     state,
+    playerId,
     player.position,
     target
   );

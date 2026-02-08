@@ -94,6 +94,8 @@ import {
   EFFECT_RESOLVE_BLOOD_POWERED_WOUND,
   EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
   EFFECT_HAND_LIMIT_BONUS,
+  EFFECT_TOME_OF_ALL_SPELLS,
+  EFFECT_RESOLVE_TOME_SPELL,
 } from "../../types/effectTypes.js";
 import type {
   GainAttackBowResolvedEffect,
@@ -609,6 +611,18 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_HAND_LIMIT_BONUS]: (effect) => {
     const e = effect as import("../../types/cards.js").HandLimitBonusEffect;
     return `Hand limit +${e.bonus} on next draw`;
+  },
+
+  [EFFECT_TOME_OF_ALL_SPELLS]: (effect) => {
+    const e = effect as import("../../types/cards.js").TomeOfAllSpellsEffect;
+    const modeStr = e.mode === "basic" ? "basic" : "powered";
+    return `Discard a colored card to use a Spell's ${modeStr} effect from the offer (no mana cost)`;
+  },
+
+  [EFFECT_RESOLVE_TOME_SPELL]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveTomeSpellEffect;
+    const modeStr = e.mode === "basic" ? "basic" : "powered";
+    return `Use ${e.spellName}'s ${modeStr} effect from the Spell Offer`;
   },
 };
 

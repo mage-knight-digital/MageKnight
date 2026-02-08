@@ -143,6 +143,8 @@ import {
   EFFECT_RESOLVE_BLOOD_POWERED_WOUND,
   EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
   EFFECT_HAND_LIMIT_BONUS,
+  EFFECT_TOME_OF_ALL_SPELLS,
+  EFFECT_RESOLVE_TOME_SPELL,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -239,6 +241,7 @@ export interface GainBlockEffect {
   readonly type: typeof EFFECT_GAIN_BLOCK;
   readonly amount: number;
   readonly element?: Element; // undefined = physical
+  readonly countsTwiceAgainstSwift?: boolean; // Shield Bash: block counts twice vs Swiftness
 }
 
 export interface GainHealingEffect {
@@ -1656,6 +1659,33 @@ export interface HandLimitBonusEffect {
   readonly bonus: number;
 }
 
+/**
+ * Tome of All Spells effect entry point.
+ * Discard a card of any color from hand. Use the basic or powered effect
+ * of a Spell of the same color from the Spells Offer without paying mana.
+ * Spell stays in the offer. No mana cost required.
+ */
+export interface TomeOfAllSpellsEffect {
+  readonly type: typeof EFFECT_TOME_OF_ALL_SPELLS;
+  /** "basic" uses spell's basic effect; "powered" uses spell's powered effect */
+  readonly mode: "basic" | "powered";
+}
+
+/**
+ * Internal: After discarding a card for Tome of All Spells, resolve the
+ * selected spell from the offer. The spell's effect is resolved without
+ * mana cost and the spell stays in the offer.
+ */
+export interface ResolveTomeSpellEffect {
+  readonly type: typeof EFFECT_RESOLVE_TOME_SPELL;
+  /** The spell card selected from the offer */
+  readonly spellCardId: CardId;
+  /** Name of the spell for display */
+  readonly spellName: string;
+  /** "basic" uses spell's basic effect; "powered" uses spell's powered effect */
+  readonly mode: "basic" | "powered";
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1776,7 +1806,9 @@ export type CardEffect =
   | BloodOfAncientsPoweredEffect
   | ResolveBloodPoweredWoundEffect
   | ResolveBloodPoweredUseAAEffect
-  | HandLimitBonusEffect;
+  | HandLimitBonusEffect
+  | TomeOfAllSpellsEffect
+  | ResolveTomeSpellEffect;
 
 // === Card Definition ===
 

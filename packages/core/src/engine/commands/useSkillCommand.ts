@@ -36,6 +36,7 @@ import {
   SKILL_GOLDYX_UNIVERSAL_POWER,
   SKILL_BRAEVALAR_SHAPESHIFT,
   SKILL_BRAEVALAR_REGENERATE,
+  SKILL_WOLFHAWK_HAWK_EYES,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -60,6 +61,8 @@ import {
   removeShapeshiftEffect,
   applyRegenerateEffect,
   removeRegenerateEffect,
+  applyHawkEyesEffect,
+  removeHawkEyesEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import { restoreMana } from "./helpers/manaConsumptionHelpers.js";
@@ -69,7 +72,7 @@ import {
 } from "../effects/index.js";
 import { evaluateScalingFactor } from "../effects/scalingEvaluator.js";
 import type { CardEffect } from "../../types/cards.js";
-import { EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_DRAW_CARDS, EFFECT_SCALING, EFFECT_TAKE_WOUND } from "../../types/effectTypes.js";
+import { EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_CONDITIONAL, EFFECT_DRAW_CARDS, EFFECT_SCALING, EFFECT_TAKE_WOUND } from "../../types/effectTypes.js";
 import type { ScalingEffect as ScalingEffectType } from "../../types/cards.js";
 import type { EffectResolutionResult } from "../effects/index.js";
 import {
@@ -93,7 +96,7 @@ const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_
  * be marked isReversible: false to prevent undo exploits.
  */
 function effectContainsIrreversible(effect: CardEffect): boolean {
-  if (effect.type === EFFECT_DRAW_CARDS || effect.type === EFFECT_TAKE_WOUND) {
+  if (effect.type === EFFECT_DRAW_CARDS || effect.type === EFFECT_TAKE_WOUND || effect.type === EFFECT_CONDITIONAL) {
     return true;
   }
   if (effect.type === EFFECT_COMPOUND) {
@@ -158,6 +161,9 @@ function applyCustomSkillEffect(
     case SKILL_BRAEVALAR_REGENERATE:
       return applyRegenerateEffect(state, playerId, manaSource);
 
+    case SKILL_WOLFHAWK_HAWK_EYES:
+      return applyHawkEyesEffect(state, playerId);
+
     default:
       // Skill has no custom handler - will use generic effect resolution
       return state;
@@ -209,6 +215,9 @@ function removeCustomSkillEffect(
     case SKILL_BRAEVALAR_REGENERATE:
       return removeRegenerateEffect(state, playerId);
 
+    case SKILL_WOLFHAWK_HAWK_EYES:
+      return removeHawkEyesEffect(state, playerId);
+
     default:
       return state;
   }
@@ -230,6 +239,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_GOLDYX_UNIVERSAL_POWER,
     SKILL_BRAEVALAR_SHAPESHIFT,
     SKILL_BRAEVALAR_REGENERATE,
+    SKILL_WOLFHAWK_HAWK_EYES,
   ].includes(skillId);
 }
 

@@ -298,7 +298,7 @@ export function applyGainBlock(
   player: Player,
   effect: GainBlockEffect
 ): EffectResolutionResult {
-  const { amount, element } = effect;
+  const { amount, element, countsTwiceAgainstSwift } = effect;
   const effectiveElement = element ?? ELEMENT_PHYSICAL;
 
   // Create a block source for tracking (for elemental efficiency calculations)
@@ -321,6 +321,14 @@ export function applyGainBlock(
         effectiveElement,
         amount
       ),
+      // Shield Bash: also track in swiftBlockElements so it doubles vs Swift enemies
+      swiftBlockElements: countsTwiceAgainstSwift
+        ? updateElementalValue(
+            player.combatAccumulator.swiftBlockElements,
+            effectiveElement,
+            amount
+          )
+        : player.combatAccumulator.swiftBlockElements,
       blockSources: [...player.combatAccumulator.blockSources, blockSource],
     },
   };

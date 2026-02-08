@@ -306,6 +306,12 @@ export const RULE_ALLOW_GOLD_AT_NIGHT = "allow_gold_at_night" as const;
 // Does NOT change time of day for skills, does NOT allow black→gold conversion
 export const RULE_ALLOW_BLACK_AT_DAY = "allow_black_at_day" as const;
 
+// === RuleOverrideModifier["rule"] - Hawk Eyes (Day) ===
+// Reveals garrisons of fortified sites at distance 2 during movement (Day only).
+// Normal reveal range is distance 1 (adjacent). This extends it to distance 2.
+// Used by Wolfhawk's Hawk Eyes skill.
+export const RULE_GARRISON_REVEAL_DISTANCE_2 = "garrison_reveal_distance_2" as const;
+
 // === HeroDamageReductionModifier ===
 // Reduces incoming damage to the hero from a single enemy attack.
 // Element-specific: different reduction amounts based on attack element.
@@ -381,4 +387,12 @@ export const EFFECT_NATURES_VENGEANCE_ATTACK_BONUS = "natures_vengeance_attack_b
 // Crystal color options based on defeated enemy's resistances:
 //   Fire Resistance → Red, Ice Resistance → Blue, Physical Resistance → Green, always White.
 export const EFFECT_SOUL_HARVESTER_CRYSTAL_TRACKING = "soul_harvester_crystal_tracking" as const;
+
+// === ShieldBashArmorReductionModifier ===
+// When active, a successful block applies armor reduction to the blocked enemy.
+// Armor reduction = excess undoubled block points (block used minus block needed).
+// Ice Resistant enemies are immune to the armor reduction (blue card = ice element).
+// Summoner enemies cannot have their armor reduced via their summoned monster.
+// Duration: combat. Applied by Shield Bash powered effect.
+export const EFFECT_SHIELD_BASH_ARMOR_REDUCTION = "shield_bash_armor_reduction" as const;
 

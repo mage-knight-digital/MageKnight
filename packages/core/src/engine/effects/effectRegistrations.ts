@@ -67,6 +67,7 @@ import { registerTrainingEffects } from "./trainingEffects.js";
 import { registerShapeshiftEffects } from "./shapeshiftEffects.js";
 import { registerBloodOfAncientsEffects } from "./bloodOfAncientsEffects.js";
 import { registerHandLimitBonusEffects } from "./handLimitBonusEffects.js";
+import { registerTomeOfAllSpellsEffects } from "./tomeOfAllSpellsEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -250,4 +251,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Hand limit bonus effects (Temporal Portal)
   registerHandLimitBonusEffects();
+
+  // Tome of All Spells effects (discard card, cast spell from offer for free)
+  registerTomeOfAllSpellsEffects(resolver);
 }

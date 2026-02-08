@@ -71,6 +71,7 @@ import {
   EFFECT_BOW_PHASE_FAME_TRACKING,
   EFFECT_BOW_ATTACK_TRANSFORMATION,
   EFFECT_SOUL_HARVESTER_CRYSTAL_TRACKING,
+  EFFECT_SHIELD_BASH_ARMOR_REDUCTION,
   SHAPESHIFT_TARGET_MOVE,
   SHAPESHIFT_TARGET_ATTACK,
   SHAPESHIFT_TARGET_BLOCK,
@@ -98,6 +99,7 @@ import {
   RULE_NO_EXPLORATION,
   RULE_ALLOW_GOLD_AT_NIGHT,
   RULE_ALLOW_BLACK_AT_DAY,
+  RULE_GARRISON_REVEAL_DISTANCE_2,
   RULE_SOURCE_BLOCKED,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
   RULE_UNITS_CANNOT_ABSORB_DAMAGE,
@@ -243,7 +245,8 @@ export interface RuleOverrideModifier {
     | typeof RULE_TIME_BENDING_ACTIVE
     | typeof RULE_NO_EXPLORATION
     | typeof RULE_ALLOW_GOLD_AT_NIGHT
-    | typeof RULE_ALLOW_BLACK_AT_DAY;
+    | typeof RULE_ALLOW_BLACK_AT_DAY
+    | typeof RULE_GARRISON_REVEAL_DISTANCE_2;
 }
 
 // Ability nullifier (e.g., "ignore Swift on one enemy")
@@ -643,6 +646,16 @@ export interface SoulHarvesterCrystalTrackingModifier {
   readonly trackByAttack: boolean;
 }
 
+// Shield Bash armor reduction modifier (Shield Bash powered effect)
+// When a block succeeds, reduces the blocked enemy's armor by the excess block points.
+// Excess = total undoubled block - block needed to fully block.
+// Ice Resistant enemies are immune (blue card = ice element).
+// Cannot reduce Summoner armor via summoned monster.
+// Not consumed — applies to every successful block while active.
+export interface ShieldBashArmorReductionModifier {
+  readonly type: typeof EFFECT_SHIELD_BASH_ARMOR_REDUCTION;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -694,7 +707,8 @@ export type ModifierEffect =
   | NaturesVengeanceAttackBonusModifier
   | BowPhaseFameTrackingModifier
   | BowAttackTransformationModifier
-  | SoulHarvesterCrystalTrackingModifier;
+  | SoulHarvesterCrystalTrackingModifier
+  | ShieldBashArmorReductionModifier;
 
 // === Active Modifier (live in game state) ===
 

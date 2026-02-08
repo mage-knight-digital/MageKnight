@@ -131,9 +131,16 @@ export function siegeAttack(amount: number): CardEffect {
  * Creates a block effect.
  *
  * @param amount - The block value
+ * @param options - Optional flags (countsTwiceAgainstSwift for Shield Bash)
  * @returns A GainBlockEffect
  */
-export function block(amount: number): CardEffect {
+export function block(
+  amount: number,
+  options?: { countsTwiceAgainstSwift?: boolean }
+): CardEffect {
+  if (options?.countsTwiceAgainstSwift) {
+    return { type: EFFECT_GAIN_BLOCK, amount, countsTwiceAgainstSwift: true };
+  }
   return { type: EFFECT_GAIN_BLOCK, amount };
 }
 

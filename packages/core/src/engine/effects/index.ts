@@ -363,6 +363,11 @@ export {
   registerHandLimitBonusEffects,
 } from "./handLimitBonusEffects.js";
 
+// Tome of All Spells effects (discard card, cast spell from offer for free)
+export {
+  registerTomeOfAllSpellsEffects,
+} from "./tomeOfAllSpellsEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 
