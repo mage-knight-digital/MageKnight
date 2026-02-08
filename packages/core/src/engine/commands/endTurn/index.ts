@@ -15,6 +15,7 @@
 import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
+import type { SourceDieId } from "../../../types/mana.js";
 import type { GameEvent } from "@mage-knight/shared";
 import { TURN_ENDED, GAME_ENDED } from "@mage-knight/shared";
 import { expireModifiers } from "../../modifiers/index.js";
@@ -35,6 +36,7 @@ import { processLevelUps } from "./levelUp.js";
 import { calculateRingFameBonus } from "./ringFameBonus.js";
 import { isRuleActive } from "../../modifiers/index.js";
 import { RULE_TIME_BENDING_ACTIVE } from "../../../types/modifierConstants.js";
+import { processSourceOpeningCrystal } from "./sourceOpeningCrystal.js";
 
 export { END_TURN_COMMAND };
 export type { EndTurnCommandParams };
@@ -209,13 +211,59 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const updatedPlayers: Player[] = [...state.players];
       updatedPlayers[playerIndex] = resetPlayer;
 
+      // Process Source Opening crystal grant.
+      // Uses currentPlayer (pre-reset) whose usedDieIds are still available.
+      // Pass a copy of updatedPlayers to avoid shared-reference mutation.
+      const sourceOpeningResult = processSourceOpeningCrystal(
+        { ...state, players: [...updatedPlayers] },
+        params.playerId,
+        currentPlayer
+      );
+      const stateWithSourceOpeningCrystal = sourceOpeningResult.state;
+      // Re-extract the players array (crystal may have been granted to owner)
+      updatedPlayers.length = 0;
+      updatedPlayers.push(...stateWithSourceOpeningCrystal.players);
+
+      // Check for Source Opening reroll choice (FAQ S3: player chooses before other dice reroll)
+      if (
+        sourceOpeningResult.extraDieId &&
+        !(params.skipSourceOpeningReroll ?? false)
+      ) {
+        // Set pending choice on the returning player
+        const returningPlayerIdx = updatedPlayers.findIndex(
+          (p) => p.id === params.playerId
+        );
+        if (returningPlayerIdx !== -1) {
+          updatedPlayers[returningPlayerIdx] = {
+            ...updatedPlayers[returningPlayerIdx]!,
+            pendingSourceOpeningRerollChoice: sourceOpeningResult.extraDieId,
+          };
+          return {
+            state: {
+              ...stateWithSourceOpeningCrystal,
+              players: updatedPlayers,
+            },
+            events: [],
+          };
+        }
+      }
+
       // Process dice (reroll used, return mana draw, handle mana steal)
-      const diceResult = processDiceReturn(state, currentPlayer, updatedPlayers);
+      // If Source Opening reroll was already handled, exclude that die from auto-reroll
+      const skipRerollDieIds = params.sourceOpeningDieHandled
+        ? new Set<SourceDieId>([params.sourceOpeningDieHandled as SourceDieId])
+        : undefined;
+      const diceResult = processDiceReturn(
+        stateWithSourceOpeningCrystal,
+        currentPlayer,
+        updatedPlayers,
+        skipRerollDieIds
+      );
 
       // Expire turn-duration modifiers
       let newState = expireModifiers(
         {
-          ...state,
+          ...stateWithSourceOpeningCrystal,
           players: diceResult.players,
           source: diceResult.source,
           rng: diceResult.rng,

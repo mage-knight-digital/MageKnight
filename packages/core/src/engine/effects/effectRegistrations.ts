@@ -56,6 +56,7 @@ import { registerDecomposeEffects } from "./decomposeEffects.js";
 import { registerCrystalMasteryEffects } from "./crystalMasteryEffects.js";
 import { registerPossessEffects } from "./possessEffects.js";
 import { registerManaStormEffects } from "./manaStormEffects.js";
+import { registerSourceOpeningEffects } from "./sourceOpeningEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -206,4 +207,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Mana Storm effects (source die manipulation + modifiers)
   registerManaStormEffects();
+
+  // Source Opening effects (Goldyx interactive skill - reroll a Source die)
+  registerSourceOpeningEffects();
 }

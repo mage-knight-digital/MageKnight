@@ -68,6 +68,8 @@ export function createResetPlayer(
     // Crystal Mastery resets
     spentCrystalsThisTurn: { red: 0, blue: 0, green: 0, white: 0 },
     crystalMasteryPoweredActive: false,
+    // Source Opening reroll choice reset
+    pendingSourceOpeningRerollChoice: null,
     // Skill cooldown reset for Time Bending: refresh once-per-turn skills
     // (usedThisTurn is cleared when isTimeBentTurn is being set up in turnAdvancement)
     // Clear "until next turn" cooldowns (e.g., Motivation cross-hero cooldown)

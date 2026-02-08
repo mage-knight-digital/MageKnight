@@ -16,6 +16,11 @@
 
 import type { SkillId } from "@mage-knight/shared";
 import { CATEGORY_SPECIAL } from "../../../types/cards.js";
+import {
+  EFFECT_COMPOUND,
+  EFFECT_PLACE_SKILL_IN_CENTER,
+  EFFECT_SOURCE_OPENING_REROLL,
+} from "../../../types/effectTypes.js";
 import { type SkillDefinition, SKILL_USAGE_INTERACTIVE } from "../types.js";
 
 export const SKILL_GOLDYX_SOURCE_OPENING = "goldyx_source_opening" as SkillId;
@@ -31,6 +36,16 @@ export const sourceOpening: SkillDefinition = {
     "Reroll a Source die. Others may return for extra basic die + give you a crystal",
   usageType: SKILL_USAGE_INTERACTIVE,
   categories: [CATEGORY_SPECIAL],
+  effect: {
+    type: EFFECT_COMPOUND,
+    effects: [
+      { type: EFFECT_SOURCE_OPENING_REROLL },
+      {
+        type: EFFECT_PLACE_SKILL_IN_CENTER,
+        skillId: SKILL_GOLDYX_SOURCE_OPENING,
+      },
+    ],
+  },
 };
 
 /** @deprecated Use sourceOpening instead */

@@ -209,6 +209,12 @@ export function getValidActions(
       bannerProtection: getBannerProtectionOptions(player),
     };
   }
+  if (player.pendingSourceOpeningRerollChoice) {
+    return {
+      mode: "pending_source_opening_reroll",
+      turn: { canUndo: false },
+    };
+  }
   if (hasPendingChoice(player)) {
     return {
       mode: "pending_choice",

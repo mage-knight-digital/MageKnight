@@ -16,15 +16,18 @@ import type { SkillId } from "@mage-knight/shared";
 import type { ActiveModifier } from "../../types/modifiers.js";
 import { createSkillUsedEvent } from "@mage-knight/shared";
 import { RETURN_INTERACTIVE_SKILL_COMMAND } from "./commandTypes.js";
-import { SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/index.js";
+import { SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING } from "../../data/skills/index.js";
 import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_TURN,
+  EFFECT_RULE_OVERRIDE,
   EFFECT_TERRAIN_COST,
+  RULE_EXTRA_SOURCE_DIE,
   SCOPE_SELF,
   SOURCE_SKILL,
   TERRAIN_ALL,
 } from "../../types/modifierConstants.js";
+import type { SourceOpeningCenter } from "../../state/GameState.js";
 export { RETURN_INTERACTIVE_SKILL_COMMAND };
 
 export interface ReturnInteractiveSkillCommandParams {
@@ -122,6 +125,36 @@ function applyReturnBenefit(
       createdByPlayerId: playerId,
     });
   }
+  if (skillId === SKILL_GOLDYX_SOURCE_OPENING) {
+    // Source Opening: returning player gets an extra Source die (basic colors only).
+    // Goldyx (owner) gets a crystal of the color die used — tracked via sourceOpeningCenter
+    // and resolved at end of turn.
+    const player = state.players.find((p) => p.id === playerId);
+    const usedDieCount = player ? player.usedDieIds.length : 0;
+
+    let updatedState = addModifier(state, {
+      source: { type: SOURCE_SKILL, skillId, playerId },
+      duration: DURATION_TURN,
+      scope: { type: SCOPE_SELF },
+      effect: { type: EFFECT_RULE_OVERRIDE, rule: RULE_EXTRA_SOURCE_DIE },
+      createdAtRound: state.round,
+      createdByPlayerId: playerId,
+    });
+
+    // Track the returning player for crystal grant at end of turn
+    const ownerId = state.sourceOpeningCenter?.ownerId ?? playerId;
+    updatedState = {
+      ...updatedState,
+      sourceOpeningCenter: {
+        ownerId,
+        skillId,
+        returningPlayerId: playerId,
+        usedDieCountAtReturn: usedDieCount,
+      },
+    };
+
+    return updatedState;
+  }
   return state;
 }
 
@@ -136,6 +169,7 @@ export function createReturnInteractiveSkillCommand(
   // Store the owner ID and removed modifiers for undo
   let savedOwnerId: string | null = null;
   let savedCenterModifiers: ActiveModifier[] = [];
+  let savedSourceOpeningCenter: SourceOpeningCenter | null = null;
 
   return {
     type: RETURN_INTERACTIVE_SKILL_COMMAND,
@@ -147,6 +181,9 @@ export function createReturnInteractiveSkillCommand(
       if (!savedOwnerId) {
         throw new Error(`No center skill found for ${skillId}`);
       }
+
+      // Save Source Opening center state for undo
+      savedSourceOpeningCenter = state.sourceOpeningCenter;
 
       // Save center modifiers for undo
       savedCenterModifiers = state.activeModifiers.filter(
@@ -177,16 +214,14 @@ export function createReturnInteractiveSkillCommand(
         throw new Error("Cannot undo: no saved owner ID");
       }
 
-      // 1. Remove the return benefit modifier (the SELF-scoped terrain cost modifier
-      //    created by the returning player with their own playerId in source)
+      // 1. Remove the return benefit modifier(s) created by the returning player
       const filteredModifiers = state.activeModifiers.filter(
         (m) =>
           !(
             m.source.type === SOURCE_SKILL &&
             m.source.skillId === skillId &&
             m.source.playerId === playerId &&
-            m.createdByPlayerId === playerId &&
-            m.effect.type === EFFECT_TERRAIN_COST
+            m.createdByPlayerId === playerId
           )
       );
 
@@ -214,6 +249,14 @@ export function createReturnInteractiveSkillCommand(
         const players = [...updatedState.players];
         players[ownerIndex] = updatedOwner;
         updatedState = { ...updatedState, players };
+      }
+
+      // 4. Restore Source Opening center state if applicable
+      if (skillId === SKILL_GOLDYX_SOURCE_OPENING) {
+        updatedState = {
+          ...updatedState,
+          sourceOpeningCenter: savedSourceOpeningCenter,
+        };
       }
 
       return {

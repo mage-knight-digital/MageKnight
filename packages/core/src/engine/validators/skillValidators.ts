@@ -44,6 +44,7 @@ import {
   SKILL_GOLDYX_POTION_MAKING,
   SKILL_GOLDYX_GLITTERING_FORTUNE,
   SKILL_GOLDYX_UNIVERSAL_POWER,
+  SKILL_GOLDYX_SOURCE_OPENING,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -58,7 +59,7 @@ import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 
-const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING]);
 
 /**
  * Validates the turn requirement for skill usage.
@@ -318,6 +319,15 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_NOT_IN_COMBAT,
         "Potion Making cannot be used during combat"
+      );
+    }
+  }
+
+  if (useSkillAction.skillId === SKILL_GOLDYX_SOURCE_OPENING) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "Source Opening cannot be used during combat"
       );
     }
   }

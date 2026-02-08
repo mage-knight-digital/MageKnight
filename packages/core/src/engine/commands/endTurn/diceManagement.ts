@@ -21,26 +21,45 @@ import type { ManaClaimSustainedModifier, ManaCurseModifier } from "../../../typ
  * 2. Return Mana Draw/Pull dice without rerolling
  * 3. Handle Mana Steal stored die if used
  * 4. Clear any remaining dice taken by this player
+ *
+ * @param skipRerollDieIds - Die IDs to exclude from automatic reroll
+ *   (e.g., Source Opening extra die that was already handled by reroll choice)
  */
 export function processDiceReturn(
   state: GameState,
   player: Player,
-  players: Player[]
+  players: Player[],
+  skipRerollDieIds?: ReadonlySet<SourceDieId>
 ): DiceManagementResult {
   let updatedSource = state.source;
   let currentRng = state.rng;
   const updatedPlayers = [...players];
 
-  // Reroll dice used for powering cards
-  if (player.usedDieIds.length > 0) {
+  // Reroll dice used for powering cards (excluding any already-handled dice)
+  const dieIdsToReroll = skipRerollDieIds
+    ? player.usedDieIds.filter((id) => !skipRerollDieIds.has(id))
+    : player.usedDieIds;
+  if (dieIdsToReroll.length > 0) {
     const result = rerollUsedDice(
       updatedSource,
-      player.usedDieIds,
+      dieIdsToReroll,
       state.timeOfDay,
       currentRng
     );
     updatedSource = result.source;
     currentRng = result.rng;
+  }
+
+  // Clear takenByPlayerId for skipped dice (they still need to be returned to pool)
+  if (skipRerollDieIds && skipRerollDieIds.size > 0) {
+    const diceWithSkippedCleared = updatedSource.dice.map((die) =>
+      skipRerollDieIds.has(die.id) && die.takenByPlayerId === player.id
+        ? { ...die, takenByPlayerId: null }
+        : die
+    );
+    if (diceWithSkippedCleared.some((d, i) => d !== updatedSource.dice[i])) {
+      updatedSource = { dice: diceWithSkippedCleared };
+    }
   }
 
   // Return Mana Draw/Pull dice without rerolling

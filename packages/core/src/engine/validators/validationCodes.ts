@@ -231,6 +231,9 @@ export const STEADY_TEMPO_CANNOT_PLACE_BASIC = "STEADY_TEMPO_CANNOT_PLACE_BASIC"
 // Banner of Protection wound removal validation codes
 export const BANNER_PROTECTION_CHOICE_REQUIRED = "BANNER_PROTECTION_CHOICE_REQUIRED" as const;
 
+// Source Opening reroll validation codes
+export const SOURCE_OPENING_REROLL_CHOICE_REQUIRED = "SOURCE_OPENING_REROLL_CHOICE_REQUIRED" as const;
+
 // Discard as cost validation codes
 export const DISCARD_COST_REQUIRED = "DISCARD_COST_REQUIRED" as const;
 export const DISCARD_COST_INVALID_COUNT = "DISCARD_COST_INVALID_COUNT" as const;
@@ -505,6 +508,8 @@ export type ValidationErrorCode =
   | typeof STEADY_TEMPO_CANNOT_PLACE_BASIC
   // Banner of Protection wound removal validation
   | typeof BANNER_PROTECTION_CHOICE_REQUIRED
+  // Source Opening reroll validation
+  | typeof SOURCE_OPENING_REROLL_CHOICE_REQUIRED
   // Discard as cost validation
   | typeof DISCARD_COST_REQUIRED
   | typeof DISCARD_COST_INVALID_COUNT

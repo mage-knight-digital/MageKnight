@@ -546,4 +546,10 @@ export interface Player {
   // Crystal Mastery: powered effect active this turn
   // When true, at end of turn spent crystals are returned to inventory (capped at 3).
   readonly crystalMasteryPoweredActive: boolean;
+
+  // Source Opening: pending end-of-turn reroll choice for the extra die
+  // When set, the player must choose whether to reroll the extra die used via
+  // Source Opening before other dice are rerolled (FAQ S3).
+  // Stores the die ID so dice management can skip it if player chooses not to reroll.
+  readonly pendingSourceOpeningRerollChoice: SourceDieId | null;
 }

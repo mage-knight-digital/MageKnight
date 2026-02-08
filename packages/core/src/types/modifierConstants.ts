@@ -280,6 +280,10 @@ export const RULE_INFLUENCE_CARDS_IN_COMBAT = "influence_cards_in_combat" as con
 // Used by Charm/Possess spell powered effect.
 export const EFFECT_POSSESS_ATTACK_RESTRICTION = "possess_attack_restriction" as const;
 
+// === RuleOverrideModifier["rule"] - Source Opening ===
+// Grants one extra source die, restricted to basic colors only (no gold)
+export const RULE_EXTRA_SOURCE_DIE_BASIC_ONLY = "extra_source_die_basic_only" as const;
+
 // === RuleOverrideModifier["rule"] - Flight ===
 // Prevents tile exploration (Wings of Wind flight)
 export const RULE_NO_EXPLORATION = "no_exploration" as const;

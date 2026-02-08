@@ -58,6 +58,7 @@ import {
   RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
   RESOLVE_STEADY_TEMPO_ACTION,
   RESOLVE_BANNER_PROTECTION_ACTION,
+  RESOLVE_SOURCE_OPENING_REROLL_ACTION,
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
   CHOOSE_LEVEL_UP_REWARDS_ACTION,
@@ -149,6 +150,7 @@ export {
   createResolveCrystalJoyReclaimCommandFromAction,
   createResolveSteadyTempoCommandFromAction,
   createResolveBannerProtectionCommandFromAction,
+  createResolveSourceOpeningRerollCommandFromAction,
 } from "./sites.js";
 
 // Tactics factories
@@ -257,6 +259,7 @@ import {
   createResolveCrystalJoyReclaimCommandFromAction,
   createResolveSteadyTempoCommandFromAction,
   createResolveBannerProtectionCommandFromAction,
+  createResolveSourceOpeningRerollCommandFromAction,
 } from "./sites.js";
 
 import {
@@ -347,6 +350,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION]: createResolveCrystalJoyReclaimCommandFromAction,
   [RESOLVE_STEADY_TEMPO_ACTION]: createResolveSteadyTempoCommandFromAction,
   [RESOLVE_BANNER_PROTECTION_ACTION]: createResolveBannerProtectionCommandFromAction,
+  [RESOLVE_SOURCE_OPENING_REROLL_ACTION]: createResolveSourceOpeningRerollCommandFromAction,
   [BUY_SPELL_ACTION]: createBuySpellCommandFromAction,
   [LEARN_ADVANCED_ACTION_ACTION]: createLearnAdvancedActionCommandFromAction,
   [CHOOSE_LEVEL_UP_REWARDS_ACTION]: createChooseLevelUpRewardsCommandFromAction,

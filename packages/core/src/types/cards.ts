@@ -51,6 +51,8 @@ import {
   EFFECT_MANA_STORM_BASIC,
   EFFECT_MANA_STORM_SELECT_DIE,
   EFFECT_MANA_STORM_POWERED,
+  EFFECT_SOURCE_OPENING_REROLL,
+  EFFECT_SOURCE_OPENING_SELECT_DIE,
   EFFECT_TAKE_WOUND,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
@@ -1315,6 +1317,23 @@ export interface ManaStormPoweredEffect {
 }
 
 /**
+ * Source Opening reroll effect entry point.
+ * Presents available source dice for optional reroll. Player can skip.
+ */
+export interface SourceOpeningRerollEffect {
+  readonly type: typeof EFFECT_SOURCE_OPENING_REROLL;
+}
+
+/**
+ * Internal: Player selected a die to reroll for Source Opening (or skipped).
+ * Rerolls the selected die in the Source.
+ */
+export interface SourceOpeningSelectDieEffect {
+  readonly type: typeof EFFECT_SOURCE_OPENING_SELECT_DIE;
+  readonly dieId: SourceDieId;
+}
+
+/**
  * Possess enemy effect entry point (Charm/Possess powered spell).
  * Targets an enemy (excludes Arcane Immune), prevents it from attacking,
  * and grants the player melee Attack equal to the enemy's attack value
@@ -1429,6 +1448,8 @@ export type CardEffect =
   | ManaStormBasicEffect
   | ManaStormSelectDieEffect
   | ManaStormPoweredEffect
+  | SourceOpeningRerollEffect
+  | SourceOpeningSelectDieEffect
   | PossessEnemyEffect
   | ResolvePossessEnemyEffect;
 
