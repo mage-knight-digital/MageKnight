@@ -284,6 +284,13 @@ export const EFFECT_POSSESS_ATTACK_RESTRICTION = "possess_attack_restriction" as
 // Grants one extra source die, restricted to basic colors only (no gold)
 export const RULE_EXTRA_SOURCE_DIE_BASIC_ONLY = "extra_source_die_basic_only" as const;
 
+// === AttackBlockCardBonusModifier ===
+// Grants a one-time bonus to the first Attack or Block card played this turn.
+// Whichever card type is played first consumes the modifier entirely.
+// Only applies to deed cards (not units or skills).
+// Used by Ambush card.
+export const EFFECT_ATTACK_BLOCK_CARD_BONUS = "attack_block_card_bonus" as const;
+
 // === RuleOverrideModifier["rule"] - Flight ===
 // Prevents tile exploration (Wings of Wind flight)
 export const RULE_NO_EXPLORATION = "no_exploration" as const;

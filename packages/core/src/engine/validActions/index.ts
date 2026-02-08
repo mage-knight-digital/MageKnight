@@ -47,6 +47,7 @@ import {
   getSteadyTempoOptions,
   getBannerProtectionOptions,
   getUnitMaintenanceOptions,
+  getMeditationOptions,
 } from "./pending.js";
 import { getChallengeOptions } from "./challenge.js";
 import { getCooperativeAssaultOptions } from "./cooperativeAssault.js";
@@ -200,6 +201,13 @@ export function getValidActions(
       mode: "pending_steady_tempo",
       turn: { canUndo: false },
       steadyTempo: getSteadyTempoOptions(state, player),
+    };
+  }
+  if (player.pendingMeditation) {
+    return {
+      mode: "pending_meditation",
+      turn: { canUndo: false },
+      meditation: getMeditationOptions(state, player),
     };
   }
   if (player.pendingBannerProtectionChoice) {

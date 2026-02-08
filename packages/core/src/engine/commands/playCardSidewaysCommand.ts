@@ -24,8 +24,10 @@ import {
   getEffectiveSidewaysValue,
   consumeMovementCardBonus,
   getModifiersForPlayer,
+  getAttackBlockCardBonus,
+  consumeAttackBlockCardBonus,
 } from "../modifiers/index.js";
-import { EFFECT_MOVEMENT_CARD_BONUS, SOURCE_SKILL } from "../../types/modifierConstants.js";
+import { EFFECT_MOVEMENT_CARD_BONUS, EFFECT_ATTACK_BLOCK_CARD_BONUS, SOURCE_SKILL } from "../../types/modifierConstants.js";
 import { PLAY_CARD_SIDEWAYS_COMMAND } from "./commandTypes.js";
 import {
   SKILL_ARYTHEA_RITUAL_OF_PAIN,
@@ -193,6 +195,9 @@ export function createPlayCardSidewaysCommand(
   // Store movement bonus application for undo
   let movementBonusAppliedAmount = 0;
   let movementBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
+  // Store attack/block card bonus application for undo
+  let attackBlockBonusAppliedAmount = 0;
+  let attackBlockBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
   // Store ritual modifiers for undo when a wound is played sideways via Ritual of Pain
   let ritualModifiersSnapshot: readonly ActiveModifier[] | null = null;
   // Store Power of Pain modifiers for undo when a wound is played sideways
@@ -264,6 +269,30 @@ export function createPlayCardSidewaysCommand(
             movementBonusModifiersSnapshot = modifiersSnapshot;
             appliedValue += bonusResult.bonus;
             currentState = bonusResult.state;
+          }
+        }
+      }
+
+      // Apply attack/block card bonus for sideways attack or block plays
+      if (params.as === PLAY_SIDEWAYS_AS_ATTACK || params.as === PLAY_SIDEWAYS_AS_BLOCK) {
+        const attackBlockBonusModifierIds = new Set(
+          getModifiersForPlayer(currentState, params.playerId)
+            .filter((m) => m.effect.type === EFFECT_ATTACK_BLOCK_CARD_BONUS)
+            .map((m) => m.id)
+        );
+        if (attackBlockBonusModifierIds.size > 0) {
+          const forAttack = params.as === PLAY_SIDEWAYS_AS_ATTACK;
+          const { bonus, modifierId } = getAttackBlockCardBonus(
+            currentState,
+            params.playerId,
+            forAttack,
+            attackBlockBonusModifierIds
+          );
+          if (bonus > 0 && modifierId) {
+            attackBlockBonusAppliedAmount = bonus;
+            attackBlockBonusModifiersSnapshot = currentState.activeModifiers;
+            appliedValue += bonus;
+            currentState = consumeAttackBlockCardBonus(currentState, modifierId);
           }
         }
       }
@@ -383,6 +412,8 @@ export function createPlayCardSidewaysCommand(
       let stateWithModifiers = state;
       if (movementBonusAppliedAmount > 0 && movementBonusModifiersSnapshot) {
         stateWithModifiers = { ...state, activeModifiers: movementBonusModifiersSnapshot };
+      } else if (attackBlockBonusAppliedAmount > 0 && attackBlockBonusModifiersSnapshot) {
+        stateWithModifiers = { ...state, activeModifiers: attackBlockBonusModifiersSnapshot };
       } else if (ritualModifiersSnapshot) {
         stateWithModifiers = { ...state, activeModifiers: ritualModifiersSnapshot };
       } else if (powerOfPainModifiersSnapshot) {

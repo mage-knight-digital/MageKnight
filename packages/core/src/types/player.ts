@@ -552,4 +552,18 @@ export interface Player {
   // Source Opening before other dice are rerolled (FAQ S3).
   // Stores the die ID so dice management can skip it if player chooses not to reroll.
   readonly pendingSourceOpeningRerollChoice: SourceDieId | null;
+
+  // Meditation spell pending state
+  // Set when Meditation/Trance spell is played to track card selection and placement
+  readonly pendingMeditation:
+    | {
+        readonly version: "basic" | "powered";
+        readonly phase: "select_cards" | "place_cards";
+        readonly selectedCardIds: readonly CardId[];
+      }
+    | undefined;
+
+  // Meditation spell hand limit bonus
+  // Added to hand limit at end-of-turn draw, consumed by getEndTurnDrawLimit()
+  readonly meditationHandLimitBonus: number;
 }

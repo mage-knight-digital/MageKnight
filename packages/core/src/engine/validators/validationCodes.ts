@@ -255,6 +255,11 @@ export const ARTIFACT_CRYSTAL_INVALID_COLOR = "ARTIFACT_CRYSTAL_INVALID_COLOR" a
 export const DECOMPOSE_REQUIRED = "DECOMPOSE_REQUIRED" as const;
 export const DECOMPOSE_CARD_NOT_ELIGIBLE = "DECOMPOSE_CARD_NOT_ELIGIBLE" as const;
 
+// Meditation validation codes
+export const MEDITATION_PENDING_REQUIRED = "MEDITATION_PENDING_REQUIRED" as const;
+export const MEDITATION_INVALID_CARD_SELECTION = "MEDITATION_INVALID_CARD_SELECTION" as const;
+export const MEDITATION_INVALID_PHASE = "MEDITATION_INVALID_PHASE" as const;
+
 // Spell purchase validation codes
 export const SPELL_NOT_IN_OFFER = "SPELL_NOT_IN_OFFER" as const;
 export const NOT_AT_SPELL_SITE = "NOT_AT_SPELL_SITE" as const;
@@ -527,6 +532,10 @@ export type ValidationErrorCode =
   // Decompose validation
   | typeof DECOMPOSE_REQUIRED
   | typeof DECOMPOSE_CARD_NOT_ELIGIBLE
+  // Meditation validation
+  | typeof MEDITATION_PENDING_REQUIRED
+  | typeof MEDITATION_INVALID_CARD_SELECTION
+  | typeof MEDITATION_INVALID_PHASE
   // Spell purchase validation
   | typeof SPELL_NOT_IN_OFFER
   | typeof NOT_AT_SPELL_SITE

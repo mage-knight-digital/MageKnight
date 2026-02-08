@@ -16,6 +16,8 @@ import {
   createCardPlayUndoneEvent,
   CARD_GOLDYX_CRYSTAL_JOY,
   CARD_STEADY_TEMPO,
+  CARD_MEDITATION,
+  MEDITATION_CARDS_SELECTED,
 } from "@mage-knight/shared";
 import type { GameEvent } from "@mage-knight/shared";
 import { resolveEffect, reverseEffect } from "../effects/index.js";
@@ -35,10 +37,17 @@ import {
 } from "./playCard/choiceHandling.js";
 import { handleArtifactDestruction } from "./playCard/artifactDestruction.js";
 import { checkManaOverloadTrigger, applyManaOverloadTrigger } from "./playCard/manaOverloadTrigger.js";
-import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/index.js";
-import { EFFECT_MOVEMENT_CARD_BONUS } from "../../types/modifierConstants.js";
+import {
+  consumeMovementCardBonus,
+  getModifiersForPlayer,
+  getAttackBlockCardBonus,
+  consumeAttackBlockCardBonus,
+} from "../modifiers/index.js";
+import { EFFECT_MOVEMENT_CARD_BONUS, EFFECT_ATTACK_BLOCK_CARD_BONUS } from "../../types/modifierConstants.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
 import { getCombatFilteredEffect } from "../rules/cardPlay.js";
+import { shuffleWithRng } from "../../utils/rng.js";
+import { getMeditationSelectCount } from "../rules/meditation.js";
 
 export { PLAY_CARD_COMMAND };
 
@@ -67,6 +76,9 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
   let trackedSpellColor: ManaColor | null = null;
   // Store movement bonus application for undo
   let movementBonusAppliedAmount = 0;
+  // Store attack/block card bonus application for undo
+  let attackBlockBonusAppliedAmount = 0;
+  let attackBlockBonusAppliedType: "attack" | "block" | null = null;
   // Snapshot of activeModifiers BEFORE effect resolution — always restored on undo.
   // This correctly reverts any modifier-adding effects (Noble Manners, Heroic Tale,
   // Ruthless Coercion, Agility, etc.) without needing per-effect reverse logic.
@@ -160,9 +172,95 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           .filter((m) => m.effect.type === EFFECT_MOVEMENT_CARD_BONUS)
           .map((m) => m.id)
       );
+      const attackBlockBonusModifierIdsBefore = new Set(
+        getModifiersForPlayer(newState, params.playerId)
+          .filter((m) => m.effect.type === EFFECT_ATTACK_BLOCK_CARD_BONUS)
+          .map((m) => m.id)
+      );
+      const totalAttackBefore = getTotalAttack(newState.players[playerIndex]);
+      const totalBlockBefore = newState.players[playerIndex]?.combatAccumulator.block ?? 0;
 
       // Resolve the effect (pass cardId for effects that need to know their source)
       const effectResult = resolveEffect(newState, params.playerId, effectToApply, params.cardId);
+
+      const applyAttackBlockBonusIfGained = (stateToUpdate: GameState): GameState => {
+        if (attackBlockBonusModifierIdsBefore.size === 0) {
+          return stateToUpdate;
+        }
+
+        const playerAfter = stateToUpdate.players[playerIndex];
+        if (!playerAfter) {
+          return stateToUpdate;
+        }
+
+        const totalAttackAfter = getTotalAttack(playerAfter);
+        const totalBlockAfter = playerAfter.combatAccumulator.block;
+        const attackGained = totalAttackAfter > totalAttackBefore;
+        const blockGained = totalBlockAfter > totalBlockBefore;
+
+        if (!attackGained && !blockGained) {
+          return stateToUpdate;
+        }
+
+        // Determine which type to apply: attack if attack gained, block if block gained
+        // If both gained (compound card), attack takes priority
+        const forAttack = attackGained;
+        const { bonus, modifierId } = getAttackBlockCardBonus(
+          stateToUpdate,
+          params.playerId,
+          forAttack,
+          attackBlockBonusModifierIdsBefore
+        );
+
+        if (bonus <= 0 || !modifierId) {
+          return stateToUpdate;
+        }
+
+        attackBlockBonusAppliedAmount = bonus;
+        attackBlockBonusAppliedType = forAttack ? "attack" : "block";
+
+        let updatedState = consumeAttackBlockCardBonus(stateToUpdate, modifierId);
+        const updatedPlayer = updatedState.players[playerIndex];
+        if (!updatedPlayer) {
+          return updatedState;
+        }
+
+        let updatedPlayerWithBonus: Player;
+        if (forAttack) {
+          // Add bonus as physical melee attack (generic attack boost)
+          updatedPlayerWithBonus = {
+            ...updatedPlayer,
+            combatAccumulator: {
+              ...updatedPlayer.combatAccumulator,
+              attack: {
+                ...updatedPlayer.combatAccumulator.attack,
+                normal: updatedPlayer.combatAccumulator.attack.normal + bonus,
+                normalElements: {
+                  ...updatedPlayer.combatAccumulator.attack.normalElements,
+                  physical: updatedPlayer.combatAccumulator.attack.normalElements.physical + bonus,
+                },
+              },
+            },
+          };
+        } else {
+          // Add bonus as physical block
+          updatedPlayerWithBonus = {
+            ...updatedPlayer,
+            combatAccumulator: {
+              ...updatedPlayer.combatAccumulator,
+              block: updatedPlayer.combatAccumulator.block + bonus,
+              blockElements: {
+                ...updatedPlayer.combatAccumulator.blockElements,
+                physical: updatedPlayer.combatAccumulator.blockElements.physical + bonus,
+              },
+            },
+          };
+        }
+
+        const players = [...updatedState.players];
+        players[playerIndex] = updatedPlayerWithBonus;
+        return { ...updatedState, players };
+      };
 
       const applyMovementBonusIfGained = (stateToUpdate: GameState): GameState => {
         const playerAfter = stateToUpdate.players[playerIndex];
@@ -247,6 +345,7 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           }
 
           let updatedState = applyMovementBonusIfGained(choiceResult.state);
+          updatedState = applyAttackBlockBonusIfGained(updatedState);
           updatedState = updatePendingChoiceMovementBonus(
             updatedState,
             movementBonusAppliedAmount > 0
@@ -296,6 +395,7 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
         // Unknown choice type - return as-is
         let updatedState = applyMovementBonusIfGained(effectResult.state);
+        updatedState = applyAttackBlockBonusIfGained(updatedState);
         updatedState = updatePendingChoiceMovementBonus(
           updatedState,
           movementBonusAppliedAmount > 0
@@ -316,6 +416,7 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
       // Handle artifact destruction if this was a powered play of a destroyOnPowered card
       let finalState = applyMovementBonusIfGained(effectResult.state);
+      finalState = applyAttackBlockBonusIfGained(finalState);
       const events: GameEvent[] = [
         {
           type: CARD_PLAYED,
@@ -366,6 +467,60 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           const updatedPlayers = [...finalState.players];
           updatedPlayers[playerIdx] = updatedPlayer;
           finalState = { ...finalState, players: updatedPlayers };
+        }
+      }
+
+      // Set Meditation pending state after card is played
+      if (params.cardId === CARD_MEDITATION) {
+        const playerIdx = finalState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        if (playerIdx !== -1) {
+          const meditationPlayer = finalState.players[playerIdx]!;
+          const selectCount = getMeditationSelectCount(meditationPlayer);
+
+          if (isPowered) {
+            // Powered (Trance): player chooses cards — start at select_cards phase
+            const updatedPlayer: Player = {
+              ...meditationPlayer,
+              pendingMeditation: {
+                version: "powered",
+                phase: "select_cards",
+                selectedCardIds: [],
+              },
+              meditationHandLimitBonus: 2,
+            };
+            const updatedPlayers = [...finalState.players];
+            updatedPlayers[playerIdx] = updatedPlayer;
+            finalState = { ...finalState, players: updatedPlayers };
+          } else {
+            // Basic (Meditation): randomly pick cards from discard, skip to place_cards phase
+            const { result: shuffled, rng: newRng } = shuffleWithRng(
+              [...meditationPlayer.discard],
+              finalState.rng
+            );
+            const selectedCardIds = shuffled.slice(0, selectCount);
+
+            const updatedPlayer: Player = {
+              ...meditationPlayer,
+              pendingMeditation: {
+                version: "basic",
+                phase: "place_cards",
+                selectedCardIds,
+              },
+              meditationHandLimitBonus: 2,
+            };
+            const updatedPlayers = [...finalState.players];
+            updatedPlayers[playerIdx] = updatedPlayer;
+            finalState = { ...finalState, players: updatedPlayers, rng: newRng };
+
+            events.push({
+              type: MEDITATION_CARDS_SELECTED,
+              playerId: params.playerId,
+              cardIds: selectedCardIds,
+              version: "basic",
+            });
+          }
         }
       }
 
@@ -436,6 +591,15 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         };
       }
 
+      // Clear Meditation pending state and hand limit bonus on undo
+      if (params.cardId === CARD_MEDITATION) {
+        updatedPlayer = {
+          ...updatedPlayer,
+          pendingMeditation: undefined,
+          meditationHandLimitBonus: 0,
+        };
+      }
+
       // Reverse the effect if we stored one (only if it wasn't a choice effect)
       if (appliedEffect && appliedEffect.type !== EFFECT_CHOICE) {
         updatedPlayer = reverseEffect(updatedPlayer, appliedEffect);
@@ -445,6 +609,36 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           ...updatedPlayer,
           movePoints: updatedPlayer.movePoints - movementBonusAppliedAmount,
         };
+      }
+      if (attackBlockBonusAppliedAmount > 0 && attackBlockBonusAppliedType) {
+        if (attackBlockBonusAppliedType === "attack") {
+          updatedPlayer = {
+            ...updatedPlayer,
+            combatAccumulator: {
+              ...updatedPlayer.combatAccumulator,
+              attack: {
+                ...updatedPlayer.combatAccumulator.attack,
+                normal: updatedPlayer.combatAccumulator.attack.normal - attackBlockBonusAppliedAmount,
+                normalElements: {
+                  ...updatedPlayer.combatAccumulator.attack.normalElements,
+                  physical: updatedPlayer.combatAccumulator.attack.normalElements.physical - attackBlockBonusAppliedAmount,
+                },
+              },
+            },
+          };
+        } else {
+          updatedPlayer = {
+            ...updatedPlayer,
+            combatAccumulator: {
+              ...updatedPlayer.combatAccumulator,
+              block: updatedPlayer.combatAccumulator.block - attackBlockBonusAppliedAmount,
+              blockElements: {
+                ...updatedPlayer.combatAccumulator.blockElements,
+                physical: updatedPlayer.combatAccumulator.blockElements.physical - attackBlockBonusAppliedAmount,
+              },
+            },
+          };
+        }
       }
 
       // Restore mana if consumed
@@ -690,6 +884,15 @@ function getSpellColor(card: DeedCard): ManaColor | null {
  * Track the spell color for fame bonus calculation (Ring artifacts).
  * Updates both the unique color tracking and the count per color.
  */
+/**
+ * Get total accumulated attack value (normal + ranged + siege).
+ */
+function getTotalAttack(player: Player | undefined): number {
+  if (!player) return 0;
+  const atk = player.combatAccumulator.attack;
+  return atk.normal + atk.ranged + atk.siege;
+}
+
 function trackSpellColor(player: Player, color: ManaColor): Player {
   // Track unique colors (legacy, kept for compatibility)
   const spellColorsCastThisTurn = player.spellColorsCastThisTurn.includes(color)

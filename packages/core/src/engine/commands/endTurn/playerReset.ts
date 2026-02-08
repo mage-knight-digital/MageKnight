@@ -70,6 +70,9 @@ export function createResetPlayer(
     crystalMasteryPoweredActive: false,
     // Source Opening reroll choice reset
     pendingSourceOpeningRerollChoice: null,
+    // Meditation spell resets
+    pendingMeditation: undefined,
+    meditationHandLimitBonus: 0,
     // Skill cooldown reset for Time Bending: refresh once-per-turn skills
     // (usedThisTurn is cleared when isTimeBentTurn is being set up in turnAdvancement)
     // Clear "until next turn" cooldowns (e.g., Motivation cross-hero cooldown)

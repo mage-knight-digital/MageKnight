@@ -264,6 +264,9 @@ export type {
   // Steady Tempo deck placement options
   SteadyTempoOptions,
   PendingSteadyTempoState,
+  // Meditation options
+  MeditationOptions,
+  PendingMeditationState,
   // Banner of Protection options
   BannerProtectionOptions,
   PendingBannerProtectionState,

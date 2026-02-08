@@ -178,6 +178,8 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     spentCrystalsThisTurn: { red: 0, blue: 0, green: 0, white: 0 },
     crystalMasteryPoweredActive: false,
     pendingSourceOpeningRerollChoice: null,
+    pendingMeditation: undefined,
+    meditationHandLimitBonus: 0,
     ...rest,
   };
 }

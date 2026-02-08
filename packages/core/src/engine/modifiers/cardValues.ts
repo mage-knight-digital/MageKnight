@@ -10,12 +10,14 @@ import type {
   SidewaysValueModifier,
   RuleOverrideModifier,
   MovementCardBonusModifier,
+  AttackBlockCardBonusModifier,
 } from "../../types/modifiers.js";
 import type { DeedCardType } from "../../types/cards.js";
 import {
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
   EFFECT_MOVEMENT_CARD_BONUS,
+  EFFECT_ATTACK_BLOCK_CARD_BONUS,
   SIDEWAYS_CONDITION_NO_MANA_USED,
   SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR,
 } from "../../types/modifierConstants.js";
@@ -151,5 +153,47 @@ export function consumeMovementCardBonus(
   return {
     state: { ...state, activeModifiers: updatedActiveModifiers },
     bonus,
+  };
+}
+
+/**
+ * Get the active attack/block card bonus for a player (if any).
+ * Returns the bonus amount for the specified type and the modifier ID.
+ * Does NOT consume the modifier — call consumeAttackBlockCardBonus for that.
+ */
+export function getAttackBlockCardBonus(
+  state: GameState,
+  playerId: string,
+  forAttack: boolean,
+  eligibleModifierIds?: ReadonlySet<string>
+): { bonus: number; modifierId: string | null } {
+  const modifier = getModifiersForPlayer(state, playerId).find(
+    (m) =>
+      m.effect.type === EFFECT_ATTACK_BLOCK_CARD_BONUS &&
+      (eligibleModifierIds ? eligibleModifierIds.has(m.id) : true)
+  );
+
+  if (!modifier) {
+    return { bonus: 0, modifierId: null };
+  }
+
+  const effect = modifier.effect as AttackBlockCardBonusModifier;
+  return {
+    bonus: forAttack ? effect.attackBonus : effect.blockBonus,
+    modifierId: modifier.id,
+  };
+}
+
+/**
+ * Consume an attack/block card bonus modifier by removing it from the game state.
+ * The modifier is fully consumed on first use (either attack or block).
+ */
+export function consumeAttackBlockCardBonus(
+  state: GameState,
+  modifierId: string
+): GameState {
+  return {
+    ...state,
+    activeModifiers: state.activeModifiers.filter((m) => m.id !== modifierId),
   };
 }

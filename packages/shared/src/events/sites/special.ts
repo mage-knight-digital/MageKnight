@@ -287,3 +287,37 @@ export interface BannerProtectionSkippedEvent {
   /** ID of the player who skipped */
   readonly playerId: string;
 }
+
+// ============================================================================
+// MEDITATION SPELL EVENTS
+// ============================================================================
+
+/**
+ * Event type constant for Meditation cards selected (phase 1).
+ */
+export const MEDITATION_CARDS_SELECTED = "MEDITATION_CARDS_SELECTED" as const;
+
+/**
+ * Emitted when cards are selected for Meditation spell (basic: auto-selected, powered: player-selected).
+ */
+export interface MeditationCardsSelectedEvent {
+  readonly type: typeof MEDITATION_CARDS_SELECTED;
+  readonly playerId: string;
+  readonly cardIds: readonly import("../../ids.js").CardId[];
+  readonly version: "basic" | "powered";
+}
+
+/**
+ * Event type constant for Meditation cards placed into deck (phase 2).
+ */
+export const MEDITATION_CARDS_PLACED = "MEDITATION_CARDS_PLACED" as const;
+
+/**
+ * Emitted when selected cards are placed into the deed deck.
+ */
+export interface MeditationCardsPlacedEvent {
+  readonly type: typeof MEDITATION_CARDS_PLACED;
+  readonly playerId: string;
+  readonly cardIds: readonly import("../../ids.js").CardId[];
+  readonly position: "top" | "bottom";
+}

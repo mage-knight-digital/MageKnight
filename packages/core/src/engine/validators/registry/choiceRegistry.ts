@@ -11,6 +11,7 @@ import {
   RESOLVE_DEEP_MINE_ACTION,
   RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
   RESOLVE_STEADY_TEMPO_ACTION,
+  RESOLVE_MEDITATION_ACTION,
   RESOLVE_DISCARD_ACTION,
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
@@ -117,6 +118,12 @@ import {
   validateHasPendingSourceOpeningReroll,
 } from "../sourceOpeningRerollValidators.js";
 
+// Meditation validators
+import {
+  validateHasPendingMeditation,
+  validateMeditationChoice,
+} from "../meditationValidators.js";
+
 export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_CHOICE_ACTION]: [
     validateIsPlayersTurn,
@@ -198,5 +205,10 @@ export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_SOURCE_OPENING_REROLL_ACTION]: [
     validateIsPlayersTurn,
     validateHasPendingSourceOpeningReroll,
+  ],
+  [RESOLVE_MEDITATION_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingMeditation,
+    validateMeditationChoice,
   ],
 };

@@ -120,6 +120,7 @@ export const CARD_RESTORATION = cardId("restoration"); // #05 - Heal 3 (5 in for
 export const CARD_WHIRLWIND = cardId("whirlwind"); // #07 - Target doesn't attack / defeat
 export const CARD_ENERGY_FLOW = cardId("energy_flow"); // #12 - Ready unit + spend opponent units
 export const CARD_UNDERGROUND_TRAVEL = cardId("underground_travel"); // #04 - Move 3 no swamp/lake / Assault ignore fortification
+export const CARD_MEDITATION = cardId("meditation"); // #06 - Select cards from discard to deck + hand limit +2
 
 // White spells
 export const CARD_EXPOSE = cardId("expose"); // #19 - Lose fortification/resistances
@@ -189,6 +190,7 @@ export type SpellCardId =
   | typeof CARD_WHIRLWIND
   | typeof CARD_ENERGY_FLOW
   | typeof CARD_UNDERGROUND_TRAVEL
+  | typeof CARD_MEDITATION
   // White spells
   | typeof CARD_EXPOSE
   | typeof CARD_CURE
@@ -282,6 +284,7 @@ export const ALL_SPELL_IDS = [
   CARD_WHIRLWIND,
   CARD_ENERGY_FLOW,
   CARD_UNDERGROUND_TRAVEL,
+  CARD_MEDITATION,
   CARD_EXPOSE,
   CARD_CURE,
   CARD_CALL_TO_ARMS,

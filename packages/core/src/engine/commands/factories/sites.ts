@@ -29,6 +29,7 @@ import {
   RESOLVE_STEADY_TEMPO_ACTION,
   RESOLVE_BANNER_PROTECTION_ACTION,
   RESOLVE_SOURCE_OPENING_REROLL_ACTION,
+  RESOLVE_MEDITATION_ACTION,
 } from "@mage-knight/shared";
 import { createInteractCommand } from "../interactCommand.js";
 import { createEnterSiteCommand } from "../enterSiteCommand.js";
@@ -40,6 +41,7 @@ import { createResolveCrystalJoyReclaimCommand } from "../resolveCrystalJoyRecla
 import { createResolveSteadyTempoCommand } from "../resolveSteadyTempoCommand.js";
 import { createResolveBannerProtectionCommand } from "../resolveBannerProtectionCommand.js";
 import { createResolveSourceOpeningRerollCommand } from "../resolveSourceOpeningRerollCommand.js";
+import { createResolveMeditationCommand } from "../resolveMeditationCommand.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
@@ -243,5 +245,23 @@ export const createResolveSourceOpeningRerollCommandFromAction: CommandFactory =
   return createResolveSourceOpeningRerollCommand({
     playerId,
     reroll: action.reroll,
+  });
+};
+
+/**
+ * Resolve Meditation card selection/placement command factory.
+ * Creates a command to resolve the Meditation spell pending state.
+ */
+export const createResolveMeditationCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_MEDITATION_ACTION) return null;
+
+  return createResolveMeditationCommand({
+    playerId,
+    selectedCardIds: action.selectedCardIds,
+    placeOnTop: action.placeOnTop,
   });
 };

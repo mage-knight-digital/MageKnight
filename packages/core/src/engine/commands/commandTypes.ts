@@ -67,6 +67,9 @@ export const RESOLVE_ARTIFACT_CRYSTAL_COLOR_COMMAND = "RESOLVE_ARTIFACT_CRYSTAL_
 // Decompose command (throw away action card for crystals)
 export const RESOLVE_DECOMPOSE_COMMAND = "RESOLVE_DECOMPOSE" as const;
 
+// Meditation resolve command
+export const RESOLVE_MEDITATION_COMMAND = "RESOLVE_MEDITATION" as const;
+
 // Burn monastery command
 export const BURN_MONASTERY_COMMAND = "BURN_MONASTERY" as const;
 
