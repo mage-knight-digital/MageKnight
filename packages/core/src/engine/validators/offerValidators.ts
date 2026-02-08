@@ -117,9 +117,10 @@ export function validateHasInfluenceForSpell(
 }
 
 /**
- * Validate player has not already taken their main action this turn.
- * Buying spells is an interaction that requires the player's action for the turn.
- * Cannot be done after combat, entering a site, or other major actions.
+ * Validate player has not already fought combat this turn.
+ * Buying spells is part of site interaction — players can buy any number
+ * of things (recruit, buy spells, etc.) during a single interaction.
+ * Only combat blocks further interaction purchases on the same turn.
  */
 export function validateNotAlreadyActedForSpell(
   state: GameState,
@@ -133,10 +134,10 @@ export function validateNotAlreadyActedForSpell(
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
-  if (player.hasTakenActionThisTurn) {
+  if (player.hasCombattedThisTurn) {
     return invalid(
       ALREADY_ACTED,
-      "Cannot buy spells after taking another action this turn"
+      "Cannot buy spells after combat this turn"
     );
   }
 

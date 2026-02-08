@@ -242,11 +242,13 @@ function getInteractOptions(
   // Check if can recruit (needs units in offer, site not burned)
   const canRecruit = state.offers.units.length > 0 && !site.isBurned;
 
-  // Check if can buy spells (conquered Mage Tower, requires turn action)
+  // Check if can buy spells (conquered Mage Tower, not after combat)
+  // Spell purchase is part of interaction — players can buy multiple things
+  // during a single interaction, only combat blocks further purchases
   const canBuySpells =
     site.type === SiteType.MageTower &&
     site.isConquered &&
-    !player.hasTakenActionThisTurn &&
+    !player.hasCombattedThisTurn &&
     state.offers.spells.cards.length > 0;
 
   // Check if can buy advanced actions (Monastery)

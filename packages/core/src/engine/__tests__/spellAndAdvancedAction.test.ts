@@ -458,7 +458,7 @@ describe("Spell Purchase and Advanced Action Learning", () => {
         expect(invalidEvent).toBeDefined();
       });
 
-      it("should reject buying spell after already taking action this turn (e.g., after combat)", () => {
+      it("should reject buying spell after combat this turn", () => {
         const mageTowerSite: Site = {
           type: SiteType.MageTower,
           owner: "player1",
@@ -471,7 +471,8 @@ describe("Spell Purchase and Advanced Action Learning", () => {
           { spells: [CARD_FIREBALL] },
           {
             influencePoints: 7,
-            hasTakenActionThisTurn: true, // Already fought combat this turn
+            hasTakenActionThisTurn: true,
+            hasCombattedThisTurn: true, // Combat is the actual blocker
           }
         );
 
@@ -490,8 +491,36 @@ describe("Spell Purchase and Advanced Action Learning", () => {
         const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
         expect(invalidEvent).toBeDefined();
         if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
-          expect(invalidEvent.reason).toContain("action");
+          expect(invalidEvent.reason).toContain("combat");
         }
+      });
+
+      it("should allow buying spell after recruiting at same Mage Tower", () => {
+        const mageTowerSite: Site = {
+          type: SiteType.MageTower,
+          owner: "player1",
+          isConquered: true,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          mageTowerSite,
+          { spells: [CARD_FIREBALL] },
+          {
+            influencePoints: 7,
+            hasTakenActionThisTurn: true, // Set by recruiting
+            hasRecruitedUnitThisTurn: true,
+          }
+        );
+
+        const result = engine.processAction(state, "player1", {
+          type: BUY_SPELL_ACTION,
+          cardId: CARD_FIREBALL,
+        });
+
+        // Should succeed — multiple purchases allowed during same interaction
+        expect(result.state.players[0].deck[0]).toBe(CARD_FIREBALL);
+        expect(result.state.players[0].influencePoints).toBe(0);
       });
     });
   });
