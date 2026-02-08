@@ -136,6 +136,12 @@ import {
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
   EFFECT_APPLY_LEARNING_DISCOUNT,
   EFFECT_SHAPESHIFT_RESOLVE,
+  EFFECT_BLOOD_OF_ANCIENTS_BASIC,
+  EFFECT_RESOLVE_BLOOD_BASIC_SELECT_AA,
+  EFFECT_RESOLVE_BLOOD_BASIC_GAIN_AA,
+  EFFECT_BLOOD_OF_ANCIENTS_POWERED,
+  EFFECT_RESOLVE_BLOOD_POWERED_WOUND,
+  EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1574,6 +1580,70 @@ export interface ShapeshiftResolveEffect {
   readonly description: string;
 }
 
+/**
+ * Blood of Ancients basic effect entry point.
+ * Gain a wound to hand, pay mana of any basic color, gain an AA of that
+ * color from the offer to hand.
+ */
+export interface BloodOfAncientsBasicEffect {
+  readonly type: typeof EFFECT_BLOOD_OF_ANCIENTS_BASIC;
+}
+
+/**
+ * Internal: After paying mana, present matching AAs from offer.
+ * If only one match, auto-select. If multiple, present choice.
+ */
+export interface ResolveBloodBasicSelectAAEffect {
+  readonly type: typeof EFFECT_RESOLVE_BLOOD_BASIC_SELECT_AA;
+  /** The mana color that was paid — determines which AAs are available */
+  readonly paidColor: BasicManaColor;
+  /** The mana source used for payment */
+  readonly manaSource: ManaSourceInfo;
+}
+
+/**
+ * Internal: Gain a specific AA from the offer to hand.
+ * Removes from offer, replenishes from deck.
+ */
+export interface ResolveBloodBasicGainAAEffect {
+  readonly type: typeof EFFECT_RESOLVE_BLOOD_BASIC_GAIN_AA;
+  /** The AA card to gain from the offer */
+  readonly cardId: CardId;
+  /** Name of the card for display */
+  readonly cardName: string;
+}
+
+/**
+ * Blood of Ancients powered effect entry point.
+ * Gain a wound to hand or discard (choice), then select any AA from offer
+ * and use its powered effect for free. Card stays in offer.
+ */
+export interface BloodOfAncientsPoweredEffect {
+  readonly type: typeof EFFECT_BLOOD_OF_ANCIENTS_POWERED;
+}
+
+/**
+ * Internal: After wound destination choice for powered effect.
+ * Takes wound to the specified destination, then presents AA selection.
+ */
+export interface ResolveBloodPoweredWoundEffect {
+  readonly type: typeof EFFECT_RESOLVE_BLOOD_POWERED_WOUND;
+  /** Where the wound goes */
+  readonly destination: "hand" | "discard";
+}
+
+/**
+ * Internal: After selecting an AA from the offer for powered effect.
+ * Resolves the AA's powered effect for free. Card stays in offer.
+ */
+export interface ResolveBloodPoweredUseAAEffect {
+  readonly type: typeof EFFECT_RESOLVE_BLOOD_POWERED_USE_AA;
+  /** The AA card to use from the offer */
+  readonly cardId: CardId;
+  /** Name of the card for display */
+  readonly cardName: string;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1687,7 +1757,13 @@ export type CardEffect =
   | ResolveMagicTalentGainEffect
   | ResolveMagicTalentSpellManaEffect
   | ApplyLearningDiscountEffect
-  | ShapeshiftResolveEffect;
+  | ShapeshiftResolveEffect
+  | BloodOfAncientsBasicEffect
+  | ResolveBloodBasicSelectAAEffect
+  | ResolveBloodBasicGainAAEffect
+  | BloodOfAncientsPoweredEffect
+  | ResolveBloodPoweredWoundEffect
+  | ResolveBloodPoweredUseAAEffect;
 
 // === Card Definition ===
 

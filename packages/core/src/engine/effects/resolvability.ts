@@ -118,6 +118,12 @@ import {
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
   EFFECT_GAIN_ATTACK_BOW_RESOLVED,
+  EFFECT_BLOOD_OF_ANCIENTS_BASIC,
+  EFFECT_RESOLVE_BLOOD_BASIC_SELECT_AA,
+  EFFECT_RESOLVE_BLOOD_BASIC_GAIN_AA,
+  EFFECT_BLOOD_OF_ANCIENTS_POWERED,
+  EFFECT_RESOLVE_BLOOD_POWERED_WOUND,
+  EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -629,6 +635,25 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve spell mana payment is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA]: () => true,
+
+  // Blood of Ancients basic: resolvable if there are AAs in the offer
+  // (mana/wound checks happen at resolution time)
+  [EFFECT_BLOOD_OF_ANCIENTS_BASIC]: (state) => {
+    return state.offers.advancedActions.cards.length > 0;
+  },
+
+  // Internal Blood of Ancients effects are always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_BLOOD_BASIC_SELECT_AA]: () => true,
+  [EFFECT_RESOLVE_BLOOD_BASIC_GAIN_AA]: () => true,
+
+  // Blood of Ancients powered: resolvable if there are AAs in the offer
+  [EFFECT_BLOOD_OF_ANCIENTS_POWERED]: (state) => {
+    return state.offers.advancedActions.cards.length > 0;
+  },
+
+  // Internal Blood of Ancients powered effects are always resolvable
+  [EFFECT_RESOLVE_BLOOD_POWERED_WOUND]: () => true,
+  [EFFECT_RESOLVE_BLOOD_POWERED_USE_AA]: () => true,
 };
 
 // ============================================================================

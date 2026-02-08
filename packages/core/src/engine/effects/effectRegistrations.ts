@@ -65,6 +65,7 @@ import { registerMagicTalentEffects } from "./magicTalentEffects.js";
 import { registerLearningEffects } from "./learningEffects.js";
 import { registerTrainingEffects } from "./trainingEffects.js";
 import { registerShapeshiftEffects } from "./shapeshiftEffects.js";
+import { registerBloodOfAncientsEffects } from "./bloodOfAncientsEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -242,4 +243,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Shapeshift effects (Braevalar's Shapeshift skill - effect type conversion)
   registerShapeshiftEffects();
+
+  // Blood of Ancients effects (wound cost + AA offer interaction)
+  registerBloodOfAncientsEffects(resolver);
 }
