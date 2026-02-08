@@ -57,6 +57,7 @@ import { registerCrystalMasteryEffects } from "./crystalMasteryEffects.js";
 import { registerPossessEffects } from "./possessEffects.js";
 import { registerManaStormEffects } from "./manaStormEffects.js";
 import { registerSourceOpeningEffects } from "./sourceOpeningEffects.js";
+import { registerHornOfWrathEffects } from "./hornOfWrathEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -210,4 +211,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Source Opening effects (Goldyx interactive skill - reroll a Source die)
   registerSourceOpeningEffects();
+
+  // Horn of Wrath effects (die rolling with wound risk)
+  registerHornOfWrathEffects();
 }

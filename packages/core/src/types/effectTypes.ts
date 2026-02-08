@@ -332,6 +332,16 @@ export const EFFECT_SOURCE_OPENING_REROLL = "source_opening_reroll" as const;
 // Internal: Player selected a die to reroll (or skip)
 export const EFFECT_SOURCE_OPENING_SELECT_DIE = "source_opening_select_die" as const;
 
+// === Horn of Wrath Die Rolling Effects ===
+// Roll mana dice and gain wounds for black/red results.
+// Used by Horn of Wrath basic effect (1 die) and internally by the bonus resolver.
+export const EFFECT_ROLL_DIE_FOR_WOUND = "roll_die_for_wound" as const;
+// Choose a bonus amount (0 to max), then roll dice and gain siege attack + wounds.
+// Used by Horn of Wrath powered effect.
+export const EFFECT_CHOOSE_BONUS_WITH_RISK = "choose_bonus_with_risk" as const;
+// Internal: resolve after player selects a bonus amount.
+export const EFFECT_RESOLVE_BONUS_CHOICE = "resolve_bonus_choice" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.
