@@ -75,6 +75,7 @@ import {
 } from "./choice/choiceResolution.js";
 
 import { SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/index.js";
+import { isMotivationSkill, ALL_MOTIVATION_SKILLS } from "../rules/motivation.js";
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
 
@@ -212,29 +213,45 @@ function hasCustomHandler(skillId: SkillId): boolean {
 
 /**
  * Add a skill to the appropriate cooldown tracker based on usage type.
+ * Motivation skills also set activeUntilNextTurn for cross-hero cooldown.
  */
 function addToCooldowns(
   cooldowns: SkillCooldowns,
   skillId: SkillId,
   usageType: string
 ): SkillCooldowns {
+  let updated = cooldowns;
+
   if (usageType === SKILL_USAGE_ONCE_PER_TURN) {
-    return {
-      ...cooldowns,
-      usedThisTurn: [...cooldowns.usedThisTurn, skillId],
+    updated = {
+      ...updated,
+      usedThisTurn: [...updated.usedThisTurn, skillId],
     };
-  }
-  if (
+  } else if (
     usageType === SKILL_USAGE_ONCE_PER_ROUND ||
     (usageType === SKILL_USAGE_INTERACTIVE &&
       INTERACTIVE_ONCE_PER_ROUND.has(skillId))
   ) {
-    return {
-      ...cooldowns,
-      usedThisRound: [...cooldowns.usedThisRound, skillId],
+    updated = {
+      ...updated,
+      usedThisRound: [...updated.usedThisRound, skillId],
     };
   }
-  return cooldowns;
+
+  // Motivation cross-hero cooldown: block all Motivation skills until end of next turn
+  if (isMotivationSkill(skillId)) {
+    updated = {
+      ...updated,
+      activeUntilNextTurn: [
+        ...updated.activeUntilNextTurn,
+        ...ALL_MOTIVATION_SKILLS.filter(
+          (id) => !updated.activeUntilNextTurn.includes(id)
+        ),
+      ],
+    };
+  }
+
+  return updated;
 }
 
 /**
@@ -245,23 +262,35 @@ function removeFromCooldowns(
   skillId: SkillId,
   usageType: string
 ): SkillCooldowns {
+  let updated = cooldowns;
+
   if (usageType === SKILL_USAGE_ONCE_PER_TURN) {
-    return {
-      ...cooldowns,
-      usedThisTurn: cooldowns.usedThisTurn.filter((id) => id !== skillId),
+    updated = {
+      ...updated,
+      usedThisTurn: updated.usedThisTurn.filter((id) => id !== skillId),
     };
-  }
-  if (
+  } else if (
     usageType === SKILL_USAGE_ONCE_PER_ROUND ||
     (usageType === SKILL_USAGE_INTERACTIVE &&
       INTERACTIVE_ONCE_PER_ROUND.has(skillId))
   ) {
-    return {
-      ...cooldowns,
-      usedThisRound: cooldowns.usedThisRound.filter((id) => id !== skillId),
+    updated = {
+      ...updated,
+      usedThisRound: updated.usedThisRound.filter((id) => id !== skillId),
     };
   }
-  return cooldowns;
+
+  // Remove Motivation cross-hero cooldown on undo
+  if (isMotivationSkill(skillId)) {
+    updated = {
+      ...updated,
+      activeUntilNextTurn: updated.activeUntilNextTurn.filter(
+        (id) => !isMotivationSkill(id)
+      ),
+    };
+  }
+
+  return updated;
 }
 
 /**
