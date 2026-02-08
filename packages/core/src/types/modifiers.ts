@@ -513,7 +513,7 @@ export interface PossessAttackRestrictionModifier {
   readonly attackAmount: number;
 }
 
-// Attack/Block card bonus modifier (Ambush card)
+// Attack/Block card bonus modifier (Ambush card, Deadly Aim skill)
 // Grants a one-time bonus to the first Attack or Block CARD played this turn.
 // Whichever card type (attack or block) is played first consumes the modifier.
 // Only applies to deed cards (not units or skills).
@@ -522,6 +522,9 @@ export interface AttackBlockCardBonusModifier {
   readonly type: typeof EFFECT_ATTACK_BLOCK_CARD_BONUS;
   readonly attackBonus: number; // +1 (basic) or +2 (powered)
   readonly blockBonus: number; // +2 (basic) or +4 (powered)
+  /** If set, the attack bonus to use when in the Ranged/Siege phase instead of attackBonus.
+   *  Used by Deadly Aim (+1 in Ranged/Siege, +2 in Attack phase). */
+  readonly rangedSiegeAttackBonus?: number;
 }
 
 // Hero damage reduction modifier (Elemental Resistance, Battle Hardened)
