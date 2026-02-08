@@ -104,6 +104,8 @@ import {
   EFFECT_WINGS_OF_NIGHT,
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   EFFECT_DECOMPOSE,
+  EFFECT_CRYSTAL_MASTERY_BASIC,
+  EFFECT_CRYSTAL_MASTERY_POWERED,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -530,6 +532,17 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve Wings of Night target is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET]: () => true,
+
+  // Crystal Mastery basic is resolvable if player owns at least one crystal below max
+  [EFFECT_CRYSTAL_MASTERY_BASIC]: (state, player) => {
+    const { red, blue, green, white } = player.crystals;
+    const MAX = 3;
+    return (red > 0 && red < MAX) || (blue > 0 && blue < MAX) ||
+      (green > 0 && green < MAX) || (white > 0 && white < MAX);
+  },
+
+  // Crystal Mastery powered is always resolvable (sets a flag)
+  [EFFECT_CRYSTAL_MASTERY_POWERED]: () => true,
 };
 
 // ============================================================================

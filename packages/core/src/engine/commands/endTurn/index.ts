@@ -30,6 +30,7 @@ import { createResetPlayer } from "./playerReset.js";
 import { processDiceReturn } from "./diceManagement.js";
 import { determineNextPlayer, setupNextPlayer } from "./turnAdvancement.js";
 import { resetManaCurseWoundTracking } from "../../effects/manaClaimEffects.js";
+import { returnSpentCrystals } from "../../effects/crystalMasteryEffects.js";
 import { processLevelUps } from "./levelUp.js";
 import { calculateRingFameBonus } from "./ringFameBonus.js";
 import { isRuleActive } from "../../modifiers/index.js";
@@ -160,9 +161,12 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         };
       }
 
+      // Crystal Mastery: return spent crystals before reset clears tracking
+      const playerAfterCrystalReturn = returnSpentCrystals(playerWithCrystal);
+
       // Calculate Ring artifacts fame bonus before reset clears spell tracking
       // This grants fame for each spell of the ring's color cast this turn
-      const ringFameResult = calculateRingFameBonus(state, playerWithCrystal);
+      const ringFameResult = calculateRingFameBonus(state, playerAfterCrystalReturn);
       const playerWithRingFame = ringFameResult.player;
 
       // Process pending level-ups BEFORE card flow so we know if we should draw

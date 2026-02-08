@@ -315,6 +315,14 @@ export {
   registerWingsOfNightEffects,
 } from "./wingsOfNightEffects.js";
 
+// Crystal Mastery effects (crystal duplication + spent crystal return)
+export {
+  handleCrystalMasteryBasic,
+  handleCrystalMasteryPowered,
+  returnSpentCrystals,
+  registerCrystalMasteryEffects,
+} from "./crystalMasteryEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

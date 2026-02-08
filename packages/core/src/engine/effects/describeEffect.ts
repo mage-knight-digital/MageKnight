@@ -37,6 +37,8 @@ import {
   EFFECT_PLACE_SKILL_IN_CENTER,
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_DECOMPOSE,
+  EFFECT_CRYSTAL_MASTERY_BASIC,
+  EFFECT_CRYSTAL_MASTERY_POWERED,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
@@ -331,6 +333,14 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     return e.mode === "basic"
       ? "Throw away an action card to gain 2 crystals of matching color"
       : "Throw away an action card to gain 1 crystal of each non-matching color";
+  },
+
+  [EFFECT_CRYSTAL_MASTERY_BASIC]: () => {
+    return "Gain a crystal of a color you already own";
+  },
+
+  [EFFECT_CRYSTAL_MASTERY_POWERED]: () => {
+    return "Crystals spent this turn are returned at end of turn";
   },
 
   [EFFECT_APPLY_RECRUIT_DISCOUNT]: (effect) => {

@@ -584,6 +584,8 @@ export class GameServer {
       woundsReceivedThisTurn: { hand: 0, discard: 0 },
       bannerOfProtectionActive: false,
       pendingBannerProtectionChoice: false,
+      spentCrystalsThisTurn: { red: 0, blue: 0, green: 0, white: 0 },
+      crystalMasteryPoweredActive: false,
     };
 
     return { player, rng: newRng };

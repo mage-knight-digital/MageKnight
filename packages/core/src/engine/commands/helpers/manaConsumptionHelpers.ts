@@ -86,7 +86,15 @@ export function consumeMana(
         ...updatedPlayer.crystals,
         [basicColor]: updatedPlayer.crystals[basicColor] - 1,
       };
-      updatedPlayer = { ...updatedPlayer, crystals: newCrystals };
+      const newSpentCrystals: Crystals = {
+        ...updatedPlayer.spentCrystalsThisTurn,
+        [basicColor]: updatedPlayer.spentCrystalsThisTurn[basicColor] + 1,
+      };
+      updatedPlayer = {
+        ...updatedPlayer,
+        crystals: newCrystals,
+        spentCrystalsThisTurn: newSpentCrystals,
+      };
       break;
     }
 
@@ -195,7 +203,15 @@ export function restoreMana(
         ...updatedPlayer.crystals,
         [basicColor]: updatedPlayer.crystals[basicColor] + 1,
       };
-      updatedPlayer = { ...updatedPlayer, crystals: newCrystals };
+      const newSpentCrystals: Crystals = {
+        ...updatedPlayer.spentCrystalsThisTurn,
+        [basicColor]: Math.max(0, updatedPlayer.spentCrystalsThisTurn[basicColor] - 1),
+      };
+      updatedPlayer = {
+        ...updatedPlayer,
+        crystals: newCrystals,
+        spentCrystalsThisTurn: newSpentCrystals,
+      };
       break;
     }
 

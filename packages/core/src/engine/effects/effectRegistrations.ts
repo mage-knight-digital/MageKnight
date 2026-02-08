@@ -52,6 +52,7 @@ import { registerMindReadEffects } from "./mindReadEffects.js";
 import { registerBannerProtectionEffects } from "./bannerProtectionEffects.js";
 import { registerWingsOfNightEffects } from "./wingsOfNightEffects.js";
 import { registerDecomposeEffects } from "./decomposeEffects.js";
+import { registerCrystalMasteryEffects } from "./crystalMasteryEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -190,4 +191,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Decompose effects (throw away action card for crystals)
   registerDecomposeEffects();
+
+  // Crystal Mastery effects (crystal duplication + spent crystal return)
+  registerCrystalMasteryEffects();
 }

@@ -64,6 +64,8 @@ import {
   EFFECT_RESOLVE_CALL_TO_ARMS_ABILITY,
   EFFECT_WINGS_OF_NIGHT,
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
+  EFFECT_CRYSTAL_MASTERY_BASIC,
+  EFFECT_CRYSTAL_MASTERY_POWERED,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
 } from "../../types/effectTypes.js";
@@ -347,6 +349,16 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
   // Move point deduction is player-level but modifier cleanup is GameState-level.
   // Commands containing this should be non-reversible.
   [EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET]: (player) => player,
+
+  // Crystal Mastery basic presents choices — no direct player state change.
+  // Actual state change is via GainCrystal (already handled above).
+  [EFFECT_CRYSTAL_MASTERY_BASIC]: (player) => player,
+
+  // Crystal Mastery powered sets a flag — reverse by clearing it.
+  [EFFECT_CRYSTAL_MASTERY_POWERED]: (player) => ({
+    ...player,
+    crystalMasteryPoweredActive: false,
+  }),
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (player, effect) => {
     const e = effect as TrackAttackDefeatFameEffect;

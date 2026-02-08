@@ -536,4 +536,14 @@ export interface Player {
   // Set to true when end turn checks detect active banner + received wounds.
   // Player must resolve this before turn can end.
   readonly pendingBannerProtectionChoice: boolean;
+
+  // Crystal Mastery: tracks crystals spent this turn (for powered effect return)
+  // Incremented whenever crystals are consumed (mana payment, sacrifice, polarize).
+  // NOT incremented for crystal-to-token conversions (crystallize is gain, not spend).
+  // Reset at end of turn via playerReset.
+  readonly spentCrystalsThisTurn: Crystals;
+
+  // Crystal Mastery: powered effect active this turn
+  // When true, at end of turn spent crystals are returned to inventory (capped at 3).
+  readonly crystalMasteryPoweredActive: boolean;
 }
