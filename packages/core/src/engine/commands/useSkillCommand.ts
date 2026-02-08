@@ -414,6 +414,10 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
   // Store the effect that was applied so we can reverse it on undo
   let appliedEffect: CardEffect | null = null;
 
+  // Snapshot of activeModifiers before effect resolution, restored on undo
+  // to remove any modifiers added by EFFECT_APPLY_MODIFIER sub-effects
+  let preEffectModifiers: GameState["activeModifiers"] | null = null;
+
   // Check if the skill's effect contains non-reversible sub-effects (e.g., draw cards).
   // If so, the command sets an undo checkpoint to prevent exploit via undo+reuse.
   // Custom handlers that draw cards must also be marked non-reversible.
@@ -484,6 +488,9 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
         } else {
           appliedEffect = skill.effect;
         }
+
+        // Snapshot modifiers before resolution so undo can restore them
+        preEffectModifiers = updatedState.activeModifiers;
 
         // Resolve the effect using the standard effect resolution system
         const effectResult = resolveEffect(updatedState, playerId, skill.effect);
@@ -576,8 +583,11 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
 
+      // Restore activeModifiers to pre-effect snapshot if modifiers were added
+      const activeModifiers = preEffectModifiers ?? state.activeModifiers;
+
       return {
-        state: { ...state, players },
+        state: { ...state, players, activeModifiers },
         events: [],
       };
     },

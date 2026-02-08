@@ -50,7 +50,7 @@ import {
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
 } from "../../data/skills/index.js";
-import { CATEGORY_COMBAT } from "../../types/cards.js";
+import { CATEGORY_COMBAT, CATEGORY_MOVEMENT } from "../../types/cards.js";
 import {
   COMBAT_PHASE_ATTACK,
   COMBAT_PHASE_BLOCK,
@@ -171,9 +171,10 @@ export const validateCombatSkillInCombat: Validator = (state, _playerId, action)
   }
 
   // Check if skill is combat-only
+  // Skills with both CATEGORY_MOVEMENT and CATEGORY_COMBAT (e.g., Spirit Guides)
+  // can be used outside combat for their movement effect
   if (skill.categories.includes(CATEGORY_COMBAT)) {
-    // Must be in combat to use combat skills
-    if (!state.combat) {
+    if (!skill.categories.includes(CATEGORY_MOVEMENT) && !state.combat) {
       return invalid(
         NOT_IN_COMBAT,
         `${skill.name} can only be used during combat`

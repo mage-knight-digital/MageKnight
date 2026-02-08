@@ -66,8 +66,9 @@ import {
   SKILL_BRAEVALAR_FORKED_LIGHTNING,
   SKILL_BRAEVALAR_SHAPESHIFT,
   SKILL_BRAEVALAR_REGENERATE,
+  SKILL_KRANG_SPIRIT_GUIDES,
 } from "../../data/skills/index.js";
-import { CATEGORY_COMBAT } from "../../types/cards.js";
+import { CATEGORY_COMBAT, CATEGORY_MOVEMENT } from "../../types/cards.js";
 import {
   COMBAT_PHASE_ATTACK,
   COMBAT_PHASE_BLOCK,
@@ -137,6 +138,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_BRAEVALAR_FORKED_LIGHTNING,
   SKILL_BRAEVALAR_SHAPESHIFT,
   SKILL_BRAEVALAR_REGENERATE,
+  SKILL_KRANG_SPIRIT_GUIDES,
 ]);
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING]);
@@ -224,9 +226,13 @@ export function getSkillOptions(
     // Only include skills that have been implemented
     if (!IMPLEMENTED_SKILLS.has(skillId)) continue;
 
-    // Combat skills (CATEGORY_COMBAT) are only available during combat
+    // Combat skills (CATEGORY_COMBAT) are only available during combat,
+    // unless they also have CATEGORY_MOVEMENT (e.g., Spirit Guides grants
+    // Move 1 outside combat and +1 Block modifier usable in Block phase)
     if (skill.categories.includes(CATEGORY_COMBAT) && !inCombat) {
-      continue;
+      if (!skill.categories.includes(CATEGORY_MOVEMENT)) {
+        continue;
+      }
     }
 
     // Block skills are only available during block phase
