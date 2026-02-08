@@ -45,6 +45,7 @@ import {
   SKILL_GOLDYX_GLITTERING_FORTUNE,
   SKILL_GOLDYX_UNIVERSAL_POWER,
   SKILL_GOLDYX_SOURCE_OPENING,
+  SKILL_WOLFHAWK_REFRESHING_BATH,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -328,6 +329,15 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_NOT_IN_COMBAT,
         "Source Opening cannot be used during combat"
+      );
+    }
+  }
+
+  if (useSkillAction.skillId === SKILL_WOLFHAWK_REFRESHING_BATH) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "Refreshing Bath cannot be used during combat"
       );
     }
   }
