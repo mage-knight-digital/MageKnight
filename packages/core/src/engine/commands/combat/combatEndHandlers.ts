@@ -31,13 +31,15 @@ import {
   COMBAT_CONTEXT_BURN_MONASTERY,
   type CombatState,
 } from "../../../types/combat.js";
-import type { Player, Crystals } from "../../../types/player.js";
+import type { Player } from "../../../types/player.js";
 import type { HexState, Site } from "../../../types/map.js";
 import { SiteType } from "../../../types/map.js";
 import { createConquerSiteCommand } from "../conquerSiteCommand.js";
 import { queueSiteReward } from "../../helpers/rewards/index.js";
 import { discardRuinsToken } from "../../helpers/ruinsTokenHelpers.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
+import { gainCrystalWithOverflow } from "../../helpers/crystalHelpers.js";
+import type { BasicManaColor } from "@mage-knight/shared";
 
 import {
   resolvePendingDamage,
@@ -452,23 +454,18 @@ function handleRuinsTokenRewards(
         break;
       }
       case RUINS_REWARD_CRYSTALS_4: {
-        // Grant +1 crystal of each basic color directly
-        const player = getPlayerById(newState, playerId);
-        if (player) {
-          const updatedCrystals: Crystals = {
-            red: player.crystals.red + 1,
-            blue: player.crystals.blue + 1,
-            green: player.crystals.green + 1,
-            white: player.crystals.white + 1,
-          };
-          const updatedPlayer: Player = {
-            ...player,
-            crystals: updatedCrystals,
-          };
+        // Grant +1 crystal of each basic color (with overflow protection)
+        let crystalPlayer = getPlayerById(newState, playerId);
+        if (crystalPlayer) {
+          const colors: BasicManaColor[] = ["red", "blue", "green", "white"];
+          for (const color of colors) {
+            const { player: p } = gainCrystalWithOverflow(crystalPlayer, color);
+            crystalPlayer = p;
+          }
           newState = {
             ...newState,
             players: newState.players.map((p) =>
-              p.id === playerId ? updatedPlayer : p
+              p.id === playerId ? crystalPlayer! : p
             ),
           };
         }

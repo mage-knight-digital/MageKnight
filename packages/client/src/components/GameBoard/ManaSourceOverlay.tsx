@@ -9,7 +9,7 @@
  * onto the tray one by one with a satisfying bounce.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import {
@@ -24,7 +24,9 @@ import {
   MANA_WHITE,
   MANA_GOLD,
   MANA_BLACK,
+  BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
+import type { ManaColor, AvailableDie } from "@mage-knight/shared";
 import "./ManaSourceOverlay.css";
 
 function getManaIconUrl(color: string): string {
@@ -51,6 +53,9 @@ export function ManaSourceOverlay() {
   const player = useMyPlayer();
   const { shouldRevealManaSource, isIntroComplete } = useGameIntro();
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
+
+  // Color picker state for multi-color dice (gold/black)
+  const [colorPickerDieId, setColorPickerDieId] = useState<string | null>(null);
 
   // Track intro animation state
   // Always start hidden - will reveal after intro completes
@@ -183,6 +188,30 @@ export function ManaSourceOverlay() {
     }
   }, [state?.source.dice]);
 
+  // Get available dice from validActions (memoized to avoid re-creating on every render)
+  const availableDice: readonly AvailableDie[] = useMemo(() =>
+    state?.validActions && "mana" in state.validActions
+      ? state.validActions.mana.availableDice
+      : [],
+    [state?.validActions],
+  );
+
+  const handleDieClick = useCallback((_dieId: string, dieColor: ManaColor) => {
+    // Basic color dice: no standalone action needed (mana sourced inline via card play)
+    const isBasic = (BASIC_MANA_COLORS as readonly string[]).includes(dieColor);
+    if (isBasic) {
+      setColorPickerDieId(null);
+      return;
+    }
+
+    // Gold or black dice can produce multiple colors - show picker for display
+    setColorPickerDieId(_dieId);
+  }, []);
+
+  const handleColorPickerSelect = useCallback((_color: ManaColor) => {
+    setColorPickerDieId(null);
+  }, []);
+
   if (!state) return null;
 
   const myId = player?.id;
@@ -218,6 +247,9 @@ export function ManaSourceOverlay() {
           const staggerDelay =
             staggerIndex >= 0 ? staggerIndex * STAGGER_DELAY_MS : 0;
 
+          // Check if this die is available to click
+          const isClickable = availableDice.some((d) => d.dieId === die.id);
+
           const classNames = [
             "mana-source-overlay__die",
             // Stolen dice get distinct "stolen" styling instead of generic "unavailable"
@@ -226,6 +258,7 @@ export function ManaSourceOverlay() {
               : isUnavailable && "mana-source-overlay__die--unavailable",
             isRolling && "mana-source-overlay__die--rolling",
             isTakenAnimating && "mana-source-overlay__die--taken",
+            isClickable && "mana-source-overlay__die--clickable",
           ]
             .filter(Boolean)
             .join(" ");
@@ -242,6 +275,8 @@ export function ManaSourceOverlay() {
             titleText = `${die.color} (used by you)`;
           } else if (isTakenByOther) {
             titleText = `${die.color} (taken)`;
+          } else if (isClickable) {
+            titleText = `Click to use ${die.color} mana`;
           }
 
           return (
@@ -253,6 +288,10 @@ export function ManaSourceOverlay() {
                 isRolling ? { animationDelay: `${staggerDelay}ms` } : undefined
               }
               title={titleText}
+              onClick={isClickable ? () => handleDieClick(die.id, die.color) : undefined}
+              role={isClickable ? "button" : undefined}
+              tabIndex={isClickable ? 0 : undefined}
+              onKeyDown={isClickable ? (e) => { if (e.key === "Enter" || e.key === " ") handleDieClick(die.id, die.color); } : undefined}
             >
               <img
                 src={getManaIconUrl(die.color)}
@@ -268,6 +307,22 @@ export function ManaSourceOverlay() {
                 <span className="mana-source-overlay__die-badge" title="On tactic card">
                   📜
                 </span>
+              )}
+              {/* Color picker popup for gold/black dice */}
+              {colorPickerDieId === die.id && (
+                <div className="mana-source-overlay__color-picker">
+                  {[MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE].map((color) => (
+                    <button
+                      key={color}
+                      className={`mana-source-overlay__color-option mana-source-overlay__color-option--${color}`}
+                      onClick={(e) => { e.stopPropagation(); handleColorPickerSelect(color); }}
+                      title={color}
+                      type="button"
+                    >
+                      <img src={getManaIconUrl(color)} alt={color} />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           );

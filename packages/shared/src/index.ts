@@ -102,9 +102,6 @@ export type {
   PlayCardAction,
   PlayCardSidewaysAction,
   ManaSourceInfo,
-  // Mana usage
-  UseManaDeieAction,
-  ConvertCrystalAction,
   // Unit activation
   ActivateUnitAction,
   // Skill usage

@@ -88,6 +88,7 @@ import type {
 import type { GainAttackBowResolvedEffect, WoundActivatingUnitEffect } from "../../types/cards.js";
 import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION, elementToPropertyKey } from "./atomicEffects.js";
+import { MAX_CRYSTALS_PER_COLOR } from "../helpers/crystalHelpers.js";
 import { toAttackElement, toAttackType } from "../combat/attackFameTracking.js";
 
 // ============================================================================
@@ -204,7 +205,19 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
 
   [EFFECT_GAIN_CRYSTAL]: (player, effect) => {
     const e = effect as GainCrystalEffect;
-    // Reverse crystal gain (don't go below 0)
+    // If crystals are at max, the forward pass overflowed to a mana token.
+    // Reverse by removing an overflow token instead of decrementing crystals.
+    if (player.crystals[e.color] >= MAX_CRYSTALS_PER_COLOR) {
+      const tokenIndex = player.pureMana.findIndex((t) => t.color === e.color);
+      if (tokenIndex !== -1) {
+        const newPureMana = [...player.pureMana];
+        newPureMana.splice(tokenIndex, 1);
+        return { ...player, pureMana: newPureMana };
+      }
+      // Token already spent — can't reverse perfectly, return unchanged
+      return player;
+    }
+    // Normal case: decrement crystal
     return {
       ...player,
       crystals: {
@@ -248,13 +261,16 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
 
   [EFFECT_CRYSTALLIZE_COLOR]: (player, effect) => {
     const e = effect as CrystallizeColorEffect;
-    // Reverse crystallize: remove the crystal and restore the mana token
+    // Reverse crystallize: remove the crystal and restore the mana token.
+    // If at max crystals during forward pass, no crystal was gained (token was
+    // just consumed), so we only restore the token without decrementing crystals.
+    const crystalWasGained = player.crystals[e.color] > 0 &&
+      player.crystals[e.color] <= MAX_CRYSTALS_PER_COLOR;
     return {
       ...player,
-      crystals: {
-        ...player.crystals,
-        [e.color]: Math.max(0, player.crystals[e.color] - 1),
-      },
+      crystals: crystalWasGained
+        ? { ...player.crystals, [e.color]: player.crystals[e.color] - 1 }
+        : player.crystals,
       pureMana: [
         ...player.pureMana,
         { color: e.color, source: MANA_TOKEN_SOURCE_CARD },

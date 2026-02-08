@@ -25,7 +25,12 @@ import {
   UNASSIGN_ATTACK_ACTION,
   ASSIGN_BLOCK_ACTION,
   UNASSIGN_BLOCK_ACTION,
+  MANA_RED,
+  MANA_BLUE,
+  MANA_GREEN,
+  MANA_WHITE,
 } from "@mage-knight/shared";
+import type { BasicManaColor } from "@mage-knight/shared";
 import type {
   AssignAttackOption,
   UnassignAttackOption,
@@ -83,6 +88,7 @@ interface ElementBreakdown {
  */
 function CombatManaDisplay() {
   const player = useMyPlayer();
+  const { state } = useGame();
   if (!player) return null;
 
   const { crystals, pureMana } = player;
@@ -91,6 +97,23 @@ function CombatManaDisplay() {
 
   if (!hasCrystals && !hasTokens) return null;
 
+  // Check which crystals can be converted from validActions
+  const convertibleColors: readonly BasicManaColor[] =
+    state?.validActions && "mana" in state.validActions
+      ? state.validActions.mana.convertibleColors
+      : [];
+
+  const handleCrystalClick = (_color: BasicManaColor) => {
+    // Crystal conversion is handled inline via card play mana sourcing
+  };
+
+  const crystalEntries: { color: BasicManaColor; label: string }[] = [
+    { color: MANA_RED, label: "Red Crystal" },
+    { color: MANA_BLUE, label: "Blue Crystal" },
+    { color: MANA_GREEN, label: "Green Crystal" },
+    { color: MANA_WHITE, label: "White Crystal" },
+  ];
+
   return (
     <div className="combat-mana">
       <div className="combat-mana__label">Mana</div>
@@ -98,26 +121,23 @@ function CombatManaDisplay() {
         {/* Crystals */}
         {hasCrystals && (
           <div className="combat-mana__group">
-            {crystals.red > 0 && (
-              <span className="combat-mana__crystal combat-mana__crystal--red" title="Red Crystal">
-                {crystals.red}
-              </span>
-            )}
-            {crystals.blue > 0 && (
-              <span className="combat-mana__crystal combat-mana__crystal--blue" title="Blue Crystal">
-                {crystals.blue}
-              </span>
-            )}
-            {crystals.green > 0 && (
-              <span className="combat-mana__crystal combat-mana__crystal--green" title="Green Crystal">
-                {crystals.green}
-              </span>
-            )}
-            {crystals.white > 0 && (
-              <span className="combat-mana__crystal combat-mana__crystal--white" title="White Crystal">
-                {crystals.white}
-              </span>
-            )}
+            {crystalEntries.map(({ color, label }) => {
+              if (crystals[color] <= 0) return null;
+              const isClickable = convertibleColors.includes(color);
+              return (
+                <span
+                  key={color}
+                  className={`combat-mana__crystal combat-mana__crystal--${color}${isClickable ? " combat-mana__crystal--clickable" : ""}`}
+                  title={isClickable ? `Convert ${label} to mana token` : label}
+                  onClick={() => handleCrystalClick(color)}
+                  role={isClickable ? "button" : undefined}
+                  tabIndex={isClickable ? 0 : undefined}
+                  onKeyDown={isClickable ? (e) => { if (e.key === "Enter" || e.key === " ") handleCrystalClick(color); } : undefined}
+                >
+                  {crystals[color]}
+                </span>
+              );
+            })}
           </div>
         )}
 

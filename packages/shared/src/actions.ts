@@ -196,19 +196,6 @@ export interface PlayCardSidewaysAction {
     | typeof PLAY_SIDEWAYS_AS_BLOCK;
 }
 
-// Mana usage actions
-export const USE_MANA_DIE_ACTION = "USE_MANA_DIE" as const;
-export interface UseManaDeieAction {
-  readonly type: typeof USE_MANA_DIE_ACTION;
-  readonly dieId: string;
-}
-
-export const CONVERT_CRYSTAL_ACTION = "CONVERT_CRYSTAL" as const;
-export interface ConvertCrystalAction {
-  readonly type: typeof CONVERT_CRYSTAL_ACTION;
-  readonly color: BasicManaColor;
-}
-
 // Unit activation
 export const ACTIVATE_UNIT_ACTION = "ACTIVATE_UNIT" as const;
 export interface ActivateUnitAction {
@@ -789,9 +776,6 @@ export type PlayerAction =
   // Card playing
   | PlayCardAction
   | PlayCardSidewaysAction
-  // Mana usage
-  | UseManaDeieAction
-  | ConvertCrystalAction
   // Unit activation
   | ActivateUnitAction
   // Skill usage

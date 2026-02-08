@@ -10,13 +10,15 @@ export const MANA_TOKEN_SOURCE_CARD = "card" as const;
 export const MANA_TOKEN_SOURCE_SKILL = "skill" as const;
 export const MANA_TOKEN_SOURCE_SITE = "site" as const;
 export const MANA_TOKEN_SOURCE_TACTIC = "tactic" as const;
+export const MANA_TOKEN_SOURCE_CRYSTAL = "crystal" as const;
 
 export type ManaTokenSource =
   | typeof MANA_TOKEN_SOURCE_DIE
   | typeof MANA_TOKEN_SOURCE_CARD
   | typeof MANA_TOKEN_SOURCE_SKILL
   | typeof MANA_TOKEN_SOURCE_SITE
-  | typeof MANA_TOKEN_SOURCE_TACTIC;
+  | typeof MANA_TOKEN_SOURCE_TACTIC
+  | typeof MANA_TOKEN_SOURCE_CRYSTAL;
 
 // === Action sub-unions ===
 export const MANA_SOURCE_DIE = "die" as const;

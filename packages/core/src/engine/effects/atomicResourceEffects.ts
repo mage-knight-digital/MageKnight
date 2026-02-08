@@ -14,6 +14,7 @@ import type { ManaColor, BasicManaColor } from "@mage-knight/shared";
 import type { EffectResolutionResult } from "./types.js";
 import { MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicHelpers.js";
+import { gainCrystalWithOverflow } from "../helpers/crystalHelpers.js";
 
 // ============================================================================
 // EFFECT HANDLERS
@@ -99,27 +100,19 @@ export function applyGainCrystal(
   player: Player,
   color: BasicManaColor
 ): EffectResolutionResult {
-  const MAX_CRYSTALS_PER_COLOR = 3;
-  const current = player.crystals[color];
-  if (current >= MAX_CRYSTALS_PER_COLOR) {
-    return {
-      state,
-      description: `Already at max ${color} crystals`,
-    };
+  const { player: updatedPlayer, crystalsGained, tokensGained } =
+    gainCrystalWithOverflow(player, color);
+
+  if (crystalsGained === 0 && tokensGained === 0) {
+    return { state, description: `Already at max ${color} crystals` };
   }
 
-  const updatedCrystals = {
-    ...player.crystals,
-    [color]: current + 1,
-  };
-
-  const updatedPlayer: Player = {
-    ...player,
-    crystals: updatedCrystals,
-  };
+  const description = tokensGained > 0
+    ? `${color} crystal at max — gained ${color} mana token instead`
+    : `Gained ${color} crystal`;
 
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),
-    description: `Gained ${color} crystal`,
+    description,
   };
 }

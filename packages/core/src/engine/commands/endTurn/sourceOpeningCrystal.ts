@@ -13,13 +13,12 @@
  */
 
 import type { GameState } from "../../../state/GameState.js";
-import type { Player, Crystals } from "../../../types/player.js";
+import type { Player } from "../../../types/player.js";
 import type { BasicManaColor } from "@mage-knight/shared";
 import { BASIC_MANA_COLORS } from "@mage-knight/shared";
 import type { ManaColor } from "@mage-knight/shared";
 import type { SourceDieId } from "../../../types/mana.js";
-
-const MAX_CRYSTALS_PER_COLOR = 3;
+import { gainCrystalWithOverflow } from "../../helpers/crystalHelpers.js";
 
 function isBasicColor(color: ManaColor): color is BasicManaColor {
   return (BASIC_MANA_COLORS as readonly ManaColor[]).includes(color);
@@ -84,24 +83,9 @@ export function processSourceOpeningCrystal(
   }
 
   const owner = state.players[ownerIndex]!;
-  const currentCrystals = owner.crystals[die.color];
-  if (currentCrystals >= MAX_CRYSTALS_PER_COLOR) {
-    // Already at max — no crystal granted, but still offer reroll choice
-    return {
-      state: { ...state, sourceOpeningCenter: null },
-      extraDieId: extraDieId as SourceDieId,
-    };
-  }
 
-  const updatedCrystals: Crystals = {
-    ...owner.crystals,
-    [die.color]: currentCrystals + 1,
-  };
-
-  const updatedOwner: Player = {
-    ...owner,
-    crystals: updatedCrystals,
-  };
+  // Grant crystal with overflow protection (overflow -> mana token)
+  const { player: updatedOwner } = gainCrystalWithOverflow(owner, die.color);
 
   const players = [...state.players];
   players[ownerIndex] = updatedOwner;

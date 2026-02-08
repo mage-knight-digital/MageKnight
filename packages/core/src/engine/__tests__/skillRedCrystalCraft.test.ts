@@ -18,6 +18,7 @@ import {
   USE_SKILL_ACTION,
   SKILL_USED,
   MANA_RED,
+  MANA_BLUE,
   MANA_TOKEN_SOURCE_CARD,
   CARD_MARCH,
   getSkillsFromValidActions,
@@ -99,8 +100,13 @@ describe("Red Crystal Craft skill", () => {
 
       expect(result.state.players[0].crystals.blue).toBe(3);
 
-      expect(result.state.players[0].pureMana).toHaveLength(1);
+      // Overflow: blue crystal overflows to blue mana token + red mana token from skill
+      expect(result.state.players[0].pureMana).toHaveLength(2);
       expect(result.state.players[0].pureMana[0]).toEqual({
+        color: MANA_BLUE,
+        source: MANA_TOKEN_SOURCE_CARD,
+      });
+      expect(result.state.players[0].pureMana[1]).toEqual({
         color: MANA_RED,
         source: MANA_TOKEN_SOURCE_CARD,
       });

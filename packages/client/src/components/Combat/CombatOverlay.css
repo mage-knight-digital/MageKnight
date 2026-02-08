@@ -412,6 +412,21 @@
   color: #3a3020;
 }
 
+/* Clickable crystals - convert to mana token */
+.combat-mana__crystal--clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.combat-mana__crystal--clickable:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.combat-mana__crystal--clickable:active {
+  transform: scale(0.95);
+}
+
 /* Tokens - small colored circles */
 .combat-mana__token {
   width: 14px;
