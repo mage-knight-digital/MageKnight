@@ -414,6 +414,11 @@ export const EFFECT_RESOLVE_BLOOD_POWERED_WOUND = "resolve_blood_powered_wound" 
 // Internal: After AA selection, resolve the AA's powered effect (card stays in offer).
 export const EFFECT_RESOLVE_BLOOD_POWERED_USE_AA = "resolve_blood_powered_use_aa" as const;
 
+// === Hand Limit Bonus Effect ===
+// Increases the player's hand limit for the next draw-up.
+// Used by Temporal Portal (+1 basic, +1 or +2 powered choice).
+export const EFFECT_HAND_LIMIT_BONUS = "hand_limit_bonus" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.

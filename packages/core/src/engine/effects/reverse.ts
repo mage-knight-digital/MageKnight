@@ -70,6 +70,7 @@ import {
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
   EFFECT_GAIN_ATTACK_BOW_RESOLVED,
+  EFFECT_HAND_LIMIT_BONUS,
 } from "../../types/effectTypes.js";
 import type {
   GainMoveEffect,
@@ -85,7 +86,7 @@ import type {
   PayManaEffect,
   TrackAttackDefeatFameEffect,
 } from "../../types/effectTypes.js";
-import type { GainAttackBowResolvedEffect, WoundActivatingUnitEffect } from "../../types/cards.js";
+import type { GainAttackBowResolvedEffect, WoundActivatingUnitEffect, HandLimitBonusEffect } from "../../types/cards.js";
 import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION, elementToPropertyKey } from "./atomicEffects.js";
 import { MAX_CRYSTALS_PER_COLOR } from "../helpers/crystalHelpers.js";
@@ -399,6 +400,14 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
     ...player,
     crystalMasteryPoweredActive: false,
   }),
+
+  [EFFECT_HAND_LIMIT_BONUS]: (player, effect) => {
+    const e = effect as HandLimitBonusEffect;
+    return {
+      ...player,
+      meditationHandLimitBonus: Math.max(0, player.meditationHandLimitBonus - e.bonus),
+    };
+  },
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (player, effect) => {
     const e = effect as TrackAttackDefeatFameEffect;

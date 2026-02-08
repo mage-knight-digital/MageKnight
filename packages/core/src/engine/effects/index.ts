@@ -357,6 +357,12 @@ export {
   registerBloodOfAncientsEffects,
 } from "./bloodOfAncientsEffects.js";
 
+// Hand limit bonus effects (Temporal Portal)
+export {
+  applyHandLimitBonus,
+  registerHandLimitBonusEffects,
+} from "./handLimitBonusEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

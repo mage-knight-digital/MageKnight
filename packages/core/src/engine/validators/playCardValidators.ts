@@ -20,6 +20,7 @@ import {
   CARD_EFFECT_NOT_RESOLVABLE,
   RANGED_ATTACK_ALL_FORTIFIED,
   TIME_BENDING_CHAIN_PREVENTED,
+  ALREADY_ACTED,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
@@ -32,6 +33,7 @@ import {
   isRangedAttackUnusable,
   isTimeBendingChainPrevented,
   isWoundCardId,
+  cardConsumesAction,
 } from "../rules/cardPlay.js";
 import { isRuleActive } from "../modifiers/index.js";
 import { RULE_MOVE_CARDS_IN_COMBAT } from "../../types/modifierConstants.js";
@@ -245,6 +247,40 @@ export function validateTimeBendingChain(
     return invalid(
       TIME_BENDING_CHAIN_PREVENTED,
       "Cannot play Space Bending powered during a Time Bent turn"
+    );
+  }
+
+  return valid();
+}
+
+// Cards with CATEGORY_ACTION cannot be played when the player has already taken an action
+export function validateActionCardNotAlreadyActed(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== PLAY_CARD_ACTION) {
+    return valid();
+  }
+
+  const card = getCard(action.cardId);
+  if (!card) {
+    return valid();
+  }
+
+  if (!cardConsumesAction(card)) {
+    return valid();
+  }
+
+  const player = getPlayerById(state, playerId);
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
+  if (player.hasTakenActionThisTurn) {
+    return invalid(
+      ALREADY_ACTED,
+      "This card can only be played as your action, and you have already taken an action this turn"
     );
   }
 

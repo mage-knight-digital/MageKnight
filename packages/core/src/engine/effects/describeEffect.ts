@@ -93,6 +93,7 @@ import {
   EFFECT_BLOOD_OF_ANCIENTS_POWERED,
   EFFECT_RESOLVE_BLOOD_POWERED_WOUND,
   EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
+  EFFECT_HAND_LIMIT_BONUS,
 } from "../../types/effectTypes.js";
 import type {
   GainAttackBowResolvedEffect,
@@ -603,6 +604,11 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_RESOLVE_BLOOD_POWERED_USE_AA]: (effect) => {
     const e = effect as import("../../types/cards.js").ResolveBloodPoweredUseAAEffect;
     return `Use ${e.cardName}'s powered effect`;
+  },
+
+  [EFFECT_HAND_LIMIT_BONUS]: (effect) => {
+    const e = effect as import("../../types/cards.js").HandLimitBonusEffect;
+    return `Hand limit +${e.bonus} on next draw`;
   },
 };
 

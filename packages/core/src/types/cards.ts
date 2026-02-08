@@ -142,6 +142,7 @@ import {
   EFFECT_BLOOD_OF_ANCIENTS_POWERED,
   EFFECT_RESOLVE_BLOOD_POWERED_WOUND,
   EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
+  EFFECT_HAND_LIMIT_BONUS,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1644,6 +1645,17 @@ export interface ResolveBloodPoweredUseAAEffect {
   readonly cardName: string;
 }
 
+/**
+ * Hand limit bonus effect.
+ * Increases the player's hand limit for the next draw-up.
+ * The bonus persists until consumed at end of turn (including across rounds if unused).
+ * Used by Temporal Portal basic (+1) and powered choice (+1 or +2).
+ */
+export interface HandLimitBonusEffect {
+  readonly type: typeof EFFECT_HAND_LIMIT_BONUS;
+  readonly bonus: number;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1763,7 +1775,8 @@ export type CardEffect =
   | ResolveBloodBasicGainAAEffect
   | BloodOfAncientsPoweredEffect
   | ResolveBloodPoweredWoundEffect
-  | ResolveBloodPoweredUseAAEffect;
+  | ResolveBloodPoweredUseAAEffect
+  | HandLimitBonusEffect;
 
 // === Card Definition ===
 
