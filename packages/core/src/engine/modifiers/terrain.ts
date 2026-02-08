@@ -10,6 +10,7 @@ import type {
   TerrainCostModifier,
   TerrainSafeModifier,
   TerrainProhibitionModifier,
+  ExploreCostReductionModifier,
 } from "../../types/modifiers.js";
 import type { Terrain, HexCoord } from "@mage-knight/shared";
 import { DEFAULT_MOVEMENT_COSTS, TIME_OF_DAY_DAY } from "@mage-knight/shared";
@@ -18,6 +19,7 @@ import {
   EFFECT_TERRAIN_COST,
   EFFECT_TERRAIN_SAFE,
   EFFECT_TERRAIN_PROHIBITION,
+  EFFECT_EXPLORE_COST_REDUCTION,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
   TERRAIN_ALL,
 } from "../../types/modifierConstants.js";
@@ -156,4 +158,30 @@ export function isTerrainProhibited(
   terrain: Terrain
 ): boolean {
   return getProhibitedTerrains(state, playerId).includes(terrain);
+}
+
+/**
+ * Base exploration cost (move points to reveal a new tile).
+ */
+const BASE_EXPLORE_COST = 2;
+
+/**
+ * Get the effective exploration cost for a player.
+ * Accounts for modifiers that reduce the cost of exploring (e.g., Feral Allies).
+ * The cost cannot go below 0.
+ */
+export function getEffectiveExploreCost(
+  state: GameState,
+  playerId: string
+): number {
+  const reductionModifiers = getModifiersForPlayer(state, playerId)
+    .filter((m) => m.effect.type === EFFECT_EXPLORE_COST_REDUCTION)
+    .map((m) => m.effect as ExploreCostReductionModifier);
+
+  let cost = BASE_EXPLORE_COST;
+  for (const mod of reductionModifiers) {
+    cost += mod.amount;
+  }
+
+  return Math.max(0, cost);
 }

@@ -41,6 +41,8 @@ import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_COMBAT,
   EFFECT_DEFEAT_IF_BLOCKED,
+  EFFECT_ENEMY_STAT,
+  ENEMY_STAT_ATTACK,
   SCOPE_ONE_ENEMY,
   SOURCE_CARD,
 } from "../../types/modifierConstants.js";
@@ -226,28 +228,34 @@ export function resolveCombatEnemyTarget(
   let currentState = state;
   const descriptions: string[] = [];
 
-  // Apply modifiers from template (blocked by Arcane Immunity)
+  // Apply modifiers from template
+  // Arcane Immunity blocks most modifiers, but NOT attack reductions
+  // (attack reductions are attack modifications per FAQ Arcane Immunity S1)
   if (effect.template.modifiers) {
-    if (hasArcaneImmunity) {
-      // Arcane Immunity blocks non-Attack/Block effects
-      descriptions.push(`${effect.enemyName} has Arcane Immunity (modifiers blocked)`);
-    } else {
-      for (const mod of effect.template.modifiers) {
-        currentState = addModifier(currentState, {
-          source: {
-            type: SOURCE_CARD,
-            cardId: (sourceCardId ?? "unknown") as CardId,
-            playerId,
-          },
-          duration: mod.duration ?? DURATION_COMBAT,
-          scope: { type: SCOPE_ONE_ENEMY, enemyId: effect.enemyInstanceId },
-          effect: mod.modifier,
-          createdAtRound: currentState.round,
-          createdByPlayerId: playerId,
-        });
-        if (mod.description) {
-          descriptions.push(mod.description);
-        }
+    for (const mod of effect.template.modifiers) {
+      // Check if this modifier is blocked by Arcane Immunity
+      const isAttackReduction =
+        mod.modifier.type === EFFECT_ENEMY_STAT &&
+        mod.modifier.stat === ENEMY_STAT_ATTACK;
+      if (hasArcaneImmunity && !isAttackReduction) {
+        descriptions.push(`${effect.enemyName} has Arcane Immunity (modifier blocked)`);
+        continue;
+      }
+
+      currentState = addModifier(currentState, {
+        source: {
+          type: SOURCE_CARD,
+          cardId: (sourceCardId ?? "unknown") as CardId,
+          playerId,
+        },
+        duration: mod.duration ?? DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: effect.enemyInstanceId },
+        effect: mod.modifier,
+        createdAtRound: currentState.round,
+        createdByPlayerId: playerId,
+      });
+      if (mod.description) {
+        descriptions.push(mod.description);
       }
     }
   }

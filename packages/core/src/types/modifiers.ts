@@ -60,6 +60,7 @@ import {
   EFFECT_LEADERSHIP_BONUS,
   EFFECT_POSSESS_ATTACK_RESTRICTION,
   EFFECT_HERO_DAMAGE_REDUCTION,
+  EFFECT_EXPLORE_COST_REDUCTION,
   LEADERSHIP_BONUS_BLOCK,
   LEADERSHIP_BONUS_ATTACK,
   LEADERSHIP_BONUS_RANGED_ATTACK,
@@ -521,6 +522,14 @@ export interface HeroDamageReductionModifier {
   )[];
 }
 
+// Explore cost reduction modifier (Braevalar's Feral Allies)
+// Reduces the move point cost of exploring (revealing a new tile).
+// Base exploration cost is 2; this reduces it by the specified amount (min 0).
+export interface ExploreCostReductionModifier {
+  readonly type: typeof EFFECT_EXPLORE_COST_REDUCTION;
+  readonly amount: number; // negative = reduction (e.g., -1)
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -562,7 +571,8 @@ export type ModifierEffect =
   | BannerGloryFameTrackingModifier
   | PossessAttackRestrictionModifier
   | AttackBlockCardBonusModifier
-  | HeroDamageReductionModifier;
+  | HeroDamageReductionModifier
+  | ExploreCostReductionModifier;
 
 // === Active Modifier (live in game state) ===
 

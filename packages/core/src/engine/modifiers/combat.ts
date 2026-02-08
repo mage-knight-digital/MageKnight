@@ -147,18 +147,16 @@ export function getEffectiveEnemyArmor(
 /**
  * Get effective enemy attack after modifiers.
  *
- * Note: Arcane Immunity blocks attack modification effects (non-Attack/Block effect).
+ * Note: Arcane Immunity does NOT block attack reductions per FAQ ruling
+ * (Arcane Immunity S1: attack reductions are attack modifications, not
+ * non-Attack/non-Block effects). This differs from armor reductions
+ * which ARE blocked by Arcane Immunity.
  */
 export function getEffectiveEnemyAttack(
   state: GameState,
   enemyId: string,
   baseAttack: number
 ): number {
-  // Arcane Immunity blocks attack modification effects
-  if (hasArcaneImmunity(state, enemyId)) {
-    return baseAttack;
-  }
-
   const modifiers = getModifiersForEnemy(state, enemyId)
     .filter(
       (m) =>

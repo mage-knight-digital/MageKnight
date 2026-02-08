@@ -38,6 +38,7 @@ export {
   isTerrainSafe,
   getProhibitedTerrains,
   isTerrainProhibited,
+  getEffectiveExploreCost,
 } from "./terrain.js";
 
 // Unit effective values

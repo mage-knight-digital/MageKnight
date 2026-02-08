@@ -656,7 +656,7 @@ describe("Shocktroops Unit", () => {
       expect(assignableUnits[0].unitInstanceId).toBe("shocktroops_1");
     });
 
-    it("should allow targeting Arcane Immune enemy (attack reduction blocked but redirect works)", () => {
+    it("should allow targeting Arcane Immune enemy (attack reduction works, redirect works)", () => {
       const unit = createPlayerUnit(UNIT_SHOCKTROOPS, "shocktroops_1");
       const player = createTestPlayer({
         units: [unit],
@@ -677,15 +677,15 @@ describe("Shocktroops Unit", () => {
         abilityIndex: 2,
       });
 
-      // Attack reduction should be blocked by Arcane Immunity
+      // Attack reduction bypasses Arcane Immunity (FAQ Arcane Immunity S1)
       const effectiveAttack = getEffectiveEnemyAttack(
         result.state,
         "enemy_0",
         sorcererDef.attack
       );
-      expect(effectiveAttack).toBe(sorcererDef.attack); // Unchanged
+      expect(effectiveAttack).toBe(sorcererDef.attack - 3); // Reduced by 3
 
-      // But damage redirect should still work (not blocked by AI)
+      // Damage redirect should also work (not blocked by AI)
       expect(result.state.combat?.damageRedirects["enemy_0"]).toBe("shocktroops_1");
     });
 

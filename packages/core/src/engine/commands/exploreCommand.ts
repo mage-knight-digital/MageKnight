@@ -27,6 +27,7 @@ import type { Player } from "../../types/player.js";
 import { placeTile, TILE_DEFINITIONS } from "../../data/tiles/index.js";
 import { calculateTilePlacement } from "../explore/index.js";
 import { EXPLORE_COMMAND } from "./commandTypes.js";
+import { getEffectiveExploreCost } from "../modifiers/index.js";
 import { drawEnemiesForHex, drawEnemy } from "../helpers/enemy/index.js";
 import {
   countMonasteries,
@@ -156,8 +157,7 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
           : state.map.tileDeck.core,
       };
 
-      // Deduct explore cost (2 move points from safe space)
-      // FUTURE: Cost varies if exploring from dangerous space
+      // Deduct explore cost (base 2, reduced by modifiers like Feral Allies)
       const playerIndex = state.players.findIndex(
         (p) => p.id === params.playerId
       );
@@ -166,13 +166,15 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
+      const exploreCost = getEffectiveExploreCost(state, params.playerId);
+
       // Award fame for exploring (configurable per scenario)
       const famePerTile = state.scenarioConfig.famePerTileExplored;
       const newFame = player.fame + famePerTile;
 
       const updatedPlayer: Player = {
         ...player,
-        movePoints: player.movePoints - 2,
+        movePoints: player.movePoints - exploreCost,
         fame: newFame,
       };
       const updatedPlayers = [...state.players];
