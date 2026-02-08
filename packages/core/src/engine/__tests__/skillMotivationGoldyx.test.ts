@@ -18,6 +18,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, type MageKnightEngine } from "../MageKnightEngine.js";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { createUseSkillCommand } from "../commands/useSkillCommand.js";
 import {
   USE_SKILL_ACTION,
   SKILL_USED,
@@ -31,9 +32,12 @@ import {
   getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
-import { SKILL_GOLDYX_MOTIVATION } from "../../data/skills/index.js";
-import { SKILL_TOVAK_MOTIVATION } from "../../data/skills/index.js";
-import { SKILL_ARYTHEA_MOTIVATION } from "../../data/skills/index.js";
+import {
+  SKILL_GOLDYX_MOTIVATION,
+  SKILL_TOVAK_MOTIVATION,
+  SKILL_ARYTHEA_MOTIVATION,
+  SKILL_TOVAK_WHO_NEEDS_MAGIC,
+} from "../../data/skills/index.js";
 import { getValidActions } from "../validActions/index.js";
 
 describe("Motivation skill (Goldyx)", () => {
@@ -567,8 +571,7 @@ describe("Motivation skill (Goldyx)", () => {
       });
     });
 
-    it("should reject non-Motivation skill on another player's turn", () => {
-      // Verify that only Motivation skills bypass the turn check
+    it("should allow other heroes' Motivation on another player's turn", () => {
       const player1 = createTestPlayer({
         id: "player1",
         hero: Hero.Tovak,
@@ -602,6 +605,43 @@ describe("Motivation skill (Goldyx)", () => {
       expect(result.events).toContainEqual(
         expect.objectContaining({
           type: SKILL_USED,
+        })
+      );
+    });
+
+    it("should reject non-Motivation skill on another player's turn", () => {
+      // Who Needs Magic (non-Motivation) should be blocked on another's turn
+      const player1 = createTestPlayer({
+        id: "player1",
+        hero: Hero.Tovak,
+        skills: [SKILL_TOVAK_WHO_NEEDS_MAGIC],
+        skillCooldowns: {
+          usedThisRound: [],
+          usedThisTurn: [],
+          usedThisCombat: [],
+          activeUntilNextTurn: [],
+        },
+        hand: [CARD_MARCH],
+      });
+      const player2 = createTestPlayer({
+        id: "player2",
+        hero: Hero.Arythea,
+        position: { q: 1, r: 0 },
+      });
+      const state = createTestGameState({
+        players: [player1, player2],
+        turnOrder: ["player2", "player1"],
+        currentPlayerIndex: 0, // player2's turn
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_TOVAK_WHO_NEEDS_MAGIC,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
         })
       );
     });
@@ -701,6 +741,50 @@ describe("Motivation skill (Goldyx)", () => {
 
       // Hand should still have drawn cards
       expect(afterUndo.state.players[0].hand).toHaveLength(3);
+    });
+
+    it("should clear Motivation cooldown on command undo", () => {
+      // Test the undo path directly via command (since engine blocks undo for irreversible)
+      const player = createTestPlayer({
+        hero: Hero.Goldyx,
+        skills: [SKILL_GOLDYX_MOTIVATION],
+        skillCooldowns: {
+          usedThisRound: [],
+          usedThisTurn: [],
+          usedThisCombat: [],
+          activeUntilNextTurn: [],
+        },
+        hand: [CARD_MARCH],
+        deck: [CARD_STAMINA, CARD_RAGE],
+        pureMana: [],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const command = createUseSkillCommand({
+        playerId: "player1",
+        skillId: SKILL_GOLDYX_MOTIVATION,
+      });
+
+      // Execute the command
+      const executeResult = command.execute(state);
+
+      // Verify cooldowns were set
+      expect(
+        executeResult.state.players[0].skillCooldowns.activeUntilNextTurn
+      ).toContain(SKILL_GOLDYX_MOTIVATION);
+
+      // Undo the command directly
+      const undoResult = command.undo(executeResult.state);
+
+      // activeUntilNextTurn should be cleared
+      expect(
+        undoResult.state.players[0].skillCooldowns.activeUntilNextTurn
+      ).toHaveLength(0);
+
+      // usedThisRound should be cleared
+      expect(
+        undoResult.state.players[0].skillCooldowns.usedThisRound
+      ).not.toContain(SKILL_GOLDYX_MOTIVATION);
     });
   });
 });
