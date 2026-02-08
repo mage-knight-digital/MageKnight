@@ -87,6 +87,12 @@ import {
   EFFECT_MAGIC_TALENT_POWERED,
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
+  EFFECT_BLOOD_OF_ANCIENTS_BASIC,
+  EFFECT_RESOLVE_BLOOD_BASIC_SELECT_AA,
+  EFFECT_RESOLVE_BLOOD_BASIC_GAIN_AA,
+  EFFECT_BLOOD_OF_ANCIENTS_POWERED,
+  EFFECT_RESOLVE_BLOOD_POWERED_WOUND,
+  EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
 } from "../../types/effectTypes.js";
 import type {
   GainAttackBowResolvedEffect,
@@ -571,6 +577,32 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA]: (effect) => {
     const e = effect as import("../../types/cards.js").ResolveMagicTalentSpellManaEffect;
     return `Pay ${e.manaSource.color} mana to cast ${e.spellName}`;
+  },
+
+  [EFFECT_BLOOD_OF_ANCIENTS_BASIC]: () =>
+    "Gain a Wound, pay mana, gain an AA of that color from the offer",
+
+  [EFFECT_RESOLVE_BLOOD_BASIC_SELECT_AA]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveBloodBasicSelectAAEffect;
+    return `Pay ${e.paidColor} mana for AA acquisition`;
+  },
+
+  [EFFECT_RESOLVE_BLOOD_BASIC_GAIN_AA]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveBloodBasicGainAAEffect;
+    return `Gain ${e.cardName} from the AA Offer`;
+  },
+
+  [EFFECT_BLOOD_OF_ANCIENTS_POWERED]: () =>
+    "Gain a Wound, use the powered effect of any AA in the offer for free",
+
+  [EFFECT_RESOLVE_BLOOD_POWERED_WOUND]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveBloodPoweredWoundEffect;
+    return `Wound to ${e.destination}`;
+  },
+
+  [EFFECT_RESOLVE_BLOOD_POWERED_USE_AA]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveBloodPoweredUseAAEffect;
+    return `Use ${e.cardName}'s powered effect`;
   },
 };
 

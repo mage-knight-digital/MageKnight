@@ -352,6 +352,11 @@ export {
   registerMagicTalentEffects,
 } from "./magicTalentEffects.js";
 
+// Blood of Ancients effects (wound cost + AA offer interaction)
+export {
+  registerBloodOfAncientsEffects,
+} from "./bloodOfAncientsEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

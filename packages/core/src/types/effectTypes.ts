@@ -400,6 +400,20 @@ export const EFFECT_SHAPESHIFT_RESOLVE = "shapeshift_resolve" as const;
 // transformation modifier. Skips re-triggering the transformation choice.
 export const EFFECT_GAIN_ATTACK_BOW_RESOLVED = "gain_attack_bow_resolved" as const;
 
+// === Blood of Ancients Effects ===
+// Basic: Gain wound to hand → pay mana of any color → gain AA of that color from offer to hand.
+export const EFFECT_BLOOD_OF_ANCIENTS_BASIC = "blood_of_ancients_basic" as const;
+// Internal: After paying mana, select an AA of matching color from the offer.
+export const EFFECT_RESOLVE_BLOOD_BASIC_SELECT_AA = "resolve_blood_basic_select_aa" as const;
+// Internal: After selecting an AA, gain it to hand.
+export const EFFECT_RESOLVE_BLOOD_BASIC_GAIN_AA = "resolve_blood_basic_gain_aa" as const;
+// Powered: Gain wound to hand or discard → select any AA in offer → use its powered effect for free.
+export const EFFECT_BLOOD_OF_ANCIENTS_POWERED = "blood_of_ancients_powered" as const;
+// Internal: After wound destination choice, present AA selection.
+export const EFFECT_RESOLVE_BLOOD_POWERED_WOUND = "resolve_blood_powered_wound" as const;
+// Internal: After AA selection, resolve the AA's powered effect (card stays in offer).
+export const EFFECT_RESOLVE_BLOOD_POWERED_USE_AA = "resolve_blood_powered_use_aa" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.
