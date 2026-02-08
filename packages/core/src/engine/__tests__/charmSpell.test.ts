@@ -38,13 +38,21 @@ import {
 import { resolveEffect, isEffectResolvable } from "../effects/index.js";
 import {
   doesEnemyAttackThisCombat,
+  getPossessAttackRestriction,
+  addModifier,
 } from "../modifiers/index.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
-import { EFFECT_POSSESS_ATTACK_RESTRICTION } from "../../types/modifierConstants.js";
+import type { CardId } from "@mage-knight/shared";
+import {
+  EFFECT_POSSESS_ATTACK_RESTRICTION,
+  DURATION_COMBAT,
+  SCOPE_SELF,
+  SOURCE_CARD,
+} from "../../types/modifierConstants.js";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import {
   computeAttackPhaseOptions,
@@ -533,6 +541,86 @@ describe("Charm / Possess Spell", () => {
       const resolved = resolveEffect(result.state, "player1", choiceEffect);
 
       expect(resolved.description).toContain("fire");
+    });
+  });
+
+  // ============================================================================
+  // getPossessAttackRestriction MODIFIER QUERY
+  // ============================================================================
+
+  describe("getPossessAttackRestriction", () => {
+    it("should return 0 when no restriction modifiers exist", () => {
+      const state = createStateWithCombat([
+        createCombatEnemy("enemy_0", ENEMY_WOLF_RIDERS),
+      ]);
+
+      expect(getPossessAttackRestriction(state, "player1", "enemy_0")).toBe(0);
+    });
+
+    it("should return attack amount for possessed enemy", () => {
+      let state = createStateWithCombat([
+        createCombatEnemy("enemy_0", ENEMY_WOLF_RIDERS),
+      ]);
+
+      state = addModifier(state, {
+        source: {
+          type: SOURCE_CARD,
+          cardId: "charm" as CardId,
+          playerId: "player1",
+        },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_SELF },
+        effect: {
+          type: EFFECT_POSSESS_ATTACK_RESTRICTION,
+          possessedEnemyId: "enemy_0",
+          attackAmount: 3,
+        },
+        createdAtRound: 1,
+        createdByPlayerId: "player1",
+      });
+
+      expect(getPossessAttackRestriction(state, "player1", "enemy_0")).toBe(3);
+    });
+
+    it("should not return restriction for a different enemy", () => {
+      let state = createStateWithCombat([
+        createCombatEnemy("enemy_0", ENEMY_WOLF_RIDERS),
+        createCombatEnemy("enemy_1", ENEMY_DIGGERS),
+      ]);
+
+      state = addModifier(state, {
+        source: {
+          type: SOURCE_CARD,
+          cardId: "charm" as CardId,
+          playerId: "player1",
+        },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_SELF },
+        effect: {
+          type: EFFECT_POSSESS_ATTACK_RESTRICTION,
+          possessedEnemyId: "enemy_0",
+          attackAmount: 3,
+        },
+        createdAtRound: 1,
+        createdByPlayerId: "player1",
+      });
+
+      expect(getPossessAttackRestriction(state, "player1", "enemy_0")).toBe(3);
+      expect(getPossessAttackRestriction(state, "player1", "enemy_1")).toBe(0);
+    });
+
+    it("should be set by resolving possess on an enemy", () => {
+      const state = createStateWithCombat([
+        createCombatEnemy("enemy_0", ENEMY_WOLF_RIDERS), // attack 3
+      ]);
+
+      const result = resolveEffect(state, "player1", CHARM.poweredEffect);
+      const choiceEffect = result.dynamicChoiceOptions![0]!;
+      const resolved = resolveEffect(result.state, "player1", choiceEffect);
+
+      expect(
+        getPossessAttackRestriction(resolved.state, "player1", "enemy_0")
+      ).toBe(3);
     });
   });
 });
