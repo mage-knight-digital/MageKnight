@@ -5,6 +5,10 @@
  * and should be imported from there directly.
  */
 
+// Dummy player types
+export type { DummyPlayer, PrecomputedDummyTurn } from "./dummyPlayer.js";
+export { DUMMY_PLAYER_ID, isDummyPlayer } from "./dummyPlayer.js";
+
 // Player types
 export type {
   ManaToken,

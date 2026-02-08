@@ -22,6 +22,8 @@ import { EXPIRATION_TURN_END } from "../../../types/modifierConstants.js";
 import { END_TURN_COMMAND } from "../commandTypes.js";
 import { createEndRoundCommand } from "../endRound/index.js";
 import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js";
+import { isDummyPlayer } from "../../../types/dummyPlayer.js";
+import { executeDummyPlayerTurn } from "../dummyTurnCommand.js";
 
 import type { EndTurnCommandParams } from "./types.js";
 import { checkMagicalGladeWound, processMineRewards, checkCrystalJoyReclaim, checkSteadyTempoDeckPlacement, checkBannerProtectionWoundRemoval } from "./siteChecks.js";
@@ -225,7 +227,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
       // Determine next player and track final turns
       // Pass isTimeBendingActive since the modifier was already expired above
-      const nextPlayerResult = determineNextPlayer(newState, params.playerId, isTimeBendingActive);
+      let nextPlayerResult = determineNextPlayer(newState, params.playerId, isTimeBendingActive);
 
       newState = {
         ...newState,
@@ -234,11 +236,45 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         currentPlayerIndex: nextPlayerResult.currentPlayerIndex,
       };
 
+      // Handle dummy player turns: if the next player is the dummy,
+      // execute dummy turns automatically until a human is next or round ends.
+      let dummyEvents: GameEvent[] = [];
+      if (
+        !nextPlayerResult.shouldTriggerRoundEnd &&
+        nextPlayerResult.nextPlayerId &&
+        isDummyPlayer(nextPlayerResult.nextPlayerId)
+      ) {
+        const dummyResult = executeDummyPlayerTurn(newState);
+        newState = dummyResult.state;
+        dummyEvents = dummyResult.events;
+
+        if (dummyResult.announcedEndOfRound) {
+          // Dummy announced end of round — advance past dummy to next human
+          const dummyIdx = newState.turnOrder.indexOf(nextPlayerResult.nextPlayerId);
+          const nextIdx = (dummyIdx + 1) % newState.turnOrder.length;
+          nextPlayerResult = {
+            ...nextPlayerResult,
+            nextPlayerId: newState.turnOrder[nextIdx] ?? null,
+            currentPlayerIndex: nextIdx,
+          };
+        } else {
+          // Dummy took a turn — advance to next player after dummy
+          const dummyIdx = newState.turnOrder.indexOf(nextPlayerResult.nextPlayerId);
+          const nextIdx = (dummyIdx + 1) % newState.turnOrder.length;
+          nextPlayerResult = {
+            ...nextPlayerResult,
+            nextPlayerId: newState.turnOrder[nextIdx] ?? null,
+            currentPlayerIndex: nextIdx,
+          };
+        }
+      }
+
       // Set up next player if not ending round
       let gladeManaEvent: GameEvent | null = null;
       if (
         !nextPlayerResult.shouldTriggerRoundEnd &&
-        nextPlayerResult.nextPlayerId
+        nextPlayerResult.nextPlayerId &&
+        !isDummyPlayer(nextPlayerResult.nextPlayerId)
       ) {
         const currentPlayerAfterReset = newState.players.find(
           (p) => p.id === params.playerId
@@ -261,6 +297,12 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         newState = resetManaCurseWoundTracking(newState);
       }
 
+      // Update currentPlayerIndex from nextPlayerResult
+      newState = {
+        ...newState,
+        currentPlayerIndex: nextPlayerResult.currentPlayerIndex,
+      };
+
       // Build events
       const events: GameEvent[] = [
         ...crystalEvents,
@@ -271,6 +313,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
           cardsDiscarded: playAreaCount,
           cardsDrawn: cardFlow.cardsDrawn,
         },
+        ...dummyEvents,
         ...(gladeManaEvent ? [gladeManaEvent] : []),
         ...levelUpResult.events,
       ];

@@ -179,6 +179,7 @@ export type {
   ClientPendingChoice,
   ClientPendingDiscard,
   ClientPendingLevelUpReward,
+  ClientDummyPlayer,
 } from "./types/clientState.js";
 
 // Valid actions types

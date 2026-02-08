@@ -129,6 +129,9 @@ export * from "./cooperativeAssault.js";
 // Banner events
 export * from "./banners.js";
 
+// Dummy player events
+export * from "./dummyPlayer.js";
+
 // ============================================================================
 // IMPORT FOR UNION TYPE
 // ============================================================================
@@ -297,6 +300,14 @@ import type {
   BannerFortitudePreventedWoundEvent,
   BannersResetEvent,
 } from "./banners.js";
+
+import type {
+  DummyPlayerCreatedEvent,
+  DummyTurnExecutedEvent,
+  DummyEndOfRoundAnnouncedEvent,
+  DummyGainedCardEvent,
+  DummyGainedCrystalEvent,
+} from "./dummyPlayer.js";
 
 // ============================================================================
 // GAME EVENT UNION TYPE
@@ -483,7 +494,13 @@ export type GameEvent =
   | BannerDetachedEvent
   | BannerFearCancelAttackEvent
   | BannerFortitudePreventedWoundEvent
-  | BannersResetEvent;
+  | BannersResetEvent
+  // Dummy player events
+  | DummyPlayerCreatedEvent
+  | DummyTurnExecutedEvent
+  | DummyEndOfRoundAnnouncedEvent
+  | DummyGainedCardEvent
+  | DummyGainedCrystalEvent;
 
 /**
  * Type of all game event type constants.

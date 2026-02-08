@@ -65,6 +65,18 @@ export function getActionCardColor(cardId: CardId): BasicCardColor | null {
 }
 
 /**
+ * Get the color of a Spell card by ID.
+ * Returns null for non-spell cards.
+ */
+export function getSpellColor(cardId: CardId): BasicCardColor | null {
+  if (RED_SPELL_IDS.has(cardId)) return CARD_COLOR_RED;
+  if (BLUE_SPELL_IDS.has(cardId)) return CARD_COLOR_BLUE;
+  if (GREEN_SPELL_IDS.has(cardId)) return CARD_COLOR_GREEN;
+  if (WHITE_SPELL_IDS.has(cardId)) return CARD_COLOR_WHITE;
+  return null;
+}
+
+/**
  * Check if a card (Action or Spell) matches a given basic card color.
  * Action cards use their frame color. Spells use their non-black mana color.
  * Returns false for wounds, artifacts, and other uncolored cards.
