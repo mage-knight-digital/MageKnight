@@ -136,7 +136,7 @@ import {
   EFFECT_RULE_OVERRIDE,
   RULE_EXTRA_SOURCE_DIE,
 } from "../../types/modifierConstants.js";
-import { isRuleActive } from "../modifiers/index.js";
+import { countRuleActive } from "../modifiers/index.js";
 import { getSpentUnitsAtOrBelowLevel } from "./unitEffects.js";
 import { getActionCardColor } from "../helpers/cardColor.js";
 
@@ -647,8 +647,14 @@ export function canObtainBasicColorMana(state: GameState, player: Player): boole
   }
 
   // Check mana source dice (if player can use source)
-  const hasExtraSourceDie = isRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
-  const canUseSource = !player.usedManaFromSource || hasExtraSourceDie;
+  let canUseSource: boolean;
+  if (!player.usedManaFromSource) {
+    canUseSource = true;
+  } else {
+    const extraDiceCount = countRuleActive(state, player.id, RULE_EXTRA_SOURCE_DIE);
+    const maxDice = 1 + extraDiceCount;
+    canUseSource = Math.max(player.usedDieIds.length, 1) < maxDice;
+  }
 
   if (canUseSource) {
     for (const die of state.source.dice) {

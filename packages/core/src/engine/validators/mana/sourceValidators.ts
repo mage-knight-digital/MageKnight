@@ -18,8 +18,8 @@ import {
   MANA_GOLD,
   MANA_BLACK,
 } from "@mage-knight/shared";
-import { isRuleActive, hasEndlessMana } from "../../modifiers/index.js";
-import { RULE_EXTRA_SOURCE_DIE, RULE_BLACK_AS_ANY_COLOR } from "../../../types/modifierConstants.js";
+import { isRuleActive, countRuleActive, hasEndlessMana } from "../../modifiers/index.js";
+import { RULE_EXTRA_SOURCE_DIE, RULE_BLACK_AS_ANY_COLOR, RULE_GOLD_AS_ANY_COLOR } from "../../../types/modifierConstants.js";
 import {
   DIE_ALREADY_USED,
   DIE_NOT_FOUND,
@@ -92,13 +92,18 @@ export function validateManaAvailable(
         return valid();
       }
 
-      // Check player hasn't used a die this turn (unless they have extra source die modifier)
-      const hasExtraSourceDie = isRuleActive(state, playerId, RULE_EXTRA_SOURCE_DIE);
-      if (player.usedManaFromSource && !hasExtraSourceDie) {
-        return invalid(
-          DIE_ALREADY_USED,
-          "You can only use one mana die from the Source per turn"
-        );
+      // Check player hasn't exceeded die usage limit this turn
+      // Base limit: 1 die. Each RULE_EXTRA_SOURCE_DIE modifier adds 1 more.
+      if (player.usedManaFromSource) {
+        const extraSourceDiceCount = countRuleActive(state, playerId, RULE_EXTRA_SOURCE_DIE);
+        const maxDiceUsage = 1 + extraSourceDiceCount;
+        const usedCount = Math.max(player.usedDieIds.length, 1);
+        if (usedCount >= maxDiceUsage) {
+          return invalid(
+            DIE_ALREADY_USED,
+            "You can only use one mana die from the Source per turn"
+          );
+        }
       }
 
       // Check die exists and isn't depleted
@@ -119,11 +124,19 @@ export function validateManaAvailable(
       // Check die color match
       // Special case: If black die and RULE_BLACK_AS_ANY_COLOR is active,
       // the black die can produce mana of ANY color (from Mana Pull)
+      // Special case: If gold die and RULE_GOLD_AS_ANY_COLOR is active,
+      // the gold die can produce mana of any basic color
       if (die.color !== color) {
         const blackAsAnyColor = isRuleActive(state, playerId, RULE_BLACK_AS_ANY_COLOR);
+        const goldAsAnyColor = isRuleActive(state, playerId, RULE_GOLD_AS_ANY_COLOR);
 
         if (die.color === MANA_BLACK && blackAsAnyColor) {
           // Black die can be used as ANY color with Mana Pull (including gold!)
+          return valid();
+        }
+
+        if (die.color === MANA_GOLD && goldAsAnyColor) {
+          // Gold die can be used as any basic color with Mana Storm
           return valid();
         }
 
@@ -204,13 +217,17 @@ export function validateSingleManaSource(
         return valid();
       }
 
-      // Check player hasn't used a die this turn (unless they have extra source die modifier)
-      const hasExtraSourceDie = isRuleActive(state, playerId, RULE_EXTRA_SOURCE_DIE);
-      if (player.usedManaFromSource && !hasExtraSourceDie) {
-        return invalid(
-          DIE_ALREADY_USED,
-          "You can only use one mana die from the Source per turn"
-        );
+      // Check player hasn't exceeded die usage limit this turn
+      if (player.usedManaFromSource) {
+        const extraSourceDiceCount2 = countRuleActive(state, playerId, RULE_EXTRA_SOURCE_DIE);
+        const maxDiceUsage2 = 1 + extraSourceDiceCount2;
+        const usedCount2 = Math.max(player.usedDieIds.length, 1);
+        if (usedCount2 >= maxDiceUsage2) {
+          return invalid(
+            DIE_ALREADY_USED,
+            "You can only use one mana die from the Source per turn"
+          );
+        }
       }
 
       // Check die exists and isn't depleted
@@ -229,7 +246,11 @@ export function validateSingleManaSource(
       }
       if (die.color !== color) {
         const blackAsAnyColor = isRuleActive(state, playerId, RULE_BLACK_AS_ANY_COLOR);
+        const goldAsAnyColor = isRuleActive(state, playerId, RULE_GOLD_AS_ANY_COLOR);
         if (die.color === MANA_BLACK && blackAsAnyColor) {
+          return valid();
+        }
+        if (die.color === MANA_GOLD && goldAsAnyColor) {
           return valid();
         }
         return invalid(

@@ -48,6 +48,9 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_MANA_DRAW_PICK_DIE,
   EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_MANA_STORM_BASIC,
+  EFFECT_MANA_STORM_SELECT_DIE,
+  EFFECT_MANA_STORM_POWERED,
   EFFECT_TAKE_WOUND,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
@@ -1284,6 +1287,34 @@ export interface ResolveWingsOfNightTargetEffect {
 }
 
 /**
+ * Mana Storm basic effect entry point.
+ * Choose a die in the Source showing a basic color.
+ * Gain a crystal of that color, then reroll the die and return it to the Source.
+ */
+export interface ManaStormBasicEffect {
+  readonly type: typeof EFFECT_MANA_STORM_BASIC;
+}
+
+/**
+ * Internal: Player selected a die from the Source for Mana Storm basic.
+ * Gains a crystal of that die's color and rerolls the die.
+ */
+export interface ManaStormSelectDieEffect {
+  readonly type: typeof EFFECT_MANA_STORM_SELECT_DIE;
+  readonly dieId: SourceDieId;
+  readonly dieColor: BasicManaColor;
+}
+
+/**
+ * Mana Storm powered effect entry point.
+ * Reroll all dice in the Source. Grant 3 extra source dice usage and
+ * allow black/gold dice as any basic color for the rest of the turn.
+ */
+export interface ManaStormPoweredEffect {
+  readonly type: typeof EFFECT_MANA_STORM_POWERED;
+}
+
+/**
  * Possess enemy effect entry point (Charm/Possess powered spell).
  * Targets an enemy (excludes Arcane Immune), prevents it from attacking,
  * and grants the player melee Attack equal to the enemy's attack value
@@ -1395,6 +1426,9 @@ export type CardEffect =
   | ResolveWingsOfNightTargetEffect
   | CrystalMasteryBasicEffect
   | CrystalMasteryPoweredEffect
+  | ManaStormBasicEffect
+  | ManaStormSelectDieEffect
+  | ManaStormPoweredEffect
   | PossessEnemyEffect
   | ResolvePossessEnemyEffect;
 

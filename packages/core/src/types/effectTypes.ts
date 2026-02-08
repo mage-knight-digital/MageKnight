@@ -318,6 +318,14 @@ export const EFFECT_POSSESS_ENEMY = "possess_enemy" as const;
 // Internal: resolve after selecting which enemy to possess
 export const EFFECT_RESOLVE_POSSESS_ENEMY = "resolve_possess_enemy" as const;
 
+// === Mana Storm Effects ===
+// Entry point for Mana Storm basic effect (select die, gain crystal, reroll)
+export const EFFECT_MANA_STORM_BASIC = "mana_storm_basic" as const;
+// Internal: Player selected a die — gain crystal of that color and reroll die
+export const EFFECT_MANA_STORM_SELECT_DIE = "mana_storm_select_die" as const;
+// Entry point for Mana Storm powered effect (reroll all, modifiers)
+export const EFFECT_MANA_STORM_POWERED = "mana_storm_powered" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.
