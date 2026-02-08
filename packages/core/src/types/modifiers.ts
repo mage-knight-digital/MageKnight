@@ -92,6 +92,7 @@ import {
   RULE_INFLUENCE_CARDS_IN_COMBAT,
   RULE_NO_EXPLORATION,
   RULE_ALLOW_GOLD_AT_NIGHT,
+  RULE_ALLOW_BLACK_AT_DAY,
   RULE_SOURCE_BLOCKED,
   RULE_TERRAIN_DAY_NIGHT_SWAP,
   RULE_UNITS_CANNOT_ABSORB_DAMAGE,
@@ -236,7 +237,8 @@ export interface RuleOverrideModifier {
     | typeof RULE_SPACE_BENDING_ADJACENCY
     | typeof RULE_TIME_BENDING_ACTIVE
     | typeof RULE_NO_EXPLORATION
-    | typeof RULE_ALLOW_GOLD_AT_NIGHT;
+    | typeof RULE_ALLOW_GOLD_AT_NIGHT
+    | typeof RULE_ALLOW_BLACK_AT_DAY;
 }
 
 // Ability nullifier (e.g., "ignore Swift on one enemy")

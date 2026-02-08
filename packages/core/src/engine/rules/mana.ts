@@ -13,7 +13,7 @@ import {
   TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
 import { isRuleActive } from "../modifiers/index.js";
-import { RULE_ALLOW_GOLD_AT_NIGHT } from "../../types/modifierConstants.js";
+import { RULE_ALLOW_GOLD_AT_NIGHT, RULE_ALLOW_BLACK_AT_DAY } from "../../types/modifierConstants.js";
 
 export interface ManaTimeRules {
   readonly blackAllowed: boolean;
@@ -36,7 +36,12 @@ export function getManaTimeRules(state: GameState): ManaTimeRules {
 export function isManaColorAllowed(state: GameState, color: ManaColor, playerId?: string): boolean {
   const rules = getManaTimeRules(state);
   if (color === MANA_BLACK) {
-    return rules.blackAllowed;
+    if (rules.blackAllowed) return true;
+    // Amulet of Darkness: allow black mana usage at day for this player
+    if (playerId && isRuleActive(state, playerId, RULE_ALLOW_BLACK_AT_DAY)) {
+      return true;
+    }
+    return false;
   }
   if (color === MANA_GOLD) {
     if (rules.goldAllowed) return true;

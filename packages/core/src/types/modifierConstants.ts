@@ -300,6 +300,12 @@ export const RULE_NO_EXPLORATION = "no_exploration" as const;
 // Does NOT change time of day for skills, does NOT allow gold→black conversion
 export const RULE_ALLOW_GOLD_AT_NIGHT = "allow_gold_at_night" as const;
 
+// === RuleOverrideModifier["rule"] - Amulet of Darkness ===
+// Allows using black mana during day (normally black is only available at night)
+// Also makes black dice available from Source during day (overrides depletion)
+// Does NOT change time of day for skills, does NOT allow black→gold conversion
+export const RULE_ALLOW_BLACK_AT_DAY = "allow_black_at_day" as const;
+
 // === HeroDamageReductionModifier ===
 // Reduces incoming damage to the hero from a single enemy attack.
 // Element-specific: different reduction amounts based on attack element.
