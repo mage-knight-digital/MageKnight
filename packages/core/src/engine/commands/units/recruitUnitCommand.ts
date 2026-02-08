@@ -10,8 +10,15 @@
 import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { ActiveModifier } from "../../../types/modifiers.js";
-import type { UnitId, GameEvent, BasicManaColor, ManaSourceInfo } from "@mage-knight/shared";
-import { UNIT_RECRUITED } from "@mage-knight/shared";
+import type { UnitId, GameEvent, BasicManaColor, ManaSourceInfo, CardId } from "@mage-knight/shared";
+import type { PlayerUnit } from "../../../types/unit.js";
+import type { BannerAttachment } from "../../../types/player.js";
+import {
+  UNIT_RECRUITED,
+  UNIT_DISBANDED,
+  BANNER_DETACH_REASON_UNIT_DISBANDED,
+} from "@mage-knight/shared";
+import { detachBannerFromUnit } from "../banners/bannerDetachment.js";
 import { createPlayerUnit } from "../../../types/unit.js";
 import { removeUnitFromOffer } from "../../../data/unitDeckSetup.js";
 import {
@@ -38,6 +45,8 @@ export interface RecruitUnitCommandParams {
   readonly manaSource?: ManaSourceInfo;
   /** Basic mana color for the token placed on Magic Familiars */
   readonly manaTokenColor?: BasicManaColor;
+  /** Instance ID of unit to disband to make room (when at command limit) */
+  readonly disbandUnitInstanceId?: string;
 }
 
 let unitInstanceCounter = 0;
@@ -68,6 +77,10 @@ export function createRecruitUnitCommand(
   let previousBondsUnitInstanceId: string | null = null;
   // Store mana source for undo (Magic Familiars mana payment)
   let consumedManaSource: ManaSourceInfo | null = null;
+  // Store disbanded unit state for undo
+  let disbandedUnit: PlayerUnit | null = null;
+  let previousDiscard: readonly CardId[] = [];
+  let previousAttachedBanners: readonly BannerAttachment[] = [];
 
   return {
     type: RECRUIT_UNIT_COMMAND,
@@ -98,6 +111,8 @@ export function createRecruitUnitCommand(
       previousFame = player.fame;
       previousPendingLevelUps = player.pendingLevelUps;
       previousBondsUnitInstanceId = player.bondsOfLoyaltyUnitInstanceId;
+      previousDiscard = player.discard;
+      previousAttachedBanners = player.attachedBanners;
 
       // Track source updates (for die usage)
       let updatedSource = state.source;
@@ -113,6 +128,37 @@ export function createRecruitUnitCommand(
         );
         player = manaResult.player;
         updatedSource = manaResult.source;
+      }
+
+      // Handle unit disband if at command limit
+      const disbandEvents: GameEvent[] = [];
+      if (params.disbandUnitInstanceId) {
+        disbandedUnit = player.units.find(
+          (u) => u.instanceId === params.disbandUnitInstanceId
+        ) ?? null;
+
+        if (disbandedUnit) {
+          // Detach any banner from the disbanded unit
+          const bannerResult = detachBannerFromUnit(
+            player,
+            params.disbandUnitInstanceId,
+            BANNER_DETACH_REASON_UNIT_DISBANDED
+          );
+
+          player = {
+            ...player,
+            units: player.units.filter(
+              (u) => u.instanceId !== params.disbandUnitInstanceId
+            ),
+            discard: bannerResult.updatedDiscard,
+            attachedBanners: bannerResult.updatedAttachedBanners,
+          };
+
+          disbandEvents.push(
+            { type: UNIT_DISBANDED, playerId: params.playerId, unitInstanceId: params.disbandUnitInstanceId },
+            ...bannerResult.events
+          );
+        }
       }
 
       // Create new unit instance (with mana token for Magic Familiars)
@@ -265,6 +311,7 @@ export function createRecruitUnitCommand(
       }
 
       const events: GameEvent[] = [
+        ...disbandEvents,
         {
           type: UNIT_RECRUITED,
           playerId: params.playerId,
@@ -308,9 +355,14 @@ export function createRecruitUnitCommand(
       }
 
       // Remove the recruited unit (matching by instanceId for safety)
-      const updatedUnits = player.units.filter(
+      let updatedUnits = player.units.filter(
         (u) => u.instanceId !== instanceId
       );
+
+      // Re-add the disbanded unit if there was one
+      if (disbandedUnit) {
+        updatedUnits = [...updatedUnits, disbandedUnit];
+      }
 
       // Restore previous state
       const updatedPlayer = {
@@ -324,6 +376,8 @@ export function createRecruitUnitCommand(
         fame: previousFame,
         pendingLevelUps: previousPendingLevelUps,
         bondsOfLoyaltyUnitInstanceId: previousBondsUnitInstanceId,
+        discard: previousDiscard,
+        attachedBanners: previousAttachedBanners,
       };
 
       const players = state.players.map((p, i) =>

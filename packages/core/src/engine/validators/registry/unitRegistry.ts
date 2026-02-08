@@ -19,6 +19,7 @@ import { validateMustAnnounceEndOfRound } from "../roundValidators.js";
 import {
   validateReputationNotX,
   validateCommandSlots,
+  validateDisbandTarget,
   validateInfluenceCost,
   validateUnitExists,
   validateUnitCanActivate,
@@ -42,7 +43,8 @@ export const unitRegistry: Record<string, Validator[]> = {
     validateNoChoicePending,
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateReputationNotX, // At "X" reputation, inhabitants refuse to interact
-    validateCommandSlots,
+    validateCommandSlots, // Requires disband if at command limit
+    validateDisbandTarget, // Validates disband unit when provided
     validateInfluenceCost,
     validateAtRecruitmentSite,
     validateUnitTypeMatchesSite,

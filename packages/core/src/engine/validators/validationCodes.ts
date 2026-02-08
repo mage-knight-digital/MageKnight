@@ -151,6 +151,10 @@ export const PASSIVE_ABILITY = "PASSIVE_ABILITY" as const;
 export const SIEGE_REQUIRED = "SIEGE_REQUIRED" as const;
 export const UNIT_ABILITY_REQUIRES_MANA = "UNIT_ABILITY_REQUIRES_MANA" as const;
 export const UNIT_ABILITY_MANA_UNAVAILABLE = "UNIT_ABILITY_MANA_UNAVAILABLE" as const;
+// Unit disband codes
+export const DISBAND_REQUIRED = "DISBAND_REQUIRED" as const;
+export const DISBAND_UNIT_NOT_FOUND = "DISBAND_UNIT_NOT_FOUND" as const;
+export const CANNOT_DISBAND_BONDS_UNIT = "CANNOT_DISBAND_BONDS_UNIT" as const;
 // Reputation recruitment restriction
 export const REPUTATION_TOO_LOW_TO_RECRUIT = "REPUTATION_TOO_LOW_TO_RECRUIT" as const;
 // Heroes unit special rules
@@ -436,6 +440,9 @@ export type ValidationErrorCode =
   // Unit validation
   | typeof NO_COMMAND_SLOTS
   | typeof INSUFFICIENT_INFLUENCE
+  | typeof DISBAND_REQUIRED
+  | typeof DISBAND_UNIT_NOT_FOUND
+  | typeof CANNOT_DISBAND_BONDS_UNIT
   | typeof UNIT_NOT_FOUND
   | typeof UNIT_NOT_READY
   | typeof UNIT_IS_WOUNDED

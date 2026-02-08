@@ -9,6 +9,7 @@
 export {
   validateReputationNotX,
   validateCommandSlots,
+  validateDisbandTarget,
   validateInfluenceCost,
   validateAtRecruitmentSite,
   validateUnitTypeMatchesSite,

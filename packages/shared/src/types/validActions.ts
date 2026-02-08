@@ -516,6 +516,8 @@ export interface RecruitableUnit {
   readonly unitId: string;
   readonly cost: number;
   readonly canAfford: boolean;
+  /** True when the player must disband an existing unit to recruit this one. */
+  readonly requiresDisband: boolean;
 }
 
 export interface ActivatableUnit {

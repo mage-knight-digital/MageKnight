@@ -88,6 +88,10 @@ export function getUnitOptions(
   // Check command token availability (including Bonds of Loyalty extra slot)
   const effectiveTokens = getEffectiveCommandTokens(player);
   const hasCommandTokens = player.units.length < effectiveTokens;
+  const atCommandLimit = player.units.length >= effectiveTokens;
+
+  // If at command limit but player has units to disband, recruitment is still available
+  const canDisband = atCommandLimit && player.units.length > 0;
 
   // Track if Hero has been recruited this interaction (for doubled reputation)
   const heroAlreadyRecruited = hasRecruitedHeroThisInteraction(
@@ -151,14 +155,15 @@ export function getUnitOptions(
       baseCost + refugeeCampModifier + reputationModifier - recruitDiscountAmount - bondsDiscount
     );
 
-    // Check if player can afford it
+    // Check if player can afford it (either has free slot or can disband to make room)
     const canAfford =
-      hasCommandTokens && player.influencePoints >= adjustedCost;
+      (hasCommandTokens || canDisband) && player.influencePoints >= adjustedCost;
 
     recruitable.push({
       unitId: unit.id,
       cost: adjustedCost,
       canAfford,
+      requiresDisband: !hasCommandTokens && canDisband,
     });
   }
 

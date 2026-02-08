@@ -35,6 +35,7 @@ export const createRecruitUnitCommandFromAction: CommandFactory = (
     influenceSpent: action.influenceSpent,
     ...(action.manaSource && { manaSource: action.manaSource }),
     ...(action.manaTokenColor && { manaTokenColor: action.manaTokenColor }),
+    ...(action.disbandUnitInstanceId && { disbandUnitInstanceId: action.disbandUnitInstanceId }),
   });
 };
 

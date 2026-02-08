@@ -256,6 +256,11 @@ export interface RecruitUnitAction {
    * this specifies which basic color the token becomes.
    */
   readonly manaTokenColor?: BasicManaColor;
+  /**
+   * Instance ID of a unit to disband to make room for the new recruit.
+   * Required when the player is at their command limit.
+   */
+  readonly disbandUnitInstanceId?: string;
 }
 
 export const DISBAND_UNIT_ACTION = "DISBAND_UNIT" as const;
