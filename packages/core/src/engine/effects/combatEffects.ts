@@ -366,19 +366,23 @@ export function registerCombatEffects(resolver?: EffectResolver): void {
     // First resolve the base target (modifiers/defeat)
     const baseResult = resolveCombatEnemyTarget(state, playerId, typedEffect, sourceCardId);
 
+    // Track the state that includes bundled effect resolution
+    let currentState = baseResult.state;
+    let descriptions = [baseResult.description];
+
     // If there's a bundled effect and we have a resolver, resolve it too
     // Bundled effects (like ranged attack) are NOT blocked by Arcane Immunity
     if (typedEffect.template.bundledEffect && resolver) {
       const bundledResult = resolver(
-        baseResult.state,
+        currentState,
         playerId,
         typedEffect.template.bundledEffect,
         sourceCardId
       );
-      return {
-        state: bundledResult.state,
-        description: [baseResult.description, bundledResult.description].filter(Boolean).join("; "),
-      };
+      currentState = bundledResult.state;
+      if (bundledResult.description) {
+        descriptions.push(bundledResult.description);
+      }
     }
 
     // Multi-target: if more targets can be selected, re-enter selection
@@ -388,25 +392,31 @@ export function registerCombatEffects(resolver?: EffectResolver): void {
         typedEffect.enemyInstanceId,
       ];
       const continuationResult = resolveSelectCombatEnemy(
-        baseResult.state,
+        currentState,
         typedEffect.multiTargetSource,
         playerId,
         updatedAlreadyTargeted
       );
 
-      // If no more eligible targets, just return the base result
+      // If no more eligible targets, just return what we have
       if (!continuationResult.requiresChoice) {
-        return baseResult;
+        return {
+          state: currentState,
+          description: descriptions.join("; "),
+        };
       }
 
       return {
         state: continuationResult.state,
-        description: baseResult.description,
+        description: descriptions.join("; "),
         requiresChoice: continuationResult.requiresChoice,
         dynamicChoiceOptions: continuationResult.dynamicChoiceOptions,
       };
     }
 
-    return baseResult;
+    return {
+      state: currentState,
+      description: descriptions.join("; "),
+    };
   });
 }
