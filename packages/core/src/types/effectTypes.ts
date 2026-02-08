@@ -369,6 +369,9 @@ export const EFFECT_MAGIC_TALENT_POWERED = "magic_talent_powered" as const;
 // Internal: After paying mana, player selects a spell from the offer
 // of matching color, then gains it to discard pile.
 export const EFFECT_RESOLVE_MAGIC_TALENT_GAIN = "resolve_magic_talent_gain" as const;
+// Internal: Consume a specific mana source to pay for casting a spell
+// from the offer, then resolve the spell's basic effect.
+export const EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA = "resolve_magic_talent_spell_mana" as const;
 
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.

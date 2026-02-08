@@ -114,6 +114,7 @@ import {
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
   EFFECT_MAGIC_TALENT_POWERED,
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -603,6 +604,9 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve gain spell is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_MAGIC_TALENT_GAIN]: () => true,
+
+  // Resolve spell mana payment is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA]: () => true,
 };
 
 // ============================================================================

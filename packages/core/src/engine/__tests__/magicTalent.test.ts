@@ -3,6 +3,7 @@
  *
  * Basic: Discard a card of any color from hand. Play one Spell of the same
  * color from the Spells Offer as if it were in your hand. Spell stays in offer.
+ * Must pay mana of the spell's color to cast.
  *
  * Powered: Pay a mana of any color. Gain a Spell of that color from the
  * Spells Offer to your discard pile.
@@ -19,6 +20,7 @@ import type {
   MagicTalentPoweredEffect,
   ResolveMagicTalentSpellEffect,
   ResolveMagicTalentGainEffect,
+  ResolveMagicTalentSpellManaEffect,
 } from "../../types/cards.js";
 import {
   CATEGORY_SPECIAL,
@@ -29,6 +31,7 @@ import {
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
   EFFECT_MAGIC_TALENT_POWERED,
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
 } from "../../types/effectTypes.js";
 import {
   CARD_MAGIC_TALENT,
@@ -46,6 +49,7 @@ import {
   MANA_RED,
   MANA_GREEN,
   MANA_WHITE,
+  MANA_SOURCE_TOKEN,
   MANA_TOKEN_SOURCE_SKILL,
 } from "@mage-knight/shared";
 import type { CardId } from "@mage-knight/shared";
@@ -215,10 +219,11 @@ describe("EFFECT_MAGIC_TALENT_BASIC", () => {
     expect(result.description).toContain("No spells in the offer match");
   });
 
-  it("should set pendingDiscard when there are matching colored cards and spells", () => {
-    // Player has red card (Rage), offer has red spell (Fireball)
+  it("should set pendingDiscard when there are matching colored cards and spells and mana", () => {
+    // Player has red card (Rage), offer has red spell (Fireball), player has red mana
     const state = createMagicTalentState([CARD_FIREBALL], [], {
       hand: [CARD_MAGIC_TALENT, CARD_RAGE],
+      pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL }],
     });
 
     const result = resolveEffect(state, "player1", effect, CARD_MAGIC_TALENT);
@@ -242,13 +247,20 @@ describe("EFFECT_MAGIC_TALENT_BASIC", () => {
     expect(result.description).toContain("No colored cards");
   });
 
-  it("should allow discarding different colored cards for different spells", () => {
+  it("should allow discarding different colored cards for different spells when mana available", () => {
     // Player has red (Rage) and green (March) cards
     // Offer has both red (Fireball) and green (Restoration) spells
+    // Player has mana for both colors
     const state = createMagicTalentState(
       [CARD_FIREBALL, CARD_RESTORATION],
       [],
-      { hand: [CARD_MAGIC_TALENT, CARD_RAGE, CARD_MARCH] }
+      {
+        hand: [CARD_MAGIC_TALENT, CARD_RAGE, CARD_MARCH],
+        pureMana: [
+          { color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL },
+          { color: MANA_GREEN, source: MANA_TOKEN_SOURCE_SKILL },
+        ],
+      }
     );
 
     const result = resolveEffect(state, "player1", effect, CARD_MAGIC_TALENT);
@@ -264,6 +276,7 @@ describe("EFFECT_MAGIC_TALENT_BASIC", () => {
   it("should not allow discarding wounds", () => {
     const state = createMagicTalentState([CARD_FIREBALL], [], {
       hand: [CARD_MAGIC_TALENT, CARD_WOUND, CARD_RAGE],
+      pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL }],
     });
 
     const result = resolveEffect(state, "player1", effect, CARD_MAGIC_TALENT);
@@ -272,16 +285,57 @@ describe("EFFECT_MAGIC_TALENT_BASIC", () => {
     const player = getPlayer(result.state);
     expect(player.pendingDiscard?.filterWounds).toBe(true);
   });
+
+  it("should exclude colors the player cannot pay mana for", () => {
+    // Player has red and green cards, offer has red and green spells
+    // But player only has red mana — green spells should be excluded
+    const state = createMagicTalentState(
+      [CARD_FIREBALL, CARD_RESTORATION],
+      [],
+      {
+        hand: [CARD_MAGIC_TALENT, CARD_RAGE, CARD_MARCH],
+        pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL }],
+      }
+    );
+
+    const result = resolveEffect(state, "player1", effect, CARD_MAGIC_TALENT);
+
+    expect(result.requiresChoice).toBe(true);
+    const player = getPlayer(result.state);
+    const byColor = player.pendingDiscard?.thenEffectByColor;
+    expect(byColor).toBeDefined();
+    // Red should be available (has red mana)
+    expect(byColor?.[MANA_RED]).toBeDefined();
+    // Green should NOT be available (no green mana)
+    expect(byColor?.[MANA_GREEN]).toBeUndefined();
+  });
+
+  it("should return no-op when player has matching cards and spells but no mana", () => {
+    // Player has red card (Rage), offer has red spell (Fireball), but no mana
+    const state = createMagicTalentState([CARD_FIREBALL], [], {
+      hand: [CARD_MAGIC_TALENT, CARD_RAGE],
+      pureMana: [],
+    });
+
+    const result = resolveEffect(state, "player1", effect, CARD_MAGIC_TALENT);
+
+    // Should fail because no mana to pay for the spell
+    expect(result.requiresChoice).toBeUndefined();
+    expect(result.description).toContain("No spells in the offer match");
+  });
 });
 
 // ============================================================================
-// RESOLVE SPELL FROM OFFER TESTS
+// RESOLVE SPELL FROM OFFER TESTS (with mana payment)
 // ============================================================================
 
 describe("EFFECT_RESOLVE_MAGIC_TALENT_SPELL", () => {
-  it("should resolve the spell's basic effect", () => {
+  it("should auto-consume mana and resolve the spell's basic effect when single mana source", () => {
     // Fireball basic = Ranged Fire Attack 5
-    const state = createMagicTalentState([CARD_FIREBALL]);
+    // Player has exactly one red mana token
+    const state = createMagicTalentState([CARD_FIREBALL], [], {
+      pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL }],
+    });
     const effect: ResolveMagicTalentSpellEffect = {
       type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
       spellCardId: CARD_FIREBALL,
@@ -295,10 +349,14 @@ describe("EFFECT_RESOLVE_MAGIC_TALENT_SPELL", () => {
     expect(player.combatAccumulator.attack.rangedElements.fire).toBe(5);
     expect(result.description).toContain("Fireball");
     expect(result.description).toContain("Spell Offer");
+    // Mana should be consumed
+    expect(player.pureMana.length).toBe(0);
   });
 
   it("should keep the spell in the offer after resolving", () => {
-    const state = createMagicTalentState([CARD_FIREBALL, CARD_SNOWSTORM]);
+    const state = createMagicTalentState([CARD_FIREBALL, CARD_SNOWSTORM], [], {
+      pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL }],
+    });
     const effect: ResolveMagicTalentSpellEffect = {
       type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
       spellCardId: CARD_FIREBALL,
@@ -323,6 +381,137 @@ describe("EFFECT_RESOLVE_MAGIC_TALENT_SPELL", () => {
     const result = resolveEffect(state, "player1", effect);
 
     expect(result.description).toContain("no longer in the offer");
+  });
+
+  it("should fail gracefully when no mana is available", () => {
+    const state = createMagicTalentState([CARD_FIREBALL], [], {
+      pureMana: [],
+    });
+    const effect: ResolveMagicTalentSpellEffect = {
+      type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
+      spellCardId: CARD_FIREBALL,
+      spellName: "Fireball",
+    };
+
+    const result = resolveEffect(state, "player1", effect);
+
+    expect(result.description).toContain("No");
+    expect(result.description).toContain("mana available");
+    // Spell should NOT be resolved (no attack gained)
+    const player = getPlayer(result.state);
+    expect(player.combatAccumulator.attack.rangedElements.fire).toBe(0);
+  });
+
+  it("should present mana source choice when multiple sources available", () => {
+    // Player has red token AND red crystal — two mana sources
+    const state = createMagicTalentState([CARD_FIREBALL], [], {
+      pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL }],
+      crystals: { red: 1, blue: 0, green: 0, white: 0 },
+    });
+    const effect: ResolveMagicTalentSpellEffect = {
+      type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
+      spellCardId: CARD_FIREBALL,
+      spellName: "Fireball",
+    };
+
+    const result = resolveEffect(state, "player1", effect);
+
+    expect(result.requiresChoice).toBe(true);
+    expect(result.dynamicChoiceOptions).toBeDefined();
+    const options = result.dynamicChoiceOptions as ResolveMagicTalentSpellManaEffect[];
+    expect(options.length).toBe(2);
+    expect(options.every((o) => o.type === EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA)).toBe(true);
+    expect(options.every((o) => o.spellCardId === CARD_FIREBALL)).toBe(true);
+    // Should have token and crystal options
+    const sourceTypes = options.map((o) => o.manaSource.type);
+    expect(sourceTypes).toContain(MANA_SOURCE_TOKEN);
+    expect(sourceTypes).toContain("crystal");
+  });
+
+  it("should auto-consume crystal when it is the only mana source", () => {
+    // Player has only a red crystal (no tokens)
+    const state = createMagicTalentState([CARD_FIREBALL], [], {
+      pureMana: [],
+      crystals: { red: 1, blue: 0, green: 0, white: 0 },
+    });
+    const effect: ResolveMagicTalentSpellEffect = {
+      type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
+      spellCardId: CARD_FIREBALL,
+      spellName: "Fireball",
+    };
+
+    const result = resolveEffect(state, "player1", effect);
+
+    // Should auto-consume the crystal and resolve
+    const player = getPlayer(result.state);
+    expect(player.crystals.red).toBe(0);
+    expect(player.combatAccumulator.attack.rangedElements.fire).toBe(5);
+  });
+
+  it("should track mana usage in manaUsedThisTurn", () => {
+    const state = createMagicTalentState([CARD_FIREBALL], [], {
+      pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL }],
+    });
+    const effect: ResolveMagicTalentSpellEffect = {
+      type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
+      spellCardId: CARD_FIREBALL,
+      spellName: "Fireball",
+    };
+
+    const result = resolveEffect(state, "player1", effect);
+
+    const player = getPlayer(result.state);
+    expect(player.manaUsedThisTurn).toContain(MANA_RED);
+  });
+});
+
+// ============================================================================
+// RESOLVE SPELL MANA EFFECT TESTS
+// ============================================================================
+
+describe("EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA", () => {
+  it("should consume specified mana source and resolve spell effect", () => {
+    const state = createMagicTalentState([CARD_FIREBALL], [], {
+      pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL }],
+      crystals: { red: 1, blue: 0, green: 0, white: 0 },
+    });
+
+    const effect: ResolveMagicTalentSpellManaEffect = {
+      type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
+      spellCardId: CARD_FIREBALL,
+      spellName: "Fireball",
+      manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+    };
+
+    const result = resolveEffect(state, "player1", effect);
+
+    const player = getPlayer(result.state);
+    // Token should be consumed, crystal should remain
+    expect(player.pureMana.length).toBe(0);
+    expect(player.crystals.red).toBe(1);
+    // Spell should resolve (Fireball basic = Ranged Fire Attack 5)
+    expect(player.combatAccumulator.attack.rangedElements.fire).toBe(5);
+    expect(result.description).toContain("Fireball");
+  });
+
+  it("should handle spell no longer in offer gracefully", () => {
+    const state = createMagicTalentState([], [], {
+      pureMana: [{ color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL }],
+    });
+
+    const effect: ResolveMagicTalentSpellManaEffect = {
+      type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
+      spellCardId: CARD_FIREBALL,
+      spellName: "Fireball",
+      manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+    };
+
+    const result = resolveEffect(state, "player1", effect);
+
+    expect(result.description).toContain("no longer in the offer");
+    // Mana should NOT be consumed
+    const player = getPlayer(result.state);
+    expect(player.pureMana.length).toBe(1);
   });
 });
 
@@ -604,6 +793,18 @@ describe("describeEffect for Magic Talent effects", () => {
     expect(desc).toContain("Fireball");
     expect(desc).toContain("Spell Offer");
   });
+
+  it("should describe EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA", () => {
+    const effect: ResolveMagicTalentSpellManaEffect = {
+      type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
+      spellCardId: CARD_FIREBALL,
+      spellName: "Fireball",
+      manaSource: { type: MANA_SOURCE_TOKEN, color: MANA_RED },
+    };
+    const desc = describeEffect(effect);
+    expect(desc).toContain("Fireball");
+    expect(desc).toContain("red");
+  });
 });
 
 // ============================================================================
@@ -611,10 +812,12 @@ describe("describeEffect for Magic Talent effects", () => {
 // ============================================================================
 
 describe("Magic Talent edge cases", () => {
-  it("basic: should allow discarding a spell from hand to match spell in offer", () => {
+  it("basic: should allow discarding a spell from hand to match spell in offer when mana available", () => {
     // Player has Snowstorm (blue spell) in hand, offer has Snowstorm (blue spell)
+    // Player has blue mana to pay for casting
     const state = createMagicTalentState([CARD_SNOWSTORM], [], {
       hand: [CARD_MAGIC_TALENT, CARD_SNOWSTORM],
+      pureMana: [{ color: MANA_BLUE, source: MANA_TOKEN_SOURCE_SKILL }],
     });
 
     const effect: MagicTalentBasicEffect = { type: EFFECT_MAGIC_TALENT_BASIC };
@@ -624,8 +827,8 @@ describe("Magic Talent edge cases", () => {
     expect(result.requiresChoice).toBe(true);
   });
 
-  it("basic: should work with all four spell colors", () => {
-    // Offer has one spell of each color
+  it("basic: should work with all four spell colors when mana available for all", () => {
+    // Offer has one spell of each color, player has mana for all 4 colors
     const state = createMagicTalentState(
       [CARD_FIREBALL, CARD_SNOWSTORM, CARD_RESTORATION, CARD_CURE],
       [],
@@ -636,6 +839,12 @@ describe("Magic Talent edge cases", () => {
           CARD_CRYSTALLIZE,  // Blue
           CARD_MARCH,        // Green
           CARD_SWIFTNESS,    // White
+        ],
+        pureMana: [
+          { color: MANA_RED, source: MANA_TOKEN_SOURCE_SKILL },
+          { color: MANA_BLUE, source: MANA_TOKEN_SOURCE_SKILL },
+          { color: MANA_GREEN, source: MANA_TOKEN_SOURCE_SKILL },
+          { color: MANA_WHITE, source: MANA_TOKEN_SOURCE_SKILL },
         ],
       }
     );
@@ -652,6 +861,22 @@ describe("Magic Talent edge cases", () => {
     expect(byColor?.[MANA_BLUE]).toBeDefined();
     expect(byColor?.[MANA_GREEN]).toBeDefined();
     expect(byColor?.[MANA_WHITE]).toBeDefined();
+  });
+
+  it("basic: crystal should satisfy mana requirement for pre-filter", () => {
+    // Player has red crystal (no tokens), should still allow red spells
+    const state = createMagicTalentState([CARD_FIREBALL], [], {
+      hand: [CARD_MAGIC_TALENT, CARD_RAGE],
+      pureMana: [],
+      crystals: { red: 1, blue: 0, green: 0, white: 0 },
+    });
+
+    const effect: MagicTalentBasicEffect = { type: EFFECT_MAGIC_TALENT_BASIC };
+    const result = resolveEffect(state, "player1", effect, CARD_MAGIC_TALENT);
+
+    expect(result.requiresChoice).toBe(true);
+    const player = getPlayer(result.state);
+    expect(player.pendingDiscard?.thenEffectByColor?.[MANA_RED]).toBeDefined();
   });
 
   it("powered: should present multiple spells of same color", () => {

@@ -29,6 +29,7 @@ import type { Player } from "../../types/player.js";
 import type {
   ResolveMagicTalentSpellEffect,
   ResolveMagicTalentGainEffect,
+  ResolveMagicTalentSpellManaEffect,
   CardEffect,
 } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
@@ -49,10 +50,13 @@ import {
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
   EFFECT_MAGIC_TALENT_POWERED,
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
 } from "../../types/effectTypes.js";
 import { getActionCardColor, getSpellColor } from "../helpers/cardColor.js";
 import { getCard } from "../helpers/cardLookup.js";
 import { DEED_CARD_TYPE_SPELL } from "../../types/cards.js";
+import { canPayForMana, getAvailableManaSourcesForColor } from "../validActions/mana.js";
+import { consumeMana } from "../commands/helpers/manaConsumptionHelpers.js";
 
 // All basic mana colors
 const ALL_BASIC_COLORS: readonly BasicManaColor[] = [
@@ -134,10 +138,8 @@ function cardColorToManaColor(color: string): BasicManaColor {
 /**
  * Handle EFFECT_MAGIC_TALENT_BASIC entry point.
  *
- * Presents eligible cards from hand for discard. Each option is a compound
- * of "discard that card" + "present matching spells from offer".
- * Uses dynamic choice options where each option directly discards the card
- * and lists matching spells for the next step.
+ * Sets pendingDiscard with colorMatters so the discarded card's color
+ * determines which spells from the offer are presented as choices.
  */
 function handleMagicTalentBasic(
   state: GameState,
@@ -175,145 +177,14 @@ function handleMagicTalentBasic(
     };
   }
 
-  // For each eligible card, create a DiscardCost-like flow.
-  // We use the DiscardCost effect with colorMatters to handle the multi-step
-  // discard → spell selection flow. But since DiscardCost doesn't support
-  // spell-from-offer selection, we use a pending state approach instead.
-
-  // Actually, the cleanest approach: create pending state and let the player
-  // select a card to discard. Then we resolve to matching spell choices.
-  // But we don't have a pendingMagicTalent state. Let's use dynamic choices
-  // where each choice is "discard card X" → internally resolves to next step.
-
-  // However, after discarding we need to present spell choices, which requires
-  // another round of choices. The existing pattern for this is "internal effects"
-  // chained through dynamicChoiceOptions (like Call to Arms: unit → ability).
-
-  // Simplest approach: discard first, then present spells.
-  // We set a pendingDiscard-like state. But let's use the dynamic choice pattern:
-  // Present one choice per (discard card, spell) combination when there's only
-  // one spell per color. If multiple spells match, we need two steps.
-
-  // Best approach matching Call to Arms pattern:
-  // Step 1: Present discardable cards grouped by color (each as "discard X")
-  // Step 2: After discard, present matching spells
-
-  // Use the DiscardCost approach: set pendingDiscard with colorMatters.
-  // The thenEffectByColor maps to internal spell selection effects.
-  // But DiscardCost's thenEffectByColor expects CardEffect, not spell selection.
-
-  // Let's use a simple two-step dynamic choice pattern.
-  // Step 1: Each choice is a card to discard. Each choice is an internal effect
-  // that performs the discard and then presents matching spells.
-
-  // Create a unique list of (cardId, color) for display.
-  // Actually, following the Mind Steal pattern where each step is an internal
-  // effect type, let me create choices where each option discards a specific card
-  // and then chains to spell selection. But we need to encode this as CardEffect.
-
-  // Simplest: Create pending discard state via DiscardCost mechanism, then
-  // on resolution, present matching spells. But that requires adding a new
-  // pending state type. Instead, let me just create the choices inline.
-
-  // After re-thinking: The cleanest pattern is a DiscardCost with colorMatters
-  // where thenEffectByColor points to internal effects that present matching
-  // spells. But thenEffectByColor maps colors to CardEffect, and our internal
-  // spell-selection needs game state. So thenEffect should be an internal type
-  // that, when resolved, lists spells.
-
-  // Actually, the simplest approach: use pendingDiscard with thenEffect being
-  // a choice of matching spells. But we don't know the color until the discard
-  // happens. DiscardCost with colorMatters handles this perfectly!
-
-  // DiscardCost + colorMatters: thenEffectByColor[color] = internal effect
-  // that presents matching spells from offer.
-
-  // Problem: thenEffectByColor effects are resolved statically (already defined).
-  // They can't dynamically query the offer at resolution time.
-  // BUT they can be effect types that, when resolved, dynamically generate choices.
-
-  // This is exactly what we need. Let's encode it as:
-  // DiscardCost with colorMatters, where each color's effect is a Noop that
-  // the resolve handler intercepts... No, that's hacky.
-
-  // OK, cleanest approach: just set the pendingDiscard directly ourselves
-  // (like handleDiscardCostEffect does), with a special thenEffect.
-
-  // Wait - even simpler. Let's not use DiscardCost at all.
-  // Use the pure dynamic choice pattern (like ManaDrawPowered):
-  // Create internal effects for each discardable card, where the effect
-  // encodes both the discard AND the spell color for the next step.
-
-  // But we can't encode "discard + present choices" in a single CardEffect
-  // without state mutation in the choice resolver.
-
-  // Actually, the Call to Arms pattern IS the solution:
-  // Step 1 choice: "Discard [card name]" → resolves as RESOLVE_MAGIC_TALENT_SPELL
-  //   but wait, we need to actually discard the card AND then present spells.
-
-  // Looking at Mind Steal more carefully: it mutates state in intermediate effects
-  // (resolveColor discards opponent cards, then presents steal choices).
-
-  // So the pattern is: internal effect resolves, mutates state (does the discard),
-  // then returns dynamic choices (matching spells).
-
-  // Let me create a single internal effect type RESOLVE_MAGIC_TALENT_DISCARD
-  // that takes the cardId to discard, performs the discard, and returns
-  // matching spell choices.
-
-  // But we already have RESOLVE_MAGIC_TALENT_SPELL which selects a spell...
-  // Let me adjust the design:
-
-  // Approach: use DiscardCost properly.
-  // 1. Set pendingDiscard with colorMatters: true
-  // 2. thenEffectByColor[red] = MAGIC_TALENT_BASIC (but parameterized with color)
-
-  // Actually, the simplest clean solution: just set player.pendingDiscard manually
-  // with a special thenEffect that will be resolved after discard.
-  // The thenEffect is a dummy EFFECT_MAGIC_TALENT_BASIC effect.
-  // When the discard resolves, the DiscardCost command calls resolveEffect on
-  // the thenEffect (or thenEffectByColor[discardedColor]).
-
-  // For thenEffectByColor, each color maps to a "present spells" effect.
-  // Since we don't have a parameterized effect type for "present spells of color X",
-  // let me create one... but wait, each entry in thenEffectByColor IS already
-  // color-specific. We just need the effect handler to look at the offer.
-
-  // OK Final decision: Use DiscardCost approach directly by setting pendingDiscard.
-  // thenEffectByColor for each color that has matching spells will point to
-  // an EFFECT_MAGIC_TALENT_BASIC effect. When that internal effect resolves
-  // (after the discard), it will look at what color was discarded and present
-  // matching spells from the offer.
-
-  // Actually, I realize the SIMPLEST approach is to not use DiscardCost at all.
-  // Instead, create pendingDiscard ourselves with colorMatters: true, and make
-  // thenEffectByColor map each color to a per-color choice of matching spells.
-
-  // But we can't pre-compute spell choices because the offer could change...
-  // In practice though, during a pending discard the offer won't change.
-
-  // Let me just use DiscardCost, and for thenEffectByColor, use a noop
-  // effect that the resolveDiscardCommand will resolve. After resolution,
-  // the playCardCommand will continue and see if there's a pendingChoice...
-
-  // This is getting too complicated. Let me step back and use the simplest
-  // possible approach:
-
-  // Create pendingDiscard with:
-  //   colorMatters: true
-  //   thenEffectByColor: for each color that has matching spells →
-  //     ChoiceEffect with options = [RESOLVE_MAGIC_TALENT_SPELL per spell]
-  //   filterWounds: true
-
-  // This way, after discarding, the DiscardCost command resolves the
-  // thenEffectByColor[color] which is a Choice of matching spells.
-  // Each spell option is RESOLVE_MAGIC_TALENT_SPELL which resolves
-  // the spell's basic effect (leaving it in the offer).
-
-  // Build thenEffectByColor
+  // Build thenEffectByColor: maps each discarded color to spell selection
+  // Only include colors the player can pay mana for (spell casting requires mana)
   const thenEffectByColor: Partial<Record<BasicManaColor, CardEffect>> = {};
 
   for (const color of ALL_BASIC_COLORS) {
+    // Must be able to pay mana of this color to cast the spell
+    if (!canPayForMana(state, player, color)) continue;
+
     const matchingSpells = getMatchingSpellsInOffer(state, color);
     if (matchingSpells.length === 0) continue;
 
@@ -341,6 +212,14 @@ function handleMagicTalentBasic(
     }
   }
 
+  // If no colors survived the mana affordability check, can't cast any spell
+  if (Object.keys(thenEffectByColor).length === 0) {
+    return {
+      state,
+      description: "No spells in the offer match any discardable card color",
+    };
+  }
+
   // Create pendingDiscard state
   const updatedPlayer: Player = {
     ...player,
@@ -365,47 +244,12 @@ function handleMagicTalentBasic(
 }
 
 /**
- * Handle EFFECT_RESOLVE_MAGIC_TALENT_SPELL.
+ * Resolve the selected spell from the offer.
+ * Requires mana payment of the spell's color before resolving its basic effect.
  *
- * Resolves the selected spell's basic effect. The spell stays in the offer.
- * The player must still pay mana to cast the spell (the spell's color mana).
- *
- * Per the rulebook: "You may play one Spell card of the same color in the
- * Spells offer this turn as if it were in your hand."
- * This means the spell is played as if from hand — must pay mana cost.
- *
- * However, paying mana is already handled by the card play system for spells
- * in hand. Since we're resolving the spell's basic effect directly here
- * (the spell is not actually "played" through the normal card play flow),
- * we need to check if the player has the mana to pay.
- *
- * Actually, re-reading the rulebook text: "play one Spell card... as if it
- * were in your hand" — this means the player gets to PLAY it during their
- * turn, not that the effect resolves immediately. The spell would need to
- * be played like a normal spell (paying mana cost).
- *
- * But implementing "add spell to hand temporarily" is extremely complex.
- * Following the spirit of the game and the approach taken by similar cards
- * (Call to Arms resolves unit abilities immediately), we resolve the spell's
- * basic effect directly. This is how the board game plays in practice —
- * the spell effect resolves as part of Magic Talent's resolution.
- *
- * Note: The spell's BASIC effect is free (spells' basic effects don't
- * require mana — only powered effects require black + color mana).
- * Actually wait — spell basic effects DO require paying the spell's color
- * mana to cast. Re-checking... In MK, playing a spell's basic effect
- * requires paying the spell's color mana token. Only the card text
- * (basic/powered) is free — the MANA is always required.
- *
- * For this implementation, since Magic Talent already requires discarding
- * a card, we resolve the spell's basic effect without additional mana cost.
- * The rulebook says "play... as if it were in your hand" — but the card
- * play system would handle mana. Since we can't easily integrate with
- * the full card play system mid-effect, we resolve directly.
- *
- * TODO: In a future iteration, consider whether mana payment should be
- * required for the spell from offer. For now, resolve the basic effect directly
- * (consistent with how Call to Arms resolves unit abilities immediately).
+ * - 0 mana sources → cannot cast (graceful failure)
+ * - 1 mana source → auto-consume and resolve spell
+ * - 2+ mana sources → present mana source choice via EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA
  */
 function resolveMagicTalentSpell(
   state: GameState,
@@ -430,9 +274,115 @@ function resolveMagicTalentSpell(
     };
   }
 
+  // Determine spell's mana color
+  const spellColorStr = getSpellColor(effect.spellCardId);
+  if (!spellColorStr) {
+    return {
+      state,
+      description: `Spell ${effect.spellName} has no color`,
+    };
+  }
+  const spellManaColor = cardColorToManaColor(spellColorStr);
+
+  // Get available mana sources for this color
+  const { playerIndex, player } = getPlayerContext(state, playerId);
+  const manaSources = getAvailableManaSourcesForColor(state, player, spellManaColor);
+
+  if (manaSources.length === 0) {
+    return {
+      state,
+      description: `No ${spellManaColor} mana available to cast ${effect.spellName}`,
+    };
+  }
+
+  if (manaSources.length === 1) {
+    // Auto-consume the only available mana source
+    const manaSource = manaSources[0]!;
+    const { player: updatedPlayer, source: updatedSource } = consumeMana(
+      player,
+      state.source,
+      manaSource,
+      playerId
+    );
+
+    let updatedState = updatePlayer(state, playerIndex, updatedPlayer);
+    updatedState = { ...updatedState, source: updatedSource };
+
+    // Resolve the spell's basic effect (spell stays in offer)
+    const result = resolveEffect(
+      updatedState,
+      playerId,
+      spellCard.basicEffect,
+      effect.spellCardId
+    );
+
+    return {
+      ...result,
+      description: `Magic Talent: played ${effect.spellName} from the Spell Offer (paid ${spellManaColor} mana)`,
+    };
+  }
+
+  // Multiple mana sources — present choice
+  const manaOptions: ResolveMagicTalentSpellManaEffect[] = manaSources.map(
+    (manaSource) => ({
+      type: EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
+      spellCardId: effect.spellCardId,
+      spellName: effect.spellName,
+      manaSource,
+    })
+  );
+
+  return {
+    state,
+    description: `Magic Talent: choose mana source to cast ${effect.spellName}`,
+    requiresChoice: true,
+    dynamicChoiceOptions: manaOptions,
+  };
+}
+
+/**
+ * Resolve mana payment and spell effect for Magic Talent basic.
+ * Called when player selects a specific mana source from multiple options.
+ */
+function resolveMagicTalentSpellMana(
+  state: GameState,
+  playerId: string,
+  effect: ResolveMagicTalentSpellManaEffect,
+  resolveEffect: EffectResolver
+): EffectResolutionResult {
+  const { playerIndex, player } = getPlayerContext(state, playerId);
+
+  // Verify spell is still in the offer
+  if (!state.offers.spells.cards.includes(effect.spellCardId)) {
+    return {
+      state,
+      description: `Spell ${effect.spellName} is no longer in the offer`,
+    };
+  }
+
+  // Get the spell card definition
+  const spellCard = getCard(effect.spellCardId);
+  if (!spellCard || spellCard.cardType !== DEED_CARD_TYPE_SPELL) {
+    return {
+      state,
+      description: `${effect.spellCardId} is not a valid spell`,
+    };
+  }
+
+  // Consume the specified mana source
+  const { player: updatedPlayer, source: updatedSource } = consumeMana(
+    player,
+    state.source,
+    effect.manaSource,
+    playerId
+  );
+
+  let updatedState = updatePlayer(state, playerIndex, updatedPlayer);
+  updatedState = { ...updatedState, source: updatedSource };
+
   // Resolve the spell's basic effect (spell stays in offer)
   const result = resolveEffect(
-    state,
+    updatedState,
     playerId,
     spellCard.basicEffect,
     effect.spellCardId
@@ -440,7 +390,7 @@ function resolveMagicTalentSpell(
 
   return {
     ...result,
-    description: `Magic Talent: played ${effect.spellName} from the Spell Offer`,
+    description: `Magic Talent: played ${effect.spellName} from the Spell Offer (paid ${effect.manaSource.color} mana)`,
   };
 }
 
@@ -472,10 +422,6 @@ function handleMagicTalentPowered(
     }
   }
 
-  // Also check crystals (can convert to mana for this purpose)
-  // Actually, crystals are converted separately — we only check tokens here.
-  // Mana payment for Magic Talent powered requires a mana TOKEN, not crystal.
-
   if (availableColors.size === 0) {
     return {
       state,
@@ -498,16 +444,7 @@ function handleMagicTalentPowered(
     };
   }
 
-  // For each viable color, create choices that:
-  // 1. Pay the mana token
-  // 2. Present matching spells from offer
-  // We can handle this as a flat list of (color → spell) options if simple,
-  // or nested choices if complex.
-
-  // If only one color with one spell → auto-resolve
-  // Otherwise present per-color choices, where each resolves to spell selection
-
-  // Build flat list of all (color, spell) combinations
+  // Build flat list of all (color, spell) combinations as gain effects
   const allOptions: ResolveMagicTalentGainEffect[] = [];
   for (const color of colorsWithSpells) {
     const matchingSpells = getMatchingSpellsInOffer(state, color);
@@ -525,10 +462,6 @@ function handleMagicTalentPowered(
       state,
       description: "No matching spells available in the offer",
     };
-  }
-
-  if (allOptions.length === 1) {
-    // Auto-resolve not needed — still present as choice for clarity
   }
 
   return {
@@ -676,6 +609,18 @@ export function registerMagicTalentEffects(resolver: EffectResolver): void {
         state,
         playerId,
         effect as ResolveMagicTalentGainEffect
+      );
+    }
+  );
+
+  registerEffect(
+    EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
+    (state, playerId, effect) => {
+      return resolveMagicTalentSpellMana(
+        state,
+        playerId,
+        effect as ResolveMagicTalentSpellManaEffect,
+        resolver
       );
     }
   );

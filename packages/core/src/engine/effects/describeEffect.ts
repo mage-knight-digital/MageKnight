@@ -83,6 +83,7 @@ import {
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
   EFFECT_MAGIC_TALENT_POWERED,
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
 } from "../../types/effectTypes.js";
 import type {
   DiscardForCrystalEffect,
@@ -542,6 +543,11 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_RESOLVE_MAGIC_TALENT_GAIN]: (effect) => {
     const e = effect as import("../../types/cards.js").ResolveMagicTalentGainEffect;
     return `Gain ${e.spellName} from the Spell Offer`;
+  },
+
+  [EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveMagicTalentSpellManaEffect;
+    return `Pay ${e.manaSource.color} mana to cast ${e.spellName}`;
   },
 };
 

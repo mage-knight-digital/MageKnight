@@ -12,6 +12,7 @@ import type {
   DiscardFilter,
   RevealTileType,
   ResistanceType,
+  ManaSourceInfo,
 } from "@mage-knight/shared";
 import {
   MANA_RED,
@@ -129,6 +130,7 @@ import {
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
   EFFECT_MAGIC_TALENT_POWERED,
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1486,6 +1488,23 @@ export interface ResolveMagicTalentGainEffect {
   readonly spellName: string;
 }
 
+/**
+ * Internal: Consume a specific mana source to pay for casting a spell
+ * from the Spell Offer via Magic Talent basic, then resolve the spell's
+ * basic effect. Generated as dynamic choice options when multiple mana
+ * sources are available.
+ */
+export interface ResolveMagicTalentSpellManaEffect {
+  readonly type: typeof EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA;
+  /** The spell card to cast from the offer */
+  readonly spellCardId: CardId;
+  /** Name of the spell for display */
+  readonly spellName: string;
+  /** The mana source to consume for payment */
+  readonly manaSource: ManaSourceInfo;
+}
+
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1593,7 +1612,8 @@ export type CardEffect =
   | MagicTalentBasicEffect
   | ResolveMagicTalentSpellEffect
   | MagicTalentPoweredEffect
-  | ResolveMagicTalentGainEffect;
+  | ResolveMagicTalentGainEffect
+  | ResolveMagicTalentSpellManaEffect;
 
 // === Card Definition ===
 
