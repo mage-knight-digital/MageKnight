@@ -346,6 +346,11 @@ export {
   registerMaximalEffectEffects,
 } from "./maximalEffectEffects.js";
 
+// Magic Talent effects (spell offer interaction)
+export {
+  registerMagicTalentEffects,
+} from "./magicTalentEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 
