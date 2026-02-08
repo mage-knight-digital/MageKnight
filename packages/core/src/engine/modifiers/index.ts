@@ -29,6 +29,7 @@ export {
   getBaseArmorForPhase,
   hasDefeatIfBlocked,
   getPossessAttackRestriction,
+  getHeroDamageReduction,
 } from "./combat.js";
 
 // Terrain effective values
