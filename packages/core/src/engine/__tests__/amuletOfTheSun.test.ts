@@ -16,16 +16,22 @@ import {
   createTestPlayer,
   createTestHex,
   createHexEnemy,
+  createUnitCombatState,
 } from "./testHelpers.js";
 import { resolveEffect } from "../effects/index.js";
 import { AMULET_OF_THE_SUN_CARDS } from "../../data/artifacts/amuletOfTheSun.js";
 import { getEffectiveTerrainCost } from "../modifiers/terrain.js";
 import { isRuleActive } from "../modifiers/index.js";
 import { isManaColorAllowed, canUseGoldAsWild } from "../rules/mana.js";
+import { validateManaTimeOfDayWithDungeonOverride } from "../validators/mana/rulesValidators.js";
+import { canPayForMana, canPayForTwoMana } from "../validActions/mana.js";
 import {
   CARD_AMULET_OF_THE_SUN,
+  CARD_MARCH,
   MANA_GOLD,
   MANA_BLACK,
+  MANA_RED,
+  PLAY_CARD_ACTION,
   TIME_OF_DAY_DAY,
   TIME_OF_DAY_NIGHT,
   TERRAIN_FOREST,
@@ -37,6 +43,7 @@ import {
 import type { EnemyTokenId } from "../../types/enemy.js";
 import { RULE_ALLOW_GOLD_AT_NIGHT } from "../../types/modifierConstants.js";
 import { SiteType } from "../../types/map.js";
+import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
 
 describe("Amulet of the Sun", () => {
   const card = AMULET_OF_THE_SUN_CARDS[CARD_AMULET_OF_THE_SUN]!;
@@ -424,6 +431,199 @@ describe("Amulet of the Sun", () => {
 
       // No modifiers at day (conditional is false, no else branch)
       expect(result.state.activeModifiers).toHaveLength(0);
+    });
+  });
+
+  // ============================================================================
+  // VALIDATOR INTEGRATION - validateManaTimeOfDayWithDungeonOverride
+  // ============================================================================
+
+  describe("validator integration", () => {
+    it("should reject gold mana at night without Amulet in non-dungeon combat", () => {
+      const player = createTestPlayer({
+        hand: [CARD_AMULET_OF_THE_SUN],
+      });
+      const combat = createUnitCombatState(COMBAT_PHASE_ATTACK);
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+        combat,
+      });
+
+      const result = validateManaTimeOfDayWithDungeonOverride(
+        state,
+        "player1",
+        {
+          type: PLAY_CARD_ACTION,
+          cardId: CARD_AMULET_OF_THE_SUN,
+          powered: true,
+          manaSource: { type: "token", color: MANA_GOLD },
+        }
+      );
+
+      expect(result.valid).toBe(false);
+    });
+
+    it("should allow gold mana at night with Amulet in non-dungeon combat", () => {
+      const player = createTestPlayer({
+        hand: [CARD_AMULET_OF_THE_SUN],
+      });
+      const combat = createUnitCombatState(COMBAT_PHASE_ATTACK);
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+        combat,
+      });
+
+      // Apply Amulet effect to get RULE_ALLOW_GOLD_AT_NIGHT
+      const afterAmulet = resolveEffect(state, "player1", card.basicEffect);
+
+      const result = validateManaTimeOfDayWithDungeonOverride(
+        afterAmulet.state,
+        "player1",
+        {
+          type: PLAY_CARD_ACTION,
+          cardId: CARD_MARCH,
+          powered: true,
+          manaSource: { type: "token", color: MANA_GOLD },
+        }
+      );
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should reject black mana during day in non-dungeon combat", () => {
+      const player = createTestPlayer({
+        hand: [CARD_AMULET_OF_THE_SUN],
+      });
+      const combat = createUnitCombatState(COMBAT_PHASE_ATTACK);
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_DAY,
+        combat,
+      });
+
+      const result = validateManaTimeOfDayWithDungeonOverride(
+        state,
+        "player1",
+        {
+          type: PLAY_CARD_ACTION,
+          cardId: CARD_AMULET_OF_THE_SUN,
+          powered: true,
+          manaSource: { type: "token", color: MANA_BLACK },
+        }
+      );
+
+      expect(result.valid).toBe(false);
+    });
+  });
+
+  // ============================================================================
+  // VALID ACTIONS INTEGRATION - canPayForMana / canPayForTwoMana
+  // ============================================================================
+
+  describe("validActions mana integration", () => {
+    it("should allow gold token to pay for basic color at night with Amulet", () => {
+      const player = createTestPlayer({
+        hand: [CARD_AMULET_OF_THE_SUN],
+        pureMana: [{ color: MANA_GOLD }],
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+      });
+
+      // Without Amulet: gold cannot pay for red at night
+      expect(canPayForMana(state, state.players[0]!, MANA_RED)).toBe(false);
+
+      // Apply Amulet effect
+      const afterAmulet = resolveEffect(state, "player1", card.basicEffect);
+
+      // With Amulet: gold token can pay for red at night
+      expect(
+        canPayForMana(afterAmulet.state, afterAmulet.state.players[0]!, MANA_RED)
+      ).toBe(true);
+    });
+
+    it("should allow gold source die to pay for basic color at night with Amulet", () => {
+      const player = createTestPlayer({
+        hand: [CARD_AMULET_OF_THE_SUN],
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+        source: {
+          dice: [
+            { id: "die1", color: MANA_GOLD, takenByPlayerId: null, isDepleted: false },
+          ],
+        },
+      });
+
+      // Without Amulet: gold die cannot pay for red at night
+      expect(canPayForMana(state, state.players[0]!, MANA_RED)).toBe(false);
+
+      // Apply Amulet effect
+      const afterAmulet = resolveEffect(state, "player1", card.basicEffect);
+
+      // With Amulet: gold die can pay for red at night
+      expect(
+        canPayForMana(afterAmulet.state, afterAmulet.state.players[0]!, MANA_RED)
+      ).toBe(true);
+    });
+
+    it("should count gold tokens as wild in canPayForTwoMana at night with Amulet", () => {
+      const player = createTestPlayer({
+        hand: [CARD_AMULET_OF_THE_SUN],
+        pureMana: [{ color: MANA_GOLD }, { color: MANA_RED }],
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+      });
+
+      // Without Amulet: gold can't be wild at night, so only red counts
+      expect(
+        canPayForTwoMana(state, state.players[0]!, MANA_RED, MANA_RED)
+      ).toBe(false);
+
+      // Apply Amulet effect
+      const afterAmulet = resolveEffect(state, "player1", card.basicEffect);
+
+      // With Amulet: gold token as wild + red token = 2 sources for red
+      expect(
+        canPayForTwoMana(
+          afterAmulet.state,
+          afterAmulet.state.players[0]!,
+          MANA_RED,
+          MANA_RED
+        )
+      ).toBe(true);
+    });
+
+    it("should list gold token as available source for basic color at night with Amulet", () => {
+      const player = createTestPlayer({
+        hand: [CARD_AMULET_OF_THE_SUN],
+        pureMana: [{ color: MANA_GOLD }],
+        crystals: { red: 1, blue: 0, green: 0, white: 0 },
+      });
+      const state = createTestGameState({
+        players: [player],
+        timeOfDay: TIME_OF_DAY_NIGHT,
+      });
+
+      // Apply Amulet effect
+      const afterAmulet = resolveEffect(state, "player1", card.basicEffect);
+
+      // canPayForTwoMana with different colors uses getAvailableManaSourcesForColor
+      // gold token should be available for red, crystal for red too
+      expect(
+        canPayForTwoMana(
+          afterAmulet.state,
+          afterAmulet.state.players[0]!,
+          MANA_RED,
+          MANA_BLACK
+        )
+      ).toBe(false); // No black source available
     });
   });
 });
