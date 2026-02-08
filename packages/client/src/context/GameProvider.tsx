@@ -39,7 +39,7 @@ function getOrCreateServer(seed?: number, config?: GameConfig): GameServer | nul
     // Development: preserve server across HMR updates, but recreate if config changes
     if (!hotData.server || hotData.configHash !== configHash) {
       const server = createGameServer(seed);
-      server.initializeGame(config.playerIds, config.heroIds, config.scenarioId);
+      server.initializeGame(config.playerIds, config.heroIds, config.scenarioId, config);
       hotData.server = server;
       hotData.configHash = configHash;
     }
@@ -48,7 +48,7 @@ function getOrCreateServer(seed?: number, config?: GameConfig): GameServer | nul
 
   // Production: create fresh server
   const server = createGameServer(seed);
-  server.initializeGame(config.playerIds as string[], config.heroIds, config.scenarioId);
+  server.initializeGame(config.playerIds as string[], config.heroIds, config.scenarioId, config);
   return server;
 }
 

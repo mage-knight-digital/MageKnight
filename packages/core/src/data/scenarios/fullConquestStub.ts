@@ -54,6 +54,7 @@ export const FULL_CONQUEST_STUB: ScenarioConfig = {
   enabledExpansions: [EXPANSION_LOST_LEGION, EXPANSION_KRANG, EXPANSION_SHADES_OF_TEZLA],
   famePerTileExplored: 0, // No fame for exploring in full conquest
   citiesCanBeEntered: true, // Can enter and conquer cities
+  defaultCityLevel: 5, // Standard garrison level
 
   // Tactic handling - Solo Conquest rules (stub uses solo rules)
   tacticRemovalMode: TACTIC_REMOVAL_ALL_USED,
