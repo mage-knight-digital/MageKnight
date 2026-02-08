@@ -29,6 +29,7 @@ import { getMeditationOptions } from "../validActions/pending.js";
 import { getValidActions } from "../validActions/index.js";
 import { createPlayCardCommand } from "../commands/playCardCommand.js";
 import { createResolveMeditationCommand } from "../commands/resolveMeditationCommand.js";
+import { createResolveMeditationCommandFromAction } from "../commands/factories/sites.js";
 import type { GameState } from "../../state/GameState.js";
 
 // ============================================================================
@@ -609,5 +610,205 @@ describe("Meditation player reset", () => {
 
     expect(resetPlayer.pendingMeditation).toBeUndefined();
     expect(resetPlayer.meditationHandLimitBonus).toBe(0);
+  });
+});
+
+// ============================================================================
+// 8. Error Guard / Edge Case Tests (Coverage)
+// ============================================================================
+
+describe("resolveMeditationCommand error guards", () => {
+  it("throws when player not found", () => {
+    const state = createTestGameState({ players: [] });
+    const cmd = createResolveMeditationCommand({
+      playerId: "nonexistent",
+      placeOnTop: true,
+    });
+    expect(() => cmd.execute(state)).toThrow("Player not found");
+  });
+
+  it("throws when no pending Meditation", () => {
+    const player = createTestPlayer({ pendingMeditation: undefined });
+    const state = createTestGameState({ players: [player] });
+    const cmd = createResolveMeditationCommand({
+      playerId: "player1",
+      placeOnTop: true,
+    });
+    expect(() => cmd.execute(state)).toThrow("No pending Meditation to resolve");
+  });
+
+  it("throws when select_cards phase has no selectedCardIds", () => {
+    const player = createTestPlayer({
+      pendingMeditation: {
+        version: "powered",
+        phase: "select_cards",
+        selectedCardIds: [],
+      },
+    });
+    const state = createTestGameState({ players: [player] });
+    const cmd = createResolveMeditationCommand({
+      playerId: "player1",
+      // no selectedCardIds provided
+    });
+    expect(() => cmd.execute(state)).toThrow("Must select cards for phase 1");
+  });
+
+  it("throws when place_cards phase has no placeOnTop", () => {
+    const player = createTestPlayer({
+      pendingMeditation: {
+        version: "basic",
+        phase: "place_cards",
+        selectedCardIds: [CARD_MARCH],
+      },
+    });
+    const state = createTestGameState({ players: [player] });
+    const cmd = createResolveMeditationCommand({
+      playerId: "player1",
+      // no placeOnTop provided
+    });
+    expect(() => cmd.execute(state)).toThrow("Must specify placement for phase 2");
+  });
+
+  it("throws on unknown meditation phase", () => {
+    const player = createTestPlayer({
+      pendingMeditation: {
+        version: "basic",
+        phase: "unknown_phase" as "select_cards",
+        selectedCardIds: [],
+      },
+    });
+    const state = createTestGameState({ players: [player] });
+    const cmd = createResolveMeditationCommand({
+      playerId: "player1",
+    });
+    expect(() => cmd.execute(state)).toThrow("Unknown meditation phase");
+  });
+
+  it("throws on undo", () => {
+    const state = createTestGameState({});
+    const cmd = createResolveMeditationCommand({
+      playerId: "player1",
+    });
+    expect(() => cmd.undo(state)).toThrow("Cannot undo RESOLVE_MEDITATION");
+  });
+});
+
+// ============================================================================
+// 9. Validator Edge Case Tests (Coverage)
+// ============================================================================
+
+describe("Meditation validator edge cases", () => {
+  it("validateHasPendingMeditation returns invalid for nonexistent player", () => {
+    const state = createTestGameState({ players: [] });
+    const result = validateHasPendingMeditation(state, "nonexistent", {} as never);
+    expect(result.valid).toBe(false);
+  });
+
+  it("validateMeditationChoice returns invalid for nonexistent player", () => {
+    const state = createTestGameState({ players: [] });
+    const action = {
+      type: RESOLVE_MEDITATION_ACTION,
+      placeOnTop: true,
+    } as never;
+    const result = validateMeditationChoice(state, "nonexistent", action);
+    expect(result.valid).toBe(false);
+  });
+
+  it("validateMeditationChoice returns invalid when no pending meditation", () => {
+    const player = createTestPlayer({ pendingMeditation: undefined });
+    const state = createTestGameState({ players: [player] });
+    const action = {
+      type: RESOLVE_MEDITATION_ACTION,
+      placeOnTop: true,
+    } as never;
+    const result = validateMeditationChoice(state, "player1", action);
+    expect(result.valid).toBe(false);
+  });
+
+  it("validateMeditationChoice returns invalid for unknown phase", () => {
+    const player = createTestPlayer({
+      pendingMeditation: {
+        version: "basic",
+        phase: "unknown_phase" as "select_cards",
+        selectedCardIds: [],
+      },
+    });
+    const state = createTestGameState({ players: [player] });
+    const action = {
+      type: RESOLVE_MEDITATION_ACTION,
+      placeOnTop: true,
+    } as never;
+    const result = validateMeditationChoice(state, "player1", action);
+    expect(result.valid).toBe(false);
+  });
+});
+
+// ============================================================================
+// 10. Factory Tests (Coverage)
+// ============================================================================
+
+describe("createResolveMeditationCommandFromAction factory", () => {
+  it("returns null for non-meditation action", () => {
+    const state = createTestGameState({});
+    const result = createResolveMeditationCommandFromAction(
+      state,
+      "player1",
+      { type: "MOVE" } as never
+    );
+    expect(result).toBeNull();
+  });
+
+  it("creates command for phase 1 (select_cards) action", () => {
+    const player = createTestPlayer({
+      discard: [CARD_MARCH, CARD_RAGE],
+      pendingMeditation: {
+        version: "powered",
+        phase: "select_cards",
+        selectedCardIds: [],
+      },
+      meditationHandLimitBonus: 2,
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const cmd = createResolveMeditationCommandFromAction(state, "player1", {
+      type: RESOLVE_MEDITATION_ACTION,
+      selectedCardIds: [CARD_MARCH, CARD_RAGE],
+    } as never);
+
+    expect(cmd).not.toBeNull();
+    const result = cmd!.execute(state);
+    const updatedPlayer = result.state.players[0]!;
+    expect(updatedPlayer.pendingMeditation!.phase).toBe("place_cards");
+    expect(updatedPlayer.pendingMeditation!.selectedCardIds).toEqual([
+      CARD_MARCH,
+      CARD_RAGE,
+    ]);
+  });
+
+  it("creates command for phase 2 (place_cards) action", () => {
+    const player = createTestPlayer({
+      deck: [CARD_WOUND],
+      discard: [CARD_MARCH, CARD_RAGE],
+      pendingMeditation: {
+        version: "basic",
+        phase: "place_cards",
+        selectedCardIds: [CARD_MARCH, CARD_RAGE],
+      },
+      meditationHandLimitBonus: 2,
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const cmd = createResolveMeditationCommandFromAction(state, "player1", {
+      type: RESOLVE_MEDITATION_ACTION,
+      placeOnTop: true,
+    } as never);
+
+    expect(cmd).not.toBeNull();
+    const result = cmd!.execute(state);
+    const updatedPlayer = result.state.players[0]!;
+    expect(updatedPlayer.pendingMeditation).toBeUndefined();
+    expect(updatedPlayer.deck[0]).toBe(CARD_MARCH);
+    expect(updatedPlayer.deck[1]).toBe(CARD_RAGE);
+    expect(updatedPlayer.deck[2]).toBe(CARD_WOUND);
   });
 });
