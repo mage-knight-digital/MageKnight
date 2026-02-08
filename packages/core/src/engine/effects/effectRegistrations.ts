@@ -64,6 +64,7 @@ import { registerBookOfWisdomEffects } from "./bookOfWisdomEffects.js";
 import { registerMagicTalentEffects } from "./magicTalentEffects.js";
 import { registerLearningEffects } from "./learningEffects.js";
 import { registerTrainingEffects } from "./trainingEffects.js";
+import { registerShapeshiftEffects } from "./shapeshiftEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -238,4 +239,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Training effects (throw away action card, gain same-color AA from offer)
   registerTrainingEffects();
+
+  // Shapeshift effects (Braevalar's Shapeshift skill - effect type conversion)
+  registerShapeshiftEffects();
 }

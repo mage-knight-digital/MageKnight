@@ -5,10 +5,11 @@
  * This system tracks active modifiers and allows calculations to query effective values.
  */
 
-import type { SkillId, CardId, Terrain, ManaColor, BasicManaColor, ResistanceType, HexCoord } from "@mage-knight/shared";
+import type { SkillId, CardId, Terrain, ManaColor, BasicManaColor, ResistanceType, HexCoord, Element } from "@mage-knight/shared";
 import type { EnemyAbility } from "./enemy.js";
 import type { DeedCardType } from "./cards.js";
 import type { SourceDieId } from "./mana.js";
+import type { CombatType } from "./effectTypes.js";
 import {
   ABILITY_ANY,
   COMBAT_VALUE_ATTACK,
@@ -64,6 +65,10 @@ import {
   EFFECT_GOLDEN_GRAIL_FAME_TRACKING,
   EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL,
   EFFECT_LEARNING_DISCOUNT,
+  EFFECT_SHAPESHIFT_ACTIVE,
+  SHAPESHIFT_TARGET_MOVE,
+  SHAPESHIFT_TARGET_ATTACK,
+  SHAPESHIFT_TARGET_BLOCK,
   LEADERSHIP_BONUS_BLOCK,
   LEADERSHIP_BONUS_ATTACK,
   LEADERSHIP_BONUS_RANGED_ATTACK,
@@ -561,6 +566,28 @@ export interface LearningDiscountModifier {
   readonly destination: "hand" | "discard"; // Where the AA goes
 }
 
+// Shapeshift target type
+export type ShapeshiftTargetType =
+  | typeof SHAPESHIFT_TARGET_MOVE
+  | typeof SHAPESHIFT_TARGET_ATTACK
+  | typeof SHAPESHIFT_TARGET_BLOCK;
+
+// Shapeshift active modifier (Braevalar's Shapeshift skill)
+// When active, the next play of the targeted Basic Action card transforms
+// one of its Move/Attack/Block effects into the specified target type.
+// Consumed when the targeted card is played.
+export interface ShapeshiftActiveModifier {
+  readonly type: typeof EFFECT_SHAPESHIFT_ACTIVE;
+  readonly targetCardId: CardId;
+  readonly targetType: ShapeshiftTargetType;
+  /** Index of the effect to transform within a choice effect (if applicable) */
+  readonly choiceIndex?: number;
+  /** The combat type to use when converting to attack (default: melee) */
+  readonly combatType?: CombatType;
+  /** The element to preserve when converting between attack and block */
+  readonly element?: Element;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -606,7 +633,8 @@ export type ModifierEffect =
   | ExploreCostReductionModifier
   | GoldenGrailFameTrackingModifier
   | GoldenGrailDrawOnHealModifier
-  | LearningDiscountModifier;
+  | LearningDiscountModifier
+  | ShapeshiftActiveModifier;
 
 // === Active Modifier (live in game state) ===
 

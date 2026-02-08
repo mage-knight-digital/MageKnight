@@ -134,6 +134,7 @@ import {
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
   EFFECT_APPLY_LEARNING_DISCOUNT,
+  EFFECT_SHAPESHIFT_RESOLVE,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1539,6 +1540,25 @@ export interface ApplyLearningDiscountEffect {
   readonly destination: "hand" | "discard"; // Where the AA goes
 }
 
+/**
+ * Shapeshift resolve effect.
+ * Applied when the player selects a Shapeshift transformation option.
+ * Applies a modifier that transforms the targeted card's effect when played.
+ */
+export interface ShapeshiftResolveEffect {
+  readonly type: typeof EFFECT_SHAPESHIFT_RESOLVE;
+  readonly targetCardId: CardId;
+  readonly targetType: import("./modifiers.js").ShapeshiftTargetType;
+  /** Index of the effect to transform within a choice effect */
+  readonly choiceIndex?: number;
+  /** The combat type to use when converting to attack */
+  readonly combatType?: CombatType;
+  /** The element to preserve when converting between attack and block */
+  readonly element?: Element;
+  /** Human-readable description of the transformation */
+  readonly description: string;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1650,7 +1670,8 @@ export type CardEffect =
   | MagicTalentPoweredEffect
   | ResolveMagicTalentGainEffect
   | ResolveMagicTalentSpellManaEffect
-  | ApplyLearningDiscountEffect;
+  | ApplyLearningDiscountEffect
+  | ShapeshiftResolveEffect;
 
 // === Card Definition ===
 

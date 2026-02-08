@@ -68,3 +68,10 @@ export {
   expireModifiers,
   type ExpirationTrigger,
 } from "./lifecycle.js";
+
+// Shapeshift transformation
+export {
+  getShapeshiftModifier,
+  applyShapeshiftTransformation,
+  consumeShapeshiftModifier,
+} from "./shapeshift.js";

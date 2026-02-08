@@ -53,3 +53,9 @@ export {
   applyUniversalPowerEffect,
   removeUniversalPowerEffect,
 } from "./universalPowerEffect.js";
+
+export {
+  applyShapeshiftEffect,
+  removeShapeshiftEffect,
+  canActivateShapeshift,
+} from "./shapeshiftEffect.js";
