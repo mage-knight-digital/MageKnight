@@ -64,6 +64,19 @@ export interface BannerFearCancelAttackEvent {
 }
 
 // ============================================================================
+// BANNER_FORTITUDE_PREVENTED_WOUND
+// ============================================================================
+
+export const BANNER_FORTITUDE_PREVENTED_WOUND = "BANNER_FORTITUDE_PREVENTED_WOUND" as const;
+
+export interface BannerFortitudePreventedWoundEvent {
+  readonly type: typeof BANNER_FORTITUDE_PREVENTED_WOUND;
+  readonly playerId: string;
+  readonly unitInstanceId: string;
+  readonly damageNegated: number;
+}
+
+// ============================================================================
 // BANNERS_RESET
 // ============================================================================
 

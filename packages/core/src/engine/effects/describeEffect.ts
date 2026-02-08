@@ -45,6 +45,7 @@ import {
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   EFFECT_READY_ALL_UNITS,
+  EFFECT_HEAL_ALL_UNITS,
   EFFECT_READY_UNITS_BUDGET,
   EFFECT_RESOLVE_READY_UNIT_BUDGET,
   EFFECT_CURE,
@@ -370,6 +371,8 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   },
 
   [EFFECT_READY_ALL_UNITS]: () => "Ready all Units",
+
+  [EFFECT_HEAL_ALL_UNITS]: () => "Heal all Units completely",
 
   [EFFECT_READY_UNITS_BUDGET]: (effect) => {
     const e = effect as ReadyUnitsBudgetEffect;

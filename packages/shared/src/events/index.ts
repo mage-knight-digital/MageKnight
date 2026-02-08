@@ -292,6 +292,7 @@ import type {
   BannerAssignedEvent,
   BannerDetachedEvent,
   BannerFearCancelAttackEvent,
+  BannerFortitudePreventedWoundEvent,
   BannersResetEvent,
 } from "./banners.js";
 
@@ -476,6 +477,7 @@ export type GameEvent =
   | BannerAssignedEvent
   | BannerDetachedEvent
   | BannerFearCancelAttackEvent
+  | BannerFortitudePreventedWoundEvent
   | BannersResetEvent;
 
 /**

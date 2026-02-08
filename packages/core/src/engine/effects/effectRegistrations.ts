@@ -50,6 +50,7 @@ import { registerManaClaimEffects } from "./manaClaimEffects.js";
 import { registerManaBoltEffects } from "./manaBoltEffects.js";
 import { registerMindReadEffects } from "./mindReadEffects.js";
 import { registerBannerProtectionEffects } from "./bannerProtectionEffects.js";
+import { registerHealAllUnitsEffects } from "./healAllUnitsEffects.js";
 import { registerWingsOfNightEffects } from "./wingsOfNightEffects.js";
 import { registerDecomposeEffects } from "./decomposeEffects.js";
 import { registerCrystalMasteryEffects } from "./crystalMasteryEffects.js";
@@ -185,6 +186,9 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Banner of Protection effects (activate powered flag)
   registerBannerProtectionEffects();
+
+  // Heal all units effects (Banner of Fortitude powered)
+  registerHealAllUnitsEffects();
 
   // Wings of Night effects (multi-target skip-attack with move cost)
   registerWingsOfNightEffects();

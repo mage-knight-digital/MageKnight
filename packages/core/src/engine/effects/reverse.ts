@@ -53,6 +53,7 @@ import {
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_READY_ALL_UNITS,
+  EFFECT_HEAL_ALL_UNITS,
   EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
   EFFECT_SELECT_TERRAIN_FOR_COST_REDUCTION,
   EFFECT_WOUND_ACTIVATING_UNIT,
@@ -298,6 +299,12 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
 
   [EFFECT_READY_ALL_UNITS]: (player) => {
     // Cannot reliably reverse — we don't track which units were originally spent.
+    // Commands containing this effect should be non-reversible.
+    return player;
+  },
+
+  [EFFECT_HEAL_ALL_UNITS]: (player) => {
+    // Cannot reliably reverse — we don't track which units were originally wounded.
     // Commands containing this effect should be non-reversible.
     return player;
   },
