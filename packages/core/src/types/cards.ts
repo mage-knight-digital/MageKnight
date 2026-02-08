@@ -27,6 +27,7 @@ import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
   EFFECT_GAIN_ATTACK,
+  EFFECT_GAIN_ATTACK_BOW_RESOLVED,
   EFFECT_GAIN_BLOCK,
   EFFECT_GAIN_HEALING,
   EFFECT_GAIN_MANA,
@@ -213,6 +214,18 @@ export interface GainAttackEffect {
   readonly amount: number;
   readonly combatType: CombatType;
   readonly element?: Element; // undefined = physical
+}
+
+/**
+ * Internal: GainAttack that has been transformed by Bow of Starsdawn.
+ * Identical to GainAttackEffect but uses a different type to prevent
+ * re-triggering the Bow transformation choice (avoids infinite recursion).
+ */
+export interface GainAttackBowResolvedEffect {
+  readonly type: typeof EFFECT_GAIN_ATTACK_BOW_RESOLVED;
+  readonly amount: number;
+  readonly combatType: CombatType;
+  readonly element?: Element;
 }
 
 export interface GainBlockEffect {
@@ -1566,6 +1579,7 @@ export type CardEffect =
   | GainMoveEffect
   | GainInfluenceEffect
   | GainAttackEffect
+  | GainAttackBowResolvedEffect
   | GainBlockEffect
   | GainHealingEffect
   | GainManaEffect

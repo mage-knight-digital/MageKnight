@@ -104,6 +104,7 @@ export {
   applyGainInfluence,
   applyGainMana,
   applyGainAttack,
+  applyGainBowResolvedAttack,
   applyGainBlock,
   applyGainHealing,
   applyDrawCards,

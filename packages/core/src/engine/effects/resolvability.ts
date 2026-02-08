@@ -117,6 +117,7 @@ import {
   EFFECT_MAGIC_TALENT_POWERED,
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
+  EFFECT_GAIN_ATTACK_BOW_RESOLVED,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -230,6 +231,7 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   [EFFECT_GAIN_MOVE]: () => true,
   [EFFECT_GAIN_INFLUENCE]: () => true,
   [EFFECT_GAIN_ATTACK]: () => true,
+  [EFFECT_GAIN_ATTACK_BOW_RESOLVED]: () => true,
   [EFFECT_GAIN_BLOCK]: () => true,
   [EFFECT_GAIN_MANA]: () => true,
   [EFFECT_TAKE_WOUND]: () => true,

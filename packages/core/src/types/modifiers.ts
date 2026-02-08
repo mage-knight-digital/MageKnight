@@ -68,6 +68,8 @@ import {
   EFFECT_SHAPESHIFT_ACTIVE,
   EFFECT_GRANT_ENEMY_ABILITY,
   EFFECT_NATURES_VENGEANCE_ATTACK_BONUS,
+  EFFECT_BOW_PHASE_FAME_TRACKING,
+  EFFECT_BOW_ATTACK_TRANSFORMATION,
   SHAPESHIFT_TARGET_MOVE,
   SHAPESHIFT_TARGET_ATTACK,
   SHAPESHIFT_TARGET_BLOCK,
@@ -570,6 +572,24 @@ export interface LearningDiscountModifier {
   readonly destination: "hand" | "discard"; // Where the AA goes
 }
 
+// Bow of Starsdawn phase fame tracking modifier (Bow of Starsdawn basic effect)
+// Grants fame per enemy defeated in the current combat phase (not the whole turn).
+// Consumed after the phase transition where it was active (only triggers once per phase).
+export interface BowPhaseFameTrackingModifier {
+  readonly type: typeof EFFECT_BOW_PHASE_FAME_TRACKING;
+  readonly famePerEnemy: number; // Fame per enemy defeated in this phase (typically 1)
+}
+
+// Bow of Starsdawn attack transformation modifier (Bow of Starsdawn powered effect)
+// For each Ranged/Siege attack during Ranged/Siege phase:
+// - Ranged Attack: choice to double OR convert to Siege of same element
+// - Siege Attack: can double but becomes Ranged of same element
+// Applies to attacks from all sources (cards, units, skills).
+// Does NOT apply during Attack Phase (all attacks are plain "Attacks" there).
+export interface BowAttackTransformationModifier {
+  readonly type: typeof EFFECT_BOW_ATTACK_TRANSFORMATION;
+}
+
 // Shapeshift target type
 export type ShapeshiftTargetType =
   | typeof SHAPESHIFT_TARGET_MOVE
@@ -657,7 +677,9 @@ export type ModifierEffect =
   | LearningDiscountModifier
   | ShapeshiftActiveModifier
   | GrantEnemyAbilityModifier
-  | NaturesVengeanceAttackBonusModifier;
+  | NaturesVengeanceAttackBonusModifier
+  | BowPhaseFameTrackingModifier
+  | BowAttackTransformationModifier;
 
 // === Active Modifier (live in game state) ===
 

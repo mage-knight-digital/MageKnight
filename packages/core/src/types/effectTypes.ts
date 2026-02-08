@@ -395,6 +395,11 @@ export const EFFECT_APPLY_LEARNING_DISCOUNT = "apply_learning_discount" as const
 // Stores the target card and conversion, then applies a modifier.
 export const EFFECT_SHAPESHIFT_RESOLVE = "shapeshift_resolve" as const;
 
+// === Bow of Starsdawn Resolved Attack Effect ===
+// Internal: a GainAttack that has already been processed by the Bow of Starsdawn
+// transformation modifier. Skips re-triggering the transformation choice.
+export const EFFECT_GAIN_ATTACK_BOW_RESOLVED = "gain_attack_bow_resolved" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.

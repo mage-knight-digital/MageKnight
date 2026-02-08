@@ -346,6 +346,18 @@ export const EFFECT_LEARNING_DISCOUNT = "learning_discount" as const;
 // Consumed when the targeted card is played.
 export const EFFECT_SHAPESHIFT_ACTIVE = "shapeshift_active" as const;
 
+// === BowPhaseFameTrackingModifier ===
+// Grants fame per enemy defeated in the current combat phase (not the whole turn).
+// Applied by Bow of Starsdawn basic effect. Consumed after the phase in which it was applied.
+export const EFFECT_BOW_PHASE_FAME_TRACKING = "bow_phase_fame_tracking" as const;
+
+// === BowAttackTransformationModifier ===
+// Ranged attacks can be doubled OR converted to Siege of same element.
+// Siege attacks can be doubled but become Ranged of same element.
+// Applies to all sources (cards, units, skills). Does NOT apply in Attack Phase.
+// Applied by Bow of Starsdawn powered effect. Duration: turn.
+export const EFFECT_BOW_ATTACK_TRANSFORMATION = "bow_attack_transformation" as const;
+
 // === ShapeshiftActiveModifier target effect types ===
 export const SHAPESHIFT_TARGET_MOVE = "move" as const;
 export const SHAPESHIFT_TARGET_ATTACK = "attack" as const;
