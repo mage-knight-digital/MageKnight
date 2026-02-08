@@ -43,7 +43,7 @@ import {
   countMonasteries,
   drawMonasteryAdvancedAction,
 } from "@mage-knight/core";
-import type { HexCoord, CardId, HeroId, ScenarioId } from "@mage-knight/shared";
+import type { HexCoord, CardId, HeroId, ScenarioId, GameConfig } from "@mage-knight/shared";
 import {
   TILE_PLACEMENT_OFFSETS,
   MAP_SHAPE_CONFIGS,
@@ -92,13 +92,15 @@ export class GameServer {
    * @param heroIds - Optional array of hero IDs corresponding to each player.
    *                  If not provided, heroes are assigned in default order (Arythea, Tovak, Goldyx, Norowas).
    * @param scenarioId - Optional scenario to play. Defaults to First Reconnaissance.
+   * @param config - Optional full GameConfig for additional overrides (e.g., cityLevel).
    */
   initializeGame(
     playerIds: readonly string[],
     heroIds?: readonly HeroId[],
-    scenarioId: ScenarioId = SCENARIO_FIRST_RECONNAISSANCE
+    scenarioId: ScenarioId = SCENARIO_FIRST_RECONNAISSANCE,
+    config?: GameConfig
   ): void {
-    this.state = this.createGameWithPlayers(playerIds, heroIds, scenarioId);
+    this.state = this.createGameWithPlayers(playerIds, heroIds, scenarioId, config);
 
     // Broadcast initial state to all connected players
     this.broadcastState([
@@ -193,9 +195,13 @@ export class GameServer {
   private createGameWithPlayers(
     playerIds: readonly string[],
     heroIds?: readonly HeroId[],
-    scenarioId: ScenarioId = SCENARIO_FIRST_RECONNAISSANCE
+    scenarioId: ScenarioId = SCENARIO_FIRST_RECONNAISSANCE,
+    config?: GameConfig
   ): GameState {
     const baseState = createInitialGameState(this.seed, scenarioId);
+
+    // Apply city level override from config if provided
+    const effectiveCityLevel = config?.cityLevel ?? baseState.cityLevel;
 
     // Initialize tile deck based on scenario configuration
     const { tileDeck: initialDeck, rng: rngAfterDeck } = createTileDeck(
@@ -430,6 +436,7 @@ export class GameServer {
 
     return {
       ...baseState,
+      cityLevel: effectiveCityLevel,
       phase: GAME_PHASE_ROUND,
       roundPhase: ROUND_PHASE_TACTICS_SELECTION,
       availableTactics: [...ALL_DAY_TACTICS],

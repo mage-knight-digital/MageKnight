@@ -180,6 +180,7 @@ export interface ScenarioConfig {
   readonly enabledExpansions: readonly ExpansionId[]; // which expansions are active
   readonly famePerTileExplored: number; // 0 for scenarios that don't give fame for exploration
   readonly citiesCanBeEntered: boolean; // false for First Reconnaissance
+  readonly defaultCityLevel: number; // garrison level for cities (1-11)
 
   // Tactic handling
   readonly tacticRemovalMode: TacticRemovalMode;

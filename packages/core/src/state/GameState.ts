@@ -117,6 +117,9 @@ export interface GameState {
   // All draw decks (spells, advanced actions, artifacts, units)
   readonly decks: GameDecks;
 
+  // City configuration
+  readonly cityLevel: number; // garrison level for cities (1-11)
+
   // City states (only revealed cities have entries)
   readonly cities: Partial<Record<CityColor, CityState>>;
 
@@ -189,6 +192,7 @@ export function createInitialGameState(
     enemyTokens: createEmptyEnemyTokenPiles(),
     ruinsTokens: createEmptyRuinsTokenPiles(),
     decks: createEmptyDecks(),
+    cityLevel: scenarioConfig.defaultCityLevel,
     cities: {},
     activeModifiers: [],
     commandStack: createEmptyCommandStack(),

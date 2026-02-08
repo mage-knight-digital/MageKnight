@@ -21,17 +21,20 @@ import {
   END_TRIGGER_CITY_REVEALED,
   FAME_SOURCE_TILE_EXPLORED,
 } from "@mage-knight/shared";
-import { SiteType, type TileId, type HexState, type TilePlacement } from "../../types/map.js";
+import { SiteType, type TileId, type HexState, type TilePlacement, type CityColor } from "../../types/map.js";
+import type { EnemyTokenId } from "../../types/enemy.js";
 import type { Player } from "../../types/player.js";
 import { placeTile, TILE_DEFINITIONS } from "../../data/tiles/index.js";
 import { calculateTilePlacement } from "../explore/index.js";
 import { EXPLORE_COMMAND } from "./commandTypes.js";
-import { drawEnemiesForHex } from "../helpers/enemy/index.js";
+import { drawEnemiesForHex, drawEnemy } from "../helpers/enemy/index.js";
 import {
   countMonasteries,
   drawMonasteryAdvancedAction,
 } from "../helpers/monasteryHelpers.js";
 import { drawRuinsToken } from "../helpers/ruinsTokenHelpers.js";
+import { getCityGarrison } from "../../data/cityGarrison.js";
+import { createCityState } from "../../types/city.js";
 
 export { EXPLORE_COMMAND };
 
@@ -175,6 +178,30 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
       const updatedPlayers = [...state.players];
       updatedPlayers[playerIndex] = updatedPlayer;
 
+      // Draw city garrison enemies for any city hexes on this tile
+      let updatedCities = { ...state.cities };
+      for (const hex of newHexes) {
+        if (hex.site?.type === SiteType.City && hex.site.cityColor) {
+          const cityColor = hex.site.cityColor as CityColor;
+          const garrisonColors = getCityGarrison(cityColor, state.cityLevel);
+          const garrisonTokenIds: EnemyTokenId[] = [];
+
+          for (const enemyColor of garrisonColors) {
+            const result = drawEnemy(currentEnemyPiles, enemyColor, currentRng);
+            if (result.tokenId) {
+              garrisonTokenIds.push(result.tokenId);
+            }
+            currentEnemyPiles = result.piles;
+            currentRng = result.rng;
+          }
+
+          updatedCities = {
+            ...updatedCities,
+            [cityColor]: createCityState(cityColor, state.cityLevel, garrisonTokenIds),
+          };
+        }
+      }
+
       // Check if this tile has a city (for scenario end trigger)
       const tileDefinition = TILE_DEFINITIONS[tileId];
       const isCityTile = tileDefinition?.hasCity ?? false;
@@ -206,6 +233,7 @@ export function createExploreCommand(params: ExploreCommandParams): Command {
         enemyTokens: currentEnemyPiles,
         ruinsTokens: currentRuinsPiles,
         rng: currentRng,
+        cities: updatedCities,
         scenarioEndTriggered: shouldTriggerScenarioEnd || state.scenarioEndTriggered,
         finalTurnsRemaining,
       };

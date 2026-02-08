@@ -62,6 +62,7 @@ export const FIRST_RECONNAISSANCE: ScenarioConfig = {
   enabledExpansions: [], // Base game only - no expansions
   famePerTileExplored: 1, // +1 Fame per tile in First Reconnaissance
   citiesCanBeEntered: false, // Cannot enter city in this scenario
+  defaultCityLevel: 1, // Cities aren't entered in this scenario
 
   // Tactic handling - Solo Conquest rules
   tacticRemovalMode: TACTIC_REMOVAL_ALL_USED, // All used tactics removed at end of round

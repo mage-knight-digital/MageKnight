@@ -21,4 +21,7 @@ export interface GameConfig {
 
   /** Scenario to play */
   readonly scenarioId: ScenarioId;
+
+  /** Optional city level override (1-11). Defaults to scenario's defaultCityLevel. */
+  readonly cityLevel?: number;
 }
