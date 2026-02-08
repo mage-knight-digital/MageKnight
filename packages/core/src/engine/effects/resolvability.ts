@@ -124,6 +124,8 @@ import {
   EFFECT_BLOOD_OF_ANCIENTS_POWERED,
   EFFECT_RESOLVE_BLOOD_POWERED_WOUND,
   EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
+  EFFECT_TOME_OF_ALL_SPELLS,
+  EFFECT_RESOLVE_TOME_SPELL,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -654,6 +656,19 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   // Internal Blood of Ancients powered effects are always resolvable
   [EFFECT_RESOLVE_BLOOD_POWERED_WOUND]: () => true,
   [EFFECT_RESOLVE_BLOOD_POWERED_USE_AA]: () => true,
+
+  // Tome of All Spells is resolvable if player has colored cards to discard
+  // and there are spells in the offer
+  [EFFECT_TOME_OF_ALL_SPELLS]: (state, player) => {
+    const hasColoredCards = player.hand.some(
+      (c) => c !== CARD_WOUND && (getActionCardColor(c) !== null || getSpellColor(c) !== null)
+    );
+    if (!hasColoredCards) return false;
+    return state.offers.spells.cards.length > 0;
+  },
+
+  // Resolve Tome spell is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_TOME_SPELL]: () => true,
 };
 
 // ============================================================================

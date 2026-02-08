@@ -414,6 +414,14 @@ export const EFFECT_RESOLVE_BLOOD_POWERED_WOUND = "resolve_blood_powered_wound" 
 // Internal: After AA selection, resolve the AA's powered effect (card stays in offer).
 export const EFFECT_RESOLVE_BLOOD_POWERED_USE_AA = "resolve_blood_powered_use_aa" as const;
 
+// === Tome of All Spells Effects ===
+// Basic: Discard a card of any color. Use the basic effect of a Spell of the
+// same color from the Spells Offer without paying its mana cost.
+export const EFFECT_TOME_OF_ALL_SPELLS = "tome_of_all_spells" as const;
+// Internal: After discarding a card, player selects a spell from the offer
+// of matching color, then resolves that spell's basic or powered effect (no mana cost).
+export const EFFECT_RESOLVE_TOME_SPELL = "resolve_tome_spell" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.
