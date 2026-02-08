@@ -103,7 +103,8 @@ export type {
   PlayCardSidewaysAction,
   ManaSourceInfo,
   // Mana usage
-  UseManaDeieAction,
+  UseManaDieAction,
+  UseManaDeieAction, // @deprecated alias
   ConvertCrystalAction,
   // Unit activation
   ActivateUnitAction,

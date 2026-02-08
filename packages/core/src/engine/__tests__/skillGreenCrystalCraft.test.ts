@@ -21,6 +21,7 @@ import {
   UNDO_ACTION,
   CARD_MARCH,
   MANA_GREEN,
+  MANA_BLUE,
   MANA_TOKEN_SOURCE_CARD,
   getSkillsFromValidActions,
 } from "@mage-knight/shared";
@@ -182,9 +183,13 @@ describe("Green Crystal Craft skill", () => {
       // Blue crystals should stay at 3 (capped)
       expect(result.state.players[0].crystals.blue).toBe(3);
 
-      // Green mana token should still be granted
-      expect(result.state.players[0].pureMana).toHaveLength(1);
+      // Blue crystal overflows to token + green mana token from skill
+      expect(result.state.players[0].pureMana).toHaveLength(2);
       expect(result.state.players[0].pureMana[0]).toEqual({
+        color: MANA_BLUE,
+        source: MANA_TOKEN_SOURCE_CARD,
+      });
+      expect(result.state.players[0].pureMana[1]).toEqual({
         color: MANA_GREEN,
         source: MANA_TOKEN_SOURCE_CARD,
       });

@@ -9,7 +9,7 @@
  * onto the tray one by one with a satisfying bounce.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import {
@@ -24,7 +24,10 @@ import {
   MANA_WHITE,
   MANA_GOLD,
   MANA_BLACK,
+  USE_MANA_DIE_ACTION,
+  BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
+import type { ManaColor, BasicManaColor, AvailableDie } from "@mage-knight/shared";
 import "./ManaSourceOverlay.css";
 
 function getManaIconUrl(color: string): string {
@@ -47,10 +50,13 @@ const TAKEN_ANIMATION_MS = 400;
 const STAGGER_DELAY_MS = 80;
 
 export function ManaSourceOverlay() {
-  const { state } = useGame();
+  const { state, sendAction } = useGame();
   const player = useMyPlayer();
   const { shouldRevealManaSource, isIntroComplete } = useGameIntro();
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
+
+  // Color picker state for multi-color dice (gold/black)
+  const [colorPickerDieId, setColorPickerDieId] = useState<string | null>(null);
 
   // Track intro animation state
   // Always start hidden - will reveal after intro completes
@@ -183,6 +189,37 @@ export function ManaSourceOverlay() {
     }
   }, [state?.source.dice]);
 
+  // Get available dice from validActions (memoized to avoid re-creating on every render)
+  const availableDice: readonly AvailableDie[] = useMemo(() =>
+    state?.validActions && "mana" in state.validActions
+      ? state.validActions.mana.availableDice
+      : [],
+    [state?.validActions],
+  );
+
+  const handleDieClick = useCallback((dieId: string, dieColor: ManaColor) => {
+    // Find this die in available dice
+    const available = availableDice.find((d) => d.dieId === dieId);
+    if (!available) return;
+
+    // Basic color dice: use directly
+    const isBasic = (BASIC_MANA_COLORS as readonly string[]).includes(dieColor);
+    if (isBasic) {
+      sendAction({ type: USE_MANA_DIE_ACTION, dieId, color: dieColor as BasicManaColor });
+      setColorPickerDieId(null);
+      return;
+    }
+
+    // Gold or black dice can produce multiple colors - show picker
+    setColorPickerDieId(dieId);
+  }, [availableDice, sendAction]);
+
+  const handleColorPickerSelect = useCallback((color: ManaColor) => {
+    if (!colorPickerDieId) return;
+    sendAction({ type: USE_MANA_DIE_ACTION, dieId: colorPickerDieId, color });
+    setColorPickerDieId(null);
+  }, [colorPickerDieId, sendAction]);
+
   if (!state) return null;
 
   const myId = player?.id;
@@ -218,6 +255,9 @@ export function ManaSourceOverlay() {
           const staggerDelay =
             staggerIndex >= 0 ? staggerIndex * STAGGER_DELAY_MS : 0;
 
+          // Check if this die is available to click
+          const isClickable = availableDice.some((d) => d.dieId === die.id);
+
           const classNames = [
             "mana-source-overlay__die",
             // Stolen dice get distinct "stolen" styling instead of generic "unavailable"
@@ -226,6 +266,7 @@ export function ManaSourceOverlay() {
               : isUnavailable && "mana-source-overlay__die--unavailable",
             isRolling && "mana-source-overlay__die--rolling",
             isTakenAnimating && "mana-source-overlay__die--taken",
+            isClickable && "mana-source-overlay__die--clickable",
           ]
             .filter(Boolean)
             .join(" ");
@@ -242,6 +283,8 @@ export function ManaSourceOverlay() {
             titleText = `${die.color} (used by you)`;
           } else if (isTakenByOther) {
             titleText = `${die.color} (taken)`;
+          } else if (isClickable) {
+            titleText = `Click to use ${die.color} mana`;
           }
 
           return (
@@ -253,6 +296,10 @@ export function ManaSourceOverlay() {
                 isRolling ? { animationDelay: `${staggerDelay}ms` } : undefined
               }
               title={titleText}
+              onClick={isClickable ? () => handleDieClick(die.id, die.color) : undefined}
+              role={isClickable ? "button" : undefined}
+              tabIndex={isClickable ? 0 : undefined}
+              onKeyDown={isClickable ? (e) => { if (e.key === "Enter" || e.key === " ") handleDieClick(die.id, die.color); } : undefined}
             >
               <img
                 src={getManaIconUrl(die.color)}
@@ -268,6 +315,22 @@ export function ManaSourceOverlay() {
                 <span className="mana-source-overlay__die-badge" title="On tactic card">
                   📜
                 </span>
+              )}
+              {/* Color picker popup for gold/black dice */}
+              {colorPickerDieId === die.id && (
+                <div className="mana-source-overlay__color-picker">
+                  {[MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE].map((color) => (
+                    <button
+                      key={color}
+                      className={`mana-source-overlay__color-option mana-source-overlay__color-option--${color}`}
+                      onClick={(e) => { e.stopPropagation(); handleColorPickerSelect(color); }}
+                      title={color}
+                      type="button"
+                    >
+                      <img src={getManaIconUrl(color)} alt={color} />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           );
