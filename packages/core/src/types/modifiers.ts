@@ -21,6 +21,7 @@ import {
   DURATION_TURN,
   DURATION_UNTIL_NEXT_TURN,
   EFFECT_ABILITY_NULLIFIER,
+  EFFECT_ATTACK_BLOCK_CARD_BONUS,
   EFFECT_COMBAT_VALUE,
   EFFECT_DOUBLE_PHYSICAL_ATTACKS,
   EFFECT_ENDLESS_MANA,
@@ -490,6 +491,17 @@ export interface PossessAttackRestrictionModifier {
   readonly attackAmount: number;
 }
 
+// Attack/Block card bonus modifier (Ambush card)
+// Grants a one-time bonus to the first Attack or Block CARD played this turn.
+// Whichever card type (attack or block) is played first consumes the modifier.
+// Only applies to deed cards (not units or skills).
+// Sideways plays for attack/block also trigger the bonus.
+export interface AttackBlockCardBonusModifier {
+  readonly type: typeof EFFECT_ATTACK_BLOCK_CARD_BONUS;
+  readonly attackBonus: number; // +1 (basic) or +2 (powered)
+  readonly blockBonus: number; // +2 (basic) or +4 (powered)
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -529,7 +541,8 @@ export type ModifierEffect =
   | UnitArmorBonusModifier
   | UnitBlockBonusModifier
   | BannerGloryFameTrackingModifier
-  | PossessAttackRestrictionModifier;
+  | PossessAttackRestrictionModifier
+  | AttackBlockCardBonusModifier;
 
 // === Active Modifier (live in game state) ===
 

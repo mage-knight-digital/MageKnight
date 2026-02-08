@@ -280,6 +280,13 @@ export const RULE_INFLUENCE_CARDS_IN_COMBAT = "influence_cards_in_combat" as con
 // Used by Charm/Possess spell powered effect.
 export const EFFECT_POSSESS_ATTACK_RESTRICTION = "possess_attack_restriction" as const;
 
+// === AttackBlockCardBonusModifier ===
+// Grants a one-time bonus to the first Attack or Block card played this turn.
+// Whichever card type is played first consumes the modifier entirely.
+// Only applies to deed cards (not units or skills).
+// Used by Ambush card.
+export const EFFECT_ATTACK_BLOCK_CARD_BONUS = "attack_block_card_bonus" as const;
+
 // === RuleOverrideModifier["rule"] - Flight ===
 // Prevents tile exploration (Wings of Wind flight)
 export const RULE_NO_EXPLORATION = "no_exploration" as const;
