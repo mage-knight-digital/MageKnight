@@ -32,6 +32,7 @@ export {
 
 export {
   applyGainAttack,
+  applyGainBowResolvedAttack,
   applyGainBlock,
 } from "./atomicCombatEffects.js";
 
@@ -83,6 +84,7 @@ import type {
   GainMoveEffect,
   GainInfluenceEffect,
   GainAttackEffect,
+  GainAttackBowResolvedEffect,
   GainBlockEffect,
   GainHealingEffect,
   GainManaEffect,
@@ -110,10 +112,11 @@ import {
   EFFECT_GAIN_CRYSTAL,
   EFFECT_TAKE_WOUND,
   EFFECT_GRANT_WOUND_IMMUNITY,
+  EFFECT_GAIN_ATTACK_BOW_RESOLVED,
   MANA_ANY,
 } from "../../types/effectTypes.js";
 import { applyGainMove, applyGainInfluence, applyGainMana, applyGainCrystal } from "./atomicResourceEffects.js";
-import { applyGainAttack, applyGainBlock } from "./atomicCombatEffects.js";
+import { applyGainAttack, applyGainBowResolvedAttack, applyGainBlock } from "./atomicCombatEffects.js";
 import { applyChangeReputation, applyGainFame } from "./atomicProgressionEffects.js";
 import { applyDrawCards, applyGainHealing, applyTakeWound } from "./atomicCardEffects.js";
 import { applyModifierEffect } from "./atomicModifierEffects.js";
@@ -196,6 +199,12 @@ export function registerAtomicEffects(): void {
 
   registerEffect(EFFECT_APPLY_MODIFIER, (state, playerId, effect, sourceCardId) => {
     return applyModifierEffect(state, playerId, effect as ApplyModifierEffect, sourceCardId);
+  });
+
+  // Bow of Starsdawn resolved attack - applies attack without re-triggering transformation
+  registerEffect(EFFECT_GAIN_ATTACK_BOW_RESOLVED, (state, playerId, effect) => {
+    const { playerIndex, player } = getPlayerContext(state, playerId);
+    return applyGainBowResolvedAttack(state, playerIndex, player, effect as GainAttackBowResolvedEffect);
   });
 
   // Grant wound immunity - hero ignores first wound from enemies this turn

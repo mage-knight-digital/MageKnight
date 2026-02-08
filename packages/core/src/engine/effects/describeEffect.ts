@@ -81,6 +81,7 @@ import {
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
+  EFFECT_GAIN_ATTACK_BOW_RESOLVED,
   EFFECT_MAGIC_TALENT_BASIC,
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
   EFFECT_MAGIC_TALENT_POWERED,
@@ -88,6 +89,7 @@ import {
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
 } from "../../types/effectTypes.js";
 import type {
+  GainAttackBowResolvedEffect,
   DiscardForCrystalEffect,
   DecomposeEffect,
   MaximalEffectEffect,
@@ -197,6 +199,11 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
 
   [EFFECT_GAIN_ATTACK]: (effect) => {
     const e = effect as GainAttackEffect;
+    return `${formatAttackType(e.combatType)} ${e.amount}`;
+  },
+
+  [EFFECT_GAIN_ATTACK_BOW_RESOLVED]: (effect) => {
+    const e = effect as GainAttackBowResolvedEffect;
     return `${formatAttackType(e.combatType)} ${e.amount}`;
   },
 

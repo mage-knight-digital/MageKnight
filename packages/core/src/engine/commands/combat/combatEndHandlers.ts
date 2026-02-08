@@ -48,6 +48,7 @@ import {
 } from "./damageResolution.js";
 import { resolveAttackDefeatFameTrackers } from "../../combat/attackFameTracking.js";
 import { resolveScoutFameBonus } from "../../combat/scoutFameTracking.js";
+import { resolveBowPhaseFameBonus } from "../../combat/bowPhaseFameTracking.js";
 
 // ============================================================================
 // Helper Functions
@@ -115,6 +116,16 @@ export function applyDefeatedEnemyRewards(
   if (scoutFameResult.fameToGain > 0) {
     updatedState = scoutFameResult.state;
     updatedState = applyFameToPlayer(updatedState, playerId, scoutFameResult.fameToGain);
+  }
+
+  // Resolve Bow of Starsdawn phase fame bonus.
+  // Awards fame per enemy defeated in this phase, then consumes the modifier.
+  const bowFameResult = resolveBowPhaseFameBonus(updatedState, playerId, damageResult.enemiesDefeatedCount);
+  if (bowFameResult.fameToGain > 0) {
+    updatedState = bowFameResult.state;
+    updatedState = applyFameToPlayer(updatedState, playerId, bowFameResult.fameToGain);
+  } else if (bowFameResult.state !== updatedState) {
+    updatedState = bowFameResult.state;
   }
 
   return { state: updatedState, events };
