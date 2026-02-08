@@ -28,6 +28,7 @@ import {
   SCALING_PER_WOUND_IN_HAND,
   SCALING_PER_UNIT,
   SCALING_PER_WOUND_TOTAL,
+  SCALING_PER_ENEMY_BLOCKED,
 } from "../types/scaling.js";
 import type { CombatPhase } from "../types/combat.js";
 import type { Terrain, ManaColor, Element } from "@mage-knight/shared";
@@ -503,6 +504,18 @@ export function attackPerEnemy(
   combatType: CombatType = COMBAT_TYPE_MELEE
 ): ScalingEffect {
   return scalingAttack(baseAmount, { type: SCALING_PER_ENEMY }, perEnemy, element, combatType);
+}
+
+/**
+ * Attack that scales per enemy blocked this combat (e.g., Counterattack)
+ */
+export function attackPerEnemyBlocked(
+  baseAmount: number,
+  perEnemyBlocked: number,
+  element?: Element,
+  combatType: CombatType = COMBAT_TYPE_MELEE
+): ScalingEffect {
+  return scalingAttack(baseAmount, { type: SCALING_PER_ENEMY_BLOCKED }, perEnemyBlocked, element, combatType);
 }
 
 /**
