@@ -1,7 +1,17 @@
-import type { DeedCard } from "../../../types/cards.js";
+import type { DeedCard, DecomposeEffect } from "../../../types/cards.js";
 import { CATEGORY_SPECIAL, DEED_CARD_TYPE_ADVANCED_ACTION } from "../../../types/cards.js";
 import { MANA_RED, CARD_DECOMPOSE } from "@mage-knight/shared";
-import { gainCrystal } from "../helpers.js";
+import { EFFECT_DECOMPOSE } from "../../../types/effectTypes.js";
+
+const basicEffect: DecomposeEffect = {
+  type: EFFECT_DECOMPOSE,
+  mode: "basic",
+};
+
+const poweredEffect: DecomposeEffect = {
+  type: EFFECT_DECOMPOSE,
+  mode: "powered",
+};
 
 export const DECOMPOSE: DeedCard = {
   id: CARD_DECOMPOSE,
@@ -9,10 +19,9 @@ export const DECOMPOSE: DeedCard = {
   cardType: DEED_CARD_TYPE_ADVANCED_ACTION,
   poweredBy: [MANA_RED],
   categories: [CATEGORY_SPECIAL],
-  // Basic: When you play this card, throw away an Action card from hand. Gain two crystals to your Inventory that are the same color as the thrown away card.
-  // Powered: When you play this card, throw away an Action card from hand. Gain a crystal to your Inventory of each basic color that does not match the color of the thrown away card.
-  // TODO: Implement throw-away mechanic and crystal generation based on discarded card
-  basicEffect: gainCrystal(MANA_RED),
-  poweredEffect: gainCrystal(MANA_RED),
+  // Basic: Throw away an Action card from hand → gain 2 crystals of matching color
+  // Powered: Throw away an Action card from hand → gain 1 crystal of each non-matching basic color
+  basicEffect,
+  poweredEffect,
   sidewaysValue: 1,
 };

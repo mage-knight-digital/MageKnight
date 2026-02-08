@@ -106,6 +106,7 @@ import {
   EFFECT_RESOLVE_MIND_STEAL_COLOR,
   EFFECT_RESOLVE_MIND_STEAL_SELECTION,
   EFFECT_ACTIVATE_BANNER_PROTECTION,
+  EFFECT_DECOMPOSE,
   EFFECT_WINGS_OF_NIGHT,
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   MANA_ANY,
@@ -719,6 +720,24 @@ export interface DiscardForCrystalEffect {
 }
 
 /**
+ * Decompose effect - throw away an action card from hand and gain crystals.
+ * Used by the Decompose advanced action card.
+ *
+ * Resolution:
+ * - Player selects an action card from hand (excluding Decompose itself and wounds)
+ * - Card is permanently removed from the game (added to removedCards)
+ * - Basic mode: gain 2 crystals matching the thrown card's color
+ * - Powered mode: gain 1 crystal of each basic color NOT matching the thrown card's color
+ *
+ * Creates pendingDecompose state. Player selects card via RESOLVE_DECOMPOSE action.
+ */
+export interface DecomposeEffect {
+  readonly type: typeof EFFECT_DECOMPOSE;
+  /** "basic" = 2 crystals of matching color, "powered" = 1 of each non-matching color */
+  readonly mode: "basic" | "powered";
+}
+
+/**
  * Recruit discount effect - grants a turn-scoped modifier that discounts
  * the cost of recruiting one unit. If the discounted unit is recruited,
  * reputation changes.
@@ -1275,6 +1294,7 @@ export type CardEffect =
   | TrackAttackDefeatFameEffect
   | PolarizeManaEffect
   | DiscardForCrystalEffect
+  | DecomposeEffect
   | RecruitDiscountEffect
   | ReadyUnitsForInfluenceEffect
   | ResolveReadyUnitForInfluenceEffect

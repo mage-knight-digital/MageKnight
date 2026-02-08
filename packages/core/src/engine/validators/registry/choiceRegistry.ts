@@ -14,6 +14,7 @@ import {
   RESOLVE_DISCARD_ACTION,
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
+  RESOLVE_DECOMPOSE_ACTION,
   RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION,
   RESOLVE_HEX_COST_REDUCTION_ACTION,
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
@@ -72,6 +73,12 @@ import {
   validateHasPendingArtifactColorChoice,
   validateArtifactCrystalColorSelection,
 } from "../discardForCrystalValidators.js";
+
+// Decompose validators
+import {
+  validateHasPendingDecompose,
+  validateDecomposeSelection,
+} from "../decomposeValidators.js";
 
 // Crystal Joy validators
 import {
@@ -142,6 +149,11 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingDiscardForCrystal,
     validateDiscardForCrystalSelection,
+  ],
+  [RESOLVE_DECOMPOSE_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingDecompose,
+    validateDecomposeSelection,
   ],
   [RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION]: [
     validateIsPlayersTurn,

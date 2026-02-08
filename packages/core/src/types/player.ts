@@ -232,6 +232,19 @@ export interface PendingDiscardForCrystal {
 }
 
 /**
+ * Pending decompose resolution (Decompose advanced action card).
+ * Player must select an action card from hand to throw away.
+ * - Basic mode: gain 2 crystals matching the thrown card's color
+ * - Powered mode: gain 1 crystal of each basic color NOT matching the thrown card's color
+ */
+export interface PendingDecompose {
+  /** Source card that triggered the decompose (Decompose card) */
+  readonly sourceCardId: CardId;
+  /** Whether this is "basic" or "powered" mode */
+  readonly mode: "basic" | "powered";
+}
+
+/**
  * Pending terrain cost reduction choice (Druidic Paths and similar effects).
  * Player must choose a hex coordinate or terrain type to apply cost reduction.
  */
@@ -437,6 +450,9 @@ export interface Player {
 
   // Discard for crystal pending (Savage Harvesting)
   readonly pendingDiscardForCrystal: PendingDiscardForCrystal | null;
+
+  // Decompose pending (throw away action card for crystals)
+  readonly pendingDecompose: PendingDecompose | null;
 
   // Attack-based fame tracking (e.g., Axe Throw powered effect)
   readonly pendingAttackDefeatFame: readonly AttackDefeatFameTracker[];

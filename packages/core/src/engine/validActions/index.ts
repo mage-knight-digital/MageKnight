@@ -41,6 +41,7 @@ import {
   getDiscardCostOptions,
   getDiscardForAttackOptions,
   getDiscardForCrystalOptions,
+  getDecomposeOptions,
   getArtifactCrystalColorOptions,
   getCrystalJoyReclaimOptions,
   getSteadyTempoOptions,
@@ -165,6 +166,13 @@ export function getValidActions(
       mode: "pending_discard_for_crystal",
       turn: { canUndo: getTurnOptions(state, player).canUndo },
       discardForCrystal: getDiscardForCrystalOptions(state, player),
+    };
+  }
+  if (player.pendingDecompose) {
+    return {
+      mode: "pending_decompose",
+      turn: { canUndo: getTurnOptions(state, player).canUndo },
+      decompose: getDecomposeOptions(state, player),
     };
   }
   if (player.pendingLevelUpRewards.length > 0) {

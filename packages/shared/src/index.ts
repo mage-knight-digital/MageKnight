@@ -257,6 +257,8 @@ export type {
   // Discard for crystal options (Savage Harvesting)
   DiscardForCrystalOptions,
   ArtifactCrystalColorOptions,
+  // Decompose options (throw away action card for crystals)
+  DecomposeOptions,
   // Crystal Joy reclaim options
   CrystalJoyReclaimOptions,
   // Steady Tempo deck placement options

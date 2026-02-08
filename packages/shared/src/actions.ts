@@ -494,6 +494,14 @@ export interface ResolveDiscardForCrystalAction {
   readonly cardId: CardId | null;
 }
 
+// Decompose action (throw away action card for crystals)
+export const RESOLVE_DECOMPOSE_ACTION = "RESOLVE_DECOMPOSE" as const;
+export interface ResolveDecomposeAction {
+  readonly type: typeof RESOLVE_DECOMPOSE_ACTION;
+  /** Card ID of the action card to throw away */
+  readonly cardId: CardId;
+}
+
 // Artifact crystal color choice action (Savage Harvesting - second step for artifacts)
 export const RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION = "RESOLVE_ARTIFACT_CRYSTAL_COLOR" as const;
 export interface ResolveArtifactCrystalColorAction {
@@ -773,6 +781,8 @@ export type PlayerAction =
   | ResolveDiscardForAttackAction
   // Discard for crystal (Savage Harvesting)
   | ResolveDiscardForCrystalAction
+  // Decompose (throw away action card for crystals)
+  | ResolveDecomposeAction
   // Artifact crystal color choice (Savage Harvesting - for artifacts)
   | ResolveArtifactCrystalColorAction
   // Combat
