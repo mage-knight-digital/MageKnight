@@ -24,7 +24,6 @@ import { cooperativeRegistry } from "./cooperativeRegistry.js";
 import { skillRegistry } from "./skillRegistry.js";
 import { debugRegistry } from "./debugRegistry.js";
 import { bannerRegistry } from "./bannerRegistry.js";
-import { manaRegistry } from "./manaRegistry.js";
 
 /**
  * Combined validator registry - maps action types to their validator arrays.
@@ -82,7 +81,4 @@ export const validatorRegistry: Record<string, Validator[]> = {
 
   // Banner actions (ASSIGN_BANNER)
   ...bannerRegistry,
-
-  // Mana actions (USE_MANA_DIE, CONVERT_CRYSTAL)
-  ...manaRegistry,
 };

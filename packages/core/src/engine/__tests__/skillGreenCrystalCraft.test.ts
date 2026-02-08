@@ -183,7 +183,7 @@ describe("Green Crystal Craft skill", () => {
       // Blue crystals should stay at 3 (capped)
       expect(result.state.players[0].crystals.blue).toBe(3);
 
-      // Blue crystal overflows to token + green mana token from skill
+      // Overflow: blue crystal overflows to blue mana token + green mana token from skill
       expect(result.state.players[0].pureMana).toHaveLength(2);
       expect(result.state.players[0].pureMana[0]).toEqual({
         color: MANA_BLUE,

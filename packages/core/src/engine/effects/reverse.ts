@@ -205,8 +205,8 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
 
   [EFFECT_GAIN_CRYSTAL]: (player, effect) => {
     const e = effect as GainCrystalEffect;
-    // If at max crystals, the forward path added an overflow token instead of a crystal.
-    // In that case, remove the overflow token from pureMana.
+    // If crystals are at max, the forward pass overflowed to a mana token.
+    // Reverse by removing an overflow token instead of decrementing crystals.
     if (player.crystals[e.color] >= MAX_CRYSTALS_PER_COLOR) {
       const tokenIndex = player.pureMana.findIndex((t) => t.color === e.color);
       if (tokenIndex !== -1) {
@@ -214,9 +214,10 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
         newPureMana.splice(tokenIndex, 1);
         return { ...player, pureMana: newPureMana };
       }
+      // Token already spent — can't reverse perfectly, return unchanged
       return player;
     }
-    // Normal case: reverse crystal gain (don't go below 0)
+    // Normal case: decrement crystal
     return {
       ...player,
       crystals: {
@@ -260,13 +261,16 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
 
   [EFFECT_CRYSTALLIZE_COLOR]: (player, effect) => {
     const e = effect as CrystallizeColorEffect;
-    // Reverse crystallize: remove the crystal and restore the mana token
+    // Reverse crystallize: remove the crystal and restore the mana token.
+    // If at max crystals during forward pass, no crystal was gained (token was
+    // just consumed), so we only restore the token without decrementing crystals.
+    const crystalWasGained = player.crystals[e.color] > 0 &&
+      player.crystals[e.color] <= MAX_CRYSTALS_PER_COLOR;
     return {
       ...player,
-      crystals: {
-        ...player.crystals,
-        [e.color]: Math.max(0, player.crystals[e.color] - 1),
-      },
+      crystals: crystalWasGained
+        ? { ...player.crystals, [e.color]: player.crystals[e.color] - 1 }
+        : player.crystals,
       pureMana: [
         ...player.pureMana,
         { color: e.color, source: MANA_TOKEN_SOURCE_CARD },

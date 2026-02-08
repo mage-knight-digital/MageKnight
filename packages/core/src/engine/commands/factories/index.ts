@@ -86,8 +86,6 @@ import {
   RESOLVE_UNIT_MAINTENANCE_ACTION,
   RESOLVE_MEDITATION_ACTION,
   ALTAR_TRIBUTE_ACTION,
-  USE_MANA_DIE_ACTION,
-  CONVERT_CRYSTAL_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -212,12 +210,6 @@ export {
   createUseBannerFearCommandFromAction,
 } from "./banners.js";
 
-// Mana factories
-export {
-  createUseManaDieCommandFromAction,
-  createConvertCrystalCommandFromAction,
-} from "./mana.js";
-
 // Import all factories for the registry
 import {
   createMoveCommandFromAction,
@@ -325,11 +317,6 @@ import {
   createUseBannerFearCommandFromAction,
 } from "./banners.js";
 
-import {
-  createUseManaDieCommandFromAction,
-  createConvertCrystalCommandFromAction,
-} from "./mana.js";
-
 import type { CommandFactory } from "./types.js";
 
 /**
@@ -418,7 +405,4 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RESOLVE_UNIT_MAINTENANCE_ACTION]: createResolveUnitMaintenanceCommandFromAction,
   // Meditation resolve action
   [RESOLVE_MEDITATION_ACTION]: createResolveMeditationCommandFromAction,
-  // Standalone mana actions
-  [USE_MANA_DIE_ACTION]: createUseManaDieCommandFromAction,
-  [CONVERT_CRYSTAL_ACTION]: createConvertCrystalCommandFromAction,
 };

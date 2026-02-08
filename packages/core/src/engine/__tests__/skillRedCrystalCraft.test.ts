@@ -100,7 +100,7 @@ describe("Red Crystal Craft skill", () => {
 
       expect(result.state.players[0].crystals.blue).toBe(3);
 
-      // Blue crystal overflows to token + red mana token from skill
+      // Overflow: blue crystal overflows to blue mana token + red mana token from skill
       expect(result.state.players[0].pureMana).toHaveLength(2);
       expect(result.state.players[0].pureMana[0]).toEqual({
         color: MANA_BLUE,

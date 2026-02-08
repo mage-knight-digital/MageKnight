@@ -24,10 +24,9 @@ import {
   MANA_WHITE,
   MANA_GOLD,
   MANA_BLACK,
-  USE_MANA_DIE_ACTION,
   BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
-import type { ManaColor, BasicManaColor, AvailableDie } from "@mage-knight/shared";
+import type { ManaColor, AvailableDie } from "@mage-knight/shared";
 import "./ManaSourceOverlay.css";
 
 function getManaIconUrl(color: string): string {
@@ -50,7 +49,7 @@ const TAKEN_ANIMATION_MS = 400;
 const STAGGER_DELAY_MS = 80;
 
 export function ManaSourceOverlay() {
-  const { state, sendAction } = useGame();
+  const { state } = useGame();
   const player = useMyPlayer();
   const { shouldRevealManaSource, isIntroComplete } = useGameIntro();
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
@@ -197,28 +196,21 @@ export function ManaSourceOverlay() {
     [state?.validActions],
   );
 
-  const handleDieClick = useCallback((dieId: string, dieColor: ManaColor) => {
-    // Find this die in available dice
-    const available = availableDice.find((d) => d.dieId === dieId);
-    if (!available) return;
-
-    // Basic color dice: use directly
+  const handleDieClick = useCallback((_dieId: string, dieColor: ManaColor) => {
+    // Basic color dice: no standalone action needed (mana sourced inline via card play)
     const isBasic = (BASIC_MANA_COLORS as readonly string[]).includes(dieColor);
     if (isBasic) {
-      sendAction({ type: USE_MANA_DIE_ACTION, dieId, color: dieColor as BasicManaColor });
       setColorPickerDieId(null);
       return;
     }
 
-    // Gold or black dice can produce multiple colors - show picker
-    setColorPickerDieId(dieId);
-  }, [availableDice, sendAction]);
+    // Gold or black dice can produce multiple colors - show picker for display
+    setColorPickerDieId(_dieId);
+  }, []);
 
-  const handleColorPickerSelect = useCallback((color: ManaColor) => {
-    if (!colorPickerDieId) return;
-    sendAction({ type: USE_MANA_DIE_ACTION, dieId: colorPickerDieId, color });
+  const handleColorPickerSelect = useCallback((_color: ManaColor) => {
     setColorPickerDieId(null);
-  }, [colorPickerDieId, sendAction]);
+  }, []);
 
   if (!state) return null;
 

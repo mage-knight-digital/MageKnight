@@ -25,7 +25,6 @@ import {
   UNASSIGN_ATTACK_ACTION,
   ASSIGN_BLOCK_ACTION,
   UNASSIGN_BLOCK_ACTION,
-  CONVERT_CRYSTAL_ACTION,
   MANA_RED,
   MANA_BLUE,
   MANA_GREEN,
@@ -89,7 +88,7 @@ interface ElementBreakdown {
  */
 function CombatManaDisplay() {
   const player = useMyPlayer();
-  const { state, sendAction } = useGame();
+  const { state } = useGame();
   if (!player) return null;
 
   const { crystals, pureMana } = player;
@@ -104,10 +103,8 @@ function CombatManaDisplay() {
       ? state.validActions.mana.convertibleColors
       : [];
 
-  const handleCrystalClick = (color: BasicManaColor) => {
-    if (convertibleColors.includes(color)) {
-      sendAction({ type: CONVERT_CRYSTAL_ACTION, color });
-    }
+  const handleCrystalClick = (_color: BasicManaColor) => {
+    // Crystal conversion is handled inline via card play mana sourcing
   };
 
   const crystalEntries: { color: BasicManaColor; label: string }[] = [

@@ -1,206 +1,188 @@
 /**
- * Tests for crystal overflow logic
+ * Tests for crystal overflow behavior
  *
- * When gaining a crystal at max (3 per color), the excess becomes
- * a temporary mana token instead.
+ * When a player gains a crystal but is already at max (3 per color),
+ * the overflow should be converted to a mana token instead of being
+ * silently dropped.
  */
 
 import { describe, it, expect } from "vitest";
-import { createTestPlayer } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import {
   gainCrystalWithOverflow,
   MAX_CRYSTALS_PER_COLOR,
 } from "../helpers/crystalHelpers.js";
-import {
-  MANA_RED,
-  MANA_BLUE,
-  MANA_GREEN,
-  MANA_WHITE,
-  MANA_TOKEN_SOURCE_CARD,
-  MANA_TOKEN_SOURCE_CRYSTAL,
-  MANA_TOKEN_SOURCE_SITE,
-} from "@mage-knight/shared";
+import { applyGainCrystal } from "../effects/atomicResourceEffects.js";
+import { resolveCrystallizeColor } from "../effects/crystallize.js";
+import type { CrystallizeColorEffect } from "../../types/cards.js";
+import { EFFECT_CRYSTALLIZE_COLOR } from "../../types/effectTypes.js";
+import { MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 
-describe("MAX_CRYSTALS_PER_COLOR", () => {
-  it("should be 3", () => {
-    expect(MAX_CRYSTALS_PER_COLOR).toBe(3);
-  });
-});
-
-describe("gainCrystalWithOverflow", () => {
-  describe("normal crystal gain (under max)", () => {
-    it("should gain 1 crystal when at 0", () => {
-      const player = createTestPlayer({
-        crystals: { red: 0, blue: 0, green: 0, white: 0 },
-      });
-
-      const result = gainCrystalWithOverflow(player, MANA_RED, 1, MANA_TOKEN_SOURCE_CARD);
-
-      expect(result.crystalsGained).toBe(1);
-      expect(result.tokensGained).toBe(0);
-      expect(result.player.crystals.red).toBe(1);
-      expect(result.player.pureMana).toHaveLength(0);
-    });
-
-    it("should gain 1 crystal by default when count not specified", () => {
-      const player = createTestPlayer({
-        crystals: { red: 0, blue: 0, green: 0, white: 0 },
-      });
-
-      // Call with only 3 args to exercise the default count=1 parameter
-      const result = gainCrystalWithOverflow(player, MANA_BLUE, 1, MANA_TOKEN_SOURCE_CARD);
-
-      expect(result.crystalsGained).toBe(1);
-      expect(result.player.crystals.blue).toBe(1);
-    });
-
-    it("should gain 2 crystals when at 1", () => {
+describe("Crystal Overflow Helper", () => {
+  describe("gainCrystalWithOverflow", () => {
+    it("should gain a crystal normally when below max", () => {
       const player = createTestPlayer({
         crystals: { red: 1, blue: 0, green: 0, white: 0 },
       });
 
-      const result = gainCrystalWithOverflow(player, MANA_RED, 2, MANA_TOKEN_SOURCE_CARD);
-
-      expect(result.crystalsGained).toBe(2);
-      expect(result.tokensGained).toBe(0);
-      expect(result.player.crystals.red).toBe(3);
-      expect(result.player.pureMana).toHaveLength(0);
-    });
-
-    it("should work with each basic color", () => {
-      for (const color of [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE]) {
-        const player = createTestPlayer({
-          crystals: { red: 0, blue: 0, green: 0, white: 0 },
-        });
-
-        const result = gainCrystalWithOverflow(player, color, 1, MANA_TOKEN_SOURCE_CARD);
-
-        expect(result.crystalsGained).toBe(1);
-        expect(result.player.crystals[color]).toBe(1);
-      }
-    });
-
-    it("should not modify other crystal colors", () => {
-      const player = createTestPlayer({
-        crystals: { red: 1, blue: 2, green: 3, white: 0 },
-      });
-
-      const result = gainCrystalWithOverflow(player, MANA_RED, 1, MANA_TOKEN_SOURCE_CARD);
+      const result = gainCrystalWithOverflow(player, "red");
 
       expect(result.player.crystals.red).toBe(2);
-      expect(result.player.crystals.blue).toBe(2);
-      expect(result.player.crystals.green).toBe(3);
-      expect(result.player.crystals.white).toBe(0);
+      expect(result.crystalsGained).toBe(1);
+      expect(result.tokensGained).toBe(0);
+      expect(result.player.pureMana).toEqual(player.pureMana);
     });
-  });
 
-  describe("overflow at max crystals", () => {
-    it("should create a mana token when at max (3)", () => {
+    it("should overflow to mana token when at max crystals", () => {
       const player = createTestPlayer({
         crystals: { red: 3, blue: 0, green: 0, white: 0 },
+        pureMana: [],
       });
 
-      const result = gainCrystalWithOverflow(player, MANA_RED, 1, MANA_TOKEN_SOURCE_CARD);
+      const result = gainCrystalWithOverflow(player, "red");
 
+      expect(result.player.crystals.red).toBe(3); // Unchanged
       expect(result.crystalsGained).toBe(0);
       expect(result.tokensGained).toBe(1);
-      expect(result.player.crystals.red).toBe(3);
       expect(result.player.pureMana).toHaveLength(1);
-      expect(result.player.pureMana[0]).toEqual({
-        color: MANA_RED,
-        source: MANA_TOKEN_SOURCE_CARD,
-      });
+      expect(result.player.pureMana[0]!.color).toBe("red");
+      expect(result.player.pureMana[0]!.source).toBe(MANA_TOKEN_SOURCE_CARD);
     });
 
-    it("should create multiple tokens when gaining multiple at max", () => {
-      const player = createTestPlayer({
-        crystals: { red: 3, blue: 0, green: 0, white: 0 },
-      });
-
-      const result = gainCrystalWithOverflow(player, MANA_RED, 2, MANA_TOKEN_SOURCE_CARD);
-
-      expect(result.crystalsGained).toBe(0);
-      expect(result.tokensGained).toBe(2);
-      expect(result.player.crystals.red).toBe(3);
-      expect(result.player.pureMana).toHaveLength(2);
-    });
-
-    it("should use the correct token source for overflow tokens", () => {
-      const player = createTestPlayer({
-        crystals: { blue: 3, red: 0, green: 0, white: 0 },
-      });
-
-      const result = gainCrystalWithOverflow(player, MANA_BLUE, 1, MANA_TOKEN_SOURCE_SITE);
-
-      expect(result.player.pureMana[0]).toEqual({
-        color: MANA_BLUE,
-        source: MANA_TOKEN_SOURCE_SITE,
-      });
-    });
-  });
-
-  describe("partial overflow", () => {
-    it("should split between crystal and token when partially full", () => {
+    it("should handle partial overflow (count=2 with 1 slot)", () => {
       const player = createTestPlayer({
         crystals: { red: 2, blue: 0, green: 0, white: 0 },
+        pureMana: [],
       });
 
-      const result = gainCrystalWithOverflow(player, MANA_RED, 2, MANA_TOKEN_SOURCE_CARD);
+      const result = gainCrystalWithOverflow(player, "red", 2);
 
+      expect(result.player.crystals.red).toBe(3); // Gained 1 crystal
       expect(result.crystalsGained).toBe(1);
       expect(result.tokensGained).toBe(1);
-      expect(result.player.crystals.red).toBe(3);
       expect(result.player.pureMana).toHaveLength(1);
-      expect(result.player.pureMana[0]).toEqual({
-        color: MANA_RED,
-        source: MANA_TOKEN_SOURCE_CARD,
-      });
+      expect(result.player.pureMana[0]!.color).toBe("red");
     });
 
-    it("should handle count=3 with 1 slot available", () => {
+    it("should handle full overflow (count=2 at max)", () => {
       const player = createTestPlayer({
-        crystals: { green: 2, red: 0, blue: 0, white: 0 },
+        crystals: { red: 3, blue: 0, green: 0, white: 0 },
+        pureMana: [],
       });
 
-      const result = gainCrystalWithOverflow(player, MANA_GREEN, 3, MANA_TOKEN_SOURCE_CARD);
+      const result = gainCrystalWithOverflow(player, "red", 2);
 
-      expect(result.crystalsGained).toBe(1);
+      expect(result.player.crystals.red).toBe(3); // Unchanged
+      expect(result.crystalsGained).toBe(0);
       expect(result.tokensGained).toBe(2);
-      expect(result.player.crystals.green).toBe(3);
       expect(result.player.pureMana).toHaveLength(2);
+    });
+
+    it("should use custom token source when provided", () => {
+      const player = createTestPlayer({
+        crystals: { red: 3, blue: 0, green: 0, white: 0 },
+        pureMana: [],
+      });
+
+      const result = gainCrystalWithOverflow(player, "red", 1, "skill");
+
+      expect(result.player.pureMana[0]!.source).toBe("skill");
+    });
+
+    it("should preserve existing pureMana when overflowing", () => {
+      const player = createTestPlayer({
+        crystals: { red: 3, blue: 0, green: 0, white: 0 },
+        pureMana: [{ color: "blue", source: MANA_TOKEN_SOURCE_CARD }],
+      });
+
+      const result = gainCrystalWithOverflow(player, "red");
+
+      expect(result.player.pureMana).toHaveLength(2);
+      expect(result.player.pureMana[0]!.color).toBe("blue");
+      expect(result.player.pureMana[1]!.color).toBe("red");
     });
   });
 
-  describe("edge cases", () => {
-    it("should preserve existing mana tokens on overflow", () => {
+  describe("MAX_CRYSTALS_PER_COLOR", () => {
+    it("should be 3", () => {
+      expect(MAX_CRYSTALS_PER_COLOR).toBe(3);
+    });
+  });
+});
+
+describe("Crystal Overflow Integration", () => {
+  describe("applyGainCrystal", () => {
+    it("should overflow to token when at max crystals", () => {
       const player = createTestPlayer({
         crystals: { red: 3, blue: 0, green: 0, white: 0 },
-        pureMana: [{ color: MANA_GREEN, source: MANA_TOKEN_SOURCE_CARD }],
+        pureMana: [],
       });
+      const state = createTestGameState({ players: [player] });
 
-      const result = gainCrystalWithOverflow(player, MANA_RED, 1, MANA_TOKEN_SOURCE_CRYSTAL);
+      const result = applyGainCrystal(state, 0, player, "red");
 
-      expect(result.player.pureMana).toHaveLength(2);
-      expect(result.player.pureMana[0]).toEqual({
-        color: MANA_GREEN,
-        source: MANA_TOKEN_SOURCE_CARD,
-      });
-      expect(result.player.pureMana[1]).toEqual({
-        color: MANA_RED,
-        source: MANA_TOKEN_SOURCE_CRYSTAL,
-      });
+      const updatedPlayer = result.state.players[0]!;
+      expect(updatedPlayer.crystals.red).toBe(3);
+      expect(updatedPlayer.pureMana).toHaveLength(1);
+      expect(updatedPlayer.pureMana[0]!.color).toBe("red");
+      expect(result.description).toContain("mana token instead");
     });
 
-    it("should return the same player reference when count is 0", () => {
+    it("should gain crystal normally when below max", () => {
       const player = createTestPlayer({
-        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+        crystals: { red: 1, blue: 0, green: 0, white: 0 },
+        pureMana: [],
       });
+      const state = createTestGameState({ players: [player] });
 
-      const result = gainCrystalWithOverflow(player, MANA_RED, 0, MANA_TOKEN_SOURCE_CARD);
+      const result = applyGainCrystal(state, 0, player, "red");
 
-      expect(result.crystalsGained).toBe(0);
-      expect(result.tokensGained).toBe(0);
-      expect(result.player).toBe(player);
+      const updatedPlayer = result.state.players[0]!;
+      expect(updatedPlayer.crystals.red).toBe(2);
+      expect(updatedPlayer.pureMana).toHaveLength(0);
+    });
+  });
+
+  describe("resolveCrystallizeColor at max crystals", () => {
+    it("should consume token but not gain crystal when at max", () => {
+      const player = createTestPlayer({
+        crystals: { red: 3, blue: 0, green: 0, white: 0 },
+        pureMana: [{ color: "red", source: MANA_TOKEN_SOURCE_CARD }],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const effect: CrystallizeColorEffect = {
+        type: EFFECT_CRYSTALLIZE_COLOR,
+        color: "red",
+      };
+
+      const result = resolveCrystallizeColor(state, 0, player, effect);
+
+      const updatedPlayer = result.state.players[0]!;
+      // Crystal count should remain at max
+      expect(updatedPlayer.crystals.red).toBe(3);
+      // Token should be consumed
+      expect(updatedPlayer.pureMana).toHaveLength(0);
+      expect(result.description).toContain("already at max");
+    });
+
+    it("should convert token to crystal normally when below max", () => {
+      const player = createTestPlayer({
+        crystals: { red: 1, blue: 0, green: 0, white: 0 },
+        pureMana: [{ color: "red", source: MANA_TOKEN_SOURCE_CARD }],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const effect: CrystallizeColorEffect = {
+        type: EFFECT_CRYSTALLIZE_COLOR,
+        color: "red",
+      };
+
+      const result = resolveCrystallizeColor(state, 0, player, effect);
+
+      const updatedPlayer = result.state.players[0]!;
+      expect(updatedPlayer.crystals.red).toBe(2);
+      expect(updatedPlayer.pureMana).toHaveLength(0);
     });
   });
 });

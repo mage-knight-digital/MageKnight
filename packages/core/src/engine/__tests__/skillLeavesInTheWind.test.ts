@@ -20,8 +20,8 @@ import {
   INVALID_ACTION,
   UNDO_ACTION,
   CARD_MARCH,
-  MANA_GREEN,
   MANA_WHITE,
+  MANA_GREEN,
   MANA_TOKEN_SOURCE_CARD,
   getSkillsFromValidActions,
 } from "@mage-knight/shared";
@@ -183,7 +183,7 @@ describe("Leaves in the Wind skill", () => {
       // Green crystals should stay at 3 (capped)
       expect(result.state.players[0].crystals.green).toBe(3);
 
-      // Green crystal overflows to token + white mana token from skill
+      // Overflow: green crystal overflows to green mana token + white mana token from skill
       expect(result.state.players[0].pureMana).toHaveLength(2);
       expect(result.state.players[0].pureMana[0]).toEqual({
         color: MANA_GREEN,

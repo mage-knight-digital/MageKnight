@@ -15,7 +15,7 @@
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { BasicManaColor } from "@mage-knight/shared";
-import { BASIC_MANA_COLORS, MANA_TOKEN_SOURCE_SKILL } from "@mage-knight/shared";
+import { BASIC_MANA_COLORS } from "@mage-knight/shared";
 import type { ManaColor } from "@mage-knight/shared";
 import type { SourceDieId } from "../../../types/mana.js";
 import { gainCrystalWithOverflow } from "../../helpers/crystalHelpers.js";
@@ -83,8 +83,9 @@ export function processSourceOpeningCrystal(
   }
 
   const owner = state.players[ownerIndex]!;
-  const { player: updatedOwner } =
-    gainCrystalWithOverflow(owner, die.color, 1, MANA_TOKEN_SOURCE_SKILL);
+
+  // Grant crystal with overflow protection (overflow -> mana token)
+  const { player: updatedOwner } = gainCrystalWithOverflow(owner, die.color);
 
   const players = [...state.players];
   players[ownerIndex] = updatedOwner;

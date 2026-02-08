@@ -101,17 +101,14 @@ export function applyGainCrystal(
   color: BasicManaColor
 ): EffectResolutionResult {
   const { player: updatedPlayer, crystalsGained, tokensGained } =
-    gainCrystalWithOverflow(player, color, 1, MANA_TOKEN_SOURCE_CARD);
+    gainCrystalWithOverflow(player, color);
 
   if (crystalsGained === 0 && tokensGained === 0) {
-    return {
-      state,
-      description: `Already at max ${color} crystals`,
-    };
+    return { state, description: `Already at max ${color} crystals` };
   }
 
   const description = tokensGained > 0
-    ? `${color} crystal full — gained ${color} mana token instead`
+    ? `${color} crystal at max — gained ${color} mana token instead`
     : `Gained ${color} crystal`;
 
   return {

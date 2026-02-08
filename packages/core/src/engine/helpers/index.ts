@@ -89,7 +89,7 @@ export {
 } from "./cooperativeAssaultHelpers.js";
 export type { DistributeEnemiesResult } from "./cooperativeAssaultHelpers.js";
 
-// Crystal helpers
+// Crystal overflow helpers
 export {
   MAX_CRYSTALS_PER_COLOR,
   gainCrystalWithOverflow,

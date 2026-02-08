@@ -51,7 +51,6 @@ import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
 import { gainCrystalWithOverflow } from "../helpers/crystalHelpers.js";
-import { MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import {
   EFFECT_MANA_MELTDOWN,
   EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE,
@@ -248,11 +247,10 @@ export function resolveManaMeltdownChoice(
 ): EffectResolutionResult {
   const { playerIndex, player } = getPlayerContext(state, playerId);
 
-  const { player: updatedPlayer, tokensGained } =
-    gainCrystalWithOverflow(player, effect.color, 1, MANA_TOKEN_SOURCE_CARD);
+  const { player: updatedPlayer, tokensGained } = gainCrystalWithOverflow(player, effect.color);
 
   const description = tokensGained > 0
-    ? `${effect.color} crystal full — gained ${effect.color} mana token from Mana Meltdown`
+    ? `${effect.color} crystal at max — gained ${effect.color} mana token from Mana Meltdown`
     : `Gained ${effect.color} crystal from Mana Meltdown`;
 
   return {
@@ -336,14 +334,14 @@ export function resolveManaRadianceColor(
     }
   }
 
-  // Caster gains 2 crystals of chosen color (with overflow to tokens)
+  // Caster gains 2 crystals of chosen color (with overflow protection)
   const caster = updatedPlayers[casterIndex]!;
   const { player: updatedCaster, crystalsGained, tokensGained } =
-    gainCrystalWithOverflow(caster, chosenColor, 2, MANA_TOKEN_SOURCE_CARD);
+    gainCrystalWithOverflow(caster, chosenColor, 2);
   updatedPlayers[casterIndex] = updatedCaster;
   if (tokensGained > 0) {
     descriptions.push(
-      `Gained ${crystalsGained} ${chosenColor} crystal${crystalsGained !== 1 ? "s" : ""} and ${tokensGained} ${chosenColor} mana token${tokensGained !== 1 ? "s" : ""}`
+      `Gained ${crystalsGained} ${chosenColor} crystal${crystalsGained !== 1 ? "s" : ""} and ${tokensGained} ${chosenColor} mana token${tokensGained !== 1 ? "s" : ""} (overflow)`
     );
   } else {
     descriptions.push(`Gained 2 ${chosenColor} crystals`);

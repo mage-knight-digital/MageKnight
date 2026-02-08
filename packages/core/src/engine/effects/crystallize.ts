@@ -34,7 +34,7 @@ import { EFFECT_CRYSTALLIZE_COLOR, EFFECT_CONVERT_MANA_TO_CRYSTAL } from "../../
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
-import { MAX_CRYSTALS_PER_COLOR } from "../helpers/crystalHelpers.js";
+import { gainCrystalWithOverflow, MAX_CRYSTALS_PER_COLOR } from "../helpers/crystalHelpers.js";
 
 // ============================================================================
 // CONVERT MANA TO CRYSTAL (Entry Point)
@@ -159,24 +159,19 @@ export function resolveCrystallizeColor(
   const newPureMana = [...player.pureMana];
   newPureMana.splice(tokenIndex, 1);
 
-  // If already at max crystals, the token is consumed but no crystal is gained
-  // (crystallize is a conversion, not a gain — the token is the cost)
-  if (player.crystals[effect.color] >= MAX_CRYSTALS_PER_COLOR) {
+  const playerAfterTokenRemoval: Player = { ...player, pureMana: newPureMana };
+
+  // Gain the crystal (with overflow protection)
+  if (playerAfterTokenRemoval.crystals[effect.color] >= MAX_CRYSTALS_PER_COLOR) {
+    // At max crystals — token is consumed but no crystal gained, and no overflow
+    // token since we just consumed the token (net: token removed, nothing gained)
     return {
-      state,
-      description: `Already at max ${effect.color} crystals — mana token wasted`,
+      state: updatePlayer(state, playerIndex, playerAfterTokenRemoval),
+      description: `Consumed ${effect.color} mana but already at max crystals`,
     };
   }
 
-  // Gain the crystal
-  const updatedPlayer: Player = {
-    ...player,
-    pureMana: newPureMana,
-    crystals: {
-      ...player.crystals,
-      [effect.color]: player.crystals[effect.color] + 1,
-    },
-  };
+  const { player: updatedPlayer } = gainCrystalWithOverflow(playerAfterTokenRemoval, effect.color);
 
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),

@@ -1,15 +1,13 @@
 /**
- * Crystal Helper Functions
+ * Crystal overflow helpers
  *
- * Shared logic for gaining crystals with overflow handling.
- * When a player gains a crystal but is already at the max (3 per color),
- * the excess becomes a temporary mana token instead.
- *
- * @module helpers/crystalHelpers
+ * When a player gains a crystal but is already at the per-color maximum (3),
+ * the overflow is converted to a mana token instead of being silently dropped.
  */
 
-import type { Player, ManaToken } from "../../types/player.js";
-import type { BasicManaColor, ManaTokenSource } from "@mage-knight/shared";
+import type { Player, ManaToken, Crystals } from "../../types/player.js";
+import type { BasicManaColor } from "@mage-knight/shared";
+import { MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 
 export const MAX_CRYSTALS_PER_COLOR = 3;
 
@@ -20,55 +18,51 @@ export interface GainCrystalResult {
 }
 
 /**
- * Gain crystals with overflow handling.
+ * Gain crystals with overflow protection.
  *
- * If the player has room, increment the crystal count.
- * If at max (3), the excess becomes a temporary mana token instead.
- * Handles partial overflow (e.g., count=2 with 1 slot = 1 crystal + 1 token).
+ * If the player has room, increments the crystal count for the given color.
+ * If at max (3), overflows to a mana token of that color in pureMana.
+ * Handles partial overflow (e.g., count=2 with 1 slot -> 1 crystal + 1 token).
  *
- * @param player - The player gaining the crystal(s)
- * @param color - The basic mana color of crystal to gain
- * @param count - Number of crystals to gain (default: 1)
- * @param tokenSource - Source tag for overflow tokens
- * @returns Updated player and counts of crystals/tokens gained
+ * @param player - The player gaining crystals
+ * @param color - The basic mana color of the crystal
+ * @param count - Number of crystals to gain (default 1)
+ * @param tokenSource - ManaToken source for overflow tokens (default "card")
  */
 export function gainCrystalWithOverflow(
   player: Player,
   color: BasicManaColor,
   count: number = 1,
-  tokenSource: ManaTokenSource
+  tokenSource: ManaToken["source"] = MANA_TOKEN_SOURCE_CARD
 ): GainCrystalResult {
   const current = player.crystals[color];
-  const slotsAvailable = MAX_CRYSTALS_PER_COLOR - current;
-
-  const crystalsToGain = Math.min(count, Math.max(0, slotsAvailable));
+  const available = MAX_CRYSTALS_PER_COLOR - current;
+  const crystalsToGain = Math.min(count, Math.max(0, available));
   const tokensToGain = count - crystalsToGain;
 
-  let updatedPlayer = player;
-
+  let updatedCrystals: Crystals = player.crystals;
   if (crystalsToGain > 0) {
-    updatedPlayer = {
-      ...updatedPlayer,
-      crystals: {
-        ...updatedPlayer.crystals,
-        [color]: current + crystalsToGain,
-      },
+    updatedCrystals = {
+      ...player.crystals,
+      [color]: current + crystalsToGain,
     };
   }
 
+  let updatedPureMana: readonly ManaToken[] = player.pureMana;
   if (tokensToGain > 0) {
     const overflowTokens: ManaToken[] = Array.from(
       { length: tokensToGain },
       () => ({ color, source: tokenSource })
     );
-    updatedPlayer = {
-      ...updatedPlayer,
-      pureMana: [...updatedPlayer.pureMana, ...overflowTokens],
-    };
+    updatedPureMana = [...player.pureMana, ...overflowTokens];
   }
 
   return {
-    player: updatedPlayer,
+    player: {
+      ...player,
+      crystals: updatedCrystals,
+      pureMana: updatedPureMana,
+    },
     crystalsGained: crystalsToGain,
     tokensGained: tokensToGain,
   };
