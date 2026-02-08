@@ -70,6 +70,7 @@ import {
   EFFECT_NATURES_VENGEANCE_ATTACK_BONUS,
   EFFECT_BOW_PHASE_FAME_TRACKING,
   EFFECT_BOW_ATTACK_TRANSFORMATION,
+  EFFECT_SOUL_HARVESTER_CRYSTAL_TRACKING,
   SHAPESHIFT_TARGET_MOVE,
   SHAPESHIFT_TARGET_ATTACK,
   SHAPESHIFT_TARGET_BLOCK,
@@ -629,6 +630,19 @@ export interface NaturesVengeanceAttackBonusModifier {
   readonly amount: number; // +1 per the rules
 }
 
+// Soul Harvester crystal tracking modifier (Soul Harvester artifact)
+// When enemies are defeated during the current combat phase, the player gains
+// one crystal per enemy (up to limit). Crystal color options are based on the
+// defeated enemy's resistances: Fire→Red, Ice→Blue, Physical→Green, always White.
+// Basic mode: limit 1 (only first defeated enemy). Powered mode: unlimited.
+export interface SoulHarvesterCrystalTrackingModifier {
+  readonly type: typeof EFFECT_SOUL_HARVESTER_CRYSTAL_TRACKING;
+  /** Maximum number of crystals to gain (1 for basic, Infinity-like large number for powered) */
+  readonly limit: number;
+  /** If true, only enemies defeated by this specific attack count (basic effect tracking via fame tracker) */
+  readonly trackByAttack: boolean;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -679,7 +693,8 @@ export type ModifierEffect =
   | GrantEnemyAbilityModifier
   | NaturesVengeanceAttackBonusModifier
   | BowPhaseFameTrackingModifier
-  | BowAttackTransformationModifier;
+  | BowAttackTransformationModifier
+  | SoulHarvesterCrystalTrackingModifier;
 
 // === Active Modifier (live in game state) ===
 
