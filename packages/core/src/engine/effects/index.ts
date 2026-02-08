@@ -329,6 +329,11 @@ export {
   registerCrystalMasteryEffects,
 } from "./crystalMasteryEffects.js";
 
+// Possess enemy effects (Charm/Possess spell powered effect)
+export {
+  registerPossessEffects,
+} from "./possessEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

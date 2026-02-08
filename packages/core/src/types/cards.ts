@@ -112,6 +112,8 @@ import {
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
+  EFFECT_POSSESS_ENEMY,
+  EFFECT_RESOLVE_POSSESS_ENEMY,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1281,6 +1283,27 @@ export interface ResolveWingsOfNightTargetEffect {
   readonly targetCount: number;
 }
 
+/**
+ * Possess enemy effect entry point (Charm/Possess powered spell).
+ * Targets an enemy (excludes Arcane Immune), prevents it from attacking,
+ * and grants the player melee Attack equal to the enemy's attack value
+ * (including elements like fire/ice). Special abilities are excluded.
+ * The gained attack can only target OTHER enemies (not the possessed one).
+ */
+export interface PossessEnemyEffect {
+  readonly type: typeof EFFECT_POSSESS_ENEMY;
+}
+
+/**
+ * Internal: resolve after selecting which enemy to possess.
+ * Applies skip-attack modifier and grants attack from enemy's stats.
+ */
+export interface ResolvePossessEnemyEffect {
+  readonly type: typeof EFFECT_RESOLVE_POSSESS_ENEMY;
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1371,7 +1394,9 @@ export type CardEffect =
   | WingsOfNightEffect
   | ResolveWingsOfNightTargetEffect
   | CrystalMasteryBasicEffect
-  | CrystalMasteryPoweredEffect;
+  | CrystalMasteryPoweredEffect
+  | PossessEnemyEffect
+  | ResolvePossessEnemyEffect;
 
 // === Card Definition ===
 

@@ -57,6 +57,7 @@ import {
   EFFECT_MANA_CURSE,
   EFFECT_UNIT_COMBAT_BONUS,
   EFFECT_LEADERSHIP_BONUS,
+  EFFECT_POSSESS_ATTACK_RESTRICTION,
   LEADERSHIP_BONUS_BLOCK,
   LEADERSHIP_BONUS_ATTACK,
   LEADERSHIP_BONUS_RANGED_ATTACK,
@@ -475,6 +476,16 @@ export interface BannerGloryFameTrackingModifier {
   readonly unitInstanceIdsAwarded: readonly string[];
 }
 
+// Possess attack restriction modifier (Charm/Possess spell)
+// Tracks that the player gained attack from a possessed enemy.
+// The gained attack can only target OTHER enemies, not the possessed one.
+// This modifier is checked during attack assignment validation.
+export interface PossessAttackRestrictionModifier {
+  readonly type: typeof EFFECT_POSSESS_ATTACK_RESTRICTION;
+  readonly possessedEnemyId: string;
+  readonly attackAmount: number;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -513,7 +524,8 @@ export type ModifierEffect =
   | LeadershipBonusModifier
   | UnitArmorBonusModifier
   | UnitBlockBonusModifier
-  | BannerGloryFameTrackingModifier;
+  | BannerGloryFameTrackingModifier
+  | PossessAttackRestrictionModifier;
 
 // === Active Modifier (live in game state) ===
 

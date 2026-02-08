@@ -32,6 +32,7 @@ import {
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_DEFEAT_IF_BLOCKED,
   EFFECT_REMOVE_RESISTANCES,
+  EFFECT_POSSESS_ATTACK_RESTRICTION,
   ENEMY_STAT_ARMOR,
   ENEMY_STAT_ATTACK,
   SCOPE_ALL_ENEMIES,
@@ -405,4 +406,30 @@ export function getBaseArmorForPhase(
   // BLOCK and ASSIGN_DAMAGE phases: use elusive (higher) armor
   // This ensures UI shows the elusive armor during these phases
   return definition.armorElusive;
+}
+
+/**
+ * Get the total attack amount gained via Possess that cannot target the specified enemy.
+ * Returns the sum of possess attack restriction amounts for the given enemy.
+ * Returns 0 if no possess restriction exists for this enemy.
+ *
+ * Used by valid actions to limit attack assignment against possessed enemies.
+ * The gained attack from possess can only target OTHER enemies.
+ */
+export function getPossessAttackRestriction(
+  state: GameState,
+  playerId: string,
+  enemyId: string
+): number {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  let totalRestricted = 0;
+  for (const mod of modifiers) {
+    if (
+      mod.effect.type === EFFECT_POSSESS_ATTACK_RESTRICTION &&
+      mod.effect.possessedEnemyId === enemyId
+    ) {
+      totalRestricted += mod.effect.attackAmount;
+    }
+  }
+  return totalRestricted;
 }

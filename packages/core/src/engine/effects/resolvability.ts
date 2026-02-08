@@ -107,6 +107,8 @@ import {
   EFFECT_DECOMPOSE,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
+  EFFECT_POSSESS_ENEMY,
+  EFFECT_RESOLVE_POSSESS_ENEMY,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -549,6 +551,17 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Crystal Mastery powered is always resolvable (sets a flag)
   [EFFECT_CRYSTAL_MASTERY_POWERED]: () => true,
+
+  // Possess is resolvable if in combat with at least one non-defeated, non-Arcane-Immune enemy
+  [EFFECT_POSSESS_ENEMY]: (state) => {
+    if (!state.combat) return false;
+    return state.combat.enemies.some(
+      (e) => !e.isDefeated && !e.definition.abilities.includes(ABILITY_ARCANE_IMMUNITY)
+    );
+  },
+
+  // Resolve Possess target is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_POSSESS_ENEMY]: () => true,
 };
 
 // ============================================================================

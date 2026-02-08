@@ -39,7 +39,7 @@ import {
   getEnemyResistances,
   calculateEffectiveDamage,
 } from "./combatHelpers.js";
-import { EFFECT_MOVE_TO_ATTACK_CONVERSION, COMBAT_VALUE_RANGED } from "../../types/modifierConstants.js";
+import { EFFECT_MOVE_TO_ATTACK_CONVERSION, EFFECT_POSSESS_ATTACK_RESTRICTION, COMBAT_VALUE_RANGED } from "../../types/modifierConstants.js";
 import type { MoveToAttackConversionModifier } from "../../types/modifiers.js";
 
 // ============================================================================
@@ -192,11 +192,17 @@ const ATTACK_PHASE_COMBOS: readonly AttackTypeElementCombo[] = [
 /**
  * Generate list of valid attack assignments for the current phase.
  * Each option represents a single point of damage that can be assigned.
+ *
+ * @param possessedEnemyIds - Optional set of enemy instance IDs that cannot be
+ *   targeted with possess-gained attack. If present, these enemies are excluded
+ *   from the assignable attacks list entirely (the possess restriction means the
+ *   gained attack can only target OTHER enemies).
  */
 export function generateAssignableAttacks(
   enemies: readonly EnemyAttackState[],
   availablePool: AvailableAttackPool,
-  isRangedSiegePhase: boolean
+  isRangedSiegePhase: boolean,
+  possessedEnemyIds?: ReadonlySet<string>
 ): readonly AssignAttackOption[] {
   const options: AssignAttackOption[] = [];
 
@@ -206,6 +212,9 @@ export function generateAssignableAttacks(
   // For each non-defeated enemy
   for (const enemy of enemies) {
     if (enemy.isDefeated) continue;
+
+    // Skip possessed enemies (Possess spell: gained attack can only target OTHER enemies)
+    if (possessedEnemyIds && possessedEnemyIds.has(enemy.enemyInstanceId)) continue;
 
     // For each attack type/element combo
     for (const combo of combos) {
@@ -331,6 +340,33 @@ function computeConversionOptions(
 }
 
 // ============================================================================
+// Possess Attack Restriction
+// ============================================================================
+
+/**
+ * Get enemy instance IDs that cannot be targeted with attack due to Possess spell.
+ * The Possess effect grants attack from the possessed enemy, but that attack
+ * can only target OTHER enemies. If ALL the player's available attack comes from
+ * possess, they cannot target the possessed enemy at all.
+ *
+ * Returns undefined if no possess restriction exists (to avoid unnecessary allocation).
+ */
+function getPossessedEnemyIds(
+  state: GameState,
+  playerId: string
+): ReadonlySet<string> | undefined {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  const possessedIds: string[] = [];
+  for (const mod of modifiers) {
+    if (mod.effect.type === EFFECT_POSSESS_ATTACK_RESTRICTION) {
+      possessedIds.push(mod.effect.possessedEnemyId);
+    }
+  }
+  if (possessedIds.length === 0) return undefined;
+  return new Set(possessedIds);
+}
+
+// ============================================================================
 // Attack Phase Options Computation
 // ============================================================================
 
@@ -366,11 +402,15 @@ export function computeAttackPhaseOptions(
     computeEnemyAttackState(state, enemy, combat, isRangedSiegePhase, player.id)
   );
 
+  // Check for possess attack restrictions (Charm/Possess spell)
+  const possessedEnemyIds = getPossessedEnemyIds(state, player.id);
+
   // Generate assignable attacks
   const assignableAttacks = generateAssignableAttacks(
     enemyStates,
     availableAttack,
-    isRangedSiegePhase
+    isRangedSiegePhase,
+    possessedEnemyIds
   );
 
   // Generate unassignable attacks
