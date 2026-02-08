@@ -14,8 +14,10 @@ import {
 } from "../helpers/crystalHelpers.js";
 import { applyGainCrystal } from "../effects/atomicResourceEffects.js";
 import { resolveCrystallizeColor } from "../effects/crystallize.js";
-import type { CrystallizeColorEffect } from "../../types/cards.js";
-import { EFFECT_CRYSTALLIZE_COLOR } from "../../types/effectTypes.js";
+import { reverseEffect } from "../effects/reverse.js";
+import { grantCrystalRollReward } from "../helpers/rewards/handlers.js";
+import type { CrystallizeColorEffect, GainCrystalEffect } from "../../types/cards.js";
+import { EFFECT_CRYSTALLIZE_COLOR, EFFECT_GAIN_CRYSTAL } from "../../types/effectTypes.js";
 import { MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 
 describe("Crystal Overflow Helper", () => {
@@ -183,6 +185,147 @@ describe("Crystal Overflow Integration", () => {
       const updatedPlayer = result.state.players[0]!;
       expect(updatedPlayer.crystals.red).toBe(2);
       expect(updatedPlayer.pureMana).toHaveLength(0);
+    });
+  });
+
+  describe("reverseEffect with EFFECT_GAIN_CRYSTAL", () => {
+    it("should remove overflow token when crystals at max", () => {
+      // Simulate state after forward pass: crystals at max, overflow token present
+      const player = createTestPlayer({
+        crystals: { red: 3, blue: 0, green: 0, white: 0 },
+        pureMana: [{ color: "red", source: MANA_TOKEN_SOURCE_CARD }],
+      });
+
+      const effect: GainCrystalEffect = {
+        type: EFFECT_GAIN_CRYSTAL,
+        color: "red",
+      };
+
+      const reversed = reverseEffect(player, effect);
+
+      expect(reversed.crystals.red).toBe(3); // Still at max
+      expect(reversed.pureMana).toHaveLength(0); // Overflow token removed
+    });
+
+    it("should return unchanged when overflow token already spent", () => {
+      // Simulate state where overflow token was already used
+      const player = createTestPlayer({
+        crystals: { red: 3, blue: 0, green: 0, white: 0 },
+        pureMana: [], // Token was spent
+      });
+
+      const effect: GainCrystalEffect = {
+        type: EFFECT_GAIN_CRYSTAL,
+        color: "red",
+      };
+
+      const reversed = reverseEffect(player, effect);
+
+      expect(reversed.crystals.red).toBe(3);
+      expect(reversed.pureMana).toHaveLength(0);
+    });
+
+    it("should decrement crystal normally when below max", () => {
+      const player = createTestPlayer({
+        crystals: { red: 2, blue: 0, green: 0, white: 0 },
+        pureMana: [],
+      });
+
+      const effect: GainCrystalEffect = {
+        type: EFFECT_GAIN_CRYSTAL,
+        color: "red",
+      };
+
+      const reversed = reverseEffect(player, effect);
+
+      expect(reversed.crystals.red).toBe(1);
+    });
+  });
+
+  describe("reverseEffect with EFFECT_CRYSTALLIZE_COLOR", () => {
+    it("should decrement crystal and restore token at max", () => {
+      // Forward pass at max: token consumed, no crystal gained
+      // Reverse: decrements crystal (since crystals > 0 && <= MAX) and restores token
+      const player = createTestPlayer({
+        crystals: { red: 3, blue: 0, green: 0, white: 0 },
+        pureMana: [],
+      });
+
+      const effect: CrystallizeColorEffect = {
+        type: EFFECT_CRYSTALLIZE_COLOR,
+        color: "red",
+      };
+
+      const reversed = reverseEffect(player, effect);
+
+      expect(reversed.crystals.red).toBe(2);
+      expect(reversed.pureMana).toHaveLength(1);
+      expect(reversed.pureMana[0]!.color).toBe("red");
+    });
+
+    it("should not decrement crystal when at zero and restore token", () => {
+      // Edge case: crystals at 0 means crystalWasGained is false
+      const player = createTestPlayer({
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+        pureMana: [],
+      });
+
+      const effect: CrystallizeColorEffect = {
+        type: EFFECT_CRYSTALLIZE_COLOR,
+        color: "red",
+      };
+
+      const reversed = reverseEffect(player, effect);
+
+      expect(reversed.crystals.red).toBe(0); // No crystal to remove
+      expect(reversed.pureMana).toHaveLength(1); // Token restored
+      expect(reversed.pureMana[0]!.color).toBe("red");
+    });
+
+    it("should decrement crystal and restore token when below max", () => {
+      const player = createTestPlayer({
+        crystals: { red: 2, blue: 0, green: 0, white: 0 },
+        pureMana: [],
+      });
+
+      const effect: CrystallizeColorEffect = {
+        type: EFFECT_CRYSTALLIZE_COLOR,
+        color: "red",
+      };
+
+      const reversed = reverseEffect(player, effect);
+
+      expect(reversed.crystals.red).toBe(1);
+      expect(reversed.pureMana).toHaveLength(1);
+      expect(reversed.pureMana[0]!.color).toBe("red");
+    });
+  });
+
+  describe("grantCrystalRollReward with overflow", () => {
+    it("should overflow crystal rolls when all colors at max", () => {
+      const player = createTestPlayer({
+        crystals: { red: 3, blue: 3, green: 3, white: 3 },
+        pureMana: [],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      // Roll 6 dice — all at max, so basic color rolls overflow,
+      // gold rolls overflow (auto-picks green which is at max),
+      // black rolls give fame
+      const result = grantCrystalRollReward(state, "player1", 6);
+
+      const updatedPlayer = result.state.players[0]!;
+      // All crystals should stay at max
+      expect(updatedPlayer.crystals.red).toBe(3);
+      expect(updatedPlayer.crystals.blue).toBe(3);
+      expect(updatedPlayer.crystals.green).toBe(3);
+      expect(updatedPlayer.crystals.white).toBe(3);
+
+      // Should have some combination of overflow tokens and fame
+      // (exact split depends on RNG, but total should be 6)
+      const tokenCount = updatedPlayer.pureMana.length;
+      const fameGained = updatedPlayer.fame - player.fame;
+      expect(tokenCount + fameGained).toBe(6);
     });
   });
 });
