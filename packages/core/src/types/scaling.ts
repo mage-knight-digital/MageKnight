@@ -12,6 +12,7 @@ export const SCALING_PER_UNIT = "per_unit" as const;
 export const SCALING_PER_CRYSTAL_COLOR = "per_crystal_color" as const;
 export const SCALING_PER_EMPTY_COMMAND_TOKEN = "per_empty_command_token" as const;
 export const SCALING_PER_WOUND_TOTAL = "per_wound_total" as const;
+export const SCALING_PER_ENEMY_BLOCKED = "per_enemy_blocked" as const;
 
 // Note: SCALING_PER_WOUND_PLAYED was removed because wounds cannot be "played"
 // as cards in Mage Knight - they are dead cards.
@@ -61,6 +62,15 @@ export interface ScalingPerWoundTotalFactor {
 }
 
 /**
+ * Scales by number of enemies fully blocked this combat.
+ * For Counterattack: "Get an additional Attack per enemy blocked this turn."
+ * Multi-attack enemies only count if ALL attacks are blocked.
+ */
+export interface ScalingPerEnemyBlockedFactor {
+  readonly type: typeof SCALING_PER_ENEMY_BLOCKED;
+}
+
+/**
  * Filter criteria for unit-based scaling.
  */
 export interface UnitFilter {
@@ -81,4 +91,5 @@ export type ScalingFactor =
   | ScalingPerUnitFactor
   | ScalingPerCrystalColorFactor
   | ScalingPerEmptyCommandTokenFactor
-  | ScalingPerWoundTotalFactor;
+  | ScalingPerWoundTotalFactor
+  | ScalingPerEnemyBlockedFactor;

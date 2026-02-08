@@ -12,12 +12,14 @@ import {
   SCALING_PER_CRYSTAL_COLOR,
   SCALING_PER_EMPTY_COMMAND_TOKEN,
   SCALING_PER_WOUND_TOTAL,
+  SCALING_PER_ENEMY_BLOCKED,
 } from "../../types/scaling.js";
 import type { UnitFilter } from "../../types/scaling.js";
 import type { PlayerUnit } from "../../types/unit.js";
 import { CARD_WOUND, UNIT_STATE_READY, UNIT_STATE_SPENT } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import { isEnemyAssignedToPlayer } from "../helpers/cooperativeAssaultHelpers.js";
+import { isEnemyFullyBlocked } from "../combat/enemyAttackHelpers.js";
 
 /**
  * Evaluates a scaling factor and returns the count to multiply by.
@@ -84,6 +86,17 @@ export function evaluateScalingFactor(
       const woundsInHand = player.hand.filter((c) => c === CARD_WOUND).length;
       const woundedUnits = player.units.filter((u) => u.wounded).length;
       return woundsInHand + woundedUnits;
+    }
+
+    case SCALING_PER_ENEMY_BLOCKED: {
+      // Count enemies that are fully blocked this combat (all attacks blocked).
+      // Multi-attack enemies only count when ALL attacks are blocked.
+      if (!state.combat) return 0;
+      return state.combat.enemies.filter((e) =>
+        isEnemyFullyBlocked(e) &&
+        !e.summonedByInstanceId &&
+        isEnemyAssignedToPlayer(state.combat?.enemyAssignments, playerId, e.instanceId)
+      ).length;
     }
 
     default: {
