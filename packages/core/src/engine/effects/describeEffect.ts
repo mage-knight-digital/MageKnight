@@ -96,6 +96,9 @@ import {
   EFFECT_HAND_LIMIT_BONUS,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
+  EFFECT_SPELL_FORGE_BASIC,
+  EFFECT_SPELL_FORGE_POWERED,
+  EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
 } from "../../types/effectTypes.js";
 import type {
   GainAttackBowResolvedEffect,
@@ -623,6 +626,19 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const e = effect as import("../../types/cards.js").ResolveTomeSpellEffect;
     const modeStr = e.mode === "basic" ? "basic" : "powered";
     return `Use ${e.spellName}'s ${modeStr} effect from the Spell Offer`;
+  },
+
+  [EFFECT_SPELL_FORGE_BASIC]: () => {
+    return "Gain crystal matching a spell in the Spells Offer";
+  },
+
+  [EFFECT_SPELL_FORGE_POWERED]: () => {
+    return "Gain 2 crystals matching different spells in the Spells Offer";
+  },
+
+  [EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveSpellForgeCrystalEffect;
+    return `Gain ${e.color} crystal (${e.spellName})`;
   },
 };
 

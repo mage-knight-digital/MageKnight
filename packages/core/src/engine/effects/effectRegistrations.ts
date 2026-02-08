@@ -68,6 +68,7 @@ import { registerShapeshiftEffects } from "./shapeshiftEffects.js";
 import { registerBloodOfAncientsEffects } from "./bloodOfAncientsEffects.js";
 import { registerHandLimitBonusEffects } from "./handLimitBonusEffects.js";
 import { registerTomeOfAllSpellsEffects } from "./tomeOfAllSpellsEffects.js";
+import { registerSpellForgeEffects } from "./spellForgeEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -254,4 +255,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Tome of All Spells effects (discard card, cast spell from offer for free)
   registerTomeOfAllSpellsEffects(resolver);
+
+  // Spell Forge effects (gain crystals from spell offer colors)
+  registerSpellForgeEffects();
 }

@@ -435,3 +435,12 @@ export const EFFECT_WINGS_OF_NIGHT = "wings_of_night" as const;
 // Internal: resolve after selecting an enemy target for Wings of Night.
 // Applies skip-attack modifier, deducts move cost, chains for more targets.
 export const EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET = "resolve_wings_of_night_target" as const;
+
+// === Spell Forge Effects ===
+// Basic: Choose a spell card from the Spells Offer, gain a crystal of that spell's color.
+export const EFFECT_SPELL_FORGE_BASIC = "spell_forge_basic" as const;
+// Powered: Choose two different spell cards from the Spells Offer, gain a crystal for each.
+export const EFFECT_SPELL_FORGE_POWERED = "spell_forge_powered" as const;
+// Internal: Resolve gaining a crystal from a specific spell in the offer.
+// For powered, after first crystal gain, chains to second choice (excluding already-chosen spell).
+export const EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL = "resolve_spell_forge_crystal" as const;
