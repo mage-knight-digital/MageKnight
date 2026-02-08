@@ -72,7 +72,7 @@ import {
 } from "../effects/index.js";
 import { evaluateScalingFactor } from "../effects/scalingEvaluator.js";
 import type { CardEffect } from "../../types/cards.js";
-import { EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_DRAW_CARDS, EFFECT_SCALING, EFFECT_TAKE_WOUND } from "../../types/effectTypes.js";
+import { EFFECT_CHOICE, EFFECT_COMPOUND, EFFECT_CONDITIONAL, EFFECT_DRAW_CARDS, EFFECT_SCALING, EFFECT_TAKE_WOUND } from "../../types/effectTypes.js";
 import type { ScalingEffect as ScalingEffectType } from "../../types/cards.js";
 import type { EffectResolutionResult } from "../effects/index.js";
 import {
@@ -96,7 +96,7 @@ const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_
  * be marked isReversible: false to prevent undo exploits.
  */
 function effectContainsIrreversible(effect: CardEffect): boolean {
-  if (effect.type === EFFECT_DRAW_CARDS || effect.type === EFFECT_TAKE_WOUND) {
+  if (effect.type === EFFECT_DRAW_CARDS || effect.type === EFFECT_TAKE_WOUND || effect.type === EFFECT_CONDITIONAL) {
     return true;
   }
   if (effect.type === EFFECT_COMPOUND) {
