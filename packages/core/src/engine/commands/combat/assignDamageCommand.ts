@@ -36,11 +36,16 @@ import {
 import { processUnitDamage } from "./unitDamageProcessing.js";
 import { applyHeroWounds } from "./heroDamageProcessing.js";
 import { detachBannerFromUnit } from "../banners/bannerDetachment.js";
-import { BANNER_DETACH_REASON_UNIT_DESTROYED } from "@mage-knight/shared";
+import {
+  BANNER_DETACH_REASON_UNIT_DESTROYED,
+  CARD_BANNER_OF_FORTITUDE,
+  BANNER_FORTITUDE_PREVENTED_WOUND,
+} from "@mage-knight/shared";
 import {
   isVampiricActive,
   getVampiricArmorBonus,
 } from "../../combat/vampiricHelpers.js";
+import { getBannerForUnit, markBannerUsed } from "../../rules/banners.js";
 
 export const ASSIGN_DAMAGE_COMMAND = "ASSIGN_DAMAGE" as const;
 
@@ -271,6 +276,35 @@ function processUnitAssignment(
   const unit = player.units[unitIndex];
   if (!unit) {
     throw new Error(`Unit not found at index: ${unitIndex}`);
+  }
+
+  // Banner of Fortitude wound prevention: intercept before normal damage processing.
+  // When a unit with Banner of Fortitude attached would be wounded, the banner
+  // flips (isUsedThisRound = true) to prevent the wound AND all additional effects
+  // (poison, paralyze, vampiric). This counts as the unit's damage assignment.
+  const banner = getBannerForUnit(player, unit.instanceId);
+  if (
+    banner &&
+    banner.bannerId === CARD_BANNER_OF_FORTITUDE &&
+    !banner.isUsedThisRound
+  ) {
+    const updatedBanners = markBannerUsed(
+      player.attachedBanners,
+      CARD_BANNER_OF_FORTITUDE
+    );
+
+    return {
+      player: { ...player, attachedBanners: updatedBanners },
+      heroWounds: 0,
+      events: [
+        {
+          type: BANNER_FORTITUDE_PREVENTED_WOUND,
+          playerId,
+          unitInstanceId: unit.instanceId,
+          damageNegated: assignment.amount,
+        },
+      ],
+    };
   }
 
   const result = processUnitDamage(

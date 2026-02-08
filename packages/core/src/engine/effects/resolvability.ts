@@ -78,6 +78,7 @@ import {
   EFFECT_ENERGY_FLOW,
   EFFECT_RESOLVE_ENERGY_FLOW_TARGET,
   EFFECT_READY_ALL_UNITS,
+  EFFECT_HEAL_ALL_UNITS,
   EFFECT_READY_UNITS_BUDGET,
   EFFECT_RESOLVE_READY_UNIT_BUDGET,
   EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
@@ -436,6 +437,11 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   [EFFECT_READY_ALL_UNITS]: (state, player) => {
     // Resolvable if player has at least one spent unit
     return player.units.some((u) => u.state === UNIT_STATE_SPENT);
+  },
+
+  [EFFECT_HEAL_ALL_UNITS]: (_state, player) => {
+    // Resolvable if player has at least one wounded unit
+    return player.units.some((u) => u.wounded);
   },
 
   [EFFECT_READY_UNITS_BUDGET]: (state, player, effect) => {

@@ -176,6 +176,12 @@ export {
   registerHealUnitEffects,
 } from "./healUnitEffects.js";
 
+// Heal all units effects (Banner of Fortitude powered)
+export {
+  handleHealAllUnits,
+  registerHealAllUnitsEffects,
+} from "./healAllUnitsEffects.js";
+
 // Discard effects
 export {
   handleDiscardCard,

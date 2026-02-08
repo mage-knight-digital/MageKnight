@@ -304,6 +304,11 @@ export const EFFECT_CRYSTAL_MASTERY_BASIC = "crystal_mastery_basic" as const;
 // Powered: At end of turn, spent crystals this turn are returned to inventory.
 export const EFFECT_CRYSTAL_MASTERY_POWERED = "crystal_mastery_powered" as const;
 
+// === Heal All Units Effect ===
+// Heal all units completely (remove wounds from all wounded units).
+// Used by Banner of Fortitude powered effect.
+export const EFFECT_HEAL_ALL_UNITS = "heal_all_units" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.

@@ -107,6 +107,7 @@ import {
   EFFECT_RESOLVE_MIND_STEAL_SELECTION,
   EFFECT_ACTIVATE_BANNER_PROTECTION,
   EFFECT_DECOMPOSE,
+  EFFECT_HEAL_ALL_UNITS,
   EFFECT_WINGS_OF_NIGHT,
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   EFFECT_CRYSTAL_MASTERY_BASIC,
@@ -1221,6 +1222,15 @@ export interface ResolveMindStealSelectionEffect {
 }
 
 /**
+ * Heal all units completely (remove wounds from all wounded units).
+ * No unit selection needed — all wounded units are healed automatically.
+ * Used by Banner of Fortitude powered effect.
+ */
+export interface HealAllUnitsEffect {
+  readonly type: typeof EFFECT_HEAL_ALL_UNITS;
+}
+
+/**
  * Activate Banner of Protection powered effect.
  * Sets bannerOfProtectionActive flag; at end of turn, player may throw away
  * all wounds received this turn.
@@ -1356,6 +1366,7 @@ export type CardEffect =
   | MindStealEffect
   | ResolveMindStealColorEffect
   | ResolveMindStealSelectionEffect
+  | HealAllUnitsEffect
   | ActivateBannerProtectionEffect
   | WingsOfNightEffect
   | ResolveWingsOfNightTargetEffect
