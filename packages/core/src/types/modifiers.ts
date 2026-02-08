@@ -61,6 +61,8 @@ import {
   EFFECT_POSSESS_ATTACK_RESTRICTION,
   EFFECT_HERO_DAMAGE_REDUCTION,
   EFFECT_EXPLORE_COST_REDUCTION,
+  EFFECT_GOLDEN_GRAIL_FAME_TRACKING,
+  EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL,
   LEADERSHIP_BONUS_BLOCK,
   LEADERSHIP_BONUS_ATTACK,
   LEADERSHIP_BONUS_RANGED_ATTACK,
@@ -530,6 +532,21 @@ export interface ExploreCostReductionModifier {
   readonly amount: number; // negative = reduction (e.g., -1)
 }
 
+// Golden Grail fame tracking modifier (Golden Grail basic effect)
+// Awards Fame +1 per healing point from the Grail that is spent healing wounds from hand.
+// Stores remaining healing amount from the Grail; decremented as wounds are healed.
+export interface GoldenGrailFameTrackingModifier {
+  readonly type: typeof EFFECT_GOLDEN_GRAIL_FAME_TRACKING;
+  readonly remainingHealingPoints: number;
+}
+
+// Golden Grail draw-on-heal modifier (Golden Grail powered effect)
+// When active, every time a wound is healed from hand, draw 1 card.
+// Duration: turn. Not consumed — triggers on every hand wound healed.
+export interface GoldenGrailDrawOnHealModifier {
+  readonly type: typeof EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -572,7 +589,9 @@ export type ModifierEffect =
   | PossessAttackRestrictionModifier
   | AttackBlockCardBonusModifier
   | HeroDamageReductionModifier
-  | ExploreCostReductionModifier;
+  | ExploreCostReductionModifier
+  | GoldenGrailFameTrackingModifier
+  | GoldenGrailDrawOnHealModifier;
 
 // === Active Modifier (live in game state) ===
 

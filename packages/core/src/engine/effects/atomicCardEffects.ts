@@ -14,6 +14,13 @@ import type { EffectResolutionResult } from "./types.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicHelpers.js";
 import { isCureActive } from "./cureHelpers.js";
+import {
+  getGoldenGrailFameTracker,
+  calculateGrailFame,
+  updateGrailFameTracker,
+  isGoldenGrailDrawOnHealActive,
+} from "./goldenGrailHelpers.js";
+import { applyGainFame } from "./atomicProgressionEffects.js";
 
 // ============================================================================
 // EFFECT HANDLERS
@@ -133,6 +140,51 @@ export function applyGainHealing(
         cardsToDraw === 1
           ? "Drew 1 card (Cure)"
           : `Drew ${cardsToDraw} cards (Cure)`
+      );
+    }
+  }
+
+  // Golden Grail fame tracking: award Fame +1 per healing point from the Grail spent
+  const grailFameTracker = getGoldenGrailFameTracker(state, player.id);
+  if (grailFameTracker) {
+    const fameToAward = calculateGrailFame(grailFameTracker, woundsToHeal);
+    if (fameToAward > 0) {
+      // Update the tracker first (decrement remaining)
+      updatedState = updateGrailFameTracker(updatedState, grailFameTracker, fameToAward);
+      // Then award fame
+      const currentPlayer = updatedState.players[playerIndex]!;
+      const fameResult = applyGainFame(updatedState, playerIndex, currentPlayer, fameToAward);
+      updatedState = fameResult.state;
+
+      descriptions.push(
+        fameToAward === 1
+          ? "Fame +1 (Golden Grail)"
+          : `Fame +${fameToAward} (Golden Grail)`
+      );
+    }
+  }
+
+  // Golden Grail draw-on-heal: draw a card each time a wound is healed from hand
+  if (isGoldenGrailDrawOnHealActive(state, player.id)) {
+    const currentPlayer = updatedState.players[playerIndex]!;
+    const availableInDeck = currentPlayer.deck.length;
+    const cardsToDraw = Math.min(woundsToHeal, availableInDeck);
+
+    if (cardsToDraw > 0) {
+      const drawnCards = currentPlayer.deck.slice(0, cardsToDraw);
+      const newDeck = currentPlayer.deck.slice(cardsToDraw);
+      const drawnHand = [...currentPlayer.hand, ...drawnCards];
+
+      updatedState = updatePlayer(updatedState, playerIndex, {
+        ...currentPlayer,
+        hand: drawnHand,
+        deck: newDeck,
+      });
+
+      descriptions.push(
+        cardsToDraw === 1
+          ? "Drew 1 card (Golden Grail)"
+          : `Drew ${cardsToDraw} cards (Golden Grail)`
       );
     }
   }
