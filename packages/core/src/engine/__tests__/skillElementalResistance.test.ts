@@ -20,12 +20,10 @@ import {
   SKILL_USED,
   INVALID_ACTION,
   RESOLVE_CHOICE_ACTION,
-  CHOICE_RESOLVED,
   ENTER_COMBAT_ACTION,
   END_COMBAT_PHASE_ACTION,
   ASSIGN_DAMAGE_ACTION,
   DAMAGE_ASSIGNED,
-  CARD_WOUND,
   CARD_MARCH,
   ENEMY_ORC,
   ENEMY_ICE_MAGES,
@@ -38,9 +36,6 @@ import { Hero } from "../../types/hero.js";
 import { SKILL_BRAEVALAR_ELEMENTAL_RESISTANCE } from "../../data/skills/index.js";
 import { getValidActions } from "../validActions/index.js";
 import { createCombatState } from "../../types/combat.js";
-import {
-  COMBAT_PHASE_ASSIGN_DAMAGE,
-} from "../../types/combat.js";
 import { EFFECT_HERO_DAMAGE_REDUCTION } from "../../types/modifierConstants.js";
 
 const defaultCooldowns = {
