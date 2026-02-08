@@ -12,7 +12,6 @@ import {
   PLAY_CARD_ACTION,
   MANA_GOLD,
   MANA_BLACK,
-  TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
 import { isRuleActive } from "../../modifiers/index.js";
 import { RULE_BLACK_AS_ANY_COLOR } from "../../../types/modifierConstants.js";
@@ -108,8 +107,8 @@ export function validateManaTimeOfDay(
 
   for (const source of manaSources) {
     const manaColor = source.color;
-    // Black mana cannot be used during day
-    if (manaColor === MANA_BLACK && state.timeOfDay === TIME_OF_DAY_DAY) {
+    // Black mana cannot be used during day (unless Amulet of Darkness)
+    if (manaColor === MANA_BLACK && !isManaColorAllowed(state, MANA_BLACK, playerId)) {
       return invalid(BLACK_MANA_DAY, "Black mana cannot be used during the day");
     }
 
@@ -184,7 +183,7 @@ export function validateManaTimeOfDayWithDungeonOverride(
 
   const blackAsAnyColor = isRuleActive(state, playerId, RULE_BLACK_AS_ANY_COLOR);
   for (const source of manaSources) {
-    if (source.color === MANA_BLACK && !isManaColorAllowed(state, MANA_BLACK) && !blackAsAnyColor) {
+    if (source.color === MANA_BLACK && !isManaColorAllowed(state, MANA_BLACK, playerId) && !blackAsAnyColor) {
       return invalid(BLACK_MANA_DAY, "Black mana cannot be used during the day");
     }
     if (source.color === MANA_GOLD && !isManaColorAllowed(state, MANA_GOLD, playerId)) {

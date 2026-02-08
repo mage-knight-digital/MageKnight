@@ -17,7 +17,7 @@ import {
   MANA_SOURCE_ENDLESS,
 } from "@mage-knight/shared";
 import { isRuleActive, countRuleActive, hasEndlessMana } from "../modifiers/index.js";
-import { RULE_BLACK_AS_ANY_COLOR, RULE_GOLD_AS_ANY_COLOR, RULE_EXTRA_SOURCE_DIE, RULE_SOURCE_BLOCKED } from "../../types/modifierConstants.js";
+import { RULE_BLACK_AS_ANY_COLOR, RULE_GOLD_AS_ANY_COLOR, RULE_EXTRA_SOURCE_DIE, RULE_SOURCE_BLOCKED, RULE_ALLOW_BLACK_AT_DAY } from "../../types/modifierConstants.js";
 import { canUseGoldAsWild, isManaColorAllowed } from "../rules/mana.js";
 
 /**
@@ -71,10 +71,18 @@ export function getManaOptions(
     canUseSource = Math.max(player.usedDieIds.length, 1) < maxDiceUsage;
   }
 
+  // Amulet of Darkness: black dice available from Source during day
+  const allowBlackAtDay = isRuleActive(state, player.id, RULE_ALLOW_BLACK_AT_DAY);
+
   if (canUseSource) {
     for (const die of state.source.dice) {
-      // Die must not be taken and not depleted
-      if (die.takenByPlayerId === null && !die.isDepleted) {
+      if (die.takenByPlayerId !== null) continue;
+
+      // Override depletion for black dice during day when Amulet of Darkness is active
+      const effectivelyAvailable = !die.isDepleted ||
+        (die.color === MANA_BLACK && die.isDepleted && allowBlackAtDay);
+
+      if (effectivelyAvailable) {
         addAvailableDie(die.id, die.color);
 
         // Mana Pull basic: black dice can be used as any color this turn
@@ -197,8 +205,12 @@ export function canPayForMana(
   if (canUseSource2) {
     const blackAsAnyColor2 = isRuleActive(state, player.id, RULE_BLACK_AS_ANY_COLOR);
     const goldAsAnyColor2 = isRuleActive(state, player.id, RULE_GOLD_AS_ANY_COLOR);
+    const allowBlackAtDay2 = isRuleActive(state, player.id, RULE_ALLOW_BLACK_AT_DAY);
     for (const die of state.source.dice) {
-      if (die.takenByPlayerId === null && !die.isDepleted) {
+      if (die.takenByPlayerId !== null) continue;
+      const effectivelyAvailable2 = !die.isDepleted ||
+        (die.color === MANA_BLACK && die.isDepleted && allowBlackAtDay2);
+      if (effectivelyAvailable2) {
         if (die.color === requiredColor) {
           return true;
         }
@@ -373,10 +385,14 @@ function countManaSourcesForColor(
     canUseSource3 = Math.max(player.usedDieIds.length, 1) < maxDice3;
   }
   const goldAsAnyColor3 = isRuleActive(state, player.id, RULE_GOLD_AS_ANY_COLOR);
+  const allowBlackAtDay3 = isRuleActive(state, player.id, RULE_ALLOW_BLACK_AT_DAY);
 
   if (canUseSource3) {
     for (const die of state.source.dice) {
-      if (die.takenByPlayerId === null && !die.isDepleted) {
+      if (die.takenByPlayerId !== null) continue;
+      const effectivelyAvailable3 = !die.isDepleted ||
+        (die.color === MANA_BLACK && die.isDepleted && allowBlackAtDay3);
+      if (effectivelyAvailable3) {
         if (die.color === requiredColor) {
           count++;
         } else if (die.color === MANA_BLACK && requiredColor !== MANA_BLACK && blackAsAnyColor) {
@@ -484,10 +500,14 @@ export function getAvailableManaSourcesForColor(
     canUseSource4 = Math.max(player.usedDieIds.length, 1) < maxDice4;
   }
   const goldAsAnyColor4 = isRuleActive(state, player.id, RULE_GOLD_AS_ANY_COLOR);
+  const allowBlackAtDay4 = isRuleActive(state, player.id, RULE_ALLOW_BLACK_AT_DAY);
 
   if (canUseSource4) {
     for (const die of state.source.dice) {
-      if (die.takenByPlayerId === null && !die.isDepleted) {
+      if (die.takenByPlayerId !== null) continue;
+      const effectivelyAvailable4 = !die.isDepleted ||
+        (die.color === MANA_BLACK && die.isDepleted && allowBlackAtDay4);
+      if (effectivelyAvailable4) {
         const canUseBlackAsAny =
           blackAsAnyColor && die.color === MANA_BLACK && requiredColor !== MANA_BLACK;
         const canUseGoldAsAny =
