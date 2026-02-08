@@ -28,6 +28,7 @@ import {
   MANA_RED,
   MANA_BLUE,
   MANA_GREEN,
+  MANA_GOLD,
 } from "@mage-knight/shared";
 import type { SkillId } from "@mage-knight/shared";
 import type { SourceDie, ManaSource } from "../../types/mana.js";
@@ -915,6 +916,141 @@ describe("Source Opening skill (Goldyx)", () => {
           returningPlayerId: null,
         })
       );
+    });
+  });
+
+  describe("validator edge cases", () => {
+    it("should reject Source Opening activation during combat", () => {
+      const state = createTwoPlayerState({
+        stateOverrides: {
+          combat: {
+            enemies: [],
+            phase: "ranged_siege" as const,
+            initiatorId: "goldyx",
+            attackAccumulator: { melee: { points: 0, elements: [] }, ranged: { points: 0, elements: [] }, siege: { points: 0, elements: [] } },
+            blockAccumulator: {},
+            fortified: false,
+            enemyStates: {},
+            attackBonuses: [],
+          },
+        },
+      });
+
+      const result = engine.processAction(state, "goldyx", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_GOLDYX_SOURCE_OPENING,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({ type: INVALID_ACTION })
+      );
+    });
+
+    it("should reject reroll action when no pending reroll choice", () => {
+      const state = createTwoPlayerState();
+
+      const result = engine.processAction(state, "goldyx", {
+        type: RESOLVE_SOURCE_OPENING_REROLL_ACTION,
+        reroll: true,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({ type: INVALID_ACTION })
+      );
+    });
+
+    it("should not grant crystal when extra die has non-basic color", () => {
+      // Set up state where the extra die is gold (not basic)
+      const state = createTwoPlayerState({
+        stateOverrides: {
+          source: createTestManaSource([
+            { id: sourceDieId("die1"), color: MANA_RED, isDepleted: false, takenByPlayerId: null },
+            { id: sourceDieId("die2"), color: MANA_RED, isDepleted: false, takenByPlayerId: null },
+            { id: sourceDieId("die3"), color: MANA_GOLD, isDepleted: false, takenByPlayerId: null },
+          ]),
+        },
+      });
+      const afterActivation = activateAndSkipReroll(engine, state);
+
+      const afterEndTurn = engine.processAction(afterActivation, "goldyx", {
+        type: END_TURN_ACTION,
+      });
+
+      const returnResult = engine.processAction(afterEndTurn.state, "arythea", {
+        type: RETURN_INTERACTIVE_SKILL_ACTION,
+        skillId: SKILL_GOLDYX_SOURCE_OPENING,
+      });
+
+      // Use 2 dice: die1 (normal) + die3 (gold, extra)
+      const stateWithUsedDie: GameState = {
+        ...returnResult.state,
+        players: returnResult.state.players.map((p) =>
+          p.id === "arythea"
+            ? { ...p, usedDieIds: [sourceDieId("die1"), sourceDieId("die3")] }
+            : p
+        ),
+        source: {
+          dice: returnResult.state.source.dice.map((d) =>
+            d.id === sourceDieId("die1") || d.id === sourceDieId("die3")
+              ? { ...d, takenByPlayerId: "arythea" }
+              : d
+          ),
+        },
+      };
+
+      const endResult = engine.processAction(stateWithUsedDie, "arythea", {
+        type: END_TURN_ACTION,
+      });
+
+      // No crystal granted (gold is not basic), no reroll choice
+      const goldyx = endResult.state.players.find((p) => p.id === "goldyx");
+      expect(goldyx?.crystals.red).toBe(0);
+      expect(goldyx?.crystals.blue).toBe(0);
+      expect(goldyx?.crystals.green).toBe(0);
+      expect(goldyx?.crystals.white).toBe(0);
+    });
+
+    it("should not grant crystal when returning player only uses normal die", () => {
+      const state = createTwoPlayerState();
+      const afterActivation = activateAndSkipReroll(engine, state);
+
+      const afterEndTurn = engine.processAction(afterActivation, "goldyx", {
+        type: END_TURN_ACTION,
+      });
+
+      const returnResult = engine.processAction(afterEndTurn.state, "arythea", {
+        type: RETURN_INTERACTIVE_SKILL_ACTION,
+        skillId: SKILL_GOLDYX_SOURCE_OPENING,
+      });
+
+      // Use only 1 die (the normal allowance, not the extra one)
+      const die1 = returnResult.state.source.dice[0];
+      if (!die1) throw new Error("No die found");
+
+      const stateWithUsedDie: GameState = {
+        ...returnResult.state,
+        players: returnResult.state.players.map((p) =>
+          p.id === "arythea"
+            ? { ...p, usedDieIds: [die1.id] }
+            : p
+        ),
+        source: {
+          dice: returnResult.state.source.dice.map((d) =>
+            d.id === die1.id
+              ? { ...d, takenByPlayerId: "arythea" }
+              : d
+          ),
+        },
+      };
+
+      const endResult = engine.processAction(stateWithUsedDie, "arythea", {
+        type: END_TURN_ACTION,
+      });
+
+      // No crystal granted (only used normal die, not extra)
+      const goldyx = endResult.state.players.find((p) => p.id === "goldyx");
+      expect(goldyx?.crystals.red).toBe(0);
+      expect(goldyx?.crystals.blue).toBe(0);
     });
   });
 });
