@@ -145,6 +145,9 @@ import {
   EFFECT_HAND_LIMIT_BONUS,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
+  EFFECT_SPELL_FORGE_BASIC,
+  EFFECT_SPELL_FORGE_POWERED,
+  EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1686,6 +1689,39 @@ export interface ResolveTomeSpellEffect {
   readonly mode: "basic" | "powered";
 }
 
+/**
+ * Spell Forge basic effect entry point.
+ * Choose one spell card from the Spells Offer, gain a crystal of that spell's color.
+ */
+export interface SpellForgeBasicEffect {
+  readonly type: typeof EFFECT_SPELL_FORGE_BASIC;
+}
+
+/**
+ * Spell Forge powered effect entry point.
+ * Choose two different spell cards from the Spells Offer, gain a crystal for each.
+ */
+export interface SpellForgePoweredEffect {
+  readonly type: typeof EFFECT_SPELL_FORGE_POWERED;
+}
+
+/**
+ * Internal: Resolve gaining a crystal from a specific spell in the offer.
+ * For powered mode, after the first crystal is gained, chains to a second choice
+ * (excluding the already-chosen spell by offer index).
+ */
+export interface ResolveSpellForgeCrystalEffect {
+  readonly type: typeof EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL;
+  /** The color of crystal to gain (derived from the spell's color) */
+  readonly color: BasicManaColor;
+  /** Name of the chosen spell for display */
+  readonly spellName: string;
+  /** Index of the chosen spell in the offer (for powered mode exclusion) */
+  readonly offerIndex: number;
+  /** Whether this is part of powered mode and should chain to a second choice */
+  readonly chainSecondChoice: boolean;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1808,7 +1844,10 @@ export type CardEffect =
   | ResolveBloodPoweredUseAAEffect
   | HandLimitBonusEffect
   | TomeOfAllSpellsEffect
-  | ResolveTomeSpellEffect;
+  | ResolveTomeSpellEffect
+  | SpellForgeBasicEffect
+  | SpellForgePoweredEffect
+  | ResolveSpellForgeCrystalEffect;
 
 // === Card Definition ===
 

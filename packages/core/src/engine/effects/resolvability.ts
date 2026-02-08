@@ -126,6 +126,9 @@ import {
   EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
+  EFFECT_SPELL_FORGE_BASIC,
+  EFFECT_SPELL_FORGE_POWERED,
+  EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -669,6 +672,18 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve Tome spell is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_TOME_SPELL]: () => true,
+
+  // Spell Forge basic/powered: resolvable if there are spells in the offer
+  [EFFECT_SPELL_FORGE_BASIC]: (state) => {
+    return state.offers.spells.cards.length > 0;
+  },
+
+  [EFFECT_SPELL_FORGE_POWERED]: (state) => {
+    return state.offers.spells.cards.length > 0;
+  },
+
+  // Resolve Spell Forge crystal is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL]: () => true,
 };
 
 // ============================================================================

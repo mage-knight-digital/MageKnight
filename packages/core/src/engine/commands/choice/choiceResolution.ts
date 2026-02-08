@@ -26,6 +26,9 @@ import {
   EFFECT_READY_UNIT,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_SOURCE_OPENING_REROLL,
+  EFFECT_SPELL_FORGE_BASIC,
+  EFFECT_SPELL_FORGE_POWERED,
+  EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
 } from "../../../types/effectTypes.js";
 import { describeEffect, isEffectResolvable } from "../../effects/index.js";
 import type { EffectResolutionResult } from "../../effects/index.js";
@@ -71,6 +74,9 @@ const DYNAMIC_CHOICE_EFFECTS = new Set<string>([
   EFFECT_READY_UNIT,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_SOURCE_OPENING_REROLL,
+  EFFECT_SPELL_FORGE_BASIC,
+  EFFECT_SPELL_FORGE_POWERED,
+  EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
 ]);
 
 function buildPendingChoice(
