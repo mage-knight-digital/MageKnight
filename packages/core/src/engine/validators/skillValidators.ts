@@ -18,6 +18,7 @@ import {
   SKILL_NOT_FOUND,
   SKILL_ON_COOLDOWN,
   NOT_IN_COMBAT,
+  NOT_YOUR_TURN,
   WRONG_COMBAT_PHASE,
   SKILL_REQUIRES_NOT_IN_COMBAT,
   SKILL_REQUIRES_WOUND_IN_HAND,
@@ -55,8 +56,30 @@ import { getPlayerById } from "../helpers/playerHelpers.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
+import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
+
+/**
+ * Validates the turn requirement for skill usage.
+ * Motivation skills can be used on any player's turn.
+ * All other skills require it to be the player's own turn.
+ */
+export const validateSkillTurnRequirement: Validator = (state, playerId, action) => {
+  const useSkillAction = action as UseSkillAction;
+
+  // Motivation skills can be used on any player's turn
+  if (isMotivationSkill(useSkillAction.skillId)) {
+    return valid();
+  }
+
+  // All other skills require it to be the player's turn
+  const currentPlayerId = state.turnOrder[state.currentPlayerIndex];
+  if (currentPlayerId !== playerId) {
+    return invalid(NOT_YOUR_TURN, "It is not your turn");
+  }
+  return valid();
+};
 
 /**
  * Validates that the player has learned the skill they're trying to use.
@@ -116,6 +139,15 @@ export const validateSkillCooldown: Validator = (state, playerId, action) => {
         `${skill.name} has already been used this round`
       );
     }
+  }
+
+  // Motivation cross-hero cooldown: cannot use any Motivation skill
+  // while the Motivation cooldown is active (until end of next turn)
+  if (isMotivationSkill(useSkillAction.skillId) && isMotivationCooldownActive(player)) {
+    return invalid(
+      SKILL_ON_COOLDOWN,
+      "Cannot use a Motivation skill until the end of your next turn"
+    );
   }
 
   return valid();

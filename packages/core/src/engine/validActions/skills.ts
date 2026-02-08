@@ -54,6 +54,7 @@ import {
   SKILL_TOVAK_MANA_OVERLOAD,
   SKILL_GOLDYX_GLITTERING_FORTUNE,
   SKILL_GOLDYX_UNIVERSAL_POWER,
+  SKILL_GOLDYX_MOTIVATION,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -68,6 +69,7 @@ import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasin
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { hexKey } from "@mage-knight/shared";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
+import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 
 /**
  * Skills that have effect implementations and can be activated.
@@ -110,6 +112,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_TOVAK_MANA_OVERLOAD,
   SKILL_GOLDYX_GLITTERING_FORTUNE,
   SKILL_GOLDYX_UNIVERSAL_POWER,
+  SKILL_GOLDYX_MOTIVATION,
 ]);
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
@@ -236,6 +239,11 @@ export function getSkillOptions(
       }
     } else {
       // Passive and interactive skills are not directly activatable via USE_SKILL
+      continue;
+    }
+
+    // Motivation cross-hero cooldown check
+    if (isMotivationSkill(skillId) && isMotivationCooldownActive(player)) {
       continue;
     }
 

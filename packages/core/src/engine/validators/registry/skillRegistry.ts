@@ -14,6 +14,7 @@ import { validateNoChoicePending } from "../choiceValidators.js";
 
 // Skill validators
 import {
+  validateSkillTurnRequirement,
   validateSkillLearned,
   validateSkillCooldown,
   validateCombatSkillInCombat,
@@ -31,7 +32,7 @@ import {
 
 export const skillRegistry: Record<string, Validator[]> = {
   [USE_SKILL_ACTION]: [
-    validateIsPlayersTurn,
+    validateSkillTurnRequirement,
     validateRoundPhase,
     validateNoChoicePending,
     validateSkillLearned,
