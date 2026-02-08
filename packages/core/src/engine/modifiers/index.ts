@@ -28,6 +28,7 @@ export {
   isPhysicalAttackDoubled,
   getBaseArmorForPhase,
   hasDefeatIfBlocked,
+  getPossessAttackRestriction,
 } from "./combat.js";
 
 // Terrain effective values

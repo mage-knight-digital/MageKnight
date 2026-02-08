@@ -309,6 +309,15 @@ export const EFFECT_CRYSTAL_MASTERY_POWERED = "crystal_mastery_powered" as const
 // Used by Banner of Fortitude powered effect.
 export const EFFECT_HEAL_ALL_UNITS = "heal_all_units" as const;
 
+// === Possess Enemy Effect ===
+// Entry point for the Charm/Possess powered effect.
+// Targets an enemy (excludes Arcane Immune), applies skip-attack modifier,
+// then gains melee Attack equal to the enemy's attack value (including elements).
+// Special abilities are excluded. The gained attack can only target OTHER enemies.
+export const EFFECT_POSSESS_ENEMY = "possess_enemy" as const;
+// Internal: resolve after selecting which enemy to possess
+export const EFFECT_RESOLVE_POSSESS_ENEMY = "resolve_possess_enemy" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.
