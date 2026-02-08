@@ -21,6 +21,7 @@ import type { PlayerAction, GladeWoundChoice, BasicManaColor, CardId } from "@ma
 import {
   INTERACT_ACTION,
   ENTER_SITE_ACTION,
+  ALTAR_TRIBUTE_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
   BURN_MONASTERY_ACTION,
@@ -33,6 +34,7 @@ import {
 } from "@mage-knight/shared";
 import { createInteractCommand } from "../interactCommand.js";
 import { createEnterSiteCommand } from "../enterSiteCommand.js";
+import { createAltarTributeCommand } from "../altarTributeCommand.js";
 import { createResolveGladeWoundCommand } from "../resolveGladeWoundCommand.js";
 import { createResolveDeepMineChoiceCommand } from "../resolveDeepMineChoiceCommand.js";
 import { createBurnMonasteryCommand } from "../burnMonasteryCommand.js";
@@ -105,6 +107,22 @@ export const createEnterSiteCommandFromAction: CommandFactory = (
 ) => {
   if (action.type !== ENTER_SITE_ACTION) return null;
   return createEnterSiteCommand({ playerId });
+};
+
+/**
+ * Altar tribute command factory.
+ * Creates a command to pay tribute at an altar ruins token.
+ */
+export const createAltarTributeCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== ALTAR_TRIBUTE_ACTION) return null;
+  return createAltarTributeCommand({
+    playerId,
+    manaSources: action.manaSources,
+  });
 };
 
 /**

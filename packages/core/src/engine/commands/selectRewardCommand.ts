@@ -7,22 +7,37 @@
 
 import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
-import type { GameEvent, CardId } from "@mage-knight/shared";
+import type { GameEvent, CardId, UnitId } from "@mage-knight/shared";
 import {
   REWARD_SELECTED,
   SITE_REWARD_SPELL,
   SITE_REWARD_ARTIFACT,
   SITE_REWARD_ADVANCED_ACTION,
+  SITE_REWARD_UNIT,
+  UNIT_DISBANDED,
+  BANNER_DETACH_REASON_UNIT_DISBANDED,
 } from "@mage-knight/shared";
 import type { Player } from "../../types/player.js";
+import { createPlayerUnit } from "../../types/unit.js";
+import { removeUnitFromOffer } from "../../data/unitDeckSetup.js";
+import { detachBannerFromUnit } from "./banners/bannerDetachment.js";
 import { SELECT_REWARD_COMMAND } from "./commandTypes.js";
 
 export { SELECT_REWARD_COMMAND };
+
+let rewardUnitInstanceCounter = 0;
+
+/** Reset the instance counter (for testing) */
+export function resetRewardUnitInstanceCounter(): void {
+  rewardUnitInstanceCounter = 0;
+}
 
 export interface SelectRewardCommandParams {
   readonly playerId: string;
   readonly cardId: CardId;
   readonly rewardIndex: number; // Which pending reward to resolve (0 = first)
+  readonly unitId?: UnitId; // For unit rewards: the unit to recruit from offer
+  readonly disbandUnitInstanceId?: string; // For unit rewards: unit to disband if at command limit
 }
 
 export function createSelectRewardCommand(
@@ -208,6 +223,87 @@ export function createSelectRewardCommand(
             cardId: params.cardId,
             rewardType: SITE_REWARD_ADVANCED_ACTION,
           });
+          break;
+        }
+
+        case SITE_REWARD_UNIT: {
+          // Free recruitment from unit offer (no influence cost)
+          if (!params.unitId) {
+            throw new Error("Unit reward requires unitId");
+          }
+
+          const unitOffer = state.offers.units;
+          if (!unitOffer.includes(params.unitId)) {
+            throw new Error("Selected unit not in unit offer");
+          }
+
+          const instanceId = `reward_unit_${++rewardUnitInstanceCounter}`;
+          const newUnit = createPlayerUnit(params.unitId, instanceId);
+
+          // Handle unit disband if at command limit
+          let currentPlayer = player;
+          const disbandEvents: GameEvent[] = [];
+          if (params.disbandUnitInstanceId) {
+            const disbandedUnit = currentPlayer.units.find(
+              (u) => u.instanceId === params.disbandUnitInstanceId
+            );
+
+            if (disbandedUnit) {
+              const bannerResult = detachBannerFromUnit(
+                currentPlayer,
+                params.disbandUnitInstanceId,
+                BANNER_DETACH_REASON_UNIT_DISBANDED
+              );
+
+              currentPlayer = {
+                ...currentPlayer,
+                units: currentPlayer.units.filter(
+                  (u) => u.instanceId !== params.disbandUnitInstanceId
+                ),
+                discard: bannerResult.updatedDiscard,
+                attachedBanners: bannerResult.updatedAttachedBanners,
+              };
+
+              disbandEvents.push(
+                { type: UNIT_DISBANDED, playerId: params.playerId, unitInstanceId: params.disbandUnitInstanceId },
+                ...bannerResult.events
+              );
+            }
+          }
+
+          // Add unit to player, remove pending reward
+          const updatedPlayerUnit: Player = {
+            ...currentPlayer,
+            units: [...currentPlayer.units, newUnit],
+            pendingRewards: [
+              ...currentPlayer.pendingRewards.slice(0, params.rewardIndex),
+              ...currentPlayer.pendingRewards.slice(params.rewardIndex + 1),
+            ],
+          };
+
+          // Remove unit from offer
+          const updatedUnitOffer = removeUnitFromOffer(params.unitId, unitOffer);
+
+          updatedState = {
+            ...state,
+            players: state.players.map((p) =>
+              p.id === params.playerId ? updatedPlayerUnit : p
+            ),
+            offers: {
+              ...state.offers,
+              units: updatedUnitOffer,
+            },
+          };
+
+          events.push(
+            ...disbandEvents,
+            {
+              type: REWARD_SELECTED,
+              playerId: params.playerId,
+              cardId: params.cardId,
+              rewardType: SITE_REWARD_UNIT,
+            },
+          );
           break;
         }
 

@@ -14,6 +14,7 @@ export const SITE_REWARD_ARTIFACT = "artifact" as const;
 export const SITE_REWARD_CRYSTAL_ROLL = "crystal_roll" as const;
 export const SITE_REWARD_ADVANCED_ACTION = "advanced_action" as const;
 export const SITE_REWARD_FAME = "fame" as const;
+export const SITE_REWARD_UNIT = "unit" as const;
 export const SITE_REWARD_COMPOUND = "compound" as const;
 
 // =============================================================================
@@ -26,6 +27,7 @@ export type SiteRewardType =
   | typeof SITE_REWARD_CRYSTAL_ROLL
   | typeof SITE_REWARD_ADVANCED_ACTION
   | typeof SITE_REWARD_FAME
+  | typeof SITE_REWARD_UNIT
   | typeof SITE_REWARD_COMPOUND;
 
 // =============================================================================
@@ -79,6 +81,14 @@ export interface FameReward {
 }
 
 /**
+ * Unit reward - recruit a free unit from the unit offer
+ * Used by: Ancient Ruins (enemy tokens with unit reward)
+ */
+export interface UnitReward {
+  readonly type: typeof SITE_REWARD_UNIT;
+}
+
+/**
  * Compound reward - multiple rewards combined
  * Used by: Tomb (spell + artifact), Spawning Grounds (artifact + crystals)
  */
@@ -96,6 +106,7 @@ export type SiteReward =
   | CrystalRollReward
   | AdvancedActionReward
   | FameReward
+  | UnitReward
   | CompoundReward;
 
 // =============================================================================
@@ -127,6 +138,10 @@ export const advancedActionReward = (
 export const fameReward = (amount: number): FameReward => ({
   type: SITE_REWARD_FAME,
   amount,
+});
+
+export const unitReward = (): UnitReward => ({
+  type: SITE_REWARD_UNIT,
 });
 
 export const compoundReward = (

@@ -577,6 +577,20 @@ export interface SiteOptions {
   /** Interaction options (healing, recruiting, buying) */
   readonly interactOptions?: InteractOptions;
 
+  // --- Ancient Ruins Altar ---
+
+  /** Can pay tribute at this altar (Ancient Ruins with altar token) */
+  readonly canTribute?: boolean;
+
+  /** Altar mana color required (e.g., "blue", "all_basic") */
+  readonly altarManaColor?: string;
+
+  /** Altar mana cost */
+  readonly altarManaCost?: number;
+
+  /** Altar fame reward */
+  readonly altarFameReward?: number;
+
   // --- Passive Effects ---
 
   /** Passive effect that triggers at end of turn (e.g., "+1 Blue Crystal") */

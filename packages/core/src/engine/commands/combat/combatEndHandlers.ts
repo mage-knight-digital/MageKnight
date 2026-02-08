@@ -15,16 +15,29 @@ import {
   createMonasteryBurnedEvent,
   createShieldTokenPlacedEvent,
   artifactReward,
+  spellReward,
+  advancedActionReward,
+  unitReward,
   isEnemyDefeatedEvent,
+  getRuinsTokenDefinition,
+  isEnemyToken,
+  RUINS_REWARD_ARTIFACT,
+  RUINS_REWARD_SPELL,
+  RUINS_REWARD_ADVANCED_ACTION,
+  RUINS_REWARD_UNIT,
+  RUINS_REWARD_CRYSTALS_4,
 } from "@mage-knight/shared";
 import {
   COMBAT_CONTEXT_BURN_MONASTERY,
   type CombatState,
 } from "../../../types/combat.js";
-import type { Player } from "../../../types/player.js";
+import type { Player, Crystals } from "../../../types/player.js";
 import type { HexState, Site } from "../../../types/map.js";
+import { SiteType } from "../../../types/map.js";
 import { createConquerSiteCommand } from "../conquerSiteCommand.js";
 import { queueSiteReward } from "../../helpers/rewards/index.js";
+import { discardRuinsToken } from "../../helpers/ruinsTokenHelpers.js";
+import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 import {
   resolvePendingDamage,
@@ -285,6 +298,18 @@ export function handleCombatHexCleanup(
         const conquestResult = conquestCommand.execute(newState);
         newState = conquestResult.state;
         additionalEvents.push(...conquestResult.events);
+
+        // Handle ruins token-specific rewards after conquest
+        if (hex.site.type === SiteType.AncientRuins && hex.ruinsToken) {
+          const ruinsResult = handleRuinsTokenRewards(
+            newState,
+            playerId,
+            hex.ruinsToken.tokenId,
+            key
+          );
+          newState = ruinsResult.state;
+          additionalEvents.push(...ruinsResult.events);
+        }
       }
     }
   }
@@ -366,6 +391,105 @@ export function handleBurnMonastery(
   );
   newState = rewardState;
   events.push(...rewardEvents);
+
+  return { state: newState, events };
+}
+
+/**
+ * Handle ruins token-specific rewards after combat victory.
+ * Grants rewards based on the enemy token definition and discards the token.
+ */
+function handleRuinsTokenRewards(
+  state: GameState,
+  playerId: string,
+  tokenId: string,
+  hexKey_: string
+): { state: GameState; events: GameEvent[] } {
+  const events: GameEvent[] = [];
+  let newState = state;
+
+  const tokenDef = getRuinsTokenDefinition(tokenId as import("@mage-knight/shared").RuinsTokenId);
+  if (!tokenDef || !isEnemyToken(tokenDef)) {
+    return { state: newState, events };
+  }
+
+  // Grant each reward from the token
+  for (const rewardType of tokenDef.rewards) {
+    switch (rewardType) {
+      case RUINS_REWARD_ARTIFACT: {
+        const result = queueSiteReward(newState, playerId, artifactReward(1));
+        newState = result.state;
+        events.push(...result.events);
+        break;
+      }
+      case RUINS_REWARD_SPELL: {
+        const result = queueSiteReward(newState, playerId, spellReward(1));
+        newState = result.state;
+        events.push(...result.events);
+        break;
+      }
+      case RUINS_REWARD_ADVANCED_ACTION: {
+        const result = queueSiteReward(newState, playerId, advancedActionReward(1));
+        newState = result.state;
+        events.push(...result.events);
+        break;
+      }
+      case RUINS_REWARD_UNIT: {
+        const result = queueSiteReward(newState, playerId, unitReward());
+        newState = result.state;
+        events.push(...result.events);
+        break;
+      }
+      case RUINS_REWARD_CRYSTALS_4: {
+        // Grant +1 crystal of each basic color directly
+        const player = getPlayerById(newState, playerId);
+        if (player) {
+          const updatedCrystals: Crystals = {
+            red: player.crystals.red + 1,
+            blue: player.crystals.blue + 1,
+            green: player.crystals.green + 1,
+            white: player.crystals.white + 1,
+          };
+          const updatedPlayer: Player = {
+            ...player,
+            crystals: updatedCrystals,
+          };
+          newState = {
+            ...newState,
+            players: newState.players.map((p) =>
+              p.id === playerId ? updatedPlayer : p
+            ),
+          };
+        }
+        break;
+      }
+    }
+  }
+
+  // Discard ruins token from hex and add to discard pile
+  const updatedRuinsTokens = discardRuinsToken(
+    newState.ruinsTokens,
+    tokenId as import("@mage-knight/shared").RuinsTokenId
+  );
+
+  const currentHex = newState.map.hexes[hexKey_];
+  if (currentHex) {
+    const updatedHex: HexState = {
+      ...currentHex,
+      ruinsToken: null,
+    };
+    newState = {
+      ...newState,
+      ruinsTokens: updatedRuinsTokens,
+      map: {
+        ...newState.map,
+        hexes: {
+          ...newState.map.hexes,
+          [hexKey_]: updatedHex,
+        },
+      },
+    };
+  }
 
   return { state: newState, events };
 }

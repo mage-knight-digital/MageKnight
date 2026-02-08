@@ -184,6 +184,10 @@ export const UNIT_TYPE_MISMATCH = "UNIT_TYPE_MISMATCH" as const;
 export const NOT_ADVENTURE_SITE = "NOT_ADVENTURE_SITE" as const;
 export const SITE_ALREADY_CONQUERED = "SITE_ALREADY_CONQUERED" as const;
 export const NO_ENEMIES_AT_SITE = "NO_ENEMIES_AT_SITE" as const;
+// Ruins / Altar validation codes
+export const NOT_AT_RUINS = "NOT_AT_RUINS" as const;
+export const NO_ALTAR_TOKEN = "NO_ALTAR_TOKEN" as const;
+export const NOT_ENEMY_TOKEN = "NOT_ENEMY_TOKEN" as const;
 
 // Dungeon/Tomb combat restriction codes
 export const UNITS_NOT_ALLOWED = "UNITS_NOT_ALLOWED" as const;
@@ -486,6 +490,9 @@ export type ValidationErrorCode =
   | typeof NOT_ADVENTURE_SITE
   | typeof SITE_ALREADY_CONQUERED
   | typeof NO_ENEMIES_AT_SITE
+  | typeof NOT_AT_RUINS
+  | typeof NO_ALTAR_TOKEN
+  | typeof NOT_ENEMY_TOKEN
   // Dungeon/Tomb combat restriction
   | typeof UNITS_NOT_ALLOWED
   | typeof GOLD_MANA_NOT_ALLOWED

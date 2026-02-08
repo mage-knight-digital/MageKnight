@@ -35,6 +35,7 @@ export const CONQUER_SITE_COMMAND = "CONQUER_SITE" as const;
 
 // Adventure site commands
 export const ENTER_SITE_COMMAND = "ENTER_SITE" as const;
+export const ALTAR_TRIBUTE_COMMAND = "ALTAR_TRIBUTE" as const;
 
 // Challenge rampaging command
 export const CHALLENGE_RAMPAGING_COMMAND = "CHALLENGE_RAMPAGING" as const;

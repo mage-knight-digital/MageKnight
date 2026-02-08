@@ -6,7 +6,7 @@
  * - Dungeon: draws 1 brown enemy, starts combat (night rules, no units)
  * - Tomb: draws 1 red Draconum, starts combat (night rules, no units)
  * - Monster den: draws 1 brown enemy OR fights existing (normal rules)
- * - Ruins: day = auto-conquest if empty, night = fight brown enemy
+ * - Ruins: draws enemies from enemy token, rejects altar tokens
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -20,7 +20,6 @@ import {
   SITE_ENTERED,
   ENEMIES_DRAWN_FOR_SITE,
   COMBAT_STARTED,
-  SITE_CONQUERED,
   TERRAIN_PLAINS,
   hexKey,
   TIME_OF_DAY_DAY,
@@ -28,6 +27,7 @@ import {
   ENEMY_COLOR_BROWN,
   ENEMY_COLOR_RED,
   ENEMIES,
+  type RuinsTokenId,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
 import type { Site, HexState, HexEnemy } from "../../types/map.js";
@@ -102,7 +102,8 @@ function createVillageSite(): Site {
 function createTestStateWithSite(
   site: Site,
   enemies: readonly HexEnemy[] = [],
-  timeOfDay: typeof TIME_OF_DAY_DAY | typeof TIME_OF_DAY_NIGHT = TIME_OF_DAY_DAY
+  timeOfDay: typeof TIME_OF_DAY_DAY | typeof TIME_OF_DAY_NIGHT = TIME_OF_DAY_DAY,
+  ruinsToken: import("../../types/map.js").RuinsToken | null = null
 ): GameState {
   const baseState = createTestGameState();
   const playerCoord = { q: 0, r: 0 };
@@ -116,6 +117,7 @@ function createTestStateWithSite(
     enemies,
     shieldTokens: [],
     rampagingEnemies: [],
+    ruinsToken,
   };
 
   const hexes: Record<string, HexState> = {
@@ -467,40 +469,26 @@ describe("Enter adventure site", () => {
   });
 
   describe("ruins", () => {
-    it("should fight brown enemy at night ruins", () => {
-      // Create a brown enemy for night ruins
-      const brownEnemyId = (Object.keys(ENEMIES) as (keyof typeof ENEMIES)[]).find(
-        (id) => ENEMIES[id].color === ENEMY_COLOR_BROWN
-      );
-      if (!brownEnemyId) throw new Error("No brown enemy found");
-
-      const enemyToken = createEnemyTokenId(brownEnemyId);
+    it("should draw enemies from enemy token and start combat", () => {
+      // Ruins with an enemy token (green + brown enemies)
+      const ruinsToken = {
+        tokenId: "enemy_green_brown_artifact" as RuinsTokenId,
+        isRevealed: true,
+      };
       const state = createTestStateWithSite(
         createRuinsSite(),
-        [createHexEnemy(enemyToken)],
-        TIME_OF_DAY_NIGHT
+        [],
+        TIME_OF_DAY_DAY,
+        ruinsToken
       );
 
       const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,
       });
 
-      // Should start combat
+      // Should start combat with 2 enemies (green + brown)
       expect(result.state.combat).not.toBeNull();
-      expect(result.state.combat?.enemies).toHaveLength(1);
-    });
-
-    it("should auto-conquer day ruins with no enemies", () => {
-      // Day ruins with no enemies = instant conquest
-      const state = createTestStateWithSite(
-        createRuinsSite(),
-        [], // No enemies
-        TIME_OF_DAY_DAY
-      );
-
-      const result = engine.processAction(state, "player1", {
-        type: ENTER_SITE_ACTION,
-      });
+      expect(result.state.combat?.enemies).toHaveLength(2);
 
       // Should emit SITE_ENTERED
       expect(result.events).toContainEqual(
@@ -510,21 +498,61 @@ describe("Enter adventure site", () => {
         })
       );
 
-      // Should emit SITE_CONQUERED (auto-conquest)
+      // Should emit ENEMIES_DRAWN_FOR_SITE
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: SITE_CONQUERED,
-          playerId: "player1",
+          type: ENEMIES_DRAWN_FOR_SITE,
+          enemyCount: 2,
         })
       );
+    });
 
-      // Should NOT start combat
+    it("should reject ENTER_SITE for ruins with altar token", () => {
+      // Ruins with an altar token — must use ALTAR_TRIBUTE instead
+      const ruinsToken = {
+        tokenId: "altar_blue" as RuinsTokenId,
+        isRevealed: true,
+      };
+      const state = createTestStateWithSite(
+        createRuinsSite(),
+        [],
+        TIME_OF_DAY_DAY,
+        ruinsToken
+      );
+
+      const result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+
+      // Should reject — altar tokens use ALTAR_TRIBUTE, not ENTER_SITE
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
       expect(result.state.combat).toBeNull();
+    });
 
-      // Site should be conquered
-      const hex = result.state.map.hexes[hexKey({ q: 0, r: 0 })];
-      expect(hex?.site?.isConquered).toBe(true);
-      expect(hex?.site?.owner).toBe("player1");
+    it("should reject ENTER_SITE for ruins with no token", () => {
+      // Ruins with no token at all
+      const state = createTestStateWithSite(
+        createRuinsSite(),
+        [],
+        TIME_OF_DAY_DAY,
+        null
+      );
+
+      const result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+
+      // Should reject — no token means nothing to fight
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+        })
+      );
+      expect(result.state.combat).toBeNull();
     });
   });
 

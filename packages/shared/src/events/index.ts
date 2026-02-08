@@ -281,6 +281,8 @@ import type {
   MonasteryBurnStartedEvent,
   MonasteryBurnedEvent,
   VillagePlunderedEvent,
+  RuinsTokenRevealedEvent,
+  AltarTributePaidEvent,
 } from "./sites.js";
 
 import type { InvalidActionEvent } from "./validation.js";
@@ -483,6 +485,9 @@ export type GameEvent =
   | MonasteryBurnedEvent
   // Village plundering
   | VillagePlunderedEvent
+  // Ruins tokens
+  | RuinsTokenRevealedEvent
+  | AltarTributePaidEvent
   // Cooperative assault
   | CooperativeAssaultProposedEvent
   | CooperativeAssaultResponseEvent
