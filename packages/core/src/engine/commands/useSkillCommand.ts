@@ -36,6 +36,7 @@ import {
   SKILL_GOLDYX_UNIVERSAL_POWER,
   SKILL_BRAEVALAR_SHAPESHIFT,
   SKILL_BRAEVALAR_REGENERATE,
+  SKILL_WOLFHAWK_HAWK_EYES,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -60,6 +61,8 @@ import {
   removeShapeshiftEffect,
   applyRegenerateEffect,
   removeRegenerateEffect,
+  applyHawkEyesEffect,
+  removeHawkEyesEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import { restoreMana } from "./helpers/manaConsumptionHelpers.js";
@@ -158,6 +161,9 @@ function applyCustomSkillEffect(
     case SKILL_BRAEVALAR_REGENERATE:
       return applyRegenerateEffect(state, playerId, manaSource);
 
+    case SKILL_WOLFHAWK_HAWK_EYES:
+      return applyHawkEyesEffect(state, playerId);
+
     default:
       // Skill has no custom handler - will use generic effect resolution
       return state;
@@ -209,6 +215,9 @@ function removeCustomSkillEffect(
     case SKILL_BRAEVALAR_REGENERATE:
       return removeRegenerateEffect(state, playerId);
 
+    case SKILL_WOLFHAWK_HAWK_EYES:
+      return removeHawkEyesEffect(state, playerId);
+
     default:
       return state;
   }
@@ -230,6 +239,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_GOLDYX_UNIVERSAL_POWER,
     SKILL_BRAEVALAR_SHAPESHIFT,
     SKILL_BRAEVALAR_REGENERATE,
+    SKILL_WOLFHAWK_HAWK_EYES,
   ].includes(skillId);
 }
 

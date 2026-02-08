@@ -33,28 +33,56 @@ import { createCombatState, type CombatEnemyInput } from "../../types/combat.js"
 import { getEnemyIdFromToken } from "../helpers/enemy/index.js";
 import { SiteType, type HexState, type HexEnemy } from "../../types/map.js";
 import { isRuleActive } from "../modifiers/index.js";
-import { RULE_IGNORE_RAMPAGING_PROVOKE } from "../../types/modifierConstants.js";
+import { RULE_IGNORE_RAMPAGING_PROVOKE, RULE_GARRISON_REVEAL_DISTANCE_2 } from "../../types/modifierConstants.js";
 
 export { MOVE_COMMAND };
 
 /**
- * Find fortified sites that are newly adjacent after a move and have unrevealed enemies.
- * Returns the hexes with enemies that should be revealed.
+ * Get all hex coordinates within a given distance from the center.
  */
-function findNewlyAdjacentFortifiedSites(
+function getHexCoordsWithinDistance(center: HexCoord, maxDistance: number): HexCoord[] {
+  const coords: HexCoord[] = [];
+  for (let dq = -maxDistance; dq <= maxDistance; dq++) {
+    for (let dr = Math.max(-maxDistance, -dq - maxDistance); dr <= Math.min(maxDistance, -dq + maxDistance); dr++) {
+      if (dq === 0 && dr === 0) continue;
+      coords.push({ q: center.q + dq, r: center.r + dr });
+    }
+  }
+  return coords;
+}
+
+/**
+ * Find fortified sites that are newly within reveal range after a move and have unrevealed enemies.
+ * Returns the hexes with enemies that should be revealed.
+ *
+ * @param revealDistance - The distance at which fortified sites are revealed (default 1 = adjacent).
+ *   Hawk Eyes skill extends this to 2 during day.
+ */
+function findNewlyRevealableFortifiedSites(
   from: HexCoord,
   to: HexCoord,
-  hexes: Record<string, HexState>
+  hexes: Record<string, HexState>,
+  revealDistance: number = 1
 ): { hex: HexState; key: string }[] {
-  const fromNeighbors = new Set(getAllNeighbors(from).map(hexKey));
-  const toNeighbors = getAllNeighbors(to);
+  // Get all hexes within reveal range of the new position
+  const toNearby = revealDistance === 1
+    ? getAllNeighbors(to)
+    : getHexCoordsWithinDistance(to, revealDistance);
+
+  // Get all hexes that were within reveal range of the old position
+  const fromNearbyKeys = new Set(
+    (revealDistance === 1
+      ? getAllNeighbors(from)
+      : getHexCoordsWithinDistance(from, revealDistance)
+    ).map(hexKey)
+  );
 
   const sitesToReveal: { hex: HexState; key: string }[] = [];
 
-  for (const neighbor of toNeighbors) {
+  for (const neighbor of toNearby) {
     const key = hexKey(neighbor);
-    // Skip hexes already adjacent to 'from' position
-    if (fromNeighbors.has(key)) continue;
+    // Skip hexes already within range of 'from' position
+    if (fromNearbyKeys.has(key)) continue;
 
     const hex = hexes[key];
     if (!hex?.site) continue;
@@ -303,12 +331,15 @@ export function createMoveCommand(params: MoveCommandParams): Command {
       updatedPlayers[playerIndex] = updatedPlayer;
 
       // During Day, reveal enemies at newly adjacent fortified sites
+      // Hawk Eyes extends reveal range to distance 2
       let updatedHexes = updatedState.map.hexes;
       if (state.timeOfDay === TIME_OF_DAY_DAY) {
-        const sitesToReveal = findNewlyAdjacentFortifiedSites(
+        const revealDistance = isRuleActive(state, params.playerId, RULE_GARRISON_REVEAL_DISTANCE_2) ? 2 : 1;
+        const sitesToReveal = findNewlyRevealableFortifiedSites(
           params.from,
           params.to,
-          updatedHexes
+          updatedHexes,
+          revealDistance
         );
 
         for (const { hex, key } of sitesToReveal) {

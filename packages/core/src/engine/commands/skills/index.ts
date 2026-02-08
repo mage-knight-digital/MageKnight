@@ -65,3 +65,8 @@ export {
   removeRegenerateEffect,
   canActivateRegenerate,
 } from "./regenerateEffect.js";
+
+export {
+  applyHawkEyesEffect,
+  removeHawkEyesEffect,
+} from "./hawkEyesEffect.js";

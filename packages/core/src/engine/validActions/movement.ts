@@ -15,7 +15,7 @@ import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { FEATURE_FLAGS } from "../../config/featureFlags.js";
 import { mustAnnounceEndOfRound } from "./helpers.js";
 import { isRuleActive } from "../modifiers/index.js";
-import { RULE_IGNORE_RAMPAGING_PROVOKE, RULE_SPACE_BENDING_ADJACENCY } from "../../types/modifierConstants.js";
+import { RULE_GARRISON_REVEAL_DISTANCE_2, RULE_IGNORE_RAMPAGING_PROVOKE, RULE_SPACE_BENDING_ADJACENCY } from "../../types/modifierConstants.js";
 
 /**
  * Get all hex coordinates at exactly distance 2 from a center hex.
@@ -80,6 +80,7 @@ export function getValidMoveTargets(
   const ignoresRampaging = isRuleActive(state, player.id, RULE_IGNORE_RAMPAGING_PROVOKE);
   const hasSpaceBending = isRuleActive(state, player.id, RULE_SPACE_BENDING_ADJACENCY);
   const isDay = state.timeOfDay === TIME_OF_DAY_DAY;
+  const revealDistance = isRuleActive(state, player.id, RULE_GARRISON_REVEAL_DISTANCE_2) ? 2 : 1;
 
   // Check each adjacent hex
   for (const dir of HEX_DIRECTIONS) {
@@ -106,12 +107,13 @@ export function getValidMoveTargets(
       isTerminalHex(hex, player.id, state) ||
       (!ignoresRampaging && wouldProvokeRampaging(player.position, adjacent, state.map.hexes));
 
-    // Check if this move would reveal enemies at adjacent fortified sites (Day only)
+    // Check if this move would reveal enemies at nearby fortified sites (Day only)
     const wouldReveal = wouldMoveRevealEnemies(
       player.position,
       adjacent,
       state.map.hexes,
-      isDay
+      isDay,
+      revealDistance
     );
 
     const target: MoveTarget = { hex: adjacent, cost };
@@ -157,7 +159,8 @@ export function getValidMoveTargets(
         player.position,
         coord,
         state.map.hexes,
-        isDay
+        isDay,
+        revealDistance
       );
 
       const target: MoveTarget = { hex: coord, cost };
@@ -249,23 +252,47 @@ function isTerminalHex(
  * @param isDay - Whether it's currently Day time
  * @returns true if this move would reveal at least one unrevealed enemy
  */
+/**
+ * Get all hex coordinates within a given distance from the center (excluding center).
+ */
+function getHexCoordsWithinDistance(center: HexCoord, maxDistance: number): HexCoord[] {
+  const coords: HexCoord[] = [];
+  for (let dq = -maxDistance; dq <= maxDistance; dq++) {
+    for (let dr = Math.max(-maxDistance, -dq - maxDistance); dr <= Math.min(maxDistance, -dq + maxDistance); dr++) {
+      if (dq === 0 && dr === 0) continue;
+      coords.push({ q: center.q + dq, r: center.r + dr });
+    }
+  }
+  return coords;
+}
+
 function wouldMoveRevealEnemies(
   from: HexCoord,
   to: HexCoord,
   hexes: Record<string, HexState>,
-  isDay: boolean
+  isDay: boolean,
+  revealDistance: number = 1
 ): boolean {
   // Only reveal during Day
   if (!isDay) return false;
 
-  // Get hexes that will become newly adjacent (adjacent to 'to' but not to 'from')
-  const fromNeighbors = new Set(getAllNeighbors(from).map(hexKey));
-  const toNeighbors = getAllNeighbors(to);
+  // Get hexes within reveal range of the new position
+  const toNearby = revealDistance === 1
+    ? getAllNeighbors(to)
+    : getHexCoordsWithinDistance(to, revealDistance);
 
-  for (const neighbor of toNeighbors) {
+  // Get hexes that were within reveal range of the old position
+  const fromNearbyKeys = new Set(
+    (revealDistance === 1
+      ? getAllNeighbors(from)
+      : getHexCoordsWithinDistance(from, revealDistance)
+    ).map(hexKey)
+  );
+
+  for (const neighbor of toNearby) {
     const key = hexKey(neighbor);
-    // Skip hexes already adjacent to current position (already revealed if applicable)
-    if (fromNeighbors.has(key)) continue;
+    // Skip hexes already within range of current position (already revealed if applicable)
+    if (fromNearbyKeys.has(key)) continue;
 
     const hex = hexes[key];
     if (!hex?.site) continue;
@@ -358,6 +385,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
   // Check rampaging ignore rule
   const ignoresRampaging = isRuleActive(state, player.id, RULE_IGNORE_RAMPAGING_PROVOKE);
   const hasSpaceBending = isRuleActive(state, player.id, RULE_SPACE_BENDING_ADJACENCY);
+  const dijkstraRevealDistance = isRuleActive(state, player.id, RULE_GARRISON_REVEAL_DISTANCE_2) ? 2 : 1;
 
   // Start from player position (cost 0, not terminal, don't include in results)
   visited.set(startKey, { totalCost: 0, isTerminal: false, wouldRevealEnemies: false, cameFromKey: null });
@@ -377,7 +405,8 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
         player.position,
         neighbor,
         state.map.hexes,
-        isDay
+        isDay,
+        dijkstraRevealDistance
       );
       queue.push({
         totalCost: cost,
@@ -399,7 +428,7 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
       if (cost <= movePoints && cost !== Infinity) {
         // Distance-2 leaps don't provoke (Space Bending also grants ignore rampaging)
         const terminal = hex ? isTerminalHex(hex, player.id, state) : false;
-        const wouldReveal = wouldMoveRevealEnemies(player.position, coord, state.map.hexes, isDay);
+        const wouldReveal = wouldMoveRevealEnemies(player.position, coord, state.map.hexes, isDay, dijkstraRevealDistance);
         queue.push({
           totalCost: cost,
           key,
@@ -488,12 +517,13 @@ function getReachableHexes(state: GameState, player: Player): ReachableHex[] {
       const wouldProvoke = !ignoresRampaging && wouldProvokeRampaging(current.coord, neighbor, state.map.hexes);
       const terminal = (hex ? isTerminalHex(hex, player.id, state) : false) || wouldProvoke;
 
-      // Check if moving here would reveal enemies at adjacent fortified sites
+      // Check if moving here would reveal enemies at nearby fortified sites
       const wouldReveal = wouldMoveRevealEnemies(
         current.coord,
         neighbor,
         state.map.hexes,
-        isDay
+        isDay,
+        dijkstraRevealDistance
       );
 
       // Add to queue (will be sorted on next iteration)
