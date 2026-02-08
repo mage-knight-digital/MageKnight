@@ -69,6 +69,7 @@ import {
   EFFECT_CRYSTAL_MASTERY_POWERED,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
+  EFFECT_GAIN_ATTACK_BOW_RESOLVED,
 } from "../../types/effectTypes.js";
 import type {
   GainMoveEffect,
@@ -84,7 +85,7 @@ import type {
   PayManaEffect,
   TrackAttackDefeatFameEffect,
 } from "../../types/effectTypes.js";
-import type { WoundActivatingUnitEffect } from "../../types/cards.js";
+import type { GainAttackBowResolvedEffect, WoundActivatingUnitEffect } from "../../types/cards.js";
 import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION, elementToPropertyKey } from "./atomicEffects.js";
 import { toAttackElement, toAttackType } from "../combat/attackFameTracking.js";
@@ -125,6 +126,22 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
 
   [EFFECT_GAIN_ATTACK]: (player, effect) => {
     const e = effect as GainAttackEffect;
+    const attack = { ...player.combatAccumulator.attack };
+    if (e.combatType === COMBAT_TYPE_RANGED) {
+      attack.ranged -= e.amount;
+    } else if (e.combatType === COMBAT_TYPE_SIEGE) {
+      attack.siege -= e.amount;
+    } else {
+      attack.normal -= e.amount;
+    }
+    return {
+      ...player,
+      combatAccumulator: { ...player.combatAccumulator, attack },
+    };
+  },
+
+  [EFFECT_GAIN_ATTACK_BOW_RESOLVED]: (player, effect) => {
+    const e = effect as GainAttackBowResolvedEffect;
     const attack = { ...player.combatAccumulator.attack };
     if (e.combatType === COMBAT_TYPE_RANGED) {
       attack.ranged -= e.amount;
