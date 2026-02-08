@@ -125,6 +125,10 @@ import {
   EFFECT_RESOLVE_BONUS_CHOICE,
   EFFECT_ROLL_FOR_CRYSTALS,
   EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE,
+  EFFECT_MAGIC_TALENT_BASIC,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
+  EFFECT_MAGIC_TALENT_POWERED,
+  EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1436,6 +1440,52 @@ export interface ResolveCrystalRollChoiceEffect {
   readonly remainingResults: readonly ManaColor[];
 }
 
+/**
+ * Magic Talent basic effect entry point.
+ * Discard a card of any color from hand. Then play one Spell card of the
+ * same color from the Spells Offer as if it were in your hand.
+ * The spell remains in the offer after use.
+ * Must still pay mana cost to cast the spell.
+ */
+export interface MagicTalentBasicEffect {
+  readonly type: typeof EFFECT_MAGIC_TALENT_BASIC;
+}
+
+/**
+ * Internal: After discarding a card for Magic Talent basic, resolve the
+ * selected spell from the offer. The spell's basic effect is resolved
+ * but the spell card stays in the offer.
+ */
+export interface ResolveMagicTalentSpellEffect {
+  readonly type: typeof EFFECT_RESOLVE_MAGIC_TALENT_SPELL;
+  /** The spell card selected from the offer */
+  readonly spellCardId: CardId;
+  /** Name of the spell for display */
+  readonly spellName: string;
+}
+
+/**
+ * Magic Talent powered effect entry point.
+ * Pay a mana of any color (in addition to blue for powering the card).
+ * Gain a Spell card of that color from the Spells Offer to your discard pile.
+ */
+export interface MagicTalentPoweredEffect {
+  readonly type: typeof EFFECT_MAGIC_TALENT_POWERED;
+}
+
+/**
+ * Internal: After paying mana for Magic Talent powered, gain the
+ * selected spell from the offer to the player's discard pile.
+ * The offer is replenished from the spell deck.
+ */
+export interface ResolveMagicTalentGainEffect {
+  readonly type: typeof EFFECT_RESOLVE_MAGIC_TALENT_GAIN;
+  /** The spell card selected from the offer */
+  readonly spellCardId: CardId;
+  /** Name of the spell for display */
+  readonly spellName: string;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1539,7 +1589,11 @@ export type CardEffect =
   | ChooseBonusWithRiskEffect
   | ResolveBonusChoiceEffect
   | RollForCrystalsEffect
-  | ResolveCrystalRollChoiceEffect;
+  | ResolveCrystalRollChoiceEffect
+  | MagicTalentBasicEffect
+  | ResolveMagicTalentSpellEffect
+  | MagicTalentPoweredEffect
+  | ResolveMagicTalentGainEffect;
 
 // === Card Definition ===
 

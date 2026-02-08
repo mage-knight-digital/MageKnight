@@ -60,6 +60,7 @@ import { registerSourceOpeningEffects } from "./sourceOpeningEffects.js";
 import { registerHornOfWrathEffects } from "./hornOfWrathEffects.js";
 import { registerMaximalEffectEffects } from "./maximalEffectEffects.js";
 import { registerEndlessGemPouchEffects } from "./endlessGemPouchEffects.js";
+import { registerMagicTalentEffects } from "./magicTalentEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -222,4 +223,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Endless Gem Pouch effects (crystal rolling with gold choice and black fame)
   registerEndlessGemPouchEffects();
+
+  // Magic Talent effects (spell offer interaction)
+  registerMagicTalentEffects(resolver);
 }

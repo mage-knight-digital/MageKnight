@@ -356,6 +356,20 @@ export const EFFECT_ROLL_FOR_CRYSTALS = "roll_for_crystals" as const;
 // Internal: resolve after player chooses crystal color for a gold roll.
 export const EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE = "resolve_crystal_roll_choice" as const;
 
+// === Magic Talent Effects ===
+// Basic: Discard a card of any color. Play one Spell of the same color
+// from the Spells Offer as if it were in your hand. Spell stays in offer.
+export const EFFECT_MAGIC_TALENT_BASIC = "magic_talent_basic" as const;
+// Internal: After discarding a card, player selects a spell from the offer
+// of matching color, then resolves that spell's basic effect.
+export const EFFECT_RESOLVE_MAGIC_TALENT_SPELL = "resolve_magic_talent_spell" as const;
+// Powered: Pay a mana of any color. Gain a Spell card of that color from
+// the Spells Offer and put it in your discard pile.
+export const EFFECT_MAGIC_TALENT_POWERED = "magic_talent_powered" as const;
+// Internal: After paying mana, player selects a spell from the offer
+// of matching color, then gains it to discard pile.
+export const EFFECT_RESOLVE_MAGIC_TALENT_GAIN = "resolve_magic_talent_gain" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.
