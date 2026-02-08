@@ -306,6 +306,12 @@ export const RULE_ALLOW_GOLD_AT_NIGHT = "allow_gold_at_night" as const;
 // Does NOT change time of day for skills, does NOT allow black→gold conversion
 export const RULE_ALLOW_BLACK_AT_DAY = "allow_black_at_day" as const;
 
+// === RuleOverrideModifier["rule"] - Hawk Eyes (Day) ===
+// Reveals garrisons of fortified sites at distance 2 during movement (Day only).
+// Normal reveal range is distance 1 (adjacent). This extends it to distance 2.
+// Used by Wolfhawk's Hawk Eyes skill.
+export const RULE_GARRISON_REVEAL_DISTANCE_2 = "garrison_reveal_distance_2" as const;
+
 // === HeroDamageReductionModifier ===
 // Reduces incoming damage to the hero from a single enemy attack.
 // Element-specific: different reduction amounts based on attack element.
