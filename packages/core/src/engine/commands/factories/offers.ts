@@ -40,13 +40,17 @@ function getBuySpellParams(action: PlayerAction): { cardId: CardId } | null {
  */
 function getLearnAdvancedActionParams(
   action: PlayerAction
-): { cardId: CardId; fromMonastery: boolean } | null {
+): { cardId: CardId; fromMonastery: boolean; fromLearning?: boolean } | null {
   if (
     action.type === LEARN_ADVANCED_ACTION_ACTION &&
     "cardId" in action &&
     "fromMonastery" in action
   ) {
-    return { cardId: action.cardId, fromMonastery: action.fromMonastery };
+    return {
+      cardId: action.cardId,
+      fromMonastery: action.fromMonastery,
+      fromLearning: action.fromLearning,
+    };
   }
   return null;
 }
@@ -83,6 +87,7 @@ export const createLearnAdvancedActionCommandFromAction: CommandFactory = (
     playerId,
     cardId: params.cardId,
     fromMonastery: params.fromMonastery,
+    fromLearning: params.fromLearning,
   });
 };
 

@@ -280,6 +280,8 @@ export type {
   UnitMaintenanceEntry,
   // Level up rewards options
   LevelUpRewardsOptions,
+  // Learning card AA purchase options
+  LearningAAPurchaseOptions,
   // Terrain cost reduction options
   HexCostReductionOptions,
   TerrainCostReductionOptions,

@@ -338,6 +338,8 @@ export interface LearnAdvancedActionAction {
   readonly type: typeof LEARN_ADVANCED_ACTION_ACTION;
   readonly cardId: CardId;
   readonly fromMonastery: boolean;
+  /** If true, this purchase is via the Learning card's special ability */
+  readonly fromLearning?: boolean;
 }
 
 export const BUY_HEALING_ACTION = "BUY_HEALING" as const;

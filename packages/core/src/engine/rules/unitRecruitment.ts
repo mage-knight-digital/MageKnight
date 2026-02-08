@@ -26,8 +26,8 @@ import {
   type UnitDefinition,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
-import { EFFECT_RECRUIT_DISCOUNT, EFFECT_RECRUITMENT_BONUS, EFFECT_INTERACTION_BONUS } from "../../types/modifierConstants.js";
-import type { UnitRecruitmentBonusModifier, InteractionBonusModifier } from "../../types/modifiers.js";
+import { EFFECT_RECRUIT_DISCOUNT, EFFECT_RECRUITMENT_BONUS, EFFECT_INTERACTION_BONUS, EFFECT_LEARNING_DISCOUNT } from "../../types/modifierConstants.js";
+import type { UnitRecruitmentBonusModifier, InteractionBonusModifier, LearningDiscountModifier } from "../../types/modifiers.js";
 import { getModifiersForPlayer } from "../modifiers/queries.js";
 
 /**
@@ -344,4 +344,32 @@ export function getActiveInteractionBonusModifierIds(
   return modifiers
     .filter((m) => m.effect.type === EFFECT_INTERACTION_BONUS)
     .map((m) => m.id);
+}
+
+/**
+ * Get the active learning discount for a player, if any.
+ * Returns the first learning discount modifier found, or null if none.
+ *
+ * Used by Learning card — once per turn, pay influence for AA from regular offer.
+ */
+export function getActiveLearningDiscount(
+  state: GameState,
+  playerId: string,
+): LearningDiscountModifier | null {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  const discountMod = modifiers.find((m) => m.effect.type === EFFECT_LEARNING_DISCOUNT);
+  if (!discountMod) return null;
+  return discountMod.effect as LearningDiscountModifier;
+}
+
+/**
+ * Get the active learning discount modifier ID, for removing it after use.
+ */
+export function getActiveLearningDiscountModifierId(
+  state: GameState,
+  playerId: string,
+): string | null {
+  const modifiers = getModifiersForPlayer(state, playerId);
+  const discountMod = modifiers.find((m) => m.effect.type === EFFECT_LEARNING_DISCOUNT);
+  return discountMod?.id ?? null;
 }

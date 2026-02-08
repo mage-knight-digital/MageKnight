@@ -61,6 +61,7 @@ import { registerHornOfWrathEffects } from "./hornOfWrathEffects.js";
 import { registerMaximalEffectEffects } from "./maximalEffectEffects.js";
 import { registerEndlessGemPouchEffects } from "./endlessGemPouchEffects.js";
 import { registerMagicTalentEffects } from "./magicTalentEffects.js";
+import { registerLearningEffects } from "./learningEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -226,4 +227,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Magic Talent effects (spell offer interaction)
   registerMagicTalentEffects(resolver);
+
+  // Learning effects (discounted AA purchase modifier)
+  registerLearningEffects();
 }

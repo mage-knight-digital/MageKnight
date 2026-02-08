@@ -131,6 +131,7 @@ import {
   EFFECT_MAGIC_TALENT_POWERED,
   EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
+  EFFECT_APPLY_LEARNING_DISCOUNT,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1504,6 +1505,17 @@ export interface ResolveMagicTalentSpellManaEffect {
   readonly manaSource: ManaSourceInfo;
 }
 
+/**
+ * Apply a learning discount modifier enabling one discounted AA purchase this turn.
+ * Used by Learning advanced action card.
+ * Basic: pay 6 influence, AA to discard pile.
+ * Powered: pay 9 influence, AA to hand.
+ */
+export interface ApplyLearningDiscountEffect {
+  readonly type: typeof EFFECT_APPLY_LEARNING_DISCOUNT;
+  readonly cost: number; // Influence cost (6 for basic, 9 for powered)
+  readonly destination: "hand" | "discard"; // Where the AA goes
+}
 
 // Union of all card effects
 export type CardEffect =
@@ -1613,7 +1625,8 @@ export type CardEffect =
   | ResolveMagicTalentSpellEffect
   | MagicTalentPoweredEffect
   | ResolveMagicTalentGainEffect
-  | ResolveMagicTalentSpellManaEffect;
+  | ResolveMagicTalentSpellManaEffect
+  | ApplyLearningDiscountEffect;
 
 // === Card Definition ===
 

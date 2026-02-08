@@ -59,6 +59,7 @@ import {
 } from "./terrainCostReduction.js";
 import { getBannerOptions } from "./banners.js";
 import { getReturnableSkillOptions } from "./returnableSkills.js";
+import { getLearningAAPurchaseOptions } from "./learningAAPurchase.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -301,5 +302,6 @@ export function getValidActions(
     skills: getSkillOptions(state, player),
     banners: getBannerOptions(state, player),
     returnableSkills: getReturnableSkillOptions(state, player),
+    learningAAPurchase: getLearningAAPurchaseOptions(state, player),
   };
 }

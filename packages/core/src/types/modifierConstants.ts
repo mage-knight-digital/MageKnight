@@ -320,3 +320,11 @@ export const EFFECT_GOLDEN_GRAIL_FAME_TRACKING = "golden_grail_fame_tracking" as
 // Used by Golden Grail powered effect. Duration: turn.
 export const EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL = "golden_grail_draw_on_heal" as const;
 
+// === LearningDiscountModifier ===
+// Enables a one-time discounted AA purchase from the regular offer.
+// Created by the Learning advanced action card.
+// Basic: pay 6 influence, AA goes to discard pile.
+// Powered: pay 9 influence, AA goes to hand.
+// Consumed on first use. Does not require being at a site.
+export const EFFECT_LEARNING_DISCOUNT = "learning_discount" as const;
+
