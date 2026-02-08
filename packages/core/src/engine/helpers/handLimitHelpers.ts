@@ -104,5 +104,10 @@ export function getEndTurnDrawLimit(
     limit += PLANNING_HAND_LIMIT_BONUS;
   }
 
+  // Meditation/Trance spell: +2 on next draw
+  if (player?.meditationHandLimitBonus) {
+    limit += player.meditationHandLimitBonus;
+  }
+
   return limit;
 }

@@ -546,4 +546,18 @@ export interface Player {
   // Crystal Mastery: powered effect active this turn
   // When true, at end of turn spent crystals are returned to inventory (capped at 3).
   readonly crystalMasteryPoweredActive: boolean;
+
+  // Meditation spell pending state
+  // Set when Meditation/Trance spell is played to track card selection and placement
+  readonly pendingMeditation:
+    | {
+        readonly version: "basic" | "powered";
+        readonly phase: "select_cards" | "place_cards";
+        readonly selectedCardIds: readonly CardId[];
+      }
+    | undefined;
+
+  // Meditation spell hand limit bonus
+  // Added to hand limit at end-of-turn draw, consumed by getEndTurnDrawLimit()
+  readonly meditationHandLimitBonus: number;
 }

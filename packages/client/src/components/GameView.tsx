@@ -21,6 +21,7 @@ import { SparingPowerDecision } from "./Overlays/SparingPowerDecision";
 import { ManaSearchReroll } from "./Overlays/ManaSearchReroll";
 import { GladeWoundDecision } from "./Overlays/GladeWoundDecision";
 import { CrystalJoyReclaimDecision } from "./Overlays/CrystalJoyReclaimDecision";
+import { MeditationDecision } from "./Overlays/MeditationDecision";
 import { RestCompletionOverlay } from "./Overlays/RestCompletionOverlay";
 import { DiscardCostOverlay } from "./Overlays/DiscardCostOverlay";
 import { HexCostReductionOverlay } from "./Overlays/HexCostReductionOverlay";
@@ -107,6 +108,7 @@ export function GameView() {
       <ManaSearchReroll />
       <GladeWoundDecision />
       <CrystalJoyReclaimDecision />
+      <MeditationDecision />
       <RestCompletionOverlay />
       <DiscardCostOverlay />
       <HexCostReductionOverlay />

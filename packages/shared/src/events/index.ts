@@ -273,6 +273,8 @@ import type {
   SteadyTempoPlacementSkippedEvent,
   BannerProtectionWoundsRemovedEvent,
   BannerProtectionSkippedEvent,
+  MeditationCardsSelectedEvent,
+  MeditationCardsPlacedEvent,
   MonasteryBurnStartedEvent,
   MonasteryBurnedEvent,
   VillagePlunderedEvent,
@@ -462,6 +464,9 @@ export type GameEvent =
   // Banner of Protection
   | BannerProtectionWoundsRemovedEvent
   | BannerProtectionSkippedEvent
+  // Meditation spell
+  | MeditationCardsSelectedEvent
+  | MeditationCardsPlacedEvent
   // Monastery burning
   | MonasteryBurnStartedEvent
   | MonasteryBurnedEvent
