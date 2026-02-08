@@ -16,6 +16,7 @@ import {
   getValidActions,
   describeEffect,
   mineColorToBasicManaColor,
+  computeDummyTurnRange,
 } from "@mage-knight/core";
 import type {
   ClientGameState,
@@ -28,6 +29,7 @@ import type {
   ClientCombatEnemy,
   ClientHexEnemy,
   ClientRuinsToken,
+  ClientDummyPlayer,
 } from "@mage-knight/shared";
 
 /**
@@ -123,6 +125,9 @@ export function toClientState(
 
     woundPileCount: state.woundPileCount,
     scenarioEndTriggered: state.scenarioEndTriggered,
+
+    // Dummy player (solo mode)
+    dummyPlayer: toClientDummyPlayer(state),
 
     // Valid actions for this player
     validActions: getValidActions(state, forPlayerId),
@@ -372,5 +377,22 @@ export function toClientCombatState(
     woundsThisCombat: combat.woundsThisCombat,
     fameGained: combat.fameGained,
     isAtFortifiedSite: combat.isAtFortifiedSite,
+  };
+}
+
+/**
+ * Convert dummy player state to client-visible version.
+ * Only exposes turn range estimate, not raw deck/crystal data.
+ */
+function toClientDummyPlayer(state: GameState): ClientDummyPlayer | null {
+  const dummy = state.dummyPlayer;
+  if (!dummy) return null;
+
+  const { min, max } = computeDummyTurnRange(dummy.deck.length, dummy.crystals);
+
+  return {
+    heroId: dummy.heroId,
+    turnsRemainingMin: min,
+    turnsRemainingMax: max,
   };
 }

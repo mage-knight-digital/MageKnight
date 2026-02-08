@@ -37,6 +37,8 @@ import { SELECT_TACTIC_COMMAND } from "./commandTypes.js";
 import { randomElement, type RngState } from "../../utils/rng.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import { calculateTurnOrder } from "./tactics/helpers.js";
+import { isDummyPlayer } from "../../types/dummyPlayer.js";
+import { executeDummyPlayerTurn } from "./dummyTurnCommand.js";
 
 export { SELECT_TACTIC_COMMAND };
 
@@ -240,7 +242,7 @@ export function createSelectTacticCommand(
         let dummyTactic: TacticId | null = null;
         let rng: RngState = state.rng;
 
-        if (state.scenarioConfig.dummyTacticOrder === DUMMY_TACTIC_AFTER_HUMANS) {
+        if (state.scenarioConfig.dummyTacticOrder === DUMMY_TACTIC_AFTER_HUMANS && state.dummyPlayer !== null) {
           // Solo mode: Dummy player picks random tactic from remaining
           if (finalAvailableTactics.length > 0) {
             const result = randomElement([...finalAvailableTactics], rng);
@@ -261,17 +263,46 @@ export function createSelectTacticCommand(
         }
 
         // End tactics phase
-        const newTurnOrder = calculateTurnOrder(updatedPlayers);
+        const newTurnOrder = calculateTurnOrder(updatedPlayers, dummyTactic);
 
         events.push({
           type: TACTICS_PHASE_ENDED,
           turnOrder: newTurnOrder,
         });
 
-        // Check if first player needs Sparing Power before-turn decision
-        const firstPlayerId = newTurnOrder[0];
-        let playersForTurns = updatedPlayers;
-        if (firstPlayerId) {
+        // Build intermediate state for dummy-first handling
+        let resultState: GameState = {
+          ...state,
+          players: updatedPlayers,
+          availableTactics: finalAvailableTactics,
+          dummyPlayerTactic: dummyTactic,
+          roundPhase: ROUND_PHASE_PLAYER_TURNS,
+          currentTacticSelector: null,
+          turnOrder: newTurnOrder,
+          currentPlayerIndex: 0,
+          rng,
+        };
+
+        // If dummy is first in turn order, execute its turn and advance
+        let startIndex = 0;
+        if (newTurnOrder[0] && isDummyPlayer(newTurnOrder[0])) {
+          const dummyResult = executeDummyPlayerTurn(resultState);
+          resultState = dummyResult.state;
+          events.push(...dummyResult.events);
+
+          if (dummyResult.announcedEndOfRound) {
+            // Dummy announced end of round before any human acts — advance past dummy
+            startIndex = 1 % newTurnOrder.length;
+          } else {
+            startIndex = 1 % newTurnOrder.length;
+          }
+          resultState = { ...resultState, currentPlayerIndex: startIndex };
+        }
+
+        // Check if first human player needs Sparing Power before-turn decision
+        const firstPlayerId = newTurnOrder[startIndex];
+        let playersForTurns: Player[] = [...resultState.players];
+        if (firstPlayerId && !isDummyPlayer(firstPlayerId)) {
           const firstPlayerIdx = playersForTurns.findIndex(
             (p) => p.id === firstPlayerId
           );
@@ -287,7 +318,6 @@ export function createSelectTacticCommand(
                 beforeTurnTacticPending: true,
                 pendingTacticDecision: { type: TACTIC_SPARING_POWER },
               };
-              playersForTurns = [...playersForTurns];
               playersForTurns[firstPlayerIdx] = updatedFirstPlayer;
             }
           }
@@ -295,15 +325,8 @@ export function createSelectTacticCommand(
 
         return {
           state: {
-            ...state,
+            ...resultState,
             players: playersForTurns,
-            availableTactics: finalAvailableTactics,
-            dummyPlayerTactic: dummyTactic,
-            roundPhase: ROUND_PHASE_PLAYER_TURNS,
-            currentTacticSelector: null,
-            turnOrder: newTurnOrder,
-            currentPlayerIndex: 0, // First player in new turn order starts
-            rng,
           },
           events,
         };

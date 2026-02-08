@@ -3,6 +3,7 @@
  */
 
 import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig, RoundPhase, TacticId, CooperativeAssaultProposal, FinalScoreResult, ManaColor, SkillId } from "@mage-knight/shared";
+import type { DummyPlayer } from "../types/dummyPlayer.js";
 import { GAME_PHASE_SETUP, TIME_OF_DAY_DAY, SCENARIO_FIRST_RECONNAISSANCE, ROUND_PHASE_PLAYER_TURNS } from "@mage-knight/shared";
 import { getScenario } from "../data/scenarios/index.js";
 import type { Player } from "../types/player.js";
@@ -153,6 +154,9 @@ export interface GameState {
   // When non-null, the skill is in the center; other players (or owner in solo)
   // can return it for an extra basic-color die + give owner a crystal
   readonly sourceOpeningCenter: SourceOpeningCenter | null;
+
+  // Dummy player for solo mode (null in multiplayer)
+  readonly dummyPlayer: DummyPlayer | null;
 }
 
 export function createInitialGameState(
@@ -200,5 +204,6 @@ export function createInitialGameState(
     finalScoreResult: null,
     manaOverloadCenter: null,
     sourceOpeningCenter: null,
+    dummyPlayer: null,
   };
 }

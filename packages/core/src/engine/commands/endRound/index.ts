@@ -37,6 +37,8 @@ import { processManaReset } from "./manaReset.js";
 import { processOfferRefresh } from "./offerRefresh.js";
 import { processPlayerRoundReset } from "./playerRoundReset.js";
 import { processTacticsSetup } from "./tacticsSetup.js";
+import { processDummyOfferGains } from "./dummyOfferGains.js";
+import { resetDummyForNewRound } from "../../helpers/dummyPlayerHelpers.js";
 
 export { END_ROUND_COMMAND };
 
@@ -82,9 +84,35 @@ export function createEndRoundCommand(): Command {
       );
       events.push(...manaReset.events);
 
+      // 4b. Dummy player gains from offers (before normal refresh)
+      let dummyPlayerUpdated = state.dummyPlayer;
+      let aaOfferForRefresh = state.offers.advancedActions;
+      let spellOfferForRefresh = state.offers.spells;
+
+      if (dummyPlayerUpdated) {
+        const dummyGains = processDummyOfferGains(
+          dummyPlayerUpdated,
+          aaOfferForRefresh,
+          spellOfferForRefresh,
+        );
+        dummyPlayerUpdated = dummyGains.dummyPlayer;
+        aaOfferForRefresh = dummyGains.advancedActionOffer;
+        // Spell offer: dummy only reads the color, doesn't remove the card
+        // (normal refresh handles removal)
+        events.push(...dummyGains.events);
+      }
+
       // 5. Refresh all offers (units, AAs, spells, monastery AAs)
+      // Use the modified AA offer (bottom card removed for dummy if applicable)
+      const stateForRefresh: GameState = {
+        ...state,
+        offers: {
+          ...state.offers,
+          advancedActions: aaOfferForRefresh,
+        },
+      };
       const offerRefresh = processOfferRefresh(
-        state,
+        stateForRefresh,
         timeTransition.updatedHexes,
         manaReset.rng
       );
@@ -93,6 +121,14 @@ export function createEndRoundCommand(): Command {
       // 6. Reset all players (shuffle decks, draw hands, ready units)
       const playerReset = processPlayerRoundReset(state, offerRefresh.rng);
       events.push(...playerReset.events);
+
+      // 6b. Reset dummy player for new round (shuffle deck, precompute turns)
+      let rngAfterReset = playerReset.rng;
+      if (dummyPlayerUpdated) {
+        const dummyReset = resetDummyForNewRound(dummyPlayerUpdated, rngAfterReset);
+        dummyPlayerUpdated = dummyReset.dummy;
+        rngAfterReset = dummyReset.rng;
+      }
 
       // 7. New round started event
       events.push({
@@ -114,7 +150,8 @@ export function createEndRoundCommand(): Command {
           timeOfDay: timeTransition.newTime,
           source: manaReset.source,
           players: playerReset.players,
-          rng: playerReset.rng,
+          rng: rngAfterReset,
+          dummyPlayer: dummyPlayerUpdated,
           // Updated decks and offers from refresh
           decks: offerRefresh.decks,
           offers: {

@@ -23,6 +23,13 @@ import type { SiteReward } from "../siteRewards.js";
 import type { RuinsTokenId } from "../ruinsTokens.js";
 import type { HeroId } from "../hero.js";
 
+// Dummy player state visible to the client (solo mode)
+export interface ClientDummyPlayer {
+  readonly heroId: HeroId;
+  readonly turnsRemainingMin: number;
+  readonly turnsRemainingMax: number;
+}
+
 // Pending level up reward - drawn skills for even level reward selection
 export interface ClientPendingLevelUpReward {
   /** The level this reward is for (2, 4, 6, 8, 10) */
@@ -350,6 +357,9 @@ export interface ClientGameState {
    * `null` means effectively unlimited (rulebook/expansions treat wounds as an unlimited resource).
    */
   readonly woundPileCount: number | null;
+
+  /** Dummy player info for solo mode (null in multiplayer) */
+  readonly dummyPlayer: ClientDummyPlayer | null;
 
   /** Valid actions for the player receiving this state */
   readonly validActions: ValidActions;
