@@ -298,6 +298,12 @@ export const EFFECT_DECOMPOSE = "decompose" as const;
 // At end of turn, player may throw away wounds received this turn.
 export const EFFECT_ACTIVATE_BANNER_PROTECTION = "activate_banner_protection" as const;
 
+// === Crystal Mastery Effects ===
+// Basic: Choose a crystal color you already own, gain one crystal of that color.
+export const EFFECT_CRYSTAL_MASTERY_BASIC = "crystal_mastery_basic" as const;
+// Powered: At end of turn, spent crystals this turn are returned to inventory.
+export const EFFECT_CRYSTAL_MASTERY_POWERED = "crystal_mastery_powered" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.

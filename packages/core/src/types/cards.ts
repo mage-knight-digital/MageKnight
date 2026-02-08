@@ -109,6 +109,8 @@ import {
   EFFECT_DECOMPOSE,
   EFFECT_WINGS_OF_NIGHT,
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
+  EFFECT_CRYSTAL_MASTERY_BASIC,
+  EFFECT_CRYSTAL_MASTERY_POWERED,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1228,6 +1230,25 @@ export interface ActivateBannerProtectionEffect {
 }
 
 /**
+ * Crystal Mastery basic effect.
+ * Gain a crystal of a color you already own.
+ * Presents a choice of colors matching owned crystals.
+ * If player owns no crystals, the effect cannot be resolved.
+ */
+export interface CrystalMasteryBasicEffect {
+  readonly type: typeof EFFECT_CRYSTAL_MASTERY_BASIC;
+}
+
+/**
+ * Crystal Mastery powered effect.
+ * At end of turn, all crystals spent this turn are returned to inventory.
+ * Sets a flag on the player; the actual return happens during end-of-turn processing.
+ */
+export interface CrystalMasteryPoweredEffect {
+  readonly type: typeof EFFECT_CRYSTAL_MASTERY_POWERED;
+}
+
+/**
  * Wings of Night multi-target skip-attack effect entry point.
  * First enemy targeted for free. Additional enemies cost 1, 2, 3... move points.
  * All targeted enemies get SKIP_ATTACK modifier. Arcane Immune enemies excluded.
@@ -1337,7 +1358,9 @@ export type CardEffect =
   | ResolveMindStealSelectionEffect
   | ActivateBannerProtectionEffect
   | WingsOfNightEffect
-  | ResolveWingsOfNightTargetEffect;
+  | ResolveWingsOfNightTargetEffect
+  | CrystalMasteryBasicEffect
+  | CrystalMasteryPoweredEffect;
 
 // === Card Definition ===
 
