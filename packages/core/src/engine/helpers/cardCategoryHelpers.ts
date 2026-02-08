@@ -5,7 +5,7 @@
  */
 
 import type { DeedCard, CardCategory } from "../../types/cards.js";
-import { CATEGORY_HEALING } from "../../types/cards.js";
+import { CATEGORY_HEALING, CATEGORY_ACTION } from "../../types/cards.js";
 
 export type CardEffectKind = "basic" | "powered";
 
@@ -30,4 +30,8 @@ export function hasHealingCategory(categories: readonly CardCategory[]): boolean
 
 export function isHealingOnlyCategories(categories: readonly CardCategory[]): boolean {
   return categories.length === 1 && categories[0] === CATEGORY_HEALING;
+}
+
+export function hasActionCategory(card: DeedCard): boolean {
+  return card.categories.includes(CATEGORY_ACTION);
 }

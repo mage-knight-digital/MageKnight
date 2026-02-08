@@ -357,6 +357,12 @@ export {
   registerBloodOfAncientsEffects,
 } from "./bloodOfAncientsEffects.js";
 
+// Hand limit bonus effects (Temporal Portal)
+export {
+  applyHandLimitBonus,
+  registerHandLimitBonusEffects,
+} from "./handLimitBonusEffects.js";
+
 // Tome of All Spells effects (discard card, cast spell from offer for free)
 export {
   registerTomeOfAllSpellsEffects,

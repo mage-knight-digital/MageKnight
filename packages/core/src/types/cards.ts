@@ -142,6 +142,7 @@ import {
   EFFECT_BLOOD_OF_ANCIENTS_POWERED,
   EFFECT_RESOLVE_BLOOD_POWERED_WOUND,
   EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
+  EFFECT_HAND_LIMIT_BONUS,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
   MANA_ANY,
@@ -1648,6 +1649,17 @@ export interface ResolveBloodPoweredUseAAEffect {
 }
 
 /**
+ * Hand limit bonus effect.
+ * Increases the player's hand limit for the next draw-up.
+ * The bonus persists until consumed at end of turn (including across rounds if unused).
+ * Used by Temporal Portal basic (+1) and powered choice (+1 or +2).
+ */
+export interface HandLimitBonusEffect {
+  readonly type: typeof EFFECT_HAND_LIMIT_BONUS;
+  readonly bonus: number;
+}
+
+/**
  * Tome of All Spells effect entry point.
  * Discard a card of any color from hand. Use the basic or powered effect
  * of a Spell of the same color from the Spells Offer without paying mana.
@@ -1794,6 +1806,7 @@ export type CardEffect =
   | BloodOfAncientsPoweredEffect
   | ResolveBloodPoweredWoundEffect
   | ResolveBloodPoweredUseAAEffect
+  | HandLimitBonusEffect
   | TomeOfAllSpellsEffect
   | ResolveTomeSpellEffect;
 

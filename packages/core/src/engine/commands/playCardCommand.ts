@@ -49,7 +49,7 @@ import {
 import { EFFECT_MOVEMENT_CARD_BONUS, EFFECT_ATTACK_BLOCK_CARD_BONUS } from "../../types/modifierConstants.js";
 import type { ShapeshiftActiveModifier } from "../../types/modifiers.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
-import { getCombatFilteredEffect } from "../rules/cardPlay.js";
+import { getCombatFilteredEffect, cardConsumesAction } from "../rules/cardPlay.js";
 import { shuffleWithRng } from "../../utils/rng.js";
 import { getMeditationSelectCount } from "../rules/meditation.js";
 
@@ -87,6 +87,11 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
   // This correctly reverts any modifier-adding effects (Noble Manners, Heroic Tale,
   // Ruthless Coercion, Agility, etc.) without needing per-effect reverse logic.
   let preEffectModifiersSnapshot: readonly ActiveModifier[] | null = null;
+  // Store whether this card consumed the action (for undo)
+  let consumedAction = false;
+  let previousHasTakenAction = false;
+  // Store previous hand limit bonus for undo of CATEGORY_ACTION cards
+  let previousHandLimitBonus = 0;
   // Store Mana Overload trigger info for undo
   let manaOverloadTriggered = false;
   let manaOverloadBonusType: string | null = null;
@@ -406,6 +411,26 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
             choiceEvents.push(...destructionResult.events);
           }
 
+          // Set hasTakenActionThisTurn for CATEGORY_ACTION cards (e.g., Temporal Portal)
+          if (cardConsumesAction(card)) {
+            const playerIdx = updatedState.players.findIndex(
+              (p) => p.id === params.playerId
+            );
+            if (playerIdx !== -1) {
+              const actionPlayer = updatedState.players[playerIdx]!;
+              previousHasTakenAction = actionPlayer.hasTakenActionThisTurn;
+              previousHandLimitBonus = actionPlayer.meditationHandLimitBonus;
+              consumedAction = true;
+              const updatedPlayer: Player = {
+                ...actionPlayer,
+                hasTakenActionThisTurn: true,
+              };
+              const updatedPlayers = [...updatedState.players];
+              updatedPlayers[playerIdx] = updatedPlayer;
+              updatedState = { ...updatedState, players: updatedPlayers };
+            }
+          }
+
           return { ...choiceResult, state: updatedState, events: choiceEvents };
         }
 
@@ -540,6 +565,26 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         }
       }
 
+      // Set hasTakenActionThisTurn for CATEGORY_ACTION cards (e.g., Temporal Portal)
+      if (cardConsumesAction(card)) {
+        const playerIdx = finalState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        if (playerIdx !== -1) {
+          const actionPlayer = finalState.players[playerIdx]!;
+          previousHasTakenAction = actionPlayer.hasTakenActionThisTurn;
+          previousHandLimitBonus = actionPlayer.meditationHandLimitBonus;
+          consumedAction = true;
+          const updatedPlayer: Player = {
+            ...actionPlayer,
+            hasTakenActionThisTurn: true,
+          };
+          const updatedPlayers = [...finalState.players];
+          updatedPlayers[playerIdx] = updatedPlayer;
+          finalState = { ...finalState, players: updatedPlayers };
+        }
+      }
+
       // Check Mana Overload trigger (powered cards only)
       if (isPowered && finalState.manaOverloadCenter) {
         const triggerCheck = checkManaOverloadTrigger(
@@ -613,6 +658,15 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           ...updatedPlayer,
           pendingMeditation: undefined,
           meditationHandLimitBonus: 0,
+        };
+      }
+
+      // Restore action state and hand limit bonus for CATEGORY_ACTION cards on undo
+      if (consumedAction) {
+        updatedPlayer = {
+          ...updatedPlayer,
+          hasTakenActionThisTurn: previousHasTakenAction,
+          meditationHandLimitBonus: previousHandLimitBonus,
         };
       }
 

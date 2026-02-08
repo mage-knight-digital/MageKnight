@@ -22,7 +22,7 @@ import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
 import type { SidewaysValueModifier } from "../../../types/modifiers.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
-import { isNormalEffectAllowed, isTimeBendingChainPrevented } from "../../rules/cardPlay.js";
+import { isNormalEffectAllowed, isTimeBendingChainPrevented, cardConsumesAction } from "../../rules/cardPlay.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -81,6 +81,12 @@ export function getPlayableCardsForNormalTurn(
         ],
       });
 
+      continue;
+    }
+
+    // CATEGORY_ACTION cards cannot be played when action already taken
+    const isActionCard = cardConsumesAction(card);
+    if (isActionCard && player.hasTakenActionThisTurn) {
       continue;
     }
 

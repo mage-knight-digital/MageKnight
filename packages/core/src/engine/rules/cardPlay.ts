@@ -21,6 +21,7 @@ import {
   getEffectCategories,
   hasHealingCategory,
   isHealingOnlyCategories,
+  hasActionCategory,
   type CardEffectKind,
 } from "../helpers/cardCategoryHelpers.js";
 import type { CombatState } from "../../types/combat.js";
@@ -266,6 +267,15 @@ export function isRangedAttackUnusable(
  * Check if a card cannot be played powered due to Time Bending chain prevention.
  * Space Bending cannot be played powered during a Time Bent turn (no infinite turns).
  */
+/**
+ * Check if a card consumes the player's action when played.
+ * Cards with CATEGORY_ACTION set hasTakenActionThisTurn = true.
+ * Used by Temporal Portal.
+ */
+export function cardConsumesAction(card: DeedCard): boolean {
+  return hasActionCategory(card);
+}
+
 export function isTimeBendingChainPrevented(
   cardId: CardId,
   powered: boolean,

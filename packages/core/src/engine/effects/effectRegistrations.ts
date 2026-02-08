@@ -66,6 +66,7 @@ import { registerLearningEffects } from "./learningEffects.js";
 import { registerTrainingEffects } from "./trainingEffects.js";
 import { registerShapeshiftEffects } from "./shapeshiftEffects.js";
 import { registerBloodOfAncientsEffects } from "./bloodOfAncientsEffects.js";
+import { registerHandLimitBonusEffects } from "./handLimitBonusEffects.js";
 import { registerTomeOfAllSpellsEffects } from "./tomeOfAllSpellsEffects.js";
 
 // ============================================================================
@@ -247,6 +248,9 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Blood of Ancients effects (wound cost + AA offer interaction)
   registerBloodOfAncientsEffects(resolver);
+
+  // Hand limit bonus effects (Temporal Portal)
+  registerHandLimitBonusEffects();
 
   // Tome of All Spells effects (discard card, cast spell from offer for free)
   registerTomeOfAllSpellsEffects(resolver);
