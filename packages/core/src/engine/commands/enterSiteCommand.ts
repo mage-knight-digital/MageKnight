@@ -6,13 +6,14 @@
  * - Tomb: Draws 1 red Draconum when entered (always fresh per rules)
  * - Monster Den: Draws 1 brown enemy OR fights existing one from failed attempt
  * - Spawning Grounds: Draws 2 brown enemies OR fights existing ones from failed attempt
- * - Ancient Ruins: Fight brown enemy at night, or auto-conquest at day if empty
+ * - Ancient Ruins: Draws enemies by color from enemy token definition
  *
  * This is an irreversible action that:
  * - Draws enemies (if site type requires and no existing enemies)
  * - Initiates combat (if enemies present)
  * - Marks hasTakenActionThisTurn = true
- * - Triggers instant conquest for day ruins with no enemies
+ *
+ * Note: Ancient Ruins with altar tokens use ALTAR_TRIBUTE action, not ENTER_SITE.
  */
 
 import type { Command, CommandResult } from "./types.js";
@@ -24,13 +25,14 @@ import {
   COMBAT_STARTED,
   hexKey,
   COMBAT_TRIGGER_VOLUNTARY_EXPLORE,
+  getRuinsTokenDefinition,
+  isEnemyToken,
 } from "@mage-knight/shared";
 import { createCombatTriggeredEvent } from "@mage-knight/shared";
 import { getAdventureSiteEnemies, drawEnemy, getEnemyIdFromToken } from "../helpers/enemy/index.js";
 import type { HexState, HexEnemy } from "../../types/map.js";
 import { SiteType } from "../../types/map.js";
 import { createCombatState } from "../../types/combat.js";
-import { createConquerSiteCommand } from "./conquerSiteCommand.js";
 import { ENTER_SITE_COMMAND } from "./commandTypes.js";
 
 export { ENTER_SITE_COMMAND };
@@ -75,58 +77,110 @@ export function createEnterSiteCommand(params: EnterSiteCommandParams): Command 
       //   so we START with empty array, ignoring any existing enemies
       // - Monster Den/Spawning Grounds: Only draw if no enemies already on hex
       //   (enemies persist from failed attempts)
-      const adventureEnemies = getAdventureSiteEnemies(site.type);
-      const alwaysDrawsFresh = site.type === SiteType.Dungeon || site.type === SiteType.Tomb;
+      // - Ancient Ruins with enemy token: draw enemies by color from token definition
 
-      // For dungeon/tomb: start fresh. For others: copy existing enemies
-      const hexEnemies: HexEnemy[] = alwaysDrawsFresh ? [] : [...hex.enemies];
+      const hexEnemies: HexEnemy[] = [];
 
-      const shouldDrawEnemies = adventureEnemies && (
-        alwaysDrawsFresh || hexEnemies.length === 0
-      );
+      if (site.type === SiteType.AncientRuins && hex.ruinsToken) {
+        // Ancient Ruins: draw enemies based on the ruins token definition
+        const tokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
+        if (tokenDef && isEnemyToken(tokenDef)) {
+          let currentPiles = updatedState.enemyTokens;
+          let currentRng = updatedState.rng;
 
-      if (shouldDrawEnemies && adventureEnemies) {
-        let currentPiles = updatedState.enemyTokens;
-        let currentRng = updatedState.rng;
-
-        for (let i = 0; i < adventureEnemies.count; i++) {
-          const result = drawEnemy(currentPiles, adventureEnemies.color, currentRng);
-          currentPiles = result.piles;
-          currentRng = result.rng;
-          if (result.tokenId) {
-            // Enemies drawn on site entry are revealed (face-up)
-            hexEnemies.push({
-              tokenId: result.tokenId,
-              color: adventureEnemies.color,
-              isRevealed: true,
-            });
+          for (const enemyColor of tokenDef.enemies) {
+            const result = drawEnemy(currentPiles, enemyColor, currentRng);
+            currentPiles = result.piles;
+            currentRng = result.rng;
+            if (result.tokenId) {
+              hexEnemies.push({
+                tokenId: result.tokenId,
+                color: enemyColor,
+                isRevealed: true,
+              });
+            }
           }
+
+          // Update hex with drawn enemies
+          const updatedHex: HexState = {
+            ...hex,
+            enemies: hexEnemies,
+          };
+
+          const updatedHexes = {
+            ...updatedState.map.hexes,
+            [key]: updatedHex,
+          };
+
+          updatedState = {
+            ...updatedState,
+            map: { ...updatedState.map, hexes: updatedHexes },
+            enemyTokens: currentPiles,
+            rng: currentRng,
+          };
+
+          events.push({
+            type: ENEMIES_DRAWN_FOR_SITE,
+            playerId: params.playerId,
+            siteType: site.type,
+            enemyCount: tokenDef.enemies.length,
+          });
         }
+      } else {
+        // Non-ruins adventure sites
+        const adventureEnemies = getAdventureSiteEnemies(site.type);
+        const alwaysDrawsFresh = site.type === SiteType.Dungeon || site.type === SiteType.Tomb;
 
-        // Update hex with drawn enemies
-        const updatedHex: HexState = {
-          ...hex,
-          enemies: hexEnemies,
-        };
+        // For dungeon/tomb: start fresh. For others: copy existing enemies
+        const existingEnemies: HexEnemy[] = alwaysDrawsFresh ? [] : [...hex.enemies];
+        hexEnemies.push(...existingEnemies);
 
-        const updatedHexes = {
-          ...updatedState.map.hexes,
-          [key]: updatedHex,
-        };
+        const shouldDrawEnemies = adventureEnemies && (
+          alwaysDrawsFresh || hexEnemies.length === 0
+        );
 
-        updatedState = {
-          ...updatedState,
-          map: { ...updatedState.map, hexes: updatedHexes },
-          enemyTokens: currentPiles,
-          rng: currentRng,
-        };
+        if (shouldDrawEnemies && adventureEnemies) {
+          let currentPiles = updatedState.enemyTokens;
+          let currentRng = updatedState.rng;
 
-        events.push({
-          type: ENEMIES_DRAWN_FOR_SITE,
-          playerId: params.playerId,
-          siteType: site.type,
-          enemyCount: adventureEnemies.count,
-        });
+          for (let i = 0; i < adventureEnemies.count; i++) {
+            const result = drawEnemy(currentPiles, adventureEnemies.color, currentRng);
+            currentPiles = result.piles;
+            currentRng = result.rng;
+            if (result.tokenId) {
+              hexEnemies.push({
+                tokenId: result.tokenId,
+                color: adventureEnemies.color,
+                isRevealed: true,
+              });
+            }
+          }
+
+          // Update hex with drawn enemies
+          const updatedHex: HexState = {
+            ...hex,
+            enemies: hexEnemies,
+          };
+
+          const updatedHexes = {
+            ...updatedState.map.hexes,
+            [key]: updatedHex,
+          };
+
+          updatedState = {
+            ...updatedState,
+            map: { ...updatedState.map, hexes: updatedHexes },
+            enemyTokens: currentPiles,
+            rng: currentRng,
+          };
+
+          events.push({
+            type: ENEMIES_DRAWN_FOR_SITE,
+            playerId: params.playerId,
+            siteType: site.type,
+            enemyCount: adventureEnemies.count,
+          });
+        }
       }
 
       // Mark action taken
@@ -143,18 +197,9 @@ export function createEnterSiteCommand(params: EnterSiteCommandParams): Command 
       };
       updatedState = { ...updatedState, players: updatedPlayers };
 
-      // Special case: Ruins at day with no enemies = instant conquest
+      // If no enemies drawn (shouldn't happen for valid enemy tokens), error
       if (hexEnemies.length === 0) {
-        // No enemies — instant conquest
-        const conquestResult = createConquerSiteCommand({
-          playerId: params.playerId,
-          hexCoord: player.position,
-        }).execute(updatedState);
-
-        return {
-          state: conquestResult.state,
-          events: [...events, ...conquestResult.events],
-        };
+        throw new Error("No enemies to fight at this site");
       }
 
       // Convert HexEnemy[] to enemy IDs for combat

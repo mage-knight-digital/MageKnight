@@ -16,6 +16,8 @@ import {
   createCombatTriggeredEvent,
   createReputationChangedEvent,
   createEnemiesRevealedEvent,
+  createRuinsTokenRevealedEvent,
+  getRuinsTokenDefinition,
   hexKey,
   getAllNeighbors,
   COMBAT_TRIGGER_FORTIFIED_ASSAULT,
@@ -23,6 +25,7 @@ import {
   REPUTATION_REASON_ASSAULT,
   TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
+import { revealRuinsToken } from "../helpers/ruinsTokenHelpers.js";
 import type { Player } from "../../types/player.js";
 import { MOVE_COMMAND } from "./commandTypes.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
@@ -333,6 +336,28 @@ export function createMoveCommand(params: MoveCommandParams): Command {
             },
           };
         }
+      }
+
+      // Reveal face-down ruins token on destination hex when player enters
+      if (destinationHex?.ruinsToken && !destinationHex.ruinsToken.isRevealed) {
+        const revealedToken = revealRuinsToken(destinationHex.ruinsToken);
+        const tokenDef = getRuinsTokenDefinition(revealedToken.tokenId);
+        const updatedDestHex = {
+          ...(updatedHexes[destinationKey] ?? destinationHex),
+          ruinsToken: revealedToken,
+        };
+        updatedHexes = {
+          ...updatedHexes,
+          [destinationKey]: updatedDestHex,
+        };
+        events.push(
+          createRuinsTokenRevealedEvent(
+            params.playerId,
+            params.to,
+            revealedToken.tokenId,
+            tokenDef?.type ?? "unknown"
+          )
+        );
       }
 
       // Apply hex updates to map if any reveals happened

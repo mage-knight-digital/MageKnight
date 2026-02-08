@@ -416,6 +416,89 @@ export function isMonasteryBurnedEvent(event: {
 }
 
 // ============================================================================
+// RUINS_TOKEN_REVEALED
+// ============================================================================
+
+/**
+ * Event type constant for revealing a ruins token.
+ * @see RuinsTokenRevealedEvent
+ */
+export const RUINS_TOKEN_REVEALED = "RUINS_TOKEN_REVEALED" as const;
+
+/**
+ * Emitted when a face-down ruins token is revealed.
+ *
+ * Ruins tokens are placed face-down at night and revealed when a player
+ * enters the hex.
+ */
+export interface RuinsTokenRevealedEvent {
+  readonly type: typeof RUINS_TOKEN_REVEALED;
+  readonly playerId: string;
+  readonly hexCoord: HexCoord;
+  readonly tokenId: string;
+  readonly tokenType: string;
+}
+
+/**
+ * Creates a RuinsTokenRevealedEvent.
+ */
+export function createRuinsTokenRevealedEvent(
+  playerId: string,
+  hexCoord: HexCoord,
+  tokenId: string,
+  tokenType: string
+): RuinsTokenRevealedEvent {
+  return {
+    type: RUINS_TOKEN_REVEALED,
+    playerId,
+    hexCoord,
+    tokenId,
+    tokenType,
+  };
+}
+
+// ============================================================================
+// ALTAR_TRIBUTE_PAID
+// ============================================================================
+
+/**
+ * Event type constant for paying altar tribute.
+ * @see AltarTributePaidEvent
+ */
+export const ALTAR_TRIBUTE_PAID = "ALTAR_TRIBUTE_PAID" as const;
+
+/**
+ * Emitted when a player pays tribute at an altar ruins token.
+ *
+ * The player spends mana of the required color(s) and gains fame.
+ */
+export interface AltarTributePaidEvent {
+  readonly type: typeof ALTAR_TRIBUTE_PAID;
+  readonly playerId: string;
+  readonly manaColor: string;
+  readonly manaCost: number;
+  readonly fameGained: number;
+}
+
+/**
+ * Creates an AltarTributePaidEvent.
+ */
+export function createAltarTributePaidEvent(
+  playerId: string,
+  manaColor: string,
+  manaCost: number,
+  fameGained: number
+): AltarTributePaidEvent {
+  return {
+    type: ALTAR_TRIBUTE_PAID,
+    playerId,
+    manaColor,
+    manaCost,
+    fameGained,
+  };
+}
+
+// ============================================================================
 // VILLAGE_PLUNDERED
 // ============================================================================
 

@@ -90,6 +90,7 @@ export type {
   ExploreAction,
   // Adventure sites
   EnterSiteAction,
+  AltarTributeAction,
   // Turn structure
   EndTurnAction,
   RestAction, // @deprecated - use DeclareRestAction + CompleteRestAction

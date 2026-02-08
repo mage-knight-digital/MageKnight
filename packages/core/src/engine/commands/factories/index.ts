@@ -82,6 +82,7 @@ import {
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
   RESOLVE_UNIT_MAINTENANCE_ACTION,
   RESOLVE_MEDITATION_ACTION,
+  ALTAR_TRIBUTE_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -144,6 +145,7 @@ export {
 export {
   createInteractCommandFromAction,
   createEnterSiteCommandFromAction,
+  createAltarTributeCommandFromAction,
   createResolveGladeWoundCommandFromAction,
   createResolveDeepMineCommandFromAction,
   createBurnMonasteryCommandFromAction,
@@ -254,6 +256,7 @@ import {
 import {
   createInteractCommandFromAction,
   createEnterSiteCommandFromAction,
+  createAltarTributeCommandFromAction,
   createResolveGladeWoundCommandFromAction,
   createResolveDeepMineCommandFromAction,
   createBurnMonasteryCommandFromAction,
@@ -343,6 +346,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [INTERACT_ACTION]: createInteractCommandFromAction,
   [ANNOUNCE_END_OF_ROUND_ACTION]: createAnnounceEndOfRoundCommandFromAction,
   [ENTER_SITE_ACTION]: createEnterSiteCommandFromAction,
+  [ALTAR_TRIBUTE_ACTION]: createAltarTributeCommandFromAction,
   [SELECT_TACTIC_ACTION]: createSelectTacticCommandFromAction,
   [SELECT_REWARD_ACTION]: createSelectRewardCommandFromAction,
   [ACTIVATE_TACTIC_ACTION]: createActivateTacticCommandFromAction,

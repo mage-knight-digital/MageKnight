@@ -7,13 +7,23 @@
 import type { ValidationResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
-import { ENTER_SITE_ACTION, hexKey, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
+import {
+  ENTER_SITE_ACTION,
+  ALTAR_TRIBUTE_ACTION,
+  hexKey,
+  getRuinsTokenDefinition,
+  isAltarToken,
+  isEnemyToken,
+} from "@mage-knight/shared";
 import { valid, invalid } from "./types.js";
 import {
   NO_SITE,
   NOT_ADVENTURE_SITE,
   SITE_ALREADY_CONQUERED,
   NO_ENEMIES_AT_SITE,
+  NOT_AT_RUINS,
+  NO_ALTAR_TOKEN,
+  NOT_ENEMY_TOKEN,
 } from "./validationCodes.js";
 import { getPlayerSite } from "../helpers/siteHelpers.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
@@ -75,8 +85,8 @@ export function validateSiteNotConquered(
  * Must have enemies to fight (or be dungeon/tomb that draws on enter)
  *
  * Dungeons and Tombs always draw enemies when you enter, so they're always valid.
- * Other adventure sites (monster den, spawning grounds, ruins) need enemies present.
- * Ruins at day with no enemies is a special case - instant conquest, handled in command.
+ * Other adventure sites (monster den, spawning grounds) need enemies present.
+ * Ancient Ruins with ENTER_SITE requires an enemy token (altars use ALTAR_TRIBUTE).
  */
 export function validateSiteHasEnemiesOrDraws(
   state: GameState,
@@ -104,15 +114,66 @@ export function validateSiteHasEnemiesOrDraws(
     return valid();
   }
 
-  // Ruins at day with no enemies = instant conquest (valid action)
-  if (site.type === SiteType.AncientRuins && state.timeOfDay !== TIME_OF_DAY_NIGHT) {
-    // At day, ruins may have no enemies - this is valid (instant conquest)
+  // Ancient Ruins: ENTER_SITE requires an enemy token
+  // Altar tokens use the ALTAR_TRIBUTE action instead
+  if (site.type === SiteType.AncientRuins) {
+    if (!hex.ruinsToken) {
+      return invalid(NO_ENEMIES_AT_SITE, "No ruins token at this site");
+    }
+    const tokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
+    if (!tokenDef || !isEnemyToken(tokenDef)) {
+      return invalid(NOT_ENEMY_TOKEN, "This ruins token is an altar — use Altar Tribute instead");
+    }
     return valid();
   }
 
   // Other sites need enemies present
   if (hex.enemies.length === 0) {
     return invalid(NO_ENEMIES_AT_SITE, "There are no enemies at this site");
+  }
+
+  return valid();
+}
+
+/**
+ * Must be at Ancient Ruins with a revealed altar token
+ */
+export function validateAtRuinsWithAltar(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== ALTAR_TRIBUTE_ACTION) return valid();
+
+  const player = getPlayerById(state, playerId);
+  if (!player?.position) {
+    return invalid(NO_SITE, "You are not at a site");
+  }
+
+  const hex = state.map.hexes[hexKey(player.position)];
+  if (!hex?.site) {
+    return invalid(NO_SITE, "You are not at a site");
+  }
+
+  if (hex.site.type !== SiteType.AncientRuins) {
+    return invalid(NOT_AT_RUINS, "You are not at Ancient Ruins");
+  }
+
+  if (hex.site.isConquered) {
+    return invalid(SITE_ALREADY_CONQUERED, "This site has already been conquered");
+  }
+
+  if (!hex.ruinsToken) {
+    return invalid(NO_ALTAR_TOKEN, "No ruins token at this site");
+  }
+
+  if (!hex.ruinsToken.isRevealed) {
+    return invalid(NO_ALTAR_TOKEN, "Ruins token has not been revealed");
+  }
+
+  const tokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
+  if (!tokenDef || !isAltarToken(tokenDef)) {
+    return invalid(NO_ALTAR_TOKEN, "This ruins token is not an altar");
   }
 
   return valid();

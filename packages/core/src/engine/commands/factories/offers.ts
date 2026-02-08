@@ -13,7 +13,7 @@
  */
 
 import type { CommandFactory } from "./types.js";
-import type { PlayerAction, CardId, SkillId } from "@mage-knight/shared";
+import type { PlayerAction, CardId, SkillId, UnitId } from "@mage-knight/shared";
 import {
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
@@ -100,6 +100,8 @@ export const createSelectRewardCommandFromAction: CommandFactory = (
     playerId,
     cardId: action.cardId,
     rewardIndex: action.rewardIndex,
+    unitId: action.unitId as UnitId | undefined,
+    disbandUnitInstanceId: action.disbandUnitInstanceId,
   });
 };
 

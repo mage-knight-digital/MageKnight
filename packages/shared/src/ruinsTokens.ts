@@ -12,6 +12,14 @@
 
 import type { BasicManaColor } from "./ids.js";
 import type { EnemyColor } from "./enemies/index.js";
+import type { SiteReward } from "./siteRewards.js";
+import {
+  artifactReward,
+  spellReward,
+  advancedActionReward,
+  unitReward,
+  compoundReward,
+} from "./siteRewards.js";
 
 // =============================================================================
 // CONSTANTS
@@ -40,12 +48,14 @@ export type AltarManaColor = BasicManaColor | typeof ALTAR_MANA_ALL_BASIC;
 export const RUINS_REWARD_ARTIFACT = "artifact" as const;
 export const RUINS_REWARD_SPELL = "spell" as const;
 export const RUINS_REWARD_UNIT = "unit" as const;
+export const RUINS_REWARD_ADVANCED_ACTION = "advanced_action" as const;
 export const RUINS_REWARD_CRYSTALS_4 = "4_crystals" as const;
 
 export type RuinsRewardType =
   | typeof RUINS_REWARD_ARTIFACT
   | typeof RUINS_REWARD_SPELL
   | typeof RUINS_REWARD_UNIT
+  | typeof RUINS_REWARD_ADVANCED_ACTION
   | typeof RUINS_REWARD_CRYSTALS_4;
 
 // =============================================================================
@@ -133,7 +143,7 @@ export const RUINS_TOKENS: Record<string, RuinsTokenDefinition> = {
     id: "enemy_green_violet_artifact" as RuinsTokenId,
     type: RUINS_TOKEN_TYPE_ENEMY,
     enemies: ["green", "violet"],
-    rewards: [RUINS_REWARD_ARTIFACT],
+    rewards: [RUINS_REWARD_UNIT],
   },
   enemy_green_green_crystals: {
     id: "enemy_green_green_crystals" as RuinsTokenId,
@@ -151,7 +161,7 @@ export const RUINS_TOKENS: Record<string, RuinsTokenDefinition> = {
     id: "enemy_green_red_artifact_unit" as RuinsTokenId,
     type: RUINS_TOKEN_TYPE_ENEMY,
     enemies: ["green", "red"],
-    rewards: [RUINS_REWARD_ARTIFACT, RUINS_REWARD_UNIT],
+    rewards: [RUINS_REWARD_ARTIFACT, RUINS_REWARD_ADVANCED_ACTION],
   },
   enemy_brown_violet_spell_crystals: {
     id: "enemy_brown_violet_spell_crystals" as RuinsTokenId,
@@ -169,19 +179,19 @@ export const RUINS_TOKENS: Record<string, RuinsTokenDefinition> = {
     id: "enemy_green_green_green_artifact" as RuinsTokenId,
     type: RUINS_TOKEN_TYPE_ENEMY,
     enemies: ["green", "green", "green"],
-    rewards: [RUINS_REWARD_ARTIFACT],
+    rewards: [RUINS_REWARD_UNIT],
   },
   enemy_green_grey_artifact_spell: {
     id: "enemy_green_grey_artifact_spell" as RuinsTokenId,
     type: RUINS_TOKEN_TYPE_ENEMY,
-    enemies: ["green", "gray"], // Note: using "gray" to match EnemyColor
+    enemies: ["gray", "white"],
     rewards: [RUINS_REWARD_ARTIFACT, RUINS_REWARD_SPELL],
   },
   enemy_violet_violet_spell_unit: {
     id: "enemy_violet_violet_spell_unit" as RuinsTokenId,
     type: RUINS_TOKEN_TYPE_ENEMY,
     enemies: ["violet", "violet"],
-    rewards: [RUINS_REWARD_SPELL, RUINS_REWARD_UNIT],
+    rewards: [RUINS_REWARD_SPELL, RUINS_REWARD_ADVANCED_ACTION],
   },
 };
 
@@ -217,4 +227,49 @@ export function isEnemyToken(
   token: RuinsTokenDefinition
 ): token is RuinsEnemyToken {
   return token.type === RUINS_TOKEN_TYPE_ENEMY;
+}
+
+/**
+ * Map a ruins reward type string to a SiteReward object.
+ */
+function ruinsRewardToSiteReward(rewardType: RuinsRewardType): SiteReward {
+  switch (rewardType) {
+    case RUINS_REWARD_ARTIFACT:
+      return artifactReward(1);
+    case RUINS_REWARD_SPELL:
+      return spellReward(1);
+    case RUINS_REWARD_ADVANCED_ACTION:
+      return advancedActionReward(1);
+    case RUINS_REWARD_UNIT:
+      return unitReward();
+    case RUINS_REWARD_CRYSTALS_4:
+      // 4 crystals is handled specially (grant 1 of each basic color)
+      // We represent it as a fame reward of 0 as a sentinel — the actual
+      // crystal granting is done by the command that processes ruins rewards.
+      // This avoids needing a dedicated "4 crystals" SiteReward type.
+      // NOTE: This case is handled directly by the ruins reward processor,
+      // not by the standard queueSiteReward pipeline.
+      return artifactReward(0); // placeholder — never actually queued
+  }
+}
+
+/**
+ * Get the compound SiteReward for an enemy ruins token.
+ * Maps the token's rewards array into SiteReward objects.
+ *
+ * Note: "4_crystals" rewards are handled specially by the combat end handler
+ * (grant +1 crystal of each basic color directly). This function's output
+ * for those is just a placeholder.
+ */
+export function getRuinsTokenRewards(token: RuinsEnemyToken): SiteReward {
+  if (token.rewards.length === 1) {
+    const reward = token.rewards[0];
+    if (reward === undefined) {
+      return artifactReward(0);
+    }
+    return ruinsRewardToSiteReward(reward);
+  }
+  return compoundReward(
+    ...token.rewards.map((r) => ruinsRewardToSiteReward(r))
+  );
 }

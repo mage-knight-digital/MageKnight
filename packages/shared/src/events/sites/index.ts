@@ -49,6 +49,8 @@ import {
   MONASTERY_BURN_STARTED,
   MONASTERY_BURNED,
   VILLAGE_PLUNDERED,
+  RUINS_TOKEN_REVEALED,
+  ALTAR_TRIBUTE_PAID,
 } from "./adventure.js";
 import { REWARD_QUEUED, REWARD_SELECTED } from "./rewards.js";
 import {
@@ -101,5 +103,7 @@ export function isSiteEvent(event: { type: string }): boolean {
     VILLAGE_PLUNDERED,
     MEDITATION_CARDS_SELECTED,
     MEDITATION_CARDS_PLACED,
+    RUINS_TOKEN_REVEALED,
+    ALTAR_TRIBUTE_PAID,
   ].includes(event.type as typeof SITE_CONQUERED);
 }

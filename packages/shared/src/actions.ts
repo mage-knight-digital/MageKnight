@@ -42,6 +42,13 @@ export interface EnterSiteAction {
   readonly type: typeof ENTER_SITE_ACTION;
 }
 
+// Altar tribute action (Ancient Ruins)
+export const ALTAR_TRIBUTE_ACTION = "ALTAR_TRIBUTE" as const;
+export interface AltarTributeAction {
+  readonly type: typeof ALTAR_TRIBUTE_ACTION;
+  readonly manaSources: readonly ManaSourceInfo[];
+}
+
 // Burn monastery action
 export const BURN_MONASTERY_ACTION = "BURN_MONASTERY" as const;
 export interface BurnMonasteryAction {
@@ -421,6 +428,8 @@ export interface SelectRewardAction {
   readonly type: typeof SELECT_REWARD_ACTION;
   readonly cardId: CardId; // The card selected from the offer
   readonly rewardIndex: number; // Which pending reward this selection is for (0 = first)
+  readonly unitId?: UnitId; // For unit rewards: the unit to recruit from offer
+  readonly disbandUnitInstanceId?: string; // For unit rewards: unit to disband if at command limit
 }
 
 // Magical Glade wound discard choice
@@ -741,6 +750,7 @@ export type PlayerAction =
   | ExploreAction
   // Adventure sites
   | EnterSiteAction
+  | AltarTributeAction
   | BurnMonasteryAction
   | PlunderVillageAction
   // Turn structure

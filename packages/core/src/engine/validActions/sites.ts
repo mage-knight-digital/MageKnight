@@ -6,7 +6,13 @@
  */
 
 import type { SiteOptions, InteractOptions } from "@mage-knight/shared";
-import { hexKey, TIME_OF_DAY_DAY } from "@mage-knight/shared";
+import {
+  hexKey,
+  TIME_OF_DAY_DAY,
+  getRuinsTokenDefinition,
+  isAltarToken,
+  isEnemyToken,
+} from "@mage-knight/shared";
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { HexState, Site } from "../../types/map.js";
@@ -42,12 +48,23 @@ export function getSiteOptions(
 
   const site = hex.site;
 
+  // For Ancient Ruins, check what kind of token is present
+  let ruinsHasAltarToken = false;
+  if (site.type === SiteType.AncientRuins && hex.ruinsToken?.isRevealed) {
+    const tokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
+    if (tokenDef) {
+      ruinsHasAltarToken = isAltarToken(tokenDef);
+    }
+  }
+
   // Determine if can enter (adventure sites)
+  // For ruins: ENTER_SITE is only valid for enemy tokens
   const canEnter =
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
     canEnterAdventureSite(site) &&
-    !player.hasTakenActionThisTurn;
+    !player.hasTakenActionThisTurn &&
+    !(site.type === SiteType.AncientRuins && ruinsHasAltarToken);
 
   // Build enter description
   const enterDescription = canEnter
@@ -62,7 +79,7 @@ export function getSiteOptions(
 
   // Conquest reward
   const conquestReward = !site.isConquered
-    ? getConquestRewardDescription(site.type)
+    ? getConquestRewardDescription(site.type, hex)
     : undefined;
 
   // Interaction options (inhabited sites)
@@ -109,6 +126,30 @@ export function getSiteOptions(
   }
   if (startOfTurnEffect !== undefined) {
     (result as { startOfTurnEffect?: string }).startOfTurnEffect = startOfTurnEffect;
+  }
+
+  // Altar tribute info for Ancient Ruins with altar token
+  if (
+    ruinsHasAltarToken &&
+    hex.ruinsToken?.isRevealed &&
+    !site.isConquered &&
+    !player.hasTakenActionThisTurn &&
+    !player.isResting &&
+    !mustAnnounceEndOfRound(state, player)
+  ) {
+    const altarTokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
+    if (altarTokenDef && isAltarToken(altarTokenDef)) {
+      const mutableResult = result as {
+        canTribute?: boolean;
+        altarManaColor?: string;
+        altarManaCost?: number;
+        altarFameReward?: number;
+      };
+      mutableResult.canTribute = true;
+      mutableResult.altarManaColor = altarTokenDef.manaColor;
+      mutableResult.altarManaCost = altarTokenDef.manaCost;
+      mutableResult.altarFameReward = altarTokenDef.fameReward;
+    }
   }
 
   return result;
@@ -178,11 +219,23 @@ function getEnterDescription(
       }
       return "Fight 2 brown enemies";
 
-    case SiteType.AncientRuins:
+    case SiteType.AncientRuins: {
+      // Describe enemies from token definition
+      if (hex.ruinsToken?.isRevealed) {
+        const tokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
+        if (tokenDef && isEnemyToken(tokenDef)) {
+          const enemyCount = tokenDef.enemies.length;
+          const colorDescriptions = tokenDef.enemies.map((c) =>
+            c.charAt(0).toUpperCase() + c.slice(1)
+          );
+          return `Fight ${enemyCount} ${enemyCount === 1 ? "enemy" : "enemies"} (${colorDescriptions.join(", ")})`;
+        }
+      }
       if (hex.enemies.length > 0) {
         return `Fight ${hex.enemies.length} ${hex.enemies.length === 1 ? "enemy" : "enemies"}`;
       }
       return "Explore the ruins";
+    }
 
     case SiteType.Maze:
       return "Choose path (2/4/6 Move) and fight";
@@ -198,7 +251,7 @@ function getEnterDescription(
 /**
  * Get description of conquest reward.
  */
-function getConquestRewardDescription(siteType: SiteType): string | undefined {
+function getConquestRewardDescription(siteType: SiteType, hex?: HexState): string | undefined {
   switch (siteType) {
     case SiteType.Dungeon:
       return "Spell or Artifact (die roll)";
@@ -215,8 +268,28 @@ function getConquestRewardDescription(siteType: SiteType): string | undefined {
     case SiteType.MageTower:
       return "Spell";
 
-    case SiteType.AncientRuins:
+    case SiteType.AncientRuins: {
+      if (hex?.ruinsToken?.isRevealed) {
+        const tokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
+        if (tokenDef && isEnemyToken(tokenDef)) {
+          const rewardNames = tokenDef.rewards.map((r) => {
+            switch (r) {
+              case "artifact": return "Artifact";
+              case "spell": return "Spell";
+              case "advanced_action": return "Advanced Action";
+              case "unit": return "Free Unit";
+              case "4_crystals": return "4 Crystals (1 each)";
+              default: return r;
+            }
+          });
+          return rewardNames.join(" + ");
+        }
+        if (tokenDef && isAltarToken(tokenDef)) {
+          return `${tokenDef.fameReward} Fame`;
+        }
+      }
       return "Depends on token";
+    }
 
     case SiteType.Maze:
       return "Crystals / Spell / Artifact (by path)";

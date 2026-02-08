@@ -1,10 +1,10 @@
 /**
  * Interaction action validator registry
- * Handles INTERACT_ACTION and ENTER_SITE_ACTION
+ * Handles INTERACT_ACTION, ENTER_SITE_ACTION, and ALTAR_TRIBUTE_ACTION
  */
 
 import type { Validator } from "../types.js";
-import { INTERACT_ACTION, ENTER_SITE_ACTION } from "@mage-knight/shared";
+import { INTERACT_ACTION, ENTER_SITE_ACTION, ALTAR_TRIBUTE_ACTION } from "@mage-knight/shared";
 
 // Turn validators
 import {
@@ -41,6 +41,7 @@ import {
   validateAtAdventureSite,
   validateSiteNotConquered,
   validateSiteHasEnemiesOrDraws,
+  validateAtRuinsWithAltar,
 } from "../siteValidators.js";
 
 export const interactionRegistry: Record<string, Validator[]> = {
@@ -67,5 +68,16 @@ export const interactionRegistry: Record<string, Validator[]> = {
     validateAtAdventureSite,
     validateSiteNotConquered,
     validateSiteHasEnemiesOrDraws,
+  ],
+  [ALTAR_TRIBUTE_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validateNoChoicePending,
+    validateNoPendingLevelUpRewards,
+    validateMustAnnounceEndOfRound,
+    validateNotRestingForEnterSite, // Cannot tribute while resting
+    validateHasNotActed,
+    validateAtRuinsWithAltar,
   ],
 };
