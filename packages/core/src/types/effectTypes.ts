@@ -348,6 +348,14 @@ export const EFFECT_RESOLVE_BONUS_CHOICE = "resolve_bonus_choice" as const;
 // Powered: use target card's powered effect 2 times (for free).
 export const EFFECT_MAXIMAL_EFFECT = "maximal_effect" as const;
 
+// === Endless Gem Pouch Crystal Rolling Effects ===
+// Roll mana dice and gain crystals based on results.
+// Basic colors → crystal of that color, gold → player chooses color, black → Fame +1.
+// Entry point: presents roll results and handles gold choices.
+export const EFFECT_ROLL_FOR_CRYSTALS = "roll_for_crystals" as const;
+// Internal: resolve after player chooses crystal color for a gold roll.
+export const EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE = "resolve_crystal_roll_choice" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.
