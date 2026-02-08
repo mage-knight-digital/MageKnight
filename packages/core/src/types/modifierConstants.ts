@@ -388,3 +388,11 @@ export const EFFECT_NATURES_VENGEANCE_ATTACK_BONUS = "natures_vengeance_attack_b
 //   Fire Resistance → Red, Ice Resistance → Blue, Physical Resistance → Green, always White.
 export const EFFECT_SOUL_HARVESTER_CRYSTAL_TRACKING = "soul_harvester_crystal_tracking" as const;
 
+// === ShieldBashArmorReductionModifier ===
+// When active, a successful block applies armor reduction to the blocked enemy.
+// Armor reduction = excess undoubled block points (block used minus block needed).
+// Ice Resistant enemies are immune to the armor reduction (blue card = ice element).
+// Summoner enemies cannot have their armor reduced via their summoned monster.
+// Duration: combat. Applied by Shield Bash powered effect.
+export const EFFECT_SHIELD_BASH_ARMOR_REDUCTION = "shield_bash_armor_reduction" as const;
+

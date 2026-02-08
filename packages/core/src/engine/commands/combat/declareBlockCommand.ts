@@ -36,6 +36,7 @@ import { isSwiftActive } from "../../combat/swiftHelpers.js";
 import { getNaturesVengeanceAttackBonus } from "../../modifiers/combat.js";
 import { getColdToughnessBlockBonus } from "../../combat/coldToughnessHelpers.js";
 import { applyBurningShieldOnBlock } from "../../combat/burningShieldHelpers.js";
+import { applyShieldBashArmorReduction } from "../../combat/shieldBashHelpers.js";
 
 export const DECLARE_BLOCK_COMMAND = "DECLARE_BLOCK" as const;
 
@@ -335,6 +336,23 @@ export function createDeclareBlockCommand(
         if (shieldResult) {
           resultState = shieldResult.state;
           resultEvents.push(...shieldResult.events);
+        }
+      }
+
+      // Check for Shield Bash armor reduction on successful block
+      // Uses the original pendingBlock (before clearing)
+      // to calculate excess undoubled block for armor reduction
+      if (updatedEnemy) {
+        const shieldBashResult = applyShieldBashArmorReduction(
+          resultState,
+          params.playerId,
+          updatedEnemy,
+          attackIndex,
+          pendingBlock
+        );
+        if (shieldBashResult) {
+          resultState = shieldBashResult.state;
+          resultEvents.push(...shieldBashResult.events);
         }
       }
 
