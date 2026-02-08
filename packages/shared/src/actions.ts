@@ -526,6 +526,14 @@ export interface ResolveDecomposeAction {
   readonly cardId: CardId;
 }
 
+// Maximal Effect action (throw away action card and use its effect multiple times)
+export const RESOLVE_MAXIMAL_EFFECT_ACTION = "RESOLVE_MAXIMAL_EFFECT" as const;
+export interface ResolveMaximalEffectAction {
+  readonly type: typeof RESOLVE_MAXIMAL_EFFECT_ACTION;
+  /** Card ID of the action card to throw away */
+  readonly cardId: CardId;
+}
+
 // Artifact crystal color choice action (Savage Harvesting - second step for artifacts)
 export const RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION = "RESOLVE_ARTIFACT_CRYSTAL_COLOR" as const;
 export interface ResolveArtifactCrystalColorAction {
@@ -811,6 +819,8 @@ export type PlayerAction =
   | ResolveMeditationAction
   // Decompose (throw away action card for crystals)
   | ResolveDecomposeAction
+  // Maximal Effect (throw away action card and multiply its effect)
+  | ResolveMaximalEffectAction
   // Artifact crystal color choice (Savage Harvesting - for artifacts)
   | ResolveArtifactCrystalColorAction
   // Combat

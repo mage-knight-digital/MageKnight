@@ -342,6 +342,12 @@ export const EFFECT_CHOOSE_BONUS_WITH_RISK = "choose_bonus_with_risk" as const;
 // Internal: resolve after player selects a bonus amount.
 export const EFFECT_RESOLVE_BONUS_CHOICE = "resolve_bonus_choice" as const;
 
+// === Maximal Effect ===
+// Throw away an action card from hand, then execute its effect multiple times.
+// Basic: use target card's basic effect 3 times.
+// Powered: use target card's powered effect 2 times (for free).
+export const EFFECT_MAXIMAL_EFFECT = "maximal_effect" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.

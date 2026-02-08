@@ -260,6 +260,9 @@ export type {
   ArtifactCrystalColorOptions,
   // Decompose options (throw away action card for crystals)
   DecomposeOptions,
+  // Maximal Effect options (throw away action card and multiply its effect)
+  MaximalEffectOptions,
+  PendingMaximalEffectState,
   // Crystal Joy reclaim options
   CrystalJoyReclaimOptions,
   // Steady Tempo deck placement options

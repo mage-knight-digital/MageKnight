@@ -38,6 +38,7 @@ import {
   EFFECT_TAKE_WOUND,
   EFFECT_NOOP,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
+  EFFECT_MAXIMAL_EFFECT,
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
@@ -279,6 +280,18 @@ export function noop(): CardEffect {
  */
 export function convertManaToCrystal(): CardEffect {
   return { type: EFFECT_CONVERT_MANA_TO_CRYSTAL };
+}
+
+/**
+ * Creates a Maximal Effect effect that throws away an action card and
+ * uses its effect multiple times.
+ *
+ * @param effectKind - "basic" uses the target card's basic effect, "powered" uses the stronger effect
+ * @param multiplier - How many times to repeat the effect
+ * @returns A MaximalEffectEffect
+ */
+export function maximalEffect(effectKind: "basic" | "powered", multiplier: number): CardEffect {
+  return { type: EFFECT_MAXIMAL_EFFECT, effectKind, multiplier };
 }
 
 // Re-export element constants for convenience

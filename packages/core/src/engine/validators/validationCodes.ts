@@ -259,6 +259,10 @@ export const ARTIFACT_CRYSTAL_INVALID_COLOR = "ARTIFACT_CRYSTAL_INVALID_COLOR" a
 export const DECOMPOSE_REQUIRED = "DECOMPOSE_REQUIRED" as const;
 export const DECOMPOSE_CARD_NOT_ELIGIBLE = "DECOMPOSE_CARD_NOT_ELIGIBLE" as const;
 
+// Maximal Effect validation codes
+export const MAXIMAL_EFFECT_REQUIRED = "MAXIMAL_EFFECT_REQUIRED" as const;
+export const MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE = "MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE" as const;
+
 // Meditation validation codes
 export const MEDITATION_PENDING_REQUIRED = "MEDITATION_PENDING_REQUIRED" as const;
 export const MEDITATION_INVALID_CARD_SELECTION = "MEDITATION_INVALID_CARD_SELECTION" as const;
@@ -539,6 +543,9 @@ export type ValidationErrorCode =
   // Decompose validation
   | typeof DECOMPOSE_REQUIRED
   | typeof DECOMPOSE_CARD_NOT_ELIGIBLE
+  // Maximal Effect validation
+  | typeof MAXIMAL_EFFECT_REQUIRED
+  | typeof MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE
   // Meditation validation
   | typeof MEDITATION_PENDING_REQUIRED
   | typeof MEDITATION_INVALID_CARD_SELECTION

@@ -42,6 +42,7 @@ import {
   getDiscardForAttackOptions,
   getDiscardForCrystalOptions,
   getDecomposeOptions,
+  getMaximalEffectOptions,
   getArtifactCrystalColorOptions,
   getCrystalJoyReclaimOptions,
   getSteadyTempoOptions,
@@ -174,6 +175,13 @@ export function getValidActions(
       mode: "pending_decompose",
       turn: { canUndo: getTurnOptions(state, player).canUndo },
       decompose: getDecomposeOptions(state, player),
+    };
+  }
+  if (player.pendingMaximalEffect) {
+    return {
+      mode: "pending_maximal_effect",
+      turn: { canUndo: getTurnOptions(state, player).canUndo },
+      maximalEffect: getMaximalEffectOptions(state, player),
     };
   }
   if (player.pendingLevelUpRewards.length > 0) {
