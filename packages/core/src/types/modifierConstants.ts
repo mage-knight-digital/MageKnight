@@ -295,6 +295,11 @@ export const EFFECT_ATTACK_BLOCK_CARD_BONUS = "attack_block_card_bonus" as const
 // Prevents tile exploration (Wings of Wind flight)
 export const RULE_NO_EXPLORATION = "no_exploration" as const;
 
+// === RuleOverrideModifier["rule"] - Amulet of the Sun ===
+// Allows using gold mana at night (normally gold is only available during day)
+// Does NOT change time of day for skills, does NOT allow gold→black conversion
+export const RULE_ALLOW_GOLD_AT_NIGHT = "allow_gold_at_night" as const;
+
 // === HeroDamageReductionModifier ===
 // Reduces incoming damage to the hero from a single enemy attack.
 // Element-specific: different reduction amounts based on attack element.

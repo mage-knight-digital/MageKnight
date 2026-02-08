@@ -60,7 +60,7 @@ function handleManaBolt(
 ): EffectResolutionResult {
   const { player } = getPlayerContext(state, playerId);
   const base = effect.baseValue;
-  const goldIsWild = canUseGoldAsWild(state);
+  const goldIsWild = canUseGoldAsWild(state, playerId);
 
   // Per-color attack values: Blue = base, Red = base-1, White = base-2, Green = base-3
   const blueValue = base;

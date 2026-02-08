@@ -54,7 +54,7 @@ function handlePureMagic(
   const { player } = getPlayerContext(state, playerId);
   const value = effect.value;
   const inCombat = state.combat !== null;
-  const goldIsWild = canUseGoldAsWild(state);
+  const goldIsWild = canUseGoldAsWild(state, playerId);
 
   // Check which basic colors the player has tokens for
   const hasGreen = countManaTokens(player, MANA_GREEN) >= 1;
