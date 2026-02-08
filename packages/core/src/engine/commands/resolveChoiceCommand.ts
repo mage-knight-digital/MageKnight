@@ -20,8 +20,13 @@ import {
   applyUndoContext,
   type EffectUndoContext,
 } from "../effects/effectUndoContext.js";
-import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/index.js";
-import { EFFECT_MOVEMENT_CARD_BONUS } from "../../types/modifierConstants.js";
+import {
+  consumeMovementCardBonus,
+  getModifiersForPlayer,
+  getAttackBlockCardBonus,
+  consumeAttackBlockCardBonus,
+} from "../modifiers/index.js";
+import { EFFECT_MOVEMENT_CARD_BONUS, EFFECT_ATTACK_BLOCK_CARD_BONUS } from "../../types/modifierConstants.js";
 import {
   applyChoiceOutcome,
   buildChoiceRequiredEvent,
@@ -53,6 +58,10 @@ export function createResolveChoiceCommand(
   // Store movement bonus application for undo
   let movementBonusAppliedAmount = 0;
   let movementBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
+  // Store attack/block card bonus application for undo
+  let attackBlockBonusAppliedAmount = 0;
+  let attackBlockBonusAppliedType: "attack" | "block" | null = null;
+  let attackBlockBonusModifiersSnapshot: readonly ActiveModifier[] | null = null;
 
   return {
     type: RESOLVE_CHOICE_COMMAND,
@@ -84,6 +93,13 @@ export function createResolveChoiceCommand(
           .filter((m) => m.effect.type === EFFECT_MOVEMENT_CARD_BONUS)
           .map((m) => m.id)
       );
+      const attackBlockBonusModifierIdsBefore = new Set(
+        getModifiersForPlayer(state, params.playerId)
+          .filter((m) => m.effect.type === EFFECT_ATTACK_BLOCK_CARD_BONUS)
+          .map((m) => m.id)
+      );
+      const totalAttackBefore = getTotalAttack(player);
+      const totalBlockBefore = player.combatAccumulator.block;
 
       const chosenEffect = player.pendingChoice.options[params.choiceIndex];
       if (!chosenEffect) {
@@ -159,6 +175,70 @@ export function createResolveChoiceCommand(
               pendingChoice: updatedPendingChoice,
             };
             finalState = { ...finalState, players: updatedPlayers };
+          }
+        }
+
+        // Apply attack/block card bonus if attack or block was gained from a card play
+        if (sourceCardId && attackBlockBonusModifierIdsBefore.size > 0) {
+          const playerAfterBonus = finalState.players[playerIndex];
+          if (playerAfterBonus) {
+            const totalAttackAfter = getTotalAttack(playerAfterBonus);
+            const totalBlockAfter = playerAfterBonus.combatAccumulator.block;
+            const attackGained = totalAttackAfter > totalAttackBefore;
+            const blockGained = totalBlockAfter > totalBlockBefore;
+
+            if (attackGained || blockGained) {
+              const forAttack = attackGained;
+              const { bonus, modifierId } = getAttackBlockCardBonus(
+                finalState,
+                params.playerId,
+                forAttack,
+                attackBlockBonusModifierIdsBefore
+              );
+
+              if (bonus > 0 && modifierId) {
+                attackBlockBonusAppliedAmount = bonus;
+                attackBlockBonusAppliedType = forAttack ? "attack" : "block";
+                attackBlockBonusModifiersSnapshot = finalState.activeModifiers;
+
+                finalState = consumeAttackBlockCardBonus(finalState, modifierId);
+                const playerToBoost = finalState.players[playerIndex];
+                if (playerToBoost) {
+                  let boostedPlayer: Player;
+                  if (forAttack) {
+                    boostedPlayer = {
+                      ...playerToBoost,
+                      combatAccumulator: {
+                        ...playerToBoost.combatAccumulator,
+                        attack: {
+                          ...playerToBoost.combatAccumulator.attack,
+                          normal: playerToBoost.combatAccumulator.attack.normal + bonus,
+                          normalElements: {
+                            ...playerToBoost.combatAccumulator.attack.normalElements,
+                            physical: playerToBoost.combatAccumulator.attack.normalElements.physical + bonus,
+                          },
+                        },
+                      },
+                    };
+                  } else {
+                    boostedPlayer = {
+                      ...playerToBoost,
+                      combatAccumulator: {
+                        ...playerToBoost.combatAccumulator,
+                        block: playerToBoost.combatAccumulator.block + bonus,
+                        blockElements: {
+                          ...playerToBoost.combatAccumulator.blockElements,
+                          physical: playerToBoost.combatAccumulator.blockElements.physical + bonus,
+                        },
+                      },
+                    };
+                  }
+                  const players = [...finalState.players];
+                  players[playerIndex] = boostedPlayer;
+                  finalState = { ...finalState, players };
+                }
+              }
+            }
           }
         }
 
@@ -368,13 +448,46 @@ export function createResolveChoiceCommand(
           movePoints: updatedPlayer.movePoints - movementBonusAppliedAmount,
         };
       }
+      if (attackBlockBonusAppliedAmount > 0 && attackBlockBonusAppliedType) {
+        if (attackBlockBonusAppliedType === "attack") {
+          updatedPlayer = {
+            ...updatedPlayer,
+            combatAccumulator: {
+              ...updatedPlayer.combatAccumulator,
+              attack: {
+                ...updatedPlayer.combatAccumulator.attack,
+                normal: updatedPlayer.combatAccumulator.attack.normal - attackBlockBonusAppliedAmount,
+                normalElements: {
+                  ...updatedPlayer.combatAccumulator.attack.normalElements,
+                  physical: updatedPlayer.combatAccumulator.attack.normalElements.physical - attackBlockBonusAppliedAmount,
+                },
+              },
+            },
+          };
+        } else {
+          updatedPlayer = {
+            ...updatedPlayer,
+            combatAccumulator: {
+              ...updatedPlayer.combatAccumulator,
+              block: updatedPlayer.combatAccumulator.block - attackBlockBonusAppliedAmount,
+              blockElements: {
+                ...updatedPlayer.combatAccumulator.blockElements,
+                physical: updatedPlayer.combatAccumulator.blockElements.physical - attackBlockBonusAppliedAmount,
+              },
+            },
+          };
+        }
+      }
 
       const players = [...currentState.players];
       players[playerIndex] = updatedPlayer;
-      const stateWithModifiers =
+      let stateWithModifiers =
         movementBonusAppliedAmount > 0 && movementBonusModifiersSnapshot
           ? { ...currentState, activeModifiers: movementBonusModifiersSnapshot }
           : currentState;
+      if (attackBlockBonusAppliedAmount > 0 && attackBlockBonusModifiersSnapshot) {
+        stateWithModifiers = { ...stateWithModifiers, activeModifiers: attackBlockBonusModifiersSnapshot };
+      }
 
       // Clear Mana Overload center if this was a Mana Overload choice resolution
       const undoState =
@@ -399,4 +512,12 @@ export function createResolveChoiceCommand(
       };
     },
   };
+}
+
+/**
+ * Get total accumulated attack value (normal + ranged + siege).
+ */
+function getTotalAttack(player: Player): number {
+  const atk = player.combatAccumulator.attack;
+  return atk.normal + atk.ranged + atk.siege;
 }

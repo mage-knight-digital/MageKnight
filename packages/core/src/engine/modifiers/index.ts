@@ -50,7 +50,14 @@ export {
 } from "./units.js";
 
 // Card values
-export { getEffectiveSidewaysValue, isRuleActive, countRuleActive, consumeMovementCardBonus } from "./cardValues.js";
+export {
+  getEffectiveSidewaysValue,
+  isRuleActive,
+  countRuleActive,
+  consumeMovementCardBonus,
+  getAttackBlockCardBonus,
+  consumeAttackBlockCardBonus,
+} from "./cardValues.js";
 
 // Lifecycle
 export {
