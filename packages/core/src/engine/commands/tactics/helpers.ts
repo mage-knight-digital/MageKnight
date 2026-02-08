@@ -4,35 +4,48 @@
 
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
-import type { GameEvent } from "@mage-knight/shared";
+import type { GameEvent, TacticId } from "@mage-knight/shared";
 import {
   ROUND_PHASE_TACTICS_SELECTION,
   ROUND_PHASE_PLAYER_TURNS,
   TACTIC_SPARING_POWER,
 } from "@mage-knight/shared";
 import { getTacticCard } from "../../../data/tactics/index.js";
+import { DUMMY_PLAYER_ID, isDummyPlayer } from "../../../types/dummyPlayer.js";
+import { executeDummyPlayerTurn } from "../dummyTurnCommand.js";
 
 /**
- * Calculate turn order based on selected tactics
- * Lower turn order number goes first
+ * Calculate turn order based on selected tactics.
+ * Lower turn order number goes first.
  *
- * This is used by both selectTacticCommand and resolveTacticDecisionCommand
- * to determine player order after tactics selection completes.
+ * If a dummy player tactic is provided, the dummy is inserted into
+ * the turn order at its tactic's position.
  */
-export function calculateTurnOrder(players: readonly Player[]): string[] {
-  const playersWithTactics: Array<{ playerId: string; turnOrder: number }> = [];
+export function calculateTurnOrder(
+  players: readonly Player[],
+  dummyPlayerTactic?: TacticId | null
+): string[] {
+  const entries: Array<{ playerId: string; turnOrder: number }> = [];
 
   for (const player of players) {
     if (player.selectedTactic !== null) {
-      playersWithTactics.push({
+      entries.push({
         playerId: player.id,
         turnOrder: getTacticCard(player.selectedTactic).turnOrder,
       });
     }
   }
 
-  playersWithTactics.sort((a, b) => a.turnOrder - b.turnOrder);
-  return playersWithTactics.map((p) => p.playerId);
+  // Include dummy player if it has a tactic
+  if (dummyPlayerTactic) {
+    entries.push({
+      playerId: DUMMY_PLAYER_ID,
+      turnOrder: getTacticCard(dummyPlayerTactic).turnOrder,
+    });
+  }
+
+  entries.sort((a, b) => a.turnOrder - b.turnOrder);
+  return entries.map((p) => p.playerId);
 }
 
 export interface PhaseTransitionResult {
@@ -65,13 +78,33 @@ export function handlePhaseTransitionAfterDecision(
 
   if (isLastSelector) {
     // End tactics phase
-    const newTurnOrder = calculateTurnOrder(currentState.players);
+    const newTurnOrder = calculateTurnOrder(currentState.players, currentState.dummyPlayerTactic);
 
-    // Check if first player needs Sparing Power before-turn decision
-    const firstPlayerId = newTurnOrder[0];
-    const playersForTurns: Player[] = [...currentState.players];
+    let resultState: GameState = {
+      ...currentState,
+      players: [...currentState.players],
+      roundPhase: ROUND_PHASE_PLAYER_TURNS,
+      currentTacticSelector: null,
+      turnOrder: newTurnOrder,
+      currentPlayerIndex: 0,
+    };
+    const events = [...existingEvents];
 
-    if (firstPlayerId) {
+    // If dummy is first in turn order, execute its turn and advance
+    let startIndex = 0;
+    if (newTurnOrder[0] && isDummyPlayer(newTurnOrder[0])) {
+      const dummyResult = executeDummyPlayerTurn(resultState);
+      resultState = dummyResult.state;
+      events.push(...dummyResult.events);
+      startIndex = 1 % newTurnOrder.length;
+      resultState = { ...resultState, currentPlayerIndex: startIndex };
+    }
+
+    // Check if first human player needs Sparing Power before-turn decision
+    const firstPlayerId = newTurnOrder[startIndex];
+    const playersForTurns: Player[] = [...resultState.players];
+
+    if (firstPlayerId && !isDummyPlayer(firstPlayerId)) {
       const firstPlayerIdx = playersForTurns.findIndex(
         (p) => p.id === firstPlayerId
       );
@@ -94,14 +127,10 @@ export function handlePhaseTransitionAfterDecision(
 
     return {
       state: {
-        ...currentState,
+        ...resultState,
         players: playersForTurns,
-        roundPhase: ROUND_PHASE_PLAYER_TURNS,
-        currentTacticSelector: null,
-        turnOrder: newTurnOrder,
-        currentPlayerIndex: 0,
       },
-      events: existingEvents,
+      events,
     };
   } else {
     // Move to next selector

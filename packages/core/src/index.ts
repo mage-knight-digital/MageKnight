@@ -8,6 +8,8 @@ export type * from "./types/index.js";
 export {
   Hero,
   HEROES,
+  DUMMY_PLAYER_ID,
+  isDummyPlayer,
   TileId,
   SiteType,
   RampagingEnemyType,
@@ -201,6 +203,9 @@ export {
   createMoveCommand,
   createRevealTileCommand,
 } from "./engine/index.js";
+
+// Dummy player helpers
+export { computeDummyTurnRange } from "./engine/helpers/dummyPlayerHelpers.js";
 
 // Utils
 export { shuffle } from "./utils/index.js";
