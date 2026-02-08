@@ -81,6 +81,21 @@ export function isRuleActive(
 }
 
 /**
+ * Count how many instances of a rule override are active for a player.
+ * Used when multiple stacked modifiers of the same rule have cumulative effect
+ * (e.g., Mana Storm grants 3 extra source dice via 3 RULE_EXTRA_SOURCE_DIE modifiers).
+ */
+export function countRuleActive(
+  state: GameState,
+  playerId: string,
+  rule: RuleOverrideModifier["rule"]
+): number {
+  return getModifiersForPlayer(state, playerId).filter(
+    (m) => m.effect.type === EFFECT_RULE_OVERRIDE && m.effect.rule === rule
+  ).length;
+}
+
+/**
  * Consume active movement card bonus modifiers for a player.
  * Returns the total bonus and updated state (modifiers decremented/removed).
  */

@@ -55,6 +55,7 @@ import { registerWingsOfNightEffects } from "./wingsOfNightEffects.js";
 import { registerDecomposeEffects } from "./decomposeEffects.js";
 import { registerCrystalMasteryEffects } from "./crystalMasteryEffects.js";
 import { registerPossessEffects } from "./possessEffects.js";
+import { registerManaStormEffects } from "./manaStormEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -202,4 +203,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Possess enemy effects (Charm/Possess spell powered effect)
   registerPossessEffects(resolver);
+
+  // Mana Storm effects (source die manipulation + modifiers)
+  registerManaStormEffects();
 }
