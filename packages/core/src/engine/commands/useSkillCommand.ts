@@ -14,7 +14,7 @@
 import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
 import type { Player, SkillCooldowns } from "../../types/player.js";
-import type { SkillId } from "@mage-knight/shared";
+import type { SkillId, ManaSourceInfo } from "@mage-knight/shared";
 import {
   createSkillUsedEvent,
 } from "@mage-knight/shared";
@@ -33,6 +33,7 @@ import {
   SKILL_ARYTHEA_POWER_OF_PAIN,
   SKILL_ARYTHEA_INVOCATION,
   SKILL_TOVAK_MANA_OVERLOAD,
+  SKILL_GOLDYX_UNIVERSAL_POWER,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -51,8 +52,11 @@ import {
   removeIDontGiveADamnEffect,
   applyManaOverloadEffect,
   removeManaOverloadEffect,
+  applyUniversalPowerEffect,
+  removeUniversalPowerEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
+import { restoreMana } from "./helpers/manaConsumptionHelpers.js";
 import {
   resolveEffect,
   reverseEffect,
@@ -95,6 +99,7 @@ export { USE_SKILL_COMMAND };
 export interface UseSkillCommandParams {
   readonly playerId: string;
   readonly skillId: SkillId;
+  readonly manaSource?: ManaSourceInfo;
 }
 
 /**
@@ -107,7 +112,8 @@ export interface UseSkillCommandParams {
 function applyCustomSkillEffect(
   state: GameState,
   playerId: string,
-  skillId: SkillId
+  skillId: SkillId,
+  manaSource?: ManaSourceInfo
 ): GameState {
   switch (skillId) {
     case SKILL_TOVAK_WHO_NEEDS_MAGIC:
@@ -133,6 +139,9 @@ function applyCustomSkillEffect(
 
     case SKILL_TOVAK_MANA_OVERLOAD:
       return applyManaOverloadEffect(state, playerId);
+
+    case SKILL_GOLDYX_UNIVERSAL_POWER:
+      return applyUniversalPowerEffect(state, playerId, manaSource);
 
     default:
       // Skill has no custom handler - will use generic effect resolution
@@ -176,6 +185,9 @@ function removeCustomSkillEffect(
     case SKILL_TOVAK_MANA_OVERLOAD:
       return removeManaOverloadEffect(state, playerId);
 
+    case SKILL_GOLDYX_UNIVERSAL_POWER:
+      return removeUniversalPowerEffect(state, playerId);
+
     default:
       return state;
   }
@@ -194,6 +206,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_ARYTHEA_POWER_OF_PAIN,
     SKILL_ARYTHEA_INVOCATION,
     SKILL_TOVAK_MANA_OVERLOAD,
+    SKILL_GOLDYX_UNIVERSAL_POWER,
   ].includes(skillId);
 }
 
@@ -382,7 +395,7 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
 
       // Check if skill has a custom handler
       if (hasCustomHandler(skillId)) {
-        updatedState = applyCustomSkillEffect(updatedState, playerId, skillId);
+        updatedState = applyCustomSkillEffect(updatedState, playerId, skillId, params.manaSource);
         return {
           state: updatedState,
           events: [createSkillUsedEvent(playerId, skillId)],
@@ -471,6 +484,19 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
         players[playerIndex] = updatedPlayer;
         let updatedState: GameState = { ...state, players };
         updatedState = removeCustomSkillEffect(updatedState, playerId, skillId);
+
+        // Restore mana if skill consumed mana at activation (Universal Power)
+        if (params.manaSource) {
+          const pIdx = getPlayerIndexByIdOrThrow(updatedState, playerId);
+          const currentPlayer = updatedState.players[pIdx];
+          if (currentPlayer) {
+            const manaResult = restoreMana(currentPlayer, updatedState.source, params.manaSource);
+            const restoredPlayers = [...updatedState.players];
+            restoredPlayers[pIdx] = manaResult.player;
+            updatedState = { ...updatedState, players: restoredPlayers, source: manaResult.source };
+          }
+        }
+
         return {
           state: updatedState,
           events: [],

@@ -25,8 +25,9 @@ import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
 import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, shouldExcludeInfluenceOnlyEffect, isRangedAttackUnusable, isTimeBendingChainPrevented, type CombatEffectContext } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
-import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
-import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT, RULE_INFLUENCE_CARDS_IN_COMBAT } from "../../../types/modifierConstants.js";
+import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "../../modifiers/index.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT, RULE_INFLUENCE_CARDS_IN_COMBAT, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
+import type { SidewaysValueModifier } from "../../../types/modifiers.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -219,13 +220,27 @@ function getCardPlayabilityForPhase(
     influenceCardsAllowed
   );
 
+  // Determine if Universal Power mana color matches this card's color
+  let manaColorMatchesCard: boolean | undefined;
+  const playerMods = getModifiersForPlayer(state, player.id);
+  const colorMatchMod = playerMods.find(
+    (m) =>
+      m.effect.type === EFFECT_SIDEWAYS_VALUE &&
+      (m.effect as SidewaysValueModifier).condition === SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR &&
+      (m.effect as SidewaysValueModifier).manaColor != null
+  );
+  if (colorMatchMod) {
+    const mod = colorMatchMod.effect as SidewaysValueModifier;
+    manaColorMatchesCard = card.poweredBy?.includes(mod.manaColor!) ?? false;
+  }
+
   // Calculate effective sideways value (accounts for skill modifiers)
   const effectiveSidewaysValue = getEffectiveSidewaysValue(
     state,
     player.id,
     false,
     player.usedManaFromSource,
-    undefined,
+    manaColorMatchesCard,
     card.cardType
   );
 

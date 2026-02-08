@@ -220,6 +220,10 @@ export const USE_SKILL_ACTION = "USE_SKILL" as const;
 export interface UseSkillAction {
   readonly type: typeof USE_SKILL_ACTION;
   readonly skillId: SkillId;
+  /**
+   * Optional mana source for skills that require mana spending (e.g., Universal Power).
+   */
+  readonly manaSource?: ManaSourceInfo;
 }
 
 // Return interactive skill from center (e.g., Prayer of Weather)

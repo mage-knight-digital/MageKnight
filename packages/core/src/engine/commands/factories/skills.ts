@@ -24,6 +24,7 @@ export const createUseSkillCommandFromAction: CommandFactory = (
   return createUseSkillCommand({
     playerId,
     skillId: useSkillAction.skillId,
+    manaSource: useSkillAction.manaSource,
   });
 };
 
