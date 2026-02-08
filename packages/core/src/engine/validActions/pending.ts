@@ -21,6 +21,7 @@ import type {
   DecomposeOptions,
   MaximalEffectOptions,
   BookOfWisdomOptions,
+  TrainingOptions,
   ArtifactCrystalColorOptions,
   CrystalJoyReclaimOptions,
   SteadyTempoOptions,
@@ -38,6 +39,7 @@ import { getCardsEligibleForDiscardForCrystal } from "../effects/discardForCryst
 import { getCardsEligibleForDecompose } from "../effects/decomposeEffects.js";
 import { getCardsEligibleForMaximalEffect } from "../effects/maximalEffectEffects.js";
 import { getCardsEligibleForBookOfWisdom } from "../effects/bookOfWisdomEffects.js";
+import { getCardsEligibleForTraining } from "../effects/trainingEffects.js";
 import { getCard } from "../helpers/cardLookup.js";
 import { isCardEligibleForReclaim } from "../rules/crystalJoyReclaim.js";
 
@@ -345,6 +347,42 @@ export function getBookOfWisdomOptions(
   if (phase === "select_card") {
     // Phase 1: show eligible action cards from hand
     const availableCardIds = getCardsEligibleForBookOfWisdom(player.hand, sourceCardId);
+    return {
+      sourceCardId,
+      mode,
+      phase,
+      availableCardIds,
+      availableOfferCards: [],
+    };
+  }
+
+  // Phase 2: show available offer cards
+  return {
+    sourceCardId,
+    mode,
+    phase,
+    availableCardIds: [],
+    availableOfferCards,
+  };
+}
+
+/**
+ * Get Training options for the player.
+ * Returns options if player has a pending Training state.
+ */
+export function getTrainingOptions(
+  state: GameState,
+  player: Player
+): TrainingOptions | undefined {
+  if (!player.pendingTraining) {
+    return undefined;
+  }
+
+  const { sourceCardId, mode, phase, availableOfferCards } = player.pendingTraining;
+
+  if (phase === "select_card") {
+    // Phase 1: show eligible action cards from hand
+    const availableCardIds = getCardsEligibleForTraining(player.hand, sourceCardId);
     return {
       sourceCardId,
       mode,

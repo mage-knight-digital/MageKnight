@@ -379,6 +379,12 @@ export const EFFECT_RESOLVE_MAGIC_TALENT_GAIN = "resolve_magic_talent_gain" as c
 // from the offer, then resolve the spell's basic effect.
 export const EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA = "resolve_magic_talent_spell_mana" as const;
 
+// === Training Effect ===
+// Throw away an action card from hand, then gain an AA of the same color from the offer.
+// Basic: gained AA goes to discard pile.
+// Powered: gained AA goes to hand.
+export const EFFECT_TRAINING = "training" as const;
+
 // === Learning Discount Effect ===
 // Adds a turn-scoped modifier enabling one discounted AA purchase from the regular offer.
 // Basic: pay 6 influence, AA to discard pile. Powered: pay 9 influence, AA to hand.

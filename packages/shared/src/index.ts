@@ -267,6 +267,9 @@ export type {
   // Book of Wisdom options (throw away action card, gain from offer)
   BookOfWisdomOptions,
   PendingBookOfWisdomState,
+  // Training options (throw away action card, gain same-color AA from offer)
+  TrainingOptions,
+  PendingTrainingState,
   // Crystal Joy reclaim options
   CrystalJoyReclaimOptions,
   // Steady Tempo deck placement options
