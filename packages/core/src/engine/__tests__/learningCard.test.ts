@@ -31,6 +31,11 @@ import {
   hexKey,
 } from "@mage-knight/shared";
 import type { CardId } from "@mage-knight/shared";
+import { getLearningAAPurchaseOptions } from "../validActions/learningAAPurchase.js";
+import {
+  validateHasInfluenceForMonasteryAA,
+  validateInLevelUpContext,
+} from "../validators/offerValidators.js";
 import type { ActiveModifier } from "../../types/modifiers.js";
 import {
   EFFECT_LEARNING_DISCOUNT,
@@ -583,6 +588,153 @@ describe("Learning Card - Discounted AA Acquisition", () => {
         cost: 9,
         destination: "hand",
       });
+    });
+  });
+
+  describe("getLearningAAPurchaseOptions", () => {
+    it("should return undefined when no learning discount modifier is active", () => {
+      const player = createTestPlayer({
+        position: { q: 0, r: 0 },
+        influencePoints: 10,
+      });
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        offers: {
+          units: [],
+          advancedActions: { cards: [CARD_FIRE_BOLT] },
+          spells: { cards: [] },
+          commonSkills: [],
+          monasteryAdvancedActions: [],
+        },
+        activeModifiers: [],
+      });
+
+      const options = getLearningAAPurchaseOptions(state, state.players[0]!);
+      expect(options).toBeUndefined();
+    });
+
+    it("should return undefined when AA offer is empty", () => {
+      const player = createTestPlayer({
+        position: { q: 0, r: 0 },
+        influencePoints: 10,
+      });
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        offers: {
+          units: [],
+          advancedActions: { cards: [] },
+          spells: { cards: [] },
+          commonSkills: [],
+          monasteryAdvancedActions: [],
+        },
+        activeModifiers: [
+          createLearningDiscountModifier(player.id, 6, "discard"),
+        ],
+      });
+
+      const options = getLearningAAPurchaseOptions(state, state.players[0]!);
+      expect(options).toBeUndefined();
+    });
+
+    it("should return options with canAfford=true when player has enough influence", () => {
+      const player = createTestPlayer({
+        position: { q: 0, r: 0 },
+        influencePoints: 6,
+      });
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        offers: {
+          units: [],
+          advancedActions: { cards: [CARD_FIRE_BOLT, CARD_ICE_BOLT] },
+          spells: { cards: [] },
+          commonSkills: [],
+          monasteryAdvancedActions: [],
+        },
+        activeModifiers: [
+          createLearningDiscountModifier(player.id, 6, "discard"),
+        ],
+      });
+
+      const options = getLearningAAPurchaseOptions(state, state.players[0]!);
+      expect(options).toBeDefined();
+      expect(options!.cost).toBe(6);
+      expect(options!.destination).toBe("discard");
+      expect(options!.canAfford).toBe(true);
+      expect(options!.availableCards).toEqual([CARD_FIRE_BOLT, CARD_ICE_BOLT]);
+    });
+
+    it("should return options with canAfford=false when player lacks influence", () => {
+      const player = createTestPlayer({
+        position: { q: 0, r: 0 },
+        influencePoints: 3,
+      });
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        offers: {
+          units: [],
+          advancedActions: { cards: [CARD_FIRE_BOLT] },
+          spells: { cards: [] },
+          commonSkills: [],
+          monasteryAdvancedActions: [],
+        },
+        activeModifiers: [
+          createLearningDiscountModifier(player.id, 9, "hand"),
+        ],
+      });
+
+      const options = getLearningAAPurchaseOptions(state, state.players[0]!);
+      expect(options).toBeDefined();
+      expect(options!.cost).toBe(9);
+      expect(options!.destination).toBe("hand");
+      expect(options!.canAfford).toBe(false);
+    });
+  });
+
+  describe("Validator direct tests", () => {
+    it("validateHasInfluenceForMonasteryAA rejects fromLearning without modifier", () => {
+      const player = createTestPlayer({
+        position: { q: 0, r: 0 },
+        influencePoints: 10,
+      });
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        activeModifiers: [],
+      });
+
+      const result = validateHasInfluenceForMonasteryAA(state, "player1", {
+        type: LEARN_ADVANCED_ACTION_ACTION,
+        cardId: CARD_FIRE_BOLT,
+        fromMonastery: false,
+        fromLearning: true,
+      });
+
+      expect(result.valid).toBe(false);
+    });
+
+    it("validateInLevelUpContext rejects fromLearning without modifier", () => {
+      const player = createTestPlayer({
+        position: { q: 0, r: 0 },
+        influencePoints: 10,
+      });
+      const state = createTestGameState({
+        players: [player],
+        phase: GAME_PHASE_ROUND,
+        activeModifiers: [],
+      });
+
+      const result = validateInLevelUpContext(state, "player1", {
+        type: LEARN_ADVANCED_ACTION_ACTION,
+        cardId: CARD_FIRE_BOLT,
+        fromMonastery: false,
+        fromLearning: true,
+      });
+
+      expect(result.valid).toBe(false);
     });
   });
 });
