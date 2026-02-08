@@ -302,3 +302,9 @@ export const RULE_NO_EXPLORATION = "no_exploration" as const;
 // Used by Braevalar's Elemental Resistance, Krang's Battle Hardened.
 export const EFFECT_HERO_DAMAGE_REDUCTION = "hero_damage_reduction" as const;
 
+// === ExploreCostReductionModifier ===
+// Reduces the move point cost of exploring (revealing a new tile).
+// Base exploration cost is 2; this modifier reduces it by the specified amount.
+// Used by Braevalar's Feral Allies passive effect.
+export const EFFECT_EXPLORE_COST_REDUCTION = "explore_cost_reduction" as const;
+

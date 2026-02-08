@@ -27,11 +27,8 @@ import { isCoastlineSlot, getColumnRangeForShape } from "../explore/tileGrid.js"
 import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
 import { mustAnnounceEndOfRound } from "./helpers.js";
-import { isRuleActive } from "../modifiers/index.js";
+import { isRuleActive, getEffectiveExploreCost } from "../modifiers/index.js";
 import { RULE_EXTENDED_EXPLORE, RULE_SPACE_BENDING_ADJACENCY, RULE_NO_EXPLORATION } from "../../types/modifierConstants.js";
-
-/** Exploration costs 2 move points from a safe space */
-const EXPLORE_COST = 2;
 
 /**
  * Get valid explore options for a player.
@@ -77,7 +74,8 @@ export function getValidExploreOptions(
   }
 
   // Must have enough move points
-  if (player.movePoints < EXPLORE_COST) {
+  const exploreCost = getEffectiveExploreCost(state, player.id);
+  if (player.movePoints < exploreCost) {
     return undefined;
   }
 
