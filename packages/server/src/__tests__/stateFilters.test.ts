@@ -101,6 +101,7 @@ function createMinimalGameState(): GameState {
         pendingDiscardForCrystal: null,
         pendingDecompose: null,
         pendingMaximalEffect: null,
+        pendingBookOfWisdom: null,
         pendingTerrainCostReduction: null,
         pendingAttackDefeatFame: [],
         enemiesDefeatedThisTurn: 0,

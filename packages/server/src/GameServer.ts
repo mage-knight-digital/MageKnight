@@ -578,6 +578,7 @@ export class GameServer {
       pendingDiscardForCrystal: null,
       pendingDecompose: null,
       pendingMaximalEffect: null,
+      pendingBookOfWisdom: null,
       pendingAttackDefeatFame: [],
       enemiesDefeatedThisTurn: 0,
       healingPoints: 0,

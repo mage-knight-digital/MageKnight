@@ -894,6 +894,28 @@ export interface MaximalEffectOptions {
 }
 
 // ============================================================================
+// Book of Wisdom (throw away action card, gain from offer)
+// ============================================================================
+
+/**
+ * Options for Book of Wisdom resolution.
+ * Phase "select_card": Player selects an action card from hand to throw away.
+ * Phase "select_from_offer": Player selects a matching card from the offer.
+ */
+export interface BookOfWisdomOptions {
+  /** Source card (Book of Wisdom) */
+  readonly sourceCardId: CardId;
+  /** Whether the effect is basic (AA offer) or powered (spell offer + crystal) */
+  readonly mode: "basic" | "powered";
+  /** Current resolution phase */
+  readonly phase: "select_card" | "select_from_offer";
+  /** Action cards available to throw away (phase 1 only) */
+  readonly availableCardIds: readonly CardId[];
+  /** Cards from offer matching thrown card's color (phase 2 only) */
+  readonly availableOfferCards: readonly CardId[];
+}
+
+// ============================================================================
 // Unit Maintenance (Magic Familiars round-start)
 // ============================================================================
 
@@ -1177,6 +1199,12 @@ export interface PendingMaximalEffectState {
   readonly maximalEffect: MaximalEffectOptions;
 }
 
+export interface PendingBookOfWisdomState {
+  readonly mode: "pending_book_of_wisdom";
+  readonly turn: BlockingTurnOptions;
+  readonly bookOfWisdom: BookOfWisdomOptions;
+}
+
 export interface PendingCrystalJoyState {
   readonly mode: "pending_crystal_joy_reclaim";
   readonly turn: BlockingTurnOptions;
@@ -1297,6 +1325,7 @@ export type ValidActions =
   | PendingDiscardForCrystalState
   | PendingDecomposeState
   | PendingMaximalEffectState
+  | PendingBookOfWisdomState
   | PendingArtifactCrystalColorState
   | PendingCrystalJoyState
   | PendingSteadyTempoState

@@ -125,6 +125,7 @@ import {
   EFFECT_RESOLVE_BONUS_CHOICE,
   EFFECT_ROLL_FOR_CRYSTALS,
   EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE,
+  EFFECT_BOOK_OF_WISDOM,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1436,6 +1437,16 @@ export interface ResolveCrystalRollChoiceEffect {
   readonly remainingResults: readonly ManaColor[];
 }
 
+/**
+ * Book of Wisdom: throw away an action card, then gain a card from offer matching color.
+ * Basic: gain AA from offer to hand.
+ * Powered: gain spell from offer to hand + crystal of that color.
+ */
+export interface BookOfWisdomEffect {
+  readonly type: typeof EFFECT_BOOK_OF_WISDOM;
+  readonly mode: "basic" | "powered";
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1539,7 +1550,8 @@ export type CardEffect =
   | ChooseBonusWithRiskEffect
   | ResolveBonusChoiceEffect
   | RollForCrystalsEffect
-  | ResolveCrystalRollChoiceEffect;
+  | ResolveCrystalRollChoiceEffect
+  | BookOfWisdomEffect;
 
 // === Card Definition ===
 

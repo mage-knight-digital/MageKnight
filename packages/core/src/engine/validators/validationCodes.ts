@@ -263,6 +263,11 @@ export const ARTIFACT_CRYSTAL_INVALID_COLOR = "ARTIFACT_CRYSTAL_INVALID_COLOR" a
 export const DECOMPOSE_REQUIRED = "DECOMPOSE_REQUIRED" as const;
 export const DECOMPOSE_CARD_NOT_ELIGIBLE = "DECOMPOSE_CARD_NOT_ELIGIBLE" as const;
 
+// Book of Wisdom validation codes
+export const BOOK_OF_WISDOM_REQUIRED = "BOOK_OF_WISDOM_REQUIRED" as const;
+export const BOOK_OF_WISDOM_CARD_NOT_ELIGIBLE = "BOOK_OF_WISDOM_CARD_NOT_ELIGIBLE" as const;
+export const BOOK_OF_WISDOM_CARD_NOT_IN_OFFER = "BOOK_OF_WISDOM_CARD_NOT_IN_OFFER" as const;
+
 // Maximal Effect validation codes
 export const MAXIMAL_EFFECT_REQUIRED = "MAXIMAL_EFFECT_REQUIRED" as const;
 export const MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE = "MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE" as const;
@@ -550,6 +555,10 @@ export type ValidationErrorCode =
   // Decompose validation
   | typeof DECOMPOSE_REQUIRED
   | typeof DECOMPOSE_CARD_NOT_ELIGIBLE
+  // Book of Wisdom validation
+  | typeof BOOK_OF_WISDOM_REQUIRED
+  | typeof BOOK_OF_WISDOM_CARD_NOT_ELIGIBLE
+  | typeof BOOK_OF_WISDOM_CARD_NOT_IN_OFFER
   // Maximal Effect validation
   | typeof MAXIMAL_EFFECT_REQUIRED
   | typeof MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE

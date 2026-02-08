@@ -264,6 +264,9 @@ export type {
   // Maximal Effect options (throw away action card and multiply its effect)
   MaximalEffectOptions,
   PendingMaximalEffectState,
+  // Book of Wisdom options (throw away action card, gain from offer)
+  BookOfWisdomOptions,
+  PendingBookOfWisdomState,
   // Crystal Joy reclaim options
   CrystalJoyReclaimOptions,
   // Steady Tempo deck placement options

@@ -260,6 +260,27 @@ export interface PendingMaximalEffect {
 }
 
 /**
+ * Pending Book of Wisdom resolution.
+ * Phase 1 (select_card): Player selects an action card from hand to throw away.
+ * Phase 2 (select_from_offer): Player selects a matching card from the AA or spell offer.
+ *
+ * Basic mode: AA offer → card goes to hand.
+ * Powered mode: Spell offer → card goes to hand + crystal of matching color.
+ */
+export interface PendingBookOfWisdom {
+  /** Source card (Book of Wisdom) */
+  readonly sourceCardId: CardId;
+  /** Whether this is "basic" or "powered" mode */
+  readonly mode: "basic" | "powered";
+  /** Current phase of the two-step resolution */
+  readonly phase: "select_card" | "select_from_offer";
+  /** Color of the thrown-away card (set after phase 1) */
+  readonly thrownCardColor: import("../types/effectTypes.js").BasicCardColor | null;
+  /** Cards available in the offer matching the thrown card color (set after phase 1) */
+  readonly availableOfferCards: readonly CardId[];
+}
+
+/**
  * Pending terrain cost reduction choice (Druidic Paths and similar effects).
  * Player must choose a hex coordinate or terrain type to apply cost reduction.
  */
@@ -471,6 +492,9 @@ export interface Player {
 
   // Maximal Effect pending (throw away action card and execute its effect multiple times)
   readonly pendingMaximalEffect: PendingMaximalEffect | null;
+
+  // Book of Wisdom pending (throw away action card, gain card from offer)
+  readonly pendingBookOfWisdom: PendingBookOfWisdom | null;
 
   // Attack-based fame tracking (e.g., Axe Throw powered effect)
   readonly pendingAttackDefeatFame: readonly AttackDefeatFameTracker[];

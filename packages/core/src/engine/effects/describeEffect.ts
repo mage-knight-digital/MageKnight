@@ -38,6 +38,7 @@ import {
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_DECOMPOSE,
   EFFECT_MAXIMAL_EFFECT,
+  EFFECT_BOOK_OF_WISDOM,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
@@ -343,6 +344,13 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     return e.effectKind === "basic"
       ? `Throw away an action card to use its basic effect ${e.multiplier} times`
       : `Throw away an action card to use its stronger effect ${e.multiplier} times`;
+  },
+
+  [EFFECT_BOOK_OF_WISDOM]: (effect) => {
+    const e = effect as import("../../types/cards.js").BookOfWisdomEffect;
+    return e.mode === "basic"
+      ? "Throw away an action card, gain Advanced Action of same color from offer"
+      : "Throw away an action card, gain Spell of same color from offer + crystal";
   },
 
   [EFFECT_CRYSTAL_MASTERY_BASIC]: () => {
