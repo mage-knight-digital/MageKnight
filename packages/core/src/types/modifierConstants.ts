@@ -374,3 +374,11 @@ export const EFFECT_GRANT_ENEMY_ABILITY = "grant_enemy_ability" as const;
 // Used when Nature's Vengeance token is in the center.
 export const EFFECT_NATURES_VENGEANCE_ATTACK_BONUS = "natures_vengeance_attack_bonus" as const;
 
+// === SoulHarvesterCrystalTrackingModifier ===
+// Tracks crystal rewards from Soul Harvester when enemies are defeated.
+// Basic: gain 1 crystal from first enemy defeated (by this attack).
+// Powered: gain 1 crystal per enemy defeated in current combat phase.
+// Crystal color options based on defeated enemy's resistances:
+//   Fire Resistance → Red, Ice Resistance → Blue, Physical Resistance → Green, always White.
+export const EFFECT_SOUL_HARVESTER_CRYSTAL_TRACKING = "soul_harvester_crystal_tracking" as const;
+

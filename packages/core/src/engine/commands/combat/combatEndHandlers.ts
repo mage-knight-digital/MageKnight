@@ -51,6 +51,7 @@ import {
 import { resolveAttackDefeatFameTrackers } from "../../combat/attackFameTracking.js";
 import { resolveScoutFameBonus } from "../../combat/scoutFameTracking.js";
 import { resolveBowPhaseFameBonus } from "../../combat/bowPhaseFameTracking.js";
+import { resolveSoulHarvesterCrystals } from "../../combat/soulHarvesterTracking.js";
 
 // ============================================================================
 // Helper Functions
@@ -128,6 +129,14 @@ export function applyDefeatedEnemyRewards(
     updatedState = applyFameToPlayer(updatedState, playerId, bowFameResult.fameToGain);
   } else if (bowFameResult.state !== updatedState) {
     updatedState = bowFameResult.state;
+  }
+
+  // Resolve Soul Harvester crystal rewards.
+  // Awards crystals based on defeated enemies' resistances, then consumes the modifier.
+  const newlyDefeatedEnemies = damageResult.enemies.filter((e) => e.isDefeated);
+  const soulHarvesterResult = resolveSoulHarvesterCrystals(updatedState, playerId, newlyDefeatedEnemies);
+  if (soulHarvesterResult.state !== updatedState) {
+    updatedState = soulHarvesterResult.state;
   }
 
   return { state: updatedState, events };
