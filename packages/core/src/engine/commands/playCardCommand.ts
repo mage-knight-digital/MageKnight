@@ -42,8 +42,12 @@ import {
   getModifiersForPlayer,
   getAttackBlockCardBonus,
   consumeAttackBlockCardBonus,
+  getShapeshiftModifier,
+  applyShapeshiftTransformation,
+  consumeShapeshiftModifier,
 } from "../modifiers/index.js";
 import { EFFECT_MOVEMENT_CARD_BONUS, EFFECT_ATTACK_BLOCK_CARD_BONUS } from "../../types/modifierConstants.js";
+import type { ShapeshiftActiveModifier } from "../../types/modifiers.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
 import { getCombatFilteredEffect } from "../rules/cardPlay.js";
 import { shuffleWithRng } from "../../utils/rng.js";
@@ -113,7 +117,7 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       const manaSources = getManaSources(params);
       const isPowered = params.powered === true && manaSources.length > 0;
       const effectType: CardEffectKind = isPowered ? "powered" : "basic";
-      const effectToApply = getCombatFilteredEffect(
+      let effectToApply = getCombatFilteredEffect(
         card,
         effectType,
         state.combat !== null
@@ -165,6 +169,18 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
 
       // Snapshot modifiers BEFORE effect resolution for undo
       preEffectModifiersSnapshot = newState.activeModifiers;
+
+      // Check for Shapeshift modifier targeting this card
+      const shapeshiftMod = getShapeshiftModifier(newState, params.playerId, params.cardId);
+      if (shapeshiftMod) {
+        const shapeshiftEffect = shapeshiftMod.effect as ShapeshiftActiveModifier;
+        effectToApply = applyShapeshiftTransformation(effectToApply, shapeshiftEffect);
+        appliedEffect = effectToApply;
+        // Consume the modifier (it's one-time use)
+        newState = consumeShapeshiftModifier(newState, shapeshiftMod.id);
+        // Update the snapshot to include the consumed modifier state
+        preEffectModifiersSnapshot = newState.activeModifiers;
+      }
 
       const movePointsBefore = newState.players[playerIndex]?.movePoints ?? 0;
       const movementBonusModifierIdsBefore = new Set(

@@ -34,6 +34,7 @@ import {
   SKILL_ARYTHEA_INVOCATION,
   SKILL_TOVAK_MANA_OVERLOAD,
   SKILL_GOLDYX_UNIVERSAL_POWER,
+  SKILL_BRAEVALAR_SHAPESHIFT,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -54,6 +55,8 @@ import {
   removeManaOverloadEffect,
   applyUniversalPowerEffect,
   removeUniversalPowerEffect,
+  applyShapeshiftEffect,
+  removeShapeshiftEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import { restoreMana } from "./helpers/manaConsumptionHelpers.js";
@@ -146,6 +149,9 @@ function applyCustomSkillEffect(
     case SKILL_GOLDYX_UNIVERSAL_POWER:
       return applyUniversalPowerEffect(state, playerId, manaSource);
 
+    case SKILL_BRAEVALAR_SHAPESHIFT:
+      return applyShapeshiftEffect(state, playerId);
+
     default:
       // Skill has no custom handler - will use generic effect resolution
       return state;
@@ -191,6 +197,9 @@ function removeCustomSkillEffect(
     case SKILL_GOLDYX_UNIVERSAL_POWER:
       return removeUniversalPowerEffect(state, playerId);
 
+    case SKILL_BRAEVALAR_SHAPESHIFT:
+      return removeShapeshiftEffect(state, playerId);
+
     default:
       return state;
   }
@@ -210,6 +219,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_ARYTHEA_INVOCATION,
     SKILL_TOVAK_MANA_OVERLOAD,
     SKILL_GOLDYX_UNIVERSAL_POWER,
+    SKILL_BRAEVALAR_SHAPESHIFT,
   ].includes(skillId);
 }
 

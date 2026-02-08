@@ -390,6 +390,11 @@ export const EFFECT_TRAINING = "training" as const;
 // Basic: pay 6 influence, AA to discard pile. Powered: pay 9 influence, AA to hand.
 export const EFFECT_APPLY_LEARNING_DISCOUNT = "apply_learning_discount" as const;
 
+// === Shapeshift Resolve Effect ===
+// Applied when the player selects a Shapeshift transformation.
+// Stores the target card and conversion, then applies a modifier.
+export const EFFECT_SHAPESHIFT_RESOLVE = "shapeshift_resolve" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.

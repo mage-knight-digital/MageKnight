@@ -333,3 +333,15 @@ export const EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL = "golden_grail_draw_on_heal" as c
 // Consumed on first use. Does not require being at a site.
 export const EFFECT_LEARNING_DISCOUNT = "learning_discount" as const;
 
+// === ShapeshiftActiveModifier ===
+// Marks that Braevalar's Shapeshift skill is active for a specific card.
+// When the targeted card is played, its effect is transformed:
+// Move ↔ Attack ↔ Block (preserving elemental types and amounts).
+// Consumed when the targeted card is played.
+export const EFFECT_SHAPESHIFT_ACTIVE = "shapeshift_active" as const;
+
+// === ShapeshiftActiveModifier target effect types ===
+export const SHAPESHIFT_TARGET_MOVE = "move" as const;
+export const SHAPESHIFT_TARGET_ATTACK = "attack" as const;
+export const SHAPESHIFT_TARGET_BLOCK = "block" as const;
+
