@@ -24,6 +24,7 @@ import {
 } from "../../types/effectTypes.js";
 import {
   DURATION_ROUND,
+  EFFECT_NATURES_VENGEANCE_ATTACK_BONUS,
   EFFECT_RULE_OVERRIDE,
   EFFECT_SIDEWAYS_VALUE,
   EFFECT_TERRAIN_COST,
@@ -34,6 +35,7 @@ import {
 } from "../../types/modifierConstants.js";
 import { SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/norowas/prayerOfWeather.js";
 import { SKILL_GOLDYX_SOURCE_OPENING } from "../../data/skills/goldyx/sourceFreeze.js";
+import { SKILL_BRAEVALAR_NATURES_VENGEANCE } from "../../data/skills/braevalar/naturesVengeance.js";
 
 // ============================================================================
 // DISCARD WOUNDS EFFECT
@@ -132,6 +134,18 @@ export function handlePlaceSkillInCenter(
       duration: DURATION_ROUND,
       scope: { type: SCOPE_OTHER_PLAYERS },
       effect: { type: EFFECT_TERRAIN_COST, terrain: TERRAIN_ALL, amount: 0, minimum: 0 },
+      createdAtRound: state.round,
+      createdByPlayerId: playerId,
+    });
+  } else if (skillId === SKILL_BRAEVALAR_NATURES_VENGEANCE) {
+    // Nature's Vengeance: add marker modifier so the system knows the skill is in center.
+    // Also add competitive penalty: other players' enemies get +1 attack during Block phase (S1).
+    // Owner is exempt (S1) — handled via SCOPE_OTHER_PLAYERS.
+    updatedState = addModifier(updatedState, {
+      source: { type: SOURCE_SKILL, skillId, playerId },
+      duration: DURATION_ROUND,
+      scope: { type: SCOPE_OTHER_PLAYERS },
+      effect: { type: EFFECT_NATURES_VENGEANCE_ATTACK_BONUS, amount: 1 },
       createdAtRound: state.round,
       createdByPlayerId: playerId,
     });

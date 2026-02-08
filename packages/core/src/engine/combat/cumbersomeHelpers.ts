@@ -15,16 +15,35 @@ import type { CombatEnemy } from "../../types/combat.js";
 import type { EnemyAbilityType } from "@mage-knight/shared";
 import { ABILITY_CUMBERSOME } from "@mage-knight/shared";
 import { isAbilityNullified } from "../modifiers/index.js";
+import { getModifiersForEnemy } from "../modifiers/queries.js";
+import { EFFECT_GRANT_ENEMY_ABILITY } from "../../types/modifierConstants.js";
 
 /**
- * Check if an enemy has a specific ability.
+ * Check if an enemy has a specific ability (native or granted by modifiers).
  */
 function hasAbility(enemy: CombatEnemy, abilityType: EnemyAbilityType): boolean {
   return enemy.definition.abilities.includes(abilityType);
 }
 
 /**
+ * Check if an enemy has been granted an ability via modifiers (e.g., Nature's Vengeance).
+ */
+function hasGrantedAbility(
+  state: GameState,
+  enemyInstanceId: string,
+  abilityType: EnemyAbilityType
+): boolean {
+  const modifiers = getModifiersForEnemy(state, enemyInstanceId);
+  return modifiers.some(
+    (m) =>
+      m.effect.type === EFFECT_GRANT_ENEMY_ABILITY &&
+      m.effect.ability === abilityType
+  );
+}
+
+/**
  * Check if enemy's Cumbersome ability is active (not nullified).
+ * Checks both native ability and dynamically granted ability (e.g., Nature's Vengeance).
  *
  * @param state - Game state
  * @param playerId - Player facing the enemy
@@ -36,7 +55,10 @@ export function isCumbersomeActive(
   playerId: string,
   enemy: CombatEnemy
 ): boolean {
-  if (!hasAbility(enemy, ABILITY_CUMBERSOME)) return false;
+  const hasNative = hasAbility(enemy, ABILITY_CUMBERSOME);
+  const hasGranted = hasGrantedAbility(state, enemy.instanceId, ABILITY_CUMBERSOME);
+
+  if (!hasNative && !hasGranted) return false;
   return !isAbilityNullified(state, playerId, enemy.instanceId, ABILITY_CUMBERSOME);
 }
 

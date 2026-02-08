@@ -7,26 +7,39 @@
  * - Applies the return benefit to the returning player (e.g., -1 terrain cost)
  * - Removes the center marker modifiers
  * - Flips the skill face-down on the owner
+ *
+ * Nature's Vengeance: return benefit triggers enemy selection (attack -1, Cumbersome)
+ * via the effect resolution system, creating a pending choice if in combat.
  */
 
 import type { Command, CommandResult } from "./types.js";
 import type { GameState } from "../../state/GameState.js";
-import type { Player } from "../../types/player.js";
-import type { SkillId } from "@mage-knight/shared";
+import type { Player, PendingChoice } from "../../types/player.js";
+import type { SkillId, GameEvent } from "@mage-knight/shared";
 import type { ActiveModifier } from "../../types/modifiers.js";
-import { createSkillUsedEvent } from "@mage-knight/shared";
+import type { CardEffect } from "../../types/cards.js";
+import { ABILITY_CUMBERSOME } from "@mage-knight/shared";
+import { createSkillUsedEvent, createChoiceRequiredEvent } from "@mage-knight/shared";
 import { RETURN_INTERACTIVE_SKILL_COMMAND } from "./commandTypes.js";
-import { SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING } from "../../data/skills/index.js";
+import { SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE } from "../../data/skills/index.js";
 import { addModifier } from "../modifiers/index.js";
+import { resolveEffect, describeEffect } from "../effects/index.js";
 import {
+  DURATION_COMBAT,
   DURATION_TURN,
+  EFFECT_ENEMY_STAT,
+  EFFECT_GRANT_ENEMY_ABILITY,
   EFFECT_RULE_OVERRIDE,
   EFFECT_TERRAIN_COST,
+  ENEMY_STAT_ATTACK,
   RULE_EXTRA_SOURCE_DIE,
   SCOPE_SELF,
   SOURCE_SKILL,
   TERRAIN_ALL,
 } from "../../types/modifierConstants.js";
+import {
+  EFFECT_SELECT_COMBAT_ENEMY,
+} from "../../types/effectTypes.js";
 import type { SourceOpeningCenter } from "../../state/GameState.js";
 export { RETURN_INTERACTIVE_SKILL_COMMAND };
 
@@ -107,23 +120,57 @@ function flipSkillFaceDown(
 }
 
 /**
+ * Nature's Vengeance return benefit: SELECT_COMBAT_ENEMY effect for attack -1 + Cumbersome.
+ * Same as the owner's effect but without placing in center.
+ */
+const NATURES_VENGEANCE_RETURN_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  excludeSummoners: true,
+  template: {
+    modifiers: [
+      {
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ATTACK,
+          amount: -1,
+          minimum: 0,
+        },
+        duration: DURATION_COMBAT,
+        description: "Nature's Vengeance: Attack -1",
+      },
+      {
+        modifier: {
+          type: EFFECT_GRANT_ENEMY_ABILITY,
+          ability: ABILITY_CUMBERSOME,
+        },
+        duration: DURATION_COMBAT,
+        description: "Nature's Vengeance: Gains Cumbersome",
+      },
+    ],
+  },
+};
+
+/**
  * Apply the return benefit based on the skill being returned.
+ * Returns { state, pendingChoice } if the benefit requires a choice (Nature's Vengeance).
  */
 function applyReturnBenefit(
   state: GameState,
   playerId: string,
   skillId: SkillId
-): GameState {
+): { state: GameState; pendingChoice?: boolean; events?: GameEvent[] } {
   if (skillId === SKILL_NOROWAS_PRAYER_OF_WEATHER) {
     // Prayer of Weather: returning player gets -1 terrain cost (min 1) this turn
-    return addModifier(state, {
-      source: { type: SOURCE_SKILL, skillId, playerId },
-      duration: DURATION_TURN,
-      scope: { type: SCOPE_SELF },
-      effect: { type: EFFECT_TERRAIN_COST, terrain: TERRAIN_ALL, amount: -1, minimum: 1 },
-      createdAtRound: state.round,
-      createdByPlayerId: playerId,
-    });
+    return {
+      state: addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId, playerId },
+        duration: DURATION_TURN,
+        scope: { type: SCOPE_SELF },
+        effect: { type: EFFECT_TERRAIN_COST, terrain: TERRAIN_ALL, amount: -1, minimum: 1 },
+        createdAtRound: state.round,
+        createdByPlayerId: playerId,
+      }),
+    };
   }
   if (skillId === SKILL_GOLDYX_SOURCE_OPENING) {
     // Source Opening: returning player gets an extra Source die (basic colors only).
@@ -153,9 +200,58 @@ function applyReturnBenefit(
       },
     };
 
-    return updatedState;
+    return { state: updatedState };
   }
-  return state;
+  if (skillId === SKILL_BRAEVALAR_NATURES_VENGEANCE) {
+    // Nature's Vengeance: reduce one enemy's attack by 1, grant Cumbersome.
+    // Requires enemy selection via the effect system.
+    if (!state.combat) {
+      // Not in combat — no benefit
+      return { state };
+    }
+
+    const effectResult = resolveEffect(state, playerId, NATURES_VENGEANCE_RETURN_EFFECT);
+
+    if (effectResult.requiresChoice && effectResult.dynamicChoiceOptions) {
+      // Multiple enemies — create pending choice
+      const playerIndex = state.players.findIndex((p) => p.id === playerId);
+      if (playerIndex === -1) {
+        return { state };
+      }
+
+      const pendingChoice: PendingChoice = {
+        cardId: null,
+        skillId: SKILL_BRAEVALAR_NATURES_VENGEANCE,
+        unitInstanceId: null,
+        options: effectResult.dynamicChoiceOptions,
+      };
+
+      const player = state.players[playerIndex]!;
+      const updatedPlayer: Player = {
+        ...player,
+        pendingChoice,
+      };
+      const players = [...effectResult.state.players];
+      players[playerIndex] = updatedPlayer;
+
+      const choiceEvent = createChoiceRequiredEvent(
+        playerId,
+        null,
+        SKILL_BRAEVALAR_NATURES_VENGEANCE,
+        effectResult.dynamicChoiceOptions.map((opt) => describeEffect(opt))
+      );
+
+      return {
+        state: { ...effectResult.state, players },
+        pendingChoice: true,
+        events: [choiceEvent],
+      };
+    }
+
+    // Single or no enemies — auto-resolved
+    return { state: effectResult.state };
+  }
+  return { state };
 }
 
 /**
@@ -198,14 +294,20 @@ export function createReturnInteractiveSkillCommand(
       let updatedState = removeCenterModifiers(state, skillId, savedOwnerId);
 
       // 2. Apply the return benefit to the returning player
-      updatedState = applyReturnBenefit(updatedState, playerId, skillId);
+      const benefitResult = applyReturnBenefit(updatedState, playerId, skillId);
+      updatedState = benefitResult.state;
 
       // 3. Flip skill face-down on owner
       updatedState = flipSkillFaceDown(updatedState, savedOwnerId, skillId);
 
+      const events: GameEvent[] = [createSkillUsedEvent(playerId, skillId)];
+      if (benefitResult.events) {
+        events.push(...benefitResult.events);
+      }
+
       return {
         state: updatedState,
-        events: [createSkillUsedEvent(playerId, skillId)],
+        events,
       };
     },
 
@@ -245,6 +347,8 @@ export function createReturnInteractiveSkillCommand(
               (id) => id !== skillId
             ),
           },
+          // Clear pending choice on undo
+          pendingChoice: null,
         };
         const players = [...updatedState.players];
         players[ownerIndex] = updatedOwner;

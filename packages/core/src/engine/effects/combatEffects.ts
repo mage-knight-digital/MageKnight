@@ -27,7 +27,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { CardId } from "@mage-knight/shared";
-import { ABILITY_ARCANE_IMMUNITY } from "@mage-knight/shared";
+import { ABILITY_ARCANE_IMMUNITY, ABILITY_SUMMON, ABILITY_SUMMON_GREEN } from "@mage-knight/shared";
 import { getFortificationLevel } from "../rules/combatTargeting.js";
 import type {
   SelectCombatEnemyEffect,
@@ -42,6 +42,7 @@ import {
   DURATION_COMBAT,
   EFFECT_DEFEAT_IF_BLOCKED,
   EFFECT_ENEMY_STAT,
+  EFFECT_GRANT_ENEMY_ABILITY,
   ENEMY_STAT_ATTACK,
   SCOPE_ONE_ENEMY,
   SOURCE_CARD,
@@ -111,6 +112,14 @@ export function resolveSelectCombatEnemy(
     // Filter out enemies with a specific resistance type
     if (effect.excludeResistance) {
       if (e.definition.resistances.includes(effect.excludeResistance)) return false;
+    }
+
+    // Filter out Summoner enemies (Nature's Vengeance S3)
+    if (effect.excludeSummoners) {
+      if (
+        e.definition.abilities.includes(ABILITY_SUMMON) ||
+        e.definition.abilities.includes(ABILITY_SUMMON_GREEN)
+      ) return false;
     }
 
     return true;
@@ -234,10 +243,14 @@ export function resolveCombatEnemyTarget(
   if (effect.template.modifiers) {
     for (const mod of effect.template.modifiers) {
       // Check if this modifier is blocked by Arcane Immunity
+      // Attack reductions bypass Arcane Immunity (FAQ Arcane Immunity S1)
+      // Granting Cumbersome bypasses Arcane Immunity (FAQ O4)
       const isAttackReduction =
         mod.modifier.type === EFFECT_ENEMY_STAT &&
         mod.modifier.stat === ENEMY_STAT_ATTACK;
-      if (hasArcaneImmunity && !isAttackReduction) {
+      const isGrantCumbersome =
+        mod.modifier.type === EFFECT_GRANT_ENEMY_ABILITY;
+      if (hasArcaneImmunity && !isAttackReduction && !isGrantCumbersome) {
         descriptions.push(`${effect.enemyName} has Arcane Immunity (modifier blocked)`);
         continue;
       }
