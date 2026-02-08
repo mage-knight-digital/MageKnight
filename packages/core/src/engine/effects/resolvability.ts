@@ -111,6 +111,11 @@ import {
   EFFECT_CRYSTAL_MASTERY_POWERED,
   EFFECT_POSSESS_ENEMY,
   EFFECT_RESOLVE_POSSESS_ENEMY,
+  EFFECT_MAGIC_TALENT_BASIC,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
+  EFFECT_MAGIC_TALENT_POWERED,
+  EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -140,7 +145,7 @@ import {
 } from "../../types/modifierConstants.js";
 import { countRuleActive } from "../modifiers/index.js";
 import { getSpentUnitsAtOrBelowLevel } from "./unitEffects.js";
-import { getActionCardColor } from "../helpers/cardColor.js";
+import { getActionCardColor, getSpellColor } from "../helpers/cardColor.js";
 
 // ============================================================================
 // TYPES
@@ -582,6 +587,36 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve Possess target is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_POSSESS_ENEMY]: () => true,
+
+  // Magic Talent basic is resolvable if player has colored cards to discard
+  // and there are matching spells in the offer
+  [EFFECT_MAGIC_TALENT_BASIC]: (state, player) => {
+    const hasColoredCards = player.hand.some(
+      (c) => c !== CARD_WOUND && (getActionCardColor(c) !== null || getSpellColor(c) !== null)
+    );
+    if (!hasColoredCards) return false;
+    return state.offers.spells.cards.length > 0;
+  },
+
+  // Resolve spell from offer is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_MAGIC_TALENT_SPELL]: () => true,
+
+  // Magic Talent powered is resolvable if player has mana tokens
+  // and there are spells in the offer
+  [EFFECT_MAGIC_TALENT_POWERED]: (state, player) => {
+    const basicColors = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE];
+    const hasBasicMana = player.pureMana.some(
+      (t) => basicColors.includes(t.color as typeof MANA_RED)
+    );
+    if (!hasBasicMana) return false;
+    return state.offers.spells.cards.length > 0;
+  },
+
+  // Resolve gain spell is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_MAGIC_TALENT_GAIN]: () => true,
+
+  // Resolve spell mana payment is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA]: () => true,
 };
 
 // ============================================================================

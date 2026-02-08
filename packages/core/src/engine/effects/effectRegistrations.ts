@@ -61,6 +61,7 @@ import { registerHornOfWrathEffects } from "./hornOfWrathEffects.js";
 import { registerMaximalEffectEffects } from "./maximalEffectEffects.js";
 import { registerEndlessGemPouchEffects } from "./endlessGemPouchEffects.js";
 import { registerBookOfWisdomEffects } from "./bookOfWisdomEffects.js";
+import { registerMagicTalentEffects } from "./magicTalentEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -226,4 +227,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Book of Wisdom effects (throw away action card, gain from offer)
   registerBookOfWisdomEffects();
+
+  // Magic Talent effects (spell offer interaction)
+  registerMagicTalentEffects(resolver);
 }

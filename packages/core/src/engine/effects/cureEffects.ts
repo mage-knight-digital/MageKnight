@@ -33,6 +33,13 @@ import {
 } from "../../types/modifierConstants.js";
 import { CARD_CURE } from "@mage-knight/shared";
 import { isEnemyFullyBlocked } from "../combat/enemyAttackHelpers.js";
+import {
+  getGoldenGrailFameTracker,
+  calculateGrailFame,
+  updateGrailFameTracker,
+  isGoldenGrailDrawOnHealActive,
+} from "./goldenGrailHelpers.js";
+import { applyGainFame, applyDrawCards } from "./atomicEffects.js";
 
 // ============================================================================
 // CURE EFFECT
@@ -117,6 +124,39 @@ export function handleCureEffect(
           ? "Drew 1 card (Cure)"
           : `Drew ${cardsToDraw} cards (Cure)`
       );
+    }
+  }
+
+  // Golden Grail fame tracking: award Fame +1 per Grail healing point spent
+  if (woundsToHeal > 0) {
+    const grailFameTracker = getGoldenGrailFameTracker(state, player.id);
+    if (grailFameTracker) {
+      const fameToAward = calculateGrailFame(grailFameTracker, woundsToHeal);
+      if (fameToAward > 0) {
+        currentState = updateGrailFameTracker(currentState, grailFameTracker, fameToAward);
+        currentPlayer = currentState.players[playerIndex]!;
+        const fameResult = applyGainFame(currentState, playerIndex, currentPlayer, fameToAward);
+        currentState = fameResult.state;
+        currentPlayer = currentState.players[playerIndex]!;
+
+        descriptions.push(
+          fameToAward === 1
+            ? "Fame +1 (Golden Grail)"
+            : `Fame +${fameToAward} (Golden Grail)`
+        );
+      }
+    }
+  }
+
+  // Golden Grail draw-on-heal: draw a card each time a wound is healed from hand
+  if (woundsToHeal > 0 && isGoldenGrailDrawOnHealActive(state, player.id)) {
+    currentPlayer = currentState.players[playerIndex]!;
+    const drawResult = applyDrawCards(currentState, playerIndex, currentPlayer, woundsToHeal);
+    currentState = drawResult.state;
+    currentPlayer = currentState.players[playerIndex]!;
+
+    if (drawResult.description !== "No cards to draw") {
+      descriptions.push(drawResult.description + " (Golden Grail)");
     }
   }
 

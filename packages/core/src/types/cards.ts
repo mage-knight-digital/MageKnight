@@ -12,6 +12,7 @@ import type {
   DiscardFilter,
   RevealTileType,
   ResistanceType,
+  ManaSourceInfo,
 } from "@mage-knight/shared";
 import {
   MANA_RED,
@@ -126,6 +127,11 @@ import {
   EFFECT_ROLL_FOR_CRYSTALS,
   EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE,
   EFFECT_BOOK_OF_WISDOM,
+  EFFECT_MAGIC_TALENT_BASIC,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
+  EFFECT_MAGIC_TALENT_POWERED,
+  EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1447,6 +1453,69 @@ export interface BookOfWisdomEffect {
   readonly mode: "basic" | "powered";
 }
 
+/**
+ * Magic Talent basic effect entry point.
+ * Discard a card of any color from hand. Then play one Spell card of the
+ * same color from the Spells Offer as if it were in your hand.
+ * The spell remains in the offer after use.
+ * Must still pay mana cost to cast the spell.
+ */
+export interface MagicTalentBasicEffect {
+  readonly type: typeof EFFECT_MAGIC_TALENT_BASIC;
+}
+
+/**
+ * Internal: After discarding a card for Magic Talent basic, resolve the
+ * selected spell from the offer. The spell's basic effect is resolved
+ * but the spell card stays in the offer.
+ */
+export interface ResolveMagicTalentSpellEffect {
+  readonly type: typeof EFFECT_RESOLVE_MAGIC_TALENT_SPELL;
+  /** The spell card selected from the offer */
+  readonly spellCardId: CardId;
+  /** Name of the spell for display */
+  readonly spellName: string;
+}
+
+/**
+ * Magic Talent powered effect entry point.
+ * Pay a mana of any color (in addition to blue for powering the card).
+ * Gain a Spell card of that color from the Spells Offer to your discard pile.
+ */
+export interface MagicTalentPoweredEffect {
+  readonly type: typeof EFFECT_MAGIC_TALENT_POWERED;
+}
+
+/**
+ * Internal: After paying mana for Magic Talent powered, gain the
+ * selected spell from the offer to the player's discard pile.
+ * The offer is replenished from the spell deck.
+ */
+export interface ResolveMagicTalentGainEffect {
+  readonly type: typeof EFFECT_RESOLVE_MAGIC_TALENT_GAIN;
+  /** The spell card selected from the offer */
+  readonly spellCardId: CardId;
+  /** Name of the spell for display */
+  readonly spellName: string;
+}
+
+/**
+ * Internal: Consume a specific mana source to pay for casting a spell
+ * from the Spell Offer via Magic Talent basic, then resolve the spell's
+ * basic effect. Generated as dynamic choice options when multiple mana
+ * sources are available.
+ */
+export interface ResolveMagicTalentSpellManaEffect {
+  readonly type: typeof EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA;
+  /** The spell card to cast from the offer */
+  readonly spellCardId: CardId;
+  /** Name of the spell for display */
+  readonly spellName: string;
+  /** The mana source to consume for payment */
+  readonly manaSource: ManaSourceInfo;
+}
+
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1551,7 +1620,12 @@ export type CardEffect =
   | ResolveBonusChoiceEffect
   | RollForCrystalsEffect
   | ResolveCrystalRollChoiceEffect
-  | BookOfWisdomEffect;
+  | BookOfWisdomEffect
+  | MagicTalentBasicEffect
+  | ResolveMagicTalentSpellEffect
+  | MagicTalentPoweredEffect
+  | ResolveMagicTalentGainEffect
+  | ResolveMagicTalentSpellManaEffect;
 
 // === Card Definition ===
 

@@ -80,6 +80,11 @@ import {
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
+  EFFECT_MAGIC_TALENT_BASIC,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
+  EFFECT_MAGIC_TALENT_POWERED,
+  EFFECT_RESOLVE_MAGIC_TALENT_GAIN,
+  EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA,
 } from "../../types/effectTypes.js";
 import type {
   DiscardForCrystalEffect,
@@ -530,6 +535,27 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const e = effect as import("../../types/cards.js").ResolveWingsOfNightTargetEffect;
     const costStr = e.moveCost > 0 ? ` (${e.moveCost} Move)` : "";
     return `${e.enemyName} does not attack${costStr}`;
+  },
+
+  [EFFECT_MAGIC_TALENT_BASIC]: () =>
+    "Discard a colored card to play a Spell of the same color from the offer",
+
+  [EFFECT_RESOLVE_MAGIC_TALENT_SPELL]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveMagicTalentSpellEffect;
+    return `Play ${e.spellName} from the Spell Offer`;
+  },
+
+  [EFFECT_MAGIC_TALENT_POWERED]: () =>
+    "Pay a mana to gain a Spell of that color from the offer",
+
+  [EFFECT_RESOLVE_MAGIC_TALENT_GAIN]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveMagicTalentGainEffect;
+    return `Gain ${e.spellName} from the Spell Offer`;
+  },
+
+  [EFFECT_RESOLVE_MAGIC_TALENT_SPELL_MANA]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveMagicTalentSpellManaEffect;
+    return `Pay ${e.manaSource.color} mana to cast ${e.spellName}`;
   },
 };
 

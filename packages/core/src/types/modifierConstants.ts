@@ -308,3 +308,15 @@ export const EFFECT_HERO_DAMAGE_REDUCTION = "hero_damage_reduction" as const;
 // Used by Braevalar's Feral Allies passive effect.
 export const EFFECT_EXPLORE_COST_REDUCTION = "explore_cost_reduction" as const;
 
+// === GoldenGrailFameTrackingModifier ===
+// Tracks healing points from Golden Grail that have been spent (used to heal wounds).
+// Awards Fame +1 per healing point spent from this card.
+// Modifier stores the remaining healing amount from the Grail; each time
+// a wound is healed from hand, fame is awarded and the remaining decrements.
+export const EFFECT_GOLDEN_GRAIL_FAME_TRACKING = "golden_grail_fame_tracking" as const;
+
+// === GoldenGrailDrawOnHealModifier ===
+// When active, every time a wound is healed from hand this turn, draw 1 card.
+// Used by Golden Grail powered effect. Duration: turn.
+export const EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL = "golden_grail_draw_on_heal" as const;
+
