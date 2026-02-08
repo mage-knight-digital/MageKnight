@@ -295,3 +295,10 @@ export const EFFECT_ATTACK_BLOCK_CARD_BONUS = "attack_block_card_bonus" as const
 // Prevents tile exploration (Wings of Wind flight)
 export const RULE_NO_EXPLORATION = "no_exploration" as const;
 
+// === HeroDamageReductionModifier ===
+// Reduces incoming damage to the hero from a single enemy attack.
+// Element-specific: different reduction amounts based on attack element.
+// Applied AFTER Brutal doubling, BEFORE armor division.
+// Used by Braevalar's Elemental Resistance, Krang's Battle Hardened.
+export const EFFECT_HERO_DAMAGE_REDUCTION = "hero_damage_reduction" as const;
+

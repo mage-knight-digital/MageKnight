@@ -10,6 +10,8 @@ import type {
   EnemyStatModifier,
   CombatValueModifier,
   AbilityNullifierModifier,
+  HeroDamageReductionModifier,
+  ActiveModifier,
 } from "../../types/modifiers.js";
 import type { EnemyAbility } from "../../types/enemy.js";
 import type { CombatEnemy, CombatPhase } from "../../types/combat.js";
@@ -28,6 +30,7 @@ import {
   EFFECT_DOUBLE_PHYSICAL_ATTACKS,
   EFFECT_ENEMY_SKIP_ATTACK,
   EFFECT_ENEMY_STAT,
+  EFFECT_HERO_DAMAGE_REDUCTION,
   EFFECT_REMOVE_FIRE_RESISTANCE,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_DEFEAT_IF_BLOCKED,
@@ -432,4 +435,32 @@ export function getPossessAttackRestriction(
     }
   }
   return totalRestricted;
+}
+
+/**
+ * Get the hero damage reduction modifier matching the given attack element.
+ * Returns the matching modifier and its ActiveModifier wrapper (for removal after use),
+ * or null if no matching modifier is active.
+ *
+ * The modifier only applies if the attack element is in the modifier's elements list.
+ * Used by Elemental Resistance (Fire/Ice = 2, Physical/ColdFire = 1)
+ * and Battle Hardened (Physical = 2, Fire/Ice/ColdFire = 1).
+ */
+export function getHeroDamageReduction(
+  state: GameState,
+  playerId: string,
+  attackElement: import("@mage-knight/shared").Element
+): { modifier: HeroDamageReductionModifier; activeModifier: ActiveModifier } | null {
+  const modifiers = getModifiersForPlayer(state, playerId);
+
+  for (const mod of modifiers) {
+    if (mod.effect.type !== EFFECT_HERO_DAMAGE_REDUCTION) continue;
+
+    const effect = mod.effect as HeroDamageReductionModifier;
+    if (effect.elements.includes(attackElement)) {
+      return { modifier: effect, activeModifier: mod };
+    }
+  }
+
+  return null;
 }

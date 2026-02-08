@@ -59,6 +59,7 @@ import {
   EFFECT_UNIT_COMBAT_BONUS,
   EFFECT_LEADERSHIP_BONUS,
   EFFECT_POSSESS_ATTACK_RESTRICTION,
+  EFFECT_HERO_DAMAGE_REDUCTION,
   LEADERSHIP_BONUS_BLOCK,
   LEADERSHIP_BONUS_ATTACK,
   LEADERSHIP_BONUS_RANGED_ATTACK,
@@ -502,6 +503,24 @@ export interface AttackBlockCardBonusModifier {
   readonly blockBonus: number; // +2 (basic) or +4 (powered)
 }
 
+// Hero damage reduction modifier (Elemental Resistance, Battle Hardened)
+// Reduces incoming damage to the hero from a single enemy attack.
+// Applied AFTER Brutal doubling, BEFORE armor division.
+// The reduction amount depends on the attack element:
+// - Matching elements get the full reduction (e.g., Fire/Ice get 2 for Elemental Resistance)
+// - Other elements get a lesser reduction (e.g., Physical/ColdFire get 1)
+// Consumed after first application (single attack scope).
+export interface HeroDamageReductionModifier {
+  readonly type: typeof EFFECT_HERO_DAMAGE_REDUCTION;
+  readonly amount: number;
+  readonly elements: readonly (
+    | typeof ELEMENT_FIRE
+    | typeof ELEMENT_ICE
+    | typeof ELEMENT_COLD_FIRE
+    | typeof ELEMENT_PHYSICAL
+  )[];
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -542,7 +561,8 @@ export type ModifierEffect =
   | UnitBlockBonusModifier
   | BannerGloryFameTrackingModifier
   | PossessAttackRestrictionModifier
-  | AttackBlockCardBonusModifier;
+  | AttackBlockCardBonusModifier
+  | HeroDamageReductionModifier;
 
 // === Active Modifier (live in game state) ===
 

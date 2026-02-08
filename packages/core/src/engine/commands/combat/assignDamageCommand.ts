@@ -46,6 +46,8 @@ import {
   getVampiricArmorBonus,
 } from "../../combat/vampiricHelpers.js";
 import { getBannerForUnit, markBannerUsed } from "../../rules/banners.js";
+import { getHeroDamageReduction } from "../../modifiers/index.js";
+import { removeModifier } from "../../modifiers/index.js";
 
 export const ASSIGN_DAMAGE_COMMAND = "ASSIGN_DAMAGE" as const;
 
@@ -117,15 +119,30 @@ export function createAssignDamageCommand(
       const attackBeingResolved = getEnemyAttack(enemy, attackIndex);
 
       // Get effective damage (Brutal doubles damage)
-      const totalDamage = getEffectiveDamage(
+      let totalDamage = getEffectiveDamage(
         enemy,
         attackIndex,
         state,
         params.playerId
       );
       const attackElement = attackBeingResolved.element;
-      const isPoisoned = isPoisonActive(state, params.playerId, enemy);
-      const isParalyzed = isParalyzeActive(state, params.playerId, enemy);
+
+      // Apply hero damage reduction (Elemental Resistance, Battle Hardened)
+      // Happens AFTER Brutal doubling, reduces total damage from this attack.
+      // The modifier is consumed (removed) after use.
+      let currentState = state;
+      const damageReduction = getHeroDamageReduction(
+        currentState,
+        params.playerId,
+        attackElement
+      );
+      if (damageReduction && totalDamage > 0) {
+        totalDamage = Math.max(0, totalDamage - damageReduction.modifier.amount);
+        currentState = removeModifier(currentState, damageReduction.activeModifier.id);
+      }
+
+      const isPoisoned = isPoisonActive(currentState, params.playerId, enemy);
+      const isParalyzed = isParalyzeActive(currentState, params.playerId, enemy);
       const events: GameEvent[] = [];
 
       let updatedPlayer: Player = player;
@@ -140,7 +157,7 @@ export function createAssignDamageCommand(
       for (const assignment of assignments) {
         if (assignment.target === DAMAGE_TARGET_UNIT) {
           const result = processUnitAssignment(
-            state,
+            currentState,
             updatedPlayer,
             assignment,
             attackElement,
@@ -165,7 +182,7 @@ export function createAssignDamageCommand(
           params.playerId,
           isPoisoned,
           isParalyzed,
-          state.combat.woundsThisCombat
+          currentState.combat.woundsThisCombat
         );
         updatedPlayer = woundResult.player;
         events.push(...woundResult.events);
@@ -181,26 +198,26 @@ export function createAssignDamageCommand(
         woundsTaken: heroWounds,
       });
 
-      const updatedPlayers = state.players.map((p, i) =>
+      const updatedPlayers = currentState.players.map((p, i) =>
         i === playerIndex ? updatedPlayer : p
       );
 
       // Mark attack as having damage assigned
       const updatedEnemies = updateEnemyDamageAssigned(
-        state.combat.enemies,
+        currentState.combat.enemies,
         params.enemyInstanceId,
         attackIndex,
         attackCount
       );
 
       // Only wounds to HAND count for knockout tracking
-      const combatWoundsThisCombat = state.combat.woundsThisCombat + heroWounds;
+      const combatWoundsThisCombat = currentState.combat.woundsThisCombat + heroWounds;
 
       // Track Vampiric armor bonus: count total wounds dealt (hero + units)
       // Only count wounds that actually happened, not poison extra wounds to discard
-      let updatedVampiricArmorBonus = state.combat.vampiricArmorBonus;
+      let updatedVampiricArmorBonus = currentState.combat.vampiricArmorBonus;
 
-      if (isVampiricActive(state, params.playerId, enemy)) {
+      if (isVampiricActive(currentState, params.playerId, enemy)) {
         // Count wounds from all sources:
         // - heroWounds: wounds to hero's hand
         // - Unit wounds: each UNIT_WOUNDED or UNIT_DESTROYED event = 1 wound
@@ -211,25 +228,25 @@ export function createAssignDamageCommand(
         const totalWoundsDealt = heroWounds + unitWoundCount;
 
         if (totalWoundsDealt > 0) {
-          const currentBonus = getVampiricArmorBonus(state, params.enemyInstanceId);
+          const currentBonus = getVampiricArmorBonus(currentState, params.enemyInstanceId);
           const newBonus = currentBonus + totalWoundsDealt;
 
           updatedVampiricArmorBonus = {
-            ...state.combat.vampiricArmorBonus,
+            ...currentState.combat.vampiricArmorBonus,
             [params.enemyInstanceId]: newBonus,
           };
         }
       }
 
       const updatedCombat = {
-        ...state.combat,
+        ...currentState.combat,
         enemies: updatedEnemies,
         woundsThisCombat: combatWoundsThisCombat,
         vampiricArmorBonus: updatedVampiricArmorBonus,
       };
 
       return {
-        state: { ...state, combat: updatedCombat, players: updatedPlayers },
+        state: { ...currentState, combat: updatedCombat, players: updatedPlayers },
         events,
       };
     },
