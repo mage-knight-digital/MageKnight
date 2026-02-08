@@ -19,6 +19,7 @@ import type {
   DiscardForAttackOptions,
   DiscardForCrystalOptions,
   DecomposeOptions,
+  MaximalEffectOptions,
   ArtifactCrystalColorOptions,
   CrystalJoyReclaimOptions,
   SteadyTempoOptions,
@@ -34,6 +35,7 @@ import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
 import { getCardsEligibleForDiscardForAttack } from "../effects/swordOfJusticeEffects.js";
 import { getCardsEligibleForDiscardForCrystal } from "../effects/discardForCrystalEffects.js";
 import { getCardsEligibleForDecompose } from "../effects/decomposeEffects.js";
+import { getCardsEligibleForMaximalEffect } from "../effects/maximalEffectEffects.js";
 import { getCard } from "../helpers/cardLookup.js";
 import { isCardEligibleForReclaim } from "../rules/crystalJoyReclaim.js";
 
@@ -213,6 +215,29 @@ export function getDecomposeOptions(
     sourceCardId,
     availableCardIds,
     mode,
+  };
+}
+
+/**
+ * Get Maximal Effect options for the player.
+ * Returns options if player has a pending maximal effect state (Maximal Effect card).
+ */
+export function getMaximalEffectOptions(
+  _state: GameState,
+  player: Player
+): MaximalEffectOptions | undefined {
+  if (!player.pendingMaximalEffect) {
+    return undefined;
+  }
+
+  const { sourceCardId, multiplier, effectKind } = player.pendingMaximalEffect;
+  const availableCardIds = getCardsEligibleForMaximalEffect(player.hand, sourceCardId);
+
+  return {
+    sourceCardId,
+    availableCardIds,
+    multiplier,
+    effectKind,
   };
 }
 

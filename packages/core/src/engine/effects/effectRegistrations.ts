@@ -58,6 +58,7 @@ import { registerPossessEffects } from "./possessEffects.js";
 import { registerManaStormEffects } from "./manaStormEffects.js";
 import { registerSourceOpeningEffects } from "./sourceOpeningEffects.js";
 import { registerHornOfWrathEffects } from "./hornOfWrathEffects.js";
+import { registerMaximalEffectEffects } from "./maximalEffectEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -214,4 +215,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Horn of Wrath effects (die rolling with wound risk)
   registerHornOfWrathEffects();
+
+  // Maximal Effect effects (throw away action card and multiply its effect)
+  registerMaximalEffectEffects();
 }

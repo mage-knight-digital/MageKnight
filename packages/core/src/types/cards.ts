@@ -112,6 +112,7 @@ import {
   EFFECT_RESOLVE_MIND_STEAL_SELECTION,
   EFFECT_ACTIVATE_BANNER_PROTECTION,
   EFFECT_DECOMPOSE,
+  EFFECT_MAXIMAL_EFFECT,
   EFFECT_HEAL_ALL_UNITS,
   EFFECT_WINGS_OF_NIGHT,
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
@@ -748,6 +749,29 @@ export interface DecomposeEffect {
   readonly type: typeof EFFECT_DECOMPOSE;
   /** "basic" = 2 crystals of matching color, "powered" = 1 of each non-matching color */
   readonly mode: "basic" | "powered";
+}
+
+/**
+ * Maximal Effect - throw away an action card from hand and use its effect multiple times.
+ * Used by the Maximal Effect advanced action card.
+ *
+ * Resolution:
+ * - Player selects an action card from hand (excluding Maximal Effect itself and wounds)
+ * - Card is permanently removed from the game (added to removedCards)
+ * - Basic mode: use target card's basic effect 3 times
+ * - Powered mode: use target card's powered effect 2 times (for free)
+ *
+ * Effects aggregate: e.g., 3x Attack 2 = single Attack 6.
+ * Cards with choices allow different choices per use.
+ *
+ * Creates pendingMaximalEffect state. Player selects card via RESOLVE_MAXIMAL_EFFECT action.
+ */
+export interface MaximalEffectEffect {
+  readonly type: typeof EFFECT_MAXIMAL_EFFECT;
+  /** How many times to execute the target card's effect */
+  readonly multiplier: number;
+  /** Whether to use the target card's "basic" or "powered" effect */
+  readonly effectKind: "basic" | "powered";
 }
 
 /**
@@ -1435,6 +1459,7 @@ export type CardEffect =
   | PolarizeManaEffect
   | DiscardForCrystalEffect
   | DecomposeEffect
+  | MaximalEffectEffect
   | RecruitDiscountEffect
   | ReadyUnitsForInfluenceEffect
   | ResolveReadyUnitForInfluenceEffect

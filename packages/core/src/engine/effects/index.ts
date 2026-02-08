@@ -339,6 +339,13 @@ export {
   registerHornOfWrathEffects,
 } from "./hornOfWrathEffects.js";
 
+// Maximal Effect effects (throw away action card and multiply its effect)
+export {
+  getCardsEligibleForMaximalEffect,
+  handleMaximalEffectEffect,
+  registerMaximalEffectEffects,
+} from "./maximalEffectEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

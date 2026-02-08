@@ -250,3 +250,10 @@ export {
   type ResolveArtifactCrystalColorCommandParams,
   RESOLVE_ARTIFACT_CRYSTAL_COLOR_COMMAND,
 } from "./resolveArtifactCrystalColorCommand.js";
+
+// Maximal Effect command (throw away action card and multiply its effect)
+export {
+  createResolveMaximalEffectCommand,
+  type ResolveMaximalEffectCommandParams,
+  RESOLVE_MAXIMAL_EFFECT_COMMAND,
+} from "./resolveMaximalEffectCommand.js";

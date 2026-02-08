@@ -37,6 +37,7 @@ import {
   EFFECT_PLACE_SKILL_IN_CENTER,
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_DECOMPOSE,
+  EFFECT_MAXIMAL_EFFECT,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
@@ -82,6 +83,7 @@ import {
 import type {
   DiscardForCrystalEffect,
   DecomposeEffect,
+  MaximalEffectEffect,
   RecruitDiscountEffect,
   ReadyUnitsForInfluenceEffect,
   ResolveReadyUnitForInfluenceEffect,
@@ -334,6 +336,13 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     return e.mode === "basic"
       ? "Throw away an action card to gain 2 crystals of matching color"
       : "Throw away an action card to gain 1 crystal of each non-matching color";
+  },
+
+  [EFFECT_MAXIMAL_EFFECT]: (effect) => {
+    const e = effect as MaximalEffectEffect;
+    return e.effectKind === "basic"
+      ? `Throw away an action card to use its basic effect ${e.multiplier} times`
+      : `Throw away an action card to use its stronger effect ${e.multiplier} times`;
   },
 
   [EFFECT_CRYSTAL_MASTERY_BASIC]: () => {

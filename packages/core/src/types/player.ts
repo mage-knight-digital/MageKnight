@@ -245,6 +245,21 @@ export interface PendingDecompose {
 }
 
 /**
+ * Pending Maximal Effect resolution (Maximal Effect advanced action card).
+ * Player must select an action card from hand to throw away and execute its effect multiple times.
+ * - Basic mode: use target card's basic effect 3 times
+ * - Powered mode: use target card's powered effect 2 times (for free)
+ */
+export interface PendingMaximalEffect {
+  /** Source card that triggered the effect (Maximal Effect card) */
+  readonly sourceCardId: CardId;
+  /** How many times to execute the target card's effect */
+  readonly multiplier: number;
+  /** Whether to use the target card's "basic" or "powered" effect */
+  readonly effectKind: "basic" | "powered";
+}
+
+/**
  * Pending terrain cost reduction choice (Druidic Paths and similar effects).
  * Player must choose a hex coordinate or terrain type to apply cost reduction.
  */
@@ -453,6 +468,9 @@ export interface Player {
 
   // Decompose pending (throw away action card for crystals)
   readonly pendingDecompose: PendingDecompose | null;
+
+  // Maximal Effect pending (throw away action card and execute its effect multiple times)
+  readonly pendingMaximalEffect: PendingMaximalEffect | null;
 
   // Attack-based fame tracking (e.g., Axe Throw powered effect)
   readonly pendingAttackDefeatFame: readonly AttackDefeatFameTracker[];

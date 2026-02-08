@@ -67,6 +67,9 @@ export const RESOLVE_ARTIFACT_CRYSTAL_COLOR_COMMAND = "RESOLVE_ARTIFACT_CRYSTAL_
 // Decompose command (throw away action card for crystals)
 export const RESOLVE_DECOMPOSE_COMMAND = "RESOLVE_DECOMPOSE" as const;
 
+// Maximal Effect command (throw away action card and multiply its effect)
+export const RESOLVE_MAXIMAL_EFFECT_COMMAND = "RESOLVE_MAXIMAL_EFFECT" as const;
+
 // Meditation resolve command
 export const RESOLVE_MEDITATION_COMMAND = "RESOLVE_MEDITATION" as const;
 

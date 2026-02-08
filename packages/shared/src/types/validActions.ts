@@ -860,6 +860,26 @@ export interface DecomposeOptions {
 }
 
 // ============================================================================
+// Maximal Effect (throw away action card and multiply its effect)
+// ============================================================================
+
+/**
+ * Options for Maximal Effect card resolution.
+ * Only present when player has a pending maximal effect state.
+ * Player must select an action card from hand to throw away.
+ */
+export interface MaximalEffectOptions {
+  /** Source card that triggered the effect (Maximal Effect card) */
+  readonly sourceCardId: CardId;
+  /** Action cards available to throw away (excludes Maximal Effect itself and wounds) */
+  readonly availableCardIds: readonly CardId[];
+  /** How many times the selected card's effect will be executed */
+  readonly multiplier: number;
+  /** Whether the target card's basic or powered effect will be used */
+  readonly effectKind: "basic" | "powered";
+}
+
+// ============================================================================
 // Unit Maintenance (Magic Familiars round-start)
 // ============================================================================
 
@@ -1137,6 +1157,12 @@ export interface PendingDecomposeState {
   readonly decompose: DecomposeOptions;
 }
 
+export interface PendingMaximalEffectState {
+  readonly mode: "pending_maximal_effect";
+  readonly turn: BlockingTurnOptions;
+  readonly maximalEffect: MaximalEffectOptions;
+}
+
 export interface PendingCrystalJoyState {
   readonly mode: "pending_crystal_joy_reclaim";
   readonly turn: BlockingTurnOptions;
@@ -1256,6 +1282,7 @@ export type ValidActions =
   | PendingDiscardForAttackState
   | PendingDiscardForCrystalState
   | PendingDecomposeState
+  | PendingMaximalEffectState
   | PendingArtifactCrystalColorState
   | PendingCrystalJoyState
   | PendingSteadyTempoState
