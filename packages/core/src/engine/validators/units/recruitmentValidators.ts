@@ -13,7 +13,6 @@ import type { ValidationResult } from "../types.js";
 import { valid, invalid } from "../types.js";
 import { RECRUIT_UNIT_ACTION, getUnit, CITY_COLOR_WHITE, MIN_REPUTATION } from "@mage-knight/shared";
 import {
-  NO_COMMAND_SLOTS,
   INSUFFICIENT_INFLUENCE,
   PLAYER_NOT_FOUND,
   NO_SITE,
@@ -24,6 +23,9 @@ import {
   REPUTATION_TOO_LOW_TO_RECRUIT,
   RECRUIT_REQUIRES_MANA,
   RECRUIT_REQUIRES_MANA_TOKEN_COLOR,
+  DISBAND_REQUIRED,
+  DISBAND_UNIT_NOT_FOUND,
+  CANNOT_DISBAND_BONDS_UNIT,
 } from "../validationCodes.js";
 import { validateSingleManaSource } from "../mana/sourceValidators.js";
 import { canPayForMana } from "../../validActions/mana.js";
@@ -39,7 +41,7 @@ import {
   getActiveRecruitDiscount,
   isGladeRecruitment,
 } from "../../rules/unitRecruitment.js";
-import { getEffectiveCommandTokens, isBondsSlotEmpty, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
+import { getEffectiveCommandTokens, isBondsSlotEmpty, isBondsUnit, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
 /**
@@ -71,7 +73,8 @@ export function validateReputationNotX(
 }
 
 /**
- * Check player has enough command slots to recruit
+ * Check player has enough command slots to recruit.
+ * If at the limit, the player may still recruit by disbanding an existing unit.
  */
 export function validateCommandSlots(
   state: GameState,
@@ -84,10 +87,49 @@ export function validateCommandSlots(
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
   const effectiveTokens = getEffectiveCommandTokens(player);
-  if (player.units.length >= effectiveTokens) {
+  const atLimit = player.units.length >= effectiveTokens;
+
+  if (atLimit && !action.disbandUnitInstanceId) {
     return invalid(
-      NO_COMMAND_SLOTS,
-      `No command slots available (${player.units.length}/${effectiveTokens})`
+      DISBAND_REQUIRED,
+      `No command slots available (${player.units.length}/${effectiveTokens}) — disband a unit to recruit`
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate the disband target when recruiting at the command limit.
+ * The disbandUnitInstanceId must reference an existing unit owned by the player.
+ */
+export function validateDisbandTarget(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== RECRUIT_UNIT_ACTION) return valid();
+  if (!action.disbandUnitInstanceId) return valid();
+
+  const player = getPlayerById(state, playerId);
+  if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
+
+  const unit = player.units.find(
+    (u) => u.instanceId === action.disbandUnitInstanceId
+  );
+
+  if (!unit) {
+    return invalid(
+      DISBAND_UNIT_NOT_FOUND,
+      "Unit to disband not found in your command"
+    );
+  }
+
+  // Cannot disband the Bonds of Loyalty unit
+  if (isBondsUnit(player, action.disbandUnitInstanceId)) {
+    return invalid(
+      CANNOT_DISBAND_BONDS_UNIT,
+      "Cannot disband the Bonds of Loyalty unit"
     );
   }
 
