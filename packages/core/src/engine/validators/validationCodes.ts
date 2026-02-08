@@ -85,6 +85,9 @@ export const POWERED_WITHOUT_MANA = "POWERED_WITHOUT_MANA" as const;
 export const SPELL_REQUIRES_TWO_MANA = "SPELL_REQUIRES_TWO_MANA" as const;
 export const SPELL_BASIC_REQUIRES_MANA = "SPELL_BASIC_REQUIRES_MANA" as const;
 export const MANA_CANNOT_POWER_SPELLS = "MANA_CANNOT_POWER_SPELLS" as const;
+export const SOURCE_LIMIT_EXCEEDED = "SOURCE_LIMIT_EXCEEDED" as const;
+export const SOURCE_BLOCKED = "SOURCE_BLOCKED" as const;
+export const MANA_COLOR_NOT_ALLOWED = "MANA_COLOR_NOT_ALLOWED" as const;
 
 // Unit recruitment mana payment codes
 export const RECRUIT_REQUIRES_MANA = "RECRUIT_REQUIRES_MANA" as const;
@@ -427,6 +430,9 @@ export type ValidationErrorCode =
   | typeof SPELL_REQUIRES_TWO_MANA
   | typeof SPELL_BASIC_REQUIRES_MANA
   | typeof MANA_CANNOT_POWER_SPELLS
+  | typeof SOURCE_LIMIT_EXCEEDED
+  | typeof SOURCE_BLOCKED
+  | typeof MANA_COLOR_NOT_ALLOWED
   // Combat validation
   | typeof ALREADY_IN_COMBAT
   | typeof NOT_IN_COMBAT

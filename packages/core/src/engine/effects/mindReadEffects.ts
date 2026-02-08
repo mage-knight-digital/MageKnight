@@ -57,6 +57,8 @@ import { BASIC_MANA_COLORS, CARD_WOUND } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
+import { gainCrystalWithOverflow } from "../helpers/crystalHelpers.js";
+import { MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import {
   EFFECT_MIND_READ,
   EFFECT_RESOLVE_MIND_READ_COLOR,
@@ -235,15 +237,14 @@ export function resolveMindReadColor(
   const cardColor = manaColorToCardColor(chosenColor);
   const descriptions: string[] = [];
 
-  // Gain crystal of chosen color
-  const updatedCaster: Player = {
-    ...caster,
-    crystals: {
-      ...caster.crystals,
-      [chosenColor]: caster.crystals[chosenColor] + 1,
-    },
-  };
-  descriptions.push(`Gained ${chosenColor} crystal`);
+  // Gain crystal of chosen color (with overflow to token)
+  const { player: updatedCaster, tokensGained } =
+    gainCrystalWithOverflow(caster, chosenColor, 1, MANA_TOKEN_SOURCE_CARD);
+  descriptions.push(
+    tokensGained > 0
+      ? `${chosenColor} crystal full — gained ${chosenColor} mana token instead`
+      : `Gained ${chosenColor} crystal`
+  );
 
   let currentState = updatePlayer(state, casterIndex, updatedCaster);
 
@@ -328,15 +329,14 @@ export function resolveMindStealColor(
   const cardColor = manaColorToCardColor(chosenColor);
   const descriptions: string[] = [];
 
-  // Gain crystal of chosen color
-  const updatedCaster: Player = {
-    ...caster,
-    crystals: {
-      ...caster.crystals,
-      [chosenColor]: caster.crystals[chosenColor] + 1,
-    },
-  };
-  descriptions.push(`Gained ${chosenColor} crystal`);
+  // Gain crystal of chosen color (with overflow to token)
+  const { player: updatedCaster, tokensGained: mindStealTokensGained } =
+    gainCrystalWithOverflow(caster, chosenColor, 1, MANA_TOKEN_SOURCE_CARD);
+  descriptions.push(
+    mindStealTokensGained > 0
+      ? `${chosenColor} crystal full — gained ${chosenColor} mana token instead`
+      : `Gained ${chosenColor} crystal`
+  );
 
   let currentState = updatePlayer(state, casterIndex, updatedCaster);
 

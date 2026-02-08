@@ -87,6 +87,7 @@ import type {
 import type { WoundActivatingUnitEffect } from "../../types/cards.js";
 import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION, elementToPropertyKey } from "./atomicEffects.js";
+import { MAX_CRYSTALS_PER_COLOR } from "../helpers/crystalHelpers.js";
 import { toAttackElement, toAttackType } from "../combat/attackFameTracking.js";
 
 // ============================================================================
@@ -187,7 +188,18 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
 
   [EFFECT_GAIN_CRYSTAL]: (player, effect) => {
     const e = effect as GainCrystalEffect;
-    // Reverse crystal gain (don't go below 0)
+    // If at max crystals, the forward path added an overflow token instead of a crystal.
+    // In that case, remove the overflow token from pureMana.
+    if (player.crystals[e.color] >= MAX_CRYSTALS_PER_COLOR) {
+      const tokenIndex = player.pureMana.findIndex((t) => t.color === e.color);
+      if (tokenIndex !== -1) {
+        const newPureMana = [...player.pureMana];
+        newPureMana.splice(tokenIndex, 1);
+        return { ...player, pureMana: newPureMana };
+      }
+      return player;
+    }
+    // Normal case: reverse crystal gain (don't go below 0)
     return {
       ...player,
       crystals: {

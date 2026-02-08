@@ -34,6 +34,7 @@ import { EFFECT_CRYSTALLIZE_COLOR, EFFECT_CONVERT_MANA_TO_CRYSTAL } from "../../
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
+import { MAX_CRYSTALS_PER_COLOR } from "../helpers/crystalHelpers.js";
 
 // ============================================================================
 // CONVERT MANA TO CRYSTAL (Entry Point)
@@ -157,6 +158,15 @@ export function resolveCrystallizeColor(
   // Remove the mana token
   const newPureMana = [...player.pureMana];
   newPureMana.splice(tokenIndex, 1);
+
+  // If already at max crystals, the token is consumed but no crystal is gained
+  // (crystallize is a conversion, not a gain — the token is the cost)
+  if (player.crystals[effect.color] >= MAX_CRYSTALS_PER_COLOR) {
+    return {
+      state,
+      description: `Already at max ${effect.color} crystals — mana token wasted`,
+    };
+  }
 
   // Gain the crystal
   const updatedPlayer: Player = {

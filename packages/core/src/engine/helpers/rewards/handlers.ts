@@ -23,9 +23,11 @@ import {
   FAME_GAINED,
   MANA_GOLD,
   MANA_BLACK,
+  MANA_TOKEN_SOURCE_SITE,
   BasicManaColor,
 } from "@mage-knight/shared";
 import { getPlayerById } from "../playerHelpers.js";
+import { gainCrystalWithOverflow } from "../crystalHelpers.js";
 
 /**
  * Grant a site reward to a player.
@@ -206,7 +208,7 @@ export function grantCrystalRollReward(
     return { state, events: [] };
   }
 
-  let crystals = { ...player.crystals };
+  let currentPlayer = player;
   let fameGained = 0;
 
   for (let i = 0; i < count; i++) {
@@ -223,19 +225,22 @@ export function grantCrystalRollReward(
       // Gold = player chooses color
       // For now, we'll auto-pick green (in real game, needs choice prompt)
       // TODO: Implement choice mechanism for gold rolls
-      crystals = { ...crystals, green: crystals.green + 1 };
+      const { player: updated } =
+        gainCrystalWithOverflow(currentPlayer, "green" as BasicManaColor, 1, MANA_TOKEN_SOURCE_SITE);
+      currentPlayer = updated;
     } else {
-      // Basic color - grant that crystal
+      // Basic color - grant that crystal (with overflow to token)
       const colorKey = rolledColor as BasicManaColor;
-      crystals = { ...crystals, [colorKey]: crystals[colorKey] + 1 };
+      const { player: updated } =
+        gainCrystalWithOverflow(currentPlayer, colorKey, 1, MANA_TOKEN_SOURCE_SITE);
+      currentPlayer = updated;
     }
   }
 
-  // Update player with new crystals and fame
+  // Update player with fame
   const updatedPlayer: Player = {
-    ...player,
-    crystals,
-    fame: player.fame + fameGained,
+    ...currentPlayer,
+    fame: currentPlayer.fame + fameGained,
   };
 
   currentState = {

@@ -50,6 +50,8 @@ import {
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
+import { gainCrystalWithOverflow } from "../helpers/crystalHelpers.js";
+import { MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import {
   EFFECT_MANA_MELTDOWN,
   EFFECT_RESOLVE_MANA_MELTDOWN_CHOICE,
@@ -246,17 +248,16 @@ export function resolveManaMeltdownChoice(
 ): EffectResolutionResult {
   const { playerIndex, player } = getPlayerContext(state, playerId);
 
-  const updatedPlayer: Player = {
-    ...player,
-    crystals: {
-      ...player.crystals,
-      [effect.color]: player.crystals[effect.color] + 1,
-    },
-  };
+  const { player: updatedPlayer, tokensGained } =
+    gainCrystalWithOverflow(player, effect.color, 1, MANA_TOKEN_SOURCE_CARD);
+
+  const description = tokensGained > 0
+    ? `${effect.color} crystal full — gained ${effect.color} mana token from Mana Meltdown`
+    : `Gained ${effect.color} crystal from Mana Meltdown`;
 
   return {
     state: updatePlayer(state, playerIndex, updatedPlayer),
-    description: `Gained ${effect.color} crystal from Mana Meltdown`,
+    description,
   };
 }
 
@@ -335,16 +336,18 @@ export function resolveManaRadianceColor(
     }
   }
 
-  // Caster gains 2 crystals of chosen color
+  // Caster gains 2 crystals of chosen color (with overflow to tokens)
   const caster = updatedPlayers[casterIndex]!;
-  updatedPlayers[casterIndex] = {
-    ...caster,
-    crystals: {
-      ...caster.crystals,
-      [chosenColor]: caster.crystals[chosenColor] + 2,
-    },
-  };
-  descriptions.push(`Gained 2 ${chosenColor} crystals`);
+  const { player: updatedCaster, crystalsGained, tokensGained } =
+    gainCrystalWithOverflow(caster, chosenColor, 2, MANA_TOKEN_SOURCE_CARD);
+  updatedPlayers[casterIndex] = updatedCaster;
+  if (tokensGained > 0) {
+    descriptions.push(
+      `Gained ${crystalsGained} ${chosenColor} crystal${crystalsGained !== 1 ? "s" : ""} and ${tokensGained} ${chosenColor} mana token${tokensGained !== 1 ? "s" : ""}`
+    );
+  } else {
+    descriptions.push(`Gained 2 ${chosenColor} crystals`);
+  }
 
   currentState = {
     ...currentState,
