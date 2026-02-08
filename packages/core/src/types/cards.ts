@@ -240,6 +240,7 @@ export interface GainBlockEffect {
   readonly type: typeof EFFECT_GAIN_BLOCK;
   readonly amount: number;
   readonly element?: Element; // undefined = physical
+  readonly countsTwiceAgainstSwift?: boolean; // Shield Bash: block counts twice vs Swiftness
 }
 
 export interface GainHealingEffect {
