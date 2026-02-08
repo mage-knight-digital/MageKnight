@@ -127,6 +127,7 @@ import {
   EFFECT_ROLL_FOR_CRYSTALS,
   EFFECT_RESOLVE_CRYSTAL_ROLL_CHOICE,
   EFFECT_BOOK_OF_WISDOM,
+  EFFECT_TRAINING,
   EFFECT_MAGIC_TALENT_BASIC,
   EFFECT_RESOLVE_MAGIC_TALENT_SPELL,
   EFFECT_MAGIC_TALENT_POWERED,
@@ -1455,6 +1456,16 @@ export interface BookOfWisdomEffect {
 }
 
 /**
+ * Training: throw away an action card, then gain an AA of the same color from the offer.
+ * Basic: gained AA goes to discard pile.
+ * Powered: gained AA goes to hand.
+ */
+export interface TrainingEffect {
+  readonly type: typeof EFFECT_TRAINING;
+  readonly mode: "basic" | "powered";
+}
+
+/**
  * Magic Talent basic effect entry point.
  * Discard a card of any color from hand. Then play one Spell card of the
  * same color from the Spells Offer as if it were in your hand.
@@ -1633,6 +1644,7 @@ export type CardEffect =
   | RollForCrystalsEffect
   | ResolveCrystalRollChoiceEffect
   | BookOfWisdomEffect
+  | TrainingEffect
   | MagicTalentBasicEffect
   | ResolveMagicTalentSpellEffect
   | MagicTalentPoweredEffect

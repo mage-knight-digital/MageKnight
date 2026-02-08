@@ -24,6 +24,7 @@ import {
   RESOLVE_BANNER_PROTECTION_ACTION,
   RESOLVE_SOURCE_OPENING_REROLL_ACTION,
   RESOLVE_BOOK_OF_WISDOM_ACTION,
+  RESOLVE_TRAINING_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -138,6 +139,12 @@ import {
   validateBookOfWisdomSelection,
 } from "../bookOfWisdomValidators.js";
 
+// Training validators
+import {
+  validateHasPendingTraining,
+  validateTrainingSelection,
+} from "../trainingValidators.js";
+
 export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_CHOICE_ACTION]: [
     validateIsPlayersTurn,
@@ -234,5 +241,10 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingBookOfWisdom,
     validateBookOfWisdomSelection,
+  ],
+  [RESOLVE_TRAINING_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingTraining,
+    validateTrainingSelection,
   ],
 };

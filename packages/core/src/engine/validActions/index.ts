@@ -44,6 +44,7 @@ import {
   getDecomposeOptions,
   getMaximalEffectOptions,
   getBookOfWisdomOptions,
+  getTrainingOptions,
   getArtifactCrystalColorOptions,
   getCrystalJoyReclaimOptions,
   getSteadyTempoOptions,
@@ -191,6 +192,13 @@ export function getValidActions(
       mode: "pending_book_of_wisdom",
       turn: { canUndo: getTurnOptions(state, player).canUndo },
       bookOfWisdom: getBookOfWisdomOptions(state, player),
+    };
+  }
+  if (player.pendingTraining) {
+    return {
+      mode: "pending_training",
+      turn: { canUndo: getTurnOptions(state, player).canUndo },
+      training: getTrainingOptions(state, player),
     };
   }
   if (player.pendingLevelUpRewards.length > 0) {

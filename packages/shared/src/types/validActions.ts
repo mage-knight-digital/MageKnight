@@ -916,6 +916,28 @@ export interface BookOfWisdomOptions {
 }
 
 // ============================================================================
+// Training (throw away action card, gain same-color AA from offer)
+// ============================================================================
+
+/**
+ * Options for Training resolution.
+ * Phase "select_card": Player selects an action card from hand to throw away.
+ * Phase "select_from_offer": Player selects a matching AA card from the offer.
+ */
+export interface TrainingOptions {
+  /** Source card (Training) */
+  readonly sourceCardId: CardId;
+  /** Whether the effect is basic (AA to discard) or powered (AA to hand) */
+  readonly mode: "basic" | "powered";
+  /** Current resolution phase */
+  readonly phase: "select_card" | "select_from_offer";
+  /** Action cards available to throw away (phase 1 only) */
+  readonly availableCardIds: readonly CardId[];
+  /** AA cards from offer matching thrown card's color (phase 2 only) */
+  readonly availableOfferCards: readonly CardId[];
+}
+
+// ============================================================================
 // Unit Maintenance (Magic Familiars round-start)
 // ============================================================================
 
@@ -1205,6 +1227,12 @@ export interface PendingBookOfWisdomState {
   readonly bookOfWisdom: BookOfWisdomOptions;
 }
 
+export interface PendingTrainingState {
+  readonly mode: "pending_training";
+  readonly turn: BlockingTurnOptions;
+  readonly training: TrainingOptions;
+}
+
 export interface PendingCrystalJoyState {
   readonly mode: "pending_crystal_joy_reclaim";
   readonly turn: BlockingTurnOptions;
@@ -1348,6 +1376,7 @@ export type ValidActions =
   | PendingDecomposeState
   | PendingMaximalEffectState
   | PendingBookOfWisdomState
+  | PendingTrainingState
   | PendingArtifactCrystalColorState
   | PendingCrystalJoyState
   | PendingSteadyTempoState

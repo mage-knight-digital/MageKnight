@@ -63,6 +63,7 @@ import { registerEndlessGemPouchEffects } from "./endlessGemPouchEffects.js";
 import { registerBookOfWisdomEffects } from "./bookOfWisdomEffects.js";
 import { registerMagicTalentEffects } from "./magicTalentEffects.js";
 import { registerLearningEffects } from "./learningEffects.js";
+import { registerTrainingEffects } from "./trainingEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -234,4 +235,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Learning effects (discounted AA purchase modifier)
   registerLearningEffects();
+
+  // Training effects (throw away action card, gain same-color AA from offer)
+  registerTrainingEffects();
 }

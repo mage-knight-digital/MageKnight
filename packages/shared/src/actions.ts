@@ -553,6 +553,14 @@ export interface ResolveBookOfWisdomAction {
   readonly cardId: CardId;
 }
 
+// Training action (throw away action card / select AA of same color from offer)
+export const RESOLVE_TRAINING_ACTION = "RESOLVE_TRAINING" as const;
+export interface ResolveTrainingAction {
+  readonly type: typeof RESOLVE_TRAINING_ACTION;
+  /** Card ID to throw away (phase 1) or AA card ID from offer to gain (phase 2) */
+  readonly cardId: CardId;
+}
+
 // Artifact crystal color choice action (Savage Harvesting - second step for artifacts)
 export const RESOLVE_ARTIFACT_CRYSTAL_COLOR_ACTION = "RESOLVE_ARTIFACT_CRYSTAL_COLOR" as const;
 export interface ResolveArtifactCrystalColorAction {
@@ -843,6 +851,8 @@ export type PlayerAction =
   | ResolveMaximalEffectAction
   // Book of Wisdom (throw away action card, gain from offer)
   | ResolveBookOfWisdomAction
+  // Training (throw away action card, gain same-color AA from offer)
+  | ResolveTrainingAction
   // Artifact crystal color choice (Savage Harvesting - for artifacts)
   | ResolveArtifactCrystalColorAction
   // Combat

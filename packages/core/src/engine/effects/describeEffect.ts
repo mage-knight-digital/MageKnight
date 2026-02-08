@@ -39,6 +39,7 @@ import {
   EFFECT_DECOMPOSE,
   EFFECT_MAXIMAL_EFFECT,
   EFFECT_BOOK_OF_WISDOM,
+  EFFECT_TRAINING,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
@@ -356,6 +357,13 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     return e.mode === "basic"
       ? "Throw away an action card, gain Advanced Action of same color from offer"
       : "Throw away an action card, gain Spell of same color from offer + crystal";
+  },
+
+  [EFFECT_TRAINING]: (effect) => {
+    const e = effect as import("../../types/cards.js").TrainingEffect;
+    return e.mode === "basic"
+      ? "Throw away an action card, gain AA of same color from offer to discard pile"
+      : "Throw away an action card, gain AA of same color from offer to hand";
   },
 
   [EFFECT_CRYSTAL_MASTERY_BASIC]: () => {

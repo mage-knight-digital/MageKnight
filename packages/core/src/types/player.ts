@@ -281,6 +281,27 @@ export interface PendingBookOfWisdom {
 }
 
 /**
+ * Pending Training resolution.
+ * Phase 1 (select_card): Player selects an action card from hand to throw away.
+ * Phase 2 (select_from_offer): Player selects a matching AA from the offer.
+ *
+ * Basic mode: gained AA goes to discard pile.
+ * Powered mode: gained AA goes to hand.
+ */
+export interface PendingTraining {
+  /** Source card (Training) */
+  readonly sourceCardId: CardId;
+  /** Whether this is "basic" or "powered" mode */
+  readonly mode: "basic" | "powered";
+  /** Current phase of the two-step resolution */
+  readonly phase: "select_card" | "select_from_offer";
+  /** Color of the thrown-away card (set after phase 1) */
+  readonly thrownCardColor: import("../types/effectTypes.js").BasicCardColor | null;
+  /** Cards available in the AA offer matching the thrown card color (set after phase 1) */
+  readonly availableOfferCards: readonly CardId[];
+}
+
+/**
  * Pending terrain cost reduction choice (Druidic Paths and similar effects).
  * Player must choose a hex coordinate or terrain type to apply cost reduction.
  */
@@ -495,6 +516,9 @@ export interface Player {
 
   // Book of Wisdom pending (throw away action card, gain card from offer)
   readonly pendingBookOfWisdom: PendingBookOfWisdom | null;
+
+  // Training pending (throw away action card, gain same-color AA from offer)
+  readonly pendingTraining: PendingTraining | null;
 
   // Attack-based fame tracking (e.g., Axe Throw powered effect)
   readonly pendingAttackDefeatFame: readonly AttackDefeatFameTracker[];

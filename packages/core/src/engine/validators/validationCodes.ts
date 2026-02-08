@@ -268,6 +268,11 @@ export const BOOK_OF_WISDOM_REQUIRED = "BOOK_OF_WISDOM_REQUIRED" as const;
 export const BOOK_OF_WISDOM_CARD_NOT_ELIGIBLE = "BOOK_OF_WISDOM_CARD_NOT_ELIGIBLE" as const;
 export const BOOK_OF_WISDOM_CARD_NOT_IN_OFFER = "BOOK_OF_WISDOM_CARD_NOT_IN_OFFER" as const;
 
+// Training validation codes
+export const TRAINING_REQUIRED = "TRAINING_REQUIRED" as const;
+export const TRAINING_CARD_NOT_ELIGIBLE = "TRAINING_CARD_NOT_ELIGIBLE" as const;
+export const TRAINING_CARD_NOT_IN_OFFER = "TRAINING_CARD_NOT_IN_OFFER" as const;
+
 // Maximal Effect validation codes
 export const MAXIMAL_EFFECT_REQUIRED = "MAXIMAL_EFFECT_REQUIRED" as const;
 export const MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE = "MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE" as const;
@@ -560,6 +565,10 @@ export type ValidationErrorCode =
   | typeof BOOK_OF_WISDOM_REQUIRED
   | typeof BOOK_OF_WISDOM_CARD_NOT_ELIGIBLE
   | typeof BOOK_OF_WISDOM_CARD_NOT_IN_OFFER
+  // Training validation
+  | typeof TRAINING_REQUIRED
+  | typeof TRAINING_CARD_NOT_ELIGIBLE
+  | typeof TRAINING_CARD_NOT_IN_OFFER
   // Maximal Effect validation
   | typeof MAXIMAL_EFFECT_REQUIRED
   | typeof MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE

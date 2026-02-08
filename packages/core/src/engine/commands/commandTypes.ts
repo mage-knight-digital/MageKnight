@@ -74,6 +74,9 @@ export const RESOLVE_MAXIMAL_EFFECT_COMMAND = "RESOLVE_MAXIMAL_EFFECT" as const;
 // Book of Wisdom command (throw away action card, gain from offer)
 export const RESOLVE_BOOK_OF_WISDOM_COMMAND = "RESOLVE_BOOK_OF_WISDOM" as const;
 
+// Training command (throw away action card, gain same-color AA from offer)
+export const RESOLVE_TRAINING_COMMAND = "RESOLVE_TRAINING" as const;
+
 // Meditation resolve command
 export const RESOLVE_MEDITATION_COMMAND = "RESOLVE_MEDITATION" as const;
 
