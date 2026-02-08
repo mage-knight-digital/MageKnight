@@ -46,6 +46,7 @@ import {
   SKILL_GOLDYX_UNIVERSAL_POWER,
   SKILL_GOLDYX_SOURCE_OPENING,
   SKILL_WOLFHAWK_REFRESHING_BATH,
+  SKILL_WOLFHAWK_REFRESHING_BREEZE,
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
 } from "../../data/skills/index.js";
@@ -340,6 +341,15 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_NOT_IN_COMBAT,
         "Refreshing Bath cannot be used during combat"
+      );
+    }
+  }
+
+  if (useSkillAction.skillId === SKILL_WOLFHAWK_REFRESHING_BREEZE) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "Refreshing Breeze cannot be used during combat"
       );
     }
   }
