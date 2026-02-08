@@ -24,6 +24,7 @@ import {
   EFFECT_MANA_DRAW_SET_COLOR,
   EFFECT_READY_UNIT,
   EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_SOURCE_OPENING_REROLL,
 } from "../../../types/effectTypes.js";
 import { describeEffect, isEffectResolvable } from "../../effects/index.js";
 import type { EffectResolutionResult } from "../../effects/index.js";
@@ -67,6 +68,7 @@ const DYNAMIC_CHOICE_EFFECTS = new Set<string>([
   EFFECT_MANA_DRAW_SET_COLOR,
   EFFECT_READY_UNIT,
   EFFECT_SELECT_COMBAT_ENEMY,
+  EFFECT_SOURCE_OPENING_REROLL,
 ]);
 
 function buildPendingChoice(

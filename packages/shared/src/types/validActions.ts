@@ -1191,6 +1191,11 @@ export interface PendingBannerProtectionState {
   readonly bannerProtection: BannerProtectionOptions;
 }
 
+export interface PendingSourceOpeningRerollState {
+  readonly mode: "pending_source_opening_reroll";
+  readonly turn: BlockingTurnOptions;
+}
+
 export interface PendingLevelUpState {
   readonly mode: "pending_level_up";
   readonly turn: BlockingTurnOptions;
@@ -1254,6 +1259,7 @@ export type ValidActions =
   | PendingSteadyTempoState
   | PendingMeditationState
   | PendingBannerProtectionState
+  | PendingSourceOpeningRerollState
   | PendingLevelUpState
   | PendingChoiceState
   | PendingHexCostReductionState

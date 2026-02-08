@@ -91,6 +91,9 @@ export const RETURN_INTERACTIVE_SKILL_COMMAND = "RETURN_INTERACTIVE_SKILL" as co
 export const ASSIGN_BANNER_COMMAND = "ASSIGN_BANNER" as const;
 export const RESOLVE_BANNER_PROTECTION_COMMAND = "RESOLVE_BANNER_PROTECTION" as const;
 
+// Source Opening commands
+export const RESOLVE_SOURCE_OPENING_REROLL_COMMAND = "RESOLVE_SOURCE_OPENING_REROLL" as const;
+
 // Reserved / upcoming command types used by undo checkpointing.
 export const DRAW_ENEMY_COMMAND = "DRAW_ENEMY" as const;
 export const DRAW_CARD_COMMAND = "DRAW_CARD" as const;

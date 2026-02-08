@@ -33,6 +33,7 @@ import {
   TERRAIN_ALL,
 } from "../../types/modifierConstants.js";
 import { SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/norowas/prayerOfWeather.js";
+import { SKILL_GOLDYX_SOURCE_OPENING } from "../../data/skills/goldyx/sourceFreeze.js";
 
 // ============================================================================
 // DISCARD WOUNDS EFFECT
@@ -134,6 +135,27 @@ export function handlePlaceSkillInCenter(
       createdAtRound: state.round,
       createdByPlayerId: playerId,
     });
+  } else if (skillId === SKILL_GOLDYX_SOURCE_OPENING) {
+    // Source Opening: add marker modifier and set center state.
+    // Other players (or owner in solo) can return it for an extra basic-color die
+    // and give the owner a crystal of that color.
+    updatedState = addModifier(updatedState, {
+      source: { type: SOURCE_SKILL, skillId, playerId },
+      duration: DURATION_ROUND,
+      scope: { type: SCOPE_OTHER_PLAYERS },
+      effect: { type: EFFECT_TERRAIN_COST, terrain: TERRAIN_ALL, amount: 0, minimum: 0 },
+      createdAtRound: state.round,
+      createdByPlayerId: playerId,
+    });
+    updatedState = {
+      ...updatedState,
+      sourceOpeningCenter: {
+        ownerId: playerId,
+        skillId,
+        returningPlayerId: null,
+        usedDieCountAtReturn: 0,
+      },
+    };
   } else {
     // Ritual of Pain: other players can return it to play a Wound sideways for +3
     updatedState = addModifier(updatedState, {

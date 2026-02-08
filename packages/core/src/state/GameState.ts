@@ -64,6 +64,24 @@ export interface ManaOverloadCenter {
   readonly skillId: SkillId;
 }
 
+/**
+ * Tracks Source Opening skill state.
+ * Phase 1 (center): `returningPlayerId` is null. Skill is in center awaiting return.
+ * Phase 2 (returned): `returningPlayerId` is set. The returning player has an extra
+ * basic-color die to use. When they use it, the owner gets a crystal of that color.
+ * Crystal is granted at end of turn based on the extra die used.
+ */
+export interface SourceOpeningCenter {
+  /** Player ID who owns the skill (Goldyx) */
+  readonly ownerId: string;
+  /** The skill ID (for returning to owner) */
+  readonly skillId: SkillId;
+  /** Player who returned the skill (set after return, null while in center) */
+  readonly returningPlayerId: string | null;
+  /** Number of dice the returning player had before the extra die was granted */
+  readonly usedDieCountAtReturn: number;
+}
+
 export interface GameState {
   readonly phase: GamePhase;
   readonly timeOfDay: TimeOfDay;
@@ -132,6 +150,11 @@ export interface GameState {
   // When non-null, the skill is in the center with a color marker
   readonly manaOverloadCenter: ManaOverloadCenter | null;
 
+  // Source Opening skill center state (Goldyx interactive skill)
+  // When non-null, the skill is in the center; other players (or owner in solo)
+  // can return it for an extra basic-color die + give owner a crystal
+  readonly sourceOpeningCenter: SourceOpeningCenter | null;
+
   // Dummy player for solo mode (null in multiplayer)
   readonly dummyPlayer: DummyPlayer | null;
 }
@@ -180,6 +203,7 @@ export function createInitialGameState(
     pendingCooperativeAssault: null,
     finalScoreResult: null,
     manaOverloadCenter: null,
+    sourceOpeningCenter: null,
     dummyPlayer: null,
   };
 }

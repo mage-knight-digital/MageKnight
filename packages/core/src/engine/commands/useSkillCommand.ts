@@ -77,7 +77,9 @@ import {
 import { SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/index.js";
 import { isMotivationSkill, ALL_MOTIVATION_SKILLS } from "../rules/motivation.js";
 
-const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
+import { SKILL_GOLDYX_SOURCE_OPENING } from "../../data/skills/index.js";
+
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING]);
 
 /**
  * Check if an effect (or any sub-effect in a compound) contains non-reversible

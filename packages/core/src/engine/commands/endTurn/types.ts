@@ -21,6 +21,10 @@ export interface EndTurnCommandParams {
   readonly skipSteadyTempo?: boolean;
   /** If true, skip the Banner of Protection wound removal check (used after resolving choice) */
   readonly skipBannerProtection?: boolean;
+  /** If true, skip the Source Opening reroll choice (used after resolving reroll choice) */
+  readonly skipSourceOpeningReroll?: boolean;
+  /** Die ID to exclude from automatic reroll (Source Opening extra die, already handled) */
+  readonly sourceOpeningDieHandled?: string;
 }
 
 /**

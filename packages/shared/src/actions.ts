@@ -474,6 +474,13 @@ export interface ResolveBannerProtectionAction {
   readonly removeAll: boolean; // true = throw away all received wounds, false = skip
 }
 
+// Source Opening reroll choice at end of turn (FAQ S3)
+export const RESOLVE_SOURCE_OPENING_REROLL_ACTION = "RESOLVE_SOURCE_OPENING_REROLL" as const;
+export interface ResolveSourceOpeningRerollAction {
+  readonly type: typeof RESOLVE_SOURCE_OPENING_REROLL_ACTION;
+  readonly reroll: boolean; // true = reroll the extra die, false = leave it as-is
+}
+
 // Discard as cost action (e.g., Improvisation requires discarding before gaining benefit)
 export const RESOLVE_DISCARD_ACTION = "RESOLVE_DISCARD" as const;
 export interface ResolveDiscardAction {
@@ -787,6 +794,8 @@ export type PlayerAction =
   | ResolveSteadyTempoAction
   // Banner of Protection wound removal
   | ResolveBannerProtectionAction
+  // Source Opening reroll choice
+  | ResolveSourceOpeningRerollAction
   // Discard as cost
   | ResolveDiscardAction
   // Discard for attack (Sword of Justice)

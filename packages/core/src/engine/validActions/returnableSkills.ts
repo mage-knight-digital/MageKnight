@@ -9,23 +9,26 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { ReturnableSkillOptions } from "@mage-knight/shared";
 import { SOURCE_SKILL } from "../../types/modifierConstants.js";
-import { SKILLS, SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/index.js";
+import { SKILLS, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING } from "../../data/skills/index.js";
 import type { SkillId } from "@mage-knight/shared";
 
 /** Skills that support the return mechanic */
 const RETURNABLE_SKILL_IDS = new Set<SkillId>([
   SKILL_NOROWAS_PRAYER_OF_WEATHER,
+  SKILL_GOLDYX_SOURCE_OPENING,
 ]);
 
 /** Return benefit descriptions by skill */
 const RETURN_BENEFITS: Record<string, string> = {
   [SKILL_NOROWAS_PRAYER_OF_WEATHER]: "All terrain costs -1 this turn (min 1)",
+  [SKILL_GOLDYX_SOURCE_OPENING]: "Use an extra basic-color die from Source, give Goldyx a crystal",
 };
 
 /**
  * Get returnable skill options for a player.
  *
  * Checks for interactive skills in the center placed by other players.
+ * In solo mode, Source Opening can be returned by the owner (FAQ S1).
  * Returns undefined if no skills can be returned.
  */
 export function getReturnableSkillOptions(
@@ -33,6 +36,7 @@ export function getReturnableSkillOptions(
   player: Player
 ): ReturnableSkillOptions | undefined {
   const returnable: ReturnableSkillOptions["returnable"][number][] = [];
+  const isSolo = state.players.length === 1;
 
   // Find center modifiers from other players' interactive skills
   for (const skillId of RETURNABLE_SKILL_IDS) {
@@ -41,7 +45,9 @@ export function getReturnableSkillOptions(
         m.source.type === SOURCE_SKILL &&
         m.source.skillId === skillId &&
         m.source.playerId !== undefined &&
-        m.source.playerId !== player.id
+        // Solo mode exception: Source Opening owner can return their own (S1)
+        (m.source.playerId !== player.id ||
+          (isSolo && skillId === SKILL_GOLDYX_SOURCE_OPENING))
     );
 
     if (centerModifier) {

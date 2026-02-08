@@ -68,6 +68,8 @@ export function createResetPlayer(
     // Crystal Mastery resets
     spentCrystalsThisTurn: { red: 0, blue: 0, green: 0, white: 0 },
     crystalMasteryPoweredActive: false,
+    // Source Opening reroll choice reset
+    pendingSourceOpeningRerollChoice: null,
     // Meditation spell resets
     pendingMeditation: undefined,
     meditationHandLimitBonus: 0,

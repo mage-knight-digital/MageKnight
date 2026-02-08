@@ -35,7 +35,7 @@ import { SKILL_GOLDYX_GLITTERING_FORTUNE, glitteringFortune } from "./glittering
 import { SKILL_GOLDYX_FLIGHT, flight } from "./flight.js";
 import { SKILL_GOLDYX_UNIVERSAL_POWER, universalPower } from "./universalPower.js";
 import { SKILL_GOLDYX_MOTIVATION, goldyxMotivation } from "./motivation.js";
-import { SKILL_GOLDYX_SOURCE_FREEZE, sourceFreeze } from "./sourceFreeze.js";
+import { SKILL_GOLDYX_SOURCE_OPENING, sourceOpening } from "./sourceFreeze.js";
 
 /**
  * All Goldyx skill definitions keyed by skill ID.
@@ -50,7 +50,7 @@ export const GOLDYX_SKILLS: Record<SkillId, SkillDefinition> = {
   [SKILL_GOLDYX_FLIGHT]: flight,
   [SKILL_GOLDYX_UNIVERSAL_POWER]: universalPower,
   [SKILL_GOLDYX_MOTIVATION]: goldyxMotivation,
-  [SKILL_GOLDYX_SOURCE_FREEZE]: sourceFreeze,
+  [SKILL_GOLDYX_SOURCE_OPENING]: sourceOpening,
 };
 
 /**
@@ -66,5 +66,5 @@ export const GOLDYX_SKILL_IDS = [
   SKILL_GOLDYX_FLIGHT,
   SKILL_GOLDYX_UNIVERSAL_POWER,
   SKILL_GOLDYX_MOTIVATION,
-  SKILL_GOLDYX_SOURCE_FREEZE,
+  SKILL_GOLDYX_SOURCE_OPENING,
 ] as const;

@@ -21,6 +21,7 @@ import {
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
   RESOLVE_UNIT_MAINTENANCE_ACTION,
   RESOLVE_BANNER_PROTECTION_ACTION,
+  RESOLVE_SOURCE_OPENING_REROLL_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -112,6 +113,11 @@ import {
   validateHasPendingBannerProtection,
 } from "../bannerProtectionValidators.js";
 
+// Source Opening reroll validators
+import {
+  validateHasPendingSourceOpeningReroll,
+} from "../sourceOpeningRerollValidators.js";
+
 // Meditation validators
 import {
   validateHasPendingMeditation,
@@ -195,6 +201,10 @@ export const choiceRegistry: Record<string, Validator[]> = {
   [RESOLVE_BANNER_PROTECTION_ACTION]: [
     validateIsPlayersTurn,
     validateHasPendingBannerProtection,
+  ],
+  [RESOLVE_SOURCE_OPENING_REROLL_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingSourceOpeningReroll,
   ],
   [RESOLVE_MEDITATION_ACTION]: [
     validateIsPlayersTurn,
