@@ -119,6 +119,9 @@ import {
   EFFECT_CRYSTAL_MASTERY_POWERED,
   EFFECT_POSSESS_ENEMY,
   EFFECT_RESOLVE_POSSESS_ENEMY,
+  EFFECT_ROLL_DIE_FOR_WOUND,
+  EFFECT_CHOOSE_BONUS_WITH_RISK,
+  EFFECT_RESOLVE_BONUS_CHOICE,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1354,6 +1357,39 @@ export interface ResolvePossessEnemyEffect {
   readonly enemyName: string;
 }
 
+/**
+ * Roll mana dice and gain wounds for black or red results.
+ * Used by Horn of Wrath basic effect.
+ */
+export interface RollDieForWoundEffect {
+  readonly type: typeof EFFECT_ROLL_DIE_FOR_WOUND;
+  readonly diceCount: number;
+  readonly woundColors: readonly ManaColor[];
+}
+
+/**
+ * Choose a bonus amount (0 to max), then roll dice per bonus chosen.
+ * Gain siege attack for the bonus and wounds for black/red results.
+ * Used by Horn of Wrath powered effect.
+ */
+export interface ChooseBonusWithRiskEffect {
+  readonly type: typeof EFFECT_CHOOSE_BONUS_WITH_RISK;
+  readonly maxBonus: number;
+  readonly attackType: CombatType;
+  readonly woundColors: readonly ManaColor[];
+}
+
+/**
+ * Internal: resolve after player selects a bonus amount.
+ * Applies siege attack bonus and rolls dice for wound risk.
+ */
+export interface ResolveBonusChoiceEffect {
+  readonly type: typeof EFFECT_RESOLVE_BONUS_CHOICE;
+  readonly bonus: number;
+  readonly attackType: CombatType;
+  readonly woundColors: readonly ManaColor[];
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1451,7 +1487,10 @@ export type CardEffect =
   | SourceOpeningRerollEffect
   | SourceOpeningSelectDieEffect
   | PossessEnemyEffect
-  | ResolvePossessEnemyEffect;
+  | ResolvePossessEnemyEffect
+  | RollDieForWoundEffect
+  | ChooseBonusWithRiskEffect
+  | ResolveBonusChoiceEffect;
 
 // === Card Definition ===
 

@@ -334,6 +334,11 @@ export {
   registerPossessEffects,
 } from "./possessEffects.js";
 
+// Horn of Wrath effects (die rolling with wound risk)
+export {
+  registerHornOfWrathEffects,
+} from "./hornOfWrathEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 
