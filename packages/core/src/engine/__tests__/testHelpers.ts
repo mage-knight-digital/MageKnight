@@ -177,6 +177,8 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingBannerProtectionChoice: false,
     spentCrystalsThisTurn: { red: 0, blue: 0, green: 0, white: 0 },
     crystalMasteryPoweredActive: false,
+    pendingMeditation: undefined,
+    meditationHandLimitBonus: 0,
     ...rest,
   };
 }

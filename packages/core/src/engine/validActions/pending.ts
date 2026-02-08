@@ -24,6 +24,7 @@ import type {
   SteadyTempoOptions,
   BannerProtectionOptions,
   UnitMaintenanceOptions,
+  MeditationOptions,
   CardId,
 } from "@mage-knight/shared";
 import { mineColorToBasicManaColor } from "../../types/map.js";
@@ -298,4 +299,33 @@ export function getUnitMaintenanceOptions(
   });
 
   return { units };
+}
+
+/**
+ * Get Meditation options for the player.
+ * Returns options based on current phase (select_cards or place_cards).
+ */
+export function getMeditationOptions(
+  _state: GameState,
+  player: Player
+): MeditationOptions {
+  const pending = player.pendingMeditation!;
+
+  if (pending.phase === "select_cards") {
+    // Phase 1: player selects cards from discard (powered mode)
+    const selectCount = Math.min(2, player.discard.length);
+    return {
+      phase: "select_cards",
+      version: pending.version,
+      eligibleCardIds: [...player.discard],
+      selectCount,
+    };
+  }
+
+  // Phase 2: player chooses top or bottom
+  return {
+    phase: "place_cards",
+    version: pending.version,
+    selectedCardIds: pending.selectedCardIds,
+  };
 }

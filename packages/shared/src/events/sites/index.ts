@@ -67,6 +67,8 @@ import {
   STEADY_TEMPO_PLACEMENT_SKIPPED,
   BANNER_PROTECTION_WOUNDS_REMOVED,
   BANNER_PROTECTION_SKIPPED,
+  MEDITATION_CARDS_SELECTED,
+  MEDITATION_CARDS_PLACED,
 } from "./special.js";
 
 /**
@@ -97,5 +99,7 @@ export function isSiteEvent(event: { type: string }): boolean {
     MONASTERY_BURN_STARTED,
     MONASTERY_BURNED,
     VILLAGE_PLUNDERED,
+    MEDITATION_CARDS_SELECTED,
+    MEDITATION_CARDS_PLACED,
   ].includes(event.type as typeof SITE_CONQUERED);
 }

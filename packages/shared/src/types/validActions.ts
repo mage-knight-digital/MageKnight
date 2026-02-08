@@ -1147,6 +1147,32 @@ export interface PendingSteadyTempoState {
   readonly steadyTempo: SteadyTempoOptions;
 }
 
+// ============================================================================
+// Meditation Spell
+// ============================================================================
+
+/**
+ * Options for Meditation spell resolution.
+ * Phase "select_cards": player chooses cards from discard (powered only).
+ * Phase "place_cards": player chooses top or bottom of deck.
+ */
+export interface MeditationOptions {
+  readonly phase: "select_cards" | "place_cards";
+  readonly version: "basic" | "powered";
+  /** Phase 1: cards in discard eligible for selection */
+  readonly eligibleCardIds?: readonly CardId[];
+  /** Phase 1: how many cards to select */
+  readonly selectCount?: number;
+  /** Phase 2: the cards that will be placed */
+  readonly selectedCardIds?: readonly CardId[];
+}
+
+export interface PendingMeditationState {
+  readonly mode: "pending_meditation";
+  readonly turn: BlockingTurnOptions;
+  readonly meditation: MeditationOptions;
+}
+
 /**
  * Options for Banner of Protection wound removal at end of turn.
  * Present when player has activated Banner of Protection powered effect
@@ -1226,6 +1252,7 @@ export type ValidActions =
   | PendingArtifactCrystalColorState
   | PendingCrystalJoyState
   | PendingSteadyTempoState
+  | PendingMeditationState
   | PendingBannerProtectionState
   | PendingLevelUpState
   | PendingChoiceState

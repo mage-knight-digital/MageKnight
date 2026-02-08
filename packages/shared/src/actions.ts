@@ -498,6 +498,14 @@ export interface ResolveDiscardForCrystalAction {
   readonly cardId: CardId | null;
 }
 
+// Meditation spell resolution action
+export const RESOLVE_MEDITATION_ACTION = "RESOLVE_MEDITATION" as const;
+export interface ResolveMeditationAction {
+  readonly type: typeof RESOLVE_MEDITATION_ACTION;
+  readonly selectedCardIds?: readonly CardId[]; // Phase 1 (powered): cards selected from discard
+  readonly placeOnTop?: boolean; // Phase 2: true = top of deck, false = bottom
+}
+
 // Decompose action (throw away action card for crystals)
 export const RESOLVE_DECOMPOSE_ACTION = "RESOLVE_DECOMPOSE" as const;
 export interface ResolveDecomposeAction {
@@ -785,6 +793,8 @@ export type PlayerAction =
   | ResolveDiscardForAttackAction
   // Discard for crystal (Savage Harvesting)
   | ResolveDiscardForCrystalAction
+  // Meditation spell
+  | ResolveMeditationAction
   // Decompose (throw away action card for crystals)
   | ResolveDecomposeAction
   // Artifact crystal color choice (Savage Harvesting - for artifacts)

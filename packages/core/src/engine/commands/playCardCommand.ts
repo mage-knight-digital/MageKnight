@@ -16,6 +16,8 @@ import {
   createCardPlayUndoneEvent,
   CARD_GOLDYX_CRYSTAL_JOY,
   CARD_STEADY_TEMPO,
+  CARD_MEDITATION,
+  MEDITATION_CARDS_SELECTED,
 } from "@mage-knight/shared";
 import type { GameEvent } from "@mage-knight/shared";
 import { resolveEffect, reverseEffect } from "../effects/index.js";
@@ -39,6 +41,8 @@ import { consumeMovementCardBonus, getModifiersForPlayer } from "../modifiers/in
 import { EFFECT_MOVEMENT_CARD_BONUS } from "../../types/modifierConstants.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
 import { getCombatFilteredEffect } from "../rules/cardPlay.js";
+import { shuffleWithRng } from "../../utils/rng.js";
+import { getMeditationSelectCount } from "../rules/meditation.js";
 
 export { PLAY_CARD_COMMAND };
 
@@ -369,6 +373,60 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         }
       }
 
+      // Set Meditation pending state after card is played
+      if (params.cardId === CARD_MEDITATION) {
+        const playerIdx = finalState.players.findIndex(
+          (p) => p.id === params.playerId
+        );
+        if (playerIdx !== -1) {
+          const meditationPlayer = finalState.players[playerIdx]!;
+          const selectCount = getMeditationSelectCount(meditationPlayer);
+
+          if (isPowered) {
+            // Powered (Trance): player chooses cards — start at select_cards phase
+            const updatedPlayer: Player = {
+              ...meditationPlayer,
+              pendingMeditation: {
+                version: "powered",
+                phase: "select_cards",
+                selectedCardIds: [],
+              },
+              meditationHandLimitBonus: 2,
+            };
+            const updatedPlayers = [...finalState.players];
+            updatedPlayers[playerIdx] = updatedPlayer;
+            finalState = { ...finalState, players: updatedPlayers };
+          } else {
+            // Basic (Meditation): randomly pick cards from discard, skip to place_cards phase
+            const { result: shuffled, rng: newRng } = shuffleWithRng(
+              [...meditationPlayer.discard],
+              finalState.rng
+            );
+            const selectedCardIds = shuffled.slice(0, selectCount);
+
+            const updatedPlayer: Player = {
+              ...meditationPlayer,
+              pendingMeditation: {
+                version: "basic",
+                phase: "place_cards",
+                selectedCardIds,
+              },
+              meditationHandLimitBonus: 2,
+            };
+            const updatedPlayers = [...finalState.players];
+            updatedPlayers[playerIdx] = updatedPlayer;
+            finalState = { ...finalState, players: updatedPlayers, rng: newRng };
+
+            events.push({
+              type: MEDITATION_CARDS_SELECTED,
+              playerId: params.playerId,
+              cardIds: selectedCardIds,
+              version: "basic",
+            });
+          }
+        }
+      }
+
       // Check Mana Overload trigger (powered cards only)
       if (isPowered && finalState.manaOverloadCenter) {
         const triggerCheck = checkManaOverloadTrigger(
@@ -433,6 +491,15 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         updatedPlayer = {
           ...updatedPlayer,
           pendingSteadyTempoDeckPlacement: undefined,
+        };
+      }
+
+      // Clear Meditation pending state and hand limit bonus on undo
+      if (params.cardId === CARD_MEDITATION) {
+        updatedPlayer = {
+          ...updatedPlayer,
+          pendingMeditation: undefined,
+          meditationHandLimitBonus: 0,
         };
       }
 

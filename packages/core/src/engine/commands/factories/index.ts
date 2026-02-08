@@ -80,6 +80,7 @@ import {
   RESOLVE_HEX_COST_REDUCTION_ACTION,
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
   RESOLVE_UNIT_MAINTENANCE_ACTION,
+  RESOLVE_MEDITATION_ACTION,
 } from "@mage-knight/shared";
 
 // Re-export the CommandFactory type
@@ -149,6 +150,7 @@ export {
   createResolveCrystalJoyReclaimCommandFromAction,
   createResolveSteadyTempoCommandFromAction,
   createResolveBannerProtectionCommandFromAction,
+  createResolveMeditationCommandFromAction,
 } from "./sites.js";
 
 // Tactics factories
@@ -257,6 +259,7 @@ import {
   createResolveCrystalJoyReclaimCommandFromAction,
   createResolveSteadyTempoCommandFromAction,
   createResolveBannerProtectionCommandFromAction,
+  createResolveMeditationCommandFromAction,
 } from "./sites.js";
 
 import {
@@ -380,4 +383,6 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [USE_BANNER_FEAR_ACTION]: createUseBannerFearCommandFromAction,
   // Unit maintenance actions (Magic Familiars round-start)
   [RESOLVE_UNIT_MAINTENANCE_ACTION]: createResolveUnitMaintenanceCommandFromAction,
+  // Meditation resolve action
+  [RESOLVE_MEDITATION_ACTION]: createResolveMeditationCommandFromAction,
 };
