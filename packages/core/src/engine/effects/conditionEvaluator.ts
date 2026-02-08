@@ -20,6 +20,8 @@ import {
   CONDITION_LOWEST_FAME,
   CONDITION_IS_NIGHT_OR_UNDERGROUND,
   CONDITION_IN_INTERACTION,
+  CONDITION_AT_FORTIFIED_SITE,
+  CONDITION_AT_MAGICAL_GLADE,
 } from "../../types/conditions.js";
 import { CARD_WOUND, hexKey, TIME_OF_DAY_NIGHT } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
@@ -118,6 +120,20 @@ export function evaluateCondition(
       }
 
       return true;
+    }
+
+    case CONDITION_AT_FORTIFIED_SITE: {
+      if (!player.position) return false;
+      const hex = state.map.hexes[hexKey(player.position)];
+      if (!hex?.site) return false;
+      return SITE_PROPERTIES[hex.site.type].fortified;
+    }
+
+    case CONDITION_AT_MAGICAL_GLADE: {
+      if (!player.position) return false;
+      const hex = state.map.hexes[hexKey(player.position)];
+      if (!hex?.site) return false;
+      return hex.site.type === SiteType.MagicalGlade;
     }
 
     default:
