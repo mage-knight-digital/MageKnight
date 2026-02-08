@@ -18,8 +18,9 @@ import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
-import { getEffectiveSidewaysValue, isRuleActive } from "../../modifiers/index.js";
-import { RULE_WOUNDS_PLAYABLE_SIDEWAYS } from "../../../types/modifierConstants.js";
+import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "../../modifiers/index.js";
+import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
+import type { SidewaysValueModifier } from "../../../types/modifiers.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { isNormalEffectAllowed, isTimeBendingChainPrevented } from "../../rules/cardPlay.js";
 
@@ -153,13 +154,27 @@ function getCardPlayabilityForNormalTurn(
 
   const poweredIsResolvable = isEffectResolvable(state, player.id, card.poweredEffect);
 
+  // Determine if Universal Power mana color matches this card's color
+  let manaColorMatchesCard: boolean | undefined;
+  const playerMods = getModifiersForPlayer(state, player.id);
+  const colorMatchMod = playerMods.find(
+    (m) =>
+      m.effect.type === EFFECT_SIDEWAYS_VALUE &&
+      (m.effect as SidewaysValueModifier).condition === SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR &&
+      (m.effect as SidewaysValueModifier).manaColor != null
+  );
+  if (colorMatchMod) {
+    const mod = colorMatchMod.effect as SidewaysValueModifier;
+    manaColorMatchesCard = card.poweredBy?.includes(mod.manaColor!) ?? false;
+  }
+
   // Calculate effective sideways value (accounts for skill modifiers like I Don't Give a Damn)
   const effectiveSidewaysValue = getEffectiveSidewaysValue(
     state,
     player.id,
     false,
     player.usedManaFromSource,
-    undefined,
+    manaColorMatchesCard,
     card.cardType
   );
 

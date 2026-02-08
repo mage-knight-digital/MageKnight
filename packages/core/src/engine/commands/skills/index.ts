@@ -48,3 +48,8 @@ export {
   placeManaOverloadInCenter,
   returnManaOverloadToOwner,
 } from "./manaOverloadEffect.js";
+
+export {
+  applyUniversalPowerEffect,
+  removeUniversalPowerEffect,
+} from "./universalPowerEffect.js";

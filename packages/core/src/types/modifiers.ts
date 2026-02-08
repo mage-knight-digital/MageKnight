@@ -162,6 +162,8 @@ export interface SidewaysValueModifier {
     | typeof SIDEWAYS_CONDITION_NO_MANA_USED
     | typeof SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR;
   readonly forCardTypes?: readonly DeedCardType[];
+  /** Mana color spent for this modifier (Universal Power: used for color matching) */
+  readonly manaColor?: BasicManaColor;
 }
 
 // Movement card bonus modifier (e.g., "next movement card gets +1")

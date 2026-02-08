@@ -53,6 +53,7 @@ import {
   SKILL_TOVAK_MOTIVATION,
   SKILL_TOVAK_MANA_OVERLOAD,
   SKILL_GOLDYX_GLITTERING_FORTUNE,
+  SKILL_GOLDYX_UNIVERSAL_POWER,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -66,6 +67,7 @@ import { canActivateInvocation } from "../commands/skills/invocationEffect.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { hexKey } from "@mage-knight/shared";
+import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
 
 /**
  * Skills that have effect implementations and can be activated.
@@ -107,6 +109,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_TOVAK_MOTIVATION,
   SKILL_TOVAK_MANA_OVERLOAD,
   SKILL_GOLDYX_GLITTERING_FORTUNE,
+  SKILL_GOLDYX_UNIVERSAL_POWER,
 ]);
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
@@ -154,6 +157,9 @@ function canActivateSkill(
       if (!hex?.site) return false;
       return isPlayerAtInteractionSite(hex.site, player.id);
     }
+
+    case SKILL_GOLDYX_UNIVERSAL_POWER:
+      return canActivateUniversalPower(state, player);
 
     default:
       // No special requirements

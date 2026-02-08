@@ -32,6 +32,8 @@ import {
   SKILL_ARYTHEA_POWER_OF_PAIN,
 } from "../../data/skills/index.js";
 import { getCard } from "../helpers/cardLookup.js";
+import type { SidewaysValueModifier } from "../../types/modifiers.js";
+import { EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../types/modifierConstants.js";
 
 export { PLAY_CARD_SIDEWAYS_COMMAND };
 
@@ -217,13 +219,28 @@ export function createPlayCardSidewaysCommand(
       const isWound = params.cardId === CARD_WOUND;
       const cardDef = getCard(params.cardId as string);
 
+      // Determine if Universal Power mana color matches the card's color
+      // Check for active SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR modifiers with stored manaColor
+      let manaColorMatchesCard: boolean | undefined;
+      const playerModifiers = getModifiersForPlayer(state, params.playerId);
+      const colorMatchModifier = playerModifiers.find(
+        (m) =>
+          m.effect.type === EFFECT_SIDEWAYS_VALUE &&
+          (m.effect as SidewaysValueModifier).condition === SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR &&
+          (m.effect as SidewaysValueModifier).manaColor != null
+      );
+      if (colorMatchModifier) {
+        const mod = colorMatchModifier.effect as SidewaysValueModifier;
+        manaColorMatchesCard = cardDef?.poweredBy?.includes(mod.manaColor!) ?? false;
+      }
+
       // Calculate effective sideways value (usually 1, can be modified)
       appliedValue = getEffectiveSidewaysValue(
         state,
         params.playerId,
         isWound,
         player.usedManaFromSource,
-        undefined, // manaColorMatchesCard not applicable for sideways
+        manaColorMatchesCard,
         cardDef?.cardType
       );
 

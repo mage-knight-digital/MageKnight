@@ -22,6 +22,8 @@ import {
   SKILL_REQUIRES_NOT_IN_COMBAT,
   SKILL_REQUIRES_WOUND_IN_HAND,
   SKILL_REQUIRES_INTERACTION,
+  SKILL_REQUIRES_MANA,
+  SKILL_CONFLICTS_WITH_ACTIVE,
 } from "./validationCodes.js";
 import {
   SKILLS,
@@ -40,6 +42,7 @@ import {
   SKILL_NOROWAS_PRAYER_OF_WEATHER,
   SKILL_GOLDYX_POTION_MAKING,
   SKILL_GOLDYX_GLITTERING_FORTUNE,
+  SKILL_GOLDYX_UNIVERSAL_POWER,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -51,6 +54,7 @@ import { CARD_WOUND, hexKey } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
+import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER]);
 
@@ -298,6 +302,22 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_INTERACTION,
         "Glittering Fortune can only be used during interaction"
+      );
+    }
+  }
+
+  // Universal Power: requires mana source and no conflicting skills
+  if (useSkillAction.skillId === SKILL_GOLDYX_UNIVERSAL_POWER) {
+    if (!useSkillAction.manaSource) {
+      return invalid(
+        SKILL_REQUIRES_MANA,
+        "Universal Power requires a mana source to spend"
+      );
+    }
+    if (!canActivateUniversalPower(state, player)) {
+      return invalid(
+        SKILL_CONFLICTS_WITH_ACTIVE,
+        "Universal Power cannot be activated while a conflicting sideways skill is active"
       );
     }
   }
