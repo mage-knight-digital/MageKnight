@@ -22,11 +22,14 @@ import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import { isEffectResolvable } from "../effects/index.js";
 import { handleBookOfWisdomEffect, getCardsEligibleForBookOfWisdom } from "../effects/bookOfWisdomEffects.js";
 import { createResolveBookOfWisdomCommand } from "../commands/resolveBookOfWisdomCommand.js";
+import { createResolveBookOfWisdomCommandFromAction } from "../commands/factories/cards.js";
 import { describeEffect } from "../effects/describeEffect.js";
 import {
   validateHasPendingBookOfWisdom,
   validateBookOfWisdomSelection,
 } from "../validators/bookOfWisdomValidators.js";
+import { getBookOfWisdomOptions } from "../validActions/pending.js";
+import { getValidActions } from "../validActions/index.js";
 import { EFFECT_BOOK_OF_WISDOM } from "../../types/effectTypes.js";
 import type { BookOfWisdomEffect } from "../../types/cards.js";
 import type { PendingBookOfWisdom } from "../../types/player.js";
@@ -42,7 +45,9 @@ import {
   CARD_RESTORATION,
   CARD_SNOWSTORM,
   CARD_EXPOSE,
+  CARD_STAMINA,
   RESOLVE_BOOK_OF_WISDOM_ACTION,
+  PLAY_CARD_ACTION,
 } from "@mage-knight/shared";
 import { CARD_PATH_FINDING } from "@mage-knight/shared";
 import { CARD_DECOMPOSE } from "@mage-knight/shared";
@@ -880,6 +885,305 @@ describe("Book of Wisdom", () => {
       expect(result.state.players[0].removedCards).toContain(CARD_MARCH);
       expect(result.state.players[0].discard).not.toContain(CARD_MARCH);
       expect(result.state.players[0].hand).not.toContain(CARD_MARCH);
+    });
+  });
+
+  // ============================================================================
+  // VALID ACTIONS - getBookOfWisdomOptions
+  // ============================================================================
+
+  describe("getBookOfWisdomOptions", () => {
+    it("should return undefined when no pending state", () => {
+      const player = createTestPlayer({ pendingBookOfWisdom: null });
+      const state = createTestGameState({ players: [player] });
+      expect(getBookOfWisdomOptions(state, player)).toBeUndefined();
+    });
+
+    it("should return phase 1 options with eligible cards", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH, CARD_RAGE, CARD_BOOK_OF_WISDOM],
+        pendingBookOfWisdom: makePending({ mode: "basic" }),
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const options = getBookOfWisdomOptions(state, player);
+      expect(options).toBeDefined();
+      expect(options!.phase).toBe("select_card");
+      expect(options!.mode).toBe("basic");
+      expect(options!.availableCardIds).toEqual([CARD_MARCH, CARD_RAGE]);
+      expect(options!.availableOfferCards).toEqual([]);
+    });
+
+    it("should return phase 2 options with available offer cards", () => {
+      const offerCards = [CARD_PATH_FINDING] as readonly CardId[];
+      const player = createTestPlayer({
+        hand: [CARD_RAGE],
+        pendingBookOfWisdom: makePhase2Pending("basic", "green", offerCards),
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const options = getBookOfWisdomOptions(state, player);
+      expect(options).toBeDefined();
+      expect(options!.phase).toBe("select_from_offer");
+      expect(options!.availableCardIds).toEqual([]);
+      expect(options!.availableOfferCards).toEqual([CARD_PATH_FINDING]);
+    });
+
+    it("should return phase 2 options for powered mode", () => {
+      const offerCards = [CARD_RESTORATION] as readonly CardId[];
+      const player = createTestPlayer({
+        hand: [CARD_RAGE],
+        pendingBookOfWisdom: makePhase2Pending("powered", "green", offerCards),
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const options = getBookOfWisdomOptions(state, player);
+      expect(options).toBeDefined();
+      expect(options!.mode).toBe("powered");
+      expect(options!.phase).toBe("select_from_offer");
+    });
+  });
+
+  // ============================================================================
+  // VALID ACTIONS - getValidActions routing
+  // ============================================================================
+
+  describe("getValidActions routing", () => {
+    it("should return pending_book_of_wisdom mode when player has pending state", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH, CARD_RAGE],
+        pendingBookOfWisdom: makePending(),
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const actions = getValidActions(state, "player1");
+      expect(actions.mode).toBe("pending_book_of_wisdom");
+      expect(actions.bookOfWisdom).toBeDefined();
+      expect(actions.bookOfWisdom!.availableCardIds).toEqual([CARD_MARCH, CARD_RAGE]);
+    });
+
+    it("should return pending_book_of_wisdom mode during phase 2", () => {
+      const player = createTestPlayer({
+        hand: [CARD_RAGE],
+        pendingBookOfWisdom: makePhase2Pending("basic", "green", [CARD_PATH_FINDING]),
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const actions = getValidActions(state, "player1");
+      expect(actions.mode).toBe("pending_book_of_wisdom");
+      expect(actions.bookOfWisdom).toBeDefined();
+      expect(actions.bookOfWisdom!.availableOfferCards).toEqual([CARD_PATH_FINDING]);
+    });
+  });
+
+  // ============================================================================
+  // COMMAND FACTORY
+  // ============================================================================
+
+  describe("createResolveBookOfWisdomCommandFromAction", () => {
+    it("should create command for RESOLVE_BOOK_OF_WISDOM_ACTION", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        pendingBookOfWisdom: makePending(),
+      });
+      const state = createTestGameState({ players: [player] });
+      const action = {
+        type: RESOLVE_BOOK_OF_WISDOM_ACTION,
+        cardId: CARD_MARCH,
+      } as const;
+
+      const command = createResolveBookOfWisdomCommandFromAction(state, "player1", action);
+      expect(command).not.toBeNull();
+    });
+
+    it("should return null for non-matching action type", () => {
+      const player = createTestPlayer({ hand: [CARD_MARCH] });
+      const state = createTestGameState({ players: [player] });
+      const action = {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_MARCH,
+        manaSources: [],
+      } as const;
+
+      const command = createResolveBookOfWisdomCommandFromAction(state, "player1", action);
+      expect(command).toBeNull();
+    });
+
+    it("should return null when player has no pending state", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        pendingBookOfWisdom: null,
+      });
+      const state = createTestGameState({ players: [player] });
+      const action = {
+        type: RESOLVE_BOOK_OF_WISDOM_ACTION,
+        cardId: CARD_MARCH,
+      } as const;
+
+      const command = createResolveBookOfWisdomCommandFromAction(state, "player1", action);
+      expect(command).toBeNull();
+    });
+  });
+
+  // ============================================================================
+  // POWERED MODE COLOR VARIATIONS
+  // ============================================================================
+
+  describe("powered mode crystal colors", () => {
+    it("should gain red crystal when throwing away red card", () => {
+      const player = createTestPlayer({
+        hand: [CARD_RAGE],
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+        pendingBookOfWisdom: makePhase2Pending("powered", "red", [CARD_FIREBALL]),
+      });
+      const state = createTestGameState({
+        players: [player],
+        offers: {
+          units: [],
+          advancedActions: { cards: [] },
+          spells: { cards: [CARD_FIREBALL] },
+          commonSkills: [],
+          monasteryAdvancedActions: [],
+          bondsOfLoyaltyBonusUnits: [],
+        },
+        decks: {
+          spells: [],
+          advancedActions: [],
+          artifacts: [],
+          regularUnits: [],
+          eliteUnits: [],
+        },
+      });
+
+      const command = createResolveBookOfWisdomCommand({
+        playerId: "player1",
+        cardId: CARD_FIREBALL,
+      });
+      const result = command.execute(state);
+      expect(result.state.players[0].crystals.red).toBe(1);
+    });
+
+    it("should gain white crystal when throwing away white card", () => {
+      const player = createTestPlayer({
+        hand: [CARD_RAGE],
+        crystals: { red: 0, blue: 0, green: 0, white: 0 },
+        pendingBookOfWisdom: makePhase2Pending("powered", "white", [CARD_EXPOSE]),
+      });
+      const state = createTestGameState({
+        players: [player],
+        offers: {
+          units: [],
+          advancedActions: { cards: [] },
+          spells: { cards: [CARD_EXPOSE] },
+          commonSkills: [],
+          monasteryAdvancedActions: [],
+          bondsOfLoyaltyBonusUnits: [],
+        },
+        decks: {
+          spells: [],
+          advancedActions: [],
+          artifacts: [],
+          regularUnits: [],
+          eliteUnits: [],
+        },
+      });
+
+      const command = createResolveBookOfWisdomCommand({
+        playerId: "player1",
+        cardId: CARD_EXPOSE,
+      });
+      const result = command.execute(state);
+      expect(result.state.players[0].crystals.white).toBe(1);
+    });
+  });
+
+  // ============================================================================
+  // VALIDATOR EDGE CASES
+  // ============================================================================
+
+  describe("validator edge cases", () => {
+    it("validateHasPendingBookOfWisdom should fail for unknown player", () => {
+      const state = createTestGameState({ players: [] });
+      const action = {
+        type: RESOLVE_BOOK_OF_WISDOM_ACTION,
+        cardId: CARD_MARCH,
+      } as const;
+
+      const result = validateHasPendingBookOfWisdom(state, "nonexistent", action);
+      expect(result.valid).toBe(false);
+    });
+
+    it("validateBookOfWisdomSelection should fail for unknown player", () => {
+      const state = createTestGameState({ players: [] });
+      const action = {
+        type: RESOLVE_BOOK_OF_WISDOM_ACTION,
+        cardId: CARD_MARCH,
+      } as const;
+
+      const result = validateBookOfWisdomSelection(state, "nonexistent", action);
+      expect(result.valid).toBe(false);
+    });
+
+    it("validateBookOfWisdomSelection should pass for non-matching action type", () => {
+      const player = createTestPlayer({ hand: [CARD_MARCH] });
+      const state = createTestGameState({ players: [player] });
+      const action = {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_MARCH,
+        manaSources: [],
+      } as const;
+
+      const result = validateBookOfWisdomSelection(state, "player1", action);
+      expect(result.valid).toBe(true);
+    });
+
+    it("validateBookOfWisdomSelection should pass when no pending state (defers to other validator)", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        pendingBookOfWisdom: null,
+      });
+      const state = createTestGameState({ players: [player] });
+      const action = {
+        type: RESOLVE_BOOK_OF_WISDOM_ACTION,
+        cardId: CARD_MARCH,
+      } as const;
+
+      const result = validateBookOfWisdomSelection(state, "player1", action);
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  // ============================================================================
+  // PHASE 1 WITH BLUE AND WHITE CARDS
+  // ============================================================================
+
+  describe("phase 1 color matching", () => {
+    it("should match blue card color in phase 1", () => {
+      const player = createTestPlayer({
+        hand: [CARD_STAMINA, CARD_BOOK_OF_WISDOM],
+        removedCards: [],
+        pendingBookOfWisdom: makePending({ mode: "powered" }),
+      });
+      const state = createTestGameState({
+        players: [player],
+        offers: {
+          units: [],
+          advancedActions: { cards: [] },
+          spells: { cards: [CARD_SNOWSTORM] },
+          commonSkills: [],
+          monasteryAdvancedActions: [],
+          bondsOfLoyaltyBonusUnits: [],
+        },
+      });
+
+      const command = createResolveBookOfWisdomCommand({
+        playerId: "player1",
+        cardId: CARD_STAMINA, // blue card
+      });
+      const result = command.execute(state);
+
+      expect(result.state.players[0].pendingBookOfWisdom?.thrownCardColor).toBe("blue");
+      expect(result.state.players[0].pendingBookOfWisdom?.availableOfferCards).toContain(CARD_SNOWSTORM);
     });
   });
 });
