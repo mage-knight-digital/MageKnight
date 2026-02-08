@@ -5,7 +5,7 @@
   "type": "module",
   "workspaces": ["packages/*"],
   "scripts": {
-    "build": "bun run --parallel --filter '*' build",
+    "build": "bun run --filter '*' build",
     "test": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test",
     "test:coverage": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test:coverage",
     "lint": "oxlint -c .oxlintrc.json --deny-warnings packages/*/src",

@@ -21,6 +21,9 @@ export {
   ACHIEVEMENT_CALCULATORS,
 } from "./achievementCalculators.js";
 
+// Base score calculation
+export { calculateBaseScores } from "./baseScore.js";
+
 // Standard achievements scoring
 export {
   calculateAchievementResults,
