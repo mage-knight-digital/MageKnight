@@ -62,6 +62,7 @@ import {
   SKILL_BRAEVALAR_BEGUILE,
   SKILL_BRAEVALAR_FORKED_LIGHTNING,
   SKILL_BRAEVALAR_SHAPESHIFT,
+  SKILL_BRAEVALAR_REGENERATE,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT } from "../../types/cards.js";
 import {
@@ -73,6 +74,7 @@ import { CARD_WOUND } from "@mage-knight/shared";
 import { canActivatePolarization } from "../commands/skills/polarizationEffect.js";
 import { canActivateInvocation } from "../commands/skills/invocationEffect.js";
 import { canActivateShapeshift } from "../commands/skills/shapeshiftEffect.js";
+import { canActivateRegenerate } from "../commands/skills/regenerateEffect.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { hexKey } from "@mage-knight/shared";
@@ -128,6 +130,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_BRAEVALAR_BEGUILE,
   SKILL_BRAEVALAR_FORKED_LIGHTNING,
   SKILL_BRAEVALAR_SHAPESHIFT,
+  SKILL_BRAEVALAR_REGENERATE,
 ]);
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING]);
@@ -184,6 +187,10 @@ function canActivateSkill(
     case SKILL_BRAEVALAR_SHAPESHIFT:
       // Must have at least one Basic Action card with a shapeshiftable effect in hand
       return canActivateShapeshift(state, player);
+
+    case SKILL_BRAEVALAR_REGENERATE:
+      // Must have wound in hand, not in combat, and mana available
+      return canActivateRegenerate(state, player);
 
     default:
       // No special requirements

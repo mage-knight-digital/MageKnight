@@ -59,3 +59,9 @@ export {
   removeShapeshiftEffect,
   canActivateShapeshift,
 } from "./shapeshiftEffect.js";
+
+export {
+  applyRegenerateEffect,
+  removeRegenerateEffect,
+  canActivateRegenerate,
+} from "./regenerateEffect.js";

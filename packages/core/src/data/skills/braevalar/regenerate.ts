@@ -13,7 +13,7 @@ export const braevalarRegenerate: SkillDefinition = {
   id: SKILL_BRAEVALAR_REGENERATE,
     name: "Regenerate",
     heroId: "braevalar",
-    description: "Pay mana, discard Wound. Red mana or lowest Fame: draw card",
+    description: "Pay mana, discard Wound. Green mana or lowest Fame: draw card",
     usageType: SKILL_USAGE_ONCE_PER_TURN,
     categories: [CATEGORY_HEALING],
 };
