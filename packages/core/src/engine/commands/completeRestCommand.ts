@@ -21,6 +21,7 @@ import {
 } from "@mage-knight/shared";
 import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
+import type { SkillId } from "@mage-knight/shared";
 
 export const COMPLETE_REST_COMMAND = "COMPLETE_REST" as const;
 
@@ -31,6 +32,7 @@ export interface CompleteRestCommandParams {
   readonly previousHand: readonly CardId[]; // For undo
   readonly previousDiscard: readonly CardId[]; // For undo
   readonly previousIsResting: boolean; // For undo - should be true
+  readonly previousFlippedSkills: readonly SkillId[]; // For undo - restore flip state
   readonly restType: RestType; // Determined by validator based on hand state
 }
 
@@ -89,12 +91,17 @@ export function createCompleteRestCommand(
       const newDiscard = [...player.discard, ...params.discardCardIds];
 
       // Exit resting state, mark minimum turn requirement satisfied
+      // Flip back any face-down skills (Battle Frenzy S2: resting flips skill back)
       const updatedPlayer: Player = {
         ...player,
         hand: newHand,
         discard: newDiscard,
         isResting: false, // Rest is now complete
         playedCardFromHandThisTurn: true, // Rest discarding satisfies minimum turn requirement
+        skillFlipState: {
+          ...player.skillFlipState,
+          flippedSkills: [],
+        },
       };
 
       const players = [...state.players];
@@ -137,13 +144,17 @@ export function createCompleteRestCommand(
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
 
-      // Restore to resting state with original hand/discard
+      // Restore to resting state with original hand/discard and flip state
       const updatedPlayer: Player = {
         ...player,
         hand: [...params.previousHand],
         discard: [...params.previousDiscard],
         isResting: params.previousIsResting, // Restore to resting state
         playedCardFromHandThisTurn: false, // Undo minimum turn requirement satisfaction
+        skillFlipState: {
+          ...player.skillFlipState,
+          flippedSkills: [...params.previousFlippedSkills],
+        },
       };
 
       const players = [...state.players];

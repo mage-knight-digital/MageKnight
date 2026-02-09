@@ -33,8 +33,9 @@ import {
   getChoiceOptionsFromEffect,
   type PendingChoiceSource,
 } from "./choice/choiceResolution.js";
-import { SKILL_TOVAK_MANA_OVERLOAD } from "../../data/skills/index.js";
+import { SKILL_TOVAK_MANA_OVERLOAD, SKILL_KRANG_BATTLE_FRENZY } from "../../data/skills/index.js";
 import { placeManaOverloadInCenter } from "./skills/manaOverloadEffect.js";
+import { flipSkillFaceDown, unflipSkill } from "./helpers/skillFlipHelpers.js";
 
 export { RESOLVE_CHOICE_COMMAND };
 
@@ -252,6 +253,18 @@ export function createResolveChoiceCommand(
             finalState,
             params.playerId,
             chosenColor
+          );
+        }
+
+        // Flip Battle Frenzy face-down when Attack 4 option (index 1) is chosen
+        if (
+          player.pendingChoice.skillId === SKILL_KRANG_BATTLE_FRENZY &&
+          params.choiceIndex === 1
+        ) {
+          finalState = flipSkillFaceDown(
+            finalState,
+            params.playerId,
+            SKILL_KRANG_BATTLE_FRENZY
           );
         }
 
@@ -490,10 +503,22 @@ export function createResolveChoiceCommand(
       }
 
       // Clear Mana Overload center if this was a Mana Overload choice resolution
-      const undoState =
+      let undoState =
         params.previousPendingChoice.skillId === SKILL_TOVAK_MANA_OVERLOAD
           ? { ...stateWithModifiers, players, manaOverloadCenter: null }
           : { ...stateWithModifiers, players };
+
+      // Unflip Battle Frenzy if it was flipped by choosing Attack 4
+      if (
+        params.previousPendingChoice.skillId === SKILL_KRANG_BATTLE_FRENZY &&
+        params.choiceIndex === 1
+      ) {
+        undoState = unflipSkill(
+          undoState,
+          params.playerId,
+          SKILL_KRANG_BATTLE_FRENZY
+        );
+      }
 
       return {
         state: undoState,

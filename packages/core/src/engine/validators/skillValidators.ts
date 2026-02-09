@@ -25,6 +25,7 @@ import {
   SKILL_REQUIRES_INTERACTION,
   SKILL_REQUIRES_MANA,
   SKILL_CONFLICTS_WITH_ACTIVE,
+  SKILL_FLIPPED_FACE_DOWN,
 } from "./validationCodes.js";
 import {
   SKILLS,
@@ -59,7 +60,7 @@ import {
 } from "../../types/combat.js";
 import { CARD_WOUND, hexKey } from "@mage-knight/shared";
 import { getPlayerById } from "../helpers/playerHelpers.js";
-import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
+import { canUseMeleeAttackSkill, isMeleeAttackSkill, isSkillFaceUp } from "../rules/skillPhasing.js";
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
@@ -153,6 +154,29 @@ export const validateSkillCooldown: Validator = (state, playerId, action) => {
     return invalid(
       SKILL_ON_COOLDOWN,
       "Cannot use a Motivation skill until the end of your next turn"
+    );
+  }
+
+  return valid();
+};
+
+/**
+ * Validates that the skill is face-up (not flipped).
+ * Skills like Battle Frenzy can be flipped face-down and cannot be used until flipped back.
+ */
+export const validateSkillFaceUp: Validator = (state, playerId, action) => {
+  const useSkillAction = action as UseSkillAction;
+  const player = getPlayerById(state, playerId);
+
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
+  if (!isSkillFaceUp(player, useSkillAction.skillId)) {
+    const skill = SKILLS[useSkillAction.skillId];
+    return invalid(
+      SKILL_FLIPPED_FACE_DOWN,
+      `${skill?.name ?? useSkillAction.skillId} is flipped face-down and cannot be used`
     );
   }
 

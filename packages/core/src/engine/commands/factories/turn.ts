@@ -134,6 +134,7 @@ export const createCompleteRestCommandFromAction: CommandFactory = (
     previousHand: [...player.hand],
     previousDiscard: [...player.discard],
     previousIsResting: player.isResting,
+    previousFlippedSkills: [...player.skillFlipState.flippedSkills],
     restType,
   });
 };
