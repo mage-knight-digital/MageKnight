@@ -123,13 +123,33 @@ export function computeEnemyBlockState(
   const swiftActive = isSwiftActive(state, playerId, enemy);
   const isBrutal = enemy.definition.abilities.includes(ABILITY_BRUTAL);
 
+  // For multi-attack enemies, find the first unblocked/uncancelled attack
+  const attacks = getEnemyAttacks(enemy);
+  let targetAttackIndex: number | undefined;
+  let baseAttackValue: number;
+  let attackElement = enemy.definition.attackElement;
+
+  if (attacks.length > 1) {
+    const firstUnblockedIdx = attacks.findIndex((_, i) =>
+      !isAttackBlocked(enemy, i) && !isAttackCancelled(enemy, i)
+    );
+    targetAttackIndex = firstUnblockedIdx >= 0 ? firstUnblockedIdx : undefined;
+    const targetAttack = targetAttackIndex !== undefined ? attacks[targetAttackIndex] : undefined;
+    baseAttackValue = targetAttack?.damage ?? enemy.definition.attack;
+    if (targetAttack) {
+      attackElement = targetAttack.element;
+    }
+  } else {
+    baseAttackValue = enemy.definition.attack;
+  }
+
   // Use effective attack (after modifiers)
   // Nature's Vengeance competitive penalty: +1 attack during Block phase (S1)
   const naturesVengeanceBonus = getNaturesVengeanceAttackBonus(state, playerId);
   const effectiveAttack = getEffectiveEnemyAttack(
     state,
     enemy.instanceId,
-    enemy.definition.attack
+    baseAttackValue
   ) + naturesVengeanceBonus;
 
   // Swift enemies require 2x block
@@ -159,16 +179,16 @@ export function computeEnemyBlockState(
     ? appendSwiftDoubleSources(sourcesWithBonus, rawSwiftPending)
     : sourcesWithBonus;
 
-  const effectiveBlock = calculateTotalBlock(blockSources, enemy.definition.attackElement);
+  const effectiveBlock = calculateTotalBlock(blockSources, attackElement);
 
   // Can block if effective block >= required
   const canBlock = effectiveBlock >= requiredBlock;
 
-  return {
+  const result: EnemyBlockState = {
     enemyInstanceId: enemy.instanceId,
     enemyName: enemy.definition.name,
     enemyAttack: effectiveAttack,
-    attackElement: enemy.definition.attackElement,
+    attackElement,
     requiredBlock,
     isSwift: swiftActive,
     isBrutal,
@@ -178,6 +198,12 @@ export function computeEnemyBlockState(
     effectiveBlock,
     canBlock,
   };
+
+  if (targetAttackIndex !== undefined) {
+    return { ...result, attackIndex: targetAttackIndex };
+  }
+
+  return result;
 }
 
 /** All block elements for iteration */
@@ -417,7 +443,10 @@ export function computeBlockPhaseOptions(
     .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
     .filter((enemy) => {
       const naturesBonus = getNaturesVengeanceAttackBonus(state, player.id);
-      return getEffectiveEnemyAttack(state, enemy.instanceId, enemy.definition.attack) + naturesBonus > 0;
+      const attacks = getEnemyAttacks(enemy);
+      return attacks.some(attack =>
+        getEffectiveEnemyAttack(state, enemy.instanceId, attack.damage) + naturesBonus > 0
+      );
     })
     .map((enemy) => computeEnemyBlockState(enemy, combat, state, player.id));
 

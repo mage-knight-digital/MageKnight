@@ -32,6 +32,8 @@ import {
   isAttackBlocked,
   isAttackDamageAssigned,
   isEnemyFullyBlocked,
+  findFirstUnblockedAttack,
+  findFirstUnassignedAttack,
 } from "../../combat/enemyAttackHelpers.js";
 
 // Target enemy must exist and not be defeated (for block)
@@ -64,8 +66,8 @@ export function validateBlockTargetEnemy(
     );
   }
 
-  // Get attack index (default to 0 for single-attack enemies)
-  const attackIndex = action.attackIndex ?? 0;
+  // Get attack index (auto-resolve to first unblocked for multi-attack enemies)
+  const attackIndex = action.attackIndex ?? findFirstUnblockedAttack(enemy);
   const attackCount = getEnemyAttackCount(enemy);
 
   // Validate attack index is in range
@@ -125,8 +127,8 @@ export function validateAssignDamageTargetEnemy(
     );
   }
 
-  // Get attack index (default to 0 for single-attack enemies)
-  const attackIndex = action.attackIndex ?? 0;
+  // Get attack index (auto-resolve to first unassigned for multi-attack enemies)
+  const attackIndex = action.attackIndex ?? findFirstUnassignedAttack(enemy);
   const attackCount = getEnemyAttackCount(enemy);
 
   // Validate attack index is in range

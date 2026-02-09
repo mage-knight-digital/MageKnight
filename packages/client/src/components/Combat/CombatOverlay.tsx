@@ -399,7 +399,7 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
       setSelectedDamageOption(damageOption);
     } else {
       // No units available - assign all damage to hero
-      sendAction({ type: ASSIGN_DAMAGE_ACTION, enemyInstanceId });
+      sendAction({ type: ASSIGN_DAMAGE_ACTION, enemyInstanceId, attackIndex: damageOption?.attackIndex });
     }
   }, [sendAction, combatOptions?.damageAssignments]);
 
@@ -411,10 +411,11 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
         type: ASSIGN_DAMAGE_ACTION,
         enemyInstanceId,
         assignments,
+        attackIndex: selectedDamageOption?.attackIndex,
       });
       setSelectedDamageOption(null);
     },
-    [sendAction]
+    [sendAction, selectedDamageOption]
   );
 
   // Handle damage assignment panel cancel
@@ -508,8 +509,13 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
 
   const handleCommitBlock = useCallback((enemyInstanceId: string) => {
     triggerEffect("block");
-    sendAction({ type: DECLARE_BLOCK_ACTION, targetEnemyInstanceId: enemyInstanceId });
-  }, [sendAction, triggerEffect]);
+    const blockState = combatOptions?.enemyBlockStates?.find(e => e.enemyInstanceId === enemyInstanceId);
+    sendAction({
+      type: DECLARE_BLOCK_ACTION,
+      targetEnemyInstanceId: enemyInstanceId,
+      attackIndex: blockState?.attackIndex,
+    });
+  }, [sendAction, triggerEffect, combatOptions?.enemyBlockStates]);
 
   // ========================================
   // Drag & Drop Handlers (PixiJS)

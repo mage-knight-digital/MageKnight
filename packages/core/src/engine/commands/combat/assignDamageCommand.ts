@@ -28,6 +28,7 @@ import {
   isAttackBlocked,
   isAttackDamageAssigned,
   getEffectiveEnemyAttackElement,
+  findFirstUnassignedAttack,
 } from "../../combat/enemyAttackHelpers.js";
 import {
   getEffectiveDamage,
@@ -84,8 +85,8 @@ export function createAssignDamageCommand(
         throw new Error(`Enemy not found: ${params.enemyInstanceId}`);
       }
 
-      // Get the attack index (default to 0 for single-attack enemies)
-      const attackIndex = params.attackIndex ?? 0;
+      // Get the attack index (auto-resolve to first unassigned for multi-attack enemies)
+      const attackIndex = params.attackIndex ?? findFirstUnassignedAttack(enemy);
       const attackCount = getEnemyAttackCount(enemy);
 
       // Validate attack index

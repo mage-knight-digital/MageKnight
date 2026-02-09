@@ -421,6 +421,11 @@ export interface EnemyBlockState {
   readonly isBrutal: boolean;
   readonly isBlocked: boolean;
   readonly isDefeated: boolean;
+  /**
+   * For multi-attack enemies, the index of the first unblocked/uncancelled attack
+   * that this block state represents. Undefined for single-attack enemies.
+   */
+  readonly attackIndex?: number;
 
   /** Raw pending block (what's been assigned) */
   readonly pendingBlock: ElementalDamageValues;
