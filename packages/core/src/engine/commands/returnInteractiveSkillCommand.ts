@@ -18,7 +18,7 @@ import type { Player, PendingChoice } from "../../types/player.js";
 import type { SkillId, GameEvent } from "@mage-knight/shared";
 import type { ActiveModifier } from "../../types/modifiers.js";
 import type { CardEffect } from "../../types/cards.js";
-import { ABILITY_CUMBERSOME } from "@mage-knight/shared";
+import { ABILITY_CUMBERSOME, MANA_GREEN, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { createSkillUsedEvent, createChoiceRequiredEvent } from "@mage-knight/shared";
 import { RETURN_INTERACTIVE_SKILL_COMMAND } from "./commandTypes.js";
 import {
@@ -26,6 +26,7 @@ import {
   SKILL_GOLDYX_SOURCE_OPENING,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
   SKILL_KRANG_SHAMANIC_RITUAL,
+  SKILL_KRANG_ARCANE_DISGUISE,
   SKILL_WOLFHAWK_WOLFS_HOWL,
 } from "../../data/skills/index.js";
 import { addModifier } from "../modifiers/index.js";
@@ -439,6 +440,7 @@ export function createReturnInteractiveSkillCommand(
   let savedSourceOpeningCenter: SourceOpeningCenter | null = null;
   let savedHasTakenActionThisTurn: boolean | null = null;
   let savedUsedThisRoundHadSkill: boolean = false;
+  let savedArcanePaidGreenMana: boolean = false;
 
   return {
     type: RETURN_INTERACTIVE_SKILL_COMMAND,
@@ -479,6 +481,47 @@ export function createReturnInteractiveSkillCommand(
         const players = [...updatedState.players];
         players[ownerIndex] = updatedOwner;
         updatedState = { ...updatedState, players };
+
+        return {
+          state: updatedState,
+          events: [createSkillUsedEvent(playerId, skillId)],
+        };
+      }
+
+      if (skillId === SKILL_KRANG_ARCANE_DISGUISE) {
+        const ownerIndex = state.players.findIndex((p) => p.id === playerId);
+        if (ownerIndex === -1) {
+          throw new Error(`Player not found: ${playerId}`);
+        }
+
+        savedOwnerId = playerId;
+        savedArcanePaidGreenMana = false;
+
+        const owner = state.players[ownerIndex]!;
+        const greenManaIndex = owner.pureMana.findIndex(
+          (token) => token.color === MANA_GREEN
+        );
+        if (greenManaIndex === -1) {
+          throw new Error("Arcane Disguise flip-back requires 1 green mana");
+        }
+
+        const updatedPureMana = [...owner.pureMana];
+        updatedPureMana.splice(greenManaIndex, 1);
+        savedArcanePaidGreenMana = true;
+
+        const updatedOwner: Player = {
+          ...owner,
+          pureMana: updatedPureMana,
+        };
+        const playersAfterPayment = [...state.players];
+        playersAfterPayment[ownerIndex] = updatedOwner;
+
+        let updatedState: GameState = { ...state, players: playersAfterPayment };
+        updatedState = unflipSkillFaceUp(
+          updatedState,
+          playerId,
+          SKILL_KRANG_ARCANE_DISGUISE
+        );
 
         return {
           state: updatedState,
@@ -561,6 +604,38 @@ export function createReturnInteractiveSkillCommand(
         const players = [...updatedState.players];
         players[ownerIndex] = restoredOwner;
         updatedState = { ...updatedState, players };
+
+        return {
+          state: updatedState,
+          events: [],
+        };
+      }
+
+      if (skillId === SKILL_KRANG_ARCANE_DISGUISE) {
+        const ownerIndex = state.players.findIndex((p) => p.id === savedOwnerId);
+        if (ownerIndex === -1) {
+          throw new Error(`Player not found: ${savedOwnerId}`);
+        }
+
+        let updatedState = flipSkillFaceDown(
+          state,
+          savedOwnerId,
+          SKILL_KRANG_ARCANE_DISGUISE
+        );
+
+        if (savedArcanePaidGreenMana) {
+          const owner = updatedState.players[ownerIndex]!;
+          const restoredOwner: Player = {
+            ...owner,
+            pureMana: [
+              ...owner.pureMana,
+              { color: MANA_GREEN, source: MANA_TOKEN_SOURCE_CARD },
+            ],
+          };
+          const players = [...updatedState.players];
+          players[ownerIndex] = restoredOwner;
+          updatedState = { ...updatedState, players };
+        }
 
         return {
           state: updatedState,

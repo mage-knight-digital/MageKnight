@@ -75,6 +75,7 @@ export const ENEMY_STAT_ATTACK = "attack" as const;
 // === RuleOverrideModifier["rule"] ===
 export const RULE_IGNORE_FORTIFICATION = "ignore_fortification" as const;
 export const RULE_IGNORE_RAMPAGING_PROVOKE = "ignore_rampaging_provoke" as const;
+export const RULE_IGNORE_REPUTATION = "ignore_reputation" as const;
 export const RULE_WOUNDS_PLAYABLE_SIDEWAYS = "wounds_playable_sideways" as const;
 export const RULE_GOLD_AS_BLACK = "gold_as_black" as const;
 export const RULE_BLACK_AS_GOLD = "black_as_gold" as const;

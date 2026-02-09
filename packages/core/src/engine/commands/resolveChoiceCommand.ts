@@ -37,6 +37,7 @@ import {
   SKILL_TOVAK_MANA_OVERLOAD,
   SKILL_KRANG_BATTLE_FRENZY,
   SKILL_KRANG_SHAMANIC_RITUAL,
+  SKILL_KRANG_ARCANE_DISGUISE,
 } from "../../data/skills/index.js";
 import { placeManaOverloadInCenter } from "./skills/manaOverloadEffect.js";
 import { flipSkillFaceDown, unflipSkill } from "./helpers/skillFlipHelpers.js";
@@ -269,6 +270,18 @@ export function createResolveChoiceCommand(
             finalState,
             params.playerId,
             SKILL_KRANG_BATTLE_FRENZY
+          );
+        }
+
+        // Flip Arcane Disguise face-down when "ignore reputation" option is chosen.
+        if (
+          player.pendingChoice.skillId === SKILL_KRANG_ARCANE_DISGUISE &&
+          params.choiceIndex === 1
+        ) {
+          finalState = flipSkillFaceDown(
+            finalState,
+            params.playerId,
+            SKILL_KRANG_ARCANE_DISGUISE
           );
         }
 

@@ -24,6 +24,7 @@ import {
   getRefugeeCampCostModifier,
   getActiveRecruitDiscount,
   isGladeRecruitment,
+  shouldIgnoreReputationEffects,
 } from "../../rules/unitRecruitment.js";
 import { getEffectiveCommandTokens, isBondsSlotEmpty, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
 
@@ -62,7 +63,8 @@ export function getUnitOptions(
   // At "X" reputation (MIN_REPUTATION), inhabitants refuse to interact
   // (Magical Glade ignores reputation entirely)
   const isGlade = isGladeRecruitment(hex.site.type);
-  if (player.reputation <= MIN_REPUTATION && !isGlade) {
+  const ignoreReputation = shouldIgnoreReputationEffects(state, player.id);
+  if (player.reputation <= MIN_REPUTATION && !isGlade && !ignoreReputation) {
     return undefined;
   }
 
@@ -140,7 +142,8 @@ export function getUnitOptions(
       : getReputationCostModifier(
           player.reputation,
           unit.id,
-          heroAlreadyRecruited
+          heroAlreadyRecruited,
+          ignoreReputation
         );
 
     // Apply recruit discount if available (Ruthless Coercion)
