@@ -29,6 +29,7 @@ import { registerManaPaymentEffects } from "./manaPaymentEffects.js";
 import { registerTerrainEffects } from "./terrainEffects.js";
 import { registerSwordOfJusticeEffects } from "./swordOfJusticeEffects.js";
 import { registerAttackFameEffects } from "./attackFameEffects.js";
+import { registerAttackWithDefeatBonusEffects } from "./attackWithDefeatBonusEffects.js";
 import { registerPolarizeEffects } from "./polarizeEffects.js";
 import { registerRitualOfPainEffects } from "./ritualOfPainEffects.js";
 import { registerDiscardForCrystalEffects } from "./discardForCrystalEffects.js";
@@ -139,6 +140,9 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Attack-based fame tracking effects (Axe Throw)
   registerAttackFameEffects();
+
+  // Attack with defeat bonus effects (Chivalry)
+  registerAttackWithDefeatBonusEffects();
 
   // Polarize mana effects (Arythea's Polarization skill)
   registerPolarizeEffects();

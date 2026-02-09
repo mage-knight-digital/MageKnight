@@ -50,6 +50,7 @@ import {
   SKILL_WOLFHAWK_REFRESHING_BREEZE,
   SKILL_WOLFHAWK_DEADLY_AIM,
   SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+  SKILL_WOLFHAWK_TAUNT,
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
 } from "../../data/skills/index.js";
@@ -197,7 +198,7 @@ export const validateBlockSkillInBlockPhase: Validator = (state, _playerId, acti
   const useSkillAction = action as UseSkillAction;
 
   // Skills that provide block can only be used during block phase
-  const blockSkills = [SKILL_TOVAK_SHIELD_MASTERY];
+  const blockSkills = [SKILL_TOVAK_SHIELD_MASTERY, SKILL_WOLFHAWK_TAUNT];
 
   if (blockSkills.includes(useSkillAction.skillId)) {
     if (!state.combat || state.combat.phase !== COMBAT_PHASE_BLOCK) {

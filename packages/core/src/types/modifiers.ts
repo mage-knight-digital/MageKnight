@@ -74,6 +74,7 @@ import {
   EFFECT_SHIELD_BASH_ARMOR_REDUCTION,
   EFFECT_REMOVE_ICE_RESISTANCE,
   EFFECT_CONVERT_ATTACK_ELEMENT,
+  EFFECT_DODGE_AND_WEAVE_ATTACK_BONUS,
   SHAPESHIFT_TARGET_MOVE,
   SHAPESHIFT_TARGET_ATTACK,
   SHAPESHIFT_TARGET_BLOCK,
@@ -223,6 +224,7 @@ export interface EnemyStatModifier {
   readonly perResistance?: boolean; // Resistance Break: -1 per resistance
   readonly fortifiedAmount?: number; // Earthquake: alternative amount if target is fortified
   readonly excludeResistance?: ResistanceType; // Demolish: skip enemies with this resistance
+  readonly onlyIfEnemyAttacks?: boolean; // Taunt: armor reduction only if enemy actually attacks
 }
 
 // Rule override modifier (e.g., "ignore fortification")
@@ -651,6 +653,15 @@ export interface SoulHarvesterCrystalTrackingModifier {
   readonly trackByAttack: boolean;
 }
 
+// Dodge and Weave conditional attack bonus modifier
+// Applied when Dodge and Weave is played in Block phase.
+// When transitioning to Attack phase, grants physical attack if no wounds
+// were added to hero's hand this combat.
+export interface DodgeAndWeaveAttackBonusModifier {
+  readonly type: typeof EFFECT_DODGE_AND_WEAVE_ATTACK_BONUS;
+  readonly amount: number; // Attack bonus (1 for basic, 2 for powered)
+}
+
 // Shield Bash armor reduction modifier (Shield Bash powered effect)
 // When a block succeeds, reduces the blocked enemy's armor by the excess block points.
 // Excess = total undoubled block - block needed to fully block.
@@ -734,7 +745,8 @@ export type ModifierEffect =
   | SoulHarvesterCrystalTrackingModifier
   | ShieldBashArmorReductionModifier
   | RemoveIceResistanceModifier
-  | ConvertAttackElementModifier;
+  | ConvertAttackElementModifier
+  | DodgeAndWeaveAttackBonusModifier;
 
 // === Active Modifier (live in game state) ===
 

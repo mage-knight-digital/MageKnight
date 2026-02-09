@@ -34,6 +34,7 @@ import {
   EFFECT_TAKE_WOUND,
   EFFECT_DISCARD_WOUNDS,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
+  EFFECT_ATTACK_WITH_DEFEAT_BONUS,
   EFFECT_PLACE_SKILL_IN_CENTER,
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_DECOMPOSE,
@@ -149,6 +150,7 @@ import type {
   TakeWoundEffect,
   DiscardWoundsEffect,
   TrackAttackDefeatFameEffect,
+  AttackWithDefeatBonusEffect,
 } from "../../types/effectTypes.js";
 import { getCard } from "../helpers/cardLookup.js";
 
@@ -351,6 +353,14 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (effect) => {
     const e = effect as TrackAttackDefeatFameEffect;
     return `Fame +${e.fame} if this ${formatAttackType(e.combatType)} defeats an enemy`;
+  },
+
+  [EFFECT_ATTACK_WITH_DEFEAT_BONUS]: (effect) => {
+    const e = effect as AttackWithDefeatBonusEffect;
+    const parts = [`Attack ${e.amount}`];
+    if (e.reputationPerDefeat) parts.push(`Rep +${e.reputationPerDefeat}`);
+    if (e.famePerDefeat) parts.push(`Fame +${e.famePerDefeat}`);
+    return `${parts.join(", ")} per enemy defeated`;
   },
 
   [EFFECT_DISCARD_FOR_CRYSTAL]: (effect) => {

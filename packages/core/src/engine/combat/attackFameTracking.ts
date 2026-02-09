@@ -176,6 +176,7 @@ export function unassignAttackFromFameTrackers(
 export interface ResolveAttackDefeatFameResult {
   readonly updatedTrackers: readonly AttackDefeatFameTracker[];
   readonly fameToGain: number;
+  readonly reputationToGain: number;
 }
 
 export function resolveAttackDefeatFameTrackers(
@@ -183,22 +184,33 @@ export function resolveAttackDefeatFameTrackers(
   defeatedEnemyIds: readonly string[]
 ): ResolveAttackDefeatFameResult {
   if (trackers.length === 0) {
-    return { updatedTrackers: trackers, fameToGain: 0 };
+    return { updatedTrackers: trackers, fameToGain: 0, reputationToGain: 0 };
   }
 
   const defeated = new Set(defeatedEnemyIds);
   let fameToGain = 0;
+  let reputationToGain = 0;
   let didChange = false;
   const updatedTrackers: AttackDefeatFameTracker[] = [];
 
   for (const tracker of trackers) {
     const assignedEnemies = Object.keys(tracker.assignedByEnemy);
-    const defeatedByTracker = assignedEnemies.some(
+    const defeatedByTrackerIds = assignedEnemies.filter(
       (enemyId) => defeated.has(enemyId) && (tracker.assignedByEnemy[enemyId] ?? 0) > 0
     );
 
-    if (defeatedByTracker) {
+    if (defeatedByTrackerIds.length > 0) {
+      // Flat fame bonus (Axe Throw style: fame if ANY enemy defeated)
       fameToGain += tracker.fame;
+
+      // Per-enemy bonuses (Chivalry style: bonuses per enemy defeated)
+      if (tracker.reputationPerDefeat) {
+        reputationToGain += tracker.reputationPerDefeat * defeatedByTrackerIds.length;
+      }
+      if (tracker.famePerDefeat) {
+        fameToGain += tracker.famePerDefeat * defeatedByTrackerIds.length;
+      }
+
       didChange = true;
       continue; // Tracker consumed after triggering
     }
@@ -221,5 +233,6 @@ export function resolveAttackDefeatFameTrackers(
   return {
     updatedTrackers: didChange ? updatedTrackers : trackers,
     fameToGain,
+    reputationToGain,
   };
 }

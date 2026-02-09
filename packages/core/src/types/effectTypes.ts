@@ -121,6 +121,11 @@ export const EFFECT_FAME_PER_ENEMY_DEFEATED = "fame_per_enemy_defeated" as const
 // Track a specific attack and grant fame if it defeats at least one enemy
 export const EFFECT_TRACK_ATTACK_DEFEAT_FAME = "track_attack_defeat_fame" as const;
 
+// === Attack With Defeat Bonus ===
+// Combines a melee attack with per-enemy-defeated reputation and/or fame bonuses.
+// Used by Chivalry. The bonuses are tracked and resolved when enemies are defeated.
+export const EFFECT_ATTACK_WITH_DEFEAT_BONUS = "attack_with_defeat_bonus" as const;
+
 // === Polarization Effect ===
 // Mana conversion for Arythea's Polarization skill
 // Removes source mana and adds converted token in one atomic operation

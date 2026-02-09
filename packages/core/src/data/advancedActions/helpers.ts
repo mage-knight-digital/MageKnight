@@ -42,6 +42,7 @@ import {
   COMBAT_TYPE_MELEE,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
+  EFFECT_ATTACK_WITH_DEFEAT_BONUS,
   type CombatType,
 } from "../../types/effectTypes.js";
 import type { BasicManaColor, Element } from "@mage-knight/shared";
@@ -299,6 +300,27 @@ export function convertManaToCrystal(): CardEffect {
  */
 export function maximalEffect(effectKind: "basic" | "powered", multiplier: number): CardEffect {
   return { type: EFFECT_MAXIMAL_EFFECT, effectKind, multiplier };
+}
+
+/**
+ * Creates a melee attack effect that also awards bonuses per enemy defeated.
+ * Used by Chivalry.
+ *
+ * @param amount - The attack value
+ * @param bonuses - Per-enemy-defeated bonuses
+ * @returns An AttackWithDefeatBonusEffect
+ */
+export function attackWithDefeatBonus(
+  amount: number,
+  bonuses: { reputation?: number; fame?: number }
+): CardEffect {
+  return {
+    type: EFFECT_ATTACK_WITH_DEFEAT_BONUS,
+    amount,
+    combatType: COMBAT_TYPE_MELEE,
+    reputationPerDefeat: bonuses.reputation ?? 0,
+    famePerDefeat: bonuses.fame ?? 0,
+  };
 }
 
 // Re-export element constants for convenience
