@@ -70,6 +70,7 @@ import {
   EFFECT_DISCARD_FOR_ATTACK,
   EFFECT_FAME_PER_ENEMY_DEFEATED,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
+  EFFECT_ATTACK_WITH_DEFEAT_BONUS,
   EFFECT_POLARIZE_MANA,
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
@@ -718,6 +719,30 @@ export interface TrackAttackDefeatFameEffect {
   readonly fame: number;
   /** Optional source card ID for disambiguation */
   readonly sourceCardId?: CardId;
+}
+
+/**
+ * Attack with per-enemy-defeated bonuses.
+ * Used by Chivalry.
+ *
+ * Combines a melee attack with tracking that awards reputation and/or fame
+ * for each enemy defeated by this attack in the current combat phase.
+ *
+ * Resolution:
+ * 1. Gain the attack amount as melee attack
+ * 2. Register a tracker for per-enemy-defeated bonuses
+ * 3. When damage resolves, award bonuses per defeated enemy
+ */
+export interface AttackWithDefeatBonusEffect {
+  readonly type: typeof EFFECT_ATTACK_WITH_DEFEAT_BONUS;
+  /** Attack amount (melee) */
+  readonly amount: number;
+  /** Combat type of the attack */
+  readonly combatType: CombatType;
+  /** Reputation gained per enemy defeated by this attack */
+  readonly reputationPerDefeat: number;
+  /** Fame gained per enemy defeated by this attack */
+  readonly famePerDefeat: number;
 }
 
 /**
@@ -1765,6 +1790,7 @@ export type CardEffect =
   | DiscardForAttackEffect
   | FamePerEnemyDefeatedEffect
   | TrackAttackDefeatFameEffect
+  | AttackWithDefeatBonusEffect
   | PolarizeManaEffect
   | DiscardForCrystalEffect
   | DecomposeEffect

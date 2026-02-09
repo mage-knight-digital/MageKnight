@@ -335,8 +335,12 @@ export interface AttackDefeatFameTracker {
   readonly remaining: number;
   /** Amount assigned per enemy instance ID */
   readonly assignedByEnemy: Readonly<Record<string, number>>;
-  /** Fame to grant if any tracked enemy is defeated */
+  /** Fame to grant if any tracked enemy is defeated (flat, not per-enemy) */
   readonly fame: number;
+  /** Reputation to gain per enemy defeated by this attack (Chivalry) */
+  readonly reputationPerDefeat?: number;
+  /** Fame to gain per enemy defeated by this attack (Chivalry powered) */
+  readonly famePerDefeat?: number;
 }
 
 // === Tactic-specific state types ===

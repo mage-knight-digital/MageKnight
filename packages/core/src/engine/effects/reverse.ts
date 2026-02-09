@@ -52,6 +52,7 @@ import {
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_RESOLVE_COMBAT_ENEMY_TARGET,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
+  EFFECT_ATTACK_WITH_DEFEAT_BONUS,
   EFFECT_READY_ALL_UNITS,
   EFFECT_HEAL_ALL_UNITS,
   EFFECT_SELECT_HEX_FOR_COST_REDUCTION,
@@ -85,6 +86,7 @@ import type {
   CrystallizeColorEffect,
   PayManaEffect,
   TrackAttackDefeatFameEffect,
+  AttackWithDefeatBonusEffect,
 } from "../../types/effectTypes.js";
 import type { GainAttackBowResolvedEffect, WoundActivatingUnitEffect, HandLimitBonusEffect } from "../../types/cards.js";
 import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
@@ -406,6 +408,42 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
     return {
       ...player,
       meditationHandLimitBonus: Math.max(0, player.meditationHandLimitBonus - e.bonus),
+    };
+  },
+
+  [EFFECT_ATTACK_WITH_DEFEAT_BONUS]: (player, effect) => {
+    const e = effect as AttackWithDefeatBonusEffect;
+    // Reverse the attack portion
+    const attack = { ...player.combatAccumulator.attack };
+    if (e.combatType === COMBAT_TYPE_RANGED) {
+      attack.ranged -= e.amount;
+    } else if (e.combatType === COMBAT_TYPE_SIEGE) {
+      attack.siege -= e.amount;
+    } else {
+      attack.normal -= e.amount;
+    }
+
+    // Remove the last matching tracker
+    let removeIndex = -1;
+    for (let i = player.pendingAttackDefeatFame.length - 1; i >= 0; i--) {
+      const tracker = player.pendingAttackDefeatFame[i];
+      if (!tracker) continue;
+      if (tracker.amount === e.amount &&
+          tracker.reputationPerDefeat === e.reputationPerDefeat &&
+          tracker.famePerDefeat === e.famePerDefeat) {
+        removeIndex = i;
+        break;
+      }
+    }
+
+    const newTrackers = removeIndex !== -1
+      ? player.pendingAttackDefeatFame.filter((_, i) => i !== removeIndex)
+      : player.pendingAttackDefeatFame;
+
+    return {
+      ...player,
+      combatAccumulator: { ...player.combatAccumulator, attack },
+      pendingAttackDefeatFame: newTrackers,
     };
   },
 
