@@ -71,6 +71,7 @@ import {
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_KRANG_SPIRIT_GUIDES,
   SKILL_KRANG_BATTLE_HARDENED,
+  SKILL_KRANG_BATTLE_FRENZY,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT, CATEGORY_MOVEMENT } from "../../types/cards.js";
 import {
@@ -84,7 +85,7 @@ import { canActivateInvocation } from "../commands/skills/invocationEffect.js";
 import { canActivateShapeshift } from "../commands/skills/shapeshiftEffect.js";
 import { canActivateRegenerate } from "../commands/skills/regenerateEffect.js";
 import { canActivateKnowYourPrey } from "../commands/skills/knowYourPreyEffect.js";
-import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
+import { canUseMeleeAttackSkill, isMeleeAttackSkill, isSkillFaceUp } from "../rules/skillPhasing.js";
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { hexKey } from "@mage-knight/shared";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
@@ -148,6 +149,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_KRANG_SPIRIT_GUIDES,
   SKILL_KRANG_BATTLE_HARDENED,
+  SKILL_KRANG_BATTLE_FRENZY,
 ]);
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING]);
@@ -238,6 +240,9 @@ export function getSkillOptions(
 
     // Only include skills that have been implemented
     if (!IMPLEMENTED_SKILLS.has(skillId)) continue;
+
+    // Skip skills that are flipped face-down (e.g., Battle Frenzy after using Attack 4)
+    if (!isSkillFaceUp(player, skillId)) continue;
 
     // Combat skills (CATEGORY_COMBAT) are only available during combat,
     // unless they also have CATEGORY_MOVEMENT (e.g., Spirit Guides grants
