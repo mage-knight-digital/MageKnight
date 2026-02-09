@@ -137,6 +137,8 @@ import {
   EFFECT_PEACEFUL_MOMENT_CONVERT,
   EFFECT_PEACEFUL_MOMENT_HEAL,
   EFFECT_PEACEFUL_MOMENT_REFRESH,
+  EFFECT_SELECT_UNIT_FOR_MODIFIER,
+  EFFECT_RESOLVE_UNIT_MODIFIER_TARGET,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -712,6 +714,14 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   [EFFECT_PEACEFUL_MOMENT_CONVERT]: () => true,
   [EFFECT_PEACEFUL_MOMENT_HEAL]: () => true,
   [EFFECT_PEACEFUL_MOMENT_REFRESH]: () => true,
+
+  // Unit modifier targeting is resolvable if player has at least one unit
+  [EFFECT_SELECT_UNIT_FOR_MODIFIER]: (_state, player) => {
+    return player.units.length > 0;
+  },
+
+  // Resolve unit modifier target is always resolvable (validated at resolution time)
+  [EFFECT_RESOLVE_UNIT_MODIFIER_TARGET]: () => true,
 };
 
 // ============================================================================

@@ -158,6 +158,8 @@ import {
   EFFECT_PEACEFUL_MOMENT_CONVERT,
   EFFECT_PEACEFUL_MOMENT_HEAL,
   EFFECT_PEACEFUL_MOMENT_REFRESH,
+  EFFECT_SELECT_UNIT_FOR_MODIFIER,
+  EFFECT_RESOLVE_UNIT_MODIFIER_TARGET,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -355,6 +357,38 @@ export interface ResolveReadyUnitTargetEffect {
   readonly unitInstanceId: string;
   /** Stored for UI display without needing state lookup */
   readonly unitName: string;
+}
+
+/**
+ * Select a unit to apply modifiers to.
+ * Generates choices from eligible units, then applies modifiers to the selected unit.
+ * Used by Force of Nature (grant Physical Resistance to a chosen unit).
+ */
+export interface SelectUnitForModifierEffect {
+  readonly type: typeof EFFECT_SELECT_UNIT_FOR_MODIFIER;
+  /** Modifier to apply to the selected unit */
+  readonly modifier: import("./modifiers.js").ModifierEffect;
+  /** Duration for the modifier */
+  readonly duration: import("./modifiers.js").ModifierDuration;
+  /** Human-readable description for UI display */
+  readonly description?: string;
+}
+
+/**
+ * Internal effect generated as a choice option after unit selection.
+ * Applies the modifier to the specific unit.
+ */
+export interface ResolveUnitModifierTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_UNIT_MODIFIER_TARGET;
+  readonly unitInstanceId: string;
+  /** Stored for UI display without needing state lookup */
+  readonly unitName: string;
+  /** Modifier to apply to the selected unit */
+  readonly modifier: import("./modifiers.js").ModifierEffect;
+  /** Duration for the modifier */
+  readonly duration: import("./modifiers.js").ModifierDuration;
+  /** Human-readable description for UI display */
+  readonly description?: string;
 }
 
 /**
@@ -2001,7 +2035,9 @@ export type CardEffect =
   | PeacefulMomentActionEffect
   | PeacefulMomentConvertEffect
   | PeacefulMomentHealEffect
-  | PeacefulMomentRefreshEffect;
+  | PeacefulMomentRefreshEffect
+  | SelectUnitForModifierEffect
+  | ResolveUnitModifierTargetEffect;
 
 // === Card Definition ===
 

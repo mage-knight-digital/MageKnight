@@ -107,6 +107,8 @@ import {
   EFFECT_PEACEFUL_MOMENT_CONVERT,
   EFFECT_PEACEFUL_MOMENT_HEAL,
   EFFECT_PEACEFUL_MOMENT_REFRESH,
+  EFFECT_SELECT_UNIT_FOR_MODIFIER,
+  EFFECT_RESOLVE_UNIT_MODIFIER_TARGET,
 } from "../../types/effectTypes.js";
 import type {
   GainAttackBowResolvedEffect,
@@ -692,6 +694,17 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_PEACEFUL_MOMENT_REFRESH]: (effect) => {
     const e = effect as import("../../types/cards.js").PeacefulMomentRefreshEffect;
     return `Refresh ${e.unitName} (${e.influenceCost} Influence)`;
+  },
+
+  [EFFECT_SELECT_UNIT_FOR_MODIFIER]: (effect) => {
+    const e = effect as import("../../types/cards.js").SelectUnitForModifierEffect;
+    return e.description ?? "Select a unit to target";
+  },
+
+  [EFFECT_RESOLVE_UNIT_MODIFIER_TARGET]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveUnitModifierTargetEffect;
+    const desc = e.description ?? "Apply modifier";
+    return desc.replace("Chosen unit", e.unitName);
   },
 };
 

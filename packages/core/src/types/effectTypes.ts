@@ -463,6 +463,14 @@ export const EFFECT_PEACEFUL_MOMENT_HEAL = "peaceful_moment_heal" as const;
 // Internal: resolve a unit refresh (deduct influence, ready unit).
 export const EFFECT_PEACEFUL_MOMENT_REFRESH = "peaceful_moment_refresh" as const;
 
+// === Select Unit for Modifier Effect ===
+// Entry point for selecting a unit to apply modifiers to.
+// Generates choices from eligible units, then applies modifiers to the selected unit.
+// Used by Force of Nature (grant Physical Resistance to a chosen unit).
+export const EFFECT_SELECT_UNIT_FOR_MODIFIER = "select_unit_for_modifier" as const;
+// Internal: resolve effect after unit selection for modifier application.
+export const EFFECT_RESOLVE_UNIT_MODIFIER_TARGET = "resolve_unit_modifier_target" as const;
+
 // === Discard for Bonus Effect ===
 // Optionally discard cards from hand to increase a chosen effect.
 // Basic (Stout Resolve): discard 0-1 wound → +bonusPerCard per discard.

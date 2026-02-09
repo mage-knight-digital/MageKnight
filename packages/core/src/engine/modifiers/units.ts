@@ -28,6 +28,7 @@ import {
   EFFECT_UNIT_BLOCK_BONUS,
   EFFECT_BANNER_GLORY_FAME_TRACKING,
   SCOPE_ALL_UNITS,
+  SCOPE_ONE_UNIT,
 } from "../../types/modifierConstants.js";
 import { getModifiersForPlayer } from "./queries.js";
 import { getBannerResistances } from "../rules/banners.js";
@@ -49,19 +50,23 @@ export function getEffectiveUnitResistances(
   const unitDef = getUnit(unit.unitId);
   const baseResistances = unitDef.resistances;
 
+  // Find unit index for SCOPE_ONE_UNIT matching
+  const player = state.players.find((p) => p.id === playerId);
+  const unitIndex = player ? player.units.findIndex((u) => u.instanceId === unit.instanceId) : -1;
+
   // Find all resistance grant modifiers affecting this unit
   const resistanceModifiers = getModifiersForPlayer(state, playerId)
     .filter((m) => {
       if (m.effect.type !== EFFECT_GRANT_RESISTANCES) return false;
 
-      // Check scope - only ALL_UNITS scope is currently used
-      // SCOPE_ONE_UNIT would require checking unitIndex, but Veil of Mist uses ALL_UNITS
-      return m.scope.type === SCOPE_ALL_UNITS;
+      // Check scope - ALL_UNITS applies to every unit, ONE_UNIT must match index
+      if (m.scope.type === SCOPE_ALL_UNITS) return true;
+      if (m.scope.type === SCOPE_ONE_UNIT && m.scope.unitIndex === unitIndex) return true;
+      return false;
     })
     .map((m) => m.effect as GrantResistancesModifier);
 
   // Check banner-granted resistances (Banner of Protection)
-  const player = state.players.find((p) => p.id === playerId);
   const bannerResistances = player ? getBannerResistances(player, unit.instanceId) : [];
 
   // If no modifiers and no banner resistances, return base (avoid unnecessary allocation)
