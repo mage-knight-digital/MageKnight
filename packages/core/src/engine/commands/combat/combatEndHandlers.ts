@@ -52,6 +52,7 @@ import { resolveAttackDefeatFameTrackers } from "../../combat/attackFameTracking
 import { resolveScoutFameBonus } from "../../combat/scoutFameTracking.js";
 import { resolveBowPhaseFameBonus } from "../../combat/bowPhaseFameTracking.js";
 import { resolveSoulHarvesterCrystals } from "../../combat/soulHarvesterTracking.js";
+import { resolveDuelingFameBonus } from "../../combat/duelingHelpers.js";
 
 // ============================================================================
 // Helper Functions
@@ -211,6 +212,12 @@ export function handleCombatEnd(
         stateAfterResolution = { ...stateAfterResolution, players: updatedPlayers };
       }
     }
+  }
+
+  // Resolve Dueling fame bonus (if target enemy defeated without unit involvement)
+  const duelingResult = resolveDuelingFameBonus(stateAfterResolution, playerId);
+  if (duelingResult.fameGained > 0) {
+    stateAfterResolution = duelingResult.state;
   }
 
   // Use resolved combat state for victory calculation

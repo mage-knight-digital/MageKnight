@@ -61,6 +61,7 @@ import {
   getChoiceOptionsFromEffect,
   type PendingChoiceSource,
 } from "../choice/choiceResolution.js";
+import { markDuelingUnitInvolvementFromAbility } from "../../combat/duelingHelpers.js";
 
 export const ACTIVATE_UNIT_COMMAND = "ACTIVATE_UNIT" as const;
 
@@ -564,6 +565,11 @@ export function createActivateUnitCommand(
             ),
           };
         }
+      }
+
+      // Mark Dueling unit involvement when a unit combat ability is used
+      if (isAttackAbility || isBlockAbility) {
+        updatedState = markDuelingUnitInvolvementFromAbility(updatedState, params.playerId);
       }
 
       const events: GameEvent[] = [

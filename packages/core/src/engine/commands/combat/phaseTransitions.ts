@@ -35,6 +35,7 @@ import {
 import { applyDefeatedEnemyRewards } from "./combatEndHandlers.js";
 
 import { applyDodgeAndWeaveAttackBonus } from "../../combat/dodgeAndWeaveHelpers.js";
+import { applyDuelingAttackBonus } from "../../combat/duelingHelpers.js";
 
 // ============================================================================
 // Phase State Machine
@@ -119,6 +120,15 @@ export function handlePhaseTransition(
 
     // Apply Dodge and Weave attack bonus (if no wounds this combat)
     updatedState = applyDodgeAndWeaveAttackBonus(
+      { ...updatedState, combat: updatedCombat },
+      playerId
+    );
+    if (updatedState.combat) {
+      updatedCombat = updatedState.combat;
+    }
+
+    // Apply Dueling deferred Attack 1 (if target enemy is still alive)
+    updatedState = applyDuelingAttackBonus(
       { ...updatedState, combat: updatedCombat },
       playerId
     );

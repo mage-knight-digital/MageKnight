@@ -49,6 +49,7 @@ import {
 import { getBannerForUnit, markBannerUsed } from "../../rules/banners.js";
 import { getHeroDamageReduction } from "../../modifiers/index.js";
 import { removeModifier } from "../../modifiers/index.js";
+import { markDuelingUnitInvolvement } from "../../combat/duelingHelpers.js";
 
 export const ASSIGN_DAMAGE_COMMAND = "ASSIGN_DAMAGE" as const;
 
@@ -157,8 +158,10 @@ export function createAssignDamageCommand(
       ];
 
       // Process each assignment
+      let unitDamageAssigned = false;
       for (const assignment of assignments) {
         if (assignment.target === DAMAGE_TARGET_UNIT) {
+          unitDamageAssigned = true;
           const result = processUnitAssignment(
             currentState,
             updatedPlayer,
@@ -175,6 +178,16 @@ export function createAssignDamageCommand(
           // Hero damage
           heroWounds += Math.ceil(assignment.amount / updatedPlayer.armor);
         }
+      }
+
+      // Mark Dueling unit involvement when damage from enemy is assigned to a unit
+      // (including resistant units that absorb damage - per FAQ S3)
+      if (unitDamageAssigned) {
+        currentState = markDuelingUnitInvolvement(
+          currentState,
+          params.playerId,
+          params.enemyInstanceId
+        );
       }
 
       // Apply hero wounds

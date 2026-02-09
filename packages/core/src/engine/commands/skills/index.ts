@@ -80,3 +80,8 @@ export {
   applyKnowYourPreyEffect,
   removeKnowYourPreyEffect,
 } from "./knowYourPreyEffect.js";
+
+export {
+  applyDuelingEffect,
+  removeDuelingEffect,
+} from "./duelingEffect.js";

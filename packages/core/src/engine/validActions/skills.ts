@@ -64,6 +64,7 @@ import {
   SKILL_WOLFHAWK_DEADLY_AIM,
   SKILL_WOLFHAWK_KNOW_YOUR_PREY,
   SKILL_WOLFHAWK_TAUNT,
+  SKILL_WOLFHAWK_DUELING,
   SKILL_BRAEVALAR_ELEMENTAL_RESISTANCE,
   SKILL_BRAEVALAR_BEGUILE,
   SKILL_BRAEVALAR_FORKED_LIGHTNING,
@@ -85,6 +86,7 @@ import { canActivateInvocation } from "../commands/skills/invocationEffect.js";
 import { canActivateShapeshift } from "../commands/skills/shapeshiftEffect.js";
 import { canActivateRegenerate } from "../commands/skills/regenerateEffect.js";
 import { canActivateKnowYourPrey } from "../commands/skills/knowYourPreyEffect.js";
+import { canActivateDueling } from "../commands/skills/duelingEffect.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill, isSkillFaceUp } from "../rules/skillPhasing.js";
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { hexKey } from "@mage-knight/shared";
@@ -142,6 +144,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_WOLFHAWK_DEADLY_AIM,
   SKILL_WOLFHAWK_KNOW_YOUR_PREY,
   SKILL_WOLFHAWK_TAUNT,
+  SKILL_WOLFHAWK_DUELING,
   SKILL_BRAEVALAR_ELEMENTAL_RESISTANCE,
   SKILL_BRAEVALAR_BEGUILE,
   SKILL_BRAEVALAR_FORKED_LIGHTNING,
@@ -216,6 +219,10 @@ function canActivateSkill(
       // Must be in combat with targetable enemies
       return canActivateKnowYourPrey(state);
 
+    case SKILL_WOLFHAWK_DUELING:
+      // Must be in combat with eligible enemies that are alive and still attacking
+      return canActivateDueling(state);
+
     default:
       // No special requirements
       return true;
@@ -254,7 +261,7 @@ export function getSkillOptions(
     }
 
     // Block skills are only available during block phase
-    const blockSkills = [SKILL_TOVAK_SHIELD_MASTERY, SKILL_WOLFHAWK_TAUNT];
+    const blockSkills = [SKILL_TOVAK_SHIELD_MASTERY, SKILL_WOLFHAWK_TAUNT, SKILL_WOLFHAWK_DUELING];
     if (blockSkills.includes(skillId)) {
       if (!state.combat || state.combat.phase !== COMBAT_PHASE_BLOCK) {
         continue;
