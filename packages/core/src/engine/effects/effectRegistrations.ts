@@ -73,6 +73,7 @@ import { registerSpellForgeEffects } from "./spellForgeEffects.js";
 import { registerKnowYourPreyEffects } from "./knowYourPreyEffects.js";
 import { registerPeacefulMomentEffects } from "./peacefulMomentEffects.js";
 import { registerStoutResolveEffects } from "./stoutResolveEffects.js";
+import { registerUnitModifierEffects } from "./unitModifierEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -274,4 +275,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Stout Resolve effects (discard for bonus)
   registerStoutResolveEffects();
+
+  // Unit modifier effects (select unit + apply modifier, e.g., Force of Nature)
+  registerUnitModifierEffects();
 }
