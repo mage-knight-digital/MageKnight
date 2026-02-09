@@ -21,7 +21,13 @@ import type { CardEffect } from "../../types/cards.js";
 import { ABILITY_CUMBERSOME } from "@mage-knight/shared";
 import { createSkillUsedEvent, createChoiceRequiredEvent } from "@mage-knight/shared";
 import { RETURN_INTERACTIVE_SKILL_COMMAND } from "./commandTypes.js";
-import { SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE, SKILL_WOLFHAWK_WOLFS_HOWL } from "../../data/skills/index.js";
+import {
+  SKILL_NOROWAS_PRAYER_OF_WEATHER,
+  SKILL_GOLDYX_SOURCE_OPENING,
+  SKILL_BRAEVALAR_NATURES_VENGEANCE,
+  SKILL_KRANG_SHAMANIC_RITUAL,
+  SKILL_WOLFHAWK_WOLFS_HOWL,
+} from "../../data/skills/index.js";
 import { addModifier } from "../modifiers/index.js";
 import { resolveEffect, describeEffect } from "../effects/index.js";
 import {
@@ -111,6 +117,35 @@ function flipSkillFaceDown(
     skillFlipState: {
       ...owner.skillFlipState,
       flippedSkills,
+    },
+  };
+
+  const players = [...state.players];
+  players[ownerIndex] = updatedOwner;
+
+  return { ...state, players };
+}
+
+function unflipSkillFaceUp(
+  state: GameState,
+  ownerId: string,
+  skillId: SkillId
+): GameState {
+  const ownerIndex = state.players.findIndex((p) => p.id === ownerId);
+  if (ownerIndex === -1) return state;
+
+  const owner = state.players[ownerIndex]!;
+  if (!owner.skillFlipState.flippedSkills.includes(skillId)) {
+    return state;
+  }
+
+  const updatedOwner: Player = {
+    ...owner,
+    skillFlipState: {
+      ...owner.skillFlipState,
+      flippedSkills: owner.skillFlipState.flippedSkills.filter(
+        (id) => id !== skillId
+      ),
     },
   };
 
@@ -403,6 +438,8 @@ export function createReturnInteractiveSkillCommand(
   let savedOwnerId: string | null = null;
   let savedCenterModifiers: ActiveModifier[] = [];
   let savedSourceOpeningCenter: SourceOpeningCenter | null = null;
+  let savedHasTakenActionThisTurn: boolean | null = null;
+  let savedUsedThisRoundHadSkill: boolean = false;
 
   return {
     type: RETURN_INTERACTIVE_SKILL_COMMAND,
@@ -410,6 +447,46 @@ export function createReturnInteractiveSkillCommand(
     isReversible: true,
 
     execute(state: GameState): CommandResult {
+      if (skillId === SKILL_KRANG_SHAMANIC_RITUAL) {
+        const ownerIndex = state.players.findIndex((p) => p.id === playerId);
+        if (ownerIndex === -1) {
+          throw new Error(`Player not found: ${playerId}`);
+        }
+
+        savedOwnerId = playerId;
+        const owner = state.players[ownerIndex]!;
+        savedHasTakenActionThisTurn = owner.hasTakenActionThisTurn;
+        savedUsedThisRoundHadSkill = owner.skillCooldowns.usedThisRound.includes(
+          SKILL_KRANG_SHAMANIC_RITUAL
+        );
+
+        let updatedState = unflipSkillFaceUp(
+          state,
+          playerId,
+          SKILL_KRANG_SHAMANIC_RITUAL
+        );
+
+        const refreshedOwner = updatedState.players[ownerIndex]!;
+        const updatedOwner: Player = {
+          ...refreshedOwner,
+          hasTakenActionThisTurn: true,
+          skillCooldowns: {
+            ...refreshedOwner.skillCooldowns,
+            usedThisRound: refreshedOwner.skillCooldowns.usedThisRound.filter(
+              (id) => id !== SKILL_KRANG_SHAMANIC_RITUAL
+            ),
+          },
+        };
+        const players = [...updatedState.players];
+        players[ownerIndex] = updatedOwner;
+        updatedState = { ...updatedState, players };
+
+        return {
+          state: updatedState,
+          events: [createSkillUsedEvent(playerId, skillId)],
+        };
+      }
+
       savedOwnerId = findCenterSkillOwner(state, skillId);
       if (!savedOwnerId) {
         throw new Error(`No center skill found for ${skillId}`);
@@ -451,6 +528,45 @@ export function createReturnInteractiveSkillCommand(
     undo(state: GameState): CommandResult {
       if (!savedOwnerId) {
         throw new Error("Cannot undo: no saved owner ID");
+      }
+
+      if (skillId === SKILL_KRANG_SHAMANIC_RITUAL) {
+        const ownerIndex = state.players.findIndex((p) => p.id === savedOwnerId);
+        if (ownerIndex === -1) {
+          throw new Error(`Player not found: ${savedOwnerId}`);
+        }
+
+        let updatedState = flipSkillFaceDown(
+          state,
+          savedOwnerId,
+          SKILL_KRANG_SHAMANIC_RITUAL
+        );
+        const owner = updatedState.players[ownerIndex]!;
+        const usedThisRound = savedUsedThisRoundHadSkill
+          ? owner.skillCooldowns.usedThisRound.includes(SKILL_KRANG_SHAMANIC_RITUAL)
+            ? owner.skillCooldowns.usedThisRound
+            : [...owner.skillCooldowns.usedThisRound, SKILL_KRANG_SHAMANIC_RITUAL]
+          : owner.skillCooldowns.usedThisRound.filter(
+              (id) => id !== SKILL_KRANG_SHAMANIC_RITUAL
+            );
+
+        const restoredOwner: Player = {
+          ...owner,
+          hasTakenActionThisTurn:
+            savedHasTakenActionThisTurn ?? owner.hasTakenActionThisTurn,
+          skillCooldowns: {
+            ...owner.skillCooldowns,
+            usedThisRound,
+          },
+        };
+        const players = [...updatedState.players];
+        players[ownerIndex] = restoredOwner;
+        updatedState = { ...updatedState, players };
+
+        return {
+          state: updatedState,
+          events: [],
+        };
       }
 
       // 1. Remove the return benefit modifier(s) created by the returning player
