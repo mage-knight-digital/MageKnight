@@ -319,6 +319,11 @@ export const RULE_GARRISON_REVEAL_DISTANCE_2 = "garrison_reveal_distance_2" as c
 // Used by Braevalar's Elemental Resistance, Krang's Battle Hardened.
 export const EFFECT_HERO_DAMAGE_REDUCTION = "hero_damage_reduction" as const;
 
+// === Mountain Lore Hand Limit Modifier ===
+// Marks that end-of-turn terrain should grant a next-draw hand limit bonus.
+// Basic: hills +1. Powered: mountains +2, hills +1.
+export const EFFECT_MOUNTAIN_LORE_HAND_LIMIT = "mountain_lore_hand_limit" as const;
+
 // === ExploreCostReductionModifier ===
 // Reduces the move point cost of exploring (revealing a new tile).
 // Base exploration cost is 2; this modifier reduces it by the specified amount.
@@ -419,4 +424,3 @@ export const EFFECT_CONVERT_ATTACK_ELEMENT = "convert_attack_element" as const;
 // Also tracks whether any unit was involved with this enemy (for Fame +1 bonus).
 // Duration: combat. Applied by Dueling skill activation.
 export const EFFECT_DUELING_TARGET = "dueling_target" as const;
-
