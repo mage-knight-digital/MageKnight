@@ -101,6 +101,20 @@ function buildPendingChoice(
   };
 }
 
+function mergeRemainingEffects(
+  first?: readonly CardEffect[],
+  second?: readonly CardEffect[]
+): readonly CardEffect[] | undefined {
+  const merged: CardEffect[] = [];
+  if (first && first.length > 0) {
+    merged.push(...first);
+  }
+  if (second && second.length > 0) {
+    merged.push(...second);
+  }
+  return merged.length > 0 ? merged : undefined;
+}
+
 function findChoiceIndex(effects: readonly CardEffect[]): number | null {
   for (let i = 0; i < effects.length; i++) {
     const effect = effects[i];
@@ -140,52 +154,73 @@ function setPendingChoice(
  * Returns the options array, or null if this isn't a choice scenario.
  */
 export function getChoiceOptionsFromEffect(
-  effectResult: { dynamicChoiceOptions?: readonly CardEffect[] },
+  effectResult: {
+    dynamicChoiceOptions?: readonly CardEffect[];
+    resolvedEffect?: CardEffect;
+  },
   effectToApply: CardEffect
 ): ChoiceOptionsResult | null {
-  if (effectResult.dynamicChoiceOptions) {
-    // Dynamic choices from effects like card boost or mana draw
-    if (effectToApply.type === EFFECT_COMPOUND) {
-      const compoundEffect = effectToApply as CompoundEffect;
-      const choiceIndex = findChoiceIndex(compoundEffect.effects);
-      if (choiceIndex !== null) {
-        const remainingEffects = compoundEffect.effects.slice(choiceIndex + 1);
-        if (remainingEffects.length > 0) {
-          return {
-            options: effectResult.dynamicChoiceOptions,
-            remainingEffects,
-          };
+  const extractChoiceOptions = (
+    effect: CardEffect
+  ): ChoiceOptionsResult | null => {
+    if (effectResult.dynamicChoiceOptions) {
+      // Dynamic choices from effects like card boost or mana draw
+      if (effect.type === EFFECT_COMPOUND) {
+        const compoundEffect = effect as CompoundEffect;
+        const choiceIndex = findChoiceIndex(compoundEffect.effects);
+        if (choiceIndex !== null) {
+          const remainingEffects = compoundEffect.effects.slice(choiceIndex + 1);
+          if (remainingEffects.length > 0) {
+            return {
+              options: effectResult.dynamicChoiceOptions,
+              remainingEffects,
+            };
+          }
         }
       }
+
+      return { options: effectResult.dynamicChoiceOptions };
     }
 
-    return { options: effectResult.dynamicChoiceOptions };
-  }
+    if (effect.type === EFFECT_CHOICE) {
+      // Static choice effect
+      const choiceEffect = effect as ChoiceEffect;
+      return { options: choiceEffect.options };
+    }
 
-  if (effectToApply.type === EFFECT_CHOICE) {
-    // Static choice effect
-    const choiceEffect = effectToApply as ChoiceEffect;
-    return { options: choiceEffect.options };
-  }
-
-  if (effectToApply.type === EFFECT_COMPOUND) {
-    const compoundEffect = effectToApply as CompoundEffect;
-    for (let i = 0; i < compoundEffect.effects.length; i++) {
-      const subEffect = compoundEffect.effects[i];
-      if (subEffect && subEffect.type === EFFECT_CHOICE) {
-        const choiceEffect = subEffect as ChoiceEffect;
-        const remainingEffects = compoundEffect.effects.slice(i + 1);
-        if (remainingEffects.length > 0) {
+    if (effect.type === EFFECT_COMPOUND) {
+      const compoundEffect = effect as CompoundEffect;
+      for (let i = 0; i < compoundEffect.effects.length; i++) {
+        const subEffect = compoundEffect.effects[i];
+        if (subEffect && subEffect.type === EFFECT_CHOICE) {
+          const choiceEffect = subEffect as ChoiceEffect;
+          const remainingEffects = compoundEffect.effects.slice(i + 1);
+          if (remainingEffects.length > 0) {
+            return {
+              options: choiceEffect.options,
+              remainingEffects,
+            };
+          }
           return {
             options: choiceEffect.options,
-            remainingEffects,
           };
         }
-        return {
-          options: choiceEffect.options,
-        };
       }
     }
+
+    return null;
+  };
+
+  const primaryChoiceOptions = extractChoiceOptions(effectToApply);
+  if (primaryChoiceOptions) {
+    return primaryChoiceOptions;
+  }
+
+  // Some wrapper effects (e.g., card boost target resolution) delegate to another
+  // effect that is the one actually requiring a choice.
+  const nestedEffect = effectResult.resolvedEffect;
+  if (nestedEffect && nestedEffect !== effectToApply) {
+    return extractChoiceOptions(nestedEffect);
   }
 
   return null;
@@ -259,6 +294,36 @@ export function applyChoiceOutcome(params: {
     }
 
     const autoResolveResult = resolveEffect(state, playerId, singleOption);
+
+    // If the single auto-resolved option itself requires a choice, continue
+    // through the same choice pipeline instead of dropping the nested choice.
+    if (autoResolveResult.requiresChoice) {
+      const nestedChoiceInfo = getChoiceOptionsFromEffect(
+        autoResolveResult,
+        singleOption
+      );
+      if (nestedChoiceInfo) {
+        const nestedResult = applyChoiceOutcome({
+          state: autoResolveResult.state,
+          playerId,
+          playerIndex,
+          options: nestedChoiceInfo.options,
+          source,
+          remainingEffects: mergeRemainingEffects(
+            nestedChoiceInfo.remainingEffects,
+            remainingEffects
+          ),
+          resolveEffect,
+          handlers,
+        });
+
+        return {
+          ...nestedResult,
+          resolvedEffect: singleOption,
+        };
+      }
+    }
+
     const result = handlers.onAutoResolved(autoResolveResult, singleOption);
 
     return {
