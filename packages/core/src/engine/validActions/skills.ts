@@ -74,6 +74,7 @@ import {
   SKILL_KRANG_SPIRIT_GUIDES,
   SKILL_KRANG_BATTLE_HARDENED,
   SKILL_KRANG_BATTLE_FRENZY,
+  SKILL_WOLFHAWK_WOLFS_HOWL,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT, CATEGORY_MOVEMENT } from "../../types/cards.js";
 import {
@@ -92,6 +93,7 @@ import { canUseMeleeAttackSkill, isMeleeAttackSkill, isSkillFaceUp } from "../ru
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { hexKey } from "@mage-knight/shared";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
+import { canActivateWolfsHowl } from "../commands/skills/wolfsHowlEffect.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 
 /**
@@ -155,9 +157,10 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_KRANG_SPIRIT_GUIDES,
   SKILL_KRANG_BATTLE_HARDENED,
   SKILL_KRANG_BATTLE_FRENZY,
+  SKILL_WOLFHAWK_WOLFS_HOWL,
 ]);
 
-const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING]);
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_WOLFHAWK_WOLFS_HOWL]);
 
 /**
  * Check skill-specific requirements beyond cooldowns.
@@ -208,6 +211,9 @@ function canActivateSkill(
 
     case SKILL_GOLDYX_UNIVERSAL_POWER:
       return canActivateUniversalPower(state, player);
+
+    case SKILL_WOLFHAWK_WOLFS_HOWL:
+      return canActivateWolfsHowl(state, player);
 
     case SKILL_BRAEVALAR_SHAPESHIFT:
       // Must have at least one Basic Action card with a shapeshiftable effect in hand

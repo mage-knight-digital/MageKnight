@@ -55,6 +55,7 @@ import {
   SKILL_WOLFHAWK_DUELING,
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
+  SKILL_WOLFHAWK_WOLFS_HOWL,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT, CATEGORY_MOVEMENT } from "../../types/cards.js";
 import {
@@ -71,7 +72,7 @@ import { canActivateKnowYourPrey } from "../commands/skills/knowYourPreyEffect.j
 import { canActivateDueling } from "../commands/skills/duelingEffect.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 
-const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE]);
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE, SKILL_WOLFHAWK_WOLFS_HOWL]);
 
 /**
  * Validates the turn requirement for skill usage.
@@ -382,6 +383,15 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_NOT_IN_COMBAT,
         "Refreshing Breeze cannot be used during combat"
+      );
+    }
+  }
+
+  if (useSkillAction.skillId === SKILL_WOLFHAWK_WOLFS_HOWL) {
+    if (state.combat !== null) {
+      return invalid(
+        SKILL_REQUIRES_NOT_IN_COMBAT,
+        "Wolf's Howl cannot be used during combat"
       );
     }
   }

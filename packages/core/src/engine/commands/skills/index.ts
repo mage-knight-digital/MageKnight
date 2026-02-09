@@ -85,3 +85,9 @@ export {
   applyDuelingEffect,
   removeDuelingEffect,
 } from "./duelingEffect.js";
+
+export {
+  applyWolfsHowlEffect,
+  removeWolfsHowlEffect,
+  canActivateWolfsHowl,
+} from "./wolfsHowlEffect.js";
