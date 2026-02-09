@@ -7,10 +7,16 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, MageKnightEngine } from "../../../MageKnightEngine.js";
-import { createTestGameState } from "../../../__tests__/testHelpers.js";
-import { resolveEffect } from "../../../effects/index.js";
+import { createTestPlayer, createTestGameState } from "../../../__tests__/testHelpers.js";
+import { resolveEffect, addBonusToEffect } from "../../../effects/index.js";
+import { reverseEffect } from "../../../effects/reverse.js";
+import { describeEffect } from "../../../effects/describeEffect.js";
 import { CHIVALRY } from "../../../../data/advancedActions/white/chivalry.js";
-import type { ChoiceEffect } from "../../../../types/cards.js";
+import type { ChoiceEffect, AttackWithDefeatBonusEffect } from "../../../../types/cards.js";
+import {
+  EFFECT_ATTACK_WITH_DEFEAT_BONUS,
+  COMBAT_TYPE_MELEE,
+} from "../../../../types/effectTypes.js";
 import {
   ENTER_COMBAT_ACTION,
   ASSIGN_ATTACK_ACTION,
@@ -249,6 +255,88 @@ describe("Chivalry defeat bonus", () => {
       expect(player?.fame).toBe(prowlersDef.fame * 2 + 2);
       // +2 reputation (1 per enemy)
       expect(player?.reputation).toBe(2);
+    });
+  });
+
+  describe("reverseEffect", () => {
+    const defeatBonusEffect: AttackWithDefeatBonusEffect = {
+      type: EFFECT_ATTACK_WITH_DEFEAT_BONUS,
+      amount: 2,
+      combatType: COMBAT_TYPE_MELEE,
+      reputationPerDefeat: 1,
+      famePerDefeat: 0,
+    };
+
+    it("reverses melee attack and removes tracker", () => {
+      const player = createTestPlayer({
+        combatAccumulator: {
+          attack: { normal: 2, ranged: 0, siege: 0, fire: 0, ice: 0, coldFire: 0 },
+          block: { normal: 0, fire: 0, ice: 0, coldFire: 0 },
+        },
+        pendingAttackDefeatFame: [
+          {
+            sourceCardId: null,
+            attackType: ATTACK_TYPE_MELEE,
+            element: ATTACK_ELEMENT_PHYSICAL,
+            amount: 2,
+            remaining: 2,
+            assignedByEnemy: {},
+            fame: 0,
+            reputationPerDefeat: 1,
+            famePerDefeat: 0,
+          },
+        ],
+      });
+
+      const reversed = reverseEffect(player, defeatBonusEffect);
+      expect(reversed.combatAccumulator.attack.normal).toBe(0);
+      expect(reversed.pendingAttackDefeatFame).toHaveLength(0);
+    });
+  });
+
+  describe("describeEffect", () => {
+    it("describes basic defeat bonus (reputation only)", () => {
+      const effect: AttackWithDefeatBonusEffect = {
+        type: EFFECT_ATTACK_WITH_DEFEAT_BONUS,
+        amount: 2,
+        combatType: COMBAT_TYPE_MELEE,
+        reputationPerDefeat: 1,
+        famePerDefeat: 0,
+      };
+      const desc = describeEffect(effect);
+      expect(desc).toContain("Attack 2");
+      expect(desc).toContain("Rep +1");
+      expect(desc).not.toContain("Fame");
+    });
+
+    it("describes powered defeat bonus (reputation and fame)", () => {
+      const effect: AttackWithDefeatBonusEffect = {
+        type: EFFECT_ATTACK_WITH_DEFEAT_BONUS,
+        amount: 4,
+        combatType: COMBAT_TYPE_MELEE,
+        reputationPerDefeat: 1,
+        famePerDefeat: 1,
+      };
+      const desc = describeEffect(effect);
+      expect(desc).toContain("Attack 4");
+      expect(desc).toContain("Rep +1");
+      expect(desc).toContain("Fame +1");
+    });
+  });
+
+  describe("addBonusToEffect", () => {
+    it("adds bonus to attack amount for defeat bonus effect", () => {
+      const effect: AttackWithDefeatBonusEffect = {
+        type: EFFECT_ATTACK_WITH_DEFEAT_BONUS,
+        amount: 2,
+        combatType: COMBAT_TYPE_MELEE,
+        reputationPerDefeat: 1,
+        famePerDefeat: 0,
+      };
+      const boosted = addBonusToEffect(effect, 2) as AttackWithDefeatBonusEffect;
+      expect(boosted.amount).toBe(4);
+      expect(boosted.reputationPerDefeat).toBe(1);
+      expect(boosted.famePerDefeat).toBe(0);
     });
   });
 });
