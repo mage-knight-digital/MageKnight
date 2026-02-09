@@ -21,6 +21,7 @@ import {
   SIDEWAYS_CONDITION_NO_MANA_USED,
   SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR,
 } from "../../types/modifierConstants.js";
+import { COMBAT_PHASE_RANGED_SIEGE } from "../../types/combat.js";
 import { getModifiersForPlayer } from "./queries.js";
 
 /**
@@ -160,6 +161,9 @@ export function consumeMovementCardBonus(
  * Get the active attack/block card bonus for a player (if any).
  * Returns the bonus amount for the specified type and the modifier ID.
  * Does NOT consume the modifier — call consumeAttackBlockCardBonus for that.
+ *
+ * For phase-aware modifiers (e.g., Deadly Aim with rangedSiegeAttackBonus),
+ * pass the current combat state to get the correct bonus amount.
  */
 export function getAttackBlockCardBonus(
   state: GameState,
@@ -178,8 +182,18 @@ export function getAttackBlockCardBonus(
   }
 
   const effect = modifier.effect as AttackBlockCardBonusModifier;
+
+  if (!forAttack) {
+    return { bonus: effect.blockBonus, modifierId: modifier.id };
+  }
+
+  // For attack bonuses, check if modifier has phase-specific amounts
+  if (effect.rangedSiegeAttackBonus !== undefined && state.combat?.phase === COMBAT_PHASE_RANGED_SIEGE) {
+    return { bonus: effect.rangedSiegeAttackBonus, modifierId: modifier.id };
+  }
+
   return {
-    bonus: forAttack ? effect.attackBonus : effect.blockBonus,
+    bonus: effect.attackBonus,
     modifierId: modifier.id,
   };
 }

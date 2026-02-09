@@ -47,6 +47,7 @@ import {
   SKILL_GOLDYX_SOURCE_OPENING,
   SKILL_WOLFHAWK_REFRESHING_BATH,
   SKILL_WOLFHAWK_REFRESHING_BREEZE,
+  SKILL_WOLFHAWK_DEADLY_AIM,
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
 } from "../../data/skills/index.js";
@@ -214,7 +215,7 @@ export const validateRangedSkillInRangedPhase: Validator = (state, _playerId, ac
   const useSkillAction = action as UseSkillAction;
 
   // Skills that provide ranged/siege attacks can only be used in ranged/siege or attack phase
-  const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_TOVAK_NIGHT_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER, SKILL_GOLDYX_FREEZING_POWER];
+  const rangedSkills = [SKILL_NOROWAS_DAY_SHARPSHOOTING, SKILL_TOVAK_NIGHT_SHARPSHOOTING, SKILL_ARYTHEA_BURNING_POWER, SKILL_GOLDYX_FREEZING_POWER, SKILL_WOLFHAWK_DEADLY_AIM];
 
   if (rangedSkills.includes(useSkillAction.skillId)) {
     if (

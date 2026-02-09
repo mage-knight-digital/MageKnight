@@ -70,3 +70,8 @@ export {
   applyHawkEyesEffect,
   removeHawkEyesEffect,
 } from "./hawkEyesEffect.js";
+
+export {
+  applyDeadlyAimEffect,
+  removeDeadlyAimEffect,
+} from "./deadlyAimEffect.js";
