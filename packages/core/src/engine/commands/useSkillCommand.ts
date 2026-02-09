@@ -36,6 +36,7 @@ import {
   SKILL_GOLDYX_UNIVERSAL_POWER,
   SKILL_BRAEVALAR_SHAPESHIFT,
   SKILL_BRAEVALAR_REGENERATE,
+  SKILL_KRANG_REGENERATE,
   SKILL_WOLFHAWK_HAWK_EYES,
   SKILL_WOLFHAWK_DEADLY_AIM,
   SKILL_WOLFHAWK_KNOW_YOUR_PREY,
@@ -64,7 +65,9 @@ import {
   applyShapeshiftEffect,
   removeShapeshiftEffect,
   applyRegenerateEffect,
+  applyKrangRegenerateEffect,
   removeRegenerateEffect,
+  removeKrangRegenerateEffect,
   applyHawkEyesEffect,
   removeHawkEyesEffect,
   applyDeadlyAimEffect,
@@ -173,6 +176,9 @@ function applyCustomSkillEffect(
     case SKILL_BRAEVALAR_REGENERATE:
       return applyRegenerateEffect(state, playerId, manaSource);
 
+    case SKILL_KRANG_REGENERATE:
+      return applyKrangRegenerateEffect(state, playerId, manaSource);
+
     case SKILL_WOLFHAWK_HAWK_EYES:
       return applyHawkEyesEffect(state, playerId);
 
@@ -239,6 +245,9 @@ function removeCustomSkillEffect(
     case SKILL_BRAEVALAR_REGENERATE:
       return removeRegenerateEffect(state, playerId);
 
+    case SKILL_KRANG_REGENERATE:
+      return removeKrangRegenerateEffect(state, playerId);
+
     case SKILL_WOLFHAWK_HAWK_EYES:
       return removeHawkEyesEffect(state, playerId);
 
@@ -275,6 +284,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_GOLDYX_UNIVERSAL_POWER,
     SKILL_BRAEVALAR_SHAPESHIFT,
     SKILL_BRAEVALAR_REGENERATE,
+    SKILL_KRANG_REGENERATE,
     SKILL_WOLFHAWK_HAWK_EYES,
     SKILL_WOLFHAWK_DEADLY_AIM,
     SKILL_WOLFHAWK_KNOW_YOUR_PREY,
@@ -462,7 +472,10 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
   // If so, the command sets an undo checkpoint to prevent exploit via undo+reuse.
   // Custom handlers that draw cards must also be marked non-reversible.
   const skill = SKILLS[skillId];
-  const IRREVERSIBLE_CUSTOM_SKILLS = [SKILL_BRAEVALAR_REGENERATE];
+  const IRREVERSIBLE_CUSTOM_SKILLS = [
+    SKILL_BRAEVALAR_REGENERATE,
+    SKILL_KRANG_REGENERATE,
+  ];
   const isReversible =
     !IRREVERSIBLE_CUSTOM_SKILLS.includes(skillId) &&
     !(skill?.effect && effectContainsIrreversible(skill.effect));

@@ -62,7 +62,9 @@ export {
 
 export {
   applyRegenerateEffect,
+  applyKrangRegenerateEffect,
   removeRegenerateEffect,
+  removeKrangRegenerateEffect,
   canActivateRegenerate,
 } from "./regenerateEffect.js";
 

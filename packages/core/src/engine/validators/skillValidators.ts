@@ -54,6 +54,7 @@ import {
   SKILL_WOLFHAWK_TAUNT,
   SKILL_WOLFHAWK_DUELING,
   SKILL_BRAEVALAR_REGENERATE,
+  SKILL_KRANG_REGENERATE,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
   SKILL_WOLFHAWK_WOLFS_HOWL,
 } from "../../data/skills/index.js";
@@ -70,6 +71,7 @@ import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
 import { canActivateKnowYourPrey } from "../commands/skills/knowYourPreyEffect.js";
 import { canActivateDueling } from "../commands/skills/duelingEffect.js";
+import { isManaColorAllowed } from "../rules/mana.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE, SKILL_WOLFHAWK_WOLFS_HOWL]);
@@ -413,7 +415,10 @@ export const validateSkillRequirements: Validator = (
   }
 
   // Regenerate: requires wound in hand, not in combat, and mana source
-  if (useSkillAction.skillId === SKILL_BRAEVALAR_REGENERATE) {
+  if (
+    useSkillAction.skillId === SKILL_BRAEVALAR_REGENERATE ||
+    useSkillAction.skillId === SKILL_KRANG_REGENERATE
+  ) {
     if (state.combat !== null) {
       return invalid(
         SKILL_REQUIRES_NOT_IN_COMBAT,
@@ -432,6 +437,15 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_REQUIRES_MANA,
         "Regenerate requires a mana source to spend"
+      );
+    }
+
+    if (
+      !isManaColorAllowed(state, useSkillAction.manaSource.color, playerId)
+    ) {
+      return invalid(
+        SKILL_REQUIRES_MANA,
+        `Regenerate cannot use ${useSkillAction.manaSource.color} mana right now`
       );
     }
   }
