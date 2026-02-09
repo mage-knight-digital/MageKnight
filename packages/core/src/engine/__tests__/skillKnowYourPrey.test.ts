@@ -25,6 +25,7 @@ import {
   SKILL_USED,
   INVALID_ACTION,
   RESOLVE_CHOICE_ACTION,
+  UNDO_ACTION,
   ENEMY_IRONCLADS,
   ENEMY_GUARDSMEN,
   ENEMY_MONKS,
@@ -33,11 +34,16 @@ import {
   ENEMY_WATER_ELEMENTAL,
   ENEMY_AIR_ELEMENTAL,
   ENEMY_PROWLERS,
+  ELEMENT_FIRE,
+  ELEMENT_ICE,
+  ELEMENT_PHYSICAL,
+  ELEMENT_COLD_FIRE,
   getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_WOLFHAWK_KNOW_YOUR_PREY } from "../../data/skills/index.js";
 import { getValidActions } from "../validActions/index.js";
+import { describeEffect, isEffectResolvable } from "../effects/index.js";
 import {
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ATTACK,
@@ -54,9 +60,13 @@ import {
   SOURCE_SKILL,
 } from "../../types/modifierConstants.js";
 import {
+  EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
   EFFECT_KNOW_YOUR_PREY_APPLY,
   EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
 } from "../../types/effectTypes.js";
+import type { KnowYourPreySelectOptionEffect, KnowYourPreyApplyEffect } from "../../types/cards.js";
+import { isIceResistanceRemoved, getEffectiveAttackElement } from "../modifiers/combat.js";
+import { getEnemyResistances } from "../validActions/combatHelpers.js";
 
 describe("Know Your Prey skill", () => {
   let engine: MageKnightEngine;
@@ -891,6 +901,376 @@ describe("Know Your Prey skill", () => {
         type: SCOPE_ONE_ENEMY,
         enemyId: "enemy_0",
       });
+    });
+  });
+
+  describe("undo after activation", () => {
+    it("should clear pending choice and restore cooldown on undo", () => {
+      const player = createWolfhawkPlayer();
+      const combat = createCombatState([ENEMY_IRONCLADS]);
+      const state = createTestGameState({ players: [player], combat });
+
+      // Activate skill — creates pending choice
+      const afterSkill = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      // Verify pending choice exists and skill is on cooldown
+      expect(afterSkill.state.players[0].pendingChoice).not.toBeNull();
+      expect(afterSkill.state.players[0].skillCooldowns.usedThisRound).toContain(
+        SKILL_WOLFHAWK_KNOW_YOUR_PREY
+      );
+
+      // Undo
+      const afterUndo = engine.processAction(afterSkill.state, "player1", {
+        type: UNDO_ACTION,
+      });
+
+      // Pending choice should be cleared
+      expect(afterUndo.state.players[0].pendingChoice).toBeNull();
+
+      // Skill should no longer be on cooldown
+      expect(afterUndo.state.players[0].skillCooldowns.usedThisRound).not.toContain(
+        SKILL_WOLFHAWK_KNOW_YOUR_PREY
+      );
+    });
+
+    it("should fully restore state after undoing both choice and skill activation", () => {
+      const player = createWolfhawkPlayer();
+      // Ironclads: Brutal + Physical Resistance
+      const combat = createCombatState([ENEMY_IRONCLADS]);
+      const state = createTestGameState({ players: [player], combat });
+
+      // Activate skill
+      let result = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      // Resolve choice — select first option
+      result = engine.processAction(result.state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: 0,
+      });
+
+      // Verify modifier was created
+      expect(result.state.activeModifiers.some(
+        (m) => m.effect.type === EFFECT_ABILITY_NULLIFIER
+      )).toBe(true);
+
+      // Undo the choice resolution
+      result = engine.processAction(result.state, "player1", {
+        type: UNDO_ACTION,
+      });
+
+      // Undo the skill activation (exercises removeKnowYourPreyEffect)
+      result = engine.processAction(result.state, "player1", {
+        type: UNDO_ACTION,
+      });
+
+      // Modifier should be removed
+      expect(result.state.activeModifiers.some(
+        (m) => m.effect.type === EFFECT_ABILITY_NULLIFIER
+      )).toBe(false);
+
+      // Skill should no longer be on cooldown
+      expect(result.state.players[0].skillCooldowns.usedThisRound).not.toContain(
+        SKILL_WOLFHAWK_KNOW_YOUR_PREY
+      );
+
+      // Pending choice should be cleared
+      expect(result.state.players[0].pendingChoice).toBeNull();
+    });
+
+    it("should allow re-activation after undo", () => {
+      const player = createWolfhawkPlayer();
+      const combat = createCombatState([ENEMY_IRONCLADS]);
+      const state = createTestGameState({ players: [player], combat });
+
+      // Activate skill
+      const afterSkill = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      // Undo
+      const afterUndo = engine.processAction(afterSkill.state, "player1", {
+        type: UNDO_ACTION,
+      });
+
+      // Re-activate should succeed
+      const reActivate = engine.processAction(afterUndo.state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      expect(reActivate.events).toContainEqual(
+        expect.objectContaining({
+          type: SKILL_USED,
+          playerId: "player1",
+          skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+        })
+      );
+    });
+  });
+
+  describe("defeated enemies", () => {
+    it("should filter out defeated enemies from eligible targets", () => {
+      const player = createWolfhawkPlayer();
+      const combat = createCombatState([ENEMY_IRONCLADS, ENEMY_GUARDSMEN]);
+      // Mark Ironclads as defeated
+      combat.enemies[0] = { ...combat.enemies[0]!, isDefeated: true };
+      const state = createTestGameState({ players: [player], combat });
+
+      let result = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      // Only Guardsmen remains (single enemy → skips selection)
+      // Guardsmen has only Fortified (1 option), so pending choice has 1 option
+      const options = result.state.players[0].pendingChoice!.options;
+      expect(options).toHaveLength(1);
+
+      // Resolve the choice
+      result = engine.processAction(result.state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: 0,
+      });
+
+      // Should have created modifier for enemy_1 (Guardsmen)
+      const modifier = result.state.activeModifiers.find(
+        (m) => m.effect.type === EFFECT_ABILITY_NULLIFIER
+      );
+      expect(modifier).toBeDefined();
+      expect(modifier?.scope).toEqual({
+        type: SCOPE_ONE_ENEMY,
+        enemyId: "enemy_1",
+      });
+    });
+
+    it("should reject when all enemies are defeated", () => {
+      const player = createWolfhawkPlayer();
+      const combat = createCombatState([ENEMY_IRONCLADS]);
+      combat.enemies[0] = { ...combat.enemies[0]!, isDefeated: true };
+      const state = createTestGameState({ players: [player], combat });
+
+      const result = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({ type: INVALID_ACTION })
+      );
+    });
+  });
+
+  describe("describeEffect", () => {
+    it("should describe SELECT_ENEMY effect", () => {
+      const effect = { type: EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY };
+      expect(describeEffect(effect)).toBe("Select an enemy to target with Know Your Prey");
+    });
+
+    it("should describe SELECT_OPTION effect with enemy name", () => {
+      const effect: KnowYourPreySelectOptionEffect = {
+        type: EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
+        enemyInstanceId: "enemy_0",
+        enemyName: "Ironclads",
+      };
+      expect(describeEffect(effect)).toBe("Choose what to remove from Ironclads");
+    });
+
+    it("should describe APPLY effect with label", () => {
+      const effect: KnowYourPreyApplyEffect = {
+        type: EFFECT_KNOW_YOUR_PREY_APPLY,
+        enemyInstanceId: "enemy_0",
+        ability: "brutal" as import("@mage-knight/shared").EnemyAbilityType,
+        label: "Remove Brutal",
+      };
+      expect(describeEffect(effect)).toBe("Remove Brutal");
+    });
+  });
+
+  describe("isEffectResolvable", () => {
+    it("should be resolvable for SELECT_ENEMY when in combat", () => {
+      const player = createWolfhawkPlayer();
+      const combat = createCombatState([ENEMY_IRONCLADS]);
+      const state = createTestGameState({ players: [player], combat });
+
+      const result = isEffectResolvable(
+        state,
+        "player1",
+        { type: EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY }
+      );
+      expect(result).toBe(true);
+    });
+
+    it("should not be resolvable for SELECT_ENEMY when not in combat", () => {
+      const player = createWolfhawkPlayer();
+      const state = createTestGameState({ players: [player] });
+
+      const result = isEffectResolvable(
+        state,
+        "player1",
+        { type: EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY }
+      );
+      expect(result).toBe(false);
+    });
+
+    it("should always be resolvable for SELECT_OPTION", () => {
+      const player = createWolfhawkPlayer();
+      const state = createTestGameState({ players: [player] });
+
+      const result = isEffectResolvable(
+        state,
+        "player1",
+        { type: EFFECT_KNOW_YOUR_PREY_SELECT_OPTION, enemyInstanceId: "enemy_0", enemyName: "Test" } as KnowYourPreySelectOptionEffect
+      );
+      expect(result).toBe(true);
+    });
+
+    it("should always be resolvable for APPLY", () => {
+      const player = createWolfhawkPlayer();
+      const state = createTestGameState({ players: [player] });
+
+      const result = isEffectResolvable(
+        state,
+        "player1",
+        { type: EFFECT_KNOW_YOUR_PREY_APPLY, enemyInstanceId: "enemy_0", ability: "brutal" as import("@mage-knight/shared").EnemyAbilityType, label: "Remove Brutal" } as KnowYourPreyApplyEffect
+      );
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("modifier queries", () => {
+    it("should report ice resistance as removed after applying removal", () => {
+      const player = createWolfhawkPlayer();
+      // Water Elemental: Ice attack + Ice Resistance
+      const combat = createCombatState([ENEMY_WATER_ELEMENTAL]);
+      const state = createTestGameState({ players: [player], combat });
+
+      // Activate skill
+      let result = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      // Find and select ice resistance removal
+      const options = result.state.players[0].pendingChoice!.options;
+      const iceResIndex = options.findIndex(
+        (o) => o.type === EFFECT_KNOW_YOUR_PREY_APPLY && "resistance" in o && o.resistance === "ice"
+      );
+      result = engine.processAction(result.state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: iceResIndex,
+      });
+
+      // isIceResistanceRemoved should return true
+      expect(isIceResistanceRemoved(result.state, "enemy_0")).toBe(true);
+    });
+
+    it("should not report ice resistance as removed for Arcane Immune enemy", () => {
+      const player = createWolfhawkPlayer();
+      // Sorcerers: Arcane Immunity — even if a modifier existed, it shouldn't apply
+      const combat = createCombatState([ENEMY_SORCERERS]);
+      const state = createTestGameState({ players: [player], combat });
+
+      // isIceResistanceRemoved should return false for Arcane Immune
+      expect(isIceResistanceRemoved(state, "enemy_0")).toBe(false);
+    });
+
+    it("should convert attack element via getEffectiveAttackElement", () => {
+      const player = createWolfhawkPlayer();
+      // Fire Elemental: Fire attack + Fire Resistance
+      const combat = createCombatState([ENEMY_FIRE_ELEMENTAL]);
+      const state = createTestGameState({ players: [player], combat });
+
+      // Activate skill
+      let result = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      // Find and select Fire→Physical conversion
+      const options = result.state.players[0].pendingChoice!.options;
+      const fireConvertIndex = options.findIndex(
+        (o) =>
+          o.type === EFFECT_KNOW_YOUR_PREY_APPLY &&
+          "fromElement" in o &&
+          o.fromElement === "fire" &&
+          "toElement" in o &&
+          o.toElement === "physical"
+      );
+      result = engine.processAction(result.state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: fireConvertIndex,
+      });
+
+      // getEffectiveAttackElement should convert fire to physical
+      expect(getEffectiveAttackElement(result.state, "enemy_0", ELEMENT_FIRE)).toBe(ELEMENT_PHYSICAL);
+
+      // Non-matching elements should pass through unchanged
+      expect(getEffectiveAttackElement(result.state, "enemy_0", ELEMENT_ICE)).toBe(ELEMENT_ICE);
+    });
+
+    it("should filter ice resistance from getEnemyResistances after removal", () => {
+      const player = createWolfhawkPlayer();
+      // Water Elemental: Ice Resistance
+      const combat = createCombatState([ENEMY_WATER_ELEMENTAL]);
+      const state = createTestGameState({ players: [player], combat });
+
+      // Activate and select ice resistance removal
+      let result = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      const options = result.state.players[0].pendingChoice!.options;
+      const iceResIndex = options.findIndex(
+        (o) => o.type === EFFECT_KNOW_YOUR_PREY_APPLY && "resistance" in o && o.resistance === "ice"
+      );
+      result = engine.processAction(result.state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: iceResIndex,
+      });
+
+      // getEnemyResistances should no longer include ice
+      const enemy = result.state.combat!.enemies[0]!;
+      const resistances = getEnemyResistances(result.state, enemy);
+      expect(resistances).not.toContain("ice");
+    });
+
+    it("should convert Cold Fire element via getEffectiveAttackElement", () => {
+      const player = createWolfhawkPlayer();
+      // Air Elemental: Cold Fire attack
+      const combat = createCombatState([ENEMY_AIR_ELEMENTAL]);
+      const state = createTestGameState({ players: [player], combat });
+
+      // Activate skill
+      let result = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_KNOW_YOUR_PREY,
+      });
+
+      // Find and select Cold Fire → Ice conversion
+      const options = result.state.players[0].pendingChoice!.options;
+      const coldFireToIceIndex = options.findIndex(
+        (o) =>
+          o.type === EFFECT_KNOW_YOUR_PREY_APPLY &&
+          "fromElement" in o &&
+          o.fromElement === "cold_fire" &&
+          "toElement" in o &&
+          o.toElement === "ice"
+      );
+      result = engine.processAction(result.state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: coldFireToIceIndex,
+      });
+
+      // getEffectiveAttackElement should convert cold_fire to ice
+      expect(getEffectiveAttackElement(result.state, "enemy_0", ELEMENT_COLD_FIRE)).toBe(ELEMENT_ICE);
     });
   });
 });
