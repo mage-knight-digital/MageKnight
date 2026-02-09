@@ -78,6 +78,7 @@ import { registerStoutResolveEffects } from "./stoutResolveEffects.js";
 import { registerUnitModifierEffects } from "./unitModifierEffects.js";
 import { registerRushOfAdrenalineEffects } from "./rushOfAdrenalineEffects.js";
 import { registerPuppetMasterEffects } from "./puppetMasterEffects.js";
+import { registerKrangCurseEffects } from "./krangCurseEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -294,4 +295,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Puppet Master effects (keep/expend enemy tokens)
   registerPuppetMasterEffects();
+
+  // Krang Curse effects (select enemy, reduce attack/armor)
+  registerKrangCurseEffects();
 }

@@ -36,6 +36,11 @@ import {
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_ATTACK_WITH_DEFEAT_BONUS,
   EFFECT_PLACE_SKILL_IN_CENTER,
+  EFFECT_KRANG_CURSE,
+  EFFECT_RESOLVE_KRANG_CURSE_TARGET,
+  EFFECT_RESOLVE_KRANG_CURSE_ATTACK_INDEX,
+  EFFECT_APPLY_KRANG_CURSE_ATTACK,
+  EFFECT_APPLY_KRANG_CURSE_ARMOR,
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_DECOMPOSE,
   EFFECT_MAXIMAL_EFFECT,
@@ -360,6 +365,28 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   },
 
   [EFFECT_PLACE_SKILL_IN_CENTER]: () => "Place skill in center",
+
+  [EFFECT_KRANG_CURSE]: () => "Curse (select enemy)",
+
+  [EFFECT_RESOLVE_KRANG_CURSE_TARGET]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveKrangCurseTargetEffect;
+    return `Curse ${e.enemyName}`;
+  },
+
+  [EFFECT_RESOLVE_KRANG_CURSE_ATTACK_INDEX]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveKrangCurseAttackIndexEffect;
+    return `Reduce ${e.enemyName} attack by 2 (choose attack)`;
+  },
+
+  [EFFECT_APPLY_KRANG_CURSE_ATTACK]: (effect) => {
+    const e = effect as import("../../types/cards.js").ApplyKrangCurseAttackEffect;
+    return e.description;
+  },
+
+  [EFFECT_APPLY_KRANG_CURSE_ARMOR]: (effect) => {
+    const e = effect as import("../../types/cards.js").ApplyKrangCurseArmorEffect;
+    return e.description;
+  },
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (effect) => {
     const e = effect as TrackAttackDefeatFameEffect;

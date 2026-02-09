@@ -225,6 +225,13 @@ export interface EnemyStatModifier {
   readonly stat: typeof ENEMY_STAT_ARMOR | typeof ENEMY_STAT_ATTACK;
   readonly amount: number;
   readonly minimum: number; // usually 1
+  /**
+   * For multi-attack enemies, optionally apply this attack modifier to only
+   * a single attack index (0-based). Ignored for armor modifiers.
+   *
+   * If omitted, applies to all attacks (legacy behavior).
+   */
+  readonly attackIndex?: number;
   readonly perResistance?: boolean; // Resistance Break: -1 per resistance
   readonly fortifiedAmount?: number; // Earthquake: alternative amount if target is fortified
   readonly excludeResistance?: ResistanceType; // Demolish: skip enemies with this resistance

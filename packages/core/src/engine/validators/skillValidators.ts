@@ -54,6 +54,7 @@ import {
   SKILL_WOLFHAWK_TAUNT,
   SKILL_WOLFHAWK_DUELING,
   SKILL_KRANG_PUPPET_MASTER,
+  SKILL_KRANG_CURSE,
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_KRANG_REGENERATE,
   SKILL_KRANG_MASTER_OF_CHAOS,
@@ -74,6 +75,7 @@ import { canActivateUniversalPower } from "../commands/skills/universalPowerEffe
 import { canActivateKnowYourPrey } from "../commands/skills/knowYourPreyEffect.js";
 import { canActivateDueling } from "../commands/skills/duelingEffect.js";
 import { canActivatePuppetMaster } from "../commands/skills/puppetMasterEffect.js";
+import { canActivateKrangCurse } from "../commands/skills/curseEffect.js";
 import { isManaColorAllowed } from "../rules/mana.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 import { canUseMasterOfChaosFreeRotate } from "../rules/masterOfChaos.js";
@@ -502,6 +504,16 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_NO_VALID_TARGET,
         "Puppet Master requires defeated enemies or stored enemy tokens"
+      );
+    }
+  }
+
+  // Curse: requires at least one eligible enemy target
+  if (useSkillAction.skillId === SKILL_KRANG_CURSE) {
+    if (!canActivateKrangCurse(state, playerId)) {
+      return invalid(
+        SKILL_NO_VALID_TARGET,
+        "Curse requires an eligible enemy target"
       );
     }
   }

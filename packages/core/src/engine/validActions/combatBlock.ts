@@ -149,7 +149,8 @@ export function computeEnemyBlockState(
   const effectiveAttack = getEffectiveEnemyAttack(
     state,
     enemy.instanceId,
-    baseAttackValue
+    baseAttackValue,
+    targetAttackIndex
   ) + naturesVengeanceBonus;
 
   // Swift enemies require 2x block
@@ -444,8 +445,8 @@ export function computeBlockPhaseOptions(
     .filter((enemy) => {
       const naturesBonus = getNaturesVengeanceAttackBonus(state, player.id);
       const attacks = getEnemyAttacks(enemy);
-      return attacks.some(attack =>
-        getEffectiveEnemyAttack(state, enemy.instanceId, attack.damage) + naturesBonus > 0
+      return attacks.some((attack, attackIndex) =>
+        getEffectiveEnemyAttack(state, enemy.instanceId, attack.damage, attackIndex) + naturesBonus > 0
       );
     })
     .map((enemy) => computeEnemyBlockState(enemy, combat, state, player.id));
@@ -559,7 +560,8 @@ export function getBlockOptions(
       const effectiveAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
-        attack.damage
+        attack.damage,
+        attackIndex
       ) + naturesVengeanceBonus;
 
       // Filter out attacks with 0 effective attack (nothing to block)

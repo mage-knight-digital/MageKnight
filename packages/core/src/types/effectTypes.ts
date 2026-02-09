@@ -100,6 +100,17 @@ export const EFFECT_PAY_MANA = "pay_mana" as const;
 // Place an interactive skill token in the center for other players to use
 export const EFFECT_PLACE_SKILL_IN_CENTER = "place_skill_in_center" as const;
 
+// === Krang Curse Effects ===
+// Krang's "Curse" skill: select an enemy, then choose attack/armor reduction.
+export const EFFECT_KRANG_CURSE = "krang_curse" as const;
+// Internal: resolve after selecting the target enemy
+export const EFFECT_RESOLVE_KRANG_CURSE_TARGET = "resolve_krang_curse_target" as const;
+// Internal: for multi-attack enemies, select which attack to reduce
+export const EFFECT_RESOLVE_KRANG_CURSE_ATTACK_INDEX = "resolve_krang_curse_attack_index" as const;
+// Internal: apply the chosen curse option
+export const EFFECT_APPLY_KRANG_CURSE_ATTACK = "apply_krang_curse_attack" as const;
+export const EFFECT_APPLY_KRANG_CURSE_ARMOR = "apply_krang_curse_armor" as const;
+
 // === Discard as Cost Effect ===
 // Discard cards from hand as a cost, then resolve a follow-up effect (e.g., Improvisation)
 export const EFFECT_DISCARD_COST = "discard_cost" as const;

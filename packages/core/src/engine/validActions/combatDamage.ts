@@ -200,7 +200,8 @@ export function getDamageAssignmentOptions(
       const rawAttack = getEffectiveEnemyAttack(
         state,
         enemy.instanceId,
-        attack.damage
+        attack.damage,
+        attackIndex
       );
 
       // Filter out attacks with 0 effective attack (no damage to assign)
@@ -297,7 +298,8 @@ export function canEndAssignDamagePhase(
         const effectiveAttack = getEffectiveEnemyAttack(
           state,
           enemy.instanceId,
-          attack.damage
+          attack.damage,
+          i
         );
         if (effectiveAttack > 0) {
           return false; // Can't end phase - this attack needs damage assigned

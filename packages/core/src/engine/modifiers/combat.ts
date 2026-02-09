@@ -166,7 +166,8 @@ export function getEffectiveEnemyArmor(
 export function getEffectiveEnemyAttack(
   state: GameState,
   enemyId: string,
-  baseAttack: number
+  baseAttack: number,
+  attackIndex?: number
 ): number {
   const modifiers = getModifiersForEnemy(state, enemyId)
     .filter(
@@ -179,8 +180,12 @@ export function getEffectiveEnemyAttack(
   // Default minimum is 0 - enemies can have 0 attack (e.g., Summoners)
   // Modifiers can set a higher minimum if needed
   let minAllowed = 0;
+  const effectiveAttackIndex = attackIndex ?? 0;
 
   for (const mod of modifiers) {
+    if (mod.attackIndex !== undefined && mod.attackIndex !== effectiveAttackIndex) {
+      continue;
+    }
     attack += mod.amount;
     minAllowed = Math.max(minAllowed, mod.minimum);
   }

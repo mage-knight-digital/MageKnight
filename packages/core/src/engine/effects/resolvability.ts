@@ -70,6 +70,9 @@ import {
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_ATTACK_WITH_DEFEAT_BONUS,
   EFFECT_PLACE_SKILL_IN_CENTER,
+  EFFECT_KRANG_CURSE,
+  EFFECT_RESOLVE_KRANG_CURSE_TARGET,
+  EFFECT_RESOLVE_KRANG_CURSE_ATTACK_INDEX,
   EFFECT_DISCARD_FOR_CRYSTAL,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_APPLY_RECRUITMENT_BONUS,
@@ -265,6 +268,33 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   [EFFECT_ATTACK_WITH_DEFEAT_BONUS]: () => true,
   [EFFECT_NOOP]: () => true,
   [EFFECT_PLACE_SKILL_IN_CENTER]: () => true,
+  [EFFECT_KRANG_CURSE]: (state, player) => {
+    const combat = state.combat;
+    if (!combat) return false;
+
+    const assigned = combat.enemyAssignments?.[player.id];
+    return combat.enemies.some((enemy) => {
+      if (enemy.isDefeated) return false;
+      if (assigned && !assigned.includes(enemy.instanceId)) return false;
+      if (combat.phase !== COMBAT_PHASE_RANGED_SIEGE) return true;
+      const fortLevel = getFortificationLevel(enemy, combat.isAtFortifiedSite, state, player.id);
+      return fortLevel === 0;
+    });
+  },
+  [EFFECT_RESOLVE_KRANG_CURSE_TARGET]: (state, _player, effect) => {
+    const e = effect as import("../../types/cards.js").ResolveKrangCurseTargetEffect;
+    return Boolean(
+      state.combat?.enemies.some(
+        (enemy) => enemy.instanceId === e.enemyInstanceId && !enemy.isDefeated
+      )
+    );
+  },
+  [EFFECT_RESOLVE_KRANG_CURSE_ATTACK_INDEX]: (state, _player, effect) => {
+    const e = effect as import("../../types/cards.js").ResolveKrangCurseAttackIndexEffect;
+    const enemy = state.combat?.enemies.find((en) => en.instanceId === e.enemyInstanceId);
+    if (!enemy || enemy.isDefeated) return false;
+    return (enemy.definition.attacks?.length ?? 0) > 1;
+  },
   [EFFECT_RESOLVE_BOOST_TARGET]: () => true,
   [EFFECT_MANA_DRAW_PICK_DIE]: () => true,
   [EFFECT_MANA_DRAW_SET_COLOR]: () => true,
