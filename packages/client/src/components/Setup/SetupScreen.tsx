@@ -5,7 +5,7 @@
 
 import { useState, useCallback } from "react";
 import type { GameConfig, HeroId } from "@mage-knight/shared";
-import { BASE_HEROES, SCENARIO_FIRST_RECONNAISSANCE } from "@mage-knight/shared";
+import { ALL_HEROES, SCENARIO_FIRST_RECONNAISSANCE } from "@mage-knight/shared";
 import { PlayerCountSelector } from "./PlayerCountSelector";
 import { HeroSelectionGrid } from "./HeroSelectionGrid";
 import "./SetupScreen.css";
@@ -91,7 +91,7 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
         />
 
         <HeroSelectionGrid
-          availableHeroes={BASE_HEROES}
+          availableHeroes={ALL_HEROES}
           selectedHeroes={selectedHeroes}
           onSelectHero={handleSelectHero}
           currentPlayerIndex={
