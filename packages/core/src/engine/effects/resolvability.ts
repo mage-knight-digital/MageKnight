@@ -111,6 +111,8 @@ import {
   EFFECT_TRAINING,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
+  EFFECT_POWER_OF_CRYSTALS_BASIC,
+  EFFECT_POWER_OF_CRYSTALS_POWERED,
   EFFECT_POSSESS_ENEMY,
   EFFECT_RESOLVE_POSSESS_ENEMY,
   EFFECT_MAGIC_TALENT_BASIC,
@@ -610,6 +612,25 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Crystal Mastery powered is always resolvable (sets a flag)
   [EFFECT_CRYSTAL_MASTERY_POWERED]: () => true,
+
+  // Power of Crystals basic is resolvable when player is missing at least one crystal color
+  [EFFECT_POWER_OF_CRYSTALS_BASIC]: (_state, player) => {
+    const { red, blue, green, white } = player.crystals;
+    return red === 0 || blue === 0 || green === 0 || white === 0;
+  },
+
+  // Power of Crystals powered:
+  // - In combat: move-only, so resolvable only when move would matter
+  // - Out of combat: move option always available
+  [EFFECT_POWER_OF_CRYSTALS_POWERED]: (state, player) => {
+    if (state.combat) {
+      return isEffectResolvable(state, player.id, {
+        type: EFFECT_GAIN_MOVE,
+        amount: 4,
+      });
+    }
+    return true;
+  },
 
   // Possess is resolvable if in combat with at least one non-defeated, non-Arcane-Immune enemy
   [EFFECT_POSSESS_ENEMY]: (state) => {

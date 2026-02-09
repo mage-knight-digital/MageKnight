@@ -10,6 +10,7 @@ import {
   SCALING_PER_WOUND_THIS_COMBAT,
   SCALING_PER_UNIT,
   SCALING_PER_CRYSTAL_COLOR,
+  SCALING_PER_COMPLETE_CRYSTAL_SET,
   SCALING_PER_EMPTY_COMMAND_TOKEN,
   SCALING_PER_WOUND_TOTAL,
   SCALING_PER_ENEMY_BLOCKED,
@@ -71,6 +72,16 @@ export function evaluateScalingFactor(
       if (player.crystals.green > 0) count++;
       if (player.crystals.white > 0) count++;
       return count;
+    }
+
+    case SCALING_PER_COMPLETE_CRYSTAL_SET: {
+      // Count complete red/blue/green/white crystal sets
+      return Math.min(
+        player.crystals.red,
+        player.crystals.blue,
+        player.crystals.green,
+        player.crystals.white
+      );
     }
 
     case SCALING_PER_EMPTY_COMMAND_TOKEN: {

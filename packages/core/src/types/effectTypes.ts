@@ -309,6 +309,12 @@ export const EFFECT_CRYSTAL_MASTERY_BASIC = "crystal_mastery_basic" as const;
 // Powered: At end of turn, spent crystals this turn are returned to inventory.
 export const EFFECT_CRYSTAL_MASTERY_POWERED = "crystal_mastery_powered" as const;
 
+// === Power of Crystals Effects ===
+// Basic: Gain a crystal of a basic color you do not currently own.
+export const EFFECT_POWER_OF_CRYSTALS_BASIC = "power_of_crystals_basic" as const;
+// Powered: Move/Heal/Draw with scaling based on complete crystal sets.
+export const EFFECT_POWER_OF_CRYSTALS_POWERED = "power_of_crystals_powered" as const;
+
 // === Heal All Units Effect ===
 // Heal all units completely (remove wounds from all wounded units).
 // Used by Banner of Fortitude powered effect.

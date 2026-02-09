@@ -123,6 +123,8 @@ import {
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
+  EFFECT_POWER_OF_CRYSTALS_BASIC,
+  EFFECT_POWER_OF_CRYSTALS_POWERED,
   EFFECT_POSSESS_ENEMY,
   EFFECT_RESOLVE_POSSESS_ENEMY,
   EFFECT_ROLL_DIE_FOR_WOUND,
@@ -481,7 +483,9 @@ export type ScalableBaseEffect =
   | GainAttackEffect
   | GainBlockEffect
   | GainMoveEffect
-  | GainInfluenceEffect;
+  | GainInfluenceEffect
+  | GainHealingEffect
+  | DrawCardsEffect;
 
 export interface ScalingEffect {
   readonly type: typeof EFFECT_SCALING;
@@ -1427,6 +1431,22 @@ export interface CrystalMasteryPoweredEffect {
 }
 
 /**
+ * Power of Crystals basic effect.
+ * Gain a crystal of a basic color you do not currently own.
+ */
+export interface PowerOfCrystalsBasicEffect {
+  readonly type: typeof EFFECT_POWER_OF_CRYSTALS_BASIC;
+}
+
+/**
+ * Power of Crystals powered effect.
+ * Move/Heal/Draw with bonus per complete crystal set.
+ */
+export interface PowerOfCrystalsPoweredEffect {
+  readonly type: typeof EFFECT_POWER_OF_CRYSTALS_POWERED;
+}
+
+/**
  * Wings of Night multi-target skip-attack effect entry point.
  * First enemy targeted for free. Additional enemies cost 1, 2, 3... move points.
  * All targeted enemies get SKIP_ATTACK modifier. Arcane Immune enemies excluded.
@@ -1996,6 +2016,8 @@ export type CardEffect =
   | ResolveWingsOfNightTargetEffect
   | CrystalMasteryBasicEffect
   | CrystalMasteryPoweredEffect
+  | PowerOfCrystalsBasicEffect
+  | PowerOfCrystalsPoweredEffect
   | ManaStormBasicEffect
   | ManaStormSelectDieEffect
   | ManaStormPoweredEffect

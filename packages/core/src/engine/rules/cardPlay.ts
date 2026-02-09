@@ -10,7 +10,15 @@ import type { CardEffect, DeedCard } from "../../types/cards.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import { getBasicActionCard, BASIC_ACTION_CARDS } from "../../data/basicActions/index.js";
 import { filterHealingEffectsForCombat } from "../effects/index.js";
-import { EFFECT_NOOP } from "../../types/effectTypes.js";
+import {
+  EFFECT_NOOP,
+  EFFECT_CHOICE,
+  EFFECT_COMPOUND,
+  EFFECT_CONDITIONAL,
+  EFFECT_SCALING,
+  EFFECT_DISCARD_COST,
+  EFFECT_POWER_OF_CRYSTALS_POWERED,
+} from "../../types/effectTypes.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
@@ -48,6 +56,7 @@ import type { GameState } from "../../state/GameState.js";
 import { isRuleActive } from "../modifiers/index.js";
 import { RULE_MOVE_CARDS_IN_COMBAT, RULE_INFLUENCE_CARDS_IN_COMBAT } from "../../types/modifierConstants.js";
 import { getFortificationLevel } from "./combatTargeting.js";
+import { CONDITION_IN_COMBAT } from "../../types/conditions.js";
 
 export interface CombatEffectContext {
   readonly effect: CardEffect | null;
@@ -211,8 +220,56 @@ export function shouldExcludeMoveOnlyEffect(
   playerId: string,
   combat: CombatState
 ): boolean {
-  if (!effectIsMoveOnly(effect)) return false;
+  if (!effectIsMoveOnlyForCurrentCombatState(effect, state.combat !== null)) return false;
   return !isMoveUsefulInCombat(state, playerId, combat);
+}
+
+/**
+ * Like effectIsMoveOnly, but it evaluates "in_combat" conditionals against the
+ * current state so out-of-combat branches don't affect combat playability checks.
+ */
+function effectIsMoveOnlyForCurrentCombatState(effect: CardEffect, inCombat: boolean): boolean {
+  switch (effect.type) {
+    case EFFECT_POWER_OF_CRYSTALS_POWERED:
+      return true;
+
+    case EFFECT_CHOICE:
+      return effect.options.every((option) =>
+        effectIsMoveOnlyForCurrentCombatState(option, inCombat)
+      );
+
+    case EFFECT_COMPOUND:
+      return effect.effects.every((subEffect) =>
+        effectIsMoveOnlyForCurrentCombatState(subEffect, inCombat)
+      );
+
+    case EFFECT_CONDITIONAL: {
+      if (effect.condition.type === CONDITION_IN_COMBAT) {
+        if (inCombat) {
+          return effectIsMoveOnlyForCurrentCombatState(effect.thenEffect, inCombat);
+        }
+        return effect.elseEffect
+          ? effectIsMoveOnlyForCurrentCombatState(effect.elseEffect, inCombat)
+          : effectIsMoveOnly({ type: EFFECT_NOOP });
+      }
+
+      return effectIsMoveOnlyForCurrentCombatState(effect.thenEffect, inCombat) &&
+        (!effect.elseEffect || effectIsMoveOnlyForCurrentCombatState(effect.elseEffect, inCombat));
+    }
+
+    case EFFECT_SCALING:
+      return effectIsMoveOnlyForCurrentCombatState(effect.baseEffect, inCombat);
+
+    case EFFECT_DISCARD_COST:
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).every((next) =>
+            !!next && effectIsMoveOnlyForCurrentCombatState(next, inCombat)
+          )
+        : effectIsMoveOnlyForCurrentCombatState(effect.thenEffect, inCombat);
+
+    default:
+      return effectIsMoveOnly(effect);
+  }
 }
 
 /**

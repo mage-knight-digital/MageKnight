@@ -10,6 +10,7 @@ import {
   EFFECT_MANA_DRAW_POWERED,
   EFFECT_GAIN_CRYSTAL,
   EFFECT_CONVERT_MANA_TO_CRYSTAL,
+  EFFECT_POWER_OF_CRYSTALS_BASIC,
   EFFECT_CARD_BOOST,
   EFFECT_SELECT_COMBAT_ENEMY,
   EFFECT_CHOICE,
@@ -59,6 +60,7 @@ export function effectHasCrystal(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_CRYSTAL:
     case EFFECT_CONVERT_MANA_TO_CRYSTAL:
+    case EFFECT_POWER_OF_CRYSTALS_BASIC:
       return true;
 
     case EFFECT_CHOICE:

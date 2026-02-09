@@ -55,6 +55,7 @@ import { registerHealAllUnitsEffects } from "./healAllUnitsEffects.js";
 import { registerWingsOfNightEffects } from "./wingsOfNightEffects.js";
 import { registerDecomposeEffects } from "./decomposeEffects.js";
 import { registerCrystalMasteryEffects } from "./crystalMasteryEffects.js";
+import { registerPowerOfCrystalsEffects } from "./powerOfCrystalsEffects.js";
 import { registerPossessEffects } from "./possessEffects.js";
 import { registerManaStormEffects } from "./manaStormEffects.js";
 import { registerSourceOpeningEffects } from "./sourceOpeningEffects.js";
@@ -221,6 +222,9 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Crystal Mastery effects (crystal duplication + spent crystal return)
   registerCrystalMasteryEffects();
+
+  // Power of Crystals effects (gain missing-color crystal)
+  registerPowerOfCrystalsEffects(resolver);
 
   // Possess enemy effects (Charm/Possess spell powered effect)
   registerPossessEffects(resolver);

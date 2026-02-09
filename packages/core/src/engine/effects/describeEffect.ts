@@ -43,6 +43,8 @@ import {
   EFFECT_TRAINING,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
+  EFFECT_POWER_OF_CRYSTALS_BASIC,
+  EFFECT_POWER_OF_CRYSTALS_POWERED,
   EFFECT_APPLY_RECRUIT_DISCOUNT,
   EFFECT_READY_UNITS_FOR_INFLUENCE,
   EFFECT_RESOLVE_READY_UNIT_FOR_INFLUENCE,
@@ -410,6 +412,14 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
 
   [EFFECT_CRYSTAL_MASTERY_POWERED]: () => {
     return "Crystals spent this turn are returned at end of turn";
+  },
+
+  [EFFECT_POWER_OF_CRYSTALS_BASIC]: () => {
+    return "Gain a crystal of a basic color you do not already own";
+  },
+
+  [EFFECT_POWER_OF_CRYSTALS_POWERED]: () => {
+    return "Move/Heal/Draw with bonus per complete crystal set";
   },
 
   [EFFECT_APPLY_RECRUIT_DISCOUNT]: (effect) => {

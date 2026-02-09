@@ -68,6 +68,8 @@ import {
   EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET,
   EFFECT_CRYSTAL_MASTERY_BASIC,
   EFFECT_CRYSTAL_MASTERY_POWERED,
+  EFFECT_POWER_OF_CRYSTALS_BASIC,
+  EFFECT_POWER_OF_CRYSTALS_POWERED,
   COMBAT_TYPE_RANGED,
   COMBAT_TYPE_SIEGE,
   EFFECT_GAIN_ATTACK_BOW_RESOLVED,
@@ -408,6 +410,13 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
   // Crystal Mastery basic presents choices — no direct player state change.
   // Actual state change is via GainCrystal (already handled above).
   [EFFECT_CRYSTAL_MASTERY_BASIC]: (player) => player,
+
+  // Power of Crystals basic presents choices — no direct player state change.
+  // Actual state change is via GainCrystal (already handled above).
+  [EFFECT_POWER_OF_CRYSTALS_BASIC]: (player) => player,
+
+  // Power of Crystals powered presents dynamic choices or auto-resolves to base effects.
+  [EFFECT_POWER_OF_CRYSTALS_POWERED]: (player) => player,
 
   // Crystal Mastery powered sets a flag — reverse by clearing it.
   [EFFECT_CRYSTAL_MASTERY_POWERED]: (player) => ({

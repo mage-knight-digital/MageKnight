@@ -10,6 +10,7 @@ export const SCALING_PER_WOUND_IN_HAND = "per_wound_in_hand" as const;
 export const SCALING_PER_WOUND_THIS_COMBAT = "per_wound_this_combat" as const;
 export const SCALING_PER_UNIT = "per_unit" as const;
 export const SCALING_PER_CRYSTAL_COLOR = "per_crystal_color" as const;
+export const SCALING_PER_COMPLETE_CRYSTAL_SET = "per_complete_crystal_set" as const;
 export const SCALING_PER_EMPTY_COMMAND_TOKEN = "per_empty_command_token" as const;
 export const SCALING_PER_WOUND_TOTAL = "per_wound_total" as const;
 export const SCALING_PER_ENEMY_BLOCKED = "per_enemy_blocked" as const;
@@ -43,6 +44,15 @@ export interface ScalingPerUnitFactor {
  */
 export interface ScalingPerCrystalColorFactor {
   readonly type: typeof SCALING_PER_CRYSTAL_COLOR;
+}
+
+/**
+ * Scales by number of complete crystal sets in inventory.
+ * A complete set is one red + one blue + one green + one white crystal.
+ * Count is min(red, blue, green, white).
+ */
+export interface ScalingPerCompleteCrystalSetFactor {
+  readonly type: typeof SCALING_PER_COMPLETE_CRYSTAL_SET;
 }
 
 /**
@@ -90,6 +100,7 @@ export type ScalingFactor =
   | ScalingPerWoundThisCombatFactor
   | ScalingPerUnitFactor
   | ScalingPerCrystalColorFactor
+  | ScalingPerCompleteCrystalSetFactor
   | ScalingPerEmptyCommandTokenFactor
   | ScalingPerWoundTotalFactor
   | ScalingPerEnemyBlockedFactor;
