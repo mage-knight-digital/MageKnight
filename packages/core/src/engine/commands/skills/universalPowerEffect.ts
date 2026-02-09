@@ -23,6 +23,7 @@ import {
   SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_ARYTHEA_POWER_OF_PAIN,
+  SKILL_WOLFHAWK_WOLFS_HOWL,
 } from "../../../data/skills/index.js";
 import {
   DURATION_TURN,
@@ -150,7 +151,7 @@ const CONFLICTING_SKILLS = [
   SKILL_TOVAK_I_DONT_GIVE_A_DAMN,
   SKILL_TOVAK_WHO_NEEDS_MAGIC,
   SKILL_ARYTHEA_POWER_OF_PAIN,
-  // Wolf's Howl would be added here when implemented
+  SKILL_WOLFHAWK_WOLFS_HOWL,
 ];
 
 /**

@@ -21,7 +21,7 @@ import type { CardEffect } from "../../types/cards.js";
 import { ABILITY_CUMBERSOME } from "@mage-knight/shared";
 import { createSkillUsedEvent, createChoiceRequiredEvent } from "@mage-knight/shared";
 import { RETURN_INTERACTIVE_SKILL_COMMAND } from "./commandTypes.js";
-import { SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE } from "../../data/skills/index.js";
+import { SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE, SKILL_WOLFHAWK_WOLFS_HOWL } from "../../data/skills/index.js";
 import { addModifier } from "../modifiers/index.js";
 import { resolveEffect, describeEffect } from "../effects/index.js";
 import {
@@ -31,6 +31,7 @@ import {
   EFFECT_GRANT_ENEMY_ABILITY,
   EFFECT_RULE_OVERRIDE,
   EFFECT_TERRAIN_COST,
+  ENEMY_STAT_ARMOR,
   ENEMY_STAT_ATTACK,
   RULE_EXTRA_SOURCE_DIE,
   SCOPE_SELF,
@@ -118,6 +119,49 @@ function flipSkillFaceDown(
 
   return { ...state, players };
 }
+
+/**
+ * Wolf's Howl return benefit: two sequential enemy selections.
+ * Step 1: Reduce armor of chosen enemy by 1 (min 1) — excludes Arcane Immune (S5)
+ * Step 2: Reduce attack of same or another enemy by 1 — does NOT exclude Arcane Immune (S5)
+ * Can split between summoner and summoned monster (S2).
+ */
+const WOLFS_HOWL_ARMOR_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  excludeArcaneImmune: true,
+  template: {
+    modifiers: [
+      {
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ARMOR,
+          amount: -1,
+          minimum: 1,
+        },
+        duration: DURATION_COMBAT,
+        description: "Wolf's Howl: Armor -1",
+      },
+    ],
+  },
+};
+
+const WOLFS_HOWL_ATTACK_EFFECT: CardEffect = {
+  type: EFFECT_SELECT_COMBAT_ENEMY,
+  template: {
+    modifiers: [
+      {
+        modifier: {
+          type: EFFECT_ENEMY_STAT,
+          stat: ENEMY_STAT_ATTACK,
+          amount: -1,
+          minimum: 0,
+        },
+        duration: DURATION_COMBAT,
+        description: "Wolf's Howl: Attack -1",
+      },
+    ],
+  },
+};
 
 /**
  * Nature's Vengeance return benefit: SELECT_COMBAT_ENEMY effect for attack -1 + Cumbersome.
@@ -250,6 +294,99 @@ function applyReturnBenefit(
 
     // Single or no enemies — auto-resolved
     return { state: effectResult.state };
+  }
+  if (skillId === SKILL_WOLFHAWK_WOLFS_HOWL) {
+    // Wolf's Howl: two sequential enemy selections.
+    // Step 1: Reduce armor of chosen enemy by 1 (min 1) — excludes Arcane Immune (S5)
+    // Step 2: Reduce attack of same or another enemy by 1 — NO Arcane Immune exclusion (S5)
+    // Can split between summoner and summoned monster (S2).
+    if (!state.combat) {
+      // Not in combat — no benefit
+      return { state };
+    }
+
+    // Try resolving armor step first to determine if it has valid targets.
+    // This lets us correctly set remainingEffects for the pending choice.
+    const armorResult = resolveEffect(state, playerId, WOLFS_HOWL_ARMOR_EFFECT);
+
+    if (armorResult.requiresChoice && armorResult.dynamicChoiceOptions) {
+      // Armor step has valid targets — create pending choice with attack as remaining
+      const playerIndex = state.players.findIndex((p) => p.id === playerId);
+      if (playerIndex === -1) {
+        return { state };
+      }
+
+      const pendingChoice: PendingChoice = {
+        cardId: null,
+        skillId: SKILL_WOLFHAWK_WOLFS_HOWL,
+        unitInstanceId: null,
+        options: armorResult.dynamicChoiceOptions,
+        remainingEffects: [WOLFS_HOWL_ATTACK_EFFECT],
+      };
+
+      const player = state.players[playerIndex]!;
+      const updatedPlayer: Player = {
+        ...player,
+        pendingChoice,
+      };
+      const players = [...armorResult.state.players];
+      players[playerIndex] = updatedPlayer;
+
+      const choiceEvent = createChoiceRequiredEvent(
+        playerId,
+        null,
+        SKILL_WOLFHAWK_WOLFS_HOWL,
+        armorResult.dynamicChoiceOptions.map((opt) => describeEffect(opt))
+      );
+
+      return {
+        state: { ...armorResult.state, players },
+        pendingChoice: true,
+        events: [choiceEvent],
+      };
+    }
+
+    // Armor step had no valid targets (e.g., all enemies Arcane Immune).
+    // Continue to attack step directly.
+    const attackResult = resolveEffect(armorResult.state, playerId, WOLFS_HOWL_ATTACK_EFFECT);
+
+    if (attackResult.requiresChoice && attackResult.dynamicChoiceOptions) {
+      const playerIndex = state.players.findIndex((p) => p.id === playerId);
+      if (playerIndex === -1) {
+        return { state };
+      }
+
+      const pendingChoice: PendingChoice = {
+        cardId: null,
+        skillId: SKILL_WOLFHAWK_WOLFS_HOWL,
+        unitInstanceId: null,
+        options: attackResult.dynamicChoiceOptions,
+      };
+
+      const player = state.players[playerIndex]!;
+      const updatedPlayer: Player = {
+        ...player,
+        pendingChoice,
+      };
+      const players = [...attackResult.state.players];
+      players[playerIndex] = updatedPlayer;
+
+      const choiceEvent = createChoiceRequiredEvent(
+        playerId,
+        null,
+        SKILL_WOLFHAWK_WOLFS_HOWL,
+        attackResult.dynamicChoiceOptions.map((opt) => describeEffect(opt))
+      );
+
+      return {
+        state: { ...attackResult.state, players },
+        pendingChoice: true,
+        events: [choiceEvent],
+      };
+    }
+
+    // Both steps auto-resolved (0 enemies for each)
+    return { state: attackResult.state };
   }
   return { state };
 }

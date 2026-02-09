@@ -40,6 +40,7 @@ import {
   SKILL_WOLFHAWK_DEADLY_AIM,
   SKILL_WOLFHAWK_KNOW_YOUR_PREY,
   SKILL_WOLFHAWK_DUELING,
+  SKILL_WOLFHAWK_WOLFS_HOWL,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -72,6 +73,8 @@ import {
   removeKnowYourPreyEffect,
   applyDuelingEffect,
   removeDuelingEffect,
+  applyWolfsHowlEffect,
+  removeWolfsHowlEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import { restoreMana } from "./helpers/manaConsumptionHelpers.js";
@@ -97,7 +100,7 @@ import { isMotivationSkill, ALL_MOTIVATION_SKILLS } from "../rules/motivation.js
 
 import { SKILL_GOLDYX_SOURCE_OPENING } from "../../data/skills/index.js";
 
-const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING]);
+const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_WOLFHAWK_WOLFS_HOWL]);
 
 /**
  * Check if an effect (or any sub-effect in a compound) contains non-reversible
@@ -182,6 +185,9 @@ function applyCustomSkillEffect(
     case SKILL_WOLFHAWK_DUELING:
       return applyDuelingEffect(state, playerId);
 
+    case SKILL_WOLFHAWK_WOLFS_HOWL:
+      return applyWolfsHowlEffect(state, playerId);
+
     default:
       // Skill has no custom handler - will use generic effect resolution
       return state;
@@ -245,6 +251,9 @@ function removeCustomSkillEffect(
     case SKILL_WOLFHAWK_DUELING:
       return removeDuelingEffect(state, playerId);
 
+    case SKILL_WOLFHAWK_WOLFS_HOWL:
+      return removeWolfsHowlEffect(state, playerId);
+
     default:
       return state;
   }
@@ -270,6 +279,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_WOLFHAWK_DEADLY_AIM,
     SKILL_WOLFHAWK_KNOW_YOUR_PREY,
     SKILL_WOLFHAWK_DUELING,
+    SKILL_WOLFHAWK_WOLFS_HOWL,
   ].includes(skillId);
 }
 

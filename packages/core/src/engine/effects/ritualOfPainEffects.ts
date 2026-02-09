@@ -36,6 +36,7 @@ import {
 import { SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/norowas/prayerOfWeather.js";
 import { SKILL_GOLDYX_SOURCE_OPENING } from "../../data/skills/goldyx/sourceFreeze.js";
 import { SKILL_BRAEVALAR_NATURES_VENGEANCE } from "../../data/skills/braevalar/naturesVengeance.js";
+import { SKILL_WOLFHAWK_WOLFS_HOWL } from "../../data/skills/wolfhawk/wolfsHowl.js";
 
 // ============================================================================
 // DISCARD WOUNDS EFFECT
@@ -170,6 +171,18 @@ export function handlePlaceSkillInCenter(
         usedDieCountAtReturn: 0,
       },
     };
+  } else if (skillId === SKILL_WOLFHAWK_WOLFS_HOWL) {
+    // Wolf's Howl: add marker modifier so the system knows the skill is in center.
+    // First player entering combat can return it to reduce enemy armor -1 and attack -1.
+    // No competitive penalty (unlike Nature's Vengeance).
+    updatedState = addModifier(updatedState, {
+      source: { type: SOURCE_SKILL, skillId, playerId },
+      duration: DURATION_ROUND,
+      scope: { type: SCOPE_OTHER_PLAYERS },
+      effect: { type: EFFECT_TERRAIN_COST, terrain: TERRAIN_ALL, amount: 0, minimum: 0 },
+      createdAtRound: state.round,
+      createdByPlayerId: playerId,
+    });
   } else {
     // Ritual of Pain: other players can return it to play a Wound sideways for +3
     updatedState = addModifier(updatedState, {
