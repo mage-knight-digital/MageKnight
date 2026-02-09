@@ -425,11 +425,10 @@ function applyReturnBenefit(
     // Both steps auto-resolved (0 enemies for each)
     return { state: attackResult.state };
   }
-  if (skillId === SKILL_KRANG_MANA_ENHANCEMENT) {
-    // Mana Enhancement: returning player gains one mana token
-    // of the color marked on Krang's skill token.
+  // Mana Enhancement: returning player gains one mana token
+  // of the color marked on Krang's skill token.
+  if (skillId === SKILL_KRANG_MANA_ENHANCEMENT)
     return { state: applyManaEnhancementClaimBenefit(state, playerId) };
-  }
   return { state };
 }
 

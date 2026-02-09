@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createEngine, type MageKnightEngine } from "../MageKnightEngine.js";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import {
+  ACTIVATE_UNIT_ACTION,
   CARD_MARCH,
   CARD_RAGE,
+  CARD_WOUND,
   END_TURN_ACTION,
   INVALID_ACTION,
   MANA_GOLD,
@@ -12,13 +14,18 @@ import {
   MANA_TOKEN_SOURCE_CARD,
   PLAY_CARD_ACTION,
   RETURN_INTERACTIVE_SKILL_ACTION,
+  UNIT_HERBALIST,
 } from "@mage-knight/shared";
 import type { SkillId } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import { SKILL_KRANG_MANA_ENHANCEMENT } from "../../data/skills/index.js";
 import { SOURCE_SKILL } from "../../types/modifierConstants.js";
 import { getValidActions } from "../validActions/index.js";
-import { applyManaEnhancementTrigger } from "../commands/skills/manaEnhancementEffect.js";
+import {
+  applyManaEnhancementClaimBenefit,
+  applyManaEnhancementTrigger,
+} from "../commands/skills/manaEnhancementEffect.js";
+import { createPlayerUnit } from "../../types/unit.js";
 import type { GameState } from "../../state/GameState.js";
 
 function buildSkillCooldowns() {
@@ -166,6 +173,29 @@ describe("Mana Enhancement skill (Krang)", () => {
     );
   });
 
+  it("undoing claimed Mana Enhancement restores center token", () => {
+    const triggered = triggerWithGreenPoweredCard(engine, createTwoPlayerState());
+    const onArytheaTurn: GameState = {
+      ...triggered,
+      currentPlayerIndex: 1,
+    };
+
+    const claimResult = engine.processAction(onArytheaTurn, "arythea", {
+      type: RETURN_INTERACTIVE_SKILL_ACTION,
+      skillId: SKILL_KRANG_MANA_ENHANCEMENT,
+    });
+    const undoResult = engine.processAction(claimResult.state, "arythea", {
+      type: "UNDO",
+    });
+
+    expect(undoResult.state.manaEnhancementCenter).toEqual({
+      markedColor: MANA_GREEN,
+      ownerId: "krang",
+      skillId: SKILL_KRANG_MANA_ENHANCEMENT,
+    });
+
+  });
+
   it("rejects claiming your own Mana Enhancement token", () => {
     const triggered = triggerWithGreenPoweredCard(engine, createTwoPlayerState());
 
@@ -199,5 +229,132 @@ describe("Mana Enhancement skill (Krang)", () => {
         m.source.playerId === "krang"
     );
     expect(centerModifier).toBeUndefined();
+  });
+
+  it("undoing a powered card play restores Mana Enhancement crystal and center state", () => {
+    const state = createTwoPlayerState();
+    const played = engine.processAction(state, "krang", {
+      type: PLAY_CARD_ACTION,
+      cardId: CARD_MARCH,
+      powered: true,
+      manaSource: {
+        type: MANA_SOURCE_TOKEN,
+        color: MANA_GREEN,
+      },
+    });
+
+    const undone = engine.processAction(played.state, "krang", { type: "UNDO" });
+    const krang = undone.state.players.find((p) => p.id === "krang");
+
+    expect(krang?.crystals.green).toBe(0);
+    expect(krang?.skillCooldowns.usedThisRound).not.toContain(
+      SKILL_KRANG_MANA_ENHANCEMENT
+    );
+    expect(undone.state.manaEnhancementCenter).toBeNull();
+    expect(
+      undone.state.activeModifiers.some(
+        (modifier) =>
+          modifier.source.type === SOURCE_SKILL &&
+          modifier.source.skillId === SKILL_KRANG_MANA_ENHANCEMENT
+      )
+    ).toBe(false);
+  });
+
+  it("undoing a mana-powered unit activation restores Mana Enhancement state", () => {
+    const herbalist = createPlayerUnit(UNIT_HERBALIST, "herbalist_1");
+    const krang = createTestPlayer({
+      id: "krang",
+      hero: Hero.Krang,
+      skills: [SKILL_KRANG_MANA_ENHANCEMENT],
+      skillCooldowns: buildSkillCooldowns(),
+      units: [herbalist],
+      commandTokens: 1,
+      hand: [CARD_WOUND],
+      pureMana: [{ color: MANA_GREEN, source: MANA_TOKEN_SOURCE_CARD }],
+    });
+
+    const state = createTestGameState({
+      players: [krang],
+      turnOrder: ["krang"],
+      currentPlayerIndex: 0,
+      combat: null,
+    });
+
+    const activated = engine.processAction(state, "krang", {
+      type: ACTIVATE_UNIT_ACTION,
+      unitInstanceId: "herbalist_1",
+      abilityIndex: 0,
+      manaSource: {
+        type: MANA_SOURCE_TOKEN,
+        color: MANA_GREEN,
+      },
+    });
+
+    expect(activated.state.players[0]?.crystals.green).toBe(1);
+    expect(activated.state.manaEnhancementCenter).toEqual({
+      markedColor: MANA_GREEN,
+      ownerId: "krang",
+      skillId: SKILL_KRANG_MANA_ENHANCEMENT,
+    });
+
+    const undone = engine.processAction(activated.state, "krang", { type: "UNDO" });
+    const undoneKrang = undone.state.players[0];
+    expect(undoneKrang?.crystals.green).toBe(0);
+    expect(undoneKrang?.skillCooldowns.usedThisRound).not.toContain(
+      SKILL_KRANG_MANA_ENHANCEMENT
+    );
+    expect(undone.state.manaEnhancementCenter).toBeNull();
+  });
+
+  it("does not trigger if trigger owner does not exist", () => {
+    const state = createTwoPlayerState();
+    const result = applyManaEnhancementTrigger(state, "missing-player", MANA_GREEN);
+    expect(result).toBe(state);
+  });
+
+  it("claim benefit is a no-op when no center token exists", () => {
+    const state = createTwoPlayerState();
+    const result = applyManaEnhancementClaimBenefit(state, "arythea");
+    expect(result).toBe(state);
+  });
+
+  it("claim benefit clears center when claimant does not exist", () => {
+    const state = createTwoPlayerState();
+    state.manaEnhancementCenter = {
+      markedColor: MANA_GREEN,
+      ownerId: "krang",
+      skillId: SKILL_KRANG_MANA_ENHANCEMENT,
+    };
+
+    const result = applyManaEnhancementClaimBenefit(state, "missing-player");
+    expect(result).not.toBe(state);
+    expect(result.manaEnhancementCenter).toBeNull();
+  });
+
+  it("claim benefit clears center when player disappears after index lookup", () => {
+    const state = createTwoPlayerState();
+    state.manaEnhancementCenter = {
+      markedColor: MANA_GREEN,
+      ownerId: "krang",
+      skillId: SKILL_KRANG_MANA_ENHANCEMENT,
+    };
+
+    const arytheaIndex = state.players.findIndex((p) => p.id === "arythea");
+    const arythea = state.players[arytheaIndex];
+    if (!arythea) {
+      throw new Error("Expected Arythea player");
+    }
+
+    Object.defineProperty(arythea, "id", {
+      configurable: true,
+      get() {
+        const players = state.players as Array<(typeof state.players)[number] | undefined>;
+        delete players[arytheaIndex];
+        return "arythea";
+      },
+    });
+
+    const result = applyManaEnhancementClaimBenefit(state, "arythea");
+    expect(result.manaEnhancementCenter).toBeNull();
   });
 });
