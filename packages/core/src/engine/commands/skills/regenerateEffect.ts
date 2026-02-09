@@ -1,27 +1,23 @@
 /**
- * Regenerate skill effect handler
+ * Regenerate skill effect handlers.
  *
- * Braevalar's skill: Once per turn, except in combat (healing effect):
- * Pay a mana of any color and throw away a Wound from hand.
- * If green mana was used, or player has the least Fame (not tied), draw a card.
+ * Shared rules:
+ * - Once per turn, healing effect (cannot be used during combat)
+ * - Pay one mana and discard one Wound from hand
+ * - Black mana is only permitted at night
  *
- * FAQ rulings:
- * S1: Must throw away a Wound - cannot just pay mana to draw.
- * S2: Black mana is permitted at night.
- * S3: Healing effect - cannot be used during combat.
- *
- * Implementation:
- * - Consumes 1 mana from the specified source (UI handles color selection)
- * - Removes one Wound from hand and returns it to wound pile
- * - Conditionally draws one card (green mana OR strictly lowest fame)
+ * Hero-specific card draw bonus:
+ * - Braevalar: green mana OR strictly lowest fame
+ * - Krang: red mana OR strictly lowest fame
  */
 
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { ManaSourceInfo } from "@mage-knight/shared";
-import { CARD_WOUND, MANA_GREEN, MANA_RED, MANA_BLUE, MANA_WHITE, MANA_BLACK } from "@mage-knight/shared";
+import { CARD_WOUND, MANA_GREEN, MANA_RED, MANA_BLUE, MANA_WHITE, MANA_GOLD } from "@mage-knight/shared";
 import { getPlayerIndexByIdOrThrow } from "../../helpers/playerHelpers.js";
 import { consumeMana } from "../helpers/manaConsumptionHelpers.js";
+import { isManaColorAllowed } from "../../rules/mana.js";
 
 /**
  * Check if the player has the strictly lowest fame (not tied with anyone).
@@ -44,7 +40,7 @@ function hasStrictlyLowestFame(state: GameState, playerId: string): boolean {
  * Requires:
  * 1. Has at least one Wound in hand
  * 2. Not in combat (healing effect, S3)
- * 3. Has mana available (basic colors + black at night)
+ * 3. Has usable mana available
  */
 export function canActivateRegenerate(
   state: GameState,
@@ -61,21 +57,17 @@ export function canActivateRegenerate(
   }
 
   // Must have at least 1 mana available
-  const basicColors: readonly string[] = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE];
-  const isNight = state.timeOfDay === "night";
+  const crystalColors = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE] as const;
 
-  // Check pure mana tokens
+  // Check pure mana tokens (includes black/gold via shared mana rules)
   for (const token of player.pureMana) {
-    if (basicColors.includes(token.color)) {
-      return true;
-    }
-    if (isNight && token.color === MANA_BLACK) {
+    if (isManaColorAllowed(state, token.color, player.id)) {
       return true;
     }
   }
 
   // Check crystals (basic colors only - no black crystals)
-  for (const color of [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE] as const) {
+  for (const color of crystalColors) {
     if (player.crystals[color] > 0) {
       return true;
     }
@@ -85,10 +77,16 @@ export function canActivateRegenerate(
   if (!player.usedManaFromSource) {
     for (const die of state.source.dice) {
       if (die.takenByPlayerId === null && !die.isDepleted) {
-        if (basicColors.includes(die.color)) {
+        if (
+          die.color !== MANA_GOLD &&
+          isManaColorAllowed(state, die.color, player.id)
+        ) {
           return true;
         }
-        if (isNight && die.color === MANA_BLACK) {
+        if (
+          die.color === MANA_GOLD &&
+          isManaColorAllowed(state, MANA_GOLD, player.id)
+        ) {
           return true;
         }
       }
@@ -98,20 +96,14 @@ export function canActivateRegenerate(
   return false;
 }
 
-/**
- * Apply the Regenerate skill effect.
- *
- * 1. Consume mana from the specified source
- * 2. Remove one Wound from hand, return to wound pile
- * 3. If green mana was spent OR player has strictly lowest fame: draw a card
- */
-export function applyRegenerateEffect(
+function applyRegenerateEffectWithBonusMana(
   state: GameState,
   playerId: string,
-  manaSource?: ManaSourceInfo
+  manaSource: ManaSourceInfo,
+  bonusManaColor: typeof MANA_GREEN | typeof MANA_RED
 ): GameState {
-  if (!manaSource) {
-    throw new Error("Regenerate requires a mana source");
+  if (!isManaColorAllowed(state, manaSource.color, playerId)) {
+    throw new Error(`Regenerate cannot use ${manaSource.color} mana right now`);
   }
 
   const playerIndex = getPlayerIndexByIdOrThrow(state, playerId);
@@ -141,10 +133,10 @@ export function applyRegenerateEffect(
   state = { ...state, woundPileCount: newWoundPileCount };
 
   // 3. Check if bonus card draw is triggered
-  const usedGreenMana = manaSource.color === MANA_GREEN;
+  const usedBonusMana = manaSource.color === bonusManaColor;
   const lowestFame = hasStrictlyLowestFame(state, playerId);
 
-  if (usedGreenMana || lowestFame) {
+  if (usedBonusMana || lowestFame) {
     // Draw one card from deck
     const cardToDraw = updatedPlayer.deck[0];
     if (cardToDraw !== undefined) {
@@ -162,6 +154,46 @@ export function applyRegenerateEffect(
   players[playerIndex] = updatedPlayer;
 
   return { ...state, players };
+}
+
+/**
+ * Braevalar Regenerate:
+ * Draw a card when green mana was spent OR player has strictly lowest fame.
+ */
+export function applyRegenerateEffect(
+  state: GameState,
+  playerId: string,
+  manaSource?: ManaSourceInfo
+): GameState {
+  if (!manaSource) {
+    throw new Error("Regenerate requires a mana source");
+  }
+  return applyRegenerateEffectWithBonusMana(
+    state,
+    playerId,
+    manaSource,
+    MANA_GREEN
+  );
+}
+
+/**
+ * Krang Regenerate:
+ * Draw a card when red mana was spent OR player has strictly lowest fame.
+ */
+export function applyKrangRegenerateEffect(
+  state: GameState,
+  playerId: string,
+  manaSource?: ManaSourceInfo
+): GameState {
+  if (!manaSource) {
+    throw new Error("Regenerate requires a mana source");
+  }
+  return applyRegenerateEffectWithBonusMana(
+    state,
+    playerId,
+    manaSource,
+    MANA_RED
+  );
 }
 
 /**
@@ -202,4 +234,11 @@ export function removeRegenerateEffect(
     players,
     woundPileCount: newWoundPileCount,
   };
+}
+
+export function removeKrangRegenerateEffect(
+  state: GameState,
+  playerId: string
+): GameState {
+  return removeRegenerateEffect(state, playerId);
 }
