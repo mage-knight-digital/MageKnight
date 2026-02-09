@@ -436,6 +436,15 @@ export const EFFECT_WINGS_OF_NIGHT = "wings_of_night" as const;
 // Applies skip-attack modifier, deducts move cost, chains for more targets.
 export const EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET = "resolve_wings_of_night_target" as const;
 
+// === Know Your Prey Effects ===
+// Entry point: Select an enemy to target with Know Your Prey.
+// Generates enemy selection choices (excludes Arcane Immune enemies).
+export const EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY = "know_your_prey_select_enemy" as const;
+// Internal: After enemy selection, presents ability/resistance/element removal options.
+export const EFFECT_KNOW_YOUR_PREY_SELECT_OPTION = "know_your_prey_select_option" as const;
+// Internal: Applies the chosen removal (ability nullifier, resistance removal, or element conversion).
+export const EFFECT_KNOW_YOUR_PREY_APPLY = "know_your_prey_apply" as const;
+
 // === Spell Forge Effects ===
 // Basic: Choose a spell card from the Spells Offer, gain a crystal of that spell's color.
 export const EFFECT_SPELL_FORGE_BASIC = "spell_forge_basic" as const;

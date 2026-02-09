@@ -69,6 +69,7 @@ import { registerBloodOfAncientsEffects } from "./bloodOfAncientsEffects.js";
 import { registerHandLimitBonusEffects } from "./handLimitBonusEffects.js";
 import { registerTomeOfAllSpellsEffects } from "./tomeOfAllSpellsEffects.js";
 import { registerSpellForgeEffects } from "./spellForgeEffects.js";
+import { registerKnowYourPreyEffects } from "./knowYourPreyEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -258,4 +259,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Spell Forge effects (gain crystals from spell offer colors)
   registerSpellForgeEffects();
+
+  // Know Your Prey effects (Wolfhawk skill - remove enemy ability/resistance/element)
+  registerKnowYourPreyEffects();
 }

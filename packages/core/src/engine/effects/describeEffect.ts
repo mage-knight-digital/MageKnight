@@ -99,6 +99,9 @@ import {
   EFFECT_SPELL_FORGE_BASIC,
   EFFECT_SPELL_FORGE_POWERED,
   EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
+  EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
+  EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
+  EFFECT_KNOW_YOUR_PREY_APPLY,
 } from "../../types/effectTypes.js";
 import type {
   GainAttackBowResolvedEffect,
@@ -639,6 +642,20 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL]: (effect) => {
     const e = effect as import("../../types/cards.js").ResolveSpellForgeCrystalEffect;
     return `Gain ${e.color} crystal (${e.spellName})`;
+  },
+
+  [EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY]: () => {
+    return "Select an enemy to target with Know Your Prey";
+  },
+
+  [EFFECT_KNOW_YOUR_PREY_SELECT_OPTION]: (effect) => {
+    const e = effect as import("../../types/cards.js").KnowYourPreySelectOptionEffect;
+    return `Choose what to remove from ${e.enemyName}`;
+  },
+
+  [EFFECT_KNOW_YOUR_PREY_APPLY]: (effect) => {
+    const e = effect as import("../../types/cards.js").KnowYourPreyApplyEffect;
+    return e.label;
   },
 };
 

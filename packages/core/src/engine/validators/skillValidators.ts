@@ -25,6 +25,7 @@ import {
   SKILL_REQUIRES_INTERACTION,
   SKILL_REQUIRES_MANA,
   SKILL_CONFLICTS_WITH_ACTIVE,
+  SKILL_NO_VALID_TARGET,
 } from "./validationCodes.js";
 import {
   SKILLS,
@@ -48,6 +49,7 @@ import {
   SKILL_WOLFHAWK_REFRESHING_BATH,
   SKILL_WOLFHAWK_REFRESHING_BREEZE,
   SKILL_WOLFHAWK_DEADLY_AIM,
+  SKILL_WOLFHAWK_KNOW_YOUR_PREY,
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
 } from "../../data/skills/index.js";
@@ -62,6 +64,7 @@ import { getPlayerById } from "../helpers/playerHelpers.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill } from "../rules/skillPhasing.js";
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
+import { canActivateKnowYourPrey } from "../commands/skills/knowYourPreyEffect.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE]);
@@ -408,6 +411,16 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_CONFLICTS_WITH_ACTIVE,
         "Universal Power cannot be activated while a conflicting sideways skill is active"
+      );
+    }
+  }
+
+  // Know Your Prey: requires targetable enemies with removable options
+  if (useSkillAction.skillId === SKILL_WOLFHAWK_KNOW_YOUR_PREY) {
+    if (!canActivateKnowYourPrey(state)) {
+      return invalid(
+        SKILL_NO_VALID_TARGET,
+        "Know Your Prey requires an eligible enemy with removable abilities, resistances, or convertible elements"
       );
     }
   }

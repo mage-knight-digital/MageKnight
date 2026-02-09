@@ -360,6 +360,7 @@ export const SKILL_REQUIRES_INTERACTION = "SKILL_REQUIRES_INTERACTION" as const;
 export const SKILL_NOT_IN_CENTER = "SKILL_NOT_IN_CENTER" as const;
 export const SKILL_REQUIRES_MANA = "SKILL_REQUIRES_MANA" as const;
 export const SKILL_CONFLICTS_WITH_ACTIVE = "SKILL_CONFLICTS_WITH_ACTIVE" as const;
+export const SKILL_NO_VALID_TARGET = "SKILL_NO_VALID_TARGET" as const;
 export const CANNOT_RETURN_OWN_SKILL = "CANNOT_RETURN_OWN_SKILL" as const;
 
 export type ValidationErrorCode =
@@ -645,6 +646,7 @@ export type ValidationErrorCode =
   | typeof SKILL_REQUIRES_INTERACTION
   | typeof SKILL_REQUIRES_MANA
   | typeof SKILL_CONFLICTS_WITH_ACTIVE
+  | typeof SKILL_NO_VALID_TARGET
   // Time Bending chain prevention
   | typeof TIME_BENDING_CHAIN_PREVENTED
   | typeof SKILL_NOT_IN_CENTER

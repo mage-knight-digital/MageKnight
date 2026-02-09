@@ -25,10 +25,12 @@ import type { DiseaseArmorModifier } from "../../types/modifiers.js";
 import type {
   NaturesVengeanceAttackBonusModifier,
 } from "../../types/modifiers.js";
+import type { ConvertAttackElementModifier } from "../../types/modifiers.js";
 import {
   ABILITY_ANY,
   EFFECT_ABILITY_NULLIFIER,
   EFFECT_COMBAT_VALUE,
+  EFFECT_CONVERT_ATTACK_ELEMENT,
   EFFECT_DISEASE_ARMOR,
   EFFECT_DOUBLE_PHYSICAL_ATTACKS,
   EFFECT_ENEMY_SKIP_ATTACK,
@@ -36,6 +38,7 @@ import {
   EFFECT_HERO_DAMAGE_REDUCTION,
   EFFECT_NATURES_VENGEANCE_ATTACK_BONUS,
   EFFECT_REMOVE_FIRE_RESISTANCE,
+  EFFECT_REMOVE_ICE_RESISTANCE,
   EFFECT_REMOVE_PHYSICAL_RESISTANCE,
   EFFECT_DEFEAT_IF_BLOCKED,
   EFFECT_REMOVE_RESISTANCES,
@@ -339,6 +342,51 @@ export function isFireResistanceRemoved(
   }
   const modifiers = getModifiersForEnemy(state, enemyId);
   return modifiers.some((m) => m.effect.type === EFFECT_REMOVE_FIRE_RESISTANCE);
+}
+
+/**
+ * Check if an enemy's ice resistance has been specifically removed.
+ * Returns true if any EFFECT_REMOVE_ICE_RESISTANCE modifier targets this enemy.
+ * Used by Know Your Prey skill.
+ *
+ * Note: Arcane Immunity blocks this effect (non-Attack/Block effect).
+ */
+export function isIceResistanceRemoved(
+  state: GameState,
+  enemyId: string
+): boolean {
+  // Arcane Immunity blocks resistance removal effects
+  if (hasArcaneImmunity(state, enemyId)) {
+    return false;
+  }
+  const modifiers = getModifiersForEnemy(state, enemyId);
+  return modifiers.some((m) => m.effect.type === EFFECT_REMOVE_ICE_RESISTANCE);
+}
+
+/**
+ * Get the effective attack element for an enemy after element conversion modifiers.
+ * Returns the converted element if a EFFECT_CONVERT_ATTACK_ELEMENT modifier is active,
+ * or the original element if no conversion is active.
+ *
+ * Used by Know Your Prey skill to convert Fire/Ice → Physical or Cold Fire → Fire/Ice.
+ *
+ * Note: Arcane Immunity blocks this effect (checked at application time).
+ */
+export function getEffectiveAttackElement(
+  state: GameState,
+  enemyId: string,
+  originalElement: import("@mage-knight/shared").Element
+): import("@mage-knight/shared").Element {
+  const modifiers = getModifiersForEnemy(state, enemyId);
+  for (const mod of modifiers) {
+    if (mod.effect.type === EFFECT_CONVERT_ATTACK_ELEMENT) {
+      const conversion = mod.effect as ConvertAttackElementModifier;
+      if (conversion.fromElement === originalElement) {
+        return conversion.toElement;
+      }
+    }
+  }
+  return originalElement;
 }
 
 /**

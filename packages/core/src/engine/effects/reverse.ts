@@ -71,6 +71,9 @@ import {
   COMBAT_TYPE_SIEGE,
   EFFECT_GAIN_ATTACK_BOW_RESOLVED,
   EFFECT_HAND_LIMIT_BONUS,
+  EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
+  EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
+  EFFECT_KNOW_YOUR_PREY_APPLY,
 } from "../../types/effectTypes.js";
 import type {
   GainMoveEffect,
@@ -439,6 +442,12 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
     const newTrackers = player.pendingAttackDefeatFame.filter((_, i) => i !== removeIndex);
     return { ...player, pendingAttackDefeatFame: newTrackers };
   },
+
+  // Know Your Prey effects modify combat/modifier state, not player state.
+  // The modifier removal is handled by removeKnowYourPreyEffect on undo.
+  [EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY]: (player) => player,
+  [EFFECT_KNOW_YOUR_PREY_SELECT_OPTION]: (player) => player,
+  [EFFECT_KNOW_YOUR_PREY_APPLY]: (player) => player,
 };
 
 // ============================================================================

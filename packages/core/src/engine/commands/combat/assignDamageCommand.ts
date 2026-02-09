@@ -27,6 +27,7 @@ import {
   getEnemyAttackCount,
   isAttackBlocked,
   isAttackDamageAssigned,
+  getEffectiveEnemyAttackElement,
 } from "../../combat/enemyAttackHelpers.js";
 import {
   getEffectiveDamage,
@@ -125,7 +126,9 @@ export function createAssignDamageCommand(
         state,
         params.playerId
       );
-      const attackElement = attackBeingResolved.element;
+      const attackElement = getEffectiveEnemyAttackElement(
+        state, enemy, attackBeingResolved.element
+      );
 
       // Apply hero damage reduction (Elemental Resistance, Battle Hardened)
       // Happens AFTER Brutal doubling, reduces total damage from this attack.
