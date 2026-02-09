@@ -21,6 +21,11 @@ import { SKILL_GAINED, ADVANCED_ACTION_GAINED } from "@mage-knight/shared";
 import { getEndTurnDrawLimit } from "../helpers/handLimitHelpers.js";
 import { SKILL_NOROWAS_BONDS_OF_LOYALTY } from "../../data/skills/norowas/bondsOfLoyalty.js";
 import { shuffleWithRng } from "../../utils/rng.js";
+import { SKILL_KRANG_MASTER_OF_CHAOS } from "../../data/skills/index.js";
+import {
+  createMasterOfChaosState,
+  rollMasterOfChaosInitialPosition,
+} from "../rules/masterOfChaos.js";
 
 export const CHOOSE_LEVEL_UP_REWARDS_COMMAND = "CHOOSE_LEVEL_UP_REWARDS" as const;
 
@@ -127,7 +132,9 @@ export function createChooseLevelUpRewardsCommand(
         }
       }
 
-      const updatedPlayer: Player = {
+      let updatedRng = state.rng;
+
+      let updatedPlayer: Player = {
         ...player,
         skills: [...player.skills, skillChoice.skillId],
         // AA goes to top of deck, then draw up to hand limit
@@ -137,6 +144,16 @@ export function createChooseLevelUpRewardsCommand(
           (r) => r.level !== params.level
         ),
       };
+
+      // Master of Chaos: roll a mana die to set initial shield position.
+      if (skillChoice.skillId === SKILL_KRANG_MASTER_OF_CHAOS) {
+        const { position, rng } = rollMasterOfChaosInitialPosition(updatedRng);
+        updatedRng = rng;
+        updatedPlayer = {
+          ...updatedPlayer,
+          masterOfChaosState: createMasterOfChaosState(position, false),
+        };
+      }
 
       // Update AA offer: remove selected card and replenish from deck
       const updatedAACards = state.offers.advancedActions.cards.filter(
@@ -159,7 +176,6 @@ export function createChooseLevelUpRewardsCommand(
       let updatedUnits = [...state.offers.units];
       let updatedRegularUnitsDeck = [...(state.decks.regularUnits ?? [])];
       let bondsOfLoyaltyBonusUnits = [...(state.offers.bondsOfLoyaltyBonusUnits ?? [])];
-      let updatedRng = state.rng;
 
       // Bonds of Loyalty: add 2 random regular units to the Unit Offer
       if (skillChoice.skillId === SKILL_NOROWAS_BONDS_OF_LOYALTY) {
