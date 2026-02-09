@@ -388,6 +388,12 @@ export const EFFECT_NATURES_VENGEANCE_ATTACK_BONUS = "natures_vengeance_attack_b
 //   Fire Resistance → Red, Ice Resistance → Blue, Physical Resistance → Green, always White.
 export const EFFECT_SOUL_HARVESTER_CRYSTAL_TRACKING = "soul_harvester_crystal_tracking" as const;
 
+// === DodgeAndWeaveAttackBonusModifier ===
+// Grants physical attack in Attack phase if no wounds were added to hero's hand this combat.
+// The condition is evaluated when transitioning to Attack phase.
+// Duration: combat. Applied by Dodge and Weave card.
+export const EFFECT_DODGE_AND_WEAVE_ATTACK_BONUS = "dodge_and_weave_attack_bonus" as const;
+
 // === ShieldBashArmorReductionModifier ===
 // When active, a successful block applies armor reduction to the blocked enemy.
 // Armor reduction = excess undoubled block points (block used minus block needed).

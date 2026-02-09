@@ -242,6 +242,8 @@ export function createAssignDamageCommand(
         ...currentState.combat,
         enemies: updatedEnemies,
         woundsThisCombat: combatWoundsThisCombat,
+        woundsAddedToHandThisCombat:
+          currentState.combat.woundsAddedToHandThisCombat || heroWounds > 0,
         vampiricArmorBonus: updatedVampiricArmorBonus,
       };
 

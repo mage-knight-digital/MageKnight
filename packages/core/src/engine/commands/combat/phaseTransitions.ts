@@ -34,6 +34,8 @@ import {
 
 import { applyDefeatedEnemyRewards } from "./combatEndHandlers.js";
 
+import { applyDodgeAndWeaveAttackBonus } from "../../combat/dodgeAndWeaveHelpers.js";
+
 // ============================================================================
 // Phase State Machine
 // ============================================================================
@@ -105,6 +107,7 @@ export function handlePhaseTransition(
   // When transitioning from ASSIGN_DAMAGE to ATTACK:
   // - Discard all summoned enemies (they grant no fame)
   // - Restore original summoners (unhide them)
+  // - Apply Dodge and Weave conditional attack bonus
   if (
     currentPhase === COMBAT_PHASE_ASSIGN_DAMAGE &&
     nextPhase === COMBAT_PHASE_ATTACK
@@ -113,6 +116,15 @@ export function handlePhaseTransition(
     updatedState = result.state;
     updatedCombat = result.combat;
     phaseEvents.push(...result.events);
+
+    // Apply Dodge and Weave attack bonus (if no wounds this combat)
+    updatedState = applyDodgeAndWeaveAttackBonus(
+      { ...updatedState, combat: updatedCombat },
+      playerId
+    );
+    if (updatedState.combat) {
+      updatedCombat = updatedState.combat;
+    }
   }
 
   return {
