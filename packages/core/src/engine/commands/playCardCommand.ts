@@ -32,6 +32,7 @@ import type { ActiveModifier } from "../../types/modifiers.js";
 
 import { consumeMultipleMana, restoreMana } from "./helpers/manaConsumptionHelpers.js";
 import { checkManaCurseWound } from "../effects/manaClaimEffects.js";
+import { applyManaEnhancementTrigger } from "./skills/index.js";
 import {
   getChoiceOptions,
   handleChoiceEffect,
@@ -97,6 +98,14 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
   let manaOverloadTriggered = false;
   let manaOverloadBonusType: string | null = null;
   let manaOverloadPreviousCenter: GameState["manaOverloadCenter"] = null;
+  // Store Mana Enhancement trigger info for undo
+  let manaEnhancementTriggered = false;
+  let manaEnhancementPreviousCrystals: Player["crystals"] | null = null;
+  let manaEnhancementPreviousSkillCooldowns: Player["skillCooldowns"] | null =
+    null;
+  let manaEnhancementPreviousModifiers: readonly ActiveModifier[] | null = null;
+  let manaEnhancementPreviousCenter: GameState["manaEnhancementCenter"] | null =
+    null;
   // Store revealed artifact removed by Mysterious Box so undo can restore deck order
   let mysteriousBoxRevealedArtifactId: CardId | null = null;
 
@@ -172,6 +181,25 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
       if (manaSources.length > 0) {
         for (const manaSource of manaSources) {
           newState = checkManaCurseWound(newState, params.playerId, manaSource.color);
+          const stateBeforeEnhancement = newState;
+          const stateAfterEnhancement = applyManaEnhancementTrigger(
+            newState,
+            params.playerId,
+            manaSource.color
+          );
+          if (stateAfterEnhancement !== newState && !manaEnhancementTriggered) {
+            manaEnhancementTriggered = true;
+            const playerBeforeEnhancement =
+              stateBeforeEnhancement.players[playerIndex];
+            if (playerBeforeEnhancement) {
+              manaEnhancementPreviousCrystals = playerBeforeEnhancement.crystals;
+              manaEnhancementPreviousSkillCooldowns =
+                playerBeforeEnhancement.skillCooldowns;
+            }
+            manaEnhancementPreviousModifiers = stateBeforeEnhancement.activeModifiers;
+            manaEnhancementPreviousCenter = stateBeforeEnhancement.manaEnhancementCenter;
+          }
+          newState = stateAfterEnhancement;
         }
       }
 
@@ -881,6 +909,27 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
               artifacts: [mysteriousBoxRevealedArtifactId, ...stateWithModifiers.decks.artifacts],
             }
           : stateWithModifiers.decks;
+
+      if (
+        manaEnhancementTriggered &&
+        manaEnhancementPreviousCrystals &&
+        manaEnhancementPreviousSkillCooldowns &&
+        manaEnhancementPreviousModifiers
+      ) {
+        const playerToRestore = players[playerIndex];
+        if (playerToRestore) {
+          players[playerIndex] = {
+            ...playerToRestore,
+            crystals: manaEnhancementPreviousCrystals,
+            skillCooldowns: manaEnhancementPreviousSkillCooldowns,
+          };
+        }
+        stateWithModifiers = {
+          ...stateWithModifiers,
+          activeModifiers: manaEnhancementPreviousModifiers,
+          manaEnhancementCenter: manaEnhancementPreviousCenter,
+        };
+      }
 
       return {
         state: { ...stateWithModifiers, players, source: updatedSource, decks },

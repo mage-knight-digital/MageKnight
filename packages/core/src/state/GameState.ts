@@ -2,7 +2,7 @@
  * Game state types and management
  */
 
-import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig, RoundPhase, TacticId, CooperativeAssaultProposal, FinalScoreResult, ManaColor, SkillId } from "@mage-knight/shared";
+import type { GamePhase, TimeOfDay, ScenarioId, ScenarioConfig, RoundPhase, TacticId, CooperativeAssaultProposal, FinalScoreResult, ManaColor, SkillId, BasicManaColor } from "@mage-knight/shared";
 import type { DummyPlayer } from "../types/dummyPlayer.js";
 import { GAME_PHASE_SETUP, TIME_OF_DAY_DAY, SCENARIO_FIRST_RECONNAISSANCE, ROUND_PHASE_PLAYER_TURNS } from "@mage-knight/shared";
 import { getScenario } from "../data/scenarios/index.js";
@@ -61,6 +61,20 @@ export interface ManaOverloadCenter {
   /** Player ID who owns the skill (skill returns to them) */
   readonly ownerId: string;
   /** The skill ID (for returning to owner) */
+  readonly skillId: SkillId;
+}
+
+/**
+ * Tracks Mana Enhancement skill token in center.
+ * When active, other players may return it to gain one mana token
+ * of the marked basic color. Expires at start of owner's next turn.
+ */
+export interface ManaEnhancementCenter {
+  /** The basic mana color marked on the skill token */
+  readonly markedColor: BasicManaColor;
+  /** Player ID who owns the skill (token returns/removes for them) */
+  readonly ownerId: string;
+  /** The skill ID (for return mechanics) */
   readonly skillId: SkillId;
 }
 
@@ -153,6 +167,10 @@ export interface GameState {
   // When non-null, the skill is in the center with a color marker
   readonly manaOverloadCenter: ManaOverloadCenter | null;
 
+  // Mana Enhancement skill center state (Krang interactive skill)
+  // When non-null, the skill is in the center with a basic color marker
+  readonly manaEnhancementCenter: ManaEnhancementCenter | null;
+
   // Source Opening skill center state (Goldyx interactive skill)
   // When non-null, the skill is in the center; other players (or owner in solo)
   // can return it for an extra basic-color die + give owner a crystal
@@ -207,6 +225,7 @@ export function createInitialGameState(
     pendingCooperativeAssault: null,
     finalScoreResult: null,
     manaOverloadCenter: null,
+    manaEnhancementCenter: null,
     sourceOpeningCenter: null,
     dummyPlayer: null,
   };

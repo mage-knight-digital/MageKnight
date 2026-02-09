@@ -28,6 +28,7 @@ import {
   SKILL_KRANG_SHAMANIC_RITUAL,
   SKILL_KRANG_ARCANE_DISGUISE,
   SKILL_WOLFHAWK_WOLFS_HOWL,
+  SKILL_KRANG_MANA_ENHANCEMENT,
 } from "../../data/skills/index.js";
 import { addModifier } from "../modifiers/index.js";
 import { resolveEffect, describeEffect } from "../effects/index.js";
@@ -49,6 +50,7 @@ import {
   EFFECT_SELECT_COMBAT_ENEMY,
 } from "../../types/effectTypes.js";
 import type { SourceOpeningCenter } from "../../state/GameState.js";
+import { applyManaEnhancementClaimBenefit } from "./skills/index.js";
 export { RETURN_INTERACTIVE_SKILL_COMMAND };
 
 export interface ReturnInteractiveSkillCommandParams {
@@ -423,6 +425,10 @@ function applyReturnBenefit(
     // Both steps auto-resolved (0 enemies for each)
     return { state: attackResult.state };
   }
+  // Mana Enhancement: returning player gains one mana token
+  // of the color marked on Krang's skill token.
+  if (skillId === SKILL_KRANG_MANA_ENHANCEMENT)
+    return { state: applyManaEnhancementClaimBenefit(state, playerId) };
   return { state };
 }
 
@@ -438,6 +444,8 @@ export function createReturnInteractiveSkillCommand(
   let savedOwnerId: string | null = null;
   let savedCenterModifiers: ActiveModifier[] = [];
   let savedSourceOpeningCenter: SourceOpeningCenter | null = null;
+  let savedManaEnhancementCenter: GameState["manaEnhancementCenter"] | null =
+    null;
   let savedHasTakenActionThisTurn: boolean | null = null;
   let savedUsedThisRoundHadSkill: boolean = false;
   let savedArcanePaidGreenMana: boolean = false;
@@ -536,6 +544,7 @@ export function createReturnInteractiveSkillCommand(
 
       // Save Source Opening center state for undo
       savedSourceOpeningCenter = state.sourceOpeningCenter;
+      savedManaEnhancementCenter = state.manaEnhancementCenter;
 
       // Save center modifiers for undo
       savedCenterModifiers = state.activeModifiers.filter(
@@ -687,6 +696,12 @@ export function createReturnInteractiveSkillCommand(
         updatedState = {
           ...updatedState,
           sourceOpeningCenter: savedSourceOpeningCenter,
+        };
+      }
+      if (skillId === SKILL_KRANG_MANA_ENHANCEMENT) {
+        updatedState = {
+          ...updatedState,
+          manaEnhancementCenter: savedManaEnhancementCenter,
         };
       }
 

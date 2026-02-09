@@ -23,7 +23,7 @@ export * from "./arcaneDisguise.js";
 export * from "./puppetMaster.js";
 export * from "./masterOfChaos.js";
 export * from "./curse.js";
-export * from "./manaSuppression.js";
+export * from "./manaEnhancement.js";
 
 // Import definitions for aggregation
 import { SKILL_KRANG_SPIRIT_GUIDES, spiritGuides } from "./spiritGuides.js";
@@ -35,7 +35,7 @@ import { SKILL_KRANG_ARCANE_DISGUISE, arcaneDisguise } from "./arcaneDisguise.js
 import { SKILL_KRANG_PUPPET_MASTER, puppetMaster } from "./puppetMaster.js";
 import { SKILL_KRANG_MASTER_OF_CHAOS, masterOfChaos } from "./masterOfChaos.js";
 import { SKILL_KRANG_CURSE, curse } from "./curse.js";
-import { SKILL_KRANG_MANA_SUPPRESSION, manaSuppression } from "./manaSuppression.js";
+import { SKILL_KRANG_MANA_ENHANCEMENT, manaEnhancement } from "./manaEnhancement.js";
 
 /**
  * All Krang skill definitions keyed by skill ID.
@@ -50,7 +50,7 @@ export const KRANG_SKILLS: Record<SkillId, SkillDefinition> = {
   [SKILL_KRANG_PUPPET_MASTER]: puppetMaster,
   [SKILL_KRANG_MASTER_OF_CHAOS]: masterOfChaos,
   [SKILL_KRANG_CURSE]: curse,
-  [SKILL_KRANG_MANA_SUPPRESSION]: manaSuppression,
+  [SKILL_KRANG_MANA_ENHANCEMENT]: manaEnhancement,
 };
 
 /**
@@ -66,5 +66,5 @@ export const KRANG_SKILL_IDS = [
   SKILL_KRANG_PUPPET_MASTER,
   SKILL_KRANG_MASTER_OF_CHAOS,
   SKILL_KRANG_CURSE,
-  SKILL_KRANG_MANA_SUPPRESSION,
+  SKILL_KRANG_MANA_ENHANCEMENT,
 ] as const;

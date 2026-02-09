@@ -17,6 +17,7 @@ import {
   SKILL_KRANG_SHAMANIC_RITUAL,
   SKILL_KRANG_ARCANE_DISGUISE,
   SKILL_WOLFHAWK_WOLFS_HOWL,
+  SKILL_KRANG_MANA_ENHANCEMENT,
 } from "../../data/skills/index.js";
 import { MANA_GREEN, type SkillId } from "@mage-knight/shared";
 
@@ -26,6 +27,7 @@ const RETURNABLE_SKILL_IDS = new Set<SkillId>([
   SKILL_GOLDYX_SOURCE_OPENING,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
   SKILL_WOLFHAWK_WOLFS_HOWL,
+  SKILL_KRANG_MANA_ENHANCEMENT,
 ]);
 
 /** Return benefit descriptions by skill */
@@ -34,6 +36,7 @@ const RETURN_BENEFITS: Record<string, string> = {
   [SKILL_GOLDYX_SOURCE_OPENING]: "Use an extra basic-color die from Source, give Goldyx a crystal",
   [SKILL_BRAEVALAR_NATURES_VENGEANCE]: "Reduce one enemy's attack by 1, gains Cumbersome",
   [SKILL_WOLFHAWK_WOLFS_HOWL]: "Reduce one enemy's armor by 1 (min 1), and one enemy's attack by 1",
+  [SKILL_KRANG_MANA_ENHANCEMENT]: "Gain one mana token of the marked color",
   [SKILL_KRANG_SHAMANIC_RITUAL]: "Flip back face-up (uses your action this turn)",
   [SKILL_KRANG_ARCANE_DISGUISE]: "Pay 1 green mana to flip back face-up",
 };
