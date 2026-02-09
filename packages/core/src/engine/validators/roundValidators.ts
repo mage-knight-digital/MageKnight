@@ -12,8 +12,13 @@ import {
   DECK_NOT_EMPTY,
   ALREADY_ANNOUNCED,
   MUST_ANNOUNCE_END_OF_ROUND,
+  MUST_FORFEIT_TURN,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import {
+  mustAnnounceEndOfRoundAtTurnStart,
+  mustForfeitTurnAfterRoundAnnouncement,
+} from "../rules/turnStructure.js";
 
 /**
  * Player must have empty deck to announce end of round.
@@ -73,17 +78,20 @@ export function validateMustAnnounceEndOfRound(
   if (action.type === ANNOUNCE_END_OF_ROUND_ACTION) return valid();
   if (action.type === END_TURN_ACTION) return valid();
 
-  // Skip if round end already announced
-  if (state.endOfRoundAnnouncedBy !== null) return valid();
-
   const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
-  // If deck AND hand are both empty, must announce
-  if (player.deck.length === 0 && player.hand.length === 0) {
+  if (mustAnnounceEndOfRoundAtTurnStart(state, player)) {
     return invalid(
       MUST_ANNOUNCE_END_OF_ROUND,
       "You must announce end of round when your deck and hand are both empty"
+    );
+  }
+
+  if (mustForfeitTurnAfterRoundAnnouncement(state, player)) {
+    return invalid(
+      MUST_FORFEIT_TURN,
+      "You must forfeit your turn when round end was announced and you have no cards"
     );
   }
 

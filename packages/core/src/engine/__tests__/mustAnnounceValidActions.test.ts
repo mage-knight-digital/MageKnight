@@ -18,6 +18,7 @@ import {
   TERRAIN_PLAINS,
   hexKey,
   UNIT_PEASANTS,
+  CARD_MARCH,
 } from "@mage-knight/shared";
 import { createEnemyTokenId } from "../helpers/enemy/index.js";
 import {
@@ -50,11 +51,17 @@ describe("Must announce end of round", () => {
 
     const afterAnnounceState = {
       ...state,
+      players: state.players.map((p) =>
+        p.id === player.id ? { ...p, hand: [CARD_MARCH] } : p
+      ),
       endOfRoundAnnouncedBy: "player2",
     };
 
-    expect(getValidMoveTargets(afterAnnounceState, player)).toBeDefined();
-    expect(getFullUnitOptions(afterAnnounceState, player)).toBeDefined();
+    const announcedPlayer = afterAnnounceState.players[0];
+    if (!announcedPlayer) throw new Error("Missing player");
+
+    expect(getValidMoveTargets(afterAnnounceState, announcedPlayer)).toBeDefined();
+    expect(getFullUnitOptions(afterAnnounceState, announcedPlayer)).toBeDefined();
   });
 
   it("blocks challenge options until announced", () => {

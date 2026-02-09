@@ -200,6 +200,7 @@ export const GOLD_MANA_NOT_ALLOWED = "GOLD_MANA_NOT_ALLOWED" as const;
 export const DECK_NOT_EMPTY = "DECK_NOT_EMPTY" as const;
 export const ALREADY_ANNOUNCED = "ALREADY_ANNOUNCED" as const;
 export const MUST_ANNOUNCE_END_OF_ROUND = "MUST_ANNOUNCE_END_OF_ROUND" as const;
+export const MUST_FORFEIT_TURN = "MUST_FORFEIT_TURN" as const;
 
 // Minimum turn validation codes
 export const MUST_PLAY_OR_DISCARD_CARD = "MUST_PLAY_OR_DISCARD_CARD" as const;
@@ -526,6 +527,7 @@ export type ValidationErrorCode =
   | typeof DECK_NOT_EMPTY
   | typeof ALREADY_ANNOUNCED
   | typeof MUST_ANNOUNCE_END_OF_ROUND
+  | typeof MUST_FORFEIT_TURN
   // Minimum turn validation
   | typeof MUST_PLAY_OR_DISCARD_CARD
   // Rampaging enemy validation

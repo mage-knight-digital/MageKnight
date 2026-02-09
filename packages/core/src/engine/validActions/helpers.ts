@@ -17,6 +17,10 @@ import {
   PLAYER_NOT_FOUND,
 } from "../validators/validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import {
+  mustAnnounceEndOfRoundAtTurnStart,
+  mustForfeitTurnAfterRoundAnnouncement,
+} from "../rules/turnStructure.js";
 
 /**
  * Check if a player can act in the current game state.
@@ -109,16 +113,18 @@ export function isPlayerTurnsPhase(state: GameState): boolean {
 }
 
 /**
- * Check if the player must announce end of round (deck + hand empty, not announced).
+ * Check if turn-start rules force the player to pass instead of taking normal actions.
+ *
+ * - Must announce when deck+hand are empty and no announcement exists.
+ * - Must forfeit when another player already announced and deck+hand are empty.
  */
 export function mustAnnounceEndOfRound(
   state: GameState,
   player: Player
 ): boolean {
   return (
-    state.endOfRoundAnnouncedBy === null &&
-    player.deck.length === 0 &&
-    player.hand.length === 0
+    mustAnnounceEndOfRoundAtTurnStart(state, player) ||
+    mustForfeitTurnAfterRoundAnnouncement(state, player)
   );
 }
 

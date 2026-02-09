@@ -173,6 +173,16 @@
   transform: translateX(-2px);
 }
 
+.turn-actions__btn--announce {
+  background: linear-gradient(135deg, #8e3b2f, #b04b3b);
+  color: #fff;
+}
+
+.turn-actions__btn--announce:hover {
+  background: linear-gradient(135deg, #b04b3b, #c85a47);
+  transform: translateX(-2px);
+}
+
 .turn-actions__status {
   padding: 0.5rem 1rem;
   border-radius: 8px;

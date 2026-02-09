@@ -25,6 +25,8 @@ export interface EndTurnCommandParams {
   readonly skipSourceOpeningReroll?: boolean;
   /** Die ID to exclude from automatic reroll (Source Opening extra die, already handled) */
   readonly sourceOpeningDieHandled?: string;
+  /** If true, skip automatic deck+hand empty announcement handling */
+  readonly skipAutoAnnounce?: boolean;
 }
 
 /**
