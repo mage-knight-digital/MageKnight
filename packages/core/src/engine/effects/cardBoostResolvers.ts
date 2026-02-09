@@ -155,8 +155,12 @@ export function resolveBoostTargetEffect(
   const boostedEffect = addBonusToEffect(targetCard.poweredEffect, effect.bonus);
   const result = resolveEffect(stateWithCardPlayed, playerId, boostedEffect, effect.targetCardId);
 
+  const nestedResolvedEffect =
+    result.resolvedEffect ?? (result.requiresChoice ? boostedEffect : undefined);
+
   return {
     ...result,
+    ...(nestedResolvedEffect && { resolvedEffect: nestedResolvedEffect }),
     description: `Boosted ${targetCard.name}: ${result.description}`,
   };
 }
