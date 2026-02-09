@@ -197,7 +197,6 @@ const WOLFS_HOWL_ATTACK_EFFECT: CardEffect = {
     ],
   },
 };
-
 /**
  * Nature's Vengeance return benefit: SELECT_COMBAT_ENEMY effect for attack -1 + Cumbersome.
  * Same as the owner's effect but without placing in center.
