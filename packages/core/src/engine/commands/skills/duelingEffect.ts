@@ -178,12 +178,19 @@ export function removeDuelingEffect(
   return {
     ...state,
     players,
+    // Remove modifiers from Dueling:
+    // - SOURCE_SKILL modifiers created by useSkillCommand
+    // - DuelingTarget modifiers created by the template system (which uses SOURCE_CARD)
     activeModifiers: state.activeModifiers.filter(
       (m) =>
         !(
           m.source.type === SOURCE_SKILL &&
           m.source.skillId === SKILL_WOLFHAWK_DUELING &&
           m.source.playerId === playerId
+        ) &&
+        !(
+          m.effect.type === EFFECT_DUELING_TARGET &&
+          m.createdByPlayerId === playerId
         )
     ),
   };

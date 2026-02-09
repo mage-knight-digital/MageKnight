@@ -43,6 +43,7 @@ import {
   SOURCE_SKILL,
 } from "../../types/modifierConstants.js";
 import { applyDuelingAttackBonus, resolveDuelingFameBonus, markDuelingUnitInvolvement, markDuelingUnitInvolvementFromAbility } from "../combat/duelingHelpers.js";
+import { removeDuelingEffect } from "../commands/skills/duelingEffect.js";
 import type { DuelingTargetModifier } from "../../types/modifiers.js";
 
 function createWolfhawkPlayer() {
@@ -846,6 +847,174 @@ describe("Dueling skill", () => {
       // Undo should be available (skill activation is reversible)
       const validActions = getValidActions(result.state, "player1");
       expect(validActions.turn.canUndo).toBe(true);
+    });
+  });
+
+  describe("removeDuelingEffect", () => {
+    it("should remove Block 1 from combatAccumulator", () => {
+      const player = createWolfhawkPlayer();
+      const combat = {
+        ...createCombatState([ENEMY_PROWLERS]),
+        phase: COMBAT_PHASE_BLOCK as typeof COMBAT_PHASE_BLOCK,
+      };
+      const state = createTestGameState({ players: [player], combat });
+
+      // Activate to add Block 1
+      const activated = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_DUELING,
+      });
+
+      expect(activated.state.players[0].combatAccumulator.block).toBe(
+        state.players[0].combatAccumulator.block + 1
+      );
+
+      // Remove effect
+      const removed = removeDuelingEffect(activated.state, "player1");
+      expect(removed.players[0].combatAccumulator.block).toBe(
+        state.players[0].combatAccumulator.block
+      );
+    });
+
+    it("should remove physical block element", () => {
+      const player = createWolfhawkPlayer();
+      const combat = {
+        ...createCombatState([ENEMY_PROWLERS]),
+        phase: COMBAT_PHASE_BLOCK as typeof COMBAT_PHASE_BLOCK,
+      };
+      const state = createTestGameState({ players: [player], combat });
+      const physicalBefore = state.players[0].combatAccumulator.blockElements.physical;
+
+      const activated = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_DUELING,
+      });
+
+      const removed = removeDuelingEffect(activated.state, "player1");
+      expect(removed.players[0].combatAccumulator.blockElements.physical).toBe(physicalBefore);
+    });
+
+    it("should not reduce block below 0", () => {
+      const player = createWolfhawkPlayer();
+      const combat = {
+        ...createCombatState([ENEMY_PROWLERS]),
+        phase: COMBAT_PHASE_BLOCK as typeof COMBAT_PHASE_BLOCK,
+      };
+      // Start with block already at 0
+      const state = createTestGameState({ players: [player], combat });
+      expect(state.players[0].combatAccumulator.block).toBe(0);
+
+      // Call remove directly without activating (simulating edge case)
+      const removed = removeDuelingEffect(state, "player1");
+      expect(removed.players[0].combatAccumulator.block).toBe(0);
+      expect(removed.players[0].combatAccumulator.blockElements.physical).toBe(0);
+    });
+
+    it("should clear pending choice from Dueling", () => {
+      const player = createWolfhawkPlayer();
+      const combat = {
+        ...createCombatState([ENEMY_PROWLERS]),
+        phase: COMBAT_PHASE_BLOCK as typeof COMBAT_PHASE_BLOCK,
+      };
+      const state = createTestGameState({ players: [player], combat });
+
+      // Activate to create pending choice
+      const activated = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_DUELING,
+      });
+      expect(activated.state.players[0].pendingChoice).toBeDefined();
+      expect(activated.state.players[0].pendingChoice!.skillId).toBe(SKILL_WOLFHAWK_DUELING);
+
+      const removed = removeDuelingEffect(activated.state, "player1");
+      expect(removed.players[0].pendingChoice).toBeNull();
+    });
+
+    it("should not clear pending choice from a different skill", () => {
+      const player = createTestPlayer({
+        hero: Hero.Wolfhawk,
+        skills: [SKILL_WOLFHAWK_DUELING],
+        skillCooldowns: {
+          usedThisRound: [],
+          usedThisTurn: [],
+          usedThisCombat: [],
+          activeUntilNextTurn: [],
+        },
+        pendingChoice: {
+          cardId: null,
+          skillId: "other_skill" as import("@mage-knight/shared").SkillId,
+          unitInstanceId: null,
+          options: [],
+        },
+      });
+      const combat = {
+        ...createCombatState([ENEMY_PROWLERS]),
+        phase: COMBAT_PHASE_BLOCK as typeof COMBAT_PHASE_BLOCK,
+      };
+      const state = createTestGameState({ players: [player], combat });
+
+      const removed = removeDuelingEffect(state, "player1");
+      expect(removed.players[0].pendingChoice).toBeDefined();
+      expect(removed.players[0].pendingChoice!.skillId).toBe("other_skill");
+    });
+
+    it("should remove DuelingTarget modifier", () => {
+      const player = createWolfhawkPlayer();
+      const combat = {
+        ...createCombatState([ENEMY_PROWLERS]),
+        phase: COMBAT_PHASE_BLOCK as typeof COMBAT_PHASE_BLOCK,
+      };
+      let state = createTestGameState({ players: [player], combat });
+
+      // Activate and select enemy to create modifier
+      const activated = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_WOLFHAWK_DUELING,
+      });
+      const selected = engine.processAction(activated.state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: 0,
+      });
+
+      // Verify modifier exists
+      expect(selected.state.activeModifiers.some(
+        (m) => m.effect.type === EFFECT_DUELING_TARGET
+      )).toBe(true);
+
+      // Remove effect
+      const removed = removeDuelingEffect(selected.state, "player1");
+      expect(removed.activeModifiers.some(
+        (m) => m.effect.type === EFFECT_DUELING_TARGET
+      )).toBe(false);
+    });
+
+    it("should not remove modifiers from other skills or players", () => {
+      const player = createWolfhawkPlayer();
+      const combat = {
+        ...createCombatState([ENEMY_PROWLERS]),
+        phase: COMBAT_PHASE_BLOCK as typeof COMBAT_PHASE_BLOCK,
+      };
+      let state = createTestGameState({ players: [player], combat });
+      const enemyInstanceId = state.combat!.enemies[0].instanceId;
+
+      // Add a non-Dueling modifier
+      state = addModifier(state, {
+        source: { type: SOURCE_SKILL, skillId: "other_skill" as import("@mage-knight/shared").SkillId, playerId: "player1" },
+        duration: DURATION_COMBAT,
+        scope: { type: SCOPE_ONE_ENEMY, enemyId: enemyInstanceId },
+        effect: { type: EFFECT_ENEMY_SKIP_ATTACK },
+        createdAtRound: state.round,
+        createdByPlayerId: "player1",
+      });
+
+      const modCountBefore = state.activeModifiers.length;
+      const removed = removeDuelingEffect(state, "player1");
+
+      // The non-Dueling modifier should still be there
+      expect(removed.activeModifiers.length).toBe(modCountBefore);
+      expect(removed.activeModifiers.some(
+        (m) => m.effect.type === EFFECT_ENEMY_SKIP_ATTACK
+      )).toBe(true);
     });
   });
 });
