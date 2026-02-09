@@ -61,6 +61,7 @@ import {
   EFFECT_LEADERSHIP_BONUS,
   EFFECT_POSSESS_ATTACK_RESTRICTION,
   EFFECT_HERO_DAMAGE_REDUCTION,
+  EFFECT_MOUNTAIN_LORE_HAND_LIMIT,
   EFFECT_EXPLORE_COST_REDUCTION,
   EFFECT_GOLDEN_GRAIL_FAME_TRACKING,
   EFFECT_GOLDEN_GRAIL_DRAW_ON_HEAL,
@@ -706,6 +707,16 @@ export interface DuelingTargetModifier {
   readonly unitInvolved: boolean;
 }
 
+// Mountain Lore end-turn hand limit modifier
+// Stores terrain-dependent bonuses to apply at end of turn:
+// - hillsBonus when ending turn in hills
+// - mountainBonus when ending turn in mountains
+export interface MountainLoreHandLimitModifier {
+  readonly type: typeof EFFECT_MOUNTAIN_LORE_HAND_LIMIT;
+  readonly hillsBonus: number;
+  readonly mountainBonus: number;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -762,7 +773,8 @@ export type ModifierEffect =
   | RemoveIceResistanceModifier
   | ConvertAttackElementModifier
   | DodgeAndWeaveAttackBonusModifier
-  | DuelingTargetModifier;
+  | DuelingTargetModifier
+  | MountainLoreHandLimitModifier;
 
 // === Active Modifier (live in game state) ===
 

@@ -39,6 +39,7 @@ import { calculateRingFameBonus } from "./ringFameBonus.js";
 import { isRuleActive } from "../../modifiers/index.js";
 import { RULE_TIME_BENDING_ACTIVE } from "../../../types/modifierConstants.js";
 import { processSourceOpeningCrystal } from "./sourceOpeningCrystal.js";
+import { applyMountainLoreEndTurnBonus } from "./mountainLoreBonus.js";
 
 export { END_TURN_COMMAND };
 export type { EndTurnCommandParams };
@@ -186,24 +187,30 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       // Must check BEFORE modifiers are expired (they expire later)
       const isTimeBendingActive = isRuleActive(state, params.playerId, RULE_TIME_BENDING_ACTIVE);
 
+      // Mountain Lore: if ending in hills/mountains, apply next-draw hand limit bonus.
+      // This must happen before card flow so draw-up uses the updated hand limit.
+      const mountainLoreResult = applyMountainLoreEndTurnBonus(state, playerAfterLevelUp);
+      const stateForCardFlow = mountainLoreResult.state;
+      const playerForCardFlow = mountainLoreResult.player;
+
       // Process card flow (play area to discard, draw cards)
       // Skip drawing if player has pending level-up rewards - they'll draw after selecting
       const playAreaCount = getPlayAreaCardCount(currentPlayer);
       let cardFlow: ReturnType<typeof processCardFlow>;
       if (isTimeBendingActive) {
         // Time Bending: return played cards to hand, set aside Space Bending, skip draw
-        cardFlow = processTimeBendingCardFlow(state, currentPlayer);
+        cardFlow = processTimeBendingCardFlow(stateForCardFlow, playerForCardFlow);
       } else if (hasPendingEvenLevelReward) {
         // Just move play area to discard, don't draw yet
         cardFlow = {
           cardsDrawn: 0,
-          hand: currentPlayer.hand,
-          deck: currentPlayer.deck,
+          hand: playerForCardFlow.hand,
+          deck: playerForCardFlow.deck,
           playArea: [],
-          discard: [...currentPlayer.discard, ...currentPlayer.playArea],
+          discard: [...playerForCardFlow.discard, ...playerForCardFlow.playArea],
         };
       } else {
-        cardFlow = processCardFlow(state, currentPlayer);
+        cardFlow = processCardFlow(stateForCardFlow, playerForCardFlow);
       }
 
       // Reset player state
