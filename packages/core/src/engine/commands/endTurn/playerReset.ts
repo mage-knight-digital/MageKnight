@@ -73,6 +73,8 @@ export function createResetPlayer(
     // Meditation spell resets
     pendingMeditation: undefined,
     meditationHandLimitBonus: 0,
+    // Mysterious Box per-turn state reset
+    mysteriousBoxState: null,
     // Skill cooldown reset for Time Bending: refresh once-per-turn skills
     // (usedThisTurn is cleared when isTimeBentTurn is being set up in turnAdvancement)
     // Clear "until next turn" cooldowns (e.g., Motivation cross-hero cooldown)

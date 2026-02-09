@@ -104,6 +104,7 @@ function createMinimalGameState(): GameState {
         pendingMaximalEffect: null,
         pendingBookOfWisdom: null,
         pendingTraining: null,
+        mysteriousBoxState: null,
         pendingTerrainCostReduction: null,
         pendingAttackDefeatFame: [],
         enemiesDefeatedThisTurn: 0,

@@ -150,6 +150,8 @@ import {
   EFFECT_HAND_LIMIT_BONUS,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
+  EFFECT_MYSTERIOUS_BOX,
+  EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
   EFFECT_SPELL_FORGE_BASIC,
   EFFECT_SPELL_FORGE_POWERED,
   EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
@@ -1813,6 +1815,36 @@ export interface ResolveTomeSpellEffect {
 }
 
 /**
+ * Mysterious Box effect entry point.
+ * Reveal the top artifact deck card and choose how to use Mysterious Box this turn.
+ */
+export interface MysteriousBoxEffect {
+  readonly type: typeof EFFECT_MYSTERIOUS_BOX;
+}
+
+/**
+ * Internal: resolves how Mysterious Box is used as the revealed artifact.
+ */
+export interface ResolveMysteriousBoxUseEffect {
+  readonly type: typeof EFFECT_RESOLVE_MYSTERIOUS_BOX_USE;
+  /** The Mysterious Box card ID (used as source for nested effect resolution) */
+  readonly sourceCardId: CardId;
+  /** Artifact revealed from the top of the artifact deck */
+  readonly revealedArtifactId: CardId;
+  /** Name of the revealed artifact (for descriptions/UI) */
+  readonly revealedArtifactName: string;
+  /** How Box is being used this turn */
+  readonly mode: "unused" | "basic" | "powered" | "banner";
+  /** Required when mode is "banner": which unit receives the temporary banner */
+  readonly unitInstanceId?: string;
+  /**
+   * Existing banner on the target unit before assignment.
+   * Used for accurate undo of temporary banner assignment.
+   */
+  readonly replacedBannerId?: CardId;
+}
+
+/**
  * Spell Forge basic effect entry point.
  * Choose one spell card from the Spells Offer, gain a crystal of that spell's color.
  */
@@ -2073,6 +2105,8 @@ export type CardEffect =
   | HandLimitBonusEffect
   | TomeOfAllSpellsEffect
   | ResolveTomeSpellEffect
+  | MysteriousBoxEffect
+  | ResolveMysteriousBoxUseEffect
   | SpellForgeBasicEffect
   | SpellForgePoweredEffect
   | ResolveSpellForgeCrystalEffect

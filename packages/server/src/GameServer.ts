@@ -581,6 +581,7 @@ export class GameServer {
       pendingMaximalEffect: null,
       pendingBookOfWisdom: null,
       pendingTraining: null,
+      mysteriousBoxState: null,
       pendingAttackDefeatFame: [],
       enemiesDefeatedThisTurn: 0,
       healingPoints: 0,

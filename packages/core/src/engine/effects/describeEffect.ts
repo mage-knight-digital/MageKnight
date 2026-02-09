@@ -99,6 +99,8 @@ import {
   EFFECT_HAND_LIMIT_BONUS,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
+  EFFECT_MYSTERIOUS_BOX,
+  EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
   EFFECT_SPELL_FORGE_BASIC,
   EFFECT_SPELL_FORGE_POWERED,
   EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
@@ -657,6 +659,21 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const e = effect as import("../../types/cards.js").ResolveTomeSpellEffect;
     const modeStr = e.mode === "basic" ? "basic" : "powered";
     return `Use ${e.spellName}'s ${modeStr} effect from the Spell Offer`;
+  },
+
+  [EFFECT_MYSTERIOUS_BOX]: () => {
+    return "Reveal the top artifact and choose how to use Mysterious Box this turn";
+  },
+
+  [EFFECT_RESOLVE_MYSTERIOUS_BOX_USE]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveMysteriousBoxUseEffect;
+    if (e.mode === "unused") {
+      return `Keep Mysterious Box unused (${e.revealedArtifactName})`;
+    }
+    if (e.mode === "banner") {
+      return `Use as ${e.revealedArtifactName} banner`;
+    }
+    return `Use ${e.mode} effect of ${e.revealedArtifactName} (Fame +1)`;
   },
 
   [EFFECT_SPELL_FORGE_BASIC]: () => {

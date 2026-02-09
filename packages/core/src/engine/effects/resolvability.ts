@@ -129,6 +129,8 @@ import {
   EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
+  EFFECT_MYSTERIOUS_BOX,
+  EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
   EFFECT_SPELL_FORGE_BASIC,
   EFFECT_SPELL_FORGE_POWERED,
   EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
@@ -705,6 +707,14 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve Tome spell is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_TOME_SPELL]: () => true,
+
+  // Mysterious Box requires at least one artifact in deck to reveal
+  [EFFECT_MYSTERIOUS_BOX]: (state) => {
+    return state.decks.artifacts.length > 0;
+  },
+
+  // Mysterious Box selected use is validated at resolution time
+  [EFFECT_RESOLVE_MYSTERIOUS_BOX_USE]: () => true,
 
   // Spell Forge basic/powered: resolvable if there are spells in the offer
   [EFFECT_SPELL_FORGE_BASIC]: (state) => {

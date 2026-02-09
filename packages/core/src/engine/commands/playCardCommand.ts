@@ -17,6 +17,7 @@ import {
   CARD_GOLDYX_CRYSTAL_JOY,
   CARD_STEADY_TEMPO,
   CARD_MEDITATION,
+  CARD_MYSTERIOUS_BOX,
   MEDITATION_CARDS_SELECTED,
 } from "@mage-knight/shared";
 import type { GameEvent } from "@mage-knight/shared";
@@ -96,6 +97,8 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
   let manaOverloadTriggered = false;
   let manaOverloadBonusType: string | null = null;
   let manaOverloadPreviousCenter: GameState["manaOverloadCenter"] = null;
+  // Store revealed artifact removed by Mysterious Box so undo can restore deck order
+  let mysteriousBoxRevealedArtifactId: CardId | null = null;
 
   return {
     type: PLAY_CARD_COMMAND,
@@ -346,6 +349,35 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         return { ...stateToUpdate, players: updatedPlayers };
       };
 
+      const captureMysteriousBoxReveal = (stateToCapture: GameState): void => {
+        if (params.cardId !== CARD_MYSTERIOUS_BOX) {
+          return;
+        }
+        const mBoxPlayer = stateToCapture.players[playerIndex];
+        mysteriousBoxRevealedArtifactId = mBoxPlayer?.mysteriousBoxState?.revealedArtifactId ?? null;
+      };
+
+      const annotateMysteriousBoxPrePlayFlag = (
+        stateToAnnotate: GameState
+      ): GameState => {
+        if (params.cardId !== CARD_MYSTERIOUS_BOX) {
+          return stateToAnnotate;
+        }
+        const mBoxPlayer = stateToAnnotate.players[playerIndex];
+        if (!mBoxPlayer?.mysteriousBoxState) {
+          return stateToAnnotate;
+        }
+        const updatedPlayers = [...stateToAnnotate.players];
+        updatedPlayers[playerIndex] = {
+          ...mBoxPlayer,
+          mysteriousBoxState: {
+            ...mBoxPlayer.mysteriousBoxState,
+            playedCardFromHandBeforePlay: params.previousPlayedCardFromHand,
+          },
+        };
+        return { ...stateToAnnotate, players: updatedPlayers };
+      };
+
       // Check if this is a choice effect
       if (effectResult.requiresChoice) {
         const choiceOptions = getChoiceOptions(effectResult, effectToApply);
@@ -431,6 +463,8 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
             }
           }
 
+          updatedState = annotateMysteriousBoxPrePlayFlag(updatedState);
+          captureMysteriousBoxReveal(updatedState);
           return { ...choiceResult, state: updatedState, events: choiceEvents };
         }
 
@@ -441,6 +475,8 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           updatedState,
           movementBonusAppliedAmount > 0
         );
+        updatedState = annotateMysteriousBoxPrePlayFlag(updatedState);
+        captureMysteriousBoxReveal(updatedState);
         return createCardPlayedResult(
           updatedState,
           params.playerId,
@@ -611,6 +647,9 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
           }
         }
       }
+
+      finalState = annotateMysteriousBoxPrePlayFlag(finalState);
+      captureMysteriousBoxReveal(finalState);
 
       return { state: finalState, events };
     },
@@ -835,8 +874,16 @@ export function createPlayCardCommand(params: PlayCardCommandParams): Command {
         }
       }
 
+      const decks =
+        params.cardId === CARD_MYSTERIOUS_BOX && mysteriousBoxRevealedArtifactId
+          ? {
+              ...stateWithModifiers.decks,
+              artifacts: [mysteriousBoxRevealedArtifactId, ...stateWithModifiers.decks.artifacts],
+            }
+          : stateWithModifiers.decks;
+
       return {
-        state: { ...stateWithModifiers, players, source: updatedSource },
+        state: { ...stateWithModifiers, players, source: updatedSource, decks },
         events: [createCardPlayUndoneEvent(params.playerId, params.cardId)],
       };
     },
