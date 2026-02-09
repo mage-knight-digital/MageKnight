@@ -9,7 +9,13 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { ReturnableSkillOptions } from "@mage-knight/shared";
 import { SOURCE_SKILL } from "../../types/modifierConstants.js";
-import { SKILLS, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE } from "../../data/skills/index.js";
+import {
+  SKILLS,
+  SKILL_NOROWAS_PRAYER_OF_WEATHER,
+  SKILL_GOLDYX_SOURCE_OPENING,
+  SKILL_BRAEVALAR_NATURES_VENGEANCE,
+  SKILL_KRANG_SHAMANIC_RITUAL,
+} from "../../data/skills/index.js";
 import type { SkillId } from "@mage-knight/shared";
 
 /** Skills that support the return mechanic */
@@ -24,6 +30,7 @@ const RETURN_BENEFITS: Record<string, string> = {
   [SKILL_NOROWAS_PRAYER_OF_WEATHER]: "All terrain costs -1 this turn (min 1)",
   [SKILL_GOLDYX_SOURCE_OPENING]: "Use an extra basic-color die from Source, give Goldyx a crystal",
   [SKILL_BRAEVALAR_NATURES_VENGEANCE]: "Reduce one enemy's attack by 1, gains Cumbersome",
+  [SKILL_KRANG_SHAMANIC_RITUAL]: "Flip back face-up (uses your action this turn)",
 };
 
 /**
@@ -61,6 +68,24 @@ export function getReturnableSkillOptions(
           returnBenefit: RETURN_BENEFITS[skillId] ?? skill.description,
         });
       }
+    }
+  }
+
+  // Shamanic Ritual special case: owner may spend their turn action to flip it back.
+  if (
+    player.skills.includes(SKILL_KRANG_SHAMANIC_RITUAL) &&
+    player.skillFlipState.flippedSkills.includes(SKILL_KRANG_SHAMANIC_RITUAL) &&
+    !player.hasTakenActionThisTurn &&
+    !player.isResting
+  ) {
+    const skill = SKILLS[SKILL_KRANG_SHAMANIC_RITUAL];
+    if (skill) {
+      returnable.push({
+        skillId: SKILL_KRANG_SHAMANIC_RITUAL,
+        name: skill.name,
+        returnBenefit:
+          RETURN_BENEFITS[SKILL_KRANG_SHAMANIC_RITUAL] ?? skill.description,
+      });
     }
   }
 

@@ -33,7 +33,11 @@ import {
   getChoiceOptionsFromEffect,
   type PendingChoiceSource,
 } from "./choice/choiceResolution.js";
-import { SKILL_TOVAK_MANA_OVERLOAD, SKILL_KRANG_BATTLE_FRENZY } from "../../data/skills/index.js";
+import {
+  SKILL_TOVAK_MANA_OVERLOAD,
+  SKILL_KRANG_BATTLE_FRENZY,
+  SKILL_KRANG_SHAMANIC_RITUAL,
+} from "../../data/skills/index.js";
 import { placeManaOverloadInCenter } from "./skills/manaOverloadEffect.js";
 import { flipSkillFaceDown, unflipSkill } from "./helpers/skillFlipHelpers.js";
 
@@ -265,6 +269,15 @@ export function createResolveChoiceCommand(
             finalState,
             params.playerId,
             SKILL_KRANG_BATTLE_FRENZY
+          );
+        }
+
+        // Shamanic Ritual always flips face-down after resolving its mana color choice.
+        if (player.pendingChoice.skillId === SKILL_KRANG_SHAMANIC_RITUAL) {
+          finalState = flipSkillFaceDown(
+            finalState,
+            params.playerId,
+            SKILL_KRANG_SHAMANIC_RITUAL
           );
         }
 
@@ -517,6 +530,14 @@ export function createResolveChoiceCommand(
           undoState,
           params.playerId,
           SKILL_KRANG_BATTLE_FRENZY
+        );
+      }
+
+      if (params.previousPendingChoice.skillId === SKILL_KRANG_SHAMANIC_RITUAL) {
+        undoState = unflipSkill(
+          undoState,
+          params.playerId,
+          SKILL_KRANG_SHAMANIC_RITUAL
         );
       }
 
