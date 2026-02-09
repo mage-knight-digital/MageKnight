@@ -77,6 +77,7 @@ import {
   EFFECT_CONVERT_ATTACK_ELEMENT,
   EFFECT_DODGE_AND_WEAVE_ATTACK_BONUS,
   EFFECT_DUELING_TARGET,
+  EFFECT_RUSH_OF_ADRENALINE_ACTIVE,
   SHAPESHIFT_TARGET_MOVE,
   SHAPESHIFT_TARGET_ATTACK,
   SHAPESHIFT_TARGET_BLOCK,
@@ -717,6 +718,17 @@ export interface MountainLoreHandLimitModifier {
   readonly mountainBonus: number;
 }
 
+// Rush of Adrenaline wound-triggered draw modifier
+// Basic mode: draw 1 card per wound taken to hand (first 3 this turn). Retroactive.
+// Powered mode: throw away first wound + draw 1, then draw 1 per wound (next 3).
+// Tracks remaining draws and whether the first wound has been thrown (powered).
+export interface RushOfAdrenalineActiveModifier {
+  readonly type: typeof EFFECT_RUSH_OF_ADRENALINE_ACTIVE;
+  readonly mode: "basic" | "powered";
+  readonly remainingDraws: number;
+  readonly thrownFirstWound: boolean;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -774,7 +786,8 @@ export type ModifierEffect =
   | ConvertAttackElementModifier
   | DodgeAndWeaveAttackBonusModifier
   | DuelingTargetModifier
-  | MountainLoreHandLimitModifier;
+  | MountainLoreHandLimitModifier
+  | RushOfAdrenalineActiveModifier;
 
 // === Active Modifier (live in game state) ===
 

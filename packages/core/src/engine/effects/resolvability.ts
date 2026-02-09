@@ -141,6 +141,7 @@ import {
   EFFECT_PEACEFUL_MOMENT_REFRESH,
   EFFECT_SELECT_UNIT_FOR_MODIFIER,
   EFFECT_RESOLVE_UNIT_MODIFIER_TARGET,
+  EFFECT_RUSH_OF_ADRENALINE,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -743,6 +744,9 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve unit modifier target is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_UNIT_MODIFIER_TARGET]: () => true,
+
+  // Rush of Adrenaline is always resolvable (sets up modifier, retroactive draws are a bonus)
+  [EFFECT_RUSH_OF_ADRENALINE]: () => true,
 };
 
 // ============================================================================

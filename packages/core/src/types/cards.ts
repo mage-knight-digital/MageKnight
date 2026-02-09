@@ -162,6 +162,7 @@ import {
   EFFECT_PEACEFUL_MOMENT_REFRESH,
   EFFECT_SELECT_UNIT_FOR_MODIFIER,
   EFFECT_RESOLVE_UNIT_MODIFIER_TARGET,
+  EFFECT_RUSH_OF_ADRENALINE,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1927,6 +1928,22 @@ export interface PeacefulMomentRefreshEffect {
   readonly allowUnitRefresh: boolean;
 }
 
+// === Rush of Adrenaline Effects ===
+
+/**
+ * Rush of Adrenaline effect.
+ *
+ * Basic: Draw a card for each of the first 3 wounds taken to hand this turn. Retroactive.
+ * Powered: Throw away first wound + draw 1, then draw per wound for next 3. Retroactive.
+ *
+ * Sets up a turn-scoped modifier for future wound triggers, and resolves retroactively
+ * for wounds already taken this turn.
+ */
+export interface RushOfAdrenalineEffect {
+  readonly type: typeof EFFECT_RUSH_OF_ADRENALINE;
+  readonly mode: "basic" | "powered";
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -2065,7 +2082,8 @@ export type CardEffect =
   | PeacefulMomentHealEffect
   | PeacefulMomentRefreshEffect
   | SelectUnitForModifierEffect
-  | ResolveUnitModifierTargetEffect;
+  | ResolveUnitModifierTargetEffect
+  | RushOfAdrenalineEffect;
 
 // === Card Definition ===
 

@@ -75,6 +75,7 @@ import { registerKnowYourPreyEffects } from "./knowYourPreyEffects.js";
 import { registerPeacefulMomentEffects } from "./peacefulMomentEffects.js";
 import { registerStoutResolveEffects } from "./stoutResolveEffects.js";
 import { registerUnitModifierEffects } from "./unitModifierEffects.js";
+import { registerRushOfAdrenalineEffects } from "./rushOfAdrenalineEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -282,4 +283,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Unit modifier effects (select unit + apply modifier, e.g., Force of Nature)
   registerUnitModifierEffects();
+
+  // Rush of Adrenaline effects (wound-triggered card draws)
+  registerRushOfAdrenalineEffects();
 }

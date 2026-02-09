@@ -111,6 +111,7 @@ import {
   EFFECT_PEACEFUL_MOMENT_REFRESH,
   EFFECT_SELECT_UNIT_FOR_MODIFIER,
   EFFECT_RESOLVE_UNIT_MODIFIER_TARGET,
+  EFFECT_RUSH_OF_ADRENALINE,
 } from "../../types/effectTypes.js";
 import type {
   GainAttackBowResolvedEffect,
@@ -716,6 +717,13 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const e = effect as import("../../types/cards.js").ResolveUnitModifierTargetEffect;
     const desc = e.description ?? "Apply modifier";
     return desc.replace("Chosen unit", e.unitName);
+  },
+
+  [EFFECT_RUSH_OF_ADRENALINE]: (effect) => {
+    const e = effect as import("../../types/cards.js").RushOfAdrenalineEffect;
+    return e.mode === "basic"
+      ? "For each of the first 3 Wounds to hand this turn, draw a card"
+      : "Throw away first Wound and draw a card; for each of the next 3 Wounds, draw a card";
   },
 };
 

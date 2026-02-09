@@ -424,3 +424,10 @@ export const EFFECT_CONVERT_ATTACK_ELEMENT = "convert_attack_element" as const;
 // Also tracks whether any unit was involved with this enemy (for Fame +1 bonus).
 // Duration: combat. Applied by Dueling skill activation.
 export const EFFECT_DUELING_TARGET = "dueling_target" as const;
+
+// === RushOfAdrenalineActiveModifier ===
+// When active, taking wounds to hand triggers card draws.
+// Basic: draw 1 card per wound (up to 3 total). Retroactive for wounds already taken.
+// Powered: throw away first wound + draw 1, then draw 1 per wound (up to 3 more).
+// Duration: turn. Applied by Rush of Adrenaline card.
+export const EFFECT_RUSH_OF_ADRENALINE_ACTIVE = "rush_of_adrenaline_active" as const;

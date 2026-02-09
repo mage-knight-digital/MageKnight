@@ -491,3 +491,8 @@ export const EFFECT_SPELL_FORGE_POWERED = "spell_forge_powered" as const;
 // Internal: Resolve gaining a crystal from a specific spell in the offer.
 // For powered, after first crystal gain, chains to second choice (excluding already-chosen spell).
 export const EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL = "resolve_spell_forge_crystal" as const;
+
+// === Rush of Adrenaline Effects ===
+// Basic: Set up wound-triggered draw modifier (first 3 wounds → draw 1 each). Retroactive.
+// Powered: Throw away first wound + draw 1, then draw 1 per wound (next 3). Retroactive.
+export const EFFECT_RUSH_OF_ADRENALINE = "rush_of_adrenaline" as const;

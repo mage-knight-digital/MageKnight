@@ -21,6 +21,7 @@ import {
   isGoldenGrailDrawOnHealActive,
 } from "./goldenGrailHelpers.js";
 import { applyGainFame } from "./atomicProgressionEffects.js";
+import { processRushOfAdrenalineOnWound } from "./rushOfAdrenalineHelpers.js";
 
 // ============================================================================
 // EFFECT HANDLERS
@@ -224,16 +225,27 @@ export function applyTakeWound(
   const newWoundPileCount =
     state.woundPileCount === null ? null : Math.max(0, state.woundPileCount - amount);
 
-  const updatedState = {
+  let updatedState: GameState = {
     ...updatePlayer(state, playerIndex, updatedPlayer),
     woundPileCount: newWoundPileCount,
   };
 
-  const description =
-    amount === 1 ? "Took 1 wound" : `Took ${amount} wounds`;
+  const descriptions: string[] = [
+    amount === 1 ? "Took 1 wound" : `Took ${amount} wounds`,
+  ];
+
+  // Rush of Adrenaline: draw cards when wounds are taken to hand
+  const rushResult = processRushOfAdrenalineOnWound(
+    updatedState,
+    playerIndex,
+    updatedState.players[playerIndex]!,
+    amount
+  );
+  updatedState = rushResult.state;
+  descriptions.push(...rushResult.descriptions);
 
   return {
     state: updatedState,
-    description,
+    description: descriptions.join(". "),
   };
 }
