@@ -375,6 +375,11 @@ export {
   registerTomeOfAllSpellsEffects,
 } from "./tomeOfAllSpellsEffects.js";
 
+// Mysterious Box effects (artifact reveal and polymorphic artifact use)
+export {
+  registerMysteriousBoxEffects,
+} from "./mysteriousBoxEffects.js";
+
 // Effect helpers
 export { getPlayerContext } from "./effectHelpers.js";
 

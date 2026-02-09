@@ -438,6 +438,12 @@ export const EFFECT_TOME_OF_ALL_SPELLS = "tome_of_all_spells" as const;
 // of matching color, then resolves that spell's basic or powered effect (no mana cost).
 export const EFFECT_RESOLVE_TOME_SPELL = "resolve_tome_spell" as const;
 
+// === Mysterious Box Effects ===
+// Reveal top artifact from deck and choose how to use Mysterious Box this turn.
+export const EFFECT_MYSTERIOUS_BOX = "mysterious_box" as const;
+// Internal: Resolve the selected way to use Mysterious Box as the revealed artifact.
+export const EFFECT_RESOLVE_MYSTERIOUS_BOX_USE = "resolve_mysterious_box_use" as const;
+
 // === Wings of Night Multi-Target Skip Attack Effect ===
 // Entry point for multi-target enemy skip-attack with scaling move cost.
 // First enemy free, second costs 1 move, third costs 2 move, etc.

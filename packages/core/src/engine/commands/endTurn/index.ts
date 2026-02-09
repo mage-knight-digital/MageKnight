@@ -40,6 +40,7 @@ import { isRuleActive } from "../../modifiers/index.js";
 import { RULE_TIME_BENDING_ACTIVE } from "../../../types/modifierConstants.js";
 import { processSourceOpeningCrystal } from "./sourceOpeningCrystal.js";
 import { applyMountainLoreEndTurnBonus } from "./mountainLoreBonus.js";
+import { processMysteriousBoxCleanup } from "./mysteriousBoxCleanup.js";
 
 export { END_TURN_COMMAND };
 export type { EndTurnCommandParams };
@@ -175,12 +176,30 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         };
       }
 
+      // Mysterious Box: apply per-turn card-fate cleanup and restore revealed artifact to deck.
+      // This happens before draw-up so "unused" can return to hand in time to affect hand limit.
+      const stateWithSiteUpdates = {
+        ...state,
+        players: state.players.map((p) =>
+          p.id === params.playerId ? playerWithCrystal : p
+        ),
+      };
+      const mysteriousBoxCleanup = processMysteriousBoxCleanup(
+        stateWithSiteUpdates,
+        playerWithCrystal
+      );
+      const stateAfterMysteriousBox = mysteriousBoxCleanup.state;
+      const playerAfterMysteriousBox = mysteriousBoxCleanup.player;
+
       // Crystal Mastery: return spent crystals before reset clears tracking
-      const playerAfterCrystalReturn = returnSpentCrystals(playerWithCrystal);
+      const playerAfterCrystalReturn = returnSpentCrystals(playerAfterMysteriousBox);
 
       // Calculate Ring artifacts fame bonus before reset clears spell tracking
       // This grants fame for each spell of the ring's color cast this turn
-      const ringFameResult = calculateRingFameBonus(state, playerAfterCrystalReturn);
+      const ringFameResult = calculateRingFameBonus(
+        stateAfterMysteriousBox,
+        playerAfterCrystalReturn
+      );
       const playerWithRingFame = ringFameResult.player;
 
       // Process pending level-ups BEFORE card flow so we know if we should draw
@@ -194,11 +213,18 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
       // Check if Time Bending (Space Bending powered) is active
       // Must check BEFORE modifiers are expired (they expire later)
-      const isTimeBendingActive = isRuleActive(state, params.playerId, RULE_TIME_BENDING_ACTIVE);
+      const isTimeBendingActive = isRuleActive(
+        stateAfterMysteriousBox,
+        params.playerId,
+        RULE_TIME_BENDING_ACTIVE
+      );
 
       // Mountain Lore: if ending in hills/mountains, apply next-draw hand limit bonus.
       // This must happen before card flow so draw-up uses the updated hand limit.
-      const mountainLoreResult = applyMountainLoreEndTurnBonus(state, playerAfterLevelUp);
+      const mountainLoreResult = applyMountainLoreEndTurnBonus(
+        stateAfterMysteriousBox,
+        playerAfterLevelUp
+      );
       const stateForCardFlow = mountainLoreResult.state;
       const playerForCardFlow = mountainLoreResult.player;
 
@@ -233,7 +259,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       // Uses currentPlayer (pre-reset) whose usedDieIds are still available.
       // Pass a copy of updatedPlayers to avoid shared-reference mutation.
       const sourceOpeningResult = processSourceOpeningCrystal(
-        { ...state, players: [...updatedPlayers] },
+        { ...stateAfterMysteriousBox, players: [...updatedPlayers] },
         params.playerId,
         currentPlayer
       );

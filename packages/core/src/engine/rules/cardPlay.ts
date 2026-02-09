@@ -18,6 +18,7 @@ import {
   EFFECT_SCALING,
   EFFECT_DISCARD_COST,
   EFFECT_POWER_OF_CRYSTALS_POWERED,
+  EFFECT_MYSTERIOUS_BOX,
 } from "../../types/effectTypes.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -138,6 +139,10 @@ export function isCombatEffectAllowed(
     return false;
   }
 
+  if (effect.type === EFFECT_MYSTERIOUS_BOX) {
+    return true;
+  }
+
   if (allowAnyPhase) {
     return true;
   }
@@ -167,6 +172,7 @@ export function isNormalEffectAllowed(
   effectKind: CardEffectKind
 ): boolean {
   const baseAllowed =
+    effect.type === EFFECT_MYSTERIOUS_BOX ||
     effectHasMove(effect) ||
     effectHasInfluence(effect) ||
     effectHasHeal(effect) ||

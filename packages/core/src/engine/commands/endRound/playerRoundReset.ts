@@ -112,6 +112,8 @@ export function processPlayerRoundReset(
       // Reset Time Bending state for new round
       isTimeBentTurn: false,
       timeBendingSetAsideCards: [],
+      // Reset Mysterious Box per-turn state
+      mysteriousBoxState: null,
       // Reset banner usage for new round (banners stay attached)
       attachedBanners: player.attachedBanners.map((b) => ({
         ...b,

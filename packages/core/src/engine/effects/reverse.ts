@@ -74,6 +74,8 @@ import {
   COMBAT_TYPE_SIEGE,
   EFFECT_GAIN_ATTACK_BOW_RESOLVED,
   EFFECT_HAND_LIMIT_BONUS,
+  EFFECT_MYSTERIOUS_BOX,
+  EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
   EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
   EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
   EFFECT_KNOW_YOUR_PREY_APPLY,
@@ -102,6 +104,7 @@ import type {
   WoundActivatingUnitEffect,
   HandLimitBonusEffect,
   PeacefulMomentActionEffect,
+  ResolveMysteriousBoxUseEffect,
 } from "../../types/cards.js";
 import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION, elementToPropertyKey } from "./atomicEffects.js";
@@ -429,6 +432,29 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
     return {
       ...player,
       meditationHandLimitBonus: Math.max(0, player.meditationHandLimitBonus - e.bonus),
+    };
+  },
+
+  [EFFECT_MYSTERIOUS_BOX]: (player) => {
+    return {
+      ...player,
+      mysteriousBoxState: null,
+    };
+  },
+
+  [EFFECT_RESOLVE_MYSTERIOUS_BOX_USE]: (player, effect) => {
+    const e = effect as ResolveMysteriousBoxUseEffect;
+    const currentState = player.mysteriousBoxState;
+    if (!currentState || currentState.revealedArtifactId !== e.revealedArtifactId) {
+      return player;
+    }
+
+    return {
+      ...player,
+      mysteriousBoxState: {
+        ...currentState,
+        usedAs: "unused",
+      },
     };
   },
 

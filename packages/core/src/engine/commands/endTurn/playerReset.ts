@@ -89,6 +89,8 @@ export function createResetPlayer(
     // Meditation spell resets
     pendingMeditation: undefined,
     meditationHandLimitBonus: 0,
+    // Mysterious Box per-turn state reset
+    mysteriousBoxState: null,
     // Master of Chaos state (keeps position, sets between-turn free rotate window)
     masterOfChaosState,
     // Skill cooldown reset for Time Bending: refresh once-per-turn skills

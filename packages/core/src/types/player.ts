@@ -319,6 +319,22 @@ export interface PendingTraining {
 }
 
 /**
+ * Mysterious Box per-turn tracking.
+ * Stores the revealed artifact and how Box was used before end-turn cleanup.
+ */
+export interface MysteriousBoxState {
+  /** Artifact revealed from the top of the artifact deck */
+  readonly revealedArtifactId: CardId;
+  /** How Mysterious Box was used this turn */
+  readonly usedAs: "unused" | "basic" | "powered" | "banner";
+  /**
+   * Snapshot of minimum-turn requirement state from before Mysterious Box was played.
+   * Needed so "play + return unused" does not incorrectly satisfy the requirement.
+   */
+  readonly playedCardFromHandBeforePlay: boolean;
+}
+
+/**
  * Pending terrain cost reduction choice (Druidic Paths and similar effects).
  * Player must choose a hex coordinate or terrain type to apply cost reduction.
  */
@@ -580,6 +596,9 @@ export interface Player {
 
   // Training pending (throw away action card, gain same-color AA from offer)
   readonly pendingTraining: PendingTraining | null;
+
+  // Mysterious Box tracking (revealed artifact + usage mode for end-turn cleanup)
+  readonly mysteriousBoxState: MysteriousBoxState | null;
 
   // Attack-based fame tracking (e.g., Axe Throw powered effect)
   readonly pendingAttackDefeatFame: readonly AttackDefeatFameTracker[];

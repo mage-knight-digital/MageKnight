@@ -16,7 +16,11 @@
 import type { GameState } from "../../state/GameState.js";
 import type { ManaColor, BasicManaColor, CardId } from "@mage-knight/shared";
 import type { CardEffect, ManaDrawSetColorEffect, ResolveBoostTargetEffect } from "../../types/cards.js";
-import { EFFECT_MANA_DRAW_SET_COLOR, EFFECT_RESOLVE_BOOST_TARGET } from "../../types/effectTypes.js";
+import {
+  EFFECT_MANA_DRAW_SET_COLOR,
+  EFFECT_RESOLVE_BOOST_TARGET,
+  EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
+} from "../../types/effectTypes.js";
 import { getCard } from "../helpers/cardLookup.js";
 import { addBonusToEffect } from "./cardBoostEffects.js";
 import { reverseEffect } from "./reverse.js";
@@ -49,10 +53,22 @@ export interface CardBoostUndoContext {
 }
 
 /**
+ * Undo context for EFFECT_RESOLVE_MYSTERIOUS_BOX_USE
+ * Captures full pre-resolution state to safely restore nested copied effects.
+ */
+export interface MysteriousBoxUseUndoContext {
+  readonly type: typeof EFFECT_RESOLVE_MYSTERIOUS_BOX_USE;
+  readonly stateSnapshot: GameState;
+}
+
+/**
  * Union of all effect undo contexts
  * Add new context types here as needed
  */
-export type EffectUndoContext = ManaDrawSetColorUndoContext | CardBoostUndoContext;
+export type EffectUndoContext =
+  | ManaDrawSetColorUndoContext
+  | CardBoostUndoContext
+  | MysteriousBoxUseUndoContext;
 
 // === Capture Functions ===
 
@@ -110,6 +126,13 @@ export function captureUndoContext(
         targetCardId: boostEffect.targetCardId,
         handIndex,
         boostedEffect,
+      };
+    }
+
+    case EFFECT_RESOLVE_MYSTERIOUS_BOX_USE: {
+      return {
+        type: EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
+        stateSnapshot: state,
       };
     }
 
@@ -230,6 +253,10 @@ export function applyUndoContext(
       updatedPlayers[playerIndex] = updatedPlayer;
 
       return { ...state, players: updatedPlayers };
+    }
+
+    case EFFECT_RESOLVE_MYSTERIOUS_BOX_USE: {
+      return context.stateSnapshot;
     }
   }
 }
