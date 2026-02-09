@@ -153,6 +153,10 @@ import {
   EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
   EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
   EFFECT_KNOW_YOUR_PREY_APPLY,
+  EFFECT_PEACEFUL_MOMENT_ACTION,
+  EFFECT_PEACEFUL_MOMENT_CONVERT,
+  EFFECT_PEACEFUL_MOMENT_HEAL,
+  EFFECT_PEACEFUL_MOMENT_REFRESH,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1790,6 +1794,52 @@ export interface KnowYourPreyApplyEffect {
   readonly label: string;
 }
 
+/**
+ * Peaceful Moment "play as action" entry point.
+ * Grants influence, consumes the player's action, then enters conversion loop.
+ */
+export interface PeacefulMomentActionEffect {
+  readonly type: typeof EFFECT_PEACEFUL_MOMENT_ACTION;
+  /** Influence points to grant (3 basic, 6 powered) */
+  readonly influenceAmount: number;
+  /** Whether unit refresh is available (powered only) */
+  readonly allowUnitRefresh: boolean;
+}
+
+/**
+ * Peaceful Moment conversion loop.
+ * Presents options: heal (2 influence → 1 heal), refresh unit (powered only), or done.
+ * Generated dynamically based on current influence and available targets.
+ */
+export interface PeacefulMomentConvertEffect {
+  readonly type: typeof EFFECT_PEACEFUL_MOMENT_CONVERT;
+  /** Whether unit refresh is available (powered only) */
+  readonly allowUnitRefresh: boolean;
+}
+
+/**
+ * Internal: resolve a single heal conversion.
+ * Deducts 2 influence and heals 1 wound from hand.
+ */
+export interface PeacefulMomentHealEffect {
+  readonly type: typeof EFFECT_PEACEFUL_MOMENT_HEAL;
+  /** Whether unit refresh is available (for chaining back) */
+  readonly allowUnitRefresh: boolean;
+}
+
+/**
+ * Internal: resolve a unit refresh paid with influence.
+ * Deducts 2 * unit level influence and readies the unit.
+ */
+export interface PeacefulMomentRefreshEffect {
+  readonly type: typeof EFFECT_PEACEFUL_MOMENT_REFRESH;
+  readonly unitInstanceId: string;
+  readonly unitName: string;
+  readonly influenceCost: number;
+  /** Whether unit refresh is available (for chaining back — always false after one refresh) */
+  readonly allowUnitRefresh: boolean;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -1919,7 +1969,11 @@ export type CardEffect =
   | ResolveSpellForgeCrystalEffect
   | KnowYourPreySelectEnemyEffect
   | KnowYourPreySelectOptionEffect
-  | KnowYourPreyApplyEffect;
+  | KnowYourPreyApplyEffect
+  | PeacefulMomentActionEffect
+  | PeacefulMomentConvertEffect
+  | PeacefulMomentHealEffect
+  | PeacefulMomentRefreshEffect;
 
 // === Card Definition ===
 

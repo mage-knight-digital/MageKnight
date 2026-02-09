@@ -103,6 +103,10 @@ import {
   EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
   EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
   EFFECT_KNOW_YOUR_PREY_APPLY,
+  EFFECT_PEACEFUL_MOMENT_ACTION,
+  EFFECT_PEACEFUL_MOMENT_CONVERT,
+  EFFECT_PEACEFUL_MOMENT_HEAL,
+  EFFECT_PEACEFUL_MOMENT_REFRESH,
 } from "../../types/effectTypes.js";
 import type {
   GainAttackBowResolvedEffect,
@@ -666,6 +670,28 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
   [EFFECT_KNOW_YOUR_PREY_APPLY]: (effect) => {
     const e = effect as import("../../types/cards.js").KnowYourPreyApplyEffect;
     return e.label;
+  },
+
+  [EFFECT_PEACEFUL_MOMENT_ACTION]: (effect) => {
+    const e = effect as import("../../types/cards.js").PeacefulMomentActionEffect;
+    const parts = [`Influence ${e.influenceAmount} (as action)`];
+    if (e.allowUnitRefresh) {
+      parts.push("convert to Heal and/or refresh a Unit");
+    } else {
+      parts.push("convert to Heal");
+    }
+    return parts.join(", ");
+  },
+
+  [EFFECT_PEACEFUL_MOMENT_CONVERT]: () =>
+    "Convert Influence to Heal or refresh a Unit",
+
+  [EFFECT_PEACEFUL_MOMENT_HEAL]: () =>
+    "Heal 1 wound (2 Influence)",
+
+  [EFFECT_PEACEFUL_MOMENT_REFRESH]: (effect) => {
+    const e = effect as import("../../types/cards.js").PeacefulMomentRefreshEffect;
+    return `Refresh ${e.unitName} (${e.influenceCost} Influence)`;
   },
 };
 

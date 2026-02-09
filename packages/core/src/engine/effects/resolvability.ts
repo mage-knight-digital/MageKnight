@@ -133,6 +133,10 @@ import {
   EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
   EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
   EFFECT_KNOW_YOUR_PREY_APPLY,
+  EFFECT_PEACEFUL_MOMENT_ACTION,
+  EFFECT_PEACEFUL_MOMENT_CONVERT,
+  EFFECT_PEACEFUL_MOMENT_HEAL,
+  EFFECT_PEACEFUL_MOMENT_REFRESH,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -698,6 +702,16 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   // Know Your Prey resolve effects are always resolvable (validated at resolution time)
   [EFFECT_KNOW_YOUR_PREY_SELECT_OPTION]: () => true,
   [EFFECT_KNOW_YOUR_PREY_APPLY]: () => true,
+
+  // Peaceful Moment action mode: not resolvable if player already took an action
+  [EFFECT_PEACEFUL_MOMENT_ACTION]: (_state, player) => {
+    return !player.hasTakenActionThisTurn;
+  },
+
+  // Internal conversion effects are always resolvable (generated dynamically when valid)
+  [EFFECT_PEACEFUL_MOMENT_CONVERT]: () => true,
+  [EFFECT_PEACEFUL_MOMENT_HEAL]: () => true,
+  [EFFECT_PEACEFUL_MOMENT_REFRESH]: () => true,
 };
 
 // ============================================================================

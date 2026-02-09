@@ -75,6 +75,10 @@ import {
   EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
   EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
   EFFECT_KNOW_YOUR_PREY_APPLY,
+  EFFECT_PEACEFUL_MOMENT_ACTION,
+  EFFECT_PEACEFUL_MOMENT_CONVERT,
+  EFFECT_PEACEFUL_MOMENT_HEAL,
+  EFFECT_PEACEFUL_MOMENT_REFRESH,
 } from "../../types/effectTypes.js";
 import type {
   GainMoveEffect,
@@ -91,7 +95,12 @@ import type {
   TrackAttackDefeatFameEffect,
   AttackWithDefeatBonusEffect,
 } from "../../types/effectTypes.js";
-import type { GainAttackBowResolvedEffect, WoundActivatingUnitEffect, HandLimitBonusEffect } from "../../types/cards.js";
+import type {
+  GainAttackBowResolvedEffect,
+  WoundActivatingUnitEffect,
+  HandLimitBonusEffect,
+  PeacefulMomentActionEffect,
+} from "../../types/cards.js";
 import { getLevelsCrossed, MANA_TOKEN_SOURCE_CARD } from "@mage-knight/shared";
 import { MIN_REPUTATION, MAX_REPUTATION, elementToPropertyKey } from "./atomicEffects.js";
 import { MAX_CRYSTALS_PER_COLOR } from "../helpers/crystalHelpers.js";
@@ -449,6 +458,25 @@ const reverseHandlers: Partial<Record<EffectType, ReverseHandler>> = {
       pendingAttackDefeatFame: newTrackers,
     };
   },
+
+  // Peaceful Moment action: reverse influence gain and action flag
+  [EFFECT_PEACEFUL_MOMENT_ACTION]: (player, effect) => {
+    const e = effect as PeacefulMomentActionEffect;
+    return {
+      ...player,
+      influencePoints: player.influencePoints - e.influenceAmount,
+      hasTakenActionThisTurn: false,
+    };
+  },
+
+  // Peaceful Moment conversion loop - no direct player state changes
+  [EFFECT_PEACEFUL_MOMENT_CONVERT]: (player) => player,
+
+  // Peaceful Moment heal - reversal not reliable (wound cards already removed)
+  [EFFECT_PEACEFUL_MOMENT_HEAL]: (player) => player,
+
+  // Peaceful Moment refresh - reversal not reliable (unit state changes)
+  [EFFECT_PEACEFUL_MOMENT_REFRESH]: (player) => player,
 
   [EFFECT_TRACK_ATTACK_DEFEAT_FAME]: (player, effect) => {
     const e = effect as TrackAttackDefeatFameEffect;

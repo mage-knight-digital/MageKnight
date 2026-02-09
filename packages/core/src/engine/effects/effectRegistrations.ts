@@ -71,6 +71,7 @@ import { registerHandLimitBonusEffects } from "./handLimitBonusEffects.js";
 import { registerTomeOfAllSpellsEffects } from "./tomeOfAllSpellsEffects.js";
 import { registerSpellForgeEffects } from "./spellForgeEffects.js";
 import { registerKnowYourPreyEffects } from "./knowYourPreyEffects.js";
+import { registerPeacefulMomentEffects } from "./peacefulMomentEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -266,4 +267,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Know Your Prey effects (Wolfhawk skill - remove enemy ability/resistance/element)
   registerKnowYourPreyEffects();
+
+  // Peaceful Moment effects (influence-to-heal conversion and unit refresh)
+  registerPeacefulMomentEffects();
 }

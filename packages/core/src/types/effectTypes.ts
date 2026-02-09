@@ -450,6 +450,19 @@ export const EFFECT_KNOW_YOUR_PREY_SELECT_OPTION = "know_your_prey_select_option
 // Internal: Applies the chosen removal (ability nullifier, resistance removal, or element conversion).
 export const EFFECT_KNOW_YOUR_PREY_APPLY = "know_your_prey_apply" as const;
 
+// === Peaceful Moment Effects ===
+// Entry point for "play as action" mode of Peaceful Moment.
+// Grants influence, consumes the player's action, then enters conversion loop.
+// Basic: influence-to-heal conversion (2 influence → 1 heal).
+// Powered: influence-to-heal AND/OR refresh one unit (2 influence per unit level).
+export const EFFECT_PEACEFUL_MOMENT_ACTION = "peaceful_moment_action" as const;
+// Internal: conversion loop presenting heal/refresh/done options.
+export const EFFECT_PEACEFUL_MOMENT_CONVERT = "peaceful_moment_convert" as const;
+// Internal: resolve a single heal conversion (deduct 2 influence, heal 1 wound).
+export const EFFECT_PEACEFUL_MOMENT_HEAL = "peaceful_moment_heal" as const;
+// Internal: resolve a unit refresh (deduct influence, ready unit).
+export const EFFECT_PEACEFUL_MOMENT_REFRESH = "peaceful_moment_refresh" as const;
+
 // === Spell Forge Effects ===
 // Basic: Choose a spell card from the Spells Offer, gain a crystal of that spell's color.
 export const EFFECT_SPELL_FORGE_BASIC = "spell_forge_basic" as const;
