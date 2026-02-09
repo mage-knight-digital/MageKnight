@@ -70,6 +70,7 @@ import { registerBloodOfAncientsEffects } from "./bloodOfAncientsEffects.js";
 import { registerHandLimitBonusEffects } from "./handLimitBonusEffects.js";
 import { registerTomeOfAllSpellsEffects } from "./tomeOfAllSpellsEffects.js";
 import { registerSpellForgeEffects } from "./spellForgeEffects.js";
+import { registerPeacefulMomentEffects } from "./peacefulMomentEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -262,4 +263,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Spell Forge effects (gain crystals from spell offer colors)
   registerSpellForgeEffects();
+
+  // Peaceful Moment effects (influence-to-heal conversion and unit refresh)
+  registerPeacefulMomentEffects();
 }
