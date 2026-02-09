@@ -441,6 +441,19 @@ export const EFFECT_WINGS_OF_NIGHT = "wings_of_night" as const;
 // Applies skip-attack modifier, deducts move cost, chains for more targets.
 export const EFFECT_RESOLVE_WINGS_OF_NIGHT_TARGET = "resolve_wings_of_night_target" as const;
 
+// === Peaceful Moment Effects ===
+// Entry point for "play as action" mode of Peaceful Moment.
+// Grants influence, consumes the player's action, then enters conversion loop.
+// Basic: influence-to-heal conversion (2 influence → 1 heal).
+// Powered: influence-to-heal AND/OR refresh one unit (2 influence per unit level).
+export const EFFECT_PEACEFUL_MOMENT_ACTION = "peaceful_moment_action" as const;
+// Internal: conversion loop presenting heal/refresh/done options.
+export const EFFECT_PEACEFUL_MOMENT_CONVERT = "peaceful_moment_convert" as const;
+// Internal: resolve a single heal conversion (deduct 2 influence, heal 1 wound).
+export const EFFECT_PEACEFUL_MOMENT_HEAL = "peaceful_moment_heal" as const;
+// Internal: resolve a unit refresh (deduct influence, ready unit).
+export const EFFECT_PEACEFUL_MOMENT_REFRESH = "peaceful_moment_refresh" as const;
+
 // === Spell Forge Effects ===
 // Basic: Choose a spell card from the Spells Offer, gain a crystal of that spell's color.
 export const EFFECT_SPELL_FORGE_BASIC = "spell_forge_basic" as const;

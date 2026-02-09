@@ -130,6 +130,10 @@ import {
   EFFECT_SPELL_FORGE_BASIC,
   EFFECT_SPELL_FORGE_POWERED,
   EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
+  EFFECT_PEACEFUL_MOMENT_ACTION,
+  EFFECT_PEACEFUL_MOMENT_CONVERT,
+  EFFECT_PEACEFUL_MOMENT_HEAL,
+  EFFECT_PEACEFUL_MOMENT_REFRESH,
 } from "../../types/effectTypes.js";
 import type {
   DrawCardsEffect,
@@ -686,6 +690,16 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve Spell Forge crystal is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL]: () => true,
+
+  // Peaceful Moment action mode: not resolvable if player already took an action
+  [EFFECT_PEACEFUL_MOMENT_ACTION]: (_state, player) => {
+    return !player.hasTakenActionThisTurn;
+  },
+
+  // Internal conversion effects are always resolvable (generated dynamically when valid)
+  [EFFECT_PEACEFUL_MOMENT_CONVERT]: () => true,
+  [EFFECT_PEACEFUL_MOMENT_HEAL]: () => true,
+  [EFFECT_PEACEFUL_MOMENT_REFRESH]: () => true,
 };
 
 // ============================================================================
