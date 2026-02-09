@@ -53,6 +53,7 @@ import {
   SKILL_WOLFHAWK_KNOW_YOUR_PREY,
   SKILL_WOLFHAWK_TAUNT,
   SKILL_WOLFHAWK_DUELING,
+  SKILL_KRANG_PUPPET_MASTER,
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_KRANG_REGENERATE,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
@@ -71,6 +72,7 @@ import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
 import { canActivateKnowYourPrey } from "../commands/skills/knowYourPreyEffect.js";
 import { canActivateDueling } from "../commands/skills/duelingEffect.js";
+import { canActivatePuppetMaster } from "../commands/skills/puppetMasterEffect.js";
 import { isManaColorAllowed } from "../rules/mana.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 
@@ -472,6 +474,16 @@ export const validateSkillRequirements: Validator = (
       return invalid(
         SKILL_NO_VALID_TARGET,
         "Dueling requires an eligible enemy that is alive and still attacking"
+      );
+    }
+  }
+
+  // Puppet Master: requires defeated enemies to keep or stored tokens to expend
+  if (useSkillAction.skillId === SKILL_KRANG_PUPPET_MASTER) {
+    if (!canActivatePuppetMaster(state, player)) {
+      return invalid(
+        SKILL_NO_VALID_TARGET,
+        "Puppet Master requires defeated enemies or stored enemy tokens"
       );
     }
   }

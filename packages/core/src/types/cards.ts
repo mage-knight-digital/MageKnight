@@ -22,6 +22,7 @@ import {
   MANA_WHITE,
 } from "@mage-knight/shared";
 import type { ModifierEffect, ModifierDuration, ModifierScope } from "./modifiers.js";
+import type { KeptEnemyToken } from "./player.js";
 import type { CombatPhase } from "./combat.js";
 import type { SourceDieId } from "./mana.js";
 import {
@@ -163,6 +164,8 @@ import {
   EFFECT_SELECT_UNIT_FOR_MODIFIER,
   EFFECT_RESOLVE_UNIT_MODIFIER_TARGET,
   EFFECT_RUSH_OF_ADRENALINE,
+  EFFECT_PUPPET_MASTER_KEEP,
+  EFFECT_PUPPET_MASTER_EXPEND,
   MANA_ANY,
   type CombatType,
   type BasicCardColor,
@@ -1946,6 +1949,25 @@ export interface RushOfAdrenalineEffect {
   readonly mode: "basic" | "powered";
 }
 
+/**
+ * Keep a defeated enemy token (Puppet Master skill).
+ */
+export interface PuppetMasterKeepEffect {
+  readonly type: typeof EFFECT_PUPPET_MASTER_KEEP;
+  readonly enemyInstanceId: string;
+  readonly token: KeptEnemyToken;
+  readonly description: string;
+}
+
+/**
+ * Expend a kept enemy token for attack or block (Puppet Master skill).
+ */
+export interface PuppetMasterExpendEffect {
+  readonly type: typeof EFFECT_PUPPET_MASTER_EXPEND;
+  readonly token: KeptEnemyToken;
+  readonly description: string;
+}
+
 // Union of all card effects
 export type CardEffect =
   | GainMoveEffect
@@ -2085,7 +2107,9 @@ export type CardEffect =
   | PeacefulMomentRefreshEffect
   | SelectUnitForModifierEffect
   | ResolveUnitModifierTargetEffect
-  | RushOfAdrenalineEffect;
+  | RushOfAdrenalineEffect
+  | PuppetMasterKeepEffect
+  | PuppetMasterExpendEffect;
 
 // === Card Definition ===
 

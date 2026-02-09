@@ -17,7 +17,7 @@ import type { ManaTokenSource } from "../valueConstants.js";
 import type { UnitState } from "../unitState.js";
 import type { TacticId } from "../tactics.js";
 import type { ValidActions } from "./validActions.js";
-import type { EnemyId, EnemyAbilityType, EnemyResistances, Element, EnemyColor } from "../enemies/index.js";
+import type { EnemyId, EnemyAttack, EnemyAbilityType, EnemyResistances, Element, EnemyColor } from "../enemies/index.js";
 import type { CombatPhase } from "../combatPhases.js";
 import type { SiteReward } from "../siteRewards.js";
 import type { RuinsTokenId } from "../ruinsTokens.js";
@@ -36,6 +36,17 @@ export interface ClientPendingLevelUpReward {
   readonly level: number;
   /** 2 skills drawn from hero's remaining pool */
   readonly drawnSkills: readonly SkillId[];
+}
+
+// Kept enemy token from Puppet Master skill
+export interface ClientKeptEnemyToken {
+  readonly enemyId: EnemyId;
+  readonly name: string;
+  readonly attack: number;
+  readonly attackElement: Element;
+  readonly attacks?: readonly EnemyAttack[];
+  readonly armor: number;
+  readonly resistances: EnemyResistances;
 }
 
 // Pending choice - when a card or skill requires player selection
@@ -156,6 +167,9 @@ export interface ClientPlayer {
 
   // Skills (public - which skills you have)
   readonly skills: readonly SkillId[];
+
+  // Puppet Master: kept enemy tokens (public)
+  readonly keptEnemyTokens: readonly ClientKeptEnemyToken[];
 
   // Turn state
   readonly movePoints: number;

@@ -496,3 +496,9 @@ export const EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL = "resolve_spell_forge_crystal" 
 // Basic: Set up wound-triggered draw modifier (first 3 wounds → draw 1 each). Retroactive.
 // Powered: Throw away first wound + draw 1, then draw 1 per wound (next 3). Retroactive.
 export const EFFECT_RUSH_OF_ADRENALINE = "rush_of_adrenaline" as const;
+
+// === Puppet Master Skill Effects ===
+// Keep a defeated enemy token for later use
+export const EFFECT_PUPPET_MASTER_KEEP = "puppet_master_keep" as const;
+// Expend a kept enemy token for Attack or Block
+export const EFFECT_PUPPET_MASTER_EXPEND = "puppet_master_expend" as const;
