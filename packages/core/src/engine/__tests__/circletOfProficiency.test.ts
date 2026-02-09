@@ -5,12 +5,18 @@
 import { describe, expect, it } from "vitest";
 import { resolveEffect } from "../effects/index.js";
 import { getSkillOptions } from "../validActions/skills.js";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import {
+  createTestGameState,
+  createTestPlayer,
+  createUnitCombatState,
+} from "./testHelpers.js";
 import { CIRCLET_OF_PROFICIENCY } from "../../data/artifacts/circletOfProficiency.js";
 import {
   CATEGORY_SPECIAL,
   DEED_CARD_TYPE_ARTIFACT,
   type CardEffect,
+  type CompoundEffect,
+  type ShapeshiftResolveEffect,
 } from "../../types/cards.js";
 import {
   EFFECT_CIRCLET_OF_PROFICIENCY_BASIC,
@@ -18,9 +24,12 @@ import {
   EFFECT_CIRCLET_OF_PROFICIENCY_POWERED,
   EFFECT_RESOLVE_CIRCLET_POWERED_SKILL,
   EFFECT_COMPOUND,
+  EFFECT_SHAPESHIFT_RESOLVE,
 } from "../../types/effectTypes.js";
 import {
   CARD_CIRCLET_OF_PROFICIENCY,
+  CARD_MARCH,
+  CARD_RAGE,
   MANA_RED,
   MANA_BLUE,
   MANA_GREEN,
@@ -28,11 +37,16 @@ import {
 } from "@mage-knight/shared";
 import {
   SKILL_ARYTHEA_DARK_PATHS,
+  SKILL_BRAEVALAR_SHAPESHIFT,
   SKILL_NOROWAS_INSPIRATION,
+  SKILL_NOROWAS_LEADERSHIP,
   SKILL_NOROWAS_PRAYER_OF_WEATHER,
+  SKILL_TOVAK_SHIELD_MASTERY,
   SKILL_WOLFHAWK_ON_HER_OWN,
 } from "../../data/skills/index.js";
 import { SKILL_NOROWAS_BONDS_OF_LOYALTY } from "../../data/skills/norowas/bondsOfLoyalty.js";
+import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
+import { EFFECT_LEADERSHIP_BONUS } from "../../types/modifierConstants.js";
 
 function getPlayer(state: ReturnType<typeof createTestGameState>) {
   return state.players[0]!;
@@ -42,6 +56,28 @@ function getCircletBasicOptions(result: ReturnType<typeof resolveEffect>): reado
   expect(result.requiresChoice).toBe(true);
   expect(result.dynamicChoiceOptions).toBeDefined();
   return result.dynamicChoiceOptions!;
+}
+
+function getShapeshiftTargetCardId(effect: CardEffect): string | null {
+  if (effect.type === EFFECT_SHAPESHIFT_RESOLVE) {
+    return (effect as ShapeshiftResolveEffect).targetCardId;
+  }
+
+  if (effect.type === EFFECT_COMPOUND) {
+    const firstEffect = effect.effects[0];
+    if (firstEffect?.type === EFFECT_SHAPESHIFT_RESOLVE) {
+      return (firstEffect as ShapeshiftResolveEffect).targetCardId;
+    }
+  }
+
+  return null;
+}
+
+function getCircletDoubleUseEffects(effect: CardEffect): readonly [CardEffect, CardEffect] {
+  expect(effect.type).toBe(EFFECT_COMPOUND);
+  const compound = effect as CompoundEffect;
+  expect(compound.effects).toHaveLength(2);
+  return [compound.effects[0]!, compound.effects[1]!];
 }
 
 describe("Circlet of Proficiency card definition", () => {
@@ -216,5 +252,145 @@ describe("EFFECT_CIRCLET_OF_PROFICIENCY_POWERED", () => {
     );
 
     expect(activatableSkillIds.has(SKILL_ARYTHEA_DARK_PATHS)).toBe(true);
+  });
+});
+
+describe("Circlet FAQ interactions", () => {
+  it("uses Shield Mastery twice as one Circlet resolution flow", () => {
+    const player = createTestPlayer({
+      hand: [CARD_CIRCLET_OF_PROFICIENCY],
+      skills: [],
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      offers: {
+        ...createTestGameState().offers,
+        commonSkills: [SKILL_TOVAK_SHIELD_MASTERY],
+      },
+    });
+
+    const basicResult = resolveEffect(state, "player1", {
+      type: EFFECT_CIRCLET_OF_PROFICIENCY_BASIC,
+    });
+    const [firstUse, secondUse] = getCircletDoubleUseEffects(
+      getCircletBasicOptions(basicResult)[0]!
+    );
+
+    const firstUseResult = resolveEffect(state, "player1", firstUse);
+    expect(firstUseResult.requiresChoice).toBe(true);
+
+    const afterFirstChoice = resolveEffect(
+      firstUseResult.state,
+      "player1",
+      firstUseResult.dynamicChoiceOptions![0]!
+    );
+    expect(afterFirstChoice.requiresChoice).not.toBe(true);
+
+    const secondUseResult = resolveEffect(afterFirstChoice.state, "player1", secondUse);
+    expect(secondUseResult.requiresChoice).toBe(true);
+
+    const afterSecondChoice = resolveEffect(
+      secondUseResult.state,
+      "player1",
+      secondUseResult.dynamicChoiceOptions![0]!
+    );
+
+    expect(getPlayer(afterSecondChoice.state).combatAccumulator.block).toBe(6);
+  });
+
+  it("resolves Leadership twice and creates two separate Leadership modifiers", () => {
+    const player = createTestPlayer({
+      hand: [CARD_CIRCLET_OF_PROFICIENCY],
+      skills: [],
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      offers: {
+        ...createTestGameState().offers,
+        commonSkills: [SKILL_NOROWAS_LEADERSHIP],
+      },
+    });
+
+    const basicResult = resolveEffect(state, "player1", {
+      type: EFFECT_CIRCLET_OF_PROFICIENCY_BASIC,
+    });
+    const [firstUse, secondUse] = getCircletDoubleUseEffects(
+      getCircletBasicOptions(basicResult)[0]!
+    );
+
+    const firstUseResult = resolveEffect(state, "player1", firstUse);
+    expect(firstUseResult.requiresChoice).toBe(true);
+
+    const afterFirstChoice = resolveEffect(
+      firstUseResult.state,
+      "player1",
+      firstUseResult.dynamicChoiceOptions![1]!
+    );
+    expect(afterFirstChoice.requiresChoice).not.toBe(true);
+
+    const secondUseResult = resolveEffect(afterFirstChoice.state, "player1", secondUse);
+    expect(secondUseResult.requiresChoice).toBe(true);
+
+    const final = resolveEffect(
+      secondUseResult.state,
+      "player1",
+      secondUseResult.dynamicChoiceOptions![1]!
+    );
+
+    const leadershipModifiers = final.state.activeModifiers.filter(
+      (modifier) => modifier.effect.type === EFFECT_LEADERSHIP_BONUS
+    );
+    expect(leadershipModifiers).toHaveLength(2);
+  });
+
+  it("uses Shapeshift on two different cards when doubled by Circlet", () => {
+    const player = createTestPlayer({
+      hand: [CARD_CIRCLET_OF_PROFICIENCY, CARD_MARCH, CARD_RAGE],
+      skills: [],
+    });
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        ...createTestGameState().offers,
+        commonSkills: [SKILL_BRAEVALAR_SHAPESHIFT],
+      },
+    });
+
+    const basicResult = resolveEffect(state, "player1", {
+      type: EFFECT_CIRCLET_OF_PROFICIENCY_BASIC,
+    });
+    const [firstUse, secondUse] = getCircletDoubleUseEffects(
+      getCircletBasicOptions(basicResult)[0]!
+    );
+
+    const firstUseResult = resolveEffect(state, "player1", firstUse);
+    expect(firstUseResult.requiresChoice).toBe(true);
+    const firstShapeshiftOptions = firstUseResult.dynamicChoiceOptions ?? [];
+
+    const firstMarchOptionIndex = firstShapeshiftOptions.findIndex(
+      (option) => getShapeshiftTargetCardId(option) === CARD_MARCH
+    );
+    expect(firstMarchOptionIndex).toBeGreaterThanOrEqual(0);
+
+    const afterFirstShapeshiftUse = resolveEffect(
+      firstUseResult.state,
+      "player1",
+      firstShapeshiftOptions[firstMarchOptionIndex]!
+    );
+
+    const secondUseResult = resolveEffect(afterFirstShapeshiftUse.state, "player1", secondUse);
+    expect(secondUseResult.requiresChoice).toBe(true);
+    const secondShapeshiftOptions = secondUseResult.dynamicChoiceOptions ?? [];
+
+    const secondChoiceTargetIds = new Set(
+      secondShapeshiftOptions
+        .map((option) => getShapeshiftTargetCardId(option))
+        .filter((cardId): cardId is string => cardId !== null)
+    );
+
+    expect(secondChoiceTargetIds.has(CARD_MARCH)).toBe(false);
+    expect(secondChoiceTargetIds.has(CARD_RAGE)).toBe(true);
   });
 });
