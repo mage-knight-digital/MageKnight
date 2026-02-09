@@ -222,6 +222,7 @@ export interface EnemyStatModifier {
   readonly perResistance?: boolean; // Resistance Break: -1 per resistance
   readonly fortifiedAmount?: number; // Earthquake: alternative amount if target is fortified
   readonly excludeResistance?: ResistanceType; // Demolish: skip enemies with this resistance
+  readonly onlyIfEnemyAttacks?: boolean; // Taunt: armor reduction only if enemy actually attacks
 }
 
 // Rule override modifier (e.g., "ignore fortification")

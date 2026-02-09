@@ -102,6 +102,10 @@ export function getEffectiveEnemyArmor(
     if (mod.excludeResistance && enemyResistances.includes(mod.excludeResistance)) {
       continue;
     }
+    // Taunt: armor reduction only applies if enemy actually attacks (not prevented by Possess/Chill)
+    if (mod.onlyIfEnemyAttacks && !doesEnemyAttackThisCombat(state, enemyId)) {
+      continue;
+    }
     if (mod.perResistance) {
       // Resistance Break: -1 per resistance
       armor += mod.amount * resistanceCount;
