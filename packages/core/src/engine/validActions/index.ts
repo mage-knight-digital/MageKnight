@@ -40,6 +40,7 @@ import {
   getDeepMineOptions,
   getDiscardCostOptions,
   getDiscardForAttackOptions,
+  getDiscardForBonusOptions,
   getDiscardForCrystalOptions,
   getDecomposeOptions,
   getMaximalEffectOptions,
@@ -157,6 +158,13 @@ export function getValidActions(
       mode: "pending_discard_for_attack",
       turn: { canUndo: getTurnOptions(state, player).canUndo },
       discardForAttack: getDiscardForAttackOptions(state, player),
+    };
+  }
+  if (player.pendingDiscardForBonus) {
+    return {
+      mode: "pending_discard_for_bonus",
+      turn: { canUndo: getTurnOptions(state, player).canUndo },
+      discardForBonus: getDiscardForBonusOptions(state, player),
     };
   }
   if (player.pendingDiscardForCrystal) {

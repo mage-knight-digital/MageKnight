@@ -829,6 +829,37 @@ export interface DiscardForAttackOptions {
 }
 
 // ============================================================================
+// Discard for Bonus (Stout Resolve)
+// ============================================================================
+
+/**
+ * Options for discard for bonus resolution (Stout Resolve card effect).
+ * Only present when player has a pending discard-for-bonus state.
+ * Player selects 0 or more cards to discard and a choice option.
+ * Bonus = bonusPerCard × cards discarded is added to the chosen effect.
+ */
+export interface DiscardForBonusOptions {
+  /** Source card that triggered the discard-for-bonus */
+  readonly sourceCardId: CardId;
+  /** Cards available to discard from hand */
+  readonly availableCardIds: readonly CardId[];
+  /** Bonus per card discarded (e.g., +1 for basic, +2 for powered) */
+  readonly bonusPerCard: number;
+  /** Maximum number of cards that can be discarded */
+  readonly maxDiscards: number;
+  /** Filter type: "wound_only" or "any_max_one_wound" */
+  readonly discardFilter: "wound_only" | "any_max_one_wound";
+  /** Number of choice options (Move/Influence/Attack/Block) */
+  readonly choiceCount: number;
+}
+
+export interface PendingDiscardForBonusState {
+  readonly mode: "pending_discard_for_bonus";
+  readonly turn: BlockingTurnOptions;
+  readonly discardForBonus: DiscardForBonusOptions;
+}
+
+// ============================================================================
 // Discard for Crystal (Savage Harvesting)
 // ============================================================================
 
@@ -1372,6 +1403,7 @@ export type ValidActions =
   | PendingDeepMineState
   | PendingDiscardCostState
   | PendingDiscardForAttackState
+  | PendingDiscardForBonusState
   | PendingDiscardForCrystalState
   | PendingDecomposeState
   | PendingMaximalEffectState

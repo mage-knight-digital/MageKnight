@@ -192,6 +192,7 @@ export type {
   PendingDeepMineState,
   PendingDiscardCostState,
   PendingDiscardForAttackState,
+  PendingDiscardForBonusState,
   PendingDiscardForCrystalState,
   PendingArtifactCrystalColorState,
   PendingCrystalJoyState,
@@ -253,6 +254,8 @@ export type {
   DiscardCostOptions,
   // Discard for attack options (Sword of Justice)
   DiscardForAttackOptions,
+  // Discard for bonus options (Stout Resolve)
+  DiscardForBonusOptions,
   // Discard for crystal options (Savage Harvesting)
   DiscardForCrystalOptions,
   ArtifactCrystalColorOptions,

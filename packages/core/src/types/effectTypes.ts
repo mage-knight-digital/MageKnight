@@ -454,6 +454,12 @@ export const EFFECT_PEACEFUL_MOMENT_HEAL = "peaceful_moment_heal" as const;
 // Internal: resolve a unit refresh (deduct influence, ready unit).
 export const EFFECT_PEACEFUL_MOMENT_REFRESH = "peaceful_moment_refresh" as const;
 
+// === Discard for Bonus Effect ===
+// Optionally discard cards from hand to increase a chosen effect.
+// Basic (Stout Resolve): discard 0-1 wound → +bonusPerCard per discard.
+// Powered (Stout Resolve): discard 0+ cards (max 1 wound) → +bonusPerCard per discard.
+export const EFFECT_DISCARD_FOR_BONUS = "discard_for_bonus" as const;
+
 // === Spell Forge Effects ===
 // Basic: Choose a spell card from the Spells Offer, gain a crystal of that spell's color.
 export const EFFECT_SPELL_FORGE_BASIC = "spell_forge_basic" as const;

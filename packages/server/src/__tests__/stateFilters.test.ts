@@ -98,6 +98,7 @@ function createMinimalGameState(): GameState {
         pendingDeepMineChoice: null,
         pendingUnitMaintenance: null,
         pendingDiscardForAttack: null,
+        pendingDiscardForBonus: null,
         pendingDiscardForCrystal: null,
         pendingDecompose: null,
         pendingMaximalEffect: null,

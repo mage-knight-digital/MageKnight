@@ -68,6 +68,7 @@ import {
   EFFECT_DISCARD_COST,
   EFFECT_GRANT_WOUND_IMMUNITY,
   EFFECT_DISCARD_FOR_ATTACK,
+  EFFECT_DISCARD_FOR_BONUS,
   EFFECT_FAME_PER_ENEMY_DEFEATED,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
   EFFECT_ATTACK_WITH_DEFEAT_BONUS,
@@ -682,6 +683,32 @@ export interface DiscardForAttackEffect {
   readonly attackPerCard: number;
   /** Combat type for the attack (usually melee) */
   readonly combatType: CombatType;
+}
+
+/**
+ * Optionally discard cards from hand to increase a chosen effect.
+ * Used by Stout Resolve.
+ *
+ * Resolution:
+ * 1. Create pendingDiscardForBonus state with the choice options
+ * 2. Player selects 0 or more cards to discard
+ * 3. Bonus = bonusPerCard × cards discarded
+ * 4. Choice effect resolves with the bonus added to all options
+ *
+ * The discardFilter controls which cards can be discarded:
+ * - "wound_only": Only wound cards (Stout Resolve basic)
+ * - "any_max_one_wound": Any cards, but at most 1 wound (Stout Resolve powered)
+ */
+export interface DiscardForBonusEffect {
+  readonly type: typeof EFFECT_DISCARD_FOR_BONUS;
+  /** The choice of effects to present after discard */
+  readonly choiceOptions: readonly CardEffect[];
+  /** Bonus added to the chosen effect per card discarded */
+  readonly bonusPerCard: number;
+  /** Maximum number of cards that can be discarded (Infinity for "any number") */
+  readonly maxDiscards: number;
+  /** Filter for which cards can be discarded */
+  readonly discardFilter: "wound_only" | "any_max_one_wound";
 }
 
 /**
@@ -1838,6 +1865,7 @@ export type CardEffect =
   | DiscardCostEffect
   | GrantWoundImmunityEffect
   | DiscardForAttackEffect
+  | DiscardForBonusEffect
   | FamePerEnemyDefeatedEffect
   | TrackAttackDefeatFameEffect
   | AttackWithDefeatBonusEffect

@@ -500,6 +500,16 @@ export interface ResolveDiscardForAttackAction {
   readonly cardIds: readonly CardId[];
 }
 
+// Discard for bonus action (Stout Resolve)
+export const RESOLVE_DISCARD_FOR_BONUS_ACTION = "RESOLVE_DISCARD_FOR_BONUS" as const;
+export interface ResolveDiscardForBonusAction {
+  readonly type: typeof RESOLVE_DISCARD_FOR_BONUS_ACTION;
+  /** Card IDs to discard (0 or more). Empty array = skip discarding. */
+  readonly cardIds: readonly CardId[];
+  /** Which choice option to select (0-indexed: Move/Influence/Attack/Block) */
+  readonly choiceIndex: number;
+}
+
 // Discard for crystal action (Savage Harvesting)
 export const RESOLVE_DISCARD_FOR_CRYSTAL_ACTION = "RESOLVE_DISCARD_FOR_CRYSTAL" as const;
 export interface ResolveDiscardForCrystalAction {
@@ -825,6 +835,8 @@ export type PlayerAction =
   | ResolveDiscardAction
   // Discard for attack (Sword of Justice)
   | ResolveDiscardForAttackAction
+  // Discard for bonus (Stout Resolve)
+  | ResolveDiscardForBonusAction
   // Discard for crystal (Savage Harvesting)
   | ResolveDiscardForCrystalAction
   // Meditation spell

@@ -71,6 +71,7 @@ import { registerHandLimitBonusEffects } from "./handLimitBonusEffects.js";
 import { registerTomeOfAllSpellsEffects } from "./tomeOfAllSpellsEffects.js";
 import { registerSpellForgeEffects } from "./spellForgeEffects.js";
 import { registerPeacefulMomentEffects } from "./peacefulMomentEffects.js";
+import { registerStoutResolveEffects } from "./stoutResolveEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -266,4 +267,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Peaceful Moment effects (influence-to-heal conversion and unit refresh)
   registerPeacefulMomentEffects();
+
+  // Stout Resolve effects (discard for bonus)
+  registerStoutResolveEffects();
 }
