@@ -557,6 +557,8 @@ export interface SelectCombatEnemyEffect {
   readonly excludeResistance?: ResistanceType;
   /** If true, exclude Summoner enemies (with ABILITY_SUMMON or ABILITY_SUMMON_GREEN) from targeting */
   readonly excludeSummoners?: boolean;
+  /** If true, exclude summoned enemies (those with summonedByInstanceId set) from targeting */
+  readonly excludeSummoned?: boolean;
   /**
    * Maximum number of enemies that can be targeted (default: 1).
    * When > 1, after each selection the player can choose another target or stop.
