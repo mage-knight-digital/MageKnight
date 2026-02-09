@@ -229,10 +229,7 @@ export function isAbilityNullified(
   enemyId: string,
   abilityType: EnemyAbility["type"]
 ): boolean {
-  // Arcane Immunity blocks ability nullification effects
-  if (hasArcaneImmunity(state, enemyId)) {
-    return false;
-  }
+  const enemyHasArcaneImmunity = hasArcaneImmunity(state, enemyId);
 
   const modifiers = getModifiersForPlayer(state, playerId)
     .filter((m) => m.effect.type === EFFECT_ABILITY_NULLIFIER)
@@ -242,6 +239,12 @@ export function isAbilityNullified(
     }));
 
   for (const mod of modifiers) {
+    // Arcane Immunity blocks standard ability nullification effects.
+    // Some effects can explicitly bypass this with ignoreArcaneImmunity.
+    if (enemyHasArcaneImmunity && !mod.effect.ignoreArcaneImmunity) {
+      continue;
+    }
+
     // Check scope targets this enemy
     if (mod.scope.type === SCOPE_ONE_ENEMY && mod.scope.enemyId !== enemyId)
       continue;

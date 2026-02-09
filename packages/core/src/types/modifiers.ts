@@ -259,6 +259,11 @@ export interface RuleOverrideModifier {
 export interface AbilityNullifierModifier {
   readonly type: typeof EFFECT_ABILITY_NULLIFIER;
   readonly ability: EnemyAbility["type"] | typeof ABILITY_ANY;
+  /**
+   * If true, this nullifier can affect Arcane Immune enemies.
+   * Use sparingly for effects that explicitly bypass Arcane Immunity.
+   */
+  readonly ignoreArcaneImmunity?: boolean;
 }
 
 // Enemy skip attack modifier (e.g., "enemy does not attack this combat")

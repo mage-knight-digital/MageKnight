@@ -40,6 +40,7 @@ import { registerEffect } from "./effectRegistry.js";
 import { addModifier } from "../modifiers/index.js";
 import {
   DURATION_COMBAT,
+  EFFECT_ABILITY_NULLIFIER,
   EFFECT_DEFEAT_IF_BLOCKED,
   EFFECT_ENEMY_STAT,
   EFFECT_GRANT_ENEMY_ABILITY,
@@ -120,6 +121,11 @@ export function resolveSelectCombatEnemy(
         e.definition.abilities.includes(ABILITY_SUMMON) ||
         e.definition.abilities.includes(ABILITY_SUMMON_GREEN)
       ) return false;
+    }
+
+    // Filter out summoned enemies (e.g., Chilling Stare powered must target summoner)
+    if (effect.excludeSummoned && e.summonedByInstanceId !== undefined) {
+      return false;
     }
 
     return true;
@@ -248,9 +254,17 @@ export function resolveCombatEnemyTarget(
       const isAttackReduction =
         mod.modifier.type === EFFECT_ENEMY_STAT &&
         mod.modifier.stat === ENEMY_STAT_ATTACK;
+      const isArcaneBypassAbilityNullifier =
+        mod.modifier.type === EFFECT_ABILITY_NULLIFIER &&
+        mod.modifier.ignoreArcaneImmunity === true;
       const isGrantCumbersome =
         mod.modifier.type === EFFECT_GRANT_ENEMY_ABILITY;
-      if (hasArcaneImmunity && !isAttackReduction && !isGrantCumbersome) {
+      if (
+        hasArcaneImmunity &&
+        !isAttackReduction &&
+        !isArcaneBypassAbilityNullifier &&
+        !isGrantCumbersome
+      ) {
         descriptions.push(`${effect.enemyName} has Arcane Immunity (modifier blocked)`);
         continue;
       }
