@@ -30,6 +30,7 @@ import {
   validateSkillInCenter,
   validateNotOwnSkill,
   validateShamanicRitualFlipBack,
+  validateArcaneDisguiseFlipBack,
 } from "../returnInteractiveSkillValidators.js";
 
 export const skillRegistry: Record<string, Validator[]> = {
@@ -51,6 +52,7 @@ export const skillRegistry: Record<string, Validator[]> = {
     validateRoundPhase,
     validateNoChoicePending,
     validateShamanicRitualFlipBack,
+    validateArcaneDisguiseFlipBack,
     validateSkillInCenter,
     validateNotOwnSkill,
   ],

@@ -15,9 +15,10 @@ import {
   SKILL_GOLDYX_SOURCE_OPENING,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
   SKILL_KRANG_SHAMANIC_RITUAL,
+  SKILL_KRANG_ARCANE_DISGUISE,
   SKILL_WOLFHAWK_WOLFS_HOWL,
 } from "../../data/skills/index.js";
-import type { SkillId } from "@mage-knight/shared";
+import { MANA_GREEN, type SkillId } from "@mage-knight/shared";
 
 /** Skills that support the return mechanic */
 const RETURNABLE_SKILL_IDS = new Set<SkillId>([
@@ -34,6 +35,7 @@ const RETURN_BENEFITS: Record<string, string> = {
   [SKILL_BRAEVALAR_NATURES_VENGEANCE]: "Reduce one enemy's attack by 1, gains Cumbersome",
   [SKILL_WOLFHAWK_WOLFS_HOWL]: "Reduce one enemy's armor by 1 (min 1), and one enemy's attack by 1",
   [SKILL_KRANG_SHAMANIC_RITUAL]: "Flip back face-up (uses your action this turn)",
+  [SKILL_KRANG_ARCANE_DISGUISE]: "Pay 1 green mana to flip back face-up",
 };
 
 /**
@@ -88,6 +90,23 @@ export function getReturnableSkillOptions(
         name: skill.name,
         returnBenefit:
           RETURN_BENEFITS[SKILL_KRANG_SHAMANIC_RITUAL] ?? skill.description,
+      });
+    }
+  }
+
+  // Arcane Disguise special case: owner may pay one green mana to flip it back.
+  if (
+    player.skills.includes(SKILL_KRANG_ARCANE_DISGUISE) &&
+    player.skillFlipState.flippedSkills.includes(SKILL_KRANG_ARCANE_DISGUISE) &&
+    player.pureMana.some((token) => token.color === MANA_GREEN)
+  ) {
+    const skill = SKILLS[SKILL_KRANG_ARCANE_DISGUISE];
+    if (skill) {
+      returnable.push({
+        skillId: SKILL_KRANG_ARCANE_DISGUISE,
+        name: skill.name,
+        returnBenefit:
+          RETURN_BENEFITS[SKILL_KRANG_ARCANE_DISGUISE] ?? skill.description,
       });
     }
   }

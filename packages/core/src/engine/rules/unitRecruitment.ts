@@ -26,9 +26,27 @@ import {
   type UnitDefinition,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
-import { EFFECT_RECRUIT_DISCOUNT, EFFECT_RECRUITMENT_BONUS, EFFECT_INTERACTION_BONUS, EFFECT_LEARNING_DISCOUNT } from "../../types/modifierConstants.js";
+import {
+  EFFECT_RECRUIT_DISCOUNT,
+  EFFECT_RECRUITMENT_BONUS,
+  EFFECT_INTERACTION_BONUS,
+  EFFECT_LEARNING_DISCOUNT,
+  RULE_IGNORE_REPUTATION,
+} from "../../types/modifierConstants.js";
 import type { UnitRecruitmentBonusModifier, InteractionBonusModifier, LearningDiscountModifier } from "../../types/modifiers.js";
 import { getModifiersForPlayer } from "../modifiers/queries.js";
+import { isRuleActive } from "../modifiers/index.js";
+
+/**
+ * Check if reputation effects should be ignored for the player.
+ * Used by Arcane Disguise.
+ */
+export function shouldIgnoreReputationEffects(
+  state: GameState,
+  playerId: string
+): boolean {
+  return isRuleActive(state, playerId, RULE_IGNORE_REPUTATION);
+}
 
 /**
  * Reputation cost modifier based on player's reputation track position.
@@ -54,8 +72,13 @@ import { getModifiersForPlayer } from "../modifiers/queries.js";
 export function getReputationCostModifier(
   reputation: number,
   unitId?: UnitId,
-  hasRecruitedHeroThisInteraction?: boolean
+  hasRecruitedHeroThisInteraction?: boolean,
+  ignoreReputationEffects: boolean = false
 ): number {
+  if (ignoreReputationEffects) {
+    return 0;
+  }
+
   // Clamp to valid range
   const rep = Math.max(MIN_REPUTATION, Math.min(MAX_REPUTATION, reputation));
 

@@ -7,7 +7,7 @@
  */
 
 import type { Validator } from "./types.js";
-import type { ReturnInteractiveSkillAction } from "@mage-knight/shared";
+import { MANA_GREEN, type ReturnInteractiveSkillAction } from "@mage-knight/shared";
 import { valid, invalid } from "./types.js";
 import {
   SKILL_NOT_IN_CENTER,
@@ -22,6 +22,7 @@ import {
 import {
   SKILL_GOLDYX_SOURCE_OPENING,
   SKILL_KRANG_SHAMANIC_RITUAL,
+  SKILL_KRANG_ARCANE_DISGUISE,
 } from "../../data/skills/index.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 
@@ -29,27 +30,32 @@ function isShamanicRitualFlipBack(skillId: string): boolean {
   return skillId === SKILL_KRANG_SHAMANIC_RITUAL;
 }
 
+function isArcaneDisguiseFlipBack(skillId: string): boolean {
+  return skillId === SKILL_KRANG_ARCANE_DISGUISE;
+}
+
 /**
  * Validates that the skill is currently in the center (has center modifiers).
  */
 export const validateSkillInCenter: Validator = (state, _playerId, action) => {
   const returnAction = action as ReturnInteractiveSkillAction;
-  if (isShamanicRitualFlipBack(returnAction.skillId)) {
+  if (
+    isShamanicRitualFlipBack(returnAction.skillId) ||
+    isArcaneDisguiseFlipBack(returnAction.skillId)
+  ) {
     const player = getPlayerById(state, _playerId);
     if (!player) {
       return invalid(PLAYER_NOT_FOUND, "Player not found");
     }
 
-    if (
-      player.skills.includes(SKILL_KRANG_SHAMANIC_RITUAL) &&
-      player.skillFlipState.flippedSkills.includes(SKILL_KRANG_SHAMANIC_RITUAL)
-    ) {
+    const skillId = returnAction.skillId;
+    if (player.skills.includes(skillId) && player.skillFlipState.flippedSkills.includes(skillId)) {
       return valid();
     }
 
     return invalid(
       SKILL_NOT_IN_CENTER,
-      "Shamanic Ritual is not face-down and cannot be flipped back"
+      `${skillId} is not face-down and cannot be flipped back`
     );
   }
 
@@ -78,7 +84,10 @@ export const validateSkillInCenter: Validator = (state, _playerId, action) => {
  */
 export const validateNotOwnSkill: Validator = (state, playerId, action) => {
   const returnAction = action as ReturnInteractiveSkillAction;
-  if (isShamanicRitualFlipBack(returnAction.skillId)) {
+  if (
+    isShamanicRitualFlipBack(returnAction.skillId) ||
+    isArcaneDisguiseFlipBack(returnAction.skillId)
+  ) {
     return valid();
   }
 
@@ -139,6 +148,37 @@ export const validateShamanicRitualFlipBack: Validator = (
     return invalid(
       ALREADY_ACTED,
       "Flipping back Shamanic Ritual uses your action for this turn"
+    );
+  }
+
+  return valid();
+};
+
+/**
+ * Validates Arcane Disguise's flip-back constraints:
+ * - Skill is face-down on owner (checked by validateSkillInCenter)
+ * - Owner must pay one green mana token
+ * - Does not consume action, so no hasTakenActionThisTurn checks
+ */
+export const validateArcaneDisguiseFlipBack: Validator = (
+  state,
+  playerId,
+  action
+) => {
+  const returnAction = action as ReturnInteractiveSkillAction;
+  if (!isArcaneDisguiseFlipBack(returnAction.skillId)) {
+    return valid();
+  }
+
+  const player = getPlayerById(state, playerId);
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
+  if (!player.pureMana.some((token) => token.color === MANA_GREEN)) {
+    return invalid(
+      SKILL_NOT_IN_CENTER,
+      "Arcane Disguise flip-back requires 1 green mana token"
     );
   }
 

@@ -40,6 +40,7 @@ import {
   hasRecruitedHeroThisInteraction,
   getActiveRecruitDiscount,
   isGladeRecruitment,
+  shouldIgnoreReputationEffects,
 } from "../../rules/unitRecruitment.js";
 import { getEffectiveCommandTokens, isBondsSlotEmpty, isBondsUnit, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
@@ -58,6 +59,7 @@ export function validateReputationNotX(
   // Magical Glade recruitment ignores reputation entirely
   const site = getPlayerSite(state, playerId);
   if (site && isGladeRecruitment(site.type)) return valid();
+  if (shouldIgnoreReputationEffects(state, playerId)) return valid();
 
   const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
@@ -171,7 +173,8 @@ export function validateInfluenceCost(
     const reputationModifier = getReputationCostModifier(
       player.reputation,
       action.unitId,
-      heroAlreadyRecruited
+      heroAlreadyRecruited,
+      shouldIgnoreReputationEffects(state, playerId)
     );
     requiredCost = Math.max(0, requiredCost + reputationModifier);
   }
