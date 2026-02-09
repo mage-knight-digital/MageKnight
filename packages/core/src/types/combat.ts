@@ -131,6 +131,7 @@ export interface CombatState {
   readonly phase: CombatPhase;
   readonly enemies: readonly CombatEnemy[];
   readonly woundsThisCombat: number; // Track for knockout
+  readonly woundsAddedToHandThisCombat: boolean; // Track for Dodge and Weave conditional attack
   readonly attacksThisPhase: number; // Track attacks made
   readonly fameGained: number; // Accumulated fame from defeated enemies
   readonly isAtFortifiedSite: boolean; // Site fortification (Keeps, Mage Towers, Cities)
@@ -301,6 +302,7 @@ export function createCombatState(
     phase: COMBAT_PHASE_RANGED_SIEGE,
     enemies,
     woundsThisCombat: 0,
+    woundsAddedToHandThisCombat: false,
     attacksThisPhase: 0,
     fameGained: 0,
     isAtFortifiedSite,
