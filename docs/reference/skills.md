@@ -126,7 +126,7 @@ Krang focuses on chaos, enemy manipulation, and unconventional tactics.
 | **Puppet Master** | Once/Turn | Keep 1 defeated enemy token, or discard kept token for: Attack at half its Attack (rounded up) or Block at half its Armor (rounded up). Elements transfer. |
 | **Master of Chaos** | Once/Turn | Rotate shield clockwise to next color for: Blue=Block 3, Green=Move 1, Black=Cold Fire Ranged Attack 1, White=Influence 2, Red=Attack 2, Gold=choose any. |
 | **Curse** | Once/Turn | Enemy Attack -1 or enemy Armor -1 (min 1). Cannot use on fortified enemy in Ranged/Siege phase. |
-| **Mana Suppression** | Interactive | Place in center. Until your next turn: first basic mana used each player's turn costs extra mana of that color (goes on token). Then gain crystal matching one token color. |
+| **Mana Enhancement** | Interactive | Once per round, when you spend red/blue/green/white mana, gain a crystal of that color and place this skill token in the center until the start of your next turn. Other players may return it to gain the marked mana token. |
 
 ---
 

@@ -49,6 +49,7 @@ import {
   consumeManaForAbility,
   restoreManaForAbility,
 } from "./helpers/manaConsumptionHelpers.js";
+import { applyManaEnhancementTrigger } from "../skills/index.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
 import { resolveEffect, reverseEffect } from "../../effects/index.js";
 import { checkManaCurseWound } from "../../effects/manaClaimEffects.js";
@@ -138,6 +139,15 @@ export function createActivateUnitCommand(
   // Store consumed Leadership modifier for undo (full modifier to restore)
   let consumedLeadershipModifier: ActiveModifier | null = null;
   let leadershipBonusApplied = 0;
+  // Store Mana Enhancement trigger state for undo
+  let manaEnhancementTriggered = false;
+  let manaEnhancementPreviousCrystals: Player["crystals"] | null = null;
+  let manaEnhancementPreviousSkillCooldowns: Player["skillCooldowns"] | null =
+    null;
+  let manaEnhancementPreviousModifiers: GameState["activeModifiers"] | null =
+    null;
+  let manaEnhancementPreviousCenter: GameState["manaEnhancementCenter"] | null =
+    null;
 
   return {
     type: ACTIVATE_UNIT_COMMAND,
@@ -199,6 +209,25 @@ export function createActivateUnitCommand(
         tempPlayers[playerIndex] = player;
         const tempState: GameState = { ...state, players: tempPlayers, source: updatedSource };
         curseUpdatedState = checkManaCurseWound(tempState, params.playerId, params.manaSource.color);
+        const stateBeforeEnhancement = curseUpdatedState;
+        const stateAfterEnhancement = applyManaEnhancementTrigger(
+          curseUpdatedState,
+          params.playerId,
+          params.manaSource.color
+        );
+        if (stateAfterEnhancement !== curseUpdatedState) {
+          manaEnhancementTriggered = true;
+          const playerBeforeEnhancement =
+            stateBeforeEnhancement.players[playerIndex];
+          if (playerBeforeEnhancement) {
+            manaEnhancementPreviousCrystals = playerBeforeEnhancement.crystals;
+            manaEnhancementPreviousSkillCooldowns =
+              playerBeforeEnhancement.skillCooldowns;
+          }
+          manaEnhancementPreviousModifiers = stateBeforeEnhancement.activeModifiers;
+          manaEnhancementPreviousCenter = stateBeforeEnhancement.manaEnhancementCenter;
+        }
+        curseUpdatedState = stateAfterEnhancement;
         // If curse added a wound, update our working player copy
         const cursePlayer = curseUpdatedState.players[playerIndex];
         if (cursePlayer) {
@@ -602,6 +631,33 @@ export function createActivateUnitCommand(
         throw new Error(`Player not found: ${params.playerId}`);
       }
 
+      const restoreManaEnhancementState = (baseState: GameState): GameState => {
+        if (
+          !manaEnhancementTriggered ||
+          !manaEnhancementPreviousCrystals ||
+          !manaEnhancementPreviousSkillCooldowns ||
+          !manaEnhancementPreviousModifiers
+        ) {
+          return baseState;
+        }
+
+        const restoredPlayers = [...baseState.players];
+        const restoredPlayer = restoredPlayers[playerIndex];
+        if (restoredPlayer) {
+          restoredPlayers[playerIndex] = {
+            ...restoredPlayer,
+            crystals: manaEnhancementPreviousCrystals,
+            skillCooldowns: manaEnhancementPreviousSkillCooldowns,
+          };
+        }
+        return {
+          ...baseState,
+          players: restoredPlayers,
+          activeModifiers: manaEnhancementPreviousModifiers,
+          manaEnhancementCenter: manaEnhancementPreviousCenter,
+        };
+      };
+
       const unitIndex = player.units.findIndex(
         (u) => u.instanceId === params.unitInstanceId
       );
@@ -672,11 +728,11 @@ export function createActivateUnitCommand(
         players[playerIndex] = updatedPlayer;
 
         return {
-          state: {
+          state: restoreManaEnhancementState({
             ...state,
             players,
             source: updatedSource,
-          },
+          }),
           events: [],
         };
       }
@@ -723,13 +779,13 @@ export function createActivateUnitCommand(
       }
 
       return {
-        state: {
+        state: restoreManaEnhancementState({
           ...state,
           players,
           source: updatedSource,
           woundPileCount: restoredWoundPileCount,
           activeModifiers: restoredModifiers,
-        },
+        }),
         events: [],
       };
     },

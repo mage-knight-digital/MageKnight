@@ -174,6 +174,8 @@ export function createEndRoundCommand(): Command {
           pendingCooperativeAssault: null,
           // Clear Mana Overload center (skill returns to owner at round end)
           manaOverloadCenter: null,
+          // Clear Mana Enhancement center (expires before owner's next turn)
+          manaEnhancementCenter: null,
           // Initialize tactics selection phase
           roundPhase: ROUND_PHASE_TACTICS_SELECTION,
           availableTactics: tacticsSetup.availableTactics,

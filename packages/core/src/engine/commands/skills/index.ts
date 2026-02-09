@@ -103,3 +103,9 @@ export {
   getBlockElementFromResistances,
   createKeptTokenFromEnemy,
 } from "./puppetMasterEffect.js";
+
+export {
+  applyManaEnhancementTrigger,
+  applyManaEnhancementClaimBenefit,
+  expireManaEnhancementAtTurnStart,
+} from "./manaEnhancementEffect.js";

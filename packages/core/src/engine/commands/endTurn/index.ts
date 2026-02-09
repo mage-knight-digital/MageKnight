@@ -41,6 +41,7 @@ import { RULE_TIME_BENDING_ACTIVE } from "../../../types/modifierConstants.js";
 import { processSourceOpeningCrystal } from "./sourceOpeningCrystal.js";
 import { applyMountainLoreEndTurnBonus } from "./mountainLoreBonus.js";
 import { processMysteriousBoxCleanup } from "./mysteriousBoxCleanup.js";
+import { expireManaEnhancementAtTurnStart } from "../skills/index.js";
 
 export { END_TURN_COMMAND };
 export type { EndTurnCommandParams };
@@ -366,6 +367,11 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
         nextPlayerResult.nextPlayerId &&
         !isDummyPlayer(nextPlayerResult.nextPlayerId)
       ) {
+        newState = expireManaEnhancementAtTurnStart(
+          newState,
+          nextPlayerResult.nextPlayerId
+        );
+
         const currentPlayerAfterReset = newState.players.find(
           (p) => p.id === params.playerId
         );
