@@ -36,6 +36,8 @@ import {
   ENEMY_DIGGERS,
 } from "@mage-knight/shared";
 import type { EnemyDefinition } from "@mage-knight/shared";
+import { computeBlockPhaseOptions, computeEnemyBlockState } from "../validActions/combatBlock.js";
+import { getDamageAssignmentOptions } from "../validActions/combatDamage.js";
 
 /**
  * Create a test multi-attack enemy definition.
@@ -503,6 +505,173 @@ describe("Combat Multi-Attack", () => {
       });
 
       expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
+    });
+  });
+
+  describe("Block phase options for multi-attack enemies (attack: 0)", () => {
+    /**
+     * Zombie Horde-like enemy: attack: 0 (legacy), attacks: [{damage:1}, {damage:1}, {damage:1}]
+     * The legacy attack field is 0, but the enemy has 3 attacks of 1 damage each.
+     */
+    function createZeroAttackMultiAttackEnemy(): EnemyDefinition {
+      return {
+        id: ENEMY_DIGGERS,
+        name: "Zombie Horde Test",
+        color: ENEMY_COLOR_GREEN,
+        attack: 0, // Legacy field is 0
+        attackElement: ELEMENT_PHYSICAL,
+        armor: 5,
+        fame: 2,
+        resistances: [],
+        abilities: [],
+        attacks: [
+          { damage: 1, element: ELEMENT_PHYSICAL },
+          { damage: 1, element: ELEMENT_PHYSICAL },
+          { damage: 1, element: ELEMENT_PHYSICAL },
+        ],
+      };
+    }
+
+    it("should include multi-attack enemy with attack:0 in block phase options", () => {
+      const enemy = createZeroAttackMultiAttackEnemy();
+      const state = createStateWithMultiAttackEnemy(enemy, COMBAT_PHASE_BLOCK);
+      const player = state.players.find(p => p.id === "player1");
+
+      const options = computeBlockPhaseOptions(state, state.combat!, player);
+
+      // Enemy should appear in enemyBlockStates despite attack:0
+      expect(options.enemyBlockStates).toBeDefined();
+      expect(options.enemyBlockStates!.length).toBeGreaterThan(0);
+      expect(options.enemyBlockStates![0].enemyInstanceId).toBe("enemy_0");
+    });
+
+    it("should compute correct block state for first unblocked attack of multi-attack enemy", () => {
+      const enemy = createZeroAttackMultiAttackEnemy();
+      const state = createStateWithMultiAttackEnemy(enemy, COMBAT_PHASE_BLOCK);
+      const combatEnemy = state.combat!.enemies[0];
+
+      const blockState = computeEnemyBlockState(combatEnemy, state.combat!, state, "player1");
+
+      // Should use the first unblocked attack's damage (1), not legacy attack (0)
+      expect(blockState.enemyAttack).toBe(1);
+      expect(blockState.requiredBlock).toBe(1);
+      // Should include attackIndex for multi-attack
+      expect(blockState.attackIndex).toBe(0);
+    });
+
+    it("should update block state to next unblocked attack after blocking one", () => {
+      const enemy = createMultiAttackEnemy(); // attacks: [{damage:3}, {damage:2}]
+      let state = createStateWithMultiAttackEnemy(enemy, COMBAT_PHASE_BLOCK);
+
+      // Block first attack
+      state = withBlockSources(state, "player1", [
+        { element: ELEMENT_PHYSICAL, value: 3 },
+      ]);
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0",
+        attackIndex: 0,
+      }).state;
+
+      const combatEnemy = state.combat!.enemies[0];
+      const blockState = computeEnemyBlockState(combatEnemy, state.combat!, state, "player1");
+
+      // After blocking attack 0, should show attack 1's values
+      expect(blockState.enemyAttack).toBe(2);
+      expect(blockState.requiredBlock).toBe(2);
+      expect(blockState.attackIndex).toBe(1);
+    });
+
+    it("should include attackIndex in getDamageAssignmentOptions for multi-attack", () => {
+      const enemy = createMultiAttackEnemy();
+      const state = createStateWithMultiAttackEnemy(enemy, COMBAT_PHASE_ASSIGN_DAMAGE);
+
+      const options = getDamageAssignmentOptions(state, state.combat!.enemies);
+
+      // Should have 2 damage options (one per attack)
+      expect(options.length).toBe(2);
+      expect(options[0].attackIndex).toBe(0);
+      expect(options[1].attackIndex).toBe(1);
+    });
+  });
+
+  describe("Auto-resolve attackIndex (safety net for clients)", () => {
+    it("should auto-resolve attackIndex for damage assignment when not specified", () => {
+      const enemy = createMultiAttackEnemy(); // attacks: [{damage:3}, {damage:2}]
+      let state = createStateWithMultiAttackEnemy(enemy, COMBAT_PHASE_ASSIGN_DAMAGE);
+
+      // First ASSIGN_DAMAGE without attackIndex → should auto-select first unassigned (0)
+      const result1 = engine.processAction(state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+        // No attackIndex
+      });
+
+      expect(result1.events).toContainEqual(
+        expect.objectContaining({
+          type: DAMAGE_ASSIGNED,
+          enemyInstanceId: "enemy_0",
+          attackIndex: 0,
+          damage: 3,
+        })
+      );
+
+      // Second ASSIGN_DAMAGE without attackIndex → should auto-select next unassigned (1)
+      const result2 = engine.processAction(result1.state, "player1", {
+        type: ASSIGN_DAMAGE_ACTION,
+        enemyInstanceId: "enemy_0",
+        // No attackIndex
+      });
+
+      expect(result2.events).toContainEqual(
+        expect.objectContaining({
+          type: DAMAGE_ASSIGNED,
+          enemyInstanceId: "enemy_0",
+          attackIndex: 1,
+          damage: 2,
+        })
+      );
+    });
+
+    it("should auto-resolve attackIndex for block when not specified", () => {
+      const enemy = createMultiAttackEnemy(); // attacks: [{damage:3}, {damage:2}]
+      let state = createStateWithMultiAttackEnemy(enemy, COMBAT_PHASE_BLOCK);
+
+      // First DECLARE_BLOCK without attackIndex → should auto-select first unblocked (0)
+      state = withBlockSources(state, "player1", [
+        { element: ELEMENT_PHYSICAL, value: 3 },
+      ]);
+      const result1 = engine.processAction(state, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0",
+        // No attackIndex
+      });
+
+      expect(result1.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_BLOCKED,
+          enemyInstanceId: "enemy_0",
+          attackIndex: 0,
+        })
+      );
+
+      // Second DECLARE_BLOCK without attackIndex → should auto-select next unblocked (1)
+      let state2 = withBlockSources(result1.state, "player1", [
+        { element: ELEMENT_PHYSICAL, value: 2 },
+      ]);
+      const result2 = engine.processAction(state2, "player1", {
+        type: DECLARE_BLOCK_ACTION,
+        targetEnemyInstanceId: "enemy_0",
+        // No attackIndex
+      });
+
+      expect(result2.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_BLOCKED,
+          enemyInstanceId: "enemy_0",
+          attackIndex: 1,
+        })
+      );
     });
   });
 });

@@ -31,6 +31,7 @@ import {
   getEnemyAttackCount,
   isAttackBlocked,
   getEffectiveEnemyAttackElement,
+  findFirstUnblockedAttack,
 } from "../../combat/enemyAttackHelpers.js";
 import { getCumbersomeReducedAttack } from "../../combat/cumbersomeHelpers.js";
 import { isSwiftActive } from "../../combat/swiftHelpers.js";
@@ -157,8 +158,8 @@ export function createDeclareBlockCommand(
         throw new Error(`Enemy not found: ${params.targetEnemyInstanceId}`);
       }
 
-      // Get the attack index (default to 0 for single-attack enemies)
-      const attackIndex = params.attackIndex ?? 0;
+      // Get the attack index (auto-resolve to first unblocked for multi-attack enemies)
+      const attackIndex = params.attackIndex ?? findFirstUnblockedAttack(enemy);
       const attackCount = getEnemyAttackCount(enemy);
 
       // Validate attack index

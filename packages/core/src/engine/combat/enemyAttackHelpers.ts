@@ -273,6 +273,36 @@ export function initializeAttacksDamageAssigned(
 }
 
 /**
+ * Find the index of the first unblocked, uncancelled attack for an enemy.
+ * Used as a fallback when no attackIndex is specified in block commands.
+ *
+ * @param enemy - Combat enemy instance
+ * @returns Index of the first unblocked attack, or 0 if all are blocked
+ */
+export function findFirstUnblockedAttack(enemy: CombatEnemy): number {
+  const count = getEnemyAttackCount(enemy);
+  for (let i = 0; i < count; i++) {
+    if (!isAttackBlocked(enemy, i) && !isAttackCancelled(enemy, i)) return i;
+  }
+  return 0; // fallback
+}
+
+/**
+ * Find the index of the first unblocked, uncancelled, unassigned attack.
+ * Used as a fallback when no attackIndex is specified in damage assignment commands.
+ *
+ * @param enemy - Combat enemy instance
+ * @returns Index of the first unassigned attack, or 0 if all are assigned
+ */
+export function findFirstUnassignedAttack(enemy: CombatEnemy): number {
+  const count = getEnemyAttackCount(enemy);
+  for (let i = 0; i < count; i++) {
+    if (!isAttackBlocked(enemy, i) && !isAttackCancelled(enemy, i) && !isAttackDamageAssigned(enemy, i)) return i;
+  }
+  return 0; // fallback
+}
+
+/**
  * Get the effective attack element for an enemy after element conversion modifiers.
  * Used by block and damage calculations to account for Know Your Prey element conversion.
  *
