@@ -422,6 +422,23 @@ export interface BannerAttachment {
   readonly isUsedThisRound: boolean;
 }
 
+/**
+ * Stored enemy token from Puppet Master skill.
+ * Preserves only the stats relevant for Attack/Block calculation (FAQ S1).
+ */
+export interface KeptEnemyToken {
+  readonly enemyId: import("@mage-knight/shared").EnemyId;
+  readonly name: string;
+  /** Single attack value (legacy). Used when attacks array is absent. */
+  readonly attack: number;
+  /** Single attack element (legacy). Used when attacks array is absent. */
+  readonly attackElement: import("@mage-knight/shared").Element;
+  /** Multiple attacks (overrides attack/attackElement when present). */
+  readonly attacks?: readonly import("@mage-knight/shared").EnemyAttack[];
+  readonly armor: number;
+  readonly resistances: import("@mage-knight/shared").EnemyResistances;
+}
+
 export interface Player {
   readonly id: string;
   readonly hero: Hero; // which hero they're playing
@@ -459,6 +476,9 @@ export interface Player {
   readonly skillCooldowns: SkillCooldowns;
   readonly skillFlipState: SkillFlipState;
   readonly masterOfChaosState?: MasterOfChaosState;
+
+  // Puppet Master: accumulated enemy tokens (persists across turns)
+  readonly keptEnemyTokens: readonly KeptEnemyToken[];
 
   // Crystals (max 3 each)
   readonly crystals: Crystals;

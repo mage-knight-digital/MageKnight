@@ -79,6 +79,7 @@ import {
   SKILL_KRANG_ARCANE_DISGUISE,
   SKILL_WOLFHAWK_WOLFS_HOWL,
   SKILL_KRANG_SHAMANIC_RITUAL,
+  SKILL_KRANG_PUPPET_MASTER,
 } from "../../data/skills/index.js";
 import { CATEGORY_COMBAT, CATEGORY_MOVEMENT } from "../../types/cards.js";
 import {
@@ -98,6 +99,7 @@ import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { hexKey } from "@mage-knight/shared";
 import { canActivateUniversalPower } from "../commands/skills/universalPowerEffect.js";
 import { canActivateWolfsHowl } from "../commands/skills/wolfsHowlEffect.js";
+import { canActivatePuppetMaster } from "../commands/skills/puppetMasterEffect.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
 
 /**
@@ -166,6 +168,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_KRANG_ARCANE_DISGUISE,
   SKILL_WOLFHAWK_WOLFS_HOWL,
   SKILL_KRANG_SHAMANIC_RITUAL,
+  SKILL_KRANG_PUPPET_MASTER,
 ]);
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_WOLFHAWK_WOLFS_HOWL]);
@@ -239,6 +242,10 @@ function canActivateSkill(
     case SKILL_WOLFHAWK_DUELING:
       // Must be in combat with eligible enemies that are alive and still attacking
       return canActivateDueling(state);
+
+    case SKILL_KRANG_PUPPET_MASTER:
+      // Must be in combat with defeated enemies to keep or stored tokens to expend
+      return canActivatePuppetMaster(state, player);
 
     default:
       // No special requirements

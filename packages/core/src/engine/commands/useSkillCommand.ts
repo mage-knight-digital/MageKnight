@@ -43,6 +43,7 @@ import {
   SKILL_WOLFHAWK_KNOW_YOUR_PREY,
   SKILL_WOLFHAWK_DUELING,
   SKILL_WOLFHAWK_WOLFS_HOWL,
+  SKILL_KRANG_PUPPET_MASTER,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -79,6 +80,8 @@ import {
   removeDuelingEffect,
   applyWolfsHowlEffect,
   removeWolfsHowlEffect,
+  applyPuppetMasterEffect,
+  removePuppetMasterEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import { restoreMana } from "./helpers/manaConsumptionHelpers.js";
@@ -202,6 +205,9 @@ function applyCustomSkillEffect(
     case SKILL_WOLFHAWK_WOLFS_HOWL:
       return applyWolfsHowlEffect(state, playerId);
 
+    case SKILL_KRANG_PUPPET_MASTER:
+      return applyPuppetMasterEffect(state, playerId);
+
     default:
       // Skill has no custom handler - will use generic effect resolution
       return state;
@@ -271,6 +277,9 @@ function removeCustomSkillEffect(
     case SKILL_WOLFHAWK_WOLFS_HOWL:
       return removeWolfsHowlEffect(state, playerId);
 
+    case SKILL_KRANG_PUPPET_MASTER:
+      return removePuppetMasterEffect(state, playerId);
+
     default:
       return state;
   }
@@ -298,6 +307,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_WOLFHAWK_KNOW_YOUR_PREY,
     SKILL_WOLFHAWK_DUELING,
     SKILL_WOLFHAWK_WOLFS_HOWL,
+    SKILL_KRANG_PUPPET_MASTER,
   ].includes(skillId);
 }
 

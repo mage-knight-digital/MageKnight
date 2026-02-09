@@ -540,6 +540,7 @@ export class GameServer {
       skillFlipState: {
         flippedSkills: [],
       },
+      keptEnemyTokens: [],
       crystals: { red: 0, blue: 0, green: 0, white: 0 },
       selectedTactic: null,
       tacticFlipped: false,

@@ -93,3 +93,13 @@ export {
   removeWolfsHowlEffect,
   canActivateWolfsHowl,
 } from "./wolfsHowlEffect.js";
+
+export {
+  applyPuppetMasterEffect,
+  removePuppetMasterEffect,
+  canActivatePuppetMaster,
+  resolveKeepEnemyToken,
+  resolveExpendTokenChoice,
+  getBlockElementFromResistances,
+  createKeptTokenFromEnemy,
+} from "./puppetMasterEffect.js";

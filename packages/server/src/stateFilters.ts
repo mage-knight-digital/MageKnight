@@ -183,6 +183,15 @@ export function toClientPlayer(player: Player, forPlayerId: string): ClientPlaye
     })),
 
     skills: player.skills,
+    keptEnemyTokens: player.keptEnemyTokens.map((token) => ({
+      enemyId: token.enemyId,
+      name: token.name,
+      attack: token.attack,
+      attackElement: token.attackElement,
+      attacks: token.attacks,
+      armor: token.armor,
+      resistances: token.resistances,
+    })),
     crystals: player.crystals,
 
     movePoints: player.movePoints,

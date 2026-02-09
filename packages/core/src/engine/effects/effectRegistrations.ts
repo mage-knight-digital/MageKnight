@@ -76,6 +76,7 @@ import { registerPeacefulMomentEffects } from "./peacefulMomentEffects.js";
 import { registerStoutResolveEffects } from "./stoutResolveEffects.js";
 import { registerUnitModifierEffects } from "./unitModifierEffects.js";
 import { registerRushOfAdrenalineEffects } from "./rushOfAdrenalineEffects.js";
+import { registerPuppetMasterEffects } from "./puppetMasterEffects.js";
 
 // ============================================================================
 // INITIALIZATION
@@ -286,4 +287,7 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Rush of Adrenaline effects (wound-triggered card draws)
   registerRushOfAdrenalineEffects();
+
+  // Puppet Master effects (keep/expend enemy tokens)
+  registerPuppetMasterEffects();
 }
