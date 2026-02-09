@@ -13,6 +13,7 @@ import type {
   GainAttackEffect,
   GainBlockEffect,
   GainHealingEffect,
+  DrawCardsEffect,
   GainFameEffect,
   CompoundEffect,
   ChoiceEffect,
@@ -46,6 +47,7 @@ import {
   EFFECT_GAIN_ATTACK,
   EFFECT_GAIN_BLOCK,
   EFFECT_GAIN_HEALING,
+  EFFECT_DRAW_CARDS,
   EFFECT_GAIN_FAME,
   EFFECT_COMPOUND,
   EFFECT_CHOICE,
@@ -92,6 +94,10 @@ export function block(amount: number): GainBlockEffect {
 
 export function heal(amount: number): GainHealingEffect {
   return { type: EFFECT_GAIN_HEALING, amount };
+}
+
+export function drawCards(amount: number): DrawCardsEffect {
+  return { type: EFFECT_DRAW_CARDS, amount };
 }
 
 export function fame(amount: number): GainFameEffect {
@@ -489,6 +495,32 @@ export function scalingInfluence(
   options?: { minimum?: number; maximum?: number }
 ): ScalingEffect {
   const baseEffect: GainInfluenceEffect = { type: EFFECT_GAIN_INFLUENCE, amount: baseAmount };
+  return scaling(baseEffect, scalingFactor, amountPerUnit, options);
+}
+
+/**
+ * Create a scaling healing effect
+ */
+export function scalingHealing(
+  baseAmount: number,
+  scalingFactor: ScalingFactor,
+  amountPerUnit: number,
+  options?: { minimum?: number; maximum?: number }
+): ScalingEffect {
+  const baseEffect: GainHealingEffect = { type: EFFECT_GAIN_HEALING, amount: baseAmount };
+  return scaling(baseEffect, scalingFactor, amountPerUnit, options);
+}
+
+/**
+ * Create a scaling draw cards effect
+ */
+export function scalingDrawCards(
+  baseAmount: number,
+  scalingFactor: ScalingFactor,
+  amountPerUnit: number,
+  options?: { minimum?: number; maximum?: number }
+): ScalingEffect {
+  const baseEffect: DrawCardsEffect = { type: EFFECT_DRAW_CARDS, amount: baseAmount };
   return scaling(baseEffect, scalingFactor, amountPerUnit, options);
 }
 

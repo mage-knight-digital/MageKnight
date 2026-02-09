@@ -13,6 +13,7 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_DISCARD_COST,
+  EFFECT_POWER_OF_CRYSTALS_POWERED,
 } from "../../../../types/effectTypes.js";
 
 /**
@@ -21,6 +22,7 @@ import {
 export function effectHasMove(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_MOVE:
+    case EFFECT_POWER_OF_CRYSTALS_POWERED:
       return true;
 
     case EFFECT_CHOICE:

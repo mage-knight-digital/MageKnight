@@ -6,7 +6,10 @@ import {
   DEED_CARD_TYPE_ADVANCED_ACTION,
 } from "../../../types/cards.js";
 import { MANA_GREEN, MANA_BLUE, CARD_POWER_OF_CRYSTALS } from "@mage-knight/shared";
-import { move, heal, choice, gainCrystal } from "../helpers.js";
+import {
+  EFFECT_POWER_OF_CRYSTALS_BASIC,
+  EFFECT_POWER_OF_CRYSTALS_POWERED,
+} from "../../../types/effectTypes.js";
 
 export const POWER_OF_CRYSTALS: DeedCard = {
   id: CARD_POWER_OF_CRYSTALS,
@@ -16,8 +19,7 @@ export const POWER_OF_CRYSTALS: DeedCard = {
   categories: [CATEGORY_MOVEMENT, CATEGORY_HEALING, CATEGORY_SPECIAL],
   // Basic: Gain a crystal to your Inventory of a basic color you do not already own.
   // Powered: Move 4, or Heal 2, or draw two cards. For each set of four different color crystals in your Inventory: Move 2, or Heal 1, or draw a card.
-  // TODO: Implement crystal-set scaling and card draw
-  basicEffect: gainCrystal(MANA_GREEN),
-  poweredEffect: choice(move(4), heal(2)),
+  basicEffect: { type: EFFECT_POWER_OF_CRYSTALS_BASIC },
+  poweredEffect: { type: EFFECT_POWER_OF_CRYSTALS_POWERED },
   sidewaysValue: 1,
 };

@@ -15,6 +15,7 @@ import {
   EFFECT_SCALING,
   EFFECT_DISCARD_COST,
   EFFECT_PURE_MAGIC,
+  EFFECT_POWER_OF_CRYSTALS_POWERED,
 } from "../../../types/effectTypes.js";
 
 /**
@@ -24,6 +25,7 @@ export function effectHasMove(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_MOVE:
     case EFFECT_PURE_MAGIC: // Pure Magic can provide Move (via green mana)
+    case EFFECT_POWER_OF_CRYSTALS_POWERED:
       return true;
 
     case EFFECT_CHOICE:

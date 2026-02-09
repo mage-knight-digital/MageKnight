@@ -330,6 +330,13 @@ export {
   registerCrystalMasteryEffects,
 } from "./crystalMasteryEffects.js";
 
+// Power of Crystals effects
+export {
+  handlePowerOfCrystalsBasic,
+  handlePowerOfCrystalsPowered,
+  registerPowerOfCrystalsEffects,
+} from "./powerOfCrystalsEffects.js";
+
 // Possess enemy effects (Charm/Possess spell powered effect)
 export {
   registerPossessEffects,
