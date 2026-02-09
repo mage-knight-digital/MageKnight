@@ -8,6 +8,7 @@ import {
   MANA_TOKEN_SOURCE_CARD,
   RESOLVE_CHOICE_ACTION,
   RETURN_INTERACTIVE_SKILL_ACTION,
+  UNDO_ACTION,
   USE_SKILL_ACTION,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
@@ -90,6 +91,31 @@ describe("Shamanic Ritual skill (Krang)", () => {
     });
   });
 
+  it("undoing mana choice restores pending choice and unflips skill", () => {
+    const state = createKrangShamanState();
+
+    const afterUse = engine.processAction(state, "player1", {
+      type: USE_SKILL_ACTION,
+      skillId: SKILL_KRANG_SHAMANIC_RITUAL,
+    });
+    const afterChoice = engine.processAction(afterUse.state, "player1", {
+      type: RESOLVE_CHOICE_ACTION,
+      choiceIndex: 0,
+    });
+    expect(afterChoice.state.players[0].skillFlipState.flippedSkills).toContain(
+      SKILL_KRANG_SHAMANIC_RITUAL
+    );
+
+    const afterUndo = engine.processAction(afterChoice.state, "player1", {
+      type: UNDO_ACTION,
+    });
+
+    expect(afterUndo.state.players[0].pendingChoice).not.toBeNull();
+    expect(afterUndo.state.players[0].skillFlipState.flippedSkills).not.toContain(
+      SKILL_KRANG_SHAMANIC_RITUAL
+    );
+  });
+
   it("shows flip-back as returnable skill when face-down and action available", () => {
     const state = createKrangShamanState({
       skillFlipState: { flippedSkills: [SKILL_KRANG_SHAMANIC_RITUAL] },
@@ -135,6 +161,65 @@ describe("Shamanic Ritual skill (Krang)", () => {
       skillId: SKILL_KRANG_SHAMANIC_RITUAL,
     });
     expect(reuse.events[0]?.type).not.toBe(INVALID_ACTION);
+  });
+
+  it("undoing flip-back restores action state and usedThisRound when originally present", () => {
+    const state = createKrangShamanState({
+      hasTakenActionThisTurn: false,
+      skillFlipState: { flippedSkills: [SKILL_KRANG_SHAMANIC_RITUAL] },
+      skillCooldowns: {
+        usedThisRound: [SKILL_KRANG_SHAMANIC_RITUAL],
+        usedThisTurn: [],
+        usedThisCombat: [],
+        activeUntilNextTurn: [],
+      },
+    });
+
+    const afterFlipBack = engine.processAction(state, "player1", {
+      type: RETURN_INTERACTIVE_SKILL_ACTION,
+      skillId: SKILL_KRANG_SHAMANIC_RITUAL,
+    });
+    const afterUndo = engine.processAction(afterFlipBack.state, "player1", {
+      type: UNDO_ACTION,
+    });
+
+    const player = afterUndo.state.players[0];
+    expect(player.hasTakenActionThisTurn).toBe(false);
+    expect(player.skillFlipState.flippedSkills).toContain(
+      SKILL_KRANG_SHAMANIC_RITUAL
+    );
+    expect(player.skillCooldowns.usedThisRound).toContain(
+      SKILL_KRANG_SHAMANIC_RITUAL
+    );
+  });
+
+  it("undoing flip-back keeps usedThisRound empty when originally absent", () => {
+    const state = createKrangShamanState({
+      hasTakenActionThisTurn: false,
+      skillFlipState: { flippedSkills: [SKILL_KRANG_SHAMANIC_RITUAL] },
+      skillCooldowns: {
+        usedThisRound: [],
+        usedThisTurn: [],
+        usedThisCombat: [],
+        activeUntilNextTurn: [],
+      },
+    });
+
+    const afterFlipBack = engine.processAction(state, "player1", {
+      type: RETURN_INTERACTIVE_SKILL_ACTION,
+      skillId: SKILL_KRANG_SHAMANIC_RITUAL,
+    });
+    const afterUndo = engine.processAction(afterFlipBack.state, "player1", {
+      type: UNDO_ACTION,
+    });
+
+    const player = afterUndo.state.players[0];
+    expect(player.skillFlipState.flippedSkills).toContain(
+      SKILL_KRANG_SHAMANIC_RITUAL
+    );
+    expect(player.skillCooldowns.usedThisRound).not.toContain(
+      SKILL_KRANG_SHAMANIC_RITUAL
+    );
   });
 
   it("rejects flip-back while resting", () => {
