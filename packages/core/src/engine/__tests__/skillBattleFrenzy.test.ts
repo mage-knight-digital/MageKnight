@@ -18,6 +18,7 @@ import {
   SKILL_USED,
   INVALID_ACTION,
   RESOLVE_CHOICE_ACTION,
+  UNDO_ACTION,
   DECLARE_REST_ACTION,
   COMPLETE_REST_ACTION,
   ENEMY_ORC,
@@ -240,6 +241,46 @@ describe("Battle Frenzy skill", () => {
       expect(
         state.players[0].skillFlipState.flippedSkills
       ).toContain(SKILL_KRANG_BATTLE_FRENZY);
+    });
+
+    it("should unflip skill when Attack 4 choice is undone", () => {
+      const player = createTestPlayer({
+        hero: Hero.Krang,
+        skills: [SKILL_KRANG_BATTLE_FRENZY],
+        skillCooldowns: { ...defaultCooldowns },
+      });
+      const combat = createCombatState([ENEMY_ORC]);
+      combat.phase = COMBAT_PHASE_ATTACK;
+      let state = createTestGameState({ players: [player], combat });
+
+      // Activate and choose Attack 4
+      state = engine.processAction(state, "player1", {
+        type: USE_SKILL_ACTION,
+        skillId: SKILL_KRANG_BATTLE_FRENZY,
+      }).state;
+
+      state = engine.processAction(state, "player1", {
+        type: RESOLVE_CHOICE_ACTION,
+        choiceIndex: 1,
+      }).state;
+
+      // Verify flipped
+      expect(
+        state.players[0].skillFlipState.flippedSkills
+      ).toContain(SKILL_KRANG_BATTLE_FRENZY);
+
+      // Undo the choice
+      state = engine.processAction(state, "player1", {
+        type: UNDO_ACTION,
+      }).state;
+
+      // Skill should be unflipped back to face-up
+      expect(
+        state.players[0].skillFlipState.flippedSkills
+      ).not.toContain(SKILL_KRANG_BATTLE_FRENZY);
+
+      // Attack should be removed
+      expect(state.players[0].combatAccumulator.attack.normal).toBe(0);
     });
   });
 
