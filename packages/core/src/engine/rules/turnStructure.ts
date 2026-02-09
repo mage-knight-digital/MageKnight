@@ -188,3 +188,36 @@ export function hasMetMinimumTurnRequirement(player: Player): boolean {
   // Player has cards in hand but hasn't played or discarded
   return false;
 }
+
+/**
+ * Check if player must announce end of round.
+ *
+ * Triggered when deck and hand are both empty and round end is not announced.
+ */
+export function mustAnnounceEndOfRoundAtTurnStart(
+  state: GameState,
+  player: Player
+): boolean {
+  return (
+    state.endOfRoundAnnouncedBy === null &&
+    player.deck.length === 0 &&
+    player.hand.length === 0
+  );
+}
+
+/**
+ * Check if player must forfeit turn because round end was announced by another player.
+ *
+ * Triggered when the current player has no cards in deck or hand and cannot take actions.
+ */
+export function mustForfeitTurnAfterRoundAnnouncement(
+  state: GameState,
+  player: Player
+): boolean {
+  return (
+    state.endOfRoundAnnouncedBy !== null &&
+    state.endOfRoundAnnouncedBy !== player.id &&
+    player.deck.length === 0 &&
+    player.hand.length === 0
+  );
+}

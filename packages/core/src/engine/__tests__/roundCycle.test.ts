@@ -15,6 +15,7 @@ import {
   END_TURN_ACTION,
   MOVE_ACTION,
   END_OF_ROUND_ANNOUNCED,
+  TURN_ENDED,
   ROUND_ENDED,
   NEW_ROUND_STARTED,
   TIME_OF_DAY_CHANGED,
@@ -51,9 +52,15 @@ describe("Round Cycle", () => {
         deck: [], // Empty deck
         hand: [CARD_MARCH],
       });
+      const otherPlayer = createTestPlayer({
+        id: "player2",
+        deck: [CARD_STAMINA],
+        hand: [CARD_STAMINA],
+      });
       const state = createTestGameState({
-        players: [player],
-        turnOrder: ["player1"],
+        players: [player, otherPlayer],
+        turnOrder: ["player1", "player2"],
+        currentPlayerIndex: 0,
         endOfRoundAnnouncedBy: null,
       });
 
@@ -62,6 +69,7 @@ describe("Round Cycle", () => {
       });
 
       expect(result.state.endOfRoundAnnouncedBy).toBe("player1");
+      expect(result.state.currentPlayerIndex).toBe(1);
       expect(result.events).toContainEqual(
         expect.objectContaining({
           type: END_OF_ROUND_ANNOUNCED,
@@ -111,7 +119,7 @@ describe("Round Cycle", () => {
       );
     });
 
-    it("should set playersWithFinalTurn for other players", () => {
+    it("should set playersWithFinalTurn for other players and immediately forfeit", () => {
       const player1 = createTestPlayer({ id: "player1", deck: [] });
       const player2 = createTestPlayer({ id: "player2", deck: [CARD_MARCH] });
       const player3 = createTestPlayer({ id: "player3", deck: [CARD_STAMINA] });
@@ -128,12 +136,14 @@ describe("Round Cycle", () => {
 
       expect(result.state.endOfRoundAnnouncedBy).toBe("player1");
       expect(result.state.playersWithFinalTurn).toEqual(["player2", "player3"]);
-
-      // Announcing player should have hasTakenActionThisTurn set (forfeited turn)
-      const announcingPlayer = result.state.players.find(
-        (p) => p.id === "player1"
+      expect(result.state.currentPlayerIndex).toBe(1);
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: TURN_ENDED,
+          playerId: "player1",
+          nextPlayerId: "player2",
+        })
       );
-      expect(announcingPlayer?.hasTakenActionThisTurn).toBe(true);
     });
   });
 
@@ -384,7 +394,7 @@ describe("Round Cycle", () => {
   });
 
   describe("Multi-player round end flow", () => {
-    it("should NOT trigger round end when announcer ends turn", () => {
+    it("should NOT trigger round end immediately after announcing", () => {
       // Setup: 3 players, player1 announces, player2 and player3 get final turns
       const player1 = createTestPlayer({ id: "player1", deck: [] });
       const player2 = createTestPlayer({ id: "player2", deck: [], hand: [CARD_MARCH] });
@@ -405,19 +415,14 @@ describe("Round Cycle", () => {
       state = announceResult.state;
       expect(state.endOfRoundAnnouncedBy).toBe("player1");
       expect(state.playersWithFinalTurn).toEqual(["player2", "player3"]);
-
-      // Player 1 ends turn - should NOT trigger round end yet
-      // (other players still need their final turns)
-      const player1EndResult = engine.processAction(state, "player1", {
-        type: END_TURN_ACTION,
-      });
+      expect(state.currentPlayerIndex).toBe(1); // advanced to player2
 
       // Round should NOT have ended - still waiting for final turns
-      expect(player1EndResult.state.round).toBe(1);
-      expect(player1EndResult.state.timeOfDay).toBe(TIME_OF_DAY_DAY);
-      expect(player1EndResult.state.endOfRoundAnnouncedBy).toBe("player1");
+      expect(state.round).toBe(1);
+      expect(state.timeOfDay).toBe(TIME_OF_DAY_DAY);
+      expect(state.endOfRoundAnnouncedBy).toBe("player1");
       // Final turn list should still have both players
-      expect(player1EndResult.state.playersWithFinalTurn).toEqual(["player2", "player3"]);
+      expect(state.playersWithFinalTurn).toEqual(["player2", "player3"]);
     });
 
     it("should trigger round end only after ALL final turns complete", () => {
@@ -513,6 +518,33 @@ describe("Round Cycle", () => {
         expect.objectContaining({
           type: INVALID_ACTION,
           reason: expect.stringContaining("must announce"),
+        })
+      );
+    });
+
+    it("should require forfeit when another player announced and you have no cards", () => {
+      const player = createTestPlayer({
+        id: "player2",
+        deck: [],
+        hand: [],
+      });
+      const state = createTestGameState({
+        players: [createTestPlayer({ id: "player1" }), player],
+        turnOrder: ["player2", "player1"],
+        currentPlayerIndex: 0,
+        endOfRoundAnnouncedBy: "player1",
+        playersWithFinalTurn: ["player2"],
+      });
+
+      const result = engine.processAction(state, "player2", {
+        type: MOVE_ACTION,
+        to: { q: 1, r: 0 },
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: expect.stringContaining("must forfeit your turn"),
         })
       );
     });

@@ -578,8 +578,8 @@ describe("END_TURN with empty deck and hand", () => {
       })
     );
 
-    // State should reflect announcement
-    expect(result.state.endOfRoundAnnouncedBy).toBe("player1");
+    // In solo mode, announcement immediately forfeits and ends the round
+    expect(result.state.endOfRoundAnnouncedBy).toBeNull();
   });
 
   it("should allow normal end turn if end of round already announced", () => {

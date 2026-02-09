@@ -22,9 +22,9 @@ import { expireModifiers } from "../../modifiers/index.js";
 import { EXPIRATION_TURN_END } from "../../../types/modifierConstants.js";
 import { END_TURN_COMMAND } from "../commandTypes.js";
 import { createEndRoundCommand } from "../endRound/index.js";
-import { createAnnounceEndOfRoundCommand } from "../announceEndOfRoundCommand.js";
 import { isDummyPlayer } from "../../../types/dummyPlayer.js";
 import { executeDummyPlayerTurn } from "../dummyTurnCommand.js";
+import { applyRoundAnnouncement } from "../roundAnnouncement.js";
 
 import type { EndTurnCommandParams } from "./types.js";
 import { checkMagicalGladeWound, processMineRewards, checkCrystalJoyReclaim, checkSteadyTempoDeckPlacement, checkBannerProtectionWoundRemoval } from "./siteChecks.js";
@@ -84,11 +84,20 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
       // Auto-announce end of round if deck and hand are both empty
       if (
+        !(params.skipAutoAnnounce ?? false) &&
         currentPlayer.deck.length === 0 &&
         currentPlayer.hand.length === 0 &&
         state.endOfRoundAnnouncedBy === null
       ) {
-        return createAnnounceEndOfRoundCommand({ playerId: params.playerId }).execute(state);
+        const announcement = applyRoundAnnouncement(state, params.playerId);
+        const forfeitedTurnResult = createEndTurnCommand({
+          ...params,
+          skipAutoAnnounce: true,
+        }).execute(announcement.state);
+        return {
+          state: forfeitedTurnResult.state,
+          events: [announcement.event, ...forfeitedTurnResult.events],
+        };
       }
 
       // Check for mine crystal rewards

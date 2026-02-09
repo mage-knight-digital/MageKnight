@@ -4,6 +4,7 @@ import {
   UNDO_ACTION,
   ACTIVATE_TACTIC_ACTION,
   DECLARE_REST_ACTION,
+  ANNOUNCE_END_OF_ROUND_ACTION,
   TACTIC_THE_RIGHT_MOMENT,
   TACTIC_LONG_NIGHT,
   TACTIC_MIDNIGHT_MEDITATION,
@@ -80,6 +81,8 @@ export function TurnActions() {
   // Check for rest options (only in normal_turn; resting state is handled by RestCompletionOverlay)
   const canDeclareRest =
     va?.mode === "normal_turn" ? (va.turn.canDeclareRest ?? false) : false;
+  const canAnnounceEndOfRound =
+    va?.mode === "normal_turn" ? (va.turn.canAnnounceEndOfRound ?? false) : false;
 
   // Ctrl+Z / Cmd+Z keyboard shortcut for undo
   useEffect(() => {
@@ -97,6 +100,14 @@ export function TurnActions() {
   }, [canUndo, isMyTurn, sendAction]);
 
   if (!state || !player) return null;
+
+  const isForcedForfeitTurn =
+    va?.mode === "normal_turn" &&
+    (va.turn.canEndTurn ?? false) &&
+    player.deck.length === 0 &&
+    player.hand.length === 0 &&
+    state.endOfRoundAnnouncedBy !== null &&
+    state.endOfRoundAnnouncedBy !== player.id;
 
   const handleEndTurn = () => {
     sendAction({ type: END_TURN_ACTION });
@@ -128,6 +139,10 @@ export function TurnActions() {
     sendAction({ type: DECLARE_REST_ACTION });
   };
 
+  const handleAnnounceEndOfRound = () => {
+    sendAction({ type: ANNOUNCE_END_OF_ROUND_ACTION });
+  };
+
   // Build seal class names based on intro animation state
   const sealClassNames = [
     "end-turn-seal",
@@ -150,10 +165,12 @@ export function TurnActions() {
           disabled={!isMyTurn || !hasTactic}
           type="button"
           data-testid="end-turn-btn"
-          title="End your turn"
+          title={isForcedForfeitTurn ? "Forfeit your turn" : "End your turn"}
         >
           <span className="end-turn-seal__icon">⚔</span>
-          <span className="end-turn-seal__text">End Turn</span>
+          <span className="end-turn-seal__text">
+            {isForcedForfeitTurn ? "Forfeit" : "End Turn"}
+          </span>
         </button>
       )}
 
@@ -201,6 +218,17 @@ export function TurnActions() {
               title="Declare rest - discard cards to cycle your deck"
             >
               Rest
+            </button>
+          )}
+
+          {canAnnounceEndOfRound && (
+            <button
+              className="turn-actions__btn turn-actions__btn--announce"
+              onClick={handleAnnounceEndOfRound}
+              type="button"
+              title="Announce end of round and pass"
+            >
+              Announce Round End
             </button>
           )}
 
