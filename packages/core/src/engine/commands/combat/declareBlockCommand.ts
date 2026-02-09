@@ -30,6 +30,7 @@ import {
   getEnemyAttacks,
   getEnemyAttackCount,
   isAttackBlocked,
+  getEffectiveEnemyAttackElement,
 } from "../../combat/enemyAttackHelpers.js";
 import { getCumbersomeReducedAttack } from "../../combat/cumbersomeHelpers.js";
 import { isSwiftActive } from "../../combat/swiftHelpers.js";
@@ -199,10 +200,13 @@ export function createDeclareBlockCommand(
         : sourcesWithBonus;
 
       // Calculate final block value including elemental efficiency and combat modifiers
-      // Use the attack's element for block efficiency calculation
+      // Use the attack's effective element (may be converted by Know Your Prey)
+      const effectiveAttackElement = getEffectiveEnemyAttackElement(
+        state, enemy, attackBeingBlocked.element
+      );
       const effectiveBlockValue = getFinalBlockValue(
         blockSources,
-        attackBeingBlocked.element,
+        effectiveAttackElement,
         state,
         params.playerId
       );

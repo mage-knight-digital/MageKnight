@@ -43,6 +43,7 @@ import {
   getEnemyAttacks,
   isAttackBlocked,
   isAttackCancelled,
+  getEffectiveEnemyAttackElement,
 } from "../combat/enemyAttackHelpers.js";
 import { isSwiftActive } from "../combat/swiftHelpers.js";
 import {
@@ -538,12 +539,13 @@ export function getBlockOptions(
       // Swift enemies require 2x block
       const requiredBlock = isSwift ? effectiveAttack * 2 : effectiveAttack;
 
-      // Build the base option
+      // Build the base option (use effective element after conversion modifiers)
+      const effectiveElement = getEffectiveEnemyAttackElement(state, enemy, attack.element);
       const baseOption = {
         enemyInstanceId: enemy.instanceId,
         enemyName: enemy.definition.name,
         enemyAttack: effectiveAttack,
-        attackElement: attack.element,
+        attackElement: effectiveElement,
         requiredBlock,
         isSwift,
         isBrutal,

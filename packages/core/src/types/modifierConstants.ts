@@ -402,3 +402,14 @@ export const EFFECT_DODGE_AND_WEAVE_ATTACK_BONUS = "dodge_and_weave_attack_bonus
 // Duration: combat. Applied by Shield Bash powered effect.
 export const EFFECT_SHIELD_BASH_ARMOR_REDUCTION = "shield_bash_armor_reduction" as const;
 
+// === RemoveIceResistanceModifier ===
+// Removes ice resistance from enemies (Know Your Prey)
+// Does not affect Arcane Immune enemies
+export const EFFECT_REMOVE_ICE_RESISTANCE = "remove_ice_resistance" as const;
+
+// === ConvertAttackElementModifier ===
+// Converts an enemy's attack element for the rest of combat.
+// Fire/Ice → Physical, or one element of Cold Fire → Fire/Ice.
+// Applied per-enemy by Know Your Prey skill.
+export const EFFECT_CONVERT_ATTACK_ELEMENT = "convert_attack_element" as const;
+

@@ -75,3 +75,8 @@ export {
   applyDeadlyAimEffect,
   removeDeadlyAimEffect,
 } from "./deadlyAimEffect.js";
+
+export {
+  applyKnowYourPreyEffect,
+  removeKnowYourPreyEffect,
+} from "./knowYourPreyEffect.js";

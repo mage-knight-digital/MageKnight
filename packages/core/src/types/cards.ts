@@ -13,6 +13,7 @@ import type {
   RevealTileType,
   ResistanceType,
   ManaSourceInfo,
+  EnemyAbilityType,
 } from "@mage-knight/shared";
 import {
   MANA_RED,
@@ -149,6 +150,9 @@ import {
   EFFECT_SPELL_FORGE_BASIC,
   EFFECT_SPELL_FORGE_POWERED,
   EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
+  EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
+  EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
+  EFFECT_KNOW_YOUR_PREY_APPLY,
   EFFECT_PEACEFUL_MOMENT_ACTION,
   EFFECT_PEACEFUL_MOMENT_CONVERT,
   EFFECT_PEACEFUL_MOMENT_HEAL,
@@ -1751,6 +1755,45 @@ export interface ResolveSpellForgeCrystalEffect {
   readonly chainSecondChoice: boolean;
 }
 
+// === Know Your Prey Effects ===
+
+/**
+ * Entry point for Know Your Prey enemy selection.
+ * Generates choice options for each eligible enemy (excludes Arcane Immune).
+ */
+export interface KnowYourPreySelectEnemyEffect {
+  readonly type: typeof EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY;
+}
+
+/**
+ * Internal: After enemy selection, presents ability/resistance/element removal options.
+ * Generated as a choice option per eligible enemy.
+ */
+export interface KnowYourPreySelectOptionEffect {
+  readonly type: typeof EFFECT_KNOW_YOUR_PREY_SELECT_OPTION;
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+}
+
+/**
+ * Internal: Applies the chosen removal to the enemy.
+ * One of: ability nullifier, resistance removal, or element conversion.
+ */
+export interface KnowYourPreyApplyEffect {
+  readonly type: typeof EFFECT_KNOW_YOUR_PREY_APPLY;
+  readonly enemyInstanceId: string;
+  /** Set for ability removal */
+  readonly ability?: EnemyAbilityType;
+  /** Set for resistance removal */
+  readonly resistance?: ResistanceType;
+  /** Set for element conversion (source element) */
+  readonly fromElement?: Element;
+  /** Set for element conversion (target element) */
+  readonly toElement?: Element;
+  /** Human-readable label for UI display */
+  readonly label: string;
+}
+
 /**
  * Peaceful Moment "play as action" entry point.
  * Grants influence, consumes the player's action, then enters conversion loop.
@@ -1924,6 +1967,9 @@ export type CardEffect =
   | SpellForgeBasicEffect
   | SpellForgePoweredEffect
   | ResolveSpellForgeCrystalEffect
+  | KnowYourPreySelectEnemyEffect
+  | KnowYourPreySelectOptionEffect
+  | KnowYourPreyApplyEffect
   | PeacefulMomentActionEffect
   | PeacefulMomentConvertEffect
   | PeacefulMomentHealEffect

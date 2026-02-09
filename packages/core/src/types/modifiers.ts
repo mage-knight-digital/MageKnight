@@ -72,6 +72,8 @@ import {
   EFFECT_BOW_ATTACK_TRANSFORMATION,
   EFFECT_SOUL_HARVESTER_CRYSTAL_TRACKING,
   EFFECT_SHIELD_BASH_ARMOR_REDUCTION,
+  EFFECT_REMOVE_ICE_RESISTANCE,
+  EFFECT_CONVERT_ATTACK_ELEMENT,
   EFFECT_DODGE_AND_WEAVE_ATTACK_BONUS,
   SHAPESHIFT_TARGET_MOVE,
   SHAPESHIFT_TARGET_ATTACK,
@@ -670,6 +672,25 @@ export interface ShieldBashArmorReductionModifier {
   readonly type: typeof EFFECT_SHIELD_BASH_ARMOR_REDUCTION;
 }
 
+// Remove ice resistance from enemies (Know Your Prey)
+// Unlike EFFECT_REMOVE_RESISTANCES which removes ALL resistances,
+// this only removes ice resistance.
+// Does not affect Arcane Immune enemies.
+export interface RemoveIceResistanceModifier {
+  readonly type: typeof EFFECT_REMOVE_ICE_RESISTANCE;
+}
+
+// Convert enemy attack element modifier (Know Your Prey)
+// Fire/Ice → Physical, Cold Fire → Fire or Ice (player choice).
+// Applied per-enemy. Duration: combat.
+export interface ConvertAttackElementModifier {
+  readonly type: typeof EFFECT_CONVERT_ATTACK_ELEMENT;
+  /** The element to convert FROM (the original element being changed) */
+  readonly fromElement: Element;
+  /** The element to convert TO */
+  readonly toElement: Element;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -723,6 +744,8 @@ export type ModifierEffect =
   | BowAttackTransformationModifier
   | SoulHarvesterCrystalTrackingModifier
   | ShieldBashArmorReductionModifier
+  | RemoveIceResistanceModifier
+  | ConvertAttackElementModifier
   | DodgeAndWeaveAttackBonusModifier;
 
 // === Active Modifier (live in game state) ===

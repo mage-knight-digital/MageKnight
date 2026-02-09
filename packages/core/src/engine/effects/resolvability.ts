@@ -130,6 +130,9 @@ import {
   EFFECT_SPELL_FORGE_BASIC,
   EFFECT_SPELL_FORGE_POWERED,
   EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL,
+  EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY,
+  EFFECT_KNOW_YOUR_PREY_SELECT_OPTION,
+  EFFECT_KNOW_YOUR_PREY_APPLY,
   EFFECT_PEACEFUL_MOMENT_ACTION,
   EFFECT_PEACEFUL_MOMENT_CONVERT,
   EFFECT_PEACEFUL_MOMENT_HEAL,
@@ -690,6 +693,15 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve Spell Forge crystal is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_SPELL_FORGE_CRYSTAL]: () => true,
+
+  // Know Your Prey: resolvable if in combat with eligible enemies
+  [EFFECT_KNOW_YOUR_PREY_SELECT_ENEMY]: (state) => {
+    return state.combat !== null;
+  },
+
+  // Know Your Prey resolve effects are always resolvable (validated at resolution time)
+  [EFFECT_KNOW_YOUR_PREY_SELECT_OPTION]: () => true,
+  [EFFECT_KNOW_YOUR_PREY_APPLY]: () => true,
 
   // Peaceful Moment action mode: not resolvable if player already took an action
   [EFFECT_PEACEFUL_MOMENT_ACTION]: (_state, player) => {

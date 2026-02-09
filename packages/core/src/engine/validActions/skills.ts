@@ -62,6 +62,7 @@ import {
   SKILL_WOLFHAWK_HAWK_EYES,
   SKILL_WOLFHAWK_ON_HER_OWN,
   SKILL_WOLFHAWK_DEADLY_AIM,
+  SKILL_WOLFHAWK_KNOW_YOUR_PREY,
   SKILL_WOLFHAWK_TAUNT,
   SKILL_BRAEVALAR_ELEMENTAL_RESISTANCE,
   SKILL_BRAEVALAR_BEGUILE,
@@ -83,6 +84,7 @@ import { canActivatePolarization } from "../commands/skills/polarizationEffect.j
 import { canActivateInvocation } from "../commands/skills/invocationEffect.js";
 import { canActivateShapeshift } from "../commands/skills/shapeshiftEffect.js";
 import { canActivateRegenerate } from "../commands/skills/regenerateEffect.js";
+import { canActivateKnowYourPrey } from "../commands/skills/knowYourPreyEffect.js";
 import { canUseMeleeAttackSkill, isMeleeAttackSkill, isSkillFaceUp } from "../rules/skillPhasing.js";
 import { isPlayerAtInteractionSite } from "../rules/siteInteraction.js";
 import { hexKey } from "@mage-knight/shared";
@@ -138,6 +140,7 @@ const IMPLEMENTED_SKILLS = new Set([
   SKILL_WOLFHAWK_HAWK_EYES,
   SKILL_WOLFHAWK_ON_HER_OWN,
   SKILL_WOLFHAWK_DEADLY_AIM,
+  SKILL_WOLFHAWK_KNOW_YOUR_PREY,
   SKILL_WOLFHAWK_TAUNT,
   SKILL_BRAEVALAR_ELEMENTAL_RESISTANCE,
   SKILL_BRAEVALAR_BEGUILE,
@@ -208,6 +211,10 @@ function canActivateSkill(
     case SKILL_BRAEVALAR_REGENERATE:
       // Must have wound in hand, not in combat, and mana available
       return canActivateRegenerate(state, player);
+
+    case SKILL_WOLFHAWK_KNOW_YOUR_PREY:
+      // Must be in combat with targetable enemies
+      return canActivateKnowYourPrey(state);
 
     default:
       // No special requirements

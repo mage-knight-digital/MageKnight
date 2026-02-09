@@ -38,6 +38,7 @@ import {
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_WOLFHAWK_HAWK_EYES,
   SKILL_WOLFHAWK_DEADLY_AIM,
+  SKILL_WOLFHAWK_KNOW_YOUR_PREY,
 } from "../../data/skills/index.js";
 import {
   applyWhoNeedsMagicEffect,
@@ -66,6 +67,8 @@ import {
   removeHawkEyesEffect,
   applyDeadlyAimEffect,
   removeDeadlyAimEffect,
+  applyKnowYourPreyEffect,
+  removeKnowYourPreyEffect,
 } from "./skills/index.js";
 import { getPlayerIndexByIdOrThrow } from "../helpers/playerHelpers.js";
 import { restoreMana } from "./helpers/manaConsumptionHelpers.js";
@@ -170,6 +173,9 @@ function applyCustomSkillEffect(
     case SKILL_WOLFHAWK_DEADLY_AIM:
       return applyDeadlyAimEffect(state, playerId);
 
+    case SKILL_WOLFHAWK_KNOW_YOUR_PREY:
+      return applyKnowYourPreyEffect(state, playerId);
+
     default:
       // Skill has no custom handler - will use generic effect resolution
       return state;
@@ -227,6 +233,9 @@ function removeCustomSkillEffect(
     case SKILL_WOLFHAWK_DEADLY_AIM:
       return removeDeadlyAimEffect(state, playerId);
 
+    case SKILL_WOLFHAWK_KNOW_YOUR_PREY:
+      return removeKnowYourPreyEffect(state, playerId);
+
     default:
       return state;
   }
@@ -250,6 +259,7 @@ function hasCustomHandler(skillId: SkillId): boolean {
     SKILL_BRAEVALAR_REGENERATE,
     SKILL_WOLFHAWK_HAWK_EYES,
     SKILL_WOLFHAWK_DEADLY_AIM,
+    SKILL_WOLFHAWK_KNOW_YOUR_PREY,
   ].includes(skillId);
 }
 

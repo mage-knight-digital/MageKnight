@@ -154,6 +154,7 @@ export {
 // Brown (Dungeon monsters)
 export type { BrownEnemyId } from "./brown/index.js";
 export {
+  ENEMY_AIR_ELEMENTAL,
   ENEMY_MINOTAUR,
   ENEMY_GARGOYLE,
   ENEMY_MEDUSA,

@@ -16,8 +16,8 @@ import {
 } from "@mage-knight/shared";
 import type { CombatEnemy } from "../../types/combat.js";
 import type { GameState } from "../../state/GameState.js";
-import { areResistancesRemoved, isPhysicalResistanceRemoved, isFireResistanceRemoved } from "../modifiers/index.js";
-import { RESIST_PHYSICAL, RESIST_FIRE } from "@mage-knight/shared";
+import { areResistancesRemoved, isPhysicalResistanceRemoved, isFireResistanceRemoved, isIceResistanceRemoved } from "../modifiers/index.js";
+import { RESIST_PHYSICAL, RESIST_FIRE, RESIST_ICE } from "@mage-knight/shared";
 import type { Resistances } from "../combat/elementalCalc.js";
 import { isAttackResisted } from "../combat/elementalCalc.js";
 
@@ -46,6 +46,11 @@ export function getEnemyResistances(state: GameState, enemy: CombatEnemy): Resis
   // Check if FIRE resistance specifically has been removed (Chill spell)
   if (isFireResistanceRemoved(state, enemy.instanceId)) {
     resistances = resistances.filter((r) => r !== RESIST_FIRE);
+  }
+
+  // Check if ICE resistance specifically has been removed (Know Your Prey)
+  if (isIceResistanceRemoved(state, enemy.instanceId)) {
+    resistances = resistances.filter((r) => r !== RESIST_ICE);
   }
 
   return resistances;

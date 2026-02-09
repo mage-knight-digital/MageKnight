@@ -32,6 +32,7 @@ import {
   isAttackBlocked,
   isAttackDamageAssigned,
   isEnemyFullyDamageAssigned,
+  getEffectiveEnemyAttackElement,
 } from "../combat/enemyAttackHelpers.js";
 
 // ============================================================================
@@ -206,7 +207,7 @@ export function getDamageAssignmentOptions(
       if (rawAttack <= 0) continue;
 
       const totalDamage = isBrutal ? rawAttack * 2 : rawAttack;
-      const attackElement = attack.element;
+      const attackElement = getEffectiveEnemyAttackElement(state, enemy, attack.element);
 
       // Check if player's units cannot absorb damage (Into the Heat)
       const unitsCannotAbsorb = currentPlayer

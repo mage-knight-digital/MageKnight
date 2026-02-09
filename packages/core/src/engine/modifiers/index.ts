@@ -25,6 +25,8 @@ export {
   areResistancesRemoved,
   isPhysicalResistanceRemoved,
   isFireResistanceRemoved,
+  isIceResistanceRemoved,
+  getEffectiveAttackElement,
   isPhysicalAttackDoubled,
   getBaseArmorForPhase,
   hasDefeatIfBlocked,

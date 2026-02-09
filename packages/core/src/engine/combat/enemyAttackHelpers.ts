@@ -6,8 +6,10 @@
  * supporting the new multi-attack system.
  */
 
-import type { EnemyAttack } from "@mage-knight/shared";
+import type { EnemyAttack, Element } from "@mage-knight/shared";
 import type { CombatEnemy } from "../../types/combat.js";
+import type { GameState } from "../../state/GameState.js";
+import { getEffectiveAttackElement } from "../modifiers/combat.js";
 
 /**
  * Get all attacks for an enemy (normalized to array format).
@@ -268,4 +270,21 @@ export function initializeAttacksDamageAssigned(
   const attackCount = getEnemyAttackCount(enemy);
   if (attackCount <= 1) return undefined;
   return new Array(attackCount).fill(false);
+}
+
+/**
+ * Get the effective attack element for an enemy after element conversion modifiers.
+ * Used by block and damage calculations to account for Know Your Prey element conversion.
+ *
+ * @param state - Game state (for checking modifiers)
+ * @param enemy - Combat enemy instance
+ * @param originalElement - The original attack element
+ * @returns The effective element after any conversions
+ */
+export function getEffectiveEnemyAttackElement(
+  state: GameState,
+  enemy: CombatEnemy,
+  originalElement: Element
+): Element {
+  return getEffectiveAttackElement(state, enemy.instanceId, originalElement);
 }
