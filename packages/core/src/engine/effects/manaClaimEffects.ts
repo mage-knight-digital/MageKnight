@@ -63,6 +63,7 @@ import {
   EFFECT_MANA_CURSE as MODIFIER_MANA_CURSE,
 } from "../../types/modifierConstants.js";
 import { addModifier } from "../modifiers/lifecycle.js";
+import { processRushOfAdrenalineOnWound } from "./rushOfAdrenalineHelpers.js";
 
 // ============================================================================
 // HELPERS
@@ -408,6 +409,15 @@ export function checkManaCurseWound(
       woundPileCount: newWoundPileCount,
       activeModifiers: updatedModifiers,
     };
+
+    // Rush of Adrenaline: draw cards when wounds are taken to hand
+    const rushResult = processRushOfAdrenalineOnWound(
+      currentState,
+      playerIndex,
+      currentState.players[playerIndex]!,
+      1
+    );
+    currentState = rushResult.state;
   }
 
   return currentState;

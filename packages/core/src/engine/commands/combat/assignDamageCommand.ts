@@ -50,6 +50,7 @@ import { getBannerForUnit, markBannerUsed } from "../../rules/banners.js";
 import { getHeroDamageReduction } from "../../modifiers/index.js";
 import { removeModifier } from "../../modifiers/index.js";
 import { markDuelingUnitInvolvement } from "../../combat/duelingHelpers.js";
+import { processRushOfAdrenalineOnWound } from "../../effects/rushOfAdrenalineHelpers.js";
 
 export const ASSIGN_DAMAGE_COMMAND = "ASSIGN_DAMAGE" as const;
 
@@ -263,8 +264,21 @@ export function createAssignDamageCommand(
         vampiricArmorBonus: updatedVampiricArmorBonus,
       };
 
+      let finalState: GameState = { ...currentState, combat: updatedCombat, players: updatedPlayers };
+
+      // Rush of Adrenaline: draw cards when wounds are taken to hand (after knockout)
+      if (heroWounds > 0) {
+        const rushResult = processRushOfAdrenalineOnWound(
+          finalState,
+          playerIndex,
+          finalState.players[playerIndex]!,
+          heroWounds
+        );
+        finalState = rushResult.state;
+      }
+
       return {
-        state: { ...currentState, combat: updatedCombat, players: updatedPlayers },
+        state: finalState,
         events,
       };
     },

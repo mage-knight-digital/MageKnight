@@ -56,6 +56,7 @@ import { getActionCardColor } from "../helpers/cardColor.js";
 import { getCard } from "../helpers/cardLookup.js";
 import { canPayForMana, getAvailableManaSourcesForColor } from "../validActions/mana.js";
 import { consumeMana } from "../commands/helpers/manaConsumptionHelpers.js";
+import { processRushOfAdrenalineOnWound } from "./rushOfAdrenalineHelpers.js";
 
 const ALL_BASIC_COLORS: readonly BasicManaColor[] = [
   MANA_RED,
@@ -171,10 +172,23 @@ function takeWoundTo(
   const newWoundPileCount =
     state.woundPileCount === null ? null : Math.max(0, state.woundPileCount - 1);
 
-  return {
+  let updatedState: GameState = {
     ...updatePlayer(state, playerIndex, updatedPlayer),
     woundPileCount: newWoundPileCount,
   };
+
+  // Rush of Adrenaline: draw cards when wounds are taken to hand
+  if (destination === "hand") {
+    const rushResult = processRushOfAdrenalineOnWound(
+      updatedState,
+      playerIndex,
+      updatedState.players[playerIndex]!,
+      1
+    );
+    updatedState = rushResult.state;
+  }
+
+  return updatedState;
 }
 
 // ============================================================================
