@@ -413,3 +413,10 @@ export const EFFECT_REMOVE_ICE_RESISTANCE = "remove_ice_resistance" as const;
 // Applied per-enemy by Know Your Prey skill.
 export const EFFECT_CONVERT_ATTACK_ELEMENT = "convert_attack_element" as const;
 
+// === DuelingTargetModifier ===
+// Tracks which enemy was targeted by Wolfhawk's Dueling skill in Block phase.
+// Used to grant Attack 1 vs the same enemy in Attack phase.
+// Also tracks whether any unit was involved with this enemy (for Fame +1 bonus).
+// Duration: combat. Applied by Dueling skill activation.
+export const EFFECT_DUELING_TARGET = "dueling_target" as const;
+

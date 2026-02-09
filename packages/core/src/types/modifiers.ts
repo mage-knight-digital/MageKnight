@@ -75,6 +75,7 @@ import {
   EFFECT_REMOVE_ICE_RESISTANCE,
   EFFECT_CONVERT_ATTACK_ELEMENT,
   EFFECT_DODGE_AND_WEAVE_ATTACK_BONUS,
+  EFFECT_DUELING_TARGET,
   SHAPESHIFT_TARGET_MOVE,
   SHAPESHIFT_TARGET_ATTACK,
   SHAPESHIFT_TARGET_BLOCK,
@@ -691,6 +692,20 @@ export interface ConvertAttackElementModifier {
   readonly toElement: Element;
 }
 
+// Dueling target modifier (Wolfhawk Dueling skill)
+// Tracks the enemy targeted in Block phase for the deferred Attack 1 in Attack phase.
+// Also tracks whether any unit was involved with this enemy for the Fame +1 bonus.
+// Scoped to SCOPE_SELF with playerId. Duration: combat.
+export interface DuelingTargetModifier {
+  readonly type: typeof EFFECT_DUELING_TARGET;
+  /** The enemy instance ID targeted by Dueling */
+  readonly enemyInstanceId: string;
+  /** Whether Attack 1 has been granted in Attack phase */
+  readonly attackApplied: boolean;
+  /** Whether any unit was involved with this enemy (disqualifies Fame +1) */
+  readonly unitInvolved: boolean;
+}
+
 // Union of all modifier effects
 export type ModifierEffect =
   | TerrainCostModifier
@@ -746,7 +761,8 @@ export type ModifierEffect =
   | ShieldBashArmorReductionModifier
   | RemoveIceResistanceModifier
   | ConvertAttackElementModifier
-  | DodgeAndWeaveAttackBonusModifier;
+  | DodgeAndWeaveAttackBonusModifier
+  | DuelingTargetModifier;
 
 // === Active Modifier (live in game state) ===
 
