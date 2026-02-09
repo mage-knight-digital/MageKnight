@@ -419,6 +419,16 @@ export function createEmptyTacticState(): TacticState {
 }
 
 /**
+ * Persistent state for Krang's Master of Chaos skill.
+ */
+export interface MasterOfChaosState {
+  // Current shield token position (color wheel).
+  readonly position: ManaColor;
+  // True when the player may do the between-turn free rotate.
+  readonly freeRotateAvailable: boolean;
+}
+
+/**
  * Tracks a banner artifact attached to a unit.
  * Banners provide persistent basic effects while attached.
  */
@@ -464,6 +474,7 @@ export interface Player {
   readonly skills: readonly SkillId[];
   readonly skillCooldowns: SkillCooldowns;
   readonly skillFlipState: SkillFlipState;
+  readonly masterOfChaosState?: MasterOfChaosState;
 
   // Crystals (max 3 each)
   readonly crystals: Crystals;

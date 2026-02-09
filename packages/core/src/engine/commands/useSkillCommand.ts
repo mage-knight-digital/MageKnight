@@ -37,6 +37,7 @@ import {
   SKILL_BRAEVALAR_SHAPESHIFT,
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_KRANG_REGENERATE,
+  SKILL_KRANG_MASTER_OF_CHAOS,
   SKILL_WOLFHAWK_HAWK_EYES,
   SKILL_WOLFHAWK_DEADLY_AIM,
   SKILL_WOLFHAWK_KNOW_YOUR_PREY,
@@ -100,6 +101,13 @@ import {
 
 import { SKILL_NOROWAS_PRAYER_OF_WEATHER } from "../../data/skills/index.js";
 import { isMotivationSkill, ALL_MOTIVATION_SKILLS } from "../rules/motivation.js";
+import {
+  canUseMasterOfChaosFreeRotate,
+  createMasterOfChaosState,
+  getMasterOfChaosEffectForPosition,
+  getMasterOfChaosPosition,
+  rotateMasterOfChaosPosition,
+} from "../rules/masterOfChaos.js";
 
 import { SKILL_GOLDYX_SOURCE_OPENING } from "../../data/skills/index.js";
 
@@ -467,6 +475,7 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
   // Snapshot of activeModifiers before effect resolution, restored on undo
   // to remove any modifiers added by EFFECT_APPLY_MODIFIER sub-effects
   let preEffectModifiers: GameState["activeModifiers"] | null = null;
+  let previousMasterOfChaosPlayerState: Player | null = null;
 
   // Check if the skill's effect contains non-reversible sub-effects (e.g., draw cards).
   // If so, the command sets an undo checkpoint to prevent exploit via undo+reuse.
@@ -497,18 +506,63 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
         throw new Error(`Player not found at index: ${playerIndex}`);
       }
 
-      // Add skill to cooldowns
-      const updatedCooldowns = addToCooldowns(
-        player.skillCooldowns,
-        skillId,
-        skill.usageType
-      );
+      const isMasterOfChaosSkill = skillId === SKILL_KRANG_MASTER_OF_CHAOS;
+      const useMasterOfChaosFreeRotate =
+        isMasterOfChaosSkill && canUseMasterOfChaosFreeRotate(state, player);
+
+      const updatedCooldowns = useMasterOfChaosFreeRotate
+        ? player.skillCooldowns
+        : addToCooldowns(player.skillCooldowns, skillId, skill.usageType);
 
       // Update player with new cooldowns
-      const updatedPlayer: Player = {
+      let updatedPlayer: Player = {
         ...player,
         skillCooldowns: updatedCooldowns,
       };
+
+      if (isMasterOfChaosSkill) {
+        previousMasterOfChaosPlayerState = player;
+        const rotatedPosition = rotateMasterOfChaosPosition(
+          getMasterOfChaosPosition(player)
+        );
+
+        updatedPlayer = {
+          ...updatedPlayer,
+          masterOfChaosState: createMasterOfChaosState(rotatedPosition, false),
+        };
+
+        const players = [...state.players];
+        players[playerIndex] = updatedPlayer;
+        const rotatedState: GameState = { ...state, players };
+
+        if (useMasterOfChaosFreeRotate) {
+          return {
+            state: rotatedState,
+            events: [createSkillUsedEvent(playerId, skillId)],
+          };
+        }
+
+        const chaosEffect = getMasterOfChaosEffectForPosition(rotatedPosition);
+        const effectResult = resolveEffect(rotatedState, playerId, chaosEffect);
+
+        if (effectResult.requiresChoice) {
+          const choiceInfo = getChoiceOptionsFromEffect(effectResult, chaosEffect);
+          if (choiceInfo) {
+            return handleSkillChoiceEffect(
+              playerId,
+              playerIndex,
+              skillId,
+              effectResult,
+              choiceInfo
+            );
+          }
+        }
+
+        return {
+          state: effectResult.state,
+          events: [createSkillUsedEvent(playerId, skillId)],
+        };
+      }
 
       const players = [...state.players];
       players[playerIndex] = updatedPlayer;
@@ -587,6 +641,18 @@ export function createUseSkillCommand(params: UseSkillCommandParams): Command {
       const player = state.players[playerIndex];
       if (!player) {
         throw new Error(`Player not found at index: ${playerIndex}`);
+      }
+
+      if (
+        skillId === SKILL_KRANG_MASTER_OF_CHAOS &&
+        previousMasterOfChaosPlayerState
+      ) {
+        const restoredPlayers = [...state.players];
+        restoredPlayers[playerIndex] = previousMasterOfChaosPlayerState;
+        return {
+          state: { ...state, players: restoredPlayers },
+          events: [],
+        };
       }
 
       // Remove skill from cooldowns
