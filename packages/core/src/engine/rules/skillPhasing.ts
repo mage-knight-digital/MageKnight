@@ -9,13 +9,14 @@
 import type { GameState } from "../../state/GameState.js";
 import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
 import type { SkillId } from "@mage-knight/shared";
-import { SKILL_ARYTHEA_HOT_SWORDSMANSHIP, SKILL_TOVAK_COLD_SWORDSMANSHIP } from "../../data/skills/index.js";
+import { SKILL_ARYTHEA_HOT_SWORDSMANSHIP, SKILL_TOVAK_COLD_SWORDSMANSHIP, SKILL_KRANG_BATTLE_FRENZY } from "../../data/skills/index.js";
+import type { Player } from "../../types/player.js";
 
 /**
  * Skills that provide melee attacks and can only be used during attack phase.
  * These differ from ranged/siege skills which can be used during ranged/siege or attack phases.
  */
-const MELEE_ATTACK_SKILLS: readonly SkillId[] = [SKILL_ARYTHEA_HOT_SWORDSMANSHIP, SKILL_TOVAK_COLD_SWORDSMANSHIP];
+const MELEE_ATTACK_SKILLS: readonly SkillId[] = [SKILL_ARYTHEA_HOT_SWORDSMANSHIP, SKILL_TOVAK_COLD_SWORDSMANSHIP, SKILL_KRANG_BATTLE_FRENZY];
 
 /**
  * Check if a melee attack skill can be used in the current combat phase.
@@ -30,4 +31,12 @@ export function canUseMeleeAttackSkill(state: GameState): boolean {
  */
 export function isMeleeAttackSkill(skillId: SkillId): boolean {
   return MELEE_ATTACK_SKILLS.includes(skillId);
+}
+
+/**
+ * Check if a skill is face-up (not flipped).
+ * Skills in the flippedSkills array are face-down and cannot be activated.
+ */
+export function isSkillFaceUp(player: Player, skillId: SkillId): boolean {
+  return !player.skillFlipState.flippedSkills.includes(skillId);
 }

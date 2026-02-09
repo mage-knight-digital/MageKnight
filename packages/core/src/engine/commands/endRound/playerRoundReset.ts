@@ -89,6 +89,11 @@ export function processPlayerRoundReset(
         usedThisRound: [],
         usedThisTurn: [],
       },
+      // Reset skill flip state: all flipped skills flip back face-up at round start (S3)
+      skillFlipState: {
+        ...player.skillFlipState,
+        flippedSkills: [],
+      },
       // Reset tactic selection for new round
       selectedTactic: null,
       tacticFlipped: false,
