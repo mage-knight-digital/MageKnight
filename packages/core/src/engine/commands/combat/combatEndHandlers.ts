@@ -106,6 +106,18 @@ export function applyDefeatedEnemyRewards(
       if (fameResult.fameToGain > 0) {
         updatedState = applyFameToPlayer(updatedState, playerId, fameResult.fameToGain);
       }
+
+      // Apply reputation from per-defeat trackers (Chivalry)
+      if (fameResult.reputationToGain !== 0) {
+        const trackerRepResult = applyReputationChange(
+          updatedState,
+          playerId,
+          fameResult.reputationToGain > 0 ? fameResult.reputationToGain : 0,
+          fameResult.reputationToGain < 0 ? -fameResult.reputationToGain : 0
+        );
+        updatedState = trackerRepResult.state;
+        events.push(...trackerRepResult.events);
+      }
     }
   }
 

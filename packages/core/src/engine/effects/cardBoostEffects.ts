@@ -30,6 +30,7 @@ import {
   EFFECT_SCALING,
   EFFECT_RESOLVE_BOOST_TARGET,
   EFFECT_TRACK_ATTACK_DEFEAT_FAME,
+  EFFECT_ATTACK_WITH_DEFEAT_BONUS,
 } from "../../types/effectTypes.js";
 
 /**
@@ -89,6 +90,7 @@ export function addBonusToEffect(effect: CardEffect, bonus: number): CardEffect 
       return { ...effect, amount: effect.amount + bonus };
 
     case EFFECT_TRACK_ATTACK_DEFEAT_FAME:
+    case EFFECT_ATTACK_WITH_DEFEAT_BONUS:
       return { ...effect, amount: effect.amount + bonus };
 
     case EFFECT_CHOICE:
