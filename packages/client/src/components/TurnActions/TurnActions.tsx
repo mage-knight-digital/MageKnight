@@ -104,8 +104,8 @@ export function TurnActions() {
   const isForcedForfeitTurn =
     va?.mode === "normal_turn" &&
     (va.turn.canEndTurn ?? false) &&
-    player.deck.length === 0 &&
-    player.hand.length === 0 &&
+    player.deckCount === 0 &&
+    (Array.isArray(player.hand) ? player.hand.length === 0 : player.hand === 0) &&
     state.endOfRoundAnnouncedBy !== null &&
     state.endOfRoundAnnouncedBy !== player.id;
 
