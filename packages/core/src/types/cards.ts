@@ -67,6 +67,11 @@ import {
   EFFECT_PAY_MANA,
   EFFECT_TERRAIN_BASED_BLOCK,
   EFFECT_PLACE_SKILL_IN_CENTER,
+  EFFECT_KRANG_CURSE,
+  EFFECT_RESOLVE_KRANG_CURSE_TARGET,
+  EFFECT_RESOLVE_KRANG_CURSE_ATTACK_INDEX,
+  EFFECT_APPLY_KRANG_CURSE_ATTACK,
+  EFFECT_APPLY_KRANG_CURSE_ARMOR,
   EFFECT_DISCARD_COST,
   EFFECT_GRANT_WOUND_IMMUNITY,
   EFFECT_DISCARD_FOR_ATTACK,
@@ -659,6 +664,62 @@ export interface PayManaCostEffect {
 export interface PlaceSkillInCenterEffect {
   readonly type: typeof EFFECT_PLACE_SKILL_IN_CENTER;
   readonly skillId: SkillId;
+}
+
+/**
+ * Krang's Curse skill effect.
+ * Select an enemy, then choose one of:
+ * - Reduce one enemy attack by 2 (min 0). Works against Arcane Immune enemies.
+ * - Reduce enemy armor by 1 (min 1). Blocked by Arcane Immunity.
+ *
+ * During Ranged/Siege phase, fortified enemies are not valid targets.
+ * For multi-attack enemies, the player chooses which attack to reduce.
+ */
+export interface KrangCurseEffect {
+  readonly type: typeof EFFECT_KRANG_CURSE;
+}
+
+/**
+ * Internal: resolve after selecting the target enemy for Krang's Curse.
+ * Presents a choice of curse options (attack vs armor).
+ */
+export interface ResolveKrangCurseTargetEffect {
+  readonly type: typeof EFFECT_RESOLVE_KRANG_CURSE_TARGET;
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+}
+
+/**
+ * Internal: for multi-attack enemies, select which attack index to reduce for Krang's Curse.
+ */
+export interface ResolveKrangCurseAttackIndexEffect {
+  readonly type: typeof EFFECT_RESOLVE_KRANG_CURSE_ATTACK_INDEX;
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+}
+
+/**
+ * Internal: apply Krang's Curse attack reduction to a specific attack index.
+ */
+export interface ApplyKrangCurseAttackEffect {
+  readonly type: typeof EFFECT_APPLY_KRANG_CURSE_ATTACK;
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+  /** For multi-attack enemies, which attack index to reduce (0-based) */
+  readonly attackIndex?: number;
+  /** Human-readable description for UI display */
+  readonly description: string;
+}
+
+/**
+ * Internal: apply Krang's Curse armor reduction.
+ */
+export interface ApplyKrangCurseArmorEffect {
+  readonly type: typeof EFFECT_APPLY_KRANG_CURSE_ARMOR;
+  readonly enemyInstanceId: string;
+  readonly enemyName: string;
+  /** Human-readable description for UI display */
+  readonly description: string;
 }
 
 /**
@@ -2038,6 +2099,11 @@ export type CardEffect =
   | PayManaCostEffect
   | TerrainBasedBlockEffect
   | PlaceSkillInCenterEffect
+  | KrangCurseEffect
+  | ResolveKrangCurseTargetEffect
+  | ResolveKrangCurseAttackIndexEffect
+  | ApplyKrangCurseAttackEffect
+  | ApplyKrangCurseArmorEffect
   | DiscardCostEffect
   | GrantWoundImmunityEffect
   | DiscardForAttackEffect
