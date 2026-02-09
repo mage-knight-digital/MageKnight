@@ -14,6 +14,7 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_DISCARD_COST,
+  EFFECT_ATTACK_WITH_DEFEAT_BONUS,
 } from "../../../../types/effectTypes.js";
 import {
   COMBAT_TYPE_RANGED,
@@ -26,6 +27,9 @@ import {
 export function effectHasRangedOrSiege(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_ATTACK:
+      return effect.combatType === COMBAT_TYPE_RANGED || effect.combatType === COMBAT_TYPE_SIEGE;
+
+    case EFFECT_ATTACK_WITH_DEFEAT_BONUS:
       return effect.combatType === COMBAT_TYPE_RANGED || effect.combatType === COMBAT_TYPE_SIEGE;
 
     case EFFECT_CHOICE:
@@ -93,6 +97,7 @@ export function effectHasBlock(effect: CardEffect): boolean {
 export function effectHasAttack(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_ATTACK:
+    case EFFECT_ATTACK_WITH_DEFEAT_BONUS:
       return true;
 
     case EFFECT_CHOICE:

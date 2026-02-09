@@ -366,6 +366,7 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const parts = [`Attack ${e.amount}`];
     if (e.reputationPerDefeat) parts.push(`Rep +${e.reputationPerDefeat}`);
     if (e.famePerDefeat) parts.push(`Fame +${e.famePerDefeat}`);
+    if (e.armorReductionPerDefeat) parts.push(`Armor -${e.armorReductionPerDefeat} on another enemy`);
     return `${parts.join(", ")} per enemy defeated`;
   },
 

@@ -323,5 +323,32 @@ export function attackWithDefeatBonus(
   };
 }
 
+/**
+ * Creates a ranged attack effect with per-defeat armor reduction.
+ * Used by Explosive Bolt.
+ *
+ * For each enemy defeated by this attack, another surviving enemy
+ * gets Armor reduced by the specified amount (minimum 1).
+ * Fire Resistant enemies are immune to the armor reduction.
+ * Armor reduction lasts the entire combat.
+ *
+ * @param amount - The ranged attack value
+ * @param armorReduction - Armor reduction per enemy defeated (typically 1)
+ * @returns An AttackWithDefeatBonusEffect with ranged combat type and armor reduction
+ */
+export function rangedAttackWithArmorReduction(
+  amount: number,
+  armorReduction: number
+): CardEffect {
+  return {
+    type: EFFECT_ATTACK_WITH_DEFEAT_BONUS,
+    amount,
+    combatType: COMBAT_TYPE_RANGED,
+    reputationPerDefeat: 0,
+    famePerDefeat: 0,
+    armorReductionPerDefeat: armorReduction,
+  };
+}
+
 // Re-export element constants for convenience
 export { ELEMENT_FIRE, ELEMENT_ICE, ELEMENT_COLD_FIRE } from "../../types/modifierConstants.js";

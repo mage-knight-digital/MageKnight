@@ -804,14 +804,20 @@ export interface TrackAttackDefeatFameEffect {
  */
 export interface AttackWithDefeatBonusEffect {
   readonly type: typeof EFFECT_ATTACK_WITH_DEFEAT_BONUS;
-  /** Attack amount (melee) */
+  /** Attack amount */
   readonly amount: number;
-  /** Combat type of the attack */
+  /** Combat type of the attack (melee, ranged, siege) */
   readonly combatType: CombatType;
   /** Reputation gained per enemy defeated by this attack */
   readonly reputationPerDefeat: number;
   /** Fame gained per enemy defeated by this attack */
   readonly famePerDefeat: number;
+  /**
+   * Armor reduction to apply per enemy defeated by this attack (Explosive Bolt).
+   * For each defeated enemy, another surviving enemy gets Armor -N (min 1).
+   * Fire Resistant enemies are immune to the reduction.
+   */
+  readonly armorReductionPerDefeat?: number;
 }
 
 /**

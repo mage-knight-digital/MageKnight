@@ -177,6 +177,11 @@ export interface ResolveAttackDefeatFameResult {
   readonly updatedTrackers: readonly AttackDefeatFameTracker[];
   readonly fameToGain: number;
   readonly reputationToGain: number;
+  /**
+   * Number of armor reductions to apply to surviving enemies (Explosive Bolt).
+   * Each unit represents -1 armor to apply to one enemy (player distributes).
+   */
+  readonly armorReductionsToApply: number;
 }
 
 export function resolveAttackDefeatFameTrackers(
@@ -184,12 +189,13 @@ export function resolveAttackDefeatFameTrackers(
   defeatedEnemyIds: readonly string[]
 ): ResolveAttackDefeatFameResult {
   if (trackers.length === 0) {
-    return { updatedTrackers: trackers, fameToGain: 0, reputationToGain: 0 };
+    return { updatedTrackers: trackers, fameToGain: 0, reputationToGain: 0, armorReductionsToApply: 0 };
   }
 
   const defeated = new Set(defeatedEnemyIds);
   let fameToGain = 0;
   let reputationToGain = 0;
+  let armorReductionsToApply = 0;
   let didChange = false;
   const updatedTrackers: AttackDefeatFameTracker[] = [];
 
@@ -209,6 +215,11 @@ export function resolveAttackDefeatFameTrackers(
       }
       if (tracker.famePerDefeat) {
         fameToGain += tracker.famePerDefeat * defeatedByTrackerIds.length;
+      }
+
+      // Armor reduction per defeated enemy (Explosive Bolt)
+      if (tracker.armorReductionPerDefeat) {
+        armorReductionsToApply += tracker.armorReductionPerDefeat * defeatedByTrackerIds.length;
       }
 
       didChange = true;
@@ -234,5 +245,6 @@ export function resolveAttackDefeatFameTrackers(
     updatedTrackers: didChange ? updatedTrackers : trackers,
     fameToGain,
     reputationToGain,
+    armorReductionsToApply,
   };
 }

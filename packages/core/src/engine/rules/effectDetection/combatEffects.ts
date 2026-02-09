@@ -16,6 +16,7 @@ import {
   EFFECT_DISCARD_COST,
   EFFECT_PURE_MAGIC,
   EFFECT_MANA_BOLT,
+  EFFECT_ATTACK_WITH_DEFEAT_BONUS,
 } from "../../../types/effectTypes.js";
 import {
   COMBAT_TYPE_RANGED,
@@ -30,6 +31,9 @@ import { effectHasModifier } from "./resourceEffects.js";
 export function effectHasRangedOrSiege(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_ATTACK:
+      return effect.combatType === COMBAT_TYPE_RANGED || effect.combatType === COMBAT_TYPE_SIEGE;
+
+    case EFFECT_ATTACK_WITH_DEFEAT_BONUS:
       return effect.combatType === COMBAT_TYPE_RANGED || effect.combatType === COMBAT_TYPE_SIEGE;
 
     case EFFECT_MANA_BOLT: // Mana Bolt can provide Ranged (white) or Siege (green)
@@ -105,6 +109,9 @@ export function effectIsRangedOnlyAttack(effect: CardEffect): boolean {
     case EFFECT_GAIN_ATTACK:
       return effect.combatType === COMBAT_TYPE_RANGED;
 
+    case EFFECT_ATTACK_WITH_DEFEAT_BONUS:
+      return effect.combatType === COMBAT_TYPE_RANGED;
+
     case EFFECT_CHOICE:
       // All options must be ranged-only (no siege escape hatch)
       return effect.options.every(opt => effectIsRangedOnlyAttack(opt));
@@ -176,6 +183,7 @@ function effectHasSiegeAttack(effect: CardEffect): boolean {
 export function effectHasAttack(effect: CardEffect): boolean {
   switch (effect.type) {
     case EFFECT_GAIN_ATTACK:
+    case EFFECT_ATTACK_WITH_DEFEAT_BONUS: // Explosive Bolt, etc. - provides attack with defeat bonuses
     case EFFECT_PURE_MAGIC: // Pure Magic can provide Attack (via red mana)
     case EFFECT_MANA_BOLT: // Mana Bolt always provides Attack (all colors → attack)
       return true;
