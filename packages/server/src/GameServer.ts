@@ -575,6 +575,7 @@ export class GameServer {
       pendingUnitMaintenance: null,
       pendingDiscard: null,
       pendingDiscardForAttack: null,
+      pendingDiscardForBonus: null,
       pendingDiscardForCrystal: null,
       pendingDecompose: null,
       pendingMaximalEffect: null,

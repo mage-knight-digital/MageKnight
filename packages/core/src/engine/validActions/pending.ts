@@ -17,6 +17,7 @@ import type {
   BasicManaColor,
   DiscardCostOptions,
   DiscardForAttackOptions,
+  DiscardForBonusOptions,
   DiscardForCrystalOptions,
   DecomposeOptions,
   MaximalEffectOptions,
@@ -35,6 +36,7 @@ import { CARD_WOUND, hexKey, MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from 
 import { SiteType } from "../../types/map.js";
 import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
 import { getCardsEligibleForDiscardForAttack } from "../effects/swordOfJusticeEffects.js";
+import { getCardsEligibleForDiscardForBonus } from "../effects/stoutResolveEffects.js";
 import { getCardsEligibleForDiscardForCrystal } from "../effects/discardForCrystalEffects.js";
 import { getCardsEligibleForDecompose } from "../effects/decomposeEffects.js";
 import { getCardsEligibleForMaximalEffect } from "../effects/maximalEffectEffects.js";
@@ -154,6 +156,37 @@ export function getDiscardForAttackOptions(
     availableCardIds,
     attackPerCard,
     combatType,
+  };
+}
+
+/**
+ * Get discard for bonus options for the player.
+ * Returns options if player has a pending discard-for-bonus state (Stout Resolve).
+ */
+export function getDiscardForBonusOptions(
+  _state: GameState,
+  player: Player
+): DiscardForBonusOptions | undefined {
+  if (!player.pendingDiscardForBonus) {
+    return undefined;
+  }
+
+  const { sourceCardId, bonusPerCard, maxDiscards, discardFilter, choiceOptions } =
+    player.pendingDiscardForBonus;
+
+  // Get eligible cards from hand
+  const availableCardIds = getCardsEligibleForDiscardForBonus(
+    player.hand,
+    discardFilter
+  );
+
+  return {
+    sourceCardId,
+    availableCardIds,
+    bonusPerCard,
+    maxDiscards,
+    discardFilter,
+    choiceCount: choiceOptions.length,
   };
 }
 

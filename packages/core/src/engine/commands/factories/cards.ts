@@ -22,6 +22,7 @@ import {
   RESOLVE_CHOICE_ACTION,
   RESOLVE_DISCARD_ACTION,
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
+  RESOLVE_DISCARD_FOR_BONUS_ACTION,
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
   RESOLVE_DECOMPOSE_ACTION,
   RESOLVE_MAXIMAL_EFFECT_ACTION,
@@ -38,6 +39,7 @@ import {
 import { createResolveChoiceCommand } from "../resolveChoiceCommand.js";
 import { createResolveDiscardCommand } from "../resolveDiscardCommand.js";
 import { createResolveDiscardForAttackCommand } from "../resolveDiscardForAttackCommand.js";
+import { createResolveDiscardForBonusCommand } from "../resolveDiscardForBonusCommand.js";
 import { createResolveDiscardForCrystalCommand } from "../resolveDiscardForCrystalCommand.js";
 import { createResolveArtifactCrystalColorCommand } from "../resolveArtifactCrystalColorCommand.js";
 import { createResolveDecomposeCommand } from "../resolveDecomposeCommand.js";
@@ -299,6 +301,27 @@ export const createResolveDiscardForAttackCommandFromAction: CommandFactory = (
   return createResolveDiscardForAttackCommand({
     playerId,
     cardIds: action.cardIds,
+  });
+};
+
+/**
+ * Resolve discard-for-bonus command factory.
+ * Creates a command to resolve a pending discard-for-bonus (Stout Resolve).
+ */
+export const createResolveDiscardForBonusCommandFromAction: CommandFactory = (
+  state,
+  playerId,
+  action
+) => {
+  if (action.type !== RESOLVE_DISCARD_FOR_BONUS_ACTION) return null;
+
+  const player = getPlayerById(state, playerId);
+  if (!player?.pendingDiscardForBonus) return null;
+
+  return createResolveDiscardForBonusCommand({
+    playerId,
+    cardIds: action.cardIds,
+    choiceIndex: action.choiceIndex,
   });
 };
 

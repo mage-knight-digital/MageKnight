@@ -215,6 +215,23 @@ export interface PendingDiscardForAttack {
 }
 
 /**
+ * Pending discard-for-bonus resolution (Stout Resolve).
+ * Player can optionally discard cards to increase a chosen effect.
+ */
+export interface PendingDiscardForBonus {
+  /** Source card that triggered the discard (Stout Resolve) */
+  readonly sourceCardId: CardId;
+  /** Choice options (Move/Influence/Attack/Block with base values) */
+  readonly choiceOptions: readonly import("./cards.js").CardEffect[];
+  /** Bonus added to the chosen effect per card discarded */
+  readonly bonusPerCard: number;
+  /** Maximum cards that can be discarded */
+  readonly maxDiscards: number;
+  /** Filter for which cards can be discarded */
+  readonly discardFilter: "wound_only" | "any_max_one_wound";
+}
+
+/**
  * Pending discard-for-crystal resolution (Savage Harvesting).
  * Player discards a card to gain a crystal.
  * - Action cards: crystal matches card color automatically
@@ -508,6 +525,9 @@ export interface Player {
 
   // Discard for attack pending (Sword of Justice basic effect)
   readonly pendingDiscardForAttack: PendingDiscardForAttack | null;
+
+  // Discard for bonus pending (Stout Resolve)
+  readonly pendingDiscardForBonus: PendingDiscardForBonus | null;
 
   // Discard for crystal pending (Savage Harvesting)
   readonly pendingDiscardForCrystal: PendingDiscardForCrystal | null;

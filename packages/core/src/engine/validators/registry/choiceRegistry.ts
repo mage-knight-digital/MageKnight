@@ -14,6 +14,7 @@ import {
   RESOLVE_MEDITATION_ACTION,
   RESOLVE_DISCARD_ACTION,
   RESOLVE_DISCARD_FOR_ATTACK_ACTION,
+  RESOLVE_DISCARD_FOR_BONUS_ACTION,
   RESOLVE_DISCARD_FOR_CRYSTAL_ACTION,
   RESOLVE_DECOMPOSE_ACTION,
   RESOLVE_MAXIMAL_EFFECT_ACTION,
@@ -70,6 +71,12 @@ import {
   validateHasPendingDiscardForAttack,
   validateDiscardForAttackSelection,
 } from "../discardForAttackValidators.js";
+
+// Discard for bonus validators (Stout Resolve)
+import {
+  validateHasPendingDiscardForBonus,
+  validateDiscardForBonusSelection,
+} from "../discardForBonusValidators.js";
 
 // Discard for crystal validators (Savage Harvesting)
 import {
@@ -178,6 +185,11 @@ export const choiceRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHasPendingDiscardForAttack,
     validateDiscardForAttackSelection,
+  ],
+  [RESOLVE_DISCARD_FOR_BONUS_ACTION]: [
+    validateIsPlayersTurn,
+    validateHasPendingDiscardForBonus,
+    validateDiscardForBonusSelection,
   ],
   [RESOLVE_DISCARD_FOR_CRYSTAL_ACTION]: [
     validateIsPlayersTurn,

@@ -255,6 +255,13 @@ export const DISCARD_COST_CANNOT_SKIP = "DISCARD_COST_CANNOT_SKIP" as const;
 export const DISCARD_FOR_ATTACK_REQUIRED = "DISCARD_FOR_ATTACK_REQUIRED" as const;
 export const DISCARD_FOR_ATTACK_CARD_NOT_ELIGIBLE = "DISCARD_FOR_ATTACK_CARD_NOT_ELIGIBLE" as const;
 
+// Discard for bonus validation codes (Stout Resolve)
+export const DISCARD_FOR_BONUS_REQUIRED = "DISCARD_FOR_BONUS_REQUIRED" as const;
+export const DISCARD_FOR_BONUS_CARD_NOT_ELIGIBLE = "DISCARD_FOR_BONUS_CARD_NOT_ELIGIBLE" as const;
+export const DISCARD_FOR_BONUS_TOO_MANY_WOUNDS = "DISCARD_FOR_BONUS_TOO_MANY_WOUNDS" as const;
+export const DISCARD_FOR_BONUS_TOO_MANY_CARDS = "DISCARD_FOR_BONUS_TOO_MANY_CARDS" as const;
+export const DISCARD_FOR_BONUS_INVALID_CHOICE = "DISCARD_FOR_BONUS_INVALID_CHOICE" as const;
+
 // Discard for crystal validation codes (Savage Harvesting)
 export const DISCARD_FOR_CRYSTAL_REQUIRED = "DISCARD_FOR_CRYSTAL_REQUIRED" as const;
 export const DISCARD_FOR_CRYSTAL_CARD_NOT_ELIGIBLE = "DISCARD_FOR_CRYSTAL_CARD_NOT_ELIGIBLE" as const;
@@ -560,6 +567,12 @@ export type ValidationErrorCode =
   // Discard for attack validation (Sword of Justice)
   | typeof DISCARD_FOR_ATTACK_REQUIRED
   | typeof DISCARD_FOR_ATTACK_CARD_NOT_ELIGIBLE
+  // Discard for bonus validation (Stout Resolve)
+  | typeof DISCARD_FOR_BONUS_REQUIRED
+  | typeof DISCARD_FOR_BONUS_CARD_NOT_ELIGIBLE
+  | typeof DISCARD_FOR_BONUS_TOO_MANY_WOUNDS
+  | typeof DISCARD_FOR_BONUS_TOO_MANY_CARDS
+  | typeof DISCARD_FOR_BONUS_INVALID_CHOICE
   // Discard for crystal validation (Savage Harvesting)
   | typeof DISCARD_FOR_CRYSTAL_REQUIRED
   | typeof DISCARD_FOR_CRYSTAL_CARD_NOT_ELIGIBLE
