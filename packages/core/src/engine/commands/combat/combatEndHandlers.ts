@@ -53,6 +53,7 @@ import { resolveScoutFameBonus } from "../../combat/scoutFameTracking.js";
 import { resolveBowPhaseFameBonus } from "../../combat/bowPhaseFameTracking.js";
 import { resolveSoulHarvesterCrystals } from "../../combat/soulHarvesterTracking.js";
 import { resolveDuelingFameBonus } from "../../combat/duelingHelpers.js";
+import { applyArmorReductions } from "../../combat/armorReductionHelpers.js";
 
 // ============================================================================
 // Helper Functions
@@ -118,6 +119,15 @@ export function applyDefeatedEnemyRewards(
         );
         updatedState = trackerRepResult.state;
         events.push(...trackerRepResult.events);
+      }
+
+      // Apply armor reductions from defeat trackers (Explosive Bolt)
+      if (fameResult.armorReductionsToApply > 0 && updatedState.combat) {
+        updatedState = applyArmorReductions(
+          updatedState,
+          playerId,
+          fameResult.armorReductionsToApply
+        );
       }
     }
   }

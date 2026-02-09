@@ -337,7 +337,7 @@ export interface PendingTerrainCostReduction {
 
 /**
  * Track an attack that grants fame if it defeats at least one enemy.
- * Used by Axe Throw powered effect.
+ * Used by Axe Throw powered effect, Chivalry, and Explosive Bolt.
  */
 export interface AttackDefeatFameTracker {
   /** Source card that created the tracker (if any) */
@@ -358,6 +358,12 @@ export interface AttackDefeatFameTracker {
   readonly reputationPerDefeat?: number;
   /** Fame to gain per enemy defeated by this attack (Chivalry powered) */
   readonly famePerDefeat?: number;
+  /**
+   * Armor reduction to apply per enemy defeated by this attack (Explosive Bolt).
+   * For each defeated enemy, another surviving enemy gets Armor -armorReductionPerDefeat
+   * (minimum 1). Fire Resistant enemies are immune. Lasts entire combat.
+   */
+  readonly armorReductionPerDefeat?: number;
 }
 
 // === Tactic-specific state types ===

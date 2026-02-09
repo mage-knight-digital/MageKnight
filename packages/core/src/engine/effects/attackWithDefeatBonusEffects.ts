@@ -1,15 +1,18 @@
 /**
  * Attack with defeat bonus effect handler
  *
- * Handles the AttackWithDefeatBonus effect used by Chivalry.
- * Combines a melee attack with per-enemy-defeated reputation/fame tracking.
+ * Handles the AttackWithDefeatBonus effect used by Chivalry and Explosive Bolt.
+ * Combines an attack with per-enemy-defeated bonuses:
+ * - Reputation/fame tracking (Chivalry)
+ * - Armor reduction on other enemies (Explosive Bolt)
  */
 
 import type { AttackWithDefeatBonusEffect, GainAttackEffect } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
 import type { AttackDefeatFameTracker } from "../../types/player.js";
 import { EFFECT_ATTACK_WITH_DEFEAT_BONUS } from "../../types/effectTypes.js";
-import { ATTACK_TYPE_MELEE, ATTACK_ELEMENT_PHYSICAL } from "@mage-knight/shared";
+import { ATTACK_ELEMENT_PHYSICAL } from "@mage-knight/shared";
+import { toAttackType } from "../combat/attackFameTracking.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
 import { applyGainAttack } from "./atomicCombatEffects.js";
@@ -42,7 +45,7 @@ export function registerAttackWithDefeatBonusEffects(): void {
 
       const tracker: AttackDefeatFameTracker = {
         sourceCardId: null,
-        attackType: ATTACK_TYPE_MELEE,
+        attackType: toAttackType(typedEffect.combatType),
         element: ATTACK_ELEMENT_PHYSICAL,
         amount: typedEffect.amount,
         remaining: typedEffect.amount,
@@ -50,6 +53,7 @@ export function registerAttackWithDefeatBonusEffects(): void {
         fame: 0,
         reputationPerDefeat: typedEffect.reputationPerDefeat,
         famePerDefeat: typedEffect.famePerDefeat,
+        armorReductionPerDefeat: typedEffect.armorReductionPerDefeat,
       };
 
       const updatedPlayer = {
@@ -57,9 +61,21 @@ export function registerAttackWithDefeatBonusEffects(): void {
         pendingAttackDefeatFame: [...postPlayer.pendingAttackDefeatFame, tracker],
       };
 
+      const descParts: string[] = [];
+      if (typedEffect.reputationPerDefeat) {
+        descParts.push(`Rep +${typedEffect.reputationPerDefeat}`);
+      }
+      if (typedEffect.famePerDefeat) {
+        descParts.push(`Fame +${typedEffect.famePerDefeat}`);
+      }
+      if (typedEffect.armorReductionPerDefeat) {
+        descParts.push(`Armor -${typedEffect.armorReductionPerDefeat} on another enemy`);
+      }
+      const bonusDesc = descParts.length > 0 ? ` (${descParts.join(", ")} per enemy)` : "";
+
       return {
         state: updatePlayer(updatedState, postIndex, updatedPlayer),
-        description: `Attack ${typedEffect.amount} with defeat bonuses (Rep +${typedEffect.reputationPerDefeat}${typedEffect.famePerDefeat ? `, Fame +${typedEffect.famePerDefeat}` : ""} per enemy)`,
+        description: `Attack ${typedEffect.amount} with defeat bonuses${bonusDesc}`,
       };
     }
   );

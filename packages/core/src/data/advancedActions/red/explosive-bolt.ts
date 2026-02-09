@@ -5,7 +5,12 @@ import {
   DEED_CARD_TYPE_ADVANCED_ACTION,
 } from "../../../types/cards.js";
 import { MANA_RED, MANA_WHITE, CARD_EXPLOSIVE_BOLT } from "@mage-knight/shared";
-import { gainCrystal, rangedAttack } from "../helpers.js";
+import {
+  compound,
+  takeWound,
+  gainCrystal,
+  rangedAttackWithArmorReduction,
+} from "../helpers.js";
 
 export const EXPLOSIVE_BOLT: DeedCard = {
   id: CARD_EXPLOSIVE_BOLT,
@@ -14,9 +19,12 @@ export const EXPLOSIVE_BOLT: DeedCard = {
   poweredBy: [MANA_RED, MANA_WHITE], // Dual-color: can be powered by red OR white
   categories: [CATEGORY_SPECIAL, CATEGORY_COMBAT],
   // Basic: Take a Wound. Gain a white and a red crystal to your Inventory.
-  // Powered: Ranged Attack 3. For each enemy defeated by this attack, another enemy gets Armor -1 (to a minimum of 1).
-  // TODO: Implement wound-taking, dual crystal gain, and armor reduction on defeat
-  basicEffect: gainCrystal(MANA_RED),
-  poweredEffect: rangedAttack(3),
+  basicEffect: compound(
+    takeWound(1),
+    gainCrystal(MANA_WHITE),
+    gainCrystal(MANA_RED),
+  ),
+  // Powered: Ranged Attack 3. For each enemy defeated by this attack, another enemy gets Armor -1 (min 1).
+  poweredEffect: rangedAttackWithArmorReduction(3, 1),
   sidewaysValue: 1,
 };
