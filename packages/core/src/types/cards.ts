@@ -156,6 +156,10 @@ import {
   EFFECT_HAND_LIMIT_BONUS,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
+  EFFECT_CIRCLET_OF_PROFICIENCY_BASIC,
+  EFFECT_RESOLVE_CIRCLET_BASIC_SKILL,
+  EFFECT_CIRCLET_OF_PROFICIENCY_POWERED,
+  EFFECT_RESOLVE_CIRCLET_POWERED_SKILL,
   EFFECT_MYSTERIOUS_BOX,
   EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
   EFFECT_SPELL_FORGE_BASIC,
@@ -1879,6 +1883,40 @@ export interface ResolveTomeSpellEffect {
 }
 
 /**
+ * Circlet of Proficiency basic effect entry point.
+ * Select and use a non-interactive skill from common offer or own skills.
+ */
+export interface CircletOfProficiencyBasicEffect {
+  readonly type: typeof EFFECT_CIRCLET_OF_PROFICIENCY_BASIC;
+}
+
+/**
+ * Internal: resolve one use of a selected skill for Circlet basic.
+ */
+export interface ResolveCircletBasicSkillEffect {
+  readonly type: typeof EFFECT_RESOLVE_CIRCLET_BASIC_SKILL;
+  readonly skillId: SkillId;
+  readonly skillName: string;
+}
+
+/**
+ * Circlet of Proficiency powered effect entry point.
+ * Select and permanently acquire a skill from common offer or own skills.
+ */
+export interface CircletOfProficiencyPoweredEffect {
+  readonly type: typeof EFFECT_CIRCLET_OF_PROFICIENCY_POWERED;
+}
+
+/**
+ * Internal: resolve the selected Circlet powered skill acquisition.
+ */
+export interface ResolveCircletPoweredSkillEffect {
+  readonly type: typeof EFFECT_RESOLVE_CIRCLET_POWERED_SKILL;
+  readonly skillId: SkillId;
+  readonly skillName: string;
+}
+
+/**
  * Mysterious Box effect entry point.
  * Reveal the top artifact deck card and choose how to use Mysterious Box this turn.
  */
@@ -2193,6 +2231,10 @@ export type CardEffect =
   | HandLimitBonusEffect
   | TomeOfAllSpellsEffect
   | ResolveTomeSpellEffect
+  | CircletOfProficiencyBasicEffect
+  | ResolveCircletBasicSkillEffect
+  | CircletOfProficiencyPoweredEffect
+  | ResolveCircletPoweredSkillEffect
   | MysteriousBoxEffect
   | ResolveMysteriousBoxUseEffect
   | SpellForgeBasicEffect

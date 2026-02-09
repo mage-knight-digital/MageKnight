@@ -33,6 +33,7 @@ import {
   EFFECT_PEACEFUL_MOMENT_CONVERT,
   EFFECT_PEACEFUL_MOMENT_HEAL,
   EFFECT_PEACEFUL_MOMENT_REFRESH,
+  EFFECT_RESOLVE_CIRCLET_BASIC_SKILL,
 } from "../../../types/effectTypes.js";
 import { describeEffect, isEffectResolvable } from "../../effects/index.js";
 import type { EffectResolutionResult } from "../../effects/index.js";
@@ -85,6 +86,7 @@ const DYNAMIC_CHOICE_EFFECTS = new Set<string>([
   EFFECT_PEACEFUL_MOMENT_CONVERT,
   EFFECT_PEACEFUL_MOMENT_HEAL,
   EFFECT_PEACEFUL_MOMENT_REFRESH,
+  EFFECT_RESOLVE_CIRCLET_BASIC_SKILL,
 ]);
 
 function buildPendingChoice(

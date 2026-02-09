@@ -104,6 +104,10 @@ import {
   EFFECT_HAND_LIMIT_BONUS,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
+  EFFECT_CIRCLET_OF_PROFICIENCY_BASIC,
+  EFFECT_RESOLVE_CIRCLET_BASIC_SKILL,
+  EFFECT_CIRCLET_OF_PROFICIENCY_POWERED,
+  EFFECT_RESOLVE_CIRCLET_POWERED_SKILL,
   EFFECT_MYSTERIOUS_BOX,
   EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
   EFFECT_SPELL_FORGE_BASIC,
@@ -686,6 +690,24 @@ const descriptionHandlers: Partial<Record<EffectType, DescriptionHandler>> = {
     const e = effect as import("../../types/cards.js").ResolveTomeSpellEffect;
     const modeStr = e.mode === "basic" ? "basic" : "powered";
     return `Use ${e.spellName}'s ${modeStr} effect from the Spell Offer`;
+  },
+
+  [EFFECT_CIRCLET_OF_PROFICIENCY_BASIC]: () => {
+    return "Choose a non-interactive skill and use it (once-per-turn skills are used twice)";
+  },
+
+  [EFFECT_RESOLVE_CIRCLET_BASIC_SKILL]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveCircletBasicSkillEffect;
+    return `Use ${e.skillName}`;
+  },
+
+  [EFFECT_CIRCLET_OF_PROFICIENCY_POWERED]: () => {
+    return "Choose a skill from common offer or your own skills and acquire it";
+  },
+
+  [EFFECT_RESOLVE_CIRCLET_POWERED_SKILL]: (effect) => {
+    const e = effect as import("../../types/cards.js").ResolveCircletPoweredSkillEffect;
+    return `Acquire ${e.skillName}`;
   },
 
   [EFFECT_MYSTERIOUS_BOX]: () => {

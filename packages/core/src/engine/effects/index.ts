@@ -375,6 +375,11 @@ export {
   registerTomeOfAllSpellsEffects,
 } from "./tomeOfAllSpellsEffects.js";
 
+// Circlet of Proficiency effects (borrow/acquire skills from common offer)
+export {
+  registerCircletOfProficiencyEffects,
+} from "./circletOfProficiencyEffects.js";
+
 // Mysterious Box effects (artifact reveal and polymorphic artifact use)
 export {
   registerMysteriousBoxEffects,

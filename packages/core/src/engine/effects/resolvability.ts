@@ -25,6 +25,7 @@
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { CardEffect } from "../../types/cards.js";
+import type { SkillId } from "@mage-knight/shared";
 import { DEED_CARD_TYPE_BASIC_ACTION, DEED_CARD_TYPE_ADVANCED_ACTION } from "../../types/cards.js";
 import {
   ABILITY_ARCANE_IMMUNITY,
@@ -132,6 +133,10 @@ import {
   EFFECT_RESOLVE_BLOOD_POWERED_USE_AA,
   EFFECT_TOME_OF_ALL_SPELLS,
   EFFECT_RESOLVE_TOME_SPELL,
+  EFFECT_CIRCLET_OF_PROFICIENCY_BASIC,
+  EFFECT_RESOLVE_CIRCLET_BASIC_SKILL,
+  EFFECT_CIRCLET_OF_PROFICIENCY_POWERED,
+  EFFECT_RESOLVE_CIRCLET_POWERED_SKILL,
   EFFECT_MYSTERIOUS_BOX,
   EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
   EFFECT_SPELL_FORGE_BASIC,
@@ -177,6 +182,12 @@ import {
 import { countRuleActive } from "../modifiers/index.js";
 import { getSpentUnitsAtOrBelowLevel } from "./unitEffects.js";
 import { getActionCardColor, getSpellColor } from "../helpers/cardColor.js";
+import {
+  SKILLS,
+  SKILL_USAGE_ONCE_PER_TURN,
+  SKILL_USAGE_ONCE_PER_ROUND,
+} from "../../data/skills/index.js";
+import { getSkillOptions } from "../validActions/skills.js";
 
 // ============================================================================
 // TYPES
@@ -196,6 +207,41 @@ type ResolvabilityHandler<T extends CardEffect = CardEffect> = (
  * Effect type discriminator string
  */
 type EffectType = CardEffect["type"];
+
+function getCombinedSkillIdsForCirclet(state: GameState, player: Player): SkillId[] {
+  const combined = [...state.offers.commonSkills, ...player.skills];
+  return Array.from(new Set(combined));
+}
+
+function hasResolvableCircletBasicSkill(state: GameState, player: Player): boolean {
+  const combinedSkills = getCombinedSkillIdsForCirclet(state, player);
+  if (combinedSkills.length === 0) {
+    return false;
+  }
+
+  const virtualPlayer: Player = {
+    ...player,
+    skills: combinedSkills,
+  };
+
+  const activatable = getSkillOptions(state, virtualPlayer)?.activatable ?? [];
+  const activatableIds = new Set(activatable.map((option) => option.skillId));
+
+  return combinedSkills.some((skillId) => {
+    const skill = SKILLS[skillId];
+    if (!skill) return false;
+
+    const usage = skill.usageType;
+    if (
+      usage !== SKILL_USAGE_ONCE_PER_TURN &&
+      usage !== SKILL_USAGE_ONCE_PER_ROUND
+    ) {
+      return false;
+    }
+
+    return activatableIds.has(skillId);
+  });
+}
 
 // ============================================================================
 // RESOLVABILITY HANDLERS
@@ -737,6 +783,19 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
 
   // Resolve Tome spell is always resolvable (validated at resolution time)
   [EFFECT_RESOLVE_TOME_SPELL]: () => true,
+
+  // Circlet basic is resolvable if there is at least one eligible
+  // non-interactive activatable skill in common offer or own skills.
+  [EFFECT_CIRCLET_OF_PROFICIENCY_BASIC]: (state, player) => {
+    return hasResolvableCircletBasicSkill(state, player);
+  },
+
+  // Circlet resolution steps are validated at resolution time.
+  [EFFECT_RESOLVE_CIRCLET_BASIC_SKILL]: () => true,
+  [EFFECT_CIRCLET_OF_PROFICIENCY_POWERED]: (state, player) => {
+    return getCombinedSkillIdsForCirclet(state, player).length > 0;
+  },
+  [EFFECT_RESOLVE_CIRCLET_POWERED_SKILL]: () => true,
 
   // Mysterious Box requires at least one artifact in deck to reveal
   [EFFECT_MYSTERIOUS_BOX]: (state) => {
