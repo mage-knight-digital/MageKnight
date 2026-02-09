@@ -449,6 +449,16 @@ export const EFFECT_TOME_OF_ALL_SPELLS = "tome_of_all_spells" as const;
 // of matching color, then resolves that spell's basic or powered effect (no mana cost).
 export const EFFECT_RESOLVE_TOME_SPELL = "resolve_tome_spell" as const;
 
+// === Circlet of Proficiency Effects ===
+// Basic: Use a non-interactive skill from common offer or own skills.
+export const EFFECT_CIRCLET_OF_PROFICIENCY_BASIC = "circlet_of_proficiency_basic" as const;
+// Internal: Resolve one use of the selected skill.
+export const EFFECT_RESOLVE_CIRCLET_BASIC_SKILL = "resolve_circlet_basic_skill" as const;
+// Powered: Acquire a skill from common offer or own skills permanently.
+export const EFFECT_CIRCLET_OF_PROFICIENCY_POWERED = "circlet_of_proficiency_powered" as const;
+// Internal: Resolve the selected skill acquisition.
+export const EFFECT_RESOLVE_CIRCLET_POWERED_SKILL = "resolve_circlet_powered_skill" as const;
+
 // === Mysterious Box Effects ===
 // Reveal top artifact from deck and choose how to use Mysterious Box this turn.
 export const EFFECT_MYSTERIOUS_BOX = "mysterious_box" as const;

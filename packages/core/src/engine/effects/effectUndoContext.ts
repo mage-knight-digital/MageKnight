@@ -19,6 +19,8 @@ import type { CardEffect, ManaDrawSetColorEffect, ResolveBoostTargetEffect } fro
 import {
   EFFECT_MANA_DRAW_SET_COLOR,
   EFFECT_RESOLVE_BOOST_TARGET,
+  EFFECT_RESOLVE_CIRCLET_BASIC_SKILL,
+  EFFECT_RESOLVE_CIRCLET_POWERED_SKILL,
   EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
 } from "../../types/effectTypes.js";
 import { getCard } from "../helpers/cardLookup.js";
@@ -62,13 +64,35 @@ export interface MysteriousBoxUseUndoContext {
 }
 
 /**
+ * Undo context for EFFECT_RESOLVE_CIRCLET_BASIC_SKILL
+ * Captures full pre-resolution state because skill execution can modify
+ * many subsystems (cooldowns, modifiers, choices, source, etc.).
+ */
+export interface CircletBasicSkillUndoContext {
+  readonly type: typeof EFFECT_RESOLVE_CIRCLET_BASIC_SKILL;
+  readonly stateSnapshot: GameState;
+}
+
+/**
+ * Undo context for EFFECT_RESOLVE_CIRCLET_POWERED_SKILL
+ * Captures full pre-resolution state because acquisition may affect offers,
+ * decks, RNG, and player skill state.
+ */
+export interface CircletPoweredSkillUndoContext {
+  readonly type: typeof EFFECT_RESOLVE_CIRCLET_POWERED_SKILL;
+  readonly stateSnapshot: GameState;
+}
+
+/**
  * Union of all effect undo contexts
  * Add new context types here as needed
  */
 export type EffectUndoContext =
   | ManaDrawSetColorUndoContext
   | CardBoostUndoContext
-  | MysteriousBoxUseUndoContext;
+  | MysteriousBoxUseUndoContext
+  | CircletBasicSkillUndoContext
+  | CircletPoweredSkillUndoContext;
 
 // === Capture Functions ===
 
@@ -132,6 +156,20 @@ export function captureUndoContext(
     case EFFECT_RESOLVE_MYSTERIOUS_BOX_USE: {
       return {
         type: EFFECT_RESOLVE_MYSTERIOUS_BOX_USE,
+        stateSnapshot: state,
+      };
+    }
+
+    case EFFECT_RESOLVE_CIRCLET_BASIC_SKILL: {
+      return {
+        type: EFFECT_RESOLVE_CIRCLET_BASIC_SKILL,
+        stateSnapshot: state,
+      };
+    }
+
+    case EFFECT_RESOLVE_CIRCLET_POWERED_SKILL: {
+      return {
+        type: EFFECT_RESOLVE_CIRCLET_POWERED_SKILL,
         stateSnapshot: state,
       };
     }
@@ -256,6 +294,14 @@ export function applyUndoContext(
     }
 
     case EFFECT_RESOLVE_MYSTERIOUS_BOX_USE: {
+      return context.stateSnapshot;
+    }
+
+    case EFFECT_RESOLVE_CIRCLET_BASIC_SKILL: {
+      return context.stateSnapshot;
+    }
+
+    case EFFECT_RESOLVE_CIRCLET_POWERED_SKILL: {
       return context.stateSnapshot;
     }
   }

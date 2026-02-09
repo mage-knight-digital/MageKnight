@@ -70,6 +70,7 @@ import { registerShapeshiftEffects } from "./shapeshiftEffects.js";
 import { registerBloodOfAncientsEffects } from "./bloodOfAncientsEffects.js";
 import { registerHandLimitBonusEffects } from "./handLimitBonusEffects.js";
 import { registerTomeOfAllSpellsEffects } from "./tomeOfAllSpellsEffects.js";
+import { registerCircletOfProficiencyEffects } from "./circletOfProficiencyEffects.js";
 import { registerMysteriousBoxEffects } from "./mysteriousBoxEffects.js";
 import { registerSpellForgeEffects } from "./spellForgeEffects.js";
 import { registerKnowYourPreyEffects } from "./knowYourPreyEffects.js";
@@ -271,6 +272,9 @@ function registerAllEffects(resolver: EffectHandler): void {
 
   // Tome of All Spells effects (discard card, cast spell from offer for free)
   registerTomeOfAllSpellsEffects(resolver);
+
+  // Circlet of Proficiency effects (borrow/acquire skills)
+  registerCircletOfProficiencyEffects();
 
   // Mysterious Box effects (artifact reveal and polymorphic artifact use)
   registerMysteriousBoxEffects(resolver);
