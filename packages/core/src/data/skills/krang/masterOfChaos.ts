@@ -11,9 +11,10 @@ export const SKILL_KRANG_MASTER_OF_CHAOS = "krang_master_of_chaos" as SkillId;
 
 export const masterOfChaos: SkillDefinition = {
   id: SKILL_KRANG_MASTER_OF_CHAOS,
-    name: "Master of Chaos",
-    heroId: "krang",
-    description: "Rotate shield for: Block 3, Move 1, Ranged 1, Influence 2, Attack 2",
-    usageType: SKILL_USAGE_ONCE_PER_TURN,
-    categories: [CATEGORY_SPECIAL],
+  name: "Master of Chaos",
+  heroId: "krang",
+  description:
+    "Rotate shield clockwise each use for Block 3 / Move 1 / Ranged Cold Fire 1 / Influence 2 / Attack 2",
+  usageType: SKILL_USAGE_ONCE_PER_TURN,
+  categories: [CATEGORY_SPECIAL],
 };

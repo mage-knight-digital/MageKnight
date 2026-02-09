@@ -9,6 +9,11 @@
 import type { Player } from "../../../types/player.js";
 import { createEmptyCombatAccumulator } from "../../../types/player.js";
 import type { CardFlowResult } from "./types.js";
+import { SKILL_KRANG_MASTER_OF_CHAOS } from "../../../data/skills/index.js";
+import {
+  createMasterOfChaosState,
+  getMasterOfChaosPosition,
+} from "../../rules/masterOfChaos.js";
 
 /**
  * Create a reset player state for end of turn.
@@ -18,6 +23,17 @@ export function createResetPlayer(
   player: Player,
   cardFlow: CardFlowResult
 ): Player {
+  const hasMasterOfChaos = player.skills.includes(SKILL_KRANG_MASTER_OF_CHAOS);
+  const usedMasterOfChaosThisTurn = player.skillCooldowns.usedThisTurn.includes(
+    SKILL_KRANG_MASTER_OF_CHAOS
+  );
+  const masterOfChaosState = hasMasterOfChaos
+    ? createMasterOfChaosState(
+        getMasterOfChaosPosition(player),
+        !usedMasterOfChaosThisTurn
+      )
+    : player.masterOfChaosState;
+
   return {
     ...player,
     // Movement and action resets
@@ -73,6 +89,8 @@ export function createResetPlayer(
     // Meditation spell resets
     pendingMeditation: undefined,
     meditationHandLimitBonus: 0,
+    // Master of Chaos state (keeps position, sets between-turn free rotate window)
+    masterOfChaosState,
     // Skill cooldown reset for Time Bending: refresh once-per-turn skills
     // (usedThisTurn is cleared when isTimeBentTurn is being set up in turnAdvancement)
     // Clear "until next turn" cooldowns (e.g., Motivation cross-hero cooldown)

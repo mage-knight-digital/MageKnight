@@ -55,6 +55,7 @@ import {
   SKILL_WOLFHAWK_DUELING,
   SKILL_BRAEVALAR_REGENERATE,
   SKILL_KRANG_REGENERATE,
+  SKILL_KRANG_MASTER_OF_CHAOS,
   SKILL_BRAEVALAR_NATURES_VENGEANCE,
   SKILL_WOLFHAWK_WOLFS_HOWL,
 } from "../../data/skills/index.js";
@@ -73,6 +74,7 @@ import { canActivateKnowYourPrey } from "../commands/skills/knowYourPreyEffect.j
 import { canActivateDueling } from "../commands/skills/duelingEffect.js";
 import { isManaColorAllowed } from "../rules/mana.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
+import { canUseMasterOfChaosFreeRotate } from "../rules/masterOfChaos.js";
 
 const INTERACTIVE_ONCE_PER_ROUND = new Set([SKILL_ARYTHEA_RITUAL_OF_PAIN, SKILL_TOVAK_MANA_OVERLOAD, SKILL_NOROWAS_PRAYER_OF_WEATHER, SKILL_GOLDYX_SOURCE_OPENING, SKILL_BRAEVALAR_NATURES_VENGEANCE, SKILL_WOLFHAWK_WOLFS_HOWL]);
 
@@ -87,6 +89,14 @@ export const validateSkillTurnRequirement: Validator = (state, playerId, action)
   // Motivation skills can be used on any player's turn
   if (isMotivationSkill(useSkillAction.skillId)) {
     return valid();
+  }
+
+  // Master of Chaos can rotate between turns if the free-rotate window is open.
+  if (useSkillAction.skillId === SKILL_KRANG_MASTER_OF_CHAOS) {
+    const player = getPlayerById(state, playerId);
+    if (player && canUseMasterOfChaosFreeRotate(state, player)) {
+      return valid();
+    }
   }
 
   // All other skills require it to be the player's turn
@@ -135,6 +145,14 @@ export const validateSkillCooldown: Validator = (state, playerId, action) => {
       SKILL_NOT_FOUND,
       `Skill ${useSkillAction.skillId} not found`
     );
+  }
+
+  // Master of Chaos between-turn free rotate does not consume once-per-turn usage.
+  if (
+    useSkillAction.skillId === SKILL_KRANG_MASTER_OF_CHAOS &&
+    canUseMasterOfChaosFreeRotate(state, player)
+  ) {
+    return valid();
   }
 
   if (skill.usageType === SKILL_USAGE_ONCE_PER_TURN) {
