@@ -350,6 +350,12 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
 
             step += 1
 
+        max_steps_reason, max_steps_debug = _build_timeout_diagnostics(
+            base_reason=f"Reached max steps ({config.max_steps}) without terminal state",
+            agents=agents,
+            allow_undo=config.allow_undo,
+            trace=trace,
+        )
         return _finish_run(
             config=config,
             run_index=run_index,
@@ -357,9 +363,10 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
             game_id=created.game_id,
             outcome=OUTCOME_MAX_STEPS,
             steps=config.max_steps,
-            reason=None,
+            reason=max_steps_reason,
             trace=trace,
             messages=messages,
+            timeout_debug=max_steps_debug,
         )
     finally:
         for task in listeners:
@@ -500,6 +507,7 @@ def _finish_run(
         OUTCOME_DISCONNECT,
         OUTCOME_PROTOCOL_ERROR,
         OUTCOME_INVARIANT_FAILURE,
+        OUTCOME_MAX_STEPS,
     }
     if outcome in artifact_outcomes:
         artifact_path = write_failure_artifact(
