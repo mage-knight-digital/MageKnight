@@ -31,6 +31,8 @@ import {
   COMPLETE_REST_ACTION,
   MOVE_ACTION,
   END_TURN_ACTION,
+  PLAY_CARD_SIDEWAYS_ACTION,
+  PLAY_SIDEWAYS_AS_MOVE,
 } from "@mage-knight/shared";
 
 describe("REST action", () => {
@@ -534,6 +536,28 @@ describe("Two-Phase REST (DECLARE_REST + COMPLETE_REST)", () => {
         expect.objectContaining({
           type: INVALID_ACTION,
           reason: "You must complete your rest before ending your turn",
+        })
+      );
+    });
+
+    it("should block playing cards sideways while resting", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+        isResting: true,
+        hasTakenActionThisTurn: true,
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_SIDEWAYS_ACTION,
+        cardId: CARD_MARCH,
+        as: PLAY_SIDEWAYS_AS_MOVE,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: "Cannot play cards sideways while resting",
         })
       );
     });

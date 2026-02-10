@@ -21,7 +21,7 @@ import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
 import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "../../modifiers/index.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
 import type { SidewaysValueModifier } from "../../../types/modifiers.js";
-import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
+import { getSidewaysOptionsForValue, canPlaySideways } from "../../rules/sideways.js";
 import { isNormalEffectAllowed, isTimeBendingChainPrevented, cardConsumesAction } from "../../rules/cardPlay.js";
 
 interface CardPlayability {
@@ -110,7 +110,8 @@ export function getPlayableCardsForNormalTurn(
     // While resting, only surface cards that can be played for an actual effect.
     // Sideways-only suggestions create false positives for cards that can't be
     // meaningfully used during rest (e.g., combat-only spells).
-    const canPlaySidewaysInContext = playability.canPlaySideways && !player.isResting;
+    const canPlaySidewaysInContext =
+      playability.canPlaySideways && canPlaySideways(state, player.isResting);
 
     if (canPlayByEffect || canPlaySidewaysInContext) {
       const playableCard: PlayableCard = {
