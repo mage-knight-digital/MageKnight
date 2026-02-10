@@ -144,7 +144,7 @@ export function App() {
 
   // Once setup is complete, render the game
   return (
-    <GameProvider seed={GAME_SEED} config={gameConfig}>
+    <GameProvider mode="local" seed={GAME_SEED} config={gameConfig}>
       {gameShell}
     </GameProvider>
   );
