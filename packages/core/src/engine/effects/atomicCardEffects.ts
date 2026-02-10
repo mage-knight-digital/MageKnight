@@ -9,7 +9,6 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { CardId } from "@mage-knight/shared";
 import type { EffectResolutionResult } from "./types.js";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicHelpers.js";
@@ -22,6 +21,7 @@ import {
 } from "./goldenGrailHelpers.js";
 import { applyGainFame } from "./atomicProgressionEffects.js";
 import { processRushOfAdrenalineOnWound } from "./rushOfAdrenalineHelpers.js";
+import { applyWoundsToHand } from "./woundApplicationHelpers.js";
 
 // ============================================================================
 // EFFECT HANDLERS
@@ -208,27 +208,7 @@ export function applyTakeWound(
   player: Player,
   amount: number
 ): EffectResolutionResult {
-  // Create wound cards to add to hand
-  const woundsToAdd: CardId[] = Array(amount).fill(CARD_WOUND);
-
-  const updatedPlayer: Player = {
-    ...player,
-    hand: [...player.hand, ...woundsToAdd],
-    // Track wounds received this turn for Banner of Protection
-    woundsReceivedThisTurn: {
-      hand: player.woundsReceivedThisTurn.hand + amount,
-      discard: player.woundsReceivedThisTurn.discard,
-    },
-  };
-
-  // Decrement wound pile (if tracked)
-  const newWoundPileCount =
-    state.woundPileCount === null ? null : Math.max(0, state.woundPileCount - amount);
-
-  let updatedState: GameState = {
-    ...updatePlayer(state, playerIndex, updatedPlayer),
-    woundPileCount: newWoundPileCount,
-  };
+  let updatedState = applyWoundsToHand(state, playerIndex, amount);
 
   const descriptions: string[] = [
     amount === 1 ? "Took 1 wound" : `Took ${amount} wounds`,

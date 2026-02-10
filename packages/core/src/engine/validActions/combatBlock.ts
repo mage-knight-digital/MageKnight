@@ -52,6 +52,7 @@ import {
 } from "../combat/cumbersomeHelpers.js";
 import { getColdToughnessBlockBonus } from "../combat/coldToughnessHelpers.js";
 import { canUseBannerFear, getCancellableAttacks } from "../rules/banners.js";
+import { getBlockDeclarationStatus } from "../rules/combatBlocking.js";
 import { getModifiersForPlayer } from "../modifiers/index.js";
 import type { InfluenceToBlockConversionModifier } from "../../types/modifiers.js";
 import { EFFECT_INFLUENCE_TO_BLOCK_CONVERSION } from "../../types/modifierConstants.js";
@@ -569,6 +570,11 @@ export function getBlockOptions(
 
       // Swift enemies require 2x block
       const requiredBlock = isSwift ? effectiveAttack * 2 : effectiveAttack;
+
+      if (playerId) {
+        const status = getBlockDeclarationStatus(state, playerId, enemy, attackIndex);
+        if (!status.canDeclare) continue;
+      }
 
       // Build the base option (use effective element after conversion modifiers)
       const effectiveElement = getEffectiveEnemyAttackElement(state, enemy, attack.element);

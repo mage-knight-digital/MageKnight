@@ -212,7 +212,7 @@ export function canEndTurn(state: GameState, player: Player): boolean {
   }
 
   // Must satisfy minimum turn requirement before ending turn.
-  // This is waived when hand is empty or contains only wounds.
+  // This is waived only when hand is empty.
   if (!hasMetMinimumTurnRequirement(player)) {
     return false;
   }
@@ -226,7 +226,7 @@ export function canEndTurn(state: GameState, player: Player): boolean {
  * Per rulebook Minimum Turn S1: "Every turn you must play at least one card from your hand.
  * Failing that, you must discard one unplayed card from your hand."
  *
- * Requirement is waived if player has no cards in hand.
+ * Requirement is waived only if player has no cards in hand.
  */
 export function hasMetMinimumTurnRequirement(player: Player): boolean {
   // If player has no cards in hand, requirement is waived
@@ -236,12 +236,6 @@ export function hasMetMinimumTurnRequirement(player: Player): boolean {
 
   // If player already played or discarded a card from hand, requirement is satisfied
   if (player.playedCardFromHandThisTurn) {
-    return true;
-  }
-
-  // If hand contains only wounds, requirement is waived.
-  // Wounds cannot be played and there is no generic "discard one card" action.
-  if (player.hand.every((cardId) => isWoundCard(cardId))) {
     return true;
   }
 

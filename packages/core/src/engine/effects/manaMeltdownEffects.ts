@@ -42,10 +42,9 @@ import type {
   ResolveManaRadianceColorEffect,
 } from "../../types/cards.js";
 import type { EffectResolutionResult } from "./types.js";
-import type { BasicManaColor, CardId } from "@mage-knight/shared";
+import type { BasicManaColor } from "@mage-knight/shared";
 import {
   BASIC_MANA_COLORS,
-  CARD_WOUND,
 } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
@@ -58,6 +57,7 @@ import {
   EFFECT_RESOLVE_MANA_RADIANCE_COLOR,
 } from "../../types/effectTypes.js";
 import { randomInt } from "../../utils/rng.js";
+import { applyWoundsToHand } from "./woundApplicationHelpers.js";
 
 // ============================================================================
 // HELPERS
@@ -96,25 +96,6 @@ function removeCrystal(player: Player, color: BasicManaColor): Player {
       [color]: player.crystals[color] - 1,
     },
   };
-}
-
-/**
- * Add wounds to a player's hand.
- */
-function addWounds(player: Player, amount: number, woundPileCount: number | null): { player: Player; woundPileCount: number | null } {
-  const woundsToAdd: CardId[] = Array(amount).fill(CARD_WOUND);
-  const updatedPlayer: Player = {
-    ...player,
-    hand: [...player.hand, ...woundsToAdd],
-    // Track wounds received this turn for Banner of Protection
-    woundsReceivedThisTurn: {
-      hand: player.woundsReceivedThisTurn.hand + amount,
-      discard: player.woundsReceivedThisTurn.discard,
-    },
-  };
-  const newWoundPileCount =
-    woundPileCount === null ? null : Math.max(0, woundPileCount - amount);
-  return { player: updatedPlayer, woundPileCount: newWoundPileCount };
 }
 
 // ============================================================================
@@ -173,13 +154,8 @@ export function handleManaMeltdown(
 
     if (crystalPool.length === 0) {
       // No crystals — take a wound
-      const { player: woundedOpponent, woundPileCount } = addWounds(
-        currentOpponent,
-        1,
-        currentState.woundPileCount
-      );
-      updatedPlayers[opponentIndex] = woundedOpponent;
-      currentState = { ...currentState, woundPileCount };
+      currentState = applyWoundsToHand(currentState, opponentIndex, 1);
+      updatedPlayers[opponentIndex] = currentState.players[opponentIndex]!;
       descriptions.push(`${currentOpponent.id} took a wound (no crystals)`);
     } else {
       // Randomly pick a crystal (weighted by counts)
@@ -321,13 +297,8 @@ export function resolveManaRadianceColor(
 
     const crystalCount = player.crystals[chosenColor];
     if (crystalCount > 0) {
-      const { player: woundedPlayer, woundPileCount } = addWounds(
-        player,
-        crystalCount,
-        currentState.woundPileCount
-      );
-      updatedPlayers[i] = woundedPlayer;
-      currentState = { ...currentState, woundPileCount };
+      currentState = applyWoundsToHand(currentState, i, crystalCount);
+      updatedPlayers[i] = currentState.players[i]!;
       descriptions.push(
         `${player.id} took ${crystalCount} wound${crystalCount > 1 ? "s" : ""} (${crystalCount} ${chosenColor} crystal${crystalCount > 1 ? "s" : ""})`
       );

@@ -375,10 +375,10 @@ describe("Blood Ritual Advanced Action", () => {
   });
 
   describe("FAQ rulings", () => {
-    it("S3: Wound counts toward knockout in combat", () => {
-      // Start with 4 wounds already in hand - one more will cause knockout
+    it("S3: Self-inflicted wound counts toward knockout tracking during combat", () => {
       const state = createCombatStateWithBloodRitual({
-        hand: [CARD_BLOOD_RITUAL, CARD_WOUND, CARD_WOUND, CARD_WOUND, CARD_WOUND],
+        hand: [CARD_BLOOD_RITUAL],
+        handLimit: 1,
       });
 
       // Play the card
@@ -392,7 +392,9 @@ describe("Blood Ritual Advanced Action", () => {
       const woundCount = playResult.state.players[0].hand.filter(
         (c) => c === CARD_WOUND
       ).length;
-      expect(woundCount).toBe(5);
+      expect(woundCount).toBe(1);
+      expect(playResult.state.combat?.woundsThisCombat).toBe(1);
+      expect(playResult.state.players[0].knockedOut).toBe(true);
     });
 
     it("wound should go to player hand", () => {

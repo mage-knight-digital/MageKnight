@@ -43,7 +43,6 @@ import {
   BASIC_MANA_COLORS,
   MANA_TOKEN_SOURCE_CARD,
   CARD_MANA_CLAIM,
-  CARD_WOUND,
 } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicEffects.js";
 import { registerEffect } from "./effectRegistry.js";
@@ -64,6 +63,7 @@ import {
 } from "../../types/modifierConstants.js";
 import { addModifier } from "../modifiers/lifecycle.js";
 import { processRushOfAdrenalineOnWound } from "./rushOfAdrenalineHelpers.js";
+import { applyWoundsToHand } from "./woundApplicationHelpers.js";
 
 // ============================================================================
 // HELPERS
@@ -365,27 +365,7 @@ export function checkManaCurseWound(
     const playerIndex = currentState.players.findIndex((p) => p.id === playerId);
     if (playerIndex === -1) continue;
 
-    const player = currentState.players[playerIndex]!;
-    const woundCard: CardId = CARD_WOUND;
-
-    const updatedPlayer: Player = {
-      ...player,
-      hand: [...player.hand, woundCard],
-      // Track wound received this turn for Banner of Protection
-      woundsReceivedThisTurn: {
-        hand: player.woundsReceivedThisTurn.hand + 1,
-        discard: player.woundsReceivedThisTurn.discard,
-      },
-    };
-
-    const updatedPlayers = [...currentState.players];
-    updatedPlayers[playerIndex] = updatedPlayer;
-
-    // Update wound pile count
-    const newWoundPileCount =
-      currentState.woundPileCount === null
-        ? null
-        : Math.max(0, currentState.woundPileCount - 1);
+    currentState = applyWoundsToHand(currentState, playerIndex, 1);
 
     // Update the modifier to track this player as wounded this turn
     const updatedModifiers = currentState.activeModifiers.map((m) =>
@@ -405,8 +385,6 @@ export function checkManaCurseWound(
 
     currentState = {
       ...currentState,
-      players: updatedPlayers,
-      woundPileCount: newWoundPileCount,
       activeModifiers: updatedModifiers,
     };
 

@@ -7,12 +7,15 @@ import {
   ROUND_ENDED,
   END_OF_ROUND_ANNOUNCED,
   MOVE_ACTION,
+  REST_ACTION,
+  REST_TYPE_SLOW_RECOVERY,
   INVALID_ACTION,
   TERRAIN_PLAINS,
   TURN_START_MOVE_POINTS,
   CARD_MARCH,
   CARD_RAGE,
   CARD_STAMINA,
+  CARD_WOUND,
   CARD_SWIFTNESS,
   CARD_DETERMINATION,
   CARD_PROMISE,
@@ -748,6 +751,45 @@ describe("END_TURN minimum turn requirement", () => {
 
     // Should succeed - empty hand waives the requirement
     expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: TURN_ENDED,
+        playerId: "player1",
+      })
+    );
+  });
+
+  it("should reject END_TURN with only wounds until Slow Recovery discards a wound", () => {
+    const player = createTestPlayer({
+      hand: [CARD_WOUND, CARD_WOUND],
+      deck: [CARD_MARCH],
+      discard: [],
+      playedCardFromHandThisTurn: false,
+      hasTakenActionThisTurn: false,
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const endBeforeRest = engine.processAction(state, "player1", {
+      type: END_TURN_ACTION,
+    });
+    expect(endBeforeRest.events).toContainEqual(
+      expect.objectContaining({
+        type: INVALID_ACTION,
+        reason: "You must play or discard at least one card from your hand before ending your turn",
+      })
+    );
+
+    const restResult = engine.processAction(state, "player1", {
+      type: REST_ACTION,
+      restType: REST_TYPE_SLOW_RECOVERY,
+      discardCardIds: [CARD_WOUND],
+    });
+    const updatedPlayer = restResult.state.players[0];
+    expect(updatedPlayer?.playedCardFromHandThisTurn).toBe(true);
+
+    const endAfterRest = engine.processAction(restResult.state, "player1", {
+      type: END_TURN_ACTION,
+    });
+    expect(endAfterRest.events).toContainEqual(
       expect.objectContaining({
         type: TURN_ENDED,
         playerId: "player1",

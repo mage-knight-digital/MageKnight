@@ -10,6 +10,7 @@ import { validateRestCompleted } from "../validators/restValidators.js";
 import { validateMinimumTurnRequirement } from "../validators/turnValidators.js";
 import {
   END_TURN_ACTION,
+  CARD_WOUND,
   CARD_MARCH,
   SITE_REWARD_SPELL,
   type SiteReward,
@@ -86,19 +87,22 @@ describe("Turn end options", () => {
     }
   });
 
-  it("allows end turn when hand has only wounds and no card was played", () => {
+  it("disables end turn when hand has only wounds and no card was played", () => {
     const player = createTestPlayer({
-      hand: ["wound"],
+      hand: [CARD_WOUND],
       playedCardFromHandThisTurn: false,
     });
     const state = createTestGameState({ players: [player] });
 
     const turnOptions = getTurnOptions(state, player);
-    expect(turnOptions.canEndTurn).toBe(true);
+    expect(turnOptions.canEndTurn).toBe(false);
 
     const validation = validateMinimumTurnRequirement(state, player.id, {
       type: END_TURN_ACTION,
     });
-    expect(validation.valid).toBe(true);
+    expect(validation.valid).toBe(false);
+    if (!validation.valid) {
+      expect(validation.error.code).toBe(MUST_PLAY_OR_DISCARD_CARD);
+    }
   });
 });

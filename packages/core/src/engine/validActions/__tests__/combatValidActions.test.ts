@@ -15,6 +15,7 @@ import { createEngine } from "../../MageKnightEngine.js";
 import {
   ENTER_COMBAT_ACTION,
   ENEMY_PROWLERS,
+  ENEMY_ORC,
   ENEMY_FIRE_MAGES,
   ENEMY_DIGGERS,
   ENEMY_ORC_WAR_BEASTS,
@@ -607,6 +608,55 @@ describe("getCombatOptions", () => {
       // Should have block-specific fields instead
       expect(options?.availableAttack).toBeUndefined();
       expect(options?.assignableAttacks).toBeUndefined();
+    });
+  });
+
+  describe("block declaration advertising", () => {
+    it("does not advertise block targets when pending block is insufficient", () => {
+      let state = setupCombatState([ENEMY_ORC], COMBAT_PHASE_BLOCK);
+
+      // Orc requires 3 block; only 2 pending is insufficient to declare.
+      if (state.combat) {
+        state = {
+          ...state,
+          combat: {
+            ...state.combat,
+            pendingBlock: {
+              ...state.combat.pendingBlock,
+              enemy_0: { physical: 2, fire: 0, ice: 0, coldFire: 0 },
+            },
+          },
+        };
+      }
+
+      const options = getCombatOptions(state);
+      expect(options?.blocks).toEqual([]);
+    });
+
+    it("advertises block target when pending block is sufficient", () => {
+      let state = setupCombatState([ENEMY_ORC], COMBAT_PHASE_BLOCK);
+
+      if (state.combat) {
+        state = {
+          ...state,
+          combat: {
+            ...state.combat,
+            pendingBlock: {
+              ...state.combat.pendingBlock,
+              enemy_0: { physical: 3, fire: 0, ice: 0, coldFire: 0 },
+            },
+          },
+        };
+      }
+
+      const options = getCombatOptions(state);
+      expect(options?.blocks).toHaveLength(1);
+      expect(options?.blocks?.[0]).toEqual(
+        expect.objectContaining({
+          enemyInstanceId: "enemy_0",
+          requiredBlock: 3,
+        })
+      );
     });
   });
 

@@ -57,6 +57,7 @@ import { getCard } from "../helpers/cardLookup.js";
 import { canPayForMana, getAvailableManaSourcesForColor } from "../validActions/mana.js";
 import { consumeMana } from "../commands/helpers/manaConsumptionHelpers.js";
 import { processRushOfAdrenalineOnWound } from "./rushOfAdrenalineHelpers.js";
+import { applyWoundsToHand } from "./woundApplicationHelpers.js";
 
 const ALL_BASIC_COLORS: readonly BasicManaColor[] = [
   MANA_RED,
@@ -157,25 +158,27 @@ function takeWoundTo(
   player: Player,
   destination: "hand" | "discard"
 ): GameState {
-  const woundsToAdd: CardId[] = [CARD_WOUND];
+  let updatedState: GameState;
 
-  const updatedPlayer: Player = {
-    ...player,
-    hand: destination === "hand" ? [...player.hand, ...woundsToAdd] : player.hand,
-    discard: destination === "discard" ? [...player.discard, ...woundsToAdd] : player.discard,
-    woundsReceivedThisTurn: {
-      hand: player.woundsReceivedThisTurn.hand + (destination === "hand" ? 1 : 0),
-      discard: player.woundsReceivedThisTurn.discard + (destination === "discard" ? 1 : 0),
-    },
-  };
-
-  const newWoundPileCount =
-    state.woundPileCount === null ? null : Math.max(0, state.woundPileCount - 1);
-
-  let updatedState: GameState = {
-    ...updatePlayer(state, playerIndex, updatedPlayer),
-    woundPileCount: newWoundPileCount,
-  };
+  if (destination === "hand") {
+    updatedState = applyWoundsToHand(state, playerIndex, 1);
+  } else {
+    const woundsToAdd: CardId[] = [CARD_WOUND];
+    const updatedPlayer: Player = {
+      ...player,
+      discard: [...player.discard, ...woundsToAdd],
+      woundsReceivedThisTurn: {
+        hand: player.woundsReceivedThisTurn.hand,
+        discard: player.woundsReceivedThisTurn.discard + 1,
+      },
+    };
+    const newWoundPileCount =
+      state.woundPileCount === null ? null : Math.max(0, state.woundPileCount - 1);
+    updatedState = {
+      ...updatePlayer(state, playerIndex, updatedPlayer),
+      woundPileCount: newWoundPileCount,
+    };
+  }
 
   // Rush of Adrenaline: draw cards when wounds are taken to hand
   if (destination === "hand") {
