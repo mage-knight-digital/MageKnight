@@ -1,0 +1,4651 @@
+{
+  "$id": "https://mageknight.digital/schemas/network-protocol/v1/client-game-state.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "ActivatableAbility": {
+      "additionalProperties": false,
+      "properties": {
+        "canActivate": {
+          "type": "boolean"
+        },
+        "index": {
+          "type": "number"
+        },
+        "manaCost": {
+          "enum": [
+            "black",
+            "blue",
+            "gold",
+            "green",
+            "red",
+            "white"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "canActivate",
+        "index",
+        "name"
+      ],
+      "type": "object"
+    },
+    "ActivatableSkill": {
+      "additionalProperties": false,
+      "description": "A skill that can be activated.",
+      "properties": {
+        "description": {
+          "description": "Short description of the skill's effect",
+          "type": "string"
+        },
+        "name": {
+          "description": "Display name",
+          "type": "string"
+        },
+        "skillId": {
+          "description": "Skill ID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "name",
+        "skillId"
+      ],
+      "type": "object"
+    },
+    "ActivatableTacticOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "longNight": {
+          "description": "Long Night (Night 2) - shuffle discard into deck",
+          "type": "boolean"
+        },
+        "midnightMeditation": {
+          "description": "Midnight Meditation (Night 4) - shuffle hand cards into deck",
+          "type": "boolean"
+        },
+        "theRightMoment": {
+          "description": "The Right Moment (Day 6) - extra turn",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ActivatableUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "abilities": {
+          "items": {
+            "$ref": "#/definitions/ActivatableAbility"
+          },
+          "type": "array"
+        },
+        "unitId": {
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "abilities",
+        "unitId",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "AdvancedActionReward": {
+      "additionalProperties": false,
+      "description": "Advanced action reward - draw from advanced action offer\nUsed by: Labyrinth",
+      "properties": {
+        "count": {
+          "type": "number"
+        },
+        "type": {
+          "const": "advanced_action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ArtifactCrystalColorOptions": {
+      "additionalProperties": false,
+      "description": "Options for artifact crystal color selection (second step of Savage Harvesting).\nOnly present when an artifact was discarded and player must choose a crystal color.",
+      "properties": {
+        "availableColors": {
+          "description": "Available crystal colors to choose from",
+          "items": {
+            "$ref": "#/definitions/BasicManaColor"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "availableColors"
+      ],
+      "type": "object"
+    },
+    "ArtifactReward": {
+      "additionalProperties": false,
+      "description": "Artifact reward - draw from artifact offer\nUsed by: Dungeon (on color roll), Tomb, Spawning Grounds, Maze, Labyrinth",
+      "properties": {
+        "count": {
+          "type": "number"
+        },
+        "type": {
+          "const": "artifact",
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AssignableBanner": {
+      "additionalProperties": false,
+      "description": "A banner that can be assigned from hand",
+      "properties": {
+        "bannerCardId": {
+          "type": "string"
+        },
+        "targetUnits": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "bannerCardId",
+        "targetUnits"
+      ],
+      "type": "object"
+    },
+    "AssignAttackOption": {
+      "additionalProperties": false,
+      "description": "A single valid attack assignment action",
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "attackType": {
+          "$ref": "#/definitions/AttackType"
+        },
+        "element": {
+          "$ref": "#/definitions/AttackElement"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "attackType",
+        "element",
+        "enemyInstanceId"
+      ],
+      "type": "object"
+    },
+    "AssignBlockOption": {
+      "additionalProperties": false,
+      "description": "A single valid block assignment action",
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "element": {
+          "$ref": "#/definitions/AttackElement"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "element",
+        "enemyInstanceId"
+      ],
+      "type": "object"
+    },
+    "AttackElement": {
+      "enum": [
+        "coldFire",
+        "fire",
+        "ice",
+        "physical"
+      ],
+      "type": "string"
+    },
+    "AttackType": {
+      "enum": [
+        "melee",
+        "ranged",
+        "siege"
+      ],
+      "type": "string"
+    },
+    "AvailableAttackPool": {
+      "additionalProperties": false,
+      "description": "Available attack pool by type and element",
+      "properties": {
+        "coldFireMelee": {
+          "type": "number"
+        },
+        "fireMelee": {
+          "type": "number"
+        },
+        "fireRanged": {
+          "type": "number"
+        },
+        "fireSiege": {
+          "type": "number"
+        },
+        "iceMelee": {
+          "type": "number"
+        },
+        "iceRanged": {
+          "type": "number"
+        },
+        "iceSiege": {
+          "type": "number"
+        },
+        "melee": {
+          "type": "number"
+        },
+        "ranged": {
+          "type": "number"
+        },
+        "siege": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "coldFireMelee",
+        "fireMelee",
+        "fireRanged",
+        "fireSiege",
+        "iceMelee",
+        "iceRanged",
+        "iceSiege",
+        "melee",
+        "ranged",
+        "siege"
+      ],
+      "type": "object"
+    },
+    "AvailableBlockPool": {
+      "additionalProperties": false,
+      "description": "Available block pool by element",
+      "properties": {
+        "coldFire": {
+          "type": "number"
+        },
+        "fire": {
+          "type": "number"
+        },
+        "ice": {
+          "type": "number"
+        },
+        "physical": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "coldFire",
+        "fire",
+        "ice",
+        "physical"
+      ],
+      "type": "object"
+    },
+    "AvailableDie": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor"
+        },
+        "dieId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "dieId"
+      ],
+      "type": "object"
+    },
+    "BannerFearOption": {
+      "additionalProperties": false,
+      "description": "A unit with Banner of Fear that can cancel an enemy attack",
+      "properties": {
+        "targets": {
+          "items": {
+            "$ref": "#/definitions/BannerFearTarget"
+          },
+          "type": "array"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "targets",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "BannerFearTarget": {
+      "additionalProperties": false,
+      "description": "An enemy attack that can be cancelled by Banner of Fear",
+      "properties": {
+        "attackIndex": {
+          "type": "number"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attackIndex",
+        "enemyInstanceId"
+      ],
+      "type": "object"
+    },
+    "BannerOptions": {
+      "additionalProperties": false,
+      "description": "Banner assignment options for the current player",
+      "properties": {
+        "assignable": {
+          "items": {
+            "$ref": "#/definitions/AssignableBanner"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "assignable"
+      ],
+      "type": "object"
+    },
+    "BannerProtectionOptions": {
+      "additionalProperties": false,
+      "description": "Options for Banner of Protection wound removal at end of turn.\nPresent when player has activated Banner of Protection powered effect\nand received wounds this turn.",
+      "properties": {
+        "woundsInDiscard": {
+          "description": "Number of wounds received into discard this turn",
+          "type": "number"
+        },
+        "woundsInHand": {
+          "description": "Number of wounds received into hand this turn",
+          "type": "number"
+        }
+      },
+      "required": [
+        "woundsInDiscard",
+        "woundsInHand"
+      ],
+      "type": "object"
+    },
+    "BasicManaColor": {
+      "enum": [
+        "blue",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "string"
+    },
+    "BeforeTurnTacticInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "tacticId": {
+          "$ref": "#/definitions/TacticId"
+        }
+      },
+      "required": [
+        "tacticId"
+      ],
+      "type": "object"
+    },
+    "BlockingTurnOptions": {
+      "additionalProperties": false,
+      "description": "Turn options available during pending/blocking states. Typically only undo is available.",
+      "properties": {
+        "canUndo": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "canUndo"
+      ],
+      "type": "object"
+    },
+    "BlockOption": {
+      "additionalProperties": false,
+      "properties": {
+        "attackElement": {
+          "description": "Element of this attack (for block efficiency calculation)",
+          "enum": [
+            "cold_fire",
+            "fire",
+            "ice",
+            "physical"
+          ],
+          "type": "string"
+        },
+        "attackIndex": {
+          "description": "For multi-attack enemies, which attack this option is for (0-indexed).\nUndefined for single-attack enemies (backwards compatible).",
+          "type": "number"
+        },
+        "enemyAttack": {
+          "type": "number"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "enemyName": {
+          "type": "string"
+        },
+        "isBlocked": {
+          "type": "boolean"
+        },
+        "isBrutal": {
+          "type": "boolean"
+        },
+        "isSwift": {
+          "type": "boolean"
+        },
+        "requiredBlock": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "enemyAttack",
+        "enemyInstanceId",
+        "enemyName",
+        "isBlocked",
+        "isBrutal",
+        "isSwift",
+        "requiredBlock"
+      ],
+      "type": "object"
+    },
+    "BookOfWisdomOptions": {
+      "additionalProperties": false,
+      "description": "Options for Book of Wisdom resolution.\nPhase \"select_card\": Player selects an action card from hand to throw away.\nPhase \"select_from_offer\": Player selects a matching card from the offer.",
+      "properties": {
+        "availableCardIds": {
+          "description": "Action cards available to throw away (phase 1 only)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "availableOfferCards": {
+          "description": "Cards from offer matching thrown card's color (phase 2 only)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "description": "Whether the effect is basic (AA offer) or powered (spell offer + crystal)",
+          "enum": [
+            "basic",
+            "powered"
+          ],
+          "type": "string"
+        },
+        "phase": {
+          "description": "Current resolution phase",
+          "enum": [
+            "select_card",
+            "select_from_offer"
+          ],
+          "type": "string"
+        },
+        "sourceCardId": {
+          "description": "Source card (Book of Wisdom)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "availableCardIds",
+        "availableOfferCards",
+        "mode",
+        "phase",
+        "sourceCardId"
+      ],
+      "type": "object"
+    },
+    "CannotActState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "cannot_act",
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "ChallengeOptions": {
+      "additionalProperties": false,
+      "description": "Options for challenging rampaging enemies from an adjacent hex.\nOnly present when there are rampaging enemies adjacent to the player.",
+      "properties": {
+        "canChallenge": {
+          "description": "Whether the player can challenge (true if targetHexes is non-empty)",
+          "type": "boolean"
+        },
+        "targetHexes": {
+          "description": "Adjacent hexes containing rampaging enemies that can be challenged",
+          "items": {
+            "$ref": "#/definitions/HexCoord"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "canChallenge",
+        "targetHexes"
+      ],
+      "type": "object"
+    },
+    "CityColor": {
+      "enum": [
+        "blue",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "string"
+    },
+    "ClientAccumulatedAttack": {
+      "additionalProperties": false,
+      "properties": {
+        "normal": {
+          "type": "number"
+        },
+        "normalElements": {
+          "$ref": "#/definitions/ClientElementalValues"
+        },
+        "ranged": {
+          "type": "number"
+        },
+        "rangedElements": {
+          "$ref": "#/definitions/ClientElementalValues"
+        },
+        "siege": {
+          "type": "number"
+        },
+        "siegeElements": {
+          "$ref": "#/definitions/ClientElementalValues"
+        }
+      },
+      "required": [
+        "normal",
+        "normalElements",
+        "ranged",
+        "rangedElements",
+        "siege",
+        "siegeElements"
+      ],
+      "type": "object"
+    },
+    "ClientBannerAttachment": {
+      "additionalProperties": false,
+      "properties": {
+        "bannerId": {
+          "type": "string"
+        },
+        "isUsedThisRound": {
+          "type": "boolean"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bannerId",
+        "isUsedThisRound",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "ClientCardOffer": {
+      "additionalProperties": false,
+      "properties": {
+        "cards": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "cards"
+      ],
+      "type": "object"
+    },
+    "ClientCombatAccumulator": {
+      "additionalProperties": false,
+      "properties": {
+        "attack": {
+          "$ref": "#/definitions/ClientAccumulatedAttack"
+        },
+        "block": {
+          "type": "number"
+        },
+        "blockElements": {
+          "$ref": "#/definitions/ClientElementalValues"
+        }
+      },
+      "required": [
+        "attack",
+        "block",
+        "blockElements"
+      ],
+      "type": "object"
+    },
+    "ClientCombatEnemy": {
+      "additionalProperties": false,
+      "description": "Enemy information visible to the client during combat.",
+      "properties": {
+        "abilities": {
+          "items": {
+            "$ref": "#/definitions/EnemyAbilityType"
+          },
+          "type": "array"
+        },
+        "armor": {
+          "type": "number"
+        },
+        "attack": {
+          "type": "number"
+        },
+        "attackElement": {
+          "$ref": "#/definitions/Element"
+        },
+        "damageAssigned": {
+          "type": "boolean"
+        },
+        "enemyId": {
+          "$ref": "#/definitions/EnemyId"
+        },
+        "fame": {
+          "type": "number"
+        },
+        "instanceId": {
+          "type": "string"
+        },
+        "isBlocked": {
+          "type": "boolean"
+        },
+        "isDefeated": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "resistances": {
+          "description": "Enemy elemental resistances - array of resistance types\n\nUses an array of individual resistance constants instead of a boolean object.\nThis avoids the combinatorial explosion of having separate constants for\nevery possible combination (2^n constants for n resistance types).",
+          "items": {
+            "$ref": "#/definitions/ResistanceType"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "abilities",
+        "armor",
+        "attack",
+        "attackElement",
+        "damageAssigned",
+        "enemyId",
+        "fame",
+        "instanceId",
+        "isBlocked",
+        "isDefeated",
+        "name",
+        "resistances"
+      ],
+      "type": "object"
+    },
+    "ClientCombatState": {
+      "additionalProperties": false,
+      "description": "Combat state visible to clients.",
+      "properties": {
+        "enemies": {
+          "items": {
+            "$ref": "#/definitions/ClientCombatEnemy"
+          },
+          "type": "array"
+        },
+        "fameGained": {
+          "type": "number"
+        },
+        "isAtFortifiedSite": {
+          "type": "boolean"
+        },
+        "phase": {
+          "$ref": "#/definitions/CombatPhase"
+        },
+        "woundsThisCombat": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "enemies",
+        "fameGained",
+        "isAtFortifiedSite",
+        "phase",
+        "woundsThisCombat"
+      ],
+      "type": "object"
+    },
+    "ClientCrystals": {
+      "additionalProperties": false,
+      "properties": {
+        "blue": {
+          "type": "number"
+        },
+        "green": {
+          "type": "number"
+        },
+        "red": {
+          "type": "number"
+        },
+        "white": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "blue",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "object"
+    },
+    "ClientDummyPlayer": {
+      "additionalProperties": false,
+      "properties": {
+        "heroId": {
+          "$ref": "#/definitions/HeroId"
+        },
+        "turnsRemainingMax": {
+          "type": "number"
+        },
+        "turnsRemainingMin": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "heroId",
+        "turnsRemainingMax",
+        "turnsRemainingMin"
+      ],
+      "type": "object"
+    },
+    "ClientElementalValues": {
+      "additionalProperties": false,
+      "properties": {
+        "coldFire": {
+          "type": "number"
+        },
+        "fire": {
+          "type": "number"
+        },
+        "ice": {
+          "type": "number"
+        },
+        "physical": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "coldFire",
+        "fire",
+        "ice",
+        "physical"
+      ],
+      "type": "object"
+    },
+    "ClientGameOffers": {
+      "additionalProperties": false,
+      "properties": {
+        "advancedActions": {
+          "$ref": "#/definitions/ClientCardOffer"
+        },
+        "commonSkills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "monasteryAdvancedActions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "spells": {
+          "$ref": "#/definitions/ClientCardOffer"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/definitions/UnitId"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "advancedActions",
+        "commonSkills",
+        "monasteryAdvancedActions",
+        "spells",
+        "units"
+      ],
+      "type": "object"
+    },
+    "ClientKeptEnemyToken": {
+      "additionalProperties": false,
+      "properties": {
+        "armor": {
+          "type": "number"
+        },
+        "attack": {
+          "type": "number"
+        },
+        "attackElement": {
+          "$ref": "#/definitions/Element"
+        },
+        "attacks": {
+          "items": {
+            "$ref": "#/definitions/EnemyAttack"
+          },
+          "type": "array"
+        },
+        "enemyId": {
+          "$ref": "#/definitions/EnemyId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "resistances": {
+          "description": "Enemy elemental resistances - array of resistance types\n\nUses an array of individual resistance constants instead of a boolean object.\nThis avoids the combinatorial explosion of having separate constants for\nevery possible combination (2^n constants for n resistance types).",
+          "items": {
+            "$ref": "#/definitions/ResistanceType"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "armor",
+        "attack",
+        "attackElement",
+        "enemyId",
+        "name",
+        "resistances"
+      ],
+      "type": "object"
+    },
+    "ClientManaSource": {
+      "additionalProperties": false,
+      "properties": {
+        "dice": {
+          "items": {
+            "$ref": "#/definitions/ClientSourceDie"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "dice"
+      ],
+      "type": "object"
+    },
+    "ClientManaToken": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor"
+        },
+        "source": {
+          "$ref": "#/definitions/ManaTokenSource"
+        }
+      },
+      "required": [
+        "color",
+        "source"
+      ],
+      "type": "object"
+    },
+    "ClientMapState": {
+      "additionalProperties": false,
+      "properties": {
+        "hexes": {
+          "$ref": "#/definitions/Record%3Cstring%2CClientHexState%3E"
+        },
+        "tiles": {
+          "items": {
+            "$ref": "#/definitions/ClientTilePlacement"
+          },
+          "type": "array"
+        },
+        "tileSlots": {
+          "$ref": "#/definitions/Record%3Cstring%2CClientTileSlot%3E",
+          "description": "Tile slots defining the board shape. Key is hexKey(coord)."
+        }
+      },
+      "required": [
+        "hexes",
+        "tileSlots",
+        "tiles"
+      ],
+      "type": "object"
+    },
+    "ClientPendingChoice": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "anyOf": [
+            {
+              "description": "Branded ID types shared between client and server\n\nThese are used in actions and events that flow between client and server.",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "options": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "description",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "skillId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "cardId",
+        "options",
+        "skillId"
+      ],
+      "type": "object"
+    },
+    "ClientPendingDiscard": {
+      "additionalProperties": false,
+      "description": "Pending discard as cost (e.g., Improvisation requires discarding before gaining benefit).\nClient-visible version omits thenEffect (internal state).",
+      "properties": {
+        "count": {
+          "type": "number"
+        },
+        "filterWounds": {
+          "type": "boolean"
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "sourceCardId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "filterWounds",
+        "optional",
+        "sourceCardId"
+      ],
+      "type": "object"
+    },
+    "ClientPendingLevelUpReward": {
+      "additionalProperties": false,
+      "properties": {
+        "drawnSkills": {
+          "description": "2 skills drawn from hero's remaining pool",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "level": {
+          "description": "The level this reward is for (2, 4, 6, 8, 10)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "drawnSkills",
+        "level"
+      ],
+      "type": "object"
+    },
+    "ClientPlayer": {
+      "additionalProperties": false,
+      "properties": {
+        "armor": {
+          "type": "number"
+        },
+        "attachedBanners": {
+          "items": {
+            "$ref": "#/definitions/ClientBannerAttachment"
+          },
+          "type": "array"
+        },
+        "combatAccumulator": {
+          "$ref": "#/definitions/ClientCombatAccumulator"
+        },
+        "commandTokens": {
+          "type": "number"
+        },
+        "crystals": {
+          "$ref": "#/definitions/ClientCrystals"
+        },
+        "deckCount": {
+          "type": "number"
+        },
+        "discardCount": {
+          "type": "number"
+        },
+        "fame": {
+          "type": "number"
+        },
+        "hand": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "handLimit": {
+          "type": "number"
+        },
+        "hasMovedThisTurn": {
+          "type": "boolean"
+        },
+        "hasTakenActionThisTurn": {
+          "type": "boolean"
+        },
+        "healingPoints": {
+          "type": "number"
+        },
+        "heroId": {
+          "$ref": "#/definitions/HeroId"
+        },
+        "id": {
+          "type": "string"
+        },
+        "influencePoints": {
+          "type": "number"
+        },
+        "isResting": {
+          "type": "boolean"
+        },
+        "keptEnemyTokens": {
+          "items": {
+            "$ref": "#/definitions/ClientKeptEnemyToken"
+          },
+          "type": "array"
+        },
+        "knockedOut": {
+          "type": "boolean"
+        },
+        "level": {
+          "type": "number"
+        },
+        "movePoints": {
+          "type": "number"
+        },
+        "pendingChoice": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ClientPendingChoice"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pendingDeepMineChoice": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/definitions/BasicManaColor"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pendingDiscard": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ClientPendingDiscard"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pendingGladeWoundChoice": {
+          "type": "boolean"
+        },
+        "pendingLevelUpRewards": {
+          "items": {
+            "$ref": "#/definitions/ClientPendingLevelUpReward"
+          },
+          "type": "array"
+        },
+        "pendingLevelUps": {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "pendingRewards": {
+          "items": {
+            "$ref": "#/definitions/SiteReward"
+          },
+          "type": "array"
+        },
+        "pendingUnitMaintenance": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "unitId": {
+                    "$ref": "#/definitions/UnitId"
+                  },
+                  "unitInstanceId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "unitId",
+                  "unitInstanceId"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "playArea": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "playedCardFromHandThisTurn": {
+          "type": "boolean"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/HexCoord"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pureMana": {
+          "items": {
+            "$ref": "#/definitions/ClientManaToken"
+          },
+          "type": "array"
+        },
+        "reputation": {
+          "type": "number"
+        },
+        "selectedTacticId": {
+          "anyOf": [
+            {
+              "enum": [
+                "early_bird",
+                "from_the_dusk",
+                "great_start",
+                "long_night",
+                "mana_search",
+                "mana_steal",
+                "midnight_meditation",
+                "planning",
+                "preparation",
+                "rethink",
+                "sparing_power",
+                "the_right_moment"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "stolenManaDie": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ClientStolenManaDie"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tacticFlipped": {
+          "type": "boolean"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/definitions/ClientPlayerUnit"
+          },
+          "type": "array"
+        },
+        "usedManaFromSource": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "armor",
+        "attachedBanners",
+        "combatAccumulator",
+        "commandTokens",
+        "crystals",
+        "deckCount",
+        "discardCount",
+        "fame",
+        "hand",
+        "handLimit",
+        "hasMovedThisTurn",
+        "hasTakenActionThisTurn",
+        "healingPoints",
+        "heroId",
+        "id",
+        "influencePoints",
+        "isResting",
+        "keptEnemyTokens",
+        "knockedOut",
+        "level",
+        "movePoints",
+        "pendingChoice",
+        "pendingDeepMineChoice",
+        "pendingDiscard",
+        "pendingGladeWoundChoice",
+        "pendingLevelUpRewards",
+        "pendingLevelUps",
+        "pendingRewards",
+        "pendingUnitMaintenance",
+        "playArea",
+        "playedCardFromHandThisTurn",
+        "position",
+        "pureMana",
+        "reputation",
+        "selectedTacticId",
+        "skills",
+        "stolenManaDie",
+        "tacticFlipped",
+        "units",
+        "usedManaFromSource"
+      ],
+      "type": "object"
+    },
+    "ClientPlayerUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "attachedBannerId": {
+          "description": "Branded ID types shared between client and server\n\nThese are used in actions and events that flow between client and server.",
+          "type": "string"
+        },
+        "instanceId": {
+          "type": "string"
+        },
+        "isBondsUnit": {
+          "type": "boolean"
+        },
+        "manaToken": {
+          "description": "Mana token placed on unit (Magic Familiars)",
+          "enum": [
+            "blue",
+            "green",
+            "red",
+            "white"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/UnitState"
+        },
+        "unitId": {
+          "$ref": "#/definitions/UnitId"
+        },
+        "wounded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "instanceId",
+        "state",
+        "unitId",
+        "wounded"
+      ],
+      "type": "object"
+    },
+    "ClientSourceDie": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isDepleted": {
+          "type": "boolean"
+        },
+        "isStolenByTactic": {
+          "type": "boolean"
+        },
+        "takenByPlayerId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "color",
+        "id",
+        "isDepleted",
+        "isStolenByTactic",
+        "takenByPlayerId"
+      ],
+      "type": "object"
+    },
+    "ClientStolenManaDie": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor"
+        },
+        "dieId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "dieId"
+      ],
+      "type": "object"
+    },
+    "ClientTilePlacement": {
+      "additionalProperties": false,
+      "properties": {
+        "centerCoord": {
+          "$ref": "#/definitions/HexCoord"
+        },
+        "revealed": {
+          "type": "boolean"
+        },
+        "tileId": {
+          "description": "Only present when tile is revealed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "centerCoord",
+        "revealed"
+      ],
+      "type": "object"
+    },
+    "CombatOptions": {
+      "additionalProperties": false,
+      "description": "Combat options when already in combat",
+      "properties": {
+        "assignableAttacks": {
+          "description": "Valid attack assignment actions",
+          "items": {
+            "$ref": "#/definitions/AssignAttackOption"
+          },
+          "type": "array"
+        },
+        "assignableBlocks": {
+          "description": "Valid block assignment actions",
+          "items": {
+            "$ref": "#/definitions/AssignBlockOption"
+          },
+          "type": "array"
+        },
+        "availableAttack": {
+          "$ref": "#/definitions/AvailableAttackPool",
+          "description": "Available attack pool (what player can still assign)"
+        },
+        "availableBlock": {
+          "$ref": "#/definitions/AvailableBlockPool",
+          "description": "Available block pool by element (what player can still assign)"
+        },
+        "availableInfluenceForConversion": {
+          "description": "Available influence points for conversion",
+          "type": "number"
+        },
+        "availableMovePoints": {
+          "description": "Available move points for Cumbersome reduction",
+          "type": "number"
+        },
+        "availableMovePointsForConversion": {
+          "description": "Available move points for conversion",
+          "type": "number"
+        },
+        "bannerFearOptions": {
+          "description": "Banner of Fear cancel attack options during BLOCK phase",
+          "items": {
+            "$ref": "#/definitions/BannerFearOption"
+          },
+          "type": "array"
+        },
+        "blocks": {
+          "description": "Block options (BLOCK phase) - legacy display info",
+          "items": {
+            "$ref": "#/definitions/BlockOption"
+          },
+          "type": "array"
+        },
+        "canEndPhase": {
+          "type": "boolean"
+        },
+        "canPayHeroesAssaultInfluence": {
+          "description": "Whether player can pay 2 Influence to allow Heroes to use abilities",
+          "type": "boolean"
+        },
+        "cumbersomeOptions": {
+          "description": "Cumbersome enemies that can have move points spent on them",
+          "items": {
+            "$ref": "#/definitions/CumbersomeOption"
+          },
+          "type": "array"
+        },
+        "damageAssignments": {
+          "description": "Damage assignment options (ASSIGN_DAMAGE phase)",
+          "items": {
+            "$ref": "#/definitions/DamageAssignmentOption"
+          },
+          "type": "array"
+        },
+        "enemies": {
+          "description": "Enemy states with pending damage (for incremental attack allocation)",
+          "items": {
+            "$ref": "#/definitions/EnemyAttackState"
+          },
+          "type": "array"
+        },
+        "enemyBlockStates": {
+          "description": "Enemy states with pending block (for incremental block allocation)",
+          "items": {
+            "$ref": "#/definitions/EnemyBlockState"
+          },
+          "type": "array"
+        },
+        "heroesAssaultInfluenceCost": {
+          "description": "Cost to enable Heroes abilities (always 2)",
+          "type": "number"
+        },
+        "heroesAssaultInfluencePaid": {
+          "description": "Whether Heroes assault influence has already been paid this combat",
+          "type": "boolean"
+        },
+        "influenceToBlockConversion": {
+          "$ref": "#/definitions/InfluenceToBlockConversionOption",
+          "description": "Influence-to-block conversion option during BLOCK phase"
+        },
+        "moveToAttackConversions": {
+          "description": "Move-to-attack conversion options during RANGED_SIEGE and ATTACK phases",
+          "items": {
+            "$ref": "#/definitions/MoveToAttackConversionOption"
+          },
+          "type": "array"
+        },
+        "phase": {
+          "$ref": "#/definitions/CombatPhase"
+        },
+        "thugsDamagePaymentOptions": {
+          "description": "Thugs units that need influence payment before damage can be assigned",
+          "items": {
+            "$ref": "#/definitions/ThugsDamagePaymentOption"
+          },
+          "type": "array"
+        },
+        "unassignableAttacks": {
+          "description": "Valid attack unassignment actions",
+          "items": {
+            "$ref": "#/definitions/UnassignAttackOption"
+          },
+          "type": "array"
+        },
+        "unassignableBlocks": {
+          "description": "Valid block unassignment actions",
+          "items": {
+            "$ref": "#/definitions/UnassignBlockOption"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "canEndPhase",
+        "phase"
+      ],
+      "type": "object"
+    },
+    "CombatPhase": {
+      "enum": [
+        "assign_damage",
+        "attack",
+        "block",
+        "ranged_siege"
+      ],
+      "type": "string"
+    },
+    "CombatState": {
+      "additionalProperties": false,
+      "properties": {
+        "combat": {
+          "$ref": "#/definitions/CombatOptions"
+        },
+        "mana": {
+          "$ref": "#/definitions/ManaOptions"
+        },
+        "mode": {
+          "const": "combat",
+          "type": "string"
+        },
+        "playCard": {
+          "$ref": "#/definitions/PlayCardOptions"
+        },
+        "skills": {
+          "$ref": "#/definitions/SkillOptions"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        },
+        "units": {
+          "$ref": "#/definitions/UnitOptions"
+        }
+      },
+      "required": [
+        "combat",
+        "mana",
+        "mode",
+        "playCard",
+        "skills",
+        "turn",
+        "units"
+      ],
+      "type": "object"
+    },
+    "CombatType": {
+      "enum": [
+        "melee",
+        "ranged",
+        "siege"
+      ],
+      "type": "string"
+    },
+    "CompoundReward": {
+      "additionalProperties": false,
+      "description": "Compound reward - multiple rewards combined\nUsed by: Tomb (spell + artifact), Spawning Grounds (artifact + crystals)",
+      "properties": {
+        "rewards": {
+          "items": {
+            "$ref": "#/definitions/SiteReward"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "compound",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rewards",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CooperativeAssaultOptions": {
+      "additionalProperties": false,
+      "description": "Cooperative assault options for the current player.\nPresent when the player can propose, respond to, or cancel a cooperative assault.",
+      "properties": {
+        "canCancelProposal": {
+          "description": "Can cancel current proposal (only if initiator)",
+          "type": "boolean"
+        },
+        "canRespondToProposal": {
+          "description": "Can respond to current proposal (only if invitee who hasn't responded)",
+          "type": "boolean"
+        },
+        "eligibleInvitees": {
+          "$ref": "#/definitions/Partial%3CRecord%3CCityColor%2CreadonlyEligibleInvitee%5B%5D%3E%3E",
+          "description": "Eligible players to invite for each targetable city"
+        },
+        "garrisonSizes": {
+          "$ref": "#/definitions/Partial%3CRecord%3CCityColor%2Cnumber%3E%3E",
+          "description": "Number of enemies in garrison for each targetable city"
+        },
+        "pendingProposal": {
+          "additionalProperties": false,
+          "description": "Pending proposal details (if any)",
+          "properties": {
+            "assignedEnemyCount": {
+              "description": "Enemy count assigned to this player in the proposal",
+              "type": "number"
+            },
+            "distribution": {
+              "items": {
+                "$ref": "#/definitions/EnemyDistribution"
+              },
+              "type": "array"
+            },
+            "initiatorId": {
+              "type": "string"
+            },
+            "targetCity": {
+              "$ref": "#/definitions/CityColor"
+            }
+          },
+          "required": [
+            "assignedEnemyCount",
+            "distribution",
+            "initiatorId",
+            "targetCity"
+          ],
+          "type": "object"
+        },
+        "targetableCities": {
+          "description": "Cities that can be targeted (adjacent and not conquered)",
+          "items": {
+            "$ref": "#/definitions/CityColor"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "canCancelProposal",
+        "canRespondToProposal",
+        "eligibleInvitees",
+        "garrisonSizes",
+        "targetableCities"
+      ],
+      "type": "object"
+    },
+    "CrystalJoyReclaimOptions": {
+      "additionalProperties": false,
+      "description": "Options for Crystal Joy reclaim at end of turn.\nOnly present when player has a pending Crystal Joy reclaim choice.\nPlayer can optionally discard a card from discard pile to return Crystal Joy to hand.",
+      "properties": {
+        "eligibleCardIds": {
+          "description": "Cards in discard pile eligible to be discarded for the reclaim",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "version": {
+          "description": "Which version of Crystal Joy was played (determines card eligibility)",
+          "enum": [
+            "basic",
+            "powered"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "eligibleCardIds",
+        "version"
+      ],
+      "type": "object"
+    },
+    "CrystalRollReward": {
+      "additionalProperties": false,
+      "description": "Crystal roll reward - roll mana die for crystal color\nGold = player choice, Black = +1 fame instead\nUsed by: Monster Den, Spawning Grounds",
+      "properties": {
+        "count": {
+          "type": "number"
+        },
+        "type": {
+          "const": "crystal_roll",
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CumbersomeOption": {
+      "additionalProperties": false,
+      "description": "Information about a Cumbersome enemy that can have move points spent on it.\nPresent during BLOCK phase when there are Cumbersome enemies.",
+      "properties": {
+        "baseAttack": {
+          "description": "Base attack value (before any reductions)",
+          "type": "number"
+        },
+        "currentReduction": {
+          "description": "Move points already spent on this enemy",
+          "type": "number"
+        },
+        "enemyInstanceId": {
+          "description": "Instance ID of the enemy with Cumbersome ability",
+          "type": "string"
+        },
+        "enemyName": {
+          "description": "Enemy display name",
+          "type": "string"
+        },
+        "maxAdditionalReduction": {
+          "description": "Maximum additional move points that can be spent (min of playerMovePoints, reducedAttack)",
+          "type": "number"
+        },
+        "reducedAttack": {
+          "description": "Current attack value after reduction (baseAttack - currentReduction)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "baseAttack",
+        "currentReduction",
+        "enemyInstanceId",
+        "enemyName",
+        "maxAdditionalReduction",
+        "reducedAttack"
+      ],
+      "type": "object"
+    },
+    "DamageAssignmentOption": {
+      "additionalProperties": false,
+      "properties": {
+        "attackElement": {
+          "$ref": "#/definitions/Element",
+          "description": "Attack's element (physical, fire, ice, cold_fire)"
+        },
+        "attackIndex": {
+          "description": "For multi-attack enemies, which attack's damage needs to be assigned (0-indexed).\nUndefined for single-attack enemies (backwards compatible).",
+          "type": "number"
+        },
+        "availableUnits": {
+          "description": "Units available to absorb damage (empty if units not allowed in combat)",
+          "items": {
+            "$ref": "#/definitions/UnitDamageTarget"
+          },
+          "type": "array"
+        },
+        "damageRedirectOnly": {
+          "description": "When true, damage MUST go to the redirect unit (Taunt). Hero cannot be targeted.",
+          "type": "boolean"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "enemyName": {
+          "type": "string"
+        },
+        "isBrutal": {
+          "description": "Whether enemy has Brutal ability (doubles damage)",
+          "type": "boolean"
+        },
+        "rawAttackValue": {
+          "description": "Raw attack value before Brutal modifier",
+          "type": "number"
+        },
+        "totalDamage": {
+          "description": "Total damage to assign (2x if Brutal)",
+          "type": "number"
+        },
+        "unassignedDamage": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "attackElement",
+        "availableUnits",
+        "enemyInstanceId",
+        "enemyName",
+        "isBrutal",
+        "rawAttackValue",
+        "totalDamage",
+        "unassignedDamage"
+      ],
+      "type": "object"
+    },
+    "DecomposeOptions": {
+      "additionalProperties": false,
+      "description": "Options for Decompose card resolution.\nOnly present when player has a pending decompose state.\nPlayer must select an action card from hand to throw away.",
+      "properties": {
+        "availableCardIds": {
+          "description": "Action cards available to throw away (excludes Decompose itself and wounds)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "description": "Whether the effect is basic or powered",
+          "enum": [
+            "basic",
+            "powered"
+          ],
+          "type": "string"
+        },
+        "sourceCardId": {
+          "description": "Source card that triggered the decompose (Decompose card)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "availableCardIds",
+        "mode",
+        "sourceCardId"
+      ],
+      "type": "object"
+    },
+    "DeepMineOptions": {
+      "additionalProperties": false,
+      "description": "Options for Deep Mine crystal color choice at end of turn.\nOnly present when player has a pending deep mine choice.",
+      "properties": {
+        "availableColors": {
+          "description": "Available crystal colors to choose from",
+          "items": {
+            "$ref": "#/definitions/BasicManaColor"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "availableColors"
+      ],
+      "type": "object"
+    },
+    "DiscardCostOptions": {
+      "additionalProperties": false,
+      "description": "Options for discard as cost resolution (e.g., Improvisation).\nOnly present when player has a pending discard cost.",
+      "properties": {
+        "availableCardIds": {
+          "description": "Cards available to discard (filtered based on rules, e.g., no wounds)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "count": {
+          "description": "How many cards must be selected",
+          "type": "number"
+        },
+        "optional": {
+          "description": "If true, player can skip discarding",
+          "type": "boolean"
+        },
+        "sourceCardId": {
+          "description": "Source card that triggered the discard",
+          "type": "string"
+        }
+      },
+      "required": [
+        "availableCardIds",
+        "count",
+        "optional",
+        "sourceCardId"
+      ],
+      "type": "object"
+    },
+    "DiscardForAttackOptions": {
+      "additionalProperties": false,
+      "description": "Options for discard for attack resolution (Sword of Justice basic effect).\nOnly present when player has a pending discard for attack state.\nUnlike DiscardCostOptions, the player can discard 0 or more cards.",
+      "properties": {
+        "attackPerCard": {
+          "description": "Attack gained per card discarded",
+          "type": "number"
+        },
+        "availableCardIds": {
+          "description": "Cards available to discard (non-wound cards in hand)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "combatType": {
+          "$ref": "#/definitions/CombatType",
+          "description": "Combat type for the attack (e.g., melee)"
+        },
+        "sourceCardId": {
+          "description": "Source card that triggered the discard-for-attack",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attackPerCard",
+        "availableCardIds",
+        "combatType",
+        "sourceCardId"
+      ],
+      "type": "object"
+    },
+    "DiscardForBonusOptions": {
+      "additionalProperties": false,
+      "description": "Options for discard for bonus resolution (Stout Resolve card effect).\nOnly present when player has a pending discard-for-bonus state.\nPlayer selects 0 or more cards to discard and a choice option.\nBonus = bonusPerCard × cards discarded is added to the chosen effect.",
+      "properties": {
+        "availableCardIds": {
+          "description": "Cards available to discard from hand",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "bonusPerCard": {
+          "description": "Bonus per card discarded (e.g., +1 for basic, +2 for powered)",
+          "type": "number"
+        },
+        "choiceCount": {
+          "description": "Number of choice options (Move/Influence/Attack/Block)",
+          "type": "number"
+        },
+        "discardFilter": {
+          "description": "Filter type: \"wound_only\" or \"any_max_one_wound\"",
+          "enum": [
+            "any_max_one_wound",
+            "wound_only"
+          ],
+          "type": "string"
+        },
+        "maxDiscards": {
+          "description": "Maximum number of cards that can be discarded",
+          "type": "number"
+        },
+        "sourceCardId": {
+          "description": "Source card that triggered the discard-for-bonus",
+          "type": "string"
+        }
+      },
+      "required": [
+        "availableCardIds",
+        "bonusPerCard",
+        "choiceCount",
+        "discardFilter",
+        "maxDiscards",
+        "sourceCardId"
+      ],
+      "type": "object"
+    },
+    "DiscardForCrystalOptions": {
+      "additionalProperties": false,
+      "description": "Options for discard for crystal resolution (Savage Harvesting card effect).\nOnly present when player has a pending discard-for-crystal state.\nPlayer can discard one non-wound card to gain a crystal.",
+      "properties": {
+        "availableCardIds": {
+          "description": "Cards available to discard (non-wound cards in hand)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "optional": {
+          "description": "Whether the discard is optional (can skip)",
+          "type": "boolean"
+        },
+        "sourceCardId": {
+          "description": "Source card that triggered the discard-for-crystal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "availableCardIds",
+        "optional",
+        "sourceCardId"
+      ],
+      "type": "object"
+    },
+    "Element": {
+      "enum": [
+        "cold_fire",
+        "fire",
+        "ice",
+        "physical"
+      ],
+      "type": "string"
+    },
+    "ElementalDamageValues": {
+      "additionalProperties": false,
+      "description": "Elemental damage values for pending/effective damage",
+      "properties": {
+        "coldFire": {
+          "type": "number"
+        },
+        "fire": {
+          "type": "number"
+        },
+        "ice": {
+          "type": "number"
+        },
+        "physical": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "coldFire",
+        "fire",
+        "ice",
+        "physical"
+      ],
+      "type": "object"
+    },
+    "EligibleInvitee": {
+      "additionalProperties": false,
+      "description": "Eligible invitee for cooperative assault.",
+      "properties": {
+        "playerId": {
+          "type": "string"
+        },
+        "playerName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "playerName"
+      ],
+      "type": "object"
+    },
+    "EnemyAbilityType": {
+      "description": "Union type of all enemy ability types",
+      "enum": [
+        "arcane_immunity",
+        "assassination",
+        "brutal",
+        "cold_fire_attack",
+        "cumbersome",
+        "defend",
+        "elusive",
+        "fire_attack",
+        "fortified",
+        "ice_attack",
+        "paralyze",
+        "poison",
+        "summon",
+        "summon_green",
+        "swift",
+        "unfortified",
+        "vampiric"
+      ],
+      "type": "string"
+    },
+    "EnemyAttack": {
+      "additionalProperties": false,
+      "description": "Single attack instance for enemies with multiple attacks.\nEach attack is handled separately during block and damage phases.\n\nPer the rulebook:\n- Attacks are handled separately, one by one, in any order\n- Cannot group attacks into single block - each needs its own block value\n- \"Successfully blocked\" means ALL attacks are blocked (for Disease, Counterattack, Elusive)",
+      "properties": {
+        "ability": {
+          "description": "Optional ability for this specific attack.\nUsed for enemies like Dragon Summoner where each attack has ABILITY_SUMMON,\nresulting in multiple summons (one per attack with the ability).",
+          "enum": [
+            "arcane_immunity",
+            "assassination",
+            "brutal",
+            "cold_fire_attack",
+            "cumbersome",
+            "defend",
+            "elusive",
+            "fire_attack",
+            "fortified",
+            "ice_attack",
+            "paralyze",
+            "poison",
+            "summon",
+            "summon_green",
+            "swift",
+            "unfortified",
+            "vampiric"
+          ],
+          "type": "string"
+        },
+        "damage": {
+          "description": "Raw damage value of this attack",
+          "type": "number"
+        },
+        "element": {
+          "$ref": "#/definitions/Element",
+          "description": "Elemental type of this attack"
+        }
+      },
+      "required": [
+        "damage",
+        "element"
+      ],
+      "type": "object"
+    },
+    "EnemyAttackState": {
+      "additionalProperties": false,
+      "description": "Enemy state with pending damage for incremental allocation",
+      "properties": {
+        "armor": {
+          "type": "number"
+        },
+        "canDefeat": {
+          "description": "Can this enemy be defeated with current pending damage?",
+          "type": "boolean"
+        },
+        "effectiveDamage": {
+          "$ref": "#/definitions/ElementalDamageValues",
+          "description": "Effective pending damage (after resistances applied by server)"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "enemyName": {
+          "type": "string"
+        },
+        "isDefeated": {
+          "type": "boolean"
+        },
+        "isFortified": {
+          "type": "boolean"
+        },
+        "pendingDamage": {
+          "$ref": "#/definitions/ElementalDamageValues",
+          "description": "Raw pending damage (what's been assigned, before resistances)"
+        },
+        "requiresSiege": {
+          "type": "boolean"
+        },
+        "resistances": {
+          "additionalProperties": false,
+          "description": "Enemy resistances (for UI to show warnings)",
+          "properties": {
+            "fire": {
+              "type": "boolean"
+            },
+            "ice": {
+              "type": "boolean"
+            },
+            "physical": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "fire",
+            "ice",
+            "physical"
+          ],
+          "type": "object"
+        },
+        "totalEffectiveDamage": {
+          "description": "Total effective damage (sum of effectiveDamage)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "armor",
+        "canDefeat",
+        "effectiveDamage",
+        "enemyInstanceId",
+        "enemyName",
+        "isDefeated",
+        "isFortified",
+        "pendingDamage",
+        "requiresSiege",
+        "resistances",
+        "totalEffectiveDamage"
+      ],
+      "type": "object"
+    },
+    "EnemyBlockState": {
+      "additionalProperties": false,
+      "description": "Enemy state with pending block for incremental allocation",
+      "properties": {
+        "attackElement": {
+          "description": "Enemy's attack element (physical, fire, ice, cold_fire) - determines block efficiency",
+          "type": "string"
+        },
+        "attackIndex": {
+          "description": "For multi-attack enemies, the index of the first unblocked/uncancelled attack\nthat this block state represents. Undefined for single-attack enemies.",
+          "type": "number"
+        },
+        "canBlock": {
+          "description": "Can this enemy be blocked with current pending block?",
+          "type": "boolean"
+        },
+        "effectiveBlock": {
+          "description": "Effective pending block (after elemental efficiency)",
+          "type": "number"
+        },
+        "enemyAttack": {
+          "type": "number"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "enemyName": {
+          "type": "string"
+        },
+        "isBlocked": {
+          "type": "boolean"
+        },
+        "isBrutal": {
+          "type": "boolean"
+        },
+        "isDefeated": {
+          "type": "boolean"
+        },
+        "isSwift": {
+          "type": "boolean"
+        },
+        "pendingBlock": {
+          "$ref": "#/definitions/ElementalDamageValues",
+          "description": "Raw pending block (what's been assigned)"
+        },
+        "requiredBlock": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "attackElement",
+        "canBlock",
+        "effectiveBlock",
+        "enemyAttack",
+        "enemyInstanceId",
+        "enemyName",
+        "isBlocked",
+        "isBrutal",
+        "isDefeated",
+        "isSwift",
+        "pendingBlock",
+        "requiredBlock"
+      ],
+      "type": "object"
+    },
+    "EnemyDistribution": {
+      "additionalProperties": false,
+      "description": "Enemy distribution assignment for a cooperative assault.\nEach participating player must receive at least 1 enemy.",
+      "properties": {
+        "enemyCount": {
+          "type": "number"
+        },
+        "playerId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyCount",
+        "playerId"
+      ],
+      "type": "object"
+    },
+    "EnemyId": {
+      "description": "Union of all enemy IDs across all factions",
+      "enum": [
+        "air_elemental",
+        "altem_guardsmen",
+        "altem_mages",
+        "blood_demon",
+        "centaur_outriders",
+        "cloud_griffons",
+        "corrupted_priests",
+        "crossbowmen",
+        "crypt_worm",
+        "crystal_sprites",
+        "cursed_hags",
+        "death_dragon",
+        "delphana_masters",
+        "diggers",
+        "dragon_summoner",
+        "earth_elemental",
+        "elemental_priests",
+        "elven_protectors",
+        "fire_catapult",
+        "fire_dragon",
+        "fire_elemental",
+        "fire_golems",
+        "fire_mages",
+        "freezers",
+        "gargoyle",
+        "gibbering_ghouls",
+        "golems",
+        "grim_legionnaries",
+        "guardsmen",
+        "gunners",
+        "heroes",
+        "high_dragon",
+        "hydra",
+        "ice_catapult",
+        "ice_dragon",
+        "ice_golems",
+        "ice_mages",
+        "illusionists",
+        "ironclads",
+        "lava_dragon",
+        "lightning_dragon",
+        "magic_familiars",
+        "manticore",
+        "medusa",
+        "minotaur",
+        "monks",
+        "mummy",
+        "orc_skirmishers",
+        "orc_stonethrowers",
+        "orc_summoners",
+        "orc_tracker",
+        "orc_war_beasts",
+        "pain_wraith",
+        "prowlers",
+        "savage_dragon",
+        "shadow",
+        "shocktroops",
+        "shocktroops_gray",
+        "shrouded_necromancers",
+        "skeletal_warriors",
+        "sorcerers",
+        "storm_dragon",
+        "swamp_dragon",
+        "swordsmen",
+        "thugs",
+        "thugs_gray",
+        "vampire",
+        "vampire_dragon",
+        "water_elemental",
+        "werewolf",
+        "wolf_riders",
+        "zombie_horde"
+      ],
+      "type": "string"
+    },
+    "ExploreDirection": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "$ref": "#/definitions/HexDirection"
+        },
+        "fromTileCoord": {
+          "$ref": "#/definitions/HexCoord"
+        },
+        "slotIndex": {
+          "type": "number"
+        },
+        "targetCoord": {
+          "$ref": "#/definitions/HexCoord"
+        }
+      },
+      "required": [
+        "direction",
+        "fromTileCoord",
+        "targetCoord"
+      ],
+      "type": "object"
+    },
+    "ExploreOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "directions": {
+          "items": {
+            "$ref": "#/definitions/ExploreDirection"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "directions"
+      ],
+      "type": "object"
+    },
+    "FameReward": {
+      "additionalProperties": false,
+      "description": "Fame reward - gain flat fame amount\nUsed by: Ancient Ruins (altar tribute)",
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "type": {
+          "const": "fame",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "type"
+      ],
+      "type": "object"
+    },
+    "GamePhase": {
+      "enum": [
+        "end",
+        "round",
+        "setup"
+      ],
+      "type": "string"
+    },
+    "GladeWoundOptions": {
+      "additionalProperties": false,
+      "description": "Options for Magical Glade wound discard at end of turn.\nOnly present when player is on a Magical Glade and has wounds.",
+      "properties": {
+        "hasWoundsInDiscard": {
+          "description": "Whether wounds exist in discard pile",
+          "type": "boolean"
+        },
+        "hasWoundsInHand": {
+          "description": "Whether wounds exist in hand",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "hasWoundsInDiscard",
+        "hasWoundsInHand"
+      ],
+      "type": "object"
+    },
+    "HeroId": {
+      "description": "String literal type for hero identifiers",
+      "enum": [
+        "arythea",
+        "braevalar",
+        "goldyx",
+        "krang",
+        "norowas",
+        "tovak",
+        "wolfhawk"
+      ],
+      "type": "string"
+    },
+    "HexCoord": {
+      "additionalProperties": false,
+      "description": "Hex coordinate types using axial coordinates (q, r)",
+      "properties": {
+        "q": {
+          "type": "number"
+        },
+        "r": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "q",
+        "r"
+      ],
+      "type": "object"
+    },
+    "HexCostReductionOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "availableCoordinates": {
+          "description": "Available hexes where cost reduction can be applied",
+          "items": {
+            "$ref": "#/definitions/HexCoord"
+          },
+          "type": "array"
+        },
+        "minimumCost": {
+          "description": "Minimum cost after reduction (e.g., 2)",
+          "type": "number"
+        },
+        "reduction": {
+          "description": "Cost reduction amount (e.g., -1)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "availableCoordinates",
+        "minimumCost",
+        "reduction"
+      ],
+      "type": "object"
+    },
+    "HexDirection": {
+      "enum": [
+        "E",
+        "NE",
+        "NW",
+        "SE",
+        "SW",
+        "W"
+      ],
+      "type": "string"
+    },
+    "InfluenceToBlockConversionOption": {
+      "additionalProperties": false,
+      "description": "Information about an available influence-to-block conversion option.\nPresent during BLOCK phase when an influence-to-block conversion modifier is active.",
+      "properties": {
+        "blockElement": {
+          "description": "Element of the block gained from conversion",
+          "enum": [
+            "fire",
+            "ice",
+            "physical"
+          ],
+          "type": "string"
+        },
+        "costPerPoint": {
+          "description": "Influence points required per 1 block point",
+          "type": "number"
+        },
+        "maxBlockGainable": {
+          "description": "Maximum block points that can be gained (floor(availableInfluence / cost))",
+          "type": "number"
+        }
+      },
+      "required": [
+        "blockElement",
+        "costPerPoint",
+        "maxBlockGainable"
+      ],
+      "type": "object"
+    },
+    "InteractOptions": {
+      "additionalProperties": false,
+      "description": "Interaction options for inhabited sites.",
+      "properties": {
+        "advancedActionCost": {
+          "description": "Advanced action purchase cost",
+          "type": "number"
+        },
+        "canBurnMonastery": {
+          "description": "Can burn this monastery",
+          "type": "boolean"
+        },
+        "canBuyAdvancedActions": {
+          "description": "Can buy advanced actions here (Monastery)",
+          "type": "boolean"
+        },
+        "canBuySpells": {
+          "description": "Can buy spells here (conquered Mage Tower)",
+          "type": "boolean"
+        },
+        "canHeal": {
+          "description": "Can buy healing here",
+          "type": "boolean"
+        },
+        "canPlunderVillage": {
+          "description": "Can plunder this village",
+          "type": "boolean"
+        },
+        "canRecruit": {
+          "description": "Can recruit units here",
+          "type": "boolean"
+        },
+        "healCost": {
+          "description": "Influence cost per healing point",
+          "type": "number"
+        },
+        "spellCost": {
+          "description": "Spell purchase cost",
+          "type": "number"
+        }
+      },
+      "required": [
+        "canBuyAdvancedActions",
+        "canBuySpells",
+        "canHeal",
+        "canRecruit"
+      ],
+      "type": "object"
+    },
+    "LearningAAPurchaseOptions": {
+      "additionalProperties": false,
+      "description": "Options for purchasing an Advanced Action via Learning card's special ability.\nPresent when the Learning discount modifier is active (once per turn).\nNot tied to any site — available anywhere on the map.",
+      "properties": {
+        "availableCards": {
+          "description": "Available AA cards in the offer",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "canAfford": {
+          "description": "Whether the player can afford the purchase",
+          "type": "boolean"
+        },
+        "cost": {
+          "description": "Influence cost to purchase an AA (6 for basic, 9 for powered)",
+          "type": "number"
+        },
+        "destination": {
+          "description": "Whether the AA goes to hand (powered) or discard pile (basic)",
+          "enum": [
+            "discard",
+            "hand"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "availableCards",
+        "canAfford",
+        "cost",
+        "destination"
+      ],
+      "type": "object"
+    },
+    "LevelUpRewardsOptions": {
+      "additionalProperties": false,
+      "description": "Options for selecting level up rewards at even levels.\nPlayer must choose 1 skill and 1 advanced action.\n\nSkill selection mechanics:\n- 2 skills drawn from hero's personal pool\n- Can pick one of the drawn skills OR a skill from the common pool\n- Rejected skill(s) go to common pool",
+      "properties": {
+        "availableAAs": {
+          "description": "Available advanced action cards in the offer",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "commonPoolSkills": {
+          "description": "Skills in the shared common pool (from other players' rejected draws)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "drawnSkills": {
+          "description": "2 skills drawn from player's hero skill pool",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "level": {
+          "description": "The level being resolved (e.g., 2, 4, 6)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "availableAAs",
+        "commonPoolSkills",
+        "drawnSkills",
+        "level"
+      ],
+      "type": "object"
+    },
+    "ManaColor": {
+      "enum": [
+        "black",
+        "blue",
+        "gold",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "string"
+    },
+    "ManaOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "availableDice": {
+          "items": {
+            "$ref": "#/definitions/AvailableDie"
+          },
+          "type": "array"
+        },
+        "canConvertCrystal": {
+          "type": "boolean"
+        },
+        "convertibleColors": {
+          "items": {
+            "$ref": "#/definitions/BasicManaColor"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "availableDice",
+        "canConvertCrystal",
+        "convertibleColors"
+      ],
+      "type": "object"
+    },
+    "ManaSearchOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "availableDiceIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maxDice": {
+          "type": "number"
+        },
+        "mustPickDepletedFirst": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "availableDiceIds",
+        "maxDice",
+        "mustPickDepletedFirst"
+      ],
+      "type": "object"
+    },
+    "ManaTokenSource": {
+      "enum": [
+        "card",
+        "crystal",
+        "die",
+        "site",
+        "skill",
+        "tactic"
+      ],
+      "type": "string"
+    },
+    "MaximalEffectOptions": {
+      "additionalProperties": false,
+      "description": "Options for Maximal Effect card resolution.\nOnly present when player has a pending maximal effect state.\nPlayer must select an action card from hand to throw away.",
+      "properties": {
+        "availableCardIds": {
+          "description": "Action cards available to throw away (excludes Maximal Effect itself and wounds)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "effectKind": {
+          "description": "Whether the target card's basic or powered effect will be used",
+          "enum": [
+            "basic",
+            "powered"
+          ],
+          "type": "string"
+        },
+        "multiplier": {
+          "description": "How many times the selected card's effect will be executed",
+          "type": "number"
+        },
+        "sourceCardId": {
+          "description": "Source card that triggered the effect (Maximal Effect card)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "availableCardIds",
+        "effectKind",
+        "multiplier",
+        "sourceCardId"
+      ],
+      "type": "object"
+    },
+    "MeditationOptions": {
+      "additionalProperties": false,
+      "description": "Options for Meditation spell resolution.\nPhase \"select_cards\": player chooses cards from discard (powered only).\nPhase \"place_cards\": player chooses top or bottom of deck.",
+      "properties": {
+        "eligibleCardIds": {
+          "description": "Phase 1: cards in discard eligible for selection",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "phase": {
+          "enum": [
+            "place_cards",
+            "select_cards"
+          ],
+          "type": "string"
+        },
+        "selectCount": {
+          "description": "Phase 1: how many cards to select",
+          "type": "number"
+        },
+        "selectedCardIds": {
+          "description": "Phase 2: the cards that will be placed",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "version": {
+          "enum": [
+            "basic",
+            "powered"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase",
+        "version"
+      ],
+      "type": "object"
+    },
+    "MoveOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "reachable": {
+          "description": "All hexes reachable within current move points (multi-hop, optional)",
+          "items": {
+            "$ref": "#/definitions/ReachableHex"
+          },
+          "type": "array"
+        },
+        "targets": {
+          "description": "Adjacent hexes the player can move to immediately (one-hop)",
+          "items": {
+            "$ref": "#/definitions/MoveTarget"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "targets"
+      ],
+      "type": "object"
+    },
+    "MoveTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "cost": {
+          "type": "number"
+        },
+        "hex": {
+          "$ref": "#/definitions/HexCoord"
+        },
+        "isTerminal": {
+          "description": "Whether entering this hex triggers combat (fortified site, provokes rampaging, etc.)",
+          "type": "boolean"
+        },
+        "wouldRevealEnemies": {
+          "description": "Whether this move would reveal unrevealed enemies at adjacent fortified sites (Day only)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cost",
+        "hex"
+      ],
+      "type": "object"
+    },
+    "MoveToAttackConversionOption": {
+      "additionalProperties": false,
+      "description": "Information about an available move-to-attack conversion option.\nPresent during RANGED_SIEGE and ATTACK phases when a conversion modifier is active.",
+      "properties": {
+        "attackType": {
+          "description": "Type of attack gained from conversion",
+          "enum": [
+            "melee",
+            "ranged"
+          ],
+          "type": "string"
+        },
+        "costPerPoint": {
+          "description": "Move points required per 1 attack point",
+          "type": "number"
+        },
+        "maxAttackGainable": {
+          "description": "Maximum attack points that can be gained (floor(availableMove / cost))",
+          "type": "number"
+        }
+      },
+      "required": [
+        "attackType",
+        "costPerPoint",
+        "maxAttackGainable"
+      ],
+      "type": "object"
+    },
+    "NormalTurnState": {
+      "additionalProperties": false,
+      "properties": {
+        "banners": {
+          "$ref": "#/definitions/BannerOptions"
+        },
+        "challenge": {
+          "$ref": "#/definitions/ChallengeOptions"
+        },
+        "cooperativeAssault": {
+          "$ref": "#/definitions/CooperativeAssaultOptions"
+        },
+        "explore": {
+          "$ref": "#/definitions/ExploreOptions"
+        },
+        "learningAAPurchase": {
+          "$ref": "#/definitions/LearningAAPurchaseOptions",
+          "description": "Learning card AA purchase option (available when Learning discount modifier active)"
+        },
+        "mana": {
+          "$ref": "#/definitions/ManaOptions"
+        },
+        "mode": {
+          "const": "normal_turn",
+          "type": "string"
+        },
+        "move": {
+          "$ref": "#/definitions/MoveOptions"
+        },
+        "playCard": {
+          "$ref": "#/definitions/PlayCardOptions"
+        },
+        "returnableSkills": {
+          "$ref": "#/definitions/ReturnableSkillOptions"
+        },
+        "sites": {
+          "$ref": "#/definitions/SiteOptions"
+        },
+        "skills": {
+          "$ref": "#/definitions/SkillOptions"
+        },
+        "tacticEffects": {
+          "$ref": "#/definitions/TacticEffectsOptions"
+        },
+        "turn": {
+          "$ref": "#/definitions/TurnOptions"
+        },
+        "units": {
+          "$ref": "#/definitions/UnitOptions"
+        }
+      },
+      "required": [
+        "banners",
+        "challenge",
+        "cooperativeAssault",
+        "explore",
+        "learningAAPurchase",
+        "mana",
+        "mode",
+        "move",
+        "playCard",
+        "returnableSkills",
+        "sites",
+        "skills",
+        "tacticEffects",
+        "turn",
+        "units"
+      ],
+      "type": "object"
+    },
+    "Partial<Record<CityColor,number>>": {
+      "additionalProperties": false,
+      "properties": {
+        "blue": {
+          "type": "number"
+        },
+        "green": {
+          "type": "number"
+        },
+        "red": {
+          "type": "number"
+        },
+        "white": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "Partial<Record<CityColor,readonlyEligibleInvitee[]>>": {
+      "additionalProperties": false,
+      "properties": {
+        "blue": {
+          "items": {
+            "$ref": "#/definitions/EligibleInvitee"
+          },
+          "type": "array"
+        },
+        "green": {
+          "items": {
+            "$ref": "#/definitions/EligibleInvitee"
+          },
+          "type": "array"
+        },
+        "red": {
+          "items": {
+            "$ref": "#/definitions/EligibleInvitee"
+          },
+          "type": "array"
+        },
+        "white": {
+          "items": {
+            "$ref": "#/definitions/EligibleInvitee"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PendingArtifactCrystalColorState": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactCrystalColor": {
+          "$ref": "#/definitions/ArtifactCrystalColorOptions"
+        },
+        "mode": {
+          "const": "pending_artifact_crystal_color",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "artifactCrystalColor",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingBannerProtectionState": {
+      "additionalProperties": false,
+      "properties": {
+        "bannerProtection": {
+          "$ref": "#/definitions/BannerProtectionOptions"
+        },
+        "mode": {
+          "const": "pending_banner_protection",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "bannerProtection",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingBookOfWisdomState": {
+      "additionalProperties": false,
+      "properties": {
+        "bookOfWisdom": {
+          "$ref": "#/definitions/BookOfWisdomOptions"
+        },
+        "mode": {
+          "const": "pending_book_of_wisdom",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "bookOfWisdom",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingChoiceState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "pending_choice",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingCrystalJoyState": {
+      "additionalProperties": false,
+      "properties": {
+        "crystalJoyReclaim": {
+          "$ref": "#/definitions/CrystalJoyReclaimOptions"
+        },
+        "mode": {
+          "const": "pending_crystal_joy_reclaim",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "crystalJoyReclaim",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingDecomposeState": {
+      "additionalProperties": false,
+      "properties": {
+        "decompose": {
+          "$ref": "#/definitions/DecomposeOptions"
+        },
+        "mode": {
+          "const": "pending_decompose",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "decompose",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingDeepMineState": {
+      "additionalProperties": false,
+      "properties": {
+        "deepMine": {
+          "$ref": "#/definitions/DeepMineOptions"
+        },
+        "mode": {
+          "const": "pending_deep_mine",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "deepMine",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingDiscardCostState": {
+      "additionalProperties": false,
+      "properties": {
+        "discardCost": {
+          "$ref": "#/definitions/DiscardCostOptions"
+        },
+        "mode": {
+          "const": "pending_discard_cost",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "discardCost",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingDiscardForAttackState": {
+      "additionalProperties": false,
+      "properties": {
+        "discardForAttack": {
+          "$ref": "#/definitions/DiscardForAttackOptions"
+        },
+        "mode": {
+          "const": "pending_discard_for_attack",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "discardForAttack",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingDiscardForBonusState": {
+      "additionalProperties": false,
+      "properties": {
+        "discardForBonus": {
+          "$ref": "#/definitions/DiscardForBonusOptions"
+        },
+        "mode": {
+          "const": "pending_discard_for_bonus",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "discardForBonus",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingDiscardForCrystalState": {
+      "additionalProperties": false,
+      "properties": {
+        "discardForCrystal": {
+          "$ref": "#/definitions/DiscardForCrystalOptions"
+        },
+        "mode": {
+          "const": "pending_discard_for_crystal",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "discardForCrystal",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingGladeWoundState": {
+      "additionalProperties": false,
+      "properties": {
+        "gladeWound": {
+          "$ref": "#/definitions/GladeWoundOptions"
+        },
+        "mode": {
+          "const": "pending_glade_wound",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "gladeWound",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingHexCostReductionState": {
+      "additionalProperties": false,
+      "properties": {
+        "hexCostReduction": {
+          "$ref": "#/definitions/HexCostReductionOptions"
+        },
+        "mode": {
+          "const": "pending_hex_cost_reduction",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "hexCostReduction",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingLevelUpState": {
+      "additionalProperties": false,
+      "properties": {
+        "levelUpRewards": {
+          "$ref": "#/definitions/LevelUpRewardsOptions"
+        },
+        "mode": {
+          "const": "pending_level_up",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "levelUpRewards",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingMaximalEffectState": {
+      "additionalProperties": false,
+      "properties": {
+        "maximalEffect": {
+          "$ref": "#/definitions/MaximalEffectOptions"
+        },
+        "mode": {
+          "const": "pending_maximal_effect",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "maximalEffect",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingMeditationState": {
+      "additionalProperties": false,
+      "properties": {
+        "meditation": {
+          "$ref": "#/definitions/MeditationOptions"
+        },
+        "mode": {
+          "const": "pending_meditation",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "meditation",
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingSourceOpeningRerollState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "pending_source_opening_reroll",
+          "type": "string"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "mode",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingSteadyTempoState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "pending_steady_tempo",
+          "type": "string"
+        },
+        "steadyTempo": {
+          "$ref": "#/definitions/SteadyTempoOptions"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "mode",
+        "steadyTempo",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingTacticDecisionInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "availableDiceIds": {
+          "description": "For mana_steal: available basic color dice to choose from",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "canStash": {
+          "description": "For sparing_power: whether stash option is available (deck not empty)",
+          "type": "boolean"
+        },
+        "deckSnapshot": {
+          "description": "For preparation: visible deck cards (only sent to owning player)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maxCards": {
+          "description": "For rethink/midnight_meditation: max selectable cards",
+          "type": "number"
+        },
+        "storedCount": {
+          "description": "For sparing_power: number of cards currently stored under tactic",
+          "type": "number"
+        },
+        "type": {
+          "$ref": "#/definitions/TacticDecisionType"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "PendingTacticDecisionState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "pending_tactic_decision",
+          "type": "string"
+        },
+        "tacticDecision": {
+          "$ref": "#/definitions/PendingTacticDecisionInfo"
+        }
+      },
+      "required": [
+        "mode",
+        "tacticDecision"
+      ],
+      "type": "object"
+    },
+    "PendingTerrainCostReductionState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "pending_terrain_cost_reduction",
+          "type": "string"
+        },
+        "terrainCostReduction": {
+          "$ref": "#/definitions/TerrainCostReductionOptions"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "mode",
+        "terrainCostReduction",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingTrainingState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "pending_training",
+          "type": "string"
+        },
+        "training": {
+          "$ref": "#/definitions/TrainingOptions"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "mode",
+        "training",
+        "turn"
+      ],
+      "type": "object"
+    },
+    "PendingUnitMaintenanceState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "pending_unit_maintenance",
+          "type": "string"
+        },
+        "unitMaintenance": {
+          "$ref": "#/definitions/UnitMaintenanceOptions"
+        }
+      },
+      "required": [
+        "mode",
+        "unitMaintenance"
+      ],
+      "type": "object"
+    },
+    "PlayableCard": {
+      "additionalProperties": false,
+      "properties": {
+        "basicEffectDescription": {
+          "type": "string"
+        },
+        "canPlayBasic": {
+          "type": "boolean"
+        },
+        "canPlayPowered": {
+          "type": "boolean"
+        },
+        "canPlaySideways": {
+          "type": "boolean"
+        },
+        "cardId": {
+          "type": "string"
+        },
+        "isSpell": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "poweredEffectDescription": {
+          "type": "string"
+        },
+        "requiredMana": {
+          "enum": [
+            "black",
+            "blue",
+            "gold",
+            "green",
+            "red",
+            "white"
+          ],
+          "type": "string"
+        },
+        "sidewaysOptions": {
+          "items": {
+            "$ref": "#/definitions/SidewaysOption"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "basicEffectDescription",
+        "canPlayBasic",
+        "canPlayPowered",
+        "canPlaySideways",
+        "cardId",
+        "name",
+        "poweredEffectDescription"
+      ],
+      "type": "object"
+    },
+    "PlayCardOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "cards": {
+          "items": {
+            "$ref": "#/definitions/PlayableCard"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "cards"
+      ],
+      "type": "object"
+    },
+    "ReachableHex": {
+      "additionalProperties": false,
+      "description": "A hex that can be reached with current move points.\nUsed for movement range visualization (flood-fill reachability).",
+      "properties": {
+        "cameFrom": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "The hex we came from to reach this hex (for path reconstruction)"
+        },
+        "hex": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "The reachable hex coordinate"
+        },
+        "isTerminal": {
+          "description": "Whether entering this hex ends movement (triggers combat, fortified site, etc.)",
+          "type": "boolean"
+        },
+        "totalCost": {
+          "description": "Total movement cost to reach this hex via optimal path",
+          "type": "number"
+        },
+        "wouldRevealEnemies": {
+          "description": "Whether moving to this hex would reveal unrevealed enemies at adjacent fortified sites (Day only)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "hex",
+        "isTerminal",
+        "totalCost"
+      ],
+      "type": "object"
+    },
+    "Record<string,ClientHexState>": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Record<string,ClientTileSlot>": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RecruitableUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "canAfford": {
+          "type": "boolean"
+        },
+        "cost": {
+          "type": "number"
+        },
+        "requiresDisband": {
+          "description": "True when the player must disband an existing unit to recruit this one.",
+          "type": "boolean"
+        },
+        "unitId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "canAfford",
+        "cost",
+        "requiresDisband",
+        "unitId"
+      ],
+      "type": "object"
+    },
+    "ResistanceType": {
+      "description": "Resistance type - individual resistance constants",
+      "enum": [
+        "fire",
+        "ice",
+        "physical"
+      ],
+      "type": "string"
+    },
+    "RestType": {
+      "enum": [
+        "slow_recovery",
+        "standard"
+      ],
+      "type": "string"
+    },
+    "ReturnableSkill": {
+      "additionalProperties": false,
+      "description": "An interactive skill in the center that can be returned.",
+      "properties": {
+        "name": {
+          "description": "Display name",
+          "type": "string"
+        },
+        "returnBenefit": {
+          "description": "Description of the benefit gained by returning",
+          "type": "string"
+        },
+        "skillId": {
+          "description": "Skill ID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "returnBenefit",
+        "skillId"
+      ],
+      "type": "object"
+    },
+    "ReturnableSkillOptions": {
+      "additionalProperties": false,
+      "description": "Options for returning interactive skills from the center.\nOnly shows skills placed in center by other players.",
+      "properties": {
+        "returnable": {
+          "description": "Skills that can be returned from the center",
+          "items": {
+            "$ref": "#/definitions/ReturnableSkill"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "returnable"
+      ],
+      "type": "object"
+    },
+    "RoundPhase": {
+      "enum": [
+        "player_turns",
+        "tactics_selection"
+      ],
+      "type": "string"
+    },
+    "SidewaysAs": {
+      "description": "What a card can be played sideways as",
+      "enum": [
+        "attack",
+        "block",
+        "influence",
+        "move"
+      ],
+      "type": "string"
+    },
+    "SidewaysOption": {
+      "additionalProperties": false,
+      "properties": {
+        "as": {
+          "$ref": "#/definitions/SidewaysAs"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "as",
+        "value"
+      ],
+      "type": "object"
+    },
+    "SiteEnterRestrictions": {
+      "additionalProperties": false,
+      "description": "Combat restrictions for entering certain sites (dungeons, tombs).",
+      "properties": {
+        "nightManaRules": {
+          "description": "Night mana rules apply (gold mana unavailable)",
+          "type": "boolean"
+        },
+        "unitsAllowed": {
+          "description": "Units cannot participate in combat",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "nightManaRules",
+        "unitsAllowed"
+      ],
+      "type": "object"
+    },
+    "SiteOptions": {
+      "additionalProperties": false,
+      "description": "Site options for the hex the player is currently on.\nProvides rich info for UI display and actions.",
+      "properties": {
+        "altarFameReward": {
+          "description": "Altar fame reward",
+          "type": "number"
+        },
+        "altarManaColor": {
+          "description": "Altar mana color required (e.g., \"blue\", \"all_basic\")",
+          "type": "string"
+        },
+        "altarManaCost": {
+          "description": "Altar mana cost",
+          "type": "number"
+        },
+        "canEnter": {
+          "description": "Can enter this site as an action (adventure sites)",
+          "type": "boolean"
+        },
+        "canInteract": {
+          "description": "Can interact with this site (inhabited sites)",
+          "type": "boolean"
+        },
+        "canTribute": {
+          "description": "Can pay tribute at this altar (Ancient Ruins with altar token)",
+          "type": "boolean"
+        },
+        "conquestReward": {
+          "description": "Reward description for conquering (e.g., \"Spell or Artifact\")",
+          "type": "string"
+        },
+        "endOfTurnEffect": {
+          "description": "Passive effect that triggers at end of turn (e.g., \"+1 Blue Crystal\")",
+          "type": "string"
+        },
+        "enterDescription": {
+          "description": "Description of what entering does (e.g., \"Fight 1 brown enemy\")",
+          "type": "string"
+        },
+        "enterRestrictions": {
+          "$ref": "#/definitions/SiteEnterRestrictions",
+          "description": "Combat restrictions when entering"
+        },
+        "interactOptions": {
+          "$ref": "#/definitions/InteractOptions",
+          "description": "Interaction options (healing, recruiting, buying)"
+        },
+        "isConquered": {
+          "description": "Whether this site has been conquered",
+          "type": "boolean"
+        },
+        "owner": {
+          "description": "Player ID of owner (if conquered fortified site)",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "siteName": {
+          "description": "Human-readable display name (e.g., \"Dungeon\", \"Mage Tower\")",
+          "type": "string"
+        },
+        "siteType": {
+          "description": "The site type (e.g., \"dungeon\", \"tomb\", \"village\")",
+          "type": "string"
+        },
+        "startOfTurnEffect": {
+          "description": "Passive effect that triggers at start of turn (e.g., \"+1 Gold Mana\")",
+          "type": "string"
+        }
+      },
+      "required": [
+        "canEnter",
+        "canInteract",
+        "isConquered",
+        "owner",
+        "siteName",
+        "siteType"
+      ],
+      "type": "object"
+    },
+    "SiteReward": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/SpellReward"
+        },
+        {
+          "$ref": "#/definitions/ArtifactReward"
+        },
+        {
+          "$ref": "#/definitions/CrystalRollReward"
+        },
+        {
+          "$ref": "#/definitions/AdvancedActionReward"
+        },
+        {
+          "$ref": "#/definitions/FameReward"
+        },
+        {
+          "$ref": "#/definitions/UnitReward"
+        },
+        {
+          "$ref": "#/definitions/CompoundReward"
+        }
+      ],
+      "description": "Union of all site reward types"
+    },
+    "SkillOptions": {
+      "additionalProperties": false,
+      "description": "Options for activating skills.\nOnly shows skills that can currently be activated (not on cooldown).",
+      "properties": {
+        "activatable": {
+          "description": "Skills that can be activated this turn",
+          "items": {
+            "$ref": "#/definitions/ActivatableSkill"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "activatable"
+      ],
+      "type": "object"
+    },
+    "SpellReward": {
+      "additionalProperties": false,
+      "description": "Spell reward - draw from spell offer\nUsed by: Mage Tower, Dungeon (on gold/black roll), Tomb, Maze, Labyrinth",
+      "properties": {
+        "count": {
+          "type": "number"
+        },
+        "type": {
+          "const": "spell",
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SteadyTempoOptions": {
+      "additionalProperties": false,
+      "description": "Options for Steady Tempo deck placement at end of turn.\nOnly present when player has a pending Steady Tempo deck placement choice.",
+      "properties": {
+        "canPlace": {
+          "description": "Whether the player can place (basic requires non-empty deck)",
+          "type": "boolean"
+        },
+        "position": {
+          "description": "Where the card would be placed: \"top\" (powered) or \"bottom\" (basic)",
+          "enum": [
+            "bottom",
+            "top"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "canPlace",
+        "position"
+      ],
+      "type": "object"
+    },
+    "TacticDecisionType": {
+      "enum": [
+        "mana_steal",
+        "midnight_meditation",
+        "preparation",
+        "rethink",
+        "sparing_power"
+      ],
+      "type": "string"
+    },
+    "TacticEffectsOptions": {
+      "additionalProperties": false,
+      "description": "Tactic effect options for the current player.\nPresent when the player has a tactic with actionable effects.",
+      "properties": {
+        "beforeTurnRequired": {
+          "$ref": "#/definitions/BeforeTurnTacticInfo",
+          "description": "Before-turn decision required (blocks other actions)"
+        },
+        "canActivate": {
+          "$ref": "#/definitions/ActivatableTacticOptions",
+          "description": "Activated tactics that can be used (flip to use)"
+        },
+        "canRerollSourceDice": {
+          "$ref": "#/definitions/ManaSearchOptions",
+          "description": "Mana Search reroll available"
+        },
+        "pendingDecision": {
+          "$ref": "#/definitions/PendingTacticDecisionInfo",
+          "description": "Pending tactic decision that must be resolved"
+        }
+      },
+      "type": "object"
+    },
+    "TacticId": {
+      "description": "Union type of all tactic IDs.\nAuto-derived from the tactic ID arrays to prevent manual maintenance.",
+      "enum": [
+        "early_bird",
+        "from_the_dusk",
+        "great_start",
+        "long_night",
+        "mana_search",
+        "mana_steal",
+        "midnight_meditation",
+        "planning",
+        "preparation",
+        "rethink",
+        "sparing_power",
+        "the_right_moment"
+      ],
+      "type": "string"
+    },
+    "TacticsOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "availableTactics": {
+          "items": {
+            "enum": [
+              "early_bird",
+              "from_the_dusk",
+              "great_start",
+              "long_night",
+              "mana_search",
+              "mana_steal",
+              "midnight_meditation",
+              "planning",
+              "preparation",
+              "rethink",
+              "sparing_power",
+              "the_right_moment"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "isYourTurn": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "availableTactics",
+        "isYourTurn"
+      ],
+      "type": "object"
+    },
+    "TacticsSelectionState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "tactics_selection",
+          "type": "string"
+        },
+        "tactics": {
+          "$ref": "#/definitions/TacticsOptions"
+        }
+      },
+      "required": [
+        "mode",
+        "tactics"
+      ],
+      "type": "object"
+    },
+    "TerrainCostReductionOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "availableTerrains": {
+          "description": "Available terrain types for cost reduction",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "minimumCost": {
+          "description": "Minimum cost after reduction (e.g., 2)",
+          "type": "number"
+        },
+        "reduction": {
+          "description": "Cost reduction amount (e.g., -1)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "availableTerrains",
+        "minimumCost",
+        "reduction"
+      ],
+      "type": "object"
+    },
+    "ThugsDamagePaymentOption": {
+      "additionalProperties": false,
+      "description": "Information about a Thugs unit that requires influence payment\nbefore damage can be assigned to it.",
+      "properties": {
+        "alreadyPaid": {
+          "description": "Whether payment has already been made this combat",
+          "type": "boolean"
+        },
+        "canAfford": {
+          "description": "Whether the player can afford to pay",
+          "type": "boolean"
+        },
+        "cost": {
+          "description": "Influence cost to pay (always 2)",
+          "type": "number"
+        },
+        "unitInstanceId": {
+          "description": "Unit instance ID",
+          "type": "string"
+        },
+        "unitName": {
+          "description": "Unit display name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "alreadyPaid",
+        "canAfford",
+        "cost",
+        "unitInstanceId",
+        "unitName"
+      ],
+      "type": "object"
+    },
+    "TimeOfDay": {
+      "enum": [
+        "day",
+        "night"
+      ],
+      "type": "string"
+    },
+    "TrainingOptions": {
+      "additionalProperties": false,
+      "description": "Options for Training resolution.\nPhase \"select_card\": Player selects an action card from hand to throw away.\nPhase \"select_from_offer\": Player selects a matching AA card from the offer.",
+      "properties": {
+        "availableCardIds": {
+          "description": "Action cards available to throw away (phase 1 only)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "availableOfferCards": {
+          "description": "AA cards from offer matching thrown card's color (phase 2 only)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "description": "Whether the effect is basic (AA to discard) or powered (AA to hand)",
+          "enum": [
+            "basic",
+            "powered"
+          ],
+          "type": "string"
+        },
+        "phase": {
+          "description": "Current resolution phase",
+          "enum": [
+            "select_card",
+            "select_from_offer"
+          ],
+          "type": "string"
+        },
+        "sourceCardId": {
+          "description": "Source card (Training)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "availableCardIds",
+        "availableOfferCards",
+        "mode",
+        "phase",
+        "sourceCardId"
+      ],
+      "type": "object"
+    },
+    "TurnOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "canAnnounceEndOfRound": {
+          "type": "boolean"
+        },
+        "canCompleteRest": {
+          "description": "Can complete rest with card discards (when already in resting state)",
+          "type": "boolean"
+        },
+        "canDeclareRest": {
+          "description": "Can declare intent to rest (enters resting state)",
+          "type": "boolean"
+        },
+        "canEndTurn": {
+          "type": "boolean"
+        },
+        "canRest": {
+          "type": "boolean"
+        },
+        "canUndo": {
+          "type": "boolean"
+        },
+        "isResting": {
+          "description": "Whether player is currently in resting state",
+          "type": "boolean"
+        },
+        "restTypes": {
+          "items": {
+            "$ref": "#/definitions/RestType"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "canAnnounceEndOfRound",
+        "canCompleteRest",
+        "canDeclareRest",
+        "canEndTurn",
+        "canRest",
+        "canUndo",
+        "isResting",
+        "restTypes"
+      ],
+      "type": "object"
+    },
+    "UnassignAttackOption": {
+      "additionalProperties": false,
+      "description": "A single valid attack unassignment action",
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "attackType": {
+          "$ref": "#/definitions/AttackType"
+        },
+        "element": {
+          "$ref": "#/definitions/AttackElement"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "attackType",
+        "element",
+        "enemyInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnassignBlockOption": {
+      "additionalProperties": false,
+      "description": "A single valid block unassignment action",
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "element": {
+          "$ref": "#/definitions/AttackElement"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "element",
+        "enemyInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnitDamageTarget": {
+      "additionalProperties": false,
+      "description": "Information about a unit that can receive damage during ASSIGN_DAMAGE phase.",
+      "properties": {
+        "alreadyAssignedThisCombat": {
+          "description": "Whether unit already had damage assigned this combat (can't assign again)",
+          "type": "boolean"
+        },
+        "armor": {
+          "description": "Unit's armor value (damage absorbed per wound)",
+          "type": "number"
+        },
+        "canBeAssigned": {
+          "description": "Computed: true if unit can receive damage (!isWounded && !alreadyAssignedThisCombat && influence paid if required)",
+          "type": "boolean"
+        },
+        "influencePaymentMade": {
+          "description": "Whether the influence payment has been made for this unit this combat",
+          "type": "boolean"
+        },
+        "isResistantToAttack": {
+          "description": "Whether unit has resistance to the attack element",
+          "type": "boolean"
+        },
+        "isWounded": {
+          "description": "Whether unit is currently wounded",
+          "type": "boolean"
+        },
+        "requiresInfluencePayment": {
+          "description": "Whether this unit requires influence payment before damage can be assigned (Thugs)",
+          "type": "boolean"
+        },
+        "unitId": {
+          "description": "Unit type ID (e.g., \"peasants\", \"guardian_golems\")",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "description": "Unique instance ID for this unit",
+          "type": "string"
+        },
+        "unitName": {
+          "description": "Unit display name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "alreadyAssignedThisCombat",
+        "armor",
+        "canBeAssigned",
+        "isResistantToAttack",
+        "isWounded",
+        "unitId",
+        "unitInstanceId",
+        "unitName"
+      ],
+      "type": "object"
+    },
+    "UnitId": {
+      "enum": [
+        "altem_guardians",
+        "altem_mages",
+        "amotep_freezers",
+        "amotep_gunners",
+        "catapults",
+        "delphana_masters",
+        "fire_golems",
+        "fire_mages",
+        "foresters",
+        "guardian_golems",
+        "herbalist",
+        "hero_blue",
+        "hero_green",
+        "hero_red",
+        "hero_white",
+        "heroes",
+        "ice_golems",
+        "ice_mages",
+        "illusionists",
+        "magic_familiars",
+        "northern_monks",
+        "peasants",
+        "red_cape_monks",
+        "savage_monks",
+        "scouts",
+        "shocktroops",
+        "sorcerers",
+        "thugs",
+        "utem_crossbowmen",
+        "utem_guardsmen",
+        "utem_swordsmen"
+      ],
+      "type": "string"
+    },
+    "UnitMaintenanceEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "availableCrystalColors": {
+          "description": "Crystal colors the player has available to pay",
+          "items": {
+            "$ref": "#/definitions/BasicManaColor"
+          },
+          "type": "array"
+        },
+        "unitId": {
+          "description": "Unit type ID (e.g., \"magic_familiars\")",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "description": "Instance ID of the unit needing maintenance",
+          "type": "string"
+        }
+      },
+      "required": [
+        "availableCrystalColors",
+        "unitId",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnitMaintenanceOptions": {
+      "additionalProperties": false,
+      "description": "Options for resolving unit maintenance at round start.\nOnly present when player has Magic Familiars requiring maintenance.\nPlayer must pay a crystal to keep each unit or disband it.",
+      "properties": {
+        "units": {
+          "description": "Units requiring maintenance",
+          "items": {
+            "$ref": "#/definitions/UnitMaintenanceEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "units"
+      ],
+      "type": "object"
+    },
+    "UnitOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "activatable": {
+          "items": {
+            "$ref": "#/definitions/ActivatableUnit"
+          },
+          "type": "array"
+        },
+        "recruitable": {
+          "items": {
+            "$ref": "#/definitions/RecruitableUnit"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "activatable",
+        "recruitable"
+      ],
+      "type": "object"
+    },
+    "UnitReward": {
+      "additionalProperties": false,
+      "description": "Unit reward - recruit a free unit from the unit offer\nUsed by: Ancient Ruins (enemy tokens with unit reward)",
+      "properties": {
+        "type": {
+          "const": "unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "UnitState": {
+      "enum": [
+        "ready",
+        "spent"
+      ],
+      "type": "string"
+    },
+    "ValidActions": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PendingDiscardForBonusState"
+        },
+        {
+          "$ref": "#/definitions/PendingHexCostReductionState"
+        },
+        {
+          "$ref": "#/definitions/PendingTerrainCostReductionState"
+        },
+        {
+          "$ref": "#/definitions/CannotActState"
+        },
+        {
+          "$ref": "#/definitions/TacticsSelectionState"
+        },
+        {
+          "$ref": "#/definitions/PendingTacticDecisionState"
+        },
+        {
+          "$ref": "#/definitions/PendingGladeWoundState"
+        },
+        {
+          "$ref": "#/definitions/PendingDeepMineState"
+        },
+        {
+          "$ref": "#/definitions/PendingDiscardCostState"
+        },
+        {
+          "$ref": "#/definitions/PendingDiscardForAttackState"
+        },
+        {
+          "$ref": "#/definitions/PendingDiscardForCrystalState"
+        },
+        {
+          "$ref": "#/definitions/PendingArtifactCrystalColorState"
+        },
+        {
+          "$ref": "#/definitions/PendingDecomposeState"
+        },
+        {
+          "$ref": "#/definitions/PendingMaximalEffectState"
+        },
+        {
+          "$ref": "#/definitions/PendingBookOfWisdomState"
+        },
+        {
+          "$ref": "#/definitions/PendingTrainingState"
+        },
+        {
+          "$ref": "#/definitions/PendingCrystalJoyState"
+        },
+        {
+          "$ref": "#/definitions/PendingSteadyTempoState"
+        },
+        {
+          "$ref": "#/definitions/PendingMeditationState"
+        },
+        {
+          "$ref": "#/definitions/PendingBannerProtectionState"
+        },
+        {
+          "$ref": "#/definitions/PendingSourceOpeningRerollState"
+        },
+        {
+          "$ref": "#/definitions/PendingLevelUpState"
+        },
+        {
+          "$ref": "#/definitions/PendingUnitMaintenanceState"
+        },
+        {
+          "$ref": "#/definitions/PendingChoiceState"
+        },
+        {
+          "$ref": "#/definitions/CombatState"
+        },
+        {
+          "$ref": "#/definitions/NormalTurnState"
+        }
+      ],
+      "description": "ValidActions as a discriminated union.\nThe `mode` field determines which shape is active."
+    }
+  },
+  "properties": {
+    "combat": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ClientCombatState"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "currentPlayerId": {
+      "type": "string"
+    },
+    "deckCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "advancedActions": {
+          "type": "number"
+        },
+        "artifacts": {
+          "type": "number"
+        },
+        "eliteUnits": {
+          "type": "number"
+        },
+        "regularUnits": {
+          "type": "number"
+        },
+        "spells": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "advancedActions",
+        "artifacts",
+        "eliteUnits",
+        "regularUnits",
+        "spells"
+      ],
+      "type": "object"
+    },
+    "dummyPlayer": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ClientDummyPlayer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Dummy player info for solo mode (null in multiplayer)"
+    },
+    "endOfRoundAnnouncedBy": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "map": {
+      "$ref": "#/definitions/ClientMapState"
+    },
+    "offers": {
+      "$ref": "#/definitions/ClientGameOffers"
+    },
+    "phase": {
+      "$ref": "#/definitions/GamePhase"
+    },
+    "players": {
+      "items": {
+        "$ref": "#/definitions/ClientPlayer"
+      },
+      "type": "array"
+    },
+    "round": {
+      "type": "number"
+    },
+    "roundPhase": {
+      "$ref": "#/definitions/RoundPhase"
+    },
+    "scenarioEndTriggered": {
+      "type": "boolean"
+    },
+    "source": {
+      "$ref": "#/definitions/ClientManaSource"
+    },
+    "timeOfDay": {
+      "$ref": "#/definitions/TimeOfDay"
+    },
+    "turnOrder": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "validActions": {
+      "$ref": "#/definitions/ValidActions",
+      "description": "Valid actions for the player receiving this state"
+    },
+    "woundPileCount": {
+      "description": "Wound pile size remaining.\n`null` means effectively unlimited (rulebook/expansions treat wounds as an unlimited resource).",
+      "type": [
+        "null",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "combat",
+    "currentPlayerId",
+    "deckCounts",
+    "dummyPlayer",
+    "endOfRoundAnnouncedBy",
+    "map",
+    "offers",
+    "phase",
+    "players",
+    "round",
+    "roundPhase",
+    "scenarioEndTriggered",
+    "source",
+    "timeOfDay",
+    "turnOrder",
+    "validActions",
+    "woundPileCount"
+  ],
+  "type": "object"
+}

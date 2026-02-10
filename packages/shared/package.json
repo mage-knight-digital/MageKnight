@@ -21,10 +21,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "bun run generate:network-schemas && bunup",
+    "build": "bun run generate:deep-schemas && bun run generate:network-schemas && bunup",
     "build:legacy": "bun run build:esm && bun run build:cjs",
     "build:esm": "tsc -p tsconfig.build.json",
     "build:cjs": "tsc -p tsconfig.cjs.json && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
+    "generate:deep-schemas": "bun run scripts/generateDeepSchemas.ts",
     "generate:network-schemas": "bun run scripts/generateNetworkProtocolSchemas.ts",
     "check:network-version": "bun run scripts/checkNetworkProtocolVersion.ts",
     "test": "bun test",
@@ -33,6 +34,8 @@
   },
   "devDependencies": {
     "@typescript/native-preview": "^7.0.0-dev.20260203.1",
-    "typescript": "^5.7.2"
+    "ajv": "^8.17.1",
+    "typescript": "^5.7.2",
+    "typescript-json-schema": "^0.67.1"
   }
 }

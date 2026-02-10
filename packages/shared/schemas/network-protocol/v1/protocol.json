@@ -1,8 +1,11 @@
 {
   "files": [
     "client-to-server.schema.json",
-    "server-to-client.schema.json"
+    "server-to-client.schema.json",
+    "player-action.schema.json",
+    "game-event.schema.json",
+    "client-game-state.schema.json"
   ],
   "generatedAt": "static",
-  "protocolVersion": "1.0.0"
+  "protocolVersion": "1.1.0"
 }

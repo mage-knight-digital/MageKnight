@@ -15,7 +15,7 @@ async def main() -> None:
         game_id=game_id,
         player_id=player_id,
     ) as client:
-        await client.send_action({"type": "end_turn"})
+        await client.send_action({"type": "END_TURN"})
 
         async for message in client.messages():
             print(message)

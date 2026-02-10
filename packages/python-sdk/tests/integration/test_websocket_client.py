@@ -71,7 +71,7 @@ class WebSocketClientIntegrationTest(unittest.IsolatedAsyncioTestCase):
         initial = await asyncio.wait_for(anext(message_stream), timeout=10)
         self.assertIsInstance(initial, StateUpdateMessage)
 
-        await client.send_action({"type": "end_turn"})
+        await client.send_action({"type": "END_TURN"})
 
         found_action_update = False
         for _ in range(8):
