@@ -138,66 +138,7 @@ def enumerate_valid_actions_from_state(state: dict[str, Any], player_id: str) ->
         decision = _as_dict(valid_actions.get("tacticDecision"))
         if decision is None:
             return actions
-        decision_type = _as_str(decision.get("type"))
-        if decision_type is None:
-            return actions
-
-        if decision_type in {"rethink", "midnight_meditation"}:
-            actions.append(
-                CandidateAction(
-                    {
-                        "type": ACTION_RESOLVE_TACTIC_DECISION,
-                        "decision": {"type": decision_type, "cardIds": []},
-                    },
-                    "pending_tactic_decision.cards",
-                )
-            )
-        elif decision_type == "mana_steal":
-            available_dice = _as_list(decision.get("availableDiceIds"))
-            for die_id in available_dice:
-                if isinstance(die_id, str):
-                    actions.append(
-                        CandidateAction(
-                            {
-                                "type": ACTION_RESOLVE_TACTIC_DECISION,
-                                "decision": {"type": decision_type, "dieId": die_id},
-                            },
-                            "pending_tactic_decision.die",
-                        )
-                    )
-        elif decision_type == "preparation":
-            snapshot = _as_list(decision.get("deckSnapshot"))
-            for card_id in snapshot:
-                if isinstance(card_id, str):
-                    actions.append(
-                        CandidateAction(
-                            {
-                                "type": ACTION_RESOLVE_TACTIC_DECISION,
-                                "decision": {"type": decision_type, "cardId": card_id},
-                            },
-                            "pending_tactic_decision.card",
-                        )
-                    )
-        elif decision_type == "sparing_power":
-            actions.append(
-                CandidateAction(
-                    {
-                        "type": ACTION_RESOLVE_TACTIC_DECISION,
-                        "decision": {"type": decision_type, "choice": "take"},
-                    },
-                    "pending_tactic_decision.sparing.take",
-                )
-            )
-            if bool(decision.get("canStash")):
-                actions.append(
-                    CandidateAction(
-                        {
-                            "type": ACTION_RESOLVE_TACTIC_DECISION,
-                            "decision": {"type": decision_type, "choice": "stash"},
-                        },
-                        "pending_tactic_decision.sparing.stash",
-                    )
-                )
+        actions.extend(_actions_for_tactic_decision(decision, "pending_tactic_decision"))
         return actions
 
     if mode == MODE_PENDING_CHOICE:
@@ -923,6 +864,10 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
 
     tactic_effects = _as_dict(valid_actions.get("tacticEffects"))
     if tactic_effects is not None:
+        pending_decision = _as_dict(tactic_effects.get("pendingDecision"))
+        if pending_decision is not None:
+            actions.extend(_actions_for_tactic_decision(pending_decision, "normal.tactic.pending"))
+
         if player:
             selected_tactic_id = _as_str(player.get("selectedTacticId"))
             can_activate = _as_dict(tactic_effects.get("canActivate"))
@@ -969,6 +914,72 @@ def _append_common_blocking_actions(valid_actions: dict[str, Any], actions: list
         actions.append(CandidateAction({"type": ACTION_UNDO}, "turn.undo"))
     if bool(turn.get("canEndTurn")):
         actions.append(CandidateAction({"type": ACTION_END_TURN}, "turn.end_turn"))
+
+
+def _actions_for_tactic_decision(decision: dict[str, Any], source_prefix: str) -> list[CandidateAction]:
+    decision_type = _as_str(decision.get("type"))
+    if decision_type is None:
+        return []
+
+    actions: list[CandidateAction] = []
+    if decision_type in {"rethink", "midnight_meditation"}:
+        actions.append(
+            CandidateAction(
+                {
+                    "type": ACTION_RESOLVE_TACTIC_DECISION,
+                    "decision": {"type": decision_type, "cardIds": []},
+                },
+                f"{source_prefix}.cards",
+            )
+        )
+    elif decision_type == "mana_steal":
+        available_dice = _as_list(decision.get("availableDiceIds"))
+        for die_id in available_dice:
+            if isinstance(die_id, str):
+                actions.append(
+                    CandidateAction(
+                        {
+                            "type": ACTION_RESOLVE_TACTIC_DECISION,
+                            "decision": {"type": decision_type, "dieId": die_id},
+                        },
+                        f"{source_prefix}.die",
+                    )
+                )
+    elif decision_type == "preparation":
+        snapshot = _as_list(decision.get("deckSnapshot"))
+        for card_id in snapshot:
+            if isinstance(card_id, str):
+                actions.append(
+                    CandidateAction(
+                        {
+                            "type": ACTION_RESOLVE_TACTIC_DECISION,
+                            "decision": {"type": decision_type, "cardId": card_id},
+                        },
+                        f"{source_prefix}.card",
+                    )
+                )
+    elif decision_type == "sparing_power":
+        actions.append(
+            CandidateAction(
+                {
+                    "type": ACTION_RESOLVE_TACTIC_DECISION,
+                    "decision": {"type": decision_type, "choice": "take"},
+                },
+                f"{source_prefix}.sparing.take",
+            )
+        )
+        if bool(decision.get("canStash")):
+            actions.append(
+                CandidateAction(
+                    {
+                        "type": ACTION_RESOLVE_TACTIC_DECISION,
+                        "decision": {"type": decision_type, "choice": "stash"},
+                    },
+                    f"{source_prefix}.sparing.stash",
+                )
+            )
+
+    return actions
 
 
 def _select_reroll_die_ids(state: dict[str, Any], can_reroll: dict[str, Any] | None) -> list[str]:

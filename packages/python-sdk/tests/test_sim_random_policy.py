@@ -188,6 +188,39 @@ class RandomPolicyTest(unittest.TestCase):
         self.assertEqual(1, len(reroll_actions))
         self.assertEqual(["die_1"], reroll_actions[0]["dieIds"])
 
+    def test_enumerate_valid_actions_includes_pending_tactic_decision_in_normal_turn(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "normal_turn",
+                "turn": {
+                    "canEndTurn": False,
+                    "canAnnounceEndOfRound": False,
+                    "canUndo": False,
+                    "canDeclareRest": False,
+                },
+                "tacticEffects": {
+                    "pendingDecision": {
+                        "type": "midnight_meditation",
+                        "availableCardIds": [],
+                        "maxCards": 5,
+                    }
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        tactic_actions = [a.action for a in actions if a.action.get("type") == "RESOLVE_TACTIC_DECISION"]
+
+        self.assertEqual(1, len(tactic_actions))
+        self.assertEqual(
+            {
+                "type": "RESOLVE_TACTIC_DECISION",
+                "decision": {"type": "midnight_meditation", "cardIds": []},
+            },
+            tactic_actions[0],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
