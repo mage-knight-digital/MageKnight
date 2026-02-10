@@ -13,6 +13,9 @@ docs/sprites/
 *.tsbuildinfo
 *.js.map
 *.d.ts.map
+*.pyc
+*.pyo
+__pycache__/
 
 # Test artifacts
 test-results/
