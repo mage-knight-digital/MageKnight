@@ -1,0 +1,5038 @@
+{
+  "$id": "https://mageknight.digital/schemas/network-protocol/v1/game-event.schema.json",
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/GameStartedEvent"
+    },
+    {
+      "$ref": "#/definitions/GameEndedEvent"
+    },
+    {
+      "$ref": "#/definitions/ScenarioEndTriggeredEvent"
+    },
+    {
+      "$ref": "#/definitions/RoundStartedEvent"
+    },
+    {
+      "$ref": "#/definitions/RoundEndedEvent"
+    },
+    {
+      "$ref": "#/definitions/NewRoundStartedEvent"
+    },
+    {
+      "$ref": "#/definitions/TurnStartedEvent"
+    },
+    {
+      "$ref": "#/definitions/TurnEndedEvent"
+    },
+    {
+      "$ref": "#/definitions/EndOfRoundAnnouncedEvent"
+    },
+    {
+      "$ref": "#/definitions/TimeOfDayChangedEvent"
+    },
+    {
+      "$ref": "#/definitions/ManaSourceResetEvent"
+    },
+    {
+      "$ref": "#/definitions/TacticSelectedEvent"
+    },
+    {
+      "$ref": "#/definitions/DummyTacticSelectedEvent"
+    },
+    {
+      "$ref": "#/definitions/TacticsPhaseEndedEvent"
+    },
+    {
+      "$ref": "#/definitions/TacticActivatedEvent"
+    },
+    {
+      "$ref": "#/definitions/TacticDecisionResolvedEvent"
+    },
+    {
+      "$ref": "#/definitions/SourceDiceRerolledEvent"
+    },
+    {
+      "$ref": "#/definitions/DecksReshuffledEvent"
+    },
+    {
+      "$ref": "#/definitions/PlayerRestedEvent"
+    },
+    {
+      "$ref": "#/definitions/RestUndoneEvent"
+    },
+    {
+      "$ref": "#/definitions/RestDeclaredEvent"
+    },
+    {
+      "$ref": "#/definitions/RestDeclareUndoneEvent"
+    },
+    {
+      "$ref": "#/definitions/PlayerMovedEvent"
+    },
+    {
+      "$ref": "#/definitions/TileRevealedEvent"
+    },
+    {
+      "$ref": "#/definitions/TileExploredEvent"
+    },
+    {
+      "$ref": "#/definitions/CombatTriggeredEvent"
+    },
+    {
+      "$ref": "#/definitions/CombatStartedEvent"
+    },
+    {
+      "$ref": "#/definitions/EnemySummonedEvent"
+    },
+    {
+      "$ref": "#/definitions/SummonedEnemyDiscardedEvent"
+    },
+    {
+      "$ref": "#/definitions/CombatPhaseChangedEvent"
+    },
+    {
+      "$ref": "#/definitions/EnemyBlockedEvent"
+    },
+    {
+      "$ref": "#/definitions/BlockFailedEvent"
+    },
+    {
+      "$ref": "#/definitions/BlockAssignedEvent"
+    },
+    {
+      "$ref": "#/definitions/BlockUnassignedEvent"
+    },
+    {
+      "$ref": "#/definitions/MoveSpentOnCumbersomeEvent"
+    },
+    {
+      "$ref": "#/definitions/HeroesAssaultInfluencePaidEvent"
+    },
+    {
+      "$ref": "#/definitions/ThugsDamageInfluencePaidEvent"
+    },
+    {
+      "$ref": "#/definitions/EnemyDefeatedEvent"
+    },
+    {
+      "$ref": "#/definitions/AttackFailedEvent"
+    },
+    {
+      "$ref": "#/definitions/AttackAssignedEvent"
+    },
+    {
+      "$ref": "#/definitions/AttackUnassignedEvent"
+    },
+    {
+      "$ref": "#/definitions/DamageAssignedEvent"
+    },
+    {
+      "$ref": "#/definitions/CombatEndedEvent"
+    },
+    {
+      "$ref": "#/definitions/CombatExitedEvent"
+    },
+    {
+      "$ref": "#/definitions/PlayerKnockedOutEvent"
+    },
+    {
+      "$ref": "#/definitions/ParalyzeHandDiscardedEvent"
+    },
+    {
+      "$ref": "#/definitions/PlayerWithdrewEvent"
+    },
+    {
+      "$ref": "#/definitions/CardPlayedEvent"
+    },
+    {
+      "$ref": "#/definitions/CardDrawnEvent"
+    },
+    {
+      "$ref": "#/definitions/CardDiscardedEvent"
+    },
+    {
+      "$ref": "#/definitions/CardGainedEvent"
+    },
+    {
+      "$ref": "#/definitions/CardDestroyedEvent"
+    },
+    {
+      "$ref": "#/definitions/ManaDieTakenEvent"
+    },
+    {
+      "$ref": "#/definitions/ManaDieReturnedEvent"
+    },
+    {
+      "$ref": "#/definitions/ManaDieUsedEvent"
+    },
+    {
+      "$ref": "#/definitions/ManaTokenUsedEvent"
+    },
+    {
+      "$ref": "#/definitions/CrystalGainedEvent"
+    },
+    {
+      "$ref": "#/definitions/CrystalUsedEvent"
+    },
+    {
+      "$ref": "#/definitions/CrystalConvertedEvent"
+    },
+    {
+      "$ref": "#/definitions/WoundReceivedEvent"
+    },
+    {
+      "$ref": "#/definitions/WoundHealedEvent"
+    },
+    {
+      "$ref": "#/definitions/FameGainedEvent"
+    },
+    {
+      "$ref": "#/definitions/FameLostEvent"
+    },
+    {
+      "$ref": "#/definitions/ReputationChangedEvent"
+    },
+    {
+      "$ref": "#/definitions/LevelUpEvent"
+    },
+    {
+      "$ref": "#/definitions/LevelUpRewardsPendingEvent"
+    },
+    {
+      "$ref": "#/definitions/AdvancedActionGainedEvent"
+    },
+    {
+      "$ref": "#/definitions/CommandSlotGainedEvent"
+    },
+    {
+      "$ref": "#/definitions/SkillGainedEvent"
+    },
+    {
+      "$ref": "#/definitions/SkillUsedEvent"
+    },
+    {
+      "$ref": "#/definitions/ManaOverloadTriggeredEvent"
+    },
+    {
+      "$ref": "#/definitions/UnitRecruitedEvent"
+    },
+    {
+      "$ref": "#/definitions/UnitDisbandedEvent"
+    },
+    {
+      "$ref": "#/definitions/UnitMaintenancePaidEvent"
+    },
+    {
+      "$ref": "#/definitions/UnitActivatedEvent"
+    },
+    {
+      "$ref": "#/definitions/UnitWoundedEvent"
+    },
+    {
+      "$ref": "#/definitions/UnitHealedEvent"
+    },
+    {
+      "$ref": "#/definitions/UnitReadiedEvent"
+    },
+    {
+      "$ref": "#/definitions/UnitsReadiedEvent"
+    },
+    {
+      "$ref": "#/definitions/UnitDestroyedEvent"
+    },
+    {
+      "$ref": "#/definitions/OfferRefreshedEvent"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "offerType": {
+          "const": "units",
+          "type": "string"
+        },
+        "type": {
+          "const": "OFFER_CARD_TAKEN",
+          "type": "string"
+        },
+        "unitId": {
+          "$ref": "#/definitions/UnitId"
+        }
+      },
+      "required": [
+        "offerType",
+        "type",
+        "unitId"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "type": "string"
+        },
+        "offerType": {
+          "enum": [
+            "advancedActions",
+            "spells"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "OFFER_CARD_TAKEN",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "offerType",
+        "type"
+      ],
+      "type": "object"
+    },
+    {
+      "$ref": "#/definitions/MonasteryAARevealedEvent"
+    },
+    {
+      "$ref": "#/definitions/CardPlayUndoneEvent"
+    },
+    {
+      "$ref": "#/definitions/MoveUndoneEvent"
+    },
+    {
+      "$ref": "#/definitions/UndoFailedEvent"
+    },
+    {
+      "$ref": "#/definitions/UndoCheckpointSetEvent"
+    },
+    {
+      "$ref": "#/definitions/ChoiceRequiredEvent"
+    },
+    {
+      "$ref": "#/definitions/ChoiceResolvedEvent"
+    },
+    {
+      "$ref": "#/definitions/SiteEnteredEvent"
+    },
+    {
+      "$ref": "#/definitions/EnemiesRevealedEvent"
+    },
+    {
+      "$ref": "#/definitions/EnemiesDrawnForSiteEvent"
+    },
+    {
+      "$ref": "#/definitions/SiteConqueredEvent"
+    },
+    {
+      "$ref": "#/definitions/ShieldTokenPlacedEvent"
+    },
+    {
+      "$ref": "#/definitions/MonasteryBurnStartedEvent"
+    },
+    {
+      "$ref": "#/definitions/MonasteryBurnedEvent"
+    },
+    {
+      "$ref": "#/definitions/RuinsTokenRevealedEvent"
+    },
+    {
+      "$ref": "#/definitions/AltarTributePaidEvent"
+    },
+    {
+      "$ref": "#/definitions/VillagePlunderedEvent"
+    },
+    {
+      "$ref": "#/definitions/RewardQueuedEvent"
+    },
+    {
+      "$ref": "#/definitions/RewardSelectedEvent"
+    },
+    {
+      "$ref": "#/definitions/InteractionStartedEvent"
+    },
+    {
+      "$ref": "#/definitions/HealingPurchasedEvent"
+    },
+    {
+      "$ref": "#/definitions/InteractionCompletedEvent"
+    },
+    {
+      "$ref": "#/definitions/GladeWoundDiscardedEvent"
+    },
+    {
+      "$ref": "#/definitions/GladeWoundSkippedEvent"
+    },
+    {
+      "$ref": "#/definitions/GladeManaGainedEvent"
+    },
+    {
+      "$ref": "#/definitions/DeepMineCrystalGainedEvent"
+    },
+    {
+      "$ref": "#/definitions/CardReclaimedEvent"
+    },
+    {
+      "$ref": "#/definitions/CrystalJoyReclaimSkippedEvent"
+    },
+    {
+      "$ref": "#/definitions/SteadyTempoPlacedEvent"
+    },
+    {
+      "$ref": "#/definitions/SteadyTempoPlacementSkippedEvent"
+    },
+    {
+      "$ref": "#/definitions/BannerProtectionWoundsRemovedEvent"
+    },
+    {
+      "$ref": "#/definitions/BannerProtectionSkippedEvent"
+    },
+    {
+      "$ref": "#/definitions/MeditationCardsSelectedEvent"
+    },
+    {
+      "$ref": "#/definitions/MeditationCardsPlacedEvent"
+    },
+    {
+      "$ref": "#/definitions/InvalidActionEvent"
+    },
+    {
+      "$ref": "#/definitions/CooperativeAssaultProposedEvent"
+    },
+    {
+      "$ref": "#/definitions/CooperativeAssaultResponseEvent"
+    },
+    {
+      "$ref": "#/definitions/CooperativeAssaultAgreedEvent"
+    },
+    {
+      "$ref": "#/definitions/CooperativeAssaultRejectedEvent"
+    },
+    {
+      "$ref": "#/definitions/CooperativeAssaultCancelledEvent"
+    },
+    {
+      "$ref": "#/definitions/BannerAssignedEvent"
+    },
+    {
+      "$ref": "#/definitions/BannerDetachedEvent"
+    },
+    {
+      "$ref": "#/definitions/BannerFearCancelAttackEvent"
+    },
+    {
+      "$ref": "#/definitions/BannerFortitudePreventedWoundEvent"
+    },
+    {
+      "$ref": "#/definitions/BannersResetEvent"
+    },
+    {
+      "$ref": "#/definitions/DummyPlayerCreatedEvent"
+    },
+    {
+      "$ref": "#/definitions/DummyTurnExecutedEvent"
+    },
+    {
+      "$ref": "#/definitions/DummyEndOfRoundAnnouncedEvent"
+    },
+    {
+      "$ref": "#/definitions/DummyGainedCardEvent"
+    },
+    {
+      "$ref": "#/definitions/DummyGainedCrystalEvent"
+    }
+  ],
+  "definitions": {
+    "AchievementCategory": {
+      "description": "Standard achievement categories from the rulebook",
+      "enum": [
+        "greatest_adventurer",
+        "greatest_beating",
+        "greatest_conqueror",
+        "greatest_knowledge",
+        "greatest_leader",
+        "greatest_loot"
+      ],
+      "type": "string"
+    },
+    "AchievementCategoryOverride": {
+      "additionalProperties": false,
+      "description": "Configuration for overriding a specific achievement category\n(used by scenarios like Dungeon Lords that modify scoring)",
+      "properties": {
+        "pointsPerItem": {
+          "description": "Points per qualifying item (e.g., 4 instead of 2 for dungeons)",
+          "type": "number"
+        },
+        "titleBonus": {
+          "description": "Custom title bonus (e.g., +5 instead of +3)",
+          "type": "number"
+        },
+        "titleName": {
+          "description": "Custom title name (e.g., \"Greatest Dungeon Crawler\")",
+          "type": "string"
+        },
+        "titleTiedBonus": {
+          "description": "Custom tied bonus (e.g., +2 instead of +1)",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "AchievementCategoryScore": {
+      "additionalProperties": false,
+      "description": "Score breakdown for a single achievement category",
+      "properties": {
+        "basePoints": {
+          "description": "Base points earned (before title bonus)",
+          "type": "number"
+        },
+        "category": {
+          "$ref": "#/definitions/AchievementCategory",
+          "description": "The achievement category"
+        },
+        "hasTitle": {
+          "description": "Whether this player won the title",
+          "type": "boolean"
+        },
+        "isTied": {
+          "description": "Whether tied for the title",
+          "type": "boolean"
+        },
+        "titleBonus": {
+          "description": "Title bonus earned (winner/tied/penalty)",
+          "type": "number"
+        },
+        "totalPoints": {
+          "description": "Total points for this category",
+          "type": "number"
+        }
+      },
+      "required": [
+        "basePoints",
+        "category",
+        "hasTitle",
+        "isTied",
+        "titleBonus",
+        "totalPoints"
+      ],
+      "type": "object"
+    },
+    "AchievementMode": {
+      "description": "Achievement scoring mode\n\n- competitive: Compare players, award titles\n- solo: No titles (no comparison)\n- coop_best_only: No titles, score only best player per category",
+      "enum": [
+        "competitive",
+        "coop_best_only",
+        "solo"
+      ],
+      "type": "string"
+    },
+    "AchievementsConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for the achievements scoring subsystem",
+      "properties": {
+        "enabled": {
+          "description": "Whether achievements are enabled for this scenario",
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/definitions/AchievementMode",
+          "description": "How achievements are calculated and titles awarded"
+        },
+        "overrides": {
+          "$ref": "#/definitions/Partial%3CRecord%3CAchievementCategory%2CAchievementCategoryOverride%3E%3E",
+          "description": "Optional overrides for specific achievement categories"
+        }
+      },
+      "required": [
+        "enabled",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "AchievementScoreResult": {
+      "additionalProperties": false,
+      "description": "Complete achievement scoring result for a player",
+      "properties": {
+        "categoryScores": {
+          "description": "Scores for each achievement category",
+          "items": {
+            "$ref": "#/definitions/AchievementCategoryScore"
+          },
+          "type": "array"
+        },
+        "totalAchievementPoints": {
+          "description": "Total achievement points",
+          "type": "number"
+        }
+      },
+      "required": [
+        "categoryScores",
+        "totalAchievementPoints"
+      ],
+      "type": "object"
+    },
+    "AdvancedActionGainedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player gains an advanced action card.\n\nAdvanced actions are powerful cards gained at level up.",
+      "properties": {
+        "cardId": {
+          "description": "ID of the advanced action card",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player who gained the card",
+          "type": "string"
+        },
+        "type": {
+          "const": "ADVANCED_ACTION_GAINED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AltarTributePaidEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player pays tribute at an altar ruins token.\n\nThe player spends mana of the required color(s) and gains fame.",
+      "properties": {
+        "fameGained": {
+          "type": "number"
+        },
+        "manaColor": {
+          "type": "string"
+        },
+        "manaCost": {
+          "type": "number"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "ALTAR_TRIBUTE_PAID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fameGained",
+        "manaColor",
+        "manaCost",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AttackAssignedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when damage is incrementally assigned to an enemy.\n\nPart of the incremental damage allocation system where players\nassign attack damage point-by-point to enemies.",
+      "properties": {
+        "amount": {
+          "description": "Amount of damage assigned",
+          "type": "number"
+        },
+        "attackType": {
+          "description": "Attack type used (ranged, siege, melee)",
+          "enum": [
+            "melee",
+            "ranged",
+            "siege"
+          ],
+          "type": "string"
+        },
+        "element": {
+          "description": "Element of the attack (physical, fire, ice, coldFire)",
+          "enum": [
+            "coldFire",
+            "fire",
+            "ice",
+            "physical"
+          ],
+          "type": "string"
+        },
+        "enemyInstanceId": {
+          "description": "Instance ID of the enemy receiving damage",
+          "type": "string"
+        },
+        "type": {
+          "const": "ATTACK_ASSIGNED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "attackType",
+        "element",
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AttackFailedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when an attack doesn't defeat the target enemies.\n\nAttack was insufficient to overcome enemy armor.",
+      "properties": {
+        "attackValue": {
+          "description": "Total attack value dealt",
+          "type": "number"
+        },
+        "requiredAttack": {
+          "description": "Attack value needed to defeat",
+          "type": "number"
+        },
+        "targetEnemyInstanceIds": {
+          "description": "Instance IDs of targeted enemies",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "ATTACK_FAILED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attackValue",
+        "requiredAttack",
+        "targetEnemyInstanceIds",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AttackUnassignedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when previously assigned damage is removed from an enemy.\n\nAllows players to reallocate damage before committing with END_COMBAT_PHASE.",
+      "properties": {
+        "amount": {
+          "description": "Amount of damage removed",
+          "type": "number"
+        },
+        "attackType": {
+          "description": "Attack type being unassigned (ranged, siege, melee)",
+          "enum": [
+            "melee",
+            "ranged",
+            "siege"
+          ],
+          "type": "string"
+        },
+        "element": {
+          "description": "Element of the attack (physical, fire, ice, coldFire)",
+          "enum": [
+            "coldFire",
+            "fire",
+            "ice",
+            "physical"
+          ],
+          "type": "string"
+        },
+        "enemyInstanceId": {
+          "description": "Instance ID of the enemy losing damage",
+          "type": "string"
+        },
+        "type": {
+          "const": "ATTACK_UNASSIGNED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "attackType",
+        "element",
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "BannerAssignedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "bannerCardId": {
+          "type": "string"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "BANNER_ASSIGNED",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bannerCardId",
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "BannerDetachedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "bannerCardId": {
+          "type": "string"
+        },
+        "destination": {
+          "description": "Where the banner goes: \"discard\" or \"deck\"",
+          "enum": [
+            "deck",
+            "discard"
+          ],
+          "type": "string"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/definitions/BannerDetachReason"
+        },
+        "type": {
+          "const": "BANNER_DETACHED",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bannerCardId",
+        "destination",
+        "playerId",
+        "reason",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "BannerDetachReason": {
+      "enum": [
+        "replaced",
+        "round_end",
+        "unit_destroyed",
+        "unit_disbanded"
+      ],
+      "type": "string"
+    },
+    "BannerFearCancelAttackEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "attackIndex": {
+          "type": "number"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "fameGained": {
+          "type": "number"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "BANNER_FEAR_CANCEL_ATTACK",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attackIndex",
+        "enemyInstanceId",
+        "fameGained",
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "BannerFortitudePreventedWoundEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "damageNegated": {
+          "type": "number"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "BANNER_FORTITUDE_PREVENTED_WOUND",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "damageNegated",
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "BannerProtectionSkippedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player skips Banner of Protection wound removal.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who skipped",
+          "type": "string"
+        },
+        "type": {
+          "const": "BANNER_PROTECTION_SKIPPED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "BannerProtectionWoundsRemovedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when wounds are thrown away via Banner of Protection at end of turn.",
+      "properties": {
+        "fromDiscard": {
+          "description": "Number of wounds removed from discard",
+          "type": "number"
+        },
+        "fromHand": {
+          "description": "Number of wounds removed from hand",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player",
+          "type": "string"
+        },
+        "type": {
+          "const": "BANNER_PROTECTION_WOUNDS_REMOVED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fromDiscard",
+        "fromHand",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "BannersResetEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "bannerCount": {
+          "type": "number"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "BANNERS_RESET",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bannerCount",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "BaseScoreMode": {
+      "description": "Base score calculation mode\n\n- individual_fame: Each player's own Fame (competitive)\n- lowest_fame: Lowest Fame of all players (co-op)\n- victory_points: Alternative point-based system\n- none: No scoring, victory by position/condition",
+      "enum": [
+        "individual_fame",
+        "lowest_fame",
+        "none",
+        "victory_points"
+      ],
+      "type": "string"
+    },
+    "BasicManaColor": {
+      "enum": [
+        "blue",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "string"
+    },
+    "BlockAssignedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when block is incrementally assigned to an enemy.\n\nPart of the incremental block allocation system where players\nassign block point-by-point before committing.",
+      "properties": {
+        "amount": {
+          "description": "Amount of block assigned",
+          "type": "number"
+        },
+        "element": {
+          "description": "Element of the block assigned",
+          "type": "string"
+        },
+        "enemyInstanceId": {
+          "description": "Instance ID of the target enemy",
+          "type": "string"
+        },
+        "type": {
+          "const": "BLOCK_ASSIGNED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "element",
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "BlockFailedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a block attempt is insufficient.\n\nThe enemy will deal its full damage during ASSIGN_DAMAGE phase.\nFor multi-attack enemies, other attacks may still be blocked.",
+      "properties": {
+        "attackIndex": {
+          "description": "For multi-attack enemies, which attack failed to be blocked (0-indexed).\nUndefined for single-attack enemies (backwards compatible).",
+          "type": "number"
+        },
+        "blockValue": {
+          "description": "Block value that was attempted",
+          "type": "number"
+        },
+        "enemyInstanceId": {
+          "description": "Instance ID of the unblocked enemy",
+          "type": "string"
+        },
+        "requiredBlock": {
+          "description": "Block value that was needed",
+          "type": "number"
+        },
+        "type": {
+          "const": "BLOCK_FAILED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "blockValue",
+        "enemyInstanceId",
+        "requiredBlock",
+        "type"
+      ],
+      "type": "object"
+    },
+    "BlockUnassignedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when previously assigned block is removed from an enemy.\n\nPart of the incremental block allocation system that allows\nplayers to reallocate block before committing.",
+      "properties": {
+        "amount": {
+          "description": "Amount of block unassigned",
+          "type": "number"
+        },
+        "element": {
+          "description": "Element of the block unassigned",
+          "type": "string"
+        },
+        "enemyInstanceId": {
+          "description": "Instance ID of the target enemy",
+          "type": "string"
+        },
+        "type": {
+          "const": "BLOCK_UNASSIGNED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "element",
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CardDestroyedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a card is permanently removed from the game.\n\nCards are destroyed when their powered effect specifies destruction\n(e.g., artifacts with destroyOnPowered: true).",
+      "properties": {
+        "cardId": {
+          "description": "ID of the destroyed card",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player whose card was destroyed",
+          "type": "string"
+        },
+        "type": {
+          "const": "CARD_DESTROYED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CardDiscardedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a card is discarded.\n\nCards are discarded at end of turn or from effects.",
+      "properties": {
+        "cardId": {
+          "description": "ID of the discarded card",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player who discarded",
+          "type": "string"
+        },
+        "type": {
+          "const": "CARD_DISCARDED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CardDrawnEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player draws cards.\n\nCards are drawn at end of turn up to hand limit, or from effects.",
+      "properties": {
+        "count": {
+          "description": "Number of cards drawn",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player who drew cards",
+          "type": "string"
+        },
+        "type": {
+          "const": "CARD_DRAWN",
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CardGainedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player gains a new card.\n\nCards can be gained from offers (market), level up rewards, or conquest rewards.",
+      "properties": {
+        "cardId": {
+          "description": "ID of the gained card",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player who gained the card",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source of the card",
+          "enum": [
+            "level_up",
+            "offer",
+            "reward"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "CARD_GAINED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "playerId",
+        "source",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CardPlayedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player plays a card from their hand.\n\nCards can be played normally, powered (with mana), or sideways (for basic effect).",
+      "properties": {
+        "cardId": {
+          "description": "ID of the card played",
+          "type": "string"
+        },
+        "effect": {
+          "description": "Human-readable description of the effect",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player who played the card",
+          "type": "string"
+        },
+        "powered": {
+          "description": "True if the card was powered with mana",
+          "type": "boolean"
+        },
+        "sideways": {
+          "description": "True if played sideways for basic effect",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "CARD_PLAYED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "effect",
+        "playerId",
+        "powered",
+        "sideways",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CardPlayUndoneEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a card play is undone.\n\nThe card returns to the player's hand.",
+      "properties": {
+        "cardId": {
+          "description": "ID of the card that was undone",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player whose card was undone",
+          "type": "string"
+        },
+        "type": {
+          "const": "CARD_PLAY_UNDONE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CardReclaimedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a card is reclaimed (Crystal Joy end-of-turn reclaim).\n\nCrystal Joy allows discarding a card to return Joy to hand at end of turn.",
+      "properties": {
+        "cardId": {
+          "description": "Card that was reclaimed (should be Crystal Joy)",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source of the reclaim (should be 'crystal_joy')",
+          "type": "string"
+        },
+        "type": {
+          "const": "CARD_RECLAIMED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "playerId",
+        "source",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ChoiceRequiredEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player must make a choice to continue.\n\nThe game is paused until the player selects an option.",
+      "properties": {
+        "cardId": {
+          "anyOf": [
+            {
+              "description": "Branded ID types shared between client and server\n\nThese are used in actions and events that flow between client and server.",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "ID of the card that triggered the choice (null if skill-based)"
+        },
+        "options": {
+          "description": "Human-readable option descriptions",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "playerId": {
+          "description": "ID of the player who must choose",
+          "type": "string"
+        },
+        "skillId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "ID of the skill that triggered the choice (null if card-based)"
+        },
+        "type": {
+          "const": "CHOICE_REQUIRED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "options",
+        "playerId",
+        "skillId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ChoiceResolvedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player's choice is resolved.\n\nConfirms which option was selected and what happened.",
+      "properties": {
+        "cardId": {
+          "anyOf": [
+            {
+              "description": "Branded ID types shared between client and server\n\nThese are used in actions and events that flow between client and server.",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "ID of the card the choice was for (null if skill-based)"
+        },
+        "chosenIndex": {
+          "description": "Index of the chosen option (0-indexed)",
+          "type": "number"
+        },
+        "effect": {
+          "description": "Human-readable description of what happened",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player who made the choice",
+          "type": "string"
+        },
+        "skillId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "ID of the skill the choice was for (null if card-based)"
+        },
+        "type": {
+          "const": "CHOICE_RESOLVED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "chosenIndex",
+        "effect",
+        "playerId",
+        "skillId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CityColor": {
+      "enum": [
+        "blue",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "string"
+    },
+    "CityConquestModule": {
+      "additionalProperties": false,
+      "description": "City Conquest scoring module\n\nUsed by: Full Conquest, Blitz Conquest, co-op scenarios",
+      "properties": {
+        "leaderPoints": {
+          "description": "Points for leading a city assault (+7 default)",
+          "type": "number"
+        },
+        "participantPoints": {
+          "description": "Points for participating in city assault (+4 default)",
+          "type": "number"
+        },
+        "titleBonus": {
+          "description": "Title bonus for winner (+5 default)",
+          "type": "number"
+        },
+        "titleName": {
+          "description": "Title for most city shields",
+          "type": "string"
+        },
+        "titleTiedBonus": {
+          "description": "Title bonus when tied (+2 default)",
+          "type": "number"
+        },
+        "type": {
+          "const": "city_conquest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "leaderPoints",
+        "participantPoints",
+        "titleBonus",
+        "titleName",
+        "titleTiedBonus",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CombatEndedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when combat concludes normally.\n\nContains summary of combat results.",
+      "properties": {
+        "enemiesDefeated": {
+          "description": "Number of enemies defeated",
+          "type": "number"
+        },
+        "enemiesSurvived": {
+          "description": "Number of enemies that survived",
+          "type": "number"
+        },
+        "totalFameGained": {
+          "description": "Total fame earned in this combat",
+          "type": "number"
+        },
+        "type": {
+          "const": "COMBAT_ENDED",
+          "type": "string"
+        },
+        "victory": {
+          "description": "True if player won (all enemies defeated)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enemiesDefeated",
+        "enemiesSurvived",
+        "totalFameGained",
+        "type",
+        "victory"
+      ],
+      "type": "object"
+    },
+    "CombatExitedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when combat ends without normal resolution.\n\nThis can happen via undo, withdrawal, or fleeing.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who exited combat",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Reason for exiting",
+          "enum": [
+            "fled",
+            "undo",
+            "withdraw"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "COMBAT_EXITED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "reason",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CombatPhase": {
+      "enum": [
+        "assign_damage",
+        "attack",
+        "block",
+        "ranged_siege"
+      ],
+      "type": "string"
+    },
+    "CombatPhaseChangedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when combat transitions to a new phase.\n\nCombat phases: RANGED_SIEGE -> BLOCK -> ASSIGN_DAMAGE -> ATTACK",
+      "properties": {
+        "newPhase": {
+          "$ref": "#/definitions/CombatPhase",
+          "description": "New active phase"
+        },
+        "previousPhase": {
+          "$ref": "#/definitions/CombatPhase",
+          "description": "Phase that just ended"
+        },
+        "type": {
+          "const": "COMBAT_PHASE_CHANGED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "newPhase",
+        "previousPhase",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CombatStartedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when combat officially begins.\n\nContains full enemy information for the combat.",
+      "properties": {
+        "enemies": {
+          "description": "Full enemy information for combat",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "armor": {
+                "type": "number"
+              },
+              "attack": {
+                "type": "number"
+              },
+              "instanceId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "armor",
+              "attack",
+              "instanceId",
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "playerId": {
+          "description": "ID of the player in combat",
+          "type": "string"
+        },
+        "type": {
+          "const": "COMBAT_STARTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemies",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CombatTriggeredEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when combat is triggered by player action.\n\nCombat can be triggered by:\n- Assaulting a fortified site\n- Provoking rampaging enemies by entering their hex\n- Voluntary exploration into danger",
+      "properties": {
+        "enemyTokenIds": {
+          "description": "IDs of enemy tokens involved",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hexCoord": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Location where combat occurs"
+        },
+        "playerId": {
+          "description": "ID of the player entering combat",
+          "type": "string"
+        },
+        "triggerType": {
+          "description": "What triggered the combat",
+          "enum": [
+            "challenge",
+            "fortified_assault",
+            "provoke_rampaging",
+            "voluntary_explore"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "COMBAT_TRIGGERED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyTokenIds",
+        "hexCoord",
+        "playerId",
+        "triggerType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CommandSlotGainedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player gains a command slot.\n\nCommand slots determine how many units can be commanded.",
+      "properties": {
+        "newTotal": {
+          "description": "New total command slots",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player who gained the slot",
+          "type": "string"
+        },
+        "type": {
+          "const": "COMMAND_SLOT_GAINED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "newTotal",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CooperativeAssaultAgreedEvent": {
+      "additionalProperties": false,
+      "description": "Event when all invitees accept and the assault is agreed upon.",
+      "properties": {
+        "initiatorId": {
+          "type": "string"
+        },
+        "participantIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "targetCity": {
+          "$ref": "#/definitions/CityColor"
+        },
+        "type": {
+          "const": "COOPERATIVE_ASSAULT_AGREED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "initiatorId",
+        "participantIds",
+        "targetCity",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CooperativeAssaultCancelledEvent": {
+      "additionalProperties": false,
+      "description": "Event when the initiator cancels the proposal.",
+      "properties": {
+        "initiatorId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "COOPERATIVE_ASSAULT_CANCELLED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "initiatorId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CooperativeAssaultProposedEvent": {
+      "additionalProperties": false,
+      "description": "Event when a player proposes a cooperative assault.",
+      "properties": {
+        "distribution": {
+          "items": {
+            "$ref": "#/definitions/EnemyDistribution"
+          },
+          "type": "array"
+        },
+        "initiatorId": {
+          "type": "string"
+        },
+        "invitedPlayerIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "targetCity": {
+          "$ref": "#/definitions/CityColor"
+        },
+        "type": {
+          "const": "COOPERATIVE_ASSAULT_PROPOSED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "distribution",
+        "initiatorId",
+        "invitedPlayerIds",
+        "targetCity",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CooperativeAssaultRejectedEvent": {
+      "additionalProperties": false,
+      "description": "Event when an invitee declines and the proposal is rejected.",
+      "properties": {
+        "initiatorId": {
+          "type": "string"
+        },
+        "rejectingPlayerId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "COOPERATIVE_ASSAULT_REJECTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "initiatorId",
+        "rejectingPlayerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CooperativeAssaultResponseEvent": {
+      "additionalProperties": false,
+      "description": "Event when an invited player responds to a proposal.",
+      "properties": {
+        "accepted": {
+          "type": "boolean"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "COOPERATIVE_ASSAULT_RESPONSE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "accepted",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CrystalConvertedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a mana token is converted to a crystal for storage.\n\nAllows saving mana for later turns.",
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor",
+          "description": "Color of the mana/crystal"
+        },
+        "playerId": {
+          "description": "ID of the player who converted",
+          "type": "string"
+        },
+        "type": {
+          "const": "CRYSTAL_CONVERTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CrystalGainedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player gains a mana crystal.\n\nCrystals are permanent mana storage (max 3 per color).",
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor",
+          "description": "Color of the crystal"
+        },
+        "playerId": {
+          "description": "ID of the player who gained the crystal",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source of the crystal (e.g., \"mine\", \"card_effect\")",
+          "type": "string"
+        },
+        "type": {
+          "const": "CRYSTAL_GAINED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "playerId",
+        "source",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CrystalJoyReclaimSkippedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player skips reclaiming Crystal Joy.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who skipped",
+          "type": "string"
+        },
+        "type": {
+          "const": "CRYSTAL_JOY_RECLAIM_SKIPPED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CrystalUsedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a mana crystal is consumed.\n\nThe crystal is permanently consumed for its mana.",
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor",
+          "description": "Color of the crystal used"
+        },
+        "playerId": {
+          "description": "ID of the player who used the crystal",
+          "type": "string"
+        },
+        "type": {
+          "const": "CRYSTAL_USED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DamageAssignedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when enemy damage is assigned to the player.\n\nUnblocked enemies deal damage during ASSIGN_DAMAGE phase.\nFor multi-attack enemies, each attack's damage is assigned separately.",
+      "properties": {
+        "attackIndex": {
+          "description": "For multi-attack enemies, which attack dealt the damage (0-indexed).\nUndefined for single-attack enemies (backwards compatible).",
+          "type": "number"
+        },
+        "damage": {
+          "description": "Raw damage dealt",
+          "type": "number"
+        },
+        "enemyInstanceId": {
+          "description": "Instance ID of the attacking enemy",
+          "type": "string"
+        },
+        "type": {
+          "const": "DAMAGE_ASSIGNED",
+          "type": "string"
+        },
+        "woundsTaken": {
+          "description": "Number of wound cards taken",
+          "type": "number"
+        }
+      },
+      "required": [
+        "damage",
+        "enemyInstanceId",
+        "type",
+        "woundsTaken"
+      ],
+      "type": "object"
+    },
+    "DecksReshuffledEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player's discard pile is shuffled back into their deck.\n\nThis typically happens during rest when the deck is empty.",
+      "properties": {
+        "cardsInDeck": {
+          "description": "Number of cards now in the deck",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player whose deck was reshuffled",
+          "type": "string"
+        },
+        "type": {
+          "const": "DECKS_RESHUFFLED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardsInDeck",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DeepMineCrystalGainedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a crystal is gained at a Deep Mine.\n\nDeep Mines provide basic color crystals.",
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/BasicManaColor",
+          "description": "Color of crystal gained"
+        },
+        "playerId": {
+          "description": "ID of the player",
+          "type": "string"
+        },
+        "type": {
+          "const": "DEEP_MINE_CRYSTAL_GAINED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DummyEndOfRoundAnnouncedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when the dummy player's deck is exhausted, announcing end of round.",
+      "properties": {
+        "type": {
+          "const": "DUMMY_END_OF_ROUND_ANNOUNCED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "DummyGainedCardEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when the dummy player gains an advanced action from the offer\nat end of round.",
+      "properties": {
+        "cardId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "DUMMY_GAINED_CARD",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DummyGainedCrystalEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when the dummy player gains a crystal from a spell being removed\nfrom the offer at end of round.",
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/BasicManaColor"
+        },
+        "type": {
+          "const": "DUMMY_GAINED_CRYSTAL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DummyPlayerCreatedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted during game setup when a dummy player is created for solo mode.",
+      "properties": {
+        "heroId": {
+          "$ref": "#/definitions/HeroId"
+        },
+        "type": {
+          "const": "DUMMY_PLAYER_CREATED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "heroId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DummyTacticSelectedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when the dummy player selects a tactic in solo games.\n\nThe dummy player is an abstract opponent that affects turn order\nand mana availability in solo scenarios.",
+      "properties": {
+        "tacticId": {
+          "$ref": "#/definitions/TacticId",
+          "description": "ID of the tactic selected by the dummy player"
+        },
+        "turnOrder": {
+          "description": "Dummy's position in turn order",
+          "type": "number"
+        },
+        "type": {
+          "const": "DUMMY_TACTIC_SELECTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tacticId",
+        "turnOrder",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DummyTurnExecutedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted each time the dummy player takes a turn (flips cards from deck).",
+      "properties": {
+        "bonusFlipped": {
+          "type": "number"
+        },
+        "cardsFlipped": {
+          "type": "number"
+        },
+        "deckRemaining": {
+          "type": "number"
+        },
+        "matchedColor": {
+          "anyOf": [
+            {
+              "enum": [
+                "blue",
+                "green",
+                "red",
+                "white"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "DUMMY_TURN_EXECUTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bonusFlipped",
+        "cardsFlipped",
+        "deckRemaining",
+        "matchedColor",
+        "type"
+      ],
+      "type": "object"
+    },
+    "Element": {
+      "enum": [
+        "cold_fire",
+        "fire",
+        "ice",
+        "physical"
+      ],
+      "type": "string"
+    },
+    "EndOfRoundAnnouncedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player announces the end of round (typically via rest).\n\nOnce announced, remaining players get one more turn each before\nthe round ends.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who announced the end",
+          "type": "string"
+        },
+        "type": {
+          "const": "END_OF_ROUND_ANNOUNCED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "EnemiesDrawnForSiteEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when enemies are drawn for a site (dungeons, tombs).\n\nSome sites draw random enemies from a pool.",
+      "properties": {
+        "enemyCount": {
+          "description": "Number of enemies drawn",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player exploring the site",
+          "type": "string"
+        },
+        "siteType": {
+          "description": "Type of site enemies were drawn for",
+          "type": "string"
+        },
+        "type": {
+          "const": "ENEMIES_DRAWN_FOR_SITE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyCount",
+        "playerId",
+        "siteType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "EnemiesRevealedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when enemies at a location are revealed.\n\nEnemies become visible when approaching fortified sites.",
+      "properties": {
+        "enemyTokenIds": {
+          "description": "IDs of the revealed enemy tokens",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hexCoord": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Location where enemies are revealed"
+        },
+        "playerId": {
+          "description": "ID of the player who revealed enemies",
+          "type": "string"
+        },
+        "type": {
+          "const": "ENEMIES_REVEALED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyTokenIds",
+        "hexCoord",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "EnemyBlockedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when an enemy's attack is successfully blocked.\n\nA blocked enemy deals no damage to the player this combat.\nFor multi-attack enemies, each attack must be blocked separately.",
+      "properties": {
+        "attackIndex": {
+          "description": "For multi-attack enemies, which attack was blocked (0-indexed).\nUndefined for single-attack enemies (backwards compatible).",
+          "type": "number"
+        },
+        "blockValue": {
+          "description": "Total block value applied",
+          "type": "number"
+        },
+        "enemyInstanceId": {
+          "description": "Instance ID of the blocked enemy",
+          "type": "string"
+        },
+        "type": {
+          "const": "ENEMY_BLOCKED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "blockValue",
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "EnemyDefeatedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when an enemy is defeated in combat.\n\nPlayer gains fame for defeating enemies.",
+      "properties": {
+        "enemyInstanceId": {
+          "description": "Instance ID of the defeated enemy",
+          "type": "string"
+        },
+        "enemyName": {
+          "description": "Name of the defeated enemy",
+          "type": "string"
+        },
+        "fameGained": {
+          "description": "Fame points gained",
+          "type": "number"
+        },
+        "type": {
+          "const": "ENEMY_DEFEATED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyInstanceId",
+        "enemyName",
+        "fameGained",
+        "type"
+      ],
+      "type": "object"
+    },
+    "EnemyDistribution": {
+      "additionalProperties": false,
+      "description": "Enemy distribution assignment for a cooperative assault.\nEach participating player must receive at least 1 enemy.",
+      "properties": {
+        "enemyCount": {
+          "type": "number"
+        },
+        "playerId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyCount",
+        "playerId"
+      ],
+      "type": "object"
+    },
+    "EnemySummonedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when an enemy with the Summon ability draws a brown enemy token.\n\nThe summoned enemy replaces the summoner for Block and Assign Damage phases.",
+      "properties": {
+        "summonedArmor": {
+          "description": "Armor value of the summoned enemy",
+          "type": "number"
+        },
+        "summonedAttack": {
+          "description": "Attack value of the summoned enemy",
+          "type": "number"
+        },
+        "summonedInstanceId": {
+          "description": "Instance ID of the summoned enemy",
+          "type": "string"
+        },
+        "summonedName": {
+          "description": "Name of the summoned enemy",
+          "type": "string"
+        },
+        "summonerInstanceId": {
+          "description": "Instance ID of the summoner enemy",
+          "type": "string"
+        },
+        "summonerName": {
+          "description": "Name of the summoner enemy",
+          "type": "string"
+        },
+        "type": {
+          "const": "ENEMY_SUMMONED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summonedArmor",
+        "summonedAttack",
+        "summonedInstanceId",
+        "summonedName",
+        "summonerInstanceId",
+        "summonerName",
+        "type"
+      ],
+      "type": "object"
+    },
+    "FactionModule": {
+      "additionalProperties": false,
+      "description": "Faction scoring module\n\nUsed by: Faction-specific scenarios (Orc, Draconum, etc.)",
+      "properties": {
+        "factionName": {
+          "description": "Name of the faction",
+          "type": "string"
+        },
+        "titleBonus": {
+          "description": "Title bonus for winner (+5 default)",
+          "type": "number"
+        },
+        "titleName": {
+          "description": "Title for most shields on faction sites/leaders",
+          "type": "string"
+        },
+        "titleTiedBonus": {
+          "description": "Title bonus when tied (+2 default)",
+          "type": "number"
+        },
+        "type": {
+          "const": "faction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "factionName",
+        "titleBonus",
+        "titleName",
+        "titleTiedBonus",
+        "type"
+      ],
+      "type": "object"
+    },
+    "FameGainedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player gains fame points.\n\nFame is the primary scoring metric and determines level ups.",
+      "properties": {
+        "amount": {
+          "description": "Amount of fame gained",
+          "type": "number"
+        },
+        "newTotal": {
+          "description": "New fame total",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player who gained fame",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source of the fame (e.g., \"defeated_orc\", \"conquered_keep\")",
+          "type": "string"
+        },
+        "type": {
+          "const": "FAME_GAINED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "newTotal",
+        "playerId",
+        "source",
+        "type"
+      ],
+      "type": "object"
+    },
+    "FameLostEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player loses fame points.\n\nFame loss is rare but can occur from certain negative events.",
+      "properties": {
+        "amount": {
+          "description": "Amount of fame lost",
+          "type": "number"
+        },
+        "newTotal": {
+          "description": "New fame total",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player who lost fame",
+          "type": "string"
+        },
+        "source": {
+          "description": "Reason for fame loss",
+          "type": "string"
+        },
+        "type": {
+          "const": "FAME_LOST",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "newTotal",
+        "playerId",
+        "source",
+        "type"
+      ],
+      "type": "object"
+    },
+    "FinalScoreResult": {
+      "additionalProperties": false,
+      "description": "Complete scoring result for the entire game",
+      "properties": {
+        "config": {
+          "$ref": "#/definitions/ScenarioScoringConfig",
+          "description": "Configuration used for scoring"
+        },
+        "isTied": {
+          "description": "Whether there was a tie for first place",
+          "type": "boolean"
+        },
+        "playerResults": {
+          "description": "Results for each player",
+          "items": {
+            "$ref": "#/definitions/PlayerScoreResult"
+          },
+          "type": "array"
+        },
+        "rankings": {
+          "description": "Player IDs in order from highest to lowest score",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "config",
+        "isTied",
+        "playerResults",
+        "rankings"
+      ],
+      "type": "object"
+    },
+    "GameEndedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when the game concludes.\n\nIncludes final scoring information for all players.",
+      "properties": {
+        "finalScores": {
+          "description": "Final scores for all players, sorted by score descending",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "playerId": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "playerId",
+              "score"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "fullScoreResult": {
+          "$ref": "#/definitions/FinalScoreResult",
+          "description": "Full scoring breakdown for detailed display (optional for backwards compatibility)"
+        },
+        "type": {
+          "const": "GAME_ENDED",
+          "type": "string"
+        },
+        "winningPlayerId": {
+          "description": "ID of the winning player, or null for a tie",
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "finalScores",
+        "type",
+        "winningPlayerId"
+      ],
+      "type": "object"
+    },
+    "GameStartedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a new game is initialized.\n\nThis is always the first event in any game session. It provides the initial\ngame configuration that clients need to set up their UI.",
+      "properties": {
+        "playerCount": {
+          "description": "Number of players in this game (1-4)",
+          "type": "number"
+        },
+        "scenario": {
+          "description": "Scenario identifier (e.g., \"first_reconnaissance\", \"solo_conquest\")",
+          "type": "string"
+        },
+        "type": {
+          "const": "GAME_STARTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerCount",
+        "scenario",
+        "type"
+      ],
+      "type": "object"
+    },
+    "GladeManaGainedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when mana is gained at a Magical Glade.\n\nGlades provide special mana colors (gold or black).",
+      "properties": {
+        "manaColor": {
+          "$ref": "#/definitions/SpecialManaColor",
+          "description": "Color of mana gained (gold or black)"
+        },
+        "playerId": {
+          "description": "ID of the player",
+          "type": "string"
+        },
+        "type": {
+          "const": "GLADE_MANA_GAINED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "manaColor",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "GladeWoundDiscardedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a wound is discarded at a Magical Glade.\n\nMagical Glades allow discarding wounds for healing.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player",
+          "type": "string"
+        },
+        "source": {
+          "description": "Where the wound was discarded from",
+          "enum": [
+            "discard",
+            "hand"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "GLADE_WOUND_DISCARDED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "source",
+        "type"
+      ],
+      "type": "object"
+    },
+    "GladeWoundSkippedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player skips wound healing at a glade.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who skipped",
+          "type": "string"
+        },
+        "type": {
+          "const": "GLADE_WOUND_SKIPPED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "HealingPurchasedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player purchases healing at a site.\n\nWounds are healed in exchange for influence.",
+      "properties": {
+        "healingPoints": {
+          "description": "Healing points purchased",
+          "type": "number"
+        },
+        "influenceCost": {
+          "description": "Influence spent",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player who purchased healing",
+          "type": "string"
+        },
+        "type": {
+          "const": "HEALING_PURCHASED",
+          "type": "string"
+        },
+        "woundsHealed": {
+          "description": "Wounds actually healed",
+          "type": "number"
+        }
+      },
+      "required": [
+        "healingPoints",
+        "influenceCost",
+        "playerId",
+        "type",
+        "woundsHealed"
+      ],
+      "type": "object"
+    },
+    "HeroesAssaultInfluencePaidEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when 2 Influence is paid to enable Heroes unit abilities\nduring a fortified site assault.\n\nPer rulebook: Heroes cannot use abilities in fortified assaults\nunless 2 Influence is paid once per combat.",
+      "properties": {
+        "influenceSpent": {
+          "description": "Amount of influence spent (always 2)",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "Player who paid the influence",
+          "type": "string"
+        },
+        "type": {
+          "const": "HEROES_ASSAULT_INFLUENCE_PAID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "influenceSpent",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "HeroId": {
+      "description": "String literal type for hero identifiers",
+      "enum": [
+        "arythea",
+        "braevalar",
+        "goldyx",
+        "krang",
+        "norowas",
+        "tovak",
+        "wolfhawk"
+      ],
+      "type": "string"
+    },
+    "HexCoord": {
+      "additionalProperties": false,
+      "description": "Hex coordinate types using axial coordinates (q, r)",
+      "properties": {
+        "q": {
+          "type": "number"
+        },
+        "r": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "q",
+        "r"
+      ],
+      "type": "object"
+    },
+    "InteractionCompletedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when site interaction is completed.\n\nPlayer is done interacting with the safe site.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who completed interaction",
+          "type": "string"
+        },
+        "siteType": {
+          "description": "Type of site interaction completed",
+          "type": "string"
+        },
+        "type": {
+          "const": "INTERACTION_COMPLETED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "siteType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "InteractionStartedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player begins interacting with a safe site.\n\nSafe sites (villages, monasteries) offer services.",
+      "properties": {
+        "influenceAvailable": {
+          "description": "Influence available for purchases",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the interacting player",
+          "type": "string"
+        },
+        "siteType": {
+          "description": "Type of site being interacted with",
+          "type": "string"
+        },
+        "type": {
+          "const": "INTERACTION_STARTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "influenceAvailable",
+        "playerId",
+        "siteType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "InvalidActionEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player attempts an invalid action.\n\nThe action was rejected and not executed.",
+      "properties": {
+        "actionType": {
+          "description": "Type of action attempted (e.g., \"MOVE\", \"PLAY_CARD\")",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player who attempted the action",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Human-readable explanation of why action was invalid",
+          "type": "string"
+        },
+        "type": {
+          "const": "INVALID_ACTION",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actionType",
+        "playerId",
+        "reason",
+        "type"
+      ],
+      "type": "object"
+    },
+    "LevelUpEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player levels up.\n\nLevel ups grant skills, advanced actions, or command slots.",
+      "properties": {
+        "levelUpType": {
+          "$ref": "#/definitions/LevelUpType",
+          "description": "Type of level up (determines rewards)"
+        },
+        "newLevel": {
+          "description": "New level",
+          "type": "number"
+        },
+        "oldLevel": {
+          "description": "Previous level",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player who leveled up",
+          "type": "string"
+        },
+        "type": {
+          "const": "LEVEL_UP",
+          "type": "string"
+        }
+      },
+      "required": [
+        "levelUpType",
+        "newLevel",
+        "oldLevel",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "LevelUpRewardsPendingEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when level up rewards need to be selected.\n\nPlayer must choose their rewards before continuing.",
+      "properties": {
+        "pendingLevels": {
+          "description": "Levels that need reward selection",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "playerId": {
+          "description": "ID of the player with pending rewards",
+          "type": "string"
+        },
+        "type": {
+          "const": "LEVEL_UP_REWARDS_PENDING",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pendingLevels",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "LevelUpType": {
+      "enum": [
+        "even",
+        "odd"
+      ],
+      "type": "string"
+    },
+    "ManaColor": {
+      "enum": [
+        "black",
+        "blue",
+        "gold",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "string"
+    },
+    "ManaDieReturnedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a mana die is returned to the source.\n\nThe die is rerolled and gets a new color.",
+      "properties": {
+        "dieId": {
+          "description": "ID of the returned die",
+          "type": "string"
+        },
+        "newColor": {
+          "$ref": "#/definitions/ManaColor",
+          "description": "New color after reroll"
+        },
+        "type": {
+          "const": "MANA_DIE_RETURNED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dieId",
+        "newColor",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ManaDieTakenEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player takes a die from the mana source.\n\nThe die's color becomes available as a mana token for the player.",
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor",
+          "description": "Color of the die"
+        },
+        "dieId": {
+          "description": "ID of the die taken",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player who took the die",
+          "type": "string"
+        },
+        "type": {
+          "const": "MANA_DIE_TAKEN",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "dieId",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ManaDieUsedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when mana from a taken die is spent.\n\nThe mana token from the die is consumed for powering a card.",
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor",
+          "description": "Color of mana used"
+        },
+        "dieId": {
+          "description": "ID of the die the mana came from",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player who used the mana",
+          "type": "string"
+        },
+        "type": {
+          "const": "MANA_DIE_USED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "dieId",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ManaOverloadTriggeredEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when Mana Overload's center bonus is triggered.\n\nThe triggering player powers a Deed card with the marked color\nthat provides Move/Influence/Attack/Block, gaining +4.\nThe skill returns to its owner face-down.",
+      "properties": {
+        "bonusAmount": {
+          "description": "The bonus amount applied",
+          "type": "number"
+        },
+        "bonusType": {
+          "description": "The effect type that received the +4 bonus",
+          "type": "string"
+        },
+        "ownerId": {
+          "description": "Player who owns the Mana Overload skill",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "Player who triggered the bonus (may differ from owner)",
+          "type": "string"
+        },
+        "type": {
+          "const": "MANA_OVERLOAD_TRIGGERED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bonusAmount",
+        "bonusType",
+        "ownerId",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ManaSourceResetEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when the mana source (shared dice pool) is reset.\n\nThis typically happens at the start of each round.",
+      "properties": {
+        "diceCount": {
+          "description": "Number of dice in the mana source",
+          "type": "number"
+        },
+        "type": {
+          "const": "MANA_SOURCE_RESET",
+          "type": "string"
+        }
+      },
+      "required": [
+        "diceCount",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ManaTokenUsedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a temporary mana token is spent.\n\nTemporary tokens come from card effects (not from dice).",
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor",
+          "description": "Color of mana used"
+        },
+        "playerId": {
+          "description": "ID of the player who used the token",
+          "type": "string"
+        },
+        "type": {
+          "const": "MANA_TOKEN_USED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MeditationCardsPlacedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when selected cards are placed into the deed deck.",
+      "properties": {
+        "cardIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "position": {
+          "enum": [
+            "bottom",
+            "top"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "MEDITATION_CARDS_PLACED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardIds",
+        "playerId",
+        "position",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MeditationCardsSelectedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when cards are selected for Meditation spell (basic: auto-selected, powered: player-selected).",
+      "properties": {
+        "cardIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "MEDITATION_CARDS_SELECTED",
+          "type": "string"
+        },
+        "version": {
+          "enum": [
+            "basic",
+            "powered"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardIds",
+        "playerId",
+        "type",
+        "version"
+      ],
+      "type": "object"
+    },
+    "MineModule": {
+      "additionalProperties": false,
+      "description": "Mine Liberation scoring module\n\nUsed by: Mine Liberation scenario",
+      "properties": {
+        "corePoints": {
+          "description": "Points per mine on Core tiles (+7 default)",
+          "type": "number"
+        },
+        "countrysidePoints": {
+          "description": "Points per mine on Countryside tiles (+4 default)",
+          "type": "number"
+        },
+        "titleBonus": {
+          "description": "Title bonus for winner (+5 default)",
+          "type": "number"
+        },
+        "titleName": {
+          "description": "Title for most mines liberated",
+          "type": "string"
+        },
+        "titleTiedBonus": {
+          "description": "Title bonus when tied (+2 default)",
+          "type": "number"
+        },
+        "type": {
+          "const": "mine",
+          "type": "string"
+        }
+      },
+      "required": [
+        "corePoints",
+        "countrysidePoints",
+        "titleBonus",
+        "titleName",
+        "titleTiedBonus",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ModuleScoreBreakdown": {
+      "additionalProperties": false,
+      "description": "Individual item in a module score breakdown",
+      "properties": {
+        "description": {
+          "description": "Description of the scoring item",
+          "type": "string"
+        },
+        "points": {
+          "description": "Points earned for this item",
+          "type": "number"
+        },
+        "quantity": {
+          "description": "Quantity (if applicable)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "description",
+        "points"
+      ],
+      "type": "object"
+    },
+    "ModuleScoreResult": {
+      "additionalProperties": false,
+      "description": "Score result from a scoring module",
+      "properties": {
+        "breakdown": {
+          "description": "Breakdown of how points were earned",
+          "items": {
+            "$ref": "#/definitions/ModuleScoreBreakdown"
+          },
+          "type": "array"
+        },
+        "moduleType": {
+          "$ref": "#/definitions/ScoringModuleType",
+          "description": "The module type"
+        },
+        "points": {
+          "description": "Points earned from this module",
+          "type": "number"
+        },
+        "title": {
+          "additionalProperties": false,
+          "description": "Title earned from this module (if any)",
+          "properties": {
+            "bonus": {
+              "type": "number"
+            },
+            "isTied": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "bonus",
+            "isTied",
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "breakdown",
+        "moduleType",
+        "points"
+      ],
+      "type": "object"
+    },
+    "MonasteryAARevealedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when an Advanced Action is revealed for a monastery.\n\nThis happens when a tile containing a monastery is explored.\nThe AA is drawn from the deck and added to the monastery offer.",
+      "properties": {
+        "cardId": {
+          "description": "The Advanced Action card drawn for the monastery",
+          "type": "string"
+        },
+        "type": {
+          "const": "MONASTERY_AA_REVEALED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MonasteryBurnedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a monastery is successfully burned.\n\nThe monastery is marked as burned and the player receives an artifact.",
+      "properties": {
+        "hexCoord": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Location of the monastery"
+        },
+        "playerId": {
+          "description": "ID of the player who burned the monastery",
+          "type": "string"
+        },
+        "type": {
+          "const": "MONASTERY_BURNED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hexCoord",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MonasteryBurnStartedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player starts burning a monastery.\n\nBurning a monastery initiates combat with a violet enemy.",
+      "properties": {
+        "hexCoord": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Location of the monastery"
+        },
+        "playerId": {
+          "description": "ID of the player burning the monastery",
+          "type": "string"
+        },
+        "type": {
+          "const": "MONASTERY_BURN_STARTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hexCoord",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MoveSpentOnCumbersomeEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when move points are spent to reduce a Cumbersome enemy's attack.\n\nEach move point spent reduces the enemy's attack by 1 for the rest of\nthe turn. An attack reduced to 0 is considered successfully blocked.",
+      "properties": {
+        "enemyInstanceId": {
+          "description": "Instance ID of the enemy with Cumbersome ability",
+          "type": "string"
+        },
+        "movePointsSpent": {
+          "description": "Move points spent in this action",
+          "type": "number"
+        },
+        "totalReduction": {
+          "description": "Total reduction applied to this enemy (cumulative)",
+          "type": "number"
+        },
+        "type": {
+          "const": "MOVE_SPENT_ON_CUMBERSOME",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyInstanceId",
+        "movePointsSpent",
+        "totalReduction",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MoveUndoneEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a movement is undone.\n\nThe player returns to their previous position.",
+      "properties": {
+        "from": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Position the player was at (being undone from)"
+        },
+        "playerId": {
+          "description": "ID of the player whose move was undone",
+          "type": "string"
+        },
+        "to": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Position the player returns to"
+        },
+        "type": {
+          "const": "MOVE_UNDONE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "playerId",
+        "to",
+        "type"
+      ],
+      "type": "object"
+    },
+    "NewRoundStartedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a new round begins after the previous round's cleanup.\n\nSimilar to ROUND_STARTED but includes TimeOfDay type information.",
+      "properties": {
+        "roundNumber": {
+          "description": "The new round number",
+          "type": "number"
+        },
+        "timeOfDay": {
+          "$ref": "#/definitions/TimeOfDay",
+          "description": "Time of day for the new round"
+        },
+        "type": {
+          "const": "NEW_ROUND_STARTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "roundNumber",
+        "timeOfDay",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ObjectiveCompletionModule": {
+      "additionalProperties": false,
+      "description": "Objective Completion scoring module\n\nUsed by: Solo/co-op scenarios with specific objectives",
+      "properties": {
+        "objectives": {
+          "description": "List of objectives that can be completed",
+          "items": {
+            "$ref": "#/definitions/ObjectiveConfig"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "objective_completion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "objectives",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ObjectiveConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for a single objective",
+      "properties": {
+        "allCompletedBonus": {
+          "description": "Bonus if all instances of this objective are completed",
+          "type": "number"
+        },
+        "description": {
+          "description": "Human-readable description",
+          "type": "string"
+        },
+        "everyPlayerParticipatedBonus": {
+          "description": "Bonus if every player participated in completing this objective",
+          "type": "number"
+        },
+        "id": {
+          "description": "Unique identifier for this objective",
+          "type": "string"
+        },
+        "pointsEach": {
+          "description": "Points per completion of this objective",
+          "type": "number"
+        }
+      },
+      "required": [
+        "description",
+        "id",
+        "pointsEach"
+      ],
+      "type": "object"
+    },
+    "OfferRefreshedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when an offer is refreshed with new cards.\n\nOffers are refreshed at round boundaries or when depleted.",
+      "properties": {
+        "offerType": {
+          "description": "Type of offer that was refreshed",
+          "enum": [
+            "advancedActions",
+            "spells",
+            "units"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "OFFER_REFRESHED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "offerType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ParalyzeHandDiscardedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player's hand is discarded due to paralysis.\n\nSome enemies have paralyze attacks that force hand discard.",
+      "properties": {
+        "cardsDiscarded": {
+          "description": "Number of cards discarded",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the paralyzed player",
+          "type": "string"
+        },
+        "type": {
+          "const": "PARALYZE_HAND_DISCARDED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardsDiscarded",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "Partial<Record<AchievementCategory,AchievementCategoryOverride>>": {
+      "additionalProperties": false,
+      "properties": {
+        "greatest_adventurer": {
+          "$ref": "#/definitions/AchievementCategoryOverride"
+        },
+        "greatest_beating": {
+          "$ref": "#/definitions/AchievementCategoryOverride"
+        },
+        "greatest_conqueror": {
+          "$ref": "#/definitions/AchievementCategoryOverride"
+        },
+        "greatest_knowledge": {
+          "$ref": "#/definitions/AchievementCategoryOverride"
+        },
+        "greatest_leader": {
+          "$ref": "#/definitions/AchievementCategoryOverride"
+        },
+        "greatest_loot": {
+          "$ref": "#/definitions/AchievementCategoryOverride"
+        }
+      },
+      "type": "object"
+    },
+    "PlayerKnockedOutEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player is knocked out in combat.\n\nThe player took too many wounds and cannot continue.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the knocked out player",
+          "type": "string"
+        },
+        "type": {
+          "const": "PLAYER_KNOCKED_OUT",
+          "type": "string"
+        },
+        "woundsThisCombat": {
+          "description": "Total wounds taken this combat",
+          "type": "number"
+        }
+      },
+      "required": [
+        "playerId",
+        "type",
+        "woundsThisCombat"
+      ],
+      "type": "object"
+    },
+    "PlayerMovedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player moves to a new hex.\n\nMovement costs move points based on terrain and may trigger exploration\nor combat.",
+      "properties": {
+        "from": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Starting hex coordinate"
+        },
+        "playerId": {
+          "description": "ID of the moving player",
+          "type": "string"
+        },
+        "to": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Destination hex coordinate"
+        },
+        "type": {
+          "const": "PLAYER_MOVED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "playerId",
+        "to",
+        "type"
+      ],
+      "type": "object"
+    },
+    "PlayerRestedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player takes a rest action.\n\nResting allows discarding cards and wounds, typically ending the turn.",
+      "properties": {
+        "announcedEndOfRound": {
+          "description": "True if this rest announced end of round",
+          "type": "boolean"
+        },
+        "cardsDiscarded": {
+          "description": "Number of cards discarded",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player who rested",
+          "type": "string"
+        },
+        "restType": {
+          "$ref": "#/definitions/RestType",
+          "description": "Type of rest taken"
+        },
+        "type": {
+          "const": "PLAYER_RESTED",
+          "type": "string"
+        },
+        "woundsDiscarded": {
+          "description": "Number of wounds moved to discard (not healed)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "announcedEndOfRound",
+        "cardsDiscarded",
+        "playerId",
+        "restType",
+        "type",
+        "woundsDiscarded"
+      ],
+      "type": "object"
+    },
+    "PlayerScoreResult": {
+      "additionalProperties": false,
+      "description": "Complete scoring result for a single player",
+      "properties": {
+        "achievements": {
+          "$ref": "#/definitions/AchievementScoreResult",
+          "description": "Achievement scoring results (if enabled)"
+        },
+        "baseScore": {
+          "description": "Base score (Fame or other base)",
+          "type": "number"
+        },
+        "moduleResults": {
+          "description": "Results from each enabled scoring module",
+          "items": {
+            "$ref": "#/definitions/ModuleScoreResult"
+          },
+          "type": "array"
+        },
+        "playerId": {
+          "description": "The player's ID",
+          "type": "string"
+        },
+        "totalScore": {
+          "description": "Final total score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "baseScore",
+        "moduleResults",
+        "playerId",
+        "totalScore"
+      ],
+      "type": "object"
+    },
+    "PlayerWithdrewEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player withdraws from combat.\n\nThe player retreats to an adjacent safe hex.",
+      "properties": {
+        "from": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Hex the player withdrew from"
+        },
+        "playerId": {
+          "description": "ID of the withdrawing player",
+          "type": "string"
+        },
+        "to": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Hex the player retreated to"
+        },
+        "type": {
+          "const": "PLAYER_WITHDREW",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "playerId",
+        "to",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RelicModule": {
+      "additionalProperties": false,
+      "description": "Relic Hunting scoring module\n\nUsed by: Lost Relic scenarios",
+      "properties": {
+        "allPiecesFoundBonus": {
+          "description": "Bonus if all pieces are found",
+          "type": "number"
+        },
+        "everyPlayerFoundBonus": {
+          "description": "Bonus if every player found at least one piece",
+          "type": "number"
+        },
+        "pointsPerPiece": {
+          "description": "Points per relic piece found",
+          "type": "number"
+        },
+        "titleBonus": {
+          "description": "Title bonus for winner",
+          "type": "number"
+        },
+        "titleName": {
+          "description": "Title for most relic pieces (competitive only)",
+          "type": "string"
+        },
+        "titleTiedBonus": {
+          "description": "Title bonus when tied",
+          "type": "number"
+        },
+        "type": {
+          "const": "relic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pointsPerPiece",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ReputationChangedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player's reputation changes.\n\nReputation affects unit recruitment costs and some interactions.",
+      "properties": {
+        "delta": {
+          "description": "Change in reputation (can be negative)",
+          "type": "number"
+        },
+        "newValue": {
+          "description": "New reputation value",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player whose reputation changed",
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/definitions/ReputationChangeReason",
+          "description": "Reason for the change"
+        },
+        "type": {
+          "const": "REPUTATION_CHANGED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "delta",
+        "newValue",
+        "playerId",
+        "reason",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ReputationChangeReason": {
+      "enum": [
+        "assault",
+        "burn_monastery",
+        "defeat_enemy",
+        "defeat_rampaging",
+        "interaction",
+        "plunder_village"
+      ],
+      "type": "string"
+    },
+    "RestDeclaredEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player declares they are resting.\n\nPer FAQ p.30: \"When you Rest, you don't declare which kind of Rest you're doing\n(Standard Rest or Slow Recovery): you merely announce that you're Resting.\"\n\nWhile resting:\n- Movement is blocked\n- Combat initiation is blocked\n- Interaction is blocked\n- Card play is still allowed (healing, special effects, influence for AAs)",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who declared rest",
+          "type": "string"
+        },
+        "type": {
+          "const": "REST_DECLARED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RestDeclareUndoneEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a rest declaration is undone.\n\nPlayer exits resting state and can take regular actions again.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player whose rest declaration was undone",
+          "type": "string"
+        },
+        "type": {
+          "const": "REST_DECLARE_UNDONE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RestType": {
+      "enum": [
+        "slow_recovery",
+        "standard"
+      ],
+      "type": "string"
+    },
+    "RestUndoneEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a rest action is undone.\n\nPlayer's cards are restored to their pre-rest state.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player whose rest was undone",
+          "type": "string"
+        },
+        "type": {
+          "const": "REST_UNDONE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RewardQueuedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a reward is queued for selection.\n\nPlayer must select from available rewards before continuing.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player receiving the reward",
+          "type": "string"
+        },
+        "rewardType": {
+          "description": "Type of reward (e.g., \"spell\", \"artifact\", \"advanced_action\")",
+          "type": "string"
+        },
+        "type": {
+          "const": "REWARD_QUEUED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "rewardType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RewardSelectedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player selects a reward.\n\nConfirms which reward was chosen.",
+      "properties": {
+        "cardId": {
+          "description": "ID of the selected card",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the player who selected",
+          "type": "string"
+        },
+        "rewardType": {
+          "description": "Type of reward that was selected",
+          "type": "string"
+        },
+        "type": {
+          "const": "REWARD_SELECTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "playerId",
+        "rewardType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RoundEndedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a round completes.\n\nAll players have taken their turns. The game transitions to the next round\nor ends if this was the final round.",
+      "properties": {
+        "round": {
+          "description": "The round number that just ended",
+          "type": "number"
+        },
+        "type": {
+          "const": "ROUND_ENDED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "round",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RoundStartedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a new round begins.\n\nRounds alternate between day and night, affecting mana availability\nand certain card effects.",
+      "properties": {
+        "isDay": {
+          "description": "True if day phase, false if night phase",
+          "type": "boolean"
+        },
+        "round": {
+          "description": "Current round number (1-indexed)",
+          "type": "number"
+        },
+        "type": {
+          "const": "ROUND_STARTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "isDay",
+        "round",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RuinsTokenRevealedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a face-down ruins token is revealed.\n\nRuins tokens are placed face-down at night and revealed when a player\nenters the hex.",
+      "properties": {
+        "hexCoord": {
+          "$ref": "#/definitions/HexCoord"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "tokenId": {
+          "type": "string"
+        },
+        "tokenType": {
+          "type": "string"
+        },
+        "type": {
+          "const": "RUINS_TOKEN_REVEALED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hexCoord",
+        "playerId",
+        "tokenId",
+        "tokenType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ScenarioEndTriggeredEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a scenario victory/end condition is triggered.\n\nDifferent scenarios have different end conditions (e.g., conquering cities,\ndefeating bosses, etc.).",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who triggered the end condition",
+          "type": "string"
+        },
+        "trigger": {
+          "description": "Description of what triggered the end (e.g., \"conquered_city\")",
+          "type": "string"
+        },
+        "type": {
+          "const": "SCENARIO_END_TRIGGERED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "trigger",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ScenarioScoringConfig": {
+      "additionalProperties": false,
+      "description": "Complete scoring configuration for a scenario\n\nDefines how scores are calculated at game end.",
+      "properties": {
+        "achievements": {
+          "$ref": "#/definitions/AchievementsConfig",
+          "description": "Standard achievements configuration"
+        },
+        "baseScoreMode": {
+          "$ref": "#/definitions/BaseScoreMode",
+          "description": "How base scores are calculated"
+        },
+        "modules": {
+          "description": "Additional scoring modules enabled for this scenario",
+          "items": {
+            "$ref": "#/definitions/ScoringModuleConfig"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "achievements",
+        "baseScoreMode",
+        "modules"
+      ],
+      "type": "object"
+    },
+    "ScoringModuleConfig": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CityConquestModule"
+        },
+        {
+          "$ref": "#/definitions/TimeEfficiencyModule"
+        },
+        {
+          "$ref": "#/definitions/ObjectiveCompletionModule"
+        },
+        {
+          "$ref": "#/definitions/MineModule"
+        },
+        {
+          "$ref": "#/definitions/RelicModule"
+        },
+        {
+          "$ref": "#/definitions/FactionModule"
+        },
+        {
+          "$ref": "#/definitions/VolkareModule"
+        }
+      ],
+      "description": "Union of all scoring module configurations"
+    },
+    "ScoringModuleType": {
+      "description": "Types of scoring modules that can be enabled per scenario",
+      "enum": [
+        "city_conquest",
+        "faction",
+        "mine",
+        "objective_completion",
+        "relic",
+        "time_efficiency",
+        "volkare"
+      ],
+      "type": "string"
+    },
+    "ShieldTokenPlacedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a shield token is placed on a site.\n\nShield tokens mark conquered sites.",
+      "properties": {
+        "hexCoord": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Location of the shield"
+        },
+        "playerId": {
+          "description": "ID of the player placing the shield",
+          "type": "string"
+        },
+        "totalShields": {
+          "description": "Total shields at this location",
+          "type": "number"
+        },
+        "type": {
+          "const": "SHIELD_TOKEN_PLACED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hexCoord",
+        "playerId",
+        "totalShields",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SiteConqueredEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player conquers a site.\n\nThe site's defenders have been defeated.",
+      "properties": {
+        "hexCoord": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Location of the site"
+        },
+        "playerId": {
+          "description": "ID of the conquering player",
+          "type": "string"
+        },
+        "siteType": {
+          "description": "Type of site conquered",
+          "type": "string"
+        },
+        "type": {
+          "const": "SITE_CONQUERED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hexCoord",
+        "playerId",
+        "siteType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SiteEnteredEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player enters a site hex.\n\nThis marks the beginning of site interaction.",
+      "properties": {
+        "hexCoord": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Location of the site"
+        },
+        "playerId": {
+          "description": "ID of the player who entered",
+          "type": "string"
+        },
+        "siteType": {
+          "description": "Type of site (e.g., \"keep\", \"village\", \"dungeon\")",
+          "type": "string"
+        },
+        "type": {
+          "const": "SITE_ENTERED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hexCoord",
+        "playerId",
+        "siteType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SkillGainedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player gains a skill.\n\nSkills are permanent abilities gained at level up.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who gained the skill",
+          "type": "string"
+        },
+        "skillId": {
+          "description": "ID of the skill gained",
+          "type": "string"
+        },
+        "type": {
+          "const": "SKILL_GAINED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "skillId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SkillUsedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player uses a skill.\n\nSkills provide various effects when activated.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who used the skill",
+          "type": "string"
+        },
+        "skillId": {
+          "description": "ID of the skill used",
+          "type": "string"
+        },
+        "type": {
+          "const": "SKILL_USED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "skillId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SourceDiceRerolledEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player rerolls dice in the mana source.\n\nCertain tactics allow rerolling some or all source dice.",
+      "properties": {
+        "dieIds": {
+          "description": "IDs of the dice that were rerolled",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "playerId": {
+          "description": "ID of the player who caused the reroll",
+          "type": "string"
+        },
+        "type": {
+          "const": "SOURCE_DICE_REROLLED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dieIds",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SpecialManaColor": {
+      "enum": [
+        "black",
+        "gold"
+      ],
+      "type": "string"
+    },
+    "SteadyTempoPlacedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when Steady Tempo is placed back into the deed deck at end of turn.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player",
+          "type": "string"
+        },
+        "position": {
+          "description": "Where the card was placed: \"top\" (powered) or \"bottom\" (basic)",
+          "enum": [
+            "bottom",
+            "top"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "STEADY_TEMPO_PLACED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "position",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SteadyTempoPlacementSkippedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player skips placing Steady Tempo back into their deck.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who skipped",
+          "type": "string"
+        },
+        "type": {
+          "const": "STEADY_TEMPO_PLACEMENT_SKIPPED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SummonedEnemyDiscardedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a summoned enemy is discarded at the start of Attack phase.\n\nThe summoned enemy is returned to the brown discard pile and grants no fame.\nThe original summoner returns and can be attacked normally.",
+      "properties": {
+        "summonedInstanceId": {
+          "description": "Instance ID of the summoned enemy being discarded",
+          "type": "string"
+        },
+        "summonedName": {
+          "description": "Name of the summoned enemy",
+          "type": "string"
+        },
+        "summonerInstanceId": {
+          "description": "Instance ID of the summoner that returns to combat",
+          "type": "string"
+        },
+        "summonerName": {
+          "description": "Name of the summoner enemy",
+          "type": "string"
+        },
+        "type": {
+          "const": "SUMMONED_ENEMY_DISCARDED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summonedInstanceId",
+        "summonedName",
+        "summonerInstanceId",
+        "summonerName",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TacticActivatedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player's tactic ability is activated.\n\nSome tactics have effects that trigger at the start of the player's turn\nor when certain conditions are met.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player whose tactic activated",
+          "type": "string"
+        },
+        "tacticId": {
+          "$ref": "#/definitions/TacticId",
+          "description": "ID of the activated tactic"
+        },
+        "type": {
+          "const": "TACTIC_ACTIVATED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "tacticId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TacticDecisionResolvedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player resolves a pending tactic decision.\n\nSome tactics require the player to make a choice (e.g., which die to reroll).",
+      "properties": {
+        "decisionType": {
+          "$ref": "#/definitions/TacticDecisionType",
+          "description": "Type of decision that was resolved"
+        },
+        "playerId": {
+          "description": "ID of the player who made the decision",
+          "type": "string"
+        },
+        "type": {
+          "const": "TACTIC_DECISION_RESOLVED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decisionType",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TacticDecisionType": {
+      "enum": [
+        "mana_steal",
+        "midnight_meditation",
+        "preparation",
+        "rethink",
+        "sparing_power"
+      ],
+      "type": "string"
+    },
+    "TacticId": {
+      "description": "Union type of all tactic IDs.\nAuto-derived from the tactic ID arrays to prevent manual maintenance.",
+      "enum": [
+        "early_bird",
+        "from_the_dusk",
+        "great_start",
+        "long_night",
+        "mana_search",
+        "mana_steal",
+        "midnight_meditation",
+        "planning",
+        "preparation",
+        "rethink",
+        "sparing_power",
+        "the_right_moment"
+      ],
+      "type": "string"
+    },
+    "TacticSelectedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player selects their tactic for the round.\n\nTactics determine turn order and provide special abilities.\nLower turn order numbers go first.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who selected the tactic",
+          "type": "string"
+        },
+        "tacticId": {
+          "$ref": "#/definitions/TacticId",
+          "description": "ID of the selected tactic"
+        },
+        "turnOrder": {
+          "description": "Player's position in turn order (1 = first)",
+          "type": "number"
+        },
+        "type": {
+          "const": "TACTIC_SELECTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "tacticId",
+        "turnOrder",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TacticsPhaseEndedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when all players have selected their tactics.\n\nContains the final turn order for the round.",
+      "properties": {
+        "turnOrder": {
+          "description": "Final turn order as array of player IDs",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "TACTICS_PHASE_ENDED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "turnOrder",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ThugsDamageInfluencePaidEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when influence is paid to allow damage assignment to a Thugs unit.\n\nPer rulebook: Thugs are not willing to take damage unless you pay\n2 Influence during combat. Payment is per-unit, per-combat.",
+      "properties": {
+        "influenceSpent": {
+          "description": "Amount of influence spent (always 2)",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "Player who paid the influence",
+          "type": "string"
+        },
+        "type": {
+          "const": "THUGS_DAMAGE_INFLUENCE_PAID",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "description": "Instance ID of the Thugs unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "influenceSpent",
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "TileExploredEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a tile is placed on the map during exploration.\n\nThe tile is now part of the game board and its hexes can be entered.",
+      "properties": {
+        "newHexes": {
+          "description": "All hex coordinates added to the map by this tile",
+          "items": {
+            "$ref": "#/definitions/HexCoord"
+          },
+          "type": "array"
+        },
+        "playerId": {
+          "description": "ID of the exploring player",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Position where the tile was placed"
+        },
+        "rotation": {
+          "description": "Rotation of the tile (0-5, representing 60-degree increments)",
+          "type": "number"
+        },
+        "tileId": {
+          "description": "ID of the placed tile",
+          "type": "string"
+        },
+        "type": {
+          "const": "TILE_EXPLORED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "newHexes",
+        "playerId",
+        "position",
+        "rotation",
+        "tileId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TileRevealedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a map tile is revealed but not yet placed.\n\nThis occurs when a player moves adjacent to an unexplored tile.\nThe tile becomes visible but its exact orientation is not yet determined.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who revealed the tile",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Position where the tile was revealed"
+        },
+        "tileId": {
+          "description": "ID of the tile that was revealed",
+          "type": "string"
+        },
+        "type": {
+          "const": "TILE_REVEALED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "position",
+        "tileId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TimeEfficiencyModule": {
+      "additionalProperties": false,
+      "description": "Time Efficiency scoring module\n\nUsed by: Solo/co-op scenarios with round limits",
+      "properties": {
+        "bonusIfRoundNotAnnounced": {
+          "description": "Bonus if End of Round not announced (+5 default)",
+          "type": "number"
+        },
+        "pointsPerDummyCard": {
+          "description": "Points per card left in Dummy deck (+1 default)",
+          "type": "number"
+        },
+        "pointsPerEarlyRound": {
+          "description": "Points per round finished early (+30 default)",
+          "type": "number"
+        },
+        "type": {
+          "const": "time_efficiency",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bonusIfRoundNotAnnounced",
+        "pointsPerDummyCard",
+        "pointsPerEarlyRound",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TimeOfDay": {
+      "enum": [
+        "day",
+        "night"
+      ],
+      "type": "string"
+    },
+    "TimeOfDayChangedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when time of day transitions between day and night.\n\nThis affects mana availability and certain card effects.",
+      "properties": {
+        "from": {
+          "$ref": "#/definitions/TimeOfDay",
+          "description": "Previous time of day"
+        },
+        "to": {
+          "$ref": "#/definitions/TimeOfDay",
+          "description": "New time of day"
+        },
+        "type": {
+          "const": "TIME_OF_DAY_CHANGED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TurnEndedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player's turn ends.\n\nIncludes cleanup information: cards moved from play area to discard,\nand cards drawn up to hand limit.",
+      "properties": {
+        "cardsDiscarded": {
+          "description": "Number of cards moved from play area to discard",
+          "type": "number"
+        },
+        "cardsDrawn": {
+          "description": "Number of cards drawn up to hand limit",
+          "type": "number"
+        },
+        "nextPlayerId": {
+          "description": "ID of next player, or null if round is ending",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "playerId": {
+          "description": "ID of the player whose turn ended",
+          "type": "string"
+        },
+        "type": {
+          "const": "TURN_ENDED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardsDiscarded",
+        "cardsDrawn",
+        "nextPlayerId",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TurnStartedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player's turn begins.\n\nThe active player can now take actions: play cards, move, enter combat,\ninteract with sites, etc.",
+      "properties": {
+        "playerIndex": {
+          "description": "Index of the active player (0-indexed)",
+          "type": "number"
+        },
+        "type": {
+          "const": "TURN_STARTED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerIndex",
+        "type"
+      ],
+      "type": "object"
+    },
+    "UndoCheckpointSetEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when an undo checkpoint is set.\n\nActions before this point can no longer be undone.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player whose checkpoint was set",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Reason the checkpoint was set",
+          "type": "string"
+        },
+        "type": {
+          "const": "UNDO_CHECKPOINT_SET",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "reason",
+        "type"
+      ],
+      "type": "object"
+    },
+    "UndoFailedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when an undo attempt fails.\n\nProvides the reason why undo was not possible.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who attempted undo",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Reason the undo failed",
+          "enum": [
+            "checkpoint_reached",
+            "not_your_turn",
+            "nothing_to_undo"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "UNDO_FAILED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "reason",
+        "type"
+      ],
+      "type": "object"
+    },
+    "UnitAbilityType": {
+      "description": "Type of ability a unit can have",
+      "enum": [
+        "attack",
+        "block",
+        "brutal",
+        "effect",
+        "heal",
+        "influence",
+        "move",
+        "paralyze",
+        "poison",
+        "ranged_attack",
+        "siege_attack",
+        "swift"
+      ],
+      "type": "string"
+    },
+    "UnitActivatedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a unit's ability is activated.\n\nUnits provide attack, block, or other abilities.",
+      "properties": {
+        "abilityUsed": {
+          "$ref": "#/definitions/UnitAbilityType",
+          "description": "Type of ability used"
+        },
+        "abilityValue": {
+          "description": "Strength of the ability",
+          "type": "number"
+        },
+        "element": {
+          "$ref": "#/definitions/Element",
+          "description": "Element of the ability (for attack/block)"
+        },
+        "playerId": {
+          "description": "ID of the player who activated the unit",
+          "type": "string"
+        },
+        "type": {
+          "const": "UNIT_ACTIVATED",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "description": "Instance ID of the activated unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "abilityUsed",
+        "abilityValue",
+        "element",
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnitDestroyedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a unit is destroyed.\n\nDestroyed units are permanently removed from the game.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player whose unit was destroyed",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Reason for destruction",
+          "enum": [
+            "disbanded",
+            "double_wound",
+            "paralyze",
+            "poison"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "UNIT_DESTROYED",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "description": "Instance ID of the destroyed unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "reason",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnitDisbandedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player disbands a unit.\n\nThe unit is removed from the player's command.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player who disbanded",
+          "type": "string"
+        },
+        "type": {
+          "const": "UNIT_DISBANDED",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "description": "Instance ID of the disbanded unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnitHealedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a unit is healed.\n\nHealing removes the wounded status from a unit.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player whose unit was healed",
+          "type": "string"
+        },
+        "type": {
+          "const": "UNIT_HEALED",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "description": "Instance ID of the healed unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnitId": {
+      "enum": [
+        "altem_guardians",
+        "altem_mages",
+        "amotep_freezers",
+        "amotep_gunners",
+        "catapults",
+        "delphana_masters",
+        "fire_golems",
+        "fire_mages",
+        "foresters",
+        "guardian_golems",
+        "herbalist",
+        "hero_blue",
+        "hero_green",
+        "hero_red",
+        "hero_white",
+        "heroes",
+        "ice_golems",
+        "ice_mages",
+        "illusionists",
+        "magic_familiars",
+        "northern_monks",
+        "peasants",
+        "red_cape_monks",
+        "savage_monks",
+        "scouts",
+        "shocktroops",
+        "sorcerers",
+        "thugs",
+        "utem_crossbowmen",
+        "utem_guardsmen",
+        "utem_swordsmen"
+      ],
+      "type": "string"
+    },
+    "UnitMaintenancePaidEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player pays a crystal to maintain a Magic Familiars unit\nat the start of a round.",
+      "properties": {
+        "crystalColor": {
+          "$ref": "#/definitions/BasicManaColor"
+        },
+        "newManaTokenColor": {
+          "$ref": "#/definitions/BasicManaColor"
+        },
+        "playerId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "UNIT_MAINTENANCE_PAID",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "crystalColor",
+        "newManaTokenColor",
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnitReadiedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a single unit becomes ready.\n\nReady units can be activated in combat.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player whose unit was readied",
+          "type": "string"
+        },
+        "type": {
+          "const": "UNIT_READIED",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "description": "Instance ID of the readied unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnitRecruitedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player recruits a unit.\n\nUnits are recruited from villages, keeps, and mage towers.",
+      "properties": {
+        "influenceSpent": {
+          "description": "Influence spent to recruit",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player who recruited",
+          "type": "string"
+        },
+        "type": {
+          "const": "UNIT_RECRUITED",
+          "type": "string"
+        },
+        "unitId": {
+          "$ref": "#/definitions/UnitId",
+          "description": "Type ID of the unit"
+        },
+        "unitInstanceId": {
+          "description": "Unique instance ID for this unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "influenceSpent",
+        "playerId",
+        "type",
+        "unitId",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "UnitsReadiedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when all units are readied at round start.\n\nAll exhausted units become ready for the new round.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player whose units were readied",
+          "type": "string"
+        },
+        "type": {
+          "const": "UNITS_READIED",
+          "type": "string"
+        },
+        "unitCount": {
+          "description": "Number of units readied",
+          "type": "number"
+        }
+      },
+      "required": [
+        "playerId",
+        "type",
+        "unitCount"
+      ],
+      "type": "object"
+    },
+    "UnitWoundedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a unit is wounded.\n\nUnits can absorb damage instead of the hero.",
+      "properties": {
+        "damageAbsorbed": {
+          "description": "Amount of damage the unit absorbed",
+          "type": "number"
+        },
+        "playerId": {
+          "description": "ID of the player whose unit was wounded",
+          "type": "string"
+        },
+        "type": {
+          "const": "UNIT_WOUNDED",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "description": "Instance ID of the wounded unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "damageAbsorbed",
+        "playerId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "VillagePlunderedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player plunders a village.\n\nPlundering a village is a \"before turn\" action that costs reputation\nbut provides cards.",
+      "properties": {
+        "cardsDrawn": {
+          "description": "Number of cards drawn (normally 2)",
+          "type": "number"
+        },
+        "hexCoord": {
+          "$ref": "#/definitions/HexCoord",
+          "description": "Location of the village"
+        },
+        "playerId": {
+          "description": "ID of the player who plundered the village",
+          "type": "string"
+        },
+        "type": {
+          "const": "VILLAGE_PLUNDERED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardsDrawn",
+        "hexCoord",
+        "playerId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "VolkareModule": {
+      "additionalProperties": false,
+      "description": "Volkare scoring module\n\nUsed by: Lost Legion scenarios",
+      "properties": {
+        "baseBonus": {
+          "description": "Base bonus for defeating Volkare (varies by Combat level)",
+          "type": "number"
+        },
+        "pointsPerCard": {
+          "description": "Points per card left in Volkare's deck",
+          "type": "number"
+        },
+        "raceMultiplier": {
+          "description": "Multiplier based on Race level (1, 1.5, or 2)",
+          "type": "number"
+        },
+        "type": {
+          "const": "volkare",
+          "type": "string"
+        }
+      },
+      "required": [
+        "baseBonus",
+        "pointsPerCard",
+        "raceMultiplier",
+        "type"
+      ],
+      "type": "object"
+    },
+    "WoundHealedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a wound is healed (removed from game).\n\nHealed wounds are removed permanently, unlike discarded wounds.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player being healed",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "unit": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit"
+              ],
+              "type": "object"
+            },
+            {
+              "const": "hero",
+              "type": "string"
+            }
+          ],
+          "description": "Target of the healing: hero or unit index"
+        },
+        "type": {
+          "const": "WOUND_HEALED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "target",
+        "type"
+      ],
+      "type": "object"
+    },
+    "WoundReceivedEvent": {
+      "additionalProperties": false,
+      "description": "Emitted when a player or unit receives a wound.\n\nWounds are damage cards that occupy hand space.",
+      "properties": {
+        "playerId": {
+          "description": "ID of the player receiving the wound",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source of the wound (e.g., \"orc_attack\", \"poison\")",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "unit": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "unit"
+              ],
+              "type": "object"
+            },
+            {
+              "const": "hero",
+              "type": "string"
+            }
+          ],
+          "description": "Target of the wound: hero or unit index"
+        },
+        "type": {
+          "const": "WOUND_RECEIVED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "source",
+        "target",
+        "type"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "Union type of all possible game events.\n\nThis discriminated union allows type-safe event handling using the\n`type` field as a discriminator."
+}

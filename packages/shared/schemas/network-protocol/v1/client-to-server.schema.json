@@ -6,20 +6,10 @@
       "additionalProperties": false,
       "properties": {
         "action": {
-          "additionalProperties": true,
-          "properties": {
-            "type": {
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          "required": [
-            "type"
-          ],
-          "type": "object"
+          "$ref": "player-action.schema.json"
         },
         "protocolVersion": {
-          "const": "1.0.0"
+          "const": "1.1.0"
         },
         "type": {
           "const": "action"
@@ -44,7 +34,7 @@
           "type": "string"
         },
         "protocolVersion": {
-          "const": "1.0.0"
+          "const": "1.1.0"
         },
         "sessionToken": {
           "minLength": 1,

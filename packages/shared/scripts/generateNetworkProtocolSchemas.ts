@@ -32,7 +32,13 @@ writeFileSync(
   stableJson({
     protocolVersion: networkProtocolSchemasV1.protocolVersion,
     generatedAt: "static",
-    files: ["client-to-server.schema.json", "server-to-client.schema.json"],
+    files: [
+      "client-to-server.schema.json",
+      "server-to-client.schema.json",
+      "player-action.schema.json",
+      "game-event.schema.json",
+      "client-game-state.schema.json",
+    ],
   })
 );
 

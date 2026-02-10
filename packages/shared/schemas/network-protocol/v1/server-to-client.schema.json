@@ -6,13 +6,16 @@
       "additionalProperties": false,
       "properties": {
         "events": {
+          "items": {
+            "$ref": "game-event.schema.json"
+          },
           "type": "array"
         },
         "protocolVersion": {
-          "const": "1.0.0"
+          "const": "1.1.0"
         },
         "state": {
-          "type": "object"
+          "$ref": "client-game-state.schema.json"
         },
         "type": {
           "const": "state_update"
@@ -38,7 +41,7 @@
           "type": "string"
         },
         "protocolVersion": {
-          "const": "1.0.0"
+          "const": "1.1.0"
         },
         "type": {
           "const": "error"
@@ -71,7 +74,7 @@
           "type": "array"
         },
         "protocolVersion": {
-          "const": "1.0.0"
+          "const": "1.1.0"
         },
         "status": {
           "enum": [

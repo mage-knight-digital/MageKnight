@@ -12,6 +12,7 @@ import {
   parseClientMessage,
   parseServerMessage,
 } from "../src/networkProtocol.js";
+import { END_TURN_ACTION } from "../src/actions.js";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -21,7 +22,7 @@ describe("network protocol parser", () => {
       protocolVersion: NETWORK_PROTOCOL_VERSION,
       type: CLIENT_MESSAGE_ACTION,
       action: {
-        type: "end_turn",
+        type: END_TURN_ACTION,
       },
     });
 
@@ -41,11 +42,25 @@ describe("network protocol parser", () => {
     }
   });
 
+  it("rejects unknown action types", () => {
+    const parsed = parseClientMessage({
+      protocolVersion: NETWORK_PROTOCOL_VERSION,
+      type: CLIENT_MESSAGE_ACTION,
+      action: { type: "BOGUS_ACTION" },
+    });
+
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.error.code).toBe(PROTOCOL_PARSE_ERROR_INVALID_PAYLOAD);
+      expect(parsed.error.message).toContain("Unknown action type");
+    }
+  });
+
   it("rejects unsupported protocol versions", () => {
     const parsed = parseClientMessage({
       protocolVersion: "9.9.9",
       type: CLIENT_MESSAGE_ACTION,
-      action: { type: "end_turn" },
+      action: { type: END_TURN_ACTION },
     });
 
     expect(parsed.ok).toBe(false);
