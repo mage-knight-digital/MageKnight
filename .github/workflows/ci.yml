@@ -23,6 +23,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Detect Python SDK related changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            python_sdk:
+              - 'packages/python-sdk/**'
+              - 'packages/shared/src/networkProtocol.ts'
+              - 'packages/shared/schemas/network-protocol/**'
+              - 'packages/server/src/WebSocketServer.ts'
+              - 'packages/server/src/GameServer.ts'
+              - '.github/workflows/ci.yml'
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -60,6 +73,24 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Setup Python
+        if: steps.changes.outputs.python_sdk == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Python SDK dependencies
+        if: steps.changes.outputs.python_sdk == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e packages/python-sdk
+
+      - name: Test Python SDK
+        if: steps.changes.outputs.python_sdk == 'true'
+        run: |
+          python -m unittest packages/python-sdk/tests/test_client.py -v
+          python packages/python-sdk/tests/integration/test_websocket_client.py -v
 
       - name: Lint
         run: bun run lint
