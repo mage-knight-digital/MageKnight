@@ -22,6 +22,14 @@ from .protocol_models import (
     ServerMessage,
     StateUpdateMessage,
 )
+from .sim import (
+    RunnerConfig,
+    RunResult,
+    RunSummary,
+    run_simulations,
+    run_simulations_sync,
+    save_summary,
+)
 
 __all__ = [
     "CONNECTION_STATUS_CONNECTED",
@@ -41,5 +49,11 @@ __all__ = [
     "ProtocolParseError",
     "ServerMessage",
     "StateUpdateMessage",
+    "RunnerConfig",
+    "RunResult",
+    "RunSummary",
+    "run_simulations",
+    "run_simulations_sync",
+    "save_summary",
     "parse_server_message",
 ]
