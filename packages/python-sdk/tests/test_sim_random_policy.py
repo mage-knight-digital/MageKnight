@@ -42,6 +42,31 @@ class RandomPolicyTest(unittest.TestCase):
         self.assertEqual(1, len(explore_actions))
         self.assertEqual("NE", explore_actions[0]["direction"])
 
+    def test_enumerate_valid_actions_includes_midnight_meditation_decision(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "pending_tactic_decision",
+                "tacticDecision": {
+                    "type": "midnight_meditation",
+                    "availableCardIds": ["march", "swiftness"],
+                    "maxCards": 2,
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        tactic_actions = [a.action for a in actions if a.action.get("type") == "RESOLVE_TACTIC_DECISION"]
+
+        self.assertEqual(1, len(tactic_actions))
+        self.assertEqual(
+            {
+                "type": "RESOLVE_TACTIC_DECISION",
+                "decision": {"type": "midnight_meditation", "cardIds": []},
+            },
+            tactic_actions[0],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
