@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import {
   CLIENT_MESSAGE_ACTION,
   CLOSE_CODE_INVALID_REQUEST,
   GameRoomManager,
+  WebSocketGameServer,
   SERVER_MESSAGE_ERROR,
   SERVER_MESSAGE_STATE_UPDATE,
   type ConnectionLike,
@@ -16,6 +17,7 @@ import {
   PROTOCOL_PARSE_ERROR_UNSUPPORTED_VERSION,
   parseServerMessage,
 } from "@mage-knight/shared";
+import { ROOM_ERROR_INVALID_SESSION } from "../RoomProvisioningService.js";
 
 class FakeConnection implements ConnectionLike {
   readonly sentMessages: string[] = [];
@@ -183,5 +185,97 @@ describe("GameRoomManager", () => {
 
     const errorMessage = findLastMessageOfType<ErrorMessage>(connection, SERVER_MESSAGE_ERROR);
     expect(errorMessage.errorCode).toBe(PROTOCOL_PARSE_ERROR_UNSUPPORTED_VERSION);
+  });
+});
+
+interface BootstrapResponse {
+  gameId: string;
+  playerId: string;
+  sessionToken: string;
+}
+
+async function createGame(baseUrl: string, playerCount: number): Promise<BootstrapResponse> {
+  const response = await fetch(`${baseUrl}/games`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ playerCount }),
+  });
+  expect(response.status).toBe(200);
+  return response.json() as Promise<BootstrapResponse>;
+}
+
+async function joinGame(baseUrl: string, gameId: string, sessionToken?: string): Promise<Response> {
+  return fetch(`${baseUrl}/games/${gameId}/join`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sessionToken ? { sessionToken } : {}),
+  });
+}
+
+function waitForSocketMessage(socket: WebSocket): Promise<string> {
+  return new Promise((resolve, reject) => {
+    socket.onmessage = (event): void => {
+      resolve(String(event.data));
+    };
+    socket.onerror = (): void => {
+      reject(new Error("WebSocket error"));
+    };
+  });
+}
+
+describe("WebSocketGameServer bootstrap API", () => {
+  let server: WebSocketGameServer | null = null;
+
+  afterEach(() => {
+    server?.stop();
+    server = null;
+  });
+
+  it("creates and joins games via HTTP endpoints", async () => {
+    server = new WebSocketGameServer({ host: "127.0.0.1", port: 0 });
+    server.start();
+    const baseUrl = `http://127.0.0.1:${server.getPort()}`;
+
+    const created = await createGame(baseUrl, 2);
+    expect(created.gameId.length).toBeGreaterThan(0);
+    expect(created.playerId).toBe("player-1");
+    expect(created.sessionToken.length).toBeGreaterThan(0);
+
+    const joinedResponse = await joinGame(baseUrl, created.gameId);
+    expect(joinedResponse.status).toBe(200);
+    const joined = (await joinedResponse.json()) as BootstrapResponse;
+    expect(joined.playerId).toBe("player-2");
+    expect(joined.sessionToken.length).toBeGreaterThan(0);
+  });
+
+  it("allows WebSocket auth with gameId + sessionToken (without playerId)", async () => {
+    server = new WebSocketGameServer({ host: "127.0.0.1", port: 0 });
+    server.start();
+    const port = server.getPort();
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    const created = await createGame(baseUrl, 2);
+    const socket = new WebSocket(
+      `ws://127.0.0.1:${port}/?gameId=${encodeURIComponent(created.gameId)}&sessionToken=${encodeURIComponent(created.sessionToken)}`
+    );
+
+    const rawMessage = await waitForSocketMessage(socket);
+    const parsed = parseMessage(rawMessage);
+    expect(parsed.type).toBe(SERVER_MESSAGE_STATE_UPDATE);
+
+    socket.close();
+  });
+
+  it("returns invalid_session when joining with bad token", async () => {
+    server = new WebSocketGameServer({ host: "127.0.0.1", port: 0 });
+    server.start();
+    const baseUrl = `http://127.0.0.1:${server.getPort()}`;
+
+    const created = await createGame(baseUrl, 2);
+    const invalidJoinResponse = await joinGame(baseUrl, created.gameId, "bad-token");
+    expect(invalidJoinResponse.status).toBe(401);
+
+    const payload = (await invalidJoinResponse.json()) as { error: string };
+    expect(payload.error).toBe(ROOM_ERROR_INVALID_SESSION);
   });
 });
