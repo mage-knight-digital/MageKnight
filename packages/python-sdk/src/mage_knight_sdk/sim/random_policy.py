@@ -706,7 +706,7 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
             continue
         direction_value = payload.get("direction")
         from_tile = payload.get("fromTileCoord")
-        if isinstance(direction_value, int) and isinstance(from_tile, dict):
+        if isinstance(direction_value, str) and isinstance(from_tile, dict):
             actions.append(
                 CandidateAction(
                     {"type": ACTION_EXPLORE, "direction": direction_value, "fromTileCoord": from_tile},

@@ -51,6 +51,7 @@ class AgentRuntime:
     last_events: list[Any] | None = None
     message_version: int = 0
     last_error_message: str | None = None
+    invariant_error: str | None = None
 
 
 @dataclass
@@ -110,6 +111,20 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
 
         step = 0
         while step < config.max_steps:
+            invariant_reason = _first_invariant_error(agents)
+            if invariant_reason is not None:
+                return _finish_run(
+                    config=config,
+                    run_index=run_index,
+                    seed=seed,
+                    game_id=created.game_id,
+                    outcome=OUTCOME_INVARIANT_FAILURE,
+                    steps=step,
+                    reason=invariant_reason,
+                    trace=trace,
+                    messages=messages,
+                )
+
             actor = _find_actor_for_next_action(agents)
             if actor is None:
                 try:
@@ -129,6 +144,19 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
                         messages=messages,
                     )
                 actor = _find_actor_for_next_action(agents)
+                invariant_reason = _first_invariant_error(agents)
+                if invariant_reason is not None:
+                    return _finish_run(
+                        config=config,
+                        run_index=run_index,
+                        seed=seed,
+                        game_id=created.game_id,
+                        outcome=OUTCOME_INVARIANT_FAILURE,
+                        steps=step,
+                        reason=invariant_reason,
+                        trace=trace,
+                        messages=messages,
+                    )
 
             if actor is None:
                 return _finish_run(
@@ -334,7 +362,10 @@ async def _listen_for_messages(
             runtime.latest_state = message.state
             runtime.last_events = list(message.events)
             runtime.message_version += 1
-            runtime.state_tracker.check_state(runtime.latest_state)
+            try:
+                runtime.state_tracker.check_state(runtime.latest_state)
+            except InvariantViolation as error:
+                runtime.invariant_error = str(error)
             state_update_event.set()
         elif isinstance(message, ErrorMessage):
             payload = {
@@ -403,6 +434,13 @@ def _find_actor_for_next_action(agents: list[AgentRuntime]) -> AgentRuntime | No
         if enumerate_valid_actions(state, runtime.session.player_id):
             return runtime
 
+    return None
+
+
+def _first_invariant_error(agents: list[AgentRuntime]) -> str | None:
+    for runtime in agents:
+        if runtime.invariant_error is not None:
+            return runtime.invariant_error
     return None
 
 
