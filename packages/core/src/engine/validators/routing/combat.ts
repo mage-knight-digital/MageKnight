@@ -23,6 +23,7 @@ import {
 
 import {
   validateNoChoicePending,
+  validateNoBlockingTacticDecisionPending,
 } from "../choiceValidators.js";
 
 import {
@@ -50,7 +51,6 @@ import {
   validateDamageAssignedBeforeLeaving,
   validateFortification,
   validateHasSiegeAttack,
-  validateOneCombatPerTurn,
   validateAssassinationTarget,
   validateUnitsCannotAbsorbDamage,
   // Incremental attack assignment validators
@@ -88,56 +88,61 @@ export const combatValidatorRegistry: ValidatorRegistry = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
-    validateNotRestingForCombat, // Cannot enter combat while resting (FAQ S3)
     validateNotAlreadyInCombat,
-    validateOneCombatPerTurn, // Can only have one combat per turn
   ],
   [CHALLENGE_RAMPAGING_ACTION]: [
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotRestingForCombat, // Cannot challenge while resting (FAQ S3)
+    validateChallengeNotInCombat,
+    validateNoCombatThisTurn,
     validateChallengePlayerOnMap,
-    validateChallengeNotInCombat, // Can't challenge while in combat
-    validateNoCombatThisTurn, // One combat per turn rule
     validateAdjacentToTarget,
     validateTargetHasRampagingEnemies,
   ],
   [END_COMBAT_PHASE_ACTION]: [
     validateIsPlayersTurn,
+    validateRoundPhase,
     validateIsInCombat,
     validateDamageAssignedBeforeLeaving,
   ],
   [DECLARE_BLOCK_ACTION]: [
     validateIsPlayersTurn,
+    validateRoundPhase,
     validateIsInCombat,
     validateBlockPhase,
     validateBlockTargetEnemy,
+    validateUnitsCannotAbsorbDamage, // Units cannot absorb damage in new block system
   ],
   [DECLARE_ATTACK_ACTION]: [
     validateIsPlayersTurn,
+    validateRoundPhase,
     validateIsInCombat,
     validateAttackPhase,
     validateAttackType,
     validateFortification,
-    validateHasSiegeAttack, // Must have siege attack accumulated to use siege type
+    validateHasSiegeAttack, // Non-siege attacks cannot target fortified enemies
     validateAttackTargets,
+    validateAssassinationTarget, // Assassination only targets regular enemies
   ],
   [ASSIGN_DAMAGE_ACTION]: [
     validateIsPlayersTurn,
+    validateRoundPhase,
     validateIsInCombat,
     validateAssignDamagePhase,
     validateAssignDamageTargetEnemy,
-    validateAssassinationTarget,
-    validateUnitsCannotAbsorbDamage,
-    validateUnitCanReceiveDamage,
+    validateUnitCanReceiveDamage, // Validates unit exists and can receive damage
   ],
-  // Incremental attack assignment actions
+  // Incremental attack assignment
   [ASSIGN_ATTACK_ACTION]: [
     validateIsPlayersTurn,
+    validateRoundPhase,
     validateAssignAttackInCombat,
     validateAssignAttackPhase,
     validateAssignAttackTargetEnemy,
@@ -147,14 +152,16 @@ export const combatValidatorRegistry: ValidatorRegistry = {
   ],
   [UNASSIGN_ATTACK_ACTION]: [
     validateIsPlayersTurn,
+    validateRoundPhase,
     validateAssignAttackInCombat,
     validateAssignAttackPhase,
     validateUnassignAttackTargetEnemy,
     validateHasAssignedToUnassign,
   ],
-  // Incremental block assignment actions
+  // Incremental block assignment
   [ASSIGN_BLOCK_ACTION]: [
     validateIsPlayersTurn,
+    validateRoundPhase,
     validateAssignBlockInCombat,
     validateAssignBlockPhase,
     validateAssignBlockTargetEnemy,
@@ -162,6 +169,7 @@ export const combatValidatorRegistry: ValidatorRegistry = {
   ],
   [UNASSIGN_BLOCK_ACTION]: [
     validateIsPlayersTurn,
+    validateRoundPhase,
     validateAssignBlockInCombat,
     validateAssignBlockPhase,
     validateUnassignBlockTargetEnemy,

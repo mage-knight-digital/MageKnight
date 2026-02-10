@@ -17,6 +17,7 @@ import {
 
 import {
   validateNoChoicePending,
+  validateNoBlockingTacticDecisionPending,
 } from "../choiceValidators.js";
 
 import {
@@ -44,6 +45,7 @@ export const cooperativeValidatorRegistry: ValidatorRegistry = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateInitiatorAdjacentToCity,
     validateEndOfRoundNotAnnounced,
     validateScenarioNotFulfilled,

@@ -15,6 +15,7 @@ import {
   TACTIC_DECISION_PENDING,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { doesPendingTacticDecisionBlockActions } from "../rules/tactics.js";
 
 /**
  * Validates that the player has a pending choice to resolve.
@@ -83,8 +84,8 @@ export function validateNoChoicePending(
 }
 
 /**
- * Validates that the player does NOT have a pending tactic decision.
- * Used to block actions while a tactic decision (e.g., Mana Steal die selection) is pending.
+ * Validates that the player does NOT have any pending tactic decision.
+ * Used to block END_TURN when any tactic decision needs resolution.
  */
 export function validateNoTacticDecisionPending(
   state: GameState,
@@ -95,5 +96,30 @@ export function validateNoTacticDecisionPending(
   if (player?.pendingTacticDecision) {
     return invalid(TACTIC_DECISION_PENDING, "Must resolve pending tactic decision first");
   }
+  return valid();
+}
+
+/**
+ * Validates that the player does NOT have a blocking pending tactic decision.
+ * Used to block normal actions while a "before turn" tactic decision (e.g., Sparing Power) is pending.
+ *
+ * Note: Not all tactic decisions block normal actions. For example, Mana Steal and Rethink
+ * decisions occur during the tactics phase, not during normal turns.
+ */
+export function validateNoBlockingTacticDecisionPending(
+  state: GameState,
+  playerId: string,
+  _action: PlayerAction
+): ValidationResult {
+  const player = getPlayerById(state, playerId);
+  if (!player) {
+    return valid();
+  }
+
+  // Only block if this is a "before turn" tactic decision that gates other actions
+  if (doesPendingTacticDecisionBlockActions(player)) {
+    return invalid(TACTIC_DECISION_PENDING, "Must resolve pending tactic decision first");
+  }
+
   return valid();
 }

@@ -35,6 +35,7 @@ import { getManaOptions } from "./mana.js";
 import { getUnitOptionsForCombat, getFullUnitOptions } from "./units/index.js";
 import { getSiteOptions } from "./sites.js";
 import { getTacticsOptions, getTacticEffectsOptions, getPendingTacticDecision } from "./tactics.js";
+import { doesPendingTacticDecisionBlockActions } from "../rules/tactics.js";
 import {
   getGladeWoundOptions,
   getDeepMineOptions,
@@ -129,6 +130,19 @@ export function getValidActions(
       mode: "tactics_selection",
       tactics: getTacticsOptions(state, playerId),
     };
+  }
+
+  // === Before-Turn Tactic Decisions (must resolve before other actions) ===
+  // Some tactic decisions (e.g., Sparing Power) must be resolved at the start
+  // of the turn before any other actions are allowed.
+  if (doesPendingTacticDecisionBlockActions(player)) {
+    const pendingDecision = getPendingTacticDecision(state, player);
+    if (pendingDecision) {
+      return {
+        mode: "pending_tactic_decision",
+        tacticDecision: pendingDecision,
+      };
+    }
   }
 
   // === Pending States (must resolve before other actions) ===

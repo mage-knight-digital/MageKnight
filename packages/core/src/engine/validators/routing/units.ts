@@ -15,6 +15,7 @@ import {
 
 import {
   validateNoChoicePending,
+  validateNoBlockingTacticDecisionPending,
 } from "../choiceValidators.js";
 
 import {
@@ -40,6 +41,7 @@ export const unitValidatorRegistry: ValidatorRegistry = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateCommandSlots,
     validateInfluenceCost,
@@ -50,6 +52,7 @@ export const unitValidatorRegistry: ValidatorRegistry = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateUnitExists,
     validateUnitCanActivate,
