@@ -40,6 +40,10 @@ import {
 } from "../../data/siteProperties.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import { getActiveLearningDiscount } from "../rules/unitRecruitment.js";
+import {
+  canBuyAdvancedActionsAtMonastery,
+  canAffordMonasteryAdvancedAction,
+} from "../rules/siteInteraction.js";
 
 // === Spell Purchase Validators ===
 
@@ -211,7 +215,7 @@ export function validateAtAdvancedActionSite(
     );
   }
 
-  if (site.isBurned) {
+  if (!canBuyAdvancedActionsAtMonastery(site)) {
     return invalid(
       MONASTERY_BURNED,
       "Cannot buy advanced actions from a burned monastery"
@@ -240,7 +244,7 @@ export function validateHasInfluenceForMonasteryAA(
   }
 
   if (action.fromMonastery) {
-    if (player.influencePoints < MONASTERY_AA_PURCHASE_COST) {
+    if (!canAffordMonasteryAdvancedAction(player.influencePoints)) {
       return invalid(
         INSUFFICIENT_INFLUENCE_FOR_AA,
         `You need ${MONASTERY_AA_PURCHASE_COST} influence to buy an advanced action (have ${player.influencePoints})`

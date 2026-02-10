@@ -7,7 +7,11 @@
 
 import type { Site } from "../../types/map.js";
 import { SiteType } from "../../types/map.js";
-import { SITE_PROPERTIES, getHealingCost } from "../../data/siteProperties.js";
+import {
+  SITE_PROPERTIES,
+  getHealingCost,
+  MONASTERY_AA_PURCHASE_COST,
+} from "../../data/siteProperties.js";
 
 /**
  * Check if player can interact with this site (inhabited sites).
@@ -82,6 +86,13 @@ export function canBuySpellsAtMageTower(site: Site): boolean {
  */
 export function canBuyAdvancedActionsAtMonastery(site: Site): boolean {
   return site.type === SiteType.Monastery && !site.isBurned;
+}
+
+/**
+ * Check if the player can afford a Monastery advanced action purchase.
+ */
+export function canAffordMonasteryAdvancedAction(influencePoints: number): boolean {
+  return influencePoints >= MONASTERY_AA_PURCHASE_COST;
 }
 
 /**

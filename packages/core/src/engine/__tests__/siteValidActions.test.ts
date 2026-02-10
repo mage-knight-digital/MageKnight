@@ -46,6 +46,43 @@ function createStateAtVillage(
   });
 }
 
+function createStateAtMonastery(influencePoints: number) {
+  const monastery: Site = {
+    type: SiteType.Monastery,
+    owner: null,
+    isConquered: false,
+    isBurned: false,
+  };
+
+  const player = createTestPlayer({
+    position: { q: 0, r: 0 },
+    influencePoints,
+  });
+
+  return createTestGameState({
+    phase: GAME_PHASE_ROUND,
+    players: [player],
+    offers: {
+      advancedActions: {
+        cards: ["agility"],
+      },
+      monasteryAdvancedActions: ["agility"],
+      spells: {
+        cards: [],
+      },
+      units: [],
+      commonSkills: [],
+    },
+    map: {
+      hexes: {
+        [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS, monastery),
+      },
+      tiles: [],
+      tileDeck: { countryside: [], core: [] },
+    },
+  });
+}
+
 describe("Site valid actions", () => {
   it("does not advertise healing when influence is below cost", () => {
     const state = createStateAtVillage(2);
@@ -84,5 +121,21 @@ describe("Site valid actions", () => {
 
     expect(options?.canInteract).toBe(false);
     expect(options?.interactOptions).toBeUndefined();
+  });
+
+  it("does not advertise monastery advanced action purchase when influence is below cost", () => {
+    const state = createStateAtMonastery(5);
+    const player = state.players[0];
+    const options = getSiteOptions(state, player);
+
+    expect(options?.interactOptions?.canBuyAdvancedActions).toBe(false);
+  });
+
+  it("advertises monastery advanced action purchase when influence meets cost", () => {
+    const state = createStateAtMonastery(6);
+    const player = state.players[0];
+    const options = getSiteOptions(state, player);
+
+    expect(options?.interactOptions?.canBuyAdvancedActions).toBe(true);
   });
 });
