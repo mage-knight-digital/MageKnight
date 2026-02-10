@@ -40,6 +40,7 @@ class RunnerConfig:
     artifacts_dir: str = "sim_artifacts"
     subscribe_lobby_on_connect: bool = False
     forced_invalid_action_step: int | None = None
+    allow_undo: bool = True
 
 
 @dataclass
@@ -186,8 +187,29 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
                 )
 
             mode = _mode(state)
-            candidate = policy.choose_action(state, actor.session.player_id, rng)
-            if candidate is None:
+            all_candidates = enumerate_valid_actions(state, actor.session.player_id)
+
+            # If UNDO is disabled, filter it out and check for dead-end states
+            if not config.allow_undo:
+                non_undo_candidates = [c for c in all_candidates if c.action.get("type") != "UNDO"]
+
+                # If UNDO is the only option when it's disabled, that's an error state
+                if not non_undo_candidates and all_candidates:
+                    return _finish_run(
+                        config=config,
+                        run_index=run_index,
+                        seed=seed,
+                        game_id=created.game_id,
+                        outcome=OUTCOME_INVARIANT_FAILURE,
+                        steps=step,
+                        reason="UNDO was the only valid action available (dead-end state detected)",
+                        trace=trace,
+                        messages=messages,
+                    )
+
+                all_candidates = non_undo_candidates
+
+            if not all_candidates:
                 try:
                     await _wait_for_state_update_event(
                         state_update_event, timeout_seconds=config.action_timeout_seconds
@@ -206,7 +228,7 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
                     )
                 continue
 
-            all_candidates = enumerate_valid_actions(state, actor.session.player_id)
+            candidate = rng.choice(all_candidates)
             candidate_keys = {_action_key(entry.action) for entry in all_candidates}
             chosen_key = _action_key(candidate.action)
             if chosen_key not in candidate_keys:
