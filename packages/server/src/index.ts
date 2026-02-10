@@ -42,6 +42,32 @@ export {
   SERVER_MESSAGE_ERROR,
 } from "./WebSocketServer.js";
 
+// Room provisioning and session bootstrap
+export {
+  RoomProvisioningService,
+  RoomProvisioningError,
+  PLAYER_COUNT_TWO,
+  PLAYER_COUNT_THREE,
+  PLAYER_COUNT_FOUR,
+  ROOM_STATUS_LOBBY,
+  ROOM_STATUS_STARTED,
+  ROOM_ERROR_INVALID_PLAYER_COUNT,
+  ROOM_ERROR_GAME_NOT_FOUND,
+  ROOM_ERROR_GAME_ALREADY_STARTED,
+  ROOM_ERROR_GAME_FULL,
+  ROOM_ERROR_INVALID_SESSION,
+} from "./RoomProvisioningService.js";
+export type {
+  PlayerCount,
+  RoomStatus,
+  RoomProvisioningErrorCode,
+  CreateGameRequest,
+  CreateGameResponse,
+  JoinGameRequest,
+  JoinGameResponse,
+  BootstrapSession,
+} from "./RoomProvisioningService.js";
+
 // Single-player game
 export { createGame, type GameInstance } from "./singlePlayerGame.js";
 
