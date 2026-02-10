@@ -23,6 +23,9 @@ import {
   MANA_GOLD,
   BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
+import {
+  getTacticActivationFailureReason,
+} from "../rules/tactics.js";
 
 /**
  * Get tactics selection options during tactics phase.
@@ -155,26 +158,23 @@ export function getActivatableTactics(
     return undefined;
   }
 
+  if (getTacticActivationFailureReason(state, player, tactic) !== null) {
+    return undefined;
+  }
+
   // The Right Moment (Day 6) - can use during turn, not on last turn of round
   if (tactic === TACTIC_THE_RIGHT_MOMENT) {
-    const isLastTurnOfRound = state.endOfRoundAnnouncedBy !== null || state.scenarioEndTriggered;
-    if (!isLastTurnOfRound) {
-      return { theRightMoment: true };
-    }
+    return { theRightMoment: true };
   }
 
   // Long Night (Night 2) - can use when deck is empty
   if (tactic === TACTIC_LONG_NIGHT) {
-    if (player.deck.length === 0 && player.discard.length > 0) {
-      return { longNight: true };
-    }
+    return { longNight: true };
   }
 
   // Midnight Meditation (Night 4) - can use before taking any action
   if (tactic === TACTIC_MIDNIGHT_MEDITATION) {
-    if (!player.hasTakenActionThisTurn) {
-      return { midnightMeditation: true };
-    }
+    return { midnightMeditation: true };
   }
 
   return undefined;

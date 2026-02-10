@@ -20,6 +20,9 @@ import {
 } from "@mage-knight/shared";
 import { ACTIVATE_TACTIC_COMMAND } from "./commandTypes.js";
 import { shuffleWithRng } from "../../utils/rng.js";
+import {
+  getTacticActivationFailureReason,
+} from "../rules/tactics.js";
 
 export { ACTIVATE_TACTIC_COMMAND };
 
@@ -51,34 +54,13 @@ function validateActivation(
     return "Tactic has already been used";
   }
 
-  // Tactic-specific validation
-  if (tacticId === TACTIC_THE_RIGHT_MOMENT) {
-    // Can't use on last turn of round
-    if (state.endOfRoundAnnouncedBy !== null || state.scenarioEndTriggered) {
-      return "Cannot use The Right Moment on the last turn of the round";
-    }
-  }
-
-  if (tacticId === TACTIC_LONG_NIGHT) {
-    // Deck must be empty
-    if (player.deck.length > 0) {
-      return "Cannot use Long Night when deck is not empty";
-    }
-    // Discard must have cards
-    if (player.discard.length === 0) {
-      return "Cannot use Long Night when discard pile is empty";
-    }
-  }
-
-  if (tacticId === TACTIC_MIDNIGHT_MEDITATION) {
-    // Must have cards in hand to shuffle
-    if (player.hand.length === 0) {
-      return "Cannot use Midnight Meditation when hand is empty";
-    }
-    // Must not have taken any action this turn
-    if (player.hasTakenActionThisTurn) {
-      return "Cannot use Midnight Meditation after taking an action";
-    }
+  const tacticFailureReason = getTacticActivationFailureReason(
+    state,
+    player,
+    tacticId
+  );
+  if (tacticFailureReason) {
+    return tacticFailureReason;
   }
 
   return null;

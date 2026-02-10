@@ -26,6 +26,7 @@ import { createTacticsSelectionState } from "./testHelpers.js";
 import { createRng } from "../../utils/rng.js";
 import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "../commands/tactics/index.js";
+import { createActivateTacticCommand } from "../commands/activateTacticCommand.js";
 import { getTacticCard } from "../../data/tactics/index.js";
 import { getTurnOptions } from "../validActions/turn.js";
 import { getValidActions } from "../validActions/index.js";
@@ -314,6 +315,63 @@ describe("Tactics Selection", () => {
   });
 
   describe("pending tactic decisions", () => {
+    it("does not advertise Midnight Meditation activation when hand is empty", () => {
+      const baseState = createTacticsSelectionState(["player1"], "night");
+      const state = {
+        ...baseState,
+        roundPhase: ROUND_PHASE_PLAYER_TURNS,
+        players: baseState.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                hand: [],
+                selectedTactic: TACTIC_MIDNIGHT_MEDITATION,
+                tacticFlipped: false,
+                hasTakenActionThisTurn: false,
+              }
+            : p
+        ),
+      };
+
+      const validActions = getValidActions(state, "player1");
+      expect(validActions.mode).toBe("normal_turn");
+      expect(validActions.tacticEffects?.canActivate?.midnightMeditation).toBeUndefined();
+
+      const activateCommand = createActivateTacticCommand({
+        playerId: "player1",
+        tacticId: TACTIC_MIDNIGHT_MEDITATION,
+      });
+      const activationResult = activateCommand.execute(state);
+
+      const invalidEvent = activationResult.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+      if (invalidEvent?.type === INVALID_ACTION) {
+        expect(invalidEvent.reason).toBe("Cannot use Midnight Meditation when hand is empty");
+      }
+    });
+
+    it("advertises Midnight Meditation activation when hand is non-empty", () => {
+      const baseState = createTacticsSelectionState(["player1"], "night");
+      const state = {
+        ...baseState,
+        roundPhase: ROUND_PHASE_PLAYER_TURNS,
+        players: baseState.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                selectedTactic: TACTIC_MIDNIGHT_MEDITATION,
+                tacticFlipped: false,
+                hasTakenActionThisTurn: false,
+              }
+            : p
+        ),
+      };
+
+      const validActions = getValidActions(state, "player1");
+      expect(validActions.mode).toBe("normal_turn");
+      expect(validActions.tacticEffects?.canActivate?.midnightMeditation).toBe(true);
+    });
+
     it("Mana Steal creates pending decision when basic dice available", () => {
       // Create state with basic color dice available
       const state = createTacticsSelectionState(["player1"], "day", {
