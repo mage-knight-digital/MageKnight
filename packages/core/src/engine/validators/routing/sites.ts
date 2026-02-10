@@ -5,6 +5,7 @@
 import type { ValidatorRegistry } from "./types.js";
 import {
   INTERACT_ACTION,
+  BUY_HEALING_ACTION,
   ENTER_SITE_ACTION,
   BUY_SPELL_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
@@ -73,6 +74,19 @@ import {
 
 export const siteValidatorRegistry: ValidatorRegistry = {
   [INTERACT_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotRestingForInteraction, // Cannot interact with sites while resting (FAQ S5)
+    validateHasNotActed,
+    validateAtInhabitedSite,
+    validateSiteAccessible,
+    validateHealingPurchase,
+  ],
+  [BUY_HEALING_ACTION]: [
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,

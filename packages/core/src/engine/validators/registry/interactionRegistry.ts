@@ -4,7 +4,12 @@
  */
 
 import type { Validator } from "../types.js";
-import { INTERACT_ACTION, ENTER_SITE_ACTION, ALTAR_TRIBUTE_ACTION } from "@mage-knight/shared";
+import {
+  INTERACT_ACTION,
+  BUY_HEALING_ACTION,
+  ENTER_SITE_ACTION,
+  ALTAR_TRIBUTE_ACTION,
+} from "@mage-knight/shared";
 
 // Turn validators
 import {
@@ -46,6 +51,18 @@ import {
 
 export const interactionRegistry: Record<string, Validator[]> = {
   [INTERACT_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNoChoicePending,
+    validateNoPendingLevelUpRewards, // Must select level up rewards first
+    validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotRestingForInteraction, // Cannot interact with sites while resting (FAQ S5)
+    validateHasNotActed,
+    validateAtInhabitedSite,
+    validateSiteAccessible,
+    validateHealingPurchase,
+  ],
+  [BUY_HEALING_ACTION]: [
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,

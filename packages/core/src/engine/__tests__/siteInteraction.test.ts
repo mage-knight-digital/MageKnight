@@ -7,6 +7,7 @@ import { createEngine } from "../MageKnightEngine.js";
 import { createTestGameState, createTestPlayer, createTestHex } from "./testHelpers.js";
 import {
   INTERACT_ACTION,
+  BUY_HEALING_ACTION,
   HEALING_PURCHASED,
   INVALID_ACTION,
   CARD_WOUND,
@@ -58,6 +59,61 @@ describe("Site Interaction", () => {
   }
 
   describe("Village healing", () => {
+    it("should process BUY_HEALING at village", () => {
+      const villageSite: Site = {
+        type: SiteType.Village,
+        owner: null,
+        isConquered: false,
+        isBurned: false,
+      };
+
+      const state = createStateWithSite(villageSite, {
+        hand: [CARD_WOUND, CARD_MARCH],
+        influencePoints: 3,
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: BUY_HEALING_ACTION,
+        amount: 1,
+      });
+
+      expect(result.state.players[0].hand).toEqual([CARD_MARCH]);
+
+      const healEvent = result.events.find((e) => e.type === HEALING_PURCHASED);
+      expect(healEvent).toBeDefined();
+      if (healEvent && healEvent.type === HEALING_PURCHASED) {
+        expect(healEvent.healingPoints).toBe(1);
+        expect(healEvent.influenceCost).toBe(3);
+      }
+    });
+
+    it("should reject BUY_HEALING without enough influence", () => {
+      const villageSite: Site = {
+        type: SiteType.Village,
+        owner: null,
+        isConquered: false,
+        isBurned: false,
+      };
+
+      const state = createStateWithSite(villageSite, {
+        hand: [CARD_WOUND, CARD_MARCH],
+        influencePoints: 2,
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: BUY_HEALING_ACTION,
+        amount: 1,
+      });
+
+      expect(result.state.players[0].hand).toContain(CARD_WOUND);
+
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+      if (invalidEvent && invalidEvent.type === INVALID_ACTION) {
+        expect(invalidEvent.reason).toContain("Need 3 influence");
+      }
+    });
+
     it("should heal wounds at village (3 influence = 1 healing)", () => {
       const villageSite: Site = {
         type: SiteType.Village,
