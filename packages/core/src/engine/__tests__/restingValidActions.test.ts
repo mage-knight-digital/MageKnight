@@ -15,6 +15,7 @@ import { getChallengeOptions } from "../validActions/challenge.js";
 import { getSiteOptions } from "../validActions/sites.js";
 import {
   ENEMY_DIGGERS,
+  CARD_WHIRLWIND,
   TERRAIN_PLAINS,
   hexKey,
 } from "@mage-knight/shared";
@@ -26,6 +27,7 @@ import {
   type HexState,
   TileId,
 } from "../../types/map.js";
+import { getValidActions } from "../validActions/index.js";
 
 function withTiles(state: ReturnType<typeof createTestGameState>) {
   return {
@@ -153,5 +155,19 @@ describe("Valid actions while resting", () => {
 
     const restingOptions = getSiteOptions(restingState, restingPlayer);
     expect(restingOptions?.canEnter).toBe(false);
+  });
+
+  it("does not surface sideways-only combat cards while resting", () => {
+    const restingPlayer = createTestPlayer({
+      isResting: true,
+      hasTakenActionThisTurn: true,
+      hand: [CARD_WHIRLWIND],
+    });
+
+    const state = createTestGameState({ players: [restingPlayer] });
+    const validActions = getValidActions(state, restingPlayer.id);
+
+    expect(validActions.mode).toBe("normal_turn");
+    expect(validActions.playCard).toBeUndefined();
   });
 });
