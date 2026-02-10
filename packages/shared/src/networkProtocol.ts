@@ -1,3 +1,19 @@
+/**
+ * Network Protocol — envelope parsing, schema definitions, and runtime validation.
+ *
+ * ## Enforcement scope
+ *
+ * Server runtime validates **envelope + action discriminant only**:
+ * - Envelope fields: `protocolVersion`, `type`, required top-level keys
+ * - Action type discriminant via {@link KNOWN_ACTION_TYPES}
+ *
+ * Deep payload schemas (player-action.schema.json, game-event.schema.json,
+ * client-game-state.schema.json) are **contract artifacts for external clients**.
+ * They are not enforced at the server WebSocket boundary. Full semantic validation
+ * is handled by the engine validator layer (`core/src/engine/validators/`).
+ *
+ * @see schemas/network-protocol/v1/README.md for full documentation
+ */
 import type { PlayerAction } from "./actions.js";
 import { KNOWN_ACTION_TYPES } from "./actions.js";
 import type { GameEvent } from "./events/index.js";

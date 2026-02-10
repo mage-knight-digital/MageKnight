@@ -2,6 +2,33 @@
 
 Machine-readable JSON Schemas for the Mage Knight WebSocket protocol.
 
+## Enforcement Scope
+
+These deep schemas are **contract artifacts for external clients** (Python SDK,
+RL harnesses, headless agents). They define the structural shape of every
+payload type so external tooling can generate typed models and validate
+messages without hand-maintained parsers.
+
+**Server runtime validation is envelope + discriminant only.** The server
+validates:
+- Envelope fields (`protocolVersion`, `type`, required top-level keys)
+- Action type discriminant against `KNOWN_ACTION_TYPES`
+
+The server does **not** run Ajv / deep JSON Schema validation on inbound
+payloads at the WebSocket boundary. Full semantic validation (field types,
+legal values, game-state rules) is handled by the engine's validator layer
+(`core/src/engine/validators/`), which returns typed `ValidationResult`
+errors. This avoids duplicating validation logic and keeps the hot path
+lightweight.
+
+**What this means for external clients:**
+- You can rely on these schemas for codegen, client-side validation, and
+  contract testing.
+- A structurally valid payload can still be rejected by engine validators
+  (e.g., moving to an unreachable hex, playing a card not in hand).
+- Engine validation errors are returned as `error` messages with specific
+  `errorCode` values, not as protocol-level parse errors.
+
 ## Schema Files
 
 | File | Description |
