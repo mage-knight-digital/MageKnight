@@ -73,4 +73,16 @@ describe("Site valid actions", () => {
     expect(options?.interactOptions?.canHeal).toBe(false);
     expect(options?.interactOptions?.healCost).toBe(3);
   });
+
+  it("does not advertise interact after player has taken action", () => {
+    const state = createStateAtVillage(6);
+    const player = {
+      ...state.players[0],
+      hasTakenActionThisTurn: true,
+    };
+    const options = getSiteOptions(state, player);
+
+    expect(options?.canInteract).toBe(false);
+    expect(options?.interactOptions).toBeUndefined();
+  });
 });

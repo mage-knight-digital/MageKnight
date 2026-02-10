@@ -29,6 +29,7 @@ import {
   hasCombatRestrictions,
   canEnterAdventureSite,
 } from "../rules/siteInteraction.js";
+import { canTakeActionPhaseAction } from "../rules/turnStructure.js";
 
 // =============================================================================
 // MAIN FUNCTION
@@ -64,7 +65,7 @@ export function getSiteOptions(
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
     canEnterAdventureSite(site) &&
-    !player.hasTakenActionThisTurn &&
+    canTakeActionPhaseAction(player) &&
     !(site.type === SiteType.AncientRuins && ruinsHasAltarToken);
 
   // Build enter description
@@ -87,6 +88,7 @@ export function getSiteOptions(
   const canInteract =
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
+    canTakeActionPhaseAction(player) &&
     canInteractWithSite(site);
   const interactOptions = canInteract
     ? getInteractOptions(state, player, site)

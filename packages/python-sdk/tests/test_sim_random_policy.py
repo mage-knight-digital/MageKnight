@@ -119,6 +119,75 @@ class RandomPolicyTest(unittest.TestCase):
         self.assertEqual(1, len(complete_rest_actions))
         self.assertEqual(["rage"], complete_rest_actions[0]["discardCardIds"])
 
+    def test_enumerate_valid_actions_reroll_uses_required_first_dice_ids(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "source": {
+                "dice": [
+                    {"id": "die_0", "color": "blue", "isDepleted": False},
+                    {"id": "die_1", "color": "gold", "isDepleted": True},
+                    {"id": "die_2", "color": "white", "isDepleted": False},
+                ]
+            },
+            "validActions": {
+                "mode": "normal_turn",
+                "turn": {
+                    "canEndTurn": False,
+                    "canAnnounceEndOfRound": False,
+                    "canUndo": False,
+                    "canDeclareRest": False,
+                },
+                "tacticEffects": {
+                    "canRerollSourceDice": {
+                        "availableDiceIds": ["die_0", "die_1", "die_2"],
+                        "requiredFirstDiceIds": ["die_1"],
+                        "maxDice": 2,
+                        "mustPickDepletedFirst": True,
+                    }
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        reroll_actions = [a.action for a in actions if a.action.get("type") == "REROLL_SOURCE_DICE"]
+
+        self.assertEqual(1, len(reroll_actions))
+        self.assertEqual(["die_1"], reroll_actions[0]["dieIds"])
+
+    def test_enumerate_valid_actions_reroll_fallback_uses_depleted_when_required(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "source": {
+                "dice": [
+                    {"id": "die_0", "color": "blue", "isDepleted": False},
+                    {"id": "die_1", "color": "gold", "isDepleted": True},
+                    {"id": "die_2", "color": "white", "isDepleted": False},
+                ]
+            },
+            "validActions": {
+                "mode": "normal_turn",
+                "turn": {
+                    "canEndTurn": False,
+                    "canAnnounceEndOfRound": False,
+                    "canUndo": False,
+                    "canDeclareRest": False,
+                },
+                "tacticEffects": {
+                    "canRerollSourceDice": {
+                        "availableDiceIds": ["die_0", "die_1", "die_2"],
+                        "maxDice": 2,
+                        "mustPickDepletedFirst": True,
+                    }
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        reroll_actions = [a.action for a in actions if a.action.get("type") == "REROLL_SOURCE_DICE"]
+
+        self.assertEqual(1, len(reroll_actions))
+        self.assertEqual(["die_1"], reroll_actions[0]["dieIds"])
+
 
 if __name__ == "__main__":
     unittest.main()

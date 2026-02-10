@@ -16,16 +16,17 @@ import {
   TACTIC_LONG_NIGHT,
   TACTIC_MIDNIGHT_MEDITATION,
   TACTIC_RETHINK,
-  TACTIC_MANA_SEARCH,
   TACTIC_SPARING_POWER,
   TACTIC_MANA_STEAL,
   TACTIC_PREPARATION,
-  MANA_GOLD,
   BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
 import {
   getTacticActivationFailureReason,
   isPendingTacticDecisionStillValid,
+  canUseManaSearch,
+  getManaSearchAvailableDice,
+  getManaSearchRequiredFirstDiceIds,
 } from "../rules/tactics.js";
 
 /**
@@ -195,38 +196,21 @@ export function getManaSearchOptions(
   state: GameState,
   player: Player
 ): TacticEffectsOptions["canRerollSourceDice"] {
-  // Must have Mana Search tactic
-  if (player.selectedTactic !== TACTIC_MANA_SEARCH) {
+  if (!canUseManaSearch(state, player)) {
     return undefined;
   }
 
-  // Cannot use if already used this turn
-  if (player.tacticState?.manaSearchUsedThisTurn) {
-    return undefined;
-  }
-
-  // Cannot use after taking mana from source
-  if (player.usedManaFromSource) {
-    return undefined;
-  }
-
-  // Get available dice (not taken by other players)
-  const availableDice = state.source.dice.filter(
-    (d) => d.takenByPlayerId === null || d.takenByPlayerId === player.id
-  );
-
+  const availableDice = getManaSearchAvailableDice(state, player);
   if (availableDice.length === 0) {
     return undefined;
   }
 
-  // Check if there are gold/depleted dice that must be picked first
-  const restrictedDice = availableDice.filter(
-    (d) => d.isDepleted || d.color === MANA_GOLD
-  );
+  const requiredFirstDiceIds = getManaSearchRequiredFirstDiceIds(state, player);
 
   return {
     maxDice: 2,
-    mustPickDepletedFirst: restrictedDice.length > 0,
+    mustPickDepletedFirst: requiredFirstDiceIds.length > 0,
+    requiredFirstDiceIds,
     availableDiceIds: availableDice.map((d) => d.id),
   };
 }

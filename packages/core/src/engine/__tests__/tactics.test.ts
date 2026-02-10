@@ -9,6 +9,7 @@ import {
   TACTIC_PLANNING,
   TACTIC_FROM_THE_DUSK,
   TACTIC_MANA_STEAL,
+  TACTIC_MANA_SEARCH,
   TACTIC_RETHINK,
   TACTIC_MIDNIGHT_MEDITATION,
   TACTIC_SELECTED,
@@ -19,6 +20,7 @@ import {
   ALL_DAY_TACTICS,
   MANA_RED,
   MANA_BLUE,
+  MANA_GOLD,
   TACTIC_DECISION_RETHINK,
   TACTIC_DECISION_MIDNIGHT_MEDITATION,
   DECLARE_REST_ACTION,
@@ -591,6 +593,36 @@ describe("Tactics Selection", () => {
         "march",
         "swiftness",
         "rage",
+      ]);
+    });
+
+    it("advertises requiredFirstDiceIds for Mana Search reroll constraints", () => {
+      const baseState = createTacticsSelectionState(["player1"], "night");
+      const state = {
+        ...baseState,
+        roundPhase: ROUND_PHASE_PLAYER_TURNS,
+        players: baseState.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                selectedTactic: TACTIC_MANA_SEARCH,
+              }
+            : p
+        ),
+        source: {
+          ...baseState.source,
+          dice: [
+            { id: "die_0", color: MANA_BLUE, isDepleted: false, takenByPlayerId: null },
+            { id: "die_1", color: MANA_GOLD, isDepleted: true, takenByPlayerId: null },
+          ],
+        },
+      };
+
+      const validActions = getValidActions(state, "player1");
+      expect(validActions.mode).toBe("normal_turn");
+      expect(validActions.tacticEffects?.canRerollSourceDice?.mustPickDepletedFirst).toBe(true);
+      expect(validActions.tacticEffects?.canRerollSourceDice?.requiredFirstDiceIds).toEqual([
+        "die_1",
       ]);
     });
 
