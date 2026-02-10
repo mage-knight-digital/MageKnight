@@ -21,12 +21,14 @@ import {
   MANA_BLUE,
   TACTIC_DECISION_RETHINK,
   TACTIC_DECISION_MIDNIGHT_MEDITATION,
+  DECLARE_REST_ACTION,
 } from "@mage-knight/shared";
 import { createTacticsSelectionState } from "./testHelpers.js";
 import { createRng } from "../../utils/rng.js";
 import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "../commands/tactics/index.js";
 import { createActivateTacticCommand } from "../commands/activateTacticCommand.js";
+import { createEngine } from "../MageKnightEngine.js";
 import { getTacticCard } from "../../data/tactics/index.js";
 import { getTurnOptions } from "../validActions/turn.js";
 import { getValidActions } from "../validActions/index.js";
@@ -505,6 +507,91 @@ describe("Tactics Selection", () => {
       expect(validActions.mode).toBe("pending_tactic_decision");
       expect(validActions.tacticDecision).toBeDefined();
       expect(validActions.tacticDecision?.type).toBe(TACTIC_RETHINK);
+    });
+
+    it("does not expose Midnight Meditation pending decision after turn has started", () => {
+      const baseState = createTacticsSelectionState(["player1"], "night");
+      const state = {
+        ...baseState,
+        roundPhase: ROUND_PHASE_PLAYER_TURNS,
+        players: baseState.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                selectedTactic: TACTIC_MIDNIGHT_MEDITATION,
+                pendingTacticDecision: { type: TACTIC_MIDNIGHT_MEDITATION, maxCards: 5 },
+                hasMovedThisTurn: true,
+                playedCardFromHandThisTurn: true,
+              }
+            : p
+        ),
+      };
+
+      const validActions = getValidActions(state, "player1");
+      expect(validActions.mode).toBe("normal_turn");
+      expect(validActions.tacticEffects?.pendingDecision).toBeUndefined();
+
+      const validationResult = validateNoTacticDecisionPending(
+        state,
+        "player1",
+        { type: "END_TURN" }
+      );
+      expect(validationResult.valid).toBe(true);
+    });
+
+    it("clears Midnight Meditation pending decision after first action", () => {
+      const engine = createEngine();
+      const baseState = createTacticsSelectionState(["player1"], "night");
+      const state = {
+        ...baseState,
+        roundPhase: ROUND_PHASE_PLAYER_TURNS,
+        players: baseState.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                selectedTactic: TACTIC_MIDNIGHT_MEDITATION,
+                pendingTacticDecision: { type: TACTIC_MIDNIGHT_MEDITATION, maxCards: 5 },
+              }
+            : p
+        ),
+      };
+
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_REST_ACTION,
+      });
+
+      const playerAfter = result.state.players.find((p) => p.id === "player1");
+      expect(playerAfter?.hasTakenActionThisTurn).toBe(true);
+      expect(playerAfter?.pendingTacticDecision).toBeNull();
+    });
+
+    it("includes selectable hand cards for Midnight Meditation pending decision", () => {
+      const baseState = createTacticsSelectionState(["player1"], "night");
+      const state = {
+        ...baseState,
+        roundPhase: ROUND_PHASE_PLAYER_TURNS,
+        players: baseState.players.map((p) =>
+          p.id === "player1"
+            ? {
+                ...p,
+                hand: ["march", "swiftness", "rage"],
+                selectedTactic: TACTIC_MIDNIGHT_MEDITATION,
+                pendingTacticDecision: { type: TACTIC_MIDNIGHT_MEDITATION, maxCards: 5 },
+              }
+            : p
+        ),
+      };
+
+      const validActions = getValidActions(state, "player1");
+      expect(validActions.mode).toBe("normal_turn");
+      expect(validActions.tacticEffects?.pendingDecision?.type).toBe(
+        TACTIC_MIDNIGHT_MEDITATION
+      );
+      expect(validActions.tacticEffects?.pendingDecision?.availableCardIds).toEqual([
+        "march",
+        "swiftness",
+        "rage",
+      ]);
     });
 
     it("Rethink resolution shuffles discard into deck and draws from combined pool", () => {

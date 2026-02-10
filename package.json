@@ -9,6 +9,7 @@
     "test": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test",
     "test:coverage": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test:coverage",
     "lint": "oxlint -c .oxlintrc.json --deny-warnings packages/*/src",
+    "protocol:sync": "bun run --filter @mage-knight/shared generate:deep-schemas && bun run --filter @mage-knight/shared generate:network-schemas && python3 packages/python-sdk/scripts/generate_protocol_models.py",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist bun.lockb",
     "dev:client": "bun run --filter @mage-knight/client dev",
     "dev:server": "bun run packages/server/dev.ts",

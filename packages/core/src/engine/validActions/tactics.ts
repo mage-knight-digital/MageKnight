@@ -25,6 +25,7 @@ import {
 } from "@mage-knight/shared";
 import {
   getTacticActivationFailureReason,
+  isPendingTacticDecisionStillValid,
 } from "../rules/tactics.js";
 
 /**
@@ -93,11 +94,16 @@ export function getPendingTacticDecision(
     return undefined;
   }
 
+  if (!isPendingTacticDecisionStillValid(state, player)) {
+    return undefined;
+  }
+
   // Convert to PendingTacticDecisionInfo format
   if (pending.type === TACTIC_RETHINK) {
     return {
       type: pending.type,
       maxCards: pending.maxCards,
+      availableCardIds: player.hand,
     };
   }
 
@@ -140,6 +146,7 @@ export function getPendingTacticDecision(
     return {
       type: pending.type,
       maxCards: pending.maxCards,
+      availableCardIds: player.hand,
     };
   }
 

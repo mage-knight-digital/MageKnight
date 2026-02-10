@@ -15,7 +15,10 @@ import {
   TACTIC_DECISION_PENDING,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
-import { doesPendingTacticDecisionBlockActions } from "../rules/tactics.js";
+import {
+  doesPendingTacticDecisionBlockActions,
+  isPendingTacticDecisionStillValid,
+} from "../rules/tactics.js";
 
 /**
  * Validates that the player has a pending choice to resolve.
@@ -93,7 +96,7 @@ export function validateNoTacticDecisionPending(
   _action: PlayerAction
 ): ValidationResult {
   const player = getPlayerById(state, playerId);
-  if (player?.pendingTacticDecision) {
+  if (player?.pendingTacticDecision && isPendingTacticDecisionStillValid(state, player)) {
     return invalid(TACTIC_DECISION_PENDING, "Must resolve pending tactic decision first");
   }
   return valid();

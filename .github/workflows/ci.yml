@@ -72,14 +72,25 @@ jobs:
           git fetch origin main --no-tags --depth=1
           bun run --filter @mage-knight/shared check:network-version
 
-      - name: Build
-        run: bun run build
-
       - name: Setup Python
         if: steps.changes.outputs.python_sdk == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+
+      - name: Verify generated Python protocol models are committed
+        if: steps.changes.outputs.python_sdk == 'true'
+        run: |
+          python packages/python-sdk/scripts/generate_protocol_models.py
+          if ! git diff --quiet -- packages/python-sdk/src/mage_knight_sdk/protocol_models.py; then
+            echo "Generated Python protocol models are out of date."
+            echo "Run: python packages/python-sdk/scripts/generate_protocol_models.py"
+            git --no-pager diff -- packages/python-sdk/src/mage_knight_sdk/protocol_models.py
+            exit 1
+          fi
+
+      - name: Build
+        run: bun run build
 
       - name: Install Python SDK dependencies
         if: steps.changes.outputs.python_sdk == 'true'
@@ -100,21 +111,21 @@ jobs:
         run: mkdir -p test-results coverage/core coverage/shared coverage/server
 
       - name: Test core
-        if: always()
+        if: success()
         run: |
           cd packages/core
           bun test --reporter=junit --reporter-outfile=../../test-results/core.xml \
             --coverage --coverage-reporter=lcov --coverage-dir=../../coverage/core
 
       - name: Test shared
-        if: always()
+        if: success()
         run: |
           cd packages/shared
           bun test --reporter=junit --reporter-outfile=../../test-results/shared.xml \
             --coverage --coverage-reporter=lcov --coverage-dir=../../coverage/shared
 
       - name: Test server
-        if: always()
+        if: success()
         run: |
           cd packages/server
           bun test --reporter=junit --reporter-outfile=../../test-results/server.xml \

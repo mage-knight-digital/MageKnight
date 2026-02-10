@@ -3,7 +3,7 @@ import { KNOWN_ACTION_TYPES } from "./actions.js";
 import type { GameEvent } from "./events/index.js";
 import type { ClientGameState } from "./types/clientState.js";
 
-export const NETWORK_PROTOCOL_VERSION_1 = "1.2.0" as const;
+export const NETWORK_PROTOCOL_VERSION_1 = "1.2.1" as const;
 export const NETWORK_PROTOCOL_VERSION = NETWORK_PROTOCOL_VERSION_1;
 
 export type NetworkProtocolVersion = typeof NETWORK_PROTOCOL_VERSION;

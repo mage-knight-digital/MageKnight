@@ -15,6 +15,7 @@ import {
 } from "@mage-knight/shared";
 import type { TacticResolutionResult } from "../types.js";
 import { shuffleWithRng } from "../../../../utils/rng.js";
+import { canResolveMidnightMeditation } from "../../../rules/tactics.js";
 
 /**
  * Type for Midnight Meditation decision
@@ -32,6 +33,10 @@ export function validateMidnightMeditation(
   player: Player,
   decision: MidnightMeditationDecision
 ): string | null {
+  if (!canResolveMidnightMeditation(player)) {
+    return "Cannot resolve Midnight Meditation after starting your turn";
+  }
+
   // Can select 0-5 cards
   if (decision.cardIds.length > 5) {
     return "Cannot shuffle more than 5 cards for Midnight Meditation";
