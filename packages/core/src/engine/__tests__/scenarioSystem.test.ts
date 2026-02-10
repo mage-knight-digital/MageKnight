@@ -27,6 +27,7 @@ import {
   ROUND_ENDED,
   MOVE_ACTION,
   GAME_PHASE_ROUND,
+  GAME_PHASE_END,
   hexKey,
   type CardId,
   MAP_SHAPE_WEDGE,
@@ -301,6 +302,7 @@ describe("Scenario System", () => {
 
       expect(result.state.finalTurnsRemaining).toBe(0);
       expect(result.state.gameEnded).toBe(true);
+      expect(result.state.phase).toBe(GAME_PHASE_END);
       expect(result.state.winningPlayerId).toBe("player1");
 
       // Check for game ended event
@@ -330,6 +332,7 @@ describe("Scenario System", () => {
 
       // Game should end immediately
       expect(result.state.gameEnded).toBe(true);
+      expect(result.state.phase).toBe(GAME_PHASE_END);
       expect(result.state.finalTurnsRemaining).toBe(0);
       expect(result.state.winningPlayerId).toBe("player1");
 
@@ -361,6 +364,7 @@ describe("Scenario System", () => {
       const result = endRoundCommand.execute(state);
 
       expect(result.state.gameEnded).toBe(true);
+      expect(result.state.phase).toBe(GAME_PHASE_END);
       expect(result.state.winningPlayerId).toBe("player1");
 
       const roundEndEvent = result.events.find(e => e.type === ROUND_ENDED);

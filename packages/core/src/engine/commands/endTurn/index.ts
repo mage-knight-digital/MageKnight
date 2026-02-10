@@ -17,7 +17,7 @@ import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { SourceDieId } from "../../../types/mana.js";
 import type { GameEvent } from "@mage-knight/shared";
-import { TURN_ENDED, GAME_ENDED } from "@mage-knight/shared";
+import { TURN_ENDED, GAME_ENDED, GAME_PHASE_END } from "@mage-knight/shared";
 import { expireModifiers } from "../../modifiers/index.js";
 import { EXPIRATION_TURN_END } from "../../../types/modifierConstants.js";
 import { END_TURN_COMMAND } from "../commandTypes.js";
@@ -431,6 +431,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
         newState = {
           ...newState,
+          phase: GAME_PHASE_END,
           gameEnded: true,
           winningPlayerId,
         };

@@ -11,7 +11,7 @@
 
 import type { GameState } from "../../../state/GameState.js";
 import type { GameEvent } from "@mage-knight/shared";
-import { ROUND_ENDED, GAME_ENDED } from "@mage-knight/shared";
+import { ROUND_ENDED, GAME_ENDED, GAME_PHASE_END } from "@mage-knight/shared";
 import {
   calculateFinalScores,
   createDefaultScoringConfig,
@@ -75,6 +75,7 @@ export function checkGameEnd(
     gameEnded: true,
     events,
     state: {
+      phase: GAME_PHASE_END,
       finalTurnsRemaining: 0,
       gameEnded: true,
       winningPlayerId,
