@@ -50,6 +50,7 @@ import {
   RECRUIT_UNIT_ACTION,
   ACTIVATE_UNIT_ACTION,
   INTERACT_ACTION,
+  BUY_HEALING_ACTION,
   ANNOUNCE_END_OF_ROUND_ACTION,
   ENTER_SITE_ACTION,
   SELECT_TACTIC_ACTION,
@@ -152,6 +153,7 @@ export {
 // Site factories
 export {
   createInteractCommandFromAction,
+  createBuyHealingCommandFromAction,
   createEnterSiteCommandFromAction,
   createAltarTributeCommandFromAction,
   createResolveGladeWoundCommandFromAction,
@@ -267,6 +269,7 @@ import {
 
 import {
   createInteractCommandFromAction,
+  createBuyHealingCommandFromAction,
   createEnterSiteCommandFromAction,
   createAltarTributeCommandFromAction,
   createResolveGladeWoundCommandFromAction,
@@ -360,6 +363,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   [RECRUIT_UNIT_ACTION]: createRecruitUnitCommandFromAction,
   [ACTIVATE_UNIT_ACTION]: createActivateUnitCommandFromAction,
   [INTERACT_ACTION]: createInteractCommandFromAction,
+  [BUY_HEALING_ACTION]: createBuyHealingCommandFromAction,
   [ANNOUNCE_END_OF_ROUND_ACTION]: createAnnounceEndOfRoundCommandFromAction,
   [ENTER_SITE_ACTION]: createEnterSiteCommandFromAction,
   [ALTAR_TRIBUTE_ACTION]: createAltarTributeCommandFromAction,

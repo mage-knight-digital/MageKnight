@@ -6,8 +6,9 @@ import type { GameState } from "../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
-import { INTERACT_ACTION } from "@mage-knight/shared";
+import { INTERACT_ACTION, BUY_HEALING_ACTION, CARD_WOUND } from "@mage-knight/shared";
 import { getPlayerSite } from "../helpers/siteHelpers.js";
+import { getPlayerById } from "../helpers/playerHelpers.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { SiteType } from "../../types/map.js";
 import {
@@ -17,12 +18,14 @@ import {
   NOT_YOUR_KEEP,
   MONASTERY_BURNED,
   NO_HEALING_HERE,
+  INSUFFICIENT_INFLUENCE,
 } from "./validationCodes.js";
 import {
   canInteractWithSite,
   isSiteAccessibleForInteraction,
   canHealAtSite,
 } from "../rules/siteInteraction.js";
+import { getHealingCost } from "../../data/siteProperties.js";
 
 /**
  * Must be at an inhabited site to interact
@@ -94,8 +97,13 @@ export function validateHealingPurchase(
   playerId: string,
   action: PlayerAction
 ): ValidationResult {
-  if (action.type !== INTERACT_ACTION) return valid();
-  if (!action.healing || action.healing <= 0) return valid();
+  if (action.type !== INTERACT_ACTION && action.type !== BUY_HEALING_ACTION) {
+    return valid();
+  }
+
+  const requestedHealing =
+    action.type === BUY_HEALING_ACTION ? action.amount : (action.healing ?? 0);
+  if (requestedHealing <= 0) return valid();
 
   const site = getPlayerSite(state, playerId);
   if (!site) return valid(); // Other validator handles this
@@ -104,8 +112,24 @@ export function validateHealingPurchase(
     return invalid(NO_HEALING_HERE, "This site does not offer healing");
   }
 
-  // Note: Influence validation happens in the command
-  // since we need to calculate total influence from cards played
+  const player = getPlayerById(state, playerId);
+  if (!player) return valid();
+
+  const healingCost = getHealingCost(site.type);
+  if (healingCost === null) {
+    return invalid(NO_HEALING_HERE, "This site does not offer healing");
+  }
+
+  const woundsInHand = player.hand.filter((cardId) => cardId === CARD_WOUND).length;
+  const actualHealingPoints = Math.min(requestedHealing, woundsInHand);
+  const totalCost = actualHealingPoints * healingCost;
+
+  if (totalCost > player.influencePoints) {
+    return invalid(
+      INSUFFICIENT_INFLUENCE,
+      `Need ${totalCost} influence to buy ${actualHealingPoints} healing`
+    );
+  }
 
   return valid();
 }

@@ -20,6 +20,7 @@ import type { CommandFactory } from "./types.js";
 import type { PlayerAction, GladeWoundChoice, BasicManaColor, CardId } from "@mage-knight/shared";
 import {
   INTERACT_ACTION,
+  BUY_HEALING_ACTION,
   ENTER_SITE_ACTION,
   ALTAR_TRIBUTE_ACTION,
   RESOLVE_GLADE_WOUND_ACTION,
@@ -92,6 +93,28 @@ export const createInteractCommandFromAction: CommandFactory = (
     playerId,
     healing: action.healing ?? 0,
     influenceAvailable,
+    previousHand: [...player.hand],
+  });
+};
+
+/**
+ * Buy healing command factory.
+ * Creates an interaction command that purchases healing at the current site.
+ */
+export const createBuyHealingCommandFromAction: CommandFactory = (
+  state,
+  playerId,
+  action
+) => {
+  if (action.type !== BUY_HEALING_ACTION) return null;
+
+  const player = getPlayerById(state, playerId);
+  if (!player) return null;
+
+  return createInteractCommand({
+    playerId,
+    healing: action.amount,
+    influenceAvailable: player.influencePoints,
     previousHand: [...player.hand],
   });
 };

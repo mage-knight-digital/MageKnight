@@ -9,6 +9,7 @@ import type { SiteOptions, InteractOptions } from "@mage-knight/shared";
 import {
   hexKey,
   TIME_OF_DAY_DAY,
+  CARD_WOUND,
   getRuinsTokenDefinition,
   isAltarToken,
   isEnemyToken,
@@ -311,6 +312,12 @@ function getInteractOptions(
   site: Site
 ): InteractOptions {
   const healCost = HEALING_COSTS[site.type];
+  const woundsInHand = player.hand.filter((cardId) => cardId === CARD_WOUND).length;
+  const canHeal =
+    healCost !== undefined &&
+    !site.isBurned &&
+    player.influencePoints >= healCost &&
+    woundsInHand > 0;
 
   // Check if can recruit (needs units in offer, site not burned)
   const canRecruit = state.offers.units.length > 0 && !site.isBurned;
@@ -345,7 +352,7 @@ function getInteractOptions(
     !player.hasMovedThisTurn;
 
   const result: InteractOptions = {
-    canHeal: healCost !== undefined && !site.isBurned,
+    canHeal,
     canRecruit,
     canBuySpells,
     canBuyAdvancedActions,
