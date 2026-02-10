@@ -4,6 +4,7 @@ import asyncio
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from contextlib import suppress
 from typing import Any, AsyncIterator, Mapping
 from urllib.parse import urlencode, urlparse, urlunparse
 
@@ -85,7 +86,9 @@ class MageKnightClient:
             await self._ws.close()
 
         if self._receiver_task is not None:
-            await self._receiver_task
+            self._receiver_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._receiver_task
             self._receiver_task = None
 
         if not self._terminated:
@@ -117,7 +120,10 @@ class MageKnightClient:
             playerId=self._player_id,
             sessionToken=self._session_token,
         )
-        await self._ws.send(json.dumps(serialize_client_message(message)))
+        payload = serialize_client_message(message)
+        if payload.get("sessionToken") is None:
+            payload.pop("sessionToken", None)
+        await self._ws.send(json.dumps(payload))
 
     async def messages(self) -> AsyncIterator[ServerMessage]:
         while True:
@@ -175,6 +181,8 @@ class MageKnightClient:
                     break
                 if not await self._attempt_reconnect(str(error)):
                     break
+            except asyncio.CancelledError:
+                break
 
         if not self._terminated:
             self._terminated = True
@@ -186,8 +194,13 @@ class MageKnightClient:
         last_error = reason
 
         for attempt in range(1, self._max_reconnect_attempts + 1):
+            if self._close_requested:
+                return False
+
             delay = self._reconnect_base_delay * (2 ** (attempt - 1))
             await asyncio.sleep(delay)
+            if self._close_requested:
+                return False
 
             try:
                 await self._open_connection(is_reconnect=True, reconnect_attempt=attempt)
