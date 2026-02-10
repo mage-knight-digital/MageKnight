@@ -34,7 +34,11 @@ import {
   SIDEWAYS_CHOICE_REQUIRED,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
-import { getAllowedSidewaysChoices, getSidewaysContext } from "../rules/sideways.js";
+import {
+  getAllowedSidewaysChoices,
+  getSidewaysContext,
+  canPlaySideways,
+} from "../rules/sideways.js";
 import { isWoundCardId } from "../rules/cardPlay.js";
 
 function getCardIdForSideways(action: PlayerAction): CardId | null {
@@ -99,11 +103,30 @@ export function validateSidewaysNotWound(
 // Must specify what to gain from sideways play
 export function validateSidewaysChoice(
   state: GameState,
-  _playerId: string,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== PLAY_CARD_SIDEWAYS_ACTION) {
     return valid();
+  }
+
+  const player = getPlayerById(state, playerId);
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
+  if (!canPlaySideways(state, player.isResting)) {
+    if (player.isResting) {
+      return invalid(
+        SIDEWAYS_CHOICE_REQUIRED,
+        "Cannot play cards sideways while resting"
+      );
+    }
+
+    return invalid(
+      SIDEWAYS_CHOICE_REQUIRED,
+      "Sideways play is not allowed in this phase"
+    );
   }
 
   const allowedChoices = getAllowedSidewaysChoices(getSidewaysContext(state));

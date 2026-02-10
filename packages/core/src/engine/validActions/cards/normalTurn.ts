@@ -21,7 +21,7 @@ import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
 import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "../../modifiers/index.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
 import type { SidewaysValueModifier } from "../../../types/modifiers.js";
-import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
+import { getSidewaysOptionsForValue, canPlaySideways } from "../../rules/sideways.js";
 import { isNormalEffectAllowed, isTimeBendingChainPrevented, cardConsumesAction } from "../../rules/cardPlay.js";
 
 interface CardPlayability {
@@ -105,14 +105,21 @@ export function getPlayableCardsForNormalTurn(
       ? findPayableManaColor(state, player, card)
       : undefined;
     const canActuallyPlayPowered = payableManaColor !== undefined;
+    const canPlayByEffect = canActuallyPlayBasic || canActuallyPlayPowered;
 
-    if (canActuallyPlayBasic || canActuallyPlayPowered || playability.canPlaySideways) {
+    // While resting, only surface cards that can be played for an actual effect.
+    // Sideways-only suggestions create false positives for cards that can't be
+    // meaningfully used during rest (e.g., combat-only spells).
+    const canPlaySidewaysInContext =
+      playability.canPlaySideways && canPlaySideways(state, player.isResting);
+
+    if (canPlayByEffect || canPlaySidewaysInContext) {
       const playableCard: PlayableCard = {
         cardId,
         name: card.name,
         canPlayBasic: canActuallyPlayBasic,
         canPlayPowered: canActuallyPlayPowered,
-        canPlaySideways: playability.canPlaySideways,
+        canPlaySideways: canPlaySidewaysInContext,
         basicEffectDescription: describeEffect(card.basicEffect),
         poweredEffectDescription: describeEffect(card.poweredEffect),
       };
@@ -124,7 +131,11 @@ export function getPlayableCardsForNormalTurn(
       if (card.cardType === DEED_CARD_TYPE_SPELL) {
         (playableCard as { isSpell?: boolean }).isSpell = true;
       }
-      if (playability.sidewaysOptions && playability.sidewaysOptions.length > 0) {
+      if (
+        canPlaySidewaysInContext &&
+        playability.sidewaysOptions &&
+        playability.sidewaysOptions.length > 0
+      ) {
         (playableCard as { sidewaysOptions?: readonly SidewaysOption[] }).sidewaysOptions = playability.sidewaysOptions;
       }
 

@@ -70,3 +70,20 @@ export function getSidewaysOptionsForValue(
   const choices = getAllowedSidewaysChoices(context);
   return choices.map((as) => ({ as, value: sidewaysValue }));
 }
+
+/**
+ * Shared legality check for sideways play.
+ *
+ * While resting, sideways play is disallowed. Otherwise legality is based on
+ * whether the current phase allows any sideways choice.
+ */
+export function canPlaySideways(
+  state: GameState,
+  isResting: boolean
+): boolean {
+  if (isResting) {
+    return false;
+  }
+
+  return getAllowedSidewaysChoices(getSidewaysContext(state)).length > 0;
+}
