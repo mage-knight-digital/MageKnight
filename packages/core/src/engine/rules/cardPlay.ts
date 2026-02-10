@@ -52,6 +52,7 @@ import {
   effectHasCardBoost,
   effectIsUtility,
 } from "./effectDetection/index.js";
+import { getActionCardColor } from "../helpers/cardColor.js";
 import { isCumbersomeActive } from "../combat/cumbersomeHelpers.js";
 import type { GameState } from "../../state/GameState.js";
 import { isRuleActive } from "../modifiers/index.js";
@@ -345,4 +346,44 @@ export function isTimeBendingChainPrevented(
   isTimeBentTurn: boolean
 ): boolean {
   return powered && cardId === CARD_SPACE_BENDING && isTimeBentTurn;
+}
+
+/**
+ * Check whether a discard-cost effect can be paid after removing the source card from hand.
+ *
+ * PLAY_CARD checks happen while the source card is still in hand, but discard-cost
+ * resolution happens after the source card moves to playArea. This helper keeps
+ * validators and validActions aligned for those effects.
+ */
+export function isDiscardCostPayableAfterPlayingSource(
+  effect: CardEffect,
+  hand: readonly CardId[],
+  sourceCardId: CardId
+): boolean {
+  if (effect.type !== EFFECT_DISCARD_COST) {
+    return true;
+  }
+
+  if (effect.optional) {
+    return true;
+  }
+
+  const handWithoutSource = [...hand];
+  const sourceIndex = handWithoutSource.indexOf(sourceCardId);
+  if (sourceIndex !== -1) {
+    handWithoutSource.splice(sourceIndex, 1);
+  }
+
+  const filterWounds = effect.filterWounds ?? true;
+  let eligibleCards = filterWounds
+    ? handWithoutSource.filter((cardId) => cardId !== CARD_WOUND)
+    : handWithoutSource;
+
+  if (effect.colorMatters && !effect.allowNoColor) {
+    eligibleCards = eligibleCards.filter(
+      (cardId) => getActionCardColor(cardId) !== null
+    );
+  }
+
+  return eligibleCards.length >= effect.count;
 }
