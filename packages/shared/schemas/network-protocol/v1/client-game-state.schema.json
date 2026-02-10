@@ -2763,12 +2763,20 @@
         },
         "mustPickDepletedFirst": {
           "type": "boolean"
+        },
+        "requiredFirstDiceIds": {
+          "description": "Explicit constrained subset when mustPickDepletedFirst is true.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
         "availableDiceIds",
         "maxDice",
-        "mustPickDepletedFirst"
+        "mustPickDepletedFirst",
+        "requiredFirstDiceIds"
       ],
       "type": "object"
     },

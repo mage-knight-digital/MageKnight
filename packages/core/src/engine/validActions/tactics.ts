@@ -227,6 +227,7 @@ export function getManaSearchOptions(
   return {
     maxDice: 2,
     mustPickDepletedFirst: restrictedDice.length > 0,
+    requiredFirstDiceIds: restrictedDice.map((d) => d.id),
     availableDiceIds: availableDice.map((d) => d.id),
   };
 }

@@ -728,6 +728,8 @@ export interface ActivatableTacticOptions {
 export interface ManaSearchOptions {
   readonly maxDice: number;
   readonly mustPickDepletedFirst: boolean;
+  /** Explicit constrained subset when mustPickDepletedFirst is true. */
+  readonly requiredFirstDiceIds: readonly string[];
   readonly availableDiceIds: readonly string[];
 }
 

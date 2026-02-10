@@ -87,6 +87,7 @@ export function getSiteOptions(
   const canInteract =
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
+    !player.hasTakenActionThisTurn &&
     canInteractWithSite(site);
   const interactOptions = canInteract
     ? getInteractOptions(state, player, site)
