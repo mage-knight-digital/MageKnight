@@ -942,19 +942,12 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
     if turn is not None:
         if bool(turn.get("canCompleteRest")):
             rest_discard = _as_dict(turn.get("restDiscard"))
-            discardable = [card for card in _as_list(rest_discard.get("discardableCardIds") if rest_discard else None) if isinstance(card, str)]
-            if discardable:
+            discard_card_ids = _build_complete_rest_discard(rest_discard)
+            if discard_card_ids is not None:
                 actions.append(
                     CandidateAction(
-                        {"type": ACTION_COMPLETE_REST, "discardCardIds": [discardable[0]]},
-                        "normal.turn.complete_rest.one",
-                    )
-                )
-            if bool(rest_discard.get("allowEmptyDiscard") if rest_discard else False):
-                actions.append(
-                    CandidateAction(
-                        {"type": ACTION_COMPLETE_REST, "discardCardIds": []},
-                        "normal.turn.complete_rest.empty",
+                        {"type": ACTION_COMPLETE_REST, "discardCardIds": discard_card_ids},
+                        "normal.turn.complete_rest",
                     )
                 )
         if bool(turn.get("canDeclareRest")):
@@ -976,6 +969,41 @@ def _append_common_blocking_actions(valid_actions: dict[str, Any], actions: list
         actions.append(CandidateAction({"type": ACTION_UNDO}, "turn.undo"))
     if bool(turn.get("canEndTurn")):
         actions.append(CandidateAction({"type": ACTION_END_TURN}, "turn.end_turn"))
+
+
+def _is_wound_card_id(card_id: str) -> bool:
+    return card_id == "wound"
+
+
+def _build_complete_rest_discard(rest_discard: dict[str, Any] | None) -> list[str] | None:
+    if rest_discard is None:
+        return None
+
+    rest_type = _as_str(rest_discard.get("restType"))
+    discardable = [
+        card for card in _as_list(rest_discard.get("discardableCardIds")) if isinstance(card, str)
+    ]
+    allow_empty = bool(rest_discard.get("allowEmptyDiscard"))
+
+    if rest_type == "standard":
+        non_wounds = [card for card in discardable if not _is_wound_card_id(card)]
+        if not non_wounds:
+            return None
+        # Standard Rest requires exactly one non-wound; wounds are optional.
+        return [non_wounds[0]]
+
+    if rest_type == "slow_recovery":
+        if allow_empty:
+            return []
+        if discardable:
+            return [discardable[0]]
+        return None
+
+    if allow_empty:
+        return []
+    if discardable:
+        return [discardable[0]]
+    return None
 
 
 def _find_player(state: dict[str, Any], player_id: str) -> dict[str, Any] | None:
