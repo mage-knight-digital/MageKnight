@@ -18,6 +18,7 @@ import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { CardEffect, DeedCard } from "../../../types/cards.js";
 import type { ShapeshiftTargetType } from "../../../types/modifiers.js";
+import type { ShapeshiftActiveModifier } from "../../../types/modifiers.js";
 import type { CardId, Element } from "@mage-knight/shared";
 import type { CombatType } from "../../../types/effectTypes.js";
 import { SKILL_BRAEVALAR_SHAPESHIFT } from "../../../data/skills/index.js";
@@ -38,6 +39,7 @@ import {
   SHAPESHIFT_TARGET_MOVE,
   SHAPESHIFT_TARGET_ATTACK,
   SHAPESHIFT_TARGET_BLOCK,
+  EFFECT_SHAPESHIFT_ACTIVE,
 } from "../../../types/modifierConstants.js";
 
 /**
@@ -247,6 +249,28 @@ function getEligibleCards(player: Player): DeedCard[] {
   return cards;
 }
 
+function getAlreadyTargetedShapeshiftCards(
+  state: GameState,
+  playerId: string
+): Set<CardId> {
+  const targetedCards = new Set<CardId>();
+
+  for (const modifier of state.activeModifiers) {
+    if (modifier.createdByPlayerId !== playerId) {
+      continue;
+    }
+
+    if (modifier.effect.type !== EFFECT_SHAPESHIFT_ACTIVE) {
+      continue;
+    }
+
+    const effect = modifier.effect as ShapeshiftActiveModifier;
+    targetedCards.add(effect.targetCardId);
+  }
+
+  return targetedCards;
+}
+
 /**
  * Apply the Shapeshift skill effect.
  *
@@ -264,10 +288,15 @@ export function applyShapeshiftEffect(
   }
 
   const eligibleCards = getEligibleCards(player);
+  const alreadyTargetedCards = getAlreadyTargetedShapeshiftCards(state, playerId);
   const allOptions: ShapeshiftOption[] = [];
   const inCombat = state.combat !== null;
 
   for (const card of eligibleCards) {
+    if (alreadyTargetedCards.has(card.id)) {
+      continue;
+    }
+
     // Check both basic and powered effects for shapeshiftable effects
     const basicEffects = getShapeshiftableEffects(card.id, card.name, card.basicEffect, false);
     const poweredEffects = getShapeshiftableEffects(card.id, card.name, card.poweredEffect, true);
@@ -364,13 +393,18 @@ export function removeShapeshiftEffect(
  * Used by validActions to determine if the skill should be shown.
  */
 export function canActivateShapeshift(
-  _state: GameState,
+  state: GameState,
   player: Player
 ): boolean {
   const eligibleCards = getEligibleCards(player);
+  const alreadyTargetedCards = getAlreadyTargetedShapeshiftCards(state, player.id);
 
   // Check if any eligible card has a shapeshiftable effect
   for (const card of eligibleCards) {
+    if (alreadyTargetedCards.has(card.id)) {
+      continue;
+    }
+
     const basicEffects = getShapeshiftableEffects(card.id, card.name, card.basicEffect, false);
     const poweredEffects = getShapeshiftableEffects(card.id, card.name, card.poweredEffect, true);
     if (basicEffects.length > 0 || poweredEffects.length > 0) {
