@@ -10,7 +10,12 @@ import {
   type ServerMessage,
   type StateUpdateMessage,
 } from "../WebSocketServer.js";
-import { END_TURN_ACTION } from "@mage-knight/shared";
+import {
+  END_TURN_ACTION,
+  NETWORK_PROTOCOL_VERSION,
+  PROTOCOL_PARSE_ERROR_UNSUPPORTED_VERSION,
+  parseServerMessage,
+} from "@mage-knight/shared";
 
 class FakeConnection implements ConnectionLike {
   readonly sentMessages: string[] = [];
@@ -27,7 +32,12 @@ class FakeConnection implements ConnectionLike {
 }
 
 function parseMessage(rawMessage: string): ServerMessage {
-  return JSON.parse(rawMessage) as ServerMessage;
+  const parsed = parseServerMessage(JSON.parse(rawMessage));
+  if (!parsed.ok) {
+    throw new Error(`Invalid server message in test: ${parsed.error.message}`);
+  }
+
+  return parsed.message;
 }
 
 function findLastMessageOfType<TMessage extends ServerMessage>(
@@ -70,6 +80,7 @@ describe("GameRoomManager", () => {
     manager.handleConnectionMessage(
       playerOneConnection,
       JSON.stringify({
+        protocolVersion: NETWORK_PROTOCOL_VERSION,
         type: CLIENT_MESSAGE_ACTION,
         action: { type: END_TURN_ACTION },
       })
@@ -151,5 +162,26 @@ describe("GameRoomManager", () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
 
     expect(manager.hasRoom(roomId)).toBe(false);
+  });
+
+  it("returns protocol error for unsupported protocol versions", () => {
+    const manager = new GameRoomManager();
+    const roomId = manager.createGameRoom({ playerIds: ["player1"] });
+    const connection = new FakeConnection();
+
+    manager.handleConnectionOpen(connection, roomId, "player1");
+    connection.sentMessages.length = 0;
+
+    manager.handleConnectionMessage(
+      connection,
+      JSON.stringify({
+        protocolVersion: "9.9.9",
+        type: CLIENT_MESSAGE_ACTION,
+        action: { type: END_TURN_ACTION },
+      })
+    );
+
+    const errorMessage = findLastMessageOfType<ErrorMessage>(connection, SERVER_MESSAGE_ERROR);
+    expect(errorMessage.errorCode).toBe(PROTOCOL_PARSE_ERROR_UNSUPPORTED_VERSION);
   });
 });
