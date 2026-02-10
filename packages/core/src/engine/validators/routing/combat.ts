@@ -19,6 +19,7 @@ import {
 import {
   validateIsPlayersTurn,
   validateRoundPhase,
+  validateHasNotActed,
 } from "../turnValidators.js";
 
 import {
@@ -100,6 +101,7 @@ export const combatValidatorRegistry: ValidatorRegistry = {
     validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotRestingForCombat, // Cannot challenge while resting (FAQ S3)
+    validateHasNotActed, // Challenge consumes action phase; disallow after rest/other action
     validateChallengeNotInCombat,
     validateNoCombatThisTurn,
     validateChallengePlayerOnMap,
