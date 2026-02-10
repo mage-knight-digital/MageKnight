@@ -12,8 +12,17 @@ Python async SDK for Mage Knight's WebSocket multiplayer protocol.
 
 ## Install
 
+First, create and activate a virtual environment:
+
 ```bash
 cd packages/python-sdk
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+Then install the SDK in editable mode:
+
+```bash
 python3 -m pip install -e .
 ```
 
@@ -40,6 +49,8 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+This example requires a Mage Knight server running locally. See `examples/local_dev_client.py` for a more complete example.
+
 ## Generate Models
 
 Protocol models are generated from:
@@ -47,15 +58,18 @@ Protocol models are generated from:
 - `packages/shared/schemas/network-protocol/v1/client-to-server.schema.json`
 - `packages/shared/schemas/network-protocol/v1/server-to-client.schema.json`
 
-Run:
+To regenerate after updating protocol schemas:
 
 ```bash
-python3 packages/python-sdk/scripts/generate_protocol_models.py
+cd packages/python-sdk
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 scripts/generate_protocol_models.py
 ```
 
 ## Local Integration Tests
 
 ```bash
 cd packages/python-sdk
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 python3 -m unittest discover -s tests -p 'test_*.py'
 ```
