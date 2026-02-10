@@ -25,6 +25,10 @@ import {
   HEX_NOT_FOUND,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import {
+  isChallengeTargetAdjacent,
+  hasChallengeableRampagingEnemiesAtHex,
+} from "../rules/challenge.js";
 
 /**
  * Type guard to extract target hex from action.
@@ -34,23 +38,6 @@ function getChallengeTarget(action: PlayerAction): HexCoord | null {
     return (action as ChallengeRampagingAction).targetHex;
   }
   return null;
-}
-
-/**
- * Check hex adjacency (copied from movementValidators for now).
- */
-function isAdjacent(a: HexCoord, b: HexCoord): boolean {
-  const dq = b.q - a.q;
-  const dr = b.r - a.r;
-  const adjacentOffsets = [
-    { q: 1, r: 0 },
-    { q: 1, r: -1 },
-    { q: 0, r: -1 },
-    { q: -1, r: 0 },
-    { q: -1, r: 1 },
-    { q: 0, r: 1 },
-  ];
-  return adjacentOffsets.some((o) => o.q === dq && o.r === dr);
 }
 
 /**
@@ -82,6 +69,7 @@ export function validateNotInCombat(
   if (state.combat !== null) {
     return invalid(ALREADY_IN_COMBAT, "Already in combat");
   }
+
   return valid();
 }
 
@@ -118,7 +106,7 @@ export function validateAdjacentToTarget(
     return invalid(INVALID_ACTION_CODE, "Invalid challenge action");
   }
 
-  if (!isAdjacent(player.position, target)) {
+  if (!isChallengeTargetAdjacent(player.position, target)) {
     return invalid(NOT_ADJACENT_TO_TARGET, "Target hex is not adjacent");
   }
   return valid();
@@ -146,8 +134,7 @@ export function validateTargetHasRampagingEnemies(
     return invalid(HEX_NOT_FOUND, "Target hex not found");
   }
 
-  // Check if hex has rampaging enemies (not just any enemies)
-  if (hex.rampagingEnemies.length === 0 || hex.enemies.length === 0) {
+  if (!hasChallengeableRampagingEnemiesAtHex(state, target)) {
     return invalid(TARGET_NOT_RAMPAGING, "Target hex has no rampaging enemies to challenge");
   }
 
