@@ -85,4 +85,20 @@ describe("Turn end options", () => {
       expect(validation.error.code).toBe(MUST_PLAY_OR_DISCARD_CARD);
     }
   });
+
+  it("allows end turn when hand has only wounds and no card was played", () => {
+    const player = createTestPlayer({
+      hand: ["wound"],
+      playedCardFromHandThisTurn: false,
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const turnOptions = getTurnOptions(state, player);
+    expect(turnOptions.canEndTurn).toBe(true);
+
+    const validation = validateMinimumTurnRequirement(state, player.id, {
+      type: END_TURN_ACTION,
+    });
+    expect(validation.valid).toBe(true);
+  });
 });

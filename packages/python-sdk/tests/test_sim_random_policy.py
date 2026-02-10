@@ -93,6 +93,32 @@ class RandomPolicyTest(unittest.TestCase):
         self.assertEqual(1, len(complete_rest_actions))
         self.assertEqual(["march"], complete_rest_actions[0]["discardCardIds"])
 
+    def test_enumerate_valid_actions_complete_rest_standard_picks_non_wound(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "normal_turn",
+                "turn": {
+                    "canEndTurn": False,
+                    "canAnnounceEndOfRound": False,
+                    "canUndo": True,
+                    "canDeclareRest": False,
+                    "canCompleteRest": True,
+                    "restDiscard": {
+                        "allowEmptyDiscard": False,
+                        "discardableCardIds": ["wound", "rage"],
+                        "restType": "standard",
+                    },
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        complete_rest_actions = [a.action for a in actions if a.action.get("type") == "COMPLETE_REST"]
+
+        self.assertEqual(1, len(complete_rest_actions))
+        self.assertEqual(["rage"], complete_rest_actions[0]["discardCardIds"])
+
 
 if __name__ == "__main__":
     unittest.main()
