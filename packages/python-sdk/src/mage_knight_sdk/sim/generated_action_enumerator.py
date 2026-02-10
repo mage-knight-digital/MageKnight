@@ -940,6 +940,23 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
             actions.append(CandidateAction({"type": ACTION_REROLL_SOURCE_DICE, "dieIds": [dice_ids[0]]}, "normal.tactic.reroll"))
 
     if turn is not None:
+        if bool(turn.get("canCompleteRest")):
+            rest_discard = _as_dict(turn.get("restDiscard"))
+            discardable = [card for card in _as_list(rest_discard.get("discardableCardIds") if rest_discard else None) if isinstance(card, str)]
+            if discardable:
+                actions.append(
+                    CandidateAction(
+                        {"type": ACTION_COMPLETE_REST, "discardCardIds": [discardable[0]]},
+                        "normal.turn.complete_rest.one",
+                    )
+                )
+            if bool(rest_discard.get("allowEmptyDiscard") if rest_discard else False):
+                actions.append(
+                    CandidateAction(
+                        {"type": ACTION_COMPLETE_REST, "discardCardIds": []},
+                        "normal.turn.complete_rest.empty",
+                    )
+                )
         if bool(turn.get("canDeclareRest")):
             actions.append(CandidateAction({"type": ACTION_DECLARE_REST}, "normal.turn.declare_rest"))
         if bool(turn.get("canEndTurn")):

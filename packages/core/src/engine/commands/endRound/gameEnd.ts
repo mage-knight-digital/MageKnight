@@ -26,12 +26,16 @@ export function checkGameEnd(
   state: GameState,
   oldRound: number
 ): GameEndCheckResult {
-  // Check if we're in final turns (scenario end was triggered)
-  if (
-    !state.scenarioEndTriggered ||
-    state.finalTurnsRemaining === null ||
-    state.finalTurnsRemaining <= 0
-  ) {
+  const reachedRoundLimit = oldRound >= state.scenarioConfig.totalRounds;
+  const shouldEndFromFinalTurns =
+    state.scenarioEndTriggered &&
+    state.finalTurnsRemaining !== null &&
+    state.finalTurnsRemaining > 0;
+
+  // End conditions:
+  // 1. Round ended during final turns after scenario trigger.
+  // 2. Scenario round limit reached.
+  if (!shouldEndFromFinalTurns && !reachedRoundLimit) {
     return { gameEnded: false, events: [] };
   }
 

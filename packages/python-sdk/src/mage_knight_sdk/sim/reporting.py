@@ -39,6 +39,7 @@ class RunResult:
     steps: int
     game_id: str
     reason: str | None = None
+    timeout_debug: dict[str, Any] | None = None
     failure_artifact_path: str | None = None
 
 
@@ -89,5 +90,7 @@ def write_failure_artifact(
         "actionTrace": [asdict(entry) for entry in action_trace],
         "messageLog": [asdict(entry) for entry in message_log],
     }
+    if run_result.timeout_debug is not None:
+        payload["timeoutDebug"] = run_result.timeout_debug
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return str(path)
