@@ -1,8 +1,9 @@
 import type { PlayerAction } from "./actions.js";
+import { KNOWN_ACTION_TYPES } from "./actions.js";
 import type { GameEvent } from "./events/index.js";
 import type { ClientGameState } from "./types/clientState.js";
 
-export const NETWORK_PROTOCOL_VERSION_1 = "1.0.0" as const;
+export const NETWORK_PROTOCOL_VERSION_1 = "1.1.0" as const;
 export const NETWORK_PROTOCOL_VERSION = NETWORK_PROTOCOL_VERSION_1;
 
 export type NetworkProtocolVersion = typeof NETWORK_PROTOCOL_VERSION;
@@ -85,12 +86,12 @@ export type ParseResult<TMessage> =
 
 type JsonSchema = Readonly<Record<string, unknown>>;
 
-const JSON_SCHEMA_DRAFT_2020 = "https://json-schema.org/draft/2020-12/schema";
+const JSON_SCHEMA_DRAFT_07 = "http://json-schema.org/draft-07/schema#";
 const SCHEMA_BASE_ID =
   "https://mageknight.digital/schemas/network-protocol/v1";
 
 export const clientToServerSchemaV1: JsonSchema = {
-  $schema: JSON_SCHEMA_DRAFT_2020,
+  $schema: JSON_SCHEMA_DRAFT_07,
   $id: `${SCHEMA_BASE_ID}/client-to-server.schema.json`,
   title: "Mage Knight Client -> Server WebSocket Messages v1",
   oneOf: [
@@ -102,13 +103,7 @@ export const clientToServerSchemaV1: JsonSchema = {
         protocolVersion: { const: NETWORK_PROTOCOL_VERSION },
         type: { const: CLIENT_MESSAGE_ACTION },
         action: {
-          // TODO(protocol): replace shallow action object validation with a full PlayerAction schema.
-          type: "object",
-          required: ["type"],
-          properties: {
-            type: { type: "string", minLength: 1 },
-          },
-          additionalProperties: true,
+          $ref: "player-action.schema.json",
         },
       },
     },
@@ -128,7 +123,7 @@ export const clientToServerSchemaV1: JsonSchema = {
 };
 
 export const serverToClientSchemaV1: JsonSchema = {
-  $schema: JSON_SCHEMA_DRAFT_2020,
+  $schema: JSON_SCHEMA_DRAFT_07,
   $id: `${SCHEMA_BASE_ID}/server-to-client.schema.json`,
   title: "Mage Knight Server -> Client WebSocket Messages v1",
   oneOf: [
@@ -139,9 +134,13 @@ export const serverToClientSchemaV1: JsonSchema = {
       properties: {
         protocolVersion: { const: NETWORK_PROTOCOL_VERSION },
         type: { const: SERVER_MESSAGE_STATE_UPDATE },
-        // TODO(protocol): replace shallow array/object validation with full GameEvent/ClientGameState schemas.
-        events: { type: "array" },
-        state: { type: "object" },
+        events: {
+          type: "array",
+          items: { $ref: "game-event.schema.json" },
+        },
+        state: {
+          $ref: "client-game-state.schema.json",
+        },
       },
     },
     {
@@ -222,6 +221,13 @@ export function parseClientMessage(value: unknown): ParseResult<ClientMessage> {
         return invalid(
           PROTOCOL_PARSE_ERROR_INVALID_PAYLOAD,
           "Action message payload must include a non-empty action.type string."
+        );
+      }
+
+      if (!KNOWN_ACTION_TYPES.has(action.type)) {
+        return invalid(
+          PROTOCOL_PARSE_ERROR_INVALID_PAYLOAD,
+          `Unknown action type: ${action.type}.`
         );
       }
 

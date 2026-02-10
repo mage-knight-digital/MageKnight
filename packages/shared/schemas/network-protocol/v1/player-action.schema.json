@@ -1,0 +1,2201 @@
+{
+  "$id": "https://mageknight.digital/schemas/network-protocol/v1/player-action.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/MoveAction"
+    },
+    {
+      "$ref": "#/definitions/ExploreAction"
+    },
+    {
+      "$ref": "#/definitions/EnterSiteAction"
+    },
+    {
+      "$ref": "#/definitions/AltarTributeAction"
+    },
+    {
+      "$ref": "#/definitions/BurnMonasteryAction"
+    },
+    {
+      "$ref": "#/definitions/PlunderVillageAction"
+    },
+    {
+      "$ref": "#/definitions/EndTurnAction"
+    },
+    {
+      "$ref": "#/definitions/RestAction"
+    },
+    {
+      "$ref": "#/definitions/DeclareRestAction"
+    },
+    {
+      "$ref": "#/definitions/CompleteRestAction"
+    },
+    {
+      "$ref": "#/definitions/InteractAction"
+    },
+    {
+      "$ref": "#/definitions/AnnounceEndOfRoundAction"
+    },
+    {
+      "$ref": "#/definitions/ProposeCooperativeAssaultAction"
+    },
+    {
+      "$ref": "#/definitions/RespondToCooperativeProposalAction"
+    },
+    {
+      "$ref": "#/definitions/CancelCooperativeProposalAction"
+    },
+    {
+      "$ref": "#/definitions/PlayCardAction"
+    },
+    {
+      "$ref": "#/definitions/PlayCardSidewaysAction"
+    },
+    {
+      "$ref": "#/definitions/ActivateUnitAction"
+    },
+    {
+      "$ref": "#/definitions/UseSkillAction"
+    },
+    {
+      "$ref": "#/definitions/ReturnInteractiveSkillAction"
+    },
+    {
+      "$ref": "#/definitions/RecruitUnitAction"
+    },
+    {
+      "$ref": "#/definitions/DisbandUnitAction"
+    },
+    {
+      "$ref": "#/definitions/AssignBannerAction"
+    },
+    {
+      "$ref": "#/definitions/UseBannerFearAction"
+    },
+    {
+      "$ref": "#/definitions/PayHeroesAssaultInfluenceAction"
+    },
+    {
+      "$ref": "#/definitions/PayThugsDamageInfluenceAction"
+    },
+    {
+      "$ref": "#/definitions/BuySpellAction"
+    },
+    {
+      "$ref": "#/definitions/LearnAdvancedActionAction"
+    },
+    {
+      "$ref": "#/definitions/BuyHealingAction"
+    },
+    {
+      "$ref": "#/definitions/SelectTacticAction"
+    },
+    {
+      "$ref": "#/definitions/ActivateTacticAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveTacticDecisionAction"
+    },
+    {
+      "$ref": "#/definitions/RerollSourceDiceAction"
+    },
+    {
+      "$ref": "#/definitions/UndoAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveChoiceAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveHexCostReductionAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveTerrainCostReductionAction"
+    },
+    {
+      "$ref": "#/definitions/ChooseLevelUpRewardsAction"
+    },
+    {
+      "$ref": "#/definitions/SelectRewardAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveGladeWoundAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveUnitMaintenanceAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveDeepMineAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveCrystalJoyReclaimAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveSteadyTempoAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveBannerProtectionAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveSourceOpeningRerollAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveDiscardAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveDiscardForAttackAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveDiscardForBonusAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveDiscardForCrystalAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveMeditationAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveDecomposeAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveMaximalEffectAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveBookOfWisdomAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveTrainingAction"
+    },
+    {
+      "$ref": "#/definitions/ResolveArtifactCrystalColorAction"
+    },
+    {
+      "$ref": "#/definitions/ConvertMoveToAttackAction"
+    },
+    {
+      "$ref": "#/definitions/ConvertInfluenceToBlockAction"
+    },
+    {
+      "$ref": "#/definitions/DebugAddFameAction"
+    },
+    {
+      "$ref": "#/definitions/DebugTriggerLevelUpAction"
+    },
+    {
+      "$ref": "#/definitions/EnterCombatAction"
+    },
+    {
+      "$ref": "#/definitions/ChallengeRampagingAction"
+    },
+    {
+      "$ref": "#/definitions/EndCombatPhaseAction"
+    },
+    {
+      "$ref": "#/definitions/DeclareBlockAction"
+    },
+    {
+      "$ref": "#/definitions/DeclareAttackAction"
+    },
+    {
+      "$ref": "#/definitions/AssignDamageAction"
+    },
+    {
+      "$ref": "#/definitions/AssignAttackAction"
+    },
+    {
+      "$ref": "#/definitions/UnassignAttackAction"
+    },
+    {
+      "$ref": "#/definitions/AssignBlockAction"
+    },
+    {
+      "$ref": "#/definitions/UnassignBlockAction"
+    },
+    {
+      "$ref": "#/definitions/SpendMoveOnCumbersomeAction"
+    }
+  ],
+  "definitions": {
+    "ActivateTacticAction": {
+      "additionalProperties": false,
+      "properties": {
+        "tacticId": {
+          "$ref": "#/definitions/TacticId"
+        },
+        "type": {
+          "const": "ACTIVATE_TACTIC",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tacticId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ActivateUnitAction": {
+      "additionalProperties": false,
+      "properties": {
+        "abilityIndex": {
+          "type": "number"
+        },
+        "manaSource": {
+          "$ref": "#/definitions/ManaSourceInfo",
+          "description": "Mana source used to pay for abilities with manaCost.\nRequired when the ability has a manaCost defined."
+        },
+        "type": {
+          "const": "ACTIVATE_UNIT",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "abilityIndex",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "AltarTributeAction": {
+      "additionalProperties": false,
+      "properties": {
+        "manaSources": {
+          "items": {
+            "$ref": "#/definitions/ManaSourceInfo"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "ALTAR_TRIBUTE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "manaSources",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AnnounceEndOfRoundAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "ANNOUNCE_END_OF_ROUND",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "AssignAttackAction": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "attackType": {
+          "$ref": "#/definitions/AttackType"
+        },
+        "element": {
+          "$ref": "#/definitions/AttackElement"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "ASSIGN_ATTACK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "attackType",
+        "element",
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AssignBannerAction": {
+      "additionalProperties": false,
+      "properties": {
+        "bannerCardId": {
+          "type": "string"
+        },
+        "targetUnitInstanceId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "ASSIGN_BANNER",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bannerCardId",
+        "targetUnitInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AssignBlockAction": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "element": {
+          "$ref": "#/definitions/AttackElement"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "ASSIGN_BLOCK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "element",
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AssignDamageAction": {
+      "additionalProperties": false,
+      "properties": {
+        "assignments": {
+          "items": {
+            "$ref": "#/definitions/DamageAssignment"
+          },
+          "type": "array"
+        },
+        "attackIndex": {
+          "description": "For multi-attack enemies, specifies which attack's damage to assign (0-indexed).\nDefaults to 0 for single-attack enemies or when not specified.",
+          "type": "number"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "ASSIGN_DAMAGE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AttackElement": {
+      "enum": [
+        "coldFire",
+        "fire",
+        "ice",
+        "physical"
+      ],
+      "type": "string"
+    },
+    "AttackSource": {
+      "additionalProperties": false,
+      "properties": {
+        "element": {
+          "$ref": "#/definitions/Element"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "element",
+        "value"
+      ],
+      "type": "object"
+    },
+    "AttackType": {
+      "enum": [
+        "melee",
+        "ranged",
+        "siege"
+      ],
+      "type": "string"
+    },
+    "BasicManaColor": {
+      "enum": [
+        "blue",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "string"
+    },
+    "BurnMonasteryAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "BURN_MONASTERY",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "BuyHealingAction": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "type": {
+          "const": "BUY_HEALING",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "type"
+      ],
+      "type": "object"
+    },
+    "BuySpellAction": {
+      "additionalProperties": false,
+      "description": "Buy a spell from the spell offer at a conquered Mage Tower.\nCosts 7 influence points.",
+      "properties": {
+        "cardId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "BUY_SPELL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CancelCooperativeProposalAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "CANCEL_COOPERATIVE_PROPOSAL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "ChallengeRampagingAction": {
+      "additionalProperties": false,
+      "properties": {
+        "targetHex": {
+          "$ref": "#/definitions/HexCoord"
+        },
+        "type": {
+          "const": "CHALLENGE_RAMPAGING",
+          "type": "string"
+        }
+      },
+      "required": [
+        "targetHex",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ChooseLevelUpRewardsAction": {
+      "additionalProperties": false,
+      "properties": {
+        "advancedActionId": {
+          "type": "string"
+        },
+        "level": {
+          "type": "number"
+        },
+        "skillChoice": {
+          "additionalProperties": false,
+          "properties": {
+            "fromCommonPool": {
+              "type": "boolean"
+            },
+            "skillId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "fromCommonPool",
+            "skillId"
+          ],
+          "type": "object"
+        },
+        "type": {
+          "const": "CHOOSE_LEVEL_UP_REWARDS",
+          "type": "string"
+        }
+      },
+      "required": [
+        "advancedActionId",
+        "level",
+        "skillChoice",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CityColor": {
+      "enum": [
+        "blue",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "string"
+    },
+    "CombatType": {
+      "enum": [
+        "melee",
+        "ranged",
+        "siege"
+      ],
+      "type": "string"
+    },
+    "CompleteRestAction": {
+      "additionalProperties": false,
+      "description": "Completes the rest by discarding cards.\nRest type is determined automatically based on hand at completion:\n- Standard Rest: exactly 1 non-wound + any wounds (if hand has non-wounds)\n- Slow Recovery: exactly 1 wound (if hand has only wounds OR all wounds healed)",
+      "properties": {
+        "announceEndOfRound": {
+          "type": "boolean"
+        },
+        "discardCardIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "COMPLETE_REST",
+          "type": "string"
+        }
+      },
+      "required": [
+        "discardCardIds",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ConvertInfluenceToBlockAction": {
+      "additionalProperties": false,
+      "properties": {
+        "influencePointsToSpend": {
+          "type": "number"
+        },
+        "type": {
+          "const": "CONVERT_INFLUENCE_TO_BLOCK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "influencePointsToSpend",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ConvertMoveToAttackAction": {
+      "additionalProperties": false,
+      "properties": {
+        "conversionType": {
+          "$ref": "#/definitions/MoveToAttackConversionType"
+        },
+        "movePointsToSpend": {
+          "type": "number"
+        },
+        "type": {
+          "const": "CONVERT_MOVE_TO_ATTACK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conversionType",
+        "movePointsToSpend",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CooperativeResponse": {
+      "enum": [
+        "accept",
+        "decline"
+      ],
+      "type": "string"
+    },
+    "DamageAssignment": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "target": {
+          "$ref": "#/definitions/DamageTarget"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "target"
+      ],
+      "type": "object"
+    },
+    "DamageTarget": {
+      "enum": [
+        "hero",
+        "unit"
+      ],
+      "type": "string"
+    },
+    "DebugAddFameAction": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "type": {
+          "const": "DEBUG_ADD_FAME",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DebugTriggerLevelUpAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "DEBUG_TRIGGER_LEVEL_UP",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "DeclareAttackAction": {
+      "additionalProperties": false,
+      "properties": {
+        "attacks": {
+          "items": {
+            "$ref": "#/definitions/AttackSource"
+          },
+          "type": "array"
+        },
+        "attackType": {
+          "$ref": "#/definitions/CombatType"
+        },
+        "targetEnemyInstanceIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "DECLARE_ATTACK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attackType",
+        "attacks",
+        "targetEnemyInstanceIds",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DeclareBlockAction": {
+      "additionalProperties": false,
+      "properties": {
+        "attackIndex": {
+          "description": "For multi-attack enemies, specifies which attack to block (0-indexed).\nDefaults to 0 for single-attack enemies or when not specified.",
+          "type": "number"
+        },
+        "targetEnemyInstanceId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "DECLARE_BLOCK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "targetEnemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "DeclareRestAction": {
+      "additionalProperties": false,
+      "description": "Declares intent to rest. Enters isResting state.\nWhile resting: movement, combat initiation, and interaction are blocked.\nCard play is still allowed (healing, special effects, influence for AAs).",
+      "properties": {
+        "type": {
+          "const": "DECLARE_REST",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "DisbandUnitAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "DISBAND_UNIT",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "Element": {
+      "enum": [
+        "cold_fire",
+        "fire",
+        "ice",
+        "physical"
+      ],
+      "type": "string"
+    },
+    "EndCombatPhaseAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "END_COMBAT_PHASE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "EndTurnAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "END_TURN",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "EnemyDistribution": {
+      "additionalProperties": false,
+      "description": "Enemy distribution assignment for a cooperative assault.\nEach participating player must receive at least 1 enemy.",
+      "properties": {
+        "enemyCount": {
+          "type": "number"
+        },
+        "playerId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyCount",
+        "playerId"
+      ],
+      "type": "object"
+    },
+    "EnemyId": {
+      "description": "Union of all enemy IDs across all factions",
+      "enum": [
+        "air_elemental",
+        "altem_guardsmen",
+        "altem_mages",
+        "blood_demon",
+        "centaur_outriders",
+        "cloud_griffons",
+        "corrupted_priests",
+        "crossbowmen",
+        "crypt_worm",
+        "crystal_sprites",
+        "cursed_hags",
+        "death_dragon",
+        "delphana_masters",
+        "diggers",
+        "dragon_summoner",
+        "earth_elemental",
+        "elemental_priests",
+        "elven_protectors",
+        "fire_catapult",
+        "fire_dragon",
+        "fire_elemental",
+        "fire_golems",
+        "fire_mages",
+        "freezers",
+        "gargoyle",
+        "gibbering_ghouls",
+        "golems",
+        "grim_legionnaries",
+        "guardsmen",
+        "gunners",
+        "heroes",
+        "high_dragon",
+        "hydra",
+        "ice_catapult",
+        "ice_dragon",
+        "ice_golems",
+        "ice_mages",
+        "illusionists",
+        "ironclads",
+        "lava_dragon",
+        "lightning_dragon",
+        "magic_familiars",
+        "manticore",
+        "medusa",
+        "minotaur",
+        "monks",
+        "mummy",
+        "orc_skirmishers",
+        "orc_stonethrowers",
+        "orc_summoners",
+        "orc_tracker",
+        "orc_war_beasts",
+        "pain_wraith",
+        "prowlers",
+        "savage_dragon",
+        "shadow",
+        "shocktroops",
+        "shocktroops_gray",
+        "shrouded_necromancers",
+        "skeletal_warriors",
+        "sorcerers",
+        "storm_dragon",
+        "swamp_dragon",
+        "swordsmen",
+        "thugs",
+        "thugs_gray",
+        "vampire",
+        "vampire_dragon",
+        "water_elemental",
+        "werewolf",
+        "wolf_riders",
+        "zombie_horde"
+      ],
+      "type": "string"
+    },
+    "EnterCombatAction": {
+      "additionalProperties": false,
+      "properties": {
+        "enemyIds": {
+          "items": {
+            "$ref": "#/definitions/EnemyId"
+          },
+          "type": "array"
+        },
+        "isAtFortifiedSite": {
+          "type": "boolean"
+        },
+        "type": {
+          "const": "ENTER_COMBAT",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyIds",
+        "type"
+      ],
+      "type": "object"
+    },
+    "EnterSiteAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "ENTER_SITE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "ExploreAction": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "$ref": "#/definitions/HexDirection"
+        },
+        "fromTileCoord": {
+          "$ref": "#/definitions/HexCoord"
+        },
+        "type": {
+          "const": "EXPLORE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "direction",
+        "fromTileCoord",
+        "type"
+      ],
+      "type": "object"
+    },
+    "GladeWoundChoice": {
+      "enum": [
+        "discard",
+        "hand",
+        "skip"
+      ],
+      "type": "string"
+    },
+    "HexCoord": {
+      "additionalProperties": false,
+      "description": "Hex coordinate types using axial coordinates (q, r)",
+      "properties": {
+        "q": {
+          "type": "number"
+        },
+        "r": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "q",
+        "r"
+      ],
+      "type": "object"
+    },
+    "HexDirection": {
+      "enum": [
+        "E",
+        "NE",
+        "NW",
+        "SE",
+        "SW",
+        "W"
+      ],
+      "type": "string"
+    },
+    "InteractAction": {
+      "additionalProperties": false,
+      "properties": {
+        "healing": {
+          "type": "number"
+        },
+        "recruitUnitId": {
+          "enum": [
+            "altem_guardians",
+            "altem_mages",
+            "amotep_freezers",
+            "amotep_gunners",
+            "catapults",
+            "delphana_masters",
+            "fire_golems",
+            "fire_mages",
+            "foresters",
+            "guardian_golems",
+            "herbalist",
+            "hero_blue",
+            "hero_green",
+            "hero_red",
+            "hero_white",
+            "heroes",
+            "ice_golems",
+            "ice_mages",
+            "illusionists",
+            "magic_familiars",
+            "northern_monks",
+            "peasants",
+            "red_cape_monks",
+            "savage_monks",
+            "scouts",
+            "shocktroops",
+            "sorcerers",
+            "thugs",
+            "utem_crossbowmen",
+            "utem_guardsmen",
+            "utem_swordsmen"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "INTERACT",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "LearnAdvancedActionAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "type": "string"
+        },
+        "fromLearning": {
+          "description": "If true, this purchase is via the Learning card's special ability",
+          "type": "boolean"
+        },
+        "fromMonastery": {
+          "type": "boolean"
+        },
+        "type": {
+          "const": "LEARN_ADVANCED_ACTION",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "fromMonastery",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ManaColor": {
+      "enum": [
+        "black",
+        "blue",
+        "gold",
+        "green",
+        "red",
+        "white"
+      ],
+      "type": "string"
+    },
+    "ManaSourceInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor"
+        },
+        "dieId": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/ManaSourceType"
+        }
+      },
+      "required": [
+        "color",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ManaSourceType": {
+      "enum": [
+        "crystal",
+        "die",
+        "endless",
+        "token"
+      ],
+      "type": "string"
+    },
+    "MoveAction": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/HexCoord"
+        },
+        "type": {
+          "const": "MOVE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "type"
+      ],
+      "type": "object"
+    },
+    "MoveToAttackConversionType": {
+      "enum": [
+        "melee",
+        "ranged"
+      ],
+      "type": "string"
+    },
+    "PayHeroesAssaultInfluenceAction": {
+      "additionalProperties": false,
+      "description": "Pay 2 influence to allow Heroes units to use abilities during\nfortified site assaults. Per rulebook, Heroes refuse to participate\nin assaults on Keeps, Mage Towers, and Cities without this payment.",
+      "properties": {
+        "type": {
+          "const": "PAY_HEROES_ASSAULT_INFLUENCE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "PayThugsDamageInfluenceAction": {
+      "additionalProperties": false,
+      "description": "Pay 2 influence to allow combat damage to be assigned to a specific Thugs unit.\nPer rulebook: Thugs are not willing to take damage unless you pay 2 Influence.\nPayment is per-unit, per-combat.",
+      "properties": {
+        "type": {
+          "const": "PAY_THUGS_DAMAGE_INFLUENCE",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "PlayCardAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "type": "string"
+        },
+        "manaSource": {
+          "$ref": "#/definitions/ManaSourceInfo",
+          "description": "Single mana source for action cards (powered by one mana).\nRequired when powered is true for action cards."
+        },
+        "manaSources": {
+          "description": "Multiple mana sources for spells (require black + color mana).\nRequired when powered is true for spell cards.\nWhen provided, manaSource is ignored.",
+          "items": {
+            "$ref": "#/definitions/ManaSourceInfo"
+          },
+          "type": "array"
+        },
+        "powered": {
+          "type": "boolean"
+        },
+        "type": {
+          "const": "PLAY_CARD",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "powered",
+        "type"
+      ],
+      "type": "object"
+    },
+    "PlayCardSidewaysAction": {
+      "additionalProperties": false,
+      "properties": {
+        "as": {
+          "enum": [
+            "attack",
+            "block",
+            "influence",
+            "move"
+          ],
+          "type": "string"
+        },
+        "cardId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "PLAY_CARD_SIDEWAYS",
+          "type": "string"
+        }
+      },
+      "required": [
+        "as",
+        "cardId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "PlunderVillageAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "PLUNDER_VILLAGE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "ProposeCooperativeAssaultAction": {
+      "additionalProperties": false,
+      "properties": {
+        "distribution": {
+          "items": {
+            "$ref": "#/definitions/EnemyDistribution"
+          },
+          "type": "array"
+        },
+        "invitedPlayerIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "targetCity": {
+          "$ref": "#/definitions/CityColor"
+        },
+        "type": {
+          "const": "PROPOSE_COOPERATIVE_ASSAULT",
+          "type": "string"
+        }
+      },
+      "required": [
+        "distribution",
+        "invitedPlayerIds",
+        "targetCity",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RecruitUnitAction": {
+      "additionalProperties": false,
+      "properties": {
+        "disbandUnitInstanceId": {
+          "description": "Instance ID of a unit to disband to make room for the new recruit.\nRequired when the player is at their command limit.",
+          "type": "string"
+        },
+        "influenceSpent": {
+          "type": "number"
+        },
+        "manaSource": {
+          "$ref": "#/definitions/ManaSourceInfo",
+          "description": "Mana source used to pay for Magic Familiars recruitment.\nRequired when recruiting a unit with restrictedFromFreeRecruit."
+        },
+        "manaTokenColor": {
+          "description": "The basic mana color to place as a token on the unit (Magic Familiars).\nRequired when recruiting Magic Familiars. Gold mana can be used but\nthis specifies which basic color the token becomes.",
+          "enum": [
+            "blue",
+            "green",
+            "red",
+            "white"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "description": "Source of recruitment - determines which special rules apply.\nDefaults to \"normal\" if not specified (standard recruitment at a site).\n\"artifact\" or \"spell\" bypass Heroes/Thugs special rules.",
+          "enum": [
+            "artifact",
+            "normal",
+            "spell"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "RECRUIT_UNIT",
+          "type": "string"
+        },
+        "unitId": {
+          "$ref": "#/definitions/UnitId"
+        }
+      },
+      "required": [
+        "influenceSpent",
+        "type",
+        "unitId"
+      ],
+      "type": "object"
+    },
+    "RerollSourceDiceAction": {
+      "additionalProperties": false,
+      "properties": {
+        "dieIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "REROLL_SOURCE_DICE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dieIds",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveArtifactCrystalColorAction": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/BasicManaColor",
+          "description": "Crystal color to gain"
+        },
+        "type": {
+          "const": "RESOLVE_ARTIFACT_CRYSTAL_COLOR",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveBannerProtectionAction": {
+      "additionalProperties": false,
+      "properties": {
+        "removeAll": {
+          "type": "boolean"
+        },
+        "type": {
+          "const": "RESOLVE_BANNER_PROTECTION",
+          "type": "string"
+        }
+      },
+      "required": [
+        "removeAll",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveBookOfWisdomAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "description": "Card ID to throw away (phase 1) or card ID from offer to gain (phase 2)",
+          "type": "string"
+        },
+        "type": {
+          "const": "RESOLVE_BOOK_OF_WISDOM",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveChoiceAction": {
+      "additionalProperties": false,
+      "properties": {
+        "choiceIndex": {
+          "type": "number"
+        },
+        "type": {
+          "const": "RESOLVE_CHOICE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "choiceIndex",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveCrystalJoyReclaimAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "description": "Branded ID types shared between client and server\n\nThese are used in actions and events that flow between client and server.",
+          "type": "string"
+        },
+        "type": {
+          "const": "RESOLVE_CRYSTAL_JOY_RECLAIM",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveDecomposeAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "description": "Card ID of the action card to throw away",
+          "type": "string"
+        },
+        "type": {
+          "const": "RESOLVE_DECOMPOSE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveDeepMineAction": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/BasicManaColor"
+        },
+        "type": {
+          "const": "RESOLVE_DEEP_MINE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "color",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveDiscardAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardIds": {
+          "description": "Card IDs to discard (length must match pendingDiscard.count, or empty to skip if optional)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "RESOLVE_DISCARD",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardIds",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveDiscardForAttackAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardIds": {
+          "description": "Card IDs to discard (0 or more non-wound cards)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "RESOLVE_DISCARD_FOR_ATTACK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardIds",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveDiscardForBonusAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardIds": {
+          "description": "Card IDs to discard (0 or more). Empty array = skip discarding.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "choiceIndex": {
+          "description": "Which choice option to select (0-indexed: Move/Influence/Attack/Block)",
+          "type": "number"
+        },
+        "type": {
+          "const": "RESOLVE_DISCARD_FOR_BONUS",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardIds",
+        "choiceIndex",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveDiscardForCrystalAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "anyOf": [
+            {
+              "description": "Branded ID types shared between client and server\n\nThese are used in actions and events that flow between client and server.",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Card ID to discard, or null to skip (if optional)"
+        },
+        "type": {
+          "const": "RESOLVE_DISCARD_FOR_CRYSTAL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveGladeWoundAction": {
+      "additionalProperties": false,
+      "properties": {
+        "choice": {
+          "$ref": "#/definitions/GladeWoundChoice"
+        },
+        "type": {
+          "const": "RESOLVE_GLADE_WOUND",
+          "type": "string"
+        }
+      },
+      "required": [
+        "choice",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveHexCostReductionAction": {
+      "additionalProperties": false,
+      "properties": {
+        "coordinate": {
+          "$ref": "#/definitions/HexCoord"
+        },
+        "type": {
+          "const": "RESOLVE_HEX_COST_REDUCTION",
+          "type": "string"
+        }
+      },
+      "required": [
+        "coordinate",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveMaximalEffectAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "description": "Card ID of the action card to throw away",
+          "type": "string"
+        },
+        "type": {
+          "const": "RESOLVE_MAXIMAL_EFFECT",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveMeditationAction": {
+      "additionalProperties": false,
+      "properties": {
+        "placeOnTop": {
+          "type": "boolean"
+        },
+        "selectedCardIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "RESOLVE_MEDITATION",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveSourceOpeningRerollAction": {
+      "additionalProperties": false,
+      "properties": {
+        "reroll": {
+          "type": "boolean"
+        },
+        "type": {
+          "const": "RESOLVE_SOURCE_OPENING_REROLL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reroll",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveSteadyTempoAction": {
+      "additionalProperties": false,
+      "properties": {
+        "place": {
+          "type": "boolean"
+        },
+        "type": {
+          "const": "RESOLVE_STEADY_TEMPO",
+          "type": "string"
+        }
+      },
+      "required": [
+        "place",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveTacticDecisionAction": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "$ref": "#/definitions/ResolveTacticDecisionPayload"
+        },
+        "type": {
+          "const": "RESOLVE_TACTIC_DECISION",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveTacticDecisionPayload": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "cardIds": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "rethink",
+              "type": "string"
+            }
+          },
+          "required": [
+            "cardIds",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "dieId": {
+              "type": "string"
+            },
+            "type": {
+              "const": "mana_steal",
+              "type": "string"
+            }
+          },
+          "required": [
+            "dieId",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "cardId": {
+              "type": "string"
+            },
+            "type": {
+              "const": "preparation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "cardId",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "cardIds": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "midnight_meditation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "cardIds",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "choice": {
+              "$ref": "#/definitions/SparingPowerChoice"
+            },
+            "type": {
+              "const": "sparing_power",
+              "type": "string"
+            }
+          },
+          "required": [
+            "choice",
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ResolveTerrainCostReductionAction": {
+      "additionalProperties": false,
+      "properties": {
+        "terrain": {
+          "type": "string"
+        },
+        "type": {
+          "const": "RESOLVE_TERRAIN_COST_REDUCTION",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terrain",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveTrainingAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "description": "Card ID to throw away (phase 1) or AA card ID from offer to gain (phase 2)",
+          "type": "string"
+        },
+        "type": {
+          "const": "RESOLVE_TRAINING",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResolveUnitMaintenanceAction": {
+      "additionalProperties": false,
+      "properties": {
+        "crystalColor": {
+          "description": "Crystal color to pay (required when keepUnit is true)",
+          "enum": [
+            "blue",
+            "green",
+            "red",
+            "white"
+          ],
+          "type": "string"
+        },
+        "keepUnit": {
+          "description": "true = pay crystal to keep unit, false = disband",
+          "type": "boolean"
+        },
+        "newManaTokenColor": {
+          "description": "New mana token color to place on unit (required when keepUnit is true)",
+          "enum": [
+            "blue",
+            "green",
+            "red",
+            "white"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "const": "RESOLVE_UNIT_MAINTENANCE",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "keepUnit",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "RespondToCooperativeProposalAction": {
+      "additionalProperties": false,
+      "properties": {
+        "response": {
+          "$ref": "#/definitions/CooperativeResponse"
+        },
+        "type": {
+          "const": "RESPOND_TO_COOPERATIVE_PROPOSAL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "response",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RestAction": {
+      "additionalProperties": false,
+      "properties": {
+        "announceEndOfRound": {
+          "type": "boolean"
+        },
+        "discardCardIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "restType": {
+          "$ref": "#/definitions/RestType"
+        },
+        "type": {
+          "const": "REST",
+          "type": "string"
+        }
+      },
+      "required": [
+        "discardCardIds",
+        "restType",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RestType": {
+      "enum": [
+        "slow_recovery",
+        "standard"
+      ],
+      "type": "string"
+    },
+    "ReturnInteractiveSkillAction": {
+      "additionalProperties": false,
+      "properties": {
+        "skillId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "RETURN_INTERACTIVE_SKILL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "skillId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SelectRewardAction": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "type": "string"
+        },
+        "disbandUnitInstanceId": {
+          "type": "string"
+        },
+        "rewardIndex": {
+          "type": "number"
+        },
+        "type": {
+          "const": "SELECT_REWARD",
+          "type": "string"
+        },
+        "unitId": {
+          "enum": [
+            "altem_guardians",
+            "altem_mages",
+            "amotep_freezers",
+            "amotep_gunners",
+            "catapults",
+            "delphana_masters",
+            "fire_golems",
+            "fire_mages",
+            "foresters",
+            "guardian_golems",
+            "herbalist",
+            "hero_blue",
+            "hero_green",
+            "hero_red",
+            "hero_white",
+            "heroes",
+            "ice_golems",
+            "ice_mages",
+            "illusionists",
+            "magic_familiars",
+            "northern_monks",
+            "peasants",
+            "red_cape_monks",
+            "savage_monks",
+            "scouts",
+            "shocktroops",
+            "sorcerers",
+            "thugs",
+            "utem_crossbowmen",
+            "utem_guardsmen",
+            "utem_swordsmen"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "rewardIndex",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SelectTacticAction": {
+      "additionalProperties": false,
+      "properties": {
+        "tacticId": {
+          "$ref": "#/definitions/TacticId"
+        },
+        "type": {
+          "const": "SELECT_TACTIC",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tacticId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "SparingPowerChoice": {
+      "enum": [
+        "stash",
+        "take"
+      ],
+      "type": "string"
+    },
+    "SpendMoveOnCumbersomeAction": {
+      "additionalProperties": false,
+      "properties": {
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "movePointsToSpend": {
+          "type": "number"
+        },
+        "type": {
+          "const": "SPEND_MOVE_ON_CUMBERSOME",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enemyInstanceId",
+        "movePointsToSpend",
+        "type"
+      ],
+      "type": "object"
+    },
+    "TacticId": {
+      "description": "Union type of all tactic IDs.\nAuto-derived from the tactic ID arrays to prevent manual maintenance.",
+      "enum": [
+        "early_bird",
+        "from_the_dusk",
+        "great_start",
+        "long_night",
+        "mana_search",
+        "mana_steal",
+        "midnight_meditation",
+        "planning",
+        "preparation",
+        "rethink",
+        "sparing_power",
+        "the_right_moment"
+      ],
+      "type": "string"
+    },
+    "UnassignAttackAction": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "attackType": {
+          "$ref": "#/definitions/AttackType"
+        },
+        "element": {
+          "$ref": "#/definitions/AttackElement"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "UNASSIGN_ATTACK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "attackType",
+        "element",
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "UnassignBlockAction": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "number"
+        },
+        "element": {
+          "$ref": "#/definitions/AttackElement"
+        },
+        "enemyInstanceId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "UNASSIGN_BLOCK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "element",
+        "enemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "UndoAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "UNDO",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "UnitId": {
+      "enum": [
+        "altem_guardians",
+        "altem_mages",
+        "amotep_freezers",
+        "amotep_gunners",
+        "catapults",
+        "delphana_masters",
+        "fire_golems",
+        "fire_mages",
+        "foresters",
+        "guardian_golems",
+        "herbalist",
+        "hero_blue",
+        "hero_green",
+        "hero_red",
+        "hero_white",
+        "heroes",
+        "ice_golems",
+        "ice_mages",
+        "illusionists",
+        "magic_familiars",
+        "northern_monks",
+        "peasants",
+        "red_cape_monks",
+        "savage_monks",
+        "scouts",
+        "shocktroops",
+        "sorcerers",
+        "thugs",
+        "utem_crossbowmen",
+        "utem_guardsmen",
+        "utem_swordsmen"
+      ],
+      "type": "string"
+    },
+    "UseBannerFearAction": {
+      "additionalProperties": false,
+      "description": "Spend a unit with Banner of Fear attached to cancel one enemy attack.\nUsable during block phase. Unit must be ready and unwounded.\nCancels one attack (not block — Elusive armor still applies).\nGrants Fame +1. Does not work on Arcane Immune enemies.",
+      "properties": {
+        "attackIndex": {
+          "description": "For multi-attack enemies, which attack index to cancel (default: 0)",
+          "type": "number"
+        },
+        "targetEnemyInstanceId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "USE_BANNER_FEAR",
+          "type": "string"
+        },
+        "unitInstanceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "targetEnemyInstanceId",
+        "type",
+        "unitInstanceId"
+      ],
+      "type": "object"
+    },
+    "UseSkillAction": {
+      "additionalProperties": false,
+      "properties": {
+        "manaSource": {
+          "$ref": "#/definitions/ManaSourceInfo",
+          "description": "Optional mana source for skills that require mana spending (e.g., Universal Power)."
+        },
+        "skillId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "USE_SKILL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "skillId",
+        "type"
+      ],
+      "type": "object"
+    }
+  }
+}

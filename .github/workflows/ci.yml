@@ -57,10 +57,11 @@ jobs:
 
       - name: Verify generated network schemas are committed
         run: |
+          bun run --filter @mage-knight/shared generate:deep-schemas
           bun run --filter @mage-knight/shared generate:network-schemas
           if ! git diff --quiet -- packages/shared/schemas/network-protocol/; then
             echo "Generated network protocol schemas are out of date."
-            echo "Run: bun run --filter @mage-knight/shared generate:network-schemas"
+            echo "Run: cd packages/shared && bun run generate:deep-schemas && bun run generate:network-schemas"
             git --no-pager diff -- packages/shared/schemas/network-protocol/
             exit 1
           fi
