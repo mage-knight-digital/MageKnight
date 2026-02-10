@@ -11,6 +11,8 @@
     "lint": "oxlint -c .oxlintrc.json --deny-warnings packages/*/src",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist bun.lockb",
     "dev:client": "bun run --filter @mage-knight/client dev",
+    "dev:server": "bun run packages/server/dev.ts",
+    "dev:network": "bun run --parallel dev:server dev:client",
     "mage-dev": "bun packages/mage-dev/dist/cli.js"
   },
   "devDependencies": {

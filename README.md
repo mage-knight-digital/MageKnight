@@ -36,7 +36,28 @@ The hooks configuration enables automatic asset symlinking when using git worktr
 bun run build   # Build all packages
 bun run test    # Run tests
 bun run lint    # Run linter
+bun run dev:client   # Existing local embedded-server mode
+bun run dev:server   # Standalone WebSocket server + dev room
+bun run dev:network  # Run server + client together
 ```
+
+### Local Network Multiplayer Dev Flow
+
+`dev:client` behavior is unchanged and still starts the local in-memory flow.
+
+For local multiplayer iteration:
+
+1. Run `bun run dev:network` (or run `bun run dev:server` and `bun run dev:client` separately).
+2. Copy the printed `http://localhost:3000/?...` URLs from `dev:server`.
+3. Open one URL per player in separate browser tabs/windows.
+
+The client runtime mode is selected from URL params:
+
+- Local mode (default): no mode param, or anything except `?mode=network`
+- Network mode: `?mode=network&gameId=...&playerId=...`
+- Optional network params:
+  - `serverUrl` (default: `ws://localhost:3001`)
+  - `sessionToken` (if reconnect/auth flow requires it)
 
 ## Packages
 
