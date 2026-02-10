@@ -49,9 +49,31 @@
   transform: translateY(-2px);
 }
 
+.reward-selection__card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.reward-selection__card--selected {
+  border-color: #f39c12;
+  background: #1a1a3e;
+}
+
 .reward-selection__card-name {
   font-size: 1rem;
   font-weight: 500;
+}
+
+.reward-selection__disband {
+  margin-bottom: 1rem;
+}
+
+.reward-selection__disband-title {
+  font-size: 0.95rem;
+  color: #bbb;
+  margin-bottom: 0.75rem;
+  text-align: center;
 }
 
 .reward-selection__empty,
