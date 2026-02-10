@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SDK_SRC = REPO_ROOT / "packages/python-sdk/src"
+if str(SDK_SRC) not in sys.path:
+    sys.path.insert(0, str(SDK_SRC))
+
+from mage_knight_sdk.sim.random_policy import enumerate_valid_actions
+
+
+class RandomPolicyTest(unittest.TestCase):
+    def test_enumerate_valid_actions_includes_explore_for_string_direction(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "normal_turn",
+                "turn": {
+                    "canEndTurn": False,
+                    "canAnnounceEndOfRound": False,
+                    "canUndo": False,
+                    "canDeclareRest": False,
+                },
+                "explore": {
+                    "directions": [
+                        {
+                            "direction": "NE",
+                            "fromTileCoord": {"q": 0, "r": 0},
+                            "targetCoord": {"q": 1, "r": -1},
+                        }
+                    ]
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        explore_actions = [a.action for a in actions if a.action.get("type") == "EXPLORE"]
+
+        self.assertEqual(1, len(explore_actions))
+        self.assertEqual("NE", explore_actions[0]["direction"])
+
+
+if __name__ == "__main__":
+    unittest.main()
