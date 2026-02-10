@@ -95,6 +95,42 @@ describe("Valid actions while resting", () => {
     expect(getChallengeOptions(restingState, restingPlayer)).toBeUndefined();
   });
 
+  it("hides challenge options after action is consumed", () => {
+    const enemyToken = createEnemyTokenId(ENEMY_DIGGERS);
+    const rampagingHex: HexState = {
+      ...createTestHex(1, 0, TERRAIN_PLAINS),
+      rampagingEnemies: [RampagingEnemyType.OrcMarauder],
+      enemies: [createHexEnemy(enemyToken)],
+    };
+
+    const activePlayer = createTestPlayer({
+      movePoints: 4,
+      isResting: false,
+      hasTakenActionThisTurn: false,
+    });
+    const baseState = createTestGameState({ players: [activePlayer] });
+    const activeState = {
+      ...baseState,
+      map: {
+        ...baseState.map,
+        hexes: {
+          ...baseState.map.hexes,
+          [hexKey({ q: 1, r: 0 })]: rampagingHex,
+        },
+      },
+    };
+
+    expect(getChallengeOptions(activeState, activePlayer)).toBeDefined();
+
+    const actedPlayer = { ...activePlayer, hasTakenActionThisTurn: true };
+    const actedState = {
+      ...activeState,
+      players: [actedPlayer],
+    };
+
+    expect(getChallengeOptions(actedState, actedPlayer)).toBeUndefined();
+  });
+
   it("blocks site interaction options while resting", () => {
     const monasterySite: Site = {
       type: SiteType.Monastery,

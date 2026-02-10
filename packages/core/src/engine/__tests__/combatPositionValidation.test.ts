@@ -41,6 +41,9 @@ import { createTestGameState, createTestPlayer, createTestHex, createHexEnemy } 
 import {
   ENTER_COMBAT_ACTION,
   CHALLENGE_RAMPAGING_ACTION,
+  DECLARE_REST_ACTION,
+  COMPLETE_REST_ACTION,
+  CARD_MARCH,
   INVALID_ACTION,
   TERRAIN_PLAINS,
   hexKey,
@@ -86,6 +89,7 @@ describe("Combat Position Validation", () => {
       const player = createTestPlayer({
         id: "player1",
         position: { q: 0, r: 0 },
+        deck: [CARD_MARCH],
       });
 
       state = {
@@ -141,6 +145,7 @@ describe("Combat Position Validation", () => {
       const player = createTestPlayer({
         id: "player1",
         position: { q: 0, r: 0 },
+        deck: [CARD_MARCH],
       });
 
       state = {
@@ -366,6 +371,58 @@ describe("Combat Position Validation", () => {
       expect(result.events).toContainEqual(
         expect.objectContaining({
           type: INVALID_ACTION,
+        })
+      );
+      expect(result.state.combat).toBeNull();
+    });
+
+    it("should REJECT challenge after completing rest this turn", () => {
+      const rampagingToken = createEnemyTokenId(ENEMY_ORC_SUMMONERS);
+
+      let state = createTestGameState();
+
+      const rampagingHex: HexState = {
+        ...createTestHex(1, 0, TERRAIN_PLAINS),
+        rampagingEnemies: [RampagingEnemyType.OrcMarauder],
+        enemies: [createHexEnemy(rampagingToken)],
+      };
+
+      const player = createTestPlayer({
+        id: "player1",
+        position: { q: 0, r: 0 },
+        deck: [CARD_MARCH],
+      });
+
+      state = {
+        ...state,
+        players: [player],
+        turnOrder: ["player1"],
+        map: {
+          ...state.map,
+          hexes: {
+            ...state.map.hexes,
+            [hexKey({ q: 1, r: 0 })]: rampagingHex,
+          },
+        },
+      };
+
+      const afterDeclareRest = engine.processAction(state, "player1", {
+        type: DECLARE_REST_ACTION,
+      });
+      const afterCompleteRest = engine.processAction(afterDeclareRest.state, "player1", {
+        type: COMPLETE_REST_ACTION,
+        discardCardIds: [CARD_MARCH],
+      });
+
+      const result = engine.processAction(afterCompleteRest.state, "player1", {
+        type: CHALLENGE_RAMPAGING_ACTION,
+        targetHex: { q: 1, r: 0 },
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: "You have already taken an action this turn",
         })
       );
       expect(result.state.combat).toBeNull();

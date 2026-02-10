@@ -40,6 +40,11 @@ export function getChallengeOptions(
     return undefined;
   }
 
+  // Challenge is an action-phase activity; cannot do it after resting/interacting/etc.
+  if (player.hasTakenActionThisTurn) {
+    return undefined;
+  }
+
   // Can't challenge if already in combat
   if (isInCombat(state)) {
     return undefined;

@@ -33,6 +33,7 @@ import {
 import {
   validateIsPlayersTurn,
   validateRoundPhase,
+  validateHasNotActed,
 } from "../turnValidators.js";
 
 // Choice validators
@@ -139,6 +140,7 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateNoChoicePending,
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotRestingForCombat, // Cannot challenge while resting (FAQ S3)
+    validateHasNotActed, // Challenge uses action phase
     validateChallengePlayerOnMap,
     validateChallengeNotInCombat, // Can't challenge while in combat
     validateNoCombatThisTurn, // One combat per turn rule
