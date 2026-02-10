@@ -5,6 +5,7 @@ from typing import Any
 
 
 INVALID_ACTION_EVENT = "INVALID_ACTION"
+GAME_ENDED_EVENT = "GAME_ENDED"
 PHASE_END = "end"
 
 
@@ -59,3 +60,10 @@ def assert_action_not_rejected(events: list[Any], action_type: str, player_id: s
 
 def is_terminal_state(state: dict[str, Any]) -> bool:
     return state.get("phase") == PHASE_END
+
+
+def is_terminal_events(events: list[Any]) -> bool:
+    for event in events:
+        if isinstance(event, dict) and event.get("type") == GAME_ENDED_EVENT:
+            return True
+    return False

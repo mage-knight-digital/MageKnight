@@ -11,7 +11,13 @@ from mage_knight_sdk.client import MageKnightClient
 from mage_knight_sdk.protocol_models import ErrorMessage, StateUpdateMessage
 
 from .bootstrap import BootstrapSession, create_game, join_game
-from .invariants import InvariantViolation, StateInvariantTracker, assert_action_not_rejected, is_terminal_state
+from .invariants import (
+    InvariantViolation,
+    StateInvariantTracker,
+    assert_action_not_rejected,
+    is_terminal_events,
+    is_terminal_state,
+)
 from .random_policy import CandidateAction, RandomValidActionPolicy, enumerate_valid_actions
 from .reporting import (
     ActionTraceEntry,
@@ -335,7 +341,11 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
                         messages=messages,
                     )
 
-            if any(agent.latest_state is not None and is_terminal_state(agent.latest_state) for agent in agents):
+            if any(
+                (agent.latest_state is not None and is_terminal_state(agent.latest_state))
+                or is_terminal_events(agent.last_events or [])
+                for agent in agents
+            ):
                 return _finish_run(
                     config=config,
                     run_index=run_index,
