@@ -3428,6 +3428,13 @@
     "PendingTacticDecisionInfo": {
       "additionalProperties": false,
       "properties": {
+        "availableCardIds": {
+          "description": "For rethink/midnight_meditation: currently selectable hand cards",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "availableDiceIds": {
           "description": "For mana_steal: available basic color dice to choose from",
           "items": {
