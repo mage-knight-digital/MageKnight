@@ -281,7 +281,8 @@ export class GameRoomManager {
 
     try {
       room.gameServer.handleAction(context.playerId, parsedMessage.message.action);
-    } catch {
+    } catch (error) {
+      console.error(`Action processing error for ${context.playerId}:`, error);
       this.sendError(connection, INVALID_ACTION_MESSAGE_ERROR);
     }
   }

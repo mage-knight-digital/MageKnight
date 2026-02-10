@@ -5,6 +5,7 @@
   "type": "module",
   "workspaces": ["packages/*"],
   "scripts": {
+    "viewer": "packages/python-sdk/scripts/run-viewer",
     "build": "bun run --filter '*' build",
     "test": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test",
     "test:coverage": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test:coverage",

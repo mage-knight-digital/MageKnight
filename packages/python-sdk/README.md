@@ -88,6 +88,32 @@ print(summary)
 Use the same `base_seed`, `player_count`, and API/WS endpoints to replay the same random decision stream.
 For validation testing, you can force an invalid action via `forced_invalid_action_step` and assert it is reported as `protocol_error`.
 
+### Sim Artifact Viewer
+
+Large failure artifacts (e.g. `sim-artifacts/run_*_seed_*.json`) can be inspected with a local streaming viewer.
+
+**One-time setup** (from repo root or `packages/python-sdk`):
+
+```bash
+cd packages/python-sdk
+pip install -e ".[viewer]"   # or create a venv first, then install
+```
+
+**Start the viewer:**
+
+```bash
+# From repo root (easiest):
+bun run viewer
+
+# From packages/python-sdk (uses .venv if present):
+./scripts/run-viewer
+
+# Or with the installed CLI:
+mage-knight-viewer
+```
+
+Then open http://127.0.0.1:8765. Choose an artifact; on first open it is converted to NDJSON + index (one-time, may take a while for huge files). After that you can scroll through the action trace; only the visible range is loaded.
+
 ## Generate Models
 
 Protocol models are generated from:

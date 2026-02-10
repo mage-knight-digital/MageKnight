@@ -889,6 +889,66 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
 
     tactic_effects = _as_dict(valid_actions.get("tacticEffects"))
     if tactic_effects is not None:
+        # Handle pending tactic decisions (e.g., midnight_meditation in normal_turn mode)
+        pending_decision = _as_dict(tactic_effects.get("pendingDecision"))
+        if pending_decision is not None:
+            decision_type = _as_str(pending_decision.get("type"))
+            if decision_type in {"rethink", "midnight_meditation"}:
+                actions.append(
+                    CandidateAction(
+                        {
+                            "type": ACTION_RESOLVE_TACTIC_DECISION,
+                            "decision": {"type": decision_type, "cardIds": []},
+                        },
+                        "normal.tactic.pending_decision.skip",
+                    )
+                )
+            elif decision_type == "mana_steal":
+                for die_id in _as_list(pending_decision.get("availableDiceIds")):
+                    if isinstance(die_id, str):
+                        actions.append(
+                            CandidateAction(
+                                {
+                                    "type": ACTION_RESOLVE_TACTIC_DECISION,
+                                    "decision": {"type": decision_type, "dieId": die_id},
+                                },
+                                "normal.tactic.pending_decision.die",
+                            )
+                        )
+            elif decision_type == "preparation":
+                for card_id in _as_list(pending_decision.get("deckSnapshot")):
+                    if isinstance(card_id, str):
+                        actions.append(
+                            CandidateAction(
+                                {
+                                    "type": ACTION_RESOLVE_TACTIC_DECISION,
+                                    "decision": {"type": decision_type, "cardId": card_id},
+                                },
+                                "normal.tactic.pending_decision.card",
+                            )
+                        )
+            elif decision_type == "sparing_power":
+                actions.append(
+                    CandidateAction(
+                        {
+                            "type": ACTION_RESOLVE_TACTIC_DECISION,
+                            "decision": {"type": decision_type, "choice": "take"},
+                        },
+                        "normal.tactic.pending_decision.sparing.take",
+                    )
+                )
+                if bool(pending_decision.get("canStash")):
+                    actions.append(
+                        CandidateAction(
+                            {
+                                "type": ACTION_RESOLVE_TACTIC_DECISION,
+                                "decision": {"type": decision_type, "choice": "stash"},
+                            },
+                            "normal.tactic.pending_decision.sparing.stash",
+                        )
+                    )
+            return actions
+
         if player:
             selected_tactic_id = _as_str(player.get("selectedTacticId"))
             can_activate = _as_dict(tactic_effects.get("canActivate"))

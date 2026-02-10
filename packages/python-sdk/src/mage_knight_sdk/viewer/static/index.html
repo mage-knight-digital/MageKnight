@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sim artifact viewer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 13px;
+      margin: 0;
+      background: #1a1b26;
+      color: #a9b1d6;
+      min-height: 100vh;
+    }
+    .toolbar {
+      padding: 12px 16px;
+      background: #16161e;
+      border-bottom: 1px solid #363b54;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .toolbar label { color: #7aa2f7; }
+    .toolbar select {
+      background: #24283b;
+      color: #c0caf5;
+      border: 1px solid #363b54;
+      padding: 6px 10px;
+      border-radius: 6px;
+      min-width: 280px;
+      font: inherit;
+    }
+    .toolbar .status {
+      color: #9ece6a;
+      font-size: 12px;
+    }
+    .toolbar .status.building { color: #e0af68; }
+    .toolbar .status.error { color: #f7768e; }
+    .main {
+      padding: 16px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .summary {
+      background: #24283b;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #7aa2f7;
+    }
+    .list-container {
+      height: calc(100vh - 180px);
+      min-height: 400px;
+      overflow: auto;
+      background: #16161e;
+      border: 1px solid #363b54;
+      border-radius: 8px;
+    }
+    .list-inner {
+      position: relative;
+    }
+    .row {
+      position: absolute;
+      left: 0;
+      right: 0;
+      padding: 8px 12px;
+      border-bottom: 1px solid #1f2335;
+      display: grid;
+      grid-template-columns: 64px 80px 1fr;
+      gap: 12px;
+      align-items: start;
+      line-height: 1.4;
+      border-left: 3px solid transparent;
+    }
+    .row[class*="player-1"] { border-left-color: #7aa2f7; background: rgba(122, 162, 247, 0.14); }
+    .row[class*="player-2"] { border-left-color: #e0af68; background: rgba(224, 175, 104, 0.14); }
+    .row[class*="player-3"] { border-left-color: #9ece6a; background: rgba(158, 206, 106, 0.14); }
+    .row[class*="player-4"] { border-left-color: #f7768e; background: rgba(247, 118, 142, 0.14); }
+    .row[class*="player-"]:hover { filter: brightness(1.12); }
+    .row:not([class*="player-"]):hover { background: #1f2335; }
+    .row .step { color: #7dcfff; font-weight: 600; }
+    .row .player { color: #bb9af7; }
+    .row .action {
+      word-break: break-word;
+      color: #c0caf5;
+    }
+    .row .source { font-size: 11px; color: #565f89; margin-top: 2px; }
+    .row .action .type { color: #9ece6a; }
+    .row .action .key { color: #7aa2f7; }
+    .row .loading { color: #565f89; font-style: italic; }
+    .row.clickable { cursor: pointer; }
+    .how-to {
+      padding: 10px 16px;
+      margin: 0 16px 12px;
+      background: #24283b;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #7aa2f7;
+      border-left: 3px solid #7aa2f7;
+    }
+    .how-to ol { margin: 0; padding-left: 20px; }
+    .how-to li { margin: 4px 0; }
+    .empty {
+      padding: 32px 24px;
+      color: #a9b1d6;
+      text-align: left;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .empty p { margin: 0 0 12px; }
+    .empty p:last-child { margin-bottom: 0; }
+    .empty strong { color: #7dcfff; }
+    .empty code { background: #24283b; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .empty a { color: #7aa2f7; }
+    .how-to code { background: #1f2335; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+    .state-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .state-modal-overlay.visible { display: flex; }
+    .state-modal {
+      background: #16161e;
+      border: 1px solid #363b54;
+      border-radius: 8px;
+      max-width: 90vw;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .state-modal-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #363b54;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .state-modal-header h2 { margin: 0; font-size: 14px; color: #7aa2f7; flex: 1; }
+    .state-modal-header .state-modal-options {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .state-modal-header label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #a9b1d6;
+      cursor: pointer;
+    }
+    .state-modal-header input[type="checkbox"] { cursor: pointer; }
+    .state-modal-close {
+      background: #24283b;
+      color: #c0caf5;
+      border: 1px solid #363b54;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .state-modal-close:hover { background: #363b54; }
+    .state-modal-body {
+      padding: 16px;
+      overflow: auto;
+      flex: 1;
+      min-height: 200px;
+    }
+    .state-modal-body pre {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.35;
+      color: #a9b1d6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .state-modal-body .loading-msg { color: #565f89; }
+    .state-modal-body .error-msg { color: #f7768e; }
+    .state-modal-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+    .state-modal-tab {
+      padding: 6px 14px;
+      background: #24283b;
+      color: #a9b1d6;
+      border: 1px solid #363b54;
+      border-radius: 6px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
+    .state-modal-tab:hover { background: #363b54; color: #c0caf5; }
+    .state-modal-tab.active {
+      background: #7aa2f7;
+      color: #1a1b26;
+      border-color: #7aa2f7;
+    }
+    .state-modal-tab-content {
+      display: none;
+      overflow: auto;
+      flex: 1;
+      min-height: 0;
+    }
+    .state-modal-tab-content.active { display: block; }
+    .state-modal-tab-content pre {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.35;
+      color: #a9b1d6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <label for="artifact">Artifact</label>
+    <select id="artifact">
+      <option value="">— load list —</option>
+    </select>
+    <span id="status" class="status"></span>
+  </div>
+  <div class="how-to" id="how-to">
+    <ol>
+      <li><strong>Choose an artifact</strong> from the dropdown above (e.g. <code>run_0_seed_1_….json</code>).</li>
+      <li>Wait for the list to load (first time may say “Preparing…” for a few seconds).</li>
+      <li><strong>Click any row</strong> in the list to open the game state at that step in a popup.</li>
+    </ol>
+  </div>
+  <div class="main">
+    <div id="summary" class="summary" style="display: none;"></div>
+    <div id="list-container" class="list-container" style="display: none;">
+      <div id="list-inner" class="list-inner"></div>
+    </div>
+    <div id="empty" class="empty">
+      <p><strong>Nothing loaded yet.</strong></p>
+      <p>Use the <strong>Artifact</strong> dropdown at the top and pick one of the run files (e.g. <code>run_0_seed_1_20260210T174505Z.json</code>). The list of steps will appear below; then click a step to see the full game state at that moment.</p>
+    </div>
+  </div>
+
+  <div id="state-modal-overlay" class="state-modal-overlay" aria-hidden="true">
+    <div class="state-modal">
+      <div class="state-modal-header">
+        <h2 id="state-modal-title">State at step —</h2>
+        <div class="state-modal-options" id="state-modal-options" style="display: none;">
+          <label>
+            <input type="checkbox" id="state-modal-full-payload">
+            Show full payload
+          </label>
+        </div>
+        <button type="button" class="state-modal-close" id="state-modal-close">Close</button>
+      </div>
+      <div class="state-modal-body" id="state-modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    const ROW_HEIGHT = 56;
+    const CHUNK = 100;
+    const OVERSCAN = 50;
+    const api = (path, opts = {}) => fetch(path, { ...opts, headers: { ...opts.headers, 'Accept': 'application/json' } });
+
+    let artifactName = '';
+    let total = 0;
+    const cache = new Map(); // offset -> entries[]
+    let listInner = null;
+    let listContainer = null;
+    let scrollRAF = null;
+
+    function formatAction(entry) {
+      const a = entry.action || {};
+      const type = a.type || '?';
+      const parts = [type];
+      if (a.cardId) parts.push(`card: ${a.cardId}`);
+      if (a.tacticId) parts.push(`tactic: ${a.tacticId}`);
+      if (a.as) parts.push(`as: ${a.as}`);
+      if (a.powered !== undefined) parts.push(`powered: ${a.powered}`);
+      if (a.target) parts.push(`target: ${JSON.stringify(a.target)}`);
+      if (a.decision) parts.push(`decision: ${JSON.stringify(a.decision)}`);
+      return parts.join(' · ');
+    }
+
+    function playerClass(playerId) {
+      if (!playerId) return '';
+      const m = String(playerId).match(/player-(\d+)/);
+      return m ? ' player-' + m[1] : '';
+    }
+    function renderRow(index, entry) {
+      if (!entry) return `<div class="row loading" style="top: ${index * ROW_HEIGHT}px; height: ${ROW_HEIGHT}px;" data-index="${index}">Loading…</div>`;
+      const step = entry.step ?? index;
+      const player = entry.player_id ?? '';
+      const action = formatAction(entry);
+      const source = entry.source ? `<div class="source">${escapeHtml(entry.source)}</div>` : '';
+      const pClass = playerClass(player);
+      return `<div class="row clickable${pClass}" style="top: ${index * ROW_HEIGHT}px; height: ${ROW_HEIGHT}px;" data-index="${index}" title="Click to view state after this step">
+        <span class="step">${step}</span>
+        <span class="player">${player}</span>
+        <span class="action">${escapeHtml(action)}${source}</span>
+      </div>`;
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function getCachedEntry(index) {
+      const offset = Math.floor(index / CHUNK) * CHUNK;
+      const arr = cache.get(offset);
+      return arr ? arr[index - offset] : null;
+    }
+
+    async function ensureChunk(offset) {
+      if (cache.has(offset)) return;
+      cache.set(offset, null);
+      const res = await api(`/api/artifacts/${encodeURIComponent(artifactName)}/entries?offset=${offset}&limit=${CHUNK}`);
+      const data = await res.json();
+      cache.set(offset, data.entries || []);
+    }
+
+    function getVisibleRange() {
+      const scrollTop = listContainer.scrollTop;
+      const height = listContainer.clientHeight;
+      const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+      const end = Math.min(total - 1, Math.ceil((scrollTop + height) / ROW_HEIGHT) + OVERSCAN);
+      return [start, end];
+    }
+
+    async function paint() {
+      if (!listInner || total === 0) return;
+      const [start, end] = getVisibleRange();
+      const startChunk = Math.floor(start / CHUNK) * CHUNK;
+      const endChunk = Math.floor(end / CHUNK) * CHUNK;
+      for (let off = startChunk; off <= endChunk; off += CHUNK) {
+        await ensureChunk(off);
+      }
+      let html = '';
+      for (let i = start; i <= end; i++) {
+        const entry = getCachedEntry(i);
+        html += renderRow(i, entry);
+      }
+      listInner.innerHTML = html;
+      listInner.style.height = total * ROW_HEIGHT + 'px';
+    }
+
+    function onScroll() {
+      if (scrollRAF) return;
+      scrollRAF = requestAnimationFrame(() => {
+        scrollRAF = null;
+        paint();
+      });
+    }
+
+    function parseArtifactTimestamp(name) {
+      const m = name.match(/_(\d{8}T\d{6}Z)\.json$/);
+      if (!m) return null;
+      const s = m[1];
+      const iso = s.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z');
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    function formatArtifactLabel(name, total) {
+      const runSeed = name.match(/run_(\d+)_seed_(\d+)_/);
+      const runSeedStr = runSeed ? `Run ${runSeed[1]}, seed ${runSeed[2]}` : name;
+      const date = parseArtifactTimestamp(name);
+      const dateStr = date
+        ? date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+        : '';
+      const stepStr = total != null ? ` · ${total.toLocaleString()} steps` : '';
+      return dateStr ? `${runSeedStr} — ${dateStr}${stepStr}` : `${name}${stepStr}`;
+    }
+
+    async function loadArtifacts() {
+      const sel = document.getElementById('artifact');
+      try {
+        const res = await api('/api/artifacts');
+        const data = await res.json();
+        sel.innerHTML = '<option value="">— choose one —</option>';
+        const list = data.artifacts || [];
+        if (list.length === 0) {
+          sel.innerHTML = '<option value="">— no artifacts in sim-artifacts/ —</option>';
+          return;
+        }
+        const withDate = list.map(a => ({
+          ...a,
+          _date: parseArtifactTimestamp(a.name),
+        }));
+        withDate.sort((a, b) => {
+          if (a._date && b._date) return b._date - a._date;
+          if (a._date) return -1;
+          if (b._date) return 1;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+        withDate.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.name;
+          opt.textContent = formatArtifactLabel(a.name, a.total);
+          sel.appendChild(opt);
+        });
+      } catch (e) {
+        sel.innerHTML = '<option value="">— failed to load list —</option>';
+        console.error('Failed to load artifacts', e);
+      }
+    }
+
+    async function prepareAndOpen(name) {
+      artifactName = name;
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = 'Preparing…';
+      statusEl.className = 'status building';
+
+      const prep = await api(`/api/artifacts/${encodeURIComponent(name)}/prepare`, { method: 'POST' });
+      let data = await prep.json();
+      if (data.status === 'building') {
+        const poll = setInterval(async () => {
+          const r = await api(`/api/artifacts/${encodeURIComponent(name)}/status`);
+          const d = await r.json();
+          if (d.status === 'ready') {
+            clearInterval(poll);
+            total = d.total;
+            statusEl.textContent = `${total.toLocaleString()} steps`;
+            statusEl.className = 'status';
+            openList();
+          } else if (d.status === 'error') {
+            clearInterval(poll);
+            statusEl.textContent = 'Preparation failed';
+            statusEl.className = 'status error';
+          }
+        }, 800);
+        return;
+      }
+      total = data.total ?? 0;
+      statusEl.textContent = `${total.toLocaleString()} steps`;
+      statusEl.className = 'status';
+      openList();
+    }
+
+    function openList() {
+      cache.clear();
+      document.getElementById('empty').style.display = 'none';
+      document.getElementById('summary').style.display = 'block';
+      document.getElementById('summary').textContent = `Artifact: ${artifactName} · ${total.toLocaleString()} action trace entries. Scroll to load. Click a row to view game state after that step.`;
+      document.getElementById('list-container').style.display = 'block';
+      listInner = document.getElementById('list-inner');
+      listContainer = document.getElementById('list-container');
+      listInner.style.height = total * ROW_HEIGHT + 'px';
+      listContainer.removeEventListener('scroll', onScroll);
+      listContainer.addEventListener('scroll', onScroll);
+      listContainer.removeEventListener('click', onRowClick);
+      listContainer.addEventListener('click', onRowClick);
+      paint();
+    }
+
+    function onRowClick(e) {
+      const row = e.target.closest('.row.clickable');
+      if (!row) return;
+      const step = parseInt(row.dataset.index, 10);
+      if (Number.isNaN(step)) return;
+      showStateModal(step);
+    }
+
+    let stateModalOpen = false;
+    function showStateModal(step) {
+      const overlay = document.getElementById('state-modal-overlay');
+      const title = document.getElementById('state-modal-title');
+      const body = document.getElementById('state-modal-body');
+      title.textContent = `State at step ${step}`;
+      document.getElementById('state-modal-options').style.display = 'none';
+      body.innerHTML = '<span class="loading-msg">Loading…</span>';
+      overlay.classList.add('visible');
+      overlay.setAttribute('aria-hidden', 'false');
+      stateModalOpen = true;
+
+      api(`/api/artifacts/${encodeURIComponent(artifactName)}/state?step=${step}`)
+        .then(r => {
+          if (!r.ok) {
+            if (r.status === 404) return { error: 'Step out of range.' };
+            if (r.status === 400) return { error: 'State not available for this artifact.' };
+            return { error: `Request failed: ${r.status}` };
+          }
+          return r.json();
+        })
+        .then(data => {
+          if (data.error) {
+            body.innerHTML = `<span class="error-msg">${escapeHtml(data.error)}</span>`;
+            return;
+          }
+          const updates = data.updates;
+          if (Array.isArray(updates) && updates.length > 0) {
+            document.getElementById('state-modal-options').style.display = '';
+            const fullCheckbox = document.getElementById('state-modal-full-payload');
+            fullCheckbox.checked = false;
+
+            function getDisplayData(msg, showFull) {
+              if (showFull) return msg;
+              const va = msg.payload?.state?.validActions;
+              return va !== undefined && va !== null ? va : { _note: 'No validActions in this state' };
+            }
+
+            function renderTabContents(showFull) {
+              body.querySelectorAll('.state-modal-tab-content').forEach((panel, i) => {
+                const msg = updates[i];
+                const data = getDisplayData(msg, showFull);
+                panel.querySelector('pre').textContent = JSON.stringify(data, null, 2);
+              });
+            }
+
+            const currentPlayerId = updates[0].payload?.state?.currentPlayerId;
+            const defaultIndex = currentPlayerId
+              ? updates.findIndex(u => u.player_id === currentPlayerId)
+              : 0;
+            const selectedIndex = defaultIndex >= 0 ? defaultIndex : 0;
+            const tabsHtml = updates.map((msg, i) => {
+              const pid = msg.player_id != null ? String(msg.player_id) : `view-${i + 1}`;
+              const isCurrentTurn = pid === currentPlayerId;
+              let label = pid.replace(/^player-/, 'Player ');
+              if (isCurrentTurn) label += ' (current turn)';
+              const active = i === selectedIndex ? ' active' : '';
+              return `<button type="button" class="state-modal-tab${active}" data-index="${i}" aria-pressed="${i === selectedIndex}">${escapeHtml(label)}</button>`;
+            }).join('');
+            const initialData = updates.map((msg, i) => getDisplayData(msg, false));
+            const contentsHtml = updates.map((msg, i) => {
+              const json = escapeHtml(JSON.stringify(initialData[i], null, 2));
+              const active = i === selectedIndex ? ' active' : '';
+              return `<div class="state-modal-tab-content${active}" data-index="${i}" role="tabpanel"><pre>${json}</pre></div>`;
+            }).join('');
+            body.innerHTML = `<div class="state-modal-tabs" role="tablist">${tabsHtml}</div>${contentsHtml}`;
+
+            fullCheckbox.onchange = () => renderTabContents(fullCheckbox.checked);
+
+            body.querySelectorAll('.state-modal-tab').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.index, 10);
+                body.querySelectorAll('.state-modal-tab').forEach((b, i) => {
+                  b.classList.toggle('active', i === idx);
+                  b.setAttribute('aria-pressed', i === idx);
+                });
+                body.querySelectorAll('.state-modal-tab-content').forEach((panel, i) => {
+                  panel.classList.toggle('active', i === idx);
+                });
+              });
+            });
+          } else {
+            const payload = data.payload ?? data.state ?? data;
+            body.innerHTML = '<pre>' + escapeHtml(JSON.stringify(payload, null, 2)) + '</pre>';
+          }
+        })
+        .catch(err => {
+          body.innerHTML = '<span class="error-msg">' + escapeHtml(String(err.message || err)) + '</span>';
+        });
+    }
+
+    function closeStateModal() {
+      document.getElementById('state-modal-overlay').classList.remove('visible');
+      document.getElementById('state-modal-overlay').setAttribute('aria-hidden', 'true');
+      stateModalOpen = false;
+    }
+
+    document.getElementById('state-modal-close').addEventListener('click', closeStateModal);
+    document.getElementById('state-modal-overlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeStateModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (stateModalOpen && e.key === 'Escape') closeStateModal();
+    });
+
+    document.getElementById('artifact').addEventListener('change', (e) => {
+      const v = e.target.value;
+      if (!v) return;
+      prepareAndOpen(v);
+    });
+
+    loadArtifacts();
+  </script>
+</body>
+</html>
