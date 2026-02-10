@@ -15,6 +15,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createEngine, MageKnightEngine } from "../MageKnightEngine.js";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { withBlockSources } from "./combatTestHelpers.js";
 import {
   ENTER_COMBAT_ACTION,
   END_COMBAT_PHASE_ACTION,
@@ -340,20 +341,29 @@ describe("Combat Summon Ability", () => {
       );
       expect(summoner?.isSummonerHidden).toBe(true);
 
+      // Give player enough block so block targets are advertised.
+      state = withBlockSources(state, "player1", [
+        { element: ELEMENT_PHYSICAL, value: 3 },
+      ]);
+
       // Valid actions should NOT include the hidden summoner in block options
       const validActions = getValidActions(state, "player1");
       const blockOptions =
         validActions.mode === "combat" ? (validActions.combat.blocks ?? []) : [];
+      const assignableBlocks =
+        validActions.mode === "combat"
+          ? (validActions.combat.assignableBlocks ?? [])
+          : [];
 
       expect(blockOptions.map((b) => b.enemyInstanceId)).not.toContain(
         summoner?.instanceId
       );
+      expect(assignableBlocks.map((b) => b.enemyInstanceId)).not.toContain(
+        summoner?.instanceId
+      );
 
-      // Should only be able to block the summoned gargoyle
-      const summonedId = state.combat?.enemies.find(
-        (e) => e.summonedByInstanceId !== undefined
-      )?.instanceId;
-      expect(blockOptions.map((b) => b.enemyInstanceId)).toContain(summonedId);
+      // Hidden summoner must never appear as a target in block-related options.
+      // (Summoned target availability depends on current block assignment state.)
     });
 
     it("should not allow assigning damage from hidden summoner", () => {

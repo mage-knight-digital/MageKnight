@@ -87,7 +87,12 @@ export function getBlockDeclarationStatus(
   );
 
   if (effectiveAttack <= 0) {
-    return noBlock;
+    return {
+      canDeclare: true,
+      attackIndex: resolvedAttackIndex,
+      requiredBlock: 0,
+      availableEffectiveBlock: 0,
+    };
   }
 
   const requiredBlock = swiftActive ? effectiveAttack * 2 : effectiveAttack;

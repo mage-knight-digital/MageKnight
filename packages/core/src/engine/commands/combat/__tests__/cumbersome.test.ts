@@ -18,7 +18,6 @@ import {
   INVALID_ACTION,
   MOVE_SPENT_ON_CUMBERSOME,
   ENEMY_BLOCKED,
-  BLOCK_FAILED,
   type EnemyId,
 } from "@mage-knight/shared";
 import {
@@ -435,8 +434,8 @@ describe("Cumbersome Ability", () => {
 
       expect(blockResult.events).toContainEqual(
         expect.objectContaining({
-          type: BLOCK_FAILED,
-          enemyInstanceId: "enemy_cumbersome_0",
+          type: INVALID_ACTION,
+          reason: "Insufficient block: need 3, have 2",
         })
       );
     });
