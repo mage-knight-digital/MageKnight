@@ -155,6 +155,7 @@ export { LocalConnection } from "./connection.js";
 // Network protocol
 export {
   NETWORK_PROTOCOL_VERSION_1,
+  NETWORK_PROTOCOL_VERSION_2,
   NETWORK_PROTOCOL_VERSION,
   CLIENT_MESSAGE_ACTION,
   CLIENT_MESSAGE_LOBBY_SUBSCRIBE,
