@@ -935,9 +935,9 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
                 )
 
         can_reroll = _as_dict(tactic_effects.get("canRerollSourceDice"))
-        dice_ids = [die_id for die_id in _as_list(can_reroll.get("availableDiceIds") if can_reroll else None) if isinstance(die_id, str)]
-        if dice_ids:
-            actions.append(CandidateAction({"type": ACTION_REROLL_SOURCE_DICE, "dieIds": [dice_ids[0]]}, "normal.tactic.reroll"))
+        selected_die_ids = _select_reroll_die_ids(state, can_reroll)
+        if selected_die_ids:
+            actions.append(CandidateAction({"type": ACTION_REROLL_SOURCE_DICE, "dieIds": selected_die_ids}, "normal.tactic.reroll"))
 
     if turn is not None:
         if bool(turn.get("canCompleteRest")):
@@ -969,6 +969,39 @@ def _append_common_blocking_actions(valid_actions: dict[str, Any], actions: list
         actions.append(CandidateAction({"type": ACTION_UNDO}, "turn.undo"))
     if bool(turn.get("canEndTurn")):
         actions.append(CandidateAction({"type": ACTION_END_TURN}, "turn.end_turn"))
+
+
+def _select_reroll_die_ids(state: dict[str, Any], can_reroll: dict[str, Any] | None) -> list[str]:
+    if can_reroll is None:
+        return []
+
+    available_ids = [
+        die_id
+        for die_id in _as_list(can_reroll.get("availableDiceIds"))
+        if isinstance(die_id, str)
+    ]
+    if not available_ids:
+        return []
+
+    if bool(can_reroll.get("mustPickDepletedFirst")):
+        source = _as_dict(state.get("source"))
+        source_dice = _as_list(source.get("dice") if source else None)
+        prioritized_ids: list[str] = []
+        for die in source_dice:
+            payload = _as_dict(die)
+            if payload is None:
+                continue
+            die_id = _as_str(payload.get("id"))
+            if die_id is None or die_id not in available_ids:
+                continue
+            color = _as_str(payload.get("color")) or ""
+            is_depleted = bool(payload.get("isDepleted"))
+            if is_depleted or color.lower() == "gold":
+                prioritized_ids.append(die_id)
+        if prioritized_ids:
+            return [prioritized_ids[0]]
+
+    return [available_ids[0]]
 
 
 def _is_wound_card_id(card_id: str) -> bool:
