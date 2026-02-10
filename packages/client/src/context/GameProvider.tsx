@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createGameServer, type GameServer } from "@mage-knight/server";
+import type { GameServer } from "@mage-knight/server";
 import type { ClientGameState, GameEvent, GameConfig } from "@mage-knight/shared";
 import { GameContext, type ActionLogEntry, type GameContextValue } from "./GameContext";
 import {
@@ -46,9 +46,13 @@ let nextLogId = 1;
  * In development, the server is preserved across HMR updates using import.meta.hot.data
  * to maintain game state (e.g., staying in combat) during code changes.
  * Server is only created when config is provided.
+ * Uses dynamic import to avoid bundling server code in network mode.
  */
-function getOrCreateServer(seed?: number, config?: GameConfig): GameServer | null {
+async function getOrCreateServer(seed?: number, config?: GameConfig): Promise<GameServer | null> {
   if (!config) return null;
+
+  // Dynamically import server to avoid bundling Node.js code in client
+  const { createGameServer } = await import("@mage-knight/server");
 
   if (import.meta.hot) {
     const hotData = import.meta.hot.data as {
@@ -128,17 +132,24 @@ export function GameProvider(props: GameProviderProps) {
   useEffect(() => {
     if (mode !== "local") return;
 
+    let isMounted = true;
+
     // Get existing server (HMR) or create new one
-    const server = getOrCreateServer(props.seed, props.config);
-    if (!server) return;
+    getOrCreateServer(props.seed, props.config).then((server) => {
+      if (!isMounted) return;
+      if (!server) return;
 
-    serverRef.current = server;
+      serverRef.current = server;
 
-    // Connect and receive state updates
-    server.connect(myPlayerId, handleStateUpdate);
+      // Connect and receive state updates
+      server.connect(myPlayerId, handleStateUpdate);
+    });
 
     return () => {
-      server.disconnect(myPlayerId);
+      isMounted = false;
+      if (serverRef.current) {
+        serverRef.current.disconnect(myPlayerId);
+      }
     };
   }, [mode, props, myPlayerId, handleStateUpdate]);
 
