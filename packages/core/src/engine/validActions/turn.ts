@@ -12,7 +12,6 @@ import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { TurnOptions } from "@mage-knight/shared";
 import { canUndo } from "../commands/stack.js";
-import { mustAnnounceEndOfRound } from "./helpers.js";
 import {
   getAvailableRestTypes,
   canDeclareRest,
@@ -25,9 +24,8 @@ import {
  * Get available turn options for a player.
  */
 export function getTurnOptions(state: GameState, player: Player): TurnOptions {
-  const mustAnnounce = mustAnnounceEndOfRound(state, player);
   const canDeclareRestOption = canDeclareRest(state, player);
-  const canCompleteRestOption = canCompleteRest(player) && !mustAnnounce;
+  const canCompleteRestOption = canCompleteRest(player);
 
   return {
     canEndTurn: canEndTurn(state, player),
@@ -62,4 +60,3 @@ function checkCanAnnounceEndOfRound(state: GameState, player: Player): boolean {
 
   return true;
 }
-

@@ -55,6 +55,18 @@ describe("Turn end options", () => {
     }
   });
 
+  it("keeps complete rest available while resting even when deck+hand are empty", () => {
+    const player = createTestPlayer({
+      isResting: true,
+      deck: [],
+      hand: [],
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const turnOptions = getTurnOptions(state, player);
+    expect(turnOptions.canCompleteRest).toBe(true);
+  });
+
   it("disables end turn when minimum turn requirement not met", () => {
     const player = createTestPlayer({
       hand: [CARD_MARCH],

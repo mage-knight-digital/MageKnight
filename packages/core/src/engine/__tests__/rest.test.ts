@@ -623,6 +623,7 @@ describe("Two-Phase REST (DECLARE_REST + COMPLETE_REST)", () => {
       // Per FAQ Q2 A2: If you heal all wounds during rest, Slow Recovery with no discard is valid
       const player = createTestPlayer({
         hand: [],
+        deck: [],
         discard: [],
         isResting: true,
         hasTakenActionThisTurn: true,

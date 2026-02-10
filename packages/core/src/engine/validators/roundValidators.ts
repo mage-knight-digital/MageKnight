@@ -81,6 +81,12 @@ export function validateMustAnnounceEndOfRound(
   const player = getPlayerById(state, playerId);
   if (!player) return invalid(PLAYER_NOT_FOUND, "Player not found");
 
+  // While resting, the player must be able to resolve COMPLETE_REST first.
+  // Announce/forfeit enforcement applies after the resting flow is completed.
+  if (player.isResting) {
+    return valid();
+  }
+
   if (mustAnnounceEndOfRoundAtTurnStart(state, player)) {
     return invalid(
       MUST_ANNOUNCE_END_OF_ROUND,
