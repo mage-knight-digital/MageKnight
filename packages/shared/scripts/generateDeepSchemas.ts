@@ -246,7 +246,7 @@ for (const target of TARGETS) {
 
   // Set schema metadata
   schema.$id = target.schemaId;
-  schema.$schema = "https://json-schema.org/draft-07/schema#";
+  schema.$schema = "http://json-schema.org/draft-07/schema#";
 
   writeFileSync(join(OUTPUT_DIR, target.outputFile), stableJson(schema));
   console.log(`  -> ${target.outputFile}`);

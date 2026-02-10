@@ -86,12 +86,12 @@ export type ParseResult<TMessage> =
 
 type JsonSchema = Readonly<Record<string, unknown>>;
 
-const JSON_SCHEMA_DRAFT_2020 = "https://json-schema.org/draft/2020-12/schema";
+const JSON_SCHEMA_DRAFT_07 = "http://json-schema.org/draft-07/schema#";
 const SCHEMA_BASE_ID =
   "https://mageknight.digital/schemas/network-protocol/v1";
 
 export const clientToServerSchemaV1: JsonSchema = {
-  $schema: JSON_SCHEMA_DRAFT_2020,
+  $schema: JSON_SCHEMA_DRAFT_07,
   $id: `${SCHEMA_BASE_ID}/client-to-server.schema.json`,
   title: "Mage Knight Client -> Server WebSocket Messages v1",
   oneOf: [
@@ -123,7 +123,7 @@ export const clientToServerSchemaV1: JsonSchema = {
 };
 
 export const serverToClientSchemaV1: JsonSchema = {
-  $schema: JSON_SCHEMA_DRAFT_2020,
+  $schema: JSON_SCHEMA_DRAFT_07,
   $id: `${SCHEMA_BASE_ID}/server-to-client.schema.json`,
   title: "Mage Knight Server -> Client WebSocket Messages v1",
   oneOf: [

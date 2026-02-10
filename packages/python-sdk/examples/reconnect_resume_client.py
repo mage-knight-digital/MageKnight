@@ -35,7 +35,7 @@ async def main() -> None:
     state_task = asyncio.create_task(print_states(client))
 
     await client.connect()
-    await client.send_action({"type": "end_turn"})
+    await client.send_action({"type": "END_TURN"})
 
     try:
         async for message in client.messages():

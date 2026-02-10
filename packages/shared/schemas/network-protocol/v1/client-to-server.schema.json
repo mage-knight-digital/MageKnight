@@ -1,6 +1,6 @@
 {
   "$id": "https://mageknight.digital/schemas/network-protocol/v1/client-to-server.schema.json",
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "oneOf": [
     {
       "additionalProperties": false,
