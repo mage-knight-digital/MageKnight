@@ -67,6 +67,32 @@ class RandomPolicyTest(unittest.TestCase):
             tactic_actions[0],
         )
 
+    def test_enumerate_valid_actions_includes_complete_rest(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "normal_turn",
+                "turn": {
+                    "canEndTurn": False,
+                    "canAnnounceEndOfRound": False,
+                    "canUndo": True,
+                    "canDeclareRest": False,
+                    "canCompleteRest": True,
+                    "restDiscard": {
+                        "allowEmptyDiscard": False,
+                        "discardableCardIds": ["march"],
+                        "restType": "standard",
+                    },
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        complete_rest_actions = [a.action for a in actions if a.action.get("type") == "COMPLETE_REST"]
+
+        self.assertEqual(1, len(complete_rest_actions))
+        self.assertEqual(["march"], complete_rest_actions[0]["discardCardIds"])
+
 
 if __name__ == "__main__":
     unittest.main()

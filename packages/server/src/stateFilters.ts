@@ -31,6 +31,7 @@ import type {
   ClientRuinsToken,
   ClientDummyPlayer,
 } from "@mage-knight/shared";
+import { ROUND_PHASE_TACTICS_SELECTION } from "@mage-knight/shared";
 
 /**
  * Convert full GameState to ClientGameState for a specific player.
@@ -40,12 +41,17 @@ export function toClientState(
   state: GameState,
   forPlayerId: string
 ): ClientGameState {
+  const currentPlayerId =
+    state.roundPhase === ROUND_PHASE_TACTICS_SELECTION
+      ? (state.currentTacticSelector ?? "")
+      : (state.turnOrder[state.currentPlayerIndex] ?? "");
+
   return {
     phase: state.phase,
     roundPhase: state.roundPhase,
     timeOfDay: state.timeOfDay,
     round: state.round,
-    currentPlayerId: state.turnOrder[state.currentPlayerIndex] ?? "",
+    currentPlayerId,
     turnOrder: state.turnOrder,
     endOfRoundAnnouncedBy: state.endOfRoundAnnouncedBy,
 

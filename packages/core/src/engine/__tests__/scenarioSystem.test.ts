@@ -344,6 +344,34 @@ describe("Scenario System", () => {
         { playerId: "player1", score: 15 },
       ]);
     });
+
+    it("should end game when scenario total round limit is reached", () => {
+      let state = createGameStateWithTileDeck();
+
+      // Simulate reaching the configured round cap without scenario end trigger.
+      state = {
+        ...state,
+        round: state.scenarioConfig.totalRounds,
+        scenarioEndTriggered: false,
+        finalTurnsRemaining: null,
+        players: state.players.map(p => ({ ...p, fame: 12 })),
+      };
+
+      const endRoundCommand = createEndRoundCommand();
+      const result = endRoundCommand.execute(state);
+
+      expect(result.state.gameEnded).toBe(true);
+      expect(result.state.winningPlayerId).toBe("player1");
+
+      const roundEndEvent = result.events.find(e => e.type === ROUND_ENDED);
+      expect(roundEndEvent).toBeDefined();
+
+      const gameEndEvent = result.events.find(e => e.type === GAME_ENDED);
+      expect(gameEndEvent).toBeDefined();
+      expect(gameEndEvent?.type === GAME_ENDED && gameEndEvent.finalScores).toEqual([
+        { playerId: "player1", score: 12 },
+      ]);
+    });
   });
 
   describe("City entry restriction", () => {
