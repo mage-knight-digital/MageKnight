@@ -34,6 +34,7 @@ import {
   isTimeBendingChainPrevented,
   isWoundCardId,
   cardConsumesAction,
+  isDiscardCostPayableAfterPlayingSource,
 } from "../rules/cardPlay.js";
 import { isRuleActive } from "../modifiers/index.js";
 import { RULE_MOVE_CARDS_IN_COMBAT } from "../../types/modifierConstants.js";
@@ -165,7 +166,20 @@ export function validateCardPlayableInContext(
     return valid();
   }
 
+  const player = getPlayerById(state, playerId);
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
   const effectKind: CardEffectKind = action.powered ? "powered" : "basic";
+  const selectedEffect = effectKind === "basic" ? card.basicEffect : card.poweredEffect;
+
+  if (!isDiscardCostPayableAfterPlayingSource(selectedEffect, player.hand, action.cardId)) {
+    return invalid(
+      CARD_EFFECT_NOT_RESOLVABLE,
+      "Card requires discarding another card, but no eligible card is available"
+    );
+  }
 
   if (state.combat) {
     const context = getCombatEffectContext(card, effectKind);

@@ -271,6 +271,21 @@ describe("getPlayableCardsForCombat", () => {
       });
     });
 
+    it("should not advertise Improvisation as basic/powered when it is the only card in hand", () => {
+      const player = createTestPlayer({
+        hand: [CARD_IMPROVISATION],
+      });
+      const state = createTestGameState({ players: [player] });
+      const combat = createTestCombat(COMBAT_PHASE_ATTACK);
+
+      const result = getPlayableCardsForCombat(state, player, combat);
+      const improvisation = result.cards.find((c) => c.cardId === CARD_IMPROVISATION);
+
+      expect(improvisation).toBeDefined();
+      expect(improvisation?.canPlayBasic).toBe(false);
+      expect(improvisation?.canPlayPowered).toBe(false);
+    });
+
     it("should allow ranged/siege attacks in the attack phase", () => {
       // Per rulebook: "You can combine any Attacks: Ranged, Siege or regular.
       // In this phase, there is no difference between regular, Ranged and Siege Attacks."
@@ -660,6 +675,20 @@ describe("getPlayableCardsForCombat", () => {
       // March SHOULD be playable powered with green mana
       expect(marchCard?.canPlayPowered).toBe(true);
       expect(marchCard?.requiredMana).toBe(MANA_GREEN);
+    });
+
+    it("should not advertise Improvisation as basic/powered on normal turn when no other discard exists", () => {
+      const player = createTestPlayer({
+        hand: [CARD_IMPROVISATION],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = getPlayableCardsForNormalTurn(state, player);
+      const improvisation = result.cards.find((c) => c.cardId === CARD_IMPROVISATION);
+
+      expect(improvisation).toBeDefined();
+      expect(improvisation?.canPlayBasic).toBe(false);
+      expect(improvisation?.canPlayPowered).toBe(false);
     });
   });
 });

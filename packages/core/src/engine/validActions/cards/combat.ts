@@ -23,7 +23,16 @@ import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
 import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
-import { isCombatEffectAllowed, getCombatEffectContext, shouldExcludeMoveOnlyEffect, shouldExcludeInfluenceOnlyEffect, isRangedAttackUnusable, isTimeBendingChainPrevented, type CombatEffectContext } from "../../rules/cardPlay.js";
+import {
+  isCombatEffectAllowed,
+  getCombatEffectContext,
+  shouldExcludeMoveOnlyEffect,
+  shouldExcludeInfluenceOnlyEffect,
+  isRangedAttackUnusable,
+  isTimeBendingChainPrevented,
+  isDiscardCostPayableAfterPlayingSource,
+  type CombatEffectContext,
+} from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "../../modifiers/index.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT, RULE_INFLUENCE_CARDS_IN_COMBAT, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
@@ -138,6 +147,12 @@ export function getPlayableCardsForCombat(
     const poweredIsResolvable = adjustedPoweredContext.effect
       ? isEffectResolvable(state, player.id, adjustedPoweredContext.effect)
       : false;
+    const basicDiscardCostPayable = adjustedBasicContext.effect
+      ? isDiscardCostPayableAfterPlayingSource(adjustedBasicContext.effect, player.hand, cardId)
+      : true;
+    const poweredDiscardCostPayable = adjustedPoweredContext.effect
+      ? isDiscardCostPayableAfterPlayingSource(adjustedPoweredContext.effect, player.hand, cardId)
+      : true;
 
     // For spells, basic effect also requires mana (the spell's color)
     // Get the spell's color from poweredBy (excluding black)
@@ -147,12 +162,16 @@ export function getPlayableCardsForCombat(
 
     // Can only play basic if the phase allows it AND the effect is resolvable
     // AND for spells, the player has the spell's color mana
-    const canActuallyPlayBasic = playability.canPlayBasic && basicIsResolvable && spellBasicManaAvailable;
+    const canActuallyPlayBasic =
+      playability.canPlayBasic &&
+      basicDiscardCostPayable &&
+      basicIsResolvable &&
+      spellBasicManaAvailable;
 
     // Check if the card has a powered effect for this phase AND player can pay for it AND it's resolvable
     // Also check Time Bending chain prevention (cannot play Space Bending powered during Time Bent turn)
     const chainPrevented = isTimeBendingChainPrevented(cardId, true, player.isTimeBentTurn);
-    const payableManaColor = (playability.canPlayPowered && poweredIsResolvable && !chainPrevented)
+    const payableManaColor = (playability.canPlayPowered && poweredDiscardCostPayable && poweredIsResolvable && !chainPrevented)
       ? findPayableManaColor(state, player, card)
       : undefined;
     const canActuallyPlayPowered = payableManaColor !== undefined;

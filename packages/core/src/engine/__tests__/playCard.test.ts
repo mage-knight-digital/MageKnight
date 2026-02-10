@@ -181,6 +181,26 @@ describe("PLAY_CARD action", () => {
         })
       );
     });
+
+    it("should reject Improvisation when no other discardable card exists", () => {
+      const player = createTestPlayer({
+        hand: [CARD_IMPROVISATION],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_ACTION,
+        cardId: CARD_IMPROVISATION,
+        powered: false,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: "Card requires discarding another card, but no eligible card is available",
+        })
+      );
+    });
   });
 
   describe("undo", () => {

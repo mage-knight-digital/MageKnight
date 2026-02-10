@@ -22,7 +22,12 @@ import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
 import type { SidewaysValueModifier } from "../../../types/modifiers.js";
 import { getSidewaysOptionsForValue, canPlaySideways } from "../../rules/sideways.js";
-import { isNormalEffectAllowed, isTimeBendingChainPrevented, cardConsumesAction } from "../../rules/cardPlay.js";
+import {
+  isNormalEffectAllowed,
+  isTimeBendingChainPrevented,
+  cardConsumesAction,
+  isDiscardCostPayableAfterPlayingSource,
+} from "../../rules/cardPlay.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -160,6 +165,11 @@ function getCardPlayabilityForNormalTurn(
   card: DeedCard
 ): CardPlayability {
   const basicHasUsefulEffect = isNormalEffectAllowed(card.basicEffect, "basic");
+  const basicDiscardCostPayable = isDiscardCostPayableAfterPlayingSource(
+    card.basicEffect,
+    player.hand,
+    card.id
+  );
 
   const basicIsResolvable = isEffectResolvable(state, player.id, card.basicEffect);
 
@@ -167,6 +177,11 @@ function getCardPlayabilityForNormalTurn(
   const poweredHasUsefulEffect = isNormalEffectAllowed(
     card.poweredEffect,
     "powered"
+  );
+  const poweredDiscardCostPayable = isDiscardCostPayableAfterPlayingSource(
+    card.poweredEffect,
+    player.hand,
+    card.id
   );
 
   const poweredIsResolvable = isEffectResolvable(state, player.id, card.poweredEffect);
@@ -201,8 +216,8 @@ function getCardPlayabilityForNormalTurn(
   ];
 
   return {
-    canPlayBasic: basicHasUsefulEffect && basicIsResolvable,
-    canPlayPowered: poweredHasUsefulEffect && poweredIsResolvable,
+    canPlayBasic: basicHasUsefulEffect && basicDiscardCostPayable && basicIsResolvable,
+    canPlayPowered: poweredHasUsefulEffect && poweredDiscardCostPayable && poweredIsResolvable,
     canPlaySideways: sidewaysOptions.length > 0,
     sidewaysOptions,
   };
