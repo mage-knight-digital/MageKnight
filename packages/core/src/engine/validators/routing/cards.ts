@@ -39,6 +39,7 @@ import {
   validateHasPendingChoice,
   validateChoiceIndex,
   validateNoChoicePending,
+  validateNoBlockingTacticDecisionPending,
 } from "../choiceValidators.js";
 
 import {
@@ -54,6 +55,7 @@ export const cardValidatorRegistry: ValidatorRegistry = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     // Note: Playing cards is allowed during combat and doesn't count as the "action"
@@ -72,6 +74,7 @@ export const cardValidatorRegistry: ValidatorRegistry = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateSidewaysCardInHand,

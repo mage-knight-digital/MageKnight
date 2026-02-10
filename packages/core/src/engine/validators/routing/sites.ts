@@ -21,6 +21,7 @@ import {
 
 import {
   validateNoChoicePending,
+  validateNoBlockingTacticDecisionPending,
 } from "../choiceValidators.js";
 
 import {
@@ -75,6 +76,7 @@ export const siteValidatorRegistry: ValidatorRegistry = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotRestingForInteraction, // Cannot interact with sites while resting (FAQ S5)
@@ -88,6 +90,7 @@ export const siteValidatorRegistry: ValidatorRegistry = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotRestingForEnterSite, // Cannot enter sites while resting
     validateHasNotActed, // Must not have taken action this turn
@@ -100,6 +103,7 @@ export const siteValidatorRegistry: ValidatorRegistry = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateMustAnnounceEndOfRound,
     validateSpellInOffer,
     validateAtSpellSite,
@@ -110,6 +114,7 @@ export const siteValidatorRegistry: ValidatorRegistry = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateMustAnnounceEndOfRound,
     validateAdvancedActionInOffer,
     validateAtAdvancedActionSite,
@@ -121,6 +126,7 @@ export const siteValidatorRegistry: ValidatorRegistry = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateMustAnnounceEndOfRound,
     validateHasNotActed, // Can only burn if haven't taken action
     validateNoCombatThisTurnForBurn, // Can only have one combat per turn
@@ -132,6 +138,7 @@ export const siteValidatorRegistry: ValidatorRegistry = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateMustAnnounceEndOfRound,
     validateBeforeTurnForPlunder, // Must plunder before taking any action or moving
     validateAtVillage,

@@ -12,6 +12,7 @@ import {
   TACTIC_THE_RIGHT_MOMENT,
   TACTIC_LONG_NIGHT,
   TACTIC_MIDNIGHT_MEDITATION,
+  TACTIC_SPARING_POWER,
 } from "@mage-knight/shared";
 
 /**
@@ -36,6 +37,29 @@ export function canActivateLongNight(player: Player): boolean {
  */
 export function canActivateMidnightMeditation(player: Player): boolean {
   return !player.hasTakenActionThisTurn && player.hand.length > 0;
+}
+
+/**
+ * Check if a pending tactic decision should block all other actions.
+ *
+ * Some tactic decisions must be resolved before the turn can proceed:
+ * - Sparing Power: "Once before the start of each turn" - must be resolved first
+ *
+ * Returns true if the pending decision gates all other actions.
+ */
+export function doesPendingTacticDecisionBlockActions(player: Player): boolean {
+  const pending = player.pendingTacticDecision;
+  if (!pending) {
+    return false;
+  }
+
+  // Sparing Power is a "before turn" decision - blocks all other actions
+  if (pending.type === TACTIC_SPARING_POWER) {
+    return true;
+  }
+
+  // Other tactic decisions (Rethink, Mana Steal, etc.) do not block actions
+  return false;
 }
 
 /**

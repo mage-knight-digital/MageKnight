@@ -12,6 +12,7 @@ import {
 
 import {
   validateNoChoicePending,
+  validateNoBlockingTacticDecisionPending,
 } from "../choiceValidators.js";
 
 import {
@@ -27,6 +28,7 @@ export const skillValidatorRegistry: ValidatorRegistry = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateSkillLearned,
     validateSkillCooldown,
     validateCombatSkillInCombat,

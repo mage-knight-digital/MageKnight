@@ -35,6 +35,7 @@ import {
 
 import {
   validateNoChoicePending,
+  validateNoBlockingTacticDecisionPending,
 } from "../choiceValidators.js";
 
 import {
@@ -55,6 +56,7 @@ export const movementValidatorRegistry: ValidatorRegistry = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotRestingForMovement, // Cannot move while resting (FAQ S3)
@@ -72,6 +74,7 @@ export const movementValidatorRegistry: ValidatorRegistry = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending, // Must resolve pending choice first
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateNotRestingForMovement, // Cannot explore while resting (movement action)

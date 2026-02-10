@@ -18,6 +18,7 @@ import {
 
 import {
   validateNoChoicePending,
+  validateNoBlockingTacticDecisionPending,
 } from "../choiceValidators.js";
 
 import {
@@ -46,6 +47,7 @@ export const restValidatorRegistry: ValidatorRegistry = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
     validateHasNotActed, // Can only rest if you haven't taken an action
@@ -60,6 +62,7 @@ export const restValidatorRegistry: ValidatorRegistry = {
     validateRoundPhase,
     validateNotInCombat,
     validateNoChoicePending,
+    validateNoBlockingTacticDecisionPending, // Must resolve pending tactic decision first
     validateNoPendingLevelUpRewards,
     validateMustAnnounceEndOfRound,
     validateHasNotActed, // Can only declare rest if haven't taken action
