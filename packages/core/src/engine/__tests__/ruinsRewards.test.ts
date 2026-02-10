@@ -16,6 +16,7 @@ import {
   createSelectRewardCommand,
   resetRewardUnitInstanceCounter,
 } from "../commands/selectRewardCommand.js";
+import { validateCardInOffer } from "../validators/rewardValidators.js";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import {
   hexKey,
@@ -26,6 +27,7 @@ import {
   SITE_REWARD_SPELL,
   SITE_REWARD_ADVANCED_ACTION,
   SITE_REWARD_UNIT,
+  SELECT_REWARD_ACTION,
   CARD_GAINED,
   type RuinsTokenId,
   type CardId,
@@ -39,6 +41,7 @@ import type { GameState } from "../../state/GameState.js";
 import type { CombatState } from "../../types/combat.js";
 import { COMBAT_CONTEXT_STANDARD } from "../../types/combat.js";
 import { resetTokenCounter } from "../helpers/enemy/index.js";
+import { DISBAND_REQUIRED } from "../validators/validationCodes.js";
 
 // =============================================================================
 // HELPERS
@@ -575,5 +578,65 @@ describe("Select unit reward", () => {
     });
 
     expect(() => command.execute(state)).toThrow("Selected unit not in unit offer");
+  });
+
+  it("should validate unit reward selection when unit is in offer", () => {
+    const state = createTestGameState({
+      players: [
+        createTestPlayer({
+          id: "player1",
+          pendingRewards: [{ type: SITE_REWARD_UNIT }],
+        }),
+      ],
+      offers: {
+        ...createTestGameState().offers,
+        units: ["peasants" as UnitId],
+      },
+    });
+
+    const validation = validateCardInOffer(state, "player1", {
+      type: SELECT_REWARD_ACTION,
+      cardId: "peasants" as CardId,
+      rewardIndex: 0,
+      unitId: "peasants" as UnitId,
+    });
+
+    expect(validation.valid).toBe(true);
+  });
+
+  it("should require disband target for unit reward when at command limit", () => {
+    const state = createTestGameState({
+      players: [
+        createTestPlayer({
+          id: "player1",
+          pendingRewards: [{ type: SITE_REWARD_UNIT }],
+          units: [
+            {
+              instanceId: "unit_1",
+              unitId: "foresters" as UnitId,
+              state: "ready",
+              wounded: false,
+              usedResistanceThisCombat: false,
+            },
+          ],
+        }),
+      ],
+      offers: {
+        ...createTestGameState().offers,
+        units: ["peasants" as UnitId],
+      },
+    });
+
+    const validation = validateCardInOffer(state, "player1", {
+      type: SELECT_REWARD_ACTION,
+      cardId: "peasants" as CardId,
+      rewardIndex: 0,
+      unitId: "peasants" as UnitId,
+    });
+
+    expect(validation.valid).toBe(false);
+    if (!validation.valid) {
+      expect(validation.error.code).toBe(DISBAND_REQUIRED);
+    }
   });
 });

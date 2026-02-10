@@ -12,6 +12,7 @@ import {
   SITE_REWARD_SPELL,
   SITE_REWARD_ARTIFACT,
   SITE_REWARD_ADVANCED_ACTION,
+  SITE_REWARD_UNIT,
 } from "@mage-knight/shared";
 import {
   PLAYER_NOT_FOUND,
@@ -19,8 +20,13 @@ import {
   INVALID_REWARD_INDEX,
   CARD_NOT_IN_OFFER,
   PENDING_REWARDS_NOT_RESOLVED,
+  UNIT_NOT_FOUND,
+  DISBAND_REQUIRED,
+  DISBAND_UNIT_NOT_FOUND,
+  CANNOT_DISBAND_BONDS_UNIT,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { getEffectiveCommandTokens, isBondsUnit } from "../rules/bondsOfLoyalty.js";
 
 /**
  * Player must have pending rewards to select one.
@@ -108,6 +114,47 @@ export function validateCardInOffer(
           CARD_NOT_IN_OFFER,
           "Selected card is not in the advanced action offer"
         );
+      }
+      break;
+    }
+
+    case SITE_REWARD_UNIT: {
+      if (!action.unitId) {
+        return invalid(UNIT_NOT_FOUND, "Unit reward requires selecting a unit");
+      }
+
+      if (!state.offers.units.includes(action.unitId)) {
+        return invalid(UNIT_NOT_FOUND, "Selected unit is not in the unit offer");
+      }
+
+      const effectiveCommandTokens = getEffectiveCommandTokens(player);
+      const atCommandLimit = player.units.length >= effectiveCommandTokens;
+
+      if (atCommandLimit && !action.disbandUnitInstanceId) {
+        return invalid(
+          DISBAND_REQUIRED,
+          `No command slots available (${player.units.length}/${effectiveCommandTokens}) — disband a unit to recruit`
+        );
+      }
+
+      if (action.disbandUnitInstanceId) {
+        const unitToDisband = player.units.find(
+          (u) => u.instanceId === action.disbandUnitInstanceId
+        );
+
+        if (!unitToDisband) {
+          return invalid(
+            DISBAND_UNIT_NOT_FOUND,
+            "Unit to disband not found in your command"
+          );
+        }
+
+        if (isBondsUnit(player, action.disbandUnitInstanceId)) {
+          return invalid(
+            CANNOT_DISBAND_BONDS_UNIT,
+            "Cannot disband the Bonds of Loyalty unit"
+          );
+        }
       }
       break;
     }

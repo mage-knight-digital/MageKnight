@@ -11,9 +11,13 @@ import {
   SITE_REWARD_ADVANCED_ACTION,
   SITE_REWARD_ARTIFACT,
   SITE_REWARD_COMPOUND,
+  SITE_REWARD_UNIT,
+  UNITS,
   type SiteReward,
   type CardId,
+  type UnitId,
 } from "@mage-knight/shared";
+import { useState } from "react";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import "./RewardSelection.css";
@@ -37,6 +41,8 @@ function describeReward(reward: SiteReward): string {
       return `Select ${reward.count} artifact${reward.count > 1 ? "s" : ""} from the offer`;
     case SITE_REWARD_COMPOUND:
       return reward.rewards.map(describeReward).join(", then ");
+    case SITE_REWARD_UNIT:
+      return "Recruit 1 unit from the offer for free";
     default:
       return "Unknown reward";
   }
@@ -61,6 +67,7 @@ function getOfferForReward(
 export function RewardSelection() {
   const { state, sendAction } = useGame();
   const player = useMyPlayer();
+  const [selectedDisbandUnitId, setSelectedDisbandUnitId] = useState<string | null>(null);
 
   // Don't show if no pending rewards
   const pendingRewards = player?.pendingRewards ?? [];
@@ -88,6 +95,32 @@ export function RewardSelection() {
       type: SELECT_REWARD_ACTION,
       cardId,
       rewardIndex: 0, // Always selecting for the first pending reward
+    });
+  };
+
+  const isUnitReward = actionableReward.type === SITE_REWARD_UNIT;
+  const unitOffer = state?.offers.units ?? [];
+  const atCommandLimit = player.units.length >= player.commandTokens;
+  const disbandableUnits = player.units.filter((unit) => !unit.isBondsUnit);
+  const requiresDisband = isUnitReward && atCommandLimit;
+  const effectiveDisbandUnitId = (
+    requiresDisband &&
+    selectedDisbandUnitId &&
+    disbandableUnits.some((unit) => unit.instanceId === selectedDisbandUnitId)
+  )
+    ? selectedDisbandUnitId
+    : null;
+  const canSelectUnit = !requiresDisband || effectiveDisbandUnitId !== null;
+
+  const handleSelectUnit = (unitId: UnitId) => {
+    if (requiresDisband && !effectiveDisbandUnitId) return;
+
+    sendAction({
+      type: SELECT_REWARD_ACTION,
+      cardId: unitId as unknown as CardId,
+      rewardIndex: 0,
+      unitId,
+      disbandUnitInstanceId: effectiveDisbandUnitId ?? undefined,
     });
   };
 
@@ -130,6 +163,55 @@ export function RewardSelection() {
         ) : isCardReward ? (
           <p className="reward-selection__empty">
             No cards available in the offer. The reward cannot be claimed.
+          </p>
+        ) : isUnitReward && unitOffer.length > 0 ? (
+          <>
+            {requiresDisband && (
+              <div className="reward-selection__disband">
+                <p className="reward-selection__disband-title">
+                  Choose a unit to disband first
+                </p>
+                <div className="reward-selection__cards">
+                  {disbandableUnits.map((unit) => (
+                    <button
+                      key={unit.instanceId}
+                      className={`reward-selection__card ${effectiveDisbandUnitId === unit.instanceId ? "reward-selection__card--selected" : ""}`}
+                      onClick={() => setSelectedDisbandUnitId(unit.instanceId)}
+                      type="button"
+                    >
+                      <span className="reward-selection__card-name">
+                        {UNITS[unit.unitId]?.name ?? formatCardName(unit.unitId)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="reward-selection__disband">
+              <p className="reward-selection__disband-title">
+                Select a unit to recruit
+              </p>
+              <div className="reward-selection__cards">
+                {unitOffer.map((unitId) => (
+                  <button
+                    key={unitId}
+                    className="reward-selection__card"
+                    onClick={() => handleSelectUnit(unitId as UnitId)}
+                    type="button"
+                    disabled={!canSelectUnit}
+                  >
+                    <span className="reward-selection__card-name">
+                      {UNITS[unitId as UnitId]?.name ?? formatCardName(unitId)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : isUnitReward ? (
+          <p className="reward-selection__empty">
+            No units available in the offer. The reward cannot be claimed.
           </p>
         ) : (
           <p className="reward-selection__auto">
