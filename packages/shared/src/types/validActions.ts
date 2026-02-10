@@ -735,6 +735,8 @@ export interface PendingTacticDecisionInfo {
   readonly type: TacticDecisionType;
   /** For preparation: visible deck cards (only sent to owning player) */
   readonly deckSnapshot?: readonly CardId[];
+  /** For rethink/midnight_meditation: currently selectable hand cards */
+  readonly availableCardIds?: readonly CardId[];
   /** For rethink/midnight_meditation: max selectable cards */
   readonly maxCards?: number;
   /** For sparing_power: whether stash option is available (deck not empty) */

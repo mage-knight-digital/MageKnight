@@ -19,6 +19,8 @@ import { UNDO_ACTION } from "@mage-knight/shared";
 import { validateAction } from "./validators/index.js";
 import { createCommandForAction } from "./commands/index.js";
 import { pushCommand, popCommand, canUndo } from "./commands/stack.js";
+import { getPlayerById } from "./helpers/playerHelpers.js";
+import { isPendingTacticDecisionStillValid } from "./rules/tactics.js";
 
 // Result of processing an action
 export interface ActionResult {
@@ -67,6 +69,8 @@ export class MageKnightEngine {
     // Execute
     const result = command.execute(state);
 
+    const prunedState = this.pruneInvalidPendingTacticDecision(result.state, playerId);
+
     // Update command stack
     const newCommandStack = pushCommand(state.commandStack, command);
 
@@ -78,10 +82,36 @@ export class MageKnightEngine {
 
     return {
       state: {
-        ...result.state,
+        ...prunedState,
         commandStack: newCommandStack,
       },
       events,
+    };
+  }
+
+  private pruneInvalidPendingTacticDecision(
+    state: GameState,
+    playerId: string
+  ): GameState {
+    const player = getPlayerById(state, playerId);
+    if (!player?.pendingTacticDecision) {
+      return state;
+    }
+
+    if (isPendingTacticDecisionStillValid(state, player)) {
+      return state;
+    }
+
+    return {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === playerId
+          ? {
+              ...p,
+              pendingTacticDecision: null,
+            }
+          : p
+      ),
     };
   }
 

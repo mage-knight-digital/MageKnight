@@ -33,10 +33,40 @@ export function canActivateLongNight(player: Player): boolean {
 
 /**
  * Midnight Meditation (Night 4):
- * Can be used before taking an action and only if hand is non-empty.
+ * Can be used at turn start (before action/movement) and only if hand is non-empty.
  */
 export function canActivateMidnightMeditation(player: Player): boolean {
-  return !player.hasTakenActionThisTurn && player.hand.length > 0;
+  return !player.hasTakenActionThisTurn && !player.hasMovedThisTurn && player.hand.length > 0;
+}
+
+/**
+ * Midnight Meditation pending decision can only be resolved at turn start,
+ * before any action or movement has occurred.
+ */
+export function canResolveMidnightMeditation(player: Player): boolean {
+  return !player.hasTakenActionThisTurn && !player.hasMovedThisTurn;
+}
+
+/**
+ * Whether the player's current pending tactic decision is still valid.
+ *
+ * Most decisions remain valid once created. Midnight Meditation is special:
+ * it expires once the player starts their turn (action or movement).
+ */
+export function isPendingTacticDecisionStillValid(
+  _state: GameState,
+  player: Player
+): boolean {
+  const pending = player.pendingTacticDecision;
+  if (!pending) {
+    return false;
+  }
+
+  if (pending.type === TACTIC_MIDNIGHT_MEDITATION) {
+    return canResolveMidnightMeditation(player);
+  }
+
+  return true;
 }
 
 /**
@@ -89,8 +119,8 @@ export function getTacticActivationFailureReason(
 
   if (tacticId === TACTIC_MIDNIGHT_MEDITATION) {
     if (!canActivateMidnightMeditation(player)) {
-      if (player.hasTakenActionThisTurn) {
-        return "Cannot use Midnight Meditation after taking an action";
+      if (player.hasTakenActionThisTurn || player.hasMovedThisTurn) {
+        return "Cannot use Midnight Meditation after starting your turn";
       }
       return "Cannot use Midnight Meditation when hand is empty";
     }
