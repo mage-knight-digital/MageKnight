@@ -27,7 +27,7 @@ import {
 export function getTurnOptions(state: GameState, player: Player): TurnOptions {
   const mustAnnounce = mustAnnounceEndOfRound(state, player);
   const canDeclareRestOption = canDeclareRest(state, player);
-  const canCompleteRestOption = canCompleteRest(player) && !mustAnnounce;
+  const canCompleteRestOption = canCompleteRest(player);
 
   return {
     canEndTurn: canEndTurn(state, player),
@@ -62,4 +62,3 @@ function checkCanAnnounceEndOfRound(state: GameState, player: Player): boolean {
 
   return true;
 }
-
