@@ -17,12 +17,14 @@ import type { GameEvent } from "@mage-knight/shared";
 import {
   INVALID_ACTION,
   SOURCE_DICE_REROLLED,
-  TACTIC_MANA_SEARCH,
-  MANA_GOLD,
 } from "@mage-knight/shared";
 import { rerollDie } from "../mana/manaSource.js";
 import { REROLL_SOURCE_DICE_COMMAND } from "./commandTypes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import {
+  canUseManaSearch,
+  getManaSearchRequiredFirstDiceIds,
+} from "../rules/tactics.js";
 
 export { REROLL_SOURCE_DICE_COMMAND };
 
@@ -44,19 +46,8 @@ function validateReroll(
     return "Player not found";
   }
 
-  // Must have Mana Search tactic
-  if (player.selectedTactic !== TACTIC_MANA_SEARCH) {
-    return "Must have Mana Search tactic to reroll source dice";
-  }
-
-  // Cannot use if already used this turn
-  if (player.tacticState?.manaSearchUsedThisTurn) {
-    return "Mana Search already used this turn";
-  }
-
-  // Cannot use after taking mana from source
-  if (player.usedManaFromSource) {
-    return "Cannot use Mana Search after taking mana from source";
+  if (!canUseManaSearch(state, player)) {
+    return "Mana Search cannot be used right now";
   }
 
   // Must select 1-2 dice
@@ -78,18 +69,12 @@ function validateReroll(
     }
   }
 
-  // Must pick gold/depleted dice first if available
-  const restrictedDice = state.source.dice.filter(
-    (d) =>
-      (d.isDepleted || d.color === MANA_GOLD) &&
-      (d.takenByPlayerId === null || d.takenByPlayerId === playerId)
-  );
+  // Must pick required-first dice (gold/depleted) first when present
+  const requiredFirstDiceIds = getManaSearchRequiredFirstDiceIds(state, player);
 
-  if (restrictedDice.length > 0 && dieIds.length < restrictedDice.length) {
-    // If there are restricted dice and we're selecting fewer than all of them,
-    // all selected must be from the restricted set
+  if (requiredFirstDiceIds.length > 0 && dieIds.length < requiredFirstDiceIds.length) {
     const allSelectedAreRestricted = dieIds.every((id) =>
-      restrictedDice.some((d) => d.id === id)
+      requiredFirstDiceIds.includes(id)
     );
     if (!allSelectedAreRestricted) {
       return "Must reroll gold or depleted dice first";

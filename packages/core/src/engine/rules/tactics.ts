@@ -13,7 +13,10 @@ import {
   TACTIC_LONG_NIGHT,
   TACTIC_MIDNIGHT_MEDITATION,
   TACTIC_SPARING_POWER,
+  TACTIC_MANA_SEARCH,
+  MANA_GOLD,
 } from "@mage-knight/shared";
+import type { SourceDie } from "../../types/mana.js";
 
 /**
  * The Right Moment (Day 6):
@@ -127,4 +130,39 @@ export function getTacticActivationFailureReason(
   }
 
   return null;
+}
+
+/**
+ * Get source dice available to Mana Search for this player.
+ */
+export function getManaSearchAvailableDice(
+  state: GameState,
+  player: Player
+): readonly SourceDie[] {
+  return state.source.dice.filter(
+    (d) => d.takenByPlayerId === null || d.takenByPlayerId === player.id
+  );
+}
+
+/**
+ * Get the constrained subset for Mana Search when gold/depleted dice must be rerolled first.
+ */
+export function getManaSearchRequiredFirstDiceIds(
+  state: GameState,
+  player: Player
+): readonly string[] {
+  return getManaSearchAvailableDice(state, player)
+    .filter((d) => d.isDepleted || d.color === MANA_GOLD)
+    .map((d) => d.id);
+}
+
+/**
+ * Check if the player can currently use Mana Search.
+ */
+export function canUseManaSearch(state: GameState, player: Player): boolean {
+  return (
+    player.selectedTactic === TACTIC_MANA_SEARCH &&
+    !player.tacticState?.manaSearchUsedThisTurn &&
+    !player.usedManaFromSource
+  );
 }

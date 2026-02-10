@@ -16,7 +16,10 @@ import {
   WRONG_PHASE,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
-import { hasMetMinimumTurnRequirement } from "../rules/turnStructure.js";
+import {
+  hasMetMinimumTurnRequirement,
+  canTakeActionPhaseAction,
+} from "../rules/turnStructure.js";
 
 // Check it's this player's turn
 export function validateIsPlayersTurn(
@@ -68,7 +71,7 @@ export function validateHasNotActed(
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
-  if (player.hasTakenActionThisTurn) {
+  if (!canTakeActionPhaseAction(player)) {
     return invalid(ALREADY_ACTED, "You have already taken an action this turn");
   }
   return valid();

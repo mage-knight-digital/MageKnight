@@ -99,6 +99,16 @@ export function canDeclareRest(state: GameState, player: Player): boolean {
 }
 
 /**
+ * Check if the player can still take an action-phase action this turn.
+ *
+ * Action-phase actions are gated by whether the player has already consumed
+ * their action for the turn.
+ */
+export function canTakeActionPhaseAction(player: Player): boolean {
+  return !player.hasTakenActionThisTurn;
+}
+
+/**
  * Check if player can complete rest (discard cards to finish resting).
  *
  * Requirements:
