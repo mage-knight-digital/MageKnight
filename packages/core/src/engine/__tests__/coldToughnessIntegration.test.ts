@@ -24,8 +24,8 @@ import {
   ENTER_COMBAT_ACTION,
   END_COMBAT_PHASE_ACTION,
   DECLARE_BLOCK_ACTION,
+  INVALID_ACTION,
   ENEMY_BLOCKED,
-  BLOCK_FAILED,
   ELEMENT_PHYSICAL,
   ELEMENT_COLD_FIRE,
   ENEMY_HIGH_DRAGON,
@@ -131,9 +131,8 @@ describe("Cold Toughness Integration", () => {
       expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: BLOCK_FAILED,
-          enemyInstanceId: "enemy_0",
-          blockValue: 2,
+          type: INVALID_ACTION,
+          reason: "Insufficient block: need 3, have 2",
         })
       );
     });
@@ -205,9 +204,8 @@ describe("Cold Toughness Integration", () => {
       expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: BLOCK_FAILED,
-          enemyInstanceId: "enemy_0",
-          blockValue: 4,
+          type: INVALID_ACTION,
+          reason: "Insufficient block: need 6, have 4",
         })
       );
     });
@@ -292,9 +290,8 @@ describe("Cold Toughness Integration", () => {
       expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: BLOCK_FAILED,
-          enemyInstanceId: "enemy_0",
-          blockValue: 3, // No bonus despite modifier being active
+          type: INVALID_ACTION,
+          reason: "Insufficient block: need 4, have 3",
         })
       );
     });
@@ -393,9 +390,8 @@ describe("Cold Toughness Integration", () => {
       expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: BLOCK_FAILED,
-          enemyInstanceId: "enemy_0",
-          blockValue: 5, // 3 efficient + floor(5/2) = 5
+          type: INVALID_ACTION,
+          reason: "Insufficient block: need 6, have 5",
         })
       );
     });

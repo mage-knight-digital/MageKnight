@@ -27,7 +27,6 @@ import {
   ASSIGN_DAMAGE_ACTION,
   INVALID_ACTION,
   ENEMY_BLOCKED,
-  BLOCK_FAILED,
   DAMAGE_ASSIGNED,
   ELEMENT_PHYSICAL,
   ELEMENT_FIRE,
@@ -246,8 +245,8 @@ describe("Combat Multi-Attack", () => {
       expect(result.state.combat?.enemies[0].attacksBlocked?.[0]).toBe(false);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: BLOCK_FAILED,
-          attackIndex: 0,
+          type: INVALID_ACTION,
+          reason: "Insufficient block: need 3, have 2",
         })
       );
     });

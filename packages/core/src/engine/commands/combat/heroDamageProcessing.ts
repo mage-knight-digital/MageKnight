@@ -14,6 +14,10 @@ import {
   PLAYER_KNOCKED_OUT,
   PARALYZE_HAND_DISCARDED,
 } from "@mage-knight/shared";
+import {
+  discardNonWoundsFromHand,
+  isKnockoutTriggered,
+} from "../../rules/knockout.js";
 
 /**
  * Result of processing hero wounds.
@@ -96,16 +100,15 @@ export function applyHeroWounds(
   // Poison wounds to discard are extra punishment but don't count toward knockout threshold
   const totalWoundsThisCombat = currentWoundsThisCombat + heroWounds;
 
-  // Check for knockout (wounds this combat >= hand limit)
-  const isKnockedOut = totalWoundsThisCombat >= player.handLimit;
+  // Check for knockout (wounds this combat >= unmodified hand limit)
+  const isKnockedOut = isKnockoutTriggered(totalWoundsThisCombat, player.handLimit);
 
   let finalHand: readonly CardId[] = newHand;
   let finalDiscard: readonly CardId[] = newDiscard;
   if (isKnockedOut) {
-    // Discard all non-wound cards from hand
-    const nonWoundsToDiscard = newHand.filter((cardId) => cardId !== CARD_WOUND);
-    finalHand = newHand.filter((cardId) => cardId === CARD_WOUND);
-    finalDiscard = [...newDiscard, ...nonWoundsToDiscard];
+    const knockoutCards = discardNonWoundsFromHand(newHand, newDiscard);
+    finalHand = knockoutCards.hand;
+    finalDiscard = knockoutCards.discard;
     events.push({
       type: PLAYER_KNOCKED_OUT,
       playerId,

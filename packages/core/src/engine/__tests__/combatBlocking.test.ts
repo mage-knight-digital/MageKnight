@@ -16,7 +16,6 @@ import {
   DECLARE_ATTACK_ACTION,
   INVALID_ACTION,
   ENEMY_BLOCKED,
-  BLOCK_FAILED,
   ENEMY_DEFEATED,
   ENEMY_ORC,
   ENEMY_WOLF_RIDERS,
@@ -101,7 +100,7 @@ describe("Combat Blocking", () => {
       expect(result.state.combat?.enemies[0].isBlocked).toBe(true);
     });
 
-    it("should fail block with insufficient value", () => {
+    it("should reject block declaration with insufficient value", () => {
       let state = createTestGameState();
 
       state = engine.processAction(state, "player1", {
@@ -125,10 +124,8 @@ describe("Combat Blocking", () => {
       expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: BLOCK_FAILED,
-          enemyInstanceId: "enemy_0",
-          blockValue: 2,
-          requiredBlock: 3,
+          type: INVALID_ACTION,
+          reason: "Insufficient block: need 3, have 2",
         })
       );
     });
@@ -184,14 +181,12 @@ describe("Combat Blocking", () => {
         targetEnemyInstanceId: "enemy_0",
       });
 
-      // Should fail - need 6 block (3 * 2) due to Swift
+      // Should be rejected - need 6 block (3 * 2) due to Swift
       expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: BLOCK_FAILED,
-          enemyInstanceId: "enemy_0",
-          blockValue: 4,
-          requiredBlock: 6, // 3 * 2 = 6 due to Swift
+          type: INVALID_ACTION,
+          reason: "Insufficient block: need 6, have 4",
         })
       );
     });
@@ -332,10 +327,8 @@ describe("Combat Blocking", () => {
       expect(result.state.combat?.enemies[0].isBlocked).toBe(false);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: BLOCK_FAILED,
-          enemyInstanceId: "enemy_0",
-          blockValue: 4, // 8 / 2 = 4
-          requiredBlock: 6,
+          type: INVALID_ACTION,
+          reason: "Insufficient block: need 6, have 4",
         })
       );
     });

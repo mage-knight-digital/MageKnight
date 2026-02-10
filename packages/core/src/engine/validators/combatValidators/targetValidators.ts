@@ -24,6 +24,7 @@ import {
   ATTACK_ALREADY_BLOCKED,
   ATTACK_DAMAGE_ALREADY_ASSIGNED,
   DAMAGE_REDIRECT_REQUIRES_UNIT_TARGET,
+  INSUFFICIENT_BLOCK,
   UNITS_CANNOT_ABSORB_DAMAGE,
 } from "../validationCodes.js";
 import { isAssassinationActive, getDamageRedirectUnit, cannotAssignDamageToUnits } from "../../rules/combatTargeting.js";
@@ -35,13 +36,14 @@ import {
   findFirstUnblockedAttack,
   findFirstUnassignedAttack,
 } from "../../combat/enemyAttackHelpers.js";
+import { getBlockDeclarationStatus } from "../../rules/combatBlocking.js";
 
 // Target enemy must exist and not be defeated (for block)
 // Also excludes hidden summoners (summoners that have summoned an enemy)
 // For multi-attack enemies, validates the specific attack being blocked
 export function validateBlockTargetEnemy(
   state: GameState,
-  _playerId: string,
+  playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== DECLARE_BLOCK_ACTION) return valid();
@@ -92,6 +94,19 @@ export function validateBlockTargetEnemy(
   // If all attacks are blocked, the enemy is fully blocked
   if (isEnemyFullyBlocked(enemy)) {
     return invalid(ENEMY_ALREADY_BLOCKED, "All attacks on this enemy are already blocked");
+  }
+
+  const declarationStatus = getBlockDeclarationStatus(
+    state,
+    playerId,
+    enemy,
+    action.attackIndex
+  );
+  if (!declarationStatus.canDeclare) {
+    return invalid(
+      INSUFFICIENT_BLOCK,
+      `Insufficient block: need ${declarationStatus.requiredBlock}, have ${declarationStatus.availableEffectiveBlock}`
+    );
   }
 
   return valid();
