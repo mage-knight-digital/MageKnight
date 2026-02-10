@@ -16,6 +16,9 @@ docs/sprites/
 *.pyc
 *.pyo
 __pycache__/
+*.egg-info/
+*.egg/
+build/
 
 # Test artifacts
 test-results/
