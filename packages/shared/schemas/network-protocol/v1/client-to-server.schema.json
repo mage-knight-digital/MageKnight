@@ -1,0 +1,67 @@
+{
+  "$id": "https://mageknight.digital/schemas/network-protocol/v1/client-to-server.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "additionalProperties": true,
+          "properties": {
+            "type": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "protocolVersion": {
+          "const": "1.0.0"
+        },
+        "type": {
+          "const": "action"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "action"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "gameId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "protocolVersion": {
+          "const": "1.0.0"
+        },
+        "sessionToken": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "const": "lobby_subscribe"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "gameId",
+        "playerId"
+      ],
+      "type": "object"
+    }
+  ],
+  "title": "Mage Knight Client -> Server WebSocket Messages v1"
+}

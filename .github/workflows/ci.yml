@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -39,6 +41,22 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Verify generated network schemas are committed
+        run: |
+          bun run --filter @mage-knight/shared generate:network-schemas
+          if ! git diff --quiet -- packages/shared/schemas/network-protocol/; then
+            echo "Generated network protocol schemas are out of date."
+            echo "Run: bun run --filter @mage-knight/shared generate:network-schemas"
+            git --no-pager diff -- packages/shared/schemas/network-protocol/
+            exit 1
+          fi
+
+      - name: Verify protocol version bump for contract changes
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin main --no-tags --depth=1
+          bun run --filter @mage-knight/shared check:network-version
 
       - name: Build
         run: bun run build

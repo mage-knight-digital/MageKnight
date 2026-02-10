@@ -1,0 +1,8 @@
+{
+  "files": [
+    "client-to-server.schema.json",
+    "server-to-client.schema.json"
+  ],
+  "generatedAt": "static",
+  "protocolVersion": "1.0.0"
+}

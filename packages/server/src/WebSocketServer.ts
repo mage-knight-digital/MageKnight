@@ -1,40 +1,30 @@
 import { createGameServer, type GameServer } from "./GameServer.js";
-import type {
-  ClientGameState,
-  EventCallback,
-  GameConfig,
-  GameEvent,
-  HeroId,
-  PlayerAction,
-  ScenarioId,
+import type { EventCallback, GameConfig, HeroId, ScenarioId } from "@mage-knight/shared";
+import {
+  CLIENT_MESSAGE_ACTION,
+  NETWORK_PROTOCOL_VERSION,
+  SCENARIO_FIRST_RECONNAISSANCE,
+  SERVER_MESSAGE_ERROR,
+  SERVER_MESSAGE_STATE_UPDATE,
+  parseClientMessage,
+  type ErrorMessage,
+  type StateUpdateMessage,
 } from "@mage-knight/shared";
-import { SCENARIO_FIRST_RECONNAISSANCE } from "@mage-knight/shared";
 
-export const CLIENT_MESSAGE_ACTION = "action" as const;
-export const SERVER_MESSAGE_STATE_UPDATE = "state_update" as const;
-export const SERVER_MESSAGE_ERROR = "error" as const;
+export {
+  CLIENT_MESSAGE_ACTION,
+  SERVER_MESSAGE_ERROR,
+  SERVER_MESSAGE_STATE_UPDATE,
+} from "@mage-knight/shared";
+export type {
+  ErrorMessage,
+  ServerMessage,
+  StateUpdateMessage,
+} from "@mage-knight/shared";
 
 export const CLOSE_CODE_INVALID_REQUEST = 1008 as const;
 export const CLOSE_CODE_INTERNAL_ERROR = 1011 as const;
 export const CLOSE_CODE_REPLACED_CONNECTION = 4001 as const;
-
-export interface ClientActionMessage {
-  type: typeof CLIENT_MESSAGE_ACTION;
-  action: PlayerAction;
-}
-
-export interface StateUpdateMessage {
-  type: typeof SERVER_MESSAGE_STATE_UPDATE;
-  events: readonly GameEvent[];
-  state: ClientGameState;
-}
-
-export interface ErrorMessage {
-  type: typeof SERVER_MESSAGE_ERROR;
-  message: string;
-}
-
-export type ServerMessage = StateUpdateMessage | ErrorMessage;
 
 export interface ConnectionLike {
   send(message: string): number;
@@ -92,34 +82,22 @@ const GAME_FULL_ERROR = "Game is full";
 const INVALID_PLAYER_ID_ERROR = "Invalid player ID for game";
 const PLAYER_REPLACED_REASON = "Replaced by a new connection";
 
-function buildStateUpdateMessage(
-  events: readonly GameEvent[],
-  state: ClientGameState
-): StateUpdateMessage {
+function buildStateUpdateMessage(events: StateUpdateMessage["events"], state: StateUpdateMessage["state"]): StateUpdateMessage {
   return {
+    protocolVersion: NETWORK_PROTOCOL_VERSION,
     type: SERVER_MESSAGE_STATE_UPDATE,
     events,
     state,
   };
 }
 
-function buildErrorMessage(message: string): ErrorMessage {
+function buildErrorMessage(message: string, errorCode?: string): ErrorMessage {
   return {
+    protocolVersion: NETWORK_PROTOCOL_VERSION,
     type: SERVER_MESSAGE_ERROR,
     message,
+    errorCode,
   };
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isClientActionMessage(value: unknown): value is ClientActionMessage {
-  if (!isObject(value)) {
-    return false;
-  }
-
-  return value.type === CLIENT_MESSAGE_ACTION && "action" in value;
 }
 
 function createEventCallback(connection: ConnectionLike): EventCallback {
@@ -245,18 +223,19 @@ export class GameRoomManager {
       return;
     }
 
-    if (!isClientActionMessage(parsed)) {
+    const parsedMessage = parseClientMessage(parsed);
+    if (!parsedMessage.ok) {
+      this.sendError(connection, parsedMessage.error.message, parsedMessage.error.code);
+      return;
+    }
+
+    if (parsedMessage.message.type !== CLIENT_MESSAGE_ACTION) {
       this.sendError(connection, UNKNOWN_MESSAGE_TYPE_ERROR);
       return;
     }
 
-    if (!isObject(parsed.action)) {
-      this.sendError(connection, INVALID_ACTION_MESSAGE_ERROR);
-      return;
-    }
-
     try {
-      room.gameServer.handleAction(context.playerId, parsed.action as PlayerAction);
+      room.gameServer.handleAction(context.playerId, parsedMessage.message.action);
     } catch {
       this.sendError(connection, INVALID_ACTION_MESSAGE_ERROR);
     }
@@ -316,8 +295,8 @@ export class GameRoomManager {
     }, this.cleanupTimeoutMs);
   }
 
-  private sendError(connection: ConnectionLike, message: string): void {
-    connection.send(JSON.stringify(buildErrorMessage(message)));
+  private sendError(connection: ConnectionLike, message: string, errorCode?: string): void {
+    connection.send(JSON.stringify(buildErrorMessage(message, errorCode)));
   }
 
   private sendErrorAndClose(connection: ConnectionLike, message: string): void {

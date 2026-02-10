@@ -152,6 +152,42 @@ export type {
 } from "./connection.js";
 export { LocalConnection } from "./connection.js";
 
+// Network protocol
+export {
+  NETWORK_PROTOCOL_VERSION_1,
+  NETWORK_PROTOCOL_VERSION,
+  CLIENT_MESSAGE_ACTION,
+  CLIENT_MESSAGE_LOBBY_SUBSCRIBE,
+  SERVER_MESSAGE_STATE_UPDATE,
+  SERVER_MESSAGE_ERROR,
+  SERVER_MESSAGE_LOBBY_STATE,
+  PROTOCOL_PARSE_ERROR_INVALID_ENVELOPE,
+  PROTOCOL_PARSE_ERROR_UNSUPPORTED_VERSION,
+  PROTOCOL_PARSE_ERROR_UNKNOWN_MESSAGE_TYPE,
+  PROTOCOL_PARSE_ERROR_INVALID_PAYLOAD,
+  clientToServerSchemaV1,
+  serverToClientSchemaV1,
+  networkProtocolSchemasV1,
+  parseClientMessage,
+  parseServerMessage,
+} from "./networkProtocol.js";
+export type {
+  NetworkProtocolVersion,
+  ClientMessageType,
+  ServerMessageType,
+  NetworkMessageEnvelope,
+  ClientActionMessage,
+  ClientLobbySubscribeMessage,
+  ClientMessage,
+  StateUpdateMessage,
+  ErrorMessage,
+  LobbyStateMessage,
+  ServerMessage,
+  ProtocolParseErrorCode,
+  ProtocolParseError,
+  ParseResult,
+} from "./networkProtocol.js";
+
 // Client state types
 export type {
   ClientCrystals,

@@ -1,4 +1,13 @@
 import type { ClientGameState, GameEvent, PlayerAction } from "@mage-knight/shared";
+import {
+  CLIENT_MESSAGE_ACTION,
+  NETWORK_PROTOCOL_VERSION,
+  SERVER_MESSAGE_ERROR,
+  SERVER_MESSAGE_STATE_UPDATE,
+  parseServerMessage,
+  type ClientActionMessage,
+  type ServerMessage,
+} from "@mage-knight/shared";
 
 export const CONNECTION_STATUS_CONNECTING = "connecting" as const;
 export const CONNECTION_STATUS_CONNECTED = "connected" as const;
@@ -19,24 +28,6 @@ export interface ConnectionStatusInfo {
   reconnectAttempt?: number;
   maxReconnectAttempts?: number;
 }
-
-interface ClientActionMessage {
-  type: "action";
-  action: PlayerAction;
-}
-
-interface StateUpdateMessage {
-  type: "state_update";
-  events: readonly GameEvent[];
-  state: ClientGameState;
-}
-
-interface ErrorMessage {
-  type: "error";
-  message: string;
-}
-
-type ServerMessage = StateUpdateMessage | ErrorMessage;
 
 export interface WebSocketConnectionOptions {
   gameId: string;
@@ -116,7 +107,8 @@ export class WebSocketConnection {
     }
 
     const message: ClientActionMessage = {
-      type: "action",
+      protocolVersion: NETWORK_PROTOCOL_VERSION,
+      type: CLIENT_MESSAGE_ACTION,
       action,
     };
 
@@ -177,8 +169,13 @@ export class WebSocketConnection {
 
     this.ws.onmessage = (event) => {
       try {
-        const message = JSON.parse(event.data) as ServerMessage;
-        this.handleServerMessage(message);
+        const parsed = parseServerMessage(JSON.parse(event.data));
+        if (!parsed.ok) {
+          console.error("[WebSocket] Protocol parse error:", parsed.error.message);
+          return;
+        }
+
+        this.handleServerMessage(parsed.message);
       } catch (error) {
         console.error("[WebSocket] Failed to parse message:", error);
       }
@@ -215,10 +212,10 @@ export class WebSocketConnection {
   }
 
   private handleServerMessage(message: ServerMessage): void {
-    if (message.type === "state_update") {
+    if (message.type === SERVER_MESSAGE_STATE_UPDATE) {
       console.log(`[WebSocket] Received state update with ${message.events.length} events`);
       this.onStateUpdate(message.events, message.state);
-    } else if (message.type === "error") {
+    } else if (message.type === SERVER_MESSAGE_ERROR) {
       console.error("[WebSocket] Server error:", message.message);
       this.updateStatus(CONNECTION_STATUS_ERROR, message.message);
     }
