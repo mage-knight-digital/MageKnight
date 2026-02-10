@@ -2,6 +2,26 @@
 
 This document defines the versioned Mage Knight WebSocket contract used between clients and `@mage-knight/server`.
 
+## Current Validation Scope (v1)
+
+The current v1 runtime parser and JSON Schemas intentionally validate the wire envelope and top-level shape only:
+
+- `protocolVersion`
+- `type`
+- required top-level fields per message type
+
+Payload fields are currently shallow-validated:
+
+- `action` is only checked for a top-level `action.type` string
+- `events[]` is only checked as an array
+- `state` is only checked as an object
+
+The deep payload contracts still come from shared TypeScript source types in `@mage-knight/shared`:
+
+- `PlayerAction`
+- `GameEvent`
+- `ClientGameState`
+
 ## Versioning
 
 - Current version: `1.0.0`
@@ -93,3 +113,9 @@ Defined for lobby/session phase updates.
 - Validate `protocolVersion` and `type` before processing payload fields.
 - Treat unknown `type` values as non-fatal protocol errors.
 - Prefer generated schemas for language-agnostic validation codegen (for example Python clients).
+
+## Known Limitations
+
+- v1 does not yet provide deep JSON Schema validation for `PlayerAction`, `GameEvent`, or `ClientGameState`.
+- Envelope/schema compatibility checks are strong, but payload semantic validation is still performed by server game logic after envelope parsing.
+- Follow-up work should add deeper payload schemas so external SDKs can validate full message semantics pre-runtime.

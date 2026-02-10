@@ -102,6 +102,7 @@ export const clientToServerSchemaV1: JsonSchema = {
         protocolVersion: { const: NETWORK_PROTOCOL_VERSION },
         type: { const: CLIENT_MESSAGE_ACTION },
         action: {
+          // TODO(protocol): replace shallow action object validation with a full PlayerAction schema.
           type: "object",
           required: ["type"],
           properties: {
@@ -138,6 +139,7 @@ export const serverToClientSchemaV1: JsonSchema = {
       properties: {
         protocolVersion: { const: NETWORK_PROTOCOL_VERSION },
         type: { const: SERVER_MESSAGE_STATE_UPDATE },
+        // TODO(protocol): replace shallow array/object validation with full GameEvent/ClientGameState schemas.
         events: { type: "array" },
         state: { type: "object" },
       },
@@ -266,6 +268,7 @@ export function parseServerMessage(value: unknown): ParseResult<ServerMessage> {
       const events = envelope.message.events;
       const state = envelope.message.state;
 
+      // TODO(protocol): parse nested GameEvent[] and ClientGameState shapes once deep schemas are available.
       if (!Array.isArray(events) || !isRecord(state)) {
         return invalid(
           PROTOCOL_PARSE_ERROR_INVALID_PAYLOAD,
@@ -318,4 +321,3 @@ export function parseServerMessage(value: unknown): ParseResult<ServerMessage> {
       );
   }
 }
-
