@@ -18,6 +18,7 @@ import {
   canDeclareRest,
   canCompleteRest,
   canEndTurn,
+  getRestDiscardableCards,
 } from "../rules/turnStructure.js";
 
 /**
@@ -37,6 +38,7 @@ export function getTurnOptions(state: GameState, player: Player): TurnOptions {
     canDeclareRest: canDeclareRestOption,
     canCompleteRest: canCompleteRestOption,
     isResting: player.isResting,
+    restDiscard: canCompleteRestOption ? getRestDiscardableCards(player) : undefined,
   };
 }
 

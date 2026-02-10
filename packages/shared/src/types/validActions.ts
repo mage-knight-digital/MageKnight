@@ -658,6 +658,16 @@ export interface AvailableDie {
 // Turn structure
 // ============================================================================
 
+/** Options for completing rest when in resting state */
+export interface RestDiscardOptions {
+  /** Cards that can be discarded (excludes wounds for standard rest) */
+  readonly discardableCardIds: readonly CardId[];
+  /** Whether this will be standard rest (has non-wounds) or slow recovery (wounds only) */
+  readonly restType: RestType;
+  /** True if slow recovery with empty hand (all wounds healed) */
+  readonly allowEmptyDiscard: boolean;
+}
+
 export interface TurnOptions {
   readonly canEndTurn: boolean;
   readonly canAnnounceEndOfRound: boolean;
@@ -671,6 +681,8 @@ export interface TurnOptions {
   readonly canCompleteRest: boolean;
   /** Whether player is currently in resting state */
   readonly isResting: boolean;
+  /** Rest discard options (only present when isResting && canCompleteRest) */
+  readonly restDiscard?: RestDiscardOptions;
 }
 
 // ============================================================================

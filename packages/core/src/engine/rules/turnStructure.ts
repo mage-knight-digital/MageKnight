@@ -116,6 +116,49 @@ export function canCompleteRest(player: Player): boolean {
 }
 
 /**
+ * Get which cards can be discarded for rest completion.
+ *
+ * Returns the set of discardable cards and metadata about the rest type:
+ * - Standard Rest: can discard any card (will need exactly 1 non-wound + any wounds)
+ * - Slow Recovery (wounds only): can only discard wounds (will need exactly 1)
+ * - Slow Recovery (empty hand): all wounds healed, no discard needed
+ */
+export function getRestDiscardableCards(player: Player): {
+  discardableCardIds: readonly string[];
+  restType: RestType;
+  allowEmptyDiscard: boolean;
+} | null {
+  if (!player.isResting) {
+    return null;
+  }
+
+  const hasNonWoundInHand = player.hand.some((cardId) => !isWoundCard(cardId));
+
+  if (hasNonWoundInHand) {
+    // Standard Rest: can discard any card in hand
+    return {
+      discardableCardIds: player.hand,
+      restType: REST_TYPE_STANDARD,
+      allowEmptyDiscard: false,
+    };
+  } else if (player.hand.length === 0) {
+    // Slow Recovery with empty hand (all wounds healed during rest)
+    return {
+      discardableCardIds: [],
+      restType: REST_TYPE_SLOW_RECOVERY,
+      allowEmptyDiscard: true,
+    };
+  } else {
+    // Slow Recovery: only wounds in hand
+    return {
+      discardableCardIds: player.hand,
+      restType: REST_TYPE_SLOW_RECOVERY,
+      allowEmptyDiscard: false,
+    };
+  }
+}
+
+/**
  * Check if player can end their turn.
  *
  * Generally always possible unless there's pending state that needs resolution:

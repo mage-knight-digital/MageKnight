@@ -3684,6 +3684,33 @@
       ],
       "type": "string"
     },
+    "RestDiscardOptions": {
+      "additionalProperties": false,
+      "description": "Options for completing rest when in resting state",
+      "properties": {
+        "allowEmptyDiscard": {
+          "description": "True if slow recovery with empty hand (all wounds healed)",
+          "type": "boolean"
+        },
+        "discardableCardIds": {
+          "description": "Cards that can be discarded (excludes wounds for standard rest)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "restType": {
+          "$ref": "#/definitions/RestType",
+          "description": "Whether this will be standard rest (has non-wounds) or slow recovery (wounds only)"
+        }
+      },
+      "required": [
+        "allowEmptyDiscard",
+        "discardableCardIds",
+        "restType"
+      ],
+      "type": "object"
+    },
     "RestType": {
       "enum": [
         "slow_recovery",
@@ -4192,6 +4219,10 @@
         "isResting": {
           "description": "Whether player is currently in resting state",
           "type": "boolean"
+        },
+        "restDiscard": {
+          "$ref": "#/definitions/RestDiscardOptions",
+          "description": "Rest discard options (only present when isResting && canCompleteRest)"
         },
         "restTypes": {
           "items": {
