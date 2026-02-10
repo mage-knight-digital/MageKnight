@@ -1,0 +1,98 @@
+{
+  "$id": "https://mageknight.digital/schemas/network-protocol/v1/server-to-client.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "type": "array"
+        },
+        "protocolVersion": {
+          "const": "1.0.0"
+        },
+        "state": {
+          "type": "object"
+        },
+        "type": {
+          "const": "state_update"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "events",
+        "state"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "errorCode": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "protocolVersion": {
+          "const": "1.0.0"
+        },
+        "type": {
+          "const": "error"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "message"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "gameId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "maxPlayers": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "playerIds": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "protocolVersion": {
+          "const": "1.0.0"
+        },
+        "status": {
+          "enum": [
+            "lobby",
+            "started"
+          ]
+        },
+        "type": {
+          "const": "lobby_state"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "gameId",
+        "status",
+        "playerIds",
+        "maxPlayers"
+      ],
+      "type": "object"
+    }
+  ],
+  "title": "Mage Knight Server -> Client WebSocket Messages v1"
+}
