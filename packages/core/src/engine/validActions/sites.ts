@@ -28,6 +28,8 @@ import {
   canInteractWithSite,
   hasCombatRestrictions,
   canEnterAdventureSite,
+  canBuyAdvancedActionsAtMonastery,
+  canAffordMonasteryAdvancedAction,
 } from "../rules/siteInteraction.js";
 import { canTakeActionPhaseAction } from "../rules/turnStructure.js";
 
@@ -335,9 +337,9 @@ function getInteractOptions(
 
   // Check if can buy advanced actions (Monastery)
   const canBuyAdvancedActions =
-    site.type === SiteType.Monastery &&
-    !site.isBurned &&
-    state.offers.advancedActions.cards.length > 0;
+    canBuyAdvancedActionsAtMonastery(site) &&
+    state.offers.advancedActions.cards.length > 0 &&
+    canAffordMonasteryAdvancedAction(player.influencePoints);
 
   // Check if can burn monastery
   const canBurnMonastery =
