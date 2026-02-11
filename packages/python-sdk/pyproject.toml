@@ -13,6 +13,9 @@ dependencies = [
 
 [project.scripts]
 mage-knight-viewer = "mage_knight_sdk.viewer.__main__:main"
+mage-knight-run-game = "mage_knight_sdk.cli.run_game:main"
+mage-knight-run-sweep = "mage_knight_sdk.cli.run_sweep:main"
+mage-knight-scan-fame = "mage_knight_sdk.tools.scan_fame:main"
 
 [project.optional-dependencies]
 dev = []

@@ -23,6 +23,8 @@ from .protocol_models import (
     StateUpdateMessage,
 )
 from .sim import (
+    Policy,
+    RandomPolicy,
     RunnerConfig,
     RunResult,
     RunSummary,
@@ -46,14 +48,16 @@ __all__ = [
     "PROTOCOL_PARSE_ERROR_INVALID_PAYLOAD",
     "PROTOCOL_PARSE_ERROR_UNKNOWN_MESSAGE_TYPE",
     "PROTOCOL_PARSE_ERROR_UNSUPPORTED_VERSION",
+    "Policy",
     "ProtocolParseError",
-    "ServerMessage",
-    "StateUpdateMessage",
+    "RandomPolicy",
     "RunnerConfig",
     "RunResult",
     "RunSummary",
+    "ServerMessage",
+    "StateUpdateMessage",
+    "parse_server_message",
     "run_simulations",
     "run_simulations_sync",
     "save_summary",
-    "parse_server_message",
 ]

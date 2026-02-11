@@ -3,24 +3,18 @@
 Run a range of simulation seeds in one command.
 
 Examples:
-  python3 run_seed_sweep.py --start-seed 1 --end-seed 100 --no-undo
-  python3 run_seed_sweep.py --start-seed 1 --count 200 --no-undo --stop-on-failure
-  python3 run_seed_sweep.py --start-seed 1 --count 20 --benchmark   # timing report
-  python3 run_seed_sweep.py --start-seed 1 --count 5 --profile     # cProfile hotspots
+  mage-knight-run-sweep --start-seed 1 --end-seed 100 --no-undo
+  mage-knight-run-sweep --start-seed 1 --count 200 --no-undo --stop-on-failure
+  mage-knight-run-sweep --start-seed 1 --count 20 --benchmark
+  mage-knight-run-sweep --start-seed 1 --count 5 --profile
 """
-
 from __future__ import annotations
 
 import argparse
 import sys
 import time
-from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-SDK_SRC = REPO_ROOT / "packages/python-sdk/src"
-sys.path.insert(0, str(SDK_SRC))
-
-from mage_knight_sdk.sim.runner import RunnerConfig, run_simulations_sync
+from mage_knight_sdk.sim import RunnerConfig, run_simulations_sync
 
 
 def _build_seed_list(start_seed: int, end_seed: int | None, count: int | None) -> list[int]:
@@ -68,12 +62,11 @@ def main() -> int:
             ps = pstats.Stats(prof)
             ps.sort_stats(pstats.SortKey.CUMULATIVE)
             ps.print_stats(20)
-        return 0
 
     return _run_sweep(args)
 
 
-def _run_sweep(args) -> int:
+def _run_sweep(args: argparse.Namespace) -> int:
     try:
         seeds = _build_seed_list(args.start_seed, args.end_seed, args.count)
     except ValueError as err:

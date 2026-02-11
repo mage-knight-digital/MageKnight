@@ -9,7 +9,8 @@ SDK_SRC = REPO_ROOT / "packages/python-sdk/src"
 if str(SDK_SRC) not in sys.path:
     sys.path.insert(0, str(SDK_SRC))
 
-from mage_knight_sdk.sim.runner import _StallDetector, _action_key
+from mage_knight_sdk.sim.stall_detector import StallDetector
+from mage_knight_sdk.sim.state_utils import action_key
 
 
 def _state(round_number: int = 1) -> dict[str, object]:
@@ -39,10 +40,10 @@ def _state(round_number: int = 1) -> dict[str, object]:
 
 class StallDetectorTest(unittest.TestCase):
     def test_no_stall_when_draw_pile_changes(self) -> None:
-        detector = _StallDetector.create(
+        detector = StallDetector.create(
             no_draw_pile_change_turns=20,
         )
-        action_key = _action_key({"type": "END_TURN"})
+        ak = action_key({"type": "END_TURN"})
 
         stalled = None
         for step in range(40):
@@ -56,7 +57,7 @@ class StallDetectorTest(unittest.TestCase):
             stalled = detector.observe(
                 step=step,
                 player_id="player-1",
-                action_key=action_key,
+                action_key=ak,
                 action_type="END_TURN",
                 state=state,
             )
@@ -64,10 +65,10 @@ class StallDetectorTest(unittest.TestCase):
         self.assertIsNone(stalled)
 
     def test_stall_detected_when_both_players_draw_pile_unchanged(self) -> None:
-        detector = _StallDetector.create(
+        detector = StallDetector.create(
             no_draw_pile_change_turns=20,
         )
-        action_key = _action_key({"type": "END_TURN"})
+        ak = action_key({"type": "END_TURN"})
         state = _state()
 
         stalled = None
@@ -76,7 +77,7 @@ class StallDetectorTest(unittest.TestCase):
             stalled = detector.observe(
                 step=step,
                 player_id=player_id,
-                action_key=action_key,
+                action_key=ak,
                 action_type="END_TURN",
                 state=state,
             )
@@ -93,31 +94,31 @@ class StallDetectorTest(unittest.TestCase):
         by_player = stalled["details"]["stagnantTurnsByPlayer"]
         self.assertGreaterEqual(by_player.get("player-1", 0), 20)
         self.assertGreaterEqual(by_player.get("player-2", 0), 20)
-        self.assertEqual(action_key, stalled["details"]["lastActionKey"])
+        self.assertEqual(ak, stalled["details"]["lastActionKey"])
 
     def test_no_stall_when_only_one_player_stalled(self) -> None:
-        detector = _StallDetector.create(
+        detector = StallDetector.create(
             no_draw_pile_change_turns=20,
         )
-        action_key = _action_key({"type": "END_TURN"})
+        ak = action_key({"type": "END_TURN"})
         state = _state()
 
         for step in range(25):
             stalled = detector.observe(
                 step=step,
                 player_id="player-1",
-                action_key=action_key,
+                action_key=ak,
                 action_type="END_TURN",
                 state=state,
             )
             self.assertIsNone(stalled, "Only player-1 stalled; should not terminate")
 
     def test_stall_counters_are_per_player(self) -> None:
-        detector = _StallDetector.create(
+        detector = StallDetector.create(
             no_draw_pile_change_turns=20,
         )
         state = _state()
-        end_turn_key = _action_key({"type": "END_TURN"})
+        end_turn_key = action_key({"type": "END_TURN"})
 
         stalled = None
         for step in range(19):
