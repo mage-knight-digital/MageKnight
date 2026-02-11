@@ -10,10 +10,6 @@ import type { CombatState, CombatPhase } from "../../../types/combat.js";
 import type { DeedCard } from "../../../types/cards.js";
 import type { PlayCardOptions, PlayableCard, ManaColor, SidewaysOption } from "@mage-knight/shared";
 import {
-  PLAY_SIDEWAYS_AS_ATTACK,
-  PLAY_SIDEWAYS_AS_BLOCK,
-} from "@mage-knight/shared";
-import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ATTACK,
@@ -77,12 +73,12 @@ export function getPlayableCardsForCombat(
         continue;
       }
 
-      let sidewaysOptions: SidewaysOption[] = [];
-      if (combat.phase === COMBAT_PHASE_BLOCK) {
-        sidewaysOptions = [{ as: PLAY_SIDEWAYS_AS_BLOCK, value: sidewaysValue }];
-      } else if (combat.phase === COMBAT_PHASE_ATTACK) {
-        sidewaysOptions = [{ as: PLAY_SIDEWAYS_AS_ATTACK, value: sidewaysValue }];
-      }
+      const sidewaysOptions: SidewaysOption[] = [
+        ...getSidewaysOptionsForValue(sidewaysValue, {
+          inCombat: true,
+          phase: combat.phase,
+        }),
+      ];
 
       if (sidewaysOptions.length === 0) {
         continue;

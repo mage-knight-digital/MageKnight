@@ -43,7 +43,7 @@ interface CardPlayability {
  * - Move points
  * - Influence points
  * - Healing
- * - Sideways: +1 Move/Influence/Attack/Block (engine allows all sideways choices outside combat)
+ * - Sideways: +1 Move/Influence
  */
 export function getPlayableCardsForNormalTurn(
   state: GameState,
