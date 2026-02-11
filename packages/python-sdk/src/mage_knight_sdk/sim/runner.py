@@ -31,6 +31,7 @@ from .reporting import (
     RunSummary,
     summarize,
     write_failure_artifact,
+    write_run_summary,
 )
 
 
@@ -44,6 +45,7 @@ class RunnerConfig:
     base_seed: int = 1
     action_timeout_seconds: float = 5.0
     artifacts_dir: str = "sim_artifacts"
+    write_failure_artifacts: bool = False
     subscribe_lobby_on_connect: bool = False
     forced_invalid_action_step: int | None = None
     allow_undo: bool = True
@@ -94,8 +96,14 @@ class _StallDetector:
         step: int,
         player_id: str,
         action_key: str,
+        action_type: str,
         state: dict[str, Any],
     ) -> dict[str, Any] | None:
+        """
+        Detect stall: N consecutive END_TURN actions by same player with no draw pile change.
+        We only count END_TURN (game turns), not individual actions—a single turn can have
+        15+ actions (play cards, move, combat) with an unchanged deck, which is normal.
+        """
         self.last_action_key = action_key
         draw_pile_count = _draw_pile_count_for_player(state, player_id)
         previous_draw_pile = self.last_draw_pile_by_player.get(player_id)
@@ -104,19 +112,46 @@ class _StallDetector:
             self.stagnant_turns_by_player[player_id] = 0
             return None
 
+        if action_type != "END_TURN":
+            return None
+
         stagnant_turns = self.stagnant_turns_by_player.get(player_id, 0) + 1
         self.stagnant_turns_by_player[player_id] = stagnant_turns
         if stagnant_turns < self.no_draw_pile_change_turns:
             return None
 
+        all_player_ids = _player_ids_from_state(state)
+        if not all_player_ids:
+            return {
+                "reason": "Stalled loop detected (draw pile count unchanged)",
+                "details": {
+                    "step": step,
+                    "playerId": player_id,
+                    "drawPileCount": draw_pile_count,
+                    "stagnantTurns": stagnant_turns,
+                    "minStagnantTurns": self.no_draw_pile_change_turns,
+                    "lastActionKey": self.last_action_key,
+                },
+            }
+
+        min_required = self.no_draw_pile_change_turns
+        if not all(
+            self.stagnant_turns_by_player.get(pid, 0) >= min_required
+            for pid in all_player_ids
+        ):
+            return None
+
         return {
-            "reason": "Stalled loop detected (draw pile count unchanged)",
+            "reason": "Stalled loop detected (both players: draw pile count unchanged)",
             "details": {
                 "step": step,
                 "playerId": player_id,
                 "drawPileCount": draw_pile_count,
-                "stagnantActions": stagnant_turns,
-                "minStagnantActions": self.no_draw_pile_change_turns,
+                "stagnantTurnsByPlayer": {
+                    pid: self.stagnant_turns_by_player.get(pid, 0)
+                    for pid in all_player_ids
+                },
+                "minStagnantTurns": self.no_draw_pile_change_turns,
                 "lastActionKey": self.last_action_key,
             },
         }
@@ -420,6 +455,7 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
                     step=step + 1,
                     player_id=actor.session.player_id,
                     action_key=_action_key(action_to_send),
+                    action_type=str(action_to_send.get("type", "")),
                     state=actor_state,
                 )
                 if stall is not None:
@@ -594,13 +630,20 @@ def _finish_run(
         timeout_debug=timeout_debug,
     )
 
+    write_run_summary(
+        output_dir=config.artifacts_dir,
+        run_result=run_result,
+        message_log=messages,
+    )
+
     artifact_outcomes = {
         OUTCOME_DISCONNECT,
         OUTCOME_PROTOCOL_ERROR,
         OUTCOME_INVARIANT_FAILURE,
         OUTCOME_MAX_STEPS,
     }
-    if outcome in artifact_outcomes:
+    artifact_path: str | None = None
+    if outcome in artifact_outcomes and config.write_failure_artifacts:
         artifact_path = write_failure_artifact(
             output_dir=config.artifacts_dir,
             run_result=run_result,
@@ -647,6 +690,20 @@ def _draw_pile_count_for_player(state: dict[str, Any], player_id: str) -> int | 
         deck_count = player.get("deckCount")
         return int(deck_count) if isinstance(deck_count, int) else None
     return None
+
+
+def _player_ids_from_state(state: dict[str, Any]) -> list[str]:
+    """Return player ids from state, for stall detection across all players."""
+    players = state.get("players")
+    if not isinstance(players, list):
+        return []
+    ids: list[str] = []
+    for player in players:
+        if isinstance(player, dict):
+            pid = player.get("id")
+            if isinstance(pid, str):
+                ids.append(pid)
+    return ids
 
 
 def _build_timeout_diagnostics(

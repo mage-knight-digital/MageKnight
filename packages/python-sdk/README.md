@@ -61,7 +61,8 @@ The SDK includes a headless integration harness for running multiplayer games ov
 - Server does not reject actions advertised as valid.
 - Turn ownership invariants stay coherent (`currentPlayerId` is always in `turnOrder`).
 - Per-run outcomes are tracked: `ended`, `max_steps`, `disconnect`, `protocol_error`, `invariant_failure`.
-- Reproducible failure artifacts include seed, action trace, and message log.
+- A lightweight `run_summary.ndjson` is always written (seed, outcome, steps, fame).
+- Full failure artifacts (action trace + message log) are optional—runs are reproducible by seed.
 
 ### Programmatic Usage
 
@@ -76,6 +77,7 @@ config = RunnerConfig(
     base_seed=42,
     max_steps=200,
     artifacts_dir="sim_artifacts",
+    write_failure_artifacts=False,  # default: summary-only; set True to dump full trace on failures
 )
 
 results, summary = run_simulations_sync(config)
@@ -90,7 +92,7 @@ For validation testing, you can force an invalid action via `forced_invalid_acti
 
 ### Sim Artifact Viewer
 
-Large failure artifacts (e.g. `sim-artifacts/run_*_seed_*.json`) can be inspected with a local streaming viewer.
+Full failure artifacts (e.g. `sim-artifacts/run_*_seed_*.json`) are written only when `--save-failures` / `write_failure_artifacts=True`. They can be inspected with a local streaming viewer.
 
 **One-time setup** (from repo root or `packages/python-sdk`):
 

@@ -15,7 +15,9 @@ import {
 } from "../validators/siteValidators.js";
 import { getSiteOptions } from "../validActions/sites.js";
 import { createMoveCommand } from "../commands/moveCommand.js";
+import { createEnemyTokenPiles } from "../helpers/enemy/index.js";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import type { EnemyTokenPiles } from "../../types/enemy.js";
 import {
   hexKey,
   TERRAIN_PLAINS,
@@ -63,6 +65,7 @@ function createStateWithRuins(
     isRevealed?: boolean;
     playerOverrides?: Partial<Parameters<typeof createTestPlayer>[0]>;
     siteType?: SiteType;
+    enemyTokens?: EnemyTokenPiles;
   } = {}
 ): GameState {
   const baseState = createTestGameState();
@@ -109,6 +112,7 @@ function createStateWithRuins(
     players: [player],
     turnOrder: ["player1"],
     map: { ...baseState.map, hexes },
+    ...(options.enemyTokens && { enemyTokens: options.enemyTokens }),
   };
 }
 
@@ -252,7 +256,11 @@ describe("validateSiteHasEnemiesOrDraws for ruins", () => {
 
 describe("getSiteOptions for ruins", () => {
   it("should show canEnter for ruins with enemy token", () => {
-    const state = createStateWithRuins("enemy_green_brown_artifact");
+    const baseState = createTestGameState();
+    const { piles: enemyTokens } = createEnemyTokenPiles(baseState.rng);
+    const state = createStateWithRuins("enemy_green_brown_artifact", {
+      enemyTokens,
+    });
     const player = state.players[0]!;
 
     const options = getSiteOptions(state, player);
@@ -299,7 +307,11 @@ describe("getSiteOptions for ruins", () => {
   });
 
   it("should show token-specific conquest reward for enemy tokens", () => {
-    const state = createStateWithRuins("enemy_green_brown_artifact");
+    const baseState = createTestGameState();
+    const { piles: enemyTokens } = createEnemyTokenPiles(baseState.rng);
+    const state = createStateWithRuins("enemy_green_brown_artifact", {
+      enemyTokens,
+    });
     const player = state.players[0]!;
 
     const options = getSiteOptions(state, player);
@@ -316,7 +328,11 @@ describe("getSiteOptions for ruins", () => {
 
   it("should show compound rewards for tokens with multiple rewards", () => {
     // enemy_green_red_artifact_unit: rewards: artifact + advanced_action
-    const state = createStateWithRuins("enemy_green_red_artifact_unit");
+    const baseState = createTestGameState();
+    const { piles: enemyTokens } = createEnemyTokenPiles(baseState.rng);
+    const state = createStateWithRuins("enemy_green_red_artifact_unit", {
+      enemyTokens,
+    });
     const player = state.players[0]!;
 
     const options = getSiteOptions(state, player);

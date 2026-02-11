@@ -57,24 +57,27 @@ class StallDetectorTest(unittest.TestCase):
                 step=step,
                 player_id="player-1",
                 action_key=action_key,
+                action_type="END_TURN",
                 state=state,
             )
 
         self.assertIsNone(stalled)
 
-    def test_stall_detected_when_draw_pile_unchanged(self) -> None:
+    def test_stall_detected_when_both_players_draw_pile_unchanged(self) -> None:
         detector = _StallDetector.create(
             no_draw_pile_change_turns=20,
         )
-        action_key = _action_key({"type": "CHALLENGE_RAMPAGING", "targetHex": {"q": 1, "r": -2}})
+        action_key = _action_key({"type": "END_TURN"})
         state = _state()
 
         stalled = None
-        for step in range(30):
+        for step in range(50):
+            player_id = "player-1" if step % 2 == 0 else "player-2"
             stalled = detector.observe(
                 step=step,
-                player_id="player-1",
+                player_id=player_id,
                 action_key=action_key,
+                action_type="END_TURN",
                 state=state,
             )
             if stalled is not None:
@@ -82,26 +85,47 @@ class StallDetectorTest(unittest.TestCase):
 
         self.assertIsNotNone(stalled)
         assert stalled is not None
-        self.assertEqual(
-            "Stalled loop detected (draw pile count unchanged)",
+        self.assertIn(
+            "Stalled loop detected",
             stalled["reason"],
         )
-        self.assertGreaterEqual(stalled["details"]["stagnantActions"], 20)
-        self.assertEqual(16, stalled["details"]["drawPileCount"])
+        self.assertIn("both players", stalled["reason"])
+        by_player = stalled["details"]["stagnantTurnsByPlayer"]
+        self.assertGreaterEqual(by_player.get("player-1", 0), 20)
+        self.assertGreaterEqual(by_player.get("player-2", 0), 20)
         self.assertEqual(action_key, stalled["details"]["lastActionKey"])
+
+    def test_no_stall_when_only_one_player_stalled(self) -> None:
+        detector = _StallDetector.create(
+            no_draw_pile_change_turns=20,
+        )
+        action_key = _action_key({"type": "END_TURN"})
+        state = _state()
+
+        for step in range(25):
+            stalled = detector.observe(
+                step=step,
+                player_id="player-1",
+                action_key=action_key,
+                action_type="END_TURN",
+                state=state,
+            )
+            self.assertIsNone(stalled, "Only player-1 stalled; should not terminate")
 
     def test_stall_counters_are_per_player(self) -> None:
         detector = _StallDetector.create(
             no_draw_pile_change_turns=20,
         )
         state = _state()
+        end_turn_key = _action_key({"type": "END_TURN"})
 
         stalled = None
         for step in range(19):
             stalled = detector.observe(
                 step=step,
                 player_id="player-1",
-                action_key=_action_key({"type": "PASS"}),
+                action_key=end_turn_key,
+                action_type="END_TURN",
                 state=state,
             )
         self.assertIsNone(stalled)
@@ -114,7 +138,8 @@ class StallDetectorTest(unittest.TestCase):
         stalled = detector.observe(
             step=19,
             player_id="player-1",
-            action_key=_action_key({"type": "PASS"}),
+            action_key=end_turn_key,
+            action_type="END_TURN",
             state=state,
         )
         self.assertIsNone(stalled)
@@ -123,7 +148,8 @@ class StallDetectorTest(unittest.TestCase):
             stalled = detector.observe(
                 step=step,
                 player_id="player-2",
-                action_key=_action_key({"type": "PASS"}),
+                action_key=end_turn_key,
+                action_type="END_TURN",
                 state=state,
             )
             if stalled is not None:

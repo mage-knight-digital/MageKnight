@@ -74,6 +74,53 @@ def summarize(results: list[RunResult]) -> RunSummary:
     )
 
 
+def _extract_fame_from_state(state: dict[str, Any]) -> dict[str, int]:
+    """Extract {player_id: fame} from game state."""
+    out: dict[str, int] = {}
+    for p in state.get("players") or []:
+        if isinstance(p, dict):
+            pid = p.get("id")
+            fame = p.get("fame")
+            if pid is not None and isinstance(fame, (int, float)):
+                out[str(pid)] = int(fame)
+    return out
+
+
+def _last_state_from_messages(message_log: list[MessageLogEntry]) -> dict[str, Any] | None:
+    """Get the last state from message log (from last state_update)."""
+    for entry in reversed(message_log):
+        payload = getattr(entry, "payload", None) or {}
+        if isinstance(payload, dict) and "state" in payload:
+            state = payload.get("state")
+            if isinstance(state, dict):
+                return state
+    return None
+
+
+def write_run_summary(
+    output_dir: str,
+    run_result: RunResult,
+    message_log: list[MessageLogEntry],
+) -> None:
+    """Append one NDJSON line for every run (all outcomes). Enables fame analysis across all runs."""
+    state = _last_state_from_messages(message_log)
+    fame_by_player = _extract_fame_from_state(state) if state else {}
+    max_fame = max(fame_by_player.values(), default=0)
+    record = {
+        "seed": run_result.seed,
+        "run_index": run_result.run_index,
+        "outcome": run_result.outcome,
+        "steps": run_result.steps,
+        "game_id": run_result.game_id,
+        "fame_by_player": fame_by_player,
+        "max_fame": max_fame,
+    }
+    target = Path(output_dir) / "run_summary.ndjson"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with open(target, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, sort_keys=True) + "\n")
+
+
 def write_failure_artifact(
     output_dir: str,
     run_result: RunResult,

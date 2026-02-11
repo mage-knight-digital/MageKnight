@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser(description="Run a single full game")
 parser.add_argument("--seed", type=int, default=1, help="Random seed (default: 1)")
 parser.add_argument("--max-steps", type=int, default=10000, help="Max steps (default: 10000)")
 parser.add_argument("--no-undo", action="store_true", help="Disable UNDO actions")
+parser.add_argument("--save-failure", action="store_true", help="Write full failure artifact if run fails/stalls (default: summary-only)")
 args = parser.parse_args()
 
 config = RunnerConfig(
@@ -29,7 +30,8 @@ config = RunnerConfig(
     max_steps=args.max_steps,
     base_seed=args.seed,
     artifacts_dir="./sim-artifacts",
-    allow_undo=not args.no_undo
+    write_failure_artifacts=args.save_failure,
+    allow_undo=not args.no_undo,
 )
 
 results, summary = run_simulations_sync(config)

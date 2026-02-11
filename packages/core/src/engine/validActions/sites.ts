@@ -62,13 +62,29 @@ export function getSiteOptions(
   }
 
   // Determine if can enter (adventure sites)
-  // For ruins: ENTER_SITE is only valid for enemy tokens
+  // For ruins: ENTER_SITE is only valid for enemy tokens, and we must be able to draw at least one enemy
+  const ruinsCanDrawEnemies =
+    site.type !== SiteType.AncientRuins ||
+    !hex.ruinsToken?.isRevealed ||
+    (() => {
+      const tokenDef = hex.ruinsToken
+        ? getRuinsTokenDefinition(hex.ruinsToken.tokenId)
+        : undefined;
+      if (!tokenDef || !isEnemyToken(tokenDef)) return true;
+      const piles = state.enemyTokens;
+      return tokenDef.enemies.some(
+        (color) =>
+          (piles.drawPiles[color]?.length ?? 0) + (piles.discardPiles[color]?.length ?? 0) > 0
+      );
+    })();
+
   const canEnter =
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
     canEnterAdventureSite(site) &&
     canTakeActionPhaseAction(player) &&
-    !(site.type === SiteType.AncientRuins && ruinsHasAltarToken);
+    !(site.type === SiteType.AncientRuins && ruinsHasAltarToken) &&
+    ruinsCanDrawEnemies;
 
   // Build enter description
   const enterDescription = canEnter

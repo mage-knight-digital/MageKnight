@@ -93,6 +93,7 @@ class SimulationRunnerIntegrationTest(unittest.IsolatedAsyncioTestCase):
             max_steps=15,
             forced_invalid_action_step=0,
             artifacts_dir=str(self.repo_root / "packages/python-sdk/.sim-artifacts-test"),
+            write_failure_artifacts=True,
         )
 
         results, _summary = await run_simulations(config)
@@ -110,6 +111,7 @@ class SimulationRunnerIntegrationTest(unittest.IsolatedAsyncioTestCase):
             base_seed=444,
             max_steps=5,
             artifacts_dir=str(self.repo_root / "packages/python-sdk/.sim-artifacts-test"),
+            write_failure_artifacts=True,
         )
 
         with patch(
