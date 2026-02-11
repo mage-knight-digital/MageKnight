@@ -15,7 +15,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer, createUnitCombatState } from "./testHelpers.js";
+import { COMBAT_PHASE_ATTACK } from "../../types/combat.js";
 import { isEffectResolvable } from "../effects/index.js";
 import {
   handleMaximalEffectEffect,
@@ -356,7 +357,7 @@ describe("Maximal Effect", () => {
 
     it("should create pending choice when card basic effect has a choice", () => {
       // Rage: basic effect = choice(attack(2), block(2))
-      // Maximal Effect with a choice card should result in a pending choice
+      // Maximal Effect with a choice card should result in a pending choice (requires combat)
       const player = createTestPlayer({
         hand: [CARD_RAGE],
         removedCards: [],
@@ -365,7 +366,8 @@ describe("Maximal Effect", () => {
           multiplier: 3,
         }),
       });
-      const state = createTestGameState({ players: [player] });
+      const combat = createUnitCombatState(COMBAT_PHASE_ATTACK);
+      const state = createTestGameState({ players: [player], combat });
 
       const command = createResolveMaximalEffectCommand({
         playerId: "player1",
@@ -1019,7 +1021,7 @@ describe("Maximal Effect", () => {
     it("should set up pending choice with correct options for choice-based card", () => {
       // Rage basic = choice(attack(2), block(2))
       // Maximal Effect wraps 3 copies in CompoundEffect
-      // First choice should pause with options for attack or block
+      // First choice should pause with options for attack or block (requires combat)
       const player = createTestPlayer({
         hand: [CARD_RAGE],
         removedCards: [],
@@ -1028,7 +1030,8 @@ describe("Maximal Effect", () => {
           multiplier: 3,
         }),
       });
-      const state = createTestGameState({ players: [player] });
+      const combat = createUnitCombatState(COMBAT_PHASE_ATTACK);
+      const state = createTestGameState({ players: [player], combat });
 
       const command = createResolveMaximalEffectCommand({
         playerId: "player1",
@@ -1059,7 +1062,8 @@ describe("Maximal Effect", () => {
           multiplier: 3,
         }),
       });
-      const state = createTestGameState({ players: [player] });
+      const combat = createUnitCombatState(COMBAT_PHASE_ATTACK);
+      const state = createTestGameState({ players: [player], combat });
 
       const command = createResolveMaximalEffectCommand({
         playerId: "player1",

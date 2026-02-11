@@ -136,12 +136,16 @@ export function getPlayableCardsForCombat(
 
     const playability = getCardPlayabilityForPhase(state, player, card, combat.phase, adjustedBasicContext, adjustedPoweredContext, moveCardsAllowed, influenceCardsAllowed);
 
+    // Attack/block require combat; use state with combat for resolvability when state lacks it (e.g. tests)
+    const stateWithCombat: GameState =
+      state.combat != null ? state : ({ ...state, combat } as GameState);
+
     // Check resolvability - effect must actually be able to do something
     const basicIsResolvable = adjustedBasicContext.effect
-      ? isEffectResolvable(state, player.id, adjustedBasicContext.effect)
+      ? isEffectResolvable(stateWithCombat, player.id, adjustedBasicContext.effect)
       : false;
     const poweredIsResolvable = adjustedPoweredContext.effect
-      ? isEffectResolvable(state, player.id, adjustedPoweredContext.effect)
+      ? isEffectResolvable(stateWithCombat, player.id, adjustedPoweredContext.effect)
       : false;
     const basicDiscardCostPayable = adjustedBasicContext.effect
       ? isDiscardCostPayableAfterPlayingSource(adjustedBasicContext.effect, player.hand, cardId)

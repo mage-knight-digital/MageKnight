@@ -183,9 +183,11 @@ describe("Master of Chaos skill (Krang)", () => {
     expect(block?.blockElements.physical).toBe(3);
   });
 
-  it("rotates red -> gold and presents a choice of all five effects", () => {
+  it("rotates red -> gold and presents a choice of all five effects when in combat", () => {
+    const combat = createUnitCombatState(COMBAT_PHASE_ATTACK);
     const state = createTestGameState({
       players: [createMasterOfChaosPlayer(MANA_RED)],
+      combat,
     });
 
     const afterUse = engine.processAction(state, "player1", {
@@ -206,6 +208,27 @@ describe("Master of Chaos skill (Krang)", () => {
 
     expect(afterChoice.state.players[0]?.influencePoints).toBe(2);
     expect(afterChoice.state.players[0]?.pendingChoice).toBeNull();
+  });
+
+  it("filters to Move/Influence when not in combat (attack/block/ranged require combat)", () => {
+    const state = createTestGameState({
+      players: [createMasterOfChaosPlayer(MANA_RED)],
+    });
+
+    const afterUse = engine.processAction(state, "player1", {
+      type: USE_SKILL_ACTION,
+      skillId: SKILL_KRANG_MASTER_OF_CHAOS,
+    });
+
+    // Block, Ranged, and Attack filtered out when not in combat (all use attack/block)
+    expect(afterUse.state.players[0]?.pendingChoice?.options).toHaveLength(2);
+
+    const afterChoice = engine.processAction(afterUse.state, "player1", {
+      type: RESOLVE_CHOICE_ACTION,
+      choiceIndex: 1, // Influence 2 (of Move, Influence)
+    });
+
+    expect(afterChoice.state.players[0]?.influencePoints).toBe(2);
   });
 
   it("allows off-turn free rotate without effect or cooldown use", () => {

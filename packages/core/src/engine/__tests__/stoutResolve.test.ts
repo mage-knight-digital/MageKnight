@@ -46,7 +46,8 @@ import {
   validateDiscardForBonusSelection,
 } from "../validators/discardForBonusValidators.js";
 import { getDiscardForBonusOptions } from "../validActions/pending.js";
-import { createTestPlayer, createTestGameState } from "./testHelpers.js";
+import { createTestPlayer, createTestGameState, createUnitCombatState } from "./testHelpers.js";
+import { COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 import {
   DISCARD_FOR_BONUS_REQUIRED,
   DISCARD_FOR_BONUS_CARD_NOT_ELIGIBLE,
@@ -189,6 +190,36 @@ describe("Stout Resolve", () => {
       expect(updatedPlayer.pendingDiscardForBonus!.bonusPerCard).toBe(1);
       expect(updatedPlayer.pendingDiscardForBonus!.maxDiscards).toBe(1);
       expect(updatedPlayer.pendingDiscardForBonus!.discardFilter).toBe("wound_only");
+      // Outside combat, Attack and Block are filtered out (only Move and Influence are resolvable)
+      expect(updatedPlayer.pendingDiscardForBonus!.choiceOptions).toEqual([
+        BASIC_CHOICE_OPTIONS[0],
+        BASIC_CHOICE_OPTIONS[1],
+      ]);
+    });
+
+    it("should include all four options when in combat", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH, CARD_WOUND],
+      });
+      const combat = createUnitCombatState(COMBAT_PHASE_BLOCK);
+      const state = createTestGameState({ players: [player], combat });
+
+      const result = handleDiscardForBonus(
+        state,
+        0,
+        player,
+        {
+          type: EFFECT_DISCARD_FOR_BONUS,
+          choiceOptions: BASIC_CHOICE_OPTIONS,
+          bonusPerCard: 1,
+          maxDiscards: 1,
+          discardFilter: "wound_only",
+        },
+        CARD_STOUT_RESOLVE
+      );
+
+      expect(result.requiresChoice).toBe(true);
+      const updatedPlayer = result.state.players[0]!;
       expect(updatedPlayer.pendingDiscardForBonus!.choiceOptions).toEqual(BASIC_CHOICE_OPTIONS);
     });
 

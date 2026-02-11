@@ -493,8 +493,11 @@ describe("Bow of Starsdawn", () => {
   });
 
   describe("Effect Resolvability", () => {
-    it("should always be resolvable for EFFECT_GAIN_ATTACK_BOW_RESOLVED", () => {
-      const state = createTestGameState();
+    it("should be resolvable when in combat (attack/block require combat context)", () => {
+      const state = createTestGameState({
+        players: [createTestPlayer()],
+        combat: createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE),
+      });
 
       const resolvable = isEffectResolvable(state, "player1", {
         type: EFFECT_GAIN_ATTACK_BOW_RESOLVED,
@@ -503,6 +506,18 @@ describe("Bow of Starsdawn", () => {
       });
 
       expect(resolvable).toBe(true);
+    });
+
+    it("should not be resolvable when not in combat (attack/block require combat context)", () => {
+      const state = createTestGameState();
+
+      const resolvable = isEffectResolvable(state, "player1", {
+        type: EFFECT_GAIN_ATTACK_BOW_RESOLVED,
+        amount: 6,
+        combatType: COMBAT_TYPE_RANGED,
+      });
+
+      expect(resolvable).toBe(false);
     });
   });
 });

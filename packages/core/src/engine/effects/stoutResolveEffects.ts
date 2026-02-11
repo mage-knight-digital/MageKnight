@@ -15,6 +15,7 @@ import { CARD_WOUND } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicHelpers.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
+import { isEffectResolvable } from "./resolvability.js";
 import { EFFECT_DISCARD_FOR_BONUS } from "../../types/effectTypes.js";
 
 // ============================================================================
@@ -55,10 +56,15 @@ export function handleDiscardForBonus(
     throw new Error("DiscardForBonusEffect requires sourceCardId");
   }
 
+  // Filter to only resolvable options (e.g. exclude Attack/Block when not in combat)
+  const choiceOptions = effect.choiceOptions.filter((opt) =>
+    isEffectResolvable(state, player.id, opt)
+  );
+
   // Create pending discard-for-bonus state
   const pending: PendingDiscardForBonus = {
     sourceCardId,
-    choiceOptions: effect.choiceOptions,
+    choiceOptions,
     bonusPerCard: effect.bonusPerCard,
     maxDiscards: effect.maxDiscards,
     discardFilter: effect.discardFilter,
