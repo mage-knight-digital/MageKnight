@@ -21,11 +21,20 @@ import {
   UNDO_CHECKPOINT_SET,
   hexKey,
   TERRAIN_PLAINS,
+  CARD_SPACE_BENDING,
   type HexCoord,
 } from "@mage-knight/shared";
 import { TILE_PLACEMENT_OFFSETS, findTileCenterForHex } from "../explore/tileGrid.js";
 import type { TilePlacement } from "../../types/map.js";
 import { getValidExploreOptions } from "../validActions/exploration.js";
+import { addModifier } from "../modifiers/index.js";
+import {
+  DURATION_TURN,
+  EFFECT_RULE_OVERRIDE,
+  RULE_SPACE_BENDING_ADJACENCY,
+  SCOPE_SELF,
+  SOURCE_CARD,
+} from "../../types/modifierConstants.js";
 
 describe("EXPLORE action", () => {
   let engine: MageKnightEngine;
@@ -226,6 +235,81 @@ describe("EXPLORE action", () => {
       expect.objectContaining({
         type: INVALID_ACTION,
         reason: "Must be on edge of revealed map to explore",
+      })
+    );
+  });
+
+  it("should allow exploring from distance 2 when space-bending adjacency is active", () => {
+    const player = createTestPlayer({
+      id: "player1",
+      position: { q: 0, r: 0 },
+      movePoints: 4,
+    });
+
+    const baseState = createTestGameState();
+
+    // Center hex plus all 6 adjacent hexes: player is NOT on a distance-1 edge hex.
+    const hexes: Record<string, ReturnType<typeof createTestHex>> = {
+      [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS),
+      [hexKey({ q: 1, r: -1 })]: createTestHex(1, -1, TERRAIN_PLAINS),
+      [hexKey({ q: 1, r: 0 })]: createTestHex(1, 0, TERRAIN_PLAINS),
+      [hexKey({ q: 0, r: 1 })]: createTestHex(0, 1, TERRAIN_PLAINS),
+      [hexKey({ q: -1, r: 1 })]: createTestHex(-1, 1, TERRAIN_PLAINS),
+      [hexKey({ q: -1, r: 0 })]: createTestHex(-1, 0, TERRAIN_PLAINS),
+      [hexKey({ q: 0, r: -1 })]: createTestHex(0, -1, TERRAIN_PLAINS),
+    };
+
+    let state: GameState = {
+      ...baseState,
+      players: [player],
+      map: {
+        ...baseState.map,
+        hexes,
+        tileDeck: {
+          countryside: [TileId.Countryside1],
+          core: [],
+        },
+      },
+    };
+
+    state = addModifier(state, {
+      source: {
+        type: SOURCE_CARD,
+        cardId: CARD_SPACE_BENDING,
+        playerId: "player1",
+      },
+      duration: DURATION_TURN,
+      scope: { type: SCOPE_SELF },
+      effect: {
+        type: EFFECT_RULE_OVERRIDE,
+        rule: RULE_SPACE_BENDING_ADJACENCY,
+      },
+      createdAtRound: state.round,
+      createdByPlayerId: "player1",
+    });
+
+    const exploreOptions = getValidExploreOptions(state, state.players[0]!);
+    expect(exploreOptions).toBeDefined();
+    if (!exploreOptions) return;
+    expect(exploreOptions.directions.length).toBeGreaterThan(0);
+
+    const option = exploreOptions.directions[0]!;
+    const result = engine.processAction(state, "player1", {
+      type: EXPLORE_ACTION,
+      direction: option.direction,
+      fromTileCoord: option.fromTileCoord,
+    });
+
+    expect(result.events).not.toContainEqual(
+      expect.objectContaining({
+        type: INVALID_ACTION,
+        reason: "Must be on edge of revealed map to explore",
+      })
+    );
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: TILE_EXPLORED,
+        playerId: "player1",
       })
     );
   });

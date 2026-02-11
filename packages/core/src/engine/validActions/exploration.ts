@@ -18,7 +18,6 @@ import type { ExploreOptions, ExploreDirection } from "@mage-knight/shared";
 import type { HexDirection, HexCoord } from "@mage-knight/shared";
 import { MAP_SHAPE_WEDGE, MAP_SHAPE_OPEN_3, MAP_SHAPE_OPEN_4, MAP_SHAPE_OPEN_5, hexKey } from "@mage-knight/shared";
 import {
-  isNearEdge,
   TILE_PLACEMENT_OFFSETS,
   getExpansionDirections,
 } from "../explore/index.js";
@@ -28,7 +27,8 @@ import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
 import { mustAnnounceEndOfRound } from "./helpers.js";
 import { isRuleActive, getEffectiveExploreCost } from "../modifiers/index.js";
-import { RULE_EXTENDED_EXPLORE, RULE_SPACE_BENDING_ADJACENCY, RULE_NO_EXPLORATION } from "../../types/modifierConstants.js";
+import { RULE_NO_EXPLORATION } from "../../types/modifierConstants.js";
+import { getExploreDistance, isPlayerNearExploreEdge } from "../rules/exploration.js";
 
 /**
  * Get valid explore options for a player.
@@ -88,14 +88,12 @@ export function getValidExploreOptions(
   }
 
   // Determine explore distance (1 = normal adjacency, 2 = extended via Scouts ability or Space Bending)
-  const extendedExplore = isRuleActive(state, player.id, RULE_EXTENDED_EXPLORE);
-  const spaceBending = isRuleActive(state, player.id, RULE_SPACE_BENDING_ADJACENCY);
-  const exploreDistance = (extendedExplore || spaceBending) ? 2 : 1;
+  const exploreDistance = getExploreDistance(state, player.id);
 
   // Must be near the edge of the revealed map
   // Standard: must be on an edge hex (adjacent to unrevealed hex)
   // Extended: can be within 2 hexes of unrevealed hex
-  if (!isNearEdge(state, player.position, exploreDistance)) {
+  if (!isPlayerNearExploreEdge(state, player)) {
     return undefined;
   }
 

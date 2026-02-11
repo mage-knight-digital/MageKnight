@@ -19,7 +19,6 @@ import {
   COLUMN_LIMIT_EXCEEDED,
 } from "./validationCodes.js";
 import {
-  isEdgeHex,
   getExpansionDirections,
   TILE_PLACEMENT_OFFSETS,
 } from "../explore/index.js";
@@ -28,6 +27,8 @@ import { getValidExploreOptions } from "../validActions/exploration.js";
 import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { getEffectiveExploreCost } from "../modifiers/index.js";
+import { isPlayerNearExploreEdge } from "../rules/exploration.js";
 
 /**
  * Extract explore direction from action (type guard helper)
@@ -68,7 +69,7 @@ export function validateOnEdgeHex(
     return invalid(NOT_ON_MAP, "Player is not on the map");
   }
 
-  if (!isEdgeHex(state, player.position)) {
+  if (!isPlayerNearExploreEdge(state, player)) {
     return invalid(NOT_ON_EDGE, "Must be on edge of revealed map to explore");
   }
 
@@ -177,9 +178,7 @@ export function validateExploreMoveCost(
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
-  // SIMPLE: Always costs 2 for now
-  // FUTURE: Cost equals terrain cost if exploring from dangerous space
-  const cost = 2;
+  const cost = getEffectiveExploreCost(state, playerId);
 
   if (player.movePoints < cost) {
     return invalid(
