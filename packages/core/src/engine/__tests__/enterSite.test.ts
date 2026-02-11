@@ -711,6 +711,61 @@ describe("Enter adventure site", () => {
       const hex = finalResult.state.map.hexes[hexKey({ q: 0, r: 0 })];
       expect(hex?.enemies).toHaveLength(1); // Enemy stays!
     });
+
+    it("should reshuffle tomb discard pile when red draw pile is exhausted on re-entry", () => {
+      const redEnemyIds = (Object.keys(ENEMIES) as (keyof typeof ENEMIES)[])
+        .filter((id) => ENEMIES[id].color === ENEMY_COLOR_RED);
+      const firstRedEnemyId = redEnemyIds[0];
+      if (!firstRedEnemyId) {
+        throw new Error("No red enemy found");
+      }
+
+      const onlyRedToken = createEnemyTokenId(firstRedEnemyId);
+      const baseState = createTestStateWithSite(createTombSite());
+      const stateWithSingleRedToken = {
+        ...baseState,
+        enemyTokens: {
+          ...baseState.enemyTokens,
+          drawPiles: {
+            ...baseState.enemyTokens.drawPiles,
+            [ENEMY_COLOR_RED]: [onlyRedToken],
+          },
+          discardPiles: {
+            ...baseState.enemyTokens.discardPiles,
+            [ENEMY_COLOR_RED]: [],
+          },
+        },
+      };
+
+      // First tomb attempt draws the only red token and fails combat.
+      const firstEnter = engine.processAction(stateWithSingleRedToken, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+      const afterFailedCombat = failCombat(engine, firstEnter.state).state;
+
+      // Token should be in red discard after failed tomb combat.
+      expect(afterFailedCombat.enemyTokens.drawPiles[ENEMY_COLOR_RED]).toHaveLength(0);
+      expect(afterFailedCombat.enemyTokens.discardPiles[ENEMY_COLOR_RED]).toContain(onlyRedToken);
+
+      // Simulate new turn for re-entry.
+      const nextTurnState = {
+        ...afterFailedCombat,
+        players: afterFailedCombat.players.map((player) =>
+          player.id === "player1"
+            ? { ...player, hasTakenActionThisTurn: false, hasCombattedThisTurn: false }
+            : player
+        ),
+      };
+
+      // Second tomb attempt must reshuffle discard to draw an enemy.
+      const secondEnter = engine.processAction(nextTurnState, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+
+      expect(secondEnter.state.combat).not.toBeNull();
+      expect(secondEnter.state.combat?.enemies).toHaveLength(1);
+      expect(secondEnter.state.enemyTokens.discardPiles[ENEMY_COLOR_RED]).toHaveLength(0);
+    });
   });
 
   describe("dungeon/tomb combat restrictions", () => {
