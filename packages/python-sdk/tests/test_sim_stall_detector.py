@@ -21,8 +21,8 @@ def _state(round_number: int = 1) -> dict[str, object]:
         "validActions": {"mode": "normal_turn"},
         "combat": None,
         "players": [
-            {"id": "player-1", "level": 1, "fame": 0, "reputation": 0},
-            {"id": "player-2", "level": 1, "fame": 0, "reputation": 0},
+            {"id": "player-1", "level": 1, "fame": 0, "reputation": 0, "deckCount": 16},
+            {"id": "player-2", "level": 1, "fame": 0, "reputation": 0, "deckCount": 16},
         ],
         "map": {
             "tiles": [{"revealed": True}],
@@ -38,41 +38,98 @@ def _state(round_number: int = 1) -> dict[str, object]:
 
 
 class StallDetectorTest(unittest.TestCase):
-    def test_no_stall_when_progress_signature_changes(self) -> None:
+    def test_no_stall_when_draw_pile_changes(self) -> None:
         detector = _StallDetector.create(
-            window_size=64,
-            no_progress_steps=20,
+            no_draw_pile_change_turns=20,
         )
         action_key = _action_key({"type": "END_TURN"})
 
         stalled = None
         for step in range(40):
             state = _state(round_number=1 if step < 20 else 2)
-            stalled = detector.observe(step=step, action_key=action_key, state=state)
+            if step >= 15:
+                players = state["players"]
+                assert isinstance(players, list)
+                player = players[0]
+                assert isinstance(player, dict)
+                player["deckCount"] = 15 if step % 2 == 0 else 16
+            stalled = detector.observe(
+                step=step,
+                player_id="player-1",
+                action_key=action_key,
+                state=state,
+            )
 
         self.assertIsNone(stalled)
 
-    def test_stall_detected_for_repeated_actions_without_progress(self) -> None:
+    def test_stall_detected_when_draw_pile_unchanged(self) -> None:
         detector = _StallDetector.create(
-            window_size=32,
-            no_progress_steps=200,
+            no_draw_pile_change_turns=20,
         )
         action_key = _action_key({"type": "CHALLENGE_RAMPAGING", "targetHex": {"q": 1, "r": -2}})
         state = _state()
 
         stalled = None
-        for step in range(260):
-            stalled = detector.observe(step=step, action_key=action_key, state=state)
+        for step in range(30):
+            stalled = detector.observe(
+                step=step,
+                player_id="player-1",
+                action_key=action_key,
+                state=state,
+            )
             if stalled is not None:
                 break
 
         self.assertIsNotNone(stalled)
         assert stalled is not None
         self.assertEqual(
-            "Stalled loop detected (low macro progress + repeated actions)",
+            "Stalled loop detected (draw pile count unchanged)",
             stalled["reason"],
         )
-        self.assertGreaterEqual(stalled["details"]["stagnantSteps"], 200)
+        self.assertGreaterEqual(stalled["details"]["stagnantActions"], 20)
+        self.assertEqual(16, stalled["details"]["drawPileCount"])
+        self.assertEqual(action_key, stalled["details"]["lastActionKey"])
+
+    def test_stall_counters_are_per_player(self) -> None:
+        detector = _StallDetector.create(
+            no_draw_pile_change_turns=20,
+        )
+        state = _state()
+
+        stalled = None
+        for step in range(19):
+            stalled = detector.observe(
+                step=step,
+                player_id="player-1",
+                action_key=_action_key({"type": "PASS"}),
+                state=state,
+            )
+        self.assertIsNone(stalled)
+
+        players = state["players"]
+        assert isinstance(players, list)
+        player1 = players[0]
+        assert isinstance(player1, dict)
+        player1["deckCount"] = 15
+        stalled = detector.observe(
+            step=19,
+            player_id="player-1",
+            action_key=_action_key({"type": "PASS"}),
+            state=state,
+        )
+        self.assertIsNone(stalled)
+
+        for step in range(20, 39):
+            stalled = detector.observe(
+                step=step,
+                player_id="player-2",
+                action_key=_action_key({"type": "PASS"}),
+                state=state,
+            )
+            if stalled is not None:
+                break
+
+        self.assertIsNone(stalled)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections import Counter, deque
 import json
 import random
 from dataclasses import dataclass
@@ -48,8 +47,7 @@ class RunnerConfig:
     subscribe_lobby_on_connect: bool = False
     forced_invalid_action_step: int | None = None
     allow_undo: bool = True
-    stall_detection_window_size: int = 256
-    stall_detection_no_progress_steps: int = 1500
+    stall_detection_no_draw_pile_change_turns: int = 20
 
 
 @dataclass
@@ -73,70 +71,55 @@ class SimulationOutcome:
 
 @dataclass
 class _StallDetector:
-    window_size: int
-    min_window_fill: int
-    no_progress_steps: int
-    action_keys: deque[str]
-    action_counts: Counter[str]
-    last_progress_signature: tuple[Any, ...] | None = None
-    last_progress_step: int = 0
+    no_draw_pile_change_turns: int
+    last_draw_pile_by_player: dict[str, int | None]
+    stagnant_turns_by_player: dict[str, int]
+    last_action_key: str | None = None
 
     @classmethod
     def create(
         cls,
         *,
-        window_size: int,
-        no_progress_steps: int,
+        no_draw_pile_change_turns: int,
     ) -> "_StallDetector":
-        bounded_window = max(32, window_size)
         return cls(
-            window_size=bounded_window,
-            min_window_fill=max(16, min(bounded_window // 2, bounded_window)),
-            no_progress_steps=max(200, no_progress_steps),
-            action_keys=deque(),
-            action_counts=Counter(),
+            no_draw_pile_change_turns=max(1, no_draw_pile_change_turns),
+            last_draw_pile_by_player={},
+            stagnant_turns_by_player={},
         )
 
-    def observe(self, *, step: int, action_key: str, state: dict[str, Any]) -> dict[str, Any] | None:
-        self._record_action(action_key)
-        signature = _macro_progress_signature(state)
-        if signature != self.last_progress_signature:
-            self.last_progress_signature = signature
-            self.last_progress_step = step
+    def observe(
+        self,
+        *,
+        step: int,
+        player_id: str,
+        action_key: str,
+        state: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        self.last_action_key = action_key
+        draw_pile_count = _draw_pile_count_for_player(state, player_id)
+        previous_draw_pile = self.last_draw_pile_by_player.get(player_id)
+        if previous_draw_pile is None or draw_pile_count != previous_draw_pile:
+            self.last_draw_pile_by_player[player_id] = draw_pile_count
+            self.stagnant_turns_by_player[player_id] = 0
             return None
 
-        if len(self.action_keys) < self.min_window_fill:
+        stagnant_turns = self.stagnant_turns_by_player.get(player_id, 0) + 1
+        self.stagnant_turns_by_player[player_id] = stagnant_turns
+        if stagnant_turns < self.no_draw_pile_change_turns:
             return None
-
-        stagnant_steps = step - self.last_progress_step
-        if stagnant_steps < self.no_progress_steps:
-            return None
-
-        most_common_key, most_common_count = self.action_counts.most_common(1)[0]
-        repeat_ratio = most_common_count / len(self.action_keys)
 
         return {
-            "reason": "Stalled loop detected (low macro progress + repeated actions)",
+            "reason": "Stalled loop detected (draw pile count unchanged)",
             "details": {
                 "step": step,
-                "windowSize": len(self.action_keys),
-                "stagnantSteps": stagnant_steps,
-                "uniqueActionCount": len(self.action_counts),
-                "mostCommonActionKey": most_common_key,
-                "mostCommonActionCount": most_common_count,
-                "repeatRatio": round(repeat_ratio, 4),
-                "minStagnantSteps": self.no_progress_steps,
+                "playerId": player_id,
+                "drawPileCount": draw_pile_count,
+                "stagnantActions": stagnant_turns,
+                "minStagnantActions": self.no_draw_pile_change_turns,
+                "lastActionKey": self.last_action_key,
             },
         }
-
-    def _record_action(self, action_key: str) -> None:
-        self.action_keys.append(action_key)
-        self.action_counts[action_key] += 1
-        if len(self.action_keys) > self.window_size:
-            removed = self.action_keys.popleft()
-            self.action_counts[removed] -= 1
-            if self.action_counts[removed] <= 0:
-                del self.action_counts[removed]
 
 
 async def run_simulations(config: RunnerConfig) -> tuple[list[RunResult], RunSummary]:
@@ -154,8 +137,7 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
     trace: list[ActionTraceEntry] = []
     messages: list[MessageLogEntry] = []
     stall_detector = _StallDetector.create(
-        window_size=config.stall_detection_window_size,
-        no_progress_steps=config.stall_detection_no_progress_steps,
+        no_draw_pile_change_turns=config.stall_detection_no_draw_pile_change_turns,
     )
 
     created = create_game(config.bootstrap_api_base_url, player_count=config.player_count, seed=seed)
@@ -436,6 +418,7 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
             if actor_state is not None:
                 stall = stall_detector.observe(
                     step=step + 1,
+                    player_id=actor.session.player_id,
                     action_key=_action_key(action_to_send),
                     state=actor_state,
                 )
@@ -652,54 +635,18 @@ def _action_key(action: dict[str, Any]) -> str:
     return json.dumps(action, sort_keys=True, separators=(",", ":"))
 
 
-def _macro_progress_signature(state: dict[str, Any]) -> tuple[Any, ...]:
-    map_state = state.get("map") if isinstance(state.get("map"), dict) else {}
-    tiles = map_state.get("tiles") if isinstance(map_state, dict) else None
-    tile_list = tiles if isinstance(tiles, list) else []
-    revealed_tiles = sum(1 for tile in tile_list if isinstance(tile, dict) and tile.get("revealed"))
-
-    hexes_obj = map_state.get("hexes") if isinstance(map_state, dict) else None
-    hexes = hexes_obj.values() if isinstance(hexes_obj, dict) else []
-    conquered_sites = 0
-    enemy_total = 0
-    rampaging_total = 0
-    for hex_state in hexes:
-        if not isinstance(hex_state, dict):
-            continue
-        site = hex_state.get("site")
-        if isinstance(site, dict) and bool(site.get("isConquered")):
-            conquered_sites += 1
-        enemies = hex_state.get("enemies")
-        if isinstance(enemies, list):
-            enemy_total += len(enemies)
-        rampaging = hex_state.get("rampagingEnemies")
-        if isinstance(rampaging, list):
-            rampaging_total += len(rampaging)
-
+def _draw_pile_count_for_player(state: dict[str, Any], player_id: str) -> int | None:
     players = state.get("players")
-    player_list = players if isinstance(players, list) else []
-    total_level = 0
-    total_fame = 0
-    total_reputation = 0
-    for player in player_list:
+    if not isinstance(players, list):
+        return None
+    for player in players:
         if not isinstance(player, dict):
             continue
-        total_level += int(player.get("level", 0))
-        total_fame += int(player.get("fame", 0))
-        total_reputation += int(player.get("reputation", 0))
-
-    return (
-        state.get("round"),
-        state.get("roundPhase"),
-        state.get("timeOfDay"),
-        revealed_tiles,
-        conquered_sites,
-        enemy_total,
-        rampaging_total,
-        total_level,
-        total_fame,
-        total_reputation,
-    )
+        if player.get("id") != player_id:
+            continue
+        deck_count = player.get("deckCount")
+        return int(deck_count) if isinstance(deck_count, int) else None
+    return None
 
 
 def _build_timeout_diagnostics(
