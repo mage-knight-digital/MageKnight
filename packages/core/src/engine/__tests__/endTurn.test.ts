@@ -7,8 +7,6 @@ import {
   ROUND_ENDED,
   END_OF_ROUND_ANNOUNCED,
   MOVE_ACTION,
-  REST_ACTION,
-  REST_TYPE_SLOW_RECOVERY,
   INVALID_ACTION,
   TERRAIN_PLAINS,
   TURN_START_MOVE_POINTS,
@@ -20,6 +18,7 @@ import {
   CARD_DETERMINATION,
   CARD_PROMISE,
   CARD_THREATEN,
+  RESOLVE_DISCARD_ACTION,
   MANA_BLUE,
   MANA_GREEN,
 } from "@mage-knight/shared";
@@ -697,7 +696,7 @@ describe("END_TURN minimum turn requirement", () => {
     engine = createEngine();
   });
 
-  it("should reject END_TURN if player has cards but hasn't played any", () => {
+  it("should require a mandatory discard before ending turn if minimum turn requirement is unmet", () => {
     const player = createTestPlayer({
       hand: [CARD_MARCH, CARD_RAGE], // Has cards in hand
       playedCardFromHandThisTurn: false, // Hasn't played a card
@@ -708,14 +707,16 @@ describe("END_TURN minimum turn requirement", () => {
       type: END_TURN_ACTION,
     });
 
-    expect(result.events).toContainEqual(
+    // End turn does not advance yet - it first requires a one-card discard.
+    expect(result.state.currentPlayerIndex).toBe(state.currentPlayerIndex);
+    const updatedPlayer = result.state.players[0];
+    expect(updatedPlayer?.pendingDiscard).toEqual(
       expect.objectContaining({
-        type: INVALID_ACTION,
-        reason: "You must play or discard at least one card from your hand before ending your turn",
+        count: 1,
+        optional: false,
+        filterWounds: false,
       })
     );
-    // State should not change
-    expect(result.state.currentPlayerIndex).toBe(state.currentPlayerIndex);
   });
 
   it("should allow END_TURN if player played a card from hand", () => {
@@ -758,38 +759,38 @@ describe("END_TURN minimum turn requirement", () => {
     );
   });
 
-  it("should reject END_TURN with only wounds until Slow Recovery discards a wound", () => {
+  it("should require mandatory discard with only wounds, then allow ending turn", () => {
     const player = createTestPlayer({
       hand: [CARD_WOUND, CARD_WOUND],
       deck: [CARD_MARCH],
       discard: [],
       playedCardFromHandThisTurn: false,
-      hasTakenActionThisTurn: false,
+      hasTakenActionThisTurn: true,
     });
     const state = createTestGameState({ players: [player] });
 
-    const endBeforeRest = engine.processAction(state, "player1", {
+    const endBeforeDiscard = engine.processAction(state, "player1", {
       type: END_TURN_ACTION,
     });
-    expect(endBeforeRest.events).toContainEqual(
+    expect(endBeforeDiscard.state.players[0]?.pendingDiscard).toEqual(
       expect.objectContaining({
-        type: INVALID_ACTION,
-        reason: "You must play or discard at least one card from your hand before ending your turn",
+        count: 1,
+        optional: false,
       })
     );
 
-    const restResult = engine.processAction(state, "player1", {
-      type: REST_ACTION,
-      restType: REST_TYPE_SLOW_RECOVERY,
-      discardCardIds: [CARD_WOUND],
+    const discardResult = engine.processAction(endBeforeDiscard.state, "player1", {
+      type: RESOLVE_DISCARD_ACTION,
+      cardIds: [CARD_WOUND],
     });
-    const updatedPlayer = restResult.state.players[0];
+    const updatedPlayer = discardResult.state.players[0];
     expect(updatedPlayer?.playedCardFromHandThisTurn).toBe(true);
+    expect(updatedPlayer?.pendingDiscard).toBeNull();
 
-    const endAfterRest = engine.processAction(restResult.state, "player1", {
+    const endAfterDiscard = engine.processAction(discardResult.state, "player1", {
       type: END_TURN_ACTION,
     });
-    expect(endAfterRest.events).toContainEqual(
+    expect(endAfterDiscard.events).toContainEqual(
       expect.objectContaining({
         type: TURN_ENDED,
         playerId: "player1",

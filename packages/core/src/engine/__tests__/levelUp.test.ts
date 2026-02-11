@@ -117,6 +117,7 @@ describe("Level up at end of turn", () => {
     const player = createTestPlayer({
       fame: 8,
       level: 1,
+      playedCardFromHandThisTurn: true,
       pendingLevelUps: [2, 3], // Crossed levels 2 and 3
     });
 
@@ -141,6 +142,7 @@ describe("Level up at end of turn", () => {
       fame: 8,
       level: 2,
       commandTokens: 1,
+      playedCardFromHandThisTurn: true,
       pendingLevelUps: [3], // Crossing into level 3
     });
 
@@ -173,6 +175,7 @@ describe("Level up at end of turn", () => {
     const player = createTestPlayer({
       fame: 3,
       level: 1,
+      playedCardFromHandThisTurn: true,
       pendingLevelUps: [2], // Crossing into level 2
     });
 
@@ -199,6 +202,7 @@ describe("Level up at end of turn", () => {
     const player = createTestPlayer({
       fame: 10,
       level: 1,
+      playedCardFromHandThisTurn: true,
       pendingLevelUps: [2, 3],
     });
 
@@ -238,6 +242,7 @@ describe("Level up at end of turn", () => {
       level: 2,
       armor: 2,
       handLimit: 5,
+      playedCardFromHandThisTurn: true,
       pendingLevelUps: [3, 4, 5],
     });
 
@@ -262,6 +267,7 @@ describe("Level up at end of turn", () => {
     const player = createTestPlayer({
       fame: 8,
       level: 1,
+      playedCardFromHandThisTurn: true,
       pendingLevelUps: [2, 3],
     });
 
@@ -283,6 +289,7 @@ describe("Level up at end of turn", () => {
     const player = createTestPlayer({
       fame: 0,
       level: 1,
+      playedCardFromHandThisTurn: true,
       pendingLevelUps: [],
     });
 
@@ -306,6 +313,7 @@ describe("Level up at end of turn", () => {
       fame: 8, // After gaining 1 fame from 7
       level: 2,
       commandTokens: 1,
+      playedCardFromHandThisTurn: true,
       pendingLevelUps: [3], // getLevelsCrossed(7, 8) returns [3]
     });
 
@@ -834,6 +842,7 @@ describe("Choose level up rewards", () => {
       const player = createTestPlayer({
         id: "player1",
         level: 1,
+        playedCardFromHandThisTurn: true,
         pendingLevelUps: [2], // Will level up to 2
         deck: ["existing_card" as CardId],
         remainingHeroSkills: [

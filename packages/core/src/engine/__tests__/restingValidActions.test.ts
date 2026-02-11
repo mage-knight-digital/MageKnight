@@ -208,7 +208,7 @@ describe("Valid actions while resting", () => {
     expect(validActions.playCard).toBeUndefined();
   });
 
-  it("offers declare rest after action when hand is all wounds", () => {
+  it("does not offer declare rest after action when hand is all wounds", () => {
     const player = createTestPlayer({
       hasTakenActionThisTurn: true,
       hand: [CARD_WOUND, CARD_WOUND],
@@ -219,7 +219,7 @@ describe("Valid actions while resting", () => {
     const validActions = getValidActions(state, player.id);
 
     expect(validActions.mode).toBe("normal_turn");
-    expect(validActions.turn?.canDeclareRest).toBe(true);
+    expect(validActions.turn?.canDeclareRest).toBe(false);
     expect(validActions.turn?.restTypes).toEqual(["slow_recovery"]);
   });
 });

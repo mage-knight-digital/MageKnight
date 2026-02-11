@@ -68,7 +68,7 @@ describe("Turn end options", () => {
     expect(turnOptions.canCompleteRest).toBe(true);
   });
 
-  it("disables end turn when minimum turn requirement not met", () => {
+  it("keeps end turn available when minimum turn requirement is unmet (discard resolved during end turn)", () => {
     const player = createTestPlayer({
       hand: [CARD_MARCH],
       playedCardFromHandThisTurn: false,
@@ -76,7 +76,7 @@ describe("Turn end options", () => {
     const state = createTestGameState({ players: [player] });
 
     const turnOptions = getTurnOptions(state, player);
-    expect(turnOptions.canEndTurn).toBe(false);
+    expect(turnOptions.canEndTurn).toBe(true);
 
     const validation = validateMinimumTurnRequirement(state, player.id, {
       type: END_TURN_ACTION,
@@ -87,7 +87,7 @@ describe("Turn end options", () => {
     }
   });
 
-  it("disables end turn when hand has only wounds and no card was played", () => {
+  it("keeps end turn available when hand has only wounds and no card was played", () => {
     const player = createTestPlayer({
       hand: [CARD_WOUND],
       playedCardFromHandThisTurn: false,
@@ -95,7 +95,7 @@ describe("Turn end options", () => {
     const state = createTestGameState({ players: [player] });
 
     const turnOptions = getTurnOptions(state, player);
-    expect(turnOptions.canEndTurn).toBe(false);
+    expect(turnOptions.canEndTurn).toBe(true);
 
     const validation = validateMinimumTurnRequirement(state, player.id, {
       type: END_TURN_ACTION,

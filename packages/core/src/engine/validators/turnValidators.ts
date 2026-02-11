@@ -4,7 +4,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { PlayerAction } from "@mage-knight/shared";
-import { DECLARE_REST_ACTION, GAME_PHASE_ROUND } from "@mage-knight/shared";
+import { GAME_PHASE_ROUND } from "@mage-knight/shared";
 import type { ValidationResult } from "./types.js";
 import { valid, invalid } from "./types.js";
 import {
@@ -19,7 +19,6 @@ import { getPlayerById } from "../helpers/playerHelpers.js";
 import {
   hasMetMinimumTurnRequirement,
   canTakeActionPhaseAction,
-  isWoundCard,
 } from "../rules/turnStructure.js";
 
 // Check it's this player's turn
@@ -66,19 +65,11 @@ export function validateNotInCombat(
 export function validateHasNotActed(
   state: GameState,
   playerId: string,
-  action: PlayerAction
+  _action: PlayerAction
 ): ValidationResult {
   const player = getPlayerById(state, playerId);
   if (!player) {
     return invalid(PLAYER_NOT_FOUND, "Player not found");
-  }
-
-  if (
-    action.type === DECLARE_REST_ACTION &&
-    player.hand.length > 0 &&
-    player.hand.every((cardId) => isWoundCard(cardId))
-  ) {
-    return valid();
   }
 
   if (!canTakeActionPhaseAction(player)) {

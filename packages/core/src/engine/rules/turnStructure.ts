@@ -85,12 +85,8 @@ export function canDeclareRest(state: GameState, player: Player): boolean {
     return false;
   }
 
-  const hasOnlyWoundsInHand =
-    player.hand.length > 0 && player.hand.every((cardId) => isWoundCard(cardId));
-
-  // Rest normally requires no prior action, but Slow Recovery is allowed
-  // after acting when the hand is all wounds to avoid dead-end turns.
-  if (player.hasTakenActionThisTurn && !hasOnlyWoundsInHand) {
+  // Rest requires an unused action phase this turn.
+  if (player.hasTakenActionThisTurn) {
     return false;
   }
 
@@ -212,12 +208,6 @@ export function canEndTurn(state: GameState, player: Player): boolean {
 
   // Can't end turn with pending site rewards
   if (player.pendingRewards.length > 0) {
-    return false;
-  }
-
-  // Must satisfy minimum turn requirement before ending turn.
-  // This is waived only when hand is empty.
-  if (!hasMetMinimumTurnRequirement(player)) {
     return false;
   }
 

@@ -16,6 +16,7 @@ import type { Command, CommandResult } from "../types.js";
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { SourceDieId } from "../../../types/mana.js";
+import type { CardEffect } from "../../../types/cards.js";
 import type { GameEvent } from "@mage-knight/shared";
 import { TURN_ENDED, GAME_ENDED, GAME_PHASE_END } from "@mage-knight/shared";
 import { expireModifiers } from "../../modifiers/index.js";
@@ -42,6 +43,7 @@ import { processSourceOpeningCrystal } from "./sourceOpeningCrystal.js";
 import { applyMountainLoreEndTurnBonus } from "./mountainLoreBonus.js";
 import { processMysteriousBoxCleanup } from "./mysteriousBoxCleanup.js";
 import { expireManaEnhancementAtTurnStart } from "../skills/index.js";
+import { EFFECT_NOOP } from "../../../types/effectTypes.js";
 
 export { END_TURN_COMMAND };
 export type { EndTurnCommandParams };
@@ -64,6 +66,43 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
       const currentPlayer = state.players[playerIndex];
       if (!currentPlayer) {
         throw new Error(`Player not found at index: ${playerIndex}`);
+      }
+
+      // Minimum turn requirement fallback:
+      // If no card was played/discarded yet and cards remain in hand, force a
+      // mandatory 1-card discard before completing end-of-turn processing.
+      const isForfeitingViaRoundAnnouncement =
+        state.endOfRoundAnnouncedBy === params.playerId && currentPlayer.deck.length === 0;
+
+      if (
+        !isForfeitingViaRoundAnnouncement &&
+        !currentPlayer.playedCardFromHandThisTurn &&
+        currentPlayer.hand.length > 0 &&
+        currentPlayer.pendingDiscard === null
+      ) {
+        const noopEffect: CardEffect = { type: EFFECT_NOOP };
+        const sourceCardId = currentPlayer.hand[0];
+        if (!sourceCardId) {
+          throw new Error("Expected a card in hand for mandatory end-turn discard");
+        }
+
+        const updatedPlayers = [...state.players];
+        updatedPlayers[playerIndex] = {
+          ...currentPlayer,
+          pendingDiscard: {
+            sourceCardId,
+            count: 1,
+            optional: false,
+            filterWounds: false,
+            thenEffect: noopEffect,
+            satisfiesMinimumTurnRequirementOnResolve: true,
+          },
+        };
+
+        return {
+          state: { ...state, players: updatedPlayers },
+          events: [],
+        };
       }
 
       // Check for Magical Glade wound discard opportunity

@@ -293,9 +293,15 @@ describe("Mysterious Box", () => {
       type: END_TURN_ACTION,
     });
 
-    expect(endTurnAttempt.events).toContainEqual(
+    expect(endTurnAttempt.events).not.toContainEqual(
       expect.objectContaining({
         type: INVALID_ACTION,
+      })
+    );
+    expect(endTurnAttempt.state.players[0]!.pendingDiscard).toEqual(
+      expect.objectContaining({
+        count: 1,
+        optional: false,
       })
     );
   });

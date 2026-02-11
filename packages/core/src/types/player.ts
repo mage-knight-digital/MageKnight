@@ -199,6 +199,11 @@ export interface PendingDiscard {
   readonly filterWounds: boolean;
   /** If true, cards with no action color can be discarded (gives no effect). Used by Druidic Staff. */
   readonly allowNoColor?: boolean;
+  /**
+   * If true, resolving this discard marks the minimum-turn requirement as satisfied.
+   * Used for mandatory end-turn discard flow.
+   */
+  readonly satisfiesMinimumTurnRequirementOnResolve?: boolean;
 }
 
 /**

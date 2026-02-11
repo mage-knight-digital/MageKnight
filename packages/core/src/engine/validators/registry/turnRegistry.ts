@@ -11,7 +11,6 @@ import {
   validateIsPlayersTurn,
   validateRoundPhase,
   validateNotInCombat,
-  validateMinimumTurnRequirement,
 } from "../turnValidators.js";
 
 // Choice validators
@@ -43,6 +42,5 @@ export const turnRegistry: Record<string, Validator[]> = {
     validateNoPendingRewards, // Must select rewards before ending turn
     validateNoPendingLevelUpRewards, // Must select level up rewards before ending turn
     validateRestCompleted, // Must complete rest if resting
-    validateMinimumTurnRequirement, // Must play or discard at least one card from hand
   ],
 };
