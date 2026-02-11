@@ -15,6 +15,7 @@ import { getChallengeOptions } from "../validActions/challenge.js";
 import { getSiteOptions } from "../validActions/sites.js";
 import {
   ENEMY_DIGGERS,
+  CARD_WOUND,
   CARD_WHIRLWIND,
   TERRAIN_PLAINS,
   hexKey,
@@ -205,5 +206,20 @@ describe("Valid actions while resting", () => {
 
     expect(validActions.mode).toBe("normal_turn");
     expect(validActions.playCard).toBeUndefined();
+  });
+
+  it("offers declare rest after action when hand is all wounds", () => {
+    const player = createTestPlayer({
+      hasTakenActionThisTurn: true,
+      hand: [CARD_WOUND, CARD_WOUND],
+      isResting: false,
+    });
+    const state = createTestGameState({ players: [player] });
+
+    const validActions = getValidActions(state, player.id);
+
+    expect(validActions.mode).toBe("normal_turn");
+    expect(validActions.turn?.canDeclareRest).toBe(true);
+    expect(validActions.turn?.restTypes).toEqual(["slow_recovery"]);
   });
 });

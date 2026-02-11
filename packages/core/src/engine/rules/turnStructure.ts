@@ -85,8 +85,12 @@ export function canDeclareRest(state: GameState, player: Player): boolean {
     return false;
   }
 
-  // Can't declare rest if already taken an action
-  if (player.hasTakenActionThisTurn) {
+  const hasOnlyWoundsInHand =
+    player.hand.length > 0 && player.hand.every((cardId) => isWoundCard(cardId));
+
+  // Rest normally requires no prior action, but Slow Recovery is allowed
+  // after acting when the hand is all wounds to avoid dead-end turns.
+  if (player.hasTakenActionThisTurn && !hasOnlyWoundsInHand) {
     return false;
   }
 

@@ -444,6 +444,26 @@ describe("Two-Phase REST (DECLARE_REST + COMPLETE_REST)", () => {
       );
     });
 
+    it("should allow declare rest after action when hand is all wounds", () => {
+      const player = createTestPlayer({
+        hand: [CARD_WOUND, CARD_WOUND],
+        hasTakenActionThisTurn: true,
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_REST_ACTION,
+      });
+
+      expect(result.state.players[0].isResting).toBe(true);
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: REST_DECLARED,
+          playerId: "player1",
+        })
+      );
+    });
+
     it("should reject if already moved this turn (rest means no movement phase)", () => {
       // Per FAQ: "Resting doesn't prevent you from playing cards: it merely prevents
       // you from Moving..." - this means rest and movement are mutually exclusive.
