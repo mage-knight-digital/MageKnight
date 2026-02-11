@@ -39,6 +39,7 @@ import { queueSiteReward } from "../../helpers/rewards/index.js";
 import { discardRuinsToken } from "../../helpers/ruinsTokenHelpers.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 import { gainCrystalWithOverflow } from "../../helpers/crystalHelpers.js";
+import { discardEnemy } from "../../helpers/enemy/index.js";
 import type { BasicManaColor } from "@mage-knight/shared";
 
 import {
@@ -313,6 +314,12 @@ export function handleCombatHexCleanup(
   // Clear enemies from hex on victory, or for dungeon/tomb (enemies always discarded)
   const shouldClearEnemies = victory || resolvedCombat.discardEnemiesOnFailure;
   if (shouldClearEnemies && hex) {
+    // Return cleared enemies to their color discard piles so future draws can reshuffle.
+    let updatedEnemyTokens = newState.enemyTokens;
+    for (const enemy of hex.enemies) {
+      updatedEnemyTokens = discardEnemy(updatedEnemyTokens, enemy.tokenId);
+    }
+
     const updatedHex: HexState = {
       ...hex,
       enemies: [],
@@ -326,6 +333,7 @@ export function handleCombatHexCleanup(
     newState = {
       ...newState,
       map: { ...newState.map, hexes: updatedHexes },
+      enemyTokens: updatedEnemyTokens,
     };
 
     // Handle burn monastery victory
