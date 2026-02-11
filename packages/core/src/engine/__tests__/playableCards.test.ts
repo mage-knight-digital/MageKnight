@@ -18,6 +18,8 @@ import {
   CARD_IMPROVISATION,
   CARD_CRYSTALLIZE,
   CARD_WHIRLWIND,
+  PLAY_SIDEWAYS_AS_MOVE,
+  PLAY_SIDEWAYS_AS_INFLUENCE,
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
   MANA_BLUE,
@@ -675,6 +677,34 @@ describe("getPlayableCardsForCombat", () => {
       // March SHOULD be playable powered with green mana
       expect(marchCard?.canPlayPowered).toBe(true);
       expect(marchCard?.requiredMana).toBe(MANA_GREEN);
+    });
+
+    it("should only advertise move/influence sideways options on normal turn", () => {
+      const player = createTestPlayer({
+        hand: [CARD_RAGE],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = getPlayableCardsForNormalTurn(state, player);
+      const rageCard = result.cards.find((c) => c.cardId === CARD_RAGE);
+
+      expect(rageCard).toBeDefined();
+      expect(rageCard?.sidewaysOptions).toContainEqual({
+        as: PLAY_SIDEWAYS_AS_MOVE,
+        value: 1,
+      });
+      expect(rageCard?.sidewaysOptions).toContainEqual({
+        as: PLAY_SIDEWAYS_AS_INFLUENCE,
+        value: 1,
+      });
+      expect(rageCard?.sidewaysOptions).not.toContainEqual({
+        as: PLAY_SIDEWAYS_AS_ATTACK,
+        value: 1,
+      });
+      expect(rageCard?.sidewaysOptions).not.toContainEqual({
+        as: PLAY_SIDEWAYS_AS_BLOCK,
+        value: 1,
+      });
     });
 
     it("should not advertise Improvisation as basic/powered on normal turn when no other discard exists", () => {

@@ -44,8 +44,6 @@ export function getAllowedSidewaysChoices(
     return [
       PLAY_SIDEWAYS_AS_MOVE,
       PLAY_SIDEWAYS_AS_INFLUENCE,
-      PLAY_SIDEWAYS_AS_ATTACK,
-      PLAY_SIDEWAYS_AS_BLOCK,
     ];
   }
 

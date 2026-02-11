@@ -20,7 +20,7 @@ import {
   CARD_WOUND,
   CARD_PROMISE,
 } from "@mage-knight/shared";
-import { COMBAT_PHASE_BLOCK, COMBAT_PHASE_RANGED_SIEGE } from "../../types/combat.js";
+import { COMBAT_PHASE_ATTACK, COMBAT_PHASE_BLOCK, COMBAT_PHASE_RANGED_SIEGE } from "../../types/combat.js";
 import type { ActiveModifier } from "../../types/modifiers.js";
 import {
   DURATION_TURN,
@@ -88,13 +88,9 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
       );
     });
 
-    it("should gain Attack 1 when playing card sideways for attack", () => {
+    it("should reject sideways attack outside combat", () => {
       const player = createTestPlayer({
         hand: [CARD_MARCH],
-        combatAccumulator: {
-          attack: { normal: 0, ranged: 0, siege: 0 },
-          block: 0,
-        },
       });
       const state = createTestGameState({ players: [player] });
 
@@ -104,23 +100,17 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
         as: PLAY_SIDEWAYS_AS_ATTACK,
       });
 
-      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(1);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: CARD_PLAYED,
-          sideways: true,
-          effect: "Gained 1 Attack (sideways)",
+          type: INVALID_ACTION,
+          reason: expect.stringContaining("Invalid sideways choice"),
         })
       );
     });
 
-    it("should gain Block 1 when playing card sideways for block", () => {
+    it("should reject sideways block outside combat", () => {
       const player = createTestPlayer({
         hand: [CARD_MARCH],
-        combatAccumulator: {
-          attack: { normal: 0, ranged: 0, siege: 0 },
-          block: 0,
-        },
       });
       const state = createTestGameState({ players: [player] });
 
@@ -130,14 +120,10 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
         as: PLAY_SIDEWAYS_AS_BLOCK,
       });
 
-      expect(result.state.players[0].combatAccumulator.block).toBe(1);
-      // Verify blockElements.physical is also updated (used by valid actions computation)
-      expect(result.state.players[0].combatAccumulator.blockElements.physical).toBe(1);
       expect(result.events).toContainEqual(
         expect.objectContaining({
-          type: CARD_PLAYED,
-          sideways: true,
-          effect: "Gained 1 Block (sideways)",
+          type: INVALID_ACTION,
+          reason: expect.stringContaining("Invalid sideways choice"),
         })
       );
     });
@@ -203,6 +189,57 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
         expect.objectContaining({
           type: INVALID_ACTION,
           reason: expect.stringContaining("Invalid sideways choice"),
+        })
+      );
+    });
+
+    it("should allow sideways block during combat block phase", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+      });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_SIDEWAYS_ACTION,
+        cardId: CARD_MARCH,
+        as: PLAY_SIDEWAYS_AS_BLOCK,
+      });
+
+      expect(result.state.players[0].combatAccumulator.block).toBe(1);
+      expect(result.state.players[0].combatAccumulator.blockElements.physical).toBe(1);
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: CARD_PLAYED,
+          sideways: true,
+          effect: "Gained 1 Block (sideways)",
+        })
+      );
+    });
+
+    it("should allow sideways attack during combat attack phase", () => {
+      const player = createTestPlayer({
+        hand: [CARD_MARCH],
+      });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: PLAY_CARD_SIDEWAYS_ACTION,
+        cardId: CARD_MARCH,
+        as: PLAY_SIDEWAYS_AS_ATTACK,
+      });
+
+      expect(result.state.players[0].combatAccumulator.attack.normal).toBe(1);
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: CARD_PLAYED,
+          sideways: true,
+          effect: "Gained 1 Attack (sideways)",
         })
       );
     });
@@ -298,7 +335,10 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
           block: 0,
         },
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_ATTACK),
+      });
 
       // Play sideways
       const afterPlay = engine.processAction(state, "player1", {
@@ -325,7 +365,10 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
           block: 2,
         },
       });
-      const state = createTestGameState({ players: [player] });
+      const state = createTestGameState({
+        players: [player],
+        combat: createUnitCombatState(COMBAT_PHASE_BLOCK),
+      });
 
       // Play sideways
       const afterPlay = engine.processAction(state, "player1", {

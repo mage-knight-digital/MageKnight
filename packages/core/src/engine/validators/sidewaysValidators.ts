@@ -1,7 +1,10 @@
 /**
  * Validators for PLAY_CARD_SIDEWAYS action
  *
- * Any non-Wound card can be played sideways to gain Move 1, Influence 1, Attack 1, or Block 1.
+ * Any non-Wound card can be played sideways, with available gains based on context:
+ * - Outside combat: Move 1 or Influence 1
+ * - Combat Block phase: Block 1
+ * - Combat Attack phase: Attack 1
  * This applies to Basic Actions, Advanced Actions, Spells, Artifacts, etc.
  */
 
