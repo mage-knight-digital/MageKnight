@@ -18,7 +18,7 @@ from .invariants import (
     is_terminal_events,
     is_terminal_state,
 )
-from .random_policy import CandidateAction, RandomValidActionPolicy, enumerate_valid_actions
+from .random_policy import CandidateAction, enumerate_valid_actions
 from .reporting import (
     ActionTraceEntry,
     MessageLogEntry,
@@ -79,7 +79,6 @@ async def run_simulations(config: RunnerConfig) -> tuple[list[RunResult], RunSum
 
 async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig) -> SimulationOutcome:
     rng = random.Random(seed)
-    policy = RandomValidActionPolicy()
 
     trace: list[ActionTraceEntry] = []
     messages: list[MessageLogEntry] = []
@@ -235,7 +234,13 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
                     )
                 continue
 
-            candidate = rng.choice(all_candidates)
+            candidate = _choose_candidate_with_repeat_avoidance(
+                rng=rng,
+                candidates=all_candidates,
+                trace=trace,
+                player_id=actor.session.player_id,
+                mode=mode,
+            )
             candidate_keys = {_action_key(entry.action) for entry in all_candidates}
             chosen_key = _action_key(candidate.action)
             if chosen_key not in candidate_keys:
@@ -552,6 +557,67 @@ def _mode(state: dict[str, Any]) -> str:
 
 def _action_key(action: dict[str, Any]) -> str:
     return json.dumps(action, sort_keys=True, separators=(",", ":"))
+
+
+def _choose_candidate_with_repeat_avoidance(
+    rng: random.Random,
+    candidates: list[CandidateAction],
+    trace: list[ActionTraceEntry],
+    player_id: str,
+    mode: str,
+) -> CandidateAction:
+    """
+    Pick a random candidate with a narrow anti-stall guard.
+
+    If the same player keeps challenging the exact same rampaging target over
+    and over, and there are other legal options, avoid challenge for this pick.
+    This keeps policy mostly random while breaking pathological loops.
+    """
+    if not candidates:
+        raise ValueError("Expected at least one candidate action")
+    if len(candidates) == 1:
+        return candidates[0]
+
+    if mode != "normal_turn":
+        return rng.choice(candidates)
+
+    challenge_candidates = [
+        candidate for candidate in candidates if candidate.action.get("type") == "CHALLENGE_RAMPAGING"
+    ]
+    if not challenge_candidates:
+        return rng.choice(candidates)
+
+    non_challenge_candidates = [
+        candidate for candidate in candidates if candidate.action.get("type") != "CHALLENGE_RAMPAGING"
+    ]
+    if not non_challenge_candidates:
+        return rng.choice(candidates)
+
+    recent_challenge_targets: list[tuple[int, int]] = []
+    for entry in reversed(trace):
+        if entry.player_id != player_id:
+            continue
+        if entry.mode != "normal_turn":
+            continue
+        if entry.action.get("type") != "CHALLENGE_RAMPAGING":
+            continue
+        target_hex = entry.action.get("targetHex")
+        if not isinstance(target_hex, dict):
+            continue
+        q = target_hex.get("q")
+        r = target_hex.get("r")
+        if isinstance(q, int) and isinstance(r, int):
+            recent_challenge_targets.append((q, r))
+        if len(recent_challenge_targets) >= 12:
+            break
+
+    if len(recent_challenge_targets) >= 6:
+        top_target = recent_challenge_targets[0]
+        repeated_count = sum(1 for target in recent_challenge_targets if target == top_target)
+        if repeated_count >= 5:
+            return rng.choice(non_challenge_candidates)
+
+    return rng.choice(candidates)
 
 
 def _build_timeout_diagnostics(
