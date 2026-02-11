@@ -44,6 +44,7 @@ export function createResolveDiscardCommand(
   let previousPendingDiscard: Player["pendingDiscard"] = null;
   let previousHand: readonly CardId[] = [];
   let previousDiscard: readonly CardId[] = [];
+  let previousPlayedCardFromHandThisTurn = false;
 
   return {
     type: RESOLVE_DISCARD_COMMAND,
@@ -73,6 +74,7 @@ export function createResolveDiscardCommand(
       previousPendingDiscard = pendingDiscard;
       previousHand = player.hand;
       previousDiscard = player.discard;
+      previousPlayedCardFromHandThisTurn = player.playedCardFromHandThisTurn;
 
       const events: GameEvent[] = [];
 
@@ -149,6 +151,9 @@ export function createResolveDiscardCommand(
         hand: updatedHand,
         discard: updatedDiscardPile,
         pendingDiscard: null,
+        playedCardFromHandThisTurn:
+          player.playedCardFromHandThisTurn ||
+          pendingDiscard.satisfiesMinimumTurnRequirementOnResolve === true,
       };
 
       let newState: GameState = {
@@ -264,6 +269,7 @@ export function createResolveDiscardCommand(
         hand: previousHand,
         discard: previousDiscard,
         pendingDiscard: previousPendingDiscard,
+        playedCardFromHandThisTurn: previousPlayedCardFromHandThisTurn,
       };
 
       const newState: GameState = {

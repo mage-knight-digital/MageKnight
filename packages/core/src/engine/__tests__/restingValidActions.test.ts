@@ -208,26 +208,9 @@ describe("Valid actions while resting", () => {
     expect(validActions.playCard).toBeUndefined();
   });
 
-  it("offers declare rest after action when hand is all wounds and minimum requirement is unmet", () => {
+  it("does not offer declare rest after action when hand is all wounds", () => {
     const player = createTestPlayer({
       hasTakenActionThisTurn: true,
-      playedCardFromHandThisTurn: false,
-      hand: [CARD_WOUND, CARD_WOUND],
-      isResting: false,
-    });
-    const state = createTestGameState({ players: [player] });
-
-    const validActions = getValidActions(state, player.id);
-
-    expect(validActions.mode).toBe("normal_turn");
-    expect(validActions.turn?.canDeclareRest).toBe(true);
-    expect(validActions.turn?.restTypes).toEqual(["slow_recovery"]);
-  });
-
-  it("does not offer declare rest after action once minimum requirement is met", () => {
-    const player = createTestPlayer({
-      hasTakenActionThisTurn: true,
-      playedCardFromHandThisTurn: true,
       hand: [CARD_WOUND, CARD_WOUND],
       isResting: false,
     });

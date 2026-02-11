@@ -277,6 +277,10 @@ describe("Scenario System", () => {
         ...state,
         scenarioEndTriggered: true,
         finalTurnsRemaining: 2,
+        players: state.players.map(p => ({
+          ...p,
+          playedCardFromHandThisTurn: true,
+        })),
       };
 
       const endTurnCommand = createEndTurnCommand({ playerId: "player1" });
@@ -294,7 +298,11 @@ describe("Scenario System", () => {
         ...state,
         scenarioEndTriggered: true,
         finalTurnsRemaining: 1,
-        players: state.players.map(p => ({ ...p, fame: 10 })),
+        players: state.players.map(p => ({
+          ...p,
+          fame: 10,
+          playedCardFromHandThisTurn: true,
+        })),
       };
 
       const endTurnCommand = createEndTurnCommand({ playerId: "player1" });
@@ -323,7 +331,11 @@ describe("Scenario System", () => {
         ...state,
         scenarioEndTriggered: true,
         finalTurnsRemaining: 2, // Would normally have 2 more turns
-        players: state.players.map(p => ({ ...p, fame: 15 })),
+        players: state.players.map(p => ({
+          ...p,
+          fame: 15,
+          playedCardFromHandThisTurn: true,
+        })),
       };
 
       // End round command (e.g., all players passed early)

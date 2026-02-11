@@ -459,6 +459,7 @@ describe("Mana Draw Powered Effect", () => {
         id: "player1",
         hand: [CARD_MARCH], // Need a card to avoid forced round end announcement
         deck: [CARD_MARCH],
+        playedCardFromHandThisTurn: true,
         manaDrawDieIds: [sourceDieId("die_0")],
         usedDieIds: [],
       });
@@ -486,6 +487,7 @@ describe("Mana Draw Powered Effect", () => {
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
+        playedCardFromHandThisTurn: true,
         manaDrawDieIds: [],
         usedDieIds: [sourceDieId("die_0")], // Normal die used for powering
       });
@@ -514,6 +516,7 @@ describe("Mana Draw Powered Effect", () => {
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
+        playedCardFromHandThisTurn: true,
         manaDrawDieIds: [sourceDieId("die_0")], // From Mana Draw
         usedDieIds: [sourceDieId("die_1")], // From normal powering
       });
@@ -546,6 +549,7 @@ describe("Mana Draw Powered Effect", () => {
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
+        playedCardFromHandThisTurn: true,
         manaDrawDieIds: ["die_0"],
       });
       const state = createTestGameState({
@@ -772,6 +776,7 @@ describe("Mana Pull Powered Effect (Arythea)", () => {
         id: "player1",
         hand: [CARD_MARCH],
         deck: [CARD_MARCH],
+        playedCardFromHandThisTurn: true,
         manaDrawDieIds: [sourceDieId("die_0"), sourceDieId("die_1")], // Both from Mana Pull
         usedDieIds: [],
       });
