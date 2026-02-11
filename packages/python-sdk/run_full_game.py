@@ -20,6 +20,7 @@ parser.add_argument("--seed", type=int, default=1, help="Random seed (default: 1
 parser.add_argument("--max-steps", type=int, default=10000, help="Max steps (default: 10000)")
 parser.add_argument("--no-undo", action="store_true", help="Disable UNDO actions")
 parser.add_argument("--save-failure", action="store_true", help="Write full failure artifact if run fails/stalls (default: summary-only)")
+parser.add_argument("--save-artifact", action="store_true", help="Always write full run artifact (trace + message log) regardless of outcome")
 args = parser.parse_args()
 
 config = RunnerConfig(
@@ -31,6 +32,7 @@ config = RunnerConfig(
     base_seed=args.seed,
     artifacts_dir="./sim-artifacts",
     write_failure_artifacts=args.save_failure,
+    write_full_artifact=args.save_artifact,
     allow_undo=not args.no_undo,
 )
 
