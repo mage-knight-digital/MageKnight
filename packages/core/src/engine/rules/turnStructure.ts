@@ -85,12 +85,14 @@ export function canDeclareRest(state: GameState, player: Player): boolean {
     return false;
   }
 
-  const hasOnlyWoundsInHand =
-    player.hand.length > 0 && player.hand.every((cardId) => isWoundCard(cardId));
-
-  // Rest normally requires no prior action, but Slow Recovery is allowed
-  // after acting when the hand is all wounds to avoid dead-end turns.
-  if (player.hasTakenActionThisTurn && !hasOnlyWoundsInHand) {
+  // Rest normally requires an unused action phase this turn.
+  // Exception: if the player has acted, holds only wounds, and has not yet
+  // satisfied the minimum-turn card play/discard requirement, allow one
+  // Slow Recovery declaration to avoid dead-end turns.
+  if (
+    player.hasTakenActionThisTurn &&
+    !canDeclareRestAfterActionWithAllWounds(player)
+  ) {
     return false;
   }
 
@@ -100,6 +102,21 @@ export function canDeclareRest(state: GameState, player: Player): boolean {
   }
 
   return true;
+}
+
+/**
+ * Check whether a player may declare rest after already taking an action.
+ *
+ * This is only allowed for all-wounds hands before the minimum-turn
+ * requirement has been satisfied.
+ */
+export function canDeclareRestAfterActionWithAllWounds(player: Player): boolean {
+  return (
+    player.hasTakenActionThisTurn &&
+    !player.playedCardFromHandThisTurn &&
+    player.hand.length > 0 &&
+    player.hand.every((cardId) => isWoundCard(cardId))
+  );
 }
 
 /**

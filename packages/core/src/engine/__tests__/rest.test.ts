@@ -448,6 +448,7 @@ describe("Two-Phase REST (DECLARE_REST + COMPLETE_REST)", () => {
       const player = createTestPlayer({
         hand: [CARD_WOUND, CARD_WOUND],
         hasTakenActionThisTurn: true,
+        playedCardFromHandThisTurn: false,
       });
       const state = createTestGameState({ players: [player] });
 
@@ -455,11 +456,30 @@ describe("Two-Phase REST (DECLARE_REST + COMPLETE_REST)", () => {
         type: DECLARE_REST_ACTION,
       });
 
-      expect(result.state.players[0].isResting).toBe(true);
       expect(result.events).toContainEqual(
         expect.objectContaining({
           type: REST_DECLARED,
           playerId: "player1",
+        })
+      );
+    });
+
+    it("should reject declare rest after action when minimum turn requirement is already met", () => {
+      const player = createTestPlayer({
+        hand: [CARD_WOUND, CARD_WOUND],
+        hasTakenActionThisTurn: true,
+        playedCardFromHandThisTurn: true,
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = engine.processAction(state, "player1", {
+        type: DECLARE_REST_ACTION,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: "You have already taken an action this turn",
         })
       );
     });

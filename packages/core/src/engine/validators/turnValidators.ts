@@ -19,7 +19,7 @@ import { getPlayerById } from "../helpers/playerHelpers.js";
 import {
   hasMetMinimumTurnRequirement,
   canTakeActionPhaseAction,
-  isWoundCard,
+  canDeclareRestAfterActionWithAllWounds,
 } from "../rules/turnStructure.js";
 
 // Check it's this player's turn
@@ -73,15 +73,13 @@ export function validateHasNotActed(
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
-  if (
-    action.type === DECLARE_REST_ACTION &&
-    player.hand.length > 0 &&
-    player.hand.every((cardId) => isWoundCard(cardId))
-  ) {
-    return valid();
-  }
-
   if (!canTakeActionPhaseAction(player)) {
+    if (
+      action.type === DECLARE_REST_ACTION &&
+      canDeclareRestAfterActionWithAllWounds(player)
+    ) {
+      return valid();
+    }
     return invalid(ALREADY_ACTED, "You have already taken an action this turn");
   }
   return valid();
