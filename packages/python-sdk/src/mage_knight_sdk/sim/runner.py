@@ -46,6 +46,7 @@ class RunnerConfig:
     action_timeout_seconds: float = 5.0
     artifacts_dir: str = "sim_artifacts"
     write_failure_artifacts: bool = False
+    write_full_artifact: bool = False
     subscribe_lobby_on_connect: bool = False
     forced_invalid_action_step: int | None = None
     allow_undo: bool = True
@@ -326,7 +327,9 @@ async def _run_single_simulation(run_index: int, seed: int, config: RunnerConfig
                     )
                 continue
 
-            candidate = rng.choice(all_candidates)
+            # Sort candidates by canonical action key for reproducible choice (seed-based RNG)
+            sorted_candidates = sorted(all_candidates, key=lambda c: _action_key(c.action))
+            candidate = rng.choice(sorted_candidates)
             candidate_keys = {_action_key(entry.action) for entry in all_candidates}
             chosen_key = _action_key(candidate.action)
             if chosen_key not in candidate_keys:
@@ -642,8 +645,11 @@ def _finish_run(
         OUTCOME_INVARIANT_FAILURE,
         OUTCOME_MAX_STEPS,
     }
+    write_artifact = config.write_full_artifact or (
+        outcome in artifact_outcomes and config.write_failure_artifacts
+    )
     artifact_path: str | None = None
-    if outcome in artifact_outcomes and config.write_failure_artifacts:
+    if write_artifact:
         artifact_path = write_failure_artifact(
             output_dir=config.artifacts_dir,
             run_result=run_result,

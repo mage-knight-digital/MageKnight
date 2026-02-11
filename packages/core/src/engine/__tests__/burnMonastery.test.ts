@@ -14,10 +14,14 @@ import { createEngine, MageKnightEngine } from "../MageKnightEngine.js";
 import { createTestGameState, createTestPlayer, createTestHex } from "./testHelpers.js";
 import {
   BURN_MONASTERY_ACTION,
+  END_COMBAT_PHASE_ACTION,
+  ASSIGN_DAMAGE_ACTION,
   INVALID_ACTION,
   MONASTERY_BURN_STARTED,
   REPUTATION_CHANGED,
   COMBAT_STARTED,
+  ENEMY_COLOR_VIOLET,
+  ENEMIES,
   TERRAIN_PLAINS,
   hexKey,
   REPUTATION_REASON_BURN_MONASTERY,
@@ -25,7 +29,11 @@ import {
 import { SiteType } from "../../types/map.js";
 import type { Site } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
-import { resetTokenCounter, createEnemyTokenPiles } from "../helpers/enemy/index.js";
+import {
+  resetTokenCounter,
+  createEnemyTokenPiles,
+  createEnemyTokenId,
+} from "../helpers/enemy/index.js";
 import { createRng } from "../../utils/rng.js";
 import { COMBAT_CONTEXT_BURN_MONASTERY } from "../../types/combat.js";
 
@@ -96,6 +104,65 @@ describe("Burn Monastery", () => {
     engine = createEngine();
     resetTokenCounter();
   });
+
+  /**
+   * Helper to run through all combat phases without defeating enemy.
+   * This simulates a failed combat where player takes wounds but doesn't kill enemy.
+   */
+  function failCombat(
+    eng: MageKnightEngine,
+    initialState: GameState
+  ): { state: GameState; events: import("@mage-knight/shared").GameEvent[] } {
+    let state = initialState;
+    const allEvents: import("@mage-knight/shared").GameEvent[] = [];
+
+    // Phase 1: Ranged/Siege -> Block
+    let result = eng.processAction(state, "player1", {
+      type: END_COMBAT_PHASE_ACTION,
+    });
+    state = result.state;
+    allEvents.push(...result.events);
+
+    // Phase 2: Block -> Assign Damage
+    result = eng.processAction(state, "player1", {
+      type: END_COMBAT_PHASE_ACTION,
+    });
+    state = result.state;
+    allEvents.push(...result.events);
+
+    // Phase 3: Assign Damage
+    const enemies = state.combat?.enemies ?? [];
+    for (const enemy of enemies) {
+      if (enemy.isSummonerHidden || enemy.isDefeated) continue;
+
+      const numAttacks = enemy.definition?.attacks?.length ?? 1;
+      for (let attackIndex = 0; attackIndex < numAttacks; attackIndex++) {
+        result = eng.processAction(state, "player1", {
+          type: ASSIGN_DAMAGE_ACTION,
+          enemyInstanceId: enemy.instanceId,
+          attackIndex,
+        });
+        state = result.state;
+        allEvents.push(...result.events);
+      }
+    }
+
+    // Phase 3 continued: Assign Damage -> Attack
+    result = eng.processAction(state, "player1", {
+      type: END_COMBAT_PHASE_ACTION,
+    });
+    state = result.state;
+    allEvents.push(...result.events);
+
+    // Phase 4: Attack -> Combat ends (enemy not defeated = failure)
+    result = eng.processAction(state, "player1", {
+      type: END_COMBAT_PHASE_ACTION,
+    });
+    state = result.state;
+    allEvents.push(...result.events);
+
+    return { state, events: allEvents };
+  }
 
   describe("validation", () => {
     it("rejects burn monastery if not at a monastery", () => {
@@ -260,6 +327,75 @@ describe("Burn Monastery", () => {
       const player = result.state.players.find((p) => p.id === "player1");
       expect(player?.hasTakenActionThisTurn).toBe(true);
       expect(player?.hasCombattedThisTurn).toBe(true);
+    });
+
+    it("updates the monastery hex with the drawn violet enemy token", () => {
+      const state = createStateAtMonastery();
+
+      const result = engine.processAction(state, "player1", {
+        type: BURN_MONASTERY_ACTION,
+      });
+
+      const hex = result.state.map.hexes[hexKey({ q: 0, r: 0 })];
+      expect(hex?.enemies).toHaveLength(1);
+      expect(hex?.enemies[0]?.color).toBe(ENEMY_COLOR_VIOLET);
+    });
+
+    it("reshuffles violet discard when draw pile is exhausted on retry", () => {
+      const violetEnemyIds = (Object.keys(ENEMIES) as (keyof typeof ENEMIES)[])
+        .filter((id) => ENEMIES[id].color === ENEMY_COLOR_VIOLET);
+      const firstVioletEnemyId = violetEnemyIds[0];
+      if (!firstVioletEnemyId) {
+        throw new Error("No violet enemy found");
+      }
+
+      const onlyVioletToken = createEnemyTokenId(firstVioletEnemyId);
+      const baseState = createStateAtMonastery();
+      const stateWithSingleVioletToken = {
+        ...baseState,
+        enemyTokens: {
+          ...baseState.enemyTokens,
+          drawPiles: {
+            ...baseState.enemyTokens.drawPiles,
+            [ENEMY_COLOR_VIOLET]: [onlyVioletToken],
+          },
+          discardPiles: {
+            ...baseState.enemyTokens.discardPiles,
+            [ENEMY_COLOR_VIOLET]: [],
+          },
+        },
+      };
+
+      // First burn attempt draws the only violet token and fails combat.
+      const firstBurn = engine.processAction(stateWithSingleVioletToken, "player1", {
+        type: BURN_MONASTERY_ACTION,
+      });
+      const afterFailedCombat = failCombat(engine, firstBurn.state).state;
+
+      // Token should be in violet discard after failed burn-monastery combat.
+      expect(afterFailedCombat.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET]).toHaveLength(0);
+      expect(afterFailedCombat.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET]).toContain(
+        onlyVioletToken
+      );
+
+      // Simulate new turn for retry.
+      const nextTurnState = {
+        ...afterFailedCombat,
+        players: afterFailedCombat.players.map((player) =>
+          player.id === "player1"
+            ? { ...player, hasTakenActionThisTurn: false, hasCombattedThisTurn: false }
+            : player
+        ),
+      };
+
+      // Second burn attempt must reshuffle discard to draw an enemy.
+      const secondBurn = engine.processAction(nextTurnState, "player1", {
+        type: BURN_MONASTERY_ACTION,
+      });
+
+      expect(secondBurn.state.combat).not.toBeNull();
+      expect(secondBurn.state.combat?.enemies).toHaveLength(1);
+      expect(secondBurn.state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET]).toHaveLength(0);
     });
   });
 

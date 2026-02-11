@@ -28,6 +28,7 @@ import {
 import { createCombatState, COMBAT_CONTEXT_BURN_MONASTERY } from "../../types/combat.js";
 import { drawEnemy, getEnemyIdFromToken } from "../helpers/enemy/index.js";
 import type { Player } from "../../types/player.js";
+import type { HexState } from "../../types/map.js";
 import { BURN_MONASTERY_COMMAND } from "./commandTypes.js";
 
 export { BURN_MONASTERY_COMMAND };
@@ -80,6 +81,28 @@ export function createBurnMonasteryCommand(
         ...updatedState,
         enemyTokens: enemyResult.piles,
         rng: enemyResult.rng,
+      };
+
+      // Track the drawn token on the hex so combat cleanup can discard it back to piles.
+      const updatedHex: HexState = {
+        ...hex,
+        enemies: [
+          {
+            tokenId: enemyResult.tokenId,
+            color: ENEMY_COLOR_VIOLET,
+            isRevealed: true,
+          },
+        ],
+      };
+      updatedState = {
+        ...updatedState,
+        map: {
+          ...updatedState.map,
+          hexes: {
+            ...updatedState.map.hexes,
+            [key]: updatedHex,
+          },
+        },
       };
 
       const enemyId = getEnemyIdFromToken(enemyResult.tokenId);
