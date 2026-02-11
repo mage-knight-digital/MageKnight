@@ -1,7 +1,11 @@
-from .runner import RunnerConfig, run_simulations, run_simulations_sync, save_summary
+from .config import RunnerConfig
+from .policy import Policy, RandomPolicy
 from .reporting import RunResult, RunSummary
+from .runner import run_simulations, run_simulations_sync, save_summary
 
 __all__ = [
+    "Policy",
+    "RandomPolicy",
     "RunnerConfig",
     "RunResult",
     "RunSummary",

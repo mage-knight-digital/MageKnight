@@ -35,7 +35,54 @@ python3 scripts/generate_protocol_models.py
 python3 -m unittest discover -s tests/integration -p 'test_*.py'
 ```
 
+### CLI Entry Points
+
+After `pip install -e .`:
+
+```bash
+mage-knight-run-game --seed 42 --max-steps 5000 --no-undo
+mage-knight-run-sweep --start-seed 1 --count 100 --benchmark --no-undo
+mage-knight-scan-fame --artifacts-dir ./sim-artifacts
+mage-knight-viewer  # Launch artifact viewer web server
+```
+
+Or via module execution:
+
+```bash
+python3 -m mage_knight_sdk.cli.run_game --seed 42
+python3 -m mage_knight_sdk.cli.run_sweep --start-seed 1 --count 100
+python3 -m mage_knight_sdk.tools.scan_fame --artifacts-dir ./sim-artifacts
+```
+
 ## Architecture
+
+### Package Layers
+
+```
+┌─────────────────────────────────────────┐
+│  CLI / Tools                            │
+│  cli/run_game.py, cli/run_sweep.py      │
+│  tools/scan_fame.py                     │
+├─────────────────────────────────────────┤
+│  Simulation Harness                     │
+│  sim/runner.py (orchestration)          │
+│  sim/policy.py (Policy protocol)        │
+│  sim/config.py, stall_detector.py,      │
+│  diagnostics.py, state_utils.py,        │
+│  invariants.py, reporting.py,           │
+│  bootstrap.py, random_policy.py         │
+├─────────────────────────────────────────┤
+│  Core SDK                               │
+│  client.py (WebSocket)                  │
+│  protocol.py (message parsing)          │
+│  protocol_models.py (generated types)   │
+│  action_constants.py (generated)        │
+├─────────────────────────────────────────┤
+│  Viewer (optional Flask app)            │
+│  viewer/server.py, ndjson_index.py,     │
+│  states_index.py                        │
+└─────────────────────────────────────────┘
+```
 
 ### Core Components
 
@@ -55,7 +102,58 @@ python3 -m unittest discover -s tests/integration -p 'test_*.py'
 - **Generated file** — do not edit manually
 - Typed dataclasses for all message types
 - `NETWORK_PROTOCOL_VERSION` constant (source of truth for protocol compatibility)
-- Message types: `ClientActionMessage`, `ClientLobbySubscribeMessage`, `StateUpdateMessage`, `ErrorMessage`, `LobbyStateMessage`
+
+### Simulation Harness (`sim/`)
+
+**Policy** (`sim/policy.py`):
+- `Policy` — `typing.Protocol` for action selection (structural typing, no inheritance required)
+- `RandomPolicy` — reference implementation, uniform random selection
+- Interface: `choose_action(state, player_id, valid_actions, rng) -> CandidateAction | None`
+- Custom policies (RL, heuristic) implement the same interface
+
+**Runner** (`sim/runner.py`):
+- `run_simulations(config, policy=None)` — main entry point (async)
+- `run_simulations_sync(config, policy=None)` — sync wrapper
+- Orchestrates multi-player games: bootstrap → connect → action loop → finalize
+- Accepts any `Policy` implementation (defaults to `RandomPolicy`)
+
+**Config** (`sim/config.py`):
+- `RunnerConfig` — frozen dataclass with all simulation parameters
+- `AgentRuntime` — mutable per-player state during a simulation
+- `SimulationOutcome` — result + trace + messages
+
+**Stall Detector** (`sim/stall_detector.py`):
+- `StallDetector` — detects infinite loops (draw pile unchanged for N turns)
+- Requires ALL players to be stalled before reporting (multiplayer-safe)
+
+**Diagnostics** (`sim/diagnostics.py`):
+- `build_timeout_diagnostics()` — structured timeout/stall diagnostic data
+- Dual output: human-readable string + JSON for artifacts
+
+**State Utilities** (`sim/state_utils.py`):
+- `mode(state)` — extract validActions mode
+- `action_key(action)` — stable JSON key for deduplication
+- `draw_pile_count_for_player(state, player_id)` — extract deck count
+- `player_ids_from_state(state)` — extract player IDs
+
+**Action Enumeration** (`sim/random_policy.py`):
+- `enumerate_valid_actions(state, player_id)` — wrapper around generated enumerator
+- Used by runner, diagnostics, and tests
+
+**Other modules**: `bootstrap.py` (HTTP game creation/joining), `invariants.py` (state validation), `reporting.py` (results, NDJSON summaries, artifact writing)
+
+### CLI (`cli/`)
+
+- `cli/run_game.py` — run a single full game (`mage-knight-run-game`)
+- `cli/run_sweep.py` — run a seed range with benchmarking (`mage-knight-run-sweep`)
+
+### Tools (`tools/`)
+
+- `tools/scan_fame.py` — scan artifacts for games with fame > 0 (`mage-knight-scan-fame`)
+
+### Viewer (`viewer/`)
+
+Flask web app for inspecting simulation artifacts. Optional dependency (`pip install -e '.[viewer]'`).
 
 ### Protocol Flow
 
@@ -67,16 +165,20 @@ python3 -m unittest discover -s tests/integration -p 'test_*.py'
 
 ### Generated Code
 
-**Protocol models are generated** from:
-- `packages/shared/schemas/network-protocol/v1/client-to-server.schema.json`
-- `packages/shared/schemas/network-protocol/v1/server-to-client.schema.json`
+Three generators in `scripts/` produce code from shared JSON schemas:
 
-**Regenerate after schema changes:**
+| Generator | Output | Trigger |
+|-----------|--------|---------|
+| `generate_protocol_models.py` | `protocol_models.py` | Shared schemas change |
+| `generate_actions.py` | `action_constants.py` | Player action schema changes |
+| `generate_action_enumerator.py` | `sim/generated_action_enumerator.py` | ValidActions schema changes |
+
+**Never manually edit generated files.** Regenerate after schema changes:
 ```bash
 python3 scripts/generate_protocol_models.py
+python3 scripts/generate_actions.py
+python3 scripts/generate_action_enumerator.py
 ```
-
-The generator creates typed dataclasses with fields matching the JSON schema, ensuring type safety and IDE autocomplete. Never manually edit `protocol_models.py`.
 
 ## Key Gotchas
 
@@ -94,43 +196,45 @@ The generator creates typed dataclasses with fields matching the JSON schema, en
 - Configurable via `MageKnightClient(reconnect_base_delay=..., max_reconnect_attempts=...)`
 - Failed reconnection after max attempts emits `CONNECTION_STATUS_ERROR` state
 
-### Lobby Subscribe Optional
-- `send_lobby_subscribe()` is optional — only needed if subscribing to pre-game lobby state
-- Set `subscribe_lobby_on_connect=True` to auto-subscribe on connection
-
-### Action Validation
-- `send_action()` validates that action has a non-empty `type` field
-- Raises `ProtocolValidationError` if invalid before sending to server
-
 ### Null Session Tokens
 - `session_token` is optional for resuming sessions
 - When None, it's omitted from `lobby_subscribe` messages (not sent as null)
 
 ## Testing
 
-### Unit Tests (`tests/test_client.py`)
-- Test client behavior in isolation using `_FakeWebSocket` mock
-- Fast, no external dependencies
-- Cover connection state, message queueing, session token handling
+### Unit Tests (`tests/`)
+- `test_client.py` — client behavior with `_FakeWebSocket` mock
+- `test_sim_stall_detector.py` — stall detection logic
+- `test_sim_random_policy.py` — action enumeration from state
 
 ### Integration Tests (`tests/integration/`)
-- Require running a test WebSocket server (`ws_test_server.ts`)
-- Test full message parsing, reconnection, and protocol compliance
-- Run with: `python3 -m unittest discover -s tests/integration -p 'test_*.py'`
+- Require running a test WebSocket server (`ws_test_server.ts`, `sim_harness_test_server.ts`)
+- Test full message parsing, simulation runner, reconnection
 
 ## File Reference
 
 | Path | Purpose |
 |------|---------|
-| `src/mage_knight_sdk/client.py` | Main WebSocket client and connection state management |
+| `src/mage_knight_sdk/client.py` | WebSocket client and connection state management |
 | `src/mage_knight_sdk/protocol.py` | Message parsing, serialization, and validation |
 | `src/mage_knight_sdk/protocol_models.py` | **Generated** typed message dataclasses |
-| `src/mage_knight_sdk/__init__.py` | Public API exports |
-| `scripts/generate_protocol_models.py` | Code generator for protocol models |
-| `tests/test_client.py` | Unit tests for client behavior |
-| `tests/integration/test_websocket_client.py` | End-to-end protocol tests |
-| `examples/local_dev_client.py` | Example: basic client usage |
-| `examples/reconnect_resume_client.py` | Example: session resumption with reconnect |
+| `src/mage_knight_sdk/action_constants.py` | **Generated** action type constants |
+| `src/mage_knight_sdk/sim/runner.py` | Simulation orchestration loop |
+| `src/mage_knight_sdk/sim/policy.py` | Policy protocol + RandomPolicy |
+| `src/mage_knight_sdk/sim/config.py` | RunnerConfig, AgentRuntime, SimulationOutcome |
+| `src/mage_knight_sdk/sim/stall_detector.py` | Draw pile stall detection |
+| `src/mage_knight_sdk/sim/diagnostics.py` | Timeout diagnostic reporting |
+| `src/mage_knight_sdk/sim/state_utils.py` | State extraction helpers |
+| `src/mage_knight_sdk/sim/random_policy.py` | enumerate_valid_actions wrapper |
+| `src/mage_knight_sdk/sim/invariants.py` | State invariant checking |
+| `src/mage_knight_sdk/sim/reporting.py` | Results, summaries, artifact writing |
+| `src/mage_knight_sdk/sim/bootstrap.py` | HTTP game creation/joining |
+| `src/mage_knight_sdk/sim/generated_action_enumerator.py` | **Generated** valid action enumeration |
+| `src/mage_knight_sdk/cli/run_game.py` | Single game CLI |
+| `src/mage_knight_sdk/cli/run_sweep.py` | Seed sweep CLI |
+| `src/mage_knight_sdk/tools/scan_fame.py` | Fame analysis tool |
+| `src/mage_knight_sdk/viewer/` | Artifact viewer (Flask app) |
+| `scripts/generate_*.py` | Code generators |
 | `pyproject.toml` | Package metadata and dependencies |
 
 ## No Magic Strings Policy

@@ -6,11 +6,10 @@ Prefers run_summary.ndjson (written for ALL runs including successful ones).
 If absent, falls back to scanning full failure artifacts.
 
 Usage:
-  python3 scripts/scan_artifacts_fame.py [--artifacts-dir DIR]
-  python3 scripts/scan_artifacts_fame.py --benchmark [--sample N]
-  python3 scripts/scan_artifacts_fame.py --profile
+  mage-knight-scan-fame [--artifacts-dir DIR]
+  mage-knight-scan-fame --benchmark [--sample N]
+  mage-knight-scan-fame --profile
 """
-
 from __future__ import annotations
 
 import argparse
@@ -18,10 +17,6 @@ import json
 import sys
 import time
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-SDK_SRC = REPO_ROOT / "packages/python-sdk/src"
-sys.path.insert(0, str(SDK_SRC))
 
 
 def extract_fame_from_state(state: dict) -> list[tuple[str, int]]:
@@ -46,7 +41,7 @@ def scan_artifact_streaming(path: Path) -> dict | None:
     except ImportError:
         return None
 
-    run_info = {}
+    run_info: dict = {}
     last_fame: list[tuple[str, int]] = []
 
     with open(path, "rb") as f:
@@ -149,6 +144,7 @@ def _print_benchmark(timings: list[tuple[str, float, int]], t_total: float) -> N
         mbps = mb / sec if sec > 0 else 0
         print(f"  {sec*1000:.0f}ms  {mb:.1f}MB  {mbps:.1f} MB/s  {name}")
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Scan sim-artifacts for games with fame > 0")
     parser.add_argument("--artifacts-dir", default="./sim-artifacts", help="Artifacts directory")
@@ -171,7 +167,6 @@ def main() -> int:
             ps = pstats.Stats(prof)
             ps.sort_stats(pstats.SortKey.CUMULATIVE)
             ps.print_stats(20)
-        return 0
 
     return _run_scan(args)
 
@@ -242,7 +237,7 @@ def _run_scan(args: argparse.Namespace) -> int:
 
     have_ijson = False
     try:
-        import ijson
+        import ijson  # noqa: F401
         have_ijson = True
     except ImportError:
         print("(Install viewer deps for streaming: pip install '.[viewer]')", file=sys.stderr)
