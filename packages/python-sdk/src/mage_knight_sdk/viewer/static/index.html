@@ -224,6 +224,54 @@
       white-space: pre-wrap;
       word-break: break-all;
     }
+    .json-tree {
+      font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #a9b1d6;
+      user-select: text;
+    }
+    .json-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      min-height: 18px;
+    }
+    .json-line .json-children {
+      flex-basis: 100%;
+      padding-left: 16px;
+      border-left: 1px solid #363b54;
+      margin-left: 6px;
+    }
+    .json-line.collapsed .json-children { display: none; }
+    .json-line.collapsed .json-open-expanded { display: none; }
+    .json-line.collapsed .json-close { display: none; }
+    .json-line .json-preview { display: none; }
+    .json-line.collapsed .json-preview { display: inline; }
+    .json-toggle {
+      display: inline-block;
+      width: 16px;
+      cursor: pointer;
+      color: #565f89;
+      flex-shrink: 0;
+    }
+    .json-line.collapsed .json-toggle::before { content: '▶'; }
+    .json-line:not(.collapsed) .json-toggle::before { content: '▼'; }
+    .json-head {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+    }
+    .json-head:hover .json-toggle { color: #7aa2f7; }
+    .json-key { color: #9ece6a; margin-right: 4px; }
+    .json-colon { color: #565f89; margin-right: 4px; }
+    .json-brace { color: #7aa2f7; }
+    .json-value-string { color: #e0af68; }
+    .json-value-number { color: #bb9af7; }
+    .json-value-boolean { color: #7aa2f7; }
+    .json-value-null { color: #565f89; }
+    .json-preview { color: #565f89; font-style: italic; }
   </style>
 </head>
 <body>
@@ -317,6 +365,44 @@
       const div = document.createElement('div');
       div.textContent = s;
       return div.innerHTML;
+    }
+
+    function jsonTreeHtml(value, key) {
+      const keyPart = key !== undefined ? `<span class="json-key">${escapeHtml(JSON.stringify(key))}</span><span class="json-colon">:</span> ` : '';
+      if (value === null) {
+        return `<div class="json-line json-primitive">${keyPart}<span class="json-value-null">null</span></div>`;
+      }
+      if (typeof value === 'boolean') {
+        return `<div class="json-line json-primitive">${keyPart}<span class="json-value-boolean">${value}</span></div>`;
+      }
+      if (typeof value === 'number') {
+        return `<div class="json-line json-primitive">${keyPart}<span class="json-value-number">${value}</span></div>`;
+      }
+      if (typeof value === 'string') {
+        return `<div class="json-line json-primitive">${keyPart}<span class="json-value-string">${escapeHtml(JSON.stringify(value))}</span></div>`;
+      }
+      if (Array.isArray(value)) {
+        const len = value.length;
+        const children = value.map((v, i) => jsonTreeHtml(v, i)).join('');
+        return `<div class="json-line json-array">
+          <span class="json-head"><span class="json-toggle"></span>${keyPart}<span class="json-open-expanded json-brace">[</span><span class="json-preview"> ${len} item${len !== 1 ? 's' : ''} </span></span>
+          <span class="json-children">${children}<span class="json-line"><span class="json-brace">]</span></span></span>
+        </div>`;
+      }
+      if (typeof value === 'object') {
+        const keys = Object.keys(value);
+        const children = keys.map(k => jsonTreeHtml(value[k], k)).join('');
+        const preview = ` ${keys.length} key${keys.length !== 1 ? 's' : ''} `;
+        return `<div class="json-line json-object">
+          <span class="json-head"><span class="json-toggle"></span>${keyPart}<span class="json-open-expanded json-brace">{</span><span class="json-preview">${escapeHtml(preview)}</span></span>
+          <span class="json-children">${children}<span class="json-line"><span class="json-brace">}</span></span></span>
+        </div>`;
+      }
+      return '';
+    }
+
+    function jsonTreeToHtml(value) {
+      return `<div class="json-tree">${jsonTreeHtml(value)}</div>`;
     }
 
     function getCachedEntry(index) {
@@ -517,7 +603,7 @@
               body.querySelectorAll('.state-modal-tab-content').forEach((panel, i) => {
                 const msg = updates[i];
                 const data = getDisplayData(msg, showFull);
-                panel.querySelector('pre').textContent = JSON.stringify(data, null, 2);
+                panel.innerHTML = jsonTreeToHtml(data);
               });
             }
 
@@ -536,9 +622,8 @@
             }).join('');
             const initialData = updates.map((msg, i) => getDisplayData(msg, false));
             const contentsHtml = updates.map((msg, i) => {
-              const json = escapeHtml(JSON.stringify(initialData[i], null, 2));
               const active = i === selectedIndex ? ' active' : '';
-              return `<div class="state-modal-tab-content${active}" data-index="${i}" role="tabpanel"><pre>${json}</pre></div>`;
+              return `<div class="state-modal-tab-content${active}" data-index="${i}" role="tabpanel">${jsonTreeToHtml(initialData[i])}</div>`;
             }).join('');
             body.innerHTML = `<div class="state-modal-tabs" role="tablist">${tabsHtml}</div>${contentsHtml}`;
 
@@ -558,7 +643,7 @@
             });
           } else {
             const payload = data.payload ?? data.state ?? data;
-            body.innerHTML = '<pre>' + escapeHtml(JSON.stringify(payload, null, 2)) + '</pre>';
+            body.innerHTML = jsonTreeToHtml(payload);
           }
         })
         .catch(err => {
@@ -575,6 +660,13 @@
     document.getElementById('state-modal-close').addEventListener('click', closeStateModal);
     document.getElementById('state-modal-overlay').addEventListener('click', (e) => {
       if (e.target === e.currentTarget) closeStateModal();
+      const head = e.target.closest('.json-head');
+      if (head) {
+        const line = head.closest('.json-line');
+        if (line && (line.classList.contains('json-object') || line.classList.contains('json-array'))) {
+          line.classList.toggle('collapsed');
+        }
+      }
     });
     document.addEventListener('keydown', (e) => {
       if (stateModalOpen && e.key === 'Escape') closeStateModal();
