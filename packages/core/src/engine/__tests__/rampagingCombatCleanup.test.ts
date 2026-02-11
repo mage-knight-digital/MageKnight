@@ -36,6 +36,7 @@ import {
   resetTokenCounter,
   createEnemyTokenId,
 } from "../helpers/enemy/index.js";
+import { createEmptyEnemyTokenPiles } from "../../types/enemy.js";
 
 describe("Rampaging Combat Cleanup", () => {
   let engine: MageKnightEngine;
@@ -44,6 +45,18 @@ describe("Rampaging Combat Cleanup", () => {
     engine = createEngine();
     resetTokenCounter();
   });
+
+  function getTotalDiscardedEnemyTokens(state: ReturnType<typeof createTestGameState>): number {
+    const discardPiles = state.enemyTokens.discardPiles;
+    return (
+      discardPiles.green.length +
+      discardPiles.red.length +
+      discardPiles.brown.length +
+      discardPiles.violet.length +
+      discardPiles.gray.length +
+      discardPiles.white.length
+    );
+  }
 
   describe("Defeating rampaging enemies from adjacent hex", () => {
     /**
@@ -77,6 +90,7 @@ describe("Rampaging Combat Cleanup", () => {
 
       state = {
         ...state,
+        enemyTokens: createEmptyEnemyTokenPiles(),
         players: [player],
         turnOrder: ["player1"],
         map: {
@@ -142,6 +156,7 @@ describe("Rampaging Combat Cleanup", () => {
       // This is the bug - enemies should be cleared but aren't
       expect(targetHex?.enemies).toHaveLength(0);
       expect(targetHex?.rampagingEnemies).toHaveLength(0);
+      expect(getTotalDiscardedEnemyTokens(state)).toBe(1);
     });
 
     /**

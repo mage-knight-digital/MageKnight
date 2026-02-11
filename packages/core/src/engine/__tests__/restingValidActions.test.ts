@@ -23,8 +23,6 @@ import {
 import { createEnemyTokenId } from "../helpers/enemy/index.js";
 import { createEmptyEnemyTokenPiles } from "../../types/enemy.js";
 import type { EnemyTokenId } from "../../types/enemy.js";
-import { createEmptyEnemyTokenPiles } from "../../types/enemy.js";
-import type { EnemyTokenId } from "../../types/enemy.js";
 import {
   RampagingEnemyType,
   SiteType,
