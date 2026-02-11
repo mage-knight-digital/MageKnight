@@ -21,6 +21,10 @@ import {
   hexKey,
 } from "@mage-knight/shared";
 import { createEnemyTokenId } from "../helpers/enemy/index.js";
+import { createEmptyEnemyTokenPiles } from "../../types/enemy.js";
+import type { EnemyTokenId } from "../../types/enemy.js";
+import { createEmptyEnemyTokenPiles } from "../../types/enemy.js";
+import type { EnemyTokenId } from "../../types/enemy.js";
 import {
   RampagingEnemyType,
   SiteType,
@@ -76,6 +80,13 @@ describe("Valid actions while resting", () => {
     const baseState = createTestGameState({ players: [activePlayer] });
     const activeState = {
       ...baseState,
+      enemyTokens: {
+        ...createEmptyEnemyTokenPiles(),
+        drawPiles: {
+          ...createEmptyEnemyTokenPiles().drawPiles,
+          brown: ["gargoyle_0" as EnemyTokenId],
+        },
+      },
       map: {
         ...baseState.map,
         hexes: {
@@ -173,8 +184,16 @@ describe("Valid actions while resting", () => {
 
     const activePlayer = createTestPlayer({ isResting: false });
     const baseState = createTestGameState({ players: [activePlayer] });
+    const enemyTokens = createEmptyEnemyTokenPiles();
     const activeState = {
       ...baseState,
+      enemyTokens: {
+        ...enemyTokens,
+        drawPiles: {
+          ...enemyTokens.drawPiles,
+          brown: ["gargoyle_0" as EnemyTokenId],
+        },
+      },
       map: {
         ...baseState.map,
         hexes: {

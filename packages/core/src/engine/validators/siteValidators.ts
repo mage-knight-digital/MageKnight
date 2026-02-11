@@ -29,6 +29,7 @@ import { getPlayerSite } from "../helpers/siteHelpers.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { SiteType } from "../../types/map.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import { hasEnemiesAvailableForAdventureSite } from "../rules/siteInteraction.js";
 
 /**
  * Must be at an adventure site
@@ -103,33 +104,16 @@ export function validateSiteHasEnemiesOrDraws(
 
   const site = hex.site;
 
-  // Sites that draw enemies on enter — always valid (enemies drawn by command)
-  // Per rules: Dungeon, Tomb, Monster Den, Spawning Grounds all draw when you ENTER
-  if (
-    site.type === SiteType.Dungeon ||
-    site.type === SiteType.Tomb ||
-    site.type === SiteType.MonsterDen ||
-    site.type === SiteType.SpawningGrounds
-  ) {
-    return valid();
-  }
-
-  // Ancient Ruins: ENTER_SITE requires an enemy token
-  // Altar tokens use the ALTAR_TRIBUTE action instead
-  if (site.type === SiteType.AncientRuins) {
-    if (!hex.ruinsToken) {
-      return invalid(NO_ENEMIES_AT_SITE, "No ruins token at this site");
-    }
+  // Keep altar-token feedback explicit for ruins.
+  if (site.type === SiteType.AncientRuins && hex.ruinsToken) {
     const tokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
     if (!tokenDef || !isEnemyToken(tokenDef)) {
       return invalid(NOT_ENEMY_TOKEN, "This ruins token is an altar — use Altar Tribute instead");
     }
-    return valid();
   }
 
-  // Other sites need enemies present
-  if (hex.enemies.length === 0) {
-    return invalid(NO_ENEMIES_AT_SITE, "There are no enemies at this site");
+  if (!hasEnemiesAvailableForAdventureSite(state, hex)) {
+    return invalid(NO_ENEMIES_AT_SITE, "No enemies available to fight at this site");
   }
 
   return valid();

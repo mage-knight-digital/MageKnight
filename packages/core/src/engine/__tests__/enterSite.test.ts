@@ -33,6 +33,8 @@ import { SiteType } from "../../types/map.js";
 import type { Site, HexState, HexEnemy } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
 import { createEnemyTokenId, resetTokenCounter, createEnemyTokenPiles } from "../helpers/enemy/index.js";
+import { createEmptyEnemyTokenPiles } from "../../types/enemy.js";
+import type { EnemyTokenPiles } from "../../types/enemy.js";
 import { createHexEnemy } from "./testHelpers.js";
 import { createRng } from "../../utils/rng.js";
 
@@ -103,7 +105,8 @@ function createTestStateWithSite(
   site: Site,
   enemies: readonly HexEnemy[] = [],
   timeOfDay: typeof TIME_OF_DAY_DAY | typeof TIME_OF_DAY_NIGHT = TIME_OF_DAY_DAY,
-  ruinsToken: import("../../types/map.js").RuinsToken | null = null
+  ruinsToken: import("../../types/map.js").RuinsToken | null = null,
+  enemyTokensOverride?: EnemyTokenPiles
 ): GameState {
   const baseState = createTestGameState();
   const playerCoord = { q: 0, r: 0 };
@@ -142,7 +145,7 @@ function createTestStateWithSite(
     players: [player],
     turnOrder: ["player1"],
     map: { ...baseState.map, hexes },
-    enemyTokens,
+    enemyTokens: enemyTokensOverride ?? enemyTokens,
     rng,
   };
 }
@@ -192,6 +195,29 @@ describe("Enter adventure site", () => {
           reason: "This site has already been conquered",
         })
       );
+    });
+
+    it("should reject ENTER_SITE when required enemy pool is empty (no command throw)", () => {
+      const emptyPiles = createEmptyEnemyTokenPiles();
+      const state = createTestStateWithSite(
+        createDungeonSite(),
+        [],
+        TIME_OF_DAY_DAY,
+        null,
+        emptyPiles
+      );
+
+      const result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: INVALID_ACTION,
+          reason: "No enemies available to fight at this site",
+        })
+      );
+      expect(result.state.combat).toBeNull();
     });
 
     it("should ALLOW re-entering conquered dungeon", () => {

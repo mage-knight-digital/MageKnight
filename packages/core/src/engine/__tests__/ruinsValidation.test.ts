@@ -27,6 +27,9 @@ import {
 import { SiteType } from "../../types/map.js";
 import type { Site, HexState, RuinsToken } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
+import type { EnemyTokenPiles } from "../../types/enemy.js";
+import { createEmptyEnemyTokenPiles } from "../../types/enemy.js";
+import type { EnemyTokenId } from "../../types/enemy.js";
 import {
   NO_SITE,
   NOT_AT_RUINS,
@@ -63,6 +66,7 @@ function createStateWithRuins(
     isRevealed?: boolean;
     playerOverrides?: Partial<Parameters<typeof createTestPlayer>[0]>;
     siteType?: SiteType;
+    enemyTokens?: EnemyTokenPiles;
   } = {}
 ): GameState {
   const baseState = createTestGameState();
@@ -109,6 +113,19 @@ function createStateWithRuins(
     players: [player],
     turnOrder: ["player1"],
     map: { ...baseState.map, hexes },
+    enemyTokens: options.enemyTokens ?? baseState.enemyTokens,
+  };
+}
+
+function createEnemyTokensWithGreenAndBrown(): EnemyTokenPiles {
+  const piles = createEmptyEnemyTokenPiles();
+  return {
+    ...piles,
+    drawPiles: {
+      ...piles.drawPiles,
+      green: ["diggers_0" as EnemyTokenId],
+      brown: ["gargoyle_0" as EnemyTokenId],
+    },
   };
 }
 
@@ -216,7 +233,9 @@ describe("validateAtRuinsWithAltar", () => {
 
 describe("validateSiteHasEnemiesOrDraws for ruins", () => {
   it("should pass when ruins has enemy token", () => {
-    const state = createStateWithRuins("enemy_green_brown_artifact");
+    const state = createStateWithRuins("enemy_green_brown_artifact", {
+      enemyTokens: createEnemyTokensWithGreenAndBrown(),
+    });
     const result = validateSiteHasEnemiesOrDraws(state, "player1", {
       type: ENTER_SITE_ACTION,
     });
@@ -252,7 +271,9 @@ describe("validateSiteHasEnemiesOrDraws for ruins", () => {
 
 describe("getSiteOptions for ruins", () => {
   it("should show canEnter for ruins with enemy token", () => {
-    const state = createStateWithRuins("enemy_green_brown_artifact");
+    const state = createStateWithRuins("enemy_green_brown_artifact", {
+      enemyTokens: createEnemyTokensWithGreenAndBrown(),
+    });
     const player = state.players[0]!;
 
     const options = getSiteOptions(state, player);
@@ -261,6 +282,31 @@ describe("getSiteOptions for ruins", () => {
     expect(options?.enterDescription).toContain("Fight");
     expect(options?.enterDescription).toContain("Green");
     expect(options?.enterDescription).toContain("Brown");
+  });
+
+  it("should hide canEnter for ruins enemy token when matching enemy pools are empty", () => {
+    const emptyTokens = createEmptyEnemyTokenPiles();
+    const state = createStateWithRuins("enemy_green_brown_artifact", {
+      enemyTokens: emptyTokens,
+    });
+    const player = state.players[0]!;
+
+    const options = getSiteOptions(state, player);
+    expect(options).toBeDefined();
+    expect(options?.canEnter).toBe(false);
+  });
+
+  it("should hide canEnter for dungeon when brown enemy pool is empty", () => {
+    const emptyTokens = createEmptyEnemyTokenPiles();
+    const state = createStateWithRuins(null, {
+      siteType: SiteType.Dungeon,
+      enemyTokens: emptyTokens,
+    });
+    const player = state.players[0]!;
+
+    const options = getSiteOptions(state, player);
+    expect(options).toBeDefined();
+    expect(options?.canEnter).toBe(false);
   });
 
   it("should show canTribute for ruins with altar token", () => {

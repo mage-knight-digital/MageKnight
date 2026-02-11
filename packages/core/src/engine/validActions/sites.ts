@@ -30,6 +30,7 @@ import {
   canEnterAdventureSite,
   canBuyAdvancedActionsAtMonastery,
   canAffordMonasteryAdvancedAction,
+  hasEnemiesAvailableForAdventureSite,
 } from "../rules/siteInteraction.js";
 import { canTakeActionPhaseAction } from "../rules/turnStructure.js";
 
@@ -68,6 +69,7 @@ export function getSiteOptions(
     !mustAnnounceEndOfRound(state, player) &&
     canEnterAdventureSite(site) &&
     canTakeActionPhaseAction(player) &&
+    hasEnemiesAvailableForAdventureSite(state, hex) &&
     !(site.type === SiteType.AncientRuins && ruinsHasAltarToken);
 
   // Build enter description

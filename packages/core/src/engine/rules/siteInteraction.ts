@@ -5,13 +5,20 @@
  * to prevent rule drift.
  */
 
-import type { Site } from "../../types/map.js";
+import type { Site, HexState } from "../../types/map.js";
 import { SiteType } from "../../types/map.js";
 import {
   SITE_PROPERTIES,
   getHealingCost,
   MONASTERY_AA_PURCHASE_COST,
 } from "../../data/siteProperties.js";
+import type { EnemyColor } from "@mage-knight/shared";
+import {
+  getRuinsTokenDefinition,
+  isEnemyToken,
+} from "@mage-knight/shared";
+import { getAdventureSiteEnemies } from "../helpers/enemy/siteMapping.js";
+import type { GameState } from "../../state/GameState.js";
 
 /**
  * Check if player can interact with this site (inhabited sites).
@@ -53,6 +60,57 @@ export function canEnterAdventureSite(site: Site): boolean {
 
   // Unconquered adventure site - can always enter
   return true;
+}
+
+function getAvailableEnemyTokenCount(
+  state: GameState,
+  color: EnemyColor
+): number {
+  return (
+    state.enemyTokens.drawPiles[color].length +
+    state.enemyTokens.discardPiles[color].length
+  );
+}
+
+/**
+ * Check if entering this adventure site can produce at least one combat enemy.
+ *
+ * This prevents offering/validating ENTER_SITE when required draw piles are empty.
+ */
+export function hasEnemiesAvailableForAdventureSite(
+  state: GameState,
+  hex: HexState
+): boolean {
+  const site = hex.site;
+  if (!site) return false;
+
+  // Ancient Ruins draw based on revealed token definition.
+  if (site.type === SiteType.AncientRuins) {
+    if (!hex.ruinsToken) return false;
+    const tokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
+    if (!tokenDef || !isEnemyToken(tokenDef)) {
+      return false;
+    }
+    return tokenDef.enemies.some((color) => getAvailableEnemyTokenCount(state, color) > 0);
+  }
+
+  const adventureEnemies = getAdventureSiteEnemies(site.type);
+  if (!adventureEnemies) {
+    return hex.enemies.length > 0;
+  }
+
+  // Dungeons/Tombs always draw fresh; must have drawable tokens.
+  if (site.type === SiteType.Dungeon || site.type === SiteType.Tomb) {
+    return getAvailableEnemyTokenCount(state, adventureEnemies.color) > 0;
+  }
+
+  // Monster Den/Spawning Grounds can re-fight existing enemies.
+  if (hex.enemies.length > 0) {
+    return true;
+  }
+
+  // Otherwise must be able to draw at least one enemy.
+  return getAvailableEnemyTokenCount(state, adventureEnemies.color) > 0;
 }
 
 /**
