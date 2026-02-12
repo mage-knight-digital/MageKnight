@@ -26,13 +26,18 @@ import {
   TIME_OF_DAY_NIGHT,
   ENEMY_COLOR_BROWN,
   ENEMY_COLOR_RED,
+  ENEMY_COLOR_VIOLET,
   ENEMIES,
   type RuinsTokenId,
 } from "@mage-knight/shared";
 import { SiteType } from "../../types/map.js";
 import type { Site, HexState, HexEnemy } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
-import { createEnemyTokenId, resetTokenCounter, createEnemyTokenPiles } from "../helpers/enemy/index.js";
+import {
+  createEnemyTokenId,
+  resetTokenCounter,
+  createEnemyTokenPiles,
+} from "../helpers/enemy/index.js";
 import { createHexEnemy } from "./testHelpers.js";
 import { createRng } from "../../utils/rng.js";
 
@@ -505,6 +510,115 @@ describe("Enter adventure site", () => {
           enemyCount: 2,
         })
       );
+    });
+
+    it("should put drawn violet on hex and preserve total violet count (8)", () => {
+      // Ruins with brown+violet token: draw 1 brown, 1 violet; hex must have both; total violet must stay 8
+      const ruinsToken = {
+        tokenId: "enemy_brown_violet_spell_crystals" as RuinsTokenId,
+        isRevealed: true,
+      };
+      const state = createTestStateWithSite(
+        createRuinsSite(),
+        [],
+        TIME_OF_DAY_DAY,
+        ruinsToken
+      );
+      const result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+
+      expect(result.events).not.toContainEqual(expect.objectContaining({ type: INVALID_ACTION }));
+      const hex = result.state.map.hexes[hexKey({ q: 0, r: 0 })];
+      expect(hex?.enemies).toHaveLength(2);
+      const violetOnHex = hex?.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET) ?? [];
+      expect(violetOnHex).toHaveLength(1);
+      const violetInPilesAfter =
+        result.state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET].length +
+        result.state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET].length;
+      const violetOnMapAfter = Object.values(result.state.map.hexes).reduce(
+        (sum, h) => sum + (h.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET).length ?? 0),
+        0
+      );
+      expect(violetInPilesAfter + violetOnMapAfter).toBe(8);
+    });
+
+    it("should fight existing enemies at ancient ruins (not redraw) and preserve token count", () => {
+      // Ancient Ruins with enemy token: enemies STAY on the hex until defeated (unlike dungeon/tomb).
+      // If you enter again (e.g. after failed combat), you must fight the SAME enemies, not draw new ones.
+      // This test proves the bug: current code redraws and overwrites, losing the original tokens.
+      const ruinsToken = {
+        tokenId: "enemy_brown_violet_spell_crystals" as RuinsTokenId,
+        isRevealed: true,
+      };
+      let state = createTestStateWithSite(
+        createRuinsSite(),
+        [],
+        TIME_OF_DAY_DAY,
+        ruinsToken
+      );
+
+      // Take one brown and one violet token FROM the draw piles and put them on the hex (simulating
+      // a previous enter that left enemies there). Remove from piles so total count stays correct.
+      const playerCoord = { q: 0, r: 0 };
+      const key = hexKey(playerCoord);
+      const brownTokenId = state.enemyTokens.drawPiles[ENEMY_COLOR_BROWN][0]!;
+      const violetTokenId = state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET][0]!;
+
+      const existingEnemies: HexEnemy[] = [
+        createHexEnemy(brownTokenId),
+        createHexEnemy(violetTokenId),
+      ];
+
+      const drawBrown = state.enemyTokens.drawPiles[ENEMY_COLOR_BROWN].filter((t) => t !== brownTokenId);
+      const drawViolet = state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET].filter((t) => t !== violetTokenId);
+      state = {
+        ...state,
+        map: {
+          ...state.map,
+          hexes: {
+            ...state.map.hexes,
+            [key]: {
+              ...state.map.hexes[key]!,
+              enemies: existingEnemies,
+            },
+          },
+        },
+        enemyTokens: {
+          ...state.enemyTokens,
+          drawPiles: {
+            ...state.enemyTokens.drawPiles,
+            [ENEMY_COLOR_BROWN]: drawBrown,
+            [ENEMY_COLOR_VIOLET]: drawViolet,
+          },
+        },
+      };
+
+      const result = engine.processAction(state, "player1", {
+        type: ENTER_SITE_ACTION,
+      });
+
+      // Should NOT draw new enemies — we fight the existing ones
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({
+          type: ENEMIES_DRAWN_FOR_SITE,
+        })
+      );
+
+      // Hex should still have the same two token IDs (not newly drawn)
+      const hexAfter = result.state.map.hexes[key];
+      const tokenIdsAfter = hexAfter?.enemies?.map((e) => e.tokenId).sort() ?? [];
+      expect(tokenIdsAfter).toEqual([brownTokenId, violetTokenId].sort());
+
+      // Total violet in game must remain 8 (no token lost to the ether)
+      const violetInPiles =
+        result.state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET].length +
+        result.state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET].length;
+      const violetOnMap = Object.values(result.state.map.hexes).reduce(
+        (sum, h) => sum + (h.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET).length ?? 0),
+        0
+      );
+      expect(violetInPiles + violetOnMap).toBe(8);
     });
 
     it("should reject ENTER_SITE for ruins with altar token", () => {
