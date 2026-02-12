@@ -97,12 +97,20 @@ def _last_state_from_messages(message_log: list[MessageLogEntry]) -> dict[str, A
     return None
 
 
-def write_run_summary(
-    output_dir: str,
+def build_run_summary_record(
     run_result: RunResult,
     message_log: list[MessageLogEntry],
-) -> None:
-    """Append one NDJSON line for every run (all outcomes). Enables fame analysis across all runs."""
+) -> dict[str, Any]:
+    """
+    Build a summary record dict for a single run.
+
+    Args:
+        run_result: Result metadata from the run
+        message_log: Messages received during the run
+
+    Returns:
+        Summary record dict (ready for NDJSON serialization)
+    """
     state = _last_state_from_messages(message_log)
     fame_by_player = _extract_fame_from_state(state) if state else {}
     max_fame = max(fame_by_player.values(), default=0)
@@ -117,6 +125,16 @@ def write_run_summary(
     }
     if run_result.reason is not None:
         record["reason"] = run_result.reason
+    return record
+
+
+def write_run_summary(
+    output_dir: str,
+    run_result: RunResult,
+    message_log: list[MessageLogEntry],
+) -> None:
+    """Append one NDJSON line for every run (all outcomes). Enables fame analysis across all runs."""
+    record = build_run_summary_record(run_result, message_log)
     target = Path(output_dir) / "run_summary.ndjson"
     target.parent.mkdir(parents=True, exist_ok=True)
     with open(target, "a", encoding="utf-8") as f:

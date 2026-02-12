@@ -3,23 +3,56 @@
 Run a range of simulation seeds in one command.
 
 Examples:
+  # Random fuzzing (simple mode)
+  mage-knight-run-sweep --runs 100 --no-undo
+
+  # Deterministic seed ranges (for reproducibility)
   mage-knight-run-sweep --start-seed 1 --end-seed 100 --no-undo
   mage-knight-run-sweep --start-seed 1 --count 200 --no-undo --stop-on-failure
   mage-knight-run-sweep --start-seed 1 --count 20 --benchmark
-  mage-knight-run-sweep --start-seed 1 --count 5 --profile
 """
 from __future__ import annotations
 
 import argparse
+import random
 import sys
 import time
 
 from mage_knight_sdk.sim import RunnerConfig, run_simulations_sync
 
 
-def _build_seed_list(start_seed: int, end_seed: int | None, count: int | None) -> list[int]:
+def _build_seed_list(
+    runs: int | None,
+    start_seed: int | None,
+    end_seed: int | None,
+    count: int | None,
+) -> list[int]:
+    """Build list of seeds to run.
+
+    Args:
+        runs: Number of random seeds to generate (mutually exclusive with start_seed)
+        start_seed: First seed in deterministic range
+        end_seed: Last seed in deterministic range
+        count: Number of seeds in deterministic range
+
+    Returns:
+        List of seeds to run
+    """
+    # Mode 1: Random seeds (--runs)
+    if runs is not None:
+        if start_seed is not None or end_seed is not None or count is not None:
+            raise ValueError("--runs cannot be combined with --start-seed, --end-seed, or --count")
+        if runs < 1:
+            raise ValueError("--runs must be >= 1")
+        # Generate random seeds in a large range to avoid collisions
+        return [random.randint(0, 2**31 - 1) for _ in range(runs)]
+
+    # Mode 2: Deterministic seed range (--start-seed with --count or --end-seed)
+    if start_seed is None:
+        raise ValueError("Provide either --runs for random seeds, or --start-seed with --count/--end-seed for deterministic ranges")
+
     if end_seed is None and count is None:
-        raise ValueError("Provide either --end-seed or --count")
+        raise ValueError("When using --start-seed, provide either --end-seed or --count")
     if end_seed is not None and count is not None:
         raise ValueError("Provide only one of --end-seed or --count")
 
@@ -35,10 +68,24 @@ def _build_seed_list(start_seed: int, end_seed: int | None, count: int | None) -
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run a seed range for full-game sim/fuzzer")
-    parser.add_argument("--start-seed", type=int, required=True, help="First seed to run")
-    parser.add_argument("--end-seed", type=int, help="Last seed to run (inclusive)")
-    parser.add_argument("--count", type=int, help="Number of sequential seeds to run")
+    parser = argparse.ArgumentParser(
+        description="Run a seed range for full-game sim/fuzzer",
+        epilog="Examples:\n"
+               "  Random fuzzing: --runs 100 --no-undo --workers 8\n"
+               "  Reproducible range: --start-seed 1000 --count 100 --no-undo\n"
+               "  Single seed: use mage-knight-run-game --seed 1000",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    # Simple mode: random seeds
+    parser.add_argument("--runs", type=int, help="Number of runs with random seeds (simple mode)")
+
+    # Deterministic mode: seed ranges
+    parser.add_argument("--start-seed", type=int, help="First seed to run (deterministic mode)")
+    parser.add_argument("--end-seed", type=int, help="Last seed to run (inclusive, use with --start-seed)")
+    parser.add_argument("--count", type=int, help="Number of sequential seeds to run (use with --start-seed)")
+
+    # Common options
     parser.add_argument("--max-steps", type=int, default=10000, help="Max steps per run")
     parser.add_argument("--no-undo", action="store_true", help="Disable UNDO actions")
     parser.add_argument("--stop-on-failure", action="store_true", help="Stop at first non-ended outcome")
@@ -48,6 +95,7 @@ def main() -> int:
     parser.add_argument("--benchmark", action="store_true", help="Report timing: per-run, throughput, bottlenecks")
     parser.add_argument("--profile", action="store_true", help="Run with cProfile, print top 20 hotspots")
     parser.add_argument("--save-failures", action="store_true", help="Write full failure artifacts (action trace + messages); default is summary-only (reproducible by seed)")
+    parser.add_argument("--workers", type=int, default=1, help="Number of parallel workers (default=1 for sequential mode)")
     args = parser.parse_args()
 
     if args.profile:
@@ -68,16 +116,24 @@ def main() -> int:
 
 def _run_sweep(args: argparse.Namespace) -> int:
     try:
-        seeds = _build_seed_list(args.start_seed, args.end_seed, args.count)
+        seeds = _build_seed_list(args.runs, args.start_seed, args.end_seed, args.count)
     except ValueError as err:
         print(f"Argument error: {err}", file=sys.stderr)
         return 2
 
+    if args.workers > 1:
+        return _run_sweep_parallel(args, seeds)
+    return _run_sweep_sequential(args, seeds)
+
+
+def _run_sweep_sequential(args: argparse.Namespace, seeds: list[int]) -> int:
+    """Sequential execution (original implementation)."""
     failures = 0
     timings: list[tuple[int, float, int, str]] = []  # (seed, sec, steps, outcome)
     t_start = time.perf_counter()
 
-    print(f"Running {len(seeds)} seed(s): {seeds[0]}..{seeds[-1]}")
+    mode = "random seeds" if args.runs else f"deterministic range {seeds[0]}..{seeds[-1]}"
+    print(f"Running {len(seeds)} seed(s) ({mode})")
     print(f"Options: max_steps={args.max_steps}, allow_undo={not args.no_undo}")
     if args.benchmark:
         print("(Benchmark mode: timing each run)")
@@ -111,6 +167,98 @@ def _run_sweep(args: argparse.Namespace) -> int:
             failures += 1
             if args.stop_on_failure:
                 break
+
+    print("-" * 72)
+    t_total = time.perf_counter() - t_start
+
+    if args.benchmark and timings:
+        _print_benchmark(timings, t_total)
+
+    print(f"Completed. failures={failures}")
+    return 1 if failures > 0 else 0
+
+
+def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
+    """Parallel execution using ProcessPoolExecutor."""
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    from mage_knight_sdk.sim.parallel_runner import run_single_seed
+    from mage_knight_sdk.sim.writer_process import start_writer_process, stop_writer_process
+
+    failures = 0
+    timings: list[tuple[int, float, int, str]] = []  # (seed, sec, steps, outcome)
+    t_start = time.perf_counter()
+
+    mode = "random seeds" if args.runs else f"deterministic range {seeds[0]}..{seeds[-1]}"
+    print(f"Running {len(seeds)} seed(s) with {args.workers} workers ({mode})")
+    print(f"Options: max_steps={args.max_steps}, allow_undo={not args.no_undo}")
+    if args.benchmark:
+        print("(Benchmark mode: timing each run)")
+    print("-" * 72)
+
+    # Start writer process
+    writer_process, write_queue = start_writer_process(args.artifacts_dir)
+
+    try:
+        # Create base config (will be cloned per-seed in worker)
+        base_config = RunnerConfig(
+            bootstrap_api_base_url=args.bootstrap_url,
+            ws_server_url=args.ws_url,
+            player_count=2,
+            runs=1,
+            max_steps=args.max_steps,
+            base_seed=0,  # Overridden per-seed
+            artifacts_dir=args.artifacts_dir,
+            write_failure_artifacts=args.save_failures,
+            allow_undo=not args.no_undo,
+        )
+
+        # Submit all seeds to workers
+        with ProcessPoolExecutor(max_workers=args.workers) as executor:
+            futures = {
+                executor.submit(run_single_seed, seed, base_config): (seed, time.perf_counter())
+                for seed in seeds
+            }
+
+            completed = 0
+            for future in as_completed(futures):
+                seed, t0 = futures[future]
+                completed += 1
+                elapsed = time.perf_counter() - t0
+
+                try:
+                    result, summary_record = future.result()
+
+                    # Submit summary record to writer process
+                    write_queue.put(summary_record)
+
+                    if args.benchmark:
+                        timings.append((seed, elapsed, result.steps, result.outcome))
+
+                    status = "OK" if result.outcome == "ended" else "FAIL"
+                    artifact = f" artifact={result.failure_artifact_path}" if result.failure_artifact_path else ""
+                    reason = f" reason={result.reason}" if result.reason else ""
+                    print(f"[{completed}/{len(seeds)}] seed={seed} outcome={result.outcome} steps={result.steps} [{status}]{reason}{artifact}")
+
+                    if result.outcome != "ended":
+                        failures += 1
+                        if args.stop_on_failure:
+                            # Cancel remaining futures
+                            for remaining_future in futures:
+                                remaining_future.cancel()
+                            break
+
+                except Exception as err:
+                    failures += 1
+                    print(f"[{completed}/{len(seeds)}] seed={seed} EXCEPTION: {err}")
+                    if args.stop_on_failure:
+                        # Cancel remaining futures
+                        for remaining_future in futures:
+                            remaining_future.cancel()
+                        break
+
+    finally:
+        # Stop writer process
+        stop_writer_process(writer_process, write_queue)
 
     print("-" * 72)
     t_total = time.perf_counter() - t_start

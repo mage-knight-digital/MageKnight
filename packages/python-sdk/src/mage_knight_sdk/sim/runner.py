@@ -44,10 +44,25 @@ async def run_simulations(
     config: RunnerConfig,
     policy: Policy | None = None,
     hooks: RunnerHooks | None = None,
-) -> tuple[list[RunResult], RunSummary]:
+    return_messages: bool = False,
+) -> tuple[list[RunResult], RunSummary] | tuple[list[RunResult], RunSummary, list[list[MessageLogEntry]]]:
+    """
+    Run multiple simulations.
+
+    Args:
+        config: Runner configuration
+        policy: Action selection policy (defaults to RandomPolicy)
+        hooks: Optional hooks for step/run events
+        return_messages: If True, return message logs for each run
+
+    Returns:
+        If return_messages=False: (results, summary)
+        If return_messages=True: (results, summary, message_logs)
+    """
     if policy is None:
         policy = RandomPolicy()
     results: list[RunResult] = []
+    all_messages: list[list[MessageLogEntry]] = []
     for run_index in range(config.runs):
         run_seed = config.base_seed + run_index
         outcome = await _run_single_simulation(
@@ -58,7 +73,13 @@ async def run_simulations(
             hooks=hooks,
         )
         results.append(outcome.result)
-    return results, summarize(results)
+        if return_messages:
+            all_messages.append(outcome.messages)
+
+    summary = summarize(results)
+    if return_messages:
+        return results, summary, all_messages
+    return results, summary
 
 
 async def _run_single_simulation(
@@ -628,8 +649,22 @@ def run_simulations_sync(
     config: RunnerConfig,
     policy: Policy | None = None,
     hooks: RunnerHooks | None = None,
-) -> tuple[list[RunResult], RunSummary]:
-    return asyncio.run(run_simulations(config, policy=policy, hooks=hooks))
+    return_messages: bool = False,
+) -> tuple[list[RunResult], RunSummary] | tuple[list[RunResult], RunSummary, list[list[MessageLogEntry]]]:
+    """
+    Synchronous wrapper for run_simulations.
+
+    Args:
+        config: Runner configuration
+        policy: Action selection policy (defaults to RandomPolicy)
+        hooks: Optional hooks for step/run events
+        return_messages: If True, return message logs for each run
+
+    Returns:
+        If return_messages=False: (results, summary)
+        If return_messages=True: (results, summary, message_logs)
+    """
+    return asyncio.run(run_simulations(config, policy=policy, hooks=hooks, return_messages=return_messages))
 
 
 def save_summary(path: str, results: list[RunResult], summary: RunSummary) -> None:
