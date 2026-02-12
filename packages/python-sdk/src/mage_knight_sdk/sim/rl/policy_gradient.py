@@ -11,7 +11,21 @@ from torch.distributions import Categorical
 
 from ..generated_action_enumerator import CandidateAction
 from ..policy import Policy
-from .features import FEATURE_DIM, encode_state_action
+from .features import (
+    ACTION_SCALAR_DIM,
+    FEATURE_DIM,
+    EncodedStep,
+    encode_state_action,
+    encode_step,
+)
+from .vocabularies import (
+    ACTION_TYPE_VOCAB,
+    CARD_VOCAB,
+    ENEMY_VOCAB,
+    MODE_VOCAB,
+    SOURCE_VOCAB,
+    UNIT_VOCAB,
+)
 
 
 @dataclass(frozen=True)
@@ -22,6 +36,8 @@ class PolicyGradientConfig:
     hidden_size: int = 128
     normalize_returns: bool = True
     device: str = "auto"
+    embedding_dim: int = 16
+    use_embeddings: bool = True
 
 
 @dataclass(frozen=True)
@@ -48,13 +64,128 @@ class _ActionScoringNetwork(nn.Module):
         return self._layers(inputs).squeeze(-1)
 
 
+# Number of scalar features in state encoding (STATE_SCALAR_DIM + MAP_SCALAR_DIM)
+_STATE_SCALAR_DIM = 24
+
+
+class _EmbeddingActionScoringNetwork(nn.Module):
+    """Network that uses learned embeddings for entity IDs."""
+
+    def __init__(self, hidden_size: int, emb_dim: int) -> None:
+        super().__init__()
+        self.emb_dim = emb_dim
+
+        # Embedding tables
+        self.card_emb = nn.Embedding(CARD_VOCAB.size, emb_dim)
+        self.unit_emb = nn.Embedding(UNIT_VOCAB.size, emb_dim)
+        self.enemy_emb = nn.Embedding(ENEMY_VOCAB.size, emb_dim)
+        self.action_type_emb = nn.Embedding(ACTION_TYPE_VOCAB.size, emb_dim)
+        self.source_emb = nn.Embedding(SOURCE_VOCAB.size, emb_dim)
+        self.mode_emb = nn.Embedding(MODE_VOCAB.size, emb_dim)
+
+        # State encoder: scalars(24) + mode_emb + hand_mean_pool + unit_mean_pool
+        state_input_dim = _STATE_SCALAR_DIM + 3 * emb_dim
+        self.state_encoder = nn.Sequential(
+            nn.Linear(state_input_dim, hidden_size),
+            nn.Tanh(),
+        )
+
+        # Action encoder: action_type_emb + source_emb + card_emb + unit_emb + enemy_emb + scalars(6)
+        action_input_dim = 5 * emb_dim + ACTION_SCALAR_DIM
+        self.action_encoder = nn.Sequential(
+            nn.Linear(action_input_dim, hidden_size),
+            nn.Tanh(),
+        )
+
+        # Score: concat state_repr + action_repr → hidden → 1
+        self.scoring_head = nn.Sequential(
+            nn.Linear(2 * hidden_size, hidden_size),
+            nn.Tanh(),
+            nn.Linear(hidden_size, 1),
+        )
+
+    def encode_state(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
+        """Encode state features into a single vector. Computed once per step."""
+        sf = step.state
+        scalars = torch.tensor(sf.scalars, dtype=torch.float32, device=device)
+
+        mode_vec = self.mode_emb(torch.tensor(sf.mode_id, device=device))
+
+        # Mean-pool hand card embeddings
+        if sf.hand_card_ids:
+            hand_ids = torch.tensor(sf.hand_card_ids, dtype=torch.long, device=device)
+            hand_pool = self.card_emb(hand_ids).mean(dim=0)
+        else:
+            hand_pool = torch.zeros(self.emb_dim, device=device)
+
+        # Mean-pool unit embeddings
+        if sf.unit_ids:
+            unit_ids_t = torch.tensor(sf.unit_ids, dtype=torch.long, device=device)
+            unit_pool = self.unit_emb(unit_ids_t).mean(dim=0)
+        else:
+            unit_pool = torch.zeros(self.emb_dim, device=device)
+
+        state_input = torch.cat([scalars, mode_vec, hand_pool, unit_pool])
+        return self.state_encoder(state_input)
+
+    def encode_actions(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
+        """Encode all candidate actions into (N, hidden) tensor."""
+        n = len(step.actions)
+        action_type_ids = torch.tensor(
+            [a.action_type_id for a in step.actions], dtype=torch.long, device=device
+        )
+        source_ids = torch.tensor(
+            [a.source_id for a in step.actions], dtype=torch.long, device=device
+        )
+        card_ids = torch.tensor(
+            [a.card_id for a in step.actions], dtype=torch.long, device=device
+        )
+        unit_ids = torch.tensor(
+            [a.unit_id for a in step.actions], dtype=torch.long, device=device
+        )
+        enemy_ids = torch.tensor(
+            [a.enemy_id for a in step.actions], dtype=torch.long, device=device
+        )
+        action_scalars = torch.tensor(
+            [a.scalars for a in step.actions], dtype=torch.float32, device=device
+        )
+
+        action_input = torch.cat([
+            self.action_type_emb(action_type_ids),
+            self.source_emb(source_ids),
+            self.card_emb(card_ids),
+            self.unit_emb(unit_ids),
+            self.enemy_emb(enemy_ids),
+            action_scalars,
+        ], dim=-1)  # (N, 5*emb_dim + 6)
+
+        return self.action_encoder(action_input)  # (N, hidden)
+
+    def forward(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
+        """Score all candidates. Returns (N,) logits."""
+        state_repr = self.encode_state(step, device)  # (hidden,)
+        action_reprs = self.encode_actions(step, device)  # (N, hidden)
+        n = action_reprs.size(0)
+
+        # Broadcast state to all candidates
+        state_broadcast = state_repr.unsqueeze(0).expand(n, -1)  # (N, hidden)
+        combined = torch.cat([state_broadcast, action_reprs], dim=-1)  # (N, 2*hidden)
+        return self.scoring_head(combined).squeeze(-1)  # (N,)
+
+
 class ReinforcePolicy(Policy):
     """Candidate-ranking policy optimized with episodic REINFORCE."""
 
     def __init__(self, config: PolicyGradientConfig | None = None) -> None:
         self.config = config or PolicyGradientConfig()
         self._device = _resolve_device(self.config.device)
-        self._network = _ActionScoringNetwork(self.config.hidden_size).to(self._device)
+
+        if self.config.use_embeddings:
+            self._network = _EmbeddingActionScoringNetwork(
+                self.config.hidden_size, self.config.embedding_dim,
+            ).to(self._device)
+        else:
+            self._network = _ActionScoringNetwork(self.config.hidden_size).to(self._device)
         self._optimizer = torch.optim.Adam(self._network.parameters(), lr=self.config.learning_rate)
 
         self._episode_log_probs: list[torch.Tensor] = []
@@ -73,14 +204,13 @@ class ReinforcePolicy(Policy):
         if not valid_actions:
             return None
 
-        feature_rows = [
-            encode_state_action(state, player_id, candidate.action, candidate.source)
-            for candidate in valid_actions
-        ]
-        inputs = torch.tensor(feature_rows, dtype=torch.float32, device=self._device)
-
         self._network.train()
-        logits = self._network(inputs)
+
+        if self.config.use_embeddings:
+            logits = self._choose_action_embeddings(state, player_id, valid_actions)
+        else:
+            logits = self._choose_action_legacy(state, player_id, valid_actions)
+
         distribution = Categorical(logits=logits)
         selected_index_tensor = distribution.sample()
         selected_index = int(selected_index_tensor.item())
@@ -90,6 +220,30 @@ class ReinforcePolicy(Policy):
         self._episode_rewards.append(0.0)
 
         return valid_actions[selected_index]
+
+    def _choose_action_legacy(
+        self,
+        state: dict[str, Any],
+        player_id: str,
+        valid_actions: list[CandidateAction],
+    ) -> torch.Tensor:
+        """Legacy path: flat feature vector per candidate."""
+        feature_rows = [
+            encode_state_action(state, player_id, candidate.action, candidate.source)
+            for candidate in valid_actions
+        ]
+        inputs = torch.tensor(feature_rows, dtype=torch.float32, device=self._device)
+        return self._network(inputs)
+
+    def _choose_action_embeddings(
+        self,
+        state: dict[str, Any],
+        player_id: str,
+        valid_actions: list[CandidateAction],
+    ) -> torch.Tensor:
+        """Embedding path: structured features, state computed once."""
+        step = encode_step(state, player_id, valid_actions)
+        return self._network(step, self._device)
 
     def record_step_reward(self, reward: float) -> None:
         if self._next_reward_index >= len(self._episode_rewards):

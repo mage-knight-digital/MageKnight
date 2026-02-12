@@ -31,6 +31,8 @@ def main() -> int:
     parser.add_argument("--entropy-coef", type=float, default=0.01, help="Entropy regularization coefficient")
     parser.add_argument("--hidden-size", type=int, default=128, help="Hidden size for action scoring network")
     parser.add_argument("--device", default="auto", help="Torch device (auto, cpu, cuda, mps)")
+    parser.add_argument("--embedding-dim", type=int, default=16, help="Embedding dimension for entity IDs (default: 16)")
+    parser.add_argument("--no-embeddings", action="store_true", help="Disable learned embeddings, use legacy flat encoding")
 
     parser.add_argument("--fame-delta-scale", type=float, default=1.0, help="Reward multiplier for fame deltas")
     parser.add_argument("--step-penalty", type=float, default=-0.001, help="Per-step reward penalty")
@@ -70,6 +72,8 @@ def main() -> int:
             entropy_coefficient=args.entropy_coef,
             hidden_size=args.hidden_size,
             device=args.device,
+            embedding_dim=args.embedding_dim,
+            use_embeddings=not args.no_embeddings,
         )
         policy = ReinforcePolicy(policy_config)
 

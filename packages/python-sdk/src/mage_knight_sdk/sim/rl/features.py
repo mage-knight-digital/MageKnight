@@ -1,7 +1,18 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 from typing import Any
+
+from ..generated_action_enumerator import CandidateAction
+from .vocabularies import (
+    ACTION_TYPE_VOCAB,
+    CARD_VOCAB,
+    ENEMY_VOCAB,
+    MODE_VOCAB,
+    SOURCE_VOCAB,
+    UNIT_VOCAB,
+)
 
 STATE_SCALAR_DIM = 12
 MAP_SCALAR_DIM = 12
@@ -273,3 +284,128 @@ def _scale(value: float, denom: float) -> float:
         return 0.0
     clamped = max(min(value / denom, 5.0), -5.0)
     return clamped
+
+
+# ============================================================================
+# Structured feature types for embedding-based network
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class StateFeatures:
+    """State features computed once per step (shared across all candidates)."""
+
+    scalars: list[float]       # STATE_SCALAR_DIM + MAP_SCALAR_DIM floats
+    mode_id: int               # MODE_VOCAB index
+    hand_card_ids: list[int]   # variable-length CARD_VOCAB indices
+    unit_ids: list[int]        # variable-length UNIT_VOCAB indices
+
+
+@dataclass(frozen=True)
+class ActionFeatures:
+    """Per-candidate action features."""
+
+    action_type_id: int        # ACTION_TYPE_VOCAB index
+    source_id: int             # SOURCE_VOCAB index
+    card_id: int               # CARD_VOCAB index (from cardId field, or 0)
+    unit_id: int               # UNIT_VOCAB index (from unitId field, or 0)
+    enemy_id: int              # ENEMY_VOCAB index (from enemyId/targetId, or 0)
+    scalars: list[float]       # ACTION_SCALAR_DIM floats
+
+
+@dataclass(frozen=True)
+class EncodedStep:
+    """Structured encoding for one decision step."""
+
+    state: StateFeatures
+    actions: list[ActionFeatures]
+
+
+def encode_step(
+    state: dict[str, Any],
+    player_id: str,
+    candidates: list[CandidateAction],
+) -> EncodedStep:
+    """Encode state once, then each candidate's action-specific features.
+
+    This is the new structured encoding path for the embedding network.
+    State features are computed once per step (not per candidate).
+    """
+    player = _find_player(state, player_id)
+    valid_actions = state.get("validActions")
+    valid_actions_dict = valid_actions if isinstance(valid_actions, dict) else {}
+
+    # --- State features (computed once) ---
+    state_scalars = _state_scalars(state, player, player_id, valid_actions_dict)
+    map_scalars = _map_scalars(state, player)
+    scalars = state_scalars + map_scalars
+
+    mode = valid_actions_dict.get("mode")
+    mode_value = mode if isinstance(mode, str) else "unknown"
+    mode_id = MODE_VOCAB.encode(mode_value)
+
+    hand_card_ids = _extract_hand_card_ids(player)
+    unit_ids = _extract_unit_ids(player)
+
+    state_features = StateFeatures(
+        scalars=scalars,
+        mode_id=mode_id,
+        hand_card_ids=hand_card_ids,
+        unit_ids=unit_ids,
+    )
+
+    # --- Per-candidate action features ---
+    action_features_list: list[ActionFeatures] = []
+    for candidate in candidates:
+        action = candidate.action
+        action_type = action.get("type")
+        action_type_value = action_type if isinstance(action_type, str) else "unknown"
+
+        card_id_str = action.get("cardId")
+        unit_id_str = action.get("unitId")
+        enemy_id_str = action.get("enemyId") or action.get("targetId")
+
+        action_features_list.append(ActionFeatures(
+            action_type_id=ACTION_TYPE_VOCAB.encode(action_type_value),
+            source_id=SOURCE_VOCAB.encode(candidate.source),
+            card_id=CARD_VOCAB.encode(card_id_str) if isinstance(card_id_str, str) else 0,
+            unit_id=UNIT_VOCAB.encode(unit_id_str) if isinstance(unit_id_str, str) else 0,
+            enemy_id=ENEMY_VOCAB.encode(enemy_id_str) if isinstance(enemy_id_str, str) else 0,
+            scalars=_action_scalars(action),
+        ))
+
+    return EncodedStep(state=state_features, actions=action_features_list)
+
+
+def _extract_hand_card_ids(player: dict[str, Any] | None) -> list[int]:
+    """Extract card IDs from player hand as vocabulary indices."""
+    if player is None:
+        return []
+    hand = player.get("hand")
+    if not isinstance(hand, list):
+        return []
+    ids: list[int] = []
+    for entry in hand:
+        if isinstance(entry, str):
+            ids.append(CARD_VOCAB.encode(entry))
+        elif isinstance(entry, dict):
+            card_id = entry.get("id")
+            if isinstance(card_id, str):
+                ids.append(CARD_VOCAB.encode(card_id))
+    return ids
+
+
+def _extract_unit_ids(player: dict[str, Any] | None) -> list[int]:
+    """Extract unit IDs from player units as vocabulary indices."""
+    if player is None:
+        return []
+    units = player.get("units")
+    if not isinstance(units, list):
+        return []
+    ids: list[int] = []
+    for unit in units:
+        if isinstance(unit, dict):
+            unit_id = unit.get("id")
+            if isinstance(unit_id, str):
+                ids.append(UNIT_VOCAB.encode(unit_id))
+    return ids
