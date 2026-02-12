@@ -71,6 +71,25 @@ export type {
 // Single-player game
 export { createGame, type GameInstance } from "./singlePlayerGame.js";
 
+// Server-side simulation
+export {
+  ServerSideSimulation,
+  createPolicy,
+  RandomServerPolicy,
+  enumerateActions,
+  POLICY_TYPE_RANDOM,
+  SIM_OUTCOME_ENDED,
+  SIM_OUTCOME_MAX_STEPS,
+  SIM_OUTCOME_STALLED,
+} from "./simulation/index.js";
+export type {
+  RunSimulationRequest,
+  RunSimulationResponse,
+  ServerPolicy,
+  PolicyType,
+  SimOutcome,
+} from "./simulation/index.js";
+
 // Re-export types
 export type { EventCallback } from "@mage-knight/shared";
 
