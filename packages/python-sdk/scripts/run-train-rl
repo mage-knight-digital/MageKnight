@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Start RL training CLI (requires: pip install -e ".[rl]")
+cd "$(dirname "$0")/.."
+if [ -x .venv/bin/python ]; then
+  exec .venv/bin/python -m mage_knight_sdk.cli.train_rl "$@"
+else
+  exec python3 -m mage_knight_sdk.cli.train_rl "$@"
+fi

@@ -116,6 +116,32 @@ mage-knight-viewer
 
 Then open http://127.0.0.1:8765. Choose an artifact; on first open it is converted to NDJSON + index (one-time, may take a while for huge files). After that you can scroll through the action trace; only the visible range is loaded.
 
+## RL Training
+
+The SDK can train a REINFORCE policy against the simulation harness (requires a running Mage Knight server). All agents in the game use the same learned policy to choose actions.
+
+**Install RL extras:**
+
+```bash
+pip install -e ".[rl]"
+```
+
+**Run training** (from repo root, with server on port 3001):
+
+```bash
+# From packages/python-sdk (uses .venv if present):
+./scripts/run-train-rl --episodes 100 --no-undo
+
+# Or with the installed CLI:
+mage-knight-train-rl --episodes 100 --checkpoint-dir ./my-run --no-undo
+```
+
+- Checkpoints and a `training_log.ndjson` are written to `--checkpoint-dir` (default `./sim-artifacts/rl-checkpoints`).
+- `run_config.json` in that directory records policy/reward config and CLI args for reproducibility.
+- **Resume** from a checkpoint: `mage-knight-train-rl --resume ./my-run/policy_final.pt --episodes 50`
+
+Rewards are configurable: fame deltas (dense), step penalty, and terminal bonuses/penalties. You can add **sparse reward components** (e.g. conquest, level-up) by implementing the `RewardComponent` protocol and passing them in `RewardConfig(..., components=(YourComponent(), ...))`. See `sim/rl/rewards.py`.
+
 ## Generate Models
 
 Protocol models are generated from:

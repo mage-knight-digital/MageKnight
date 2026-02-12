@@ -115,6 +115,8 @@ def write_run_summary(
         "fame_by_player": fame_by_player,
         "max_fame": max_fame,
     }
+    if run_result.reason is not None:
+        record["reason"] = run_result.reason
     target = Path(output_dir) / "run_summary.ndjson"
     target.parent.mkdir(parents=True, exist_ok=True)
     with open(target, "a", encoding="utf-8") as f:
