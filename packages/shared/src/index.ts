@@ -264,6 +264,7 @@ export type {
   // Units
   UnitOptions,
   RecruitableUnit,
+  RecruitManaOption,
   ActivatableUnit,
   ActivatableAbility,
   SiteOptions,

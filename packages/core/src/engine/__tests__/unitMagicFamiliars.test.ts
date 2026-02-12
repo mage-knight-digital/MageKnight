@@ -992,7 +992,7 @@ describe("Magic Familiars Unit", () => {
       expect(recruitEvent).toBeDefined();
     });
 
-    it("should show Magic Familiars as recruitable in valid actions at Magical Glade", () => {
+    it("should show Magic Familiars as recruitable in valid actions at Magical Glade when player has mana", () => {
       const state = createGladeRecruitmentState([
         { color: MANA_RED, source: "card" },
       ]);
@@ -1005,6 +1005,36 @@ describe("Magic Familiars Unit", () => {
           (u) => u.unitId === UNIT_MAGIC_FAMILIARS
         );
         expect(familiars).toBeDefined();
+        expect(familiars?.requiresManaPayment).toBe(true);
+        expect(familiars?.recruitManaOptions?.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("should not show Magic Familiars as recruitable when player cannot pay basic mana", () => {
+      const state = createGladeRecruitmentState([]);
+      const player = state.players[0];
+      if (!player) throw new Error("no player");
+      const noManaState: typeof state = {
+        ...state,
+        players: [
+          {
+            ...player,
+            pureMana: [],
+            crystals: { red: 0, blue: 0, green: 0, white: 0 },
+            usedManaFromSource: true,
+          },
+        ],
+        source: { ...state.source, dice: [] },
+      };
+
+      const validActions = getValidActions(noManaState, "player1");
+
+      if (validActions.mode === "normal_turn" && validActions.units) {
+        const recruitable = validActions.units.recruitable;
+        const familiars = recruitable.find(
+          (u) => u.unitId === UNIT_MAGIC_FAMILIARS
+        );
+        expect(familiars).toBeUndefined();
       }
     });
   });

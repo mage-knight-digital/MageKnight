@@ -765,19 +765,25 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
         unit_id = _as_str(payload.get("unitId"))
         cost = payload.get("cost")
         if unit_id and isinstance(cost, int) and bool(payload.get("canAfford")):
-            action: dict[str, Any] = {
-                "type": ACTION_RECRUIT_UNIT,
-                "unitId": unit_id,
-                "influenceSpent": cost,
-            }
-            if bool(payload.get("requiresDisband")) and player:
-                unit_list = _as_list(player.get("units"))
-                if unit_list:
-                    first_unit = _as_dict(unit_list[0])
-                    unit_instance_id = _as_str(first_unit.get("instanceId") if first_unit else None)
-                    if unit_instance_id:
-                        action["disbandUnitInstanceId"] = unit_instance_id
-            actions.append(CandidateAction(action, "normal.units.recruit"))
+            recruit_mana_options = _as_list(payload.get("recruitManaOptions"))
+            if recruit_mana_options:
+                # Unit requires mana (e.g. Magic Familiars): emit one action per valid (manaSource, manaTokenColor)
+                for opt in recruit_mana_options:
+                    opt_dict = _as_dict(opt)
+                    if opt_dict is None:
+                        continue
+                    mana_source = _as_dict(opt_dict.get("manaSource"))
+                    token_color = opt_dict.get("manaTokenColor")
+                    if mana_source is not None and token_color is not None:
+                        action = _make_recruit_action(
+                            unit_id, cost, payload, player, mana_source, token_color
+                        )
+                        if action is not None:
+                            actions.append(CandidateAction(action, "normal.units.recruit"))
+            else:
+                action = _make_recruit_action(unit_id, cost, payload, player, None, None)
+                if action is not None:
+                    actions.append(CandidateAction(action, "normal.units.recruit"))
 
     for unit in _as_list(units.get("activatable") if units else None):
         payload = _as_dict(unit)
@@ -1085,3 +1091,30 @@ def _as_str(value: Any) -> str | None:
     if isinstance(value, str) and value:
         return value
     return None
+
+
+def _make_recruit_action(
+    unit_id: str,
+    cost: int,
+    payload: dict[str, Any],
+    player: dict[str, Any] | None,
+    mana_source: dict[str, Any] | None,
+    mana_token_color: Any,
+) -> dict[str, Any] | None:
+    """Build RECRUIT_UNIT action dict; include manaSource/manaTokenColor when required (e.g. Magic Familiars)."""
+    action: dict[str, Any] = {
+        "type": ACTION_RECRUIT_UNIT,
+        "unitId": unit_id,
+        "influenceSpent": cost,
+    }
+    if bool(payload.get("requiresDisband")) and player:
+        unit_list = _as_list(player.get("units"))
+        if unit_list:
+            first_unit = _as_dict(unit_list[0])
+            unit_instance_id = _as_str(first_unit.get("instanceId") if first_unit else None)
+            if unit_instance_id:
+                action["disbandUnitInstanceId"] = unit_instance_id
+    if mana_source is not None and mana_token_color is not None:
+        action["manaSource"] = mana_source
+        action["manaTokenColor"] = mana_token_color
+    return action
