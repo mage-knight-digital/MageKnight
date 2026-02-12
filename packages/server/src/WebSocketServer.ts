@@ -22,8 +22,6 @@ import {
   ROOM_ERROR_INVALID_PLAYER_COUNT,
   ROOM_ERROR_INVALID_SESSION,
 } from "./RoomProvisioningService.js";
-import { ServerSideSimulation } from "./simulation/ServerSideSimulation.js";
-import type { RunSimulationRequest } from "./simulation/types.js";
 
 export {
   CLIENT_MESSAGE_ACTION,
@@ -469,19 +467,13 @@ export class WebSocketGameServer {
   private async handleBootstrapHttpRequest(request: Request): Promise<Response | null> {
     const url = new URL(request.url);
     const isBootstrapPath = url.pathname === ROUTE_GAMES || url.pathname.startsWith(`${ROUTE_GAMES}/`);
-    const isSimulationPath = url.pathname === "/api/run-simulation";
 
-    if (!isBootstrapPath && !isSimulationPath) {
+    if (!isBootstrapPath) {
       return null;
     }
 
     if (request.method !== HTTP_METHOD_POST) {
       return this.json({ error: RESPONSE_ERROR_METHOD_NOT_ALLOWED }, 405);
-    }
-
-    // Handle simulation endpoint
-    if (isSimulationPath) {
-      return this.handleRunSimulationRequest(request);
     }
 
     if (url.pathname === ROUTE_GAMES) {
@@ -574,63 +566,6 @@ export class WebSocketGameServer {
         );
       }
       return this.json({ error: RESPONSE_ERROR_BAD_REQUEST, message: "Failed to join game" }, 400);
-    }
-  }
-
-  private async handleRunSimulationRequest(request: Request): Promise<Response> {
-    const body = await this.readJsonBody<RunSimulationRequest>(request);
-    if (!body.ok) {
-      return this.json(
-        {
-          error: RESPONSE_ERROR_BAD_REQUEST,
-          message: body.message,
-        },
-        400
-      );
-    }
-
-    const simRequest = body.value;
-
-    // Validate player count
-    if (
-      simRequest.playerCount !== PLAYER_COUNT_TWO &&
-      simRequest.playerCount !== PLAYER_COUNT_THREE &&
-      simRequest.playerCount !== PLAYER_COUNT_FOUR
-    ) {
-      return this.json(
-        {
-          error: ROOM_ERROR_INVALID_PLAYER_COUNT,
-          message: "playerCount must be 2, 3, or 4",
-        },
-        400
-      );
-    }
-
-    // Validate max steps
-    if (simRequest.maxSteps <= 0 || simRequest.maxSteps > 100000) {
-      return this.json(
-        {
-          error: RESPONSE_ERROR_BAD_REQUEST,
-          message: "maxSteps must be between 1 and 100000",
-        },
-        400
-      );
-    }
-
-    // Run simulation
-    try {
-      const simulation = new ServerSideSimulation();
-      const result = simulation.run(simRequest);
-      return this.json(result, 200);
-    } catch (error) {
-      console.error("[WebSocketServer] Simulation error:", error);
-      return this.json(
-        {
-          error: "simulation_error",
-          message: error instanceof Error ? error.message : "Unknown simulation error",
-        },
-        500
-      );
     }
   }
 
