@@ -8,7 +8,7 @@
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { DeedCard } from "../../../types/cards.js";
-import type { PlayCardOptions, PlayableCard, ManaColor, SidewaysOption } from "@mage-knight/shared";
+import type { PlayCardOptions, PlayableCard, ManaColor, ManaSourceInfo, SidewaysOption } from "@mage-knight/shared";
 import {
   PLAY_SIDEWAYS_AS_MOVE,
   PLAY_SIDEWAYS_AS_INFLUENCE,
@@ -17,7 +17,7 @@ import { DEED_CARD_TYPE_WOUND, DEED_CARD_TYPE_SPELL } from "../../../types/cards
 import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
-import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
+import { canPayForSpellBasic, findPayableManaColor, computePoweredManaOptions } from "./manaPayment.js";
 import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "../../modifiers/index.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
 import type { SidewaysValueModifier } from "../../../types/modifiers.js";
@@ -132,6 +132,10 @@ export function getPlayableCardsForNormalTurn(
       // Only add optional properties when they have values
       if (payableManaColor && canActuallyPlayPowered) {
         (playableCard as { requiredMana?: ManaColor }).requiredMana = payableManaColor;
+        const manaOpts = computePoweredManaOptions(state, player, card, payableManaColor);
+        if (manaOpts) {
+          (playableCard as { poweredManaOptions?: readonly ManaSourceInfo[] }).poweredManaOptions = manaOpts;
+        }
       }
       if (card.cardType === DEED_CARD_TYPE_SPELL) {
         (playableCard as { isSpell?: boolean }).isSpell = true;

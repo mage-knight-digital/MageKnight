@@ -222,5 +222,120 @@ class RandomPolicyTest(unittest.TestCase):
         )
 
 
+    def test_enumerate_valid_actions_includes_powered_play_for_action_card(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "normal_turn",
+                "turn": {
+                    "canEndTurn": False,
+                    "canAnnounceEndOfRound": False,
+                    "canUndo": False,
+                    "canDeclareRest": False,
+                },
+                "playCard": {
+                    "cards": [
+                        {
+                            "cardId": "rage",
+                            "name": "Rage",
+                            "canPlayBasic": True,
+                            "canPlayPowered": True,
+                            "requiredMana": "red",
+                            "canPlaySideways": False,
+                            "basicEffectDescription": "Attack 2",
+                            "poweredEffectDescription": "Attack 4",
+                            "poweredManaOptions": [{"type": "die", "color": "red", "dieId": "die_0"}],
+                        }
+                    ]
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        powered = [a.action for a in actions if a.action.get("powered") is True]
+
+        self.assertEqual(1, len(powered))
+        self.assertEqual("PLAY_CARD", powered[0]["type"])
+        self.assertEqual("rage", powered[0]["cardId"])
+        self.assertEqual({"type": "die", "color": "red", "dieId": "die_0"}, powered[0]["manaSource"])
+        self.assertNotIn("manaSources", powered[0])
+
+    def test_enumerate_valid_actions_includes_powered_play_for_spell(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "normal_turn",
+                "turn": {
+                    "canEndTurn": False,
+                    "canAnnounceEndOfRound": False,
+                    "canUndo": False,
+                    "canDeclareRest": False,
+                },
+                "playCard": {
+                    "cards": [
+                        {
+                            "cardId": "fireball",
+                            "name": "Fireball",
+                            "canPlayBasic": True,
+                            "canPlayPowered": True,
+                            "isSpell": True,
+                            "requiredMana": "red",
+                            "canPlaySideways": False,
+                            "basicEffectDescription": "Attack 3 Fire Ranged",
+                            "poweredEffectDescription": "Attack 5 Fire Siege",
+                            "poweredManaOptions": [
+                                {"type": "die", "color": "black", "dieId": "die_1"},
+                                {"type": "crystal", "color": "red"},
+                            ],
+                        }
+                    ]
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        powered = [a.action for a in actions if a.action.get("powered") is True]
+
+        self.assertEqual(1, len(powered))
+        self.assertEqual("PLAY_CARD", powered[0]["type"])
+        self.assertEqual("fireball", powered[0]["cardId"])
+        self.assertEqual(2, len(powered[0]["manaSources"]))
+        self.assertNotIn("manaSource", powered[0])
+
+    def test_enumerate_valid_actions_skips_powered_when_no_mana_options(self) -> None:
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "normal_turn",
+                "turn": {
+                    "canEndTurn": False,
+                    "canAnnounceEndOfRound": False,
+                    "canUndo": False,
+                    "canDeclareRest": False,
+                },
+                "playCard": {
+                    "cards": [
+                        {
+                            "cardId": "rage",
+                            "name": "Rage",
+                            "canPlayBasic": True,
+                            "canPlayPowered": True,
+                            "requiredMana": "red",
+                            "canPlaySideways": False,
+                            "basicEffectDescription": "Attack 2",
+                            "poweredEffectDescription": "Attack 4",
+                            # No poweredManaOptions — engine couldn't compute a source
+                        }
+                    ]
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        powered = [a.action for a in actions if a.action.get("powered") is True]
+
+        self.assertEqual(0, len(powered))
+
+
 if __name__ == "__main__":
     unittest.main()

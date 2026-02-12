@@ -742,6 +742,21 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
         if bool(payload.get("canPlayBasic")):
             actions.append(CandidateAction({"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": False}, "normal.play_card.basic"))
 
+        if bool(payload.get("canPlayPowered")):
+            mana_options = _as_list(payload.get("poweredManaOptions"))
+            if mana_options:
+                is_spell = bool(payload.get("isSpell"))
+                if is_spell and len(mana_options) == 2:
+                    actions.append(CandidateAction(
+                        {"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": True, "manaSources": mana_options},
+                        "normal.play_card.powered",
+                    ))
+                elif not is_spell and len(mana_options) >= 1:
+                    actions.append(CandidateAction(
+                        {"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": True, "manaSource": mana_options[0]},
+                        "normal.play_card.powered",
+                    ))
+
         if bool(payload.get("canPlaySideways")):
             for option in _as_list(payload.get("sidewaysOptions")):
                 sideways = _as_dict(option)

@@ -119,6 +119,8 @@ export interface PlayableCard {
   readonly canPlayPowered: boolean;
   readonly requiredMana?: ManaColor; // For powered effect (spell's color, not black)
   readonly isSpell?: boolean; // If true, powered effect needs black + requiredMana
+  /** Pre-computed mana source(s) for powered play. Action cards: [source], Spells: [blackSource, colorSource]. */
+  readonly poweredManaOptions?: readonly ManaSourceInfo[];
   readonly canPlaySideways: boolean;
   readonly sidewaysOptions?: readonly SidewaysOption[];
   readonly basicEffectDescription: string;

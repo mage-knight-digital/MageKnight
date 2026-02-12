@@ -8,10 +8,10 @@
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { DeedCard } from "../../../types/cards.js";
-import type { ManaColor } from "@mage-knight/shared";
+import type { ManaColor, ManaSourceInfo } from "@mage-knight/shared";
 import { MANA_BLACK } from "@mage-knight/shared";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
-import { canPayForMana, canPayForTwoMana } from "../mana.js";
+import { canPayForMana, canPayForTwoMana, getAvailableManaSourcesForColor } from "../mana.js";
 
 /**
  * Check if a player can pay for a spell's basic effect.
@@ -61,4 +61,43 @@ export function findPayableManaColor(
 
   // Action cards: any one of the poweredBy colors works (OR logic)
   return card.poweredBy.find((color) => canPayForMana(state, player, color));
+}
+
+/**
+ * Compute pre-selected mana source(s) for a powered card play.
+ *
+ * - Action cards: returns [source] (single mana source for the payable color)
+ * - Spells: returns [blackSource, colorSource] with non-conflicting die IDs
+ *
+ * Returns undefined if no valid source combination exists.
+ */
+export function computePoweredManaOptions(
+  state: GameState,
+  player: Player,
+  card: DeedCard,
+  payableManaColor: ManaColor
+): ManaSourceInfo[] | undefined {
+  if (card.cardType === DEED_CARD_TYPE_SPELL) {
+    // Spells need black + color mana from non-conflicting sources
+    const blackSources = getAvailableManaSourcesForColor(state, player, MANA_BLACK);
+    const colorSources = getAvailableManaSourcesForColor(state, player, payableManaColor, { forSpellPowered: true });
+    if (blackSources.length === 0 || colorSources.length === 0) return undefined;
+
+    // Find first non-conflicting pair (different dieId, or at least one non-die source)
+    for (const blackSrc of blackSources) {
+      for (const colorSrc of colorSources) {
+        const blackDie = blackSrc.dieId;
+        const colorDie = colorSrc.dieId;
+        if (!blackDie || !colorDie || blackDie !== colorDie) {
+          return [blackSrc, colorSrc];
+        }
+      }
+    }
+    return undefined;
+  }
+
+  // Action cards: single mana source
+  const sources = getAvailableManaSourcesForColor(state, player, payableManaColor);
+  if (sources.length === 0) return undefined;
+  return [sources[0]];
 }

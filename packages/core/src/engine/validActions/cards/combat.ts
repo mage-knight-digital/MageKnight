@@ -8,7 +8,7 @@ import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { CombatState, CombatPhase } from "../../../types/combat.js";
 import type { DeedCard } from "../../../types/cards.js";
-import type { PlayCardOptions, PlayableCard, ManaColor, SidewaysOption } from "@mage-knight/shared";
+import type { PlayCardOptions, PlayableCard, ManaColor, ManaSourceInfo, SidewaysOption } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
@@ -18,7 +18,7 @@ import { DEED_CARD_TYPE_WOUND, DEED_CARD_TYPE_SPELL } from "../../../types/cards
 import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
 import { getCard } from "./index.js";
-import { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
+import { canPayForSpellBasic, findPayableManaColor, computePoweredManaOptions } from "./manaPayment.js";
 import {
   isCombatEffectAllowed,
   getCombatEffectContext,
@@ -190,6 +190,10 @@ export function getPlayableCardsForCombat(
       // Only add optional properties when they have values
       if (payableManaColor && canActuallyPlayPowered) {
         (playableCard as { requiredMana?: ManaColor }).requiredMana = payableManaColor;
+        const manaOpts = computePoweredManaOptions(state, player, card, payableManaColor);
+        if (manaOpts) {
+          (playableCard as { poweredManaOptions?: readonly ManaSourceInfo[] }).poweredManaOptions = manaOpts;
+        }
       }
       if (card.cardType === DEED_CARD_TYPE_SPELL) {
         (playableCard as { isSpell?: boolean }).isSpell = true;

@@ -3609,6 +3609,13 @@
         "poweredEffectDescription": {
           "type": "string"
         },
+        "poweredManaOptions": {
+          "description": "Pre-computed mana source(s) for powered play. Action cards: [source], Spells: [blackSource, colorSource].",
+          "items": {
+            "$ref": "#/definitions/ManaSourceInfo"
+          },
+          "type": "array"
+        },
         "requiredMana": {
           "enum": [
             "black",
