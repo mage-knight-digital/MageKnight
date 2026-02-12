@@ -39,6 +39,16 @@
     }
     .toolbar .status.building { color: #e0af68; }
     .toolbar .status.error { color: #f7768e; }
+    .toolbar-btn {
+      background: #24283b;
+      color: #c0caf5;
+      border: 1px solid #363b54;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font: inherit;
+      cursor: pointer;
+    }
+    .toolbar-btn:hover { background: #363b54; }
     .main {
       padding: 16px;
       max-width: 1200px;
@@ -281,12 +291,13 @@
       <option value="">— load list —</option>
     </select>
     <span id="status" class="status"></span>
+    <button type="button" id="rebuild-states-btn" class="toolbar-btn" style="display: none;" title="Rebuild state index (fixes missing Player 1/2 tabs)">Rebuild state index</button>
   </div>
   <div class="how-to" id="how-to">
     <ol>
       <li><strong>Choose an artifact</strong> from the dropdown above (e.g. <code>run_0_seed_1_….json</code>).</li>
       <li>Wait for the list to load (first time may say “Preparing…” for a few seconds).</li>
-      <li><strong>Click any row</strong> in the list to open the game state at that step in a popup.</li>
+      <li><strong>Click any row</strong> to open the game state after that step. The popup defaults to <strong>that row's player</strong> (the one who performed the action), so you see their view and valid actions. Use the <strong>Player 1 / Player 2</strong> tabs to switch to the other player's state at the same step.</li>
     </ol>
   </div>
   <div class="main">
@@ -354,7 +365,8 @@
       const action = formatAction(entry);
       const source = entry.source ? `<div class="source">${escapeHtml(entry.source)}</div>` : '';
       const pClass = playerClass(player);
-      return `<div class="row clickable${pClass}" style="top: ${index * ROW_HEIGHT}px; height: ${ROW_HEIGHT}px;" data-index="${index}" title="Click to view state after this step">
+      const playerIdAttr = entry.player_id != null ? ` data-player-id="${escapeHtml(String(entry.player_id))}"` : '';
+      return `<div class="row clickable${pClass}" style="top: ${index * ROW_HEIGHT}px; height: ${ROW_HEIGHT}px;" data-index="${index}"${playerIdAttr} title="Click to view state after this step">
         <span class="step">${step}</span>
         <span class="player">${player}</span>
         <span class="action">${escapeHtml(action)}${source}</span>
@@ -505,13 +517,14 @@
       }
     }
 
-    async function prepareAndOpen(name) {
+    async function prepareAndOpen(name, rebuildStates = false) {
       artifactName = name;
       const statusEl = document.getElementById('status');
-      statusEl.textContent = 'Preparing…';
+      statusEl.textContent = rebuildStates ? 'Rebuilding state index…' : 'Preparing…';
       statusEl.className = 'status building';
 
-      const prep = await api(`/api/artifacts/${encodeURIComponent(name)}/prepare`, { method: 'POST' });
+      const q = rebuildStates ? '?rebuild_states=1' : '';
+      const prep = await api(`/api/artifacts/${encodeURIComponent(name)}/prepare${q}`, { method: 'POST' });
       let data = await prep.json();
       if (data.status === 'building') {
         const poll = setInterval(async () => {
@@ -532,9 +545,24 @@
         return;
       }
       total = data.total ?? 0;
-      statusEl.textContent = `${total.toLocaleString()} steps`;
-      statusEl.className = 'status';
       openList();
+      if (data.hasStates === false) {
+        statusEl.textContent = `${total.toLocaleString()} steps · building state index…`;
+        statusEl.className = 'status building';
+        const pollStates = setInterval(async () => {
+          const r = await api(`/api/artifacts/${encodeURIComponent(name)}/status`);
+          const d = await r.json();
+          if (d.hasStates) {
+            clearInterval(pollStates);
+            statusEl.textContent = `${total.toLocaleString()} steps`;
+            statusEl.className = 'status';
+          }
+        }, 800);
+        setTimeout(() => clearInterval(pollStates), 120000);
+      } else {
+        statusEl.textContent = `${total.toLocaleString()} steps`;
+        statusEl.className = 'status';
+      }
     }
 
     function openList() {
@@ -543,6 +571,7 @@
       document.getElementById('summary').style.display = 'block';
       document.getElementById('summary').textContent = `Artifact: ${artifactName} · ${total.toLocaleString()} action trace entries. Scroll to load. Click a row to view game state after that step.`;
       document.getElementById('list-container').style.display = 'block';
+      document.getElementById('rebuild-states-btn').style.display = '';
       listInner = document.getElementById('list-inner');
       listContainer = document.getElementById('list-container');
       listInner.style.height = total * ROW_HEIGHT + 'px';
@@ -558,11 +587,12 @@
       if (!row) return;
       const step = parseInt(row.dataset.index, 10);
       if (Number.isNaN(step)) return;
-      showStateModal(step);
+      const rowPlayerId = row.dataset.playerId || null;
+      showStateModal(step, rowPlayerId);
     }
 
     let stateModalOpen = false;
-    function showStateModal(step) {
+    function showStateModal(step, rowPlayerId) {
       const overlay = document.getElementById('state-modal-overlay');
       const title = document.getElementById('state-modal-title');
       const body = document.getElementById('state-modal-body');
@@ -608,10 +638,19 @@
             }
 
             const currentPlayerId = updates[0].payload?.state?.currentPlayerId;
-            const defaultIndex = currentPlayerId
-              ? updates.findIndex(u => u.player_id === currentPlayerId)
-              : 0;
-            const selectedIndex = defaultIndex >= 0 ? defaultIndex : 0;
+            let defaultIndex = 0;
+            if (rowPlayerId != null && rowPlayerId !== '') {
+              const rowActorIndex = updates.findIndex(u => u.player_id === rowPlayerId);
+              if (rowActorIndex >= 0) defaultIndex = rowActorIndex;
+              else if (currentPlayerId) {
+                const currentIndex = updates.findIndex(u => u.player_id === currentPlayerId);
+                if (currentIndex >= 0) defaultIndex = currentIndex;
+              }
+            } else if (currentPlayerId) {
+              const currentIndex = updates.findIndex(u => u.player_id === currentPlayerId);
+              if (currentIndex >= 0) defaultIndex = currentIndex;
+            }
+            const selectedIndex = defaultIndex;
             const tabsHtml = updates.map((msg, i) => {
               const pid = msg.player_id != null ? String(msg.player_id) : `view-${i + 1}`;
               const isCurrentTurn = pid === currentPlayerId;
@@ -676,6 +715,11 @@
       const v = e.target.value;
       if (!v) return;
       prepareAndOpen(v);
+    });
+
+    document.getElementById('rebuild-states-btn').addEventListener('click', () => {
+      if (!artifactName) return;
+      prepareAndOpen(artifactName, true);
     });
 
     loadArtifacts();

@@ -41,12 +41,9 @@ def build_states_ndjson(
             f.write("total\t0\nplayer_count\t0\n")
         return 0
 
-    # Infer player_count: (steps+1) * player_count = len(messages)
-    player_count = 1
-    if action_trace_total is not None and action_trace_total >= 0:
-        steps_plus_one = action_trace_total + 1
-        if steps_plus_one > 0 and len(messages) % steps_plus_one == 0:
-            player_count = len(messages) // steps_plus_one
+    # Infer player_count from distinct player_ids (one state_update per player per step).
+    distinct_players = {m.get("player_id") for m in messages if m.get("player_id") is not None}
+    player_count = max(1, len(distinct_players))
 
     count = 0
     index_entries: list[tuple[int, int]] = []

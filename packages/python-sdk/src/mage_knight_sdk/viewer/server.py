@@ -69,11 +69,35 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
         index_path = json_path.with_suffix(json_path.suffix + ".ndjson.idx")
         states_path = json_path.with_suffix(json_path.suffix + ".states.ndjson")
         states_index_path = json_path.with_suffix(json_path.suffix + ".states.ndjson.idx")
+        rebuild_states = request.args.get("rebuild_states", "").lower() in ("1", "true", "yes")
+
+        def do_build_states_only():
+            try:
+                total_for_states = count_entries(index_path)
+                build_states_ndjson(
+                    json_path, states_path, states_index_path,
+                    action_trace_total=total_for_states,
+                )
+            except Exception:
+                pass
 
         with _build_lock:
             if ndjson_path.exists() and index_path.exists():
                 total = count_entries(index_path)
-                return jsonify({"total": total, "status": "ready"})
+                if states_path.exists() and rebuild_states:
+                    try:
+                        states_path.unlink()
+                        states_index_path.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                if not states_path.exists():
+                    threading.Thread(target=do_build_states_only, daemon=True).start()
+                    return jsonify({
+                        "total": total,
+                        "status": "ready",
+                        "hasStates": False,
+                    })
+                return jsonify({"total": total, "status": "ready", "hasStates": True})
             if _build_status.get(name) == "building":
                 return jsonify({"status": "building"})
 
@@ -95,25 +119,6 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
         with _build_lock:
             if _build_status.get(name) == "building":
                 return jsonify({"status": "building"})
-            if ndjson_path.exists() and index_path.exists():
-                total = count_entries(index_path)
-                if not states_path.exists():
-                    total_for_states = count_entries(index_path)
-
-                    def do_build_states_only():
-                        try:
-                            build_states_ndjson(
-                                json_path, states_path, states_index_path,
-                                action_trace_total=total_for_states,
-                            )
-                        except Exception:
-                            pass
-                    threading.Thread(target=do_build_states_only, daemon=True).start()
-                return jsonify({
-                    "total": total,
-                    "status": "ready",
-                    "hasStates": states_path.exists(),
-                })
             threading.Thread(target=do_build, daemon=True).start()
             return jsonify({"status": "building"})
 
