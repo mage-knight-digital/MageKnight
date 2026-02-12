@@ -2780,6 +2780,34 @@
       ],
       "type": "object"
     },
+    "ManaSourceInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/ManaColor"
+        },
+        "dieId": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/ManaSourceType"
+        }
+      },
+      "required": [
+        "color",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ManaSourceType": {
+      "enum": [
+        "crystal",
+        "die",
+        "endless",
+        "token"
+      ],
+      "type": "string"
+    },
     "ManaTokenSource": {
       "enum": [
         "card",
@@ -3674,8 +3702,19 @@
         "cost": {
           "type": "number"
         },
+        "recruitManaOptions": {
+          "description": "Valid (manaSource, manaTokenColor) pairs for recruitment. Only set when\nrequiresManaPayment is true. Enumerator should emit one RECRUIT_UNIT per option.",
+          "items": {
+            "$ref": "#/definitions/RecruitManaOption"
+          },
+          "type": "array"
+        },
         "requiresDisband": {
           "description": "True when the player must disband an existing unit to recruit this one.",
+          "type": "boolean"
+        },
+        "requiresManaPayment": {
+          "description": "True when recruiting this unit requires paying 1 basic mana (e.g. Magic Familiars).\nWhen true, client/sim must send manaSource and manaTokenColor with RECRUIT_UNIT.",
           "type": "boolean"
         },
         "unitId": {
@@ -3687,6 +3726,23 @@
         "cost",
         "requiresDisband",
         "unitId"
+      ],
+      "type": "object"
+    },
+    "RecruitManaOption": {
+      "additionalProperties": false,
+      "description": "One valid way to pay for Magic Familiars recruitment: a mana source and the\nbasic color the token will have. When present, client/sim must send these\nwith RECRUIT_UNIT so the server accepts the action.",
+      "properties": {
+        "manaSource": {
+          "$ref": "#/definitions/ManaSourceInfo"
+        },
+        "manaTokenColor": {
+          "$ref": "#/definitions/BasicManaColor"
+        }
+      },
+      "required": [
+        "manaSource",
+        "manaTokenColor"
       ],
       "type": "object"
     },
