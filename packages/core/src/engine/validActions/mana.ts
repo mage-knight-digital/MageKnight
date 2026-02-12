@@ -232,6 +232,31 @@ export function canPayForMana(
   return false;
 }
 
+/** Basic mana colors (red, blue, green, white) for recruitment token. */
+const BASIC_MANA_COLORS: ManaColor[] = [
+  MANA_RED,
+  MANA_BLUE,
+  MANA_GREEN,
+  MANA_WHITE,
+];
+
+/**
+ * Returns true if the player can pay for at least one basic mana color.
+ * Used to decide if Magic Familiars (restrictedFromFreeRecruit) can be shown as recruitable.
+ * Shared with validators so advertised valid actions match server validation.
+ */
+export function canPayForAnyBasicMana(
+  state: GameState,
+  player: Player
+): boolean {
+  for (const color of BASIC_MANA_COLORS) {
+    if (canPayForMana(state, player, color)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Check if a mana color is a basic color (not gold/black)
  */

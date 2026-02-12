@@ -38,6 +38,15 @@ import { getModifiersForPlayer } from "../modifiers/queries.js";
 import { isRuleActive } from "../modifiers/index.js";
 
 /**
+ * Whether the unit requires paying 1 basic mana to recruit (e.g. Magic Familiars).
+ * Used by validActions and validators so advertised options match server validation.
+ */
+export function unitRequiresManaToRecruit(unitId: UnitId): boolean {
+  const unit = getUnit(unitId);
+  return Boolean(unit.restrictedFromFreeRecruit);
+}
+
+/**
  * Check if reputation effects should be ignored for the player.
  * Used by Arcane Disguise.
  */

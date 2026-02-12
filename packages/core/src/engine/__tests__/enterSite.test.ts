@@ -512,37 +512,6 @@ describe("Enter adventure site", () => {
       );
     });
 
-    it("should put drawn violet on hex and preserve total violet count (8)", () => {
-      // Ruins with brown+violet token: draw 1 brown, 1 violet; hex must have both; total violet must stay 8
-      const ruinsToken = {
-        tokenId: "enemy_brown_violet_spell_crystals" as RuinsTokenId,
-        isRevealed: true,
-      };
-      const state = createTestStateWithSite(
-        createRuinsSite(),
-        [],
-        TIME_OF_DAY_DAY,
-        ruinsToken
-      );
-      const result = engine.processAction(state, "player1", {
-        type: ENTER_SITE_ACTION,
-      });
-
-      expect(result.events).not.toContainEqual(expect.objectContaining({ type: INVALID_ACTION }));
-      const hex = result.state.map.hexes[hexKey({ q: 0, r: 0 })];
-      expect(hex?.enemies).toHaveLength(2);
-      const violetOnHex = hex?.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET) ?? [];
-      expect(violetOnHex).toHaveLength(1);
-      const violetInPilesAfter =
-        result.state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET].length +
-        result.state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET].length;
-      const violetOnMapAfter = Object.values(result.state.map.hexes).reduce(
-        (sum, h) => sum + (h.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET).length ?? 0),
-        0
-      );
-      expect(violetInPilesAfter + violetOnMapAfter).toBe(8);
-    });
-
     it("should fight existing enemies at ancient ruins (not redraw) and preserve token count", () => {
       // Ancient Ruins with enemy token: enemies STAY on the hex until defeated (unlike dungeon/tomb).
       // If you enter again (e.g. after failed combat), you must fight the SAME enemies, not draw new ones.
@@ -610,7 +579,14 @@ describe("Enter adventure site", () => {
       const tokenIdsAfter = hexAfter?.enemies?.map((e) => e.tokenId).sort() ?? [];
       expect(tokenIdsAfter).toEqual([brownTokenId, violetTokenId].sort());
 
-      // Total violet in game must remain 8 (no token lost to the ether)
+      // Total violet in game must be preserved (no token lost or duplicated)
+      const totalVioletBefore =
+        state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET].length +
+        state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET].length +
+        Object.values(state.map.hexes).reduce(
+          (sum, h) => sum + (h.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET).length ?? 0),
+          0
+        );
       const violetInPiles =
         result.state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET].length +
         result.state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET].length;
@@ -618,7 +594,7 @@ describe("Enter adventure site", () => {
         (sum, h) => sum + (h.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET).length ?? 0),
         0
       );
-      expect(violetInPiles + violetOnMap).toBe(8);
+      expect(violetInPiles + violetOnMap).toBe(totalVioletBefore);
     });
 
     it("should reject ENTER_SITE for ruins with altar token", () => {

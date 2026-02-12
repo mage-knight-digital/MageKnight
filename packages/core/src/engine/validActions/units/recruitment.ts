@@ -11,8 +11,8 @@
 
 import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
-import type { UnitOptions, RecruitableUnit } from "@mage-knight/shared";
-import { UNITS, MIN_REPUTATION, type UnitId } from "@mage-knight/shared";
+import type { UnitOptions, RecruitableUnit, RecruitManaOption } from "@mage-knight/shared";
+import { UNITS, MIN_REPUTATION, BASIC_MANA_COLORS, type UnitId } from "@mage-knight/shared";
 import { SiteType } from "../../../types/map.js";
 import { mustAnnounceEndOfRound } from "../helpers.js";
 import {
@@ -25,8 +25,10 @@ import {
   getActiveRecruitDiscount,
   isGladeRecruitment,
   shouldIgnoreReputationEffects,
+  unitRequiresManaToRecruit,
 } from "../../rules/unitRecruitment.js";
 import { getEffectiveCommandTokens, isBondsSlotEmpty, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
+import { canPayForAnyBasicMana, getAvailableManaSourcesForColor } from "../mana.js";
 
 
 /**
@@ -127,6 +129,12 @@ export function getUnitOptions(
       continue;
     }
 
+    // Magic Familiars (and any restrictedFromFreeRecruit) require paying 1 basic mana.
+    // Only advertise as recruitable when player can pay (align with server validator).
+    if (unitRequiresManaToRecruit(unit.id) && !canPayForAnyBasicMana(state, player)) {
+      continue;
+    }
+
     // Calculate base cost
     const baseCost = unit.influence;
 
@@ -162,11 +170,25 @@ export function getUnitOptions(
     const canAfford =
       (hasCommandTokens || canDisband) && player.influencePoints >= adjustedCost;
 
+    const requiresMana = unitRequiresManaToRecruit(unit.id);
+    const recruitManaOptions: RecruitManaOption[] = [];
+    if (requiresMana) {
+      for (const tokenColor of BASIC_MANA_COLORS) {
+        const sources = getAvailableManaSourcesForColor(state, player, tokenColor);
+        for (const manaSource of sources) {
+          recruitManaOptions.push({ manaSource, manaTokenColor: tokenColor });
+        }
+      }
+    }
+
     recruitable.push({
       unitId: unit.id,
       cost: adjustedCost,
       canAfford,
       requiresDisband: !hasCommandTokens && canDisband,
+      ...(requiresMana
+        ? { requiresManaPayment: true as const, recruitManaOptions }
+        : {}),
     });
   }
 

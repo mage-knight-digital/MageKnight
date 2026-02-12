@@ -8,7 +8,7 @@
 import type { HexCoord, HexDirection } from "../hex.js";
 import type { CardId, ManaColor, BasicManaColor, SkillId } from "../ids.js";
 import type { TacticId } from "../tactics.js";
-import type { RestType, AttackType, AttackElement } from "../actions.js";
+import type { RestType, AttackType, AttackElement, ManaSourceInfo } from "../actions.js";
 import type { CombatPhase } from "../combatPhases.js";
 import type { CombatType } from "../combatTypes.js";
 import type { Element } from "../elements.js";
@@ -517,12 +517,32 @@ export interface UnitOptions {
   readonly activatable: readonly ActivatableUnit[];
 }
 
+/**
+ * One valid way to pay for Magic Familiars recruitment: a mana source and the
+ * basic color the token will have. When present, client/sim must send these
+ * with RECRUIT_UNIT so the server accepts the action.
+ */
+export interface RecruitManaOption {
+  readonly manaSource: ManaSourceInfo;
+  readonly manaTokenColor: BasicManaColor;
+}
+
 export interface RecruitableUnit {
   readonly unitId: string;
   readonly cost: number;
   readonly canAfford: boolean;
   /** True when the player must disband an existing unit to recruit this one. */
   readonly requiresDisband: boolean;
+  /**
+   * True when recruiting this unit requires paying 1 basic mana (e.g. Magic Familiars).
+   * When true, client/sim must send manaSource and manaTokenColor with RECRUIT_UNIT.
+   */
+  readonly requiresManaPayment?: boolean;
+  /**
+   * Valid (manaSource, manaTokenColor) pairs for recruitment. Only set when
+   * requiresManaPayment is true. Enumerator should emit one RECRUIT_UNIT per option.
+   */
+  readonly recruitManaOptions?: readonly RecruitManaOption[];
 }
 
 export interface ActivatableUnit {

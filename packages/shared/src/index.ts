@@ -156,6 +156,7 @@ export { LocalConnection } from "./connection.js";
 export {
   NETWORK_PROTOCOL_VERSION_1,
   NETWORK_PROTOCOL_VERSION_2,
+  NETWORK_PROTOCOL_VERSION_3,
   NETWORK_PROTOCOL_VERSION,
   CLIENT_MESSAGE_ACTION,
   CLIENT_MESSAGE_LOBBY_SUBSCRIBE,
@@ -264,6 +265,7 @@ export type {
   // Units
   UnitOptions,
   RecruitableUnit,
+  RecruitManaOption,
   ActivatableUnit,
   ActivatableAbility,
   SiteOptions,
