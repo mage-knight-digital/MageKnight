@@ -90,8 +90,9 @@ def main() -> int:
     parser.add_argument("--no-undo", action="store_true", help="Disable UNDO actions")
     parser.add_argument("--stop-on-failure", action="store_true", help="Stop at first non-ended outcome")
     parser.add_argument("--artifacts-dir", default="./sim-artifacts", help="Where to write failure artifacts")
-    parser.add_argument("--bootstrap-url", default="http://127.0.0.1:3001", help="Bootstrap API base URL")
-    parser.add_argument("--ws-url", default="ws://127.0.0.1:3001", help="WebSocket server URL")
+    parser.add_argument("--bootstrap-url", default="http://127.0.0.1:3001", help="Bootstrap API base URL (single server mode)")
+    parser.add_argument("--ws-url", default="ws://127.0.0.1:3001", help="WebSocket server URL (single server mode)")
+    parser.add_argument("--cluster-ports", type=str, help="Comma-separated ports for cluster mode (e.g., '3001,3002,3003,3004'). Overrides --bootstrap-url and --ws-url.")
     parser.add_argument("--benchmark", action="store_true", help="Report timing: per-run, throughput, bottlenecks")
     parser.add_argument("--profile", action="store_true", help="Run with cProfile, print top 20 hotspots")
     parser.add_argument("--save-failures", action="store_true", help="Write full failure artifacts (action trace + messages); default is summary-only (reproducible by seed)")
@@ -188,8 +189,20 @@ def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
     timings: list[tuple[int, float, int, str]] = []  # (seed, sec, steps, outcome)
     t_start = time.perf_counter()
 
+    # Parse cluster ports if provided
+    server_urls: list[tuple[str, str]] | None = None
+    if args.cluster_ports:
+        ports = [int(p.strip()) for p in args.cluster_ports.split(",")]
+        server_urls = [
+            (f"http://127.0.0.1:{port}", f"ws://127.0.0.1:{port}")
+            for port in ports
+        ]
+        cluster_info = f"cluster mode: {len(server_urls)} servers on ports {ports[0]}-{ports[-1]}"
+    else:
+        cluster_info = "single server"
+
     mode = "random seeds" if args.runs else f"deterministic range {seeds[0]}..{seeds[-1]}"
-    print(f"Running {len(seeds)} seed(s) with {args.workers} workers ({mode})")
+    print(f"Running {len(seeds)} seed(s) with {args.workers} workers ({mode}, {cluster_info})")
     print(f"Options: max_steps={args.max_steps}, allow_undo={not args.no_undo}")
     if args.benchmark:
         print("(Benchmark mode: timing each run)")
@@ -215,8 +228,15 @@ def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
         # Submit all seeds to workers
         with ProcessPoolExecutor(max_workers=args.workers) as executor:
             futures = {
-                executor.submit(run_single_seed, seed, base_config): (seed, time.perf_counter())
-                for seed in seeds
+                executor.submit(
+                    run_single_seed,
+                    seed,
+                    base_config,
+                    None,  # policy_factory
+                    worker_idx % args.workers,  # worker_id (round-robin)
+                    server_urls,  # server_urls for cluster mode
+                ): (seed, time.perf_counter())
+                for worker_idx, seed in enumerate(seeds)
             }
 
             completed = 0

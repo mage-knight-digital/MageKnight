@@ -17,6 +17,8 @@ def run_single_seed(
     seed: int,
     base_config: RunnerConfig,
     policy_factory: Callable[[], Policy] | None = None,
+    worker_id: int = 0,
+    server_urls: list[tuple[str, str]] | None = None,
 ) -> tuple[RunResult, dict[str, Any]]:
     """
     Worker function for parallel seed execution.
@@ -27,14 +29,24 @@ def run_single_seed(
         policy_factory: Optional callable that returns a fresh Policy instance.
                        If None, uses RandomPolicy. Required for custom policies
                        to avoid pickling issues across processes.
+        worker_id: Worker index (used for server selection in cluster mode)
+        server_urls: Optional list of (bootstrap_url, ws_url) tuples for cluster mode.
+                    If provided, worker_id is used to select the server via round-robin.
 
     Returns:
         (RunResult, summary_record_dict) tuple
     """
+    # Select server URLs based on worker_id (round-robin for cluster mode)
+    if server_urls:
+        bootstrap_url, ws_url = server_urls[worker_id % len(server_urls)]
+    else:
+        bootstrap_url = base_config.bootstrap_api_base_url
+        ws_url = base_config.ws_server_url
+
     # Create per-seed config with runs=1
     config = RunnerConfig(
-        bootstrap_api_base_url=base_config.bootstrap_api_base_url,
-        ws_server_url=base_config.ws_server_url,
+        bootstrap_api_base_url=bootstrap_url,
+        ws_server_url=ws_url,
         player_count=base_config.player_count,
         runs=1,
         max_steps=base_config.max_steps,
