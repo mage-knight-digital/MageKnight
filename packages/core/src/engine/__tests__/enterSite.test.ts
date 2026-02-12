@@ -513,7 +513,7 @@ describe("Enter adventure site", () => {
     });
 
     it("should put drawn violet on hex and preserve total violet count (8)", () => {
-      // Ruins with brown+violet token: draw 1 brown, 1 violet; hex must have both; total violet must stay 8
+      // Ruins with brown+violet token: draw 1 brown, 1 violet; hex must have both; total violet preserved
       const ruinsToken = {
         tokenId: "enemy_brown_violet_spell_crystals" as RuinsTokenId,
         isRevealed: true,
@@ -524,6 +524,14 @@ describe("Enter adventure site", () => {
         TIME_OF_DAY_DAY,
         ruinsToken
       );
+      const totalVioletBefore =
+        state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET].length +
+        state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET].length +
+        Object.values(state.map.hexes).reduce(
+          (sum, h) => sum + (h.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET).length ?? 0),
+          0
+        );
+
       const result = engine.processAction(state, "player1", {
         type: ENTER_SITE_ACTION,
       });
@@ -540,7 +548,7 @@ describe("Enter adventure site", () => {
         (sum, h) => sum + (h.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET).length ?? 0),
         0
       );
-      expect(violetInPilesAfter + violetOnMapAfter).toBe(8);
+      expect(violetInPilesAfter + violetOnMapAfter).toBe(totalVioletBefore);
     });
 
     it("should fight existing enemies at ancient ruins (not redraw) and preserve token count", () => {
@@ -610,7 +618,14 @@ describe("Enter adventure site", () => {
       const tokenIdsAfter = hexAfter?.enemies?.map((e) => e.tokenId).sort() ?? [];
       expect(tokenIdsAfter).toEqual([brownTokenId, violetTokenId].sort());
 
-      // Total violet in game must remain 8 (no token lost to the ether)
+      // Total violet in game must be preserved (no token lost or duplicated)
+      const totalVioletBefore =
+        state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET].length +
+        state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET].length +
+        Object.values(state.map.hexes).reduce(
+          (sum, h) => sum + (h.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET).length ?? 0),
+          0
+        );
       const violetInPiles =
         result.state.enemyTokens.drawPiles[ENEMY_COLOR_VIOLET].length +
         result.state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET].length;
@@ -618,7 +633,7 @@ describe("Enter adventure site", () => {
         (sum, h) => sum + (h.enemies?.filter((e) => e.color === ENEMY_COLOR_VIOLET).length ?? 0),
         0
       );
-      expect(violetInPiles + violetOnMap).toBe(8);
+      expect(violetInPiles + violetOnMap).toBe(totalVioletBefore);
     });
 
     it("should reject ENTER_SITE for ruins with altar token", () => {
