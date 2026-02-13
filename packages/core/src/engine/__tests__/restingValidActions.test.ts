@@ -17,6 +17,10 @@ import {
   ENEMY_DIGGERS,
   CARD_WOUND,
   CARD_WHIRLWIND,
+  CARD_MARCH,
+  CARD_STAMINA,
+  PLAY_SIDEWAYS_AS_MOVE,
+  PLAY_SIDEWAYS_AS_INFLUENCE,
   TERRAIN_PLAINS,
   hexKey,
 } from "@mage-knight/shared";
@@ -206,6 +210,56 @@ describe("Valid actions while resting", () => {
 
     expect(validActions.mode).toBe("normal_turn");
     expect(validActions.playCard).toBeUndefined();
+  });
+
+  it("excludes sideways-for-move after rest is completed", () => {
+    const player = createTestPlayer({
+      isResting: false,
+      hasRestedThisTurn: true,
+      hasTakenActionThisTurn: true,
+      playedCardFromHandThisTurn: true,
+      hand: [CARD_MARCH, CARD_STAMINA],
+    });
+    const state = createTestGameState({ players: [player] });
+    const validActions = getValidActions(state, player.id);
+
+    expect(validActions.mode).toBe("normal_turn");
+    expect(validActions.playCard).toBeDefined();
+
+    for (const card of validActions.playCard!.cards) {
+      if (card.canPlaySideways) {
+        const moveOption = card.sidewaysOptions?.find(
+          (o) => o.as === PLAY_SIDEWAYS_AS_MOVE
+        );
+        const influenceOption = card.sidewaysOptions?.find(
+          (o) => o.as === PLAY_SIDEWAYS_AS_INFLUENCE
+        );
+
+        expect(moveOption).toBeUndefined();
+        expect(influenceOption).toBeDefined();
+      }
+    }
+  });
+
+  it("includes sideways-for-move when rest has not occurred", () => {
+    const player = createTestPlayer({
+      isResting: false,
+      hasRestedThisTurn: false,
+      hand: [CARD_MARCH],
+    });
+    const state = createTestGameState({ players: [player] });
+    const validActions = getValidActions(state, player.id);
+
+    expect(validActions.mode).toBe("normal_turn");
+    const marchCard = validActions.playCard?.cards.find(
+      (c) => c.cardId === CARD_MARCH
+    );
+    expect(marchCard?.canPlaySideways).toBe(true);
+
+    const moveOption = marchCard?.sidewaysOptions?.find(
+      (o) => o.as === PLAY_SIDEWAYS_AS_MOVE
+    );
+    expect(moveOption).toBeDefined();
   });
 
   it("does not offer declare rest after action when hand is all wounds", () => {

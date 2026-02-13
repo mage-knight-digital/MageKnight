@@ -97,6 +97,7 @@ export function createCompleteRestCommand(
         hand: newHand,
         discard: newDiscard,
         isResting: false, // Rest is now complete
+        hasRestedThisTurn: true, // Track that rest occurred (blocks sideways-for-move)
         playedCardFromHandThisTurn: true, // Rest discarding satisfies minimum turn requirement
         skillFlipState: {
           ...player.skillFlipState,
@@ -150,6 +151,7 @@ export function createCompleteRestCommand(
         hand: [...params.previousHand],
         discard: [...params.previousDiscard],
         isResting: params.previousIsResting, // Restore to resting state
+        hasRestedThisTurn: false, // Undo post-rest tracking
         playedCardFromHandThisTurn: false, // Undo minimum turn requirement satisfaction
         skillFlipState: {
           ...player.skillFlipState,

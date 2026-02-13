@@ -118,7 +118,7 @@ export function validateSidewaysChoice(
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
-  if (!canPlaySideways(state, player.isResting)) {
+  if (!canPlaySideways(state, player.isResting, player.hasRestedThisTurn)) {
     if (player.isResting) {
       return invalid(
         SIDEWAYS_CHOICE_REQUIRED,
@@ -132,7 +132,9 @@ export function validateSidewaysChoice(
     );
   }
 
-  const allowedChoices = getAllowedSidewaysChoices(getSidewaysContext(state));
+  const allowedChoices = getAllowedSidewaysChoices(
+    getSidewaysContext(state, player.hasRestedThisTurn)
+  );
   if (allowedChoices.length === 0) {
     return invalid(
       SIDEWAYS_CHOICE_REQUIRED,

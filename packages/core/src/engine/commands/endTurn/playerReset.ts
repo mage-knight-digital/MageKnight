@@ -47,6 +47,7 @@ export function createResetPlayer(
     hasRecruitedUnitThisTurn: false,
     unitsRecruitedThisInteraction: [], // Reset interaction tracking at turn end
     isResting: false, // Reset resting state at turn start
+    hasRestedThisTurn: false, // Reset post-rest tracking
     // Mana resets
     pureMana: [],
     usedManaFromSource: false,

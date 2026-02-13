@@ -27,11 +27,15 @@ export type SidewaysChoice =
 export interface SidewaysContext {
   readonly inCombat: boolean;
   readonly phase?: CombatPhase;
+  readonly hasRestedThisTurn?: boolean;
 }
 
-export function getSidewaysContext(state: GameState): SidewaysContext {
+export function getSidewaysContext(
+  state: GameState,
+  hasRestedThisTurn = false
+): SidewaysContext {
   if (!state.combat) {
-    return { inCombat: false };
+    return { inCombat: false, hasRestedThisTurn };
   }
 
   return { inCombat: true, phase: state.combat.phase };
@@ -41,6 +45,9 @@ export function getAllowedSidewaysChoices(
   context: SidewaysContext
 ): readonly SidewaysChoice[] {
   if (!context.inCombat) {
+    if (context.hasRestedThisTurn) {
+      return [PLAY_SIDEWAYS_AS_INFLUENCE];
+    }
     return [
       PLAY_SIDEWAYS_AS_MOVE,
       PLAY_SIDEWAYS_AS_INFLUENCE,
@@ -77,11 +84,15 @@ export function getSidewaysOptionsForValue(
  */
 export function canPlaySideways(
   state: GameState,
-  isResting: boolean
+  isResting: boolean,
+  hasRestedThisTurn = false
 ): boolean {
   if (isResting) {
     return false;
   }
 
-  return getAllowedSidewaysChoices(getSidewaysContext(state)).length > 0;
+  return (
+    getAllowedSidewaysChoices(getSidewaysContext(state, hasRestedThisTurn))
+      .length > 0
+  );
 }

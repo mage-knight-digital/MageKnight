@@ -9,10 +9,6 @@ import type { GameState } from "../../../state/GameState.js";
 import type { Player } from "../../../types/player.js";
 import type { DeedCard } from "../../../types/cards.js";
 import type { PlayCardOptions, PlayableCard, ManaColor, ManaSourceInfo, SidewaysOption } from "@mage-knight/shared";
-import {
-  PLAY_SIDEWAYS_AS_MOVE,
-  PLAY_SIDEWAYS_AS_INFLUENCE,
-} from "@mage-knight/shared";
 import { DEED_CARD_TYPE_WOUND, DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
 import { describeEffect } from "../../effects/describeEffect.js";
 import { isEffectResolvable } from "../../effects/index.js";
@@ -21,7 +17,7 @@ import { canPayForSpellBasic, findPayableManaColor, computePoweredManaOptions } 
 import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "../../modifiers/index.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
 import type { SidewaysValueModifier } from "../../../types/modifiers.js";
-import { getSidewaysOptionsForValue, canPlaySideways } from "../../rules/sideways.js";
+import { getSidewaysOptionsForValue, getSidewaysContext, canPlaySideways } from "../../rules/sideways.js";
 import {
   isNormalEffectAllowed,
   isTimeBendingChainPrevented,
@@ -63,6 +59,10 @@ export function getPlayableCardsForNormalTurn(
         continue;
       }
 
+      if (!canPlaySideways(state, player.isResting, player.hasRestedThisTurn)) {
+        continue;
+      }
+
       const sidewaysValue = getEffectiveSidewaysValue(
         state,
         player.id,
@@ -74,6 +74,15 @@ export function getPlayableCardsForNormalTurn(
         continue;
       }
 
+      const woundSidewaysOptions = getSidewaysOptionsForValue(
+        sidewaysValue,
+        getSidewaysContext(state, player.hasRestedThisTurn)
+      );
+
+      if (woundSidewaysOptions.length === 0) {
+        continue;
+      }
+
       cards.push({
         cardId,
         name: card.name,
@@ -82,10 +91,7 @@ export function getPlayableCardsForNormalTurn(
         canPlaySideways: true,
         basicEffectDescription: describeEffect(card.basicEffect),
         poweredEffectDescription: describeEffect(card.poweredEffect),
-        sidewaysOptions: [
-          { as: PLAY_SIDEWAYS_AS_MOVE, value: sidewaysValue },
-          { as: PLAY_SIDEWAYS_AS_INFLUENCE, value: sidewaysValue },
-        ],
+        sidewaysOptions: [...woundSidewaysOptions],
       });
 
       continue;
@@ -118,7 +124,7 @@ export function getPlayableCardsForNormalTurn(
     // Sideways-only suggestions create false positives for cards that can't be
     // meaningfully used during rest (e.g., combat-only spells).
     const canPlaySidewaysInContext =
-      playability.canPlaySideways && canPlaySideways(state, player.isResting);
+      playability.canPlaySideways && canPlaySideways(state, player.isResting, player.hasRestedThisTurn);
 
     if (canPlayByEffect || canPlaySidewaysInContext) {
       const playableCard: PlayableCard = {
@@ -223,9 +229,12 @@ function getCardPlayabilityForNormalTurn(
     card.cardType
   );
 
-  // Sideways options for normal turn: move or influence (always available)
+  // Sideways options for normal turn: move and/or influence (move excluded after rest)
   const sidewaysOptions: SidewaysOption[] = [
-    ...getSidewaysOptionsForValue(effectiveSidewaysValue, { inCombat: false }),
+    ...getSidewaysOptionsForValue(
+      effectiveSidewaysValue,
+      getSidewaysContext(state, player.hasRestedThisTurn)
+    ),
   ];
 
   return {

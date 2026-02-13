@@ -174,6 +174,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     unitsHealedThisTurn: [],
     removedCards: [],
     isResting: false,
+    hasRestedThisTurn: false,
     woundImmunityActive: false,
     roundOrderTokenFlipped: false,
     isTimeBentTurn: false,

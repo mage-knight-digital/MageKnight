@@ -616,6 +616,10 @@ export interface Player {
   // While resting, movement/combat/interaction are blocked but cards can still be played
   readonly isResting: boolean;
 
+  // Post-rest tracking: true once rest is completed this turn
+  // Prevents sideways-for-move (movement is not allowed after resting)
+  readonly hasRestedThisTurn: boolean;
+
   // Deep Mine crystal color choice pending (when ending turn on a deep mine with multiple colors)
   readonly pendingDeepMineChoice: readonly import("./map.js").MineColor[] | null;
 

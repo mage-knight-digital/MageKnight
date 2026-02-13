@@ -27,7 +27,7 @@ import {
   TACTIC_THE_RIGHT_MOMENT,
   TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
-import { createTacticsSelectionState, createTestPlayer } from "./testHelpers.js";
+import { createTacticsSelectionState } from "./testHelpers.js";
 import { createRng } from "../../utils/rng.js";
 import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "../commands/tactics/index.js";
