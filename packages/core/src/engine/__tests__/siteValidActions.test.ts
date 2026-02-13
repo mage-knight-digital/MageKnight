@@ -138,4 +138,80 @@ describe("Site valid actions", () => {
 
     expect(options?.interactOptions?.canBuyAdvancedActions).toBe(true);
   });
+
+  it("does not advertise interaction at a burned monastery", () => {
+    const burnedMonastery: Site = {
+      type: SiteType.Monastery,
+      owner: null,
+      isConquered: false,
+      isBurned: true,
+    };
+
+    const player = createTestPlayer({
+      position: { q: 0, r: 0 },
+      influencePoints: 10,
+      hand: [CARD_WOUND, CARD_MARCH],
+    });
+
+    const state = createTestGameState({
+      phase: GAME_PHASE_ROUND,
+      players: [player],
+      offers: {
+        advancedActions: { cards: ["agility"] },
+        monasteryAdvancedActions: ["agility"],
+        spells: { cards: [] },
+        units: [],
+        commonSkills: [],
+      },
+      map: {
+        hexes: {
+          [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS, burnedMonastery),
+        },
+        tiles: [],
+        tileDeck: { countryside: [], core: [] },
+      },
+    });
+
+    const options = getSiteOptions(state, player);
+
+    expect(options?.canInteract).toBe(false);
+    expect(options?.interactOptions).toBeUndefined();
+  });
+
+  it("does not advertise monastery AA purchase when monastery offer is empty", () => {
+    const monastery: Site = {
+      type: SiteType.Monastery,
+      owner: null,
+      isConquered: false,
+      isBurned: false,
+    };
+
+    const player = createTestPlayer({
+      position: { q: 0, r: 0 },
+      influencePoints: 10,
+    });
+
+    const state = createTestGameState({
+      phase: GAME_PHASE_ROUND,
+      players: [player],
+      offers: {
+        advancedActions: { cards: ["agility"] },
+        monasteryAdvancedActions: [],
+        spells: { cards: [] },
+        units: [],
+        commonSkills: [],
+      },
+      map: {
+        hexes: {
+          [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS, monastery),
+        },
+        tiles: [],
+        tileDeck: { countryside: [], core: [] },
+      },
+    });
+
+    const options = getSiteOptions(state, player);
+
+    expect(options?.interactOptions?.canBuyAdvancedActions).toBe(false);
+  });
 });

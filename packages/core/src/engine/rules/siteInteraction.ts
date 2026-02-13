@@ -96,6 +96,21 @@ export function canAffordMonasteryAdvancedAction(influencePoints: number): boole
 }
 
 /**
+ * Check if a Monastery can be burned at this site.
+ * Must be a monastery that hasn't been burned yet.
+ */
+export function canBurnMonasteryAtSite(site: Site): boolean {
+  return site.type === SiteType.Monastery && !site.isBurned;
+}
+
+/**
+ * Check if a Village can be plundered at this site.
+ */
+export function canPlunderVillageAtSite(site: Site): boolean {
+  return site.type === SiteType.Village;
+}
+
+/**
  * Check if a player is at an inhabited site where they can interact.
  * Combines inhabited check with accessibility check.
  * Used by skill activation rules and condition evaluators.

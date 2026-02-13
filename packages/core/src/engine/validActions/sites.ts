@@ -26,10 +26,15 @@ import {
 import { mustAnnounceEndOfRound } from "./helpers.js";
 import {
   canInteractWithSite,
+  isSiteAccessibleForInteraction,
   hasCombatRestrictions,
   canEnterAdventureSite,
+  canHealAtSite,
+  canBuySpellsAtMageTower,
   canBuyAdvancedActionsAtMonastery,
   canAffordMonasteryAdvancedAction,
+  canBurnMonasteryAtSite,
+  canPlunderVillageAtSite,
 } from "../rules/siteInteraction.js";
 import { canTakeActionPhaseAction } from "../rules/turnStructure.js";
 
@@ -107,7 +112,8 @@ export function getSiteOptions(
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
     canTakeActionPhaseAction(player) &&
-    canInteractWithSite(site);
+    canInteractWithSite(site) &&
+    isSiteAccessibleForInteraction(site, player.id);
   const interactOptions = canInteract
     ? getInteractOptions(state, player, site)
     : undefined;
@@ -334,39 +340,36 @@ function getInteractOptions(
   const healCost = HEALING_COSTS[site.type];
   const woundsInHand = player.hand.filter((cardId) => cardId === CARD_WOUND).length;
   const canHeal =
-    healCost !== undefined &&
-    !site.isBurned &&
-    player.influencePoints >= healCost &&
+    canHealAtSite(site.type, site.isBurned) &&
+    player.influencePoints >= (healCost ?? 0) &&
     woundsInHand > 0;
 
-  // Check if can recruit (needs units in offer, site not burned)
-  const canRecruit = state.offers.units.length > 0 && !site.isBurned;
+  // Check if can recruit (needs units in offer)
+  const canRecruit = state.offers.units.length > 0;
 
   // Check if can buy spells (conquered Mage Tower, not after combat)
   // Spell purchase is part of interaction — players can buy multiple things
   // during a single interaction, only combat blocks further purchases
   const canBuySpells =
-    site.type === SiteType.MageTower &&
-    site.isConquered &&
+    canBuySpellsAtMageTower(site) &&
     !player.hasCombattedThisTurn &&
     state.offers.spells.cards.length > 0;
 
   // Check if can buy advanced actions (Monastery)
   const canBuyAdvancedActions =
     canBuyAdvancedActionsAtMonastery(site) &&
-    state.offers.advancedActions.cards.length > 0 &&
+    state.offers.monasteryAdvancedActions.length > 0 &&
     canAffordMonasteryAdvancedAction(player.influencePoints);
 
   // Check if can burn monastery
   const canBurnMonastery =
-    site.type === SiteType.Monastery &&
-    !site.isBurned &&
+    canBurnMonasteryAtSite(site) &&
     !player.hasTakenActionThisTurn &&
     !player.hasCombattedThisTurn;
 
   // Check if can plunder village (before-turn action - must be before any action or movement)
   const canPlunderVillage =
-    site.type === SiteType.Village &&
+    canPlunderVillageAtSite(site) &&
     !player.hasPlunderedThisTurn &&
     !player.hasTakenActionThisTurn &&
     !player.hasMovedThisTurn;
@@ -379,7 +382,7 @@ function getInteractOptions(
   };
 
   // Only add optional properties if they have values
-  if (healCost !== undefined && !site.isBurned) {
+  if (canHealAtSite(site.type, site.isBurned)) {
     (result as { healCost?: number }).healCost = healCost;
   }
   if (canBuySpells) {
