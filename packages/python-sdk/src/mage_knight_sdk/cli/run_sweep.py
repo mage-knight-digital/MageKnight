@@ -15,10 +15,22 @@ from __future__ import annotations
 
 import argparse
 import random
+import subprocess
 import sys
 import time
 
 from mage_knight_sdk.sim import RunnerConfig, StepTimings, run_simulations_sync
+
+
+def _get_git_sha() -> str | None:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip() or None
+    except Exception:
+        return None
 
 
 def _build_seed_list(
@@ -129,6 +141,7 @@ def _run_sweep(args: argparse.Namespace) -> int:
 
 def _run_sweep_sequential(args: argparse.Namespace, seeds: list[int]) -> int:
     """Sequential execution (original implementation)."""
+    git_sha = _get_git_sha()
     failures = 0
     timings: list[tuple[int, float, int, str]] = []  # (seed, sec, steps, outcome)
     agg_step_timings = StepTimings() if args.benchmark else None
@@ -154,6 +167,7 @@ def _run_sweep_sequential(args: argparse.Namespace, seeds: list[int]) -> int:
             write_failure_artifacts=args.save_failures,
             allow_undo=not args.no_undo,
             collect_step_timings=args.benchmark,
+            git_sha=git_sha,
         )
         results, _ = run_simulations_sync(config)
         result = results[0]
@@ -221,6 +235,8 @@ def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
         print("(Benchmark mode: timing each run)")
     print("-" * 72)
 
+    git_sha = _get_git_sha()
+
     # Start writer process
     writer_process, write_queue = start_writer_process(args.artifacts_dir)
 
@@ -237,6 +253,7 @@ def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
             write_failure_artifacts=args.save_failures,
             allow_undo=not args.no_undo,
             collect_step_timings=args.benchmark,
+            git_sha=git_sha,
         )
 
         # Bounded submission: keep at most 2x workers in-flight to avoid

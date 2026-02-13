@@ -671,6 +671,7 @@ def _finish_run(
         output_dir=config.artifacts_dir,
         run_result=run_result,
         message_log=messages,
+        git_sha=config.git_sha,
     )
 
     artifact_outcomes = {

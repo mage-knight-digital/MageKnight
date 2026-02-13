@@ -143,6 +143,8 @@ def _last_state_from_messages(message_log: list[MessageLogEntry]) -> dict[str, A
 def build_run_summary_record(
     run_result: RunResult,
     message_log: list[MessageLogEntry],
+    *,
+    git_sha: str | None = None,
 ) -> dict[str, Any]:
     """
     Build a summary record dict for a single run.
@@ -150,6 +152,7 @@ def build_run_summary_record(
     Args:
         run_result: Result metadata from the run
         message_log: Messages received during the run
+        git_sha: Optional git commit hash to tag the record with
 
     Returns:
         Summary record dict (ready for NDJSON serialization)
@@ -168,6 +171,8 @@ def build_run_summary_record(
     }
     if run_result.reason is not None:
         record["reason"] = run_result.reason
+    if git_sha is not None:
+        record["git_sha"] = git_sha
     return record
 
 
@@ -175,9 +180,11 @@ def write_run_summary(
     output_dir: str,
     run_result: RunResult,
     message_log: list[MessageLogEntry],
+    *,
+    git_sha: str | None = None,
 ) -> None:
     """Append one NDJSON line for every run (all outcomes). Enables fame analysis across all runs."""
-    record = build_run_summary_record(run_result, message_log)
+    record = build_run_summary_record(run_result, message_log, git_sha=git_sha)
     target = Path(output_dir) / "run_summary.ndjson"
     target.parent.mkdir(parents=True, exist_ok=True)
     with open(target, "a", encoding="utf-8") as f:

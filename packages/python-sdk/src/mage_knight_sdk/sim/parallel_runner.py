@@ -60,6 +60,7 @@ def run_single_seed(
         subscribe_lobby_on_connect=base_config.subscribe_lobby_on_connect,
         forced_invalid_action_step=base_config.forced_invalid_action_step,
         collect_step_timings=base_config.collect_step_timings,
+        git_sha=base_config.git_sha,
     )
 
     policy = policy_factory() if policy_factory is not None else RandomPolicy()
@@ -68,6 +69,6 @@ def run_single_seed(
     result = results[0]
     messages = message_logs[0]
 
-    summary_record = build_run_summary_record(result, messages)
+    summary_record = build_run_summary_record(result, messages, git_sha=config.git_sha)
 
     return result, summary_record
