@@ -281,6 +281,7 @@ export const createResolveDiscardCommandFromAction: CommandFactory = (
   return createResolveDiscardCommand({
     playerId,
     cardIds: action.cardIds,
+    endTurnAfterResolve: player.pendingDiscard.endTurnAfterResolve === true,
   });
 };
 

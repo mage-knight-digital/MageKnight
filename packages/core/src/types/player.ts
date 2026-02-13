@@ -204,6 +204,11 @@ export interface PendingDiscard {
    * Used for mandatory end-turn discard flow.
    */
   readonly satisfiesMinimumTurnRequirementOnResolve?: boolean;
+  /**
+   * If true, resolving this discard automatically chains into endTurn processing.
+   * Set by the mandatory end-turn discard flow so the turn ends immediately after discard.
+   */
+  readonly endTurnAfterResolve?: boolean;
 }
 
 /**

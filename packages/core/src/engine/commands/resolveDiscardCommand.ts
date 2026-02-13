@@ -28,6 +28,7 @@ import {
   applyChoiceOutcome,
   buildChoiceRequiredEvent,
 } from "./choice/choiceResolution.js";
+import { createEndTurnCommand } from "./endTurn/index.js";
 
 export { RESOLVE_DISCARD_COMMAND };
 
@@ -35,6 +36,8 @@ export interface ResolveDiscardCommandParams {
   readonly playerId: string;
   /** Card IDs to discard. Length must match pendingDiscard.count, or be empty if skipping (when optional). */
   readonly cardIds: readonly CardId[];
+  /** If true, automatically chain into endTurn processing after resolving the discard. */
+  readonly endTurnAfterResolve?: boolean;
 }
 
 export function createResolveDiscardCommand(
@@ -49,7 +52,7 @@ export function createResolveDiscardCommand(
   return {
     type: RESOLVE_DISCARD_COMMAND,
     playerId: params.playerId,
-    isReversible: true, // Part of normal card play flow
+    isReversible: !params.endTurnAfterResolve, // Irreversible when chaining to endTurn
 
     execute(state: GameState): CommandResult {
       const playerIndex = state.players.findIndex(
@@ -242,6 +245,18 @@ export function createResolveDiscardCommand(
             events: choiceResult.events,
           };
         }
+      }
+
+      // Chain into endTurn processing if flagged (mandatory end-turn discard flow)
+      if (params.endTurnAfterResolve) {
+        const endTurnCommand = createEndTurnCommand({
+          playerId: params.playerId,
+        });
+        const endTurnResult = endTurnCommand.execute(newState);
+        return {
+          state: endTurnResult.state,
+          events: [...events, ...endTurnResult.events],
+        };
       }
 
       return {

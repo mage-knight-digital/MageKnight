@@ -942,8 +942,6 @@ def _append_common_blocking_actions(valid_actions: dict[str, Any], actions: list
 
     if bool(turn.get("canUndo")):
         actions.append(CandidateAction({"type": ACTION_UNDO}, "turn.undo"))
-    if bool(turn.get("canEndTurn")):
-        actions.append(CandidateAction({"type": ACTION_END_TURN}, "turn.end_turn"))
 
 
 def _actions_for_tactic_decision(decision: dict[str, Any], source_prefix: str) -> list[CandidateAction]:

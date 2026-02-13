@@ -759,7 +759,7 @@ describe("END_TURN minimum turn requirement", () => {
     );
   });
 
-  it("should require mandatory discard with only wounds, then allow ending turn", () => {
+  it("should require mandatory discard then auto-end turn", () => {
     const player = createTestPlayer({
       hand: [CARD_WOUND, CARD_WOUND],
       deck: [CARD_MARCH],
@@ -776,21 +776,16 @@ describe("END_TURN minimum turn requirement", () => {
       expect.objectContaining({
         count: 1,
         optional: false,
+        endTurnAfterResolve: true,
       })
     );
 
+    // Resolving the discard should automatically end the turn
     const discardResult = engine.processAction(endBeforeDiscard.state, "player1", {
       type: RESOLVE_DISCARD_ACTION,
       cardIds: [CARD_WOUND],
     });
-    const updatedPlayer = discardResult.state.players[0];
-    expect(updatedPlayer?.playedCardFromHandThisTurn).toBe(true);
-    expect(updatedPlayer?.pendingDiscard).toBeNull();
-
-    const endAfterDiscard = engine.processAction(discardResult.state, "player1", {
-      type: END_TURN_ACTION,
-    });
-    expect(endAfterDiscard.events).toContainEqual(
+    expect(discardResult.events).toContainEqual(
       expect.objectContaining({
         type: TURN_ENDED,
         playerId: "player1",

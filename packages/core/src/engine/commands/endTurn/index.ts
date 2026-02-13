@@ -96,6 +96,7 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
             filterWounds: false,
             thenEffect: noopEffect,
             satisfiesMinimumTurnRequirementOnResolve: true,
+            endTurnAfterResolve: true,
           },
         };
 
