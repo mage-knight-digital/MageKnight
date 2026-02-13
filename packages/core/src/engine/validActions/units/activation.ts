@@ -42,7 +42,7 @@ import { getUnitOptions } from "./recruitment.js";
 import { getUnitAbilityEffect } from "../../../data/unitAbilityEffects.js";
 import { EFFECT_GAIN_BLOCK } from "../../../types/effectTypes.js";
 import { isEffectResolvable } from "../../effects/index.js";
-import { mustAnnounceEndOfRound } from "../helpers.js";
+import { mustAnnounceEndOfRound, mustSlowRecover } from "../helpers.js";
 import { isBondsUnit } from "../../rules/bondsOfLoyalty.js";
 
 /**
@@ -224,6 +224,11 @@ export function getActivatableUnits(
 
   // Must announce end of round before taking other actions
   if (mustAnnounceEndOfRound(state, player)) {
+    return activatable;
+  }
+
+  // Hand is all wounds with no card-drawing skills — must slow recover
+  if (mustSlowRecover(state, player)) {
     return activatable;
   }
 

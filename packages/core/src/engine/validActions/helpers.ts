@@ -22,6 +22,7 @@ import {
   mustForfeitTurnAfterRoundAnnouncement,
   isActivePlayer,
 } from "../rules/turnStructure.js";
+import { isLockedIntoSlowRecovery } from "../rules/woundLockout.js";
 
 /**
  * Check if a player can act in the current game state.
@@ -115,6 +116,16 @@ export function mustAnnounceEndOfRound(
     mustAnnounceEndOfRoundAtTurnStart(state, player) ||
     mustForfeitTurnAfterRoundAnnouncement(state, player)
   );
+}
+
+/**
+ * Check if a player is locked into slow recovery (hand is all wounds, no escape hatch skills).
+ *
+ * When true, only rest (slow recovery), end turn, announce end of round, undo,
+ * and skills should be available.
+ */
+export function mustSlowRecover(state: GameState, player: Player): boolean {
+  return isLockedIntoSlowRecovery(state, player);
 }
 
 /**

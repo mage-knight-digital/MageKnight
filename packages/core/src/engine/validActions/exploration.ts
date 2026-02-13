@@ -25,7 +25,7 @@ import { canExploreFromPosition } from "../explore/adjacency.js";
 import { isCoastlineSlot, getColumnRangeForShape } from "../explore/tileGrid.js";
 import { peekNextTileType } from "../../data/tileDeckSetup.js";
 import { TILE_TYPE_CORE } from "../../data/tileConstants.js";
-import { mustAnnounceEndOfRound } from "./helpers.js";
+import { mustAnnounceEndOfRound, mustSlowRecover } from "./helpers.js";
 import { isRuleActive, getEffectiveExploreCost } from "../modifiers/index.js";
 import { RULE_NO_EXPLORATION } from "../../types/modifierConstants.js";
 import { getExploreDistance, isPlayerNearExploreEdge } from "../rules/exploration.js";
@@ -55,6 +55,11 @@ export function getValidExploreOptions(
 
   // Must announce end of round before taking other actions
   if (mustAnnounceEndOfRound(state, player)) {
+    return undefined;
+  }
+
+  // Hand is all wounds with no card-drawing skills — must slow recover
+  if (mustSlowRecover(state, player)) {
     return undefined;
   }
 

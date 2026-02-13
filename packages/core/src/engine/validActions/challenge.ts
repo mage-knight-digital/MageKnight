@@ -8,7 +8,7 @@
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
 import type { ChallengeOptions } from "@mage-knight/shared";
-import { mustAnnounceEndOfRound } from "./helpers.js";
+import { mustAnnounceEndOfRound, mustSlowRecover } from "./helpers.js";
 import { getChallengeableRampagingHexes } from "../rules/challenge.js";
 
 /**
@@ -27,6 +27,11 @@ export function getChallengeOptions(
 ): ChallengeOptions | undefined {
   // Must announce end of round before taking other actions
   if (mustAnnounceEndOfRound(state, player)) {
+    return undefined;
+  }
+
+  // Hand is all wounds with no card-drawing skills — must slow recover
+  if (mustSlowRecover(state, player)) {
     return undefined;
   }
 

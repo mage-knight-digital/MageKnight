@@ -203,6 +203,9 @@ export const ALREADY_ANNOUNCED = "ALREADY_ANNOUNCED" as const;
 export const MUST_ANNOUNCE_END_OF_ROUND = "MUST_ANNOUNCE_END_OF_ROUND" as const;
 export const MUST_FORFEIT_TURN = "MUST_FORFEIT_TURN" as const;
 
+// Wound lockout validation codes
+export const MUST_SLOW_RECOVER = "MUST_SLOW_RECOVER" as const;
+
 // Minimum turn validation codes
 export const MUST_PLAY_OR_DISCARD_CARD = "MUST_PLAY_OR_DISCARD_CARD" as const;
 
@@ -530,6 +533,8 @@ export type ValidationErrorCode =
   | typeof ALREADY_ANNOUNCED
   | typeof MUST_ANNOUNCE_END_OF_ROUND
   | typeof MUST_FORFEIT_TURN
+  // Wound lockout validation
+  | typeof MUST_SLOW_RECOVER
   // Minimum turn validation
   | typeof MUST_PLAY_OR_DISCARD_CARD
   // Rampaging enemy validation

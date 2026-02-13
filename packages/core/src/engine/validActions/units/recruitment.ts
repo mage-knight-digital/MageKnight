@@ -14,7 +14,7 @@ import type { Player } from "../../../types/player.js";
 import type { UnitOptions, RecruitableUnit, RecruitManaOption } from "@mage-knight/shared";
 import { UNITS, MIN_REPUTATION, BASIC_MANA_COLORS, type UnitId } from "@mage-knight/shared";
 import { SiteType } from "../../../types/map.js";
-import { mustAnnounceEndOfRound } from "../helpers.js";
+import { mustAnnounceEndOfRound, mustSlowRecover } from "../helpers.js";
 import {
   siteTypeToRecruitSite,
   isSiteAccessibleForRecruitment,
@@ -52,6 +52,11 @@ export function getUnitOptions(
 
   // Must announce end of round before taking other actions
   if (mustAnnounceEndOfRound(state, player)) {
+    return undefined;
+  }
+
+  // Hand is all wounds with no card-drawing skills — must slow recover
+  if (mustSlowRecover(state, player)) {
     return undefined;
   }
 

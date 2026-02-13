@@ -52,6 +52,19 @@ export function isWoundCard(cardId: string): boolean {
 }
 
 /**
+ * Check if a player's hand contains only wound cards.
+ *
+ * Returns true when the hand is non-empty and every card is a wound.
+ * Returns false for an empty hand.
+ */
+export function isHandAllWounds(player: Player): boolean {
+  if (player.hand.length === 0) {
+    return false;
+  }
+  return player.hand.every((cardId) => isWoundCard(cardId));
+}
+
+/**
  * Get which rest types are available for a player.
  *
  * - Standard Rest: requires at least one non-wound card (discard 1 non-wound + any wounds)

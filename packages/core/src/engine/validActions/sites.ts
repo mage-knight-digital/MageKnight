@@ -23,7 +23,7 @@ import {
   SPELL_PURCHASE_COST,
   MONASTERY_AA_PURCHASE_COST,
 } from "../../data/siteProperties.js";
-import { mustAnnounceEndOfRound } from "./helpers.js";
+import { mustAnnounceEndOfRound, mustSlowRecover } from "./helpers.js";
 import {
   canInteractWithSite,
   isSiteAccessibleForInteraction,
@@ -85,6 +85,7 @@ export function getSiteOptions(
   const canEnter =
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
+    !mustSlowRecover(state, player) &&
     canEnterAdventureSite(site) &&
     canTakeActionPhaseAction(player) &&
     !(site.type === SiteType.AncientRuins && ruinsHasAltarToken) &&
@@ -110,6 +111,7 @@ export function getSiteOptions(
   const canInteract =
     !player.isResting &&
     !mustAnnounceEndOfRound(state, player) &&
+    !mustSlowRecover(state, player) &&
     canTakeActionPhaseAction(player) &&
     canInteractWithSite(site) &&
     isSiteAccessibleForInteraction(site, player.id);
@@ -161,7 +163,8 @@ export function getSiteOptions(
     !site.isConquered &&
     !player.hasTakenActionThisTurn &&
     !player.isResting &&
-    !mustAnnounceEndOfRound(state, player)
+    !mustAnnounceEndOfRound(state, player) &&
+    !mustSlowRecover(state, player)
   ) {
     const altarTokenDef = getRuinsTokenDefinition(hex.ruinsToken.tokenId);
     if (altarTokenDef && isAltarToken(altarTokenDef)) {

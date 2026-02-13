@@ -13,7 +13,7 @@ import { evaluateMoveEntry } from "../rules/movement.js";
 import { SiteType, type HexState } from "../../types/map.js";
 import { SITE_PROPERTIES } from "../../data/siteProperties.js";
 import { FEATURE_FLAGS } from "../../config/featureFlags.js";
-import { mustAnnounceEndOfRound } from "./helpers.js";
+import { mustAnnounceEndOfRound, mustSlowRecover } from "./helpers.js";
 import { isRuleActive } from "../modifiers/index.js";
 import { RULE_GARRISON_REVEAL_DISTANCE_2, RULE_IGNORE_RAMPAGING_PROVOKE, RULE_SPACE_BENDING_ADJACENCY } from "../../types/modifierConstants.js";
 
@@ -61,6 +61,11 @@ export function getValidMoveTargets(
 
   // Must announce end of round before taking other actions
   if (mustAnnounceEndOfRound(state, player)) {
+    return undefined;
+  }
+
+  // Hand is all wounds with no card-drawing skills — must slow recover
+  if (mustSlowRecover(state, player)) {
     return undefined;
   }
 

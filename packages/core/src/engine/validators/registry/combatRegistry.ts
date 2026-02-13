@@ -48,6 +48,9 @@ import { validateNotRestingForCombat } from "../restValidators.js";
 // Level up validators
 import { validateNoPendingLevelUpRewards } from "../levelUpValidators.js";
 
+// Wound lockout validators
+import { validateNotLockedIntoSlowRecovery } from "../woundLockoutValidators.js";
+
 // Combat validators
 import {
   validateNotAlreadyInCombat,
@@ -130,6 +133,7 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateNoChoicePending,
     validateNoPendingLevelUpRewards, // Must select level up rewards first
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotLockedIntoSlowRecovery, // Hand all wounds, no escape hatch
     validateNotRestingForCombat, // Cannot enter combat while resting (FAQ S3)
     validateNotAlreadyInCombat,
     validateOneCombatPerTurn, // Can only have one combat per turn
@@ -139,6 +143,7 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateRoundPhase,
     validateNoChoicePending,
     validateMustAnnounceEndOfRound, // Must announce if deck+hand empty
+    validateNotLockedIntoSlowRecovery, // Hand all wounds, no escape hatch
     validateNotRestingForCombat, // Cannot challenge while resting (FAQ S3)
     validateHasNotActed, // Challenge uses action phase
     validateChallengePlayerOnMap,
