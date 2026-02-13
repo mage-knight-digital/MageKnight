@@ -18,7 +18,7 @@ import random
 import sys
 import time
 
-from mage_knight_sdk.sim import RunnerConfig, run_simulations_sync
+from mage_knight_sdk.sim import RunnerConfig, StepTimings, run_simulations_sync
 
 
 def _build_seed_list(
@@ -131,6 +131,7 @@ def _run_sweep_sequential(args: argparse.Namespace, seeds: list[int]) -> int:
     """Sequential execution (original implementation)."""
     failures = 0
     timings: list[tuple[int, float, int, str]] = []  # (seed, sec, steps, outcome)
+    agg_step_timings = StepTimings() if args.benchmark else None
     t_start = time.perf_counter()
 
     mode = "random seeds" if args.runs else f"deterministic range {seeds[0]}..{seeds[-1]}"
@@ -152,12 +153,21 @@ def _run_sweep_sequential(args: argparse.Namespace, seeds: list[int]) -> int:
             artifacts_dir=args.artifacts_dir,
             write_failure_artifacts=args.save_failures,
             allow_undo=not args.no_undo,
+            collect_step_timings=args.benchmark,
         )
         results, _ = run_simulations_sync(config)
         result = results[0]
         elapsed = time.perf_counter() - t0
         if args.benchmark:
             timings.append((seed, elapsed, result.steps, result.outcome))
+            if result.step_timings is not None and agg_step_timings is not None:
+                agg_step_timings.enumerate_ns += result.step_timings.enumerate_ns
+                agg_step_timings.sort_ns += result.step_timings.sort_ns
+                agg_step_timings.policy_ns += result.step_timings.policy_ns
+                agg_step_timings.server_ns += result.step_timings.server_ns
+                agg_step_timings.hooks_ns += result.step_timings.hooks_ns
+                agg_step_timings.overhead_ns += result.step_timings.overhead_ns
+                agg_step_timings.step_count += result.step_timings.step_count
 
         status = "OK" if result.outcome == "ended" else "FAIL"
         artifact = f" artifact={result.failure_artifact_path}" if result.failure_artifact_path else ""
@@ -174,6 +184,8 @@ def _run_sweep_sequential(args: argparse.Namespace, seeds: list[int]) -> int:
 
     if args.benchmark and timings:
         _print_benchmark(timings, t_total)
+        if agg_step_timings is not None and agg_step_timings.step_count > 0:
+            _print_step_timings(agg_step_timings, len(timings))
 
     print(f"Completed. failures={failures}")
     return 1 if failures > 0 else 0
@@ -187,6 +199,7 @@ def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
 
     failures = 0
     timings: list[tuple[int, float, int, str]] = []  # (seed, sec, steps, outcome)
+    agg_step_timings = StepTimings() if args.benchmark else None
     t_start = time.perf_counter()
 
     # Parse cluster ports if provided
@@ -223,6 +236,7 @@ def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
             artifacts_dir=args.artifacts_dir,
             write_failure_artifacts=args.save_failures,
             allow_undo=not args.no_undo,
+            collect_step_timings=args.benchmark,
         )
 
         # Submit all seeds to workers
@@ -253,6 +267,14 @@ def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
 
                     if args.benchmark:
                         timings.append((seed, elapsed, result.steps, result.outcome))
+                        if result.step_timings is not None and agg_step_timings is not None:
+                            agg_step_timings.enumerate_ns += result.step_timings.enumerate_ns
+                            agg_step_timings.sort_ns += result.step_timings.sort_ns
+                            agg_step_timings.policy_ns += result.step_timings.policy_ns
+                            agg_step_timings.server_ns += result.step_timings.server_ns
+                            agg_step_timings.hooks_ns += result.step_timings.hooks_ns
+                            agg_step_timings.overhead_ns += result.step_timings.overhead_ns
+                            agg_step_timings.step_count += result.step_timings.step_count
 
                     status = "OK" if result.outcome == "ended" else "FAIL"
                     artifact = f" artifact={result.failure_artifact_path}" if result.failure_artifact_path else ""
@@ -285,6 +307,8 @@ def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
 
     if args.benchmark and timings:
         _print_benchmark(timings, t_total)
+        if agg_step_timings is not None and agg_step_timings.step_count > 0:
+            _print_step_timings(agg_step_timings, len(timings))
 
     print(f"Completed. failures={failures}")
     return 1 if failures > 0 else 0
@@ -312,7 +336,20 @@ def _print_benchmark(
     for seed, sec, steps, outcome in by_time[:5]:
         sps = steps / sec if sec > 0 else 0
         print(f"  {sec:.1f}s  {steps} steps  {sps:.0f} steps/s  seed={seed}  outcome={outcome}")
-    print("\nBottlenecks (typical): network round-trips per step, artifact write on failure, enumerate_valid_actions")
+
+def _print_step_timings(agg: StepTimings, num_games: int) -> None:
+    """Print per-step component timing breakdown."""
+    summary = agg.summary()
+    print(f"\n--- Step Timing Breakdown (totals across {num_games} games, {agg.step_count} steps) ---")
+    print(f"{'Component':<14} {'Total':>8}  {'Per-step':>10}  {'% of step':>9}")
+    for name in ("enumerate", "sort", "policy", "server", "hooks", "overhead"):
+        row = summary[name]
+        total_s = row["total_ms"] / 1000
+        print(f"{name:<14} {total_s:>7.1f}s  {row['per_step_ms']:>8.1f}ms  {row['pct']:>8.1f}%")
+    print("\u2500" * 47)
+    total_row = summary["total"]
+    total_s = total_row["total_ms"] / 1000
+    print(f"{'total':<14} {total_s:>7.1f}s  {total_row['per_step_ms']:>8.1f}ms  {total_row['pct']:>8.1f}%")
 
 
 if __name__ == "__main__":

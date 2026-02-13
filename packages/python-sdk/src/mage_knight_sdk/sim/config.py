@@ -7,7 +7,7 @@ from mage_knight_sdk.client import MageKnightClient
 
 from .bootstrap import BootstrapSession
 from .invariants import StateInvariantTracker
-from .reporting import ActionTraceEntry, MessageLogEntry, RunResult
+from .reporting import ActionTraceEntry, MessageLogEntry, RunResult, StepTimings
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,7 @@ class RunnerConfig:
     forced_invalid_action_step: int | None = None
     allow_undo: bool = True
     stall_detection_no_draw_pile_change_turns: int = 20
+    collect_step_timings: bool = False
 
 
 @dataclass
@@ -45,3 +46,4 @@ class SimulationOutcome:
     result: RunResult
     trace: list[ActionTraceEntry]
     messages: list[MessageLogEntry]
+    step_timings: StepTimings | None = None

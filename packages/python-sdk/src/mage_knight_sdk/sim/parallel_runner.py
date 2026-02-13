@@ -59,6 +59,7 @@ def run_single_seed(
         write_full_artifact=base_config.write_full_artifact,
         subscribe_lobby_on_connect=base_config.subscribe_lobby_on_connect,
         forced_invalid_action_step=base_config.forced_invalid_action_step,
+        collect_step_timings=base_config.collect_step_timings,
     )
 
     policy = policy_factory() if policy_factory is not None else RandomPolicy()

@@ -4,6 +4,7 @@ import asyncio
 import json
 import random
 from pathlib import Path
+from time import perf_counter_ns
 from typing import Any
 
 from mage_knight_sdk.client import MageKnightClient
@@ -32,6 +33,7 @@ from .reporting import (
     OUTCOME_PROTOCOL_ERROR,
     RunResult,
     RunSummary,
+    StepTimings,
     summarize,
     write_failure_artifact,
     write_run_summary,
@@ -96,6 +98,7 @@ async def _run_single_simulation(
     stall_detector = StallDetector.create(
         no_draw_pile_change_turns=config.stall_detection_no_draw_pile_change_turns,
     )
+    timings = StepTimings() if config.collect_step_timings else None
 
     created = create_game(config.bootstrap_api_base_url, player_count=config.player_count, seed=seed)
     sessions = [created]
@@ -131,6 +134,8 @@ async def _run_single_simulation(
 
         step = 0
         while step < config.max_steps:
+            if timings is not None:
+                _t_step_start = perf_counter_ns()
             invariant_reason = _first_invariant_error(agents)
             if invariant_reason is not None:
                 return _finish_run(
@@ -144,6 +149,7 @@ async def _run_single_simulation(
                     trace=trace,
                     messages=messages,
                     hooks=hooks,
+                timings=timings,
                 )
 
             actor = _find_actor_for_next_action(agents)
@@ -171,6 +177,7 @@ async def _run_single_simulation(
                         trace=trace,
                         messages=messages,
                         hooks=hooks,
+                    timings=timings,
                     )
                 actor = _find_actor_for_next_action(agents)
                 invariant_reason = _first_invariant_error(agents)
@@ -186,6 +193,7 @@ async def _run_single_simulation(
                         trace=trace,
                         messages=messages,
                         hooks=hooks,
+                    timings=timings,
                     )
 
             if actor is None:
@@ -200,6 +208,7 @@ async def _run_single_simulation(
                     trace=trace,
                     messages=messages,
                     hooks=hooks,
+                timings=timings,
                 )
 
             state = actor.latest_state
@@ -215,10 +224,17 @@ async def _run_single_simulation(
                     trace=trace,
                     messages=messages,
                     hooks=hooks,
+                timings=timings,
                 )
 
             current_mode = mode(state)
+            if timings is not None:
+                _t0 = perf_counter_ns()
             all_candidates = enumerate_valid_actions(state, actor.session.player_id)
+            if timings is not None:
+                _d_enum = perf_counter_ns() - _t0
+            else:
+                _d_enum = 0
 
             # If UNDO is disabled, filter it out. Some intermediate snapshots can
             # briefly expose only UNDO while follow-up state updates are in flight.
@@ -251,17 +267,29 @@ async def _run_single_simulation(
                         trace=trace,
                         messages=messages,
                         hooks=hooks,
+                    timings=timings,
                     )
                 continue
 
             # Sort candidates by canonical action key for reproducible choice (seed-based RNG)
+            if timings is not None:
+                _t0 = perf_counter_ns()
             sorted_candidates = sorted(all_candidates, key=lambda c: action_key(c.action))
+            if timings is not None:
+                _d_sort = perf_counter_ns() - _t0
+                _t0 = perf_counter_ns()
+            else:
+                _d_sort = 0
             candidate = policy.choose_action(
                 state=state,
                 player_id=actor.session.player_id,
                 valid_actions=sorted_candidates,
                 rng=rng,
             )
+            if timings is not None:
+                _d_policy = perf_counter_ns() - _t0
+            else:
+                _d_policy = 0
             if candidate is None:
                 return _finish_run(
                     config=config,
@@ -274,6 +302,7 @@ async def _run_single_simulation(
                     trace=trace,
                     messages=messages,
                     hooks=hooks,
+                timings=timings,
                 )
 
             candidate_keys = {action_key(entry.action) for entry in all_candidates}
@@ -290,6 +319,7 @@ async def _run_single_simulation(
                     trace=trace,
                     messages=messages,
                     hooks=hooks,
+                timings=timings,
                 )
 
             action_to_send = candidate.action
@@ -307,6 +337,8 @@ async def _run_single_simulation(
                 )
             )
 
+            if timings is not None:
+                _t0 = perf_counter_ns()
             pre_version = actor.message_version
             await actor.client.send_action(action_to_send)
 
@@ -336,6 +368,7 @@ async def _run_single_simulation(
                     trace=trace,
                     messages=messages,
                     hooks=hooks,
+                timings=timings,
                 )
             except InvariantViolation as error:
                 return _finish_run(
@@ -349,8 +382,15 @@ async def _run_single_simulation(
                     trace=trace,
                     messages=messages,
                     hooks=hooks,
+                    timings=timings,
                 )
+            if timings is not None:
+                _d_server = perf_counter_ns() - _t0
+            else:
+                _d_server = 0
 
+            if timings is not None:
+                _t0 = perf_counter_ns()
             if hooks is not None:
                 hooks.on_step(
                     StepSample(
@@ -367,6 +407,10 @@ async def _run_single_simulation(
                         candidate_count=len(all_candidates),
                     )
                 )
+            if timings is not None:
+                _d_hooks = perf_counter_ns() - _t0
+            else:
+                _d_hooks = 0
 
             if actor.last_error_message is not None:
                 return _finish_run(
@@ -380,6 +424,7 @@ async def _run_single_simulation(
                     trace=trace,
                     messages=messages,
                     hooks=hooks,
+                timings=timings,
                 )
 
             if config.forced_invalid_action_step is None:
@@ -401,6 +446,7 @@ async def _run_single_simulation(
                         trace=trace,
                         messages=messages,
                         hooks=hooks,
+                    timings=timings,
                     )
 
             if any(
@@ -419,6 +465,7 @@ async def _run_single_simulation(
                     trace=trace,
                     messages=messages,
                     hooks=hooks,
+                timings=timings,
                 )
 
             actor_state = actor.latest_state
@@ -446,7 +493,19 @@ async def _run_single_simulation(
                         trace=trace,
                         messages=messages,
                         hooks=hooks,
+                    timings=timings,
                     )
+
+            if timings is not None:
+                _t_step_total = perf_counter_ns() - _t_step_start
+                _d_accounted = _d_enum + _d_sort + _d_policy + _d_server + _d_hooks
+                timings.enumerate_ns += _d_enum
+                timings.sort_ns += _d_sort
+                timings.policy_ns += _d_policy
+                timings.server_ns += _d_server
+                timings.hooks_ns += _d_hooks
+                timings.overhead_ns += _t_step_total - _d_accounted
+                timings.step_count += 1
 
             step += 1
 
@@ -468,6 +527,7 @@ async def _run_single_simulation(
             messages=messages,
             timeout_debug=max_steps_debug,
             hooks=hooks,
+            timings=timings,
         )
     finally:
         for task in listeners:
@@ -594,6 +654,7 @@ def _finish_run(
     messages: list[MessageLogEntry],
     timeout_debug: dict[str, Any] | None = None,
     hooks: RunnerHooks | None = None,
+    timings: StepTimings | None = None,
 ) -> SimulationOutcome:
     run_result = RunResult(
         run_index=run_index,
@@ -603,6 +664,7 @@ def _finish_run(
         game_id=game_id,
         reason=reason,
         timeout_debug=timeout_debug,
+        step_timings=timings,
     )
 
     write_run_summary(
@@ -637,12 +699,13 @@ def _finish_run(
             reason=run_result.reason,
             timeout_debug=run_result.timeout_debug,
             failure_artifact_path=artifact_path,
+            step_timings=run_result.step_timings,
         )
 
     if hooks is not None:
         hooks.on_run_end(run_result, messages)
 
-    return SimulationOutcome(result=run_result, trace=trace, messages=messages)
+    return SimulationOutcome(result=run_result, trace=trace, messages=messages, step_timings=timings)
 
 
 def run_simulations_sync(

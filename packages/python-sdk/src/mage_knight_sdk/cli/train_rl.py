@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
-from mage_knight_sdk.sim import RunnerConfig, run_simulations_sync
+from mage_knight_sdk.sim import RunnerConfig, StepTimings, run_simulations_sync
 
 
 def main() -> int:
@@ -44,6 +44,7 @@ def main() -> int:
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
     parser.add_argument("--no-final-checkpoint", action="store_true", help="Do not save a final checkpoint at the end")
     parser.add_argument("--resume", metavar="PATH", help="Resume from checkpoint (load policy + optimizer); run --episodes more from here")
+    parser.add_argument("--benchmark", action="store_true", help="Report per-step timing breakdown at the end")
 
     args = parser.parse_args()
     if args.episodes < 1:
@@ -104,6 +105,8 @@ def main() -> int:
     )
     print("-" * 88)
 
+    agg_step_timings = StepTimings() if args.benchmark else None
+
     for episode in range(args.episodes):
         seed = args.seed + episode
         config = RunnerConfig(
@@ -116,10 +119,19 @@ def main() -> int:
             artifacts_dir=args.artifacts_dir,
             write_failure_artifacts=args.save_failures,
             allow_undo=not args.no_undo,
+            collect_step_timings=args.benchmark,
         )
 
         results, _summary = run_simulations_sync(config, policy=policy, hooks=trainer)
         result = results[0]
+        if agg_step_timings is not None and result.step_timings is not None:
+            agg_step_timings.enumerate_ns += result.step_timings.enumerate_ns
+            agg_step_timings.sort_ns += result.step_timings.sort_ns
+            agg_step_timings.policy_ns += result.step_timings.policy_ns
+            agg_step_timings.server_ns += result.step_timings.server_ns
+            agg_step_timings.hooks_ns += result.step_timings.hooks_ns
+            agg_step_timings.overhead_ns += result.step_timings.overhead_ns
+            agg_step_timings.step_count += result.step_timings.step_count
         stats = trainer.last_stats
         if stats is None:
             print("Training hook did not emit episode stats", file=sys.stderr)
@@ -168,6 +180,9 @@ def main() -> int:
             },
         )
         print(f"Final checkpoint: {final_path}")
+
+    if agg_step_timings is not None and agg_step_timings.step_count > 0:
+        _print_step_timings(agg_step_timings, args.episodes)
 
     print(f"Metrics log: {metrics_path}")
     return 0
@@ -218,6 +233,21 @@ def _load_rl_components() -> dict[str, Any] | None:
         "RewardConfig": RewardConfig,
         "ReinforceTrainer": ReinforceTrainer,
     }
+
+
+def _print_step_timings(agg: StepTimings, num_episodes: int) -> None:
+    """Print per-step component timing breakdown."""
+    summary = agg.summary()
+    print(f"\n--- Step Timing Breakdown ({num_episodes} episodes, {agg.step_count} steps) ---")
+    print(f"{'Component':<14} {'Total':>8}  {'Per-step':>10}  {'% of step':>9}")
+    for name in ("enumerate", "sort", "policy", "server", "hooks", "overhead"):
+        row = summary[name]
+        total_s = row["total_ms"] / 1000
+        print(f"{name:<14} {total_s:>7.1f}s  {row['per_step_ms']:>8.1f}ms  {row['pct']:>8.1f}%")
+    print("\u2500" * 47)
+    total_row = summary["total"]
+    total_s = total_row["total_ms"] / 1000
+    print(f"{'total':<14} {total_s:>7.1f}s  {total_row['per_step_ms']:>8.1f}ms  {total_row['pct']:>8.1f}%")
 
 
 def _append_metrics_log(

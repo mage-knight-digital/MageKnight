@@ -31,6 +31,48 @@ class MessageLogEntry:
     payload: dict[str, Any]
 
 
+@dataclass
+class StepTimings:
+    """Accumulated wall-clock nanoseconds across all steps in a game."""
+
+    enumerate_ns: int = 0
+    sort_ns: int = 0
+    policy_ns: int = 0
+    server_ns: int = 0
+    hooks_ns: int = 0
+    overhead_ns: int = 0
+    step_count: int = 0
+
+    def total_ns(self) -> int:
+        return (
+            self.enumerate_ns
+            + self.sort_ns
+            + self.policy_ns
+            + self.server_ns
+            + self.hooks_ns
+            + self.overhead_ns
+        )
+
+    def summary(self) -> dict[str, Any]:
+        """Return human-readable summary with ms values and percentages."""
+        total = self.total_ns()
+        rows: dict[str, Any] = {}
+        for name in ("enumerate", "sort", "policy", "server", "hooks", "overhead"):
+            ns = getattr(self, f"{name}_ns")
+            rows[name] = {
+                "total_ms": ns / 1_000_000,
+                "per_step_ms": (ns / self.step_count / 1_000_000) if self.step_count else 0,
+                "pct": (ns / total * 100) if total else 0,
+            }
+        rows["total"] = {
+            "total_ms": total / 1_000_000,
+            "per_step_ms": (total / self.step_count / 1_000_000) if self.step_count else 0,
+            "pct": 100.0 if total else 0,
+        }
+        rows["step_count"] = self.step_count
+        return rows
+
+
 @dataclass(frozen=True)
 class RunResult:
     run_index: int
@@ -41,6 +83,7 @@ class RunResult:
     reason: str | None = None
     timeout_debug: dict[str, Any] | None = None
     failure_artifact_path: str | None = None
+    step_timings: StepTimings | None = None
 
 
 @dataclass(frozen=True)
