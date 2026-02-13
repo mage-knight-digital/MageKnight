@@ -7,8 +7,6 @@ from typing import Any
 
 import torch
 from torch import nn
-from torch.distributions import Categorical
-
 from ..generated_action_enumerator import CandidateAction
 from ..policy import Policy
 from .features import (
@@ -104,6 +102,9 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             nn.Linear(hidden_size, 1),
         )
 
+        # Pre-allocated zero vector to avoid repeated torch.zeros calls
+        self.register_buffer("_zero_emb", torch.zeros(emb_dim))
+
     def encode_state(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
         """Encode state features into a single vector. Computed once per step."""
         sf = step.state
@@ -116,46 +117,39 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             hand_ids = torch.tensor(sf.hand_card_ids, dtype=torch.long, device=device)
             hand_pool = self.card_emb(hand_ids).mean(dim=0)
         else:
-            hand_pool = torch.zeros(self.emb_dim, device=device)
+            hand_pool = self._zero_emb
 
         # Mean-pool unit embeddings
         if sf.unit_ids:
             unit_ids_t = torch.tensor(sf.unit_ids, dtype=torch.long, device=device)
             unit_pool = self.unit_emb(unit_ids_t).mean(dim=0)
         else:
-            unit_pool = torch.zeros(self.emb_dim, device=device)
+            unit_pool = self._zero_emb
 
         state_input = torch.cat([scalars, mode_vec, hand_pool, unit_pool])
         return self.state_encoder(state_input)
 
     def encode_actions(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
         """Encode all candidate actions into (N, hidden) tensor."""
-        n = len(step.actions)
-        action_type_ids = torch.tensor(
-            [a.action_type_id for a in step.actions], dtype=torch.long, device=device
-        )
-        source_ids = torch.tensor(
-            [a.source_id for a in step.actions], dtype=torch.long, device=device
-        )
-        card_ids = torch.tensor(
-            [a.card_id for a in step.actions], dtype=torch.long, device=device
-        )
-        unit_ids = torch.tensor(
-            [a.unit_id for a in step.actions], dtype=torch.long, device=device
-        )
-        enemy_ids = torch.tensor(
-            [a.enemy_id for a in step.actions], dtype=torch.long, device=device
+        # Pack all integer IDs into a single (N, 5) tensor — one torch.tensor call
+        ids = torch.tensor(
+            [
+                [a.action_type_id, a.source_id, a.card_id, a.unit_id, a.enemy_id]
+                for a in step.actions
+            ],
+            dtype=torch.long,
+            device=device,
         )
         action_scalars = torch.tensor(
             [a.scalars for a in step.actions], dtype=torch.float32, device=device
         )
 
         action_input = torch.cat([
-            self.action_type_emb(action_type_ids),
-            self.source_emb(source_ids),
-            self.card_emb(card_ids),
-            self.unit_emb(unit_ids),
-            self.enemy_emb(enemy_ids),
+            self.action_type_emb(ids[:, 0]),
+            self.source_emb(ids[:, 1]),
+            self.card_emb(ids[:, 2]),
+            self.unit_emb(ids[:, 3]),
+            self.enemy_emb(ids[:, 4]),
             action_scalars,
         ], dim=-1)  # (N, 5*emb_dim + 6)
 
@@ -211,12 +205,13 @@ class ReinforcePolicy(Policy):
         else:
             logits = self._choose_action_legacy(state, player_id, valid_actions)
 
-        distribution = Categorical(logits=logits)
-        selected_index_tensor = distribution.sample()
-        selected_index = int(selected_index_tensor.item())
+        log_probs = torch.log_softmax(logits, dim=0)
+        selected_index = int(torch.multinomial(log_probs.exp(), 1).item())
 
-        self._episode_log_probs.append(distribution.log_prob(selected_index_tensor))
-        self._episode_entropies.append(distribution.entropy())
+        self._episode_log_probs.append(log_probs[selected_index])
+        # Entropy: -sum(p * log(p))
+        probs = log_probs.exp()
+        self._episode_entropies.append(-(probs * log_probs).sum())
         self._episode_rewards.append(0.0)
 
         return valid_actions[selected_index]
