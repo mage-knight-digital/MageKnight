@@ -14,6 +14,7 @@ import type { Player } from "../../../types/player.js";
 import type { TacticId } from "@mage-knight/shared";
 import { getTacticsForTimeOfDay, TACTIC_REMOVAL_ALL_USED } from "@mage-knight/shared";
 import type { TacticsSetupResult } from "./types.js";
+import { getTacticCard } from "../../../data/tactics/index.js";
 
 /**
  * Set up tactics for the new round.
@@ -44,18 +45,29 @@ export function processTacticsSetup(
   // Note: TACTIC_REMOVAL_VOTE_ONE (co-op) would require a separate phase - not implemented yet
 
   // Set up tactics selection phase
-  // Selection order is based on Fame (lowest first)
-  // Ties are broken by Round Order token position (current turn order)
+  // Selection order: player with lowest-numbered tactic card from previous round picks first.
+  // state.players still has each player's selectedTactic from the round that just ended.
+  // Build a map of player ID → previous tactic turn order number
+  const previousTacticOrder = new Map<string, number>();
+  for (const player of state.players) {
+    if (player.selectedTactic !== null) {
+      previousTacticOrder.set(
+        player.id,
+        getTacticCard(player.selectedTactic).turnOrder
+      );
+    }
+  }
+
   const tacticsSelectionOrder = [...updatedPlayers]
     .map((p, turnOrderIndex) => ({
       id: p.id,
-      fame: p.fame,
+      previousTurnOrder: previousTacticOrder.get(p.id) ?? Infinity,
       turnOrderIndex, // Position in turn order for tie-breaking
     }))
     .sort((a, b) => {
-      // Sort by fame ascending (lowest fame picks first)
-      if (a.fame !== b.fame) {
-        return a.fame - b.fame;
+      // Sort by previous tactic's turn order number ascending (lowest picks first)
+      if (a.previousTurnOrder !== b.previousTurnOrder) {
+        return a.previousTurnOrder - b.previousTurnOrder;
       }
       // Tie-breaker: lower turn order position picks first
       return a.turnOrderIndex - b.turnOrderIndex;

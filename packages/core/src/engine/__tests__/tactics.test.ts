@@ -24,8 +24,10 @@ import {
   TACTIC_DECISION_RETHINK,
   TACTIC_DECISION_MIDNIGHT_MEDITATION,
   DECLARE_REST_ACTION,
+  TACTIC_THE_RIGHT_MOMENT,
+  TIME_OF_DAY_DAY,
 } from "@mage-knight/shared";
-import { createTacticsSelectionState } from "./testHelpers.js";
+import { createTacticsSelectionState, createTestPlayer } from "./testHelpers.js";
 import { createRng } from "../../utils/rng.js";
 import { createSelectTacticCommand } from "../commands/selectTacticCommand.js";
 import { createResolveTacticDecisionCommand } from "../commands/tactics/index.js";
@@ -35,6 +37,7 @@ import { getTacticCard } from "../../data/tactics/index.js";
 import { getTurnOptions } from "../validActions/turn.js";
 import { getValidActions } from "../validActions/index.js";
 import { validateNoTacticDecisionPending } from "../validators/choiceValidators.js";
+import { processTacticsSetup } from "../commands/endRound/tacticsSetup.js";
 
 describe("Tactics Selection", () => {
   describe("selectTacticCommand", () => {
@@ -813,6 +816,81 @@ describe("Tactics Selection", () => {
 
       // Deck should be empty
       expect(playerAfter?.deck.length).toBe(0);
+    });
+  });
+
+  describe("tactic-based selection order (round 2+)", () => {
+    it("selection order is based on previous tactic number, not fame", () => {
+      // Setup: player1 has higher fame (20) but lower tactic number (Early Bird = 1)
+      //        player2 has lower fame (10) but higher tactic number (Great Start = 5)
+      //
+      // Current (buggy): fame-based → player2 picks first (lower fame)
+      // Correct (rules): tactic-number-based → player1 picks first (lower tactic number)
+      const state = createTacticsSelectionState(["player1", "player2"]);
+
+      // Give players their "previous round" tactic selections and distinct fame
+      const stateWithPreviousTactics = {
+        ...state,
+        players: state.players.map((p) => {
+          if (p.id === "player1") {
+            return { ...p, fame: 20, selectedTactic: TACTIC_EARLY_BIRD }; // turnOrder 1
+          }
+          return { ...p, fame: 10, selectedTactic: TACTIC_GREAT_START }; // turnOrder 5
+        }),
+      };
+
+      // updatedPlayers = players after round reset (selectedTactic cleared)
+      const updatedPlayers = stateWithPreviousTactics.players.map((p) => ({
+        ...p,
+        selectedTactic: null,
+      }));
+
+      const result = processTacticsSetup(
+        stateWithPreviousTactics,
+        updatedPlayers,
+        TIME_OF_DAY_DAY
+      );
+
+      // Player1 had tactic #1 (Early Bird), player2 had tactic #5 (Great Start)
+      // Rules: lowest tactic number picks first → player1 should pick first
+      expect(result.tacticsSelectionOrder).toEqual(["player1", "player2"]);
+      expect(result.currentTacticSelector).toBe("player1");
+    });
+
+    it("three players ordered by previous tactic number", () => {
+      const state = createTacticsSelectionState(["player1", "player2", "player3"]);
+
+      const stateWithPreviousTactics = {
+        ...state,
+        players: state.players.map((p) => {
+          if (p.id === "player1") {
+            return { ...p, fame: 30, selectedTactic: TACTIC_PLANNING }; // turnOrder 4
+          }
+          if (p.id === "player2") {
+            return { ...p, fame: 10, selectedTactic: TACTIC_THE_RIGHT_MOMENT }; // turnOrder 6
+          }
+          // player3
+          return { ...p, fame: 20, selectedTactic: TACTIC_EARLY_BIRD }; // turnOrder 1
+        }),
+      };
+
+      const updatedPlayers = stateWithPreviousTactics.players.map((p) => ({
+        ...p,
+        selectedTactic: null,
+      }));
+
+      const result = processTacticsSetup(
+        stateWithPreviousTactics,
+        updatedPlayers,
+        TIME_OF_DAY_DAY
+      );
+
+      // player3 had #1, player1 had #4, player2 had #6
+      expect(result.tacticsSelectionOrder).toEqual([
+        "player3",
+        "player1",
+        "player2",
+      ]);
     });
   });
 });
