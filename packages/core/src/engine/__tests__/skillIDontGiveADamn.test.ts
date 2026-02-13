@@ -28,6 +28,7 @@ import {
   CARD_FIREBALL,
   CARD_BANNER_OF_GLORY,
   CARD_WOUND,
+  CARD_KRANG_RUTHLESS_COERCION,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import {
@@ -237,7 +238,7 @@ describe("I Don't Give a Damn skill", () => {
       const player = createTestPlayer({
         hero: Hero.Tovak,
         skills: [SKILL_TOVAK_I_DONT_GIVE_A_DAMN],
-        hand: [CARD_BANNER_OF_GLORY],
+        hand: [CARD_BANNER_OF_GLORY, CARD_KRANG_RUTHLESS_COERCION],
         influencePoints: 0,
       });
       const state = createTestGameState({ players: [player] });

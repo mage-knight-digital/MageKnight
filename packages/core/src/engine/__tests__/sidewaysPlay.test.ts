@@ -19,6 +19,7 @@ import {
   CARD_RAGE,
   CARD_WOUND,
   CARD_PROMISE,
+  CARD_KRANG_RUTHLESS_COERCION,
 } from "@mage-knight/shared";
 import { COMBAT_PHASE_ATTACK, COMBAT_PHASE_BLOCK, COMBAT_PHASE_RANGED_SIEGE } from "../../types/combat.js";
 import type { ActiveModifier } from "../../types/modifiers.js";
@@ -66,7 +67,7 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
 
     it("should gain Influence 1 when playing card sideways for influence", () => {
       const player = createTestPlayer({
-        hand: [CARD_MARCH], // Normally a move card
+        hand: [CARD_MARCH, CARD_KRANG_RUTHLESS_COERCION], // Ruthless Coercion provides influence sink
         influencePoints: 0,
       });
       const state = createTestGameState({ players: [player] });
@@ -305,7 +306,7 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
 
     it("should be undoable for influence", () => {
       const player = createTestPlayer({
-        hand: [CARD_MARCH],
+        hand: [CARD_MARCH, CARD_KRANG_RUTHLESS_COERCION],
         influencePoints: 5,
       });
       const state = createTestGameState({ players: [player] });
@@ -515,7 +516,7 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
   describe("multiple cards", () => {
     it("should allow playing multiple cards sideways", () => {
       const player = createTestPlayer({
-        hand: [CARD_MARCH, CARD_RAGE],
+        hand: [CARD_MARCH, CARD_RAGE, CARD_KRANG_RUTHLESS_COERCION],
         movePoints: 0,
         influencePoints: 0,
       });
@@ -539,7 +540,7 @@ describe("PLAY_CARD_SIDEWAYS action", () => {
 
       expect(afterSecond.state.players[0].influencePoints).toBe(1);
       expect(afterSecond.state.players[0].playArea).toHaveLength(2);
-      expect(afterSecond.state.players[0].hand).toHaveLength(0);
+      expect(afterSecond.state.players[0].hand).toHaveLength(1);
     });
   });
 });

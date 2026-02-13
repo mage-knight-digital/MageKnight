@@ -35,6 +35,7 @@ import {
   MANA_GREEN,
   MANA_BLUE,
   MANA_SOURCE_TOKEN,
+  CARD_KRANG_RUTHLESS_COERCION,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
 import {
@@ -413,7 +414,7 @@ describe("Universal Power skill", () => {
       const player = createTestPlayer({
         hero: Hero.Goldyx,
         skills: [SKILL_GOLDYX_UNIVERSAL_POWER],
-        hand: [CARD_BANNER_OF_GLORY],
+        hand: [CARD_BANNER_OF_GLORY, CARD_KRANG_RUTHLESS_COERCION],
         pureMana: [{ color: MANA_RED, source: "card" as const }],
         influencePoints: 0,
       });

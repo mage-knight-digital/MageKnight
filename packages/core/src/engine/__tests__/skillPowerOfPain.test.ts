@@ -25,6 +25,7 @@ import {
   PLAY_SIDEWAYS_AS_INFLUENCE,
   CARD_MARCH,
   CARD_WOUND,
+  CARD_KRANG_RUTHLESS_COERCION,
   getSkillsFromValidActions,
 } from "@mage-knight/shared";
 import { Hero } from "../../types/hero.js";
@@ -212,7 +213,7 @@ describe("Power of Pain skill", () => {
           usedThisCombat: [],
           activeUntilNextTurn: [],
         },
-        hand: [CARD_WOUND, CARD_MARCH],
+        hand: [CARD_WOUND, CARD_MARCH, CARD_KRANG_RUTHLESS_COERCION],
         influencePoints: 0,
       });
       const state = createTestGameState({ players: [player] });

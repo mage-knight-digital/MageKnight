@@ -59,7 +59,7 @@ export function getPlayableCardsForNormalTurn(
         continue;
       }
 
-      if (!canPlaySideways(state, player.isResting, player.hasRestedThisTurn, player.hand)) {
+      if (!canPlaySideways(state, player)) {
         continue;
       }
 
@@ -76,7 +76,7 @@ export function getPlayableCardsForNormalTurn(
 
       const woundSidewaysOptions = getSidewaysOptionsForValue(
         sidewaysValue,
-        getSidewaysContext(state, player.hasRestedThisTurn, player.hand)
+        getSidewaysContext(state, player)
       );
 
       if (woundSidewaysOptions.length === 0) {
@@ -124,7 +124,7 @@ export function getPlayableCardsForNormalTurn(
     // Sideways-only suggestions create false positives for cards that can't be
     // meaningfully used during rest (e.g., combat-only spells).
     const canPlaySidewaysInContext =
-      playability.canPlaySideways && canPlaySideways(state, player.isResting, player.hasRestedThisTurn, player.hand);
+      playability.canPlaySideways && canPlaySideways(state, player);
 
     if (canPlayByEffect || canPlaySidewaysInContext) {
       const playableCard: PlayableCard = {
@@ -234,7 +234,7 @@ function getCardPlayabilityForNormalTurn(
   const sidewaysOptions: SidewaysOption[] = [
     ...getSidewaysOptionsForValue(
       effectiveSidewaysValue,
-      getSidewaysContext(state, player.hasRestedThisTurn, player.hand)
+      getSidewaysContext(state, player)
     ),
   ];
 

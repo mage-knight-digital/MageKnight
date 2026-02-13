@@ -28,6 +28,7 @@ import {
   MANA_GOLD,
   MANA_GREEN,
   TIME_OF_DAY_NIGHT,
+  CARD_KRANG_RUTHLESS_COERCION,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -681,7 +682,7 @@ describe("getPlayableCardsForCombat", () => {
 
     it("should only advertise move/influence sideways options on normal turn", () => {
       const player = createTestPlayer({
-        hand: [CARD_RAGE],
+        hand: [CARD_RAGE, CARD_KRANG_RUTHLESS_COERCION],
       });
       const state = createTestGameState({ players: [player] });
 

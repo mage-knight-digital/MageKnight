@@ -5,19 +5,20 @@
  */
 
 import type { GameState } from "../../state/GameState.js";
+import type { Player } from "../../types/player.js";
 import type { CombatPhase } from "../../types/combat.js";
-import type { CardId, SidewaysOption } from "@mage-knight/shared";
+import type { SidewaysOption } from "@mage-knight/shared";
 import {
   PLAY_SIDEWAYS_AS_MOVE,
   PLAY_SIDEWAYS_AS_INFLUENCE,
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
-  CARD_KRANG_RUTHLESS_COERCION,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
+import { isInfluenceUseful } from "./influenceUsefulness.js";
 
 export type SidewaysChoice =
   | typeof PLAY_SIDEWAYS_AS_MOVE
@@ -29,32 +30,19 @@ export interface SidewaysContext {
   readonly inCombat: boolean;
   readonly phase?: CombatPhase;
   readonly hasRestedThisTurn?: boolean;
-  readonly hasInfluenceConsumer?: boolean;
-}
-
-/**
- * Whether the player's hand contains a card that can consume influence
- * after rest (when site interaction is blocked). Currently only
- * Ruthless Coercion qualifies (its powered effect readies units for influence).
- */
-export function hasInfluenceConsumerInHand(
-  hand: readonly CardId[]
-): boolean {
-  return hand.includes(CARD_KRANG_RUTHLESS_COERCION as CardId);
+  readonly influenceUseful?: boolean;
 }
 
 export function getSidewaysContext(
   state: GameState,
-  hasRestedThisTurn = false,
-  hand: readonly CardId[] = []
+  player: Player
 ): SidewaysContext {
   if (!state.combat) {
+    const useful = isInfluenceUseful(state, player);
     return {
       inCombat: false,
-      hasRestedThisTurn,
-      hasInfluenceConsumer: hasRestedThisTurn
-        ? hasInfluenceConsumerInHand(hand)
-        : undefined,
+      hasRestedThisTurn: player.hasRestedThisTurn,
+      influenceUseful: useful,
     };
   }
 
@@ -66,15 +54,16 @@ export function getAllowedSidewaysChoices(
 ): readonly SidewaysChoice[] {
   if (!context.inCombat) {
     if (context.hasRestedThisTurn) {
-      if (context.hasInfluenceConsumer) {
+      if (context.influenceUseful) {
         return [PLAY_SIDEWAYS_AS_INFLUENCE];
       }
       return [];
     }
-    return [
-      PLAY_SIDEWAYS_AS_MOVE,
-      PLAY_SIDEWAYS_AS_INFLUENCE,
-    ];
+    const choices: SidewaysChoice[] = [PLAY_SIDEWAYS_AS_MOVE];
+    if (context.influenceUseful) {
+      choices.push(PLAY_SIDEWAYS_AS_INFLUENCE);
+    }
+    return choices;
   }
 
   switch (context.phase) {
@@ -107,17 +96,13 @@ export function getSidewaysOptionsForValue(
  */
 export function canPlaySideways(
   state: GameState,
-  isResting: boolean,
-  hasRestedThisTurn = false,
-  hand: readonly CardId[] = []
+  player: Player
 ): boolean {
-  if (isResting) {
+  if (player.isResting) {
     return false;
   }
 
   return (
-    getAllowedSidewaysChoices(
-      getSidewaysContext(state, hasRestedThisTurn, hand)
-    ).length > 0
+    getAllowedSidewaysChoices(getSidewaysContext(state, player)).length > 0
   );
 }
