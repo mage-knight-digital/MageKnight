@@ -17,8 +17,10 @@
 import type { Player } from "../../types/player.js";
 import type { DeedCard, CardEffect, ScalableBaseEffect, ResolveBoostTargetEffect } from "../../types/cards.js";
 import { DEED_CARD_TYPE_BASIC_ACTION, DEED_CARD_TYPE_ADVANCED_ACTION } from "../../types/cards.js";
+import type { CardId } from "@mage-knight/shared";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { getCard } from "../helpers/cardLookup.js";
+import { isDiscardCostPayableAfterPlayingSource } from "../rules/cardPlay.js";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
@@ -35,25 +37,43 @@ import {
 
 /**
  * Get cards from player's hand that are eligible for boosting.
- * Eligible: Basic Action and Advanced Action cards (not wounds, spells, artifacts).
+ * Eligible: Basic Action and Advanced Action cards (not wounds, spells, artifacts)
+ * whose powered effects can actually be resolved (e.g., discard costs are payable).
+ *
+ * @param player - The player whose hand to check
+ * @param sourceCardId - The card providing the boost (e.g., Concentration).
+ *   Both the source and the target leave the hand before the target's effect resolves,
+ *   so discard cost checks must account for both removals.
  */
-export function getEligibleBoostTargets(player: Player): DeedCard[] {
+export function getEligibleBoostTargets(player: Player, sourceCardId: CardId): DeedCard[] {
   const eligibleCards: DeedCard[] = [];
 
-  for (const cardId of player.hand) {
+  // The source card will leave the hand when played, so remove it for eligibility checks
+  const handWithoutSource = player.hand.filter((id) => id !== sourceCardId);
+
+  for (const cardId of handWithoutSource) {
     const card = getCard(cardId);
     if (!card) continue;
 
     // Only action cards can be boosted (not spells, artifacts, or wounds)
     if (
-      card.cardType === DEED_CARD_TYPE_BASIC_ACTION ||
-      card.cardType === DEED_CARD_TYPE_ADVANCED_ACTION
+      card.cardType !== DEED_CARD_TYPE_BASIC_ACTION &&
+      card.cardType !== DEED_CARD_TYPE_ADVANCED_ACTION
     ) {
-      // Wounds have cardType basic_action but id is CARD_WOUND
-      if (cardId !== CARD_WOUND) {
-        eligibleCards.push(card);
-      }
+      continue;
     }
+
+    // Wounds have cardType basic_action but id is CARD_WOUND
+    if (cardId === CARD_WOUND) continue;
+
+    // Check if the target card's powered effect has a payable discard cost.
+    // When the target is boosted, it also leaves the hand, so use the hand
+    // without the source and treat the target as the "source" for the check.
+    if (!isDiscardCostPayableAfterPlayingSource(card.poweredEffect, handWithoutSource, card.id)) {
+      continue;
+    }
+
+    eligibleCards.push(card);
   }
 
   return eligibleCards;

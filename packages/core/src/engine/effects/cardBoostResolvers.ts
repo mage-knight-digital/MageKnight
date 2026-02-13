@@ -32,6 +32,7 @@ import type {
   CardBoostEffect,
   ResolveBoostTargetEffect,
 } from "../../types/cards.js";
+import type { CardId } from "@mage-knight/shared";
 import type { EffectResolutionResult } from "./types.js";
 import type { EffectResolver } from "./compound.js";
 import { getCard } from "../helpers/cardLookup.js";
@@ -70,10 +71,12 @@ import { EFFECT_CARD_BOOST, EFFECT_RESOLVE_BOOST_TARGET } from "../../types/effe
 export function resolveCardBoostEffect(
   state: GameState,
   player: Player,
-  effect: CardBoostEffect
+  effect: CardBoostEffect,
+  sourceCardId?: CardId
 ): EffectResolutionResult {
   // Card boost: player must choose an Action card from hand to play with boosted powered effect
-  const eligibleCards = getEligibleBoostTargets(player);
+  // sourceCardId is needed to properly check discard costs (both source and target leave the hand)
+  const eligibleCards = getEligibleBoostTargets(player, sourceCardId ?? player.playArea[player.playArea.length - 1]);
 
   if (eligibleCards.length === 0) {
     return {
@@ -176,9 +179,9 @@ export function resolveBoostTargetEffect(
  * @param resolver - The main resolveEffect function for recursive resolution
  */
 export function registerCardBoostEffects(resolver: EffectResolver): void {
-  registerEffect(EFFECT_CARD_BOOST, (state, playerId, effect) => {
+  registerEffect(EFFECT_CARD_BOOST, (state, playerId, effect, sourceCardId) => {
     const { player } = getPlayerContext(state, playerId);
-    return resolveCardBoostEffect(state, player, effect as CardBoostEffect);
+    return resolveCardBoostEffect(state, player, effect as CardBoostEffect, sourceCardId as CardId | undefined);
   });
 
   registerEffect(EFFECT_RESOLVE_BOOST_TARGET, (state, playerId, effect) => {

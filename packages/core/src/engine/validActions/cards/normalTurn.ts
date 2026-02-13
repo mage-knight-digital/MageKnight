@@ -28,6 +28,8 @@ import {
   cardConsumesAction,
   isDiscardCostPayableAfterPlayingSource,
 } from "../../rules/cardPlay.js";
+import { EFFECT_CARD_BOOST } from "../../../types/effectTypes.js";
+import { getEligibleBoostTargets } from "../../effects/cardBoostEffects.js";
 
 interface CardPlayability {
   canPlayBasic: boolean;
@@ -188,7 +190,14 @@ function getCardPlayabilityForNormalTurn(
     card.id
   );
 
-  const poweredIsResolvable = isEffectResolvable(state, player.id, card.poweredEffect);
+  let poweredIsResolvable = isEffectResolvable(state, player.id, card.poweredEffect);
+
+  // For card boost effects (Concentration/Will Focus), additionally check that
+  // at least one target card's powered effect can actually be resolved after both
+  // the source and target leave the hand (e.g., discard costs are payable).
+  if (poweredIsResolvable && card.poweredEffect.type === EFFECT_CARD_BOOST) {
+    poweredIsResolvable = getEligibleBoostTargets(player, card.id).length > 0;
+  }
 
   // Determine if Universal Power mana color matches this card's color
   let manaColorMatchesCard: boolean | undefined;

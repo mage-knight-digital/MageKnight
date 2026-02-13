@@ -449,8 +449,9 @@ const resolvabilityHandlers: Partial<Record<EffectType, ResolvabilityHandler>> =
   },
 
   [EFFECT_CARD_BOOST]: (state, player) => {
-    // Card boost is resolvable only if player has eligible Action cards in hand
-    // (Basic or Advanced Action cards, not wounds/spells/artifacts)
+    // Card boost is resolvable only if player has eligible Action cards in hand.
+    // Note: The full discard cost check (which requires knowing the source card)
+    // is handled by the valid actions layer in normalTurn.ts and combat.ts.
     return player.hand.some((cardId) => {
       if (cardId === CARD_WOUND) return false;
       const card = getCard(cardId);

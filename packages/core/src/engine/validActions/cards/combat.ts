@@ -31,6 +31,8 @@ import {
 } from "../../rules/cardPlay.js";
 import { getSidewaysOptionsForValue } from "../../rules/sideways.js";
 import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "../../modifiers/index.js";
+import { EFFECT_CARD_BOOST } from "../../../types/effectTypes.js";
+import { getEligibleBoostTargets } from "../../effects/cardBoostEffects.js";
 import { RULE_WOUNDS_PLAYABLE_SIDEWAYS, RULE_MOVE_CARDS_IN_COMBAT, RULE_INFLUENCE_CARDS_IN_COMBAT, EFFECT_SIDEWAYS_VALUE, SIDEWAYS_CONDITION_WITH_MANA_MATCHING_COLOR } from "../../../types/modifierConstants.js";
 import type { SidewaysValueModifier } from "../../../types/modifiers.js";
 
@@ -144,9 +146,16 @@ export function getPlayableCardsForCombat(
     const basicIsResolvable = adjustedBasicContext.effect
       ? isEffectResolvable(stateWithCombat, player.id, adjustedBasicContext.effect)
       : false;
-    const poweredIsResolvable = adjustedPoweredContext.effect
+    let poweredIsResolvable = adjustedPoweredContext.effect
       ? isEffectResolvable(stateWithCombat, player.id, adjustedPoweredContext.effect)
       : false;
+
+    // For card boost effects, additionally check that at least one target card's
+    // powered effect can be resolved after both source and target leave the hand.
+    if (poweredIsResolvable && card.poweredEffect.type === EFFECT_CARD_BOOST) {
+      poweredIsResolvable = getEligibleBoostTargets(player, cardId).length > 0;
+    }
+
     const basicDiscardCostPayable = adjustedBasicContext.effect
       ? isDiscardCostPayableAfterPlayingSource(adjustedBasicContext.effect, player.hand, cardId)
       : true;
