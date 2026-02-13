@@ -1247,6 +1247,13 @@ export interface PendingTacticDecisionState {
   readonly tacticDecision: PendingTacticDecisionInfo;
 }
 
+export interface PendingPlunderDecisionState {
+  readonly mode: "pending_plunder_decision";
+  readonly plunderDecision: {
+    readonly hexCoord: HexCoord;
+  };
+}
+
 export interface PendingGladeWoundState {
   readonly mode: "pending_glade_wound";
   readonly turn: BlockingTurnOptions;
@@ -1442,6 +1449,7 @@ export type ValidActions =
   | TacticsSelectionState
   | PendingTacticDecisionState
   | PendingUnitMaintenanceState
+  | PendingPlunderDecisionState
   | PendingGladeWoundState
   | PendingDeepMineState
   | PendingDiscardCostState

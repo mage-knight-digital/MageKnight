@@ -27,6 +27,7 @@ import {
   RESOLVE_DEEP_MINE_ACTION,
   BURN_MONASTERY_ACTION,
   PLUNDER_VILLAGE_ACTION,
+  DECLINE_PLUNDER_ACTION,
   RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
   RESOLVE_STEADY_TEMPO_ACTION,
   RESOLVE_BANNER_PROTECTION_ACTION,
@@ -40,6 +41,7 @@ import { createResolveGladeWoundCommand } from "../resolveGladeWoundCommand.js";
 import { createResolveDeepMineChoiceCommand } from "../resolveDeepMineChoiceCommand.js";
 import { createBurnMonasteryCommand } from "../burnMonasteryCommand.js";
 import { createPlunderVillageCommand } from "../plunderVillageCommand.js";
+import { createDeclinePlunderCommand } from "../declinePlunderCommand.js";
 import { createResolveCrystalJoyReclaimCommand } from "../resolveCrystalJoyReclaimCommand.js";
 import { createResolveSteadyTempoCommand } from "../resolveSteadyTempoCommand.js";
 import { createResolveBannerProtectionCommand } from "../resolveBannerProtectionCommand.js";
@@ -206,6 +208,19 @@ export const createPlunderVillageCommandFromAction: CommandFactory = (
 ) => {
   if (action.type !== PLUNDER_VILLAGE_ACTION) return null;
   return createPlunderVillageCommand({ playerId });
+};
+
+/**
+ * Decline plunder command factory.
+ * Creates a command to decline plundering a village (clears pending decision).
+ */
+export const createDeclinePlunderCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== DECLINE_PLUNDER_ACTION) return null;
+  return createDeclinePlunderCommand({ playerId });
 };
 
 /**

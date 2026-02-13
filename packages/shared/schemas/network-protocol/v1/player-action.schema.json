@@ -21,6 +21,9 @@
       "$ref": "#/definitions/PlunderVillageAction"
     },
     {
+      "$ref": "#/definitions/DeclinePlunderAction"
+    },
+    {
       "$ref": "#/definitions/EndTurnAction"
     },
     {
@@ -752,6 +755,19 @@
       "properties": {
         "type": {
           "const": "DECLARE_REST",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "DeclinePlunderAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "DECLINE_PLUNDER",
           "type": "string"
         }
       },

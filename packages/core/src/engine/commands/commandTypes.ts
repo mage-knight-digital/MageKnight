@@ -86,6 +86,9 @@ export const BURN_MONASTERY_COMMAND = "BURN_MONASTERY" as const;
 // Plunder village command
 export const PLUNDER_VILLAGE_COMMAND = "PLUNDER_VILLAGE" as const;
 
+// Decline plunder command (turn-start decision)
+export const DECLINE_PLUNDER_COMMAND = "DECLINE_PLUNDER" as const;
+
 // Cooperative assault commands
 export const PROPOSE_COOPERATIVE_ASSAULT_COMMAND = "PROPOSE_COOPERATIVE_ASSAULT" as const;
 export const RESPOND_TO_COOPERATIVE_PROPOSAL_COMMAND = "RESPOND_TO_COOPERATIVE_PROPOSAL" as const;

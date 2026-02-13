@@ -100,6 +100,7 @@ export function processPlayerRoundReset(
       tacticState: {},
       pendingTacticDecision: null,
       beforeTurnTacticPending: false,
+      pendingPlunderDecision: false,
       // Set maintenance pending for Magic Familiars
       pendingUnitMaintenance: familiarsUnits.length > 0
         ? familiarsUnits.map((u) => ({

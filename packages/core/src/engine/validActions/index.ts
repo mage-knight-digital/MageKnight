@@ -145,6 +145,14 @@ export function getValidActions(
     }
   }
 
+  // === Pending Plunder Decision (turn-start: must decide before any action) ===
+  if (player.pendingPlunderDecision) {
+    return {
+      mode: "pending_plunder_decision",
+      plunderDecision: { hexCoord: player.position! },
+    };
+  }
+
   // === Pending States (must resolve before other actions) ===
   if (player.pendingGladeWoundChoice) {
     return {

@@ -1,12 +1,13 @@
 /**
  * Hostile action validator registry
- * Handles BURN_MONASTERY_ACTION and PLUNDER_VILLAGE_ACTION
+ * Handles BURN_MONASTERY_ACTION, PLUNDER_VILLAGE_ACTION, and DECLINE_PLUNDER_ACTION
  */
 
 import type { Validator } from "../types.js";
 import {
   BURN_MONASTERY_ACTION,
   PLUNDER_VILLAGE_ACTION,
+  DECLINE_PLUNDER_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -31,11 +32,7 @@ import {
 } from "../burnMonasteryValidators.js";
 
 // Plunder village validators
-import {
-  validateAtVillage,
-  validateNotAlreadyPlundered,
-  validateBeforeTurnForPlunder,
-} from "../plunderVillageValidators.js";
+import { validatePendingPlunderDecision } from "../plunderVillageValidators.js";
 
 export const hostileRegistry: Record<string, Validator[]> = {
   [BURN_MONASTERY_ACTION]: [
@@ -53,10 +50,12 @@ export const hostileRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateRoundPhase,
     validateNotInCombat,
-    validateNoChoicePending,
-    validateMustAnnounceEndOfRound,
-    validateBeforeTurnForPlunder, // Must plunder before taking any action or moving
-    validateAtVillage,
-    validateNotAlreadyPlundered,
+    validatePendingPlunderDecision, // Lifecycle: must have pending decision
+  ],
+  [DECLINE_PLUNDER_ACTION]: [
+    validateIsPlayersTurn,
+    validateRoundPhase,
+    validateNotInCombat,
+    validatePendingPlunderDecision, // Lifecycle: must have pending decision
   ],
 };

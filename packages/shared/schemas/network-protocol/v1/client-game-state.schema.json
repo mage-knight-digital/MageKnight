@@ -3423,6 +3423,32 @@
       ],
       "type": "object"
     },
+    "PendingPlunderDecisionState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "pending_plunder_decision",
+          "type": "string"
+        },
+        "plunderDecision": {
+          "additionalProperties": false,
+          "properties": {
+            "hexCoord": {
+              "$ref": "#/definitions/HexCoord"
+            }
+          },
+          "required": [
+            "hexCoord"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "mode",
+        "plunderDecision"
+      ],
+      "type": "object"
+    },
     "PendingSourceOpeningRerollState": {
       "additionalProperties": false,
       "properties": {
@@ -4565,6 +4591,9 @@
         },
         {
           "$ref": "#/definitions/PendingTacticDecisionState"
+        },
+        {
+          "$ref": "#/definitions/PendingPlunderDecisionState"
         },
         {
           "$ref": "#/definitions/PendingGladeWoundState"

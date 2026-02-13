@@ -554,6 +554,9 @@ export interface Player {
   // Plunder tracking (only one plunder per turn allowed)
   readonly hasPlunderedThisTurn: boolean;
 
+  // Pending plunder decision (turn-start lifecycle: must decide before any action)
+  readonly pendingPlunderDecision: boolean;
+
   // Unit recruitment tracking (for "On Her Own" skill condition)
   readonly hasRecruitedUnitThisTurn: boolean;
 

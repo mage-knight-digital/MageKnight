@@ -20,7 +20,7 @@ def _load_enumerator_body_lines() -> list[str]:
             f"Expected existing generated file at {OUTPUT} to source helper bodies."
         )
     source = OUTPUT.read_text()
-    marker = "def _actions_pending_glade"
+    marker = "def _actions_pending_plunder"
     index = source.find(marker)
     if index < 0:
         raise ValueError(f"Could not find helper marker '{marker}' in {OUTPUT}")
@@ -149,6 +149,7 @@ def render() -> str:
         "pending_unit_maintenance": "_actions_pending_unit_maintenance",
         "pending_hex_cost_reduction": "_actions_pending_hex_cost_reduction",
         "pending_terrain_cost_reduction": "_actions_pending_terrain_cost_reduction",
+        "pending_plunder_decision": "_actions_pending_plunder",
     }
 
     unknown_pending = sorted(set(pending_modes) - set(pending_dispatch))

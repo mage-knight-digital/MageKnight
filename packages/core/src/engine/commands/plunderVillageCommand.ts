@@ -49,6 +49,7 @@ export function createPlunderVillageCommand(
   let previousHand: readonly CardId[];
   let previousDeck: readonly CardId[];
   let previousHasPlundered: boolean;
+  let previousPendingPlunderDecision: boolean;
 
   return {
     type: PLUNDER_VILLAGE_COMMAND,
@@ -72,6 +73,7 @@ export function createPlunderVillageCommand(
       previousHand = player.hand;
       previousDeck = player.deck;
       previousHasPlundered = player.hasPlunderedThisTurn;
+      previousPendingPlunderDecision = player.pendingPlunderDecision;
 
       const events: GameEvent[] = [];
       let updatedState = state;
@@ -93,6 +95,7 @@ export function createPlunderVillageCommand(
         hand: newHand,
         deck: newDeck,
         hasPlunderedThisTurn: true,
+        pendingPlunderDecision: false,
       };
 
       const updatedPlayers = [...updatedState.players];
@@ -145,6 +148,7 @@ export function createPlunderVillageCommand(
         hand: [...previousHand],
         deck: [...previousDeck],
         hasPlunderedThisTurn: previousHasPlundered,
+        pendingPlunderDecision: previousPendingPlunderDecision,
       };
 
       const updatedPlayers = [...state.players];

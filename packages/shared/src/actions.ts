@@ -61,6 +61,12 @@ export interface PlunderVillageAction {
   readonly type: typeof PLUNDER_VILLAGE_ACTION;
 }
 
+// Decline plunder action (turn-start decision)
+export const DECLINE_PLUNDER_ACTION = "DECLINE_PLUNDER" as const;
+export interface DeclinePlunderAction {
+  readonly type: typeof DECLINE_PLUNDER_ACTION;
+}
+
 // Turn structure actions
 export const END_TURN_ACTION = "END_TURN" as const;
 export interface EndTurnAction {
@@ -776,6 +782,7 @@ export type PlayerAction =
   | AltarTributeAction
   | BurnMonasteryAction
   | PlunderVillageAction
+  | DeclinePlunderAction
   // Turn structure
   | EndTurnAction
   | RestAction // @deprecated - use DeclareRestAction + CompleteRestAction
@@ -891,6 +898,7 @@ export const KNOWN_ACTION_TYPES: ReadonlySet<string> = new Set<PlayerActionType>
   ALTAR_TRIBUTE_ACTION,
   BURN_MONASTERY_ACTION,
   PLUNDER_VILLAGE_ACTION,
+  DECLINE_PLUNDER_ACTION,
   END_TURN_ACTION,
   REST_ACTION,
   DECLARE_REST_ACTION,

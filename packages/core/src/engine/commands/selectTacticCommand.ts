@@ -39,6 +39,7 @@ import { getPlayerById } from "../helpers/playerHelpers.js";
 import { calculateTurnOrder } from "./tactics/helpers.js";
 import { isDummyPlayer } from "../../types/dummyPlayer.js";
 import { executeDummyPlayerTurn } from "./dummyTurnCommand.js";
+import { shouldOfferPlunderDecision } from "../rules/siteInteraction.js";
 
 export { SELECT_TACTIC_COMMAND };
 
@@ -300,6 +301,7 @@ export function createSelectTacticCommand(
         }
 
         // Check if first human player needs Sparing Power before-turn decision
+        // and/or plunder decision at turn start
         const firstPlayerId = newTurnOrder[startIndex];
         let playersForTurns: Player[] = [...resultState.players];
         if (firstPlayerId && !isDummyPlayer(firstPlayerId)) {
@@ -308,15 +310,25 @@ export function createSelectTacticCommand(
           );
           if (firstPlayerIdx !== -1) {
             const firstPlayer = playersForTurns[firstPlayerIdx];
-            if (
-              firstPlayer &&
-              firstPlayer.selectedTactic === TACTIC_SPARING_POWER &&
-              !firstPlayer.tacticFlipped
-            ) {
-              const updatedFirstPlayer: Player = {
-                ...firstPlayer,
-                beforeTurnTacticPending: true,
-                pendingTacticDecision: { type: TACTIC_SPARING_POWER },
+            if (firstPlayer) {
+              let updatedFirstPlayer: Player = firstPlayer;
+              if (
+                firstPlayer.selectedTactic === TACTIC_SPARING_POWER &&
+                !firstPlayer.tacticFlipped
+              ) {
+                updatedFirstPlayer = {
+                  ...updatedFirstPlayer,
+                  beforeTurnTacticPending: true,
+                  pendingTacticDecision: { type: TACTIC_SPARING_POWER },
+                };
+              }
+              // Set plunder decision if on a village
+              updatedFirstPlayer = {
+                ...updatedFirstPlayer,
+                pendingPlunderDecision: shouldOfferPlunderDecision(
+                  resultState,
+                  updatedFirstPlayer
+                ),
               };
               playersForTurns[firstPlayerIdx] = updatedFirstPlayer;
             }

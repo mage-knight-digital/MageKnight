@@ -149,6 +149,7 @@ export function createTestPlayer(overrides: Partial<Player> = {}): Player {
     pendingRewards: [],
     hasCombattedThisTurn: false,
     hasPlunderedThisTurn: false,
+    pendingPlunderDecision: false,
     hasRecruitedUnitThisTurn: false,
     unitsRecruitedThisInteraction: [],
     manaUsedThisTurn: [],

@@ -28,6 +28,7 @@ ACTION_DEBUG_TRIGGER_LEVEL_UP = "DEBUG_TRIGGER_LEVEL_UP"
 ACTION_DECLARE_ATTACK = "DECLARE_ATTACK"
 ACTION_DECLARE_BLOCK = "DECLARE_BLOCK"
 ACTION_DECLARE_REST = "DECLARE_REST"
+ACTION_DECLINE_PLUNDER = "DECLINE_PLUNDER"
 ACTION_DISBAND_UNIT = "DISBAND_UNIT"
 ACTION_END_COMBAT_PHASE = "END_COMBAT_PHASE"
 ACTION_END_TURN = "END_TURN"
@@ -96,6 +97,7 @@ MODE_PENDING_HEX_COST_REDUCTION = "pending_hex_cost_reduction"
 MODE_PENDING_LEVEL_UP = "pending_level_up"
 MODE_PENDING_MAXIMAL_EFFECT = "pending_maximal_effect"
 MODE_PENDING_MEDITATION = "pending_meditation"
+MODE_PENDING_PLUNDER_DECISION = "pending_plunder_decision"
 MODE_PENDING_SOURCE_OPENING_REROLL = "pending_source_opening_reroll"
 MODE_PENDING_STEADY_TEMPO = "pending_steady_tempo"
 MODE_PENDING_TACTIC_DECISION = "pending_tactic_decision"
@@ -104,7 +106,7 @@ MODE_PENDING_TRAINING = "pending_training"
 MODE_PENDING_UNIT_MAINTENANCE = "pending_unit_maintenance"
 MODE_TACTICS_SELECTION = "tactics_selection"
 
-KNOWN_VALID_ACTION_MODES: tuple[str, ...] = ("cannot_act", "combat", "normal_turn", "pending_artifact_crystal_color", "pending_banner_protection", "pending_book_of_wisdom", "pending_choice", "pending_crystal_joy_reclaim", "pending_decompose", "pending_deep_mine", "pending_discard_cost", "pending_discard_for_attack", "pending_discard_for_bonus", "pending_discard_for_crystal", "pending_glade_wound", "pending_hex_cost_reduction", "pending_level_up", "pending_maximal_effect", "pending_meditation", "pending_source_opening_reroll", "pending_steady_tempo", "pending_tactic_decision", "pending_terrain_cost_reduction", "pending_training", "pending_unit_maintenance", "tactics_selection",)
+KNOWN_VALID_ACTION_MODES: tuple[str, ...] = ("cannot_act", "combat", "normal_turn", "pending_artifact_crystal_color", "pending_banner_protection", "pending_book_of_wisdom", "pending_choice", "pending_crystal_joy_reclaim", "pending_decompose", "pending_deep_mine", "pending_discard_cost", "pending_discard_for_attack", "pending_discard_for_bonus", "pending_discard_for_crystal", "pending_glade_wound", "pending_hex_cost_reduction", "pending_level_up", "pending_maximal_effect", "pending_meditation", "pending_plunder_decision", "pending_source_opening_reroll", "pending_steady_tempo", "pending_tactic_decision", "pending_terrain_cost_reduction", "pending_training", "pending_unit_maintenance", "tactics_selection",)
 KNOWN_TACTIC_DECISION_TYPES: tuple[str, ...] = ("mana_steal", "midnight_meditation", "preparation", "rethink", "sparing_power",)
 
 @dataclass(frozen=True)
@@ -168,6 +170,7 @@ def enumerate_valid_actions_from_state(state: dict[str, Any], player_id: str) ->
         "pending_level_up": _actions_pending_level_up,
         "pending_maximal_effect": _actions_pending_maximal_effect,
         "pending_meditation": _actions_pending_meditation,
+        "pending_plunder_decision": _actions_pending_plunder,
         "pending_source_opening_reroll": _actions_pending_source_opening_reroll,
         "pending_steady_tempo": _actions_pending_steady_tempo,
         "pending_terrain_cost_reduction": _actions_pending_terrain_cost_reduction,
@@ -189,6 +192,13 @@ def enumerate_valid_actions_from_state(state: dict[str, Any], player_id: str) ->
         return actions
 
     return actions
+
+def _actions_pending_plunder(valid_actions: dict[str, Any]) -> list[CandidateAction]:
+    return [
+        CandidateAction({"type": ACTION_PLUNDER_VILLAGE}, "plunder_decision.plunder"),
+        CandidateAction({"type": ACTION_DECLINE_PLUNDER}, "plunder_decision.decline"),
+    ]
+
 
 def _actions_pending_glade(valid_actions: dict[str, Any]) -> list[CandidateAction]:
     glade = _as_dict(valid_actions.get("gladeWound"))
@@ -723,8 +733,6 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
                         )
             if bool(interact_options.get("canBurnMonastery")):
                 actions.append(CandidateAction({"type": ACTION_BURN_MONASTERY}, "normal.site.burn_monastery"))
-            if bool(interact_options.get("canPlunderVillage")):
-                actions.append(CandidateAction({"type": ACTION_PLUNDER_VILLAGE}, "normal.site.plunder_village"))
 
     challenge = _as_dict(valid_actions.get("challenge"))
     for target_hex in _as_list(challenge.get("targetHexes") if challenge else None):

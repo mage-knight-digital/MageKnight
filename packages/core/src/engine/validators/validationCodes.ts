@@ -179,6 +179,7 @@ export const MONASTERY_BURNED = "MONASTERY_BURNED" as const;
 export const NOT_AT_MONASTERY = "NOT_AT_MONASTERY" as const;
 export const NOT_AT_VILLAGE = "NOT_AT_VILLAGE" as const;
 export const ALREADY_PLUNDERED = "ALREADY_PLUNDERED" as const;
+export const PLUNDER_NOT_AVAILABLE = "PLUNDER_NOT_AVAILABLE" as const;
 export const NO_HEALING_HERE = "NO_HEALING_HERE" as const;
 export const CANNOT_RECRUIT_HERE = "CANNOT_RECRUIT_HERE" as const;
 export const UNIT_TYPE_MISMATCH = "UNIT_TYPE_MISMATCH" as const;
@@ -510,6 +511,7 @@ export type ValidationErrorCode =
   | typeof NOT_AT_MONASTERY
   | typeof NOT_AT_VILLAGE
   | typeof ALREADY_PLUNDERED
+  | typeof PLUNDER_NOT_AVAILABLE
   | typeof NO_HEALING_HERE
   | typeof CANNOT_RECRUIT_HERE
   | typeof UNIT_TYPE_MISMATCH

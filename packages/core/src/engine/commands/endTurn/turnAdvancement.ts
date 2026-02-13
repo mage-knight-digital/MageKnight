@@ -24,6 +24,7 @@ import { SiteType } from "../../../types/map.js";
 import type { NextPlayerResult, NextPlayerSetupResult } from "./types.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 import { grantManaClaimSustainedToken } from "../../effects/manaClaimEffects.js";
+import { shouldOfferPlunderDecision } from "../../rules/siteInteraction.js";
 
 /**
  * Determine what happens after the current player's turn ends.
@@ -136,6 +137,12 @@ export function setupNextPlayer(
           };
         }
 
+        // Check for plunder decision at turn start
+        updatedPlayer = {
+          ...updatedPlayer,
+          pendingPlunderDecision: shouldOfferPlunderDecision(state, updatedPlayer),
+        };
+
         // Grant sustained Mana Claim token at turn start
         updatedPlayer = grantManaClaimSustainedToken(state, updatedPlayer);
 
@@ -169,6 +176,12 @@ export function setupNextPlayer(
           pureMana: gladeResult.manaToken
             ? [...nextPlayer.pureMana, gladeResult.manaToken]
             : nextPlayer.pureMana,
+        };
+
+        // Check for plunder decision at turn start
+        updatedNextPlayer = {
+          ...updatedNextPlayer,
+          pendingPlunderDecision: shouldOfferPlunderDecision(state, updatedNextPlayer),
         };
 
         // Grant sustained Mana Claim token at turn start

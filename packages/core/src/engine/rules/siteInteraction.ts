@@ -7,6 +7,9 @@
 
 import type { Site } from "../../types/map.js";
 import { SiteType } from "../../types/map.js";
+import type { GameState } from "../../state/GameState.js";
+import type { Player } from "../../types/player.js";
+import { hexKey } from "@mage-knight/shared";
 import {
   SITE_PROPERTIES,
   getHealingCost,
@@ -108,6 +111,22 @@ export function canBurnMonasteryAtSite(site: Site): boolean {
  */
 export function canPlunderVillageAtSite(site: Site): boolean {
   return site.type === SiteType.Village;
+}
+
+/**
+ * Check if a player standing on a village should be offered the plunder decision
+ * at the start of their turn. This is the single source of truth used by:
+ * - turnAdvancement (to set pendingPlunderDecision)
+ * - validators (to verify plunder eligibility)
+ */
+export function shouldOfferPlunderDecision(
+  state: GameState,
+  player: Player
+): boolean {
+  if (!player.position) return false;
+  const hex = state.map.hexes[hexKey(player.position)];
+  if (!hex?.site) return false;
+  return canPlunderVillageAtSite(hex.site);
 }
 
 /**

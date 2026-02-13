@@ -6,7 +6,8 @@ import type { ClientGameState } from "./types/clientState.js";
 export const NETWORK_PROTOCOL_VERSION_1 = "1.2.1" as const;
 export const NETWORK_PROTOCOL_VERSION_2 = "1.2.2" as const;
 export const NETWORK_PROTOCOL_VERSION_3 = "1.2.3" as const;
-export const NETWORK_PROTOCOL_VERSION = NETWORK_PROTOCOL_VERSION_3;
+export const NETWORK_PROTOCOL_VERSION_4 = "1.2.4" as const;
+export const NETWORK_PROTOCOL_VERSION = NETWORK_PROTOCOL_VERSION_4;
 
 export type NetworkProtocolVersion = typeof NETWORK_PROTOCOL_VERSION;
 
