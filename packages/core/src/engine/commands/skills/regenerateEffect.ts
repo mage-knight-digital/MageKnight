@@ -23,7 +23,7 @@ import { isManaColorAllowed } from "../../rules/mana.js";
  * Check if the player has the strictly lowest fame (not tied with anyone).
  * In solo play, this never qualifies (no other player to compare against).
  */
-function hasStrictlyLowestFame(state: GameState, playerId: string): boolean {
+export function hasStrictlyLowestFame(state: GameState, playerId: string): boolean {
   if (state.players.length <= 1) {
     return false;
   }
