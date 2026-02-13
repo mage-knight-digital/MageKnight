@@ -239,64 +239,82 @@ def _run_sweep_parallel(args: argparse.Namespace, seeds: list[int]) -> int:
             collect_step_timings=args.benchmark,
         )
 
-        # Submit all seeds to workers
+        # Bounded submission: keep at most 2x workers in-flight to avoid
+        # memory bloat from millions of Future objects.
+        max_in_flight = args.workers * 2
+        seed_iter = iter(enumerate(seeds))
+        completed = 0
+        stop_early = False
+
         with ProcessPoolExecutor(max_workers=args.workers) as executor:
-            futures = {
-                executor.submit(
-                    run_single_seed,
-                    seed,
-                    base_config,
-                    None,  # policy_factory
-                    worker_idx % args.workers,  # worker_id (round-robin)
-                    server_urls,  # server_urls for cluster mode
-                ): (seed, time.perf_counter())
-                for worker_idx, seed in enumerate(seeds)
-            }
+            # Seed the pool with initial batch
+            in_flight: dict[object, tuple[int, float]] = {}
+            for _ in range(min(max_in_flight, len(seeds))):
+                worker_idx, seed = next(seed_iter)
+                fut = executor.submit(
+                    run_single_seed, seed, base_config, None,
+                    worker_idx % args.workers, server_urls,
+                )
+                in_flight[fut] = (seed, time.perf_counter())
 
-            completed = 0
-            for future in as_completed(futures):
-                seed, t0 = futures[future]
-                completed += 1
-                elapsed = time.perf_counter() - t0
+            while in_flight and not stop_early:
+                # Wait for the next future to complete
+                done_set = as_completed(in_flight, timeout=None)
+                for future in done_set:
+                    seed, t0 = in_flight.pop(future)
+                    completed += 1
+                    elapsed = time.perf_counter() - t0
 
-                try:
-                    result, summary_record = future.result()
+                    try:
+                        result, summary_record = future.result()
+                        write_queue.put(summary_record)
 
-                    # Submit summary record to writer process
-                    write_queue.put(summary_record)
+                        if args.benchmark:
+                            timings.append((seed, elapsed, result.steps, result.outcome))
+                            if result.step_timings is not None and agg_step_timings is not None:
+                                agg_step_timings.enumerate_ns += result.step_timings.enumerate_ns
+                                agg_step_timings.sort_ns += result.step_timings.sort_ns
+                                agg_step_timings.policy_ns += result.step_timings.policy_ns
+                                agg_step_timings.server_ns += result.step_timings.server_ns
+                                agg_step_timings.hooks_ns += result.step_timings.hooks_ns
+                                agg_step_timings.overhead_ns += result.step_timings.overhead_ns
+                                agg_step_timings.step_count += result.step_timings.step_count
 
-                    if args.benchmark:
-                        timings.append((seed, elapsed, result.steps, result.outcome))
-                        if result.step_timings is not None and agg_step_timings is not None:
-                            agg_step_timings.enumerate_ns += result.step_timings.enumerate_ns
-                            agg_step_timings.sort_ns += result.step_timings.sort_ns
-                            agg_step_timings.policy_ns += result.step_timings.policy_ns
-                            agg_step_timings.server_ns += result.step_timings.server_ns
-                            agg_step_timings.hooks_ns += result.step_timings.hooks_ns
-                            agg_step_timings.overhead_ns += result.step_timings.overhead_ns
-                            agg_step_timings.step_count += result.step_timings.step_count
+                        status = "OK" if result.outcome == "ended" else "FAIL"
+                        artifact = f" artifact={result.failure_artifact_path}" if result.failure_artifact_path else ""
+                        reason = f" reason={result.reason}" if result.reason else ""
+                        print(f"[{completed}/{len(seeds)}] seed={seed} outcome={result.outcome} steps={result.steps} [{status}]{reason}{artifact}")
 
-                    status = "OK" if result.outcome == "ended" else "FAIL"
-                    artifact = f" artifact={result.failure_artifact_path}" if result.failure_artifact_path else ""
-                    reason = f" reason={result.reason}" if result.reason else ""
-                    print(f"[{completed}/{len(seeds)}] seed={seed} outcome={result.outcome} steps={result.steps} [{status}]{reason}{artifact}")
+                        if result.outcome != "ended":
+                            failures += 1
+                            if args.stop_on_failure:
+                                stop_early = True
+                                for remaining in in_flight:
+                                    remaining.cancel()
+                                break
 
-                    if result.outcome != "ended":
+                    except Exception as err:
                         failures += 1
+                        print(f"[{completed}/{len(seeds)}] seed={seed} EXCEPTION: {err}")
                         if args.stop_on_failure:
-                            # Cancel remaining futures
-                            for remaining_future in futures:
-                                remaining_future.cancel()
+                            stop_early = True
+                            for remaining in in_flight:
+                                remaining.cancel()
                             break
 
-                except Exception as err:
-                    failures += 1
-                    print(f"[{completed}/{len(seeds)}] seed={seed} EXCEPTION: {err}")
-                    if args.stop_on_failure:
-                        # Cancel remaining futures
-                        for remaining_future in futures:
-                            remaining_future.cancel()
-                        break
+                    # Submit next seed if available
+                    try:
+                        worker_idx, next_seed = next(seed_iter)
+                        fut = executor.submit(
+                            run_single_seed, next_seed, base_config, None,
+                            worker_idx % args.workers, server_urls,
+                        )
+                        in_flight[fut] = (next_seed, time.perf_counter())
+                    except StopIteration:
+                        pass
+
+                    # Only process one completion at a time to submit replacements promptly
+                    break
 
     finally:
         # Stop writer process
