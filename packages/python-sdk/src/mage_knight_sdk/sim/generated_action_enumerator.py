@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import combinations
 from typing import Any
 
 ACTION_ACTIVATE_TACTIC = "ACTIVATE_TACTIC"
@@ -944,13 +945,28 @@ def _actions_for_tactic_decision(decision: dict[str, Any], source_prefix: str) -
 
     actions: list[CandidateAction] = []
     if decision_type in {"rethink", "midnight_meditation"}:
+        available_card_ids = [c for c in _as_list(decision.get("availableCardIds")) if isinstance(c, str)]
+        max_cards = decision.get("maxCards", 0)
+        cap = min(max_cards, len(available_card_ids)) if isinstance(max_cards, int) and max_cards > 0 else 0
+        for size in range(1, cap + 1):
+            for combo in combinations(available_card_ids, size):
+                actions.append(
+                    CandidateAction(
+                        {
+                            "type": ACTION_RESOLVE_TACTIC_DECISION,
+                            "decision": {"type": decision_type, "cardIds": list(combo)},
+                        },
+                        f"{source_prefix}.cards.{size}",
+                    )
+                )
+        # Always include the option to discard nothing
         actions.append(
             CandidateAction(
                 {
                     "type": ACTION_RESOLVE_TACTIC_DECISION,
                     "decision": {"type": decision_type, "cardIds": []},
                 },
-                f"{source_prefix}.cards",
+                f"{source_prefix}.cards.0",
             )
         )
     elif decision_type == "mana_steal":

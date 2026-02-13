@@ -58,14 +58,13 @@ class RandomPolicyTest(unittest.TestCase):
         actions = enumerate_valid_actions(state, "player-1")
         tactic_actions = [a.action for a in actions if a.action.get("type") == "RESOLVE_TACTIC_DECISION"]
 
-        self.assertEqual(1, len(tactic_actions))
-        self.assertEqual(
-            {
-                "type": "RESOLVE_TACTIC_DECISION",
-                "decision": {"type": "midnight_meditation", "cardIds": []},
-            },
-            tactic_actions[0],
-        )
+        # Should enumerate: {march}, {swiftness}, {march,swiftness}, {} = 4 actions
+        self.assertEqual(4, len(tactic_actions))
+        card_id_sets = [tuple(a["decision"]["cardIds"]) for a in tactic_actions]
+        self.assertIn(("march",), card_id_sets)
+        self.assertIn(("swiftness",), card_id_sets)
+        self.assertIn(("march", "swiftness"), card_id_sets)
+        self.assertIn((), card_id_sets)  # discard nothing
 
     def test_enumerate_valid_actions_includes_complete_rest(self) -> None:
         state = {
@@ -212,6 +211,7 @@ class RandomPolicyTest(unittest.TestCase):
         actions = enumerate_valid_actions(state, "player-1")
         tactic_actions = [a.action for a in actions if a.action.get("type") == "RESOLVE_TACTIC_DECISION"]
 
+        # No available cards, so only the empty discard option
         self.assertEqual(1, len(tactic_actions))
         self.assertEqual(
             {
