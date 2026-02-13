@@ -6,12 +6,13 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { CombatPhase } from "../../types/combat.js";
-import type { SidewaysOption } from "@mage-knight/shared";
+import type { CardId, SidewaysOption } from "@mage-knight/shared";
 import {
   PLAY_SIDEWAYS_AS_MOVE,
   PLAY_SIDEWAYS_AS_INFLUENCE,
   PLAY_SIDEWAYS_AS_ATTACK,
   PLAY_SIDEWAYS_AS_BLOCK,
+  CARD_KRANG_RUTHLESS_COERCION,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_BLOCK,
@@ -28,14 +29,33 @@ export interface SidewaysContext {
   readonly inCombat: boolean;
   readonly phase?: CombatPhase;
   readonly hasRestedThisTurn?: boolean;
+  readonly hasInfluenceConsumer?: boolean;
+}
+
+/**
+ * Whether the player's hand contains a card that can consume influence
+ * after rest (when site interaction is blocked). Currently only
+ * Ruthless Coercion qualifies (its powered effect readies units for influence).
+ */
+export function hasInfluenceConsumerInHand(
+  hand: readonly CardId[]
+): boolean {
+  return hand.includes(CARD_KRANG_RUTHLESS_COERCION as CardId);
 }
 
 export function getSidewaysContext(
   state: GameState,
-  hasRestedThisTurn = false
+  hasRestedThisTurn = false,
+  hand: readonly CardId[] = []
 ): SidewaysContext {
   if (!state.combat) {
-    return { inCombat: false, hasRestedThisTurn };
+    return {
+      inCombat: false,
+      hasRestedThisTurn,
+      hasInfluenceConsumer: hasRestedThisTurn
+        ? hasInfluenceConsumerInHand(hand)
+        : undefined,
+    };
   }
 
   return { inCombat: true, phase: state.combat.phase };
@@ -46,7 +66,10 @@ export function getAllowedSidewaysChoices(
 ): readonly SidewaysChoice[] {
   if (!context.inCombat) {
     if (context.hasRestedThisTurn) {
-      return [PLAY_SIDEWAYS_AS_INFLUENCE];
+      if (context.hasInfluenceConsumer) {
+        return [PLAY_SIDEWAYS_AS_INFLUENCE];
+      }
+      return [];
     }
     return [
       PLAY_SIDEWAYS_AS_MOVE,
@@ -85,14 +108,16 @@ export function getSidewaysOptionsForValue(
 export function canPlaySideways(
   state: GameState,
   isResting: boolean,
-  hasRestedThisTurn = false
+  hasRestedThisTurn = false,
+  hand: readonly CardId[] = []
 ): boolean {
   if (isResting) {
     return false;
   }
 
   return (
-    getAllowedSidewaysChoices(getSidewaysContext(state, hasRestedThisTurn))
-      .length > 0
+    getAllowedSidewaysChoices(
+      getSidewaysContext(state, hasRestedThisTurn, hand)
+    ).length > 0
   );
 }

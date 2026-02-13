@@ -19,6 +19,7 @@ import {
   CARD_WHIRLWIND,
   CARD_MARCH,
   CARD_STAMINA,
+  CARD_KRANG_RUTHLESS_COERCION,
   PLAY_SIDEWAYS_AS_MOVE,
   PLAY_SIDEWAYS_AS_INFLUENCE,
   TERRAIN_PLAINS,
@@ -212,7 +213,7 @@ describe("Valid actions while resting", () => {
     expect(validActions.playCard).toBeUndefined();
   });
 
-  it("excludes sideways-for-move after rest is completed", () => {
+  it("excludes all sideways options after rest without influence consumer", () => {
     const player = createTestPlayer({
       isResting: false,
       hasRestedThisTurn: true,
@@ -224,21 +225,38 @@ describe("Valid actions while resting", () => {
     const validActions = getValidActions(state, player.id);
 
     expect(validActions.mode).toBe("normal_turn");
-    expect(validActions.playCard).toBeDefined();
 
-    for (const card of validActions.playCard!.cards) {
-      if (card.canPlaySideways) {
-        const moveOption = card.sidewaysOptions?.find(
-          (o) => o.as === PLAY_SIDEWAYS_AS_MOVE
-        );
-        const influenceOption = card.sidewaysOptions?.find(
-          (o) => o.as === PLAY_SIDEWAYS_AS_INFLUENCE
-        );
-
-        expect(moveOption).toBeUndefined();
-        expect(influenceOption).toBeDefined();
-      }
+    // Without an influence consumer like Ruthless Coercion, no sideways at all
+    for (const card of validActions.playCard?.cards ?? []) {
+      expect(card.canPlaySideways).toBe(false);
     }
+  });
+
+  it("allows sideways-for-influence after rest when Ruthless Coercion is in hand", () => {
+    const player = createTestPlayer({
+      isResting: false,
+      hasRestedThisTurn: true,
+      hasTakenActionThisTurn: true,
+      playedCardFromHandThisTurn: true,
+      hand: [CARD_MARCH, CARD_KRANG_RUTHLESS_COERCION],
+    });
+    const state = createTestGameState({ players: [player] });
+    const validActions = getValidActions(state, player.id);
+
+    expect(validActions.mode).toBe("normal_turn");
+
+    const marchCard = validActions.playCard?.cards.find(
+      (c) => c.cardId === CARD_MARCH
+    );
+    expect(marchCard?.canPlaySideways).toBe(true);
+    expect(marchCard?.sidewaysOptions).toEqual([
+      { as: PLAY_SIDEWAYS_AS_INFLUENCE, value: 1 },
+    ]);
+
+    const moveOption = marchCard?.sidewaysOptions?.find(
+      (o) => o.as === PLAY_SIDEWAYS_AS_MOVE
+    );
+    expect(moveOption).toBeUndefined();
   });
 
   it("includes sideways-for-move when rest has not occurred", () => {
