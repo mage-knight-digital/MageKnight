@@ -8,9 +8,32 @@
 import { getBasicActionCard } from "../../data/basicActions/index.js";
 import { DEED_CARD_TYPE_WOUND } from "../../types/cards.js";
 import type { BasicActionCardId, RestType } from "@mage-knight/shared";
-import { REST_TYPE_STANDARD, REST_TYPE_SLOW_RECOVERY } from "@mage-knight/shared";
+import {
+  REST_TYPE_STANDARD,
+  REST_TYPE_SLOW_RECOVERY,
+  ROUND_PHASE_TACTICS_SELECTION,
+  ROUND_PHASE_PLAYER_TURNS,
+} from "@mage-knight/shared";
 import type { Player } from "../../types/player.js";
 import type { GameState } from "../../state/GameState.js";
+
+/**
+ * Check if the given player is the currently active player.
+ *
+ * During tactics selection, the active player is `currentTacticSelector`.
+ * During player turns, the active player is `turnOrder[currentPlayerIndex]`.
+ *
+ * Returns false for unrecognized phases.
+ */
+export function isActivePlayer(state: GameState, playerId: string): boolean {
+  if (state.roundPhase === ROUND_PHASE_TACTICS_SELECTION) {
+    return state.currentTacticSelector === playerId;
+  }
+  if (state.roundPhase === ROUND_PHASE_PLAYER_TURNS) {
+    return state.turnOrder[state.currentPlayerIndex] === playerId;
+  }
+  return false;
+}
 
 /**
  * Check if a card is a wound card.

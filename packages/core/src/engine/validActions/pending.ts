@@ -33,6 +33,10 @@ import type {
 } from "@mage-knight/shared";
 import { mineColorToBasicManaColor } from "../../types/map.js";
 import { CARD_WOUND, hexKey, MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from "@mage-knight/shared";
+import {
+  hasPendingUnitMaintenance as checkHasPendingUnitMaintenance,
+  getAvailableCrystalColorsForMaintenance,
+} from "../rules/unitMaintenance.js";
 import { SiteType } from "../../types/map.js";
 import { getCardsEligibleForDiscardCost } from "../effects/discardEffects.js";
 import { getCardsEligibleForDiscardForAttack } from "../effects/swordOfJusticeEffects.js";
@@ -343,16 +347,12 @@ export function getBannerProtectionOptions(
 export function getUnitMaintenanceOptions(
   player: Player
 ): UnitMaintenanceOptions | undefined {
-  if (!player.pendingUnitMaintenance || player.pendingUnitMaintenance.length === 0) {
+  if (!checkHasPendingUnitMaintenance(player)) {
     return undefined;
   }
 
-  const ALL_BASIC_COLORS: BasicManaColor[] = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE];
-
-  const units = player.pendingUnitMaintenance.map((m) => {
-    const availableCrystalColors = ALL_BASIC_COLORS.filter(
-      (color) => player.crystals[color] > 0
-    );
+  const units = player.pendingUnitMaintenance!.map((m) => {
+    const availableCrystalColors = getAvailableCrystalColorsForMaintenance(player);
     return {
       unitInstanceId: m.unitInstanceId,
       unitId: m.unitId,

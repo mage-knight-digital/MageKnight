@@ -21,6 +21,11 @@ import {
   PLAYER_NOT_FOUND,
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
+import {
+  hasPendingUnitMaintenance,
+  isUnitInMaintenanceList,
+  hasCrystalAvailable,
+} from "../rules/unitMaintenance.js";
 
 /**
  * Validate that the player has pending unit maintenance
@@ -35,7 +40,7 @@ export const validateHasPendingUnitMaintenance: Validator = (
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
-  if (!player.pendingUnitMaintenance || player.pendingUnitMaintenance.length === 0) {
+  if (!hasPendingUnitMaintenance(player)) {
     return invalid(NO_MAINTENANCE_PENDING, "No pending unit maintenance");
   }
 
@@ -60,16 +65,12 @@ export const validateUnitMaintenanceChoice: Validator = (
     return invalid(PLAYER_NOT_FOUND, "Player not found");
   }
 
-  // Check unit is in the pending maintenance list
-  const pending = player.pendingUnitMaintenance;
-  if (!pending) {
-    return valid(); // Caught by validateHasPendingUnitMaintenance
+  // Null case caught by validateHasPendingUnitMaintenance
+  if (!player.pendingUnitMaintenance) {
+    return valid();
   }
 
-  const unitInList = pending.some(
-    (m) => m.unitInstanceId === action.unitInstanceId
-  );
-  if (!unitInList) {
+  if (!isUnitInMaintenanceList(player, action.unitInstanceId)) {
     return invalid(
       UNIT_NOT_IN_MAINTENANCE,
       `Unit ${action.unitInstanceId} is not in pending maintenance list`
@@ -86,7 +87,7 @@ export const validateUnitMaintenanceChoice: Validator = (
     }
 
     // Must have the crystal available
-    if (player.crystals[action.crystalColor] <= 0) {
+    if (!hasCrystalAvailable(player, action.crystalColor)) {
       return invalid(
         MAINTENANCE_REQUIRES_CRYSTAL,
         `No ${action.crystalColor} crystal available for maintenance`

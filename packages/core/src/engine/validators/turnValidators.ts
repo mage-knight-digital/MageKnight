@@ -19,16 +19,16 @@ import { getPlayerById } from "../helpers/playerHelpers.js";
 import {
   hasMetMinimumTurnRequirement,
   canTakeActionPhaseAction,
+  isActivePlayer,
 } from "../rules/turnStructure.js";
 
-// Check it's this player's turn
+// Check it's this player's turn (phase-aware: works during both tactics selection and player turns)
 export function validateIsPlayersTurn(
   state: GameState,
   playerId: string,
   _action: PlayerAction
 ): ValidationResult {
-  const currentPlayerId = state.turnOrder[state.currentPlayerIndex];
-  if (currentPlayerId !== playerId) {
+  if (!isActivePlayer(state, playerId)) {
     return invalid(NOT_YOUR_TURN, "It is not your turn");
   }
   return valid();

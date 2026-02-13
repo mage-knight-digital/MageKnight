@@ -20,6 +20,7 @@ import { getPlayerById } from "../helpers/playerHelpers.js";
 import {
   mustAnnounceEndOfRoundAtTurnStart,
   mustForfeitTurnAfterRoundAnnouncement,
+  isActivePlayer,
 } from "../rules/turnStructure.js";
 
 /**
@@ -41,24 +42,12 @@ export function checkCanAct(
     return { canAct: false, reason: WRONG_PHASE };
   }
 
-  // During tactics selection, only the current selector can act
-  if (state.roundPhase === ROUND_PHASE_TACTICS_SELECTION) {
-    if (state.currentTacticSelector !== playerId) {
-      return { canAct: false, reason: NOT_YOUR_TURN };
-    }
-    return { canAct: true, player };
+  // Phase-aware active player check (works for both tactics selection and player turns)
+  if (!isActivePlayer(state, playerId)) {
+    return { canAct: false, reason: NOT_YOUR_TURN };
   }
 
-  // During player turns, check turn order
-  if (state.roundPhase === ROUND_PHASE_PLAYER_TURNS) {
-    const currentPlayerId = state.turnOrder[state.currentPlayerIndex];
-    if (currentPlayerId !== playerId) {
-      return { canAct: false, reason: NOT_YOUR_TURN };
-    }
-    return { canAct: true, player };
-  }
-
-  return { canAct: false, reason: WRONG_PHASE };
+  return { canAct: true, player };
 }
 
 /**

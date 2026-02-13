@@ -882,6 +882,56 @@ describe("Magic Familiars Unit", () => {
       expect(validActions.mode).toBe("pending_unit_maintenance");
       expect(validActions.mode).not.toBe("tactics_selection");
     });
+
+    it("should allow maintenance when currentTacticSelector differs from turnOrder[0]", () => {
+      // Regression: maintenance during tactics selection was rejected with NOT_YOUR_TURN
+      // because validateIsPlayersTurn only checked turnOrder, not currentTacticSelector
+      const unit = createPlayerUnit(UNIT_MAGIC_FAMILIARS, "familiars_1", MANA_RED);
+      const player1 = createTestPlayer({
+        id: "player1",
+        units: [],
+        pendingUnitMaintenance: null,
+      });
+      const player2 = createTestPlayer({
+        id: "player2",
+        units: [unit],
+        crystals: { red: 1, blue: 0, green: 0, white: 0 },
+        pendingUnitMaintenance: [
+          { unitInstanceId: "familiars_1", unitId: UNIT_MAGIC_FAMILIARS },
+        ],
+      });
+
+      const state = createTestGameState({
+        players: [player1, player2],
+        turnOrder: ["player1", "player2"],
+        currentPlayerIndex: 0, // player1 is first in turn order
+        roundPhase: "tactics_selection",
+        currentTacticSelector: "player2", // but player2 is selecting tactics
+        tacticsSelectionOrder: ["player2", "player1"],
+      });
+
+      // player2 should be able to resolve maintenance during tactics selection
+      const result = engine.processAction(state, "player2", {
+        type: RESOLVE_UNIT_MAINTENANCE_ACTION,
+        unitInstanceId: "familiars_1",
+        keepUnit: true,
+        crystalColor: MANA_RED,
+        newManaTokenColor: MANA_RED,
+      });
+
+      // Should succeed (not get INVALID_ACTION with NOT_YOUR_TURN)
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeUndefined();
+
+      // Maintenance should be cleared
+      const updatedPlayer2 = result.state.players.find((p) => p.id === "player2");
+      expect(updatedPlayer2?.pendingUnitMaintenance).toBeNull();
+      expect(updatedPlayer2?.units[0].manaToken).toBe(MANA_RED);
+
+      // Valid actions should also work for player2
+      const validActions = getValidActions(state, "player2");
+      expect(validActions.mode).toBe("pending_unit_maintenance");
+    });
   });
 
   // =========================================================================
