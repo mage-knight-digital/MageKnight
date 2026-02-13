@@ -1,5 +1,6 @@
 """Reinforcement-learning utilities for Mage Knight simulation training."""
 
+from .distributed_trainer import DistributedReinforceTrainer
 from .features import ActionFeatures, EncodedStep, StateFeatures, encode_step
 from .policy_gradient import (
     OptimizationStats,
@@ -28,6 +29,7 @@ __all__ = [
     "ActionFeatures",
     "ACTION_TYPE_VOCAB",
     "CARD_VOCAB",
+    "DistributedReinforceTrainer",
     "ENEMY_VOCAB",
     "EncodedStep",
     "EpisodeTrainingStats",

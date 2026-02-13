@@ -251,7 +251,7 @@ class ReinforcePolicy(Policy):
             return
         self._episode_rewards[-1] += reward
 
-    def optimize_episode(self) -> OptimizationStats:
+    def optimize_episode(self, compute_gradients_only: bool = False) -> OptimizationStats:
         if not self._episode_log_probs:
             self._reset_episode_buffers()
             return OptimizationStats(
@@ -278,7 +278,8 @@ class ReinforcePolicy(Policy):
 
         self._optimizer.zero_grad(set_to_none=True)
         loss.backward()
-        self._optimizer.step()
+        if not compute_gradients_only:
+            self._optimizer.step()
 
         stats = OptimizationStats(
             loss=float(loss.detach().cpu().item()),
@@ -289,6 +290,34 @@ class ReinforcePolicy(Policy):
         )
         self._reset_episode_buffers()
         return stats
+
+    def extract_gradients(self) -> dict[str, torch.Tensor]:
+        """Return a dict of parameter gradients (after backward). Used by workers."""
+        return {
+            name: p.grad.clone()
+            for name, p in self._network.named_parameters()
+            if p.grad is not None
+        }
+
+    def apply_averaged_gradients(self, gradient_dicts: list[dict[str, torch.Tensor]]) -> None:
+        """Average gradients from N workers and apply a single optimizer step."""
+        n = len(gradient_dicts)
+        self._optimizer.zero_grad(set_to_none=True)
+        for name, param in self._network.named_parameters():
+            grads_for_param = [gd[name] for gd in gradient_dicts if name in gd]
+            if not grads_for_param:
+                continue
+            avg_grad = sum(grads_for_param) / n
+            param.grad = avg_grad
+        self._optimizer.step()
+
+    def get_weights(self) -> dict[str, torch.Tensor]:
+        """Return network state_dict (for broadcasting to workers)."""
+        return {k: v.cpu() for k, v in self._network.state_dict().items()}
+
+    def set_weights(self, state_dict: dict[str, torch.Tensor]) -> None:
+        """Load weights (from main process broadcast)."""
+        self._network.load_state_dict(state_dict)
 
     def save_checkpoint(self, path: str | Path, metadata: dict[str, Any] | None = None) -> None:
         target = Path(path)
@@ -345,6 +374,8 @@ def _resolve_device(requested: str) -> torch.device:
         return torch.device(requested)
     if torch.cuda.is_available():
         return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
+    # MPS (Apple GPU) is deliberately excluded from auto-detection:
+    # the CPU↔GPU sync overhead per step far exceeds compute savings
+    # for our small network (~60K params) and tiny batch sizes (5-25).
+    # CPU is ~6x faster end-to-end. Use --device mps to force it.
     return torch.device("cpu")

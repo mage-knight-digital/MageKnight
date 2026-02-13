@@ -24,9 +24,11 @@ class ReinforceTrainer(RunnerHooks):
         self,
         policy: ReinforcePolicy,
         reward_config: RewardConfig | None = None,
+        compute_gradients_only: bool = False,
     ) -> None:
         self.policy = policy
         self.reward_config = reward_config or RewardConfig()
+        self._compute_gradients_only = compute_gradients_only
 
         self.last_stats: EpisodeTrainingStats | None = None
         self._episode_total_reward = 0.0
@@ -42,7 +44,9 @@ class ReinforceTrainer(RunnerHooks):
         self.policy.add_terminal_reward(terminal_reward)
         self._episode_total_reward += terminal_reward
 
-        optimization = self.policy.optimize_episode()
+        optimization = self.policy.optimize_episode(
+            compute_gradients_only=self._compute_gradients_only,
+        )
         self.last_stats = EpisodeTrainingStats(
             outcome=result.outcome,
             steps=result.steps,

@@ -46,6 +46,9 @@ def main() -> int:
     parser.add_argument("--resume", metavar="PATH", help="Resume from checkpoint (load policy + optimizer); run --episodes more from here")
     parser.add_argument("--benchmark", action="store_true", help="Report per-step timing breakdown at the end")
 
+    parser.add_argument("--workers", type=int, default=1, help="Number of parallel worker processes (default: 1 = sequential)")
+    parser.add_argument("--episodes-per-sync", type=int, default=1, help="Episodes each worker runs before gradient sync (default: 1)")
+
     args = parser.parse_args()
     if args.episodes < 1:
         print("--episodes must be >= 1", file=sys.stderr)
@@ -85,7 +88,6 @@ def main() -> int:
         terminal_max_steps_penalty=args.terminal_max_steps_penalty,
         terminal_failure_penalty=args.terminal_failure_penalty,
     )
-    trainer = ReinforceTrainer(policy=policy, reward_config=reward_config)
 
     checkpoint_dir = Path(args.checkpoint_dir)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -103,7 +105,28 @@ def main() -> int:
         f"max_steps_penalty={args.terminal_max_steps_penalty} "
         f"failure_penalty={args.terminal_failure_penalty}"
     )
+
+    if args.workers > 1:
+        print(f"Distributed: workers={args.workers} episodes_per_sync={args.episodes_per_sync}")
+
     print("-" * 88)
+
+    if args.workers > 1:
+        return _train_distributed(args, policy, reward_config, checkpoint_dir, metrics_path, components)
+
+    return _train_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, ReinforceTrainer)
+
+
+def _train_sequential(
+    args: argparse.Namespace,
+    policy: Any,
+    reward_config: Any,
+    checkpoint_dir: Path,
+    metrics_path: Path,
+    ReinforceTrainer: type,
+) -> int:
+    """Original sequential training loop."""
+    trainer = ReinforceTrainer(policy=policy, reward_config=reward_config)
 
     agg_step_timings = StepTimings() if args.benchmark else None
 
@@ -188,6 +211,83 @@ def main() -> int:
     return 0
 
 
+def _train_distributed(
+    args: argparse.Namespace,
+    policy: Any,
+    reward_config: Any,
+    checkpoint_dir: Path,
+    metrics_path: Path,
+    components: dict[str, Any],
+) -> int:
+    """Distributed training via data-parallel gradient accumulation."""
+    DistributedReinforceTrainer = components["DistributedReinforceTrainer"]
+
+    runner_config = RunnerConfig(
+        bootstrap_api_base_url=args.bootstrap_url,
+        ws_server_url=args.ws_url,
+        player_count=args.player_count,
+        runs=1,
+        max_steps=args.max_steps,
+        base_seed=args.seed,
+        artifacts_dir=args.artifacts_dir,
+        write_failure_artifacts=args.save_failures,
+        allow_undo=not args.no_undo,
+    )
+
+    dist_trainer = DistributedReinforceTrainer(
+        policy=policy,
+        reward_config=reward_config,
+        runner_config=runner_config,
+        num_workers=args.workers,
+        episodes_per_sync=args.episodes_per_sync,
+    )
+
+    episode = 0
+    for stats in dist_trainer.train(total_episodes=args.episodes, start_seed=args.seed):
+        seed = args.seed + episode
+
+        _append_metrics_log_from_stats(
+            path=metrics_path,
+            episode=episode,
+            seed=seed,
+            stats=stats,
+        )
+
+        print(
+            f"ep={episode + 1:04d} seed={seed} outcome={stats.outcome:<17} "
+            f"steps={stats.steps:<6} reward={stats.total_reward:>8.3f} "
+            f"loss={stats.optimization.loss:>9.4f} entropy={stats.optimization.entropy:>7.4f}"
+        )
+
+        if args.checkpoint_every > 0 and (episode + 1) % args.checkpoint_every == 0:
+            checkpoint_path = checkpoint_dir / f"policy_ep_{episode + 1:04d}.pt"
+            policy.save_checkpoint(
+                checkpoint_path,
+                metadata={
+                    "episode": episode + 1,
+                    "seed": seed,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+
+        episode += 1
+
+    if not args.no_final_checkpoint:
+        final_path = checkpoint_dir / "policy_final.pt"
+        policy.save_checkpoint(
+            final_path,
+            metadata={
+                "episode": args.episodes,
+                "seed": args.seed + args.episodes - 1,
+                "timestamp": datetime.now(UTC).isoformat(),
+            },
+        )
+        print(f"Final checkpoint: {final_path}")
+
+    print(f"Metrics log: {metrics_path}")
+    return 0
+
+
 def _write_run_manifest(
     checkpoint_dir: Path,
     args: argparse.Namespace,
@@ -214,6 +314,7 @@ def _write_run_manifest(
 
 def _load_rl_components() -> dict[str, Any] | None:
     try:
+        from mage_knight_sdk.sim.rl.distributed_trainer import DistributedReinforceTrainer
         from mage_knight_sdk.sim.rl.policy_gradient import PolicyGradientConfig, ReinforcePolicy
         from mage_knight_sdk.sim.rl.rewards import RewardConfig
         from mage_knight_sdk.sim.rl.trainer import ReinforceTrainer
@@ -228,6 +329,7 @@ def _load_rl_components() -> dict[str, Any] | None:
         raise
 
     return {
+        "DistributedReinforceTrainer": DistributedReinforceTrainer,
         "PolicyGradientConfig": PolicyGradientConfig,
         "ReinforcePolicy": ReinforcePolicy,
         "RewardConfig": RewardConfig,
@@ -267,6 +369,33 @@ def _append_metrics_log(
         "timestamp": datetime.now(UTC).isoformat(),
         "total_reward": total_reward,
         "optimization": optimization,
+    }
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def _append_metrics_log_from_stats(
+    path: Path,
+    episode: int,
+    seed: int,
+    stats: Any,
+) -> None:
+    """Write metrics from EpisodeTrainingStats (distributed training path)."""
+    record = {
+        "episode": episode + 1,
+        "seed": seed,
+        "outcome": stats.outcome,
+        "steps": stats.steps,
+        "reason": None,
+        "timestamp": datetime.now(UTC).isoformat(),
+        "total_reward": stats.total_reward,
+        "optimization": {
+            "loss": stats.optimization.loss,
+            "total_reward": stats.optimization.total_reward,
+            "mean_reward": stats.optimization.mean_reward,
+            "entropy": stats.optimization.entropy,
+            "action_count": stats.optimization.action_count,
+        },
     }
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, sort_keys=True) + "\n")
