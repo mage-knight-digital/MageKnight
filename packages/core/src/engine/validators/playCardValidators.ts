@@ -24,20 +24,17 @@ import {
 } from "./validationCodes.js";
 import { getPlayerById } from "../helpers/playerHelpers.js";
 import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
-import { isEffectResolvable } from "../effects/index.js";
 import {
-  getCombatEffectContext,
-  isCombatEffectAllowed,
   isHealingOnlyInCombat,
-  isNormalEffectAllowed,
-  isRangedAttackUnusable,
   isTimeBendingChainPrevented,
   isWoundCardId,
   cardConsumesAction,
-  isDiscardCostPayableAfterPlayingSource,
 } from "../rules/cardPlay.js";
-import { isRuleActive } from "../modifiers/index.js";
-import { RULE_MOVE_CARDS_IN_COMBAT } from "../../types/modifierConstants.js";
+import {
+  evaluateCardPlayability,
+  buildPlayContext,
+  buildCombatPlayContext,
+} from "../validActions/cards/cardPlayability.js";
 
 function getCardId(action: PlayerAction): CardId | null {
   if (action.type === PLAY_CARD_ACTION && "cardId" in action) {
@@ -172,63 +169,49 @@ export function validateCardPlayableInContext(
   }
 
   const effectKind: CardEffectKind = action.powered ? "powered" : "basic";
-  const selectedEffect = effectKind === "basic" ? card.basicEffect : card.poweredEffect;
 
-  if (!isDiscardCostPayableAfterPlayingSource(selectedEffect, player.hand, action.cardId)) {
+  // Use the unified playability evaluation
+  const ctx = state.combat
+    ? buildCombatPlayContext(state, player, state.combat)
+    : buildPlayContext(state, player);
+  const result = evaluateCardPlayability(state, player, card, action.cardId, ctx);
+  const effectResult = effectKind === "basic" ? result.basic : result.powered;
+
+  if (!effectResult.costPayable) {
     return invalid(
       CARD_EFFECT_NOT_RESOLVABLE,
       "Card requires discarding another card, but no eligible card is available"
     );
   }
 
-  if (state.combat) {
-    const context = getCombatEffectContext(card, effectKind);
-    const phase = state.combat.phase;
-    const moveCardsAllowed = isRuleActive(state, playerId, RULE_MOVE_CARDS_IN_COMBAT);
-
-    // Check card-level combat phase restriction (e.g., Into the Heat: start of combat only)
-    if (card.combatPhaseRestriction && !card.combatPhaseRestriction.includes(phase)) {
-      return invalid(
-        CARD_NOT_PLAYABLE_IN_PHASE,
-        `Card can only be played at the start of combat`
-      );
-    }
-
-    if (!isCombatEffectAllowed(context.effect, phase, context.allowAnyPhase, moveCardsAllowed)) {
-      return invalid(
-        CARD_NOT_PLAYABLE_IN_PHASE,
-        `Card cannot be played in ${phase} phase`
-      );
-    }
-
-    // Ranged-only attacks cannot be played when all enemies are fortified
-    if (context.effect && isRangedAttackUnusable(context.effect, state, playerId, state.combat)) {
-      return invalid(
-        RANGED_ATTACK_ALL_FORTIFIED,
-        "Ranged attacks cannot target fortified enemies"
-      );
-    }
-
-    if (context.effect && !isEffectResolvable(state, playerId, context.effect)) {
-      return invalid(
-        CARD_EFFECT_NOT_RESOLVABLE,
-        "Card effect cannot be resolved right now"
-      );
-    }
-
-    return valid();
+  if (effectResult.excludedByRanged) {
+    return invalid(
+      RANGED_ATTACK_ALL_FORTIFIED,
+      "Ranged attacks cannot target fortified enemies"
+    );
   }
 
-  const effect = effectKind === "basic" ? card.basicEffect : card.poweredEffect;
-
-  if (!isNormalEffectAllowed(effect, effectKind)) {
+  if (!effectResult.allowed) {
+    if (state.combat) {
+      // Check if it's a phase restriction issue vs general phase issue
+      if (card.combatPhaseRestriction && !card.combatPhaseRestriction.includes(state.combat.phase)) {
+        return invalid(
+          CARD_NOT_PLAYABLE_IN_PHASE,
+          `Card can only be played at the start of combat`
+        );
+      }
+      return invalid(
+        CARD_NOT_PLAYABLE_IN_PHASE,
+        `Card cannot be played in ${state.combat.phase} phase`
+      );
+    }
     return invalid(
       CARD_NOT_PLAYABLE,
       "Card cannot be played outside combat"
     );
   }
 
-  if (!isEffectResolvable(state, playerId, effect)) {
+  if (!effectResult.resolvable) {
     return invalid(
       CARD_EFFECT_NOT_RESOLVABLE,
       "Card effect cannot be resolved right now"

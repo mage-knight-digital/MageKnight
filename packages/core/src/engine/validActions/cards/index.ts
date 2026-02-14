@@ -32,5 +32,17 @@ export {
 // Re-export mana payment functions (for use by other modules if needed)
 export { canPayForSpellBasic, findPayableManaColor } from "./manaPayment.js";
 
+// Re-export unified card playability evaluation
+export {
+  evaluateCardPlayability,
+  evaluateHandPlayability,
+  buildPlayContext,
+  buildCombatPlayContext,
+  type PlayContext,
+  type EffectPlayability,
+  type CardPlayabilityResult,
+} from "./cardPlayability.js";
+export { toPlayableCard } from "./playableCardBuilder.js";
+
 // Re-export card lookup for backward compatibility (implementation lives in helpers to avoid circular deps)
 export { getCard } from "../../helpers/cardLookup.js";
