@@ -251,6 +251,21 @@ This ensures validators and validActions are always aligned through shared code,
 
 **Key principle:** Rules are pure functions with no side effects or state mutations. They're imported by validators and validActions, never the other way around.
 
+### Card Playability (`core/src/engine/validActions/cards/cardPlayability.ts`)
+
+Card playability is a special case of the rule architecture above. Because determining "can this card be played basic/powered/sideways?" requires orchestrating many rules (combat phase gating, mana checks, resolvability, sideways value, discard costs, etc.), this logic is unified in `evaluateCardPlayability()` rather than duplicated across validators and validActions.
+
+- `buildPlayContext()` / `buildCombatPlayContext()` — construct a `PlayContext` from game state
+- `evaluateCardPlayability()` — returns `CardPlayabilityResult` with `basic`, `powered`, and `sideways` sub-results
+- `evaluateHandPlayability()` — batch-evaluates all cards in hand, filtering to playable ones
+- `toPlayableCard()` (`playableCardBuilder.ts`) — converts result to the `PlayableCard` shape sent to clients
+
+**Consumed by:**
+- `combat.ts` / `normalTurn.ts` — build `PlayableCard[]` for valid actions
+- `validateCardPlayableInContext` — maps `EffectPlayability` fields to validation error codes
+
+**When adding new card play restrictions:** Add the check inside `evaluateCardPlayability()` (or its helpers like `evaluateCombatEffectMode`). Both validators and validActions will pick it up automatically.
+
 ### Monorepo Build Order
 Core/server consume shared via built outputs. When adding exports to shared:
 ```bash
@@ -344,6 +359,7 @@ When in doubt, fix the code to satisfy the linter rather than silencing the warn
 | End turn phases | `core/src/engine/commands/endTurn/` |
 | Validators | `core/src/engine/validators/` |
 | Valid actions | `core/src/engine/validActions/` |
+| Card playability (unified) | `core/src/engine/validActions/cards/cardPlayability.ts` |
 | Game rules (shared) | `core/src/engine/rules/` |
 | Site properties | `core/src/data/siteProperties.ts` |
 | Client state filter | `server/src/index.ts` (`toClientState`) |
