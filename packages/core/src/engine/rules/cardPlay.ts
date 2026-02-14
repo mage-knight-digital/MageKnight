@@ -45,7 +45,7 @@ import {
   effectIsInfluenceOnly,
   effectHasHeal,
   effectHasDraw,
-  effectHasModifier,
+  effectHasNonCombatModifier,
   effectHasManaGain,
   effectHasManaDrawPowered,
   effectHasCrystal,
@@ -179,7 +179,7 @@ export function isNormalEffectAllowed(
     effectHasHeal(effect) ||
     effectHasDraw(effect) ||
     effectHasManaGain(effect) ||
-    effectHasModifier(effect) ||
+    effectHasNonCombatModifier(effect) ||
     effectHasCrystal(effect);
 
   if (effectKind === "basic") {

@@ -29,6 +29,7 @@ import {
   MANA_GREEN,
   TIME_OF_DAY_NIGHT,
   CARD_KRANG_RUTHLESS_COERCION,
+  CARD_TOVAK_COLD_TOUGHNESS,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -720,6 +721,60 @@ describe("getPlayableCardsForCombat", () => {
       expect(improvisation).toBeDefined();
       expect(improvisation?.canPlayBasic).toBe(false);
       expect(improvisation?.canPlayPowered).toBe(false);
+    });
+  });
+
+  describe("Combat-only cards should not be playable on normal turn", () => {
+    it("should NOT show Cold Toughness powered as playable on normal turn", () => {
+      // Cold Toughness powered = Ice Block 5 + combat modifier.
+      // Neither sub-effect is useful outside combat.
+      // The card has categories: [CATEGORY_COMBAT].
+      // BUG: effectHasModifier makes isNormalEffectAllowed return true for any
+      // card with EFFECT_APPLY_MODIFIER, even combat-only modifiers.
+      const player = createTestPlayer({
+        hand: [CARD_TOVAK_COLD_TOUGHNESS],
+        crystals: { red: 0, blue: 1, green: 0, white: 0 }, // Blue crystal to power it
+        pureMana: [],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = getPlayableCardsForNormalTurn(state, player);
+
+      const coldToughness = result.cards.find(c => c.cardId === CARD_TOVAK_COLD_TOUGHNESS);
+      // Cold Toughness should only be available sideways on a normal turn,
+      // NOT for basic or powered play (attack/block are combat-only)
+      if (coldToughness) {
+        expect(coldToughness.canPlayBasic).toBe(false);
+        expect(coldToughness.canPlayPowered).toBe(false);
+      }
+    });
+
+    it("should NOT show Cold Toughness basic as playable on normal turn", () => {
+      // Basic = choice of Ice Attack 2 OR Ice Block 3 — both are combat-only
+      const player = createTestPlayer({
+        hand: [CARD_TOVAK_COLD_TOUGHNESS],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = getPlayableCardsForNormalTurn(state, player);
+
+      const coldToughness = result.cards.find(c => c.cardId === CARD_TOVAK_COLD_TOUGHNESS);
+      if (coldToughness) {
+        expect(coldToughness.canPlayBasic).toBe(false);
+      }
+    });
+
+    it("should still allow Cold Toughness sideways on normal turn", () => {
+      const player = createTestPlayer({
+        hand: [CARD_TOVAK_COLD_TOUGHNESS],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = getPlayableCardsForNormalTurn(state, player);
+
+      const coldToughness = result.cards.find(c => c.cardId === CARD_TOVAK_COLD_TOUGHNESS);
+      expect(coldToughness).toBeDefined();
+      expect(coldToughness?.canPlaySideways).toBe(true);
     });
   });
 });

@@ -18,6 +18,7 @@ import {
   EFFECT_SCALING,
   EFFECT_DISCARD_COST,
 } from "../../../types/effectTypes.js";
+import { DURATION_COMBAT } from "../../../types/modifierConstants.js";
 
 /**
  * Check if an effect provides healing.
@@ -114,6 +115,43 @@ export function effectHasModifier(effect: CardEffect): boolean {
             effectHasModifier(next)
           )
         : effectHasModifier(effect.thenEffect);
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if an effect applies a modifier that is useful outside of combat.
+ *
+ * DURATION_COMBAT modifiers (e.g., Cold Toughness block bonus, Agility
+ * move→attack conversion) are only meaningful during combat, so they
+ * should not make a card appear playable on a normal turn.
+ */
+export function effectHasNonCombatModifier(effect: CardEffect): boolean {
+  switch (effect.type) {
+    case EFFECT_APPLY_MODIFIER:
+      return effect.duration !== DURATION_COMBAT;
+
+    case EFFECT_CHOICE:
+      return effect.options.some(opt => effectHasNonCombatModifier(opt));
+
+    case EFFECT_COMPOUND:
+      return effect.effects.some(eff => effectHasNonCombatModifier(eff));
+
+    case EFFECT_CONDITIONAL:
+      return effectHasNonCombatModifier(effect.thenEffect) ||
+        (effect.elseEffect ? effectHasNonCombatModifier(effect.elseEffect) : false);
+
+    case EFFECT_SCALING:
+      return effectHasNonCombatModifier(effect.baseEffect);
+
+    case EFFECT_DISCARD_COST:
+      return effect.colorMatters && effect.thenEffectByColor
+        ? Object.values(effect.thenEffectByColor).some((next) =>
+            effectHasNonCombatModifier(next)
+          )
+        : effectHasNonCombatModifier(effect.thenEffect);
 
     default:
       return false;
