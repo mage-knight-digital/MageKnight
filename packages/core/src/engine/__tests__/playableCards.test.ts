@@ -30,6 +30,7 @@ import {
   TIME_OF_DAY_NIGHT,
   CARD_KRANG_RUTHLESS_COERCION,
   CARD_TOVAK_COLD_TOUGHNESS,
+  CARD_TOVAK_INSTINCT,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -775,6 +776,25 @@ describe("getPlayableCardsForCombat", () => {
       const coldToughness = result.cards.find(c => c.cardId === CARD_TOVAK_COLD_TOUGHNESS);
       expect(coldToughness).toBeDefined();
       expect(coldToughness?.canPlaySideways).toBe(true);
+    });
+
+    it("should allow Instinct basic/powered on normal turn (has move/influence options)", () => {
+      // Instinct = choice of Move 2, Influence 2, Attack 2, Block 2
+      // On a normal turn, attack/block are filtered by resolvability at choice time,
+      // but the card itself IS playable because it has move and influence options.
+      const player = createTestPlayer({
+        hand: [CARD_TOVAK_INSTINCT],
+        crystals: { red: 1, blue: 0, green: 0, white: 0 },
+        pureMana: [],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const result = getPlayableCardsForNormalTurn(state, player);
+
+      const instinct = result.cards.find(c => c.cardId === CARD_TOVAK_INSTINCT);
+      expect(instinct).toBeDefined();
+      expect(instinct?.canPlayBasic).toBe(true);
+      expect(instinct?.canPlayPowered).toBe(true);
     });
   });
 });
