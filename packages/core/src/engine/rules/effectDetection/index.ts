@@ -28,6 +28,7 @@ export {
   effectHasHeal,
   effectHasDraw,
   effectHasModifier,
+  effectHasNonCombatModifier,
   effectHasManaGain,
 } from "./resourceEffects.js";
 
