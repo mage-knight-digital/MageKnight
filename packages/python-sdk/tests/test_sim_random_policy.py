@@ -302,6 +302,112 @@ class RandomPolicyTest(unittest.TestCase):
         self.assertEqual(2, len(powered[0]["manaSources"]))
         self.assertNotIn("manaSource", powered[0])
 
+    def test_enumerate_combat_includes_card_plays(self) -> None:
+        """Combat mode should enumerate PLAY_CARD actions from playCard field."""
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "combat",
+                "turn": {"canUndo": False},
+                "combat": {
+                    "phase": "attack",
+                    "canEndPhase": True,
+                },
+                "playCard": {
+                    "cards": [
+                        {
+                            "cardId": "rage",
+                            "name": "Rage",
+                            "canPlayBasic": True,
+                            "canPlayPowered": False,
+                            "canPlaySideways": True,
+                            "sidewaysOptions": [{"as": "attack_1"}],
+                        },
+                        {
+                            "cardId": "swiftness",
+                            "name": "Swiftness",
+                            "canPlayBasic": True,
+                            "canPlayPowered": False,
+                            "canPlaySideways": False,
+                        },
+                    ]
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        play_actions = [a.action for a in actions if a.action.get("type") in ("PLAY_CARD", "PLAY_CARD_SIDEWAYS")]
+
+        # Should have: rage basic, rage sideways, swiftness basic = 3 card plays
+        self.assertGreaterEqual(len(play_actions), 3)
+        basic_card_ids = [a["cardId"] for a in play_actions if a["type"] == "PLAY_CARD"]
+        self.assertIn("rage", basic_card_ids)
+        self.assertIn("swiftness", basic_card_ids)
+        sideways_actions = [a for a in play_actions if a["type"] == "PLAY_CARD_SIDEWAYS"]
+        self.assertEqual(1, len(sideways_actions))
+        self.assertEqual("rage", sideways_actions[0]["cardId"])
+
+        # End phase should also be present
+        end_phase = [a.action for a in actions if a.action.get("type") == "END_COMBAT_PHASE"]
+        self.assertEqual(1, len(end_phase))
+
+    def test_enumerate_combat_includes_unit_activations(self) -> None:
+        """Combat mode should enumerate ACTIVATE_UNIT actions from units field."""
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "combat",
+                "turn": {"canUndo": False},
+                "combat": {
+                    "phase": "attack",
+                    "canEndPhase": True,
+                },
+                "units": {
+                    "activatable": [
+                        {
+                            "unitInstanceId": "unit_0",
+                            "abilities": [
+                                {"index": 0, "canActivate": True},
+                                {"index": 1, "canActivate": False},
+                            ],
+                        }
+                    ]
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        unit_actions = [a.action for a in actions if a.action.get("type") == "ACTIVATE_UNIT"]
+
+        self.assertEqual(1, len(unit_actions))
+        self.assertEqual("unit_0", unit_actions[0]["unitInstanceId"])
+        self.assertEqual(0, unit_actions[0]["abilityIndex"])
+
+    def test_enumerate_combat_includes_skills(self) -> None:
+        """Combat mode should enumerate USE_SKILL actions from skills field."""
+        state = {
+            "players": [{"id": "player-1"}],
+            "validActions": {
+                "mode": "combat",
+                "turn": {"canUndo": False},
+                "combat": {
+                    "phase": "attack",
+                    "canEndPhase": True,
+                },
+                "skills": {
+                    "activatable": [
+                        {"skillId": "battle_versatility"},
+                    ]
+                },
+            },
+        }
+
+        actions = enumerate_valid_actions(state, "player-1")
+        skill_actions = [a.action for a in actions if a.action.get("type") == "USE_SKILL"]
+
+        self.assertEqual(1, len(skill_actions))
+        self.assertEqual("battle_versatility", skill_actions[0]["skillId"])
+
     def test_enumerate_valid_actions_skips_powered_when_no_mana_options(self) -> None:
         state = {
             "players": [{"id": "player-1"}],

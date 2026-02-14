@@ -497,11 +497,109 @@ def _actions_pending_terrain_cost_reduction(valid_actions: dict[str, Any]) -> li
     ]
 
 
+def _actions_play_card(valid_actions: dict[str, Any], source_prefix: str) -> list[CandidateAction]:
+    """Enumerate PLAY_CARD and PLAY_CARD_SIDEWAYS from the playCard field."""
+    actions: list[CandidateAction] = []
+    play_card = _as_dict(valid_actions.get("playCard"))
+    for card in _as_list(play_card.get("cards") if play_card else None):
+        payload = _as_dict(card)
+        if payload is None:
+            continue
+        card_id = _as_str(payload.get("cardId"))
+        if card_id is None:
+            continue
+
+        if bool(payload.get("canPlayBasic")):
+            actions.append(CandidateAction({"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": False}, f"{source_prefix}.play_card.basic"))
+
+        if bool(payload.get("canPlayPowered")):
+            mana_options = _as_list(payload.get("poweredManaOptions"))
+            if mana_options:
+                is_spell = bool(payload.get("isSpell"))
+                if is_spell and len(mana_options) == 2:
+                    actions.append(CandidateAction(
+                        {"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": True, "manaSources": mana_options},
+                        f"{source_prefix}.play_card.powered",
+                    ))
+                elif not is_spell and len(mana_options) >= 1:
+                    actions.append(CandidateAction(
+                        {"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": True, "manaSource": mana_options[0]},
+                        f"{source_prefix}.play_card.powered",
+                    ))
+
+        if bool(payload.get("canPlaySideways")):
+            for option in _as_list(payload.get("sidewaysOptions")):
+                sideways = _as_dict(option)
+                if sideways is None:
+                    continue
+                as_value = _as_str(sideways.get("as"))
+                if as_value:
+                    actions.append(
+                        CandidateAction(
+                            {"type": ACTION_PLAY_CARD_SIDEWAYS, "cardId": card_id, "as": as_value},
+                            f"{source_prefix}.play_card.sideways",
+                        )
+                    )
+    return actions
+
+
+def _actions_activate_units(valid_actions: dict[str, Any], source_prefix: str) -> list[CandidateAction]:
+    """Enumerate ACTIVATE_UNIT from the units.activatable field."""
+    actions: list[CandidateAction] = []
+    units = _as_dict(valid_actions.get("units"))
+    for unit in _as_list(units.get("activatable") if units else None):
+        payload = _as_dict(unit)
+        if payload is None:
+            continue
+        unit_instance_id = _as_str(payload.get("unitInstanceId"))
+        if unit_instance_id is None:
+            continue
+        for ability in _as_list(payload.get("abilities")):
+            ability_payload = _as_dict(ability)
+            if ability_payload is None:
+                continue
+            if not bool(ability_payload.get("canActivate")):
+                continue
+            if ability_payload.get("manaCost") is not None:
+                continue
+            index = ability_payload.get("index")
+            if isinstance(index, int):
+                actions.append(
+                    CandidateAction(
+                        {
+                            "type": "ACTIVATE_UNIT",
+                            "unitInstanceId": unit_instance_id,
+                            "abilityIndex": index,
+                        },
+                        f"{source_prefix}.units.activate",
+                    )
+                )
+    return actions
+
+
+def _actions_use_skills(valid_actions: dict[str, Any], source_prefix: str) -> list[CandidateAction]:
+    """Enumerate USE_SKILL from the skills.activatable field."""
+    actions: list[CandidateAction] = []
+    skills = _as_dict(valid_actions.get("skills"))
+    for skill in _as_list(skills.get("activatable") if skills else None):
+        payload = _as_dict(skill)
+        if payload is None:
+            continue
+        skill_id = _as_str(payload.get("skillId"))
+        if skill_id:
+            actions.append(CandidateAction({"type": ACTION_USE_SKILL, "skillId": skill_id}, f"{source_prefix}.skills.activate"))
+    return actions
+
+
 def _actions_combat(valid_actions: dict[str, Any]) -> list[CandidateAction]:
     actions: list[CandidateAction] = []
     combat = _as_dict(valid_actions.get("combat"))
     if combat is None:
         return actions
+
+    actions.extend(_actions_play_card(valid_actions, "combat"))
+    actions.extend(_actions_activate_units(valid_actions, "combat"))
+    actions.extend(_actions_use_skills(valid_actions, "combat"))
 
     for option in _as_list(combat.get("assignableAttacks")):
         payload = _as_dict(option)
@@ -739,46 +837,7 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
         if isinstance(target_hex, dict):
             actions.append(CandidateAction({"type": ACTION_CHALLENGE_RAMPAGING, "targetHex": target_hex}, "normal.challenge"))
 
-    play_card = _as_dict(valid_actions.get("playCard"))
-    for card in _as_list(play_card.get("cards") if play_card else None):
-        payload = _as_dict(card)
-        if payload is None:
-            continue
-        card_id = _as_str(payload.get("cardId"))
-        if card_id is None:
-            continue
-
-        if bool(payload.get("canPlayBasic")):
-            actions.append(CandidateAction({"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": False}, "normal.play_card.basic"))
-
-        if bool(payload.get("canPlayPowered")):
-            mana_options = _as_list(payload.get("poweredManaOptions"))
-            if mana_options:
-                is_spell = bool(payload.get("isSpell"))
-                if is_spell and len(mana_options) == 2:
-                    actions.append(CandidateAction(
-                        {"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": True, "manaSources": mana_options},
-                        "normal.play_card.powered",
-                    ))
-                elif not is_spell and len(mana_options) >= 1:
-                    actions.append(CandidateAction(
-                        {"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": True, "manaSource": mana_options[0]},
-                        "normal.play_card.powered",
-                    ))
-
-        if bool(payload.get("canPlaySideways")):
-            for option in _as_list(payload.get("sidewaysOptions")):
-                sideways = _as_dict(option)
-                if sideways is None:
-                    continue
-                as_value = _as_str(sideways.get("as"))
-                if as_value:
-                    actions.append(
-                        CandidateAction(
-                            {"type": ACTION_PLAY_CARD_SIDEWAYS, "cardId": card_id, "as": as_value},
-                            "normal.play_card.sideways",
-                        )
-                    )
+    actions.extend(_actions_play_card(valid_actions, "normal"))
 
     units = _as_dict(valid_actions.get("units"))
     player = _find_player(state, player_id)
@@ -809,42 +868,8 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
                 if action is not None:
                     actions.append(CandidateAction(action, "normal.units.recruit"))
 
-    for unit in _as_list(units.get("activatable") if units else None):
-        payload = _as_dict(unit)
-        if payload is None:
-            continue
-        unit_instance_id = _as_str(payload.get("unitInstanceId"))
-        if unit_instance_id is None:
-            continue
-        for ability in _as_list(payload.get("abilities")):
-            ability_payload = _as_dict(ability)
-            if ability_payload is None:
-                continue
-            if not bool(ability_payload.get("canActivate")):
-                continue
-            if ability_payload.get("manaCost") is not None:
-                continue
-            index = ability_payload.get("index")
-            if isinstance(index, int):
-                actions.append(
-                    CandidateAction(
-                        {
-                            "type": "ACTIVATE_UNIT",
-                            "unitInstanceId": unit_instance_id,
-                            "abilityIndex": index,
-                        },
-                        "normal.units.activate",
-                    )
-                )
-
-    skills = _as_dict(valid_actions.get("skills"))
-    for skill in _as_list(skills.get("activatable") if skills else None):
-        payload = _as_dict(skill)
-        if payload is None:
-            continue
-        skill_id = _as_str(payload.get("skillId"))
-        if skill_id:
-            actions.append(CandidateAction({"type": ACTION_USE_SKILL, "skillId": skill_id}, "normal.skills.activate"))
+    actions.extend(_actions_activate_units(valid_actions, "normal"))
+    actions.extend(_actions_use_skills(valid_actions, "normal"))
 
     returnable_skills = _as_dict(valid_actions.get("returnableSkills"))
     for skill in _as_list(returnable_skills.get("returnable") if returnable_skills else None):
