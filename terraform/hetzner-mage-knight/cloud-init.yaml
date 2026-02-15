@@ -1,0 +1,128 @@
+#cloud-config
+
+# Update package lists and upgrade system
+package_update: true
+package_upgrade: true
+
+# Install required packages
+packages:
+  - git
+  - curl
+  - unzip
+  - build-essential
+  - python3
+  - python3-pip
+  - python3-venv
+  - tmux
+
+write_files:
+  # GitHub SSH private key
+  - path: /root/.ssh/id_ed25519
+    permissions: '0600'
+    encoding: b64
+    content: ${base64_github_ssh_private_key}
+
+  # GitHub SSH public key
+  - path: /root/.ssh/id_ed25519.pub
+    permissions: '0644'
+    content: ${github_ssh_public_key}
+
+  # SSH config for GitHub
+  - path: /root/.ssh/config
+    permissions: '0600'
+    content: |
+      Host github.com
+        HostName github.com
+        User git
+        IdentityFile ~/.ssh/id_ed25519
+        StrictHostKeyChecking no
+        UserKnownHostsFile /dev/null
+
+  # Systemd service for mage-knight dev server
+  - path: /etc/systemd/system/mage-knight-server.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Mage Knight Development Server
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=root
+      WorkingDirectory=/root/MageKnight
+      Environment="PATH=/root/.bun/bin:/usr/local/bin:/usr/bin:/bin"
+      ExecStart=/root/.bun/bin/bun run dev:server
+      Restart=always
+      RestartSec=10
+      StandardOutput=journal
+      StandardError=journal
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Setup script
+  - path: /root/setup-mage-knight.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+
+      # Set HOME for tools that need it
+      export HOME=/root
+
+      # Log everything
+      exec > >(tee -a /root/setup-mage-knight.log)
+      exec 2>&1
+
+      echo "=== Setup started at $(date) ==="
+
+      echo "=== Installing Bun ==="
+      curl -fsSL https://bun.sh/install | bash
+
+      # Add bun to PATH for this script
+      export BUN_INSTALL="/root/.bun"
+      export PATH="$BUN_INSTALL/bin:$PATH"
+
+      echo "=== Testing GitHub SSH connection ==="
+      ssh -T git@github.com || true
+
+      echo "=== Cloning MageKnight repository ==="
+      cd /root
+      if [ ! -d "MageKnight" ]; then
+        git clone git@github.com:mage-knight-digital/MageKnight.git
+      else
+        echo "MageKnight directory already exists, skipping clone"
+      fi
+
+      echo "=== Configuring git hooks ==="
+      cd /root/MageKnight
+      git config core.hooksPath .githooks
+
+      echo "=== Installing dependencies ==="
+      bun install
+
+      echo "=== Building packages ==="
+      bun run build
+
+      echo "=== Setting up Python SDK ==="
+      cd /root/MageKnight/packages/python-sdk
+      python3 -m venv venv
+      source venv/bin/activate
+      python3 -m pip install -e .
+
+      echo "=== Enabling mage-knight-server service ==="
+      systemctl daemon-reload
+      systemctl enable mage-knight-server.service
+      systemctl start mage-knight-server.service
+
+      echo "=== Setup complete at $(date) ==="
+      echo "Server IP: $(curl -s ifconfig.me)"
+      echo "Dev server should be running on port 3001"
+      echo "Bootstrap API should be running on port 3002"
+      echo "Check status: systemctl status mage-knight-server"
+
+runcmd:
+  # Run setup script
+  - /root/setup-mage-knight.sh
+
+final_message: "Mage Knight development server is ready! SSH: ssh root@$HOSTNAME"

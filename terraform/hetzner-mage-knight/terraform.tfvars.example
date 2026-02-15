@@ -1,0 +1,9 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+hcloud_token = "your-hetzner-cloud-token-here"
+
+# Optional overrides (defaults are sensible)
+# server_type = "cx22"  # cx22 = 2 vCPU, 4GB RAM, ~€5.83/month
+# location = "ash"      # Ashburn, Virginia, US
+# ssh_public_key_path = "~/.ssh/id_hetzner.pub"
+# ssh_private_key_path = "~/.ssh/id_hetzner"
