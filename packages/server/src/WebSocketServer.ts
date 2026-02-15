@@ -12,6 +12,7 @@ import {
 } from "@mage-knight/shared";
 import {
   PLAYER_COUNT_FOUR,
+  PLAYER_COUNT_ONE,
   PLAYER_COUNT_THREE,
   PLAYER_COUNT_TWO,
   RoomProvisioningError,
@@ -506,6 +507,7 @@ export class WebSocketGameServer {
 
     const { playerCount, seed } = body.value;
     if (
+      playerCount !== PLAYER_COUNT_ONE &&
       playerCount !== PLAYER_COUNT_TWO &&
       playerCount !== PLAYER_COUNT_THREE &&
       playerCount !== PLAYER_COUNT_FOUR
@@ -513,7 +515,7 @@ export class WebSocketGameServer {
       return this.json(
         {
           error: ROOM_ERROR_INVALID_PLAYER_COUNT,
-          message: "playerCount must be 2, 3, or 4",
+          message: "playerCount must be 1, 2, 3, or 4",
         },
         400
       );

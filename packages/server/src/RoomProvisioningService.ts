@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 
+export const PLAYER_COUNT_ONE = 1 as const;
 export const PLAYER_COUNT_TWO = 2 as const;
 export const PLAYER_COUNT_THREE = 3 as const;
 export const PLAYER_COUNT_FOUR = 4 as const;
 
 export type PlayerCount =
+  | typeof PLAYER_COUNT_ONE
   | typeof PLAYER_COUNT_TWO
   | typeof PLAYER_COUNT_THREE
   | typeof PLAYER_COUNT_FOUR;
@@ -96,7 +98,7 @@ export class RoomProvisioningService {
     if (!isValidPlayerCount(request.playerCount)) {
       throw new RoomProvisioningError(
         ROOM_ERROR_INVALID_PLAYER_COUNT,
-        `playerCount must be 2, 3, or 4 (received ${String(request.playerCount)})`
+        `playerCount must be 1, 2, 3, or 4 (received ${String(request.playerCount)})`
       );
     }
 
@@ -268,6 +270,7 @@ export class RoomProvisioningService {
 
 function isValidPlayerCount(playerCount: number): playerCount is PlayerCount {
   return (
+    playerCount === PLAYER_COUNT_ONE ||
     playerCount === PLAYER_COUNT_TWO ||
     playerCount === PLAYER_COUNT_THREE ||
     playerCount === PLAYER_COUNT_FOUR
