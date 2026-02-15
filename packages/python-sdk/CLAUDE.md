@@ -44,6 +44,8 @@ mage-knight-run-game --seed 42 --max-steps 5000 --no-undo
 mage-knight-run-sweep --start-seed 1 --count 100 --benchmark --no-undo
 mage-knight-scan-fame --artifacts-dir ./sim-artifacts
 mage-knight-viewer  # Launch artifact viewer web server
+mage-knight-train-rl --episodes 1000 --seed 1 --player-count 1 --no-undo
+mage-knight-import-tb /path/to/training_log.ndjson
 ```
 
 Or via module execution:
@@ -52,6 +54,8 @@ Or via module execution:
 python3 -m mage_knight_sdk.cli.run_game --seed 42
 python3 -m mage_knight_sdk.cli.run_sweep --start-seed 1 --count 100
 python3 -m mage_knight_sdk.tools.scan_fame --artifacts-dir ./sim-artifacts
+python3 -m mage_knight_sdk.cli.train_rl --episodes 1000 --seed 1
+python3 -m mage_knight_sdk.tools.import_tensorboard /path/to/training_log.ndjson
 ```
 
 ## Architecture
@@ -146,10 +150,59 @@ python3 -m mage_knight_sdk.tools.scan_fame --artifacts-dir ./sim-artifacts
 
 - `cli/run_game.py` — run a single full game (`mage-knight-run-game`)
 - `cli/run_sweep.py` — run a seed range with benchmarking (`mage-knight-run-sweep`)
+- `cli/train_rl.py` — train an RL agent via REINFORCE/Actor-Critic (`mage-knight-train-rl`)
 
 ### Tools (`tools/`)
 
 - `tools/scan_fame.py` — scan artifacts for games with fame > 0 (`mage-knight-scan-fame`)
+- `tools/import_tensorboard.py` — import existing NDJSON training logs into TensorBoard format (`mage-knight-import-tb`)
+
+### RL Training (`sim/rl/`)
+
+REINFORCE with Actor-Critic baseline for training a game-playing agent. Optional dependency (`pip install -e '.[rl]'`).
+
+**Key modules:**
+- `policy_gradient.py` — `ReinforcePolicy` (policy network + value head), `PolicyGradientConfig`
+- `trainer.py` — `ReinforceTrainer` (per-episode hooks, optimization)
+- `distributed_trainer.py` — `DistributedReinforceTrainer` (data-parallel gradient accumulation across worker processes)
+- `features.py` — State/action feature encoding with optional entity embeddings
+- `rewards.py` — `RewardConfig` for reward shaping components
+- `vocabularies.py` — Entity ID vocabularies for embedding lookups
+
+**Training:**
+```bash
+# Sequential training (single process)
+mage-knight-train-rl --episodes 1000 --seed 1 --player-count 1 --no-undo \
+  --checkpoint-dir /tmp/rl-run
+
+# Distributed training (4 workers, 4 episodes each before gradient sync)
+mage-knight-train-rl --episodes 100000 --seed 1 --player-count 1 --no-undo \
+  --workers 4 --episodes-per-sync 4 --hidden-size 512 \
+  --checkpoint-dir /tmp/rl-run
+
+# Resume from checkpoint
+mage-knight-train-rl --episodes 50000 --resume /tmp/rl-run/policy_final.pt \
+  --player-count 1 --no-undo --workers 4 --episodes-per-sync 4
+
+# Save replays for high-reward games
+mage-knight-train-rl --episodes 100000 --save-top-games 5.0 ...
+```
+
+### TensorBoard
+
+Training automatically logs to TensorBoard when `tensorboard` is installed (included in `.[rl]` extras).
+
+**Metrics logged:** `reward/total`, `reward/fame`, `episode/steps`, `episode/fame_binary`, `optimization/loss`, `optimization/entropy`, `optimization/critic_loss`, `optimization/action_count`
+
+```bash
+# TensorBoard logs are at {checkpoint-dir}/tensorboard/
+# Launch dashboard:
+tensorboard --logdir /tmp/rl-run/tensorboard
+
+# Import existing NDJSON training logs (for runs started before TB was added):
+mage-knight-import-tb /tmp/rl-run/training_log.ndjson
+# Writes to /tmp/rl-run/tensorboard/ by default, or specify --logdir
+```
 
 ### Viewer (`viewer/`)
 
@@ -230,9 +283,17 @@ python3 scripts/generate_action_enumerator.py
 | `src/mage_knight_sdk/sim/reporting.py` | Results, summaries, artifact writing |
 | `src/mage_knight_sdk/sim/bootstrap.py` | HTTP game creation/joining |
 | `src/mage_knight_sdk/sim/generated_action_enumerator.py` | **Generated** valid action enumeration |
+| `src/mage_knight_sdk/sim/rl/policy_gradient.py` | ReinforcePolicy, Actor-Critic network |
+| `src/mage_knight_sdk/sim/rl/trainer.py` | Per-episode training hooks |
+| `src/mage_knight_sdk/sim/rl/distributed_trainer.py` | Data-parallel distributed training |
+| `src/mage_knight_sdk/sim/rl/features.py` | State/action feature encoding |
+| `src/mage_knight_sdk/sim/rl/rewards.py` | Reward configuration |
+| `src/mage_knight_sdk/sim/rl/vocabularies.py` | Entity ID vocabularies for embeddings |
 | `src/mage_knight_sdk/cli/run_game.py` | Single game CLI |
 | `src/mage_knight_sdk/cli/run_sweep.py` | Seed sweep CLI |
+| `src/mage_knight_sdk/cli/train_rl.py` | RL training CLI |
 | `src/mage_knight_sdk/tools/scan_fame.py` | Fame analysis tool |
+| `src/mage_knight_sdk/tools/import_tensorboard.py` | NDJSON→TensorBoard importer |
 | `src/mage_knight_sdk/viewer/` | Artifact viewer (Flask app) |
 | `scripts/generate_*.py` | Code generators |
 | `pyproject.toml` | Package metadata and dependencies |
