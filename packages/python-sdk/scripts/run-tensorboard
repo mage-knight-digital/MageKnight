@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Launch TensorBoard dashboard (requires: pip install -e ".[rl]")
+# Usage: bun run tensorboard -- --logdir /tmp/rl-run/tensorboard
+cd "$(dirname "$0")/.."
+if [ -x .venv/bin/tensorboard ]; then
+  exec .venv/bin/tensorboard "$@"
+elif [ -x venv/bin/tensorboard ]; then
+  exec venv/bin/tensorboard "$@"
+else
+  exec python3 -m tensorboard.main "$@"
+fi

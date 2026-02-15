@@ -6,6 +6,9 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "viewer": "packages/python-sdk/scripts/run-viewer",
+    "tensorboard": "packages/python-sdk/scripts/run-tensorboard",
+    "import-tb": "packages/python-sdk/scripts/run-import-tb",
+    "train-rl": "packages/python-sdk/scripts/run-train-rl",
     "build": "bun run --filter '*' build",
     "test": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test",
     "test:coverage": "bun run --parallel --filter '@mage-knight/{core,shared,server}' test:coverage",

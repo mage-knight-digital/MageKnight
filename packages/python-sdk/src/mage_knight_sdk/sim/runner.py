@@ -47,7 +47,12 @@ async def run_simulations(
     policy: Policy | None = None,
     hooks: RunnerHooks | None = None,
     return_messages: bool = False,
-) -> tuple[list[RunResult], RunSummary] | tuple[list[RunResult], RunSummary, list[list[MessageLogEntry]]]:
+    return_traces: bool = False,
+) -> (
+    tuple[list[RunResult], RunSummary]
+    | tuple[list[RunResult], RunSummary, list[list[MessageLogEntry]]]
+    | tuple[list[RunResult], RunSummary, list[list[MessageLogEntry]], list[list[ActionTraceEntry]]]
+):
     """
     Run multiple simulations.
 
@@ -56,15 +61,20 @@ async def run_simulations(
         policy: Action selection policy (defaults to RandomPolicy)
         hooks: Optional hooks for step/run events
         return_messages: If True, return message logs for each run
+        return_traces: If True, also return action traces (implies return_messages)
 
     Returns:
-        If return_messages=False: (results, summary)
+        If return_messages=False and return_traces=False: (results, summary)
         If return_messages=True: (results, summary, message_logs)
+        If return_traces=True: (results, summary, message_logs, action_traces)
     """
+    if return_traces:
+        return_messages = True
     if policy is None:
         policy = RandomPolicy()
     results: list[RunResult] = []
     all_messages: list[list[MessageLogEntry]] = []
+    all_traces: list[list[ActionTraceEntry]] = []
     for run_index in range(config.runs):
         run_seed = config.base_seed + run_index
         outcome = await _run_single_simulation(
@@ -77,8 +87,12 @@ async def run_simulations(
         results.append(outcome.result)
         if return_messages:
             all_messages.append(outcome.messages)
+        if return_traces:
+            all_traces.append(outcome.trace)
 
     summary = summarize(results)
+    if return_traces:
+        return results, summary, all_messages, all_traces
     if return_messages:
         return results, summary, all_messages
     return results, summary
@@ -667,12 +681,13 @@ def _finish_run(
         step_timings=timings,
     )
 
-    write_run_summary(
-        output_dir=config.artifacts_dir,
-        run_result=run_result,
-        message_log=messages,
-        git_sha=config.git_sha,
-    )
+    if not config.skip_run_summary:
+        write_run_summary(
+            output_dir=config.artifacts_dir,
+            run_result=run_result,
+            message_log=messages,
+            git_sha=config.git_sha,
+        )
 
     artifact_outcomes = {
         OUTCOME_DISCONNECT,
@@ -714,7 +729,12 @@ def run_simulations_sync(
     policy: Policy | None = None,
     hooks: RunnerHooks | None = None,
     return_messages: bool = False,
-) -> tuple[list[RunResult], RunSummary] | tuple[list[RunResult], RunSummary, list[list[MessageLogEntry]]]:
+    return_traces: bool = False,
+) -> (
+    tuple[list[RunResult], RunSummary]
+    | tuple[list[RunResult], RunSummary, list[list[MessageLogEntry]]]
+    | tuple[list[RunResult], RunSummary, list[list[MessageLogEntry]], list[list[ActionTraceEntry]]]
+):
     """
     Synchronous wrapper for run_simulations.
 
@@ -723,12 +743,14 @@ def run_simulations_sync(
         policy: Action selection policy (defaults to RandomPolicy)
         hooks: Optional hooks for step/run events
         return_messages: If True, return message logs for each run
+        return_traces: If True, also return action traces (implies return_messages)
 
     Returns:
-        If return_messages=False: (results, summary)
+        If return_messages=False and return_traces=False: (results, summary)
         If return_messages=True: (results, summary, message_logs)
+        If return_traces=True: (results, summary, message_logs, action_traces)
     """
-    return asyncio.run(run_simulations(config, policy=policy, hooks=hooks, return_messages=return_messages))
+    return asyncio.run(run_simulations(config, policy=policy, hooks=hooks, return_messages=return_messages, return_traces=return_traces))
 
 
 def save_summary(path: str, results: list[RunResult], summary: RunSummary) -> None:

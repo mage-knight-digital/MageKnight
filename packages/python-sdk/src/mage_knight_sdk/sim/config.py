@@ -28,6 +28,7 @@ class RunnerConfig:
     stall_detection_no_draw_pile_change_turns: int = 20
     collect_step_timings: bool = False
     git_sha: str | None = None
+    skip_run_summary: bool = False
 
 
 @dataclass

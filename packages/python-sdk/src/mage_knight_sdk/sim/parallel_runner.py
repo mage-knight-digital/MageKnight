@@ -61,6 +61,7 @@ def run_single_seed(
         forced_invalid_action_step=base_config.forced_invalid_action_step,
         collect_step_timings=base_config.collect_step_timings,
         git_sha=base_config.git_sha,
+        skip_run_summary=True,
     )
 
     policy = policy_factory() if policy_factory is not None else RandomPolicy()

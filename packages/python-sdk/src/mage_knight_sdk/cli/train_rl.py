@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train a simple REINFORCE policy against the Mage Knight simulation harness."""
+"""Train a policy-gradient agent against the Mage Knight simulation harness."""
 
 from __future__ import annotations
 
@@ -12,6 +12,36 @@ import sys
 from typing import Any
 
 from mage_knight_sdk.sim import RunnerConfig, StepTimings, run_simulations_sync
+
+
+class _TBWriter:
+    """Thin wrapper around TensorBoard SummaryWriter. No-op if tensorboard is unavailable."""
+
+    def __init__(self, log_dir: Path | None) -> None:
+        self._writer = None
+        if log_dir is None:
+            return
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+            self._writer = SummaryWriter(log_dir=str(log_dir))
+        except ImportError:
+            print("tensorboard not installed — skipping TensorBoard logging", file=sys.stderr)
+
+    def log_episode(self, episode: int, stats: Any) -> None:
+        if self._writer is None:
+            return
+        self._writer.add_scalar("reward/total", stats.total_reward, episode)
+        self._writer.add_scalar("reward/fame", max(0, stats.total_reward - 1.0), episode)
+        self._writer.add_scalar("episode/steps", stats.steps, episode)
+        self._writer.add_scalar("episode/fame_binary", 1.0 if stats.total_reward > 1.5 else 0.0, episode)
+        self._writer.add_scalar("optimization/loss", stats.optimization.loss, episode)
+        self._writer.add_scalar("optimization/entropy", stats.optimization.entropy, episode)
+        self._writer.add_scalar("optimization/critic_loss", stats.optimization.critic_loss, episode)
+        self._writer.add_scalar("optimization/action_count", stats.optimization.action_count, episode)
+
+    def close(self) -> None:
+        if self._writer is not None:
+            self._writer.close()
 
 
 def main() -> int:
@@ -29,6 +59,7 @@ def main() -> int:
     parser.add_argument("--learning-rate", type=float, default=3e-4, help="Adam learning rate")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor")
     parser.add_argument("--entropy-coef", type=float, default=0.01, help="Entropy regularization coefficient")
+    parser.add_argument("--critic-coef", type=float, default=0.5, help="Critic (value) loss coefficient")
     parser.add_argument("--hidden-size", type=int, default=128, help="Hidden size for action scoring network")
     parser.add_argument("--device", default="auto", help="Torch device (auto, cpu, cuda, mps)")
     parser.add_argument("--embedding-dim", type=int, default=16, help="Embedding dimension for entity IDs (default: 16)")
@@ -46,8 +77,19 @@ def main() -> int:
     parser.add_argument("--resume", metavar="PATH", help="Resume from checkpoint (load policy + optimizer); run --episodes more from here")
     parser.add_argument("--benchmark", action="store_true", help="Report per-step timing breakdown at the end")
 
+    parser.add_argument("--save-top-games", type=float, default=None, metavar="THRESHOLD",
+                        help="Save full game replay for episodes with total_reward >= THRESHOLD")
+
     parser.add_argument("--workers", type=int, default=1, help="Number of parallel worker processes (default: 1 = sequential)")
     parser.add_argument("--episodes-per-sync", type=int, default=1, help="Episodes each worker runs before gradient sync (default: 1)")
+
+    # PPO flags
+    parser.add_argument("--ppo", action="store_true", help="Use PPO instead of REINFORCE")
+    parser.add_argument("--batch-episodes", type=int, default=16, help="Episodes per PPO update batch (sequential, default: 16)")
+    parser.add_argument("--ppo-epochs", type=int, default=4, help="PPO optimization epochs per batch (default: 4)")
+    parser.add_argument("--clip-epsilon", type=float, default=0.2, help="PPO clip ratio (default: 0.2)")
+    parser.add_argument("--gae-lambda", type=float, default=0.95, help="GAE lambda (default: 0.95)")
+    parser.add_argument("--max-grad-norm", type=float, default=0.5, help="Gradient clipping max norm (default: 0.5)")
 
     args = parser.parse_args()
     if args.episodes < 1:
@@ -61,7 +103,6 @@ def main() -> int:
     PolicyGradientConfig = components["PolicyGradientConfig"]
     ReinforcePolicy = components["ReinforcePolicy"]
     RewardConfig = components["RewardConfig"]
-    ReinforceTrainer = components["ReinforceTrainer"]
 
     if args.resume:
         policy, resume_meta = ReinforcePolicy.load_checkpoint(
@@ -74,6 +115,7 @@ def main() -> int:
             gamma=args.gamma,
             learning_rate=args.learning_rate,
             entropy_coefficient=args.entropy_coef,
+            critic_coefficient=args.critic_coef,
             hidden_size=args.hidden_size,
             device=args.device,
             embedding_dim=args.embedding_dim,
@@ -96,7 +138,8 @@ def main() -> int:
     if not args.resume:
         _write_run_manifest(checkpoint_dir, args, policy, reward_config)
 
-    print(f"Training episodes={args.episodes} seed={args.seed} max_steps={args.max_steps}")
+    algo = "PPO" if args.ppo else "REINFORCE"
+    print(f"Training episodes={args.episodes} seed={args.seed} max_steps={args.max_steps} algorithm={algo}")
     print(
         "Rewards: "
         f"fame_delta_scale={args.fame_delta_scale} "
@@ -106,15 +149,41 @@ def main() -> int:
         f"failure_penalty={args.terminal_failure_penalty}"
     )
 
-    if args.workers > 1:
-        print(f"Distributed: workers={args.workers} episodes_per_sync={args.episodes_per_sync}")
+    if args.ppo:
+        if args.workers > 1:
+            batch = args.workers * args.episodes_per_sync
+            print(f"PPO distributed: workers={args.workers} eps_per_sync={args.episodes_per_sync} batch={batch} ppo_epochs={args.ppo_epochs} clip={args.clip_epsilon} gae_lambda={args.gae_lambda}")
+        else:
+            print(f"PPO sequential: batch_episodes={args.batch_episodes} ppo_epochs={args.ppo_epochs} clip={args.clip_epsilon} gae_lambda={args.gae_lambda}")
+    elif args.workers > 1:
+        print(f"Distributed REINFORCE: workers={args.workers} episodes_per_sync={args.episodes_per_sync}")
+
+    replay_dir: Path | None = None
+    if args.save_top_games is not None:
+        replay_dir = checkpoint_dir / "replays"
+        replay_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Saving replays for reward >= {args.save_top_games} -> {replay_dir}")
+
+    tb = _TBWriter(checkpoint_dir / "tensorboard")
+    print(f"TensorBoard: tensorboard --logdir {checkpoint_dir / 'tensorboard'}")
 
     print("-" * 88)
 
-    if args.workers > 1:
-        return _train_distributed(args, policy, reward_config, checkpoint_dir, metrics_path, components)
+    try:
+        if args.ppo:
+            if args.workers > 1:
+                return _train_ppo_distributed(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb)
+            return _train_ppo_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb)
+        if args.workers > 1:
+            return _train_distributed(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb)
+        return _train_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, components["ReinforceTrainer"], replay_dir, tb)
+    finally:
+        tb.close()
 
-    return _train_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, ReinforceTrainer)
+
+# ---------------------------------------------------------------------------
+# REINFORCE training loops (existing)
+# ---------------------------------------------------------------------------
 
 
 def _train_sequential(
@@ -124,6 +193,8 @@ def _train_sequential(
     checkpoint_dir: Path,
     metrics_path: Path,
     ReinforceTrainer: type,
+    replay_dir: Path | None = None,
+    tb: _TBWriter | None = None,
 ) -> int:
     """Original sequential training loop."""
     trainer = ReinforceTrainer(policy=policy, reward_config=reward_config)
@@ -145,7 +216,14 @@ def _train_sequential(
             collect_step_timings=args.benchmark,
         )
 
-        results, _summary = run_simulations_sync(config, policy=policy, hooks=trainer)
+        capture = replay_dir is not None
+        sim_output = run_simulations_sync(config, policy=policy, hooks=trainer, return_traces=capture)
+        if capture:
+            results, _summary, msg_logs, trace_logs = sim_output
+        else:
+            results, _summary = sim_output
+            msg_logs = None
+            trace_logs = None
         result = results[0]
         if agg_step_timings is not None and result.step_timings is not None:
             agg_step_timings.enumerate_ns += result.step_timings.enumerate_ns
@@ -172,6 +250,7 @@ def _train_sequential(
                 "mean_reward": stats.optimization.mean_reward,
                 "entropy": stats.optimization.entropy,
                 "action_count": stats.optimization.action_count,
+                "critic_loss": stats.optimization.critic_loss,
             },
         )
 
@@ -180,6 +259,17 @@ def _train_sequential(
             f"steps={result.steps:<6} reward={stats.total_reward:>8.3f} "
             f"loss={stats.optimization.loss:>9.4f} entropy={stats.optimization.entropy:>7.4f}"
         )
+
+        if tb is not None:
+            tb.log_episode(episode + 1, stats)
+
+        if (replay_dir is not None
+                and msg_logs is not None
+                and trace_logs is not None
+                and args.save_top_games is not None
+                and stats.total_reward >= args.save_top_games):
+            _save_replay(replay_dir, episode + 1, seed, stats, msg_logs[0], trace_logs[0])
+            _prune_replays(replay_dir, keep=50)
 
         if args.checkpoint_every > 0 and (episode + 1) % args.checkpoint_every == 0:
             checkpoint_path = checkpoint_dir / f"policy_ep_{episode + 1:04d}.pt"
@@ -218,8 +308,10 @@ def _train_distributed(
     checkpoint_dir: Path,
     metrics_path: Path,
     components: dict[str, Any],
+    replay_dir: Path | None = None,
+    tb: _TBWriter | None = None,
 ) -> int:
-    """Distributed training via data-parallel gradient accumulation."""
+    """Distributed REINFORCE training via data-parallel gradient accumulation."""
     DistributedReinforceTrainer = components["DistributedReinforceTrainer"]
 
     runner_config = RunnerConfig(
@@ -240,6 +332,8 @@ def _train_distributed(
         runner_config=runner_config,
         num_workers=args.workers,
         episodes_per_sync=args.episodes_per_sync,
+        replay_dir=replay_dir,
+        replay_threshold=args.save_top_games,
     )
 
     episode = 0
@@ -258,6 +352,9 @@ def _train_distributed(
             f"steps={stats.steps:<6} reward={stats.total_reward:>8.3f} "
             f"loss={stats.optimization.loss:>9.4f} entropy={stats.optimization.entropy:>7.4f}"
         )
+
+        if tb is not None:
+            tb.log_episode(episode + 1, stats)
 
         if args.checkpoint_every > 0 and (episode + 1) % args.checkpoint_every == 0:
             checkpoint_path = checkpoint_dir / f"policy_ep_{episode + 1:04d}.pt"
@@ -288,6 +385,231 @@ def _train_distributed(
     return 0
 
 
+# ---------------------------------------------------------------------------
+# PPO training loops
+# ---------------------------------------------------------------------------
+
+
+def _train_ppo_sequential(
+    args: argparse.Namespace,
+    policy: Any,
+    reward_config: Any,
+    checkpoint_dir: Path,
+    metrics_path: Path,
+    components: dict[str, Any],
+    replay_dir: Path | None = None,
+    tb: _TBWriter | None = None,
+) -> int:
+    """Sequential PPO training: collect batch, optimize, repeat."""
+    PPOTrainer = components["PPOTrainer"]
+    compute_gae = components["compute_gae"]
+
+    ppo_trainer = PPOTrainer(policy=policy, reward_config=reward_config)
+    episode_num = 0
+
+    while episode_num < args.episodes:
+        batch_size = min(args.batch_episodes, args.episodes - episode_num)
+
+        # Collect batch_size episodes
+        for i in range(batch_size):
+            seed = args.seed + episode_num + i
+            config = RunnerConfig(
+                bootstrap_api_base_url=args.bootstrap_url,
+                ws_server_url=args.ws_url,
+                player_count=args.player_count,
+                runs=1,
+                max_steps=args.max_steps,
+                base_seed=seed,
+                artifacts_dir=args.artifacts_dir,
+                write_failure_artifacts=args.save_failures,
+                allow_undo=not args.no_undo,
+            )
+
+            capture = replay_dir is not None
+            sim_output = run_simulations_sync(
+                config, policy=policy, hooks=ppo_trainer,
+                return_traces=capture,
+            )
+            if capture:
+                _results, _summary, msg_logs, trace_logs = sim_output
+            else:
+                _results, _summary = sim_output
+                msg_logs = None
+                trace_logs = None
+
+            # Save replay for this episode if above threshold
+            ep_stats = ppo_trainer.last_episode_stats
+            if (capture
+                    and msg_logs is not None
+                    and trace_logs is not None
+                    and args.save_top_games is not None
+                    and ep_stats is not None
+                    and ep_stats.total_reward >= args.save_top_games):
+                _save_replay(replay_dir, episode_num + i + 1, seed, ep_stats, msg_logs[0], trace_logs[0])
+                _prune_replays(replay_dir, keep=50)
+
+        # PPO optimization
+        episodes_data, batch_stats = ppo_trainer.harvest()
+        transitions, advantages, returns = compute_gae(
+            episodes_data, args.gamma, args.gae_lambda,
+        )
+        opt_stats = policy.optimize_ppo(
+            transitions, advantages, returns,
+            clip_epsilon=args.clip_epsilon,
+            ppo_epochs=args.ppo_epochs,
+            max_grad_norm=args.max_grad_norm,
+        )
+
+        # Log each episode in the batch
+        for i, stats in enumerate(batch_stats):
+            ep = episode_num + i + 1
+            seed = args.seed + episode_num + i
+
+            _append_metrics_log_from_stats(
+                path=metrics_path, episode=episode_num + i, seed=seed,
+                stats=_with_opt(stats, opt_stats),
+            )
+
+            print(
+                f"ep={ep:04d} seed={seed} outcome={stats.outcome:<17} "
+                f"steps={stats.steps:<6} reward={stats.total_reward:>8.3f} "
+                f"loss={opt_stats.loss:>9.4f} entropy={opt_stats.entropy:>7.4f}"
+            )
+
+            if tb is not None:
+                tb.log_episode(ep, _with_opt(stats, opt_stats))
+
+        episode_num += len(batch_stats)
+
+        # Checkpoint
+        if args.checkpoint_every > 0 and episode_num % args.checkpoint_every < len(batch_stats):
+            checkpoint_path = checkpoint_dir / f"policy_ep_{episode_num:06d}.pt"
+            policy.save_checkpoint(
+                checkpoint_path,
+                metadata={
+                    "episode": episode_num,
+                    "seed": args.seed + episode_num - 1,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+
+    if not args.no_final_checkpoint:
+        final_path = checkpoint_dir / "policy_final.pt"
+        policy.save_checkpoint(
+            final_path,
+            metadata={
+                "episode": args.episodes,
+                "seed": args.seed + args.episodes - 1,
+                "timestamp": datetime.now(UTC).isoformat(),
+            },
+        )
+        print(f"Final checkpoint: {final_path}")
+
+    print(f"Metrics log: {metrics_path}")
+    return 0
+
+
+def _train_ppo_distributed(
+    args: argparse.Namespace,
+    policy: Any,
+    reward_config: Any,
+    checkpoint_dir: Path,
+    metrics_path: Path,
+    components: dict[str, Any],
+    replay_dir: Path | None = None,
+    tb: _TBWriter | None = None,
+) -> int:
+    """Distributed PPO: workers collect transitions, main process optimizes."""
+    DistributedPPOTrainer = components["DistributedPPOTrainer"]
+
+    runner_config = RunnerConfig(
+        bootstrap_api_base_url=args.bootstrap_url,
+        ws_server_url=args.ws_url,
+        player_count=args.player_count,
+        runs=1,
+        max_steps=args.max_steps,
+        base_seed=args.seed,
+        artifacts_dir=args.artifacts_dir,
+        write_failure_artifacts=args.save_failures,
+        allow_undo=not args.no_undo,
+    )
+
+    dist_trainer = DistributedPPOTrainer(
+        policy=policy,
+        reward_config=reward_config,
+        runner_config=runner_config,
+        num_workers=args.workers,
+        episodes_per_sync=args.episodes_per_sync,
+        ppo_epochs=args.ppo_epochs,
+        clip_epsilon=args.clip_epsilon,
+        gae_lambda=args.gae_lambda,
+        max_grad_norm=args.max_grad_norm,
+        replay_dir=replay_dir,
+        replay_threshold=args.save_top_games,
+    )
+
+    episode = 0
+    for stats in dist_trainer.train(total_episodes=args.episodes, start_seed=args.seed):
+        seed = args.seed + episode
+
+        _append_metrics_log_from_stats(
+            path=metrics_path, episode=episode, seed=seed, stats=stats,
+        )
+
+        print(
+            f"ep={episode + 1:04d} seed={seed} outcome={stats.outcome:<17} "
+            f"steps={stats.steps:<6} reward={stats.total_reward:>8.3f} "
+            f"loss={stats.optimization.loss:>9.4f} entropy={stats.optimization.entropy:>7.4f}"
+        )
+
+        if tb is not None:
+            tb.log_episode(episode + 1, stats)
+
+        if args.checkpoint_every > 0 and (episode + 1) % args.checkpoint_every == 0:
+            checkpoint_path = checkpoint_dir / f"policy_ep_{episode + 1:06d}.pt"
+            policy.save_checkpoint(
+                checkpoint_path,
+                metadata={
+                    "episode": episode + 1,
+                    "seed": seed,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+
+        episode += 1
+
+    if not args.no_final_checkpoint:
+        final_path = checkpoint_dir / "policy_final.pt"
+        policy.save_checkpoint(
+            final_path,
+            metadata={
+                "episode": args.episodes,
+                "seed": args.seed + args.episodes - 1,
+                "timestamp": datetime.now(UTC).isoformat(),
+            },
+        )
+        print(f"Final checkpoint: {final_path}")
+
+    print(f"Metrics log: {metrics_path}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _with_opt(stats: Any, opt: Any) -> Any:
+    """Return EpisodeTrainingStats with updated optimization info."""
+    from mage_knight_sdk.sim.rl.trainer import EpisodeTrainingStats
+    return EpisodeTrainingStats(
+        outcome=stats.outcome,
+        steps=stats.steps,
+        total_reward=stats.total_reward,
+        optimization=opt,
+    )
+
+
 def _write_run_manifest(
     checkpoint_dir: Path,
     args: argparse.Namespace,
@@ -314,10 +636,17 @@ def _write_run_manifest(
 
 def _load_rl_components() -> dict[str, Any] | None:
     try:
-        from mage_knight_sdk.sim.rl.distributed_trainer import DistributedReinforceTrainer
-        from mage_knight_sdk.sim.rl.policy_gradient import PolicyGradientConfig, ReinforcePolicy
+        from mage_knight_sdk.sim.rl.distributed_trainer import (
+            DistributedPPOTrainer,
+            DistributedReinforceTrainer,
+        )
+        from mage_knight_sdk.sim.rl.policy_gradient import (
+            PolicyGradientConfig,
+            ReinforcePolicy,
+            compute_gae,
+        )
         from mage_knight_sdk.sim.rl.rewards import RewardConfig
-        from mage_knight_sdk.sim.rl.trainer import ReinforceTrainer
+        from mage_knight_sdk.sim.rl.trainer import PPOTrainer, ReinforceTrainer
     except ModuleNotFoundError as error:
         if error.name == "torch":
             print(
@@ -329,11 +658,14 @@ def _load_rl_components() -> dict[str, Any] | None:
         raise
 
     return {
+        "DistributedPPOTrainer": DistributedPPOTrainer,
         "DistributedReinforceTrainer": DistributedReinforceTrainer,
         "PolicyGradientConfig": PolicyGradientConfig,
         "ReinforcePolicy": ReinforcePolicy,
         "RewardConfig": RewardConfig,
         "ReinforceTrainer": ReinforceTrainer,
+        "PPOTrainer": PPOTrainer,
+        "compute_gae": compute_gae,
     }
 
 
@@ -380,7 +712,7 @@ def _append_metrics_log_from_stats(
     seed: int,
     stats: Any,
 ) -> None:
-    """Write metrics from EpisodeTrainingStats (distributed training path)."""
+    """Write metrics from EpisodeTrainingStats (distributed/PPO training path)."""
     record = {
         "episode": episode + 1,
         "seed": seed,
@@ -395,10 +727,72 @@ def _append_metrics_log_from_stats(
             "mean_reward": stats.optimization.mean_reward,
             "entropy": stats.optimization.entropy,
             "action_count": stats.optimization.action_count,
+            "critic_loss": stats.optimization.critic_loss,
         },
     }
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def _save_replay(
+    replay_dir: Path,
+    episode: int,
+    seed: int,
+    stats: Any,
+    messages: list[Any],
+    trace: list[Any] | None = None,
+) -> None:
+    """Save a notable game replay as JSON in viewer-compatible format."""
+    from dataclasses import asdict
+
+    record: dict[str, Any] = {
+        "run": {
+            "run_index": 0,
+            "seed": seed,
+            "outcome": stats.outcome,
+            "steps": stats.steps,
+            "game_id": f"rl_ep{episode}",
+            "total_reward": stats.total_reward,
+            "episode": episode,
+        },
+    }
+
+    if trace is not None:
+        record["actionTrace"] = [
+            asdict(entry) if hasattr(entry, "__dataclass_fields__") else entry
+            for entry in trace
+        ]
+    else:
+        record["actionTrace"] = []
+
+    record["messageLog"] = [
+        asdict(msg) if hasattr(msg, "__dataclass_fields__") else msg
+        for msg in messages
+    ]
+
+    path = replay_dir / f"replay_ep{episode:06d}_seed{seed}_r{stats.total_reward:.1f}.json"
+    path.write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
+    print(f"  -> Saved replay: {path.name}")
+
+
+def _prune_replays(replay_dir: Path, keep: int = 50) -> None:
+    """Keep only the top N replays by reward, delete the rest."""
+    files = list(replay_dir.glob("replay_*.json"))
+    if len(files) <= keep:
+        return
+
+    def _reward_from_name(p: Path) -> float:
+        # filename: replay_ep000433_seed433_r5.9.json
+        name = p.stem  # replay_ep000433_seed433_r5.9
+        try:
+            return float(name.rsplit("_r", 1)[1])
+        except (IndexError, ValueError):
+            return 0.0
+
+    files.sort(key=_reward_from_name, reverse=True)
+    for f in files[keep:]:
+        f.unlink()
+        print(f"  -> Pruned replay: {f.name}")
 
 
 if __name__ == "__main__":
