@@ -23,7 +23,7 @@ import {
   ROUND_PHASE_PLAYER_TURNS,
   INITIAL_MOVE_POINTS,
 } from "@mage-knight/shared";
-import { SiteType, TileId } from "@mage-knight/core";
+import { Hero, SiteType, TileId } from "@mage-knight/core";
 import type { HexState } from "@mage-knight/core";
 
 describe("GameServer", () => {
@@ -210,6 +210,60 @@ describe("GameServer", () => {
       // All 4 players should have different heroes
       const uniqueHeroes = new Set(heroIds);
       expect(uniqueHeroes.size).toBe(4);
+    });
+
+    describe("hero assignment when heroIds omitted (random)", () => {
+      const BASE_HEROES = [Hero.Arythea, Hero.Tovak, Hero.Goldyx, Hero.Norowas];
+
+      it("should assign single player one of the base heroes", () => {
+        const seeded = createGameServer(12345);
+        seeded.initializeGame(["player1"]);
+        const state = seeded.getState();
+        expect(state.players).toHaveLength(1);
+        expect(BASE_HEROES).toContain(state.players[0].hero);
+      });
+
+      it("should assign same hero for same seed (deterministic)", () => {
+        const server1 = createGameServer(999);
+        server1.initializeGame(["player1"]);
+        const hero1 = server1.getState().players[0].hero;
+
+        const server2 = createGameServer(999);
+        server2.initializeGame(["player1"]);
+        const hero2 = server2.getState().players[0].hero;
+
+        expect(hero1).toBe(hero2);
+      });
+
+      it("should assign different heroes for different seeds when multiple runs", () => {
+        const heroes = new Set<string>();
+        for (let seed = 1; seed <= 50; seed++) {
+          const s = createGameServer(seed);
+          s.initializeGame(["player1"]);
+          heroes.add(s.getState().players[0].hero);
+        }
+        // With 50 different seeds we should see more than one hero
+        expect(heroes.size).toBeGreaterThan(1);
+      });
+
+      it("should assign each multiplayer player a distinct hero", () => {
+        const seeded = createGameServer(777);
+        seeded.initializeGame(["player1", "player2", "player3"]);
+        const state = seeded.getState();
+        const assigned = state.players.map((p) => p.hero);
+        const unique = new Set(assigned);
+        expect(unique.size).toBe(3);
+        assigned.forEach((h) => expect(BASE_HEROES).toContain(h));
+      });
+    });
+
+    describe("hero assignment when heroIds provided", () => {
+      it("should use explicit heroIds in order", () => {
+        server.initializeGame(["player1", "player2"], ["tovak", "goldyx"]);
+        const state = server.getState();
+        expect(state.players[0].hero).toBe(Hero.Tovak);
+        expect(state.players[1].hero).toBe(Hero.Goldyx);
+      });
     });
 
     it("should place players on starting tile portal", () => {

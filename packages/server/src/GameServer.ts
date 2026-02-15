@@ -90,7 +90,7 @@ export class GameServer {
    * Initialize game with players.
    * @param playerIds - Array of player IDs (e.g., ["player1", "player2"])
    * @param heroIds - Optional array of hero IDs corresponding to each player.
-   *                  If not provided, heroes are assigned in default order (Arythea, Tovak, Goldyx, Norowas).
+   *                  If not provided, heroes are assigned randomly (one per player, distinct) using the game seed.
    * @param scenarioId - Optional scenario to play. Defaults to First Reconnaissance.
    * @param config - Optional full GameConfig for additional overrides (e.g., cityLevel).
    */
@@ -189,7 +189,7 @@ export class GameServer {
    * Places starting tile + 2 initial countryside tiles and positions all players on the portal hex.
    * Uses seeded RNG for reproducible initial deck shuffles.
    * @param playerIds - Array of player IDs
-   * @param heroIds - Optional array of hero IDs for each player. Falls back to default order.
+   * @param heroIds - Optional array of hero IDs for each player. If omitted, assigns random distinct base-game heroes via RNG.
    * @param scenarioId - Scenario to play
    */
   private createGameWithPlayers(
@@ -358,12 +358,29 @@ export class GameServer {
     );
     const startPosition = portalHex?.coord ?? { q: 0, r: 0 };
 
+    // When heroIds omitted, assign random distinct heroes (one per player) using seeded RNG
+    let effectiveHeroIds = heroIds;
+    if (effectiveHeroIds === undefined) {
+      const defaultHeroes: Hero[] = [
+        Hero.Arythea,
+        Hero.Tovak,
+        Hero.Goldyx,
+        Hero.Norowas,
+      ];
+      const { result: shuffled, rng: rngAfterHero } = shuffleWithRng(
+        [...defaultHeroes],
+        currentRng
+      );
+      effectiveHeroIds = shuffled.slice(0, playerIds.length) as HeroId[];
+      currentRng = rngAfterHero;
+    }
+
     // Create players on the portal with seeded RNG for deck shuffles
     const players: Player[] = [];
 
     for (let index = 0; index < playerIds.length; index++) {
       const id = playerIds[index];
-      const heroId = heroIds?.[index];
+      const heroId = effectiveHeroIds[index];
       if (id !== undefined) {
         const { player, rng } = this.createPlayer(
           id,
