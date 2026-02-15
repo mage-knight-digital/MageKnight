@@ -71,8 +71,9 @@ if [ -f "$LOG" ]; then
     fi
 fi
 
-# Launch fresh sweep
-tmux new-session -d -s sweep \
-  "cd /root/MageKnight/packages/python-sdk && source venv/bin/activate && mage-knight-run-sweep --runs 1000000 --no-undo --workers 2 > /tmp/sweep-1M.log 2>&1"
+# Launch fresh sweep (close flock fd before tmux to avoid inheritance)
+exec 200>&-
+tmux new-session -d -s sweep bash
+tmux send-keys -t sweep "cd /root/MageKnight/packages/python-sdk && source venv/bin/activate && mage-knight-run-sweep --runs 1000000 --no-undo --workers 2 > /tmp/sweep-1M.log 2>&1" Enter
 
 echo "$(date -u +%FT%TZ) Deploy complete, sweep launched ($(git rev-parse --short HEAD))" >> "$LOG"
