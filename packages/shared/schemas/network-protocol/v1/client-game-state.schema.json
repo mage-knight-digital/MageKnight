@@ -3449,6 +3449,81 @@
       ],
       "type": "object"
     },
+    "PendingRewardOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "availableCards": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "availableUnits": {
+          "items": {
+            "$ref": "#/definitions/UnitId"
+          },
+          "type": "array"
+        },
+        "commandTokens": {
+          "type": "number"
+        },
+        "currentUnitCount": {
+          "type": "number"
+        },
+        "disbandableUnits": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "instanceId": {
+                "type": "string"
+              },
+              "unitId": {
+                "$ref": "#/definitions/UnitId"
+              }
+            },
+            "required": [
+              "instanceId",
+              "unitId"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "rewardIndex": {
+          "type": "number"
+        },
+        "rewardType": {
+          "$ref": "#/definitions/SiteRewardType"
+        }
+      },
+      "required": [
+        "availableCards",
+        "rewardIndex",
+        "rewardType"
+      ],
+      "type": "object"
+    },
+    "PendingRewardState": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "pending_reward",
+          "type": "string"
+        },
+        "reward": {
+          "$ref": "#/definitions/PendingRewardOptions"
+        },
+        "turn": {
+          "$ref": "#/definitions/BlockingTurnOptions"
+        }
+      },
+      "required": [
+        "mode",
+        "reward",
+        "turn"
+      ],
+      "type": "object"
+    },
     "PendingSourceOpeningRerollState": {
       "additionalProperties": false,
       "properties": {
@@ -4022,6 +4097,18 @@
         }
       ],
       "description": "Union of all site reward types"
+    },
+    "SiteRewardType": {
+      "enum": [
+        "advanced_action",
+        "artifact",
+        "compound",
+        "crystal_roll",
+        "fame",
+        "spell",
+        "unit"
+      ],
+      "type": "string"
     },
     "SkillOptions": {
       "additionalProperties": false,
@@ -4645,6 +4732,9 @@
         },
         {
           "$ref": "#/definitions/PendingUnitMaintenanceState"
+        },
+        {
+          "$ref": "#/definitions/PendingRewardState"
         },
         {
           "$ref": "#/definitions/PendingChoiceState"

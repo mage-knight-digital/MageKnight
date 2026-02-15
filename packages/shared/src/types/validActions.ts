@@ -19,6 +19,8 @@ import type {
   PLAY_SIDEWAYS_AS_MOVE,
   TacticDecisionType,
 } from "../valueConstants.js";
+import type { SiteRewardType } from "../siteRewards.js";
+import type { UnitId } from "../units/index.js";
 
 // ============================================================================
 // ValidActions discriminated union (state machine)
@@ -1386,6 +1388,26 @@ export interface PendingUnitMaintenanceState {
   readonly unitMaintenance: UnitMaintenanceOptions;
 }
 
+// ============================================================================
+// Pending Reward (site conquest rewards)
+// ============================================================================
+
+export interface PendingRewardOptions {
+  readonly rewardIndex: number;
+  readonly rewardType: SiteRewardType;
+  readonly availableCards: readonly CardId[];
+  readonly availableUnits?: readonly UnitId[];
+  readonly commandTokens?: number;
+  readonly currentUnitCount?: number;
+  readonly disbandableUnits?: readonly { instanceId: string; unitId: UnitId }[];
+}
+
+export interface PendingRewardState {
+  readonly mode: "pending_reward";
+  readonly turn: BlockingTurnOptions;
+  readonly reward: PendingRewardOptions;
+}
+
 export interface PendingChoiceState {
   readonly mode: "pending_choice";
   readonly turn: BlockingTurnOptions;
@@ -1467,6 +1489,7 @@ export type ValidActions =
   | PendingBannerProtectionState
   | PendingSourceOpeningRerollState
   | PendingLevelUpState
+  | PendingRewardState
   | PendingChoiceState
   | PendingHexCostReductionState
   | PendingTerrainCostReductionState

@@ -64,6 +64,7 @@ import {
 import { getBannerOptions } from "./banners.js";
 import { getReturnableSkillOptions } from "./returnableSkills.js";
 import { getLearningAAPurchaseOptions } from "./learningAAPurchase.js";
+import { getPendingRewardOptions } from "./pendingReward.js";
 
 // Re-export helpers for use in other modules
 export {
@@ -230,6 +231,9 @@ export function getValidActions(
       turn: { canUndo: getTurnOptions(state, player).canUndo },
       training: getTrainingOptions(state, player),
     };
+  }
+  if (player.pendingRewards.length > 0) {
+    return getPendingRewardOptions(state, player);
   }
   if (player.pendingLevelUpRewards.length > 0) {
     const firstPending = player.pendingLevelUpRewards[0]!;

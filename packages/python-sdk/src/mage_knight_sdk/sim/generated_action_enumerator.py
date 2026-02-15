@@ -98,6 +98,7 @@ MODE_PENDING_LEVEL_UP = "pending_level_up"
 MODE_PENDING_MAXIMAL_EFFECT = "pending_maximal_effect"
 MODE_PENDING_MEDITATION = "pending_meditation"
 MODE_PENDING_PLUNDER_DECISION = "pending_plunder_decision"
+MODE_PENDING_REWARD = "pending_reward"
 MODE_PENDING_SOURCE_OPENING_REROLL = "pending_source_opening_reroll"
 MODE_PENDING_STEADY_TEMPO = "pending_steady_tempo"
 MODE_PENDING_TACTIC_DECISION = "pending_tactic_decision"
@@ -106,7 +107,7 @@ MODE_PENDING_TRAINING = "pending_training"
 MODE_PENDING_UNIT_MAINTENANCE = "pending_unit_maintenance"
 MODE_TACTICS_SELECTION = "tactics_selection"
 
-KNOWN_VALID_ACTION_MODES: tuple[str, ...] = ("cannot_act", "combat", "normal_turn", "pending_artifact_crystal_color", "pending_banner_protection", "pending_book_of_wisdom", "pending_choice", "pending_crystal_joy_reclaim", "pending_decompose", "pending_deep_mine", "pending_discard_cost", "pending_discard_for_attack", "pending_discard_for_bonus", "pending_discard_for_crystal", "pending_glade_wound", "pending_hex_cost_reduction", "pending_level_up", "pending_maximal_effect", "pending_meditation", "pending_plunder_decision", "pending_source_opening_reroll", "pending_steady_tempo", "pending_tactic_decision", "pending_terrain_cost_reduction", "pending_training", "pending_unit_maintenance", "tactics_selection",)
+KNOWN_VALID_ACTION_MODES: tuple[str, ...] = ("cannot_act", "combat", "normal_turn", "pending_artifact_crystal_color", "pending_banner_protection", "pending_book_of_wisdom", "pending_choice", "pending_crystal_joy_reclaim", "pending_decompose", "pending_deep_mine", "pending_discard_cost", "pending_discard_for_attack", "pending_discard_for_bonus", "pending_discard_for_crystal", "pending_glade_wound", "pending_hex_cost_reduction", "pending_level_up", "pending_maximal_effect", "pending_meditation", "pending_plunder_decision", "pending_reward", "pending_source_opening_reroll", "pending_steady_tempo", "pending_tactic_decision", "pending_terrain_cost_reduction", "pending_training", "pending_unit_maintenance", "tactics_selection",)
 KNOWN_TACTIC_DECISION_TYPES: tuple[str, ...] = ("mana_steal", "midnight_meditation", "preparation", "rethink", "sparing_power",)
 
 @dataclass(frozen=True)
@@ -171,6 +172,7 @@ def enumerate_valid_actions_from_state(state: dict[str, Any], player_id: str) ->
         "pending_maximal_effect": _actions_pending_maximal_effect,
         "pending_meditation": _actions_pending_meditation,
         "pending_plunder_decision": _actions_pending_plunder,
+        "pending_reward": _actions_pending_reward,
         "pending_source_opening_reroll": _actions_pending_source_opening_reroll,
         "pending_steady_tempo": _actions_pending_steady_tempo,
         "pending_terrain_cost_reduction": _actions_pending_terrain_cost_reduction,
@@ -198,6 +200,81 @@ def _actions_pending_plunder(valid_actions: dict[str, Any]) -> list[CandidateAct
         CandidateAction({"type": ACTION_PLUNDER_VILLAGE}, "plunder_decision.plunder"),
         CandidateAction({"type": ACTION_DECLINE_PLUNDER}, "plunder_decision.decline"),
     ]
+
+
+def _actions_pending_reward(valid_actions: dict[str, Any]) -> list[CandidateAction]:
+    reward = _as_dict(valid_actions.get("reward"))
+    if reward is None:
+        return []
+
+    reward_type = _as_str(reward.get("rewardType"))
+    reward_index = reward.get("rewardIndex", 0)
+    if not isinstance(reward_index, int):
+        reward_index = 0
+
+    actions: list[CandidateAction] = []
+
+    if reward_type in {"spell", "advanced_action"}:
+        for card_id in _as_list(reward.get("availableCards")):
+            if isinstance(card_id, str):
+                actions.append(
+                    CandidateAction(
+                        {"type": ACTION_SELECT_REWARD, "cardId": card_id, "rewardIndex": reward_index},
+                        "pending_reward.card",
+                    )
+                )
+    elif reward_type == "unit":
+        available_units = _as_list(reward.get("availableUnits"))
+        command_tokens = reward.get("commandTokens", 0)
+        current_unit_count = reward.get("currentUnitCount", 0)
+        at_limit = isinstance(command_tokens, int) and isinstance(current_unit_count, int) and current_unit_count >= command_tokens
+
+        for unit_id in available_units:
+            if not isinstance(unit_id, str):
+                continue
+            if at_limit:
+                disbandable = _as_list(reward.get("disbandableUnits"))
+                for disband in disbandable:
+                    disband_dict = _as_dict(disband)
+                    if disband_dict is None:
+                        continue
+                    disband_instance = _as_str(disband_dict.get("instanceId"))
+                    if disband_instance:
+                        actions.append(
+                            CandidateAction(
+                                {
+                                    "type": ACTION_SELECT_REWARD,
+                                    "cardId": unit_id,
+                                    "rewardIndex": reward_index,
+                                    "unitId": unit_id,
+                                    "disbandUnitInstanceId": disband_instance,
+                                },
+                                "pending_reward.unit.disband",
+                            )
+                        )
+            else:
+                actions.append(
+                    CandidateAction(
+                        {
+                            "type": ACTION_SELECT_REWARD,
+                            "cardId": unit_id,
+                            "rewardIndex": reward_index,
+                            "unitId": unit_id,
+                        },
+                        "pending_reward.unit",
+                    )
+                )
+    else:
+        # artifact, crystal_roll, fame, compound — auto-resolved or
+        # need a generic SELECT_REWARD with rewardIndex
+        actions.append(
+            CandidateAction(
+                {"type": ACTION_SELECT_REWARD, "rewardIndex": reward_index, "cardId": ""},
+                "pending_reward.auto",
+            )
+        )
+
+    return actions
 
 
 def _actions_pending_glade(valid_actions: dict[str, Any]) -> list[CandidateAction]:

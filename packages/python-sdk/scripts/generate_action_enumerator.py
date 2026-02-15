@@ -150,6 +150,7 @@ def render() -> str:
         "pending_hex_cost_reduction": "_actions_pending_hex_cost_reduction",
         "pending_terrain_cost_reduction": "_actions_pending_terrain_cost_reduction",
         "pending_plunder_decision": "_actions_pending_plunder",
+        "pending_reward": "_actions_pending_reward",
     }
 
     unknown_pending = sorted(set(pending_modes) - set(pending_dispatch))

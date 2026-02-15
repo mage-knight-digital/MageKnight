@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { createTestGameState, createTestPlayer } from "./testHelpers.js";
 import { getTurnOptions } from "../validActions/turn.js";
+import { getValidActions } from "../validActions/index.js";
 import { validateNoPendingRewards } from "../validators/rewardValidators.js";
 import { validateRestCompleted } from "../validators/restValidators.js";
 import { validateMinimumTurnRequirement } from "../validators/turnValidators.js";
@@ -13,7 +14,9 @@ import {
   CARD_WOUND,
   CARD_MARCH,
   SITE_REWARD_SPELL,
+  SITE_REWARD_ADVANCED_ACTION,
   type SiteReward,
+  type CardId,
 } from "@mage-knight/shared";
 import {
   PENDING_REWARDS_NOT_RESOLVED,
@@ -103,6 +106,59 @@ describe("Turn end options", () => {
     expect(validation.valid).toBe(false);
     if (!validation.valid) {
       expect(validation.error.code).toBe(MUST_PLAY_OR_DISCARD_CARD);
+    }
+  });
+});
+
+describe("Pending reward mode", () => {
+  it("returns pending_reward mode when player has pending spell reward", () => {
+    const player = createTestPlayer({
+      pendingRewards: [{ type: SITE_REWARD_SPELL, count: 1 }] as SiteReward[],
+    });
+    const spellCards = ["spell_fireball" as CardId, "spell_mana_bolt" as CardId];
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: [] },
+        spells: { cards: spellCards },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+        bondsOfLoyaltyBonusUnits: [],
+      },
+    });
+
+    const validActions = getValidActions(state, player.id);
+    expect(validActions.mode).toBe("pending_reward");
+    if (validActions.mode === "pending_reward") {
+      expect(validActions.reward.rewardType).toBe(SITE_REWARD_SPELL);
+      expect(validActions.reward.rewardIndex).toBe(0);
+      expect(validActions.reward.availableCards).toEqual(spellCards);
+    }
+  });
+
+  it("returns pending_reward mode when player has pending advanced action reward", () => {
+    const player = createTestPlayer({
+      pendingRewards: [{ type: SITE_REWARD_ADVANCED_ACTION, count: 1 }] as SiteReward[],
+    });
+    const aaCards = ["aa_ice_bolt" as CardId];
+    const state = createTestGameState({
+      players: [player],
+      offers: {
+        units: [],
+        advancedActions: { cards: aaCards },
+        spells: { cards: [] },
+        commonSkills: [],
+        monasteryAdvancedActions: [],
+        bondsOfLoyaltyBonusUnits: [],
+      },
+    });
+
+    const validActions = getValidActions(state, player.id);
+    expect(validActions.mode).toBe("pending_reward");
+    if (validActions.mode === "pending_reward") {
+      expect(validActions.reward.rewardType).toBe(SITE_REWARD_ADVANCED_ACTION);
+      expect(validActions.reward.availableCards).toEqual(aaCards);
     }
   });
 });

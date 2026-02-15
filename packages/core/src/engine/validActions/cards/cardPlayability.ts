@@ -581,29 +581,6 @@ function buildSkippedWoundResult(cardId: CardId, card: DeedCard): CardPlayabilit
 }
 
 // ============================================================================
-// SKIPPED CARD RESULT (action blocked, etc.)
-// ============================================================================
-
-function buildSkippedResult(
-  cardId: CardId,
-  card: DeedCard,
-  isActionCard: boolean
-): CardPlayabilityResult {
-  return {
-    cardId,
-    card,
-    isWound: false,
-    isActionCard,
-    actionBlocked: true,
-    basic: NOT_PLAYABLE,
-    powered: NOT_PLAYABLE,
-    sideways: { canPlay: false, options: [] },
-    basicEffectDescription: describeEffect(card.basicEffect),
-    poweredEffectDescription: describeEffect(card.poweredEffect),
-  };
-}
-
-// ============================================================================
 // BATCH EVALUATION
 // ============================================================================
 
