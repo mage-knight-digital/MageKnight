@@ -19,6 +19,7 @@ class _TBWriter:
 
     def __init__(self, log_dir: Path | None) -> None:
         self._writer = None
+        self._max_fame: float = 0.0
         if log_dir is None:
             return
         try:
@@ -30,8 +31,11 @@ class _TBWriter:
     def log_episode(self, episode: int, stats: Any) -> None:
         if self._writer is None:
             return
+        fame = max(0, stats.total_reward - 1.0)
+        self._max_fame = max(self._max_fame, fame)
         self._writer.add_scalar("reward/total", stats.total_reward, episode)
-        self._writer.add_scalar("reward/fame", max(0, stats.total_reward - 1.0), episode)
+        self._writer.add_scalar("reward/fame", fame, episode)
+        self._writer.add_scalar("reward/fame_max", self._max_fame, episode)
         self._writer.add_scalar("episode/steps", stats.steps, episode)
         self._writer.add_scalar("episode/fame_binary", 1.0 if stats.total_reward > 1.5 else 0.0, episode)
         self._writer.add_scalar("optimization/loss", stats.optimization.loss, episode)
