@@ -1,11 +1,12 @@
 /**
  * Tests that card boost (Concentration) correctly excludes cards whose
- * powered effects have unpayable discard costs.
+ * powered effects can't resolve after both source and target leave the hand.
  *
- * Bug: When a player has only Concentration + Improvisation (+ wounds),
- * Concentration should NOT be a valid action because Improvisation's
- * powered effect requires discarding a card, and after both Concentration
- * and Improvisation leave the hand there are no eligible cards to discard.
+ * Two categories:
+ * 1. Discard cost: Improvisation's powered effect requires discarding a card.
+ * 2. Throw-away: Decompose/Maximal Effect/Book of Wisdom/Training require
+ *    throwing away an action card, but the source card is excluded from
+ *    eligibility — so if no other action cards remain, the effect can't resolve.
  */
 
 import { describe, it, expect } from "vitest";
@@ -14,8 +15,10 @@ import { getEligibleBoostTargets } from "../effects/cardBoostEffects.js";
 import { getPlayableCardsForNormalTurn } from "../validActions/cards/normalTurn.js";
 import {
   CARD_CONCENTRATION,
+  CARD_DECOMPOSE,
   CARD_IMPROVISATION,
   CARD_MARCH,
+  CARD_MAXIMAL_EFFECT,
   CARD_WOUND,
 } from "@mage-knight/shared";
 
@@ -112,6 +115,87 @@ describe("Card Boost with discard cost cards", () => {
       );
 
       expect(concentration?.canPlayPowered).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // THROW-AWAY EFFECTS (Decompose, Maximal Effect, etc.)
+  // ==========================================================================
+
+  describe("getEligibleBoostTargets with throw-away effects", () => {
+    it("should exclude Decompose when no action cards remain after boost", () => {
+      // Hand: [Concentration, Decompose]
+      // After Concentration played: [Decompose]
+      // If Decompose is picked as boost target, its powered effect needs to
+      // throw away an action card — but the only card was Decompose itself
+      // (now in play area). No eligible targets → should not be offered.
+      const player = createTestPlayer({
+        hand: [CARD_CONCENTRATION, CARD_DECOMPOSE],
+      });
+
+      const eligible = getEligibleBoostTargets(player, CARD_CONCENTRATION);
+
+      expect(eligible.map((c) => c.id)).not.toContain(CARD_DECOMPOSE);
+      expect(eligible).toHaveLength(0);
+    });
+
+    it("should exclude Decompose when only wounds remain after boost", () => {
+      // Hand: [Concentration, Decompose, Wound]
+      // After Concentration played: [Decompose, Wound]
+      // If Decompose is picked: hand has [Wound] — no action cards to throw away
+      const player = createTestPlayer({
+        hand: [CARD_CONCENTRATION, CARD_DECOMPOSE, CARD_WOUND],
+      });
+
+      const eligible = getEligibleBoostTargets(player, CARD_CONCENTRATION);
+
+      expect(eligible.map((c) => c.id)).not.toContain(CARD_DECOMPOSE);
+    });
+
+    it("should include Decompose when enough action cards remain after boost", () => {
+      // Hand: [Concentration, Decompose, March]
+      // After Concentration played: [Decompose, March]
+      // If Decompose is picked: hand has [March] — can throw away March
+      const player = createTestPlayer({
+        hand: [CARD_CONCENTRATION, CARD_DECOMPOSE, CARD_MARCH],
+      });
+
+      const eligible = getEligibleBoostTargets(player, CARD_CONCENTRATION);
+
+      expect(eligible.map((c) => c.id)).toContain(CARD_DECOMPOSE);
+      expect(eligible.map((c) => c.id)).toContain(CARD_MARCH);
+    });
+
+    it("should exclude Maximal Effect when no action cards remain after boost", () => {
+      // Same pattern as Decompose: Maximal Effect's powered effect also
+      // requires throwing away an action card
+      const player = createTestPlayer({
+        hand: [CARD_CONCENTRATION, CARD_MAXIMAL_EFFECT],
+      });
+
+      const eligible = getEligibleBoostTargets(player, CARD_CONCENTRATION);
+
+      expect(eligible.map((c) => c.id)).not.toContain(CARD_MAXIMAL_EFFECT);
+      expect(eligible).toHaveLength(0);
+    });
+  });
+
+  describe("valid actions integration with throw-away effects", () => {
+    it("should not show Concentration powered when only Decompose is boost target", () => {
+      // Hand: [Concentration, Decompose]
+      // No valid boost targets → Concentration powered should not be offered
+      const player = createTestPlayer({
+        hand: [CARD_CONCENTRATION, CARD_DECOMPOSE],
+        pureMana: [{ color: "green", source: "token" }],
+      });
+      const state = createTestGameState({ players: [player] });
+
+      const playableCards = getPlayableCardsForNormalTurn(state, state.players[0]);
+      const concentration = playableCards.cards.find(
+        (c) => c.cardId === CARD_CONCENTRATION
+      );
+
+      expect(concentration?.canPlayPowered).toBe(false);
     });
   });
 });

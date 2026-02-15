@@ -20,7 +20,7 @@ import { DEED_CARD_TYPE_BASIC_ACTION, DEED_CARD_TYPE_ADVANCED_ACTION } from "../
 import type { CardId } from "@mage-knight/shared";
 import { CARD_WOUND } from "@mage-knight/shared";
 import { getCard } from "../helpers/cardLookup.js";
-import { isDiscardCostPayableAfterPlayingSource } from "../rules/cardPlay.js";
+import { isDiscardCostPayableAfterPlayingSource, isThrowAwayResolvableAfterPlayingSource } from "../rules/cardPlay.js";
 import {
   EFFECT_GAIN_MOVE,
   EFFECT_GAIN_INFLUENCE,
@@ -70,6 +70,13 @@ export function getEligibleBoostTargets(player: Player, sourceCardId: CardId): D
     // When the target is boosted, it also leaves the hand, so use the hand
     // without the source and treat the target as the "source" for the check.
     if (!isDiscardCostPayableAfterPlayingSource(card.poweredEffect, handWithoutSource, card.id)) {
+      continue;
+    }
+
+    // Check if throw-away effects (Decompose, Maximal Effect, etc.) have
+    // eligible targets. Same hand context: source already removed, and the
+    // eligibility function excludes the target card itself.
+    if (!isThrowAwayResolvableAfterPlayingSource(card.poweredEffect, handWithoutSource, card.id)) {
       continue;
     }
 

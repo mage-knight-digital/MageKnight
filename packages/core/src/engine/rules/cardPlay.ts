@@ -17,6 +17,10 @@ import {
   EFFECT_CONDITIONAL,
   EFFECT_SCALING,
   EFFECT_DISCARD_COST,
+  EFFECT_DECOMPOSE,
+  EFFECT_MAXIMAL_EFFECT,
+  EFFECT_BOOK_OF_WISDOM,
+  EFFECT_TRAINING,
   EFFECT_POWER_OF_CRYSTALS_POWERED,
   EFFECT_MYSTERIOUS_BOX,
 } from "../../types/effectTypes.js";
@@ -53,6 +57,10 @@ import {
   effectIsUtility,
 } from "./effectDetection/index.js";
 import { getActionCardColor } from "../helpers/cardColor.js";
+import { getCardsEligibleForDecompose } from "../effects/decomposeEffects.js";
+import { getCardsEligibleForMaximalEffect } from "../effects/maximalEffectEffects.js";
+import { getCardsEligibleForBookOfWisdom } from "../effects/bookOfWisdomEffects.js";
+import { getCardsEligibleForTraining } from "../effects/trainingEffects.js";
 import { isCumbersomeActive } from "../combat/cumbersomeHelpers.js";
 import type { GameState } from "../../state/GameState.js";
 import { isRuleActive } from "../modifiers/index.js";
@@ -386,4 +394,32 @@ export function isDiscardCostPayableAfterPlayingSource(
   }
 
   return eligibleCards.length >= effect.count;
+}
+
+/**
+ * Check whether a throw-away-card effect can resolve after removing the source card from hand.
+ *
+ * Effects like Decompose, Maximal Effect, Book of Wisdom, and Training require
+ * throwing away an action card from hand — but the source card itself is excluded
+ * from eligibility. If no other action cards remain, the effect can't resolve.
+ *
+ * Returns true for non-throw-away effects (no restriction to check).
+ */
+export function isThrowAwayResolvableAfterPlayingSource(
+  effect: CardEffect,
+  hand: readonly CardId[],
+  sourceCardId: CardId
+): boolean {
+  switch (effect.type) {
+    case EFFECT_DECOMPOSE:
+      return getCardsEligibleForDecompose(hand, sourceCardId).length > 0;
+    case EFFECT_MAXIMAL_EFFECT:
+      return getCardsEligibleForMaximalEffect(hand, sourceCardId).length > 0;
+    case EFFECT_BOOK_OF_WISDOM:
+      return getCardsEligibleForBookOfWisdom(hand, sourceCardId).length > 0;
+    case EFFECT_TRAINING:
+      return getCardsEligibleForTraining(hand, sourceCardId).length > 0;
+    default:
+      return true;
+  }
 }
