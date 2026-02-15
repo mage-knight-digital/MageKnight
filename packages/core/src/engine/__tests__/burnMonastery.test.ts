@@ -25,7 +25,12 @@ import {
   TERRAIN_PLAINS,
   hexKey,
   REPUTATION_REASON_BURN_MONASTERY,
+  CARD_TEMPORAL_PORTAL,
+  CARD_MARCH,
+  PLAY_CARD_ACTION,
 } from "@mage-knight/shared";
+import { getValidActions } from "../validActions/index.js";
+import { validateActionCardNotAlreadyActed } from "../validators/playCardValidators.js";
 import { SiteType } from "../../types/map.js";
 import type { Site } from "../../types/map.js";
 import type { GameState } from "../../state/GameState.js";
@@ -396,6 +401,73 @@ describe("Burn Monastery", () => {
       expect(secondBurn.state.combat).not.toBeNull();
       expect(secondBurn.state.combat?.enemies).toHaveLength(1);
       expect(secondBurn.state.enemyTokens.discardPiles[ENEMY_COLOR_VIOLET]).toHaveLength(0);
+    });
+  });
+
+  describe("valid actions after burn (action consumed)", () => {
+    it("does not advertise ACTION category cards as playable during burn combat", () => {
+      // Put Temporal Portal (CATEGORY_ACTION card) in player's hand
+      const state = createStateAtMonastery({
+        players: [
+          createTestPlayer({
+            position: { q: 0, r: 0 },
+            hand: [CARD_TEMPORAL_PORTAL, CARD_MARCH],
+            hasTakenActionThisTurn: false,
+          }),
+        ],
+      });
+
+      // Burn the monastery — sets hasTakenActionThisTurn=true and enters combat
+      const burnResult = engine.processAction(state, "player1", {
+        type: BURN_MONASTERY_ACTION,
+      });
+      expect(burnResult.state.combat).toBeTruthy();
+
+      const player = burnResult.state.players.find((p) => p.id === "player1");
+      expect(player?.hasTakenActionThisTurn).toBe(true);
+
+      // Get valid actions — should NOT include Temporal Portal
+      const validActions = getValidActions(burnResult.state, "player1");
+      expect(validActions.mode).toBe("combat");
+
+      if (validActions.mode === "combat") {
+        const portalCard = validActions.playCard?.cards.find(
+          (c) => c.cardId === CARD_TEMPORAL_PORTAL
+        );
+        // BUG: Temporal Portal should NOT be advertised as playable
+        // because the player already used their action to burn the monastery.
+        // The validator correctly rejects it, but validActions still shows it.
+        expect(portalCard).toBeUndefined();
+      }
+    });
+
+    it("validator correctly rejects ACTION card play during burn combat", () => {
+      const state = createStateAtMonastery({
+        players: [
+          createTestPlayer({
+            position: { q: 0, r: 0 },
+            hand: [CARD_TEMPORAL_PORTAL, CARD_MARCH],
+            hasTakenActionThisTurn: false,
+          }),
+        ],
+      });
+
+      // Burn the monastery
+      const burnResult = engine.processAction(state, "player1", {
+        type: BURN_MONASTERY_ACTION,
+      });
+
+      // Validator should reject Temporal Portal play
+      const result = validateActionCardNotAlreadyActed(
+        burnResult.state,
+        "player1",
+        {
+          type: PLAY_CARD_ACTION,
+          cardId: CARD_TEMPORAL_PORTAL,
+          powered: false,
+        }
+      );
+      expect(result.valid).toBe(false);
     });
   });
 

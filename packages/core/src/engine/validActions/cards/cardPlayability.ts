@@ -222,21 +222,22 @@ export function evaluateCardPlayability(
     return buildWoundResult(state, player, cardId, card, ctx);
   }
 
-  // Action cards that are blocked: skip entirely (not even sideways in normal turn)
-  // In combat, action cards don't have this restriction
-  if (actionBlocked && !ctx.inCombat) {
-    return buildSkippedResult(cardId, card, isActionCard);
-  }
+  // Action cards whose action is consumed: basic/powered are blocked, but
+  // sideways is still evaluated (sideways play doesn't consume the action).
+  // This applies in ALL contexts including combat — burning a monastery or
+  // entering a site consumes the action and starts combat, so ACTION cards
+  // must not be advertised as basic/powered playable during that combat.
+  const basic = actionBlocked
+    ? NOT_PLAYABLE
+    : evaluateEffectMode(
+        state, resolvabilityState, player, card, cardId, "basic", ctx
+      );
 
-  // --- Evaluate basic effect ---
-  const basic = evaluateEffectMode(
-    state, resolvabilityState, player, card, cardId, "basic", ctx
-  );
-
-  // --- Evaluate powered effect ---
-  const powered = evaluateEffectMode(
-    state, resolvabilityState, player, card, cardId, "powered", ctx
-  );
+  const powered = actionBlocked
+    ? NOT_PLAYABLE
+    : evaluateEffectMode(
+        state, resolvabilityState, player, card, cardId, "powered", ctx
+      );
 
   // --- Evaluate sideways ---
   const sideways = evaluateSideways(state, player, card, ctx);

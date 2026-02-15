@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createTestGameState, createTestPlayer } from "./testHelpers.js";
+import { createTestGameState, createTestPlayer, createUnitCombatState } from "./testHelpers.js";
 import {
   CARD_TEMPORAL_PORTAL,
   CARD_MARCH,
@@ -36,6 +36,7 @@ import { EFFECT_HAND_LIMIT_BONUS } from "../../types/effectTypes.js";
 import type { HandLimitBonusEffect } from "../../types/cards.js";
 import { CATEGORY_ACTION } from "../../types/cards.js";
 import type { GameState } from "../../state/GameState.js";
+import { COMBAT_PHASE_RANGED_SIEGE, COMBAT_PHASE_BLOCK } from "../../types/combat.js";
 
 // ============================================================================
 // 1. Card Definition Tests
@@ -137,7 +138,7 @@ describe("Temporal Portal validActions", () => {
     }
   });
 
-  it("hides Temporal Portal when action already taken", () => {
+  it("blocks basic/powered but allows sideways for Temporal Portal when action already taken", () => {
     const player = createTestPlayer({
       hand: [CARD_TEMPORAL_PORTAL, CARD_MARCH],
       hasTakenActionThisTurn: true,
@@ -150,7 +151,11 @@ describe("Temporal Portal validActions", () => {
       const portalCard = validActions.playCard?.cards.find(
         (c) => c.cardId === CARD_TEMPORAL_PORTAL
       );
-      expect(portalCard).toBeUndefined();
+      // Card is still visible because sideways play doesn't consume the action
+      expect(portalCard).toBeDefined();
+      expect(portalCard!.canPlayBasic).toBe(false);
+      expect(portalCard!.canPlayPowered).toBe(false);
+      expect(portalCard!.canPlaySideways).toBe(true);
     }
   });
 
@@ -604,5 +609,125 @@ describe("Temporal Portal edge cases", () => {
     const updatedPlayer = result.state.players[0]!;
     // Should add +1 to existing 2 = 3
     expect(updatedPlayer.meditationHandLimitBonus).toBe(3);
+  });
+});
+
+// ============================================================================
+// 11. ACTION Cards in Normal Combat (positive case)
+// ============================================================================
+
+describe("Temporal Portal in normal combat (action not consumed)", () => {
+  it("is playable basic during combat entered without consuming action", () => {
+    // Normal combat (e.g., provoking rampaging enemies) does NOT set
+    // hasTakenActionThisTurn — ACTION cards should still be playable.
+    const combat = createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE);
+    const player = createTestPlayer({
+      hand: [CARD_TEMPORAL_PORTAL, CARD_MARCH],
+      hasTakenActionThisTurn: false,
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat,
+    });
+
+    const validActions = getValidActions(state, "player1");
+    expect(validActions.mode).toBe("combat");
+
+    if (validActions.mode === "combat") {
+      const portalCard = validActions.playCard?.cards.find(
+        (c) => c.cardId === CARD_TEMPORAL_PORTAL
+      );
+      expect(portalCard).toBeDefined();
+      expect(portalCard!.canPlayBasic).toBe(true);
+    }
+  });
+
+  it("is NOT playable basic/powered during combat when action already consumed", () => {
+    // Combat entered via site interaction (burn monastery, enter site) DOES
+    // set hasTakenActionThisTurn — ACTION cards should not be playable
+    // basic or powered.
+    const combat = createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE);
+    const player = createTestPlayer({
+      hand: [CARD_TEMPORAL_PORTAL, CARD_MARCH],
+      hasTakenActionThisTurn: true,
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat,
+    });
+
+    const validActions = getValidActions(state, "player1");
+    expect(validActions.mode).toBe("combat");
+
+    if (validActions.mode === "combat") {
+      const portalCard = validActions.playCard?.cards.find(
+        (c) => c.cardId === CARD_TEMPORAL_PORTAL
+      );
+      // Card may still appear (for sideways), but basic/powered must be blocked
+      if (portalCard) {
+        expect(portalCard.canPlayBasic).toBe(false);
+        expect(portalCard.canPlayPowered).toBe(false);
+      }
+    }
+  });
+
+  it("can still be played sideways in combat when action is consumed (block phase)", () => {
+    // Sideways play doesn't consume the action. In BLOCK phase, sideways-as-block
+    // is available, so ACTION cards should appear with only sideways.
+    const combat = createUnitCombatState(COMBAT_PHASE_BLOCK);
+    const player = createTestPlayer({
+      hand: [CARD_TEMPORAL_PORTAL, CARD_MARCH],
+      hasTakenActionThisTurn: true,
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat,
+    });
+
+    const validActions = getValidActions(state, "player1");
+    expect(validActions.mode).toBe("combat");
+
+    if (validActions.mode === "combat") {
+      const portalCard = validActions.playCard?.cards.find(
+        (c) => c.cardId === CARD_TEMPORAL_PORTAL
+      );
+      // Card should appear with sideways available
+      expect(portalCard).toBeDefined();
+      expect(portalCard!.canPlaySideways).toBe(true);
+      expect(portalCard!.canPlayBasic).toBe(false);
+      expect(portalCard!.canPlayPowered).toBe(false);
+    }
+  });
+
+  it("validator and validActions agree: both reject basic play when action consumed in combat", () => {
+    const combat = createUnitCombatState(COMBAT_PHASE_RANGED_SIEGE);
+    const player = createTestPlayer({
+      hand: [CARD_TEMPORAL_PORTAL, CARD_MARCH],
+      hasTakenActionThisTurn: true,
+    });
+    const state = createTestGameState({
+      players: [player],
+      combat,
+    });
+
+    // Validator rejects
+    const validationResult = validateActionCardNotAlreadyActed(
+      state,
+      "player1",
+      { type: PLAY_CARD_ACTION, cardId: CARD_TEMPORAL_PORTAL, powered: false }
+    );
+    expect(validationResult.valid).toBe(false);
+
+    // ValidActions also does not offer basic/powered
+    const validActions = getValidActions(state, "player1");
+    if (validActions.mode === "combat") {
+      const portalCard = validActions.playCard?.cards.find(
+        (c) => c.cardId === CARD_TEMPORAL_PORTAL
+      );
+      if (portalCard) {
+        expect(portalCard.canPlayBasic).toBe(false);
+        expect(portalCard.canPlayPowered).toBe(false);
+      }
+    }
   });
 });
