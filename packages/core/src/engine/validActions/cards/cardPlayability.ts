@@ -16,7 +16,13 @@ import type { CombatPhase, CombatState } from "../../../types/combat.js";
 import { COMBAT_PHASE_ASSIGN_DAMAGE } from "../../../types/combat.js";
 import type { CardId, ManaColor, ManaSourceInfo, SidewaysOption } from "@mage-knight/shared";
 import { DEED_CARD_TYPE_SPELL } from "../../../types/cards.js";
-import { EFFECT_CARD_BOOST } from "../../../types/effectTypes.js";
+import {
+  EFFECT_CARD_BOOST,
+  EFFECT_DECOMPOSE,
+  EFFECT_MAXIMAL_EFFECT,
+  EFFECT_BOOK_OF_WISDOM,
+  EFFECT_TRAINING,
+} from "../../../types/effectTypes.js";
 import {
   RULE_WOUNDS_PLAYABLE_SIDEWAYS,
   RULE_MOVE_CARDS_IN_COMBAT,
@@ -29,6 +35,10 @@ import { getEffectiveSidewaysValue, isRuleActive, getModifiersForPlayer } from "
 import { isEffectResolvable } from "../../effects/index.js";
 import { describeEffect } from "../../effects/describeEffect.js";
 import { getEligibleBoostTargets } from "../../effects/cardBoostEffects.js";
+import { getCardsEligibleForDecompose } from "../../effects/decomposeEffects.js";
+import { getCardsEligibleForMaximalEffect } from "../../effects/maximalEffectEffects.js";
+import { getCardsEligibleForBookOfWisdom } from "../../effects/bookOfWisdomEffects.js";
+import { getCardsEligibleForTraining } from "../../effects/trainingEffects.js";
 import {
   getCombatEffectContext,
   isCombatEffectAllowed,
@@ -367,6 +377,11 @@ function evaluateCombatEffectMode(
     resolvable = getEligibleBoostTargets(player, cardId).length > 0;
   }
 
+  // "Throw away action card" effects: must have eligible targets after source leaves hand
+  if (resolvable) {
+    resolvable = checkThrowAwayResolvable(effect, ctx.hand, cardId, resolvable);
+  }
+
   // Check discard cost
   const costPayable = isDiscardCostPayableAfterPlayingSource(effect, ctx.hand, cardId);
 
@@ -408,6 +423,11 @@ function evaluateNormalEffectMode(
   // Card boost special case: must have eligible targets
   if (resolvable && effectKind === "powered" && card.poweredEffect.type === EFFECT_CARD_BOOST) {
     resolvable = getEligibleBoostTargets(player, cardId).length > 0;
+  }
+
+  // "Throw away action card" effects: must have eligible targets after source leaves hand
+  if (resolvable) {
+    resolvable = checkThrowAwayResolvable(effect, ctx.hand, cardId, resolvable);
   }
 
   // Check discard cost
@@ -621,6 +641,33 @@ export function evaluateHandPlayability(
 // ============================================================================
 // HELPERS
 // ============================================================================
+
+/**
+ * Override resolvability for effects that require throwing away an action card.
+ *
+ * The generic `isEffectResolvable()` can't exclude the source card because it
+ * doesn't receive `sourceCardId`. This helper calls each effect's own
+ * eligibility function which correctly filters out the source card.
+ */
+function checkThrowAwayResolvable(
+  effect: import("../../../types/cards.js").CardEffect,
+  hand: readonly CardId[],
+  sourceCardId: CardId,
+  currentResolvable: boolean
+): boolean {
+  switch (effect.type) {
+    case EFFECT_DECOMPOSE:
+      return getCardsEligibleForDecompose(hand, sourceCardId).length > 0;
+    case EFFECT_MAXIMAL_EFFECT:
+      return getCardsEligibleForMaximalEffect(hand, sourceCardId).length > 0;
+    case EFFECT_BOOK_OF_WISDOM:
+      return getCardsEligibleForBookOfWisdom(hand, sourceCardId).length > 0;
+    case EFFECT_TRAINING:
+      return getCardsEligibleForTraining(hand, sourceCardId).length > 0;
+    default:
+      return currentResolvable;
+  }
+}
 
 /**
  * Check if the Universal Power mana color matches the card's color.
