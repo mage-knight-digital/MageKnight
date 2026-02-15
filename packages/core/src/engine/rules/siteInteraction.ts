@@ -66,7 +66,7 @@ export function canEnterAdventureSite(site: Site): boolean {
  */
 export function canHealAtSite(siteType: SiteType, isBurned: boolean): boolean {
   if (isBurned) return false;
-  return getHealingCost(siteType) !== undefined;
+  return getHealingCost(siteType) !== null;
 }
 
 /**

@@ -178,6 +178,39 @@ describe("Site valid actions", () => {
     expect(options?.interactOptions).toBeUndefined();
   });
 
+  it("does not advertise healing at a conquered Keep", () => {
+    const keep: Site = {
+      type: SiteType.Keep,
+      owner: "player1",
+      isConquered: true,
+      isBurned: false,
+    };
+
+    const player = createTestPlayer({
+      position: { q: 0, r: 0 },
+      influencePoints: 10,
+      hand: [CARD_WOUND, CARD_MARCH],
+    });
+
+    const state = createTestGameState({
+      phase: GAME_PHASE_ROUND,
+      players: [player],
+      map: {
+        hexes: {
+          [hexKey({ q: 0, r: 0 })]: createTestHex(0, 0, TERRAIN_PLAINS, keep),
+        },
+        tiles: [],
+        tileDeck: { countryside: [], core: [] },
+      },
+    });
+
+    const options = getSiteOptions(state, player);
+
+    // Keep is inhabited (can interact) but does NOT offer healing
+    expect(options?.canInteract).toBe(true);
+    expect(options?.interactOptions?.canHeal).toBe(false);
+  });
+
   it("does not advertise monastery AA purchase when monastery offer is empty", () => {
     const monastery: Site = {
       type: SiteType.Monastery,
