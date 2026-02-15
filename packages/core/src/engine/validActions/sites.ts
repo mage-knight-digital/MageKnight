@@ -32,6 +32,7 @@ import {
   canHealAtSite,
   canBuySpellsAtMageTower,
   canBuyAdvancedActionsAtMonastery,
+  canAffordSpellPurchase,
   canAffordMonasteryAdvancedAction,
   canBurnMonasteryAtSite,
 } from "../rules/siteInteraction.js";
@@ -355,7 +356,8 @@ function getInteractOptions(
   const canBuySpells =
     canBuySpellsAtMageTower(site) &&
     !player.hasCombattedThisTurn &&
-    state.offers.spells.cards.length > 0;
+    state.offers.spells.cards.length > 0 &&
+    canAffordSpellPurchase(player.influencePoints);
 
   // Check if can buy advanced actions (Monastery)
   const canBuyAdvancedActions =

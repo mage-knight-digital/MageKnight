@@ -33,6 +33,7 @@ import {
 import { SiteType } from "../../types/map.js";
 import type { Site } from "../../types/map.js";
 import type { CardId, SiteReward } from "@mage-knight/shared";
+import { getSiteOptions } from "../validActions/sites.js";
 
 describe("Spell Purchase and Advanced Action Learning", () => {
   let engine: ReturnType<typeof createEngine>;
@@ -521,6 +522,27 @@ describe("Spell Purchase and Advanced Action Learning", () => {
         // Should succeed — multiple purchases allowed during same interaction
         expect(result.state.players[0].deck[0]).toBe(CARD_FIREBALL);
         expect(result.state.players[0].influencePoints).toBe(0);
+      });
+
+      it("should not advertise canBuySpells when player has insufficient influence", () => {
+        const mageTowerSite: Site = {
+          type: SiteType.MageTower,
+          owner: "player1",
+          isConquered: true,
+          isBurned: false,
+        };
+
+        const state = createStateWithSiteAndOffers(
+          mageTowerSite,
+          { spells: [CARD_FIREBALL] },
+          { influencePoints: 0 }
+        );
+
+        const siteOptions = getSiteOptions(state, state.players[0]);
+
+        // canBuySpells should be false — the validator rejects BUY_SPELL
+        // with insufficient influence, so validActions must not advertise it
+        expect(siteOptions?.interactOptions?.canBuySpells).toBe(false);
       });
     });
   });

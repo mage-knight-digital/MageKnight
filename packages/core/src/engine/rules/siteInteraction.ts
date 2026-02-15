@@ -13,6 +13,7 @@ import { hexKey } from "@mage-knight/shared";
 import {
   SITE_PROPERTIES,
   getHealingCost,
+  SPELL_PURCHASE_COST,
   MONASTERY_AA_PURCHASE_COST,
 } from "../../data/siteProperties.js";
 
@@ -89,6 +90,13 @@ export function canBuySpellsAtMageTower(site: Site): boolean {
  */
 export function canBuyAdvancedActionsAtMonastery(site: Site): boolean {
   return site.type === SiteType.Monastery && !site.isBurned;
+}
+
+/**
+ * Check if the player can afford a spell purchase at a Mage Tower.
+ */
+export function canAffordSpellPurchase(influencePoints: number): boolean {
+  return influencePoints >= SPELL_PURCHASE_COST;
 }
 
 /**
