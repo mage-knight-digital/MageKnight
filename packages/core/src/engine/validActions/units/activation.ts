@@ -243,6 +243,9 @@ export function getActivatableUnits(
     // Skip units with no abilities
     if (unitDef.abilities.length === 0) continue;
 
+    // Skip units entirely in dungeon/tomb combat (Bonds unit is exempt)
+    if (!unitsAllowed && !isBondsUnit(player, unit.instanceId)) continue;
+
     const abilities: ActivatableAbility[] = [];
 
     for (let i = 0; i < unitDef.abilities.length; i++) {

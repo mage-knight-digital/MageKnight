@@ -36,6 +36,7 @@ import { createRng } from "../../utils/rng.js";
 import { COMBAT_PHASE_ATTACK, createCombatState } from "../../types/combat.js";
 import type { Player } from "../../types/player.js";
 import type { PlayerUnit } from "../../types/unit.js";
+import { getActivatableUnits } from "../validActions/units/activation.js";
 
 /**
  * Helper to create a dungeon site
@@ -212,6 +213,18 @@ describe("Dungeon/Tomb combat restrictions", () => {
           reason: expect.stringContaining("Units cannot be used"),
         })
       );
+    });
+
+    it("should not advertise any unit activations in dungeon combat valid actions", () => {
+      const state = createStateInDungeonCombat();
+      const player = state.players[0]!;
+
+      const activatable = getActivatableUnits(state, player, state.combat);
+
+      // No units should appear at all — the validator blocks ALL unit
+      // activations in dungeon/tomb combat, so validActions must not
+      // advertise them (not even with canActivate: false)
+      expect(activatable).toEqual([]);
     });
   });
 
