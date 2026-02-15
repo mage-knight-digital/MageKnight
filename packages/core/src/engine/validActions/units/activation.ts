@@ -29,6 +29,7 @@ import {
   UNIT_ABILITY_PARALYZE,
   UNIT_ABILITY_EFFECT,
   CARD_WOUND,
+  isHeroUnitId,
   type UnitAbilityType,
   type ManaColor,
 } from "@mage-knight/shared";
@@ -271,6 +272,17 @@ export function getActivatableUnits(
       else if (!unitsAllowed && COMBAT_ABILITIES.includes(ability.type) && !isBondsUnit(player, unit.instanceId)) {
         canActivate = false;
         reason = "Units cannot be used in this combat (dungeon/tomb)";
+      }
+      // Check Heroes assault restriction (fortified site assaults only)
+      else if (
+        combat &&
+        combat.isAtFortifiedSite &&
+        combat.assaultOrigin !== null &&
+        isHeroUnitId(unit.unitId) &&
+        !combat.paidHeroesAssaultInfluence
+      ) {
+        canActivate = false;
+        reason = "Heroes require 2 Influence payment in fortified site assaults";
       }
       // Check passive abilities
       else if (PASSIVE_ABILITIES.includes(ability.type)) {

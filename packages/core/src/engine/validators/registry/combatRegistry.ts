@@ -93,6 +93,7 @@ import {
   // Heroes assault validators
   validateHeroesPaymentInCombat,
   validateHeroesAssaultApplicable,
+  validatePlayerHasHeroesUnits,
   validateHeroesInfluenceNotAlreadyPaid,
   validateHeroesInfluenceAvailable,
   // Move-to-attack conversion validators (Agility card)
@@ -227,6 +228,7 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateIsPlayersTurn,
     validateHeroesPaymentInCombat,
     validateHeroesAssaultApplicable,
+    validatePlayerHasHeroesUnits,
     validateHeroesInfluenceNotAlreadyPaid,
     validateHeroesInfluenceAvailable,
   ],

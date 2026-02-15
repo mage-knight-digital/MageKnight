@@ -77,6 +77,7 @@ export {
 export {
   validateHeroesPaymentInCombat,
   validateHeroesAssaultApplicable,
+  validatePlayerHasHeroesUnits,
   validateHeroesInfluenceNotAlreadyPaid,
   validateHeroesInfluenceAvailable,
 } from "./heroesAssaultValidators.js";

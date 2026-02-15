@@ -25,6 +25,7 @@ import {
   COMBAT_PHASE_ATTACK,
 } from "../../types/combat.js";
 import { HEROES_ASSAULT_INFLUENCE_COST } from "../commands/combat/payHeroesAssaultInfluenceCommand.js";
+import { isHeroUnitId } from "@mage-knight/shared";
 import { THUGS_DAMAGE_INFLUENCE_COST } from "../commands/combat/payThugsDamageInfluenceCommand.js";
 
 // Import from domain-specific modules
@@ -68,6 +69,15 @@ function getHeroesAssaultInfluenceOptions(
 
   if (!isApplicable) {
     // Not a fortified site assault - don't include these fields
+    return {};
+  }
+
+  // Only relevant if the player actually has Heroes units
+  const hasHeroes =
+    player !== undefined &&
+    player.units.some((u) => isHeroUnitId(u.unitId));
+
+  if (!hasHeroes) {
     return {};
   }
 

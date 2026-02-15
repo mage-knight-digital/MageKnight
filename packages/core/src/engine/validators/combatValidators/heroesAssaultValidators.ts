@@ -13,6 +13,7 @@ import type { PlayerAction } from "@mage-knight/shared";
 import type { ValidationResult } from "../types.js";
 import { valid, invalid } from "../types.js";
 import { PAY_HEROES_ASSAULT_INFLUENCE_ACTION } from "@mage-knight/shared";
+import { isHeroUnitId } from "@mage-knight/shared";
 import {
   NOT_IN_COMBAT,
   PLAYER_NOT_FOUND,
@@ -102,6 +103,32 @@ export function validateHeroesInfluenceAvailable(
     return invalid(
       INSUFFICIENT_INFLUENCE,
       `Insufficient influence (need ${HEROES_ASSAULT_INFLUENCE_COST}, have ${player.influencePoints})`
+    );
+  }
+
+  return valid();
+}
+
+/**
+ * Validate player actually has Heroes units that would benefit from payment.
+ */
+export function validatePlayerHasHeroesUnits(
+  state: GameState,
+  playerId: string,
+  action: PlayerAction
+): ValidationResult {
+  if (action.type !== PAY_HEROES_ASSAULT_INFLUENCE_ACTION) return valid();
+
+  const player = getPlayerById(state, playerId);
+  if (!player) {
+    return invalid(PLAYER_NOT_FOUND, "Player not found");
+  }
+
+  const hasHeroes = player.units.some((u) => isHeroUnitId(u.unitId));
+  if (!hasHeroes) {
+    return invalid(
+      HEROES_ASSAULT_NOT_APPLICABLE,
+      "Player has no Heroes units to benefit from this payment"
     );
   }
 

@@ -39,6 +39,7 @@ import {
   COMBAT_PHASE_ATTACK,
   COMBAT_PHASE_ASSIGN_DAMAGE,
 } from "../../types/combat.js";
+import { getActivatableUnits } from "../validActions/units/activation.js";
 import {
   getReputationCostModifier,
   violatesHeroesThugsExclusion,
@@ -610,7 +611,10 @@ describe("Heroes Special Rules", () => {
 
     describe("PAY_HEROES_ASSAULT_INFLUENCE_ACTION", () => {
       it("should pay 2 influence and update combat state", () => {
+        const heroesUnit = createHeroesUnit("heroes_1");
         const player = createTestPlayer({
+          units: [heroesUnit],
+          commandTokens: 2,
           influencePoints: 5,
         });
 
@@ -668,7 +672,10 @@ describe("Heroes Special Rules", () => {
     });
 
     it("should reject payment when already paid", () => {
+      const heroesUnit = createHeroesUnit("heroes_1");
       const player = createTestPlayer({
+        units: [heroesUnit],
+        commandTokens: 2,
         influencePoints: 5,
       });
 
@@ -696,7 +703,10 @@ describe("Heroes Special Rules", () => {
     });
 
     it("should reject payment when insufficient influence", () => {
+      const heroesUnit = createHeroesUnit("heroes_1");
       const player = createTestPlayer({
+        units: [heroesUnit],
+        commandTokens: 2,
         influencePoints: 1, // Not enough (need 2)
       });
 
@@ -958,7 +968,10 @@ describe("Heroes Special Rules", () => {
 
   describe("ValidActions for Heroes assault influence", () => {
     it("should expose canPayHeroesAssaultInfluence during fortified assault", () => {
+      const heroesUnit = createHeroesUnit("heroes_1");
       const player = createTestPlayer({
+        units: [heroesUnit],
+        commandTokens: 2,
         influencePoints: 5,
       });
 
@@ -1008,7 +1021,10 @@ describe("Heroes Special Rules", () => {
     });
 
     it("should set canPayHeroesAssaultInfluence to false after payment", () => {
+      const heroesUnit = createHeroesUnit("heroes_1");
       const player = createTestPlayer({
+        units: [heroesUnit],
+        commandTokens: 2,
         influencePoints: 5,
       });
 
@@ -1032,7 +1048,10 @@ describe("Heroes Special Rules", () => {
     });
 
     it("should set canPayHeroesAssaultInfluence to false when insufficient influence", () => {
+      const heroesUnit = createHeroesUnit("heroes_1");
       const player = createTestPlayer({
+        units: [heroesUnit],
+        commandTokens: 2,
         influencePoints: 1, // Not enough (need 2)
       });
 
@@ -1056,7 +1075,10 @@ describe("Heroes Special Rules", () => {
     });
 
     it("should expose Heroes assault fields during all combat phases", () => {
+      const heroesUnit = createHeroesUnit("heroes_1");
       const player = createTestPlayer({
+        units: [heroesUnit],
+        commandTokens: 2,
         influencePoints: 5,
       });
 
@@ -1083,6 +1105,250 @@ describe("Heroes Special Rules", () => {
 
         expect(options?.heroesAssaultInfluenceCost).toBe(2);
         expect(options?.heroesAssaultInfluencePaid).toBe(false);
+      }
+    });
+
+    it("should not offer canPayHeroesAssaultInfluence when player has no Heroes units", () => {
+      // Player has non-Hero units but no Heroes
+      const peasantUnit = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
+      const player = createTestPlayer({
+        units: [peasantUnit],
+        commandTokens: 2,
+        influencePoints: 5,
+      });
+
+      const combatState = createAssaultCombatState(
+        COMBAT_PHASE_ATTACK,
+        true, // Fortified
+        { q: -1, r: 0 }, // Assault
+        false
+      );
+
+      const state = createTestGameState({
+        players: [player],
+        combat: combatState,
+      });
+
+      const options = getCombatOptions(state);
+
+      // Should not offer payment when no Heroes units exist
+      expect(options?.canPayHeroesAssaultInfluence).not.toBe(true);
+    });
+
+    it("should not offer canPayHeroesAssaultInfluence when player has no units at all", () => {
+      const player = createTestPlayer({
+        units: [],
+        influencePoints: 5,
+      });
+
+      const combatState = createAssaultCombatState(
+        COMBAT_PHASE_ATTACK,
+        true,
+        { q: -1, r: 0 },
+        false
+      );
+
+      const state = createTestGameState({
+        players: [player],
+        combat: combatState,
+      });
+
+      const options = getCombatOptions(state);
+
+      expect(options?.canPayHeroesAssaultInfluence).not.toBe(true);
+    });
+  });
+
+  describe("Validator: reject payment without Heroes units", () => {
+    it("should reject PAY_HEROES_ASSAULT_INFLUENCE when player has no Heroes units", () => {
+      const peasantUnit = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
+      const player = createTestPlayer({
+        units: [peasantUnit],
+        commandTokens: 2,
+        influencePoints: 5,
+      });
+
+      const combatState = createAssaultCombatState(
+        COMBAT_PHASE_ATTACK,
+        true,
+        { q: -1, r: 0 },
+        false
+      );
+
+      const state = createTestGameState({
+        players: [player],
+        combat: combatState,
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
+      });
+
+      // Should be rejected — no Heroes to benefit from the payment
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+    });
+
+    it("should reject PAY_HEROES_ASSAULT_INFLUENCE when player has no units at all", () => {
+      const player = createTestPlayer({
+        units: [],
+        influencePoints: 5,
+      });
+
+      const combatState = createAssaultCombatState(
+        COMBAT_PHASE_ATTACK,
+        true,
+        { q: -1, r: 0 },
+        false
+      );
+
+      const state = createTestGameState({
+        players: [player],
+        combat: combatState,
+      });
+
+      const result = engine.processAction(state, "player1", {
+        type: PAY_HEROES_ASSAULT_INFLUENCE_ACTION,
+      });
+
+      const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
+      expect(invalidEvent).toBeDefined();
+    });
+  });
+
+  describe("ValidActions: Heroes activation gated by assault influence payment", () => {
+    it("should mark Hero Blue abilities as non-activatable during assault without payment", () => {
+      const heroBluUnit = createPlayerUnit(UNIT_HERO_BLUE, "hero_blue_1");
+      const player = createTestPlayer({
+        units: [heroBluUnit],
+        commandTokens: 2,
+        influencePoints: 5,
+      });
+
+      const combatState = createAssaultCombatState(
+        COMBAT_PHASE_ATTACK,
+        true, // Fortified site
+        { q: -1, r: 0 }, // Assault origin
+        false // NOT paid
+      );
+
+      const state = createTestGameState({
+        players: [player],
+        combat: combatState,
+      });
+
+      const activatable = getActivatableUnits(state, state.players[0], combatState);
+
+      // Hero Blue should appear but all combat abilities should be non-activatable
+      const heroUnit = activatable.find((u) => u.unitId === UNIT_HERO_BLUE);
+      expect(heroUnit).toBeDefined();
+
+      if (heroUnit) {
+        // Combat abilities (Attack/Block choice) should be blocked
+        const combatAbilities = heroUnit.abilities.filter(
+          (a) => a.name === "Attack 5 OR Block 5" || a.name === "Cold Fire Block 8"
+        );
+        for (const ability of combatAbilities) {
+          expect(ability.canActivate).toBe(false);
+        }
+      }
+    });
+
+    it("should mark Hero Blue abilities as activatable during assault after payment", () => {
+      const heroBluUnit = createPlayerUnit(UNIT_HERO_BLUE, "hero_blue_1");
+      const player = createTestPlayer({
+        units: [heroBluUnit],
+        commandTokens: 2,
+        influencePoints: 5,
+      });
+
+      const combatState = createAssaultCombatState(
+        COMBAT_PHASE_ATTACK,
+        true,
+        { q: -1, r: 0 },
+        true // PAID
+      );
+
+      const state = createTestGameState({
+        players: [player],
+        combat: combatState,
+      });
+
+      const activatable = getActivatableUnits(state, state.players[0], combatState);
+
+      const heroUnit = activatable.find((u) => u.unitId === UNIT_HERO_BLUE);
+      expect(heroUnit).toBeDefined();
+
+      if (heroUnit) {
+        // Attack/Block choice ability should be activatable in attack phase
+        const attackAbility = heroUnit.abilities.find(
+          (a) => a.name === "Attack 5 OR Block 5"
+        );
+        expect(attackAbility?.canActivate).toBe(true);
+      }
+    });
+
+    it("should allow Hero Blue abilities at non-fortified sites without payment", () => {
+      const heroBluUnit = createPlayerUnit(UNIT_HERO_BLUE, "hero_blue_1");
+      const player = createTestPlayer({
+        units: [heroBluUnit],
+        commandTokens: 2,
+      });
+
+      // Non-fortified combat — no payment needed
+      const combatState = createAssaultCombatState(
+        COMBAT_PHASE_ATTACK,
+        false, // Not fortified
+        null,
+        false
+      );
+
+      const state = createTestGameState({
+        players: [player],
+        combat: combatState,
+      });
+
+      const activatable = getActivatableUnits(state, state.players[0], combatState);
+
+      const heroUnit = activatable.find((u) => u.unitId === UNIT_HERO_BLUE);
+      expect(heroUnit).toBeDefined();
+
+      if (heroUnit) {
+        const attackAbility = heroUnit.abilities.find(
+          (a) => a.name === "Attack 5 OR Block 5"
+        );
+        expect(attackAbility?.canActivate).toBe(true);
+      }
+    });
+
+    it("should allow non-Hero units during assault without Heroes payment", () => {
+      const peasantUnit = createPlayerUnit(UNIT_PEASANTS, "peasants_1");
+      const player = createTestPlayer({
+        units: [peasantUnit],
+        commandTokens: 2,
+      });
+
+      const combatState = createAssaultCombatState(
+        COMBAT_PHASE_ATTACK,
+        true, // Fortified
+        { q: -1, r: 0 }, // Assault
+        false // Not paid — should not affect non-Hero units
+      );
+
+      const state = createTestGameState({
+        players: [player],
+        combat: combatState,
+      });
+
+      const activatable = getActivatableUnits(state, state.players[0], combatState);
+
+      const peasant = activatable.find((u) => u.unitId === UNIT_PEASANTS);
+      expect(peasant).toBeDefined();
+
+      if (peasant) {
+        // Peasants' attack ability should be activatable regardless of Heroes payment
+        const attackAbility = peasant.abilities.find((a) => a.canActivate);
+        expect(attackAbility).toBeDefined();
       }
     });
   });
