@@ -8,7 +8,12 @@ from pathlib import Path
 import torch
 
 from mage_knight_sdk.sim.generated_action_enumerator import CandidateAction
-from mage_knight_sdk.sim.rl.features import encode_step
+from mage_knight_sdk.sim.rl.features import (
+    ENEMY_HEX_SCALAR_DIM,
+    SITE_SCALAR_DIM,
+    STATE_SCALAR_DIM,
+    encode_step,
+)
 from mage_knight_sdk.sim.rl.policy_gradient import (
     PolicyGradientConfig,
     ReinforcePolicy,
@@ -19,13 +24,42 @@ from mage_knight_sdk.sim.rl.policy_gradient import (
 def _make_state() -> dict:
     return {
         "currentPlayerId": "player-1",
-        "round": 1,
+        "round": 2,
         "timeOfDay": "day",
+        "endOfRoundAnnounced": False,
+        "manaSource": {
+            "dice": [
+                {"color": "red"},
+                {"color": "blue"},
+                {"color": "green"},
+            ],
+        },
         "map": {
             "hexes": {
-                "0,0": {"coord": {"q": 0, "r": 0}, "terrain": "plains"},
-                "1,0": {"coord": {"q": 1, "r": 0}, "terrain": "forest",
-                         "site": {"type": "village", "isConquered": False}},
+                "0,0": {
+                    "coord": {"q": 0, "r": 0},
+                    "terrain": "plains",
+                },
+                "1,0": {
+                    "coord": {"q": 1, "r": 0},
+                    "terrain": "forest",
+                    "site": {"type": "village", "isConquered": False},
+                    "enemies": [{"id": "diggers", "armor": 3, "attack": 2}],
+                },
+                "0,-1": {
+                    "coord": {"q": 0, "r": -1},
+                    "terrain": "hills",
+                },
+                "0,1": {
+                    "coord": {"q": 0, "r": 1},
+                    "terrain": "mountain",
+                    "site": {"type": "dungeon", "isConquered": True},
+                },
+                "-1,0": {
+                    "coord": {"q": -1, "r": 0},
+                    "terrain": "swamp",
+                    "rampagingEnemies": [{"id": "wolf_riders", "armor": 4, "attack": 3}],
+                },
             },
             "tiles": [{"revealed": True}],
         },
@@ -35,6 +69,7 @@ def _make_state() -> dict:
                 "fame": 12,
                 "level": 2,
                 "reputation": 3,
+                "armor": 2,
                 "position": {"q": 0, "r": 0},
                 "hand": [
                     {"id": "march", "name": "March"},
@@ -46,8 +81,17 @@ def _make_state() -> dict:
                 "units": [
                     {"id": "peasants", "isExhausted": False},
                 ],
-                "manaTokens": {"red": 1, "blue": 0, "green": 0, "white": 0},
-                "crystals": {"red": 0, "blue": 0, "green": 0, "white": 0},
+                "manaTokens": {"red": 1, "blue": 0, "green": 0, "white": 0, "gold": 0, "black": 0},
+                "crystals": {"red": 0, "blue": 1, "green": 0, "white": 0},
+                "movePoints": 3,
+                "influencePoints": 0,
+                "healingPoints": 0,
+                "hasMovedThisTurn": True,
+                "hasTakenActionThisTurn": False,
+                "skills": [
+                    {"id": "arythea_dark_paths"},
+                    {"id": "arythea_burning_power"},
+                ],
             },
         ],
         "validActions": {
@@ -84,23 +128,30 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
         step = encode_step(_make_state(), "player-1", _make_candidates())
         device = torch.device("cpu")
-        logits = net(step, device)
+        logits, value = net(step, device)
         self.assertEqual(logits.shape, (3,))
 
     def test_forward_produces_finite_values(self) -> None:
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
         step = encode_step(_make_state(), "player-1", _make_candidates())
         device = torch.device("cpu")
-        logits = net(step, device)
+        logits, value = net(step, device)
         self.assertTrue(torch.isfinite(logits).all())
+
+    def test_value_head_returns_scalar(self) -> None:
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
+        step = encode_step(_make_state(), "player-1", _make_candidates())
+        device = torch.device("cpu")
+        logits, value = net(step, device)
+        self.assertEqual(value.shape, ())
+        self.assertTrue(torch.isfinite(value))
 
     def test_different_cards_different_logits(self) -> None:
         """Play march vs play rage should produce different scores."""
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
         step = encode_step(_make_state(), "player-1", _make_candidates())
         device = torch.device("cpu")
-        logits = net(step, device)
-        # Not all the same (would be extremely unlikely by chance)
+        logits, _ = net(step, device)
         self.assertFalse(torch.allclose(logits, logits[0].expand_as(logits), atol=1e-6))
 
     def test_encode_state_returns_correct_shape(self) -> None:
@@ -109,6 +160,19 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         device = torch.device("cpu")
         state_repr = net.encode_state(step, device)
         self.assertEqual(state_repr.shape, (64,))
+
+    def test_state_input_dim(self) -> None:
+        """Verify the state input dimension matches expectations."""
+        emb_dim = 8
+        expected_dim = (
+            STATE_SCALAR_DIM
+            + 7 * emb_dim
+            + (emb_dim + SITE_SCALAR_DIM)
+            + ENEMY_HEX_SCALAR_DIM
+        )
+        # Should be 76 + 56 + 14 + 5 = 151 with emb_dim=8
+        # (76 + 7*16 + 22 + 5 = 215 with emb_dim=16)
+        self.assertEqual(expected_dim, 76 + 7 * emb_dim + (emb_dim + 6) + 5)
 
     def test_encode_actions_returns_correct_shape(self) -> None:
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
@@ -122,7 +186,7 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         state["players"][0]["hand"] = []
         step = encode_step(state, "player-1", _make_candidates())
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
-        logits = net(step, torch.device("cpu"))
+        logits, value = net(step, torch.device("cpu"))
         self.assertEqual(logits.shape, (3,))
 
     def test_empty_units_doesnt_crash(self) -> None:
@@ -130,8 +194,66 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         state["players"][0]["units"] = []
         step = encode_step(state, "player-1", _make_candidates())
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
-        logits = net(step, torch.device("cpu"))
+        logits, value = net(step, torch.device("cpu"))
         self.assertEqual(logits.shape, (3,))
+
+    def test_empty_map_doesnt_crash(self) -> None:
+        """No sites, no enemies → zero vector pools should work."""
+        state = _make_state()
+        state["map"]["hexes"] = {
+            "0,0": {"coord": {"q": 0, "r": 0}, "terrain": "plains"},
+        }
+        step = encode_step(state, "player-1", _make_candidates())
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
+        logits, value = net(step, torch.device("cpu"))
+        self.assertEqual(logits.shape, (3,))
+        self.assertTrue(torch.isfinite(logits).all())
+
+    def test_combat_state_doesnt_crash(self) -> None:
+        """Combat with enemies should encode without errors."""
+        state = _make_state()
+        state["combat"] = {
+            "phase": "ranged_siege",
+            "isFortified": True,
+            "enemies": [
+                {"id": "diggers", "armor": 3, "attack": 2},
+                {"id": "prowlers", "armor": 2, "attack": 3},
+            ],
+        }
+        step = encode_step(state, "player-1", _make_candidates())
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
+        logits, value = net(step, torch.device("cpu"))
+        self.assertEqual(logits.shape, (3,))
+        self.assertTrue(torch.isfinite(logits).all())
+
+    def test_empty_skills_doesnt_crash(self) -> None:
+        state = _make_state()
+        state["players"][0]["skills"] = []
+        step = encode_step(state, "player-1", _make_candidates())
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
+        logits, value = net(step, torch.device("cpu"))
+        self.assertEqual(logits.shape, (3,))
+
+    def test_visible_site_pool_affects_state(self) -> None:
+        """Adding more sites to the map should change state encoding."""
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
+        device = torch.device("cpu")
+
+        state1 = _make_state()
+        step1 = encode_step(state1, "player-1", _make_candidates())
+        repr1 = net.encode_state(step1, device)
+
+        # Add extra site to map
+        state2 = _make_state()
+        state2["map"]["hexes"]["3,0"] = {
+            "coord": {"q": 3, "r": 0},
+            "terrain": "plains",
+            "site": {"type": "keep", "isConquered": False},
+        }
+        step2 = encode_step(state2, "player-1", _make_candidates())
+        repr2 = net.encode_state(step2, device)
+
+        self.assertFalse(torch.allclose(repr1, repr2, atol=1e-6))
 
 
 class ReinforcePolicyEmbeddingTest(unittest.TestCase):
@@ -234,6 +356,65 @@ class OptimizeEpisodeTest(unittest.TestCase):
         self.assertEqual(stats.action_count, 3)
         self.assertIsInstance(stats.loss, float)
         self.assertIsInstance(stats.entropy, float)
+
+    def test_actor_critic_produces_critic_loss(self) -> None:
+        """With embeddings, optimizer should report non-zero critic loss."""
+        config = PolicyGradientConfig(
+            use_embeddings=True, embedding_dim=8, hidden_size=64, device="cpu",
+            critic_coefficient=0.5,
+        )
+        policy = ReinforcePolicy(config)
+        import random
+        rng = random.Random(42)
+
+        for _ in range(5):
+            policy.choose_action(_make_state(), "player-1", _make_candidates(), rng)
+            policy.record_step_reward(0.1)
+        policy.add_terminal_reward(1.0)
+
+        stats = policy.optimize_episode()
+        self.assertGreater(stats.critic_loss, 0.0)
+        self.assertEqual(stats.action_count, 5)
+
+    def test_legacy_no_critic_loss(self) -> None:
+        """Legacy (no embeddings) path should report zero critic loss."""
+        config = PolicyGradientConfig(
+            use_embeddings=False, hidden_size=64, device="cpu",
+        )
+        policy = ReinforcePolicy(config)
+        import random
+        rng = random.Random(42)
+
+        for _ in range(3):
+            policy.choose_action(_make_state(), "player-1", _make_candidates(), rng)
+            policy.record_step_reward(0.5)
+        policy.add_terminal_reward(1.0)
+
+        stats = policy.optimize_episode()
+        self.assertEqual(stats.critic_loss, 0.0)
+
+    def test_value_head_gradients_flow(self) -> None:
+        """Value head parameters should receive gradients during Actor-Critic training."""
+        config = PolicyGradientConfig(
+            use_embeddings=True, embedding_dim=8, hidden_size=64, device="cpu",
+            critic_coefficient=0.5,
+        )
+        policy = ReinforcePolicy(config)
+        import random
+        rng = random.Random(42)
+
+        for _ in range(3):
+            policy.choose_action(_make_state(), "player-1", _make_candidates(), rng)
+            policy.record_step_reward(0.5)
+        policy.add_terminal_reward(1.0)
+
+        # Get value head weights before optimization
+        vh_weight_before = policy._network.value_head.weight.data.clone()
+        policy.optimize_episode()
+        vh_weight_after = policy._network.value_head.weight.data
+
+        # Weights should have changed
+        self.assertFalse(torch.allclose(vh_weight_before, vh_weight_after))
 
 
 if __name__ == "__main__":

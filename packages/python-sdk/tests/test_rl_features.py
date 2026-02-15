@@ -6,6 +6,9 @@ import unittest
 from mage_knight_sdk.sim.generated_action_enumerator import CandidateAction
 from mage_knight_sdk.sim.rl.features import (
     ACTION_SCALAR_DIM,
+    ENEMY_HEX_SCALAR_DIM,
+    SITE_SCALAR_DIM,
+    STATE_SCALAR_DIM,
     ActionFeatures,
     EncodedStep,
     StateFeatures,
@@ -17,8 +20,10 @@ from mage_knight_sdk.sim.rl.vocabularies import (
     CARD_VOCAB,
     ENEMY_VOCAB,
     MODE_VOCAB,
-    SOURCE_VOCAB,
     SITE_VOCAB,
+    SKILL_VOCAB,
+    SOURCE_VOCAB,
+    TERRAIN_VOCAB,
     UNIT_VOCAB,
     Vocabulary,
     _build_vocab,
@@ -105,6 +110,27 @@ class SiteVocabTest(unittest.TestCase):
         self.assertGreater(SITE_VOCAB.encode("dungeon"), 0)
 
 
+class TerrainVocabTest(unittest.TestCase):
+    def test_known_terrains(self) -> None:
+        self.assertGreater(TERRAIN_VOCAB.encode("plains"), 0)
+        self.assertGreater(TERRAIN_VOCAB.encode("forest"), 0)
+        self.assertGreater(TERRAIN_VOCAB.encode("mountain"), 0)
+        self.assertGreater(TERRAIN_VOCAB.encode("ocean"), 0)
+
+    def test_size(self) -> None:
+        self.assertEqual(TERRAIN_VOCAB.size, 10)  # 9 terrains + UNK
+
+
+class SkillVocabTest(unittest.TestCase):
+    def test_known_skills(self) -> None:
+        self.assertGreater(SKILL_VOCAB.encode("arythea_dark_paths"), 0)
+        self.assertGreater(SKILL_VOCAB.encode("tovak_double_time"), 0)
+        self.assertGreater(SKILL_VOCAB.encode("braevalar_shapeshift"), 0)
+
+    def test_size(self) -> None:
+        self.assertEqual(SKILL_VOCAB.size, 71)  # 70 skills + UNK
+
+
 # ---------------------------------------------------------------------------
 # Build test state + candidates
 # ---------------------------------------------------------------------------
@@ -113,15 +139,49 @@ class SiteVocabTest(unittest.TestCase):
 def _make_state() -> dict:
     return {
         "currentPlayerId": "player-1",
-        "round": 1,
+        "round": 2,
         "timeOfDay": "day",
+        "endOfRoundAnnounced": False,
+        "manaSource": {
+            "dice": [
+                {"color": "red"},
+                {"color": "blue"},
+                {"color": "green"},
+            ],
+        },
         "map": {
             "hexes": {
-                "0,0": {"coord": {"q": 0, "r": 0}, "terrain": "plains"},
-                "1,0": {"coord": {"q": 1, "r": 0}, "terrain": "forest",
-                         "site": {"type": "village", "isConquered": False}},
+                "0,0": {
+                    "coord": {"q": 0, "r": 0},
+                    "terrain": "plains",
+                },
+                "1,0": {
+                    "coord": {"q": 1, "r": 0},
+                    "terrain": "forest",
+                    "site": {"type": "village", "isConquered": False},
+                    "enemies": [{"id": "diggers", "armor": 3, "attack": 2}],
+                },
+                "0,-1": {
+                    "coord": {"q": 0, "r": -1},
+                    "terrain": "hills",
+                },
+                "0,1": {
+                    "coord": {"q": 0, "r": 1},
+                    "terrain": "mountain",
+                    "site": {"type": "dungeon", "isConquered": True},
+                },
+                "-1,0": {
+                    "coord": {"q": -1, "r": 0},
+                    "terrain": "swamp",
+                    "rampagingEnemies": [{"id": "wolf_riders", "armor": 4, "attack": 3}],
+                },
+                "2,0": {
+                    "coord": {"q": 2, "r": 0},
+                    "terrain": "desert",
+                    "site": {"type": "mage_tower", "isConquered": False},
+                },
             },
-            "tiles": [{"revealed": True}],
+            "tiles": [{"revealed": True}, {"revealed": True}],
         },
         "players": [
             {
@@ -129,6 +189,7 @@ def _make_state() -> dict:
                 "fame": 12,
                 "level": 2,
                 "reputation": 3,
+                "armor": 2,
                 "position": {"q": 0, "r": 0},
                 "hand": [
                     {"id": "march", "name": "March"},
@@ -140,8 +201,17 @@ def _make_state() -> dict:
                 "units": [
                     {"id": "peasants", "isExhausted": False},
                 ],
-                "manaTokens": {"red": 1, "blue": 0, "green": 0, "white": 0},
-                "crystals": {"red": 0, "blue": 0, "green": 0, "white": 0},
+                "manaTokens": {"red": 1, "blue": 0, "green": 0, "white": 0, "gold": 0, "black": 0},
+                "crystals": {"red": 0, "blue": 1, "green": 0, "white": 0},
+                "movePoints": 3,
+                "influencePoints": 0,
+                "healingPoints": 0,
+                "hasMovedThisTurn": True,
+                "hasTakenActionThisTurn": False,
+                "skills": [
+                    {"id": "arythea_dark_paths"},
+                    {"id": "arythea_burning_power"},
+                ],
             },
         ],
         "validActions": {
@@ -189,7 +259,7 @@ class EncodeStepTest(unittest.TestCase):
 
     def test_state_scalars_dimension(self) -> None:
         result = encode_step(_make_state(), "player-1", _make_candidates())
-        self.assertEqual(len(result.state.scalars), 24)  # 12 state + 12 map
+        self.assertEqual(len(result.state.scalars), STATE_SCALAR_DIM)
 
     def test_state_mode_id(self) -> None:
         result = encode_step(_make_state(), "player-1", _make_candidates())
@@ -208,13 +278,78 @@ class EncodeStepTest(unittest.TestCase):
         self.assertEqual(len(result.state.unit_ids), 1)
         self.assertEqual(result.state.unit_ids[0], UNIT_VOCAB.encode("peasants"))
 
+    def test_terrain_id(self) -> None:
+        result = encode_step(_make_state(), "player-1", _make_candidates())
+        self.assertEqual(result.state.current_terrain_id, TERRAIN_VOCAB.encode("plains"))
+        self.assertGreater(result.state.current_terrain_id, 0)
+
+    def test_site_type_id_no_site(self) -> None:
+        """Player at 0,0 which has no site → site_type_id = 0."""
+        result = encode_step(_make_state(), "player-1", _make_candidates())
+        self.assertEqual(result.state.current_site_type_id, 0)
+
+    def test_site_type_id_with_site(self) -> None:
+        """Move player to a hex with a site."""
+        state = _make_state()
+        state["players"][0]["position"] = {"q": 1, "r": 0}
+        result = encode_step(state, "player-1", _make_candidates())
+        self.assertEqual(result.state.current_site_type_id, SITE_VOCAB.encode("village"))
+
+    def test_skill_ids(self) -> None:
+        result = encode_step(_make_state(), "player-1", _make_candidates())
+        self.assertEqual(len(result.state.skill_ids), 2)
+        self.assertEqual(result.state.skill_ids[0], SKILL_VOCAB.encode("arythea_dark_paths"))
+        self.assertEqual(result.state.skill_ids[1], SKILL_VOCAB.encode("arythea_burning_power"))
+
+    def test_combat_enemy_ids_no_combat(self) -> None:
+        result = encode_step(_make_state(), "player-1", _make_candidates())
+        self.assertEqual(result.state.combat_enemy_ids, [])
+
+    def test_combat_enemy_ids_in_combat(self) -> None:
+        state = _make_state()
+        state["combat"] = {
+            "phase": "ranged_siege",
+            "isFortified": False,
+            "enemies": [
+                {"id": "diggers", "armor": 3, "attack": 2},
+                {"id": "prowlers", "armor": 2, "attack": 3},
+            ],
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        self.assertEqual(len(result.state.combat_enemy_ids), 2)
+        self.assertEqual(result.state.combat_enemy_ids[0], ENEMY_VOCAB.encode("diggers"))
+        self.assertEqual(result.state.combat_enemy_ids[1], ENEMY_VOCAB.encode("prowlers"))
+
+    def test_visible_sites(self) -> None:
+        result = encode_step(_make_state(), "player-1", _make_candidates())
+        # 3 sites: village at (1,0), dungeon at (0,1), mage_tower at (2,0)
+        self.assertEqual(len(result.state.visible_site_ids), 3)
+        self.assertEqual(len(result.state.visible_site_scalars), 3)
+        for scalars in result.state.visible_site_scalars:
+            self.assertEqual(len(scalars), SITE_SCALAR_DIM)
+
+    def test_enemy_hexes(self) -> None:
+        result = encode_step(_make_state(), "player-1", _make_candidates())
+        # 2 hexes with enemies: (1,0) has enemies, (-1,0) has rampagingEnemies
+        self.assertEqual(len(result.state.enemy_hex_scalars), 2)
+        for scalars in result.state.enemy_hex_scalars:
+            self.assertEqual(len(scalars), ENEMY_HEX_SCALAR_DIM)
+
+    def test_empty_map(self) -> None:
+        """No sites and no enemies → empty pools."""
+        state = _make_state()
+        state["map"]["hexes"] = {
+            "0,0": {"coord": {"q": 0, "r": 0}, "terrain": "plains"},
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        self.assertEqual(result.state.visible_site_ids, [])
+        self.assertEqual(result.state.visible_site_scalars, [])
+        self.assertEqual(result.state.enemy_hex_scalars, [])
+
     def test_action_features_card_id(self) -> None:
         result = encode_step(_make_state(), "player-1", _make_candidates())
-        # First action: PLAY_CARD march
         self.assertEqual(result.actions[0].card_id, CARD_VOCAB.encode("march"))
-        # Second action: PLAY_CARD rage
         self.assertEqual(result.actions[1].card_id, CARD_VOCAB.encode("rage"))
-        # Third action: END_TURN (no cardId)
         self.assertEqual(result.actions[2].card_id, 0)
 
     def test_action_features_type_and_source(self) -> None:
@@ -241,9 +376,44 @@ class EncodeStepTest(unittest.TestCase):
     def test_missing_player(self) -> None:
         state = _make_state()
         result = encode_step(state, "nonexistent-player", _make_candidates())
-        self.assertEqual(result.state.scalars, [0.0] * 24)
+        self.assertEqual(result.state.scalars, [0.0] * STATE_SCALAR_DIM)
         self.assertEqual(result.state.hand_card_ids, [])
         self.assertEqual(result.state.unit_ids, [])
+        self.assertEqual(result.state.current_terrain_id, 0)
+        self.assertEqual(result.state.current_site_type_id, 0)
+        self.assertEqual(result.state.combat_enemy_ids, [])
+        self.assertEqual(result.state.skill_ids, [])
+        self.assertEqual(result.state.visible_site_ids, [])
+        self.assertEqual(result.state.visible_site_scalars, [])
+        self.assertEqual(result.state.enemy_hex_scalars, [])
+
+    def test_mana_source_features(self) -> None:
+        """Verify mana source dice are captured in scalars."""
+        result = encode_step(_make_state(), "player-1", _make_candidates())
+        # Last 6 scalars are mana source features
+        mana_source = result.state.scalars[-6:]
+        # available_dice_count: 3/10 = 0.3
+        self.assertAlmostEqual(mana_source[0], 0.3, places=4)
+        # dice_has_red, blue, green = 1.0; white, gold = 0.0
+        self.assertEqual(mana_source[1], 1.0)  # red
+        self.assertEqual(mana_source[2], 1.0)  # blue
+        self.assertEqual(mana_source[3], 1.0)  # green
+        self.assertEqual(mana_source[4], 0.0)  # white
+        self.assertEqual(mana_source[5], 0.0)  # gold
+
+    def test_neighbor_features_hex_exists(self) -> None:
+        """Neighbors that exist should have hex_exists = 1.0."""
+        result = encode_step(_make_state(), "player-1", _make_candidates())
+        # Neighbors are at indices 28-51 (after player_core(10) + resources(13) + tempo(5) +
+        # combat(10) + current_hex(3) = 41, then 24 neighbor floats at indices 41-64)
+        # Each neighbor has 4 features: [terrain_difficulty, has_site, has_enemies, hex_exists]
+        # Direction E = (1,0) → forest with village and enemies → exists
+        neighbor_start = 41  # 10 + 13 + 5 + 10 + 3
+        e_neighbor = result.state.scalars[neighbor_start:neighbor_start + 4]
+        self.assertGreater(e_neighbor[0], 0.0)  # terrain_difficulty > 0 (forest)
+        self.assertEqual(e_neighbor[1], 1.0)    # has_site (village)
+        self.assertEqual(e_neighbor[2], 1.0)    # has_enemies
+        self.assertEqual(e_neighbor[3], 1.0)    # hex_exists
 
 
 class LegacyEncodeBackwardCompatTest(unittest.TestCase):

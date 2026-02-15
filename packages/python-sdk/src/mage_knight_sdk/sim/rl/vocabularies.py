@@ -284,3 +284,58 @@ _SITE_IDS: tuple[str, ...] = (
 )
 
 SITE_VOCAB: Vocabulary = _build_vocab("site", _SITE_IDS)
+
+# ---------------------------------------------------------------------------
+# Terrain type IDs
+# ---------------------------------------------------------------------------
+
+_TERRAIN_IDS: tuple[str, ...] = (
+    "plains", "hills", "forest", "wasteland", "desert",
+    "swamp", "lake", "mountain", "ocean",
+)
+
+TERRAIN_VOCAB: Vocabulary = _build_vocab("terrain", _TERRAIN_IDS)
+
+# ---------------------------------------------------------------------------
+# Skill IDs  (70 skills: 10 per hero × 7 heroes)
+# ---------------------------------------------------------------------------
+
+_SKILL_IDS: tuple[str, ...] = (
+    # Arythea (10)
+    "arythea_dark_paths", "arythea_burning_power", "arythea_hot_swordsmanship",
+    "arythea_dark_negotiation", "arythea_dark_fire_magic", "arythea_power_of_pain",
+    "arythea_invocation", "arythea_polarization", "arythea_motivation",
+    "arythea_ritual_of_pain",
+    # Tovak (10)
+    "tovak_double_time", "tovak_night_sharpshooting", "tovak_cold_swordsmanship",
+    "tovak_shield_mastery", "tovak_resistance_break", "tovak_i_feel_no_pain",
+    "tovak_i_dont_give_a_damn", "tovak_who_needs_magic", "tovak_motivation",
+    "tovak_mana_overload",
+    # Goldyx (10)
+    "goldyx_freezing_power", "goldyx_potion_making", "goldyx_white_crystal_craft",
+    "goldyx_green_crystal_craft", "goldyx_red_crystal_craft",
+    "goldyx_glittering_fortune", "goldyx_flight", "goldyx_universal_power",
+    "goldyx_motivation", "goldyx_source_opening",
+    # Norowas (10)
+    "norowas_forward_march", "norowas_day_sharpshooting", "norowas_inspiration",
+    "norowas_bright_negotiation", "norowas_leaves_in_the_wind",
+    "norowas_whispers_in_the_treetops", "norowas_leadership",
+    "norowas_bonds_of_loyalty", "norowas_motivation", "norowas_prayer_of_weather",
+    # Wolfhawk (10)
+    "wolfhawk_refreshing_bath", "wolfhawk_refreshing_breeze", "wolfhawk_hawk_eyes",
+    "wolfhawk_on_her_own", "wolfhawk_deadly_aim", "wolfhawk_know_your_prey",
+    "wolfhawk_taunt", "wolfhawk_dueling", "wolfhawk_motivation",
+    "wolfhawk_wolfs_howl",
+    # Krang (10)
+    "krang_spirit_guides", "krang_battle_hardened", "krang_battle_frenzy",
+    "krang_shamanic_ritual", "krang_regenerate", "krang_arcane_disguise",
+    "krang_puppet_master", "krang_master_of_chaos", "krang_curse",
+    "krang_mana_enhancement",
+    # Braevalar (10)
+    "braevalar_elemental_resistance", "braevalar_feral_allies",
+    "braevalar_thunderstorm", "braevalar_lightning_storm", "braevalar_beguile",
+    "braevalar_forked_lightning", "braevalar_shapeshift", "braevalar_secret_ways",
+    "braevalar_regenerate", "braevalar_natures_vengeance",
+)
+
+SKILL_VOCAB: Vocabulary = _build_vocab("skill", _SKILL_IDS)

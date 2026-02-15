@@ -11,7 +11,10 @@ from ..generated_action_enumerator import CandidateAction
 from ..policy import Policy
 from .features import (
     ACTION_SCALAR_DIM,
+    ENEMY_HEX_SCALAR_DIM,
     FEATURE_DIM,
+    SITE_SCALAR_DIM,
+    STATE_SCALAR_DIM,
     EncodedStep,
     encode_state_action,
     encode_step,
@@ -21,7 +24,10 @@ from .vocabularies import (
     CARD_VOCAB,
     ENEMY_VOCAB,
     MODE_VOCAB,
+    SITE_VOCAB,
+    SKILL_VOCAB,
     SOURCE_VOCAB,
+    TERRAIN_VOCAB,
     UNIT_VOCAB,
 )
 
@@ -31,6 +37,7 @@ class PolicyGradientConfig:
     gamma: float = 0.99
     learning_rate: float = 3e-4
     entropy_coefficient: float = 0.01
+    critic_coefficient: float = 0.5
     hidden_size: int = 128
     normalize_returns: bool = True
     device: str = "auto"
@@ -45,6 +52,28 @@ class OptimizationStats:
     mean_reward: float
     entropy: float
     action_count: int
+    critic_loss: float = 0.0
+
+
+@dataclass(frozen=True)
+class StepInfo:
+    """Info from the last choose_action call, used by PPO trainer."""
+
+    encoded_step: EncodedStep
+    action_index: int
+    log_prob: float
+    value: float
+
+
+@dataclass(frozen=True)
+class Transition:
+    """Single decision step stored for PPO optimization."""
+
+    encoded_step: EncodedStep
+    action_index: int
+    log_prob: float
+    value: float
+    reward: float
 
 
 class _ActionScoringNetwork(nn.Module):
@@ -62,10 +91,6 @@ class _ActionScoringNetwork(nn.Module):
         return self._layers(inputs).squeeze(-1)
 
 
-# Number of scalar features in state encoding (STATE_SCALAR_DIM + MAP_SCALAR_DIM)
-_STATE_SCALAR_DIM = 24
-
-
 class _EmbeddingActionScoringNetwork(nn.Module):
     """Network that uses learned embeddings for entity IDs."""
 
@@ -80,15 +105,27 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         self.action_type_emb = nn.Embedding(ACTION_TYPE_VOCAB.size, emb_dim)
         self.source_emb = nn.Embedding(SOURCE_VOCAB.size, emb_dim)
         self.mode_emb = nn.Embedding(MODE_VOCAB.size, emb_dim)
+        self.terrain_emb = nn.Embedding(TERRAIN_VOCAB.size, emb_dim)
+        self.site_emb = nn.Embedding(SITE_VOCAB.size, emb_dim)
+        self.skill_emb = nn.Embedding(SKILL_VOCAB.size, emb_dim)
+        self.map_site_emb = nn.Embedding(SITE_VOCAB.size, emb_dim)  # separate weights for map sites
 
-        # State encoder: scalars(24) + mode_emb + hand_mean_pool + unit_mean_pool
-        state_input_dim = _STATE_SCALAR_DIM + 3 * emb_dim
+        # State encoder:
+        # scalars(76) + 7×emb (mode, hand, units, terrain, site, combat_enemies, skills)
+        # + visible sites pool (emb + SITE_SCALAR_DIM)
+        # + enemy hex pool (ENEMY_HEX_SCALAR_DIM)
+        state_input_dim = (
+            STATE_SCALAR_DIM
+            + 7 * emb_dim
+            + (emb_dim + SITE_SCALAR_DIM)
+            + ENEMY_HEX_SCALAR_DIM
+        )
         self.state_encoder = nn.Sequential(
             nn.Linear(state_input_dim, hidden_size),
             nn.Tanh(),
         )
 
-        # Action encoder: action_type_emb + source_emb + card_emb + unit_emb + enemy_emb + scalars(6)
+        # Action encoder: action_type_emb + source_emb + card_emb + unit_emb + enemy_emb + scalars(12)
         action_input_dim = 5 * emb_dim + ACTION_SCALAR_DIM
         self.action_encoder = nn.Sequential(
             nn.Linear(action_input_dim, hidden_size),
@@ -102,15 +139,23 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             nn.Linear(hidden_size, 1),
         )
 
-        # Pre-allocated zero vector to avoid repeated torch.zeros calls
+        # Value head: state_repr → scalar V(s)
+        self.value_head = nn.Linear(hidden_size, 1)
+
+        # Pre-allocated zero vectors to avoid repeated torch.zeros calls
         self.register_buffer("_zero_emb", torch.zeros(emb_dim))
+        self.register_buffer("_zero_site_pool", torch.zeros(emb_dim + SITE_SCALAR_DIM))
+        self.register_buffer("_zero_enemy_pool", torch.zeros(ENEMY_HEX_SCALAR_DIM))
 
     def encode_state(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
         """Encode state features into a single vector. Computed once per step."""
         sf = step.state
         scalars = torch.tensor(sf.scalars, dtype=torch.float32, device=device)
 
+        # Standard single-lookup embeddings
         mode_vec = self.mode_emb(torch.tensor(sf.mode_id, device=device))
+        terrain_vec = self.terrain_emb(torch.tensor(sf.current_terrain_id, device=device))
+        site_vec = self.site_emb(torch.tensor(sf.current_site_type_id, device=device))
 
         # Mean-pool hand card embeddings
         if sf.hand_card_ids:
@@ -126,7 +171,43 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         else:
             unit_pool = self._zero_emb
 
-        state_input = torch.cat([scalars, mode_vec, hand_pool, unit_pool])
+        # Mean-pool combat enemy embeddings
+        if sf.combat_enemy_ids:
+            enemy_ids_t = torch.tensor(sf.combat_enemy_ids, dtype=torch.long, device=device)
+            combat_enemy_pool = self.enemy_emb(enemy_ids_t).mean(dim=0)
+        else:
+            combat_enemy_pool = self._zero_emb
+
+        # Mean-pool skill embeddings
+        if sf.skill_ids:
+            skill_ids_t = torch.tensor(sf.skill_ids, dtype=torch.long, device=device)
+            skill_pool = self.skill_emb(skill_ids_t).mean(dim=0)
+        else:
+            skill_pool = self._zero_emb
+
+        # Full map: visible sites pool (embedding + scalars, mean-pooled)
+        if sf.visible_site_ids:
+            site_ids_t = torch.tensor(sf.visible_site_ids, dtype=torch.long, device=device)
+            site_embs = self.map_site_emb(site_ids_t)  # (N, emb_dim)
+            site_scalar_t = torch.tensor(sf.visible_site_scalars, dtype=torch.float32, device=device)  # (N, 6)
+            combined = torch.cat([site_embs, site_scalar_t], dim=1)  # (N, emb_dim + 6)
+            visible_site_pool = combined.mean(dim=0)  # (emb_dim + 6,)
+        else:
+            visible_site_pool = self._zero_site_pool
+
+        # Full map: enemy hex pool (scalars only, mean-pooled)
+        if sf.enemy_hex_scalars:
+            enemy_hex_t = torch.tensor(sf.enemy_hex_scalars, dtype=torch.float32, device=device)  # (N, 5)
+            enemy_hex_pool = enemy_hex_t.mean(dim=0)  # (5,)
+        else:
+            enemy_hex_pool = self._zero_enemy_pool
+
+        state_input = torch.cat([
+            scalars,
+            mode_vec, hand_pool, unit_pool,
+            terrain_vec, site_vec, combat_enemy_pool, skill_pool,
+            visible_site_pool, enemy_hex_pool,
+        ])
         return self.state_encoder(state_input)
 
     def encode_actions(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
@@ -155,8 +236,13 @@ class _EmbeddingActionScoringNetwork(nn.Module):
 
         return self.action_encoder(action_input)  # (N, hidden)
 
-    def forward(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
-        """Score all candidates. Returns (N,) logits."""
+    def forward(
+        self, step: EncodedStep, device: torch.device
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Score all candidates and estimate state value.
+
+        Returns (logits: (N,), value: scalar).
+        """
         state_repr = self.encode_state(step, device)  # (hidden,)
         action_reprs = self.encode_actions(step, device)  # (N, hidden)
         n = action_reprs.size(0)
@@ -164,7 +250,10 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         # Broadcast state to all candidates
         state_broadcast = state_repr.unsqueeze(0).expand(n, -1)  # (N, hidden)
         combined = torch.cat([state_broadcast, action_reprs], dim=-1)  # (N, 2*hidden)
-        return self.scoring_head(combined).squeeze(-1)  # (N,)
+        logits = self.scoring_head(combined).squeeze(-1)  # (N,)
+
+        value = self.value_head(state_repr).squeeze(-1)  # scalar
+        return logits, value
 
 
 class ReinforcePolicy(Policy):
@@ -185,7 +274,9 @@ class ReinforcePolicy(Policy):
         self._episode_log_probs: list[torch.Tensor] = []
         self._episode_entropies: list[torch.Tensor] = []
         self._episode_rewards: list[float] = []
+        self._episode_values: list[torch.Tensor] = []
         self._next_reward_index = 0
+        self.last_step_info: StepInfo | None = None
 
     def choose_action(
         self,
@@ -200,8 +291,11 @@ class ReinforcePolicy(Policy):
 
         self._network.train()
 
+        value: torch.Tensor | None = None
+        encoded_step: EncodedStep | None = None
         if self.config.use_embeddings:
-            logits = self._choose_action_embeddings(state, player_id, valid_actions)
+            encoded_step = encode_step(state, player_id, valid_actions)
+            logits, value = self._network(encoded_step, self._device)
         else:
             logits = self._choose_action_legacy(state, player_id, valid_actions)
 
@@ -213,6 +307,19 @@ class ReinforcePolicy(Policy):
         probs = log_probs.exp()
         self._episode_entropies.append(-(probs * log_probs).sum())
         self._episode_rewards.append(0.0)
+        if value is not None:
+            self._episode_values.append(value)
+
+        # Store for PPO collection
+        if encoded_step is not None:
+            self.last_step_info = StepInfo(
+                encoded_step=encoded_step,
+                action_index=selected_index,
+                log_prob=float(log_probs[selected_index].detach().cpu().item()),
+                value=float(value.detach().cpu().item()) if value is not None else 0.0,
+            )
+        else:
+            self.last_step_info = None
 
         return valid_actions[selected_index]
 
@@ -229,16 +336,6 @@ class ReinforcePolicy(Policy):
         ]
         inputs = torch.tensor(feature_rows, dtype=torch.float32, device=self._device)
         return self._network(inputs)
-
-    def _choose_action_embeddings(
-        self,
-        state: dict[str, Any],
-        player_id: str,
-        valid_actions: list[CandidateAction],
-    ) -> torch.Tensor:
-        """Embedding path: structured features, state computed once."""
-        step = encode_step(state, player_id, valid_actions)
-        return self._network(step, self._device)
 
     def record_step_reward(self, reward: float) -> None:
         if self._next_reward_index >= len(self._episode_rewards):
@@ -264,17 +361,41 @@ class ReinforcePolicy(Policy):
 
         returns = _discounted_returns(self._episode_rewards, gamma=self.config.gamma)
         returns_tensor = torch.tensor(returns, dtype=torch.float32, device=self._device)
-        if self.config.normalize_returns and returns_tensor.numel() > 1:
-            returns_mean = returns_tensor.mean()
-            returns_std = returns_tensor.std(unbiased=False)
-            if float(returns_std.item()) > 1e-8:
-                returns_tensor = (returns_tensor - returns_mean) / returns_std
 
         log_probs = torch.stack(self._episode_log_probs)
         entropies = torch.stack(self._episode_entropies)
-        policy_loss = -(log_probs * returns_tensor).sum()
+
+        # Actor-Critic: use advantages instead of raw returns when value estimates exist
+        critic_loss_val = 0.0
+        has_values = len(self._episode_values) == len(self._episode_log_probs)
+        if has_values:
+            values = torch.stack(self._episode_values)
+            # Critic loss: MSE between value predictions and actual returns
+            critic_loss = nn.functional.mse_loss(values, returns_tensor.detach())
+            critic_loss_val = float(critic_loss.detach().cpu().item())
+            # Advantages: how much better the actual return was vs predicted
+            advantages = (returns_tensor - values.detach())
+            if self.config.normalize_returns and advantages.numel() > 1:
+                adv_std = advantages.std(unbiased=False)
+                if float(adv_std.item()) > 1e-8:
+                    advantages = (advantages - advantages.mean()) / adv_std
+            policy_loss = -(log_probs * advantages).sum()
+        else:
+            # Legacy REINFORCE: no value head, use normalized returns directly
+            critic_loss = torch.tensor(0.0, device=self._device)
+            if self.config.normalize_returns and returns_tensor.numel() > 1:
+                returns_mean = returns_tensor.mean()
+                returns_std = returns_tensor.std(unbiased=False)
+                if float(returns_std.item()) > 1e-8:
+                    returns_tensor = (returns_tensor - returns_mean) / returns_std
+            policy_loss = -(log_probs * returns_tensor).sum()
+
         entropy_bonus = entropies.sum()
-        loss = policy_loss - self.config.entropy_coefficient * entropy_bonus
+        loss = (
+            policy_loss
+            + self.config.critic_coefficient * critic_loss
+            - self.config.entropy_coefficient * entropy_bonus
+        )
 
         self._optimizer.zero_grad(set_to_none=True)
         loss.backward()
@@ -287,9 +408,102 @@ class ReinforcePolicy(Policy):
             mean_reward=float(sum(self._episode_rewards) / len(self._episode_rewards)),
             entropy=float(entropies.detach().cpu().mean().item()),
             action_count=len(self._episode_rewards),
+            critic_loss=critic_loss_val,
         )
         self._reset_episode_buffers()
         return stats
+
+    def optimize_ppo(
+        self,
+        transitions: list[Transition],
+        advantages: list[float],
+        returns: list[float],
+        clip_epsilon: float = 0.2,
+        ppo_epochs: int = 4,
+        max_grad_norm: float = 0.5,
+        mini_batch_size: int = 64,
+    ) -> OptimizationStats:
+        """Run PPO clipped surrogate update over collected transitions."""
+        n = len(transitions)
+        if n == 0:
+            return OptimizationStats(
+                loss=0.0, total_reward=0.0, mean_reward=0.0,
+                entropy=0.0, action_count=0,
+            )
+
+        adv_t = torch.tensor(advantages, dtype=torch.float32, device=self._device)
+        ret_t = torch.tensor(returns, dtype=torch.float32, device=self._device)
+        old_lp = torch.tensor(
+            [t.log_prob for t in transitions], dtype=torch.float32, device=self._device,
+        )
+
+        # Normalize advantages globally
+        if adv_t.numel() > 1:
+            std = adv_t.std(unbiased=False)
+            if float(std.item()) > 1e-8:
+                adv_t = (adv_t - adv_t.mean()) / std
+
+        total_loss = 0.0
+        total_critic = 0.0
+        total_entropy = 0.0
+        num_batches = 0
+
+        indices = list(range(n))
+
+        for _epoch in range(ppo_epochs):
+            random.shuffle(indices)
+
+            for start in range(0, n, mini_batch_size):
+                batch = indices[start : start + mini_batch_size]
+                bs = len(batch)
+
+                self._optimizer.zero_grad(set_to_none=True)
+                b_policy = torch.tensor(0.0, device=self._device)
+                b_critic = torch.tensor(0.0, device=self._device)
+                b_entropy = torch.tensor(0.0, device=self._device)
+
+                for idx in batch:
+                    t = transitions[idx]
+                    logits, value = self._network(t.encoded_step, self._device)
+                    log_probs = torch.log_softmax(logits, dim=0)
+                    new_lp = log_probs[t.action_index]
+
+                    ratio = torch.exp(new_lp - old_lp[idx])
+                    surr1 = ratio * adv_t[idx]
+                    surr2 = torch.clamp(
+                        ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon,
+                    ) * adv_t[idx]
+                    b_policy = b_policy - torch.min(surr1, surr2)
+
+                    b_critic = b_critic + nn.functional.mse_loss(value, ret_t[idx])
+
+                    probs = log_probs.exp()
+                    b_entropy = b_entropy - (probs * log_probs).sum()
+
+                loss = (
+                    b_policy / bs
+                    + self.config.critic_coefficient * b_critic / bs
+                    - self.config.entropy_coefficient * b_entropy / bs
+                )
+                loss.backward()
+                nn.utils.clip_grad_norm_(self._network.parameters(), max_norm=max_grad_norm)
+                self._optimizer.step()
+
+                total_loss += float(loss.detach().cpu().item())
+                total_critic += float(b_critic.detach().cpu().item()) / bs
+                total_entropy += float(b_entropy.detach().cpu().item()) / bs
+                num_batches += 1
+
+        d = max(num_batches, 1)
+        total_reward = sum(t.reward for t in transitions)
+        return OptimizationStats(
+            loss=total_loss / d,
+            total_reward=total_reward,
+            mean_reward=total_reward / n,
+            entropy=total_entropy / d,
+            action_count=n,
+            critic_loss=total_critic / d,
+        )
 
     def extract_gradients(self) -> dict[str, torch.Tensor]:
         """Return a dict of parameter gradients (after backward). Used by workers."""
@@ -345,7 +559,8 @@ class ReinforcePolicy(Policy):
         config = PolicyGradientConfig(**{k: v for k, v in config_dict.items() if k in PolicyGradientConfig.__dataclass_fields__})
         device = device_override if device_override is not None else config.device
         policy = cls(config=PolicyGradientConfig(**{**asdict(config), "device": device}))
-        policy._network.load_state_dict(payload["model_state_dict"])
+        # strict=False allows loading pre-Actor-Critic checkpoints that lack value_head weights
+        policy._network.load_state_dict(payload["model_state_dict"], strict=False)
         if "optimizer_state_dict" in payload:
             policy._optimizer.load_state_dict(payload["optimizer_state_dict"])
         metadata = payload.get("metadata")
@@ -357,6 +572,7 @@ class ReinforcePolicy(Policy):
         self._episode_log_probs.clear()
         self._episode_entropies.clear()
         self._episode_rewards.clear()
+        self._episode_values.clear()
         self._next_reward_index = 0
 
 
@@ -367,6 +583,42 @@ def _discounted_returns(rewards: list[float], gamma: float) -> list[float]:
         running = reward + gamma * running
         out_reversed.append(running)
     return list(reversed(out_reversed))
+
+
+def compute_gae(
+    episodes: list[list[Transition]],
+    gamma: float,
+    gae_lambda: float,
+) -> tuple[list[Transition], list[float], list[float]]:
+    """Compute GAE advantages and target returns for collected episodes.
+
+    Returns (flat_transitions, advantages, returns) — all aligned lists.
+    """
+    all_transitions: list[Transition] = []
+    all_advantages: list[float] = []
+    all_returns: list[float] = []
+
+    for episode in episodes:
+        if not episode:
+            continue
+        values = [t.value for t in episode]
+        rewards = [t.reward for t in episode]
+        n = len(episode)
+
+        advantages = [0.0] * n
+        gae = 0.0
+        for t in reversed(range(n)):
+            next_value = values[t + 1] if t < n - 1 else 0.0
+            delta = rewards[t] + gamma * next_value - values[t]
+            gae = delta + gamma * gae_lambda * gae
+            advantages[t] = gae
+
+        returns = [adv + val for adv, val in zip(advantages, values)]
+        all_transitions.extend(episode)
+        all_advantages.extend(advantages)
+        all_returns.extend(returns)
+
+    return all_transitions, all_advantages, all_returns
 
 
 def _resolve_device(requested: str) -> torch.device:
