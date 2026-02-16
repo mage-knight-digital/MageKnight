@@ -90,7 +90,9 @@ export function createResolveMaximalEffectCommand(
       // Validate card is eligible
       const eligibleCards = getCardsEligibleForMaximalEffect(
         player.hand,
-        pending.sourceCardId
+        pending.sourceCardId,
+        pending.effectKind,
+        pending.multiplier
       );
       if (!eligibleCards.includes(params.cardId)) {
         throw new Error(

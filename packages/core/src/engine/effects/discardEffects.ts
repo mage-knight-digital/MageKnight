@@ -214,9 +214,13 @@ export function handleDiscardCostEffect(
 
   // Check if player has enough cards to discard
   if (eligibleCards.length < effect.count && !effect.optional) {
-    throw new Error(
-      `Not enough cards to discard for cost. Required: ${effect.count}, Available: ${eligibleCards.length}`
-    );
+    // Return gracefully rather than throwing — this can happen when a discard-cost
+    // effect is multiplied (e.g., Maximal Effect) and the hand runs out of cards
+    // partway through resolution.
+    return {
+      state,
+      description: `Not enough cards to discard for cost (need ${effect.count}, have ${eligibleCards.length})`,
+    };
   }
 
   // Create pending discard state

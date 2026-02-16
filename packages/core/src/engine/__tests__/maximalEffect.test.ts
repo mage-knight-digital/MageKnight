@@ -43,6 +43,11 @@ import {
   CARD_BANNER_OF_GLORY,
   CARD_FIREBALL,
   CARD_DESTROYED,
+  CARD_IMPROVISATION,
+  CARD_SWIFTNESS,
+  CARD_STAMINA,
+  CARD_DECOMPOSE,
+  CARD_TRAINING,
   RESOLVE_MAXIMAL_EFFECT_ACTION,
   PLAY_CARD_ACTION,
 } from "@mage-knight/shared";
@@ -1079,6 +1084,358 @@ describe("Maximal Effect", () => {
           cardId: CARD_RAGE,
         })
       );
+    });
+  });
+
+  // ============================================================================
+  // MAXIMAL EFFECT + IMPROVISATION (discard cost interactions)
+  // Per rules: "you aren't allowed to play Maximal Effect with a card like
+  // Improvisation if you don't have enough cards to complete the two- or
+  // three-card cost"
+  // ============================================================================
+
+  describe("Maximal Effect + Improvisation (discard cost)", () => {
+    describe("eligibility filtering", () => {
+      it("should exclude Improvisation when not enough cards to pay discard cost for all copies (basic ×3)", () => {
+        // Hand: [improvisation, wound] — after throwing improvisation, only wound remains.
+        // Improvisation's discard cost filters wounds, so 0 eligible. Need 3. Not allowed.
+        const hand = [CARD_IMPROVISATION, CARD_WOUND];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "basic",
+          3
+        );
+        expect(eligible).not.toContain(CARD_IMPROVISATION);
+      });
+
+      it("should exclude Improvisation when only 1 card available but need 3 (basic ×3)", () => {
+        // Hand: [improvisation, march] — after throwing improvisation, [march] remains.
+        // Need 3 non-wound cards for 3 copies of the discard cost. Have 1. Not allowed.
+        const hand = [CARD_IMPROVISATION, CARD_MARCH];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "basic",
+          3
+        );
+        expect(eligible).not.toContain(CARD_IMPROVISATION);
+        // March is still eligible (no discard cost)
+        expect(eligible).toContain(CARD_MARCH);
+      });
+
+      it("should exclude Improvisation when only 2 cards available but need 3 (basic ×3)", () => {
+        // Hand: [improvisation, march, swiftness] — after throwing, [march, swiftness].
+        // Need 3, have 2. Not allowed.
+        const hand = [CARD_IMPROVISATION, CARD_MARCH, CARD_SWIFTNESS];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "basic",
+          3
+        );
+        expect(eligible).not.toContain(CARD_IMPROVISATION);
+      });
+
+      it("should allow Improvisation when exactly 3 cards available for basic ×3", () => {
+        // Hand: [improvisation, march, swiftness, stamina] — after throwing, 3 remain.
+        // Need 3 for 3 copies. Have 3. Allowed.
+        const hand = [CARD_IMPROVISATION, CARD_MARCH, CARD_SWIFTNESS, CARD_STAMINA];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "basic",
+          3
+        );
+        expect(eligible).toContain(CARD_IMPROVISATION);
+      });
+
+      it("should exclude Improvisation when only 1 card available but need 2 (powered ×2)", () => {
+        // Hand: [improvisation, march] — after throwing, [march] remains.
+        // Need 2 for powered. Have 1. Not allowed.
+        const hand = [CARD_IMPROVISATION, CARD_MARCH];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "powered",
+          2
+        );
+        expect(eligible).not.toContain(CARD_IMPROVISATION);
+      });
+
+      it("should allow Improvisation when exactly 2 cards available for powered ×2", () => {
+        // Hand: [improvisation, march, swiftness] — after throwing, [march, swiftness].
+        // Need 2 for powered. Have 2. Allowed.
+        const hand = [CARD_IMPROVISATION, CARD_MARCH, CARD_SWIFTNESS];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "powered",
+          2
+        );
+        expect(eligible).toContain(CARD_IMPROVISATION);
+      });
+
+      it("should not count wounds toward discard cost eligibility", () => {
+        // Hand: [improvisation, march, wound, wound, wound] — after throwing, [march, wound, wound, wound].
+        // Eligible (non-wound) = [march] = 1. Need 3. Not allowed.
+        const hand = [CARD_IMPROVISATION, CARD_MARCH, CARD_WOUND, CARD_WOUND, CARD_WOUND];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "basic",
+          3
+        );
+        expect(eligible).not.toContain(CARD_IMPROVISATION);
+      });
+    });
+
+    describe("valid actions", () => {
+      it("should not show Improvisation as available when not enough cards for discard cost", () => {
+        // Hand: [improvisation, march] with pending basic ×3.
+        // After throwing improvisation, only march remains — need 3. Should be excluded.
+        const player = createTestPlayer({
+          hand: [CARD_IMPROVISATION, CARD_MARCH],
+          pendingMaximalEffect: makePending({
+            effectKind: "basic",
+            multiplier: 3,
+          }),
+        });
+        const state = createTestGameState({ players: [player] });
+        const options = getMaximalEffectOptions(state, player);
+
+        expect(options).toBeDefined();
+        expect(options!.availableCardIds).not.toContain(CARD_IMPROVISATION);
+        // March is fine (no discard cost)
+        expect(options!.availableCardIds).toContain(CARD_MARCH);
+      });
+
+      it("should show Improvisation when enough cards for all copies", () => {
+        const player = createTestPlayer({
+          hand: [CARD_IMPROVISATION, CARD_MARCH, CARD_SWIFTNESS, CARD_STAMINA],
+          pendingMaximalEffect: makePending({
+            effectKind: "basic",
+            multiplier: 3,
+          }),
+        });
+        const state = createTestGameState({ players: [player] });
+        const options = getMaximalEffectOptions(state, player);
+
+        expect(options).toBeDefined();
+        expect(options!.availableCardIds).toContain(CARD_IMPROVISATION);
+      });
+    });
+
+    describe("validator", () => {
+      it("should reject Improvisation when not enough cards for discard cost", () => {
+        const player = createTestPlayer({
+          hand: [CARD_IMPROVISATION, CARD_MARCH],
+          pendingMaximalEffect: makePending({
+            effectKind: "basic",
+            multiplier: 3,
+          }),
+        });
+        const state = createTestGameState({ players: [player] });
+        const action = {
+          type: RESOLVE_MAXIMAL_EFFECT_ACTION,
+          cardId: CARD_IMPROVISATION,
+        } as const;
+
+        const result = validateMaximalEffectSelection(state, "player1", action);
+        expect(result.valid).toBe(false);
+      });
+
+      it("should accept Improvisation when enough cards for all copies", () => {
+        const player = createTestPlayer({
+          hand: [CARD_IMPROVISATION, CARD_MARCH, CARD_SWIFTNESS, CARD_STAMINA],
+          pendingMaximalEffect: makePending({
+            effectKind: "basic",
+            multiplier: 3,
+          }),
+        });
+        const state = createTestGameState({ players: [player] });
+        const action = {
+          type: RESOLVE_MAXIMAL_EFFECT_ACTION,
+          cardId: CARD_IMPROVISATION,
+        } as const;
+
+        const result = validateMaximalEffectSelection(state, "player1", action);
+        expect(result.valid).toBe(true);
+      });
+    });
+
+    describe("defensive discard cost handler", () => {
+      it("should return gracefully instead of throwing when discard cost cannot be paid", () => {
+        // Test the discard cost handler directly to verify it doesn't throw
+        // when there aren't enough cards. This is the safety net for edge cases
+        // that slip past validation.
+        const { handleDiscardCostEffect } = require("../effects/discardEffects.js");
+        const { EFFECT_DISCARD_COST } = require("../../types/effectTypes.js");
+
+        const player = createTestPlayer({ hand: [] }); // empty hand = 0 eligible
+        const state = createTestGameState({ players: [player] });
+
+        const effect = {
+          type: EFFECT_DISCARD_COST,
+          count: 1,
+          optional: false,
+          thenEffect: { type: "gain_move", amount: 3 },
+        };
+
+        // Should return gracefully, not throw
+        const result = handleDiscardCostEffect(state, 0, player, effect, CARD_IMPROVISATION);
+        expect(result.state).toBe(state); // unchanged
+        expect(result.description).toContain("Not enough cards");
+        expect(result.requiresChoice).toBeUndefined();
+      });
+    });
+  });
+
+  // ============================================================================
+  // MAXIMAL EFFECT + DECOMPOSE / TRAINING (throw-away cost interactions)
+  // Same rule as Improvisation: need enough action cards for ALL copies.
+  // Decompose/Training each require throwing away 1 action card per invocation.
+  // ============================================================================
+
+  describe("Maximal Effect + Decompose/Training (throw-away cost)", () => {
+    describe("eligibility filtering", () => {
+      it("should exclude Decompose when not enough action cards for basic ×3", () => {
+        // Hand: [decompose, march] — after throwing decompose, only [march] remains.
+        // Need 3 action cards to throw away for 3 Decompose invocations. Have 1. Not allowed.
+        const hand = [CARD_DECOMPOSE, CARD_MARCH];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "basic",
+          3
+        );
+        expect(eligible).not.toContain(CARD_DECOMPOSE);
+        // March is still eligible (no throw-away cost in its effect)
+        expect(eligible).toContain(CARD_MARCH);
+      });
+
+      it("should allow Decompose when exactly 3 action cards available for basic ×3", () => {
+        // Hand: [decompose, march, swiftness, stamina] — after throwing, 3 remain.
+        // Need 3, have 3. Allowed.
+        const hand = [CARD_DECOMPOSE, CARD_MARCH, CARD_SWIFTNESS, CARD_STAMINA];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "basic",
+          3
+        );
+        expect(eligible).toContain(CARD_DECOMPOSE);
+      });
+
+      it("should exclude Training when not enough action cards for powered ×2", () => {
+        // Hand: [training, wound] — after throwing training, only [wound] remains.
+        // Wounds don't count. Need 2. Have 0. Not allowed.
+        const hand = [CARD_TRAINING, CARD_WOUND];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "powered",
+          2
+        );
+        expect(eligible).not.toContain(CARD_TRAINING);
+      });
+
+      it("should allow Training when exactly 2 action cards available for powered ×2", () => {
+        // Hand: [training, march, swiftness] — after throwing, [march, swiftness].
+        // Need 2, have 2. Allowed.
+        const hand = [CARD_TRAINING, CARD_MARCH, CARD_SWIFTNESS];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "powered",
+          2
+        );
+        expect(eligible).toContain(CARD_TRAINING);
+      });
+
+      it("should not count wounds toward throw-away eligibility for Decompose", () => {
+        // Hand: [decompose, march, wound, wound, wound] — after throwing, [march, wound, wound, wound].
+        // Action cards = [march] = 1. Need 3. Not allowed.
+        const hand = [CARD_DECOMPOSE, CARD_MARCH, CARD_WOUND, CARD_WOUND, CARD_WOUND];
+        const eligible = getCardsEligibleForMaximalEffect(
+          hand,
+          CARD_MAXIMAL_EFFECT,
+          "basic",
+          3
+        );
+        expect(eligible).not.toContain(CARD_DECOMPOSE);
+      });
+    });
+
+    describe("valid actions", () => {
+      it("should not show Decompose as available when not enough action cards", () => {
+        const player = createTestPlayer({
+          hand: [CARD_DECOMPOSE, CARD_MARCH],
+          pendingMaximalEffect: makePending({
+            effectKind: "basic",
+            multiplier: 3,
+          }),
+        });
+        const state = createTestGameState({ players: [player] });
+        const options = getMaximalEffectOptions(state, player);
+
+        expect(options).toBeDefined();
+        expect(options!.availableCardIds).not.toContain(CARD_DECOMPOSE);
+        expect(options!.availableCardIds).toContain(CARD_MARCH);
+      });
+
+      it("should show Decompose when enough action cards for all copies", () => {
+        const player = createTestPlayer({
+          hand: [CARD_DECOMPOSE, CARD_MARCH, CARD_SWIFTNESS, CARD_STAMINA],
+          pendingMaximalEffect: makePending({
+            effectKind: "basic",
+            multiplier: 3,
+          }),
+        });
+        const state = createTestGameState({ players: [player] });
+        const options = getMaximalEffectOptions(state, player);
+
+        expect(options).toBeDefined();
+        expect(options!.availableCardIds).toContain(CARD_DECOMPOSE);
+      });
+    });
+
+    describe("validator", () => {
+      it("should reject Decompose when not enough action cards for throw-away cost", () => {
+        const player = createTestPlayer({
+          hand: [CARD_DECOMPOSE, CARD_MARCH],
+          pendingMaximalEffect: makePending({
+            effectKind: "basic",
+            multiplier: 3,
+          }),
+        });
+        const state = createTestGameState({ players: [player] });
+        const action = {
+          type: RESOLVE_MAXIMAL_EFFECT_ACTION,
+          cardId: CARD_DECOMPOSE,
+        } as const;
+
+        const result = validateMaximalEffectSelection(state, "player1", action);
+        expect(result.valid).toBe(false);
+      });
+
+      it("should accept Decompose when enough action cards for all copies", () => {
+        const player = createTestPlayer({
+          hand: [CARD_DECOMPOSE, CARD_MARCH, CARD_SWIFTNESS, CARD_STAMINA],
+          pendingMaximalEffect: makePending({
+            effectKind: "basic",
+            multiplier: 3,
+          }),
+        });
+        const state = createTestGameState({ players: [player] });
+        const action = {
+          type: RESOLVE_MAXIMAL_EFFECT_ACTION,
+          cardId: CARD_DECOMPOSE,
+        } as const;
+
+        const result = validateMaximalEffectSelection(state, "player1", action);
+        expect(result.valid).toBe(true);
+      });
     });
   });
 });

@@ -272,7 +272,7 @@ export function getMaximalEffectOptions(
   }
 
   const { sourceCardId, multiplier, effectKind } = player.pendingMaximalEffect;
-  const availableCardIds = getCardsEligibleForMaximalEffect(player.hand, sourceCardId);
+  const availableCardIds = getCardsEligibleForMaximalEffect(player.hand, sourceCardId, effectKind, multiplier);
 
   return {
     sourceCardId,

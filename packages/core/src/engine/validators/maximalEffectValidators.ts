@@ -64,8 +64,14 @@ export const validateMaximalEffectSelection: Validator = (
 
   const cardId = action.cardId;
 
-  // Check card is eligible (action card, in hand, not the Maximal Effect card itself)
-  const eligibleCards = getCardsEligibleForMaximalEffect(player.hand, player.pendingMaximalEffect.sourceCardId);
+  // Check card is eligible (action card, in hand, not the Maximal Effect card itself,
+  // and its effect's discard cost is payable after the card is thrown away)
+  const eligibleCards = getCardsEligibleForMaximalEffect(
+    player.hand,
+    player.pendingMaximalEffect.sourceCardId,
+    player.pendingMaximalEffect.effectKind,
+    player.pendingMaximalEffect.multiplier
+  );
   if (!eligibleCards.includes(cardId)) {
     return invalid(
       MAXIMAL_EFFECT_CARD_NOT_ELIGIBLE,

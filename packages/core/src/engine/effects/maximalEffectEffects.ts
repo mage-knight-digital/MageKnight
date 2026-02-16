@@ -21,8 +21,12 @@ import { CARD_WOUND } from "@mage-knight/shared";
 import { updatePlayer } from "./atomicHelpers.js";
 import { registerEffect } from "./effectRegistry.js";
 import { getPlayerContext } from "./effectHelpers.js";
-import { EFFECT_MAXIMAL_EFFECT } from "../../types/effectTypes.js";
+import { EFFECT_MAXIMAL_EFFECT, EFFECT_DISCARD_COST, EFFECT_DECOMPOSE, EFFECT_TRAINING } from "../../types/effectTypes.js";
 import { getActionCardColor } from "../helpers/cardColor.js";
+import { getCard } from "../helpers/cardLookup.js";
+import { getCardsEligibleForDiscardCost } from "./discardEffects.js";
+import type { CardEffectKind } from "../helpers/cardCategoryHelpers.js";
+import type { DiscardCostEffect } from "../../types/cards.js";
 
 // ============================================================================
 // ELIGIBILITY HELPERS
@@ -33,16 +37,75 @@ import { getActionCardColor } from "../helpers/cardColor.js";
  * wounds and the source Maximal Effect card itself).
  *
  * Same eligibility as Decompose: only action cards (those with a color).
+ *
+ * When effectKind and multiplier are provided, also filters out cards whose
+ * effect requires a discard cost or throw-away cost that can't be fully paid.
+ * Per the rules, you need enough cards to cover ALL copies (e.g., Maximal
+ * Effect basic ×3 with Improvisation requires 3 discardable cards, and with
+ * Decompose/Training requires 3 action cards to throw away).
  */
 export function getCardsEligibleForMaximalEffect(
   hand: readonly CardId[],
-  sourceCardId: CardId
+  sourceCardId: CardId,
+  effectKind?: CardEffectKind,
+  multiplier?: number
 ): CardId[] {
   return hand.filter((cardId) => {
     if (cardId === CARD_WOUND) return false;
     if (cardId === sourceCardId) return false;
     // Only action cards (those with a color) can be thrown away
-    return getActionCardColor(cardId) !== null;
+    if (getActionCardColor(cardId) === null) return false;
+
+    // When effectKind is known, check that the effect's discard cost is payable
+    // across all multiplied copies after the target card is removed from hand.
+    // Rules: "you aren't allowed to play Maximal Effect with a card like
+    // Improvisation if you don't have enough cards to complete the cost"
+    if (effectKind) {
+      const card = getCard(cardId);
+      if (card) {
+        const effect = effectKind === "basic" ? card.basicEffect : card.poweredEffect;
+        if (effect.type === EFFECT_DISCARD_COST) {
+          const discardEffect = effect as DiscardCostEffect;
+          if (!discardEffect.optional) {
+            // Simulate removing the target card from hand
+            const handAfterThrow = [...hand];
+            const idx = handAfterThrow.indexOf(cardId);
+            if (idx !== -1) handAfterThrow.splice(idx, 1);
+
+            const eligible = getCardsEligibleForDiscardCost(
+              handAfterThrow,
+              discardEffect.filterWounds ?? true,
+              discardEffect.colorMatters ?? false,
+              discardEffect.allowNoColor ?? false
+            );
+
+            const totalCost = discardEffect.count * (multiplier ?? 1);
+            if (eligible.length < totalCost) {
+              return false;
+            }
+          }
+        }
+
+        // Throw-away effects (Decompose, Training): each invocation requires
+        // throwing away 1 action card from hand. With multiplier N, need N
+        // action cards remaining after the target is removed.
+        if (effect.type === EFFECT_DECOMPOSE || effect.type === EFFECT_TRAINING) {
+          const handAfterThrow = [...hand];
+          const idx = handAfterThrow.indexOf(cardId);
+          if (idx !== -1) handAfterThrow.splice(idx, 1);
+
+          const availableActionCards = handAfterThrow.filter(
+            (c) => c !== CARD_WOUND && getActionCardColor(c) !== null
+          );
+
+          if (availableActionCards.length < (multiplier ?? 1)) {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
   });
 }
 
@@ -67,7 +130,7 @@ export function handleMaximalEffectEffect(
     throw new Error("MaximalEffectEffect requires sourceCardId");
   }
 
-  const eligibleCards = getCardsEligibleForMaximalEffect(player.hand, sourceCardId);
+  const eligibleCards = getCardsEligibleForMaximalEffect(player.hand, sourceCardId, effect.effectKind, effect.multiplier);
 
   // If no action cards available, the effect cannot resolve
   if (eligibleCards.length === 0) {
