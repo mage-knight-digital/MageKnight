@@ -6,7 +6,12 @@ from typing import Any
 from ..hooks import RunnerHooks, StepSample
 from ..reporting import MessageLogEntry, RunResult
 from .policy_gradient import OptimizationStats, ReinforcePolicy, Transition
-from .rewards import RewardConfig, compute_step_reward, compute_terminal_reward
+from .rewards import (
+    RewardConfig,
+    VictoryRewardComponent,
+    compute_step_reward,
+    compute_terminal_reward,
+)
 
 
 @dataclass(frozen=True)
@@ -15,6 +20,8 @@ class EpisodeTrainingStats:
     steps: int
     total_reward: float
     optimization: OptimizationStats
+    scenario_triggered: bool = False
+    achievement_bonus: float = 0.0
 
 
 class ReinforceTrainer(RunnerHooks):
@@ -40,6 +47,10 @@ class ReinforceTrainer(RunnerHooks):
 
     def on_run_end(self, result: RunResult, messages: list[MessageLogEntry]) -> None:
         del messages
+        victory = _find_victory_component(self.reward_config)
+        triggered = victory.scenario_triggered if victory else False
+        ach_bonus = victory.achievement_bonus if victory else 0.0
+
         terminal_reward = compute_terminal_reward(result, self.reward_config)
         self.policy.add_terminal_reward(terminal_reward)
         self._episode_total_reward += terminal_reward
@@ -52,6 +63,8 @@ class ReinforceTrainer(RunnerHooks):
             steps=result.steps,
             total_reward=self._episode_total_reward,
             optimization=optimization,
+            scenario_triggered=triggered,
+            achievement_bonus=ach_bonus,
         )
 
         self._episode_total_reward = 0.0
@@ -95,6 +108,10 @@ class PPOTrainer(RunnerHooks):
 
     def on_run_end(self, result: RunResult, messages: list[MessageLogEntry]) -> None:
         del messages
+        victory = _find_victory_component(self.reward_config)
+        triggered = victory.scenario_triggered if victory else False
+        ach_bonus = victory.achievement_bonus if victory else 0.0
+
         terminal_reward = compute_terminal_reward(result, self.reward_config)
         self._episode_total_reward += terminal_reward
 
@@ -121,6 +138,8 @@ class PPOTrainer(RunnerHooks):
                 entropy=0.0,
                 action_count=n_actions,
             ),
+            scenario_triggered=triggered,
+            achievement_bonus=ach_bonus,
         )
         self.last_episode_stats = stats
         self._episode_stats.append(stats)
@@ -141,3 +160,10 @@ class PPOTrainer(RunnerHooks):
         self._episodes = []
         self._episode_stats = []
         return episodes, stats
+
+
+def _find_victory_component(config: RewardConfig) -> VictoryRewardComponent | None:
+    for comp in config.components:
+        if isinstance(comp, VictoryRewardComponent):
+            return comp
+    return None

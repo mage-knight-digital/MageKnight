@@ -42,6 +42,8 @@ class _TBWriter:
         self._writer.add_scalar("optimization/entropy", stats.optimization.entropy, episode)
         self._writer.add_scalar("optimization/critic_loss", stats.optimization.critic_loss, episode)
         self._writer.add_scalar("optimization/action_count", stats.optimization.action_count, episode)
+        self._writer.add_scalar("victory/scenario_triggered", 1.0 if getattr(stats, "scenario_triggered", False) else 0.0, episode)
+        self._writer.add_scalar("victory/achievement_bonus", getattr(stats, "achievement_bonus", 0.0), episode)
 
     def close(self) -> None:
         if self._writer is not None:
@@ -75,6 +77,9 @@ def main() -> int:
     parser.add_argument("--terminal-max-steps-penalty", type=float, default=-0.5, help="Penalty when episode hits max steps")
     parser.add_argument("--terminal-failure-penalty", type=float, default=-1.0, help="Penalty for protocol/disconnect/invariant failures")
 
+    parser.add_argument("--victory-trigger-bonus", type=float, default=15.0, help="One-time reward when scenario end is triggered")
+    parser.add_argument("--achievement-scale", type=float, default=0.5, help="Multiplier for end-game achievement score bonus")
+
     parser.add_argument("--checkpoint-dir", default="./sim-artifacts/rl-checkpoints", help="Directory for model checkpoints + logs")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
     parser.add_argument("--no-final-checkpoint", action="store_true", help="Do not save a final checkpoint at the end")
@@ -107,6 +112,7 @@ def main() -> int:
     PolicyGradientConfig = components["PolicyGradientConfig"]
     ReinforcePolicy = components["ReinforcePolicy"]
     RewardConfig = components["RewardConfig"]
+    VictoryRewardComponent = components["VictoryRewardComponent"]
 
     if args.resume:
         policy, resume_meta = ReinforcePolicy.load_checkpoint(
@@ -127,12 +133,17 @@ def main() -> int:
         )
         policy = ReinforcePolicy(policy_config)
 
+    victory = VictoryRewardComponent(
+        scenario_trigger_bonus=args.victory_trigger_bonus,
+        achievement_scale=args.achievement_scale,
+    )
     reward_config = RewardConfig(
         fame_delta_scale=args.fame_delta_scale,
         step_penalty=args.step_penalty,
         terminal_end_bonus=args.terminal_end_bonus,
         terminal_max_steps_penalty=args.terminal_max_steps_penalty,
         terminal_failure_penalty=args.terminal_failure_penalty,
+        components=(victory,),
     )
 
     checkpoint_dir = Path(args.checkpoint_dir)
@@ -150,7 +161,9 @@ def main() -> int:
         f"step_penalty={args.step_penalty} "
         f"end_bonus={args.terminal_end_bonus} "
         f"max_steps_penalty={args.terminal_max_steps_penalty} "
-        f"failure_penalty={args.terminal_failure_penalty}"
+        f"failure_penalty={args.terminal_failure_penalty} "
+        f"victory_trigger={args.victory_trigger_bonus} "
+        f"achievement_scale={args.achievement_scale}"
     )
 
     if args.ppo:
@@ -611,6 +624,8 @@ def _with_opt(stats: Any, opt: Any) -> Any:
         steps=stats.steps,
         total_reward=stats.total_reward,
         optimization=opt,
+        scenario_triggered=stats.scenario_triggered,
+        achievement_bonus=stats.achievement_bonus,
     )
 
 
@@ -649,7 +664,7 @@ def _load_rl_components() -> dict[str, Any] | None:
             ReinforcePolicy,
             compute_gae,
         )
-        from mage_knight_sdk.sim.rl.rewards import RewardConfig
+        from mage_knight_sdk.sim.rl.rewards import RewardConfig, VictoryRewardComponent
         from mage_knight_sdk.sim.rl.trainer import PPOTrainer, ReinforceTrainer
     except ModuleNotFoundError as error:
         if error.name == "torch":
@@ -669,6 +684,7 @@ def _load_rl_components() -> dict[str, Any] | None:
         "RewardConfig": RewardConfig,
         "ReinforceTrainer": ReinforceTrainer,
         "PPOTrainer": PPOTrainer,
+        "VictoryRewardComponent": VictoryRewardComponent,
         "compute_gae": compute_gae,
     }
 

@@ -334,6 +334,8 @@ class DistributedPPOTrainer:
                         steps=stats.steps,
                         total_reward=stats.total_reward,
                         optimization=opt_stats,
+                        scenario_triggered=stats.scenario_triggered,
+                        achievement_bonus=stats.achievement_bonus,
                     )
                     episodes_yielded += 1
                     if episodes_yielded >= total_episodes:

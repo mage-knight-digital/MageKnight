@@ -16,6 +16,7 @@ from .policy_gradient import (
 from .rewards import (
     RewardComponent,
     RewardConfig,
+    VictoryRewardComponent,
     compute_step_reward,
     compute_terminal_reward,
 )
@@ -58,6 +59,7 @@ __all__ = [
     "StepInfo",
     "Transition",
     "UNIT_VOCAB",
+    "VictoryRewardComponent",
     "Vocabulary",
     "compute_gae",
     "compute_step_reward",

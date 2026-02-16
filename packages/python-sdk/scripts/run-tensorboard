@@ -2,10 +2,31 @@
 # Launch TensorBoard dashboard (requires: pip install -e ".[rl]")
 # Usage: bun run tensorboard -- --logdir /tmp/rl-run/tensorboard
 cd "$(dirname "$0")/.."
-if [ -x .venv/bin/tensorboard ]; then
-  exec .venv/bin/tensorboard "$@"
-elif [ -x venv/bin/tensorboard ]; then
-  exec venv/bin/tensorboard "$@"
+
+# Resolve the python interpreter from the venv
+if [ -x venv/bin/python3 ]; then
+  PY=venv/bin/python3
+elif [ -x .venv/bin/python3 ]; then
+  PY=.venv/bin/python3
 else
-  exec python3 -m tensorboard.main "$@"
+  PY=python3
 fi
+
+# Launch TensorBoard with warnings suppressed:
+#   -W ignore::UserWarning  — suppresses pkg_resources deprecation warning
+#   Monkey-patches global_init to suppress "TensorFlow not found" stderr print
+exec "$PY" -W "ignore::UserWarning" -c "
+import sys
+sys.argv[0] = 'tensorboard'
+import tensorboard.main_lib as _ml
+_orig = _ml.global_init
+def _quiet_init():
+    import io as _io
+    _err = sys.stderr
+    sys.stderr = _io.StringIO()
+    _orig()
+    sys.stderr = _err
+_ml.global_init = _quiet_init
+from tensorboard.main import run_main
+run_main()
+" "$@"
