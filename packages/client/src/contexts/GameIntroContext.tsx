@@ -34,6 +34,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAnimationDispatcher } from "./AnimationDispatcherContext";
+import { ReplayContext } from "../context/ReplayContext";
 
 export type IntroPhase =
   | "idle" // Before game loads
@@ -91,8 +92,9 @@ const UI_SETTLE_TOTAL_MS =
   UI_REVEAL_TIMING.holdDuration;
 
 export function GameIntroProvider({ children }: { children: ReactNode }) {
-  const [phase, setPhase] = useState<IntroPhase>("idle");
-  const hasStarted = useRef(false);
+  const isReplay = useContext(ReplayContext) !== null;
+  const [phase, setPhase] = useState<IntroPhase>(isReplay ? "complete" : "idle");
+  const hasStarted = useRef(isReplay);
   const { on: onAnimationEvent, emit: emitAnimationEvent } =
     useAnimationDispatcher();
 

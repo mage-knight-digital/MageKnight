@@ -1,0 +1,217 @@
+.replay-load-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #eee;
+}
+
+.replay-load-screen__title {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  color: #4ecdc4;
+}
+
+.replay-load-screen__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 500px;
+  width: 100%;
+}
+
+/* Hidden native file input */
+.replay-load-screen__file-input {
+  display: none;
+}
+
+.replay-load-screen__file-label {
+  cursor: pointer;
+}
+
+.replay-load-screen__file-button {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: 3px solid #4ecdc4;
+  border-radius: 12px;
+  background: transparent;
+  color: #4ecdc4;
+  transition: all 0.2s ease;
+}
+
+.replay-load-screen__file-button:hover {
+  background: rgba(78, 205, 196, 0.2);
+  transform: translateY(-2px);
+}
+
+.replay-load-screen__error {
+  color: #e74c3c;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.replay-load-screen__metadata {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.replay-load-screen__meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.replay-load-screen__meta-label {
+  font-weight: 600;
+  color: #aaa;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.replay-load-screen__meta-value {
+  font-family: monospace;
+  color: #eee;
+}
+
+.replay-load-screen__player-select {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.replay-load-screen__select {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.95rem;
+  background: #1a1a2e;
+  color: #eee;
+  border: 2px solid #4ecdc4;
+  border-radius: 8px;
+  outline: none;
+}
+
+.replay-load-screen__start-button {
+  padding: 1rem 3rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #4ecdc4 0%, #44b3ab 100%);
+  border: none;
+  border-radius: 12px;
+  color: #1a1a2e;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(78, 205, 196, 0.4);
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.replay-load-screen__start-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(78, 205, 196, 0.6);
+}
+
+/* Server artifact picker */
+.replay-load-screen__server-picker {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  align-items: stretch;
+}
+
+.replay-load-screen__artifact-select {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  background: #1a1a2e;
+  color: #eee;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.replay-load-screen__artifact-select:hover,
+.replay-load-screen__artifact-select:focus {
+  border-color: #4ecdc4;
+}
+
+.replay-load-screen__load-button {
+  padding: 0.6rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: #4ecdc4;
+  color: #1a1a2e;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.replay-load-screen__load-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(78, 205, 196, 0.4);
+}
+
+.replay-load-screen__load-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Divider */
+.replay-load-screen__divider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 1rem;
+  color: #666;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.replay-load-screen__divider::before,
+.replay-load-screen__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Hint text */
+.replay-load-screen__hint {
+  color: #888;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.replay-load-screen__hint code {
+  color: #4ecdc4;
+  font-size: 0.85rem;
+}
+
+/* File name display in metadata */
+.replay-load-screen__file-name {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #888;
+  text-align: center;
+  word-break: break-all;
+  margin-bottom: 0.25rem;
+}

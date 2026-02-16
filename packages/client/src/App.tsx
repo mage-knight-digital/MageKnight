@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { GameConfig } from "@mage-knight/shared";
 import { GameProvider } from "./context/GameProvider";
+import { ReplayProvider, type ArtifactData } from "./context/ReplayProvider";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
 import { CardInteractionProvider } from "./components/CardInteraction";
 import { GameIntroProvider } from "./contexts/GameIntroContext";
@@ -13,6 +14,7 @@ import { TurnNotificationProvider } from "./contexts/TurnNotificationContext";
 import { GameView } from "./components/GameView";
 import { DebugPanel } from "./components/DebugPanel";
 import { SetupScreen } from "./components/Setup";
+import { ReplayLoadScreen } from "./components/Replay";
 
 const MODE_PARAM = "mode" as const;
 const MODE_NETWORK = "network" as const;
@@ -20,6 +22,7 @@ const SERVER_URL_PARAM = "serverUrl" as const;
 const GAME_ID_PARAM = "gameId" as const;
 const PLAYER_ID_PARAM = "playerId" as const;
 const SESSION_TOKEN_PARAM = "sessionToken" as const;
+const MODE_REPLAY = "replay" as const;
 const DEFAULT_NETWORK_SERVER_URL = "ws://localhost:3001" as const;
 
 interface RuntimeNetworkConfig {
@@ -60,6 +63,11 @@ function isNetworkModeRequested(): boolean {
   return urlParams.get(MODE_PARAM) === MODE_NETWORK;
 }
 
+function isReplayModeRequested(): boolean {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(MODE_PARAM) === MODE_REPLAY;
+}
+
 // Get seed from URL param (?seed=12345) or use current time
 // This allows reproducible games for testing and debugging
 function getGameSeed(): number {
@@ -80,10 +88,20 @@ function getGameSeed(): number {
 const GAME_SEED = getGameSeed();
 const RUNTIME_NETWORK_CONFIG = getRuntimeNetworkConfig();
 const NETWORK_MODE_REQUESTED = isNetworkModeRequested();
+const REPLAY_MODE_REQUESTED = isReplayModeRequested();
 
 export function App() {
   // Game configuration state - null until setup is complete
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
+
+  // Replay mode state
+  const [replayArtifact, setReplayArtifact] = useState<ArtifactData | null>(null);
+  const [replayPlayerId, setReplayPlayerId] = useState<string | null>(null);
+
+  const handleReplayLoad = useCallback((artifact: ArtifactData, playerId: string) => {
+    setReplayArtifact(artifact);
+    setReplayPlayerId(playerId);
+  }, []);
 
   const gameShell = (
     <TurnNotificationProvider>
@@ -107,6 +125,18 @@ export function App() {
       </AnimationDispatcherProvider>
     </TurnNotificationProvider>
   );
+
+  // Replay mode: load artifact, then play back through existing UI
+  if (REPLAY_MODE_REQUESTED) {
+    if (!replayArtifact || !replayPlayerId) {
+      return <ReplayLoadScreen onLoad={handleReplayLoad} />;
+    }
+    return (
+      <ReplayProvider artifact={replayArtifact} playerId={replayPlayerId}>
+        {gameShell}
+      </ReplayProvider>
+    );
+  }
 
   if (RUNTIME_NETWORK_CONFIG) {
     return (

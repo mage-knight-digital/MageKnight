@@ -29,6 +29,7 @@ import { TerrainCostReductionOverlay } from "./Overlays/TerrainCostReductionOver
 import { LevelUpRewardSelection } from "./Overlays/LevelUpRewardSelection";
 import { CombatOverlay, PixiCombatOverlay } from "./Combat";
 import { OfferView, type OfferPane } from "./OfferView";
+import { ReplayControls } from "./Replay";
 
 export function GameView() {
   const { state } = useGame();
@@ -144,6 +145,7 @@ export function GameView() {
 
       <PlayerHand onOfferViewChange={handleOfferViewChange} />
       <TurnActions />
+      <ReplayControls />
     </div>
   );
 }

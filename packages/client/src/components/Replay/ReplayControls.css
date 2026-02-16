@@ -1,0 +1,131 @@
+.replay-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(10, 10, 20, 0.9);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(78, 205, 196, 0.3);
+  padding: 0.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Timeline slider */
+.replay-controls__timeline {
+  width: 100%;
+}
+
+.replay-controls__slider {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.replay-controls__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #4ecdc4;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(78, 205, 196, 0.6);
+}
+
+.replay-controls__slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #4ecdc4;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(78, 205, 196, 0.6);
+}
+
+/* Control bar */
+.replay-controls__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Playback buttons */
+.replay-controls__buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.replay-controls__btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #eee;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.replay-controls__btn:hover:not(:disabled) {
+  background: rgba(78, 205, 196, 0.2);
+  border-color: #4ecdc4;
+}
+
+.replay-controls__btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.replay-controls__btn--play {
+  font-size: 1rem;
+  padding: 0.3rem 0.75rem;
+  border-color: #4ecdc4;
+  color: #4ecdc4;
+}
+
+/* Info section */
+.replay-controls__info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.replay-controls__frame-counter {
+  font-family: monospace;
+  color: #eee;
+  min-width: 8ch;
+  text-align: right;
+}
+
+.replay-controls__speed-select {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: #eee;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.replay-controls__speed-select:hover {
+  border-color: #4ecdc4;
+}
+
+.replay-controls__seed {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #888;
+}
