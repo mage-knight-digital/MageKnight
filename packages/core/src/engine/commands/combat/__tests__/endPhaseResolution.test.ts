@@ -1,9 +1,12 @@
 /**
  * Tests for end phase damage resolution
  *
- * These test that pending damage is resolved when ending
- * RANGED_SIEGE and ATTACK phases, applying resistances and
+ * These test that enemies are defeated via DECLARE_ATTACK_TARGETS + FINALIZE_ATTACK
+ * during RANGED_SIEGE and ATTACK phases, applying resistances and
  * defeating enemies where effective damage >= armor.
+ *
+ * END_COMBAT_PHASE no longer auto-resolves pending damage — enemies must be
+ * explicitly defeated via FINALIZE_ATTACK.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -13,16 +16,17 @@ import {
   ENTER_COMBAT_ACTION,
   END_COMBAT_PHASE_ACTION,
   ASSIGN_ATTACK_ACTION,
+  DECLARE_ATTACK_TARGETS_ACTION,
+  FINALIZE_ATTACK_ACTION,
   COMBAT_PHASE_CHANGED,
   COMBAT_ENDED,
   ENEMY_DEFEATED,
+  ATTACK_FAILED,
   ENEMY_PROWLERS,
   ENEMY_FIRE_MAGES,
   ENEMY_WOLF_RIDERS,
-  ATTACK_TYPE_MELEE,
   ATTACK_TYPE_RANGED,
   ATTACK_ELEMENT_PHYSICAL,
-  ATTACK_ELEMENT_FIRE,
 } from "@mage-knight/shared";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -73,8 +77,8 @@ describe("End Phase Damage Resolution", () => {
     engine = createEngine();
   });
 
-  describe("RANGED_SIEGE phase resolution", () => {
-    it("should resolve pending damage when ending ranged/siege phase", () => {
+  describe("RANGED_SIEGE phase resolution via FINALIZE_ATTACK", () => {
+    it("should defeat enemy when finalize attack has sufficient damage", () => {
       let state = createTestGameState();
 
       // Enter combat with Prowlers (armor 3)
@@ -85,33 +89,44 @@ describe("End Phase Damage Resolution", () => {
 
       expect(state.combat?.phase).toBe(COMBAT_PHASE_RANGED_SIEGE);
 
-      // Give player ranged attack
-      state = withAccumulatedAttack(state, "player1", { ranged: 5 });
-
-      // Assign 3 ranged damage (enough to defeat Prowlers with armor 3)
+      // Declare targets
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 3,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
       }).state;
 
-      // End ranged/siege phase
-      const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+      // Give player ranged attack (enough to defeat Prowlers with armor 3)
+      state = withAccumulatedAttack(state, "player1", { ranged: 5 });
+
+      // Finalize attack
+      const finalizeResult = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
       });
 
       // Should emit ENEMY_DEFEATED event
-      expect(result.events).toContainEqual(
+      expect(finalizeResult.events).toContainEqual(
         expect.objectContaining({
           type: ENEMY_DEFEATED,
           enemyInstanceId: "enemy_0",
         })
       );
 
+      // Enemy should be marked as defeated
+      const enemy = finalizeResult.state.combat?.enemies.find(
+        (e) => e.instanceId === "enemy_0"
+      );
+      expect(enemy?.isDefeated).toBe(true);
+
+      // Fame should be accumulated
+      expect(finalizeResult.state.combat?.fameGained).toBeGreaterThan(0);
+
+      // End ranged/siege phase
+      const endResult = engine.processAction(finalizeResult.state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
       // Should emit COMBAT_PHASE_CHANGED event
-      expect(result.events).toContainEqual(
+      expect(endResult.events).toContainEqual(
         expect.objectContaining({
           type: COMBAT_PHASE_CHANGED,
           previousPhase: COMBAT_PHASE_RANGED_SIEGE,
@@ -119,20 +134,11 @@ describe("End Phase Damage Resolution", () => {
         })
       );
 
-      // Enemy should be marked as defeated
-      const enemy = result.state.combat?.enemies.find(
-        (e) => e.instanceId === "enemy_0"
-      );
-      expect(enemy?.isDefeated).toBe(true);
-
-      // Fame should be accumulated
-      expect(result.state.combat?.fameGained).toBeGreaterThan(0);
-
       // Pending damage should be cleared
-      expect(result.state.combat?.pendingDamage).toEqual({});
+      expect(endResult.state.combat?.pendingDamage).toEqual({});
 
       // Assigned attack should be cleared
-      const player = result.state.players.find((p) => p.id === "player1");
+      const player = endResult.state.players.find((p) => p.id === "player1");
       expect(player?.combatAccumulator.assignedAttack.ranged).toBe(0);
     });
 
@@ -145,23 +151,26 @@ describe("End Phase Damage Resolution", () => {
         enemyIds: [ENEMY_PROWLERS],
       }).state;
 
-      state = withAccumulatedAttack(state, "player1", { ranged: 5 });
-
-      // Assign only 2 ranged damage (not enough to defeat armor 3)
+      // Declare targets
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 2,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
       }).state;
 
-      // End ranged/siege phase
+      // Give only 2 ranged damage (not enough to defeat armor 3)
+      state = withAccumulatedAttack(state, "player1", { ranged: 2 });
+
+      // Finalize attack
       const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+        type: FINALIZE_ATTACK_ACTION,
       });
 
-      // Should NOT emit ENEMY_DEFEATED event
+      // Should emit ATTACK_FAILED, NOT ENEMY_DEFEATED
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          type: ATTACK_FAILED,
+        })
+      );
       expect(result.events).not.toContainEqual(
         expect.objectContaining({
           type: ENEMY_DEFEATED,
@@ -173,14 +182,11 @@ describe("End Phase Damage Resolution", () => {
         (e) => e.instanceId === "enemy_0"
       );
       expect(enemy?.isDefeated).toBe(false);
-
-      // Pending damage should still be cleared (damage was wasted)
-      expect(result.state.combat?.pendingDamage).toEqual({});
     });
   });
 
-  describe("ATTACK phase resolution", () => {
-    it("should resolve pending damage when ending combat after attack phase", () => {
+  describe("ATTACK phase resolution via FINALIZE_ATTACK", () => {
+    it("should defeat enemy via finalize then end combat", () => {
       let state = createTestGameState();
 
       // Enter combat with Prowlers (armor 3)
@@ -200,34 +206,34 @@ describe("End Phase Damage Resolution", () => {
           : null,
       };
 
+      // Declare targets
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+
       // Give player melee attack
       state = withAccumulatedAttack(state, "player1", { normal: 5 });
 
-      // Assign 3 melee damage
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 3,
-      }).state;
+      // Finalize attack — defeats enemy
+      const finalizeResult = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
+      });
+
+      expect(finalizeResult.events).toContainEqual(
+        expect.objectContaining({
+          type: ENEMY_DEFEATED,
+          enemyInstanceId: "enemy_0",
+        })
+      );
 
       // End attack phase (ends combat)
-      const result = engine.processAction(state, "player1", {
+      const endResult = engine.processAction(finalizeResult.state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
 
-      // Should emit ENEMY_DEFEATED event before COMBAT_ENDED
-      const defeatedIndex = result.events.findIndex(
-        (e) => e.type === ENEMY_DEFEATED
-      );
-      const endedIndex = result.events.findIndex(
-        (e) => e.type === COMBAT_ENDED
-      );
-      expect(defeatedIndex).toBeLessThan(endedIndex);
-
       // Should emit COMBAT_ENDED with victory
-      expect(result.events).toContainEqual(
+      expect(endResult.events).toContainEqual(
         expect.objectContaining({
           type: COMBAT_ENDED,
           victory: true,
@@ -237,10 +243,10 @@ describe("End Phase Damage Resolution", () => {
       );
 
       // Combat should be null (ended)
-      expect(result.state.combat).toBeNull();
+      expect(endResult.state.combat).toBeNull();
     });
 
-    it("should resolve damage with defeat before ending combat", () => {
+    it("should defeat multiple enemies via grouped finalize", () => {
       let state = createTestGameState();
 
       // Enter combat with two enemies
@@ -260,40 +266,33 @@ describe("End Phase Damage Resolution", () => {
           : null,
       };
 
-      // Give player lots of melee attack
+      // Declare both as targets (combined armor: 3 + 4 = 7)
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0", "enemy_1"],
+      }).state;
+
+      // Give enough melee attack for combined armor
       state = withAccumulatedAttack(state, "player1", { normal: 10 });
 
-      // Assign enough to defeat both enemies
-      // Prowlers: armor 3, Wolf Riders: armor 4
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 3,
-      }).state;
-
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_1",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 4,
-      }).state;
-
-      // End attack phase
-      const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+      // Finalize attack
+      const finalizeResult = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
       });
 
       // Both enemies should be defeated
-      const defeatedEvents = result.events.filter(
+      const defeatedEvents = finalizeResult.events.filter(
         (e) => e.type === ENEMY_DEFEATED
       );
       expect(defeatedEvents.length).toBe(2);
 
+      // End combat
+      const endResult = engine.processAction(finalizeResult.state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
       // Should report 2 enemies defeated
-      expect(result.events).toContainEqual(
+      expect(endResult.events).toContainEqual(
         expect.objectContaining({
           type: COMBAT_ENDED,
           enemiesDefeated: 2,
@@ -324,33 +323,41 @@ describe("End Phase Damage Resolution", () => {
           : null,
       };
 
-      // Give player fire melee attack
+      // Declare targets
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+
+      // Give player 8 fire melee attack - should become 4 effective (halved)
+      // Fire Mages have armor 5, so 4 is not enough
       state = withAccumulatedAttack(state, "player1", {
         normalElements: { physical: 0, fire: 8, ice: 0, coldFire: 0 },
       });
 
-      // Assign 8 fire damage - should become 4 effective (halved)
-      // Fire Mages have armor 5, so 4 is not enough
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_FIRE,
-        amount: 8,
-      }).state;
-
-      const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+      // Finalize attack
+      const finalizeResult = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
       });
 
       // Enemy should NOT be defeated (8 fire → 4 effective < 5 armor)
-      expect(result.events).not.toContainEqual(
+      expect(finalizeResult.events).not.toContainEqual(
         expect.objectContaining({
           type: ENEMY_DEFEATED,
         })
       );
+      expect(finalizeResult.events).toContainEqual(
+        expect.objectContaining({
+          type: ATTACK_FAILED,
+        })
+      );
 
-      expect(result.events).toContainEqual(
+      // End combat phase
+      const endResult = engine.processAction(finalizeResult.state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      expect(endResult.events).toContainEqual(
         expect.objectContaining({
           type: COMBAT_ENDED,
           victory: false,
@@ -380,34 +387,35 @@ describe("End Phase Damage Resolution", () => {
           : null,
       };
 
-      // Give player fire melee attack
+      // Declare targets
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+
+      // Give 10 fire attack - should become 5 effective (halved)
+      // Fire Mages have armor 5, so 5 = 5 should defeat
       state = withAccumulatedAttack(state, "player1", {
         normalElements: { physical: 0, fire: 10, ice: 0, coldFire: 0 },
       });
 
-      // Assign 10 fire damage - should become 5 effective (halved)
-      // Fire Mages have armor 5, so 5 = 5 should defeat
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_FIRE,
-        amount: 10,
-      }).state;
-
-      const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+      const finalizeResult = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
       });
 
       // Enemy SHOULD be defeated (10 fire → 5 effective = 5 armor)
-      expect(result.events).toContainEqual(
+      expect(finalizeResult.events).toContainEqual(
         expect.objectContaining({
           type: ENEMY_DEFEATED,
           enemyInstanceId: "enemy_0",
         })
       );
 
-      expect(result.events).toContainEqual(
+      const endResult = engine.processAction(finalizeResult.state, "player1", {
+        type: END_COMBAT_PHASE_ACTION,
+      });
+
+      expect(endResult.events).toContainEqual(
         expect.objectContaining({
           type: COMBAT_ENDED,
           victory: true,
@@ -435,32 +443,21 @@ describe("End Phase Damage Resolution", () => {
           : null,
       };
 
-      // Give player both physical and fire attack
+      // Declare targets
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+
+      // Give 3 physical + 4 fire melee attack (normal = 7 total)
+      // Fire is halved: 4 → 2 effective. Total: 3 + 2 = 5 = armor
       state = withAccumulatedAttack(state, "player1", {
-        normal: 3,
+        normal: 7,
         normalElements: { physical: 0, fire: 4, ice: 0, coldFire: 0 },
       });
 
-      // Assign 3 physical (unresisted) + 4 fire (→ 2 effective)
-      // Total: 3 + 2 = 5 = armor
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 3,
-      }).state;
-
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_FIRE,
-        amount: 4,
-      }).state;
-
       const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+        type: FINALIZE_ATTACK_ACTION,
       });
 
       // Enemy SHOULD be defeated (3 + 2 = 5 >= 5 armor)
@@ -473,7 +470,7 @@ describe("End Phase Damage Resolution", () => {
   });
 
   describe("fame accumulation", () => {
-    it("should accumulate fame from defeated enemies", () => {
+    it("should accumulate fame from defeated enemies via finalize", () => {
       let state = createTestGameState();
 
       // Enter combat with Prowlers (fame: 2)
@@ -496,23 +493,29 @@ describe("End Phase Damage Resolution", () => {
           : null,
       };
 
-      state = withAccumulatedAttack(state, "player1", { normal: 5 });
-
-      // Assign enough to defeat
+      // Declare targets
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 3,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
       }).state;
 
-      const result = engine.processAction(state, "player1", {
+      state = withAccumulatedAttack(state, "player1", { normal: 5 });
+
+      // Finalize attack to defeat
+      const finalizeResult = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
+      });
+
+      // Fame should be accumulated on combat state
+      expect(finalizeResult.state.combat?.fameGained).toBeGreaterThan(initialFameGained);
+
+      // End combat
+      const endResult = engine.processAction(finalizeResult.state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
 
       // COMBAT_ENDED should report total fame gained
-      expect(result.events).toContainEqual(
+      expect(endResult.events).toContainEqual(
         expect.objectContaining({
           type: COMBAT_ENDED,
           totalFameGained: expect.any(Number),
@@ -520,7 +523,7 @@ describe("End Phase Damage Resolution", () => {
       );
 
       // Fame gained should be positive
-      const combatEndedEvent = result.events.find(
+      const combatEndedEvent = endResult.events.find(
         (e) => e.type === COMBAT_ENDED
       );
       expect(
@@ -530,7 +533,7 @@ describe("End Phase Damage Resolution", () => {
       ).toBeGreaterThan(initialFameGained);
     });
 
-    it("should increase player.fame when defeating enemy via pending damage resolution", () => {
+    it("should increase player.fame when defeating enemy via finalize in attack phase", () => {
       let state = createTestGameState();
 
       // Get initial player fame
@@ -554,33 +557,38 @@ describe("End Phase Damage Resolution", () => {
           : null,
       };
 
-      state = withAccumulatedAttack(state, "player1", { normal: 5 });
-
-      // Assign enough to defeat (Prowlers have armor 3)
+      // Declare targets + give attack + finalize
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 3,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
       }).state;
 
-      // End combat phase - this triggers pending damage resolution
-      const result = engine.processAction(state, "player1", {
+      state = withAccumulatedAttack(state, "player1", { normal: 5 });
+
+      const finalizeResult = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
+      });
+
+      // Player's fame should have increased by the enemy's fame value (Prowlers = 2)
+      const fameAfterFinalize =
+        finalizeResult.state.players.find((p) => p.id === "player1")?.fame ?? 0;
+      expect(fameAfterFinalize).toBe(initialPlayerFame + 2);
+
+      // End combat
+      const endResult = engine.processAction(finalizeResult.state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
 
       // Combat should have ended
-      expect(result.state.combat).toBeNull();
+      expect(endResult.state.combat).toBeNull();
 
-      // Player's fame should have increased by the enemy's fame value (Prowlers = 2)
+      // Fame should still be correct
       const finalPlayerFame =
-        result.state.players.find((p) => p.id === "player1")?.fame ?? 0;
-      expect(finalPlayerFame).toBeGreaterThan(initialPlayerFame);
-      expect(finalPlayerFame).toBe(initialPlayerFame + 2); // Prowlers give 2 fame
+        endResult.state.players.find((p) => p.id === "player1")?.fame ?? 0;
+      expect(finalPlayerFame).toBe(initialPlayerFame + 2);
     });
 
-    it("should increase player.fame when defeating enemy in ranged phase via pending damage", () => {
+    it("should increase player.fame when defeating enemy via finalize in ranged phase", () => {
       let state = createTestGameState();
 
       // Get initial player fame
@@ -595,36 +603,40 @@ describe("End Phase Damage Resolution", () => {
 
       expect(state.combat?.phase).toBe(COMBAT_PHASE_RANGED_SIEGE);
 
-      // Give player ranged attack
-      state = withAccumulatedAttack(state, "player1", { ranged: 5 });
-
-      // Assign enough ranged damage to defeat (Prowlers have armor 3)
+      // Declare targets + give ranged attack + finalize
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 3,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
       }).state;
 
-      // End ranged phase - this triggers pending damage resolution
-      const result = engine.processAction(state, "player1", {
+      state = withAccumulatedAttack(state, "player1", { ranged: 5 });
+
+      const finalizeResult = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
+      });
+
+      // Player's fame should have increased
+      const fameAfterFinalize =
+        finalizeResult.state.players.find((p) => p.id === "player1")?.fame ?? 0;
+      expect(fameAfterFinalize).toBe(initialPlayerFame + 2);
+
+      // End ranged phase
+      const endResult = engine.processAction(finalizeResult.state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
 
       // Should have advanced to block phase
-      expect(result.state.combat?.phase).toBe(COMBAT_PHASE_BLOCK);
+      expect(endResult.state.combat?.phase).toBe(COMBAT_PHASE_BLOCK);
 
-      // Player's fame should have increased by the enemy's fame value (Prowlers = 2)
+      // Fame should still be correct
       const finalPlayerFame =
-        result.state.players.find((p) => p.id === "player1")?.fame ?? 0;
-      expect(finalPlayerFame).toBeGreaterThan(initialPlayerFame);
-      expect(finalPlayerFame).toBe(initialPlayerFame + 2); // Prowlers give 2 fame
+        endResult.state.players.find((p) => p.id === "player1")?.fame ?? 0;
+      expect(finalPlayerFame).toBe(initialPlayerFame + 2);
     });
   });
 
-  describe("state clearing after resolution", () => {
-    it("should clear pending damage after ranged/siege resolution", () => {
+  describe("state clearing after phase transition", () => {
+    it("should clear pending damage after ranged/siege phase transition", () => {
       let state = createTestGameState();
 
       state = engine.processAction(state, "player1", {
@@ -634,7 +646,7 @@ describe("End Phase Damage Resolution", () => {
 
       state = withAccumulatedAttack(state, "player1", { ranged: 5 });
 
-      // Assign some damage
+      // Assign some damage (via legacy ASSIGN_ATTACK)
       state = engine.processAction(state, "player1", {
         type: ASSIGN_ATTACK_ACTION,
         enemyInstanceId: "enemy_0",
@@ -645,7 +657,7 @@ describe("End Phase Damage Resolution", () => {
 
       expect(state.combat?.pendingDamage["enemy_0"]).toBeDefined();
 
-      // End phase
+      // End phase (no FINALIZE_ATTACK, so no defeat)
       const result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
@@ -654,7 +666,7 @@ describe("End Phase Damage Resolution", () => {
       expect(result.state.combat?.pendingDamage).toEqual({});
     });
 
-    it("should clear assigned attack after resolution", () => {
+    it("should clear assigned attack after phase transition", () => {
       let state = createTestGameState();
 
       state = engine.processAction(state, "player1", {
@@ -686,7 +698,7 @@ describe("End Phase Damage Resolution", () => {
       expect(playerAfter?.combatAccumulator.assignedAttack.ranged).toBe(0);
     });
 
-    it("should clear ranged/siege attack after resolution but preserve melee", () => {
+    it("should clear ranged/siege attack after phase transition but preserve melee", () => {
       let state = createTestGameState();
 
       state = engine.processAction(state, "player1", {

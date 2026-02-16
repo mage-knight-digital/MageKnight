@@ -199,6 +199,13 @@ export interface CombatState {
    * If the unit is wounded/destroyed, the redirect becomes inactive.
    */
   readonly damageRedirects: DamageRedirectMap;
+  /**
+   * Enemy instance IDs targeted in the current attack declaration.
+   * Set by DECLARE_ATTACK_TARGETS, cleared by FINALIZE_ATTACK.
+   * When set, player must play cards then finalize. When unset, player must
+   * declare targets before playing attack cards.
+   */
+  readonly declaredAttackTargets?: readonly string[];
 }
 
 /**

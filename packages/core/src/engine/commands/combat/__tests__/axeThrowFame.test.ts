@@ -9,10 +9,8 @@ import { resolveEffect } from "../../../effects/index.js";
 import { AXE_THROW } from "../../../../data/basicActions/white/axe-throw.js";
 import {
   ENTER_COMBAT_ACTION,
-  ASSIGN_ATTACK_ACTION,
-  END_COMBAT_PHASE_ACTION,
-  ATTACK_TYPE_RANGED,
-  ATTACK_ELEMENT_PHYSICAL,
+  DECLARE_ATTACK_TARGETS_ACTION,
+  FINALIZE_ATTACK_ACTION,
   ENEMY_PROWLERS,
   getEnemy,
 } from "@mage-knight/shared";
@@ -32,24 +30,23 @@ describe("Axe Throw fame bonus", () => {
       enemyIds: [ENEMY_PROWLERS],
     }).state;
 
+    // Declare targets in ranged/siege phase
+    state = engine.processAction(state, "player1", {
+      type: DECLARE_ATTACK_TARGETS_ACTION,
+      targetEnemyInstanceIds: ["enemy_0"],
+    }).state;
+
+    // Resolve Axe Throw powered effect (adds ranged attack + tracker)
     const effectResult = resolveEffect(state, "player1", AXE_THROW.poweredEffect, AXE_THROW.id);
     state = effectResult.state;
 
-    const enemyDef = getEnemy(ENEMY_PROWLERS);
-
-    state = engine.processAction(state, "player1", {
-      type: ASSIGN_ATTACK_ACTION,
-      enemyInstanceId: "enemy_0",
-      attackType: ATTACK_TYPE_RANGED,
-      element: ATTACK_ELEMENT_PHYSICAL,
-      amount: enemyDef.armor,
-    }).state;
-
+    // Finalize attack (Axe Throw powered gives Ranged Attack 3, Prowlers armor 3)
     const result = engine.processAction(state, "player1", {
-      type: END_COMBAT_PHASE_ACTION,
+      type: FINALIZE_ATTACK_ACTION,
     });
 
     const player = result.state.players.find((p) => p.id === "player1");
+    const enemyDef = getEnemy(ENEMY_PROWLERS);
     expect(player?.fame).toBe(enemyDef.fame + 1);
   });
 
@@ -61,19 +58,19 @@ describe("Axe Throw fame bonus", () => {
       enemyIds: [ENEMY_PROWLERS],
     }).state;
 
-    const effectResult = resolveEffect(state, "player1", AXE_THROW.poweredEffect, AXE_THROW.id);
-    state = effectResult.state;
-
+    // Declare targets
     state = engine.processAction(state, "player1", {
-      type: ASSIGN_ATTACK_ACTION,
-      enemyInstanceId: "enemy_0",
-      attackType: ATTACK_TYPE_RANGED,
-      element: ATTACK_ELEMENT_PHYSICAL,
-      amount: 1,
+      type: DECLARE_ATTACK_TARGETS_ACTION,
+      targetEnemyInstanceIds: ["enemy_0"],
     }).state;
 
+    // Resolve Axe Throw basic effect (Ranged Attack 2, not enough for Prowlers armor 3)
+    const effectResult = resolveEffect(state, "player1", AXE_THROW.basicEffect, AXE_THROW.id);
+    state = effectResult.state;
+
+    // Finalize attack (insufficient — only 2 ranged vs armor 3)
     const result = engine.processAction(state, "player1", {
-      type: END_COMBAT_PHASE_ACTION,
+      type: FINALIZE_ATTACK_ACTION,
     });
 
     const player = result.state.players.find((p) => p.id === "player1");

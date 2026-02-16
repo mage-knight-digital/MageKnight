@@ -43,7 +43,6 @@ import { discardEnemy } from "../../helpers/enemy/index.js";
 import type { BasicManaColor } from "@mage-knight/shared";
 
 import {
-  resolvePendingDamage,
   clearPendingAndAssigned,
   applyFameToPlayer,
   applyReputationChange,
@@ -172,7 +171,11 @@ export function applyDefeatedEnemyRewards(
 
 /**
  * Handle the end of combat after the Attack phase.
- * Resolves final damage, determines victory, handles conquest and withdrawal.
+ * Determines victory based on enemy defeated flags (set by FINALIZE_ATTACK),
+ * handles conquest and withdrawal.
+ *
+ * Note: Enemies are now defeated by FINALIZE_ATTACK during the phase,
+ * not auto-resolved at phase end.
  */
 export function handleCombatEnd(
   state: GameState,
@@ -182,48 +185,16 @@ export function handleCombatEnd(
     throw new Error("Not in combat");
   }
 
-  // Resolve pending damage from ATTACK phase before ending combat
-  const damageResult = resolvePendingDamage(state.combat, playerId, state);
-
-  // Update combat state with defeated enemies and fame
   const combatAfterResolution: CombatState = {
     ...state.combat,
-    enemies: damageResult.enemies,
-    fameGained: state.combat.fameGained + damageResult.fameGained,
     pendingDamage: {},
   };
 
-  // Clear assigned attack from player
+  // Clear any leftover assigned attack from player
   let stateAfterResolution = clearPendingAndAssigned(
     { ...state, combat: combatAfterResolution },
     playerId
   );
-
-  // Apply fame and reputation rewards using consolidated helper
-  const rewardsResult = applyDefeatedEnemyRewards(
-    stateAfterResolution,
-    playerId,
-    damageResult
-  );
-  stateAfterResolution = rewardsResult.state;
-  // Store reputation events to add after combat ended event
-  const reputationEvents = rewardsResult.events;
-
-  // Update player's enemiesDefeatedThisTurn counter (for Sword of Justice fame bonus)
-  if (damageResult.enemiesDefeatedCount > 0) {
-    const playerIndex = stateAfterResolution.players.findIndex((p) => p.id === playerId);
-    if (playerIndex !== -1) {
-      const player = stateAfterResolution.players[playerIndex];
-      if (player) {
-        const updatedPlayers = [...stateAfterResolution.players];
-        updatedPlayers[playerIndex] = {
-          ...player,
-          enemiesDefeatedThisTurn: player.enemiesDefeatedThisTurn + damageResult.enemiesDefeatedCount,
-        };
-        stateAfterResolution = { ...stateAfterResolution, players: updatedPlayers };
-      }
-    }
-  }
 
   // Resolve Dueling fame bonus (if target enemy defeated without unit involvement)
   const duelingResult = resolveDuelingFameBonus(stateAfterResolution, playerId);
@@ -231,8 +202,8 @@ export function handleCombatEnd(
     stateAfterResolution = duelingResult.state;
   }
 
-  // Use resolved combat state for victory calculation
-  // Combat exists because we just created it above
+  // Use combat state for victory calculation
+  // Enemies were already defeated by FINALIZE_ATTACK during the phase
   if (!stateAfterResolution.combat) {
     throw new Error("Combat state unexpectedly cleared");
   }
@@ -250,9 +221,7 @@ export function handleCombatEnd(
   ).length;
   const victory = requiredEnemiesSurvived === 0;
 
-  // Include enemy defeated events from damage resolution
   const events: GameEvent[] = [
-    ...damageResult.events,
     {
       type: COMBAT_ENDED,
       victory,
@@ -288,7 +257,7 @@ export function handleCombatEnd(
 
   return {
     state: newState,
-    events: [...events, ...reputationEvents],
+    events,
   };
 }
 

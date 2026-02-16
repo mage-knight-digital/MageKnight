@@ -93,3 +93,15 @@ export {
   CONVERT_INFLUENCE_TO_BLOCK_COMMAND,
   type ConvertInfluenceToBlockCommandParams,
 } from "./convertInfluenceToBlockCommand.js";
+
+export {
+  createDeclareAttackTargetsCommand,
+  DECLARE_ATTACK_TARGETS_COMMAND,
+  type DeclareAttackTargetsCommandParams,
+} from "./declareAttackTargetsCommand.js";
+
+export {
+  createFinalizeAttackCommand,
+  FINALIZE_ATTACK_COMMAND,
+  type FinalizeAttackCommandParams,
+} from "./finalizeAttackCommand.js";

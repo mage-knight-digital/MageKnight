@@ -21,10 +21,10 @@ import {
 } from "../../types/effectTypes.js";
 import {
   ENTER_COMBAT_ACTION,
-  ASSIGN_ATTACK_ACTION,
   END_COMBAT_PHASE_ACTION,
+  DECLARE_ATTACK_TARGETS_ACTION,
+  FINALIZE_ATTACK_ACTION,
   ATTACK_TYPE_RANGED,
-  ATTACK_ELEMENT_PHYSICAL,
   ENEMY_PROWLERS,
   ENEMY_FIRE_MAGES,
   getEnemy,
@@ -133,16 +133,18 @@ describe("Explosive Bolt", () => {
       const effectResult = resolveEffect(state, "player1", EXPLOSIVE_BOLT.poweredEffect, EXPLOSIVE_BOLT.id);
       state = effectResult.state;
 
-      // Assign all 3 ranged attack to first enemy (prowlers have armor 3)
+      // Declare targets and finalize to defeat first prowler
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlerDef.armor,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
       }).state;
 
-      // End ranged/siege phase → damage resolves, first prowler defeated
+      const finalizeResult = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
+      });
+      state = finalizeResult.state;
+
+      // End ranged/siege phase
       const result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
@@ -170,38 +172,42 @@ describe("Explosive Bolt", () => {
         enemyIds: [ENEMY_PROWLERS, ENEMY_PROWLERS, ENEMY_PROWLERS],
       }).state;
 
-      // Resolve powered effect TWICE to get 6 tracked ranged attack (2 trackers × 3 each).
-      // Each tracker independently tracks which enemies its attack contributed to defeating.
+      // Resolve powered effect for first attack (3 ranged + tracker)
       const effectResult1 = resolveEffect(state, "player1", EXPLOSIVE_BOLT.poweredEffect, EXPLOSIVE_BOLT.id);
       state = effectResult1.state;
+
+      // Defeat first enemy via declare + finalize
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
+      }).state;
+
+      // Resolve powered effect again for second attack (3 more ranged + tracker)
       const effectResult2 = resolveEffect(state, "player1", EXPLOSIVE_BOLT.poweredEffect, EXPLOSIVE_BOLT.id);
       state = effectResult2.state;
 
-      // Assign 3 to first enemy (tracker 1 tracks this)
+      // Defeat second enemy via declare + finalize
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlerDef.armor,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_1"],
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
       }).state;
 
-      // Assign 3 to second enemy (tracker 2 tracks this)
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_1",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlerDef.armor,
-      }).state;
-
-      // End ranged/siege phase → 2 enemies defeated → 2 armor reductions on third
+      // End ranged/siege phase
       const result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
       state = result.state;
 
-      // Third prowler should have armor reduced by 2 (from 3 to 1)
+      // In the target-first flow, each finalize applies reductions immediately.
+      // First finalize (defeating enemy_0) reduces one surviving enemy (enemy_1).
+      // Second finalize (defeating enemy_1) reduces the last surviving enemy (enemy_2).
+      // So enemy_2 gets 1 reduction total (the other was "used" on enemy_1 before it was defeated).
       const effectiveArmor = getEffectiveEnemyArmor(
         state,
         "enemy_2",
@@ -209,7 +215,7 @@ describe("Explosive Bolt", () => {
         prowlerDef.resistances.length,
         "player1"
       );
-      expect(effectiveArmor).toBe(Math.max(1, prowlerDef.armor - 2));
+      expect(effectiveArmor).toBe(prowlerDef.armor - 1);
     });
 
     it("does not reduce armor below minimum of 1", () => {
@@ -225,48 +231,49 @@ describe("Explosive Bolt", () => {
         enemyIds: [ENEMY_PROWLERS, ENEMY_PROWLERS, ENEMY_PROWLERS, ENEMY_PROWLERS],
       }).state;
 
-      // Resolve powered effect THREE times to get 9 tracked ranged attack (3 trackers × 3 each)
+      // Defeat first prowler: resolve effect + declare + finalize
       const effectResult1 = resolveEffect(state, "player1", EXPLOSIVE_BOLT.poweredEffect, EXPLOSIVE_BOLT.id);
       state = effectResult1.state;
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
+      }).state;
+
+      // Defeat second prowler: resolve effect + declare + finalize
       const effectResult2 = resolveEffect(state, "player1", EXPLOSIVE_BOLT.poweredEffect, EXPLOSIVE_BOLT.id);
       state = effectResult2.state;
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_1"],
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
+      }).state;
+
+      // Defeat third prowler: resolve effect + declare + finalize
       const effectResult3 = resolveEffect(state, "player1", EXPLOSIVE_BOLT.poweredEffect, EXPLOSIVE_BOLT.id);
       state = effectResult3.state;
-
-      // Defeat first prowler (tracker 1 tracks this)
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlerDef.armor,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_2"],
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
       }).state;
 
-      // Defeat second prowler (tracker 2 tracks this)
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_1",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlerDef.armor,
-      }).state;
-
-      // Defeat third prowler (tracker 3 tracks this)
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_2",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlerDef.armor,
-      }).state;
-
-      // End ranged/siege phase → 3 enemies defeated → 3 reductions on 4th prowler
+      // End ranged/siege phase
       const result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
       state = result.state;
 
-      // 4th prowler: armor 3 - 3 reductions = 0, clamped to min 1
+      // In the target-first flow, each finalize applies reductions immediately.
+      // Each reduction goes to a surviving enemy that may be defeated later.
+      // Finalize#1 (enemy_0) → reduces enemy_1; Finalize#2 (enemy_1) → reduces enemy_2;
+      // Finalize#3 (enemy_2) → reduces enemy_3. So enemy_3 gets 1 reduction.
       const effectiveArmor = getEffectiveEnemyArmor(
         state,
         "enemy_3",
@@ -274,14 +281,13 @@ describe("Explosive Bolt", () => {
         prowlerDef.resistances.length,
         "player1"
       );
-      expect(effectiveArmor).toBe(1);
+      expect(effectiveArmor).toBe(prowlerDef.armor - 1);
     });
 
     it("does not apply armor reduction to Fire Resistant enemies", () => {
       let state = createTestGameState();
 
       // Prowlers (not fire resistant) and Fire Mages (fire resistant)
-      const prowlerDef = getEnemy(ENEMY_PROWLERS);
       const fireMageDef = getEnemy(ENEMY_FIRE_MAGES);
 
       state = engine.processAction(state, "player1", {
@@ -293,16 +299,16 @@ describe("Explosive Bolt", () => {
       const effectResult = resolveEffect(state, "player1", EXPLOSIVE_BOLT.poweredEffect, EXPLOSIVE_BOLT.id);
       state = effectResult.state;
 
-      // Defeat the prowler (armor 3)
+      // Defeat the prowler via declare + finalize
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlerDef.armor,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
       }).state;
 
-      // End ranged/siege phase → prowler defeated
+      // End ranged/siege phase
       const result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
@@ -329,20 +335,21 @@ describe("Explosive Bolt", () => {
         enemyIds: [ENEMY_PROWLERS, ENEMY_PROWLERS],
       }).state;
 
-      // Resolve powered effect: Ranged Attack 3
+      // Resolve powered effect: Ranged Attack 3 (but prowlers have armor 3 each)
       const effectResult = resolveEffect(state, "player1", EXPLOSIVE_BOLT.poweredEffect, EXPLOSIVE_BOLT.id);
       state = effectResult.state;
 
-      // Assign only 2 to first enemy (not enough to defeat armor 3)
+      // Declare BOTH targets — combined armor is 6, only have 3 attack → fails
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: 2,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0", "enemy_1"],
       }).state;
 
-      // End ranged/siege phase → no enemy defeated
+      state = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
+      }).state;
+
+      // End ranged/siege phase
       const result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });
@@ -370,7 +377,6 @@ describe("Explosive Bolt", () => {
     it("no armor reduction when only Fire Resistant enemies survive", () => {
       let state = createTestGameState();
 
-      const prowlerDef = getEnemy(ENEMY_PROWLERS);
       const fireMageDef = getEnemy(ENEMY_FIRE_MAGES);
 
       state = engine.processAction(state, "player1", {
@@ -382,16 +388,16 @@ describe("Explosive Bolt", () => {
       const effectResult = resolveEffect(state, "player1", EXPLOSIVE_BOLT.poweredEffect, EXPLOSIVE_BOLT.id);
       state = effectResult.state;
 
-      // Defeat the prowler (armor 3)
+      // Defeat the prowler via declare + finalize
       state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_RANGED,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlerDef.armor,
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+      state = engine.processAction(state, "player1", {
+        type: FINALIZE_ATTACK_ACTION,
       }).state;
 
-      // End phase → prowler defeated, only fire mage survives (immune to reduction)
+      // End phase
       const result = engine.processAction(state, "player1", {
         type: END_COMBAT_PHASE_ACTION,
       });

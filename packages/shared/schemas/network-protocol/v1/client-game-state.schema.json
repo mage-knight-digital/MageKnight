@@ -1516,12 +1516,24 @@
           },
           "type": "array"
         },
+        "canDeclareTargets": {
+          "description": "Whether player can declare attack targets (no targets declared yet)",
+          "type": "boolean"
+        },
         "canEndPhase": {
+          "type": "boolean"
+        },
+        "canFinalizeAttack": {
+          "description": "Whether player can finalize attack (targets are declared)",
           "type": "boolean"
         },
         "canPayHeroesAssaultInfluence": {
           "description": "Whether player can pay 2 Influence to allow Heroes to use abilities",
           "type": "boolean"
+        },
+        "combinedArmor": {
+          "description": "Combined armor of declared targets",
+          "type": "number"
         },
         "cumbersomeOptions": {
           "description": "Cumbersome enemies that can have move points spent on them",
@@ -1534,6 +1546,20 @@
           "description": "Damage assignment options (ASSIGN_DAMAGE phase)",
           "items": {
             "$ref": "#/definitions/DamageAssignmentOption"
+          },
+          "type": "array"
+        },
+        "declaredTargets": {
+          "description": "Currently declared attack target enemy instance IDs",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "declareTargetOptions": {
+          "description": "Targetable enemy instance IDs for DECLARE_ATTACK_TARGETS",
+          "items": {
+            "type": "string"
           },
           "type": "array"
         },

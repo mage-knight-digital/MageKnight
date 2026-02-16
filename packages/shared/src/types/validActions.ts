@@ -226,6 +226,23 @@ export interface CombatOptions {
 
   /** Banner of Fear cancel attack options during BLOCK phase */
   readonly bannerFearOptions?: readonly BannerFearOption[];
+
+  // ---- Attack declaration flow (target-first) ----
+
+  /** Whether player can declare attack targets (no targets declared yet) */
+  readonly canDeclareTargets?: boolean;
+
+  /** Targetable enemy instance IDs for DECLARE_ATTACK_TARGETS */
+  readonly declareTargetOptions?: readonly string[];
+
+  /** Whether player can finalize attack (targets are declared) */
+  readonly canFinalizeAttack?: boolean;
+
+  /** Currently declared attack target enemy instance IDs */
+  readonly declaredTargets?: readonly string[];
+
+  /** Combined armor of declared targets */
+  readonly combinedArmor?: number;
 }
 
 /** A unit with Banner of Fear that can cancel an enemy attack */

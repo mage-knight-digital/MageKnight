@@ -21,6 +21,8 @@ import {
   ENTER_COMBAT_ACTION,
   ASSIGN_ATTACK_ACTION,
   END_COMBAT_PHASE_ACTION,
+  DECLARE_ATTACK_TARGETS_ACTION,
+  FINALIZE_ATTACK_ACTION,
   ATTACK_TYPE_MELEE,
   ATTACK_ELEMENT_PHYSICAL,
   ENEMY_PROWLERS,
@@ -82,6 +84,12 @@ describe("Chivalry defeat bonus", () => {
 
       state = skipToAttackPhase(state);
 
+      // Declare targets
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+
       // Resolve the defeat bonus option directly (Attack 2 + Rep per enemy)
       const effectResult = resolveEffect(state, "player1", basicOptions[1]!, CHIVALRY.id);
       state = effectResult.state;
@@ -91,16 +99,9 @@ describe("Chivalry defeat bonus", () => {
       // We have Attack 2, need 3 to defeat prowlers. Add 1 more.
       state = addMeleeAttack(state, "player1", 1);
 
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: enemyDef.armor,
-      }).state;
-
+      // Finalize attack
       const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+        type: FINALIZE_ATTACK_ACTION,
       });
 
       const player = result.state.players.find((p) => p.id === "player1");
@@ -150,26 +151,23 @@ describe("Chivalry defeat bonus", () => {
 
       state = skipToAttackPhase(state);
 
+      // Declare targets
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+
       // Resolve the plain Attack 3 option
       const effectResult = resolveEffect(state, "player1", basicOptions[0]!, CHIVALRY.id);
       state = effectResult.state;
 
-      const enemyDef = getEnemy(ENEMY_PROWLERS);
-
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: enemyDef.armor,
-      }).state;
-
+      // Finalize attack (Attack 3 is enough for Prowlers armor 3)
       const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+        type: FINALIZE_ATTACK_ACTION,
       });
 
       const player = result.state.players.find((p) => p.id === "player1");
-      expect(player?.fame).toBe(enemyDef.fame);
+      expect(player?.fame).toBe(getEnemy(ENEMY_PROWLERS).fame);
       expect(player?.reputation).toBe(0);
     });
   });
@@ -185,6 +183,12 @@ describe("Chivalry defeat bonus", () => {
 
       state = skipToAttackPhase(state);
 
+      // Declare targets
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0"],
+      }).state;
+
       // Resolve defeat bonus option (Attack 4 + Rep+1, Fame+1 per enemy)
       const effectResult = resolveEffect(state, "player1", poweredOptions[1]!, CHIVALRY.id);
       state = effectResult.state;
@@ -192,16 +196,9 @@ describe("Chivalry defeat bonus", () => {
       const enemyDef = getEnemy(ENEMY_PROWLERS);
 
       // Attack 4 is enough to defeat prowlers (armor 3)
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: enemyDef.armor,
-      }).state;
-
+      // Finalize attack
       const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+        type: FINALIZE_ATTACK_ACTION,
       });
 
       const player = result.state.players.find((p) => p.id === "player1");
@@ -221,6 +218,12 @@ describe("Chivalry defeat bonus", () => {
 
       state = skipToAttackPhase(state);
 
+      // Declare both targets (combined armor = 6)
+      state = engine.processAction(state, "player1", {
+        type: DECLARE_ATTACK_TARGETS_ACTION,
+        targetEnemyInstanceIds: ["enemy_0", "enemy_1"],
+      }).state;
+
       // Resolve defeat bonus option (Attack 4)
       const effectResult = resolveEffect(state, "player1", poweredOptions[1]!, CHIVALRY.id);
       state = effectResult.state;
@@ -230,24 +233,9 @@ describe("Chivalry defeat bonus", () => {
       // Attack 4, need 3+3=6 total. Add 2 more.
       state = addMeleeAttack(state, "player1", 2);
 
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_0",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlersDef.armor,
-      }).state;
-
-      state = engine.processAction(state, "player1", {
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId: "enemy_1",
-        attackType: ATTACK_TYPE_MELEE,
-        element: ATTACK_ELEMENT_PHYSICAL,
-        amount: prowlersDef.armor,
-      }).state;
-
+      // Finalize attack — both defeated in one group
       const result = engine.processAction(state, "player1", {
-        type: END_COMBAT_PHASE_ACTION,
+        type: FINALIZE_ATTACK_ACTION,
       });
 
       const player = result.state.players.find((p) => p.id === "player1");

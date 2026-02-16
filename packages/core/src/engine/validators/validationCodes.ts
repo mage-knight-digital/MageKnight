@@ -138,6 +138,10 @@ export const CUMBERSOME_INVALID_AMOUNT = "CUMBERSOME_INVALID_AMOUNT" as const;
 // Move-to-attack conversion validation codes (Agility card)
 export const NO_CONVERSION_MODIFIER = "NO_CONVERSION_MODIFIER" as const;
 export const CONVERSION_INVALID_AMOUNT = "CONVERSION_INVALID_AMOUNT" as const;
+// Attack declaration flow validation codes
+export const TARGETS_ALREADY_DECLARED = "TARGETS_ALREADY_DECLARED" as const;
+export const NO_TARGETS_DECLARED = "NO_TARGETS_DECLARED" as const;
+export const TARGET_ENEMY_NOT_FOUND = "TARGET_ENEMY_NOT_FOUND" as const;
 
 // Unit validation codes
 export const NO_COMMAND_SLOTS = "NO_COMMAND_SLOTS" as const;
@@ -476,6 +480,10 @@ export type ValidationErrorCode =
   | typeof CUMBERSOME_INVALID_AMOUNT
   | typeof NO_CONVERSION_MODIFIER
   | typeof CONVERSION_INVALID_AMOUNT
+  // Attack declaration flow validation
+  | typeof TARGETS_ALREADY_DECLARED
+  | typeof NO_TARGETS_DECLARED
+  | typeof TARGET_ENEMY_NOT_FOUND
   // Unit validation
   | typeof NO_COMMAND_SLOTS
   | typeof INSUFFICIENT_INFLUENCE

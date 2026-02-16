@@ -130,6 +130,7 @@ function setupConversionCombat(
       pendingBlock: {},
       pendingSwiftBlock: {},
       cumbersomeReductions: {},
+      declaredAttackTargets: [combatEnemy.instanceId],
     },
   };
 }

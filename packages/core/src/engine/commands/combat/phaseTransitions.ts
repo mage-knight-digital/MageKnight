@@ -20,7 +20,6 @@ import {
 import { createEmptyElementalValues } from "../../../types/player.js";
 
 import {
-  resolvePendingDamage,
   clearPendingAndAssigned,
   clearPendingBlock,
 } from "./damageResolution.js";
@@ -31,8 +30,6 @@ import {
   resolveSummons,
   discardSummonedEnemies,
 } from "./summonedEnemyHandling.js";
-
-import { applyDefeatedEnemyRewards } from "./combatEndHandlers.js";
 
 import { applyDodgeAndWeaveAttackBonus } from "../../combat/dodgeAndWeaveHelpers.js";
 import { applyDuelingAttackBonus } from "../../combat/duelingHelpers.js";
@@ -152,7 +149,10 @@ export function handlePhaseTransition(
 
 /**
  * Handle transition from RANGED_SIEGE to BLOCK phase.
- * Resolves pending damage and activates summon abilities.
+ * Cleans up attack state and activates summon abilities.
+ *
+ * Note: Enemies are now defeated by FINALIZE_ATTACK during the phase,
+ * not auto-resolved at phase transition.
  */
 export function handleRangedSiegeToBlock(
   state: GameState,
@@ -161,13 +161,8 @@ export function handleRangedSiegeToBlock(
 ): { state: GameState; combat: CombatState; events: GameEvent[] } {
   const events: GameEvent[] = [];
 
-  const damageResult = resolvePendingDamage(combat, playerId, state);
-  events.push(...damageResult.events);
-
   let updatedCombat: CombatState = {
     ...combat,
-    enemies: damageResult.enemies,
-    fameGained: combat.fameGained + damageResult.fameGained,
     pendingDamage: {},
   };
 
@@ -182,33 +177,8 @@ export function handleRangedSiegeToBlock(
   }
   updatedCombat = updatedState.combat;
 
-  // Apply fame and reputation rewards using consolidated helper
-  const rewardsResult = applyDefeatedEnemyRewards(
-    updatedState,
-    playerId,
-    damageResult
-  );
-  updatedState = rewardsResult.state;
-  events.push(...rewardsResult.events);
-
   // Ranged/Siege attack points do not carry over into the Attack phase
   updatedState = clearRangedSiegeAttack(updatedState, playerId);
-
-  // Update player's enemiesDefeatedThisTurn counter (for Sword of Justice fame bonus)
-  if (damageResult.enemiesDefeatedCount > 0) {
-    const playerIndex = updatedState.players.findIndex((p) => p.id === playerId);
-    if (playerIndex !== -1) {
-      const player = updatedState.players[playerIndex];
-      if (player) {
-        const updatedPlayers = [...updatedState.players];
-        updatedPlayers[playerIndex] = {
-          ...player,
-          enemiesDefeatedThisTurn: player.enemiesDefeatedThisTurn + damageResult.enemiesDefeatedCount,
-        };
-        updatedState = { ...updatedState, players: updatedPlayers };
-      }
-    }
-  }
 
   // Resolve summon abilities - draw brown enemies for summoners
   const summonResult = resolveSummons(

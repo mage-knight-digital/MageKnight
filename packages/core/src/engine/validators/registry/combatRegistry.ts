@@ -27,6 +27,8 @@ import {
   CONVERT_MOVE_TO_ATTACK_ACTION,
   CONVERT_INFLUENCE_TO_BLOCK_ACTION,
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
+  DECLARE_ATTACK_TARGETS_ACTION,
+  FINALIZE_ATTACK_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -113,6 +115,14 @@ import {
   validateThugsDamageUnitIsThugs,
   validateThugsDamageInfluenceNotAlreadyPaid,
   validateThugsDamageInfluenceAvailable,
+  // Attack target declaration validators
+  validateDeclareTargetsInCombat,
+  validateDeclareTargetsPhase,
+  validateNoTargetsDeclared,
+  validateTargetsExistAndAlive,
+  validateFinalizeInCombat,
+  validateFinalizePhase,
+  validateTargetsDeclared,
 } from "../combatValidators/index.js";
 
 // Challenge rampaging validators
@@ -257,5 +267,20 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateThugsDamageUnitIsThugs,
     validateThugsDamageInfluenceNotAlreadyPaid,
     validateThugsDamageInfluenceAvailable,
+  ],
+  // Attack target declaration action
+  [DECLARE_ATTACK_TARGETS_ACTION]: [
+    validateIsPlayersTurn,
+    validateDeclareTargetsInCombat,
+    validateDeclareTargetsPhase,
+    validateNoTargetsDeclared,
+    validateTargetsExistAndAlive,
+  ],
+  // Finalize attack action
+  [FINALIZE_ATTACK_ACTION]: [
+    validateIsPlayersTurn,
+    validateFinalizeInCombat,
+    validateFinalizePhase,
+    validateTargetsDeclared,
   ],
 };

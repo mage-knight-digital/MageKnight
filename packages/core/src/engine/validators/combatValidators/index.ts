@@ -107,3 +107,14 @@ export {
   validateThugsDamageInfluenceNotAlreadyPaid,
   validateThugsDamageInfluenceAvailable,
 } from "./thugsDamageValidators.js";
+
+// Attack target declaration validators
+export {
+  validateDeclareTargetsInCombat,
+  validateDeclareTargetsPhase,
+  validateNoTargetsDeclared,
+  validateTargetsExistAndAlive,
+  validateFinalizeInCombat,
+  validateFinalizePhase,
+  validateTargetsDeclared,
+} from "./attackTargetValidators.js";

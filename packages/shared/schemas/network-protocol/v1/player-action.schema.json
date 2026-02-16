@@ -216,6 +216,12 @@
       "$ref": "#/definitions/UnassignBlockAction"
     },
     {
+      "$ref": "#/definitions/DeclareAttackTargetsAction"
+    },
+    {
+      "$ref": "#/definitions/FinalizeAttackAction"
+    },
+    {
       "$ref": "#/definitions/SpendMoveOnCumbersomeAction"
     }
   ],
@@ -728,6 +734,26 @@
       ],
       "type": "object"
     },
+    "DeclareAttackTargetsAction": {
+      "additionalProperties": false,
+      "properties": {
+        "targetEnemyInstanceIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "DECLARE_ATTACK_TARGETS",
+          "type": "string"
+        }
+      },
+      "required": [
+        "targetEnemyInstanceIds",
+        "type"
+      ],
+      "type": "object"
+    },
     "DeclareBlockAction": {
       "additionalProperties": false,
       "properties": {
@@ -976,6 +1002,19 @@
       "required": [
         "direction",
         "fromTileCoord",
+        "type"
+      ],
+      "type": "object"
+    },
+    "FinalizeAttackAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "FINALIZE_ATTACK",
+          "type": "string"
+        }
+      },
+      "required": [
         "type"
       ],
       "type": "object"

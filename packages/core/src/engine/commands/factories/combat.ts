@@ -35,6 +35,8 @@ import {
   CONVERT_MOVE_TO_ATTACK_ACTION,
   CONVERT_INFLUENCE_TO_BLOCK_ACTION,
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
+  DECLARE_ATTACK_TARGETS_ACTION,
+  FINALIZE_ATTACK_ACTION,
 } from "@mage-knight/shared";
 import {
   createEnterCombatCommand,
@@ -52,6 +54,8 @@ import {
   createConvertMoveToAttackCommand,
   createConvertInfluenceToBlockCommand,
   createPayThugsDamageInfluenceCommand,
+  createDeclareAttackTargetsCommand,
+  createFinalizeAttackCommand,
 } from "../combat/index.js";
 
 /**
@@ -350,5 +354,40 @@ export const createConvertInfluenceToBlockCommandFromAction: CommandFactory = (
   return createConvertInfluenceToBlockCommand({
     playerId,
     influencePointsToSpend: action.influencePointsToSpend,
+  });
+};
+
+/**
+ * Declare attack targets command factory.
+ * Creates a command to declare which enemies the player intends to attack.
+ *
+ * Part of the target-first attack flow.
+ */
+export const createDeclareAttackTargetsCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== DECLARE_ATTACK_TARGETS_ACTION) return null;
+  return createDeclareAttackTargetsCommand({
+    playerId,
+    targetEnemyInstanceIds: action.targetEnemyInstanceIds,
+  });
+};
+
+/**
+ * Finalize attack command factory.
+ * Creates a command to resolve accumulated attack against declared targets.
+ *
+ * Part of the target-first attack flow.
+ */
+export const createFinalizeAttackCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== FINALIZE_ATTACK_ACTION) return null;
+  return createFinalizeAttackCommand({
+    playerId,
   });
 };

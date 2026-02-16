@@ -372,7 +372,9 @@ function getPossessedEnemyIds(
 
 /**
  * Compute options for RANGED_SIEGE or ATTACK phase.
- * Both phases use the incremental attack assignment system.
+ * Uses the target-first attack declaration flow:
+ * - If no targets declared: show DECLARE_ATTACK_TARGETS and END_COMBAT_PHASE options
+ * - If targets declared: show playable cards, FINALIZE_ATTACK option, and incremental attack assignment
  */
 export function computeAttackPhaseOptions(
   state: GameState,
@@ -390,16 +392,34 @@ export function computeAttackPhaseOptions(
     };
   }
 
+  // Compute enemy states (pass state and playerId for modifier checks)
+  const enemyStates = combat.enemies.map((enemy) =>
+    computeEnemyAttackState(state, enemy, combat, isRangedSiegePhase, player.id)
+  );
+
+  // If no targets declared yet: show declare targets option + end phase
+  if (!combat.declaredAttackTargets || combat.declaredAttackTargets.length === 0) {
+    // Targetable enemies: not defeated
+    const targetableEnemyIds = combat.enemies
+      .filter((e) => !e.isDefeated)
+      .map((e) => e.instanceId);
+
+    return {
+      phase,
+      canEndPhase: true, // Can always skip/end the phase
+      enemies: enemyStates,
+      canDeclareTargets: targetableEnemyIds.length > 0,
+      declareTargetOptions: targetableEnemyIds,
+    };
+  }
+
+  // Targets are declared: show attack pool, assignable/unassignable attacks, and finalize option
+
   // Compute available attack pool (only include phase-relevant attack types)
   const availableAttack = computeAvailableAttack(
     player.combatAccumulator.attack,
     player.combatAccumulator.assignedAttack,
     isRangedSiegePhase
-  );
-
-  // Compute enemy states (pass state and playerId for modifier checks)
-  const enemyStates = combat.enemies.map((enemy) =>
-    computeEnemyAttackState(state, enemy, combat, isRangedSiegePhase, player.id)
   );
 
   // Check for possess attack restrictions (Charm/Possess spell)
@@ -427,14 +447,28 @@ export function computeAttackPhaseOptions(
     isRangedSiegePhase
   );
 
-  // Build base options
+  // Calculate combined armor of declared targets
+  const declaredTargets = combat.enemies.filter(
+    (e) => combat.declaredAttackTargets!.includes(e.instanceId) && !e.isDefeated
+  );
+  const combinedArmor = declaredTargets.reduce((sum, e) => {
+    const resistances = e.definition.resistances;
+    const resistanceCount = resistances ? resistances.length : 0;
+    const baseArmor = getBaseArmorForPhase(e, combat.phase, state, player.id);
+    return sum + getEffectiveEnemyArmor(state, e.instanceId, baseArmor, resistanceCount, player.id);
+  }, 0);
+
+  // Build base options with finalize available
   const options: CombatOptions = {
     phase,
-    canEndPhase: true, // Can always skip ranged/siege or attack phase
+    canEndPhase: false, // Cannot end phase while targets are declared; must finalize or undo
     availableAttack,
     enemies: enemyStates,
     assignableAttacks,
     unassignableAttacks,
+    canFinalizeAttack: true,
+    declaredTargets: combat.declaredAttackTargets as readonly string[],
+    combinedArmor,
   };
 
   // Only include conversion fields if conversions are available

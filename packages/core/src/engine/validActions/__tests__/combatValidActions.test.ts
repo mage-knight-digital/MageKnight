@@ -114,6 +114,18 @@ function setupCombatState(
     };
   }
 
+  // Set declaredAttackTargets to all enemy IDs for attack phases
+  // (required by the target-first attack flow for valid actions to include attack options)
+  if (state.combat && (state.combat.phase === COMBAT_PHASE_RANGED_SIEGE || state.combat.phase === COMBAT_PHASE_ATTACK)) {
+    state = {
+      ...state,
+      combat: {
+        ...state.combat,
+        declaredAttackTargets: state.combat.enemies.map((e) => e.instanceId),
+      },
+    };
+  }
+
   return state;
 }
 
