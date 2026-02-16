@@ -41,7 +41,7 @@ FEATURE_DIM = (
 # ---------------------------------------------------------------------------
 
 STATE_SCALAR_DIM = 76
-ACTION_SCALAR_DIM = 12
+ACTION_SCALAR_DIM = 18
 SITE_SCALAR_DIM = 6   # per-site scalars for map pool
 ENEMY_HEX_SCALAR_DIM = 5  # per-hex scalars for enemy pool
 
@@ -92,7 +92,8 @@ class ActionFeatures:
     card_id: int               # CARD_VOCAB index (from cardId field, or 0)
     unit_id: int               # UNIT_VOCAB index (from unitId field, or 0)
     enemy_id: int              # ENEMY_VOCAB index (from enemyId/targetId, or 0)
-    scalars: list[float]       # ACTION_SCALAR_DIM floats (12)
+    skill_id: int              # SKILL_VOCAB index (from skillId field, or 0)
+    scalars: list[float]       # ACTION_SCALAR_DIM floats (18)
 
 
 @dataclass(frozen=True)
@@ -186,6 +187,7 @@ def encode_step(
         card_id_str = action.get("cardId")
         unit_id_str = action.get("unitId")
         enemy_id_str = action.get("enemyId") or action.get("targetId")
+        skill_id_str = action.get("skillId")
 
         action_features_list.append(ActionFeatures(
             action_type_id=ACTION_TYPE_VOCAB.encode(action_type_value),
@@ -193,6 +195,7 @@ def encode_step(
             card_id=CARD_VOCAB.encode(card_id_str) if isinstance(card_id_str, str) else 0,
             unit_id=UNIT_VOCAB.encode(unit_id_str) if isinstance(unit_id_str, str) else 0,
             enemy_id=ENEMY_VOCAB.encode(enemy_id_str) if isinstance(enemy_id_str, str) else 0,
+            skill_id=SKILL_VOCAB.encode(skill_id_str) if isinstance(skill_id_str, str) else 0,
             scalars=_action_scalars(action),
         ))
 
@@ -606,8 +609,11 @@ def _extract_enemy_hexes(
 # ============================================================================
 
 
+_MANA_COLOR_ONE_HOT: dict[str, int] = {"red": 0, "blue": 1, "green": 2, "white": 3, "gold": 4, "black": 5}
+
+
 def _action_scalars(action: dict[str, Any]) -> list[float]:
-    """Extract meaningful action features (12 floats)."""
+    """Extract meaningful action features (18 floats)."""
     amount = _as_number(action.get("amount"))
     is_powered = 1.0 if bool(action.get("powered")) else 0.0
     is_basic = 1.0 if action.get("playMode") == "basic" or (not action.get("powered") and action.get("type") == "PLAY_CARD") else 0.0
@@ -621,9 +627,12 @@ def _action_scalars(action: dict[str, Any]) -> list[float]:
         target_dq = _as_number(target.get("q"))
         target_dr = _as_number(target.get("r"))
 
-    # Count mana sources involved
+    # Count mana sources involved (plural manaSources or singular manaSource)
     mana_sources = action.get("manaSources")
     num_mana = float(len(mana_sources)) if isinstance(mana_sources, list) else 0.0
+    single_mana_source = action.get("manaSource")
+    if num_mana == 0.0 and isinstance(single_mana_source, dict):
+        num_mana = 1.0
 
     has_enemy_target = 1.0 if action.get("enemyId") or action.get("targetId") else 0.0
     has_card = 1.0 if action.get("cardId") else 0.0
@@ -632,6 +641,13 @@ def _action_scalars(action: dict[str, Any]) -> list[float]:
     cost = _as_number(action.get("cost"))
 
     is_end = 1.0 if action.get("type") in ("END_TURN", "END_COMBAT_PHASE", "ANNOUNCE_END_OF_ROUND") else 0.0
+
+    # Mana color one-hot (6 floats: red, blue, green, white, gold, black)
+    mana_color_oh = [0.0] * 6
+    if isinstance(single_mana_source, dict):
+        color = single_mana_source.get("color")
+        if isinstance(color, str) and color in _MANA_COLOR_ONE_HOT:
+            mana_color_oh[_MANA_COLOR_ONE_HOT[color]] = 1.0
 
     return [
         _scale(amount, 10.0),
@@ -646,6 +662,7 @@ def _action_scalars(action: dict[str, Any]) -> list[float]:
         has_unit,
         _scale(cost, 10.0),
         is_end,
+        *mana_color_oh,
     ]
 
 

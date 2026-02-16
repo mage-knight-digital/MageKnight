@@ -125,8 +125,8 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             nn.Tanh(),
         )
 
-        # Action encoder: action_type_emb + source_emb + card_emb + unit_emb + enemy_emb + scalars(12)
-        action_input_dim = 5 * emb_dim + ACTION_SCALAR_DIM
+        # Action encoder: action_type_emb + source_emb + card_emb + unit_emb + enemy_emb + skill_emb + scalars(18)
+        action_input_dim = 6 * emb_dim + ACTION_SCALAR_DIM
         self.action_encoder = nn.Sequential(
             nn.Linear(action_input_dim, hidden_size),
             nn.Tanh(),
@@ -212,10 +212,10 @@ class _EmbeddingActionScoringNetwork(nn.Module):
 
     def encode_actions(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
         """Encode all candidate actions into (N, hidden) tensor."""
-        # Pack all integer IDs into a single (N, 5) tensor — one torch.tensor call
+        # Pack all integer IDs into a single (N, 6) tensor — one torch.tensor call
         ids = torch.tensor(
             [
-                [a.action_type_id, a.source_id, a.card_id, a.unit_id, a.enemy_id]
+                [a.action_type_id, a.source_id, a.card_id, a.unit_id, a.enemy_id, a.skill_id]
                 for a in step.actions
             ],
             dtype=torch.long,
@@ -231,8 +231,9 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             self.card_emb(ids[:, 2]),
             self.unit_emb(ids[:, 3]),
             self.enemy_emb(ids[:, 4]),
+            self.skill_emb(ids[:, 5]),
             action_scalars,
-        ], dim=-1)  # (N, 5*emb_dim + 6)
+        ], dim=-1)  # (N, 6*emb_dim + ACTION_SCALAR_DIM)
 
         return self.action_encoder(action_input)  # (N, hidden)
 
