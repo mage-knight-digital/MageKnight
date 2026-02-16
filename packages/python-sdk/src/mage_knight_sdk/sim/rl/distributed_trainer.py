@@ -461,4 +461,4 @@ def _prune_worker_replays(replay_dir: Path, keep: int = 50) -> None:
 
     files.sort(key=_reward_from_name, reverse=True)
     for f in files[keep:]:
-        f.unlink()
+        f.unlink(missing_ok=True)

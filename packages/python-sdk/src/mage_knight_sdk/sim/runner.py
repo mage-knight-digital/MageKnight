@@ -604,7 +604,20 @@ async def _wait_for_initial_states(
     timeout_seconds: float,
 ) -> None:
     while any(agent.latest_state is None for agent in agents):
-        await _wait_for_state_update_event(state_update_event, timeout_seconds=timeout_seconds)
+        try:
+            await _wait_for_state_update_event(state_update_event, timeout_seconds=timeout_seconds)
+        except TimeoutError:
+            client_errors = [
+                f"  {a.session.player_id}: {a.client.last_error}"
+                for a in agents
+                if a.client.last_error is not None
+            ]
+            if client_errors:
+                detail = "\n".join(client_errors)
+                raise TimeoutError(
+                    f"Timed out waiting for initial state. Client connection errors:\n{detail}"
+                )
+            raise
 
 
 async def _wait_for_player_update(

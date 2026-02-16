@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from contextlib import suppress
 from typing import Any, AsyncIterator, Mapping
 from urllib.parse import urlencode, urlparse, urlunparse
+
+logger = logging.getLogger(__name__)
 
 import websockets
 from websockets.exceptions import ConnectionClosed
@@ -62,6 +65,7 @@ class MageKnightClient:
         self._states: asyncio.Queue[ConnectionState | None] = asyncio.Queue()
         self._close_requested = False
         self._terminated = False
+        self._last_error: str | None = None
 
     async def __aenter__(self) -> MageKnightClient:
         await self.connect()
@@ -125,6 +129,10 @@ class MageKnightClient:
             payload.pop("sessionToken", None)
         await self._ws.send(json.dumps(payload))
 
+    @property
+    def last_error(self) -> str | None:
+        return self._last_error
+
     async def messages(self) -> AsyncIterator[ServerMessage]:
         while True:
             message = await self._messages.get()
@@ -165,10 +173,16 @@ class MageKnightClient:
                 message = parse_server_message(payload)
                 await self._messages.put(message)
             except ProtocolParseError as error:
-                await self._emit_state(CONNECTION_STATUS_ERROR, f"{error.code}: {error}")
+                err_msg = f"{error.code}: {error}"
+                self._last_error = err_msg
+                logger.error("Protocol error from server: %s", err_msg)
+                await self._emit_state(CONNECTION_STATUS_ERROR, err_msg)
                 break
             except (ProtocolValidationError, json.JSONDecodeError) as error:
-                await self._emit_state(CONNECTION_STATUS_ERROR, str(error))
+                err_msg = str(error)
+                self._last_error = err_msg
+                logger.error("Message parse error from server: %s", err_msg)
+                await self._emit_state(CONNECTION_STATUS_ERROR, err_msg)
                 break
             except ConnectionClosed:
                 if self._close_requested:
