@@ -31,12 +31,10 @@ import {
  * Call this BEFORE starting the intro sequence.
  *
  * @param state - Current game state with tiles, hexes, and player info
- * @param heroId - Hero ID for the current player
  * @returns Promise that resolves when all assets are preloaded
  */
 export async function preloadIntroAssets(
-  state: ClientGameState,
-  heroId: string | null
+  state: ClientGameState
 ): Promise<void> {
   const urlsToPreload: string[] = [];
 
@@ -59,9 +57,9 @@ export async function preloadIntroAssets(
     urlsToPreload.push(getEnemyTokenBackUrl(color));
   }
 
-  // Collect hero token URL
-  if (heroId) {
-    urlsToPreload.push(getHeroTokenUrl(heroId));
+  // Collect hero token URLs for all players
+  for (const player of state.players) {
+    urlsToPreload.push(getHeroTokenUrl(player.heroId));
   }
 
   // GPU texture upload is unavoidably blocking in JavaScript.
