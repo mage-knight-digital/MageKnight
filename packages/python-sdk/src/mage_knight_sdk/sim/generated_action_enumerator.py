@@ -663,7 +663,16 @@ def _actions_use_skills(valid_actions: dict[str, Any], source_prefix: str) -> li
         if payload is None:
             continue
         skill_id = _as_str(payload.get("skillId"))
-        if skill_id:
+        if not skill_id:
+            continue
+        mana_options = _as_list(payload.get("manaSourceOptions"))
+        if mana_options:
+            # Skill requires mana — enumerate one action per available source
+            for mana_opt in mana_options:
+                source = _as_dict(mana_opt)
+                if source is not None:
+                    actions.append(CandidateAction({"type": ACTION_USE_SKILL, "skillId": skill_id, "manaSource": source}, f"{source_prefix}.skills.activate"))
+        else:
             actions.append(CandidateAction({"type": ACTION_USE_SKILL, "skillId": skill_id}, f"{source_prefix}.skills.activate"))
     return actions
 

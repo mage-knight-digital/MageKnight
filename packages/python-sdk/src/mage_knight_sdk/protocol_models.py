@@ -5,39 +5,39 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal, TypeAlias
 
-NETWORK_PROTOCOL_VERSION: Literal["1.2.5"] = "1.2.5"
+NETWORK_PROTOCOL_VERSION: Literal["1.2.6"] = "1.2.6"
 
 @dataclass(frozen=True)
 class ClientActionMessage:
     action: Any
-    protocolVersion: Literal["1.2.5"]
+    protocolVersion: Literal["1.2.6"]
     type: Literal["action"]
 @dataclass(frozen=True)
 class ClientLobbySubscribeMessage:
     gameId: str
     playerId: str
-    protocolVersion: Literal["1.2.5"]
+    protocolVersion: Literal["1.2.6"]
     sessionToken: str | None
     type: Literal["lobby_subscribe"]
 
 @dataclass(frozen=True)
 class StateUpdateMessage:
     events: list[Any]
-    protocolVersion: Literal["1.2.5"]
+    protocolVersion: Literal["1.2.6"]
     state: Any
     type: Literal["state_update"]
 @dataclass(frozen=True)
 class ErrorMessage:
     errorCode: str | None
     message: str
-    protocolVersion: Literal["1.2.5"]
+    protocolVersion: Literal["1.2.6"]
     type: Literal["error"]
 @dataclass(frozen=True)
 class LobbyStateMessage:
     gameId: str
     maxPlayers: int
     playerIds: list[str]
-    protocolVersion: Literal["1.2.5"]
+    protocolVersion: Literal["1.2.6"]
     status: Literal["lobby", "started"]
     type: Literal["lobby_state"]
 

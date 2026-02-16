@@ -45,6 +45,13 @@
           "description": "Short description of the skill's effect",
           "type": "string"
         },
+        "manaSourceOptions": {
+          "description": "Available mana sources for skills that require mana spending (e.g., Universal Power, Regenerate).\nWhen present, the client must include one of these as `manaSource` in the USE_SKILL action.",
+          "items": {
+            "$ref": "#/definitions/ManaSourceInfo"
+          },
+          "type": "array"
+        },
         "name": {
           "description": "Display name",
           "type": "string"

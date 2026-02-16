@@ -1207,6 +1207,11 @@ export interface ActivatableSkill {
   readonly name: string;
   /** Short description of the skill's effect */
   readonly description: string;
+  /**
+   * Available mana sources for skills that require mana spending (e.g., Universal Power, Regenerate).
+   * When present, the client must include one of these as `manaSource` in the USE_SKILL action.
+   */
+  readonly manaSourceOptions?: readonly ManaSourceInfo[];
 }
 
 /**

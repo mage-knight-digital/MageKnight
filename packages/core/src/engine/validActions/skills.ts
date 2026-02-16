@@ -12,7 +12,7 @@
 
 import type { GameState } from "../../state/GameState.js";
 import type { Player } from "../../types/player.js";
-import type { SkillOptions } from "@mage-knight/shared";
+import type { SkillOptions, ManaSourceInfo } from "@mage-knight/shared";
 import {
   SKILLS,
   SKILL_USAGE_ONCE_PER_TURN,
@@ -88,7 +88,7 @@ import {
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_RANGED_SIEGE,
 } from "../../types/combat.js";
-import { CARD_WOUND } from "@mage-knight/shared";
+import { CARD_WOUND, MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE } from "@mage-knight/shared";
 import { canActivatePolarization } from "../commands/skills/polarizationEffect.js";
 import { canActivateInvocation } from "../commands/skills/invocationEffect.js";
 import { canActivateShapeshift } from "../commands/skills/shapeshiftEffect.js";
@@ -103,6 +103,7 @@ import { canActivateWolfsHowl } from "../commands/skills/wolfsHowlEffect.js";
 import { canActivatePuppetMaster } from "../commands/skills/puppetMasterEffect.js";
 import { canActivateKrangCurse } from "../commands/skills/curseEffect.js";
 import { isMotivationSkill, isMotivationCooldownActive } from "../rules/motivation.js";
+import { getAvailableManaSourcesForColor } from "./mana.js";
 
 /**
  * Skills that have effect implementations and can be activated.
@@ -260,6 +261,41 @@ function canActivateSkill(
   }
 }
 
+const BASIC_MANA_COLORS = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE] as const;
+
+/** Skills that require a mana source in the USE_SKILL action. */
+const SKILLS_REQUIRING_MANA = new Set([
+  SKILL_GOLDYX_UNIVERSAL_POWER,
+  SKILL_BRAEVALAR_REGENERATE,
+  SKILL_KRANG_REGENERATE,
+]);
+
+/**
+ * Compute available mana sources for skills that require mana spending.
+ * Returns one source per available basic color, or undefined if not applicable.
+ */
+function getSkillManaSourceOptions(
+  state: GameState,
+  player: Player,
+  skillId: string
+): ManaSourceInfo[] | undefined {
+  if (!SKILLS_REQUIRING_MANA.has(skillId)) return undefined;
+
+  const seen = new Set<string>();
+  const sources: ManaSourceInfo[] = [];
+  for (const color of BASIC_MANA_COLORS) {
+    const colorSources = getAvailableManaSourcesForColor(state, player, color);
+    for (const src of colorSources) {
+      const key = `${src.type}:${src.color}:${src.dieId ?? ""}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        sources.push(src);
+      }
+    }
+  }
+  return sources.length > 0 ? sources : undefined;
+}
+
 /**
  * Get skill activation options for a player.
  *
@@ -349,11 +385,16 @@ export function getSkillOptions(
       continue;
     }
 
-    activatable.push({
+    const entry: { skillId: string; name: string; description: string; manaSourceOptions?: ManaSourceInfo[] } = {
       skillId,
       name: skill.name,
       description: skill.description,
-    });
+    };
+    const manaSources = getSkillManaSourceOptions(state, player, skillId);
+    if (manaSources) {
+      entry.manaSourceOptions = manaSources;
+    }
+    activatable.push(entry);
   }
 
   if (activatable.length === 0) {
