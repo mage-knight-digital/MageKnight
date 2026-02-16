@@ -551,6 +551,9 @@ function buildWoundResult(
     return buildSkippedWoundResult(cardId, card);
   }
 
+  // Gate by sidewaysAllowed (false while resting — no sideways during rest)
+  const canPlay = ctx.inCombat || ctx.sidewaysAllowed;
+
   return {
     cardId,
     card,
@@ -559,7 +562,7 @@ function buildWoundResult(
     actionBlocked: false,
     basic: NOT_PLAYABLE,
     powered: NOT_PLAYABLE,
-    sideways: { canPlay: true, options: [...options] },
+    sideways: { canPlay, options: [...options] },
     basicEffectDescription: describeEffect(card.basicEffect),
     poweredEffectDescription: describeEffect(card.poweredEffect),
   };

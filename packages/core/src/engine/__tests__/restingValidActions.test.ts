@@ -34,6 +34,15 @@ import {
   TileId,
 } from "../../types/map.js";
 import { getValidActions } from "../validActions/index.js";
+import { addModifier } from "../modifiers/lifecycle.js";
+import {
+  EFFECT_RULE_OVERRIDE,
+  DURATION_TURN,
+  SCOPE_SELF,
+  SOURCE_SKILL,
+  RULE_WOUNDS_PLAYABLE_SIDEWAYS,
+} from "../../types/modifierConstants.js";
+import type { SkillId } from "@mage-knight/shared";
 
 function withTiles(state: ReturnType<typeof createTestGameState>) {
   return {
@@ -278,6 +287,38 @@ describe("Valid actions while resting", () => {
       (o) => o.as === PLAY_SIDEWAYS_AS_MOVE
     );
     expect(moveOption).toBeDefined();
+  });
+
+  it("blocks wound sideways play while resting even with RULE_WOUNDS_PLAYABLE_SIDEWAYS", () => {
+    const restingPlayer = createTestPlayer({
+      isResting: true,
+      hasTakenActionThisTurn: true,
+      hand: [CARD_WOUND, CARD_WOUND, CARD_MARCH],
+    });
+
+    // Add the modifier that enables wound sideways play (e.g., Power of Pain skill)
+    const baseState = createTestGameState({ players: [restingPlayer] });
+    const state = addModifier(baseState, {
+      source: { type: SOURCE_SKILL, skillId: "arythea_power_of_pain" as SkillId, playerId: "player1" },
+      duration: DURATION_TURN,
+      scope: { type: SCOPE_SELF },
+      effect: { type: EFFECT_RULE_OVERRIDE, rule: RULE_WOUNDS_PLAYABLE_SIDEWAYS },
+      createdAtRound: 1,
+      createdByPlayerId: "player1",
+    });
+
+    const validActions = getValidActions(state, restingPlayer.id);
+
+    expect(validActions.mode).toBe("normal_turn");
+    expect(validActions.turn?.isResting).toBe(true);
+
+    // Wound cards must NOT be playable sideways while resting
+    const woundCards = validActions.playCard?.cards.filter(
+      (c) => c.cardId === CARD_WOUND
+    ) ?? [];
+    for (const wc of woundCards) {
+      expect(wc.canPlaySideways).toBe(false);
+    }
   });
 
   it("does not offer declare rest after action when hand is all wounds", () => {
