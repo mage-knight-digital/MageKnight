@@ -30,3 +30,6 @@ packages/client/public
 packages/client/e2e/screenshots/
 packages/client/vite.config.d.ts
 packages/client/vite.config.js
+
+# Simulation artifacts (large binary data, training checkpoints)
+sim-artifacts/
