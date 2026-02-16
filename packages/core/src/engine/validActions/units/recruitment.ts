@@ -27,7 +27,7 @@ import {
   shouldIgnoreReputationEffects,
   unitRequiresManaToRecruit,
 } from "../../rules/unitRecruitment.js";
-import { getEffectiveCommandTokens, isBondsSlotEmpty, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
+import { getEffectiveCommandTokens, isBondsSlotEmpty, isBondsUnit, BONDS_INFLUENCE_DISCOUNT } from "../../rules/bondsOfLoyalty.js";
 import { canPayForAnyBasicMana, getAvailableManaSourcesForColor } from "../mana.js";
 
 
@@ -99,8 +99,13 @@ export function getUnitOptions(
   const hasCommandTokens = player.units.length < effectiveTokens;
   const atCommandLimit = player.units.length >= effectiveTokens;
 
-  // If at command limit but player has units to disband, recruitment is still available
-  const canDisband = atCommandLimit && player.units.length > 0;
+  // If at command limit, compute which units can be disbanded (excludes Bonds unit)
+  const disbandableUnits = atCommandLimit
+    ? player.units
+        .filter(u => !isBondsUnit(player, u.instanceId))
+        .map(u => ({ instanceId: u.instanceId, unitId: u.unitId }))
+    : [];
+  const canDisband = atCommandLimit && disbandableUnits.length > 0;
 
   // Track if Hero has been recruited this interaction (for doubled reputation)
   const heroAlreadyRecruited = hasRecruitedHeroThisInteraction(
@@ -186,11 +191,13 @@ export function getUnitOptions(
       }
     }
 
+    const requiresDisband = !hasCommandTokens && canDisband;
     recruitable.push({
       unitId: unit.id,
       cost: adjustedCost,
       canAfford,
-      requiresDisband: !hasCommandTokens && canDisband,
+      requiresDisband,
+      ...(requiresDisband ? { disbandableUnits } : {}),
       ...(requiresMana
         ? { requiresManaPayment: true as const, recruitManaOptions }
         : {}),

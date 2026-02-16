@@ -926,7 +926,6 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
     actions.extend(_actions_play_card(valid_actions, "normal"))
 
     units = _as_dict(valid_actions.get("units"))
-    player = _find_player(state, player_id)
     for recruit in _as_list(units.get("recruitable") if units else None):
         payload = _as_dict(recruit)
         if payload is None:
@@ -944,15 +943,11 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
                     mana_source = _as_dict(opt_dict.get("manaSource"))
                     token_color = opt_dict.get("manaTokenColor")
                     if mana_source is not None and token_color is not None:
-                        action = _make_recruit_action(
-                            unit_id, cost, payload, player, mana_source, token_color
-                        )
-                        if action is not None:
-                            actions.append(CandidateAction(action, "normal.units.recruit"))
+                        actions.extend(_make_recruit_actions(
+                            unit_id, cost, payload, mana_source, token_color
+                        ))
             else:
-                action = _make_recruit_action(unit_id, cost, payload, player, None, None)
-                if action is not None:
-                    actions.append(CandidateAction(action, "normal.units.recruit"))
+                actions.extend(_make_recruit_actions(unit_id, cost, payload, None, None))
 
     actions.extend(_actions_activate_units(valid_actions, "normal"))
     actions.extend(_actions_use_skills(valid_actions, "normal"))
@@ -1003,6 +998,7 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
                     )
                 )
 
+    player = _find_player(state, player_id)
     tactic_effects = _as_dict(valid_actions.get("tacticEffects"))
     if tactic_effects is not None:
         pending_decision = _as_dict(tactic_effects.get("pendingDecision"))
@@ -1241,28 +1237,37 @@ def _as_str(value: Any) -> str | None:
     return None
 
 
-def _make_recruit_action(
+def _make_recruit_actions(
     unit_id: str,
     cost: int,
     payload: dict[str, Any],
-    player: dict[str, Any] | None,
     mana_source: dict[str, Any] | None,
     mana_token_color: Any,
-) -> dict[str, Any] | None:
-    """Build RECRUIT_UNIT action dict; include manaSource/manaTokenColor when required (e.g. Magic Familiars)."""
-    action: dict[str, Any] = {
+) -> list[CandidateAction]:
+    """Build RECRUIT_UNIT CandidateAction(s); one per disbandable unit when disband required."""
+    base: dict[str, Any] = {
         "type": ACTION_RECRUIT_UNIT,
         "unitId": unit_id,
         "influenceSpent": cost,
     }
-    if bool(payload.get("requiresDisband")) and player:
-        unit_list = _as_list(player.get("units"))
-        if unit_list:
-            first_unit = _as_dict(unit_list[0])
-            unit_instance_id = _as_str(first_unit.get("instanceId") if first_unit else None)
-            if unit_instance_id:
-                action["disbandUnitInstanceId"] = unit_instance_id
     if mana_source is not None and mana_token_color is not None:
-        action["manaSource"] = mana_source
-        action["manaTokenColor"] = mana_token_color
-    return action
+        base["manaSource"] = mana_source
+        base["manaTokenColor"] = mana_token_color
+
+    if bool(payload.get("requiresDisband")):
+        disbandable = _as_list(payload.get("disbandableUnits"))
+        if disbandable:
+            results: list[CandidateAction] = []
+            for entry in disbandable:
+                entry_dict = _as_dict(entry)
+                if entry_dict is None:
+                    continue
+                instance_id = _as_str(entry_dict.get("instanceId"))
+                if instance_id:
+                    action = {**base, "disbandUnitInstanceId": instance_id}
+                    results.append(CandidateAction(action, "normal.units.recruit.disband"))
+            return results
+        # No disbandableUnits field (older server) — skip since we can't know which to disband
+        return []
+
+    return [CandidateAction(base, "normal.units.recruit")]

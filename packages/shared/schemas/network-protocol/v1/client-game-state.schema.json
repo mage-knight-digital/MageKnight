@@ -3817,6 +3817,26 @@
         "cost": {
           "type": "number"
         },
+        "disbandableUnits": {
+          "description": "Units that can be disbanded to make room for this recruitment.\nOnly set when requiresDisband is true. Filters out non-disbandable units\n(e.g. Bonds of Loyalty unit). Enumerator should emit one RECRUIT_UNIT per option.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "instanceId": {
+                "type": "string"
+              },
+              "unitId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "instanceId",
+              "unitId"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
         "recruitManaOptions": {
           "description": "Valid (manaSource, manaTokenColor) pairs for recruitment. Only set when\nrequiresManaPayment is true. Enumerator should emit one RECRUIT_UNIT per option.",
           "items": {

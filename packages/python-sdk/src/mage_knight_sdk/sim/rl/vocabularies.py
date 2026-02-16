@@ -257,7 +257,7 @@ _SOURCE_IDS: tuple[str, ...] = (
     "normal.tactic.reroll",
     "normal.turn.announce_end_round", "normal.turn.complete_rest",
     "normal.turn.declare_rest", "normal.turn.end_turn",
-    "normal.units.activate", "normal.units.recruit",
+    "normal.units.activate", "normal.units.recruit", "normal.units.recruit.disband",
     "plunder_decision.decline", "plunder_decision.plunder",
     "pending_choice.index",
     "pending_reward.auto", "pending_reward.card",

@@ -9,7 +9,8 @@ export const NETWORK_PROTOCOL_VERSION_3 = "1.2.3" as const;
 export const NETWORK_PROTOCOL_VERSION_4 = "1.2.4" as const;
 export const NETWORK_PROTOCOL_VERSION_5 = "1.2.5" as const;
 export const NETWORK_PROTOCOL_VERSION_6 = "1.2.6" as const;
-export const NETWORK_PROTOCOL_VERSION = NETWORK_PROTOCOL_VERSION_6;
+export const NETWORK_PROTOCOL_VERSION_7 = "1.2.7" as const;
+export const NETWORK_PROTOCOL_VERSION = NETWORK_PROTOCOL_VERSION_7;
 
 export type NetworkProtocolVersion = typeof NETWORK_PROTOCOL_VERSION;
 

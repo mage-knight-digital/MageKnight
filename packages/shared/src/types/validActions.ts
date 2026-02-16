@@ -538,6 +538,12 @@ export interface RecruitableUnit {
   /** True when the player must disband an existing unit to recruit this one. */
   readonly requiresDisband: boolean;
   /**
+   * Units that can be disbanded to make room for this recruitment.
+   * Only set when requiresDisband is true. Filters out non-disbandable units
+   * (e.g. Bonds of Loyalty unit). Enumerator should emit one RECRUIT_UNIT per option.
+   */
+  readonly disbandableUnits?: readonly { readonly instanceId: string; readonly unitId: string }[];
+  /**
    * True when recruiting this unit requires paying 1 basic mana (e.g. Magic Familiars).
    * When true, client/sim must send manaSource and manaTokenColor with RECRUIT_UNIT.
    */

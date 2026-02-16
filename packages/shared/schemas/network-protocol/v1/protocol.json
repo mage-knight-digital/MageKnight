@@ -7,5 +7,5 @@
     "client-game-state.schema.json"
   ],
   "generatedAt": "static",
-  "protocolVersion": "1.2.6"
+  "protocolVersion": "1.2.7"
 }
