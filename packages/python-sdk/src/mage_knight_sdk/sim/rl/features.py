@@ -41,7 +41,7 @@ FEATURE_DIM = (
 # ---------------------------------------------------------------------------
 
 STATE_SCALAR_DIM = 76
-ACTION_SCALAR_DIM = 28
+ACTION_SCALAR_DIM = 29
 SITE_SCALAR_DIM = 6   # per-site scalars for map pool
 ENEMY_HEX_SCALAR_DIM = 5  # per-hex scalars for enemy pool
 
@@ -103,7 +103,8 @@ class ActionFeatures:
     unit_id: int               # UNIT_VOCAB index (from unitId field, or 0)
     enemy_id: int              # ENEMY_VOCAB index (from enemyId/targetId, or 0)
     skill_id: int              # SKILL_VOCAB index (from skillId field, or 0)
-    scalars: list[float]       # ACTION_SCALAR_DIM floats (28)
+    target_enemy_ids: list[int]  # ENEMY_VOCAB indices (from targetEnemyInstanceIds)
+    scalars: list[float]       # ACTION_SCALAR_DIM floats (29)
 
 
 @dataclass(frozen=True)
@@ -214,6 +215,15 @@ def encode_step(
 
         # --- Enemy ID: check enemyInstanceId alias (combat actions) ---
         enemy_id_str = action.get("enemyId") or action.get("targetId") or action.get("enemyInstanceId")
+        # --- Target enemy IDs: encode full target set for DECLARE_ATTACK_TARGETS ---
+        raw_target_ids = action.get("targetEnemyInstanceIds")
+        target_enemy_ids: list[int] = []
+        if isinstance(raw_target_ids, list):
+            for tid in raw_target_ids:
+                if isinstance(tid, str):
+                    target_enemy_ids.append(ENEMY_VOCAB.encode(tid))
+            if not isinstance(enemy_id_str, str) and raw_target_ids and isinstance(raw_target_ids[0], str):
+                enemy_id_str = raw_target_ids[0]
 
         # --- Skill ID: check nested skillChoice ---
         skill_id_str = action.get("skillId")
@@ -251,6 +261,7 @@ def encode_step(
             unit_id=UNIT_VOCAB.encode(unit_id_str) if isinstance(unit_id_str, str) else 0,
             enemy_id=ENEMY_VOCAB.encode(enemy_id_str) if isinstance(enemy_id_str, str) else 0,
             skill_id=SKILL_VOCAB.encode(skill_id_str) if isinstance(skill_id_str, str) else 0,
+            target_enemy_ids=target_enemy_ids,
             scalars=_action_scalars(action, state),
         ))
 
@@ -668,7 +679,7 @@ _MANA_COLOR_ONE_HOT: dict[str, int] = {"red": 0, "blue": 1, "green": 2, "white":
 
 
 def _action_scalars(action: dict[str, Any], state: dict[str, Any]) -> list[float]:
-    """Extract meaningful action features (28 floats)."""
+    """Extract meaningful action features (29 floats)."""
     action_type = action.get("type")
     amount = _as_number(action.get("amount"))
     is_powered = 1.0 if bool(action.get("powered")) else 0.0
@@ -698,7 +709,12 @@ def _action_scalars(action: dict[str, Any], state: dict[str, Any]) -> list[float
     if num_mana == 0.0 and isinstance(single_mana_source, dict):
         num_mana = 1.0
 
-    has_enemy_target = 1.0 if action.get("enemyId") or action.get("targetId") or action.get("enemyInstanceId") else 0.0
+    target_enemy_ids = action.get("targetEnemyInstanceIds")
+    num_targets = float(len(target_enemy_ids)) if isinstance(target_enemy_ids, list) else 0.0
+    has_enemy_target = 1.0 if (
+        action.get("enemyId") or action.get("targetId")
+        or action.get("enemyInstanceId") or target_enemy_ids
+    ) else 0.0
     has_card = 1.0 if action.get("cardId") else 0.0
     has_unit = 1.0 if action.get("unitId") or action.get("unitInstanceId") else 0.0
 
@@ -762,6 +778,7 @@ def _action_scalars(action: dict[str, Any], state: dict[str, Any]) -> list[float
         _scale(choice_index, 5.0),   # 19
         *attack_type_oh,             # 20-22
         *element_oh,                 # 23-27
+        _scale(num_targets, 5.0),    # 28
     ]
 
 

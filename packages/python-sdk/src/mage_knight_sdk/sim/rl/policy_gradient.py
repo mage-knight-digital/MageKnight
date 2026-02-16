@@ -125,8 +125,9 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             nn.Tanh(),
         )
 
-        # Action encoder: action_type_emb + source_emb + card_emb + unit_emb + enemy_emb + skill_emb + scalars(18)
-        action_input_dim = 6 * emb_dim + ACTION_SCALAR_DIM
+        # Action encoder: action_type_emb + source_emb + card_emb + unit_emb + enemy_emb + skill_emb
+        #                 + target_enemy_pool(emb_dim) + scalars
+        action_input_dim = 7 * emb_dim + ACTION_SCALAR_DIM
         self.action_encoder = nn.Sequential(
             nn.Linear(action_input_dim, hidden_size),
             nn.Tanh(),
@@ -225,6 +226,14 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             [a.scalars for a in step.actions], dtype=torch.float32, device=device
         )
 
+        # Mean-pool target enemy embeddings per action (for DECLARE_ATTACK_TARGETS)
+        n = len(step.actions)
+        target_pools = torch.zeros(n, self.emb_dim, device=device)
+        for i, a in enumerate(step.actions):
+            if a.target_enemy_ids:
+                t_ids = torch.tensor(a.target_enemy_ids, dtype=torch.long, device=device)
+                target_pools[i] = self.enemy_emb(t_ids).mean(dim=0)
+
         action_input = torch.cat([
             self.action_type_emb(ids[:, 0]),
             self.source_emb(ids[:, 1]),
@@ -232,8 +241,9 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             self.unit_emb(ids[:, 3]),
             self.enemy_emb(ids[:, 4]),
             self.skill_emb(ids[:, 5]),
+            target_pools,
             action_scalars,
-        ], dim=-1)  # (N, 6*emb_dim + ACTION_SCALAR_DIM)
+        ], dim=-1)  # (N, 7*emb_dim + ACTION_SCALAR_DIM)
 
         return self.action_encoder(action_input)  # (N, hidden)
 

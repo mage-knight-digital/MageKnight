@@ -26,6 +26,7 @@ ACTION_CONVERT_MOVE_TO_ATTACK = "CONVERT_MOVE_TO_ATTACK"
 ACTION_DEBUG_ADD_FAME = "DEBUG_ADD_FAME"
 ACTION_DEBUG_TRIGGER_LEVEL_UP = "DEBUG_TRIGGER_LEVEL_UP"
 ACTION_DECLARE_ATTACK = "DECLARE_ATTACK"
+ACTION_DECLARE_ATTACK_TARGETS = "DECLARE_ATTACK_TARGETS"
 ACTION_DECLARE_BLOCK = "DECLARE_BLOCK"
 ACTION_DECLARE_REST = "DECLARE_REST"
 ACTION_DECLINE_PLUNDER = "DECLINE_PLUNDER"
@@ -35,6 +36,7 @@ ACTION_END_TURN = "END_TURN"
 ACTION_ENTER_COMBAT = "ENTER_COMBAT"
 ACTION_ENTER_SITE = "ENTER_SITE"
 ACTION_EXPLORE = "EXPLORE"
+ACTION_FINALIZE_ATTACK = "FINALIZE_ATTACK"
 ACTION_INTERACT = "INTERACT"
 ACTION_LEARN_ADVANCED_ACTION = "LEARN_ADVANCED_ACTION"
 ACTION_MOVE = "MOVE"
@@ -853,6 +855,31 @@ def _actions_combat(valid_actions: dict[str, Any]) -> list[CandidateAction]:
             if isinstance(attack_index, int):
                 action["attackIndex"] = attack_index
             actions.append(CandidateAction(action, "combat.banner_fear"))
+
+    if bool(combat.get("canDeclareTargets")):
+        target_options = _as_list(combat.get("declareTargetOptions"))
+        target_ids = [_as_str(t) for t in target_options]
+        target_ids = [t for t in target_ids if t is not None]
+        if target_ids:
+            for size in range(1, len(target_ids) + 1):
+                for combo in combinations(target_ids, size):
+                    actions.append(
+                        CandidateAction(
+                            {
+                                "type": ACTION_DECLARE_ATTACK_TARGETS,
+                                "targetEnemyInstanceIds": list(combo),
+                            },
+                            "combat.declare_targets",
+                        )
+                    )
+
+    if bool(combat.get("canFinalizeAttack")):
+        actions.append(
+            CandidateAction(
+                {"type": ACTION_FINALIZE_ATTACK},
+                "combat.finalize_attack",
+            )
+        )
 
     if bool(combat.get("canEndPhase")):
         actions.append(CandidateAction({"type": ACTION_END_COMBAT_PHASE}, "combat.end_phase"))
