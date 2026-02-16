@@ -41,7 +41,7 @@ FEATURE_DIM = (
 # ---------------------------------------------------------------------------
 
 STATE_SCALAR_DIM = 76
-ACTION_SCALAR_DIM = 18
+ACTION_SCALAR_DIM = 28
 SITE_SCALAR_DIM = 6   # per-site scalars for map pool
 ENEMY_HEX_SCALAR_DIM = 5  # per-hex scalars for enemy pool
 
@@ -58,6 +58,16 @@ _COMBAT_PHASES: tuple[str, ...] = (
 # Mana color order for per-color features
 _MANA_COLORS: tuple[str, ...] = ("red", "blue", "green", "white", "gold", "black")
 _CRYSTAL_COLORS: tuple[str, ...] = ("red", "blue", "green", "white")
+
+# Attack type and element constants for one-hot encoding
+_ATTACK_TYPES: tuple[str, ...] = ("normal", "ranged", "siege")
+_ELEMENTS: tuple[str, ...] = ("physical", "fire", "ice", "cold", "cold_fire")
+
+# Explore direction → hex offset mapping
+_DIRECTION_OFFSETS: dict[str, tuple[float, float]] = {
+    "northeast": (1.0, -1.0), "east": (1.0, 0.0), "southeast": (0.0, 1.0),
+    "southwest": (-1.0, 1.0), "west": (-1.0, 0.0), "northwest": (0.0, -1.0),
+}
 
 
 # ============================================================================
@@ -93,7 +103,7 @@ class ActionFeatures:
     unit_id: int               # UNIT_VOCAB index (from unitId field, or 0)
     enemy_id: int              # ENEMY_VOCAB index (from enemyId/targetId, or 0)
     skill_id: int              # SKILL_VOCAB index (from skillId field, or 0)
-    scalars: list[float]       # ACTION_SCALAR_DIM floats (18)
+    scalars: list[float]       # ACTION_SCALAR_DIM floats (28)
 
 
 @dataclass(frozen=True)
@@ -184,19 +194,64 @@ def encode_step(
         action_type = action.get("type")
         action_type_value = action_type if isinstance(action_type, str) else "unknown"
 
-        card_id_str = action.get("cardId")
-        unit_id_str = action.get("unitId")
-        enemy_id_str = action.get("enemyId") or action.get("targetId")
+        # --- Card ID: check aliases for level-up, rest discard, tactic, tactic decisions ---
+        card_id_str = action.get("cardId") or action.get("advancedActionId") or action.get("tacticId")
+        if not isinstance(card_id_str, str):
+            discard_ids = action.get("discardCardIds")
+            if isinstance(discard_ids, list) and discard_ids and isinstance(discard_ids[0], str):
+                card_id_str = discard_ids[0]
+        if not isinstance(card_id_str, str):
+            decision = action.get("decision")
+            if isinstance(decision, dict):
+                card_id_str = decision.get("cardId")
+                if not isinstance(card_id_str, str):
+                    card_ids = decision.get("cardIds")
+                    if isinstance(card_ids, list) and card_ids and isinstance(card_ids[0], str):
+                        card_id_str = card_ids[0]
+
+        # --- Unit ID: check unitInstanceId alias ---
+        unit_id_str = action.get("unitId") or action.get("unitInstanceId")
+
+        # --- Enemy ID: check enemyInstanceId alias (combat actions) ---
+        enemy_id_str = action.get("enemyId") or action.get("targetId") or action.get("enemyInstanceId")
+
+        # --- Skill ID: check nested skillChoice ---
         skill_id_str = action.get("skillId")
+        if not isinstance(skill_id_str, str):
+            skill_choice = action.get("skillChoice")
+            if isinstance(skill_choice, dict):
+                skill_id_str = skill_choice.get("skillId")
+
+        # --- Source: enrich with context-specific info ---
+        source_str = candidate.source
+
+        # Sideways: append the "as" value (move/influence/attack/block)
+        if action_type_value == "PLAY_CARD_SIDEWAYS":
+            as_value = action.get("as")
+            if isinstance(as_value, str):
+                source_str = f"{candidate.source}.{as_value}"
+
+        # RESOLVE_CHOICE: override with option effect type
+        if action_type_value == "RESOLVE_CHOICE" and player is not None:
+            choice_idx = action.get("choiceIndex")
+            pending = player.get("pendingChoice") if isinstance(player, dict) else None
+            if isinstance(pending, dict) and isinstance(choice_idx, int):
+                options = pending.get("options")
+                if isinstance(options, list) and 0 <= choice_idx < len(options):
+                    opt = options[choice_idx]
+                    if isinstance(opt, dict):
+                        opt_type = opt.get("type")
+                        if isinstance(opt_type, str):
+                            source_str = f"pending_choice.{opt_type}"
 
         action_features_list.append(ActionFeatures(
             action_type_id=ACTION_TYPE_VOCAB.encode(action_type_value),
-            source_id=SOURCE_VOCAB.encode(candidate.source),
+            source_id=SOURCE_VOCAB.encode(source_str),
             card_id=CARD_VOCAB.encode(card_id_str) if isinstance(card_id_str, str) else 0,
             unit_id=UNIT_VOCAB.encode(unit_id_str) if isinstance(unit_id_str, str) else 0,
             enemy_id=ENEMY_VOCAB.encode(enemy_id_str) if isinstance(enemy_id_str, str) else 0,
             skill_id=SKILL_VOCAB.encode(skill_id_str) if isinstance(skill_id_str, str) else 0,
-            scalars=_action_scalars(action),
+            scalars=_action_scalars(action, state),
         ))
 
     return EncodedStep(state=state_features, actions=action_features_list)
@@ -612,20 +667,29 @@ def _extract_enemy_hexes(
 _MANA_COLOR_ONE_HOT: dict[str, int] = {"red": 0, "blue": 1, "green": 2, "white": 3, "gold": 4, "black": 5}
 
 
-def _action_scalars(action: dict[str, Any]) -> list[float]:
-    """Extract meaningful action features (18 floats)."""
+def _action_scalars(action: dict[str, Any], state: dict[str, Any]) -> list[float]:
+    """Extract meaningful action features (28 floats)."""
+    action_type = action.get("type")
     amount = _as_number(action.get("amount"))
     is_powered = 1.0 if bool(action.get("powered")) else 0.0
-    is_basic = 1.0 if action.get("playMode") == "basic" or (not action.get("powered") and action.get("type") == "PLAY_CARD") else 0.0
-    is_sideways = 1.0 if action.get("type") == "PLAY_CARD_SIDEWAYS" else 0.0
+    is_basic = 1.0 if action.get("playMode") == "basic" or (not action.get("powered") and action_type == "PLAY_CARD") else 0.0
+    is_sideways = 1.0 if action_type == "PLAY_CARD_SIDEWAYS" else 0.0
 
-    # Target coordinates (for MOVE actions)
+    # Target coordinates (for MOVE, EXPLORE, CHALLENGE_RAMPAGING)
     target = action.get("target")
     target_dq = 0.0
     target_dr = 0.0
     if isinstance(target, dict):
         target_dq = _as_number(target.get("q"))
         target_dr = _as_number(target.get("r"))
+    elif action_type == "EXPLORE":
+        direction = action.get("direction")
+        if isinstance(direction, str) and direction in _DIRECTION_OFFSETS:
+            target_dq, target_dr = _DIRECTION_OFFSETS[direction]
+    target_hex = action.get("targetHex")
+    if isinstance(target_hex, dict):
+        target_dq = _as_number(target_hex.get("q"))
+        target_dr = _as_number(target_hex.get("r"))
 
     # Count mana sources involved (plural manaSources or singular manaSource)
     mana_sources = action.get("manaSources")
@@ -634,13 +698,28 @@ def _action_scalars(action: dict[str, Any]) -> list[float]:
     if num_mana == 0.0 and isinstance(single_mana_source, dict):
         num_mana = 1.0
 
-    has_enemy_target = 1.0 if action.get("enemyId") or action.get("targetId") else 0.0
+    has_enemy_target = 1.0 if action.get("enemyId") or action.get("targetId") or action.get("enemyInstanceId") else 0.0
     has_card = 1.0 if action.get("cardId") else 0.0
-    has_unit = 1.0 if action.get("unitId") else 0.0
+    has_unit = 1.0 if action.get("unitId") or action.get("unitInstanceId") else 0.0
 
     cost = _as_number(action.get("cost"))
 
-    is_end = 1.0 if action.get("type") in ("END_TURN", "END_COMBAT_PHASE", "ANNOUNCE_END_OF_ROUND") else 0.0
+    is_end = 1.0 if action_type in ("END_TURN", "END_COMBAT_PHASE", "ANNOUNCE_END_OF_ROUND") else 0.0
+
+    keep_unit = 1.0 if bool(action.get("keepUnit")) else 0.0
+
+    # Choice index (for RESOLVE_CHOICE)
+    choice_index = _as_number(action.get("choiceIndex"))
+
+    # Attack type one-hot (3: normal, ranged, siege)
+    attack_type_str = action.get("attackType")
+    attack_type_str = attack_type_str if isinstance(attack_type_str, str) else ""
+    attack_type_oh = [1.0 if attack_type_str == t else 0.0 for t in _ATTACK_TYPES]
+
+    # Element one-hot (4: physical, fire, ice, cold)
+    element_str = action.get("element")
+    element_str = element_str if isinstance(element_str, str) else ""
+    element_oh = [1.0 if element_str == e else 0.0 for e in _ELEMENTS]
 
     # Mana color one-hot (6 floats: red, blue, green, white, gold, black)
     mana_color_oh = [0.0] * 6
@@ -649,21 +728,63 @@ def _action_scalars(action: dict[str, Any]) -> list[float]:
         if isinstance(color, str) and color in _MANA_COLOR_ONE_HOT:
             mana_color_oh[_MANA_COLOR_ONE_HOT[color]] = 1.0
 
+    # Unit maintenance / deep mine / artifact crystal: encode color into mana one-hot
+    color_field = action.get("crystalColor") or action.get("color")
+    if isinstance(color_field, str) and color_field in _MANA_COLOR_ONE_HOT:
+        mana_color_oh[_MANA_COLOR_ONE_HOT[color_field]] = 1.0
+
+    # Reroll / mana_steal tactic: look up die color from source dice
+    if action_type == "REROLL_SOURCE_DICE":
+        die_ids = action.get("dieIds")
+        if isinstance(die_ids, list) and die_ids:
+            _encode_die_color(mana_color_oh, die_ids[0], state)
+    decision = action.get("decision")
+    if isinstance(decision, dict):
+        die_id = decision.get("dieId")
+        if isinstance(die_id, str):
+            _encode_die_color(mana_color_oh, die_id, state)
+
     return [
-        _scale(amount, 10.0),
-        is_powered,
-        is_basic,
-        is_sideways,
-        _scale(target_dq, 10.0),
-        _scale(target_dr, 10.0),
-        _scale(num_mana, 5.0),
-        has_enemy_target,
-        has_card,
-        has_unit,
-        _scale(cost, 10.0),
-        is_end,
-        *mana_color_oh,
+        _scale(amount, 10.0),       # 0
+        is_powered,                  # 1
+        is_basic,                    # 2
+        is_sideways,                 # 3
+        _scale(target_dq, 10.0),     # 4
+        _scale(target_dr, 10.0),     # 5
+        _scale(num_mana, 5.0),       # 6
+        has_enemy_target,            # 7
+        has_card,                    # 8
+        has_unit,                    # 9
+        _scale(cost, 10.0),          # 10
+        is_end,                      # 11
+        *mana_color_oh,              # 12-17
+        keep_unit,                   # 18
+        _scale(choice_index, 5.0),   # 19
+        *attack_type_oh,             # 20-22
+        *element_oh,                 # 23-27
     ]
+
+
+def _encode_die_color(
+    mana_color_oh: list[float],
+    target_die_id: str,
+    state: dict[str, Any],
+) -> None:
+    """Look up a die's color from source dice and set the one-hot slot."""
+    source = state.get("source")
+    if not isinstance(source, dict):
+        source = state.get("manaSource")
+    if not isinstance(source, dict):
+        return
+    dice = source.get("dice")
+    if not isinstance(dice, list):
+        return
+    for die in dice:
+        if isinstance(die, dict) and die.get("id") == target_die_id:
+            color = die.get("color")
+            if isinstance(color, str) and color in _MANA_COLOR_ONE_HOT:
+                mana_color_oh[_MANA_COLOR_ONE_HOT[color]] = 1.0
+            break
 
 
 # ============================================================================

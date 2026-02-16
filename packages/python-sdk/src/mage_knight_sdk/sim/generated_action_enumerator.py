@@ -489,30 +489,31 @@ def _actions_pending_level_up(valid_actions: dict[str, Any]) -> list[CandidateAc
         return []
 
     actions: list[CandidateAction] = []
-    if drawn:
-        actions.append(
-            CandidateAction(
-                {
-                    "type": ACTION_CHOOSE_LEVEL_UP_REWARDS,
-                    "level": level,
-                    "skillChoice": {"fromCommonPool": False, "skillId": drawn[0]},
-                    "advancedActionId": available_aas[0],
-                },
-                "level_up.drawn",
+    for aa_id in available_aas:
+        for skill_id in drawn:
+            actions.append(
+                CandidateAction(
+                    {
+                        "type": ACTION_CHOOSE_LEVEL_UP_REWARDS,
+                        "level": level,
+                        "skillChoice": {"fromCommonPool": False, "skillId": skill_id},
+                        "advancedActionId": aa_id,
+                    },
+                    "level_up.drawn",
+                )
             )
-        )
-    if common:
-        actions.append(
-            CandidateAction(
-                {
-                    "type": ACTION_CHOOSE_LEVEL_UP_REWARDS,
-                    "level": level,
-                    "skillChoice": {"fromCommonPool": True, "skillId": common[0]},
-                    "advancedActionId": available_aas[0],
-                },
-                "level_up.common",
+        for skill_id in common:
+            actions.append(
+                CandidateAction(
+                    {
+                        "type": ACTION_CHOOSE_LEVEL_UP_REWARDS,
+                        "level": level,
+                        "skillChoice": {"fromCommonPool": True, "skillId": skill_id},
+                        "advancedActionId": aa_id,
+                    },
+                    "level_up.common",
+                )
             )
-        )
 
     return actions
 
@@ -523,34 +524,35 @@ def _actions_pending_unit_maintenance(valid_actions: dict[str, Any]) -> list[Can
     if not units:
         return []
 
-    first = _as_dict(units[0])
-    if first is None:
-        return []
+    actions: list[CandidateAction] = []
+    for unit_entry in units:
+        unit = _as_dict(unit_entry)
+        if unit is None:
+            continue
+        unit_instance_id = _as_str(unit.get("unitInstanceId"))
+        if unit_instance_id is None:
+            continue
 
-    unit_instance_id = _as_str(first.get("unitInstanceId"))
-    if unit_instance_id is None:
-        return []
-
-    colors = [color for color in _as_list(first.get("availableCrystalColors")) if isinstance(color, str)]
-    actions = [
-        CandidateAction(
-            {"type": ACTION_RESOLVE_UNIT_MAINTENANCE, "unitInstanceId": unit_instance_id, "keepUnit": False},
-            "unit_maintenance.disband",
-        )
-    ]
-    for color in colors:
+        colors = [color for color in _as_list(unit.get("availableCrystalColors")) if isinstance(color, str)]
         actions.append(
             CandidateAction(
-                {
-                    "type": ACTION_RESOLVE_UNIT_MAINTENANCE,
-                    "unitInstanceId": unit_instance_id,
-                    "keepUnit": True,
-                    "crystalColor": color,
-                    "newManaTokenColor": color,
-                },
-                "unit_maintenance.keep",
+                {"type": ACTION_RESOLVE_UNIT_MAINTENANCE, "unitInstanceId": unit_instance_id, "keepUnit": False},
+                "unit_maintenance.disband",
             )
         )
+        for color in colors:
+            actions.append(
+                CandidateAction(
+                    {
+                        "type": ACTION_RESOLVE_UNIT_MAINTENANCE,
+                        "unitInstanceId": unit_instance_id,
+                        "keepUnit": True,
+                        "crystalColor": color,
+                        "newManaTokenColor": color,
+                    },
+                    "unit_maintenance.keep",
+                )
+            )
     return actions
 
 
@@ -598,11 +600,12 @@ def _actions_play_card(valid_actions: dict[str, Any], source_prefix: str) -> lis
                         {"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": True, "manaSources": mana_options},
                         f"{source_prefix}.play_card.powered",
                     ))
-                elif not is_spell and len(mana_options) >= 1:
-                    actions.append(CandidateAction(
-                        {"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": True, "manaSource": mana_options[0]},
-                        f"{source_prefix}.play_card.powered",
-                    ))
+                elif not is_spell:
+                    for mana_src in mana_options:
+                        actions.append(CandidateAction(
+                            {"type": ACTION_PLAY_CARD, "cardId": card_id, "powered": True, "manaSource": mana_src},
+                            f"{source_prefix}.play_card.powered",
+                        ))
 
         if bool(payload.get("canPlaySideways")):
             for option in _as_list(payload.get("sidewaysOptions")):
@@ -1017,18 +1020,16 @@ def _actions_normal_turn(state: dict[str, Any], valid_actions: dict[str, Any], p
                 )
 
         can_reroll = _as_dict(tactic_effects.get("canRerollSourceDice"))
-        selected_die_ids = _select_reroll_die_ids(state, can_reroll)
-        if selected_die_ids:
-            actions.append(CandidateAction({"type": ACTION_REROLL_SOURCE_DICE, "dieIds": selected_die_ids}, "normal.tactic.reroll"))
+        for die_id in _rerollable_die_ids(state, can_reroll):
+            actions.append(CandidateAction({"type": ACTION_REROLL_SOURCE_DICE, "dieIds": [die_id]}, "normal.tactic.reroll"))
 
     if turn is not None:
         if bool(turn.get("canCompleteRest")):
             rest_discard = _as_dict(turn.get("restDiscard"))
-            discard_card_ids = _build_complete_rest_discard(rest_discard)
-            if discard_card_ids is not None:
+            for discard_option in _enumerate_rest_discard_options(rest_discard):
                 actions.append(
                     CandidateAction(
-                        {"type": ACTION_COMPLETE_REST, "discardCardIds": discard_card_ids},
+                        {"type": ACTION_COMPLETE_REST, "discardCardIds": discard_option},
                         "normal.turn.complete_rest",
                     )
                 )
@@ -1132,7 +1133,8 @@ def _actions_for_tactic_decision(decision: dict[str, Any], source_prefix: str) -
     return actions
 
 
-def _select_reroll_die_ids(state: dict[str, Any], can_reroll: dict[str, Any] | None) -> list[str]:
+def _rerollable_die_ids(state: dict[str, Any], can_reroll: dict[str, Any] | None) -> list[str]:
+    """Return all individual die IDs that are valid reroll choices."""
     if can_reroll is None:
         return []
 
@@ -1151,7 +1153,7 @@ def _select_reroll_die_ids(state: dict[str, Any], can_reroll: dict[str, Any] | N
             if isinstance(die_id, str) and die_id in available_ids
         ]
         if required_first_ids:
-            return [required_first_ids[0]]
+            return required_first_ids
 
         # Backward-compatible fallback for older servers that do not provide
         # requiredFirstDiceIds: derive the constrained subset from source dice.
@@ -1170,18 +1172,19 @@ def _select_reroll_die_ids(state: dict[str, Any], can_reroll: dict[str, Any] | N
             if is_depleted or color.lower() == "gold":
                 prioritized_ids.append(die_id)
         if prioritized_ids:
-            return [prioritized_ids[0]]
+            return prioritized_ids
 
-    return [available_ids[0]]
+    return available_ids
 
 
 def _is_wound_card_id(card_id: str) -> bool:
     return card_id == "wound"
 
 
-def _build_complete_rest_discard(rest_discard: dict[str, Any] | None) -> list[str] | None:
+def _enumerate_rest_discard_options(rest_discard: dict[str, Any] | None) -> list[list[str]]:
+    """Return all valid discard combinations for COMPLETE_REST."""
     if rest_discard is None:
-        return None
+        return []
 
     rest_type = _as_str(rest_discard.get("restType"))
     discardable = [
@@ -1190,24 +1193,17 @@ def _build_complete_rest_discard(rest_discard: dict[str, Any] | None) -> list[st
     allow_empty = bool(rest_discard.get("allowEmptyDiscard"))
 
     if rest_type == "standard":
+        # Standard Rest requires exactly one non-wound card; enumerate each option.
         non_wounds = [card for card in discardable if not _is_wound_card_id(card)]
-        if not non_wounds:
-            return None
-        # Standard Rest requires exactly one non-wound; wounds are optional.
-        return [non_wounds[0]]
+        return [[card] for card in non_wounds]
 
-    if rest_type == "slow_recovery":
-        if allow_empty:
-            return []
-        if discardable:
-            return [discardable[0]]
-        return None
-
+    # Slow recovery / other rest types: pick one discardable card.
+    options: list[list[str]] = []
     if allow_empty:
-        return []
-    if discardable:
-        return [discardable[0]]
-    return None
+        options.append([])
+    for card in discardable:
+        options.append([card])
+    return options
 
 
 def _find_player(state: dict[str, Any], player_id: str) -> dict[str, Any] | None:
