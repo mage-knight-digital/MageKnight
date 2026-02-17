@@ -37,6 +37,8 @@ import {
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
   DECLARE_ATTACK_TARGETS_ACTION,
   FINALIZE_ATTACK_ACTION,
+  DECLARE_BLOCK_TARGET_ACTION,
+  FINALIZE_BLOCK_ACTION,
 } from "@mage-knight/shared";
 import {
   createEnterCombatCommand,
@@ -56,6 +58,8 @@ import {
   createPayThugsDamageInfluenceCommand,
   createDeclareAttackTargetsCommand,
   createFinalizeAttackCommand,
+  createDeclareBlockTargetCommand,
+  createFinalizeBlockCommand,
 } from "../combat/index.js";
 
 /**
@@ -388,6 +392,47 @@ export const createFinalizeAttackCommandFromAction: CommandFactory = (
 ) => {
   if (action.type !== FINALIZE_ATTACK_ACTION) return null;
   return createFinalizeAttackCommand({
+    playerId,
+  });
+};
+
+/**
+ * Declare block target command factory.
+ * Creates a command to declare which enemy the player intends to block.
+ *
+ * Part of the target-first block flow.
+ */
+export const createDeclareBlockTargetCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== DECLARE_BLOCK_TARGET_ACTION) return null;
+
+  const baseParams = {
+    playerId,
+    targetEnemyInstanceId: action.targetEnemyInstanceId,
+  };
+
+  if (action.attackIndex !== undefined) {
+    return createDeclareBlockTargetCommand({ ...baseParams, attackIndex: action.attackIndex });
+  }
+  return createDeclareBlockTargetCommand(baseParams);
+};
+
+/**
+ * Finalize block command factory.
+ * Creates a command to resolve block against the declared target.
+ *
+ * Part of the target-first block flow.
+ */
+export const createFinalizeBlockCommandFromAction: CommandFactory = (
+  _state,
+  playerId,
+  action
+) => {
+  if (action.type !== FINALIZE_BLOCK_ACTION) return null;
+  return createFinalizeBlockCommand({
     playerId,
   });
 };

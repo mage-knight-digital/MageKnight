@@ -29,6 +29,8 @@ import {
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
   DECLARE_ATTACK_TARGETS_ACTION,
   FINALIZE_ATTACK_ACTION,
+  DECLARE_BLOCK_TARGET_ACTION,
+  FINALIZE_BLOCK_ACTION,
 } from "@mage-knight/shared";
 
 // Turn validators
@@ -123,6 +125,14 @@ import {
   validateFinalizeInCombat,
   validateFinalizePhase,
   validateTargetsDeclared,
+  // Block target declaration validators
+  validateDeclareBlockTargetInCombat,
+  validateDeclareBlockTargetPhase,
+  validateNoBlockTargetDeclared,
+  validateBlockTargetExistsAndValid,
+  validateFinalizeBlockInCombat,
+  validateFinalizeBlockPhase,
+  validateBlockTargetDeclared,
 } from "../combatValidators/index.js";
 
 // Challenge rampaging validators
@@ -282,5 +292,20 @@ export const combatRegistry: Record<string, Validator[]> = {
     validateFinalizeInCombat,
     validateFinalizePhase,
     validateTargetsDeclared,
+  ],
+  // Block target declaration action
+  [DECLARE_BLOCK_TARGET_ACTION]: [
+    validateIsPlayersTurn,
+    validateDeclareBlockTargetInCombat,
+    validateDeclareBlockTargetPhase,
+    validateNoBlockTargetDeclared,
+    validateBlockTargetExistsAndValid,
+  ],
+  // Finalize block action
+  [FINALIZE_BLOCK_ACTION]: [
+    validateIsPlayersTurn,
+    validateFinalizeBlockInCombat,
+    validateFinalizeBlockPhase,
+    validateBlockTargetDeclared,
   ],
 };

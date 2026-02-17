@@ -19,6 +19,7 @@ import {
   NOT_ENOUGH_MOVE_POINTS,
   CUMBERSOME_NOT_ACTIVE,
   CUMBERSOME_INVALID_AMOUNT,
+  WRONG_BLOCK_TARGET,
 } from "../validationCodes.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 import { isCumbersomeActive } from "../../combat/cumbersomeHelpers.js";
@@ -61,7 +62,8 @@ export function validateSpendCumbersomePhase(
 }
 
 /**
- * Validate that the target enemy exists and has active Cumbersome ability
+ * Validate that the target enemy exists and has active Cumbersome ability.
+ * When a block target is declared, cumbersome can only be spent on that target.
  */
 export function validateCumbersomeEnemy(
   state: GameState,
@@ -69,6 +71,11 @@ export function validateCumbersomeEnemy(
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== SPEND_MOVE_ON_CUMBERSOME_ACTION) return valid();
+
+  // Scope constraint: if a block target is declared, must match
+  if (state.combat?.declaredBlockTarget && action.enemyInstanceId !== state.combat.declaredBlockTarget) {
+    return invalid(WRONG_BLOCK_TARGET, "Can only spend move on cumbersome for declared block target");
+  }
 
   const enemy = state.combat?.enemies.find(
     (e) => e.instanceId === action.enemyInstanceId

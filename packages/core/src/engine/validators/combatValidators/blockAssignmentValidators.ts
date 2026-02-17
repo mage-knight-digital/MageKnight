@@ -27,6 +27,7 @@ import {
   INSUFFICIENT_BLOCK,
   NOTHING_TO_UNASSIGN_BLOCK,
   INVALID_ASSIGNMENT_AMOUNT,
+  WRONG_BLOCK_TARGET,
 } from "../validationCodes.js";
 import { getPlayerById } from "../../helpers/playerHelpers.js";
 
@@ -110,12 +111,18 @@ export function validateAssignBlockPhase(
 }
 
 // Target enemy must exist and not be defeated or already blocked (for assign block)
+// When a block target is declared, only that target can be assigned
 export function validateAssignBlockTargetEnemy(
   state: GameState,
   _playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== ASSIGN_BLOCK_ACTION) return valid();
+
+  // Scope constraint: if a block target is declared, must match
+  if (state.combat?.declaredBlockTarget && action.enemyInstanceId !== state.combat.declaredBlockTarget) {
+    return invalid(WRONG_BLOCK_TARGET, "Can only assign block to declared target");
+  }
 
   const enemy = state.combat?.enemies.find(
     (e) => e.instanceId === action.enemyInstanceId
@@ -137,12 +144,18 @@ export function validateAssignBlockTargetEnemy(
 }
 
 // Target enemy must exist (for unassign block)
+// When a block target is declared, only that target can be unassigned
 export function validateUnassignBlockTargetEnemy(
   state: GameState,
   _playerId: string,
   action: PlayerAction
 ): ValidationResult {
   if (action.type !== UNASSIGN_BLOCK_ACTION) return valid();
+
+  // Scope constraint: if a block target is declared, must match
+  if (state.combat?.declaredBlockTarget && action.enemyInstanceId !== state.combat.declaredBlockTarget) {
+    return invalid(WRONG_BLOCK_TARGET, "Can only unassign block from declared target");
+  }
 
   const enemy = state.combat?.enemies.find(
     (e) => e.instanceId === action.enemyInstanceId

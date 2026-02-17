@@ -86,6 +86,8 @@ import {
   PAY_THUGS_DAMAGE_INFLUENCE_ACTION,
   DECLARE_ATTACK_TARGETS_ACTION,
   FINALIZE_ATTACK_ACTION,
+  DECLARE_BLOCK_TARGET_ACTION,
+  FINALIZE_BLOCK_ACTION,
   RESOLVE_HEX_COST_REDUCTION_ACTION,
   RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
   RESOLVE_UNIT_MAINTENANCE_ACTION,
@@ -137,6 +139,8 @@ export {
   createPayThugsDamageInfluenceCommandFromAction,
   createDeclareAttackTargetsCommandFromAction,
   createFinalizeAttackCommandFromAction,
+  createDeclareBlockTargetCommandFromAction,
+  createFinalizeBlockCommandFromAction,
 } from "./combat.js";
 
 // Unit factories
@@ -259,6 +263,8 @@ import {
   createPayThugsDamageInfluenceCommandFromAction,
   createDeclareAttackTargetsCommandFromAction,
   createFinalizeAttackCommandFromAction,
+  createDeclareBlockTargetCommandFromAction,
+  createFinalizeBlockCommandFromAction,
 } from "./combat.js";
 
 import {
@@ -426,4 +432,7 @@ export const commandFactoryRegistry: Record<string, CommandFactory> = {
   // Attack declaration flow actions
   [DECLARE_ATTACK_TARGETS_ACTION]: createDeclareAttackTargetsCommandFromAction,
   [FINALIZE_ATTACK_ACTION]: createFinalizeAttackCommandFromAction,
+  // Block declaration flow actions
+  [DECLARE_BLOCK_TARGET_ACTION]: createDeclareBlockTargetCommandFromAction,
+  [FINALIZE_BLOCK_ACTION]: createFinalizeBlockCommandFromAction,
 };

@@ -151,6 +151,10 @@ function setupInfluenceConversionCombat(
       pendingBlock: {},
       pendingSwiftBlock: {},
       cumbersomeReductions: {},
+      // Target-first block flow: set declared target so block options are available
+      ...(phase === COMBAT_PHASE_BLOCK
+        ? { declaredBlockTarget: combatEnemy.instanceId }
+        : {}),
     },
   };
 }

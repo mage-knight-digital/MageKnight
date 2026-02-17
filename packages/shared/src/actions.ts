@@ -588,6 +588,10 @@ export const ASSIGN_DAMAGE_ACTION = "ASSIGN_DAMAGE" as const;
 export const DECLARE_ATTACK_TARGETS_ACTION = "DECLARE_ATTACK_TARGETS" as const;
 export const FINALIZE_ATTACK_ACTION = "FINALIZE_ATTACK" as const;
 
+// Block declaration flow actions (target-first block system)
+export const DECLARE_BLOCK_TARGET_ACTION = "DECLARE_BLOCK_TARGET" as const;
+export const FINALIZE_BLOCK_ACTION = "FINALIZE_BLOCK" as const;
+
 // Incremental attack assignment actions
 export const ASSIGN_ATTACK_ACTION = "ASSIGN_ATTACK" as const;
 export const UNASSIGN_ATTACK_ACTION = "UNASSIGN_ATTACK" as const;
@@ -781,6 +785,18 @@ export interface FinalizeAttackAction {
   readonly type: typeof FINALIZE_ATTACK_ACTION;
 }
 
+// Declare block target (target-first block flow)
+export interface DeclareBlockTargetAction {
+  readonly type: typeof DECLARE_BLOCK_TARGET_ACTION;
+  readonly targetEnemyInstanceId: string;
+  readonly attackIndex?: number; // For multi-attack enemies
+}
+
+// Finalize block against declared target (resolve block success/failure)
+export interface FinalizeBlockAction {
+  readonly type: typeof FINALIZE_BLOCK_ACTION;
+}
+
 // Spend move points to reduce Cumbersome enemy attack (for Cumbersome ability)
 export interface SpendMoveOnCumbersomeAction {
   readonly type: typeof SPEND_MOVE_ON_CUMBERSOME_ACTION;
@@ -889,6 +905,9 @@ export type PlayerAction =
   // Attack declaration flow (target-first)
   | DeclareAttackTargetsAction
   | FinalizeAttackAction
+  // Block declaration flow (target-first)
+  | DeclareBlockTargetAction
+  | FinalizeBlockAction
   // Cumbersome ability
   | SpendMoveOnCumbersomeAction
   // Move-to-attack conversion (Agility)
@@ -979,6 +998,8 @@ export const KNOWN_ACTION_TYPES: ReadonlySet<string> = new Set<PlayerActionType>
   UNASSIGN_BLOCK_ACTION,
   DECLARE_ATTACK_TARGETS_ACTION,
   FINALIZE_ATTACK_ACTION,
+  DECLARE_BLOCK_TARGET_ACTION,
+  FINALIZE_BLOCK_ACTION,
   SPEND_MOVE_ON_CUMBERSOME_ACTION,
   CONVERT_MOVE_TO_ATTACK_ACTION,
   CONVERT_INFLUENCE_TO_BLOCK_ACTION,

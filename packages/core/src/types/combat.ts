@@ -206,6 +206,18 @@ export interface CombatState {
    * declare targets before playing attack cards.
    */
   readonly declaredAttackTargets?: readonly string[];
+  /**
+   * Enemy instance ID targeted in the current block declaration.
+   * Set by DECLARE_BLOCK_TARGET, cleared by FINALIZE_BLOCK.
+   * When set, player must assign block to this target then finalize.
+   * When unset, player must declare a target or end phase.
+   */
+  readonly declaredBlockTarget?: string;
+  /**
+   * Attack index for multi-attack enemy block target.
+   * Set alongside declaredBlockTarget.
+   */
+  readonly declaredBlockAttackIndex?: number;
 }
 
 /**

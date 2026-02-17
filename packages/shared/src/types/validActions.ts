@@ -243,6 +243,23 @@ export interface CombatOptions {
 
   /** Combined armor of declared targets */
   readonly combinedArmor?: number;
+
+  // ---- Block declaration flow (target-first) ----
+
+  /** Whether player can declare a block target (no target declared yet) */
+  readonly canDeclareBlockTarget?: boolean;
+
+  /** Blockable enemy instance IDs for DECLARE_BLOCK_TARGET */
+  readonly declareBlockTargetOptions?: readonly BlockOption[];
+
+  /** Whether player can finalize block (target is declared, block assigned) */
+  readonly canFinalizeBlock?: boolean;
+
+  /** Currently declared block target enemy instance ID */
+  readonly declaredBlockTarget?: string;
+
+  /** Attack index for multi-attack enemy block target */
+  readonly declaredBlockAttackIndex?: number;
 }
 
 /** A unit with Banner of Fear that can cancel an enemy attack */

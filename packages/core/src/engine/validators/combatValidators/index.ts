@@ -118,3 +118,14 @@ export {
   validateFinalizePhase,
   validateTargetsDeclared,
 } from "./attackTargetValidators.js";
+
+// Block target declaration validators
+export {
+  validateDeclareBlockTargetInCombat,
+  validateDeclareBlockTargetPhase,
+  validateNoBlockTargetDeclared,
+  validateBlockTargetExistsAndValid,
+  validateFinalizeBlockInCombat,
+  validateFinalizeBlockPhase,
+  validateBlockTargetDeclared,
+} from "./blockTargetValidators.js";

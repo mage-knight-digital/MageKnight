@@ -533,7 +533,12 @@ describe("Combat Multi-Attack", () => {
 
     it("should include multi-attack enemy with attack:0 in block phase options", () => {
       const enemy = createZeroAttackMultiAttackEnemy();
-      const state = createStateWithMultiAttackEnemy(enemy, COMBAT_PHASE_BLOCK);
+      let state = createStateWithMultiAttackEnemy(enemy, COMBAT_PHASE_BLOCK);
+      // Set declared block target to enter Stage 2 (target-first flow)
+      state = {
+        ...state,
+        combat: { ...state.combat!, declaredBlockTarget: "enemy_0" },
+      };
       const player = state.players.find(p => p.id === "player1");
 
       const options = computeBlockPhaseOptions(state, state.combat!, player);

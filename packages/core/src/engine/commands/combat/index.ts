@@ -105,3 +105,15 @@ export {
   FINALIZE_ATTACK_COMMAND,
   type FinalizeAttackCommandParams,
 } from "./finalizeAttackCommand.js";
+
+export {
+  createDeclareBlockTargetCommand,
+  DECLARE_BLOCK_TARGET_COMMAND,
+  type DeclareBlockTargetCommandParams,
+} from "./declareBlockTargetCommand.js";
+
+export {
+  createFinalizeBlockCommand,
+  FINALIZE_BLOCK_COMMAND,
+  type FinalizeBlockCommandParams,
+} from "./finalizeBlockCommand.js";

@@ -222,6 +222,12 @@
       "$ref": "#/definitions/FinalizeAttackAction"
     },
     {
+      "$ref": "#/definitions/DeclareBlockTargetAction"
+    },
+    {
+      "$ref": "#/definitions/FinalizeBlockAction"
+    },
+    {
       "$ref": "#/definitions/SpendMoveOnCumbersomeAction"
     }
   ],
@@ -775,6 +781,26 @@
       ],
       "type": "object"
     },
+    "DeclareBlockTargetAction": {
+      "additionalProperties": false,
+      "properties": {
+        "attackIndex": {
+          "type": "number"
+        },
+        "targetEnemyInstanceId": {
+          "type": "string"
+        },
+        "type": {
+          "const": "DECLARE_BLOCK_TARGET",
+          "type": "string"
+        }
+      },
+      "required": [
+        "targetEnemyInstanceId",
+        "type"
+      ],
+      "type": "object"
+    },
     "DeclareRestAction": {
       "additionalProperties": false,
       "description": "Declares intent to rest. Enters isResting state.\nWhile resting: movement, combat initiation, and interaction are blocked.\nCard play is still allowed (healing, special effects, influence for AAs).",
@@ -1011,6 +1037,19 @@
       "properties": {
         "type": {
           "const": "FINALIZE_ATTACK",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "FinalizeBlockAction": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "FINALIZE_BLOCK",
           "type": "string"
         }
       },

@@ -1516,6 +1516,10 @@
           },
           "type": "array"
         },
+        "canDeclareBlockTarget": {
+          "description": "Whether player can declare a block target (no target declared yet)",
+          "type": "boolean"
+        },
         "canDeclareTargets": {
           "description": "Whether player can declare attack targets (no targets declared yet)",
           "type": "boolean"
@@ -1525,6 +1529,10 @@
         },
         "canFinalizeAttack": {
           "description": "Whether player can finalize attack (targets are declared)",
+          "type": "boolean"
+        },
+        "canFinalizeBlock": {
+          "description": "Whether player can finalize block (target is declared, block assigned)",
           "type": "boolean"
         },
         "canPayHeroesAssaultInfluence": {
@@ -1548,6 +1556,21 @@
             "$ref": "#/definitions/DamageAssignmentOption"
           },
           "type": "array"
+        },
+        "declareBlockTargetOptions": {
+          "description": "Blockable enemy instance IDs for DECLARE_BLOCK_TARGET",
+          "items": {
+            "$ref": "#/definitions/BlockOption"
+          },
+          "type": "array"
+        },
+        "declaredBlockAttackIndex": {
+          "description": "Attack index for multi-attack enemy block target",
+          "type": "number"
+        },
+        "declaredBlockTarget": {
+          "description": "Currently declared block target enemy instance ID",
+          "type": "string"
         },
         "declaredTargets": {
           "description": "Currently declared attack target enemy instance IDs",

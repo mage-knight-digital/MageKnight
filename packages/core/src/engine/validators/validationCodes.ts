@@ -142,6 +142,11 @@ export const CONVERSION_INVALID_AMOUNT = "CONVERSION_INVALID_AMOUNT" as const;
 export const TARGETS_ALREADY_DECLARED = "TARGETS_ALREADY_DECLARED" as const;
 export const NO_TARGETS_DECLARED = "NO_TARGETS_DECLARED" as const;
 export const TARGET_ENEMY_NOT_FOUND = "TARGET_ENEMY_NOT_FOUND" as const;
+// Block declaration flow validation codes
+export const BLOCK_TARGET_ALREADY_DECLARED = "BLOCK_TARGET_ALREADY_DECLARED" as const;
+export const NO_BLOCK_TARGET_DECLARED = "NO_BLOCK_TARGET_DECLARED" as const;
+export const WRONG_BLOCK_TARGET = "WRONG_BLOCK_TARGET" as const;
+export const ENEMY_DOES_NOT_ATTACK = "ENEMY_DOES_NOT_ATTACK" as const;
 
 // Unit validation codes
 export const NO_COMMAND_SLOTS = "NO_COMMAND_SLOTS" as const;
@@ -484,6 +489,11 @@ export type ValidationErrorCode =
   | typeof TARGETS_ALREADY_DECLARED
   | typeof NO_TARGETS_DECLARED
   | typeof TARGET_ENEMY_NOT_FOUND
+  // Block declaration flow validation
+  | typeof BLOCK_TARGET_ALREADY_DECLARED
+  | typeof NO_BLOCK_TARGET_DECLARED
+  | typeof WRONG_BLOCK_TARGET
+  | typeof ENEMY_DOES_NOT_ATTACK
   // Unit validation
   | typeof NO_COMMAND_SLOTS
   | typeof INSUFFICIENT_INFLUENCE

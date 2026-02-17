@@ -311,18 +311,23 @@ export function generateUnassignableBlocks(
 /**
  * Compute Cumbersome options for enemies with the Cumbersome ability.
  * Returns options showing how many move points can be spent on each enemy.
+ * When scopedEnemyId is provided, only that enemy is considered.
  */
 export function computeCumbersomeOptions(
   state: GameState,
   combat: CombatState,
   playerId: string,
-  playerMovePoints: number
+  playerMovePoints: number,
+  scopedEnemyId?: string
 ): readonly CumbersomeOption[] {
   const options: CumbersomeOption[] = [];
 
   for (const enemy of combat.enemies) {
     // Skip defeated enemies
     if (enemy.isDefeated) continue;
+
+    // If scoped to a specific target, skip all others
+    if (scopedEnemyId && enemy.instanceId !== scopedEnemyId) continue;
 
     // Skip enemies without active Cumbersome ability
     if (!isCumbersomeActive(state, playerId, enemy)) continue;
@@ -413,7 +418,9 @@ function computeInfluenceToBlockOption(
 
 /**
  * Compute options for BLOCK phase.
- * Uses the incremental block assignment system.
+ * Uses the target-first block declaration flow:
+ * - If no target declared: show DECLARE_BLOCK_TARGET and END_COMBAT_PHASE options
+ * - If target declared: show playable cards, FINALIZE_BLOCK option, and incremental block assignment
  */
 export function computeBlockPhaseOptions(
   state: GameState,
@@ -429,55 +436,74 @@ export function computeBlockPhaseOptions(
     };
   }
 
-  // Compute available block pool (with fallbacks for legacy state)
+  // Stage 1: No block target declared — show declare target option + end phase
+  if (!combat.declaredBlockTarget) {
+    const blockOptions = getBlockOptions(state, combat.enemies, player.id);
+
+    // Compute Banner of Fear cancel attack options (available before targeting)
+    const bannerFearOpts = computeBannerFearOptions(combat, player);
+
+    const stage1Options: CombatOptions = {
+      phase: COMBAT_PHASE_BLOCK,
+      canEndPhase: true, // Can skip blocking (take damage instead)
+      blocks: blockOptions, // Keep legacy field for display
+      canDeclareBlockTarget: blockOptions.length > 0,
+      declareBlockTargetOptions: blockOptions,
+    };
+
+    if (bannerFearOpts.length > 0) {
+      return { ...stage1Options, bannerFearOptions: bannerFearOpts };
+    }
+
+    return stage1Options;
+  }
+
+  // Stage 2: Block target declared — show assign/unassign, cumbersome, finalize
+
+  // Compute enemy block states scoped to the declared target only
+  const declaredTarget = combat.enemies.find(
+    (e) => e.instanceId === combat.declaredBlockTarget
+  );
+
+  const enemyBlockStates = declaredTarget
+    ? [computeEnemyBlockState(declaredTarget, combat, state, player.id)]
+    : [];
+
+  // Compute available block pool
   const emptyBlockElements = { physical: 0, fire: 0, ice: 0, coldFire: 0 };
   const availableBlock = computeAvailableBlock(
     player.combatAccumulator.blockElements ?? emptyBlockElements,
     player.combatAccumulator.assignedBlockElements ?? emptyBlockElements
   );
 
-  // Compute enemy block states
-  // Filter out hidden summoners - must block their summoned enemy instead
-  // Filter out 0-attack enemies - nothing to block
-  const enemyBlockStates = combat.enemies
-    .filter((enemy) => !enemy.isDefeated)
-    .filter((enemy) => !enemy.isSummonerHidden)
-    .filter((enemy) => doesEnemyAttackThisCombat(state, enemy.instanceId))
-    .filter((enemy) => {
-      const naturesBonus = getNaturesVengeanceAttackBonus(state, player.id);
-      const attacks = getEnemyAttacks(enemy);
-      return attacks.some((attack, attackIndex) =>
-        getEffectiveEnemyAttack(state, enemy.instanceId, attack.damage, attackIndex) + naturesBonus > 0
-      );
-    })
-    .map((enemy) => computeEnemyBlockState(enemy, combat, state, player.id));
-
-  // Generate assignable blocks
+  // Generate assignable blocks (scoped to declared target)
   const assignableBlocks = generateAssignableBlocks(
     enemyBlockStates,
     availableBlock,
     state
   );
 
-  // Generate unassignable blocks
+  // Generate unassignable blocks (scoped to declared target)
   const unassignableBlocks = generateUnassignableBlocks(enemyBlockStates, combat);
 
-  // Compute Cumbersome options (move points that can be spent to reduce enemy attack)
+  // Compute Cumbersome options scoped to declared target
   const cumbersomeOptions = computeCumbersomeOptions(
     state,
     combat,
     player.id,
-    player.movePoints
+    player.movePoints,
+    combat.declaredBlockTarget
   );
-
-  // Compute Banner of Fear cancel attack options
-  const bannerFearOpts = computeBannerFearOptions(combat, player);
 
   // Build the combat options
   const options: CombatOptions = {
     phase: COMBAT_PHASE_BLOCK,
-    canEndPhase: true, // Can skip blocking (take damage instead)
-    blocks: getBlockOptions(state, combat.enemies, player.id),
+    canEndPhase: false, // Must finalize or undo target selection
+    canFinalizeBlock: true,
+    declaredBlockTarget: combat.declaredBlockTarget,
+    ...(combat.declaredBlockAttackIndex !== undefined
+      ? { declaredBlockAttackIndex: combat.declaredBlockAttackIndex }
+      : {}),
     availableBlock,
     enemyBlockStates,
     assignableBlocks,
@@ -487,15 +513,10 @@ export function computeBlockPhaseOptions(
   // Compute influence-to-block conversion options (Diplomacy card)
   const influenceConversion = computeInfluenceToBlockOption(state, player);
 
-  // Only include optional fields if there are options
   let result: CombatOptions = options;
 
   if (cumbersomeOptions.length > 0) {
     result = { ...result, cumbersomeOptions, availableMovePoints: player.movePoints };
-  }
-
-  if (bannerFearOpts.length > 0) {
-    result = { ...result, bannerFearOptions: bannerFearOpts };
   }
 
   if (influenceConversion && influenceConversion.maxBlockGainable > 0) {
