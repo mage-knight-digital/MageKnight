@@ -76,7 +76,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
   const backgroundRef = useRef<BackgroundAtmosphere | null>(null);
   const animationManagerRef = useRef<AnimationManager | null>(null);
   const particleManagerRef = useRef<ParticleManager | null>(null);
-  const heroContainerRef = useRef<Container | null>(null);
+  const heroContainersRef = useRef<Map<string, Container>>(new Map());
   const [hoveredHex, setHoveredHex] = useState<HexCoord | null>(null);
 
   // Camera control hook
@@ -97,11 +97,11 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
   const resetRendererRef = useRef<() => void>(() => {});
   const handlePixiDestroyed = useCallback(() => {
     resetRendererRef.current();
-    heroContainerRef.current = null;
+    heroContainersRef.current = new Map();
   }, []);
 
   // Game state hooks
-  const { state, sendAction } = useGame();
+  const { state, sendAction, myPlayerId } = useGame();
   const player = useMyPlayer();
   const isMyTurn = useIsMyTurn();
   const { startIntro, isIntroComplete } = useGameIntro();
@@ -320,6 +320,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     isInitialized,
     state,
     player,
+    myPlayerId,
     exploreTargets,
     appRef,
     layersRef,
@@ -327,7 +328,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     animationManagerRef,
     particleManagerRef,
     backgroundRef,
-    heroContainerRef,
+    heroContainersRef,
     cameraRef,
     hasCenteredOnHeroRef,
     cameraReadyRef,

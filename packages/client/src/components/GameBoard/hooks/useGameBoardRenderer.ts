@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MutableRefObject, RefObject } from "react";
 import type { Application, Container } from "pixi.js";
 import type { ClientGameState, ClientPlayer, HexCoord } from "@mage-knight/shared";
-import { TIME_OF_DAY_NIGHT, hexKey, TILE_HEX_OFFSETS } from "@mage-knight/shared";
+import { TIME_OF_DAY_NIGHT, hexKey, TILE_HEX_OFFSETS, HERO_NAMES } from "@mage-knight/shared";
 import type { CinematicSequence } from "../../../contexts/CinematicContext";
 import type { AnimationEvent } from "../../../contexts/AnimationDispatcherContext";
 import type { PixelPosition, CameraState } from "../pixi/types";
@@ -33,6 +33,7 @@ import {
   renderRuinsTokens,
   renderHeroIntoContainer,
   getOrCreateHeroContainer,
+  cleanupStaleHeroContainers,
   renderBoardShape,
   type ExploreTarget,
   type EnemyFlipTarget,
@@ -43,6 +44,7 @@ interface UseGameBoardRendererParams {
   isInitialized: boolean;
   state: ClientGameState | null;
   player: ClientPlayer | null;
+  myPlayerId: string | null;
   exploreTargets: ExploreTarget[];
   appRef: RefObject<Application | null>;
   layersRef: RefObject<WorldLayers | null>;
@@ -50,7 +52,7 @@ interface UseGameBoardRendererParams {
   animationManagerRef: RefObject<AnimationManager | null>;
   particleManagerRef: RefObject<ParticleManager | null>;
   backgroundRef: RefObject<BackgroundAtmosphere | null>;
-  heroContainerRef: RefObject<Container | null>;
+  heroContainersRef: MutableRefObject<Map<string, Container>>;
   cameraRef: MutableRefObject<CameraState>;
   hasCenteredOnHeroRef: MutableRefObject<boolean>;
   cameraReadyRef: MutableRefObject<boolean>;
@@ -75,6 +77,7 @@ export function useGameBoardRenderer({
   isInitialized,
   state,
   player,
+  myPlayerId,
   exploreTargets,
   appRef,
   layersRef,
@@ -82,7 +85,7 @@ export function useGameBoardRenderer({
   animationManagerRef,
   particleManagerRef,
   backgroundRef,
-  heroContainerRef,
+  heroContainersRef,
   cameraRef,
   hasCenteredOnHeroRef,
   cameraReadyRef,
@@ -95,7 +98,7 @@ export function useGameBoardRenderer({
 }: UseGameBoardRendererParams): UseGameBoardRendererReturn {
   const [isLoading, setIsLoading] = useState(true);
 
-  const prevHeroPositionRef = useRef<HexCoord | null>(null);
+  const prevHeroPositionsRef = useRef<Map<string, HexCoord>>(new Map());
   const introPlayedRef = useRef(false);
   const prevTileCountRef = useRef(0);
   const knownTileIdsRef = useRef<Set<string>>(new Set());
@@ -274,8 +277,7 @@ export function useGameBoardRenderer({
     }
 
     const renderAsync = async () => {
-      const heroId = player?.heroId ?? null;
-      await preloadIntroAssets(state, heroId);
+      await preloadIntroAssets(state);
 
       if (!hasCenteredOnHeroRef.current && appRef.current) {
         const app = appRef.current;
@@ -452,17 +454,25 @@ export function useGameBoardRenderer({
           await renderRuinsTokens(layers, state.map.hexes);
         }
 
-        const heroContainer = getOrCreateHeroContainer(layers, heroContainerRef);
-        const prevPos = prevHeroPositionRef.current;
+        // Render all player heroes
+        const herosByHex = buildHerosByHex(state.players);
+        const activePlayerIds = new Set(state.players.map((p) => p.id));
+        cleanupStaleHeroContainers(heroContainersRef, activePlayerIds);
 
-        if (heroPosition) {
-          const targetPixel = hexToPixel(heroPosition);
+        for (const p of state.players) {
+          if (!p.position) continue;
+
+          const isLocal = p.id === myPlayerId;
+          const heroContainer = getOrCreateHeroContainer(layers, heroContainersRef, p.id);
+          const prevPos = prevHeroPositionsRef.current.get(p.id) ?? null;
+          const targetPixel = hexToPixel(p.position);
+
           const heroMoved =
-            prevPos && (prevPos.q !== heroPosition.q || prevPos.r !== heroPosition.r);
+            prevPos && (prevPos.q !== p.position.q || prevPos.r !== p.position.r);
 
           if (heroMoved && animManager) {
             animManager.moveTo(
-              "hero-move",
+              `hero-move-${p.id}`,
               heroContainer,
               targetPixel,
               HERO_MOVE_DURATION_MS,
@@ -472,11 +482,26 @@ export function useGameBoardRenderer({
             heroContainer.position.set(targetPixel.x, targetPixel.y);
           }
 
-          const activeHeroId = player?.heroId ?? null;
-          renderHeroIntoContainer(heroContainer, heroPosition, activeHeroId, onHeroRightClick);
-        }
+          const hKey = hexKey(p.position);
+          const heroesOnHex = herosByHex.get(hKey) ?? [];
+          const indexInHex = heroesOnHex.indexOf(p.id);
+          const totalInHex = heroesOnHex.length;
 
-        prevHeroPositionRef.current = heroPosition;
+          renderHeroIntoContainer(
+            heroContainer,
+            p.position,
+            p.heroId,
+            {
+              isLocal,
+              heroName: HERO_NAMES[p.heroId],
+              indexInHex: Math.max(0, indexInHex),
+              totalInHex,
+            },
+            isLocal ? onHeroRightClick : undefined
+          );
+
+          prevHeroPositionsRef.current.set(p.id, p.position);
+        }
 
         setIsLoading(false);
       }
@@ -560,34 +585,75 @@ export function useGameBoardRenderer({
                 tileAnimationTime
               );
 
-              const heroContainer = getOrCreateHeroContainer(layers, heroContainerRef);
-              if (heroPosition) {
-                const targetPixel = hexToPixel(heroPosition);
-                const activeHeroId = player?.heroId ?? null;
+              // Render all heroes with intro animation
+              const introHerosByHex = buildHerosByHex(state.players);
+              const heroContainerEntries: Array<{ container: Container; playerId: string; isLocal: boolean }> = [];
+
+              for (const p of state.players) {
+                if (!p.position) continue;
+
+                const isLocal = p.id === myPlayerId;
+                const heroContainer = getOrCreateHeroContainer(layers, heroContainersRef, p.id);
+                const targetPixel = hexToPixel(p.position);
+
+                const hKey = hexKey(p.position);
+                const heroesOnHex = introHerosByHex.get(hKey) ?? [];
+                const indexInHex = heroesOnHex.indexOf(p.id);
+                const totalInHex = heroesOnHex.length;
 
                 heroContainer.alpha = 0;
                 heroContainer.scale.set(0.8);
                 heroContainer.position.set(targetPixel.x, targetPixel.y);
-                renderHeroIntoContainer(heroContainer, heroPosition, activeHeroId, onHeroRightClick);
+                renderHeroIntoContainer(
+                  heroContainer,
+                  p.position,
+                  p.heroId,
+                  {
+                    isLocal,
+                    heroName: HERO_NAMES[p.heroId],
+                    indexInHex: Math.max(0, indexInHex),
+                    totalInHex,
+                  },
+                  isLocal ? onHeroRightClick : undefined
+                );
+
+                heroContainerEntries.push({ container: heroContainer, playerId: p.id, isLocal });
+                prevHeroPositionsRef.current.set(p.id, p.position);
+              }
+
+              // Play portal animation at local hero position, emerge all heroes
+              if (heroPosition) {
+                const targetPixel = hexToPixel(heroPosition);
+                const activeHeroId = player?.heroId ?? null;
+                const totalHeroes = heroContainerEntries.length;
+                let heroesEmerged = 0;
 
                 setTimeout(() => {
                   particleManager.createPortal(layers.particles, targetPixel, {
                     heroId: activeHeroId ?? undefined,
                     onHeroEmerge: () => {
-                      animManager.animate("hero-emerge", heroContainer, {
-                        endAlpha: 1,
-                        endScale: 1,
-                        duration: PORTAL_HERO_EMERGE_DURATION_MS,
-                        easing: Easing.easeOutCubic,
-                      });
+                      for (const entry of heroContainerEntries) {
+                        animManager.animate(`hero-emerge-${entry.playerId}`, entry.container, {
+                          endAlpha: 1,
+                          endScale: 1,
+                          duration: PORTAL_HERO_EMERGE_DURATION_MS,
+                          easing: Easing.easeOutCubic,
+                          onComplete: () => {
+                            heroesEmerged++;
+                            if (heroesEmerged >= totalHeroes) {
+                              emitAnimationEvent("hero-complete");
+                            }
+                          },
+                        });
+                      }
                     },
                     onComplete: () => {
-                      emitAnimationEvent("hero-complete");
+                      if (totalHeroes === 0) {
+                        emitAnimationEvent("hero-complete");
+                      }
                     },
                   });
                 }, heroRevealTime);
-
-                prevHeroPositionRef.current = heroPosition;
               }
 
               const tileCount = state.map.tiles.length;
@@ -607,6 +673,7 @@ export function useGameBoardRenderer({
     state,
     player?.position,
     player?.heroId,
+    myPlayerId,
     exploreTargets,
     centerAndApplyCamera,
     emitAnimationEvent,
@@ -622,7 +689,7 @@ export function useGameBoardRenderer({
     hasCenteredOnHeroRef,
     cameraReadyRef,
     backgroundRef,
-    heroContainerRef,
+    heroContainersRef,
     onHeroRightClick,
   ]);
 
@@ -721,4 +788,19 @@ function collectRevealedEnemies(state: ClientGameState) {
   }
 
   return { currentRevealedEnemyIds, enemyInfoByTokenId };
+}
+
+/**
+ * Group player IDs by their hex position for same-hex offset calculation.
+ */
+function buildHerosByHex(players: readonly ClientPlayer[]): Map<string, string[]> {
+  const herosByHex = new Map<string, string[]>();
+  for (const p of players) {
+    if (!p.position) continue;
+    const hKey = hexKey(p.position);
+    const list = herosByHex.get(hKey) ?? [];
+    list.push(p.id);
+    herosByHex.set(hKey, list);
+  }
+  return herosByHex;
 }
