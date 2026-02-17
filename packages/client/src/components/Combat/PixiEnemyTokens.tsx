@@ -97,6 +97,8 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
 
   // Preload enemy textures
   useEffect(() => {
+    setTexturesLoaded(false);
+
     const loadTextures = async () => {
       const urls = enemies.map((e) => getEnemyImageUrl(e.enemy.enemyId));
       const uniqueUrls = [...new Set(urls)];
