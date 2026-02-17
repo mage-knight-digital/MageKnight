@@ -11,6 +11,7 @@ from ..generated_action_enumerator import CandidateAction
 from ..policy import Policy
 from .features import (
     ACTION_SCALAR_DIM,
+    COMBAT_ENEMY_SCALAR_DIM,
     ENEMY_HEX_SCALAR_DIM,
     FEATURE_DIM,
     SITE_SCALAR_DIM,
@@ -111,12 +112,14 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         self.map_site_emb = nn.Embedding(SITE_VOCAB.size, emb_dim)  # separate weights for map sites
 
         # State encoder:
-        # scalars(76) + 7×emb (mode, hand, units, terrain, site, combat_enemies, skills)
+        # scalars(76) + 6×emb (mode, hand, units, terrain, site, skills)
+        # + combat enemy pool (emb + COMBAT_ENEMY_SCALAR_DIM)
         # + visible sites pool (emb + SITE_SCALAR_DIM)
         # + enemy hex pool (ENEMY_HEX_SCALAR_DIM)
         state_input_dim = (
             STATE_SCALAR_DIM
-            + 7 * emb_dim
+            + 6 * emb_dim
+            + (emb_dim + COMBAT_ENEMY_SCALAR_DIM)
             + (emb_dim + SITE_SCALAR_DIM)
             + ENEMY_HEX_SCALAR_DIM
         )
@@ -145,6 +148,7 @@ class _EmbeddingActionScoringNetwork(nn.Module):
 
         # Pre-allocated zero vectors to avoid repeated torch.zeros calls
         self.register_buffer("_zero_emb", torch.zeros(emb_dim))
+        self.register_buffer("_zero_combat_enemy_pool", torch.zeros(emb_dim + COMBAT_ENEMY_SCALAR_DIM))
         self.register_buffer("_zero_site_pool", torch.zeros(emb_dim + SITE_SCALAR_DIM))
         self.register_buffer("_zero_enemy_pool", torch.zeros(ENEMY_HEX_SCALAR_DIM))
 
@@ -172,12 +176,15 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         else:
             unit_pool = self._zero_emb
 
-        # Mean-pool combat enemy embeddings
+        # Mean-pool combat enemy embeddings + per-enemy scalars
         if sf.combat_enemy_ids:
             enemy_ids_t = torch.tensor(sf.combat_enemy_ids, dtype=torch.long, device=device)
-            combat_enemy_pool = self.enemy_emb(enemy_ids_t).mean(dim=0)
+            enemy_embs = self.enemy_emb(enemy_ids_t)  # (N, emb_dim)
+            enemy_scalar_t = torch.tensor(sf.combat_enemy_scalars, dtype=torch.float32, device=device)  # (N, COMBAT_ENEMY_SCALAR_DIM)
+            combined = torch.cat([enemy_embs, enemy_scalar_t], dim=1)  # (N, emb_dim + COMBAT_ENEMY_SCALAR_DIM)
+            combat_enemy_pool = combined.mean(dim=0)  # (emb_dim + COMBAT_ENEMY_SCALAR_DIM,)
         else:
-            combat_enemy_pool = self._zero_emb
+            combat_enemy_pool = self._zero_combat_enemy_pool
 
         # Mean-pool skill embeddings
         if sf.skill_ids:

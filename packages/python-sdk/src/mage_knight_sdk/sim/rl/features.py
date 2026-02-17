@@ -41,9 +41,10 @@ FEATURE_DIM = (
 # ---------------------------------------------------------------------------
 
 STATE_SCALAR_DIM = 76
-ACTION_SCALAR_DIM = 29
+ACTION_SCALAR_DIM = 34
 SITE_SCALAR_DIM = 6   # per-site scalars for map pool
 ENEMY_HEX_SCALAR_DIM = 5  # per-hex scalars for enemy pool
+COMBAT_ENEMY_SCALAR_DIM = 13  # per-enemy scalars for combat pool
 
 # Canonical neighbor direction offsets in axial coords (E, NE, NW, W, SW, SE)
 _NEIGHBOR_OFFSETS: tuple[tuple[int, int], ...] = (
@@ -86,6 +87,7 @@ class StateFeatures:
     current_terrain_id: int                 # TERRAIN_VOCAB index
     current_site_type_id: int               # SITE_VOCAB index
     combat_enemy_ids: list[int]             # ENEMY_VOCAB indices
+    combat_enemy_scalars: list[list[float]] # COMBAT_ENEMY_SCALAR_DIM per enemy
     skill_ids: list[int]                    # SKILL_VOCAB indices
     # Full map visibility (variable-length, mean-pooled in network)
     visible_site_ids: list[int]             # SITE_VOCAB index per visible site
@@ -104,7 +106,7 @@ class ActionFeatures:
     enemy_id: int              # ENEMY_VOCAB index (from enemyId/targetId, or 0)
     skill_id: int              # SKILL_VOCAB index (from skillId field, or 0)
     target_enemy_ids: list[int]  # ENEMY_VOCAB indices (from targetEnemyInstanceIds)
-    scalars: list[float]       # ACTION_SCALAR_DIM floats (29)
+    scalars: list[float]       # ACTION_SCALAR_DIM floats (34)
 
 
 @dataclass(frozen=True)
@@ -139,6 +141,7 @@ def encode_step(
         current_terrain_id = 0
         current_site_type_id = 0
         combat_enemy_ids: list[int] = []
+        combat_enemy_scalars: list[list[float]] = []
         skill_ids: list[int] = []
         visible_site_ids: list[int] = []
         visible_site_scalars: list[list[float]] = []
@@ -151,7 +154,7 @@ def encode_step(
         player_core = _extract_player_core(state, player, player_id)     # 10
         resources = _extract_player_resources(player)                     # 13
         tempo = _extract_tempo_features(state, player)                   # 5
-        combat_scalars, combat_enemy_ids = _extract_combat_features(state, player)  # 10
+        combat_scalars, combat_enemy_ids, combat_enemy_scalars = _extract_combat_features(state, player)  # 10
         hex_scalars, current_terrain_id, current_site_type_id = _extract_current_hex_features(hexes, pq, pr)  # 3
         neighbor_scalars = _extract_neighbor_features(hexes, pq, pr)     # 24
         global_spatial = _extract_global_spatial(hexes, pq, pr)          # 5
@@ -182,6 +185,7 @@ def encode_step(
         current_terrain_id=current_terrain_id,
         current_site_type_id=current_site_type_id,
         combat_enemy_ids=combat_enemy_ids,
+        combat_enemy_scalars=combat_enemy_scalars,
         skill_ids=skill_ids,
         visible_site_ids=visible_site_ids,
         visible_site_scalars=visible_site_scalars,
@@ -214,7 +218,10 @@ def encode_step(
         unit_id_str = action.get("unitId") or action.get("unitInstanceId")
 
         # --- Enemy ID: check enemyInstanceId alias (combat actions) ---
-        enemy_id_str = action.get("enemyId") or action.get("targetId") or action.get("enemyInstanceId")
+        enemy_id_str = (
+            action.get("enemyId") or action.get("targetId")
+            or action.get("enemyInstanceId") or action.get("targetEnemyInstanceId")
+        )
         # --- Target enemy IDs: encode full target set for DECLARE_ATTACK_TARGETS ---
         raw_target_ids = action.get("targetEnemyInstanceIds")
         target_enemy_ids: list[int] = []
@@ -334,12 +341,12 @@ def _extract_tempo_features(
 def _extract_combat_features(
     state: dict[str, Any],
     player: dict[str, Any],
-) -> tuple[list[float], list[int]]:
-    """Combat (10 scalars + enemy IDs): in_combat, phase one-hot ×4,
+) -> tuple[list[float], list[int], list[list[float]]]:
+    """Combat (10 scalars + enemy IDs + per-enemy scalars): in_combat, phase one-hot ×4,
     num_enemies, total_enemy_armor, total_enemy_attack, is_fortified, wounds_this_combat."""
     combat = state.get("combat")
     if not isinstance(combat, dict):
-        return [0.0] * 10, []
+        return [0.0] * 10, [], []
 
     in_combat = 1.0
     phase = combat.get("phase")
@@ -348,6 +355,7 @@ def _extract_combat_features(
 
     enemies = combat.get("enemies")
     enemy_ids: list[int] = []
+    enemy_scalars: list[list[float]] = []
     num_enemies = 0
     total_armor = 0.0
     total_attack = 0.0
@@ -358,8 +366,41 @@ def _extract_combat_features(
                 eid = enemy.get("id")
                 if isinstance(eid, str):
                     enemy_ids.append(ENEMY_VOCAB.encode(eid))
-                total_armor += _as_number(enemy.get("armor"))
-                total_attack += _as_number(enemy.get("attack"))
+
+                armor = _as_number(enemy.get("armor"))
+                attack = _as_number(enemy.get("attack"))
+                total_armor += armor
+                total_attack += attack
+
+                # Per-enemy scalars (COMBAT_ENEMY_SCALAR_DIM = 13)
+                attack_elem = enemy.get("attackElement")
+                attack_elem_str = attack_elem if isinstance(attack_elem, str) else ""
+                elem_oh = [1.0 if attack_elem_str == e else 0.0 for e in ("physical", "fire", "ice", "cold_fire")]
+
+                resistances = enemy.get("resistances")
+                if not isinstance(resistances, dict):
+                    resistances = {}
+                res_phys = 1.0 if resistances.get("physical") else 0.0
+                res_fire = 1.0 if resistances.get("fire") else 0.0
+                res_ice = 1.0 if resistances.get("ice") else 0.0
+
+                abilities = enemy.get("abilities")
+                if not isinstance(abilities, list):
+                    abilities = []
+                is_swift = 1.0 if "swift" in abilities else 0.0
+                is_brutal = 1.0 if "brutal" in abilities else 0.0
+
+                is_blocked = 1.0 if bool(enemy.get("isBlocked")) else 0.0
+                is_defeated = 1.0 if bool(enemy.get("isDefeated")) else 0.0
+
+                enemy_scalars.append([
+                    _scale(armor, 20.0),
+                    _scale(attack, 10.0),
+                    *elem_oh,
+                    res_phys, res_fire, res_ice,
+                    is_blocked, is_defeated,
+                    is_swift, is_brutal,
+                ])
 
     is_fortified = 1.0 if bool(combat.get("isFortified")) else 0.0
     wounds_this_combat = _as_number(combat.get("woundsThisCombat"))
@@ -373,7 +414,7 @@ def _extract_combat_features(
         is_fortified,
         _scale(wounds_this_combat, 5.0),
     ]
-    return scalars, enemy_ids
+    return scalars, enemy_ids, enemy_scalars
 
 
 def _extract_current_hex_features(
@@ -679,7 +720,7 @@ _MANA_COLOR_ONE_HOT: dict[str, int] = {"red": 0, "blue": 1, "green": 2, "white":
 
 
 def _action_scalars(action: dict[str, Any], state: dict[str, Any]) -> list[float]:
-    """Extract meaningful action features (29 floats)."""
+    """Extract meaningful action features (34 floats)."""
     action_type = action.get("type")
     amount = _as_number(action.get("amount"))
     is_powered = 1.0 if bool(action.get("powered")) else 0.0
@@ -713,7 +754,8 @@ def _action_scalars(action: dict[str, Any], state: dict[str, Any]) -> list[float
     num_targets = float(len(target_enemy_ids)) if isinstance(target_enemy_ids, list) else 0.0
     has_enemy_target = 1.0 if (
         action.get("enemyId") or action.get("targetId")
-        or action.get("enemyInstanceId") or target_enemy_ids
+        or action.get("enemyInstanceId") or action.get("targetEnemyInstanceId")
+        or target_enemy_ids
     ) else 0.0
     has_card = 1.0 if action.get("cardId") else 0.0
     has_unit = 1.0 if action.get("unitId") or action.get("unitInstanceId") else 0.0
@@ -760,25 +802,39 @@ def _action_scalars(action: dict[str, Any], state: dict[str, Any]) -> list[float
         if isinstance(die_id, str):
             _encode_die_color(mana_color_oh, die_id, state)
 
+    # Block target metadata (from BlockOption, attached by enumerator)
+    required_block = _as_number(action.get("_requiredBlock"))
+    target_enemy_attack = _as_number(action.get("_enemyAttack"))
+    target_is_swift = 1.0 if bool(action.get("_isSwift")) else 0.0
+    target_is_brutal = 1.0 if bool(action.get("_isBrutal")) else 0.0
+
+    # Attack target metadata (combined armor of declared targets)
+    target_armor = _as_number(action.get("_targetArmor"))
+
     return [
-        _scale(amount, 10.0),       # 0
-        is_powered,                  # 1
-        is_basic,                    # 2
-        is_sideways,                 # 3
-        _scale(target_dq, 10.0),     # 4
-        _scale(target_dr, 10.0),     # 5
-        _scale(num_mana, 5.0),       # 6
-        has_enemy_target,            # 7
-        has_card,                    # 8
-        has_unit,                    # 9
-        _scale(cost, 10.0),          # 10
-        is_end,                      # 11
-        *mana_color_oh,              # 12-17
-        keep_unit,                   # 18
-        _scale(choice_index, 5.0),   # 19
-        *attack_type_oh,             # 20-22
-        *element_oh,                 # 23-27
-        _scale(num_targets, 5.0),    # 28
+        _scale(amount, 10.0),              # 0
+        is_powered,                         # 1
+        is_basic,                           # 2
+        is_sideways,                        # 3
+        _scale(target_dq, 10.0),            # 4
+        _scale(target_dr, 10.0),            # 5
+        _scale(num_mana, 5.0),              # 6
+        has_enemy_target,                   # 7
+        has_card,                           # 8
+        has_unit,                           # 9
+        _scale(cost, 10.0),                 # 10
+        is_end,                             # 11
+        *mana_color_oh,                     # 12-17
+        keep_unit,                          # 18
+        _scale(choice_index, 5.0),          # 19
+        *attack_type_oh,                    # 20-22
+        *element_oh,                        # 23-27
+        _scale(num_targets, 5.0),           # 28
+        _scale(required_block, 20.0),       # 29
+        _scale(target_enemy_attack, 10.0),  # 30
+        target_is_swift,                    # 31
+        target_is_brutal,                   # 32
+        _scale(target_armor, 20.0),         # 33
     ]
 
 

@@ -28,6 +28,7 @@ ACTION_DEBUG_TRIGGER_LEVEL_UP = "DEBUG_TRIGGER_LEVEL_UP"
 ACTION_DECLARE_ATTACK = "DECLARE_ATTACK"
 ACTION_DECLARE_ATTACK_TARGETS = "DECLARE_ATTACK_TARGETS"
 ACTION_DECLARE_BLOCK = "DECLARE_BLOCK"
+ACTION_DECLARE_BLOCK_TARGET = "DECLARE_BLOCK_TARGET"
 ACTION_DECLARE_REST = "DECLARE_REST"
 ACTION_DECLINE_PLUNDER = "DECLINE_PLUNDER"
 ACTION_DISBAND_UNIT = "DISBAND_UNIT"
@@ -37,6 +38,7 @@ ACTION_ENTER_COMBAT = "ENTER_COMBAT"
 ACTION_ENTER_SITE = "ENTER_SITE"
 ACTION_EXPLORE = "EXPLORE"
 ACTION_FINALIZE_ATTACK = "FINALIZE_ATTACK"
+ACTION_FINALIZE_BLOCK = "FINALIZE_BLOCK"
 ACTION_INTERACT = "INTERACT"
 ACTION_LEARN_ADVANCED_ACTION = "LEARN_ADVANCED_ACTION"
 ACTION_MOVE = "MOVE"
@@ -188,7 +190,7 @@ def enumerate_valid_actions_from_state(state: dict[str, Any], player_id: str) ->
         return actions
 
     if mode == MODE_COMBAT:
-        actions.extend(_actions_combat(valid_actions))
+        actions.extend(_actions_combat(state, valid_actions))
         return actions
 
     if mode == MODE_NORMAL_TURN:
@@ -682,7 +684,7 @@ def _actions_use_skills(valid_actions: dict[str, Any], source_prefix: str) -> li
     return actions
 
 
-def _actions_combat(valid_actions: dict[str, Any]) -> list[CandidateAction]:
+def _actions_combat(state: dict[str, Any], valid_actions: dict[str, Any]) -> list[CandidateAction]:
     actions: list[CandidateAction] = []
     combat = _as_dict(valid_actions.get("combat"))
     if combat is None:
@@ -857,17 +859,28 @@ def _actions_combat(valid_actions: dict[str, Any]) -> list[CandidateAction]:
             actions.append(CandidateAction(action, "combat.banner_fear"))
 
     if bool(combat.get("canDeclareTargets")):
+        # Build enemy lookup for armor enrichment
+        combat_enemies = state.get("combat", {}).get("enemies", [])
+        armor_map: dict[str, int] = {}
+        for e in (combat_enemies if isinstance(combat_enemies, list) else []):
+            if isinstance(e, dict):
+                eid = e.get("instanceId")
+                if isinstance(eid, str):
+                    armor_map[eid] = e.get("armor", 0)
+
         target_options = _as_list(combat.get("declareTargetOptions"))
         target_ids = [_as_str(t) for t in target_options]
         target_ids = [t for t in target_ids if t is not None]
         if target_ids:
             for size in range(1, len(target_ids) + 1):
                 for combo in combinations(target_ids, size):
+                    total_armor = sum(armor_map.get(t, 0) for t in combo)
                     actions.append(
                         CandidateAction(
                             {
                                 "type": ACTION_DECLARE_ATTACK_TARGETS,
                                 "targetEnemyInstanceIds": list(combo),
+                                "_targetArmor": total_armor,
                             },
                             "combat.declare_targets",
                         )
@@ -878,6 +891,33 @@ def _actions_combat(valid_actions: dict[str, Any]) -> list[CandidateAction]:
             CandidateAction(
                 {"type": ACTION_FINALIZE_ATTACK},
                 "combat.finalize_attack",
+            )
+        )
+
+    if bool(combat.get("canDeclareBlockTarget")):
+        for option in _as_list(combat.get("declareBlockTargetOptions")):
+            payload = _as_dict(option)
+            if payload is None:
+                continue
+            enemy = _as_str(payload.get("enemyInstanceId"))
+            if enemy is None:
+                continue
+            action: dict[str, Any] = {"type": ACTION_DECLARE_BLOCK_TARGET, "targetEnemyInstanceId": enemy}
+            attack_index = payload.get("attackIndex")
+            if isinstance(attack_index, int):
+                action["attackIndex"] = attack_index
+            # Attach block metadata for encoder
+            action["_requiredBlock"] = payload.get("requiredBlock", 0)
+            action["_enemyAttack"] = payload.get("enemyAttack", 0)
+            action["_isSwift"] = payload.get("isSwift", False)
+            action["_isBrutal"] = payload.get("isBrutal", False)
+            actions.append(CandidateAction(action, "combat.declare_block_target"))
+
+    if bool(combat.get("canFinalizeBlock")):
+        actions.append(
+            CandidateAction(
+                {"type": ACTION_FINALIZE_BLOCK},
+                "combat.finalize_block",
             )
         )
 
