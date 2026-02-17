@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterator
 
@@ -352,17 +352,7 @@ def _make_worker_policy(
     weights: dict[str, torch.Tensor],
 ) -> ReinforcePolicy:
     """Create a CPU-only policy with loaded weights for a worker process."""
-    worker_config = PolicyGradientConfig(
-        gamma=policy_config.gamma,
-        learning_rate=policy_config.learning_rate,
-        entropy_coefficient=policy_config.entropy_coefficient,
-        critic_coefficient=policy_config.critic_coefficient,
-        hidden_size=policy_config.hidden_size,
-        normalize_returns=policy_config.normalize_returns,
-        device="cpu",
-        embedding_dim=policy_config.embedding_dim,
-        use_embeddings=policy_config.use_embeddings,
-    )
+    worker_config = PolicyGradientConfig(**{**asdict(policy_config), "device": "cpu"})
     policy = ReinforcePolicy(worker_config)
     policy.set_weights(weights)
     return policy
