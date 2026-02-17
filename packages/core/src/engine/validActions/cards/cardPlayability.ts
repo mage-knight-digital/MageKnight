@@ -48,6 +48,7 @@ import { getSidewaysOptionsForValue, getSidewaysContext, canPlaySideways } from 
 import type { SidewaysContext } from "../../rules/sideways.js";
 import { canPayForSpellBasic, findPayableManaColor, computePoweredManaOptions } from "./manaPayment.js";
 import { getCard } from "../../helpers/cardLookup.js";
+import { getEffectCategories, isMovementOnlyCategories } from "../../helpers/cardCategoryHelpers.js";
 import type { CardEffectKind } from "../../helpers/cardCategoryHelpers.js";
 
 // ============================================================================
@@ -409,7 +410,15 @@ function evaluateNormalEffectMode(
   const effect = effectKind === "basic" ? card.basicEffect : card.poweredEffect;
 
   // Check if effect type is allowed on normal turn
-  const allowed = isNormalEffectAllowed(effect, effectKind);
+  let allowed = isNormalEffectAllowed(effect, effectKind);
+
+  // Suppress movement-only cards when player can no longer move (e.g. after site interaction)
+  if (allowed && ctx.hasTakenActionThisTurn) {
+    const categories = getEffectCategories(card, effectKind);
+    if (isMovementOnlyCategories(categories)) {
+      allowed = false;
+    }
+  }
 
   // Check resolvability
   let resolvable = isEffectResolvable(resolvabilityState, player.id, effect);
