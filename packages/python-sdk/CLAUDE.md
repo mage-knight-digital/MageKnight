@@ -10,9 +10,9 @@ The python-sdk is a Python WebSocket client for Mage Knight's multiplayer protoc
 
 ```bash
 cd packages/python-sdk
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-python3 -m pip install -e .
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python3 -m pip install -e ".[rl,viewer]"
 ```
 
 ### Common Commands
@@ -28,7 +28,7 @@ python3 -m unittest tests.test_client
 python3 -m unittest tests.test_client.MageKnightClientUnitTest.test_send_lobby_subscribe_omits_null_session_token
 
 # Regenerate protocol models from schemas (run when shared schemas change)
-source venv/bin/activate
+source .venv/bin/activate
 python3 scripts/generate_protocol_models.py
 
 # Check integration with server (requires local Mage Knight server running on port 3001)
@@ -236,7 +236,7 @@ python3 scripts/generate_action_enumerator.py
 ## Key Gotchas
 
 ### Virtual Environment
-- Always activate the venv before running tests or scripts: `source venv/bin/activate`
+- Always activate the venv before running tests or scripts: `source .venv/bin/activate`
 - Tests import from the monorepo root to access shared schemas for code generation
 
 ### Protocol Version Mismatch

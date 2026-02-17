@@ -4,16 +4,14 @@
 cd "$(dirname "$0")/.."
 
 # Resolve the python interpreter from the venv
-if [ -x venv/bin/python3 ]; then
-  PY=venv/bin/python3
-elif [ -x .venv/bin/python3 ]; then
+if [ -x .venv/bin/python3 ]; then
   PY=.venv/bin/python3
 else
   PY=python3
 fi
 
 # Launch TensorBoard with warnings suppressed:
-#   -W ignore::UserWarning  — suppresses pkg_resources deprecation warning
+#   -W ignore::UserWarning  — suppresses pkg_resources deprecation warning (tensorboard 2.20 upstream issue)
 #   Monkey-patches global_init to suppress "TensorFlow not found" stderr print
 exec "$PY" -W "ignore::UserWarning" -c "
 import sys

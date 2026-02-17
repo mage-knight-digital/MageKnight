@@ -2,10 +2,8 @@
 # Import training_log.ndjson into TensorBoard format (requires: pip install -e ".[rl]")
 # Usage: bun run import-tb -- /tmp/rl-run/training_log.ndjson
 cd "$(dirname "$0")/.."
-if [ -x .venv/bin/python ]; then
-  exec .venv/bin/python -m mage_knight_sdk.tools.import_tensorboard "$@"
-elif [ -x venv/bin/python ]; then
-  exec venv/bin/python -m mage_knight_sdk.tools.import_tensorboard "$@"
+if [ -x .venv/bin/python3 ]; then
+  exec .venv/bin/python3 -m mage_knight_sdk.tools.import_tensorboard "$@"
 else
   exec python3 -m mage_knight_sdk.tools.import_tensorboard "$@"
 fi

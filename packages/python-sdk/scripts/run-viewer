@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Start the sim artifact viewer (requires: pip install -e ".[viewer]")
 cd "$(dirname "$0")/.."
-if [ -x .venv/bin/python ]; then
-  exec .venv/bin/python -m mage_knight_sdk.viewer "$@"
+if [ -x .venv/bin/python3 ]; then
+  exec .venv/bin/python3 -m mage_knight_sdk.viewer "$@"
 else
   exec python3 -m mage_knight_sdk.viewer "$@"
 fi
