@@ -1,0 +1,149 @@
+.activity-feed {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 240px;
+  max-height: 50vh;
+  z-index: 250;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.2s ease;
+  opacity: 0.5;
+}
+
+.activity-feed:hover {
+  opacity: 1;
+}
+
+.activity-feed__toggle {
+  position: absolute;
+  top: -24px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px 4px 0 0;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  pointer-events: auto;
+  font-family: inherit;
+}
+
+.activity-feed__toggle:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.activity-feed--collapsed {
+  opacity: 0.3;
+}
+
+.activity-feed--collapsed .activity-feed__messages {
+  display: none;
+}
+
+.activity-feed__messages {
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  padding: 6px 0;
+  overflow-y: auto;
+  max-height: 50vh;
+  pointer-events: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.activity-feed__messages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.activity-feed__messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.activity-feed__messages::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+/* Individual message */
+.activity-feed__msg {
+  padding: 2px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.85);
+  animation: feed-fade-in 0.3s ease;
+}
+
+@keyframes feed-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Turn boundary separator */
+.activity-feed__msg--boundary {
+  text-align: center;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.5);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: 4px;
+  padding-top: 5px;
+}
+
+/* Category colors */
+.activity-feed__msg--movement {
+  color: #6cb4ee;
+}
+
+.activity-feed__msg--combat {
+  color: #e86a6a;
+}
+
+.activity-feed__msg--cards {
+  color: #7dd87d;
+}
+
+.activity-feed__msg--progression {
+  color: #f0c460;
+}
+
+.activity-feed__msg--health {
+  color: #e86a6a;
+}
+
+.activity-feed__msg--units {
+  color: #b88ae8;
+}
+
+.activity-feed__msg--sites {
+  color: #d4a56a;
+}
+
+.activity-feed__msg--lifecycle {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.activity-feed__msg--tactics {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Empty state */
+.activity-feed__empty {
+  padding: 8px 10px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}

@@ -54,6 +54,15 @@ export function ReplayControls() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // Set document title to artifact name for easy identification
+  const artifactName = replay?.artifactName;
+  useEffect(() => {
+    if (artifactName) {
+      document.title = `Replay: ${artifactName}`;
+      return () => { document.title = "Mage Knight"; };
+    }
+  }, [artifactName]);
+
   // Self-suppress when not in replay mode
   if (!replay) return null;
 
@@ -135,6 +144,11 @@ export function ReplayControls() {
           <span className="replay-controls__seed" title="Seed">
             seed: {runMetadata.seed}
           </span>
+          {artifactName && (
+            <span className="replay-controls__artifact-name" title={artifactName}>
+              {artifactName}
+            </span>
+          )}
         </div>
       </div>
     </div>

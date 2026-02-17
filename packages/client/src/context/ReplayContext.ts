@@ -16,6 +16,8 @@ export interface ReplayContextValue {
     steps: number;
     reason?: string;
   };
+  /** Name/filename of the loaded artifact */
+  artifactName?: string;
   /** Go to a specific frame */
   goToFrame: (index: number) => void;
   /** Step forward one frame */

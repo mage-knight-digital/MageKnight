@@ -129,3 +129,13 @@
   font-size: 0.8rem;
   color: #888;
 }
+
+.replay-controls__artifact-name {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #4ecdc4;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

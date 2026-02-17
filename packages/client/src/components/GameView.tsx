@@ -30,6 +30,7 @@ import { LevelUpRewardSelection } from "./Overlays/LevelUpRewardSelection";
 import { CombatOverlay, PixiCombatOverlay } from "./Combat";
 import { OfferView, type OfferPane } from "./OfferView";
 import { ReplayControls } from "./Replay";
+import { ActivityFeed } from "./ActivityFeed/ActivityFeed";
 
 export function GameView() {
   const { state } = useGame();
@@ -143,6 +144,7 @@ export function GameView() {
         </div>
       </main>
 
+      <ActivityFeed />
       <PlayerHand onOfferViewChange={handleOfferViewChange} />
       <TurnActions />
       <ReplayControls />

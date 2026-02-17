@@ -97,10 +97,12 @@ export function App() {
   // Replay mode state
   const [replayArtifact, setReplayArtifact] = useState<ArtifactData | null>(null);
   const [replayPlayerId, setReplayPlayerId] = useState<string | null>(null);
+  const [replayArtifactName, setReplayArtifactName] = useState<string | null>(null);
 
-  const handleReplayLoad = useCallback((artifact: ArtifactData, playerId: string) => {
+  const handleReplayLoad = useCallback((artifact: ArtifactData, playerId: string, artifactName: string) => {
     setReplayArtifact(artifact);
     setReplayPlayerId(playerId);
+    setReplayArtifactName(artifactName);
   }, []);
 
   const gameShell = (
@@ -132,7 +134,7 @@ export function App() {
       return <ReplayLoadScreen onLoad={handleReplayLoad} />;
     }
     return (
-      <ReplayProvider artifact={replayArtifact} playerId={replayPlayerId}>
+      <ReplayProvider artifact={replayArtifact} playerId={replayPlayerId} artifactName={replayArtifactName ?? undefined}>
         {gameShell}
       </ReplayProvider>
     );

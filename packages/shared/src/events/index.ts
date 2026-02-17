@@ -132,6 +132,9 @@ export * from "./banners.js";
 // Dummy player events
 export * from "./dummyPlayer.js";
 
+// Event narration (activity feed)
+export * from "./narrateEvent.js";
+
 // ============================================================================
 // IMPORT FOR UNION TYPE
 // ============================================================================

@@ -309,6 +309,7 @@ export function createActivateUnitCommand(
             abilityUsed: ability.type,
             abilityValue: 0, // Effect-based abilities don't have simple values
             element: ability.element ?? ELEMENT_PHYSICAL,
+            abilityDisplayName: ability.displayName,
           },
         ];
 
@@ -609,6 +610,7 @@ export function createActivateUnitCommand(
           abilityUsed: ability.type,
           abilityValue,
           element: ability.element ?? ELEMENT_PHYSICAL,
+          abilityDisplayName: ability.displayName,
         },
       ];
 

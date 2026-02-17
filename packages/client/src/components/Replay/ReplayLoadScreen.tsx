@@ -11,7 +11,7 @@ interface ArtifactListEntry {
 }
 
 interface ReplayLoadScreenProps {
-  onLoad: (artifact: ArtifactData, playerId: string) => void;
+  onLoad: (artifact: ArtifactData, playerId: string, artifactName: string) => void;
 }
 
 function formatSize(bytes: number): string {
@@ -119,10 +119,10 @@ export function ReplayLoadScreen({ onLoad }: ReplayLoadScreenProps) {
   }, [loadArtifactData]);
 
   const handleStart = useCallback(() => {
-    if (artifact && selectedPlayer) {
-      onLoad(artifact, selectedPlayer);
+    if (artifact && selectedPlayer && fileName) {
+      onLoad(artifact, selectedPlayer, fileName);
     }
-  }, [artifact, selectedPlayer, onLoad]);
+  }, [artifact, selectedPlayer, fileName, onLoad]);
 
   return (
     <div className="replay-load-screen">

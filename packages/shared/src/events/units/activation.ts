@@ -51,6 +51,8 @@ export interface UnitActivatedEvent {
   readonly abilityValue: number;
   /** Element of the ability (for attack/block) */
   readonly element: Element;
+  /** Human-readable display name for effect-type abilities */
+  readonly abilityDisplayName?: string;
 }
 
 /**

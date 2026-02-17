@@ -6,7 +6,7 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
-import type { ClientGameState } from "@mage-knight/shared";
+import type { ClientGameState, GameEvent } from "@mage-knight/shared";
 import { GameContext, type GameContextValue } from "./GameContext";
 import { ReplayContext, type ReplayContextValue } from "./ReplayContext";
 
@@ -42,6 +42,7 @@ export interface ArtifactData {
 
 interface ReplayFrame {
   state: ClientGameState;
+  events: readonly GameEvent[];
 }
 
 function extractFrames(artifact: ArtifactData, playerId: string): ReplayFrame[] {
@@ -52,7 +53,10 @@ function extractFrames(artifact: ArtifactData, playerId: string): ReplayFrame[] 
       entry.message_type === "state_update" &&
       entry.payload?.state
     ) {
-      frames.push({ state: entry.payload.state });
+      frames.push({
+        state: entry.payload.state,
+        events: (entry.payload.events ?? []) as GameEvent[],
+      });
     }
   }
   return frames;
@@ -96,12 +100,13 @@ const NOOP_CLEAR_LOG = () => {};
 interface ReplayProviderProps {
   artifact: ArtifactData;
   playerId: string;
+  artifactName?: string;
   children: ReactNode;
 }
 
 export { SPEED_OPTIONS };
 
-export function ReplayProvider({ artifact, playerId, children }: ReplayProviderProps) {
+export function ReplayProvider({ artifact, playerId, artifactName, children }: ReplayProviderProps) {
   const frames = useMemo(
     () => extractFrames(artifact, playerId),
     [artifact, playerId]
@@ -161,10 +166,20 @@ export function ReplayProvider({ artifact, playerId, children }: ReplayProviderP
   // Build GameContext value from current frame
   const currentState = frames.length > 0 ? frames[frameIndex].state : null;
 
+  // Accumulate all events from frame 0 through current frame for the activity feed
+  const accumulatedEvents: readonly GameEvent[] = useMemo(() => {
+    if (frames.length === 0) return [];
+    const all: GameEvent[] = [];
+    for (let i = 0; i <= frameIndex; i++) {
+      all.push(...frames[i].events);
+    }
+    return all;
+  }, [frames, frameIndex]);
+
   const gameValue: GameContextValue = useMemo(
     () => ({
       state: currentState,
-      events: [],
+      events: accumulatedEvents,
       sendAction: NOOP_SEND_ACTION,
       myPlayerId: playerId,
       saveGame: NOOP_SAVE_GAME,
@@ -174,7 +189,7 @@ export function ReplayProvider({ artifact, playerId, children }: ReplayProviderP
       isActionLogEnabled: false,
       setActionLogEnabled: NOOP_CLEAR_LOG,
     }),
-    [currentState, playerId]
+    [currentState, accumulatedEvents, playerId]
   );
 
   // Build ReplayContext value
@@ -190,6 +205,7 @@ export function ReplayProvider({ artifact, playerId, children }: ReplayProviderP
         steps: artifact.run.steps,
         reason: artifact.run.reason,
       },
+      artifactName,
       goToFrame,
       stepForward,
       stepBack,
@@ -202,6 +218,7 @@ export function ReplayProvider({ artifact, playerId, children }: ReplayProviderP
       isPlaying,
       speed,
       artifact.run,
+      artifactName,
       goToFrame,
       stepForward,
       stepBack,

@@ -4593,6 +4593,10 @@
       "additionalProperties": false,
       "description": "Emitted when a unit's ability is activated.\n\nUnits provide attack, block, or other abilities.",
       "properties": {
+        "abilityDisplayName": {
+          "description": "Human-readable display name for effect-type abilities",
+          "type": "string"
+        },
         "abilityUsed": {
           "$ref": "#/definitions/UnitAbilityType",
           "description": "Type of ability used"
