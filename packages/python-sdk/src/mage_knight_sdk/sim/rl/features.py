@@ -43,7 +43,7 @@ FEATURE_DIM = (
 STATE_SCALAR_DIM = 76
 ACTION_SCALAR_DIM = 34
 SITE_SCALAR_DIM = 6   # per-site scalars for map pool
-ENEMY_HEX_SCALAR_DIM = 5  # per-hex scalars for enemy pool
+MAP_ENEMY_SCALAR_DIM = 11  # per-enemy scalars for map enemy pool
 COMBAT_ENEMY_SCALAR_DIM = 20  # per-enemy scalars for combat pool
 
 # Canonical neighbor direction offsets in axial coords (E, NE, NW, W, SW, SE)
@@ -59,6 +59,7 @@ _COMBAT_PHASES: tuple[str, ...] = (
 # Mana color order for per-color features
 _MANA_COLORS: tuple[str, ...] = ("red", "blue", "green", "white", "gold", "black")
 _CRYSTAL_COLORS: tuple[str, ...] = ("red", "blue", "green", "white")
+_ENEMY_COLORS: tuple[str, ...] = ("green", "gray", "brown", "violet", "red", "white")
 
 # Attack type and element constants for one-hot encoding
 _ATTACK_TYPES: tuple[str, ...] = ("normal", "ranged", "siege")
@@ -92,7 +93,8 @@ class StateFeatures:
     # Full map visibility (variable-length, mean-pooled in network)
     visible_site_ids: list[int]             # SITE_VOCAB index per visible site
     visible_site_scalars: list[list[float]] # SITE_SCALAR_DIM floats per site
-    enemy_hex_scalars: list[list[float]]    # ENEMY_HEX_SCALAR_DIM floats per hex
+    map_enemy_ids: list[int]                # ENEMY_VOCAB indices per map enemy
+    map_enemy_scalars: list[list[float]]    # MAP_ENEMY_SCALAR_DIM floats per map enemy
 
 
 @dataclass(frozen=True)
@@ -145,7 +147,8 @@ def encode_step(
         skill_ids: list[int] = []
         visible_site_ids: list[int] = []
         visible_site_scalars: list[list[float]] = []
-        enemy_hex_scalars: list[list[float]] = []
+        map_enemy_ids: list[int] = []
+        map_enemy_scalars: list[list[float]] = []
     else:
         pq, pr = _player_position(player)
         hexes = _get_hexes(state)
@@ -175,7 +178,7 @@ def encode_step(
 
         # Full map pools
         visible_site_ids, visible_site_scalars = _extract_visible_sites(hexes, pq, pr)
-        enemy_hex_scalars = _extract_enemy_hexes(hexes, pq, pr)
+        map_enemy_ids, map_enemy_scalars = _extract_map_enemies(hexes, pq, pr)
 
     state_features = StateFeatures(
         scalars=scalars,
@@ -189,7 +192,8 @@ def encode_step(
         skill_ids=skill_ids,
         visible_site_ids=visible_site_ids,
         visible_site_scalars=visible_site_scalars,
-        enemy_hex_scalars=enemy_hex_scalars,
+        map_enemy_ids=map_enemy_ids,
+        map_enemy_scalars=map_enemy_scalars,
     )
 
     # --- Per-candidate action features ---
@@ -724,28 +728,22 @@ def _extract_visible_sites(
     return site_ids, site_scalars
 
 
-def _extract_enemy_hexes(
+def _extract_map_enemies(
     hexes: dict[str, Any],
     pq: int,
     pr: int,
-) -> list[list[float]]:
-    """Extract all hexes with enemies (not in active combat).
+) -> tuple[list[int], list[list[float]]]:
+    """Extract all individual map enemies (not in active combat).
 
-    Returns list of [distance, dq, dr, enemy_count, is_rampaging] per hex.
+    Returns (enemy_ids, enemy_scalars) where each enemy has:
+    - enemy_id: ENEMY_VOCAB index (0 for unrevealed)
+    - scalars: [color_one_hot×6, distance, dq, dr, is_revealed, is_rampaging]
     """
-    result: list[list[float]] = []
+    enemy_ids: list[int] = []
+    enemy_scalars: list[list[float]] = []
 
     for _key, hex_obj in hexes.items():
         if not isinstance(hex_obj, dict):
-            continue
-
-        enemies = hex_obj.get("enemies")
-        rampaging = hex_obj.get("rampagingEnemies")
-        enemy_count = len(enemies) if isinstance(enemies, list) else 0
-        ramp_count = len(rampaging) if isinstance(rampaging, list) else 0
-        total = enemy_count + ramp_count
-
-        if total == 0:
             continue
 
         coord = hex_obj.get("coord")
@@ -758,15 +756,53 @@ def _extract_enemy_hexes(
         dq = float(hq - pq)
         dr = float(hr - pr)
 
-        result.append([
-            _scale(dist, 15.0),
-            _scale(dq, 10.0),
-            _scale(dr, 10.0),
-            _scale(float(total), 5.0),
-            1.0 if ramp_count > 0 else 0.0,
-        ])
+        # Stationary enemies (ClientHexEnemy objects with color/isRevealed/tokenId)
+        enemies = hex_obj.get("enemies")
+        if isinstance(enemies, list):
+            for enemy in enemies:
+                if not isinstance(enemy, dict):
+                    continue
+                color = enemy.get("color")
+                color_str = color if isinstance(color, str) else ""
+                color_oh = [1.0 if color_str == c else 0.0 for c in _ENEMY_COLORS]
 
-    return result
+                is_revealed = 1.0 if bool(enemy.get("isRevealed")) else 0.0
+                token_id = enemy.get("tokenId")
+                eid = ENEMY_VOCAB.encode(token_id) if isinstance(token_id, str) else 0
+
+                enemy_ids.append(eid)
+                enemy_scalars.append([
+                    *color_oh,                  # 0-5
+                    _scale(dist, 15.0),         # 6
+                    _scale(dq, 10.0),           # 7
+                    _scale(dr, 10.0),           # 8
+                    is_revealed,                # 9
+                    0.0,                        # 10: is_rampaging
+                ])
+
+        # Rampaging enemies (string IDs, always revealed, always rampaging)
+        rampaging = hex_obj.get("rampagingEnemies")
+        if isinstance(rampaging, list):
+            for ramp_enemy in rampaging:
+                if isinstance(ramp_enemy, str):
+                    eid = ENEMY_VOCAB.encode(ramp_enemy)
+                elif isinstance(ramp_enemy, dict):
+                    ramp_id = ramp_enemy.get("id")
+                    eid = ENEMY_VOCAB.encode(ramp_id) if isinstance(ramp_id, str) else 0
+                else:
+                    continue
+
+                enemy_ids.append(eid)
+                enemy_scalars.append([
+                    *([0.0] * 6),               # 0-5: no color for rampaging (embedding has it)
+                    _scale(dist, 15.0),         # 6
+                    _scale(dq, 10.0),           # 7
+                    _scale(dr, 10.0),           # 8
+                    1.0,                        # 9: is_revealed (always)
+                    1.0,                        # 10: is_rampaging
+                ])
+
+    return enemy_ids, enemy_scalars
 
 
 # ============================================================================

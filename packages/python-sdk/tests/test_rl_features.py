@@ -7,7 +7,7 @@ from mage_knight_sdk.sim.generated_action_enumerator import CandidateAction
 from mage_knight_sdk.sim.rl.features import (
     ACTION_SCALAR_DIM,
     COMBAT_ENEMY_SCALAR_DIM,
-    ENEMY_HEX_SCALAR_DIM,
+    MAP_ENEMY_SCALAR_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
     ActionFeatures,
@@ -160,7 +160,9 @@ def _make_state() -> dict:
                     "coord": {"q": 1, "r": 0},
                     "terrain": "forest",
                     "site": {"type": "village", "isConquered": False},
-                    "enemies": [{"id": "diggers", "armor": 3, "attack": 2}],
+                    "enemies": [
+                        {"color": "green", "isRevealed": True, "tokenId": "diggers"},
+                    ],
                 },
                 "0,-1": {
                     "coord": {"q": 0, "r": -1},
@@ -174,7 +176,7 @@ def _make_state() -> dict:
                 "-1,0": {
                     "coord": {"q": -1, "r": 0},
                     "terrain": "swamp",
-                    "rampagingEnemies": [{"id": "wolf_riders", "armor": 4, "attack": 3}],
+                    "rampagingEnemies": ["wolf_riders"],
                 },
                 "2,0": {
                     "coord": {"q": 2, "r": 0},
@@ -333,12 +335,13 @@ class EncodeStepTest(unittest.TestCase):
         for scalars in result.state.visible_site_scalars:
             self.assertEqual(len(scalars), SITE_SCALAR_DIM)
 
-    def test_enemy_hexes(self) -> None:
+    def test_map_enemies(self) -> None:
         result = encode_step(_make_state(), "player-1", _make_candidates())
-        # 2 hexes with enemies: (1,0) has enemies, (-1,0) has rampagingEnemies
-        self.assertEqual(len(result.state.enemy_hex_scalars), 2)
-        for scalars in result.state.enemy_hex_scalars:
-            self.assertEqual(len(scalars), ENEMY_HEX_SCALAR_DIM)
+        # 2 map enemies: diggers at (1,0), wolf_riders rampaging at (-1,0)
+        self.assertEqual(len(result.state.map_enemy_ids), 2)
+        self.assertEqual(len(result.state.map_enemy_scalars), 2)
+        for scalars in result.state.map_enemy_scalars:
+            self.assertEqual(len(scalars), MAP_ENEMY_SCALAR_DIM)
 
     def test_empty_map(self) -> None:
         """No sites and no enemies → empty pools."""
@@ -349,7 +352,8 @@ class EncodeStepTest(unittest.TestCase):
         result = encode_step(state, "player-1", _make_candidates())
         self.assertEqual(result.state.visible_site_ids, [])
         self.assertEqual(result.state.visible_site_scalars, [])
-        self.assertEqual(result.state.enemy_hex_scalars, [])
+        self.assertEqual(result.state.map_enemy_ids, [])
+        self.assertEqual(result.state.map_enemy_scalars, [])
 
     def test_action_features_card_id(self) -> None:
         result = encode_step(_make_state(), "player-1", _make_candidates())
@@ -390,7 +394,8 @@ class EncodeStepTest(unittest.TestCase):
         self.assertEqual(result.state.skill_ids, [])
         self.assertEqual(result.state.visible_site_ids, [])
         self.assertEqual(result.state.visible_site_scalars, [])
-        self.assertEqual(result.state.enemy_hex_scalars, [])
+        self.assertEqual(result.state.map_enemy_ids, [])
+        self.assertEqual(result.state.map_enemy_scalars, [])
 
     def test_mana_source_features(self) -> None:
         """Verify mana source dice are captured in scalars."""
@@ -405,6 +410,96 @@ class EncodeStepTest(unittest.TestCase):
         self.assertEqual(mana_source[3], 1.0)  # green
         self.assertEqual(mana_source[4], 0.0)  # white
         self.assertEqual(mana_source[5], 0.0)  # gold
+
+    def test_map_enemies_unrevealed(self) -> None:
+        """Unrevealed enemy: color one-hot set, enemy_id=0, is_revealed=0."""
+        state = _make_state()
+        state["map"]["hexes"] = {
+            "0,0": {"coord": {"q": 0, "r": 0}, "terrain": "plains"},
+            "1,0": {
+                "coord": {"q": 1, "r": 0},
+                "terrain": "forest",
+                "enemies": [
+                    {"color": "brown", "isRevealed": False},
+                ],
+            },
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        self.assertEqual(len(result.state.map_enemy_ids), 1)
+        self.assertEqual(result.state.map_enemy_ids[0], 0)  # UNK — no tokenId
+        scalars = result.state.map_enemy_scalars[0]
+        # color one-hot: brown is index 2
+        self.assertEqual(scalars[0], 0.0)  # green
+        self.assertEqual(scalars[1], 0.0)  # gray
+        self.assertEqual(scalars[2], 1.0)  # brown
+        self.assertEqual(scalars[3], 0.0)  # violet
+        self.assertEqual(scalars[4], 0.0)  # red
+        self.assertEqual(scalars[5], 0.0)  # white
+        self.assertEqual(scalars[9], 0.0)  # is_revealed = False
+        self.assertEqual(scalars[10], 0.0)  # is_rampaging = False
+
+    def test_map_enemies_revealed(self) -> None:
+        """Revealed enemy: correct enemy_id + color one-hot."""
+        state = _make_state()
+        state["map"]["hexes"] = {
+            "0,0": {"coord": {"q": 0, "r": 0}, "terrain": "plains"},
+            "1,0": {
+                "coord": {"q": 1, "r": 0},
+                "terrain": "forest",
+                "enemies": [
+                    {"color": "green", "isRevealed": True, "tokenId": "diggers"},
+                ],
+            },
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        self.assertEqual(len(result.state.map_enemy_ids), 1)
+        self.assertEqual(result.state.map_enemy_ids[0], ENEMY_VOCAB.encode("diggers"))
+        self.assertGreater(result.state.map_enemy_ids[0], 0)
+        scalars = result.state.map_enemy_scalars[0]
+        # color one-hot: green is index 0
+        self.assertEqual(scalars[0], 1.0)  # green
+        self.assertEqual(scalars[1], 0.0)  # gray
+        self.assertEqual(scalars[9], 1.0)  # is_revealed = True
+        self.assertEqual(scalars[10], 0.0)  # is_rampaging = False
+
+    def test_map_enemies_rampaging(self) -> None:
+        """Rampaging enemy: enemy_id from string, is_rampaging=1, color all-zeros."""
+        state = _make_state()
+        state["map"]["hexes"] = {
+            "0,0": {"coord": {"q": 0, "r": 0}, "terrain": "plains"},
+            "-1,0": {
+                "coord": {"q": -1, "r": 0},
+                "terrain": "swamp",
+                "rampagingEnemies": ["wolf_riders"],
+            },
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        self.assertEqual(len(result.state.map_enemy_ids), 1)
+        self.assertEqual(result.state.map_enemy_ids[0], ENEMY_VOCAB.encode("wolf_riders"))
+        scalars = result.state.map_enemy_scalars[0]
+        # color one-hot: all zeros for rampaging
+        for i in range(6):
+            self.assertEqual(scalars[i], 0.0, f"color_oh[{i}] should be 0.0 for rampaging")
+        self.assertEqual(scalars[9], 1.0)  # is_revealed = True (rampaging always revealed)
+        self.assertEqual(scalars[10], 1.0)  # is_rampaging = True
+
+    def test_map_enemies_empty(self) -> None:
+        """No enemies on map → empty lists."""
+        state = _make_state()
+        state["map"]["hexes"] = {
+            "0,0": {"coord": {"q": 0, "r": 0}, "terrain": "plains"},
+            "1,0": {"coord": {"q": 1, "r": 0}, "terrain": "forest"},
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        self.assertEqual(result.state.map_enemy_ids, [])
+        self.assertEqual(result.state.map_enemy_scalars, [])
+
+    def test_map_enemy_scalar_dimension(self) -> None:
+        """Each map enemy has MAP_ENEMY_SCALAR_DIM scalars."""
+        result = encode_step(_make_state(), "player-1", _make_candidates())
+        self.assertGreater(len(result.state.map_enemy_scalars), 0)
+        for scalars in result.state.map_enemy_scalars:
+            self.assertEqual(len(scalars), MAP_ENEMY_SCALAR_DIM)
 
     def test_neighbor_features_hex_exists(self) -> None:
         """Neighbors that exist should have hex_exists = 1.0."""

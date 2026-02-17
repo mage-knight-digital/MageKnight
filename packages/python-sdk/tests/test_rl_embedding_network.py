@@ -9,7 +9,8 @@ import torch
 
 from mage_knight_sdk.sim.generated_action_enumerator import CandidateAction
 from mage_knight_sdk.sim.rl.features import (
-    ENEMY_HEX_SCALAR_DIM,
+    COMBAT_ENEMY_SCALAR_DIM,
+    MAP_ENEMY_SCALAR_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
     encode_step,
@@ -44,7 +45,9 @@ def _make_state() -> dict:
                     "coord": {"q": 1, "r": 0},
                     "terrain": "forest",
                     "site": {"type": "village", "isConquered": False},
-                    "enemies": [{"id": "diggers", "armor": 3, "attack": 2}],
+                    "enemies": [
+                        {"color": "green", "isRevealed": True, "tokenId": "diggers"},
+                    ],
                 },
                 "0,-1": {
                     "coord": {"q": 0, "r": -1},
@@ -58,7 +61,7 @@ def _make_state() -> dict:
                 "-1,0": {
                     "coord": {"q": -1, "r": 0},
                     "terrain": "swamp",
-                    "rampagingEnemies": [{"id": "wolf_riders", "armor": 4, "attack": 3}],
+                    "rampagingEnemies": ["wolf_riders"],
                 },
             },
             "tiles": [{"revealed": True}],
@@ -162,17 +165,17 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         self.assertEqual(state_repr.shape, (64,))
 
     def test_state_input_dim(self) -> None:
-        """Verify the state input dimension matches expectations."""
+        """Verify the network's actual state input dimension matches formula."""
         emb_dim = 8
         expected_dim = (
             STATE_SCALAR_DIM
-            + 7 * emb_dim
+            + 6 * emb_dim
+            + (emb_dim + COMBAT_ENEMY_SCALAR_DIM)
             + (emb_dim + SITE_SCALAR_DIM)
-            + ENEMY_HEX_SCALAR_DIM
+            + (emb_dim + MAP_ENEMY_SCALAR_DIM)
         )
-        # Should be 76 + 56 + 14 + 5 = 151 with emb_dim=8
-        # (76 + 7*16 + 22 + 5 = 215 with emb_dim=16)
-        self.assertEqual(expected_dim, 76 + 7 * emb_dim + (emb_dim + 6) + 5)
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=emb_dim)
+        self.assertEqual(net.state_encoder[0].in_features, expected_dim)
 
     def test_encode_actions_returns_correct_shape(self) -> None:
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
@@ -250,6 +253,24 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
             "terrain": "plains",
             "site": {"type": "keep", "isConquered": False},
         }
+        step2 = encode_step(state2, "player-1", _make_candidates())
+        repr2 = net.encode_state(step2, device)
+
+        self.assertFalse(torch.allclose(repr1, repr2, atol=1e-6))
+
+    def test_map_enemy_pool_affects_state(self) -> None:
+        """Adding map enemies should change state encoding."""
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
+        device = torch.device("cpu")
+
+        # State with no rampaging enemies
+        state1 = _make_state()
+        del state1["map"]["hexes"]["-1,0"]["rampagingEnemies"]
+        step1 = encode_step(state1, "player-1", _make_candidates())
+        repr1 = net.encode_state(step1, device)
+
+        # State with rampaging enemy added
+        state2 = _make_state()
         step2 = encode_step(state2, "player-1", _make_candidates())
         repr2 = net.encode_state(step2, device)
 

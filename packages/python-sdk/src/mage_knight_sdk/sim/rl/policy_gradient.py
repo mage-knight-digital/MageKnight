@@ -12,7 +12,7 @@ from ..policy import Policy
 from .features import (
     ACTION_SCALAR_DIM,
     COMBAT_ENEMY_SCALAR_DIM,
-    ENEMY_HEX_SCALAR_DIM,
+    MAP_ENEMY_SCALAR_DIM,
     FEATURE_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
@@ -115,13 +115,13 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         # scalars(76) + 6×emb (mode, hand, units, terrain, site, skills)
         # + combat enemy pool (emb + COMBAT_ENEMY_SCALAR_DIM)
         # + visible sites pool (emb + SITE_SCALAR_DIM)
-        # + enemy hex pool (ENEMY_HEX_SCALAR_DIM)
+        # + map enemy pool (emb + MAP_ENEMY_SCALAR_DIM)
         state_input_dim = (
             STATE_SCALAR_DIM
             + 6 * emb_dim
             + (emb_dim + COMBAT_ENEMY_SCALAR_DIM)
             + (emb_dim + SITE_SCALAR_DIM)
-            + ENEMY_HEX_SCALAR_DIM
+            + (emb_dim + MAP_ENEMY_SCALAR_DIM)
         )
         self.state_encoder = nn.Sequential(
             nn.Linear(state_input_dim, hidden_size),
@@ -150,7 +150,7 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         self.register_buffer("_zero_emb", torch.zeros(emb_dim))
         self.register_buffer("_zero_combat_enemy_pool", torch.zeros(emb_dim + COMBAT_ENEMY_SCALAR_DIM))
         self.register_buffer("_zero_site_pool", torch.zeros(emb_dim + SITE_SCALAR_DIM))
-        self.register_buffer("_zero_enemy_pool", torch.zeros(ENEMY_HEX_SCALAR_DIM))
+        self.register_buffer("_zero_map_enemy_pool", torch.zeros(emb_dim + MAP_ENEMY_SCALAR_DIM))
 
     def encode_state(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
         """Encode state features into a single vector. Computed once per step."""
@@ -203,18 +203,20 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         else:
             visible_site_pool = self._zero_site_pool
 
-        # Full map: enemy hex pool (scalars only, mean-pooled)
-        if sf.enemy_hex_scalars:
-            enemy_hex_t = torch.tensor(sf.enemy_hex_scalars, dtype=torch.float32, device=device)  # (N, 5)
-            enemy_hex_pool = enemy_hex_t.mean(dim=0)  # (5,)
+        # Full map: per-enemy pool (shared enemy_emb + scalars, mean-pooled)
+        if sf.map_enemy_ids:
+            map_ids_t = torch.tensor(sf.map_enemy_ids, dtype=torch.long, device=device)
+            map_embs = self.enemy_emb(map_ids_t)  # (N, emb_dim) — shared with combat
+            map_scalar_t = torch.tensor(sf.map_enemy_scalars, dtype=torch.float32, device=device)  # (N, MAP_ENEMY_SCALAR_DIM)
+            map_enemy_pool = torch.cat([map_embs, map_scalar_t], dim=1).mean(dim=0)  # (emb_dim + MAP_ENEMY_SCALAR_DIM,)
         else:
-            enemy_hex_pool = self._zero_enemy_pool
+            map_enemy_pool = self._zero_map_enemy_pool
 
         state_input = torch.cat([
             scalars,
             mode_vec, hand_pool, unit_pool,
             terrain_vec, site_vec, combat_enemy_pool, skill_pool,
-            visible_site_pool, enemy_hex_pool,
+            visible_site_pool, map_enemy_pool,
         ])
         return self.state_encoder(state_input)
 
