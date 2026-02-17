@@ -26,6 +26,7 @@ import type {
   UnassignAttackOption,
   DamageAssignmentOption,
   AttackElement,
+  BlockOption,
 } from "@mage-knight/shared";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
@@ -120,6 +121,12 @@ interface EnemyCardData {
   assignableBlocks?: readonly AssignBlockOption[];
   unassignableBlocks?: readonly UnassignBlockOption[];
 
+  // Target-first block
+  isBlockStage1?: boolean;
+  isBlockStage2?: boolean;
+  blockTargetOption?: BlockOption;
+  declaredBlockTarget?: string;
+
   // Damage phase
   isDamagePhase?: boolean;
   damageOption?: DamageAssignmentOption;
@@ -131,6 +138,13 @@ interface EnemyCardData {
   assignableAttacks?: readonly AssignAttackOption[];
   unassignableAttacks?: readonly UnassignAttackOption[];
 
+  // Target-first attack
+  isAttackStage1?: boolean;
+  isAttackStage2?: boolean;
+  isSelectedAsAttackTarget?: boolean;
+  isTargetableForAttack?: boolean;
+  isDeclaredAttackTarget?: boolean;
+
   // State
   canDefeat?: boolean;
   useDragDrop?: boolean;
@@ -141,10 +155,12 @@ interface PixiEnemyCardProps {
   onEnemyClick?: (instanceId: string) => void;
   onAssignBlockIncremental?: (option: AssignBlockOption) => void;
   onUnassignBlock?: (option: UnassignBlockOption) => void;
-  onCommitBlock?: (enemyInstanceId: string) => void;
+  onDeclareBlockTarget?: (blockOption: BlockOption) => void;
+  onFinalizeBlock?: () => void;
   onAssignDamage?: (enemyInstanceId: string) => void;
   onAssignAttack?: (option: AssignAttackOption) => void;
   onUnassignAttack?: (option: UnassignAttackOption) => void;
+  onToggleAttackTarget?: (enemyInstanceId: string) => void;
 }
 
 // ============================================================================
@@ -324,10 +340,12 @@ export function PixiEnemyCard({
   onEnemyClick,
   onAssignBlockIncremental,
   onUnassignBlock,
-  onCommitBlock,
+  onDeclareBlockTarget,
+  onFinalizeBlock,
   onAssignDamage,
   onAssignAttack,
   onUnassignAttack,
+  onToggleAttackTarget,
 }: PixiEnemyCardProps) {
   const uniqueId = useId();
   const { app, overlayLayer } = usePixiApp();
@@ -341,20 +359,24 @@ export function PixiEnemyCard({
   const onEnemyClickRef = useRef(onEnemyClick);
   const onAssignBlockRef = useRef(onAssignBlockIncremental);
   const onUnassignBlockRef = useRef(onUnassignBlock);
-  const onCommitBlockRef = useRef(onCommitBlock);
+  const onDeclareBlockTargetRef = useRef(onDeclareBlockTarget);
+  const onFinalizeBlockRef = useRef(onFinalizeBlock);
   const onAssignDamageRef = useRef(onAssignDamage);
   const onAssignAttackRef = useRef(onAssignAttack);
   const onUnassignAttackRef = useRef(onUnassignAttack);
+  const onToggleAttackTargetRef = useRef(onToggleAttackTarget);
 
   // Update refs
   useEffect(() => {
     onEnemyClickRef.current = onEnemyClick;
     onAssignBlockRef.current = onAssignBlockIncremental;
     onUnassignBlockRef.current = onUnassignBlock;
-    onCommitBlockRef.current = onCommitBlock;
+    onDeclareBlockTargetRef.current = onDeclareBlockTarget;
+    onFinalizeBlockRef.current = onFinalizeBlock;
     onAssignDamageRef.current = onAssignDamage;
     onAssignAttackRef.current = onAssignAttack;
     onUnassignAttackRef.current = onUnassignAttack;
+    onToggleAttackTargetRef.current = onToggleAttackTarget;
   });
 
   // Build UI for a single enemy card
@@ -485,13 +507,40 @@ export function PixiEnemyCard({
       }
 
       // ========================================
+      // Block Stage 1: "Block (N)" target button
+      // ========================================
+      if (data.isBlockStage1 && data.blockTargetOption && !enemy.isDefeated && !enemy.isBlocked) {
+        const opt = data.blockTargetOption;
+        const label = `Block (${opt.requiredBlock})`;
+        const blockTargetBtn = createButton({
+          label,
+          width: CARD_WIDTH,
+          height: COMMIT_BTN_HEIGHT,
+          bgColor: COLORS.BTN_READY_BG,
+          textColor: COLORS.TEXT_PRIMARY,
+          onClick: () => onDeclareBlockTargetRef.current?.(opt),
+          fontSize: 12,
+          useLayout: true,
+        });
+        container.addChild(blockTargetBtn);
+      }
+
+      // ========================================
       // Block Allocation UI - LAYOUT MANAGED
       // ========================================
+      // In target-first flow: only show when this enemy is the declared target (Stage 2)
+      // Legacy fallback: show when no stage flags are present
+      const isBlockAllocationTarget = data.isBlockStage2
+        ? data.declaredBlockTarget === enemy.instanceId
+        : data.isBlockStage1
+          ? false // Stage 1 = no allocation yet
+          : true; // Legacy: no stage flags, show for all
       const showBlockAllocation =
         data.isBlockPhase &&
         data.enemyBlockState &&
         !enemy.isDefeated &&
-        !enemy.isBlocked;
+        !enemy.isBlocked &&
+        isBlockAllocationTarget;
 
       if (showBlockAllocation && data.enemyBlockState) {
         const blockState = data.enemyBlockState;
@@ -708,10 +757,13 @@ export function PixiEnemyCard({
           blockContent.addChild(controlsRow);
         }
 
-        // Commit button
+        // Commit/Finalize button
         if (hasPendingBlock) {
+          // In target-first flow (Stage 2): "Finalize Block" button
+          // Legacy: "Block Enemy" button
+          const isTargetFirst = data.isBlockStage2;
           const commitLabel = blockState.canBlock
-            ? "\u2713 Block Enemy"
+            ? isTargetFirst ? "\u2713 Finalize Block" : "\u2713 Block Enemy"
             : `Need ${blockState.requiredBlock - blockState.effectiveBlock} more`;
 
           const commitBtn = createButton({
@@ -720,7 +772,11 @@ export function PixiEnemyCard({
             height: COMMIT_BTN_HEIGHT,
             bgColor: blockState.canBlock ? COLORS.BTN_READY_BG : COLORS.BTN_DISABLED_BG,
             textColor: blockState.canBlock ? COLORS.TEXT_PRIMARY : COLORS.BTN_DISABLED_TEXT,
-            onClick: () => onCommitBlockRef.current?.(enemy.instanceId),
+            onClick: () => {
+              if (isTargetFirst) {
+                onFinalizeBlockRef.current?.();
+              }
+            },
             disabled: !blockState.canBlock,
             fontSize: 12,
             useLayout: true,
@@ -733,10 +789,35 @@ export function PixiEnemyCard({
       }
 
       // ========================================
+      // Attack Stage 1: "Target" toggle button
+      // ========================================
+      if (data.isAttackStage1 && data.isTargetableForAttack && !enemy.isDefeated) {
+        const isSelected = data.isSelectedAsAttackTarget ?? false;
+        const targetToggleBtn = createButton({
+          label: isSelected ? "\u2713 Targeted" : "Target",
+          width: CARD_WIDTH,
+          height: COMMIT_BTN_HEIGHT,
+          bgColor: isSelected ? COLORS.BTN_READY_BG : COLORS.CARD_BG,
+          textColor: isSelected ? COLORS.TEXT_PRIMARY : COLORS.TEXT_SECONDARY,
+          onClick: () => onToggleAttackTargetRef.current?.(enemy.instanceId),
+          fontSize: 12,
+          useLayout: true,
+        });
+        container.addChild(targetToggleBtn);
+      }
+
+      // ========================================
       // Attack Allocation UI - LAYOUT MANAGED
       // ========================================
+      // In target-first flow: only show when this enemy is a declared target (Stage 2)
+      // Legacy fallback: show when no stage flags are present
+      const isAttackAllocationTarget = data.isAttackStage2
+        ? (data.isDeclaredAttackTarget ?? false)
+        : data.isAttackStage1
+          ? false // Stage 1 = no allocation yet
+          : true; // Legacy: no stage flags, show for all
       const showAttackAllocation =
-        data.isAttackPhase && data.enemyAttackState && !enemy.isDefeated;
+        data.isAttackPhase && data.enemyAttackState && !enemy.isDefeated && isAttackAllocationTarget;
 
       if (showAttackAllocation && data.enemyAttackState) {
         const attackState = data.enemyAttackState;

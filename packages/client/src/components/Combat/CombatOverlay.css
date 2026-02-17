@@ -462,3 +462,79 @@
   background: radial-gradient(circle at 30% 30%, #505560, #252830);
 }
 
+/* ============================================================================
+   Target-First Combat Action Buttons
+   ============================================================================ */
+
+/* Shared base for all target-first action buttons */
+.combat-scene__declare-targets,
+.combat-scene__finalize-attack,
+.combat-scene__finalize-block {
+  position: fixed;
+  bottom: clamp(190px, 26vh, 290px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.6rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 160;
+  pointer-events: auto;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Declare Targets - bronze/attack accent */
+.combat-scene__declare-targets {
+  color: #fff;
+  background: linear-gradient(135deg, #a06030, #8b4513);
+  border: 2px solid rgba(184, 115, 51, 0.8);
+}
+
+.combat-scene__declare-targets:hover {
+  background: linear-gradient(135deg, #b87040, #9b5523);
+  box-shadow:
+    0 4px 20px rgba(184, 115, 51, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Finalize Attack - bronze/copper accent */
+.combat-scene__finalize-attack {
+  color: #fff;
+  background: linear-gradient(135deg, #b87333, #a06030);
+  border: 2px solid rgba(184, 115, 51, 0.9);
+  animation: combat-btn-pulse 2s ease-in-out infinite;
+}
+
+.combat-scene__finalize-attack:hover {
+  background: linear-gradient(135deg, #c88343, #b07040);
+  box-shadow:
+    0 4px 20px rgba(184, 115, 51, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Finalize Block - verdigris/defense accent */
+.combat-scene__finalize-block {
+  color: #fff;
+  background: linear-gradient(135deg, #2e6b5a, #1a4d3e);
+  border: 2px solid rgba(46, 107, 90, 0.9);
+  animation: combat-btn-pulse 2s ease-in-out infinite;
+}
+
+.combat-scene__finalize-block:hover {
+  background: linear-gradient(135deg, #3e7b6a, #2a5d4e);
+  box-shadow:
+    0 4px 20px rgba(46, 107, 90, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+@keyframes combat-btn-pulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+  50% { box-shadow: 0 4px 24px rgba(255, 255, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15); }
+}
+
