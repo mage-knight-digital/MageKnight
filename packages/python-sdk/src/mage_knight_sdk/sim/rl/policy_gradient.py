@@ -44,6 +44,7 @@ class PolicyGradientConfig:
     device: str = "auto"
     embedding_dim: int = 16
     use_embeddings: bool = True
+    num_hidden_layers: int = 1
 
 
 @dataclass(frozen=True)
@@ -92,10 +93,19 @@ class _ActionScoringNetwork(nn.Module):
         return self._layers(inputs).squeeze(-1)
 
 
+def _build_encoder(input_dim: int, hidden_size: int, num_layers: int) -> nn.Sequential:
+    if num_layers < 1:
+        raise ValueError(f"num_layers must be >= 1, got {num_layers}")
+    layers: list[nn.Module] = [nn.Linear(input_dim, hidden_size), nn.Tanh()]
+    for _ in range(num_layers - 1):
+        layers.extend([nn.Linear(hidden_size, hidden_size), nn.Tanh()])
+    return nn.Sequential(*layers)
+
+
 class _EmbeddingActionScoringNetwork(nn.Module):
     """Network that uses learned embeddings for entity IDs."""
 
-    def __init__(self, hidden_size: int, emb_dim: int) -> None:
+    def __init__(self, hidden_size: int, emb_dim: int, num_hidden_layers: int = 1) -> None:
         super().__init__()
         self.emb_dim = emb_dim
 
@@ -123,18 +133,12 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             + (emb_dim + SITE_SCALAR_DIM)
             + (emb_dim + MAP_ENEMY_SCALAR_DIM)
         )
-        self.state_encoder = nn.Sequential(
-            nn.Linear(state_input_dim, hidden_size),
-            nn.Tanh(),
-        )
+        self.state_encoder = _build_encoder(state_input_dim, hidden_size, num_hidden_layers)
 
         # Action encoder: action_type_emb + source_emb + card_emb + unit_emb + enemy_emb + skill_emb
         #                 + target_enemy_pool(emb_dim) + scalars
         action_input_dim = 7 * emb_dim + ACTION_SCALAR_DIM
-        self.action_encoder = nn.Sequential(
-            nn.Linear(action_input_dim, hidden_size),
-            nn.Tanh(),
-        )
+        self.action_encoder = _build_encoder(action_input_dim, hidden_size, num_hidden_layers)
 
         # Score: concat state_repr + action_repr → hidden → 1
         self.scoring_head = nn.Sequential(
@@ -286,6 +290,7 @@ class ReinforcePolicy(Policy):
         if self.config.use_embeddings:
             self._network = _EmbeddingActionScoringNetwork(
                 self.config.hidden_size, self.config.embedding_dim,
+                self.config.num_hidden_layers,
             ).to(self._device)
         else:
             self._network = _ActionScoringNetwork(self.config.hidden_size).to(self._device)

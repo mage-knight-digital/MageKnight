@@ -276,6 +276,40 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
 
         self.assertFalse(torch.allclose(repr1, repr2, atol=1e-6))
 
+    def test_multi_layer_forward(self) -> None:
+        """2-layer encoder should produce correct output shapes and finite values."""
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8, num_hidden_layers=2)
+        step = encode_step(_make_state(), "player-1", _make_candidates())
+        device = torch.device("cpu")
+        logits, value = net(step, device)
+        self.assertEqual(logits.shape, (3,))
+        self.assertTrue(torch.isfinite(logits).all())
+        self.assertEqual(value.shape, ())
+        self.assertTrue(torch.isfinite(value))
+
+    def test_multi_layer_state_input_dim(self) -> None:
+        """state_encoder[0].in_features should be unchanged by depth."""
+        emb_dim = 8
+        hidden = 64
+        expected_dim = (
+            STATE_SCALAR_DIM
+            + 6 * emb_dim
+            + (emb_dim + COMBAT_ENEMY_SCALAR_DIM)
+            + (emb_dim + SITE_SCALAR_DIM)
+            + (emb_dim + MAP_ENEMY_SCALAR_DIM)
+        )
+        net1 = _EmbeddingActionScoringNetwork(hidden_size=hidden, emb_dim=emb_dim, num_hidden_layers=1)
+        net3 = _EmbeddingActionScoringNetwork(hidden_size=hidden, emb_dim=emb_dim, num_hidden_layers=3)
+        # First layer input dim unchanged
+        self.assertEqual(net1.state_encoder[0].in_features, expected_dim)
+        self.assertEqual(net3.state_encoder[0].in_features, expected_dim)
+        # Intermediate layers are hidden→hidden (layer indices: 0=Linear, 1=Tanh, 2=Linear, 3=Tanh, ...)
+        self.assertEqual(net3.state_encoder[2].in_features, hidden)
+        self.assertEqual(net3.state_encoder[2].out_features, hidden)
+        # Action encoder also scales with depth
+        self.assertEqual(net3.action_encoder[2].in_features, hidden)
+        self.assertEqual(net3.action_encoder[2].out_features, hidden)
+
 
 class ReinforcePolicyEmbeddingTest(unittest.TestCase):
     def test_choose_action_with_embeddings(self) -> None:
@@ -341,6 +375,36 @@ class CheckpointRoundTripTest(unittest.TestCase):
             loaded_policy, meta = ReinforcePolicy.load_checkpoint(path, device_override="cpu")
             self.assertEqual(meta["episode"], 3)
             self.assertFalse(loaded_policy.config.use_embeddings)
+
+    def test_num_hidden_layers_checkpoint_round_trip(self) -> None:
+        config = PolicyGradientConfig(
+            use_embeddings=True, embedding_dim=8, hidden_size=64, device="cpu",
+            num_hidden_layers=3,
+        )
+        policy = ReinforcePolicy(config)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.pt"
+            policy.save_checkpoint(path, metadata={"episode": 1})
+            loaded_policy, _ = ReinforcePolicy.load_checkpoint(path, device_override="cpu")
+            self.assertEqual(loaded_policy.config.num_hidden_layers, 3)
+            # Verify the loaded network actually has 3 layers (6 modules: 3 Linear + 3 Tanh)
+            self.assertEqual(len(loaded_policy._network.state_encoder), 6)
+
+    def test_old_checkpoint_defaults_num_hidden_layers(self) -> None:
+        """Simulate loading a checkpoint saved before num_hidden_layers existed."""
+        config = PolicyGradientConfig(
+            use_embeddings=True, embedding_dim=8, hidden_size=64, device="cpu",
+        )
+        policy = ReinforcePolicy(config)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.pt"
+            policy.save_checkpoint(path)
+            # Manually remove num_hidden_layers from saved config to simulate old checkpoint
+            payload = torch.load(path, map_location="cpu", weights_only=True)
+            del payload["config"]["num_hidden_layers"]
+            torch.save(payload, path)
+            loaded_policy, _ = ReinforcePolicy.load_checkpoint(path, device_override="cpu")
+            self.assertEqual(loaded_policy.config.num_hidden_layers, 1)
 
     def test_loaded_policy_can_choose_action(self) -> None:
         config = PolicyGradientConfig(
