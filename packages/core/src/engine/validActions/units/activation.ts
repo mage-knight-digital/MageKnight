@@ -162,7 +162,9 @@ function isAbilityValidForPhase(
  * Check if a heal ability would have any effect.
  * Similar to isEffectResolvable for card healing.
  */
-function isHealAbilityUseful(player: Player): boolean {
+function isHealAbilityUseful(player: Player, combat: CombatState | null): boolean {
+  // Can't use heal in combat
+  if (combat !== null) return false;
   // Check for wound cards in hand
   const hasWoundsInHand = player.hand.some((c) => c === CARD_WOUND);
   // Check for wounded units
@@ -313,9 +315,9 @@ export function getActivatableUnits(
           }
           // Check if non-combat abilities are useful
           else if (ability.type === UNIT_ABILITY_HEAL) {
-            if (!isHealAbilityUseful(player)) {
+            if (!isHealAbilityUseful(player, combat)) {
               canActivate = false;
-              reason = "No wounds to heal";
+              reason = combat ? "Cannot use heal in combat" : "No wounds to heal";
             }
           } else if (ability.type === UNIT_ABILITY_MOVE) {
             if (!isMoveAbilityUseful(combat)) {

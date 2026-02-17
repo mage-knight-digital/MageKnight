@@ -29,7 +29,9 @@ import {
   UNIT_RED_CAPE_MONKS,
   UNIT_AMOTEP_GUNNERS,
   UNIT_GUARDIAN_GOLEMS,
+  UNIT_MAGIC_FAMILIARS,
   CARD_WOUND,
+  CARD_MARCH,
   UNIT_STATE_READY,
   UNIT_STATE_SPENT,
   ACTIVATE_UNIT_ACTION,
@@ -55,6 +57,7 @@ import {
 } from "@mage-knight/shared";
 import { createPlayerUnit } from "../../types/unit.js";
 import { resetUnitInstanceCounter } from "../commands/units/index.js";
+import { getActivatableUnits } from "../validActions/units/activation.js";
 import { sourceDieId } from "../../types/mana.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
@@ -2194,6 +2197,37 @@ describe("Unit Combat Abilities", () => {
       expect(result.state.players[0].units[0].state).toBe(UNIT_STATE_READY);
       const invalidEvent = result.events.find((e) => e.type === INVALID_ACTION);
       expect(invalidEvent).toBeDefined();
+    });
+  });
+
+  describe("Heal ability in combat", () => {
+    it("should not offer Magic Familiars heal ability during combat", () => {
+      // Magic Familiars: Attack 3 (index 0), Block 4 (index 1), Effect (index 2), Heal 2 (index 3)
+      const unit = createPlayerUnit(UNIT_MAGIC_FAMILIARS, "familiars_1");
+      const player = createTestPlayer({
+        units: [unit],
+        hand: [CARD_WOUND, CARD_MARCH], // wound + normal card to avoid slow recovery lockout
+      });
+
+      // Use attack phase so Attack ability is valid (ensures unit is in list)
+      const combat = createUnitCombatState(COMBAT_PHASE_ATTACK);
+      const state = createTestGameState({
+        players: [player],
+        combat,
+      });
+
+      const activatable = getActivatableUnits(state, state.players[0], combat);
+      const familiars = activatable.find(
+        (u) => u.unitInstanceId === "familiars_1"
+      );
+
+      // Magic Familiars should be offered (Attack is valid in attack phase)
+      expect(familiars).toBeDefined();
+
+      // Heal ability (index 3) should NOT be activatable in combat
+      const healAbility = familiars!.abilities.find((a) => a.index === 3);
+      expect(healAbility).toBeDefined();
+      expect(healAbility!.canActivate).toBe(false);
     });
   });
 });
