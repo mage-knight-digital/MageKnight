@@ -13,8 +13,8 @@ export function TopBar() {
   const { shouldRevealUI, isIntroComplete } = useGameIntro();
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-  // Track intro animation state - start hidden
-  const [introAnimState, setIntroAnimState] = useState<"hidden" | "revealing" | "visible">("hidden");
+  // Track intro animation state - start hidden unless intro already complete (replay mode)
+  const [introAnimState, setIntroAnimState] = useState<"hidden" | "revealing" | "visible">(isIntroComplete ? "visible" : "hidden");
   const hasAnimatedRef = useRef(false);
 
   // Trigger reveal animation when shouldRevealUI becomes true
@@ -50,8 +50,16 @@ export function TopBar() {
   // Don't render until ready to show
   if (introAnimState === "hidden") return null;
 
-  // Calculate fame needed for next level
-  const nextLevelFame = LEVEL_THRESHOLDS[player.level + 1] ?? 999;
+  // Find the next level threshold the player hasn't reached yet
+  // (handles pending level-ups where fame exceeds current level's threshold)
+  let nextLevelFame = 999;
+  for (let i = player.level; i < LEVEL_THRESHOLDS.length; i++) {
+    const threshold = LEVEL_THRESHOLDS[i];
+    if (threshold !== undefined && threshold > player.fame) {
+      nextLevelFame = threshold;
+      break;
+    }
+  }
 
   const isNight = state.timeOfDay === TIME_OF_DAY_NIGHT;
 
