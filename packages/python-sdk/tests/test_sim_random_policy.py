@@ -115,8 +115,10 @@ class RandomPolicyTest(unittest.TestCase):
         actions = enumerate_valid_actions(state, "player-1")
         complete_rest_actions = [a.action for a in actions if a.action.get("type") == "COMPLETE_REST"]
 
-        self.assertEqual(1, len(complete_rest_actions))
-        self.assertEqual(["rage"], complete_rest_actions[0]["discardCardIds"])
+        self.assertEqual(2, len(complete_rest_actions))
+        discard_sets = [tuple(a["discardCardIds"]) for a in complete_rest_actions]
+        self.assertIn(("rage",), discard_sets)  # non-wound only
+        self.assertIn(("rage", "wound"), discard_sets)  # non-wound + wound
 
     def test_enumerate_valid_actions_reroll_uses_required_first_dice_ids(self) -> None:
         state = {

@@ -44,7 +44,7 @@ STATE_SCALAR_DIM = 76
 ACTION_SCALAR_DIM = 34
 SITE_SCALAR_DIM = 6   # per-site scalars for map pool
 ENEMY_HEX_SCALAR_DIM = 5  # per-hex scalars for enemy pool
-COMBAT_ENEMY_SCALAR_DIM = 13  # per-enemy scalars for combat pool
+COMBAT_ENEMY_SCALAR_DIM = 20  # per-enemy scalars for combat pool
 
 # Canonical neighbor direction offsets in axial coords (E, NE, NW, W, SW, SE)
 _NEIGHBOR_OFFSETS: tuple[tuple[int, int], ...] = (
@@ -154,7 +154,7 @@ def encode_step(
         player_core = _extract_player_core(state, player, player_id)     # 10
         resources = _extract_player_resources(player)                     # 13
         tempo = _extract_tempo_features(state, player)                   # 5
-        combat_scalars, combat_enemy_ids, combat_enemy_scalars = _extract_combat_features(state, player)  # 10
+        combat_scalars, combat_enemy_ids, combat_enemy_scalars = _extract_combat_features(state, player, valid_actions_dict)  # 10
         hex_scalars, current_terrain_id, current_site_type_id = _extract_current_hex_features(hexes, pq, pr)  # 3
         neighbor_scalars = _extract_neighbor_features(hexes, pq, pr)     # 24
         global_spatial = _extract_global_spatial(hexes, pq, pr)          # 5
@@ -341,6 +341,7 @@ def _extract_tempo_features(
 def _extract_combat_features(
     state: dict[str, Any],
     player: dict[str, Any],
+    valid_actions_dict: dict[str, Any],
 ) -> tuple[list[float], list[int], list[list[float]]]:
     """Combat (10 scalars + enemy IDs + per-enemy scalars): in_combat, phase one-hot ×4,
     num_enemies, total_enemy_armor, total_enemy_attack, is_fortified, wounds_this_combat."""
@@ -353,6 +354,41 @@ def _extract_combat_features(
     phase_str = phase if isinstance(phase, str) else ""
     phase_one_hot = [1.0 if phase_str == p else 0.0 for p in _COMBAT_PHASES]
 
+    # Build lookups from validActions.combat for attack/block progress
+    va_combat = valid_actions_dict.get("combat")
+    va_combat_dict = va_combat if isinstance(va_combat, dict) else {}
+
+    # Attack progress: keyed by enemyInstanceId
+    attack_progress_map: dict[str, dict[str, Any]] = {}
+    va_enemies = va_combat_dict.get("enemies")
+    if isinstance(va_enemies, list):
+        for va_enemy in va_enemies:
+            if isinstance(va_enemy, dict):
+                eid = va_enemy.get("enemyInstanceId")
+                if isinstance(eid, str):
+                    attack_progress_map[eid] = va_enemy
+
+    # Block progress: aggregate per enemyInstanceId (multi-attack enemies have multiple entries)
+    block_agg_map: dict[str, dict[str, float | bool]] = {}
+    va_block_states = va_combat_dict.get("enemyBlockStates")
+    if isinstance(va_block_states, list):
+        for bs in va_block_states:
+            if not isinstance(bs, dict):
+                continue
+            eid = bs.get("enemyInstanceId")
+            if not isinstance(eid, str):
+                continue
+            if eid not in block_agg_map:
+                block_agg_map[eid] = {
+                    "effectiveBlock": 0.0,
+                    "requiredBlock": 0.0,
+                    "canBlock": True,
+                }
+            block_agg_map[eid]["effectiveBlock"] += _as_number(bs.get("effectiveBlock"))
+            block_agg_map[eid]["requiredBlock"] += _as_number(bs.get("requiredBlock"))
+            if not bool(bs.get("canBlock")):
+                block_agg_map[eid]["canBlock"] = False
+
     enemies = combat.get("enemies")
     enemy_ids: list[int] = []
     enemy_scalars: list[list[float]] = []
@@ -364,6 +400,7 @@ def _extract_combat_features(
         for enemy in enemies:
             if isinstance(enemy, dict):
                 eid = enemy.get("id")
+                instance_id = enemy.get("instanceId")
                 if isinstance(eid, str):
                     enemy_ids.append(ENEMY_VOCAB.encode(eid))
 
@@ -372,7 +409,7 @@ def _extract_combat_features(
                 total_armor += armor
                 total_attack += attack
 
-                # Per-enemy scalars (COMBAT_ENEMY_SCALAR_DIM = 13)
+                # Per-enemy scalars (COMBAT_ENEMY_SCALAR_DIM = 20)
                 attack_elem = enemy.get("attackElement")
                 attack_elem_str = attack_elem if isinstance(attack_elem, str) else ""
                 elem_oh = [1.0 if attack_elem_str == e else 0.0 for e in ("physical", "fire", "ice", "cold_fire")]
@@ -393,6 +430,20 @@ def _extract_combat_features(
                 is_blocked = 1.0 if bool(enemy.get("isBlocked")) else 0.0
                 is_defeated = 1.0 if bool(enemy.get("isDefeated")) else 0.0
 
+                # Attack progress from validActions (indices 13-15)
+                iid = instance_id if isinstance(instance_id, str) else ""
+                ap = attack_progress_map.get(iid)
+                total_eff_damage = _as_number(ap.get("totalEffectiveDamage")) if ap else 0.0
+                can_defeat = 1.0 if (ap and bool(ap.get("canDefeat"))) else 0.0
+                damage_progress = min(total_eff_damage / armor, 1.0) if armor > 0 else 0.0
+
+                # Block progress from validActions (indices 16-19)
+                bp = block_agg_map.get(iid)
+                eff_block = bp["effectiveBlock"] if bp else 0.0
+                can_block = 1.0 if (bp and bool(bp["canBlock"])) else 0.0
+                req_block = bp["requiredBlock"] if bp else 0.0
+                block_progress = min(eff_block / req_block, 1.0) if (bp and req_block > 0) else 0.0
+
                 enemy_scalars.append([
                     _scale(armor, 20.0),
                     _scale(attack, 10.0),
@@ -400,6 +451,13 @@ def _extract_combat_features(
                     res_phys, res_fire, res_ice,
                     is_blocked, is_defeated,
                     is_swift, is_brutal,
+                    _scale(total_eff_damage, 20.0),    # 13
+                    can_defeat,                         # 14
+                    damage_progress,                    # 15
+                    _scale(eff_block, 20.0),            # 16
+                    can_block,                          # 17
+                    _scale(req_block, 20.0),            # 18
+                    block_progress,                     # 19
                 ])
 
     is_fortified = 1.0 if bool(combat.get("isFortified")) else 0.0

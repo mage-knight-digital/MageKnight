@@ -1260,9 +1260,16 @@ def _enumerate_rest_discard_options(rest_discard: dict[str, Any] | None) -> list
     allow_empty = bool(rest_discard.get("allowEmptyDiscard"))
 
     if rest_type == "standard":
-        # Standard Rest requires exactly one non-wound card; enumerate each option.
+        # Standard Rest: exactly one non-wound card + any number of wound cards.
         non_wounds = [card for card in discardable if not _is_wound_card_id(card)]
-        return [[card] for card in non_wounds]
+        wounds = [card for card in discardable if _is_wound_card_id(card)]
+        options: list[list[str]] = []
+        for nw in non_wounds:
+            # Enumerate all subsets of wounds to include with this non-wound card
+            for count in range(len(wounds) + 1):
+                for wound_combo in combinations(wounds, count):
+                    options.append([nw] + list(wound_combo))
+        return options
 
     # Slow recovery / other rest types: pick one discardable card.
     options: list[list[str]] = []

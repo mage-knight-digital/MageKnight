@@ -6,6 +6,7 @@ import unittest
 from mage_knight_sdk.sim.generated_action_enumerator import CandidateAction
 from mage_knight_sdk.sim.rl.features import (
     ACTION_SCALAR_DIM,
+    COMBAT_ENEMY_SCALAR_DIM,
     ENEMY_HEX_SCALAR_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
@@ -311,14 +312,18 @@ class EncodeStepTest(unittest.TestCase):
             "phase": "ranged_siege",
             "isFortified": False,
             "enemies": [
-                {"id": "diggers", "armor": 3, "attack": 2},
-                {"id": "prowlers", "armor": 2, "attack": 3},
+                {"id": "diggers", "instanceId": "enemy_0", "armor": 3, "attack": 2},
+                {"id": "prowlers", "instanceId": "enemy_1", "armor": 2, "attack": 3},
             ],
         }
         result = encode_step(state, "player-1", _make_candidates())
         self.assertEqual(len(result.state.combat_enemy_ids), 2)
         self.assertEqual(result.state.combat_enemy_ids[0], ENEMY_VOCAB.encode("diggers"))
         self.assertEqual(result.state.combat_enemy_ids[1], ENEMY_VOCAB.encode("prowlers"))
+        # Per-enemy scalars should have COMBAT_ENEMY_SCALAR_DIM floats
+        self.assertEqual(len(result.state.combat_enemy_scalars), 2)
+        for scalars in result.state.combat_enemy_scalars:
+            self.assertEqual(len(scalars), COMBAT_ENEMY_SCALAR_DIM)
 
     def test_visible_sites(self) -> None:
         result = encode_step(_make_state(), "player-1", _make_candidates())
@@ -414,6 +419,157 @@ class EncodeStepTest(unittest.TestCase):
         self.assertEqual(e_neighbor[1], 1.0)    # has_site (village)
         self.assertEqual(e_neighbor[2], 1.0)    # has_enemies
         self.assertEqual(e_neighbor[3], 1.0)    # hex_exists
+
+
+class CombatProgressTest(unittest.TestCase):
+    """Tests for combat progress per-enemy scalars (indices 13-19)."""
+
+    def test_combat_enemy_attack_progress(self) -> None:
+        """Verify totalEffectiveDamage, canDefeat, damage_progress from validActions."""
+        state = _make_state()
+        state["combat"] = {
+            "phase": "attack",
+            "isFortified": False,
+            "enemies": [
+                {"id": "diggers", "instanceId": "enemy_0", "armor": 5, "attack": 3},
+            ],
+        }
+        state["validActions"]["mode"] = "combat"
+        state["validActions"]["combat"] = {
+            "phase": "attack",
+            "canEndPhase": True,
+            "enemies": [
+                {
+                    "enemyInstanceId": "enemy_0",
+                    "armor": 5,
+                    "totalEffectiveDamage": 3,
+                    "canDefeat": False,
+                },
+            ],
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        scalars = result.state.combat_enemy_scalars[0]
+        self.assertAlmostEqual(scalars[13], 3.0 / 20.0, places=4)  # totalEffectiveDamage / 20
+        self.assertEqual(scalars[14], 0.0)  # canDefeat = False
+        self.assertAlmostEqual(scalars[15], 3.0 / 5.0, places=4)  # damage_progress = 3/5
+
+    def test_combat_enemy_attack_progress_can_defeat(self) -> None:
+        """When canDefeat is True, verify the signal."""
+        state = _make_state()
+        state["combat"] = {
+            "phase": "attack",
+            "isFortified": False,
+            "enemies": [
+                {"id": "diggers", "instanceId": "enemy_0", "armor": 5, "attack": 3},
+            ],
+        }
+        state["validActions"]["mode"] = "combat"
+        state["validActions"]["combat"] = {
+            "phase": "attack",
+            "canEndPhase": True,
+            "enemies": [
+                {
+                    "enemyInstanceId": "enemy_0",
+                    "armor": 5,
+                    "totalEffectiveDamage": 6,
+                    "canDefeat": True,
+                },
+            ],
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        scalars = result.state.combat_enemy_scalars[0]
+        self.assertAlmostEqual(scalars[13], 6.0 / 20.0, places=4)  # totalEffectiveDamage / 20
+        self.assertEqual(scalars[14], 1.0)  # canDefeat = True
+        self.assertAlmostEqual(scalars[15], 1.0, places=4)  # damage_progress clamped to 1.0
+
+    def test_combat_enemy_block_progress(self) -> None:
+        """Verify block features from enemyBlockStates."""
+        state = _make_state()
+        state["combat"] = {
+            "phase": "block",
+            "isFortified": False,
+            "enemies": [
+                {"id": "diggers", "instanceId": "enemy_0", "armor": 5, "attack": 4},
+            ],
+        }
+        state["validActions"]["mode"] = "combat"
+        state["validActions"]["combat"] = {
+            "phase": "block",
+            "canEndPhase": True,
+            "enemyBlockStates": [
+                {
+                    "enemyInstanceId": "enemy_0",
+                    "requiredBlock": 4,
+                    "effectiveBlock": 2,
+                    "canBlock": False,
+                },
+            ],
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        scalars = result.state.combat_enemy_scalars[0]
+        self.assertAlmostEqual(scalars[16], 2.0 / 20.0, places=4)  # effectiveBlock / 20
+        self.assertEqual(scalars[17], 0.0)  # canBlock = False
+        self.assertAlmostEqual(scalars[18], 4.0 / 20.0, places=4)  # requiredBlock / 20
+        self.assertAlmostEqual(scalars[19], 0.5, places=4)  # block_progress = 2/4
+
+    def test_combat_multi_attack_block_aggregation(self) -> None:
+        """Multi-attack enemy: sum requiredBlock/effectiveBlock, AND canBlock."""
+        state = _make_state()
+        state["combat"] = {
+            "phase": "block",
+            "isFortified": False,
+            "enemies": [
+                {"id": "fire_dragon", "instanceId": "enemy_0", "armor": 7, "attack": 6},
+            ],
+        }
+        state["validActions"]["mode"] = "combat"
+        state["validActions"]["combat"] = {
+            "phase": "block",
+            "canEndPhase": True,
+            "enemyBlockStates": [
+                {
+                    "enemyInstanceId": "enemy_0",
+                    "attackIndex": 0,
+                    "requiredBlock": 6,
+                    "effectiveBlock": 6,
+                    "canBlock": True,
+                },
+                {
+                    "enemyInstanceId": "enemy_0",
+                    "attackIndex": 1,
+                    "requiredBlock": 4,
+                    "effectiveBlock": 2,
+                    "canBlock": False,
+                },
+            ],
+        }
+        result = encode_step(state, "player-1", _make_candidates())
+        scalars = result.state.combat_enemy_scalars[0]
+        # effectiveBlock = 6 + 2 = 8
+        self.assertAlmostEqual(scalars[16], 8.0 / 20.0, places=4)
+        # canBlock = False (one attack not fully blocked)
+        self.assertEqual(scalars[17], 0.0)
+        # requiredBlock = 6 + 4 = 10
+        self.assertAlmostEqual(scalars[18], 10.0 / 20.0, places=4)
+        # block_progress = 8 / 10 = 0.8
+        self.assertAlmostEqual(scalars[19], 0.8, places=4)
+
+    def test_combat_progress_defaults_no_data(self) -> None:
+        """All 7 new scalars default to 0.0 when no validActions combat data."""
+        state = _make_state()
+        state["combat"] = {
+            "phase": "ranged_siege",
+            "isFortified": False,
+            "enemies": [
+                {"id": "diggers", "instanceId": "enemy_0", "armor": 5, "attack": 3},
+            ],
+        }
+        # No validActions.combat — just normal_turn mode
+        result = encode_step(state, "player-1", _make_candidates())
+        scalars = result.state.combat_enemy_scalars[0]
+        # Indices 13-19 should all be 0.0
+        for i in range(13, 20):
+            self.assertEqual(scalars[i], 0.0, f"scalar[{i}] should be 0.0 but was {scalars[i]}")
 
 
 class LegacyEncodeBackwardCompatTest(unittest.TestCase):
