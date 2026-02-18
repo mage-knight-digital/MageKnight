@@ -105,6 +105,7 @@ async def _run_single_simulation(
     policy: Policy,
     hooks: RunnerHooks | None = None,
     bootstrap_client: BootstrapClient | None = None,
+    coordinator: Any | None = None,
 ) -> SimulationOutcome:
     rng = random.Random(seed)
 
@@ -301,16 +302,27 @@ async def _run_single_simulation(
                 _t0 = perf_counter_ns()
             else:
                 _d_sort = 0
-            candidate = policy.choose_action(
-                state=state,
-                player_id=actor.session.player_id,
-                valid_actions=sorted_candidates,
-                rng=rng,
-            )
-            # Capture step info immediately after choose_action, before any await.
-            # This is critical for concurrent games: the policy's last_step_info
-            # would be overwritten by another game's choose_action during the await.
-            captured_step_info = getattr(policy, 'last_step_info', None)
+
+            if coordinator is not None:
+                # Batched inference path: encode locally, submit to coordinator
+                from .rl.features import encode_step as _encode_step
+
+                encoded_step = _encode_step(state, actor.session.player_id, sorted_candidates)
+                step_info = await coordinator.submit(encoded_step)
+                candidate = sorted_candidates[step_info.action_index]
+                captured_step_info = step_info
+            else:
+                # Original serial path
+                candidate = policy.choose_action(
+                    state=state,
+                    player_id=actor.session.player_id,
+                    valid_actions=sorted_candidates,
+                    rng=rng,
+                )
+                # Capture step info immediately after choose_action, before any await.
+                # This is critical for concurrent games: the policy's last_step_info
+                # would be overwritten by another game's choose_action during the await.
+                captured_step_info = getattr(policy, 'last_step_info', None)
             if timings is not None:
                 _d_policy = perf_counter_ns() - _t0
             else:
@@ -808,23 +820,45 @@ async def _run_simulations_batch(
             prepared.append((config, hooks))
 
         if concurrent:
-            # Launch all simulations concurrently via asyncio.gather
-            tasks = [
-                _run_single_simulation(
-                    run_index=0,
-                    seed=config.base_seed,
-                    config=config,
-                    policy=policy,
-                    hooks=hooks,
-                    bootstrap_client=client,
-                )
-                for config, hooks in prepared
-            ]
-            outcomes = await asyncio.gather(*tasks)
-            return [
-                (outcome, hooks)
-                for outcome, (_, hooks) in zip(outcomes, prepared)
-            ]
+            # Check if batched inference is possible
+            coordinator = None
+            coordinator_task = None
+            try:
+                from .rl.policy_gradient import ReinforcePolicy as _RP
+                from .rl.batch_coordinator import BatchInferenceCoordinator
+
+                if isinstance(policy, _RP) and policy.config.use_embeddings:
+                    coordinator = BatchInferenceCoordinator(policy)
+                    coordinator_task = asyncio.create_task(coordinator.run())
+            except ImportError:
+                pass
+
+            try:
+                # Launch all simulations concurrently via asyncio.gather
+                tasks = [
+                    _run_single_simulation(
+                        run_index=0,
+                        seed=config.base_seed,
+                        config=config,
+                        policy=policy,
+                        hooks=hooks,
+                        bootstrap_client=client,
+                        coordinator=coordinator,
+                    )
+                    for config, hooks in prepared
+                ]
+                outcomes = await asyncio.gather(*tasks)
+                return [
+                    (outcome, hooks)
+                    for outcome, (_, hooks) in zip(outcomes, prepared)
+                ]
+            finally:
+                if coordinator_task is not None:
+                    coordinator_task.cancel()
+                    try:
+                        await coordinator_task
+                    except asyncio.CancelledError:
+                        pass
         else:
             results: list[tuple[SimulationOutcome, RunnerHooks | None]] = []
             for config, hooks in prepared:
