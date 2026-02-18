@@ -100,35 +100,48 @@ class BatchInferenceCoordinator:
             values = net.value_head(state_reprs).squeeze(-1)  # (B,)
 
             # --- Batched action encoding (pad-and-batch) ---
+            # Build Python lists first, then single torch.tensor() calls to
+            # avoid per-action torch.tensor() overhead (was 35% of batch time).
             action_counts = [len(step.actions) for step in steps]
             max_a = max(action_counts)
             flat_size = bs * max_a
 
-            padded_ids = torch.zeros(flat_size, 6, dtype=torch.long, device=device)
-            padded_scalars = torch.zeros(
-                flat_size, ACTION_SCALAR_DIM, dtype=torch.float32, device=device,
-            )
-            padded_targets = torch.zeros(flat_size, emb_dim, device=device)
-            mask = torch.zeros(bs, max_a, dtype=torch.bool, device=device)
+            # Pre-allocate Python lists (zeros for padding)
+            ids_flat = [[0] * 6] * flat_size  # will be overwritten in-place
+            ids_flat = [[0, 0, 0, 0, 0, 0] for _ in range(flat_size)]
+            scalars_flat = [[0.0] * ACTION_SCALAR_DIM for _ in range(flat_size)]
+            mask_flat = [[False] * max_a for _ in range(bs)]
+            has_targets = False
 
             for i, step in enumerate(steps):
                 n_a = action_counts[i]
                 offset = i * max_a
                 for j, a in enumerate(step.actions):
-                    padded_ids[offset + j] = torch.tensor(
-                        [a.action_type_id, a.source_id, a.card_id,
-                         a.unit_id, a.enemy_id, a.skill_id],
-                        dtype=torch.long, device=device,
-                    )
-                    padded_scalars[offset + j] = torch.tensor(
-                        a.scalars, dtype=torch.float32, device=device,
-                    )
+                    ids_flat[offset + j] = [
+                        a.action_type_id, a.source_id, a.card_id,
+                        a.unit_id, a.enemy_id, a.skill_id,
+                    ]
+                    scalars_flat[offset + j] = a.scalars
                     if a.target_enemy_ids:
-                        t_ids = torch.tensor(
-                            a.target_enemy_ids, dtype=torch.long, device=device,
-                        )
-                        padded_targets[offset + j] = net.enemy_emb(t_ids).mean(dim=0)
-                mask[i, :n_a] = True
+                        has_targets = True
+                mask_flat[i] = [j < n_a for j in range(max_a)]
+
+            # Single torch.tensor() calls (instead of N*max_a individual calls)
+            padded_ids = torch.tensor(ids_flat, dtype=torch.long, device=device)
+            padded_scalars = torch.tensor(scalars_flat, dtype=torch.float32, device=device)
+            mask = torch.tensor(mask_flat, dtype=torch.bool, device=device)
+
+            # Target enemy pools (rare — only DECLARE_ATTACK_TARGETS)
+            padded_targets = torch.zeros(flat_size, emb_dim, device=device)
+            if has_targets:
+                for i, step in enumerate(steps):
+                    offset = i * max_a
+                    for j, a in enumerate(step.actions):
+                        if a.target_enemy_ids:
+                            t_ids = torch.tensor(
+                                a.target_enemy_ids, dtype=torch.long, device=device,
+                            )
+                            padded_targets[offset + j] = net.enemy_emb(t_ids).mean(dim=0)
 
             # Single batched embedding lookup + action encoder MLP
             flat_action_input = torch.cat([
