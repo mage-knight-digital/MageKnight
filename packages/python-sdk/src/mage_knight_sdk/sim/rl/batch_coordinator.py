@@ -2,8 +2,8 @@
 
 When multiple games run concurrently via asyncio.gather, each game independently
 calls the policy network. The BatchInferenceCoordinator collects these requests
-and dispatches a single batched forward pass for the state encoder, reducing
-inference time from O(N) to O(1) matmuls.
+and dispatches a single batched forward pass for state encoding, action encoding,
+and scoring — reducing inference time from O(N) to O(1) matmuls per batch.
 """
 
 from __future__ import annotations
@@ -12,9 +12,8 @@ import asyncio
 from dataclasses import dataclass
 
 import torch
-from torch import nn
 
-from .features import EncodedStep
+from .features import ACTION_SCALAR_DIM, EncodedStep
 from .policy_gradient import StepInfo
 
 
@@ -82,39 +81,96 @@ class BatchInferenceCoordinator:
             raise
 
     def _infer_batch(self, batch: list[InferenceRequest]) -> None:
-        """Batched state encoding + per-game action scoring and sampling."""
+        """Fully batched inference: state encoding, action encoding, scoring, sampling."""
         self._batch_count += 1
         self._total_requests += len(batch)
 
         net = self._network
         device = self._device
-        net.train()
+        bs = len(batch)
+        emb_dim = net.emb_dim
 
         steps = [req.encoded_step for req in batch]
 
-        # Batch state encoding (the main win: B states in one matmul)
         with torch.no_grad():
+            # --- Batched state encoding (B states → 1 matmul) ---
             state_reprs = net.encode_state_batch(steps, device)  # (B, hidden)
 
-        # Per-game: action encoding + scoring + sampling
+            # --- Batched value head ---
+            values = net.value_head(state_reprs).squeeze(-1)  # (B,)
+
+            # --- Batched action encoding (pad-and-batch) ---
+            action_counts = [len(step.actions) for step in steps]
+            max_a = max(action_counts)
+            flat_size = bs * max_a
+
+            padded_ids = torch.zeros(flat_size, 6, dtype=torch.long, device=device)
+            padded_scalars = torch.zeros(
+                flat_size, ACTION_SCALAR_DIM, dtype=torch.float32, device=device,
+            )
+            padded_targets = torch.zeros(flat_size, emb_dim, device=device)
+            mask = torch.zeros(bs, max_a, dtype=torch.bool, device=device)
+
+            for i, step in enumerate(steps):
+                n_a = action_counts[i]
+                offset = i * max_a
+                for j, a in enumerate(step.actions):
+                    padded_ids[offset + j] = torch.tensor(
+                        [a.action_type_id, a.source_id, a.card_id,
+                         a.unit_id, a.enemy_id, a.skill_id],
+                        dtype=torch.long, device=device,
+                    )
+                    padded_scalars[offset + j] = torch.tensor(
+                        a.scalars, dtype=torch.float32, device=device,
+                    )
+                    if a.target_enemy_ids:
+                        t_ids = torch.tensor(
+                            a.target_enemy_ids, dtype=torch.long, device=device,
+                        )
+                        padded_targets[offset + j] = net.enemy_emb(t_ids).mean(dim=0)
+                mask[i, :n_a] = True
+
+            # Single batched embedding lookup + action encoder MLP
+            flat_action_input = torch.cat([
+                net.action_type_emb(padded_ids[:, 0]),
+                net.source_emb(padded_ids[:, 1]),
+                net.card_emb(padded_ids[:, 2]),
+                net.unit_emb(padded_ids[:, 3]),
+                net.enemy_emb(padded_ids[:, 4]),
+                net.skill_emb(padded_ids[:, 5]),
+                padded_targets,
+                padded_scalars,
+            ], dim=-1)  # (flat_size, 7*emb_dim + ACTION_SCALAR_DIM)
+
+            flat_action_reprs = net.action_encoder(flat_action_input)  # (flat_size, hidden)
+            action_reprs = flat_action_reprs.view(bs, max_a, -1)  # (bs, max_A, hidden)
+
+            # --- Batched scoring head ---
+            state_expanded = state_reprs.unsqueeze(1).expand(-1, max_a, -1)  # (bs, max_A, hidden)
+            combined = torch.cat([state_expanded, action_reprs], dim=-1)  # (bs, max_A, 2*hidden)
+            logits = net.scoring_head(
+                combined.view(-1, combined.size(-1)),
+            ).squeeze(-1).view(bs, max_a)  # (bs, max_A)
+
+            # Masked log_softmax
+            logits = logits.masked_fill(~mask, float("-inf"))
+            log_probs = torch.log_softmax(logits, dim=-1)  # (bs, max_A)
+
+            # Sample one action per game
+            probs = log_probs.exp()  # (bs, max_A)
+            selected = torch.multinomial(probs, 1).squeeze(-1)  # (bs,)
+
+        # Dispatch results
+        arange_bs = torch.arange(bs, device=device)
+        selected_log_probs = log_probs[arange_bs, selected]  # (bs,)
+
         for i, req in enumerate(batch):
             try:
-                with torch.no_grad():
-                    action_reprs = net.encode_actions(req.encoded_step, device)
-                    n = action_reprs.size(0)
-                    state_broadcast = state_reprs[i].unsqueeze(0).expand(n, -1)
-                    combined = torch.cat([state_broadcast, action_reprs], dim=-1)
-                    logits = net.scoring_head(combined).squeeze(-1)
-                    value = net.value_head(state_reprs[i]).squeeze(-1)
-
-                    log_probs = torch.log_softmax(logits, dim=0)
-                    selected = int(torch.multinomial(log_probs.exp(), 1).item())
-
                 req.future.set_result(StepInfo(
                     encoded_step=req.encoded_step,
-                    action_index=selected,
-                    log_prob=float(log_probs[selected].item()),
-                    value=float(value.item()),
+                    action_index=int(selected[i].item()),
+                    log_prob=float(selected_log_probs[i].item()),
+                    value=float(values[i].item()),
                 ))
             except Exception as exc:
                 if not req.future.done():
