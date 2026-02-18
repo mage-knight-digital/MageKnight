@@ -6,18 +6,21 @@ import json
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 import torch
 
 from ..config import RunnerConfig
 from ..reporting import MessageLogEntry
-from ..runner import run_simulations_sync
+from ..runner import run_simulations_batch_sync, run_simulations_sync
 from .policy_gradient import (
     PolicyGradientConfig,
     ReinforcePolicy,
+    TensorizedTransition,
     Transition,
     compute_gae,
+    detensorize_episodes,
+    tensorize_episodes,
 )
 from .rewards import RewardConfig
 from .trainer import EpisodeTrainingStats, PPOTrainer, ReinforceTrainer
@@ -45,6 +48,8 @@ def run_worker_episodes(
     replay_dir: str | None = None,
     replay_threshold: float | None = None,
     episode_offset: int = 0,
+    bootstrap_url: str | None = None,
+    ws_url: str | None = None,
 ) -> WorkerResult:
     """Run K episodes with given weights, return accumulated gradients + stats."""
     policy = _make_worker_policy(policy_config, weights)
@@ -53,35 +58,35 @@ def run_worker_episodes(
     accumulated_grads: dict[str, torch.Tensor] | None = None
     all_stats: list[EpisodeTrainingStats] = []
 
-    for idx, seed in enumerate(seeds):
-        config = _seed_config(runner_config, seed)
-        trainer = ReinforceTrainer(
+    configs = [_seed_config(runner_config, seed, bootstrap_url, ws_url) for seed in seeds]
+    trainers: list[ReinforceTrainer] = []
+
+    def make_trainer() -> ReinforceTrainer:
+        t = ReinforceTrainer(
             policy=policy,
             reward_config=reward_config,
             compute_gradients_only=True,
         )
-        sim_output = run_simulations_sync(
-            config, policy=policy, hooks=trainer, return_traces=capture,
-        )
-        if capture:
-            _results, _summary, msg_logs, trace_logs = sim_output
-        else:
-            _results, _summary = sim_output
-            msg_logs = None
-            trace_logs = None
+        trainers.append(t)
+        return t
 
+    results = run_simulations_batch_sync(
+        configs, policy, hooks_factory=make_trainer, return_traces=capture,
+    )
+
+    for idx, (outcome, _hooks) in enumerate(results):
+        trainer = trainers[idx]
+        seed = seeds[idx]
         stats = trainer.last_stats
         if stats is None:
             continue
 
         if (capture
-                and msg_logs is not None
-                and trace_logs is not None
                 and replay_threshold is not None
                 and stats.total_reward >= replay_threshold):
             _save_worker_replay(
                 Path(replay_dir), episode_offset + idx + 1, seed, stats,
-                msg_logs[0], trace_logs[0],
+                outcome.messages, outcome.trace,
             )
 
         grads = policy.extract_gradients()
@@ -116,6 +121,7 @@ class DistributedReinforceTrainer:
         episodes_per_sync: int = 1,
         replay_dir: Path | None = None,
         replay_threshold: float | None = None,
+        server_urls: list[tuple[str, str]] | None = None,
     ) -> None:
         self._policy = policy
         self._reward_config = reward_config
@@ -124,6 +130,7 @@ class DistributedReinforceTrainer:
         self._episodes_per_sync = episodes_per_sync
         self._replay_dir = replay_dir
         self._replay_threshold = replay_threshold
+        self._server_urls = server_urls
 
     def train(
         self, total_episodes: int, start_seed: int
@@ -146,16 +153,20 @@ class DistributedReinforceTrainer:
                 seed_cursor += assigned
                 weights = self._policy.get_weights()
 
-                futures = {
-                    executor.submit(
+                futures = {}
+                for i, (seeds, ep_offset) in enumerate(
+                    zip(worker_seeds, worker_offsets)
+                ):
+                    kwargs: dict[str, Any] = {}
+                    if self._server_urls and i < len(self._server_urls):
+                        kwargs["bootstrap_url"] = self._server_urls[i][0]
+                        kwargs["ws_url"] = self._server_urls[i][1]
+                    futures[executor.submit(
                         run_worker_episodes, weights, self._policy.config,
                         self._reward_config, self._runner_config, seeds,
                         replay_dir_str, self._replay_threshold, ep_offset,
-                    ): i
-                    for i, (seeds, ep_offset) in enumerate(
-                        zip(worker_seeds, worker_offsets)
-                    )
-                }
+                        **kwargs,
+                    )] = i
                 worker_results: list[WorkerResult] = []
                 for future in as_completed(futures):
                     worker_results.append(future.result())
@@ -183,7 +194,7 @@ class DistributedReinforceTrainer:
 class WorkerPPOResult:
     """Collected output from a single PPO worker process."""
 
-    episodes: list[list[Transition]]
+    episodes: list[list[TensorizedTransition]]
     episode_stats: list[EpisodeTrainingStats]
 
 
@@ -196,44 +207,48 @@ def collect_worker_episodes(
     replay_dir: str | None = None,
     replay_threshold: float | None = None,
     episode_offset: int = 0,
+    bootstrap_url: str | None = None,
+    ws_url: str | None = None,
 ) -> WorkerPPOResult:
     """Play K episodes, collecting transitions for PPO (no optimization)."""
     policy = _make_worker_policy(policy_config, weights)
 
     capture = replay_dir is not None and replay_threshold is not None
-    all_episodes: list[list[Transition]] = []
+    raw_episodes: list[list[Transition]] = []
     all_stats: list[EpisodeTrainingStats] = []
 
-    for idx, seed in enumerate(seeds):
-        config = _seed_config(runner_config, seed)
-        trainer = PPOTrainer(policy=policy, reward_config=reward_config)
+    configs = [_seed_config(runner_config, seed, bootstrap_url, ws_url) for seed in seeds]
+    trainers: list[PPOTrainer] = []
 
-        sim_output = run_simulations_sync(
-            config, policy=policy, hooks=trainer, return_traces=capture,
-        )
-        if capture:
-            _results, _summary, msg_logs, trace_logs = sim_output
-        else:
-            _results, _summary = sim_output
-            msg_logs = None
-            trace_logs = None
+    def make_trainer() -> PPOTrainer:
+        t = PPOTrainer(policy=policy, reward_config=reward_config)
+        trainers.append(t)
+        return t
 
+    results = run_simulations_batch_sync(
+        configs, policy, hooks_factory=make_trainer, return_traces=capture,
+        concurrent=True,
+    )
+
+    for idx, (outcome, _hooks) in enumerate(results):
+        trainer = trainers[idx]
+        seed = seeds[idx]
         episodes, stats = trainer.harvest()
-        all_episodes.extend(episodes)
+        raw_episodes.extend(episodes)
         all_stats.extend(stats)
 
         if (capture
-                and msg_logs is not None
-                and trace_logs is not None
                 and replay_threshold is not None
                 and stats
                 and stats[-1].total_reward >= replay_threshold):
             _save_worker_replay(
                 Path(replay_dir), episode_offset + idx + 1, seed,
-                stats[-1], msg_logs[0], trace_logs[0],
+                stats[-1], outcome.messages, outcome.trace,
             )
 
-    return WorkerPPOResult(episodes=all_episodes, episode_stats=all_stats)
+    # Tensorize for efficient IPC pickling
+    tensorized = tensorize_episodes(raw_episodes)
+    return WorkerPPOResult(episodes=tensorized, episode_stats=all_stats)
 
 
 class DistributedPPOTrainer:
@@ -254,8 +269,10 @@ class DistributedPPOTrainer:
         clip_epsilon: float = 0.2,
         gae_lambda: float = 0.95,
         max_grad_norm: float = 0.5,
+        mini_batch_size: int = 256,
         replay_dir: Path | None = None,
         replay_threshold: float | None = None,
+        server_urls: list[tuple[str, str]] | None = None,
     ) -> None:
         self._policy = policy
         self._reward_config = reward_config
@@ -266,8 +283,10 @@ class DistributedPPOTrainer:
         self._clip_epsilon = clip_epsilon
         self._gae_lambda = gae_lambda
         self._max_grad_norm = max_grad_norm
+        self._mini_batch_size = mini_batch_size
         self._replay_dir = replay_dir
         self._replay_threshold = replay_threshold
+        self._server_urls = server_urls
 
     def train(
         self, total_episodes: int, start_seed: int
@@ -291,28 +310,34 @@ class DistributedPPOTrainer:
                 weights = self._policy.get_weights()
 
                 # Dispatch: workers collect transitions only
-                futures = {
-                    executor.submit(
+                futures = {}
+                for i, (seeds, ep_offset) in enumerate(
+                    zip(worker_seeds, worker_offsets)
+                ):
+                    kwargs: dict[str, Any] = {}
+                    if self._server_urls and i < len(self._server_urls):
+                        kwargs["bootstrap_url"] = self._server_urls[i][0]
+                        kwargs["ws_url"] = self._server_urls[i][1]
+                    futures[executor.submit(
                         collect_worker_episodes, weights, self._policy.config,
                         self._reward_config, self._runner_config, seeds,
                         replay_dir_str, self._replay_threshold, ep_offset,
-                    ): i
-                    for i, (seeds, ep_offset) in enumerate(
-                        zip(worker_seeds, worker_offsets)
-                    )
-                }
+                        **kwargs,
+                    )] = i
 
-                all_episodes: list[list[Transition]] = []
+                tensorized_episodes: list[list[TensorizedTransition]] = []
                 all_stats: list[EpisodeTrainingStats] = []
                 for future in as_completed(futures):
                     result = future.result()
-                    all_episodes.extend(result.episodes)
+                    tensorized_episodes.extend(result.episodes)
                     all_stats.extend(result.episode_stats)
 
                 # PPO optimization on main process
                 from .policy_gradient import OptimizationStats as _OS
 
-                if all_episodes:
+                if tensorized_episodes:
+                    # Detensorize back to Transition for GAE + optimize
+                    all_episodes = detensorize_episodes(tensorized_episodes)
                     transitions, advantages, returns = compute_gae(
                         all_episodes, self._policy.config.gamma, self._gae_lambda,
                     )
@@ -321,6 +346,7 @@ class DistributedPPOTrainer:
                         clip_epsilon=self._clip_epsilon,
                         ppo_epochs=self._ppo_epochs,
                         max_grad_norm=self._max_grad_norm,
+                        mini_batch_size=self._mini_batch_size,
                     )
                 else:
                     opt_stats = _OS(
@@ -358,11 +384,16 @@ def _make_worker_policy(
     return policy
 
 
-def _seed_config(runner_config: RunnerConfig, seed: int) -> RunnerConfig:
+def _seed_config(
+    runner_config: RunnerConfig,
+    seed: int,
+    bootstrap_url: str | None = None,
+    ws_url: str | None = None,
+) -> RunnerConfig:
     """Create a single-seed RunnerConfig from a template."""
     return RunnerConfig(
-        bootstrap_api_base_url=runner_config.bootstrap_api_base_url,
-        ws_server_url=runner_config.ws_server_url,
+        bootstrap_api_base_url=bootstrap_url or runner_config.bootstrap_api_base_url,
+        ws_server_url=ws_url or runner_config.ws_server_url,
         player_count=runner_config.player_count,
         runs=1,
         max_steps=runner_config.max_steps,

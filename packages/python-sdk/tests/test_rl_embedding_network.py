@@ -276,6 +276,44 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
 
         self.assertFalse(torch.allclose(repr1, repr2, atol=1e-6))
 
+    def test_encode_state_batch_matches_individual(self) -> None:
+        """Batch state encoding must produce same results as individual calls."""
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
+        net.eval()
+        device = torch.device("cpu")
+
+        # Create multiple distinct states
+        state1 = _make_state()
+        state2 = _make_state()
+        state2["players"][0]["fame"] = 99
+        state2["players"][0]["hand"] = []
+
+        step1 = encode_step(state1, "player-1", _make_candidates())
+        step2 = encode_step(state2, "player-1", _make_candidates())
+
+        with torch.no_grad():
+            individual_1 = net.encode_state(step1, device)
+            individual_2 = net.encode_state(step2, device)
+            batched = net.encode_state_batch([step1, step2], device)
+
+        self.assertEqual(batched.shape, (2, 64))
+        self.assertTrue(torch.allclose(individual_1, batched[0], atol=1e-6))
+        self.assertTrue(torch.allclose(individual_2, batched[1], atol=1e-6))
+
+    def test_encode_state_batch_single_item(self) -> None:
+        """Batch with a single item should match individual encode."""
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
+        net.eval()
+        device = torch.device("cpu")
+        step = encode_step(_make_state(), "player-1", _make_candidates())
+
+        with torch.no_grad():
+            individual = net.encode_state(step, device)
+            batched = net.encode_state_batch([step], device)
+
+        self.assertEqual(batched.shape, (1, 64))
+        self.assertTrue(torch.allclose(individual, batched[0], atol=1e-6))
+
     def test_multi_layer_forward(self) -> None:
         """2-layer encoder should produce correct output shapes and finite values."""
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8, num_hidden_layers=2)
@@ -420,6 +458,115 @@ class CheckpointRoundTripTest(unittest.TestCase):
                 _make_state(), "player-1", _make_candidates(), random.Random(42),
             )
             self.assertIsNotNone(result)
+
+
+class BatchedActionEncodingTest(unittest.TestCase):
+    """Test that batched action encoding in optimize_ppo matches individual calls."""
+
+    def test_batched_scoring_matches_individual(self) -> None:
+        """Padded batched scoring must produce same logits as individual forward."""
+        from mage_knight_sdk.sim.rl.features import ACTION_SCALAR_DIM
+
+        net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
+        net.eval()
+        device = torch.device("cpu")
+
+        # Create two distinct steps with different action counts
+        state = _make_state()
+        step1 = encode_step(state, "player-1", _make_candidates())  # 3 actions
+        step2 = encode_step(state, "player-1", _make_candidates()[:2])  # 2 actions
+
+        with torch.no_grad():
+            # Individual forward passes
+            logits1, _ = net(step1, device)
+            logits2, _ = net(step2, device)
+
+            # Batched approach (matching optimize_ppo logic)
+            state_reprs = net.encode_state_batch([step1, step2], device)  # (2, 64)
+            action_counts = [len(step1.actions), len(step2.actions)]
+            max_A = max(action_counts)
+            bs = 2
+            flat_size = bs * max_A
+
+            padded_ids = torch.zeros(flat_size, 6, dtype=torch.long)
+            padded_scalars = torch.zeros(flat_size, ACTION_SCALAR_DIM)
+            padded_targets = torch.zeros(flat_size, net.emb_dim)
+
+            for i, step in enumerate([step1, step2]):
+                n_a = len(step.actions)
+                offset = i * max_A
+                ids = torch.tensor(
+                    [[a.action_type_id, a.source_id, a.card_id,
+                      a.unit_id, a.enemy_id, a.skill_id] for a in step.actions],
+                    dtype=torch.long,
+                )
+                scalars = torch.tensor([a.scalars for a in step.actions])
+                padded_ids[offset:offset + n_a] = ids
+                padded_scalars[offset:offset + n_a] = scalars
+
+            flat_action_input = torch.cat([
+                net.action_type_emb(padded_ids[:, 0]),
+                net.source_emb(padded_ids[:, 1]),
+                net.card_emb(padded_ids[:, 2]),
+                net.unit_emb(padded_ids[:, 3]),
+                net.enemy_emb(padded_ids[:, 4]),
+                net.skill_emb(padded_ids[:, 5]),
+                padded_targets,
+                padded_scalars,
+            ], dim=-1)
+            flat_action_reprs = net.action_encoder(flat_action_input)
+            action_reprs = flat_action_reprs.view(bs, max_A, -1)
+
+            state_expanded = state_reprs.unsqueeze(1).expand(-1, max_A, -1)
+            combined = torch.cat([state_expanded, action_reprs], dim=-1)
+            logits_batched = net.scoring_head(
+                combined.view(-1, combined.size(-1)),
+            ).squeeze(-1).view(bs, max_A)
+
+        # Compare: first 3 logits for step1, first 2 for step2
+        self.assertTrue(torch.allclose(logits1, logits_batched[0, :3], atol=1e-5))
+        self.assertTrue(torch.allclose(logits2, logits_batched[1, :2], atol=1e-5))
+
+    def test_optimize_ppo_batched(self) -> None:
+        """optimize_ppo with batched encoding runs without error."""
+        from mage_knight_sdk.sim.rl.policy_gradient import Transition
+
+        config = PolicyGradientConfig(
+            use_embeddings=True, embedding_dim=8, hidden_size=64, device="cpu",
+        )
+        policy = ReinforcePolicy(config)
+        import random
+        rng = random.Random(42)
+
+        # Simulate a short episode and collect transitions
+        transitions = []
+        for step_i in range(5):
+            candidate = policy.choose_action(
+                _make_state(), "player-1", _make_candidates(), rng,
+            )
+            policy.record_step_reward(0.1 * step_i)
+            info = policy.last_step_info
+            if info is not None:
+                transitions.append(Transition(
+                    encoded_step=info.encoded_step,
+                    action_index=info.action_index,
+                    log_prob=info.log_prob,
+                    value=info.value,
+                    reward=0.1 * step_i,
+                ))
+
+        advantages = [0.5] * len(transitions)
+        returns = [1.0] * len(transitions)
+
+        stats = policy.optimize_ppo(
+            transitions, advantages, returns,
+            ppo_epochs=2, mini_batch_size=3,
+        )
+        self.assertEqual(stats.action_count, len(transitions))
+        self.assertIsInstance(stats.loss, float)
+        self.assertTrue(abs(stats.loss) < 1000)  # sanity
+        self.assertGreater(stats.entropy, 0.0)
+        self.assertGreater(stats.critic_loss, 0.0)
 
 
 class OptimizeEpisodeTest(unittest.TestCase):

@@ -96,7 +96,9 @@ class PPOTrainer(RunnerHooks):
         reward = compute_step_reward(sample, self.reward_config)
         self._episode_total_reward += reward
 
-        info = self.policy.last_step_info
+        # Prefer policy_step_info captured before await (safe for concurrent games).
+        # Fall back to policy.last_step_info for backward compatibility.
+        info = sample.policy_step_info if sample.policy_step_info is not None else self.policy.last_step_info
         if info is not None:
             self._current_transitions.append(Transition(
                 encoded_step=info.encoded_step,

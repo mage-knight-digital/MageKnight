@@ -5,6 +5,7 @@ from pathlib import Path
 import random
 from typing import Any
 
+import numpy as np
 import torch
 from torch import nn
 from ..generated_action_enumerator import CandidateAction
@@ -17,6 +18,7 @@ from .features import (
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
     EncodedStep,
+    StateFeatures,
     encode_state_action,
     encode_step,
 )
@@ -76,6 +78,139 @@ class Transition:
     log_prob: float
     value: float
     reward: float
+
+
+@dataclass(frozen=True)
+class TensorizedTransition:
+    """Transition with numpy arrays for efficient pickling across processes.
+
+    Numpy arrays pickle as contiguous byte buffers — 10-100x more efficient
+    than the nested Python lists in EncodedStep.
+    """
+
+    # State features
+    state_scalars: np.ndarray            # (STATE_SCALAR_DIM,) float32
+    state_mode_id: int
+    state_hand_card_ids: np.ndarray      # (H,) int32
+    state_unit_ids: np.ndarray           # (U,) int32
+    state_terrain_id: int
+    state_site_type_id: int
+    state_combat_enemy_ids: np.ndarray   # (CE,) int32
+    state_combat_enemy_scalars: np.ndarray  # (CE, COMBAT_ENEMY_SCALAR_DIM) float32
+    state_skill_ids: np.ndarray          # (S,) int32
+    state_visible_site_ids: np.ndarray   # (VS,) int32
+    state_visible_site_scalars: np.ndarray  # (VS, SITE_SCALAR_DIM) float32
+    state_map_enemy_ids: np.ndarray      # (ME,) int32
+    state_map_enemy_scalars: np.ndarray  # (ME, MAP_ENEMY_SCALAR_DIM) float32
+
+    # Action features (per-action, packed)
+    action_ids: np.ndarray               # (A, 6) int32  [type, source, card, unit, enemy, skill]
+    action_scalars: np.ndarray           # (A, ACTION_SCALAR_DIM) float32
+    action_target_enemy_ids: list[np.ndarray]  # list of (T,) int32 per action
+
+    # PPO scalars
+    action_index: int
+    log_prob: float
+    value: float
+    reward: float
+
+
+def tensorize_transition(t: Transition) -> TensorizedTransition:
+    """Convert a Transition to numpy-backed form for efficient IPC."""
+    sf = t.encoded_step.state
+    actions = t.encoded_step.actions
+    n_actions = len(actions)
+
+    return TensorizedTransition(
+        state_scalars=np.array(sf.scalars, dtype=np.float32),
+        state_mode_id=sf.mode_id,
+        state_hand_card_ids=np.array(sf.hand_card_ids, dtype=np.int32),
+        state_unit_ids=np.array(sf.unit_ids, dtype=np.int32),
+        state_terrain_id=sf.current_terrain_id,
+        state_site_type_id=sf.current_site_type_id,
+        state_combat_enemy_ids=np.array(sf.combat_enemy_ids, dtype=np.int32),
+        state_combat_enemy_scalars=np.array(sf.combat_enemy_scalars, dtype=np.float32).reshape(-1, COMBAT_ENEMY_SCALAR_DIM) if sf.combat_enemy_scalars else np.empty((0, COMBAT_ENEMY_SCALAR_DIM), dtype=np.float32),
+        state_skill_ids=np.array(sf.skill_ids, dtype=np.int32),
+        state_visible_site_ids=np.array(sf.visible_site_ids, dtype=np.int32),
+        state_visible_site_scalars=np.array(sf.visible_site_scalars, dtype=np.float32).reshape(-1, SITE_SCALAR_DIM) if sf.visible_site_scalars else np.empty((0, SITE_SCALAR_DIM), dtype=np.float32),
+        state_map_enemy_ids=np.array(sf.map_enemy_ids, dtype=np.int32),
+        state_map_enemy_scalars=np.array(sf.map_enemy_scalars, dtype=np.float32).reshape(-1, MAP_ENEMY_SCALAR_DIM) if sf.map_enemy_scalars else np.empty((0, MAP_ENEMY_SCALAR_DIM), dtype=np.float32),
+        action_ids=np.array(
+            [[a.action_type_id, a.source_id, a.card_id, a.unit_id, a.enemy_id, a.skill_id] for a in actions],
+            dtype=np.int32,
+        ) if n_actions > 0 else np.empty((0, 6), dtype=np.int32),
+        action_scalars=np.array(
+            [a.scalars for a in actions], dtype=np.float32,
+        ) if n_actions > 0 else np.empty((0, ACTION_SCALAR_DIM), dtype=np.float32),
+        action_target_enemy_ids=[np.array(a.target_enemy_ids, dtype=np.int32) for a in actions],
+        action_index=t.action_index,
+        log_prob=t.log_prob,
+        value=t.value,
+        reward=t.reward,
+    )
+
+
+def detensorize_transition(tt: TensorizedTransition) -> Transition:
+    """Convert a TensorizedTransition back to a normal Transition."""
+    from .features import ActionFeatures
+
+    sf = StateFeatures(
+        scalars=tt.state_scalars.tolist(),
+        mode_id=tt.state_mode_id,
+        hand_card_ids=tt.state_hand_card_ids.tolist(),
+        unit_ids=tt.state_unit_ids.tolist(),
+        current_terrain_id=tt.state_terrain_id,
+        current_site_type_id=tt.state_site_type_id,
+        combat_enemy_ids=tt.state_combat_enemy_ids.tolist(),
+        combat_enemy_scalars=tt.state_combat_enemy_scalars.tolist(),
+        skill_ids=tt.state_skill_ids.tolist(),
+        visible_site_ids=tt.state_visible_site_ids.tolist(),
+        visible_site_scalars=tt.state_visible_site_scalars.tolist(),
+        map_enemy_ids=tt.state_map_enemy_ids.tolist(),
+        map_enemy_scalars=tt.state_map_enemy_scalars.tolist(),
+    )
+    n_actions = tt.action_ids.shape[0]
+    actions = []
+    for i in range(n_actions):
+        ids = tt.action_ids[i]
+        actions.append(ActionFeatures(
+            action_type_id=int(ids[0]),
+            source_id=int(ids[1]),
+            card_id=int(ids[2]),
+            unit_id=int(ids[3]),
+            enemy_id=int(ids[4]),
+            skill_id=int(ids[5]),
+            target_enemy_ids=tt.action_target_enemy_ids[i].tolist(),
+            scalars=tt.action_scalars[i].tolist(),
+        ))
+    step = EncodedStep(state=sf, actions=actions)
+    return Transition(
+        encoded_step=step,
+        action_index=tt.action_index,
+        log_prob=tt.log_prob,
+        value=tt.value,
+        reward=tt.reward,
+    )
+
+
+def tensorize_episodes(
+    episodes: list[list[Transition]],
+) -> list[list[TensorizedTransition]]:
+    """Convert all transitions in episode lists to tensorized form."""
+    return [
+        [tensorize_transition(t) for t in episode]
+        for episode in episodes
+    ]
+
+
+def detensorize_episodes(
+    episodes: list[list[TensorizedTransition]],
+) -> list[list[Transition]]:
+    """Convert all tensorized transitions back to normal transitions."""
+    return [
+        [detensorize_transition(tt) for tt in episode]
+        for episode in episodes
+    ]
 
 
 class _ActionScoringNetwork(nn.Module):
@@ -156,9 +291,8 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         self.register_buffer("_zero_site_pool", torch.zeros(emb_dim + SITE_SCALAR_DIM))
         self.register_buffer("_zero_map_enemy_pool", torch.zeros(emb_dim + MAP_ENEMY_SCALAR_DIM))
 
-    def encode_state(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
-        """Encode state features into a single vector. Computed once per step."""
-        sf = step.state
+    def _encode_state_input(self, sf: StateFeatures, device: torch.device) -> torch.Tensor:
+        """Build raw state input vector (before state_encoder) for a single state."""
         scalars = torch.tensor(sf.scalars, dtype=torch.float32, device=device)
 
         # Standard single-lookup embeddings
@@ -216,13 +350,29 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         else:
             map_enemy_pool = self._zero_map_enemy_pool
 
-        state_input = torch.cat([
+        return torch.cat([
             scalars,
             mode_vec, hand_pool, unit_pool,
             terrain_vec, site_vec, combat_enemy_pool, skill_pool,
             visible_site_pool, map_enemy_pool,
         ])
+
+    def encode_state(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
+        """Encode state features into a single vector. Computed once per step."""
+        state_input = self._encode_state_input(step.state, device)
         return self.state_encoder(state_input)
+
+    def encode_state_batch(
+        self, steps: list[EncodedStep], device: torch.device,
+    ) -> torch.Tensor:
+        """Batch-encode multiple states in a single forward pass.
+
+        Returns (B, hidden) tensor of state representations.
+        """
+        inputs = torch.stack([
+            self._encode_state_input(step.state, device) for step in steps
+        ])  # (B, state_input_dim)
+        return self.state_encoder(inputs)  # (B, hidden)
 
     def encode_actions(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
         """Encode all candidate actions into (N, hidden) tensor."""
@@ -446,7 +596,7 @@ class ReinforcePolicy(Policy):
         clip_epsilon: float = 0.2,
         ppo_epochs: int = 4,
         max_grad_norm: float = 0.5,
-        mini_batch_size: int = 64,
+        mini_batch_size: int = 256,
     ) -> OptimizationStats:
         """Run PPO clipped surrogate update over collected transitions."""
         n = len(transitions)
@@ -474,6 +624,47 @@ class ReinforcePolicy(Policy):
         num_batches = 0
 
         indices = list(range(n))
+        use_batch = isinstance(self._network, _EmbeddingActionScoringNetwork)
+
+        if use_batch:
+            net: _EmbeddingActionScoringNetwork = self._network
+
+            # ---- Precompute: Python list → tensor conversions (once) ----
+            precomp_action_ids: list[torch.Tensor] = []    # (A_i, 6) long
+            precomp_action_scalars: list[torch.Tensor] = []  # (A_i, ACTION_SCALAR_DIM)
+            precomp_target_ids: list[list[torch.Tensor | None]] = []
+            action_counts: list[int] = []
+            action_indices_all = torch.tensor(
+                [t.action_index for t in transitions],
+                dtype=torch.long, device=self._device,
+            )
+
+            for t in transitions:
+                actions = t.encoded_step.actions
+                n_a = len(actions)
+                action_counts.append(n_a)
+                precomp_action_ids.append(torch.tensor(
+                    [[a.action_type_id, a.source_id, a.card_id,
+                      a.unit_id, a.enemy_id, a.skill_id] for a in actions],
+                    dtype=torch.long, device=self._device,
+                ))
+                precomp_action_scalars.append(torch.tensor(
+                    [a.scalars for a in actions],
+                    dtype=torch.float32, device=self._device,
+                ))
+                precomp_target_ids.append([
+                    torch.tensor(a.target_enemy_ids, dtype=torch.long, device=self._device)
+                    if a.target_enemy_ids else None
+                    for a in actions
+                ])
+
+            # ---- Precompute all state inputs ONCE (before epoch loop) ----
+            # Standard PPO practice: clipping handles slight embedding staleness.
+            with torch.no_grad():
+                precomp_state_inputs = torch.stack([
+                    net._encode_state_input(t.encoded_step.state, self._device)
+                    for t in transitions
+                ])  # (N, state_input_dim)
 
         for _epoch in range(ppo_epochs):
             random.shuffle(indices)
@@ -481,29 +672,122 @@ class ReinforcePolicy(Policy):
             for start in range(0, n, mini_batch_size):
                 batch = indices[start : start + mini_batch_size]
                 bs = len(batch)
+                batch_t = torch.tensor(batch, dtype=torch.long, device=self._device)
 
                 self._optimizer.zero_grad(set_to_none=True)
-                b_policy = torch.tensor(0.0, device=self._device)
-                b_critic = torch.tensor(0.0, device=self._device)
-                b_entropy = torch.tensor(0.0, device=self._device)
 
-                for idx in batch:
-                    t = transitions[idx]
-                    logits, value = self._network(t.encoded_step, self._device)
-                    log_probs = torch.log_softmax(logits, dim=0)
-                    new_lp = log_probs[t.action_index]
+                if use_batch:
+                    # Index precomputed state inputs and run state encoder
+                    state_reprs = net.state_encoder(
+                        precomp_state_inputs[batch_t],
+                    )  # (bs, hidden)
+                    values = net.value_head(state_reprs).squeeze(-1)  # (bs,)
 
-                    ratio = torch.exp(new_lp - old_lp[idx])
-                    surr1 = ratio * adv_t[idx]
+                    # ---- Batched action encoding ----
+                    max_A = max(action_counts[idx] for idx in batch)
+                    flat_size = bs * max_A
+                    emb_dim = net.emb_dim
+
+                    # Pad precomputed action tensors into flat (bs*max_A, ...) arrays
+                    padded_ids = torch.zeros(
+                        flat_size, 6, dtype=torch.long, device=self._device,
+                    )
+                    padded_scalars = torch.zeros(
+                        flat_size, ACTION_SCALAR_DIM,
+                        dtype=torch.float32, device=self._device,
+                    )
+                    padded_targets = torch.zeros(
+                        flat_size, emb_dim, device=self._device,
+                    )
+                    mask = torch.zeros(
+                        bs, max_A, dtype=torch.bool, device=self._device,
+                    )
+
+                    for i, idx in enumerate(batch):
+                        n_a = action_counts[idx]
+                        offset = i * max_A
+                        padded_ids[offset : offset + n_a] = precomp_action_ids[idx]
+                        padded_scalars[offset : offset + n_a] = precomp_action_scalars[idx]
+                        for j, tid in enumerate(precomp_target_ids[idx]):
+                            if tid is not None:
+                                padded_targets[offset + j] = net.enemy_emb(tid).mean(dim=0)
+                        mask[i, :n_a] = True
+
+                    # Single batched embedding lookup + action encoder MLP
+                    flat_action_input = torch.cat([
+                        net.action_type_emb(padded_ids[:, 0]),
+                        net.source_emb(padded_ids[:, 1]),
+                        net.card_emb(padded_ids[:, 2]),
+                        net.unit_emb(padded_ids[:, 3]),
+                        net.enemy_emb(padded_ids[:, 4]),
+                        net.skill_emb(padded_ids[:, 5]),
+                        padded_targets,
+                        padded_scalars,
+                    ], dim=-1)  # (flat_size, 7*emb_dim + ACTION_SCALAR_DIM)
+
+                    flat_action_reprs = net.action_encoder(
+                        flat_action_input,
+                    )  # (flat_size, hidden)
+                    action_reprs = flat_action_reprs.view(
+                        bs, max_A, -1,
+                    )  # (bs, max_A, hidden)
+
+                    # Single batched scoring head
+                    state_expanded = state_reprs.unsqueeze(1).expand(
+                        -1, max_A, -1,
+                    )  # (bs, max_A, hidden)
+                    combined = torch.cat(
+                        [state_expanded, action_reprs], dim=-1,
+                    )  # (bs, max_A, 2*hidden)
+                    logits = net.scoring_head(
+                        combined.view(-1, combined.size(-1)),
+                    ).squeeze(-1).view(bs, max_A)  # (bs, max_A)
+
+                    # Masked log_softmax
+                    logits = logits.masked_fill(~mask, float("-inf"))
+                    log_probs = torch.log_softmax(logits, dim=-1)  # (bs, max_A)
+
+                    # Gather selected action log probs
+                    batch_action_idx = action_indices_all[batch_t]  # (bs,)
+                    arange_bs = torch.arange(bs, device=self._device)
+                    new_lps = log_probs[arange_bs, batch_action_idx]  # (bs,)
+
+                    # Vectorized PPO loss
+                    ratios = torch.exp(new_lps - old_lp[batch_t])
+                    surr1 = ratios * adv_t[batch_t]
                     surr2 = torch.clamp(
-                        ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon,
-                    ) * adv_t[idx]
-                    b_policy = b_policy - torch.min(surr1, surr2)
+                        ratios, 1.0 - clip_epsilon, 1.0 + clip_epsilon,
+                    ) * adv_t[batch_t]
+                    b_policy = -torch.min(surr1, surr2).sum()
 
-                    b_critic = b_critic + nn.functional.mse_loss(value, ret_t[idx])
+                    # Entropy: select only valid positions to avoid 0*(-inf)=NaN
+                    valid_lp = log_probs[mask]  # (total_valid,)
+                    valid_p = valid_lp.exp()
+                    b_entropy = -(valid_p * valid_lp).sum()
 
-                    probs = log_probs.exp()
-                    b_entropy = b_entropy - (probs * log_probs).sum()
+                    b_critic = nn.functional.mse_loss(
+                        values, ret_t[batch_t], reduction="sum",
+                    )
+                else:
+                    # Legacy path: per-transition full forward pass
+                    b_policy = torch.tensor(0.0, device=self._device)
+                    b_critic = torch.tensor(0.0, device=self._device)
+                    b_entropy = torch.tensor(0.0, device=self._device)
+                    for idx in batch:
+                        t = transitions[idx]
+                        logits, value = self._network(t.encoded_step, self._device)
+                        log_probs = torch.log_softmax(logits, dim=0)
+                        new_lp = log_probs[t.action_index]
+
+                        ratio = torch.exp(new_lp - old_lp[idx])
+                        surr1 = ratio * adv_t[idx]
+                        surr2 = torch.clamp(
+                            ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon,
+                        ) * adv_t[idx]
+                        b_policy = b_policy - torch.min(surr1, surr2)
+                        b_critic = b_critic + nn.functional.mse_loss(value, ret_t[idx])
+                        probs = log_probs.exp()
+                        b_entropy = b_entropy - (probs * log_probs).sum()
 
                 loss = (
                     b_policy / bs
