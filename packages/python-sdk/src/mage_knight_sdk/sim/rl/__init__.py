@@ -1,5 +1,6 @@
 """Reinforcement-learning utilities for Mage Knight simulation training."""
 
+from .batch_coordinator import BatchInferenceCoordinator
 from .distributed_trainer import (
     DistributedPPOTrainer,
     DistributedReinforceTrainer,
@@ -37,6 +38,7 @@ from .vocabularies import (
 __all__ = [
     "ActionFeatures",
     "ACTION_TYPE_VOCAB",
+    "BatchInferenceCoordinator",
     "CARD_VOCAB",
     "DistributedPPOTrainer",
     "DistributedReinforceTrainer",

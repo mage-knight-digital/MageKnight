@@ -19,6 +19,7 @@ class StepSample:
     next_state: dict[str, Any] | None
     events: list[Any]
     candidate_count: int
+    policy_step_info: Any | None = None
 
 
 @runtime_checkable

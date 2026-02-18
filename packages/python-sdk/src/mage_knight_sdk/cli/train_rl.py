@@ -92,6 +92,9 @@ def main() -> int:
 
     parser.add_argument("--workers", type=int, default=1, help="Number of parallel worker processes (default: 1 = sequential)")
     parser.add_argument("--episodes-per-sync", type=int, default=1, help="Episodes each worker runs before gradient sync (default: 1)")
+    parser.add_argument("--base-port", type=int, default=None, metavar="PORT",
+                        help="Base port for per-worker game servers (e.g. 3001 → workers use 3001,3002,...). "
+                             "Start servers with: bun packages/server/cluster.ts --workers N --base-port PORT")
 
     # PPO flags
     parser.add_argument("--ppo", action="store_true", help="Use PPO instead of REINFORCE")
@@ -100,6 +103,7 @@ def main() -> int:
     parser.add_argument("--clip-epsilon", type=float, default=0.2, help="PPO clip ratio (default: 0.2)")
     parser.add_argument("--gae-lambda", type=float, default=0.95, help="GAE lambda (default: 0.95)")
     parser.add_argument("--max-grad-norm", type=float, default=0.5, help="Gradient clipping max norm (default: 0.5)")
+    parser.add_argument("--mini-batch-size", type=int, default=256, help="PPO mini-batch size (default: 256)")
 
     args = parser.parse_args()
     if args.episodes < 1:
@@ -345,6 +349,7 @@ def _train_distributed(
         allow_undo=not args.no_undo,
     )
 
+    server_urls = _build_server_urls(args.base_port, args.workers)
     dist_trainer = DistributedReinforceTrainer(
         policy=policy,
         reward_config=reward_config,
@@ -353,6 +358,7 @@ def _train_distributed(
         episodes_per_sync=args.episodes_per_sync,
         replay_dir=replay_dir,
         replay_threshold=args.save_top_games,
+        server_urls=server_urls,
     )
 
     episode = 0
@@ -477,6 +483,7 @@ def _train_ppo_sequential(
             clip_epsilon=args.clip_epsilon,
             ppo_epochs=args.ppo_epochs,
             max_grad_norm=args.max_grad_norm,
+            mini_batch_size=args.mini_batch_size,
         )
 
         # Log each episode in the batch
@@ -553,6 +560,7 @@ def _train_ppo_distributed(
         allow_undo=not args.no_undo,
     )
 
+    server_urls = _build_server_urls(args.base_port, args.workers)
     dist_trainer = DistributedPPOTrainer(
         policy=policy,
         reward_config=reward_config,
@@ -563,8 +571,10 @@ def _train_ppo_distributed(
         clip_epsilon=args.clip_epsilon,
         gae_lambda=args.gae_lambda,
         max_grad_norm=args.max_grad_norm,
+        mini_batch_size=args.mini_batch_size,
         replay_dir=replay_dir,
         replay_threshold=args.save_top_games,
+        server_urls=server_urls,
     )
 
     episode = 0
@@ -616,6 +626,18 @@ def _train_ppo_distributed(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _build_server_urls(
+    base_port: int | None, num_workers: int,
+) -> list[tuple[str, str]] | None:
+    """Build per-worker (bootstrap_url, ws_url) pairs from a base port."""
+    if base_port is None:
+        return None
+    return [
+        (f"http://127.0.0.1:{base_port + i}", f"ws://127.0.0.1:{base_port + i}")
+        for i in range(num_workers)
+    ]
 
 
 def _with_opt(stats: Any, opt: Any) -> Any:
