@@ -190,10 +190,22 @@ def run_sequential_profile(
     }
 
 
-def run_distributed_profile(args: argparse.Namespace, num_workers: int) -> dict[str, Any]:
-    """Measure wall-clock time for distributed PPO training."""
-    from mage_knight_sdk.sim.rl.distributed_trainer import DistributedPPOTrainer
-    from mage_knight_sdk.sim.rl.policy_gradient import compute_gae
+def run_ppo_profile(args: argparse.Namespace, num_workers: int) -> dict[str, Any]:
+    """Profile the distributed PPO pipeline with per-phase timing.
+
+    Manually replicates DistributedPPOTrainer.train() to insert
+    perf_counter_ns around each phase.
+    """
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    from mage_knight_sdk.sim.rl.distributed_trainer import (
+        WorkerPPOResult,
+        collect_worker_episodes,
+        _distribute_seeds,
+    )
+    from mage_knight_sdk.sim.rl.policy_gradient import (
+        compute_gae,
+        detensorize_episodes,
+    )
 
     config = PolicyGradientConfig(
         hidden_size=args.hidden_size,
@@ -227,34 +239,179 @@ def run_distributed_profile(args: argparse.Namespace, num_workers: int) -> dict[
             for i in range(num_workers)
         ]
 
-    dist_trainer = DistributedPPOTrainer(
-        policy=policy,
-        reward_config=reward_config,
-        runner_config=runner_config,
-        num_workers=num_workers,
-        episodes_per_sync=4,
-        ppo_epochs=4,
-        clip_epsilon=0.2,
-        gae_lambda=0.95,
-        max_grad_norm=0.5,
-        server_urls=server_urls,
-    )
+    episodes_per_sync = getattr(args, "episodes_per_sync", 4) or 4
+    ppo_epochs = 4
+    batch_size = num_workers * episodes_per_sync
+    seed_cursor = args.seed
+
+    # Phase accumulators (nanoseconds)
+    phase_ns: dict[str, int] = {
+        "get_weights": 0,
+        "worker_collection": 0,
+        "detensorize": 0,
+        "compute_gae": 0,
+        "optimize_ppo": 0,
+    }
+    batch_count = 0
+    total_steps = 0
+    total_episodes = 0
+    batch_details: list[dict[str, Any]] = []
 
     wall_start = perf_counter_ns()
-    total_steps = 0
-    count = 0
-    for stats in dist_trainer.train(total_episodes=args.episodes, start_seed=args.seed):
-        total_steps += stats.steps
-        count += 1
+
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        while total_episodes < args.episodes:
+            remaining = args.episodes - total_episodes
+            current_batch = min(batch_size, remaining)
+
+            worker_seeds, worker_offsets, assigned = _distribute_seeds(
+                num_workers, episodes_per_sync,
+                current_batch, seed_cursor, total_episodes,
+            )
+            seed_cursor += assigned
+
+            # --- Phase 1: Weight serialization ---
+            t0 = perf_counter_ns()
+            weights = policy.get_weights()
+            t_weights = perf_counter_ns() - t0
+            phase_ns["get_weights"] += t_weights
+
+            # --- Phase 2: Worker dispatch + collection ---
+            t0 = perf_counter_ns()
+            futures = {}
+            for i, (seeds, ep_offset) in enumerate(zip(worker_seeds, worker_offsets)):
+                kwargs: dict[str, Any] = {}
+                if server_urls and i < len(server_urls):
+                    kwargs["bootstrap_url"] = server_urls[i][0]
+                    kwargs["ws_url"] = server_urls[i][1]
+                futures[executor.submit(
+                    collect_worker_episodes, weights, policy.config,
+                    reward_config, runner_config, seeds,
+                    None, None, ep_offset,
+                    **kwargs,
+                )] = i
+
+            worker_results: list[WorkerPPOResult] = []
+            for future in as_completed(futures):
+                worker_results.append(future.result())
+            t_workers = perf_counter_ns() - t0
+            phase_ns["worker_collection"] += t_workers
+
+            # --- Phase 3: Detensorize ---
+            t0 = perf_counter_ns()
+            tensorized_episodes = []
+            all_stats = []
+            for wr in worker_results:
+                tensorized_episodes.extend(wr.episodes)
+                all_stats.extend(wr.episode_stats)
+
+            if tensorized_episodes:
+                all_episodes = detensorize_episodes(tensorized_episodes)
+            else:
+                all_episodes = []
+            t_detensor = perf_counter_ns() - t0
+            phase_ns["detensorize"] += t_detensor
+
+            # --- Phase 4: GAE ---
+            t0 = perf_counter_ns()
+            if all_episodes:
+                transitions, advantages, returns = compute_gae(
+                    all_episodes, config.gamma, 0.95,
+                )
+            t_gae = perf_counter_ns() - t0
+            phase_ns["compute_gae"] += t_gae
+
+            # --- Phase 5: PPO optimization ---
+            t0 = perf_counter_ns()
+            if all_episodes:
+                policy.optimize_ppo(
+                    transitions, advantages, returns,
+                    clip_epsilon=0.2, ppo_epochs=ppo_epochs,
+                    max_grad_norm=0.5, mini_batch_size=256,
+                )
+            t_opt = perf_counter_ns() - t0
+            phase_ns["optimize_ppo"] += t_opt
+
+            batch_steps = sum(s.steps for s in all_stats)
+            n_transitions = len(transitions) if all_episodes else 0
+            batch_details.append({
+                "batch": batch_count,
+                "episodes": len(all_stats),
+                "steps": batch_steps,
+                "transitions": n_transitions,
+                "get_weights_ms": t_weights / 1e6,
+                "worker_collection_ms": t_workers / 1e6,
+                "detensorize_ms": t_detensor / 1e6,
+                "compute_gae_ms": t_gae / 1e6,
+                "optimize_ppo_ms": t_opt / 1e6,
+            })
+
+            total_steps += batch_steps
+            total_episodes += len(all_stats)
+            batch_count += 1
 
     wall_total_ns = perf_counter_ns() - wall_start
 
     return {
         "workers": num_workers,
-        "episodes": count,
+        "episodes_per_sync": episodes_per_sync,
+        "episodes": total_episodes,
         "total_steps": total_steps,
+        "batches": batch_count,
         "wall_ns": wall_total_ns,
+        "phase_ns": phase_ns,
+        "batch_details": batch_details,
     }
+
+
+def print_ppo_results(r: dict[str, Any]) -> None:
+    """Print distributed PPO phase breakdown."""
+    wall_ns = r["wall_ns"]
+    wall_ms = wall_ns / 1e6
+    phase_ns = r["phase_ns"]
+    accounted = sum(phase_ns.values())
+    unaccounted = wall_ns - accounted
+
+    print(f"\n{'=' * 70}")
+    print(f"DISTRIBUTED PPO PROFILE")
+    print(f"  workers={r['workers']}  eps_per_sync={r['episodes_per_sync']}  "
+          f"batches={r['batches']}  episodes={r['episodes']}  steps={r['total_steps']}")
+    print(f"{'=' * 70}")
+
+    # Phase breakdown
+    print(f"\n--- Per-Batch Phase Breakdown ---")
+    print(f"  {'Phase':<22} {'Mean':>10} {'Total':>10} {'% wall':>8}")
+    n_batches = max(r["batches"], 1)
+    for phase_name in ("get_weights", "worker_collection", "detensorize", "compute_gae", "optimize_ppo"):
+        ns = phase_ns[phase_name]
+        mean_ms = ns / n_batches / 1e6
+        total_ms = ns / 1e6
+        pct = ns / wall_ns * 100 if wall_ns > 0 else 0
+        print(f"  {phase_name:<22} {mean_ms:>8.1f}ms {total_ms:>8.0f}ms {pct:>7.1f}%")
+    # Unaccounted
+    ua_mean = unaccounted / n_batches / 1e6
+    ua_pct = unaccounted / wall_ns * 100 if wall_ns > 0 else 0
+    print(f"  {'unaccounted':<22} {ua_mean:>8.1f}ms {unaccounted/1e6:>8.0f}ms {ua_pct:>7.1f}%")
+    print(f"  {'─' * 52}")
+    print(f"  {'TOTAL':<22} {wall_ms/n_batches:>8.1f}ms {wall_ms:>8.0f}ms {100.0:>7.1f}%")
+
+    # Per-batch details
+    if r["batch_details"]:
+        print(f"\n--- Batch Details ---")
+        print(f"  {'Batch':>5} {'Eps':>4} {'Steps':>6} {'Trans':>6} "
+              f"{'Weights':>8} {'Workers':>8} {'Detens':>8} {'GAE':>8} {'PPO':>8} {'Total':>8}")
+        for bd in r["batch_details"]:
+            total_ms = (bd["get_weights_ms"] + bd["worker_collection_ms"] +
+                       bd["detensorize_ms"] + bd["compute_gae_ms"] + bd["optimize_ppo_ms"])
+            print(f"  {bd['batch']:>5} {bd['episodes']:>4} {bd['steps']:>6} {bd['transitions']:>6} "
+                  f"{bd['get_weights_ms']:>6.1f}ms {bd['worker_collection_ms']:>6.0f}ms "
+                  f"{bd['detensorize_ms']:>6.1f}ms {bd['compute_gae_ms']:>6.1f}ms "
+                  f"{bd['optimize_ppo_ms']:>6.0f}ms {total_ms:>6.0f}ms")
+
+    # Throughput
+    wall_sec = wall_ns / 1e9
+    print(f"\n--- Throughput ---")
+    print(f"  {r['episodes']/wall_sec:.2f} games/sec  |  {r['total_steps']/wall_sec:.0f} steps/sec")
 
 
 def print_sequential_results(r: dict[str, Any]) -> None:
@@ -327,8 +484,12 @@ def main() -> None:
     parser.add_argument("--embedding-dim", type=int, default=16)
     parser.add_argument("--compare-sizes", action="store_true",
                         help="Also profile smaller network configs for comparison")
-    parser.add_argument("--distributed", action="store_true",
-                        help="Also profile distributed PPO overhead")
+    parser.add_argument("--ppo", action="store_true",
+                        help="Profile the distributed PPO pipeline (skip sequential REINFORCE profiling)")
+    parser.add_argument("--workers", type=int, default=4,
+                        help="Number of workers for PPO profiling (default: 4)")
+    parser.add_argument("--episodes-per-sync", type=int, default=4,
+                        help="Episodes per worker per sync (default: 4)")
     parser.add_argument("--base-port", type=int, default=3001,
                         help="Base port for game servers (default: 3001)")
     parser.add_argument("--multi-server", action="store_true",
@@ -338,6 +499,19 @@ def main() -> None:
     print("=" * 70)
     print("COMPREHENSIVE RL TRAINING PROFILER")
     print("=" * 70)
+
+    if args.ppo:
+        # --- PPO distributed pipeline profile ---
+        for workers in ([1, args.workers] if args.workers > 1 else [1]):
+            print(f"\nRunning distributed PPO profile with {workers} workers ({args.episodes} eps)...")
+            try:
+                r = run_ppo_profile(args, num_workers=workers)
+                print_ppo_results(r)
+            except Exception as e:
+                import traceback
+                print(f"  FAILED: {e}")
+                traceback.print_exc()
+        return
 
     # --- Sequential profile with current config ---
     print(f"\nRunning sequential profile ({args.episodes} eps)...")
@@ -362,26 +536,6 @@ def main() -> None:
             print(f"\nRunning sequential profile for {label}...")
             r = run_sequential_profile(args, hidden_size=h, num_layers=layers, label=label)
             print_sequential_results(r)
-
-    # --- Distributed overhead ---
-    if args.distributed:
-        print(f"\n{'=' * 70}")
-        print("DISTRIBUTED PPO OVERHEAD")
-        print(f"{'=' * 70}")
-
-        for workers in [1, 4, 8]:
-            print(f"\nRunning distributed PPO with {workers} workers ({args.episodes} eps)...")
-            try:
-                dr = run_distributed_profile(args, num_workers=workers)
-                wall_sec = dr["wall_ns"] / 1e9
-                gps = dr["episodes"] / wall_sec
-                sps = dr["total_steps"] / wall_sec
-                avg_steps = dr["total_steps"] / max(dr["episodes"], 1)
-                print(f"  workers={workers}: {gps:.2f} games/sec  {sps:.0f} steps/sec  "
-                      f"({dr['episodes']} eps, {dr['total_steps']} steps, {wall_sec:.1f}s, "
-                      f"avg {avg_steps:.0f} steps/game)")
-            except Exception as e:
-                print(f"  workers={workers}: FAILED - {e}")
 
     # --- Final summary ---
     print(f"\n{'=' * 70}")

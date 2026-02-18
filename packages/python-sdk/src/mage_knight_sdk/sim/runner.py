@@ -803,6 +803,7 @@ async def _run_simulations_batch(
     hooks_factory: _HooksFactory | None = None,
     return_traces: bool = False,
     concurrent: bool = False,
+    coordinator_stats_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> list[tuple[SimulationOutcome, RunnerHooks | None]]:
     """Run multiple simulations sharing one event loop and HTTP connection.
 
@@ -853,6 +854,8 @@ async def _run_simulations_batch(
                     for outcome, (_, hooks) in zip(outcomes, prepared)
                 ]
             finally:
+                if coordinator is not None and coordinator_stats_callback is not None:
+                    coordinator_stats_callback(coordinator.stats)
                 if coordinator_task is not None:
                     coordinator_task.cancel()
                     try:
@@ -882,11 +885,13 @@ def run_simulations_batch_sync(
     hooks_factory: _HooksFactory | None = None,
     return_traces: bool = False,
     concurrent: bool = False,
+    coordinator_stats_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> list[tuple[SimulationOutcome, RunnerHooks | None]]:
     """Run multiple simulations in a single event loop (sync wrapper)."""
     return asyncio.run(_run_simulations_batch(
         configs, policy, hooks_factory=hooks_factory,
         return_traces=return_traces, concurrent=concurrent,
+        coordinator_stats_callback=coordinator_stats_callback,
     ))
 
 

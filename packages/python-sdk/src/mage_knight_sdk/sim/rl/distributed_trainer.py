@@ -196,6 +196,7 @@ class WorkerPPOResult:
 
     episodes: list[list[TensorizedTransition]]
     episode_stats: list[EpisodeTrainingStats]
+    step_timings_aggregate: dict[str, int] | None = None
 
 
 def collect_worker_episodes(
@@ -230,12 +231,30 @@ def collect_worker_episodes(
         concurrent=True,
     )
 
+    agg_timings: dict[str, int] | None = None
     for idx, (outcome, _hooks) in enumerate(results):
         trainer = trainers[idx]
         seed = seeds[idx]
         episodes, stats = trainer.harvest()
         raw_episodes.extend(episodes)
         all_stats.extend(stats)
+
+        # Aggregate step timings across episodes
+        t = outcome.step_timings
+        if t is not None:
+            if agg_timings is None:
+                agg_timings = {
+                    "enumerate_ns": 0, "sort_ns": 0, "policy_ns": 0,
+                    "server_ns": 0, "hooks_ns": 0, "overhead_ns": 0,
+                    "step_count": 0,
+                }
+            agg_timings["enumerate_ns"] += t.enumerate_ns
+            agg_timings["sort_ns"] += t.sort_ns
+            agg_timings["policy_ns"] += t.policy_ns
+            agg_timings["server_ns"] += t.server_ns
+            agg_timings["hooks_ns"] += t.hooks_ns
+            agg_timings["overhead_ns"] += t.overhead_ns
+            agg_timings["step_count"] += t.step_count
 
         if (capture
                 and replay_threshold is not None
@@ -248,7 +267,10 @@ def collect_worker_episodes(
 
     # Tensorize for efficient IPC pickling
     tensorized = tensorize_episodes(raw_episodes)
-    return WorkerPPOResult(episodes=tensorized, episode_stats=all_stats)
+    return WorkerPPOResult(
+        episodes=tensorized, episode_stats=all_stats,
+        step_timings_aggregate=agg_timings,
+    )
 
 
 class DistributedPPOTrainer:
@@ -288,73 +310,118 @@ class DistributedPPOTrainer:
         self._replay_threshold = replay_threshold
         self._server_urls = server_urls
 
+    def _dispatch_batch(
+        self,
+        executor: ProcessPoolExecutor,
+        seed_cursor: int,
+        episodes_yielded: int,
+        remaining: int,
+        replay_dir_str: str | None,
+    ) -> tuple[dict[Any, int], int]:
+        """Dispatch a batch of workers. Returns (futures_dict, seeds_assigned)."""
+        batch_size = self._num_workers * self._episodes_per_sync
+        current_batch = min(batch_size, remaining)
+
+        worker_seeds, worker_offsets, assigned = _distribute_seeds(
+            self._num_workers, self._episodes_per_sync,
+            current_batch, seed_cursor, episodes_yielded,
+        )
+        weights = self._policy.get_weights()
+
+        futures: dict[Any, int] = {}
+        for i, (seeds, ep_offset) in enumerate(
+            zip(worker_seeds, worker_offsets)
+        ):
+            kwargs: dict[str, Any] = {}
+            if self._server_urls and i < len(self._server_urls):
+                kwargs["bootstrap_url"] = self._server_urls[i][0]
+                kwargs["ws_url"] = self._server_urls[i][1]
+            futures[executor.submit(
+                collect_worker_episodes, weights, self._policy.config,
+                self._reward_config, self._runner_config, seeds,
+                replay_dir_str, self._replay_threshold, ep_offset,
+                **kwargs,
+            )] = i
+        return futures, assigned
+
+    @staticmethod
+    def _collect_results(
+        futures: dict[Any, int],
+    ) -> tuple[list[list[TensorizedTransition]], list[EpisodeTrainingStats]]:
+        """Wait for workers and collect their results."""
+        tensorized_episodes: list[list[TensorizedTransition]] = []
+        all_stats: list[EpisodeTrainingStats] = []
+        for future in as_completed(futures):
+            result = future.result()
+            tensorized_episodes.extend(result.episodes)
+            all_stats.extend(result.episode_stats)
+        return tensorized_episodes, all_stats
+
+    def _optimize_batch(
+        self,
+        tensorized_episodes: list[list[TensorizedTransition]],
+    ) -> "OptimizationStats":
+        from .policy_gradient import OptimizationStats as _OS
+
+        if not tensorized_episodes:
+            return _OS(
+                loss=0.0, total_reward=0.0, mean_reward=0.0,
+                entropy=0.0, action_count=0,
+            )
+        all_episodes = detensorize_episodes(tensorized_episodes)
+        transitions, advantages, returns = compute_gae(
+            all_episodes, self._policy.config.gamma, self._gae_lambda,
+        )
+        return self._policy.optimize_ppo(
+            transitions, advantages, returns,
+            clip_epsilon=self._clip_epsilon,
+            ppo_epochs=self._ppo_epochs,
+            max_grad_norm=self._max_grad_norm,
+            mini_batch_size=self._mini_batch_size,
+        )
+
     def train(
         self, total_episodes: int, start_seed: int
     ) -> Iterator[EpisodeTrainingStats]:
-        """Yield stats for each episode, running PPO batches in parallel."""
-        batch_size = self._num_workers * self._episodes_per_sync
+        """Yield stats for each episode, running PPO batches in parallel.
+
+        Uses double-buffering: while optimizing batch N, workers are already
+        collecting batch N+1. Workers use pre-optimization weights (1 batch
+        stale), which PPO's importance sampling ratio handles correctly.
+        """
         seed_cursor = start_seed
         replay_dir_str = str(self._replay_dir) if self._replay_dir else None
 
         episodes_yielded = 0
         with ProcessPoolExecutor(max_workers=self._num_workers) as executor:
+            # Collect first batch (nothing to optimize yet)
+            remaining = total_episodes - episodes_yielded
+            futures, assigned = self._dispatch_batch(
+                executor, seed_cursor, episodes_yielded, remaining,
+                replay_dir_str,
+            )
+            seed_cursor += assigned
+            pending_episodes, pending_stats = self._collect_results(futures)
+
             while episodes_yielded < total_episodes:
-                remaining = total_episodes - episodes_yielded
-                current_batch = min(batch_size, remaining)
-
-                worker_seeds, worker_offsets, assigned = _distribute_seeds(
-                    self._num_workers, self._episodes_per_sync,
-                    current_batch, seed_cursor, episodes_yielded,
-                )
-                seed_cursor += assigned
-                weights = self._policy.get_weights()
-
-                # Dispatch: workers collect transitions only
-                futures = {}
-                for i, (seeds, ep_offset) in enumerate(
-                    zip(worker_seeds, worker_offsets)
-                ):
-                    kwargs: dict[str, Any] = {}
-                    if self._server_urls and i < len(self._server_urls):
-                        kwargs["bootstrap_url"] = self._server_urls[i][0]
-                        kwargs["ws_url"] = self._server_urls[i][1]
-                    futures[executor.submit(
-                        collect_worker_episodes, weights, self._policy.config,
-                        self._reward_config, self._runner_config, seeds,
-                        replay_dir_str, self._replay_threshold, ep_offset,
-                        **kwargs,
-                    )] = i
-
-                tensorized_episodes: list[list[TensorizedTransition]] = []
-                all_stats: list[EpisodeTrainingStats] = []
-                for future in as_completed(futures):
-                    result = future.result()
-                    tensorized_episodes.extend(result.episodes)
-                    all_stats.extend(result.episode_stats)
-
-                # PPO optimization on main process
-                from .policy_gradient import OptimizationStats as _OS
-
-                if tensorized_episodes:
-                    # Detensorize back to Transition for GAE + optimize
-                    all_episodes = detensorize_episodes(tensorized_episodes)
-                    transitions, advantages, returns = compute_gae(
-                        all_episodes, self._policy.config.gamma, self._gae_lambda,
+                # Dispatch next batch BEFORE optimizing current batch.
+                # Workers use current (pre-optimization) weights. The
+                # importance ratio in PPO corrects for the 1-batch staleness.
+                remaining_after = total_episodes - episodes_yielded - len(pending_stats)
+                next_futures = None
+                next_assigned = 0
+                if remaining_after > 0:
+                    next_futures, next_assigned = self._dispatch_batch(
+                        executor, seed_cursor, episodes_yielded + len(pending_stats),
+                        remaining_after, replay_dir_str,
                     )
-                    opt_stats = self._policy.optimize_ppo(
-                        transitions, advantages, returns,
-                        clip_epsilon=self._clip_epsilon,
-                        ppo_epochs=self._ppo_epochs,
-                        max_grad_norm=self._max_grad_norm,
-                        mini_batch_size=self._mini_batch_size,
-                    )
-                else:
-                    opt_stats = _OS(
-                        loss=0.0, total_reward=0.0, mean_reward=0.0,
-                        entropy=0.0, action_count=0,
-                    )
+                    seed_cursor += next_assigned
 
-                for stats in all_stats:
+                # Optimize current batch (overlaps with next batch collection)
+                opt_stats = self._optimize_batch(pending_episodes)
+
+                # Yield current batch stats
+                for stats in pending_stats:
                     yield EpisodeTrainingStats(
                         outcome=stats.outcome,
                         steps=stats.steps,
@@ -365,7 +432,18 @@ class DistributedPPOTrainer:
                     )
                     episodes_yielded += 1
                     if episodes_yielded >= total_episodes:
+                        if next_futures is not None:
+                            for f in next_futures:
+                                f.cancel()
                         return
+
+                # Wait for next batch (workers may already be done)
+                if next_futures is not None:
+                    pending_episodes, pending_stats = self._collect_results(
+                        next_futures,
+                    )
+                else:
+                    break
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +479,8 @@ def _seed_config(
         artifacts_dir=runner_config.artifacts_dir,
         write_failure_artifacts=runner_config.write_failure_artifacts,
         allow_undo=runner_config.allow_undo,
+        collect_step_timings=runner_config.collect_step_timings,
+        skip_run_summary=runner_config.skip_run_summary,
     )
 
 
