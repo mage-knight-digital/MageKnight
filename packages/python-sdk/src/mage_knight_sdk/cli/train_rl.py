@@ -14,12 +14,28 @@ from typing import Any
 from mage_knight_sdk.sim import RunnerConfig, StepTimings, run_simulations_sync
 
 
+_METRIC_DESCRIPTIONS: dict[str, str] = {
+    "reward/total": "Total shaped reward for the episode. Includes fame, step penalty, end bonus, and victory bonuses.",
+    "reward/fame": "Fame earned this episode (total_reward - 1.0, floored at 0). The core game objective.",
+    "reward/fame_max": "Running max fame across all episodes. Tracks the best game so far.",
+    "episode/steps": "Number of game steps (actions taken) in the episode. Longer = surviving more turns.",
+    "episode/fame_binary": "1.0 if total_reward > 1.5, else 0.0. Tracks what fraction of games earn meaningful fame.",
+    "optimization/loss": "PPO clipped surrogate policy loss. Negative = policy improving. Should hover near zero, not diverge.",
+    "optimization/entropy": "Action distribution entropy. High = exploring, low = exploiting. Should gradually decline, not collapse to zero.",
+    "optimization/critic_loss": "MSE between value head predictions and actual returns. Lower = better state value estimates.",
+    "optimization/action_count": "Total actions across all games in the sync batch. More = longer games = more training signal.",
+    "victory/scenario_triggered": "1.0 if the victory scenario was triggered this episode, else 0.0.",
+    "victory/achievement_bonus": "Bonus reward from in-game achievements (e.g. conquering sites, leveling up).",
+}
+
+
 class _TBWriter:
     """Thin wrapper around TensorBoard SummaryWriter. No-op if tensorboard is unavailable."""
 
     def __init__(self, log_dir: Path | None) -> None:
         self._writer = None
         self._max_fame: float = 0.0
+        self._wrote_guide = False
         if log_dir is None:
             return
         try:
@@ -28,9 +44,21 @@ class _TBWriter:
         except ImportError:
             print("tensorboard not installed — skipping TensorBoard logging", file=sys.stderr)
 
+    def _write_metric_guide(self) -> None:
+        """Write a markdown guide to the TEXT tab (once per run)."""
+        if self._wrote_guide or self._writer is None:
+            return
+        self._wrote_guide = True
+        rows = "\n".join(
+            f"| `{tag}` | {desc} |" for tag, desc in _METRIC_DESCRIPTIONS.items()
+        )
+        md = f"| Metric | Description |\n|--------|-------------|\n{rows}"
+        self._writer.add_text("metric_guide", md, 0)
+
     def log_episode(self, episode: int, stats: Any) -> None:
         if self._writer is None:
             return
+        self._write_metric_guide()
         fame = max(0, stats.total_reward - 1.0)
         self._max_fame = max(self._max_fame, fame)
         self._writer.add_scalar("reward/total", stats.total_reward, episode)
@@ -119,12 +147,14 @@ def main() -> int:
     RewardConfig = components["RewardConfig"]
     VictoryRewardComponent = components["VictoryRewardComponent"]
 
+    resume_episode_offset = 0
     if args.resume:
         policy, resume_meta = ReinforcePolicy.load_checkpoint(
             args.resume,
             device_override=args.device,
         )
-        print(f"Resumed from {args.resume} (episode {resume_meta.get('episode', '?')})")
+        resume_episode_offset = resume_meta.get("episode", 0)
+        print(f"Resumed from {args.resume} (episode {resume_episode_offset})")
     else:
         policy_config = PolicyGradientConfig(
             gamma=args.gamma,
@@ -195,11 +225,11 @@ def main() -> int:
     try:
         if args.ppo:
             if args.workers > 1:
-                return _train_ppo_distributed(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb)
-            return _train_ppo_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb)
+                return _train_ppo_distributed(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb, resume_episode_offset)
+            return _train_ppo_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb, resume_episode_offset)
         if args.workers > 1:
-            return _train_distributed(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb)
-        return _train_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, components["ReinforceTrainer"], replay_dir, tb)
+            return _train_distributed(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb, resume_episode_offset)
+        return _train_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, components["ReinforceTrainer"], replay_dir, tb, resume_episode_offset)
     finally:
         tb.close()
 
@@ -218,6 +248,7 @@ def _train_sequential(
     ReinforceTrainer: type,
     replay_dir: Path | None = None,
     tb: _TBWriter | None = None,
+    resume_episode_offset: int = 0,
 ) -> int:
     """Original sequential training loop."""
     trainer = ReinforceTrainer(policy=policy, reward_config=reward_config)
@@ -225,6 +256,7 @@ def _train_sequential(
     agg_step_timings = StepTimings() if args.benchmark else None
 
     for episode in range(args.episodes):
+        global_ep = resume_episode_offset + episode + 1
         seed = args.seed + episode
         config = RunnerConfig(
             bootstrap_api_base_url=args.bootstrap_url,
@@ -278,39 +310,40 @@ def _train_sequential(
         )
 
         print(
-            f"ep={episode + 1:04d} seed={seed} outcome={result.outcome:<17} "
+            f"ep={global_ep:04d} seed={seed} outcome={result.outcome:<17} "
             f"steps={result.steps:<6} reward={stats.total_reward:>8.3f} "
             f"loss={stats.optimization.loss:>9.4f} entropy={stats.optimization.entropy:>7.4f}"
         )
 
         if tb is not None:
-            tb.log_episode(episode + 1, stats)
+            tb.log_episode(global_ep, stats)
 
         if (replay_dir is not None
                 and msg_logs is not None
                 and trace_logs is not None
                 and args.save_top_games is not None
                 and stats.total_reward >= args.save_top_games):
-            _save_replay(replay_dir, episode + 1, seed, stats, msg_logs[0], trace_logs[0])
+            _save_replay(replay_dir, global_ep, seed, stats, msg_logs[0], trace_logs[0])
             _prune_replays(replay_dir, keep=50)
 
-        if args.checkpoint_every > 0 and (episode + 1) % args.checkpoint_every == 0:
-            checkpoint_path = checkpoint_dir / f"policy_ep_{episode + 1:04d}.pt"
+        if args.checkpoint_every > 0 and global_ep % args.checkpoint_every == 0:
+            checkpoint_path = checkpoint_dir / f"policy_ep_{global_ep:04d}.pt"
             policy.save_checkpoint(
                 checkpoint_path,
                 metadata={
-                    "episode": episode + 1,
+                    "episode": global_ep,
                     "seed": seed,
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
 
     if not args.no_final_checkpoint:
+        final_ep = resume_episode_offset + args.episodes
         final_path = checkpoint_dir / "policy_final.pt"
         policy.save_checkpoint(
             final_path,
             metadata={
-                "episode": args.episodes,
+                "episode": final_ep,
                 "seed": args.seed + args.episodes - 1,
                 "timestamp": datetime.now(UTC).isoformat(),
             },
@@ -333,6 +366,7 @@ def _train_distributed(
     components: dict[str, Any],
     replay_dir: Path | None = None,
     tb: _TBWriter | None = None,
+    resume_episode_offset: int = 0,
 ) -> int:
     """Distributed REINFORCE training via data-parallel gradient accumulation."""
     DistributedReinforceTrainer = components["DistributedReinforceTrainer"]
@@ -363,30 +397,31 @@ def _train_distributed(
 
     episode = 0
     for stats in dist_trainer.train(total_episodes=args.episodes, start_seed=args.seed):
+        global_ep = resume_episode_offset + episode + 1
         seed = args.seed + episode
 
         _append_metrics_log_from_stats(
             path=metrics_path,
-            episode=episode,
+            episode=global_ep - 1,
             seed=seed,
             stats=stats,
         )
 
         print(
-            f"ep={episode + 1:04d} seed={seed} outcome={stats.outcome:<17} "
+            f"ep={global_ep:04d} seed={seed} outcome={stats.outcome:<17} "
             f"steps={stats.steps:<6} reward={stats.total_reward:>8.3f} "
             f"loss={stats.optimization.loss:>9.4f} entropy={stats.optimization.entropy:>7.4f}"
         )
 
         if tb is not None:
-            tb.log_episode(episode + 1, stats)
+            tb.log_episode(global_ep, stats)
 
-        if args.checkpoint_every > 0 and (episode + 1) % args.checkpoint_every == 0:
-            checkpoint_path = checkpoint_dir / f"policy_ep_{episode + 1:04d}.pt"
+        if args.checkpoint_every > 0 and global_ep % args.checkpoint_every == 0:
+            checkpoint_path = checkpoint_dir / f"policy_ep_{global_ep:04d}.pt"
             policy.save_checkpoint(
                 checkpoint_path,
                 metadata={
-                    "episode": episode + 1,
+                    "episode": global_ep,
                     "seed": seed,
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
@@ -395,11 +430,12 @@ def _train_distributed(
         episode += 1
 
     if not args.no_final_checkpoint:
+        final_ep = resume_episode_offset + args.episodes
         final_path = checkpoint_dir / "policy_final.pt"
         policy.save_checkpoint(
             final_path,
             metadata={
-                "episode": args.episodes,
+                "episode": final_ep,
                 "seed": args.seed + args.episodes - 1,
                 "timestamp": datetime.now(UTC).isoformat(),
             },
@@ -424,6 +460,7 @@ def _train_ppo_sequential(
     components: dict[str, Any],
     replay_dir: Path | None = None,
     tb: _TBWriter | None = None,
+    resume_episode_offset: int = 0,
 ) -> int:
     """Sequential PPO training: collect batch, optimize, repeat."""
     PPOTrainer = components["PPOTrainer"]
@@ -488,43 +525,45 @@ def _train_ppo_sequential(
 
         # Log each episode in the batch
         for i, stats in enumerate(batch_stats):
-            ep = episode_num + i + 1
+            global_ep = resume_episode_offset + episode_num + i + 1
             seed = args.seed + episode_num + i
 
             _append_metrics_log_from_stats(
-                path=metrics_path, episode=episode_num + i, seed=seed,
+                path=metrics_path, episode=global_ep - 1, seed=seed,
                 stats=_with_opt(stats, opt_stats),
             )
 
             print(
-                f"ep={ep:04d} seed={seed} outcome={stats.outcome:<17} "
+                f"ep={global_ep:04d} seed={seed} outcome={stats.outcome:<17} "
                 f"steps={stats.steps:<6} reward={stats.total_reward:>8.3f} "
                 f"loss={opt_stats.loss:>9.4f} entropy={opt_stats.entropy:>7.4f}"
             )
 
             if tb is not None:
-                tb.log_episode(ep, _with_opt(stats, opt_stats))
+                tb.log_episode(global_ep, _with_opt(stats, opt_stats))
 
         episode_num += len(batch_stats)
 
         # Checkpoint
-        if args.checkpoint_every > 0 and episode_num % args.checkpoint_every < len(batch_stats):
-            checkpoint_path = checkpoint_dir / f"policy_ep_{episode_num:06d}.pt"
+        global_ep_end = resume_episode_offset + episode_num
+        if args.checkpoint_every > 0 and global_ep_end % args.checkpoint_every < len(batch_stats):
+            checkpoint_path = checkpoint_dir / f"policy_ep_{global_ep_end:06d}.pt"
             policy.save_checkpoint(
                 checkpoint_path,
                 metadata={
-                    "episode": episode_num,
+                    "episode": global_ep_end,
                     "seed": args.seed + episode_num - 1,
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
 
     if not args.no_final_checkpoint:
+        final_ep = resume_episode_offset + args.episodes
         final_path = checkpoint_dir / "policy_final.pt"
         policy.save_checkpoint(
             final_path,
             metadata={
-                "episode": args.episodes,
+                "episode": final_ep,
                 "seed": args.seed + args.episodes - 1,
                 "timestamp": datetime.now(UTC).isoformat(),
             },
@@ -544,6 +583,7 @@ def _train_ppo_distributed(
     components: dict[str, Any],
     replay_dir: Path | None = None,
     tb: _TBWriter | None = None,
+    resume_episode_offset: int = 0,
 ) -> int:
     """Distributed PPO: workers collect transitions, main process optimizes."""
     DistributedPPOTrainer = components["DistributedPPOTrainer"]
@@ -579,27 +619,28 @@ def _train_ppo_distributed(
 
     episode = 0
     for stats in dist_trainer.train(total_episodes=args.episodes, start_seed=args.seed):
+        global_ep = resume_episode_offset + episode + 1
         seed = args.seed + episode
 
         _append_metrics_log_from_stats(
-            path=metrics_path, episode=episode, seed=seed, stats=stats,
+            path=metrics_path, episode=global_ep - 1, seed=seed, stats=stats,
         )
 
         print(
-            f"ep={episode + 1:04d} seed={seed} outcome={stats.outcome:<17} "
+            f"ep={global_ep:04d} seed={seed} outcome={stats.outcome:<17} "
             f"steps={stats.steps:<6} reward={stats.total_reward:>8.3f} "
             f"loss={stats.optimization.loss:>9.4f} entropy={stats.optimization.entropy:>7.4f}"
         )
 
         if tb is not None:
-            tb.log_episode(episode + 1, stats)
+            tb.log_episode(global_ep, stats)
 
-        if args.checkpoint_every > 0 and (episode + 1) % args.checkpoint_every == 0:
-            checkpoint_path = checkpoint_dir / f"policy_ep_{episode + 1:06d}.pt"
+        if args.checkpoint_every > 0 and global_ep % args.checkpoint_every == 0:
+            checkpoint_path = checkpoint_dir / f"policy_ep_{global_ep:06d}.pt"
             policy.save_checkpoint(
                 checkpoint_path,
                 metadata={
-                    "episode": episode + 1,
+                    "episode": global_ep,
                     "seed": seed,
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
@@ -608,11 +649,12 @@ def _train_ppo_distributed(
         episode += 1
 
     if not args.no_final_checkpoint:
+        final_ep = resume_episode_offset + args.episodes
         final_path = checkpoint_dir / "policy_final.pt"
         policy.save_checkpoint(
             final_path,
             metadata={
-                "episode": args.episodes,
+                "episode": final_ep,
                 "seed": args.seed + args.episodes - 1,
                 "timestamp": datetime.now(UTC).isoformat(),
             },

@@ -188,6 +188,27 @@ mage-knight-train-rl --episodes 50000 --resume /tmp/rl-run/policy_final.pt \
 mage-knight-train-rl --episodes 100000 --save-top-games 5.0 ...
 ```
 
+### Benchmarking & Profiling
+
+Performance measurement tools for the RL training pipeline. All require a running server (`bun packages/server/cluster.ts --workers 8 --base-port 3001`).
+
+| Script | What it measures | How to run |
+|--------|-----------------|------------|
+| `bench_policy.py` | Component-level policy forward pass (encode, score, sample) | `python3 bench_policy.py` |
+| `scripts/benchmark_inference.py` | BatchInferenceCoordinator vs serial inference throughput | `python3 scripts/benchmark_inference.py [--games 24]` |
+| `scripts/benchmark_scaling.py` | Per-step latency scaling with concurrent game count | `python3 scripts/benchmark_scaling.py [--coordinator]` |
+| `scripts/profile_step.py` | Comprehensive training bottleneck profiler | `python3 scripts/profile_step.py [--compare-sizes] [--distributed]` |
+| `benchmarks/bench_rl_encoding.py` | Feature encoding speed (no server needed) | `python3 benchmarks/bench_rl_encoding.py` |
+| `train_rl.py --benchmark` | Aggregated per-step breakdown during training | Add `--benchmark` to any training command |
+
+**When to use which:**
+- Starting a new optimization: `profile_step.py` to find the bottleneck
+- Testing batched inference changes: `benchmark_inference.py` for A/B comparison
+- Testing concurrency changes: `benchmark_scaling.py` to see how latency scales with game count
+- Quick sanity check: `train_rl.py --benchmark` at end of a short training run
+
+**Core infrastructure** (`sim/reporting.py`): `StepTimings` dataclass accumulates per-component nanosecond timings (enumerate, sort, policy, server, hooks, overhead). Used by runner when `collect_step_timings=True`.
+
 ### TensorBoard
 
 Training automatically logs to TensorBoard when `tensorboard` is installed (included in `.[rl]` extras).
@@ -295,7 +316,13 @@ python3 scripts/generate_action_enumerator.py
 | `src/mage_knight_sdk/tools/scan_fame.py` | Fame analysis tool |
 | `src/mage_knight_sdk/tools/import_tensorboard.py` | NDJSON→TensorBoard importer |
 | `src/mage_knight_sdk/viewer/` | Artifact viewer (Flask app) |
+| `src/mage_knight_sdk/sim/rl/batch_coordinator.py` | BatchInferenceCoordinator for concurrent game inference |
 | `scripts/generate_*.py` | Code generators |
+| `scripts/benchmark_inference.py` | Batched vs serial inference A/B benchmark |
+| `scripts/benchmark_scaling.py` | Concurrency scaling benchmark |
+| `scripts/profile_step.py` | Comprehensive training bottleneck profiler |
+| `bench_policy.py` | Policy network component micro-benchmarks |
+| `benchmarks/bench_rl_encoding.py` | Feature encoding speed benchmark |
 | `pyproject.toml` | Package metadata and dependencies |
 
 ## No Magic Strings Policy
