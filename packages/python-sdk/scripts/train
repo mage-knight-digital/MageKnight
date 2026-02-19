@@ -1,0 +1,456 @@
+#!/usr/bin/env bash
+#
+# Training session manager — prevents duplicate processes, auto-resumes
+# from the latest checkpoint, and keeps TensorBoard clean.
+#
+# Each run gets its own directory under sim-artifacts/runs/<name>/.
+# TensorBoard compares runs side-by-side:
+#   tensorboard --logdir sim-artifacts/runs
+#
+# Usage:
+#   ./scripts/train start <run-name> [-- extra train_rl flags]
+#   ./scripts/train stop
+#   ./scripts/train status
+#   ./scripts/train list
+#
+# Examples:
+#   ./scripts/train start baseline                  # new run called "baseline"
+#   ./scripts/train start baseline                  # resumes if already exists
+#   ./scripts/train start lr-decay -- --learning-rate 1e-4
+#   ./scripts/train stop                            # stop whatever is running
+#   ./scripts/train status                          # show progress
+#   ./scripts/train list                            # list all runs
+#
+#   tensorboard --logdir sim-artifacts/runs          # compare all runs
+#
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SDK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$SDK_DIR"
+
+# --- Configuration ---
+RUNS_DIR="$SDK_DIR/sim-artifacts/runs"
+GLOBAL_PID_FILE="$RUNS_DIR/.train.pid"
+GLOBAL_RUN_FILE="$RUNS_DIR/.active_run"
+
+# Default training flags
+DEFAULT_FLAGS=(
+    --episodes 100000
+    --seed 1
+    --player-count 1
+    --no-undo
+    --ppo
+    --workers 8
+    --episodes-per-sync 24
+    --hidden-size 512
+    --embedding-dim 16
+    --num-hidden-layers 2
+    --mini-batch-size 256
+    --base-port 3001
+    --save-top-games 5.0
+    --benchmark
+)
+
+# --- Helpers ---
+
+_python_bin() {
+    if [ -x "$SDK_DIR/.venv/bin/python3" ]; then
+        echo "$SDK_DIR/.venv/bin/python3"
+    else
+        echo "python3"
+    fi
+}
+
+_is_running() {
+    if [ -f "$GLOBAL_PID_FILE" ]; then
+        local pid
+        pid=$(cat "$GLOBAL_PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "$pid"
+            return 0
+        fi
+        # Stale PID file
+        rm -f "$GLOBAL_PID_FILE" "$GLOBAL_RUN_FILE"
+    fi
+    return 1
+}
+
+_active_run() {
+    if [ -f "$GLOBAL_RUN_FILE" ]; then
+        cat "$GLOBAL_RUN_FILE"
+    fi
+}
+
+_run_dir() {
+    echo "$RUNS_DIR/$1"
+}
+
+_find_latest_checkpoint() {
+    local dir="$1"
+    local latest
+    latest=$(ls "$dir"/policy_ep_*.pt 2>/dev/null \
+        | sed 's/.*policy_ep_0*//' | sed 's/\.pt//' \
+        | sort -n | tail -1)
+    if [ -n "$latest" ]; then
+        printf "%s/policy_ep_%06d.pt" "$dir" "$latest"
+    fi
+}
+
+_episode_count() {
+    local ndjson="$1/training_log.ndjson"
+    if [ -f "$ndjson" ]; then
+        wc -l < "$ndjson" | tr -d ' '
+    else
+        echo 0
+    fi
+}
+
+# --- Commands ---
+
+cmd_start() {
+    local run_name=""
+    local extra_flags=()
+
+    # Parse flags
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --) shift; extra_flags=("$@"); break ;;
+            -*) echo "Unknown flag: $1 (use -- to pass flags to train_rl)"; exit 1 ;;
+            *)
+                if [ -z "$run_name" ]; then
+                    run_name="$1"; shift
+                else
+                    echo "Unexpected argument: $1"; exit 1
+                fi
+                ;;
+        esac
+    done
+
+    if [ -z "$run_name" ]; then
+        echo "ERROR: Run name required."
+        echo "  Usage: ./scripts/train start <run-name> [-- extra flags]"
+        echo ""
+        echo "  Examples:"
+        echo "    ./scripts/train start baseline"
+        echo "    ./scripts/train start lr-experiment -- --learning-rate 1e-4"
+        exit 1
+    fi
+
+    # Check for existing process
+    local existing_pid
+    if existing_pid=$(_is_running); then
+        local active_run
+        active_run=$(_active_run)
+        echo "ERROR: Training already running (PID $existing_pid, run: $active_run)"
+        echo "  Use './scripts/train stop' first."
+        exit 1
+    fi
+
+    # Check for orphaned processes
+    local orphans
+    orphans=$(pgrep -f "mage_knight_sdk.cli.train_rl" 2>/dev/null || true)
+    if [ -n "$orphans" ]; then
+        echo "ERROR: Found orphaned train_rl process(es): $orphans"
+        echo "  Kill them first: kill $orphans"
+        exit 1
+    fi
+
+    local run_dir
+    run_dir=$(_run_dir "$run_name")
+    local ndjson="$run_dir/training_log.ndjson"
+    local tb_dir="$run_dir/tensorboard"
+    local log_file="$run_dir/train.log"
+
+    mkdir -p "$run_dir" "$tb_dir"
+
+    local python_bin
+    python_bin=$(_python_bin)
+
+    # Build command
+    local flags=("${DEFAULT_FLAGS[@]}" --checkpoint-dir "$run_dir")
+
+    # Auto-resume from latest checkpoint if run already exists
+    local latest_cp
+    latest_cp=$(_find_latest_checkpoint "$run_dir")
+    if [ -n "$latest_cp" ]; then
+        echo "Resuming run '$run_name' from: $(basename "$latest_cp")"
+        flags+=(--resume "$latest_cp")
+
+        # Rebuild TB from NDJSON so there's one consistent dataset
+        if [ -f "$ndjson" ]; then
+            echo "Rebuilding TensorBoard from NDJSON..."
+            rm -f "$tb_dir"/events.out.tfevents.*
+            "$python_bin" -m mage_knight_sdk.tools.import_tensorboard \
+                "$ndjson" --logdir "$tb_dir" 2>&1 | tail -1
+        fi
+    else
+        echo "New run '$run_name'"
+    fi
+
+    # Append user's extra flags
+    if [ ${#extra_flags[@]} -gt 0 ]; then
+        flags+=("${extra_flags[@]}")
+    fi
+
+    echo ""
+    echo "  Run directory:  $run_dir"
+    echo "  Log file:       $log_file"
+    echo "  TensorBoard:    tensorboard --logdir $RUNS_DIR"
+    echo "                  (shows all runs side-by-side)"
+    echo ""
+
+    # Launch training in background
+    PYTHONUNBUFFERED=1 "$python_bin" -m mage_knight_sdk.cli.train_rl \
+        "${flags[@]}" >> "$log_file" 2>&1 &
+    local train_pid=$!
+
+    mkdir -p "$RUNS_DIR"
+    echo "$train_pid" > "$GLOBAL_PID_FILE"
+    echo "$run_name" > "$GLOBAL_RUN_FILE"
+
+    # Keep system awake while training runs
+    caffeinate -dims -w "$train_pid" &
+
+    echo "Training started (PID $train_pid)"
+    echo ""
+    echo "  Watch logs:   tail -f $log_file"
+    echo "  Stop:         ./scripts/train stop"
+    echo "  Status:       ./scripts/train status"
+    echo ""
+    echo "Tailing log (Ctrl+C to detach — training keeps running)..."
+    echo ""
+
+    # Tail the log; Ctrl+C detaches without killing training
+    trap "echo ''; echo 'Detached. Training continues in background (PID $train_pid)'; exit 0" INT
+    tail -f "$log_file" &
+    local tail_pid=$!
+
+    # Wait for training to finish
+    wait "$train_pid" 2>/dev/null
+    local exit_code=$?
+    kill "$tail_pid" 2>/dev/null
+    rm -f "$GLOBAL_PID_FILE" "$GLOBAL_RUN_FILE"
+
+    if [ $exit_code -eq 0 ]; then
+        echo ""
+        echo "Training complete."
+    else
+        echo ""
+        echo "Training exited with code $exit_code"
+    fi
+}
+
+cmd_stop() {
+    local pid
+    if pid=$(_is_running); then
+        local active_run
+        active_run=$(_active_run)
+        echo "Stopping run '$active_run' (PID $pid)..."
+        kill "$pid" 2>/dev/null
+        for _ in $(seq 1 10); do
+            if ! kill -0 "$pid" 2>/dev/null; then
+                echo "Stopped."
+                rm -f "$GLOBAL_PID_FILE" "$GLOBAL_RUN_FILE"
+                return 0
+            fi
+            sleep 1
+        done
+        echo "Force killing..."
+        kill -9 "$pid" 2>/dev/null
+        rm -f "$GLOBAL_PID_FILE" "$GLOBAL_RUN_FILE"
+        echo "Killed."
+    else
+        echo "No training process running."
+    fi
+}
+
+cmd_status() {
+    local python_bin
+    python_bin=$(_python_bin)
+
+    local pid
+    if pid=$(_is_running); then
+        local active_run
+        active_run=$(_active_run)
+        local run_dir
+        run_dir=$(_run_dir "$active_run")
+        local episodes
+        episodes=$(_episode_count "$run_dir")
+        local latest_cp
+        latest_cp=$(_find_latest_checkpoint "$run_dir")
+        local log_file="$run_dir/train.log"
+
+        local stats=""
+        local ndjson="$run_dir/training_log.ndjson"
+        if [ -f "$ndjson" ] && [ "$episodes" -gt 100 ]; then
+            stats=$("$python_bin" -c "
+import json
+from datetime import datetime
+with open('$ndjson') as f:
+    lines = f.readlines()
+if len(lines) >= 100:
+    recent = [json.loads(l) for l in lines[-100:]]
+    rewards = [d.get('total_reward', 0) for d in recent]
+    parts = [f'avg_reward={sum(rewards)/len(rewards):.1f}  max={max(rewards):.1f}']
+    window = min(1000, len(lines))
+    if window >= 2:
+        tp = [json.loads(l) for l in lines[-window:]]
+        try:
+            t0 = datetime.fromisoformat(tp[0]['timestamp'])
+            t1 = datetime.fromisoformat(tp[-1]['timestamp'])
+            elapsed = (t1 - t0).total_seconds()
+            if elapsed > 0:
+                parts.append(f'throughput={((window-1)/elapsed):.1f} g/s')
+        except (KeyError, ValueError):
+            pass
+    print('  '.join(parts))
+" 2>/dev/null || true)
+        fi
+
+        echo "RUNNING: '$active_run' (PID $pid)"
+        echo "  Episodes: $episodes"
+        echo "  Checkpoint: ${latest_cp:+$(basename "$latest_cp")}"
+        [ -n "$stats" ] && echo "  Last 100: $stats"
+        echo ""
+        echo "  Recent:"
+        tail -5 "$log_file" 2>/dev/null | sed 's/^/    /'
+    else
+        echo "No training running."
+        echo ""
+        cmd_list
+    fi
+}
+
+cmd_list() {
+    if [ ! -d "$RUNS_DIR" ]; then
+        echo "No runs yet. Start one with: ./scripts/train start <name>"
+        return
+    fi
+
+    local python_bin
+    python_bin=$(_python_bin)
+
+    "$python_bin" -c "
+import json, os, sys
+from datetime import datetime, timezone
+
+runs_dir = '$RUNS_DIR'
+rows = []
+for name in sorted(os.listdir(runs_dir)):
+    run_dir = os.path.join(runs_dir, name)
+    if not os.path.isdir(run_dir) or name.startswith('.'):
+        continue
+
+    # Episode count
+    ndjson = os.path.join(run_dir, 'training_log.ndjson')
+    eps = 0
+    avg_r = max_r = 0.0
+    gps = None
+    if os.path.exists(ndjson):
+        with open(ndjson) as f:
+            lines = f.readlines()
+        eps = len(lines)
+        if eps > 0:
+            n = min(100, eps)
+            recent = [json.loads(l) for l in lines[-n:]]
+            rewards = [d.get('total_reward', 0) for d in recent]
+            avg_r = sum(rewards) / len(rewards)
+            max_r = max(rewards)
+
+        # Throughput from last 1000 episodes
+        window = min(1000, eps)
+        if window >= 2:
+            tp_lines = [json.loads(l) for l in lines[-window:]]
+            try:
+                t0 = datetime.fromisoformat(tp_lines[0]['timestamp'])
+                t1 = datetime.fromisoformat(tp_lines[-1]['timestamp'])
+                elapsed = (t1 - t0).total_seconds()
+                if elapsed > 0:
+                    gps = (window - 1) / elapsed
+            except (KeyError, ValueError):
+                pass
+
+    # Config summary from run_config.json
+    config_summary = ''
+    cfg_path = os.path.join(run_dir, 'run_config.json')
+    if os.path.exists(cfg_path):
+        with open(cfg_path) as f:
+            cfg = json.load(f)
+        pc = cfg.get('policy_config', {})
+        cli = cfg.get('cli', {})
+        parts = []
+        h = pc.get('hidden_size', '?')
+        emb = pc.get('embedding_dim', '?')
+        layers = pc.get('num_hidden_layers', '?')
+        lr = pc.get('learning_rate', cli.get('learning_rate', '?'))
+        algo = 'PPO' if cli.get('ppo') else 'REINFORCE'
+        workers = cli.get('workers', 1)
+        parts.append(f'{algo} h={h} emb={emb} layers={layers} lr={lr} w={workers}')
+        config_summary = ' '.join(parts)
+
+    rows.append((name, eps, avg_r, max_r, gps, config_summary))
+
+if not rows:
+    print('No runs yet. Start one with: ./scripts/train start <name>')
+    sys.exit(0)
+
+print('Runs:')
+print(f'  {\"Name\":<20} {\"Episodes\":>8}  {\"Avg(100)\":>8}  {\"Max\":>6}  {\"g/s\":>5}  Config')
+print(f'  {\"-\"*20} {\"-\"*8}  {\"-\"*8}  {\"-\"*6}  {\"-\"*5}  {\"-\"*40}')
+for name, eps, avg_r, max_r, gps, cfg in rows:
+    stats = f'{avg_r:>8.1f}  {max_r:>6.1f}' if eps > 0 else f'{\"—\":>8}  {\"—\":>6}'
+    gps_str = f'{gps:>5.1f}' if gps is not None else f'{\"—\":>5}'
+    print(f'  {name:<20} {eps:>8}  {stats}  {gps_str}  {cfg}')
+
+print()
+print(f'Compare in TensorBoard: tensorboard --logdir {runs_dir}')
+"
+
+}
+
+cmd_config() {
+    local run_name="${1:-}"
+    if [ -z "$run_name" ]; then
+        echo "Usage: ./scripts/train config <run-name>"
+        exit 1
+    fi
+    local run_dir
+    run_dir=$(_run_dir "$run_name")
+    local cfg="$run_dir/run_config.json"
+    if [ ! -f "$cfg" ]; then
+        echo "No config found for run '$run_name'"
+        echo "  (run_config.json is written when training starts)"
+        exit 1
+    fi
+    local python_bin
+    python_bin=$(_python_bin)
+    "$python_bin" -c "
+import json
+with open('$cfg') as f:
+    cfg = json.load(f)
+print(json.dumps(cfg, indent=2))
+"
+}
+
+# --- Main ---
+
+case "${1:-}" in
+    start)  shift; cmd_start "$@" ;;
+    stop)   cmd_stop ;;
+    status) cmd_status ;;
+    list)   cmd_list ;;
+    config) shift; cmd_config "$@" ;;
+    *)
+        echo "Usage: ./scripts/train {start|stop|status|list|config}"
+        echo ""
+        echo "  start <name> [-- flags]  Start or resume a named run"
+        echo "  stop                     Stop running training"
+        echo "  status                   Show active run progress"
+        echo "  list                     List all runs with stats"
+        echo "  config <name>            Show full config for a run"
+        echo ""
+        echo "  tensorboard --logdir sim-artifacts/runs   # compare all runs"
+        exit 1
+        ;;
+esac
