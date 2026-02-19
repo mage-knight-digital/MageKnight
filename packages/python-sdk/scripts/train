@@ -48,7 +48,9 @@ DEFAULT_FLAGS=(
     --num-hidden-layers 2
     --mini-batch-size 256
     --base-port 3001
-    --save-top-games 5.0
+    --checkpoint-every 10000
+    --save-top-games 30
+    --save-long-games 1000
     --benchmark
 )
 
@@ -104,6 +106,32 @@ _episode_count() {
     else
         echo 0
     fi
+}
+
+_launch_detached() {
+    # Launch a command in a new process session (start_new_session=True).
+    # The child survives parent shell death (SIGHUP, SIGTERM, SIGKILL).
+    # Prints the child PID to stdout.
+    local log_file="$1"
+    shift
+    local python_bin
+    python_bin=$(_python_bin)
+    local args_json
+    args_json=$("$python_bin" -c "import json,sys; print(json.dumps(sys.argv[1:]))" "$@")
+    "$python_bin" -c "
+import subprocess, os, sys, json
+cmd = json.loads(sys.argv[1])
+with open(sys.argv[2], 'a') as log:
+    p = subprocess.Popen(
+        cmd,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+        env={**os.environ, 'PYTHONUNBUFFERED': '1'},
+    )
+print(p.pid)
+sys.stdout.flush()
+" "$args_json" "$log_file"
 }
 
 # --- Commands ---
@@ -200,44 +228,49 @@ cmd_start() {
     echo "                  (shows all runs side-by-side)"
     echo ""
 
-    # Launch training in background
-    PYTHONUNBUFFERED=1 "$python_bin" -m mage_knight_sdk.cli.train_rl \
-        "${flags[@]}" >> "$log_file" 2>&1 &
-    local train_pid=$!
+    # Launch training in a new process session (survives parent shell death,
+    # safe to run from Claude Code, SSH, cron, etc.)
+    local train_pid
+    train_pid=$(_launch_detached "$log_file" \
+        "$python_bin" -m mage_knight_sdk.cli.train_rl "${flags[@]}")
 
     mkdir -p "$RUNS_DIR"
     echo "$train_pid" > "$GLOBAL_PID_FILE"
     echo "$run_name" > "$GLOBAL_RUN_FILE"
 
-    # Keep system awake while training runs
-    caffeinate -dims -w "$train_pid" &
+    # Keep system awake while training runs (also detached)
+    nohup caffeinate -dims -w "$train_pid" >/dev/null 2>&1 &
+    disown $! 2>/dev/null
 
     echo "Training started (PID $train_pid)"
     echo ""
     echo "  Watch logs:   tail -f $log_file"
     echo "  Stop:         ./scripts/train stop"
     echo "  Status:       ./scripts/train status"
-    echo ""
-    echo "Tailing log (Ctrl+C to detach — training keeps running)..."
-    echo ""
 
-    # Tail the log; Ctrl+C detaches without killing training
-    trap "echo ''; echo 'Detached. Training continues in background (PID $train_pid)'; exit 0" INT
-    tail -f "$log_file" &
-    local tail_pid=$!
+    # If running in an interactive terminal, tail the log
+    if [ -t 1 ]; then
+        echo ""
+        echo "Tailing log (Ctrl+C to detach — training keeps running)..."
+        echo ""
 
-    # Wait for training to finish
-    wait "$train_pid" 2>/dev/null
-    local exit_code=$?
-    kill "$tail_pid" 2>/dev/null
-    rm -f "$GLOBAL_PID_FILE" "$GLOBAL_RUN_FILE"
+        trap "echo ''; echo 'Detached. Training continues in background (PID $train_pid)'; exit 0" INT
+        tail -f "$log_file" &
+        local tail_pid=$!
 
-    if [ $exit_code -eq 0 ]; then
+        # Poll until training finishes (can't wait — it's in a different session)
+        while kill -0 "$train_pid" 2>/dev/null; do
+            sleep 5
+        done
+        kill "$tail_pid" 2>/dev/null
+        rm -f "$GLOBAL_PID_FILE" "$GLOBAL_RUN_FILE"
         echo ""
         echo "Training complete."
     else
-        echo ""
-        echo "Training exited with code $exit_code"
+        # Non-interactive: clean up PID file when training finishes (in background)
+        (while kill -0 "$train_pid" 2>/dev/null; do sleep 30; done
+         rm -f "$GLOBAL_PID_FILE" "$GLOBAL_RUN_FILE") &
+        disown $! 2>/dev/null
     fi
 }
 

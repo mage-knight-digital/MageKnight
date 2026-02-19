@@ -435,6 +435,7 @@ def main() -> None:
                              f"Available: {','.join(ALL_COMPONENTS)}")
     parser.add_argument("--iters", type=int, default=500,
                         help="Iterations per measurement (default: 500)")
+    parser.add_argument("--device", default="cpu", help="Torch device (cpu, mps, cuda)")
     parser.add_argument("--n-states", type=int, default=10,
                         help="Number of states to benchmark across (default: 10)")
     args = parser.parse_args()
@@ -461,7 +462,7 @@ def main() -> None:
         raw_states = [(state, "player-1", cands)] * args.n_states
 
     # Build policy and network for sub-component benchmarks
-    policy_config = PolicyGradientConfig(hidden_size=128, embedding_dim=16, use_embeddings=True)
+    policy_config = PolicyGradientConfig(hidden_size=128, embedding_dim=16, use_embeddings=True, device=args.device)
     policy = ReinforcePolicy(policy_config)
     # Access _network for sub-component benchmarks (dev tool, not production code)
     net = policy._network

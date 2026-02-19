@@ -51,6 +51,7 @@ def main() -> int:
 
     count = 0
     errors = 0
+    max_fame: float = 0.0
     with open(ndjson_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -67,8 +68,11 @@ def main() -> int:
             steps = rec.get("steps", 0)
             opt = rec.get("optimization", {})
 
+            fame = max(0, total_reward - 1.0)
+            max_fame = max(max_fame, fame)
             writer.add_scalar("reward/total", total_reward, ep)
-            writer.add_scalar("reward/fame", max(0, total_reward - 1.0), ep)
+            writer.add_scalar("reward/fame", fame, ep)
+            writer.add_scalar("reward/fame_max", max_fame, ep)
             writer.add_scalar("episode/steps", steps, ep)
             writer.add_scalar(
                 "episode/fame_binary", 1.0 if total_reward > 1.5 else 0.0, ep,
@@ -83,6 +87,15 @@ def main() -> int:
                 writer.add_scalar(
                     "optimization/action_count", opt.get("action_count", 0), ep,
                 )
+
+            writer.add_scalar(
+                "victory/scenario_triggered",
+                1.0 if rec.get("scenario_triggered", False) else 0.0, ep,
+            )
+            writer.add_scalar(
+                "victory/achievement_bonus",
+                rec.get("achievement_bonus", 0.0), ep,
+            )
 
             count += 1
 

@@ -50,11 +50,12 @@ def run_worker_episodes(
     episode_offset: int = 0,
     bootstrap_url: str | None = None,
     ws_url: str | None = None,
+    long_game_threshold: int | None = None,
 ) -> WorkerResult:
     """Run K episodes with given weights, return accumulated gradients + stats."""
     policy = _make_worker_policy(policy_config, weights)
 
-    capture = replay_dir is not None and replay_threshold is not None
+    capture = replay_dir is not None and (replay_threshold is not None or long_game_threshold is not None)
     accumulated_grads: dict[str, torch.Tensor] | None = None
     all_stats: list[EpisodeTrainingStats] = []
 
@@ -81,13 +82,20 @@ def run_worker_episodes(
         if stats is None:
             continue
 
-        if (capture
-                and replay_threshold is not None
-                and stats.total_reward >= replay_threshold):
-            _save_worker_replay(
-                Path(replay_dir), episode_offset + idx + 1, seed, stats,
-                outcome.messages, outcome.trace,
-            )
+        if capture:
+            if replay_threshold is not None and stats.total_reward >= replay_threshold:
+                _save_worker_replay(
+                    Path(replay_dir), episode_offset + idx + 1, seed, stats,
+                    outcome.messages, outcome.trace,
+                )
+            if long_game_threshold is not None and stats.steps >= long_game_threshold:
+                long_dir = Path(replay_dir) / "long_games"
+                long_dir.mkdir(parents=True, exist_ok=True)
+                _save_worker_replay(
+                    long_dir, episode_offset + idx + 1, seed, stats,
+                    outcome.messages, outcome.trace,
+                    keep=20, prune_by="oldest",
+                )
 
         grads = policy.extract_gradients()
         if accumulated_grads is None:
@@ -121,6 +129,7 @@ class DistributedReinforceTrainer:
         episodes_per_sync: int = 1,
         replay_dir: Path | None = None,
         replay_threshold: float | None = None,
+        long_game_threshold: int | None = None,
         server_urls: list[tuple[str, str]] | None = None,
     ) -> None:
         self._policy = policy
@@ -130,6 +139,7 @@ class DistributedReinforceTrainer:
         self._episodes_per_sync = episodes_per_sync
         self._replay_dir = replay_dir
         self._replay_threshold = replay_threshold
+        self._long_game_threshold = long_game_threshold
         self._server_urls = server_urls
 
     def train(
@@ -165,6 +175,7 @@ class DistributedReinforceTrainer:
                         run_worker_episodes, weights, self._policy.config,
                         self._reward_config, self._runner_config, seeds,
                         replay_dir_str, self._replay_threshold, ep_offset,
+                        long_game_threshold=self._long_game_threshold,
                         **kwargs,
                     )] = i
                 worker_results: list[WorkerResult] = []
@@ -210,11 +221,12 @@ def collect_worker_episodes(
     episode_offset: int = 0,
     bootstrap_url: str | None = None,
     ws_url: str | None = None,
+    long_game_threshold: int | None = None,
 ) -> WorkerPPOResult:
     """Play K episodes, collecting transitions for PPO (no optimization)."""
     policy = _make_worker_policy(policy_config, weights)
 
-    capture = replay_dir is not None and replay_threshold is not None
+    capture = replay_dir is not None and (replay_threshold is not None or long_game_threshold is not None)
     raw_episodes: list[list[Transition]] = []
     all_stats: list[EpisodeTrainingStats] = []
 
@@ -256,14 +268,20 @@ def collect_worker_episodes(
             agg_timings["overhead_ns"] += t.overhead_ns
             agg_timings["step_count"] += t.step_count
 
-        if (capture
-                and replay_threshold is not None
-                and stats
-                and stats[-1].total_reward >= replay_threshold):
-            _save_worker_replay(
-                Path(replay_dir), episode_offset + idx + 1, seed,
-                stats[-1], outcome.messages, outcome.trace,
-            )
+        if capture and stats:
+            if replay_threshold is not None and stats[-1].total_reward >= replay_threshold:
+                _save_worker_replay(
+                    Path(replay_dir), episode_offset + idx + 1, seed,
+                    stats[-1], outcome.messages, outcome.trace,
+                )
+            if long_game_threshold is not None and stats[-1].steps >= long_game_threshold:
+                long_dir = Path(replay_dir) / "long_games"
+                long_dir.mkdir(parents=True, exist_ok=True)
+                _save_worker_replay(
+                    long_dir, episode_offset + idx + 1, seed,
+                    stats[-1], outcome.messages, outcome.trace,
+                    keep=20, prune_by="oldest",
+                )
 
     # Tensorize for efficient IPC pickling
     tensorized = tensorize_episodes(raw_episodes)
@@ -294,6 +312,7 @@ class DistributedPPOTrainer:
         mini_batch_size: int = 256,
         replay_dir: Path | None = None,
         replay_threshold: float | None = None,
+        long_game_threshold: int | None = None,
         server_urls: list[tuple[str, str]] | None = None,
     ) -> None:
         self._policy = policy
@@ -308,6 +327,7 @@ class DistributedPPOTrainer:
         self._mini_batch_size = mini_batch_size
         self._replay_dir = replay_dir
         self._replay_threshold = replay_threshold
+        self._long_game_threshold = long_game_threshold
         self._server_urls = server_urls
 
     def _dispatch_batch(
@@ -340,6 +360,7 @@ class DistributedPPOTrainer:
                 collect_worker_episodes, weights, self._policy.config,
                 self._reward_config, self._runner_config, seeds,
                 replay_dir_str, self._replay_threshold, ep_offset,
+                long_game_threshold=self._long_game_threshold,
                 **kwargs,
             )] = i
         return futures, assigned
@@ -514,6 +535,8 @@ def _save_worker_replay(
     stats: EpisodeTrainingStats,
     messages: list[MessageLogEntry],
     trace: list | None = None,
+    keep: int = 50,
+    prune_by: str = "reward",
 ) -> None:
     """Save a game replay to disk in viewer-compatible format (called from worker process)."""
     from dataclasses import asdict
@@ -546,22 +569,35 @@ def _save_worker_replay(
     path = replay_dir / f"replay_ep{episode:06d}_seed{seed}_r{stats.total_reward:.1f}.json"
     path.write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
 
-    # Prune to keep only top 50 replays
-    _prune_worker_replays(replay_dir, keep=50)
+    _prune_worker_replays(replay_dir, keep=keep, by=prune_by)
 
 
-def _prune_worker_replays(replay_dir: Path, keep: int = 50) -> None:
-    """Keep only the top N replays by reward."""
+def _prune_worker_replays(replay_dir: Path, keep: int = 50, by: str = "reward") -> None:
+    """Keep only the top N replays, delete the rest.
+
+    Args:
+        by: Pruning strategy — "reward" keeps highest reward, "oldest" keeps newest by episode.
+    """
     files = list(replay_dir.glob("replay_*.json"))
     if len(files) <= keep:
         return
 
-    def _reward_from_name(p: Path) -> float:
-        try:
-            return float(p.stem.rsplit("_r", 1)[1])
-        except (IndexError, ValueError):
-            return 0.0
+    if by == "oldest":
+        def _episode_from_name(p: Path) -> int:
+            try:
+                return int(p.stem.split("_")[1].removeprefix("ep"))
+            except (IndexError, ValueError):
+                return 0
 
-    files.sort(key=_reward_from_name, reverse=True)
+        files.sort(key=_episode_from_name, reverse=True)
+    else:
+        def _reward_from_name(p: Path) -> float:
+            try:
+                return float(p.stem.rsplit("_r", 1)[1])
+            except (IndexError, ValueError):
+                return 0.0
+
+        files.sort(key=_reward_from_name, reverse=True)
+
     for f in files[keep:]:
         f.unlink(missing_ok=True)

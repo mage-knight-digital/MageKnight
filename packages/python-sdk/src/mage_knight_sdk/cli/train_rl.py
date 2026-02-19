@@ -32,9 +32,9 @@ _METRIC_DESCRIPTIONS: dict[str, str] = {
 class _TBWriter:
     """Thin wrapper around TensorBoard SummaryWriter. No-op if tensorboard is unavailable."""
 
-    def __init__(self, log_dir: Path | None) -> None:
+    def __init__(self, log_dir: Path | None, initial_max_fame: float = 0.0) -> None:
         self._writer = None
-        self._max_fame: float = 0.0
+        self._max_fame: float = initial_max_fame
         self._wrote_guide = False
         if log_dir is None:
             return
@@ -117,6 +117,8 @@ def main() -> int:
 
     parser.add_argument("--save-top-games", type=float, default=None, metavar="THRESHOLD",
                         help="Save full game replay for episodes with total_reward >= THRESHOLD")
+    parser.add_argument("--save-long-games", type=int, default=None, metavar="STEPS",
+                        help="Save full game replay for episodes with steps >= STEPS (for investigating stalls)")
 
     parser.add_argument("--workers", type=int, default=1, help="Number of parallel worker processes (default: 1 = sequential)")
     parser.add_argument("--episodes-per-sync", type=int, default=1, help="Episodes each worker runs before gradient sync (default: 1)")
@@ -212,12 +214,29 @@ def main() -> int:
         print(f"Distributed REINFORCE: workers={args.workers} episodes_per_sync={args.episodes_per_sync}")
 
     replay_dir: Path | None = None
-    if args.save_top_games is not None:
+    if args.save_top_games is not None or args.save_long_games is not None:
         replay_dir = checkpoint_dir / "replays"
         replay_dir.mkdir(parents=True, exist_ok=True)
-        print(f"Saving replays for reward >= {args.save_top_games} -> {replay_dir}")
+        if args.save_top_games is not None:
+            print(f"Saving replays for reward >= {args.save_top_games} -> {replay_dir}")
+        if args.save_long_games is not None:
+            print(f"Saving replays for steps >= {args.save_long_games} -> {replay_dir}")
 
-    tb = _TBWriter(checkpoint_dir / "tensorboard")
+    # Recover running max fame from existing NDJSON so fame_max doesn't reset on resume.
+    # Approximation: total_reward ≈ fame + 1.0 (terminal bonus) - step_penalty*steps,
+    # so total_reward - 1.0 slightly underestimates fame. Acceptable for a running max.
+    initial_max_fame = 0.0
+    if args.resume and metrics_path.exists():
+        try:
+            with open(metrics_path, encoding="utf-8") as mf:
+                for line in mf:
+                    rec = json.loads(line)
+                    initial_max_fame = max(initial_max_fame, rec.get("total_reward", 0.0) - 1.0)
+            initial_max_fame = max(0.0, initial_max_fame)
+        except Exception:
+            pass  # best-effort
+
+    tb = _TBWriter(checkpoint_dir / "tensorboard", initial_max_fame=initial_max_fame)
     print(f"TensorBoard: tensorboard --logdir {checkpoint_dir / 'tensorboard'}")
 
     print("-" * 88)
@@ -257,7 +276,7 @@ def _train_sequential(
 
     for episode in range(args.episodes):
         global_ep = resume_episode_offset + episode + 1
-        seed = args.seed + episode
+        seed = args.seed + resume_episode_offset + episode
         config = RunnerConfig(
             bootstrap_api_base_url=args.bootstrap_url,
             ws_server_url=args.ws_url,
@@ -320,11 +339,15 @@ def _train_sequential(
 
         if (replay_dir is not None
                 and msg_logs is not None
-                and trace_logs is not None
-                and args.save_top_games is not None
-                and stats.total_reward >= args.save_top_games):
-            _save_replay(replay_dir, global_ep, seed, stats, msg_logs[0], trace_logs[0])
-            _prune_replays(replay_dir, keep=50)
+                and trace_logs is not None):
+            if args.save_top_games is not None and stats.total_reward >= args.save_top_games:
+                _save_replay(replay_dir, global_ep, seed, stats, msg_logs[0], trace_logs[0])
+                _prune_replays(replay_dir, keep=50)
+            if args.save_long_games is not None and stats.steps >= args.save_long_games:
+                long_dir = replay_dir / "long_games"
+                long_dir.mkdir(parents=True, exist_ok=True)
+                _save_replay(long_dir, global_ep, seed, stats, msg_logs[0], trace_logs[0])
+                _prune_replays(long_dir, keep=20, by="oldest")
 
         if args.checkpoint_every > 0 and global_ep % args.checkpoint_every == 0:
             checkpoint_path = checkpoint_dir / f"policy_ep_{global_ep:04d}.pt"
@@ -344,7 +367,7 @@ def _train_sequential(
             final_path,
             metadata={
                 "episode": final_ep,
-                "seed": args.seed + args.episodes - 1,
+                "seed": args.seed + resume_episode_offset + args.episodes - 1,
                 "timestamp": datetime.now(UTC).isoformat(),
             },
         )
@@ -392,13 +415,15 @@ def _train_distributed(
         episodes_per_sync=args.episodes_per_sync,
         replay_dir=replay_dir,
         replay_threshold=args.save_top_games,
+        long_game_threshold=args.save_long_games,
         server_urls=server_urls,
     )
 
     episode = 0
-    for stats in dist_trainer.train(total_episodes=args.episodes, start_seed=args.seed):
+    start_seed = args.seed + resume_episode_offset
+    for stats in dist_trainer.train(total_episodes=args.episodes, start_seed=start_seed):
         global_ep = resume_episode_offset + episode + 1
-        seed = args.seed + episode
+        seed = start_seed + episode
 
         _append_metrics_log_from_stats(
             path=metrics_path,
@@ -436,7 +461,7 @@ def _train_distributed(
             final_path,
             metadata={
                 "episode": final_ep,
-                "seed": args.seed + args.episodes - 1,
+                "seed": start_seed + args.episodes - 1,
                 "timestamp": datetime.now(UTC).isoformat(),
             },
         )
@@ -474,7 +499,7 @@ def _train_ppo_sequential(
 
         # Collect batch_size episodes
         for i in range(batch_size):
-            seed = args.seed + episode_num + i
+            seed = args.seed + resume_episode_offset + episode_num + i
             config = RunnerConfig(
                 bootstrap_api_base_url=args.bootstrap_url,
                 ws_server_url=args.ws_url,
@@ -504,11 +529,15 @@ def _train_ppo_sequential(
             if (capture
                     and msg_logs is not None
                     and trace_logs is not None
-                    and args.save_top_games is not None
-                    and ep_stats is not None
-                    and ep_stats.total_reward >= args.save_top_games):
-                _save_replay(replay_dir, episode_num + i + 1, seed, ep_stats, msg_logs[0], trace_logs[0])
-                _prune_replays(replay_dir, keep=50)
+                    and ep_stats is not None):
+                if args.save_top_games is not None and ep_stats.total_reward >= args.save_top_games:
+                    _save_replay(replay_dir, episode_num + i + 1, seed, ep_stats, msg_logs[0], trace_logs[0])
+                    _prune_replays(replay_dir, keep=50)
+                if args.save_long_games is not None and ep_stats.steps >= args.save_long_games:
+                    long_dir = replay_dir / "long_games"
+                    long_dir.mkdir(parents=True, exist_ok=True)
+                    _save_replay(long_dir, episode_num + i + 1, seed, ep_stats, msg_logs[0], trace_logs[0])
+                    _prune_replays(long_dir, keep=20, by="oldest")
 
         # PPO optimization
         episodes_data, batch_stats = ppo_trainer.harvest()
@@ -526,7 +555,7 @@ def _train_ppo_sequential(
         # Log each episode in the batch
         for i, stats in enumerate(batch_stats):
             global_ep = resume_episode_offset + episode_num + i + 1
-            seed = args.seed + episode_num + i
+            seed = args.seed + resume_episode_offset + episode_num + i
 
             _append_metrics_log_from_stats(
                 path=metrics_path, episode=global_ep - 1, seed=seed,
@@ -552,7 +581,7 @@ def _train_ppo_sequential(
                 checkpoint_path,
                 metadata={
                     "episode": global_ep_end,
-                    "seed": args.seed + episode_num - 1,
+                    "seed": args.seed + resume_episode_offset + episode_num - 1,
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
@@ -564,7 +593,7 @@ def _train_ppo_sequential(
             final_path,
             metadata={
                 "episode": final_ep,
-                "seed": args.seed + args.episodes - 1,
+                "seed": args.seed + resume_episode_offset + args.episodes - 1,
                 "timestamp": datetime.now(UTC).isoformat(),
             },
         )
@@ -614,13 +643,15 @@ def _train_ppo_distributed(
         mini_batch_size=args.mini_batch_size,
         replay_dir=replay_dir,
         replay_threshold=args.save_top_games,
+        long_game_threshold=args.save_long_games,
         server_urls=server_urls,
     )
 
     episode = 0
-    for stats in dist_trainer.train(total_episodes=args.episodes, start_seed=args.seed):
+    start_seed = args.seed + resume_episode_offset
+    for stats in dist_trainer.train(total_episodes=args.episodes, start_seed=start_seed):
         global_ep = resume_episode_offset + episode + 1
-        seed = args.seed + episode
+        seed = start_seed + episode
 
         _append_metrics_log_from_stats(
             path=metrics_path, episode=global_ep - 1, seed=seed, stats=stats,
@@ -655,7 +686,7 @@ def _train_ppo_distributed(
             final_path,
             metadata={
                 "episode": final_ep,
-                "seed": args.seed + args.episodes - 1,
+                "seed": start_seed + args.episodes - 1,
                 "timestamp": datetime.now(UTC).isoformat(),
             },
         )
@@ -861,21 +892,36 @@ def _save_replay(
     print(f"  -> Saved replay: {path.name}")
 
 
-def _prune_replays(replay_dir: Path, keep: int = 50) -> None:
-    """Keep only the top N replays by reward, delete the rest."""
+def _prune_replays(replay_dir: Path, keep: int = 50, by: str = "reward") -> None:
+    """Keep only the top N replays, delete the rest.
+
+    Args:
+        by: Pruning strategy — "reward" keeps highest reward, "oldest" keeps newest by episode.
+    """
     files = list(replay_dir.glob("replay_*.json"))
     if len(files) <= keep:
         return
 
-    def _reward_from_name(p: Path) -> float:
-        # filename: replay_ep000433_seed433_r5.9.json
-        name = p.stem  # replay_ep000433_seed433_r5.9
-        try:
-            return float(name.rsplit("_r", 1)[1])
-        except (IndexError, ValueError):
-            return 0.0
+    if by == "oldest":
+        def _episode_from_name(p: Path) -> int:
+            # filename: replay_ep000433_seed433_r5.9.json
+            try:
+                return int(p.stem.split("_")[1].removeprefix("ep"))
+            except (IndexError, ValueError):
+                return 0
 
-    files.sort(key=_reward_from_name, reverse=True)
+        files.sort(key=_episode_from_name, reverse=True)
+    else:
+        def _reward_from_name(p: Path) -> float:
+            # filename: replay_ep000433_seed433_r5.9.json
+            name = p.stem  # replay_ep000433_seed433_r5.9
+            try:
+                return float(name.rsplit("_r", 1)[1])
+            except (IndexError, ValueError):
+                return 0.0
+
+        files.sort(key=_reward_from_name, reverse=True)
+
     for f in files[keep:]:
         f.unlink()
         print(f"  -> Pruned replay: {f.name}")

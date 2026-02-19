@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import random
 import statistics
+from dataclasses import dataclass
 from time import perf_counter_ns
 from typing import Any
 
@@ -23,13 +24,51 @@ from mage_knight_sdk.sim.rl.policy_gradient import (
     PolicyGradientConfig,
     ReinforcePolicy,
     StepInfo,
+    Transition,
 )
 from mage_knight_sdk.sim.rl.rewards import RewardConfig, VictoryRewardComponent
 from mage_knight_sdk.sim.rl.trainer import ReinforceTrainer
+from mage_knight_sdk.sim.rl.vocabularies import _ACTION_TYPE_IDS, _MODE_IDS
 from mage_knight_sdk.sim.generated_action_enumerator import CandidateAction
 from mage_knight_sdk.sim.hooks import StepSample
 
 import torch
+
+
+# Reverse mappings: vocab index → string name (index 0 = <UNK>)
+_ACTION_TYPE_NAMES = {i + 1: name for i, name in enumerate(_ACTION_TYPE_IDS)}
+_MODE_NAMES = {i + 1: name for i, name in enumerate(_MODE_IDS)}
+
+# Threshold for "high action count" steps
+HIGH_ACTION_THRESHOLD = 100
+
+
+@dataclass
+class ActionCountStats:
+    """Accumulates action-count statistics across batches."""
+    all_counts: list[int]
+    # For steps above threshold: list of (action_count, mode_name, action_type_breakdown)
+    high_action_details: list[tuple[int, str, dict[str, int]]]
+
+    @staticmethod
+    def empty() -> ActionCountStats:
+        return ActionCountStats(all_counts=[], high_action_details=[])
+
+    def ingest_transitions(self, transitions: list[Transition]) -> None:
+        """Scan transitions and record action-count info."""
+        for t in transitions:
+            n_a = len(t.encoded_step.actions)
+            self.all_counts.append(n_a)
+            if n_a >= HIGH_ACTION_THRESHOLD:
+                # Decode mode
+                mode_id = t.encoded_step.state.mode_id
+                mode_name = _MODE_NAMES.get(mode_id, f"<id={mode_id}>")
+                # Count by action type
+                type_counts: dict[str, int] = {}
+                for a in t.encoded_step.actions:
+                    type_name = _ACTION_TYPE_NAMES.get(a.action_type_id, f"<id={a.action_type_id}>")
+                    type_counts[type_name] = type_counts.get(type_name, 0) + 1
+                self.high_action_details.append((n_a, mode_name, type_counts))
 
 
 class ProfilingPolicy:
@@ -128,7 +167,7 @@ def run_sequential_profile(
         hidden_size=hidden_size,
         embedding_dim=args.embedding_dim,
         num_hidden_layers=num_layers,
-        device="cpu",
+        device=args.device,
     )
     inner_policy = ReinforcePolicy(config)
     profiling_policy = ProfilingPolicy(inner_policy)
@@ -211,7 +250,7 @@ def run_ppo_profile(args: argparse.Namespace, num_workers: int) -> dict[str, Any
         hidden_size=args.hidden_size,
         embedding_dim=args.embedding_dim,
         num_hidden_layers=args.num_hidden_layers,
-        device="cpu",
+        device=args.device,
     )
     policy = ReinforcePolicy(config)
     reward_config = RewardConfig(
@@ -243,6 +282,8 @@ def run_ppo_profile(args: argparse.Namespace, num_workers: int) -> dict[str, Any
     ppo_epochs = 4
     batch_size = num_workers * episodes_per_sync
     seed_cursor = args.seed
+
+    action_stats = ActionCountStats.empty()
 
     # Phase accumulators (nanoseconds)
     phase_ns: dict[str, int] = {
@@ -321,6 +362,10 @@ def run_ppo_profile(args: argparse.Namespace, num_workers: int) -> dict[str, Any
             t_gae = perf_counter_ns() - t0
             phase_ns["compute_gae"] += t_gae
 
+            # --- Collect action count stats ---
+            if all_episodes:
+                action_stats.ingest_transitions(transitions)
+
             # --- Phase 5: PPO optimization ---
             t0 = perf_counter_ns()
             if all_episodes:
@@ -361,6 +406,7 @@ def run_ppo_profile(args: argparse.Namespace, num_workers: int) -> dict[str, Any
         "wall_ns": wall_total_ns,
         "phase_ns": phase_ns,
         "batch_details": batch_details,
+        "action_stats": action_stats,
     }
 
 
@@ -412,6 +458,109 @@ def print_ppo_results(r: dict[str, Any]) -> None:
     wall_sec = wall_ns / 1e9
     print(f"\n--- Throughput ---")
     print(f"  {r['episodes']/wall_sec:.2f} games/sec  |  {r['total_steps']/wall_sec:.0f} steps/sec")
+
+    # Action count analysis
+    action_stats: ActionCountStats | None = r.get("action_stats")
+    if action_stats and action_stats.all_counts:
+        print_action_count_analysis(action_stats)
+
+
+def print_action_count_analysis(stats: ActionCountStats) -> None:
+    """Print detailed action count distribution and high-count breakdown."""
+    counts = stats.all_counts
+    n = len(counts)
+    sorted_counts = sorted(counts)
+
+    print(f"\n{'=' * 70}")
+    print(f"ACTION COUNT ANALYSIS  ({n} transitions)")
+    print(f"{'=' * 70}")
+
+    # Distribution
+    mean = sum(counts) / n
+    med = statistics.median(counts)
+    p90 = sorted_counts[min(int(n * 0.90), n - 1)]
+    p95 = sorted_counts[min(int(n * 0.95), n - 1)]
+    p99 = sorted_counts[min(int(n * 0.99), n - 1)]
+    mx = sorted_counts[-1]
+
+    print(f"\n--- Distribution ---")
+    print(f"  Mean:   {mean:>6.1f}")
+    print(f"  Median: {med:>6.1f}")
+    print(f"  P90:    {p90:>6}")
+    print(f"  P95:    {p95:>6}")
+    print(f"  P99:    {p99:>6}")
+    print(f"  Max:    {mx:>6}")
+
+    # Histogram (buckets: 1-10, 11-20, 21-50, 51-100, 101-200, 201-500, 500+)
+    buckets = [(1, 10), (11, 20), (21, 50), (51, 100), (101, 200), (201, 500), (501, 10000)]
+    print(f"\n--- Histogram ---")
+    print(f"  {'Range':>12} {'Count':>8} {'%':>7} {'Cum%':>7}")
+    cum = 0
+    for lo, hi in buckets:
+        cnt = sum(1 for c in counts if lo <= c <= hi)
+        cum += cnt
+        pct = cnt / n * 100
+        cum_pct = cum / n * 100
+        label = f"{lo}-{hi}" if hi < 10000 else f"{lo}+"
+        if cnt > 0:
+            print(f"  {label:>12} {cnt:>8} {pct:>6.1f}% {cum_pct:>6.1f}%")
+
+    # Padding waste estimate: for a mini-batch of 256, the max action count
+    # determines padding. Show what the average padding waste would be.
+    mini_batch_size = 256
+    total_waste = 0
+    total_cells = 0
+    for start in range(0, n, mini_batch_size):
+        batch = sorted_counts[start:start + mini_batch_size]  # rough estimate
+        batch_max = max(batch)
+        for c in batch:
+            total_waste += batch_max - c
+            total_cells += batch_max
+    waste_pct = total_waste / total_cells * 100 if total_cells > 0 else 0
+    print(f"\n--- Padding Waste (mini-batch={mini_batch_size}) ---")
+    print(f"  Avg pad per transition: {total_waste / n:.1f} actions")
+    print(f"  Wasted compute:         {waste_pct:.1f}%")
+
+    # High action count details
+    high = stats.high_action_details
+    if high:
+        print(f"\n--- Steps with >= {HIGH_ACTION_THRESHOLD} actions ({len(high)} / {n} = {len(high)/n*100:.1f}%) ---")
+
+        # Aggregate by mode
+        mode_agg: dict[str, list[int]] = {}
+        for n_a, mode_name, _type_counts in high:
+            mode_agg.setdefault(mode_name, []).append(n_a)
+
+        print(f"\n  By mode:")
+        print(f"  {'Mode':<35} {'Count':>6} {'Mean':>6} {'Max':>6}")
+        for mode_name in sorted(mode_agg, key=lambda m: -len(mode_agg[m])):
+            vals = mode_agg[mode_name]
+            m_mean = sum(vals) / len(vals)
+            print(f"  {mode_name:<35} {len(vals):>6} {m_mean:>6.0f} {max(vals):>6}")
+
+        # Aggregate by (mode, dominant action type)
+        print(f"\n  By mode + dominant action type:")
+        print(f"  {'Mode':<28} {'Action Type':<28} {'Count':>6} {'Mean':>6} {'Max':>6}")
+        bucket_agg: dict[tuple[str, str], list[int]] = {}
+        for n_a, mode_name, type_counts in high:
+            dominant = max(type_counts, key=type_counts.get)  # type: ignore[arg-type]
+            bucket_agg.setdefault((mode_name, dominant), []).append(n_a)
+
+        for (mode_name, action_type) in sorted(bucket_agg, key=lambda k: -len(bucket_agg[k])):
+            vals = bucket_agg[(mode_name, action_type)]
+            m_mean = sum(vals) / len(vals)
+            print(f"  {mode_name:<28} {action_type:<28} {len(vals):>6} {m_mean:>6.0f} {max(vals):>6}")
+
+        # Top 10 individual worst offenders
+        top = sorted(high, key=lambda x: -x[0])[:10]
+        print(f"\n  Top 10 highest action counts:")
+        for n_a, mode_name, type_counts in top:
+            # Show top 3 action types in this step
+            top_types = sorted(type_counts.items(), key=lambda x: -x[1])[:3]
+            types_str = ", ".join(f"{name}={cnt}" for name, cnt in top_types)
+            print(f"    {n_a:>4} actions | {mode_name:<28} | {types_str}")
+    else:
+        print(f"\n  No steps with >= {HIGH_ACTION_THRESHOLD} actions found.")
 
 
 def print_sequential_results(r: dict[str, Any]) -> None:
@@ -484,12 +633,13 @@ def main() -> None:
     parser.add_argument("--embedding-dim", type=int, default=16)
     parser.add_argument("--compare-sizes", action="store_true",
                         help="Also profile smaller network configs for comparison")
-    parser.add_argument("--ppo", action="store_true",
-                        help="Profile the distributed PPO pipeline (skip sequential REINFORCE profiling)")
+    parser.add_argument("--reinforce", action="store_true",
+                        help="Profile sequential REINFORCE instead of distributed PPO")
     parser.add_argument("--workers", type=int, default=4,
                         help="Number of workers for PPO profiling (default: 4)")
     parser.add_argument("--episodes-per-sync", type=int, default=4,
                         help="Episodes per worker per sync (default: 4)")
+    parser.add_argument("--device", default="cpu", help="Torch device (cpu, mps, cuda)")
     parser.add_argument("--base-port", type=int, default=3001,
                         help="Base port for game servers (default: 3001)")
     parser.add_argument("--multi-server", action="store_true",
@@ -500,8 +650,8 @@ def main() -> None:
     print("COMPREHENSIVE RL TRAINING PROFILER")
     print("=" * 70)
 
-    if args.ppo:
-        # --- PPO distributed pipeline profile ---
+    if not args.reinforce:
+        # --- PPO distributed pipeline profile (default) ---
         for workers in ([1, args.workers] if args.workers > 1 else [1]):
             print(f"\nRunning distributed PPO profile with {workers} workers ({args.episodes} eps)...")
             try:
@@ -513,7 +663,7 @@ def main() -> None:
                 traceback.print_exc()
         return
 
-    # --- Sequential profile with current config ---
+    # --- Sequential REINFORCE profile ---
     print(f"\nRunning sequential profile ({args.episodes} eps)...")
     main_result = run_sequential_profile(
         args,
