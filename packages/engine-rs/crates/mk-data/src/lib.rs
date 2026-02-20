@@ -4,7 +4,11 @@
 //! unit abilities, hero definitions, site properties, tile layouts, etc.
 
 pub mod cards;
+pub mod enemies;
+pub mod enemy_piles;
 pub mod heroes;
 pub mod levels;
+pub mod offers;
+pub mod sites;
 pub mod tactics;
 pub mod tiles;

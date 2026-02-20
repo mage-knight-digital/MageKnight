@@ -500,8 +500,99 @@ fn pending_choice_emits_resolve_choices() {
 #[should_panic(expected = "Unsupported active pending in legal action pipeline")]
 fn pending_non_choice_panics_fast() {
     let mut state = setup_game(vec!["march"]);
-    state.players[0].pending.active = Some(ActivePending::GladeWoundChoice);
+    state.players[0].pending.active = Some(ActivePending::BannerProtectionChoice);
     let _ = enumerate_legal_actions(&state, 0);
+}
+
+// =========================================================================
+// ChallengeRampaging
+// =========================================================================
+
+#[test]
+fn challenge_rampaging_enumerated_for_adjacent_hex() {
+    use mk_types::ids::EnemyTokenId;
+    let mut state = setup_game(vec!["march"]);
+    // Place rampaging enemy with drawn token on adjacent hex (1,0)
+    let hex = state.map.hexes.get_mut("1,0").unwrap();
+    hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+    hex.enemies.push(HexEnemy {
+        token_id: EnemyTokenId::from("prowlers_1"),
+        color: EnemyColor::Green,
+        is_revealed: true,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let challenges: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| matches!(a, LegalAction::ChallengeRampaging { .. }))
+        .collect();
+    assert_eq!(challenges.len(), 1, "should enumerate 1 challenge");
+    assert!(matches!(
+        challenges[0],
+        LegalAction::ChallengeRampaging {
+            hex: HexCoord { q: 1, r: 0 }
+        }
+    ));
+}
+
+#[test]
+fn no_challenge_without_drawn_enemies() {
+    let mut state = setup_game(vec!["march"]);
+    // Rampaging type but no drawn enemy tokens
+    let hex = state.map.hexes.get_mut("1,0").unwrap();
+    hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let challenges: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| matches!(a, LegalAction::ChallengeRampaging { .. }))
+        .collect();
+    assert!(challenges.is_empty(), "no challenge without drawn enemies");
+}
+
+#[test]
+fn no_challenge_after_action() {
+    use mk_types::ids::EnemyTokenId;
+    let mut state = setup_game(vec!["march"]);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+    let hex = state.map.hexes.get_mut("1,0").unwrap();
+    hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+    hex.enemies.push(HexEnemy {
+        token_id: EnemyTokenId::from("prowlers_1"),
+        color: EnemyColor::Green,
+        is_revealed: true,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let challenges: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| matches!(a, LegalAction::ChallengeRampaging { .. }))
+        .collect();
+    assert!(
+        challenges.is_empty(),
+        "no challenge after action this turn"
+    );
+}
+
+#[test]
+fn contract_challenge_rampaging_executable() {
+    use mk_types::ids::EnemyTokenId;
+    let mut state = setup_game(vec!["march"]);
+    let hex = state.map.hexes.get_mut("1,0").unwrap();
+    hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+    hex.enemies.push(HexEnemy {
+        token_id: EnemyTokenId::from("prowlers_1"),
+        color: EnemyColor::Green,
+        is_revealed: true,
+    });
+
+    let undo = UndoStack::new();
+    assert_all_executable(&state, &undo, 0);
 }
 
 // =========================================================================

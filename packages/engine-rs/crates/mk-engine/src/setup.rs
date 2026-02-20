@@ -9,6 +9,8 @@ use mk_data::heroes::{
     build_starting_deck, LEVEL_1_ARMOR, LEVEL_1_COMMAND_TOKENS, LEVEL_1_HAND_LIMIT,
     STARTING_HAND_SIZE,
 };
+use mk_data::enemy_piles::create_enemy_token_piles;
+use mk_data::offers::{create_aa_deck_and_offer, create_spell_deck_and_offer};
 use mk_data::tiles::{find_portal, starting_tile_hexes};
 use mk_types::enums::*;
 use mk_types::hex::HexCoord;
@@ -262,6 +264,13 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     // Create mana source
     let source = create_mana_source(1, TimeOfDay::Day, &mut rng);
 
+    // Create enemy token piles
+    let enemy_tokens = create_enemy_token_piles(&mut rng);
+
+    // Create offers and decks
+    let (aa_deck, aa_offer) = create_aa_deck_and_offer(&mut rng);
+    let (spell_deck, spell_offer) = create_spell_deck_and_offer(&mut rng);
+
     // Day tactics
     let available_tactics: Vec<TacticId> =
         DAY_TACTIC_IDS.iter().map(|&s| TacticId::from(s)).collect();
@@ -288,10 +297,18 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
         current_tactic_selector: Some(player_id_owned),
 
         source,
-        offers: GameOffers::default(),
-        enemy_tokens: EnemyTokenPiles::default(),
+        offers: GameOffers {
+            advanced_actions: aa_offer,
+            spells: spell_offer,
+            ..GameOffers::default()
+        },
+        enemy_tokens,
         ruins_tokens: RuinsTokenPiles::default(),
-        decks: GameDecks::default(),
+        decks: GameDecks {
+            advanced_action_deck: aa_deck,
+            spell_deck,
+            ..GameDecks::default()
+        },
 
         city_level: 1,
         cities: BTreeMap::new(),
@@ -496,11 +513,44 @@ mod tests {
     #[test]
     fn rng_counter_advanced_after_setup() {
         let state = create_solo_game(42, Hero::Arythea);
-        // RNG should have been used: 15 draws for shuffle + 3+ for dice
+        // RNG should have been used: 15 draws for shuffle + 3+ for dice + offers
         assert!(
             state.rng.counter > 15,
             "RNG counter should be > 15 after setup, got {}",
             state.rng.counter
         );
+    }
+
+    #[test]
+    fn solo_game_has_aa_offer_and_deck() {
+        let state = create_solo_game(42, Hero::Arythea);
+        assert_eq!(state.offers.advanced_actions.len(), 3);
+        assert_eq!(state.decks.advanced_action_deck.len(), 41); // 44 - 3
+    }
+
+    #[test]
+    fn solo_game_has_spell_offer_and_deck() {
+        let state = create_solo_game(42, Hero::Arythea);
+        assert_eq!(state.offers.spells.len(), 3);
+        assert_eq!(state.decks.spell_deck.len(), 21); // 24 - 3
+    }
+
+    #[test]
+    fn solo_game_offers_contain_valid_cards() {
+        let state = create_solo_game(42, Hero::Arythea);
+        for card_id in &state.offers.advanced_actions {
+            assert!(
+                mk_data::cards::get_card(card_id.as_str()).is_some(),
+                "AA offer card '{}' not found",
+                card_id
+            );
+        }
+        for card_id in &state.offers.spells {
+            assert!(
+                mk_data::cards::get_card(card_id.as_str()).is_some(),
+                "Spell offer card '{}' not found",
+                card_id
+            );
+        }
     }
 }

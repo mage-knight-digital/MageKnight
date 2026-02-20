@@ -254,6 +254,7 @@ pub struct WoundsReceived {
 pub struct PlayerUnit {
     pub instance_id: UnitInstanceId,
     pub unit_id: UnitId,
+    pub level: u8,
     pub state: UnitState,
     pub wounded: bool,
     pub used_resistance_this_combat: bool,

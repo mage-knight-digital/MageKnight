@@ -9,10 +9,17 @@
 //! - Explore places a new tile adjacent to the player's current tile.
 
 use arrayvec::ArrayVec;
+use mk_data::enemy_piles::{
+    draw_enemy_token, is_site_enemy_revealed, rampaging_enemy_color, site_defender_config,
+};
 use mk_data::tiles::get_tile_hexes;
 use mk_types::enums::*;
 use mk_types::hex::{HexCoord, HexDirection, TILE_HEX_OFFSETS, TILE_PLACEMENT_OFFSETS};
+use mk_types::ids::EnemyTokenId;
 use mk_types::state::*;
+
+use crate::combat;
+use crate::combat::CombatError;
 
 // =============================================================================
 // Error / result types
@@ -70,6 +77,8 @@ pub enum MoveError {
     InsufficientMovePoints,
     /// Hex is blocked (impassable terrain, rampaging enemies, etc.)
     Blocked(MoveBlockReason),
+    /// Combat entry failed during provocation.
+    CombatFailed(CombatError),
 }
 
 /// Errors from explore execution.
@@ -243,8 +252,22 @@ pub fn execute_move(
     player.flags.insert(PlayerFlags::HAS_MOVED_THIS_TURN);
     player.units_recruited_this_interaction.clear();
 
+    // Enter combat with first provoked hex's enemies (multi-hex provocation is rare; extend later)
+    if let Some(provoked_hex) = provocation.as_ref().and_then(|p| p.provoked_hexes.first()) {
+        let hex = state.map.hexes.get(&provoked_hex.key()).unwrap();
+        let enemy_tokens: Vec<EnemyTokenId> = hex.enemies.iter().map(|e| e.token_id.clone()).collect();
+        combat::execute_enter_combat(
+            state,
+            player_idx,
+            &enemy_tokens,
+            false,
+            Some(*provoked_hex),
+            Default::default(),
+        )
+        .map_err(MoveError::CombatFailed)?;
+    }
+
     // TODO: fortified assault combat trigger (entering unconquered keep/mage tower/city)
-    // TODO: create CombatState for provoked rampaging enemies
     // TODO: enemy reveal at fortified sites (daytime, reveal distance 1 or 2)
     // TODO: ruins token reveal
 
@@ -358,6 +381,74 @@ fn place_tile_on_map(
 }
 
 // =============================================================================
+// Enemy drawing on tile placement
+// =============================================================================
+
+/// Draw enemy tokens onto hexes of a newly placed tile.
+///
+/// For each hex on the tile:
+/// - For each rampaging enemy type, draw a token of the matching color.
+///   Rampaging enemies are always face-up (revealed).
+/// - For sites with defenders (Keep, MageTower, Maze, Labyrinth), draw
+///   tokens based on site_defender_config. Fortified sites are face-down.
+fn draw_enemies_on_tile(
+    state: &mut GameState,
+    center: HexCoord,
+    tile_hexes: &[mk_data::tiles::TileHex],
+) {
+    for tile_hex in tile_hexes {
+        let coord = HexCoord::new(center.q + tile_hex.local.q, center.r + tile_hex.local.r);
+
+        let mut drawn: ArrayVec<HexEnemy, MAX_HEX_ENEMIES> = ArrayVec::new();
+
+        // 1. Draw for rampaging enemy types
+        for &ramp_type in tile_hex.rampaging {
+            let color = rampaging_enemy_color(ramp_type);
+            if let Some(token_id) = draw_enemy_token(
+                &mut state.enemy_tokens,
+                color,
+                &mut state.rng,
+            ) {
+                drawn.push(HexEnemy {
+                    token_id,
+                    color,
+                    is_revealed: true, // rampaging always face-up
+                });
+            }
+        }
+
+        // 2. Draw for site defenders
+        if let Some(site_type) = tile_hex.site_type {
+            if let Some(config) = site_defender_config(site_type) {
+                let is_revealed = is_site_enemy_revealed(site_type);
+                for _ in 0..config.count {
+                    if let Some(token_id) = draw_enemy_token(
+                        &mut state.enemy_tokens,
+                        config.color,
+                        &mut state.rng,
+                    ) {
+                        drawn.push(HexEnemy {
+                            token_id,
+                            color: config.color,
+                            is_revealed,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Apply drawn enemies to the hex
+        if !drawn.is_empty() {
+            if let Some(hex) = state.map.hexes.get_mut(&coord.key()) {
+                for enemy in drawn {
+                    hex.enemies.push(enemy);
+                }
+            }
+        }
+    }
+}
+
+// =============================================================================
 // execute_explore
 // =============================================================================
 
@@ -429,7 +520,9 @@ pub fn execute_explore(
     // Deduct move points
     state.players[player_idx].move_points -= EXPLORE_BASE_COST;
 
-    // TODO: draw enemies from piles for rampaging hexes and sites
+    // Draw enemies from piles for rampaging hexes and site defenders
+    draw_enemies_on_tile(state, new_center, tile_hexes);
+
     // TODO: draw ruins tokens for ancient ruins
     // TODO: monastery AA reveals
     // TODO: fame award for exploring (scenarioConfig.famePerTileExplored)
@@ -541,7 +634,7 @@ mod tests {
         let hex = state.map.hexes.get_mut("1,0").unwrap();
         hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
         hex.enemies.push(HexEnemy {
-            token_id: EnemyTokenId::from("orc_1"),
+            token_id: EnemyTokenId::from("prowlers_1"),
             color: EnemyColor::Green,
             is_revealed: true,
         });
@@ -656,7 +749,7 @@ mod tests {
         let hex = state.map.hexes.get_mut("0,-1").unwrap();
         hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
         hex.enemies.push(HexEnemy {
-            token_id: EnemyTokenId::from("orc_1"),
+            token_id: EnemyTokenId::from("prowlers_1"),
             color: EnemyColor::Green,
             is_revealed: true,
         });
@@ -934,5 +1027,84 @@ mod tests {
 
         let result = execute_explore(&mut state, 0, HexDirection::W);
         assert_eq!(result.unwrap_err(), ExploreError::NotOnTileEdge);
+    }
+
+    // ---- Enemy drawing on explore tests ----
+
+    #[test]
+    fn explore_draws_rampaging_enemy_token() {
+        let mut state = setup_game_with_move_points(5);
+        move_to_east_edge(&mut state);
+        // Countryside 1 has an OrcMarauder on NW hex
+        state.map.tile_deck.countryside.push(TileId::Countryside1);
+
+        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+
+        // New tile center at (3,-2). NW offset = (0,-1), so NW = (3,-3)
+        let nw_hex = state.map.hexes.get("3,-3").unwrap();
+        assert_eq!(nw_hex.enemies.len(), 1, "NW hex should have 1 drawn enemy");
+        assert_eq!(nw_hex.enemies[0].color, EnemyColor::Green);
+        assert!(nw_hex.enemies[0].is_revealed, "Rampaging enemies are face-up");
+    }
+
+    #[test]
+    fn explore_non_rampaging_hex_has_no_enemies() {
+        let mut state = setup_game_with_move_points(5);
+        move_to_east_edge(&mut state);
+        // Countryside 1: center is MagicalGlade (no rampaging, no defenders)
+        state.map.tile_deck.countryside.push(TileId::Countryside1);
+
+        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+
+        // Center hex at (3,-2) has no rampaging and MagicalGlade has no site defenders
+        let center_hex = state.map.hexes.get("3,-2").unwrap();
+        assert!(center_hex.enemies.is_empty());
+    }
+
+    #[test]
+    fn explore_site_defender_drawn_for_mage_tower() {
+        let mut state = setup_game_with_move_points(5);
+        move_to_east_edge(&mut state);
+        // Countryside 11 has MageTower at CENTER — draws 1 violet enemy, face-down
+        state.map.tile_deck.countryside.push(TileId::Countryside11);
+
+        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+
+        let center_hex = state.map.hexes.get("3,-2").unwrap();
+        assert_eq!(center_hex.enemies.len(), 1, "MageTower should have 1 defender");
+        assert_eq!(center_hex.enemies[0].color, EnemyColor::Violet);
+        assert!(!center_hex.enemies[0].is_revealed, "Fortified site enemies are face-down");
+    }
+
+    // ---- Provocation combat trigger tests ----
+
+    #[test]
+    fn provocation_triggers_combat_state() {
+        let mut state = setup_game_with_move_points(10);
+        // Place rampaging enemy with drawn token on NW hex (0,-1)
+        let hex = state.map.hexes.get_mut("0,-1").unwrap();
+        hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("prowlers_1"),
+            color: EnemyColor::Green,
+            is_revealed: true,
+        });
+
+        // Move from (0,0) to NE (1,-1) — skirts past NW hex with rampaging
+        let result = execute_move(&mut state, 0, HexCoord::new(1, -1)).unwrap();
+        assert!(result.provocation.is_some());
+        // Combat should now be active
+        assert!(state.combat.is_some(), "Provocation should trigger combat");
+        let combat = state.combat.as_ref().unwrap();
+        assert_eq!(combat.enemies.len(), 1);
+        assert_eq!(combat.enemies[0].enemy_id.as_str(), "prowlers");
+    }
+
+    #[test]
+    fn no_combat_without_provocation() {
+        let mut state = setup_game_with_move_points(10);
+        // Move to adjacent plains — no rampaging enemies nearby
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+        assert!(state.combat.is_none());
     }
 }

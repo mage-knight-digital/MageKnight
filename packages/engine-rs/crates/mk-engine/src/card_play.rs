@@ -118,6 +118,10 @@ pub fn play_card(
             }));
             Ok(CardPlayResult::PendingChoice)
         }
+        DrainResult::PendingSet => {
+            // A custom pending (e.g., DiscardForBonus) was set directly on the player.
+            Ok(CardPlayResult::PendingChoice)
+        }
     }
 }
 

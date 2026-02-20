@@ -6,6 +6,48 @@ use crate::movement::evaluate_move_entry;
 
 use super::utils::must_slow_recover;
 
+/// Enumerate ChallengeRampaging actions — adjacent hexes with rampaging enemies.
+///
+/// Available when player hasn't taken an action or combatted this turn,
+/// is not resting, and is not in combat.
+pub(super) fn enumerate_challenges(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let player = &state.players[player_idx];
+
+    // Cannot challenge while resting, after an action, or while in combat.
+    if player.position.is_none()
+        || player.flags.contains(PlayerFlags::IS_RESTING)
+        || player
+            .flags
+            .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
+    {
+        return;
+    }
+
+    let pos = player.position.unwrap();
+    let mut challenge_hexes = Vec::new();
+
+    for dir in &HexDirection::ALL {
+        let neighbor = pos.neighbor(*dir);
+        if let Some(hex) = state.map.hexes.get(&neighbor.key()) {
+            // Hex must have both rampaging_enemies (type slots) and drawn enemies
+            if !hex.rampaging_enemies.is_empty() && !hex.enemies.is_empty() {
+                challenge_hexes.push(neighbor);
+            }
+        }
+    }
+
+    // Sort by (q, r) for determinism.
+    challenge_hexes.sort_by(|a, b| a.q.cmp(&b.q).then(a.r.cmp(&b.r)));
+
+    for hex in challenge_hexes {
+        actions.push(LegalAction::ChallengeRampaging { hex });
+    }
+}
+
 pub(super) fn enumerate_moves(
     state: &GameState,
     player_idx: usize,

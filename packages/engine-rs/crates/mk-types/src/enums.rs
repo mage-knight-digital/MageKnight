@@ -238,6 +238,19 @@ pub enum CardColor {
     Wound,
 }
 
+impl CardColor {
+    /// Convert to BasicManaColor if not Wound.
+    pub fn to_basic_mana_color(self) -> Option<BasicManaColor> {
+        match self {
+            Self::Red => Some(BasicManaColor::Red),
+            Self::Blue => Some(BasicManaColor::Blue),
+            Self::Green => Some(BasicManaColor::Green),
+            Self::White => Some(BasicManaColor::White),
+            Self::Wound => None,
+        }
+    }
+}
+
 /// Basic card colors (excludes Wound).
 pub type BasicCardColor = BasicManaColor; // Same variants, same serialization
 
@@ -566,4 +579,16 @@ pub enum RecruitmentSource {
     Normal,
     Artifact,
     Spell,
+}
+
+// =============================================================================
+// Discard for Bonus Filter
+// =============================================================================
+
+/// Filter for which cards can be discarded in a discard-for-bonus effect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiscardForBonusFilter {
+    WoundOnly,
+    AnyMaxOneWound,
 }

@@ -9,12 +9,15 @@
 //! - `packages/core/src/engine/commands/endRound/playerRoundReset.ts`
 //! - `packages/core/src/engine/commands/endRound/timeTransition.ts`
 
+use arrayvec::ArrayVec;
 use mk_data::levels::{get_level_from_fame, get_level_stats, get_levels_crossed};
 use mk_data::tactics::get_tactics_for_time;
 use mk_types::enums::*;
 use mk_types::ids::*;
+use mk_types::pending::{ActivePending, MAX_DEEP_MINE_COLORS};
 use mk_types::state::*;
 
+use crate::mana;
 use crate::mana::return_player_dice;
 use crate::setup::create_mana_source;
 
@@ -75,9 +78,20 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
         return Err(EndTurnError::MinimumTurnRequirementNotMet);
     }
 
-    // TODO: Step 1 — Magical Glade wound check
+    // Step 1: Magical Glade wound check
+    if apply_magical_glade_wound(state, player_idx) {
+        // Glade wound choice pending — must resolve before continuing.
+        // Pending blocks next enumeration.
+    }
+
     // TODO: Step 2 — Auto-announce end of round (hand+deck empty)
-    // TODO: Step 3 — Mine crystal rewards
+
+    // Step 3: Mine / Deep Mine crystal rewards
+    apply_mine_crystal(state, player_idx);
+    if apply_deep_mine_choice(state, player_idx) {
+        // Deep mine creates a pending choice — must resolve before continuing.
+        // Pending blocks next enumeration.
+    }
     // TODO: Step 3a — Crystal Joy reclaim
     // TODO: Step 3b — Steady Tempo deck placement
     // TODO: Step 3c — Banner of Protection wound removal
@@ -97,6 +111,16 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
     reset_player_turn(&mut state.players[player_idx]);
 
     // TODO: Step 11 — Source Opening crystal
+
+    // Step 11a: Mana Steal cleanup — return stolen die
+    if let Some(stolen_die) = state.players[player_idx].tactic_state.stored_mana_die.take() {
+        mana::reroll_die(
+            &mut state.source,
+            &stolen_die.die_id,
+            state.time_of_day,
+            &mut state.rng,
+        );
+    }
 
     // Step 12: Return mana dice
     return_player_dice(state, player_idx);
@@ -161,8 +185,16 @@ fn process_card_flow(state: &mut GameState, player_idx: usize) {
     player.discard.append(&mut player.play_area);
 
     // Draw up to hand limit (base hand_limit from level stats)
-    // TODO: Keep bonus (adjacent to owned keep), Planning tactic bonus, Meditation bonus
-    let draw_limit = player.hand_limit as usize;
+    // Planning tactic: +1 hand limit when drawing up (if hand has ≥2 cards)
+    let planning_bonus = if player.selected_tactic.as_ref().map(|t| t.as_str()) == Some("planning")
+        && player.hand.len() >= 2
+    {
+        1
+    } else {
+        0
+    };
+    // TODO: Keep bonus (adjacent to owned keep), Meditation bonus
+    let draw_limit = (player.hand_limit as usize) + planning_bonus;
 
     while player.hand.len() < draw_limit {
         if player.deck.is_empty() {
@@ -261,14 +293,39 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
         return EndTurnResult::GameEnded;
     }
 
-    // TODO: Extra turn check (The Right Moment tactic, Time Bending)
+    // Extra turn check (The Right Moment tactic)
+    if state.players[current_player_idx].tactic_state.extra_turn_pending {
+        state.players[current_player_idx].tactic_state.extra_turn_pending = false;
+        return EndTurnResult::NextPlayer {
+            next_player_idx: current_player_idx,
+        };
+    }
 
     // Advance to next player
     let next_idx = ((current_player_idx as u32 + 1) % state.turn_order.len() as u32) as usize;
     state.current_player_index = next_idx as u32;
 
     // TODO: Skip dummy player (auto-execute their turn)
-    // TODO: Setup next player (Magical Glade mana, Sparing Power, Plunder decision)
+
+    // Setup next player: Magical Glade mana
+    apply_magical_glade_mana(state, next_idx);
+
+    // Setup next player: Plunder decision at unconquered inhabited sites
+    apply_plunder_decision(state, next_idx);
+
+    // Sparing Power before-turn setup: if next player has sparing_power and hasn't flipped
+    {
+        let next_player = &state.players[next_idx];
+        if next_player.selected_tactic.as_ref().map(|t| t.as_str()) == Some("sparing_power")
+            && !next_player.flags.contains(PlayerFlags::TACTIC_FLIPPED)
+        {
+            let player = &mut state.players[next_idx];
+            player.flags.insert(PlayerFlags::BEFORE_TURN_TACTIC_PENDING);
+            player.pending.active = Some(mk_types::pending::ActivePending::TacticDecision(
+                mk_types::pending::PendingTacticDecision::SparingPower,
+            ));
+        }
+    }
 
     EndTurnResult::NextPlayer {
         next_player_idx: next_idx,
@@ -332,7 +389,16 @@ fn end_round(state: &mut GameState) {
     state.source = create_mana_source(player_count, state.time_of_day, &mut state.rng);
 
     // TODO: 3. Dummy offer gains (solo mode)
-    // TODO: 4. Offer refresh
+
+    // 4. Offer refresh
+    mk_data::offers::refresh_offer(
+        &mut state.offers.advanced_actions,
+        &mut state.decks.advanced_action_deck,
+    );
+    mk_data::offers::refresh_offer(
+        &mut state.offers.spells,
+        &mut state.decks.spell_deck,
+    );
 
     // 5. Player round reset (reshuffle + draw)
     for player_idx in 0..state.players.len() {
@@ -419,6 +485,155 @@ fn reset_player_round(state: &mut GameState, player_idx: usize) {
 }
 
 // =============================================================================
+// Site passive effects
+// =============================================================================
+
+/// Helper: get the hex state at the player's position.
+fn player_hex<'a>(state: &'a GameState, player_idx: usize) -> Option<&'a HexState> {
+    let pos = state.players[player_idx].position?;
+    state.map.hexes.get(&pos.key())
+}
+
+/// Magical Glade: remove a wound at end of turn.
+///
+/// Checks both hand and discard pile. If wounds in both, sets GladeWoundChoice
+/// pending for the player to choose. If only one has wounds, auto-removes.
+/// Returns true if a pending choice was created (caller should block).
+fn apply_magical_glade_wound(state: &mut GameState, player_idx: usize) -> bool {
+    let on_glade = player_hex(state, player_idx)
+        .and_then(|h| h.site.as_ref())
+        .is_some_and(|s| s.site_type == SiteType::MagicalGlade && !s.is_burned);
+
+    if !on_glade {
+        return false;
+    }
+
+    let player = &mut state.players[player_idx];
+    let has_hand_wound = player.hand.iter().any(|c| c.as_str() == "wound");
+    let has_discard_wound = player.discard.iter().any(|c| c.as_str() == "wound");
+
+    if has_hand_wound && has_discard_wound {
+        // Both have wounds — player must choose
+        player.pending.active = Some(ActivePending::GladeWoundChoice);
+        return true;
+    } else if has_hand_wound {
+        // Only hand — auto-remove
+        if let Some(idx) = player.hand.iter().position(|c| c.as_str() == "wound") {
+            player.hand.remove(idx);
+        }
+    } else if has_discard_wound {
+        // Only discard — auto-remove
+        if let Some(idx) = player.discard.iter().position(|c| c.as_str() == "wound") {
+            player.discard.remove(idx);
+        }
+    }
+    false
+}
+
+/// Mine: gain crystal of mine color at end of turn.
+fn apply_mine_crystal(state: &mut GameState, player_idx: usize) {
+    let mine_color = player_hex(state, player_idx)
+        .and_then(|h| h.site.as_ref())
+        .and_then(|s| {
+            if s.site_type == SiteType::Mine && !s.is_burned {
+                s.mine_color
+            } else {
+                None
+            }
+        });
+
+    if let Some(color) = mine_color {
+        mana::gain_crystal(&mut state.players[player_idx], color);
+    }
+}
+
+/// Deep Mine: set pending choice if player is on a deep mine.
+/// Returns true if a pending choice was created.
+fn apply_deep_mine_choice(state: &mut GameState, player_idx: usize) -> bool {
+    let colors = player_hex(state, player_idx)
+        .and_then(|h| h.site.as_ref())
+        .and_then(|s| {
+            if s.site_type == SiteType::DeepMine && !s.is_burned {
+                s.deep_mine_colors.clone()
+            } else {
+                None
+            }
+        });
+
+    if let Some(colors) = colors {
+        // Filter out colors where player already has max crystals
+        let player = &state.players[player_idx];
+        let gainable: ArrayVec<BasicManaColor, MAX_DEEP_MINE_COLORS> = colors
+            .iter()
+            .filter(|c| {
+                let count = match c {
+                    BasicManaColor::Red => player.crystals.red,
+                    BasicManaColor::Blue => player.crystals.blue,
+                    BasicManaColor::Green => player.crystals.green,
+                    BasicManaColor::White => player.crystals.white,
+                };
+                count < mana::MAX_CRYSTALS_PER_COLOR
+            })
+            .copied()
+            .collect();
+
+        if gainable.len() > 1 {
+            // Multiple valid colors — player must choose
+            state.players[player_idx].pending.active =
+                Some(ActivePending::DeepMineChoice { colors: gainable });
+            return true;
+        } else if gainable.len() == 1 {
+            // Single valid color — auto-grant
+            mana::gain_crystal(&mut state.players[player_idx], gainable[0]);
+        }
+        // 0 gainable — all maxed, skip
+    }
+    false
+}
+
+/// Magical Glade: gain gold (day) or black (night) mana token at turn start.
+fn apply_magical_glade_mana(state: &mut GameState, player_idx: usize) {
+    let on_glade = player_hex(state, player_idx)
+        .and_then(|h| h.site.as_ref())
+        .is_some_and(|s| s.site_type == SiteType::MagicalGlade && !s.is_burned);
+
+    if !on_glade {
+        return;
+    }
+
+    let mana_color = match state.time_of_day {
+        TimeOfDay::Day => ManaColor::Gold,
+        TimeOfDay::Night => ManaColor::Black,
+    };
+
+    state.players[player_idx].pure_mana.push(ManaToken {
+        color: mana_color,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+}
+
+/// Plunder decision: if player starts turn at an unconquered inhabited site.
+fn apply_plunder_decision(state: &mut GameState, player_idx: usize) {
+    // Don't set plunder if player already has a pending active
+    if state.players[player_idx].pending.has_active() {
+        return;
+    }
+
+    let should_plunder = player_hex(state, player_idx)
+        .and_then(|h| h.site.as_ref())
+        .is_some_and(|s| {
+            mk_data::sites::is_inhabited(s.site_type)
+                && !s.is_conquered
+                && !s.is_burned
+        });
+
+    if should_plunder {
+        state.players[player_idx].pending.active = Some(ActivePending::PlunderDecision);
+    }
+}
+
+// =============================================================================
 // Tests
 // =============================================================================
 
@@ -427,7 +642,7 @@ mod tests {
     use super::*;
     use crate::card_play::{play_card, play_card_sideways};
     use crate::setup::create_solo_game;
-    use mk_types::ids::CardId;
+    use mk_types::ids::{CardId, TacticId};
 
     /// Helper: create a game in player turns phase with specific hand.
     fn setup_playing_game(hand: Vec<&str>) -> GameState {
@@ -808,6 +1023,7 @@ mod tests {
         state.players[0].units.push(PlayerUnit {
             instance_id: UnitInstanceId::from("unit_0"),
             unit_id: UnitId::from("peasants"),
+            level: 1,
             state: UnitState::Spent,
             wounded: true,
             used_resistance_this_combat: false,
@@ -908,5 +1124,388 @@ mod tests {
         let mut state = setup_playing_game(vec!["march"]);
         let result = end_turn(&mut state, 5);
         assert_eq!(result.unwrap_err(), EndTurnError::InvalidPlayerIndex);
+    }
+
+    // =========================================================================
+    // Planning tactic bonus
+    // =========================================================================
+
+    #[test]
+    fn planning_tactic_gives_plus_one_hand_limit() {
+        let mut state = setup_playing_game(vec!["march", "rage"]);
+        state.players[0].selected_tactic = Some(TacticId::from("planning"));
+        state.players[0].deck = (0..10)
+            .map(|i| CardId::from(format!("card_{}", i)))
+            .collect();
+
+        play_card_sideways(&mut state, 0, 0, SidewaysAs::Move).unwrap();
+        // hand=1 ("rage"), play_area=1 ("march"), deck=10
+        // After end turn: play_area→discard, draw up
+        // hand.len() = 1 (rage) ≥ 2? No → no planning bonus
+        // Actually hand has only 1 card when draw starts → no bonus
+        // Let's set up properly: hand has 2 cards
+        let mut state2 = setup_playing_game(vec!["march", "rage", "swiftness"]);
+        state2.players[0].selected_tactic = Some(TacticId::from("planning"));
+        state2.players[0].deck = (0..10)
+            .map(|i| CardId::from(format!("card_{}", i)))
+            .collect();
+
+        play_card_sideways(&mut state2, 0, 0, SidewaysAs::Move).unwrap();
+        // hand=2 (rage, swiftness), deck=10
+        // hand.len() >= 2 → planning bonus applies → draw limit = 5 + 1 = 6
+        // Already have 2 in hand, draw 4 more
+
+        end_turn(&mut state2, 0).unwrap();
+
+        assert_eq!(state2.players[0].hand.len(), 6); // 5 (base) + 1 (planning)
+    }
+
+    #[test]
+    fn planning_no_bonus_when_hand_less_than_two() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].selected_tactic = Some(TacticId::from("planning"));
+        state.players[0].deck = (0..10)
+            .map(|i| CardId::from(format!("card_{}", i)))
+            .collect();
+
+        play_card_sideways(&mut state, 0, 0, SidewaysAs::Move).unwrap();
+        // hand=0, deck=10
+
+        end_turn(&mut state, 0).unwrap();
+
+        // No planning bonus (hand was 0 < 2)
+        assert_eq!(state.players[0].hand.len(), 5); // base hand_limit
+    }
+
+    // =========================================================================
+    // Extra turn (The Right Moment)
+    // =========================================================================
+
+    #[test]
+    fn extra_turn_keeps_same_player() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].tactic_state.extra_turn_pending = true;
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        let result = end_turn(&mut state, 0).unwrap();
+
+        match result {
+            EndTurnResult::NextPlayer { next_player_idx } => {
+                assert_eq!(next_player_idx, 0, "Extra turn should keep same player");
+            }
+            _ => panic!("Expected NextPlayer, got {:?}", result),
+        }
+
+        // Flag should be cleared after use
+        assert!(!state.players[0].tactic_state.extra_turn_pending);
+    }
+
+    // =========================================================================
+    // Mana Steal cleanup
+    // =========================================================================
+
+    #[test]
+    fn mana_steal_die_returned_at_end_turn() {
+        let mut state = setup_playing_game(vec!["march"]);
+        // Simulate a stolen die
+        let die_id = state.source.dice[0].id.clone();
+        state.players[0].tactic_state.stored_mana_die = Some(StoredManaDie {
+            die_id: die_id.clone(),
+            color: ManaColor::Red,
+        });
+        state.source.dice[0].taken_by_player_id = Some(state.players[0].id.clone());
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Die should be returned (rerolled)
+        assert!(state.players[0].tactic_state.stored_mana_die.is_none());
+        assert!(state.source.dice.iter().find(|d| d.id == die_id).unwrap().taken_by_player_id.is_none());
+    }
+
+    // =========================================================================
+    // Sparing Power before-turn setup
+    // =========================================================================
+
+    #[test]
+    fn sparing_power_before_turn_sets_pending() {
+        // Need 2-player scenario to test advance_turn properly
+        // In solo, advance wraps to same player
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].selected_tactic = Some(TacticId::from("sparing_power"));
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Since solo wraps to same player, sparing power pending should be set
+        assert!(state.players[0].flags.contains(PlayerFlags::BEFORE_TURN_TACTIC_PENDING));
+        assert!(state.players[0].pending.has_active());
+    }
+
+    // =========================================================================
+    // Site passive effects
+    // =========================================================================
+
+    use arrayvec::ArrayVec;
+    use mk_types::hex::HexCoord;
+    use mk_types::pending::ActivePending;
+
+    /// Helper: place player on a hex with a specific site.
+    fn place_on_site(state: &mut GameState, site_type: SiteType) -> HexCoord {
+        let coord = HexCoord { q: 99, r: 99 };
+        let hex = HexState {
+            coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type,
+                owner: None,
+                is_conquered: false,
+                is_burned: false,
+                city_color: None,
+                mine_color: if site_type == SiteType::Mine {
+                    Some(BasicManaColor::Red)
+                } else {
+                    None
+                },
+                deep_mine_colors: if site_type == SiteType::DeepMine {
+                    let mut colors = ArrayVec::new();
+                    colors.push(BasicManaColor::Blue);
+                    colors.push(BasicManaColor::Green);
+                    Some(colors)
+                } else {
+                    None
+                },
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: Vec::new(),
+        };
+        state.map.hexes.insert(coord.key(), hex);
+        state.players[0].position = Some(coord);
+        coord
+    }
+
+    #[test]
+    fn mine_grants_crystal_at_end_turn() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::Mine);
+        assert_eq!(state.players[0].crystals.red, 0);
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        assert_eq!(state.players[0].crystals.red, 1, "Mine should grant red crystal");
+    }
+
+    #[test]
+    fn mine_no_crystal_when_burned() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_on_site(&mut state, SiteType::Mine);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_burned = true;
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        assert_eq!(state.players[0].crystals.red, 0, "Burned mine: no crystal");
+    }
+
+    #[test]
+    fn deep_mine_creates_pending_multiple_colors() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::DeepMine);
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        assert!(
+            matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::DeepMineChoice { .. })
+            ),
+            "DeepMine should create pending choice with multiple colors"
+        );
+    }
+
+    #[test]
+    fn deep_mine_auto_grants_single_valid_color() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::DeepMine);
+        // Test helper sets deep mine colors = [Blue, Green]
+        // Max out blue, leave green open
+        state.players[0].crystals.blue = 3; // maxed
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Should auto-grant green crystal, no pending
+        assert_eq!(state.players[0].crystals.green, 1, "Should auto-grant green");
+        assert!(
+            !matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::DeepMineChoice { .. })
+            ),
+            "No pending when only 1 valid color"
+        );
+    }
+
+    #[test]
+    fn deep_mine_skips_all_maxed() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::DeepMine);
+        // Test helper sets deep mine colors = [Blue, Green]
+        state.players[0].crystals.blue = 3;
+        state.players[0].crystals.green = 3;
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Should skip — no pending, no new crystals
+        assert!(
+            !matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::DeepMineChoice { .. })
+            ),
+            "No pending when all colors maxed"
+        );
+    }
+
+    #[test]
+    fn glade_discards_wound_from_hand_only() {
+        let mut state = setup_playing_game(vec!["wound", "march"]);
+        place_on_site(&mut state, SiteType::MagicalGlade);
+        // No wounds in discard — should auto-remove from hand
+        assert!(state.players[0].discard.iter().all(|c| c.as_str() != "wound"));
+
+        play_card_sideways(&mut state, 0, 1, SidewaysAs::Move).unwrap(); // play march sideways
+        end_turn(&mut state, 0).unwrap();
+
+        // Wound should be removed from hand (auto — no pending)
+        assert!(
+            !state.players[0].hand.iter().any(|c| c.as_str() == "wound"),
+            "Glade should auto-remove wound from hand"
+        );
+        assert!(!state.players[0].pending.has_active(), "No pending when only hand has wounds");
+    }
+
+    #[test]
+    fn glade_discards_wound_from_discard_only() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::MagicalGlade);
+        // Put a wound in discard but not hand
+        state.players[0].discard.push(CardId::from("wound"));
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Wound should be auto-removed from discard
+        assert!(
+            !state.players[0].discard.iter().any(|c| c.as_str() == "wound"),
+            "Glade should auto-remove wound from discard"
+        );
+        assert!(!state.players[0].pending.has_active(), "No pending when only discard has wounds");
+    }
+
+    #[test]
+    fn glade_creates_pending_when_both_have_wounds() {
+        let mut state = setup_playing_game(vec!["wound", "march"]);
+        place_on_site(&mut state, SiteType::MagicalGlade);
+        // Put a wound in discard too
+        state.players[0].discard.push(CardId::from("wound"));
+
+        play_card_sideways(&mut state, 0, 1, SidewaysAs::Move).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Should create GladeWoundChoice pending
+        assert!(
+            matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::GladeWoundChoice)
+            ),
+            "Should have GladeWoundChoice pending when both hand and discard have wounds"
+        );
+    }
+
+    #[test]
+    fn glade_no_wound_no_op() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::MagicalGlade);
+        play_card(&mut state, 0, 0, false).unwrap();
+        // After play: hand empty, play_area has march
+        end_turn(&mut state, 0).unwrap();
+
+        // No wound to remove — no crash, no pending
+        assert!(!state.players[0].pending.has_active());
+    }
+
+    #[test]
+    fn glade_mana_at_turn_start_day() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::MagicalGlade);
+        state.time_of_day = TimeOfDay::Day;
+
+        // Trigger advance_turn by ending turn (solo wraps)
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Should have gained gold mana token
+        assert!(
+            state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Gold),
+            "Glade should grant gold mana during day"
+        );
+    }
+
+    #[test]
+    fn glade_mana_at_turn_start_night() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::MagicalGlade);
+        state.time_of_day = TimeOfDay::Night;
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Should have gained black mana token
+        assert!(
+            state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Black),
+            "Glade should grant black mana during night"
+        );
+    }
+
+    #[test]
+    fn plunder_decision_at_unconquered_village_on_turn_start() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::Village);
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Solo wraps → next turn for same player → plunder decision should be set
+        assert!(
+            matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::PlunderDecision)
+            ),
+            "Should have plunder decision at unconquered Village"
+        );
+    }
+
+    #[test]
+    fn no_plunder_at_conquered_village() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_on_site(&mut state, SiteType::Village);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // No plunder decision at conquered village
+        assert!(
+            !matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::PlunderDecision)
+            ),
+            "No plunder at conquered Village"
+        );
     }
 }

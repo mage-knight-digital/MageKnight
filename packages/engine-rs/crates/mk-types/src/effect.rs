@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::enums::*;
-use crate::modifier::RuleOverride;
+use crate::modifier::{ModifierDuration, ModifierEffect, ModifierScope};
 
 // =============================================================================
 // Effect Type Discriminants
@@ -258,6 +258,9 @@ pub enum EffectType {
 
     // === Resolve Mana Meltdown ===
     ResolveManaMeltdownChoice,
+
+    // === Shield Bash ===
+    ShieldBash,
 }
 
 // =============================================================================
@@ -378,11 +381,49 @@ pub enum CardEffect {
         then_effect: Box<CardEffect>,
     },
     ApplyModifier {
-        rule: RuleOverride,
+        effect: ModifierEffect,
+        duration: ModifierDuration,
+        scope: ModifierScope,
     },
     GainBlockElement {
         amount: u32,
         element: Element,
+    },
+    HandLimitBonus {
+        bonus: u32,
+    },
+    ReadyUnit {
+        max_level: u8,
+    },
+    AttackWithDefeatBonus {
+        amount: u32,
+        #[serde(rename = "combatType")]
+        combat_type: CombatType,
+        element: Element,
+        reputation_per_defeat: i32,
+        fame_per_defeat: u32,
+        armor_reduction_per_defeat: u32,
+    },
+    DiscardForBonus {
+        choice_options: Vec<CardEffect>,
+        bonus_per_card: u32,
+        max_discards: u32,
+        discard_filter: DiscardForBonusFilter,
+    },
+    /// Decompose: discard an action card, gain crystals based on card color.
+    /// Basic: gain 2 crystals of matching color. Powered: gain 1 of each non-matching.
+    Decompose {
+        mode: crate::pending::EffectMode,
+    },
+    /// Discard an action card for a color-based attack.
+    /// `attacks_by_color` maps each card color to the attack effect.
+    DiscardForAttack {
+        attacks_by_color: Vec<(BasicManaColor, CardEffect)>,
+    },
+    /// Pure Magic: pay a mana token, gain an effect based on its color.
+    /// Green→Move, White→Influence, Blue→Block, Red→Attack.
+    PureMagic {
+        amount: u32,
     },
 
     // === Structural effects ===

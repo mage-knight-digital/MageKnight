@@ -30,6 +30,16 @@ pub fn get_tactics_for_time(time_of_day: mk_types::enums::TimeOfDay) -> &'static
     }
 }
 
+/// Get the turn order number (1-6) for a tactic. Lower numbers go first.
+/// Returns `None` if the tactic ID is not recognized.
+pub fn tactic_turn_order(tactic_id: &str) -> Option<u8> {
+    DAY_TACTIC_IDS
+        .iter()
+        .position(|&id| id == tactic_id)
+        .or_else(|| NIGHT_TACTIC_IDS.iter().position(|&id| id == tactic_id))
+        .map(|i| (i + 1) as u8)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,5 +66,23 @@ mod tests {
 
         let night = get_tactics_for_time(TimeOfDay::Night);
         assert_eq!(night[0], "from_the_dusk");
+    }
+
+    #[test]
+    fn tactic_turn_order_day() {
+        assert_eq!(tactic_turn_order("early_bird"), Some(1));
+        assert_eq!(tactic_turn_order("rethink"), Some(2));
+        assert_eq!(tactic_turn_order("the_right_moment"), Some(6));
+    }
+
+    #[test]
+    fn tactic_turn_order_night() {
+        assert_eq!(tactic_turn_order("from_the_dusk"), Some(1));
+        assert_eq!(tactic_turn_order("sparing_power"), Some(6));
+    }
+
+    #[test]
+    fn tactic_turn_order_unknown() {
+        assert_eq!(tactic_turn_order("invalid_tactic"), None);
     }
 }

@@ -67,6 +67,11 @@ pub enum ChoiceResolution {
     /// CardBoost: move the selected card from hand to play_area.
     /// `eligible_hand_indices` are the hand indices of eligible cards.
     BoostTarget { eligible_hand_indices: Vec<usize> },
+    /// ReadyUnit: ready the unit at the selected index.
+    /// `eligible_unit_indices` are the player's unit array indices of spent units.
+    ReadyUnitTarget { eligible_unit_indices: Vec<usize> },
+    /// PureMagic: consume a mana token of the color at `token_colors[choice_index]`.
+    PureMagicConsume { token_colors: Vec<ManaColor> },
 }
 
 /// Pending choice — when a card, skill, or unit ability requires player selection.
@@ -114,19 +119,15 @@ pub struct PendingDiscardForAttack {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingDiscardForBonus {
     pub source_card_id: CardId,
-    pub option_count: u32,
+    /// The base effects the player can choose from (filtered to resolvable).
+    pub choice_options: Vec<CardEffect>,
     pub bonus_per_card: u32,
     pub max_discards: u32,
     pub discard_filter: DiscardForBonusFilter,
 }
 
-/// Filter for discard-for-bonus.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DiscardForBonusFilter {
-    WoundOnly,
-    AnyMaxOneWound,
-}
+// DiscardForBonusFilter lives in enums.rs (shared with effect.rs without circular deps).
+pub use crate::enums::DiscardForBonusFilter;
 
 /// Pending discard-for-crystal resolution (Savage Harvesting).
 #[derive(Debug, Clone, Serialize, Deserialize)]

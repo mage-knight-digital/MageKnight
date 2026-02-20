@@ -18,9 +18,11 @@
 //! 12. Undo
 
 mod cards;
+mod combat;
 mod explore;
 mod movement;
 mod pending;
+mod sites;
 mod tactics;
 mod turn_options;
 mod utils;
@@ -35,9 +37,13 @@ use mk_types::state::*;
 use crate::undo::UndoStack;
 
 use self::cards::{enumerate_combat_cards, enumerate_normal_cards};
+use self::combat::{
+    enumerate_attack_declarations, enumerate_block_declarations, enumerate_cumbersome_actions,
+};
 use self::explore::enumerate_explores;
-use self::movement::enumerate_moves;
+use self::movement::{enumerate_challenges, enumerate_moves};
 use self::pending::enumerate_pending;
+use self::sites::enumerate_site_actions;
 use self::tactics::enumerate_tactics;
 use self::turn_options::enumerate_turn_options;
 
@@ -99,7 +105,7 @@ pub fn enumerate_legal_actions_with_undo(
 
     // Pending choice blocks everything else.
     if let Some(ref active) = player.pending.active {
-        enumerate_pending(active, undo, &mut actions);
+        enumerate_pending(active, state, player_idx, undo, &mut actions);
         return LegalActionSet {
             epoch,
             player_idx,
@@ -110,6 +116,14 @@ pub fn enumerate_legal_actions_with_undo(
     // Combat blocks normal turn.
     if state.combat.is_some() {
         enumerate_combat_cards(state, player_idx, &mut actions);
+        // Block/Attack declarations (categories 5-6).
+        enumerate_block_declarations(state, player_idx, &mut actions);
+        enumerate_cumbersome_actions(state, player_idx, &mut actions);
+        enumerate_attack_declarations(state, player_idx, &mut actions);
+        // ActivateTactic (The Right Moment can be used during combat).
+        if can_activate_tactic_in_combat(state, player_idx) {
+            actions.push(LegalAction::ActivateTactic);
+        }
         // EndCombatPhase (category 8).
         actions.push(LegalAction::EndCombatPhase);
         // Undo (category 12).
@@ -127,6 +141,8 @@ pub fn enumerate_legal_actions_with_undo(
     enumerate_normal_cards(state, player_idx, &mut actions);
     enumerate_moves(state, player_idx, &mut actions);
     enumerate_explores(state, player_idx, &mut actions);
+    enumerate_challenges(state, player_idx, &mut actions);
+    enumerate_site_actions(state, player_idx, &mut actions);
     enumerate_turn_options(state, player_idx, undo, &mut actions);
 
     LegalActionSet {
@@ -134,6 +150,17 @@ pub fn enumerate_legal_actions_with_undo(
         player_idx,
         actions,
     }
+}
+
+/// Check if ActivateTactic is available during combat (The Right Moment only).
+fn can_activate_tactic_in_combat(state: &GameState, player_idx: usize) -> bool {
+    let player = &state.players[player_idx];
+    if player.flags.contains(PlayerFlags::TACTIC_FLIPPED) {
+        return false;
+    }
+    // Only The Right Moment can be activated during combat
+    player.selected_tactic.as_ref().map(|t| t.as_str()) == Some("the_right_moment")
+        && state.end_of_round_announced_by.is_none()
 }
 
 fn is_active_player(state: &GameState, player_idx: usize) -> bool {
