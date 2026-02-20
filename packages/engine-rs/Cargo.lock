@@ -260,6 +260,7 @@ dependencies = [
  "mk-data",
  "mk-types",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

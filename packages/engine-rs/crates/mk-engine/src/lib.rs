@@ -12,3 +12,6 @@ pub mod movement;
 pub mod setup;
 pub mod undo;
 pub mod valid_actions;
+
+#[cfg(test)]
+mod parity_tests;

@@ -1,0 +1,440 @@
+{
+  "format_version": "1.0.0",
+  "scenario": "sideways_play",
+  "seed": 42,
+  "hero": "arythea",
+  "steps": [
+    {
+      "step": 0,
+      "action": null,
+      "expected": {
+        "player": {
+          "position": {
+            "q": 0,
+            "r": 0
+          },
+          "hand": [
+            "determination",
+            "promise",
+            "march",
+            "stamina",
+            "march"
+          ],
+          "deck": [
+            "concentration",
+            "threaten",
+            "rage",
+            "swiftness",
+            "swiftness",
+            "tranquility",
+            "stamina",
+            "mana_draw",
+            "arythea_battle_versatility",
+            "crystallize",
+            "improvisation"
+          ],
+          "discard": [],
+          "play_area": [],
+          "move_points": 0,
+          "influence_points": 0,
+          "healing_points": 0,
+          "fame": 0,
+          "level": 1,
+          "reputation": 0,
+          "armor": 2,
+          "hand_limit": 5,
+          "crystals": {
+            "red": 0,
+            "blue": 0,
+            "green": 0,
+            "white": 0
+          },
+          "mana_token_count": 0,
+          "selected_tactic": null,
+          "flags": {
+            "has_moved": false,
+            "played_card": false,
+            "is_resting": false,
+            "has_taken_action": false
+          },
+          "has_pending": false,
+          "pending_option_count": 0
+        },
+        "game": {
+          "time_of_day": "day",
+          "round": 1,
+          "round_phase": "tactics_selection",
+          "in_combat": false
+        },
+        "mana_dice": [
+          {
+            "id": "die_0",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_1",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_2",
+            "color": "blue",
+            "depleted": false
+          }
+        ],
+        "map_hex_count": 7,
+        "tile_count": 1
+      }
+    },
+    {
+      "step": 1,
+      "action": {
+        "type": "select_tactic",
+        "tactic_id": "early_bird"
+      },
+      "expected": {
+        "player": {
+          "position": {
+            "q": 0,
+            "r": 0
+          },
+          "hand": [
+            "determination",
+            "promise",
+            "march",
+            "stamina",
+            "march"
+          ],
+          "deck": [
+            "concentration",
+            "threaten",
+            "rage",
+            "swiftness",
+            "swiftness",
+            "tranquility",
+            "stamina",
+            "mana_draw",
+            "arythea_battle_versatility",
+            "crystallize",
+            "improvisation"
+          ],
+          "discard": [],
+          "play_area": [],
+          "move_points": 0,
+          "influence_points": 0,
+          "healing_points": 0,
+          "fame": 0,
+          "level": 1,
+          "reputation": 0,
+          "armor": 2,
+          "hand_limit": 5,
+          "crystals": {
+            "red": 0,
+            "blue": 0,
+            "green": 0,
+            "white": 0
+          },
+          "mana_token_count": 0,
+          "selected_tactic": "early_bird",
+          "flags": {
+            "has_moved": false,
+            "played_card": false,
+            "is_resting": false,
+            "has_taken_action": false
+          },
+          "has_pending": false,
+          "pending_option_count": 0
+        },
+        "game": {
+          "time_of_day": "day",
+          "round": 1,
+          "round_phase": "player_turns",
+          "in_combat": false
+        },
+        "mana_dice": [
+          {
+            "id": "die_0",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_1",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_2",
+            "color": "blue",
+            "depleted": false
+          }
+        ],
+        "map_hex_count": 7,
+        "tile_count": 1
+      }
+    },
+    {
+      "step": 2,
+      "action": {
+        "type": "play_card_basic",
+        "card_id": "stamina",
+        "hand_index": 3
+      },
+      "expected": {
+        "player": {
+          "position": {
+            "q": 0,
+            "r": 0
+          },
+          "hand": [
+            "determination",
+            "promise",
+            "march",
+            "march"
+          ],
+          "deck": [
+            "concentration",
+            "threaten",
+            "rage",
+            "swiftness",
+            "swiftness",
+            "tranquility",
+            "stamina",
+            "mana_draw",
+            "arythea_battle_versatility",
+            "crystallize",
+            "improvisation"
+          ],
+          "discard": [],
+          "play_area": [
+            "stamina"
+          ],
+          "move_points": 2,
+          "influence_points": 0,
+          "healing_points": 0,
+          "fame": 0,
+          "level": 1,
+          "reputation": 0,
+          "armor": 2,
+          "hand_limit": 5,
+          "crystals": {
+            "red": 0,
+            "blue": 0,
+            "green": 0,
+            "white": 0
+          },
+          "mana_token_count": 0,
+          "selected_tactic": "early_bird",
+          "flags": {
+            "has_moved": false,
+            "played_card": true,
+            "is_resting": false,
+            "has_taken_action": false
+          },
+          "has_pending": false,
+          "pending_option_count": 0
+        },
+        "game": {
+          "time_of_day": "day",
+          "round": 1,
+          "round_phase": "player_turns",
+          "in_combat": false
+        },
+        "mana_dice": [
+          {
+            "id": "die_0",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_1",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_2",
+            "color": "blue",
+            "depleted": false
+          }
+        ],
+        "map_hex_count": 7,
+        "tile_count": 1
+      }
+    },
+    {
+      "step": 3,
+      "action": {
+        "type": "play_card_sideways",
+        "card_id": "determination",
+        "hand_index": 0,
+        "sideways_as": "move"
+      },
+      "expected": {
+        "player": {
+          "position": {
+            "q": 0,
+            "r": 0
+          },
+          "hand": [
+            "promise",
+            "march",
+            "march"
+          ],
+          "deck": [
+            "concentration",
+            "threaten",
+            "rage",
+            "swiftness",
+            "swiftness",
+            "tranquility",
+            "stamina",
+            "mana_draw",
+            "arythea_battle_versatility",
+            "crystallize",
+            "improvisation"
+          ],
+          "discard": [],
+          "play_area": [
+            "stamina",
+            "determination"
+          ],
+          "move_points": 3,
+          "influence_points": 0,
+          "healing_points": 0,
+          "fame": 0,
+          "level": 1,
+          "reputation": 0,
+          "armor": 2,
+          "hand_limit": 5,
+          "crystals": {
+            "red": 0,
+            "blue": 0,
+            "green": 0,
+            "white": 0
+          },
+          "mana_token_count": 0,
+          "selected_tactic": "early_bird",
+          "flags": {
+            "has_moved": false,
+            "played_card": true,
+            "is_resting": false,
+            "has_taken_action": false
+          },
+          "has_pending": false,
+          "pending_option_count": 0
+        },
+        "game": {
+          "time_of_day": "day",
+          "round": 1,
+          "round_phase": "player_turns",
+          "in_combat": false
+        },
+        "mana_dice": [
+          {
+            "id": "die_0",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_1",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_2",
+            "color": "blue",
+            "depleted": false
+          }
+        ],
+        "map_hex_count": 7,
+        "tile_count": 1
+      }
+    },
+    {
+      "step": 4,
+      "action": {
+        "type": "end_turn"
+      },
+      "expected": {
+        "player": {
+          "position": {
+            "q": 0,
+            "r": 0
+          },
+          "hand": [
+            "promise",
+            "march",
+            "march",
+            "concentration",
+            "threaten"
+          ],
+          "deck": [
+            "rage",
+            "swiftness",
+            "swiftness",
+            "tranquility",
+            "stamina",
+            "mana_draw",
+            "arythea_battle_versatility",
+            "crystallize",
+            "improvisation"
+          ],
+          "discard": [
+            "stamina",
+            "determination"
+          ],
+          "play_area": [],
+          "move_points": 0,
+          "influence_points": 0,
+          "healing_points": 0,
+          "fame": 0,
+          "level": 1,
+          "reputation": 0,
+          "armor": 2,
+          "hand_limit": 5,
+          "crystals": {
+            "red": 0,
+            "blue": 0,
+            "green": 0,
+            "white": 0
+          },
+          "mana_token_count": 0,
+          "selected_tactic": "early_bird",
+          "flags": {
+            "has_moved": false,
+            "played_card": false,
+            "is_resting": false,
+            "has_taken_action": false
+          },
+          "has_pending": false,
+          "pending_option_count": 0
+        },
+        "game": {
+          "time_of_day": "day",
+          "round": 1,
+          "round_phase": "player_turns",
+          "in_combat": false
+        },
+        "mana_dice": [
+          {
+            "id": "die_0",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_1",
+            "color": "green",
+            "depleted": false
+          },
+          {
+            "id": "die_2",
+            "color": "blue",
+            "depleted": false
+          }
+        ],
+        "map_hex_count": 7,
+        "tile_count": 1
+      }
+    }
+  ]
+}
