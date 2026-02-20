@@ -1,0 +1,38 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/mk-types",
+    "crates/mk-data",
+    "crates/mk-engine",
+    "crates/mk-features",
+    "crates/mk-env",
+    "crates/mk-python",
+    "tools/codegen",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+mk-types = { path = "crates/mk-types" }
+mk-data = { path = "crates/mk-data" }
+mk-engine = { path = "crates/mk-engine" }
+mk-features = { path = "crates/mk-features" }
+mk-env = { path = "crates/mk-env" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+arrayvec = { version = "0.7", features = ["serde"] }
+bitflags = { version = "2", features = ["serde"] }
+tinyvec = { version = "1", features = ["alloc", "serde"] }
+
+# PyO3 for Python bindings
+pyo3 = { version = "0.22", features = ["extension-module"] }
+
+# Parallelism
+rayon = "1"
+
+# Testing
+proptest = "1"

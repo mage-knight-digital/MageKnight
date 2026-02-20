@@ -1,0 +1,11 @@
+[package]
+name = "mk-env"
+description = "Vectorized environment — Rayon parallelism for RL training"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+mk-types = { workspace = true }
+mk-engine = { workspace = true }
+mk-features = { workspace = true }
+rayon = { workspace = true }

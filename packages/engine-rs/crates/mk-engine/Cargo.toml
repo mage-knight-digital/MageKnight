@@ -1,0 +1,11 @@
+[package]
+name = "mk-engine"
+description = "Game logic — validate, execute, effects, valid_actions"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+mk-types = { workspace = true }
+mk-data = { workspace = true }
+serde = { workspace = true }
+arrayvec = { workspace = true }

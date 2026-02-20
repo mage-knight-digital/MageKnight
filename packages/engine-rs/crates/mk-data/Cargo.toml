@@ -1,0 +1,9 @@
+[package]
+name = "mk-data"
+description = "Static card/enemy/unit/skill data definitions"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+mk-types = { workspace = true }
+serde = { workspace = true }

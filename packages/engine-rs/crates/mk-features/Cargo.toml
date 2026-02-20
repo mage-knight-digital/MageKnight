@@ -1,0 +1,10 @@
+[package]
+name = "mk-features"
+description = "RL feature extraction — state/action encoding"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+mk-types = { workspace = true }
+mk-engine = { workspace = true }
+serde = { workspace = true }

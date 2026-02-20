@@ -31,5 +31,8 @@ packages/client/e2e/screenshots/
 packages/client/vite.config.d.ts
 packages/client/vite.config.js
 
+# Rust build artifacts
+packages/engine-rs/target/
+
 # Simulation artifacts (large binary data, training checkpoints)
 sim-artifacts/

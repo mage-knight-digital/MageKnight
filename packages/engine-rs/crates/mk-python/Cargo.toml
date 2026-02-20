@@ -1,0 +1,16 @@
+[package]
+name = "mk-python"
+description = "PyO3 bindings for Python interop"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "mk_python"
+crate-type = ["cdylib"]
+
+[dependencies]
+mk-types = { workspace = true }
+mk-engine = { workspace = true }
+mk-features = { workspace = true }
+mk-env = { workspace = true }
+pyo3 = { workspace = true }

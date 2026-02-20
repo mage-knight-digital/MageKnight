@@ -1,0 +1,14 @@
+[package]
+name = "mk-types"
+description = "Core types for Mage Knight engine — zero external deps beyond serde"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+arrayvec = { workspace = true }
+bitflags = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
