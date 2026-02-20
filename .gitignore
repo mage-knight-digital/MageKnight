@@ -33,6 +33,7 @@ packages/client/vite.config.js
 
 # Rust build artifacts
 packages/engine-rs/target/
+**/target/
 
 # Simulation artifacts (large binary data, training checkpoints)
 sim-artifacts/
