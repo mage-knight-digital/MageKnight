@@ -327,7 +327,15 @@ fn place_tile_on_map(
             is_burned: false,
             city_color: None,
             mine_color: tile_hex.mine_color,
-            deep_mine_colors: None,
+            deep_mine_colors: if tile_hex.deep_mine_colors.is_empty() {
+                None
+            } else {
+                let mut colors = ArrayVec::new();
+                for &c in tile_hex.deep_mine_colors {
+                    colors.push(c);
+                }
+                Some(colors)
+            },
         });
         let mut rampaging_enemies = ArrayVec::new();
         for &rt in tile_hex.rampaging {
